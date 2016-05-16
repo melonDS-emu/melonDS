@@ -1,9 +1,12 @@
-#include <iostream>
+#include <stdio.h>
+#include "NDS.h"
 
-using namespace std;
 
 int main()
 {
-    cout << "Hello world!" << endl;
+    printf("melonDS version uh... 0.1??\n");
+
+    NDS::Init();
+
     return 0;
 }
