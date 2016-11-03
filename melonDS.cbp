@@ -32,7 +32,10 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="NDS.cpp" />
+		<Unit filename="NDS.h" />
 		<Unit filename="main.cpp" />
+		<Unit filename="types.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />
