@@ -4,6 +4,27 @@
 #include "ARMInterpreter.h"
 
 
+u32 ARM::ConditionTable[16] =
+{
+    0xF0F0, // EQ
+    0x0F0F, // NE
+    0xCCCC, // CS
+    0x3333, // CC
+    0xFF00, // MI
+    0x00FF, // PL
+    0xAAAA, // VS
+    0x5555, // VC
+    0x0C0C, // HI
+    0xF3F3, // LS
+    0xAA55, // GE
+    0x55AA, // LT
+    0x0A05, // GT
+    0xF5FA, // LE
+    0xFFFF, // AL
+    0x0000  // NE
+};
+
+
 ARM::ARM(u32 num)
 {
     // well uh
@@ -20,6 +41,8 @@ void ARM::Reset()
     for (int i = 0; i < 16; i++)
         R[i] = 0;
 
+    CPSR = 0x000000D3;
+
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
     // zorp
@@ -33,8 +56,14 @@ void ARM::JumpTo(u32 addr)
     // TODO: THUMB!!
     if (addr&1) printf("!!! THUMB JUMP\n");
 
+    addr &= ~3;
     NextInstr = Read32(addr);
     R[15] = addr+4;
+}
+
+void ARM::RestoreCPSR()
+{
+    printf("TODO: restore CPSR\n");
 }
 
 s32 ARM::Execute(s32 cycles)
@@ -49,9 +78,20 @@ s32 ARM::Execute(s32 cycles)
         R[15] += 4;
 
         // actually execute
-        if ((CurInstr & 0xF0000000) != 0xE0000000) printf("well shit\n");
-        u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-        cycles -= ARMInterpreter::ARMInstrTable[icode](this);
+        if (CheckCondition(CurInstr >> 28))
+        {
+            u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+            cycles -= ARMInterpreter::ARMInstrTable[icode](this);
+        }
+        else if ((CurInstr & 0xFE000000) == 0xFA000000)
+        {
+            cycles -= ARMInterpreter::A_BLX_IMM(this);
+        }
+        else
+        {
+            // not executing it. oh well
+            cycles -= 1; // 1S. todo: check
+        }
     }
 
     return cycles;

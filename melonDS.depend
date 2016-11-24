@@ -13,28 +13,37 @@
 	"NDS.h"
 	"ARM.h"
 
-1480007764 source:c:\documents\sources\melonds\arm.cpp
+1480027981 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
 	"ARMInterpreter.h"
 
-1480008165 c:\documents\sources\melonds\arm.h
+1480027964 c:\documents\sources\melonds\arm.h
 	"types.h"
 	"NDS.h"
 
-1480008597 c:\documents\sources\melonds\arm_instrtable.h
+1480028755 c:\documents\sources\melonds\arm_instrtable.h
 
-1480005496 c:\documents\sources\melonds\arminterpreter.h
+1480018830 c:\documents\sources\melonds\arminterpreter.h
 	"types.h"
 	"ARM.h"
 
-1480008388 source:c:\documents\sources\melonds\arminterpreter.cpp
+1480015932 source:c:\documents\sources\melonds\arminterpreter.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARMInterpreter.h"
+	"ARMInterpreter_ALU.h"
 	"ARMInterpreter_Branch.h"
 	"ARM_InstrTable.h"
 
 1480008608 c:\documents\sources\melonds\arminterpreter_branch.h
+
+1480018773 source:c:\documents\sources\melonds\arminterpreter_branch.cpp
+	"ARM.h"
+
+1480028448 c:\documents\sources\melonds\arminterpreter_alu.h
+
+1480028805 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
+	"ARM.h"
 
