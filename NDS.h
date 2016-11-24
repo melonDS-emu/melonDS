@@ -10,6 +10,10 @@ namespace NDS
 void Init();
 void Reset();
 
+void RunFrame();
+
+void Halt();
+
 u32 ARM9Read32(u32 addr);
 u32 ARM7Read32(u32 addr);
 

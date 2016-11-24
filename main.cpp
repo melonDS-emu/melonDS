@@ -9,5 +9,10 @@ int main()
 
     NDS::Init();
 
+    for (;;)
+    {
+        NDS::RunFrame();
+    }
+
     return 0;
 }

@@ -1,20 +1,40 @@
 # depslib dependency file v1.0
-1478130209 source:c:\documents\sources\melonds\main.cpp
+1480007651 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	"NDS.h"
 
-1478129148 c:\documents\sources\melonds\nds.h
+1480006838 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1463409689 c:\documents\sources\melonds\types.h
 
-1463410049 source:c:\documents\sources\melonds\nds.cpp
+1480007757 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	"NDS.h"
-
-1478128612 source:c:\documents\sources\melonds\arm.cpp
 	"ARM.h"
 
-1478130006 c:\documents\sources\melonds\arm.h
+1480007764 source:c:\documents\sources\melonds\arm.cpp
+	<stdio.h>
+	"NDS.h"
+	"ARM.h"
+	"ARMInterpreter.h"
+
+1480008165 c:\documents\sources\melonds\arm.h
 	"types.h"
+	"NDS.h"
+
+1480008597 c:\documents\sources\melonds\arm_instrtable.h
+
+1480005496 c:\documents\sources\melonds\arminterpreter.h
+	"types.h"
+	"ARM.h"
+
+1480008388 source:c:\documents\sources\melonds\arminterpreter.cpp
+	<stdio.h>
+	"NDS.h"
+	"ARMInterpreter.h"
+	"ARMInterpreter_Branch.h"
+	"ARM_InstrTable.h"
+
+1480008608 c:\documents\sources\melonds\arminterpreter_branch.h
 

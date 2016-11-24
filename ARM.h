@@ -6,11 +6,17 @@
 #include "types.h"
 #include "NDS.h"
 
+// lame
+#define C_S(x) x
+#define C_N(x) x
+
 class ARM
 {
 public:
     ARM(u32 num);
     ~ARM(); // destroy shit
+
+    void Reset();
 
     void JumpTo(u32 addr);
     s32 Execute(s32 cycles);

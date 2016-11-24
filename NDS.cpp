@@ -9,8 +9,12 @@ namespace NDS
 ARM* ARM9;
 ARM* ARM7;
 
+s32 ARM9Cycles, ARM7Cycles;
+
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
+
+bool Running;
 
 
 void Init()
@@ -48,6 +52,36 @@ void Reset()
         printf("ARM7 BIOS loaded: %08X\n", ARM7Read32(0x00000000));
         fclose(f);
     }
+
+    ARM9->Reset();
+    ARM7->Reset();
+
+    ARM9Cycles = 0;
+    ARM7Cycles = 0;
+
+    Running = true; // hax
+}
+
+
+void RunFrame()
+{
+    s32 framecycles = 560190<<1;
+
+    // very gross and temp. loop
+
+    while (Running && framecycles>0)
+    {
+        ARM9Cycles = ARM9->Execute(32 + ARM9Cycles);
+        ARM7Cycles = ARM7->Execute(16 + ARM7Cycles);
+
+        framecycles -= 32;
+    }
+}
+
+
+void Halt()
+{
+    Running = false;
 }
 
 
