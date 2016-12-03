@@ -53,6 +53,8 @@ void ARM::JumpTo(u32 addr)
 {
     // pipeline shit
 
+    //printf("jump from %08X to %08X\n", R[15] - ((CPSR&0x20)?4:8), addr);
+
     if (addr&1)
     {
         addr &= ~1;

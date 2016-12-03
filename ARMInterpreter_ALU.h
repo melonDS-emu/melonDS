@@ -56,10 +56,31 @@ A_PROTO_ALU_OP(BIC)
 A_PROTO_ALU_OP(MVN)
 
 
+s32 T_LSL_IMM(ARM* cpu);
+s32 T_LSR_IMM(ARM* cpu);
+s32 T_ASR_IMM(ARM* cpu);
+
 s32 T_MOV_IMM(ARM* cpu);
 s32 T_CMP_IMM(ARM* cpu);
 s32 T_ADD_IMM(ARM* cpu);
 s32 T_SUB_IMM(ARM* cpu);
+
+s32 T_AND_REG(ARM* cpu);
+s32 T_EOR_REG(ARM* cpu);
+s32 T_LSL_REG(ARM* cpu);
+s32 T_LSR_REG(ARM* cpu);
+s32 T_ASR_REG(ARM* cpu);
+s32 T_ADC_REG(ARM* cpu);
+s32 T_SBC_REG(ARM* cpu);
+s32 T_ROR_REG(ARM* cpu);
+s32 T_TST_REG(ARM* cpu);
+s32 T_NEG_REG(ARM* cpu);
+s32 T_CMP_REG(ARM* cpu);
+s32 T_CMN_REG(ARM* cpu);
+s32 T_ORR_REG(ARM* cpu);
+s32 T_MUL_REG(ARM* cpu);
+s32 T_BIC_REG(ARM* cpu);
+s32 T_MVN_REG(ARM* cpu);
 
 }
 

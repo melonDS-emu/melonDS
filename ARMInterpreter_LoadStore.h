@@ -45,6 +45,12 @@ s32 T_STRB_REG(ARM* cpu);
 s32 T_LDR_REG(ARM* cpu);
 s32 T_LDRB_REG(ARM* cpu);
 
+s32 T_STRH_IMM(ARM* cpu);
+s32 T_LDRH_IMM(ARM* cpu);
+
+s32 T_PUSH(ARM* cpu);
+s32 T_POP(ARM* cpu);
+
 }
 
 #endif

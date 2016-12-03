@@ -716,6 +716,41 @@ A_IMPLEMENT_ALU_OP(MVN)
 
 
 
+s32 T_LSL_IMM(ARM* cpu)
+{
+    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    LSL_IMM_S(op, s);
+    cpu->R[cpu->CurInstr & 0x7] = op;
+    cpu->SetNZ(op & 0x80000000,
+               !op);
+    return C_S(1);
+}
+
+s32 T_LSR_IMM(ARM* cpu)
+{
+    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    LSR_IMM_S(op, s);
+    cpu->R[cpu->CurInstr & 0x7] = op;
+    cpu->SetNZ(op & 0x80000000,
+               !op);
+    return C_S(1);
+}
+
+s32 T_ASR_IMM(ARM* cpu)
+{
+    u32 op = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 s = (cpu->CurInstr >> 6) & 0x1F;
+    ASR_IMM_S(op, s);
+    cpu->R[cpu->CurInstr & 0x7] = op;
+    cpu->SetNZ(op & 0x80000000,
+               !op);
+    return C_S(1);
+}
+
+//
+
 s32 T_MOV_IMM(ARM* cpu)
 {
     u32 b = cpu->CurInstr & 0xFF;
@@ -730,10 +765,10 @@ s32 T_CMP_IMM(ARM* cpu)
     u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a - b;
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CARRY_SUB(a, b), \
-                 OVERFLOW_SUB(a, b, res)); \
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
     return C_S(1);
 }
 
@@ -743,10 +778,10 @@ s32 T_ADD_IMM(ARM* cpu)
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a + b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CARRY_ADD(a, b), \
-                 OVERFLOW_ADD(a, b, res)); \
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_ADD(a, b),
+                 OVERFLOW_ADD(a, b, res));
     return C_S(1);
 }
 
@@ -756,10 +791,208 @@ s32 T_SUB_IMM(ARM* cpu)
     u32 b = cpu->CurInstr & 0xFF;
     u32 res = a - b;
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
-    cpu->SetNZCV(res & 0x80000000, \
-                 !res, \
-                 CARRY_SUB(a, b), \
-                 OVERFLOW_SUB(a, b, res)); \
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
+    return C_S(1);
+}
+
+
+s32 T_AND_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a & b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_EOR_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a ^ b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_LSL_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    LSL_REG_S(a, b);
+    cpu->R[cpu->CurInstr & 0x7] = a;
+    cpu->SetNZ(a & 0x80000000,
+               !a);
+    return C_S(1) + C_I(1);
+}
+
+s32 T_LSR_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    LSR_REG_S(a, b);
+    cpu->R[cpu->CurInstr & 0x7] = a;
+    cpu->SetNZ(a & 0x80000000,
+               !a);
+    return C_S(1) + C_I(1);
+}
+
+s32 T_ASR_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    ASR_REG_S(a, b);
+    cpu->R[cpu->CurInstr & 0x7] = a;
+    cpu->SetNZ(a & 0x80000000,
+               !a);
+    return C_S(1) + C_I(1);
+}
+
+s32 T_ADC_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res_tmp = a + b;
+    u32 carry = (cpu->CPSR&0x20000000 ? 1:0);
+    u32 res = res_tmp + carry;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry),
+                 OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res));
+    return C_S(1);
+}
+
+s32 T_SBC_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res_tmp = a - b;
+    u32 carry = (cpu->CPSR&0x20000000 ? 0:1);
+    u32 res = res_tmp - carry;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b) | CARRY_SUB(res_tmp, carry),
+                 OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res));
+    return C_S(1);
+}
+
+s32 T_ROR_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7] & 0xFF;
+    ROR_REG_S(a, b);
+    cpu->R[cpu->CurInstr & 0x7] = a;
+    cpu->SetNZ(a & 0x80000000,
+               !a);
+    return C_S(1) + C_I(1);
+}
+
+s32 T_TST_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a & b;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_NEG_REG(ARM* cpu)
+{
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = -b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_CMP_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a - b;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
+    return C_S(1);
+}
+
+s32 T_CMN_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a + b;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_ADD(a, b),
+                 OVERFLOW_ADD(a, b, res));
+    return C_S(1);
+}
+
+s32 T_ORR_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a | b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_MUL_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a * b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+
+    s32 cycles = C_S(1);
+    if (cpu->Num == 0)
+    {
+        cycles += C_I(3);
+    }
+    else
+    {
+        cpu->SetC(0); // carry flag destroyed, they say. whatever that means...
+        if      (a & 0xFF000000) cycles += C_I(4);
+        else if (a & 0x00FF0000) cycles += C_I(3);
+        else if (a & 0x0000FF00) cycles += C_I(2);
+        else                     cycles += C_I(1);
+    }
+    return cycles;
+}
+
+s32 T_BIC_REG(ARM* cpu)
+{
+    u32 a = cpu->R[cpu->CurInstr & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = a & ~b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
+    return C_S(1);
+}
+
+s32 T_MVN_REG(ARM* cpu)
+{
+    u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 res = ~b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZ(res & 0x80000000,
+               !res);
     return C_S(1);
 }
 

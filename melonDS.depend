@@ -8,12 +8,13 @@
 
 1463409689 c:\documents\sources\melonds\types.h
 
-1480030786 source:c:\documents\sources\melonds\nds.cpp
+1480767942 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
+	<string.h>
 	"NDS.h"
 	"ARM.h"
 
-1480736240 source:c:\documents\sources\melonds\arm.cpp
+1480772238 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -23,7 +24,7 @@
 	"types.h"
 	"NDS.h"
 
-1480735162 c:\documents\sources\melonds\arm_instrtable.h
+1480774506 c:\documents\sources\melonds\arm_instrtable.h
 
 1480725698 c:\documents\sources\melonds\arminterpreter.h
 	"types.h"
@@ -38,19 +39,19 @@
 	"ARMInterpreter_LoadStore.h"
 	"ARM_InstrTable.h"
 
-1480732290 c:\documents\sources\melonds\arminterpreter_branch.h
+1480771569 c:\documents\sources\melonds\arminterpreter_branch.h
 
-1480732453 source:c:\documents\sources\melonds\arminterpreter_branch.cpp
+1480772710 source:c:\documents\sources\melonds\arminterpreter_branch.cpp
 	<stdio.h>
 	"ARM.h"
 
-1480730181 c:\documents\sources\melonds\arminterpreter_alu.h
+1480774402 c:\documents\sources\melonds\arminterpreter_alu.h
 
 1480730662 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
 	"ARM.h"
 
-1480734113 c:\documents\sources\melonds\arminterpreter_loadstore.h
+1480771004 c:\documents\sources\melonds\arminterpreter_loadstore.h
 
-1480734224 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
+1480770968 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
 	"ARM.h"
 

@@ -85,6 +85,27 @@ s32 T_BLX_REG(ARM* cpu)
     return C_S(2) + C_N(1);
 }
 
+s32 T_BL_LONG_1(ARM* cpu)
+{
+    s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 9;
+    cpu->R[14] = cpu->R[15] + offset;
+
+    return C_S(1);
+}
+
+s32 T_BL_LONG_2(ARM* cpu)
+{
+    s32 offset = (cpu->CurInstr & 0x7FF) << 1;
+    u32 pc = cpu->R[14] + offset;
+    cpu->R[14] = (cpu->R[15] - 2) | 1;
+
+    if ((cpu->Num==1) || (cpu->CurInstr & (1<<12)))
+        pc |= 1;
+
+    cpu->JumpTo(pc);
+    return C_S(2) + C_N(1);
+}
+
 
 
 }

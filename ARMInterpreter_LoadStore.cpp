@@ -196,13 +196,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->Write16(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    return C_N(2) + cpu->MemWaitstate(3, offset);
+    return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_STRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->Write16(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    return C_N(2) + cpu->MemWaitstate(3, addr);
+    return C_N(2) + cpu->MemWaitstate(2, addr);
 
 // TODO: CHECK LDRD/STRD TIMINGS!!
 
@@ -242,13 +242,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(offset); \
     if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    return C_N(2) + cpu->MemWaitstate(3, offset);
+    return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(addr); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    return C_N(2) + cpu->MemWaitstate(3, addr);
+    return C_N(2) + cpu->MemWaitstate(2, addr);
 
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -266,13 +266,13 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(offset); \
     if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
-    return C_N(2) + cpu->MemWaitstate(3, offset);
+    return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRSH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(addr); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
-    return C_N(2) + cpu->MemWaitstate(3, addr);
+    return C_N(2) + cpu->MemWaitstate(2, addr);
 
 
 #define A_IMPLEMENT_HD_LDRSTR(x) \
@@ -353,6 +353,94 @@ s32 T_LDRB_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = cpu->Read8(addr);
 
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+}
+
+
+s32 T_STRH_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 5) & 0x3E;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->Write16(offset, cpu->R[cpu->CurInstr & 0x7]);
+    return C_N(2) + cpu->MemWaitstate(2, offset);
+}
+
+s32 T_LDRH_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 5) & 0x3E;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read16(offset);
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(2, offset);
+}
+
+
+s32 T_PUSH(ARM* cpu)
+{
+    int nregs = 0;
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+            nregs++;
+    }
+
+    if (cpu->CurInstr & (1<<8))
+        nregs++;
+
+    u32 base = cpu->R[13];
+    base -= (nregs<<2);
+    cpu->R[13] = base;
+
+    int cycles = C_N(2);
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            cpu->Write32(base, cpu->R[i]);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            base += 4;
+        }
+    }
+
+    if (cpu->CurInstr & (1<<8))
+    {
+        cpu->Write32(base, cpu->R[14]);
+        cycles += C_S(1) + cpu->MemWaitstate(3, base);
+    }
+
+    return cycles - C_S(1);
+}
+
+s32 T_POP(ARM* cpu)
+{
+    u32 base = cpu->R[13];
+
+    int cycles = C_N(1) + C_I(1);
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            cpu->R[i] = cpu->Read32(base);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            base += 4;
+        }
+    }
+
+    if (cpu->CurInstr & (1<<8))
+    {
+        u32 pc = cpu->Read32(base);
+        if (cpu->Num==1) pc |= 0x1;
+        cpu->JumpTo(pc);
+        cycles += C_S(2) + C_N(1) + cpu->MemWaitstate(3, base);
+        base += 4;
+    }
+
+    cpu->R[13] = base;
+
+    return cycles;
 }
 
 
