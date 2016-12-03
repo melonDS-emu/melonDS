@@ -14,11 +14,19 @@ void RunFrame();
 
 void Halt();
 
+u8 ARM9Read8(u32 addr);
+u16 ARM9Read16(u32 addr);
 u32 ARM9Read32(u32 addr);
-u32 ARM7Read32(u32 addr);
+void ARM9Write8(u32 addr, u8 val);
+void ARM9Write16(u32 addr, u16 val);
+void ARM9Write32(u32 addr, u32 val);
 
-template<typename T> T Read(u32 addr);
-template<typename T> void Write(u32 addr, T val);
+u8 ARM7Read8(u32 addr);
+u16 ARM7Read16(u32 addr);
+u32 ARM7Read32(u32 addr);
+void ARM7Write8(u32 addr, u8 val);
+void ARM7Write16(u32 addr, u16 val);
+void ARM7Write32(u32 addr, u32 val);
 
 }
 

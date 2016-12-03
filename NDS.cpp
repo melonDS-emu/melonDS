@@ -85,16 +85,76 @@ void Halt()
 }
 
 
+
+u8 ARM9Read8(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    {
+        return *(u8*)&ARM9BIOS[addr & 0xFFF];
+    }
+
+    printf("unknown arm9 read8 %08X\n", addr);
+    return 0;
+}
+
+u16 ARM9Read16(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    {
+        return *(u16*)&ARM9BIOS[addr & 0xFFF];
+    }
+
+    printf("unknown arm9 read16 %08X\n", addr);
+    return 0;
+}
+
 u32 ARM9Read32(u32 addr)
 {
-    // implement ARM9y shit here, like memory protection
-
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u32*)&ARM9BIOS[addr & 0xFFF];
     }
 
     printf("unknown arm9 read32 %08X\n", addr);
+    return 0;
+}
+
+void ARM9Write8(u32 addr, u8 val)
+{
+    printf("unknown arm9 write8 %08X %02X\n", addr, val);
+}
+
+void ARM9Write16(u32 addr, u16 val)
+{
+    printf("unknown arm9 write16 %08X %04X\n", addr, val);
+}
+
+void ARM9Write32(u32 addr, u32 val)
+{
+    printf("unknown arm9 write32 %08X %08X\n", addr, val);
+}
+
+
+
+u8 ARM7Read8(u32 addr)
+{
+    if (addr < 0x00004000)
+    {
+        return *(u8*)&ARM7BIOS[addr];
+    }
+
+    printf("unknown arm7 read8 %08X\n", addr);
+    return 0;
+}
+
+u16 ARM7Read16(u32 addr)
+{
+    if (addr < 0x00004000)
+    {
+        return *(u16*)&ARM7BIOS[addr];
+    }
+
+    printf("unknown arm7 read16 %08X\n", addr);
     return 0;
 }
 
@@ -109,14 +169,19 @@ u32 ARM7Read32(u32 addr)
     return 0;
 }
 
-template<typename T> T Read(u32 addr)
+void ARM7Write8(u32 addr, u8 val)
 {
-    return (T)0;
+    printf("unknown arm7 write8 %08X %02X\n", addr, val);
 }
 
-template<typename T> void Write(u32 addr, T val)
+void ARM7Write16(u32 addr, u16 val)
 {
-    //
+    printf("unknown arm7 write16 %08X %04X\n", addr, val);
+}
+
+void ARM7Write32(u32 addr, u32 val)
+{
+    printf("unknown arm7 write32 %08X %08X\n", addr, val);
 }
 
 }

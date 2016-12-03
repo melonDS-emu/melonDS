@@ -55,10 +55,87 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
-    u32 Read32(u32 addr)
+
+    u8 Read8(u32 addr, u32 forceuser=0)
     {
-        if (Num) return NDS::ARM7Read32(addr);
-        else     return NDS::ARM9Read32(addr);
+        if (!Num)
+        {
+            // TODO: PU shit
+            return NDS::ARM9Read8(addr);
+        }
+        else
+            return NDS::ARM7Read8(addr);
+    }
+
+    u16 Read16(u32 addr, u32 forceuser=0)
+    {
+        addr &= ~1;
+        if (!Num)
+        {
+            // TODO: PU shit
+            return NDS::ARM9Read16(addr);
+        }
+        else
+            return NDS::ARM7Read16(addr);
+    }
+
+    u32 Read32(u32 addr, u32 forceuser=0)
+    {
+        addr &= ~3;
+        if (!Num)
+        {
+            // TODO: PU shit
+            return NDS::ARM9Read32(addr);
+        }
+        else
+            return NDS::ARM7Read32(addr);
+    }
+
+    void Write8(u32 addr, u8 val, u32 forceuser=0)
+    {
+        if (!Num)
+        {
+            // TODO: PU shit
+            NDS::ARM9Write8(addr, val);
+        }
+        else
+            NDS::ARM7Write8(addr, val);
+    }
+
+    void Write16(u32 addr, u16 val, u32 forceuser=0)
+    {
+        addr &= ~1;
+        if (!Num)
+        {
+            // TODO: PU shit
+            NDS::ARM9Write16(addr, val);
+        }
+        else
+            NDS::ARM7Write16(addr, val);
+    }
+
+    void Write32(u32 addr, u32 val, u32 forceuser=0)
+    {
+        addr &= ~3;
+        if (!Num)
+        {
+            // TODO: PU shit
+            NDS::ARM9Write32(addr, val);
+        }
+        else
+            NDS::ARM7Write32(addr, val);
+    }
+
+
+    s32 MemWaitstate(u32 type, u32 addr)
+    {
+        // type:
+        // 0 = code16
+        // 1 = code32
+        // 2 = data16
+        // 3 = data32
+
+        return 1; // sorry
     }
 
 
