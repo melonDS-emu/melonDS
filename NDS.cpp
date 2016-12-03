@@ -18,6 +18,13 @@ u8 ARM7BIOS[0x4000];
 
 u8 MainRAM[0x400000];
 
+u8 SharedWRAM[0x8000];
+u8 WRAMCnt;
+u8* SWRAM_ARM9;
+u8* SWRAM_ARM7;
+u32 SWRAM_ARM9Mask;
+u32 SWRAM_ARM7Mask;
+
 u8 ARM7WRAM[0x10000];
 
 u8 ARM9ITCM[0x8000];
@@ -68,9 +75,13 @@ void Reset()
     }
 
     memset(MainRAM, 0, 0x400000);
+    memset(SharedWRAM, 0, 0x8000);
     memset(ARM7WRAM, 0, 0x10000);
     memset(ARM9ITCM, 0, 0x8000);
     memset(ARM9DTCM, 0, 0x4000);
+
+    WRAMCnt = 0;
+    MapSharedWRAM();
 
     ARM9ITCMSize = 0;
     ARM9DTCMBase = 0xFFFFFFFF;
@@ -112,6 +123,41 @@ void Halt()
 }
 
 
+void MapSharedWRAM()
+{
+    switch (WRAMCnt & 0x3)
+    {
+    case 0:
+        SWRAM_ARM9 = &SharedWRAM[0];
+        SWRAM_ARM9Mask = 0x7FFF;
+        SWRAM_ARM7 = NULL;
+        SWRAM_ARM7Mask = 0;
+        break;
+
+    case 1:
+        SWRAM_ARM9 = &SharedWRAM[0x4000];
+        SWRAM_ARM9Mask = 0x3FFF;
+        SWRAM_ARM7 = &SharedWRAM[0];
+        SWRAM_ARM7Mask = 0x3FFF;
+        break;
+
+    case 2:
+        SWRAM_ARM9 = &SharedWRAM[0];
+        SWRAM_ARM9Mask = 0x3FFF;
+        SWRAM_ARM7 = &SharedWRAM[0x4000];
+        SWRAM_ARM7Mask = 0x3FFF;
+        break;
+
+    case 3:
+        SWRAM_ARM9 = NULL;
+        SWRAM_ARM9Mask = 0;
+        SWRAM_ARM7 = &SharedWRAM[0];
+        SWRAM_ARM7Mask = 0x7FFF;
+        break;
+    }
+}
+
+
 
 u8 ARM9Read8(u32 addr)
 {
@@ -132,6 +178,17 @@ u8 ARM9Read8(u32 addr)
     {
     case 0x02000000:
         return *(u8*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03000000:
+        if (SWRAM_ARM9) return *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+        else return 0;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000247:
+            return WRAMCnt;
+        }
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -157,6 +214,10 @@ u16 ARM9Read16(u32 addr)
     {
     case 0x02000000:
         return *(u16*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03000000:
+        if (SWRAM_ARM9) return *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+        else return 0;
 
     case 0x04000000:
         switch (addr)
@@ -188,6 +249,10 @@ u32 ARM9Read32(u32 addr)
     {
     case 0x02000000:
         return *(u32*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03000000:
+        if (SWRAM_ARM9) return *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+        else return 0;
     }
 
     printf("unknown arm9 read32 %08X | %08X\n", addr, ARM9->R[15]);
@@ -212,6 +277,19 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x02000000:
         *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
+
+    case 0x03000000:
+        if (SWRAM_ARM9) *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
+        return;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000247:
+            WRAMCnt = val;
+            MapSharedWRAM();
+            return;
+        }
     }
 
     printf("unknown arm9 write8 %08X %02X\n", addr, val);
@@ -234,6 +312,10 @@ void ARM9Write16(u32 addr, u16 val)
     {
     case 0x02000000:
         *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+
+    case 0x03000000:
+        if (SWRAM_ARM9) *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
         return;
 
     case 0x04000000:
@@ -273,6 +355,10 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x02000000:
         *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
+
+    case 0x03000000:
+        if (SWRAM_ARM9) *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
+        return;
     }
 
     printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
@@ -292,8 +378,19 @@ u8 ARM7Read8(u32 addr)
     case 0x02000000:
         return *(u8*)&MainRAM[addr & 0x3FFFFF];
 
+    case 0x03000000:
+        if (SWRAM_ARM7) return *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+        else return *(u8*)&ARM7WRAM[addr & 0xFFFF];
+
     case 0x03800000:
         return *(u8*)&ARM7WRAM[addr & 0xFFFF];
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000241:
+            return WRAMCnt;
+        }
     }
 
     printf("unknown arm7 read8 %08X\n", addr);
@@ -311,6 +408,10 @@ u16 ARM7Read16(u32 addr)
     {
     case 0x02000000:
         return *(u16*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03000000:
+        if (SWRAM_ARM7) return *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+        else return *(u16*)&ARM7WRAM[addr & 0xFFFF];
 
     case 0x03800000:
         return *(u16*)&ARM7WRAM[addr & 0xFFFF];
@@ -338,8 +439,19 @@ u32 ARM7Read32(u32 addr)
     case 0x02000000:
         return *(u32*)&MainRAM[addr & 0x3FFFFF];
 
+    case 0x03000000:
+        if (SWRAM_ARM7) return *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+        else return *(u32*)&ARM7WRAM[addr & 0xFFFF];
+
     case 0x03800000:
         return *(u32*)&ARM7WRAM[addr & 0xFFFF];
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x040001A4:
+            return 0x00800000; // hax
+        }
     }
 if ((addr&0xFF000000) == 0xEA000000) Halt();
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -354,12 +466,17 @@ void ARM7Write8(u32 addr, u8 val)
         *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
 
+    case 0x03000000:
+        if (SWRAM_ARM7) *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+        else *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
+        return;
+
     case 0x03800000:
         *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
         return;
     }
 
-    printf("unknown arm7 write8 %08X %02X\n", addr, val);
+    printf("unknown arm7 write8 %08X %02X | %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -368,6 +485,11 @@ void ARM7Write16(u32 addr, u16 val)
     {
     case 0x02000000:
         *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+
+    case 0x03000000:
+        if (SWRAM_ARM7) *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+        else *(u16*)&ARM7WRAM[addr & 0xFFFF] = val;
         return;
 
     case 0x03800000:
@@ -390,7 +512,7 @@ void ARM7Write16(u32 addr, u16 val)
         }
     }
 
-    printf("unknown arm7 write16 %08X %04X\n", addr, val);
+    printf("unknown arm7 write16 %08X %04X | %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -401,12 +523,17 @@ void ARM7Write32(u32 addr, u32 val)
         *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
 
+    case 0x03000000:
+        if (SWRAM_ARM7) *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+        else *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
+        return;
+
     case 0x03800000:
         *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
         return;
     }
 
-    printf("unknown arm7 write32 %08X %08X\n", addr, val);
+    printf("unknown arm7 write32 %08X %08X | %08X\n", addr, val, ARM7->R[15]);
 }
 
 }

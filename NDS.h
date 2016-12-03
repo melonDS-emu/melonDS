@@ -17,6 +17,8 @@ void RunFrame();
 
 void Halt();
 
+void MapSharedWRAM();
+
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);
 u32 ARM9Read32(u32 addr);

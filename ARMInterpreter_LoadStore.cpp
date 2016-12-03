@@ -477,6 +477,39 @@ s32 T_LDRB_REG(ARM* cpu)
 }
 
 
+s32 T_STRH_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->Write16(addr, cpu->R[cpu->CurInstr & 0x7]);
+
+    return C_N(2) + cpu->MemWaitstate(2, addr);
+}
+
+s32 T_LDRSB_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->R[cpu->CurInstr & 0x7] = (s32)(s8)cpu->Read8(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+}
+
+s32 T_LDRH_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read16(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(2, addr);
+}
+
+s32 T_LDRSH_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->R[cpu->CurInstr & 0x7] = (s32)(s16)cpu->Read16(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(2, addr);
+}
+
+
 s32 T_STR_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
@@ -616,6 +649,48 @@ s32 T_POP(ARM* cpu)
     }
 
     cpu->R[13] = base;
+
+    return cycles;
+}
+
+s32 T_STMIA(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+
+    int cycles = C_N(2);
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            cpu->Write32(base, cpu->R[i]);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            base += 4;
+        }
+    }
+
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
+
+    return cycles - C_S(1);
+}
+
+s32 T_LDMIA(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+
+    int cycles = C_N(1) + C_I(1);
+
+    for (int i = 0; i < 8; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            cpu->R[i] = cpu->Read32(base);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            base += 4;
+        }
+    }
+
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
     return cycles;
 }
