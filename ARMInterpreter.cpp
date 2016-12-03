@@ -45,6 +45,8 @@ s32 A_MSR_IMM(ARM* cpu)
     else
         psr = &cpu->CPSR;
 
+    u32 oldpsr = *psr;
+
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000DF;
     if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
@@ -57,6 +59,9 @@ s32 A_MSR_IMM(ARM* cpu)
 
     *psr &= ~mask;
     *psr |= (val & mask);
+
+    if (!(cpu->CurInstr & (1<<22)))
+        cpu->UpdateMode(oldpsr, cpu->CPSR);
 
     return C_S(1);
 }
@@ -79,6 +84,8 @@ s32 A_MSR_REG(ARM* cpu)
     else
         psr = &cpu->CPSR;
 
+    u32 oldpsr = *psr;
+
     u32 mask = 0;
     if (cpu->CurInstr & (1<<16)) mask |= 0x000000DF;
     if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
@@ -91,6 +98,9 @@ s32 A_MSR_REG(ARM* cpu)
 
     *psr &= ~mask;
     *psr |= (val & mask);
+
+    if (!(cpu->CurInstr & (1<<22)))
+        cpu->UpdateMode(oldpsr, cpu->CPSR);
 
     return C_S(1);
 }
@@ -116,6 +126,47 @@ s32 A_MRS(ARM* cpu)
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
 
     return C_S(1);
+}
+
+
+s32 A_MCR(ARM* cpu)
+{
+    u32 cp = (cpu->CurInstr >> 8) & 0xF;
+    u32 op = (cpu->CurInstr >> 21) & 0x7;
+    u32 cn = (cpu->CurInstr >> 16) & 0xF;
+    u32 cm = cpu->CurInstr & 0xF;
+    u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+
+    if (cpu->Num==0 && cp==15)
+    {
+        printf("CP15: R%d -> %d,%d,%d\n", (cpu->CurInstr>>12)&0xF, cn, cm, cpinfo);
+    }
+    else
+    {
+        printf("bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+    }
+
+    return C_S(1) + 1; // TODO: checkme
+}
+
+s32 A_MRC(ARM* cpu)
+{
+    u32 cp = (cpu->CurInstr >> 8) & 0xF;
+    u32 op = (cpu->CurInstr >> 21) & 0x7;
+    u32 cn = (cpu->CurInstr >> 16) & 0xF;
+    u32 cm = cpu->CurInstr & 0xF;
+    u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
+
+    if (cpu->Num==0 && cp==15)
+    {
+        printf("CP15: R%d <- %d,%d,%d\n", (cpu->CurInstr>>12)&0xF, cn, cm, cpinfo);
+    }
+    else
+    {
+        printf("bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+    }
+
+    return C_S(1) + 1 + C_I(1); // TODO: checkme
 }
 
 

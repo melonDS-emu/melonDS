@@ -55,6 +55,8 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
+    void UpdateMode(u32 oldmode, u32 newmode);
+
 
     u8 Read8(u32 addr, u32 forceuser=0)
     {
