@@ -196,6 +196,164 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->Write16(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+
+#define A_STRH_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->Write16(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+
+// TODO: CHECK LDRD/STRD TIMINGS!!
+
+#define A_LDRD \
+    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    u32 r = (cpu->CurInstr>>12) & 0xF; \
+    cpu->R[r  ] = cpu->Read32(offset  ); \
+    cpu->R[r+1] = cpu->Read32(offset+4); \
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
+
+#define A_LDRD_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    u32 r = (cpu->CurInstr>>12) & 0xF; \
+    cpu->R[r  ] = cpu->Read32(addr  ); \
+    cpu->R[r+1] = cpu->Read32(addr+4); \
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+
+#define A_STRD \
+    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    u32 r = (cpu->CurInstr>>12) & 0xF; \
+    cpu->Write32(offset  , cpu->R[r  ]); \
+    cpu->Write32(offset+4, cpu->R[r+1]); \
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+
+#define A_STRD_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    u32 r = (cpu->CurInstr>>12) & 0xF; \
+    cpu->Write32(offset  , cpu->R[r  ]); \
+    cpu->Write32(offset+4, cpu->R[r+1]); \
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+
+#define A_LDRH \
+    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(offset); \
+    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+
+#define A_LDRH_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(addr); \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+
+#define A_LDRSB \
+    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(offset); \
+    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+
+#define A_LDRSB_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(addr); \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+
+#define A_LDRSH \
+    offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(offset); \
+    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+
+#define A_LDRSH_POST \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(addr); \
+    cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+
+
+#define A_IMPLEMENT_HD_LDRSTR(x) \
+\
+s32 A_##x##_IMM(ARM* cpu) \
+{ \
+    A_HD_CALC_OFFSET_IMM \
+    A_##x \
+} \
+\
+s32 A_##x##_REG(ARM* cpu) \
+{ \
+    A_HD_CALC_OFFSET_REG \
+    A_##x \
+} \
+s32 A_##x##_POST_IMM(ARM* cpu) \
+{ \
+    A_HD_CALC_OFFSET_IMM \
+    A_##x##_POST \
+} \
+\
+s32 A_##x##_POST_REG(ARM* cpu) \
+{ \
+    A_HD_CALC_OFFSET_REG \
+    A_##x##_POST \
+}
+
+A_IMPLEMENT_HD_LDRSTR(STRH)
+A_IMPLEMENT_HD_LDRSTR(LDRD)
+A_IMPLEMENT_HD_LDRSTR(STRD)
+A_IMPLEMENT_HD_LDRSTR(LDRH)
+A_IMPLEMENT_HD_LDRSTR(LDRSB)
+A_IMPLEMENT_HD_LDRSTR(LDRSH)
+
+
+
+
+// ---- THUMB -----------------------
+
+
+
+s32 T_LDR_PCREL(ARM* cpu)
+{
+    u32 addr = cpu->R[15] + ((cpu->CurInstr & 0xFF) << 2);
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = cpu->Read32(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+}
+
+
+s32 T_STR_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->Write32(addr, cpu->R[cpu->CurInstr & 0x7]);
+
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+}
+
+s32 T_STRB_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->Write8(addr, cpu->R[cpu->CurInstr & 0x7]);
+
+    return C_N(2) + cpu->MemWaitstate(3, addr);
+}
+
+s32 T_LDR_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read32(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+}
+
+s32 T_LDRB_REG(ARM* cpu)
+{
+    u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read8(addr);
+
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
+}
 
 
 }

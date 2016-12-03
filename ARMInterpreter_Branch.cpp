@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "ARM.h"
 
 
@@ -32,6 +33,22 @@ s32 A_BLX_IMM(ARM* cpu)
     return C_S(2) + C_N(1);
 }
 
+s32 A_BX(ARM* cpu)
+{
+    cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
+
+    return C_S(2) + C_N(1);
+}
+
+s32 A_BLX_REG(ARM* cpu)
+{
+    u32 lr = cpu->R[15] - 4;
+    cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
+    cpu->R[14] = lr;
+
+    return C_S(2) + C_N(1);
+}
+
 
 
 s32 T_BCOND(ARM* cpu)
@@ -44,6 +61,28 @@ s32 T_BCOND(ARM* cpu)
     }
     else
         return C_S(1);
+}
+
+s32 T_BX(ARM* cpu)
+{
+    cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
+
+    return C_S(2) + C_N(1);
+}
+
+s32 T_BLX_REG(ARM* cpu)
+{
+    if (cpu->Num==1)
+    {
+        printf("!! THUMB BLX_REG ON ARM7\n");
+        return 1;
+    }
+
+    u32 lr = cpu->R[15] - 1;
+    cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
+    cpu->R[14] = lr;
+
+    return C_S(2) + C_N(1);
 }
 
 
