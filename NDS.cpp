@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "NDS.h"
 #include "ARM.h"
 
@@ -13,6 +14,9 @@ s32 ARM9Cycles, ARM7Cycles;
 
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
+
+u8 MainRAM[0x400000];
+u8 ARM7WRAM[0x10000];
 
 bool Running;
 
@@ -52,6 +56,9 @@ void Reset()
         printf("ARM7 BIOS loaded: %08X\n", ARM7Read32(0x00000000));
         fclose(f);
     }
+
+    memset(MainRAM, 0, 0x400000);
+    memset(ARM7WRAM, 0, 0x10000);
 
     ARM9->Reset();
     ARM7->Reset();
@@ -93,6 +100,12 @@ u8 ARM9Read8(u32 addr)
         return *(u8*)&ARM9BIOS[addr & 0xFFF];
     }
 
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        return *(u8*)&MainRAM[addr & 0x3FFFFF];
+    }
+
     printf("unknown arm9 read8 %08X\n", addr);
     return 0;
 }
@@ -102,6 +115,12 @@ u16 ARM9Read16(u32 addr)
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u16*)&ARM9BIOS[addr & 0xFFF];
+    }
+
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        return *(u16*)&MainRAM[addr & 0x3FFFFF];
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -115,22 +134,49 @@ u32 ARM9Read32(u32 addr)
         return *(u32*)&ARM9BIOS[addr & 0xFFF];
     }
 
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        return *(u32*)&MainRAM[addr & 0x3FFFFF];
+    }
+
     printf("unknown arm9 read32 %08X\n", addr);
     return 0;
 }
 
 void ARM9Write8(u32 addr, u8 val)
 {
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+    }
+
     printf("unknown arm9 write8 %08X %02X\n", addr, val);
 }
 
 void ARM9Write16(u32 addr, u16 val)
 {
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+    }
+
     printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
 {
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+    }
+
     printf("unknown arm9 write32 %08X %08X\n", addr, val);
 }
 
@@ -141,6 +187,15 @@ u8 ARM7Read8(u32 addr)
     if (addr < 0x00004000)
     {
         return *(u8*)&ARM7BIOS[addr];
+    }
+
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        return *(u8*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03800000:
+        return *(u8*)&ARM7WRAM[addr & 0xFFFF];
     }
 
     printf("unknown arm7 read8 %08X\n", addr);
@@ -154,6 +209,15 @@ u16 ARM7Read16(u32 addr)
         return *(u16*)&ARM7BIOS[addr];
     }
 
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        return *(u16*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03800000:
+        return *(u16*)&ARM7WRAM[addr & 0xFFFF];
+    }
+
     printf("unknown arm7 read16 %08X\n", addr);
     return 0;
 }
@@ -165,22 +229,64 @@ u32 ARM7Read32(u32 addr)
         return *(u32*)&ARM7BIOS[addr];
     }
 
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        return *(u32*)&MainRAM[addr & 0x3FFFFF];
+
+    case 0x03800000:
+        return *(u32*)&ARM7WRAM[addr & 0xFFFF];
+    }
+
     printf("unknown arm7 read32 %08X\n", addr);
     return 0;
 }
 
 void ARM7Write8(u32 addr, u8 val)
 {
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+
+    case 0x03800000:
+        *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
+        return;
+    }
+
     printf("unknown arm7 write8 %08X %02X\n", addr, val);
 }
 
 void ARM7Write16(u32 addr, u16 val)
 {
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+
+    case 0x03800000:
+        *(u16*)&ARM7WRAM[addr & 0xFFFF] = val;
+        return;
+    }
+
     printf("unknown arm7 write16 %08X %04X\n", addr, val);
 }
 
 void ARM7Write32(u32 addr, u32 val)
 {
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+        *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
+        return;
+
+    case 0x03800000:
+        *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
+        return;
+    }
+
     printf("unknown arm7 write32 %08X %08X\n", addr, val);
 }
 
