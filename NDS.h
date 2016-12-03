@@ -7,6 +7,9 @@
 namespace NDS
 {
 
+extern u32 ARM9ITCMSize;
+extern u32 ARM9DTCMBase, ARM9DTCMSize;
+
 void Init();
 void Reset();
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "NDS.h"
+#include "CP15.h"
 #include "ARMInterpreter.h"
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_Branch.h"
@@ -132,14 +133,14 @@ s32 A_MRS(ARM* cpu)
 s32 A_MCR(ARM* cpu)
 {
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
-    u32 op = (cpu->CurInstr >> 21) & 0x7;
+    //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
 
     if (cpu->Num==0 && cp==15)
     {
-        printf("CP15: R%d -> %d,%d,%d\n", (cpu->CurInstr>>12)&0xF, cn, cm, cpinfo);
+        CP15::Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
     }
     else
     {
@@ -152,14 +153,14 @@ s32 A_MCR(ARM* cpu)
 s32 A_MRC(ARM* cpu)
 {
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
-    u32 op = (cpu->CurInstr >> 21) & 0x7;
+    //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
     u32 cm = cpu->CurInstr & 0xF;
     u32 cpinfo = (cpu->CurInstr >> 5) & 0x7;
 
     if (cpu->Num==0 && cp==15)
     {
-        printf("CP15: R%d <- %d,%d,%d\n", (cpu->CurInstr>>12)&0xF, cn, cm, cpinfo);
+        cpu->R[(cpu->CurInstr>>12)&0xF] = CP15::Read((cn<<8)|(cm<<4)|cpinfo);
     }
     else
     {
