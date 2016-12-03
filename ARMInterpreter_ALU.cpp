@@ -749,7 +749,57 @@ s32 T_ASR_IMM(ARM* cpu)
     return C_S(1);
 }
 
-//
+s32 T_ADD_REG_(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 res = a + b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_ADD(a, b),
+                 OVERFLOW_ADD(a, b, res));
+    return C_S(1);
+}
+
+s32 T_SUB_REG_(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = cpu->R[(cpu->CurInstr >> 6) & 0x7];
+    u32 res = a - b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
+    return C_S(1);
+}
+
+s32 T_ADD_IMM_(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = (cpu->CurInstr >> 6) & 0x7;
+    u32 res = a + b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_ADD(a, b),
+                 OVERFLOW_ADD(a, b, res));
+    return C_S(1);
+}
+
+s32 T_SUB_IMM_(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 3) & 0x7];
+    u32 b = (cpu->CurInstr >> 6) & 0x7;
+    u32 res = a - b;
+    cpu->R[cpu->CurInstr & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
+    return C_S(1);
+}
 
 s32 T_MOV_IMM(ARM* cpu)
 {
@@ -993,6 +1043,88 @@ s32 T_MVN_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    return C_S(1);
+}
+
+
+s32 T_ADD_HIREG(ARM* cpu)
+{
+    u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
+    u32 rs = (cpu->CurInstr >> 3) & 0xF;
+
+    u32 a = cpu->R[rd];
+    u32 b = cpu->R[rs];
+
+    if (rd == 15)
+    {
+        cpu->JumpTo(a + b);
+        return C_S(2) + C_N(1);
+    }
+    else
+    {
+        cpu->R[rd] = a + b;
+        return C_S(1);
+    }
+}
+
+s32 T_CMP_HIREG(ARM* cpu)
+{
+    u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
+    u32 rs = (cpu->CurInstr >> 3) & 0xF;
+
+    u32 a = cpu->R[rd];
+    u32 b = cpu->R[rs];
+    u32 res = a - b;
+
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(a, b),
+                 OVERFLOW_SUB(a, b, res));
+    return C_S(1);
+}
+
+s32 T_MOV_HIREG(ARM* cpu)
+{
+    u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
+    u32 rs = (cpu->CurInstr >> 3) & 0xF;
+
+    if (rd == 15)
+    {
+        cpu->JumpTo(cpu->R[rs]);
+        return C_S(2) + C_N(1);
+    }
+    else
+    {
+        cpu->R[rd] = cpu->R[rs];
+        return C_S(1);
+    }
+}
+
+
+s32 T_ADD_PCREL(ARM* cpu)
+{
+    u32 val = cpu->R[15] = ~2;
+    val += ((cpu->CurInstr & 0xFF) << 2);
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    return C_S(1);
+}
+
+s32 T_ADD_SPREL(ARM* cpu)
+{
+    u32 val = cpu->R[13];
+    val += ((cpu->CurInstr & 0xFF) << 2);
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    return C_S(1);
+}
+
+s32 T_ADD_SP(ARM* cpu)
+{
+    u32 val = cpu->R[13];
+    if (cpu->CurInstr & (1<<7))
+        val -= ((cpu->CurInstr & 0x7F) << 2);
+    else
+        val += ((cpu->CurInstr & 0x7F) << 2);
+    cpu->R[13] = val;
     return C_S(1);
 }
 

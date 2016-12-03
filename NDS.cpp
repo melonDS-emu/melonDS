@@ -190,7 +190,7 @@ u32 ARM9Read32(u32 addr)
         return *(u32*)&MainRAM[addr & 0x3FFFFF];
     }
 
-    printf("unknown arm9 read32 %08X\n", addr);
+    printf("unknown arm9 read32 %08X | %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -341,8 +341,8 @@ u32 ARM7Read32(u32 addr)
     case 0x03800000:
         return *(u32*)&ARM7WRAM[addr & 0xFFFF];
     }
-
-    printf("unknown arm7 read32 %08X\n", addr);
+if ((addr&0xFF000000) == 0xEA000000) Halt();
+    printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 

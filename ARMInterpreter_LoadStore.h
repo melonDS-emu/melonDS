@@ -37,6 +37,9 @@ A_PROTO_HD_LDRSTR(LDRH)
 A_PROTO_HD_LDRSTR(LDRSB)
 A_PROTO_HD_LDRSTR(LDRSH)
 
+s32 A_LDM(ARM* cpu);
+s32 A_STM(ARM* cpu);
+
 
 s32 T_LDR_PCREL(ARM* cpu);
 
@@ -45,8 +48,16 @@ s32 T_STRB_REG(ARM* cpu);
 s32 T_LDR_REG(ARM* cpu);
 s32 T_LDRB_REG(ARM* cpu);
 
+s32 T_STR_IMM(ARM* cpu);
+s32 T_LDR_IMM(ARM* cpu);
+s32 T_STRB_IMM(ARM* cpu);
+s32 T_LDRB_IMM(ARM* cpu);
+
 s32 T_STRH_IMM(ARM* cpu);
 s32 T_LDRH_IMM(ARM* cpu);
+
+s32 T_STR_SPREL(ARM* cpu);
+s32 T_LDR_SPREL(ARM* cpu);
 
 s32 T_PUSH(ARM* cpu);
 s32 T_POP(ARM* cpu);

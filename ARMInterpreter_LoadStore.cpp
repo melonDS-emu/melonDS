@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "ARM.h"
 
 
@@ -309,6 +310,126 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 
 
 
+s32 A_LDM(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 preinc = (cpu->CurInstr & (1<<24));
+
+    if (!(cpu->CurInstr & (1<<23)))
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            if (cpu->CurInstr & (1<<i))
+                base -= 4;
+        }
+
+        if (cpu->CurInstr & (1<<21))
+        {
+            cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
+            if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
+                printf("!! BAD LDM\n");
+        }
+
+        preinc = !preinc;
+    }
+
+    s32 cycles = C_N(1) + C_I(1);
+
+    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10);
+
+    for (int i = 0; i < 15; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            if (preinc) base += 4;
+            cpu->R[i] = cpu->Read32(base);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            if (!preinc) base += 4;
+        }
+    }
+
+    if (cpu->CurInstr & (1<<15))
+    {
+        if (preinc) base += 4;
+        u32 pc = cpu->Read32(base);
+        cycles += C_S(2) + C_N(1) + cpu->MemWaitstate(3, base);
+        if (!preinc) base += 4;
+
+        if (cpu->Num == 1)
+            pc &= ~0x1;
+
+        cpu->JumpTo(pc);
+        if (cpu->CurInstr & (1<<22)) cpu->RestoreCPSR();
+    }
+
+    if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
+
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    {
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
+        if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
+            printf("!! BAD LDM\n");
+    }
+
+    return cycles;
+}
+
+s32 A_STM(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 preinc = (cpu->CurInstr & (1<<24));
+
+    if (!(cpu->CurInstr & (1<<23)))
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            if (cpu->CurInstr & (1<<i))
+                base -= 4;
+        }
+
+        if (cpu->CurInstr & (1<<21))
+        {
+            cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
+            if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
+                printf("!! BAD STM\n");
+        }
+
+        preinc = !preinc;
+    }
+
+    s32 cycles = C_N(1) + C_I(1);
+
+    if (cpu->CurInstr & (1<<22))
+        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10);
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (cpu->CurInstr & (1<<i))
+        {
+            if (preinc) base += 4;
+            cpu->Write32(base, cpu->R[i]);
+            cycles += C_S(1) + cpu->MemWaitstate(3, base);
+            if (!preinc) base += 4;
+        }
+    }
+
+    if (cpu->CurInstr & (1<<22))
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
+
+    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    {
+        cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
+        if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
+            printf("!! BAD STM\n");
+    }
+
+    return cycles;
+}
+
+
+
 
 // ---- THUMB -----------------------
 
@@ -356,6 +477,43 @@ s32 T_LDRB_REG(ARM* cpu)
 }
 
 
+s32 T_STR_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 4) & 0x7C;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->Write32(offset, cpu->R[cpu->CurInstr & 0x7]);
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+}
+
+s32 T_LDR_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 4) & 0x7C;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read32(offset);
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
+}
+
+s32 T_STRB_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 6) & 0x1F;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->Write8(offset, cpu->R[cpu->CurInstr & 0x7]);
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+}
+
+s32 T_LDRB_IMM(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr >> 6) & 0x1F;
+    offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
+
+    cpu->R[cpu->CurInstr & 0x7] = cpu->Read8(offset);
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
+}
+
+
 s32 T_STRH_IMM(ARM* cpu)
 {
     u32 offset = (cpu->CurInstr >> 5) & 0x3E;
@@ -372,6 +530,25 @@ s32 T_LDRH_IMM(ARM* cpu)
 
     cpu->R[cpu->CurInstr & 0x7] = cpu->Read16(offset);
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(2, offset);
+}
+
+
+s32 T_STR_SPREL(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr << 2) & 0x3FC;
+    offset += cpu->R[13];
+
+    cpu->Write32(offset, cpu->R[(cpu->CurInstr >> 8) & 0x7]);
+    return C_N(2) + cpu->MemWaitstate(3, offset);
+}
+
+s32 T_LDR_SPREL(ARM* cpu)
+{
+    u32 offset = (cpu->CurInstr << 2) & 0x3FC;
+    offset += cpu->R[13];
+
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = cpu->Read32(offset);
+    return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
 }
 
 

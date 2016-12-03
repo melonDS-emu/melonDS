@@ -60,6 +60,11 @@ s32 T_LSL_IMM(ARM* cpu);
 s32 T_LSR_IMM(ARM* cpu);
 s32 T_ASR_IMM(ARM* cpu);
 
+s32 T_ADD_REG_(ARM* cpu);
+s32 T_SUB_REG_(ARM* cpu);
+s32 T_ADD_IMM_(ARM* cpu);
+s32 T_SUB_IMM_(ARM* cpu);
+
 s32 T_MOV_IMM(ARM* cpu);
 s32 T_CMP_IMM(ARM* cpu);
 s32 T_ADD_IMM(ARM* cpu);
@@ -81,6 +86,14 @@ s32 T_ORR_REG(ARM* cpu);
 s32 T_MUL_REG(ARM* cpu);
 s32 T_BIC_REG(ARM* cpu);
 s32 T_MVN_REG(ARM* cpu);
+
+s32 T_ADD_HIREG(ARM* cpu);
+s32 T_CMP_HIREG(ARM* cpu);
+s32 T_MOV_HIREG(ARM* cpu);
+
+s32 T_ADD_PCREL(ARM* cpu);
+s32 T_ADD_SPREL(ARM* cpu);
+s32 T_ADD_SP(ARM* cpu);
 
 }
 
