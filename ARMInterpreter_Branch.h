@@ -8,6 +8,8 @@ namespace ARMInterpreter
 s32 A_B(ARM* cpu);
 s32 A_BL(ARM* cpu);
 
+s32 T_BCOND(ARM* cpu);
+
 }
 
 #endif

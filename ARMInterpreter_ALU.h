@@ -5,121 +5,61 @@
 namespace ARMInterpreter
 {
 
-s32 A_TST_IMM(ARM* cpu);
-s32 A_TST_REG_LSL_IMM(ARM* cpu);
-s32 A_TST_REG_LSR_IMM(ARM* cpu);
-s32 A_TST_REG_ASR_IMM(ARM* cpu);
-s32 A_TST_REG_ROR_IMM(ARM* cpu);
-s32 A_TST_REG_LSL_REG(ARM* cpu);
-s32 A_TST_REG_LSR_REG(ARM* cpu);
-s32 A_TST_REG_ASR_REG(ARM* cpu);
-s32 A_TST_REG_ROR_REG(ARM* cpu);
+#define A_PROTO_ALU_OP(x) \
+\
+s32 A_##x##_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSL_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSR_IMM(ARM* cpu); \
+s32 A_##x##_REG_ASR_IMM(ARM* cpu); \
+s32 A_##x##_REG_ROR_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSL_REG(ARM* cpu); \
+s32 A_##x##_REG_LSR_REG(ARM* cpu); \
+s32 A_##x##_REG_ASR_REG(ARM* cpu); \
+s32 A_##x##_REG_ROR_REG(ARM* cpu); \
+s32 A_##x##_IMM_S(ARM* cpu); \
+s32 A_##x##_REG_LSL_IMM_S(ARM* cpu); \
+s32 A_##x##_REG_LSR_IMM_S(ARM* cpu); \
+s32 A_##x##_REG_ASR_IMM_S(ARM* cpu); \
+s32 A_##x##_REG_ROR_IMM_S(ARM* cpu); \
+s32 A_##x##_REG_LSL_REG_S(ARM* cpu); \
+s32 A_##x##_REG_LSR_REG_S(ARM* cpu); \
+s32 A_##x##_REG_ASR_REG_S(ARM* cpu); \
+s32 A_##x##_REG_ROR_REG_S(ARM* cpu);
 
-s32 A_TEQ_IMM(ARM* cpu);
-s32 A_TEQ_REG_LSL_IMM(ARM* cpu);
-s32 A_TEQ_REG_LSR_IMM(ARM* cpu);
-s32 A_TEQ_REG_ASR_IMM(ARM* cpu);
-s32 A_TEQ_REG_ROR_IMM(ARM* cpu);
-s32 A_TEQ_REG_LSL_REG(ARM* cpu);
-s32 A_TEQ_REG_LSR_REG(ARM* cpu);
-s32 A_TEQ_REG_ASR_REG(ARM* cpu);
-s32 A_TEQ_REG_ROR_REG(ARM* cpu);
+#define A_PROTO_ALU_TEST(x) \
+\
+s32 A_##x##_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSL_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSR_IMM(ARM* cpu); \
+s32 A_##x##_REG_ASR_IMM(ARM* cpu); \
+s32 A_##x##_REG_ROR_IMM(ARM* cpu); \
+s32 A_##x##_REG_LSL_REG(ARM* cpu); \
+s32 A_##x##_REG_LSR_REG(ARM* cpu); \
+s32 A_##x##_REG_ASR_REG(ARM* cpu); \
+s32 A_##x##_REG_ROR_REG(ARM* cpu);
 
-s32 A_CMP_IMM(ARM* cpu);
-s32 A_CMP_REG_LSL_IMM(ARM* cpu);
-s32 A_CMP_REG_LSR_IMM(ARM* cpu);
-s32 A_CMP_REG_ASR_IMM(ARM* cpu);
-s32 A_CMP_REG_ROR_IMM(ARM* cpu);
-s32 A_CMP_REG_LSL_REG(ARM* cpu);
-s32 A_CMP_REG_LSR_REG(ARM* cpu);
-s32 A_CMP_REG_ASR_REG(ARM* cpu);
-s32 A_CMP_REG_ROR_REG(ARM* cpu);
+A_PROTO_ALU_OP(AND)
+A_PROTO_ALU_OP(EOR)
+A_PROTO_ALU_OP(SUB)
+A_PROTO_ALU_OP(RSB)
+A_PROTO_ALU_OP(ADD)
+A_PROTO_ALU_OP(ADC)
+A_PROTO_ALU_OP(SBC)
+A_PROTO_ALU_OP(RSC)
+A_PROTO_ALU_TEST(TST)
+A_PROTO_ALU_TEST(TEQ)
+A_PROTO_ALU_TEST(CMP)
+A_PROTO_ALU_TEST(CMN)
+A_PROTO_ALU_OP(ORR)
+A_PROTO_ALU_OP(MOV)
+A_PROTO_ALU_OP(BIC)
+A_PROTO_ALU_OP(MVN)
 
-s32 A_CMN_IMM(ARM* cpu);
-s32 A_CMN_REG_LSL_IMM(ARM* cpu);
-s32 A_CMN_REG_LSR_IMM(ARM* cpu);
-s32 A_CMN_REG_ASR_IMM(ARM* cpu);
-s32 A_CMN_REG_ROR_IMM(ARM* cpu);
-s32 A_CMN_REG_LSL_REG(ARM* cpu);
-s32 A_CMN_REG_LSR_REG(ARM* cpu);
-s32 A_CMN_REG_ASR_REG(ARM* cpu);
-s32 A_CMN_REG_ROR_REG(ARM* cpu);
 
-s32 A_ORR_IMM(ARM* cpu);
-s32 A_ORR_REG_LSL_IMM(ARM* cpu);
-s32 A_ORR_REG_LSR_IMM(ARM* cpu);
-s32 A_ORR_REG_ASR_IMM(ARM* cpu);
-s32 A_ORR_REG_ROR_IMM(ARM* cpu);
-s32 A_ORR_REG_LSL_REG(ARM* cpu);
-s32 A_ORR_REG_LSR_REG(ARM* cpu);
-s32 A_ORR_REG_ASR_REG(ARM* cpu);
-s32 A_ORR_REG_ROR_REG(ARM* cpu);
-s32 A_ORR_IMM_S(ARM* cpu);
-s32 A_ORR_REG_LSL_IMM_S(ARM* cpu);
-s32 A_ORR_REG_LSR_IMM_S(ARM* cpu);
-s32 A_ORR_REG_ASR_IMM_S(ARM* cpu);
-s32 A_ORR_REG_ROR_IMM_S(ARM* cpu);
-s32 A_ORR_REG_LSL_REG_S(ARM* cpu);
-s32 A_ORR_REG_LSR_REG_S(ARM* cpu);
-s32 A_ORR_REG_ASR_REG_S(ARM* cpu);
-s32 A_ORR_REG_ROR_REG_S(ARM* cpu);
-
-s32 A_MOV_IMM(ARM* cpu);
-s32 A_MOV_REG_LSL_IMM(ARM* cpu);
-s32 A_MOV_REG_LSR_IMM(ARM* cpu);
-s32 A_MOV_REG_ASR_IMM(ARM* cpu);
-s32 A_MOV_REG_ROR_IMM(ARM* cpu);
-s32 A_MOV_REG_LSL_REG(ARM* cpu);
-s32 A_MOV_REG_LSR_REG(ARM* cpu);
-s32 A_MOV_REG_ASR_REG(ARM* cpu);
-s32 A_MOV_REG_ROR_REG(ARM* cpu);
-s32 A_MOV_IMM_S(ARM* cpu);
-s32 A_MOV_REG_LSL_IMM_S(ARM* cpu);
-s32 A_MOV_REG_LSR_IMM_S(ARM* cpu);
-s32 A_MOV_REG_ASR_IMM_S(ARM* cpu);
-s32 A_MOV_REG_ROR_IMM_S(ARM* cpu);
-s32 A_MOV_REG_LSL_REG_S(ARM* cpu);
-s32 A_MOV_REG_LSR_REG_S(ARM* cpu);
-s32 A_MOV_REG_ASR_REG_S(ARM* cpu);
-s32 A_MOV_REG_ROR_REG_S(ARM* cpu);
-
-s32 A_BIC_IMM(ARM* cpu);
-s32 A_BIC_REG_LSL_IMM(ARM* cpu);
-s32 A_BIC_REG_LSR_IMM(ARM* cpu);
-s32 A_BIC_REG_ASR_IMM(ARM* cpu);
-s32 A_BIC_REG_ROR_IMM(ARM* cpu);
-s32 A_BIC_REG_LSL_REG(ARM* cpu);
-s32 A_BIC_REG_LSR_REG(ARM* cpu);
-s32 A_BIC_REG_ASR_REG(ARM* cpu);
-s32 A_BIC_REG_ROR_REG(ARM* cpu);
-s32 A_BIC_IMM_S(ARM* cpu);
-s32 A_BIC_REG_LSL_IMM_S(ARM* cpu);
-s32 A_BIC_REG_LSR_IMM_S(ARM* cpu);
-s32 A_BIC_REG_ASR_IMM_S(ARM* cpu);
-s32 A_BIC_REG_ROR_IMM_S(ARM* cpu);
-s32 A_BIC_REG_LSL_REG_S(ARM* cpu);
-s32 A_BIC_REG_LSR_REG_S(ARM* cpu);
-s32 A_BIC_REG_ASR_REG_S(ARM* cpu);
-s32 A_BIC_REG_ROR_REG_S(ARM* cpu);
-
-s32 A_MVN_IMM(ARM* cpu);
-s32 A_MVN_REG_LSL_IMM(ARM* cpu);
-s32 A_MVN_REG_LSR_IMM(ARM* cpu);
-s32 A_MVN_REG_ASR_IMM(ARM* cpu);
-s32 A_MVN_REG_ROR_IMM(ARM* cpu);
-s32 A_MVN_REG_LSL_REG(ARM* cpu);
-s32 A_MVN_REG_LSR_REG(ARM* cpu);
-s32 A_MVN_REG_ASR_REG(ARM* cpu);
-s32 A_MVN_REG_ROR_REG(ARM* cpu);
-s32 A_MVN_IMM_S(ARM* cpu);
-s32 A_MVN_REG_LSL_IMM_S(ARM* cpu);
-s32 A_MVN_REG_LSR_IMM_S(ARM* cpu);
-s32 A_MVN_REG_ASR_IMM_S(ARM* cpu);
-s32 A_MVN_REG_ROR_IMM_S(ARM* cpu);
-s32 A_MVN_REG_LSL_REG_S(ARM* cpu);
-s32 A_MVN_REG_LSR_REG_S(ARM* cpu);
-s32 A_MVN_REG_ASR_REG_S(ARM* cpu);
-s32 A_MVN_REG_ROR_REG_S(ARM* cpu);
+s32 T_MOV_IMM(ARM* cpu);
+s32 T_CMP_IMM(ARM* cpu);
+s32 T_ADD_IMM(ARM* cpu);
+s32 T_SUB_IMM(ARM* cpu);
 
 }
 

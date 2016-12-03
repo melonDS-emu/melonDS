@@ -247,6 +247,296 @@ s32 A_##x##_REG_ROR_REG(ARM* cpu) \
 }
 
 
+#define A_AND(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a & b; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_AND_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a & b; \
+    cpu->SetNZ(res & 0x80000000, \
+               !res); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(AND)
+
+
+#define A_EOR(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a | b; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_EOR_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a ^ b; \
+    cpu->SetNZ(res & 0x80000000, \
+               !res); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(EOR)
+
+
+#define A_SUB(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a - b; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_SUB_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a - b; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(a, b), \
+                 OVERFLOW_SUB(a, b, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(SUB)
+
+
+#define A_RSB(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = b - a; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_RSB_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = b - a; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(b, a), \
+                 OVERFLOW_SUB(b, a, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(RSB)
+
+
+#define A_ADD(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a + b; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_ADD_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a + b; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_ADD(a, b), \
+                 OVERFLOW_ADD(a, b, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(ADD)
+
+
+#define A_ADC(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_ADC_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res_tmp = a + b; \
+    u32 carry = (cpu->CPSR&0x20000000 ? 1:0); \
+    u32 res = res_tmp + carry; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry), \
+                 OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(ADC)
+
+
+#define A_SBC(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_SBC_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res_tmp = a - b; \
+    u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
+    u32 res = res_tmp - carry; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(a, b) | CARRY_SUB(res_tmp, carry), \
+                 OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(SBC)
+
+
+#define A_RSC(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+#define A_RSC_S(c) \
+    u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
+    u32 res_tmp = b - a; \
+    u32 carry = (cpu->CPSR&0x20000000 ? 0:1); \
+    u32 res = res_tmp - carry; \
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(b, a) | CARRY_SUB(res_tmp, carry), \
+                 OVERFLOW_SUB(b, a, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) \
+    { \
+        cpu->JumpTo(res); \
+        cpu->RestoreCPSR(); \
+        return C_S(2) + C_I(c) + C_N(1); \
+    } \
+    else \
+    { \
+        cpu->R[(cpu->CurInstr>>12) & 0xF] = res; \
+        return C_S(1) + C_I(c); \
+    }
+
+A_IMPLEMENT_ALU_OP(RSC)
+
+
 #define A_TST(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & b; \
@@ -291,7 +581,6 @@ A_IMPLEMENT_ALU_TEST(CMP)
 A_IMPLEMENT_ALU_TEST(CMN)
 
 
-
 #define A_ORR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a | b; \
@@ -326,7 +615,6 @@ A_IMPLEMENT_ALU_TEST(CMN)
 A_IMPLEMENT_ALU_OP(ORR)
 
 
-
 #define A_MOV(c) \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -355,7 +643,6 @@ A_IMPLEMENT_ALU_OP(ORR)
     }
 
 A_IMPLEMENT_ALU_OP(MOV)
-
 
 
 #define A_BIC(c) \
@@ -392,7 +679,6 @@ A_IMPLEMENT_ALU_OP(MOV)
 A_IMPLEMENT_ALU_OP(BIC)
 
 
-
 #define A_MVN(c) \
     b = ~b; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -423,6 +709,59 @@ A_IMPLEMENT_ALU_OP(BIC)
     }
 
 A_IMPLEMENT_ALU_OP(MVN)
+
+
+
+// ---- THUMB ----------------------------------
+
+
+
+s32 T_MOV_IMM(ARM* cpu)
+{
+    u32 b = cpu->CurInstr & 0xFF;
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = b;
+    cpu->SetNZ(0,
+               !b);
+    return C_S(1);
+}
+
+s32 T_CMP_IMM(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 b = cpu->CurInstr & 0xFF;
+    u32 res = a - b;
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(a, b), \
+                 OVERFLOW_SUB(a, b, res)); \
+    return C_S(1);
+}
+
+s32 T_ADD_IMM(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 b = cpu->CurInstr & 0xFF;
+    u32 res = a + b;
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_ADD(a, b), \
+                 OVERFLOW_ADD(a, b, res)); \
+    return C_S(1);
+}
+
+s32 T_SUB_IMM(ARM* cpu)
+{
+    u32 a = cpu->R[(cpu->CurInstr >> 8) & 0x7];
+    u32 b = cpu->CurInstr & 0xFF;
+    u32 res = a - b;
+    cpu->R[(cpu->CurInstr >> 8) & 0x7] = res;
+    cpu->SetNZCV(res & 0x80000000, \
+                 !res, \
+                 CARRY_SUB(a, b), \
+                 OVERFLOW_SUB(a, b, res)); \
+    return C_S(1);
+}
 
 
 }

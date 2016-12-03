@@ -53,12 +53,20 @@ void ARM::JumpTo(u32 addr)
 {
     // pipeline shit
 
-    // TODO: THUMB!!
-    if (addr&1) printf("!!! THUMB JUMP\n");
-
-    addr &= ~3;
-    NextInstr = Read32(addr);
-    R[15] = addr+4;
+    if (addr&1)
+    {
+        addr &= ~1;
+        NextInstr = Read16(addr);
+        R[15] = addr+2;
+        CPSR |= 0x20;
+    }
+    else
+    {
+        addr &= ~3;
+        NextInstr = Read32(addr);
+        R[15] = addr+4;
+        CPSR &= ~0x20;
+    }
 }
 
 void ARM::RestoreCPSR()
@@ -70,27 +78,39 @@ s32 ARM::Execute(s32 cycles)
 {
     while (cycles > 0)
     {
-        // TODO THUM SHIT ASGAFDGSUHAJISGFYAUISAGY
-
-        // prefetch
-        CurInstr = NextInstr;
-        NextInstr = Read32(R[15]);
-        R[15] += 4;
-
-        // actually execute
-        if (CheckCondition(CurInstr >> 28))
+        if (CPSR & 0x20) // THUMB
         {
-            u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-            cycles -= ARMInterpreter::ARMInstrTable[icode](this);
-        }
-        else if ((CurInstr & 0xFE000000) == 0xFA000000)
-        {
-            cycles -= ARMInterpreter::A_BLX_IMM(this);
+            // prefetch
+            CurInstr = NextInstr;
+            NextInstr = Read16(R[15]);
+            R[15] += 2;
+
+            // actually execute
+            u32 icode = (CurInstr >> 6);
+            cycles -= ARMInterpreter::THUMBInstrTable[icode](this);
         }
         else
         {
-            // not executing it. oh well
-            cycles -= 1; // 1S. todo: check
+            // prefetch
+            CurInstr = NextInstr;
+            NextInstr = Read32(R[15]);
+            R[15] += 4;
+
+            // actually execute
+            if (CheckCondition(CurInstr >> 28))
+            {
+                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+                cycles -= ARMInterpreter::ARMInstrTable[icode](this);
+            }
+            else if ((CurInstr & 0xFE000000) == 0xFA000000)
+            {
+                cycles -= ARMInterpreter::A_BLX_IMM(this);
+            }
+            else
+            {
+                // not executing it. oh well
+                cycles -= 1; // 1S. todo: check
+            }
         }
     }
 
