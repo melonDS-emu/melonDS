@@ -3,6 +3,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
+#include "SPI.h"
 
 
 namespace NDS
@@ -33,6 +34,9 @@ u8 ARM9DTCM[0x4000];
 u32 ARM9DTCMBase, ARM9DTCMSize;
 
 // IO shit
+u32 IME[2];
+u32 IE[2], IF[2];
+
 u16 IPCSync9, IPCSync7;
 
 bool Running;
@@ -42,6 +46,8 @@ void Init()
 {
     ARM9 = new ARM(0);
     ARM7 = new ARM(1);
+
+    SPI::Init();
 
     Reset();
 }
@@ -87,12 +93,17 @@ void Reset()
     ARM9DTCMBase = 0xFFFFFFFF;
     ARM9DTCMSize = 0;
 
+    IME[0] = 0;
+    IME[1] = 0;
+
     IPCSync9 = 0;
     IPCSync7 = 0;
 
     ARM9->Reset();
     ARM7->Reset();
     CP15::Reset();
+
+    SPI::Reset();
 
     ARM9Cycles = 0;
     ARM7Cycles = 0;
@@ -155,6 +166,18 @@ void MapSharedWRAM()
         SWRAM_ARM7Mask = 0x7FFF;
         break;
     }
+}
+
+
+void TriggerIRQ(u32 cpu, u32 irq)
+{
+    if (!(IME[cpu] & 0x1)) return;
+
+    irq = 1 << irq;
+    if (!(IE[cpu] & irq)) return;
+
+    IF[cpu] |= irq;
+    (cpu?ARM7:ARM9)->TriggerIRQ();
 }
 
 
@@ -253,6 +276,14 @@ u32 ARM9Read32(u32 addr)
     case 0x03000000:
         if (SWRAM_ARM9) return *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
         else return 0;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000208: return IME[0];
+        case 0x04000210: return IE[0];
+        case 0x04000214: return IF[0];
+        }
     }
 
     printf("unknown arm9 read32 %08X | %08X\n", addr, ARM9->R[15]);
@@ -328,7 +359,7 @@ void ARM9Write16(u32 addr, u16 val)
             IPCSync9 |= (val & 0x4F00);
             if ((val & 0x2000) && (IPCSync7 & 0x4000))
             {
-                printf("ARM9 IPCSYNC IRQ TODO\n");
+                TriggerIRQ(1, IRQ_IPCSync);
             }
             return;
         }
@@ -359,6 +390,14 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x03000000:
         if (SWRAM_ARM9) *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
         return;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000208: IME[0] = val; return;
+        case 0x04000210: IE[0] = val; return;
+        case 0x04000214: IF[0] &= ~val; return;
+        }
     }
 
     printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
@@ -388,6 +427,10 @@ u8 ARM7Read8(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000138: return 0; // RTC shit
+
+        case 0x040001C2: return SPI::ReadData();
+
         case 0x04000241:
             return WRAMCnt;
         }
@@ -420,6 +463,9 @@ u16 ARM7Read16(u32 addr)
         switch (addr)
         {
         case 0x04000180: return IPCSync7;
+
+        case 0x040001C0: return SPI::ReadCnt();
+        case 0x040001C2: return SPI::ReadData();
         }
     }
 
@@ -451,6 +497,13 @@ u32 ARM7Read32(u32 addr)
         {
         case 0x040001A4:
             return 0x00800000; // hax
+
+        case 0x040001C0:
+            return SPI::ReadCnt() | (SPI::ReadData() << 16);
+
+        case 0x04000208: return IME[1];
+        case 0x04000210: return IE[1];
+        case 0x04000214: return IF[1];
         }
     }
 if ((addr&0xFF000000) == 0xEA000000) Halt();
@@ -474,9 +527,25 @@ void ARM7Write8(u32 addr, u8 val)
     case 0x03800000:
         *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
         return;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000138:
+            return;
+
+        case 0x04000301:
+            if (val != 0x80) return;
+            TriggerIRQ(1, IRQ_CartSendDone); // HAAAAXX!!
+            return;
+
+        case 0x040001C2:
+            SPI::WriteData(val);
+            return;
+        }
     }
 
-    printf("unknown arm7 write8 %08X %02X | %08X\n", addr, val, ARM7->R[15]);
+    printf("unknown arm7 write8 %08X %02X | %08X | %08X %08X %08X %08X\n", addr, val, ARM7->R[15], IME[1], IE[1], ARM7->R[0], ARM7->R[1]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -506,8 +575,16 @@ void ARM7Write16(u32 addr, u16 val)
             IPCSync7 |= (val & 0x4F00);
             if ((val & 0x2000) && (IPCSync9 & 0x4000))
             {
-                printf("ARM7 IPCSYNC IRQ TODO\n");
+                TriggerIRQ(0, IRQ_IPCSync);
             }
+            return;
+
+        case 0x040001C0:
+            SPI::WriteCnt(val);
+            return;
+
+        case 0x040001C2:
+            SPI::WriteData(val & 0xFF);
             return;
         }
     }
@@ -531,6 +608,14 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x03800000:
         *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
         return;
+
+    case 0x04000000:
+        switch (addr)
+        {
+        case 0x04000208: IME[1] = val; return;
+        case 0x04000210: IE[1] = val; return;
+        case 0x04000214: IF[1] &= ~val; printf("IRQ ack %08X\n", val);return;
+        }
     }
 
     printf("unknown arm7 write32 %08X %08X | %08X\n", addr, val, ARM7->R[15]);

@@ -3,25 +3,26 @@
 	<stdio.h>
 	"NDS.h"
 
-1480786007 c:\documents\sources\melonds\nds.h
+1480786846 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1463409689 c:\documents\sources\melonds\types.h
 
-1480784993 source:c:\documents\sources\melonds\nds.cpp
+1480816263 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"ARM.h"
 	"CP15.h"
+	"SPI.h"
 
-1480779711 source:c:\documents\sources\melonds\arm.cpp
+1480789789 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
 	"ARMInterpreter.h"
 
-1480735953 c:\documents\sources\melonds\arm.h
+1480786942 c:\documents\sources\melonds\arm.h
 	"types.h"
 	"NDS.h"
 
@@ -63,4 +64,11 @@
 1480777799 source:c:\documents\sources\melonds\cp15.cpp
 	<stdio.h>
 	"NDS.h"
+
+1480814622 c:\documents\sources\melonds\spi.h
+
+1480816142 source:c:\documents\sources\melonds\spi.cpp
+	<stdio.h>
+	"NDS.h"
+	"SPI.h"
 

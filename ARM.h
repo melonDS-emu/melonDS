@@ -57,6 +57,8 @@ public:
 
     void UpdateMode(u32 oldmode, u32 newmode);
 
+    void TriggerIRQ();
+
 
     u8 Read8(u32 addr, u32 forceuser=0)
     {

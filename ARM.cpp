@@ -73,6 +73,8 @@ void ARM::JumpTo(u32 addr)
 
 void ARM::RestoreCPSR()
 {
+    u32 oldcpsr = CPSR;
+
     switch (CPSR & 0x1F)
     {
     case 0x11:
@@ -99,6 +101,8 @@ void ARM::RestoreCPSR()
         printf("!! attempt to restore CPSR under bad mode %02X\n", CPSR&0x1F);
         break;
     }
+
+    UpdateMode(oldcpsr, CPSR);
 }
 
 void ARM::UpdateMode(u32 oldmode, u32 newmode)
@@ -175,6 +179,20 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
     }
 
     #undef SWAP
+}
+
+void ARM::TriggerIRQ()
+{
+    if (CPSR & 0x80) return;
+
+    u32 oldcpsr = CPSR;
+    CPSR &= ~0xFF;
+    CPSR |= 0xD2;
+    UpdateMode(oldcpsr, CPSR);
+
+    R_IRQ[2] = oldcpsr;
+    R[14] = R[15];// - (oldcpsr & 0x20 ? 0 : 4);
+    JumpTo(ExceptionBase + 0x18);
 }
 
 s32 ARM::Execute(s32 cycles)
