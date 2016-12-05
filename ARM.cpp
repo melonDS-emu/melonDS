@@ -206,7 +206,10 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
 
 void ARM::TriggerIRQ()
 {
-    if (CPSR & 0x80) return;
+    if ((CPSR & 0x80) && (!Halted))
+        return;
+
+    Halted = 0;
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xFF;
@@ -220,6 +223,8 @@ void ARM::TriggerIRQ()
 
 s32 ARM::Execute(s32 cycles)
 {
+    if (Halted) return cycles;
+
     s32 cyclesrun = 0;
 
     while (cyclesrun < cycles)

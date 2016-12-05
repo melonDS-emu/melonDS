@@ -370,9 +370,19 @@ s32 A_LDM(ARM* cpu)
 
         if (cpu->CurInstr & (1<<21))
         {
-            cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
-            if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
-                printf("!! BAD LDM\n");
+            // pre writeback
+            u32 rb = (cpu->CurInstr >> 16) & 0xF;
+            if (cpu->CurInstr & (1 << rb))
+            {
+                if (cpu->Num == 0)
+                {
+                    u32 rlist = cpu->CurInstr & 0xFFFF;
+                    if ((!(rlist & ~(1 << rb))) || (rlist & ~((2 << rb) - 1)))
+                        cpu->R[rb] = base;
+                }
+            }
+            else
+                cpu->R[rb] = base;
         }
 
         preinc = !preinc;
@@ -412,9 +422,19 @@ s32 A_LDM(ARM* cpu)
 
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
     {
-        cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
-        if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
-            printf("!! BAD LDM\n");
+        // post writeback
+        u32 rb = (cpu->CurInstr >> 16) & 0xF;
+        if (cpu->CurInstr & (1 << rb))
+        {
+            if (cpu->Num == 0)
+            {
+                u32 rlist = cpu->CurInstr & 0xFFFF;
+                if ((!(rlist & ~(1 << rb))) || (rlist & ~((2 << rb) - 1)))
+                    cpu->R[rb] = base;
+            }
+        }
+        else
+            cpu->R[rb] = base;
     }
 
     return cycles;

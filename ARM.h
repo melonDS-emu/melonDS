@@ -40,6 +40,11 @@ public:
     void JumpTo(u32 addr, bool restorecpsr = false);
     void RestoreCPSR();
 
+    void Halt(u32 halt)
+    {
+        Halted = halt;
+    }
+
     s32 Execute(s32 cycles);
 
     bool CheckCondition(u32 code)
@@ -162,6 +167,7 @@ public:
     u32 Num;
 
     s32 Cycles;
+    u32 Halted;
 
     u32 R[16]; // heh
     u32 CPSR;

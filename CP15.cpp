@@ -18,7 +18,14 @@
 
 #include <stdio.h>
 #include "NDS.h"
+#include "ARM.h"
 
+
+// derp
+namespace NDS
+{
+extern ARM* ARM9;
+}
 
 namespace CP15
 {
@@ -78,6 +85,11 @@ void Write(u32 id, u32 val)
         Control |= val;
         UpdateDTCMSetting();
         UpdateITCMSetting();
+        return;
+
+
+    case 0x704:
+        NDS::ARM9->Halt(1);
         return;
 
 

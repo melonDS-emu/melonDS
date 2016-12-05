@@ -718,6 +718,33 @@ A_IMPLEMENT_ALU_OP(MVN)
 
 
 
+s32 A_CLZ(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 val = cpu->R[cpu->CurInstr & 0xF];
+
+    u32 res = 0;
+    while ((val & 0xFF000000) == 0)
+    {
+        res += 8;
+        val <<= 8;
+        val |= 0xFF;
+    }
+    while ((val & 0x80000000) == 0)
+    {
+        res++;
+        val <<= 1;
+        val |= 0x1;
+    }
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+
+    return C_S(1);
+}
+
+
+
 // ---- THUMB ----------------------------------
 
 

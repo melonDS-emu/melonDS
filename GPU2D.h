@@ -22,7 +22,34 @@
 namespace GPU2D
 {
 
-// shit here
+extern u16 VCount;
+
+extern u16 DispStat[2];
+
+extern u8 VRAMCNT[9];
+extern u8 VRAMSTAT;
+
+extern u8* VRAM_ABG[128];
+extern u8* VRAM_AOBJ[128];
+extern u8* VRAM_BBG[128];
+extern u8* VRAM_BOBJ[128];
+extern u8* VRAM_LCD[128];
+extern u8* VRAM_ARM7[2];
+
+
+void Reset();
+
+void MapVRAM_AB(u32 bank, u8 cnt);
+void MapVRAM_CD(u32 bank, u8 cnt);
+void MapVRAM_E(u32 bank, u8 cnt);
+void MapVRAM_FG(u32 bank, u8 cnt);
+void MapVRAM_H(u32 bank, u8 cnt);
+void MapVRAM_I(u32 bank, u8 cnt);
+
+void StartFrame();
+void StartScanline(u32 line);
+
+void SetDispStat(u32 cpu, u16 val);
 
 }
 

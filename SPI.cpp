@@ -79,7 +79,7 @@ void Write(u8 val, u32 hold)
         Data = 0;
         DataPos = 1;
         Addr = 0;
-        printf("firmware SPI command %02X\n", CurCmd);
+        //printf("firmware SPI command %02X\n", CurCmd);
         return;
     }
 
@@ -93,7 +93,7 @@ void Write(u8 val, u32 hold)
                 Addr |= val;
                 Data = 0;
 
-                if (DataPos == 3) printf("firmware SPI read %08X\n", Addr);
+                //if (DataPos == 3) printf("firmware SPI read %08X\n", Addr);
             }
             else
             {

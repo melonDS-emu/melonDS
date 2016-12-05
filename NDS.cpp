@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
+#include "GPU2D.h"
 #include "SPI.h"
 
 
@@ -152,25 +153,30 @@ void Reset()
 void RunFrame()
 {
     s32 framecycles = 560190<<1;
-
     const s32 maxcycles = 16;
+
+    if (!Running) return; // dorp
+
+    GPU2D::StartFrame();
 
     while (Running && framecycles>0)
     {
-        //ARM9Cycles = ARM9->Execute(32 + ARM9Cycles);
-        //ARM7Cycles = ARM7->Execute(16 + ARM7Cycles);
-
-        //framecycles -= 32;
         s32 cyclestorun = maxcycles;
-        // TODO: scheduler integration here
+        if (SchedQueue)
+        {
+            if (SchedQueue->Delay < cyclestorun)
+                cyclestorun = SchedQueue->Delay;
+        }
 
-        CompensatedCycles = ARM9Cycles;
-        s32 c9 = ARM9->Execute(cyclestorun - ARM9Cycles);
-        ARM9Cycles = c9 - cyclestorun;
-        c9 -= CompensatedCycles;
+        //CompensatedCycles = ARM9Cycles;
+        s32 torun9 = cyclestorun - ARM9Cycles;
+        s32 c9 = ARM9->Execute(torun9);
+        ARM9Cycles = c9 - torun9;
+        //c9 -= CompensatedCycles;
 
-        s32 c7 = ARM7->Execute((c9 - ARM7Cycles) >> 1) << 1;
-        ARM7Cycles = c7 - c9;
+        s32 torun7 = (c9 - ARM7Cycles) & ~1;
+        s32 c7 = ARM7->Execute(torun7 >> 1) << 1;
+        ARM7Cycles = c7 - torun7;
 
         RunEvents(c9);
         framecycles -= cyclestorun;
@@ -190,15 +196,32 @@ SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
         }
     }
 
+    //if (Func == GPU2D::StartScanline)
+     //   printf("add scanline event %d delay %d\n", Param, Delay);
+
     if (entry == -1)
     {
         printf("!! SCHEDULER BUFFER FULL\n");
+        /*void TimerIncrement(u32 param);
+        for (int i = 0; i < SCHED_BUF_LEN; i++)
+        {
+            printf("%d. %s (%08X), delay %d, prev=%d, next=%d\n",
+                   i,
+                   SchedBuffer[i].Func ? ((SchedBuffer[i].Func==TimerIncrement)?"Timer":"Scanline") : "NULL",
+                   SchedBuffer[i].Param,
+                   SchedBuffer[i].Delay,
+                   SchedBuffer[i].PrevEvent ? (SchedBuffer[i].PrevEvent-SchedBuffer) : -1,
+                   SchedBuffer[i].NextEvent ? (SchedBuffer[i].NextEvent-SchedBuffer) : -1);
+        }*/
+        //printf("%p %p %08X %p\n", SchedQueue, SchedQueue->Func, SchedQueue->Param, TimerIncrement);
         return NULL;
     }
 
     SchedEvent* evt = &SchedBuffer[entry];
     evt->Func = Func;
     evt->Param = Param;
+
+    Delay += SchedCycles;
 
     SchedEvent* cur = SchedQueue;
     SchedEvent* prev = NULL;
@@ -239,6 +262,8 @@ SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
 
         if (evt->PrevEvent)
             evt->PrevEvent->NextEvent = evt;
+        else
+            SchedQueue = evt;
 
         cur->PrevEvent = evt;
         cur->Delay -= evt->Delay;
@@ -264,6 +289,7 @@ void CancelEvent(SchedEvent* event)
 
 void RunEvents(s32 cycles)
 {
+    //printf("runevents %d\n", cycles);
     SchedCycles += cycles;
 
     SchedEvent* evt = SchedQueue;
@@ -281,7 +307,7 @@ void RunEvents(s32 cycles)
 }
 
 void CompensateARM7()
-{
+{return;
     s32 c9 = ARM9->Cycles - CompensatedCycles;
     CompensatedCycles = ARM9->Cycles;
 
@@ -358,7 +384,7 @@ void TimerIncrement(u32 param)
     for (;;)
     {
         timer->Counter++;
-        if (param==7)printf("timer%d increment %04X %04X %04X\n", param, timer->Control, timer->Counter, timer->Reload);
+
         if (tid == (param&0x3))
             timer->Event = ScheduleEvent(TimerPrescaler[timer->Control&0x3], TimerIncrement, param);
 
@@ -388,8 +414,6 @@ void TimerStart(u32 id, u16 cnt)
     Timer* timer = &Timers[id];
     u16 curstart = timer->Control & (1<<7);
     u16 newstart = cnt & (1<<7);
-
-    printf("timer%d start: %04X %04X\n", id, timer->Control, cnt);
 
     timer->Control = cnt;
 
@@ -442,9 +466,36 @@ u8 ARM9Read8(u32 addr)
         {
         case 0x04000208: return IME[0];
 
-        case 0x04000247:
-            return WRAMCnt;
+        case 0x04000240: return GPU2D::VRAMCNT[0];
+        case 0x04000241: return GPU2D::VRAMCNT[1];
+        case 0x04000242: return GPU2D::VRAMCNT[2];
+        case 0x04000243: return GPU2D::VRAMCNT[3];
+        case 0x04000244: return GPU2D::VRAMCNT[4];
+        case 0x04000245: return GPU2D::VRAMCNT[5];
+        case 0x04000246: return GPU2D::VRAMCNT[6];
+        case 0x04000247: return WRAMCnt;
+        case 0x04000248: return GPU2D::VRAMCNT[7];
+        case 0x04000249: return GPU2D::VRAMCNT[8];
         }
+        printf("unknown arm9 IO read8 %08X\n", addr);
+        return 0;
+
+    case 0x06000000:
+        {
+            u32 chunk = (addr >> 14) & 0x7F;
+            u8* vram = NULL;
+            switch (addr & 0x00E00000)
+            {
+            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            }
+            if (vram)
+                return *(u8*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -478,6 +529,9 @@ u16 ARM9Read16(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: return GPU2D::DispStat[0];
+        case 0x04000006: return GPU2D::VCount;
+
         case 0x04000100: return Timers[0].Counter;
         case 0x04000102: return Timers[0].Control;
         case 0x04000104: return Timers[1].Counter;
@@ -491,6 +545,26 @@ u16 ARM9Read16(u32 addr)
 
         case 0x04000208: return IME[0];
         }
+
+        printf("unknown arm9 IO read16 %08X\n", addr);
+        return 0;
+
+    case 0x06000000:
+        {
+            u32 chunk = (addr >> 14) & 0x7F;
+            u8* vram = NULL;
+            switch (addr & 0x00E00000)
+            {
+            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            }
+            if (vram)
+                return *(u16*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -538,6 +612,8 @@ u32 ARM9Read32(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: return GPU2D::DispStat[0] | (GPU2D::VCount << 16);
+
         case 0x04000100: return Timers[0].Counter | (Timers[0].Control << 16);
         case 0x04000104: return Timers[1].Counter | (Timers[1].Control << 16);
         case 0x04000108: return Timers[2].Counter | (Timers[2].Control << 16);
@@ -547,6 +623,26 @@ u32 ARM9Read32(u32 addr)
         case 0x04000210: return IE[0];
         case 0x04000214: return IF[0];
         }
+
+        printf("unknown arm9 IO read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
+        return 0;
+
+    case 0x06000000:
+        {
+            u32 chunk = (addr >> 14) & 0x7F;
+            u8* vram = NULL;
+            switch (addr & 0x00E00000)
+            {
+            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            }
+            if (vram)
+                return *(u32*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -581,11 +677,21 @@ void ARM9Write8(u32 addr, u8 val)
         {
         case 0x04000208: IME[0] = val; return;
 
+        case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
+        case 0x04000241: GPU2D::MapVRAM_AB(1, val); return;
+        case 0x04000242: GPU2D::MapVRAM_CD(2, val); return;
+        case 0x04000243: GPU2D::MapVRAM_CD(3, val); return;
+        case 0x04000244: GPU2D::MapVRAM_E(4, val); return;
+        case 0x04000245: GPU2D::MapVRAM_FG(5, val); return;
+        case 0x04000246: GPU2D::MapVRAM_FG(6, val); return;
         case 0x04000247:
             WRAMCnt = val;
             MapSharedWRAM();
             return;
+        case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
+        case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
         }
+        break;
     }
 
     printf("unknown arm9 write8 %08X %02X\n", addr, val);
@@ -617,6 +723,8 @@ void ARM9Write16(u32 addr, u16 val)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: GPU2D::SetDispStat(0, val); return;
+
         case 0x04000100: Timers[0].Reload = val; return;
         case 0x04000102: TimerStart(0, val); return;
         case 0x04000104: Timers[1].Reload = val; return;
@@ -640,6 +748,24 @@ void ARM9Write16(u32 addr, u16 val)
 
         case 0x04000208: IME[0] = val; return;
         }
+        break;
+
+    case 0x06000000:
+        {
+            u32 chunk = (addr >> 14) & 0x7F;
+            u8* vram = NULL;
+            switch (addr & 0x00E00000)
+            {
+            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            }
+            if (vram)
+                *(u16*)&vram[addr & 0x3FFF] = val;
+        }
+        return;
     }
 
     printf("unknown arm9 write16 %08X %04X\n", addr, val);
@@ -689,9 +815,27 @@ void ARM9Write32(u32 addr, u32 val)
             return;
 
         case 0x04000208: IME[0] = val; return;
-        case 0x04000210: IE[0] = val; return;
+        case 0x04000210: IE[0] = val; printf("ARM9 IE == %08X\n", val); return;
         case 0x04000214: IF[0] &= ~val; return;
         }
+        break;
+
+    case 0x06000000:
+        {
+            u32 chunk = (addr >> 14) & 0x7F;
+            u8* vram = NULL;
+            switch (addr & 0x00E00000)
+            {
+            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            }
+            if (vram)
+                *(u32*)&vram[addr & 0x3FFF] = val;
+        }
+        return;
     }
 
     printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
@@ -727,9 +871,21 @@ u8 ARM7Read8(u32 addr)
 
         case 0x04000208: return IME[1];
 
-        case 0x04000241:
-            return WRAMCnt;
+        case 0x04000240: return GPU2D::VRAMSTAT;
+        case 0x04000241: return WRAMCnt;
         }
+        printf("unknown arm7 IO read8 %08X\n", addr);
+        return 0;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                return *(u8*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 
     printf("unknown arm7 read8 %08X\n", addr);
@@ -758,6 +914,9 @@ u16 ARM7Read16(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: return GPU2D::DispStat[1];
+        case 0x04000006: return GPU2D::VCount;
+
         case 0x04000100: return Timers[4].Counter;
         case 0x04000102: return Timers[4].Control;
         case 0x04000104: return Timers[5].Counter;
@@ -778,6 +937,23 @@ u16 ARM7Read16(u32 addr)
 
         case 0x04000504: return _soundbias;
         }
+
+        printf("unknown arm7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
+        return 0;
+
+    case 0x04800000:
+        // wifi shit
+        return 0;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                return *(u16*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -806,6 +982,8 @@ u32 ARM7Read32(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: return GPU2D::DispStat[1] | (GPU2D::VCount << 16);
+
         case 0x04000100: return Timers[4].Counter | (Timers[4].Control << 16);
         case 0x04000104: return Timers[5].Counter | (Timers[5].Control << 16);
         case 0x04000108: return Timers[6].Counter | (Timers[6].Control << 16);
@@ -821,6 +999,19 @@ u32 ARM7Read32(u32 addr)
         case 0x04000210: return IE[1];
         case 0x04000214: return IF[1];
         }
+
+        printf("unknown arm7 IO read32 %08X | %08X\n", addr, ARM7->R[15]);
+        return 0;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                return *(u32*)&vram[addr & 0x3FFF];
+        }
+        return 0;
     }
 if ((addr&0xFF000000) == 0xEA000000) Halt();
 
@@ -852,8 +1043,7 @@ void ARM7Write8(u32 addr, u8 val)
             return;
 
         case 0x04000301:
-            if (val != 0x80) return;
-            TriggerIRQ(1, IRQ_CartSendDone); // HAAAAXX!!
+            if (val == 0x80) ARM7->Halt(1);
             return;
 
         case 0x040001C2:
@@ -862,10 +1052,22 @@ void ARM7Write8(u32 addr, u8 val)
 
         case 0x04000208: IME[1] = val; return;
         }
+        break;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                *(u8*)&vram[addr & 0x3FFF] = val;
+        }
+        return;
     }
 
     if (addr==0xA20)
     {
+        //TriggerIRQ(1, IRQ_CartSendDone);
         /*FILE* f = fopen("ram.bin", "wb");
         fwrite(MainRAM, 0x400000, 1, f);
         fclose(f);
@@ -900,6 +1102,8 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000004: GPU2D::SetDispStat(1, val); return;
+
         case 0x04000100: Timers[4].Reload = val; return;
         case 0x04000102: TimerStart(4, val); return;
         case 0x04000104: Timers[5].Reload = val; return;
@@ -936,6 +1140,21 @@ void ARM7Write16(u32 addr, u16 val)
             _soundbias = val & 0x3FF;
             return;
         }
+        break;
+
+    case 0x04800000:
+        // wifi shit
+        return;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                *(u16*)&vram[addr & 0x3FFF] = val;
+        }
+        return;
     }
 
     printf("unknown arm7 write16 %08X %04X | %08X\n", addr, val, ARM7->R[15]);
@@ -978,10 +1197,25 @@ void ARM7Write32(u32 addr, u32 val)
             TimerStart(7, val>>16);
             return;
 
+        case 0x040001A4:
+            if (val & 0x80000000) TriggerIRQ(1, IRQ_CartSendDone); // HAX!!!!
+            return;
+
         case 0x04000208: IME[1] = val; return;
         case 0x04000210: IE[1] = val; return;
-        case 0x04000214: IF[1] &= ~val; printf("IRQ ack %08X\n", val);return;
+        case 0x04000214: IF[1] &= ~val; return;
         }
+        return;
+
+    case 0x06000000:
+    case 0x06800000:
+        {
+            u32 chunk = (addr >> 17) & 0x1;
+            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            if (vram)
+                *(u32*)&vram[addr & 0x3FFF] = val;
+        }
+        return;
     }
 
     printf("unknown arm7 write32 %08X %08X | %08X %08X\n", addr, val, ARM7->R[15], ARM7->CurInstr);
