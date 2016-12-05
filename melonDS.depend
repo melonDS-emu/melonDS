@@ -55,7 +55,7 @@
 
 1480953933 c:\documents\sources\melonds\arminterpreter_loadstore.h
 
-1480951014 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
+1480953916 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
 	<stdio.h>
 	"ARM.h"
 
@@ -67,7 +67,7 @@
 
 1480814622 c:\documents\sources\melonds\spi.h
 
-1480816963 source:c:\documents\sources\melonds\spi.cpp
+1480954747 source:c:\documents\sources\melonds\spi.cpp
 	<stdio.h>
 	"NDS.h"
 	"SPI.h"

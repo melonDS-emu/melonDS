@@ -1,3 +1,21 @@
+/*
+    Copyright 2016-2017 StapleButter
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
@@ -422,6 +440,8 @@ u8 ARM9Read8(u32 addr)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000208: return IME[0];
+
         case 0x04000247:
             return WRAMCnt;
         }
@@ -468,6 +488,8 @@ u16 ARM9Read16(u32 addr)
         case 0x0400010E: return Timers[3].Control;
 
         case 0x04000180: return IPCSync9;
+
+        case 0x04000208: return IME[0];
         }
     }
 
@@ -557,6 +579,8 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x04000000:
         switch (addr)
         {
+        case 0x04000208: IME[0] = val; return;
+
         case 0x04000247:
             WRAMCnt = val;
             MapSharedWRAM();
@@ -613,6 +637,8 @@ void ARM9Write16(u32 addr, u16 val)
             }
             CompensateARM7();
             return;
+
+        case 0x04000208: IME[0] = val; return;
         }
     }
 
@@ -699,6 +725,8 @@ u8 ARM7Read8(u32 addr)
 
         case 0x040001C2: return SPI::ReadData();
 
+        case 0x04000208: return IME[1];
+
         case 0x04000241:
             return WRAMCnt;
         }
@@ -739,10 +767,14 @@ u16 ARM7Read16(u32 addr)
         case 0x0400010C: return Timers[7].Counter;
         case 0x0400010E: return Timers[7].Control;
 
+        case 0x04000138: return 0; // RTC shit
+
         case 0x04000180: return IPCSync7;
 
         case 0x040001C0: return SPI::ReadCnt();
         case 0x040001C2: return SPI::ReadData();
+
+        case 0x04000208: return IME[1];
 
         case 0x04000504: return _soundbias;
         }
@@ -827,6 +859,8 @@ void ARM7Write8(u32 addr, u8 val)
         case 0x040001C2:
             SPI::WriteData(val);
             return;
+
+        case 0x04000208: IME[1] = val; return;
         }
     }
 
@@ -875,6 +909,8 @@ void ARM7Write16(u32 addr, u16 val)
         case 0x0400010C: Timers[7].Reload = val; return;
         case 0x0400010E: TimerStart(7, val); return;
 
+        case 0x04000138: return; // RTC shit
+
         case 0x04000180:
             IPCSync9 &= 0xFFF0;
             IPCSync9 |= ((val & 0x0F00) >> 8);
@@ -893,6 +929,8 @@ void ARM7Write16(u32 addr, u16 val)
         case 0x040001C2:
             SPI::WriteData(val & 0xFF);
             return;
+
+        case 0x04000208: IME[1] = val; return;
 
         case 0x04000504:
             _soundbias = val & 0x3FF;

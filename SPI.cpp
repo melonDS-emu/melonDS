@@ -1,3 +1,21 @@
+/*
+    Copyright 2016-2017 StapleButter
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #include <stdio.h>
 #include "NDS.h"
 #include "SPI.h"
@@ -14,6 +32,7 @@ u8 CurCmd;
 u32 DataPos;
 u8 Data;
 
+u8 StatusReg;
 u32 Addr;
 
 void Init()
@@ -38,6 +57,7 @@ void Reset()
     Hold = 0;
     CurCmd = 0;
     Data = 0;
+    StatusReg = 0x00;
 }
 
 u8 Read()
@@ -56,6 +76,7 @@ void Write(u8 val, u32 hold)
     {
         CurCmd = val;
         Hold = 1;
+        Data = 0;
         DataPos = 1;
         Addr = 0;
         printf("firmware SPI command %02X\n", CurCmd);
@@ -84,6 +105,33 @@ void Write(u8 val, u32 hold)
                 Addr++;
             }
 
+            DataPos++;
+        }
+        break;
+
+    case 0x04: // write disable
+        StatusReg &= ~(1<<1);
+        Data = 0;
+        break;
+
+    case 0x05: // read status reg
+        Data = StatusReg;
+        break;
+
+    case 0x06: // write enable
+        StatusReg |= (1<<1);
+        Data = 0;
+        break;
+
+    case 0x9F: // read JEDEC ID
+        {
+            switch (DataPos)
+            {
+            case 1: Data = 0x20; break;
+            case 2: Data = 0x40; break;
+            case 3: Data = 0x12; break;
+            default: Data = 0; break;
+            }
             DataPos++;
         }
         break;
