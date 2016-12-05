@@ -268,8 +268,7 @@ s32 A_##x##_REG_ROR_REG(ARM* cpu) \
                !res); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -302,8 +301,7 @@ A_IMPLEMENT_ALU_OP(AND)
                !res); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -338,8 +336,7 @@ A_IMPLEMENT_ALU_OP(EOR)
                  OVERFLOW_SUB(a, b, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -374,8 +371,7 @@ A_IMPLEMENT_ALU_OP(SUB)
                  OVERFLOW_SUB(b, a, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -410,8 +406,7 @@ A_IMPLEMENT_ALU_OP(RSB)
                  OVERFLOW_ADD(a, b, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -448,8 +443,7 @@ A_IMPLEMENT_ALU_OP(ADD)
                  OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -486,8 +480,7 @@ A_IMPLEMENT_ALU_OP(ADC)
                  OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -524,8 +517,7 @@ A_IMPLEMENT_ALU_OP(SBC)
                  OVERFLOW_SUB(b, a, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -602,8 +594,7 @@ A_IMPLEMENT_ALU_TEST(CMN)
                !res); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -632,8 +623,7 @@ A_IMPLEMENT_ALU_OP(ORR)
                !b); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(b); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(b, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -666,8 +656,7 @@ A_IMPLEMENT_ALU_OP(MOV)
                !res); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(res, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -698,8 +687,7 @@ A_IMPLEMENT_ALU_OP(BIC)
                !b); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(b); \
-        cpu->RestoreCPSR(); \
+        cpu->JumpTo(b, true); \
         return C_S(2) + C_I(c) + C_N(1); \
     } \
     else \
@@ -1057,7 +1045,7 @@ s32 T_ADD_HIREG(ARM* cpu)
 
     if (rd == 15)
     {
-        cpu->JumpTo(a + b);
+        cpu->JumpTo((a + b) | 1);
         return C_S(2) + C_N(1);
     }
     else
@@ -1090,7 +1078,7 @@ s32 T_MOV_HIREG(ARM* cpu)
 
     if (rd == 15)
     {
-        cpu->JumpTo(cpu->R[rs]);
+        cpu->JumpTo(cpu->R[rs] | 1);
         return C_S(2) + C_N(1);
     }
     else
@@ -1103,7 +1091,7 @@ s32 T_MOV_HIREG(ARM* cpu)
 
 s32 T_ADD_PCREL(ARM* cpu)
 {
-    u32 val = cpu->R[15] = ~2;
+    u32 val = cpu->R[15] & ~2;
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
     return C_S(1);

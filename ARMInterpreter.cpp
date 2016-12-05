@@ -172,6 +172,24 @@ s32 A_MRC(ARM* cpu)
 
 
 
+s32 T_SVC(ARM* cpu)
+{
+    u32 oldcpsr = cpu->CPSR;
+    cpu->CPSR &= ~0xFF;
+    cpu->CPSR |= 0xD3;
+    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+
+    cpu->R_SVC[2] = oldcpsr;
+    cpu->R[14] = cpu->R[15] - 2;
+    cpu->JumpTo(cpu->ExceptionBase + 0x08);
+
+    printf("SWI %02X\n", (cpu->CurInstr & 0xFF));
+
+    return C_S(2) + C_N(1);
+}
+
+
+
 #define INSTRFUNC_PROTO(x)  s32 (*x)(ARM* cpu)
 #include "ARM_InstrTable.h"
 #undef INSTRFUNC_PROTO

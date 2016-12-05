@@ -196,7 +196,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_STRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->Write16(offset, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
-    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_STRH_POST \
@@ -225,7 +225,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_STRD \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     cpu->Write32(offset  , cpu->R[r  ]); \
     cpu->Write32(offset+4, cpu->R[r+1]); \
@@ -242,7 +242,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_LDRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(offset); \
-    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRH_POST \
@@ -254,7 +254,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(offset); \
-    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     return C_N(2) + cpu->MemWaitstate(3, offset);
 
 #define A_LDRSB_POST \
@@ -266,7 +266,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 #define A_LDRSH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(offset); \
-    if (cpu->CurInstr & (1<<24)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRSH_POST \
@@ -307,6 +307,33 @@ A_IMPLEMENT_HD_LDRSTR(STRD)
 A_IMPLEMENT_HD_LDRSTR(LDRH)
 A_IMPLEMENT_HD_LDRSTR(LDRSB)
 A_IMPLEMENT_HD_LDRSTR(LDRSH)
+
+
+
+s32 A_SWP(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    u32 val = cpu->Read32(base);
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = ROR(val, 8*(base&0x3));
+
+    cpu->Write32(base, cpu->R[cpu->CurInstr & 0xF]);
+
+    // the 1S is a code cycle. TODO
+    return C_S(1) + C_N(2) + C_I(1) + 2*cpu->MemWaitstate(3, base);
+}
+
+s32 A_SWPB(ARM* cpu)
+{
+    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = cpu->Read8(base);
+
+    cpu->Write8(base, cpu->R[cpu->CurInstr & 0xF]);
+
+    // the 1S is a code cycle. TODO
+    return C_S(1) + C_N(2) + C_I(1) + 2*cpu->MemWaitstate(3, base);
+}
 
 
 
@@ -359,8 +386,7 @@ s32 A_LDM(ARM* cpu)
         if (cpu->Num == 1)
             pc &= ~0x1;
 
-        cpu->JumpTo(pc);
-        if (cpu->CurInstr & (1<<22)) cpu->RestoreCPSR();
+        cpu->JumpTo(pc, cpu->CurInstr & (1<<22));
     }
 
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))

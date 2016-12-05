@@ -40,6 +40,9 @@ A_PROTO_HD_LDRSTR(LDRSH)
 s32 A_LDM(ARM* cpu);
 s32 A_STM(ARM* cpu);
 
+s32 A_SWP(ARM* cpu);
+s32 A_SWPB(ARM* cpu);
+
 
 s32 T_LDR_PCREL(ARM* cpu);
 

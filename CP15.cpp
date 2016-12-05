@@ -23,7 +23,7 @@ void UpdateDTCMSetting()
     if (Control & (1<<16))
     {
         NDS::ARM9DTCMBase = DTCMSetting & 0xFFFFF000;
-        NDS::ARM9DTCMSize = 256 << (DTCMSetting & 0x3E);
+        NDS::ARM9DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
         printf("DTCM enabled at %08X, size %X\n", NDS::ARM9DTCMBase, NDS::ARM9DTCMSize);
     }
     else
@@ -38,8 +38,8 @@ void UpdateITCMSetting()
 {
     if (Control & (1<<18))
     {
-        NDS::ARM9ITCMSize = 256 << (DTCMSetting & 0x3E);
-        printf("ITCM enabled at %08X, size %X\n", 0, NDS::ARM9DTCMSize);
+        NDS::ARM9ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
+        printf("ITCM enabled at %08X, size %X\n", 0, NDS::ARM9ITCMSize);
     }
     else
     {

@@ -21,7 +21,7 @@ public:
 
     void Reset();
 
-    void JumpTo(u32 addr);
+    void JumpTo(u32 addr, bool restorecpsr = false);
     void RestoreCPSR();
 
     s32 Execute(s32 cycles);
@@ -144,6 +144,8 @@ public:
 
 
     u32 Num;
+
+    s32 Cycles;
 
     u32 R[16]; // heh
     u32 CPSR;

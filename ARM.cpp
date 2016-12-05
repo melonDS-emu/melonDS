@@ -38,6 +38,8 @@ ARM::~ARM()
 
 void ARM::Reset()
 {
+    Cycles = 0;
+
     for (int i = 0; i < 16; i++)
         R[i] = 0;
 
@@ -49,22 +51,25 @@ void ARM::Reset()
     JumpTo(ExceptionBase);
 }
 
-void ARM::JumpTo(u32 addr)
+void ARM::JumpTo(u32 addr, bool restorecpsr)
 {
-    // pipeline shit
-
-    //printf("jump from %08X to %08X\n", R[15] - ((CPSR&0x20)?4:8), addr);
-
-    if (addr&1)
+    if (restorecpsr)
     {
-        addr &= ~1;
+        RestoreCPSR();
+        if (CPSR & 0x20)    addr |= 0x1;
+        else                addr &= ~0x1;
+    }
+
+    if (addr & 0x1)
+    {
+        addr &= ~0x1;
         NextInstr = Read16(addr);
         R[15] = addr+2;
         CPSR |= 0x20;
     }
     else
     {
-        addr &= ~3;
+        addr &= ~0x3;
         NextInstr = Read32(addr);
         R[15] = addr+4;
         CPSR &= ~0x20;
@@ -191,49 +196,57 @@ void ARM::TriggerIRQ()
     UpdateMode(oldcpsr, CPSR);
 
     R_IRQ[2] = oldcpsr;
-    R[14] = R[15];// - (oldcpsr & 0x20 ? 0 : 4);
+    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x18);
 }
 
 s32 ARM::Execute(s32 cycles)
 {
-    while (cycles > 0)
+    s32 cyclesrun = 0;
+
+    while (cyclesrun < cycles)
     {
         if (CPSR & 0x20) // THUMB
         {
             // prefetch
             CurInstr = NextInstr;
             NextInstr = Read16(R[15]);
+            //cyclesrun += MemWaitstate(0, R[15]);
             R[15] += 2;
+
+            Cycles = cyclesrun;
 
             // actually execute
             u32 icode = (CurInstr >> 6);
-            cycles -= ARMInterpreter::THUMBInstrTable[icode](this);
+            cyclesrun += ARMInterpreter::THUMBInstrTable[icode](this);
         }
         else
         {
             // prefetch
             CurInstr = NextInstr;
             NextInstr = Read32(R[15]);
+            //cyclesrun += MemWaitstate(1, R[15]);
             R[15] += 4;
+
+            Cycles = cyclesrun;
 
             // actually execute
             if (CheckCondition(CurInstr >> 28))
             {
                 u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                cycles -= ARMInterpreter::ARMInstrTable[icode](this);
+                cyclesrun += ARMInterpreter::ARMInstrTable[icode](this);
             }
             else if ((CurInstr & 0xFE000000) == 0xFA000000)
             {
-                cycles -= ARMInterpreter::A_BLX_IMM(this);
+                cyclesrun += ARMInterpreter::A_BLX_IMM(this);
             }
             else
             {
                 // not executing it. oh well
-                cycles -= 1; // 1S. todo: check
+                cyclesrun += 1; // 1S. todo: check
             }
         }
     }
 
-    return cycles;
+    return cyclesrun;
 }

@@ -7,6 +7,18 @@
 namespace NDS
 {
 
+#define SCHED_BUF_LEN 64
+
+typedef struct _SchedEvent
+{
+    u32 Delay;
+    void (*Func)(u32);
+    u32 Param;
+    struct _SchedEvent* PrevEvent;
+    struct _SchedEvent*  NextEvent;
+
+} SchedEvent;
+
 enum
 {
     IRQ_VBlank = 0,
@@ -36,6 +48,15 @@ enum
     IRQ_Wifi
 };
 
+typedef struct
+{
+    u16 Reload;
+    u16 Control;
+    u16 Counter;
+    SchedEvent* Event;
+
+} Timer;
+
 extern u32 ARM9ITCMSize;
 extern u32 ARM9DTCMBase, ARM9DTCMSize;
 
@@ -43,6 +64,13 @@ void Init();
 void Reset();
 
 void RunFrame();
+
+SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
+void CancelEvent(SchedEvent* event);
+void RunEvents(s32 cycles);
+
+// DO NOT CALL FROM ARM7!!
+void CompensateARM7();
 
 void Halt();
 
