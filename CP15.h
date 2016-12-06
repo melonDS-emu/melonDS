@@ -24,6 +24,9 @@ namespace CP15
 
 void Reset();
 
+void UpdateDTCMSetting();
+void UpdateITCMSetting();
+
 void Write(u32 id, u32 val);
 u32 Read(u32 id);
 

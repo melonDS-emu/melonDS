@@ -3,12 +3,12 @@
 	<stdio.h>
 	"NDS.h"
 
-1480975422 c:\documents\sources\melonds\nds.h
+1480989459 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1480957224 c:\documents\sources\melonds\types.h
 
-1480975347 source:c:\documents\sources\melonds\nds.cpp
+1481040741 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -16,8 +16,9 @@
 	"CP15.h"
 	"GPU2D.h"
 	"SPI.h"
+	"Wifi.h"
 
-1480975148 source:c:\documents\sources\melonds\arm.cpp
+1480989161 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -33,7 +34,7 @@
 	"types.h"
 	"ARM.h"
 
-1480975549 source:c:\documents\sources\melonds\arminterpreter.cpp
+1481038843 source:c:\documents\sources\melonds\arminterpreter.cpp
 	<stdio.h>
 	"NDS.h"
 	"CP15.h"
@@ -60,25 +61,28 @@
 	<stdio.h>
 	"ARM.h"
 
-1480957212 c:\documents\sources\melonds\cp15.h
+1481037554 c:\documents\sources\melonds\cp15.h
 
-1480975492 source:c:\documents\sources\melonds\cp15.cpp
+1481037609 source:c:\documents\sources\melonds\cp15.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
+	"CP15.h"
 
 1480957111 c:\documents\sources\melonds\spi.h
 
-1480973443 source:c:\documents\sources\melonds\spi.cpp
+1481038838 source:c:\documents\sources\melonds\spi.cpp
 	<stdio.h>
 	"NDS.h"
 	"SPI.h"
 
-1480971901 source:c:\documents\sources\melonds\gpu2d.cpp
+1481033110 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU2D.h"
 
-1480970908 c:\documents\sources\melonds\gpu2d.h
+1480986603 c:\documents\sources\melonds\gpu2d.h
+
+1481040524 c:\documents\sources\melonds\wifi.h
 

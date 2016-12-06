@@ -209,8 +209,6 @@ void ARM::TriggerIRQ()
     if ((CPSR & 0x80) && (!Halted))
         return;
 
-    Halted = 0;
-
     u32 oldcpsr = CPSR;
     CPSR &= ~0xFF;
     CPSR |= 0xD2;
@@ -223,7 +221,13 @@ void ARM::TriggerIRQ()
 
 s32 ARM::Execute(s32 cycles)
 {
-    if (Halted) return cycles;
+    if (Halted)
+    {
+        if (NDS::HaltInterrupted(Num))
+            Halted = false;
+        else
+            return cycles;
+    }
 
     s32 cyclesrun = 0;
 
@@ -268,6 +272,13 @@ s32 ARM::Execute(s32 cycles)
                 // not executing it. oh well
                 cyclesrun += 1; // 1S. todo: check
             }
+        }
+
+        // zorp
+        if (NDS::HaltInterrupted(Num))
+        {
+            if (NDS::IME[Num]&1)
+                TriggerIRQ();
         }
     }
 

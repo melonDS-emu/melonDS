@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "NDS.h"
 #include "ARM.h"
+#include "CP15.h"
 
 
 // derp
@@ -41,6 +42,10 @@ void Reset()
 
     DTCMSetting = 0;
     ITCMSetting = 0;
+    //DTCMSetting = 0x0300000A;
+    //ITCMSetting = 0x00000020;
+    //UpdateDTCMSetting();
+    //UpdateITCMSetting();
 }
 
 
@@ -50,7 +55,7 @@ void UpdateDTCMSetting()
     {
         NDS::ARM9DTCMBase = DTCMSetting & 0xFFFFF000;
         NDS::ARM9DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        printf("DTCM enabled at %08X, size %X\n", NDS::ARM9DTCMBase, NDS::ARM9DTCMSize);
+        printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, NDS::ARM9DTCMBase, NDS::ARM9DTCMSize);
     }
     else
     {
@@ -65,7 +70,7 @@ void UpdateITCMSetting()
     if (Control & (1<<18))
     {
         NDS::ARM9ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
-        printf("ITCM enabled at %08X, size %X\n", 0, NDS::ARM9ITCMSize);
+        printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, NDS::ARM9ITCMSize);
     }
     else
     {

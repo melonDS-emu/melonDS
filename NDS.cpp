@@ -23,6 +23,7 @@
 #include "CP15.h"
 #include "GPU2D.h"
 #include "SPI.h"
+#include "Wifi.h"
 
 
 namespace NDS
@@ -63,9 +64,18 @@ u32 ARM9DTCMBase, ARM9DTCMSize;
 u32 IME[2];
 u32 IE[2], IF[2];
 
+u16 PowerControl9;
+u16 PowerControl7;
+
 Timer Timers[8];
 
 u16 IPCSync9, IPCSync7;
+
+u32 ROMSPIControl;
+u32 ROMControl;
+u8 ROMCommand[8];
+u8 ROMCurCommand[8];
+u32 ROMReadPos, ROMReadSize;
 
 u16 _soundbias; // temp
 
@@ -80,6 +90,43 @@ void Init()
     SPI::Init();
 
     Reset();
+}
+
+void LoadROM()
+{
+    FILE* f;
+
+    f = fopen("armwrestler.nds", "rb");
+
+    u32 bootparams[8];
+    fseek(f, 0x20, SEEK_SET);
+    fread(bootparams, 8, 4, f);
+
+    printf("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
+           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
+    printf("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
+           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+
+    fseek(f, bootparams[0], SEEK_SET);
+    for (u32 i = 0; i < bootparams[3]; i+=4)
+    {
+        u32 tmp;
+        fread(&tmp, 4, 1, f);
+        ARM9Write32(bootparams[2]+i, tmp);
+    }
+
+    fseek(f, bootparams[4], SEEK_SET);
+    for (u32 i = 0; i < bootparams[7]; i+=4)
+    {
+        u32 tmp;
+        fread(&tmp, 4, 1, f);
+        ARM9Write32(bootparams[6]+i, tmp);
+    }
+
+    fclose(f);
+
+    ARM9->JumpTo(bootparams[1]);
+    ARM7->JumpTo(bootparams[5]);
 }
 
 void Reset()
@@ -116,8 +163,7 @@ void Reset()
     memset(ARM9ITCM, 0, 0x8000);
     memset(ARM9DTCM, 0, 0x4000);
 
-    WRAMCnt = 0;
-    MapSharedWRAM();
+    MapSharedWRAM(0);
 
     ARM9ITCMSize = 0;
     ARM9DTCMBase = 0xFFFFFFFF;
@@ -126,8 +172,15 @@ void Reset()
     IME[0] = 0;
     IME[1] = 0;
 
+    PowerControl9 = 0x0001;
+    PowerControl7 = 0x0001;
+
     IPCSync9 = 0;
     IPCSync7 = 0;
+
+    ROMSPIControl = 0;
+    ROMControl = 0;
+    memset(ROMCommand, 0, 8);
 
     ARM9->Reset();
     ARM7->Reset();
@@ -136,6 +189,8 @@ void Reset()
     memset(Timers, 0, 8*sizeof(Timer));
 
     SPI::Reset();
+
+    Wifi::Reset();
 
     memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
     SchedQueue = NULL;
@@ -146,16 +201,22 @@ void Reset()
 
     _soundbias = 0;
 
+    // test
+    //LoadROM();
+
     Running = true; // hax
 }
 
-
+static int fnum = 0;
 void RunFrame()
 {
     s32 framecycles = 560190<<1;
     const s32 maxcycles = 16;
 
     if (!Running) return; // dorp
+
+    fnum++;
+    //printf("frame %d\n", fnum);
 
     GPU2D::StartFrame();
 
@@ -181,6 +242,7 @@ void RunFrame()
         RunEvents(c9);
         framecycles -= cyclestorun;
     }
+    //printf("frame end\n");
 }
 
 SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
@@ -196,24 +258,9 @@ SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
         }
     }
 
-    //if (Func == GPU2D::StartScanline)
-     //   printf("add scanline event %d delay %d\n", Param, Delay);
-
     if (entry == -1)
     {
         printf("!! SCHEDULER BUFFER FULL\n");
-        /*void TimerIncrement(u32 param);
-        for (int i = 0; i < SCHED_BUF_LEN; i++)
-        {
-            printf("%d. %s (%08X), delay %d, prev=%d, next=%d\n",
-                   i,
-                   SchedBuffer[i].Func ? ((SchedBuffer[i].Func==TimerIncrement)?"Timer":"Scanline") : "NULL",
-                   SchedBuffer[i].Param,
-                   SchedBuffer[i].Delay,
-                   SchedBuffer[i].PrevEvent ? (SchedBuffer[i].PrevEvent-SchedBuffer) : -1,
-                   SchedBuffer[i].NextEvent ? (SchedBuffer[i].NextEvent-SchedBuffer) : -1);
-        }*/
-        //printf("%p %p %08X %p\n", SchedQueue, SchedQueue->Func, SchedQueue->Param, TimerIncrement);
         return NULL;
     }
 
@@ -289,21 +336,21 @@ void CancelEvent(SchedEvent* event)
 
 void RunEvents(s32 cycles)
 {
-    //printf("runevents %d\n", cycles);
     SchedCycles += cycles;
 
-    SchedEvent* evt = SchedQueue;
-    while (evt && evt->Delay <= SchedCycles)
+    while (SchedQueue && SchedQueue->Delay <= SchedCycles)
     {
-        evt->Func(evt->Param);
-        evt->Func = NULL;
-        SchedCycles -= evt->Delay;
+        void (*func)(u32) = SchedQueue->Func;
+        u32 param = SchedQueue->Param;
 
-        evt = evt->NextEvent;
+        SchedQueue->Func = NULL;
+        SchedCycles -= SchedQueue->Delay;
+
+        SchedQueue = SchedQueue->NextEvent;
+        if (SchedQueue) SchedQueue->PrevEvent = NULL;
+
+        func(param);
     }
-
-    SchedQueue = evt;
-    if (evt) evt->PrevEvent = NULL;
 }
 
 void CompensateARM7()
@@ -320,12 +367,15 @@ void CompensateARM7()
 
 void Halt()
 {
+    printf("Halt()\n");
     Running = false;
 }
 
 
-void MapSharedWRAM()
+void MapSharedWRAM(u8 val)
 {
+    WRAMCnt = val;
+
     switch (WRAMCnt & 0x3)
     {
     case 0:
@@ -361,13 +411,27 @@ void MapSharedWRAM()
 
 void TriggerIRQ(u32 cpu, u32 irq)
 {
-    if (!(IME[cpu] & 0x1)) return;
-
     irq = 1 << irq;
     if (!(IE[cpu] & irq)) return;
 
     IF[cpu] |= irq;
+
+    if (!(IME[cpu] & 0x1)) return;
     (cpu?ARM7:ARM9)->TriggerIRQ();
+}
+
+bool HaltInterrupted(u32 cpu)
+{
+    if (cpu == 0)
+    {
+        if (!(IME[0] & 0x1))
+            return false;
+    }
+
+    if (IF[cpu] & IE[cpu])
+        return true;
+
+    return false;
 }
 
 
@@ -437,6 +501,86 @@ void TimerStart(u32 id, u16 cnt)
 
 
 
+void ROMEndTransfer(u32 cpu)
+{
+    ROMControl &= ~(1<<23);
+    ROMControl &= ~(1<<31);
+
+    if (ROMSPIControl & (1<<14))
+        TriggerIRQ(cpu, IRQ_CartSendDone);
+}
+
+void ROMStartTransfer(u32 cpu)
+{
+    u32 datasize = (ROMControl >> 24) & 0x7;
+    if (datasize == 7)
+        datasize = 4;
+    else if (datasize > 0)
+        datasize = 0x100 << datasize;
+
+    //datasize += (ROMControl & 0x1FFF); // KEY1 gap
+
+    ROMReadPos = 0;
+    ROMReadSize = datasize;
+
+    *(u32*)&ROMCurCommand[0] = *(u32*)&ROMCommand[0];
+    *(u32*)&ROMCurCommand[4] = *(u32*)&ROMCommand[4];
+
+    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+           ROMSPIControl, ROMControl,
+           ROMCommand[0], ROMCommand[1], ROMCommand[2], ROMCommand[3],
+           ROMCommand[4], ROMCommand[5], ROMCommand[6], ROMCommand[7],
+           datasize);
+
+    ROMControl |= (1<<23);
+
+    if (datasize == 0)
+    {
+        // hax
+        /*if (ROMCommand[0] == 0xBA)
+            ScheduleEvent(0x910*5*2, ROMEndTransfer, cpu);
+        else*/
+        ROMEndTransfer(cpu);
+        printf("ROM transfer done. %08X %08X\n", ARM7Read32(0x03FFFFF8), ARM7Read32(0x03FFFFFC));
+    }
+}
+
+u32 ROMReadData(u32 cpu)
+{
+    u32 ret = 0;
+
+    switch (ROMCurCommand[0])
+    {
+    case 0x9F: ret = 0xFFFFFFFF; break;
+
+    case 0x00:
+        // TODO: feed an actual cart header!
+        ret = 0;
+        break;
+
+    case 0x90:
+        // chip ID
+        ret = 0;
+        break;
+    }
+
+    ROMReadPos += 4;
+    if (ROMReadPos >= ROMReadSize)
+        ROMEndTransfer(cpu);
+
+    return ret;
+}
+
+
+
+void debug(u32 param)
+{
+    printf("ARM9 PC=%08X\n", ARM9->R[15]);
+    printf("ARM7 PC=%08X\n", ARM7->R[15]);
+}
+
+
+
 u8 ARM9Read8(u32 addr)
 {
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
@@ -476,9 +620,15 @@ u8 ARM9Read8(u32 addr)
         case 0x04000247: return WRAMCnt;
         case 0x04000248: return GPU2D::VRAMCNT[7];
         case 0x04000249: return GPU2D::VRAMCNT[8];
+
+        case 0x04000300:
+            printf("ARM9 POSTFLG READ @ %08X\n", ARM9->R[15]);
+            return 0;
         }
         printf("unknown arm9 IO read8 %08X\n", addr);
         return 0;
+
+    case 0x05000000: return *(u8*)&GPU2D::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -496,6 +646,8 @@ u8 ARM9Read8(u32 addr)
                 return *(u8*)&vram[addr & 0x3FFF];
         }
         return 0;
+
+    case 0x07000000: return *(u8*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -543,11 +695,17 @@ u16 ARM9Read16(u32 addr)
 
         case 0x04000180: return IPCSync9;
 
+        case 0x04000204: return 0;//0xFFFF;
+
         case 0x04000208: return IME[0];
+
+        case 0x04000304: return PowerControl9;
         }
 
         printf("unknown arm9 IO read16 %08X\n", addr);
         return 0;
+
+    case 0x05000000: return *(u16*)&GPU2D::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -565,6 +723,8 @@ u16 ARM9Read16(u32 addr)
                 return *(u16*)&vram[addr & 0x3FFF];
         }
         return 0;
+
+    case 0x07000000: return *(u16*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -588,6 +748,7 @@ u32 ARM9Read32(u32 addr)
 
     if (addr >= 0xFFFF1000)
     {
+        printf("!!!!!!!!!!!!!\n");
         Halt();
         /*FILE* f = fopen("ram.bin", "wb");
         fwrite(MainRAM, 0x400000, 1, f);
@@ -627,6 +788,8 @@ u32 ARM9Read32(u32 addr)
         printf("unknown arm9 IO read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
         return 0;
 
+    case 0x05000000: return *(u32*)&GPU2D::Palette[addr & 0x7FF];
+
     case 0x06000000:
         {
             u32 chunk = (addr >> 14) & 0x7F;
@@ -643,6 +806,8 @@ u32 ARM9Read32(u32 addr)
                 return *(u32*)&vram[addr & 0x3FFF];
         }
         return 0;
+
+    case 0x07000000: return *(u32*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -675,6 +840,15 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x04000000:
         switch (addr)
         {
+        case 0x040001A0:
+            ROMSPIControl &= 0xFF00;
+            ROMSPIControl |= val;
+            return;
+        case 0x040001A1:
+            ROMSPIControl &= 0x00FF;
+            ROMSPIControl |= (val << 8);
+            return;
+
         case 0x04000208: IME[0] = val; return;
 
         case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
@@ -684,14 +858,16 @@ void ARM9Write8(u32 addr, u8 val)
         case 0x04000244: GPU2D::MapVRAM_E(4, val); return;
         case 0x04000245: GPU2D::MapVRAM_FG(5, val); return;
         case 0x04000246: GPU2D::MapVRAM_FG(6, val); return;
-        case 0x04000247:
-            WRAMCnt = val;
-            MapSharedWRAM();
-            return;
+        case 0x04000247: MapSharedWRAM(val); return;
         case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
         case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
         }
         break;
+
+    case 0x05000000:
+    case 0x06000000:
+    case 0x07000000:
+        return;
     }
 
     printf("unknown arm9 write8 %08X %02X\n", addr, val);
@@ -746,9 +922,40 @@ void ARM9Write16(u32 addr, u16 val)
             CompensateARM7();
             return;
 
+        case 0x040001A0:
+            ROMSPIControl = val;
+            return;
+
         case 0x04000208: IME[0] = val; return;
+
+        case 0x04000240:
+            GPU2D::MapVRAM_AB(0, val & 0xFF);
+            GPU2D::MapVRAM_AB(1, val >> 8);
+            return;
+        case 0x04000242:
+            GPU2D::MapVRAM_CD(2, val & 0xFF);
+            GPU2D::MapVRAM_CD(3, val >> 8);
+            return;
+        case 0x04000244:
+            GPU2D::MapVRAM_E(4, val & 0xFF);
+            GPU2D::MapVRAM_FG(5, val >> 8);
+            return;
+        case 0x04000246:
+            GPU2D::MapVRAM_FG(6, val & 0xFF);
+            MapSharedWRAM(val >> 8);
+            return;
+        case 0x04000248:
+            GPU2D::MapVRAM_H(7, val & 0xFF);
+            GPU2D::MapVRAM_I(8, val >> 8);
+            return;
+
+        case 0x04000304: PowerControl9 = val; return;
         }
         break;
+
+    case 0x05000000:
+        *(u16*)&GPU2D::Palette[addr & 0x7FF] = val;
+        return;
 
     case 0x06000000:
         {
@@ -765,6 +972,10 @@ void ARM9Write16(u32 addr, u16 val)
             if (vram)
                 *(u16*)&vram[addr & 0x3FFF] = val;
         }
+        return;
+
+    case 0x07000000:
+        *(u16*)&GPU2D::OAM[addr & 0x7FF] = val;
         return;
     }
 
@@ -814,11 +1025,42 @@ void ARM9Write32(u32 addr, u32 val)
             TimerStart(3, val>>16);
             return;
 
+        case 0x040001A0:
+            ROMSPIControl = val & 0xFFFF;
+            // TODO: SPI shit
+            return;
+        case 0x040001A4:
+            val &= ~0x00800000;
+            ROMControl = val;
+            if (val & 0x80000000) ROMStartTransfer(0);
+            return;
+
         case 0x04000208: IME[0] = val; return;
-        case 0x04000210: IE[0] = val; printf("ARM9 IE == %08X\n", val); return;
+        case 0x04000210: IE[0] = val; return;
         case 0x04000214: IF[0] &= ~val; return;
+
+        case 0x04000240:
+            GPU2D::MapVRAM_AB(0, val & 0xFF);
+            GPU2D::MapVRAM_AB(1, (val >> 8) & 0xFF);
+            GPU2D::MapVRAM_CD(2, (val >> 16) & 0xFF);
+            GPU2D::MapVRAM_CD(3, val >> 24);
+            return;
+        case 0x04000244:
+            GPU2D::MapVRAM_E(4, val & 0xFF);
+            GPU2D::MapVRAM_FG(5, (val >> 8) & 0xFF);
+            GPU2D::MapVRAM_FG(6, (val >> 16) & 0xFF);
+            MapSharedWRAM(val >> 24);
+            return;
+        case 0x04000248:
+            GPU2D::MapVRAM_H(7, val & 0xFF);
+            GPU2D::MapVRAM_I(8, (val >> 8) & 0xFF);
+            return;
         }
         break;
+
+    case 0x05000000:
+        *(u32*)&GPU2D::Palette[addr & 0x7FF] = val;
+        return;
 
     case 0x06000000:
         {
@@ -835,6 +1077,10 @@ void ARM9Write32(u32 addr, u32 val)
             if (vram)
                 *(u32*)&vram[addr & 0x3FFF] = val;
         }
+        return;
+
+    case 0x07000000:
+        *(u32*)&GPU2D::OAM[addr & 0x7FF] = val;
         return;
     }
 
@@ -873,6 +1119,10 @@ u8 ARM7Read8(u32 addr)
 
         case 0x04000240: return GPU2D::VRAMSTAT;
         case 0x04000241: return WRAMCnt;
+
+        case 0x04000300:
+            printf("ARM7 POSTFLG READ @ %08X\n", ARM7->R[15]);
+            return 0;
         }
         printf("unknown arm7 IO read8 %08X\n", addr);
         return 0;
@@ -926,6 +1176,7 @@ u16 ARM7Read16(u32 addr)
         case 0x0400010C: return Timers[7].Counter;
         case 0x0400010E: return Timers[7].Control;
 
+        case 0x04000134: return 0x8000;
         case 0x04000138: return 0; // RTC shit
 
         case 0x04000180: return IPCSync7;
@@ -935,6 +1186,8 @@ u16 ARM7Read16(u32 addr)
 
         case 0x04000208: return IME[1];
 
+        case 0x04000304: return PowerControl7;
+
         case 0x04000504: return _soundbias;
         }
 
@@ -942,8 +1195,7 @@ u16 ARM7Read16(u32 addr)
         return 0;
 
     case 0x04800000:
-        // wifi shit
-        return 0;
+        return Wifi::Read(addr);
 
     case 0x06000000:
     case 0x06800000:
@@ -990,7 +1242,7 @@ u32 ARM7Read32(u32 addr)
         case 0x0400010C: return Timers[7].Counter | (Timers[7].Control << 16);
 
         case 0x040001A4:
-            return 0x00800000; // hax
+            return ROMControl;
 
         case 0x040001C0:
             return SPI::ReadCnt() | (SPI::ReadData() << 16);
@@ -998,6 +1250,8 @@ u32 ARM7Read32(u32 addr)
         case 0x04000208: return IME[1];
         case 0x04000210: return IE[1];
         case 0x04000214: return IF[1];
+
+        case 0x04100010: return ROMReadData(1);
         }
 
         printf("unknown arm7 IO read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -1013,7 +1267,6 @@ u32 ARM7Read32(u32 addr)
         }
         return 0;
     }
-if ((addr&0xFF000000) == 0xEA000000) Halt();
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
@@ -1042,15 +1295,33 @@ void ARM7Write8(u32 addr, u8 val)
         case 0x04000138:
             return;
 
-        case 0x04000301:
-            if (val == 0x80) ARM7->Halt(1);
+        case 0x040001A0:
+            ROMSPIControl &= 0xFF00;
+            ROMSPIControl |= val;
             return;
+        case 0x040001A1:
+            ROMSPIControl &= 0x00FF;
+            ROMSPIControl |= (val << 8);
+            return;
+
+        case 0x040001A8: ROMCommand[0] = val; return;
+        case 0x040001A9: ROMCommand[1] = val; return;
+        case 0x040001AA: ROMCommand[2] = val; return;
+        case 0x040001AB: ROMCommand[3] = val; return;
+        case 0x040001AC: ROMCommand[4] = val; return;
+        case 0x040001AD: ROMCommand[5] = val; return;
+        case 0x040001AE: ROMCommand[6] = val; return;
+        case 0x040001AF: ROMCommand[7] = val; return;
 
         case 0x040001C2:
             SPI::WriteData(val);
             return;
 
         case 0x04000208: IME[1] = val; return;
+
+        case 0x04000301:
+            if (val == 0x80) ARM7->Halt(1);
+            return;
         }
         break;
 
@@ -1126,6 +1397,10 @@ void ARM7Write16(u32 addr, u16 val)
             }
             return;
 
+        case 0x040001A0:
+            ROMSPIControl = val;
+            return;
+
         case 0x040001C0:
             SPI::WriteCnt(val);
             return;
@@ -1136,6 +1411,8 @@ void ARM7Write16(u32 addr, u16 val)
 
         case 0x04000208: IME[1] = val; return;
 
+        case 0x04000304: PowerControl7 = val; return;
+
         case 0x04000504:
             _soundbias = val & 0x3FF;
             return;
@@ -1143,7 +1420,7 @@ void ARM7Write16(u32 addr, u16 val)
         break;
 
     case 0x04800000:
-        // wifi shit
+        Wifi::Write(addr, val);
         return;
 
     case 0x06000000:
@@ -1197,8 +1474,14 @@ void ARM7Write32(u32 addr, u32 val)
             TimerStart(7, val>>16);
             return;
 
+        case 0x040001A0:
+            ROMSPIControl = val & 0xFFFF;
+            // TODO: SPI shit
+            return;
         case 0x040001A4:
-            if (val & 0x80000000) TriggerIRQ(1, IRQ_CartSendDone); // HAX!!!!
+            val &= ~0x00800000;
+            ROMControl = val;
+            if (val & 0x80000000) ROMStartTransfer(1);
             return;
 
         case 0x04000208: IME[1] = val; return;

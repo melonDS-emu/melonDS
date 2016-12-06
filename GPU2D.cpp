@@ -32,6 +32,9 @@ u16 VCount;
 
 u16 DispStat[2], VMatch[2];
 
+u8 Palette[2*1024];
+u8 OAM[2*1024];
+
 u8 VRAM_A[128*1024];
 u8 VRAM_B[128*1024];
 u8 VRAM_C[128*1024];
@@ -62,6 +65,9 @@ void Reset()
     DispStat[1] = 0;
     VMatch[0] = 0;
     VMatch[1] = 0;
+
+    memset(Palette, 0, 2*1024);
+    memset(OAM, 0, 2*1024);
 
     memset(VRAM_A, 0, 128*1024);
     memset(VRAM_B, 0, 128*1024);

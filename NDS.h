@@ -73,7 +73,7 @@ typedef struct
     SchedEvent* Event;
 
 } Timer;
-
+extern u32 IME[2];
 extern u32 ARM9ITCMSize;
 extern u32 ARM9DTCMBase, ARM9DTCMSize;
 
@@ -91,9 +91,10 @@ void CompensateARM7();
 
 void Halt();
 
-void MapSharedWRAM();
+void MapSharedWRAM(u8 val);
 
 void TriggerIRQ(u32 cpu, u32 irq);
+bool HaltInterrupted(u32 cpu);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);
