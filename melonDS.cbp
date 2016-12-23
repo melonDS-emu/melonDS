@@ -32,8 +32,27 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Unit filename="ARM.cpp" />
+		<Unit filename="ARM.h" />
+		<Unit filename="ARMInterpreter.cpp" />
+		<Unit filename="ARMInterpreter.h" />
+		<Unit filename="ARMInterpreter_ALU.cpp" />
+		<Unit filename="ARMInterpreter_ALU.h" />
+		<Unit filename="ARMInterpreter_Branch.cpp" />
+		<Unit filename="ARMInterpreter_Branch.h" />
+		<Unit filename="ARMInterpreter_LoadStore.cpp" />
+		<Unit filename="ARMInterpreter_LoadStore.h" />
+		<Unit filename="ARM_InstrTable.h" />
+		<Unit filename="CP15.cpp" />
+		<Unit filename="CP15.h" />
+		<Unit filename="GPU2D.cpp" />
+		<Unit filename="GPU2D.h" />
 		<Unit filename="NDS.cpp" />
 		<Unit filename="NDS.h" />
+		<Unit filename="SPI.cpp" />
+		<Unit filename="SPI.h" />
+		<Unit filename="Wifi.cpp" />
+		<Unit filename="Wifi.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="types.h" />
 		<Extensions>

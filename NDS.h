@@ -73,7 +73,11 @@ typedef struct
     SchedEvent* Event;
 
 } Timer;
+
+// hax
 extern u32 IME[2];
+extern Timer Timers[8];
+
 extern u32 ARM9ITCMSize;
 extern u32 ARM9DTCMBase, ARM9DTCMSize;
 
@@ -81,6 +85,9 @@ void Init();
 void Reset();
 
 void RunFrame();
+
+void PressKey(u32 key);
+void ReleaseKey(u32 key);
 
 SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
 void CancelEvent(SchedEvent* event);

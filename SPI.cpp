@@ -197,6 +197,7 @@ void WriteData(u8 val)
     switch (CNT & 0x0300)
     {
     case 0x0100: SPI_Firmware::Write(val, CNT&(1<<11)); break;
+    default: printf("SPI to unknown device %04X %02X\n", CNT, val); break;
     }
 
     if (CNT & (1<<14))

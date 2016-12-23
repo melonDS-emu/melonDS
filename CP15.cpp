@@ -42,10 +42,6 @@ void Reset()
 
     DTCMSetting = 0;
     ITCMSetting = 0;
-    //DTCMSetting = 0x0300000A;
-    //ITCMSetting = 0x00000020;
-    //UpdateDTCMSetting();
-    //UpdateITCMSetting();
 }
 
 
@@ -94,6 +90,7 @@ void Write(u32 id, u32 val)
 
 
     case 0x704:
+    case 0x782:
         NDS::ARM9->Halt(1);
         return;
 

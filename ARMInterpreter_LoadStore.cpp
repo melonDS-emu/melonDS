@@ -29,12 +29,12 @@ namespace ARMInterpreter
     x <<= s;
 
 #define LSR_IMM(x, s) \
-    if (s == 0) s = 32; \
-    x >>= s;
+    if (s == 0) x = 0; \
+    else        x >>= s;
 
 #define ASR_IMM(x, s) \
-    if (s == 0) s = 32; \
-    x = ((s32)x) >> s;
+    if (s == 0) x = ((s32)x) >> 31; \
+    else        x = ((s32)x) >> s;
 
 #define ROR_IMM(x, s) \
     if (s == 0) \
@@ -121,6 +121,7 @@ namespace ARMInterpreter
     u32 val = cpu->Read8(offset); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
 
 #define A_LDRB_POST \
@@ -128,6 +129,7 @@ namespace ARMInterpreter
     u32 val = cpu->Read8(addr, cpu->CurInstr & (1<<21)); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
 
 
@@ -223,7 +225,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     return C_N(2) + cpu->MemWaitstate(2, addr);
 
-// TODO: CHECK LDRD/STRD TIMINGS!!
+// TODO: CHECK LDRD/STRD TIMINGS!! also, ARM9-only
 
 #define A_LDRD \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -259,38 +261,44 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
 
 #define A_LDRH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(offset); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(offset); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(addr); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = cpu->Read16(addr); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(2, addr);
 
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(offset); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(offset); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(3, offset);
 
 #define A_LDRSB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(addr); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->Read8(addr); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(3, addr);
 
 #define A_LDRSH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(offset); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(offset); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(2, offset);
 
 #define A_LDRSH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(addr); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
+    cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->Read16(addr); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
     return C_N(2) + cpu->MemWaitstate(2, addr);
 
 
@@ -331,11 +339,12 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH)
 s32 A_SWP(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
 
     u32 val = cpu->Read32(base);
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = ROR(val, 8*(base&0x3));
 
-    cpu->Write32(base, cpu->R[cpu->CurInstr & 0xF]);
+    cpu->Write32(base, rm);
 
     // the 1S is a code cycle. TODO
     return C_S(1) + C_N(2) + C_I(1) + 2*cpu->MemWaitstate(3, base);
@@ -344,10 +353,11 @@ s32 A_SWP(ARM* cpu)
 s32 A_SWPB(ARM* cpu)
 {
     u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 rm = cpu->R[cpu->CurInstr & 0xF] & 0xFF;
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = cpu->Read8(base);
 
-    cpu->Write8(base, cpu->R[cpu->CurInstr & 0xF]);
+    cpu->Write8(base, rm);
 
     // the 1S is a code cycle. TODO
     return C_S(1) + C_N(2) + C_I(1) + 2*cpu->MemWaitstate(3, base);
@@ -357,7 +367,9 @@ s32 A_SWPB(ARM* cpu)
 
 s32 A_LDM(ARM* cpu)
 {
-    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 baseid = (cpu->CurInstr >> 16) & 0xF;
+    u32 base = cpu->R[baseid];
+    u32 wbbase;
     u32 preinc = (cpu->CurInstr & (1<<24));
 
     if (!(cpu->CurInstr & (1<<23)))
@@ -371,18 +383,7 @@ s32 A_LDM(ARM* cpu)
         if (cpu->CurInstr & (1<<21))
         {
             // pre writeback
-            u32 rb = (cpu->CurInstr >> 16) & 0xF;
-            if (cpu->CurInstr & (1 << rb))
-            {
-                if (cpu->Num == 0)
-                {
-                    u32 rlist = cpu->CurInstr & 0xFFFF;
-                    if ((!(rlist & ~(1 << rb))) || (rlist & ~((2 << rb) - 1)))
-                        cpu->R[rb] = base;
-                }
-            }
-            else
-                cpu->R[rb] = base;
+            wbbase = base;
         }
 
         preinc = !preinc;
@@ -420,21 +421,23 @@ s32 A_LDM(ARM* cpu)
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
 
-    if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
+    if (cpu->CurInstr & (1<<21))
     {
         // post writeback
-        u32 rb = (cpu->CurInstr >> 16) & 0xF;
-        if (cpu->CurInstr & (1 << rb))
+        if (cpu->CurInstr & (1<<23))
+            wbbase = base;
+
+        if (cpu->CurInstr & (1 << baseid))
         {
             if (cpu->Num == 0)
             {
                 u32 rlist = cpu->CurInstr & 0xFFFF;
-                if ((!(rlist & ~(1 << rb))) || (rlist & ~((2 << rb) - 1)))
-                    cpu->R[rb] = base;
+                if ((!(rlist & ~(1 << baseid))) || (rlist & ~((2 << baseid) - 1)))
+                    cpu->R[baseid] = wbbase;
             }
         }
         else
-            cpu->R[rb] = base;
+            cpu->R[baseid] = wbbase;
     }
 
     return cycles;
@@ -442,7 +445,9 @@ s32 A_LDM(ARM* cpu)
 
 s32 A_STM(ARM* cpu)
 {
-    u32 base = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+    u32 baseid = (cpu->CurInstr >> 16) & 0xF;
+    u32 base = cpu->R[baseid];
+    u32 oldbase = base;
     u32 preinc = (cpu->CurInstr & (1<<24));
 
     if (!(cpu->CurInstr & (1<<23)))
@@ -454,11 +459,7 @@ s32 A_STM(ARM* cpu)
         }
 
         if (cpu->CurInstr & (1<<21))
-        {
-            cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
-            if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
-                printf("!! BAD STM\n");
-        }
+            cpu->R[baseid] = base;
 
         preinc = !preinc;
     }
@@ -473,7 +474,17 @@ s32 A_STM(ARM* cpu)
         if (cpu->CurInstr & (1<<i))
         {
             if (preinc) base += 4;
-            cpu->Write32(base, cpu->R[i]);
+
+            if (i == baseid)
+            {
+                if ((cpu->Num == 0) || (!(cpu->CurInstr & (i-1))))
+                    cpu->Write32(base, oldbase);
+                else
+                    cpu->Write32(base, base); // checkme
+            }
+            else
+                cpu->Write32(base, cpu->R[i]);
+
             cycles += C_S(1) + cpu->MemWaitstate(3, base);
             if (!preinc) base += 4;
         }
@@ -483,11 +494,7 @@ s32 A_STM(ARM* cpu)
         cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
 
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
-    {
-        cpu->R[(cpu->CurInstr >> 16) & 0xF] = base;
-        if (cpu->CurInstr & (1 << ((cpu->CurInstr >> 16) & 0xF)))
-            printf("!! BAD STM\n");
-    }
+        cpu->R[baseid] = base;
 
     return cycles;
 }
@@ -501,7 +508,7 @@ s32 A_STM(ARM* cpu)
 
 s32 T_LDR_PCREL(ARM* cpu)
 {
-    u32 addr = cpu->R[15] + ((cpu->CurInstr & 0xFF) << 2);
+    u32 addr = (cpu->R[15] & ~0x2) + ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = cpu->Read32(addr);
 
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
@@ -527,7 +534,9 @@ s32 T_STRB_REG(ARM* cpu)
 s32 T_LDR_REG(ARM* cpu)
 {
     u32 addr = cpu->R[(cpu->CurInstr >> 3) & 0x7] + cpu->R[(cpu->CurInstr >> 6) & 0x7];
-    cpu->R[cpu->CurInstr & 0x7] = cpu->Read32(addr);
+
+    u32 val = cpu->Read32(addr);
+    cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(addr&0x3));
 
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, addr);
 }
@@ -588,7 +597,8 @@ s32 T_LDR_IMM(ARM* cpu)
     u32 offset = (cpu->CurInstr >> 4) & 0x7C;
     offset += cpu->R[(cpu->CurInstr >> 3) & 0x7];
 
-    cpu->R[cpu->CurInstr & 0x7] = cpu->Read32(offset);
+    u32 val = cpu->Read32(offset);
+    cpu->R[cpu->CurInstr & 0x7] = ROR(val, 8*(offset&0x3));
     return C_S(1) + C_N(1) + C_I(1) + cpu->MemWaitstate(3, offset);
 }
 

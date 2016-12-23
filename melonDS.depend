@@ -1,14 +1,16 @@
 # depslib dependency file v1.0
-1480957085 source:c:\documents\sources\melonds\main.cpp
+1481167563 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
+	<windows.h>
 	"NDS.h"
+	"GPU2D.h"
 
-1480989459 c:\documents\sources\melonds\nds.h
+1481167101 c:\documents\sources\melonds\nds.h
 	"types.h"
 
-1480957224 c:\documents\sources\melonds\types.h
+1481161027 c:\documents\sources\melonds\types.h
 
-1481040741 source:c:\documents\sources\melonds\nds.cpp
+1481230323 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -18,23 +20,23 @@
 	"SPI.h"
 	"Wifi.h"
 
-1480989161 source:c:\documents\sources\melonds\arm.cpp
+1481167780 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
 	"ARMInterpreter.h"
 
-1480975035 c:\documents\sources\melonds\arm.h
+1481062839 c:\documents\sources\melonds\arm.h
 	"types.h"
 	"NDS.h"
 
-1480965403 c:\documents\sources\melonds\arm_instrtable.h
+1481160977 c:\documents\sources\melonds\arm_instrtable.h
 
 1480965273 c:\documents\sources\melonds\arminterpreter.h
 	"types.h"
 	"ARM.h"
 
-1481038843 source:c:\documents\sources\melonds\arminterpreter.cpp
+1481124482 source:c:\documents\sources\melonds\arminterpreter.cpp
 	<stdio.h>
 	"NDS.h"
 	"CP15.h"
@@ -50,20 +52,21 @@
 	<stdio.h>
 	"ARM.h"
 
-1480965420 c:\documents\sources\melonds\arminterpreter_alu.h
+1481160920 c:\documents\sources\melonds\arminterpreter_alu.h
 
-1480966229 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
+1481202027 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
+	<stdio.h>
 	"ARM.h"
 
 1480957165 c:\documents\sources\melonds\arminterpreter_loadstore.h
 
-1480972662 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
+1481203284 source:c:\documents\sources\melonds\arminterpreter_loadstore.cpp
 	<stdio.h>
 	"ARM.h"
 
 1481037554 c:\documents\sources\melonds\cp15.h
 
-1481037609 source:c:\documents\sources\melonds\cp15.cpp
+1481159008 source:c:\documents\sources\melonds\cp15.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -71,18 +74,24 @@
 
 1480957111 c:\documents\sources\melonds\spi.h
 
-1481038838 source:c:\documents\sources\melonds\spi.cpp
+1481058591 source:c:\documents\sources\melonds\spi.cpp
 	<stdio.h>
 	"NDS.h"
 	"SPI.h"
 
-1481033110 source:c:\documents\sources\melonds\gpu2d.cpp
+1481167730 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU2D.h"
 
-1480986603 c:\documents\sources\melonds\gpu2d.h
+1481164639 c:\documents\sources\melonds\gpu2d.h
 
 1481040524 c:\documents\sources\melonds\wifi.h
+
+1481041659 source:c:\documents\sources\melonds\wifi.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"Wifi.h"
 

@@ -72,6 +72,13 @@ A_PROTO_ALU_OP(MOV)
 A_PROTO_ALU_OP(BIC)
 A_PROTO_ALU_OP(MVN)
 
+s32 A_MUL(ARM* cpu);
+s32 A_MLA(ARM* cpu);
+s32 A_UMULL(ARM* cpu);
+s32 A_UMLAL(ARM* cpu);
+s32 A_SMULL(ARM* cpu);
+s32 A_SMLAL(ARM* cpu);
+
 s32 A_CLZ(ARM* cpu);
 
 

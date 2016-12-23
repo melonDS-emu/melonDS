@@ -56,6 +56,8 @@ u8* VRAM_BOBJ[128];
 u8* VRAM_LCD[128];
 u8* VRAM_ARM7[2];
 
+u16 Framebuffer[256*192*2];
+
 
 void Reset()
 {
@@ -88,6 +90,11 @@ void Reset()
     memset(VRAM_BOBJ, 0, sizeof(u8*)*128);
     memset(VRAM_LCD, 0, sizeof(u8*)*128);
     memset(VRAM_ARM7, 0, sizeof(u8*)*2);
+
+    for (int i = 0; i < 256*192*2; i++)
+    {
+        Framebuffer[i] = (i>=256*192)?0x03E0:0x7C00;
+    }
 }
 
 
@@ -657,6 +664,24 @@ void MapVRAM_I(u32 bank, u8 cnt)
 }
 
 
+void DrawScanline(u32 screen, u32 line)
+{
+    u16* dst = &Framebuffer[256 * ((192*screen) + line)];
+
+    if (screen==0)
+    {
+        u16* src = &((u16*)VRAM_A)[256*line];
+        for (int i = 0; i < 256; i++)
+            dst[i] = src[i];
+    }
+    else
+    {
+        for (int i = 0; i < 256; i++)
+            dst[i] = 0x7FFF;
+    }
+}
+
+
 void StartFrame()
 {
     StartScanline(0);
@@ -686,7 +711,9 @@ void StartScanline(u32 line)
 
     if (line < 192)
     {
-        // TODO: draw shit
+        // draw
+        DrawScanline(0, line);
+        DrawScanline(1, line);
 
         NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
     }

@@ -77,6 +77,8 @@ u8 ROMCommand[8];
 u8 ROMCurCommand[8];
 u32 ROMReadPos, ROMReadSize;
 
+u32 KeyInput;
+
 u16 _soundbias; // temp
 
 bool Running;
@@ -120,10 +122,14 @@ void LoadROM()
     {
         u32 tmp;
         fread(&tmp, 4, 1, f);
-        ARM9Write32(bootparams[6]+i, tmp);
+        ARM7Write32(bootparams[6]+i, tmp);
     }
 
     fclose(f);
+
+    CP15::Write(0x910, 0x0300000A);
+    CP15::Write(0x911, 0x00000020);
+    CP15::Write(0x100, 0x00050000);
 
     ARM9->JumpTo(bootparams[1]);
     ARM7->JumpTo(bootparams[5]);
@@ -188,8 +194,8 @@ void Reset()
 
     memset(Timers, 0, 8*sizeof(Timer));
 
+    GPU2D::Reset();
     SPI::Reset();
-
     Wifi::Reset();
 
     memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
@@ -198,6 +204,8 @@ void Reset()
     ARM9Cycles = 0;
     ARM7Cycles = 0;
     SchedCycles = 0;
+
+    KeyInput = 0x007F03FF;
 
     _soundbias = 0;
 
@@ -365,6 +373,17 @@ void CompensateARM7()
 }
 
 
+void PressKey(u32 key)
+{
+    KeyInput &= ~(1 << key);
+}
+
+void ReleaseKey(u32 key)
+{
+    KeyInput |= (1 << key);
+}
+
+
 void Halt()
 {
     printf("Halt()\n");
@@ -412,7 +431,7 @@ void MapSharedWRAM(u8 val)
 void TriggerIRQ(u32 cpu, u32 irq)
 {
     irq = 1 << irq;
-    if (!(IE[cpu] & irq)) return;
+    //if (!(IE[cpu] & irq)) return;
 
     IF[cpu] |= irq;
 
@@ -457,7 +476,10 @@ void TimerIncrement(u32 param)
             timer->Counter = timer->Reload;
 
             if (timer->Control & (1<<6))
+            {
                 TriggerIRQ(cpu, IRQ_Timer0 + tid);
+                //if (cpu==1) printf("Timer%d IRQ %04X\n", tid, timer->Control);
+            }
 
             // cascade
             if (tid == 3)
@@ -483,16 +505,15 @@ void TimerStart(u32 id, u16 cnt)
 
     if ((!curstart) && newstart)
     {
+        timer->Counter = timer->Reload;
+
         // start the timer, if it's not a cascading timer
         if (!(cnt & (1<<2)))
-        {
-            timer->Counter = timer->Reload;
             timer->Event = ScheduleEvent(TimerPrescaler[cnt&0x3], TimerIncrement, id);
-        }
         else
             timer->Event = NULL;
     }
-    else if (curstart && !newstart)
+    else if (curstart && (!newstart))
     {
         if (timer->Event)
             CancelEvent(timer->Event);
@@ -693,6 +714,8 @@ u16 ARM9Read16(u32 addr)
         case 0x0400010C: return Timers[3].Counter;
         case 0x0400010E: return Timers[3].Control;
 
+        case 0x04000130: return KeyInput & 0xFFFF;
+
         case 0x04000180: return IPCSync9;
 
         case 0x04000204: return 0;//0xFFFF;
@@ -849,7 +872,7 @@ void ARM9Write8(u32 addr, u8 val)
             ROMSPIControl |= (val << 8);
             return;
 
-        case 0x04000208: IME[0] = val; return;
+        case 0x04000208: IME[0] = val & 0x1; return;
 
         case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
         case 0x04000241: GPU2D::MapVRAM_AB(1, val); return;
@@ -926,7 +949,7 @@ void ARM9Write16(u32 addr, u16 val)
             ROMSPIControl = val;
             return;
 
-        case 0x04000208: IME[0] = val; return;
+        case 0x04000208: IME[0] = val & 0x1; return;
 
         case 0x04000240:
             GPU2D::MapVRAM_AB(0, val & 0xFF);
@@ -950,6 +973,8 @@ void ARM9Write16(u32 addr, u16 val)
             return;
 
         case 0x04000304: PowerControl9 = val; return;
+
+        //case 0x04001036: ARM7->debug=2; break;
         }
         break;
 
@@ -1035,8 +1060,25 @@ void ARM9Write32(u32 addr, u32 val)
             if (val & 0x80000000) ROMStartTransfer(0);
             return;
 
-        case 0x04000208: IME[0] = val; return;
-        case 0x04000210: IE[0] = val; return;
+        case 0x04000208: IME[0] = val & 0x1; return;
+        case 0x04000210: IE[0] = val; printf("%08X %08X %08X\n", ARM7->R[15], WRAMCnt, ARM7->CPSR);
+        /*{
+            FILE* f;
+            f = fopen("ARM7FIRM.bin", "wb");
+            for (u32 i = 0; i < 0x18000; i+=4)
+            {
+                u32 tmp = ARM7Read32(0x37F8000+i);
+                fwrite(&tmp, 4, 1, f);
+            }
+            fclose(f);
+            f = fopen("ARM9FIRM.bin", "wb");
+            for (u32 i = 0; i < 0x400000; i+=4)
+            {
+                u32 tmp = ARM9Read32(0x2000000+i);
+                fwrite(&tmp, 4, 1, f);
+            }
+            fclose(f);
+            }*/return;
         case 0x04000214: IF[0] &= ~val; return;
 
         case 0x04000240:
@@ -1093,6 +1135,7 @@ u8 ARM7Read8(u32 addr)
 {
     if (addr < 0x00004000)
     {
+        if (ARM7->R[15] > 0x4000) printf("BAD BIOS READ8 %08X FROM %08X\n", addr, ARM7->R[15]);
         return *(u8*)&ARM7BIOS[addr];
     }
 
@@ -1146,6 +1189,7 @@ u16 ARM7Read16(u32 addr)
 {
     if (addr < 0x00004000)
     {
+        if (ARM7->R[15] > 0x4000) printf("BAD BIOS READ16 %08X FROM %08X\n", addr, ARM7->R[15]);
         return *(u16*)&ARM7BIOS[addr];
     }
 
@@ -1175,6 +1219,9 @@ u16 ARM7Read16(u32 addr)
         case 0x0400010A: return Timers[6].Control;
         case 0x0400010C: return Timers[7].Counter;
         case 0x0400010E: return Timers[7].Control;
+
+        case 0x04000130: return KeyInput & 0xFFFF;
+        case 0x04000136: return KeyInput >> 16;
 
         case 0x04000134: return 0x8000;
         case 0x04000138: return 0; // RTC shit
@@ -1216,6 +1263,8 @@ u32 ARM7Read32(u32 addr)
 {
     if (addr < 0x00004000)
     {
+        if (ARM7->R[15] > 0x4000) {printf("BAD BIOS READ32 %08X FROM %08X | %08X\n", addr, ARM7->R[15], ARM7Read32(0x0380776C+12));return 0xFFFFFFFF;}
+        if (addr < 0x1204 && ARM7->R[15] >= 0x1204) printf("BAD BIOS READ32 %08X FROM %08X\n", addr, ARM7->R[15]);
         return *(u32*)&ARM7BIOS[addr];
     }
 
@@ -1274,6 +1323,7 @@ u32 ARM7Read32(u32 addr)
 
 void ARM7Write8(u32 addr, u8 val)
 {
+    if (addr==0x3807764) printf("DERP! %02X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1317,7 +1367,7 @@ void ARM7Write8(u32 addr, u8 val)
             SPI::WriteData(val);
             return;
 
-        case 0x04000208: IME[1] = val; return;
+        case 0x04000208: IME[1] = val & 0x1; return;
 
         case 0x04000301:
             if (val == 0x80) ARM7->Halt(1);
@@ -1355,6 +1405,7 @@ void ARM7Write8(u32 addr, u8 val)
 
 void ARM7Write16(u32 addr, u16 val)
 {
+    if (addr==0x3807764) printf("DERP! %04X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1377,12 +1428,22 @@ void ARM7Write16(u32 addr, u16 val)
 
         case 0x04000100: Timers[4].Reload = val; return;
         case 0x04000102: TimerStart(4, val); return;
-        case 0x04000104: Timers[5].Reload = val; return;
-        case 0x04000106: TimerStart(5, val); return;
+        case 0x04000104: Timers[5].Reload = val;
+            Timers[5].Reload = 0xFFE0;
+            // hax.
+            // firmware bootloader sets it to 0xFFFE, which doesn't give it enough time to do its IRQ handling shit before getting another IRQ
+            //printf("TIMER RELOAD=%04X FROM %08X, %08X %08X\n", val, ARM7->R[15], ARM7->R[4], ARM7->CPSR);
+            return;
+        case 0x04000106: TimerStart(5, val); /*printf("TIMER CNT=%04X FROM %08X | %08X%08X - %08X%08X | %04X %04X %04X\n",
+                                                    val, ARM7->R[15],
+                                                    ARM7Read32(ARM7->R[4]+0x10), ARM7Read32(ARM7->R[4]+0xC), ARM7->R[1], ARM7->R[0],
+                                                    Timers[4].Control, Timers[4].Counter, Timers[4].Reload);*/return;
         case 0x04000108: Timers[6].Reload = val; return;
         case 0x0400010A: TimerStart(6, val); return;
         case 0x0400010C: Timers[7].Reload = val; return;
         case 0x0400010E: TimerStart(7, val); return;
+
+        case 0x04000134: return;printf("set debug port %04X %08X\n", val, ARM7Read32(ARM7->R[13]+4)); return;
 
         case 0x04000138: return; // RTC shit
 
@@ -1409,7 +1470,7 @@ void ARM7Write16(u32 addr, u16 val)
             SPI::WriteData(val & 0xFF);
             return;
 
-        case 0x04000208: IME[1] = val; return;
+        case 0x04000208: IME[1] = val & 0x1; return;
 
         case 0x04000304: PowerControl7 = val; return;
 
@@ -1439,6 +1500,8 @@ void ARM7Write16(u32 addr, u16 val)
 
 void ARM7Write32(u32 addr, u32 val)
 {
+    if (addr==0x27FF890) printf("HAHA! %08X\n", val);
+    if (addr==0x3807764) printf("DERP! %08X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1484,11 +1547,11 @@ void ARM7Write32(u32 addr, u32 val)
             if (val & 0x80000000) ROMStartTransfer(1);
             return;
 
-        case 0x04000208: IME[1] = val; return;
+        case 0x04000208: IME[1] = val & 0x1; return;
         case 0x04000210: IE[1] = val; return;
         case 0x04000214: IF[1] &= ~val; return;
         }
-        return;
+        break;
 
     case 0x06000000:
     case 0x06800000:

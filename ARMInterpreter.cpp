@@ -201,7 +201,8 @@ s32 T_SVC(ARM* cpu)
     cpu->R[14] = cpu->R[15] - 2;
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
 
-    //printf("ARM%d SWI %02X %08X,%08X,%08X LR=%08X\n", cpu->Num?7:9, (cpu->CurInstr & 0xFF), cpu->R[0], cpu->R[1], cpu->R[2], cpu->R[14]);
+    //printf("ARM%d SWI %02X %08X,%08X,%08X LR=%08X/%08X\n", cpu->Num?7:9, (cpu->CurInstr & 0xFF), cpu->R[0], cpu->R[1], cpu->R[2], cpu->R[14], cpu->R_SVC[1]);
+//printf("%08X\n", cpu->Read32(0x27FF814));
 
     return C_S(2) + C_N(1);
 }

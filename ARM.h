@@ -182,6 +182,8 @@ public:
     u32 ExceptionBase;
 
     static u32 ConditionTable[16];
+
+    u32 debug;
 };
 
 #endif // ARM_H

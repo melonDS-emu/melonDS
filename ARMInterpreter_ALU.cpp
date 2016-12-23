@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <stdio.h>
 #include "ARM.h"
 
 
@@ -34,12 +35,12 @@ namespace ARMInterpreter
     x <<= s;
 
 #define LSR_IMM(x, s) \
-    if (s == 0) s = 32; \
-    x >>= s;
+    if (s == 0) x = 0; \
+    else        x >>= s;
 
 #define ASR_IMM(x, s) \
-    if (s == 0) s = 32; \
-    x = ((s32)x) >> s;
+    if (s == 0) x = ((s32)x) >> 31; \
+    else        x = ((s32)x) >> s;
 
 #define ROR_IMM(x, s) \
     if (s == 0) \
@@ -59,20 +60,29 @@ namespace ARMInterpreter
     }
 
 #define LSR_IMM_S(x, s) \
-    if (s == 0) s = 32; \
-    cpu->SetC(x & (1<<(s-1))); \
-    x >>= s;
+    if (s == 0) { \
+        cpu->SetC(x & (1<<31)); \
+        x = 0; \
+    } else { \
+        cpu->SetC(x & (1<<(s-1))); \
+        x >>= s; \
+    }
 
 #define ASR_IMM_S(x, s) \
-    if (s == 0) s = 32; \
-    cpu->SetC(x & (1<<(s-1))); \
-    x = ((s32)x) >> s;
+    if (s == 0) { \
+        cpu->SetC(x & (1<<31)); \
+        x = ((s32)x) >> 31; \
+    } else { \
+        cpu->SetC(x & (1<<(s-1))); \
+        x = ((s32)x) >> s; \
+    }
 
 #define ROR_IMM_S(x, s) \
     if (s == 0) \
     { \
-        cpu->SetC(x & 1); \
+        u32 newc = (x & 1); \
         x = (x >> 1) | ((cpu->CPSR & 0x20000000) << 2); \
+        cpu->SetC(newc); \
     } \
     else \
     { \
@@ -81,32 +91,35 @@ namespace ARMInterpreter
     }
 
 #define LSL_REG(x, s) \
-    x <<= s;
+    if (s > 31) x = 0; \
+    else        x <<= s;
 
 #define LSR_REG(x, s) \
-    x >>= s;
+    if (s > 31) x = 0; \
+    else        x >>= s;
 
 #define ASR_REG(x, s) \
-    x = ((s32)x) >> s;
+    if (s > 31) x = ((s32)x) >> 31; \
+    else        x = ((s32)x) >> s;
 
 #define ROR_REG(x, s) \
-    x = ROR(x, s);
+    x = ROR(x, (s&0x1F));
 
 #define LSL_REG_S(x, s) \
-    if (s > 0) cpu->SetC(x & (1<<(32-s))); \
-    x <<= s;
+    if (s > 31)     { cpu->SetC(x & (1<<0));      x = 0; } \
+    else if (s > 0) { cpu->SetC(x & (1<<(32-s))); x <<= s; }
 
 #define LSR_REG_S(x, s) \
-    if (s > 0) cpu->SetC(x & (1<<(s-1))); \
-    x >>= s;
+    if (s > 31)     { cpu->SetC(x & (1<<31));    x = 0; } \
+    else if (s > 0) { cpu->SetC(x & (1<<(s-1))); x >>= s; }
 
 #define ASR_REG_S(x, s) \
-    if (s > 0) cpu->SetC(x & (1<<(s-1))); \
-    x = ((s32)x) >> s;
+    if (s > 31)     { cpu->SetC(x & (1<<31));    x = ((s32)x) >> 31; } \
+    else if (s > 0) { cpu->SetC(x & (1<<(s-1))); x = ((s32)x) >> s; }
 
 #define ROR_REG_S(x, s) \
     if (s > 0) cpu->SetC(x & (1<<(s-1))); \
-    x = ROR(x, s);
+    x = ROR(x, (s&0x1F));
 
 
 
@@ -120,6 +133,7 @@ namespace ARMInterpreter
 
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
+    if ((cpu->CurInstr&0xF)==15) b += 4; \
     shiftop(b, cpu->R[(cpu->CurInstr>>8)&0xF]);
 
 
@@ -300,7 +314,7 @@ A_IMPLEMENT_ALU_OP(AND)
 
 #define A_EOR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 res = a | b; \
+    u32 res = a ^ b; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -494,7 +508,7 @@ A_IMPLEMENT_ALU_OP(ADC)
     u32 res = res_tmp - carry; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(a, b) | CARRY_SUB(res_tmp, carry), \
+                 CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry), \
                  OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -531,7 +545,7 @@ A_IMPLEMENT_ALU_OP(SBC)
     u32 res = res_tmp - carry; \
     cpu->SetNZCV(res & 0x80000000, \
                  !res, \
-                 CARRY_SUB(b, a) | CARRY_SUB(res_tmp, carry), \
+                 CARRY_SUB(b, a) & CARRY_SUB(res_tmp, carry), \
                  OVERFLOW_SUB(b, a, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
@@ -715,6 +729,163 @@ A_IMPLEMENT_ALU_OP(BIC)
     }
 
 A_IMPLEMENT_ALU_OP(MVN)
+
+
+
+s32 A_MUL(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    u32 res = rm * rs;
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
+    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
+    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
+    else cycles = 4;
+
+    return C_S(1) + C_I(cycles);
+}
+
+s32 A_MLA(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
+
+    u32 res = (rm * rs) + rn;
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ(res & 0x80000000,
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+    else cycles = 5;
+
+    return C_S(1) + C_I(cycles);
+}
+
+s32 A_UMULL(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    u64 res = (u64)rm * (u64)rs;
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
+    else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
+    else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
+    else cycles = 5;
+
+    return C_S(1) + C_I(cycles);
+}
+
+s32 A_UMLAL(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    u64 res = (u64)rm * (u64)rs;
+
+    u64 rd = (u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL);
+    res += rd;
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
+    else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
+    else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
+    else cycles = 5;
+
+    return C_S(1) + C_I(cycles);
+}
+
+s32 A_SMULL(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    s64 res = (s64)(s32)rm * (s64)(s32)rs;
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+    else cycles = 5;
+
+    return C_S(1) + C_I(cycles);
+}
+
+s32 A_SMLAL(ARM* cpu)
+{
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    s64 res = (s64)(s32)rm * (s64)(s32)rs;
+
+    s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
+    res += rd;
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+    if (cpu->CurInstr & (1<<20))
+    {
+        cpu->SetNZ((u32)(res >> 63ULL),
+                   !res);
+        if (cpu->Num==1) cpu->SetC(0);
+    }
+
+    u32 cycles;
+    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+    else cycles = 5;
+
+    return C_S(1) + C_I(cycles);
+}
 
 
 
@@ -962,7 +1133,7 @@ s32 T_SBC_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZCV(res & 0x80000000,
                  !res,
-                 CARRY_SUB(a, b) | CARRY_SUB(res_tmp, carry),
+                 CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry),
                  OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res));
     return C_S(1);
 }

@@ -57,6 +57,7 @@ ARM::~ARM()
 void ARM::Reset()
 {
     Cycles = 0;
+    Halted = 0;
 
     for (int i = 0; i < 16; i++)
         R[i] = 0;
@@ -73,7 +74,10 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
     {
+        //if (Num==1 && (CPSR&0x1F)==0x12)
+        //    printf("return from IRQ %08X -> %08X, SP=%08X, %08X\n", R[15], addr, R[13], Read32(0x0380FF7C));
         RestoreCPSR();
+
         if (CPSR & 0x20)    addr |= 0x1;
         else                addr &= ~0x1;
     }
@@ -81,15 +85,15 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
     if (addr & 0x1)
     {
         addr &= ~0x1;
-        NextInstr = Read16(addr);
         R[15] = addr+2;
+        NextInstr = Read16(addr);
         CPSR |= 0x20;
     }
     else
     {
         addr &= ~0x3;
-        NextInstr = Read32(addr);
         R[15] = addr+4;
+        NextInstr = Read32(addr);
         CPSR &= ~0x20;
     }
 }
@@ -209,6 +213,15 @@ void ARM::TriggerIRQ()
     if ((CPSR & 0x80) && (!Halted))
         return;
 
+    /*if (Num==1)
+    {
+        printf("ARM7 IRQ %08X %08X\n", R[15], R_IRQ[0]);
+        if (NDS::Timers[5].Event)
+        {
+            printf("Timer1 %d %d\n", NDS::Timers[5].Counter, NDS::Timers[5].Event->Delay);
+        }
+    }*/
+
     u32 oldcpsr = CPSR;
     CPSR &= ~0xFF;
     CPSR |= 0xD2;
@@ -230,6 +243,8 @@ s32 ARM::Execute(s32 cycles)
     }
 
     s32 cyclesrun = 0;
+    u32 addr = R[15] - (CPSR&0x20 ? 4:8);
+    u32 cpsr = CPSR;
 
     while (cyclesrun < cycles)
     {
@@ -280,6 +295,28 @@ s32 ARM::Execute(s32 cycles)
             if (NDS::IME[Num]&1)
                 TriggerIRQ();
         }
+
+        //if (R[15]==0x2DD0)
+        //    printf("-> %08X %08X\n", R[13], Read32(0x0380FF7C));
+
+        //if (R[15]==0x37FEC7A)
+         //   printf("!!!!!!!! %08X %08X\n", R[14], CPSR);
+
+        //if (R[15] == 0x037FF102+4 && CPSR&0x20) printf("!!!!! %08X -> %08X, %08X -> %08X, %08X, %08X/%08X\n",
+        //                                               addr, R[15], cpsr, CPSR, CurInstr, R_SVC[2], R_IRQ[2]);
+
+        if (addr >= 0x37FAD68 && addr < 0x37FAE40)
+        {
+            if (addr==0x037FAE2A) debug=2;
+            //printf("!!! @ %08X %08X / %08X %08X/%08X\n", addr, R[15], Read32(0x03FFFFFC), Read32(0x04000210), Read32(0x04000214));
+        }
+        else if (debug==2)// && (CPSR&0x1F)==0x12)
+        {
+            //printf("[%08X|%08X] IRQ RET VAL = %08X | %d\n", R[15], CPSR, Read32(0x0380FF7C), cyclesrun);
+        }
+
+        addr = R[15] - (CPSR&0x20 ? 4:8);
+        cpsr = CPSR;
     }
 
     return cyclesrun;

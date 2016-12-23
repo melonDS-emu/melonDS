@@ -39,6 +39,8 @@ extern u8* VRAM_BOBJ[128];
 extern u8* VRAM_LCD[128];
 extern u8* VRAM_ARM7[2];
 
+extern u16 Framebuffer[256*192*2];
+
 
 void Reset();
 
