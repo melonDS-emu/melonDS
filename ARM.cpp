@@ -248,6 +248,8 @@ s32 ARM::Execute(s32 cycles)
 
     while (cyclesrun < cycles)
     {
+        //if(Num==1)printf("%08X %08X\n",  R[15] - (CPSR&0x20 ? 4:8), NextInstr);
+
         if (CPSR & 0x20) // THUMB
         {
             // prefetch
@@ -314,6 +316,18 @@ s32 ARM::Execute(s32 cycles)
         {
             //printf("[%08X|%08X] IRQ RET VAL = %08X | %d\n", R[15], CPSR, Read32(0x0380FF7C), cyclesrun);
         }
+
+        /*if (R[15] == 0x03802D54+2)
+            printf("%08X -> %08X\n", addr, R[15]);
+
+            // 37FE284(ARM) -> 37FE256 -> 37FECA0 !!!
+        if (R[15] == 0x037FE256+4)
+            printf("ROYAL %08X %s -> %08X %s | %08X\n",
+                   addr, (cpsr&0x20)?"THUMB":"ARM", R[15], (CPSR&0x20)?"THUMB":"ARM",
+                   R[0]);
+        if (R[15] == 0x37FE27C)
+            printf("NOTROYAL %08X %08X %08X/%08X\n", R[0], Read32(0x0380593C + 0x3C), R_SVC[2], Read32(0x0380593C-4));*/
+        // R0 = 0380593C
 
         addr = R[15] - (CPSR&0x20 ? 4:8);
         cpsr = CPSR;

@@ -95,6 +95,21 @@ void Write(u32 id, u32 val)
         return;
 
 
+    case 0x761:
+        //printf("inval data cache %08X\n", val);
+        return;
+    case 0x762:
+        printf("inval data cache SI\n");
+        return;
+
+    case 0x7A1:
+        printf("flush data cache %08X\n", val);
+        return;
+    case 0x7A2:
+        printf("flush data cache SI\n");
+        return;
+
+
     case 0x910:
         DTCMSetting = val;
         UpdateDTCMSetting();
@@ -104,6 +119,8 @@ void Write(u32 id, u32 val)
         UpdateITCMSetting();
         return;
     }
+
+    //printf("unknown CP15 write op %03X %08X\n", id, val);
 }
 
 u32 Read(u32 id)
@@ -136,6 +153,7 @@ u32 Read(u32 id)
         return ITCMSetting;
     }
 
+    printf("unknown CP15 read op %03X\n", id);
     return 0;
 }
 

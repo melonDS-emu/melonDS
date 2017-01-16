@@ -98,6 +98,9 @@ void Reset()
 }
 
 
+// VRAM mapping shit.
+// TODO eventually: work out priority orders in case of overlaps. there _are_ games that map overlapping banks.
+
 void MapVRAM_AB(u32 bank, u8 cnt)
 {
     u8 oldcnt = VRAMCNT[bank];

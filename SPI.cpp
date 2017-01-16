@@ -35,6 +35,39 @@ u8 Data;
 u8 StatusReg;
 u32 Addr;
 
+
+u16 CRC16(u8* data, u32 len, u32 start)
+{
+    u16 blarg[8] = {0xC0C1, 0xC181, 0xC301, 0xC601, 0xCC01, 0xD801, 0xF001, 0xA001};
+
+    for (u32 i = 0; i < len; i++)
+    {
+        start ^= data[i];
+
+        for (int j = 0; j < 8; j++)
+        {
+            if (start & 0x1)
+            {
+                start >>= 1;
+                start ^= (blarg[j] << (7-j));
+            }
+            else
+                start >>= 1;
+        }
+    }
+
+    return start & 0xFFFF;
+}
+
+bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
+{
+    u16 crc_stored = *(u16*)&Firmware[crcoffset];
+    u16 crc_calced = CRC16(&Firmware[offset], len, start);
+    //printf("%04X vs %04X\n", crc_stored, crc_calced);
+    return (crc_stored == crc_calced);
+}
+
+
 void Init()
 {
     Firmware = NULL;
@@ -53,6 +86,14 @@ void Reset()
     fread(Firmware, FirmwareLength, 1, f);
 
     fclose(f);
+
+    // verify shit
+    printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
+    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FA00, 0xFE, 0x3FAFE)?"GOOD":"BAD");
+    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FB00, 0xFE, 0x3FBFE)?"GOOD":"BAD");
+    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FC00, 0xFE, 0x3FCFE)?"GOOD":"BAD");
+    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x3FE00, 0x70, 0x3FE72)?"GOOD":"BAD");
+    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x3FF00, 0x70, 0x3FF72)?"GOOD":"BAD");
 
     Hold = 0;
     CurCmd = 0;

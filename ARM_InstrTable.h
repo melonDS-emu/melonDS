@@ -1489,100 +1489,100 @@ INSTRFUNC_PROTO(ARMInstrTable[4096]) =
 
 
     // 1111 0000 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0001 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0010 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0011 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0100 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0101 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0110 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 0111 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1000 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1001 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1010 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1011 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1100 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1101 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1110 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
 
     // 1111 1111 0000
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK,
-    A_UNK, A_UNK, A_UNK, A_UNK
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC,
+    A_SVC, A_SVC, A_SVC, A_SVC
 };
 
 INSTRFUNC_PROTO(THUMBInstrTable[1024]) =

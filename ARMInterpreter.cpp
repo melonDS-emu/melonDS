@@ -106,10 +106,13 @@ s32 A_MSR_REG(ARM* cpu)
     u32 oldpsr = *psr;
 
     u32 mask = 0;
-    if (cpu->CurInstr & (1<<16)) mask |= 0x000000DF;
+    if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
     if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
     if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
     if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+
+    if (!(cpu->CurInstr & (1<<22)))
+        mask &= 0xFFFFFFDF;
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 
@@ -190,6 +193,20 @@ s32 A_MRC(ARM* cpu)
 
 
 
+s32 A_SVC(ARM* cpu)
+{
+    u32 oldcpsr = cpu->CPSR;
+    cpu->CPSR &= ~0xFF;
+    cpu->CPSR |= 0xD3;
+    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+
+    cpu->R_SVC[2] = oldcpsr;
+    cpu->R[14] = cpu->R[15] - 4;
+    cpu->JumpTo(cpu->ExceptionBase + 0x08);
+
+    return C_S(2) + C_N(1);
+}
+
 s32 T_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
@@ -200,9 +217,6 @@ s32 T_SVC(ARM* cpu)
     cpu->R_SVC[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 2;
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
-
-    //printf("ARM%d SWI %02X %08X,%08X,%08X LR=%08X/%08X\n", cpu->Num?7:9, (cpu->CurInstr & 0xFF), cpu->R[0], cpu->R[1], cpu->R[2], cpu->R[14], cpu->R_SVC[1]);
-//printf("%08X\n", cpu->Read32(0x27FF814));
 
     return C_S(2) + C_N(1);
 }
