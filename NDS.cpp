@@ -1433,8 +1433,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 IPCFIFOCnt9 |= 0x4000;
             else
             {
+                bool wasempty = IPCFIFO9->IsEmpty();
                 IPCFIFO9->Write(val);
-                if (IPCFIFOCnt7 & 0x0400)
+                if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     TriggerIRQ(1, IRQ_IPCRecv);
             }
         }
@@ -1736,8 +1737,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
                 IPCFIFOCnt7 |= 0x4000;
             else
             {
+                bool wasempty = IPCFIFO7->IsEmpty();
                 IPCFIFO7->Write(val);
-                if (IPCFIFOCnt9 & 0x0400)
+                if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     TriggerIRQ(0, IRQ_IPCRecv);
             }
         }
