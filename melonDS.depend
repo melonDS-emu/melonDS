@@ -10,12 +10,13 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1484538142 source:c:\documents\sources\melonds\nds.cpp
+1484614470 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"ARM.h"
 	"CP15.h"
+	"FIFO.h"
 	"GPU2D.h"
 	"SPI.h"
 	"Wifi.h"
@@ -94,4 +95,10 @@
 	<string.h>
 	"NDS.h"
 	"Wifi.h"
+
+1484613078 source:c:\documents\sources\melonds\fifo.cpp
+	"FIFO.h"
+
+1484612398 c:\documents\sources\melonds\fifo.h
+	"types.h"
 

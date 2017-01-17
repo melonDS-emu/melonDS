@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
+#include "FIFO.h"
 #include "GPU2D.h"
 #include "SPI.h"
 #include "Wifi.h"
@@ -34,6 +35,9 @@ namespace SPI_Firmware
 
 namespace NDS
 {
+
+// TODO: stick all the variables in a big structure?
+// would make it easier to deal with savestates
 
 SchedEvent SchedBuffer[SCHED_BUF_LEN];
 SchedEvent* SchedQueue;
@@ -76,6 +80,9 @@ u16 PowerControl7;
 Timer Timers[8];
 
 u16 IPCSync9, IPCSync7;
+u16 IPCFIFOCnt9, IPCFIFOCnt7;
+FIFO* IPCFIFO9; // FIFO in which the ARM9 writes
+FIFO* IPCFIFO7;
 
 u32 ROMSPIControl;
 u32 ROMControl;
@@ -94,6 +101,9 @@ void Init()
 {
     ARM9 = new ARM(0);
     ARM7 = new ARM(1);
+
+    IPCFIFO9 = new FIFO(16);
+    IPCFIFO7 = new FIFO(16);
 
     SPI::Init();
 
@@ -191,6 +201,10 @@ void Reset()
 
     IPCSync9 = 0;
     IPCSync7 = 0;
+    IPCFIFOCnt9 = 0;
+    IPCFIFOCnt7 = 0;
+    IPCFIFO9->Clear();
+    IPCFIFO7->Clear();
 
     ROMSPIControl = 0;
     ROMControl = 0;
@@ -726,6 +740,15 @@ u16 ARM9Read16(u32 addr)
         case 0x04000130: return KeyInput & 0xFFFF;
 
         case 0x04000180: return IPCSync9;
+        case 0x04000184:
+            {
+                u16 val = IPCFIFOCnt9;
+                if (IPCFIFO9->IsEmpty())     val |= 0x0001;
+                else if (IPCFIFO9->IsFull()) val |= 0x0002;
+                if (IPCFIFO7->IsEmpty())     val |= 0x0100;
+                else if (IPCFIFO7->IsFull()) val |= 0x0200;
+                return val;
+            }
 
         case 0x04000204: return 0;//0xFFFF;
 
@@ -815,6 +838,27 @@ u32 ARM9Read32(u32 addr)
         case 0x04000208: return IME[0];
         case 0x04000210: return IE[0];
         case 0x04000214: return IF[0];
+
+        case 0x04100000:
+            if (IPCFIFOCnt9 & 0x8000)
+            {
+                u32 ret;
+                if (IPCFIFO7->IsEmpty())
+                {
+                    IPCFIFOCnt9 |= 0x4000;
+                    ret = IPCFIFO7->Peek();
+                }
+                else
+                {
+                    ret = IPCFIFO7->Read();
+
+                    if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
+                        TriggerIRQ(1, IRQ_IPCSendDone);
+                }
+                return ret;
+            }
+            else
+                return IPCFIFO7->Peek();
         }
 
         printf("unknown arm9 IO read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -955,6 +999,18 @@ void ARM9Write16(u32 addr, u16 val)
             CompensateARM7();
             return;
 
+        case 0x04000184:
+            if (val & 0x0008)
+                IPCFIFO9->Clear();
+            if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
+                TriggerIRQ(0, IRQ_IPCSendDone);
+            if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
+                TriggerIRQ(0, IRQ_IPCRecv);
+            if (val & 0x4000)
+                IPCFIFOCnt9 &= ~0x4000;
+            IPCFIFOCnt9 = val & 0x8404;
+            return;
+
         case 0x040001A0:
             ROMSPIControl = val;
             return;
@@ -1061,6 +1117,20 @@ void ARM9Write32(u32 addr, u32 val)
             TimerStart(3, val>>16);
             return;
 
+        case 0x04000188:
+            if (IPCFIFOCnt9 & 0x8000)
+            {
+                if (IPCFIFO9->IsFull())
+                    IPCFIFOCnt9 |= 0x4000;
+                else
+                {
+                    IPCFIFO9->Write(val);
+                    if (IPCFIFOCnt7 & 0x0400)
+                        TriggerIRQ(1, IRQ_IPCRecv);
+                }
+            }
+            return;
+
         case 0x040001A0:
             ROMSPIControl = val & 0xFFFF;
             // TODO: SPI shit
@@ -1160,6 +1230,10 @@ u8 ARM7Read8(u32 addr)
         case 0x04000300:
             printf("ARM7 POSTFLG READ @ %08X\n", ARM7->R[15]);
             return 0;
+
+        case 0x04000403:
+            Halt();
+            return 0;
         }
         printf("unknown arm7 IO read8 %08X\n", addr);
         return 0;
@@ -1221,6 +1295,15 @@ u16 ARM7Read16(u32 addr)
         case 0x04000138: return 0; // RTC shit
 
         case 0x04000180: return IPCSync7;
+        case 0x04000184:
+            {
+                u16 val = IPCFIFOCnt7;
+                if (IPCFIFO7->IsEmpty())     val |= 0x0001;
+                else if (IPCFIFO7->IsFull()) val |= 0x0002;
+                if (IPCFIFO9->IsEmpty())     val |= 0x0100;
+                else if (IPCFIFO9->IsFull()) val |= 0x0200;
+                return val;
+            }
 
         case 0x040001C0: return SPI::ReadCnt();
         case 0x040001C2: return SPI::ReadData();
@@ -1297,6 +1380,27 @@ u32 ARM7Read32(u32 addr)
         case 0x04000208: return IME[1];
         case 0x04000210: return IE[1];
         case 0x04000214: return IF[1];
+
+        case 0x04100000:
+            if (IPCFIFOCnt7 & 0x8000)
+            {
+                u32 ret;
+                if (IPCFIFO9->IsEmpty())
+                {
+                    IPCFIFOCnt7 |= 0x4000;
+                    ret = IPCFIFO9->Peek();
+                }
+                else
+                {
+                    ret = IPCFIFO9->Read();
+
+                    if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
+                        TriggerIRQ(0, IRQ_IPCSendDone);
+                }
+                return ret;
+            }
+            else
+                return IPCFIFO9->Peek();
 
         case 0x04100010: return ROMReadData(1);
         }
@@ -1458,6 +1562,18 @@ void ARM7Write16(u32 addr, u16 val)
             }
             return;
 
+        case 0x04000184:
+            if (val & 0x0008)
+                IPCFIFO7->Clear();
+            if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
+                TriggerIRQ(1, IRQ_IPCSendDone);
+            if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
+                TriggerIRQ(1, IRQ_IPCRecv);
+            if (val & 0x4000)
+                IPCFIFOCnt7 &= ~0x4000;
+            IPCFIFOCnt7 = val & 0x8404;
+            return;
+
         case 0x040001A0:
             ROMSPIControl = val;
             return;
@@ -1538,6 +1654,20 @@ void ARM7Write32(u32 addr, u32 val)
         case 0x0400010C:
             Timers[7].Reload = val & 0xFFFF;
             TimerStart(7, val>>16);
+            return;
+
+        case 0x04000188:
+            if (IPCFIFOCnt7 & 0x8000)
+            {
+                if (IPCFIFO7->IsFull())
+                    IPCFIFOCnt7 |= 0x4000;
+                else
+                {
+                    IPCFIFO7->Write(val);
+                    if (IPCFIFOCnt9 & 0x0400)
+                        TriggerIRQ(0, IRQ_IPCRecv);
+                }
+            }
             return;
 
         case 0x040001A0:
