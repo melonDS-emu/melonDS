@@ -103,7 +103,7 @@ void Write(u32 id, u32 val)
         return;
 
     case 0x7A1:
-        printf("flush data cache %08X\n", val);
+        //printf("flush data cache %08X\n", val);
         return;
     case 0x7A2:
         printf("flush data cache SI\n");

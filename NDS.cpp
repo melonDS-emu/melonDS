@@ -650,29 +650,10 @@ u8 ARM9Read8(u32 addr)
         else return 0;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000208: return IME[0];
+        return ARM9IORead8(addr);
 
-        case 0x04000240: return GPU2D::VRAMCNT[0];
-        case 0x04000241: return GPU2D::VRAMCNT[1];
-        case 0x04000242: return GPU2D::VRAMCNT[2];
-        case 0x04000243: return GPU2D::VRAMCNT[3];
-        case 0x04000244: return GPU2D::VRAMCNT[4];
-        case 0x04000245: return GPU2D::VRAMCNT[5];
-        case 0x04000246: return GPU2D::VRAMCNT[6];
-        case 0x04000247: return WRAMCnt;
-        case 0x04000248: return GPU2D::VRAMCNT[7];
-        case 0x04000249: return GPU2D::VRAMCNT[8];
-
-        case 0x04000300:
-            printf("ARM9 POSTFLG READ @ %08X\n", ARM9->R[15]);
-            return 0;
-        }
-        printf("unknown arm9 IO read8 %08X\n", addr);
-        return 0;
-
-    case 0x05000000: return *(u8*)&GPU2D::Palette[addr & 0x7FF];
+    case 0x05000000:
+        return *(u8*)&GPU2D::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -691,7 +672,8 @@ u8 ARM9Read8(u32 addr)
         }
         return 0;
 
-    case 0x07000000: return *(u8*)&GPU2D::OAM[addr & 0x7FF];
+    case 0x07000000:
+        return *(u8*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -723,44 +705,10 @@ u16 ARM9Read16(u32 addr)
         else return 0;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: return GPU2D::DispStat[0];
-        case 0x04000006: return GPU2D::VCount;
+        return ARM9IORead16(addr);
 
-        case 0x04000100: return Timers[0].Counter;
-        case 0x04000102: return Timers[0].Control;
-        case 0x04000104: return Timers[1].Counter;
-        case 0x04000106: return Timers[1].Control;
-        case 0x04000108: return Timers[2].Counter;
-        case 0x0400010A: return Timers[2].Control;
-        case 0x0400010C: return Timers[3].Counter;
-        case 0x0400010E: return Timers[3].Control;
-
-        case 0x04000130: return KeyInput & 0xFFFF;
-
-        case 0x04000180: return IPCSync9;
-        case 0x04000184:
-            {
-                u16 val = IPCFIFOCnt9;
-                if (IPCFIFO9->IsEmpty())     val |= 0x0001;
-                else if (IPCFIFO9->IsFull()) val |= 0x0002;
-                if (IPCFIFO7->IsEmpty())     val |= 0x0100;
-                else if (IPCFIFO7->IsFull()) val |= 0x0200;
-                return val;
-            }
-
-        case 0x04000204: return 0;//0xFFFF;
-
-        case 0x04000208: return IME[0];
-
-        case 0x04000304: return PowerControl9;
-        }
-
-        printf("unknown arm9 IO read16 %08X\n", addr);
-        return 0;
-
-    case 0x05000000: return *(u16*)&GPU2D::Palette[addr & 0x7FF];
+    case 0x05000000:
+        return *(u16*)&GPU2D::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -779,7 +727,8 @@ u16 ARM9Read16(u32 addr)
         }
         return 0;
 
-    case 0x07000000: return *(u16*)&GPU2D::OAM[addr & 0x7FF];
+    case 0x07000000:
+        return *(u16*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -826,45 +775,10 @@ u32 ARM9Read32(u32 addr)
         else return 0;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: return GPU2D::DispStat[0] | (GPU2D::VCount << 16);
+        return ARM9IORead32(addr);
 
-        case 0x04000100: return Timers[0].Counter | (Timers[0].Control << 16);
-        case 0x04000104: return Timers[1].Counter | (Timers[1].Control << 16);
-        case 0x04000108: return Timers[2].Counter | (Timers[2].Control << 16);
-        case 0x0400010C: return Timers[3].Counter | (Timers[3].Control << 16);
-
-        case 0x04000208: return IME[0];
-        case 0x04000210: return IE[0];
-        case 0x04000214: return IF[0];
-
-        case 0x04100000:
-            if (IPCFIFOCnt9 & 0x8000)
-            {
-                u32 ret;
-                if (IPCFIFO7->IsEmpty())
-                {
-                    IPCFIFOCnt9 |= 0x4000;
-                    ret = IPCFIFO7->Peek();
-                }
-                else
-                {
-                    ret = IPCFIFO7->Read();
-
-                    if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
-                        TriggerIRQ(1, IRQ_IPCSendDone);
-                }
-                return ret;
-            }
-            else
-                return IPCFIFO7->Peek();
-        }
-
-        printf("unknown arm9 IO read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
-        return 0;
-
-    case 0x05000000: return *(u32*)&GPU2D::Palette[addr & 0x7FF];
+    case 0x05000000:
+        return *(u32*)&GPU2D::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -883,7 +797,8 @@ u32 ARM9Read32(u32 addr)
         }
         return 0;
 
-    case 0x07000000: return *(u32*)&GPU2D::OAM[addr & 0x7FF];
+    case 0x07000000:
+        return *(u32*)&GPU2D::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -914,31 +829,8 @@ void ARM9Write8(u32 addr, u8 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x040001A0:
-            ROMSPIControl &= 0xFF00;
-            ROMSPIControl |= val;
-            return;
-        case 0x040001A1:
-            ROMSPIControl &= 0x00FF;
-            ROMSPIControl |= (val << 8);
-            return;
-
-        case 0x04000208: IME[0] = val & 0x1; return;
-
-        case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
-        case 0x04000241: GPU2D::MapVRAM_AB(1, val); return;
-        case 0x04000242: GPU2D::MapVRAM_CD(2, val); return;
-        case 0x04000243: GPU2D::MapVRAM_CD(3, val); return;
-        case 0x04000244: GPU2D::MapVRAM_E(4, val); return;
-        case 0x04000245: GPU2D::MapVRAM_FG(5, val); return;
-        case 0x04000246: GPU2D::MapVRAM_FG(6, val); return;
-        case 0x04000247: MapSharedWRAM(val); return;
-        case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
-        case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
-        }
-        break;
+        ARM9IOWrite8(addr, val);
+        return;
 
     case 0x05000000:
     case 0x06000000:
@@ -974,75 +866,8 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: GPU2D::SetDispStat(0, val); return;
-
-        case 0x04000100: Timers[0].Reload = val; return;
-        case 0x04000102: TimerStart(0, val); return;
-        case 0x04000104: Timers[1].Reload = val; return;
-        case 0x04000106: TimerStart(1, val); return;
-        case 0x04000108: Timers[2].Reload = val; return;
-        case 0x0400010A: TimerStart(2, val); return;
-        case 0x0400010C: Timers[3].Reload = val; return;
-        case 0x0400010E: TimerStart(3, val); return;
-
-        case 0x04000180:
-            IPCSync7 &= 0xFFF0;
-            IPCSync7 |= ((val & 0x0F00) >> 8);
-            IPCSync9 &= 0xB0FF;
-            IPCSync9 |= (val & 0x4F00);
-            if ((val & 0x2000) && (IPCSync7 & 0x4000))
-            {
-                TriggerIRQ(1, IRQ_IPCSync);
-            }
-            CompensateARM7();
-            return;
-
-        case 0x04000184:
-            if (val & 0x0008)
-                IPCFIFO9->Clear();
-            if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
-                TriggerIRQ(0, IRQ_IPCSendDone);
-            if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
-                TriggerIRQ(0, IRQ_IPCRecv);
-            if (val & 0x4000)
-                IPCFIFOCnt9 &= ~0x4000;
-            IPCFIFOCnt9 = val & 0x8404;
-            return;
-
-        case 0x040001A0:
-            ROMSPIControl = val;
-            return;
-
-        case 0x04000208: IME[0] = val & 0x1; return;
-
-        case 0x04000240:
-            GPU2D::MapVRAM_AB(0, val & 0xFF);
-            GPU2D::MapVRAM_AB(1, val >> 8);
-            return;
-        case 0x04000242:
-            GPU2D::MapVRAM_CD(2, val & 0xFF);
-            GPU2D::MapVRAM_CD(3, val >> 8);
-            return;
-        case 0x04000244:
-            GPU2D::MapVRAM_E(4, val & 0xFF);
-            GPU2D::MapVRAM_FG(5, val >> 8);
-            return;
-        case 0x04000246:
-            GPU2D::MapVRAM_FG(6, val & 0xFF);
-            MapSharedWRAM(val >> 8);
-            return;
-        case 0x04000248:
-            GPU2D::MapVRAM_H(7, val & 0xFF);
-            GPU2D::MapVRAM_I(8, val >> 8);
-            return;
-
-        case 0x04000304: PowerControl9 = val; return;
-
-        //case 0x04001036: ARM7->debug=2; break;
-        }
-        break;
+        ARM9IOWrite16(addr, val);
+        return;
 
     case 0x05000000:
         *(u16*)&GPU2D::Palette[addr & 0x7FF] = val;
@@ -1098,71 +923,8 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000100:
-            Timers[0].Reload = val & 0xFFFF;
-            TimerStart(0, val>>16);
-            return;
-        case 0x04000104:
-            Timers[1].Reload = val & 0xFFFF;
-            TimerStart(1, val>>16);
-            return;
-        case 0x04000108:
-            Timers[2].Reload = val & 0xFFFF;
-            TimerStart(2, val>>16);
-            return;
-        case 0x0400010C:
-            Timers[3].Reload = val & 0xFFFF;
-            TimerStart(3, val>>16);
-            return;
-
-        case 0x04000188:
-            if (IPCFIFOCnt9 & 0x8000)
-            {
-                if (IPCFIFO9->IsFull())
-                    IPCFIFOCnt9 |= 0x4000;
-                else
-                {
-                    IPCFIFO9->Write(val);
-                    if (IPCFIFOCnt7 & 0x0400)
-                        TriggerIRQ(1, IRQ_IPCRecv);
-                }
-            }
-            return;
-
-        case 0x040001A0:
-            ROMSPIControl = val & 0xFFFF;
-            // TODO: SPI shit
-            return;
-        case 0x040001A4:
-            val &= ~0x00800000;
-            ROMControl = val;
-            if (val & 0x80000000) ROMStartTransfer(0);
-            return;
-
-        case 0x04000208: IME[0] = val & 0x1; return;
-        case 0x04000210: IE[0] = val; return;
-        case 0x04000214: IF[0] &= ~val; return;
-
-        case 0x04000240:
-            GPU2D::MapVRAM_AB(0, val & 0xFF);
-            GPU2D::MapVRAM_AB(1, (val >> 8) & 0xFF);
-            GPU2D::MapVRAM_CD(2, (val >> 16) & 0xFF);
-            GPU2D::MapVRAM_CD(3, val >> 24);
-            return;
-        case 0x04000244:
-            GPU2D::MapVRAM_E(4, val & 0xFF);
-            GPU2D::MapVRAM_FG(5, (val >> 8) & 0xFF);
-            GPU2D::MapVRAM_FG(6, (val >> 16) & 0xFF);
-            MapSharedWRAM(val >> 24);
-            return;
-        case 0x04000248:
-            GPU2D::MapVRAM_H(7, val & 0xFF);
-            GPU2D::MapVRAM_I(8, (val >> 8) & 0xFF);
-            return;
-        }
-        break;
+        ARM9IOWrite32(addr, val);
+        return;
 
     case 0x05000000:
         *(u32*)&GPU2D::Palette[addr & 0x7FF] = val;
@@ -1216,27 +978,7 @@ u8 ARM7Read8(u32 addr)
         return *(u8*)&ARM7WRAM[addr & 0xFFFF];
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000138: return 0; // RTC shit
-
-        case 0x040001C2: return SPI::ReadData();
-
-        case 0x04000208: return IME[1];
-
-        case 0x04000240: return GPU2D::VRAMSTAT;
-        case 0x04000241: return WRAMCnt;
-
-        case 0x04000300:
-            printf("ARM7 POSTFLG READ @ %08X\n", ARM7->R[15]);
-            return 0;
-
-        case 0x04000403:
-            Halt();
-            return 0;
-        }
-        printf("unknown arm7 IO read8 %08X\n", addr);
-        return 0;
+        return ARM7IORead8(addr);
 
     case 0x06000000:
     case 0x06800000:
@@ -1274,49 +1016,7 @@ u16 ARM7Read16(u32 addr)
         return *(u16*)&ARM7WRAM[addr & 0xFFFF];
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: return GPU2D::DispStat[1];
-        case 0x04000006: return GPU2D::VCount;
-
-        case 0x04000100: return Timers[4].Counter;
-        case 0x04000102: return Timers[4].Control;
-        case 0x04000104: return Timers[5].Counter;
-        case 0x04000106: return Timers[5].Control;
-        case 0x04000108: return Timers[6].Counter;
-        case 0x0400010A: return Timers[6].Control;
-        case 0x0400010C: return Timers[7].Counter;
-        case 0x0400010E: return Timers[7].Control;
-
-        case 0x04000130: return KeyInput & 0xFFFF;
-        case 0x04000136: return KeyInput >> 16;
-
-        case 0x04000134: return 0x8000;
-        case 0x04000138: return 0; // RTC shit
-
-        case 0x04000180: return IPCSync7;
-        case 0x04000184:
-            {
-                u16 val = IPCFIFOCnt7;
-                if (IPCFIFO7->IsEmpty())     val |= 0x0001;
-                else if (IPCFIFO7->IsFull()) val |= 0x0002;
-                if (IPCFIFO9->IsEmpty())     val |= 0x0100;
-                else if (IPCFIFO9->IsFull()) val |= 0x0200;
-                return val;
-            }
-
-        case 0x040001C0: return SPI::ReadCnt();
-        case 0x040001C2: return SPI::ReadData();
-
-        case 0x04000208: return IME[1];
-
-        case 0x04000304: return PowerControl7;
-
-        case 0x04000504: return _soundbias;
-        }
-
-        printf("unknown arm7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
-        return 0;
+        return ARM7IORead16(addr);
 
     case 0x04800000:
         return Wifi::Read(addr);
@@ -1362,51 +1062,7 @@ u32 ARM7Read32(u32 addr)
         return *(u32*)&ARM7WRAM[addr & 0xFFFF];
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: return GPU2D::DispStat[1] | (GPU2D::VCount << 16);
-
-        case 0x04000100: return Timers[4].Counter | (Timers[4].Control << 16);
-        case 0x04000104: return Timers[5].Counter | (Timers[5].Control << 16);
-        case 0x04000108: return Timers[6].Counter | (Timers[6].Control << 16);
-        case 0x0400010C: return Timers[7].Counter | (Timers[7].Control << 16);
-
-        case 0x040001A4:
-            return ROMControl;
-
-        case 0x040001C0:
-            return SPI::ReadCnt() | (SPI::ReadData() << 16);
-
-        case 0x04000208: return IME[1];
-        case 0x04000210: return IE[1];
-        case 0x04000214: return IF[1];
-
-        case 0x04100000:
-            if (IPCFIFOCnt7 & 0x8000)
-            {
-                u32 ret;
-                if (IPCFIFO9->IsEmpty())
-                {
-                    IPCFIFOCnt7 |= 0x4000;
-                    ret = IPCFIFO9->Peek();
-                }
-                else
-                {
-                    ret = IPCFIFO9->Read();
-
-                    if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
-                        TriggerIRQ(0, IRQ_IPCSendDone);
-                }
-                return ret;
-            }
-            else
-                return IPCFIFO9->Peek();
-
-        case 0x04100010: return ROMReadData(1);
-        }
-
-        printf("unknown arm7 IO read32 %08X | %08X\n", addr, ARM7->R[15]);
-        return 0;
+        return ARM7IORead32(addr);
 
     case 0x06000000:
     case 0x06800000:
@@ -1442,40 +1098,8 @@ void ARM7Write8(u32 addr, u8 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000138:
-            return;
-
-        case 0x040001A0:
-            ROMSPIControl &= 0xFF00;
-            ROMSPIControl |= val;
-            return;
-        case 0x040001A1:
-            ROMSPIControl &= 0x00FF;
-            ROMSPIControl |= (val << 8);
-            return;
-
-        case 0x040001A8: ROMCommand[0] = val; return;
-        case 0x040001A9: ROMCommand[1] = val; return;
-        case 0x040001AA: ROMCommand[2] = val; return;
-        case 0x040001AB: ROMCommand[3] = val; return;
-        case 0x040001AC: ROMCommand[4] = val; return;
-        case 0x040001AD: ROMCommand[5] = val; return;
-        case 0x040001AE: ROMCommand[6] = val; return;
-        case 0x040001AF: ROMCommand[7] = val; return;
-
-        case 0x040001C2:
-            SPI::WriteData(val);
-            return;
-
-        case 0x04000208: IME[1] = val & 0x1; return;
-
-        case 0x04000301:
-            if (val == 0x80) ARM7->Halt(1);
-            return;
-        }
-        break;
+        ARM7IOWrite8(addr, val);
+        return;
 
     case 0x06000000:
     case 0x06800000:
@@ -1486,20 +1110,6 @@ void ARM7Write8(u32 addr, u8 val)
                 *(u8*)&vram[addr & 0x3FFF] = val;
         }
         return;
-    }
-
-    if (addr==0xA20)
-    {
-        //TriggerIRQ(1, IRQ_CartSendDone);
-        /*FILE* f = fopen("ram.bin", "wb");
-        fwrite(MainRAM, 0x400000, 1, f);
-        fclose(f);
-        fopen("wram.bin", "wb");
-        fwrite(ARM7WRAM, 0x10000, 1, f);
-        fclose(f);
-        fopen("swram.bin", "wb");
-        fwrite(ARM7WRAM, 0x8000, 1, f);
-        fclose(f);*/
     }
 
     printf("unknown arm7 write8 %08X %02X | %08X | %08X %08X %08X %08X\n", addr, val, ARM7->R[15], IME[1], IE[1], ARM7->R[0], ARM7->R[1]);
@@ -1525,76 +1135,8 @@ void ARM7Write16(u32 addr, u16 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000004: GPU2D::SetDispStat(1, val); return;
-
-        case 0x04000100: Timers[4].Reload = val; return;
-        case 0x04000102: TimerStart(4, val); return;
-        case 0x04000104: Timers[5].Reload = val;
-            //Timers[5].Reload = 0xFFE0;
-            // hax.
-            // firmware bootloader sets it to 0xFFFE, which doesn't give it enough time to do its IRQ handling shit before getting another IRQ
-            //printf("TIMER RELOAD=%04X FROM %08X, %08X %08X\n", val, ARM7->R[15], ARM7->R[4], ARM7->CPSR);
-            return;
-        case 0x04000106: TimerStart(5, val); /*printf("TIMER CNT=%04X FROM %08X | %08X%08X - %08X%08X | %04X %04X %04X\n",
-                                                    val, ARM7->R[15],
-                                                    ARM7Read32(ARM7->R[4]+0x10), ARM7Read32(ARM7->R[4]+0xC), ARM7->R[1], ARM7->R[0],
-                                                    Timers[4].Control, Timers[4].Counter, Timers[4].Reload);*/
-                                                    /*printf("enable timer1 %08X\n", ARM7->R[15]);*/return;
-        case 0x04000108: Timers[6].Reload = val; return;
-        case 0x0400010A: TimerStart(6, val); return;
-        case 0x0400010C: Timers[7].Reload = val; return;
-        case 0x0400010E: TimerStart(7, val); return;
-
-        case 0x04000134: return;printf("set debug port %04X %08X\n", val, ARM7Read32(ARM7->R[13]+4)); return;
-
-        case 0x04000138: return; // RTC shit
-
-        case 0x04000180:
-            IPCSync9 &= 0xFFF0;
-            IPCSync9 |= ((val & 0x0F00) >> 8);
-            IPCSync7 &= 0xB0FF;
-            IPCSync7 |= (val & 0x4F00);
-            if ((val & 0x2000) && (IPCSync9 & 0x4000))
-            {
-                TriggerIRQ(0, IRQ_IPCSync);
-            }
-            return;
-
-        case 0x04000184:
-            if (val & 0x0008)
-                IPCFIFO7->Clear();
-            if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
-                TriggerIRQ(1, IRQ_IPCSendDone);
-            if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
-                TriggerIRQ(1, IRQ_IPCRecv);
-            if (val & 0x4000)
-                IPCFIFOCnt7 &= ~0x4000;
-            IPCFIFOCnt7 = val & 0x8404;
-            return;
-
-        case 0x040001A0:
-            ROMSPIControl = val;
-            return;
-
-        case 0x040001C0:
-            SPI::WriteCnt(val);
-            return;
-
-        case 0x040001C2:
-            SPI::WriteData(val & 0xFF);
-            return;
-
-        case 0x04000208: IME[1] = val & 0x1; return;
-
-        case 0x04000304: PowerControl7 = val; return;
-
-        case 0x04000504:
-            _soundbias = val & 0x3FF;
-            return;
-        }
-        break;
+        ARM7IOWrite16(addr, val);
+        return;
 
     case 0x04800000:
         Wifi::Write(addr, val);
@@ -1617,10 +1159,7 @@ void ARM7Write16(u32 addr, u16 val)
 void ARM7Write32(u32 addr, u32 val)
 {
     if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %08X\n", addr, val);
-    if (addr==0x27FF890) printf("HAHA! %08X\n", val);
-    if (addr==0x3807764) printf("DERP! %08X %08X\n", val, ARM7->R[15]);
-    if (addr==0x380776C) printf("ZORP!!!!!!! %08X %08X %08X\n", val, ARM7->R[15], ARM7Read32(ARM7->R[13]+20));
-    if (addr==0x3807770) printf("ZAARP!!!!!!! %08X %08X\n", val, ARM7->R[15]);
+
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1637,54 +1176,8 @@ void ARM7Write32(u32 addr, u32 val)
         return;
 
     case 0x04000000:
-        switch (addr)
-        {
-        case 0x04000100:
-            Timers[4].Reload = val & 0xFFFF;
-            TimerStart(4, val>>16);
-            return;
-        case 0x04000104:
-            Timers[5].Reload = val & 0xFFFF;
-            TimerStart(5, val>>16);
-            return;
-        case 0x04000108:
-            Timers[6].Reload = val & 0xFFFF;
-            TimerStart(6, val>>16);
-            return;
-        case 0x0400010C:
-            Timers[7].Reload = val & 0xFFFF;
-            TimerStart(7, val>>16);
-            return;
-
-        case 0x04000188:
-            if (IPCFIFOCnt7 & 0x8000)
-            {
-                if (IPCFIFO7->IsFull())
-                    IPCFIFOCnt7 |= 0x4000;
-                else
-                {
-                    IPCFIFO7->Write(val);
-                    if (IPCFIFOCnt9 & 0x0400)
-                        TriggerIRQ(0, IRQ_IPCRecv);
-                }
-            }
-            return;
-
-        case 0x040001A0:
-            ROMSPIControl = val & 0xFFFF;
-            // TODO: SPI shit
-            return;
-        case 0x040001A4:
-            val &= ~0x00800000;
-            ROMControl = val;
-            if (val & 0x80000000) ROMStartTransfer(1);
-            return;
-
-        case 0x04000208: IME[1] = val & 0x1; return;
-        case 0x04000210: IE[1] = val; return;
-        case 0x04000214: IF[1] &= ~val; return;
-        }
-        break;
+        ARM7IOWrite32(addr, val);
+        return;
 
     case 0x06000000:
     case 0x06800000:
@@ -1698,6 +1191,574 @@ void ARM7Write32(u32 addr, u32 val)
     }
 
     printf("unknown arm7 write32 %08X %08X | %08X %08X\n", addr, val, ARM7->R[15], ARM7->CurInstr);
+}
+
+
+
+
+u8 ARM9IORead8(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000208: return IME[0];
+
+    case 0x04000240: return GPU2D::VRAMCNT[0];
+    case 0x04000241: return GPU2D::VRAMCNT[1];
+    case 0x04000242: return GPU2D::VRAMCNT[2];
+    case 0x04000243: return GPU2D::VRAMCNT[3];
+    case 0x04000244: return GPU2D::VRAMCNT[4];
+    case 0x04000245: return GPU2D::VRAMCNT[5];
+    case 0x04000246: return GPU2D::VRAMCNT[6];
+    case 0x04000247: return WRAMCnt;
+    case 0x04000248: return GPU2D::VRAMCNT[7];
+    case 0x04000249: return GPU2D::VRAMCNT[8];
+
+    case 0x04000300:
+        printf("ARM9 POSTFLG READ @ %08X\n", ARM9->R[15]);
+        return 0;
+    }
+
+    printf("unknown ARM9 IO read8 %08X\n", addr);
+    return 0;
+}
+
+u16 ARM9IORead16(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000004: return GPU2D::DispStat[0];
+    case 0x04000006: return GPU2D::VCount;
+
+    case 0x04000100: return Timers[0].Counter;
+    case 0x04000102: return Timers[0].Control;
+    case 0x04000104: return Timers[1].Counter;
+    case 0x04000106: return Timers[1].Control;
+    case 0x04000108: return Timers[2].Counter;
+    case 0x0400010A: return Timers[2].Control;
+    case 0x0400010C: return Timers[3].Counter;
+    case 0x0400010E: return Timers[3].Control;
+
+    case 0x04000130: return KeyInput & 0xFFFF;
+
+    case 0x04000180: return IPCSync9;
+    case 0x04000184:
+        {
+            u16 val = IPCFIFOCnt9;
+            if (IPCFIFO9->IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO9->IsFull()) val |= 0x0002;
+            if (IPCFIFO7->IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO7->IsFull()) val |= 0x0200;
+            return val;
+        }
+
+    case 0x04000204: return 0;//0xFFFF;
+
+    case 0x04000208: return IME[0];
+
+    case 0x04000304: return PowerControl9;
+    }
+
+    printf("unknown ARM9 IO read16 %08X\n", addr);
+    return 0;
+}
+
+u32 ARM9IORead32(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000004: return GPU2D::DispStat[0] | (GPU2D::VCount << 16);
+
+    case 0x04000100: return Timers[0].Counter | (Timers[0].Control << 16);
+    case 0x04000104: return Timers[1].Counter | (Timers[1].Control << 16);
+    case 0x04000108: return Timers[2].Counter | (Timers[2].Control << 16);
+    case 0x0400010C: return Timers[3].Counter | (Timers[3].Control << 16);
+
+    case 0x04000208: return IME[0];
+    case 0x04000210: return IE[0];
+    case 0x04000214: return IF[0];
+
+    case 0x04100000:
+        if (IPCFIFOCnt9 & 0x8000)
+        {
+            u32 ret;
+            if (IPCFIFO7->IsEmpty())
+            {
+                IPCFIFOCnt9 |= 0x4000;
+                ret = IPCFIFO7->Peek();
+            }
+            else
+            {
+                ret = IPCFIFO7->Read();
+
+                if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
+                    TriggerIRQ(1, IRQ_IPCSendDone);
+            }
+            return ret;
+        }
+        else
+            return IPCFIFO7->Peek();
+    }
+
+    printf("unknown ARM9 IO read32 %08X\n", addr);
+    return 0;
+}
+
+void ARM9IOWrite8(u32 addr, u8 val)
+{
+    switch (addr)
+    {
+    case 0x040001A0:
+        ROMSPIControl &= 0xFF00;
+        ROMSPIControl |= val;
+        return;
+    case 0x040001A1:
+        ROMSPIControl &= 0x00FF;
+        ROMSPIControl |= (val << 8);
+        return;
+
+    case 0x04000208: IME[0] = val & 0x1; return;
+
+    case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
+    case 0x04000241: GPU2D::MapVRAM_AB(1, val); return;
+    case 0x04000242: GPU2D::MapVRAM_CD(2, val); return;
+    case 0x04000243: GPU2D::MapVRAM_CD(3, val); return;
+    case 0x04000244: GPU2D::MapVRAM_E(4, val); return;
+    case 0x04000245: GPU2D::MapVRAM_FG(5, val); return;
+    case 0x04000246: GPU2D::MapVRAM_FG(6, val); return;
+    case 0x04000247: MapSharedWRAM(val); return;
+    case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
+    case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
+    }
+
+    printf("unknown ARM9 IO write8 %08X %02X\n", addr, val);
+}
+
+void ARM9IOWrite16(u32 addr, u16 val)
+{
+    switch (addr)
+    {
+    case 0x04000004: GPU2D::SetDispStat(0, val); return;
+
+    case 0x04000100: Timers[0].Reload = val; return;
+    case 0x04000102: TimerStart(0, val); return;
+    case 0x04000104: Timers[1].Reload = val; return;
+    case 0x04000106: TimerStart(1, val); return;
+    case 0x04000108: Timers[2].Reload = val; return;
+    case 0x0400010A: TimerStart(2, val); return;
+    case 0x0400010C: Timers[3].Reload = val; return;
+    case 0x0400010E: TimerStart(3, val); return;
+
+    case 0x04000180:
+        IPCSync7 &= 0xFFF0;
+        IPCSync7 |= ((val & 0x0F00) >> 8);
+        IPCSync9 &= 0xB0FF;
+        IPCSync9 |= (val & 0x4F00);
+        if ((val & 0x2000) && (IPCSync7 & 0x4000))
+        {
+            TriggerIRQ(1, IRQ_IPCSync);
+        }
+        CompensateARM7();
+        return;
+
+    case 0x04000184:
+        if (val & 0x0008)
+            IPCFIFO9->Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
+            TriggerIRQ(0, IRQ_IPCSendDone);
+        if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
+            TriggerIRQ(0, IRQ_IPCRecv);
+        if (val & 0x4000)
+            IPCFIFOCnt9 &= ~0x4000;
+        IPCFIFOCnt9 = val & 0x8404;
+        return;
+
+    case 0x040001A0:
+        ROMSPIControl = val;
+        return;
+
+    case 0x04000208: IME[0] = val & 0x1; return;
+
+    case 0x04000240:
+        GPU2D::MapVRAM_AB(0, val & 0xFF);
+        GPU2D::MapVRAM_AB(1, val >> 8);
+        return;
+    case 0x04000242:
+        GPU2D::MapVRAM_CD(2, val & 0xFF);
+        GPU2D::MapVRAM_CD(3, val >> 8);
+        return;
+    case 0x04000244:
+        GPU2D::MapVRAM_E(4, val & 0xFF);
+        GPU2D::MapVRAM_FG(5, val >> 8);
+        return;
+    case 0x04000246:
+        GPU2D::MapVRAM_FG(6, val & 0xFF);
+        MapSharedWRAM(val >> 8);
+        return;
+    case 0x04000248:
+        GPU2D::MapVRAM_H(7, val & 0xFF);
+        GPU2D::MapVRAM_I(8, val >> 8);
+        return;
+
+    case 0x04000304: PowerControl9 = val; return;
+    }
+
+    printf("unknown ARM9 IO write16 %08X %04X\n", addr, val);
+}
+
+void ARM9IOWrite32(u32 addr, u32 val)
+{
+    switch (addr)
+    {
+    case 0x04000100:
+        Timers[0].Reload = val & 0xFFFF;
+        TimerStart(0, val>>16);
+        return;
+    case 0x04000104:
+        Timers[1].Reload = val & 0xFFFF;
+        TimerStart(1, val>>16);
+        return;
+    case 0x04000108:
+        Timers[2].Reload = val & 0xFFFF;
+        TimerStart(2, val>>16);
+        return;
+    case 0x0400010C:
+        Timers[3].Reload = val & 0xFFFF;
+        TimerStart(3, val>>16);
+        return;
+
+    case 0x04000188:
+        if (IPCFIFOCnt9 & 0x8000)
+        {
+            if (IPCFIFO9->IsFull())
+                IPCFIFOCnt9 |= 0x4000;
+            else
+            {
+                IPCFIFO9->Write(val);
+                if (IPCFIFOCnt7 & 0x0400)
+                    TriggerIRQ(1, IRQ_IPCRecv);
+            }
+        }
+        return;
+
+    case 0x040001A0:
+        ROMSPIControl = val & 0xFFFF;
+        // TODO: SPI shit
+        return;
+    case 0x040001A4:
+        val &= ~0x00800000;
+        ROMControl = val;
+        if (val & 0x80000000) ROMStartTransfer(0);
+        return;
+
+    case 0x04000208: IME[0] = val & 0x1; return;
+    case 0x04000210: IE[0] = val; return;
+    case 0x04000214: IF[0] &= ~val; return;
+
+    case 0x04000240:
+        GPU2D::MapVRAM_AB(0, val & 0xFF);
+        GPU2D::MapVRAM_AB(1, (val >> 8) & 0xFF);
+        GPU2D::MapVRAM_CD(2, (val >> 16) & 0xFF);
+        GPU2D::MapVRAM_CD(3, val >> 24);
+        return;
+    case 0x04000244:
+        GPU2D::MapVRAM_E(4, val & 0xFF);
+        GPU2D::MapVRAM_FG(5, (val >> 8) & 0xFF);
+        GPU2D::MapVRAM_FG(6, (val >> 16) & 0xFF);
+        MapSharedWRAM(val >> 24);
+        return;
+    case 0x04000248:
+        GPU2D::MapVRAM_H(7, val & 0xFF);
+        GPU2D::MapVRAM_I(8, (val >> 8) & 0xFF);
+        return;
+    }
+
+    printf("unknown ARM9 IO write32 %08X %08X\n", addr, val);
+}
+
+
+u8 ARM7IORead8(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000138: return 0; // RTC shit
+
+    case 0x040001C2: return SPI::ReadData();
+
+    case 0x04000208: return IME[1];
+
+    case 0x04000240: return GPU2D::VRAMSTAT;
+    case 0x04000241: return WRAMCnt;
+
+    case 0x04000300:
+        printf("ARM7 POSTFLG READ @ %08X\n", ARM7->R[15]);
+        return 0;
+
+    //case 0x04000403:
+        //Halt();
+        //return 0;
+    }
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
+        return 0;
+    }
+
+    printf("unknown ARM7 IO read8 %08X\n", addr);
+    return 0;
+}
+
+u16 ARM7IORead16(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000004: return GPU2D::DispStat[1];
+    case 0x04000006: return GPU2D::VCount;
+
+    case 0x04000100: return Timers[4].Counter;
+    case 0x04000102: return Timers[4].Control;
+    case 0x04000104: return Timers[5].Counter;
+    case 0x04000106: return Timers[5].Control;
+    case 0x04000108: return Timers[6].Counter;
+    case 0x0400010A: return Timers[6].Control;
+    case 0x0400010C: return Timers[7].Counter;
+    case 0x0400010E: return Timers[7].Control;
+
+    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000136: return KeyInput >> 16;
+
+    case 0x04000134: return 0x8000;
+    case 0x04000138: return 0; // RTC shit. TODO!!
+
+    case 0x04000180: return IPCSync7;
+    case 0x04000184:
+        {
+            u16 val = IPCFIFOCnt7;
+            if (IPCFIFO7->IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO7->IsFull()) val |= 0x0002;
+            if (IPCFIFO9->IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO9->IsFull()) val |= 0x0200;
+            return val;
+        }
+
+    case 0x040001C0: return SPI::ReadCnt();
+    case 0x040001C2: return SPI::ReadData();
+
+    case 0x04000208: return IME[1];
+
+    case 0x04000304: return PowerControl7;
+
+    case 0x04000504: return _soundbias;
+    }
+
+    printf("unknown ARM7 IO read16 %08X\n", addr);
+    return 0;
+}
+
+u32 ARM7IORead32(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000004: return GPU2D::DispStat[1] | (GPU2D::VCount << 16);
+
+    case 0x04000100: return Timers[4].Counter | (Timers[4].Control << 16);
+    case 0x04000104: return Timers[5].Counter | (Timers[5].Control << 16);
+    case 0x04000108: return Timers[6].Counter | (Timers[6].Control << 16);
+    case 0x0400010C: return Timers[7].Counter | (Timers[7].Control << 16);
+
+    case 0x040001A4:
+        return ROMControl;
+
+    case 0x040001C0:
+        return SPI::ReadCnt() | (SPI::ReadData() << 16);
+
+    case 0x04000208: return IME[1];
+    case 0x04000210: return IE[1];
+    case 0x04000214: return IF[1];
+
+    case 0x04100000:
+        if (IPCFIFOCnt7 & 0x8000)
+        {
+            u32 ret;
+            if (IPCFIFO9->IsEmpty())
+            {
+                IPCFIFOCnt7 |= 0x4000;
+                ret = IPCFIFO9->Peek();
+            }
+            else
+            {
+                ret = IPCFIFO9->Read();
+
+                if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
+                    TriggerIRQ(0, IRQ_IPCSendDone);
+            }
+            return ret;
+        }
+        else
+            return IPCFIFO9->Peek();
+
+    case 0x04100010: return ROMReadData(1);
+    }
+
+    printf("unknown ARM7 IO read32 %08X\n", addr);
+    return 0;
+}
+
+void ARM7IOWrite8(u32 addr, u8 val)
+{
+    switch (addr)
+    {
+    case 0x04000138:
+        return;
+
+    case 0x040001A0:
+        ROMSPIControl &= 0xFF00;
+        ROMSPIControl |= val;
+        return;
+    case 0x040001A1:
+        ROMSPIControl &= 0x00FF;
+        ROMSPIControl |= (val << 8);
+        return;
+
+    case 0x040001A8: ROMCommand[0] = val; return;
+    case 0x040001A9: ROMCommand[1] = val; return;
+    case 0x040001AA: ROMCommand[2] = val; return;
+    case 0x040001AB: ROMCommand[3] = val; return;
+    case 0x040001AC: ROMCommand[4] = val; return;
+    case 0x040001AD: ROMCommand[5] = val; return;
+    case 0x040001AE: ROMCommand[6] = val; return;
+    case 0x040001AF: ROMCommand[7] = val; return;
+
+    case 0x040001C2:
+        SPI::WriteData(val);
+        return;
+
+    case 0x04000208: IME[1] = val & 0x1; return;
+
+    case 0x04000301:
+        if (val == 0x80) ARM7->Halt(1);
+        return;
+    }
+
+    printf("unknown ARM7 IO write8 %08X %02X\n", addr, val);
+}
+
+void ARM7IOWrite16(u32 addr, u16 val)
+{
+    switch (addr)
+    {
+    case 0x04000004: GPU2D::SetDispStat(1, val); return;
+
+    case 0x04000100: Timers[4].Reload = val; return;
+    case 0x04000102: TimerStart(4, val); return;
+    case 0x04000104: Timers[5].Reload = val; return;
+    case 0x04000106: TimerStart(5, val); return;
+    case 0x04000108: Timers[6].Reload = val; return;
+    case 0x0400010A: TimerStart(6, val); return;
+    case 0x0400010C: Timers[7].Reload = val; return;
+    case 0x0400010E: TimerStart(7, val); return;
+
+    case 0x04000134: return;printf("set debug port %04X %08X\n", val, ARM7Read32(ARM7->R[13]+4)); return;
+
+    case 0x04000138: return; // RTC shit. TODO
+
+    case 0x04000180:
+        IPCSync9 &= 0xFFF0;
+        IPCSync9 |= ((val & 0x0F00) >> 8);
+        IPCSync7 &= 0xB0FF;
+        IPCSync7 |= (val & 0x4F00);
+        if ((val & 0x2000) && (IPCSync9 & 0x4000))
+        {
+            TriggerIRQ(0, IRQ_IPCSync);
+        }
+        return;
+
+    case 0x04000184:
+        if (val & 0x0008)
+            IPCFIFO7->Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
+            TriggerIRQ(1, IRQ_IPCSendDone);
+        if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
+            TriggerIRQ(1, IRQ_IPCRecv);
+        if (val & 0x4000)
+            IPCFIFOCnt7 &= ~0x4000;
+        IPCFIFOCnt7 = val & 0x8404;
+        return;
+
+    case 0x040001A0:
+        ROMSPIControl = val;
+        return;
+
+    case 0x040001C0:
+        SPI::WriteCnt(val);
+        return;
+
+    case 0x040001C2:
+        SPI::WriteData(val & 0xFF);
+        return;
+
+    case 0x04000208: IME[1] = val & 0x1; return;
+
+    case 0x04000304: PowerControl7 = val; return;
+
+    case 0x04000504:
+        _soundbias = val & 0x3FF;
+        return;
+    }
+
+    printf("unknown ARM7 IO write16 %08X %04X\n", addr, val);
+}
+
+void ARM7IOWrite32(u32 addr, u32 val)
+{
+    switch (addr)
+    {
+    case 0x04000100:
+        Timers[4].Reload = val & 0xFFFF;
+        TimerStart(4, val>>16);
+        return;
+    case 0x04000104:
+        Timers[5].Reload = val & 0xFFFF;
+        TimerStart(5, val>>16);
+        return;
+    case 0x04000108:
+        Timers[6].Reload = val & 0xFFFF;
+        TimerStart(6, val>>16);
+        return;
+    case 0x0400010C:
+        Timers[7].Reload = val & 0xFFFF;
+        TimerStart(7, val>>16);
+        return;
+
+    case 0x04000188:
+        if (IPCFIFOCnt7 & 0x8000)
+        {
+            if (IPCFIFO7->IsFull())
+                IPCFIFOCnt7 |= 0x4000;
+            else
+            {
+                IPCFIFO7->Write(val);
+                if (IPCFIFOCnt9 & 0x0400)
+                    TriggerIRQ(0, IRQ_IPCRecv);
+            }
+        }
+        return;
+
+    case 0x040001A0:
+        ROMSPIControl = val & 0xFFFF;
+        // TODO: SPI shit
+        return;
+    case 0x040001A4:
+        val &= ~0x00800000;
+        ROMControl = val;
+        if (val & 0x80000000) ROMStartTransfer(1);
+        return;
+
+    case 0x04000208: IME[1] = val & 0x1; return;
+    case 0x04000210: IE[1] = val; return;
+    case 0x04000214: IF[1] &= ~val; return;
+    }
+
+    printf("unknown ARM7 IO write32 %08X %08X\n", addr, val);
 }
 
 }

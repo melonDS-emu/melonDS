@@ -117,6 +117,20 @@ void ARM7Write8(u32 addr, u8 val);
 void ARM7Write16(u32 addr, u16 val);
 void ARM7Write32(u32 addr, u32 val);
 
+u8 ARM9IORead8(u32 addr);
+u16 ARM9IORead16(u32 addr);
+u32 ARM9IORead32(u32 addr);
+void ARM9IOWrite8(u32 addr, u8 val);
+void ARM9IOWrite16(u32 addr, u16 val);
+void ARM9IOWrite32(u32 addr, u32 val);
+
+u8 ARM7IORead8(u32 addr);
+u16 ARM7IORead16(u32 addr);
+u32 ARM7IORead32(u32 addr);
+void ARM7IOWrite8(u32 addr, u8 val);
+void ARM7IOWrite16(u32 addr, u16 val);
+void ARM7IOWrite32(u32 addr, u32 val);
+
 }
 
 #endif // NDS_H
