@@ -67,10 +67,13 @@ s32 A_MSR_IMM(ARM* cpu)
     u32 oldpsr = *psr;
 
     u32 mask = 0;
-    if (cpu->CurInstr & (1<<16)) mask |= 0x000000DF;
+    if (cpu->CurInstr & (1<<16)) mask |= 0x000000FF;
     if (cpu->CurInstr & (1<<17)) mask |= 0x0000FF00;
     if (cpu->CurInstr & (1<<18)) mask |= 0x00FF0000;
     if (cpu->CurInstr & (1<<19)) mask |= 0xFF000000;
+
+    if (!(cpu->CurInstr & (1<<22)))
+        mask &= 0xFFFFFFDF;
 
     if ((cpu->CPSR & 0x1F) == 0x10) mask &= 0xFFFFFF00;
 

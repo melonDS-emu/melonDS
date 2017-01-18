@@ -210,17 +210,8 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
 
 void ARM::TriggerIRQ()
 {
-    if ((CPSR & 0x80) && (!Halted))
+    if (CPSR & 0x80)
         return;
-
-    /*if (Num==1)
-    {
-        printf("ARM7 IRQ %08X %08X\n", R[15], R_IRQ[0]);
-        if (NDS::Timers[5].Event)
-        {
-            printf("Timer1 %d %d\n", NDS::Timers[5].Counter, NDS::Timers[5].Event->Delay);
-        }
-    }*/
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xFF;
@@ -298,9 +289,7 @@ s32 ARM::Execute(s32 cycles)
                 TriggerIRQ();
         }
 
-        //if (R[15] >= 0x3800170+4 && R[15]<=0x0380017A+4)
-        //    printf("!! %08X: %08X | %08X %08X\n", R[15]-4, R[13], R[0], R[1]);
-
+        // temp. debug cruft
         addr = R[15] - (CPSR&0x20 ? 4:8);
         cpsr = CPSR;
     }
