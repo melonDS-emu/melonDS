@@ -75,6 +75,8 @@ u32 ARM9DTCMBase, ARM9DTCMSize;
 u32 IME[2];
 u32 IE[2], IF[2];
 
+u8 PostFlag9;
+u8 PostFlag7;
 u16 PowerControl9;
 u16 PowerControl7;
 
@@ -87,6 +89,12 @@ u16 IPCSync9, IPCSync7;
 u16 IPCFIFOCnt9, IPCFIFOCnt7;
 FIFO* IPCFIFO9; // FIFO in which the ARM9 writes
 FIFO* IPCFIFO7;
+
+u16 DivCnt;
+u32 DivNumerator[2];
+u32 DivDenominator[2];
+u32 DivQuotient[2];
+u32 DivRemainder[2];
 
 u32 ROMSPIControl;
 u32 ROMControl;
@@ -210,6 +218,8 @@ void Reset()
     IME[0] = 0;
     IME[1] = 0;
 
+    PostFlag9 = 0x00;
+    PostFlag7 = 0x00;
     PowerControl9 = 0x0001;
     PowerControl7 = 0x0001;
 
@@ -219,6 +229,8 @@ void Reset()
     IPCFIFOCnt7 = 0;
     IPCFIFO9->Clear();
     IPCFIFO7->Clear();
+
+    DivCnt = 0;
 
     ROMSPIControl = 0;
     ROMControl = 0;
@@ -630,6 +642,86 @@ u32 ROMReadData(u32 cpu)
         ROMEndTransfer(cpu);
 
     return ret;
+}
+
+
+
+void StartDiv()
+{
+    // TODO: division isn't instant!
+
+    DivCnt &= ~0x2000;
+
+    switch (DivCnt & 0x0003)
+    {
+    case 0x0000:
+        {
+            s32 num = (s32)DivNumerator[0];
+            s32 den = (s32)DivDenominator[0];
+            if (den == 0)
+            {
+                DivQuotient[0] = (num<0) ? 1:-1;
+                DivQuotient[1] = (num<0) ? -1:1;
+                *(s64*)&DivRemainder[0] = num;
+            }
+            else if (num == -0x80000000 && den == -1)
+            {
+                *(s64*)&DivQuotient[0] = 0x80000000;
+            }
+            else
+            {
+                *(s64*)&DivQuotient[0] = (s64)(num / den);
+                *(s64*)&DivRemainder[0] = (s64)(num % den);
+            }
+        }
+        break;
+
+    case 0x0001:
+    case 0x0003:
+        {
+            s64 num = *(s64*)&DivNumerator[0];
+            s32 den = (s32)DivDenominator[0];
+            if (den == 0)
+            {
+                *(s64*)&DivQuotient[0] = (num<0) ? 1:-1;
+                *(s64*)&DivRemainder[0] = num;
+            }
+            else if (num == -0x8000000000000000 && den == -1)
+            {
+                *(s64*)&DivQuotient[0] = 0x8000000000000000;
+            }
+            else
+            {
+                *(s64*)&DivQuotient[0] = (s64)(num / den);
+                *(s64*)&DivRemainder[0] = (s64)(num % den);
+            }
+        }
+        break;
+
+    case 0x0002:
+        {
+            s64 num = *(s64*)&DivNumerator[0];
+            s64 den = *(s64*)&DivDenominator[0];
+            if (den == 0)
+            {
+                *(s64*)&DivQuotient[0] = (num<0) ? 1:-1;
+                *(s64*)&DivRemainder[0] = num;
+            }
+            else if (num == -0x8000000000000000 && den == -1)
+            {
+                *(s64*)&DivQuotient[0] = 0x8000000000000000;
+            }
+            else
+            {
+                *(s64*)&DivQuotient[0] = (s64)(num / den);
+                *(s64*)&DivRemainder[0] = (s64)(num % den);
+            }
+        }
+        break;
+    }
+
+    if ((DivDenominator[0] | DivDenominator[1]) == 0)
+        DivCnt |= 0x2000;
 }
 
 
@@ -1230,9 +1322,7 @@ u8 ARM9IORead8(u32 addr)
     case 0x04000248: return GPU2D::VRAMCNT[7];
     case 0x04000249: return GPU2D::VRAMCNT[8];
 
-    case 0x04000300:
-        printf("ARM9 POSTFLG READ @ %08X\n", ARM9->R[15]);
-        return 0;
+    case 0x04000300: return PostFlag9;
     }
 
     printf("unknown ARM9 IO read8 %08X\n", addr);
@@ -1281,6 +1371,9 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000208: return IME[0];
 
+    case 0x04000280: return DivCnt;
+
+    case 0x04000300: return PostFlag9;
     case 0x04000304: return PowerControl9;
     }
 
@@ -1320,6 +1413,15 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
     case 0x04000214: return IF[0];
+
+    case 0x04000290: return DivNumerator[0];
+    case 0x04000294: return DivNumerator[1];
+    case 0x04000298: return DivDenominator[0];
+    case 0x0400029C: return DivDenominator[1];
+    case 0x040002A0: return DivQuotient[0];
+    case 0x040002A4: return DivQuotient[1];
+    case 0x040002A8: return DivRemainder[0];
+    case 0x040002AC: return DivRemainder[1];
 
     case 0x04100000:
         if (IPCFIFOCnt9 & 0x8000)
@@ -1372,6 +1474,11 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04000247: MapSharedWRAM(val); return;
     case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
     case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
+
+    case 0x04000300:
+        if (PostFlag9 & 0x01) val |= 0x01;
+        PostFlag9 = val & 0x03;
+        return;
     }
 
     printf("unknown ARM9 IO write8 %08X %02X\n", addr, val);
@@ -1441,6 +1548,13 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000248:
         GPU2D::MapVRAM_H(7, val & 0xFF);
         GPU2D::MapVRAM_I(8, val >> 8);
+        return;
+
+    case 0x04000280: DivCnt = val; StartDiv(); return;
+
+    case 0x04000300:
+        if (PostFlag9 & 0x01) val |= 0x01;
+        PostFlag9 = val & 0x03;
         return;
 
     case 0x04000304: PowerControl9 = val; return;
@@ -1533,6 +1647,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
         GPU2D::MapVRAM_H(7, val & 0xFF);
         GPU2D::MapVRAM_I(8, (val >> 8) & 0xFF);
         return;
+
+    case 0x04000290: DivNumerator[0] = val; StartDiv(); return;
+    case 0x04000294: DivNumerator[1] = val; StartDiv(); return;
+    case 0x04000298: DivDenominator[0] = val; StartDiv(); return;
+    case 0x0400029C: DivDenominator[1] = val; StartDiv(); return;
     }
 
     printf("unknown ARM9 IO write32 %08X %08X\n", addr, val);
@@ -1552,9 +1671,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04000240: return GPU2D::VRAMSTAT;
     case 0x04000241: return WRAMCnt;
 
-    case 0x04000300:
-        printf("ARM7 POSTFLG READ @ %08X\n", ARM7->R[15]);
-        return 0;
+    case 0x04000300: return PostFlag7;
 
     //case 0x04000403:
         //Halt();
@@ -1608,6 +1725,7 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04000208: return IME[1];
 
+    case 0x04000300: return PostFlag7;
     case 0x04000304: return PowerControl7;
 
     case 0x04000504: return _soundbias;
@@ -1710,6 +1828,13 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000208: IME[1] = val & 0x1; return;
 
+    case 0x04000300:
+        if (ARM7->R[15] >= 0x4000)
+            return;
+        if (!(PostFlag7 & 0x01))
+            PostFlag7 = val & 0x01;
+        return;
+
     case 0x04000301:
         if (val == 0x80) ARM7->Halt(1);
         return;
@@ -1773,6 +1898,13 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000208: IME[1] = val & 0x1; return;
+
+    case 0x04000300:
+        if (ARM7->R[15] >= 0x4000)
+            return;
+        if (!(PostFlag7 & 0x01))
+            PostFlag7 = val & 0x01;
+        return;
 
     case 0x04000304: PowerControl7 = val; return;
 
