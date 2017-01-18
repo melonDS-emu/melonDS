@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
+#include "DMA.h"
 #include "FIFO.h"
 #include "GPU2D.h"
 #include "SPI.h"
@@ -79,6 +80,9 @@ u16 PowerControl7;
 
 Timer Timers[8];
 
+DMA* DMAs[8];
+u32 DMA9Fill[4];
+
 u16 IPCSync9, IPCSync7;
 u16 IPCFIFOCnt9, IPCFIFOCnt7;
 FIFO* IPCFIFO9; // FIFO in which the ARM9 writes
@@ -101,6 +105,15 @@ void Init()
 {
     ARM9 = new ARM(0);
     ARM7 = new ARM(1);
+
+    DMAs[0] = new DMA(0, 0);
+    DMAs[1] = new DMA(0, 1);
+    DMAs[2] = new DMA(0, 2);
+    DMAs[3] = new DMA(0, 3);
+    DMAs[4] = new DMA(1, 0);
+    DMAs[5] = new DMA(1, 1);
+    DMAs[6] = new DMA(1, 2);
+    DMAs[7] = new DMA(1, 3);
 
     IPCFIFO9 = new FIFO(16);
     IPCFIFO7 = new FIFO(16);
@@ -156,6 +169,7 @@ void LoadROM()
 void Reset()
 {
     FILE* f;
+    u32 i;
 
     f = fopen("bios9.bin", "rb");
     if (!f)
@@ -215,6 +229,9 @@ void Reset()
     CP15::Reset();
 
     memset(Timers, 0, 8*sizeof(Timer));
+
+    for (i = 0; i < 8; i++) DMAs[i]->Reset();
+    memset(DMA9Fill, 0, 4*4);
 
     GPU2D::Reset();
     SPI::Reset();
@@ -991,7 +1008,7 @@ u8 ARM7Read8(u32 addr)
         return 0;
     }
 
-    printf("unknown arm7 read8 %08X\n", addr);
+    printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
     return 0;
 }
 
@@ -1229,6 +1246,15 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000004: return GPU2D::DispStat[0];
     case 0x04000006: return GPU2D::VCount;
 
+    case 0x040000E0: return ((u16*)DMA9Fill)[0];
+    case 0x040000E2: return ((u16*)DMA9Fill)[1];
+    case 0x040000E4: return ((u16*)DMA9Fill)[2];
+    case 0x040000E6: return ((u16*)DMA9Fill)[3];
+    case 0x040000E8: return ((u16*)DMA9Fill)[4];
+    case 0x040000EA: return ((u16*)DMA9Fill)[5];
+    case 0x040000EC: return ((u16*)DMA9Fill)[6];
+    case 0x040000EE: return ((u16*)DMA9Fill)[7];
+
     case 0x04000100: return Timers[0].Counter;
     case 0x04000102: return Timers[0].Control;
     case 0x04000104: return Timers[1].Counter;
@@ -1267,6 +1293,24 @@ u32 ARM9IORead32(u32 addr)
     switch (addr)
     {
     case 0x04000004: return GPU2D::DispStat[0] | (GPU2D::VCount << 16);
+
+    case 0x040000B0: return DMAs[0]->SrcAddr;
+    case 0x040000B4: return DMAs[0]->DstAddr;
+    case 0x040000B8: return DMAs[0]->Cnt;
+    case 0x040000BC: return DMAs[1]->SrcAddr;
+    case 0x040000C0: return DMAs[1]->DstAddr;
+    case 0x040000C4: return DMAs[1]->Cnt;
+    case 0x040000C8: return DMAs[2]->SrcAddr;
+    case 0x040000CC: return DMAs[2]->DstAddr;
+    case 0x040000D0: return DMAs[2]->Cnt;
+    case 0x040000D4: return DMAs[3]->SrcAddr;
+    case 0x040000D8: return DMAs[3]->DstAddr;
+    case 0x040000DC: return DMAs[3]->Cnt;
+
+    case 0x040000E0: return DMA9Fill[0];
+    case 0x040000E4: return DMA9Fill[1];
+    case 0x040000E8: return DMA9Fill[2];
+    case 0x040000EC: return DMA9Fill[3];
 
     case 0x04000100: return Timers[0].Counter | (Timers[0].Control << 16);
     case 0x04000104: return Timers[1].Counter | (Timers[1].Control << 16);
@@ -1409,6 +1453,24 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x040000B0: DMAs[0]->SrcAddr = val; return;
+    case 0x040000B4: DMAs[0]->DstAddr = val; return;
+    case 0x040000B8: DMAs[0]->WriteCnt(val); return;
+    case 0x040000BC: DMAs[1]->SrcAddr = val; return;
+    case 0x040000C0: DMAs[1]->DstAddr = val; return;
+    case 0x040000C4: DMAs[1]->WriteCnt(val); return;
+    case 0x040000C8: DMAs[2]->SrcAddr = val; return;
+    case 0x040000CC: DMAs[2]->DstAddr = val; return;
+    case 0x040000D0: DMAs[2]->WriteCnt(val); return;
+    case 0x040000D4: DMAs[3]->SrcAddr = val; return;
+    case 0x040000D8: DMAs[3]->DstAddr = val; return;
+    case 0x040000DC: DMAs[3]->WriteCnt(val); return;
+
+    case 0x040000E0: DMA9Fill[0] = val; return;
+    case 0x040000E4: DMA9Fill[1] = val; return;
+    case 0x040000E8: DMA9Fill[2] = val; return;
+    case 0x040000EC: DMA9Fill[3] = val; return;
+
     case 0x04000100:
         Timers[0].Reload = val & 0xFFFF;
         TimerStart(0, val>>16);
@@ -1560,6 +1622,19 @@ u32 ARM7IORead32(u32 addr)
     switch (addr)
     {
     case 0x04000004: return GPU2D::DispStat[1] | (GPU2D::VCount << 16);
+
+    case 0x040000B0: return DMAs[4]->SrcAddr;
+    case 0x040000B4: return DMAs[4]->DstAddr;
+    case 0x040000B8: return DMAs[4]->Cnt;
+    case 0x040000BC: return DMAs[5]->SrcAddr;
+    case 0x040000C0: return DMAs[5]->DstAddr;
+    case 0x040000C4: return DMAs[5]->Cnt;
+    case 0x040000C8: return DMAs[6]->SrcAddr;
+    case 0x040000CC: return DMAs[6]->DstAddr;
+    case 0x040000D0: return DMAs[6]->Cnt;
+    case 0x040000D4: return DMAs[7]->SrcAddr;
+    case 0x040000D8: return DMAs[7]->DstAddr;
+    case 0x040000DC: return DMAs[7]->Cnt;
 
     case 0x04000100: return Timers[4].Counter | (Timers[4].Control << 16);
     case 0x04000104: return Timers[5].Counter | (Timers[5].Control << 16);
@@ -1713,6 +1788,19 @@ void ARM7IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x040000B0: DMAs[4]->SrcAddr = val; return;
+    case 0x040000B4: DMAs[4]->DstAddr = val; return;
+    case 0x040000B8: DMAs[4]->WriteCnt(val); return;
+    case 0x040000BC: DMAs[5]->SrcAddr = val; return;
+    case 0x040000C0: DMAs[5]->DstAddr = val; return;
+    case 0x040000C4: DMAs[5]->WriteCnt(val); return;
+    case 0x040000C8: DMAs[6]->SrcAddr = val; return;
+    case 0x040000CC: DMAs[6]->DstAddr = val; return;
+    case 0x040000D0: DMAs[6]->WriteCnt(val); return;
+    case 0x040000D4: DMAs[7]->SrcAddr = val; return;
+    case 0x040000D8: DMAs[7]->DstAddr = val; return;
+    case 0x040000DC: DMAs[7]->WriteCnt(val); return;
+
     case 0x04000100:
         Timers[4].Reload = val & 0xFFFF;
         TimerStart(4, val>>16);

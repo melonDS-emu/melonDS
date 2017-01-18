@@ -128,6 +128,9 @@ int main()
 
     NDS::Init();
 
+    u32 nframes = 0;
+    u32 lasttick = GetTickCount();
+
     for (;;)
     {
         MSG msg;
@@ -149,6 +152,21 @@ int main()
         HDC dc = GetDC(melon);
         SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU2D::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
         UpdateWindow(melon);
+
+        nframes++;
+        if (nframes >= 30)
+        {
+            u32 tick = GetTickCount();
+            u32 diff = tick - lasttick;
+            lasttick = tick;
+
+            u32 fps = (nframes * 1000) / diff;
+            nframes = 0;
+
+            char melontitle[100];
+            sprintf(melontitle, "melonDS | %d FPS", fps);
+            SetWindowText(melon, melontitle);
+        }
     }
 
     return 0;

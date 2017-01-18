@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1481167563 source:c:\documents\sources\melonds\main.cpp
+1484695094 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	<windows.h>
 	"NDS.h"
@@ -10,18 +10,19 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1484616465 source:c:\documents\sources\melonds\nds.cpp
+1484699425 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"ARM.h"
 	"CP15.h"
+	"DMA.h"
 	"FIFO.h"
 	"GPU2D.h"
 	"SPI.h"
 	"Wifi.h"
 
-1484538131 source:c:\documents\sources\melonds\arm.cpp
+1484693558 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -100,5 +101,13 @@
 	"FIFO.h"
 
 1484612398 c:\documents\sources\melonds\fifo.h
+	"types.h"
+
+1484699433 source:c:\documents\sources\melonds\dma.cpp
+	<stdio.h>
+	"NDS.h"
+	"DMA.h"
+
+1484698068 c:\documents\sources\melonds\dma.h
 	"types.h"
 

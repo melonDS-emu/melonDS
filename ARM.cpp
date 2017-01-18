@@ -291,43 +291,15 @@ s32 ARM::Execute(s32 cycles)
             }
         }
 
-        // zorp
+        // TODO optimize this shit!!!
         if (NDS::HaltInterrupted(Num))
         {
             if (NDS::IME[Num]&1)
                 TriggerIRQ();
         }
 
-        //if (R[15]==0x2DD0)
-        //    printf("-> %08X %08X\n", R[13], Read32(0x0380FF7C));
-
-        //if (R[15]==0x37FEC7A)
-         //   printf("!!!!!!!! %08X %08X\n", R[14], CPSR);
-
-        //if (R[15] == 0x037FF102+4 && CPSR&0x20) printf("!!!!! %08X -> %08X, %08X -> %08X, %08X, %08X/%08X\n",
-        //                                               addr, R[15], cpsr, CPSR, CurInstr, R_SVC[2], R_IRQ[2]);
-
-        if (addr >= 0x37FAD68 && addr < 0x37FAE40)
-        {
-            if (addr==0x037FAE2A) debug=2;
-            //printf("!!! @ %08X %08X / %08X %08X/%08X\n", addr, R[15], Read32(0x03FFFFFC), Read32(0x04000210), Read32(0x04000214));
-        }
-        else if (debug==2)// && (CPSR&0x1F)==0x12)
-        {
-            //printf("[%08X|%08X] IRQ RET VAL = %08X | %d\n", R[15], CPSR, Read32(0x0380FF7C), cyclesrun);
-        }
-
-        /*if (R[15] == 0x03802D54+2)
-            printf("%08X -> %08X\n", addr, R[15]);
-
-            // 37FE284(ARM) -> 37FE256 -> 37FECA0 !!!
-        if (R[15] == 0x037FE256+4)
-            printf("ROYAL %08X %s -> %08X %s | %08X\n",
-                   addr, (cpsr&0x20)?"THUMB":"ARM", R[15], (CPSR&0x20)?"THUMB":"ARM",
-                   R[0]);
-        if (R[15] == 0x37FE27C)
-            printf("NOTROYAL %08X %08X %08X/%08X\n", R[0], Read32(0x0380593C + 0x3C), R_SVC[2], Read32(0x0380593C-4));*/
-        // R0 = 0380593C
+        //if (R[15] >= 0x3800170+4 && R[15]<=0x0380017A+4)
+        //    printf("!! %08X: %08X | %08X %08X\n", R[15]-4, R[13], R[0], R[1]);
 
         addr = R[15] - (CPSR&0x20 ? 4:8);
         cpsr = CPSR;
