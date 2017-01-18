@@ -23,7 +23,7 @@
 #include "CP15.h"
 #include "DMA.h"
 #include "FIFO.h"
-#include "GPU2D.h"
+#include "GPU.h"
 #include "SPI.h"
 #include "Wifi.h"
 
@@ -126,6 +126,7 @@ void Init()
     IPCFIFO9 = new FIFO(16);
     IPCFIFO7 = new FIFO(16);
 
+    GPU::Init();
     SPI::Init();
 
     Reset();
@@ -245,7 +246,7 @@ void Reset()
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
     memset(DMA9Fill, 0, 4*4);
 
-    GPU2D::Reset();
+    GPU::Reset();
     SPI::Reset();
     Wifi::Reset();
 
@@ -278,7 +279,7 @@ void RunFrame()
     fnum++;
     //printf("frame %d\n", fnum);
 
-    GPU2D::StartFrame();
+    GPU::StartFrame();
 
     while (Running && framecycles>0)
     {
@@ -762,7 +763,7 @@ u8 ARM9Read8(u32 addr)
         return ARM9IORead8(addr);
 
     case 0x05000000:
-        return *(u8*)&GPU2D::Palette[addr & 0x7FF];
+        return *(u8*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -770,11 +771,11 @@ u8 ARM9Read8(u32 addr)
             u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
-            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
             if (vram)
                 return *(u8*)&vram[addr & 0x3FFF];
@@ -782,7 +783,7 @@ u8 ARM9Read8(u32 addr)
         return 0;
 
     case 0x07000000:
-        return *(u8*)&GPU2D::OAM[addr & 0x7FF];
+        return *(u8*)&GPU::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -817,7 +818,7 @@ u16 ARM9Read16(u32 addr)
         return ARM9IORead16(addr);
 
     case 0x05000000:
-        return *(u16*)&GPU2D::Palette[addr & 0x7FF];
+        return *(u16*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -825,11 +826,11 @@ u16 ARM9Read16(u32 addr)
             u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
-            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
             if (vram)
                 return *(u16*)&vram[addr & 0x3FFF];
@@ -837,7 +838,7 @@ u16 ARM9Read16(u32 addr)
         return 0;
 
     case 0x07000000:
-        return *(u16*)&GPU2D::OAM[addr & 0x7FF];
+        return *(u16*)&GPU::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -887,7 +888,7 @@ u32 ARM9Read32(u32 addr)
         return ARM9IORead32(addr);
 
     case 0x05000000:
-        return *(u32*)&GPU2D::Palette[addr & 0x7FF];
+        return *(u32*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
         {
@@ -895,11 +896,11 @@ u32 ARM9Read32(u32 addr)
             u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
-            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
             if (vram)
                 return *(u32*)&vram[addr & 0x3FFF];
@@ -907,7 +908,7 @@ u32 ARM9Read32(u32 addr)
         return 0;
 
     case 0x07000000:
-        return *(u32*)&GPU2D::OAM[addr & 0x7FF];
+        return *(u32*)&GPU::OAM[addr & 0x7FF];
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -979,7 +980,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x05000000:
-        *(u16*)&GPU2D::Palette[addr & 0x7FF] = val;
+        *(u16*)&GPU::Palette[addr & 0x7FF] = val;
         return;
 
     case 0x06000000:
@@ -988,11 +989,11 @@ void ARM9Write16(u32 addr, u16 val)
             u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
-            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
             if (vram)
                 *(u16*)&vram[addr & 0x3FFF] = val;
@@ -1000,7 +1001,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x07000000:
-        *(u16*)&GPU2D::OAM[addr & 0x7FF] = val;
+        *(u16*)&GPU::OAM[addr & 0x7FF] = val;
         return;
     }
 
@@ -1036,7 +1037,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x05000000:
-        *(u32*)&GPU2D::Palette[addr & 0x7FF] = val;
+        *(u32*)&GPU::Palette[addr & 0x7FF] = val;
         return;
 
     case 0x06000000:
@@ -1045,11 +1046,11 @@ void ARM9Write32(u32 addr, u32 val)
             u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU2D::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU2D::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU2D::VRAM_BBG[chunk]; break;
-            case 0x00600000: vram = GPU2D::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU2D::VRAM_LCD[chunk]; break;
+            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
+            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
             if (vram)
                 *(u32*)&vram[addr & 0x3FFF] = val;
@@ -1057,7 +1058,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x07000000:
-        *(u32*)&GPU2D::OAM[addr & 0x7FF] = val;
+        *(u32*)&GPU::OAM[addr & 0x7FF] = val;
         return;
     }
 
@@ -1093,7 +1094,7 @@ u8 ARM7Read8(u32 addr)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 return *(u8*)&vram[addr & 0x3FFF];
         }
@@ -1134,7 +1135,7 @@ u16 ARM7Read16(u32 addr)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 return *(u16*)&vram[addr & 0x3FFF];
         }
@@ -1177,7 +1178,7 @@ u32 ARM7Read32(u32 addr)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 return *(u32*)&vram[addr & 0x3FFF];
         }
@@ -1214,7 +1215,7 @@ void ARM7Write8(u32 addr, u8 val)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 *(u8*)&vram[addr & 0x3FFF] = val;
         }
@@ -1255,7 +1256,7 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 *(u16*)&vram[addr & 0x3FFF] = val;
         }
@@ -1292,7 +1293,7 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x06800000:
         {
             u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU2D::VRAM_ARM7[chunk];
+            u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
                 *(u32*)&vram[addr & 0x3FFF] = val;
         }
@@ -1311,18 +1312,27 @@ u8 ARM9IORead8(u32 addr)
     {
     case 0x04000208: return IME[0];
 
-    case 0x04000240: return GPU2D::VRAMCNT[0];
-    case 0x04000241: return GPU2D::VRAMCNT[1];
-    case 0x04000242: return GPU2D::VRAMCNT[2];
-    case 0x04000243: return GPU2D::VRAMCNT[3];
-    case 0x04000244: return GPU2D::VRAMCNT[4];
-    case 0x04000245: return GPU2D::VRAMCNT[5];
-    case 0x04000246: return GPU2D::VRAMCNT[6];
+    case 0x04000240: return GPU::VRAMCNT[0];
+    case 0x04000241: return GPU::VRAMCNT[1];
+    case 0x04000242: return GPU::VRAMCNT[2];
+    case 0x04000243: return GPU::VRAMCNT[3];
+    case 0x04000244: return GPU::VRAMCNT[4];
+    case 0x04000245: return GPU::VRAMCNT[5];
+    case 0x04000246: return GPU::VRAMCNT[6];
     case 0x04000247: return WRAMCnt;
-    case 0x04000248: return GPU2D::VRAMCNT[7];
-    case 0x04000249: return GPU2D::VRAMCNT[8];
+    case 0x04000248: return GPU::VRAMCNT[7];
+    case 0x04000249: return GPU::VRAMCNT[8];
 
     case 0x04000300: return PostFlag9;
+    }
+
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        return GPU::GPU2D_A->Read8(addr);
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        return GPU::GPU2D_B->Read8(addr);
     }
 
     printf("unknown ARM9 IO read8 %08X\n", addr);
@@ -1333,8 +1343,8 @@ u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000004: return GPU2D::DispStat[0];
-    case 0x04000006: return GPU2D::VCount;
+    case 0x04000004: return GPU::DispStat[0];
+    case 0x04000006: return GPU::VCount;
 
     case 0x040000E0: return ((u16*)DMA9Fill)[0];
     case 0x040000E2: return ((u16*)DMA9Fill)[1];
@@ -1377,6 +1387,15 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000304: return PowerControl9;
     }
 
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        return GPU::GPU2D_A->Read16(addr);
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        return GPU::GPU2D_B->Read16(addr);
+    }
+
     printf("unknown ARM9 IO read16 %08X\n", addr);
     return 0;
 }
@@ -1385,7 +1404,7 @@ u32 ARM9IORead32(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000004: return GPU2D::DispStat[0] | (GPU2D::VCount << 16);
+    case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
     case 0x040000B0: return DMAs[0]->SrcAddr;
     case 0x040000B4: return DMAs[0]->DstAddr;
@@ -1445,6 +1464,15 @@ u32 ARM9IORead32(u32 addr)
             return IPCFIFO7->Peek();
     }
 
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        return GPU::GPU2D_A->Read32(addr);
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        return GPU::GPU2D_B->Read32(addr);
+    }
+
     printf("unknown ARM9 IO read32 %08X\n", addr);
     return 0;
 }
@@ -1464,20 +1492,31 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     case 0x04000208: IME[0] = val & 0x1; return;
 
-    case 0x04000240: GPU2D::MapVRAM_AB(0, val); return;
-    case 0x04000241: GPU2D::MapVRAM_AB(1, val); return;
-    case 0x04000242: GPU2D::MapVRAM_CD(2, val); return;
-    case 0x04000243: GPU2D::MapVRAM_CD(3, val); return;
-    case 0x04000244: GPU2D::MapVRAM_E(4, val); return;
-    case 0x04000245: GPU2D::MapVRAM_FG(5, val); return;
-    case 0x04000246: GPU2D::MapVRAM_FG(6, val); return;
+    case 0x04000240: GPU::MapVRAM_AB(0, val); return;
+    case 0x04000241: GPU::MapVRAM_AB(1, val); return;
+    case 0x04000242: GPU::MapVRAM_CD(2, val); return;
+    case 0x04000243: GPU::MapVRAM_CD(3, val); return;
+    case 0x04000244: GPU::MapVRAM_E(4, val); return;
+    case 0x04000245: GPU::MapVRAM_FG(5, val); return;
+    case 0x04000246: GPU::MapVRAM_FG(6, val); return;
     case 0x04000247: MapSharedWRAM(val); return;
-    case 0x04000248: GPU2D::MapVRAM_H(7, val); return;
-    case 0x04000249: GPU2D::MapVRAM_I(8, val); return;
+    case 0x04000248: GPU::MapVRAM_H(7, val); return;
+    case 0x04000249: GPU::MapVRAM_I(8, val); return;
 
     case 0x04000300:
         if (PostFlag9 & 0x01) val |= 0x01;
         PostFlag9 = val & 0x03;
+        return;
+    }
+
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        GPU::GPU2D_A->Write8(addr, val);
+        return;
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        GPU::GPU2D_B->Write8(addr, val);
         return;
     }
 
@@ -1488,7 +1527,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU2D::SetDispStat(0, val); return;
+    case 0x04000004: GPU::SetDispStat(0, val); return;
 
     case 0x04000100: Timers[0].Reload = val; return;
     case 0x04000102: TimerStart(0, val); return;
@@ -1530,24 +1569,24 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000208: IME[0] = val & 0x1; return;
 
     case 0x04000240:
-        GPU2D::MapVRAM_AB(0, val & 0xFF);
-        GPU2D::MapVRAM_AB(1, val >> 8);
+        GPU::MapVRAM_AB(0, val & 0xFF);
+        GPU::MapVRAM_AB(1, val >> 8);
         return;
     case 0x04000242:
-        GPU2D::MapVRAM_CD(2, val & 0xFF);
-        GPU2D::MapVRAM_CD(3, val >> 8);
+        GPU::MapVRAM_CD(2, val & 0xFF);
+        GPU::MapVRAM_CD(3, val >> 8);
         return;
     case 0x04000244:
-        GPU2D::MapVRAM_E(4, val & 0xFF);
-        GPU2D::MapVRAM_FG(5, val >> 8);
+        GPU::MapVRAM_E(4, val & 0xFF);
+        GPU::MapVRAM_FG(5, val >> 8);
         return;
     case 0x04000246:
-        GPU2D::MapVRAM_FG(6, val & 0xFF);
+        GPU::MapVRAM_FG(6, val & 0xFF);
         MapSharedWRAM(val >> 8);
         return;
     case 0x04000248:
-        GPU2D::MapVRAM_H(7, val & 0xFF);
-        GPU2D::MapVRAM_I(8, val >> 8);
+        GPU::MapVRAM_H(7, val & 0xFF);
+        GPU::MapVRAM_I(8, val >> 8);
         return;
 
     case 0x04000280: DivCnt = val; StartDiv(); return;
@@ -1558,6 +1597,17 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000304: PowerControl9 = val; return;
+    }
+
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        GPU::GPU2D_A->Write16(addr, val);
+        return;
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        GPU::GPU2D_B->Write16(addr, val);
+        return;
     }
 
     printf("unknown ARM9 IO write16 %08X %04X\n", addr, val);
@@ -1632,26 +1682,37 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000214: IF[0] &= ~val; return;
 
     case 0x04000240:
-        GPU2D::MapVRAM_AB(0, val & 0xFF);
-        GPU2D::MapVRAM_AB(1, (val >> 8) & 0xFF);
-        GPU2D::MapVRAM_CD(2, (val >> 16) & 0xFF);
-        GPU2D::MapVRAM_CD(3, val >> 24);
+        GPU::MapVRAM_AB(0, val & 0xFF);
+        GPU::MapVRAM_AB(1, (val >> 8) & 0xFF);
+        GPU::MapVRAM_CD(2, (val >> 16) & 0xFF);
+        GPU::MapVRAM_CD(3, val >> 24);
         return;
     case 0x04000244:
-        GPU2D::MapVRAM_E(4, val & 0xFF);
-        GPU2D::MapVRAM_FG(5, (val >> 8) & 0xFF);
-        GPU2D::MapVRAM_FG(6, (val >> 16) & 0xFF);
+        GPU::MapVRAM_E(4, val & 0xFF);
+        GPU::MapVRAM_FG(5, (val >> 8) & 0xFF);
+        GPU::MapVRAM_FG(6, (val >> 16) & 0xFF);
         MapSharedWRAM(val >> 24);
         return;
     case 0x04000248:
-        GPU2D::MapVRAM_H(7, val & 0xFF);
-        GPU2D::MapVRAM_I(8, (val >> 8) & 0xFF);
+        GPU::MapVRAM_H(7, val & 0xFF);
+        GPU::MapVRAM_I(8, (val >> 8) & 0xFF);
         return;
 
     case 0x04000290: DivNumerator[0] = val; StartDiv(); return;
     case 0x04000294: DivNumerator[1] = val; StartDiv(); return;
     case 0x04000298: DivDenominator[0] = val; StartDiv(); return;
     case 0x0400029C: DivDenominator[1] = val; StartDiv(); return;
+    }
+
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        GPU::GPU2D_A->Write32(addr, val);
+        return;
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        GPU::GPU2D_B->Write32(addr, val);
+        return;
     }
 
     printf("unknown ARM9 IO write32 %08X %08X\n", addr, val);
@@ -1668,7 +1729,7 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x04000208: return IME[1];
 
-    case 0x04000240: return GPU2D::VRAMSTAT;
+    case 0x04000240: return GPU::VRAMSTAT;
     case 0x04000241: return WRAMCnt;
 
     case 0x04000300: return PostFlag7;
@@ -1691,8 +1752,8 @@ u16 ARM7IORead16(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000004: return GPU2D::DispStat[1];
-    case 0x04000006: return GPU2D::VCount;
+    case 0x04000004: return GPU::DispStat[1];
+    case 0x04000006: return GPU::VCount;
 
     case 0x04000100: return Timers[4].Counter;
     case 0x04000102: return Timers[4].Control;
@@ -1739,7 +1800,7 @@ u32 ARM7IORead32(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000004: return GPU2D::DispStat[1] | (GPU2D::VCount << 16);
+    case 0x04000004: return GPU::DispStat[1] | (GPU::VCount << 16);
 
     case 0x040000B0: return DMAs[4]->SrcAddr;
     case 0x040000B4: return DMAs[4]->DstAddr;
@@ -1847,7 +1908,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000004: GPU2D::SetDispStat(1, val); return;
+    case 0x04000004: GPU::SetDispStat(1, val); return;
 
     case 0x04000100: Timers[4].Reload = val; return;
     case 0x04000102: TimerStart(4, val); return;

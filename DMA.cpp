@@ -86,6 +86,8 @@ void DMA::WriteCnt(u32 val)
 
         if ((StartMode & 0x7) == 0)
             Start();
+        else
+            printf("SPECIAL ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
     }
 }
 

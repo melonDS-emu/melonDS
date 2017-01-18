@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include "NDS.h"
-#include "GPU2D.h"
+#include "GPU.h"
 
 
 HINSTANCE instance;
@@ -150,7 +150,7 @@ int main()
         NDS::RunFrame();
 
         HDC dc = GetDC(melon);
-        SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU2D::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
+        SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
         UpdateWindow(melon);
 
         nframes++;
