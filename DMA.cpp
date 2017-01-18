@@ -63,20 +63,20 @@ void DMA::WriteCnt(u32 val)
         CurSrcAddr = SrcAddr;
         CurDstAddr = DstAddr;
 
-        switch (Cnt & 0x00060000)
+        switch (Cnt & 0x00600000)
         {
         case 0x00000000: DstAddrInc = 1; break;
-        case 0x00020000: DstAddrInc = -1; break;
-        case 0x00040000: DstAddrInc = 0; break;
-        case 0x00060000: DstAddrInc = 1; break;
+        case 0x00200000: DstAddrInc = -1; break;
+        case 0x00400000: DstAddrInc = 0; break;
+        case 0x00600000: DstAddrInc = 1; break;
         }
 
-        switch (Cnt & 0x00180000)
+        switch (Cnt & 0x01800000)
         {
         case 0x00000000: SrcAddrInc = 1; break;
-        case 0x00080000: SrcAddrInc = -1; break;
-        case 0x00100000: SrcAddrInc = 0; break;
-        case 0x00180000: SrcAddrInc = 1; printf("BAD DMA SRC INC MODE 3\n"); break;
+        case 0x00800000: SrcAddrInc = -1; break;
+        case 0x01000000: SrcAddrInc = 0; break;
+        case 0x01800000: SrcAddrInc = 1; printf("BAD DMA SRC INC MODE 3\n"); break;
         }
 
         if (CPU == 0)
@@ -106,10 +106,10 @@ void DMA::Start()
     if ((Cnt & 0x00060000) == 0x00060000)
         CurDstAddr = DstAddr;
 
-    printf("ARM%d DMA%d %08X->%08X %d units %dbit\n", CPU?7:9, Num, CurSrcAddr, CurDstAddr, RemCount, (Cnt & 0x04000000)?16:32);
+    printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt & 0x04000000)?2:4), (Cnt & 0x04000000)?16:32);
 
     // TODO: NOT MAKE THE DMA INSTANT!!
-    if (Cnt & 0x04000000)
+    if (!(Cnt & 0x04000000))
     {
         u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
         void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;

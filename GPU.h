@@ -34,6 +34,7 @@ extern u8 VRAMSTAT;
 extern u8 Palette[2*1024];
 extern u8 OAM[2*1024];
 
+extern u8* VRAM[9];
 extern u8* VRAM_ABG[128];
 extern u8* VRAM_AOBJ[128];
 extern u8* VRAM_BBG[128];

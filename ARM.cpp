@@ -228,7 +228,7 @@ s32 ARM::Execute(s32 cycles)
     if (Halted)
     {
         if (NDS::HaltInterrupted(Num))
-            Halted = false;
+            Halted = 0;
         else
             return cycles;
     }
@@ -283,6 +283,7 @@ s32 ARM::Execute(s32 cycles)
         }
 
         // TODO optimize this shit!!!
+        if (Halted) return cycles;
         if (NDS::HaltInterrupted(Num))
         {
             if (NDS::IME[Num]&1)

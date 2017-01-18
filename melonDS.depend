@@ -1,16 +1,16 @@
 # depslib dependency file v1.0
-1484707090 source:c:\documents\sources\melonds\main.cpp
+1484751556 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	<windows.h>
 	"NDS.h"
 	"GPU.h"
 
-1484615598 c:\documents\sources\melonds\nds.h
+1484752883 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1484708424 source:c:\documents\sources\melonds\nds.cpp
+1484758082 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -22,7 +22,7 @@
 	"SPI.h"
 	"Wifi.h"
 
-1484705354 source:c:\documents\sources\melonds\arm.cpp
+1484754523 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -38,7 +38,7 @@
 	"types.h"
 	"ARM.h"
 
-1484705417 source:c:\documents\sources\melonds\arminterpreter.cpp
+1484752824 source:c:\documents\sources\melonds\arminterpreter.cpp
 	<stdio.h>
 	"NDS.h"
 	"CP15.h"
@@ -68,7 +68,7 @@
 
 1481037554 c:\documents\sources\melonds\cp15.h
 
-1484616493 source:c:\documents\sources\melonds\cp15.cpp
+1484754534 source:c:\documents\sources\melonds\cp15.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -81,13 +81,13 @@
 	"NDS.h"
 	"SPI.h"
 
-1484708331 source:c:\documents\sources\melonds\gpu2d.cpp
+1484758294 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
+	<string.h>
 	"NDS.h"
 	"GPU.h"
-	"GPU2D.h"
 
-1484707825 c:\documents\sources\melonds\gpu2d.h
+1484711212 c:\documents\sources\melonds\gpu2d.h
 
 1481040524 c:\documents\sources\melonds\wifi.h
 
@@ -103,7 +103,7 @@
 1484612398 c:\documents\sources\melonds\fifo.h
 	"types.h"
 
-1484706353 source:c:\documents\sources\melonds\dma.cpp
+1484756268 source:c:\documents\sources\melonds\dma.cpp
 	<stdio.h>
 	"NDS.h"
 	"DMA.h"
@@ -111,12 +111,12 @@
 1484698068 c:\documents\sources\melonds\dma.h
 	"types.h"
 
-1484708259 source:c:\documents\sources\melonds\gpu.cpp
+1484753188 source:c:\documents\sources\melonds\gpu.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
 
-1484708251 c:\documents\sources\melonds\gpu.h
+1484709419 c:\documents\sources\melonds\gpu.h
 	"GPU2D.h"
 

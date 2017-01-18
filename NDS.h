@@ -76,6 +76,8 @@ typedef struct
 
 // hax
 extern u32 IME[2];
+extern u32 IE[2];
+extern u32 IF[2];
 extern Timer Timers[8];
 
 extern u32 ARM9ITCMSize;

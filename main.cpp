@@ -34,6 +34,12 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
     {
     case WM_CLOSE:
         printf("close\n");
+        {
+            FILE* f = fopen("vram.bin", "wb");
+            for (int i = 0; i < 128; i++)
+                fwrite(GPU::VRAM_BBG[i], 16384, 1, f);
+            fclose(f);
+        }
         PostQuitMessage(0);
         return 0;
 
@@ -46,6 +52,7 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_DOWN:   NDS::PressKey(7); break;
         case VK_LEFT:   NDS::PressKey(5); break;
         case VK_RIGHT:  NDS::PressKey(4); break;
+        case 'P': NDS::PressKey(16+6); break;
         }
         return 0;
 
@@ -58,6 +65,7 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_DOWN:   NDS::ReleaseKey(7); break;
         case VK_LEFT:   NDS::ReleaseKey(5); break;
         case VK_RIGHT:  NDS::ReleaseKey(4); break;
+        case 'P': NDS::ReleaseKey(16+6); break;
         }
         return 0;
 

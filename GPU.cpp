@@ -108,7 +108,7 @@ void Reset()
     GPU2D_A->Reset();
     GPU2D_B->Reset();
 
-    GPU2D_A->SetFramebuffer(&Framebuffer[0*192]);
+    GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
     GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
 }
 
@@ -682,24 +682,6 @@ void MapVRAM_I(u32 bank, u8 cnt)
 }
 
 
-void DrawScanline(u32 screen, u32 line)
-{
-    u16* dst = &Framebuffer[256 * ((192*screen) + line)];
-
-    if (screen==0)
-    {
-        u16* src = &((u16*)VRAM_A)[256*line];
-        for (int i = 0; i < 256; i++)
-            dst[i] = src[i];
-    }
-    else
-    {
-        for (int i = 0; i < 256; i++)
-            dst[i] = 0x7FFF;
-    }
-}
-
-
 void StartFrame()
 {
     StartScanline(0);
@@ -730,8 +712,8 @@ void StartScanline(u32 line)
     if (line < 192)
     {
         // draw
-        DrawScanline(0, line);
-        DrawScanline(1, line);
+        GPU2D_A->DrawScanline(line);
+        GPU2D_B->DrawScanline(line);
 
         NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
     }

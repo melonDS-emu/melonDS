@@ -484,10 +484,9 @@ void MapSharedWRAM(u8 val)
 void TriggerIRQ(u32 cpu, u32 irq)
 {
     irq = 1 << irq;
-    //if (!(IE[cpu] & irq)) return;
-
     IF[cpu] |= irq;
 
+    // this is redundant
     if (!(IME[cpu] & 0x1)) return;
     (cpu?ARM7:ARM9)->TriggerIRQ();
 }
@@ -772,8 +771,8 @@ u8 ARM9Read8(u32 addr)
             switch (addr & 0x00E00000)
             {
             case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
             case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
             case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
@@ -784,6 +783,10 @@ u8 ARM9Read8(u32 addr)
 
     case 0x07000000:
         return *(u8*)&GPU::OAM[addr & 0x7FF];
+
+    case 0x08000000:
+    case 0x09000000:
+        return 0xFF;
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -827,8 +830,8 @@ u16 ARM9Read16(u32 addr)
             switch (addr & 0x00E00000)
             {
             case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
             case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
             case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
@@ -839,6 +842,10 @@ u16 ARM9Read16(u32 addr)
 
     case 0x07000000:
         return *(u16*)&GPU::OAM[addr & 0x7FF];
+
+    case 0x08000000:
+    case 0x09000000:
+        return 0xFFFF;
     }
 
     printf("unknown arm9 read16 %08X\n", addr);
@@ -897,8 +904,8 @@ u32 ARM9Read32(u32 addr)
             switch (addr & 0x00E00000)
             {
             case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
             case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
             case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
@@ -909,6 +916,10 @@ u32 ARM9Read32(u32 addr)
 
     case 0x07000000:
         return *(u32*)&GPU::OAM[addr & 0x7FF];
+
+    case 0x08000000:
+    case 0x09000000:
+        return 0xFFFFFFFF;
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
@@ -990,8 +1001,8 @@ void ARM9Write16(u32 addr, u16 val)
             switch (addr & 0x00E00000)
             {
             case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
             case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
             case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
@@ -1047,8 +1058,8 @@ void ARM9Write32(u32 addr, u32 val)
             switch (addr & 0x00E00000)
             {
             case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
+            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
             case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
             case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
             }
@@ -1396,7 +1407,7 @@ u16 ARM9IORead16(u32 addr)
         return GPU::GPU2D_B->Read16(addr);
     }
 
-    printf("unknown ARM9 IO read16 %08X\n", addr);
+    printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -1792,7 +1803,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000504: return _soundbias;
     }
 
-    printf("unknown ARM7 IO read16 %08X\n", addr);
+    printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
