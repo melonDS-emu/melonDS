@@ -38,8 +38,10 @@ namespace SPI_Firmware
 namespace NDS
 {
 
-// TODO: stick all the variables in a big structure?
-// would make it easier to deal with savestates
+// TODO LIST
+// * stick all the variables in a big structure?
+//   would make it easier to deal with savestates
+// * move ARM9 TCM to the ARM class (closer to the real thing, and handles "DMA can't access TCM" nicely)
 
 SchedEvent SchedBuffer[SCHED_BUF_LEN];
 SchedEvent* SchedQueue;
@@ -139,8 +141,8 @@ void LoadROM()
 {
     FILE* f;
 
-    //f = fopen("rom/armwrestler.nds", "rb");
-    f = fopen("rom/zorp.nds", "rb");
+    f = fopen("rom/armwrestler.nds", "rb");
+    //f = fopen("rom/zorp.nds", "rb");
 
     u32 bootparams[8];
     fseek(f, 0x20, SEEK_SET);
@@ -968,6 +970,13 @@ void ARM9Write8(u32 addr, u8 val)
 void ARM9Write16(u32 addr, u16 val)
 {
     if (addr == ARM9->R[15]) printf("!!!!!!!!!!!!9999 %08X %04X\n", addr, val);
+    if (addr == 0x02331B44) printf("!! PAL !! %04X %08X\n", val, ARM9->R[15]);
+    /*if (addr >= 0x06218000 && addr < 0x06218000+0x6000 && val)
+    {
+        printf("WRITE TO LAME VRAM %08X %04X %08X, %08X %08X, %08X\n", addr, val, ARM9->R[15], ARM9->R[4], ARM9->R[3],
+               ARM9Read32(ARM9->R[13]+12));
+        //Halt();
+    }*/
     if (addr < ARM9ITCMSize)
     {
         *(u16*)&ARM9ITCM[addr & 0x7FFF] = val;
@@ -1026,6 +1035,7 @@ void ARM9Write32(u32 addr, u32 val)
 {
     if (addr == ARM9->R[15]) printf("!!!!!!!!!!!!9999 %08X %08X\n", addr, val);
     if (addr == 0x023549F0) printf("%08X STATE=%08X\n", ARM9->R[15], val);
+    if (addr == 0x02331B44) printf("!! PAL !! %04X %08X  %08X\n", val, ARM9->R[15], ARM9Read32(0x23312E8));
     if (addr < ARM9ITCMSize)
     {
         *(u32*)&ARM9ITCM[addr & 0x7FFF] = val;

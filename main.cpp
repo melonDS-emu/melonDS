@@ -35,9 +35,10 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
     case WM_CLOSE:
         printf("close\n");
         {
-            FILE* f = fopen("vram.bin", "wb");
+            // 6006800 6008000
+            FILE* f = fopen("vramABG.bin", "wb");
             for (int i = 0; i < 128; i++)
-                fwrite(GPU::VRAM_BBG[i], 16384, 1, f);
+                fwrite(GPU::VRAM_ABG[i], 16384, 1, f);
             fclose(f);
         }
         PostQuitMessage(0);

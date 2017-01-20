@@ -137,7 +137,7 @@ namespace ARMInterpreter
     shiftop(b, cpu->R[(cpu->CurInstr>>8)&0xF]);
 
 
-#define A_IMPLEMENT_ALU_OP(x) \
+#define A_IMPLEMENT_ALU_OP(x,s) \
 \
 s32 A_##x##_IMM(ARM* cpu) \
 { \
@@ -191,46 +191,46 @@ s32 A_##x##_IMM_S(ARM* cpu) \
 } \
 s32 A_##x##_REG_LSL_IMM_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(LSL_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(LSL_IMM##s) \
     A_##x##_S(0) \
 } \
 s32 A_##x##_REG_LSR_IMM_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(LSR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(LSR_IMM##s) \
     A_##x##_S(0) \
 } \
 s32 A_##x##_REG_ASR_IMM_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(ASR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(ASR_IMM##s) \
     A_##x##_S(0) \
 } \
 s32 A_##x##_REG_ROR_IMM_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(ROR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(ROR_IMM##s) \
     A_##x##_S(0) \
 } \
 s32 A_##x##_REG_LSL_REG_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(LSL_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(LSL_REG##s) \
     A_##x##_S(1) \
 } \
 s32 A_##x##_REG_LSR_REG_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(LSR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(LSR_REG##s) \
     A_##x##_S(1) \
 } \
 s32 A_##x##_REG_ASR_REG_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(ASR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(ASR_REG##s) \
     A_##x##_S(1) \
 } \
 s32 A_##x##_REG_ROR_REG_S(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(ROR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(ROR_REG##s) \
     A_##x##_S(1) \
 }
 
-#define A_IMPLEMENT_ALU_TEST(x) \
+#define A_IMPLEMENT_ALU_TEST(x,s) \
 \
 s32 A_##x##_IMM(ARM* cpu) \
 { \
@@ -239,42 +239,42 @@ s32 A_##x##_IMM(ARM* cpu) \
 } \
 s32 A_##x##_REG_LSL_IMM(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(LSL_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(LSL_IMM##s) \
     A_##x(0) \
 } \
 s32 A_##x##_REG_LSR_IMM(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(LSR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(LSR_IMM##s) \
     A_##x(0) \
 } \
 s32 A_##x##_REG_ASR_IMM(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(ASR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(ASR_IMM##s) \
     A_##x(0) \
 } \
 s32 A_##x##_REG_ROR_IMM(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_IMM(ROR_IMM_S) \
+    A_CALC_OP2_REG_SHIFT_IMM(ROR_IMM##s) \
     A_##x(0) \
 } \
 s32 A_##x##_REG_LSL_REG(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(LSL_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(LSL_REG##s) \
     A_##x(1) \
 } \
 s32 A_##x##_REG_LSR_REG(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(LSR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(LSR_REG##s) \
     A_##x(1) \
 } \
 s32 A_##x##_REG_ASR_REG(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(ASR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(ASR_REG##s) \
     A_##x(1) \
 } \
 s32 A_##x##_REG_ROR_REG(ARM* cpu) \
 { \
-    A_CALC_OP2_REG_SHIFT_REG(ROR_REG_S) \
+    A_CALC_OP2_REG_SHIFT_REG(ROR_REG##s) \
     A_##x(1) \
 }
 
@@ -309,7 +309,7 @@ s32 A_##x##_REG_ROR_REG(ARM* cpu) \
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(AND)
+A_IMPLEMENT_ALU_OP(AND,_S)
 
 
 #define A_EOR(c) \
@@ -342,7 +342,7 @@ A_IMPLEMENT_ALU_OP(AND)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(EOR)
+A_IMPLEMENT_ALU_OP(EOR,_S)
 
 
 #define A_SUB(c) \
@@ -377,7 +377,7 @@ A_IMPLEMENT_ALU_OP(EOR)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(SUB)
+A_IMPLEMENT_ALU_OP(SUB,)
 
 
 #define A_RSB(c) \
@@ -412,7 +412,7 @@ A_IMPLEMENT_ALU_OP(SUB)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(RSB)
+A_IMPLEMENT_ALU_OP(RSB,)
 
 
 #define A_ADD(c) \
@@ -447,7 +447,7 @@ A_IMPLEMENT_ALU_OP(RSB)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(ADD)
+A_IMPLEMENT_ALU_OP(ADD,)
 
 
 #define A_ADC(c) \
@@ -484,7 +484,7 @@ A_IMPLEMENT_ALU_OP(ADD)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(ADC)
+A_IMPLEMENT_ALU_OP(ADC,)
 
 
 #define A_SBC(c) \
@@ -521,7 +521,7 @@ A_IMPLEMENT_ALU_OP(ADC)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(SBC)
+A_IMPLEMENT_ALU_OP(SBC,)
 
 
 #define A_RSC(c) \
@@ -558,7 +558,7 @@ A_IMPLEMENT_ALU_OP(SBC)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(RSC)
+A_IMPLEMENT_ALU_OP(RSC,)
 
 
 #define A_TST(c) \
@@ -568,7 +568,7 @@ A_IMPLEMENT_ALU_OP(RSC)
                !res); \
     return C_S(1) + C_I(c);
 
-A_IMPLEMENT_ALU_TEST(TST)
+A_IMPLEMENT_ALU_TEST(TST,_S)
 
 
 #define A_TEQ(c) \
@@ -578,7 +578,7 @@ A_IMPLEMENT_ALU_TEST(TST)
                !res); \
     return C_S(1) + C_I(c);
 
-A_IMPLEMENT_ALU_TEST(TEQ)
+A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
 
 #define A_CMP(c) \
@@ -590,7 +590,7 @@ A_IMPLEMENT_ALU_TEST(TEQ)
                  OVERFLOW_SUB(a, b, res)); \
     return C_S(1) + C_I(c);
 
-A_IMPLEMENT_ALU_TEST(CMP)
+A_IMPLEMENT_ALU_TEST(CMP,)
 
 
 #define A_CMN(c) \
@@ -602,7 +602,7 @@ A_IMPLEMENT_ALU_TEST(CMP)
                  OVERFLOW_ADD(a, b, res)); \
     return C_S(1) + C_I(c);
 
-A_IMPLEMENT_ALU_TEST(CMN)
+A_IMPLEMENT_ALU_TEST(CMN,)
 
 
 #define A_ORR(c) \
@@ -635,7 +635,7 @@ A_IMPLEMENT_ALU_TEST(CMN)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(ORR)
+A_IMPLEMENT_ALU_OP(ORR,_S)
 
 
 #define A_MOV(c) \
@@ -664,7 +664,7 @@ A_IMPLEMENT_ALU_OP(ORR)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(MOV)
+A_IMPLEMENT_ALU_OP(MOV,_S)
 
 
 #define A_BIC(c) \
@@ -697,7 +697,7 @@ A_IMPLEMENT_ALU_OP(MOV)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(BIC)
+A_IMPLEMENT_ALU_OP(BIC,_S)
 
 
 #define A_MVN(c) \
@@ -728,7 +728,7 @@ A_IMPLEMENT_ALU_OP(BIC)
         return C_S(1) + C_I(c); \
     }
 
-A_IMPLEMENT_ALU_OP(MVN)
+A_IMPLEMENT_ALU_OP(MVN,_S)
 
 
 

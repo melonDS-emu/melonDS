@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1484751556 source:c:\documents\sources\melonds\main.cpp
+1484878707 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	<windows.h>
 	"NDS.h"
@@ -10,7 +10,7 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1484868036 source:c:\documents\sources\melonds\nds.cpp
+1484919120 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -23,7 +23,7 @@
 	"RTC.h"
 	"Wifi.h"
 
-1484870885 source:c:\documents\sources\melonds\arm.cpp
+1484917677 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -57,7 +57,7 @@
 
 1481160920 c:\documents\sources\melonds\arminterpreter_alu.h
 
-1481202027 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
+1484917510 source:c:\documents\sources\melonds\arminterpreter_alu.cpp
 	<stdio.h>
 	"ARM.h"
 
@@ -83,7 +83,7 @@
 	"NDS.h"
 	"SPI.h"
 
-1484870914 source:c:\documents\sources\melonds\gpu2d.cpp
+1484920777 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -105,7 +105,7 @@
 1484612398 c:\documents\sources\melonds\fifo.h
 	"types.h"
 
-1484762586 source:c:\documents\sources\melonds\dma.cpp
+1484871851 source:c:\documents\sources\melonds\dma.cpp
 	<stdio.h>
 	"NDS.h"
 	"DMA.h"
