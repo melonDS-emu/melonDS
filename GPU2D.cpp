@@ -89,9 +89,11 @@ void GPU2D::Write16(u32 addr, u16 val)
     {
     case 0x000:
         DispCnt = (DispCnt & 0xFFFF0000) | val;
+        printf("[L] DISPCNT=%08X\n", DispCnt);
         return;
     case 0x002:
         DispCnt = (DispCnt & 0x0000FFFF) | (val << 16);
+        printf("[H] DISPCNT=%08X\n", DispCnt);
         return;
 
     case 0x008: BGCnt[0] = val; return;
@@ -108,6 +110,7 @@ void GPU2D::Write32(u32 addr, u32 val)
     switch (addr & 0x00000FFF)
     {
     case 0x000:
+        printf("DISPCNT=%08X\n", val);
         DispCnt = val;
         return;
     }
@@ -159,18 +162,40 @@ void GPU2D::DrawScanline(u32 line)
 
 void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 {
+    u32 backdrop;
+    if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
+    else     backdrop = *(u16*)&GPU::Palette[0];
+
+    // TODO: color effect for backdrop
+
+    backdrop |= (backdrop<<16);
     for (int i = 0; i < 256>>1; i++)
-        ((u32*)dst)[i] = 0; // TODO: backdrop
+        ((u32*)dst)[i] = backdrop;
 
     switch (DispCnt & 0x7)
     {
     case 0:
+        //printf("disp %08X %04X %04X %04X %04X\n", DispCnt, BGCnt[0], BGCnt[1], BGCnt[2], BGCnt[3]);
         for (int i = 3; i >= 0; i--)
         {
-            // TODO other BGs
+            if ((BGCnt[3] & 0x3) == i)
+            {
+                if (DispCnt & 0x0800) DrawBG_Text_4bpp(line, dst, 3);
+                // todo: sprites
+            }
+            if ((BGCnt[2] & 0x3) == i)
+            {
+                if (DispCnt & 0x0400) DrawBG_Text_4bpp(line, dst, 2);
+                // todo: sprites
+            }
+            if ((BGCnt[1] & 0x3) == i)
+            {
+                if (DispCnt & 0x0200) DrawBG_Text_4bpp(line, dst, 1);
+                // todo: sprites
+            }
             if ((BGCnt[0] & 0x3) == i)
             {
-                DrawBG_Text_4bpp(line, dst, 0);
+                if (DispCnt & 0x0100) DrawBG_Text_4bpp(line, dst, 0);
                 // todo: sprites
             }
         }
@@ -259,7 +284,8 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         }
         //color = (i >> 4) + ((line >> 4) << 4);
         //if (Num) color = 0;
-        dst[i] = curpal[color];
+        if (color)
+            dst[i] = curpal[color];
 
         xoff++;
     }

@@ -10,7 +10,7 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1484758082 source:c:\documents\sources\melonds\nds.cpp
+1484868036 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -20,9 +20,10 @@
 	"FIFO.h"
 	"GPU.h"
 	"SPI.h"
+	"RTC.h"
 	"Wifi.h"
 
-1484754523 source:c:\documents\sources\melonds\arm.cpp
+1484870885 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
@@ -76,12 +77,13 @@
 
 1480957111 c:\documents\sources\melonds\spi.h
 
-1484524946 source:c:\documents\sources\melonds\spi.cpp
+1484762789 source:c:\documents\sources\melonds\spi.cpp
 	<stdio.h>
+	<string.h>
 	"NDS.h"
 	"SPI.h"
 
-1484758294 source:c:\documents\sources\melonds\gpu2d.cpp
+1484870914 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -103,7 +105,7 @@
 1484612398 c:\documents\sources\melonds\fifo.h
 	"types.h"
 
-1484756268 source:c:\documents\sources\melonds\dma.cpp
+1484762586 source:c:\documents\sources\melonds\dma.cpp
 	<stdio.h>
 	"NDS.h"
 	"DMA.h"
@@ -119,4 +121,12 @@
 
 1484709419 c:\documents\sources\melonds\gpu.h
 	"GPU2D.h"
+
+1484848282 c:\documents\sources\melonds\rtc.h
+	"types.h"
+
+1484870861 source:c:\documents\sources\melonds\rtc.cpp
+	<stdio.h>
+	<string.h>
+	"RTC.h"
 

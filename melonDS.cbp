@@ -28,6 +28,7 @@
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add library="C:/MinGW/lib/libgdi32.a" />
 				</Linker>
 			</Target>
 		</Build>
@@ -52,10 +53,14 @@
 		<Unit filename="DMA.h" />
 		<Unit filename="FIFO.cpp" />
 		<Unit filename="FIFO.h" />
+		<Unit filename="GPU.cpp" />
+		<Unit filename="GPU.h" />
 		<Unit filename="GPU2D.cpp" />
 		<Unit filename="GPU2D.h" />
 		<Unit filename="NDS.cpp" />
 		<Unit filename="NDS.h" />
+		<Unit filename="RTC.cpp" />
+		<Unit filename="RTC.h" />
 		<Unit filename="SPI.cpp" />
 		<Unit filename="SPI.h" />
 		<Unit filename="Wifi.cpp" />

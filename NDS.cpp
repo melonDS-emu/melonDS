@@ -25,6 +25,7 @@
 #include "FIFO.h"
 #include "GPU.h"
 #include "SPI.h"
+#include "RTC.h"
 #include "Wifi.h"
 
 // derp
@@ -128,6 +129,7 @@ void Init()
 
     GPU::Init();
     SPI::Init();
+    RTC::Init();
 
     Reset();
 }
@@ -248,6 +250,7 @@ void Reset()
 
     GPU::Reset();
     SPI::Reset();
+    RTC::Reset();
     Wifi::Reset();
 
     memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
@@ -1022,6 +1025,7 @@ void ARM9Write16(u32 addr, u16 val)
 void ARM9Write32(u32 addr, u32 val)
 {
     if (addr == ARM9->R[15]) printf("!!!!!!!!!!!!9999 %08X %08X\n", addr, val);
+    if (addr == 0x023549F0) printf("%08X STATE=%08X\n", ARM9->R[15], val);
     if (addr < ARM9ITCMSize)
     {
         *(u32*)&ARM9ITCM[addr & 0x7FFF] = val;
@@ -1203,6 +1207,7 @@ u32 ARM7Read32(u32 addr)
 void ARM7Write8(u32 addr, u8 val)
 {
     if (addr==0x3807764) printf("DERP! %02X %08X\n", val, ARM7->R[15]);
+    if (addr==0x27FFCE4) printf("FIRMWARE STATUS8 %04X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1240,6 +1245,8 @@ void ARM7Write16(u32 addr, u16 val)
 {
     if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %04X\n", addr, val);
     if (addr==0x3807764) printf("DERP! %04X %08X\n", val, ARM7->R[15]);
+    if (addr==0x27FF816) printf("RTC STATUS %04X %08X\n", val, ARM7->R[15]);
+    if (addr==0x27FFCE4) printf("FIRMWARE STATUS %04X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1280,7 +1287,7 @@ void ARM7Write16(u32 addr, u16 val)
 void ARM7Write32(u32 addr, u32 val)
 {
     if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %08X\n", addr, val);
-
+if (addr==0x27FFCE4) printf("FIRMWARE STATUS32 %08X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1689,7 +1696,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
-    case 0x04000210: IE[0] = val; return;
+    case 0x04000210: IE[0] = val; if (val&~0x000F0F7D)printf("unusual IRQ %08X\n",val);return;
     case 0x04000214: IF[0] &= ~val; return;
 
     case 0x04000240:
@@ -1734,7 +1741,7 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000138: return 0; // RTC shit
+    case 0x04000138: return RTC::Read() & 0xFF;
 
     case 0x040001C2: return SPI::ReadData();
 
@@ -1749,6 +1756,7 @@ u8 ARM7IORead8(u32 addr)
         //Halt();
         //return 0;
     }
+
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
         // sound I/O
@@ -1779,7 +1787,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000136: return KeyInput >> 16;
 
     case 0x04000134: return 0x8000;
-    case 0x04000138: return 0; // RTC shit. TODO!!
+    case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
     case 0x04000184:
@@ -1801,6 +1809,12 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000304: return PowerControl7;
 
     case 0x04000504: return _soundbias;
+    }
+
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
+        return 0;
     }
 
     printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM9->R[15]);
@@ -1865,6 +1879,12 @@ u32 ARM7IORead32(u32 addr)
     case 0x04100010: return ROMReadData(1);
     }
 
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
+        return 0;
+    }
+
     printf("unknown ARM7 IO read32 %08X\n", addr);
     return 0;
 }
@@ -1873,8 +1893,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
-    case 0x04000138:
-        return;
+    case 0x04000138: RTC::Write(val, true); return;
 
     case 0x040001A0:
         ROMSPIControl &= 0xFF00;
@@ -1912,6 +1931,12 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
+        return;
+    }
+
     printf("unknown ARM7 IO write8 %08X %02X\n", addr, val);
 }
 
@@ -1932,7 +1957,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000134: return;printf("set debug port %04X %08X\n", val, ARM7Read32(ARM7->R[13]+4)); return;
 
-    case 0x04000138: return; // RTC shit. TODO
+    case 0x04000138: RTC::Write(val, false); return;
 
     case 0x04000180:
         IPCSync9 &= 0xFFF0;
@@ -1982,6 +2007,12 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000504:
         _soundbias = val & 0x3FF;
+        return;
+    }
+
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
         return;
     }
 
@@ -2050,6 +2081,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000208: IME[1] = val & 0x1; return;
     case 0x04000210: IE[1] = val; return;
     case 0x04000214: IF[1] &= ~val; return;
+    }
+
+    if (addr >= 0x04000400 && addr < 0x04000520)
+    {
+        // sound I/O
+        return;
     }
 
     printf("unknown ARM7 IO write32 %08X %08X\n", addr, val);

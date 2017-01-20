@@ -106,7 +106,7 @@ void DMA::Start()
     if ((Cnt & 0x00060000) == 0x00060000)
         CurDstAddr = DstAddr;
 
-    printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt & 0x04000000)?2:4), (Cnt & 0x04000000)?16:32);
+    //printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt & 0x04000000)?2:4), (Cnt & 0x04000000)?16:32);
 
     // TODO: NOT MAKE THE DMA INSTANT!!
     if (!(Cnt & 0x04000000))

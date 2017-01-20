@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <string.h>
 #include "NDS.h"
 #include "SPI.h"
 
@@ -185,6 +186,80 @@ void Write(u8 val, u32 hold)
 
 }
 
+namespace SPI_Powerman
+{
+
+u32 Hold;
+u32 DataPos;
+u8 Index;
+u8 Data;
+
+u8 Registers[8];
+u8 RegMasks[8];
+
+
+void Init()
+{
+}
+
+void Reset()
+{
+    Hold = 0;
+    Index = 0;
+    Data = 0;
+
+    memset(Registers, 0, sizeof(Registers));
+    memset(RegMasks, 0, sizeof(RegMasks));
+
+    Registers[4] = 0x40;
+
+    RegMasks[0] = 0x7F;
+    RegMasks[1] = 0x01;
+    RegMasks[2] = 0x01;
+    RegMasks[3] = 0x03;
+    RegMasks[4] = 0x0F;
+}
+
+u8 Read()
+{
+    return Data;
+}
+
+void Write(u8 val, u32 hold)
+{
+    if (!hold)
+    {
+        Hold = 0;
+    }
+
+    if (hold && (!Hold))
+    {
+        Index = val;
+        Hold = 1;
+        Data = 0;
+        DataPos = 1;
+        return;
+    }
+
+    if (DataPos == 1)
+    {
+        if (Index & 0x80)
+        {
+            Data = Registers[Index & 0x07];
+        }
+        else
+        {
+            Registers[Index & 0x07] =
+                (Registers[Index & 0x07] & ~RegMasks[Index & 0x07]) |
+                (val & RegMasks[Index & 0x07]);
+        }
+    }
+    else
+        Data = 0;
+}
+
+}
+
 
 namespace SPI
 {
@@ -197,6 +272,7 @@ u32 CurDevice;
 void Init()
 {
     SPI_Firmware::Init();
+    SPI_Powerman::Init();
 }
 
 void Reset()
@@ -204,6 +280,7 @@ void Reset()
     CNT = 0;
 
     SPI_Firmware::Reset();
+    SPI_Powerman::Reset();
 }
 
 
@@ -224,6 +301,7 @@ u8 ReadData()
 
     switch (CNT & 0x0300)
     {
+    case 0x0000: return SPI_Powerman::Read();
     case 0x0100: return SPI_Firmware::Read();
     default: return 0;
     }
@@ -237,8 +315,9 @@ void WriteData(u8 val)
 
     switch (CNT & 0x0300)
     {
+    case 0x0000: SPI_Powerman::Write(val, CNT&(1<<11)); break;
     case 0x0100: SPI_Firmware::Write(val, CNT&(1<<11)); break;
-    default: printf("SPI to unknown device %04X %02X\n", CNT, val); break;
+    default: break;//printf("SPI to unknown device %04X %02X\n", CNT, val); break;
     }
 
     if (CNT & (1<<14))
