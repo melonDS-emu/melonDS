@@ -45,6 +45,9 @@ private:
     u32 DispCnt;
     u16 BGCnt[4];
 
+    u16 BGXPos[4];
+    u16 BGYPos[4];
+
     void DrawScanline_Mode1(u32 line, u16* dst);
     void DrawBG_Text_4bpp(u32 line, u16* dst, u32 num);
 };

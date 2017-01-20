@@ -35,6 +35,8 @@ void GPU2D::Reset()
 {
     DispCnt = 0;
     memset(BGCnt, 0, 4*2);
+    memset(BGXPos, 0, 4*2);
+    memset(BGYPos, 0, 4*2);
 }
 
 void GPU2D::SetFramebuffer(u16* buf)
@@ -100,6 +102,15 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x00A: BGCnt[1] = val; return;
     case 0x00C: BGCnt[2] = val; return;
     case 0x00E: BGCnt[3] = val; return;
+
+    case 0x010: BGXPos[0] = val; return;
+    case 0x012: BGYPos[0] = val; return;
+    case 0x014: BGXPos[1] = val; return;
+    case 0x016: BGYPos[1] = val; return;
+    case 0x018: BGXPos[2] = val; return;
+    case 0x01A: BGYPos[2] = val; return;
+    case 0x01C: BGXPos[3] = val; return;
+    case 0x01E: BGYPos[3] = val; return;
     }
 
     printf("unknown GPU write16 %08X %04X\n", addr, val);
@@ -213,9 +224,8 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     u16* tilemap;
     u16* pal;
 
-    // TODO scroll
-    u16 xoff = 0;
-    u16 yoff = line;
+    u16 xoff = BGXPos[bgnum];
+    u16 yoff = BGYPos[bgnum] + line;
 
     u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
     //u32 ymask = (bgcnt & 0x8000) ? 0x1FF : 0xFF;
@@ -257,7 +267,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         // load a new tile
         curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
         curpal = pal + ((curtile & 0xF000) >> 8);
-        pixels = tileset + ((curtile & 0x01FF) << 5) + ((yoff & 0x7) << 2);
+        pixels = tileset + ((curtile & 0x03FF) << 5) + ((yoff & 0x7) << 2);
         pixels += ((xoff & 0x7) >> 1);
     }
 
@@ -268,7 +278,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
             // load a new tile
             curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
             curpal = pal + ((curtile & 0xF000) >> 8);
-            pixels = tileset + ((curtile & 0x01FF) << 5) + ((yoff & 0x7) << 2);
+            pixels = tileset + ((curtile & 0x03FF) << 5) + ((yoff & 0x7) << 2);
         }
 
         // draw pixel
