@@ -54,6 +54,7 @@ private:
 
     void InterleaveSprites(u32* buf, u32 prio, u16* dst);
     void DrawSprites(u32 line, u32* dst);
+    void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, u32 ypos, u32* dst);
     void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst);
 };
 

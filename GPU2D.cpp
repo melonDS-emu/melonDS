@@ -357,7 +357,7 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                     boundwidth <<= 1;
                     boundheight <<= 1;
                 }
-//printf("sprite%d %04X %04X %04X %dx%d\n", sprnum, attrib[0], attrib[1], attrib[2], boundwidth, boundheight);
+
                 u32 ypos = attrib[0] & 0xFF;
                 ypos = (line - ypos) & 0xFF;
                 if (ypos >= (u32)boundheight)
@@ -367,7 +367,10 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                 if (xpos <= -boundwidth)
                     continue;
 
+                u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
+
                 //DrawSprite_Normal(attrib, width, xpos, ypos, dst);
+                DrawSprite_Rotscale(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos, dst);
             }
             else
             {
@@ -393,6 +396,89 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
 
                 DrawSprite_Normal(attrib, width, xpos, ypos, dst);
             }
+        }
+    }
+}
+
+void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, u32 ypos, u32* dst)
+{
+    u32 prio = ((attrib[2] & 0x0C00) << 6) | 0x8000;
+    u32 tilenum = attrib[2] & 0x03FF;
+    u32 ytilefactor;
+    if (DispCnt & 0x10)
+    {
+        tilenum <<= ((DispCnt >> 20) & 0x3);
+        ytilefactor = (width >> 3);
+    }
+    else
+    {
+        ytilefactor = 0x20;
+    }
+
+    s32 centerX = boundwidth >> 1;
+    s32 centerY = boundheight >> 1;
+
+    u32 xoff;
+    if (xpos >= 0)
+    {
+        xoff = 0;
+        if ((xpos+boundwidth) > 256)
+            boundwidth = 256-xpos;
+    }
+    else
+    {
+        xoff = -xpos;
+        xpos = 0;
+    }
+
+    s16 rotA = (s16)rotparams[0];
+    s16 rotB = (s16)rotparams[4];
+    s16 rotC = (s16)rotparams[8];
+    s16 rotD = (s16)rotparams[12];
+
+    s32 rotX = ((xoff-centerX) * rotA) + ((ypos-centerY) * rotB) + (width << 7);
+    s32 rotY = ((xoff-centerX) * rotC) + ((ypos-centerY) * rotD) + (height << 7);
+
+    width <<= 8;
+    height <<= 8;
+
+    if (attrib[0] & 0x2000)
+    {
+        // 256-color
+    }
+    else
+    {
+        // 16-color
+        tilenum <<= 5;
+        ytilefactor <<= 5;
+        u8* pixels = (Num ? GPU::VRAM_BOBJ : GPU::VRAM_AOBJ)[tilenum >> 14];
+        pixels += (tilenum & 0x3FFF);
+
+        u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+        pal += (attrib[2] & 0xF000) >> 8;
+
+        for (; xoff < boundwidth;)
+        {
+            if ((u32)rotX < width && (u32)rotY < height)
+            {
+                u8 color;
+
+                // blaaaarg
+                color = pixels[((rotY>>11)*ytilefactor) + ((rotY&0x700)>>6) + ((rotX>>11)*32) + ((rotX&0x700)>>9)];
+
+                if (rotX & 0x100)
+                    color >>= 4;
+                else
+                    color &= 0x0F;
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+            }
+
+            rotX += rotA;
+            rotY += rotC;
+            xoff++;
+            xpos++;
         }
     }
 }
@@ -438,7 +524,6 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         pixels += (tilenum & 0x3FFF);
         pixels += ((ypos & 0x7) << 2);
 
-        u16* curpal;
         u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
         pal += (attrib[2] & 0xF000) >> 8;
 
