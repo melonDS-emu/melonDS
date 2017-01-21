@@ -183,6 +183,11 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
     for (int i = 0; i < 256>>1; i++)
         ((u32*)dst)[i] = backdrop;
 
+    // prerender sprites
+    u32 spritebuf[256];
+    memset(spritebuf, 0, 256*4);
+    if (DispCnt & 0x1000) DrawSprites(line, spritebuf);
+
     switch (DispCnt & 0x7)
     {
     case 0:
@@ -192,22 +197,22 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
             if ((BGCnt[3] & 0x3) == i)
             {
                 if (DispCnt & 0x0800) DrawBG_Text_4bpp(line, dst, 3);
-                // todo: sprites
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x38000, dst);
             }
             if ((BGCnt[2] & 0x3) == i)
             {
                 if (DispCnt & 0x0400) DrawBG_Text_4bpp(line, dst, 2);
-                // todo: sprites
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x28000, dst);
             }
             if ((BGCnt[1] & 0x3) == i)
             {
                 if (DispCnt & 0x0200) DrawBG_Text_4bpp(line, dst, 1);
-                // todo: sprites
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x18000, dst);
             }
             if ((BGCnt[0] & 0x3) == i)
             {
                 if (DispCnt & 0x0100) DrawBG_Text_4bpp(line, dst, 0);
-                // todo: sprites
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x08000, dst);
             }
         }
         break;
@@ -299,5 +304,195 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
             dst[i] = curpal[color];
 
         xoff++;
+    }
+}
+
+void GPU2D::InterleaveSprites(u32* buf, u32 prio, u16* dst)
+{
+    for (u32 i = 0; i < 256; i++)
+    {
+        if ((buf[i] & 0xF8000) == prio)
+            dst[i] = buf[i] & 0x7FFF;
+    }
+}
+
+void GPU2D::DrawSprites(u32 line, u32* dst)
+{
+    u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
+
+    const s32 spritewidth[16] =
+    {
+        8, 16, 8, 0,
+        16, 32, 8, 0,
+        32, 32, 16, 0,
+        64, 64, 32, 0
+    };
+    const s32 spriteheight[16] =
+    {
+        8, 8, 16, 0,
+        16, 8, 32, 0,
+        32, 16, 32, 0,
+        64, 32, 64, 0
+    };
+
+    for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum -= 0x0400)
+    {
+        for (int sprnum = 127; sprnum >= 0; sprnum--)
+        {
+            u16* attrib = &oam[sprnum*4];
+
+            if ((attrib[2] & 0x0C00) != bgnum)
+                continue;
+
+            if (attrib[0] & 0x0100)
+            {
+                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
+                s32 width = spritewidth[sizeparam];
+                s32 height = spriteheight[sizeparam];
+                s32 boundwidth = width;
+                s32 boundheight = height;
+
+                if (attrib[0] & 0x0200)
+                {
+                    boundwidth <<= 1;
+                    boundheight <<= 1;
+                }
+//printf("sprite%d %04X %04X %04X %dx%d\n", sprnum, attrib[0], attrib[1], attrib[2], boundwidth, boundheight);
+                u32 ypos = attrib[0] & 0xFF;
+                ypos = (line - ypos) & 0xFF;
+                if (ypos >= (u32)boundheight)
+                    continue;
+
+                s32 xpos = (s32)(attrib[1] << 23) >> 23;
+                if (xpos <= -boundwidth)
+                    continue;
+
+                //DrawSprite_Normal(attrib, width, xpos, ypos, dst);
+            }
+            else
+            {
+                if (attrib[0] & 0x0200)
+                    continue;
+
+                u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
+                s32 width = spritewidth[sizeparam];
+                s32 height = spriteheight[sizeparam];
+
+                u32 ypos = attrib[0] & 0xFF;
+                ypos = (line - ypos) & 0xFF;
+                if (ypos >= (u32)height)
+                    continue;
+
+                s32 xpos = (s32)(attrib[1] << 23) >> 23;
+                if (xpos <= -width)
+                    continue;
+
+                // yflip
+                if (attrib[1] & 0x2000)
+                    ypos = height-1 - ypos;
+
+                DrawSprite_Normal(attrib, width, xpos, ypos, dst);
+            }
+        }
+    }
+}
+
+void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst)
+{
+    u32 prio = ((attrib[2] & 0x0C00) << 6) | 0x8000;
+    u32 tilenum = attrib[2] & 0x03FF;
+    if (DispCnt & 0x10)
+    {
+        tilenum <<= ((DispCnt >> 20) & 0x3);
+        tilenum += ((ypos >> 3) * (width >> 3));
+    }
+    else
+    {
+        tilenum += ((ypos >> 3) * 0x20);
+    }
+
+    u32 wmask = width - 8; // really ((width - 1) & ~0x7)
+
+    u32 xoff;
+    if (xpos >= 0)
+    {
+        xoff = 0;
+        if ((xpos+width) > 256)
+            width = 256-xpos;
+    }
+    else
+    {
+        xoff = -xpos;
+        xpos = 0;
+    }
+
+    if (attrib[0] & 0x2000)
+    {
+        // 256-color
+    }
+    else
+    {
+        // 16-color
+        tilenum <<= 5;
+        u8* pixels = (Num ? GPU::VRAM_BOBJ : GPU::VRAM_AOBJ)[tilenum >> 14];
+        pixels += (tilenum & 0x3FFF);
+        pixels += ((ypos & 0x7) << 2);
+
+        u16* curpal;
+        u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+        pal += (attrib[2] & 0xF000) >> 8;
+
+        if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
+        {
+            pixels += (((width-1 - xoff) & wmask) << 2);
+            pixels += (((width-1 - xoff) & 0x7) >> 1);
+
+            for (; xoff < width;)
+            {
+                u8 color;
+                if (xoff & 0x1)
+                {
+                    color = *pixels & 0x0F;
+                    pixels--;
+                }
+                else
+                {
+                    color = *pixels >> 4;
+                }
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+
+                xoff++;
+                xpos++;
+                if (!(xoff & 0x7)) pixels -= 28;
+            }
+        }
+        else
+        {
+            pixels += ((xoff & wmask) << 2);
+            pixels += ((xoff & 0x7) >> 1);
+
+            for (; xoff < width;)
+            {
+                u8 color;
+                if (xoff & 0x1)
+                {
+                    color = *pixels >> 4;
+                    pixels++;
+                }
+                else
+                {
+                    color = *pixels & 0x0F;
+                }
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+
+                xoff++;
+                xpos++;
+                if (!(xoff & 0x7)) pixels += 28;
+            }
+        }
     }
 }

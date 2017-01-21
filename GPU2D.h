@@ -49,7 +49,12 @@ private:
     u16 BGYPos[4];
 
     void DrawScanline_Mode1(u32 line, u16* dst);
+
     void DrawBG_Text_4bpp(u32 line, u16* dst, u32 num);
+
+    void InterleaveSprites(u32* buf, u32 prio, u16* dst);
+    void DrawSprites(u32 line, u32* dst);
+    void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst);
 };
 
 #endif

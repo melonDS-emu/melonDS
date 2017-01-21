@@ -22,6 +22,9 @@
 #include "GPU.h"
 
 
+#define VERSION "0.1"
+
+
 HINSTANCE instance;
 HWND melon;
 BITMAPV4HEADER bmp;
@@ -112,7 +115,7 @@ int main()
     AdjustWindowRect(&rekt, WS_OVERLAPPEDWINDOW, FALSE);
 
     melon = CreateWindow("v0ltmeters",
-                         "melonDS",
+                         "melonDS " VERSION,
                          WS_OVERLAPPEDWINDOW,
                          CW_USEDEFAULT, CW_USEDEFAULT,
                          rekt.right-rekt.left, rekt.bottom-rekt.top,
@@ -173,7 +176,7 @@ int main()
             nframes = 0;
 
             char melontitle[100];
-            sprintf(melontitle, "melonDS | %d FPS", fps);
+            sprintf(melontitle, "melonDS " VERSION " | %d FPS", fps);
             SetWindowText(melon, melontitle);
         }
     }
