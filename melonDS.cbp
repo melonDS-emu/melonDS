@@ -59,6 +59,8 @@
 		<Unit filename="GPU2D.h" />
 		<Unit filename="NDS.cpp" />
 		<Unit filename="NDS.h" />
+		<Unit filename="NDSCart.cpp" />
+		<Unit filename="NDSCart.h" />
 		<Unit filename="RTC.cpp" />
 		<Unit filename="RTC.h" />
 		<Unit filename="SPI.cpp" />
