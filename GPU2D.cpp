@@ -113,7 +113,7 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x01E: BGYPos[3] = val; return;
     }
 
-    printf("unknown GPU write16 %08X %04X\n", addr, val);
+    //printf("unknown GPU write16 %08X %04X\n", addr, val);
 }
 
 void GPU2D::Write32(u32 addr, u32 val)

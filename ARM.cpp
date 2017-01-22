@@ -290,40 +290,6 @@ s32 ARM::Execute(s32 cycles)
                 TriggerIRQ();
         }
 
-        // R1=X R2=Y
-        //if (R[15]==0x02328E88)
-        //    printf("hah! %04X %08X %08X %08X\n", Read16(R[0]+4), R[1], R[2],
-        //           Read32(R[13]+0x18+16+4));
-        /*if (R[15]==0x02328DA6)
-            printf("derpo %08X %08X %08X %08X %08X %08X | %08X\n", R[0], R[1], R[2], R[3],
-               Read32(R[13]+0x40+0), Read32(R[13]+0x40+4), R[14]);*/
-
-        /*if (R[15]==0x02328C64)
-            printf("derpo %08X %08X %08X %08X %08X %08X %08X %08X | %08X | %04X %04X\n", R[0], R[1], R[2], R[3],
-               Read32(R[13]+0x40+0), Read32(R[13]+0x40+4), Read32(R[13]+0x40+8), Read32(R[13]+0x40+12), R[14],
-                Read16(R[0]+8), Read16(R[0]+12));*/
-
-        /*if (R[15]==0x023290B2)
-            printf("derpo %08X %08X %08X %08X | %08X\n", R[0], R[1], R[2], R[3],
-               R[14]);
-
-        if (R[15]==0x23290DE)
-            printf("!!!!! %08X %04X %04X %08X  %08X %08X %08X\n", R[3], Read16(R[3]), Read16(R[3]+2), R[2],
-                   Read32(0x023A6184+0), Read32(0x023A6184+4), Read32(0x023A6184+8));
-        if (R[15]==0x23290EA)
-            printf("!!!!! %08X %08X\n", R[2], R[3]);
-
-        if (R[15]==0x2328C80)
-            printf("STRING SIZE=%08X\n", R[0]);
-        if (R[15]==0x2328CC2)
-            printf("SUMLOL=%08X %08X %08X\n", R[4], R[7], R[0]);
-        if (R[15]==0x2328CC8)
-            printf("SUM=%08X %08X %08X\n", R[4], R[7], R[0]);
-        if (R[15]>=0x2328D6C && R[15]<=0x2328D9C)
-            printf("%08X CALC %08X %08X\n", R[15]-4, R[0], R[1]);
-        if (R[15]>=0x232CCCC && R[15]<=0x232CED4)
-            printf("%08X DIV %08X %08X %08X %08X carry %d\n", R[15]-4, R[0], R[1], R[2], R[3], (CPSR&0x20000000)?1:0);*/
-
         // temp. debug cruft
         addr = R[15] - (CPSR&0x20 ? 4:8);
         cpsr = CPSR;

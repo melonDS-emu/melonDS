@@ -21,18 +21,13 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
+#include "NDSCart.h"
 #include "DMA.h"
 #include "FIFO.h"
 #include "GPU.h"
 #include "SPI.h"
 #include "RTC.h"
 #include "Wifi.h"
-
-// derp
-namespace SPI_Firmware
-{
-    extern u8* Firmware;
-}
 
 
 namespace NDS
@@ -74,6 +69,11 @@ u32 ARM9ITCMSize;
 u8 ARM9DTCM[0x4000];
 u32 ARM9DTCMBase, ARM9DTCMSize;
 
+u16 ExMemCnt[2];
+
+u8 ROMSeed0[2*8];
+u8 ROMSeed1[2*8];
+
 // IO shit
 u32 IME[2];
 u32 IE[2], IF[2];
@@ -99,12 +99,6 @@ u32 DivDenominator[2];
 u32 DivQuotient[2];
 u32 DivRemainder[2];
 
-u32 ROMSPIControl;
-u32 ROMControl;
-u8 ROMCommand[8];
-u8 ROMCurCommand[8];
-u32 ROMReadPos, ROMReadSize;
-
 u32 KeyInput;
 
 u16 _soundbias; // temp
@@ -129,6 +123,7 @@ void Init()
     IPCFIFO9 = new FIFO(16);
     IPCFIFO7 = new FIFO(16);
 
+    NDSCart::Init();
     GPU::Init();
     SPI::Init();
     RTC::Init();
@@ -220,6 +215,11 @@ void Reset()
     ARM9DTCMBase = 0xFFFFFFFF;
     ARM9DTCMSize = 0;
 
+    ExMemCnt[0] = 0;
+    ExMemCnt[1] = 0;
+    memset(ROMSeed0, 0, 2*8);
+    memset(ROMSeed1, 0, 2*8);
+
     IME[0] = 0;
     IME[1] = 0;
 
@@ -237,10 +237,6 @@ void Reset()
 
     DivCnt = 0;
 
-    ROMSPIControl = 0;
-    ROMControl = 0;
-    memset(ROMCommand, 0, 8);
-
     ARM9->Reset();
     ARM7->Reset();
     CP15::Reset();
@@ -250,6 +246,7 @@ void Reset()
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
     memset(DMA9Fill, 0, 4*4);
 
+    NDSCart::Reset();
     GPU::Reset();
     SPI::Reset();
     RTC::Reset();
@@ -269,6 +266,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
+    NDSCart::LoadROM("rom/nsmb.nds");
 
     Running = true; // hax
 }
@@ -512,6 +510,17 @@ bool HaltInterrupted(u32 cpu)
 
 
 
+void CheckDMAs(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    DMAs[cpu+0]->StartIfNeeded(mode);
+    DMAs[cpu+1]->StartIfNeeded(mode);
+    DMAs[cpu+2]->StartIfNeeded(mode);
+    DMAs[cpu+3]->StartIfNeeded(mode);
+}
+
+
+
 const s32 TimerPrescaler[4] = {2, 128, 512, 2048};
 
 void TimerIncrement(u32 param)
@@ -575,78 +584,6 @@ void TimerStart(u32 id, u16 cnt)
         if (timer->Event)
             CancelEvent(timer->Event);
     }
-}
-
-
-
-void ROMEndTransfer(u32 cpu)
-{
-    ROMControl &= ~(1<<23);
-    ROMControl &= ~(1<<31);
-
-    if (ROMSPIControl & (1<<14))
-        TriggerIRQ(cpu, IRQ_CartSendDone);
-}
-
-void ROMStartTransfer(u32 cpu)
-{
-    u32 datasize = (ROMControl >> 24) & 0x7;
-    if (datasize == 7)
-        datasize = 4;
-    else if (datasize > 0)
-        datasize = 0x100 << datasize;
-
-    //datasize += (ROMControl & 0x1FFF); // KEY1 gap
-
-    ROMReadPos = 0;
-    ROMReadSize = datasize;
-
-    *(u32*)&ROMCurCommand[0] = *(u32*)&ROMCommand[0];
-    *(u32*)&ROMCurCommand[4] = *(u32*)&ROMCommand[4];
-
-    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
-           ROMSPIControl, ROMControl,
-           ROMCommand[0], ROMCommand[1], ROMCommand[2], ROMCommand[3],
-           ROMCommand[4], ROMCommand[5], ROMCommand[6], ROMCommand[7],
-           datasize);
-
-    ROMControl |= (1<<23);
-
-    if (datasize == 0)
-    {
-        // hax
-        /*if (ROMCommand[0] == 0xBA)
-            ScheduleEvent(0x910*5*2, ROMEndTransfer, cpu);
-        else*/
-        ROMEndTransfer(cpu);
-        printf("ROM transfer done. %08X %08X\n", ARM7Read32(0x03FFFFF8), ARM7Read32(0x03FFFFFC));
-    }
-}
-
-u32 ROMReadData(u32 cpu)
-{
-    u32 ret = 0;
-
-    switch (ROMCurCommand[0])
-    {
-    case 0x9F: ret = 0xFFFFFFFF; break;
-
-    case 0x00:
-        // TODO: feed an actual cart header!
-        ret = 0;
-        break;
-
-    case 0x90:
-        // chip ID
-        ret = 0;
-        break;
-    }
-
-    ROMReadPos += 4;
-    if (ROMReadPos >= ROMReadSize)
-        ROMEndTransfer(cpu);
-
-    return ret;
 }
 
 
@@ -1398,8 +1335,9 @@ u16 ARM9IORead16(u32 addr)
             return val;
         }
 
-    case 0x04000204: return 0;//0xFFFF;
+    case 0x040001A0: return NDSCart::SPICnt;
 
+    case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
 
     case 0x04000280: return DivCnt;
@@ -1450,6 +1388,8 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return Timers[2].Counter | (Timers[2].Control << 16);
     case 0x0400010C: return Timers[3].Counter | (Timers[3].Control << 16);
 
+    case 0x040001A4: return NDSCart::ROMCnt;
+
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
     case 0x04000214: return IF[0];
@@ -1483,6 +1423,10 @@ u32 ARM9IORead32(u32 addr)
         }
         else
             return IPCFIFO7->Peek();
+
+    case 0x04100010:
+        if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadData();
+        return 0;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -1503,13 +1447,28 @@ void ARM9IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x040001A0:
-        ROMSPIControl &= 0xFF00;
-        ROMSPIControl |= val;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::SPICnt &= 0xFF00;
+            NDSCart::SPICnt |= val;
+        }
         return;
     case 0x040001A1:
-        ROMSPIControl &= 0x00FF;
-        ROMSPIControl |= (val << 8);
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::SPICnt &= 0x00FF;
+            NDSCart::SPICnt |= (val << 8);
+        }
         return;
+
+    case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
+    case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
+    case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
+    case 0x040001AB: NDSCart::ROMCommand[3] = val; return;
+    case 0x040001AC: NDSCart::ROMCommand[4] = val; return;
+    case 0x040001AD: NDSCart::ROMCommand[5] = val; return;
+    case 0x040001AE: NDSCart::ROMCommand[6] = val; return;
+    case 0x040001AF: NDSCart::ROMCommand[7] = val; return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
 
@@ -1584,7 +1543,15 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        ROMSPIControl = val;
+        if (!(ExMemCnt[0] & (1<<11))) NDSCart::SPICnt = val;
+        return;
+
+    case 0x040001B8: ROMSeed0[4] = val & 0x7F; return;
+    case 0x040001BA: ROMSeed1[4] = val & 0x7F; return;
+
+    case 0x04000204:
+        ExMemCnt[0] = val;
+        ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
         return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
@@ -1689,14 +1656,18 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x040001A0:
-        ROMSPIControl = val & 0xFFFF;
-        // TODO: SPI shit
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::SPICnt = val & 0xFFFF;
+            // TODO: SPI shit
+        }
         return;
     case 0x040001A4:
-        val &= ~0x00800000;
-        ROMControl = val;
-        if (val & 0x80000000) ROMStartTransfer(0);
+        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteCnt(val);
         return;
+
+    case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
+    case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
     case 0x04000210: IE[0] = val; if (val&~0x000F0F7D)printf("unusual IRQ %08X\n",val);return;
@@ -1754,10 +1725,6 @@ u8 ARM7IORead8(u32 addr)
     case 0x04000241: return WRAMCnt;
 
     case 0x04000300: return PostFlag7;
-
-    //case 0x04000403:
-        //Halt();
-        //return 0;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
@@ -1803,9 +1770,12 @@ u16 ARM7IORead16(u32 addr)
             return val;
         }
 
+    case 0x040001A0: return NDSCart::SPICnt;
+
     case 0x040001C0: return SPI::ReadCnt();
     case 0x040001C2: return SPI::ReadData();
 
+    case 0x04000204: return ExMemCnt[1];
     case 0x04000208: return IME[1];
 
     case 0x04000300: return PostFlag7;
@@ -1848,8 +1818,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return Timers[6].Counter | (Timers[6].Control << 16);
     case 0x0400010C: return Timers[7].Counter | (Timers[7].Control << 16);
 
-    case 0x040001A4:
-        return ROMControl;
+    case 0x040001A4: return NDSCart::ROMCnt;
 
     case 0x040001C0:
         return SPI::ReadCnt() | (SPI::ReadData() << 16);
@@ -1879,7 +1848,9 @@ u32 ARM7IORead32(u32 addr)
         else
             return IPCFIFO9->Peek();
 
-    case 0x04100010: return ROMReadData(1);
+    case 0x04100010:
+        if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadData();
+        return 0;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
@@ -1899,22 +1870,28 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x04000138: RTC::Write(val, true); return;
 
     case 0x040001A0:
-        ROMSPIControl &= 0xFF00;
-        ROMSPIControl |= val;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::SPICnt &= 0xFF00;
+            NDSCart::SPICnt |= val;
+        }
         return;
     case 0x040001A1:
-        ROMSPIControl &= 0x00FF;
-        ROMSPIControl |= (val << 8);
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::SPICnt &= 0x00FF;
+            NDSCart::SPICnt |= (val << 8);
+        }
         return;
 
-    case 0x040001A8: ROMCommand[0] = val; return;
-    case 0x040001A9: ROMCommand[1] = val; return;
-    case 0x040001AA: ROMCommand[2] = val; return;
-    case 0x040001AB: ROMCommand[3] = val; return;
-    case 0x040001AC: ROMCommand[4] = val; return;
-    case 0x040001AD: ROMCommand[5] = val; return;
-    case 0x040001AE: ROMCommand[6] = val; return;
-    case 0x040001AF: ROMCommand[7] = val; return;
+    case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
+    case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
+    case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
+    case 0x040001AB: NDSCart::ROMCommand[3] = val; return;
+    case 0x040001AC: NDSCart::ROMCommand[4] = val; return;
+    case 0x040001AD: NDSCart::ROMCommand[5] = val; return;
+    case 0x040001AE: NDSCart::ROMCommand[6] = val; return;
+    case 0x040001AF: NDSCart::ROMCommand[7] = val; return;
 
     case 0x040001C2:
         SPI::WriteData(val);
@@ -1986,8 +1963,12 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        ROMSPIControl = val;
+        if (ExMemCnt[0] & (1<<11))
+            NDSCart::SPICnt = val;
         return;
+
+    case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
+    case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
 
     case 0x040001C0:
         SPI::WriteCnt(val);
@@ -1995,6 +1976,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x040001C2:
         SPI::WriteData(val & 0xFF);
+        return;
+
+    case 0x04000204:
+        ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
         return;
 
     case 0x04000208: IME[1] = val & 0x1; return;
@@ -2008,7 +1993,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000304: PowerControl7 = val; return;
 
-    case 0x04000504:
+    case 0x04000504: // removeme
         _soundbias = val & 0x3FF;
         return;
     }
@@ -2072,14 +2057,18 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x040001A0:
-        ROMSPIControl = val & 0xFFFF;
-        // TODO: SPI shit
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::SPICnt = val & 0xFFFF;
+            // TODO: SPI shit
+        }
         return;
     case 0x040001A4:
-        val &= ~0x00800000;
-        ROMControl = val;
-        if (val & 0x80000000) ROMStartTransfer(1);
+        if (ExMemCnt[0] & (1<<11)) NDSCart::WriteCnt(val);
         return;
+
+    case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
+    case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
 
     case 0x04000208: IME[1] = val & 0x1; return;
     case 0x04000210: IE[1] = val; return;

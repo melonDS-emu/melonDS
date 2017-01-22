@@ -90,7 +90,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 // TODO: get actual system time
-                Output[0] = 0x16;
+                Output[0] = 0x17;
                 Output[1] = 0x01;
                 Output[2] = 0x19;
                 Output[3] = 0x03; // day of week. checkme

@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "NDS.h"
 #include "DMA.h"
+#include "NDSCart.h"
 
 
 // NOTES ON DMA SHIT
@@ -82,7 +83,7 @@ void DMA::WriteCnt(u32 val)
         if (CPU == 0)
             StartMode = (Cnt >> 27) & 0x7;
         else
-            StartMode = ((Cnt >> 28) & 0x3) | 0x8;
+            StartMode = ((Cnt >> 28) & 0x3) | 0x10;
 
         if ((StartMode & 0x7) == 0)
             Start();
@@ -105,6 +106,19 @@ void DMA::Start()
 
     if ((Cnt & 0x00060000) == 0x00060000)
         CurDstAddr = DstAddr;
+
+    // special path for cart DMA. this is a gross hack.
+    // emulating it properly requires emulating cart transfer delays, so uh... TODO
+    if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
+        ((CPU==0 && StartMode==0x06) || (CPU==1 && StartMode==0x12)))
+    {
+        printf("CART DMA %08X\n", CurDstAddr);
+        NDSCart::DMA(CurDstAddr);
+        Cnt &= ~0x80000000;
+        if (Cnt & 0x40000000)
+            NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
+        return;
+    }
 
     //printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 

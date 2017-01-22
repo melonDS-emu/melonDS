@@ -80,6 +80,13 @@ extern u32 IE[2];
 extern u32 IF[2];
 extern Timer Timers[8];
 
+extern u16 ExMemCnt[2];
+extern u8 ROMSeed0[2*8];
+extern u8 ROMSeed1[2*8];
+
+extern u8 ARM9BIOS[0x1000];
+extern u8 ARM7BIOS[0x4000];
+
 extern u32 ARM9ITCMSize;
 extern u32 ARM9DTCMBase, ARM9DTCMSize;
 
@@ -104,6 +111,8 @@ void MapSharedWRAM(u8 val);
 
 void TriggerIRQ(u32 cpu, u32 irq);
 bool HaltInterrupted(u32 cpu);
+
+void CheckDMAs(u32 cpu, u32 mode);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);
