@@ -38,6 +38,7 @@ bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
+bool CartIsHomebrew;
 
 u32 CmdEncMode;
 u32 DataEncMode;
@@ -174,6 +175,7 @@ void Reset()
     CartROM = NULL;
     CartROMSize = 0;
     CartID = 0;
+    CartIsHomebrew = false;
 
     CmdEncMode = 0;
     DataEncMode = 0;
@@ -213,6 +215,30 @@ void LoadROM(char* path)
     // it just has to stay the same throughout gameplay
     CartID = 0x00001FC2;
 
+    u32 arm9base = *(u32*)&CartROM[0x20];
+    if (arm9base < 0x8000)
+    {
+        if (arm9base >= 0x4000)
+        {
+            // reencrypt secure area if needed
+            if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF)
+            {
+                printf("Re-encrypting cart secure area\n");
+
+                strncpy((char*)&CartROM[arm9base], "encryObj", 8);
+
+                Key1_InitKeycode(gamecode, 3, 2);
+                for (u32 i = 0; i < 0x800; i += 8)
+                    Key1_Encrypt((u32*)&CartROM[arm9base + i]);
+
+                Key1_InitKeycode(gamecode, 2, 2);
+                Key1_Encrypt((u32*)&CartROM[arm9base]);
+            }
+        }
+        else
+            CartIsHomebrew = true;
+    }
+
     // encryption
     Key1_InitKeycode(gamecode, 2, 2);
 }
@@ -231,7 +257,11 @@ void ReadROM(u32 addr, u32 len, u32 offset)
 void ReadROM_B7(u32 addr, u32 len, u32 offset)
 {
     addr &= (CartROMSize-1);
-    if (addr < 0x8000) addr = 0x8000 + (addr & 0x1FF);
+    if (!CartIsHomebrew)
+    {
+        if (addr < 0x8000)
+            addr = 0x8000 + (addr & 0x1FF);
+    }
 
     memcpy(DataOut+offset, CartROM+addr, len);
 }
@@ -318,11 +348,11 @@ void WriteCnt(u32 val)
         *(u32*)&cmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            cmd[0], cmd[1], cmd[2], cmd[3],
            cmd[4], cmd[5], cmd[6], cmd[7],
-           datasize);
+           datasize);*/
 
     switch (cmd[0])
     {
@@ -378,6 +408,13 @@ void WriteCnt(u32 val)
         case 0x10:
             for (u32 pos = 0; pos < DataOutLen; pos += 4)
                 *(u32*)&DataOut[pos] = CartID;
+            break;
+
+        case 0x20:
+            {
+                u32 addr = (cmd[2] & 0xF0) << 8;
+                ReadROM(addr, 0x1000, 0);
+            }
             break;
 
         case 0xA0:

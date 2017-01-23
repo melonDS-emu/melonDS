@@ -74,12 +74,16 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
     {
-        //if (Num==1 && (CPSR&0x1F)==0x12)
-        //    printf("return from IRQ %08X -> %08X, SP=%08X, %08X\n", R[15], addr, R[13], Read32(0x0380FF7C));
         RestoreCPSR();
 
         if (CPSR & 0x20)    addr |= 0x1;
         else                addr &= ~0x1;
+    }
+
+    if (addr == 0x02000800)
+    {
+        printf("!!!!!!!! %08X\n", R[15]);
+        printf("%08X %08X %08X %08X\n", Read32(0x02000000), Read32(0x0200000C), Read32(0x02000800), Read32(0x02000804));
     }
 
     if (addr & 0x1)

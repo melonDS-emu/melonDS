@@ -743,6 +743,7 @@ s32 T_STMIA(ARM* cpu)
         }
     }
 
+    // TODO: check "Rb included in Rlist" case
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
     return cycles - C_S(1);
@@ -764,7 +765,8 @@ s32 T_LDMIA(ARM* cpu)
         }
     }
 
-    cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
+    if (!(cpu->CurInstr & (1<<((cpu->CurInstr >> 8) & 0x7))))
+        cpu->R[(cpu->CurInstr >> 8) & 0x7] = base;
 
     return cycles;
 }

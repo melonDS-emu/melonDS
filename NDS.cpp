@@ -1146,8 +1146,6 @@ u32 ARM7Read32(u32 addr)
 
 void ARM7Write8(u32 addr, u8 val)
 {
-    if (addr==0x3807764) printf("DERP! %02X %08X\n", val, ARM7->R[15]);
-    if (addr==0x27FFCE4) printf("FIRMWARE STATUS8 %04X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1184,9 +1182,6 @@ void ARM7Write8(u32 addr, u8 val)
 void ARM7Write16(u32 addr, u16 val)
 {
     if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %04X\n", addr, val);
-    if (addr==0x3807764) printf("DERP! %04X %08X\n", val, ARM7->R[15]);
-    if (addr==0x27FF816) printf("RTC STATUS %04X %08X\n", val, ARM7->R[15]);
-    if (addr==0x27FFCE4) printf("FIRMWARE STATUS %04X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1227,7 +1222,6 @@ void ARM7Write16(u32 addr, u16 val)
 void ARM7Write32(u32 addr, u32 val)
 {
     if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %08X\n", addr, val);
-if (addr==0x27FFCE4) printf("FIRMWARE STATUS32 %08X %08X\n", val, ARM7->R[15]);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -2022,7 +2016,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040000D0: DMAs[6]->WriteCnt(val); return;
     case 0x040000D4: DMAs[7]->SrcAddr = val; return;
     case 0x040000D8: DMAs[7]->DstAddr = val; return;
-    case 0x040000DC: DMAs[7]->WriteCnt(val); return;
+    case 0x040000DC: DMAs[7]->WriteCnt(val); printf("start dma3 %08X %08X %08X\n", val, ARM7->R[15], ARM7Read32(ARM7->R[13]+24));return;
 
     case 0x04000100:
         Timers[4].Reload = val & 0xFFFF;

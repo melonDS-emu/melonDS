@@ -112,7 +112,6 @@ void DMA::Start()
     if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
         ((CPU==0 && StartMode==0x06) || (CPU==1 && StartMode==0x12)))
     {
-        printf("CART DMA %08X\n", CurDstAddr);
         NDSCart::DMA(CurDstAddr);
         Cnt &= ~0x80000000;
         if (Cnt & 0x40000000)
