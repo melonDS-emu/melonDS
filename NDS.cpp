@@ -1901,6 +1901,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000301:
+        //printf("ARM7 HALT %02X. IME=%08X IE=%08X IF=%08X\n", val, IME[1], IE[1], IF[1]);
         if (val == 0x80) ARM7->Halt(1);
         return;
     }

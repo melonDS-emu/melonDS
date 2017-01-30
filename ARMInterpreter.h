@@ -25,10 +25,10 @@
 namespace ARMInterpreter
 {
 
-extern s32 (*ARMInstrTable[4096])(ARM* cpu);
-extern s32 (*THUMBInstrTable[1024])(ARM* cpu);
+extern void (*ARMInstrTable[4096])(ARM* cpu);
+extern void (*THUMBInstrTable[1024])(ARM* cpu);
 
-s32 A_BLX_IMM(ARM* cpu); // I'm a special one look at me
+void A_BLX_IMM(ARM* cpu); // I'm a special one look at me
 
 }
 

@@ -57,6 +57,7 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_LEFT:   NDS::PressKey(5); break;
         case VK_RIGHT:  NDS::PressKey(4); break;
         case 'P': NDS::PressKey(16+6); break;
+        case 'D': NDS::debug(0); break;
         }
         return 0;
 

@@ -38,6 +38,22 @@ typedef struct _SchedEvent
 
 enum
 {
+    Event_ScanlineStart = 0,
+
+    Event_Timer9_0,
+    Event_Timer9_1,
+    Event_Timer9_2,
+    Event_Timer9_3,
+    Event_Timer7_0,
+    Event_Timer7_1,
+    Event_Timer7_2,
+    Event_Timer7_3,
+
+    Event_MAX
+};
+
+enum
+{
     IRQ_VBlank = 0,
     IRQ_HBlank,
     IRQ_VCount,
@@ -104,6 +120,8 @@ void RunEvents(s32 cycles);
 
 // DO NOT CALL FROM ARM7!!
 void CompensateARM7();
+
+void debug(u32 p);
 
 void Halt();
 

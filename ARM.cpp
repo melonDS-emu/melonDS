@@ -47,6 +47,97 @@ ARM::ARM(u32 num)
 {
     // well uh
     Num = num;
+
+    for (int i = 0; i < 16; i++)
+    {
+        Waitstates[0][i] = 1;
+        Waitstates[1][i] = 1;
+        Waitstates[2][i] = 1;
+        Waitstates[3][i] = 1;
+    }
+
+    if (!num)
+    {
+        // ARM9
+        Waitstates[0][0x2] = 1; // main RAM timing, assuming cache hit
+        Waitstates[0][0x3] = 4;
+        Waitstates[0][0x4] = 4;
+        Waitstates[0][0x5] = 5;
+        Waitstates[0][0x6] = 5;
+        Waitstates[0][0x7] = 4;
+        Waitstates[0][0x8] = 19;
+        Waitstates[0][0x9] = 19;
+        Waitstates[0][0xF] = 4;
+
+        Waitstates[1][0x2] = 1;
+        Waitstates[1][0x3] = 8;
+        Waitstates[1][0x4] = 8;
+        Waitstates[1][0x5] = 10;
+        Waitstates[1][0x6] = 10;
+        Waitstates[1][0x7] = 8;
+        Waitstates[1][0x8] = 38;
+        Waitstates[1][0x9] = 38;
+        Waitstates[1][0xF] = 8;
+
+        Waitstates[2][0x2] = 1;
+        Waitstates[2][0x3] = 2;
+        Waitstates[2][0x4] = 2;
+        Waitstates[2][0x5] = 2;
+        Waitstates[2][0x6] = 2;
+        Waitstates[2][0x7] = 2;
+        Waitstates[2][0x8] = 12;
+        Waitstates[2][0x9] = 12;
+        Waitstates[2][0xA] = 20;
+        Waitstates[2][0xF] = 2;
+
+        Waitstates[3][0x2] = 1;
+        Waitstates[3][0x3] = 2;
+        Waitstates[3][0x4] = 2;
+        Waitstates[3][0x5] = 4;
+        Waitstates[3][0x6] = 4;
+        Waitstates[3][0x7] = 2;
+        Waitstates[3][0x8] = 24;
+        Waitstates[3][0x9] = 24;
+        Waitstates[3][0xA] = 20;
+        Waitstates[3][0xF] = 2;
+    }
+    else
+    {
+        // ARM7
+        Waitstates[0][0x0] = 1;
+        Waitstates[0][0x2] = 1;
+        Waitstates[0][0x3] = 1;
+        Waitstates[0][0x4] = 1;
+        Waitstates[0][0x6] = 1;
+        Waitstates[0][0x8] = 6;
+        Waitstates[0][0x9] = 6;
+
+        Waitstates[1][0x0] = 1;
+        Waitstates[1][0x2] = 2;
+        Waitstates[1][0x3] = 1;
+        Waitstates[1][0x4] = 1;
+        Waitstates[1][0x6] = 2;
+        Waitstates[1][0x8] = 12;
+        Waitstates[1][0x9] = 12;
+
+        Waitstates[2][0x0] = 1;
+        Waitstates[2][0x2] = 1;
+        Waitstates[2][0x3] = 1;
+        Waitstates[2][0x4] = 1;
+        Waitstates[2][0x6] = 1;
+        Waitstates[2][0x8] = 6;
+        Waitstates[2][0x9] = 6;
+        Waitstates[2][0xA] = 10;
+
+        Waitstates[3][0x0] = 1;
+        Waitstates[3][0x2] = 2;
+        Waitstates[3][0x3] = 1;
+        Waitstates[3][0x4] = 1;
+        Waitstates[3][0x6] = 2;
+        Waitstates[3][0x8] = 12;
+        Waitstates[3][0x9] = 12;
+        Waitstates[3][0xA] = 10;
+    }
 }
 
 ARM::~ARM()
@@ -83,21 +174,23 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
     if (addr == 0x02000800)
     {
         printf("!!!!!!!! %08X\n", R[15]);
-        printf("%08X %08X %08X %08X\n", Read32(0x02000000), Read32(0x0200000C), Read32(0x02000800), Read32(0x02000804));
+        //printf("%08X %08X %08X %08X\n", Read32(0x02000000), Read32(0x0200000C), Read32(0x02000800), Read32(0x02000804));
     }
 
     if (addr & 0x1)
     {
         addr &= ~0x1;
         R[15] = addr+2;
-        NextInstr = Read16(addr);
+        NextInstr[0] = CodeRead16(addr);
+        NextInstr[1] = CodeRead16(addr+2);
         CPSR |= 0x20;
     }
     else
     {
         addr &= ~0x3;
         R[15] = addr+4;
-        NextInstr = Read32(addr);
+        NextInstr[0] = CodeRead32(addr);
+        NextInstr[1] = CodeRead32(addr+4);
         CPSR &= ~0x20;
     }
 }
@@ -227,67 +320,65 @@ void ARM::TriggerIRQ()
     JumpTo(ExceptionBase + 0x18);
 }
 
-s32 ARM::Execute(s32 cycles)
+s32 ARM::Execute(s32 cyclestorun)
 {
     if (Halted)
     {
         if (NDS::HaltInterrupted(Num))
             Halted = 0;
         else
-            return cycles;
+        {
+            Cycles = cyclestorun;
+            return Cycles;
+        }
     }
 
-    s32 cyclesrun = 0;
+    Cycles = 0;
     u32 addr = R[15] - (CPSR&0x20 ? 4:8);
     u32 cpsr = CPSR;
 
-    while (cyclesrun < cycles)
+    while (Cycles < cyclestorun)
     {
         //if(Num==1)printf("%08X %08X\n",  R[15] - (CPSR&0x20 ? 4:8), NextInstr);
 
         if (CPSR & 0x20) // THUMB
         {
             // prefetch
-            CurInstr = NextInstr;
-            NextInstr = Read16(R[15]);
-            //cyclesrun += MemWaitstate(0, R[15]);
             R[15] += 2;
-
-            Cycles = cyclesrun;
+            CurInstr = NextInstr[0];
+            NextInstr[0] = NextInstr[1];
+            NextInstr[1] = CodeRead16(R[15]);
 
             // actually execute
             u32 icode = (CurInstr >> 6);
-            cyclesrun += ARMInterpreter::THUMBInstrTable[icode](this);
+            ARMInterpreter::THUMBInstrTable[icode](this);
         }
         else
         {
             // prefetch
-            CurInstr = NextInstr;
-            NextInstr = Read32(R[15]);
-            //cyclesrun += MemWaitstate(1, R[15]);
             R[15] += 4;
-
-            Cycles = cyclesrun;
+            CurInstr = NextInstr[0];
+            NextInstr[0] = NextInstr[1];
+            NextInstr[1] = CodeRead32(R[15]);
 
             // actually execute
             if (CheckCondition(CurInstr >> 28))
             {
                 u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
-                cyclesrun += ARMInterpreter::ARMInstrTable[icode](this);
+                ARMInterpreter::ARMInstrTable[icode](this);
             }
             else if ((CurInstr & 0xFE000000) == 0xFA000000)
             {
-                cyclesrun += ARMInterpreter::A_BLX_IMM(this);
-            }
-            else
-            {
-                // not executing it. oh well
-                cyclesrun += 1; // 1S. todo: check
+                ARMInterpreter::A_BLX_IMM(this);
             }
         }
 
         // TODO optimize this shit!!!
-        if (Halted) return cycles;
+        if (Halted)
+        {
+            Cycles = cyclestorun;
+            return Cycles;
+        }
         if (NDS::HaltInterrupted(Num))
         {
             if (NDS::IME[Num]&1)
@@ -299,5 +390,5 @@ s32 ARM::Execute(s32 cycles)
         cpsr = CPSR;
     }
 
-    return cyclesrun;
+    return Cycles;
 }

@@ -78,6 +78,8 @@ void UpdateITCMSetting()
 
 void Write(u32 id, u32 val)
 {
+    //printf("CP15 write op %03X %08X %08X\n", id, val, NDS::ARM9->R[15]);
+
     switch (id)
     {
     case 0x100:

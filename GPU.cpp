@@ -113,8 +113,33 @@ void Reset()
 }
 
 
-// VRAM mapping shit.
-// TODO eventually: work out priority orders in case of overlaps. there _are_ games that map overlapping banks.
+// VRAM mapping notes
+//
+// mirroring:
+// unmapped range reads zero
+// LCD is mirrored every 0x100000 bytes, the gap between each mirror reads zero
+// ABG:
+//   bank A,B,C,D,E mirror every 0x80000 bytes
+//   bank F,G mirror at base+0x8000, mirror every 0x80000 bytes
+// AOBJ:
+//   bank A,B,E mirror every 0x40000 bytes
+//   bank F,G mirror at base+0x8000, mirror every 0x40000 bytes
+// BBG:
+//   bank C mirrors every 0x20000 bytes
+//   bank H mirrors every 0x10000 bytes
+//   bank I mirrors at base+0x4000, mirrors every 0x10000 bytes
+// BOBJ:
+//   bank D mirrors every 0x20000 bytes
+//   bank I mirrors every 0x4000 bytes
+//
+// untested:
+//   ARM7 (TODO)
+//   extended palette (mirroring doesn't apply)
+//   texture/texpal (does mirroring apply?)
+//
+// overlap:
+// when reading: values are read from each bank and ORed together
+// when writing: value is written to each bank
 
 void MapVRAM_AB(u32 bank, u8 cnt)
 {

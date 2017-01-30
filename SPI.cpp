@@ -88,6 +88,12 @@ void Reset()
 
     fclose(f);
 
+    // temp: disable autoboot
+    /*Firmware[0x3FE64] &= 0xBF;
+    *(u16*)&Firmware[0x3FE72] = CRC16(&Firmware[0x3FE00], 0x70, 0xFFFF);
+    Firmware[0x3FF64] &= 0xBF;
+    *(u16*)&Firmware[0x3FF72] = CRC16(&Firmware[0x3FF00], 0x70, 0xFFFF);*/
+
     // verify shit
     printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
     printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FA00, 0xFE, 0x3FAFE)?"GOOD":"BAD");

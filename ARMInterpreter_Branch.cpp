@@ -24,102 +24,81 @@ namespace ARMInterpreter
 {
 
 
-s32 A_B(ARM* cpu)
+void A_B(ARM* cpu)
 {
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->JumpTo(cpu->R[15] + offset);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 A_BL(ARM* cpu)
+void A_BL(ARM* cpu)
 {
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     cpu->R[14] = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[15] + offset);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 A_BLX_IMM(ARM* cpu)
+void A_BLX_IMM(ARM* cpu)
 {
     s32 offset = (s32)(cpu->CurInstr << 8) >> 6;
     if (cpu->CurInstr & 0x01000000) offset += 2;
     cpu->R[14] = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[15] + offset + 1);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 A_BX(ARM* cpu)
+void A_BX(ARM* cpu)
 {
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 A_BLX_REG(ARM* cpu)
+void A_BLX_REG(ARM* cpu)
 {
     u32 lr = cpu->R[15] - 4;
     cpu->JumpTo(cpu->R[cpu->CurInstr & 0xF]);
     cpu->R[14] = lr;
-
-    return C_S(2) + C_N(1);
 }
 
 
 
-s32 T_BCOND(ARM* cpu)
+void T_BCOND(ARM* cpu)
 {
     if (cpu->CheckCondition((cpu->CurInstr >> 8) & 0xF))
     {
         s32 offset = (s32)(cpu->CurInstr << 24) >> 23;
         cpu->JumpTo(cpu->R[15] + offset + 1);
-        return C_S(2) + C_N(1);
     }
-    else
-        return C_S(1);
 }
 
-s32 T_BX(ARM* cpu)
+void T_BX(ARM* cpu)
 {
     cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 T_BLX_REG(ARM* cpu)
+void T_BLX_REG(ARM* cpu)
 {
     if (cpu->Num==1)
     {
         printf("!! THUMB BLX_REG ON ARM7\n");
-        return 1;
+        return;
     }
 
     u32 lr = cpu->R[15] - 1;
     cpu->JumpTo(cpu->R[(cpu->CurInstr >> 3) & 0xF]);
     cpu->R[14] = lr;
-
-    return C_S(2) + C_N(1);
 }
 
-s32 T_B(ARM* cpu)
+void T_B(ARM* cpu)
 {
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 20;
     cpu->JumpTo(cpu->R[15] + offset + 1);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 T_BL_LONG_1(ARM* cpu)
+void T_BL_LONG_1(ARM* cpu)
 {
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 9;
     cpu->R[14] = cpu->R[15] + offset;
-
-    return C_S(1);
 }
 
-s32 T_BL_LONG_2(ARM* cpu)
+void T_BL_LONG_2(ARM* cpu)
 {
     s32 offset = (cpu->CurInstr & 0x7FF) << 1;
     u32 pc = cpu->R[14] + offset;
@@ -129,7 +108,6 @@ s32 T_BL_LONG_2(ARM* cpu)
         pc |= 1;
 
     cpu->JumpTo(pc);
-    return C_S(2) + C_N(1);
 }
 
 

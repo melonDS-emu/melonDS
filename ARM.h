@@ -81,42 +81,86 @@ public:
     void TriggerIRQ();
 
 
-    u8 Read8(u32 addr, u32 forceuser=0)
+    u16 CodeRead16(u32 addr)
     {
+        u16 val;
+        // TODO eventually: on ARM9, THUMB opcodes are prefetched with 32bit reads
         if (!Num)
         {
             // TODO: PU shit
-            return NDS::ARM9Read8(addr);
+            val = NDS::ARM9Read16(addr);
         }
         else
-            return NDS::ARM7Read8(addr);
+            val = NDS::ARM7Read16(addr);
+
+        Cycles += Waitstates[0][(addr>>24)&0xF];
+        return val;
     }
 
-    u16 Read16(u32 addr, u32 forceuser=0)
+    u32 CodeRead32(u32 addr)
     {
+        u32 val;
+        if (!Num)
+        {
+            // TODO: PU shit
+            val = NDS::ARM9Read32(addr);
+        }
+        else
+            val = NDS::ARM7Read32(addr);
+
+        Cycles += Waitstates[1][(addr>>24)&0xF];
+        return val;
+    }
+
+
+    u8 DataRead8(u32 addr, u32 forceuser=0)
+    {
+        u8 val;
+        if (!Num)
+        {
+            // TODO: PU shit
+            val = NDS::ARM9Read8(addr);
+        }
+        else
+            val = NDS::ARM7Read8(addr);
+
+        Cycles += Waitstates[3][(addr>>24)&0xF];
+        return val;
+    }
+
+    u16 DataRead16(u32 addr, u32 forceuser=0)
+    {
+        u16 val;
         addr &= ~1;
         if (!Num)
         {
             // TODO: PU shit
-            return NDS::ARM9Read16(addr);
+            val = NDS::ARM9Read16(addr);
         }
         else
-            return NDS::ARM7Read16(addr);
+            val = NDS::ARM7Read16(addr);
+
+        Cycles += Waitstates[2][(addr>>24)&0xF];
+        return val;
     }
 
-    u32 Read32(u32 addr, u32 forceuser=0)
+    u32 DataRead32(u32 addr, u32 forceuser=0)
     {
+        u32 val;
         addr &= ~3;
         if (!Num)
         {
             // TODO: PU shit
-            return NDS::ARM9Read32(addr);
+            val = NDS::ARM9Read32(addr);
         }
         else
-            return NDS::ARM7Read32(addr);
+            val = NDS::ARM7Read32(addr);
+
+        Cycles += Waitstates[3][(addr>>24)&0xF];
+        return val;
     }
 
-    void Write8(u32 addr, u8 val, u32 forceuser=0)
+    void DataWrite8(u32 addr, u8 val, u32 forceuser=0)
     {
         if (!Num)
         {
@@ -125,9 +169,11 @@ public:
         }
         else
             NDS::ARM7Write8(addr, val);
+
+        Cycles += Waitstates[3][(addr>>24)&0xF];
     }
 
-    void Write16(u32 addr, u16 val, u32 forceuser=0)
+    void DataWrite16(u32 addr, u16 val, u32 forceuser=0)
     {
         addr &= ~1;
         if (!Num)
@@ -137,9 +183,11 @@ public:
         }
         else
             NDS::ARM7Write16(addr, val);
+
+        Cycles += Waitstates[2][(addr>>24)&0xF];
     }
 
-    void Write32(u32 addr, u32 val, u32 forceuser=0)
+    void DataWrite32(u32 addr, u32 val, u32 forceuser=0)
     {
         addr &= ~3;
         if (!Num)
@@ -149,22 +197,17 @@ public:
         }
         else
             NDS::ARM7Write32(addr, val);
-    }
 
-
-    s32 MemWaitstate(u32 type, u32 addr)
-    {
-        // type:
-        // 0 = code16
-        // 1 = code32
-        // 2 = data16
-        // 3 = data32
-
-        return 1; // sorry
+        Cycles += Waitstates[3][(addr>>24)&0xF];
     }
 
 
     u32 Num;
+
+    // waitstates:
+    // 0=code16 1=code32 2=data16 3=data32
+    // TODO eventually: nonsequential waitstates
+    s32 Waitstates[4][16];
 
     s32 Cycles;
     u32 Halted;
@@ -177,7 +220,7 @@ public:
     u32 R_IRQ[3];
     u32 R_UND[3];
     u32 CurInstr;
-    u32 NextInstr;
+    u32 NextInstr[2];
 
     u32 ExceptionBase;
 

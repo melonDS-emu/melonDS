@@ -29,24 +29,22 @@ namespace ARMInterpreter
 {
 
 
-s32 A_UNK(ARM* cpu)
+void A_UNK(ARM* cpu)
 {
     printf("undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
     for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
     NDS::Halt();
-    return 0x7FFFFFFF;
 }
 
-s32 T_UNK(ARM* cpu)
+void T_UNK(ARM* cpu)
 {
     printf("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
     NDS::Halt();
-    return 0x7FFFFFFF;
 }
 
 
 
-s32 A_MSR_IMM(ARM* cpu)
+void A_MSR_IMM(ARM* cpu)
 {
     u32* psr;
     if (cpu->CurInstr & (1<<22))
@@ -58,7 +56,7 @@ s32 A_MSR_IMM(ARM* cpu)
             case 0x13: psr = &cpu->R_SVC[2]; break;
             case 0x17: psr = &cpu->R_ABT[2]; break;
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return 1;
+            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
@@ -84,11 +82,9 @@ s32 A_MSR_IMM(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
-
-    return C_S(1);
 }
 
-s32 A_MSR_REG(ARM* cpu)
+void A_MSR_REG(ARM* cpu)
 {
     u32* psr;
     if (cpu->CurInstr & (1<<22))
@@ -100,7 +96,7 @@ s32 A_MSR_REG(ARM* cpu)
             case 0x13: psr = &cpu->R_SVC[2]; break;
             case 0x17: psr = &cpu->R_ABT[2]; break;
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return 1;
+            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
@@ -126,11 +122,9 @@ s32 A_MSR_REG(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
-
-    return C_S(1);
 }
 
-s32 A_MRS(ARM* cpu)
+void A_MRS(ARM* cpu)
 {
     u32 psr;
     if (cpu->CurInstr & (1<<22))
@@ -142,19 +136,17 @@ s32 A_MRS(ARM* cpu)
             case 0x13: psr = cpu->R_SVC[2]; break;
             case 0x17: psr = cpu->R_ABT[2]; break;
             case 0x1B: psr = cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return 1;
+            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
         psr = cpu->CPSR;
 
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
-
-    return C_S(1);
 }
 
 
-s32 A_MCR(ARM* cpu)
+void A_MCR(ARM* cpu)
 {
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
@@ -171,10 +163,10 @@ s32 A_MCR(ARM* cpu)
         printf("bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
     }
 
-    return C_S(1) + 1; // TODO: checkme
+    cpu->Cycles += 2; // TODO: checkme
 }
 
-s32 A_MRC(ARM* cpu)
+void A_MRC(ARM* cpu)
 {
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
@@ -191,12 +183,12 @@ s32 A_MRC(ARM* cpu)
         printf("bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
     }
 
-    return C_S(1) + 1 + C_I(1); // TODO: checkme
+    cpu->Cycles += 3; // TODO: checkme
 }
 
 
 
-s32 A_SVC(ARM* cpu)
+void A_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xFF;
@@ -206,11 +198,9 @@ s32 A_SVC(ARM* cpu)
     cpu->R_SVC[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 4;
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
-
-    return C_S(2) + C_N(1);
 }
 
-s32 T_SVC(ARM* cpu)
+void T_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xFF;
@@ -220,13 +210,11 @@ s32 T_SVC(ARM* cpu)
     cpu->R_SVC[2] = oldcpsr;
     cpu->R[14] = cpu->R[15] - 2;
     cpu->JumpTo(cpu->ExceptionBase + 0x08);
-
-    return C_S(2) + C_N(1);
 }
 
 
 
-#define INSTRFUNC_PROTO(x)  s32 (*x)(ARM* cpu)
+#define INSTRFUNC_PROTO(x)  void (*x)(ARM* cpu)
 #include "ARM_InstrTable.h"
 #undef INSTRFUNC_PROTO
 
