@@ -64,11 +64,6 @@ u32 SWRAM_ARM7Mask;
 
 u8 ARM7WRAM[0x10000];
 
-u8 ARM9ITCM[0x8000];
-u32 ARM9ITCMSize;
-u8 ARM9DTCM[0x4000];
-u32 ARM9DTCMBase, ARM9DTCMSize;
-
 u16 ExMemCnt[2];
 
 u8 ROMSeed0[2*8];
@@ -206,14 +201,8 @@ void Reset()
     memset(MainRAM, 0, 0x400000);
     memset(SharedWRAM, 0, 0x8000);
     memset(ARM7WRAM, 0, 0x10000);
-    memset(ARM9ITCM, 0, 0x8000);
-    memset(ARM9DTCM, 0, 0x4000);
 
     MapSharedWRAM(0);
-
-    ARM9ITCMSize = 0;
-    ARM9DTCMBase = 0xFFFFFFFF;
-    ARM9DTCMSize = 0;
 
     ExMemCnt[0] = 0;
     ExMemCnt[1] = 0;
@@ -682,14 +671,6 @@ u8 ARM9Read8(u32 addr)
     {
         return *(u8*)&ARM9BIOS[addr & 0xFFF];
     }
-    if (addr < ARM9ITCMSize)
-    {
-        return *(u8*)&ARM9ITCM[addr & 0x7FFF];
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        return *(u8*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF];
-    }
 
     switch (addr & 0xFF000000)
     {
@@ -740,14 +721,6 @@ u16 ARM9Read16(u32 addr)
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
         return *(u16*)&ARM9BIOS[addr & 0xFFF];
-    }
-    if (addr < ARM9ITCMSize)
-    {
-        return *(u16*)&ARM9ITCM[addr & 0x7FFF];
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        return *(u16*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF];
     }
 
     switch (addr & 0xFF000000)
@@ -800,29 +773,6 @@ u32 ARM9Read32(u32 addr)
     {
         return *(u32*)&ARM9BIOS[addr & 0xFFF];
     }
-    if (addr < ARM9ITCMSize)
-    {
-        return *(u32*)&ARM9ITCM[addr & 0x7FFF];
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        return *(u32*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF];
-    }
-
-    if (addr >= 0xFFFF1000)
-    {
-        printf("!!!!!!!!!!!!!\n");
-        Halt();
-        /*FILE* f = fopen("ram.bin", "wb");
-        fwrite(MainRAM, 0x400000, 1, f);
-        fclose(f);
-        fopen("wram.bin", "wb");
-        fwrite(ARM7WRAM, 0x10000, 1, f);
-        fclose(f);
-        fopen("swram.bin", "wb");
-        fwrite(ARM7WRAM, 0x8000, 1, f);
-        fclose(f);*/
-    }
 
     switch (addr & 0xFF000000)
     {
@@ -870,17 +820,6 @@ u32 ARM9Read32(u32 addr)
 
 void ARM9Write8(u32 addr, u8 val)
 {
-    if (addr < ARM9ITCMSize)
-    {
-        *(u8*)&ARM9ITCM[addr & 0x7FFF] = val;
-        return;
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        *(u8*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF] = val;
-        return;
-    }
-
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -906,19 +845,6 @@ void ARM9Write8(u32 addr, u8 val)
 
 void ARM9Write16(u32 addr, u16 val)
 {
-    if (addr == ARM9->R[15]) printf("!!!!!!!!!!!!9999 %08X %04X\n", addr, val);
-
-    if (addr < ARM9ITCMSize)
-    {
-        *(u16*)&ARM9ITCM[addr & 0x7FFF] = val;
-        return;
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        *(u16*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF] = val;
-        return;
-    }
-
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -964,19 +890,6 @@ void ARM9Write16(u32 addr, u16 val)
 
 void ARM9Write32(u32 addr, u32 val)
 {
-    if (addr == ARM9->R[15]) printf("!!!!!!!!!!!!9999 %08X %08X\n", addr, val);
-
-    if (addr < ARM9ITCMSize)
-    {
-        *(u32*)&ARM9ITCM[addr & 0x7FFF] = val;
-        return;
-    }
-    if (addr >= ARM9DTCMBase && addr < (ARM9DTCMBase + ARM9DTCMSize))
-    {
-        *(u32*)&ARM9DTCM[(addr - ARM9DTCMBase) & 0x3FFF] = val;
-        return;
-    }
-
     switch (addr & 0xFF000000)
     {
     case 0x02000000:

@@ -5,12 +5,12 @@
 	"NDS.h"
 	"GPU.h"
 
-1485792939 c:\documents\sources\melonds\nds.h
+1485798225 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1485374133 source:c:\documents\sources\melonds\nds.cpp
+1485798397 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -30,9 +30,10 @@
 	"ARM.h"
 	"ARMInterpreter.h"
 
-1485797447 c:\documents\sources\melonds\arm.h
+1485799759 c:\documents\sources\melonds\arm.h
 	"types.h"
 	"NDS.h"
+	"CP15.h"
 
 1484530962 c:\documents\sources\melonds\arm_instrtable.h
 
@@ -68,17 +69,18 @@
 	<stdio.h>
 	"ARM.h"
 
-1481037554 c:\documents\sources\melonds\cp15.h
+1485799621 c:\documents\sources\melonds\cp15.h
 
-1485136658 source:c:\documents\sources\melonds\cp15.cpp
+1485799278 source:c:\documents\sources\melonds\cp15.cpp
 	<stdio.h>
+	<string.h>
 	"NDS.h"
 	"ARM.h"
 	"CP15.h"
 
 1480957111 c:\documents\sources\melonds\spi.h
 
-1485137440 source:c:\documents\sources\melonds\spi.cpp
+1485797744 source:c:\documents\sources\melonds\spi.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"

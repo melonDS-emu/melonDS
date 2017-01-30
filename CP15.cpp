@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <string.h>
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
@@ -35,6 +36,11 @@ u32 Control;
 
 u32 DTCMSetting, ITCMSetting;
 
+u8 ITCM[0x8000];
+u32 ITCMSize;
+u8 DTCM[0x4000];
+u32 DTCMBase, DTCMSize;
+
 
 void Reset()
 {
@@ -42,6 +48,13 @@ void Reset()
 
     DTCMSetting = 0;
     ITCMSetting = 0;
+
+    memset(ITCM, 0, 0x8000);
+    memset(DTCM, 0, 0x4000);
+
+    ITCMSize = 0;
+    DTCMBase = 0xFFFFFFFF;
+    DTCMSize = 0;
 }
 
 
@@ -49,14 +62,14 @@ void UpdateDTCMSetting()
 {
     if (Control & (1<<16))
     {
-        NDS::ARM9DTCMBase = DTCMSetting & 0xFFFFF000;
-        NDS::ARM9DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, NDS::ARM9DTCMBase, NDS::ARM9DTCMSize);
+        DTCMBase = DTCMSetting & 0xFFFFF000;
+        DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
+        printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, DTCMBase, DTCMSize);
     }
     else
     {
-        NDS::ARM9DTCMBase = 0xFFFFFFFF;
-        NDS::ARM9DTCMSize = 0;
+        DTCMBase = 0xFFFFFFFF;
+        DTCMSize = 0;
         printf("DTCM disabled\n");
     }
 }
@@ -65,12 +78,12 @@ void UpdateITCMSetting()
 {
     if (Control & (1<<18))
     {
-        NDS::ARM9ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
-        printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, NDS::ARM9ITCMSize);
+        ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
+        printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
     }
     else
     {
-        NDS::ARM9ITCMSize = 0;
+        ITCMSize = 0;
         printf("ITCM disabled\n");
     }
 }
@@ -157,6 +170,129 @@ u32 Read(u32 id)
 
     printf("unknown CP15 read op %03X\n", id);
     return 0;
+}
+
+
+// TCM are handled here.
+// TODO: later on, handle PU, and maybe caches
+
+bool HandleCodeRead16(u32 addr, u16* val)
+{
+    if (addr < ITCMSize)
+    {
+        *val = *(u16*)&ITCM[addr & 0x7FFF];
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleCodeRead32(u32 addr, u32* val)
+{
+    if (addr < ITCMSize)
+    {
+        *val = *(u32*)&ITCM[addr & 0x7FFF];
+        return true;
+    }
+
+    return false;
+}
+
+
+bool HandleDataRead8(u32 addr, u8* val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *val = *(u8*)&ITCM[addr & 0x7FFF];
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *val = *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF];
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleDataRead16(u32 addr, u16* val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *val = *(u16*)&ITCM[addr & 0x7FFF];
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *val = *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF];
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleDataRead32(u32 addr, u32* val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *val = *(u32*)&ITCM[addr & 0x7FFF];
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *val = *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF];
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleDataWrite8(u32 addr, u8 val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *(u8*)&ITCM[addr & 0x7FFF] = val;
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleDataWrite16(u32 addr, u16 val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *(u16*)&ITCM[addr & 0x7FFF] = val;
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return true;
+    }
+
+    return false;
+}
+
+bool HandleDataWrite32(u32 addr, u32 val, u32 forceuser)
+{
+    if (addr < ITCMSize)
+    {
+        *(u32*)&ITCM[addr & 0x7FFF] = val;
+        return true;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return true;
+    }
+
+    return false;
 }
 
 }

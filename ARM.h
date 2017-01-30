@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "NDS.h"
+#include "CP15.h"
 
 // lame
 #define C_S(x) x
@@ -87,8 +88,8 @@ public:
         // TODO eventually: on ARM9, THUMB opcodes are prefetched with 32bit reads
         if (!Num)
         {
-            // TODO: PU shit
-            val = NDS::ARM9Read16(addr);
+            if (!CP15::HandleCodeRead16(addr, &val))
+                val = NDS::ARM9Read16(addr);
         }
         else
             val = NDS::ARM7Read16(addr);
@@ -102,8 +103,8 @@ public:
         u32 val;
         if (!Num)
         {
-            // TODO: PU shit
-            val = NDS::ARM9Read32(addr);
+            if (!CP15::HandleCodeRead32(addr, &val))
+                val = NDS::ARM9Read32(addr);
         }
         else
             val = NDS::ARM7Read32(addr);
@@ -118,8 +119,8 @@ public:
         u8 val;
         if (!Num)
         {
-            // TODO: PU shit
-            val = NDS::ARM9Read8(addr);
+            if (!CP15::HandleDataRead8(addr, &val, forceuser))
+                val = NDS::ARM9Read8(addr);
         }
         else
             val = NDS::ARM7Read8(addr);
@@ -134,8 +135,8 @@ public:
         addr &= ~1;
         if (!Num)
         {
-            // TODO: PU shit
-            val = NDS::ARM9Read16(addr);
+            if (!CP15::HandleDataRead16(addr, &val, forceuser))
+                val = NDS::ARM9Read16(addr);
         }
         else
             val = NDS::ARM7Read16(addr);
@@ -150,8 +151,8 @@ public:
         addr &= ~3;
         if (!Num)
         {
-            // TODO: PU shit
-            val = NDS::ARM9Read32(addr);
+            if (!CP15::HandleDataRead32(addr, &val, forceuser))
+                val = NDS::ARM9Read32(addr);
         }
         else
             val = NDS::ARM7Read32(addr);
@@ -164,8 +165,8 @@ public:
     {
         if (!Num)
         {
-            // TODO: PU shit
-            NDS::ARM9Write8(addr, val);
+            if (!CP15::HandleDataWrite8(addr, val, forceuser))
+                NDS::ARM9Write8(addr, val);
         }
         else
             NDS::ARM7Write8(addr, val);
@@ -178,8 +179,8 @@ public:
         addr &= ~1;
         if (!Num)
         {
-            // TODO: PU shit
-            NDS::ARM9Write16(addr, val);
+            if (!CP15::HandleDataWrite16(addr, val, forceuser))
+                NDS::ARM9Write16(addr, val);
         }
         else
             NDS::ARM7Write16(addr, val);
@@ -192,8 +193,8 @@ public:
         addr &= ~3;
         if (!Num)
         {
-            // TODO: PU shit
-            NDS::ARM9Write32(addr, val);
+            if (!CP15::HandleDataWrite32(addr, val, forceuser))
+                NDS::ARM9Write32(addr, val);
         }
         else
             NDS::ARM7Write32(addr, val);
