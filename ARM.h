@@ -46,7 +46,7 @@ public:
         Halted = halt;
     }
 
-    s32 Execute(s32 cycles);
+    s32 Execute();
 
     bool CheckCondition(u32 code)
     {
@@ -211,6 +211,7 @@ public:
     s32 Waitstates[4][16];
 
     s32 Cycles;
+    s32 CyclesToRun;
     u32 Halted;
 
     u32 R[16]; // heh

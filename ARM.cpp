@@ -171,12 +171,6 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
         else                addr &= ~0x1;
     }
 
-    if (addr == 0x02000800)
-    {
-        printf("!!!!!!!! %08X\n", R[15]);
-        //printf("%08X %08X %08X %08X\n", Read32(0x02000000), Read32(0x0200000C), Read32(0x02000800), Read32(0x02000804));
-    }
-
     if (addr & 0x1)
     {
         addr &= ~0x1;
@@ -320,15 +314,19 @@ void ARM::TriggerIRQ()
     JumpTo(ExceptionBase + 0x18);
 }
 
-s32 ARM::Execute(s32 cyclestorun)
+s32 ARM::Execute()
 {
     if (Halted)
     {
         if (NDS::HaltInterrupted(Num))
+        {
             Halted = 0;
+            if (NDS::IME[Num]&1)
+                TriggerIRQ();
+        }
         else
         {
-            Cycles = cyclestorun;
+            Cycles = CyclesToRun;
             return Cycles;
         }
     }
@@ -337,7 +335,7 @@ s32 ARM::Execute(s32 cyclestorun)
     u32 addr = R[15] - (CPSR&0x20 ? 4:8);
     u32 cpsr = CPSR;
 
-    while (Cycles < cyclestorun)
+    while (Cycles < CyclesToRun)
     {
         //if(Num==1)printf("%08X %08X\n",  R[15] - (CPSR&0x20 ? 4:8), NextInstr);
 
@@ -376,8 +374,9 @@ s32 ARM::Execute(s32 cyclestorun)
         // TODO optimize this shit!!!
         if (Halted)
         {
-            Cycles = cyclestorun;
-            return Cycles;
+            if (Halted == 1)
+                Cycles = CyclesToRun;
+            break;
         }
         if (NDS::HaltInterrupted(Num))
         {
@@ -389,6 +388,9 @@ s32 ARM::Execute(s32 cyclestorun)
         addr = R[15] - (CPSR&0x20 ? 4:8);
         cpsr = CPSR;
     }
+
+    if (Halted == 2)
+        Halted = 0;
 
     return Cycles;
 }

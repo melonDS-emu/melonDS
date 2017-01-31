@@ -323,7 +323,7 @@ void WriteData(u8 val)
     {
     case 0x0000: SPI_Powerman::Write(val, CNT&(1<<11)); break;
     case 0x0100: SPI_Firmware::Write(val, CNT&(1<<11)); break;
-    default: break;//printf("SPI to unknown device %04X %02X\n", CNT, val); break;
+    default: printf("SPI to unknown device %04X %02X\n", CNT, val); break;
     }
 
     if (CNT & (1<<14))

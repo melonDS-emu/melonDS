@@ -24,7 +24,7 @@
 namespace NDS
 {
 
-#define SCHED_BUF_LEN 64
+/*#define SCHED_BUF_LEN 64
 
 typedef struct _SchedEvent
 {
@@ -34,7 +34,7 @@ typedef struct _SchedEvent
     struct _SchedEvent* PrevEvent;
     struct _SchedEvent*  NextEvent;
 
-} SchedEvent;
+} SchedEvent;*/
 
 enum
 {
@@ -51,6 +51,14 @@ enum
 
     Event_MAX
 };
+
+typedef struct
+{
+    void (*Func)(u32 param);
+    s32 WaitCycles;
+    u32 Param;
+
+} SchedEvent;
 
 enum
 {
@@ -84,9 +92,10 @@ enum
 typedef struct
 {
     u16 Reload;
-    u16 Control;
-    u16 Counter;
-    SchedEvent* Event;
+    u16 Cnt;
+    u32 Counter;
+    u32 CycleShift;
+    //SchedEvent* Event;
 
 } Timer;
 
@@ -111,9 +120,11 @@ void RunFrame();
 void PressKey(u32 key);
 void ReleaseKey(u32 key);
 
-SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
+/*SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
 void CancelEvent(SchedEvent* event);
-void RunEvents(s32 cycles);
+void RunEvents(s32 cycles);*/
+void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
+void CancelEvent(u32 id);
 
 // DO NOT CALL FROM ARM7!!
 void CompensateARM7();

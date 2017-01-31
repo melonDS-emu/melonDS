@@ -289,8 +289,8 @@ void ROMPrepareData(u32 param)
     NDS::CheckDMAs(0, 0x06);
     NDS::CheckDMAs(1, 0x12);
 
-    if (DataOutPos < DataOutLen)
-        NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
+    //if (DataOutPos < DataOutLen)
+    //    NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
 }
 
 void WriteCnt(u32 val)

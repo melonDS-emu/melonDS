@@ -36,19 +36,23 @@ namespace NDS
 // TODO LIST
 // * stick all the variables in a big structure?
 //   would make it easier to deal with savestates
-// * move ARM9 TCM to the ARM class (closer to the real thing, and handles "DMA can't access TCM" nicely)
 
-SchedEvent SchedBuffer[SCHED_BUF_LEN];
+/*SchedEvent SchedBuffer[SCHED_BUF_LEN];
 SchedEvent* SchedQueue;
 
-bool NeedReschedule;
+bool NeedReschedule;*/
 
 ARM* ARM9;
 ARM* ARM7;
 
-s32 ARM9Cycles, ARM7Cycles;
+/*s32 ARM9Cycles, ARM7Cycles;
 s32 CompensatedCycles;
-s32 SchedCycles;
+s32 SchedCycles;*/
+s32 CurIterationCycles;
+s32 ARM7Offset;
+
+SchedEvent SchedList[Event_MAX];
+u32 SchedListMask;
 
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
@@ -131,8 +135,9 @@ void LoadROM()
 {
     FILE* f;
 
-    f = fopen("rom/armwrestler.nds", "rb");
+    //f = fopen("rom/armwrestler.nds", "rb");
     //f = fopen("rom/zorp.nds", "rb");
+    f = fopen("rom/nsmb.nds", "rb");
 
     u32 bootparams[8];
     fseek(f, 0x20, SEEK_SET);
@@ -142,6 +147,8 @@ void LoadROM()
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
     printf("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
            bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+
+    MapSharedWRAM(3);
 
     fseek(f, bootparams[0], SEEK_SET);
     for (u32 i = 0; i < bootparams[3]; i+=4)
@@ -159,7 +166,22 @@ void LoadROM()
         ARM7Write32(bootparams[6]+i, tmp);
     }
 
+    fseek(f, 0, SEEK_SET);
+    for (u32 i = 0; i < 0x170; i+=4)
+    {
+        u32 tmp;
+        fread(&tmp, 4, 1, f);
+        ARM9Write32(0x027FFE00+i, tmp);
+    }
+
     fclose(f);
+
+    ARM9Write32(0x027FF800, 0x00001FC2);
+    ARM9Write32(0x027FF804, 0x00001FC2);
+    ARM9Write32(0x027FFC00, 0x00001FC2);
+    ARM9Write32(0x027FFC04, 0x00001FC2);
+
+    ARM9Write16(0x027FFC30, 0xFFFF);
 
     CP15::Write(0x910, 0x0300000A);
     CP15::Write(0x911, 0x00000020);
@@ -241,12 +263,16 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
-    memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
-    SchedQueue = NULL;
+   // memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
+   // SchedQueue = NULL;
+    memset(SchedList, 0, sizeof(SchedList));
+    SchedListMask = 0;
 
-    ARM9Cycles = 0;
+    /*ARM9Cycles = 0;
     ARM7Cycles = 0;
-    SchedCycles = 0;
+    SchedCycles = 0;*/
+    CurIterationCycles = 0;
+    ARM7Offset = 0;
 
     KeyInput = 0x007F03FF;
 
@@ -256,24 +282,64 @@ void Reset()
     //LoadROM();
     //LoadFirmware();
     NDSCart::LoadROM("rom/nsmb.nds");
+    //LoadROM();
 
     Running = true; // hax
 }
 
-static int fnum = 0;
+
+void CalcIterationCycles()
+{
+    CurIterationCycles = 16;
+
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!(SchedListMask & (1<<i)))
+            continue;
+
+        if (SchedList[i].WaitCycles < CurIterationCycles)
+            CurIterationCycles = SchedList[i].WaitCycles;
+    }
+}
+
+void RunSystem(s32 cycles)
+{
+    for (int i = 0; i < 8; i++)
+    {
+        if ((Timers[i].Cnt & 0x84) == 0x80)
+            Timers[i].Counter += (ARM9->Cycles >> 1) << Timers[i].CycleShift;
+    }
+    for (int i = 4; i < 8; i++)
+    {
+        if ((Timers[i].Cnt & 0x84) == 0x80)
+            Timers[i].Counter += ARM7->Cycles << Timers[i].CycleShift;
+    }
+
+    for (int i = 0; i < Event_MAX; i++)
+    {
+        if (!(SchedListMask & (1<<i)))
+            continue;
+
+        SchedList[i].WaitCycles -= cycles;
+        if (SchedList[i].WaitCycles < 1)
+        {
+            SchedListMask &= ~(1<<i);
+            SchedList[i].Func(SchedList[i].Param);
+        }
+    }
+}
+
 void RunFrame()
 {
-    s32 framecycles = 560190<<1;
+    s32 framecycles = 560190;
     const s32 maxcycles = 16;
 
     if (!Running) return; // dorp
 
-    fnum++;
-    //printf("frame %d\n", fnum);
 
     GPU::StartFrame();
 
-    while (Running && framecycles>0)
+    /*while (Running && framecycles>0)
     {
         s32 cyclestorun = maxcycles;
         if (SchedQueue)
@@ -294,10 +360,75 @@ void RunFrame()
 
         RunEvents(c9);
         framecycles -= cyclestorun;
+    }*/
+    while (Running && framecycles>0)
+    {
+        CalcIterationCycles();
+
+        ARM9->CyclesToRun = CurIterationCycles << 1;
+
+        ARM9->Execute();
+        s32 ndscyclestorun = ARM9->Cycles >> 1;
+        s32 ndscycles = 0;
+
+        ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
+        ARM7->Execute();
+        ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+
+        RunSystem(ndscyclestorun);
+
+        /*while (ndscycles < ndscyclestorun)
+        {
+            ARM7->CyclesToRun = ndscyclestorun - ndscycles - ARM7Offset;
+            ARM7->Execute();
+            ARM7Offset = 0;
+
+            RunEvents(ARM7->Cycles);
+            ndscycles += ARM7->Cycles;
+        }
+
+        ARM7Offset = ndscycles - ndscyclestorun;*/
+
+        framecycles -= ndscyclestorun;
     }
-    //printf("frame end\n");
 }
 
+void Reschedule()
+{
+    CalcIterationCycles();
+
+    ARM9->CyclesToRun = CurIterationCycles << 1;
+    //ARM7->CyclesToRun = CurIterationCycles - ARM7Offset;
+    //ARM7->CyclesToRun = (ARM9->Cycles >> 1) - ARM7->Cycles - ARM7Offset;
+}
+
+void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
+{
+    if (SchedListMask & (1<<id))
+    {
+        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        return;
+    }
+
+    SchedEvent* evt = &SchedList[id];
+
+    if (periodic) evt->WaitCycles += delay;
+    else          evt->WaitCycles  = delay + (ARM9->Cycles >> 1);
+
+    evt->Func = func;
+    evt->Param = param;
+
+    SchedListMask |= (1<<id);
+
+    Reschedule();
+}
+
+void CancelEvent(u32 id)
+{
+    SchedListMask &= ~(1<<id);
+}
+
+#if 0
 SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
 {
     // find a free entry
@@ -416,6 +547,7 @@ void CompensateARM7()
 
     RunEvents(c9);
 }
+#endif
 
 
 void PressKey(u32 key)
@@ -480,7 +612,7 @@ void TriggerIRQ(u32 cpu, u32 irq)
 
     // this is redundant
     if (!(IME[cpu] & 0x1)) return;
-    (cpu?ARM7:ARM9)->TriggerIRQ();
+    //(cpu?ARM7:ARM9)->TriggerIRQ();
 }
 
 bool HaltInterrupted(u32 cpu)
@@ -510,38 +642,50 @@ void CheckDMAs(u32 cpu, u32 mode)
 
 
 
-const s32 TimerPrescaler[4] = {2, 128, 512, 2048};
+//const s32 TimerPrescaler[4] = {1, 64, 256, 1024};
+const s32 TimerPrescaler[4] = {0, 6, 8, 10};
 
-void TimerIncrement(u32 param)
+u16 TimerGetCounter(u32 timer)
+{
+    u32 ret = Timers[timer].Counter;
+
+    if ((Timers[timer].Cnt & 0x84) == 0x80)
+    {
+        u32 c = (timer & 0x4) ? ARM7->Cycles : (ARM9->Cycles>>1);
+        ret += (c << Timers[timer].CycleShift);
+    }
+
+    return ret >> 16;
+}
+
+void TimerOverflow(u32 param)
 {
     Timer* timer = &Timers[param];
+    timer->Counter = 0;
 
     u32 tid = param & 0x3;
     u32 cpu = param >> 2;
 
     for (;;)
     {
-        timer->Counter++;
-
         if (tid == (param&0x3))
-            timer->Event = ScheduleEvent(TimerPrescaler[timer->Control&0x3], TimerIncrement, param);
+            ScheduleEvent(Event_Timer9_0 + param, true, (0x10000 - timer->Reload) << TimerPrescaler[timer->Cnt & 0x03], TimerOverflow, param);
+            //timer->Event = ScheduleEvent(TimerPrescaler[timer->Control&0x3], TimerIncrement, param);
 
         if (timer->Counter == 0)
         {
-            timer->Counter = timer->Reload;
+            timer->Counter = timer->Reload << 16;
 
-            if (timer->Control & (1<<6))
-            {
+            if (timer->Cnt & (1<<6))
                 TriggerIRQ(cpu, IRQ_Timer0 + tid);
-                //if (cpu==1) printf("Timer%d IRQ %04X\n", tid, timer->Control);
-            }
 
             // cascade
             if (tid == 3)
                 break;
             timer++;
-            if ((timer->Control & 0x84) != 0x84)
+            if ((timer->Cnt & 0x84) != 0x84)
                 break;
+            timer->Counter += 0x10000;
             tid++;
             continue;
         }
@@ -553,25 +697,25 @@ void TimerIncrement(u32 param)
 void TimerStart(u32 id, u16 cnt)
 {
     Timer* timer = &Timers[id];
-    u16 curstart = timer->Control & (1<<7);
+    u16 curstart = timer->Cnt & (1<<7);
     u16 newstart = cnt & (1<<7);
 
-    timer->Control = cnt;
+    timer->Cnt = cnt;
 
     if ((!curstart) && newstart)
     {
-        timer->Counter = timer->Reload;
+        timer->Counter = timer->Reload << 16;
+        timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
 
         // start the timer, if it's not a cascading timer
         if (!(cnt & (1<<2)))
-            timer->Event = ScheduleEvent(TimerPrescaler[cnt&0x3], TimerIncrement, id);
+            ScheduleEvent(Event_Timer9_0 + id, false, (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03], TimerOverflow, id);
         else
-            timer->Event = NULL;
+            CancelEvent(Event_Timer9_0 + id);
     }
     else if (curstart && (!newstart))
     {
-        if (timer->Event)
-            CancelEvent(timer->Event);
+        CancelEvent(Event_Timer9_0 + id);
     }
 }
 
@@ -659,8 +803,8 @@ void StartDiv()
 
 void debug(u32 param)
 {
-    printf("ARM9 PC=%08X\n", ARM9->R[15]);
-    printf("ARM7 PC=%08X\n", ARM7->R[15]);
+    printf("ARM9 PC=%08X %08X\n", ARM9->R[15], ARM9->R_IRQ[1]);
+    printf("ARM7 PC=%08X %08X\n", ARM7->R[15], ARM7->R_IRQ[1]);
 }
 
 
@@ -1094,7 +1238,6 @@ void ARM7Write8(u32 addr, u8 val)
 
 void ARM7Write16(u32 addr, u16 val)
 {
-    if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %04X\n", addr, val);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1134,7 +1277,6 @@ void ARM7Write16(u32 addr, u16 val)
 
 void ARM7Write32(u32 addr, u32 val)
 {
-    if (addr == ARM7->R[15]) printf("!!!!!!!!!!!!7777 %08X %08X\n", addr, val);
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1220,14 +1362,14 @@ u16 ARM9IORead16(u32 addr)
     case 0x040000EC: return ((u16*)DMA9Fill)[6];
     case 0x040000EE: return ((u16*)DMA9Fill)[7];
 
-    case 0x04000100: return Timers[0].Counter;
-    case 0x04000102: return Timers[0].Control;
-    case 0x04000104: return Timers[1].Counter;
-    case 0x04000106: return Timers[1].Control;
-    case 0x04000108: return Timers[2].Counter;
-    case 0x0400010A: return Timers[2].Control;
-    case 0x0400010C: return Timers[3].Counter;
-    case 0x0400010E: return Timers[3].Control;
+    case 0x04000100: return TimerGetCounter(0);
+    case 0x04000102: return Timers[0].Cnt;
+    case 0x04000104: return TimerGetCounter(1);
+    case 0x04000106: return Timers[1].Cnt;
+    case 0x04000108: return TimerGetCounter(2);
+    case 0x0400010A: return Timers[2].Cnt;
+    case 0x0400010C: return TimerGetCounter(3);
+    case 0x0400010E: return Timers[3].Cnt;
 
     case 0x04000130: return KeyInput & 0xFFFF;
 
@@ -1290,10 +1432,10 @@ u32 ARM9IORead32(u32 addr)
     case 0x040000E8: return DMA9Fill[2];
     case 0x040000EC: return DMA9Fill[3];
 
-    case 0x04000100: return Timers[0].Counter | (Timers[0].Control << 16);
-    case 0x04000104: return Timers[1].Counter | (Timers[1].Control << 16);
-    case 0x04000108: return Timers[2].Counter | (Timers[2].Control << 16);
-    case 0x0400010C: return Timers[3].Counter | (Timers[3].Control << 16);
+    case 0x04000100: return TimerGetCounter(0) | (Timers[0].Cnt << 16);
+    case 0x04000104: return TimerGetCounter(1) | (Timers[1].Cnt << 16);
+    case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
+    case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
     case 0x040001A4: return NDSCart::ROMCnt;
 
@@ -1434,7 +1576,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         {
             TriggerIRQ(1, IRQ_IPCSync);
         }
-        CompensateARM7();
+        //CompensateARM7();
         return;
 
     case 0x04000184:
@@ -1555,7 +1697,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             else
             {
                 bool wasempty = IPCFIFO9->IsEmpty();
-                IPCFIFO9->Write(val);
+                IPCFIFO9->Write(val);printf("IPC FIFO %08X %08X\n", val, ARM9->R[6]+0x114);
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     TriggerIRQ(1, IRQ_IPCRecv);
             }
@@ -1651,14 +1793,14 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000004: return GPU::DispStat[1];
     case 0x04000006: return GPU::VCount;
 
-    case 0x04000100: return Timers[4].Counter;
-    case 0x04000102: return Timers[4].Control;
-    case 0x04000104: return Timers[5].Counter;
-    case 0x04000106: return Timers[5].Control;
-    case 0x04000108: return Timers[6].Counter;
-    case 0x0400010A: return Timers[6].Control;
-    case 0x0400010C: return Timers[7].Counter;
-    case 0x0400010E: return Timers[7].Control;
+    case 0x04000100: return TimerGetCounter(4);
+    case 0x04000102: return Timers[4].Cnt;
+    case 0x04000104: return TimerGetCounter(5);
+    case 0x04000106: return Timers[5].Cnt;
+    case 0x04000108: return TimerGetCounter(6);
+    case 0x0400010A: return Timers[6].Cnt;
+    case 0x0400010C: return TimerGetCounter(7);
+    case 0x0400010E: return Timers[7].Cnt;
 
     case 0x04000130: return KeyInput & 0xFFFF;
     case 0x04000136: return KeyInput >> 16;
@@ -1720,10 +1862,10 @@ u32 ARM7IORead32(u32 addr)
     case 0x040000D8: return DMAs[7]->DstAddr;
     case 0x040000DC: return DMAs[7]->Cnt;
 
-    case 0x04000100: return Timers[4].Counter | (Timers[4].Control << 16);
-    case 0x04000104: return Timers[5].Counter | (Timers[5].Control << 16);
-    case 0x04000108: return Timers[6].Counter | (Timers[6].Control << 16);
-    case 0x0400010C: return Timers[7].Counter | (Timers[7].Control << 16);
+    case 0x04000100: return TimerGetCounter(4) | (Timers[4].Cnt << 16);
+    case 0x04000104: return TimerGetCounter(5) | (Timers[5].Cnt << 16);
+    case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
+    case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
     case 0x040001A4: return NDSCart::ROMCnt;
 
@@ -1790,6 +1932,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
             NDSCart::SPICnt |= (val << 8);
         }
         return;
+    case 0x040001A2:
+        printf("CART SPI %02X\n", val);
+        return;
 
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
     case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
@@ -1814,7 +1959,6 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000301:
-        //printf("ARM7 HALT %02X. IME=%08X IE=%08X IF=%08X\n", val, IME[1], IE[1], IF[1]);
         if (val == 0x80) ARM7->Halt(1);
         return;
     }
@@ -1874,6 +2018,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (ExMemCnt[0] & (1<<11))
             NDSCart::SPICnt = val;
         return;
+    case 0x040001A2:
+        printf("CART SPI %04X\n", val);
+        return;
 
     case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
     case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
@@ -1930,7 +2077,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040000D0: DMAs[6]->WriteCnt(val); return;
     case 0x040000D4: DMAs[7]->SrcAddr = val; return;
     case 0x040000D8: DMAs[7]->DstAddr = val; return;
-    case 0x040000DC: DMAs[7]->WriteCnt(val); printf("start dma3 %08X %08X %08X\n", val, ARM7->R[15], ARM7Read32(ARM7->R[13]+24));return;
+    case 0x040000DC: DMAs[7]->WriteCnt(val); return;
 
     case 0x04000100:
         Timers[4].Reload = val & 0xFFFF;

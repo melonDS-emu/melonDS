@@ -25,7 +25,7 @@
 namespace GPU
 {
 
-#define LINE_CYCLES  (355*6 * 2)
+#define LINE_CYCLES  (355*6)
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
 u16 VCount;
@@ -740,7 +740,8 @@ void StartScanline(u32 line)
         GPU2D_A->DrawScanline(line);
         GPU2D_B->DrawScanline(line);
 
-        NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
+        //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
+        NDS::ScheduleEvent(NDS::Event_ScanlineStart, true, LINE_CYCLES, StartScanline, line+1);
     }
     else if (line == 262)
     {
@@ -761,7 +762,8 @@ void StartScanline(u32 line)
             if (DispStat[1] & (1<<3)) NDS::TriggerIRQ(1, NDS::IRQ_VBlank);
         }
 
-        NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
+        //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
+        NDS::ScheduleEvent(NDS::Event_ScanlineStart, true, LINE_CYCLES, StartScanline, line+1);
     }
 }
 

@@ -39,9 +39,12 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         printf("close\n");
         {
             // 6006800 6008000
-            FILE* f = fopen("vramABG.bin", "wb");
-            for (int i = 0; i < 128; i++)
-                fwrite(GPU::VRAM_ABG[i], 16384, 1, f);
+            FILE* f = fopen("wram.bin", "wb");
+            for (u32 i = 0x37F8000; i < 0x3808000; i+=4)
+            {
+                u32 blarg = NDS::ARM7Read32(i);
+                fwrite(&blarg, 4, 1, f);
+            }
             fclose(f);
         }
         PostQuitMessage(0);

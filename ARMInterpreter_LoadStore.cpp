@@ -82,7 +82,7 @@ namespace ARMInterpreter
 
 #define A_LDR \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val = ROR(cpu->DataRead32(offset), ((offset&0x3)<<3)); \
+    u32 val = cpu->DataRead32(offset); val = ROR(val, ((offset&0x3)<<3)); \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->Cycles += 1; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
@@ -97,7 +97,7 @@ namespace ARMInterpreter
 
 #define A_LDR_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
-    u32 val = ROR(cpu->DataRead32(addr, cpu->CurInstr & (1<<21)), ((addr&0x3)<<3)); \
+    u32 val = cpu->DataRead32(addr, cpu->CurInstr & (1<<21)); val = ROR(val, ((addr&0x3)<<3)); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->Cycles += 1; \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
