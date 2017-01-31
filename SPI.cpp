@@ -270,7 +270,7 @@ void Write(u8 val, u32 hold)
 namespace SPI
 {
 
-u16 CNT;
+u16 Cnt;
 
 u32 CurDevice;
 
@@ -283,29 +283,24 @@ void Init()
 
 void Reset()
 {
-    CNT = 0;
+    Cnt = 0;
 
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
 }
 
 
-u16 ReadCnt()
-{
-    return CNT;
-}
-
 void WriteCnt(u16 val)
 {
-    CNT = val & 0xCF03;
+    Cnt = (Cnt & 0x0080) | (val & 0xCF03);
     if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
 }
 
 u8 ReadData()
 {
-    if (!(CNT & (1<<15))) return 0;
+    if (!(Cnt & (1<<15))) return 0;
 
-    switch (CNT & 0x0300)
+    switch (Cnt & 0x0300)
     {
     case 0x0000: return SPI_Powerman::Read();
     case 0x0100: return SPI_Firmware::Read();
@@ -315,18 +310,18 @@ u8 ReadData()
 
 void WriteData(u8 val)
 {
-    if (!(CNT & (1<<15))) return;
+    if (!(Cnt & (1<<15))) return;
 
     // TODO: take delays into account
 
-    switch (CNT & 0x0300)
+    switch (Cnt & 0x0300)
     {
-    case 0x0000: SPI_Powerman::Write(val, CNT&(1<<11)); break;
-    case 0x0100: SPI_Firmware::Write(val, CNT&(1<<11)); break;
-    default: printf("SPI to unknown device %04X %02X\n", CNT, val); break;
+    case 0x0000: SPI_Powerman::Write(val, Cnt&(1<<11)); break;
+    case 0x0100: SPI_Firmware::Write(val, Cnt&(1<<11)); break;
+    default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 
-    if (CNT & (1<<14))
+    if (Cnt & (1<<14))
         NDS::TriggerIRQ(1, NDS::IRQ_SPI);
 }
 

@@ -1317,6 +1317,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x040001A2: return NDSCart::ReadSPIData();
+
     case 0x04000208: return IME[0];
 
     case 0x04000240: return GPU::VRAMCNT[0];
@@ -1353,6 +1355,15 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000004: return GPU::DispStat[0];
     case 0x04000006: return GPU::VCount;
 
+    case 0x040000B8: return DMAs[0]->Cnt & 0xFFFF;
+    case 0x040000BA: return DMAs[0]->Cnt >> 16;
+    case 0x040000C4: return DMAs[1]->Cnt & 0xFFFF;
+    case 0x040000C6: return DMAs[1]->Cnt >> 16;
+    case 0x040000D0: return DMAs[2]->Cnt & 0xFFFF;
+    case 0x040000D2: return DMAs[2]->Cnt >> 16;
+    case 0x040000DC: return DMAs[3]->Cnt & 0xFFFF;
+    case 0x040000DE: return DMAs[3]->Cnt >> 16;
+
     case 0x040000E0: return ((u16*)DMA9Fill)[0];
     case 0x040000E2: return ((u16*)DMA9Fill)[1];
     case 0x040000E4: return ((u16*)DMA9Fill)[2];
@@ -1385,6 +1396,7 @@ u16 ARM9IORead16(u32 addr)
         }
 
     case 0x040001A0: return NDSCart::SPICnt;
+    case 0x040001A2: return NDSCart::ReadSPIData();
 
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
@@ -1437,6 +1449,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
+    case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
 
     case 0x04000208: return IME[0];
@@ -1476,7 +1489,7 @@ u32 ARM9IORead32(u32 addr)
             return IPCFIFO7->Peek();
 
     case 0x04100010:
-        if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadData();
+        if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
         return 0;
     }
 
@@ -1500,16 +1513,17 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::SPICnt &= 0xFF00;
-            NDSCart::SPICnt |= val;
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
         }
         return;
     case 0x040001A1:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::SPICnt &= 0x00FF;
-            NDSCart::SPICnt |= (val << 8);
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
         }
+        return;
+    case 0x040001A2:
+        NDSCart::WriteSPIData(val);
         return;
 
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
@@ -1560,6 +1574,15 @@ void ARM9IOWrite16(u32 addr, u16 val)
     {
     case 0x04000004: GPU::SetDispStat(0, val); return;
 
+    case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000C4: DMAs[1]->WriteCnt((DMAs[1]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000C6: DMAs[1]->WriteCnt((DMAs[1]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000D0: DMAs[2]->WriteCnt((DMAs[2]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000D2: DMAs[2]->WriteCnt((DMAs[2]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000DC: DMAs[3]->WriteCnt((DMAs[3]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000DE: DMAs[3]->WriteCnt((DMAs[3]->Cnt & 0x0000FFFF) | (val << 16)); return;
+
     case 0x04000100: Timers[0].Reload = val; return;
     case 0x04000102: TimerStart(0, val); return;
     case 0x04000104: Timers[1].Reload = val; return;
@@ -1594,7 +1617,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11))) NDSCart::SPICnt = val;
+        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteSPICnt(val);
+        return;
+    case 0x040001A2:
+        NDSCart::WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001B8: ROMSeed0[4] = val & 0x7F; return;
@@ -1709,12 +1735,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001A0:
         if (!(ExMemCnt[0] & (1<<11)))
         {
-            NDSCart::SPICnt = val & 0xFFFF;
-            // TODO: SPI shit
+            NDSCart::WriteSPICnt(val & 0xFFFF);
+            NDSCart::WriteSPIData((val >> 16) & 0xFF);
         }
         return;
     case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteCnt(val);
+        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteROMCnt(val);
         return;
 
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
@@ -1768,6 +1794,8 @@ u8 ARM7IORead8(u32 addr)
     {
     case 0x04000138: return RTC::Read() & 0xFF;
 
+    case 0x040001A2: return NDSCart::ReadSPIData();
+
     case 0x040001C2: return SPI::ReadData();
 
     case 0x04000208: return IME[1];
@@ -1794,6 +1822,15 @@ u16 ARM7IORead16(u32 addr)
     {
     case 0x04000004: return GPU::DispStat[1];
     case 0x04000006: return GPU::VCount;
+
+    case 0x040000B8: return DMAs[4]->Cnt & 0xFFFF;
+    case 0x040000BA: return DMAs[4]->Cnt >> 16;
+    case 0x040000C4: return DMAs[5]->Cnt & 0xFFFF;
+    case 0x040000C6: return DMAs[5]->Cnt >> 16;
+    case 0x040000D0: return DMAs[6]->Cnt & 0xFFFF;
+    case 0x040000D2: return DMAs[6]->Cnt >> 16;
+    case 0x040000DC: return DMAs[7]->Cnt & 0xFFFF;
+    case 0x040000DE: return DMAs[7]->Cnt >> 16;
 
     case 0x04000100: return TimerGetCounter(4);
     case 0x04000102: return Timers[4].Cnt;
@@ -1822,8 +1859,9 @@ u16 ARM7IORead16(u32 addr)
         }
 
     case 0x040001A0: return NDSCart::SPICnt;
+    case 0x040001A2: return NDSCart::ReadSPIData();
 
-    case 0x040001C0: return SPI::ReadCnt();
+    case 0x040001C0: return SPI::Cnt;
     case 0x040001C2: return SPI::ReadData();
 
     case 0x04000204: return ExMemCnt[1];
@@ -1869,10 +1907,11 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(6) | (Timers[6].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(7) | (Timers[7].Cnt << 16);
 
+    case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
 
     case 0x040001C0:
-        return SPI::ReadCnt() | (SPI::ReadData() << 16);
+        return SPI::Cnt | (SPI::ReadData() << 16);
 
     case 0x04000208: return IME[1];
     case 0x04000210: return IE[1];
@@ -1900,7 +1939,7 @@ u32 ARM7IORead32(u32 addr)
             return IPCFIFO9->Peek();
 
     case 0x04100010:
-        if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadData();
+        if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
         return 0;
     }
 
@@ -1923,19 +1962,17 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::SPICnt &= 0xFF00;
-            NDSCart::SPICnt |= val;
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
         }
         return;
     case 0x040001A1:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::SPICnt &= 0x00FF;
-            NDSCart::SPICnt |= (val << 8);
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
         }
         return;
     case 0x040001A2:
-        printf("CART SPI %02X\n", val);
+        NDSCart::WriteSPIData(val);
         return;
 
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
@@ -1980,6 +2017,15 @@ void ARM7IOWrite16(u32 addr, u16 val)
     {
     case 0x04000004: GPU::SetDispStat(1, val); return;
 
+    case 0x040000B8: DMAs[4]->WriteCnt((DMAs[4]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000BA: DMAs[4]->WriteCnt((DMAs[4]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000C4: DMAs[5]->WriteCnt((DMAs[5]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000C6: DMAs[5]->WriteCnt((DMAs[5]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000D0: DMAs[6]->WriteCnt((DMAs[6]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000D2: DMAs[6]->WriteCnt((DMAs[6]->Cnt & 0x0000FFFF) | (val << 16)); return;
+    case 0x040000DC: DMAs[7]->WriteCnt((DMAs[7]->Cnt & 0xFFFF0000) | val); return;
+    case 0x040000DE: DMAs[7]->WriteCnt((DMAs[7]->Cnt & 0x0000FFFF) | (val << 16)); return;
+
     case 0x04000100: Timers[4].Reload = val; return;
     case 0x04000102: TimerStart(4, val); return;
     case 0x04000104: Timers[5].Reload = val; return;
@@ -2018,10 +2064,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
-            NDSCart::SPICnt = val;
+            NDSCart::WriteSPICnt(val);
         return;
     case 0x040001A2:
-        printf("CART SPI %04X\n", val);
+        NDSCart::WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
@@ -2030,7 +2076,6 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x040001C0:
         SPI::WriteCnt(val);
         return;
-
     case 0x040001C2:
         SPI::WriteData(val & 0xFF);
         return;
@@ -2116,12 +2161,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
-            NDSCart::SPICnt = val & 0xFFFF;
-            // TODO: SPI shit
+            NDSCart::WriteSPICnt(val & 0xFFFF);
+            NDSCart::WriteSPIData((val >> 16) & 0xFF);
         }
         return;
     case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11)) NDSCart::WriteCnt(val);
+        if (ExMemCnt[0] & (1<<11)) NDSCart::WriteROMCnt(val);
         return;
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;

@@ -21,6 +21,142 @@
 #include "NDS.h"
 #include "NDSCart.h"
 
+
+namespace NDSCart_SRAM
+{
+
+u8* SRAM;
+u32 SRAMLength;
+
+u32 AddrLength;
+
+u32 Hold;
+u8 CurCmd;
+u32 DataPos;
+u8 Data;
+
+u8 StatusReg;
+u32 Addr;
+
+
+void Init()
+{
+    SRAM = NULL;
+}
+
+void Reset()
+{
+    if (SRAM) delete[] SRAM;
+
+    FILE* f = fopen("rom/nsmb.sav", "rb"); // TODO: NOT HARDCODE THE FILENAME!!!
+    if (f)
+    {
+        fseek(f, 0, SEEK_END);
+        SRAMLength = (u32)ftell(f);
+        SRAM = new u8[SRAMLength];
+
+        fseek(f, 0, SEEK_SET);
+        fread(SRAM, SRAMLength, 1, f);
+
+        fclose(f);
+
+        switch (SRAMLength)
+        {
+        case 8192: AddrLength = 2; break;
+        default:
+            printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
+            AddrLength = 2;
+            break;
+        }
+    }
+    else
+    {
+        // TODO: autodetect save type
+        SRAMLength = 0;
+    }
+
+    Hold = 0;
+    CurCmd = 0;
+    Data = 0;
+    StatusReg = 0x00;
+}
+
+u8 Read()
+{
+    return Data;
+}
+
+void Write(u8 val, u32 hold)
+{
+    if (!hold)
+    {
+        Hold = 0;
+    }
+
+    if (hold && (!Hold))
+    {
+        CurCmd = val;
+        Hold = 1;
+        Data = 0;
+        DataPos = 1;
+        Addr = 0;
+        //printf("save SPI command %02X\n", CurCmd);
+        return;
+    }
+
+    switch (CurCmd)
+    {
+    case 0x03: // read
+        {
+            if (DataPos < AddrLength+1)
+            {
+                Addr <<= 8;
+                Addr |= val;
+                Data = 0;
+
+                //if (DataPos == AddrLength) printf("save SPI read %08X\n", Addr);
+            }
+            else
+            {
+                if (Addr >= SRAMLength)
+                    Data = 0;
+                else
+                    Data = SRAM[Addr];
+
+                Addr++;
+            }
+
+            DataPos++;
+        }
+        break;
+
+    case 0x04: // write disable
+        StatusReg &= ~(1<<1);
+        Data = 0;
+        break;
+
+    case 0x05: // read status reg
+        Data = StatusReg;
+        break;
+
+    case 0x06: // write enable
+        StatusReg |= (1<<1);
+        Data = 0;
+        break;
+
+    case 0x9F: // read JEDEC ID
+        Data = 0xFF;
+        break;
+
+    default:
+        printf("unknown save SPI command %02X\n", CurCmd);
+        break;
+    }
+}
+
+}
+
+
 namespace NDSCart
 {
 
@@ -154,6 +290,7 @@ void Key2_Encrypt(u8* data, u32 len)
 
 void Init()
 {
+    NDSCart_SRAM::Init();
 }
 
 void Reset()
@@ -179,6 +316,8 @@ void Reset()
 
     CmdEncMode = 0;
     DataEncMode = 0;
+
+    NDSCart_SRAM::Reset();
 }
 
 
@@ -293,7 +432,7 @@ void ROMPrepareData(u32 param)
     //    NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
 }
 
-void WriteCnt(u32 val)
+void WriteROMCnt(u32 val)
 {
     ROMCnt = val & 0xFF7F7FFF;
 
@@ -437,7 +576,7 @@ void WriteCnt(u32 val)
         //NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
 }
 
-u32 ReadData()
+u32 ReadROMData()
 {
     /*if (ROMCnt & (1<<23))
     {
@@ -470,6 +609,30 @@ void DMA(u32 addr)
     }
 
     EndTransfer();
+}
+
+
+void WriteSPICnt(u16 val)
+{
+    SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
+}
+
+u8 ReadSPIData()
+{
+    if (!(SPICnt & (1<<15))) return 0;
+    if (!(SPICnt & (1<<13))) return 0;
+
+    return NDSCart_SRAM::Read();
+}
+
+void WriteSPIData(u8 val)
+{
+    if (!(SPICnt & (1<<15))) return;
+    if (!(SPICnt & (1<<13))) return;
+
+    // TODO: take delays into account
+
+    NDSCart_SRAM::Write(val, SPICnt&(1<<6));
 }
 
 }

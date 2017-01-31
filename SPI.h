@@ -22,6 +22,8 @@
 namespace SPI
 {
 
+extern u16 Cnt;
+
 void Init();
 void Reset();
 
