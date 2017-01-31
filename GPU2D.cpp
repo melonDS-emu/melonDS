@@ -171,6 +171,9 @@ void GPU2D::DrawScanline(u32 line)
     }
 }
 
+// temp. hax
+#define DrawBG_Text DrawBG_Text_4bpp
+
 void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 {
     u32 backdrop;
@@ -191,32 +194,61 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
     switch (DispCnt & 0x7)
     {
     case 0:
-        //printf("disp %08X %04X %04X %04X %04X\n", DispCnt, BGCnt[0], BGCnt[1], BGCnt[2], BGCnt[3]);
         for (int i = 3; i >= 0; i--)
         {
             if ((BGCnt[3] & 0x3) == i)
             {
-                if (DispCnt & 0x0800) DrawBG_Text_4bpp(line, dst, 3);
+                if (DispCnt & 0x0800) DrawBG_Text(line, dst, 3);
                 if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x38000, dst);
             }
             if ((BGCnt[2] & 0x3) == i)
             {
-                if (DispCnt & 0x0400) DrawBG_Text_4bpp(line, dst, 2);
+                if (DispCnt & 0x0400) DrawBG_Text(line, dst, 2);
                 if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x28000, dst);
             }
             if ((BGCnt[1] & 0x3) == i)
             {
-                if (DispCnt & 0x0200) DrawBG_Text_4bpp(line, dst, 1);
+                if (DispCnt & 0x0200) DrawBG_Text(line, dst, 1);
                 if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x18000, dst);
             }
             if ((BGCnt[0] & 0x3) == i)
             {
-                if (DispCnt & 0x0100) DrawBG_Text_4bpp(line, dst, 0);
+                if (DispCnt & 0x0100) DrawBG_Text(line, dst, 0);
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x08000, dst);
+            }
+        }
+        break;
+
+    case 5:
+        for (int i = 3; i >= 0; i--)
+        {
+            if ((BGCnt[3] & 0x3) == i)
+            {
+                // ext. todo
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x38000, dst);
+            }
+            if ((BGCnt[2] & 0x3) == i)
+            {
+                // ext. todo
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x28000, dst);
+            }
+            if ((BGCnt[1] & 0x3) == i)
+            {
+                if (DispCnt & 0x0200) DrawBG_Text(line, dst, 1);
+                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x18000, dst);
+            }
+            if ((BGCnt[0] & 0x3) == i)
+            {
+                if (DispCnt & 0x0100) DrawBG_Text(line, dst, 0);
                 if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x08000, dst);
             }
         }
         break;
     }
+
+    // debug crap
+    //for (int i = 0; i < 256; i++)
+    //    dst[i] = *(u16*)&GPU::Palette[Num*0x400 + (i>>4)*2 + (line>>4)*32];
 }
 
 // char   06218000
@@ -247,7 +279,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     else
     {
         tileset = (u8*)GPU::VRAM_ABG[((DispCnt & 0x07000000) >> 22) + ((bgcnt & 0x003C) >> 2)];
-        tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 27) + ((bgcnt & 0x1800) >> 11)];
+        tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 25) + ((bgcnt & 0x1800) >> 11)];
         if (!tileset || !tilemap) return;
         tilemap += ((bgcnt & 0x0700) << 2);
 
@@ -299,9 +331,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         {
             color = *pixels & 0x0F;
         }
-        //color = (i >> 4) + ((line >> 4) << 4);
-        //if (Num) color = 0;
-        //if (yoff>127) color=0;
+
         if (color)
             dst[i] = curpal[color];
 

@@ -282,7 +282,7 @@ void Reset()
     //LoadROM();
     //LoadFirmware();
     NDSCart::LoadROM("rom/nsmb.nds");
-    //LoadROM();
+    LoadROM();
 
     Running = true; // hax
 }
@@ -1451,6 +1451,8 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002A4: return DivQuotient[1];
     case 0x040002A8: return DivRemainder[0];
     case 0x040002AC: return DivRemainder[1];
+
+    case 0x04000600: return 0x04000000; // hax
 
     case 0x04100000:
         if (IPCFIFOCnt9 & 0x8000)
