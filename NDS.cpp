@@ -98,6 +98,10 @@ u32 DivDenominator[2];
 u32 DivQuotient[2];
 u32 DivRemainder[2];
 
+u16 SqrtCnt;
+u32 SqrtVal[2];
+u32 SqrtRes;
+
 u32 KeyInput;
 
 u16 _soundbias; // temp
@@ -247,6 +251,7 @@ void Reset()
     IPCFIFO7->Clear();
 
     DivCnt = 0;
+    SqrtCnt = 0;
 
     ARM9->Reset();
     ARM7->Reset();
@@ -332,35 +337,12 @@ void RunSystem(s32 cycles)
 void RunFrame()
 {
     s32 framecycles = 560190;
-    const s32 maxcycles = 16;
 
     if (!Running) return; // dorp
 
 
     GPU::StartFrame();
 
-    /*while (Running && framecycles>0)
-    {
-        s32 cyclestorun = maxcycles;
-        if (SchedQueue)
-        {
-            if (SchedQueue->Delay < cyclestorun)
-                cyclestorun = SchedQueue->Delay;
-        }
-
-        //CompensatedCycles = ARM9Cycles;
-        s32 torun9 = cyclestorun - ARM9Cycles;
-        s32 c9 = ARM9->Execute(torun9);
-        ARM9Cycles = c9 - torun9;
-        //c9 -= CompensatedCycles;
-
-        s32 torun7 = (c9 - ARM7Cycles) & ~1;
-        s32 c7 = ARM7->Execute(torun7 >> 1) << 1;
-        ARM7Cycles = c7 - torun7;
-
-        RunEvents(c9);
-        framecycles -= cyclestorun;
-    }*/
     while (Running && framecycles>0)
     {
         CalcIterationCycles();
@@ -427,127 +409,6 @@ void CancelEvent(u32 id)
 {
     SchedListMask &= ~(1<<id);
 }
-
-#if 0
-SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param)
-{
-    // find a free entry
-    u32 entry = -1;
-    for (int i = 0; i < SCHED_BUF_LEN; i++)
-    {
-        if (SchedBuffer[i].Func == NULL)
-        {
-            entry = i;
-            break;
-        }
-    }
-
-    if (entry == -1)
-    {
-        printf("!! SCHEDULER BUFFER FULL\n");
-        return NULL;
-    }
-
-    SchedEvent* evt = &SchedBuffer[entry];
-    evt->Func = Func;
-    evt->Param = Param;
-
-    Delay += SchedCycles;
-
-    SchedEvent* cur = SchedQueue;
-    SchedEvent* prev = NULL;
-    for (;;)
-    {
-        if (cur == NULL) break;
-        if (cur->Delay > Delay) break;
-
-        Delay -= cur->Delay;
-        prev = cur;
-        cur = cur->NextEvent;
-    }
-
-    // so, we found it. we insert our event before 'cur'.
-    evt->Delay = Delay;
-
-    if (cur == NULL)
-    {
-        if (prev == NULL)
-        {
-            // list empty
-            SchedQueue = evt;
-            evt->PrevEvent = NULL;
-            evt->NextEvent = NULL;
-        }
-        else
-        {
-            // inserting at the end of the list
-            evt->PrevEvent = prev;
-            evt->NextEvent = NULL;
-            prev->NextEvent = evt;
-        }
-    }
-    else
-    {
-        evt->NextEvent = cur;
-        evt->PrevEvent = cur->PrevEvent;
-
-        if (evt->PrevEvent)
-            evt->PrevEvent->NextEvent = evt;
-        else
-            SchedQueue = evt;
-
-        cur->PrevEvent = evt;
-        cur->Delay -= evt->Delay;
-    }
-
-    return evt;
-}
-
-void CancelEvent(SchedEvent* event)
-{
-    event->Func = NULL;
-
-    // unlink
-
-    if (event->PrevEvent)
-        event->PrevEvent->NextEvent = event->NextEvent;
-    else
-        SchedQueue = event->NextEvent;
-
-    if (event->NextEvent)
-        event->NextEvent->PrevEvent = event->PrevEvent;
-}
-
-void RunEvents(s32 cycles)
-{
-    SchedCycles += cycles;
-
-    while (SchedQueue && SchedQueue->Delay <= SchedCycles)
-    {
-        void (*func)(u32) = SchedQueue->Func;
-        u32 param = SchedQueue->Param;
-
-        SchedQueue->Func = NULL;
-        SchedCycles -= SchedQueue->Delay;
-
-        SchedQueue = SchedQueue->NextEvent;
-        if (SchedQueue) SchedQueue->PrevEvent = NULL;
-
-        func(param);
-    }
-}
-
-void CompensateARM7()
-{return;
-    s32 c9 = ARM9->Cycles - CompensatedCycles;
-    CompensatedCycles = ARM9->Cycles;
-
-    s32 c7 = ARM7->Execute((c9 - ARM7Cycles) >> 1) << 1;
-    ARM7Cycles = c7 - c9;
-
-    RunEvents(c9);
-}
-#endif
 
 
 void PressKey(u32 key)
@@ -797,6 +658,47 @@ void StartDiv()
 
     if ((DivDenominator[0] | DivDenominator[1]) == 0)
         DivCnt |= 0x2000;
+}
+
+// http://stackoverflow.com/questions/1100090/looking-for-an-efficient-integer-square-root-algorithm-for-arm-thumb2
+void StartSqrt()
+{
+    // TODO: sqrt isn't instant either. oh well
+
+    u64 val;
+    u32 res = 0;
+    u64 rem = 0;
+    u32 prod = 0;
+    u32 nbits, topshift;
+
+    if (SqrtCnt & 0x0001)
+    {
+        val = *(u64*)&SqrtVal[0];
+        nbits = 32;
+        topshift = 62;
+    }
+    else
+    {
+        val = (u64)SqrtVal[0]; // 32bit
+        nbits = 16;
+        topshift = 30;
+    }
+
+    for (u32 i = 0; i < nbits; i++)
+    {
+        rem = (rem << 2) + ((val >> topshift) & 0x3);
+        val <<= 2;
+        res <<= 1;
+
+        prod = (res << 1) + 1;
+        if (rem >= prod)
+        {
+            rem -= prod;
+            res++;
+        }
+    }
+
+    SqrtRes = res;
 }
 
 
@@ -1403,6 +1305,8 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000280: return DivCnt;
 
+    case 0x040002B0: return SqrtCnt;
+
     case 0x04000300: return PostFlag9;
     case 0x04000304: return PowerControl9;
     }
@@ -1464,6 +1368,10 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002A4: return DivQuotient[1];
     case 0x040002A8: return DivRemainder[0];
     case 0x040002AC: return DivRemainder[1];
+
+    case 0x040002B4: return SqrtRes;
+    case 0x040002B8: return SqrtVal[0];
+    case 0x040002BC: return SqrtVal[1];
 
     case 0x04000600: return 0x04000000; // hax
 
@@ -1656,6 +1564,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000280: DivCnt = val; StartDiv(); return;
 
+    case 0x040002B0: SqrtCnt = val; StartSqrt(); return;
+
     case 0x04000300:
         if (PostFlag9 & 0x01) val |= 0x01;
         PostFlag9 = val & 0x03;
@@ -1771,6 +1681,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000294: DivNumerator[1] = val; StartDiv(); return;
     case 0x04000298: DivDenominator[0] = val; StartDiv(); return;
     case 0x0400029C: DivDenominator[1] = val; StartDiv(); return;
+
+    case 0x040002B8: SqrtVal[0] = val; StartSqrt(); return;
+    case 0x040002BC: SqrtVal[1] = val; StartSqrt(); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
