@@ -78,8 +78,17 @@ void A_UMULL(ARM* cpu);
 void A_UMLAL(ARM* cpu);
 void A_SMULL(ARM* cpu);
 void A_SMLAL(ARM* cpu);
+void A_SMLAxy(ARM* cpu);
+void A_SMLAWy(ARM* cpu);
+void A_SMULxy(ARM* cpu);
+void A_SMULWy(ARM* cpu);
+void A_SMLALxy(ARM* cpu);
 
 void A_CLZ(ARM* cpu);
+void A_QADD(ARM* cpu);
+void A_QSUB(ARM* cpu);
+void A_QDADD(ARM* cpu);
+void A_QDSUB(ARM* cpu);
 
 
 void T_LSL_IMM(ARM* cpu);

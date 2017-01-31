@@ -1783,6 +1783,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
         GPU::GPU2D_B->Write32(addr, val);
         return;
     }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        // 3D GPU
+        return;
+    }
 
     printf("unknown ARM9 IO write32 %08X %08X\n", addr, val);
 }

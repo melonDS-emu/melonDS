@@ -863,6 +863,101 @@ void A_SMLAL(ARM* cpu)
     cpu->Cycles += cycles;
 }
 
+void A_SMLAxy(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
+
+    if (cpu->CurInstr & (1<<5)) rm >>= 16;
+    else                        rm &= 0xFFFF;
+    if (cpu->CurInstr & (1<<6)) rs >>= 16;
+    else                        rs &= 0xFFFF;
+
+    u32 res_mul = ((s16)rm * (s16)rs);
+    u32 res = res_mul + rn;
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    if (OVERFLOW_ADD(res_mul, rn, res))
+        cpu->CPSR |= 0x08000000;
+}
+
+void A_SMLAWy(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 12) & 0xF];
+
+    if (cpu->CurInstr & (1<<6)) rs >>= 16;
+    else                        rs &= 0xFFFF;
+
+    u32 res_mul = ((s32)rm * (s16)rs) >> 16; // CHECKME
+    u32 res = res_mul + rn;
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    if (OVERFLOW_ADD(res_mul, rn, res))
+        cpu->CPSR |= 0x08000000;
+}
+
+void A_SMULxy(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    if (cpu->CurInstr & (1<<5)) rm >>= 16;
+    else                        rm &= 0xFFFF;
+    if (cpu->CurInstr & (1<<6)) rs >>= 16;
+    else                        rs &= 0xFFFF;
+
+    u32 res = ((s16)rm * (s16)rs);
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+}
+
+void A_SMULWy(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    if (cpu->CurInstr & (1<<6)) rs >>= 16;
+    else                        rs &= 0xFFFF;
+
+    u32 res = ((s32)rm * (s16)rs) >> 16; // CHECKME
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+}
+
+void A_SMLALxy(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
+
+    if (cpu->CurInstr & (1<<5)) rm >>= 16;
+    else                        rm &= 0xFFFF;
+    if (cpu->CurInstr & (1<<6)) rs >>= 16;
+    else                        rs &= 0xFFFF;
+
+    s64 res = (s64)(s16)rm * (s64)(s16)rs;
+
+    s64 rd = (s64)((u64)cpu->R[(cpu->CurInstr >> 12) & 0xF] | ((u64)cpu->R[(cpu->CurInstr >> 16) & 0xF] << 32ULL));
+    res += rd;
+
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
+
+    cpu->Cycles += 1;
+}
+
 
 
 void A_CLZ(ARM* cpu)
@@ -886,6 +981,90 @@ void A_CLZ(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+}
+
+void A_QADD(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    u32 res = rm + rn;
+    if (OVERFLOW_ADD(rm, rn, res))
+    {
+        res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
+        cpu->CPSR |= 0x08000000;
+    }
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+}
+
+void A_QSUB(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    u32 res = rm - rn;
+    if (OVERFLOW_SUB(rm, rn, res))
+    {
+        res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
+        cpu->CPSR |= 0x08000000;
+    }
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+}
+
+void A_QDADD(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    if (rn & 0x40000000)
+    {
+        rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
+        cpu->CPSR |= 0x08000000; // CHECKME
+    }
+    else
+        rn <<= 1;
+
+    u32 res = rm + rn;
+    if (OVERFLOW_ADD(rm, rn, res))
+    {
+        res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
+        cpu->CPSR |= 0x08000000;
+    }
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+}
+
+void A_QDSUB(ARM* cpu)
+{
+    // TODO: ARM9 only
+
+    u32 rm = cpu->R[cpu->CurInstr & 0xF];
+    u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
+
+    if (rn & 0x40000000)
+    {
+        rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
+        cpu->CPSR |= 0x08000000; // CHECKME
+    }
+    else
+        rn <<= 1;
+
+    u32 res = rm - rn;
+    if (OVERFLOW_SUB(rm, rn, res))
+    {
+        res = (res & 0x80000000) ? 0x7FFFFFFF : 0x80000000;
+        cpu->CPSR |= 0x08000000;
+    }
+
+    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 }
 
 

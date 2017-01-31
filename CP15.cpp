@@ -140,6 +140,8 @@ void Write(u32 id, u32 val)
 
 u32 Read(u32 id)
 {
+    //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
+
     switch (id)
     {
     case 0x000: // CPU ID
@@ -150,9 +152,8 @@ u32 Read(u32 id)
     case 0x007:
         return 0x41059461;
 
-    case 0x001:
-        // cache type. todo
-        return 0;
+    case 0x001: // cache type
+        return 0x0F0D2112;
 
     case 0x002: // TCM size
         return (6 << 6) | (5 << 18);
