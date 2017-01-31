@@ -30,6 +30,8 @@ HWND melon;
 BITMAPV4HEADER bmp;
 bool quit;
 
+bool touching;
+
 
 LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -59,7 +61,6 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_DOWN:   NDS::PressKey(7); break;
         case VK_LEFT:   NDS::PressKey(5); break;
         case VK_RIGHT:  NDS::PressKey(4); break;
-        case 'P': NDS::PressKey(16+6); break;
         case 'A': NDS::PressKey(0); break;
         case 'B': NDS::PressKey(1); break;
         case 'D': NDS::debug(0); break;
@@ -75,9 +76,46 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_DOWN:   NDS::ReleaseKey(7); break;
         case VK_LEFT:   NDS::ReleaseKey(5); break;
         case VK_RIGHT:  NDS::ReleaseKey(4); break;
-        case 'P': NDS::ReleaseKey(16+6); break;
         case 'A': NDS::ReleaseKey(0); break;
         case 'B': NDS::ReleaseKey(1); break;
+        }
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        if (!touching)
+        {
+            s16 x = (s16)(lparam & 0xFFFF);
+            s16 y = (s16)(lparam >> 16);
+
+            y -= 192;
+            if (x >= 0 && x < 256 && y >= 0 && y < 192)
+            {
+                NDS::TouchScreen(x, y);
+                NDS::PressKey(16+6);
+                touching = true;
+            }
+        }
+        return 0;
+
+    case WM_LBUTTONUP:
+    case WM_NCLBUTTONUP:
+        if (touching)
+        {
+            NDS::ReleaseScreen();
+            NDS::ReleaseKey(16+6);
+            touching = false;
+        }
+        return 0;
+
+    case WM_MOUSEMOVE:
+        if (touching)
+        {
+            s16 x = (s16)(lparam & 0xFFFF);
+            s16 y = (s16)(lparam >> 16);
+
+            y -= 192;
+            if (x >= 0 && x < 256 && y >= 0 && y < 192)
+                NDS::TouchScreen(x, y);
         }
         return 0;
 
@@ -98,6 +136,7 @@ int main()
     printf("it's a DS emulator!!!\n");
     printf("http://melonds.kuribo64.net/\n");
     quit = false;
+    touching = false;
 
     instance = GetModuleHandle(NULL);
 

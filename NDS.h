@@ -119,6 +119,8 @@ void RunFrame();
 
 void PressKey(u32 key);
 void ReleaseKey(u32 key);
+void TouchScreen(u16 x, u16 y);
+void ReleaseScreen();
 
 /*SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
 void CancelEvent(SchedEvent* event);

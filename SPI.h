@@ -19,6 +19,13 @@
 #ifndef SPI_H
 #define SPI_H
 
+namespace SPI_TSC
+{
+
+void SetTouchCoords(u16 x, u16 y);
+
+}
+
 namespace SPI
 {
 

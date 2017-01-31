@@ -88,11 +88,27 @@ void Reset()
 
     fclose(f);
 
-    // temp: disable autoboot
-    /*Firmware[0x3FE64] &= 0xBF;
-    *(u16*)&Firmware[0x3FE72] = CRC16(&Firmware[0x3FE00], 0x70, 0xFFFF);
-    Firmware[0x3FF64] &= 0xBF;
-    *(u16*)&Firmware[0x3FF72] = CRC16(&Firmware[0x3FF00], 0x70, 0xFFFF);*/
+    u32 userdata = 0x3FE00;
+    if (*(u16*)&Firmware[0x3FF70] == ((*(u16*)&Firmware[0x3FE70] + 1) & 0x7F))
+    {
+        if (VerifyCRC16(0xFFFF, 0x3FF00, 0x70, 0x3FF72))
+            userdata = 0x3FF00;
+    }
+
+    // fix touchscreen coords
+    *(u16*)&Firmware[userdata+0x58] = 0;
+    *(u16*)&Firmware[userdata+0x5A] = 0;
+    Firmware[userdata+0x5C] = 1;
+    Firmware[userdata+0x5D] = 1;
+    *(u16*)&Firmware[userdata+0x5E] = 254;
+    *(u16*)&Firmware[userdata+0x60] = 190;
+    Firmware[userdata+0x62] = 255;
+    Firmware[userdata+0x63] = 191;
+
+    // disable autoboot
+    //Firmware[userdata+0x64] &= 0xBF;
+
+    *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
     // verify shit
     printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
@@ -267,6 +283,80 @@ void Write(u8 val, u32 hold)
 }
 
 
+namespace SPI_TSC
+{
+
+u32 DataPos;
+u8 ControlByte;
+u8 Data;
+
+u16 ConvResult;
+
+u16 TouchX, TouchY;
+
+
+void Init()
+{
+}
+
+void Reset()
+{
+    ControlByte = 0;
+    Data = 0;
+
+    ConvResult = 0;
+}
+
+void SetTouchCoords(u16 x, u16 y)
+{
+    // scr.x = (adc.x-adc.x1) * (scr.x2-scr.x1) / (adc.x2-adc.x1) + (scr.x1-1)
+    // scr.y = (adc.y-adc.y1) * (scr.y2-scr.y1) / (adc.y2-adc.y1) + (scr.y1-1)
+    // adc.x = ((scr.x * ((adc.x2-adc.x1) + (scr.x1-1))) / (scr.x2-scr.x1)) + adc.x1
+    // adc.y = ((scr.y * ((adc.y2-adc.y1) + (scr.y1-1))) / (scr.y2-scr.y1)) + adc.y1
+    TouchX = x;
+    TouchY = y;
+
+    if (y == 0xFFF) return;
+
+    // TODO: eventually convert?
+}
+
+u8 Read()
+{
+    return Data;
+}
+
+void Write(u8 val, u32 hold)
+{
+    if (DataPos == 1)
+        Data = (ConvResult >> 5) & 0xFF;
+    else if (DataPos == 2)
+        Data = (ConvResult << 3) & 0xFF;
+    else
+        Data = 0;
+
+    if (val & 0x80)
+    {
+        ControlByte = val;
+        DataPos = 1;
+
+        switch (ControlByte & 0x70)
+        {
+        case 0x10: ConvResult = TouchY; break;
+        case 0x50: ConvResult = TouchX; break;
+        default: ConvResult = 0xFFF; break;
+        }
+
+        if (ControlByte & 0x08)
+            ConvResult &= 0x0FF0; // checkme
+    }
+    else
+        DataPos++;
+}
+
+}
+
+
 namespace SPI
 {
 
@@ -279,6 +369,7 @@ void Init()
 {
     SPI_Firmware::Init();
     SPI_Powerman::Init();
+    SPI_TSC::Init();
 }
 
 void Reset()
@@ -287,6 +378,7 @@ void Reset()
 
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
+    SPI_TSC::Init();
 }
 
 
@@ -304,6 +396,7 @@ u8 ReadData()
     {
     case 0x0000: return SPI_Powerman::Read();
     case 0x0100: return SPI_Firmware::Read();
+    case 0x0200: return SPI_TSC::Read();
     default: return 0;
     }
 }
@@ -318,6 +411,7 @@ void WriteData(u8 val)
     {
     case 0x0000: SPI_Powerman::Write(val, Cnt&(1<<11)); break;
     case 0x0100: SPI_Firmware::Write(val, Cnt&(1<<11)); break;
+    case 0x0200: SPI_TSC::Write(val, Cnt&(1<<11)); break;
     default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 

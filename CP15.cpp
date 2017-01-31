@@ -114,14 +114,14 @@ void Write(u32 id, u32 val)
         //printf("inval data cache %08X\n", val);
         return;
     case 0x762:
-        printf("inval data cache SI\n");
+        //printf("inval data cache SI\n");
         return;
 
     case 0x7A1:
         //printf("flush data cache %08X\n", val);
         return;
     case 0x7A2:
-        printf("flush data cache SI\n");
+        //printf("flush data cache SI\n");
         return;
 
 

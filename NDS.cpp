@@ -141,6 +141,7 @@ void LoadROM()
 
     //f = fopen("rom/armwrestler.nds", "rb");
     //f = fopen("rom/zorp.nds", "rb");
+    //f = fopen("rom/hello_world.nds", "rb");
     f = fopen("rom/nsmb.nds", "rb");
 
     u32 bootparams[8];
@@ -419,6 +420,17 @@ void PressKey(u32 key)
 void ReleaseKey(u32 key)
 {
     KeyInput |= (1 << key);
+}
+
+void TouchScreen(u16 x, u16 y)
+{
+    SPI_TSC::SetTouchCoords(x, y);
+    printf("touching %d,%d\n", x, y);
+}
+
+void ReleaseScreen()
+{
+    SPI_TSC::SetTouchCoords(0x000, 0xFFF);
 }
 
 
@@ -1257,6 +1269,8 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000004: return GPU::DispStat[0];
     case 0x04000006: return GPU::VCount;
 
+    case 0x04000060: return 0;
+
     case 0x040000B8: return DMAs[0]->Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0]->Cnt >> 16;
     case 0x040000C4: return DMAs[1]->Cnt & 0xFFFF;
@@ -1482,6 +1496,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
     {
     case 0x04000004: GPU::SetDispStat(0, val); return;
 
+    case 0x04000060: return;
+
     case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
     case 0x040000C4: DMAs[1]->WriteCnt((DMAs[1]->Cnt & 0xFFFF0000) | val); return;
@@ -1592,6 +1608,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04000060: return;
+
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;
     case 0x040000B4: DMAs[0]->DstAddr = val; return;
     case 0x040000B8: DMAs[0]->WriteCnt(val); return;
