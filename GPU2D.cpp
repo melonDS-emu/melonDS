@@ -239,6 +239,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     {
         tileset = (u8*)GPU::VRAM_BBG[((bgcnt & 0x003C) >> 2)];
         tilemap = (u16*)GPU::VRAM_BBG[((bgcnt & 0x1800) >> 11)];
+        if (!tileset || !tilemap) return;
         tilemap += ((bgcnt & 0x0700) << 2);
 
         pal = (u16*)&GPU::Palette[0x400];
@@ -247,6 +248,7 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     {
         tileset = (u8*)GPU::VRAM_ABG[((DispCnt & 0x07000000) >> 22) + ((bgcnt & 0x003C) >> 2)];
         tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 27) + ((bgcnt & 0x1800) >> 11)];
+        if (!tileset || !tilemap) return;
         tilemap += ((bgcnt & 0x0700) << 2);
 
         pal = (u16*)&GPU::Palette[0];

@@ -1697,7 +1697,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             else
             {
                 bool wasempty = IPCFIFO9->IsEmpty();
-                IPCFIFO9->Write(val);printf("IPC FIFO %08X %08X\n", val, ARM9->R[6]+0x114);
+                IPCFIFO9->Write(val);
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     TriggerIRQ(1, IRQ_IPCRecv);
             }
