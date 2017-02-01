@@ -265,12 +265,15 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     u8* tileset;
     u16* tilemap;
     u16* pal;
+    u32 extpal;
 
     u16 xoff = BGXPos[bgnum];
     u16 yoff = BGYPos[bgnum] + line;
 
     u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
     //u32 ymask = (bgcnt & 0x8000) ? 0x1FF : 0xFF;
+
+    extpal = (bgcnt & 0x0080) && (DispCnt & 0x40000000);
 
     if (Num)
     {
@@ -279,7 +282,18 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         if (!tileset || !tilemap) return;
         tilemap += ((bgcnt & 0x0700) << 2);
 
-        pal = (u16*)&GPU::Palette[0x400];
+        if (extpal)
+        {
+            if ((bgnum<2) && (bgcnt&0x2000))
+                pal = (u16*)GPU::VRAM_BBGExtPal[2+bgnum];
+            else
+                pal = (u16*)GPU::VRAM_BBGExtPal[bgnum];
+
+            // derp
+            if (!pal) pal = (u16*)&GPU::Palette[0x400];
+        }
+        else
+            pal = (u16*)&GPU::Palette[0x400];
     }
     else
     {
@@ -288,7 +302,18 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         if (!tileset || !tilemap) return;
         tilemap += ((bgcnt & 0x0700) << 2);
 
-        pal = (u16*)&GPU::Palette[0];
+        if (extpal)
+        {
+            if ((bgnum<2) && (bgcnt&0x2000))
+                pal = (u16*)GPU::VRAM_ABGExtPal[2+bgnum];
+            else
+                pal = (u16*)GPU::VRAM_ABGExtPal[bgnum];
+
+            // derp
+            if (!pal) pal = (u16*)&GPU::Palette[0];
+        }
+        else
+            pal = (u16*)&GPU::Palette[0];
     }
 
     // adjust Y position in tilemap
@@ -314,7 +339,8 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
         {
             // load a new tile
             curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
-            curpal = pal;// + ((curtile & 0xF000) >> 8); // TODO: this applies to ext palettes
+            curpal = pal;
+            if (extpal) curpal += ((curtile & 0xF000) >> 4);
             pixels = tileset + ((curtile & 0x03FF) << 6);
             pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
         }
@@ -325,7 +351,8 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
             {
                 // load a new tile
                 curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
-                curpal = pal;// + ((curtile & 0xF000) >> 8);
+                curpal = pal;
+                if (extpal) curpal += ((curtile & 0xF000) >> 4);
                 pixels = tileset + ((curtile & 0x03FF) << 6);
                 pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
             }

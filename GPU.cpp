@@ -56,6 +56,11 @@ u8* VRAM_BOBJ[128];
 u8* VRAM_LCD[128];
 u8* VRAM_ARM7[2];
 
+u8* VRAM_ABGExtPal[4];
+u8* VRAM_AOBJExtPal;
+u8* VRAM_BBGExtPal[4];
+u8* VRAM_BOBJExtPal;
+
 u16 Framebuffer[256*192*2];
 
 GPU2D* GPU2D_A;
@@ -99,6 +104,11 @@ void Reset()
     memset(VRAM_BOBJ, 0, sizeof(u8*)*128);
     memset(VRAM_LCD, 0, sizeof(u8*)*128);
     memset(VRAM_ARM7, 0, sizeof(u8*)*2);
+
+    memset(VRAM_ABGExtPal, 0, sizeof(u8*)*4);
+    VRAM_AOBJExtPal = NULL;
+    memset(VRAM_BBGExtPal, 0, sizeof(u8*)*4);
+    VRAM_BOBJExtPal = NULL;
 
     for (int i = 0; i < 256*192*2; i++)
     {
@@ -370,11 +380,10 @@ void MapVRAM_E(u32 bank, u8 cnt)
             break;
 
         case 4:
-            // BG EXTPAL -- TODO
-            break;
-
-        case 5:
-            // OBJ EXTPAL -- TODO
+            VRAM_ABGExtPal[0] = NULL;
+            VRAM_ABGExtPal[1] = NULL;
+            VRAM_ABGExtPal[2] = NULL;
+            VRAM_ABGExtPal[3] = NULL;
             break;
         }
 
@@ -421,11 +430,10 @@ void MapVRAM_E(u32 bank, u8 cnt)
             break;
 
         case 4:
-            // BG EXTPAL -- TODO
-            break;
-
-        case 5:
-            // OBJ EXTPAL -- TODO
+            VRAM_ABGExtPal[0] = &vram[0x0000];
+            VRAM_ABGExtPal[1] = &vram[0x2000];
+            VRAM_ABGExtPal[2] = &vram[0x4000];
+            VRAM_ABGExtPal[3] = &vram[0x6000];
             break;
         }
 
@@ -479,11 +487,12 @@ void MapVRAM_FG(u32 bank, u8 cnt)
             break;
 
         case 4:
-            // BG EXTPAL TODO
+            VRAM_ABGExtPal[(oldofs<<1)+0] = NULL;
+            VRAM_ABGExtPal[(oldofs<<1)+1] = NULL;
             break;
 
         case 5:
-            // OBJ EXTPAL TODO
+            VRAM_AOBJExtPal = NULL;
             break;
         }
 
@@ -523,11 +532,12 @@ void MapVRAM_FG(u32 bank, u8 cnt)
             break;
 
         case 4:
-            // BG EXTPAL TODO
+            VRAM_ABGExtPal[(ofs<<1)+0] = &vram[0x0000];
+            VRAM_ABGExtPal[(ofs<<1)+1] = &vram[0x2000];
             break;
 
         case 5:
-            // OBJ EXTPAL TODO
+            VRAM_AOBJExtPal = vram;
             break;
         }
 
@@ -573,7 +583,10 @@ void MapVRAM_H(u32 bank, u8 cnt)
             break;
 
         case 2:
-            // BG EXTPAL TODO
+            VRAM_BBGExtPal[0] = NULL;
+            VRAM_BBGExtPal[1] = NULL;
+            VRAM_BBGExtPal[2] = NULL;
+            VRAM_BBGExtPal[3] = NULL;
             break;
         }
 
@@ -615,7 +628,10 @@ void MapVRAM_H(u32 bank, u8 cnt)
             break;
 
         case 2:
-            // BG EXTPAL TODO
+            VRAM_BBGExtPal[0] = &vram[0x0000];
+            VRAM_BBGExtPal[1] = &vram[0x2000];
+            VRAM_BBGExtPal[2] = &vram[0x4000];
+            VRAM_BBGExtPal[3] = &vram[0x6000];
             break;
         }
 
@@ -665,7 +681,7 @@ void MapVRAM_I(u32 bank, u8 cnt)
             break;
 
         case 3:
-            // not mapped to memory
+            VRAM_BOBJExtPal = NULL;
             break;
         }
 
@@ -701,7 +717,7 @@ void MapVRAM_I(u32 bank, u8 cnt)
             break;
 
         case 3:
-            // not mapped to memory
+            VRAM_BOBJExtPal = vram;
             break;
         }
 
