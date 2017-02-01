@@ -108,8 +108,8 @@ void Reset()
     GPU2D_A->Reset();
     GPU2D_B->Reset();
 
-    GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
-    GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
+    GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
+    GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
 }
 
 
@@ -716,6 +716,21 @@ void MapVRAM_I(u32 bank, u8 cnt)
             *vrammap++ = vram;
             *vrammap   = vram;
         }
+    }
+}
+
+
+void DisplaySwap(u32 val)
+{
+    if (val)
+    {
+        GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
+        GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
+    }
+    else
+    {
+        GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
+        GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
     }
 }
 

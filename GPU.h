@@ -58,6 +58,8 @@ void MapVRAM_FG(u32 bank, u8 cnt);
 void MapVRAM_H(u32 bank, u8 cnt);
 void MapVRAM_I(u32 bank, u8 cnt);
 
+void DisplaySwap(u32 val);
+
 void StartFrame();
 void StartScanline(u32 line);
 

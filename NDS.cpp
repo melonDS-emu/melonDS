@@ -178,6 +178,9 @@ void SetupDirectBoot()
 
     ARM9->JumpTo(bootparams[1]);
     ARM7->JumpTo(bootparams[5]);
+
+    PowerControl9 = 0x820F;
+    GPU::DisplaySwap(PowerControl9);
 }
 
 void Reset()
@@ -271,7 +274,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/mkds.nds");
+    NDSCart::LoadROM("rom/sm64ds.nds");
 
     Running = true; // hax
 }
@@ -1412,6 +1415,11 @@ u32 ARM9IORead32(u32 addr)
     {
         return GPU::GPU2D_B->Read32(addr);
     }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        // 3D GPU
+        return 0;
+    }
 
     printf("unknown ARM9 IO read32 %08X\n", addr);
     return 0;
@@ -1576,7 +1584,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
         PostFlag9 = val & 0x03;
         return;
 
-    case 0x04000304: PowerControl9 = val; return;
+    case 0x04000304:
+        PowerControl9 = val;
+        GPU::DisplaySwap(PowerControl9>>15);
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -1587,6 +1598,11 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
         GPU::GPU2D_B->Write16(addr, val);
+        return;
+    }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        // 3D GPU
         return;
     }
 
