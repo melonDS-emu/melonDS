@@ -115,6 +115,8 @@ extern u8 ARM7BIOS[0x4000];
 void Init();
 void Reset();
 
+void SetupDirectBoot();
+
 void RunFrame();
 
 void PressKey(u32 key);

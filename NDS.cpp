@@ -134,19 +134,11 @@ void Init()
     Reset();
 }
 
-// temp
-void LoadROM()
+
+void SetupDirectBoot()
 {
-    FILE* f;
-
-    //f = fopen("rom/armwrestler.nds", "rb");
-    //f = fopen("rom/zorp.nds", "rb");
-    //f = fopen("rom/hello_world.nds", "rb");
-    f = fopen("rom/mkds.nds", "rb");
-
     u32 bootparams[8];
-    fseek(f, 0x20, SEEK_SET);
-    fread(bootparams, 8, 4, f);
+    memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
 
     printf("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -155,31 +147,23 @@ void LoadROM()
 
     MapSharedWRAM(3);
 
-    fseek(f, bootparams[0], SEEK_SET);
     for (u32 i = 0; i < bootparams[3]; i+=4)
     {
-        u32 tmp;
-        fread(&tmp, 4, 1, f);
+        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[0]+i];
         ARM9Write32(bootparams[2]+i, tmp);
     }
 
-    fseek(f, bootparams[4], SEEK_SET);
     for (u32 i = 0; i < bootparams[7]; i+=4)
     {
-        u32 tmp;
-        fread(&tmp, 4, 1, f);
+        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[4]+i];
         ARM7Write32(bootparams[6]+i, tmp);
     }
 
-    fseek(f, 0, SEEK_SET);
     for (u32 i = 0; i < 0x170; i+=4)
     {
-        u32 tmp;
-        fread(&tmp, 4, 1, f);
+        u32 tmp = *(u32*)&NDSCart::CartROM[i];
         ARM9Write32(0x027FFE00+i, tmp);
     }
-
-    fclose(f);
 
     ARM9Write32(0x027FF800, 0x00001FC2);
     ARM9Write32(0x027FF804, 0x00001FC2);
@@ -287,8 +271,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/nsmb.nds");
-    LoadROM();
+    NDSCart::LoadROM("rom/mkds.nds");
 
     Running = true; // hax
 }
@@ -1004,6 +987,7 @@ u8 ARM7Read8(u32 addr)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         return *(u8*)&MainRAM[addr & 0x3FFFFF];
 
     case 0x03000000:
@@ -1042,6 +1026,7 @@ u16 ARM7Read16(u32 addr)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         return *(u16*)&MainRAM[addr & 0x3FFFFF];
 
     case 0x03000000:
@@ -1088,6 +1073,7 @@ u32 ARM7Read32(u32 addr)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         return *(u32*)&MainRAM[addr & 0x3FFFFF];
 
     case 0x03000000:
@@ -1120,6 +1106,7 @@ void ARM7Write8(u32 addr, u8 val)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
 
@@ -1155,6 +1142,7 @@ void ARM7Write16(u32 addr, u16 val)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
 
@@ -1194,6 +1182,7 @@ void ARM7Write32(u32 addr, u32 val)
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
+    case 0x02800000:
         *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
         return;
 

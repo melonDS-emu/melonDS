@@ -48,6 +48,13 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
                 fwrite(&blarg, 4, 1, f);
             }
             fclose(f);
+            f = fopen("mainram.bin", "wb");
+            for (u32 i = 0x2000000; i < 0x2400000; i+=4)
+            {
+                u32 blarg = NDS::ARM9Read32(i);
+                fwrite(&blarg, 4, 1, f);
+            }
+            fclose(f);
         }
         PostQuitMessage(0);
         return 0;

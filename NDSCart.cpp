@@ -347,6 +347,8 @@ void LoadROM(char* path)
     fclose(f);
     //CartROM = f;
 
+    NDS::SetupDirectBoot();
+
     CartInserted = true;
 
     // generate a ROM ID
