@@ -198,24 +198,26 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
         {
             if ((BGCnt[3] & 0x3) == i)
             {
-                if (DispCnt & 0x0800) DrawBG_Text(line, dst, 3);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x38000, dst);
+                if (DispCnt & 0x0800)
+                    DrawBG_Text(line, dst, 3);
             }
             if ((BGCnt[2] & 0x3) == i)
             {
-                if (DispCnt & 0x0400) DrawBG_Text(line, dst, 2);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x28000, dst);
+                if (DispCnt & 0x0400)
+                    DrawBG_Text(line, dst, 2);
             }
             if ((BGCnt[1] & 0x3) == i)
             {
-                if (DispCnt & 0x0200) DrawBG_Text(line, dst, 1);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x18000, dst);
+                if (DispCnt & 0x0200)
+                    DrawBG_Text(line, dst, 1);
             }
             if ((BGCnt[0] & 0x3) == i)
             {
-                if (DispCnt & 0x0100) DrawBG_Text(line, dst, 0);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x08000, dst);
+                if (DispCnt & 0x0100)
+                    DrawBG_Text(line, dst, 0);
             }
+            if (DispCnt & 0x1000)
+                InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
         }
         break;
 
@@ -224,24 +226,26 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
         {
             if ((BGCnt[3] & 0x3) == i)
             {
-                // ext. todo
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x38000, dst);
+                //if (DispCnt & 0x0800)
+                    // ext todo
             }
             if ((BGCnt[2] & 0x3) == i)
             {
-                // ext. todo
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x28000, dst);
+                //if (DispCnt & 0x0400)
+                    // ext todo
             }
             if ((BGCnt[1] & 0x3) == i)
             {
-                if (DispCnt & 0x0200) DrawBG_Text(line, dst, 1);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x18000, dst);
+                if (DispCnt & 0x0200)
+                    DrawBG_Text(line, dst, 1);
             }
             if ((BGCnt[0] & 0x3) == i)
             {
-                if (DispCnt & 0x0100) DrawBG_Text(line, dst, 0);
-                if (DispCnt & 0x1000) InterleaveSprites(spritebuf, 0x08000, dst);
+                if (DispCnt & 0x0100)
+                    DrawBG_Text(line, dst, 0);
             }
+            if (DispCnt & 0x1000)
+                InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
         }
         break;
     }
