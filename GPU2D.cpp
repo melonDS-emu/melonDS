@@ -484,6 +484,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
         tilenum <<= 5;
         ytilefactor <<= 5;
         u8* pixels = (Num ? GPU::VRAM_BOBJ : GPU::VRAM_AOBJ)[tilenum >> 14];
+        if (!pixels) return;
         pixels += (tilenum & 0x3FFF);
 
         u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
@@ -553,6 +554,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         // 16-color
         tilenum <<= 5;
         u8* pixels = (Num ? GPU::VRAM_BOBJ : GPU::VRAM_AOBJ)[tilenum >> 14];
+        if (!pixels) return;
         pixels += (tilenum & 0x3FFF);
         pixels += ((ypos & 0x7) << 2);
 

@@ -177,7 +177,7 @@ void MapVRAM_AB(u32 bank, u8 cnt)
             break;
         }
 
-        if (vrammap)
+        if (vrammap && *vrammap == vram)
         {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
@@ -273,7 +273,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
             break;
         }
 
-        if (vrammap)
+        if (vrammap && *vrammap == vram)
         {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
@@ -378,12 +378,16 @@ void MapVRAM_E(u32 bank, u8 cnt)
             break;
         }
 
-        if (vrammap)
+        if (vrammap && *vrammap == vram)
         {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
             *vrammap++ = NULL;
             *vrammap++ = NULL;
+        }
+        else if (vrammap) vrammap += 4;
+        if (vrammap && *vrammap == vram)
+        {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
             *vrammap++ = NULL;
@@ -485,14 +489,14 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
         if (vrammap)
         {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap   = NULL;
         }
     }
 
@@ -573,14 +577,23 @@ void MapVRAM_H(u32 bank, u8 cnt)
             break;
         }
 
-        if (vrammap)
+        if (vrammap && *vrammap == vram)
         {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
+        } else if (vrammap) vrammap += 2;
+        if (vrammap && *vrammap == vram)
+        {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
+        } else if (vrammap) vrammap += 2;
+        if (vrammap && *vrammap == vram)
+        {
             *vrammap++ = NULL;
             *vrammap++ = NULL;
+        } else if (vrammap) vrammap += 2;
+        if (vrammap && *vrammap == vram)
+        {
             *vrammap++ = NULL;
             *vrammap   = NULL;
         }
@@ -658,14 +671,14 @@ void MapVRAM_I(u32 bank, u8 cnt)
 
         if (vrammap)
         {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
+            if (*vrammap == vram) *vrammap   = NULL;
         }
     }
 
