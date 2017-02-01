@@ -174,6 +174,57 @@ void GPU2D::DrawScanline(u32 line)
 // temp. hax
 #define DrawBG_Text DrawBG_Text_4bpp
 
+template<u32 bgmode>
+void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
+{
+    for (int i = 3; i >= 0; i--)
+    {
+        if ((BGCnt[3] & 0x3) == i)
+        {
+            if (DispCnt & 0x0800)
+            {
+                if (bgmode >= 3)
+                    {} // todo: ext
+                else if (bgmode >= 1)
+                    {} // todo: rotscale
+                else
+                    DrawBG_Text(line, dst, 3);
+            }
+        }
+        if ((BGCnt[2] & 0x3) == i)
+        {
+            if (DispCnt & 0x0400)
+            {
+                if (bgmode == 5)
+                    {} // todo: ext
+                else if (bgmode == 4 || bgmode == 2)
+                    {} // todo: rotscale
+                else
+                    DrawBG_Text(line, dst, 2);
+            }
+        }
+        if ((BGCnt[1] & 0x3) == i)
+        {
+            if (DispCnt & 0x0200)
+            {
+                DrawBG_Text(line, dst, 1);
+            }
+        }
+        if ((BGCnt[0] & 0x3) == i)
+        {
+            if (DispCnt & 0x0100)
+            {
+                if ((!Num) && (DispCnt & 0x8))
+                    {} // TODO
+                else
+                    DrawBG_Text(line, dst, 0);
+            }
+        }
+        if (DispCnt & 0x1000)
+            InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
+    }
+}
+
 void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 {
     u32 backdrop;
@@ -193,61 +244,12 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 
     switch (DispCnt & 0x7)
     {
-    case 0:
-        for (int i = 3; i >= 0; i--)
-        {
-            if ((BGCnt[3] & 0x3) == i)
-            {
-                if (DispCnt & 0x0800)
-                    DrawBG_Text(line, dst, 3);
-            }
-            if ((BGCnt[2] & 0x3) == i)
-            {
-                if (DispCnt & 0x0400)
-                    DrawBG_Text(line, dst, 2);
-            }
-            if ((BGCnt[1] & 0x3) == i)
-            {
-                if (DispCnt & 0x0200)
-                    DrawBG_Text(line, dst, 1);
-            }
-            if ((BGCnt[0] & 0x3) == i)
-            {
-                if (DispCnt & 0x0100)
-                    DrawBG_Text(line, dst, 0);
-            }
-            if (DispCnt & 0x1000)
-                InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
-        }
-        break;
-
-    case 5:
-        for (int i = 3; i >= 0; i--)
-        {
-            if ((BGCnt[3] & 0x3) == i)
-            {
-                //if (DispCnt & 0x0800)
-                    // ext todo
-            }
-            if ((BGCnt[2] & 0x3) == i)
-            {
-                //if (DispCnt & 0x0400)
-                    // ext todo
-            }
-            if ((BGCnt[1] & 0x3) == i)
-            {
-                if (DispCnt & 0x0200)
-                    DrawBG_Text(line, dst, 1);
-            }
-            if ((BGCnt[0] & 0x3) == i)
-            {
-                if (DispCnt & 0x0100)
-                    DrawBG_Text(line, dst, 0);
-            }
-            if (DispCnt & 0x1000)
-                InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
-        }
-        break;
+    case 0: DrawScanlineBGMode<0>(line, spritebuf, dst); break;
+    case 1: DrawScanlineBGMode<1>(line, spritebuf, dst); break;
+    case 2: DrawScanlineBGMode<2>(line, spritebuf, dst); break;
+    case 3: DrawScanlineBGMode<3>(line, spritebuf, dst); break;
+    case 4: DrawScanlineBGMode<4>(line, spritebuf, dst); break;
+    case 5: DrawScanlineBGMode<5>(line, spritebuf, dst); break;
     }
 
     // debug crap
@@ -255,8 +257,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
     //    dst[i] = *(u16*)&GPU::Palette[Num*0x400 + (i>>4)*2 + (line>>4)*32];
 }
 
-// char   06218000
-// screen 06208000
+
 void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
@@ -304,42 +305,84 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     u16* curpal;
     u8* pixels;
 
-    // preload shit as needed
-    if (xoff & 0x7)
+    if (bgcnt & 0x0080)
     {
-        // load a new tile
-        curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
-        curpal = pal + ((curtile & 0xF000) >> 8);
-        pixels = tileset + ((curtile & 0x03FF) << 5) + ((yoff & 0x7) << 2);
-        pixels += ((xoff & 0x7) >> 1);
-    }
+        // 256-color
 
-    for (int i = 0; i < 256; i++)
+        // preload shit as needed
+        if (xoff & 0x7)
+        {
+            // load a new tile
+            curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
+            curpal = pal;// + ((curtile & 0xF000) >> 8); // TODO: this applies to ext palettes
+            pixels = tileset + ((curtile & 0x03FF) << 6);
+            pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
+        }
+
+        for (int i = 0; i < 256; i++)
+        {
+            if (!(xoff & 0x7))
+            {
+                // load a new tile
+                curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
+                curpal = pal;// + ((curtile & 0xF000) >> 8);
+                pixels = tileset + ((curtile & 0x03FF) << 6);
+                pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 3);
+            }
+
+            // draw pixel
+            u8 color;
+            u32 tilexoff = (curtile & 0x0400) ? (7-(xoff&0x7)) : (xoff&0x7);
+            color = pixels[tilexoff];
+
+            if (color)
+                dst[i] = curpal[color];
+
+            xoff++;
+        }
+    }
+    else
     {
-        if (!(xoff & 0x7))
+        // 16-color
+
+        // preload shit as needed
+        if (xoff & 0x7)
         {
             // load a new tile
             curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
             curpal = pal + ((curtile & 0xF000) >> 8);
-            pixels = tileset + ((curtile & 0x03FF) << 5) + ((yoff & 0x7) << 2);
+            pixels = tileset + ((curtile & 0x03FF) << 5);
+            pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 2);
         }
 
-        // draw pixel
-        u8 color;
-        if (xoff & 0x1)
+        for (int i = 0; i < 256; i++)
         {
-            color = *pixels >> 4;
-            pixels++;
-        }
-        else
-        {
-            color = *pixels & 0x0F;
-        }
+            if (!(xoff & 0x7))
+            {
+                // load a new tile
+                curtile = tilemap[((xoff & 0xFF) >> 3) + ((xoff & widexmask) << 2)];
+                curpal = pal + ((curtile & 0xF000) >> 8);
+                pixels = tileset + ((curtile & 0x03FF) << 5);
+                pixels += (((curtile & 0x0800) ? (7-(yoff&0x7)) : (yoff&0x7)) << 2);
+            }
 
-        if (color)
-            dst[i] = curpal[color];
+            // draw pixel
+            u8 color;
+            u32 tilexoff = (curtile & 0x0400) ? (7-(xoff&0x7)) : (xoff&0x7);
+            if (tilexoff & 0x1)
+            {
+                color = pixels[tilexoff>>1] >> 4;
+            }
+            else
+            {
+                color = pixels[tilexoff>>1] & 0x0F;
+            }
 
-        xoff++;
+            if (color)
+                dst[i] = curpal[color];
+
+            xoff++;
+        }
     }
 }
 

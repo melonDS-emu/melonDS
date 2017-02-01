@@ -48,6 +48,7 @@ private:
     u16 BGXPos[4];
     u16 BGYPos[4];
 
+    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst);
     void DrawScanline_Mode1(u32 line, u16* dst);
 
     void DrawBG_Text_4bpp(u32 line, u16* dst, u32 num);
