@@ -142,7 +142,7 @@ void LoadROM()
     //f = fopen("rom/armwrestler.nds", "rb");
     //f = fopen("rom/zorp.nds", "rb");
     //f = fopen("rom/hello_world.nds", "rb");
-    f = fopen("rom/nsmb.nds", "rb");
+    f = fopen("rom/mkds.nds", "rb");
 
     u32 bootparams[8];
     fseek(f, 0x20, SEEK_SET);
@@ -209,7 +209,7 @@ void Reset()
         fseek(f, 0, SEEK_SET);
         fread(ARM9BIOS, 0x1000, 1, f);
 
-        printf("ARM9 BIOS loaded: %08X\n", ARM9Read32(0xFFFF0000));
+        printf("ARM9 BIOS loaded\n");
         fclose(f);
     }
 
@@ -221,7 +221,7 @@ void Reset()
         fseek(f, 0, SEEK_SET);
         fread(ARM7BIOS, 0x4000, 1, f);
 
-        printf("ARM7 BIOS loaded: %08X\n", ARM7Read32(0x00000000));
+        printf("ARM7 BIOS loaded\n");
         fclose(f);
     }
 
@@ -1022,7 +1022,7 @@ u8 ARM7Read8(u32 addr)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                return *(u8*)&vram[addr & 0x3FFF];
+                return *(u8*)&vram[addr & 0x1FFFF];
         }
         return 0;
     }
@@ -1063,7 +1063,7 @@ u16 ARM7Read16(u32 addr)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                return *(u16*)&vram[addr & 0x3FFF];
+                return *(u16*)&vram[addr & 0x1FFFF];
         }
         return 0;
     }
@@ -1106,7 +1106,7 @@ u32 ARM7Read32(u32 addr)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                return *(u32*)&vram[addr & 0x3FFF];
+                return *(u32*)&vram[addr & 0x1FFFF];
         }
         return 0;
     }
@@ -1142,7 +1142,7 @@ void ARM7Write8(u32 addr, u8 val)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                *(u8*)&vram[addr & 0x3FFF] = val;
+                *(u8*)&vram[addr & 0x1FFFF] = val;
         }
         return;
     }
@@ -1181,7 +1181,7 @@ void ARM7Write16(u32 addr, u16 val)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                *(u16*)&vram[addr & 0x3FFF] = val;
+                *(u16*)&vram[addr & 0x1FFFF] = val;
         }
         return;
     }
@@ -1216,7 +1216,7 @@ void ARM7Write32(u32 addr, u32 val)
             u32 chunk = (addr >> 17) & 0x1;
             u8* vram = GPU::VRAM_ARM7[chunk];
             if (vram)
-                *(u32*)&vram[addr & 0x3FFF] = val;
+                *(u32*)&vram[addr & 0x1FFFF] = val;
         }
         return;
     }
