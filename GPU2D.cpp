@@ -37,6 +37,12 @@ void GPU2D::Reset()
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
     memset(BGYPos, 0, 4*2);
+    memset(BGXCenter, 0, 2*4);
+    memset(BGYCenter, 0, 2*4);
+    memset(BGRotA, 0, 2*2);
+    memset(BGRotB, 0, 2*2);
+    memset(BGRotC, 0, 2*2);
+    memset(BGRotD, 0, 2*2);
 }
 
 void GPU2D::SetFramebuffer(u16* buf)
@@ -111,6 +117,16 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x01A: BGYPos[2] = val; return;
     case 0x01C: BGXPos[3] = val; return;
     case 0x01E: BGYPos[3] = val; return;
+
+    case 0x020: BGRotA[0] = val; return;
+    case 0x022: BGRotB[0] = val; return;
+    case 0x024: BGRotC[0] = val; return;
+    case 0x026: BGRotD[0] = val; return;
+
+    case 0x030: BGRotA[1] = val; return;
+    case 0x032: BGRotB[1] = val; return;
+    case 0x034: BGRotC[1] = val; return;
+    case 0x036: BGRotD[1] = val; return;
     }
 
     //printf("unknown GPU write16 %08X %04X\n", addr, val);
@@ -123,6 +139,24 @@ void GPU2D::Write32(u32 addr, u32 val)
     case 0x000:
         //printf("DISPCNT=%08X\n", val);
         DispCnt = val;
+        return;
+
+    case 0x028:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGXCenter[0] = val;
+        return;
+    case 0x02C:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGYCenter[0] = val;
+        return;
+
+    case 0x038:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGXCenter[1] = val;
+        return;
+    case 0x03C:
+        if (val & 0x08000000) val |= 0xF0000000;
+        BGYCenter[1] = val;
         return;
     }
 
@@ -171,8 +205,6 @@ void GPU2D::DrawScanline(u32 line)
     }
 }
 
-// temp. hax
-#define DrawBG_Text DrawBG_Text_4bpp
 
 template<u32 bgmode>
 void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
@@ -184,7 +216,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
             if (DispCnt & 0x0800)
             {
                 if (bgmode >= 3)
-                    {} // todo: ext
+                    DrawBG_Extended(line, dst, 3);
                 else if (bgmode >= 1)
                     {} // todo: rotscale
                 else
@@ -196,7 +228,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
             if (DispCnt & 0x0400)
             {
                 if (bgmode == 5)
-                    {} // todo: ext
+                    DrawBG_Extended(line, dst, 3);
                 else if (bgmode == 4 || bgmode == 2)
                     {} // todo: rotscale
                 else
@@ -258,7 +290,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 }
 
 
-void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
+void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -413,6 +445,110 @@ void GPU2D::DrawBG_Text_4bpp(u32 line, u16* dst, u32 bgnum)
     }
 }
 
+void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
+{
+    u16 bgcnt = BGCnt[bgnum];
+
+    u8* tileset;
+    u16* tilemap;
+    u16* pal;
+    u32 extpal;
+
+    u32 widexmask = (bgcnt & 0x4000) ? 0x10000 : 0;
+    u32 wideymask = ((bgcnt & 0xC000) == 0xC000) ? 0x10000 : 0;
+
+    extpal = (DispCnt & 0x40000000);
+
+    if (Num)
+    {
+        tileset = (u8*)GPU::VRAM_BBG[((bgcnt & 0x003C) >> 2)];
+        tilemap = (u16*)GPU::VRAM_BBG[((bgcnt & 0x1800) >> 11)];
+        if (!tileset || !tilemap) return;
+        tilemap += ((bgcnt & 0x0700) << 2);
+
+        if (extpal)
+        {
+            pal = (u16*)GPU::VRAM_BBGExtPal[bgnum];
+
+            // derp
+            if (!pal) pal = (u16*)&GPU::Palette[0x400];
+        }
+        else
+            pal = (u16*)&GPU::Palette[0x400];
+    }
+    else
+    {
+        tileset = (u8*)GPU::VRAM_ABG[((DispCnt & 0x07000000) >> 22) + ((bgcnt & 0x003C) >> 2)];
+        tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 25) + ((bgcnt & 0x1800) >> 11)];
+        if (!tileset || !tilemap) return;
+        tilemap += ((bgcnt & 0x0700) << 2);
+
+        if (extpal)
+        {
+            pal = (u16*)GPU::VRAM_ABGExtPal[bgnum];
+
+            // derp
+            if (!pal) pal = (u16*)&GPU::Palette[0];
+        }
+        else
+            pal = (u16*)&GPU::Palette[0];
+    }
+
+    u16 curtile;
+    u16* curpal;
+    u8* pixels;
+
+    s16 rotA = BGRotA[bgnum-2];
+    s16 rotB = BGRotB[bgnum-2];
+    s16 rotC = BGRotC[bgnum-2];
+    s16 rotD = BGRotD[bgnum-2];
+
+    s32 rotX = BGXCenter[bgnum-2];
+    s32 rotY = BGYCenter[bgnum-2];
+
+    // hax
+    rotX += line*rotB;
+    rotY += line*rotD;
+
+    if (bgcnt & 0x0080)
+    {
+        // bitmap modes
+        // TODO
+    }
+    else
+    {
+        // shitty mode
+
+        for (int i = 0; i < 256; i++)
+        {
+            curtile = tilemap[((rotY & 0x1F800) >> 5) + ((rotY & wideymask) >> 6) +
+                              ((rotX & 0xF800) >> 11) + ((rotX & widexmask) >> 6)];
+            curpal = pal;
+            if (extpal) curpal += ((curtile & 0xF000) >> 4);
+            pixels = tileset + ((curtile & 0x03FF) << 6);
+
+            // draw pixel
+            u8 color;
+            u32 tilexoff = (rotX >> 8) & 0x7;
+            u32 tileyoff = (rotY >> 8) & 0x7;
+
+            if (curtile & 0x0400) tilexoff = 7-tilexoff;
+            if (curtile & 0x0800) tileyoff = 7-tileyoff;
+
+            color = pixels[(tileyoff << 3) + tilexoff];
+
+            if (color)
+                dst[i] = curpal[color];
+
+            rotX += rotA;
+            rotY += rotC;
+        }
+    }
+
+    //BGXCenter[bgnum-2] += rotB;
+    //BGYCenter[bgnum-2] += rotD;
+}
+
 void GPU2D::InterleaveSprites(u32* buf, u32 prio, u16* dst)
 {
     for (u32 i = 0; i < 256; i++)
@@ -475,7 +611,6 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
 
                 u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
 
-                //DrawSprite_Normal(attrib, width, xpos, ypos, dst);
                 DrawSprite_Rotscale(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos, dst);
             }
             else

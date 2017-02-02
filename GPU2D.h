@@ -48,10 +48,18 @@ private:
     u16 BGXPos[4];
     u16 BGYPos[4];
 
+    s32 BGXCenter[2];
+    s32 BGYCenter[2];
+    s16 BGRotA[2];
+    s16 BGRotB[2];
+    s16 BGRotC[2];
+    s16 BGRotD[2];
+
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst);
     void DrawScanline_Mode1(u32 line, u16* dst);
 
-    void DrawBG_Text_4bpp(u32 line, u16* dst, u32 num);
+    void DrawBG_Text(u32 line, u16* dst, u32 num);
+    void DrawBG_Extended(u32 line, u16* dst, u32 bgnum);
 
     void InterleaveSprites(u32* buf, u32 prio, u16* dst);
     void DrawSprites(u32 line, u32* dst);
