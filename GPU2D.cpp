@@ -303,7 +303,6 @@ void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
     u16 yoff = BGYPos[bgnum] + line;
 
     u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
-    //u32 ymask = (bgcnt & 0x8000) ? 0x1FF : 0xFF;
 
     extpal = (bgcnt & 0x0080) && (DispCnt & 0x40000000);
 
@@ -455,54 +454,20 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
     u32 extpal;
 
     u32 coordmask;
+    u32 yshift;
     switch (bgcnt & 0xC000)
     {
-    case 0x0000: coordmask = 0x07800; break;
-    case 0x4000: coordmask = 0x0F800; break;
-    case 0x8000: coordmask = 0x1F800; break;
-    case 0xC000: coordmask = 0x3F800; break;
+    case 0x0000: coordmask = 0x07800; yshift = 7; break;
+    case 0x4000: coordmask = 0x0F800; yshift = 8; break;
+    case 0x8000: coordmask = 0x1F800; yshift = 9; break;
+    case 0xC000: coordmask = 0x3F800; yshift = 10; break;
     }
+
+    u32 overflowmask;
+    if (bgcnt & 0x2000) overflowmask = 0;
+    else                overflowmask = ~(coordmask | 0x7FF);
 
     extpal = (DispCnt & 0x40000000);
-
-    if (Num)
-    {
-        tileset = (u8*)GPU::VRAM_BBG[((bgcnt & 0x003C) >> 2)];
-        tilemap = (u16*)GPU::VRAM_BBG[((bgcnt & 0x1800) >> 11)];
-        if (!tileset || !tilemap) return;
-        tilemap += ((bgcnt & 0x0700) << 2);
-
-        if (extpal)
-        {
-            pal = (u16*)GPU::VRAM_BBGExtPal[bgnum];
-
-            // derp
-            if (!pal) pal = (u16*)&GPU::Palette[0x400];
-        }
-        else
-            pal = (u16*)&GPU::Palette[0x400];
-    }
-    else
-    {
-        tileset = (u8*)GPU::VRAM_ABG[((DispCnt & 0x07000000) >> 22) + ((bgcnt & 0x003C) >> 2)];
-        tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 25) + ((bgcnt & 0x1800) >> 11)];
-        if (!tileset || !tilemap) return;
-        tilemap += ((bgcnt & 0x0700) << 2);
-
-        if (extpal)
-        {
-            pal = (u16*)GPU::VRAM_ABGExtPal[bgnum];
-
-            // derp
-            if (!pal) pal = (u16*)&GPU::Palette[0];
-        }
-        else
-            pal = (u16*)&GPU::Palette[0];
-    }
-
-    u16 curtile;
-    u16* curpal;
-    u8* pixels;
 
     s16 rotA = BGRotA[bgnum-2];
     s16 rotB = BGRotB[bgnum-2];
@@ -519,31 +484,122 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
     if (bgcnt & 0x0080)
     {
         // bitmap modes
-        // TODO
+
+        if (Num) tileset = (u8*)GPU::VRAM_BBG[((bgcnt & 0x003C) >> 2)];
+        else     tileset = (u8*)GPU::VRAM_ABG[((bgcnt & 0x003C) >> 2)];
+        if (!tileset) return;
+
+        coordmask |= 0x7FF;
+
+        if (bgcnt & 0x0004)
+        {
+            // direct color bitmap
+
+            u16* bitmap = (u16*)tileset;
+
+            for (int i = 0; i < 256; i++)
+            {
+                if (!((rotX|rotY) & overflowmask))
+                {
+                    u16 color = bitmap[(((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)];
+
+                    if (color & 0x8000)
+                        dst[i] = color;
+                }
+
+                rotX += rotA;
+                rotY += rotC;
+            }
+        }
+        else
+        {
+            // 256-color bitmap
+
+            if (Num) pal = (u16*)&GPU::Palette[0x400];
+            else     pal = (u16*)&GPU::Palette[0];
+
+            for (int i = 0; i < 256; i++)
+            {
+                if (!((rotX|rotY) & overflowmask))
+                {
+                    u8 color = tileset[(((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)];
+
+                    if (color)
+                        dst[i] = pal[color];
+                }
+
+                rotX += rotA;
+                rotY += rotC;
+            }
+        }
     }
     else
     {
         // shitty mode
 
+        if (Num)
+        {
+            tileset = (u8*)GPU::VRAM_BBG[((bgcnt & 0x003C) >> 2)];
+            tilemap = (u16*)GPU::VRAM_BBG[((bgcnt & 0x1800) >> 11)];
+            if (!tileset || !tilemap) return;
+            tilemap += ((bgcnt & 0x0700) << 2);
+
+            if (extpal)
+            {
+                pal = (u16*)GPU::VRAM_BBGExtPal[bgnum];
+
+                // derp
+                if (!pal) pal = (u16*)&GPU::Palette[0x400];
+            }
+            else
+                pal = (u16*)&GPU::Palette[0x400];
+        }
+        else
+        {
+            tileset = (u8*)GPU::VRAM_ABG[((DispCnt & 0x07000000) >> 22) + ((bgcnt & 0x003C) >> 2)];
+            tilemap = (u16*)GPU::VRAM_ABG[((DispCnt & 0x38000000) >> 25) + ((bgcnt & 0x1800) >> 11)];
+            if (!tileset || !tilemap) return;
+            tilemap += ((bgcnt & 0x0700) << 2);
+
+            if (extpal)
+            {
+                pal = (u16*)GPU::VRAM_ABGExtPal[bgnum];
+
+                // derp
+                if (!pal) pal = (u16*)&GPU::Palette[0];
+            }
+            else
+                pal = (u16*)&GPU::Palette[0];
+        }
+
+        u16 curtile;
+        u16* curpal;
+        u8* pixels;
+
+        yshift -= 3;
+
         for (int i = 0; i < 256; i++)
         {
-            curtile = tilemap[((rotY & coordmask) >> 5) + ((rotX & coordmask) >> 11)];
-            curpal = pal;
-            if (extpal) curpal += ((curtile & 0xF000) >> 4);
-            pixels = tileset + ((curtile & 0x03FF) << 6);
+            if (!((rotX|rotY) & overflowmask))
+            {
+                curtile = tilemap[(((rotY & coordmask) >> 11) << yshift) + ((rotX & coordmask) >> 11)];
+                curpal = pal;
+                if (extpal) curpal += ((curtile & 0xF000) >> 4);
+                pixels = tileset + ((curtile & 0x03FF) << 6);
 
-            // draw pixel
-            u8 color;
-            u32 tilexoff = (rotX >> 8) & 0x7;
-            u32 tileyoff = (rotY >> 8) & 0x7;
+                // draw pixel
+                u8 color;
+                u32 tilexoff = (rotX >> 8) & 0x7;
+                u32 tileyoff = (rotY >> 8) & 0x7;
 
-            if (curtile & 0x0400) tilexoff = 7-tilexoff;
-            if (curtile & 0x0800) tileyoff = 7-tileyoff;
+                if (curtile & 0x0400) tilexoff = 7-tilexoff;
+                if (curtile & 0x0800) tileyoff = 7-tileyoff;
 
-            color = pixels[(tileyoff << 3) + tilexoff];
+                color = pixels[(tileyoff << 3) + tilexoff];
 
-            if (color)
-                dst[i] = curpal[color];
+                if (color)
+                    dst[i] = curpal[color];
+            }
 
             rotX += rotA;
             rotY += rotC;
