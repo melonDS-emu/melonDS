@@ -100,8 +100,8 @@ void Reset()
     *(u16*)&Firmware[userdata+0x5A] = 0;
     Firmware[userdata+0x5C] = 1;
     Firmware[userdata+0x5D] = 1;
-    *(u16*)&Firmware[userdata+0x5E] = 254;
-    *(u16*)&Firmware[userdata+0x60] = 190;
+    *(u16*)&Firmware[userdata+0x5E] = 254<<4;
+    *(u16*)&Firmware[userdata+0x60] = 190<<4;
     Firmware[userdata+0x62] = 255;
     Firmware[userdata+0x63] = 191;
 
@@ -318,7 +318,8 @@ void SetTouchCoords(u16 x, u16 y)
 
     if (y == 0xFFF) return;
 
-    // TODO: eventually convert?
+    TouchX <<= 4;
+    TouchY <<= 4;
 }
 
 u8 Read()
