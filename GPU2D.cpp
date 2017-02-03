@@ -793,11 +793,11 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
     if (DispCnt & 0x10)
     {
         tilenum <<= ((DispCnt >> 20) & 0x3);
-        tilenum += ((ypos >> 3) * (width >> 3));
+        tilenum += ((ypos >> 3) * (width >> 3)) << ((attrib[0] & 0x2000) ? 1:0);
     }
     else
     {
-        tilenum += ((ypos >> 3) * 0x20);
+        tilenum += ((ypos >> 3) * 0x20) << ((attrib[0] & 0x2000) ? 1:0);
     }
 
     u32 wmask = width - 8; // really ((width - 1) & ~0x7)
@@ -818,6 +818,51 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
     if (attrib[0] & 0x2000)
     {
         // 256-color
+        tilenum <<= 5;
+        u8* pixels = (Num ? GPU::VRAM_BOBJ : GPU::VRAM_AOBJ)[tilenum >> 14];
+        if (!pixels) return;
+        pixels += (tilenum & 0x3FFF);
+        pixels += ((ypos & 0x7) << 3);
+
+        u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+        //pal += (attrib[2] & 0xF000) >> 8;
+
+        if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
+        {
+            pixels += (((width-1 - xoff) & wmask) << 3);
+            pixels += ((width-1 - xoff) & 0x7);
+
+            for (; xoff < width;)
+            {
+                u8 color = *pixels;
+                pixels--;
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+
+                xoff++;
+                xpos++;
+                if (!(xoff & 0x7)) pixels -= 56;
+            }
+        }
+        else
+        {
+            pixels += ((xoff & wmask) << 3);
+            pixels += (xoff & 0x7);
+
+            for (; xoff < width;)
+            {
+                u8 color = *pixels;
+                pixels++;
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+
+                xoff++;
+                xpos++;
+                if (!(xoff & 0x7)) pixels += 56;
+            }
+        }
     }
     else
     {
