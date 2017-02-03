@@ -228,7 +228,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
             if (DispCnt & 0x0400)
             {
                 if (bgmode == 5)
-                    DrawBG_Extended(line, dst, 3);
+                    DrawBG_Extended(line, dst, 2);
                 else if (bgmode == 4 || bgmode == 2)
                     {} // todo: rotscale
                 else
@@ -454,8 +454,14 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
     u16* pal;
     u32 extpal;
 
-    u32 widexmask = (bgcnt & 0x4000) ? 0x10000 : 0;
-    u32 wideymask = ((bgcnt & 0xC000) == 0xC000) ? 0x10000 : 0;
+    u32 coordmask;
+    switch (bgcnt & 0xC000)
+    {
+    case 0x0000: coordmask = 0x07800; break;
+    case 0x4000: coordmask = 0x0F800; break;
+    case 0x8000: coordmask = 0x1F800; break;
+    case 0xC000: coordmask = 0x3F800; break;
+    }
 
     extpal = (DispCnt & 0x40000000);
 
@@ -521,8 +527,7 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
 
         for (int i = 0; i < 256; i++)
         {
-            curtile = tilemap[((rotY & 0x1F800) >> 5) + ((rotY & wideymask) >> 6) +
-                              ((rotX & 0xF800) >> 11) + ((rotX & widexmask) >> 6)];
+            curtile = tilemap[((rotY & coordmask) >> 5) + ((rotX & coordmask) >> 11)];
             curpal = pal;
             if (extpal) curpal += ((curtile & 0xF000) >> 4);
             pixels = tileset + ((curtile & 0x03FF) << 6);
