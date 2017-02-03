@@ -38,7 +38,7 @@ typedef struct _SchedEvent
 
 enum
 {
-    Event_ScanlineStart = 0,
+    Event_LCD = 0,
 
     Event_Timer9_0,
     Event_Timer9_1,

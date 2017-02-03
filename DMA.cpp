@@ -89,8 +89,9 @@ void DMA::WriteCnt(u32 val)
             Start();
         //else
         //    printf("SPECIAL ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
-        if (StartMode!=0x00 && StartMode!=0x10 && StartMode!=0x05 && StartMode!=0x12)
+        if ((StartMode&7)!=0x00 && (StartMode&7)!=0x1 && StartMode!=2 && StartMode!=0x05 && StartMode!=0x12)
             printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
+        //if (StartMode==2)printf("HBLANK DMA %08X -> %08X\n", SrcAddr, DstAddr);
     }
 }
 
@@ -106,13 +107,13 @@ void DMA::Start()
     if (!RemCount)
         RemCount = countmask+1;
 
-    if ((Cnt & 0x00060000) == 0x00060000)
+    if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
 
     // special path for cart DMA. this is a gross hack.
     // emulating it properly requires emulating cart transfer delays, so uh... TODO
     if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
-        ((CPU==0 && StartMode==0x05) || (CPU==1 && StartMode==0x12)))
+        StartMode==0x05 || StartMode==0x12)
     {
         NDSCart::DMA(CurDstAddr);
         Cnt &= ~0x80000000;

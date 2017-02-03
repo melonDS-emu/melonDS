@@ -26,6 +26,7 @@ namespace GPU
 {
 
 #define LINE_CYCLES  (355*6)
+#define HBLANK_CYCLES (256*6)
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
 u16 VCount;
@@ -756,9 +757,26 @@ void StartFrame()
     StartScanline(0);
 }
 
+void StartHBlank(u32 line)
+{
+    DispStat[0] |= (1<<1);
+    DispStat[1] |= (1<<1);
+
+    NDS::CheckDMAs(0, 0x02);
+
+    if (DispStat[0] & (1<<4)) NDS::TriggerIRQ(0, NDS::IRQ_HBlank);
+    if (DispStat[1] & (1<<4)) NDS::TriggerIRQ(1, NDS::IRQ_HBlank);
+
+    if (line < 262)
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), StartScanline, line+1);
+}
+
 void StartScanline(u32 line)
 {
     VCount = line;
+
+    DispStat[0] &= ~(1<<1);
+    DispStat[1] &= ~(1<<1);
 
     if (line == VMatch[0])
     {
@@ -785,7 +803,6 @@ void StartScanline(u32 line)
         GPU2D_B->DrawScanline(line);
 
         //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
-        NDS::ScheduleEvent(NDS::Event_ScanlineStart, true, LINE_CYCLES, StartScanline, line+1);
     }
     else if (line == 262)
     {
@@ -802,13 +819,18 @@ void StartScanline(u32 line)
             DispStat[0] |= (1<<0);
             DispStat[1] |= (1<<0);
 
+            NDS::CheckDMAs(0, 0x01);
+            NDS::CheckDMAs(1, 0x11);
+
             if (DispStat[0] & (1<<3)) NDS::TriggerIRQ(0, NDS::IRQ_VBlank);
             if (DispStat[1] & (1<<3)) NDS::TriggerIRQ(1, NDS::IRQ_VBlank);
         }
 
         //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
-        NDS::ScheduleEvent(NDS::Event_ScanlineStart, true, LINE_CYCLES, StartScanline, line+1);
+        //NDS::ScheduleEvent(NDS::Event_LCD, true, LINE_CYCLES, StartScanline, line+1);
     }
+
+    NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
 }
 
 
@@ -819,8 +841,6 @@ void SetDispStat(u32 cpu, u16 val)
     DispStat[cpu] |= val;
 
     VMatch[cpu] = (val >> 8) | ((val & 0x80) << 1);
-
-    if (val & 0x10) printf("!! HBLANK ENABLED\n");
 }
 
 }
