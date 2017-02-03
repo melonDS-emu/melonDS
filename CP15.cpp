@@ -135,7 +135,8 @@ void Write(u32 id, u32 val)
         return;
     }
 
-    //printf("unknown CP15 write op %03X %08X\n", id, val);
+    if ((id&0xF00)!=0x700)
+        printf("unknown CP15 write op %03X %08X\n", id, val);
 }
 
 u32 Read(u32 id)

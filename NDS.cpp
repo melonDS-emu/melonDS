@@ -411,7 +411,6 @@ void ReleaseKey(u32 key)
 void TouchScreen(u16 x, u16 y)
 {
     SPI_TSC::SetTouchCoords(x, y);
-    printf("touching %d,%d\n", x, y);
 }
 
 void ReleaseScreen()
@@ -703,8 +702,8 @@ void StartSqrt()
 
 void debug(u32 param)
 {
-    printf("ARM9 PC=%08X %08X\n", ARM9->R[15], ARM9->R_IRQ[1]);
-    printf("ARM7 PC=%08X %08X\n", ARM7->R[15], ARM7->R_IRQ[1]);
+    printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
+    printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 }
 
 
@@ -807,7 +806,7 @@ u16 ARM9Read16(u32 addr)
         return 0xFFFF;
     }
 
-    printf("unknown arm9 read16 %08X\n", addr);
+    printf("unknown arm9 read16 %08X %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[1], ARM9->R[2]);
     return 0;
 }
 

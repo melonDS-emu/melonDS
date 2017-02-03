@@ -28,7 +28,14 @@ namespace NDSCart_SRAM
 u8* SRAM;
 u32 SRAMLength;
 
-u32 AddrLength;
+char SRAMPath[256];
+
+void (*WriteFunc)(u8 val, bool islast);
+
+u32 Discover_MemoryType;
+u32 Discover_Likeliness;
+u8* Discover_Buffer;
+u32 Discover_DataPos;
 
 u32 Hold;
 u8 CurCmd;
@@ -39,6 +46,13 @@ u8 StatusReg;
 u32 Addr;
 
 
+void Write_Null(u8 val, bool islast);
+void Write_EEPROMTiny(u8 val, bool islast);
+void Write_EEPROM(u8 val, bool islast);
+void Write_Flash(u8 val, bool islast);
+void Write_Discover(u8 val, bool islast);
+
+
 void Init()
 {
     SRAM = NULL;
@@ -46,9 +60,17 @@ void Init()
 
 void Reset()
 {
+    //
+}
+
+void LoadSave(char* path)
+{
     if (SRAM) delete[] SRAM;
 
-    FILE* f = fopen("rom/nsmb.sav", "rb"); // TODO: NOT HARDCODE THE FILENAME!!!
+    strncpy(SRAMPath, path, 255);
+    SRAMPath[255] = '\0';
+
+    FILE* f = fopen(path, "rb");
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -62,17 +84,29 @@ void Reset()
 
         switch (SRAMLength)
         {
-        case 8192: AddrLength = 2; break;
+        case 512: WriteFunc = Write_EEPROMTiny; break;
+        case 8192:
+        case 65536: WriteFunc = Write_EEPROM; break;
+        case 256*1024:
+        case 512*1024:
+        case 1024*1024:
+        case 8192*1024: WriteFunc = Write_Flash; break;
         default:
             printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
-            AddrLength = 2;
+            WriteFunc = Write_Null;
             break;
         }
     }
     else
     {
-        // TODO: autodetect save type
         SRAMLength = 0;
+        WriteFunc = Write_Discover;
+        Discover_MemoryType = 2;
+        Discover_Likeliness = 0;
+
+        Discover_DataPos = 0;
+        Discover_Buffer = new u8[256*1024];
+        memset(Discover_Buffer, 0, 256*1024);
     }
 
     Hold = 0;
@@ -86,10 +120,250 @@ u8 Read()
     return Data;
 }
 
+void SetMemoryType()
+{
+    switch (Discover_MemoryType)
+    {
+    case 1:
+        printf("Save memory type: EEPROM 4k\n");
+        WriteFunc = Write_EEPROMTiny;
+        SRAMLength = 512;
+        break;
+
+    case 2:
+        printf("Save memory type: EEPROM 64k\n");
+        WriteFunc = Write_EEPROM;
+        SRAMLength = 8192;
+        break;
+
+    case 3:
+        printf("Save memory type: EEPROM 512k\n");
+        WriteFunc = Write_EEPROM;
+        SRAMLength = 65536;
+        break;
+
+    case 4:
+        printf("Save memory type: Flash. Hope the size is 256K.\n");
+        WriteFunc = Write_Flash;
+        SRAMLength = 256*1024;
+        break;
+
+    case 5:
+        printf("Save memory type: ...something else\n");
+        WriteFunc = Write_Null;
+        SRAMLength = 0;
+        break;
+    }
+
+    if (!SRAMLength)
+        return;
+
+    SRAM = new u8[SRAMLength];
+
+    // replay writes that occured during discovery
+    u8 prev_cmd = CurCmd;
+    u32 pos = 0;
+    while (pos < 256*1024)
+    {
+        u32 len = *(u32*)&Discover_Buffer[pos];
+        pos += 4;
+        if (len == 0) break;
+
+        CurCmd = Discover_Buffer[pos++];
+        DataPos = 0;
+        Addr = 0;
+        Data = 0;
+        for (u32 i = 1; i < len; i++)
+        {
+            WriteFunc(Discover_Buffer[pos++], (i==(len-1)));
+            DataPos++;
+        }
+    }
+
+    CurCmd = prev_cmd;
+}
+
+void Write_Discover(u8 val, bool islast)
+{
+    // attempt at autodetecting the type of save memory.
+    // we basically hope the game will be nice and clear whole pages of memory.
+
+    if (CurCmd == 0x03 || CurCmd == 0x0B)
+    {
+        if (Discover_Likeliness)
+        {
+            // apply. and pray.
+            SetMemoryType();
+
+            DataPos = 0;
+            Addr = 0;
+            Data = 0;
+            return WriteFunc(val, islast);
+        }
+        else
+        {
+            Data = 0;
+            return;
+        }
+    }
+
+    if (CurCmd == 0x02 || CurCmd == 0x0A)
+    {
+        if (DataPos == 0)
+            Discover_Buffer[Discover_DataPos + 4] = CurCmd;
+
+        Discover_Buffer[Discover_DataPos + 5 + DataPos] = val;
+
+        if (islast)
+        {
+            u32 len = DataPos+1;
+
+            *(u32*)&Discover_Buffer[Discover_DataPos] = len+1;
+            Discover_DataPos += 5+len;
+
+            if (Discover_Likeliness <= len)
+            {
+                Discover_Likeliness = len;
+
+                if (len > 3+256) // bigger Flash, FRAM, whatever
+                {
+                    Discover_MemoryType = 5;
+                }
+                else if (len > 2+128) // Flash
+                {
+                    Discover_MemoryType = 4;
+                }
+                else if (len > 2+32) // EEPROM 512k
+                {
+                    Discover_MemoryType = 3;
+                }
+                else if (len > 1+16 || (len != 1+16 && CurCmd != 0x0A)) // EEPROM 64k
+                {
+                    Discover_MemoryType = 2;
+                }
+                else // EEPROM 4k
+                {
+                    Discover_MemoryType = 1;
+                }
+            }
+
+            printf("discover: type=%d likeliness=%d\n", Discover_MemoryType, Discover_Likeliness);
+        }
+    }
+}
+
+void Write_Null(u8 val, bool islast) {}
+
+void Write_EEPROMTiny(u8 val, bool islast)
+{
+    // TODO
+}
+
+void Write_EEPROM(u8 val, bool islast)
+{
+    switch (CurCmd)
+    {
+    case 0x02:
+        if (DataPos < 2)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        else
+        {
+            if (Addr < SRAMLength)
+                SRAM[Addr] = val;
+
+            Addr++;
+        }
+        break;
+
+    case 0x03:
+        if (DataPos < 2)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        else
+        {
+            if (Addr >= SRAMLength)
+                Data = 0;
+            else
+                Data = SRAM[Addr];
+
+            Addr++;
+        }
+        break;
+
+    case 0x9F:
+        Data = 0xFF;
+        break;
+
+    default:
+        if (DataPos==0)
+            printf("unknown EEPROM save command %02X\n", CurCmd);
+        break;
+    }
+}
+
+void Write_Flash(u8 val, bool islast)
+{
+    switch (CurCmd)
+    {
+    case 0x03:
+        if (DataPos < 3)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        else
+        {
+            if (Addr >= SRAMLength)
+                Data = 0;
+            else
+                Data = SRAM[Addr];
+
+            Addr++;
+        }
+        break;
+
+    case 0x0A:
+        if (DataPos < 3)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        else
+        {
+            if (Addr < SRAMLength)
+                SRAM[Addr] = val;
+
+            Addr++;
+        }
+        break;
+
+    case 0x9F:
+        Data = 0xFF;
+        break;
+
+    default:
+        if (DataPos==0)
+            printf("unknown Flash save command %02X\n", CurCmd);
+        break;
+    }
+}
+
 void Write(u8 val, u32 hold)
 {
+    bool islast = false;
+
     if (!hold)
     {
+        if (Hold) islast = true;
         Hold = 0;
     }
 
@@ -98,7 +372,7 @@ void Write(u8 val, u32 hold)
         CurCmd = val;
         Hold = 1;
         Data = 0;
-        DataPos = 1;
+        DataPos = 0;
         Addr = 0;
         //printf("save SPI command %02X\n", CurCmd);
         return;
@@ -106,28 +380,13 @@ void Write(u8 val, u32 hold)
 
     switch (CurCmd)
     {
-    case 0x03: // read
-        {
-            if (DataPos < AddrLength+1)
-            {
-                Addr <<= 8;
-                Addr |= val;
-                Data = 0;
-
-                //if (DataPos == AddrLength) printf("save SPI read %08X\n", Addr);
-            }
-            else
-            {
-                if (Addr >= SRAMLength)
-                    Data = 0;
-                else
-                    Data = SRAM[Addr];
-
-                Addr++;
-            }
-
-            DataPos++;
-        }
+    case 0x02:
+    case 0x03:
+    case 0x0A:
+    case 0x0B:
+    case 0x9F:
+        WriteFunc(val, islast);
+        DataPos++;
         break;
 
     case 0x04: // write disable
@@ -144,13 +403,20 @@ void Write(u8 val, u32 hold)
         Data = 0;
         break;
 
-    case 0x9F: // read JEDEC ID
-        Data = 0xFF;
-        break;
-
     default:
-        printf("unknown save SPI command %02X\n", CurCmd);
+        if (DataPos==0)
+            printf("unknown save SPI command %02X\n", CurCmd);
         break;
+    }
+
+    if (islast && (CurCmd == 0x02 || CurCmd == 0x0A))
+    {
+        FILE* f = fopen(SRAMPath, "wb");
+        if (f)
+        {
+            fwrite(SRAM, SRAMLength, 1, f);
+            fclose(f);
+        }
     }
 }
 
@@ -347,6 +613,9 @@ void LoadROM(char* path)
     fclose(f);
     //CartROM = f;
 
+    // temp. TODO: later make this user selectable
+    // calling this sets up shit for booting from the cart directly.
+    // normal behavior is booting from the BIOS.
     NDS::SetupDirectBoot();
 
     CartInserted = true;
@@ -382,6 +651,15 @@ void LoadROM(char* path)
 
     // encryption
     Key1_InitKeycode(gamecode, 2, 2);
+
+
+    // save
+    char savepath[256];
+    strncpy(savepath, path, 255);
+    savepath[255] = '\0';
+    strncpy(savepath + strlen(path) - 3, "sav", 3);
+    printf("Save file: %s\n", savepath);
+    NDSCart_SRAM::LoadSave(savepath);
 }
 
 void ReadROM(u32 addr, u32 len, u32 offset)

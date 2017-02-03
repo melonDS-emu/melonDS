@@ -41,20 +41,26 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         printf("close\n");
         {
             // 6006800 6008000
-            FILE* f = fopen("wram.bin", "wb");
-            for (u32 i = 0x37F8000; i < 0x3808000; i+=4)
+            FILE* f = fopen("debug/wram.bin", "wb");
+            if (f)
             {
-                u32 blarg = NDS::ARM7Read32(i);
-                fwrite(&blarg, 4, 1, f);
+                for (u32 i = 0x37F8000; i < 0x3808000; i+=4)
+                {
+                    u32 blarg = NDS::ARM7Read32(i);
+                    fwrite(&blarg, 4, 1, f);
+                }
+                fclose(f);
             }
-            fclose(f);
-            f = fopen("mainram.bin", "wb");
-            for (u32 i = 0x2000000; i < 0x2400000; i+=4)
+            f = fopen("debug/mainram.bin", "wb");
+            if (f)
             {
-                u32 blarg = NDS::ARM9Read32(i);
-                fwrite(&blarg, 4, 1, f);
+                for (u32 i = 0x2000000; i < 0x2400000; i+=4)
+                {
+                    u32 blarg = NDS::ARM9Read32(i);
+                    fwrite(&blarg, 4, 1, f);
+                }
+                fclose(f);
             }
-            fclose(f);
         }
         PostQuitMessage(0);
         return 0;
