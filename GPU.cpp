@@ -762,7 +762,7 @@ void StartHBlank(u32 line)
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
-    NDS::CheckDMAs(0, 0x02);
+    if (line < 192) NDS::CheckDMAs(0, 0x02);
 
     if (DispStat[0] & (1<<4)) NDS::TriggerIRQ(0, NDS::IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS::TriggerIRQ(1, NDS::IRQ_HBlank);
