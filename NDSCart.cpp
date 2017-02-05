@@ -56,6 +56,7 @@ void Write_Discover(u8 val, bool islast);
 void Init()
 {
     SRAM = NULL;
+    Discover_Buffer = NULL;
 }
 
 void Reset()
@@ -66,6 +67,7 @@ void Reset()
 void LoadSave(char* path)
 {
     if (SRAM) delete[] SRAM;
+    if (Discover_Buffer) delete[] Discover_Buffer;
 
     strncpy(SRAMPath, path, 255);
     SRAMPath[255] = '\0';
@@ -181,6 +183,8 @@ void SetMemoryType()
     }
 
     CurCmd = prev_cmd;
+
+    delete[] Discover_Buffer;
 }
 
 void Write_Discover(u8 val, bool islast)
@@ -272,9 +276,7 @@ void Write_EEPROM(u8 val, bool islast)
         }
         else
         {
-            if (Addr < SRAMLength)
-                SRAM[Addr] = val;
-
+            SRAM[Addr & (SRAMLength-1)] = val;
             Addr++;
         }
         break;
@@ -288,11 +290,7 @@ void Write_EEPROM(u8 val, bool islast)
         }
         else
         {
-            if (Addr >= SRAMLength)
-                Data = 0;
-            else
-                Data = SRAM[Addr];
-
+            Data = SRAM[Addr & (SRAMLength-1)];
             Addr++;
         }
         break;
@@ -321,6 +319,7 @@ void Write_Flash(u8 val, bool islast)
         }
         else
         {
+            // CHECKME: does Flash also wraparound when the address is out of bounds?
             if (Addr >= SRAMLength)
                 Data = 0;
             else

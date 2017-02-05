@@ -289,7 +289,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/peach.nds");
+    NDSCart::LoadROM("rom/sonic.nds");
 
     Running = true; // hax
 }
