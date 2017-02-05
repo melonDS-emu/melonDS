@@ -824,8 +824,18 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         pixels += (tilenum & 0x3FFF);
         pixels += ((ypos & 0x7) << 3);
 
-        u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
-        //pal += (attrib[2] & 0xF000) >> 8;
+        u32 extpal = (DispCnt & 0x80000000);
+
+        u16* pal;
+        if (extpal)
+        {
+            pal = (u16*)(Num ? GPU::VRAM_BOBJExtPal : GPU::VRAM_AOBJExtPal);
+            pal += (attrib[2] & 0xF000) >> 4;
+        }
+        else
+            pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+
+        if (!pal) pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200]; // derp
 
         if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
         {
