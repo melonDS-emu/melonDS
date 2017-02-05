@@ -141,11 +141,16 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         }
         return 0;
 
-    /*case WM_PAINT:
+    case WM_PAINT:
         {
+            PAINTSTRUCT partisocialiste;
+            HDC dc = BeginPaint(window, &partisocialiste);
 
+            SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
+
+            EndPaint(window, &partisocialiste);
         }
-        return 0;*/
+        return 0;
     }
 
     return DefWindowProc(window, msg, wparam, lparam);
@@ -230,8 +235,9 @@ int main()
 
         NDS::RunFrame();
 
-        HDC dc = GetDC(melon);
-        SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
+        //HDC dc = GetDC(melon);
+        //SetDIBitsToDevice(dc, 0, 0, 256, 384, 0, 0, 0, 384, GPU::Framebuffer, (BITMAPINFO*)&bmp, DIB_RGB_COLORS);
+        InvalidateRect(melon, NULL, false);
         UpdateWindow(melon);
 
         nframes++;
