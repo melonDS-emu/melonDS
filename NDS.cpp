@@ -289,7 +289,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/sonic.nds");
+    NDSCart::LoadROM("rom/sm64ds.nds");
 
     Running = true; // hax
 }
@@ -1400,7 +1400,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002B8: return SqrtVal[0];
     case 0x040002BC: return SqrtVal[1];
 
-    case 0x04000600: return 0x04000000; // hax
+    case 0x04000600: return 0x06000000; // hax
 
     case 0x04100000:
         if (IPCFIFOCnt9 & 0x8000)
