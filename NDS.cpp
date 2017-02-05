@@ -82,6 +82,8 @@ u8 PostFlag7;
 u16 PowerControl9;
 u16 PowerControl7;
 
+u16 ARM7BIOSProt;
+
 Timer Timers[8];
 
 DMA* DMAs[8];
@@ -190,6 +192,8 @@ void SetupDirectBoot()
 
     PowerControl9 = 0x820F;
     GPU::DisplaySwap(PowerControl9);
+
+    ARM7BIOSProt = 0x1204;
 }
 
 void Reset()
@@ -239,6 +243,8 @@ void Reset()
     PostFlag7 = 0x00;
     PowerControl9 = 0x0001;
     PowerControl7 = 0x0001;
+
+    ARM7BIOSProt = 0;
 
     IPCSync9 = 0;
     IPCSync7 = 0;
@@ -815,7 +821,7 @@ u16 ARM9Read16(u32 addr)
         return 0xFFFF;
     }
 
-    printf("unknown arm9 read16 %08X %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[1], ARM9->R[2]);
+    //printf("unknown arm9 read16 %08X %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[1], ARM9->R[2]);
     return 0;
 }
 
@@ -937,7 +943,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    //printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -991,7 +997,11 @@ u8 ARM7Read8(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] > 0x4000) printf("BAD BIOS READ8 %08X FROM %08X\n", addr, ARM7->R[15]);
+        if (ARM7->R[15] >= 0x4000)
+            return 0xFF;
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
+            return 0xFF;
+
         return *(u8*)&ARM7BIOS[addr];
     }
 
@@ -1030,7 +1040,11 @@ u16 ARM7Read16(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] > 0x4000) printf("BAD BIOS READ16 %08X FROM %08X\n", addr, ARM7->R[15]);
+        if (ARM7->R[15] >= 0x4000)
+            return 0xFFFF;
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
+            return 0xFFFF;
+
         return *(u16*)&ARM7BIOS[addr];
     }
 
@@ -1072,12 +1086,11 @@ u32 ARM7Read32(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] > 0x4000) {
-                printf("BAD BIOS READ32 %08X FROM %08X | %08X %08X\n", addr, ARM7->R[15], ARM7Read32(0x03807758+12), ARM7Read32(0x03807758+4));
-                Halt();
-        return 0xFFFFFFFF;
-        }
-        //if (addr < 0x1204 && ARM7->R[15] >= 0x1204) printf("BAD BIOS READ32 %08X FROM %08X\n", addr, ARM7->R[15]);
+        if (ARM7->R[15] >= 0x4000)
+            return 0xFFFFFFFF;
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
+            return 0xFFFFFFFF;
+
         return *(u32*)&ARM7BIOS[addr];
     }
 
@@ -1818,6 +1831,7 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04000300: return PostFlag7;
     case 0x04000304: return PowerControl7;
+    case 0x04000308: return ARM7BIOSProt;
 
     case 0x04000504: return _soundbias;
     }
@@ -2043,6 +2057,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000304: PowerControl7 = val; return;
+
+    case 0x04000308:
+        if (ARM7BIOSProt == 0)
+            ARM7BIOSProt = val;
+        return;
 
     case 0x04000504: // removeme
         _soundbias = val & 0x3FF;
