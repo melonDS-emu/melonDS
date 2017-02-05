@@ -93,7 +93,7 @@ void ByteIn(u8 val)
                 Output[0] = 0x17;
                 Output[1] = 0x01;
                 Output[2] = 0x19;
-                Output[3] = 0x03; // day of week. checkme
+                Output[3] = 0x04; // day of week. checkme. apparently 04=Thursday
                 Output[4] = 0x06;
                 Output[5] = 0x30;
                 Output[6] = 0x30;

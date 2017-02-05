@@ -167,10 +167,19 @@ void SetupDirectBoot()
 
     ARM9Write32(0x027FF800, 0x00001FC2);
     ARM9Write32(0x027FF804, 0x00001FC2);
+    ARM9Write16(0x027FF808, *(u16*)&NDSCart::CartROM[0x15E]);
+    ARM9Write16(0x027FF80A, *(u16*)&NDSCart::CartROM[0x6C]);
+
+    ARM9Write16(0x027FF850, 0x5835);
+
     ARM9Write32(0x027FFC00, 0x00001FC2);
     ARM9Write32(0x027FFC04, 0x00001FC2);
+    ARM9Write16(0x027FFC08, *(u16*)&NDSCart::CartROM[0x15E]);
+    ARM9Write16(0x027FFC0A, *(u16*)&NDSCart::CartROM[0x6C]);
 
+    ARM9Write16(0x027FFC10, 0x5835);
     ARM9Write16(0x027FFC30, 0xFFFF);
+    ARM9Write16(0x027FFC40, 0x0001);
 
     CP15::Write(0x910, 0x0300000A);
     CP15::Write(0x911, 0x00000020);
@@ -274,7 +283,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/nsmb.nds");
+    NDSCart::LoadROM("rom/peach.nds");
 
     Running = true; // hax
 }
@@ -1605,7 +1614,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM9 IO write16 %08X %04X\n", addr, val);
+    printf("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[14]);
 }
 
 void ARM9IOWrite32(u32 addr, u32 val)
@@ -1679,7 +1688,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
-    case 0x04000210: IE[0] = val; if (val&~0x000F0F7F)printf("unusual IRQ %08X\n",val);return;
+    case 0x04000210: IE[0] = val; if (val&~0x000F2F7F)printf("unusual IRQ %08X\n",val);return;
     case 0x04000214: IF[0] &= ~val; return;
 
     case 0x04000240:

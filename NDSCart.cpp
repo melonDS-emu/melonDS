@@ -850,7 +850,7 @@ void WriteROMCnt(u32 val)
         EndTransfer();
     else
     {
-        NDS::CheckDMAs(0, 0x06);
+        NDS::CheckDMAs(0, 0x05);
         NDS::CheckDMAs(1, 0x12);
     }
         //NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);

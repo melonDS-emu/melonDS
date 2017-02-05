@@ -441,8 +441,17 @@ void A_STM(ARM* cpu)
         preinc = !preinc;
     }
 
+    bool isbanked = false;
     if (cpu->CurInstr & (1<<22))
+    {
+        u32 mode = (cpu->CPSR & 0x1F);
+        if (mode == 0x11)
+            isbanked = (baseid >= 8 && baseid < 15);
+        else if (mode != 0x10 && mode != 0x1F)
+            isbanked = (baseid >= 13 && baseid < 15);
+
         cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10);
+    }
 
     for (u32 i = 0; i < 16; i++)
     {
@@ -450,7 +459,7 @@ void A_STM(ARM* cpu)
         {
             if (preinc) base += 4;
 
-            if (i == baseid)
+            if (i == baseid && !isbanked)
             {
                 if ((cpu->Num == 0) || (!(cpu->CurInstr & (i-1))))
                     cpu->DataWrite32(base, oldbase);

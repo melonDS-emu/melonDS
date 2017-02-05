@@ -216,7 +216,7 @@ void ARM::RestoreCPSR()
         break;
 
     default:
-        printf("!! attempt to restore CPSR under bad mode %02X\n", CPSR&0x1F);
+        printf("!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
         break;
     }
 

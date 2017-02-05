@@ -110,6 +110,8 @@ void DMA::Start()
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
 
+    //printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
+
     // special path for cart DMA. this is a gross hack.
     // emulating it properly requires emulating cart transfer delays, so uh... TODO
     if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
@@ -121,8 +123,6 @@ void DMA::Start()
             NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
         return;
     }
-
-    //printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
     // TODO: NOT MAKE THE DMA INSTANT!!
     if (!(Cnt & 0x04000000))
