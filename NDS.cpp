@@ -307,9 +307,8 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/mkds.nds");
-
-    Running = true; // hax
+    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
+        Running = true; // hax
 }
 
 
@@ -1288,6 +1287,10 @@ u8 ARM9IORead8(u32 addr)
     {
         return GPU::GPU2D_B->Read8(addr);
     }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        return GPU3D::Read8(addr);
+    }
 
     printf("unknown ARM9 IO read8 %08X\n", addr);
     return 0;
@@ -1364,6 +1367,10 @@ u16 ARM9IORead16(u32 addr)
     {
         return GPU::GPU2D_B->Read16(addr);
     }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        return GPU3D::Read16(addr);
+    }
 
     printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
@@ -1418,8 +1425,6 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002B8: return SqrtVal[0];
     case 0x040002BC: return SqrtVal[1];
 
-    case 0x04000600: return 0x06000000; // hax
-
     case 0x04100000:
         if (IPCFIFOCnt9 & 0x8000)
         {
@@ -1456,8 +1461,7 @@ u32 ARM9IORead32(u32 addr)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        // 3D GPU
-        return 0;
+        return GPU3D::Read32(addr);
     }
 
     printf("unknown ARM9 IO read32 %08X\n", addr);
@@ -1520,6 +1524,11 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
         GPU::GPU2D_B->Write8(addr, val);
+        return;
+    }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        GPU3D::Write8(addr, val);
         return;
     }
 
@@ -1641,7 +1650,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        // 3D GPU
+        GPU3D::Write16(addr, val);
         return;
     }
 
@@ -1760,7 +1769,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
-        // 3D GPU
+        GPU3D::Write32(addr, val);
         return;
     }
 

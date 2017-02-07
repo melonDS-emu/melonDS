@@ -40,7 +40,7 @@ bool Init();
 void DeInit();
 void Reset();
 
-void LoadROM(char* path);
+bool LoadROM(char* path);
 
 void WriteROMCnt(u32 val);
 u32 ReadROMData();

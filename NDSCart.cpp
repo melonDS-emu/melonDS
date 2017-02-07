@@ -601,12 +601,17 @@ void Reset()
 }
 
 
-void LoadROM(char* path)
+bool LoadROM(char* path)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
 
     FILE* f = fopen(path, "rb");
+    if (!f)
+    {
+        printf("Failed to open ROM file %s\n", path);
+        return false;
+    }
 
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
@@ -674,6 +679,8 @@ void LoadROM(char* path)
     strncpy(savepath + strlen(path) - 3, "sav", 3);
     printf("Save file: %s\n", savepath);
     NDSCart_SRAM::LoadSave(savepath);
+
+    return true;
 }
 
 void ReadROM(u32 addr, u32 len, u32 offset)

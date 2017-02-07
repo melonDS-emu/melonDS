@@ -10,7 +10,7 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1486503537 source:c:\documents\sources\melonds\nds.cpp
+1486506461 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -105,7 +105,7 @@
 1486501225 source:c:\documents\sources\melonds\fifo.cpp
 	"FIFO.h"
 
-1486503492 c:\documents\sources\melonds\fifo.h
+1486506620 c:\documents\sources\melonds\fifo.h
 	"types.h"
 
 1486309616 source:c:\documents\sources\melonds\dma.cpp
@@ -135,20 +135,21 @@
 	<string.h>
 	"RTC.h"
 
-1486502165 c:\documents\sources\melonds\ndscart.h
+1486506409 c:\documents\sources\melonds\ndscart.h
 	"types.h"
 
-1486502488 source:c:\documents\sources\melonds\ndscart.cpp
+1486506451 source:c:\documents\sources\melonds\ndscart.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"NDSCart.h"
 
-1486501964 c:\documents\sources\melonds\gpu3d.h
+1486503811 c:\documents\sources\melonds\gpu3d.h
 
-1486502427 source:c:\documents\sources\melonds\gpu3d.cpp
+1486506240 source:c:\documents\sources\melonds\gpu3d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
+	"FIFO.h"
 
