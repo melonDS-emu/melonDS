@@ -63,6 +63,43 @@ const u32 CmdNumParams[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
+const s32 CmdNumCycles[256] =
+{
+    // 0x00
+    0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x10
+    1, 17, 36, 17, 36, 19, 34, 30, 35, 31, 28, 22, 22,
+    0, 0, 0,
+    // 0x20
+    1, 9, 1, 9, 8, 8, 8, 8, 8, 1, 1, 1,
+    0, 0, 0, 0,
+    // 0x30
+    4, 4, 6, 1, 32,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x40
+    1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x50
+    392,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x60
+    1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x70
+    103, 9, 5,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    // 0x80+
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
 typedef struct
 {
     u8 Command;
@@ -76,6 +113,10 @@ FIFO<CmdFIFOEntry>* CmdPIPE;
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
 u32 GXStat;
+
+u32 ExecParams[32];
+u32 ExecParamCount;
+s32 CycleCount;
 
 
 bool Init()
@@ -103,13 +144,15 @@ void Reset()
     TotalParams = 0;
 
     GXStat = 0;
+
+    memset(ExecParams, 0, 32*4);
+    ExecParamCount = 0;
+    CycleCount = 0;
 }
 
 
-void CmdFIFOWrite(CmdFIFOEntry entry)
+void CmdFIFOWrite(CmdFIFOEntry& entry)
 {
-    printf("GX FIFO: %02X %08X\n", entry.Command, entry.Param);
-
     if (CmdFIFO->IsEmpty() && !CmdPIPE->IsFull())
     {
         CmdPIPE->Write(entry);
@@ -137,6 +180,73 @@ CmdFIFOEntry CmdFIFORead()
         if (!CmdFIFO->IsEmpty())
             CmdPIPE->Write(CmdFIFO->Read());
     }
+
+    CheckFIFOIRQ();
+    return ret;
+}
+
+
+
+
+void ExecuteCommand()
+{
+    CmdFIFOEntry entry = CmdFIFORead();
+
+    ExecParams[ExecParamCount] = entry.Param;
+    ExecParamCount++;
+
+    if (ExecParamCount >= CmdNumParams[entry.Command])
+    {
+        CycleCount += CmdNumCycles[entry.Command];
+        ExecParamCount = 0;
+
+        // TODO: actually execute the command, maybe
+        //printf("3D CMD %02X\n", entry.Command);
+
+        switch (entry.Command)
+        {
+        case 0x18:
+        case 0x19:
+        case 0x1A:
+            // TODO: more cycles if MTX_MODE=2
+            break;
+
+        case 0x21:
+            // TODO: more cycles if lights are enabled
+            break;
+
+        case 0x50:
+            // TODO: make it happen upon VBlank, not right now
+            break;
+        }
+    }
+}
+
+void Run(s32 cycles)
+{
+    if (CycleCount <= 0)
+    {
+        while (CycleCount <= 0 && !CmdPIPE->IsEmpty())
+            ExecuteCommand();
+
+        if (CmdPIPE->IsEmpty())
+            CycleCount = 0;
+    }
+    else
+        CycleCount -= cycles;
+}
+
+
+void CheckFIFOIRQ()
+{
+    bool irq = false;
+    switch (GXStat >> 30)
+    {
+    case 1: irq = (CmdFIFO->Level() < 128); break;
+    case 2: irq = CmdFIFO->IsEmpty(); break;
+    }
+
+    if (irq) NDS::TriggerIRQ(0, NDS::IRQ_GXFIFO);
 }
 
 
@@ -165,7 +275,8 @@ u32 Read32(u32 addr)
                    // matrix stack levels, TODO
                    (fifolevel << 16) |
                    (fifolevel < 128 ? (1<<25) : 0) |
-                   (fifolevel == 0  ? (1<<26) : 0);
+                   (fifolevel == 0  ? (1<<26) : 0) |
+                   (CycleCount > 0  ? (1<<27) : 0);
         }
     }
     return 0;

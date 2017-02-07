@@ -47,7 +47,7 @@ public:
     }
 
 
-    void Write(T& val)
+    void Write(T val)
     {
         if (IsFull()) return;
 
@@ -60,9 +60,9 @@ public:
         NumOccupied++;
     }
 
-    T& Read()
+    T Read()
     {
-        T& ret = Entries[ReadPos];
+        T ret = Entries[ReadPos];
         if (IsEmpty())
             return ret;
 

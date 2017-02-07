@@ -307,7 +307,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 }
 
@@ -1728,8 +1728,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
-    case 0x04000210: IE[0] = val; if (val&~0x000F2F7F)printf("unusual IRQ %08X\n",val);return;
-    case 0x04000214: IF[0] &= ~val; return;
+    case 0x04000210: IE[0] = val; return;
+    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); return;
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);

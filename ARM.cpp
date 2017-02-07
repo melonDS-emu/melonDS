@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "GPU3D.h"
 
 
 u32 ARM::ConditionTable[16] =
@@ -332,6 +333,7 @@ s32 ARM::Execute()
     }
 
     Cycles = 0;
+    s32 lastcycles = 0;
     u32 addr = R[15] - (CPSR&0x20 ? 4:8);
     u32 cpsr = CPSR;
 
@@ -372,6 +374,14 @@ s32 ARM::Execute()
         }
 
         //if (R[15]==0x037F9364) printf("R8=%08X R9=%08X\n", R[8], R[9]);
+
+        // gross hack
+        if (Num==0)
+        {
+            s32 diff = Cycles - lastcycles;
+            GPU3D::Run(diff >> 1);
+            lastcycles = Cycles - (diff&1);
+        }
 
         // TODO optimize this shit!!!
         if (Halted)
