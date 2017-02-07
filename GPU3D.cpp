@@ -20,24 +20,41 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "FIFO.h"
 
 
 namespace GPU3D
 {
 
+typedef struct
+{
+    u8 Command;
+    u32 Param;
+
+} CmdFIFOEntry;
+
+FIFO<CmdFIFOEntry>* CmdFIFO;
+FIFO<CmdFIFOEntry>* CmdPIPE;
+
+
 bool Init()
 {
+    CmdFIFO = new FIFO<CmdFIFOEntry>(256);
+    CmdPIPE = new FIFO<CmdFIFOEntry>(4);
+
     return true;
 }
 
 void DeInit()
 {
-    //
+    delete CmdFIFO;
+    delete CmdPIPE;
 }
 
 void Reset()
 {
-    //
+    CmdFIFO->Clear();
+    CmdPIPE->Clear();
 }
 
 }

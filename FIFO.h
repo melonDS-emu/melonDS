@@ -21,17 +21,63 @@
 
 #include "types.h"
 
+template<typename T>
 class FIFO
 {
 public:
-    FIFO(u32 num);
-    ~FIFO();
+    FIFO(u32 num)
+    {
+        NumEntries = num;
+        Entries = new T[num];
+        Clear();
+    }
 
-    void Clear();
+    ~FIFO()
+    {
+        delete[] Entries;
+    }
 
-    void Write(u32 val);
-    u32 Read();
-    u32 Peek();
+
+    void Clear()
+    {
+        NumOccupied = 0;
+        ReadPos = 0;
+        WritePos = 0;
+        memset(&Entries[ReadPos], 0, sizeof(T));
+    }
+
+
+    void Write(u32 val)
+    {
+        if (IsFull()) return;
+
+        Entries[WritePos] = val;
+
+        WritePos++;
+        if (WritePos >= NumEntries)
+            WritePos = 0;
+
+        NumOccupied++;
+    }
+
+    T Read()
+    {
+        T ret = Entries[ReadPos];
+        if (IsEmpty())
+            return ret;
+
+        ReadPos++;
+        if (ReadPos >= NumEntries)
+            ReadPos = 0;
+
+        NumOccupied--;
+        return ret;
+    }
+
+    T Peek()
+    {
+        return Entries[ReadPos];
+    }
 
     u32 Level() { return NumOccupied; }
     bool IsEmpty() { return NumOccupied == 0; }
@@ -39,7 +85,7 @@ public:
 
 private:
     u32 NumEntries;
-    u32* Entries;
+    T* Entries;
     u32 NumOccupied;
     u32 ReadPos, WritePos;
 };

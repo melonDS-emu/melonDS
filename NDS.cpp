@@ -91,8 +91,8 @@ u32 DMA9Fill[4];
 
 u16 IPCSync9, IPCSync7;
 u16 IPCFIFOCnt9, IPCFIFOCnt7;
-FIFO* IPCFIFO9; // FIFO in which the ARM9 writes
-FIFO* IPCFIFO7;
+FIFO<u32>* IPCFIFO9; // FIFO in which the ARM9 writes
+FIFO<u32>* IPCFIFO7;
 
 u16 DivCnt;
 u32 DivNumerator[2];
@@ -125,8 +125,8 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    IPCFIFO9 = new FIFO(16);
-    IPCFIFO7 = new FIFO(16);
+    IPCFIFO9 = new FIFO<u32>(16);
+    IPCFIFO7 = new FIFO<u32>(16);
 
     if (!NDSCart::Init()) return false;
     if (!GPU::Init()) return false;

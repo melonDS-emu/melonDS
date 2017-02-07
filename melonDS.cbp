@@ -51,7 +51,6 @@
 		<Unit filename="CP15.h" />
 		<Unit filename="DMA.cpp" />
 		<Unit filename="DMA.h" />
-		<Unit filename="FIFO.cpp" />
 		<Unit filename="FIFO.h" />
 		<Unit filename="GPU.cpp" />
 		<Unit filename="GPU.h" />
