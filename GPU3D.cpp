@@ -16,21 +16,29 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#include <stdio.h>
+#include <string.h>
+#include "NDS.h"
+#include "GPU.h"
 
-#include "types.h"
 
-namespace RTC
+namespace GPU3D
 {
 
-bool Init();
-void DeInit();
-void Reset();
+bool Init()
+{
+    return true;
+}
 
-u16 Read();
-void Write(u16 val, bool byte);
+void DeInit()
+{
+    //
+}
+
+void Reset()
+{
+    //
+}
 
 }
 
-#endif

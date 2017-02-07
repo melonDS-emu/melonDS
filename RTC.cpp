@@ -44,7 +44,12 @@ u8 ClockAdjust;
 u8 FreeReg;
 
 
-void Init()
+bool Init()
+{
+    return true;
+}
+
+void DeInit()
 {
 }
 

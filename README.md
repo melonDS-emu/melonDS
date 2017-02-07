@@ -13,11 +13,26 @@ LOVE MELONS
 NO ASKING ROMZ!! ILLEGAL
 
 
-license will eventually be GPL or some crap. don't steal the code and make money off of it or claim it as your own or be an asshole.
+license is GPL. don't steal the code.
+
+
+how to use:
+
+melonDS requires BIOS/firmware copies from a DS. Files required:
+ * bios7.bin, 16KB: ARM7 BIOS
+ * bios9.bin, 4KB: ARM9 BIOS
+ * firmware.bin, 256KB: firmware
+ 
+note: the DS-mode firmware in the 3DS isn't bootable, it only contains the bare minimum to run games.
+
+ROM filename is currently hardcoded, check NDS.cpp for the required filename. this will eventually be addressed.
 
 
 
 TODO LIST
 
- * take code fetch waitstates into account when fetching instructions, and during branches (pipeline shit) (tricky, some code fetches are nonsequential)
- * 
+ * sorta-UI (ie not hardcode ROM name)
+ * 3D engine
+ * sound
+ * wifi
+ * other non-core shit (debugger, graphics viewers, cheat crapo, etc)

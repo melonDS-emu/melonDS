@@ -22,6 +22,43 @@
 #include "GPU.h"
 
 
+// notes on color conversion
+//
+// * BLDCNT special effects are applied on 18bit colors
+// -> layers are converted to 18bit before being composited
+// * colors are converted as follows: 18bit = 15bit * 2
+// -> white comes out as 62,62,62 and not 63,63,63
+// * VRAM/FIFO display modes convert colors the same way
+// * 3D engine converts colors differently (18bit = 15bit * 2 + 1, except 0 = 0)
+// * 'screen disabled' white is 63,63,63
+//
+// oh also, changing DISPCNT bit16-17 midframe doesn't work (ignored? applied for next frame?)
+// TODO, eventually: check whether other DISPCNT bits can be changed midframe
+//
+// sprite blending rules
+// * destination must be selected as 2nd target
+// * sprite must be semitransparent or bitmap sprite
+// * blending is applied instead of the selected color effect, even if it is 'none'.
+// * for bitmap sprites: EVA = alpha+1, EVB = 16-EVA
+// * for bitmap sprites: alpha=0 is always transparent, even if blending doesn't apply
+//
+// 3D blending rules
+//
+// 3D/3D blending seems to follow these equations:
+//   dstColor = srcColor*srcAlpha + dstColor*(1-srcAlpha)
+//   dstAlpha = max(srcAlpha, dstAlpha)
+// blending isn't applied if dstAlpha is zero.
+//
+// 3D/2D blending rules
+// * if destination selected as 2nd target:
+//   blending is applied instead of the selected color effect, using full 31bit alpha from 3D layer
+//   this even if the selected color effect is 'none'.
+//   apparently this works even if BG0 isn't selected as 1st target
+// * if BG0 is selected as 1st target, destination not selected as 2nd target:
+//   brightness up/down effect is applied if selected. if blending is selected, it doesn't apply.
+// * 3D layer pixels with alpha=0 are always transparent.
+
+
 GPU2D::GPU2D(u32 num)
 {
     Num = num;
@@ -49,6 +86,7 @@ void GPU2D::SetFramebuffer(u16* buf)
 {
     // framebuffer is 256x192 16bit.
     // might eventually support other framebuffer types/sizes
+    // TODO: change this. the DS uses 18bit color
     Framebuffer = buf;
 }
 

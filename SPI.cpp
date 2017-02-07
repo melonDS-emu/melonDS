@@ -69,16 +69,31 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 }
 
 
-void Init()
+bool Init()
 {
     Firmware = NULL;
+    return true;
+}
+
+void DeInit()
+{
+    if (Firmware) delete[] Firmware;
 }
 
 void Reset()
 {
     if (Firmware) delete[] Firmware;
+    Firmware = NULL;
 
     FILE* f = fopen("firmware.bin", "rb");
+    if (!f)
+    {
+        printf("firmware.bin not found\n");
+
+        // TODO: generate default firmware
+        return;
+    }
+
     fseek(f, 0, SEEK_END);
     FirmwareLength = (u32)ftell(f);
     Firmware = new u8[FirmwareLength];
@@ -220,7 +235,12 @@ u8 Registers[8];
 u8 RegMasks[8];
 
 
-void Init()
+bool Init()
+{
+    return true;
+}
+
+void DeInit()
 {
 }
 
@@ -295,7 +315,12 @@ u16 ConvResult;
 u16 TouchX, TouchY;
 
 
-void Init()
+bool Init()
+{
+    return true;
+}
+
+void DeInit()
 {
 }
 
@@ -366,11 +391,20 @@ u16 Cnt;
 u32 CurDevice;
 
 
-void Init()
+bool Init()
 {
-    SPI_Firmware::Init();
-    SPI_Powerman::Init();
-    SPI_TSC::Init();
+    if (!SPI_Firmware::Init()) return false;
+    if (!SPI_Powerman::Init()) return false;
+    if (!SPI_TSC::Init()) return false;
+
+    return true;
+}
+
+void DeInit()
+{
+    SPI_Firmware::DeInit();
+    SPI_Powerman::DeInit();
+    SPI_TSC::DeInit();
 }
 
 void Reset()

@@ -68,10 +68,20 @@ GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
 
-void Init()
+bool Init()
 {
     GPU2D_A = new GPU2D(0);
     GPU2D_B = new GPU2D(1);
+    if (!GPU3D::Init()) return false;
+
+    return true;
+}
+
+void DeInit()
+{
+    delete GPU2D_A;
+    delete GPU2D_B;
+    GPU3D::DeInit();
 }
 
 void Reset()
@@ -118,6 +128,7 @@ void Reset()
 
     GPU2D_A->Reset();
     GPU2D_B->Reset();
+    GPU3D::Reset();
 
     GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
     GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
@@ -147,6 +158,8 @@ void Reset()
 //   ARM7 (TODO)
 //   extended palette (mirroring doesn't apply)
 //   texture/texpal (does mirroring apply?)
+//   -> trying to use extpal/texture/texpal with no VRAM mapped.
+//      would likely read all black, but has to be tested.
 //
 // overlap:
 // when reading: values are read from each bank and ORed together

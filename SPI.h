@@ -31,7 +31,8 @@ namespace SPI
 
 extern u16 Cnt;
 
-void Init();
+bool Init();
+void DeInit();
 void Reset();
 
 u16 ReadCnt();

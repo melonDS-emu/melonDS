@@ -20,6 +20,7 @@
 #define GPU_H
 
 #include "GPU2D.h"
+#include "GPU3D.h"
 
 namespace GPU
 {
@@ -53,7 +54,8 @@ extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;
 
 
-void Init();
+bool Init();
+void DeInit();
 void Reset();
 
 void MapVRAM_AB(u32 bank, u8 cnt);

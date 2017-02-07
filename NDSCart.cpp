@@ -53,21 +53,29 @@ void Write_Flash(u8 val, bool islast);
 void Write_Discover(u8 val, bool islast);
 
 
-void Init()
+bool Init()
 {
     SRAM = NULL;
     Discover_Buffer = NULL;
+    return true;
+}
+
+void DeInit()
+{
+    if (SRAM) delete[] SRAM;
+    if (Discover_Buffer) delete[] Discover_Buffer;
 }
 
 void Reset()
 {
-    //
 }
 
 void LoadSave(char* path)
 {
     if (SRAM) delete[] SRAM;
     if (Discover_Buffer) delete[] Discover_Buffer;
+
+    Discover_Buffer = NULL;
 
     strncpy(SRAMPath, path, 255);
     SRAMPath[255] = '\0';
@@ -553,9 +561,16 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
-void Init()
+bool Init()
 {
-    NDSCart_SRAM::Init();
+    if (!NDSCart_SRAM::Init()) return false;
+
+    return true;
+}
+
+void DeInit()
+{
+    NDSCart_SRAM::DeInit();
 }
 
 void Reset()

@@ -57,6 +57,8 @@
 		<Unit filename="GPU.h" />
 		<Unit filename="GPU2D.cpp" />
 		<Unit filename="GPU2D.h" />
+		<Unit filename="GPU3D.cpp" />
+		<Unit filename="GPU3D.h" />
 		<Unit filename="NDS.cpp" />
 		<Unit filename="NDS.h" />
 		<Unit filename="NDSCart.cpp" />

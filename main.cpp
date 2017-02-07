@@ -167,6 +167,8 @@ int main()
 
     instance = GetModuleHandle(NULL);
 
+    //SetThreadAffinityMask(GetCurrentThread(), 0x8);
+
     // god this shit sucks
     WNDCLASSEX shit;
     shit.cbSize = sizeof(shit);
@@ -255,6 +257,8 @@ int main()
             SetWindowText(melon, melontitle);
         }
     }
+
+    NDS::DeInit();
 
     return 0;
 }

@@ -111,7 +111,7 @@ u16 _soundbias; // temp
 bool Running;
 
 
-void Init()
+bool Init()
 {
     ARM9 = new ARM(0);
     ARM7 = new ARM(1);
@@ -128,12 +128,30 @@ void Init()
     IPCFIFO9 = new FIFO(16);
     IPCFIFO7 = new FIFO(16);
 
-    NDSCart::Init();
-    GPU::Init();
-    SPI::Init();
-    RTC::Init();
+    if (!NDSCart::Init()) return false;
+    if (!GPU::Init()) return false;
+    if (!SPI::Init()) return false;
+    if (!RTC::Init()) return false;
 
     Reset();
+    return true;
+}
+
+void DeInit()
+{
+    delete ARM9;
+    delete ARM7;
+
+    for (int i = 0; i < 8; i++)
+        delete DMAs[i];
+
+    delete IPCFIFO9;
+    delete IPCFIFO7;
+
+    NDSCart::DeInit();
+    GPU::DeInit();
+    SPI::DeInit();
+    RTC::DeInit();
 }
 
 
@@ -289,7 +307,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    NDSCart::LoadROM("rom/sm64ds.nds");
+    NDSCart::LoadROM("rom/mkds.nds");
 
     Running = true; // hax
 }
