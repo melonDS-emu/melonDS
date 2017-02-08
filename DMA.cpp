@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "DMA.h"
 #include "NDSCart.h"
+#include "GPU3D.h"
 
 
 // NOTES ON DMA SHIT
@@ -87,9 +88,11 @@ void DMA::WriteCnt(u32 val)
 
         if ((StartMode & 0x7) == 0)
             Start();
+        else if (StartMode == 0x07)
+            GPU3D::CheckFIFODMA();
         //else
         //    printf("SPECIAL ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
-        if ((StartMode&7)!=0x00 && (StartMode&7)!=0x1 && StartMode!=2 && StartMode!=0x05 && StartMode!=0x12)
+        if ((StartMode&7)!=0x00 && (StartMode&7)!=0x1 && StartMode!=2 && StartMode!=0x05 && StartMode!=0x12 && StartMode!=0x07)
             printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
         //if (StartMode==2)printf("HBLANK DMA %08X -> %08X\n", SrcAddr, DstAddr);
     }
@@ -123,6 +126,10 @@ void DMA::Start()
             NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
         return;
     }
+if (StartMode == 0x07)printf("GXFIFO DMA %08X %08X\n", Cnt, CurSrcAddr);
+    u32 num = RemCount;
+    if (StartMode == 0x07 && num > 112)
+        num = 112;
 
     // TODO: NOT MAKE THE DMA INSTANT!!
     if (!(Cnt & 0x04000000))
@@ -130,12 +137,13 @@ void DMA::Start()
         u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
         void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
-        while (RemCount > 0)
+        while (num > 0)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
+            num--;
             RemCount--;
         }
     }
@@ -144,14 +152,22 @@ void DMA::Start()
         u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
         void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
-        while (RemCount > 0)
+        while (num > 0)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
+            num--;
             RemCount--;
         }
+    }
+
+    if (RemCount)
+    {
+        Cnt &= ~countmask;
+        Cnt |= RemCount;
+        return;
     }
 
     if (!(Cnt & 0x02000000))

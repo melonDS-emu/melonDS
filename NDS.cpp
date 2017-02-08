@@ -307,7 +307,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/nsmb.nds"))
+    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
         Running = true; // hax
 }
 
@@ -377,6 +377,7 @@ void RunFrame()
         ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
 
         RunSystem(ndscyclestorun);
+        //GPU3D::Run(ndscyclestorun);
 
         /*while (ndscycles < ndscyclestorun)
         {
