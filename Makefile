@@ -112,13 +112,8 @@ else
 endif
 
 OBJECTS := NDS.o ARM.o ARMInterpreter.o ARMInterpreter_ALU.o ARMInterpreter_Branch.o ARMInterpreter_LoadStore.o CP15.o DMA.o GPU.o GPU2D.o GPU3D.o NDSCart.o RTC.o SPI.o Wifi.o libretro.o 
-CXXFLAGS += -I../../libretro-common/include -Wall -pedantic $(fpic)
 
-ifneq (,$(findstring qnx,$(platform)))
-CXXFLAGS += -Wc,-std=c99
-else
-CXXFLAGS += -std=gnu99
-endif
+CXXFLAGS += -I../../libretro-common/include -Wall -pedantic $(fpic)
 
 CXXFLAGS += -I../../libretro-common/include
 

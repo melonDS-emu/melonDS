@@ -77,19 +77,17 @@ static retro_input_state_t input_state_cb;
 
 void retro_get_system_av_info(struct retro_system_av_info *info)
 {
-   float aspect = 0.0f;
-   float sampling_rate = 30000.0f;
+   float aspect                = 0.0f;
+   float sampling_rate         = 30000.0f;
 
-   info->geometry = (struct retro_game_geometry) {
-      .base_width   = 256,
-      .base_height  = 386,
-      .max_width    = 256,
-      .max_height   = 384,
-      .aspect_ratio = aspect,
-   };
+   info->geometry.base_width   = 256;
+   info->geometry.base_height  = 386;
+   info->geometry.max_width    = 256;
+   info->geometry.max_height   = 384;
+   info->geometry.aspect_ratio = aspect;
 
-   last_aspect = aspect;
-   last_sample_rate = sampling_rate;
+   last_aspect                 = aspect;
+   last_sample_rate            = sampling_rate;
 }
 
 static struct retro_rumble_interface rumble;
