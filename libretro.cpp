@@ -268,12 +268,18 @@ WORD red_mask = 0x7C00;
 WORD green_mask = 0x3E0;
 WORD blue_mask = 0x1F;
 
+
 void retro_run(void)
 {
    update_input();
    NDS::RunFrame();
    memcpy(frame_buf, GPU::Framebuffer, sizeof(GPU::Framebuffer));
-
+   for (int i = 0; i < 256*192*2; i++)
+   {
+       frame_buf[i]  = ((frame_buf[i] & 0x1F) << 11) | 
+                       ((frame_buf[i] & 0x3E0) << 1) | 
+                       ((frame_buf[i] & 0x7C00) >> 10);
+   }
    video_cb(frame_buf, 256, 384, 0);
    if (!use_audio_cb)
       audio_callback();
