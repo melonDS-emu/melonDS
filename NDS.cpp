@@ -30,6 +30,7 @@
 #include "Wifi.h"
 
 extern char retro_base_directory[4096];
+extern char retro_game_path[4096];
 
 namespace NDS
 {
@@ -311,8 +312,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    snprintf(path, sizeof(path), "%s/nsmb.nds", retro_base_directory);
-    if (NDSCart::LoadROM(path))
+    if (NDSCart::LoadROM(retro_game_path))
         Running = true; // hax
 }
 
