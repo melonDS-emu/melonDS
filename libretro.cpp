@@ -18,6 +18,7 @@ static bool use_audio_cb;
 static float last_aspect;
 static float last_sample_rate;
 char retro_base_directory[4096];
+char retro_game_path[4096];
 
 static void fallback_log(enum retro_log_level level, const char *fmt, ...)
 {
@@ -39,8 +40,6 @@ void retro_init(void)
    {
       snprintf(retro_base_directory, sizeof(retro_base_directory), "%s", dir);
    }
-
-   NDS::Init();
 }
 
 void retro_deinit(void)
@@ -63,7 +62,7 @@ void retro_get_system_info(struct retro_system_info *info)
 {
    memset(info, 0, sizeof(*info));
    info->library_name     = "melonDS";
-   info->library_version  = "what?";
+   info->library_version  = "0.1";
    info->need_fullpath    = true;
    info->valid_extensions = "nds";
 }
@@ -96,9 +95,6 @@ static struct retro_rumble_interface rumble;
 void retro_set_environment(retro_environment_t cb)
 {
    environ_cb = cb;
-
-   bool no_content = true;
-   cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_content);
 
    if (cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging))
       log_cb = logging.log;
@@ -307,6 +303,9 @@ bool retro_load_game(const struct retro_game_info *info)
       log_cb(RETRO_LOG_INFO, "XRGB8888 is not supported.\n");
       return false;
    }
+
+   snprintf(retro_game_path, sizeof(retro_game_path), "%s", info->path);
+   NDS::Init();
 
    struct retro_audio_callback audio_cb = { audio_callback, audio_set_state };
    use_audio_cb = environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, &audio_cb);

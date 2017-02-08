@@ -30,6 +30,7 @@
 #include "Wifi.h"
 
 extern char retro_base_directory[4096];
+extern char retro_game_path[4096];
 
 namespace NDS
 {
