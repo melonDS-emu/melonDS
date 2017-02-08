@@ -116,8 +116,8 @@ include Makefile.common
 
 OBJECTS := $(SOURCES_C:.c=.o) $(SOURCES_CXX:.cpp=.o)
 
-CFLAGS   += -Wall -pedantic -D__LIBRETRO__ $(fpic)
-CXXFLAGS += -Wall -pedantic -D__LIBRETRO__ $(fpic)
+CFLAGS   += -Wall -D__LIBRETRO__ $(fpic)
+CXXFLAGS += -Wall -D__LIBRETRO__ $(fpic)
 
 all: $(TARGET)
 
