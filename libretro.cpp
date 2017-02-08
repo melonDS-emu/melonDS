@@ -11,7 +11,7 @@
 #include "GPU.h"
 #include "libretro.h"
 
-static uint32_t *frame_buf;
+static uint16_t *frame_buf;
 static struct retro_log_callback logging;
 static retro_log_printf_t log_cb;
 static bool use_audio_cb;
@@ -33,7 +33,7 @@ static retro_environment_t environ_cb;
 
 void retro_init(void)
 {
-   frame_buf = (uint32_t*)malloc(320 * 240 * sizeof(uint32_t));
+   frame_buf = (uint16_t*)malloc(256 * 384 * sizeof(uint16_t));
    const char *dir = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir) && dir)
    {
@@ -76,14 +76,14 @@ static retro_input_state_t input_state_cb;
 
 void retro_get_system_av_info(struct retro_system_av_info *info)
 {
-   float aspect = 4.0f / 3.0f;
+   float aspect = 0.0f;
    float sampling_rate = 30000.0f;
 
    info->geometry = (struct retro_game_geometry) {
-      .base_width   = 320,
-      .base_height  = 240,
-      .max_width    = 320,
-      .max_height   = 240,
+      .base_width   = 256,
+      .base_height  = 386,
+      .max_width    = 256,
+      .max_height   = 384,
       .aspect_ratio = aspect,
    };
 
@@ -264,10 +264,17 @@ static void audio_set_state(bool enable)
    (void)enable;
 }
 
+WORD red_mask = 0x7C00;
+WORD green_mask = 0x3E0;
+WORD blue_mask = 0x1F;
+
 void retro_run(void)
 {
    update_input();
    NDS::RunFrame();
+   memcpy(frame_buf, GPU::Framebuffer, sizeof(GPU::Framebuffer));
+
+   video_cb(frame_buf, 256, 384, 0);
    if (!use_audio_cb)
       audio_callback();
 
@@ -288,7 +295,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 
-   enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
+   enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_RGB565;
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
    {
       log_cb(RETRO_LOG_INFO, "XRGB8888 is not supported.\n");
