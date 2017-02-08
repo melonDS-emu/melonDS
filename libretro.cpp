@@ -6,7 +6,9 @@
 #include <math.h>
 
 #include <stdio.h>
+#if defined(_WIN32) && !defined(_XBOX)
 #include <windows.h>
+#endif
 #include "NDS.h"
 #include "GPU.h"
 #include "libretro.h"
@@ -259,11 +261,6 @@ static void audio_set_state(bool enable)
 {
    (void)enable;
 }
-
-WORD red_mask = 0x7C00;
-WORD green_mask = 0x3E0;
-WORD blue_mask = 0x1F;
-
 
 void retro_run(void)
 {
