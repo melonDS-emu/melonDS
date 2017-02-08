@@ -1,0 +1,17 @@
+SOURCES_C   :=
+SOURCES_CXX := $(CORE_DIR)/NDS.cpp \
+					$(CORE_DIR)/ARM.cpp \
+					$(CORE_DIR)/ARMInterpreter.cpp \
+					$(CORE_DIR)/ARMInterpreter_ALU.cpp \
+					$(CORE_DIR)/ARMInterpreter_Branch.cpp \
+					$(CORE_DIR)/ARMInterpreter_LoadStore.cpp \
+					$(CORE_DIR)/CP15.cpp \
+					$(CORE_DIR)/DMA.cpp \
+					$(CORE_DIR)/GPU.cpp \
+					$(CORE_DIR)/GPU2D.cpp \
+					$(CORE_DIR)/GPU3D.cpp \
+					$(CORE_DIR)/NDSCart.cpp \
+					$(CORE_DIR)/RTC.cpp \
+					$(CORE_DIR)/SPI.cpp \
+					$(CORE_DIR)/Wifi.cpp \
+					$(CORE_DIR)/libretro.cpp
