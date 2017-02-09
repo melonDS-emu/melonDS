@@ -28,6 +28,7 @@ void Reset();
 
 void Run(s32 cycles);
 void CheckFIFOIRQ();
+void CheckFIFODMA();
 
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);

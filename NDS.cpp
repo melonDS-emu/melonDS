@@ -326,7 +326,7 @@ void Reset()
     if (NDSCart::LoadROM(retro_game_path))
         Running = true; // hax
 #else 
-    if (NDSCart::LoadROM("rom/nsmb.nds"))
+    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
         Running = true; // hax
 #endif
 }
@@ -397,6 +397,7 @@ void RunFrame()
         ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
 
         RunSystem(ndscyclestorun);
+        //GPU3D::Run(ndscyclestorun);
 
         /*while (ndscycles < ndscyclestorun)
         {
