@@ -197,7 +197,7 @@ void ARM::RestoreCPSR()
     switch (CPSR & 0x1F)
     {
     case 0x11:
-        CPSR = R_FIQ[8];
+        CPSR = R_FIQ[7];
         break;
 
     case 0x12:
