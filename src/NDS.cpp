@@ -29,8 +29,10 @@
 #include "RTC.h"
 #include "Wifi.h"
 
+#ifdef __LIBRETRO__
 extern char retro_base_directory[4096];
 extern char retro_game_path[4096];
+#endif
 
 namespace NDS
 {
@@ -222,11 +224,15 @@ void Reset()
     FILE* f;
     u32 i;
 
+#ifdef __LIBRETRO__
     char path[2048];
     snprintf(path, sizeof(path), "%s/bios9.bin", retro_base_directory);
     f = fopen(path, "rb");
+#else
+    f = fopen("bios9.bin", "rb");
+#endif
     if (!f)
-        printf("ARM9 BIOS not found at %s\n");
+        printf("ARM9 BIOS not found\n");
     else
     {
         fseek(f, 0, SEEK_SET);
@@ -236,8 +242,12 @@ void Reset()
         fclose(f);
     }
 
+#ifdef __LIBRETRO__
     snprintf(path, sizeof(path), "%s/bios7.bin", retro_base_directory);
     f = fopen(path, "rb");
+#else
+    f = fopen("bios7.bin", "rb");
+#endif
     if (!f)
         printf("ARM7 BIOS not found\n");
     else
