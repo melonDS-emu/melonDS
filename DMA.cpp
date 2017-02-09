@@ -126,7 +126,7 @@ void DMA::Start()
             NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
         return;
     }
-if (StartMode == 0x07)printf("GXFIFO DMA %08X %08X\n", Cnt, CurSrcAddr);
+    //if (StartMode == 0x07)printf("GXFIFO DMA %08X %08X\n", Cnt, CurSrcAddr);
     u32 num = RemCount;
     if (StartMode == 0x07 && num > 112)
         num = 112;

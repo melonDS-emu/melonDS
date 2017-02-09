@@ -23,6 +23,19 @@
 #include "FIFO.h"
 
 
+// 3D engine notes
+//
+// vertex/polygon RAM is filled when a complete polygon is defined, after it's been culled and clipped
+// 04000604 reads from bank used by renderer
+// bank used by renderer is emptied at scanline ~192
+// banks are swapped at scanline ~194
+// TODO: needs more investigation. it's weird.
+//
+// clipping rules:
+// * if a shared vertex in a strip is clipped, affected polygons are converted into single polygons
+//   strip is resumed at the first eligible polygon
+
+
 namespace GPU3D
 {
 
@@ -126,10 +139,76 @@ s32 PosMatrix[16];
 s32 VecMatrix[16];
 s32 TexMatrix[16];
 
+s32 ClipMatrix[16];
+bool ClipMatrixDirty;
+
+s32 Viewport[4];
+
 s32 ProjMatrixStack[16];
 s32 PosMatrixStack[31][16];
 s32 ProjMatrixStackPointer;
 s32 PosMatrixStackPointer;
+
+void MatrixLoadIdentity(s32* m);
+void UpdateClipMatrix();
+
+
+u32 PolygonMode;
+s16 CurVertex[3];
+
+s32 TempVertexBuffer[4][4];
+
+
+
+bool Init()
+{
+    CmdFIFO = new FIFO<CmdFIFOEntry>(256);
+    CmdPIPE = new FIFO<CmdFIFOEntry>(4);
+
+    return true;
+}
+
+void DeInit()
+{
+    delete CmdFIFO;
+    delete CmdPIPE;
+}
+
+void Reset()
+{
+    CmdFIFO->Clear();
+    CmdPIPE->Clear();
+
+    NumCommands = 0;
+    CurCommand = 0;
+    ParamCount = 0;
+    TotalParams = 0;
+
+    GXStat = 0;
+
+    memset(ExecParams, 0, 32*4);
+    ExecParamCount = 0;
+    CycleCount = 0;
+
+
+    MatrixMode = 0;
+
+    MatrixLoadIdentity(ProjMatrix);
+    MatrixLoadIdentity(PosMatrix);
+    MatrixLoadIdentity(VecMatrix);
+    MatrixLoadIdentity(TexMatrix);
+
+    ClipMatrixDirty = true;
+    UpdateClipMatrix();
+
+    memset(Viewport, 0, sizeof(Viewport));
+
+    memset(ProjMatrixStack, 0, 16*4);
+    memset(PosMatrixStack, 0, 31 * 16*4);
+    ProjMatrixStackPointer = 0;
+    PosMatrixStackPointer = 0;
+}
+
 
 
 void MatrixLoadIdentity(s32* m)
@@ -254,50 +333,50 @@ void MatrixTranslate(s32* m, s32* s)
     m[14] += (s[0]*m[2] + s[1]*m[6] + s[2]*m[10]) >> 12;
 }
 
-
-bool Init()
+void UpdateClipMatrix()
 {
-    CmdFIFO = new FIFO<CmdFIFOEntry>(256);
-    CmdPIPE = new FIFO<CmdFIFOEntry>(4);
+    if (!ClipMatrixDirty) return;
+    ClipMatrixDirty = false;
 
-    return true;
+    memcpy(ClipMatrix, ProjMatrix, 16*4);
+    MatrixMult4x4(ClipMatrix, PosMatrix);
 }
 
-void DeInit()
+
+
+void SubmitPolygon()
 {
-    delete CmdFIFO;
-    delete CmdPIPE;
+    //
 }
 
-void Reset()
+void SubmitVertex()
 {
-    CmdFIFO->Clear();
-    CmdPIPE->Clear();
+    s32 vertex[4] = {(s32)CurVertex[0], (s32)CurVertex[1], (s32)CurVertex[2], 0x1000};
+    s32 vertextrans[4];
 
-    NumCommands = 0;
-    CurCommand = 0;
-    ParamCount = 0;
-    TotalParams = 0;
+    //printf("vertex: %f %f %f\n", vertex[0]/4096.0f, vertex[1]/4096.0f, vertex[2]/4096.0f);
 
-    GXStat = 0;
+    UpdateClipMatrix();
+    vertextrans[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
+    vertextrans[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
+    vertextrans[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
+    vertextrans[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
-    memset(ExecParams, 0, 32*4);
-    ExecParamCount = 0;
-    CycleCount = 0;
+    //printf("vertex trans: %f %f %f\n", vertextrans[0]/4096.0f, vertextrans[1]/4096.0f, vertextrans[2]/4096.0f);
 
+    if (vertextrans[3] == 0)
+    {
+        //printf("!!!! VERTEX W IS ZERO\n");
+        //return;
+        vertextrans[3] = 0x1000; // checkme
+    }
 
-    MatrixMode = 0;
+    s32 screenX = (((vertextrans[0]+vertextrans[3]) * Viewport[2]) / (vertextrans[3]<<1)) + Viewport[0];
+    s32 screenY = (((vertextrans[1]+vertextrans[3]) * Viewport[3]) / (vertextrans[3]<<1)) + Viewport[1];
 
-    MatrixLoadIdentity(ProjMatrix);
-    MatrixLoadIdentity(PosMatrix);
-    MatrixLoadIdentity(VecMatrix);
-    MatrixLoadIdentity(TexMatrix);
-
-    memset(ProjMatrixStack, 0, 16*4);
-    memset(PosMatrixStack, 0, 31 * 16*4);
-    ProjMatrixStackPointer = 0;
-    PosMatrixStackPointer = 0;
+    //printf("screen: %d, %d\n", screenX, screenY);
 }
+
 
 
 void CmdFIFOWrite(CmdFIFOEntry& entry)
@@ -335,7 +414,6 @@ CmdFIFOEntry CmdFIFORead()
 
     return ret;
 }
-
 
 
 
@@ -408,6 +486,7 @@ void ExecuteCommand()
                 ProjMatrixStackPointer--;
                 memcpy(ProjMatrix, ProjMatrixStack, 16*4);
                 GXStat |= (1<<14);
+                ClipMatrixDirty = true;
             }
             else if (MatrixMode == 3)
             {
@@ -429,6 +508,7 @@ void ExecuteCommand()
 
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer], 16*4);
                 GXStat |= (1<<14);
+                ClipMatrixDirty = true;
             }
             break;
 
@@ -460,6 +540,7 @@ void ExecuteCommand()
             if (MatrixMode == 0)
             {
                 memcpy(ProjMatrix, ProjMatrixStack, 16*4);
+                ClipMatrixDirty = true;
             }
             else if (MatrixMode == 3)
             {
@@ -477,12 +558,16 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x15: // identity
             if (MatrixMode == 0)
+            {
                 MatrixLoadIdentity(ProjMatrix);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixLoadIdentity(TexMatrix);
             else
@@ -490,12 +575,16 @@ void ExecuteCommand()
                 MatrixLoadIdentity(PosMatrix);
                 if (MatrixMode == 2)
                     MatrixLoadIdentity(VecMatrix);
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x16: // load 4x4
             if (MatrixMode == 0)
+            {
                 MatrixLoad4x4(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixLoad4x4(TexMatrix, (s32*)ExecParams);
             else
@@ -503,12 +592,16 @@ void ExecuteCommand()
                 MatrixLoad4x4(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                     MatrixLoad4x4(VecMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x17: // load 4x3
             if (MatrixMode == 0)
+            {
                 MatrixLoad4x3(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixLoad4x3(TexMatrix, (s32*)ExecParams);
             else
@@ -516,12 +609,16 @@ void ExecuteCommand()
                 MatrixLoad4x3(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                     MatrixLoad4x3(VecMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x18: // mult 4x4
             if (MatrixMode == 0)
+            {
                 MatrixMult4x4(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixMult4x4(TexMatrix, (s32*)ExecParams);
             else
@@ -532,12 +629,16 @@ void ExecuteCommand()
                     MatrixMult4x4(VecMatrix, (s32*)ExecParams);
                     CycleCount += 30;
                 }
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x19: // mult 4x3
             if (MatrixMode == 0)
+            {
                 MatrixMult4x3(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixMult4x3(TexMatrix, (s32*)ExecParams);
             else
@@ -548,12 +649,16 @@ void ExecuteCommand()
                     MatrixMult4x3(VecMatrix, (s32*)ExecParams);
                     CycleCount += 30;
                 }
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x1A: // mult 3x3
             if (MatrixMode == 0)
+            {
                 MatrixMult3x3(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixMult3x3(TexMatrix, (s32*)ExecParams);
             else
@@ -564,21 +669,31 @@ void ExecuteCommand()
                     MatrixMult3x3(VecMatrix, (s32*)ExecParams);
                     CycleCount += 30;
                 }
+                ClipMatrixDirty = true;
             }
             break;
 
         case 0x1B: // scale
             if (MatrixMode == 0)
+            {
                 MatrixScale(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixScale(TexMatrix, (s32*)ExecParams);
             else
+            {
                 MatrixScale(PosMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             break;
 
         case 0x1C: // translate
             if (MatrixMode == 0)
+            {
                 MatrixTranslate(ProjMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
+            }
             else if (MatrixMode == 3)
                 MatrixTranslate(TexMatrix, (s32*)ExecParams);
             else
@@ -586,6 +701,7 @@ void ExecuteCommand()
                 MatrixTranslate(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                     MatrixTranslate(VecMatrix, (s32*)ExecParams);
+                ClipMatrixDirty = true;
             }
             break;
 
@@ -593,8 +709,58 @@ void ExecuteCommand()
             // TODO: more cycles if lights are enabled
             break;
 
+        case 0x23: // full vertex
+            CurVertex[0] = ExecParams[0] & 0xFFFF;
+            CurVertex[1] = ExecParams[0] >> 16;
+            CurVertex[2] = ExecParams[1] & 0xFFFF;
+            SubmitVertex();
+            break;
+
+        case 0x24: // 10-bit vertex
+            CurVertex[0] = (ExecParams[0] & 0x000003FF) << 6;
+            CurVertex[1] = (ExecParams[0] & 0x000FFC00) >> 4;
+            CurVertex[2] = (ExecParams[0] & 0x3FF00000) >> 14;
+            SubmitVertex();
+            break;
+
+        case 0x25: // vertex XY
+            CurVertex[0] = ExecParams[0] & 0xFFFF;
+            CurVertex[1] = ExecParams[0] >> 16;
+            SubmitVertex();
+            break;
+
+        case 0x26: // vertex XZ
+            CurVertex[0] = ExecParams[0] & 0xFFFF;
+            CurVertex[2] = ExecParams[0] >> 16;
+            SubmitVertex();
+            break;
+
+        case 0x27: // vertex YZ
+            CurVertex[1] = ExecParams[0] & 0xFFFF;
+            CurVertex[2] = ExecParams[0] >> 16;
+            SubmitVertex();
+            break;
+
+        case 0x28: // 10-bit delta vertex
+            CurVertex[0] += (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
+            CurVertex[1] += (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
+            CurVertex[2] += (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
+            SubmitVertex();
+            break;
+
+        case 0x40:
+            PolygonMode = ExecParams[0] & 0x3;
+            break;
+
         case 0x50:
             // TODO: make it happen upon VBlank, not right now
+            break;
+
+        case 0x60: // viewport x1,y1,x2,y2
+            Viewport[0] = ExecParams[0] & 0xFF;
+            Viewport[1] = (ExecParams[0] >> 8) & 0xFF;
+            Viewport[2] = ((ExecParams[0] >> 16) & 0xFF) - Viewport[0] + 1;
+            Viewport[3] = (ExecParams[0] >> 24) - Viewport[1] + 1;
             break;
         }
     }
@@ -606,12 +772,12 @@ void Run(s32 cycles)
     {
         while (CycleCount <= 0 && !CmdPIPE->IsEmpty())
             ExecuteCommand();
-
-        if (CmdPIPE->IsEmpty())
-            CycleCount = 0;
     }
-    else
-        CycleCount -= cycles;
+
+    CycleCount -= cycles;
+
+    if (CycleCount <= 0 && CmdPIPE->IsEmpty())
+        CycleCount = 0;
 }
 
 
@@ -667,8 +833,8 @@ u32 Read32(u32 addr)
 
     if (addr >= 0x04000640 && addr < 0x04000680)
     {
-        printf("!! CLIPMTX READ\n");
-        return 0;
+        UpdateClipMatrix();
+        return ClipMatrix[(addr & 0x3C) >> 2];
     }
     if (addr >= 0x04000680 && addr < 0x040006A4)
     {
