@@ -326,7 +326,7 @@ void Reset()
     if (NDSCart::LoadROM(retro_game_path))
         Running = true; // hax
 #else 
-    if (NDSCart::LoadROM("nsmb.nds"))
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 #endif
 }
