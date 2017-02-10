@@ -177,11 +177,15 @@ bool Init()
     CmdFIFO = new FIFO<CmdFIFOEntry>(256);
     CmdPIPE = new FIFO<CmdFIFOEntry>(4);
 
+    if (!SoftRenderer::Init()) return false;
+
     return true;
 }
 
 void DeInit()
 {
+    SoftRenderer::DeInit();
+
     delete CmdFIFO;
     delete CmdPIPE;
 }
@@ -228,6 +232,8 @@ void Reset()
     CurPolygonRAM = &PolygonRAM[0];
     NumVertices = 0;
     NumPolygons = 0;
+
+    SoftRenderer::Reset();
 }
 
 
@@ -1152,7 +1158,8 @@ void CheckFIFODMA()
 
 void VBlank()
 {
-    // TODO: render
+    // TODO: only do this if a SwapBuffers command was issued
+    SoftRenderer::RenderFrame(CurVertexRAM, CurPolygonRAM, NumPolygons);
 
     CurRAMBank = CurRAMBank?0:1;
     CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];

@@ -16,54 +16,40 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU3D_H
-#define GPU3D_H
+#include <stdio.h>
+#include <string.h>
+#include "NDS.h"
+#include "GPU3D.h"
+
 
 namespace GPU3D
 {
-
-typedef struct
-{
-    s32 Position[4];
-    u8 Color[3];
-
-} Vertex;
-
-typedef struct
-{
-    Vertex* Vertices[10];
-    u32 NumVertices;
-
-} Polygon;
-
-bool Init();
-void DeInit();
-void Reset();
-
-void Run(s32 cycles);
-void CheckFIFOIRQ();
-void CheckFIFODMA();
-
-void VBlank();
-
-u8 Read8(u32 addr);
-u16 Read16(u32 addr);
-u32 Read32(u32 addr);
-void Write8(u32 addr, u8 val);
-void Write16(u32 addr, u16 val);
-void Write32(u32 addr, u32 val);
-
 namespace SoftRenderer
 {
 
-bool Init();
-void DeInit();
-void Reset();
+u8 ColorBuffer[256*192 * 4];
 
-void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys);
 
+bool Init()
+{
+    //
+}
+
+void DeInit()
+{
+    //
+}
+
+void Reset()
+{
+    memset(ColorBuffer, 0, 256*192 * 4);
+}
+
+
+void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
+{
+    //
 }
 
 }
-
-#endif
+}
