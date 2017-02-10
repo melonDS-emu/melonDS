@@ -243,6 +243,11 @@ void GPU2D::DrawScanline(u32 line)
     }
 }
 
+void GPU2D::VBlank()
+{
+    //
+}
+
 
 template<u32 bgmode>
 void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)

@@ -22,6 +22,20 @@
 namespace GPU3D
 {
 
+typedef struct
+{
+    s32 Position[4];
+    u8 Color[3];
+
+} Vertex;
+
+typedef struct
+{
+    Vertex* Vertices[10];
+    u32 NumVertices;
+
+} Polygon;
+
 bool Init();
 void DeInit();
 void Reset();
@@ -29,6 +43,8 @@ void Reset();
 void Run(s32 cycles);
 void CheckFIFOIRQ();
 void CheckFIFODMA();
+
+void VBlank();
 
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);

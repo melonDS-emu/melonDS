@@ -37,6 +37,7 @@ public:
     void Write32(u32 addr, u32 val);
 
     void DrawScanline(u32 line);
+    void VBlank();
 
 private:
     u32 Num;

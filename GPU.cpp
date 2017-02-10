@@ -837,6 +837,10 @@ void StartScanline(u32 line)
 
             if (DispStat[0] & (1<<3)) NDS::TriggerIRQ(0, NDS::IRQ_VBlank);
             if (DispStat[1] & (1<<3)) NDS::TriggerIRQ(1, NDS::IRQ_VBlank);
+
+            GPU2D_A->VBlank();
+            GPU2D_B->VBlank();
+            GPU3D::VBlank();
         }
 
         //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);

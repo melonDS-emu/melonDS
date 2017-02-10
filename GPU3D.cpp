@@ -39,6 +39,8 @@
 namespace GPU3D
 {
 
+#define COPYVERTEX(a, b)  { *(u64*)&a[0] = *(u64*)&b[0]; *(u64*)&a[2] = *(u64*)&b[2]; }
+
 const u32 CmdNumParams[256] =
 {
     // 0x00
@@ -156,7 +158,17 @@ void UpdateClipMatrix();
 u32 PolygonMode;
 s16 CurVertex[3];
 
-s32 TempVertexBuffer[4][4];
+Vertex TempVertexBuffer[4];
+u32 VertexNum;
+u32 VertexNumInPoly;
+
+Vertex VertexRAM[6144 * 2];
+Polygon PolygonRAM[2048 * 2];
+
+Vertex* CurVertexRAM;
+Polygon* CurPolygonRAM;
+u32 NumVertices, NumPolygons;
+u32 CurRAMBank;
 
 
 
@@ -207,6 +219,15 @@ void Reset()
     memset(PosMatrixStack, 0, 31 * 16*4);
     ProjMatrixStackPointer = 0;
     PosMatrixStackPointer = 0;
+
+    VertexNum = 0;
+    VertexNumInPoly = 0;
+
+    CurRAMBank = 0;
+    CurVertexRAM = &VertexRAM[0];
+    CurPolygonRAM = &PolygonRAM[0];
+    NumVertices = 0;
+    NumPolygons = 0;
 }
 
 
@@ -346,25 +367,335 @@ void UpdateClipMatrix()
 
 void SubmitPolygon()
 {
-    //
+    // clip.
+    // for each vertex:
+    // if it's outside, check if the previous and next vertices are inside, if so, fixor
+
+    Vertex clippedvertices[20];
+    u32 numclipped;
+
+    int nverts = PolygonMode & 0x1 ? 4:3;
+    int nvisible = 0;
+
+    /*for (int i = 0; i < nverts; i++)
+    {
+        s32* v = TempVertexBuffer[i].Position;
+
+        if ((u32)(v[0]+0x1000) <= 0x2000 &&
+            (u32)(v[1]+0x1000) <= 0x2000 &&
+            (u32)(v[2]+0x1000) <= 0x2000)
+        {
+            nvisible++;
+        }
+    }
+
+    if (!nvisible) return;*/
+
+    int prev, next;
+    int c;
+
+    // X clipping
+
+    prev = nverts-1; next = 1; c = 0;
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex vtx = TempVertexBuffer[i];
+        if (vtx.Position[0] > 0x1000)
+        {
+            Vertex* vprev = &TempVertexBuffer[prev];
+            if (vprev->Position[0] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vprev->Position[0]) << 12) / (vtx.Position[0] - vprev->Position[0]);
+
+                Vertex mid;
+                mid.Position[0] = 0x1000;
+                mid.Position[1] = vprev->Position[1] + (((vtx.Position[1] - vprev->Position[1]) * factor) >> 12);
+                mid.Position[2] = vprev->Position[2] + (((vtx.Position[2] - vprev->Position[2]) * factor) >> 12);
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &TempVertexBuffer[next];
+            if (vnext->Position[0] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vnext->Position[0]) << 12) / (vtx.Position[0] - vnext->Position[0]);
+
+                Vertex mid;
+                mid.Position[0] = 0x1000;
+                mid.Position[1] = vnext->Position[1] + (((vtx.Position[1] - vnext->Position[1]) * factor) >> 12);
+                mid.Position[2] = vnext->Position[2] + (((vtx.Position[2] - vnext->Position[2]) * factor) >> 12);
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else if (vtx.Position[0] < -0x1000)
+        {
+            Vertex* vprev = &TempVertexBuffer[prev];
+            if (vprev->Position[0] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vprev->Position[0]) << 12) / (vtx.Position[0] - vprev->Position[0]);
+
+                Vertex mid;
+                mid.Position[0] = -0x1000;
+                mid.Position[1] = vprev->Position[1] + (((vtx.Position[1] - vprev->Position[1]) * factor) >> 12);
+                mid.Position[2] = vprev->Position[2] + (((vtx.Position[2] - vprev->Position[2]) * factor) >> 12);
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &TempVertexBuffer[next];
+            if (vnext->Position[0] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vnext->Position[0]) << 12) / (vtx.Position[0] - vnext->Position[0]);
+
+                Vertex mid;
+                mid.Position[0] = -0x1000;
+                mid.Position[1] = vnext->Position[1] + (((vtx.Position[1] - vnext->Position[1]) * factor) >> 12);
+                mid.Position[2] = vnext->Position[2] + (((vtx.Position[2] - vnext->Position[2]) * factor) >> 12);
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else
+            clippedvertices[c++] = vtx;
+
+        prev++; if (prev >= nverts) prev = 0;
+        next++; if (next >= nverts) next = 0;
+    }
+
+    // Y clipping
+
+    nverts = c;
+    prev = nverts-1; next = 1; c = 10;
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex vtx = clippedvertices[i];
+        if (vtx.Position[1] > 0x1000)
+        {
+            Vertex* vprev = &clippedvertices[prev];
+            if (vprev->Position[1] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vprev->Position[1]) << 12) / (vtx.Position[1] - vprev->Position[1]);
+
+                Vertex mid;
+                mid.Position[0] = vprev->Position[0] + (((vtx.Position[0] - vprev->Position[0]) * factor) >> 12);
+                mid.Position[1] = 0x1000;
+                mid.Position[2] = vprev->Position[2] + (((vtx.Position[2] - vprev->Position[2]) * factor) >> 12);
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &clippedvertices[next];
+            if (vnext->Position[1] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vnext->Position[1]) << 12) / (vtx.Position[1] - vnext->Position[1]);
+
+                Vertex mid;
+                mid.Position[0] = vnext->Position[0] + (((vtx.Position[0] - vnext->Position[0]) * factor) >> 12);
+                mid.Position[1] = 0x1000;
+                mid.Position[2] = vnext->Position[2] + (((vtx.Position[2] - vnext->Position[2]) * factor) >> 12);
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else if (vtx.Position[1] < -0x1000)
+        {
+            Vertex* vprev = &clippedvertices[prev];
+            if (vprev->Position[1] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vprev->Position[1]) << 12) / (vtx.Position[1] - vprev->Position[1]);
+
+                Vertex mid;
+                mid.Position[0] = vprev->Position[0] + (((vtx.Position[0] - vprev->Position[0]) * factor) >> 12);
+                mid.Position[1] = -0x1000;
+                mid.Position[2] = vprev->Position[2] + (((vtx.Position[2] - vprev->Position[2]) * factor) >> 12);
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &clippedvertices[next];
+            if (vnext->Position[1] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vnext->Position[1]) << 12) / (vtx.Position[1] - vnext->Position[1]);
+
+                Vertex mid;
+                mid.Position[0] = vnext->Position[0] + (((vtx.Position[0] - vnext->Position[0]) * factor) >> 12);
+                mid.Position[1] = -0x1000;
+                mid.Position[2] = vnext->Position[2] + (((vtx.Position[2] - vnext->Position[2]) * factor) >> 12);
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else
+            clippedvertices[c++] = vtx;
+
+        prev++; if (prev >= nverts) prev = 0;
+        next++; if (next >= nverts) next = 0;
+    }
+
+    // Z clipping
+
+    nverts = c-10;
+    prev = nverts-1; next = 1; c = 0;
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex vtx = clippedvertices[10+i];
+        if (vtx.Position[2] > 0x1000)
+        {
+            Vertex* vprev = &clippedvertices[10+prev];
+            if (vprev->Position[2] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vprev->Position[2]) << 12) / (vtx.Position[2] - vprev->Position[2]);
+
+                Vertex mid;
+                mid.Position[0] = vprev->Position[0] + (((vtx.Position[0] - vprev->Position[0]) * factor) >> 12);
+                mid.Position[1] = vprev->Position[1] + (((vtx.Position[1] - vprev->Position[1]) * factor) >> 12);
+                mid.Position[2] = 0x1000;
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &clippedvertices[10+next];
+            if (vnext->Position[2] <= 0x1000)
+            {
+                s32 factor = ((0x1000 - vnext->Position[2]) << 12) / (vtx.Position[2] - vnext->Position[2]);
+
+                Vertex mid;
+                mid.Position[0] = vnext->Position[0] + (((vtx.Position[0] - vnext->Position[0]) * factor) >> 12);
+                mid.Position[1] = vnext->Position[1] + (((vtx.Position[1] - vnext->Position[1]) * factor) >> 12);
+                mid.Position[2] = 0x1000;
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else if (vtx.Position[2] < -0x1000)
+        {
+            Vertex* vprev = &clippedvertices[10+prev];
+            if (vprev->Position[2] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vprev->Position[2]) << 12) / (vtx.Position[2] - vprev->Position[2]);
+
+                Vertex mid;
+                mid.Position[0] = vprev->Position[0] + (((vtx.Position[0] - vprev->Position[0]) * factor) >> 12);
+                mid.Position[1] = vprev->Position[1] + (((vtx.Position[1] - vprev->Position[1]) * factor) >> 12);
+                mid.Position[2] = -0x1000;
+                mid.Color[0] = vprev->Color[0] + (((vtx.Color[0] - vprev->Color[0]) * factor) >> 12);
+                mid.Color[1] = vprev->Color[1] + (((vtx.Color[1] - vprev->Color[1]) * factor) >> 12);
+                mid.Color[2] = vprev->Color[2] + (((vtx.Color[2] - vprev->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+
+            Vertex* vnext = &clippedvertices[10+next];
+            if (vnext->Position[2] >= -0x1000)
+            {
+                s32 factor = ((-0x1000 - vnext->Position[2]) << 12) / (vtx.Position[2] - vnext->Position[2]);
+
+                Vertex mid;
+                mid.Position[0] = vnext->Position[0] + (((vtx.Position[0] - vnext->Position[0]) * factor) >> 12);
+                mid.Position[1] = vnext->Position[1] + (((vtx.Position[1] - vnext->Position[1]) * factor) >> 12);
+                mid.Position[2] = -0x1000;
+                mid.Color[0] = vnext->Color[0] + (((vtx.Color[0] - vnext->Color[0]) * factor) >> 12);
+                mid.Color[1] = vnext->Color[1] + (((vtx.Color[1] - vnext->Color[1]) * factor) >> 12);
+                mid.Color[2] = vnext->Color[2] + (((vtx.Color[2] - vnext->Color[2]) * factor) >> 12);
+
+                clippedvertices[c++] = mid;
+            }
+        }
+        else
+            clippedvertices[c++] = vtx;
+
+        prev++; if (prev >= nverts) prev = 0;
+        next++; if (next >= nverts) next = 0;
+    }
+
+    if (c == 0) return;
+
+    // build the actual polygon
+    // TODO: tri/quad strips
+
+    if (NumPolygons >= 2048) return;
+    if (NumVertices+c > 6144) return;
+
+    Polygon* poly = &CurPolygonRAM[NumPolygons++];
+    poly->NumVertices = 0;
+
+    for (int i = 0; i < c; i++)
+    {
+        CurVertexRAM[NumVertices] = clippedvertices[i];
+        poly->Vertices[i] = &CurVertexRAM[NumVertices];
+
+        NumVertices++;
+        poly->NumVertices++;
+    }
 }
 
 void SubmitVertex()
 {
     s32 vertex[4] = {(s32)CurVertex[0], (s32)CurVertex[1], (s32)CurVertex[2], 0x1000};
-    s32 vertextrans[4];
+    //s32 vertextrans[4];
+    Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
 
     //printf("vertex: %f %f %f\n", vertex[0]/4096.0f, vertex[1]/4096.0f, vertex[2]/4096.0f);
 
     UpdateClipMatrix();
-    vertextrans[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
-    vertextrans[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
-    vertextrans[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
-    vertextrans[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+    vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
+    vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
+    vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
+    vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
-    //printf("vertex trans: %f %f %f\n", vertextrans[0]/4096.0f, vertextrans[1]/4096.0f, vertextrans[2]/4096.0f);
+    s32 w_inv;
+    if (vertextrans->Position[3] == 0)
+        w_inv = 0x1000; // checkme
+    else
+        w_inv = 0x1000000 / vertextrans->Position[3];
 
-    if (vertextrans[3] == 0)
+    vertextrans->Position[0] = (vertextrans->Position[0] * w_inv) >> 12;
+    vertextrans->Position[1] = (vertextrans->Position[1] * w_inv) >> 12;
+    vertextrans->Position[2] = (vertextrans->Position[2] * w_inv) >> 12;
+
+    // boo
+    vertextrans->Color[0] = 63;
+    vertextrans->Color[1] = 0;
+    vertextrans->Color[2] = 63;
+
+    /*printf("vertex trans: %f %f %f %f\n",
+           vertextrans->Position[0]/4096.0f,
+           vertextrans->Position[1]/4096.0f,
+           vertextrans->Position[2]/4096.0f,
+           vertextrans->Position[3]/4096.0f);*/
+
+    /*if (vertextrans[3] == 0)
     {
         //printf("!!!! VERTEX W IS ZERO\n");
         //return;
@@ -374,7 +705,24 @@ void SubmitVertex()
     s32 screenX = (((vertextrans[0]+vertextrans[3]) * Viewport[2]) / (vertextrans[3]<<1)) + Viewport[0];
     s32 screenY = (((vertextrans[1]+vertextrans[3]) * Viewport[3]) / (vertextrans[3]<<1)) + Viewport[1];
 
-    //printf("screen: %d, %d\n", screenX, screenY);
+    printf("screen: %d, %d\n", screenX, screenY);
+
+    s32* finalvertex = TempVertexBuffer[VertexNumInPoly];
+    finalvertex[0] = screenX;
+    finalvertex[1] = screenY;
+    finalvertex[2] = vertextrans[2];
+    finalvertex[3] = vertextrans[3];*/
+
+    // triangle strip:  0,1,2  1,2,3  2,3,4  3,4,5  ...
+    // quad strip:  0,1,3,2  2,3,5,4  4,5,7,6  6,7,9,8  ...
+
+    VertexNum++;
+    VertexNumInPoly++;
+    if (VertexNumInPoly >= (PolygonMode & 0x1 ? 4:3))
+    {
+        VertexNumInPoly = (PolygonMode & 0x2 ? 2:0);
+        SubmitPolygon();
+    }
 }
 
 
@@ -750,6 +1098,8 @@ void ExecuteCommand()
 
         case 0x40:
             PolygonMode = ExecParams[0] & 0x3;
+            VertexNum = 0;
+            VertexNumInPoly = 0;
             break;
 
         case 0x50:
@@ -797,6 +1147,19 @@ void CheckFIFODMA()
 {
     if (CmdFIFO->Level() < 128)
         NDS::CheckDMAs(0, 0x07);
+}
+
+
+void VBlank()
+{
+    // TODO: render
+
+    CurRAMBank = CurRAMBank?0:1;
+    CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
+    CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+
+    NumVertices = 0;
+    NumPolygons = 0;
 }
 
 
