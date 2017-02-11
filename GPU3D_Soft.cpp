@@ -127,6 +127,11 @@ void RenderPolygon(Polygon* polygon)
             //xmax = scrcoords[rcur][0] << 12;
         }
 
+        Vertex* vlcur = polygon->Vertices[lcur];
+        Vertex* vlnext = polygon->Vertices[lnext];
+        Vertex* vrcur = polygon->Vertices[rcur];
+        Vertex* vrnext = polygon->Vertices[rnext];
+
         s32 lfactor, rfactor;
 
         if (scrcoords[lnext][1] == scrcoords[lcur][1])
@@ -139,35 +144,34 @@ void RenderPolygon(Polygon* polygon)
         else
             rfactor = ((y - scrcoords[rcur][1]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);
 
-        s32 xmin = scrcoords[lcur][0] + (((scrcoords[lnext][0] - scrcoords[lcur][0]) * lfactor) >> 12);
-        s32 xmax = scrcoords[rcur][0] + (((scrcoords[rnext][0] - scrcoords[rcur][0]) * rfactor) >> 12);
+        s32 xl = scrcoords[lcur][0] + (((scrcoords[lnext][0] - scrcoords[lcur][0]) * lfactor) >> 12);
+        s32 xr = scrcoords[rcur][0] + (((scrcoords[rnext][0] - scrcoords[rcur][0]) * rfactor) >> 12);
 
-        for (s32 x = xmin; x <= xmax; x++)
+        u8 rl = vlcur->Color[0] + (((vlnext->Color[0] - vlcur->Color[0]) * lfactor) >> 12);
+        u8 gl = vlcur->Color[1] + (((vlnext->Color[1] - vlcur->Color[1]) * lfactor) >> 12);
+        u8 bl = vlcur->Color[2] + (((vlnext->Color[2] - vlcur->Color[2]) * lfactor) >> 12);
+
+        u8 rr = vrcur->Color[0] + (((vrnext->Color[0] - vrcur->Color[0]) * rfactor) >> 12);
+        u8 gr = vrcur->Color[1] + (((vrnext->Color[1] - vrcur->Color[1]) * rfactor) >> 12);
+        u8 br = vrcur->Color[2] + (((vrnext->Color[2] - vrcur->Color[2]) * rfactor) >> 12);
+
+        s32 xdiv;
+        if (xr == xl)
+            xdiv = 0;
+        else
+            xdiv = 0x1000 / (xr - xl);
+
+        for (s32 x = xl; x <= xr; x++)
         {
+            s32 xfactor = (x - xl) * xdiv;
+
             u8* pixel = &ColorBuffer[((256*y) + x) * 4];
-            pixel[0] = 0;
-            pixel[1] = 63;
-            pixel[2] = 0;
+            pixel[0] = rl + (((rr - rl) * xfactor) >> 12);
+            pixel[1] = gl + (((gr - gl) * xfactor) >> 12);
+            pixel[2] = bl + (((br - bl) * xfactor) >> 12);
             pixel[3] = 31;
         }
     }
-
-    // test
-    /*for (int i = 0; i < nverts; i++)
-    {
-        Vertex* vtx = polygon->Vertices[i];
-
-        s32 scrX = (((vtx->Position[0] + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
-        s32 scrY = (((vtx->Position[1] + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
-        if (scrX > 255) scrX = 255;
-        if (scrY > 191) scrY = 191;
-
-        u8* pixel = &ColorBuffer[((256*scrY) + scrX) * 4];
-        pixel[0] = 0;
-        pixel[1] = 63;
-        pixel[2] = 0;
-        pixel[3] = 31;
-    }*/
 }
 
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)

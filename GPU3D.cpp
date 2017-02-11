@@ -157,6 +157,7 @@ void UpdateClipMatrix();
 
 u32 PolygonMode;
 s16 CurVertex[3];
+u8 VertexColor[3];
 
 Vertex TempVertexBuffer[4];
 u32 VertexNum;
@@ -690,10 +691,9 @@ void SubmitVertex()
     vertextrans->Position[1] = (vertextrans->Position[1] * w_inv) >> 12;
     vertextrans->Position[2] = (vertextrans->Position[2] * w_inv) >> 12;
 
-    // boo
-    vertextrans->Color[0] = 63;
-    vertextrans->Color[1] = 0;
-    vertextrans->Color[2] = 63;
+    vertextrans->Color[0] = VertexColor[0];
+    vertextrans->Color[1] = VertexColor[1];
+    vertextrans->Color[2] = VertexColor[2];
 
     /*printf("vertex trans: %f %f %f %f\n",
            vertextrans->Position[0]/4096.0f,
@@ -1056,6 +1056,18 @@ void ExecuteCommand()
                 if (MatrixMode == 2)
                     MatrixTranslate(VecMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+            }
+            break;
+
+        case 0x20: // vertex color
+            {
+                u32 c = ExecParams[0];
+                u32 r = c & 0x1F;
+                u32 g = (c >> 5) & 0x1F;
+                u32 b = (c >> 10) & 0x1F;
+                VertexColor[0] = r ? (r<<1)+1 : 0;
+                VertexColor[1] = g ? (g<<1)+1 : 0;
+                VertexColor[2] = b ? (b<<1)+1 : 0;
             }
             break;
 
