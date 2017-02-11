@@ -59,6 +59,7 @@ private:
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst);
     void DrawScanline_Mode1(u32 line, u16* dst);
 
+    void DrawBG_3D(u32 line, u16* dst);
     void DrawBG_Text(u32 line, u16* dst, u32 num);
     void DrawBG_Extended(u32 line, u16* dst, u32 bgnum);
 

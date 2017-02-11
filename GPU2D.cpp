@@ -290,7 +290,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
             if (DispCnt & 0x0100)
             {
                 if ((!Num) && (DispCnt & 0x8))
-                    {} // TODO
+                    DrawBG_3D(line, dst);
                 else
                     DrawBG_Text(line, dst, 0);
             }
@@ -332,6 +332,25 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
     //    dst[i] = *(u16*)&GPU::Palette[Num*0x400 + (i>>4)*2 + (line>>4)*32];
 }
 
+
+void GPU2D::DrawBG_3D(u32 line, u16* dst)
+{
+    // TODO: scroll, etc
+
+    u8* src = GPU3D::GetLine(line);
+    for (int i = 0; i < 256; i++)
+    {
+        // TODO: color buffer should be 18bit!!
+
+        u8 r = *src++;
+        u8 g = *src++;
+        u8 b = *src++;
+        u8 a = *src++;
+        if (a == 0) continue;
+
+        dst[i] = (r >> 1) | ((g >> 1) << 5) | ((b >> 1) << 10);
+    }
+}
 
 void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
 {

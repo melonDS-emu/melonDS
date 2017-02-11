@@ -1169,6 +1169,11 @@ void VBlank()
     NumPolygons = 0;
 }
 
+u8* GetLine(int line)
+{
+    return SoftRenderer::GetLine(line);
+}
+
 
 u8 Read8(u32 addr)
 {
