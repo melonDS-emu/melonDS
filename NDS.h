@@ -116,6 +116,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetROMFilePath(char* filepath);
+
 void SetupDirectBoot();
 
 void RunFrame();

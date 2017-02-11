@@ -42,6 +42,8 @@ SchedEvent* SchedQueue;
 
 bool NeedReschedule;*/
 
+char* ROMPath = "rom/Simple_Tri.nds"; // default to this name for now.
+
 ARM* ARM9;
 ARM* ARM7;
 
@@ -307,10 +309,14 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
+    if (NDSCart::LoadROM(ROMPath))
         Running = true; // hax
 }
 
+void SetROMFilePath(char* filepath)
+{
+    ROMPath = filepath;
+}
 
 void CalcIterationCycles()
 {
