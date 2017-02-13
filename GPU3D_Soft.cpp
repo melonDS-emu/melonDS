@@ -50,9 +50,9 @@ void RenderPolygon(Polygon* polygon)
 {
     int nverts = polygon->NumVertices;
 
-    int vtop, vbot;
+    int vtop = 0, vbot = 0;
     s32 ytop = 191, ybot = 0;
-    s32 scrcoords[10][3];
+    s32 scrcoords[10][4];
 
     // find the topmost and bottommost vertices of the polygon
 
@@ -60,14 +60,36 @@ void RenderPolygon(Polygon* polygon)
     {
         Vertex* vtx = polygon->Vertices[i];
 
-        s32 scrX = (((vtx->Position[0] + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
-        s32 scrY = (((vtx->Position[1] + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
+        s32 w_inv;
+        if (vtx->Position[3] == 0)
+        {
+            w_inv = 0x1000; // checkme
+            printf("!! W=0\n");
+        }
+        else
+            w_inv = 0x1000000 / vtx->Position[3];
+
+        if (vtx->Position[3] < 0) printf("!!! W=%d\n", vtx->Position[3]);
+
+        s32 posX = (vtx->Position[0] * w_inv) >> 12;
+        s32 posY = (vtx->Position[1] * w_inv) >> 12;
+        s32 posZ = (vtx->Position[2] * w_inv) >> 12;
+        //s32 posX = vtx->Position[0];
+        //s32 posY = vtx->Position[1];
+
+        s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
+        s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
+        s32 scrZ = (vtx->Position[2] + 0x1000) >> 1;
         if (scrX > 255) scrX = 255;
         if (scrY > 191) scrY = 191;
+        if (scrZ > 0xFFF) scrZ = 0xFFF;
+        if (scrX < 0) { printf("!! bad X %d\n", scrX); scrX = 0;}
+        if (scrY < 0) { printf("!! bad Y %d\n", scrY); scrY = 0;}
 
         scrcoords[i][0] = scrX;
         scrcoords[i][1] = 191 - scrY;
-        scrcoords[i][2] = 0; // TODO: Z
+        scrcoords[i][2] = scrZ;
+        scrcoords[i][3] = vtx->Position[3];
 
         if (scrcoords[i][1] < ytop)
         {
@@ -79,6 +101,8 @@ void RenderPolygon(Polygon* polygon)
             ybot = scrcoords[i][1];
             vbot = i;
         }
+        //if (vtx->Color[0]==63 && vtx->Color[1]==0 && vtx->Color[2]==0)
+        //printf("v%d: %d,%d  W=%d\n", i, scrX, 191-scrY, vtx->Position[3]);
     }
 
     // draw, line per line
@@ -103,28 +127,33 @@ void RenderPolygon(Polygon* polygon)
 
     for (s32 y = ytop; y <= ybot; y++)
     {
-        if (y == scrcoords[lnext][1] && y < ybot)
+        if (y < ybot)
         {
-            lcur++;
-            if (lcur >= nverts) lcur = 0;
+            while (y == scrcoords[lnext][1])
+            {
+                lcur++;
+                if (lcur >= nverts) lcur = 0;
 
-            lnext = lcur + 1;
-            if (lnext >= nverts) lnext = 0;
+                lnext = lcur + 1;
+                if (lnext >= nverts) lnext = 0;
 
-            //lstep = ((scrcoords[lnext][0] - scrcoords[lcur][0]) << 12) / (scrcoords[lnext][1] - scrcoords[lcur][1]);
-            //xmin = scrcoords[lcur][0] << 12;
-        }
+                //lstep = ((scrcoords[lnext][0] - scrcoords[lcur][0]) << 12) / (scrcoords[lnext][1] - scrcoords[lcur][1]);
+                //xmin = scrcoords[lcur][0] << 12;
+                if (lcur == vbot) break;
+            }
 
-        if (y == scrcoords[rnext][1] && y < ybot)
-        {
-            rcur--;
-            if (rcur < 0) rcur = nverts - 1;
+            while (y == scrcoords[rnext][1])
+            {
+                rcur--;
+                if (rcur < 0) rcur = nverts - 1;
 
-            rnext = rcur - 1;
-            if (rnext < 0) rnext = nverts - 1;
+                rnext = rcur - 1;
+                if (rnext < 0) rnext = nverts - 1;
 
-            //rstep = ((scrcoords[rnext][0] - scrcoords[rcur][0]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);
-            //xmax = scrcoords[rcur][0] << 12;
+                //rstep = ((scrcoords[rnext][0] - scrcoords[rcur][0]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);
+                //xmax = scrcoords[rcur][0] << 12;
+                if (rcur == vbot) break;
+            }
         }
 
         Vertex* vlcur = polygon->Vertices[lcur];
@@ -147,6 +176,12 @@ void RenderPolygon(Polygon* polygon)
         s32 xl = scrcoords[lcur][0] + (((scrcoords[lnext][0] - scrcoords[lcur][0]) * lfactor) >> 12);
         s32 xr = scrcoords[rcur][0] + (((scrcoords[rnext][0] - scrcoords[rcur][0]) * rfactor) >> 12);
 
+        //if (vlcur->Color[0]==0 && vlcur->Color[1]==63 && vlcur->Color[2]==0)
+        //    printf("y:%d  xleft:%d  xright:%d   %d,%d  %d,%d\n", y, xl, xr, lcur, rcur, vtop, vbot);
+
+        //s32 zl = scrcoords[lcur][3] + (((scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
+        //s32 zr = scrcoords[rcur][3] + (((scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
+
         u8 rl = vlcur->Color[0] + (((vlnext->Color[0] - vlcur->Color[0]) * lfactor) >> 12);
         u8 gl = vlcur->Color[1] + (((vlnext->Color[1] - vlcur->Color[1]) * lfactor) >> 12);
         u8 bl = vlcur->Color[2] + (((vlnext->Color[2] - vlcur->Color[2]) * lfactor) >> 12);
@@ -165,11 +200,31 @@ void RenderPolygon(Polygon* polygon)
         {
             s32 xfactor = (x - xl) * xdiv;
 
+            //s32 z = (zl << 12) + ((zr - zl) * xfactor);
+            //z = zl + (((zr - zl) * xfactor) >> 12);
+
+            //s32 z_inv = ((z>>12)==0) ? 0x1000 : 0x1000000 / (z >> 12);
+            //xfactor = (xfactor * z_inv) >> 12;
+            //xfactor = (xfactor << 12) / z;
+
+            // TODO: get rid of this shit
+            if (x<0 || x>255 || y<0 || y>191)
+            {
+                //printf("BAD COORDS!! %d %d\n", x, y);
+                x = 0; y = 0;
+            }
+
             u8* pixel = &ColorBuffer[((256*y) + x) * 4];
             pixel[0] = rl + (((rr - rl) * xfactor) >> 12);
             pixel[1] = gl + (((gr - gl) * xfactor) >> 12);
             pixel[2] = bl + (((br - bl) * xfactor) >> 12);
-            pixel[3] = 31;
+            pixel[3] = 31; // TODO: alpha
+
+            // Z debug
+            /*u8 zerp = (z * 63) / 0xFFFFFF;
+            pixel[0] = zerp;
+            pixel[1] = zerp;
+            pixel[2] = zerp;*/
         }
     }
 }
@@ -180,11 +235,19 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 
     for (int i = 0; i < 256*192; i++)
     {
-        ((u32*)ColorBuffer)[i] = 0x1F000000;
+        ((u32*)ColorBuffer)[i] = 0x00000000;
     }
 
     for (int i = 0; i < npolys; i++)
     {
+        /*printf("polygon %d: %d %d %d\n", i, polygons[i].Vertices[0]->Color[0], polygons[i].Vertices[0]->Color[1], polygons[i].Vertices[0]->Color[2]);
+        for (int j = 0; j < polygons[i].NumVertices; j++)
+            printf("  %d: %f %f %f\n",
+                   j,
+                   polygons[i].Vertices[j]->Position[0]/4096.0f,
+                   polygons[i].Vertices[j]->Position[1]/4096.0f,
+                   polygons[i].Vertices[j]->Position[2]/4096.0f);
+*/
         RenderPolygon(&polygons[i]);
     }
 }

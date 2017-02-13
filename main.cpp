@@ -85,6 +85,8 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_RIGHT:  NDS::PressKey(4); break;
         case 'A': NDS::PressKey(0); break;
         case 'B': NDS::PressKey(1); break;
+        case 'L': NDS::PressKey(9); break;
+        case 'R': NDS::PressKey(8); break;
         case 'D': NDS::debug(0); break;
         }
         return 0;
@@ -100,6 +102,8 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_RIGHT:  NDS::ReleaseKey(4); break;
         case 'A': NDS::ReleaseKey(0); break;
         case 'B': NDS::ReleaseKey(1); break;
+        case 'L': NDS::ReleaseKey(9); break;
+        case 'R': NDS::ReleaseKey(8); break;
         }
         return 0;
 

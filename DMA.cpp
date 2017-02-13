@@ -113,7 +113,7 @@ void DMA::Start()
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
 
-    //printf("ARM%d DMA%d %08X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
+    //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
     // special path for cart DMA. this is a gross hack.
     // emulating it properly requires emulating cart transfer delays, so uh... TODO

@@ -36,3 +36,20 @@ TODO LIST
  * sound
  * wifi
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
+ 
+ 
+IMMEDIATE TODO LIST (prior release 1.0)
+
+ * UI
+ * 3D engine that atleast supports texturing
+ * emulate DMA timings
+ * make timers suck less
+
+ 
+TODO LIST FOR LATER
+
+ * sound
+ * more 3D engine features
+ * hardware renderer for 3D
+ * wifi
+ * maybe emulate flashcarts or other fancy hardware
