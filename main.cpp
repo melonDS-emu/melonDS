@@ -161,7 +161,7 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 
-int main()
+int main(int argc, char** argv)
 {
     printf("melonDS version uh... 0.1??\n");
     printf("it's a DS emulator!!!\n");
@@ -217,6 +217,11 @@ int main()
     bmp.bV4RedMask = 0x001F;
     bmp.bV4GreenMask = 0x03E0;
     bmp.bV4BlueMask = 0x7C00;
+
+    if (argc == 2)
+    {
+        NDS::SetROMFilePath(argv[1]);
+    }
 
     NDS::Init();
 

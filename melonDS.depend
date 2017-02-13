@@ -161,3 +161,162 @@
 	"NDS.h"
 	"GPU3D.h"
 
+1486832622 source:c:\users\flerovium\documents\github\melonds\arm.cpp
+	<stdio.h>
+	"NDS.h"
+	"ARM.h"
+	"ARMInterpreter.h"
+	"GPU3D.h"
+
+1486834379 c:\users\flerovium\documents\github\melonds\nds.h
+	"types.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\types.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\arm.h
+	"types.h"
+	"NDS.h"
+	"CP15.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\cp15.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\arminterpreter.h
+	"types.h"
+	"ARM.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\gpu3d.h
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\arminterpreter.cpp
+	<stdio.h>
+	"NDS.h"
+	"CP15.h"
+	"ARMInterpreter.h"
+	"ARMInterpreter_ALU.h"
+	"ARMInterpreter_Branch.h"
+	"ARMInterpreter_LoadStore.h"
+	"ARM_InstrTable.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\arminterpreter_alu.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\arminterpreter_branch.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\arminterpreter_loadstore.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\arm_instrtable.h
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\arminterpreter_alu.cpp
+	<stdio.h>
+	"ARM.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\arminterpreter_branch.cpp
+	<stdio.h>
+	"ARM.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\arminterpreter_loadstore.cpp
+	<stdio.h>
+	"ARM.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\cp15.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"ARM.h"
+	"CP15.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\dma.cpp
+	<stdio.h>
+	"NDS.h"
+	"DMA.h"
+	"NDSCart.h"
+	"GPU3D.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\dma.h
+	"types.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\ndscart.h
+	"types.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\gpu.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"GPU.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\gpu.h
+	"GPU2D.h"
+	"GPU3D.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\gpu2d.h
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\gpu2d.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"GPU.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\gpu3d.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"GPU.h"
+	"FIFO.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\fifo.h
+	"types.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\gpu3d_soft.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"GPU3D.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\main.cpp
+	<stdio.h>
+	<windows.h>
+	"NDS.h"
+	"GPU.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\nds.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"ARM.h"
+	"CP15.h"
+	"NDSCart.h"
+	"DMA.h"
+	"FIFO.h"
+	"GPU.h"
+	"SPI.h"
+	"RTC.h"
+	"Wifi.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\spi.h
+
+1486832622 c:\users\flerovium\documents\github\melonds\rtc.h
+	"types.h"
+
+1486832622 c:\users\flerovium\documents\github\melonds\wifi.h
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\ndscart.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"NDSCart.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\rtc.cpp
+	<stdio.h>
+	<string.h>
+	"RTC.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\spi.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"SPI.h"
+
+1486832622 source:c:\users\flerovium\documents\github\melonds\wifi.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"Wifi.h"
+
