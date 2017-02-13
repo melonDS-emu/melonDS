@@ -102,7 +102,7 @@ void RenderPolygon(Polygon* polygon)
             vbot = i;
         }
         //if (vtx->Color[0]==63 && vtx->Color[1]==0 && vtx->Color[2]==0)
-        //printf("v%d: %d,%d  W=%d\n", i, scrX, 191-scrY, vtx->Position[3]);
+        //printf("v%d: %d,%d  Z=%f  W=%f\n", i, scrX, 191-scrY, vtx->Position[2]/4096.0f, vtx->Position[3]/4096.0f);
     }
 
     // draw, line per line
@@ -176,11 +176,16 @@ void RenderPolygon(Polygon* polygon)
         s32 xl = scrcoords[lcur][0] + (((scrcoords[lnext][0] - scrcoords[lcur][0]) * lfactor) >> 12);
         s32 xr = scrcoords[rcur][0] + (((scrcoords[rnext][0] - scrcoords[rcur][0]) * rfactor) >> 12);
 
-        //if (vlcur->Color[0]==0 && vlcur->Color[1]==63 && vlcur->Color[2]==0)
-        //    printf("y:%d  xleft:%d  xright:%d   %d,%d  %d,%d\n", y, xl, xr, lcur, rcur, vtop, vbot);
+        if (xl<0 || xr>255) continue; // hax
 
-        //s32 zl = scrcoords[lcur][3] + (((scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
-        //s32 zr = scrcoords[rcur][3] + (((scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
+        //if (vlcur->Color[0]==0 && vlcur->Color[1]==63 && vlcur->Color[2]==0)
+            /*printf("y:%d  xleft:%d  xright:%d   %d,%d  %d,%d   |   left: %d to %d   right: %d to %d\n",
+                   y, xl, xr, lcur, rcur, vtop, vbot,
+                   scrcoords[lcur][0], scrcoords[lnext][0],
+                   scrcoords[rcur][0], scrcoords[rnext][0]);*/
+
+        //s32 zl = scrcoords[lcur][2] + (((scrcoords[lnext][2] - scrcoords[lcur][2]) * lfactor) >> 12);
+        //s32 zr = scrcoords[rcur][2] + (((scrcoords[rnext][2] - scrcoords[rcur][2]) * rfactor) >> 12);
 
         u8 rl = vlcur->Color[0] + (((vlnext->Color[0] - vlcur->Color[0]) * lfactor) >> 12);
         u8 gl = vlcur->Color[1] + (((vlnext->Color[1] - vlcur->Color[1]) * lfactor) >> 12);
@@ -200,12 +205,12 @@ void RenderPolygon(Polygon* polygon)
         {
             s32 xfactor = (x - xl) * xdiv;
 
-            //s32 z = (zl << 12) + ((zr - zl) * xfactor);
-            //z = zl + (((zr - zl) * xfactor) >> 12);
+            //s32 z = (((zr - zl) * xfactor) >> 12);
+            //if (zr!=zl) z = (z << 12) / (zr - zl);
 
             //s32 z_inv = ((z>>12)==0) ? 0x1000 : 0x1000000 / (z >> 12);
             //xfactor = (xfactor * z_inv) >> 12;
-            //xfactor = (xfactor << 12) / z;
+            //if (z) xfactor = (xfactor << 12) / z;
 
             // TODO: get rid of this shit
             if (x<0 || x>255 || y<0 || y>191)
@@ -248,6 +253,7 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
                    polygons[i].Vertices[j]->Position[1]/4096.0f,
                    polygons[i].Vertices[j]->Position[2]/4096.0f);
 */
+        //printf("polygon %d\n", i);
         RenderPolygon(&polygons[i]);
     }
 }

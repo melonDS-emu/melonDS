@@ -270,25 +270,25 @@ void MatrixMult4x4(s32* m, s32* s)
     memcpy(tmp, m, 16*4);
 
     // m = s*m
-    m[0] = (s[0]*tmp[0] + s[1]*tmp[4] + s[2]*tmp[8] + s[3]*tmp[12]) >> 12;
-    m[1] = (s[0]*tmp[1] + s[1]*tmp[5] + s[2]*tmp[9] + s[3]*tmp[13]) >> 12;
-    m[2] = (s[0]*tmp[2] + s[1]*tmp[6] + s[2]*tmp[10] + s[3]*tmp[14]) >> 12;
-    m[3] = (s[0]*tmp[3] + s[1]*tmp[7] + s[2]*tmp[11] + s[3]*tmp[15]) >> 12;
+    m[0] = ((s64)s[0]*tmp[0] + (s64)s[1]*tmp[4] + (s64)s[2]*tmp[8] + (s64)s[3]*tmp[12]) >> 12;
+    m[1] = ((s64)s[0]*tmp[1] + (s64)s[1]*tmp[5] + (s64)s[2]*tmp[9] + (s64)s[3]*tmp[13]) >> 12;
+    m[2] = ((s64)s[0]*tmp[2] + (s64)s[1]*tmp[6] + (s64)s[2]*tmp[10] + (s64)s[3]*tmp[14]) >> 12;
+    m[3] = ((s64)s[0]*tmp[3] + (s64)s[1]*tmp[7] + (s64)s[2]*tmp[11] + (s64)s[3]*tmp[15]) >> 12;
 
-    m[4] = (s[4]*tmp[0] + s[5]*tmp[4] + s[6]*tmp[8] + s[7]*tmp[12]) >> 12;
-    m[5] = (s[4]*tmp[1] + s[5]*tmp[5] + s[6]*tmp[9] + s[7]*tmp[13]) >> 12;
-    m[6] = (s[4]*tmp[2] + s[5]*tmp[6] + s[6]*tmp[10] + s[7]*tmp[14]) >> 12;
-    m[7] = (s[4]*tmp[3] + s[5]*tmp[7] + s[6]*tmp[11] + s[7]*tmp[15]) >> 12;
+    m[4] = ((s64)s[4]*tmp[0] + (s64)s[5]*tmp[4] + (s64)s[6]*tmp[8] + (s64)s[7]*tmp[12]) >> 12;
+    m[5] = ((s64)s[4]*tmp[1] + (s64)s[5]*tmp[5] + (s64)s[6]*tmp[9] + (s64)s[7]*tmp[13]) >> 12;
+    m[6] = ((s64)s[4]*tmp[2] + (s64)s[5]*tmp[6] + (s64)s[6]*tmp[10] + (s64)s[7]*tmp[14]) >> 12;
+    m[7] = ((s64)s[4]*tmp[3] + (s64)s[5]*tmp[7] + (s64)s[6]*tmp[11] + (s64)s[7]*tmp[15]) >> 12;
 
-    m[8] = (s[8]*tmp[0] + s[9]*tmp[4] + s[10]*tmp[8] + s[11]*tmp[12]) >> 12;
-    m[9] = (s[8]*tmp[1] + s[9]*tmp[5] + s[10]*tmp[9] + s[11]*tmp[13]) >> 12;
-    m[10] = (s[8]*tmp[2] + s[9]*tmp[6] + s[10]*tmp[10] + s[11]*tmp[14]) >> 12;
-    m[11] = (s[8]*tmp[3] + s[9]*tmp[7] + s[10]*tmp[11] + s[11]*tmp[15]) >> 12;
+    m[8] = ((s64)s[8]*tmp[0] + (s64)s[9]*tmp[4] + (s64)s[10]*tmp[8] + (s64)s[11]*tmp[12]) >> 12;
+    m[9] = ((s64)s[8]*tmp[1] + (s64)s[9]*tmp[5] + (s64)s[10]*tmp[9] + (s64)s[11]*tmp[13]) >> 12;
+    m[10] = ((s64)s[8]*tmp[2] + (s64)s[9]*tmp[6] + (s64)s[10]*tmp[10] + (s64)s[11]*tmp[14]) >> 12;
+    m[11] = ((s64)s[8]*tmp[3] + (s64)s[9]*tmp[7] + (s64)s[10]*tmp[11] + (s64)s[11]*tmp[15]) >> 12;
 
-    m[12] = (s[12]*tmp[0] + s[13]*tmp[4] + s[14]*tmp[8] + s[15]*tmp[12]) >> 12;
-    m[13] = (s[12]*tmp[1] + s[13]*tmp[5] + s[14]*tmp[9] + s[15]*tmp[13]) >> 12;
-    m[14] = (s[12]*tmp[2] + s[13]*tmp[6] + s[14]*tmp[10] + s[15]*tmp[14]) >> 12;
-    m[15] = (s[12]*tmp[3] + s[13]*tmp[7] + s[14]*tmp[11] + s[15]*tmp[15]) >> 12;
+    m[12] = ((s64)s[12]*tmp[0] + (s64)s[13]*tmp[4] + (s64)s[14]*tmp[8] + (s64)s[15]*tmp[12]) >> 12;
+    m[13] = ((s64)s[12]*tmp[1] + (s64)s[13]*tmp[5] + (s64)s[14]*tmp[9] + (s64)s[15]*tmp[13]) >> 12;
+    m[14] = ((s64)s[12]*tmp[2] + (s64)s[13]*tmp[6] + (s64)s[14]*tmp[10] + (s64)s[15]*tmp[14]) >> 12;
+    m[15] = ((s64)s[12]*tmp[3] + (s64)s[13]*tmp[7] + (s64)s[14]*tmp[11] + (s64)s[15]*tmp[15]) >> 12;
 }
 
 void MatrixMult4x3(s32* m, s32* s)
@@ -296,26 +296,34 @@ void MatrixMult4x3(s32* m, s32* s)
     s32 tmp[16];
     memcpy(tmp, m, 16*4);
 
+    /*printf("4x3 matrix\n");
+    for (int j = 0; j < 12; j += 3)
+    {
+        for (int i = 0; i < 3; i++)
+            printf("%f ", s[i]/4096.0f);
+        printf("\n");
+    }*/
+
     // m = s*m
-    m[0] = (s[0]*tmp[0] + s[1]*tmp[4] + s[2]*tmp[8]) >> 12;
-    m[1] = (s[0]*tmp[1] + s[1]*tmp[5] + s[2]*tmp[9]) >> 12;
-    m[2] = (s[0]*tmp[2] + s[1]*tmp[6] + s[2]*tmp[10]) >> 12;
-    m[3] = (s[0]*tmp[3] + s[1]*tmp[7] + s[2]*tmp[11]) >> 12;
+    m[0] = ((s64)s[0]*tmp[0] + (s64)s[1]*tmp[4] + (s64)s[2]*tmp[8]) >> 12;
+    m[1] = ((s64)s[0]*tmp[1] + (s64)s[1]*tmp[5] + (s64)s[2]*tmp[9]) >> 12;
+    m[2] = ((s64)s[0]*tmp[2] + (s64)s[1]*tmp[6] + (s64)s[2]*tmp[10]) >> 12;
+    m[3] = ((s64)s[0]*tmp[3] + (s64)s[1]*tmp[7] + (s64)s[2]*tmp[11]) >> 12;
 
-    m[4] = (s[3]*tmp[0] + s[4]*tmp[4] + s[5]*tmp[8]) >> 12;
-    m[5] = (s[3]*tmp[1] + s[4]*tmp[5] + s[5]*tmp[9]) >> 12;
-    m[6] = (s[3]*tmp[2] + s[4]*tmp[6] + s[5]*tmp[10]) >> 12;
-    m[7] = (s[3]*tmp[3] + s[4]*tmp[7] + s[5]*tmp[11]) >> 12;
+    m[4] = ((s64)s[3]*tmp[0] + (s64)s[4]*tmp[4] + (s64)s[5]*tmp[8]) >> 12;
+    m[5] = ((s64)s[3]*tmp[1] + (s64)s[4]*tmp[5] + (s64)s[5]*tmp[9]) >> 12;
+    m[6] = ((s64)s[3]*tmp[2] + (s64)s[4]*tmp[6] + (s64)s[5]*tmp[10]) >> 12;
+    m[7] = ((s64)s[3]*tmp[3] + (s64)s[4]*tmp[7] + (s64)s[5]*tmp[11]) >> 12;
 
-    m[8] = (s[6]*tmp[0] + s[7]*tmp[4] + s[8]*tmp[8]) >> 12;
-    m[9] = (s[6]*tmp[1] + s[7]*tmp[5] + s[8]*tmp[9]) >> 12;
-    m[10] = (s[6]*tmp[2] + s[7]*tmp[6] + s[8]*tmp[10]) >> 12;
-    m[11] = (s[6]*tmp[3] + s[7]*tmp[7] + s[8]*tmp[11]) >> 12;
+    m[8] = ((s64)s[6]*tmp[0] + (s64)s[7]*tmp[4] + (s64)s[8]*tmp[8]) >> 12;
+    m[9] = ((s64)s[6]*tmp[1] + (s64)s[7]*tmp[5] + (s64)s[8]*tmp[9]) >> 12;
+    m[10] = ((s64)s[6]*tmp[2] + (s64)s[7]*tmp[6] + (s64)s[8]*tmp[10]) >> 12;
+    m[11] = ((s64)s[6]*tmp[3] + (s64)s[7]*tmp[7] + (s64)s[8]*tmp[11]) >> 12;
 
-    m[12] = (s[9]*tmp[0] + s[10]*tmp[4] + s[11]*tmp[8] + 0x1000*tmp[12]) >> 12;
-    m[13] = (s[9]*tmp[1] + s[10]*tmp[5] + s[11]*tmp[9] + 0x1000*tmp[13]) >> 12;
-    m[14] = (s[9]*tmp[2] + s[10]*tmp[6] + s[11]*tmp[10] + 0x1000*tmp[14]) >> 12;
-    m[15] = (s[9]*tmp[3] + s[10]*tmp[7] + s[11]*tmp[11] + 0x1000*tmp[15]) >> 12;
+    m[12] = ((s64)s[9]*tmp[0] + (s64)s[10]*tmp[4] + (s64)s[11]*tmp[8] + (s64)0x1000*tmp[12]) >> 12;
+    m[13] = ((s64)s[9]*tmp[1] + (s64)s[10]*tmp[5] + (s64)s[11]*tmp[9] + (s64)0x1000*tmp[13]) >> 12;
+    m[14] = ((s64)s[9]*tmp[2] + (s64)s[10]*tmp[6] + (s64)s[11]*tmp[10] + (s64)0x1000*tmp[14]) >> 12;
+    m[15] = ((s64)s[9]*tmp[3] + (s64)s[10]*tmp[7] + (s64)s[11]*tmp[11] + (s64)0x1000*tmp[15]) >> 12;
 }
 
 void MatrixMult3x3(s32* m, s32* s)
@@ -324,45 +332,45 @@ void MatrixMult3x3(s32* m, s32* s)
     memcpy(tmp, m, 12*4);
 
     // m = s*m
-    m[0] = (s[0]*tmp[0] + s[1]*tmp[4] + s[2]*tmp[8]) >> 12;
-    m[1] = (s[0]*tmp[1] + s[1]*tmp[5] + s[2]*tmp[9]) >> 12;
-    m[2] = (s[0]*tmp[2] + s[1]*tmp[6] + s[2]*tmp[10]) >> 12;
-    m[3] = (s[0]*tmp[3] + s[1]*tmp[7] + s[2]*tmp[11]) >> 12;
+    m[0] = ((s64)s[0]*tmp[0] + (s64)s[1]*tmp[4] + (s64)s[2]*tmp[8]) >> 12;
+    m[1] = ((s64)s[0]*tmp[1] + (s64)s[1]*tmp[5] + (s64)s[2]*tmp[9]) >> 12;
+    m[2] = ((s64)s[0]*tmp[2] + (s64)s[1]*tmp[6] + (s64)s[2]*tmp[10]) >> 12;
+    m[3] = ((s64)s[0]*tmp[3] + (s64)s[1]*tmp[7] + (s64)s[2]*tmp[11]) >> 12;
 
-    m[4] = (s[3]*tmp[0] + s[4]*tmp[4] + s[5]*tmp[8]) >> 12;
-    m[5] = (s[3]*tmp[1] + s[4]*tmp[5] + s[5]*tmp[9]) >> 12;
-    m[6] = (s[3]*tmp[2] + s[4]*tmp[6] + s[5]*tmp[10]) >> 12;
-    m[7] = (s[3]*tmp[3] + s[4]*tmp[7] + s[5]*tmp[11]) >> 12;
+    m[4] = ((s64)s[3]*tmp[0] + (s64)s[4]*tmp[4] + (s64)s[5]*tmp[8]) >> 12;
+    m[5] = ((s64)s[3]*tmp[1] + (s64)s[4]*tmp[5] + (s64)s[5]*tmp[9]) >> 12;
+    m[6] = ((s64)s[3]*tmp[2] + (s64)s[4]*tmp[6] + (s64)s[5]*tmp[10]) >> 12;
+    m[7] = ((s64)s[3]*tmp[3] + (s64)s[4]*tmp[7] + (s64)s[5]*tmp[11]) >> 12;
 
-    m[8] = (s[6]*tmp[0] + s[7]*tmp[4] + s[8]*tmp[8]) >> 12;
-    m[9] = (s[6]*tmp[1] + s[7]*tmp[5] + s[8]*tmp[9]) >> 12;
-    m[10] = (s[6]*tmp[2] + s[7]*tmp[6] + s[8]*tmp[10]) >> 12;
-    m[11] = (s[6]*tmp[3] + s[7]*tmp[7] + s[8]*tmp[11]) >> 12;
+    m[8] = ((s64)s[6]*tmp[0] + (s64)s[7]*tmp[4] + (s64)s[8]*tmp[8]) >> 12;
+    m[9] = ((s64)s[6]*tmp[1] + (s64)s[7]*tmp[5] + (s64)s[8]*tmp[9]) >> 12;
+    m[10] = ((s64)s[6]*tmp[2] + (s64)s[7]*tmp[6] + (s64)s[8]*tmp[10]) >> 12;
+    m[11] = ((s64)s[6]*tmp[3] + (s64)s[7]*tmp[7] + (s64)s[8]*tmp[11]) >> 12;
 }
 
 void MatrixScale(s32* m, s32* s)
 {
-    m[0] = (s[0]*m[0]) >> 12;
-    m[1] = (s[0]*m[1]) >> 12;
-    m[2] = (s[0]*m[2]) >> 12;
-    m[3] = (s[0]*m[3]) >> 12;
+    m[0] = ((s64)s[0]*m[0]) >> 12;
+    m[1] = ((s64)s[0]*m[1]) >> 12;
+    m[2] = ((s64)s[0]*m[2]) >> 12;
+    m[3] = ((s64)s[0]*m[3]) >> 12;
 
-    m[4] = (s[1]*m[4]) >> 12;
-    m[5] = (s[1]*m[5]) >> 12;
-    m[6] = (s[1]*m[6]) >> 12;
-    m[7] = (s[1]*m[7]) >> 12;
+    m[4] = ((s64)s[1]*m[4]) >> 12;
+    m[5] = ((s64)s[1]*m[5]) >> 12;
+    m[6] = ((s64)s[1]*m[6]) >> 12;
+    m[7] = ((s64)s[1]*m[7]) >> 12;
 
-    m[8] = (s[2]*m[8]) >> 12;
-    m[9] = (s[2]*m[9]) >> 12;
-    m[10] = (s[2]*m[10]) >> 12;
-    m[11] = (s[2]*m[11]) >> 12;
+    m[8] = ((s64)s[2]*m[8]) >> 12;
+    m[9] = ((s64)s[2]*m[9]) >> 12;
+    m[10] = ((s64)s[2]*m[10]) >> 12;
+    m[11] = ((s64)s[2]*m[11]) >> 12;
 }
 
 void MatrixTranslate(s32* m, s32* s)
 {
-    m[12] += (s[0]*m[0] + s[1]*m[4] + s[2]*m[8]) >> 12;
-    m[13] += (s[0]*m[1] + s[1]*m[5] + s[2]*m[9]) >> 12;
-    m[14] += (s[0]*m[2] + s[1]*m[6] + s[2]*m[10]) >> 12;
+    m[12] += ((s64)s[0]*m[0] + (s64)s[1]*m[4] + (s64)s[2]*m[8]) >> 12;
+    m[13] += ((s64)s[0]*m[1] + (s64)s[1]*m[5] + (s64)s[2]*m[9]) >> 12;
+    m[14] += ((s64)s[0]*m[2] + (s64)s[1]*m[6] + (s64)s[2]*m[10]) >> 12;
 }
 
 void UpdateClipMatrix()
@@ -379,7 +387,7 @@ void UpdateClipMatrix()
 template<int comp, s32 plane>
 void ClipSegment(Vertex* outbuf, int num, Vertex* vout, Vertex* vin)
 {
-    s32 factor = ((vin->Position[3] - (plane*vin->Position[comp])) << 12) /
+    s64 factor = ((vin->Position[3] - (plane*vin->Position[comp])) << 12) /
         ((vin->Position[3] - (plane*vin->Position[comp])) - (vout->Position[3] - (plane*vout->Position[comp])));
 
     Vertex mid;
@@ -411,6 +419,15 @@ void SubmitPolygon()
     int nvisible = 0;
     int prev, next;
     int c;
+
+    /*if (NumPolygons == 91)
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex vtx = TempVertexBuffer[i];
+        printf("pre-clip v%d: %f %f %f %f\n", i,
+               vtx.Position[0]/4096.0f, vtx.Position[1]/4096.0f,
+               vtx.Position[2]/4096.0f, vtx.Position[3]/4096.0f);
+    }*/
 
     // X clipping
 
@@ -603,7 +620,7 @@ void SubmitPolygon()
 
 void SubmitVertex()
 {
-    s32 vertex[4] = {(s32)CurVertex[0], (s32)CurVertex[1], (s32)CurVertex[2], 0x1000};
+    s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
     //s32 vertextrans[4];
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
 
@@ -769,9 +786,12 @@ void ExecuteCommand()
     ExecParams[ExecParamCount] = entry.Param;
     ExecParamCount++;
 
+    //if ((entry.Command&0xF0)==0x10)
+    //    printf("MATRIX CMD %02X %08X\n", entry.Command, entry.Param);
+
     if (ExecParamCount >= CmdNumParams[entry.Command])
     {
-        CycleCount += CmdNumCycles[entry.Command];
+        //CycleCount += CmdNumCycles[entry.Command];
         ExecParamCount = 0;
 
         GXStat &= ~(1<<14);
@@ -1129,6 +1149,9 @@ void ExecuteCommand()
 
 void Run(s32 cycles)
 {
+    if (FlushRequest)
+        return;
+
     if (CycleCount <= 0)
     {
         while (CycleCount <= 0 && !CmdPIPE->IsEmpty())
@@ -1140,8 +1163,7 @@ void Run(s32 cycles)
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
     {
         CycleCount = 0;
-        if (!FlushRequest)
-            GXStat &= ~(1<<27);
+        GXStat &= ~(1<<27);
     }
 }
 

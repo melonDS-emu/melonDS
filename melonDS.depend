@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1486824787 source:c:\documents\sources\melonds\main.cpp
+1486993536 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	<windows.h>
 	"NDS.h"
@@ -10,7 +10,7 @@
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1486947856 source:c:\documents\sources\melonds\nds.cpp
+1486994139 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -148,14 +148,14 @@
 
 1486777933 c:\documents\sources\melonds\gpu3d.h
 
-1486947978 source:c:\documents\sources\melonds\gpu3d.cpp
+1486993935 source:c:\documents\sources\melonds\gpu3d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
 	"FIFO.h"
 
-1486947027 source:c:\documents\sources\melonds\gpu3d_soft.cpp
+1486994049 source:c:\documents\sources\melonds\gpu3d_soft.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
