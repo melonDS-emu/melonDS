@@ -216,11 +216,11 @@ int main()
     bmp.bV4Width = 256;
     bmp.bV4Height = -384;
     bmp.bV4Planes = 1;
-    bmp.bV4BitCount = 16;
+    bmp.bV4BitCount = 32;
     bmp.bV4V4Compression = BI_RGB|BI_BITFIELDS;
-    bmp.bV4RedMask = 0x001F;
-    bmp.bV4GreenMask = 0x03E0;
-    bmp.bV4BlueMask = 0x7C00;
+    bmp.bV4RedMask = 0x000000FF;
+    bmp.bV4GreenMask = 0x0000FF00;
+    bmp.bV4BlueMask = 0x00FF0000;
 
     NDS::Init();
 
