@@ -27,12 +27,18 @@ typedef struct
     s32 Position[4];
     u8 Color[3];
 
+    bool Clipped;
+
 } Vertex;
 
 typedef struct
 {
     Vertex* Vertices[10];
     u32 NumVertices;
+
+    u32 Attr;
+
+    bool FacingView;
 
 } Polygon;
 

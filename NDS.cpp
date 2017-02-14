@@ -307,7 +307,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/Simple_Tri.nds"))
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 }
 

@@ -159,9 +159,14 @@ u32 PolygonMode;
 s16 CurVertex[3];
 u8 VertexColor[3];
 
+u32 PolygonAttr;
+u32 CurPolygonAttr;
+
 Vertex TempVertexBuffer[4];
 u32 VertexNum;
 u32 VertexNumInPoly;
+u32 NumConsecutivePolygons;
+Polygon* LastStripPolygon;
 
 Vertex VertexRAM[6144 * 2];
 Polygon PolygonRAM[2048 * 2];
@@ -385,13 +390,13 @@ void UpdateClipMatrix()
 
 
 template<int comp, s32 plane>
-void ClipSegment(Vertex* outbuf, int num, Vertex* vout, Vertex* vin)
+void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
 {
-    s64 factor = ((vin->Position[3] - (plane*vin->Position[comp])) << 12) /
+    s64 factor = ((s64)(vin->Position[3] - (plane*vin->Position[comp])) << 24) /
         ((vin->Position[3] - (plane*vin->Position[comp])) - (vout->Position[3] - (plane*vout->Position[comp])));
 
     Vertex mid;
-#define INTERPOLATE(var)  mid.var = vin->var + (((vout->var - vin->var) * factor) >> 12);
+#define INTERPOLATE(var)  mid.var = vin->var + (((vout->var - vin->var) * factor) >> 24);
 
     INTERPOLATE(Position[0]);
     INTERPOLATE(Position[1]);
@@ -402,213 +407,339 @@ void ClipSegment(Vertex* outbuf, int num, Vertex* vout, Vertex* vin)
     INTERPOLATE(Color[1]);
     INTERPOLATE(Color[2]);
 
+    mid.Clipped = true;
+
 #undef INTERPOLATE
-    outbuf[num] = mid;
+    *outbuf = mid;
 }
 
 void SubmitPolygon()
 {
-    // clip.
-    // for each vertex:
-    // if it's outside, check if the previous and next vertices are inside, if so, fixor
-
     Vertex clippedvertices[2][10];
-    u32 numclipped;
+    Vertex* reusedvertices[2];
+    int clipstart = 0;
+    int lastpolyverts = 0;
 
     int nverts = PolygonMode & 0x1 ? 4:3;
-    int nvisible = 0;
     int prev, next;
     int c;
 
-    /*if (NumPolygons == 91)
-    for (int i = 0; i < nverts; i++)
+    // culling
+    //if (!(TempVertexBuffer[0].Color[0]==0 && TempVertexBuffer[0].Color[1]==63 && TempVertexBuffer[0].Color[2]==63))
+    //   return;
+
+    // checkme: does it work this way for quads and up?
+    /*s32 _x1 = TempVertexBuffer[1].Position[0] - TempVertexBuffer[0].Position[0];
+    s32 _x2 = TempVertexBuffer[2].Position[0] - TempVertexBuffer[0].Position[0];
+    s32 _y1 = TempVertexBuffer[1].Position[1] - TempVertexBuffer[0].Position[1];
+    s32 _y2 = TempVertexBuffer[2].Position[1] - TempVertexBuffer[0].Position[1];
+    s32 _z1 = TempVertexBuffer[1].Position[2] - TempVertexBuffer[0].Position[2];
+    s32 _z2 = TempVertexBuffer[2].Position[2] - TempVertexBuffer[0].Position[2];
+    s32 normalX = (((s64)_y1 * _z2) - ((s64)_z1 * _y2)) >> 12;
+    s32 normalY = (((s64)_z1 * _x2) - ((s64)_x1 * _z2)) >> 12;
+    s32 normalZ = (((s64)_x1 * _y2) - ((s64)_y1 * _x2)) >> 12;*/
+    /*s32 centerX = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[12]) >> 12;
+    s32 centerY = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[13]) >> 12;
+    s32 centerZ = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[14]) >> 12;*/
+    /*s64 dot = ((s64)(-TempVertexBuffer[0].Position[0]) * normalX) +
+              ((s64)(-TempVertexBuffer[0].Position[1]) * normalY) +
+              ((s64)(-TempVertexBuffer[0].Position[2]) * normalZ); // checkme*/
+    // code inspired from Dolphin's software renderer.
+    // maybe not 100% right
+    s32 _x0 = TempVertexBuffer[0].Position[0];
+    s32 _x1 = TempVertexBuffer[1].Position[0];
+    s32 _x2 = TempVertexBuffer[2].Position[0];
+    s32 _y0 = TempVertexBuffer[0].Position[1];
+    s32 _y1 = TempVertexBuffer[1].Position[1];
+    s32 _y2 = TempVertexBuffer[2].Position[1];
+    s32 _z0 = TempVertexBuffer[0].Position[3];
+    s32 _z1 = TempVertexBuffer[1].Position[3];
+    s32 _z2 = TempVertexBuffer[2].Position[3];
+    s32 normalX = (((s64)_y0 * _z2) - ((s64)_z0 * _y2)) >> 12;
+    s32 normalY = (((s64)_z0 * _x2) - ((s64)_x0 * _z2)) >> 12;
+    s32 normalZ = (((s64)_x0 * _y2) - ((s64)_y0 * _x2)) >> 12;
+    s64 dot = ((s64)_x1 * normalX) + ((s64)_y1 * normalY) + ((s64)_z1 * normalZ);
+    bool facingview = (dot < 0);
+//printf("Z: %d %d\n", normalZ, -TempVertexBuffer[0].Position[2]);
+    if (facingview)
     {
-        Vertex vtx = TempVertexBuffer[i];
-        printf("pre-clip v%d: %f %f %f %f\n", i,
-               vtx.Position[0]/4096.0f, vtx.Position[1]/4096.0f,
-               vtx.Position[2]/4096.0f, vtx.Position[3]/4096.0f);
-    }*/
+        if (!(CurPolygonAttr & (1<<7)))
+        {
+            LastStripPolygon = NULL;
+            return;
+        }
+    }
+    else
+    {
+        if (!(CurPolygonAttr & (1<<6)))
+        {
+            LastStripPolygon = NULL;
+            return;
+        }
+    }
+
+    // for strips, check whether we can attach to the previous polygon
+    // this requires two vertices shared with the previous polygon, and that
+    // the two polygons be of the same type
+
+    if (PolygonMode >= 2 && LastStripPolygon)
+    {
+        int id0, id1;
+        if (PolygonMode == 2)
+        {
+            if (NumConsecutivePolygons & 1)
+            {
+                id0 = 2;
+                id1 = 1;
+            }
+            else
+            {
+                id0 = 0;
+                id1 = 2;
+            }
+
+            lastpolyverts = 3;
+        }
+        else
+        {
+            id0 = 3;
+            id1 = 2;
+
+            lastpolyverts = 4;
+        }
+
+        if (LastStripPolygon->NumVertices == lastpolyverts &&
+            !LastStripPolygon->Vertices[id0]->Clipped &&
+            !LastStripPolygon->Vertices[id1]->Clipped)
+        {
+            reusedvertices[0] = LastStripPolygon->Vertices[id0];
+            reusedvertices[1] = LastStripPolygon->Vertices[id1];
+
+            clippedvertices[0][0] = *reusedvertices[0];
+            clippedvertices[0][1] = *reusedvertices[1];
+            clippedvertices[1][0] = *reusedvertices[0];
+            clippedvertices[1][1] = *reusedvertices[1];
+
+            clipstart = 2;
+        }
+    }
+
+    // clip.
+    // for each vertex:
+    // if it's outside, check if the previous and next vertices are inside
+    // if so, place a new vertex at the edge of the view volume
 
     // X clipping
 
-    prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = TempVertexBuffer[i];
         if (vtx.Position[0] > vtx.Position[3])
         {
             Vertex* vprev = &TempVertexBuffer[prev];
             if (vprev->Position[0] <= vprev->Position[3])
             {
-                ClipSegment<0, 1>(clippedvertices[0], c, &vtx, vprev);
+                ClipSegment<0, 1>(&clippedvertices[0][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &TempVertexBuffer[next];
             if (vnext->Position[0] <= vnext->Position[3])
             {
-                ClipSegment<0, 1>(clippedvertices[0], c, &vtx, vnext);
+                ClipSegment<0, 1>(&clippedvertices[0][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[0][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
-    nverts = c; prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    nverts = c; c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = clippedvertices[0][i];
         if (vtx.Position[0] < -vtx.Position[3])
         {
             Vertex* vprev = &clippedvertices[0][prev];
             if (vprev->Position[0] >= -vprev->Position[3])
             {
-                ClipSegment<0, -1>(clippedvertices[1], c, &vtx, vprev);
+                ClipSegment<0, -1>(&clippedvertices[1][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &clippedvertices[0][next];
             if (vnext->Position[0] >= -vnext->Position[3])
             {
-                ClipSegment<0, -1>(clippedvertices[1], c, &vtx, vnext);
+                ClipSegment<0, -1>(&clippedvertices[1][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[1][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
     // Y clipping
 
-    nverts = c; prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    nverts = c; c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = clippedvertices[1][i];
         if (vtx.Position[1] > vtx.Position[3])
         {
             Vertex* vprev = &clippedvertices[1][prev];
             if (vprev->Position[1] <= vprev->Position[3])
             {
-                ClipSegment<1, 1>(clippedvertices[0], c, &vtx, vprev);
+                ClipSegment<1, 1>(&clippedvertices[0][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &clippedvertices[1][next];
             if (vnext->Position[1] <= vnext->Position[3])
             {
-                ClipSegment<1, 1>(clippedvertices[0], c, &vtx, vnext);
+                ClipSegment<1, 1>(&clippedvertices[0][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[0][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
-    nverts = c; prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    nverts = c; c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = clippedvertices[0][i];
         if (vtx.Position[1] < -vtx.Position[3])
         {
             Vertex* vprev = &clippedvertices[0][prev];
             if (vprev->Position[1] >= -vprev->Position[3])
             {
-                ClipSegment<1, -1>(clippedvertices[1], c, &vtx, vprev);
+                ClipSegment<1, -1>(&clippedvertices[1][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &clippedvertices[0][next];
             if (vnext->Position[1] >= -vnext->Position[3])
             {
-                ClipSegment<1, -1>(clippedvertices[1], c, &vtx, vnext);
+                ClipSegment<1, -1>(&clippedvertices[1][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[1][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
     // Z clipping
 
-    nverts = c; prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    nverts = c; c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = clippedvertices[1][i];
         if (vtx.Position[2] > vtx.Position[3])
         {
             Vertex* vprev = &clippedvertices[1][prev];
             if (vprev->Position[2] <= vprev->Position[3])
             {
-                ClipSegment<2, 1>(clippedvertices[0], c, &vtx, vprev);
+                ClipSegment<2, 1>(&clippedvertices[0][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &clippedvertices[1][next];
             if (vnext->Position[2] <= vnext->Position[3])
             {
-                ClipSegment<2, 1>(clippedvertices[0], c, &vtx, vnext);
+                ClipSegment<2, 1>(&clippedvertices[0][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[0][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
-    nverts = c; prev = nverts-1; next = 1; c = 0;
-    for (int i = 0; i < nverts; i++)
+    nverts = c; c = clipstart;
+    for (int i = clipstart; i < nverts; i++)
     {
+        prev = i-1; if (prev < 0) prev = nverts-1;
+        next = i+1; if (next >= nverts) next = 0;
+
         Vertex vtx = clippedvertices[0][i];
         if (vtx.Position[2] < -vtx.Position[3])
         {
             Vertex* vprev = &clippedvertices[0][prev];
             if (vprev->Position[2] >= -vprev->Position[3])
             {
-                ClipSegment<2, -1>(clippedvertices[1], c, &vtx, vprev);
+                ClipSegment<2, -1>(&clippedvertices[1][c], &vtx, vprev);
                 c++;
             }
 
             Vertex* vnext = &clippedvertices[0][next];
             if (vnext->Position[2] >= -vnext->Position[3])
             {
-                ClipSegment<2, -1>(clippedvertices[1], c, &vtx, vnext);
+                ClipSegment<2, -1>(&clippedvertices[1][c], &vtx, vnext);
                 c++;
             }
         }
         else
             clippedvertices[1][c++] = vtx;
-
-        prev++; if (prev >= nverts) prev = 0;
-        next++; if (next >= nverts) next = 0;
     }
 
-    if (c == 0) return;
+    if (c == 0)
+    {
+        LastStripPolygon = NULL;
+        return;
+    }
 
     // build the actual polygon
-    // TODO: tri/quad strips
 
-    if (NumPolygons >= 2048) return;
-    if (NumVertices+c > 6144) return;
+    if (NumPolygons >= 2048 || NumVertices+c > 6144)
+    {
+        LastStripPolygon = NULL;
+        return;
+    }
 
     Polygon* poly = &CurPolygonRAM[NumPolygons++];
     poly->NumVertices = 0;
 
-    for (int i = 0; i < c; i++)
+    poly->Attr = CurPolygonAttr;
+    poly->FacingView = facingview;
+
+    if (LastStripPolygon && clipstart > 0)
+    {
+        if (c == lastpolyverts)
+        {
+            poly->Vertices[0] = reusedvertices[0];
+            poly->Vertices[1] = reusedvertices[1];
+        }
+        else
+        {
+            Vertex v0 = *reusedvertices[0];
+            Vertex v1 = *reusedvertices[1];
+
+            CurVertexRAM[NumVertices] = v0;
+            poly->Vertices[0] = &CurVertexRAM[NumVertices];
+            CurVertexRAM[NumVertices+1] = v1;
+            poly->Vertices[1] = &CurVertexRAM[NumVertices+1];
+            NumVertices += 2;
+        }
+
+        poly->NumVertices += 2;
+    }
+
+    for (int i = clipstart; i < c; i++)
     {
         CurVertexRAM[NumVertices] = clippedvertices[1][i];
         poly->Vertices[i] = &CurVertexRAM[NumVertices];
@@ -616,17 +747,17 @@ void SubmitPolygon()
         NumVertices++;
         poly->NumVertices++;
     }
+
+    if (PolygonMode >= 2)
+        LastStripPolygon = poly;
+    else
+        LastStripPolygon = NULL;
 }
 
 void SubmitVertex()
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
-    //s32 vertextrans[4];
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
-
-    if (PolygonMode & 0x2) return;
-
-    //printf("vertex: %f %f %f\n", vertex[0]/4096.0f, vertex[1]/4096.0f, vertex[2]/4096.0f);
 
     UpdateClipMatrix();
     vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
@@ -634,59 +765,11 @@ void SubmitVertex()
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
-    /*printf("vertex fart: %f %f %f %f\n",
-           vertextrans->Position[0]/4096.0f,
-           vertextrans->Position[1]/4096.0f,
-           vertextrans->Position[2]/4096.0f,
-           vertextrans->Position[3]/4096.0f);*/
-
-    /*s32 w_inv;
-    if (vertextrans->Position[3] == 0)
-        w_inv = 0x1000; // checkme
-    else if(vertextrans->Position[3] < 0)
-        w_inv = 0x1000000 / -vertextrans->Position[3];
-    else
-        w_inv = 0x1000000 / vertextrans->Position[3];
-
-    vertextrans->Position[0] = (vertextrans->Position[0] * w_inv) >> 12;
-    vertextrans->Position[1] = (vertextrans->Position[1] * w_inv) >> 12;
-    vertextrans->Position[2] = (vertextrans->Position[2] * w_inv) >> 12;*/
-
     vertextrans->Color[0] = VertexColor[0];
     vertextrans->Color[1] = VertexColor[1];
     vertextrans->Color[2] = VertexColor[2];
 
-    /*printf("vertex trans: %f %f %f %f\n",
-           vertextrans->Position[0]/4096.0f,
-           vertextrans->Position[1]/4096.0f,
-           vertextrans->Position[2]/4096.0f,
-           vertextrans->Position[3]/4096.0f);
-    printf("clip: %f %f %f %f\n",
-           ClipMatrix[3]/4096.0f,
-           ClipMatrix[7]/4096.0f,
-           ClipMatrix[11]/4096.0f,
-           ClipMatrix[15]/4096.0f);*/
-
-    /*if (vertextrans[3] == 0)
-    {
-        //printf("!!!! VERTEX W IS ZERO\n");
-        //return;
-        vertextrans[3] = 0x1000; // checkme
-    }
-
-    s32 screenX = (((vertextrans[0]+vertextrans[3]) * Viewport[2]) / (vertextrans[3]<<1)) + Viewport[0];
-    s32 screenY = (((vertextrans[1]+vertextrans[3]) * Viewport[3]) / (vertextrans[3]<<1)) + Viewport[1];
-
-    printf("screen: %d, %d\n", screenX, screenY);
-
-    s32* finalvertex = TempVertexBuffer[VertexNumInPoly];
-    finalvertex[0] = screenX;
-    finalvertex[1] = screenY;
-    finalvertex[2] = vertextrans[2];
-    finalvertex[3] = vertextrans[3];*/
-
-    // triangle strip:  0,1,2  1,2,3  2,3,4  3,4,5  ...
-    // quad strip:  0,1,3,2  2,3,5,4  4,5,7,6  6,7,9,8  ...
+    vertextrans->Clipped = false;
 
     VertexNum++;
     VertexNumInPoly++;
@@ -698,6 +781,7 @@ void SubmitVertex()
         {
             VertexNumInPoly = 0;
             SubmitPolygon();
+            NumConsecutivePolygons++;
         }
         break;
 
@@ -706,32 +790,49 @@ void SubmitVertex()
         {
             VertexNumInPoly = 0;
             SubmitPolygon();
+            NumConsecutivePolygons++;
         }
         break;
 
-    /*case 2: // triangle strip
-        if (VertexNum > 3)
+    case 2: // triangle strip
+        if (NumConsecutivePolygons & 1)
         {
-            if (VertexNumInPoly == 1)
-            {
-                VertexNumInPoly = 0;
-                // reorder
-            }
-            else
-                VertexNumInPoly = 0;
+            Vertex tmp = TempVertexBuffer[1];
+            TempVertexBuffer[1] = TempVertexBuffer[0];
+            TempVertexBuffer[0] = tmp;
 
+            VertexNumInPoly = 2;
             SubmitPolygon();
+            NumConsecutivePolygons++;
+
+            TempVertexBuffer[1] = TempVertexBuffer[2];
         }
-        else if (VertexNum == 3)
+        else if (VertexNumInPoly == 3)
         {
             VertexNumInPoly = 2;
             SubmitPolygon();
+            NumConsecutivePolygons++;
 
             TempVertexBuffer[0] = TempVertexBuffer[1];
             TempVertexBuffer[1] = TempVertexBuffer[2];
         }
-        break;*/
-    default: VertexNumInPoly = 0; break;
+        break;
+
+    case 3: // quad strip
+        if (VertexNumInPoly == 4)
+        {
+            Vertex tmp = TempVertexBuffer[3];
+            TempVertexBuffer[3] = TempVertexBuffer[2];
+            TempVertexBuffer[2] = tmp;
+
+            VertexNumInPoly = 2;
+            SubmitPolygon();
+            NumConsecutivePolygons++;
+
+            TempVertexBuffer[0] = TempVertexBuffer[3];
+            TempVertexBuffer[1] = TempVertexBuffer[2];
+        }
+        break;
     }
 }
 
@@ -791,7 +892,7 @@ void ExecuteCommand()
 
     if (ExecParamCount >= CmdNumParams[entry.Command])
     {
-        //CycleCount += CmdNumCycles[entry.Command];
+        CycleCount += CmdNumCycles[entry.Command];
         ExecParamCount = 0;
 
         GXStat &= ~(1<<14);
@@ -1127,10 +1228,17 @@ void ExecuteCommand()
             SubmitVertex();
             break;
 
+        case 0x29: // polygon attributes
+            PolygonAttr = ExecParams[0];
+            break;
+
         case 0x40:
             PolygonMode = ExecParams[0] & 0x3;
             VertexNum = 0;
             VertexNumInPoly = 0;
+            NumConsecutivePolygons = 0;
+            LastStripPolygon = NULL;
+            CurPolygonAttr = PolygonAttr;
             break;
 
         case 0x50:
