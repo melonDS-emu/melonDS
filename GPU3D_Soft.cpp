@@ -28,6 +28,7 @@ namespace SoftRenderer
 {
 
 u8 ColorBuffer[256*192 * 4];
+u32 DepthBuffer[256*192];
 
 
 bool Init()
@@ -43,8 +44,36 @@ void DeInit()
 void Reset()
 {
     memset(ColorBuffer, 0, 256*192 * 4);
+    memset(DepthBuffer, 0, 256*192 * 4);
 }
 
+
+void RenderPixel(u32 attr, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb)
+{
+    u32* depth = &DepthBuffer[(256*y) + x];
+
+    bool passdepth = false;
+    if (attr & (1<<14))
+    {
+        s32 diff = *depth - z;
+        if ((u32)(diff + 0x200) <= 0x400)
+            passdepth = true;
+    }
+    else
+    if (z < *depth)
+        passdepth = true;
+
+    if (!passdepth) return;
+
+    u8* pixel = &ColorBuffer[((256*y) + x) * 4];
+    pixel[0] = vr;
+    pixel[1] = vg;
+    pixel[2] = vb;
+    pixel[3] = 31; // TODO: alpha
+
+    // TODO: optional update for translucent pixels
+    *depth = z;
+}
 
 void RenderPolygon(Polygon* polygon)
 {
@@ -83,17 +112,19 @@ void RenderPolygon(Polygon* polygon)
 
         s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
         s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
-        s32 scrZ = (vtx->Position[2] + 0x1000) >> 1;
+        s32 scrZ = (((s64)(posZ + 0x1000) * 0xFFFFFF) >> 13);
+        s32 scrW = (((s64)(w    + 0x1000) * 0xFFFFFF) >> 13);
         if (scrX > 255) scrX = 255;
         if (scrY > 191) scrY = 191;
-        if (scrZ > 0xFFF) scrZ = 0xFFF;
+        if (scrZ > 0xFFFFFF) scrZ = 0xFFFFFF;
         if (scrX < 0) { printf("!! bad X %d\n", scrX); scrX = 0;}
         if (scrY < 0) { printf("!! bad Y %d\n", scrY); scrY = 0;}
+        if (scrZ < 0) { printf("!! bad Z %d %d\n", scrZ, vtx->Position[2]); scrZ = 0;}
 
         scrcoords[i][0] = scrX;
         scrcoords[i][1] = 191 - scrY;
         scrcoords[i][2] = scrZ;
-        scrcoords[i][3] = vtx->Position[3];
+        scrcoords[i][3] = scrW;
 
         if (scrcoords[i][1] < ytop)
         {
@@ -213,8 +244,11 @@ void RenderPolygon(Polygon* polygon)
                    scrcoords[lcur][0], scrcoords[lnext][0],
                    scrcoords[rcur][0], scrcoords[rnext][0]);*/
 
-        //s32 zl = scrcoords[lcur][2] + (((scrcoords[lnext][2] - scrcoords[lcur][2]) * lfactor) >> 12);
-        //s32 zr = scrcoords[rcur][2] + (((scrcoords[rnext][2] - scrcoords[rcur][2]) * rfactor) >> 12);
+        s32 zl = scrcoords[lcur][2] + (((s64)(scrcoords[lnext][2] - scrcoords[lcur][2]) * lfactor) >> 12);
+        s32 zr = scrcoords[rcur][2] + (((s64)(scrcoords[rnext][2] - scrcoords[rcur][2]) * rfactor) >> 12);
+
+        //s32 wl = scrcoords[lcur][3] + (((s64)(scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
+        //s32 wr = scrcoords[rcur][3] + (((s64)(scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
 
         u8 rl = vlcur->Color[0] + (((vlnext->Color[0] - vlcur->Color[0]) * lfactor) >> 12);
         u8 gl = vlcur->Color[1] + (((vlnext->Color[1] - vlcur->Color[1]) * lfactor) >> 12);
@@ -234,8 +268,14 @@ void RenderPolygon(Polygon* polygon)
         {
             s32 xfactor = (x - xl) * xdiv;
 
+            s32 z = zl + (((s64)(zr - zl) * xfactor) >> 12);
+
             //s32 z = (((zr - zl) * xfactor) >> 12);
             //if (zr!=zl) z = (z << 12) / (zr - zl);
+            //s32 w = wl + (((s64)(wr - wl) * xfactor) >> 12);
+            //w >>= 12;
+            //if (w!=0) xfactor = ((s64)xfactor * 0xFFFFFF) / w;
+            //xfactor = (xfactor * w) >> 12;
 
             //s32 z_inv = ((z>>12)==0) ? 0x1000 : 0x1000000 / (z >> 12);
             //xfactor = (xfactor * z_inv) >> 12;
@@ -248,14 +288,14 @@ void RenderPolygon(Polygon* polygon)
                 x = 0; y = 0;
             }
 
-            u8* pixel = &ColorBuffer[((256*y) + x) * 4];
-            pixel[0] = rl + (((rr - rl) * xfactor) >> 12);
-            pixel[1] = gl + (((gr - gl) * xfactor) >> 12);
-            pixel[2] = bl + (((br - bl) * xfactor) >> 12);
-            pixel[3] = 31; // TODO: alpha
+            // possible optimization: only do color interpolation if the depth test passes
+            u8 vr = rl + (((rr - rl) * xfactor) >> 12);
+            u8 vg = gl + (((gr - gl) * xfactor) >> 12);
+            u8 vb = bl + (((br - bl) * xfactor) >> 12);
+            RenderPixel(polygon->Attr, x, y, z, vr, vg, vb);
 
             // Z debug
-            /*u8 zerp = (z * 63) / 0xFFFFFF;
+            /*u8 zerp = (w * 63) / 0xFFFFFF;
             pixel[0] = zerp;
             pixel[1] = zerp;
             pixel[2] = zerp;*/
@@ -280,9 +320,11 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
     // TODO: render translucent polygons last
 
+    // TODO proper clear color/depth support!
     for (int i = 0; i < 256*192; i++)
     {
         ((u32*)ColorBuffer)[i] = 0x00000000;
+        DepthBuffer[i] = 0xFFFFFF;
     }
 
     for (int i = 0; i < npolys; i++)
