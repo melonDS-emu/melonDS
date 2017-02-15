@@ -89,13 +89,14 @@ void RenderPolygon(Polygon* polygon)
     {
         Vertex* vtx = polygon->Vertices[i];
 
-        s32 posX, posY, posZ;
+        s32 posX, posY, posZ, posW;
         s32 w = vtx->Position[3];
         if (w == 0)
         {
             posX = 0;
             posY = 0;
             posZ = 0;
+            posW = 0x1000;
         }
         else
         {
@@ -103,17 +104,12 @@ void RenderPolygon(Polygon* polygon)
             posX = ((s64)vtx->Position[0] << 12) / w;
             posY = ((s64)vtx->Position[1] << 12) / w;
             posZ = ((s64)vtx->Position[2] << 12) / w;
+            posW = w;
         }
-        //s32 posX = vtx->Position[0];
-        //s32 posY = vtx->Position[1];
-
-        //printf("xy: %08X %08X %08X\n", vtx->Position[0], vtx->Position[1], vtx->Position[3]);
-        //printf("w_inv: %08X   res: %08X %08X\n", w_inv, posX, posY);
 
         s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
         s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
         s32 scrZ = (((s64)(posZ + 0x1000) * 0xFFFFFF) >> 13);
-        s32 scrW = (((s64)(w    + 0x1000) * 0xFFFFFF) >> 13);
         if (scrX > 255) scrX = 255;
         if (scrY > 191) scrY = 191;
         if (scrZ > 0xFFFFFF) scrZ = 0xFFFFFF;
@@ -124,7 +120,7 @@ void RenderPolygon(Polygon* polygon)
         scrcoords[i][0] = scrX;
         scrcoords[i][1] = 191 - scrY;
         scrcoords[i][2] = scrZ;
-        scrcoords[i][3] = scrW;
+        scrcoords[i][3] = posW;
 
         if (scrcoords[i][1] < ytop)
         {
@@ -238,25 +234,24 @@ void RenderPolygon(Polygon* polygon)
 
         if (xl<0 || xr>255) continue; // hax
 
-        //if (vlcur->Color[0]==0 && vlcur->Color[1]==63 && vlcur->Color[2]==0)
-            /*printf("y:%d  xleft:%d  xright:%d   %d,%d  %d,%d   |   left: %d to %d   right: %d to %d\n",
-                   y, xl, xr, lcur, rcur, vtop, vbot,
-                   scrcoords[lcur][0], scrcoords[lnext][0],
-                   scrcoords[rcur][0], scrcoords[rnext][0]);*/
-
         s32 zl = scrcoords[lcur][2] + (((s64)(scrcoords[lnext][2] - scrcoords[lcur][2]) * lfactor) >> 12);
         s32 zr = scrcoords[rcur][2] + (((s64)(scrcoords[rnext][2] - scrcoords[rcur][2]) * rfactor) >> 12);
 
-        //s32 wl = scrcoords[lcur][3] + (((s64)(scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
-        //s32 wr = scrcoords[rcur][3] + (((s64)(scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
+        s32 wl = scrcoords[lcur][3] + (((s64)(scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
+        s32 wr = scrcoords[rcur][3] + (((s64)(scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
 
-        u8 rl = vlcur->Color[0] + (((vlnext->Color[0] - vlcur->Color[0]) * lfactor) >> 12);
-        u8 gl = vlcur->Color[1] + (((vlnext->Color[1] - vlcur->Color[1]) * lfactor) >> 12);
-        u8 bl = vlcur->Color[2] + (((vlnext->Color[2] - vlcur->Color[2]) * lfactor) >> 12);
+        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) << 12) / scrcoords[lcur][3];
+        s64 perspfactorl2 = ((s64)lfactor << 12) / scrcoords[lnext][3];
+        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) << 12) / scrcoords[rcur][3];
+        s64 perspfactorr2 = ((s64)rfactor << 12) / scrcoords[rnext][3];
 
-        u8 rr = vrcur->Color[0] + (((vrnext->Color[0] - vrcur->Color[0]) * rfactor) >> 12);
-        u8 gr = vrcur->Color[1] + (((vrnext->Color[1] - vrcur->Color[1]) * rfactor) >> 12);
-        u8 br = vrcur->Color[2] + (((vrnext->Color[2] - vrcur->Color[2]) * rfactor) >> 12);
+        u32 rl = (((perspfactorl1 * vlcur->Color[0]) + (perspfactorl2 * vlnext->Color[0])) << 12) / (perspfactorl1 + perspfactorl2);
+        u32 gl = (((perspfactorl1 * vlcur->Color[1]) + (perspfactorl2 * vlnext->Color[1])) << 12) / (perspfactorl1 + perspfactorl2);
+        u32 bl = (((perspfactorl1 * vlcur->Color[2]) + (perspfactorl2 * vlnext->Color[2])) << 12) / (perspfactorl1 + perspfactorl2);
+
+        u32 rr = (((perspfactorr1 * vrcur->Color[0]) + (perspfactorr2 * vrnext->Color[0])) << 12) / (perspfactorr1 + perspfactorr2);
+        u32 gr = (((perspfactorr1 * vrcur->Color[1]) + (perspfactorr2 * vrnext->Color[1])) << 12) / (perspfactorr1 + perspfactorr2);
+        u32 br = (((perspfactorr1 * vrcur->Color[2]) + (perspfactorr2 * vrnext->Color[2])) << 12) / (perspfactorr1 + perspfactorr2);
 
         s32 xdiv;
         if (xr == xl)
@@ -270,29 +265,15 @@ void RenderPolygon(Polygon* polygon)
 
             s32 z = zl + (((s64)(zr - zl) * xfactor) >> 12);
 
-            //s32 z = (((zr - zl) * xfactor) >> 12);
-            //if (zr!=zl) z = (z << 12) / (zr - zl);
-            //s32 w = wl + (((s64)(wr - wl) * xfactor) >> 12);
-            //w >>= 12;
-            //if (w!=0) xfactor = ((s64)xfactor * 0xFFFFFF) / w;
-            //xfactor = (xfactor * w) >> 12;
-
-            //s32 z_inv = ((z>>12)==0) ? 0x1000 : 0x1000000 / (z >> 12);
-            //xfactor = (xfactor * z_inv) >> 12;
-            //if (z) xfactor = (xfactor << 12) / z;
-
-            // TODO: get rid of this shit
-            if (x<0 || x>255 || y<0 || y>191)
-            {
-                //printf("BAD COORDS!! %d %d\n", x, y);
-                x = 0; y = 0;
-            }
+            s32 perspfactor1 = ((0x1000 - xfactor) << 12) / wl;
+            s32 perspfactor2 = (xfactor << 12) / wr;
 
             // possible optimization: only do color interpolation if the depth test passes
-            u8 vr = rl + (((rr - rl) * xfactor) >> 12);
-            u8 vg = gl + (((gr - gl) * xfactor) >> 12);
-            u8 vb = bl + (((br - bl) * xfactor) >> 12);
-            RenderPixel(polygon->Attr, x, y, z, vr, vg, vb);
+            u32 vr = (s64)((perspfactor1 * rl) + (perspfactor2 * rr)) / (perspfactor1 + perspfactor2);
+            u32 vg = (s64)((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
+            u32 vb = (s64)((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
+
+            RenderPixel(polygon->Attr, x, y, z, vr>>12, vg>>12, vb>>12);
 
             // Z debug
             /*u8 zerp = (w * 63) / 0xFFFFFF;
