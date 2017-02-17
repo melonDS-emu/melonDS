@@ -34,12 +34,23 @@
 // clipping rules:
 // * if a shared vertex in a strip is clipped, affected polygons are converted into single polygons
 //   strip is resumed at the first eligible polygon
+//
+// clipping exhibits oddities on the real thing. bad precision? fancy algorithm? TODO: investigate.
+//
+// vertex color precision:
+// * vertex colors are kept at 5-bit during clipping. makes for shitty results.
+// * vertex colors are converted to 9-bit before drawing, as such:
+//   if (x > 0) x = (x << 4) + 0xF
+//   the added bias affects interpolation.
+//
+// depth buffer:
+// Z-buffering mode: val = ((Z * 0x800 * 0x1000) / W) + 0x7FFCFF
+// W-buffering mode: val = W - 0x1FF
+// TODO: confirm W, because it's weird
 
 
 namespace GPU3D
 {
-
-#define COPYVERTEX(a, b)  { *(u64*)&a[0] = *(u64*)&b[0]; *(u64*)&a[2] = *(u64*)&b[2]; }
 
 const u32 CmdNumParams[256] =
 {
@@ -301,14 +312,6 @@ void MatrixMult4x3(s32* m, s32* s)
     s32 tmp[16];
     memcpy(tmp, m, 16*4);
 
-    /*printf("4x3 matrix\n");
-    for (int j = 0; j < 12; j += 3)
-    {
-        for (int i = 0; i < 3; i++)
-            printf("%f ", s[i]/4096.0f);
-        printf("\n");
-    }*/
-
     // m = s*m
     m[0] = ((s64)s[0]*tmp[0] + (s64)s[1]*tmp[4] + (s64)s[2]*tmp[8]) >> 12;
     m[1] = ((s64)s[0]*tmp[1] + (s64)s[1]*tmp[5] + (s64)s[2]*tmp[9]) >> 12;
@@ -392,11 +395,11 @@ void UpdateClipMatrix()
 template<int comp, s32 plane>
 void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
 {
-    s64 factor = ((s64)(vin->Position[3] - (plane*vin->Position[comp])) << 24) /
-        ((vin->Position[3] - (plane*vin->Position[comp])) - (vout->Position[3] - (plane*vout->Position[comp])));
+    s64 factor_num = vin->Position[3] - (plane*vin->Position[comp]);
+    s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
 
     Vertex mid;
-#define INTERPOLATE(var)  mid.var = vin->var + (((vout->var - vin->var) * factor) >> 24);
+#define INTERPOLATE(var)  mid.var = vin->var + (((vout->var - vin->var) * factor_num) / factor_den);
 
     INTERPOLATE(Position[0]);
     INTERPOLATE(Position[1]);
@@ -408,6 +411,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     INTERPOLATE(Color[2]);
 
     mid.Clipped = true;
+    mid.ViewportTransformDone = false;
 
 #undef INTERPOLATE
     *outbuf = mid;
@@ -425,8 +429,6 @@ void SubmitPolygon()
     int c;
 
     // culling
-    //if (!(TempVertexBuffer[0].Color[0]==0 && TempVertexBuffer[0].Color[1]==63 && TempVertexBuffer[0].Color[2]==63))
-    //   return;
 
     // checkme: does it work this way for quads and up?
     /*s32 _x1 = TempVertexBuffer[1].Position[0] - TempVertexBuffer[0].Position[0];
@@ -770,6 +772,7 @@ void SubmitVertex()
     vertextrans->Color[2] = VertexColor[2];
 
     vertextrans->Clipped = false;
+    vertextrans->ViewportTransformDone = false;
 
     VertexNum++;
     VertexNumInPoly++;
@@ -1179,9 +1182,9 @@ void ExecuteCommand()
                 u32 r = c & 0x1F;
                 u32 g = (c >> 5) & 0x1F;
                 u32 b = (c >> 10) & 0x1F;
-                VertexColor[0] = r ? (r<<1)+1 : 0;
-                VertexColor[1] = g ? (g<<1)+1 : 0;
-                VertexColor[2] = b ? (b<<1)+1 : 0;
+                VertexColor[0] = r;
+                VertexColor[1] = g;
+                VertexColor[2] = b;
             }
             break;
 
@@ -1243,6 +1246,7 @@ void ExecuteCommand()
 
         case 0x50:
             FlushRequest = 1;//0x80000000 | (ExecParams[0] & 0x3);
+            CycleCount = 392;
             break;
 
         case 0x60: // viewport x1,y1,x2,y2

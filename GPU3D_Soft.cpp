@@ -81,68 +81,74 @@ void RenderPolygon(Polygon* polygon)
 
     int vtop = 0, vbot = 0;
     s32 ytop = 191, ybot = 0;
-    s32 scrcoords[10][4];
 
+    // process the vertices, transform to screen coordinates
     // find the topmost and bottommost vertices of the polygon
 
     for (int i = 0; i < nverts; i++)
     {
         Vertex* vtx = polygon->Vertices[i];
 
-        s32 posX, posY, posZ, posW;
-        s32 w = vtx->Position[3];
-        if (w == 0)
+        if (!vtx->ViewportTransformDone)
         {
-            posX = 0;
-            posY = 0;
-            posZ = 0;
-            posW = 0x1000;
+            s32 posX, posY, posZ, posW;
+            s32 w = vtx->Position[3];
+            if (w == 0)
+            {
+                posX = 0;
+                posY = 0;
+                posZ = 0;
+                posW = 0x1000;
+            }
+            else
+            {
+                posX = ((s64)vtx->Position[0] << 12) / w;
+                posY = ((s64)vtx->Position[1] << 12) / w;
+
+                // TODO: W-buffering
+                posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFCFF;
+
+                posW = w;
+            }
+
+            s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
+            s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
+
+            if      (scrX < 0)   scrX = 0;
+            else if (scrX > 255) scrX = 255;
+            if      (scrY < 0)   scrY = 0;
+            else if (scrY > 191) scrY = 191;
+            if      (posZ < 0)        posZ = 0;
+            else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
+
+            vtx->FinalPosition[0] = scrX;
+            vtx->FinalPosition[1] = 191 - scrY;
+            vtx->FinalPosition[2] = posZ;
+            vtx->FinalPosition[3] = posW;
+
+            vtx->FinalColor[0] = vtx->Color[0] ? ((vtx->Color[0] << 4) + 0xF) : 0;
+            vtx->FinalColor[1] = vtx->Color[1] ? ((vtx->Color[1] << 4) + 0xF) : 0;
+            vtx->FinalColor[2] = vtx->Color[2] ? ((vtx->Color[2] << 4) + 0xF) : 0;
+
+            vtx->ViewportTransformDone = true;
         }
-        else
+
+        if (vtx->FinalPosition[1] < ytop)
         {
-            // TODO: find a way to avoid doing 3 divisions :/
-            posX = ((s64)vtx->Position[0] << 12) / w;
-            posY = ((s64)vtx->Position[1] << 12) / w;
-            posZ = ((s64)vtx->Position[2] << 12) / w;
-            posW = w;
-        }
-
-        s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
-        s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
-        s32 scrZ = (((s64)(posZ + 0x1000) * 0xFFFFFF) >> 13);
-        if (scrX > 255) scrX = 255;
-        if (scrY > 191) scrY = 191;
-        if (scrZ > 0xFFFFFF) scrZ = 0xFFFFFF;
-        if (scrX < 0) { printf("!! bad X %d\n", scrX); scrX = 0;}
-        if (scrY < 0) { printf("!! bad Y %d\n", scrY); scrY = 0;}
-        if (scrZ < 0) { printf("!! bad Z %d %d\n", scrZ, vtx->Position[2]); scrZ = 0;}
-
-        scrcoords[i][0] = scrX;
-        scrcoords[i][1] = 191 - scrY;
-        scrcoords[i][2] = scrZ;
-        scrcoords[i][3] = posW;
-
-        if (scrcoords[i][1] < ytop)
-        {
-            ytop = scrcoords[i][1];
+            ytop = vtx->FinalPosition[1];
             vtop = i;
         }
-        if (scrcoords[i][1] > ybot)
+        if (vtx->FinalPosition[1] > ybot)
         {
-            ybot = scrcoords[i][1];
+            ybot = vtx->FinalPosition[1];
             vbot = i;
         }
-        //if (vtx->Color[0]==63 && vtx->Color[1]==0 && vtx->Color[2]==0)
-        //printf("v%d: %d,%d  Z=%f  W=%f  %d  %d\n", i, scrX, 191-scrY, vtx->Position[2]/4096.0f, vtx->Position[3]/4096.0f,
-        //       polygon->FacingView, vtx->Clipped);
     }
 
     // draw, line per line
 
     int lcur = vtop, rcur = vtop;
     int lnext, rnext;
-    s32 lstep, rstep;
-    //s32 xmin, xmax;
 
     if (polygon->FacingView)
     {
@@ -159,19 +165,11 @@ void RenderPolygon(Polygon* polygon)
         if (rnext >= nverts) rnext = 0;
     }
 
-    /*if ((scrcoords[lnext][1] - scrcoords[lcur][1]) == 0) lstep = 0; else
-    lstep = ((scrcoords[lnext][0] - scrcoords[lcur][0]) << 12) / (scrcoords[lnext][1] - scrcoords[lcur][1]);
-    if ((scrcoords[rnext][1] - scrcoords[rcur][1]) == 0) rstep = 0; else
-    rstep = ((scrcoords[rnext][0] - scrcoords[rcur][0]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);*/
-
-    //xmin = scrcoords[lcur][0] << 12;
-    //xmax = scrcoords[rcur][0] << 12;
-
     for (s32 y = ytop; y <= ybot; y++)
     {
         if (y < ybot)
         {
-            while (y == scrcoords[lnext][1])
+            while (y == polygon->Vertices[lnext]->FinalPosition[1])
             {
                 lcur = lnext;
 
@@ -186,12 +184,10 @@ void RenderPolygon(Polygon* polygon)
                     if (lnext < 0) lnext = nverts - 1;
                 }
 
-                //lstep = ((scrcoords[lnext][0] - scrcoords[lcur][0]) << 12) / (scrcoords[lnext][1] - scrcoords[lcur][1]);
-                //xmin = scrcoords[lcur][0] << 12;
                 if (lcur == vbot) break;
             }
 
-            while (y == scrcoords[rnext][1])
+            while (y == polygon->Vertices[rnext]->FinalPosition[1])
             {
                 rcur = rnext;
 
@@ -206,8 +202,6 @@ void RenderPolygon(Polygon* polygon)
                     if (rnext >= nverts) rnext = 0;
                 }
 
-                //rstep = ((scrcoords[rnext][0] - scrcoords[rcur][0]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);
-                //xmax = scrcoords[rcur][0] << 12;
                 if (rcur == vbot) break;
             }
         }
@@ -219,39 +213,54 @@ void RenderPolygon(Polygon* polygon)
 
         s32 lfactor, rfactor;
 
-        if (scrcoords[lnext][1] == scrcoords[lcur][1])
+        if (vlnext->FinalPosition[1] == vlcur->FinalPosition[1])
             lfactor = 0;
         else
-            lfactor = ((y - scrcoords[lcur][1]) << 12) / (scrcoords[lnext][1] - scrcoords[lcur][1]);
+            lfactor = ((y - vlcur->FinalPosition[1]) << 12) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
 
-        if (scrcoords[rnext][1] == scrcoords[rcur][1])
+        if (vrnext->FinalPosition[1] == vrcur->FinalPosition[1])
             rfactor = 0;
         else
-            rfactor = ((y - scrcoords[rcur][1]) << 12) / (scrcoords[rnext][1] - scrcoords[rcur][1]);
+            rfactor = ((y - vrcur->FinalPosition[1]) << 12) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
 
-        s32 xl = scrcoords[lcur][0] + (((scrcoords[lnext][0] - scrcoords[lcur][0]) * lfactor) >> 12);
-        s32 xr = scrcoords[rcur][0] + (((scrcoords[rnext][0] - scrcoords[rcur][0]) * rfactor) >> 12);
+        s32 xl = vlcur->FinalPosition[0] + (((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) >> 12);
+        s32 xr = vrcur->FinalPosition[0] + (((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) >> 12);
 
-        if (xl<0 || xr>255) continue; // hax
+        if (xl<0 || xr>255)
+        {
+            printf("!! BAD X %d %d\n", xl, xr);
+            continue; // hax
+        }
 
-        s32 zl = scrcoords[lcur][2] + (((s64)(scrcoords[lnext][2] - scrcoords[lcur][2]) * lfactor) >> 12);
-        s32 zr = scrcoords[rcur][2] + (((s64)(scrcoords[rnext][2] - scrcoords[rcur][2]) * rfactor) >> 12);
+        s32 zl = vlcur->FinalPosition[2] + (((s64)(vlnext->FinalPosition[2] -vlcur->FinalPosition[2]) * lfactor) >> 12);
+        s32 zr = vrcur->FinalPosition[2] + (((s64)(vrnext->FinalPosition[2] - vrcur->FinalPosition[2]) * rfactor) >> 12);
 
-        s32 wl = scrcoords[lcur][3] + (((s64)(scrcoords[lnext][3] - scrcoords[lcur][3]) * lfactor) >> 12);
-        s32 wr = scrcoords[rcur][3] + (((s64)(scrcoords[rnext][3] - scrcoords[rcur][3]) * rfactor) >> 12);
+        s32 wl = vlcur->FinalPosition[3] + (((s64)(vlnext->FinalPosition[3] - vlcur->FinalPosition[3]) * lfactor) >> 12);
+        s32 wr = vrcur->FinalPosition[3] + (((s64)(vrnext->FinalPosition[3] - vrcur->FinalPosition[3]) * rfactor) >> 12);
 
-        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) << 12) / scrcoords[lcur][3];
-        s64 perspfactorl2 = ((s64)lfactor << 12) / scrcoords[lnext][3];
-        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) << 12) / scrcoords[rcur][3];
-        s64 perspfactorr2 = ((s64)rfactor << 12) / scrcoords[rnext][3];
+        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) << 12) / vlcur->FinalPosition[3];
+        s64 perspfactorl2 = ((s64)lfactor << 12)            / vlnext->FinalPosition[3];
+        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) << 12) / vrcur->FinalPosition[3];
+        s64 perspfactorr2 = ((s64)rfactor << 12)            / vrnext->FinalPosition[3];
 
-        u32 rl = (((perspfactorl1 * vlcur->Color[0]) + (perspfactorl2 * vlnext->Color[0])) << 12) / (perspfactorl1 + perspfactorl2);
-        u32 gl = (((perspfactorl1 * vlcur->Color[1]) + (perspfactorl2 * vlnext->Color[1])) << 12) / (perspfactorl1 + perspfactorl2);
-        u32 bl = (((perspfactorl1 * vlcur->Color[2]) + (perspfactorl2 * vlnext->Color[2])) << 12) / (perspfactorl1 + perspfactorl2);
+        if (perspfactorl1 + perspfactorl2 == 0)
+        {
+            perspfactorl1 = 0x1000;
+            perspfactorl2 = 0;
+        }
+        if (perspfactorr1 + perspfactorr2 == 0)
+        {
+            perspfactorr1 = 0x1000;
+            perspfactorr2 = 0;
+        }
 
-        u32 rr = (((perspfactorr1 * vrcur->Color[0]) + (perspfactorr2 * vrnext->Color[0])) << 12) / (perspfactorr1 + perspfactorr2);
-        u32 gr = (((perspfactorr1 * vrcur->Color[1]) + (perspfactorr2 * vrnext->Color[1])) << 12) / (perspfactorr1 + perspfactorr2);
-        u32 br = (((perspfactorr1 * vrcur->Color[2]) + (perspfactorr2 * vrnext->Color[2])) << 12) / (perspfactorr1 + perspfactorr2);
+        s32 rl = ((perspfactorl1 * vlcur->FinalColor[0]) + (perspfactorl2 * vlnext->FinalColor[0])) / (perspfactorl1 + perspfactorl2);
+        s32 gl = ((perspfactorl1 * vlcur->FinalColor[1]) + (perspfactorl2 * vlnext->FinalColor[1])) / (perspfactorl1 + perspfactorl2);
+        s32 bl = ((perspfactorl1 * vlcur->FinalColor[2]) + (perspfactorl2 * vlnext->FinalColor[2])) / (perspfactorl1 + perspfactorl2);
+
+        s32 rr = ((perspfactorr1 * vrcur->FinalColor[0]) + (perspfactorr2 * vrnext->FinalColor[0])) / (perspfactorr1 + perspfactorr2);
+        s32 gr = ((perspfactorr1 * vrcur->FinalColor[1]) + (perspfactorr2 * vrnext->FinalColor[1])) / (perspfactorr1 + perspfactorr2);
+        s32 br = ((perspfactorr1 * vrcur->FinalColor[2]) + (perspfactorr2 * vrnext->FinalColor[2])) / (perspfactorr1 + perspfactorr2);
 
         s32 xdiv;
         if (xr == xl)
@@ -264,16 +273,25 @@ void RenderPolygon(Polygon* polygon)
             s32 xfactor = (x - xl) * xdiv;
 
             s32 z = zl + (((s64)(zr - zl) * xfactor) >> 12);
+            //z = wl + (((s64)(wr - wl) * xfactor) >> 12);
+            //z -= 0x1FF;
+            //if (z < 0) z = 0;
 
             s32 perspfactor1 = ((0x1000 - xfactor) << 12) / wl;
             s32 perspfactor2 = (xfactor << 12) / wr;
 
-            // possible optimization: only do color interpolation if the depth test passes
-            u32 vr = (s64)((perspfactor1 * rl) + (perspfactor2 * rr)) / (perspfactor1 + perspfactor2);
-            u32 vg = (s64)((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
-            u32 vb = (s64)((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
+            if (perspfactor1 + perspfactor2 == 0)
+            {
+                perspfactor1 = 0x1000;
+                perspfactor2 = 0;
+            }
 
-            RenderPixel(polygon->Attr, x, y, z, vr>>12, vg>>12, vb>>12);
+            // possible optimization: only do color interpolation if the depth test passes
+            u32 vr = ((perspfactor1 * rl) + (perspfactor2 * rr)) / (perspfactor1 + perspfactor2);
+            u32 vg = ((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
+            u32 vb = ((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
+
+            RenderPixel(polygon->Attr, x, y, z, vr>>3, vg>>3, vb>>3);
 
             // Z debug
             /*u8 zerp = (w * 63) / 0xFFFFFF;

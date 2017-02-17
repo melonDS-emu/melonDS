@@ -29,6 +29,14 @@ typedef struct
 
     bool Clipped;
 
+    // final vertex attributes.
+    // allows them to be reused in polygon strips.
+
+    s32 FinalPosition[4];
+    s32 FinalColor[3];
+
+    bool ViewportTransformDone;
+
 } Vertex;
 
 typedef struct
