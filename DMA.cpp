@@ -34,6 +34,66 @@ DMA::DMA(u32 cpu, u32 num)
     CPU = cpu;
     Num = num;
 
+    if (cpu == 0)
+        CountMask = 0x001FFFFF;
+    else
+        CountMask = (num==3 ? 0x0000FFFF : 0x00003FFF);
+
+    // TODO: merge with the one in ARM.cpp, somewhere
+    for (int i = 0; i < 16; i++)
+    {
+        Waitstates[0][i] = 1;
+        Waitstates[1][i] = 1;
+    }
+
+    if (!num)
+    {
+        // ARM9
+        // note: 33MHz cycles
+        Waitstates[0][0x2] = 1;
+        Waitstates[0][0x3] = 1;
+        Waitstates[0][0x4] = 1;
+        Waitstates[0][0x5] = 1;
+        Waitstates[0][0x6] = 1;
+        Waitstates[0][0x7] = 1;
+        Waitstates[0][0x8] = 6;
+        Waitstates[0][0x9] = 6;
+        Waitstates[0][0xA] = 10;
+        Waitstates[0][0xF] = 1;
+
+        Waitstates[1][0x2] = 2;
+        Waitstates[1][0x3] = 1;
+        Waitstates[1][0x4] = 1;
+        Waitstates[1][0x5] = 2;
+        Waitstates[1][0x6] = 2;
+        Waitstates[1][0x7] = 1;
+        Waitstates[1][0x8] = 12;
+        Waitstates[1][0x9] = 12;
+        Waitstates[1][0xA] = 10;
+        Waitstates[1][0xF] = 1;
+    }
+    else
+    {
+        // ARM7
+        Waitstates[0][0x0] = 1;
+        Waitstates[0][0x2] = 1;
+        Waitstates[0][0x3] = 1;
+        Waitstates[0][0x4] = 1;
+        Waitstates[0][0x6] = 1;
+        Waitstates[0][0x8] = 6;
+        Waitstates[0][0x9] = 6;
+        Waitstates[0][0xA] = 10;
+
+        Waitstates[1][0x0] = 1;
+        Waitstates[1][0x2] = 2;
+        Waitstates[1][0x3] = 1;
+        Waitstates[1][0x4] = 1;
+        Waitstates[1][0x6] = 2;
+        Waitstates[1][0x8] = 12;
+        Waitstates[1][0x9] = 12;
+        Waitstates[1][0xA] = 10;
+    }
+
     Reset();
 }
 
@@ -51,8 +111,11 @@ void DMA::Reset()
     CurSrcAddr = 0;
     CurDstAddr = 0;
     RemCount = 0;
+    IterCount = 0;
     SrcAddrInc = 0;
     DstAddrInc = 0;
+
+    Running = false;
 }
 
 void DMA::WriteCnt(u32 val)
@@ -90,16 +153,16 @@ void DMA::WriteCnt(u32 val)
             Start();
         else if (StartMode == 0x07)
             GPU3D::CheckFIFODMA();
-        //else
-        //    printf("SPECIAL ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
+
         if ((StartMode&7)!=0x00 && (StartMode&7)!=0x1 && StartMode!=2 && StartMode!=0x05 && StartMode!=0x12 && StartMode!=0x07)
             printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
-        //if (StartMode==2)printf("HBLANK DMA %08X -> %08X\n", SrcAddr, DstAddr);
     }
 }
 
 void DMA::Start()
 {
+    if (Running) return;
+
     u32 countmask;
     if (CPU == 0)
         countmask = 0x001FFFFF;
@@ -109,6 +172,11 @@ void DMA::Start()
     RemCount = Cnt & countmask;
     if (!RemCount)
         RemCount = countmask+1;
+
+    if (StartMode == 0x07 && RemCount > 112)
+        IterCount = 112;
+    else
+        IterCount = RemCount;
 
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
@@ -126,24 +194,33 @@ void DMA::Start()
             NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
         return;
     }
-    //if (StartMode == 0x07)printf("GXFIFO DMA %08X %08X\n", Cnt, CurSrcAddr);
-    u32 num = RemCount;
-    if (StartMode == 0x07 && num > 112)
-        num = 112;
 
-    // TODO: NOT MAKE THE DMA INSTANT!!
+    // TODO eventually: not stop if we're running code in ITCM
+
+    Running = true;
+    NDS::StopCPU(CPU, true);
+}
+
+s32 DMA::Run(s32 cycles)
+{
+    if (!Running)
+        return cycles;
+
+    u32 zorp = IterCount;
+
     if (!(Cnt & 0x04000000))
     {
         u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
         void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
-        while (num > 0)
+        while (IterCount > 0 && cycles > 0)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
+            cycles -= (Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
-            num--;
+            IterCount--;
             RemCount--;
         }
     }
@@ -152,22 +229,30 @@ void DMA::Start()
         u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
         void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
-        while (num > 0)
+        while (IterCount > 0 && cycles > 0)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
+            cycles -= (Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
-            num--;
+            IterCount--;
             RemCount--;
         }
     }
 
     if (RemCount)
     {
-        Cnt &= ~countmask;
+        Cnt &= ~CountMask;
         Cnt |= RemCount;
-        return;
+
+        if (IterCount == 0)
+        {
+            Running = false;
+            NDS::StopCPU(CPU, false);
+        }
+
+        return cycles;
     }
 
     if (!(Cnt & 0x02000000))
@@ -175,4 +260,9 @@ void DMA::Start()
 
     if (Cnt & 0x40000000)
         NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
+
+    Running = false;
+    NDS::StopCPU(CPU, false);
+
+    return cycles - 2;
 }

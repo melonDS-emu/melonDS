@@ -54,6 +54,8 @@ s32 ARM7Offset;
 SchedEvent SchedList[Event_MAX];
 u32 SchedListMask;
 
+u32 CPUStop;
+
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
 
@@ -278,6 +280,8 @@ void Reset()
     ARM7->Reset();
     CP15::Reset();
 
+    CPUStop = 0;
+
     memset(Timers, 0, 8*sizeof(Timer));
 
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
@@ -307,7 +311,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/nsmb.nds"))
+    if (NDSCart::LoadROM("rom/raving.nds"))
         Running = true; // hax
 }
 
@@ -364,17 +368,45 @@ void RunFrame()
 
     while (Running && framecycles>0)
     {
-        CalcIterationCycles();
-
-        ARM9->CyclesToRun = CurIterationCycles << 1;
-
-        ARM9->Execute();
-        s32 ndscyclestorun = ARM9->Cycles >> 1;
+        s32 ndscyclestorun;
         s32 ndscycles = 0;
 
-        ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
-        ARM7->Execute();
-        ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+        CalcIterationCycles();
+
+        if (CPUStop & 0x1)
+        {
+            s32 cycles = CurIterationCycles;
+            cycles = DMAs[0]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[1]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[2]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[3]->Run(cycles);
+            ndscyclestorun = CurIterationCycles - cycles;
+
+            // TODO: run other timing critical shit, like timers
+            GPU3D::Run(ndscyclestorun);
+        }
+        else
+        {
+            ARM9->CyclesToRun = CurIterationCycles << 1;
+            ARM9->Execute();
+            ndscyclestorun = ARM9->Cycles >> 1;
+        }
+
+        if (CPUStop & 0x2)
+        {
+            s32 cycles = ndscyclestorun - ARM7Offset;
+            cycles = DMAs[4]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[5]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[6]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[7]->Run(cycles);
+            ARM7Offset = cycles;
+        }
+        else
+        {
+            ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
+            ARM7->Execute();
+            ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+        }
 
         RunSystem(ndscyclestorun);
         //GPU3D::Run(ndscyclestorun);
@@ -518,6 +550,12 @@ bool HaltInterrupted(u32 cpu)
         return true;
 
     return false;
+}
+
+void StopCPU(u32 cpu, bool stop)
+{
+    if (stop) CPUStop |=  (1<<cpu);
+    else      CPUStop &= ~(1<<cpu);
 }
 
 

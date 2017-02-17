@@ -841,6 +841,8 @@ void SubmitVertex()
 
 
 
+int logflag = 0;
+
 void CmdFIFOWrite(CmdFIFOEntry& entry)
 {
     if (CmdFIFO->IsEmpty() && !CmdPIPE->IsFull())
@@ -852,7 +854,8 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
     {
         if (CmdFIFO->IsFull())
         {
-            printf("!!! GX FIFO FULL\n");
+            if (!logflag) printf("!!! GX FIFO FULL\n");
+            logflag = 1;
             //NDS::debug(0);
             return;
         }
@@ -875,6 +878,8 @@ CmdFIFOEntry CmdFIFORead()
         CheckFIFODMA();
         CheckFIFOIRQ();
     }
+
+    logflag = 0;
 
     return ret;
 }
