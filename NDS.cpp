@@ -311,7 +311,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/raving.nds"))
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 }
 

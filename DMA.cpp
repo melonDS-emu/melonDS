@@ -46,7 +46,7 @@ DMA::DMA(u32 cpu, u32 num)
         Waitstates[1][i] = 1;
     }
 
-    if (!num)
+    if (!cpu)
     {
         // ARM9
         // note: 33MHz cycles
@@ -206,8 +206,6 @@ s32 DMA::Run(s32 cycles)
     if (!Running)
         return cycles;
 
-    u32 zorp = IterCount;
-
     if (!(Cnt & 0x04000000))
     {
         u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
@@ -250,6 +248,9 @@ s32 DMA::Run(s32 cycles)
         {
             Running = false;
             NDS::StopCPU(CPU, false);
+
+            if (StartMode & 0x07)
+                GPU3D::CheckFIFODMA();
         }
 
         return cycles;

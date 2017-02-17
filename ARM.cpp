@@ -328,6 +328,7 @@ s32 ARM::Execute()
         else
         {
             Cycles = CyclesToRun;
+            GPU3D::Run(CyclesToRun >> 1);
             return Cycles;
         }
     }

@@ -848,7 +848,6 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
     if (CmdFIFO->IsEmpty() && !CmdPIPE->IsFull())
     {
         CmdPIPE->Write(entry);
-        GXStat |= (1<<27);
     }
     else
     {
@@ -890,13 +889,10 @@ void ExecuteCommand()
 {
     CmdFIFOEntry entry = CmdFIFORead();
 
-    //printf("FIFO: %02X %08X\n", entry.Command, entry.Param);
+    //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
 
     ExecParams[ExecParamCount] = entry.Param;
     ExecParamCount++;
-
-    //if ((entry.Command&0xF0)==0x10)
-    //    printf("MATRIX CMD %02X %08X\n", entry.Command, entry.Param);
 
     if (ExecParamCount >= CmdNumParams[entry.Command])
     {
@@ -904,10 +900,8 @@ void ExecuteCommand()
         ExecParamCount = 0;
 
         GXStat &= ~(1<<14);
-        //if (CycleCount > 0)
-        //    GXStat |= (1<<27);
-
-        //printf("3D CMD %02X\n", entry.Command);
+        if (CycleCount > 0)
+            GXStat |= (1<<27);
 
         switch (entry.Command)
         {
@@ -1268,6 +1262,10 @@ void Run(s32 cycles)
 {
     if (FlushRequest)
         return;
+    if (CycleCount <= 0 && CmdPIPE->IsEmpty())
+        return;
+
+    CycleCount -= cycles;
 
     if (CycleCount <= 0)
     {
@@ -1275,12 +1273,10 @@ void Run(s32 cycles)
             ExecuteCommand();
     }
 
-    CycleCount -= cycles;
-
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
     {
         CycleCount = 0;
-        GXStat &= ~(1<<27);
+        GXStat &= ~((1<<27)|(1<<14));
     }
 }
 
@@ -1318,7 +1314,6 @@ void VBlank()
         NumPolygons = 0;
 
         FlushRequest = 0;
-        GXStat &= ~(1<<27);
     }
 }
 
@@ -1410,10 +1405,13 @@ void Write32(u32 addr, u32 val)
 
         for (;;)
         {
-            CmdFIFOEntry entry;
-            entry.Command = CurCommand & 0xFF;
-            entry.Param = val;
-            CmdFIFOWrite(entry);
+            if ((CurCommand & 0xFF) || (NumCommands == 4))
+            {
+                CmdFIFOEntry entry;
+                entry.Command = CurCommand & 0xFF;
+                entry.Param = val;
+                CmdFIFOWrite(entry);
+            }
 
             if (ParamCount >= TotalParams)
             {
