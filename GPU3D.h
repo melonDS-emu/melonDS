@@ -56,6 +56,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void ExecuteCommand();
+
 void Run(s32 cycles);
 void CheckFIFOIRQ();
 void CheckFIFODMA();

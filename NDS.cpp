@@ -311,7 +311,7 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/nsmb.nds"))
+    if (NDSCart::LoadROM("rom/sm64ds.nds"))
         Running = true; // hax
 }
 

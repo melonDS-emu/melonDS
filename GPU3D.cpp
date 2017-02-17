@@ -841,8 +841,6 @@ void SubmitVertex()
 
 
 
-int logflag = 0;
-
 void CmdFIFOWrite(CmdFIFOEntry& entry)
 {
     if (CmdFIFO->IsEmpty() && !CmdPIPE->IsFull())
@@ -853,10 +851,17 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
     {
         if (CmdFIFO->IsFull())
         {
-            if (!logflag) printf("!!! GX FIFO FULL\n");
-            logflag = 1;
-            //NDS::debug(0);
-            return;
+            //printf("!!! GX FIFO FULL\n");
+            //return;
+
+            // temp. hack
+            // SM64DS seems to overflow the FIFO occasionally
+            // either leftover bugs in our implementation, or the game accidentally doing that
+            // TODO: investigate.
+            // TODO: implement this behavior properly (freezes the bus until the FIFO isn't full anymore)
+
+            while (CmdFIFO->IsFull())
+                ExecuteCommand();
         }
 
         CmdFIFO->Write(entry);
@@ -877,8 +882,6 @@ CmdFIFOEntry CmdFIFORead()
         CheckFIFODMA();
         CheckFIFOIRQ();
     }
-
-    logflag = 0;
 
     return ret;
 }
