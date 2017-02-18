@@ -82,11 +82,8 @@ void GPU2D::Reset()
     memset(BGRotD, 0, 2*2);
 }
 
-void GPU2D::SetFramebuffer(u16* buf)
+void GPU2D::SetFramebuffer(u32* buf)
 {
-    // framebuffer is 256x192 16bit.
-    // might eventually support other framebuffer types/sizes
-    // TODO: change this. the DS uses 18bit color
     Framebuffer = buf;
 }
 
@@ -205,7 +202,7 @@ void GPU2D::Write32(u32 addr, u32 val)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    u16* dst = &Framebuffer[256*line];
+    u32* dst = &Framebuffer[256*line];
 
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
@@ -214,8 +211,8 @@ void GPU2D::DrawScanline(u32 line)
     {
     case 0: // screen off
         {
-            for (int i = 0; i < 256>>1; i++)
-                ((u32*)dst)[i] = 0x7FFF7FFF;
+            for (int i = 0; i < 256; i++)
+                dst[i] = 0xFF3F3F3F;
         }
         break;
 
@@ -230,8 +227,15 @@ void GPU2D::DrawScanline(u32 line)
             u32* vram = (u32*)GPU::VRAM[(DispCnt >> 18) & 0x3];
             vram = &vram[line << 7];
 
-            for (int i = 0; i < 256>>1; i++)
-                ((u32*)dst)[i] = vram[i];
+            for (int i = 0; i < 256; i++)
+            {
+                u16 color = vram[i];
+                u8 r = (color & 0x001F) << 1;
+                u8 g = (color & 0x03E0) >> 4;
+                u8 b = (color & 0x7C00) >> 9;
+
+                dst[i] = r | (g << 8) | (b << 16);
+            }
         }
         break;
 
@@ -241,11 +245,22 @@ void GPU2D::DrawScanline(u32 line)
         }
         break;
     }
+
+    // convert to 32-bit RGBA
+    for (int i = 0; i < 256; i++)
+        dst[i] = ((dst[i] & 0x003F3F3F) << 2) |
+                 ((dst[i] & 0x00303030) >> 4) |
+                 0xFF000000;
+}
+
+void GPU2D::VBlank()
+{
+    //
 }
 
 
 template<u32 bgmode>
-void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
+void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -285,7 +300,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
             if (DispCnt & 0x0100)
             {
                 if ((!Num) && (DispCnt & 0x8))
-                    {} // TODO
+                    DrawBG_3D(line, dst);
                 else
                     DrawBG_Text(line, dst, 0);
             }
@@ -295,17 +310,24 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u16* dst)
     }
 }
 
-void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
+void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 {
     u32 backdrop;
     if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
     else     backdrop = *(u16*)&GPU::Palette[0];
 
-    // TODO: color effect for backdrop
+    {
+        u8 r = (backdrop & 0x001F) << 1;
+        u8 g = (backdrop & 0x03E0) >> 4;
+        u8 b = (backdrop & 0x7C00) >> 9;
 
-    backdrop |= (backdrop<<16);
-    for (int i = 0; i < 256>>1; i++)
-        ((u32*)dst)[i] = backdrop;
+        // TODO: color effect for backdrop
+
+        backdrop = r | (g << 8) | (b << 16) | 0x20000000;
+
+        for (int i = 0; i < 256; i++)
+            dst[i] = backdrop;
+    }
 
     // prerender sprites
     u32 spritebuf[256];
@@ -328,7 +350,38 @@ void GPU2D::DrawScanline_Mode1(u32 line, u16* dst)
 }
 
 
-void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
+typedef void (*DrawPixelFunc)(u32 bgnum, u32* dst, u16 color, u32 blendfunc);
+
+void GPU2D::DrawPixel_Normal(u32 bgnum, u32* dst, u16 color, u32 blendfunc)
+{
+    u8 r = (color & 0x001F) << 1;
+    u8 g = (color & 0x03E0) >> 4;
+    u8 b = (color & 0x7C00) >> 9;
+
+    *dst = r | (g << 8) | (b << 16) | (0x01000000 << bgnum);
+}
+
+void GPU2D::DrawBG_3D(u32 line, u32* dst)
+{
+    // TODO: scroll, etc
+
+    u8* src = GPU3D::GetLine(line);
+    for (int i = 0; i < 256; i++)
+    {
+        u8 r = *src++;
+        u8 g = *src++;
+        u8 b = *src++;
+        u8 a = *src++;
+        if (a == 0) continue;
+
+        // TODO: blending
+        // alpha is 6bit too....?
+
+        dst[i] = r | (g << 8) | (b << 16);
+    }
+}
+
+void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -341,6 +394,8 @@ void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
     u16 yoff = BGYPos[bgnum] + line;
 
     u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
+
+    DrawPixelFunc drawpixelfn = DrawPixel_Normal;
 
     extpal = (bgcnt & 0x0080) && (DispCnt & 0x40000000);
 
@@ -432,7 +487,7 @@ void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
             color = pixels[tilexoff];
 
             if (color)
-                dst[i] = curpal[color];
+                drawpixelfn(bgnum, &dst[i], curpal[color], BlendFunc);
 
             xoff++;
         }
@@ -475,14 +530,14 @@ void GPU2D::DrawBG_Text(u32 line, u16* dst, u32 bgnum)
             }
 
             if (color)
-                dst[i] = curpal[color];
+                drawpixelfn(bgnum, &dst[i], curpal[color], BlendFunc);
 
             xoff++;
         }
     }
 }
 
-void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
+void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -504,6 +559,8 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
     u32 overflowmask;
     if (bgcnt & 0x2000) overflowmask = 0;
     else                overflowmask = ~(coordmask | 0x7FF);
+
+    DrawPixelFunc drawpixelfn = DrawPixel_Normal;
 
     extpal = (DispCnt & 0x40000000);
 
@@ -542,7 +599,7 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
                     u16 color = bitmap[(((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)];
 
                     if (color & 0x8000)
-                        dst[i] = color;
+                        drawpixelfn(bgnum, &dst[i], color, BlendFunc);
                 }
 
                 rotX += rotA;
@@ -563,7 +620,7 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
                     u8 color = tileset[(((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)];
 
                     if (color)
-                        dst[i] = pal[color];
+                        drawpixelfn(bgnum, &dst[i], pal[color], BlendFunc);
                 }
 
                 rotX += rotA;
@@ -636,7 +693,7 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
                 color = pixels[(tileyoff << 3) + tilexoff];
 
                 if (color)
-                    dst[i] = curpal[color];
+                    drawpixelfn(bgnum, &dst[i], curpal[color], BlendFunc);
             }
 
             rotX += rotA;
@@ -648,12 +705,17 @@ void GPU2D::DrawBG_Extended(u32 line, u16* dst, u32 bgnum)
     //BGYCenter[bgnum-2] += rotD;
 }
 
-void GPU2D::InterleaveSprites(u32* buf, u32 prio, u16* dst)
+void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
 {
+    DrawPixelFunc drawpixelfn = DrawPixel_Normal;
+
     for (u32 i = 0; i < 256; i++)
     {
         if ((buf[i] & 0xF8000) == prio)
-            dst[i] = buf[i] & 0x7FFF;
+        {
+            u32 blendfunc = 0;
+            drawpixelfn(4, &dst[i], buf[i], blendfunc);
+        }
     }
 }
 

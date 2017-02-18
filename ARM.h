@@ -125,7 +125,7 @@ public:
         else
             val = NDS::ARM7Read8(addr);
 
-        Cycles += Waitstates[3][(addr>>24)&0xF];
+        Cycles += Waitstates[2][(addr>>24)&0xF];
         return val;
     }
 
@@ -171,7 +171,7 @@ public:
         else
             NDS::ARM7Write8(addr, val);
 
-        Cycles += Waitstates[3][(addr>>24)&0xF];
+        Cycles += Waitstates[2][(addr>>24)&0xF];
     }
 
     void DataWrite16(u32 addr, u16 val, u32 forceuser=0)

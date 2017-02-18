@@ -1,16 +1,16 @@
 # depslib dependency file v1.0
-1486502416 source:c:\documents\sources\melonds\main.cpp
+1487292827 source:c:\documents\sources\melonds\main.cpp
 	<stdio.h>
 	<windows.h>
 	"NDS.h"
 	"GPU.h"
 
-1486502049 c:\documents\sources\melonds\nds.h
+1487303037 c:\documents\sources\melonds\nds.h
 	"types.h"
 
 1481161027 c:\documents\sources\melonds\types.h
 
-1486515172 source:c:\documents\sources\melonds\nds.cpp
+1487349286 source:c:\documents\sources\melonds\nds.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
@@ -24,14 +24,14 @@
 	"RTC.h"
 	"Wifi.h"
 
-1486512922 source:c:\documents\sources\melonds\arm.cpp
+1487349559 source:c:\documents\sources\melonds\arm.cpp
 	<stdio.h>
 	"NDS.h"
 	"ARM.h"
 	"ARMInterpreter.h"
 	"GPU3D.h"
 
-1486261220 c:\documents\sources\melonds\arm.h
+1487302172 c:\documents\sources\melonds\arm.h
 	"types.h"
 	"NDS.h"
 	"CP15.h"
@@ -87,13 +87,13 @@
 	"NDS.h"
 	"SPI.h"
 
-1486489354 source:c:\documents\sources\melonds\gpu2d.cpp
+1487105611 source:c:\documents\sources\melonds\gpu2d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
 
-1485991372 c:\documents\sources\melonds\gpu2d.h
+1487105228 c:\documents\sources\melonds\gpu2d.h
 
 1481040524 c:\documents\sources\melonds\wifi.h
 
@@ -109,23 +109,23 @@
 1486511075 c:\documents\sources\melonds\fifo.h
 	"types.h"
 
-1486514961 source:c:\documents\sources\melonds\dma.cpp
+1487354030 source:c:\documents\sources\melonds\dma.cpp
 	<stdio.h>
 	"NDS.h"
 	"DMA.h"
 	"NDSCart.h"
 	"GPU3D.h"
 
-1484698068 c:\documents\sources\melonds\dma.h
+1487305393 c:\documents\sources\melonds\dma.h
 	"types.h"
 
-1486502073 source:c:\documents\sources\melonds\gpu.cpp
+1487102235 source:c:\documents\sources\melonds\gpu.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
 
-1486501976 c:\documents\sources\melonds\gpu.h
+1487102203 c:\documents\sources\melonds\gpu.h
 	"GPU2D.h"
 	"GPU3D.h"
 
@@ -146,12 +146,18 @@
 	"NDS.h"
 	"NDSCart.h"
 
-1486514429 c:\documents\sources\melonds\gpu3d.h
+1487356069 c:\documents\sources\melonds\gpu3d.h
 
-1486585700 source:c:\documents\sources\melonds\gpu3d.cpp
+1487354054 source:c:\documents\sources\melonds\gpu3d.cpp
 	<stdio.h>
 	<string.h>
 	"NDS.h"
 	"GPU.h"
 	"FIFO.h"
+
+1487300658 source:c:\documents\sources\melonds\gpu3d_soft.cpp
+	<stdio.h>
+	<string.h>
+	"NDS.h"
+	"GPU3D.h"
 

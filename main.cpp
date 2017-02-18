@@ -85,6 +85,10 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_RIGHT:  NDS::PressKey(4); break;
         case 'A': NDS::PressKey(0); break;
         case 'B': NDS::PressKey(1); break;
+        case 'X': NDS::PressKey(16); break;
+        case 'Y': NDS::PressKey(17); break;
+        case 'L': NDS::PressKey(9); break;
+        case 'R': NDS::PressKey(8); break;
         case 'D': NDS::debug(0); break;
         }
         return 0;
@@ -100,6 +104,10 @@ LRESULT CALLBACK derpo(HWND window, UINT msg, WPARAM wparam, LPARAM lparam)
         case VK_RIGHT:  NDS::ReleaseKey(4); break;
         case 'A': NDS::ReleaseKey(0); break;
         case 'B': NDS::ReleaseKey(1); break;
+        case 'X': NDS::ReleaseKey(16); break;
+        case 'Y': NDS::ReleaseKey(17); break;
+        case 'L': NDS::ReleaseKey(9); break;
+        case 'R': NDS::ReleaseKey(8); break;
         }
         return 0;
 
@@ -208,11 +216,11 @@ int main()
     bmp.bV4Width = 256;
     bmp.bV4Height = -384;
     bmp.bV4Planes = 1;
-    bmp.bV4BitCount = 16;
+    bmp.bV4BitCount = 32;
     bmp.bV4V4Compression = BI_RGB|BI_BITFIELDS;
-    bmp.bV4RedMask = 0x001F;
-    bmp.bV4GreenMask = 0x03E0;
-    bmp.bV4BlueMask = 0x7C00;
+    bmp.bV4RedMask = 0x000000FF;
+    bmp.bV4GreenMask = 0x0000FF00;
+    bmp.bV4BlueMask = 0x00FF0000;
 
     NDS::Init();
 

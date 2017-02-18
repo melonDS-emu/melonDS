@@ -32,6 +32,8 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
+    s32 Run(s32 cycles);
+
     void StartIfNeeded(u32 mode)
     {
         if ((mode == StartMode) && (Cnt & 0x80000000))
@@ -45,12 +47,18 @@ public:
 private:
     u32 CPU, Num;
 
+    s32 Waitstates[2][16];
+
     u32 StartMode;
     u32 CurSrcAddr;
     u32 CurDstAddr;
     u32 RemCount;
+    u32 IterCount;
     u32 SrcAddrInc;
     u32 DstAddrInc;
+    u32 CountMask;
+
+    bool Running;
 };
 
 #endif

@@ -48,7 +48,7 @@ extern u8* VRAM_AOBJExtPal;
 extern u8* VRAM_BBGExtPal[4];
 extern u8* VRAM_BOBJExtPal;
 
-extern u16 Framebuffer[256*192*2];
+extern u32 Framebuffer[256*192*2];
 
 extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;

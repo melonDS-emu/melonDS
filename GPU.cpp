@@ -62,7 +62,7 @@ u8* VRAM_AOBJExtPal;
 u8* VRAM_BBGExtPal[4];
 u8* VRAM_BOBJExtPal;
 
-u16 Framebuffer[256*192*2];
+u32 Framebuffer[256*192*2];
 
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
@@ -123,7 +123,7 @@ void Reset()
 
     for (int i = 0; i < 256*192*2; i++)
     {
-        Framebuffer[i] = 0x7FFF;
+        Framebuffer[i] = 0xFFFFFFFF;
     }
 
     GPU2D_A->Reset();
@@ -837,6 +837,10 @@ void StartScanline(u32 line)
 
             if (DispStat[0] & (1<<3)) NDS::TriggerIRQ(0, NDS::IRQ_VBlank);
             if (DispStat[1] & (1<<3)) NDS::TriggerIRQ(1, NDS::IRQ_VBlank);
+
+            GPU2D_A->VBlank();
+            GPU2D_B->VBlank();
+            GPU3D::VBlank();
         }
 
         //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
