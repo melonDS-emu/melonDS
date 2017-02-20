@@ -399,7 +399,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
 
     Vertex mid;
-#define INTERPOLATE(var)  mid.var = vin->var + (((vout->var - vin->var) * factor_num) / factor_den);
+#define INTERPOLATE(var)  mid.var = (vin->var + ((vout->var - vin->var) * factor_num) / factor_den);
 
     INTERPOLATE(Position[0]);
     INTERPOLATE(Position[1]);
@@ -587,6 +587,15 @@ void SubmitPolygon()
             clippedvertices[1][c++] = vtx;
     }
 
+    for (int i = 0; i < c; i++)
+    {
+        Vertex* vtx = &clippedvertices[1][i];
+
+        vtx->Color[0] &= ~0xFFF; vtx->Color[0] += 0xFFF;
+        vtx->Color[1] &= ~0xFFF; vtx->Color[1] += 0xFFF;
+        vtx->Color[2] &= ~0xFFF; vtx->Color[2] += 0xFFF;
+    }
+
     // Y clipping
 
     nverts = c; c = clipstart;
@@ -643,6 +652,15 @@ void SubmitPolygon()
             clippedvertices[1][c++] = vtx;
     }
 
+    for (int i = 0; i < c; i++)
+    {
+        Vertex* vtx = &clippedvertices[1][i];
+
+        vtx->Color[0] &= ~0xFFF; vtx->Color[0] += 0xFFF;
+        vtx->Color[1] &= ~0xFFF; vtx->Color[1] += 0xFFF;
+        vtx->Color[2] &= ~0xFFF; vtx->Color[2] += 0xFFF;
+    }
+
     // Z clipping
 
     nverts = c; c = clipstart;
@@ -697,6 +715,15 @@ void SubmitPolygon()
         }
         else
             clippedvertices[1][c++] = vtx;
+    }
+
+    for (int i = 0; i < c; i++)
+    {
+        Vertex* vtx = &clippedvertices[1][i];
+
+        vtx->Color[0] &= ~0xFFF; vtx->Color[0] += 0xFFF;
+        vtx->Color[1] &= ~0xFFF; vtx->Color[1] += 0xFFF;
+        vtx->Color[2] &= ~0xFFF; vtx->Color[2] += 0xFFF;
     }
 
     if (c == 0)
@@ -767,9 +794,9 @@ void SubmitVertex()
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
-    vertextrans->Color[0] = VertexColor[0];
-    vertextrans->Color[1] = VertexColor[1];
-    vertextrans->Color[2] = VertexColor[2];
+    vertextrans->Color[0] = (VertexColor[0] << 12) + 0xFFF;
+    vertextrans->Color[1] = (VertexColor[1] << 12) + 0xFFF;
+    vertextrans->Color[2] = (VertexColor[2] << 12) + 0xFFF;
 
     vertextrans->Clipped = false;
     vertextrans->ViewportTransformDone = false;
@@ -1408,7 +1435,7 @@ void Write32(u32 addr, u32 val)
 
         for (;;)
         {
-            if ((CurCommand & 0xFF) || (NumCommands == 4))
+            if ((CurCommand & 0xFF) || (NumCommands == 4 && CurCommand == 0))
             {
                 CmdFIFOEntry entry;
                 entry.Command = CurCommand & 0xFF;

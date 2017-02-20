@@ -25,7 +25,7 @@ namespace GPU3D
 typedef struct
 {
     s32 Position[4];
-    u8 Color[3];
+    s32 Color[3];
 
     bool Clipped;
 

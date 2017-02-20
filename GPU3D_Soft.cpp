@@ -78,9 +78,11 @@ void RenderPixel(u32 attr, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb)
 void RenderPolygon(Polygon* polygon)
 {
     int nverts = polygon->NumVertices;
+    bool isline = false;
 
     int vtop = 0, vbot = 0;
-    s32 ytop = 191, ybot = 0;
+    s32 ytop = 192, ybot = 0;
+    s32 xtop = 256, xbot = 0;
 
     // process the vertices, transform to screen coordinates
     // find the topmost and bottommost vertices of the polygon
@@ -112,34 +114,36 @@ void RenderPolygon(Polygon* polygon)
             }
 
             s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
-            s32 scrY = (((posY + 0x1000) * Viewport[3]) >> 13) + Viewport[1];
+            s32 scrY = ((0x180000 - ((posY + 0x1000) * Viewport[3])) >> 13) + Viewport[1];
 
             if      (scrX < 0)   scrX = 0;
-            else if (scrX > 255) scrX = 255;
+            else if (scrX > 256) scrX = 256;
             if      (scrY < 0)   scrY = 0;
-            else if (scrY > 191) scrY = 191;
+            else if (scrY > 192) scrY = 192;
             if      (posZ < 0)        posZ = 0;
             else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
 
             vtx->FinalPosition[0] = scrX;
-            vtx->FinalPosition[1] = 191 - scrY;
+            vtx->FinalPosition[1] = scrY;
             vtx->FinalPosition[2] = posZ;
             vtx->FinalPosition[3] = posW;
 
-            vtx->FinalColor[0] = vtx->Color[0] ? ((vtx->Color[0] << 4) + 0xF) : 0;
-            vtx->FinalColor[1] = vtx->Color[1] ? ((vtx->Color[1] << 4) + 0xF) : 0;
-            vtx->FinalColor[2] = vtx->Color[2] ? ((vtx->Color[2] << 4) + 0xF) : 0;
+            vtx->FinalColor[0] = vtx->Color[0] ? (((vtx->Color[0] >> 12) << 4) + 0xF) : 0;
+            vtx->FinalColor[1] = vtx->Color[1] ? (((vtx->Color[1] >> 12) << 4) + 0xF) : 0;
+            vtx->FinalColor[2] = vtx->Color[2] ? (((vtx->Color[2] >> 12) << 4) + 0xF) : 0;
 
             vtx->ViewportTransformDone = true;
         }
 
-        if (vtx->FinalPosition[1] < ytop)
+        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
         {
+            xtop = vtx->FinalPosition[0];
             ytop = vtx->FinalPosition[1];
             vtop = i;
         }
-        if (vtx->FinalPosition[1] > ybot)
+        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
         {
+            xbot = vtx->FinalPosition[0];
             ybot = vtx->FinalPosition[1];
             vbot = i;
         }
@@ -150,26 +154,51 @@ void RenderPolygon(Polygon* polygon)
     int lcur = vtop, rcur = vtop;
     int lnext, rnext;
 
-    if (polygon->FacingView)
+    if (ybot == ytop)
     {
-        lnext = lcur + 1;
-        if (lnext >= nverts) lnext = 0;
-        rnext = rcur - 1;
-        if (rnext < 0) rnext = nverts - 1;
+        ybot++;
+        isline = true;
+
+        vtop = 0; vbot = 0;
+        xtop = 256; xbot = 0;
+        int i;
+
+        i = 1;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
+
+        i = nverts - 1;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
+
+        lcur = vtop; lnext = vtop;
+        rcur = vbot; rnext = vbot;
     }
     else
     {
-        lnext = lcur - 1;
-        if (lnext < 0) lnext = nverts - 1;
-        rnext = rcur + 1;
-        if (rnext >= nverts) rnext = 0;
+        if (polygon->FacingView)
+        {
+            lnext = lcur + 1;
+            if (lnext >= nverts) lnext = 0;
+            rnext = rcur - 1;
+            if (rnext < 0) rnext = nverts - 1;
+        }
+        else
+        {
+            lnext = lcur - 1;
+            if (lnext < 0) lnext = nverts - 1;
+            rnext = rcur + 1;
+            if (rnext >= nverts) rnext = 0;
+        }
     }
 
-    for (s32 y = ytop; y <= ybot; y++)
+    for (s32 y = ytop; y < ybot; y++)
     {
-        if (y < ybot)
+        if (y > 191) break;
+
+        if (!isline)
         {
-            while (y == polygon->Vertices[lnext]->FinalPosition[1])
+            while (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
             {
                 lcur = lnext;
 
@@ -183,11 +212,9 @@ void RenderPolygon(Polygon* polygon)
                     lnext = lcur - 1;
                     if (lnext < 0) lnext = nverts - 1;
                 }
-
-                if (lcur == vbot) break;
             }
 
-            while (y == polygon->Vertices[rnext]->FinalPosition[1])
+            while (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
             {
                 rcur = rnext;
 
@@ -201,8 +228,6 @@ void RenderPolygon(Polygon* polygon)
                     rnext = rcur + 1;
                     if (rnext >= nverts) rnext = 0;
                 }
-
-                if (rcur == vbot) break;
             }
         }
 
@@ -226,7 +251,20 @@ void RenderPolygon(Polygon* polygon)
         s32 xl = vlcur->FinalPosition[0] + (((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) >> 12);
         s32 xr = vrcur->FinalPosition[0] + (((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) >> 12);
 
-        if (xl<0 || xr>255)
+        if (xl > xr) // TODO: handle it in a more elegant way
+        {
+            Vertex* vtmp;
+            s32 tmp;
+
+            vtmp = vlcur; vlcur = vrcur; vrcur = vtmp;
+            vtmp = vlnext; vlnext = vrnext; vrnext = vtmp;
+
+            tmp = lfactor; lfactor = rfactor; rfactor = tmp;
+
+            tmp = xl; xl = xr; xr = tmp;
+        }
+
+        if (xl<0 || xr>256)
         {
             printf("!! BAD X %d %d\n", xl, xr);
             continue; // hax
@@ -262,13 +300,10 @@ void RenderPolygon(Polygon* polygon)
         s32 gr = ((perspfactorr1 * vrcur->FinalColor[1]) + (perspfactorr2 * vrnext->FinalColor[1])) / (perspfactorr1 + perspfactorr2);
         s32 br = ((perspfactorr1 * vrcur->FinalColor[2]) + (perspfactorr2 * vrnext->FinalColor[2])) / (perspfactorr1 + perspfactorr2);
 
-        s32 xdiv;
-        if (xr == xl)
-            xdiv = 0;
-        else
-            xdiv = 0x1000 / (xr - xl);
+        if (xr == xl) xr++;
+        s32 xdiv = 0x1000 / (xr - xl);
 
-        for (s32 x = xl; x <= xr; x++)
+        for (s32 x = xl; x < xr; x++)
         {
             s32 xfactor = (x - xl) * xdiv;
 
