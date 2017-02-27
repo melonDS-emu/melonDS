@@ -328,7 +328,7 @@ T ReadVRAM_ARM7(u32 addr)
 template<typename T>
 void WriteVRAM_ARM7(u32 addr, T val)
 {
-    u32 mask = VRAMMap_BOBJ[(addr >> 17) & 0x1];
+    u32 mask = VRAMMap_ARM7[(addr >> 17) & 0x1];
 
     if (mask & (1<<2)) *(T*)&VRAM_C[addr & 0x1FFFF] = val;
     if (mask & (1<<3)) *(T*)&VRAM_D[addr & 0x1FFFF] = val;
