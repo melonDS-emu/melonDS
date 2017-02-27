@@ -333,6 +333,8 @@ void RenderPolygon(Polygon* polygon)
                 perspfactor2 = 0;
             }
 
+            //z = 0x1000000 / (perspfactor1 + perspfactor2);
+
             // possible optimization: only do color interpolation if the depth test passes
             u32 vr = ((perspfactor1 * rl) + (perspfactor2 * rr)) / (perspfactor1 + perspfactor2);
             u32 vg = ((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);

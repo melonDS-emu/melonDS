@@ -169,9 +169,13 @@ void UpdateClipMatrix();
 u32 PolygonMode;
 s16 CurVertex[3];
 u8 VertexColor[3];
+s16 TexCoords[2];
 
 u32 PolygonAttr;
 u32 CurPolygonAttr;
+
+u32 TexParam;
+u32 TexPalette;
 
 Vertex TempVertexBuffer[4];
 u32 VertexNum;
@@ -409,6 +413,9 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     INTERPOLATE(Color[0]);
     INTERPOLATE(Color[1]);
     INTERPOLATE(Color[2]);
+
+    INTERPOLATE(TexCoords[0]);
+    INTERPOLATE(TexCoords[1]);
 
     mid.Clipped = true;
     mid.ViewportTransformDone = false;
@@ -797,6 +804,17 @@ void SubmitVertex()
     vertextrans->Color[0] = (VertexColor[0] << 12) + 0xFFF;
     vertextrans->Color[1] = (VertexColor[1] << 12) + 0xFFF;
     vertextrans->Color[2] = (VertexColor[2] << 12) + 0xFFF;
+
+    if ((TexParam >> 30) == 3)
+    {
+        vertextrans->TexCoords[0] = (CurVertex[0]*TexMatrix[0] + CurVertex[1]*TexMatrix[4] + CurVertex[2]*TexMatrix[8] + 0x1000*TexCoords[0]) >> 12;
+        vertextrans->TexCoords[1] = (CurVertex[0]*TexMatrix[1] + CurVertex[1]*TexMatrix[5] + CurVertex[2]*TexMatrix[9] + 0x1000*TexCoords[1]) >> 12;
+    }
+    else
+    {
+        vertextrans->TexCoords[0] = TexCoords[0];
+        vertextrans->TexCoords[1] = TexCoords[1];
+    }
 
     vertextrans->Clipped = false;
     vertextrans->ViewportTransformDone = false;
@@ -1219,6 +1237,17 @@ void ExecuteCommand()
 
         case 0x21:
             // TODO: more cycles if lights are enabled
+            // TODO also texcoords if needed
+            break;
+
+        case 0x22: // texcoord
+            TexCoords[0] = ExecParams[0] & 0xFFFF;
+            TexCoords[1] = ExecParams[1] >> 16;
+            if ((TexParam >> 30) == 1)
+            {
+                TexCoords[0] = (TexCoords[0]*TexMatrix[0] + TexCoords[1]*TexMatrix[4] + TexMatrix[8] + TexMatrix[12]) >> 12;
+                TexCoords[1] = (TexCoords[0]*TexMatrix[1] + TexCoords[1]*TexMatrix[5] + TexMatrix[9] + TexMatrix[13]) >> 12;
+            }
             break;
 
         case 0x23: // full vertex
@@ -1262,6 +1291,14 @@ void ExecuteCommand()
 
         case 0x29: // polygon attributes
             PolygonAttr = ExecParams[0];
+            break;
+
+        case 0x2A: // texture param
+            TexParam = ExecParams[0];
+            break;
+
+        case 0x2B: // texture palette
+            TexPalette = ExecParams[0] & 0x1FFF;
             break;
 
         case 0x40:

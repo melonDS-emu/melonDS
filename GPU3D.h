@@ -26,6 +26,7 @@ typedef struct
 {
     s32 Position[4];
     s32 Color[3];
+    s16 TexCoords[2];
 
     bool Clipped;
 
