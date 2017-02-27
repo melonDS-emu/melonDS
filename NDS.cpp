@@ -311,7 +311,8 @@ void Reset()
     // test
     //LoadROM();
     //LoadFirmware();
-    if (NDSCart::LoadROM("rom/sm64ds.nds"))
+    // a_interp2.nds a_rounding (10) (11)
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 }
 
@@ -803,18 +804,14 @@ u8 ARM9Read8(u32 addr)
 
     case 0x06000000:
         {
-            u32 chunk = (addr >> 14) & 0x7F;
-            u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
+            case 0x00000000: return GPU::ReadVRAM_ABG<u8>(addr);
+            case 0x00200000: return GPU::ReadVRAM_BBG<u8>(addr);
+            case 0x00400000: return GPU::ReadVRAM_AOBJ<u8>(addr);
+            case 0x00600000: return GPU::ReadVRAM_BOBJ<u8>(addr);
+            default:         return GPU::ReadVRAM_LCDC<u8>(addr);
             }
-            if (vram)
-                return *(u8*)&vram[addr & 0x3FFF];
         }
         return 0;
 
@@ -854,18 +851,14 @@ u16 ARM9Read16(u32 addr)
 
     case 0x06000000:
         {
-            u32 chunk = (addr >> 14) & 0x7F;
-            u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
+            case 0x00000000: return GPU::ReadVRAM_ABG<u16>(addr);
+            case 0x00200000: return GPU::ReadVRAM_BBG<u16>(addr);
+            case 0x00400000: return GPU::ReadVRAM_AOBJ<u16>(addr);
+            case 0x00600000: return GPU::ReadVRAM_BOBJ<u16>(addr);
+            default:         return GPU::ReadVRAM_LCDC<u16>(addr);
             }
-            if (vram)
-                return *(u16*)&vram[addr & 0x3FFF];
         }
         return 0;
 
@@ -905,18 +898,14 @@ u32 ARM9Read32(u32 addr)
 
     case 0x06000000:
         {
-            u32 chunk = (addr >> 14) & 0x7F;
-            u8* vram = NULL;
             switch (addr & 0x00E00000)
             {
-            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
+            case 0x00000000: return GPU::ReadVRAM_ABG<u32>(addr);
+            case 0x00200000: return GPU::ReadVRAM_BBG<u32>(addr);
+            case 0x00400000: return GPU::ReadVRAM_AOBJ<u32>(addr);
+            case 0x00600000: return GPU::ReadVRAM_BOBJ<u32>(addr);
+            default:         return GPU::ReadVRAM_LCDC<u32>(addr);
             }
-            if (vram)
-                return *(u32*)&vram[addr & 0x3FFF];
         }
         return 0;
 
@@ -978,19 +967,13 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x06000000:
+        switch (addr & 0x00E00000)
         {
-            u32 chunk = (addr >> 14) & 0x7F;
-            u8* vram = NULL;
-            switch (addr & 0x00E00000)
-            {
-            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
-            }
-            if (vram)
-                *(u16*)&vram[addr & 0x3FFF] = val;
+        case 0x00000000: GPU::WriteVRAM_ABG<u16>(addr, val); break;
+        case 0x00200000: GPU::WriteVRAM_BBG<u16>(addr, val); break;
+        case 0x00400000: GPU::WriteVRAM_AOBJ<u16>(addr, val); break;
+        case 0x00600000: GPU::WriteVRAM_BOBJ<u16>(addr, val); break;
+        default:         GPU::WriteVRAM_LCDC<u16>(addr, val); break;
         }
         return;
 
@@ -1023,19 +1006,13 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x06000000:
+        switch (addr & 0x00E00000)
         {
-            u32 chunk = (addr >> 14) & 0x7F;
-            u8* vram = NULL;
-            switch (addr & 0x00E00000)
-            {
-            case 0x00000000: vram = GPU::VRAM_ABG[chunk]; break;
-            case 0x00200000: vram = GPU::VRAM_BBG[chunk]; break;
-            case 0x00400000: vram = GPU::VRAM_AOBJ[chunk]; break;
-            case 0x00600000: vram = GPU::VRAM_BOBJ[chunk]; break;
-            case 0x00800000: vram = GPU::VRAM_LCD[chunk]; break;
-            }
-            if (vram)
-                *(u32*)&vram[addr & 0x3FFF] = val;
+        case 0x00000000: GPU::WriteVRAM_ABG<u32>(addr, val); break;
+        case 0x00200000: GPU::WriteVRAM_BBG<u32>(addr, val); break;
+        case 0x00400000: GPU::WriteVRAM_AOBJ<u32>(addr, val); break;
+        case 0x00600000: GPU::WriteVRAM_BOBJ<u32>(addr, val); break;
+        default:         GPU::WriteVRAM_LCDC<u32>(addr, val); break;
         }
         return;
 
@@ -1079,13 +1056,7 @@ u8 ARM7Read8(u32 addr)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                return *(u8*)&vram[addr & 0x1FFFF];
-        }
-        return 0;
+        return GPU::ReadVRAM_ARM7<u8>(addr);
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -1125,13 +1096,7 @@ u16 ARM7Read16(u32 addr)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                return *(u16*)&vram[addr & 0x1FFFF];
-        }
-        return 0;
+        return GPU::ReadVRAM_ARM7<u16>(addr);
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -1168,13 +1133,7 @@ u32 ARM7Read32(u32 addr)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                return *(u32*)&vram[addr & 0x1FFFF];
-        }
-        return 0;
+        return GPU::ReadVRAM_ARM7<u32>(addr);
     }
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -1205,12 +1164,7 @@ void ARM7Write8(u32 addr, u8 val)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                *(u8*)&vram[addr & 0x1FFFF] = val;
-        }
+        GPU::WriteVRAM_ARM7<u8>(addr, val);
         return;
     }
 
@@ -1245,12 +1199,7 @@ void ARM7Write16(u32 addr, u16 val)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                *(u16*)&vram[addr & 0x1FFFF] = val;
-        }
+        GPU::WriteVRAM_ARM7<u16>(addr, val);
         return;
     }
 
@@ -1281,12 +1230,7 @@ void ARM7Write32(u32 addr, u32 val)
 
     case 0x06000000:
     case 0x06800000:
-        {
-            u32 chunk = (addr >> 17) & 0x1;
-            u8* vram = GPU::VRAM_ARM7[chunk];
-            if (vram)
-                *(u32*)&vram[addr & 0x1FFFF] = val;
-        }
+        GPU::WriteVRAM_ARM7<u32>(addr, val);
         return;
     }
 

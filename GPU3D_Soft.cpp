@@ -72,6 +72,7 @@ void RenderPixel(u32 attr, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb)
     pixel[3] = 31; // TODO: alpha
 
     // TODO: optional update for translucent pixels
+    if (z > 0xFFFFFF) z = 0xFFFFFF;
     *depth = z;
 }
 
@@ -128,9 +129,12 @@ void RenderPolygon(Polygon* polygon)
             vtx->FinalPosition[2] = posZ;
             vtx->FinalPosition[3] = posW;
 
-            vtx->FinalColor[0] = vtx->Color[0] ? (((vtx->Color[0] >> 12) << 4) + 0xF) : 0;
-            vtx->FinalColor[1] = vtx->Color[1] ? (((vtx->Color[1] >> 12) << 4) + 0xF) : 0;
-            vtx->FinalColor[2] = vtx->Color[2] ? (((vtx->Color[2] >> 12) << 4) + 0xF) : 0;
+            vtx->FinalColor[0] = vtx->Color[0] >> 12;
+            if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
+            vtx->FinalColor[1] = vtx->Color[1] >> 12;
+            if (vtx->FinalColor[1]) vtx->FinalColor[1] = ((vtx->FinalColor[1] << 4) + 0xF);
+            vtx->FinalColor[2] = vtx->Color[2] >> 12;
+            if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
 
             vtx->ViewportTransformDone = true;
         }
@@ -238,19 +242,24 @@ void RenderPolygon(Polygon* polygon)
 
         s32 lfactor, rfactor;
 
+        // TODO: work out the actual division bias there. 0x400 was found to make things look good.
+        // but actually, it isn't right. so what's going on there?
+        // seems vertical slopes are interpolated starting from the bottom and not the top. maybe.
+        // also seems lfactor/rfactor are rounded
+
         if (vlnext->FinalPosition[1] == vlcur->FinalPosition[1])
             lfactor = 0;
         else
-            lfactor = ((y - vlcur->FinalPosition[1]) << 12) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
+            lfactor = (((y - vlcur->FinalPosition[1]) << 12) + 0x00) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
 
         if (vrnext->FinalPosition[1] == vrcur->FinalPosition[1])
             rfactor = 0;
         else
-            rfactor = ((y - vrcur->FinalPosition[1]) << 12) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
+            rfactor = (((y - vrcur->FinalPosition[1]) << 12) + 0x00) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
 
         s32 xl = vlcur->FinalPosition[0] + (((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) >> 12);
         s32 xr = vrcur->FinalPosition[0] + (((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) >> 12);
-
+//printf("y:%d xl:%d xr:%d    %08X\n", y, xl, xr, rfactor); // y: 48 143
         if (xl > xr) // TODO: handle it in a more elegant way
         {
             Vertex* vtmp;
@@ -270,7 +279,7 @@ void RenderPolygon(Polygon* polygon)
             continue; // hax
         }
 
-        s32 zl = vlcur->FinalPosition[2] + (((s64)(vlnext->FinalPosition[2] -vlcur->FinalPosition[2]) * lfactor) >> 12);
+        s32 zl = vlcur->FinalPosition[2] + (((s64)(vlnext->FinalPosition[2] - vlcur->FinalPosition[2]) * lfactor) >> 12);
         s32 zr = vrcur->FinalPosition[2] + (((s64)(vrnext->FinalPosition[2] - vrcur->FinalPosition[2]) * rfactor) >> 12);
 
         s32 wl = vlcur->FinalPosition[3] + (((s64)(vlnext->FinalPosition[3] - vlcur->FinalPosition[3]) * lfactor) >> 12);
@@ -303,8 +312,11 @@ void RenderPolygon(Polygon* polygon)
         if (xr == xl) xr++;
         s32 xdiv = 0x1000 / (xr - xl);
 
+        //printf("y%d: %d->%d   %08X %08X\n", y, xl, xr, lfactor, rfactor);
+
         for (s32 x = xl; x < xr; x++)
         {
+            //s32 xfactor = ((x - xl) << 12) / (xr - xl);
             s32 xfactor = (x - xl) * xdiv;
 
             s32 z = zl + (((s64)(zr - zl) * xfactor) >> 12);
@@ -327,12 +339,6 @@ void RenderPolygon(Polygon* polygon)
             u32 vb = ((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
 
             RenderPixel(polygon->Attr, x, y, z, vr>>3, vg>>3, vb>>3);
-
-            // Z debug
-            /*u8 zerp = (w * 63) / 0xFFFFFF;
-            pixel[0] = zerp;
-            pixel[1] = zerp;
-            pixel[2] = zerp;*/
         }
     }
 

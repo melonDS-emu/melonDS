@@ -50,17 +50,37 @@ u8* VRAM[9] = {VRAM_A, VRAM_B, VRAM_C, VRAM_D, VRAM_E, VRAM_F, VRAM_G, VRAM_H, V
 u8 VRAMCNT[9];
 u8 VRAMSTAT;
 
-u8* VRAM_ABG[128];
+//u32 VRAM_Base[9];
+//u32 VRAM_Mask[9];
+
+u32 VRAMMap_LCDC;
+
+u32 VRAMMap_ABG[0x20];
+u32 VRAMMap_AOBJ[0x10];
+u32 VRAMMap_BBG[0x8];
+u32 VRAMMap_BOBJ[0x8];
+
+u32 VRAMMap_ABGExtPal[4];
+u32 VRAMMap_AOBJExtPal;
+u32 VRAMMap_BBGExtPal[4];
+u32 VRAMMap_BOBJExtPal;
+
+u32 VRAMMap_Texture[4];
+u32 VRAMMap_TexPal[6];
+
+u32 VRAMMap_ARM7[2];
+
+/*u8* VRAM_ABG[128];
 u8* VRAM_AOBJ[128];
 u8* VRAM_BBG[128];
 u8* VRAM_BOBJ[128];
-u8* VRAM_LCD[128];
-u8* VRAM_ARM7[2];
+u8* VRAM_LCD[128];*/
+/*u8* VRAM_ARM7[2];
 
 u8* VRAM_ABGExtPal[4];
 u8* VRAM_AOBJExtPal;
 u8* VRAM_BBGExtPal[4];
-u8* VRAM_BOBJExtPal;
+u8* VRAM_BOBJExtPal;*/
 
 u32 Framebuffer[256*192*2];
 
@@ -109,17 +129,38 @@ void Reset()
     memset(VRAMCNT, 0, 9);
     VRAMSTAT = 0;
 
-    memset(VRAM_ABG, 0, sizeof(u8*)*128);
+    VRAMMap_LCDC = 0;
+
+    memset(VRAMMap_ABG, 0, sizeof(VRAMMap_ABG));
+    memset(VRAMMap_AOBJ, 0, sizeof(VRAMMap_AOBJ));
+    memset(VRAMMap_BBG, 0, sizeof(VRAMMap_BBG));
+    memset(VRAMMap_BOBJ, 0, sizeof(VRAMMap_BOBJ));
+
+    memset(VRAMMap_ABGExtPal, 0, sizeof(VRAMMap_ABGExtPal));
+    VRAMMap_AOBJExtPal = 0;
+    memset(VRAMMap_BBGExtPal, 0, sizeof(VRAMMap_BBGExtPal));
+    VRAMMap_BOBJExtPal = 0;
+
+    memset(VRAMMap_Texture, 0, sizeof(VRAMMap_Texture));
+    memset(VRAMMap_TexPal, 0, sizeof(VRAMMap_TexPal));
+
+    VRAMMap_ARM7[0] = 0;
+    VRAMMap_ARM7[1] = 0;
+
+    //memset(VRAM_Base, 0, sizeof(VRAM_Base));
+    //memset(VRAM_Mask, 0, sizeof(VRAM_Mask));
+
+    /*memset(VRAM_ABG, 0, sizeof(u8*)*128);
     memset(VRAM_AOBJ, 0, sizeof(u8*)*128);
     memset(VRAM_BBG, 0, sizeof(u8*)*128);
     memset(VRAM_BOBJ, 0, sizeof(u8*)*128);
-    memset(VRAM_LCD, 0, sizeof(u8*)*128);
-    memset(VRAM_ARM7, 0, sizeof(u8*)*2);
+    memset(VRAM_LCD, 0, sizeof(u8*)*128);*/
+    /*memset(VRAM_ARM7, 0, sizeof(u8*)*2);
 
     memset(VRAM_ABGExtPal, 0, sizeof(u8*)*4);
     VRAM_AOBJExtPal = NULL;
     memset(VRAM_BBGExtPal, 0, sizeof(u8*)*4);
-    VRAM_BOBJExtPal = NULL;
+    VRAM_BOBJExtPal = NULL;*/
 
     for (int i = 0; i < 256*192*2; i++)
     {
@@ -165,6 +206,9 @@ void Reset()
 // when reading: values are read from each bank and ORed together
 // when writing: value is written to each bank
 
+#define MAP_RANGE(map, base, n)  for (int i = 0; i < n; i++) map[(base)+i] |= bankmask;
+#define UNMAP_RANGE(map, base, n)  for (int i = 0; i < n; i++) map[(base)+i] &= ~bankmask;
+
 void MapVRAM_AB(u32 bank, u8 cnt)
 {
     u8 oldcnt = VRAMCNT[bank];
@@ -174,80 +218,51 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
     u8 oldofs = (oldcnt >> 3) & 0x3;
     u8 ofs = (cnt >> 3) & 0x3;
-
-    u8* vram = VRAM[bank];
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x3)
         {
-        case 0:
-            vrammap = &VRAM_LCD[bank<<3];
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[oldofs<<3];
+        case 1: // ABG
+            UNMAP_RANGE(VRAMMap_ABG, oldofs<<3, 8);
             break;
 
-        case 2:
+        case 2: // AOBJ
             oldofs &= 0x1;
-            vrammap = &VRAM_AOBJ[oldofs<<3];
+            UNMAP_RANGE(VRAMMap_AOBJ, oldofs<<3, 8);
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture
+            VRAMMap_Texture[oldofs] &= ~bankmask;
             break;
-        }
-
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x3)
         {
-        case 0:
-            vrammap = &VRAM_LCD[bank<<3];
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[ofs<<3];
+        case 1: // ABG
+            MAP_RANGE(VRAMMap_ABG, ofs<<3, 8);
             break;
 
-        case 2:
+        case 2: // AOBJ
             ofs &= 0x1;
-            vrammap = &VRAM_AOBJ[ofs<<3];
+            MAP_RANGE(VRAMMap_AOBJ, ofs<<3, 8);
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture
+            VRAMMap_Texture[ofs] |= bankmask;
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap   = vram;
         }
     }
 }
@@ -263,95 +278,74 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;
-
-    u8* vram = VRAM[bank];
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x7)
         {
-        case 0:
-            vrammap = &VRAM_LCD[bank<<3];
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[oldofs<<3];
+        case 1: // ABG
+            UNMAP_RANGE(VRAMMap_ABG, oldofs<<3, 8);
             break;
 
-        case 2:
+        case 2: // ARM7 VRAM
             oldofs &= 0x1;
-            VRAM_ARM7[oldofs] = NULL;
+            VRAMMap_ARM7[oldofs] &= ~bankmask;
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture
+            VRAMMap_Texture[oldofs] &= ~bankmask;
             break;
 
-        case 4:
+        case 4: // BBG/BOBJ
             if (bank == 2)
-                vrammap = &VRAM_BBG[0];
+            {
+                UNMAP_RANGE(VRAMMap_BBG, 0, 8);
+            }
             else
-                vrammap = &VRAM_BOBJ[0];
+            {
+                UNMAP_RANGE(VRAMMap_BOBJ, 0, 8);
+            }
             break;
-        }
-
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x7)
         {
-        case 0:
-            vrammap = &VRAM_LCD[bank<<3];
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[ofs<<3];
+        case 1: // ABG
+            MAP_RANGE(VRAMMap_ABG, ofs<<3, 8);
             break;
 
-        case 2:
+        case 2: // ARM7 VRAM
             ofs &= 0x1;
-            VRAM_ARM7[ofs] = vram;
+            VRAMMap_ARM7[ofs] |= bankmask;
             VRAMSTAT |= (1 << (bank-2));
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture
+            VRAMMap_Texture[ofs] |= bankmask;
             break;
 
-        case 4:
+        case 4: // BBG/BOBJ
             if (bank == 2)
-                vrammap = &VRAM_BBG[0];
+            {
+                MAP_RANGE(VRAMMap_BBG, 0, 8);
+            }
             else
-                vrammap = &VRAM_BOBJ[0];
+            {
+                MAP_RANGE(VRAMMap_BOBJ, 0, 8);
+            }
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap++ = vram; vram += 0x4000;
-            *vrammap   = vram;
         }
     }
 }
@@ -363,104 +357,61 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
     if (oldcnt == cnt) return;
 
-    u8 oldofs = (oldcnt >> 3) & 0x7;
-    u8 ofs = (cnt >> 3) & 0x7;
-
-    u8* vram = VRAM[bank];
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x7)
         {
-        case 0:
-            VRAM_LCD[0x20] = NULL;
-            VRAM_LCD[0x21] = NULL;
-            VRAM_LCD[0x22] = NULL;
-            VRAM_LCD[0x23] = NULL;
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[0];
+        case 1: // ABG
+            UNMAP_RANGE(VRAMMap_ABG, 0, 4);
             break;
 
-        case 2:
-            vrammap = &VRAM_AOBJ[0];
+        case 2: // AOBJ
+            UNMAP_RANGE(VRAMMap_AOBJ, 0, 4);
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture palette
+            UNMAP_RANGE(VRAMMap_TexPal, 0, 4);
             break;
 
-        case 4:
-            VRAM_ABGExtPal[0] = NULL;
-            VRAM_ABGExtPal[1] = NULL;
-            VRAM_ABGExtPal[2] = NULL;
-            VRAM_ABGExtPal[3] = NULL;
+        case 4: // ABG ext palette
+            UNMAP_RANGE(VRAMMap_ABGExtPal, 0, 4);
+            GPU2D_A->BGExtPalDirty(0);
+            GPU2D_A->BGExtPalDirty(2);
             break;
-        }
-
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-        }
-        else if (vrammap) vrammap += 4;
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x7)
         {
-        case 0:
-            VRAM_LCD[0x20] = &vram[0x0000];
-            VRAM_LCD[0x21] = &vram[0x4000];
-            VRAM_LCD[0x22] = &vram[0x8000];
-            VRAM_LCD[0x23] = &vram[0xC000];
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[0];
+        case 1: // ABG
+            MAP_RANGE(VRAMMap_ABG, 0, 4);
             break;
 
-        case 2:
-            vrammap = &VRAM_AOBJ[0];
+        case 2: // AOBJ
+            MAP_RANGE(VRAMMap_AOBJ, 0, 4);
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture palette
+            MAP_RANGE(VRAMMap_TexPal, 0, 4);
             break;
 
-        case 4:
-            VRAM_ABGExtPal[0] = &vram[0x0000];
-            VRAM_ABGExtPal[1] = &vram[0x2000];
-            VRAM_ABGExtPal[2] = &vram[0x4000];
-            VRAM_ABGExtPal[3] = &vram[0x6000];
+        case 4: // ABG ext palette
+            MAP_RANGE(VRAMMap_ABGExtPal, 0, 4);
+            GPU2D_A->BGExtPalDirty(0);
+            GPU2D_A->BGExtPalDirty(2);
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = &vram[0x0000];
-            *vrammap++ = &vram[0x4000];
-            *vrammap++ = &vram[0x8000];
-            *vrammap++ = &vram[0xC000];
-            *vrammap++ = &vram[0x0000];
-            *vrammap++ = &vram[0x4000];
-            *vrammap++ = &vram[0x8000];
-            *vrammap   = &vram[0xC000];
         }
     }
 }
@@ -474,97 +425,77 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
     u8 oldofs = (oldcnt >> 3) & 0x7;
     u8 ofs = (cnt >> 3) & 0x7;
-
-    u8* vram = VRAM[bank];
-    bank -= 5;
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x7)
         {
-        case 0:
-            VRAM_LCD[0x24 + bank] = NULL;
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[(oldofs & 0x1) | ((oldofs & 0x2) << 1)];
+        case 1: // ABG
+            VRAMMap_ABG[(oldofs & 0x1) + ((oldofs & 0x2) << 1)] &= ~bankmask;
+            VRAMMap_ABG[(oldofs & 0x1) + ((oldofs & 0x2) << 1) + 2] &= ~bankmask;
             break;
 
-        case 2:
-            vrammap = &VRAM_AOBJ[(oldofs & 0x1) | ((oldofs & 0x2) << 1)];
+        case 2: // AOBJ
+            VRAMMap_AOBJ[(oldofs & 0x1) + ((oldofs & 0x2) << 1)] &= ~bankmask;
+            VRAMMap_AOBJ[(oldofs & 0x1) + ((oldofs & 0x2) << 1) + 2] &= ~bankmask;
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture palette
+            VRAMMap_TexPal[(oldofs & 0x1) + ((oldofs & 0x2) << 1)] &= ~bankmask;
             break;
 
-        case 4:
-            VRAM_ABGExtPal[(oldofs<<1)+0] = NULL;
-            VRAM_ABGExtPal[(oldofs<<1)+1] = NULL;
+        case 4: // ABG ext palette
+            VRAMMap_ABGExtPal[((oldofs & 0x1) << 1)] &= ~bankmask;
+            VRAMMap_ABGExtPal[((oldofs & 0x1) << 1) + 1] &= ~bankmask;
+            GPU2D_A->BGExtPalDirty(0);
+            GPU2D_A->BGExtPalDirty(2);
             break;
 
-        case 5:
-            VRAM_AOBJExtPal = NULL;
+        case 5: // AOBJ ext palette
+            VRAMMap_AOBJExtPal &= ~bankmask;
+            GPU2D_A->OBJExtPalDirty();
             break;
-        }
-
-        if (vrammap)
-        {
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x7)
         {
-        case 0:
-            VRAM_LCD[0x24 + bank] = vram;
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_ABG[(ofs & 0x1) | ((ofs & 0x2) << 1)];
+        case 1: // ABG
+            VRAMMap_ABG[(ofs & 0x1) + ((ofs & 0x2) << 1)] |= bankmask;
+            VRAMMap_ABG[(ofs & 0x1) + ((ofs & 0x2) << 1) + 2] |= bankmask;
             break;
 
-        case 2:
-            vrammap = &VRAM_AOBJ[(ofs & 0x1) | ((ofs & 0x2) << 1)];
+        case 2: // AOBJ
+            VRAMMap_AOBJ[(ofs & 0x1) + ((ofs & 0x2) << 1)] |= bankmask;
+            VRAMMap_AOBJ[(ofs & 0x1) + ((ofs & 0x2) << 1) + 2] |= bankmask;
             break;
 
-        case 3:
-            // not mapped to memory
+        case 3: // texture palette
+            VRAMMap_TexPal[(ofs & 0x1) + ((ofs & 0x2) << 1)] |= bankmask;
             break;
 
-        case 4:
-            VRAM_ABGExtPal[(ofs<<1)+0] = &vram[0x0000];
-            VRAM_ABGExtPal[(ofs<<1)+1] = &vram[0x2000];
+        case 4: // ABG ext palette
+            VRAMMap_ABGExtPal[((ofs & 0x1) << 1)] |= bankmask;
+            VRAMMap_ABGExtPal[((ofs & 0x1) << 1) + 1] |= bankmask;
+            GPU2D_A->BGExtPalDirty(0);
+            GPU2D_A->BGExtPalDirty(2);
             break;
 
-        case 5:
-            VRAM_AOBJExtPal = vram;
+        case 5: // AOBJ ext palette
+            VRAMMap_AOBJExtPal |= bankmask;
+            GPU2D_A->OBJExtPalDirty();
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap   = vram;
         }
     }
 }
@@ -576,89 +507,51 @@ void MapVRAM_H(u32 bank, u8 cnt)
 
     if (oldcnt == cnt) return;
 
-    u8 oldofs = (oldcnt >> 3) & 0x7;
-    u8 ofs = (cnt >> 3) & 0x7;
-
-    u8* vram = VRAM[bank];
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x3)
         {
-        case 0:
-            VRAM_LCD[0x26] = NULL;
-            VRAM_LCD[0x27] = NULL;
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_BBG[0x00];
+        case 1: // BBG
+            VRAMMap_BBG[0] &= ~bankmask;
+            VRAMMap_BBG[1] &= ~bankmask;
+            VRAMMap_BBG[4] &= ~bankmask;
+            VRAMMap_BBG[5] &= ~bankmask;
             break;
 
-        case 2:
-            VRAM_BBGExtPal[0] = NULL;
-            VRAM_BBGExtPal[1] = NULL;
-            VRAM_BBGExtPal[2] = NULL;
-            VRAM_BBGExtPal[3] = NULL;
+        case 2: // BBG ext palette
+            UNMAP_RANGE(VRAMMap_BBGExtPal, 0, 4);
+            GPU2D_B->BGExtPalDirty(0);
+            GPU2D_B->BGExtPalDirty(2);
             break;
-        }
-
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-        } else if (vrammap) vrammap += 2;
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-        } else if (vrammap) vrammap += 2;
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap++ = NULL;
-        } else if (vrammap) vrammap += 2;
-        if (vrammap && *vrammap == vram)
-        {
-            *vrammap++ = NULL;
-            *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x3)
         {
-        case 0:
-            VRAM_LCD[0x26] = &vram[0x0000];
-            VRAM_LCD[0x27] = &vram[0x4000];
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_BBG[0x00];
+        case 1: // BBG
+            VRAMMap_BBG[0] |= bankmask;
+            VRAMMap_BBG[1] |= bankmask;
+            VRAMMap_BBG[4] |= bankmask;
+            VRAMMap_BBG[5] |= bankmask;
             break;
 
-        case 2:
-            VRAM_BBGExtPal[0] = &vram[0x0000];
-            VRAM_BBGExtPal[1] = &vram[0x2000];
-            VRAM_BBGExtPal[2] = &vram[0x4000];
-            VRAM_BBGExtPal[3] = &vram[0x6000];
+        case 2: // BBG ext palette
+            MAP_RANGE(VRAMMap_BBGExtPal, 0, 4);
+            GPU2D_B->BGExtPalDirty(0);
+            GPU2D_B->BGExtPalDirty(2);
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = &vram[0x0000];
-            *vrammap++ = &vram[0x4000];
-            *vrammap++ = &vram[0x0000];
-            *vrammap++ = &vram[0x4000];
-            *vrammap++ = &vram[0x0000];
-            *vrammap++ = &vram[0x4000];
-            *vrammap++ = &vram[0x0000];
-            *vrammap   = &vram[0x4000];
         }
     }
 }
@@ -670,81 +563,57 @@ void MapVRAM_I(u32 bank, u8 cnt)
 
     if (oldcnt == cnt) return;
 
-    u8 oldofs = (oldcnt >> 3) & 0x7;
-    u8 ofs = (cnt >> 3) & 0x7;
-
-    u8* vram = VRAM[bank];
-    bank -= 5;
+    u32 bankmask = 1 << bank;
 
     if (oldcnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (oldcnt & 0x3)
         {
-        case 0:
-            VRAM_LCD[0x28] = NULL;
+        case 0: // LCDC
+            VRAMMap_LCDC &= ~bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_BBG[0x02];
+        case 1: // BBG
+            VRAMMap_BBG[2] &= ~bankmask;
+            VRAMMap_BBG[3] &= ~bankmask;
+            VRAMMap_BBG[6] &= ~bankmask;
+            VRAMMap_BBG[7] &= ~bankmask;
             break;
 
-        case 2:
-            vrammap = &VRAM_BOBJ[0x00];
+        case 2: // BOBJ
+            UNMAP_RANGE(VRAMMap_BOBJ, 0, 8);
             break;
 
-        case 3:
-            VRAM_BOBJExtPal = NULL;
+        case 3: // BOBJ ext palette
+            VRAMMap_BOBJExtPal &= ~bankmask;
+            GPU2D_B->OBJExtPalDirty();
             break;
-        }
-
-        if (vrammap)
-        {
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap++ = NULL; else vrammap++;
-            if (*vrammap == vram) *vrammap   = NULL;
         }
     }
 
     if (cnt & (1<<7))
     {
-        u8** vrammap = NULL;
-
         switch (cnt & 0x3)
         {
-        case 0:
-            VRAM_LCD[0x28] = vram;
+        case 0: // LCDC
+            VRAMMap_LCDC |= bankmask;
             break;
 
-        case 1:
-            vrammap = &VRAM_BBG[0x02];
+        case 1: // BBG
+            VRAMMap_BBG[2] |= bankmask;
+            VRAMMap_BBG[3] |= bankmask;
+            VRAMMap_BBG[6] |= bankmask;
+            VRAMMap_BBG[7] |= bankmask;
             break;
 
-        case 2:
-            vrammap = &VRAM_BOBJ[0x00];
+        case 2: // BOBJ
+            MAP_RANGE(VRAMMap_BOBJ, 0, 8);
             break;
 
-        case 3:
-            VRAM_BOBJExtPal = vram;
+        case 3: // BOBJ ext palette
+            VRAMMap_BOBJExtPal |= bankmask;
+            GPU2D_B->OBJExtPalDirty();
             break;
-        }
-
-        if (vrammap)
-        {
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap++ = vram;
-            *vrammap   = vram;
         }
     }
 }

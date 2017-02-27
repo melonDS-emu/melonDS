@@ -39,6 +39,12 @@ public:
     void DrawScanline(u32 line);
     void VBlank();
 
+    void BGExtPalDirty(u32 base);
+    void OBJExtPalDirty();
+
+    u16* GetBGExtPal(u32 slot, u32 pal);
+    u16* GetOBJExtPal(u32 pal);
+
 private:
     u32 Num;
     u32* Framebuffer;
@@ -57,6 +63,11 @@ private:
     s16 BGRotD[2];
 
     u32 BlendFunc;
+
+    u16 BGExtPalCache[4][16*256];
+    u16 OBJExtPalCache[16*256];
+    u32 BGExtPalStatus[4];
+    u32 OBJExtPalStatus;
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst);
     void DrawScanline_Mode1(u32 line, u32* dst);
