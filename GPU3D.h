@@ -46,6 +46,8 @@ typedef struct
     u32 NumVertices;
 
     u32 Attr;
+    u32 TexParam;
+    u32 TexPalette;
 
     bool FacingView;
 

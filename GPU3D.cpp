@@ -751,6 +751,9 @@ void SubmitPolygon()
     poly->NumVertices = 0;
 
     poly->Attr = CurPolygonAttr;
+    poly->TexParam = TexParam;
+    poly->TexPalette = TexPalette;
+
     poly->FacingView = facingview;
 
     if (LastStripPolygon && clipstart > 0)
