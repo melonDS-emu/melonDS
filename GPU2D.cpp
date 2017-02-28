@@ -334,7 +334,7 @@ u16* GPU2D::GetOBJExtPal(u32 pal)
     {
         if (Num)
         {
-            if (GPU::VRAMMap_BOBJExtPal & (1<<7))
+            if (GPU::VRAMMap_BOBJExtPal & (1<<8))
                 memcpy(dst, &GPU::VRAM_I[(pal << 9)], 256*2);
             else
                 memset(dst, 0, 256*2);
@@ -864,7 +864,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
     if (DispCnt & 0x10)
     {
         tilenum <<= ((DispCnt >> 20) & 0x3);
-        ytilefactor = (width >> 3);
+        ytilefactor = (width >> 3) << ((attrib[0] & 0x2000) ? 1:0);
     }
     else
     {
@@ -901,6 +901,34 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
     if (attrib[0] & 0x2000)
     {
         // 256-color
+        tilenum <<= 5;
+        ytilefactor <<= 5;
+        u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
+
+        u32 extpal = (DispCnt & 0x80000000);
+
+        u16* pal;
+        if (extpal) pal = GetOBJExtPal(attrib[2] >> 12);
+        else        pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+
+        for (; xoff < boundwidth;)
+        {
+            if ((u32)rotX < width && (u32)rotY < height)
+            {
+                u8 color;
+
+                // blaaaarg
+                color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr + ((rotY>>11)*ytilefactor) + ((rotY&0x700)>>5) + ((rotX>>11)*64) + ((rotX&0x700)>>8));
+
+                if (color)
+                    dst[xpos] = pal[color] | prio;
+            }
+
+            rotX += rotA;
+            rotY += rotC;
+            xoff++;
+            xpos++;
+        }
     }
     else
     {
@@ -949,7 +977,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
     }
     else
     {
-        tilenum += ((ypos >> 3) * 0x20) << ((attrib[0] & 0x2000) ? 1:0);
+        tilenum += ((ypos >> 3) * 0x20);
     }
 
     u32 wmask = width - 8; // really ((width - 1) & ~0x7)

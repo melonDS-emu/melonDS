@@ -250,15 +250,15 @@ void RenderPolygon(Polygon* polygon)
         if (vlnext->FinalPosition[1] == vlcur->FinalPosition[1])
             lfactor = 0;
         else
-            lfactor = (((y - vlcur->FinalPosition[1]) << 12) + 0x00) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
+            lfactor = (((y+1 - vlcur->FinalPosition[1]) << 12) + 0x00) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
 
         if (vrnext->FinalPosition[1] == vrcur->FinalPosition[1])
             rfactor = 0;
         else
-            rfactor = (((y - vrcur->FinalPosition[1]) << 12) + 0x00) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
+            rfactor = (((y+1 - vrcur->FinalPosition[1]) << 12) + 0x00) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
 
-        s32 xl = vlcur->FinalPosition[0] + (((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) >> 12);
-        s32 xr = vrcur->FinalPosition[0] + (((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) >> 12);
+        s32 xl = vlcur->FinalPosition[0] + ((((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) + 0x800) >> 12);
+        s32 xr = vrcur->FinalPosition[0] + ((((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) + 0x800) >> 12);
 //printf("y:%d xl:%d xr:%d    %08X\n", y, xl, xr, rfactor); // y: 48 143
         if (xl > xr) // TODO: handle it in a more elegant way
         {
