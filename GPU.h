@@ -354,6 +354,35 @@ T ReadVRAM_OBJ(u32 addr)
 }
 
 
+template<typename T>
+T ReadVRAM_Texture(u32 addr)
+{
+    u32 ret = 0;
+    u32 mask = VRAMMap_Texture[(addr >> 17) & 0x3];
+
+    if (mask & (1<<0)) ret |= *(T*)&VRAM_A[addr & 0x1FFFF];
+    if (mask & (1<<1)) ret |= *(T*)&VRAM_B[addr & 0x1FFFF];
+    if (mask & (1<<2)) ret |= *(T*)&VRAM_C[addr & 0x1FFFF];
+    if (mask & (1<<3)) ret |= *(T*)&VRAM_D[addr & 0x1FFFF];
+
+    return ret;
+}
+
+template<typename T>
+T ReadVRAM_TexPal(u32 addr)
+{
+    u32 ret = 0;
+    if (addr >= 0x18000) return 0;
+    u32 mask = VRAMMap_TexPal[(addr >> 14) & 0x7];
+
+    if (mask & (1<<4)) ret |= *(T*)&VRAM_E[addr & 0xFFFF];
+    if (mask & (1<<5)) ret |= *(T*)&VRAM_F[addr & 0x3FFF];
+    if (mask & (1<<6)) ret |= *(T*)&VRAM_G[addr & 0x3FFF];
+
+    return ret;
+}
+
+
 void DisplaySwap(u32 val);
 
 void StartFrame();

@@ -1245,7 +1245,7 @@ void ExecuteCommand()
 
         case 0x22: // texcoord
             TexCoords[0] = ExecParams[0] & 0xFFFF;
-            TexCoords[1] = ExecParams[1] >> 16;
+            TexCoords[1] = ExecParams[0] >> 16;
             if ((TexParam >> 30) == 1)
             {
                 TexCoords[0] = (TexCoords[0]*TexMatrix[0] + TexCoords[1]*TexMatrix[4] + TexMatrix[8] + TexMatrix[12]) >> 12;

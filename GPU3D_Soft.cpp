@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
-#include "GPU3D.h"
+#include "GPU.h"
 
 
 namespace GPU3D
@@ -48,8 +48,64 @@ void Reset()
 }
 
 
-void RenderPixel(u32 attr, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb)
+void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
 {
+    u32 vramaddr = (texparam & 0xFFFF) << 3;
+
+    u32 width = 8 << ((texparam >> 20) & 0x7);
+    u32 height = 8 << ((texparam >> 23) & 0x7);
+
+    s >>= 4;
+    t >>= 4;
+
+    // TODO: wraparound modes
+    s &= width-1;
+    t &= height-1;
+
+    switch ((texparam >> 26) & 0x7)
+    {
+    case 3: // 16-color
+        {
+            vramaddr += (((t * width) + s) >> 1);
+            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            if (s & 0x1) pixel >>= 4;
+            else         pixel &= 0xF;
+
+            texpal <<= 4;
+            u16 color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+
+            *r = (color << 1) & 0x3E; if (*r) *r++;
+            *g = (color >> 4) & 0x3E; if (*g) *g++;
+            *b = (color >> 9) & 0x3E; if (*b) *b++;
+        }
+        break;
+
+    case 4: // 256-color
+        {
+            vramaddr += ((t * width) + s);
+            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+
+            texpal <<= 4;
+            u16 color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+
+            *r = (color << 1) & 0x3E; if (*r) *r++;
+            *g = (color >> 4) & 0x3E; if (*g) *g++;
+            *b = (color >> 9) & 0x3E; if (*b) *b++;
+        }
+        break;
+
+    default:
+        *r = (s)&0x3F;
+        *g = 0;
+        *b = (t)&0x3F;
+        break;
+    }
+}
+
+void RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+{
+    u32 attr = polygon->Attr;
+
     u32* depth = &DepthBuffer[(256*y) + x];
 
     bool passdepth = false;
@@ -65,10 +121,34 @@ void RenderPixel(u32 attr, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb)
 
     if (!passdepth) return;
 
+    u8 r, g, b;
+
+    if (((polygon->TexParam >> 26) & 0x7) != 0)
+    {
+        // TODO: also take DISP3DCNT into account
+
+        u8 tr, tg, tb;
+        TextureLookup(polygon->TexParam, polygon->TexPalette, s, t, &tr, &tg, &tb);
+
+        // TODO: other blending modes
+        /*r = ((tr+1) * (vr+1) - 1) >> 6;
+        g = ((tg+1) * (vg+1) - 1) >> 6;
+        b = ((tb+1) * (vb+1) - 1) >> 6;*/
+        r = tr;
+        g = tg;
+        b = tb;
+    }
+    else
+    {
+        r = vr;
+        g = vg;
+        b = vb;
+    }
+
     u8* pixel = &ColorBuffer[((256*y) + x) * 4];
-    pixel[0] = vr;
-    pixel[1] = vg;
-    pixel[2] = vb;
+    pixel[0] = r;
+    pixel[1] = g;
+    pixel[2] = b;
     pixel[3] = 31; // TODO: alpha
 
     // TODO: optional update for translucent pixels
@@ -151,6 +231,8 @@ void RenderPolygon(Polygon* polygon)
             ybot = vtx->FinalPosition[1];
             vbot = i;
         }
+
+        //printf("v%d: %d,%d\n", i, vtx->FinalPosition[0], vtx->FinalPosition[1]);
     }
 
     // draw, line per line
@@ -305,9 +387,15 @@ void RenderPolygon(Polygon* polygon)
         s32 gl = ((perspfactorl1 * vlcur->FinalColor[1]) + (perspfactorl2 * vlnext->FinalColor[1])) / (perspfactorl1 + perspfactorl2);
         s32 bl = ((perspfactorl1 * vlcur->FinalColor[2]) + (perspfactorl2 * vlnext->FinalColor[2])) / (perspfactorl1 + perspfactorl2);
 
+        s32 sl = ((perspfactorl1 * vlcur->TexCoords[0]) + (perspfactorl2 * vlnext->TexCoords[0])) / (perspfactorl1 + perspfactorl2);
+        s32 tl = ((perspfactorl1 * vlcur->TexCoords[1]) + (perspfactorl2 * vlnext->TexCoords[1])) / (perspfactorl1 + perspfactorl2);
+
         s32 rr = ((perspfactorr1 * vrcur->FinalColor[0]) + (perspfactorr2 * vrnext->FinalColor[0])) / (perspfactorr1 + perspfactorr2);
         s32 gr = ((perspfactorr1 * vrcur->FinalColor[1]) + (perspfactorr2 * vrnext->FinalColor[1])) / (perspfactorr1 + perspfactorr2);
         s32 br = ((perspfactorr1 * vrcur->FinalColor[2]) + (perspfactorr2 * vrnext->FinalColor[2])) / (perspfactorr1 + perspfactorr2);
+
+        s32 sr = ((perspfactorr1 * vrcur->TexCoords[0]) + (perspfactorr2 * vrnext->TexCoords[0])) / (perspfactorr1 + perspfactorr2);
+        s32 tr = ((perspfactorr1 * vrcur->TexCoords[1]) + (perspfactorr2 * vrnext->TexCoords[1])) / (perspfactorr1 + perspfactorr2);
 
         if (xr == xl) xr++;
         s32 xdiv = 0x1000 / (xr - xl);
@@ -340,7 +428,10 @@ void RenderPolygon(Polygon* polygon)
             u32 vg = ((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
             u32 vb = ((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
 
-            RenderPixel(polygon->Attr, x, y, z, vr>>3, vg>>3, vb>>3);
+            s16 s = ((perspfactor1 * sl) + (perspfactor2 * sr)) / (perspfactor1 + perspfactor2);
+            s16 t = ((perspfactor1 * tl) + (perspfactor2 * tr)) / (perspfactor1 + perspfactor2);
+
+            RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
         }
     }
 
