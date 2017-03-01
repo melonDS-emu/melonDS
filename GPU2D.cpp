@@ -83,6 +83,8 @@ void GPU2D::Reset()
     memset(BGRotC, 0, 2*2);
     memset(BGRotD, 0, 2*2);
 
+    MasterBrightness = 0;
+
     BGExtPalStatus[0] = 0;
     BGExtPalStatus[1] = 0;
     BGExtPalStatus[2] = 0;
@@ -170,6 +172,8 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x032: BGRotB[1] = val; return;
     case 0x034: BGRotC[1] = val; return;
     case 0x036: BGRotD[1] = val; return;
+
+    case 0x06C: MasterBrightness = val; return;
     }
 
     //printf("unknown GPU write16 %08X %04X\n", addr, val);
@@ -263,6 +267,50 @@ void GPU2D::DrawScanline(u32 line)
             // uh, is there even anything that uses this?
         }
         break;
+    }
+
+    // master brightness
+    if ((MasterBrightness >> 14) == 1)
+    {
+        // up
+        u32 factor = MasterBrightness & 0x1F;
+        if (factor > 16) factor = 16;
+
+        for (int i = 0; i < 256; i++)
+        {
+            u32 val = dst[i];
+
+            u32 r = val & 0x00003F;
+            u32 g = val & 0x003F00;
+            u32 b = val & 0x3F0000;
+
+            r += (((0x00003F - r) * factor) >> 4);
+            g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
+            b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
+
+            dst[i] = r | g | b;
+        }
+    }
+    else if ((MasterBrightness >> 14) == 2)
+    {
+        // down
+        u32 factor = MasterBrightness & 0x1F;
+        if (factor > 16) factor = 16;
+
+        for (int i = 0; i < 256; i++)
+        {
+            u32 val = dst[i];
+
+            u32 r = val & 0x00003F;
+            u32 g = val & 0x003F00;
+            u32 b = val & 0x3F0000;
+
+            r -= ((r * factor) >> 4);
+            g -= (((g * factor) >> 4) & 0x003F00);
+            b -= (((b * factor) >> 4) & 0x3F0000);
+
+            dst[i] = r | g | b;
+        }
     }
 
     // convert to 32-bit RGBA

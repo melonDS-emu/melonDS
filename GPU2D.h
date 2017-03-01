@@ -64,6 +64,8 @@ private:
 
     u32 BlendFunc;
 
+    u16 MasterBrightness;
+
     u16 BGExtPalCache[4][16*256];
     u16 OBJExtPalCache[16*256];
     u32 BGExtPalStatus[4];

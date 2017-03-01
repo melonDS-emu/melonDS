@@ -1624,12 +1624,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    if (addr >= 0x04000000 && addr < 0x04000060)
+    if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
         GPU::GPU2D_A->Write16(addr, val);
         return;
     }
-    if (addr >= 0x04001000 && addr < 0x04001060)
+    if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
         GPU::GPU2D_B->Write16(addr, val);
         return;
