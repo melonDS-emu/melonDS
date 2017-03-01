@@ -1081,6 +1081,8 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 {
     u32 prio = ((attrib[2] & 0x0C00) << 6) | 0x8000;
     u32 tilenum = attrib[2] & 0x03FF;
+    u32 spritemode = (attrib[0] >> 10) & 0x3;
+
     u32 ytilefactor;
     if (DispCnt & 0x10)
     {
@@ -1118,6 +1120,8 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
     width <<= 8;
     height <<= 8;
+
+    //if (spritemode == 3) printf("BAKA");
 
     if (attrib[0] & 0x2000)
     {
@@ -1191,15 +1195,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
 {
     u32 prio = ((attrib[2] & 0x0C00) << 6) | 0x8000;
     u32 tilenum = attrib[2] & 0x03FF;
-    if (DispCnt & 0x10)
-    {
-        tilenum <<= ((DispCnt >> 20) & 0x3);
-        tilenum += ((ypos >> 3) * (width >> 3)) << ((attrib[0] & 0x2000) ? 1:0);
-    }
-    else
-    {
-        tilenum += ((ypos >> 3) * 0x20);
-    }
+    u32 spritemode = (attrib[0] >> 10) & 0x3;
 
     u32 wmask = width - 8; // really ((width - 1) & ~0x7)
 
@@ -1216,116 +1212,178 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         xpos = 0;
     }
 
-    if (attrib[0] & 0x2000)
+    if (spritemode == 3)
     {
-        // 256-color
-        tilenum <<= 5;
-        u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
-        pixelsaddr += ((ypos & 0x7) << 3);
+        // bitmap sprite
 
-        u32 extpal = (DispCnt & 0x80000000);
-
-        u16* pal;
-        if (extpal) pal = GetOBJExtPal(attrib[2] >> 12);
-        else        pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
-
-        if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
+        if (DispCnt & 0x40)
         {
-            pixelsaddr += (((width-1 - xoff) & wmask) << 3);
-            pixelsaddr += ((width-1 - xoff) & 0x7);
-
-            for (; xoff < width;)
+            if (DispCnt & 0x20)
             {
-                u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
-                pixelsaddr--;
-
-                if (color)
-                    dst[xpos] = pal[color] | prio;
-
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr -= 56;
+                // TODO ("reserved")
+            }
+            else
+            {
+                tilenum <<= (7 + ((DispCnt >> 22) & 0x1));
+                tilenum += (ypos * width * 2);
             }
         }
         else
         {
-            pixelsaddr += ((xoff & wmask) << 3);
-            pixelsaddr += (xoff & 0x7);
-
-            for (; xoff < width;)
+            if (DispCnt & 0x20)
             {
-                u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
-                pixelsaddr++;
-
-                if (color)
-                    dst[xpos] = pal[color] | prio;
-
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr += 56;
+                tilenum = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
+                tilenum += (ypos * 256 * 2);
             }
+            else
+            {
+                tilenum = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
+                tilenum += (ypos * 128 * 2);
+            }
+        }
+
+        u32 alpha = attrib[2] >> 12;
+        if (!alpha) return;
+        alpha++;
+
+        u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
+        pixelsaddr += (xoff << 1);
+
+        for (; xoff < width;)
+        {
+            u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr);
+            pixelsaddr += 2;
+
+            if (color & 0x8000)
+                dst[xpos] = color | prio;
+
+            xoff++;
+            xpos++;
         }
     }
     else
     {
-        // 16-color
-        tilenum <<= 5;
-        u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
-        pixelsaddr += ((ypos & 0x7) << 2);
-
-        u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
-        pal += (attrib[2] & 0xF000) >> 8;
-
-        if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
+        if (DispCnt & 0x10)
         {
-            pixelsaddr += (((width-1 - xoff) & wmask) << 2);
-            pixelsaddr += (((width-1 - xoff) & 0x7) >> 1);
+            tilenum <<= ((DispCnt >> 20) & 0x3);
+            tilenum += ((ypos >> 3) * (width >> 3)) << ((attrib[0] & 0x2000) ? 1:0);
+        }
+        else
+        {
+            tilenum += ((ypos >> 3) * 0x20);
+        }
 
-            for (; xoff < width;)
+        if (attrib[0] & 0x2000)
+        {
+            // 256-color
+            tilenum <<= 5;
+            u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
+            pixelsaddr += ((ypos & 0x7) << 3);
+
+            u32 extpal = (DispCnt & 0x80000000);
+
+            u16* pal;
+            if (extpal) pal = GetOBJExtPal(attrib[2] >> 12);
+            else        pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+
+            if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
             {
-                u8 color;
-                if (xoff & 0x1)
+                pixelsaddr += (((width-1 - xoff) & wmask) << 3);
+                pixelsaddr += ((width-1 - xoff) & 0x7);
+
+                for (; xoff < width;)
                 {
-                    color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) & 0x0F;
+                    u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
                     pixelsaddr--;
+
+                    if (color)
+                        dst[xpos] = pal[color] | prio;
+
+                    xoff++;
+                    xpos++;
+                    if (!(xoff & 0x7)) pixelsaddr -= 56;
                 }
-                else
+            }
+            else
+            {
+                pixelsaddr += ((xoff & wmask) << 3);
+                pixelsaddr += (xoff & 0x7);
+
+                for (; xoff < width;)
                 {
-                    color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) >> 4;
+                    u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
+                    pixelsaddr++;
+
+                    if (color)
+                        dst[xpos] = pal[color] | prio;
+
+                    xoff++;
+                    xpos++;
+                    if (!(xoff & 0x7)) pixelsaddr += 56;
                 }
-
-                if (color)
-                    dst[xpos] = pal[color] | prio;
-
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr -= 28;
             }
         }
         else
         {
-            pixelsaddr += ((xoff & wmask) << 2);
-            pixelsaddr += ((xoff & 0x7) >> 1);
+            // 16-color
+            tilenum <<= 5;
+            u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
+            pixelsaddr += ((ypos & 0x7) << 2);
 
-            for (; xoff < width;)
+            u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+            pal += (attrib[2] & 0xF000) >> 8;
+
+            if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
             {
-                u8 color;
-                if (xoff & 0x1)
-                {
-                    color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) >> 4;
-                    pixelsaddr++;
-                }
-                else
-                {
-                    color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) & 0x0F;
-                }
+                pixelsaddr += (((width-1 - xoff) & wmask) << 2);
+                pixelsaddr += (((width-1 - xoff) & 0x7) >> 1);
 
-                if (color)
-                    dst[xpos] = pal[color] | prio;
+                for (; xoff < width;)
+                {
+                    u8 color;
+                    if (xoff & 0x1)
+                    {
+                        color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) & 0x0F;
+                        pixelsaddr--;
+                    }
+                    else
+                    {
+                        color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) >> 4;
+                    }
 
-                xoff++;
-                xpos++;
-                if (!(xoff & 0x7)) pixelsaddr += 28;
+                    if (color)
+                        dst[xpos] = pal[color] | prio;
+
+                    xoff++;
+                    xpos++;
+                    if (!(xoff & 0x7)) pixelsaddr -= 28;
+                }
+            }
+            else
+            {
+                pixelsaddr += ((xoff & wmask) << 2);
+                pixelsaddr += ((xoff & 0x7) >> 1);
+
+                for (; xoff < width;)
+                {
+                    u8 color;
+                    if (xoff & 0x1)
+                    {
+                        color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) >> 4;
+                        pixelsaddr++;
+                    }
+                    else
+                    {
+                        color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr) & 0x0F;
+                    }
+
+                    if (color)
+                        dst[xpos] = pal[color] | prio;
+
+                    xoff++;
+                    xpos++;
+                    if (!(xoff & 0x7)) pixelsaddr += 28;
+                }
             }
         }
     }
