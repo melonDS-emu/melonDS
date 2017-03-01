@@ -270,46 +270,49 @@ void GPU2D::DrawScanline(u32 line)
     }
 
     // master brightness
-    if ((MasterBrightness >> 14) == 1)
+    if (dispmode != 0)
     {
-        // up
-        u32 factor = MasterBrightness & 0x1F;
-        if (factor > 16) factor = 16;
-
-        for (int i = 0; i < 256; i++)
+        if ((MasterBrightness >> 14) == 1)
         {
-            u32 val = dst[i];
+            // up
+            u32 factor = MasterBrightness & 0x1F;
+            if (factor > 16) factor = 16;
 
-            u32 r = val & 0x00003F;
-            u32 g = val & 0x003F00;
-            u32 b = val & 0x3F0000;
+            for (int i = 0; i < 256; i++)
+            {
+                u32 val = dst[i];
 
-            r += (((0x00003F - r) * factor) >> 4);
-            g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
-            b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
+                u32 r = val & 0x00003F;
+                u32 g = val & 0x003F00;
+                u32 b = val & 0x3F0000;
 
-            dst[i] = r | g | b;
+                r += (((0x00003F - r) * factor) >> 4);
+                g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
+                b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
+
+                dst[i] = r | g | b;
+            }
         }
-    }
-    else if ((MasterBrightness >> 14) == 2)
-    {
-        // down
-        u32 factor = MasterBrightness & 0x1F;
-        if (factor > 16) factor = 16;
-
-        for (int i = 0; i < 256; i++)
+        else if ((MasterBrightness >> 14) == 2)
         {
-            u32 val = dst[i];
+            // down
+            u32 factor = MasterBrightness & 0x1F;
+            if (factor > 16) factor = 16;
 
-            u32 r = val & 0x00003F;
-            u32 g = val & 0x003F00;
-            u32 b = val & 0x3F0000;
+            for (int i = 0; i < 256; i++)
+            {
+                u32 val = dst[i];
 
-            r -= ((r * factor) >> 4);
-            g -= (((g * factor) >> 4) & 0x003F00);
-            b -= (((b * factor) >> 4) & 0x3F0000);
+                u32 r = val & 0x00003F;
+                u32 g = val & 0x003F00;
+                u32 b = val & 0x3F0000;
 
-            dst[i] = r | g | b;
+                r -= ((r * factor) >> 4);
+                g -= (((g * factor) >> 4) & 0x003F00);
+                b -= (((b * factor) >> 4) & 0x3F0000);
+
+                dst[i] = r | g | b;
+            }
         }
     }
 
