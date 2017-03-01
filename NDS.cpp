@@ -1648,6 +1648,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000060: return;
+    case 0x04000064: GPU::GPU2D_A->Write32(addr, val); return;
 
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;
     case 0x040000B4: DMAs[0]->DstAddr = val; return;

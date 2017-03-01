@@ -83,6 +83,8 @@ void GPU2D::Reset()
     memset(BGRotC, 0, 2*2);
     memset(BGRotD, 0, 2*2);
 
+    CaptureCnt = 0;
+
     MasterBrightness = 0;
 
     BGExtPalStatus[0] = 0;
@@ -205,6 +207,12 @@ void GPU2D::Write32(u32 addr, u32 val)
         if (val & 0x08000000) val |= 0xF0000000;
         BGYCenter[1] = val;
         return;
+
+    case 0x064:
+        // TODO: check what happens when writing to it during display
+        // esp. if a capture is happening
+        CaptureCnt = val & 0xEF3F1F1F;
+        return;
     }
 
     Write16(addr, val&0xFFFF);
@@ -264,9 +272,25 @@ void GPU2D::DrawScanline(u32 line)
 
     case 3: // FIFO display
         {
-            // uh, is there even anything that uses this?
+            // TODO
         }
         break;
+    }
+
+    // capture
+    if ((!Num) && (CaptureCnt & (1<<31)))
+    {
+        u32 capwidth, capheight;
+        switch ((CaptureCnt >> 20) & 0x3)
+        {
+        case 0: capwidth = 128; capheight = 128; break;
+        case 1: capwidth = 256; capheight = 64;  break;
+        case 2: capwidth = 256; capheight = 128; break;
+        case 3: capwidth = 256; capheight = 192; break;
+        }
+
+        if (line < capheight)
+            DoCapture(line, capwidth, dst);
     }
 
     // master brightness
@@ -325,7 +349,153 @@ void GPU2D::DrawScanline(u32 line)
 
 void GPU2D::VBlank()
 {
-    //
+    CaptureCnt &= ~(1<<31);
+}
+
+
+void GPU2D::DoCapture(u32 line, u32 width, u32* src)
+{
+    u32 dstvram = (CaptureCnt >> 16) & 0x3;
+
+    // TODO: confirm this
+    // it should work like VRAM display mode, which requires VRAM to be mapped to LCDC
+    if (!(GPU::VRAMMap_LCDC & (1<<dstvram)))
+        return;
+
+    u16* dst = (u16*)GPU::VRAM[dstvram];
+    u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
+
+    if (CaptureCnt & (1<<24))
+        src = (u32*)GPU3D::GetLine(line);
+
+    u16* srcB = NULL;
+    u32 srcBaddr = line * 256;
+
+    if (CaptureCnt & (1<<25))
+    {
+        // TODO: FIFO mode
+    }
+    else
+    {
+        u32 srcvram = (DispCnt >> 18) & 0x3;
+        if (GPU::VRAMMap_LCDC & (1<<srcvram))
+            srcB = (u16*)GPU::VRAM[srcvram];
+
+        if (((DispCnt >> 16) & 0x3) != 2)
+            srcBaddr += ((CaptureCnt >> 26) & 0x3) << 14;
+    }
+
+    dstaddr &= 0xFFFF;
+    srcBaddr &= 0xFFFF;
+
+    switch ((DispCnt >> 29) & 0x3)
+    {
+    case 0: // source A
+        {
+            for (u32 i = 0; i < width; i++)
+            {
+                u32 val = src[i];
+
+                // TODO: check what happens when alpha=0
+
+                u32 r = (val >> 1) & 0x1F;
+                u32 g = (val >> 9) & 0x1F;
+                u32 b = (val >> 17) & 0x1F;
+                u32 a = ((val >> 24) != 0) ? 0x8000 : 0;
+
+                dst[dstaddr] = r | (g << 5) | (b << 10) | a;
+                dstaddr = (dstaddr + 1) & 0xFFFF;
+            }
+        }
+        break;
+
+    case 1: // source B
+        {
+            if (srcB)
+            {
+                for (u32 i = 0; i < width; i++)
+                {
+                    dst[dstaddr] = srcB[srcBaddr];
+                    srcBaddr = (srcBaddr + 1) & 0xFFFF;
+                    dstaddr = (dstaddr + 1) & 0xFFFF;
+                }
+            }
+            else
+            {
+                for (u32 i = 0; i < width; i++)
+                {
+                    dst[dstaddr] = 0;
+                    dstaddr = (dstaddr + 1) & 0xFFFF;
+                }
+            }
+        }
+        break;
+
+    case 2: // sources A+B
+    case 3:
+        {
+            u32 eva = DispCnt & 0x1F;
+            u32 evb = (DispCnt >> 8) & 0x1F;
+
+            // checkme
+            if (eva > 16) eva = 16;
+            if (evb > 16) evb = 16;
+
+            if (srcB)
+            {
+                for (u32 i = 0; i < width; i++)
+                {
+                    u32 val = src[i];
+
+                    // TODO: check what happens when alpha=0
+
+                    u32 rA = (val >> 1) & 0x1F;
+                    u32 gA = (val >> 9) & 0x1F;
+                    u32 bA = (val >> 17) & 0x1F;
+                    u32 aA = ((val >> 24) != 0) ? 1 : 0;
+
+                    val = srcB[srcBaddr];
+
+                    u32 rB = val & 0x1F;
+                    u32 gB = (val >> 5) & 0x1F;
+                    u32 bB = (val >> 10) & 0x1F;
+                    u32 aB = val >> 15;
+
+                    u32 rD = ((rA * aA * eva) + (rB * aB * evb)) >> 4;
+                    u32 gD = ((gA * aA * eva) + (gB * aB * evb)) >> 4;
+                    u32 bD = ((bA * aA * eva) + (bB * aB * evb)) >> 4;
+                    u32 aD = (eva>0 ? aA : 0) | (evb>0 ? aB : 0);
+
+                    dst[dstaddr] = rD | (gD << 5) | (bD << 10) | (aD << 15);
+                    srcBaddr = (srcBaddr + 1) & 0xFFFF;
+                    dstaddr = (dstaddr + 1) & 0xFFFF;
+                }
+            }
+            else
+            {
+                for (u32 i = 0; i < width; i++)
+                {
+                    u32 val = src[i];
+
+                    // TODO: check what happens when alpha=0
+
+                    u32 rA = (val >> 1) & 0x1F;
+                    u32 gA = (val >> 9) & 0x1F;
+                    u32 bA = (val >> 17) & 0x1F;
+                    u32 aA = ((val >> 24) != 0) ? 1 : 0;
+
+                    u32 rD = (rA * aA * eva) >> 4;
+                    u32 gD = (gA * aA * eva) >> 4;
+                    u32 bD = (bA * aA * eva) >> 4;
+                    u32 aD = (eva>0 ? aA : 0);
+
+                    dst[dstaddr] = rD | (gD << 5) | (bD << 10) | (aD << 15);
+                    dstaddr = (dstaddr + 1) & 0xFFFF;
+                }
+            }
+        }
+        break;
+    }
 }
 
 
@@ -709,8 +879,8 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
     {
         // bitmap modes
 
-        if (Num) tilesetaddr = 0x06200000 + ((bgcnt & 0x003C) << 12);
-        else     tilesetaddr = 0x06000000 + ((bgcnt & 0x003C) << 12);
+        if (Num) tilemapaddr = 0x06200000 + ((bgcnt & 0x1F00) << 6);
+        else     tilemapaddr = 0x06000000 + ((bgcnt & 0x1F00) << 6);
 
         coordmask |= 0x7FF;
 
@@ -722,7 +892,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
             {
                 if (!((rotX|rotY) & overflowmask))
                 {
-                    u16 color = GPU::ReadVRAM_BG<u16>(tilesetaddr + (((((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)) << 1));
+                    u16 color = GPU::ReadVRAM_BG<u16>(tilemapaddr + (((((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8)) << 1));
 
                     if (color & 0x8000)
                         drawpixelfn(bgnum, &dst[i], color, BlendFunc);
@@ -743,7 +913,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
             {
                 if (!((rotX|rotY) & overflowmask))
                 {
-                    u8 color = GPU::ReadVRAM_BG<u8>(tilesetaddr + (((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8));
+                    u8 color = GPU::ReadVRAM_BG<u8>(tilemapaddr + (((rotY & coordmask) >> 8) << yshift) + ((rotX & coordmask) >> 8));
 
                     if (color)
                         drawpixelfn(bgnum, &dst[i], pal[color], BlendFunc);

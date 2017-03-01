@@ -63,6 +63,10 @@ private:
     s16 BGRotD[2];
 
     u32 BlendFunc;
+    u8 EVA, EVB;
+    u8 EVY;
+
+    u32 CaptureCnt;
 
     u16 MasterBrightness;
 
@@ -84,6 +88,8 @@ private:
     void DrawSprites(u32 line, u32* dst);
     void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, u32 ypos, u32* dst);
     void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst);
+
+    void DoCapture(u32 line, u32 width, u32* src);
 };
 
 #endif
