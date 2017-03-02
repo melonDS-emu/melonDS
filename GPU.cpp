@@ -646,8 +646,8 @@ void StartHBlank(u32 line)
 
     if (line < 192) NDS::CheckDMAs(0, 0x02);
 
-    if (DispStat[0] & (1<<4)) NDS::TriggerIRQ(0, NDS::IRQ_HBlank);
-    if (DispStat[1] & (1<<4)) NDS::TriggerIRQ(1, NDS::IRQ_HBlank);
+    if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);
+    if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
 
     if (line < 262)
         NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), StartScanline, line+1);
@@ -664,7 +664,7 @@ void StartScanline(u32 line)
     {
         DispStat[0] |= (1<<2);
 
-        if (DispStat[0] & (1<<5)) NDS::TriggerIRQ(0, NDS::IRQ_VCount);
+        if (DispStat[0] & (1<<5)) NDS::SetIRQ(0, NDS::IRQ_VCount);
     }
     else
         DispStat[0] &= ~(1<<2);
@@ -673,7 +673,7 @@ void StartScanline(u32 line)
     {
         DispStat[1] |= (1<<2);
 
-        if (DispStat[1] & (1<<5)) NDS::TriggerIRQ(1, NDS::IRQ_VCount);
+        if (DispStat[1] & (1<<5)) NDS::SetIRQ(1, NDS::IRQ_VCount);
     }
     else
         DispStat[1] &= ~(1<<2);
@@ -704,8 +704,8 @@ void StartScanline(u32 line)
             NDS::CheckDMAs(0, 0x01);
             NDS::CheckDMAs(1, 0x11);
 
-            if (DispStat[0] & (1<<3)) NDS::TriggerIRQ(0, NDS::IRQ_VBlank);
-            if (DispStat[1] & (1<<3)) NDS::TriggerIRQ(1, NDS::IRQ_VBlank);
+            if (DispStat[0] & (1<<3)) NDS::SetIRQ(0, NDS::IRQ_VBlank);
+            if (DispStat[1] & (1<<3)) NDS::SetIRQ(1, NDS::IRQ_VBlank);
 
             GPU2D_A->VBlank();
             GPU2D_B->VBlank();

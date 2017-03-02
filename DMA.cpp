@@ -191,14 +191,14 @@ void DMA::Start()
         NDSCart::DMA(CurDstAddr);
         Cnt &= ~0x80000000;
         if (Cnt & 0x40000000)
-            NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
+            NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
         return;
     }
 
     // TODO eventually: not stop if we're running code in ITCM
 
     Running = true;
-    NDS::StopCPU(CPU, true);
+    NDS::StopCPU(CPU, 1<<Num);
 }
 
 s32 DMA::Run(s32 cycles)
@@ -247,9 +247,9 @@ s32 DMA::Run(s32 cycles)
         if (IterCount == 0)
         {
             Running = false;
-            NDS::StopCPU(CPU, false);
+            NDS::ResumeCPU(CPU, 1<<Num);
 
-            if (StartMode & 0x07)
+            if (StartMode == 0x07)
                 GPU3D::CheckFIFODMA();
         }
 
@@ -260,10 +260,10 @@ s32 DMA::Run(s32 cycles)
         Cnt &= ~0x80000000;
 
     if (Cnt & 0x40000000)
-        NDS::TriggerIRQ(CPU, NDS::IRQ_DMA0 + Num);
+        NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
 
     Running = false;
-    NDS::StopCPU(CPU, false);
+    NDS::ResumeCPU(CPU, 1<<Num);
 
     return cycles - 2;
 }

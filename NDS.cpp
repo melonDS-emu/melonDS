@@ -374,7 +374,7 @@ void RunFrame()
 
         CalcIterationCycles();
 
-        if (CPUStop & 0x1)
+        if (CPUStop & 0xFFFF)
         {
             s32 cycles = CurIterationCycles;
             cycles = DMAs[0]->Run(cycles);
@@ -393,7 +393,7 @@ void RunFrame()
             ndscyclestorun = ARM9->Cycles >> 1;
         }
 
-        if (CPUStop & 0x2)
+        if (CPUStop & 0xFFFF0000)
         {
             s32 cycles = ndscyclestorun - ARM7Offset;
             cycles = DMAs[4]->Run(cycles);
@@ -529,14 +529,14 @@ void MapSharedWRAM(u8 val)
 }
 
 
-void TriggerIRQ(u32 cpu, u32 irq)
+void SetIRQ(u32 cpu, u32 irq)
 {
-    irq = 1 << irq;
-    IF[cpu] |= irq;
+    IF[cpu] |= (1 << irq);
+}
 
-    // this is redundant
-    if (!(IME[cpu] & 0x1)) return;
-    //(cpu?ARM7:ARM9)->TriggerIRQ();
+void ClearIRQ(u32 cpu, u32 irq)
+{
+    IF[cpu] &= ~(1 << irq);
 }
 
 bool HaltInterrupted(u32 cpu)
@@ -553,10 +553,16 @@ bool HaltInterrupted(u32 cpu)
     return false;
 }
 
-void StopCPU(u32 cpu, bool stop)
+void StopCPU(u32 cpu, u32 mask)
 {
-    if (stop) CPUStop |=  (1<<cpu);
-    else      CPUStop &= ~(1<<cpu);
+    if (cpu) mask <<= 16;
+    CPUStop |= mask;
+}
+
+void ResumeCPU(u32 cpu, u32 mask)
+{
+    if (cpu) mask <<= 16;
+    CPUStop &= ~mask;
 }
 
 
@@ -607,7 +613,7 @@ void TimerOverflow(u32 param)
             timer->Counter = timer->Reload << 16;
 
             if (timer->Cnt & (1<<6))
-                TriggerIRQ(cpu, IRQ_Timer0 + tid);
+                SetIRQ(cpu, IRQ_Timer0 + tid);
 
             // cascade
             if (tid == 3)
@@ -1425,7 +1431,7 @@ u32 ARM9IORead32(u32 addr)
                 ret = IPCFIFO7->Read();
 
                 if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
-                    TriggerIRQ(1, IRQ_IPCSendDone);
+                    SetIRQ(1, IRQ_IPCSendDone);
             }
             return ret;
         }
@@ -1554,7 +1560,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         IPCSync9 |= (val & 0x4F00);
         if ((val & 0x2000) && (IPCSync7 & 0x4000))
         {
-            TriggerIRQ(1, IRQ_IPCSync);
+            SetIRQ(1, IRQ_IPCSync);
         }
         //CompensateARM7();
         return;
@@ -1563,9 +1569,9 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x0008)
             IPCFIFO9->Clear();
         if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
-            TriggerIRQ(0, IRQ_IPCSendDone);
+            SetIRQ(0, IRQ_IPCSendDone);
         if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
-            TriggerIRQ(0, IRQ_IPCRecv);
+            SetIRQ(0, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = val & 0x8404;
@@ -1695,7 +1701,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 bool wasempty = IPCFIFO9->IsEmpty();
                 IPCFIFO9->Write(val);
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
-                    TriggerIRQ(1, IRQ_IPCRecv);
+                    SetIRQ(1, IRQ_IPCRecv);
             }
         }
         return;
@@ -1908,7 +1914,7 @@ u32 ARM7IORead32(u32 addr)
                 ret = IPCFIFO9->Read();
 
                 if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
-                    TriggerIRQ(0, IRQ_IPCSendDone);
+                    SetIRQ(0, IRQ_IPCSendDone);
             }
             return ret;
         }
@@ -2023,7 +2029,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         IPCSync7 |= (val & 0x4F00);
         if ((val & 0x2000) && (IPCSync9 & 0x4000))
         {
-            TriggerIRQ(0, IRQ_IPCSync);
+            SetIRQ(0, IRQ_IPCSync);
         }
         return;
 
@@ -2031,9 +2037,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x0008)
             IPCFIFO7->Clear();
         if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
-            TriggerIRQ(1, IRQ_IPCSendDone);
+            SetIRQ(1, IRQ_IPCSendDone);
         if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
-            TriggerIRQ(1, IRQ_IPCRecv);
+            SetIRQ(1, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = val & 0x8404;
@@ -2135,7 +2141,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
                 bool wasempty = IPCFIFO7->IsEmpty();
                 IPCFIFO7->Write(val);
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
-                    TriggerIRQ(0, IRQ_IPCRecv);
+                    SetIRQ(0, IRQ_IPCRecv);
             }
         }
         return;

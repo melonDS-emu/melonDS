@@ -451,7 +451,7 @@ void WriteData(u8 val)
     }
 
     if (Cnt & (1<<14))
-        NDS::TriggerIRQ(1, NDS::IRQ_SPI);
+        NDS::SetIRQ(1, NDS::IRQ_SPI);
 }
 
 }

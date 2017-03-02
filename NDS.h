@@ -140,9 +140,11 @@ void Halt();
 
 void MapSharedWRAM(u8 val);
 
-void TriggerIRQ(u32 cpu, u32 irq);
+void SetIRQ(u32 cpu, u32 irq);
+void ClearIRQ(u32 cpu, u32 irq);
 bool HaltInterrupted(u32 cpu);
-void StopCPU(u32 cpu, bool stop);
+void StopCPU(u32 cpu, u32 mask);
+void ResumeCPU(u32 cpu, u32 mask);
 
 void CheckDMAs(u32 cpu, u32 mode);
 

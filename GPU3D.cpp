@@ -1324,6 +1324,11 @@ void ExecuteCommand()
             Viewport[2] = ((ExecParams[0] >> 16) & 0xFF) - Viewport[0] + 1;
             Viewport[3] = (ExecParams[0] >> 24) - Viewport[1] + 1;
             break;
+
+        default:
+            //if (entry.Command != 0x41)
+                //printf("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
+            break;
         }
     }
 }
@@ -1360,7 +1365,8 @@ void CheckFIFOIRQ()
     case 2: irq = CmdFIFO->IsEmpty(); break;
     }
 
-    if (irq) NDS::TriggerIRQ(0, NDS::IRQ_GXFIFO);
+    if (irq) NDS::SetIRQ(0, NDS::IRQ_GXFIFO);
+    else     NDS::ClearIRQ(0, NDS::IRQ_GXFIFO);
 }
 
 void CheckFIFODMA()
@@ -1456,6 +1462,7 @@ void Write32(u32 addr, u32 val)
         val &= 0xC0000000;
         GXStat &= 0x3FFFFFFF;
         GXStat |= val;
+        CheckFIFOIRQ();
         return;
     }
 

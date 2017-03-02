@@ -713,7 +713,7 @@ void EndTransfer()
     ROMCnt &= ~(1<<31);
 
     if (SPICnt & (1<<14))
-        NDS::TriggerIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartSendDone);
+        NDS::SetIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartSendDone);
 }
 
 void ROMPrepareData(u32 param)
