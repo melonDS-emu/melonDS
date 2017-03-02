@@ -1200,11 +1200,12 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
     u32 wmask = width - 8; // really ((width - 1) & ~0x7)
 
     u32 xoff;
+    u32 xend = width;
     if (xpos >= 0)
     {
         xoff = 0;
-        if ((xpos+width) > 256)
-            width = 256-xpos;
+        if ((xpos+xend) > 256)
+            xend = 256-xpos;
     }
     else
     {
@@ -1249,7 +1250,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
         pixelsaddr += (xoff << 1);
 
-        for (; xoff < width;)
+        for (; xoff < xend;)
         {
             u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr);
             pixelsaddr += 2;
@@ -1291,7 +1292,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
                 pixelsaddr += (((width-1 - xoff) & wmask) << 3);
                 pixelsaddr += ((width-1 - xoff) & 0x7);
 
-                for (; xoff < width;)
+                for (; xoff < xend;)
                 {
                     u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
                     pixelsaddr--;
@@ -1309,7 +1310,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
                 pixelsaddr += ((xoff & wmask) << 3);
                 pixelsaddr += (xoff & 0x7);
 
-                for (; xoff < width;)
+                for (; xoff < xend;)
                 {
                     u8 color = GPU::ReadVRAM_OBJ<u8>(pixelsaddr);
                     pixelsaddr++;
@@ -1338,7 +1339,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
                 pixelsaddr += (((width-1 - xoff) & wmask) << 2);
                 pixelsaddr += (((width-1 - xoff) & 0x7) >> 1);
 
-                for (; xoff < width;)
+                for (; xoff < xend;)
                 {
                     u8 color;
                     if (xoff & 0x1)
@@ -1364,7 +1365,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
                 pixelsaddr += ((xoff & wmask) << 2);
                 pixelsaddr += ((xoff & 0x7) >> 1);
 
-                for (; xoff < width;)
+                for (; xoff < xend;)
                 {
                     u8 color;
                     if (xoff & 0x1)
