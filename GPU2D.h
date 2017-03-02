@@ -62,7 +62,7 @@ private:
     s16 BGRotC[2];
     s16 BGRotD[2];
 
-    u32 BlendFunc;
+    u16 BlendCnt;
     u8 EVA, EVB;
     u8 EVY;
 
@@ -78,7 +78,7 @@ private:
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst);
     void DrawScanline_Mode1(u32 line, u32* dst);
 
-    static void DrawPixel_Normal(u32 bgnum, u32* dst, u16 color, u32 blendfunc);
+    void DrawPixel(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D(u32 line, u32* dst);
     void DrawBG_Text(u32 line, u32* dst, u32 num);
