@@ -754,7 +754,6 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
                 u32 g = val1 & 0x003F00;
                 u32 b = val1 & 0x3F0000;
 
-                // TODO: confirm (or not) that it's 63 and not 62
                 r += ((0x00003F - r) * EVY) >> 4;
                 g += (((0x003F00 - g) * EVY) >> 4) & 0x003F00;
                 b += (((0x3F0000 - b) * EVY) >> 4) & 0x3F0000;
