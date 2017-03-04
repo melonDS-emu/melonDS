@@ -55,8 +55,10 @@ private:
     u16 BGXPos[4];
     u16 BGYPos[4];
 
-    s32 BGXCenter[2];
-    s32 BGYCenter[2];
+    s32 BGXRef[2];
+    s32 BGYRef[2];
+    s32 BGXRefInternal[2];
+    s32 BGYRefInternal[2];
     s16 BGRotA[2];
     s16 BGRotB[2];
     s16 BGRotC[2];

@@ -26,6 +26,7 @@
 //
 // * BLDCNT special effects are applied on 18bit colors
 // -> layers are converted to 18bit before being composited
+// -> 'brightness up' effect does: x = x + (63-x)*factor
 // * colors are converted as follows: 18bit = 15bit * 2
 // -> white comes out as 62,62,62 and not 63,63,63
 // * VRAM/FIFO display modes convert colors the same way
@@ -76,8 +77,10 @@ void GPU2D::Reset()
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
     memset(BGYPos, 0, 4*2);
-    memset(BGXCenter, 0, 2*4);
-    memset(BGYCenter, 0, 2*4);
+    memset(BGXRef, 0, 2*4);
+    memset(BGYRef, 0, 2*4);
+    memset(BGXRefInternal, 0, 2*4);
+    memset(BGYRefInternal, 0, 2*4);
     memset(BGRotA, 0, 2*2);
     memset(BGRotB, 0, 2*2);
     memset(BGRotC, 0, 2*2);
@@ -209,20 +212,24 @@ void GPU2D::Write32(u32 addr, u32 val)
 
     case 0x028:
         if (val & 0x08000000) val |= 0xF0000000;
-        BGXCenter[0] = val;
+        BGXRef[0] = val;
+        if (GPU::VCount < 192) BGXRefInternal[0] = val;
         return;
     case 0x02C:
         if (val & 0x08000000) val |= 0xF0000000;
-        BGYCenter[0] = val;
+        BGYRef[0] = val;
+        if (GPU::VCount < 192) BGYRefInternal[0] = val;
         return;
 
     case 0x038:
         if (val & 0x08000000) val |= 0xF0000000;
-        BGXCenter[1] = val;
+        BGXRef[1] = val;
+        if (GPU::VCount < 192) BGXRefInternal[1] = val;
         return;
     case 0x03C:
         if (val & 0x08000000) val |= 0xF0000000;
-        BGYCenter[1] = val;
+        BGYRef[1] = val;
+        if (GPU::VCount < 192) BGYRefInternal[1] = val;
         return;
 
     case 0x064:
@@ -366,6 +373,11 @@ void GPU2D::DrawScanline(u32 line)
 
 void GPU2D::VBlank()
 {
+    BGXRefInternal[0] = BGXRef[0];
+    BGXRefInternal[1] = BGXRef[1];
+    BGYRefInternal[0] = BGYRef[0];
+    BGYRefInternal[1] = BGYRef[1];
+
     CaptureCnt &= ~(1<<31);
 }
 
@@ -973,12 +985,8 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
     s16 rotC = BGRotC[bgnum-2];
     s16 rotD = BGRotD[bgnum-2];
 
-    s32 rotX = BGXCenter[bgnum-2];
-    s32 rotY = BGYCenter[bgnum-2];
-
-    // hax
-    rotX += line*rotB;
-    rotY += line*rotD;
+    s32 rotX = BGXRefInternal[bgnum-2];
+    s32 rotY = BGYRefInternal[bgnum-2];
 
     if (bgcnt & 0x0080)
     {
@@ -1081,8 +1089,8 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
         }
     }
 
-    //BGXCenter[bgnum-2] += rotB;
-    //BGYCenter[bgnum-2] += rotD;
+    BGXRefInternal[bgnum-2] += rotB;
+    BGYRefInternal[bgnum-2] += rotD;
 }
 
 void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
