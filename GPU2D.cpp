@@ -177,11 +177,47 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x022: BGRotB[0] = val; return;
     case 0x024: BGRotC[0] = val; return;
     case 0x026: BGRotD[0] = val; return;
+    case 0x028:
+        BGXRef[0] = (BGXRef[0] & 0xFFFF0000) | val;
+        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        return;
+    case 0x02A:
+        if (val & 0x0800) val |= 0xF000;
+        BGXRef[0] = (BGXRef[0] & 0xFFFF) | (val << 16);
+        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        return;
+    case 0x02C:
+        BGYRef[0] = (BGYRef[0] & 0xFFFF0000) | val;
+        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        return;
+    case 0x02E:
+        if (val & 0x0800) val |= 0xF000;
+        BGYRef[0] = (BGYRef[0] & 0xFFFF) | (val << 16);
+        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        return;
 
     case 0x030: BGRotA[1] = val; return;
     case 0x032: BGRotB[1] = val; return;
     case 0x034: BGRotC[1] = val; return;
     case 0x036: BGRotD[1] = val; return;
+    case 0x038:
+        BGXRef[1] = (BGXRef[1] & 0xFFFF0000) | val;
+        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        return;
+    case 0x03A:
+        if (val & 0x0800) val |= 0xF000;
+        BGXRef[1] = (BGXRef[1] & 0xFFFF) | (val << 16);
+        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        return;
+    case 0x03C:
+        BGYRef[1] = (BGYRef[1] & 0xFFFF0000) | val;
+        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        return;
+    case 0x03E:
+        if (val & 0x0800) val |= 0xF000;
+        BGYRef[1] = (BGYRef[1] & 0xFFFF) | (val << 16);
+        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        return;
 
     case 0x050: BlendCnt = val; return;
     case 0x052:
@@ -213,23 +249,23 @@ void GPU2D::Write32(u32 addr, u32 val)
     case 0x028:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[0] = val;
-        if (GPU::VCount < 192) BGXRefInternal[0] = val;
+        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[0] = val;
-        if (GPU::VCount < 192) BGYRefInternal[0] = val;
+        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
         return;
 
     case 0x038:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[1] = val;
-        if (GPU::VCount < 192) BGXRefInternal[1] = val;
+        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[1] = val;
-        if (GPU::VCount < 192) BGYRefInternal[1] = val;
+        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
         return;
 
     case 0x064:
