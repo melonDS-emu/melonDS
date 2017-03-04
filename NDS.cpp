@@ -1296,6 +1296,8 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000006: return GPU::VCount;
 
     case 0x04000060: return 0;
+    case 0x04000064:
+    case 0x04000066: return GPU::GPU2D_A->Read16(addr);
 
     case 0x040000B8: return DMAs[0]->Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0]->Cnt >> 16;
@@ -1343,6 +1345,12 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
 
+    case 0x04000240: return GPU::VRAMCNT[0] | (GPU::VRAMCNT[1] << 8);
+    case 0x04000242: return GPU::VRAMCNT[2] | (GPU::VRAMCNT[3] << 8);
+    case 0x04000244: return GPU::VRAMCNT[4] | (GPU::VRAMCNT[5] << 8);
+    case 0x04000246: return GPU::VRAMCNT[6] | (WRAMCnt << 8);
+    case 0x04000248: return GPU::VRAMCNT[7] | (GPU::VRAMCNT[8] << 8);
+
     case 0x04000280: return DivCnt;
 
     case 0x040002B0: return SqrtCnt;
@@ -1374,6 +1382,8 @@ u32 ARM9IORead32(u32 addr)
     {
     case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
+    case 0x04000064: return GPU::GPU2D_A->Read32(addr);
+
     case 0x040000B0: return DMAs[0]->SrcAddr;
     case 0x040000B4: return DMAs[0]->DstAddr;
     case 0x040000B8: return DMAs[0]->Cnt;
@@ -1403,6 +1413,10 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
     case 0x04000214: return IF[0];
+
+    case 0x04000240: return GPU::VRAMCNT[0] | (GPU::VRAMCNT[1] << 8) | (GPU::VRAMCNT[2] << 16) | (GPU::VRAMCNT[3] << 24);
+    case 0x04000244: return GPU::VRAMCNT[4] | (GPU::VRAMCNT[5] << 8) | (GPU::VRAMCNT[6] << 16) | (WRAMCnt << 24);
+    case 0x04000248: return GPU::VRAMCNT[7] | (GPU::VRAMCNT[8] << 8);
 
     case 0x04000290: return DivNumerator[0];
     case 0x04000294: return DivNumerator[1];

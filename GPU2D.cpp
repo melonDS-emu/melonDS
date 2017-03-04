@@ -125,6 +125,9 @@ u16 GPU2D::Read16(u32 addr)
     case 0x00A: return BGCnt[1];
     case 0x00C: return BGCnt[2];
     case 0x00E: return BGCnt[3];
+
+    case 0x064: return CaptureCnt & 0xFFFF;
+    case 0x066: return CaptureCnt >> 16;
     }
 
     printf("unknown GPU read16 %08X\n", addr);
@@ -136,6 +139,8 @@ u32 GPU2D::Read32(u32 addr)
     switch (addr & 0x00000FFF)
     {
     case 0x000: return DispCnt;
+
+    case 0x064: return CaptureCnt;
     }
 
     return Read16(addr) | (Read16(addr+2) << 16);

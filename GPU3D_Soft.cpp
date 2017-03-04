@@ -467,10 +467,10 @@ void RenderPolygon(Polygon* polygon)
         s32 wl = vlcur->FinalPosition[3] + (((s64)(vlnext->FinalPosition[3] - vlcur->FinalPosition[3]) * lfactor) >> 12);
         s32 wr = vrcur->FinalPosition[3] + (((s64)(vrnext->FinalPosition[3] - vrcur->FinalPosition[3]) * rfactor) >> 12);
 
-        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) << 12) / vlcur->FinalPosition[3];
-        s64 perspfactorl2 = ((s64)lfactor << 12)            / vlnext->FinalPosition[3];
-        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) << 12) / vrcur->FinalPosition[3];
-        s64 perspfactorr2 = ((s64)rfactor << 12)            / vrnext->FinalPosition[3];
+        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) * vlnext->FinalPosition[3]) >> 12;
+        s64 perspfactorl2 = ((s64)lfactor            * vlcur->FinalPosition[3]) >> 12;
+        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) * vrnext->FinalPosition[3]) >> 12;
+        s64 perspfactorr2 = ((s64)rfactor            * vrcur->FinalPosition[3]) >> 12;
 
         if (perspfactorl1 + perspfactorl2 == 0)
         {
@@ -512,8 +512,8 @@ void RenderPolygon(Polygon* polygon)
             //z -= 0x1FF;
             //if (z < 0) z = 0;
 
-            s32 perspfactor1 = ((0x1000 - xfactor) << 12) / wl;
-            s32 perspfactor2 = (xfactor << 12) / wr;
+            s32 perspfactor1 = ((s64)(0x1000 - xfactor) * wr) >> 12;
+            s32 perspfactor2 = ((s64)xfactor * wl) >> 12;
 
             if (perspfactor1 + perspfactor2 == 0)
             {
@@ -528,8 +528,10 @@ void RenderPolygon(Polygon* polygon)
             u32 vg = ((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
             u32 vb = ((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
 
-            s16 s = ((perspfactor1 * sl) + (perspfactor2 * sr)) / (perspfactor1 + perspfactor2);
-            s16 t = ((perspfactor1 * tl) + (perspfactor2 * tr)) / (perspfactor1 + perspfactor2);
+            s16 s = ((perspfactor1 * (s64)sl) + (perspfactor2 * (s64)sr)) / (perspfactor1 + perspfactor2);
+            s16 t = ((perspfactor1 * (s64)tl) + (perspfactor2 * (s64)tr)) / (perspfactor1 + perspfactor2);
+
+            //printf("y=%d x=%d: s=%04X t=%04X\n", y, x, s, t);
 
             RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
         }
