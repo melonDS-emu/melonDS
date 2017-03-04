@@ -265,7 +265,7 @@ int main()
             SetWindowText(melon, melontitle);
         }
     }
-
+    printf("deinit\n");
     NDS::DeInit();
 
     return 0;

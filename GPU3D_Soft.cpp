@@ -498,6 +498,10 @@ void RenderPolygon(Polygon* polygon)
         s32 tr = ((perspfactorr1 * vrcur->TexCoords[1]) + (perspfactorr2 * vrnext->TexCoords[1])) / (perspfactorr1 + perspfactorr2);
 
         if (xr == xl) xr++;
+
+        // temp.
+        if (xl > 255) continue;
+
         s32 xdiv = 0x1000 / (xr - xl);
 
         //printf("y%d: %d->%d   %08X %08X\n", y, xl, xr, lfactor, rfactor);
