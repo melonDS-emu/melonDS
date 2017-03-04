@@ -748,7 +748,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         u32 coloreffect, eva, evb;
 
         u32 flag1 = val1 >> 24;
-        if (flag1 & 0x80)
+        if ((flag1 & 0x80) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
         {
             // sprite blending
 
