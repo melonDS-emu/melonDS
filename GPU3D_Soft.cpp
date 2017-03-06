@@ -506,8 +506,8 @@ void RenderPolygon(Polygon* polygon)
         s32 zl = vlcur->FinalPosition[2] + (((s64)(vlnext->FinalPosition[2] - vlcur->FinalPosition[2]) * lfactor) >> 12);
         s32 zr = vrcur->FinalPosition[2] + (((s64)(vrnext->FinalPosition[2] - vrcur->FinalPosition[2]) * rfactor) >> 12);
 
-        s32 wl = vlcur->FinalPosition[3] + (((s64)(vlnext->FinalPosition[3] - vlcur->FinalPosition[3]) * lfactor) >> 12);
-        s32 wr = vrcur->FinalPosition[3] + (((s64)(vrnext->FinalPosition[3] - vrcur->FinalPosition[3]) * rfactor) >> 12);
+        //s32 wl = vlcur->FinalPosition[3] + (((s64)(vlnext->FinalPosition[3] - vlcur->FinalPosition[3]) * lfactor) >> 12);
+        //s32 wr = vrcur->FinalPosition[3] + (((s64)(vrnext->FinalPosition[3] - vrcur->FinalPosition[3]) * rfactor) >> 12);
 
         s64 perspfactorl1 = ((s64)(0x1000 - lfactor) * vlnext->FinalPosition[3]) >> 12;
         s64 perspfactorl2 = ((s64)lfactor            * vlcur->FinalPosition[3]) >> 12;
@@ -524,6 +524,9 @@ void RenderPolygon(Polygon* polygon)
             perspfactorr1 = 0x1000;
             perspfactorr2 = 0;
         }
+
+        s32 wl = ((perspfactorl1 * vlcur->FinalPosition[3]) + (perspfactorl2 * vlnext->FinalPosition[3])) / (perspfactorl1 + perspfactorl2);
+        s32 wr = ((perspfactorr1 * vrcur->FinalPosition[3]) + (perspfactorr2 * vrnext->FinalPosition[3])) / (perspfactorr1 + perspfactorr2);
 
         s32 rl = ((perspfactorl1 * vlcur->FinalColor[0]) + (perspfactorl2 * vlnext->FinalColor[0])) / (perspfactorl1 + perspfactorl2);
         s32 gl = ((perspfactorl1 * vlcur->FinalColor[1]) + (perspfactorl2 * vlnext->FinalColor[1])) / (perspfactorl1 + perspfactorl2);
