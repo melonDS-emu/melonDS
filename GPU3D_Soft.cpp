@@ -58,9 +58,40 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
     s >>= 4;
     t >>= 4;
 
-    // TODO: wraparound modes
-    s &= width-1;
-    t &= height-1;
+    // texture wrapping
+    // TODO: optimize this somehow
+
+    if (texparam & (1<<16))
+    {
+        if (texparam & (1<<18))
+        {
+            if (s & width) s = (width-1) - (s & (width-1));
+            else           s = (s & (width-1));
+        }
+        else
+            s &= width-1;
+    }
+    else
+    {
+        if (s < 0) s = 0;
+        else if (s >= width) s = width-1;
+    }
+
+    if (texparam & (1<<17))
+    {
+        if (texparam & (1<<19))
+        {
+            if (t & height) t = (height-1) - (t & (height-1));
+            else            t = (t & (height-1));
+        }
+        else
+            t &= height-1;
+    }
+    else
+    {
+        if (t < 0) t = 0;
+        else if (t >= height) t = height-1;
+    }
 
     switch ((texparam >> 26) & 0x7)
     {
@@ -87,6 +118,17 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
 
             texpal <<= 4;
             u16 color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+
+            *r = (color << 1) & 0x3E; if (*r) *r++;
+            *g = (color >> 4) & 0x3E; if (*g) *g++;
+            *b = (color >> 9) & 0x3E; if (*b) *b++;
+        }
+        break;
+
+    case 7: // direct color
+        {
+            vramaddr += (((t * width) + s) << 1);
+            u16 color = GPU::ReadVRAM_Texture<u16>(vramaddr);
 
             *r = (color << 1) & 0x3E; if (*r) *r++;
             *g = (color >> 4) & 0x3E; if (*g) *g++;
