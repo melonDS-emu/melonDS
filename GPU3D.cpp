@@ -44,11 +44,12 @@
 //   the added bias affects interpolation.
 //
 // depth buffer:
-// Z-buffering mode: val = ((Z * 0x800 * 0x1000) / W) + 0x7FFCFF
-// W-buffering mode: val = W - 0x1FF
-// TODO: confirm W, because it's weird
-// ... nope, that shit above isn't right
-// also, the formula for the clear depth on GBAtek appears to be wrong
+// Z-buffering mode: val = ((Z * 0x800 * 0x1000) / W) + 0x7FFEFF
+// W-buffering mode: val = W
+//
+// formula for clear depth: (GBAtek is wrong there)
+// clearZ = (val * 0x200) + 0x1FF;
+// if (clearZ >= 0x010000 && clearZ < 0xFFFFFF) clearZ++;
 
 
 namespace GPU3D

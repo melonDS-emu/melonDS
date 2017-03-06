@@ -1301,8 +1301,10 @@ void T_NEG_REG(ARM* cpu)
     u32 b = cpu->R[(cpu->CurInstr >> 3) & 0x7];
     u32 res = -b;
     cpu->R[cpu->CurInstr & 0x7] = res;
-    cpu->SetNZ(res & 0x80000000,
-               !res);
+    cpu->SetNZCV(res & 0x80000000,
+                 !res,
+                 CARRY_SUB(0, b),
+                 OVERFLOW_SUB(0, b, res));
 }
 
 void T_CMP_REG(ARM* cpu)

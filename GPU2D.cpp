@@ -54,7 +54,8 @@
 //
 // 3D/2D blending rules
 // * if destination selected as 2nd target:
-//   blending is applied instead of the selected color effect, using full 31bit alpha from 3D layer
+//   blending is applied instead of the selected color effect, using full 5bit alpha from 3D layer
+//   (or 6bit alpha? TODO: check it)
 //   this even if the selected color effect is 'none'.
 //   apparently this works even if BG0 isn't selected as 1st target
 // * if BG0 is selected as 1st target, destination not selected as 2nd target:
@@ -231,7 +232,7 @@ void GPU2D::Write16(u32 addr, u16 val)
         EVB = (val >> 8) & 0x1F;
         if (EVB > 16) EVB = 16;
         return;
-    case 0x54:
+    case 0x054:
         EVY = val & 0x1F;
         if (EVY > 16) EVY = 16;
         return;
