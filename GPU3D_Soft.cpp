@@ -547,14 +547,13 @@ void RenderPolygon(Polygon* polygon)
         // temp.
         if (xl > 255) continue;
 
-        s32 xdiv = 0x1000 / (xr - xl);
-
-        //printf("y%d: %d->%d   %08X %08X\n", y, xl, xr, lfactor, rfactor);
+        //s32 xdiv = 0x1000 / (xr - xl);
 
         for (s32 x = xl; x < xr; x++)
         {
-            //s32 xfactor = ((x - xl) << 12) / (xr - xl);
-            s32 xfactor = (x - xl) * xdiv;
+            //if (x!=xl && x!=(xr-1)) continue;
+            s32 xfactor = ((x - xl) << 12) / (xr - xl);
+            //s32 xfactor = (x - xl) * xdiv;
 
             s32 z = zl + (((s64)(zr - zl) * xfactor) >> 12);
             //z = wl + (((s64)(wr - wl) * xfactor) >> 12);
@@ -613,17 +612,6 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 
     for (int i = 0; i < npolys; i++)
     {
-        /*printf("polygon %d: %d %d %d\n", i, polygons[i].Vertices[0]->Color[0], polygons[i].Vertices[0]->Color[1], polygons[i].Vertices[0]->Color[2]);
-        for (int j = 0; j < polygons[i].NumVertices; j++)
-            printf("  %d: %f %f %f\n",
-                   j,
-                   polygons[i].Vertices[j]->Position[0]/4096.0f,
-                   polygons[i].Vertices[j]->Position[1]/4096.0f,
-                   polygons[i].Vertices[j]->Position[2]/4096.0f);
-*/
-        //printf("polygon %d\n", i);
-        //if (!polygons[i].Vertices[0]->Clipped) continue;
-        //printf("polygon %d\n", i);
         RenderPolygon(&polygons[i]);
     }
 }
