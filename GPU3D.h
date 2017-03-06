@@ -66,7 +66,7 @@ void CheckFIFOIRQ();
 void CheckFIFODMA();
 
 void VBlank();
-u8* GetLine(int line);
+u32* GetLine(int line);
 
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);
@@ -82,8 +82,8 @@ bool Init();
 void DeInit();
 void Reset();
 
-void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys);
-u8* GetLine(int line);
+void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys);
+u32* GetLine(int line);
 
 }
 

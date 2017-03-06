@@ -50,6 +50,8 @@
 // formula for clear depth: (GBAtek is wrong there)
 // clearZ = (val * 0x200) + 0x1FF;
 // if (clearZ >= 0x010000 && clearZ < 0xFFFFFF) clearZ++;
+//
+// alpha is 5-bit
 
 
 namespace GPU3D
@@ -195,6 +197,7 @@ u32 NumVertices, NumPolygons;
 u32 CurRAMBank;
 
 u32 FlushRequest;
+u32 FlushAttributes, CurFlushAttributes;
 
 
 
@@ -1307,7 +1310,7 @@ void ExecuteCommand()
             TexPalette = ExecParams[0] & 0x1FFF;
             break;
 
-        case 0x40:
+        case 0x40: // begin polygons
             PolygonMode = ExecParams[0] & 0x3;
             VertexNum = 0;
             VertexNumInPoly = 0;
@@ -1316,8 +1319,9 @@ void ExecuteCommand()
             CurPolygonAttr = PolygonAttr;
             break;
 
-        case 0x50:
-            FlushRequest = 1;//0x80000000 | (ExecParams[0] & 0x3);
+        case 0x50: // flush
+            FlushRequest = 1;
+            FlushAttributes = ExecParams[0] & 0x3;
             CycleCount = 392;
             break;
 
@@ -1383,7 +1387,7 @@ void VBlank()
 {
     if (FlushRequest)
     {
-        SoftRenderer::RenderFrame(CurVertexRAM, CurPolygonRAM, NumPolygons);
+        SoftRenderer::RenderFrame(CurFlushAttributes, CurVertexRAM, CurPolygonRAM, NumPolygons);
 
         CurRAMBank = CurRAMBank?0:1;
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
@@ -1393,10 +1397,11 @@ void VBlank()
         NumPolygons = 0;
 
         FlushRequest = 0;
+        CurFlushAttributes = FlushAttributes;
     }
 }
 
-u8* GetLine(int line)
+u32* GetLine(int line)
 {
     return SoftRenderer::GetLine(line);
 }

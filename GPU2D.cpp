@@ -55,7 +55,6 @@
 // 3D/2D blending rules
 // * if destination selected as 2nd target:
 //   blending is applied instead of the selected color effect, using full 5bit alpha from 3D layer
-//   (or 6bit alpha? TODO: check it)
 //   this even if the selected color effect is 'none'.
 //   apparently this works even if BG0 isn't selected as 1st target
 // * if BG0 is selected as 1st target, destination not selected as 2nd target:
@@ -766,6 +765,32 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
                 evb = EVB;
             }
         }
+        else if ((flag1 & 0x40) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
+        {
+            // 3D layer blending
+
+            eva = (flag1 & 0x1F) + 1;
+            evb = 32 - eva;
+
+            u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 5;
+            u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 5) & 0x007F00;
+            u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 5) & 0x7F0000;
+
+            if (eva <= 16)
+            {
+                r += 0x000001;
+                g += 0x000100;
+                b += 0x010000;
+            }
+
+            if (r > 0x00003F) r = 0x00003F;
+            if (g > 0x003F00) g = 0x003F00;
+            if (b > 0x3F0000) b = 0x3F0000;
+
+            dst[i] = r | g | b | 0xFF000000;
+
+            continue;
+        }
         else if (BlendCnt & flag1)
         {
             if ((bldcnteffect == 1) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
@@ -848,20 +873,14 @@ void GPU2D::DrawBG_3D(u32 line, u32* dst)
 {
     // TODO: scroll, etc
 
-    u8* src = GPU3D::GetLine(line);
+    u32* src = GPU3D::GetLine(line);
     for (int i = 0; i < 256; i++)
     {
-        u8 r = *src++;
-        u8 g = *src++;
-        u8 b = *src++;
-        u8 a = *src++;
-        if (a == 0) continue;
-
-        // TODO: blending
-        // alpha is 6bit too....?
+        u32 c = src[i];
+        if ((c >> 24) == 0) continue;
 
         dst[i+256] = dst[i];
-        dst[i] = r | (g << 8) | (b << 16) | 0x01000000;
+        dst[i] = c | 0x40000000;
     }
 }
 
