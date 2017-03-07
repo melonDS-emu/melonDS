@@ -1436,17 +1436,22 @@ u32 Read32(u32 addr)
                    (fifolevel < 128 ? (1<<25) : 0) |
                    (fifolevel == 0  ? (1<<26) : 0);
         }
+
+    case 0x04000680: return VecMatrix[0];
+    case 0x04000684: return VecMatrix[1];
+    case 0x04000688: return VecMatrix[2];
+    case 0x0400068C: return VecMatrix[4];
+    case 0x04000690: return VecMatrix[5];
+    case 0x04000694: return VecMatrix[6];
+    case 0x04000698: return VecMatrix[8];
+    case 0x0400069C: return VecMatrix[9];
+    case 0x040006A0: return VecMatrix[10];
     }
 
     if (addr >= 0x04000640 && addr < 0x04000680)
     {
         UpdateClipMatrix();
         return ClipMatrix[(addr & 0x3C) >> 2];
-    }
-    if (addr >= 0x04000680 && addr < 0x040006A4)
-    {
-        printf("!! VECMTX READ\n");
-        return 0;
     }
 
     return 0;

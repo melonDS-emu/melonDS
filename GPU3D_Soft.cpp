@@ -48,7 +48,7 @@ void Reset()
 }
 
 
-void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
+void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -93,8 +93,36 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
         else if (t >= height) t = height-1;
     }
 
+    u8 alpha0;
+    if (texparam & (1<<29)) alpha0 = 0;
+    else                    alpha0 = 31;
+
     switch ((texparam >> 26) & 0x7)
     {
+    case 1: // A3I5
+        {
+            vramaddr += ((t * width) + s);
+            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+
+            texpal <<= 4;
+            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
+            *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
+        }
+        break;
+
+    case 2: // 4-color
+        {
+            vramaddr += (((t * width) + s) >> 2);
+            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            pixel >>= ((s & 0x3) << 1);
+            pixel &= 0x3;
+
+            texpal <<= 3;
+            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *alpha = (pixel==0) ? alpha0 : 31;
+        }
+        break;
+
     case 3: // 16-color
         {
             vramaddr += (((t * width) + s) >> 1);
@@ -103,11 +131,8 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
             else         pixel &= 0xF;
 
             texpal <<= 4;
-            u16 color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
-
-            *r = (color << 1) & 0x3E; if (*r) *r++;
-            *g = (color >> 4) & 0x3E; if (*g) *g++;
-            *b = (color >> 9) & 0x3E; if (*b) *b++;
+            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
 
@@ -117,22 +142,8 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
             u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            u16 color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
-
-            *r = (color << 1) & 0x3E; if (*r) *r++;
-            *g = (color >> 4) & 0x3E; if (*g) *g++;
-            *b = (color >> 9) & 0x3E; if (*b) *b++;
-        }
-        break;
-
-    case 7: // direct color
-        {
-            vramaddr += (((t * width) + s) << 1);
-            u16 color = GPU::ReadVRAM_Texture<u16>(vramaddr);
-
-            *r = (color << 1) & 0x3E; if (*r) *r++;
-            *g = (color >> 4) & 0x3E; if (*g) *g++;
-            *b = (color >> 9) & 0x3E; if (*b) *b++;
+            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
 
@@ -152,15 +163,16 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
             u32 paloffset = (palinfo & 0x3FFF) << 2;
             texpal <<= 4;
 
-            u16 color;
             switch (val & 0x3)
             {
             case 0:
-                color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
+                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
+                *alpha = 31;
                 break;
 
             case 1:
-                color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                *alpha = 31;
                 break;
 
             case 2:
@@ -180,7 +192,7 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
                     u32 g = ((g0 + g1) >> 1) & 0x03E0;
                     u32 b = ((b0 + b1) >> 1) & 0x7C00;
 
-                    color = r | g | b;
+                    *color = r | g | b;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
@@ -198,15 +210,19 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
                     u32 g = ((g0*5 + g1*3) >> 3) & 0x03E0;
                     u32 b = ((b0*5 + b1*3) >> 3) & 0x7C00;
 
-                    color = r | g | b;
+                    *color = r | g | b;
                 }
                 else
-                    color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
+                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
+                *alpha = 31;
                 break;
 
             case 3:
                 if ((palinfo >> 14) == 2)
-                    color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
+                {
+                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
+                    *alpha = 31;
+                }
                 else if ((palinfo >> 14) == 3)
                 {
                     u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
@@ -223,23 +239,36 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u8* r, u8* g, u8* b)
                     u32 g = ((g0*3 + g1*5) >> 3) & 0x03E0;
                     u32 b = ((b0*3 + b1*5) >> 3) & 0x7C00;
 
-                    color = r | g | b;
+                    *color = r | g | b;
+                    *alpha = 31;
                 }
                 else
-                    color = 0; // TODO transparent!
+                {
+                    *color = 0;
+                    *alpha = 0;
+                }
                 break;
             }
-
-            *r = (color << 1) & 0x3E; if (*r) *r++;
-            *g = (color >> 4) & 0x3E; if (*g) *g++;
-            *b = (color >> 9) & 0x3E; if (*b) *b++;
         }
         break;
 
-    default:
-        *r = (s)&0x3F;
-        *g = 0;
-        *b = (t)&0x3F;
+    case 6: // A5I3
+        {
+            vramaddr += ((t * width) + s);
+            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+
+            texpal <<= 4;
+            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
+            *alpha = (pixel >> 3);
+        }
+        break;
+
+    case 7: // direct color
+        {
+            vramaddr += (((t * width) + s) << 1);
+            *color = GPU::ReadVRAM_Texture<u16>(vramaddr);
+            *alpha = (*color & 0x8000) ? 31 : 0;
+        }
         break;
     }
 }
@@ -264,14 +293,20 @@ void RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16
 
     if (!passdepth) return;
 
-    u8 r, g, b;
+    u8 r, g, b, a;
 
     if (((polygon->TexParam >> 26) & 0x7) != 0)
     {
         // TODO: also take DISP3DCNT into account
 
         u8 tr, tg, tb;
-        TextureLookup(polygon->TexParam, polygon->TexPalette, s, t, &tr, &tg, &tb);
+
+        u16 tcolor; u8 talpha;
+        TextureLookup(polygon->TexParam, polygon->TexPalette, s, t, &tcolor, &talpha);
+
+        tr = (tcolor << 1) & 0x3E; if (tr) tr++;
+        tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
+        tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
 
         // TODO: other blending modes
         /*r = ((tr+1) * (vr+1) - 1) >> 6;
@@ -288,7 +323,7 @@ void RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16
         b = vb;
     }
 
-    u32 a = 31; // TODO
+    a = 31;
 
     *color = r | (g << 8) | (b << 16) | (a << 24);
 
