@@ -452,39 +452,20 @@ void SubmitPolygon()
 
     // culling
 
-    // checkme: does it work this way for quads and up?
-    /*s32 _x1 = TempVertexBuffer[1].Position[0] - TempVertexBuffer[0].Position[0];
-    s32 _x2 = TempVertexBuffer[2].Position[0] - TempVertexBuffer[0].Position[0];
-    s32 _y1 = TempVertexBuffer[1].Position[1] - TempVertexBuffer[0].Position[1];
-    s32 _y2 = TempVertexBuffer[2].Position[1] - TempVertexBuffer[0].Position[1];
-    s32 _z1 = TempVertexBuffer[1].Position[2] - TempVertexBuffer[0].Position[2];
-    s32 _z2 = TempVertexBuffer[2].Position[2] - TempVertexBuffer[0].Position[2];
-    s32 normalX = (((s64)_y1 * _z2) - ((s64)_z1 * _y2)) >> 12;
-    s32 normalY = (((s64)_z1 * _x2) - ((s64)_x1 * _z2)) >> 12;
-    s32 normalZ = (((s64)_x1 * _y2) - ((s64)_y1 * _x2)) >> 12;*/
-    /*s32 centerX = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[12]) >> 12;
-    s32 centerY = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[13]) >> 12;
-    s32 centerZ = ((s64)TempVertexBuffer[0].Position[3] * ClipMatrix[14]) >> 12;*/
-    /*s64 dot = ((s64)(-TempVertexBuffer[0].Position[0]) * normalX) +
-              ((s64)(-TempVertexBuffer[0].Position[1]) * normalY) +
-              ((s64)(-TempVertexBuffer[0].Position[2]) * normalZ); // checkme*/
-    // code inspired from Dolphin's software renderer.
-    // maybe not 100% right
-    s32 _x0 = TempVertexBuffer[0].Position[0];
-    s32 _x1 = TempVertexBuffer[1].Position[0];
-    s32 _x2 = TempVertexBuffer[2].Position[0];
-    s32 _y0 = TempVertexBuffer[0].Position[1];
-    s32 _y1 = TempVertexBuffer[1].Position[1];
-    s32 _y2 = TempVertexBuffer[2].Position[1];
-    s32 _z0 = TempVertexBuffer[0].Position[3];
-    s32 _z1 = TempVertexBuffer[1].Position[3];
-    s32 _z2 = TempVertexBuffer[2].Position[3];
-    s32 normalX = (((s64)_y0 * _z2) - ((s64)_z0 * _y2)) >> 12;
-    s32 normalY = (((s64)_z0 * _x2) - ((s64)_x0 * _z2)) >> 12;
-    s32 normalZ = (((s64)_x0 * _y2) - ((s64)_y0 * _x2)) >> 12;
-    s64 dot = ((s64)_x1 * normalX) + ((s64)_y1 * normalY) + ((s64)_z1 * normalZ);
+    Vertex *v0, *v1, *v2;
+    s64 normalX, normalY, normalZ;
+    s64 dot;
+
+    v0 = &TempVertexBuffer[0];
+    v1 = &TempVertexBuffer[1];
+    v2 = &TempVertexBuffer[2];
+    normalX = (((s64)v0->Position[1] * v2->Position[3]) - ((s64)v0->Position[3] * v2->Position[1])) >> 12;
+    normalY = (((s64)v0->Position[3] * v2->Position[0]) - ((s64)v0->Position[0] * v2->Position[3])) >> 12;
+    normalZ = (((s64)v0->Position[0] * v2->Position[1]) - ((s64)v0->Position[1] * v2->Position[0])) >> 12;
+    dot = ((s64)(v1->Position[0] >> 0) * normalX) + ((s64)(v1->Position[1] >> 0) * normalY) + ((s64)(v1->Position[3] >> 0) * normalZ);
+
     bool facingview = (dot < 0);
-//printf("Z: %d %d\n", normalZ, -TempVertexBuffer[0].Position[2]);
+
     if (facingview)
     {
         if (!(CurPolygonAttr & (1<<7)))
@@ -493,7 +474,7 @@ void SubmitPolygon()
             return;
         }
     }
-    else
+    else if (dot > 0)
     {
         if (!(CurPolygonAttr & (1<<6)))
         {

@@ -885,7 +885,7 @@ void GPU2D::DrawBG_3D(u32 line, u32* dst)
         i = (0x100 - (xoff & 0xFF));
         xoff += i;
     }
-    if ((xoff + iend - 1) & 0x100)
+    if ((xoff - i + iend - 1) & 0x100)
     {
         iend -= (xoff & 0xFF);
     }
