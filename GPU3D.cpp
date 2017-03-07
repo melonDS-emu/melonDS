@@ -143,6 +143,7 @@ FIFO<CmdFIFOEntry>* CmdPIPE;
 
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
+u32 DispCnt;
 u32 GXStat;
 
 u32 ExecParams[32];
@@ -196,6 +197,8 @@ Polygon* CurPolygonRAM;
 u32 NumVertices, NumPolygons;
 u32 CurRAMBank;
 
+u32 ClearAttr1, ClearAttr2;
+
 u32 FlushRequest;
 u32 FlushAttributes, CurFlushAttributes;
 
@@ -229,6 +232,7 @@ void Reset()
     ParamCount = 0;
     TotalParams = 0;
 
+    DispCnt = 0;
     GXStat = 0;
 
     memset(ExecParams, 0, 32*4);
@@ -262,7 +266,12 @@ void Reset()
     NumVertices = 0;
     NumPolygons = 0;
 
+    ClearAttr1 = 0;
+    ClearAttr2 = 0;
+
     FlushRequest = 0;
+    FlushAttributes = 0;
+    CurFlushAttributes = 0;
 
     SoftRenderer::Reset();
 }
@@ -543,6 +552,8 @@ void SubmitPolygon()
     // for each vertex:
     // if it's outside, check if the previous and next vertices are inside
     // if so, place a new vertex at the edge of the view volume
+
+    // TODO: optional culling of polygons that clip through the far plane
 
     // X clipping
 
@@ -1414,6 +1425,12 @@ u8 Read8(u32 addr)
 
 u16 Read16(u32 addr)
 {
+    switch (addr)
+    {
+    case 0x04000060:
+        return DispCnt;
+    }
+
     return 0;
 }
 
@@ -1421,6 +1438,9 @@ u32 Read32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000060:
+        return DispCnt;
+
     case 0x04000320:
         return 46; // TODO, eventually
 
@@ -1453,18 +1473,46 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
-    //
 }
 
 void Write16(u32 addr, u16 val)
 {
-    //
+    switch (addr)
+    {
+    case 0x04000060:
+        DispCnt = val;
+        return;
+
+    case 0x04000350:
+        ClearAttr1 = (ClearAttr1 & 0xFFFF0000) | val;
+        return;
+    case 0x04000352:
+        ClearAttr1 = (ClearAttr1 & 0xFFFF) | (val << 16);
+        return;
+    case 0x04000354:
+        ClearAttr2 = (ClearAttr2 & 0xFFFF0000) | val;
+        return;
+    case 0x04000356:
+        ClearAttr2 = (ClearAttr2 & 0xFFFF) | (val << 16);
+        return;
+    }
 }
 
 void Write32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04000060:
+        DispCnt = val & 0xFFFF;
+        return;
+
+    case 0x04000350:
+        ClearAttr1 = val;
+        return;
+    case 0x04000354:
+        ClearAttr2 = val;
+        return;
+
     case 0x04000600:
         if (val & 0x8000) GXStat &= ~0x8000;
         val &= 0xC0000000;

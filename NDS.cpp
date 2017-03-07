@@ -1295,7 +1295,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000004: return GPU::DispStat[0];
     case 0x04000006: return GPU::VCount;
 
-    case 0x04000060: return 0;
+    case 0x04000060: return GPU3D::Read16(addr);
     case 0x04000064:
     case 0x04000066: return GPU::GPU2D_A->Read16(addr);
 
@@ -1382,6 +1382,7 @@ u32 ARM9IORead32(u32 addr)
     {
     case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
+    case 0x04000060: return GPU3D::Read32(addr);
     case 0x04000064: return GPU::GPU2D_A->Read32(addr);
 
     case 0x040000B0: return DMAs[0]->SrcAddr;
@@ -1547,7 +1548,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     {
     case 0x04000004: GPU::SetDispStat(0, val); return;
 
-    case 0x04000060: return;
+    case 0x04000060: GPU3D::Write16(addr, val); return;
 
     case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -1667,7 +1668,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
-    case 0x04000060: return;
+    case 0x04000060: GPU3D::Write32(addr, val); return;
     case 0x04000064: GPU::GPU2D_A->Write32(addr, val); return;
 
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;

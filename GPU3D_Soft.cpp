@@ -582,11 +582,56 @@ void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
 {
     // TODO: render translucent polygons last
 
-    // TODO proper clear color/depth support!
-    for (int i = 0; i < 256*192; i++)
+    // TODO: fog, poly ID, other attributes
+
+    if (DispCnt & (1<<14))
     {
-        ColorBuffer[i] = 0x00000000;
-        DepthBuffer[i] = 0xFFFFFF;
+        u8 xoff = (ClearAttr2 >> 16) & 0xFF;
+        u8 yoff = (ClearAttr2 >> 24) & 0xFF;
+
+        for (int y = 0; y < 256*192; y += 256)
+        {
+            for (int x = 0; x < 256; x++)
+            {
+                u16 val2 = GPU::ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
+                u16 val3 = GPU::ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
+
+                // TODO: confirm color conversion
+                u32 r = (val2 << 1) & 0x3E; if (r) r++;
+                u32 g = (val2 >> 4) & 0x3E; if (g) g++;
+                u32 b = (val2 >> 9) & 0x3E; if (b) b++;
+                u32 a = (val2 & 0x8000) ? 0x1F000000 : 0;
+                u32 color = r | (g << 8) | (b << 16) | a;
+
+                u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
+                if (z >= 0x10000 && z < 0xFFFFFF) z++;
+
+                ColorBuffer[y+x] = color;
+                DepthBuffer[y+x] = z;
+
+                xoff++;
+            }
+
+            yoff++;
+        }
+    }
+    else
+    {
+        // TODO: confirm color conversion
+        u32 r = (ClearAttr1 << 1) & 0x3E; if (r) r++;
+        u32 g = (ClearAttr1 >> 4) & 0x3E; if (g) g++;
+        u32 b = (ClearAttr1 >> 9) & 0x3E; if (b) b++;
+        u32 a = (ClearAttr1 >> 16) & 0x1F;
+        u32 color = r | (g << 8) | (b << 16) | (a << 24);
+
+        u32 z = ((ClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+		if (z >= 0x10000 && z < 0xFFFFFF) z++;
+
+        for (int i = 0; i < 256*192; i++)
+        {
+            ColorBuffer[i] = color;
+            DepthBuffer[i] = z;
+        }
     }
 
     for (int i = 0; i < npolys; i++)

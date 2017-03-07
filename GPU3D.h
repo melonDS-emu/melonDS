@@ -53,7 +53,9 @@ typedef struct
 
 } Polygon;
 
+extern u32 DispCnt;
 extern s32 Viewport[4];
+extern u32 ClearAttr1, ClearAttr2;
 
 bool Init();
 void DeInit();
