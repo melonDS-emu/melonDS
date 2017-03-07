@@ -871,12 +871,30 @@ void GPU2D::DrawPixel(u32* dst, u16 color, u32 flag)
 
 void GPU2D::DrawBG_3D(u32 line, u32* dst)
 {
-    // TODO: scroll, etc
+    // TODO: window, as for everything
+    // also check if window can prevent blending from happening
 
     u32* src = GPU3D::GetLine(line);
-    for (int i = 0; i < 256; i++)
+
+    u16 xoff = BGXPos[0];
+    int i = 0;
+    int iend = 256;
+
+    if (xoff & 0x100)
     {
-        u32 c = src[i];
+        i = (0x100 - (xoff & 0xFF));
+        xoff += i;
+    }
+    if ((xoff + iend - 1) & 0x100)
+    {
+        iend -= (xoff & 0xFF);
+    }
+
+    for (; i < iend; i++)
+    {
+        u32 c = src[xoff];
+        xoff++;
+
         if ((c >> 24) == 0) continue;
 
         dst[i+256] = dst[i];
