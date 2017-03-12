@@ -29,6 +29,11 @@ namespace SoftRenderer
 
 u32 ColorBuffer[256*192];
 u32 DepthBuffer[256*192];
+u32 AttrBuffer[256*192];
+
+// attribute buffer:
+// bit0-5: polygon ID
+// bit8: fog enable
 
 
 bool Init()
@@ -45,6 +50,7 @@ void Reset()
 {
     memset(ColorBuffer, 0, 256*192 * 4);
     memset(DepthBuffer, 0, 256*192 * 4);
+    memset(AttrBuffer, 0, 256*192 * 4);
 }
 
 
@@ -273,26 +279,26 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     }
 }
 
-void RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+bool DepthTest(Polygon* polygon, s32 x, s32 y, s32 z)
 {
-    u32 attr = polygon->Attr;
+    u32 oldz = DepthBuffer[(256*y) + x];
 
-    u32* color = &ColorBuffer[(256*y) + x];
-    u32* depth = &DepthBuffer[(256*y) + x];
-
-    bool passdepth = false;
-    if (attr & (1<<14))
+    if (polygon->Attr & (1<<14))
     {
-        s32 diff = *depth - z;
+        s32 diff = oldz - z;
         if ((u32)(diff + 0x200) <= 0x400)
-            passdepth = true;
+            return true;
     }
     else
-    if (z < *depth)
-        passdepth = true;
+    if (z < oldz)
+        return true;
 
-    if (!passdepth) return;
+    return false;
+}
 
+u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+{
+    u32 attr = polygon->Attr;
     u8 r, g, b, a;
 
     if (((polygon->TexParam >> 26) & 0x7) != 0)
@@ -325,11 +331,7 @@ void RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16
 
     a = 31;
 
-    *color = r | (g << 8) | (b << 16) | (a << 24);
-
-    // TODO: optional update for translucent pixels
-    if (z > 0xFFFFFF) z = 0xFFFFFF;
-    *depth = z;
+    return r | (g << 8) | (b << 16) | (a << 24);
 }
 
 void RenderPolygon(Polygon* polygon, u32 wbuffer)
@@ -361,25 +363,27 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
             }
             else
             {
-                posX = ((s64)vtx->Position[0] << 12) / w;
-                posY = ((s64)vtx->Position[1] << 12) / w;
+                //posX = ((s64)vtx->Position[0] << 12) / w;
+                //posY = ((s64)vtx->Position[1] << 12) / w;
+                posX = (((s64)(vtx->Position[0] + w) * Viewport[2]) / (((s64)w) << 1)) + Viewport[0];
+                posY = (((s64)(-vtx->Position[1] + w) * Viewport[3]) / (((s64)w) << 1)) + Viewport[1];
 
                 if (wbuffer) posZ = w;
                 else         posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
             }
 
-            s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
-            s32 scrY = ((0x180000 - ((posY + 0x1000) * Viewport[3])) >> 13) + Viewport[1];
+            //s32 scrX = (((posX + 0x1000) * Viewport[2]) >> 13) + Viewport[0];
+            //s32 scrY = ((0x180000 - ((posY + 0x1000) * Viewport[3])) >> 13) + Viewport[1];
 
-            if      (scrX < 0)   scrX = 0;
-            else if (scrX > 256) scrX = 256;
-            if      (scrY < 0)   scrY = 0;
-            else if (scrY > 192) scrY = 192;
+            if      (posX < 0)   posX = 0;
+            else if (posX > 256) posX = 256;
+            if      (posY < 0)   posY = 0;
+            else if (posY > 192) posY = 192;
             if      (posZ < 0)        posZ = 0;
             else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
 
-            vtx->FinalPosition[0] = scrX;
-            vtx->FinalPosition[1] = scrY;
+            vtx->FinalPosition[0] = posX;
+            vtx->FinalPosition[1] = posY;
             vtx->FinalPosition[2] = posZ;
             vtx->FinalPosition[3] = w;
 
@@ -406,13 +410,24 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
             vbot = i;
         }
 
-        //printf("v%d: %d,%d\n", i, vtx->FinalPosition[0], vtx->FinalPosition[1]);
+        //printf("v%d: %d %d %06X, %04X %04X\n",
+        //       i, vtx->FinalPosition[0], vtx->FinalPosition[1], vtx->FinalPosition[2],
+        //       vtx->TexCoords[0], vtx->TexCoords[1]);
     }
+
+    if (ytop > 191) return;
 
     // draw, line per line
 
+    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
+    bool wireframe = (polyalpha == 0);
+
     int lcur = vtop, rcur = vtop;
     int lnext, rnext;
+
+    s32 dxl, dxr;
+    s32 lslope, rslope;
+    bool l_xmajor, r_xmajor;
 
     if (ybot == ytop)
     {
@@ -433,9 +448,13 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
 
         lcur = vtop; lnext = vtop;
         rcur = vbot; rnext = vbot;
+
+        lslope = 0; l_xmajor = false;
+        rslope = 0; r_xmajor = false;
     }
     else
     {
+        //while (polygon->Vertices[lnext]->FinalPosition[1] )
         if (polygon->FacingView)
         {
             lnext = lcur + 1;
@@ -450,174 +469,323 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
             rnext = rcur + 1;
             if (rnext >= nverts) rnext = 0;
         }
+
+        if (polygon->Vertices[lnext]->FinalPosition[1] == polygon->Vertices[lcur]->FinalPosition[1])
+            lslope = 0;
+        else
+            lslope = ((polygon->Vertices[lnext]->FinalPosition[0] - polygon->Vertices[lcur]->FinalPosition[0]) << 12) /
+                      (polygon->Vertices[lnext]->FinalPosition[1] - polygon->Vertices[lcur]->FinalPosition[1]);
+
+        if (polygon->Vertices[rnext]->FinalPosition[1] == polygon->Vertices[rcur]->FinalPosition[1])
+            rslope = 0;
+        else
+            rslope = ((polygon->Vertices[rnext]->FinalPosition[0] - polygon->Vertices[rcur]->FinalPosition[0]) << 12) /
+                      (polygon->Vertices[rnext]->FinalPosition[1] - polygon->Vertices[rcur]->FinalPosition[1]);
+
+        l_xmajor = (lslope < -0x1000) || (lslope > 0x1000);
+        r_xmajor = (rslope < -0x1000) || (rslope > 0x1000);
     }
+
+    if (l_xmajor)    dxl = (lslope > 0) ? 0x800 : (-lslope-0x800)+0x1000;
+    else if (lslope) dxl = (lslope > 0) ? 0     : 0x1000;
+    else             dxl = 0;
+
+    if (r_xmajor)    dxr = (rslope > 0) ? rslope-0x800 : 0x800+0x1000;
+    else if (rslope) dxr = (rslope > 0) ? 0            : 0x1000;
+    else             dxr = 0x1000;
 
     for (s32 y = ytop; y < ybot; y++)
     {
-        if (y > 191) break;
-
         if (!isline)
         {
-            while (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
+            if (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
             {
-                lcur = lnext;
-
-                if (polygon->FacingView)
+                while (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
                 {
-                    lnext = lcur + 1;
-                    if (lnext >= nverts) lnext = 0;
+                    lcur = lnext;
+
+                    if (polygon->FacingView)
+                    {
+                        lnext = lcur + 1;
+                        if (lnext >= nverts) lnext = 0;
+                    }
+                    else
+                    {
+                        lnext = lcur - 1;
+                        if (lnext < 0) lnext = nverts - 1;
+                    }
                 }
+
+                if (polygon->Vertices[lnext]->FinalPosition[1] == polygon->Vertices[lcur]->FinalPosition[1])
+                    lslope = 0;
                 else
-                {
-                    lnext = lcur - 1;
-                    if (lnext < 0) lnext = nverts - 1;
-                }
+                    lslope = ((polygon->Vertices[lnext]->FinalPosition[0] - polygon->Vertices[lcur]->FinalPosition[0]) << 12) /
+                              (polygon->Vertices[lnext]->FinalPosition[1] - polygon->Vertices[lcur]->FinalPosition[1]);
+
+                l_xmajor = (lslope < -0x1000) || (lslope > 0x1000);
+
+                if (l_xmajor)    dxl = (lslope > 0) ? 0x800 : (-lslope-0x800)+0x1000;
+                else if (lslope) dxl = (lslope > 0) ? 0     : 0x1000;
+                else             dxl = 0;
             }
 
-            while (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
+            if (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
             {
-                rcur = rnext;
-
-                if (polygon->FacingView)
+                while (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
                 {
-                    rnext = rcur - 1;
-                    if (rnext < 0) rnext = nverts - 1;
+                    rcur = rnext;
+
+                    if (polygon->FacingView)
+                    {
+                        rnext = rcur - 1;
+                        if (rnext < 0) rnext = nverts - 1;
+                    }
+                    else
+                    {
+                        rnext = rcur + 1;
+                        if (rnext >= nverts) rnext = 0;
+                    }
                 }
+
+                if (polygon->Vertices[rnext]->FinalPosition[1] == polygon->Vertices[rcur]->FinalPosition[1])
+                    rslope = 0;
                 else
-                {
-                    rnext = rcur + 1;
-                    if (rnext >= nverts) rnext = 0;
-                }
+                    rslope = ((polygon->Vertices[rnext]->FinalPosition[0] - polygon->Vertices[rcur]->FinalPosition[0]) << 12) /
+                              (polygon->Vertices[rnext]->FinalPosition[1] - polygon->Vertices[rcur]->FinalPosition[1]);
+
+                r_xmajor = (rslope < -0x1000) || (rslope > 0x1000);
+
+                if (r_xmajor)    dxr = (rslope > 0) ? rslope-0x800 : 0x800+0x1000;
+                else if (rslope) dxr = (rslope > 0) ? 0            : 0x1000;
+                else             dxr = 0x1000;
             }
         }
 
-        Vertex* vlcur = polygon->Vertices[lcur];
-        Vertex* vlnext = polygon->Vertices[lnext];
-        Vertex* vrcur = polygon->Vertices[rcur];
-        Vertex* vrnext = polygon->Vertices[rnext];
+        Vertex *vlcur, *vlnext, *vrcur, *vrnext;
+        s32 xstart, xend;
+        s32 xstart_int, xend_int;
+        s32 slope_start, slope_end;
 
-        s32 lfactor, rfactor;
-
-        // TODO: work out the actual division bias there. 0x400 was found to make things look good.
-        // but actually, it isn't right. so what's going on there?
-        // seems vertical slopes are interpolated starting from the bottom and not the top. maybe.
-        // also seems lfactor/rfactor are rounded
-
-        // TODO: the calculations can be simplified
-
-        if (vlnext->FinalPosition[1] == vlcur->FinalPosition[1])
-            lfactor = 0;
+        if (lslope > 0)
+        {
+            xstart = polygon->Vertices[lcur]->FinalPosition[0] + (dxl >> 12);
+            if (xstart < polygon->Vertices[lcur]->FinalPosition[0])
+                xstart = polygon->Vertices[lcur]->FinalPosition[0];
+            else if (xstart > polygon->Vertices[lnext]->FinalPosition[0]-1)
+                xstart = polygon->Vertices[lnext]->FinalPosition[0]-1;
+        }
+        else if (lslope < 0)
+        {
+            xstart = polygon->Vertices[lcur]->FinalPosition[0] - (dxl >> 12);
+            if (xstart < polygon->Vertices[lnext]->FinalPosition[0])
+                xstart = polygon->Vertices[lnext]->FinalPosition[0];
+            else if (xstart > polygon->Vertices[lcur]->FinalPosition[0]-1)
+                xstart = polygon->Vertices[lcur]->FinalPosition[0]-1;
+        }
         else
-            lfactor = (((y+1 - vlcur->FinalPosition[1]) << 12) + 0x00) / (vlnext->FinalPosition[1] - vlcur->FinalPosition[1]);
+            xstart = polygon->Vertices[lcur]->FinalPosition[0];
 
-        if (vrnext->FinalPosition[1] == vrcur->FinalPosition[1])
-            rfactor = 0;
+        if (rslope > 0)
+        {
+            xend = polygon->Vertices[rcur]->FinalPosition[0] + (dxr >> 12);
+            if (xend < polygon->Vertices[rcur]->FinalPosition[0])
+                xend = polygon->Vertices[rcur]->FinalPosition[0];
+            else if (xend > polygon->Vertices[rnext]->FinalPosition[0]-1)
+                xend = polygon->Vertices[rnext]->FinalPosition[0]-1;
+        }
+        else if (rslope < 0)
+        {
+            xend = polygon->Vertices[rcur]->FinalPosition[0] - (dxr >> 12);
+            if (xend < polygon->Vertices[rnext]->FinalPosition[0])
+                xend = polygon->Vertices[rnext]->FinalPosition[0];
+            else if (xend > polygon->Vertices[rcur]->FinalPosition[0]-1)
+                xend = polygon->Vertices[rcur]->FinalPosition[0]-1;
+        }
         else
-            rfactor = (((y+1 - vrcur->FinalPosition[1]) << 12) + 0x00) / (vrnext->FinalPosition[1] - vrcur->FinalPosition[1]);
+            xend = polygon->Vertices[rcur]->FinalPosition[0] - 1;
 
-        s32 xl = vlcur->FinalPosition[0] + ((((vlnext->FinalPosition[0] - vlcur->FinalPosition[0]) * lfactor) + 0x800) >> 12);
-        s32 xr = vrcur->FinalPosition[0] + ((((vrnext->FinalPosition[0] - vrcur->FinalPosition[0]) * rfactor) + 0x800) >> 12);
-//printf("y:%d xl:%d xr:%d    %08X\n", y, xl, xr, rfactor); // y: 48 143
-        if (xl > xr) // TODO: handle it in a more elegant way
+        // if the left and right edges are swapped, render backwards.
+        // note: we 'forget' to swap the xmajor flags, on purpose
+        // the hardware has the same bug
+        if (xstart > xend)
         {
-            Vertex* vtmp;
-            s32 tmp;
+            vlcur = polygon->Vertices[rcur];
+            vlnext = polygon->Vertices[rnext];
+            vrcur = polygon->Vertices[lcur];
+            vrnext = polygon->Vertices[lnext];
 
-            vtmp = vlcur; vlcur = vrcur; vrcur = vtmp;
-            vtmp = vlnext; vlnext = vrnext; vrnext = vtmp;
+            slope_start = rslope;
+            slope_end = lslope;
 
-            tmp = lfactor; lfactor = rfactor; rfactor = tmp;
+            s32 tmp = xstart; xstart = xend; xend = tmp;
+        }
+        else
+        {
+            vlcur = polygon->Vertices[lcur];
+            vlnext = polygon->Vertices[lnext];
+            vrcur = polygon->Vertices[rcur];
+            vrnext = polygon->Vertices[rnext];
 
-            tmp = xl; xl = xr; xr = tmp;
+            slope_start = lslope;
+            slope_end = rslope;
         }
 
-        if (xl<0 || xr>256)
+        // interpolate attributes along Y
+
+        s64 lfactor1 = (vlnext->FinalPosition[1] - y) * vlnext->FinalPosition[3];
+        s64 lfactor2 = (y - vlcur->FinalPosition[1]) * vlcur->FinalPosition[3];
+        s64 denom = lfactor1 + lfactor2;
+        if (denom)
         {
-            printf("!! BAD X %d %d\n", xl, xr);
-            continue; // hax
+            lfactor1 = (lfactor1 << 12) / denom;
+            lfactor2 = (lfactor2 << 12) / denom;
+        }
+        else
+        {
+            lfactor1 = 0x1000;
+            lfactor2 = 0;
         }
 
-        s64 perspfactorl1 = ((s64)(0x1000 - lfactor) * vlnext->FinalPosition[3]) >> 12;
-        s64 perspfactorl2 = ((s64)lfactor            * vlcur->FinalPosition[3]) >> 12;
-        s64 perspfactorr1 = ((s64)(0x1000 - rfactor) * vrnext->FinalPosition[3]) >> 12;
-        s64 perspfactorr2 = ((s64)rfactor            * vrcur->FinalPosition[3]) >> 12;
-
-        if (perspfactorl1 + perspfactorl2 == 0)
+        s64 rfactor1 = (vrnext->FinalPosition[1] - y) * vrnext->FinalPosition[3];
+        s64 rfactor2 = (y - vrcur->FinalPosition[1]) * vrcur->FinalPosition[3];
+        denom = rfactor1 + rfactor2;
+        if (denom)
         {
-            perspfactorl1 = 0x1000;
-            perspfactorl2 = 0;
+            rfactor1 = (rfactor1 << 12) / denom;
+            rfactor2 = (rfactor2 << 12) / denom;
         }
-        if (perspfactorr1 + perspfactorr2 == 0)
+        else
         {
-            perspfactorr1 = 0x1000;
-            perspfactorr2 = 0;
+            rfactor1 = 0x1000;
+            rfactor2 = 0;
         }
 
-        s32 zl = ((perspfactorl1 * vlcur->FinalPosition[2]) + (perspfactorl2 * vlnext->FinalPosition[2])) / (perspfactorl1 + perspfactorl2);
-        s32 zr = ((perspfactorr1 * vrcur->FinalPosition[2]) + (perspfactorr2 * vrnext->FinalPosition[2])) / (perspfactorr1 + perspfactorr2);
+        s32 zl = ((lfactor1 * vlcur->FinalPosition[2]) + (lfactor2 * vlnext->FinalPosition[2])) >> 12;
+        s32 zr = ((rfactor1 * vrcur->FinalPosition[2]) + (rfactor2 * vrnext->FinalPosition[2])) >> 12;
 
-        s32 wl = ((perspfactorl1 * vlcur->FinalPosition[3]) + (perspfactorl2 * vlnext->FinalPosition[3])) / (perspfactorl1 + perspfactorl2);
-        s32 wr = ((perspfactorr1 * vrcur->FinalPosition[3]) + (perspfactorr2 * vrnext->FinalPosition[3])) / (perspfactorr1 + perspfactorr2);
+        s32 wl = ((lfactor1 * vlcur->FinalPosition[3]) + (lfactor2 * vlnext->FinalPosition[3])) >> 12;
+        s32 wr = ((rfactor1 * vrcur->FinalPosition[3]) + (rfactor2 * vrnext->FinalPosition[3])) >> 12;
 
-        s32 rl = ((perspfactorl1 * vlcur->FinalColor[0]) + (perspfactorl2 * vlnext->FinalColor[0])) / (perspfactorl1 + perspfactorl2);
-        s32 gl = ((perspfactorl1 * vlcur->FinalColor[1]) + (perspfactorl2 * vlnext->FinalColor[1])) / (perspfactorl1 + perspfactorl2);
-        s32 bl = ((perspfactorl1 * vlcur->FinalColor[2]) + (perspfactorl2 * vlnext->FinalColor[2])) / (perspfactorl1 + perspfactorl2);
+        s32 rl = ((lfactor1 * vlcur->FinalColor[0]) + (lfactor2 * vlnext->FinalColor[0])) >> 12;
+        s32 gl = ((lfactor1 * vlcur->FinalColor[1]) + (lfactor2 * vlnext->FinalColor[1])) >> 12;
+        s32 bl = ((lfactor1 * vlcur->FinalColor[2]) + (lfactor2 * vlnext->FinalColor[2])) >> 12;
 
-        s32 sl = ((perspfactorl1 * vlcur->TexCoords[0]) + (perspfactorl2 * vlnext->TexCoords[0])) / (perspfactorl1 + perspfactorl2);
-        s32 tl = ((perspfactorl1 * vlcur->TexCoords[1]) + (perspfactorl2 * vlnext->TexCoords[1])) / (perspfactorl1 + perspfactorl2);
+        s32 sl = ((lfactor1 * vlcur->TexCoords[0]) + (lfactor2 * vlnext->TexCoords[0])) >> 12;
+        s32 tl = ((lfactor1 * vlcur->TexCoords[1]) + (lfactor2 * vlnext->TexCoords[1])) >> 12;
 
-        s32 rr = ((perspfactorr1 * vrcur->FinalColor[0]) + (perspfactorr2 * vrnext->FinalColor[0])) / (perspfactorr1 + perspfactorr2);
-        s32 gr = ((perspfactorr1 * vrcur->FinalColor[1]) + (perspfactorr2 * vrnext->FinalColor[1])) / (perspfactorr1 + perspfactorr2);
-        s32 br = ((perspfactorr1 * vrcur->FinalColor[2]) + (perspfactorr2 * vrnext->FinalColor[2])) / (perspfactorr1 + perspfactorr2);
+        s32 rr = ((rfactor1 * vrcur->FinalColor[0]) + (rfactor2 * vrnext->FinalColor[0])) >> 12;
+        s32 gr = ((rfactor1 * vrcur->FinalColor[1]) + (rfactor2 * vrnext->FinalColor[1])) >> 12;
+        s32 br = ((rfactor1 * vrcur->FinalColor[2]) + (rfactor2 * vrnext->FinalColor[2])) >> 12;
 
-        s32 sr = ((perspfactorr1 * vrcur->TexCoords[0]) + (perspfactorr2 * vrnext->TexCoords[0])) / (perspfactorr1 + perspfactorr2);
-        s32 tr = ((perspfactorr1 * vrcur->TexCoords[1]) + (perspfactorr2 * vrnext->TexCoords[1])) / (perspfactorr1 + perspfactorr2);
+        s32 sr = ((rfactor1 * vrcur->TexCoords[0]) + (rfactor2 * vrnext->TexCoords[0])) >> 12;
+        s32 tr = ((rfactor1 * vrcur->TexCoords[1]) + (rfactor2 * vrnext->TexCoords[1])) >> 12;
 
-        if (xr == xl) xr++;
+        // calculate edges
+        s32 l_edgeend, r_edgestart;
 
-        // temp.
-        if (xl > 255) continue;
-
-        //s32 xdiv = 0x1000 / (xr - xl);
-        //s32 xdiv = 0x100000 / (xr - xl);
-
-        for (s32 x = xl; x < xr; x++)
+        if (l_xmajor)
         {
-            //if (x!=xl && x!=(xr-1)) continue;
-            s32 xfactor = ((x - xl) << 12) / (xr - xl);
-            //s32 xfactor = (x - xl) * xdiv;
-            //s32 xfactor = ((x - xl) * xdiv) >> 8;
+            if (slope_start > 0) l_edgeend = vlcur->FinalPosition[0] + ((dxl + slope_start) >> 12);
+            else                 l_edgeend = vlcur->FinalPosition[0] - ((dxl - slope_start) >> 12);
 
+            if (l_edgeend == xstart) l_edgeend++;
+        }
+        else
+            l_edgeend = xstart + 1;
 
-            s32 perspfactor1 = ((s64)(0x1000 - xfactor) * wr) >> 12;
-            s32 perspfactor2 = ((s64)xfactor * wl) >> 12;
+        if (r_xmajor)
+        {
+            if (slope_end > 0) r_edgestart = vrcur->FinalPosition[0] + ((dxr + slope_end) >> 12);
+            else               r_edgestart = vrcur->FinalPosition[0] - ((dxr - slope_end) >> 12);
 
-            if (perspfactor1 + perspfactor2 == 0)
+            if (r_edgestart == xend_int) r_edgestart--;
+        }
+        else
+            r_edgestart = xend - 1;
+
+        // edge fill rules for opaque pixels:
+        // * right edge is filled if slope > 1
+        // * left edge is filled if slope <= 1
+        // * edges with slope = 0 are always filled
+        // edges are always filled if the pixels are translucent
+if (y<0 || y>191 || xstart<0 || xend>255) { printf("BAD COORD %d %d %d\n", y, xstart, xend); return; }
+        for (s32 x = xstart; x <= xend; x++)
+        {
+            int edge = 0;
+            if (y == ytop)            edge |= 0x4;
+            else if (y == ybot-1)     edge |= 0x8;
+            if (x < l_edgeend)        edge |= 0x1;
+            else if (x > r_edgestart) edge |= 0x2;
+
+            // wireframe polygons. really ugly, but works
+            if (wireframe && edge==0) continue;
+
+            s64 factor1 = (xend - x) * wr;
+            s64 factor2 = (x - xstart) * wl;
+            s64 denom = factor1 + factor2;
+            if (denom)
             {
-                perspfactor1 = 0x1000;
-                perspfactor2 = 0;
+                factor1 = (factor1 << 12) / denom;
+                factor2 = (factor2 << 12) / denom;
+            }
+            else
+            {
+                factor1 = 0x1000;
+                factor2 = 0;
             }
 
-            s32 z = ((perspfactor1 * (s64)zl) + (perspfactor2 * (s64)zr)) / (perspfactor1 + perspfactor2);
+            s32 z = ((factor1 * zl) + (factor2 * zr)) >> 12;
+            if (!DepthTest(polygon, x, y, z)) continue;
 
-            // possible optimization: only do color interpolation if the depth test passes
-            u32 vr = ((perspfactor1 * rl) + (perspfactor2 * rr)) / (perspfactor1 + perspfactor2);
-            u32 vg = ((perspfactor1 * gl) + (perspfactor2 * gr)) / (perspfactor1 + perspfactor2);
-            u32 vb = ((perspfactor1 * bl) + (perspfactor2 * br)) / (perspfactor1 + perspfactor2);
+            u32 vr = ((factor1 * rl) + (factor2 * rr)) >> 12;
+            u32 vg = ((factor1 * gl) + (factor2 * gr)) >> 12;
+            u32 vb = ((factor1 * bl) + (factor2 * br)) >> 12;
 
-            s16 s = ((perspfactor1 * (s64)sl) + (perspfactor2 * (s64)sr)) / (perspfactor1 + perspfactor2);
-            s16 t = ((perspfactor1 * (s64)tl) + (perspfactor2 * (s64)tr)) / (perspfactor1 + perspfactor2);
+            s16 s = ((factor1 * sl) + (factor2 * sr)) >> 12;
+            s16 t = ((factor1 * tl) + (factor2 * tr)) >> 12;
 
-            RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
+            u32 color = RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
+            u32 attr = 0;
+
+            u8 alpha = color >> 24;
+            if (alpha == 31 && !wireframe)
+            {
+                if ((edge & 0x1) && slope_start > 0x1000)
+                    continue;
+                if ((edge & 0x2) && (slope_end != 0 && slope_end <= 0x1000))
+                    continue;
+            }
+
+            // TODO: blending
+
+            //if (ColorBuffer[(y*256) + x] != 0x1F3F3F3F)
+            ColorBuffer[(y*256) + x] = color;
+            DepthBuffer[(y*256) + x] = z;
+            AttrBuffer[(y*256) + x] = attr;
         }
+
+        if (lslope > 0) dxl += lslope;
+        else            dxl -= lslope;
+        if (rslope > 0) dxr += rslope;
+        else            dxr -= rslope;
     }
+
+    /*for (int i = 0; i < nverts; i++)
+    {
+        Vertex* vtx = polygon->Vertices[i];
+
+        int x = vtx->FinalPosition[0];
+        int y = vtx->FinalPosition[1];
+        if (x>=0 && x<256 && y>=0 && y<192)
+        ColorBuffer[(y*256) + x] = 0x1F3F3F3F;//printf("%d %d -- %08X %08X %08X\n", x, y, vtx->Position[0], vtx->Position[1], vtx->Position[3]);
+    }*/
 }
 
 void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
 {
     // TODO: render translucent polygons last
 
-    // TODO: fog, poly ID, other attributes
+    u32 polyid = (ClearAttr1 >> 24) & 0x3F;
 
     if (DispCnt & (1<<14))
     {
@@ -643,6 +811,7 @@ void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
 
                 ColorBuffer[y+x] = color;
                 DepthBuffer[y+x] = z;
+                AttrBuffer[y+x] = polyid | ((val3 & 0x8000) >> 7);
 
                 xoff++;
             }
@@ -662,15 +831,19 @@ void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
         u32 z = ((ClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 		if (z >= 0x10000 && z < 0xFFFFFF) z++;
 
+		polyid |= ((ClearAttr1 & 0x8000) >> 7);
+
         for (int i = 0; i < 256*192; i++)
         {
             ColorBuffer[i] = color;
             DepthBuffer[i] = z;
+            AttrBuffer[i] = polyid;
         }
     }
 
     for (int i = 0; i < npolys; i++)
-    {
+    {//if (i<npolys-6) continue;//printf("poly %d\n", i);
+        //if (i<npolys-2)continue;
         RenderPolygon(&polygons[i], attr&0x2);
     }
 }

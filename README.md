@@ -41,8 +41,7 @@ TODO LIST
 IMMEDIATE TODO LIST (prior release 1.0)
 
  * UI
- * 3D engine that atleast supports texturing
- * emulate DMA timings
+ * some polish to the 3D engine
  * make timers suck less
 
  
@@ -53,3 +52,5 @@ TODO LIST FOR LATER
  * hardware renderer for 3D
  * wifi
  * maybe emulate flashcarts or other fancy hardware
+ * big-endian compatibility (Wii, etc)
+ * LCD refresh time (used by some games for blending effects)

@@ -418,13 +418,14 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
 
     Vertex mid;
-#define INTERPOLATE(var)  mid.var = (vin->var + ((vout->var - vin->var) * factor_num) / factor_den);
+#define INTERPOLATE(var)  { mid.var = (vin->var + ((vout->var - vin->var) * factor_num) / factor_den); }
 
-    INTERPOLATE(Position[0]);
-    INTERPOLATE(Position[1]);
-    INTERPOLATE(Position[2]);
+    if (comp != 0) INTERPOLATE(Position[0]);
+    if (comp != 1) INTERPOLATE(Position[1]);
+    if (comp != 2) INTERPOLATE(Position[2]);
     INTERPOLATE(Position[3]);
-
+    mid.Position[comp] = plane*mid.Position[3];
+//printf("clip %d,%d: Y = %08X %08X %08X, %08X %08X\n", comp, plane, vin->Position[1], vout->Position[1], mid.Position[1], (s32)factor_num, factor_den);
     INTERPOLATE(Color[0]);
     INTERPOLATE(Color[1]);
     INTERPOLATE(Color[2]);
@@ -775,14 +776,14 @@ void SubmitPolygon()
 
         poly->NumVertices += 2;
     }
-
+//if (c==4 && NumPolygons>340) printf("polygon:\n");
     for (int i = clipstart; i < c; i++)
     {
         CurVertexRAM[NumVertices] = clippedvertices[1][i];
         poly->Vertices[i] = &CurVertexRAM[NumVertices];
 
         NumVertices++;
-        poly->NumVertices++;
+        poly->NumVertices++;//if (c==4 && NumPolygons>340)printf(" - v%d: %08X %08X %08X\n", i, poly->Vertices[i]->Position[0], poly->Vertices[i]->Position[1],poly->Vertices[i]->Position[3]);
     }
 
     if (PolygonMode >= 2)
@@ -795,7 +796,9 @@ void SubmitVertex()
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
-
+if (PolygonMode==0&&NumPolygons>440&&false)printf("raw vertex %d: %08X %08X | %08X %08X %08X %08X\n",
+                                             VertexNum, CurVertex[0], CurVertex[1],
+                                             ClipMatrix[1],ClipMatrix[5],ClipMatrix[9],ClipMatrix[13]);
     UpdateClipMatrix();
     vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
     vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
