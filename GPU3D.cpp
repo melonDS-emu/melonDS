@@ -144,6 +144,8 @@ FIFO<CmdFIFOEntry>* CmdPIPE;
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
 u32 DispCnt;
+u32 AlphaRef;
+
 u32 GXStat;
 
 u32 ExecParams[32];
@@ -233,6 +235,8 @@ void Reset()
     TotalParams = 0;
 
     DispCnt = 0;
+    AlphaRef = 0;
+
     GXStat = 0;
 
     memset(ExecParams, 0, 32*4);
@@ -425,7 +429,7 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     if (comp != 2) INTERPOLATE(Position[2]);
     INTERPOLATE(Position[3]);
     mid.Position[comp] = plane*mid.Position[3];
-//printf("clip %d,%d: Y = %08X %08X %08X, %08X %08X\n", comp, plane, vin->Position[1], vout->Position[1], mid.Position[1], (s32)factor_num, factor_den);
+
     INTERPOLATE(Color[0]);
     INTERPOLATE(Color[1]);
     INTERPOLATE(Color[2]);
@@ -1382,6 +1386,8 @@ void VBlank()
 {
     if (FlushRequest)
     {
+        SoftRenderer::DispCnt = DispCnt;
+        SoftRenderer::AlphaRef = AlphaRef;
         SoftRenderer::RenderFrame(CurFlushAttributes, CurVertexRAM, CurPolygonRAM, NumPolygons);
 
         CurRAMBank = CurRAMBank?0:1;
@@ -1462,6 +1468,12 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
+    switch (addr)
+    {
+    case 0x04000340:
+        AlphaRef = val & 0x1F;
+        return;
+    }
 }
 
 void Write16(u32 addr, u16 val)
@@ -1470,6 +1482,10 @@ void Write16(u32 addr, u16 val)
     {
     case 0x04000060:
         DispCnt = val;
+        return;
+
+    case 0x04000340:
+        AlphaRef = val & 0x1F;
         return;
 
     case 0x04000350:
@@ -1493,6 +1509,10 @@ void Write32(u32 addr, u32 val)
     {
     case 0x04000060:
         DispCnt = val & 0xFFFF;
+        return;
+
+    case 0x04000340:
+        AlphaRef = val & 0x1F;
         return;
 
     case 0x04000350:

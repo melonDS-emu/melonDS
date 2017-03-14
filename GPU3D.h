@@ -80,6 +80,9 @@ void Write32(u32 addr, u32 val);
 namespace SoftRenderer
 {
 
+extern u32 DispCnt;
+extern u32 AlphaRef;
+
 bool Init();
 void DeInit();
 void Reset();
