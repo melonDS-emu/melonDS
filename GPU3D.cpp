@@ -178,6 +178,17 @@ u32 PolygonMode;
 s16 CurVertex[3];
 u8 VertexColor[3];
 s16 TexCoords[2];
+s16 Normal[3];
+
+s16 LightDirection[4][3];
+u8 LightColor[4][3];
+u8 MatDiffuse[3];
+u8 MatAmbient[3];
+u8 MatSpecular[3];
+u8 MatEmission[3];
+
+bool UseShininessTable;
+u8 ShininessTable[128];
 
 u32 PolygonAttr;
 u32 CurPolygonAttr;
@@ -780,14 +791,14 @@ void SubmitPolygon()
 
         poly->NumVertices += 2;
     }
-//if (c==4 && NumPolygons>340) printf("polygon:\n");
+
     for (int i = clipstart; i < c; i++)
     {
         CurVertexRAM[NumVertices] = clippedvertices[1][i];
         poly->Vertices[i] = &CurVertexRAM[NumVertices];
 
         NumVertices++;
-        poly->NumVertices++;//if (c==4 && NumPolygons>340)printf(" - v%d: %08X %08X %08X\n", i, poly->Vertices[i]->Position[0], poly->Vertices[i]->Position[1],poly->Vertices[i]->Position[3]);
+        poly->NumVertices++;
     }
 
     if (PolygonMode >= 2)
@@ -800,9 +811,7 @@ void SubmitVertex()
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
-if (PolygonMode==0&&NumPolygons>440&&false)printf("raw vertex %d: %08X %08X | %08X %08X %08X %08X\n",
-                                             VertexNum, CurVertex[0], CurVertex[1],
-                                             ClipMatrix[1],ClipMatrix[5],ClipMatrix[9],ClipMatrix[13]);
+
     UpdateClipMatrix();
     vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
     vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
@@ -815,8 +824,8 @@ if (PolygonMode==0&&NumPolygons>440&&false)printf("raw vertex %d: %08X %08X | %0
 
     if ((TexParam >> 30) == 3)
     {
-        vertextrans->TexCoords[0] = (CurVertex[0]*TexMatrix[0] + CurVertex[1]*TexMatrix[4] + CurVertex[2]*TexMatrix[8] + 0x1000*TexCoords[0]) >> 12;
-        vertextrans->TexCoords[1] = (CurVertex[0]*TexMatrix[1] + CurVertex[1]*TexMatrix[5] + CurVertex[2]*TexMatrix[9] + 0x1000*TexCoords[1]) >> 12;
+        vertextrans->TexCoords[0] = (CurVertex[0]*TexMatrix[0] + CurVertex[1]*TexMatrix[4] + CurVertex[2]*TexMatrix[8] + 0x1000*TexCoords[0]) >> 20;
+        vertextrans->TexCoords[1] = (CurVertex[0]*TexMatrix[1] + CurVertex[1]*TexMatrix[5] + CurVertex[2]*TexMatrix[9] + 0x1000*TexCoords[1]) >> 20;
     }
     else
     {
@@ -890,6 +899,71 @@ if (PolygonMode==0&&NumPolygons>440&&false)printf("raw vertex %d: %08X %08X | %0
         }
         break;
     }
+}
+
+s32 CalculateLighting()
+{
+    if ((TexParam >> 30) == 2)
+    {
+        TexCoords[0] = (Normal[0]*TexMatrix[0] + Normal[1]*TexMatrix[4] + Normal[2]*TexMatrix[8] + 0x200*TexCoords[0]) >> 17;
+        TexCoords[1] = (Normal[0]*TexMatrix[1] + Normal[1]*TexMatrix[5] + Normal[2]*TexMatrix[9] + 0x200*TexCoords[1]) >> 17;
+    }
+
+    s32 normaltrans[3];
+    normaltrans[0] = (Normal[0]*VecMatrix[0] + Normal[1]*VecMatrix[4] + Normal[2]*VecMatrix[8]) >> 12;
+    normaltrans[1] = (Normal[0]*VecMatrix[1] + Normal[1]*VecMatrix[5] + Normal[2]*VecMatrix[9]) >> 12;
+    normaltrans[2] = (Normal[0]*VecMatrix[2] + Normal[1]*VecMatrix[6] + Normal[2]*VecMatrix[10]) >> 12;
+
+    VertexColor[0] = MatEmission[0];
+    VertexColor[1] = MatEmission[1];
+    VertexColor[2] = MatEmission[2];
+
+    s32 c = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        if (!(CurPolygonAttr & (1<<i)))
+            continue;
+
+        s32 difflevel = (LightDirection[i][0]*normaltrans[0] +
+                         LightDirection[i][1]*normaltrans[1] +
+                         LightDirection[i][2]*normaltrans[2]) >> 10;
+        difflevel = -difflevel;
+        if (difflevel < 0) difflevel = 0;
+
+        s32 shinelevel = (-(LightDirection[i][0]>>1)*normaltrans[0] -
+                          (LightDirection[i][1]>>1)*normaltrans[1] -
+                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10;
+        if (shinelevel < 0) shinelevel = 0;
+        shinelevel = (shinelevel * shinelevel) >> 8;
+
+        // checkme
+        if (UseShininessTable)
+        {
+            if (shinelevel > 127) shinelevel = 127;
+            shinelevel = ShininessTable[shinelevel];
+        }
+
+        VertexColor[0] += ((((MatSpecular[0]+1) * (LightColor[i][0]+1) * (shinelevel+1)) - 1) >> 13);
+        VertexColor[0] += ((((MatDiffuse[0]+1) * (LightColor[i][0]+1) * (difflevel+1)) - 1) >> 13);
+        VertexColor[0] += ((((MatAmbient[0]+1) * (LightColor[i][0]+1)) - 1) >> 5);
+
+        VertexColor[1] += ((((MatSpecular[1]+1) * (LightColor[i][1]+1) * (shinelevel+1)) - 1) >> 13);
+        VertexColor[1] += ((((MatDiffuse[1]+1) * (LightColor[i][1]+1) * (difflevel+1)) - 1) >> 13);
+        VertexColor[1] += ((((MatAmbient[1]+1) * (LightColor[i][1]+1)) - 1) >> 5);
+
+        VertexColor[2] += ((((MatSpecular[2]+1) * (LightColor[i][2]+1) * (shinelevel+1)) - 1) >> 13);
+        VertexColor[2] += ((((MatDiffuse[2]+1) * (LightColor[i][2]+1) * (difflevel+1)) - 1) >> 13);
+        VertexColor[2] += ((((MatAmbient[2]+1) * (LightColor[i][2]+1)) - 1) >> 5);
+
+        if (VertexColor[0] > 31) VertexColor[0] = 31;
+        if (VertexColor[1] > 31) VertexColor[1] = 31;
+        if (VertexColor[2] > 31) VertexColor[2] = 31;
+
+        c++;
+    }
+
+    // checkme: cycle count
+    return c;
 }
 
 
@@ -1033,6 +1107,8 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer], 16*4);
+                if (MatrixMode == 2)
+                    memcpy(VecMatrix, PosMatrix, 16*4);
                 GXStat |= (1<<14);
                 ClipMatrixDirty = true;
             }
@@ -1084,6 +1160,8 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
+                if (MatrixMode == 2)
+                    memcpy(VecMatrix, PosMatrix, 16*4);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1243,9 +1321,11 @@ void ExecuteCommand()
             }
             break;
 
-        case 0x21:
-            // TODO: more cycles if lights are enabled
-            // TODO also texcoords if needed
+        case 0x21: // normal
+            Normal[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
+            Normal[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
+            Normal[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
+            CycleCount += CalculateLighting();
             break;
 
         case 0x22: // texcoord
@@ -1307,6 +1387,66 @@ void ExecuteCommand()
 
         case 0x2B: // texture palette
             TexPalette = ExecParams[0] & 0x1FFF;
+            break;
+
+        case 0x30: // diffuse/ambient material
+            MatDiffuse[0] = ExecParams[0] & 0x1F;
+            MatDiffuse[1] = (ExecParams[0] >> 5) & 0x1F;
+            MatDiffuse[2] = (ExecParams[0] >> 10) & 0x1F;
+            MatAmbient[0] = (ExecParams[0] >> 16) & 0x1F;
+            MatAmbient[1] = (ExecParams[0] >> 21) & 0x1F;
+            MatAmbient[2] = (ExecParams[0] >> 26) & 0x1F;
+            if (ExecParams[0] & 0x8000)
+            {
+                VertexColor[0] = MatDiffuse[0];
+                VertexColor[1] = MatDiffuse[1];
+                VertexColor[2] = MatDiffuse[2];
+            }
+            break;
+
+        case 0x31: // specular/emission material
+            MatSpecular[0] = ExecParams[0] & 0x1F;
+            MatSpecular[1] = (ExecParams[0] >> 5) & 0x1F;
+            MatSpecular[2] = (ExecParams[0] >> 10) & 0x1F;
+            MatEmission[0] = (ExecParams[0] >> 16) & 0x1F;
+            MatEmission[1] = (ExecParams[0] >> 21) & 0x1F;
+            MatEmission[2] = (ExecParams[0] >> 26) & 0x1F;
+            UseShininessTable = (ExecParams[0] & 0x8000) != 0;
+            break;
+
+        case 0x32: // light direction
+            {
+                u32 l = ExecParams[0] >> 30;
+                s16 dir[3];
+                dir[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
+                dir[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
+                dir[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
+                LightDirection[l][0] = (dir[0]*VecMatrix[0] + dir[1]*VecMatrix[4] + dir[2]*VecMatrix[8]) >> 12;
+                LightDirection[l][1] = (dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9]) >> 12;
+                LightDirection[l][2] = (dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) >> 12;
+            }
+            break;
+
+        case 0x33: // light color
+            {
+                u32 l = ExecParams[0] >> 30;
+                LightColor[l][0] = ExecParams[0] & 0x1F;
+                LightColor[l][1] = (ExecParams[0] >> 5) & 0x1F;
+                LightColor[l][2] = (ExecParams[0] >> 10) & 0x1F;
+            }
+            break;
+
+        case 0x34: // shininess table
+            {
+                for (int i = 0; i < 128; i += 4)
+                {
+                    u32 val = ExecParams[i >> 2];
+                    ShininessTable[i + 0] = val & 0xFF;
+                    ShininessTable[i + 1] = (val >> 8) & 0xFF;
+                    ShininessTable[i + 2] = (val >> 16) & 0xFF;
+                    ShininessTable[i + 3] = val >> 24;
+                }
+            }
             break;
 
         case 0x40: // begin polygons
