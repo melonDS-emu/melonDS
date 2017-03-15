@@ -761,6 +761,7 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
 
             u32 color = RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
             u32 attr = 0;
+            u32 pixeladdr = (y*256) + x;
 
             u8 alpha = color >> 24;
 
@@ -769,14 +770,23 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
             {
                 if (alpha <= AlphaRef) continue;
             }
+            else
+            {
+                if (alpha == 0) continue;
+            }
 
             // alpha blending disable
             // TODO: check alpha test when blending is disabled
             if (!(DispCnt & (1<<3)))
                 alpha = 31;
 
+            u32 dstcolor = ColorBuffer[pixeladdr];
+            u32 dstalpha = dstcolor >> 24;
+
             if (alpha == 31)
             {
+                // edge fill rules for opaque pixels
+                // TODO, eventually: antialiasing
                 if (!wireframe)
                 {
                     if ((edge & 0x1) && slope_start > 0x1000)
@@ -785,18 +795,39 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
                         continue;
                 }
 
-                DepthBuffer[(y*256) + x] = z;
+                DepthBuffer[pixeladdr] = z;
             }
-            else if (alpha > 0)
+            else if (dstalpha == 0)
             {
-                //
+                // TODO: conditional Z-buffer update
+                DepthBuffer[pixeladdr] = z;
+            }
+            else
+            {
+                u32 srcR = color & 0x3F;
+                u32 srcG = (color >> 8) & 0x3F;
+                u32 srcB = (color >> 16) & 0x3F;
+
+                u32 dstR = dstcolor & 0x3F;
+                u32 dstG = (dstcolor >> 8) & 0x3F;
+                u32 dstB = (dstcolor >> 16) & 0x3F;
+
+                alpha++;
+                dstR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
+                dstG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
+                dstB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+
+                alpha--;
+                if (alpha > dstalpha) dstalpha = alpha;
+
+                color = dstR | (dstG << 8) | (dstB << 16) | (dstalpha << 24);
 
                 // TODO: conditional Z-buffer update
-                DepthBuffer[(y*256) + x] = z;
+                DepthBuffer[pixeladdr] = z;
             }
 
-            ColorBuffer[(y*256) + x] = color;
-            AttrBuffer[(y*256) + x] = attr;
+            ColorBuffer[pixeladdr] = color;
+            AttrBuffer[pixeladdr] = attr;
         }
 
         if (lslope > 0) dxl += lslope;
@@ -808,8 +839,6 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
 
 void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
 {
-    // TODO: render translucent polygons last
-
     u32 polyid = (ClearAttr1 >> 24) & 0x3F;
 
     if (DispCnt & (1<<14))
@@ -866,9 +895,17 @@ void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
         }
     }
 
+    // TODO: Y-sorting of translucent polygons
+
     for (int i = 0; i < npolys; i++)
-    {//if (i<npolys-6) continue;//printf("poly %d\n", i);
-        //if (i<npolys-2)continue;
+    {
+        if (polygons[i].Translucent) continue;
+        RenderPolygon(&polygons[i], attr&0x2);
+    }
+
+    for (int i = 0; i < npolys; i++)
+    {
+        if (!polygons[i].Translucent) continue;
         RenderPolygon(&polygons[i], attr&0x2);
     }
 }

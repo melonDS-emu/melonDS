@@ -776,6 +776,10 @@ void SubmitPolygon()
 
     poly->FacingView = facingview;
 
+    u32 texfmt = (TexParam >> 26) & 0x7;
+    u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
+    poly->Translucent = (texfmt == 1 || texfmt == 6 || (polyalpha > 0 && polyalpha < 31));
+
     if (LastStripPolygon && clipstart > 0)
     {
         if (c == lastpolyverts)
@@ -830,8 +834,8 @@ void SubmitVertex()
 
     if ((TexParam >> 30) == 3)
     {
-        vertextrans->TexCoords[0] = (CurVertex[0]*TexMatrix[0] + CurVertex[1]*TexMatrix[4] + CurVertex[2]*TexMatrix[8] + 0x1000*TexCoords[0]) >> 20;
-        vertextrans->TexCoords[1] = (CurVertex[0]*TexMatrix[1] + CurVertex[1]*TexMatrix[5] + CurVertex[2]*TexMatrix[9] + 0x1000*TexCoords[1]) >> 20;
+        vertextrans->TexCoords[0] = (vertex[0]*TexMatrix[0] + vertex[1]*TexMatrix[4] + vertex[2]*TexMatrix[8] + vertex[3]*(TexCoords[0]<<8)) >> 20;
+        vertextrans->TexCoords[1] = (vertex[0]*TexMatrix[1] + vertex[1]*TexMatrix[5] + vertex[2]*TexMatrix[9] + vertex[3]*(TexCoords[1]<<8)) >> 20;
     }
     else
     {
@@ -911,8 +915,8 @@ s32 CalculateLighting()
 {
     if ((TexParam >> 30) == 2)
     {
-        TexCoords[0] = (Normal[0]*TexMatrix[0] + Normal[1]*TexMatrix[4] + Normal[2]*TexMatrix[8] + 0x200*TexCoords[0]) >> 17;
-        TexCoords[1] = (Normal[0]*TexMatrix[1] + Normal[1]*TexMatrix[5] + Normal[2]*TexMatrix[9] + 0x200*TexCoords[1]) >> 17;
+        TexCoords[0] += (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 17);
+        TexCoords[1] += (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 17);
     }
 
     s32 normaltrans[3];

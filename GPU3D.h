@@ -50,6 +50,7 @@ typedef struct
     u32 TexPalette;
 
     bool FacingView;
+    bool Translucent;
 
 } Polygon;
 
