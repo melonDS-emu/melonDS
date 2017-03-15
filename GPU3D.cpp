@@ -167,8 +167,11 @@ s32 Viewport[4];
 
 s32 ProjMatrixStack[16];
 s32 PosMatrixStack[31][16];
+s32 VecMatrixStack[31][16];
+s32 TexMatrixStack[16];
 s32 ProjMatrixStackPointer;
 s32 PosMatrixStackPointer;
+s32 TexMatrixStackPointer;
 
 void MatrixLoadIdentity(s32* m);
 void UpdateClipMatrix();
@@ -269,8 +272,11 @@ void Reset()
 
     memset(ProjMatrixStack, 0, 16*4);
     memset(PosMatrixStack, 0, 31 * 16*4);
+    memset(VecMatrixStack, 0, 31 * 16*4);
+    memset(TexMatrixStack, 0, 16*4);
     ProjMatrixStackPointer = 0;
     PosMatrixStackPointer = 0;
+    TexMatrixStackPointer = 0;
 
     VertexNum = 0;
     VertexNumInPoly = 0;
@@ -1055,8 +1061,16 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                printf("!! CAN'T PUSH TEXTURE MATRIX\n");
-                GXStat |= (1<<15); // CHECKME
+                if (TexMatrixStackPointer > 0)
+                {
+                    printf("!! TEX MATRIX STACK OVERFLOW\n");
+                    GXStat |= (1<<15);
+                    break;
+                }
+
+                memcpy(TexMatrixStack, TexMatrix, 16*4);
+                TexMatrixStackPointer++;
+                GXStat |= (1<<14);
             }
             else
             {
@@ -1068,6 +1082,8 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrixStack[PosMatrixStackPointer], PosMatrix, 16*4);
+                if (MatrixMode == 2)
+                    memcpy(VecMatrixStack[PosMatrixStackPointer], VecMatrix, 16*4);
                 PosMatrixStackPointer++;
                 GXStat |= (1<<14);
             }
@@ -1090,8 +1106,16 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                printf("!! CAN'T POP TEXTURE MATRIX\n");
-                GXStat |= (1<<15); // CHECKME
+                if (TexMatrixStackPointer <= 0)
+                {
+                    printf("!! TEX MATRIX STACK UNDERFLOW\n");
+                    GXStat |= (1<<15);
+                    break;
+                }
+
+                TexMatrixStackPointer--;
+                memcpy(TexMatrix, TexMatrixStack, 16*4);
+                GXStat |= (1<<14);
             }
             else
             {
@@ -1108,7 +1132,7 @@ void ExecuteCommand()
 
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer], 16*4);
                 if (MatrixMode == 2)
-                    memcpy(VecMatrix, PosMatrix, 16*4);
+                    memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer], 16*4);
                 GXStat |= (1<<14);
                 ClipMatrixDirty = true;
             }
@@ -1121,8 +1145,7 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                printf("!! CAN'T STORE TEXTURE MATRIX\n");
-                GXStat |= (1<<15); // CHECKME
+                memcpy(TexMatrixStack, TexMatrix, 16*4);
             }
             else
             {
@@ -1135,6 +1158,8 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrixStack[addr], PosMatrix, 16*4);
+                if (MatrixMode == 2)
+                    memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
             }
             break;
 
@@ -1146,8 +1171,7 @@ void ExecuteCommand()
             }
             else if (MatrixMode == 3)
             {
-                printf("!! CAN'T RESTORE TEXTURE MATRIX\n");
-                GXStat |= (1<<15); // CHECKME
+                memcpy(TexMatrix, TexMatrixStack, 16*4);
             }
             else
             {
@@ -1161,7 +1185,7 @@ void ExecuteCommand()
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
                 if (MatrixMode == 2)
-                    memcpy(VecMatrix, PosMatrix, 16*4);
+                    memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
                 ClipMatrixDirty = true;
             }
             break;
