@@ -487,7 +487,7 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
     else if (rslope) dxr = (rslope > 0) ? 0            : 0x1000;
     else             dxr = 0x1000;
 
-    if (ybot > 191) ybot = 191;
+    if (ybot > 192) ybot = 192;
     for (s32 y = ytop; y < ybot; y++)
     {
         if (!isline)

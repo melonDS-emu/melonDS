@@ -126,6 +126,8 @@ u16 GPU2D::Read16(u32 addr)
     case 0x00C: return BGCnt[2];
     case 0x00E: return BGCnt[3];
 
+    case 0x050: return BlendCnt;
+
     case 0x064: return CaptureCnt & 0xFFFF;
     case 0x066: return CaptureCnt >> 16;
     }

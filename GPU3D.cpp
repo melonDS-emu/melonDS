@@ -934,36 +934,38 @@ s32 CalculateLighting()
         if (!(CurPolygonAttr & (1<<i)))
             continue;
 
-        s32 difflevel = (LightDirection[i][0]*normaltrans[0] +
+        s32 difflevel = (-(LightDirection[i][0]*normaltrans[0] +
                          LightDirection[i][1]*normaltrans[1] +
-                         LightDirection[i][2]*normaltrans[2]) >> 10;
-        difflevel = -difflevel;
+                         LightDirection[i][2]*normaltrans[2])) >> 10;
         if (difflevel < 0) difflevel = 0;
+        else if (difflevel > 255) difflevel = 255;
 
-        s32 shinelevel = (-(LightDirection[i][0]>>1)*normaltrans[0] -
-                          (LightDirection[i][1]>>1)*normaltrans[1] -
-                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10;
+        s32 shinelevel = -(((LightDirection[i][0]>>1)*normaltrans[0] +
+                          (LightDirection[i][1]>>1)*normaltrans[1] +
+                          ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10);
         if (shinelevel < 0) shinelevel = 0;
-        shinelevel = (shinelevel * shinelevel) >> 8;
+        shinelevel = ((shinelevel * shinelevel) >> 7) - 0x100; // really (2*shinelevel*shinelevel)-1
+        if (shinelevel < 0) shinelevel = 0;
+        else if (shinelevel > 255) shinelevel = 255;
 
-        // checkme
         if (UseShininessTable)
         {
-            if (shinelevel > 127) shinelevel = 127;
+            // checkme
+            shinelevel >>= 1;
             shinelevel = ShininessTable[shinelevel];
         }
 
-        VertexColor[0] += ((((MatSpecular[0]+1) * (LightColor[i][0]+1) * (shinelevel+1)) - 1) >> 13);
-        VertexColor[0] += ((((MatDiffuse[0]+1) * (LightColor[i][0]+1) * (difflevel+1)) - 1) >> 13);
-        VertexColor[0] += ((((MatAmbient[0]+1) * (LightColor[i][0]+1)) - 1) >> 5);
+        VertexColor[0] += ((MatSpecular[0] * LightColor[i][0] * shinelevel) >> 13);
+        VertexColor[0] += ((MatDiffuse[0] * LightColor[i][0] * difflevel) >> 13);
+        VertexColor[0] += ((MatAmbient[0] * LightColor[i][0]) >> 5);
 
-        VertexColor[1] += ((((MatSpecular[1]+1) * (LightColor[i][1]+1) * (shinelevel+1)) - 1) >> 13);
-        VertexColor[1] += ((((MatDiffuse[1]+1) * (LightColor[i][1]+1) * (difflevel+1)) - 1) >> 13);
-        VertexColor[1] += ((((MatAmbient[1]+1) * (LightColor[i][1]+1)) - 1) >> 5);
+        VertexColor[1] += ((MatSpecular[1] * LightColor[i][1] * shinelevel) >> 13);
+        VertexColor[1] += ((MatDiffuse[1] * LightColor[i][1] * difflevel) >> 13);
+        VertexColor[1] += ((MatAmbient[1] * LightColor[i][1]) >> 5);
 
-        VertexColor[2] += ((((MatSpecular[2]+1) * (LightColor[i][2]+1) * (shinelevel+1)) - 1) >> 13);
-        VertexColor[2] += ((((MatDiffuse[2]+1) * (LightColor[i][2]+1) * (difflevel+1)) - 1) >> 13);
-        VertexColor[2] += ((((MatAmbient[2]+1) * (LightColor[i][2]+1)) - 1) >> 5);
+        VertexColor[2] += ((MatSpecular[2] * LightColor[i][2] * shinelevel) >> 13);
+        VertexColor[2] += ((MatDiffuse[2] * LightColor[i][2] * difflevel) >> 13);
+        VertexColor[2] += ((MatAmbient[2] * LightColor[i][2]) >> 5);
 
         if (VertexColor[0] > 31) VertexColor[0] = 31;
         if (VertexColor[1] > 31) VertexColor[1] = 31;
