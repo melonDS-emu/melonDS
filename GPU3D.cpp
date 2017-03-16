@@ -181,6 +181,7 @@ u32 PolygonMode;
 s16 CurVertex[3];
 u8 VertexColor[3];
 s16 TexCoords[2];
+s16 RawTexCoords[2];
 s16 Normal[3];
 
 s16 LightDirection[4][3];
@@ -834,8 +835,8 @@ void SubmitVertex()
 
     if ((TexParam >> 30) == 3)
     {
-        vertextrans->TexCoords[0] = (vertex[0]*TexMatrix[0] + vertex[1]*TexMatrix[4] + vertex[2]*TexMatrix[8] + vertex[3]*(TexCoords[0]<<8)) >> 20;
-        vertextrans->TexCoords[1] = (vertex[0]*TexMatrix[1] + vertex[1]*TexMatrix[5] + vertex[2]*TexMatrix[9] + vertex[3]*(TexCoords[1]<<8)) >> 20;
+        vertextrans->TexCoords[0] = (vertex[0]*TexMatrix[0] + vertex[1]*TexMatrix[4] + vertex[2]*TexMatrix[8] + vertex[3]*(RawTexCoords[0]<<8)) >> 20;
+        vertextrans->TexCoords[1] = (vertex[0]*TexMatrix[1] + vertex[1]*TexMatrix[5] + vertex[2]*TexMatrix[9] + vertex[3]*(RawTexCoords[1]<<8)) >> 20;
     }
     else
     {
@@ -915,8 +916,8 @@ s32 CalculateLighting()
 {
     if ((TexParam >> 30) == 2)
     {
-        TexCoords[0] += (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 17);
-        TexCoords[1] += (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 17);
+        TexCoords[0] = RawTexCoords[0] + (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 21);
+        TexCoords[1] = RawTexCoords[1] + (((s64)Normal[0]*TexMatrix[1] + (s64)Normal[1]*TexMatrix[5] + (s64)Normal[2]*TexMatrix[9]) >> 21);
     }
 
     s32 normaltrans[3];
@@ -1359,12 +1360,17 @@ void ExecuteCommand()
             break;
 
         case 0x22: // texcoord
-            TexCoords[0] = ExecParams[0] & 0xFFFF;
-            TexCoords[1] = ExecParams[0] >> 16;
+            RawTexCoords[0] = ExecParams[0] & 0xFFFF;
+            RawTexCoords[1] = ExecParams[0] >> 16;
             if ((TexParam >> 30) == 1)
             {
-                TexCoords[0] = (TexCoords[0]*TexMatrix[0] + TexCoords[1]*TexMatrix[4] + TexMatrix[8] + TexMatrix[12]) >> 12;
-                TexCoords[1] = (TexCoords[0]*TexMatrix[1] + TexCoords[1]*TexMatrix[5] + TexMatrix[9] + TexMatrix[13]) >> 12;
+                TexCoords[0] = (RawTexCoords[0]*TexMatrix[0] + RawTexCoords[1]*TexMatrix[4] + TexMatrix[8] + TexMatrix[12]) >> 12;
+                TexCoords[1] = (RawTexCoords[0]*TexMatrix[1] + RawTexCoords[1]*TexMatrix[5] + TexMatrix[9] + TexMatrix[13]) >> 12;
+            }
+            else
+            {
+                TexCoords[0] = RawTexCoords[0];
+                TexCoords[1] = RawTexCoords[1];
             }
             break;
 
@@ -1580,6 +1586,7 @@ u32* GetLine(int line)
 
 u8 Read8(u32 addr)
 {
+    printf("unknown GPU3D read8 %08X\n", addr);
     return 0;
 }
 
@@ -1591,6 +1598,7 @@ u16 Read16(u32 addr)
         return DispCnt;
     }
 
+    printf("unknown GPU3D read16 %08X\n", addr);
     return 0;
 }
 
@@ -1633,6 +1641,7 @@ u32 Read32(u32 addr)
         return ClipMatrix[(addr & 0x3C) >> 2];
     }
 
+    //printf("unknown GPU3D read32 %08X\n", addr);
     return 0;
 }
 
@@ -1644,6 +1653,8 @@ void Write8(u32 addr, u8 val)
         AlphaRef = val & 0x1F;
         return;
     }
+
+    printf("unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -1671,6 +1682,8 @@ void Write16(u32 addr, u16 val)
         ClearAttr2 = (ClearAttr2 & 0xFFFF) | (val << 16);
         return;
     }
+
+    printf("unknown GPU3D write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -1693,7 +1706,13 @@ void Write32(u32 addr, u32 val)
         return;
 
     case 0x04000600:
-        if (val & 0x8000) GXStat &= ~0x8000;
+        if (val & 0x8000)
+        {
+            GXStat &= ~0x8000;
+            ProjMatrixStackPointer = 0;
+            PosMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0;
+        }
         val &= 0xC0000000;
         GXStat &= 0x3FFFFFFF;
         GXStat |= val;
@@ -1749,6 +1768,8 @@ void Write32(u32 addr, u32 val)
         CmdFIFOWrite(entry);
         return;
     }
+
+    printf("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
 }
