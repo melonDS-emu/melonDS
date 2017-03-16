@@ -312,7 +312,7 @@ void Reset()
     //LoadROM();
     //LoadFirmware();
     // a_interp2.nds a_rounding (10) (11)    a_slope (5)
-    if (NDSCart::LoadROM("rom/sm64ds.nds"))
+    if (NDSCart::LoadROM("rom/nsmb.nds"))
         Running = true; // hax
 }
 

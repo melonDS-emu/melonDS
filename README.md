@@ -32,7 +32,6 @@ ROM filename is currently hardcoded, check NDS.cpp for the required filename. th
 TODO LIST
 
  * sorta-UI (ie not hardcode ROM name)
- * 3D engine
  * sound
  * wifi
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
@@ -41,7 +40,6 @@ TODO LIST
 IMMEDIATE TODO LIST (prior release 1.0)
 
  * UI
- * some polish to the 3D engine
  * make timers suck less
 
  
