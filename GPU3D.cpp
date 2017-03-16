@@ -1825,7 +1825,7 @@ void Write32(u32 addr, u32 val)
         {
             GXStat &= ~0x8000;
             ProjMatrixStackPointer = 0;
-            PosMatrixStackPointer = 0;
+            //PosMatrixStackPointer = 0;
             TexMatrixStackPointer = 0;
         }
         val &= 0xC0000000;

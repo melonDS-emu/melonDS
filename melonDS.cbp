@@ -4,38 +4,46 @@
 	<Project>
 		<Option title="melonDS" />
 		<Option pch_mode="2" />
-		<Option compiler="gcc" />
+		<Option compiler="mingw64_gcc" />
 		<Build>
 			<Target title="Debug">
 				<Option output="bin/Debug/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
-				<Option compiler="gcc" />
+				<Option compiler="mingw64_gcc" />
 				<Compiler>
+					<Add option="-m64" />
 					<Add option="-g" />
 				</Compiler>
 				<Linker>
-					<Add library="C:/MinGW/lib/libgdi32.a" />
+					<Add option="-m64" />
+					<Add library="gdi32" />
 				</Linker>
 			</Target>
 			<Target title="Release">
 				<Option output="bin/Release/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
-				<Option compiler="gcc" />
+				<Option compiler="mingw64_gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-m64" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
-					<Add library="C:/MinGW/lib/libgdi32.a" />
+					<Add option="-m64" />
+					<Add library="gdi32" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-m64" />
 			<Add option="-fexceptions" />
 		</Compiler>
+		<Linker>
+			<Add option="-m64" />
+		</Linker>
 		<Unit filename="ARM.cpp" />
 		<Unit filename="ARM.h" />
 		<Unit filename="ARMInterpreter.cpp" />
