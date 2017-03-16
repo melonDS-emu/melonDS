@@ -146,6 +146,13 @@ u32 NumCommands, CurCommand, ParamCount, TotalParams;
 u32 DispCnt;
 u32 AlphaRef;
 
+u16 ToonTable[32];
+u16 EdgeTable[8];
+
+u32 FogColor;
+u32 FogOffset;
+u8 FogDensityTable[32];
+
 u32 GXStat;
 
 u32 ExecParams[32];
@@ -555,8 +562,6 @@ void SubmitPolygon()
     // if it's outside, check if the previous and next vertices are inside
     // if so, place a new vertex at the edge of the view volume
 
-    // TODO: optional culling of polygons that clip through the far plane
-
     // X clipping
 
     c = clipstart;
@@ -689,6 +694,7 @@ void SubmitPolygon()
 
     // Z clipping
 
+    bool farplaneclip = false;
     nverts = c; c = clipstart;
     for (int i = clipstart; i < nverts; i++)
     {
@@ -698,6 +704,8 @@ void SubmitPolygon()
         Vertex vtx = clippedvertices[1][i];
         if (vtx.Position[2] > vtx.Position[3])
         {
+            farplaneclip = true;
+
             Vertex* vprev = &clippedvertices[1][prev];
             if (vprev->Position[2] <= vprev->Position[3])
             {
@@ -715,6 +723,9 @@ void SubmitPolygon()
         else
             clippedvertices[0][c++] = vtx;
     }
+
+    if (farplaneclip && (!(CurPolygonAttr & (1<<12))))
+        return;
 
     nverts = c; c = clipstart;
     for (int i = clipstart; i < nverts; i++)
@@ -1715,6 +1726,12 @@ void Write8(u32 addr, u8 val)
         return;
     }
 
+    if (addr >= 0x04000360 && addr < 0x04000380)
+    {
+        FogDensityTable[addr - 0x04000360] = val;
+        return;
+    }
+
     printf("unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
@@ -1742,6 +1759,36 @@ void Write16(u32 addr, u16 val)
     case 0x04000356:
         ClearAttr2 = (ClearAttr2 & 0xFFFF) | (val << 16);
         return;
+
+    case 0x04000358:
+        FogColor = (FogColor & 0xFFFF0000) | val;
+        return;
+    case 0x0400035A:
+        FogColor = (FogColor & 0xFFFF) | (val << 16);
+        return;
+    case 0x0400035C:
+        FogOffset = val;
+        return;
+    }
+
+    if (addr >= 0x04000330 && addr < 0x04000340)
+    {
+        EdgeTable[(addr - 0x04000330) >> 1] = val;
+        return;
+    }
+
+    if (addr >= 0x04000360 && addr < 0x04000380)
+    {
+        addr -= 0x04000360;
+        FogDensityTable[addr] = val & 0xFF;
+        FogDensityTable[addr+1] = val >> 8;
+        return;
+    }
+
+    if (addr >= 0x04000380 && addr < 0x040003C0)
+    {
+        ToonTable[(addr - 0x04000380) >> 1] = val;
+        return;
     }
 
     printf("unknown GPU3D write16 %08X %04X\n", addr, val);
@@ -1764,6 +1811,13 @@ void Write32(u32 addr, u32 val)
         return;
     case 0x04000354:
         ClearAttr2 = val;
+        return;
+
+    case 0x04000358:
+        FogColor = val;
+        return;
+    case 0x0400035C:
+        FogOffset = val;
         return;
 
     case 0x04000600:
@@ -1827,6 +1881,32 @@ void Write32(u32 addr, u32 val)
         entry.Command = (addr & 0x1FC) >> 2;
         entry.Param = val;
         CmdFIFOWrite(entry);
+        return;
+    }
+
+    if (addr >= 0x04000330 && addr < 0x04000340)
+    {
+        addr = (addr - 0x04000330) >> 1;
+        EdgeTable[addr] = val & 0xFFFF;
+        EdgeTable[addr+1] = val >> 16;
+        return;
+    }
+
+    if (addr >= 0x04000360 && addr < 0x04000380)
+    {
+        addr -= 0x04000360;
+        FogDensityTable[addr] = val & 0xFF;
+        FogDensityTable[addr+1] = (val >> 8) & 0xFF;
+        FogDensityTable[addr+2] = (val >> 16) & 0xFF;
+        FogDensityTable[addr+3] = val >> 24;
+        return;
+    }
+
+    if (addr >= 0x04000380 && addr < 0x040003C0)
+    {
+        addr = (addr - 0x04000380) >> 1;
+        ToonTable[addr] = val & 0xFFFF;
+        ToonTable[addr+1] = val >> 16;
         return;
     }
 
