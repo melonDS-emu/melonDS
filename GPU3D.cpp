@@ -217,7 +217,7 @@ u32 CurRAMBank;
 u32 ClearAttr1, ClearAttr2;
 
 u32 FlushRequest;
-u32 FlushAttributes, CurFlushAttributes;
+u32 FlushAttributes;
 
 
 
@@ -293,7 +293,6 @@ void Reset()
 
     FlushRequest = 0;
     FlushAttributes = 0;
-    CurFlushAttributes = 0;
 
     SoftRenderer::Reset();
 }
@@ -456,7 +455,6 @@ void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
     INTERPOLATE(TexCoords[1]);
 
     mid.Clipped = true;
-    mid.ViewportTransformDone = false;
 
 #undef INTERPOLATE
     *outbuf = mid;
@@ -765,6 +763,7 @@ void SubmitPolygon()
     if (NumPolygons >= 2048 || NumVertices+c > 6144)
     {
         LastStripPolygon = NULL;
+        // TODO: set DISP3DCNT overflow flag
         return;
     }
 
@@ -805,12 +804,78 @@ void SubmitPolygon()
 
     for (int i = clipstart; i < c; i++)
     {
-        CurVertexRAM[NumVertices] = clippedvertices[1][i];
-        poly->Vertices[i] = &CurVertexRAM[NumVertices];
+        Vertex* vtx = &CurVertexRAM[NumVertices];
+        *vtx = clippedvertices[1][i];
+        poly->Vertices[i] = vtx;
 
         NumVertices++;
         poly->NumVertices++;
+
+        // viewport transform
+        s32 posX, posY, posZ;
+        s32 w = vtx->Position[3];
+        if (w == 0)
+        {
+            posX = 0;
+            posY = 0;
+            posZ = 0;
+            w = 0x1000;
+        }
+        else
+        {
+            posX = (((s64)(vtx->Position[0] + w) * Viewport[2]) / (((s64)w) << 1)) + Viewport[0];
+            posY = (((s64)(-vtx->Position[1] + w) * Viewport[3]) / (((s64)w) << 1)) + Viewport[1];
+
+            if (FlushAttributes & 0x2) posZ = w;
+            else                       posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
+        }
+
+        if      (posX < 0)        posX = 0;
+        else if (posX > 256)      posX = 256;
+        if      (posY < 0)        posY = 0;
+        else if (posY > 192)      posY = 192;
+        if      (posZ < 0)        posZ = 0;
+        else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
+
+        vtx->FinalPosition[0] = posX;
+        vtx->FinalPosition[1] = posY;
+        vtx->FinalPosition[2] = posZ;
+        vtx->FinalPosition[3] = w;
+
+        vtx->FinalColor[0] = vtx->Color[0] >> 12;
+        if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
+        vtx->FinalColor[1] = vtx->Color[1] >> 12;
+        if (vtx->FinalColor[1]) vtx->FinalColor[1] = ((vtx->FinalColor[1] << 4) + 0xF);
+        vtx->FinalColor[2] = vtx->Color[2] >> 12;
+        if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
     }
+
+    // determine bounds of the polygon
+    u32 vtop = 0, vbot = 0;
+    s32 ytop = 192, ybot = 0;
+    s32 xtop = 256, xbot = 0;
+
+    for (int i = 0; i < c; i++)
+    {
+        Vertex* vtx = poly->Vertices[i];
+
+        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
+        {
+            xtop = vtx->FinalPosition[0];
+            ytop = vtx->FinalPosition[1];
+            vtop = i;
+        }
+        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
+        {
+            xbot = vtx->FinalPosition[0];
+            ybot = vtx->FinalPosition[1];
+            vbot = i;
+        }
+    }
+
+    poly->VTop = vtop; poly->VBottom = vbot;
+    poly->YTop = ytop; poly->YBottom = ybot;
+    poly->XTop = xtop; poly->XBottom = xbot;
 
     if (PolygonMode >= 2)
         LastStripPolygon = poly;
@@ -845,7 +910,6 @@ void SubmitVertex()
     }
 
     vertextrans->Clipped = false;
-    vertextrans->ViewportTransformDone = false;
 
     VertexNum++;
     VertexNumInPoly++;
@@ -1562,9 +1626,7 @@ void VBlank()
 {
     if (FlushRequest)
     {
-        SoftRenderer::DispCnt = DispCnt;
-        SoftRenderer::AlphaRef = AlphaRef;
-        SoftRenderer::RenderFrame(CurFlushAttributes, CurVertexRAM, CurPolygonRAM, NumPolygons);
+        SoftRenderer::RenderFrame(CurVertexRAM, CurPolygonRAM, NumPolygons);
 
         CurRAMBank = CurRAMBank?0:1;
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
@@ -1574,7 +1636,6 @@ void VBlank()
         NumPolygons = 0;
 
         FlushRequest = 0;
-        CurFlushAttributes = FlushAttributes;
     }
 }
 

@@ -27,9 +27,6 @@ namespace GPU3D
 namespace SoftRenderer
 {
 
-u32 DispCnt;
-u32 AlphaRef;
-
 u32 ColorBuffer[256*192];
 u32 DepthBuffer[256*192];
 u32 AttrBuffer[256*192];
@@ -336,77 +333,14 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
-void RenderPolygon(Polygon* polygon, u32 wbuffer)
+void RenderPolygon(Polygon* polygon)
 {
     int nverts = polygon->NumVertices;
     bool isline = false;
 
-    int vtop = 0, vbot = 0;
-    s32 ytop = 192, ybot = 0;
-    s32 xtop = 256, xbot = 0;
-
-    // process the vertices, transform to screen coordinates
-    // find the topmost and bottommost vertices of the polygon
-
-    for (int i = 0; i < nverts; i++)
-    {
-        Vertex* vtx = polygon->Vertices[i];
-
-        if (!vtx->ViewportTransformDone)
-        {
-            s32 posX, posY, posZ;
-            s32 w = vtx->Position[3];
-            if (w == 0)
-            {
-                posX = 0;
-                posY = 0;
-                posZ = 0;
-                w = 0x1000;
-            }
-            else
-            {
-                posX = (((s64)(vtx->Position[0] + w) * Viewport[2]) / (((s64)w) << 1)) + Viewport[0];
-                posY = (((s64)(-vtx->Position[1] + w) * Viewport[3]) / (((s64)w) << 1)) + Viewport[1];
-
-                if (wbuffer) posZ = w;
-                else         posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
-            }
-
-            if      (posX < 0)   posX = 0;
-            else if (posX > 256) posX = 256;
-            if      (posY < 0)   posY = 0;
-            else if (posY > 192) posY = 192;
-            if      (posZ < 0)        posZ = 0;
-            else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
-
-            vtx->FinalPosition[0] = posX;
-            vtx->FinalPosition[1] = posY;
-            vtx->FinalPosition[2] = posZ;
-            vtx->FinalPosition[3] = w;
-
-            vtx->FinalColor[0] = vtx->Color[0] >> 12;
-            if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
-            vtx->FinalColor[1] = vtx->Color[1] >> 12;
-            if (vtx->FinalColor[1]) vtx->FinalColor[1] = ((vtx->FinalColor[1] << 4) + 0xF);
-            vtx->FinalColor[2] = vtx->Color[2] >> 12;
-            if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
-
-            vtx->ViewportTransformDone = true;
-        }
-
-        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
-        {
-            xtop = vtx->FinalPosition[0];
-            ytop = vtx->FinalPosition[1];
-            vtop = i;
-        }
-        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
-        {
-            xbot = vtx->FinalPosition[0];
-            ybot = vtx->FinalPosition[1];
-            vbot = i;
-        }
-    }
+    int vtop = polygon->VTop, vbot = polygon->VBottom;
+    s32 ytop = polygon->YTop, ybot = polygon->YBottom;
+    s32 xtop = polygon->XTop, xbot = polygon->XBottom;
 
     if (ytop > 191) return;
 
@@ -837,7 +771,7 @@ void RenderPolygon(Polygon* polygon, u32 wbuffer)
     }
 }
 
-void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
+void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
     u32 polyid = (ClearAttr1 >> 24) & 0x3F;
 
@@ -900,13 +834,13 @@ void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys)
     for (int i = 0; i < npolys; i++)
     {
         if (polygons[i].Translucent) continue;
-        RenderPolygon(&polygons[i], attr&0x2);
+        RenderPolygon(&polygons[i]);
     }
 
     for (int i = 0; i < npolys; i++)
     {
         if (!polygons[i].Translucent) continue;
-        RenderPolygon(&polygons[i], attr&0x2);
+        RenderPolygon(&polygons[i]);
     }
 }
 

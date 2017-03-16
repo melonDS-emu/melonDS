@@ -36,8 +36,6 @@ typedef struct
     s32 FinalPosition[4];
     s32 FinalColor[3];
 
-    bool ViewportTransformDone;
-
 } Vertex;
 
 typedef struct
@@ -52,9 +50,14 @@ typedef struct
     bool FacingView;
     bool Translucent;
 
+    u32 VTop, VBottom; // vertex indices
+    s32 YTop, YBottom; // Y coords
+    s32 XTop, XBottom; // associated X coords
+
 } Polygon;
 
 extern u32 DispCnt;
+extern u32 AlphaRef;
 extern s32 Viewport[4];
 extern u32 ClearAttr1, ClearAttr2;
 
@@ -81,14 +84,11 @@ void Write32(u32 addr, u32 val);
 namespace SoftRenderer
 {
 
-extern u32 DispCnt;
-extern u32 AlphaRef;
-
 bool Init();
 void DeInit();
 void Reset();
 
-void RenderFrame(u32 attr, Vertex* vertices, Polygon* polygons, int npolys);
+void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys);
 u32* GetLine(int line);
 
 }
