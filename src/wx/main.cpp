@@ -23,6 +23,24 @@
 #include "../GPU.h"
 
 
+const int DefaultKeyMapping[18] =
+{
+    15, 54,
+    44, 40,
+    22, 4, 26, 29,
+    19, 20,
+    0, 0, 0, 0, 0, 0,
+    18, 14
+};
+
+int KeyMapping[18];
+int JoyMapping[18];
+
+bool Touching;
+
+int WindowX, WindowY;
+
+
 wxIMPLEMENT_APP(wxApp_melonDS);
 
 
@@ -88,6 +106,13 @@ MainFrame::MainFrame()
     sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
 
     NDS::Init();
+
+    memcpy(KeyMapping, DefaultKeyMapping, 18*sizeof(int));
+    memset(JoyMapping, 0, 18*sizeof(int));
+
+    Touching = false;
+
+    SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
 }
 
 void MainFrame::OnOpenROM(wxCommandEvent& event)
@@ -149,13 +174,59 @@ wxThread::ExitCode EmuThread::Entry()
             SDL_Event evt;
             while (SDL_PollEvent(&evt))
             {
-                if (evt.type == SDL_KEYDOWN)
-                    printf("key down %d %d\n", evt.key.keysym.scancode, evt.key.keysym.sym);
+                switch (evt.type)
+                {
+                case SDL_WINDOWEVENT:
+                    SDL_GetWindowPosition(parent->sdlwin, &WindowX, &WindowY);
+                    break;
 
-                if (evt.type == SDL_MOUSEBUTTONDOWN)
-                    printf("mouse down\n");
-                if (evt.type == SDL_MOUSEBUTTONUP)
-                    printf("mouse up\n");
+                case SDL_MOUSEBUTTONDOWN:
+                    if (evt.button.y >= 192 && evt.button.button == SDL_BUTTON_LEFT)
+                    {
+                        Touching = true;
+                        NDS::PressKey(16+6);
+                    }
+                    break;
+
+                case SDL_KEYDOWN:
+                    for (int i = 0; i < 10; i++)
+                        if (evt.key.keysym.scancode == KeyMapping[i]) NDS::PressKey(i);
+                    if (evt.key.keysym.scancode == KeyMapping[16]) NDS::PressKey(16);
+                    if (evt.key.keysym.scancode == KeyMapping[17]) NDS::PressKey(17);
+                    break;
+
+                case SDL_KEYUP:
+                    for (int i = 0; i < 10; i++)
+                        if (evt.key.keysym.scancode == KeyMapping[i]) NDS::ReleaseKey(i);
+                    if (evt.key.keysym.scancode == KeyMapping[16]) NDS::ReleaseKey(16);
+                    if (evt.key.keysym.scancode == KeyMapping[17]) NDS::ReleaseKey(17);
+                    break;
+                }
+            }
+
+            if (Touching)
+            {
+                int mx, my;
+                u32 btn = SDL_GetGlobalMouseState(&mx, &my);
+                if (!(btn & SDL_BUTTON(SDL_BUTTON_LEFT)))
+                {
+                    Touching = false;
+                    NDS::ReleaseKey(16+6);
+                    NDS::ReleaseScreen();
+                }
+                else
+                {
+                    mx -= WindowX;
+                    my -= (WindowY + 192);
+
+                    if (mx < 0)        mx = 0;
+                    else if (mx > 255) mx = 255;
+
+                    if (my < 0)        my = 0;
+                    else if (my > 191) my = 191;
+
+                    NDS::TouchScreen(mx, my);
+                }
             }
 
             void* pixels; int zorp;
