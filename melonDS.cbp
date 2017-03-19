@@ -7,6 +7,7 @@
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="Debug">
+				<Option platforms="Windows;" />
 				<Option output="bin/Debug/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
@@ -20,6 +21,7 @@
 				</Linker>
 			</Target>
 			<Target title="Release">
+				<Option platforms="Windows;" />
 				<Option output="bin/Release/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
@@ -38,6 +40,8 @@
 			<Add option="-Wall" />
 			<Add option="-m64" />
 			<Add option="-fexceptions" />
+			<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0 -I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+			<Add option="-D_FILE_OFFSET_BITS=64 -D__WXMSW__ -pipe" />
 		</Compiler>
 		<Linker>
 			<Add option="-m64" />
@@ -45,6 +49,23 @@
 			<Add library="wx_baseu-3.0" />
 			<Add library="wx_mswu_core-3.0" />
 			<Add library="SDL2" />
+			<Add library="png" />
+			<Add library="jpeg" />
+			<Add library="tiff" />
+			<Add library="wxregexu-3.0" />
+			<Add library="z" />
+			<Add library="rpcrt4" />
+			<Add library="oleaut32" />
+			<Add library="ole32" />
+			<Add library="uuid" />
+			<Add library="winspool" />
+			<Add library="winmm" />
+			<Add library="shell32" />
+			<Add library="comctl32" />
+			<Add library="comdlg32" />
+			<Add library="advapi32" />
+			<Add library="wsock32" />
+			<Add library="oleacc" />
 		</Linker>
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
@@ -79,8 +100,10 @@
 		<Unit filename="src/SPI.h" />
 		<Unit filename="src/Wifi.cpp" />
 		<Unit filename="src/Wifi.h" />
-		<Unit filename="src/main.cpp" />
 		<Unit filename="src/types.h" />
+		<Unit filename="src/version.h" />
+		<Unit filename="src/wx/main.cpp" />
+		<Unit filename="src/wx/main.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />
