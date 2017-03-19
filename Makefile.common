@@ -10,6 +10,7 @@ SOURCES_CXX := $(CORE_DIR)/NDS.cpp \
 					$(CORE_DIR)/GPU.cpp \
 					$(CORE_DIR)/GPU2D.cpp \
 					$(CORE_DIR)/GPU3D.cpp \
+               $(CORE_DIR)/GPU3D_Soft.cpp \
 					$(CORE_DIR)/NDSCart.cpp \
 					$(CORE_DIR)/RTC.cpp \
 					$(CORE_DIR)/SPI.cpp \
