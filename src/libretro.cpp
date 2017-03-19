@@ -13,7 +13,7 @@
 #include "GPU.h"
 #include "libretro.h"
 
-static uint16_t *frame_buf;
+static uint32_t *frame_buf;
 static struct retro_log_callback logging;
 static retro_log_printf_t log_cb;
 static bool use_audio_cb;
@@ -36,7 +36,7 @@ static retro_environment_t environ_cb;
 
 void retro_init(void)
 {
-   frame_buf = (uint16_t*)malloc(256 * 384 * sizeof(uint16_t));
+   frame_buf = (uint32_t*)malloc(256 * 384 * 4);
    const char *dir = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir) && dir)
    {
@@ -264,13 +264,8 @@ void retro_run(void)
 {
    update_input();
    NDS::RunFrame();
-   memcpy(frame_buf, GPU::Framebuffer, sizeof(GPU::Framebuffer));
-   for (int i = 0; i < 256*192*2; i++)
-   {
-       frame_buf[i]  = ((frame_buf[i] & 0x1F) << 11) | 
-                       ((frame_buf[i] & 0x3E0) << 1) | 
-                       ((frame_buf[i] & 0x7C00) >> 10);
-   }
+   memcpy(frame_buf, GPU::Framebuffer, 256 * 384 * 4);
+
    video_cb(frame_buf, 256, 384, 0);
    if (!use_audio_cb)
       audio_callback();
@@ -301,6 +296,7 @@ bool retro_load_game(const struct retro_game_info *info)
 
    snprintf(retro_game_path, sizeof(retro_game_path), "%s", info->path);
    NDS::Init();
+   NDS::LoadROM(info->path, true);
 
    struct retro_audio_callback audio_cb = { audio_callback, audio_set_state };
    use_audio_cb = environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, &audio_cb);
