@@ -323,8 +323,6 @@ void Reset()
     _soundbias = 0;
 }
 
-<<<<<<< HEAD:src/NDS.cpp
-
 void LoadROM(const char* path, bool direct)
 {
     Reset();
