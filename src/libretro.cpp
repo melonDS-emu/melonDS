@@ -13,7 +13,11 @@
 #include "GPU.h"
 #include "libretro.h"
 
-static uint32_t *frame_buf;
+#define VIDEO_WIDTH 256
+#define VIDEO_HEIGHT 384
+#define VIDEO_PIXELS VIDEO_WIDTH * VIDEO_HEIGHT
+
+static uint8_t *frame_buf;
 static struct retro_log_callback logging;
 static retro_log_printf_t log_cb;
 static bool use_audio_cb;
@@ -36,7 +40,7 @@ static retro_environment_t environ_cb;
 
 void retro_init(void)
 {
-   frame_buf = (uint32_t*)malloc(256 * 384 * 4);
+   frame_buf = (uint8_t*)malloc(VIDEO_PIXELS * sizeof(uint32_t));
    const char *dir = NULL;
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir) && dir)
    {
@@ -80,10 +84,11 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    float aspect                = 0.0f;
    float sampling_rate         = 30000.0f;
 
-   info->geometry.base_width   = 256;
-   info->geometry.base_height  = 386;
-   info->geometry.max_width    = 256;
-   info->geometry.max_height   = 384;
+
+   info->geometry.base_width   = VIDEO_WIDTH;
+   info->geometry.base_height  = VIDEO_HEIGHT;
+   info->geometry.max_width    = VIDEO_WIDTH;
+   info->geometry.max_height   = VIDEO_HEIGHT;
    info->geometry.aspect_ratio = aspect;
 
    last_aspect                 = aspect;
@@ -203,15 +208,19 @@ static void audio_set_state(bool enable)
 
 void retro_run(void)
 {
+   unsigned i;
    update_input();
    NDS::RunFrame();
-   memcpy(frame_buf, GPU::Framebuffer, 256 * 384 * 4);
-   for (int i = 0; i < 256*192*2; i++)
+   for (i = 0; i < VIDEO_PIXELS * sizeof(uint32_t); i += sizeof(uint32_t))
    {
-      frame_buf[i] = ntohl(frame_buf[i]);
+      uint8_t *pixel = (uint8_t*)GPU::Framebuffer + i;
+      /* swap red and blue */
+      frame_buf[i + 0] = pixel[2];
+      frame_buf[i + 1] = pixel[1];
+      frame_buf[i + 2] = pixel[0];
+      frame_buf[i + 3] = pixel[3];
    }
-
-   video_cb(frame_buf, 256, 384, 0);
+   video_cb(frame_buf, VIDEO_WIDTH, VIDEO_HEIGHT, 0);
    if (!use_audio_cb)
       audio_callback();
 
