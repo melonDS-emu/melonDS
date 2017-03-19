@@ -135,7 +135,6 @@ bool Init()
     if (!SPI::Init()) return false;
     if (!RTC::Init()) return false;
 
-    Reset();
     return true;
 }
 
@@ -307,13 +306,14 @@ void Reset()
     KeyInput = 0x007F03FF;
 
     _soundbias = 0;
+}
 
-    // test
-    //LoadROM();
-    //LoadFirmware();
-    // a_interp2.nds a_rounding (10) (11)    a_slope (5)
-    if (NDSCart::LoadROM("rom/nsmb.nds"))
-        Running = true; // hax
+void LoadROM(const char* path, bool direct)
+{
+    Reset();
+
+    if (NDSCart::LoadROM(path, direct))
+        Running = true;
 }
 
 

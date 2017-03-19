@@ -116,6 +116,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+void LoadROM(const char* path, bool direct);
 void SetupDirectBoot();
 
 void RunFrame();

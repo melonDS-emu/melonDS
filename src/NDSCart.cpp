@@ -601,7 +601,7 @@ void Reset()
 }
 
 
-bool LoadROM(char* path)
+bool LoadROM(const char* path, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
@@ -632,10 +632,11 @@ bool LoadROM(char* path)
     fclose(f);
     //CartROM = f;
 
-    // temp. TODO: later make this user selectable
-    // calling this sets up shit for booting from the cart directly.
-    // normal behavior is booting from the BIOS.
-    NDS::SetupDirectBoot();
+    if (direct)
+    {
+        NDS::SetupDirectBoot();
+        CmdEncMode = 2;
+    }
 
     CartInserted = true;
 
@@ -650,7 +651,7 @@ bool LoadROM(char* path)
         if (arm9base >= 0x4000)
         {
             // reencrypt secure area if needed
-            if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF)
+            if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
             {
                 printf("Re-encrypting cart secure area\n");
 

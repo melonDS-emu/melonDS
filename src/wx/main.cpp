@@ -86,11 +86,18 @@ MainFrame::MainFrame()
 
     sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED); // SDL_RENDERER_PRESENTVSYNC
     sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
+
+    NDS::Init();
 }
 
 void MainFrame::OnOpenROM(wxCommandEvent& event)
 {
-    NDS::Init();
+    wxFileDialog opener(this, _("Open ROM"), "", "", "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", wxFD_OPEN|wxFD_FILE_MUST_EXIST);
+    if (opener.ShowModal() == wxID_CANCEL)
+        return;
+
+    wxString filename = opener.GetPath();
+    NDS::LoadROM(filename.mb_str(), true);
 
     emuthread->EmuStatus = 1;
     emumutex->Lock();
