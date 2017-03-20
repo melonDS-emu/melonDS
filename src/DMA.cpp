@@ -20,7 +20,7 @@
 #include "NDS.h"
 #include "DMA.h"
 #include "NDSCart.h"
-#include "GPU3D.h"
+#include "GPU.h"
 
 
 // NOTES ON DMA SHIT
@@ -153,8 +153,8 @@ void DMA::WriteCnt(u32 val)
         else if (StartMode == 0x07)
             GPU3D::CheckFIFODMA();
 
-        if (StartMode==0x04 || StartMode==0x06 || StartMode==0x13)
-            printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
+        if (StartMode==0x06 || StartMode==0x13)
+            printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
     }
 }
 
@@ -191,6 +191,20 @@ void DMA::Start()
         Cnt &= ~0x80000000;
         if (Cnt & 0x40000000)
             NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
+        return;
+    }
+
+    // special path for the display FIFO. another gross hack.
+    // the display FIFO seems to be more like a circular buffer that holds 16 pixels
+    // from which the display controller reads. DMA is triggered every 8 pixels to fill it
+    // as it is being read from. emulating it properly would be resource intensive.
+    // proper emulation would only matter if something is trying to feed the FIFO manually
+    // instead of using the DMA. which is probably never happening. the only thing I know of
+    // that even uses the display FIFO is the aging cart.
+    if (StartMode == 0x04)
+    {
+        GPU::GPU2D_A->FIFODMA(CurSrcAddr);
+        CurSrcAddr += 256*2;
         return;
     }
 

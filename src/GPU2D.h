@@ -45,9 +45,13 @@ public:
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal(u32 pal);
 
+    void FIFODMA(u32 addr);
+
 private:
     u32 Num;
     u32* Framebuffer;
+
+    u16 DispFIFOBuffer[256];
 
     u32 DispCnt;
     u16 BGCnt[4];

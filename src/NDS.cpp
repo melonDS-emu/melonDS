@@ -622,6 +622,15 @@ void CheckDMAs(u32 cpu, u32 mode)
     DMAs[cpu+3]->StartIfNeeded(mode);
 }
 
+void StopDMAs(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    DMAs[cpu+0]->StopIfNeeded(mode);
+    DMAs[cpu+1]->StopIfNeeded(mode);
+    DMAs[cpu+2]->StopIfNeeded(mode);
+    DMAs[cpu+3]->StopIfNeeded(mode);
+}
+
 
 
 

@@ -40,6 +40,12 @@ public:
             Start();
     }
 
+    void StopIfNeeded(u32 mode)
+    {
+        if (mode == StartMode)
+            Cnt &= ~0x80000000;
+    }
+
     u32 SrcAddr;
     u32 DstAddr;
     u32 Cnt;

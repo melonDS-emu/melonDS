@@ -678,13 +678,23 @@ void StartScanline(u32 line)
     else
         DispStat[1] &= ~(1<<2);
 
+    if (line >= 2 && line < 194)
+        NDS::CheckDMAs(0, 0x03);
+    else if (line == 194)
+        NDS::StopDMAs(0, 0x03);
+
     if (line < 192)
     {
+        // fill a line from the display FIFO if needed.
+        // this isn't how the real thing works, but emulating it
+        // properly would be too much trouble given barely anything
+        // uses FIFO display
+        // (TODO, eventually: emulate it properly)
+        NDS::CheckDMAs(0, 0x04);
+
         // draw
         GPU2D_A->DrawScanline(line);
         GPU2D_B->DrawScanline(line);
-
-        //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
     }
     else if (line == 262)
     {
@@ -701,6 +711,8 @@ void StartScanline(u32 line)
             DispStat[0] |= (1<<0);
             DispStat[1] |= (1<<0);
 
+            NDS::StopDMAs(0, 0x04);
+
             NDS::CheckDMAs(0, 0x01);
             NDS::CheckDMAs(1, 0x11);
 
@@ -711,13 +723,7 @@ void StartScanline(u32 line)
             GPU2D_B->VBlank();
             GPU3D::VBlank();
         }
-
-        //NDS::ScheduleEvent(LINE_CYCLES, StartScanline, line+1);
-        //NDS::ScheduleEvent(NDS::Event_LCD, true, LINE_CYCLES, StartScanline, line+1);
     }
-
-    // checkme
-    if (line == 0) NDS::CheckDMAs(0, 0x03);
 
     NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
 }

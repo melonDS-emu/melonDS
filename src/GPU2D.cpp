@@ -91,6 +91,8 @@ void GPU2D::Reset()
     EVB = 0;
     EVY = 0;
 
+    memset(DispFIFOBuffer, 0, 256*2);
+
     CaptureCnt = 0;
 
     MasterBrightness = 0;
@@ -337,9 +339,17 @@ void GPU2D::DrawScanline(u32 line)
         }
         break;
 
-    case 3: // FIFO display
+    case 3: // FIFO display (grossly inaccurate)
         {
-            // TODO
+            for (int i = 0; i < 256; i++)
+            {
+                u16 color = DispFIFOBuffer[i];
+                u8 r = (color & 0x001F) << 1;
+                u8 g = (color & 0x03E0) >> 4;
+                u8 b = (color & 0x7C00) >> 9;
+
+                dst[i] = r | (g << 8) | (b << 16);
+            }
         }
         break;
     }
@@ -445,7 +455,8 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
 
     if (CaptureCnt & (1<<25))
     {
-        // TODO: FIFO mode
+        srcB = &DispFIFOBuffer[0];
+        srcBaddr = 0;
     }
     else
     {
@@ -567,6 +578,17 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
             }
         }
         break;
+    }
+}
+
+void GPU2D::FIFODMA(u32 addr)
+{
+    for (int i = 0; i < 256; i += 2)
+    {
+        u32 val = NDS::ARM9Read32(addr);
+        addr += 4;
+        DispFIFOBuffer[i] = val & 0xFFFF;
+        DispFIFOBuffer[i+1] = val >> 16;
     }
 }
 

@@ -148,6 +148,7 @@ void StopCPU(u32 cpu, u32 mask);
 void ResumeCPU(u32 cpu, u32 mask);
 
 void CheckDMAs(u32 cpu, u32 mode);
+void StopDMAs(u32 cpu, u32 mode);
 
 void RunTimingCriticalDevices(u32 cpu, s32 cycles);
 
