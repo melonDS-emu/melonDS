@@ -206,6 +206,18 @@ void SetupDirectBoot()
     CP15::Write(0x911, 0x00000020);
     CP15::Write(0x100, 0x00050000);
 
+    ARM9->R[12] = bootparams[1];
+    ARM9->R[13] = 0x03002F7C;
+    ARM9->R[14] = bootparams[1];
+    ARM9->R_IRQ[0] = 0x03003F80;
+    ARM9->R_SVC[0] = 0x03003FC0;
+
+    ARM7->R[12] = bootparams[5];
+    ARM7->R[13] = 0x0380FD80;
+    ARM7->R[14] = bootparams[5];
+    ARM7->R_IRQ[0] = 0x0380FF80;
+    ARM7->R_SVC[0] = 0x0380FFC0;
+
     ARM9->JumpTo(bootparams[1]);
     ARM7->JumpTo(bootparams[5]);
 
@@ -213,6 +225,8 @@ void SetupDirectBoot()
     GPU::DisplaySwap(PowerControl9);
 
     ARM7BIOSProt = 0x1204;
+
+    SPI_Firmware::SetupDirectBoot();
 }
 
 void Reset()

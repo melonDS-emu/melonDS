@@ -19,6 +19,13 @@
 #ifndef SPI_H
 #define SPI_H
 
+namespace SPI_Firmware
+{
+
+void SetupDirectBoot();
+
+}
+
 namespace SPI_TSC
 {
 

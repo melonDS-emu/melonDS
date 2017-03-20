@@ -27,6 +27,9 @@ namespace SPI_Firmware
 
 u8* Firmware;
 u32 FirmwareLength;
+u32 FirmwareMask;
+
+u32 UserSettings;
 
 u32 Hold;
 u8 CurCmd;
@@ -64,7 +67,6 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 {
     u16 crc_stored = *(u16*)&Firmware[crcoffset];
     u16 crc_calced = CRC16(&Firmware[offset], len, start);
-    //printf("%04X vs %04X\n", crc_stored, crc_calced);
     return (crc_stored == crc_calced);
 }
 
@@ -95,28 +97,39 @@ void Reset()
     }
 
     fseek(f, 0, SEEK_END);
+
     FirmwareLength = (u32)ftell(f);
+    if (FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
+    {
+        printf("Bad firmware size %d, assuming 256K\n", FirmwareLength);
+        FirmwareLength = 0x40000;
+    }
+
     Firmware = new u8[FirmwareLength];
 
     fseek(f, 0, SEEK_SET);
-    fread(Firmware, FirmwareLength, 1, f);
+    fread(Firmware, 1, FirmwareLength, f);
 
     fclose(f);
 
-    u32 userdata = 0x3FE00;
-    if (*(u16*)&Firmware[0x3FF70] == ((*(u16*)&Firmware[0x3FE70] + 1) & 0x7F))
+    FirmwareMask = FirmwareLength - 1;
+
+    u32 userdata = 0x7FE00 & FirmwareMask;
+    if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
     {
-        if (VerifyCRC16(0xFFFF, 0x3FF00, 0x70, 0x3FF72))
-            userdata = 0x3FF00;
+        if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
+            userdata += 0x100;
     }
+
+    UserSettings = userdata;
 
     // fix touchscreen coords
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;
-    Firmware[userdata+0x5C] = 1;
-    Firmware[userdata+0x5D] = 1;
-    *(u16*)&Firmware[userdata+0x5E] = 254<<4;
-    *(u16*)&Firmware[userdata+0x60] = 190<<4;
+    Firmware[userdata+0x5C] = 0;
+    Firmware[userdata+0x5D] = 0;
+    *(u16*)&Firmware[userdata+0x5E] = 255<<4;
+    *(u16*)&Firmware[userdata+0x60] = 191<<4;
     Firmware[userdata+0x62] = 255;
     Firmware[userdata+0x63] = 191;
 
@@ -127,16 +140,28 @@ void Reset()
 
     // verify shit
     printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
-    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FA00, 0xFE, 0x3FAFE)?"GOOD":"BAD");
-    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FB00, 0xFE, 0x3FBFE)?"GOOD":"BAD");
-    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x3FC00, 0xFE, 0x3FCFE)?"GOOD":"BAD");
-    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x3FE00, 0x70, 0x3FE72)?"GOOD":"BAD");
-    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x3FF00, 0x70, 0x3FF72)?"GOOD":"BAD");
+    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
+    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
+    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
+    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
+    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
 
     Hold = 0;
     CurCmd = 0;
     Data = 0;
     StatusReg = 0x00;
+}
+
+void SetupDirectBoot()
+{
+    NDS::ARM9Write32(0x027FF864, 0);
+    NDS::ARM9Write32(0x027FF868, *(u16*)&Firmware[0x20] << 3);
+
+    NDS::ARM9Write16(0x027FF874, *(u16*)&Firmware[0x26]);
+    NDS::ARM9Write16(0x027FF876, *(u16*)&Firmware[0x04]);
+
+    for (u32 i = 0; i < 0x70; i += 4)
+        NDS::ARM9Write32(0x027FFC80+i, *(u32*)&Firmware[UserSettings+i]);
 }
 
 u8 Read()
@@ -158,7 +183,6 @@ void Write(u8 val, u32 hold)
         Data = 0;
         DataPos = 1;
         Addr = 0;
-        //printf("firmware SPI command %02X\n", CurCmd);
         return;
     }
 
@@ -171,16 +195,10 @@ void Write(u8 val, u32 hold)
                 Addr <<= 8;
                 Addr |= val;
                 Data = 0;
-
-                //if (DataPos == 3) printf("firmware SPI read %08X\n", Addr);
             }
             else
             {
-                if (Addr >= FirmwareLength)
-                    Data = 0;
-                else
-                    Data = Firmware[Addr];
-
+                Data = Firmware[Addr & FirmwareMask];
                 Addr++;
             }
 
