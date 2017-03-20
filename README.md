@@ -40,7 +40,6 @@ TODO LIST
 IMMEDIATE TODO LIST (prior release 1.0)
 
  * UI
- * make timers suck less
 
  
 TODO LIST FOR LATER

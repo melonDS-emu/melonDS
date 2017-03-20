@@ -565,11 +565,15 @@ bool Init()
 {
     if (!NDSCart_SRAM::Init()) return false;
 
+    CartROM = NULL;
+
     return true;
 }
 
 void DeInit()
 {
+    if (CartROM) delete[] CartROM;
+
     NDSCart_SRAM::DeInit();
 }
 
@@ -605,6 +609,8 @@ bool LoadROM(const char* path, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
+
+    if (CartROM) delete[] CartROM;
 
     FILE* f = fopen(path, "rb");
     if (!f)

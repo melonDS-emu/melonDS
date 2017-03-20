@@ -26,7 +26,6 @@
 // NOTES ON DMA SHIT
 //
 // * could use optimized code paths for common types of DMA transfers. for example, VRAM
-// * needs to eventually be made more accurate anyway. DMA isn't instant.
 
 
 DMA::DMA(u32 cpu, u32 num)
@@ -154,7 +153,7 @@ void DMA::WriteCnt(u32 val)
         else if (StartMode == 0x07)
             GPU3D::CheckFIFODMA();
 
-        if ((StartMode&7)!=0x00 && (StartMode&7)!=0x1 && StartMode!=2 && StartMode!=0x05 && StartMode!=0x12 && StartMode!=0x07)
+        if (StartMode==0x04 || StartMode==0x06 || StartMode==0x13)
             printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X\n", CPU?7:9, Num, StartMode);
     }
 }
@@ -215,7 +214,10 @@ s32 DMA::Run(s32 cycles)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
-            cycles -= (Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
+            s32 c = (Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
+            cycles -= c;
+            NDS::RunTimingCriticalDevices(CPU, c);
+
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
             IterCount--;
@@ -231,7 +233,10 @@ s32 DMA::Run(s32 cycles)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
-            cycles -= (Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
+            s32 c = (Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
+            cycles -= c;
+            NDS::RunTimingCriticalDevices(CPU, c);
+
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
             IterCount--;

@@ -40,14 +40,14 @@ enum
 {
     Event_LCD = 0,
 
-    Event_Timer9_0,
+    /*Event_Timer9_0,
     Event_Timer9_1,
     Event_Timer9_2,
     Event_Timer9_3,
     Event_Timer7_0,
     Event_Timer7_1,
     Event_Timer7_2,
-    Event_Timer7_3,
+    Event_Timer7_3,*/
 
     Event_MAX
 };
@@ -148,6 +148,8 @@ void StopCPU(u32 cpu, u32 mask);
 void ResumeCPU(u32 cpu, u32 mask);
 
 void CheckDMAs(u32 cpu, u32 mode);
+
+void RunTimingCriticalDevices(u32 cpu, s32 cycles);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);

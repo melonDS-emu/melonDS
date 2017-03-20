@@ -333,17 +333,6 @@ void CalcIterationCycles()
 
 void RunSystem(s32 cycles)
 {
-    for (int i = 0; i < 8; i++)
-    {
-        if ((Timers[i].Cnt & 0x84) == 0x80)
-            Timers[i].Counter += (ARM9->Cycles >> 1) << Timers[i].CycleShift;
-    }
-    for (int i = 4; i < 8; i++)
-    {
-        if ((Timers[i].Cnt & 0x84) == 0x80)
-            Timers[i].Counter += ARM7->Cycles << Timers[i].CycleShift;
-    }
-
     for (int i = 0; i < Event_MAX; i++)
     {
         if (!(SchedListMask & (1<<i)))
@@ -382,9 +371,6 @@ void RunFrame()
             if (cycles > 0) cycles = DMAs[2]->Run(cycles);
             if (cycles > 0) cycles = DMAs[3]->Run(cycles);
             ndscyclestorun = CurIterationCycles - cycles;
-
-            // TODO: run other timing critical shit, like timers
-            GPU3D::Run(ndscyclestorun);
         }
         else
         {
@@ -567,6 +553,66 @@ void ResumeCPU(u32 cpu, u32 mask)
 
 
 
+void HandleTimerOverflow(u32 tid)
+{
+    Timer* timer = &Timers[tid];
+
+    timer->Counter += timer->Reload << 16;
+    if (timer->Cnt & (1<<6))
+        SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
+
+    if ((tid & 0x3) == 3)
+        return;
+
+    for (;;)
+    {
+        tid++;
+
+        timer = &Timers[tid];
+
+        if ((timer->Cnt & 0x84) != 0x84)
+            break;
+
+        timer->Counter += 0x10000;
+        if (timer->Counter >> 16)
+            break;
+
+        timer->Counter = timer->Reload << 16;
+        if (timer->Cnt & (1<<6))
+            SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
+
+        if ((tid & 0x3) == 3)
+            break;
+    }
+}
+
+void RunTimer(u32 tid, s32 cycles)
+{
+    Timer* timer = &Timers[tid];
+    if ((timer->Cnt & 0x84) != 0x80)
+        return;
+
+    u32 oldcount = timer->Counter;
+    timer->Counter += (cycles << timer->CycleShift);
+    if (timer->Counter < oldcount)
+        HandleTimerOverflow(tid);
+}
+
+void RunTimingCriticalDevices(u32 cpu, s32 cycles)
+{
+    RunTimer((cpu<<2)+0, cycles);
+    RunTimer((cpu<<2)+1, cycles);
+    RunTimer((cpu<<2)+2, cycles);
+    RunTimer((cpu<<2)+3, cycles);
+
+    if (cpu == 0)
+    {
+        GPU3D::Run(cycles);
+    }
+}
+
+
+
 void CheckDMAs(u32 cpu, u32 mode)
 {
     cpu <<= 2;
@@ -578,56 +624,14 @@ void CheckDMAs(u32 cpu, u32 mode)
 
 
 
-//const s32 TimerPrescaler[4] = {1, 64, 256, 1024};
+
 const s32 TimerPrescaler[4] = {0, 6, 8, 10};
 
 u16 TimerGetCounter(u32 timer)
 {
     u32 ret = Timers[timer].Counter;
 
-    if ((Timers[timer].Cnt & 0x84) == 0x80)
-    {
-        u32 c = (timer & 0x4) ? ARM7->Cycles : (ARM9->Cycles>>1);
-        ret += (c << Timers[timer].CycleShift);
-    }
-
     return ret >> 16;
-}
-
-void TimerOverflow(u32 param)
-{
-    Timer* timer = &Timers[param];
-    timer->Counter = 0;
-
-    u32 tid = param & 0x3;
-    u32 cpu = param >> 2;
-
-    for (;;)
-    {
-        if (tid == (param&0x3))
-            ScheduleEvent(Event_Timer9_0 + param, true, (0x10000 - timer->Reload) << TimerPrescaler[timer->Cnt & 0x03], TimerOverflow, param);
-            //timer->Event = ScheduleEvent(TimerPrescaler[timer->Control&0x3], TimerIncrement, param);
-
-        if (timer->Counter == 0)
-        {
-            timer->Counter = timer->Reload << 16;
-
-            if (timer->Cnt & (1<<6))
-                SetIRQ(cpu, IRQ_Timer0 + tid);
-
-            // cascade
-            if (tid == 3)
-                break;
-            timer++;
-            if ((timer->Cnt & 0x84) != 0x84)
-                break;
-            timer->Counter += 0x10000;
-            tid++;
-            continue;
-        }
-
-        break;
-    }
 }
 
 void TimerStart(u32 id, u16 cnt)
@@ -637,21 +641,11 @@ void TimerStart(u32 id, u16 cnt)
     u16 newstart = cnt & (1<<7);
 
     timer->Cnt = cnt;
+    timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
 
     if ((!curstart) && newstart)
     {
         timer->Counter = timer->Reload << 16;
-        timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
-
-        // start the timer, if it's not a cascading timer
-        if (!(cnt & (1<<2)))
-            ScheduleEvent(Event_Timer9_0 + id, false, (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03], TimerOverflow, id);
-        else
-            CancelEvent(Event_Timer9_0 + id);
-    }
-    else if (curstart && (!newstart))
-    {
-        CancelEvent(Event_Timer9_0 + id);
     }
 }
 

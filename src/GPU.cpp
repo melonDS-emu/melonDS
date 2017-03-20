@@ -716,6 +716,9 @@ void StartScanline(u32 line)
         //NDS::ScheduleEvent(NDS::Event_LCD, true, LINE_CYCLES, StartScanline, line+1);
     }
 
+    // checkme
+    if (line == 0) NDS::CheckDMAs(0, 0x03);
+
     NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
 }
 
