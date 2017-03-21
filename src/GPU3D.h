@@ -72,6 +72,7 @@ void CheckFIFOIRQ();
 void CheckFIFODMA();
 
 void VBlank();
+void VCount215();
 u32* GetLine(int line);
 
 u8 Read8(u32 addr);

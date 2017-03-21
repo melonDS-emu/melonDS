@@ -221,6 +221,10 @@ Polygon* CurPolygonRAM;
 u32 NumVertices, NumPolygons;
 u32 CurRAMBank;
 
+Vertex* RenderVertexRAM;
+Polygon* RenderPolygonRAM;
+u32 RenderNumPolygons;
+
 u32 ClearAttr1, ClearAttr2;
 
 u32 FlushRequest;
@@ -1637,7 +1641,9 @@ void VBlank()
 {
     if (FlushRequest)
     {
-        SoftRenderer::RenderFrame(CurVertexRAM, CurPolygonRAM, NumPolygons);
+        RenderVertexRAM = CurVertexRAM;
+        RenderPolygonRAM = CurPolygonRAM;
+        RenderNumPolygons = NumPolygons;
 
         CurRAMBank = CurRAMBank?0:1;
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
@@ -1645,6 +1651,17 @@ void VBlank()
 
         NumVertices = 0;
         NumPolygons = 0;
+    }
+}
+
+void VCount215()
+{
+    // TODO: detect other conditions that could require rerendering
+    // the DS is said to present new 3D frames all the time, even if no commands are sent
+
+    if (FlushRequest)
+    {
+        SoftRenderer::RenderFrame(RenderVertexRAM, RenderPolygonRAM, RenderNumPolygons);
 
         FlushRequest = 0;
     }
@@ -1668,6 +1685,14 @@ u16 Read16(u32 addr)
     {
     case 0x04000060:
         return DispCnt;
+
+    case 0x04000320:
+        return 46; // TODO, eventually
+
+    case 0x04000604:
+        return NumPolygons;
+    case 0x04000606:
+        return NumVertices;
     }
 
     printf("unknown GPU3D read16 %08X\n", addr);
@@ -1695,6 +1720,9 @@ u32 Read32(u32 addr)
                    (fifolevel < 128 ? (1<<25) : 0) |
                    (fifolevel == 0  ? (1<<26) : 0);
         }
+
+    case 0x04000604:
+        return NumPolygons | (NumVertices << 16);
 
     case 0x04000680: return VecMatrix[0];
     case 0x04000684: return VecMatrix[1];

@@ -729,6 +729,10 @@ void StartScanline(u32 line)
             GPU2D_B->VBlank();
             GPU3D::VBlank();
         }
+        else if (line == 215)
+        {
+            GPU3D::VCount215();
+        }
     }
 
     NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
