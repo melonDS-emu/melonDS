@@ -692,6 +692,12 @@ void StartScanline(u32 line)
         // (TODO, eventually: emulate it properly)
         NDS::CheckDMAs(0, 0x04);
 
+        if (line == 0)
+        {
+            GPU2D_A->VBlankEnd();
+            GPU2D_B->VBlankEnd();
+        }
+
         // draw
         GPU2D_A->DrawScanline(line);
         GPU2D_B->DrawScanline(line);

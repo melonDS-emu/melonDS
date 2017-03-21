@@ -38,6 +38,7 @@ public:
 
     void DrawScanline(u32 line);
     void VBlank();
+    void VBlankEnd();
 
     void BGExtPalDirty(u32 base);
     void OBJExtPalDirty();

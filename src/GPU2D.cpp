@@ -426,12 +426,16 @@ void GPU2D::DrawScanline(u32 line)
 
 void GPU2D::VBlank()
 {
+    CaptureCnt &= ~(1<<31);
+}
+
+void GPU2D::VBlankEnd()
+{
+    // TODO: find out the exact time this happens
     BGXRefInternal[0] = BGXRef[0];
     BGXRefInternal[1] = BGXRef[1];
     BGYRefInternal[0] = BGYRef[0];
     BGYRefInternal[1] = BGYRef[1];
-
-    CaptureCnt &= ~(1<<31);
 }
 
 
