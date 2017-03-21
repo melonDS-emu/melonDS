@@ -1168,8 +1168,7 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrixStack[PosMatrixStackPointer], PosMatrix, 16*4);
-                if (MatrixMode == 2)
-                    memcpy(VecMatrixStack[PosMatrixStackPointer], VecMatrix, 16*4);
+                memcpy(VecMatrixStack[PosMatrixStackPointer], VecMatrix, 16*4);
                 PosMatrixStackPointer++;
                 GXStat |= (1<<14);
             }
@@ -1217,8 +1216,7 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer], 16*4);
-                if (MatrixMode == 2)
-                    memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer], 16*4);
+                memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer], 16*4);
                 GXStat |= (1<<14);
                 ClipMatrixDirty = true;
             }
@@ -1244,8 +1242,7 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrixStack[addr], PosMatrix, 16*4);
-                if (MatrixMode == 2)
-                    memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
+                memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
             }
             break;
 
@@ -1270,8 +1267,7 @@ void ExecuteCommand()
                 }
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
-                if (MatrixMode == 2)
-                    memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
+                memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
                 ClipMatrixDirty = true;
             }
             break;
