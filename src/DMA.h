@@ -65,6 +65,7 @@ private:
     u32 CountMask;
 
     bool Running;
+    bool InProgress;
 };
 
 #endif

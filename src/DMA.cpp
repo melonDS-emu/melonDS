@@ -115,6 +115,7 @@ void DMA::Reset()
     DstAddrInc = 0;
 
     Running = false;
+    InProgress = false;
 }
 
 void DMA::WriteCnt(u32 val)
@@ -162,15 +163,18 @@ void DMA::Start()
 {
     if (Running) return;
 
-    u32 countmask;
-    if (CPU == 0)
-        countmask = 0x001FFFFF;
-    else
-        countmask = (Num==3 ? 0x0000FFFF : 0x00003FFF);
+    if (!InProgress)
+    {
+        u32 countmask;
+        if (CPU == 0)
+            countmask = 0x001FFFFF;
+        else
+            countmask = (Num==3 ? 0x0000FFFF : 0x00003FFF);
 
-    RemCount = Cnt & countmask;
-    if (!RemCount)
-        RemCount = countmask+1;
+        RemCount = Cnt & countmask;
+        if (!RemCount)
+            RemCount = countmask+1;
+    }
 
     if (StartMode == 0x07 && RemCount > 112)
         IterCount = 112;
@@ -211,6 +215,7 @@ void DMA::Start()
     // TODO eventually: not stop if we're running code in ITCM
 
     Running = true;
+    InProgress = true;
     NDS::StopCPU(CPU, 1<<Num);
 }
 
@@ -260,9 +265,6 @@ s32 DMA::Run(s32 cycles)
 
     if (RemCount)
     {
-        Cnt &= ~CountMask;
-        Cnt |= RemCount;
-
         if (IterCount == 0)
         {
             Running = false;
@@ -282,6 +284,7 @@ s32 DMA::Run(s32 cycles)
         NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
 
     Running = false;
+    InProgress = false;
     NDS::ResumeCPU(CPU, 1<<Num);
 
     return cycles - 2;
