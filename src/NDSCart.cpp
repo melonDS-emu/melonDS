@@ -365,12 +365,7 @@ void Write_Flash(u8 val, bool islast)
         }
         else
         {
-            // CHECKME: does Flash also wraparound when the address is out of bounds?
-            if (Addr >= SRAMLength)
-                Data = 0;
-            else
-                Data = SRAM[Addr];
-
+            Data = SRAM[Addr & (SRAMLength-1)];
             Addr++;
         }
         break;
@@ -384,9 +379,7 @@ void Write_Flash(u8 val, bool islast)
         }
         else
         {
-            if (Addr < SRAMLength)
-                SRAM[Addr] = val;
-
+            SRAM[Addr & (SRAMLength-1)] = val;
             Addr++;
         }
         break;
@@ -454,7 +447,7 @@ void Write(u8 val, u32 hold)
         break;
     }
 
-    if (islast && (CurCmd == 0x02 || CurCmd == 0x0A))
+    if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
     {
         FILE* f = fopen(SRAMPath, "wb");
         if (f)
