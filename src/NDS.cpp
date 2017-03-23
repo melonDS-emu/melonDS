@@ -1780,6 +1780,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x040002B8: SqrtVal[0] = val; StartSqrt(); return;
     case 0x040002BC: SqrtVal[1] = val; StartSqrt(); return;
+
+    case 0x04000304:
+        PowerControl9 = val & 0xFFFF;
+        GPU::DisplaySwap(PowerControl9>>15);
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)

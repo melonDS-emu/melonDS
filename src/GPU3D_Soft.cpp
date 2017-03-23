@@ -721,7 +721,7 @@ void RenderPolygon(Polygon* polygon)
             {
                 // edge fill rules for opaque pixels
                 // TODO, eventually: antialiasing
-                if (!wireframe)
+                if (!wireframe)// && !(edge & 0x4))
                 {
                     if ((edge & 0x1) && slope_start > 0x1000)
                         continue;

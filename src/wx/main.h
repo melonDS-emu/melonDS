@@ -34,6 +34,8 @@ enum
     ID_RUN,
     ID_PAUSE,
     ID_RESET,
+
+    ID_INPUTCONFIG,
 };
 
 class EmuThread;
@@ -53,32 +55,40 @@ public:
     SDL_Renderer* sdlrend;
     SDL_Texture* sdltex;
 
+    wxMutex* texmutex;
+    void* texpixels;
+    int texstride;
+
+    int emustatus;
+    EmuThread* emuthread;
+    wxMutex* emustatuschangemutex;
+    wxCondition* emustatuschange;
+    wxMutex* emustopmutex;
+    wxCondition* emustop;
+
 private:
     wxDECLARE_EVENT_TABLE();
 
+    void OnClose(wxCloseEvent& event);
+    void OnCloseFromMenu(wxCommandEvent& event);
     void OnOpenROM(wxCommandEvent& event);
 
-    void OnPaint(wxPaintEvent& event);
+    void ProcessSDLEvents();
 
-    EmuThread* emuthread;
-    wxMutex* emumutex;
-    wxCondition* emucond;
+    void OnPaint(wxPaintEvent& event);
+    void OnIdle(wxIdleEvent& event);
 };
 
 class EmuThread : public wxThread
 {
 public:
-    EmuThread(MainFrame* parent, wxMutex* mutex, wxCondition* cond);
+    EmuThread(MainFrame* parent);
     ~EmuThread();
-
-    u32 EmuStatus;
 
 protected:
     virtual ExitCode Entry();
 
     MainFrame* parent;
-    wxMutex* mutex;
-    wxCondition* cond;
 };
 
 #endif // WX_MAIN_H

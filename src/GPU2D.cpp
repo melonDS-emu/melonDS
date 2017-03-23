@@ -38,6 +38,14 @@
 //
 // for VRAM display mode, VRAM must be mapped to LCDC
 //
+// FIFO display mode:
+// * the 'FIFO' is a circular buffer of 32 bytes (16 pixels)
+// * the buffer doesn't get empty, the display controller keeps reading from it
+// -> if it isn't updated, the contents will be repeated every 16 pixels
+// * the write pointer is incremented when writing to the higher 16 bits of the FIFO register (0x04000068)
+// * the write pointer is reset upon VBlank
+// * FIFO DMA (mode 4) is triggered every 8 pixels. start bit is cleared upon VBlank.
+//
 // sprite blending rules
 // * destination must be selected as 2nd target
 // * sprite must be semitransparent or bitmap sprite

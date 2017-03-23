@@ -19,26 +19,15 @@
 #include "../types.h"
 #include "main.h"
 #include "../version.h"
+#include "../Config.h"
 #include "../NDS.h"
 #include "../GPU.h"
 
 
-const int DefaultKeyMapping[18] =
-{
-    15, 54,
-    44, 40,
-    22, 4, 26, 29,
-    19, 20,
-    0, 0, 0, 0, 0, 0,
-    18, 14
-};
-
-int KeyMapping[18];
-int JoyMapping[18];
-
 bool Touching;
 
 int WindowX, WindowY;
+int WindowW, WindowH;
 
 
 wxIMPLEMENT_APP(wxApp_melonDS);
@@ -54,6 +43,8 @@ bool wxApp_melonDS::OnInit()
 
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
+    Config::Load();
+
     MainFrame* melon = new MainFrame();
     melon->Show(true);
 
@@ -62,13 +53,18 @@ bool wxApp_melonDS::OnInit()
 
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
+    EVT_CLOSE(MainFrame::OnClose)
+
     EVT_MENU(ID_OPENROM, MainFrame::OnOpenROM)
+    EVT_MENU(ID_EXIT, MainFrame::OnCloseFromMenu)
+
     EVT_PAINT(MainFrame::OnPaint)
+    EVT_IDLE(MainFrame::OnIdle)
 wxEND_EVENT_TABLE()
 
 
 MainFrame::MainFrame()
-    : wxFrame(NULL, wxID_ANY, "melonDS")
+    : wxFrame(NULL, wxID_ANY, "melonDS " MELONDS_VERSION)
 {
     wxMenu* filemenu = new wxMenu();
     filemenu->Append(ID_OPENROM, "Open ROM...");
@@ -81,18 +77,29 @@ MainFrame::MainFrame()
     systemmenu->AppendSeparator();
     systemmenu->Append(ID_RESET, "Reset");
 
+    wxMenu* settingsmenu = new wxMenu();
+    settingsmenu->Append(ID_INPUTCONFIG, "Input");
+
     wxMenuBar* melonbar = new wxMenuBar();
     melonbar->Append(filemenu, "File");
     melonbar->Append(systemmenu, "System");
+    melonbar->Append(settingsmenu, "Settings");
 
     SetMenuBar(melonbar);
 
     SetClientSize(256, 384);
+    SetMinSize(GetSize());
 
-    emumutex = new wxMutex();
-    emucond = new wxCondition(*emumutex);
+    emustatus = 2;
 
-    emuthread = new EmuThread(this, emumutex, emucond);
+    emustatuschangemutex = new wxMutex();
+    emustatuschange = new wxCondition(*emustatuschangemutex);
+
+    emustopmutex = new wxMutex();
+    emustop = new wxCondition(*emustopmutex);
+    emustopmutex->Lock();
+
+    emuthread = new EmuThread(this);
     if (emuthread->Run() != wxTHREAD_NO_ERROR)
     {
         printf("thread shat itself :( giving up now\n");
@@ -102,17 +109,53 @@ MainFrame::MainFrame()
 
     sdlwin = SDL_CreateWindowFrom(GetHandle());
 
-    sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED); // SDL_RENDERER_PRESENTVSYNC
+    sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED);// | SDL_RENDERER_PRESENTVSYNC);
     sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
 
-    NDS::Init();
+    texmutex = new wxMutex();
+    SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
+    texmutex->Unlock();
 
-    memcpy(KeyMapping, DefaultKeyMapping, 18*sizeof(int));
-    memset(JoyMapping, 0, 18*sizeof(int));
+    NDS::Init();
 
     Touching = false;
 
     SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
+    SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
+}
+
+void MainFrame::OnClose(wxCloseEvent& event)
+{
+    emustatus = 0;
+    emustatuschangemutex->Lock();
+    emustatuschange->Signal();
+    emustatuschangemutex->Unlock();
+
+    emuthread->Wait();
+    delete emuthread;
+    delete emustatuschange;
+    delete emustatuschangemutex;
+    delete emustop;
+    delete emustopmutex;
+
+    NDS::DeInit();
+
+    SDL_UnlockTexture(sdltex);
+    delete texmutex;
+
+    SDL_DestroyTexture(sdltex);
+    SDL_DestroyRenderer(sdlrend);
+
+    SDL_DestroyWindow(sdlwin);
+
+    SDL_Quit();
+
+    Destroy();
+}
+
+void MainFrame::OnCloseFromMenu(wxCommandEvent& event)
+{
+    Close();
 }
 
 void MainFrame::OnOpenROM(wxCommandEvent& event)
@@ -121,35 +164,118 @@ void MainFrame::OnOpenROM(wxCommandEvent& event)
     if (opener.ShowModal() == wxID_CANCEL)
         return;
 
+    if (emustatus == 1)
+    {
+        emustatus = 2;
+        emustop->Wait();
+    }
+
     wxString filename = opener.GetPath();
     NDS::LoadROM(filename.mb_str(), true);
 
-    emuthread->EmuStatus = 1;
-    emumutex->Lock();
-    emucond->Signal();
-    emumutex->Unlock();
+    emustatus = 1;
+    emustatuschangemutex->Lock();
+    emustatuschange->Signal();
+    emustatuschangemutex->Unlock();
+}
+
+void MainFrame::ProcessSDLEvents()
+{
+    bool running = (emustatus == 1);
+    SDL_Event evt;
+
+    while (SDL_PollEvent(&evt))
+    {
+        switch (evt.type)
+        {
+        case SDL_WINDOWEVENT:
+            if (evt.window.event != SDL_WINDOWEVENT_EXPOSED)
+            {
+                SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
+                SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
+            }
+            break;
+
+        case SDL_MOUSEBUTTONDOWN:
+            if (!running) return;
+            if (evt.button.y >= 192 && evt.button.button == SDL_BUTTON_LEFT)
+            {
+                Touching = true;
+                NDS::PressKey(16+6);
+            }
+            break;
+
+        case SDL_KEYDOWN:
+            if (!running) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::PressKey(i);
+            if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::PressKey(16);
+            if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::PressKey(17);
+            break;
+
+        case SDL_KEYUP:
+            if (!running) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
+            if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
+            if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+            break;
+        }
+    }
+
+    if (Touching)
+    {
+        int mx, my;
+        u32 btn = SDL_GetGlobalMouseState(&mx, &my);
+        if (!(btn & SDL_BUTTON(SDL_BUTTON_LEFT)))
+        {
+            Touching = false;
+            NDS::ReleaseKey(16+6);
+            NDS::ReleaseScreen();
+        }
+        else
+        {
+            mx -= WindowX;
+            my -= (WindowY + 192);
+
+            if (mx < 0)        mx = 0;
+            else if (mx > 255) mx = 255;
+
+            if (my < 0)        my = 0;
+            else if (my > 191) my = 191;
+
+            NDS::TouchScreen(mx, my);
+        }
+    }
 }
 
 void MainFrame::OnPaint(wxPaintEvent& event)
 {
-    /*wxPaintDC dc(this);
-    wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-    if (!gc) return;
+    wxPaintDC dc(this);
 
-    //
+    texmutex->Lock();
+    SDL_UnlockTexture(sdltex);
 
-    delete gc;*/
+    //SDL_RenderClear(sdlrend);
+    SDL_RenderCopy(sdlrend, sdltex, NULL, NULL);
+    SDL_RenderPresent(sdlrend);
+
+    SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
+    texmutex->Unlock();
+
+    ProcessSDLEvents();
+}
+
+void MainFrame::OnIdle(wxIdleEvent& event)
+{
+    ProcessSDLEvents();
 }
 
 
-EmuThread::EmuThread(MainFrame* parent, wxMutex* mutex, wxCondition* cond)
+EmuThread::EmuThread(MainFrame* parent)
     : wxThread(wxTHREAD_JOINABLE)
 {
     this->parent = parent;
-    this->mutex = mutex;
-    this->cond = cond;
-
-    EmuStatus = 2;
 }
 
 EmuThread::~EmuThread()
@@ -158,87 +284,75 @@ EmuThread::~EmuThread()
 
 wxThread::ExitCode EmuThread::Entry()
 {
-    mutex->Lock();
+    parent->emustatuschangemutex->Lock();
 
     for (;;)
     {
-        cond->Wait();
+        parent->emustatuschange->Wait();
 
-        if (EmuStatus == 0)
-            break;
-
-        while (EmuStatus == 1)
+        if (parent->emustatus == 1)
         {
-            NDS::RunFrame();
+            u32 nframes = 0;
+            u32 lasttick = SDL_GetTicks();
+            u32 fpslimitcount = 0;
 
-            SDL_Event evt;
-            while (SDL_PollEvent(&evt))
+            while (parent->emustatus == 1)
             {
-                switch (evt.type)
+                u32 starttick = SDL_GetTicks();
+
+                NDS::RunFrame();
+
+                parent->texmutex->Lock();
+
+                if (parent->texstride == 256*4)
                 {
-                case SDL_WINDOWEVENT:
-                    SDL_GetWindowPosition(parent->sdlwin, &WindowX, &WindowY);
-                    break;
-
-                case SDL_MOUSEBUTTONDOWN:
-                    if (evt.button.y >= 192 && evt.button.button == SDL_BUTTON_LEFT)
-                    {
-                        Touching = true;
-                        NDS::PressKey(16+6);
-                    }
-                    break;
-
-                case SDL_KEYDOWN:
-                    for (int i = 0; i < 10; i++)
-                        if (evt.key.keysym.scancode == KeyMapping[i]) NDS::PressKey(i);
-                    if (evt.key.keysym.scancode == KeyMapping[16]) NDS::PressKey(16);
-                    if (evt.key.keysym.scancode == KeyMapping[17]) NDS::PressKey(17);
-                    break;
-
-                case SDL_KEYUP:
-                    for (int i = 0; i < 10; i++)
-                        if (evt.key.keysym.scancode == KeyMapping[i]) NDS::ReleaseKey(i);
-                    if (evt.key.keysym.scancode == KeyMapping[16]) NDS::ReleaseKey(16);
-                    if (evt.key.keysym.scancode == KeyMapping[17]) NDS::ReleaseKey(17);
-                    break;
-                }
-            }
-
-            if (Touching)
-            {
-                int mx, my;
-                u32 btn = SDL_GetGlobalMouseState(&mx, &my);
-                if (!(btn & SDL_BUTTON(SDL_BUTTON_LEFT)))
-                {
-                    Touching = false;
-                    NDS::ReleaseKey(16+6);
-                    NDS::ReleaseScreen();
+                    memcpy(parent->texpixels, GPU::Framebuffer, 256*384*4);
                 }
                 else
                 {
-                    mx -= WindowX;
-                    my -= (WindowY + 192);
+                    int dsty = 0;
+                    for (int y = 0; y < 256*384; y+=256)
+                    {
+                        memcpy(&((u8*)parent->texpixels)[dsty], &GPU::Framebuffer[y], 256*4);
+                        dsty += parent->texstride;
+                    }
+                }
 
-                    if (mx < 0)        mx = 0;
-                    else if (mx > 255) mx = 255;
+                parent->texmutex->Unlock();
+                parent->Refresh();
 
-                    if (my < 0)        my = 0;
-                    else if (my > 191) my = 191;
+                fpslimitcount++;
+                if (fpslimitcount >= 3) fpslimitcount = 0;
+                u32 frametime = (fpslimitcount == 0) ? 16 : 17;
 
-                    NDS::TouchScreen(mx, my);
+                u32 endtick = SDL_GetTicks();
+                u32 diff = endtick - starttick;
+                if (diff < frametime)
+                    Sleep(frametime - diff);
+
+                nframes++;
+                if (nframes >= 30)
+                {
+                    u32 tick = SDL_GetTicks();
+                    u32 diff = tick - lasttick;
+                    lasttick = tick;
+
+                    u32 fps = (nframes * 1000) / diff;
+                    nframes = 0;
+
+                    char melontitle[100];
+                    sprintf(melontitle, "%d FPS - melonDS " MELONDS_VERSION, fps);
+                    parent->SetTitle(melontitle);
                 }
             }
 
-            void* pixels; int zorp;
-            SDL_LockTexture(parent->sdltex, NULL, &pixels, &zorp);
-            memcpy(pixels, GPU::Framebuffer, 256*384*4);
-            SDL_UnlockTexture(parent->sdltex);
-
-            SDL_SetRenderTarget(parent->sdlrend, parent->sdltex);
-            SDL_RenderClear(parent->sdlrend);
-            SDL_RenderCopy(parent->sdlrend, parent->sdltex, NULL, NULL);
-            SDL_RenderPresent(parent->sdlrend);
+            parent->emustopmutex->Lock();
+            parent->emustop->Signal();
+            parent->emustopmutex->Unlock();
         }
+
+        if (parent->emustatus == 0)
+            break;
     }
 
     return (wxThread::ExitCode)0;

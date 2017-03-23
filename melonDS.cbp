@@ -80,6 +80,8 @@
 		<Unit filename="src/ARM_InstrTable.h" />
 		<Unit filename="src/CP15.cpp" />
 		<Unit filename="src/CP15.h" />
+		<Unit filename="src/Config.cpp" />
+		<Unit filename="src/Config.h" />
 		<Unit filename="src/DMA.cpp" />
 		<Unit filename="src/DMA.h" />
 		<Unit filename="src/FIFO.h" />

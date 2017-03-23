@@ -52,6 +52,12 @@
 // if (clearZ >= 0x010000 && clearZ < 0xFFFFFF) clearZ++;
 //
 // alpha is 5-bit
+//
+// matrix push/pop on the position matrix are always applied to the vector matrix too, even in position-only mode
+// store/restore too, probably (TODO: confirm)
+// (the idea is that each position matrix has an associated vector matrix)
+//
+// TODO: check if translate works on the vector matrix? seems pointless
 
 
 namespace GPU3D
@@ -729,7 +735,10 @@ void SubmitPolygon()
     }
 
     if (farplaneclip && (!(CurPolygonAttr & (1<<12))))
+    {
+        LastStripPolygon = NULL;
         return;
+    }
 
     nverts = c; c = clipstart;
     for (int i = clipstart; i < nverts; i++)
@@ -902,6 +911,8 @@ void SubmitVertex()
 {
     s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
     Vertex* vertextrans = &TempVertexBuffer[VertexNumInPoly];
+
+    //printf("vertex: %08X %08X %08X, %d %d %d\n", CurVertex[0], CurVertex[1], CurVertex[2], VertexColor[0], VertexColor[1], VertexColor[2]);
 
     UpdateClipMatrix();
     vertextrans->Position[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
