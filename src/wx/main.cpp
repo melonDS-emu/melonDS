@@ -23,6 +23,8 @@
 #include "../NDS.h"
 #include "../GPU.h"
 
+#include "InputConfig.h"
+
 
 bool Touching;
 
@@ -57,6 +59,8 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
 
     EVT_MENU(ID_OPENROM, MainFrame::OnOpenROM)
     EVT_MENU(ID_EXIT, MainFrame::OnCloseFromMenu)
+
+    EVT_MENU(ID_INPUTCONFIG, MainFrame::OnInputConfig)
 
     EVT_PAINT(MainFrame::OnPaint)
     EVT_IDLE(MainFrame::OnIdle)
@@ -177,6 +181,12 @@ void MainFrame::OnOpenROM(wxCommandEvent& event)
     emustatuschangemutex->Lock();
     emustatuschange->Signal();
     emustatuschangemutex->Unlock();
+}
+
+void MainFrame::OnInputConfig(wxCommandEvent& event)
+{
+    InputConfigDialog dlg(this);
+    dlg.ShowModal();
 }
 
 void MainFrame::ProcessSDLEvents()

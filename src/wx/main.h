@@ -73,6 +73,8 @@ private:
     void OnCloseFromMenu(wxCommandEvent& event);
     void OnOpenROM(wxCommandEvent& event);
 
+    void OnInputConfig(wxCommandEvent& event);
+
     void ProcessSDLEvents();
 
     void OnPaint(wxPaintEvent& event);

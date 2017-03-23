@@ -67,6 +67,9 @@
 			<Add library="wsock32" />
 			<Add library="oleacc" />
 		</Linker>
+		<Unit filename="melon.rc">
+			<Option compilerVar="WINDRES" />
+		</Unit>
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
 		<Unit filename="src/ARMInterpreter.cpp" />
@@ -104,8 +107,11 @@
 		<Unit filename="src/Wifi.h" />
 		<Unit filename="src/types.h" />
 		<Unit filename="src/version.h" />
+		<Unit filename="src/wx/InputConfig.cpp" />
+		<Unit filename="src/wx/InputConfig.h" />
 		<Unit filename="src/wx/main.cpp" />
 		<Unit filename="src/wx/main.h" />
+		<Unit filename="xp.manifest" />
 		<Extensions>
 			<code_completion />
 			<envvars />
