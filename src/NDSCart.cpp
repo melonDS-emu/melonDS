@@ -268,7 +268,45 @@ void Write_Null(u8 val, bool islast) {}
 
 void Write_EEPROMTiny(u8 val, bool islast)
 {
-    // TODO
+    switch (CurCmd)
+    {
+    case 0x02:
+    case 0x0A:
+        if (DataPos < 1)
+        {
+            Addr = val;
+            Data = 0;
+        }
+        else
+        {
+            SRAM[(Addr & 0xFF) | ((CurCmd==0x0A)?0x100:0)] = val;
+            Addr++;
+        }
+        break;
+
+    case 0x03:
+    case 0x0B:
+        if (DataPos < 1)
+        {
+            Addr = val;
+            Data = 0;
+        }
+        else
+        {
+            Data = SRAM[(Addr & 0xFF) | ((CurCmd==0x0B)?0x100:0)];
+            Addr++;
+        }
+        break;
+
+    case 0x9F:
+        Data = 0xFF;
+        break;
+
+    default:
+        if (DataPos==0)
+            printf("unknown tiny EEPROM save command %02X\n", CurCmd);
+        break;
+    }
 }
 
 void Write_EEPROM(u8 val, bool islast)
