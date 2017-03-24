@@ -66,21 +66,9 @@ u32 VRAMMap_BBGExtPal[4];
 u32 VRAMMap_BOBJExtPal;
 
 u32 VRAMMap_Texture[4];
-u32 VRAMMap_TexPal[6];
+u32 VRAMMap_TexPal[8];
 
 u32 VRAMMap_ARM7[2];
-
-/*u8* VRAM_ABG[128];
-u8* VRAM_AOBJ[128];
-u8* VRAM_BBG[128];
-u8* VRAM_BOBJ[128];
-u8* VRAM_LCD[128];*/
-/*u8* VRAM_ARM7[2];
-
-u8* VRAM_ABGExtPal[4];
-u8* VRAM_AOBJExtPal;
-u8* VRAM_BBGExtPal[4];
-u8* VRAM_BOBJExtPal;*/
 
 u32 Framebuffer[256*192*2];
 
@@ -146,21 +134,6 @@ void Reset()
 
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
-
-    //memset(VRAM_Base, 0, sizeof(VRAM_Base));
-    //memset(VRAM_Mask, 0, sizeof(VRAM_Mask));
-
-    /*memset(VRAM_ABG, 0, sizeof(u8*)*128);
-    memset(VRAM_AOBJ, 0, sizeof(u8*)*128);
-    memset(VRAM_BBG, 0, sizeof(u8*)*128);
-    memset(VRAM_BOBJ, 0, sizeof(u8*)*128);
-    memset(VRAM_LCD, 0, sizeof(u8*)*128);*/
-    /*memset(VRAM_ARM7, 0, sizeof(u8*)*2);
-
-    memset(VRAM_ABGExtPal, 0, sizeof(u8*)*4);
-    VRAM_AOBJExtPal = NULL;
-    memset(VRAM_BBGExtPal, 0, sizeof(u8*)*4);
-    VRAM_BOBJExtPal = NULL;*/
 
     for (int i = 0; i < 256*192*2; i++)
     {
@@ -452,8 +425,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
         case 4: // ABG ext palette
             VRAMMap_ABGExtPal[((oldofs & 0x1) << 1)] &= ~bankmask;
             VRAMMap_ABGExtPal[((oldofs & 0x1) << 1) + 1] &= ~bankmask;
-            GPU2D_A->BGExtPalDirty(0);
-            GPU2D_A->BGExtPalDirty(2);
+            GPU2D_A->BGExtPalDirty((oldofs & 0x1) << 1);
             break;
 
         case 5: // AOBJ ext palette
@@ -488,8 +460,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
         case 4: // ABG ext palette
             VRAMMap_ABGExtPal[((ofs & 0x1) << 1)] |= bankmask;
             VRAMMap_ABGExtPal[((ofs & 0x1) << 1) + 1] |= bankmask;
-            GPU2D_A->BGExtPalDirty(0);
-            GPU2D_A->BGExtPalDirty(2);
+            GPU2D_A->BGExtPalDirty((ofs & 0x1) << 1);
             break;
 
         case 5: // AOBJ ext palette

@@ -193,6 +193,7 @@ void SetMemoryType()
     CurCmd = prev_cmd;
 
     delete[] Discover_Buffer;
+    Discover_Buffer = NULL;
 }
 
 void Write_Discover(u8 val, bool islast)

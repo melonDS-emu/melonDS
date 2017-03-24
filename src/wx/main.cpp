@@ -130,10 +130,18 @@ MainFrame::MainFrame()
 
 void MainFrame::OnClose(wxCloseEvent& event)
 {
-    emustatus = 0;
-    emustatuschangemutex->Lock();
-    emustatuschange->Signal();
-    emustatuschangemutex->Unlock();
+    if (emustatus == 1)
+    {
+        emustatus = 0;
+        emustop->Wait();
+    }
+    else
+    {
+        emustatus = 0;
+        emustatuschangemutex->Lock();
+        emustatuschange->Signal();
+        emustatuschangemutex->Unlock();
+    }
 
     emuthread->Wait();
     delete emuthread;

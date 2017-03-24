@@ -698,7 +698,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
                 if (bgmode >= 3)
                     DrawBG_Extended(line, dst, 3);
                 else if (bgmode >= 1)
-                    {} // todo: rotscale
+                    DrawBG_Affine(line, dst, 3);
                 else
                     DrawBG_Text(line, dst, 3);
             }
@@ -710,7 +710,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
                 if (bgmode == 5)
                     DrawBG_Extended(line, dst, 2);
                 else if (bgmode == 4 || bgmode == 2)
-                    {} // todo: rotscale
+                    DrawBG_Affine(line, dst, 2);
                 else
                     DrawBG_Text(line, dst, 2);
             }
@@ -1071,6 +1071,79 @@ void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
     }
 }
 
+void GPU2D::DrawBG_Affine(u32 line, u32* dst, u32 bgnum)
+{
+    u16 bgcnt = BGCnt[bgnum];
+
+    u32 tilesetaddr, tilemapaddr;
+    u16* pal;
+
+    u32 coordmask;
+    u32 yshift;
+    switch (bgcnt & 0xC000)
+    {
+    case 0x0000: coordmask = 0x07800; yshift = 7; break;
+    case 0x4000: coordmask = 0x0F800; yshift = 8; break;
+    case 0x8000: coordmask = 0x1F800; yshift = 9; break;
+    case 0xC000: coordmask = 0x3F800; yshift = 10; break;
+    }
+
+    u32 overflowmask;
+    if (bgcnt & 0x2000) overflowmask = 0;
+    else                overflowmask = ~(coordmask | 0x7FF);
+
+    s16 rotA = BGRotA[bgnum-2];
+    s16 rotB = BGRotB[bgnum-2];
+    s16 rotC = BGRotC[bgnum-2];
+    s16 rotD = BGRotD[bgnum-2];
+
+    s32 rotX = BGXRefInternal[bgnum-2];
+    s32 rotY = BGYRefInternal[bgnum-2];
+
+    if (Num)
+    {
+        tilesetaddr = 0x06200000 + ((bgcnt & 0x003C) << 12);
+        tilemapaddr = 0x06200000 + ((bgcnt & 0x1F00) << 3);
+
+        pal = (u16*)&GPU::Palette[0x400];
+    }
+    else
+    {
+        tilesetaddr = 0x06000000 + ((DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
+        tilemapaddr = 0x06000000 + ((DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
+
+        pal = (u16*)&GPU::Palette[0];
+    }
+
+    u16 curtile;
+
+    yshift -= 3;
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (!((rotX|rotY) & overflowmask))
+        {
+            curtile = GPU::ReadVRAM_BG<u8>(tilemapaddr + ((((rotY & coordmask) >> 11) << yshift) + ((rotX & coordmask) >> 11)));
+
+            // draw pixel
+            u8 color;
+            u32 tilexoff = (rotX >> 8) & 0x7;
+            u32 tileyoff = (rotY >> 8) & 0x7;
+
+            color = GPU::ReadVRAM_BG<u8>(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff);
+
+            if (color)
+                DrawPixel(&dst[i], pal[color], 0x01000000<<bgnum);
+        }
+
+        rotX += rotA;
+        rotY += rotC;
+    }
+
+    BGXRefInternal[bgnum-2] += rotB;
+    BGYRefInternal[bgnum-2] += rotD;
+}
+
 void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
@@ -1310,15 +1383,6 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
     u32 spritemode = (attrib[0] >> 10) & 0x3;
 
     u32 ytilefactor;
-    if (DispCnt & 0x10)
-    {
-        tilenum <<= ((DispCnt >> 20) & 0x3);
-        ytilefactor = (width >> 3) << ((attrib[0] & 0x2000) ? 1:0);
-    }
-    else
-    {
-        ytilefactor = 0x20;
-    }
 
     s32 centerX = boundwidth >> 1;
     s32 centerY = boundheight >> 1;
@@ -1349,18 +1413,71 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
     if (spritemode == 3)
     {
-        // TODO
-
         u32 alpha = attrib[2] >> 12;
         if (!alpha) return;
         alpha++;
 
         prio |= (0xC0000000 | (alpha << 24));
 
-        // TODO
+        if (DispCnt & 0x40)
+        {
+            if (DispCnt & 0x20)
+            {
+                // TODO ("reserved")
+            }
+            else
+            {
+                tilenum <<= (7 + ((DispCnt >> 22) & 0x1));
+                ytilefactor = ((width >> 8) * 2);
+            }
+        }
+        else
+        {
+            if (DispCnt & 0x20)
+            {
+                tilenum = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
+                ytilefactor = (256 * 2);
+            }
+            else
+            {
+                tilenum = ((tilenum & 0x00F) << 4) + ((tilenum & 0x3F0) << 7);
+                ytilefactor = (128 * 2);
+            }
+        }
+
+        u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
+
+        for (; xoff < boundwidth;)
+        {
+            if ((u32)rotX < width && (u32)rotY < height)
+            {
+                u8 color;
+
+                // blaaaarg
+                color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr + ((rotY >> 8) * ytilefactor) + ((rotX >> 8) << 1));
+
+                if (color & 0x8000)
+                    dst[xpos] = color | prio;
+            }
+
+            rotX += rotA;
+            rotY += rotC;
+            xoff++;
+            xpos++;
+        }
     }
     else
     {
+        if (DispCnt & 0x10)
+        {
+            tilenum <<= ((DispCnt >> 20) & 0x3);
+            ytilefactor = (width >> 11) << ((attrib[0] & 0x2000) ? 1:0);
+        }
+        else
+        {
+            ytilefactor = 0x20;
+        }
+
         if (spritemode == 1) prio |= 0x80000000;
         else                 prio |= 0x10000000;
 
@@ -1459,6 +1576,12 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
     {
         // bitmap sprite
 
+        u32 alpha = attrib[2] >> 12;
+        if (!alpha) return;
+        alpha++;
+
+        prio |= (0xC0000000 | (alpha << 24));
+
         if (DispCnt & 0x40)
         {
             if (DispCnt & 0x20)
@@ -1484,12 +1607,6 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
                 tilenum += (ypos * 128 * 2);
             }
         }
-
-        u32 alpha = attrib[2] >> 12;
-        if (!alpha) return;
-        alpha++;
-
-        prio |= (0xC0000000 | (alpha << 24));
 
         u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
         pixelsaddr += (xoff << 1);

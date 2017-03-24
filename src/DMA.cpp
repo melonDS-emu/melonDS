@@ -189,7 +189,7 @@ void DMA::Start()
     // special path for cart DMA. this is a gross hack.
     // emulating it properly requires emulating cart transfer delays, so uh... TODO
     if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
-        StartMode==0x05 || StartMode==0x12)
+        (StartMode==0x05 || StartMode==0x12))
     {
         NDSCart::DMA(CurDstAddr);
         Cnt &= ~0x80000000;

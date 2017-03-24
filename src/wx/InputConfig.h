@@ -30,9 +30,29 @@ class InputConfigDialog : public wxDialog
 {
 public:
     InputConfigDialog(wxWindow* parent);
+    ~InputConfigDialog();
 
 private:
     wxDECLARE_EVENT_TABLE();
+
+    void OnDerp(wxCommandEvent& event);
+
+    void OnConfigureKey(wxCommandEvent& event);
+    void OnConfigureJoy(wxCommandEvent& event);
+
+    void OnPoll(wxTimerEvent& event);
+
+    void OnKeyDown(wxKeyEvent& event);
+
+    const u8* keystate;
+    int nkeys;
+
+    wxTimer* polltimer;
+    int pollid;
+    wxButton* pollbtn;
+
+    int keymapping[12];
+    int joymapping[12];
 };
 
 #endif // WX_INPUTCONFIG_H

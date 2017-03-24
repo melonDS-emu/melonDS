@@ -57,7 +57,7 @@ extern u32 VRAMMap_AOBJExtPal;
 extern u32 VRAMMap_BBGExtPal[4];
 extern u32 VRAMMap_BOBJExtPal;
 extern u32 VRAMMap_Texture[4];
-extern u32 VRAMMap_TexPal[6];
+extern u32 VRAMMap_TexPal[8];
 extern u32 VRAMMap_ARM7[2];
 
 extern u32 Framebuffer[256*192*2];
@@ -372,7 +372,6 @@ template<typename T>
 T ReadVRAM_TexPal(u32 addr)
 {
     u32 ret = 0;
-    if (addr >= 0x18000) return 0;
     u32 mask = VRAMMap_TexPal[(addr >> 14) & 0x7];
 
     if (mask & (1<<4)) ret |= *(T*)&VRAM_E[addr & 0xFFFF];
