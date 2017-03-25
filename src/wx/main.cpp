@@ -317,16 +317,16 @@ void MainFrame::ProcessSDLEvents()
             if (evt.jaxis.axis == 0)
             {
                 if (evt.jaxis.value >= 16384) { NDS::PressKey(4); axismask |= 0x1; }
-                else if (axismask & 0x1)        NDS::ReleaseKey(4);
+                else if (axismask & 0x1)      { NDS::ReleaseKey(4); axismask &= ~0x1; }
                 if (evt.jaxis.value <= -16384) { NDS::PressKey(5); axismask |= 0x2; }
-                else if (axismask & 0x2)         NDS::ReleaseKey(5);
+                else if (axismask & 0x2)       { NDS::ReleaseKey(5); axismask &= ~0x2; }
             }
             else if (evt.jaxis.axis == 1)
             {
                 if (evt.jaxis.value >= 16384) { NDS::PressKey(7); axismask |= 0x4; }
-                else if (axismask & 0x4)        NDS::ReleaseKey(7);
+                else if (axismask & 0x4)      { NDS::ReleaseKey(7); axismask &= ~0x4; }
                 if (evt.jaxis.value <= -16384) { NDS::PressKey(6); axismask |= 0x8; }
-                else if (axismask & 0x8)         NDS::ReleaseKey(6);
+                else if (axismask & 0x8)       { NDS::ReleaseKey(6); axismask &= ~0x8; }
             }
             break;
         }
