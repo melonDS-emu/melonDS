@@ -37,19 +37,28 @@ private:
 
     void OnDerp(wxCommandEvent& event);
 
-    void OnConfigureKey(wxCommandEvent& event);
-    void OnConfigureJoy(wxCommandEvent& event);
+    void OnConfigureKey(wxMouseEvent& event);
+    void OnConfigureJoy(wxMouseEvent& event);
 
     void OnPoll(wxTimerEvent& event);
 
     void OnKeyDown(wxKeyEvent& event);
+    void OnFancybuttonHover(wxMouseEvent& event);
+
+    void JoyMappingName(int id, char* str);
+
+    SDL_Window* sdlwin;
+    wxPanel* keycatcher;
 
     const u8* keystate;
     int nkeys;
+    int njoys;
+    SDL_Joystick* joy;
 
     wxTimer* polltimer;
     int pollid;
-    wxButton* pollbtn;
+    wxStaticText* pollbtn;
+    wxString pollbtntext;
 
     int keymapping[12];
     int joymapping[12];

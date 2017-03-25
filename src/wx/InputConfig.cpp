@@ -24,35 +24,7 @@
 wxBEGIN_EVENT_TABLE(InputConfigDialog, wxDialog)
     EVT_COMMAND(1001, wxEVT_BUTTON, InputConfigDialog::OnDerp)
 
-    EVT_COMMAND(100, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(101, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(102, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(103, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(104, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(105, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(106, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(107, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(108, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(109, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(110, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-    EVT_COMMAND(111, wxEVT_BUTTON, InputConfigDialog::OnConfigureKey)
-
-    EVT_COMMAND(200, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(201, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(202, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(203, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(204, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(205, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(206, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(207, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(208, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(209, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(210, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-    EVT_COMMAND(211, wxEVT_BUTTON, InputConfigDialog::OnConfigureJoy)
-
     EVT_TIMER(wxID_ANY, InputConfigDialog::OnPoll)
-
-    EVT_KEY_DOWN(InputConfigDialog::OnKeyDown)
 wxEND_EVENT_TABLE()
 
 
@@ -84,9 +56,22 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
                 wxStaticText* label = new wxStaticText(p, wxID_ANY, keylabels[j]);
                 grid->Add(label, 0, wxALIGN_RIGHT|wxALIGN_CENTRE_VERTICAL);
 
-                const char* keyname = SDL_GetScancodeName((SDL_Scancode)Config::KeyMapping[j]);
-                wxButton* btn = new wxButton(p, 100+j, keyname);
+                // SDL_GetScancodeName() doesn't take the keyboard layout into account,
+                // which can be inconvenient
+                const char* keyname = SDL_GetKeyName(SDL_GetKeyFromScancode((SDL_Scancode)keymapping[j]));
+
+                wxStaticText* btn = new wxStaticText(p, 100+j, keyname,
+                    wxDefaultPosition, wxDefaultSize,
+                    wxALIGN_CENTRE_HORIZONTAL | wxBORDER_SUNKEN | wxST_NO_AUTORESIZE);
+                btn->SetMinSize(wxSize(120, btn->GetSize().GetHeight()));
                 grid->Add(btn);
+
+                btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+                btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+
+                btn->Connect(100+j, wxEVT_LEFT_UP, wxMouseEventHandler(InputConfigDialog::OnConfigureKey));
+                btn->Connect(100+j, wxEVT_ENTER_WINDOW, wxMouseEventHandler(InputConfigDialog::OnFancybuttonHover));
+                btn->Connect(100+j, wxEVT_LEAVE_WINDOW, wxMouseEventHandler(InputConfigDialog::OnFancybuttonHover));
             }
 
             p->SetSizer(grid);
@@ -108,29 +93,68 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
                 wxStaticText* label = new wxStaticText(p, wxID_ANY, keylabels[j]);
                 grid->Add(label, 0, wxALIGN_RIGHT|wxALIGN_CENTRE_VERTICAL);
 
-                const char* keyname = "zorp";//SDL_GetKeyName(SDL_GetKeyFromScancode((SDL_Scancode)Config::KeyMapping[j]));
-                wxButton* btn = new wxButton(p, 200+j, keyname);
+                char keyname[16];
+                JoyMappingName(joymapping[j], keyname);
+
+                wxStaticText* btn = new wxStaticText(p, 200+j, keyname,
+                    wxDefaultPosition, wxDefaultSize,
+                    wxALIGN_CENTRE_HORIZONTAL | wxBORDER_SUNKEN | wxST_NO_AUTORESIZE);
+                btn->SetMinSize(wxSize(120, btn->GetSize().GetHeight()));
                 grid->Add(btn);
+
+                btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+                btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+
+                btn->Connect(200+j, wxEVT_LEFT_UP, wxMouseEventHandler(InputConfigDialog::OnConfigureJoy));
+                btn->Connect(200+j, wxEVT_ENTER_WINDOW, wxMouseEventHandler(InputConfigDialog::OnFancybuttonHover));
+                btn->Connect(200+j, wxEVT_LEAVE_WINDOW, wxMouseEventHandler(InputConfigDialog::OnFancybuttonHover));
             }
 
             p->SetSizer(grid);
             sizer->Add(p, 0, wxALL, 15);
+
+            /*wxComboBox* joycombo = new wxComboBox(joyside, wxID_ANY);
+            printf("%08X\n", joycombo->GetWindowStyle());
+            joycombo->SetWindowStyle(wxCB_DROPDOWN | wxCB_READONLY);
+
+            int numjoys = SDL_NumJoysticks();
+            if (numjoys > 0)
+            {
+                for (int i = 0; i < numjoys; i++)
+                {
+                    const char* name = SDL_JoystickNameForIndex(i);
+                    joycombo->Insert(name, i);
+                }
+            }
+            else
+            {
+                // TODO!
+            }
+
+            sizer->Add(joycombo, 0, wxALL&(~wxTOP), 15);*/
+
             joyside->SetSizer(sizer);
         }
+        sizer->Add(15, 0);
         sizer->Add(joyside);
 
         p->SetSizer(sizer);
         vboxmain->Add(p, 0, wxALL&(~wxBOTTOM), 15);
     }
-
+wxButton* boobs;
     {
         wxPanel* p = new wxPanel(this);
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
+        //keycatcher = new wxButton(p, wxID_ANY, "pancake");
+        keycatcher = new wxPanel(p, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
+        sizer->Add(keycatcher);
+        keycatcher->Show(false);
+
         wxButton* derp = new wxButton(p, 1001, "derp");
         sizer->Add(derp);
 
-        wxButton* boobs = new wxButton(p, 1002, "boobs");
+         boobs = new wxButton(p, 1002, "boobs");
         sizer->Add(3, 0);
         sizer->Add(boobs);
 
@@ -144,12 +168,22 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
     polltimer = new wxTimer(this);
     pollid = 0;
 
+    // TODO: GTK compatibility
+    sdlwin = SDL_CreateWindowFrom(keycatcher->GetHandle());
+
     keystate = SDL_GetKeyboardState(&nkeys);
+
+    njoys = SDL_NumJoysticks();
+    if (njoys) joy = SDL_JoystickOpen(0);
 }
 
 InputConfigDialog::~InputConfigDialog()
 {
     delete polltimer;
+
+    if (njoys) SDL_JoystickClose(0);
+
+    SDL_DestroyWindow(sdlwin);
 }
 
 void InputConfigDialog::OnDerp(wxCommandEvent& event)
@@ -157,41 +191,131 @@ void InputConfigDialog::OnDerp(wxCommandEvent& event)
     printf("OnDerp %d\n", event.GetId());
 }
 
-void InputConfigDialog::OnConfigureKey(wxCommandEvent& event)
+// black magic going on there
+// these two event handlers are in the InputConfigDialog class for convenience,
+// but when they're called, 'this' points to a wxStaticText instance
+
+void InputConfigDialog::OnConfigureKey(wxMouseEvent& event)
 {
-    pollid = event.GetId();
-    //pollbtn = (wxButton*)event.GetOwner();
-    polltimer->Start(100);
+    wxStaticText* btn = (wxStaticText*)this;
+    InputConfigDialog* parent = (InputConfigDialog*)btn->GetParent()->GetParent()->GetParent()->GetParent();
+    if (parent->pollid != 0) return;
+
+    parent->pollbtn = btn;
+    parent->pollbtntext = btn->GetLabel();
+    parent->pollid = event.GetId();
+    parent->polltimer->Start(50);
+
+    btn->SetLabel("[press key]");
+    btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNHIGHLIGHT));
+    btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+    btn->Refresh();
 }
 
-void InputConfigDialog::OnConfigureJoy(wxCommandEvent& event)
+void InputConfigDialog::OnConfigureJoy(wxMouseEvent& event)
 {
-    pollid = event.GetId();
-    //pollbtn = (wxButton*)event.GetSource();
-    polltimer->Start(100);
+    wxStaticText* btn = (wxStaticText*)this;
+    InputConfigDialog* parent = (InputConfigDialog*)btn->GetParent()->GetParent()->GetParent()->GetParent();
+    if (parent->pollid != 0) return;
+
+    parent->pollbtn = btn;
+    parent->pollbtntext = btn->GetLabel();
+    parent->pollid = event.GetId();
+    parent->polltimer->Start(50);
+
+    btn->SetLabel("[press button]");
+    btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNHIGHLIGHT));
+    btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+    btn->Refresh();
 }
 
 void InputConfigDialog::OnPoll(wxTimerEvent& event)
 {
     if (pollid < 100) return;
 
+    keycatcher->SetFocus();
     SDL_PumpEvents();
-    keystate = SDL_GetKeyboardState(&nkeys);
 
     if (keystate[SDL_SCANCODE_ESCAPE])
     {
         polltimer->Stop();
-        //pollbtn->Enable(true);
+        pollbtn->SetLabel(pollbtntext);
         pollid = 0;
+
+        pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+        pollbtn->Refresh();
         return;
     }
 
     if (pollid >= 200)
     {
-        //
+        int id = pollid - 200;
+        if (id >= 12) return;
+
+        if (keystate[SDL_SCANCODE_BACKSPACE])
+        {
+            joymapping[id] = -1;
+
+            char keyname[16];
+            JoyMappingName(joymapping[id], keyname);
+            pollbtn->SetLabel(keyname);
+
+            polltimer->Stop();
+            pollid = 0;
+
+            pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+            pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+            pollbtn->Refresh();
+            return;
+        }
+
+        int nbuttons = SDL_JoystickNumButtons(joy);
+        for (int i = 0; i < nbuttons; i++)
+        {
+            if (SDL_JoystickGetButton(joy, i))
+            {
+                joymapping[id] = i;
+
+                char keyname[16];
+                JoyMappingName(joymapping[id], keyname);
+                pollbtn->SetLabel(keyname);
+
+                polltimer->Stop();
+                pollid = 0;
+
+                pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+                pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+                pollbtn->Refresh();
+                return;
+            }
+        }
+
+        u8 blackhat = SDL_JoystickGetHat(joy, 0);
+        if (blackhat)
+        {
+            if      (blackhat & 0x1) blackhat = 0x1;
+            else if (blackhat & 0x2) blackhat = 0x2;
+            else if (blackhat & 0x4) blackhat = 0x4;
+            else                     blackhat = 0x8;
+
+            joymapping[id] = 0x100 | blackhat;
+
+            char keyname[16];
+            JoyMappingName(joymapping[id], keyname);
+            pollbtn->SetLabel(keyname);
+
+            polltimer->Stop();
+            pollid = 0;
+
+            pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+            pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+            pollbtn->Refresh();
+            return;
+        }
     }
     else
-    {printf("poll kbd %d, %d, %d\n", pollid, nkeys, keystate[SDL_SCANCODE_A]);
+    {
         int id = pollid - 100;
         if (id >= 12) return;
 
@@ -201,16 +325,18 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
             {
                 keymapping[id] = i;
 
-                //pollbtn->Enable(true);
+                pollbtn->Enable(true);
 
-                const char* keyname = SDL_GetScancodeName((SDL_Scancode)i);
-                //pollbtn->SetText(keyname);
-                printf("%s\n", keyname);
+                const char* keyname = SDL_GetKeyName(SDL_GetKeyFromScancode((SDL_Scancode)i));
+                pollbtn->SetLabel(keyname);
 
                 polltimer->Stop();
                 pollid = 0;
 
-                break;
+                pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+                pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+                pollbtn->Refresh();
+                return;
             }
         }
     }
@@ -219,4 +345,48 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
 void InputConfigDialog::OnKeyDown(wxKeyEvent& event)
 {
     printf("!!\n");
+    event.Skip();
+}
+
+void InputConfigDialog::OnFancybuttonHover(wxMouseEvent& event)
+{
+    wxStaticText* btn = (wxStaticText*)this;
+    InputConfigDialog* parent = (InputConfigDialog*)btn->GetParent()->GetParent()->GetParent()->GetParent();
+    if (event.GetId() == parent->pollid) return;
+
+    if (event.Entering())
+    {
+        btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNHIGHLIGHT));
+        btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+    }
+    else
+    {
+        btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        btn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+    }
+    btn->Refresh();
+}
+
+void InputConfigDialog::JoyMappingName(int id, char* str)
+{
+    if (id < 0)
+    {
+        strcpy(str, "None");
+        return;
+    }
+
+    if (id & 0x100)
+    {
+        switch (id & 0xF)
+        {
+        case 0x1: strcpy(str, "Up"); break;
+        case 0x2: strcpy(str, "Right"); break;
+        case 0x4: strcpy(str, "Down"); break;
+        case 0x8: strcpy(str, "Left"); break;
+        }
+    }
+    else
+    {
+        sprintf(str, "Button %d", id+1);
+    }
 }

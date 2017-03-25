@@ -37,6 +37,9 @@ wxIMPLEMENT_APP(wxApp_melonDS);
 
 bool wxApp_melonDS::OnInit()
 {
+    // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+
     if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
         printf("SDL shat itself :(\n");
@@ -237,6 +240,10 @@ void MainFrame::ProcessSDLEvents()
                 if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
             if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
             if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+            break;
+
+        case SDL_JOYBUTTONDOWN:
+            printf("button %d %d\n", evt.jbutton.which, evt.jbutton.button);
             break;
         }
     }

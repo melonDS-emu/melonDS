@@ -54,6 +54,19 @@ ConfigEntry ConfigFile[] =
     {"Key_X",      0, &KeyMapping[10], 18, NULL, 0},
     {"Key_Y",      0, &KeyMapping[11], 14, NULL, 0},
 
+    {"Joy_A",      0, &JoyMapping[0],  -1, NULL, 0},
+    {"Joy_B",      0, &JoyMapping[1],  -1, NULL, 0},
+    {"Joy_Select", 0, &JoyMapping[2],  -1, NULL, 0},
+    {"Key_Start",  0, &JoyMapping[3],  -1, NULL, 0},
+    {"Joy_Right",  0, &JoyMapping[4],  -1, NULL, 0},
+    {"Joy_Left",   0, &JoyMapping[5],  -1, NULL, 0},
+    {"Joy_Up",     0, &JoyMapping[6],  -1, NULL, 0},
+    {"Joy_Down",   0, &JoyMapping[7],  -1, NULL, 0},
+    {"Joy_R",      0, &JoyMapping[8],  -1, NULL, 0},
+    {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
+    {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
+    {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
+
     {"", -1, NULL, 0, NULL, 0}
 };
 

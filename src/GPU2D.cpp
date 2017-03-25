@@ -169,11 +169,9 @@ void GPU2D::Write16(u32 addr, u16 val)
     {
     case 0x000:
         DispCnt = (DispCnt & 0xFFFF0000) | val;
-        //printf("[L] DISPCNT=%08X\n", DispCnt);
         return;
     case 0x002:
         DispCnt = (DispCnt & 0x0000FFFF) | (val << 16);
-        //printf("[H] DISPCNT=%08X\n", DispCnt);
         return;
 
     case 0x008: BGCnt[0] = val; return;
@@ -259,7 +257,6 @@ void GPU2D::Write32(u32 addr, u32 val)
     switch (addr & 0x00000FFF)
     {
     case 0x000:
-        //printf("DISPCNT=%08X\n", val);
         DispCnt = val;
         return;
 
