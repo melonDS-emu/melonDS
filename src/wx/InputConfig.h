@@ -35,7 +35,8 @@ public:
 private:
     wxDECLARE_EVENT_TABLE();
 
-    void OnDerp(wxCommandEvent& event);
+    void OnOk(wxCommandEvent& event);
+    void OnCancel(wxCommandEvent& event);
 
     void OnConfigureKey(wxMouseEvent& event);
     void OnConfigureJoy(wxMouseEvent& event);

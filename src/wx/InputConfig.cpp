@@ -22,7 +22,8 @@
 
 
 wxBEGIN_EVENT_TABLE(InputConfigDialog, wxDialog)
-    EVT_COMMAND(1001, wxEVT_BUTTON, InputConfigDialog::OnDerp)
+    EVT_COMMAND(1001, wxEVT_BUTTON, InputConfigDialog::OnOk)
+    EVT_COMMAND(1002, wxEVT_BUTTON, InputConfigDialog::OnCancel)
 
     EVT_TIMER(wxID_ANY, InputConfigDialog::OnPoll)
 wxEND_EVENT_TABLE()
@@ -141,22 +142,21 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
         p->SetSizer(sizer);
         vboxmain->Add(p, 0, wxALL&(~wxBOTTOM), 15);
     }
-wxButton* boobs;
+
     {
         wxPanel* p = new wxPanel(this);
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
 
-        //keycatcher = new wxButton(p, wxID_ANY, "pancake");
         keycatcher = new wxPanel(p, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
         sizer->Add(keycatcher);
         keycatcher->Show(false);
 
-        wxButton* derp = new wxButton(p, 1001, "derp");
-        sizer->Add(derp);
+        wxButton* ok = new wxButton(p, 1001, "OK");
+        sizer->Add(ok);
 
-         boobs = new wxButton(p, 1002, "boobs");
+        wxButton* cancel = new wxButton(p, 1002, "Cancel");
         sizer->Add(3, 0);
-        sizer->Add(boobs);
+        sizer->Add(cancel);
 
         p->SetSizer(sizer);
         vboxmain->Add(p, 0, wxALL|wxALIGN_RIGHT, 15);
@@ -186,9 +186,18 @@ InputConfigDialog::~InputConfigDialog()
     SDL_DestroyWindow(sdlwin);
 }
 
-void InputConfigDialog::OnDerp(wxCommandEvent& event)
+void InputConfigDialog::OnOk(wxCommandEvent& event)
 {
-    printf("OnDerp %d\n", event.GetId());
+    memcpy(Config::KeyMapping, keymapping, 12*sizeof(int));
+    memcpy(Config::JoyMapping, joymapping, 12*sizeof(int));
+    Config::Save();
+
+    Close();
+}
+
+void InputConfigDialog::OnCancel(wxCommandEvent& event)
+{
+    Close();
 }
 
 // black magic going on there
@@ -340,12 +349,6 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
             }
         }
     }
-}
-
-void InputConfigDialog::OnKeyDown(wxKeyEvent& event)
-{
-    printf("!!\n");
-    event.Skip();
 }
 
 void InputConfigDialog::OnFancybuttonHover(wxMouseEvent& event)
