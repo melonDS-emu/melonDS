@@ -129,6 +129,10 @@ MainFrame::MainFrame()
 
     SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
     SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
+
+    joy = NULL;
+    joyid = -1;
+    axismask = 0;
 }
 
 void MainFrame::OnClose(wxCloseEvent& event)
@@ -154,6 +158,13 @@ void MainFrame::OnClose(wxCloseEvent& event)
     delete emustopmutex;
 
     NDS::DeInit();
+
+    if (joy)
+    {
+        SDL_JoystickClose(joy);
+        joy = NULL;
+        joyid = -1;
+    }
 
     SDL_UnlockTexture(sdltex);
     delete texmutex;
@@ -192,12 +203,34 @@ void MainFrame::OnOpenROM(wxCommandEvent& event)
     emustatuschangemutex->Lock();
     emustatuschange->Signal();
     emustatuschangemutex->Unlock();
+
+    if (!joy)
+    {
+        if (SDL_NumJoysticks() > 0)
+        {
+            joy = SDL_JoystickOpen(0);
+            joyid = SDL_JoystickInstanceID(joy);
+        }
+    }
 }
 
 void MainFrame::OnInputConfig(wxCommandEvent& event)
 {
+    if (joy)
+    {
+        SDL_JoystickClose(joy);
+        joy = NULL;
+        joyid = -1;
+    }
+
     InputConfigDialog dlg(this);
     dlg.ShowModal();
+
+    if (SDL_NumJoysticks() > 0)
+    {
+        joy = SDL_JoystickOpen(0);
+        joyid = SDL_JoystickInstanceID(joy);
+    }
 }
 
 void MainFrame::ProcessSDLEvents()
@@ -243,7 +276,58 @@ void MainFrame::ProcessSDLEvents()
             break;
 
         case SDL_JOYBUTTONDOWN:
-            printf("button %d %d\n", evt.jbutton.which, evt.jbutton.button);
+            if (!running) return;
+            if (evt.jbutton.which != joyid) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.jbutton.button == Config::JoyMapping[i]) NDS::PressKey(i);
+            if (evt.jbutton.button == Config::JoyMapping[10]) NDS::PressKey(16);
+            if (evt.jbutton.button == Config::JoyMapping[11]) NDS::PressKey(17);
+            break;
+
+        case SDL_JOYBUTTONUP:
+            if (!running) return;
+            if (evt.jbutton.which != joyid) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.jbutton.button == Config::JoyMapping[i]) NDS::ReleaseKey(i);
+            if (evt.jbutton.button == Config::JoyMapping[10]) NDS::ReleaseKey(16);
+            if (evt.jbutton.button == Config::JoyMapping[11]) NDS::ReleaseKey(17);
+            break;
+
+        case SDL_JOYHATMOTION:
+            if (!running) return;
+            if (evt.jhat.which != joyid) return;
+            if (evt.jhat.hat != 0) return;
+            for (int i = 0; i < 12; i++)
+            {
+                int j = (i >= 10) ? (i+6) : i;
+                if (Config::JoyMapping[i] == 0x101)
+                    (evt.jhat.value & SDL_HAT_UP) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x102)
+                    (evt.jhat.value & SDL_HAT_RIGHT) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x104)
+                    (evt.jhat.value & SDL_HAT_DOWN) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x108)
+                    (evt.jhat.value & SDL_HAT_LEFT) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+            }
+            break;
+
+        case SDL_JOYAXISMOTION:
+            if (!running) return;
+            if (evt.jaxis.which != joyid) return;
+            if (evt.jaxis.axis == 0)
+            {
+                if (evt.jaxis.value >= 16384) { NDS::PressKey(4); axismask |= 0x1; }
+                else if (axismask & 0x1)        NDS::ReleaseKey(4);
+                if (evt.jaxis.value <= -16384) { NDS::PressKey(5); axismask |= 0x2; }
+                else if (axismask & 0x2)         NDS::ReleaseKey(5);
+            }
+            else if (evt.jaxis.axis == 1)
+            {
+                if (evt.jaxis.value >= 16384) { NDS::PressKey(7); axismask |= 0x4; }
+                else if (axismask & 0x4)        NDS::ReleaseKey(7);
+                if (evt.jaxis.value <= -16384) { NDS::PressKey(6); axismask |= 0x8; }
+                else if (axismask & 0x8)         NDS::ReleaseKey(6);
+            }
             break;
         }
     }

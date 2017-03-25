@@ -55,6 +55,10 @@ public:
     SDL_Renderer* sdlrend;
     SDL_Texture* sdltex;
 
+    SDL_Joystick* joy;
+    SDL_JoystickID joyid;
+    u8 axismask;
+
     wxMutex* texmutex;
     void* texpixels;
     int texstride;
