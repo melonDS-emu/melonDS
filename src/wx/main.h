@@ -91,10 +91,27 @@ public:
     EmuThread(MainFrame* parent);
     ~EmuThread();
 
+    void EmuRun() { emustatus = 1; }
+    void EmuPause() { emustatus = 2; }
+    void EmuExit() { emustatus = 0; }
+
 protected:
     virtual ExitCode Entry();
+    void ProcessEvents();
 
     MainFrame* parent;
+
+    SDL_Window* sdlwin;
+    SDL_Renderer* sdlrend;
+    SDL_Texture* sdltex;
+
+    void* texpixels;
+    int texstride;
+
+    int joyid;
+    u32 axismask;
+
+    int emustatus;
 };
 
 #endif // WX_MAIN_H

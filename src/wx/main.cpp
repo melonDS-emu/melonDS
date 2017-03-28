@@ -99,12 +99,12 @@ MainFrame::MainFrame()
 
     emustatus = 2;
 
-    emustatuschangemutex = new wxMutex();
+    /*emustatuschangemutex = new wxMutex();
     emustatuschange = new wxCondition(*emustatuschangemutex);
 
     emustopmutex = new wxMutex();
     emustop = new wxCondition(*emustopmutex);
-    emustopmutex->Lock();
+    emustopmutex->Lock();*/
 
     emuthread = new EmuThread(this);
     if (emuthread->Run() != wxTHREAD_NO_ERROR)
@@ -114,21 +114,21 @@ MainFrame::MainFrame()
         return;
     }
 
-    sdlwin = SDL_CreateWindowFrom(GetHandle());
+    /*sdlwin = SDL_CreateWindowFrom(GetHandle());
 
     sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED);// | SDL_RENDERER_PRESENTVSYNC);
     sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
 
     texmutex = new wxMutex();
     SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
-    texmutex->Unlock();
+    texmutex->Unlock();*/
 
     NDS::Init();
 
     Touching = false;
 
-    SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
-    SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
+    /*SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
+    SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);*/
 
     joy = NULL;
     joyid = -1;
@@ -140,22 +140,22 @@ void MainFrame::OnClose(wxCloseEvent& event)
     if (emustatus == 1)
     {
         emustatus = 0;
-        emustop->Wait();
+        //emustop->Wait();
     }
     else
     {
         emustatus = 0;
-        emustatuschangemutex->Lock();
+        /*emustatuschangemutex->Lock();
         emustatuschange->Signal();
-        emustatuschangemutex->Unlock();
+        emustatuschangemutex->Unlock();*/
     }
 
     emuthread->Wait();
     delete emuthread;
-    delete emustatuschange;
+    /*delete emustatuschange;
     delete emustatuschangemutex;
     delete emustop;
-    delete emustopmutex;
+    delete emustopmutex;*/
 
     NDS::DeInit();
 
@@ -166,13 +166,13 @@ void MainFrame::OnClose(wxCloseEvent& event)
         joyid = -1;
     }
 
-    SDL_UnlockTexture(sdltex);
+    /*SDL_UnlockTexture(sdltex);
     delete texmutex;
 
     SDL_DestroyTexture(sdltex);
     SDL_DestroyRenderer(sdlrend);
 
-    SDL_DestroyWindow(sdlwin);
+    SDL_DestroyWindow(sdlwin);*/
 
     SDL_Quit();
 
@@ -200,9 +200,10 @@ void MainFrame::OnOpenROM(wxCommandEvent& event)
     NDS::LoadROM(filename.mb_str(), true);
 
     emustatus = 1;
-    emustatuschangemutex->Lock();
+    /*emustatuschangemutex->Lock();
     emustatuschange->Signal();
-    emustatuschangemutex->Unlock();
+    emustatuschangemutex->Unlock();*/
+    emuthread->EmuRun();
 
     if (!joy)
     {
@@ -233,7 +234,7 @@ void MainFrame::OnInputConfig(wxCommandEvent& event)
     }
 }
 
-void MainFrame::ProcessSDLEvents()
+/*void MainFrame::ProcessSDLEvents()
 {
     bool running = (emustatus == 1);
     SDL_Event evt;
@@ -356,13 +357,13 @@ void MainFrame::ProcessSDLEvents()
             NDS::TouchScreen(mx, my);
         }
     }
-}
+}*/
 
 void MainFrame::OnPaint(wxPaintEvent& event)
 {
     wxPaintDC dc(this);
 
-    texmutex->Lock();
+    /*texmutex->Lock();
     SDL_UnlockTexture(sdltex);
 
     //SDL_RenderClear(sdlrend);
@@ -372,12 +373,12 @@ void MainFrame::OnPaint(wxPaintEvent& event)
     SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
     texmutex->Unlock();
 
-    ProcessSDLEvents();
+    ProcessSDLEvents();*/
 }
 
 void MainFrame::OnIdle(wxIdleEvent& event)
 {
-    ProcessSDLEvents();
+    //ProcessSDLEvents();
 }
 
 
@@ -393,9 +394,59 @@ EmuThread::~EmuThread()
 
 wxThread::ExitCode EmuThread::Entry()
 {
-    parent->emustatuschangemutex->Lock();
+    //parent->emustatuschangemutex->Lock();
+    emustatus = 2;
+
+    sdlwin = SDL_CreateWindow("melonDS " MELONDS_VERSION,
+                              SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              256, 384,
+                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+
+    sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED);// | SDL_RENDERER_PRESENTVSYNC);
+    sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
+
+    joyid = -1;
+    axismask = 0;
 
     for (;;)
+    {
+        if (emustatus == 0) break;
+
+        ProcessEvents();
+
+        if (emustatus == 1)
+        {
+            //
+
+            NDS::RunFrame();
+
+            SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
+            if (texstride == 256*4)
+            {
+                memcpy(texpixels, GPU::Framebuffer, 256*384*4);
+            }
+            else
+            {
+                int dsty = 0;
+                for (int y = 0; y < 256*384; y+=256)
+                {
+                    memcpy(&((u8*)texpixels)[dsty], &GPU::Framebuffer[y], 256*4);
+                    dsty += texstride;
+                }
+            }
+            SDL_UnlockTexture(sdltex);
+
+            //SDL_RenderClear(sdlrend);
+            SDL_RenderCopy(sdlrend, sdltex, NULL, NULL);
+            SDL_RenderPresent(sdlrend);
+        }
+        else
+        {
+            Sleep(17);
+        }
+    }
+
+    /*for (;;)
     {
         parent->emustatuschange->Wait();
 
@@ -462,7 +513,132 @@ wxThread::ExitCode EmuThread::Entry()
 
         if (parent->emustatus == 0)
             break;
-    }
+    }*/
 
     return (wxThread::ExitCode)0;
+}
+
+void EmuThread::ProcessEvents()
+{
+    bool running = (emustatus == 1);
+    SDL_Event evt;
+
+    while (SDL_PollEvent(&evt))
+    {
+        switch (evt.type)
+        {
+        case SDL_WINDOWEVENT:
+            if (evt.window.event != SDL_WINDOWEVENT_EXPOSED)
+            {
+                SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
+                SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
+            }
+            break;
+
+        case SDL_MOUSEBUTTONDOWN:
+            if (!running) return;
+            if (evt.button.y >= 192 && evt.button.button == SDL_BUTTON_LEFT)
+            {
+                Touching = true;
+                NDS::PressKey(16+6);
+            }
+            break;
+
+        case SDL_KEYDOWN:
+            if (!running) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::PressKey(i);
+            if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::PressKey(16);
+            if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::PressKey(17);
+            break;
+
+        case SDL_KEYUP:
+            if (!running) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
+            if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
+            if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+            break;
+
+        case SDL_JOYBUTTONDOWN:
+            if (!running) return;
+            if (evt.jbutton.which != joyid) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.jbutton.button == Config::JoyMapping[i]) NDS::PressKey(i);
+            if (evt.jbutton.button == Config::JoyMapping[10]) NDS::PressKey(16);
+            if (evt.jbutton.button == Config::JoyMapping[11]) NDS::PressKey(17);
+            break;
+
+        case SDL_JOYBUTTONUP:
+            if (!running) return;
+            if (evt.jbutton.which != joyid) return;
+            for (int i = 0; i < 10; i++)
+                if (evt.jbutton.button == Config::JoyMapping[i]) NDS::ReleaseKey(i);
+            if (evt.jbutton.button == Config::JoyMapping[10]) NDS::ReleaseKey(16);
+            if (evt.jbutton.button == Config::JoyMapping[11]) NDS::ReleaseKey(17);
+            break;
+
+        case SDL_JOYHATMOTION:
+            if (!running) return;
+            if (evt.jhat.which != joyid) return;
+            if (evt.jhat.hat != 0) return;
+            for (int i = 0; i < 12; i++)
+            {
+                int j = (i >= 10) ? (i+6) : i;
+                if (Config::JoyMapping[i] == 0x101)
+                    (evt.jhat.value & SDL_HAT_UP) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x102)
+                    (evt.jhat.value & SDL_HAT_RIGHT) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x104)
+                    (evt.jhat.value & SDL_HAT_DOWN) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+                else if (Config::JoyMapping[i] == 0x108)
+                    (evt.jhat.value & SDL_HAT_LEFT) ? NDS::PressKey(j) : NDS::ReleaseKey(j);
+            }
+            break;
+
+        case SDL_JOYAXISMOTION:
+            if (!running) return;
+            if (evt.jaxis.which != joyid) return;
+            if (evt.jaxis.axis == 0)
+            {
+                if (evt.jaxis.value >= 16384) { NDS::PressKey(4); axismask |= 0x1; }
+                else if (axismask & 0x1)      { NDS::ReleaseKey(4); axismask &= ~0x1; }
+                if (evt.jaxis.value <= -16384) { NDS::PressKey(5); axismask |= 0x2; }
+                else if (axismask & 0x2)       { NDS::ReleaseKey(5); axismask &= ~0x2; }
+            }
+            else if (evt.jaxis.axis == 1)
+            {
+                if (evt.jaxis.value >= 16384) { NDS::PressKey(7); axismask |= 0x4; }
+                else if (axismask & 0x4)      { NDS::ReleaseKey(7); axismask &= ~0x4; }
+                if (evt.jaxis.value <= -16384) { NDS::PressKey(6); axismask |= 0x8; }
+                else if (axismask & 0x8)       { NDS::ReleaseKey(6); axismask &= ~0x8; }
+            }
+            break;
+        }
+    }
+
+    if (Touching)
+    {
+        int mx, my;
+        u32 btn = SDL_GetGlobalMouseState(&mx, &my);
+        if (!(btn & SDL_BUTTON(SDL_BUTTON_LEFT)))
+        {
+            Touching = false;
+            NDS::ReleaseKey(16+6);
+            NDS::ReleaseScreen();
+        }
+        else
+        {
+            mx -= WindowX;
+            my -= (WindowY + 192);
+
+            if (mx < 0)        mx = 0;
+            else if (mx > 255) mx = 255;
+
+            if (my < 0)        my = 0;
+            else if (my > 191) my = 191;
+
+            NDS::TouchScreen(mx, my);
+        }
+    }
 }
