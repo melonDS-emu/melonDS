@@ -20,6 +20,12 @@
 #include "InputConfig.h"
 #include "../Config.h"
 
+#ifdef __WXGTK__
+#include <gtk/gtk.h>
+#include <gdk/gdkx.h>
+#include <X11/X.h>
+#endif // __WXGTK__
+
 
 wxBEGIN_EVENT_TABLE(InputConfigDialog, wxDialog)
     EVT_COMMAND(1001, wxEVT_BUTTON, InputConfigDialog::OnOk)
@@ -168,8 +174,13 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
     polltimer = new wxTimer(this);
     pollid = 0;
 
-    // TODO: GTK compatibility
+#ifdef __WXGTK__
+    GtkWidget* widget = keycatcher->GetHandle();
+	gtk_widget_realize(widget);
+	sdlwin = SDL_CreateWindowFrom(GDK_WINDOW_XID(gtk_widget_get_window(widget)));
+#else
     sdlwin = SDL_CreateWindowFrom(keycatcher->GetHandle());
+#endif
 
     keystate = SDL_GetKeyboardState(&nkeys);
 
@@ -183,7 +194,7 @@ InputConfigDialog::~InputConfigDialog()
 
     if (njoys) SDL_JoystickClose(0);
 
-    SDL_DestroyWindow(sdlwin);
+    //SDL_DestroyWindow(sdlwin);
 }
 
 void InputConfigDialog::OnOk(wxCommandEvent& event)
@@ -242,8 +253,12 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
 {
     if (pollid < 100) return;
 
-    keycatcher->SetFocus();
+    //keycatcher->SetFocus();
+    //SDL_SetWindowInputFocus(sdlwin);
+    //SDL_RaiseWindow(sdlwin);
     SDL_PumpEvents();
+    keycatcher->SetFocus();
+    SDL_RaiseWindow(sdlwin);
 
     if (keystate[SDL_SCANCODE_ESCAPE])
     {
