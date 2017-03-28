@@ -64,6 +64,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     for (int i = 0; i < len; i++)
     {
         char c = cmdline[i];
+        if (c == '\0') break;
         if (c == '"') inquote = !inquote;
         if (!inquote && c==' ')
         {
