@@ -32,10 +32,10 @@ int WindowX, WindowY;
 int WindowW, WindowH;
 
 
-wxIMPLEMENT_APP(wxApp_melonDS);
+wxIMPLEMENT_APP_NO_MAIN(wxApp_melonDS);
 
 
-bool wxApp_melonDS::OnInit()
+int main(int argc, char** argv)
 {
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -46,6 +46,47 @@ bool wxApp_melonDS::OnInit()
         return 1;
     }
 
+    int ret = wxEntry(argc, argv);
+
+    SDL_Quit();
+    return ret;
+}
+
+#ifdef __WXMSW__
+
+int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
+{
+    char cmdargs[16][256];
+    int arg = 0;
+    int j = 0;
+    bool inquote = false;
+    int len = strlen(cmdline);
+    for (int i = 0; i < len; i++)
+    {
+        char c = cmdline[i];
+        if (c == '"') inquote = !inquote;
+        if (!inquote && c==' ')
+        {
+            if (arg < 16) cmdargs[arg][j] = '\0';
+            arg++;
+            j = 0;
+        }
+        else
+        {
+            if (arg < 16 && j < 255) cmdargs[arg][j] = c;
+            j++;
+        }
+    }
+    if (arg < 16) cmdargs[arg][j] = '\0';
+
+    return main(arg, (char**)cmdargs);
+}
+
+#endif // __WXMSW__
+
+
+bool wxApp_melonDS::OnInit()
+{
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
     Config::Load();
