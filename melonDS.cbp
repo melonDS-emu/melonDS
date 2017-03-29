@@ -45,15 +45,13 @@
 		</Compiler>
 		<Linker>
 			<Add option="-m64" />
-			<Add library="gdi32" />
-			<Add library="wx_baseu-3.0" />
-			<Add library="wx_mswu_core-3.0" />
+			<Add library=":libwx_mswu_core-3.0.a" />
+			<Add library=":libwx_baseu-3.0.a" />
 			<Add library="SDL2" />
-			<Add library="png" />
-			<Add library="jpeg" />
-			<Add library="tiff" />
-			<Add library="wxregexu-3.0" />
-			<Add library="z" />
+			<Add library=":libpng.a" />
+			<Add library=":libjpeg.a" />
+			<Add library=":libtiff.a" />
+			<Add library=":libz.a" />
 			<Add library="rpcrt4" />
 			<Add library="oleaut32" />
 			<Add library="ole32" />
@@ -66,6 +64,7 @@
 			<Add library="advapi32" />
 			<Add library="wsock32" />
 			<Add library="oleacc" />
+			<Add library="gdi32" />
 		</Linker>
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
