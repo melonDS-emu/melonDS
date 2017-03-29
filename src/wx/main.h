@@ -99,6 +99,9 @@ protected:
     SDL_Renderer* sdlrend;
     SDL_Texture* sdltex;
 
+    SDL_Rect topsrc, topdst;
+    SDL_Rect botsrc, botdst;
+
     void* texpixels;
     int texstride;
 

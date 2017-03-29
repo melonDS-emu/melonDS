@@ -323,8 +323,26 @@ wxThread::ExitCode EmuThread::Entry()
                               256, 384,
                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
+    SDL_SetWindowMinimumSize(sdlwin, 256, 384);
+
     sdlrend = SDL_CreateRenderer(sdlwin, -1, SDL_RENDERER_ACCELERATED);// | SDL_RENDERER_PRESENTVSYNC);
     sdltex = SDL_CreateTexture(sdlrend, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 256, 384);
+
+    SDL_SetRenderDrawColor(sdlrend, 0, 0, 0, 255);
+
+    SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
+    memset(texpixels, 0, texstride*384);
+    SDL_UnlockTexture(sdltex);
+
+    topsrc.x = 0; topsrc.y = 0;
+    topsrc.w = 256; topsrc.h = 192;
+    botsrc.x = 0; botsrc.y = 192;
+    botsrc.w = 256; botsrc.h = 192;
+
+    topdst.x = 0; topdst.y = 0;
+    topdst.w = 256; topdst.h = 192;
+    botdst.x = 0; botdst.y = 192;
+    botdst.w = 256; botdst.h = 192;
 
     axismask = 0;
 
@@ -360,8 +378,9 @@ wxThread::ExitCode EmuThread::Entry()
             }
             SDL_UnlockTexture(sdltex);
 
-            //SDL_RenderClear(sdlrend);
-            SDL_RenderCopy(sdlrend, sdltex, NULL, NULL);
+            SDL_RenderClear(sdlrend);
+            SDL_RenderCopy(sdlrend, sdltex, &topsrc, &topdst);
+            SDL_RenderCopy(sdlrend, sdltex, &botsrc, &botdst);
             SDL_RenderPresent(sdlrend);
 
             fpslimitcount++;
@@ -396,6 +415,9 @@ wxThread::ExitCode EmuThread::Entry()
 
             emupaused = true;
             Sleep(50);
+
+            SDL_RenderCopy(sdlrend, sdltex, NULL, NULL);
+            SDL_RenderPresent(sdlrend);
 
             if (emustatus == 2)
             {
@@ -432,6 +454,40 @@ void EmuThread::ProcessEvents()
             }
             if (evt.window.event != SDL_WINDOWEVENT_EXPOSED)
             {
+                if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+                {
+                    int w = evt.window.data1;
+                    int h = evt.window.data2;
+
+                    int ratio = (w * 384) / h;
+                    if (ratio > 256)
+                    {
+                        // borders on the sides
+
+                        int screenw = (4 * (h/2)) / 3;
+                        int gap = (w - screenw) / 2;
+
+                        topdst.x = gap; topdst.y = 0;
+                        topdst.w = screenw; topdst.h = h/2;
+
+                        botdst.x = gap; botdst.y = h/2;
+                        botdst.w = screenw; botdst.h = h/2;
+                    }
+                    else
+                    {
+                        // separator
+
+                        int screenh = (3 * w) / 4;
+                        int gap = h - (screenh*2);
+
+                        topdst.x = 0; topdst.y = 0;
+                        topdst.w = w; topdst.h = screenh;
+
+                        botdst.x = 0; botdst.y = screenh + gap;
+                        botdst.w = w; botdst.h = screenh;
+                    }
+                }
+
                 SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
                 SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
             }
@@ -439,10 +495,14 @@ void EmuThread::ProcessEvents()
 
         case SDL_MOUSEBUTTONDOWN:
             if (!running) return;
-            if (evt.button.y >= 192 && evt.button.button == SDL_BUTTON_LEFT)
+            if (evt.button.button == SDL_BUTTON_LEFT)
             {
-                Touching = true;
-                NDS::PressKey(16+6);
+                if (evt.button.x >= botdst.x && evt.button.x < (botdst.x+botdst.w) &&
+                    evt.button.y >= botdst.y && evt.button.y < (botdst.y+botdst.h))
+                {
+                    Touching = true;
+                    NDS::PressKey(16+6);
+                }
             }
             break;
 
@@ -531,8 +591,11 @@ void EmuThread::ProcessEvents()
         }
         else
         {
-            mx -= WindowX;
-            my -= (WindowY + 192);
+            mx -= (WindowX + botdst.x);
+            my -= (WindowY + botdst.y);
+
+            if (botdst.w != 256) mx = (mx * 256) / botdst.w;
+            if (botdst.h != 192) my = (my * 192) / botdst.h;
 
             if (mx < 0)        mx = 0;
             else if (mx > 255) mx = 255;
