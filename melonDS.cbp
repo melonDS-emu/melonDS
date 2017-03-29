@@ -40,8 +40,10 @@
 			<Add option="-Wall" />
 			<Add option="-m64" />
 			<Add option="-fexceptions" />
+			<Add option="-pipe" />
 			<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0 -I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
-			<Add option="-D_FILE_OFFSET_BITS=64 -D__WXMSW__ -pipe" />
+			<Add option="-D_FILE_OFFSET_BITS=64" />
+			<Add option="-D__WXMSW__" />
 		</Compiler>
 		<Linker>
 			<Add option="-m64" />

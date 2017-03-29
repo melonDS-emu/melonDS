@@ -299,26 +299,33 @@ SDL_Scancode scancode_wx2sdl(wxKeyEvent& event)
 
     int keysym = event.GetRawKeyCode();
 
-    if (keysym == NoSymbol) {
+    if (keysym == NoSymbol)
+    {
         return SDL_SCANCODE_UNKNOWN;
     }
 
-    if (keysym >= GDK_a && keysym <= GDK_z) {
-        return SDL_SCANCODE_A + (keysym - GDK_a);
+    if (keysym >= GDK_a && keysym <= GDK_z)
+    {
+        return (SDL_Scancode)(SDL_SCANCODE_A + (keysym - GDK_a));
     }
-    if (keysym >= GDK_A && keysym <= GDK_Z) {
-        return SDL_SCANCODE_A + (keysym - GDK_A);
+    if (keysym >= GDK_A && keysym <= GDK_Z)
+    {
+        return (SDL_Scancode)(SDL_SCANCODE_A + (keysym - GDK_A));
     }
 
-    if (keysym == GDK_0) {
+    if (keysym == GDK_0)
+    {
         return SDL_SCANCODE_0;
     }
-    if (keysym >= GDK_1 && keysym <= GDK_9) {
-        return SDL_SCANCODE_1 + (keysym - GDK_1);
+    if (keysym >= GDK_1 && keysym <= GDK_9)
+    {
+        return (SDL_Scancode)(SDL_SCANCODE_1 + (keysym - GDK_1));
     }
 
-    for (i = 0; i < SDL_arraysize(KeySymToSDLScancode); ++i) {
-        if (keysym == KeySymToSDLScancode[i].keysym) {
+    for (i = 0; i < SDL_arraysize(KeySymToSDLScancode); ++i)
+    {
+        if (keysym == KeySymToSDLScancode[i].keysym)
+        {
             return KeySymToSDLScancode[i].scancode;
         }
     }
