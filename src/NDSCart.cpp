@@ -361,6 +361,20 @@ void Write_Flash(u8 val, bool islast)
 {
     switch (CurCmd)
     {
+    case 0x02:
+        if (DataPos < 3)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        else
+        {
+            SRAM[Addr & (SRAMLength-1)] = 0;
+            Addr++;
+        }
+        break;
+
     case 0x03:
         if (DataPos < 3)
         {
@@ -391,6 +405,40 @@ void Write_Flash(u8 val, bool islast)
 
     case 0x9F:
         Data = 0xFF;
+        break;
+
+    case 0xD8:
+        if (DataPos < 3)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        if (DataPos == 2)
+        {
+            for (u32 i = 0; i < 0x10000; i++)
+            {
+                SRAM[Addr & (SRAMLength-1)] = 0;
+                Addr++;
+            }
+        }
+        break;
+
+    case 0xDB:
+        if (DataPos < 3)
+        {
+            Addr <<= 8;
+            Addr |= val;
+            Data = 0;
+        }
+        if (DataPos == 2)
+        {
+            for (u32 i = 0; i < 0x100; i++)
+            {
+                SRAM[Addr & (SRAMLength-1)] = 0;
+                Addr++;
+            }
+        }
         break;
 
     default:
