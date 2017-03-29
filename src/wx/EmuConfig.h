@@ -16,21 +16,19 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef WX_INPUTCONFIG_H
-#define WX_INPUTCONFIG_H
+#ifndef WX_EMUCONFIG_H
+#define WX_EMUCONFIG_H
 
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
 #include <wx/wx.h>
 #endif
 
-#include <SDL2/SDL.h>
-
-class InputConfigDialog : public wxDialog
+class EmuConfigDialog : public wxDialog
 {
 public:
-    InputConfigDialog(wxWindow* parent);
-    ~InputConfigDialog();
+    EmuConfigDialog(wxWindow* parent);
+    ~EmuConfigDialog();
 
 private:
     wxDECLARE_EVENT_TABLE();
@@ -38,27 +36,8 @@ private:
     void OnOk(wxCommandEvent& event);
     void OnCancel(wxCommandEvent& event);
 
-    void OnConfigureKey(wxMouseEvent& event);
-    void OnConfigureJoy(wxMouseEvent& event);
-
-    void OnPoll(wxTimerEvent& event);
-
-    void OnKeyDown(wxKeyEvent& event);
-    void OnFancybuttonHover(wxMouseEvent& event);
-
-    void JoyMappingName(int id, char* str);
-
-    int njoys;
-    SDL_Joystick* joy;
-
-    wxTimer* polltimer;
-    int pollid;
-    wxStaticText* pollbtn;
-    wxString pollbtntext;
-
-    int keymapping[12];
-    int joymapping[12];
+    wxCheckBox* cbDirectBoot;
 };
 
-#endif // WX_INPUTCONFIG_H
+#endif // WX_EMUCONFIG_H
 

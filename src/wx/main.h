@@ -35,6 +35,7 @@ enum
     ID_PAUSE,
     ID_RESET,
 
+    ID_EMUCONFIG,
     ID_INPUTCONFIG,
 };
 
@@ -71,6 +72,7 @@ private:
     void OnPause(wxCommandEvent& event);
     void OnReset(wxCommandEvent& event);
 
+    void OnEmuConfig(wxCommandEvent& event);
     void OnInputConfig(wxCommandEvent& event);
 
     void ProcessSDLEvents();

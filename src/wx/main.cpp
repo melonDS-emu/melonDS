@@ -24,6 +24,7 @@
 #include "../GPU.h"
 
 #include "InputConfig.h"
+#include "EmuConfig.h"
 
 
 wxIMPLEMENT_APP_NO_MAIN(wxApp_melonDS);
@@ -103,6 +104,7 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_PAUSE, MainFrame::OnPause)
     EVT_MENU(ID_RESET, MainFrame::OnReset)
 
+    EVT_MENU(ID_EMUCONFIG, MainFrame::OnEmuConfig)
     EVT_MENU(ID_INPUTCONFIG, MainFrame::OnInputConfig)
 wxEND_EVENT_TABLE()
 
@@ -122,6 +124,7 @@ MainFrame::MainFrame()
     systemmenu->Append(ID_RESET, "Reset");
 
     wxMenu* settingsmenu = new wxMenu();
+    settingsmenu->Append(ID_EMUCONFIG, "Emulation");
     settingsmenu->Append(ID_INPUTCONFIG, "Input");
 
     wxMenuBar* melonbar = new wxMenuBar();
@@ -199,7 +202,7 @@ void MainFrame::OnOpenROM(wxCommandEvent& event)
     emuthread->EmuPause();
 
     rompath = opener.GetPath();
-    NDS::LoadROM(rompath.mb_str(), true);
+    NDS::LoadROM(rompath.mb_str(), Config::DirectBoot);
 
     emuthread->EmuRun();
     GetMenuBar()->Enable(ID_PAUSE, true);
@@ -259,7 +262,7 @@ void MainFrame::OnReset(wxCommandEvent& event)
     emuthread->EmuPause();
 
     if (!rompath.IsEmpty())
-        NDS::LoadROM(rompath.mb_str(), true);
+        NDS::LoadROM(rompath.mb_str(), Config::DirectBoot);
     else
         NDS::LoadBIOS();
 
@@ -276,6 +279,12 @@ void MainFrame::OnReset(wxCommandEvent& event)
             joyid = SDL_JoystickInstanceID(joy);
         }
     }
+}
+
+void MainFrame::OnEmuConfig(wxCommandEvent& event)
+{
+    EmuConfigDialog dlg(this);
+    dlg.ShowModal();
 }
 
 void MainFrame::OnInputConfig(wxCommandEvent& event)

@@ -165,8 +165,6 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
     polltimer = new wxTimer(this);
     pollid = 0;
 
-    keystate = SDL_GetKeyboardState(&nkeys);
-
     njoys = SDL_NumJoysticks();
     if (njoys) joy = SDL_JoystickOpen(0);
 }
@@ -210,8 +208,27 @@ void InputConfigDialog::OnKeyDown(wxKeyEvent& event)
         pollbtn->Refresh();
         return;
     }
+    else if ((code == SDL_SCANCODE_BACKSPACE) && (pollid >= 200))
+    {
+        id = pollid - 200;
+        if (id >= 12) return;
 
-    if (pollid >= 200) return;
+        joymapping[id] = -1;
+
+        char keyname[16];
+        JoyMappingName(joymapping[id], keyname);
+        pollbtn->SetLabel(keyname);
+
+        polltimer->Stop();
+        pollid = 0;
+
+        pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+        pollbtn->Refresh();
+        return;
+    }
+
+    if (pollid >= 12) return;
 
     keymapping[id] = code;
 
@@ -271,23 +288,6 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
 
     int id = pollid - 200;
     if (id >= 12) return;
-
-    if (keystate[SDL_SCANCODE_BACKSPACE])
-    {
-        joymapping[id] = -1;
-
-        char keyname[16];
-        JoyMappingName(joymapping[id], keyname);
-        pollbtn->SetLabel(keyname);
-
-        polltimer->Stop();
-        pollid = 0;
-
-        pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-        pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
-        pollbtn->Refresh();
-        return;
-    }
 
     int nbuttons = SDL_JoystickNumButtons(joy);
     for (int i = 0; i < nbuttons; i++)
