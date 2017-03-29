@@ -26,12 +26,6 @@
 #include "InputConfig.h"
 
 
-bool Touching;
-
-int WindowX, WindowY;
-int WindowW, WindowH;
-
-
 wxIMPLEMENT_APP_NO_MAIN(wxApp_melonDS);
 
 
@@ -153,8 +147,6 @@ MainFrame::MainFrame()
     GetMenuBar()->Enable(ID_PAUSE, false);
     GetMenuBar()->Enable(ID_RESET, false);
 
-    Touching = false;
-
     joy = NULL;
     joyid = -1;
 }
@@ -169,6 +161,7 @@ void MainFrame::OnClose(wxCloseEvent& event)
 {
     if (emuthread)
     {
+        emuthread->EmuPause();
         emuthread->EmuExit();
 
         emuthread->Wait();
@@ -188,6 +181,8 @@ void MainFrame::OnClose(wxCloseEvent& event)
     SDL_Quit();
 
     Destroy();
+
+    Config::Save();
 }
 
 void MainFrame::OnCloseFromMenu(wxCommandEvent& event)
@@ -320,7 +315,7 @@ wxThread::ExitCode EmuThread::Entry()
 
     sdlwin = SDL_CreateWindow("melonDS " MELONDS_VERSION,
                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              256, 384,
+                              Config::WindowWidth, Config::WindowHeight,
                               SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
 
     SDL_SetWindowMinimumSize(sdlwin, 256, 384);
@@ -344,6 +339,7 @@ wxThread::ExitCode EmuThread::Entry()
     botdst.x = 0; botdst.y = 192;
     botdst.w = 256; botdst.h = 192;
 
+    Touching = false;
     axismask = 0;
 
     u32 nframes = 0;
@@ -355,6 +351,8 @@ wxThread::ExitCode EmuThread::Entry()
         if (emustatus == 0) break;
 
         ProcessEvents();
+
+        if (emustatus == 0) break;
 
         if (emustatus == 1)
         {
@@ -413,7 +411,6 @@ wxThread::ExitCode EmuThread::Entry()
             lasttick = SDL_GetTicks();
             fpslimitcount = 0;
 
-            emupaused = true;
             Sleep(50);
 
             SDL_RenderCopy(sdlrend, sdltex, NULL, NULL);
@@ -424,6 +421,8 @@ wxThread::ExitCode EmuThread::Entry()
                 char* melontitle = "Paused - melonDS " MELONDS_VERSION;
                 SDL_SetWindowTitle(sdlwin, melontitle);
             }
+
+            emupaused = true;
         }
     }
 
@@ -449,7 +448,7 @@ void EmuThread::ProcessEvents()
                 wxThread* thread = parent->emuthread;
                 parent->CloseFromOutside();
                 EmuExit();
-                delete thread;
+                //delete thread;
                 return;
             }
             if (evt.window.event != SDL_WINDOWEVENT_EXPOSED)
@@ -486,10 +485,12 @@ void EmuThread::ProcessEvents()
                         botdst.x = 0; botdst.y = screenh + gap;
                         botdst.w = w; botdst.h = screenh;
                     }
+
+                    Config::WindowWidth = w;
+                    Config::WindowHeight = h;
                 }
 
                 SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
-                SDL_GetWindowSize(sdlwin, &WindowW, &WindowH);
             }
             break;
 

@@ -102,6 +102,10 @@ protected:
     SDL_Rect topsrc, topdst;
     SDL_Rect botsrc, botdst;
 
+    bool Touching;
+
+    int WindowX, WindowY;
+
     void* texpixels;
     int texstride;
 

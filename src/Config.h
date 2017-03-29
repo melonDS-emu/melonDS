@@ -30,6 +30,11 @@ void Save();
 extern int KeyMapping[12];
 extern int JoyMapping[12];
 
+extern int WindowWidth;
+extern int WindowHeight;
+
+extern int DirectBoot;
+
 }
 
 #endif // CONFIG_H

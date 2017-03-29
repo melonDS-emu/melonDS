@@ -28,6 +28,11 @@ namespace Config
 int KeyMapping[12];
 int JoyMapping[12];
 
+int WindowWidth;
+int WindowHeight;
+
+int DirectBoot;
+
 typedef struct
 {
     char Name[16];
@@ -66,6 +71,11 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
+
+    {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
+    {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
+
+    {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };
