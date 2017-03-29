@@ -48,9 +48,6 @@ private:
 
     void JoyMappingName(int id, char* str);
 
-    SDL_Window* sdlwin;
-    wxPanel* keycatcher;
-
     const u8* keystate;
     int nkeys;
     int njoys;

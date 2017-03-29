@@ -19,12 +19,7 @@
 #include "../types.h"
 #include "InputConfig.h"
 #include "../Config.h"
-
-#ifdef __WXGTK__
-#include <gtk/gtk.h>
-#include <gdk/gdkx.h>
-#include <X11/X.h>
-#endif // __WXGTK__
+#include "scancode_wx2sdl.h"
 
 
 wxBEGIN_EVENT_TABLE(InputConfigDialog, wxDialog)
@@ -32,6 +27,7 @@ wxBEGIN_EVENT_TABLE(InputConfigDialog, wxDialog)
     EVT_COMMAND(1002, wxEVT_BUTTON, InputConfigDialog::OnCancel)
 
     EVT_TIMER(wxID_ANY, InputConfigDialog::OnPoll)
+    EVT_CHAR_HOOK(InputConfigDialog::OnKeyDown)
 wxEND_EVENT_TABLE()
 
 
@@ -120,9 +116,7 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
             p->SetSizer(grid);
             sizer->Add(p, 0, wxALL, 15);
 
-            /*wxComboBox* joycombo = new wxComboBox(joyside, wxID_ANY);
-            printf("%08X\n", joycombo->GetWindowStyle());
-            joycombo->SetWindowStyle(wxCB_DROPDOWN | wxCB_READONLY);
+            wxComboBox* joycombo = new wxComboBox(joyside, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0, NULL, wxCB_DROPDOWN | wxCB_READONLY);
 
             int numjoys = SDL_NumJoysticks();
             if (numjoys > 0)
@@ -135,10 +129,11 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
             }
             else
             {
-                // TODO!
+                joycombo->Append("(no joystick)");
+                joycombo->Enable(false);
             }
 
-            sizer->Add(joycombo, 0, wxALL&(~wxTOP), 15);*/
+            sizer->Add(joycombo, 0, wxALL&(~wxTOP), 15);
 
             joyside->SetSizer(sizer);
         }
@@ -152,10 +147,6 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
     {
         wxPanel* p = new wxPanel(this);
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
-
-        keycatcher = new wxPanel(p, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS);
-        sizer->Add(keycatcher);
-        keycatcher->Show(false);
 
         wxButton* ok = new wxButton(p, 1001, "OK");
         sizer->Add(ok);
@@ -174,14 +165,6 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
     polltimer = new wxTimer(this);
     pollid = 0;
 
-#ifdef __WXGTK__
-    GtkWidget* widget = keycatcher->GetHandle();
-	gtk_widget_realize(widget);
-	sdlwin = SDL_CreateWindowFrom(GDK_WINDOW_XID(gtk_widget_get_window(widget)));
-#else
-    sdlwin = SDL_CreateWindowFrom(keycatcher->GetHandle());
-#endif
-
     keystate = SDL_GetKeyboardState(&nkeys);
 
     njoys = SDL_NumJoysticks();
@@ -193,8 +176,6 @@ InputConfigDialog::~InputConfigDialog()
     delete polltimer;
 
     if (njoys) SDL_JoystickClose(0);
-
-    //SDL_DestroyWindow(sdlwin);
 }
 
 void InputConfigDialog::OnOk(wxCommandEvent& event)
@@ -211,6 +192,42 @@ void InputConfigDialog::OnCancel(wxCommandEvent& event)
     Close();
 }
 
+void InputConfigDialog::OnKeyDown(wxKeyEvent& event)
+{
+    if (pollid < 100) return;
+    int id = pollid - 100;
+
+    SDL_Scancode code = scancode_wx2sdl(event);
+
+    if (code == SDL_SCANCODE_ESCAPE)
+    {
+        if (pollid >= 200) polltimer->Stop();
+        pollbtn->SetLabel(pollbtntext);
+        pollid = 0;
+
+        pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+        pollbtn->Refresh();
+        return;
+    }
+
+    if (pollid >= 200) return;
+
+    keymapping[id] = code;
+
+    pollbtn->Enable(true);
+
+    const char* keyname = SDL_GetKeyName(SDL_GetKeyFromScancode(code));
+    pollbtn->SetLabel(keyname);
+
+    polltimer->Stop();
+    pollid = 0;
+
+    pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+    pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+    pollbtn->Refresh();
+}
+
 // black magic going on there
 // these two event handlers are in the InputConfigDialog class for convenience,
 // but when they're called, 'this' points to a wxStaticText instance
@@ -224,7 +241,7 @@ void InputConfigDialog::OnConfigureKey(wxMouseEvent& event)
     parent->pollbtn = btn;
     parent->pollbtntext = btn->GetLabel();
     parent->pollid = event.GetId();
-    parent->polltimer->Start(50);
+    //parent->polltimer->Start(50);
 
     btn->SetLabel("[press key]");
     btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNHIGHLIGHT));
@@ -251,16 +268,16 @@ void InputConfigDialog::OnConfigureJoy(wxMouseEvent& event)
 
 void InputConfigDialog::OnPoll(wxTimerEvent& event)
 {
-    if (pollid < 100) return;
+    if (pollid < 200) return;
 
     //keycatcher->SetFocus();
     //SDL_SetWindowInputFocus(sdlwin);
     //SDL_RaiseWindow(sdlwin);
-    SDL_PumpEvents();
-    keycatcher->SetFocus();
-    SDL_RaiseWindow(sdlwin);
+    //SDL_PumpEvents();
+    //keycatcher->SetFocus();
+    //SDL_RaiseWindow(sdlwin);
 
-    if (keystate[SDL_SCANCODE_ESCAPE])
+    /*if (keystate[SDL_SCANCODE_ESCAPE])
     {
         polltimer->Stop();
         pollbtn->SetLabel(pollbtntext);
@@ -270,7 +287,7 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
         pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
         pollbtn->Refresh();
         return;
-    }
+    }*/
 
     if (pollid >= 200)
     {
@@ -338,7 +355,7 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
             return;
         }
     }
-    else
+    /*else
     {
         int id = pollid - 100;
         if (id >= 12) return;
@@ -363,7 +380,7 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
                 return;
             }
         }
-    }
+    }*/
 }
 
 void InputConfigDialog::OnFancybuttonHover(wxMouseEvent& event)
