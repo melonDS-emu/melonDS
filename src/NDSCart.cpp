@@ -68,6 +68,10 @@ void DeInit()
 
 void Reset()
 {
+    if (SRAM) delete[] SRAM;
+    if (Discover_Buffer) delete[] Discover_Buffer;
+    SRAM = NULL;
+    Discover_Buffer = NULL;
 }
 
 void LoadSave(char* path)
@@ -625,6 +629,7 @@ void Reset()
     DataOutLen = 0;
 
     CartInserted = false;
+    if (CartROM) delete[] CartROM;
     CartROM = NULL;
     CartROMSize = 0;
     CartID = 0;
@@ -735,6 +740,8 @@ void ReadROM(u32 addr, u32 len, u32 offset)
 
 void ReadROM_B7(u32 addr, u32 len, u32 offset)
 {
+    if (!CartInserted) return;
+
     addr &= (CartROMSize-1);
     if (!CartIsHomebrew)
     {
@@ -858,7 +865,7 @@ void WriteROMCnt(u32 val)
         break;
 
     case 0x3C:
-        CmdEncMode = 1;
+        if (CartInserted) CmdEncMode = 1;
         break;
 
     case 0xB7:

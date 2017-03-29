@@ -116,7 +116,7 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
             p->SetSizer(grid);
             sizer->Add(p, 0, wxALL, 15);
 
-            wxComboBox* joycombo = new wxComboBox(joyside, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0, NULL, wxCB_DROPDOWN | wxCB_READONLY);
+            /*wxComboBox* joycombo = new wxComboBox(joyside, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0, NULL, wxCB_DROPDOWN | wxCB_READONLY);
 
             int numjoys = SDL_NumJoysticks();
             if (numjoys > 0)
@@ -133,7 +133,7 @@ InputConfigDialog::InputConfigDialog(wxWindow* parent)
                 joycombo->Enable(false);
             }
 
-            sizer->Add(joycombo, 0, wxALL&(~wxTOP), 15);
+            sizer->Add(joycombo, 0, wxALL&(~wxTOP), 15);*/
 
             joyside->SetSizer(sizer);
         }
@@ -241,7 +241,6 @@ void InputConfigDialog::OnConfigureKey(wxMouseEvent& event)
     parent->pollbtn = btn;
     parent->pollbtntext = btn->GetLabel();
     parent->pollid = event.GetId();
-    //parent->polltimer->Start(50);
 
     btn->SetLabel("[press key]");
     btn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNHIGHLIGHT));
@@ -270,77 +269,32 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
 {
     if (pollid < 200) return;
 
-    //keycatcher->SetFocus();
-    //SDL_SetWindowInputFocus(sdlwin);
-    //SDL_RaiseWindow(sdlwin);
-    //SDL_PumpEvents();
-    //keycatcher->SetFocus();
-    //SDL_RaiseWindow(sdlwin);
+    int id = pollid - 200;
+    if (id >= 12) return;
 
-    /*if (keystate[SDL_SCANCODE_ESCAPE])
+    if (keystate[SDL_SCANCODE_BACKSPACE])
     {
+        joymapping[id] = -1;
+
+        char keyname[16];
+        JoyMappingName(joymapping[id], keyname);
+        pollbtn->SetLabel(keyname);
+
         polltimer->Stop();
-        pollbtn->SetLabel(pollbtntext);
         pollid = 0;
 
         pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
         pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
         pollbtn->Refresh();
         return;
-    }*/
+    }
 
-    if (pollid >= 200)
+    int nbuttons = SDL_JoystickNumButtons(joy);
+    for (int i = 0; i < nbuttons; i++)
     {
-        int id = pollid - 200;
-        if (id >= 12) return;
-
-        if (keystate[SDL_SCANCODE_BACKSPACE])
+        if (SDL_JoystickGetButton(joy, i))
         {
-            joymapping[id] = -1;
-
-            char keyname[16];
-            JoyMappingName(joymapping[id], keyname);
-            pollbtn->SetLabel(keyname);
-
-            polltimer->Stop();
-            pollid = 0;
-
-            pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-            pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
-            pollbtn->Refresh();
-            return;
-        }
-
-        int nbuttons = SDL_JoystickNumButtons(joy);
-        for (int i = 0; i < nbuttons; i++)
-        {
-            if (SDL_JoystickGetButton(joy, i))
-            {
-                joymapping[id] = i;
-
-                char keyname[16];
-                JoyMappingName(joymapping[id], keyname);
-                pollbtn->SetLabel(keyname);
-
-                polltimer->Stop();
-                pollid = 0;
-
-                pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-                pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
-                pollbtn->Refresh();
-                return;
-            }
-        }
-
-        u8 blackhat = SDL_JoystickGetHat(joy, 0);
-        if (blackhat)
-        {
-            if      (blackhat & 0x1) blackhat = 0x1;
-            else if (blackhat & 0x2) blackhat = 0x2;
-            else if (blackhat & 0x4) blackhat = 0x4;
-            else                     blackhat = 0x8;
-
-            joymapping[id] = 0x100 | blackhat;
+            joymapping[id] = i;
 
             char keyname[16];
             JoyMappingName(joymapping[id], keyname);
@@ -355,32 +309,29 @@ void InputConfigDialog::OnPoll(wxTimerEvent& event)
             return;
         }
     }
-    /*else
+
+    u8 blackhat = SDL_JoystickGetHat(joy, 0);
+    if (blackhat)
     {
-        int id = pollid - 100;
-        if (id >= 12) return;
+        if      (blackhat & 0x1) blackhat = 0x1;
+        else if (blackhat & 0x2) blackhat = 0x2;
+        else if (blackhat & 0x4) blackhat = 0x4;
+        else                     blackhat = 0x8;
 
-        for (int i = 0; i < nkeys; i++)
-        {
-            if (keystate[i])
-            {
-                keymapping[id] = i;
+        joymapping[id] = 0x100 | blackhat;
 
-                pollbtn->Enable(true);
+        char keyname[16];
+        JoyMappingName(joymapping[id], keyname);
+        pollbtn->SetLabel(keyname);
 
-                const char* keyname = SDL_GetKeyName(SDL_GetKeyFromScancode((SDL_Scancode)i));
-                pollbtn->SetLabel(keyname);
+        polltimer->Stop();
+        pollid = 0;
 
-                polltimer->Stop();
-                pollid = 0;
-
-                pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-                pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
-                pollbtn->Refresh();
-                return;
-            }
-        }
-    }*/
+        pollbtn->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+        pollbtn->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNTEXT));
+        pollbtn->Refresh();
+        return;
+    }
 }
 
 void InputConfigDialog::OnFancybuttonHover(wxMouseEvent& event)

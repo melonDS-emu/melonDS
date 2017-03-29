@@ -51,24 +51,14 @@ class MainFrame : public wxFrame
 public:
     MainFrame();
 
-    SDL_Window* sdlwin;
-    SDL_Renderer* sdlrend;
-    SDL_Texture* sdltex;
-
     SDL_Joystick* joy;
     SDL_JoystickID joyid;
-    u8 axismask;
 
-    wxMutex* texmutex;
-    void* texpixels;
-    int texstride;
-
-    int emustatus;
     EmuThread* emuthread;
-    wxMutex* emustatuschangemutex;
-    wxCondition* emustatuschange;
-    wxMutex* emustopmutex;
-    wxCondition* emustop;
+
+    wxString rompath;
+
+    void CloseFromOutside();
 
 private:
     wxDECLARE_EVENT_TABLE();
@@ -77,12 +67,13 @@ private:
     void OnCloseFromMenu(wxCommandEvent& event);
     void OnOpenROM(wxCommandEvent& event);
 
+    void OnRun(wxCommandEvent& event);
+    void OnPause(wxCommandEvent& event);
+    void OnReset(wxCommandEvent& event);
+
     void OnInputConfig(wxCommandEvent& event);
 
     void ProcessSDLEvents();
-
-    void OnPaint(wxPaintEvent& event);
-    void OnIdle(wxIdleEvent& event);
 };
 
 class EmuThread : public wxThread
@@ -91,9 +82,12 @@ public:
     EmuThread(MainFrame* parent);
     ~EmuThread();
 
-    void EmuRun() { emustatus = 1; }
-    void EmuPause() { emustatus = 2; }
+    void EmuRun() { emustatus = 1; emupaused = false; SDL_RaiseWindow(sdlwin); }
+    void EmuPause() { emustatus = 2; while (!emupaused); }
     void EmuExit() { emustatus = 0; }
+
+    bool EmuIsRunning() { return (emustatus == 1) || (emustatus == 2); }
+    bool EmuIsPaused() { return (emustatus == 2) && emupaused; }
 
 protected:
     virtual ExitCode Entry();
@@ -108,10 +102,10 @@ protected:
     void* texpixels;
     int texstride;
 
-    int joyid;
     u32 axismask;
 
     int emustatus;
+    volatile bool emupaused;
 };
 
 #endif // WX_MAIN_H
