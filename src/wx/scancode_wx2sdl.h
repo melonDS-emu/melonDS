@@ -52,6 +52,7 @@ static const SDL_Scancode windows_scancode_table[] =
 };
 #endif
 #ifdef __WXGTK__
+#include <gdk/gdkx.h>
 static const struct {
     int keysym;
     SDL_Scancode scancode;
