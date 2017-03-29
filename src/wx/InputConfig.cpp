@@ -228,7 +228,7 @@ void InputConfigDialog::OnKeyDown(wxKeyEvent& event)
         return;
     }
 
-    if (pollid >= 12) return;
+    if (id >= 12) return;
 
     keymapping[id] = code;
 
