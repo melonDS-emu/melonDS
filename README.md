@@ -2,44 +2,31 @@
 DS emulator, sorta
 
 
-the goal is to do things right and fast, akin to blargSNES (but hopefully better)
-
-but also to have fun coding this shit
+The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
 
 
-LOVE MELONS
+The source code is provided under the GPLv3 license.
 
 
-NO ASKING ROMZ!! ILLEGAL
-
-
-license is GPL. don't steal the code.
-
-
-how to use:
+How to use:
 
 melonDS requires BIOS/firmware copies from a DS. Files required:
  * bios7.bin, 16KB: ARM7 BIOS
  * bios9.bin, 4KB: ARM9 BIOS
  * firmware.bin, 256KB: firmware
  
-note: the DS-mode firmware in the 3DS isn't bootable, it only contains the bare minimum to run games.
+Note: the DS-mode firmware in the 3DS isn't bootable, it only contains the bare minimum to run games.
 
-ROM filename is currently hardcoded, check NDS.cpp for the required filename. this will eventually be addressed.
+As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
 
 
 TODO LIST
 
- * sorta-UI (ie not hardcode ROM name)
+ * better 3D engine
  * sound
  * wifi
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
- 
- 
-IMMEDIATE TODO LIST (prior release 1.0)
-
- * UI
 
  
 TODO LIST FOR LATER
@@ -51,3 +38,4 @@ TODO LIST FOR LATER
  * maybe emulate flashcarts or other fancy hardware
  * big-endian compatibility (Wii, etc)
  * LCD refresh time (used by some games for blending effects)
+ * any feature you can eventually ask for that isn't outright stupid

@@ -299,7 +299,7 @@ SDL_Scancode scancode_wx2sdl(wxKeyEvent& event)
 
     int keysym = event.GetRawKeyCode();
 
-    if (keysym == NoSymbol)
+    if (keysym == 0)
     {
         return SDL_SCANCODE_UNKNOWN;
     }
@@ -322,7 +322,7 @@ SDL_Scancode scancode_wx2sdl(wxKeyEvent& event)
         return (SDL_Scancode)(SDL_SCANCODE_1 + (keysym - GDK_1));
     }
 
-    for (i = 0; i < SDL_arraysize(KeySymToSDLScancode); ++i)
+    for (int i = 0; i < SDL_arraysize(KeySymToSDLScancode); ++i)
     {
         if (keysym == KeySymToSDLScancode[i].keysym)
         {
