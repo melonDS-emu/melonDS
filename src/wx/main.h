@@ -45,6 +45,9 @@ class wxApp_melonDS : public wxApp
 {
 public:
     virtual bool OnInit();
+    virtual int OnExit();
+    
+    EmuThread* emuthread;
 };
 
 class MainFrame : public wxFrame
@@ -58,8 +61,6 @@ public:
     EmuThread* emuthread;
 
     wxString rompath;
-
-    void CloseFromOutside();
 
 private:
     wxDECLARE_EVENT_TABLE();
@@ -81,7 +82,7 @@ private:
 class EmuThread : public wxThread
 {
 public:
-    EmuThread(MainFrame* parent);
+    EmuThread();
     ~EmuThread();
 
     void EmuRun() { emustatus = 1; emupaused = false; SDL_RaiseWindow(sdlwin); }
@@ -90,12 +91,12 @@ public:
 
     bool EmuIsRunning() { return (emustatus == 1) || (emustatus == 2); }
     bool EmuIsPaused() { return (emustatus == 2) && emupaused; }
+    
+    MainFrame* parent;
 
 protected:
     virtual ExitCode Entry();
     void ProcessEvents();
-
-    MainFrame* parent;
 
     SDL_Window* sdlwin;
     SDL_Renderer* sdlrend;
@@ -105,8 +106,7 @@ protected:
     SDL_Rect botsrc, botdst;
 
     bool Touching;
-
-    int WindowX, WindowY;
+    int txoffset, tyoffset;
 
     void* texpixels;
     int texstride;

@@ -6,7 +6,7 @@
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="Debug">
+			<Target title="Debug Windows">
 				<Option platforms="Windows;" />
 				<Option output="bin/Debug/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
@@ -15,13 +15,94 @@
 				<Compiler>
 					<Add option="-m64" />
 					<Add option="-g" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXMSW__" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+				</Compiler>
+				<Linker>
+					<Add option="-m64" />
+					<Add library=":libwx_mswu_core-3.0.a" />
+					<Add library=":libwx_baseu-3.0.a" />
+					<Add library="SDL2" />
+					<Add library=":libpng.a" />
+					<Add library=":libjpeg.a" />
+					<Add library=":libtiff.a" />
+					<Add library=":libz.a" />
+					<Add library="rpcrt4" />
+					<Add library="oleaut32" />
+					<Add library="ole32" />
+					<Add library="uuid" />
+					<Add library="winspool" />
+					<Add library="winmm" />
+					<Add library="shell32" />
+					<Add library="comctl32" />
+					<Add library="comdlg32" />
+					<Add library="advapi32" />
+					<Add library="wsock32" />
+					<Add library="oleacc" />
+					<Add library="gdi32" />
+				</Linker>
+			</Target>
+			<Target title="Release Windows">
+				<Option platforms="Windows;" />
+				<Option output="bin/Release/melonDS" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-m64" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXMSW__" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+					<Add option="-m64" />
+					<Add library=":libwx_mswu_core-3.0.a" />
+					<Add library=":libwx_baseu-3.0.a" />
+					<Add library="SDL2" />
+					<Add library=":libpng.a" />
+					<Add library=":libjpeg.a" />
+					<Add library=":libtiff.a" />
+					<Add library=":libz.a" />
+					<Add library="rpcrt4" />
+					<Add library="oleaut32" />
+					<Add library="ole32" />
+					<Add library="uuid" />
+					<Add library="winspool" />
+					<Add library="winmm" />
+					<Add library="shell32" />
+					<Add library="comctl32" />
+					<Add library="comdlg32" />
+					<Add library="advapi32" />
+					<Add library="wsock32" />
+					<Add library="oleacc" />
+					<Add library="gdi32" />
+				</Linker>
+			</Target>
+			<Target title="Debug Linux">
+				<Option platforms="Unix;" />
+				<Option output="bin/Debug/melonDS" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-m64" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/gtk2-unicode-static-3.0" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXGTK__" />
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
 				</Linker>
 			</Target>
-			<Target title="Release">
-				<Option platforms="Windows;" />
+			<Target title="Release Linux">
+				<Option platforms="Unix;" />
 				<Option output="bin/Release/melonDS" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
@@ -38,38 +119,13 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-m64" />
 			<Add option="-fexceptions" />
 			<Add option="-pipe" />
-			<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0 -I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
-			<Add option="-D_FILE_OFFSET_BITS=64" />
-			<Add option="-D__WXMSW__" />
 		</Compiler>
-		<Linker>
-			<Add option="-m64" />
-			<Add library=":libwx_mswu_core-3.0.a" />
-			<Add library=":libwx_baseu-3.0.a" />
-			<Add library="SDL2" />
-			<Add library=":libpng.a" />
-			<Add library=":libjpeg.a" />
-			<Add library=":libtiff.a" />
-			<Add library=":libz.a" />
-			<Add library="rpcrt4" />
-			<Add library="oleaut32" />
-			<Add library="ole32" />
-			<Add library="uuid" />
-			<Add library="winspool" />
-			<Add library="winmm" />
-			<Add library="shell32" />
-			<Add library="comctl32" />
-			<Add library="comdlg32" />
-			<Add library="advapi32" />
-			<Add library="wsock32" />
-			<Add library="oleacc" />
-			<Add library="gdi32" />
-		</Linker>
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
+			<Option target="Debug Windows" />
+			<Option target="Release Windows" />
 		</Unit>
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
@@ -115,7 +171,10 @@
 		<Unit filename="src/wx/main.cpp" />
 		<Unit filename="src/wx/main.h" />
 		<Unit filename="src/wx/scancode_wx2sdl.h" />
-		<Unit filename="xp.manifest" />
+		<Unit filename="xp.manifest">
+			<Option target="Debug Windows" />
+			<Option target="Release Windows" />
+		</Unit>
 		<Extensions>
 			<code_completion />
 			<envvars />

@@ -86,11 +86,32 @@ bool wxApp_melonDS::OnInit()
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
     Config::Load();
+    
+    emuthread = new EmuThread();
+    if (emuthread->Run() != wxTHREAD_NO_ERROR)
+    {
+        printf("thread shat itself :( giving up now\n");
+        delete emuthread;
+        return false;
+    }
 
     MainFrame* melon = new MainFrame();
     melon->Show(true);
+    
+    melon->emuthread = emuthread;
+    emuthread->parent = melon;
 
     return true;
+}
+
+int wxApp_melonDS::OnExit()
+{
+    emuthread->EmuPause();
+    emuthread->EmuExit();
+    emuthread->Wait();
+    delete emuthread;
+    
+    return wxApp::OnExit();
 }
 
 
@@ -137,14 +158,6 @@ MainFrame::MainFrame()
     SetClientSize(256, 256);
     SetMinSize(GetSize());
 
-    emuthread = new EmuThread(this);
-    if (emuthread->Run() != wxTHREAD_NO_ERROR)
-    {
-        printf("thread shat itself :( giving up now\n");
-        delete emuthread;
-        return;
-    }
-
     NDS::Init();
     rompath = wxEmptyString;
     GetMenuBar()->Enable(ID_PAUSE, false);
@@ -154,24 +167,8 @@ MainFrame::MainFrame()
     joyid = -1;
 }
 
-void MainFrame::CloseFromOutside()
-{
-    emuthread = NULL;
-    Close();
-}
-
 void MainFrame::OnClose(wxCloseEvent& event)
 {
-    if (emuthread)
-    {
-        emuthread->EmuPause();
-        emuthread->EmuExit();
-
-        emuthread->Wait();
-        delete emuthread;
-        emuthread = NULL;
-    }
-
     NDS::DeInit();
 
     if (joy)
@@ -181,9 +178,8 @@ void MainFrame::OnClose(wxCloseEvent& event)
         joyid = -1;
     }
 
-    SDL_Quit();
-
     Destroy();
+    emuthread->parent = NULL;
 
     Config::Save();
 }
@@ -307,10 +303,9 @@ void MainFrame::OnInputConfig(wxCommandEvent& event)
 }
 
 
-EmuThread::EmuThread(MainFrame* parent)
+EmuThread::EmuThread()
     : wxThread(wxTHREAD_JOINABLE)
 {
-    this->parent = parent;
 }
 
 EmuThread::~EmuThread()
@@ -434,6 +429,8 @@ wxThread::ExitCode EmuThread::Entry()
             emupaused = true;
         }
     }
+    
+    emupaused = true;
 
     SDL_DestroyTexture(sdltex);
     SDL_DestroyRenderer(sdlrend);
@@ -454,10 +451,8 @@ void EmuThread::ProcessEvents()
         case SDL_WINDOWEVENT:
             if (evt.window.event == SDL_WINDOWEVENT_CLOSE)
             {
-                wxThread* thread = parent->emuthread;
-                parent->CloseFromOutside();
+                if (parent) parent->Close();
                 EmuExit();
-                //delete thread;
                 return;
             }
             if (evt.window.event != SDL_WINDOWEVENT_EXPOSED)
@@ -466,6 +461,14 @@ void EmuThread::ProcessEvents()
                 {
                     int w = evt.window.data1;
                     int h = evt.window.data2;
+                    
+                    // SDL_SetWindowMinimumSize() doesn't seem to work on Linux. oh well
+                    if ((w < 256) || (h < 384))
+                    {
+                        if (w < 256) w = 256;
+                        if (h < 384) h = 384;
+                        SDL_SetWindowSize(sdlwin, w, h);
+                    }
 
                     int ratio = (w * 384) / h;
                     if (ratio > 256)
@@ -498,8 +501,6 @@ void EmuThread::ProcessEvents()
                     Config::WindowWidth = w;
                     Config::WindowHeight = h;
                 }
-
-                SDL_GetWindowPosition(sdlwin, &WindowX, &WindowY);
             }
             break;
 
@@ -512,6 +513,11 @@ void EmuThread::ProcessEvents()
                 {
                     Touching = true;
                     NDS::PressKey(16+6);
+                    
+                    int mx, my;
+                    SDL_GetGlobalMouseState(&mx, &my);
+                    txoffset = mx - evt.button.x;
+                    tyoffset = my - evt.button.y;
                 }
             }
             break;
@@ -601,8 +607,8 @@ void EmuThread::ProcessEvents()
         }
         else
         {
-            mx -= (WindowX + botdst.x);
-            my -= (WindowY + botdst.y);
+            mx -= (txoffset + botdst.x);
+            my -= (tyoffset + botdst.y);
 
             if (botdst.w != 256) mx = (mx * 256) / botdst.w;
             if (botdst.h != 192) my = (my * 192) / botdst.h;
