@@ -106,8 +106,6 @@ bool wxApp_melonDS::OnInit()
 
 int wxApp_melonDS::OnExit()
 {
-    emuthread->EmuPause();
-    emuthread->EmuExit();
     emuthread->Wait();
     delete emuthread;
     
@@ -169,6 +167,9 @@ MainFrame::MainFrame()
 
 void MainFrame::OnClose(wxCloseEvent& event)
 {
+    emuthread->EmuPause();
+    emuthread->EmuExit();
+    
     NDS::DeInit();
 
     if (joy)
