@@ -1280,6 +1280,15 @@ u8 ARM9IORead8(u32 addr)
     {
     case 0x040001A2: return NDSCart::ReadSPIData();
 
+    case 0x040001A8: return NDSCart::ROMCommand[0];
+    case 0x040001A9: return NDSCart::ROMCommand[1];
+    case 0x040001AA: return NDSCart::ROMCommand[2];
+    case 0x040001AB: return NDSCart::ROMCommand[3];
+    case 0x040001AC: return NDSCart::ROMCommand[4];
+    case 0x040001AD: return NDSCart::ROMCommand[5];
+    case 0x040001AE: return NDSCart::ROMCommand[6];
+    case 0x040001AF: return NDSCart::ROMCommand[7];
+
     case 0x04000208: return IME[0];
 
     case 0x04000240: return GPU::VRAMCNT[0];
@@ -1367,6 +1376,15 @@ u16 ARM9IORead16(u32 addr)
     case 0x040001A0: return NDSCart::SPICnt;
     case 0x040001A2: return NDSCart::ReadSPIData();
 
+    case 0x040001A8: return NDSCart::ROMCommand[0] |
+                           (NDSCart::ROMCommand[1] << 8);
+    case 0x040001AA: return NDSCart::ROMCommand[2] |
+                           (NDSCart::ROMCommand[3] << 8);
+    case 0x040001AC: return NDSCart::ROMCommand[4] |
+                           (NDSCart::ROMCommand[5] << 8);
+    case 0x040001AE: return NDSCart::ROMCommand[6] |
+                           (NDSCart::ROMCommand[7] << 8);
+
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
 
@@ -1435,6 +1453,15 @@ u32 ARM9IORead32(u32 addr)
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
+
+    case 0x040001A8: return NDSCart::ROMCommand[0] |
+                           (NDSCart::ROMCommand[1] << 8) |
+                           (NDSCart::ROMCommand[2] << 16) |
+                           (NDSCart::ROMCommand[3] << 24);
+    case 0x040001AC: return NDSCart::ROMCommand[4] |
+                           (NDSCart::ROMCommand[5] << 8) |
+                           (NDSCart::ROMCommand[6] << 16) |
+                           (NDSCart::ROMCommand[7] << 24);
 
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
@@ -1624,6 +1651,23 @@ void ARM9IOWrite16(u32 addr, u16 val)
         NDSCart::WriteSPIData(val & 0xFF);
         return;
 
+    case 0x040001A8:
+        NDSCart::ROMCommand[0] = val & 0xFF;
+        NDSCart::ROMCommand[1] = val >> 8;
+        return;
+    case 0x040001AA:
+        NDSCart::ROMCommand[2] = val & 0xFF;
+        NDSCart::ROMCommand[3] = val >> 8;
+        return;
+    case 0x040001AC:
+        NDSCart::ROMCommand[4] = val & 0xFF;
+        NDSCart::ROMCommand[5] = val >> 8;
+        return;
+    case 0x040001AE:
+        NDSCart::ROMCommand[6] = val & 0xFF;
+        NDSCart::ROMCommand[7] = val >> 8;
+        return;
+
     case 0x040001B8: ROMSeed0[4] = val & 0x7F; return;
     case 0x040001BA: ROMSeed1[4] = val & 0x7F; return;
 
@@ -1757,6 +1801,19 @@ void ARM9IOWrite32(u32 addr, u32 val)
         if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteROMCnt(val);
         return;
 
+    case 0x040001A8:
+        NDSCart::ROMCommand[0] = val & 0xFF;
+        NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
+        NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
+        NDSCart::ROMCommand[3] = val >> 24;
+        return;
+    case 0x040001AC:
+        NDSCart::ROMCommand[4] = val & 0xFF;
+        NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
+        NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
+        NDSCart::ROMCommand[7] = val >> 24;
+        return;
+
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
@@ -1823,6 +1880,15 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x040001A2: return NDSCart::ReadSPIData();
 
+    case 0x040001A8: return NDSCart::ROMCommand[0];
+    case 0x040001A9: return NDSCart::ROMCommand[1];
+    case 0x040001AA: return NDSCart::ROMCommand[2];
+    case 0x040001AB: return NDSCart::ROMCommand[3];
+    case 0x040001AC: return NDSCart::ROMCommand[4];
+    case 0x040001AD: return NDSCart::ROMCommand[5];
+    case 0x040001AE: return NDSCart::ROMCommand[6];
+    case 0x040001AF: return NDSCart::ROMCommand[7];
+
     case 0x040001C2: return SPI::ReadData();
 
     case 0x04000208: return IME[1];
@@ -1888,6 +1954,15 @@ u16 ARM7IORead16(u32 addr)
     case 0x040001A0: return NDSCart::SPICnt;
     case 0x040001A2: return NDSCart::ReadSPIData();
 
+    case 0x040001A8: return NDSCart::ROMCommand[0] |
+                           (NDSCart::ROMCommand[1] << 8);
+    case 0x040001AA: return NDSCart::ROMCommand[2] |
+                           (NDSCart::ROMCommand[3] << 8);
+    case 0x040001AC: return NDSCart::ROMCommand[4] |
+                           (NDSCart::ROMCommand[5] << 8);
+    case 0x040001AE: return NDSCart::ROMCommand[6] |
+                           (NDSCart::ROMCommand[7] << 8);
+
     case 0x040001C0: return SPI::Cnt;
     case 0x040001C2: return SPI::ReadData();
 
@@ -1937,6 +2012,15 @@ u32 ARM7IORead32(u32 addr)
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
+
+    case 0x040001A8: return NDSCart::ROMCommand[0] |
+                           (NDSCart::ROMCommand[1] << 8) |
+                           (NDSCart::ROMCommand[2] << 16) |
+                           (NDSCart::ROMCommand[3] << 24);
+    case 0x040001AC: return NDSCart::ROMCommand[4] |
+                           (NDSCart::ROMCommand[5] << 8) |
+                           (NDSCart::ROMCommand[6] << 16) |
+                           (NDSCart::ROMCommand[7] << 24);
 
     case 0x040001C0:
         return SPI::Cnt | (SPI::ReadData() << 16);
@@ -2098,6 +2182,23 @@ void ARM7IOWrite16(u32 addr, u16 val)
         NDSCart::WriteSPIData(val & 0xFF);
         return;
 
+    case 0x040001A8:
+        NDSCart::ROMCommand[0] = val & 0xFF;
+        NDSCart::ROMCommand[1] = val >> 8;
+        return;
+    case 0x040001AA:
+        NDSCart::ROMCommand[2] = val & 0xFF;
+        NDSCart::ROMCommand[3] = val >> 8;
+        return;
+    case 0x040001AC:
+        NDSCart::ROMCommand[4] = val & 0xFF;
+        NDSCart::ROMCommand[5] = val >> 8;
+        return;
+    case 0x040001AE:
+        NDSCart::ROMCommand[6] = val & 0xFF;
+        NDSCart::ROMCommand[7] = val >> 8;
+        return;
+
     case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
     case 0x040001BA: ROMSeed1[12] = val & 0x7F; return;
 
@@ -2200,6 +2301,19 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
     case 0x040001A4:
         if (ExMemCnt[0] & (1<<11)) NDSCart::WriteROMCnt(val);
+        return;
+
+    case 0x040001A8:
+        NDSCart::ROMCommand[0] = val & 0xFF;
+        NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
+        NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
+        NDSCart::ROMCommand[3] = val >> 24;
+        return;
+    case 0x040001AC:
+        NDSCart::ROMCommand[4] = val & 0xFF;
+        NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
+        NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
+        NDSCart::ROMCommand[7] = val >> 24;
         return;
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
