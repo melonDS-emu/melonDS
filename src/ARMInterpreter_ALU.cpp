@@ -1384,6 +1384,9 @@ void T_MVN_REG(ARM* cpu)
 }
 
 
+// TODO: check those when MSBs and MSBd are cleared
+// GBAtek says it's not allowed, but it works atleast on the ARM9
+
 void T_ADD_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
