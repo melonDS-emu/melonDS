@@ -16,12 +16,47 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#include <stdio.h>
+#include <string.h>
+#include "NDS.h"
+#include "SPU.h"
 
-#define MELONDS_VERSION    "0.2"
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+namespace SPU
+{
 
-#endif // VERSION_H
+//SDL_AudioDeviceID device;
+//
 
+
+bool Init()
+{
+    /*SDL_AudioSpec whatIwant, whatIget;
+
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 32824; // 32823.6328125
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 2048;
+    whatIwant.callback = zorp;
+    device = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!device)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+        return false;
+    }*/
+
+    return true;
+}
+
+void DeInit()
+{
+    //if (device) SDL_CloseAudioDevice(device);
+}
+
+void Reset()
+{
+    //
+}
+
+}

@@ -160,6 +160,8 @@
 		<Unit filename="src/RTC.h" />
 		<Unit filename="src/SPI.cpp" />
 		<Unit filename="src/SPI.h" />
+		<Unit filename="src/SPU.cpp" />
+		<Unit filename="src/SPU.h" />
 		<Unit filename="src/Wifi.cpp" />
 		<Unit filename="src/Wifi.h" />
 		<Unit filename="src/types.h" />

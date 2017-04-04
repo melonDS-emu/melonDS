@@ -16,12 +16,16 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef SPU_H
+#define SPU_H
 
-#define MELONDS_VERSION    "0.2"
+namespace SPU
+{
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+bool Init();
+void DeInit();
+void Reset();
 
-#endif // VERSION_H
+}
 
+#endif // SPU_H

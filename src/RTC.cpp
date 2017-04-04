@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 #include "RTC.h"
 
 
@@ -73,6 +74,12 @@ void Reset()
 }
 
 
+u8 BCD(u8 val)
+{
+    return (val % 10) | ((val / 10) << 4);
+}
+
+
 void ByteIn(u8 val)
 {
     //printf("RTC IN: %02X\n", val);
@@ -94,21 +101,33 @@ void ByteIn(u8 val)
             case 0x40: Output[0] = StatusReg2; break;
 
             case 0x20:
-                // TODO: get actual system time
-                Output[0] = 0x17;
-                Output[1] = 0x01;
-                Output[2] = 0x19;
-                Output[3] = 0x04; // day of week. checkme. apparently 04=Thursday
-                Output[4] = 0x06;
-                Output[5] = 0x30;
-                Output[6] = 0x30;
+                {
+                    time_t timestamp;
+                    struct tm* timedata;
+                    time(&timestamp);
+                    timedata = localtime(&timestamp);
+
+                    Output[0] = BCD(timedata->tm_year - 100);
+                    Output[1] = BCD(timedata->tm_mon + 1);
+                    Output[2] = BCD(timedata->tm_mday);
+                    Output[3] = BCD(timedata->tm_wday);
+                    Output[4] = BCD(timedata->tm_hour);
+                    Output[5] = BCD(timedata->tm_min);
+                    Output[6] = BCD(timedata->tm_sec);
+                }
                 break;
 
             case 0x60:
-                // TODO: get actual system time
-                Output[0] = 0x06;
-                Output[1] = 0x30;
-                Output[2] = 0x30;
+                {
+                    time_t timestamp;
+                    struct tm* timedata;
+                    time(&timestamp);
+                    timedata = localtime(&timestamp);
+
+                    Output[0] = BCD(timedata->tm_hour);
+                    Output[1] = BCD(timedata->tm_min);
+                    Output[2] = BCD(timedata->tm_sec);
+                }
                 break;
 
             case 0x10:
