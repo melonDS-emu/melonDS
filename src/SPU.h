@@ -52,31 +52,55 @@ public:
     u32 LoopPos;
     u32 Length;
 
+    u8 Volume;
+    u8 VolumeShift;
+    u8 Pan;
+
     u32 Timer;
-    u32 Pos;
+    s32 Pos;
     s16 CurSample;
+    u16 NoiseVal;
+
+    s32 ADPCMVal;
+    s32 ADPCMIndex;
+    s32 ADPCMValLoop;
+    s32 ADPCMIndexLoop;
+    u8 ADPCMCurByte;
 
     void SetCnt(u32 val)
     {
-        if ((val & (1<<31)) && !(Cnt & (1<<31)))
+        u32 oldcnt = Cnt;
+        Cnt = val & 0xFF7F837F;
+
+        Volume = Cnt & 0x7F;
+        if (Volume == 127) Volume++;
+
+        const u8 volshift[4] = {4, 3, 2, 0};
+        VolumeShift = volshift[(Cnt >> 8) & 0x3];
+
+        Pan = (Cnt >> 16) & 0x7F;
+        if (Pan == 127) Pan++;
+
+        if ((val & (1<<31)) && !(oldcnt & (1<<31)))
         {
             Start();
         }
-
-        Cnt = val & 0xFF7F837F;
-        //if(Num==8)printf("chan %d volume: %d\n", Num, val&0x7F);
     }
 
-    void SetSrcAddr(u32 val) { SrcAddr = val & 0x07FFFFFF; }
-    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF;if(Num==8) printf("chan8 timer %04X\n", TimerReload);}
+    void SetSrcAddr(u32 val) { SrcAddr = val & 0x07FFFFFC; }
+    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
     void SetLoopPos(u32 val) { LoopPos = (val & 0xFFFF) << 2; }
     void SetLength(u32 val) { Length = (val & 0x001FFFFF) << 2; }
 
     void Start();
 
+    void NextSample_PCM8();
+    void NextSample_PCM16();
+    void NextSample_ADPCM();
     void NextSample_PSG();
+    void NextSample_Noise();
 
-    void Run(s32* buf, u32 samples);
+    template<u32 type> void Run(s32* buf, u32 samples);
 };
 
 }

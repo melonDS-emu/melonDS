@@ -25,6 +25,36 @@
 namespace SPU
 {
 
+const s8 ADPCMIndexTable[8] = {-1, -1, -1, -1, 2, 4, 6, 8};
+
+const u16 ADPCMTable[89] =
+{
+    0x0007, 0x0008, 0x0009, 0x000A, 0x000B, 0x000C, 0x000D, 0x000E,
+    0x0010, 0x0011, 0x0013, 0x0015, 0x0017, 0x0019, 0x001C, 0x001F,
+    0x0022, 0x0025, 0x0029, 0x002D, 0x0032, 0x0037, 0x003C, 0x0042,
+    0x0049, 0x0050, 0x0058, 0x0061, 0x006B, 0x0076, 0x0082, 0x008F,
+    0x009D, 0x00AD, 0x00BE, 0x00D1, 0x00E6, 0x00FD, 0x0117, 0x0133,
+    0x0151, 0x0173, 0x0198, 0x01C1, 0x01EE, 0x0220, 0x0256, 0x0292,
+    0x02D4, 0x031C, 0x036C, 0x03C3, 0x0424, 0x048E, 0x0502, 0x0583,
+    0x0610, 0x06AB, 0x0756, 0x0812, 0x08E0, 0x09C3, 0x0ABD, 0x0BD0,
+    0x0CFF, 0x0E4C, 0x0FBA, 0x114C, 0x1307, 0x14EE, 0x1706, 0x1954,
+    0x1BDC, 0x1EA5, 0x21B6, 0x2515, 0x28CA, 0x2CDF, 0x315B, 0x364B,
+    0x3BB9, 0x41B2, 0x4844, 0x4F7E, 0x5771, 0x602F, 0x69CE, 0x7462,
+    0x7FFF
+};
+
+const s16 PSGTable[8][8] =
+{
+    {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF},
+    {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF},
+    {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+    {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+    {-0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+    {-0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+    {-0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+    { 0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF}
+};
+
 const u32 OutputBufferSize = 2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
 u32 OutputReadOffset;
@@ -90,47 +120,183 @@ void Channel::Reset()
 void Channel::Start()
 {
     Timer = TimerReload;
-    Pos = 0;
 
-    // hax
-    NextSample_PSG();
+    if (((Cnt >> 29) & 0x3) == 1)
+        Pos = -1;
+    else
+        Pos = -3;
+
+    NoiseVal = 0x7FFF;
+    CurSample = 0;
+}
+
+void Channel::NextSample_PCM8()
+{
+    Pos++;
+    if (Pos < 0) return;
+    if (Pos >= (LoopPos + Length))
+    {
+        // TODO: what happens when mode 3 is used?
+        u32 repeat = (Cnt >> 27) & 0x3;
+        if (repeat == 2)
+        {
+            CurSample = 0;
+            Cnt &= ~(1<<31);
+            return;
+        }
+        else if (repeat == 1)
+        {
+            Pos = LoopPos;
+        }
+    }
+
+    s8 val = (s8)NDS::ARM7Read8(SrcAddr + Pos);
+    CurSample = val << 8;
+}
+
+void Channel::NextSample_PCM16()
+{
+    Pos++;
+    if (Pos < 0) return;
+    if ((Pos<<1) >= (LoopPos + Length))
+    {
+        // TODO: what happens when mode 3 is used?
+        u32 repeat = (Cnt >> 27) & 0x3;
+        if (repeat == 2)
+        {
+            CurSample = 0;
+            Cnt &= ~(1<<31);
+            return;
+        }
+        else if (repeat == 1)
+        {
+            Pos = LoopPos>>1;
+        }
+    }
+
+    s16 val = (s16)NDS::ARM7Read16(SrcAddr + (Pos<<1));
+    CurSample = val;
+}
+
+void Channel::NextSample_ADPCM()
+{
+    Pos++;
+    if (Pos < 8)
+    {
+        if (Pos == 0)
+        {
+            // setup ADPCM
+            u32 header = NDS::ARM7Read32(SrcAddr);
+            ADPCMVal = header & 0xFFFF;
+            ADPCMIndex = (header >> 16) & 0x7F;
+            if (ADPCMIndex > 88) ADPCMIndex = 88;
+
+            ADPCMValLoop = ADPCMVal;
+            ADPCMIndexLoop = ADPCMIndex;
+        }
+
+        return;
+    }
+
+    if ((Pos>>1) >= (LoopPos + Length))
+    {
+        // TODO: what happens when mode 3 is used?
+        u32 repeat = (Cnt >> 27) & 0x3;
+        if (repeat == 2)
+        {
+            CurSample = 0;
+            Cnt &= ~(1<<31);
+            return;
+        }
+        else if (repeat == 1)
+        {
+            Pos = LoopPos<<1;
+            ADPCMVal = ADPCMValLoop;
+            ADPCMIndex = ADPCMIndexLoop;
+        }
+    }
+    else
+    {
+        if (!(Pos & 0x1))
+            ADPCMCurByte = NDS::ARM7Read8(SrcAddr + (Pos>>1));
+        else
+            ADPCMCurByte >>= 4;
+
+        u16 val = ADPCMTable[ADPCMIndex];
+        u16 diff = val >> 3;
+        if (ADPCMCurByte & 0x1) diff += (val >> 2);
+        if (ADPCMCurByte & 0x2) diff += (val >> 1);
+        if (ADPCMCurByte & 0x4) diff += val;
+
+        if (ADPCMCurByte & 0x8)
+        {
+            ADPCMVal -= diff;
+            if (ADPCMVal < -0x7FFF) ADPCMVal = -0x7FFF;
+        }
+        else
+        {
+            ADPCMVal += diff;
+            if (ADPCMVal > 0x7FFF) ADPCMVal = 0x7FFF;
+        }
+
+        ADPCMIndex += ADPCMIndexTable[ADPCMCurByte & 0x7];
+        if      (ADPCMIndex < 0)  ADPCMIndex = 0;
+        else if (ADPCMIndex > 88) ADPCMIndex = 88;
+
+        if (Pos == (LoopPos<<1))
+        {
+            ADPCMValLoop = ADPCMVal;
+            ADPCMIndexLoop = ADPCMIndex;
+        }
+    }
+
+    CurSample = ADPCMVal;
 }
 
 void Channel::NextSample_PSG()
 {
-    s16 psgtable[8][8] =
-    {
-        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF},
-        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF},
-        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-        {-0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-        {-0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-        {-0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-        { 0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF}
-    };
-
-    CurSample = psgtable[(Cnt >> 24) & 0x7][Pos & 0x7];
+    Pos++;
+    CurSample = PSGTable[(Cnt >> 24) & 0x7][Pos & 0x7];
 }
 
+void Channel::NextSample_Noise()
+{
+    if (NoiseVal & 0x1)
+    {
+        NoiseVal = (NoiseVal >> 1) ^ 0x6000;
+        CurSample = -0x7FFF;
+    }
+    else
+    {
+        NoiseVal >>= 1;
+        CurSample = 0x7FFF;
+    }
+}
+
+template<u32 type>
 void Channel::Run(s32* buf, u32 samples)
 {
     for (u32 s = 0; s < samples; s++)
         buf[s] = 0;
 
-    if (!(Cnt & (1<<31))) return;
-    if (Num < 8) return;
     if (!(Cnt & 0x7F)) return;
 
     for (u32 s = 0; s < samples; s++)
     {
         Timer += 512; // 1 sample = 512 cycles at 16MHz
-        // will probably shit itself for very high-pitched sounds
+
         while (Timer >> 16)
         {
             Timer = TimerReload + (Timer - 0x10000);
-            Pos++;
-            NextSample_PSG();
+
+            switch (type)
+            {
+            case 0: NextSample_PCM8(); break;
+            case 1: NextSample_PCM16(); break;
+            case 2: NextSample_ADPCM(); break;
+            case 3: NextSample_PSG(); break;
+            case 4: NextSample_Noise(); break;
+            }
         }
 
         buf[s] = (s32)CurSample;
@@ -141,20 +307,44 @@ void Channel::Run(s32* buf, u32 samples)
 void Mix(u32 samples)
 {
     s32 channelbuf[32];
-    s32 finalbuf[32];
+    s32 leftbuf[32];
+    s32 rightbuf[32];
 
     for (u32 s = 0; s < samples; s++)
-        finalbuf[s] = 0;
+    {
+        leftbuf[s] = 0;
+        rightbuf[s] = 0;
+    }
 
     for (int i = 0; i < 16; i++)
-    //int i = 8;
     {
         Channel* chan = Channels[i];
-        chan->Run(channelbuf, samples);
+        if (!(chan->Cnt & (1<<31))) continue;
+
+        // TODO: what happens if we use type 3 on channels 0-7??
+        switch ((chan->Cnt >> 29) & 0x3)
+        {
+        case 0: chan->Run<0>(channelbuf, samples); break;
+        case 1: chan->Run<1>(channelbuf, samples); break;
+        case 2: chan->Run<2>(channelbuf, samples); break;
+        case 3:
+            if      (i >= 14) chan->Run<4>(channelbuf, samples);
+            else if (i >= 8)  chan->Run<3>(channelbuf, samples);
+            break;
+        }
 
         for (u32 s = 0; s < samples; s++)
         {
-            finalbuf[s] += channelbuf[s];
+            s32 val = (s32)channelbuf[s];
+
+            val <<= chan->VolumeShift;
+            val *= chan->Volume;
+
+            s32 l = ((s64)val * (128-chan->Pan)) >> 10;
+            s32 r = ((s64)val * chan->Pan) >> 10;
+
+            leftbuf[s] += l;
+            rightbuf[s] += r;
         }
     }
 
@@ -162,11 +352,14 @@ void Mix(u32 samples)
 
     for (u32 s = 0; s < samples; s++)
     {
-        s16 val = (s16)(finalbuf[s] >> 4);
-        // TODO panning! also volume and all
+        s32 l = (s32)leftbuf[s];
+        s32 r = (s32)rightbuf[s];
 
-        OutputBuffer[OutputWriteOffset] = val;
-        OutputBuffer[OutputWriteOffset + 1] = val;
+        l = ((s64)l * MasterVolume) >> 7;
+        r = ((s64)r * MasterVolume) >> 7;
+
+        OutputBuffer[OutputWriteOffset    ] = l >> 12;
+        OutputBuffer[OutputWriteOffset + 1] = r >> 12;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
     }
@@ -177,18 +370,18 @@ void Mix(u32 samples)
 
 
 void ReadOutput(s16* data, int samples)
-{u32 zarp = 0;
+{
     for (int i = 0; i < samples; i++)
     {
         *data++ = OutputBuffer[OutputReadOffset];
         *data++ = OutputBuffer[OutputReadOffset + 1];
 
         if (OutputReadOffset != OutputWriteOffset)
-        {zarp += 2;
+        {
             OutputReadOffset += 2;
             OutputReadOffset &= ((2*OutputBufferSize)-1);
         }
-    }printf("read %d samples, took %d\n", samples, zarp);
+    }
 }
 
 
@@ -215,7 +408,7 @@ u8 Read8(u32 addr)
         }
     }
 
-    printf("unknown SPU read8 %08X\n", addr);
+    //printf("unknown SPU read8 %08X\n", addr);
     return 0;
 }
 
