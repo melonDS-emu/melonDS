@@ -71,12 +71,11 @@ void Reset()
 
 Channel::Channel(u32 num)
 {
-    //
+    Num = num;
 }
 
 Channel::~Channel()
 {
-    //
 }
 
 void Channel::Reset()
@@ -88,28 +87,108 @@ void Channel::Reset()
     Length = 0;
 }
 
+void Channel::Start()
+{
+    Timer = TimerReload;
+    Pos = 0;
+
+    // hax
+    NextSample_PSG();
+}
+
+void Channel::NextSample_PSG()
+{
+    s16 psgtable[8][8] =
+    {
+        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF},
+        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF},
+        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+        {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+        {-0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+        {-0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+        {-0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
+        { 0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF}
+    };
+
+    CurSample = psgtable[(Cnt >> 24) & 0x7][Pos & 0x7];
+}
+
+void Channel::Run(s32* buf, u32 samples)
+{
+    for (u32 s = 0; s < samples; s++)
+        buf[s] = 0;
+
+    if (!(Cnt & (1<<31))) return;
+    if (Num < 8) return;
+    if (!(Cnt & 0x7F)) return;
+
+    for (u32 s = 0; s < samples; s++)
+    {
+        Timer += 512; // 1 sample = 512 cycles at 16MHz
+        // will probably shit itself for very high-pitched sounds
+        while (Timer >> 16)
+        {
+            Timer = TimerReload + (Timer - 0x10000);
+            Pos++;
+            NextSample_PSG();
+        }
+
+        buf[s] = (s32)CurSample;
+    }
+}
+
 
 void Mix(u32 samples)
 {
+    s32 channelbuf[32];
+    s32 finalbuf[32];
+
+    for (u32 s = 0; s < samples; s++)
+        finalbuf[s] = 0;
+
+    for (int i = 0; i < 16; i++)
+    //int i = 8;
+    {
+        Channel* chan = Channels[i];
+        chan->Run(channelbuf, samples);
+
+        for (u32 s = 0; s < samples; s++)
+        {
+            finalbuf[s] += channelbuf[s];
+        }
+    }
+
     //
+
+    for (u32 s = 0; s < samples; s++)
+    {
+        s16 val = (s16)(finalbuf[s] >> 4);
+        // TODO panning! also volume and all
+
+        OutputBuffer[OutputWriteOffset] = val;
+        OutputBuffer[OutputWriteOffset + 1] = val;
+        OutputWriteOffset += 2;
+        OutputWriteOffset &= ((2*OutputBufferSize)-1);
+    }
+
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
 }
 
 
 void ReadOutput(s16* data, int samples)
-{
+{u32 zarp = 0;
     for (int i = 0; i < samples; i++)
     {
         *data++ = OutputBuffer[OutputReadOffset];
         *data++ = OutputBuffer[OutputReadOffset + 1];
 
         if (OutputReadOffset != OutputWriteOffset)
-        {
+        {zarp += 2;
             OutputReadOffset += 2;
             OutputReadOffset &= ((2*OutputBufferSize)-1);
         }
-    }
+    }printf("read %d samples, took %d\n", samples, zarp);
 }
 
 
