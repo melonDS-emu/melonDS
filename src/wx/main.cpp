@@ -22,6 +22,7 @@
 #include "../Config.h"
 #include "../NDS.h"
 #include "../GPU.h"
+#include "../SPU.h"
 
 #include "InputConfig.h"
 #include "EmuConfig.h"
@@ -86,7 +87,7 @@ bool wxApp_melonDS::OnInit()
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
     Config::Load();
-    
+
     emuthread = new EmuThread();
     if (emuthread->Run() != wxTHREAD_NO_ERROR)
     {
@@ -97,7 +98,7 @@ bool wxApp_melonDS::OnInit()
 
     MainFrame* melon = new MainFrame();
     melon->Show(true);
-    
+
     melon->emuthread = emuthread;
     emuthread->parent = melon;
 
@@ -108,7 +109,7 @@ int wxApp_melonDS::OnExit()
 {
     emuthread->Wait();
     delete emuthread;
-    
+
     return wxApp::OnExit();
 }
 
@@ -169,7 +170,7 @@ void MainFrame::OnClose(wxCloseEvent& event)
 {
     emuthread->EmuPause();
     emuthread->EmuExit();
-    
+
     NDS::DeInit();
 
     if (joy)
@@ -313,6 +314,11 @@ EmuThread::~EmuThread()
 {
 }
 
+static void AudioCallback(void* data, Uint8* stream, int len)
+{
+    SPU::ReadOutput((s16*)stream, len>>2);
+}
+
 wxThread::ExitCode EmuThread::Entry()
 {
     emustatus = 3;
@@ -343,6 +349,23 @@ wxThread::ExitCode EmuThread::Entry()
     topdst.w = 256; topdst.h = 192;
     botdst.x = 0; botdst.y = 192;
     botdst.w = 256; botdst.h = 192;
+
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 32824; // 32823.6328125
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 1024;
+    whatIwant.callback = AudioCallback;
+    audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!audio)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(audio, 0);
+    }
 
     Touching = false;
     axismask = 0;
@@ -430,8 +453,10 @@ wxThread::ExitCode EmuThread::Entry()
             emupaused = true;
         }
     }
-    
+
     emupaused = true;
+
+    if (audio) SDL_CloseAudioDevice(audio);
 
     SDL_DestroyTexture(sdltex);
     SDL_DestroyRenderer(sdlrend);
@@ -462,7 +487,7 @@ void EmuThread::ProcessEvents()
                 {
                     int w = evt.window.data1;
                     int h = evt.window.data2;
-                    
+
                     // SDL_SetWindowMinimumSize() doesn't seem to work on Linux. oh well
                     if ((w < 256) || (h < 384))
                     {
@@ -514,7 +539,7 @@ void EmuThread::ProcessEvents()
                 {
                     Touching = true;
                     NDS::PressKey(16+6);
-                    
+
                     int mx, my;
                     SDL_GetGlobalMouseState(&mx, &my);
                     txoffset = mx - evt.button.x;

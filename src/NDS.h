@@ -24,30 +24,11 @@
 namespace NDS
 {
 
-/*#define SCHED_BUF_LEN 64
-
-typedef struct _SchedEvent
-{
-    u32 Delay;
-    void (*Func)(u32);
-    u32 Param;
-    struct _SchedEvent* PrevEvent;
-    struct _SchedEvent*  NextEvent;
-
-} SchedEvent;*/
-
 enum
 {
     Event_LCD = 0,
 
-    /*Event_Timer9_0,
-    Event_Timer9_1,
-    Event_Timer9_2,
-    Event_Timer9_3,
-    Event_Timer7_0,
-    Event_Timer7_1,
-    Event_Timer7_2,
-    Event_Timer7_3,*/
+    Event_SPU,
 
     Event_MAX
 };
@@ -95,7 +76,6 @@ typedef struct
     u16 Cnt;
     u32 Counter;
     u32 CycleShift;
-    //SchedEvent* Event;
 
 } Timer;
 
@@ -127,14 +107,8 @@ void ReleaseKey(u32 key);
 void TouchScreen(u16 x, u16 y);
 void ReleaseScreen();
 
-/*SchedEvent* ScheduleEvent(s32 Delay, void (*Func)(u32), u32 Param);
-void CancelEvent(SchedEvent* event);
-void RunEvents(s32 cycles);*/
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
-
-// DO NOT CALL FROM ARM7!!
-void CompensateARM7();
 
 void debug(u32 p);
 

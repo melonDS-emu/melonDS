@@ -46,7 +46,7 @@ class wxApp_melonDS : public wxApp
 public:
     virtual bool OnInit();
     virtual int OnExit();
-    
+
     EmuThread* emuthread;
 };
 
@@ -91,7 +91,7 @@ public:
 
     bool EmuIsRunning() { return (emustatus == 1) || (emustatus == 2); }
     bool EmuIsPaused() { return (emustatus == 2) && emupaused; }
-    
+
     MainFrame* parent;
 
 protected:
@@ -104,6 +104,8 @@ protected:
 
     SDL_Rect topsrc, topdst;
     SDL_Rect botsrc, botdst;
+
+    SDL_AudioDeviceID audio;
 
     bool Touching;
     int txoffset, tyoffset;

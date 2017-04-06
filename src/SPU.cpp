@@ -25,38 +25,269 @@
 namespace SPU
 {
 
-//SDL_AudioDeviceID device;
-//
+const u32 OutputBufferSize = 2*1024;
+s16 OutputBuffer[2 * OutputBufferSize];
+u32 OutputReadOffset;
+u32 OutputWriteOffset;
+
+
+u16 Cnt;
+u8 MasterVolume;
+u16 Bias;
+
+Channel* Channels[16];
 
 
 bool Init()
 {
-    /*SDL_AudioSpec whatIwant, whatIget;
-
-    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 32824; // 32823.6328125
-    whatIwant.format = AUDIO_S16LSB;
-    whatIwant.channels = 2;
-    whatIwant.samples = 2048;
-    whatIwant.callback = zorp;
-    device = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
-    if (!device)
-    {
-        printf("Audio init failed: %s\n", SDL_GetError());
-        return false;
-    }*/
+    for (int i = 0; i < 16; i++)
+        Channels[i] = new Channel(i);
 
     return true;
 }
 
 void DeInit()
 {
-    //if (device) SDL_CloseAudioDevice(device);
+    for (int i = 0; i < 16; i++)
+        delete Channels[i];
 }
 
 void Reset()
 {
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    OutputReadOffset = 0;
+    OutputWriteOffset = 0;
+
+    Cnt = 0;
+    MasterVolume = 0;
+    Bias = 0;
+
+    for (int i = 0; i < 16; i++)
+        Channels[i]->Reset();
+
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
+}
+
+
+Channel::Channel(u32 num)
+{
     //
+}
+
+Channel::~Channel()
+{
+    //
+}
+
+void Channel::Reset()
+{
+    SetCnt(0);
+    SrcAddr = 0;
+    TimerReload = 0;
+    LoopPos = 0;
+    Length = 0;
+}
+
+
+void Mix(u32 samples)
+{
+    //
+
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
+}
+
+
+void ReadOutput(s16* data, int samples)
+{
+    for (int i = 0; i < samples; i++)
+    {
+        *data++ = OutputBuffer[OutputReadOffset];
+        *data++ = OutputBuffer[OutputReadOffset + 1];
+
+        if (OutputReadOffset != OutputWriteOffset)
+        {
+            OutputReadOffset += 2;
+            OutputReadOffset &= ((2*OutputBufferSize)-1);
+        }
+    }
+}
+
+
+u8 Read8(u32 addr)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: return chan->Cnt & 0xFF;
+        case 0x1: return (chan->Cnt >> 8) & 0xFF;
+        case 0x2: return (chan->Cnt >> 16) & 0xFF;
+        case 0x3: return chan->Cnt >> 24;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500: return Cnt & 0x7F;
+        case 0x04000501: return Cnt >> 8;
+        }
+    }
+
+    printf("unknown SPU read8 %08X\n", addr);
+    return 0;
+}
+
+u16 Read16(u32 addr)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: return chan->Cnt & 0xFFFF;
+        case 0x2: return chan->Cnt >> 16;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500: return Cnt;
+        case 0x04000504: return Bias;
+        }
+    }
+
+    printf("unknown SPU read16 %08X\n", addr);
+    return 0;
+}
+
+u32 Read32(u32 addr)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: return chan->Cnt;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500: return Cnt;
+        case 0x04000504: return Bias;
+        }
+    }
+
+    printf("unknown SPU read32 %08X\n", addr);
+    return 0;
+}
+
+void Write8(u32 addr, u8 val)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: chan->SetCnt((chan->Cnt & 0xFFFFFF00) | val); return;
+        case 0x1: chan->SetCnt((chan->Cnt & 0xFFFF00FF) | (val << 8)); return;
+        case 0x2: chan->SetCnt((chan->Cnt & 0xFF00FFFF) | (val << 16)); return;
+        case 0x3: chan->SetCnt((chan->Cnt & 0x00FFFFFF) | (val << 24)); return;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500:
+            Cnt = (Cnt & 0xBF00) | (val & 0x7F);
+            MasterVolume = Cnt & 0x7F;
+            if (MasterVolume == 127) MasterVolume++;
+            return;
+        case 0x04000501:
+            Cnt = (Cnt & 0x007F) | ((val & 0xBF) << 8);
+            return;
+        }
+    }
+
+    printf("unknown SPU write8 %08X %02X\n", addr, val);
+}
+
+void Write16(u32 addr, u16 val)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: chan->SetCnt((chan->Cnt & 0xFFFF0000) | val); return;
+        case 0x2: chan->SetCnt((chan->Cnt & 0x0000FFFF) | (val << 16)); return;
+        case 0x8: chan->SetTimerReload(val); return;
+        case 0xA: chan->SetLoopPos(val); return;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500:
+            Cnt = val & 0xBF7F;
+            MasterVolume = Cnt & 0x7F;
+            if (MasterVolume == 127) MasterVolume++;
+            return;
+
+        case 0x04000504:
+            Bias = val & 0x3FF;
+            return;
+        }
+    }
+
+    printf("unknown SPU write16 %08X %04X\n", addr, val);
+}
+
+void Write32(u32 addr, u32 val)
+{
+    if (addr < 0x04000500)
+    {
+        Channel* chan = Channels[(addr >> 4) & 0xF];
+
+        switch (addr & 0xF)
+        {
+        case 0x0: chan->SetCnt(val); return;
+        case 0x4: chan->SetSrcAddr(val); return;
+        case 0x8:
+            chan->SetTimerReload(val & 0xFFFF);
+            chan->SetLoopPos(val >> 16);
+            return;
+        case 0xC: chan->SetLength(val); return;
+        }
+    }
+    else
+    {
+        switch (addr)
+        {
+        case 0x04000500:
+            Cnt = val & 0xBF7F;
+            MasterVolume = Cnt & 0x7F;
+            if (MasterVolume == 127) MasterVolume++;
+            return;
+
+        case 0x04000504:
+            Bias = val & 0x3FF;
+            return;
+        }
+    }
+
+    printf("unknown SPU write32 %08X %08X\n", addr, val);
 }
 
 }

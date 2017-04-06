@@ -26,6 +26,41 @@ bool Init();
 void DeInit();
 void Reset();
 
+void Mix(u32 samples);
+
+void ReadOutput(s16* data, int samples);
+
+u8 Read8(u32 addr);
+u16 Read16(u32 addr);
+u32 Read32(u32 addr);
+void Write8(u32 addr, u8 val);
+void Write16(u32 addr, u16 val);
+void Write32(u32 addr, u32 val);
+
+class Channel
+{
+public:
+    Channel(u32 num);
+    ~Channel();
+    void Reset();
+
+    u32 Cnt;
+    u32 SrcAddr;
+    u16 TimerReload;
+    u32 LoopPos;
+    u32 Length;
+
+    void SetCnt(u32 val)
+    {
+        Cnt = val & 0xFF7F837F;
+    }
+
+    void SetSrcAddr(u32 val) { SrcAddr = val & 0x07FFFFFF; }
+    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
+    void SetLoopPos(u32 val) { LoopPos = (val & 0xFFFF) << 2; }
+    void SetLength(u32 val) { Length = (val & 0x001FFFFF) << 2; }
+};
+
 }
 
 #endif // SPU_H

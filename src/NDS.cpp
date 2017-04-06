@@ -25,6 +25,7 @@
 #include "DMA.h"
 #include "FIFO.h"
 #include "GPU.h"
+#include "SPU.h"
 #include "SPI.h"
 #include "RTC.h"
 #include "Wifi.h"
@@ -36,11 +37,6 @@ namespace NDS
 // TODO LIST
 // * stick all the variables in a big structure?
 //   would make it easier to deal with savestates
-
-/*SchedEvent SchedBuffer[SCHED_BUF_LEN];
-SchedEvent* SchedQueue;
-
-bool NeedReschedule;*/
 
 ARM* ARM9;
 ARM* ARM7;
@@ -108,8 +104,6 @@ u32 SqrtRes;
 
 u32 KeyInput;
 
-u16 _soundbias; // temp
-
 bool Running;
 
 
@@ -132,6 +126,7 @@ bool Init()
 
     if (!NDSCart::Init()) return false;
     if (!GPU::Init()) return false;
+    if (!SPU::Init()) return false;
     if (!SPI::Init()) return false;
     if (!RTC::Init()) return false;
 
@@ -151,6 +146,7 @@ void DeInit()
 
     NDSCart::DeInit();
     GPU::DeInit();
+    SPU::DeInit();
     SPI::DeInit();
     RTC::DeInit();
 }
@@ -300,14 +296,6 @@ void Reset()
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
     memset(DMA9Fill, 0, 4*4);
 
-    NDSCart::Reset();
-    GPU::Reset();
-    SPI::Reset();
-    RTC::Reset();
-    Wifi::Reset();
-
-   // memset(SchedBuffer, 0, sizeof(SchedEvent)*SCHED_BUF_LEN);
-   // SchedQueue = NULL;
     memset(SchedList, 0, sizeof(SchedList));
     SchedListMask = 0;
 
@@ -319,7 +307,12 @@ void Reset()
 
     KeyInput = 0x007F03FF;
 
-    _soundbias = 0;
+    NDSCart::Reset();
+    GPU::Reset();
+    SPU::Reset();
+    SPI::Reset();
+    RTC::Reset();
+    Wifi::Reset();
 }
 
 void LoadROM(const char* path, bool direct)
@@ -1629,7 +1622,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
         {
             SetIRQ(1, IRQ_IPCSync);
         }
-        //CompensateARM7();
         return;
 
     case 0x04000184:
@@ -1901,8 +1893,7 @@ u8 ARM7IORead8(u32 addr)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
-        return 0;
+        return SPU::Read8(addr);
     }
 
     printf("unknown ARM7 IO read8 %08X\n", addr);
@@ -1972,14 +1963,11 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000300: return PostFlag7;
     case 0x04000304: return PowerControl7;
     case 0x04000308: return ARM7BIOSProt;
-
-    case 0x04000504: return _soundbias;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
-        return 0;
+        return SPU::Read16(addr);
     }
 
     printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM9->R[15]);
@@ -2057,8 +2045,7 @@ u32 ARM7IORead32(u32 addr)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
-        return 0;
+        return SPU::Read32(addr);
     }
 
     printf("unknown ARM7 IO read32 %08X\n", addr);
@@ -2116,7 +2103,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
+        SPU::Write8(addr, val);
         return;
     }
 
@@ -2228,15 +2215,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (ARM7BIOSProt == 0)
             ARM7BIOSProt = val;
         return;
-
-    case 0x04000504: // removeme
-        _soundbias = val & 0x3FF;
-        return;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
+        SPU::Write16(addr, val);
         return;
     }
 
@@ -2326,7 +2309,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     if (addr >= 0x04000400 && addr < 0x04000520)
     {
-        // sound I/O
+        SPU::Write32(addr, val);
         return;
     }
 
