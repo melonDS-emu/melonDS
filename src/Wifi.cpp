@@ -19,20 +19,35 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "SPI.h"
 #include "Wifi.h"
 
 
 namespace Wifi
 {
 
+u8 RAM[0x2000];
+
+u16 Random;
+
 u16 BBCnt;
 u8 BBWrite;
 u8 BBRegs[0x100];
 u8 BBRegsRO[0x100];
 
+u8 RFVersion;
+u16 RFCnt;
+u16 RFData1;
+u16 RFData2;
+u32 RFRegs[0x40];
+
 
 void Reset()
 {
+    memset(RAM, 0, 0x2000);
+
+    Random = 0x7FF;
+
     BBCnt = 0;
     BBWrite = 0;
     memset(BBRegs, 0, 0x100);
@@ -65,15 +80,66 @@ void Reset()
         BBREG_FIXED(i, 0x00);
     }
     #undef BBREG_FIXED
+
+    RFVersion = SPI_Firmware::GetRFVersion();
+    RFCnt = 0;
+    RFData1 = 0;
+    RFData2 = 0;
+    memset(RFRegs, 0, 4*0x40);
 }
 
+
+void RFTransfer_Type2()
+{
+    u32 id = (RFData2 >> 2) & 0x1F;
+
+    if (RFData2 & 0x0080)
+    {
+        u32 data = RFRegs[id];
+        RFData1 = data & 0xFFFF;
+        RFData2 = (RFData2 & 0xFFFC) | ((data >> 16) & 0x3);
+    }
+    else
+    {
+        u32 data = RFData1 | ((RFData2 & 0x0003) << 16);
+        RFRegs[id] = data;
+    }
+}
+
+void RFTransfer_Type3()
+{
+    u32 id = (RFData1 >> 8) & 0x3F;
+
+    u32 cmd = RFData2 & 0xF;
+    if (cmd == 6)
+    {
+        RFData1 = (RFData1 & 0xFF00) | (RFRegs[id] & 0xFF);
+    }
+    else if (cmd == 5)
+    {
+        u32 data = RFData1 & 0xFF;
+        RFRegs[id] = data;
+    }
+}
+
+
+// TODO: wifi waitstates
 
 u16 Read(u32 addr)
 {
     addr &= 0x7FFF;
 
+    if (addr >= 0x4000 && addr < 0x6000)
+    {
+        return *(u16*)&RAM[addr & 0x1FFF];
+    }
+
     switch (addr)
     {
+    case 0x044: // random generator. not accurate
+        Random = (Random & 0x1) ^ (((Random & 0x3FF) << 1) | (Random >> 10));
+        return Random;
+
     case 0x158:
         return BBCnt;
 
@@ -86,7 +152,16 @@ u16 Read(u32 addr)
         return BBRegs[BBCnt & 0xFF];
 
     case 0x15E:
-        return 0; // cheap
+        return 0; // TODO eventually (BB busy flag)
+
+    case 0x17C:
+        return RFData2;
+    case 0x17E:
+        return RFData1;
+    case 0x180:
+        return 0; // TODO eventually (RF busy flag)
+    case 0x184:
+        return RFCnt;
     }
 
     printf("WIFI: unknown read %08X\n", addr);
@@ -96,6 +171,12 @@ u16 Read(u32 addr)
 void Write(u32 addr, u16 val)
 {
     addr &= 0x7FFF;
+
+    if (addr >= 0x4000 && addr < 0x6000)
+    {
+        *(u16*)&RAM[addr & 0x1FFF] = val;
+        return;
+    }
 
     switch (addr)
     {
@@ -111,6 +192,18 @@ void Write(u32 addr, u16 val)
 
     case 0x15A:
         BBWrite = val;
+        return;
+
+    case 0x17C:
+        RFData2 = val;
+        if (RFVersion == 3) RFTransfer_Type3();
+        else                RFTransfer_Type2();
+        return;
+    case 0x17E:
+        RFData1 = val;
+        return;
+    case 0x184:
+        RFCnt = val & 0x413F;
         return;
     }
 

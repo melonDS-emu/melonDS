@@ -554,6 +554,7 @@ void EmuThread::ProcessEvents()
                 if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::PressKey(i);
             if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::PressKey(16);
             if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::PressKey(17);
+            if (evt.key.keysym.scancode == SDL_SCANCODE_F12) NDS::debug(0);
             break;
 
         case SDL_KEYUP:

@@ -24,6 +24,10 @@ namespace SPI_Firmware
 
 void SetupDirectBoot();
 
+u8 GetConsoleType();
+u8 GetWifiVersion();
+u8 GetRFVersion();
+
 }
 
 namespace SPI_TSC

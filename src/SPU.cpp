@@ -52,7 +52,7 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
     {-0x7FFF, -0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
     {-0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF},
-    { 0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF,  0x7FFF}
+    {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
 const u32 OutputBufferSize = 2*1024;
@@ -96,6 +96,12 @@ void Reset()
         Channels[i]->Reset();
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
+}
+
+
+void SetBias(u16 bias)
+{
+    Bias = bias;
 }
 
 
@@ -358,8 +364,15 @@ void Mix(u32 samples)
         l = ((s64)l * MasterVolume) >> 7;
         r = ((s64)r * MasterVolume) >> 7;
 
-        OutputBuffer[OutputWriteOffset    ] = l >> 12;
-        OutputBuffer[OutputWriteOffset + 1] = r >> 12;
+        l >>= 12;
+        if      (l < -0x8000) l = -0x8000;
+        else if (l > 0x7FFF)  l = 0x7FFF;
+        r >>= 12;
+        if      (r < -0x8000) r = -0x8000;
+        else if (r > 0x7FFF)  r = 0x7FFF;
+
+        OutputBuffer[OutputWriteOffset    ] = l << 3;
+        OutputBuffer[OutputWriteOffset + 1] = r << 3;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
     }

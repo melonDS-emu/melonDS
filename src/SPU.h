@@ -26,6 +26,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetBias(u16 bias);
+
 void Mix(u32 samples);
 
 void ReadOutput(s16* data, int samples);

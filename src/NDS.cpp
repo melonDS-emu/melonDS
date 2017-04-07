@@ -220,6 +220,8 @@ void SetupDirectBoot()
     PowerControl9 = 0x820F;
     GPU::DisplaySwap(PowerControl9);
 
+    SPU::SetBias(0x200);
+
     ARM7BIOSProt = 0x1204;
 
     SPI_Firmware::SetupDirectBoot();
@@ -1464,6 +1466,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000244: return GPU::VRAMCNT[4] | (GPU::VRAMCNT[5] << 8) | (GPU::VRAMCNT[6] << 16) | (WRAMCnt << 24);
     case 0x04000248: return GPU::VRAMCNT[7] | (GPU::VRAMCNT[8] << 8);
 
+    case 0x04000280: return DivCnt;
     case 0x04000290: return DivNumerator[0];
     case 0x04000294: return DivNumerator[1];
     case 0x04000298: return DivDenominator[0];
@@ -1473,6 +1476,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002A8: return DivRemainder[0];
     case 0x040002AC: return DivRemainder[1];
 
+    case 0x040002B0: return SqrtCnt;
     case 0x040002B4: return SqrtRes;
     case 0x040002B8: return SqrtVal[0];
     case 0x040002BC: return SqrtVal[1];
