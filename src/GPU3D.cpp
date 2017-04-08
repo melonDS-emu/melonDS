@@ -49,7 +49,6 @@
 //
 // formula for clear depth: (GBAtek is wrong there)
 // clearZ = (val * 0x200) + 0x1FF;
-// if (clearZ >= 0x010000 && clearZ < 0xFFFFFF) clearZ++;
 //
 // alpha is 5-bit
 //

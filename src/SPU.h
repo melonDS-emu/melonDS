@@ -103,6 +103,56 @@ public:
     void NextSample_Noise();
 
     template<u32 type> void Run(s32* buf, u32 samples);
+
+    void DoRun(s32* buf, u32 samples)
+    {
+        switch ((Cnt >> 29) & 0x3)
+        {
+        case 0: Run<0>(buf, samples); break;
+        case 1: Run<1>(buf, samples); break;
+        case 2: Run<2>(buf, samples); break;
+        case 3:
+            if      (Num >= 14) Run<4>(buf, samples);
+            else if (Num >= 8)  Run<3>(buf, samples);
+            break;
+        }
+    }
+};
+
+class CaptureUnit
+{
+public:
+    CaptureUnit(u32 num);
+    ~CaptureUnit();
+    void Reset();
+
+    u32 Num;
+
+    u8 Cnt;
+    u32 DstAddr;
+    u16 TimerReload;
+    u32 Length;
+
+    u32 Timer;
+    s32 Pos;
+
+    void SetCnt(u8 val)
+    {
+        if ((val & 0x80) && !(Cnt & 0x80))
+            Start();
+
+        val &= 0x8F;
+        if (!(val & 0x80)) val &= ~0x01;
+        Cnt = val;
+    }
+
+    void SetDstAddr(u32 val) { DstAddr = val & 0x07FFFFFC; }
+    void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
+    void SetLength(u32 val) { Length = val << 2; if (Length == 0) Length = 4; }
+
+    void Start() { Timer = TimerReload; }
+
+    void Run(s32 sample);
 };
 
 }

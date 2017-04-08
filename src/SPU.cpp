@@ -66,12 +66,16 @@ u8 MasterVolume;
 u16 Bias;
 
 Channel* Channels[16];
+CaptureUnit* Capture[2];
 
 
 bool Init()
 {
     for (int i = 0; i < 16; i++)
         Channels[i] = new Channel(i);
+
+    Capture[0] = new CaptureUnit(0);
+    Capture[1] = new CaptureUnit(1);
 
     return true;
 }
@@ -80,6 +84,9 @@ void DeInit()
 {
     for (int i = 0; i < 16; i++)
         delete Channels[i];
+
+    delete Capture[0];
+    delete Capture[1];
 }
 
 void Reset()
@@ -94,6 +101,9 @@ void Reset()
 
     for (int i = 0; i < 16; i++)
         Channels[i]->Reset();
+
+    Capture[0]->Reset();
+    Capture[1]->Reset();
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
 }
@@ -285,8 +295,6 @@ void Channel::Run(s32* buf, u32 samples)
     for (u32 s = 0; s < samples; s++)
         buf[s] = 0;
 
-    if (!(Cnt & 0x7F)) return;
-
     for (u32 s = 0; s < samples; s++)
     {
         Timer += 512; // 1 sample = 512 cycles at 16MHz
@@ -305,7 +313,76 @@ void Channel::Run(s32* buf, u32 samples)
             }
         }
 
-        buf[s] = (s32)CurSample;
+        s32 val = (s32)CurSample;
+        val <<= VolumeShift;
+        val *= Volume;
+        buf[s] = val;
+
+        if (!(Cnt & (1<<31))) break;
+    }
+}
+
+
+CaptureUnit::CaptureUnit(u32 num)
+{
+    Num = num;
+}
+
+CaptureUnit::~CaptureUnit()
+{
+}
+
+void CaptureUnit::Reset()
+{
+    SetCnt(0);
+    DstAddr = 0;
+    TimerReload = 0;
+    Length = 0;
+}
+
+void CaptureUnit::Run(s32 sample)
+{
+    Timer += 512;
+
+    if (Cnt & 0x08)
+    {
+        while (Timer >> 16)
+        {
+            Timer = TimerReload + (Timer - 0x10000);
+
+            NDS::ARM7Write8(DstAddr + Pos, (u8)(sample >> 8));
+            Pos++;
+            if (Pos >= Length)
+            {
+                if (Cnt & 0x04)
+                {
+                    Cnt &= 0x7F;
+                    return;
+                }
+                else
+                    Pos = 0;
+            }
+        }
+    }
+    else
+    {
+        while (Timer >> 16)
+        {
+            Timer = TimerReload + (Timer - 0x10000);
+
+            NDS::ARM7Write16(DstAddr + Pos, (u16)sample);
+            Pos += 2;
+            if (Pos >= Length)
+            {
+                if (Cnt & 0x04)
+                {
+                    Cnt &= 0x7F;
+                    return;
+                }
+                else
+                    Pos = 0;
+            }
+        }
     }
 }
 
@@ -313,66 +390,171 @@ void Channel::Run(s32* buf, u32 samples)
 void Mix(u32 samples)
 {
     s32 channelbuf[32];
-    s32 leftbuf[32];
-    s32 rightbuf[32];
+    s32 leftbuf[32], rightbuf[32];
+    s32 ch1buf[32], ch3buf[32];
+    s32 leftoutput[32], rightoutput[32];
 
     for (u32 s = 0; s < samples; s++)
     {
-        leftbuf[s] = 0;
-        rightbuf[s] = 0;
+        leftbuf[s] = 0; rightbuf[s] = 0;
+        leftoutput[s] = 0; rightoutput[s] = 0;
     }
 
-    for (int i = 0; i < 16; i++)
+    if (Cnt & (1<<15))
     {
-        Channel* chan = Channels[i];
-        if (!(chan->Cnt & (1<<31))) continue;
+        u32 mixermask = 0xFFFF;
+        if (Cnt & (1<<12)) mixermask &= ~(1<<1);
+        if (Cnt & (1<<13)) mixermask &= ~(1<<3);
 
-        // TODO: what happens if we use type 3 on channels 0-7??
-        switch ((chan->Cnt >> 29) & 0x3)
+        for (int i = 0; i < 16; i++)
         {
-        case 0: chan->Run<0>(channelbuf, samples); break;
-        case 1: chan->Run<1>(channelbuf, samples); break;
-        case 2: chan->Run<2>(channelbuf, samples); break;
-        case 3:
-            if      (i >= 14) chan->Run<4>(channelbuf, samples);
-            else if (i >= 8)  chan->Run<3>(channelbuf, samples);
+            if (!(mixermask & (1<<i))) continue;
+            Channel* chan = Channels[i];
+            if (!(chan->Cnt & (1<<31))) continue;
+
+            // TODO: what happens if we use type 3 on channels 0-7??
+            chan->DoRun(channelbuf, samples);
+
+            for (u32 s = 0; s < samples; s++)
+            {
+                s32 val = (s32)channelbuf[s];
+
+                s32 l = ((s64)val * (128-chan->Pan)) >> 10;
+                s32 r = ((s64)val * chan->Pan) >> 10;
+
+                leftbuf[s] += l;
+                rightbuf[s] += r;
+            }
+        }
+
+        // sound capture
+        // TODO: other sound capture sources, along with their bugs
+
+        if (Capture[0]->Cnt & (1<<7))
+        {
+            for (u32 s = 0; s < samples; s++)
+            {
+                s32 val = leftbuf[s];
+
+                val >>= 8;
+                if      (val < -0x8000) val = -0x8000;
+                else if (val > 0x7FFF)  val = 0x7FFF;
+
+                Capture[0]->Run(val);
+                if (!((Capture[0]->Cnt & (1<<7)))) break;
+            }
+        }
+
+        if (Capture[1]->Cnt & (1<<7))
+        {
+            for (u32 s = 0; s < samples; s++)
+            {
+                s32 val = rightbuf[s];
+
+                val >>= 8;
+                if      (val < -0x8000) val = -0x8000;
+                else if (val > 0x7FFF)  val = 0x7FFF;
+
+                Capture[1]->Run(val);
+                if (!((Capture[1]->Cnt & (1<<7)))) break;
+            }
+        }
+
+        // final output
+
+        if (Cnt & 0x0500)
+        {
+            // mix channel 1 if needed
+            Channels[1]->DoRun(ch1buf, samples);
+        }
+        if (Cnt & 0x0A00)
+        {
+            // mix channel 3 if needed
+            Channels[3]->DoRun(ch3buf, samples);
+        }
+
+        switch (Cnt & 0x0300)
+        {
+        case 0x0000: // left mixer
+            {
+                for (u32 s = 0; s < samples; s++)
+                    leftoutput[s] = leftbuf[s];
+            }
+            break;
+        case 0x0100: // channel 1
+            {
+                s32 pan = 128 - Channels[1]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    leftoutput[s] = ((s64)ch1buf[s] * pan) >> 10;
+            }
+            break;
+        case 0x0200: // channel 3
+            {
+                s32 pan = 128 - Channels[3]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    leftoutput[s] = ((s64)ch3buf[s] * pan) >> 10;
+            }
+            break;
+        case 0x0300: // channel 1+3
+            {
+                s32 pan1 = 128 - Channels[1]->Pan;
+                s32 pan3 = 128 - Channels[3]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    leftoutput[s] = (((s64)ch1buf[s] * pan1) >> 10) + (((s64)ch3buf[s] * pan3) >> 10);
+            }
             break;
         }
 
-        for (u32 s = 0; s < samples; s++)
+        switch (Cnt & 0x0C00)
         {
-            s32 val = (s32)channelbuf[s];
-
-            val <<= chan->VolumeShift;
-            val *= chan->Volume;
-
-            s32 l = ((s64)val * (128-chan->Pan)) >> 10;
-            s32 r = ((s64)val * chan->Pan) >> 10;
-
-            leftbuf[s] += l;
-            rightbuf[s] += r;
+        case 0x0000: // right mixer
+            {
+                for (u32 s = 0; s < samples; s++)
+                    rightoutput[s] = rightbuf[s];
+            }
+            break;
+        case 0x0400: // channel 1
+            {
+                s32 pan = Channels[1]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    rightoutput[s] = ((s64)ch1buf[s] * pan) >> 10;
+            }
+            break;
+        case 0x0800: // channel 3
+            {
+                s32 pan = Channels[3]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    rightoutput[s] = ((s64)ch3buf[s] * pan) >> 10;
+            }
+            break;
+        case 0x0C00: // channel 1+3
+            {
+                s32 pan1 = Channels[1]->Pan;
+                s32 pan3 = Channels[3]->Pan;
+                for (u32 s = 0; s < samples; s++)
+                    rightoutput[s] = (((s64)ch1buf[s] * pan1) >> 10) + (((s64)ch3buf[s] * pan3) >> 10);
+            }
+            break;
         }
     }
 
-    //
-
     for (u32 s = 0; s < samples; s++)
     {
-        s32 l = (s32)leftbuf[s];
-        s32 r = (s32)rightbuf[s];
+        s32 l = leftoutput[s];
+        s32 r = rightoutput[s];
 
         l = ((s64)l * MasterVolume) >> 7;
         r = ((s64)r * MasterVolume) >> 7;
 
-        l >>= 12;
+        l >>= 8;
         if      (l < -0x8000) l = -0x8000;
         else if (l > 0x7FFF)  l = 0x7FFF;
-        r >>= 12;
+        r >>= 8;
         if      (r < -0x8000) r = -0x8000;
         else if (r > 0x7FFF)  r = 0x7FFF;
 
-        OutputBuffer[OutputWriteOffset    ] = l << 3;
-        OutputBuffer[OutputWriteOffset + 1] = r << 3;
+        OutputBuffer[OutputWriteOffset    ] = l >> 1;
+        OutputBuffer[OutputWriteOffset + 1] = r >> 1;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
     }
@@ -418,10 +600,13 @@ u8 Read8(u32 addr)
         {
         case 0x04000500: return Cnt & 0x7F;
         case 0x04000501: return Cnt >> 8;
+
+        case 0x04000508: return Capture[0]->Cnt;
+        case 0x04000509: return Capture[1]->Cnt;
         }
     }
 
-    //printf("unknown SPU read8 %08X\n", addr);
+    printf("unknown SPU read8 %08X\n", addr);
     return 0;
 }
 
@@ -443,6 +628,8 @@ u16 Read16(u32 addr)
         {
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
+
+        case 0x04000508: return Capture[0]->Cnt | (Capture[1]->Cnt << 8);
         }
     }
 
@@ -467,6 +654,11 @@ u32 Read32(u32 addr)
         {
         case 0x04000500: return Cnt;
         case 0x04000504: return Bias;
+
+        case 0x04000508: return Capture[0]->Cnt | (Capture[1]->Cnt << 8);
+
+        case 0x04000510: return Capture[0]->DstAddr;
+        case 0x04000518: return Capture[1]->DstAddr;
         }
     }
 
@@ -500,6 +692,15 @@ void Write8(u32 addr, u8 val)
         case 0x04000501:
             Cnt = (Cnt & 0x007F) | ((val & 0xBF) << 8);
             return;
+
+        case 0x04000508:
+            Capture[0]->SetCnt(val);
+            if (val & 0x03) printf("!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
+            return;
+        case 0x04000509:
+            Capture[1]->SetCnt(val);
+            if (val & 0x03) printf("!! UNSUPPORTED SPU CAPTURE MODE %02X\n", val);
+            return;
         }
     }
 
@@ -516,8 +717,15 @@ void Write16(u32 addr, u16 val)
         {
         case 0x0: chan->SetCnt((chan->Cnt & 0xFFFF0000) | val); return;
         case 0x2: chan->SetCnt((chan->Cnt & 0x0000FFFF) | (val << 16)); return;
-        case 0x8: chan->SetTimerReload(val); return;
+        case 0x8:
+            chan->SetTimerReload(val);
+            if      ((addr & 0xF0) == 0x10) Capture[0]->SetTimerReload(val);
+            else if ((addr & 0xF0) == 0x30) Capture[1]->SetTimerReload(val);
+            return;
         case 0xA: chan->SetLoopPos(val); return;
+
+        case 0xC: chan->SetLength((chan->Length & 0xFFFF0000) | val); return;
+        case 0xE: chan->SetLength((chan->Length & 0x0000FFFF) | (val << 16)); return;
         }
     }
     else
@@ -533,6 +741,15 @@ void Write16(u32 addr, u16 val)
         case 0x04000504:
             Bias = val & 0x3FF;
             return;
+
+        case 0x04000508:
+            Capture[0]->SetCnt(val & 0xFF);
+            Capture[1]->SetCnt(val >> 8);
+            if (val & 0x0303) printf("!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
+            return;
+
+        case 0x04000514: Capture[0]->SetLength(val); return;
+        case 0x0400051C: Capture[1]->SetLength(val); return;
         }
     }
 
@@ -550,8 +767,11 @@ void Write32(u32 addr, u32 val)
         case 0x0: chan->SetCnt(val); return;
         case 0x4: chan->SetSrcAddr(val); return;
         case 0x8:
-            chan->SetTimerReload(val & 0xFFFF);
             chan->SetLoopPos(val >> 16);
+            val &= 0xFFFF;
+            chan->SetTimerReload(val);
+            if      ((addr & 0xF0) == 0x10) Capture[0]->SetTimerReload(val);
+            else if ((addr & 0xF0) == 0x30) Capture[1]->SetTimerReload(val);
             return;
         case 0xC: chan->SetLength(val); return;
         }
@@ -569,10 +789,19 @@ void Write32(u32 addr, u32 val)
         case 0x04000504:
             Bias = val & 0x3FF;
             return;
+
+        case 0x04000508:
+            Capture[0]->SetCnt(val & 0xFF);
+            Capture[1]->SetCnt(val >> 8);
+            if (val & 0x0303) printf("!! UNSUPPORTED SPU CAPTURE MODE %04X\n", val);
+            return;
+
+        case 0x04000510: Capture[0]->SetDstAddr(val); return;
+        case 0x04000514: Capture[0]->SetLength(val & 0xFFFF); return;
+        case 0x04000518: Capture[1]->SetDstAddr(val); return;
+        case 0x0400051C: Capture[1]->SetLength(val & 0xFFFF); return;
         }
     }
-
-    printf("unknown SPU write32 %08X %08X\n", addr, val);
 }
 
 }
