@@ -40,6 +40,8 @@ public:
     void VBlank();
     void VBlankEnd();
 
+    void CheckWindows(u32 line);
+
     void BGExtPalDirty(u32 base);
     void OBJExtPalDirty();
 
@@ -69,6 +71,12 @@ private:
     s16 BGRotC[2];
     s16 BGRotD[2];
 
+    u8 Win0Coords[4];
+    u8 Win1Coords[4];
+    u8 WinCnt[4];
+    bool Win0Active;
+    bool Win1Active;
+
     u16 BlendCnt;
     u8 EVA, EVB;
     u8 EVY;
@@ -88,16 +96,19 @@ private:
     void DrawPixel(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D(u32 line, u32* dst);
-    void DrawBG_Text(u32 line, u32* dst, u32 num);
+    void DrawBG_Text(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Affine(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Extended(u32 line, u32* dst, u32 bgnum);
 
     void InterleaveSprites(u32* buf, u32 prio, u32* dst);
     void DrawSprites(u32 line, u32* dst);
-    void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, u32 ypos, u32* dst);
-    void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst);
+    void DrawSpritesWindow(u32 line, u8* dst);
+    template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, u32 ypos, u32* dst);
+    template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* dst);
 
     void DoCapture(u32 line, u32 width, u32* src);
+
+    void CalculateWindowMask(u32 line, u8* mask);
 };
 
 #endif

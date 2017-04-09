@@ -131,13 +131,15 @@ void Channel::Reset()
     TimerReload = 0;
     LoopPos = 0;
     Length = 0;
+
+    Timer = 0;
 }
 
 void Channel::Start()
 {
     Timer = TimerReload;
 
-    if (((Cnt >> 29) & 0x3) == 1)
+    if (((Cnt >> 29) & 0x3) == 3)
         Pos = -1;
     else
         Pos = -3;
@@ -338,6 +340,8 @@ void CaptureUnit::Reset()
     DstAddr = 0;
     TimerReload = 0;
     Length = 0;
+
+    Timer = 0;
 }
 
 void CaptureUnit::Run(s32 sample)

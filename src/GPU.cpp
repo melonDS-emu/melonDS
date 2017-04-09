@@ -649,6 +649,9 @@ void StartScanline(u32 line)
     else
         DispStat[1] &= ~(1<<2);
 
+    GPU2D_A->CheckWindows(line);
+    GPU2D_B->CheckWindows(line);
+
     if (line >= 2 && line < 194)
         NDS::CheckDMAs(0, 0x03);
     else if (line == 194)
