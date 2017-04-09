@@ -215,6 +215,9 @@ u32 CurPolygonAttr;
 u32 TexParam;
 u32 TexPalette;
 
+s32 PosTestResult[4];
+s16 VecTestResult[3];
+
 Vertex TempVertexBuffer[4];
 u32 VertexNum;
 u32 VertexNumInPoly;
@@ -300,6 +303,9 @@ void Reset()
     ProjMatrixStackPointer = 0;
     PosMatrixStackPointer = 0;
     TexMatrixStackPointer = 0;
+
+    memset(PosTestResult, 0, 4*4);
+    memset(VecTestResult, 0, 2*3);
 
     VertexNum = 0;
     VertexNumInPoly = 0;
@@ -551,6 +557,7 @@ int ClipAgainstPlane(Vertex* vertices, int nverts, int clipstart)
             vertices[c++] = vtx;
     }
 
+    // checkme
     for (int i = 0; i < c; i++)
     {
         Vertex* vtx = &vertices[i];
@@ -908,6 +915,8 @@ void SubmitVertex()
 
 s32 CalculateLighting()
 {
+    // TODO: this requires matrix mode 2, apparently
+
     if ((TexParam >> 30) == 2)
     {
         TexCoords[0] = RawTexCoords[0] + (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 21);
@@ -971,6 +980,134 @@ s32 CalculateLighting()
 
     // checkme: cycle count
     return c;
+}
+
+
+void BoxTest(u32* params)
+{
+    Vertex cube[8];
+    Vertex face[10];
+    int res;
+
+    GXStat &= ~(1<<1);
+
+    s32 x0 = (s32)(s16)(params[0] & 0xFFFF);
+    s32 y0 = ((s32)params[0]) >> 16;
+    s32 z0 = (s32)(s16)(params[1] & 0xFFFF);
+    s32 x1 = ((s32)params[1]) >> 16;
+    s32 y1 = (s32)(s16)(params[2] & 0xFFFF);
+    s32 z1 = ((s32)params[2]) >> 16;
+
+    x1 += x0;
+    y1 += y0;
+    z1 += z0;
+
+    cube[0].Position[0] = x0; cube[0].Position[1] = y0; cube[0].Position[2] = z0;
+    cube[1].Position[0] = x1; cube[1].Position[1] = y0; cube[1].Position[2] = z0;
+    cube[2].Position[0] = x1; cube[2].Position[1] = y1; cube[2].Position[2] = z0;
+    cube[3].Position[0] = x0; cube[3].Position[1] = y1; cube[3].Position[2] = z0;
+    cube[4].Position[0] = x0; cube[4].Position[1] = y1; cube[4].Position[2] = z1;
+    cube[5].Position[0] = x0; cube[5].Position[1] = y0; cube[5].Position[2] = z1;
+    cube[6].Position[0] = x1; cube[6].Position[1] = y0; cube[6].Position[2] = z1;
+    cube[7].Position[0] = x1; cube[7].Position[1] = y1; cube[7].Position[2] = z1;
+
+    UpdateClipMatrix();
+    for (int i = 0; i < 8; i++)
+    {
+        s32 x = cube[i].Position[0];
+        s32 y = cube[i].Position[1];
+        s32 z = cube[i].Position[2];
+
+        cube[i].Position[0] = ((s64)x*ClipMatrix[0] + (s64)y*ClipMatrix[4] + (s64)z*ClipMatrix[8] + 0x1000*ClipMatrix[12]) >> 12;
+        cube[i].Position[1] = ((s64)x*ClipMatrix[1] + (s64)y*ClipMatrix[5] + (s64)z*ClipMatrix[9] + 0x1000*ClipMatrix[13]) >> 12;
+        cube[i].Position[2] = ((s64)x*ClipMatrix[2] + (s64)y*ClipMatrix[6] + (s64)z*ClipMatrix[10] + 0x1000*ClipMatrix[14]) >> 12;
+        cube[i].Position[3] = ((s64)x*ClipMatrix[3] + (s64)y*ClipMatrix[7] + (s64)z*ClipMatrix[11] + 0x1000*ClipMatrix[15]) >> 12;
+    }
+
+    // front face (-Z)
+    face[0] = cube[0]; face[1] = cube[1]; face[2] = cube[2]; face[3] = cube[3];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+
+    // back face (+Z)
+    face[0] = cube[4]; face[1] = cube[5]; face[2] = cube[6]; face[3] = cube[7];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+
+    // left face (-X)
+    face[0] = cube[0]; face[1] = cube[3]; face[2] = cube[4]; face[3] = cube[5];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+
+    // right face (+X)
+    face[0] = cube[1]; face[1] = cube[2]; face[2] = cube[7]; face[3] = cube[6];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+
+    // bottom face (-Y)
+    face[0] = cube[0]; face[1] = cube[1]; face[2] = cube[6]; face[3] = cube[5];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+
+    // top face (+Y)
+    face[0] = cube[2]; face[1] = cube[3]; face[2] = cube[4]; face[3] = cube[7];
+    res = ClipPolygon<false>(face, 4, 0);
+    if (res > 0)
+    {
+        GXStat |= (1<<1);
+        return;
+    }
+}
+
+void PosTest()
+{
+    s64 vertex[4] = {(s64)CurVertex[0], (s64)CurVertex[1], (s64)CurVertex[2], 0x1000};
+
+    UpdateClipMatrix();
+    PosTestResult[0] = (vertex[0]*ClipMatrix[0] + vertex[1]*ClipMatrix[4] + vertex[2]*ClipMatrix[8] + vertex[3]*ClipMatrix[12]) >> 12;
+    PosTestResult[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
+    PosTestResult[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
+    PosTestResult[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+}
+
+void VecTest(u32* params)
+{
+    // TODO: apparently requires matrix mode 2
+    // TODO: maybe it overwrites the normal registers, too
+
+    s16 normal[3];
+
+    normal[0] = (s16)((params[0] & 0x000003FF) << 6) >> 6;
+    normal[1] = (s16)((params[0] & 0x000FFC00) >> 4) >> 6;
+    normal[2] = (s16)((params[0] & 0x3FF00000) >> 14) >> 6;
+
+    VecTestResult[0] = (normal[0]*VecMatrix[0] + normal[1]*VecMatrix[4] + normal[2]*VecMatrix[8]) >> 9;
+    VecTestResult[1] = (normal[0]*VecMatrix[1] + normal[1]*VecMatrix[5] + normal[2]*VecMatrix[9]) >> 9;
+    VecTestResult[2] = (normal[0]*VecMatrix[2] + normal[1]*VecMatrix[6] + normal[2]*VecMatrix[10]) >> 9;
+
+    if (VecTestResult[0] & 0x1000) VecTestResult[0] |= 0xF000;
+    if (VecTestResult[1] & 0x1000) VecTestResult[1] |= 0xF000;
+    if (VecTestResult[2] & 0x1000) VecTestResult[2] |= 0xF000;
 }
 
 
@@ -1505,17 +1642,20 @@ void ExecuteCommand()
 
         case 0x70: // box test
             NumTestCommands -= 3;
-            // TODO
+            BoxTest(ExecParams);
             break;
 
         case 0x71: // pos test
             NumTestCommands -= 2;
-            //
+            CurVertex[0] = ExecParams[0] & 0xFFFF;
+            CurVertex[1] = ExecParams[0] >> 16;
+            CurVertex[2] = ExecParams[1] & 0xFFFF;
+            PosTest();
             break;
 
         case 0x72: // vec test
             NumTestCommands--;
-            //
+            VecTest(ExecParams);
             break;
 
         default:
@@ -1636,6 +1776,10 @@ u16 Read16(u32 addr)
         return NumPolygons;
     case 0x04000606:
         return NumVertices;
+
+    case 0x04000630: return VecTestResult[0];
+    case 0x04000632: return VecTestResult[1];
+    case 0x04000634: return VecTestResult[2];
     }
 
     printf("unknown GPU3D read16 %08X\n", addr);
@@ -1666,6 +1810,11 @@ u32 Read32(u32 addr)
 
     case 0x04000604:
         return NumPolygons | (NumVertices << 16);
+
+    case 0x04000620: return PosTestResult[0];
+    case 0x04000624: return PosTestResult[1];
+    case 0x04000628: return PosTestResult[2];
+    case 0x0400062C: return PosTestResult[3];
 
     case 0x04000680: return VecMatrix[0];
     case 0x04000684: return VecMatrix[1];
