@@ -155,6 +155,8 @@ u16 GPU2D::Read16(u32 addr)
 
     case 0x064: return CaptureCnt & 0xFFFF;
     case 0x066: return CaptureCnt >> 16;
+
+    case 0x06C: return MasterBrightness;
     }
 
     printf("unknown GPU read16 %08X\n", addr);
@@ -746,10 +748,10 @@ u16* GPU2D::GetOBJExtPal(u32 pal)
 void GPU2D::CheckWindows(u32 line)
 {
     line &= 0xFF;
-    if (line == Win0Coords[2])      Win0Active = true;
-    else if (line == Win0Coords[3]) Win0Active = false;
-    if (line == Win1Coords[2])      Win1Active = true;
-    else if (line == Win1Coords[3]) Win1Active = false;
+    if (line == Win0Coords[3])      Win0Active = false;
+    else if (line == Win0Coords[2]) Win0Active = true;
+    if (line == Win1Coords[3])      Win1Active = false;
+    else if (line == Win1Coords[2]) Win1Active = true;
 }
 
 void GPU2D::CalculateWindowMask(u32 line, u8* mask)

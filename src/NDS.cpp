@@ -1397,11 +1397,11 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000304: return PowerControl9;
     }
 
-    if (addr >= 0x04000000 && addr < 0x04000060)
+    if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
         return GPU::GPU2D_A->Read16(addr);
     }
-    if (addr >= 0x04001000 && addr < 0x04001060)
+    if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
         return GPU::GPU2D_B->Read16(addr);
     }
@@ -1507,11 +1507,11 @@ u32 ARM9IORead32(u32 addr)
         return 0;
     }
 
-    if (addr >= 0x04000000 && addr < 0x04000060)
+    if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
         return GPU::GPU2D_A->Read32(addr);
     }
-    if (addr >= 0x04001000 && addr < 0x04001060)
+    if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
         return GPU::GPU2D_B->Read32(addr);
     }
