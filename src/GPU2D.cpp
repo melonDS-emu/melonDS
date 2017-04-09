@@ -32,6 +32,8 @@
 // * VRAM/FIFO display modes convert colors the same way
 // * 3D engine converts colors differently (18bit = 15bit * 2 + 1, except 0 = 0)
 // * 'screen disabled' white is 63,63,63
+// * [Gericom] bit15 is used as bottom green bit for palettes. TODO: check where this applies.
+//   tested on the normal BG palette and applies there
 //
 // oh also, changing DISPCNT bit16-17 midframe doesn't work (ignored? applied for next frame?)
 // TODO, eventually: check whether other DISPCNT bits can be changed midframe
@@ -68,6 +70,9 @@
 // * if BG0 is selected as 1st target, destination not selected as 2nd target:
 //   brightness up/down effect is applied if selected. if blending is selected, it doesn't apply.
 // * 3D layer pixels with alpha=0 are always transparent.
+//
+// mosaic:
+// * mosaic grid starts at 0,0 regardless of the BG/sprite position
 
 
 GPU2D::GPU2D(u32 num)

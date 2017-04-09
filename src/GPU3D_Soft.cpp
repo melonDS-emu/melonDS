@@ -769,6 +769,14 @@ void RenderPolygon(Polygon* polygon)
         if (rslope > 0) dxr += rslope;
         else            dxr -= rslope;
     }
+
+    /*for (int i = 0; i < polygon->NumVertices; i++)
+    {
+        Vertex* vtx = polygon->Vertices[i];
+        u32 addr = vtx->FinalPosition[0] + (vtx->FinalPosition[1]*256);
+        if (addr < 256*192)
+        ColorBuffer[addr] = 0x1F3F003F;
+    }*/
 }
 
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
