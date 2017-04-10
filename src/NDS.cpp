@@ -803,8 +803,11 @@ void debug(u32 param)
     printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
     printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
-    for (int i = 0; i < 9; i++)
-        printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
+    printf("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
+    printf("ARM7 IME=%08X IE=%08X IF=%08X\n", IME[1], IE[1], IF[1]);
+
+    //for (int i = 0; i < 9; i++)
+    //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 }
 
 

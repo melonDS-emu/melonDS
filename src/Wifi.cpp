@@ -27,6 +27,9 @@ namespace Wifi
 {
 
 u8 RAM[0x2000];
+u16 IO[0x1000>>1];
+
+#define IOPORT(x) IO[(x)>>1]
 
 u16 Random;
 
@@ -45,8 +48,9 @@ u32 RFRegs[0x40];
 void Reset()
 {
     memset(RAM, 0, 0x2000);
+    memset(IO, 0, 0x1000);
 
-    Random = 0x7FF;
+    Random = 1;
 
     BBCnt = 0;
     BBWrite = 0;
@@ -86,6 +90,9 @@ void Reset()
     RFData1 = 0;
     RFData2 = 0;
     memset(RFRegs, 0, 4*0x40);
+
+    memset(&IOPORT(0x018), 0xFF, 6);
+    memset(&IOPORT(0x020), 0xFF, 6);
 }
 
 
@@ -127,11 +134,11 @@ void RFTransfer_Type3()
 
 u16 Read(u32 addr)
 {
-    addr &= 0x7FFF;
-
+    addr &= 0x7FFE;
+    //printf("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
     {
-        return *(u16*)&RAM[addr & 0x1FFF];
+        return *(u16*)&RAM[addr & 0x1FFE];
     }
 
     switch (addr)
@@ -139,6 +146,9 @@ u16 Read(u32 addr)
     case 0x044: // random generator. not accurate
         Random = (Random & 0x1) ^ (((Random & 0x3FF) << 1) | (Random >> 10));
         return Random;
+
+    case 0x0BC:
+        return IOPORT(0x0BC) & 0x0003;
 
     case 0x158:
         return BBCnt;
@@ -164,22 +174,33 @@ u16 Read(u32 addr)
         return RFCnt;
     }
 
-    printf("WIFI: unknown read %08X\n", addr);
-    return 0;
+    //printf("WIFI: read %08X\n", addr);
+    return IOPORT(addr&0xFFF);
 }
 
 void Write(u32 addr, u16 val)
 {
-    addr &= 0x7FFF;
-
+    addr &= 0x7FFE;
+    //printf("WIFI: write %08X %04X\n", addr, val);
     if (addr >= 0x4000 && addr < 0x6000)
     {
-        *(u16*)&RAM[addr & 0x1FFF] = val;
+        *(u16*)&RAM[addr & 0x1FFE] = val;
         return;
     }
 
     switch (addr)
     {
+    case 0x006:
+        val &= 0x007F;
+        break;
+
+    case 0x010:
+        // IF: TODO
+        return;
+    case 0x012:
+        printf("WIFI IE=%04X\n", val);
+        break;
+
     case 0x158:
         BBCnt = val;
         if ((BBCnt & 0xF000) == 0x5000)
@@ -205,9 +226,29 @@ void Write(u32 addr, u16 val)
     case 0x184:
         RFCnt = val & 0x413F;
         return;
+
+    // read-only ports
+    case 0x000:
+    case 0x044:
+    case 0x054:
+    case 0x0B0:
+    case 0x0B6:
+    case 0x0B8:
+    case 0x15C:
+    case 0x15E:
+    case 0x180:
+    case 0x19C:
+    case 0x1A8:
+    case 0x1AC:
+    case 0x1C4:
+    case 0x210:
+    case 0x214:
+    case 0x268:
+        return;
     }
 
-    printf("WIFI: unknown write %08X %04X\n", addr, val);
+    //printf("WIFI: write %08X %04X\n", addr, val);
+    IOPORT(addr&0xFFF) = val;
 }
 
 }
