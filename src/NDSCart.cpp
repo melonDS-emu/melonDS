@@ -284,7 +284,7 @@ void Write_EEPROMTiny(u8 val, bool islast)
         }
         else
         {
-            SRAM[(Addr & 0xFF) | ((CurCmd==0x0A)?0x100:0)] = val;
+            SRAM[(Addr + ((CurCmd==0x0A)?0x100:0)) & 0x1FF] = val;
             Addr++;
         }
         break;
@@ -298,7 +298,7 @@ void Write_EEPROMTiny(u8 val, bool islast)
         }
         else
         {
-            Data = SRAM[(Addr & 0xFF) | ((CurCmd==0x0B)?0x100:0)];
+            Data = SRAM[(Addr + ((CurCmd==0x0B)?0x100:0)) & 0x1FF];
             Addr++;
         }
         break;

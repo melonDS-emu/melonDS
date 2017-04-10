@@ -379,8 +379,6 @@ s32 ARM::Execute()
             }
         }
 
-        //if (R[15]==0x037F9364) printf("R8=%08X R9=%08X\n", R[8], R[9]);
-
         if (Num==0)
         {
             s32 diff = Cycles - lastcycles;
