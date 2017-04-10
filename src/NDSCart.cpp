@@ -471,6 +471,13 @@ void Write(u8 val, u32 hold)
 
     switch (CurCmd)
     {
+    case 0x00:
+        // Pokémon carts have an IR transceiver thing, and send this
+        // to bypass it and access SRAM.
+        // TODO: design better
+        CurCmd = val;
+        break;
+
     case 0x02:
     case 0x03:
     case 0x0A:
@@ -495,8 +502,8 @@ void Write(u8 val, u32 hold)
         break;
 
     default:
-        //if (DataPos==0)
-        //    printf("unknown save SPI command %02X %08X\n", CurCmd);
+        if (DataPos==0)
+            printf("unknown save SPI command %02X %08X\n", CurCmd);
         break;
     }
 
