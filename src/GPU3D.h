@@ -59,7 +59,7 @@ typedef struct
 extern u32 DispCnt;
 extern u32 AlphaRef;
 extern s32 Viewport[4];
-extern u32 ClearAttr1, ClearAttr2;
+extern u32 RenderClearAttr1, RenderClearAttr2;
 
 bool Init();
 void DeInit();

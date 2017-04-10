@@ -781,12 +781,12 @@ void RenderPolygon(Polygon* polygon)
 
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
-    u32 polyid = (ClearAttr1 >> 24) & 0x3F;
+    u32 polyid = (RenderClearAttr1 >> 24) & 0x3F;
 
     if (DispCnt & (1<<14))
     {
-        u8 xoff = (ClearAttr2 >> 16) & 0xFF;
-        u8 yoff = (ClearAttr2 >> 24) & 0xFF;
+        u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
+        u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
         for (int y = 0; y < 256*192; y += 256)
         {
@@ -818,16 +818,16 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
     else
     {
         // TODO: confirm color conversion
-        u32 r = (ClearAttr1 << 1) & 0x3E; if (r) r++;
-        u32 g = (ClearAttr1 >> 4) & 0x3E; if (g) g++;
-        u32 b = (ClearAttr1 >> 9) & 0x3E; if (b) b++;
-        u32 a = (ClearAttr1 >> 16) & 0x1F;
+        u32 r = (RenderClearAttr1 << 1) & 0x3E; if (r) r++;
+        u32 g = (RenderClearAttr1 >> 4) & 0x3E; if (g) g++;
+        u32 b = (RenderClearAttr1 >> 9) & 0x3E; if (b) b++;
+        u32 a = (RenderClearAttr1 >> 16) & 0x1F;
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
-        u32 z = ((ClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+        u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 		if (z >= 0x10000 && z < 0xFFFFFF) z++;
 
-		polyid |= ((ClearAttr1 & 0x8000) >> 7);
+		polyid |= ((RenderClearAttr1 & 0x8000) >> 7);
 
         for (int i = 0; i < 256*192; i++)
         {

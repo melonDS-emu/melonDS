@@ -57,6 +57,10 @@
 // (the idea is that each position matrix has an associated vector matrix)
 //
 // TODO: check if translate works on the vector matrix? seems pointless
+//
+// viewport Y coordinates are upside-down
+//
+// clear color/depth/bitmap/etc registers (04000350/04000354) are double-buffered
 
 
 namespace GPU3D
@@ -237,6 +241,7 @@ Polygon* RenderPolygonRAM;
 u32 RenderNumPolygons;
 
 u32 ClearAttr1, ClearAttr2;
+u32 RenderClearAttr1, RenderClearAttr2;
 
 u32 FlushRequest;
 u32 FlushAttributes;
@@ -1634,10 +1639,11 @@ void ExecuteCommand()
             break;
 
         case 0x60: // viewport x1,y1,x2,y2
+            // note: viewport Y coordinates are upside-down
             Viewport[0] = ExecParams[0] & 0xFF;
-            Viewport[1] = (ExecParams[0] >> 8) & 0xFF;
+            Viewport[1] = 191 - (ExecParams[0] >> 24);
             Viewport[2] = ((ExecParams[0] >> 16) & 0xFF) - Viewport[0] + 1;
-            Viewport[3] = (ExecParams[0] >> 24) - Viewport[1] + 1;
+            Viewport[3] = (191 - ((ExecParams[0] >> 8) & 0xFF)) - Viewport[1] + 1;
             break;
 
         case 0x70: // box test
@@ -1724,6 +1730,9 @@ void VBlank()
         RenderVertexRAM = CurVertexRAM;
         RenderPolygonRAM = CurPolygonRAM;
         RenderNumPolygons = NumPolygons;
+
+        RenderClearAttr1 = ClearAttr1;
+        RenderClearAttr2 = ClearAttr2;
 
         CurRAMBank = CurRAMBank?0:1;
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];

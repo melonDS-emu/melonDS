@@ -368,6 +368,25 @@ void GPU2D::DrawScanline(u32 line)
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 
+    // always render regular graphics
+    DrawScanline_Mode1(line, dst);
+
+    // capture
+    if ((Num == 0) && (CaptureCnt & (1<<31)))
+    {
+        u32 capwidth, capheight;
+        switch ((CaptureCnt >> 20) & 0x3)
+        {
+        case 0: capwidth = 128; capheight = 128; break;
+        case 1: capwidth = 256; capheight = 64;  break;
+        case 2: capwidth = 256; capheight = 128; break;
+        case 3: capwidth = 256; capheight = 192; break;
+        }
+
+        if (line < capheight)
+            DoCapture(line, capwidth, dst);
+    }
+
     switch (dispmode)
     {
     case 0: // screen off
@@ -377,10 +396,7 @@ void GPU2D::DrawScanline(u32 line)
         }
         break;
 
-    case 1: // regular display
-        {
-            DrawScanline_Mode1(line, dst);
-        }
+    case 1: // regular display, already taken care of
         break;
 
     case 2: // VRAM display
@@ -424,22 +440,6 @@ void GPU2D::DrawScanline(u32 line)
             }
         }
         break;
-    }
-
-    // capture
-    if ((!Num) && (CaptureCnt & (1<<31)))
-    {
-        u32 capwidth, capheight;
-        switch ((CaptureCnt >> 20) & 0x3)
-        {
-        case 0: capwidth = 128; capheight = 128; break;
-        case 1: capwidth = 256; capheight = 64;  break;
-        case 2: capwidth = 256; capheight = 128; break;
-        case 3: capwidth = 256; capheight = 192; break;
-        }
-
-        if (line < capheight)
-            DoCapture(line, capwidth, dst);
     }
 
     // master brightness
