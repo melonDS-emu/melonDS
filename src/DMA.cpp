@@ -186,18 +186,6 @@ void DMA::Start()
 
     //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
-    // special path for cart DMA. this is a gross hack.
-    // emulating it properly requires emulating cart transfer delays, so uh... TODO
-    if (CurSrcAddr==0x04100010 && RemCount==1 && (Cnt & 0x07E00000)==0x07000000 &&
-        (StartMode==0x05 || StartMode==0x12))
-    {
-        NDSCart::DMA(CurDstAddr);
-        Cnt &= ~0x80000000;
-        if (Cnt & 0x40000000)
-            NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
-        return;
-    }
-
     // special path for the display FIFO. another gross hack.
     // the display FIFO seems to be more like a circular buffer that holds 16 pixels
     // from which the display controller reads. DMA is triggered every 8 pixels to fill it

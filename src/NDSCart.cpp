@@ -808,9 +808,8 @@ void ReadROM_B7(u32 addr, u32 len, u32 offset)
 }
 
 
-void EndTransfer()
+void ROMEndTransfer(u32 param)
 {
-    ROMCnt &= ~(1<<23);
     ROMCnt &= ~(1<<31);
 
     if (SPICnt & (1<<14))
@@ -827,16 +826,13 @@ void ROMPrepareData(u32 param)
     DataOutPos += 4;
 
     ROMCnt |= (1<<23);
-    NDS::CheckDMAs(0, 0x06);
+    NDS::CheckDMAs(0, 0x05);
     NDS::CheckDMAs(1, 0x12);
-
-    //if (DataOutPos < DataOutLen)
-    //    NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
 }
 
 void WriteROMCnt(u32 val)
 {
-    ROMCnt = val & 0xFF7F7FFF;
+    ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x00800000);
 
     if (!(SPICnt & (1<<15))) return;
 
@@ -965,52 +961,36 @@ void WriteROMCnt(u32 val)
         break;
     }
 
-    //ROMCnt &= ~(1<<23);
-    ROMCnt |= (1<<23);
+    ROMCnt &= ~(1<<23);
 
+    // ROM transfer timings
+    // the bus is parallel with 8 bits
+    // thus a command would take 8 cycles to be transferred
+    // and it would take 4 cycles to receive a word of data
+
+    u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
     if (datasize == 0)
-        EndTransfer();
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*8, ROMEndTransfer, 0);
     else
-    {
-        NDS::CheckDMAs(0, 0x05);
-        NDS::CheckDMAs(1, 0x12);
-    }
-        //NDS::ScheduleEvent((ROMCnt & (1<<27)) ? 8:5, ROMPrepareData, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*(8+4), ROMPrepareData, 0);
 }
 
 u32 ReadROMData()
 {
-    /*if (ROMCnt & (1<<23))
+    if (ROMCnt & (1<<23))
     {
         ROMCnt &= ~(1<<23);
-        if (DataOutPos >= DataOutLen)
-            EndTransfer();
+
+        if (DataOutPos < DataOutLen)
+        {
+            u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
+            NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*4, ROMPrepareData, 0);
+        }
+        else
+            ROMEndTransfer(0);
     }
 
-    return ROMDataOut;*/
-    u32 ret;
-    if (DataOutPos >= DataOutLen)
-        ret = 0;
-    else
-        ret = *(u32*)&DataOut[DataOutPos];
-
-    DataOutPos += 4;
-
-    if (DataOutPos == DataOutLen)
-        EndTransfer();
-
-    return ret;
-}
-
-void DMA(u32 addr)
-{
-    void (*writefn)(u32,u32) = (NDS::ExMemCnt[0] & (1<<11)) ? NDS::ARM7Write32 : NDS::ARM9Write32;
-    for (u32 i = 0; i < DataOutLen; i+=4)
-    {
-        writefn(addr+i, *(u32*)&DataOut[i]);
-    }
-
-    EndTransfer();
+    return ROMDataOut;
 }
 
 

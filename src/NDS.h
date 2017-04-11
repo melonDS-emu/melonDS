@@ -27,8 +27,9 @@ namespace NDS
 enum
 {
     Event_LCD = 0,
-
     Event_SPU,
+
+    Event_ROMTransfer,
 
     Event_MAX
 };

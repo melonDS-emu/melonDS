@@ -44,7 +44,6 @@ bool LoadROM(const char* path, bool direct);
 
 void WriteROMCnt(u32 val);
 u32 ReadROMData();
-void DMA(u32 addr);
 
 void WriteSPICnt(u16 val);
 u8 ReadSPIData();
