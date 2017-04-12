@@ -717,8 +717,9 @@ void SubmitPolygon()
     poly->FacingView = facingview;
 
     u32 texfmt = (TexParam >> 26) & 0x7;
+    u32 blendmode = (CurPolygonAttr >> 4) & 0x3;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
-    poly->Translucent = (texfmt == 1 || texfmt == 6 || (polyalpha > 0 && polyalpha < 31));
+    poly->Translucent = ((texfmt == 1 || texfmt == 6) && (blendmode != 1)) || (polyalpha > 0 && polyalpha < 31);
 
     if (LastStripPolygon && clipstart > 0)
     {
@@ -1731,6 +1732,7 @@ void VBlank()
         RenderPolygonRAM = CurPolygonRAM;
         RenderNumPolygons = NumPolygons;
 
+        // TODO: find out which other registers are latched for rendering
         RenderClearAttr1 = ClearAttr1;
         RenderClearAttr2 = ClearAttr2;
 

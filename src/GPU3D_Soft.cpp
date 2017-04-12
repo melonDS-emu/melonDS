@@ -300,8 +300,18 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
     u32 attr = polygon->Attr;
     u8 r, g, b, a;
 
+    u32 blendmode = (polygon->Attr >> 4) & 0x3;
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
+
+    if (blendmode == 2)
+    {
+        u16 tooncolor = ToonTable[vr >> 1];
+
+        vr = (tooncolor << 1) & 0x3E; if (vr) vr++;
+        vg = (tooncolor >> 4) & 0x3E; if (vg) vg++;
+        vb = (tooncolor >> 9) & 0x3E; if (vb) vb++;
+    }
 
     if ((DispCnt & (1<<0)) && (((polygon->TexParam >> 26) & 0x7) != 0))
     {
@@ -314,11 +324,40 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
         tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
         tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
 
-        // TODO: other blending modes
-        r = ((tr+1) * (vr+1) - 1) >> 6;
-        g = ((tg+1) * (vg+1) - 1) >> 6;
-        b = ((tb+1) * (vb+1) - 1) >> 6;
-        a = ((talpha+1) * (polyalpha+1) - 1) >> 5;
+        if (blendmode == 1)
+        {
+            // decal
+
+            if (talpha == 0)
+            {
+                r = vr;
+                g = vg;
+                b = vb;
+            }
+            else if (talpha == 31)
+            {
+                r = tr;
+                g = tg;
+                b = tb;
+            }
+            else
+            {
+                r = ((tr * talpha) + (vr * (31-talpha))) >> 5;
+                g = ((tg * talpha) + (vg * (31-talpha))) >> 5;
+                b = ((tb * talpha) + (vb * (31-talpha))) >> 5;
+            }
+            a = polyalpha;
+        }
+        else
+        {
+            // modulate
+            // TODO: check that it works the same for shadows
+
+            r = ((tr+1) * (vr+1) - 1) >> 6;
+            g = ((tg+1) * (vg+1) - 1) >> 6;
+            b = ((tb+1) * (vb+1) - 1) >> 6;
+            a = ((talpha+1) * (polyalpha+1) - 1) >> 5;
+        }
     }
     else
     {
@@ -328,6 +367,18 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
         a = polyalpha;
     }
 
+    /*if ((blendmode == 2) && (DispCnt & (1<<1)))
+    {
+        r += vr;
+        g += vg;
+        b += vb;
+
+        if (r > 63) r = 63;
+        if (g > 63) g = 63;
+        if (b > 63) b = 63;
+    }*/
+
+    // checkme: can wireframe polygons use texture alpha?
     if (wireframe) a = 31;
 
     return r | (g << 8) | (b << 16) | (a << 24);
