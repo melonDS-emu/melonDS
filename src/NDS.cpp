@@ -558,8 +558,16 @@ bool HaltInterrupted(u32 cpu)
 
 void StopCPU(u32 cpu, u32 mask)
 {
-    if (cpu) mask <<= 16;
-    CPUStop |= mask;
+    if (cpu)
+    {
+        CPUStop |= (mask << 16);
+        ARM7->Halt(2);
+    }
+    else
+    {
+        CPUStop |= mask;
+        ARM9->Halt(2);
+    }
 }
 
 void ResumeCPU(u32 cpu, u32 mask)
