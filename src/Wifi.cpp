@@ -52,8 +52,6 @@ void Reset()
 
     Random = 1;
 
-    BBCnt = 0;
-    BBWrite = 0;
     memset(BBRegs, 0, 0x100);
     memset(BBRegsRO, 0, 0x100);
 
@@ -86,9 +84,6 @@ void Reset()
     #undef BBREG_FIXED
 
     RFVersion = SPI_Firmware::GetRFVersion();
-    RFCnt = 0;
-    RFData1 = 0;
-    RFData2 = 0;
     memset(RFRegs, 0, 4*0x40);
 
     memset(&IOPORT(0x018), 0xFF, 6);
@@ -98,33 +93,33 @@ void Reset()
 
 void RFTransfer_Type2()
 {
-    u32 id = (RFData2 >> 2) & 0x1F;
+    u32 id = (IOPORT(W_RFData2) >> 2) & 0x1F;
 
-    if (RFData2 & 0x0080)
+    if (IOPORT(W_RFData2) & 0x0080)
     {
         u32 data = RFRegs[id];
-        RFData1 = data & 0xFFFF;
-        RFData2 = (RFData2 & 0xFFFC) | ((data >> 16) & 0x3);
+        IOPORT(W_RFData1) = data & 0xFFFF;
+        IOPORT(W_RFData2) = (IOPORT(W_RFData2) & 0xFFFC) | ((data >> 16) & 0x3);
     }
     else
     {
-        u32 data = RFData1 | ((RFData2 & 0x0003) << 16);
+        u32 data = IOPORT(W_RFData1) | ((IOPORT(W_RFData2) & 0x0003) << 16);
         RFRegs[id] = data;
     }
 }
 
 void RFTransfer_Type3()
 {
-    u32 id = (RFData1 >> 8) & 0x3F;
+    u32 id = (IOPORT(W_RFData1) >> 8) & 0x3F;
 
-    u32 cmd = RFData2 & 0xF;
+    u32 cmd = IOPORT(W_RFData2) & 0xF;
     if (cmd == 6)
     {
-        RFData1 = (RFData1 & 0xFF00) | (RFRegs[id] & 0xFF);
+        IOPORT(W_RFData1) = (IOPORT(W_RFData1) & 0xFF00) | (RFRegs[id] & 0xFF);
     }
     else if (cmd == 5)
     {
-        u32 data = RFData1 & 0xFF;
+        u32 data = IOPORT(W_RFData1) & 0xFF;
         RFRegs[id] = data;
     }
 }
@@ -143,35 +138,25 @@ u16 Read(u32 addr)
 
     switch (addr)
     {
-    case 0x044: // random generator. not accurate
+    case W_Random: // random generator. not accurate
         Random = (Random & 0x1) ^ (((Random & 0x3FF) << 1) | (Random >> 10));
         return Random;
 
-    case 0x0BC:
-        return IOPORT(0x0BC) & 0x0003;
+    case W_Preamble:
+        return IOPORT(W_Preamble) & 0x0003;
 
-    case 0x158:
-        return BBCnt;
-
-    case 0x15C:
-        if ((BBCnt & 0xF000) != 0x6000)
+    case W_BBRead:
+        if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
         {
-            printf("WIFI: bad BB read, CNT=%04X\n", BBCnt);
+            printf("WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
             return 0;
         }
-        return BBRegs[BBCnt & 0xFF];
+        return BBRegs[IOPORT(W_BBCnt) & 0xFF];
 
-    case 0x15E:
+    case W_BBBusy:
         return 0; // TODO eventually (BB busy flag)
-
-    case 0x17C:
-        return RFData2;
-    case 0x17E:
-        return RFData1;
-    case 0x180:
+    case W_RFBusy:
         return 0; // TODO eventually (RF busy flag)
-    case 0x184:
-        return RFCnt;
     }
 
     //printf("WIFI: read %08X\n", addr);
@@ -190,42 +175,114 @@ void Write(u32 addr, u16 val)
 
     switch (addr)
     {
-    case 0x006:
+    case W_ModeReset:
+        {
+            u16 oldval = IOPORT(W_ModeReset);
+
+            if (!(oldval & 0x0001) && (val & 0x0001))
+            {
+                IOPORT(0x034) = 0x0002;
+                IOPORT(W_RFPins) = 0x0046;
+                IOPORT(W_RFStatus) = 9;
+                IOPORT(0x27C) = 0x0005;
+                // TODO: 02A2??
+            }
+            else if ((oldval & 0x0001) && !(val & 0x0001))
+            {
+                IOPORT(0x27C) = 0x000A;
+            }
+
+            if (val & 0x2000)
+            {
+                IOPORT(W_RXBufWriteAddr) = 0;
+                IOPORT(W_CmdTotalTime) = 0;
+                IOPORT(W_CmdReplyTime) = 0;
+                IOPORT(0x1A4) = 0;
+                IOPORT(0x278) = 0x000F;
+                // TODO: other ports??
+            }
+            if (val & 0x4000)
+            {
+                IOPORT(W_ModeWEP) = 0;
+                IOPORT(W_TXStatCnt) = 0;
+                IOPORT(0x00A) = 0;
+                IOPORT(W_MACAddr0) = 0;
+                IOPORT(W_MACAddr1) = 0;
+                IOPORT(W_MACAddr2) = 0;
+                IOPORT(W_BSSID0) = 0;
+                IOPORT(W_BSSID1) = 0;
+                IOPORT(W_BSSID2) = 0;
+                IOPORT(W_AIDLow) = 0;
+                IOPORT(W_AIDFull) = 0;
+                IOPORT(W_TXRetryLimit) = 0x0707;
+                IOPORT(0x02E) = 0;
+                IOPORT(W_RXBufBegin) = 0x4000;
+                IOPORT(W_RXBufEnd) = 0x4800;
+                IOPORT(W_TXBeaconTIM) = 0;
+                IOPORT(W_Preamble) = 0x0001;
+                IOPORT(W_RXFilter) = 0x0401;
+                IOPORT(0x0D4) = 0x0001;
+                IOPORT(W_RXFilter2) = 0x0008;
+                IOPORT(0x0EC) = 0x3F03;
+                IOPORT(W_TXHeaderCnt) = 0;
+                IOPORT(0x198) = 0;
+                IOPORT(0x1A2) = 0x0001;
+                IOPORT(0x224) = 0x0003;
+                IOPORT(0x230) = 0x0047;
+
+            }
+        }
+        break;
+
+    case W_ModeWEP:
         val &= 0x007F;
         break;
 
-    case 0x010:
+    case W_IF:
         // IF: TODO
         return;
-    case 0x012:
+    case W_IE:
         printf("WIFI IE=%04X\n", val);
         break;
 
-    case 0x158:
-        BBCnt = val;
-        if ((BBCnt & 0xF000) == 0x5000)
+    case W_PowerState:
+        if (val & 0x0002)
         {
-            u32 regid = BBCnt & 0xFF;
+            // TODO: IRQ11
+            IOPORT(W_PowerState) = 0x0000;
+        }
+        return;
+    case W_PowerForce:
+        printf("WIFI: forcing power %04X\n", val);
+        val &= 0x8001;
+        if (val == 0x8001)
+        {
+            IOPORT(0x034) = 0x0002;
+            IOPORT(W_PowerState) = 0x0200;
+            IOPORT(W_TXReqRead) = 0;
+            IOPORT(W_RFPins) = 00046;
+            IOPORT(W_RFStatus) = 9;
+        }
+        break;
+
+    case W_BBCnt:
+        IOPORT(W_BBCnt) = val;
+        if ((IOPORT(W_BBCnt) & 0xF000) == 0x5000)
+        {
+            u32 regid = IOPORT(W_BBCnt) & 0xFF;
             if (!BBRegsRO[regid])
-                BBRegs[regid] = val & 0xFF;
+                BBRegs[regid] = IOPORT(W_BBWrite) & 0xFF;
         }
         return;
 
-    case 0x15A:
-        BBWrite = val;
-        return;
-
-    case 0x17C:
-        RFData2 = val;
+    case W_RFData2:
+        IOPORT(W_RFData2) = val;
         if (RFVersion == 3) RFTransfer_Type3();
         else                RFTransfer_Type2();
         return;
-    case 0x17E:
-        RFData1 = val;
-        return;
-    case 0x184:
-        RFCnt = val & 0x413F;
-        return;
+    case W_RFCnt:
+        val &= 0x413F;
+        break;
 
     // read-only ports
     case 0x000:

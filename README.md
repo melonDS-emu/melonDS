@@ -24,14 +24,12 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 TODO LIST
 
  * better 3D engine
- * sound
  * wifi
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
 
  
 TODO LIST FOR LATER
 
- * sound
  * more 3D engine features
  * hardware renderer for 3D
  * wifi
