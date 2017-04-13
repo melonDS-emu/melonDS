@@ -325,7 +325,11 @@ s32 ARM::Execute()
 {
     if (Halted)
     {
-        if (NDS::HaltInterrupted(Num))
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(Num))
         {
             Halted = 0;
             if (NDS::IME[Num]&1)

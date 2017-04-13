@@ -43,6 +43,7 @@ public:
 
     void Halt(u32 halt)
     {
+        if (halt==2 && Halted==1) return;
         Halted = halt;
     }
 
