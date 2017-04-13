@@ -278,11 +278,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     }
 }
 
-bool DepthTest(Polygon* polygon, s32 x, s32 y, s32 z)
+template<bool func_equal>
+bool DepthTest(s32 oldz, s32 z)
 {
-    u32 oldz = DepthBuffer[(256*y) + x];
-
-    if (polygon->Attr & (1<<14))
+    if (func_equal)
     {
         s32 diff = oldz - z;
         if ((u32)(diff + 0x200) <= 0x400)
@@ -295,7 +294,7 @@ bool DepthTest(Polygon* polygon, s32 x, s32 y, s32 z)
     return false;
 }
 
-u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 {
     u32 attr = polygon->Attr;
     u8 r, g, b, a;
@@ -367,7 +366,7 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
         a = polyalpha;
     }
 
-    /*if ((blendmode == 2) && (DispCnt & (1<<1)))
+    if ((blendmode == 2) && (DispCnt & (1<<1)))
     {
         r += vr;
         g += vg;
@@ -376,7 +375,7 @@ u32 RenderPixel(Polygon* polygon, s32 x, s32 y, s32 z, u8 vr, u8 vg, u8 vb, s16 
         if (r > 63) r = 63;
         if (g > 63) g = 63;
         if (b > 63) b = 63;
-    }*/
+    }
 
     // checkme: can wireframe polygons use texture alpha?
     if (wireframe) a = 31;
@@ -399,6 +398,13 @@ void RenderPolygon(Polygon* polygon)
 
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
+
+    bool (*fnDepthTest)(s32 oldz, s32 z);
+    if (polygon->Attr & (1<<14))
+        fnDepthTest = DepthTest<true>;
+    else
+        fnDepthTest = DepthTest<false>;
+
 
     int lcur = vtop, rcur = vtop;
     int lnext, rnext;
@@ -722,7 +728,8 @@ void RenderPolygon(Polygon* polygon)
             else if (x > r_edgestart) edge |= 0x2;
 
             // wireframe polygons. really ugly, but works
-            if (wireframe && edge==0) continue;
+            if (wireframe && edge==0)
+                continue;
 
             s64 factor1 = (xend+1 - x) * wr;
             s64 factor2 = (x - xstart) * wl;
@@ -734,8 +741,11 @@ void RenderPolygon(Polygon* polygon)
                 denom = 0x1000;
             }
 
+            u32 pixeladdr = (y*256) + x;
+
             s32 z = ((factor1 * zl) + (factor2 * zr)) / denom;
-            if (!DepthTest(polygon, x, y, z)) continue;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+                continue;
 
             u32 vr = ((factor1 * rl) + (factor2 * rr)) / denom;
             u32 vg = ((factor1 * gl) + (factor2 * gr)) / denom;
@@ -744,9 +754,8 @@ void RenderPolygon(Polygon* polygon)
             s16 s = ((factor1 * sl) + (factor2 * sr)) / denom;
             s16 t = ((factor1 * tl) + (factor2 * tr)) / denom;
 
-            u32 color = RenderPixel(polygon, x, y, z, vr>>3, vg>>3, vb>>3, s, t);
+            u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
             u32 attr = 0;
-            u32 pixeladdr = (y*256) + x;
 
             u8 alpha = color >> 24;
 
