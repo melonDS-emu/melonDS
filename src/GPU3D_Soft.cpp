@@ -53,6 +53,243 @@ void Reset()
 }
 
 
+// Notes on the interpolator:
+//
+// This is a theory on how the DS hardware interpolates values. It matches hardware output
+// in the tests I did, but the hardware may be doing it differently. You never know.
+//
+// Assuming you want to perspective-correctly interpolate a variable named A across two points
+// in a typical rasterizer, you would calculate A/W and 1/W at each point, interpolate linearly,
+// then divide A/W by 1/W to recover the correct A value.
+//
+// The DS GPU approximates interpolation by calculating a perspective-correct interpolation
+// between 0 and 1, then using the result as a factor to linearly interpolate the actual
+// vertex attributes. The factor has 9 bits of precision when interpolating along Y and
+// 8 bits along X.
+//
+// There's a special path for when the two W values are equal: it directly does linear
+// interpolation, avoiding precision loss from the aforementioned approximation.
+// Which is desirable when using the GPU to draw 2D graphics.
+
+class Interpolator
+{
+public:
+    Interpolator() {}
+    Interpolator(s32 x0, s32 x1, s32 w0, s32 w1, int shift)
+    {
+        Setup(x0, x1, w0, w1, shift);
+    }
+
+    void Setup(s32 x0, s32 x1, s32 w0, s32 w1, int shift)
+    {
+        this->x0 = x0;
+        this->x1 = x1;
+        this->xdiff = x1 - x0;
+        this->shift = shift;
+
+        this->w0factor = (s64)w0 * xdiff;
+        this->w1factor = (s64)w1 * xdiff;
+        this->wdiff = w1 - w0;
+    }
+
+    void SetX(s32 x)
+    {
+        x -= x0;
+        this->x = x;
+        if (xdiff != 0 && wdiff != 0)
+        {
+            s64 num = ((s64)x << (shift + 40)) / w1factor;
+            s64 denw0 = ((s64)(xdiff-x) << 40) / w0factor;
+            s64 denw1 = num >> shift;
+
+            s64 denom = denw0 + denw1;
+            if (denom == 0)
+                yfactor = 0;
+            else
+            {
+                yfactor = (s32)(num / denom);
+            }
+        }
+    }
+
+    s32 Interpolate(s32 y0, s32 y1)
+    {
+        if (xdiff == 0) return y0;
+
+        if (wdiff != 0)
+            return y0 + (((y1 - y0) * yfactor) >> shift);
+        else
+            return y0 + (((y1 - y0) * x) / xdiff);
+    }
+
+    s32 InterpolateZ(s32 y0, s32 y1)
+    {
+        if (xdiff == 0) return y0;
+
+        if (wdiff != 0)
+            return y0 + (((s64)(y1 - y0) * yfactor) >> shift);
+        else
+            return y0 + (((s64)(y1 - y0) * x) / xdiff);
+    }
+
+private:
+    s32 x0, x1, xdiff, x;
+    s64 w0factor, w1factor;
+    s32 wdiff;
+    int shift;
+
+    s32 yfactor;
+};
+
+
+class Slope
+{
+public:
+    Slope() {}
+
+    s32 SetupDummy(s32 x0, int side)
+    {
+        if (side)
+        {
+            dx = -0x10000;
+            x0--;
+        }
+        else
+        {
+            dx = 0;
+        }
+
+        this->x0 = x0;
+        this->xmin = x0;
+        this->xmax = x0;
+
+        Increment = 0;
+        XMajor = false;
+
+        Interp.Setup(0, 0, 0, 0, 9);
+        Interp.SetX(0);
+
+        return x0;
+    }
+
+    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, int side)
+    {
+        this->x0 = x0;
+        this->y = y0;
+
+        if (x1 > x0)
+        {
+            this->xmin = x0;
+            this->xmax = x1-1;
+        }
+        else if (x1 < x0)
+        {
+            this->xmin = x1;
+            this->xmax = x0-1;
+        }
+        else
+        {
+            this->xmin = x0;
+            if (side) this->xmin--;
+            this->xmax = this->xmin;
+        }
+
+        if (y0 == y1)
+            Increment = 0;
+        else
+            Increment = ((x1 - x0) << 16) / (y1 - y0);
+
+        if (Increment < 0)
+        {
+            Increment = -Increment;
+            Negative = true;
+        }
+        else
+            Negative = false;
+
+        XMajor = (Increment > 0x10000);
+
+        if (side)
+        {
+            // right
+
+            if (XMajor)              dx = Negative ? (0x8000 + 0x10000) : (Increment - 0x8000);
+            else if (Increment != 0) dx = Negative ? 0x10000 : 0;
+            else                     dx = -0x10000;
+        }
+        else
+        {
+            // left
+
+            if (XMajor)              dx = Negative ? ((Increment - 0x8000) + 0x10000) : 0x8000;
+            else if (Increment != 0) dx = Negative ? 0x10000 : 0;
+            else                     dx = 0;
+        }
+
+        if (XMajor)
+        {
+            if (side) Interp.Setup(x0-1, x1-1, w0, w1, 9); // checkme
+            else      Interp.Setup(x0, x1, w0, w1, 9);
+        }
+        else        Interp.Setup(y0, y1, w0, w1, 9);
+
+        s32 x = XVal();
+        if (XMajor) Interp.SetX(x);
+        else        Interp.SetX(y);
+        return x;
+    }
+
+    s32 Step()
+    {
+        dx += Increment;
+        y++;
+
+        s32 x = XVal();
+        if (XMajor) Interp.SetX(x);
+        else        Interp.SetX(y);
+        return x;
+    }
+
+    s32 XVal()
+    {
+        s32 ret;
+        if (Negative) ret = x0 - (dx >> 16);
+        else          ret = x0 + (dx >> 16);
+
+        if (ret < xmin) ret = xmin;
+        else if (ret > xmax) ret = xmax;
+        return ret;
+    }
+
+    s32 EdgeLimit(int side)
+    {
+        s32 ret;
+        if (side)
+        {
+            if (Negative) ret = x0 - ((dx+Increment) >> 16);
+            else          ret = x0 + ((dx-Increment) >> 16);
+        }
+        else
+        {
+            if (Negative) ret = x0 - ((dx-Increment) >> 16);
+            else          ret = x0 + ((dx+Increment) >> 16);
+        }
+
+        return ret;
+    }
+
+    s32 Increment;
+    bool Negative;
+    bool XMajor;
+    Interpolator Interp;
+
+private:
+    s32 x0, xmin, xmax;
+    s32 dx;
+    s32 y;
+};
+
+
 void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
@@ -65,6 +302,7 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
 
     // texture wrapping
     // TODO: optimize this somehow
+    // testing shows that it's hardly worth optimizing, actually
 
     if (texparam & (1<<16))
     {
@@ -323,7 +561,7 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
         tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
         tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
 
-        if (blendmode == 1)
+        if (blendmode & 0x1)
         {
             // decal
 
@@ -350,7 +588,6 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
         else
         {
             // modulate
-            // TODO: check that it works the same for shadows
 
             r = ((tr+1) * (vr+1) - 1) >> 6;
             g = ((tg+1) * (vg+1) - 1) >> 6;
@@ -409,8 +646,26 @@ void RenderPolygon(Polygon* polygon)
     int lcur = vtop, rcur = vtop;
     int lnext, rnext;
 
-    s32 dxl, dxr;
-    s32 lslope, rslope;
+    if (polygon->FacingView)
+    {
+        lnext = lcur + 1;
+        if (lnext >= nverts) lnext = 0;
+        rnext = rcur - 1;
+        if (rnext < 0) rnext = nverts - 1;
+    }
+    else
+    {
+        lnext = lcur - 1;
+        if (lnext < 0) lnext = nverts - 1;
+        rnext = rcur + 1;
+        if (rnext >= nverts) rnext = 0;
+    }
+
+
+    /*s32 dxl, dxr;
+    s32 lslope, rslope;*/
+    Slope slopeL, slopeR;
+    s32 xL, xR;
     bool l_xmajor, r_xmajor;
 
     if (ybot == ytop)
@@ -433,50 +688,51 @@ void RenderPolygon(Polygon* polygon)
         lcur = vtop; lnext = vtop;
         rcur = vbot; rnext = vbot;
 
-        lslope = 0; l_xmajor = false;
-        rslope = 0; r_xmajor = false;
+        xL = slopeL.SetupDummy(polygon->Vertices[lcur]->FinalPosition[0], 0);
+        xR = slopeR.SetupDummy(polygon->Vertices[rcur]->FinalPosition[0], 1);
     }
     else
     {
-        //while (polygon->Vertices[lnext]->FinalPosition[1] )
-        if (polygon->FacingView)
+        while (ytop >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
         {
-            lnext = lcur + 1;
-            if (lnext >= nverts) lnext = 0;
-            rnext = rcur - 1;
-            if (rnext < 0) rnext = nverts - 1;
+            lcur = lnext;
+
+            if (polygon->FacingView)
+            {
+                lnext = lcur + 1;
+                if (lnext >= nverts) lnext = 0;
+            }
+            else
+            {
+                lnext = lcur - 1;
+                if (lnext < 0) lnext = nverts - 1;
+            }
         }
-        else
+
+        xL = slopeL.Setup(polygon->Vertices[lcur]->FinalPosition[0], polygon->Vertices[lnext]->FinalPosition[0],
+                          polygon->Vertices[lcur]->FinalPosition[1], polygon->Vertices[lnext]->FinalPosition[1],
+                          polygon->FinalW[lcur], polygon->FinalW[lnext], 0);
+
+        while (ytop >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
         {
-            lnext = lcur - 1;
-            if (lnext < 0) lnext = nverts - 1;
-            rnext = rcur + 1;
-            if (rnext >= nverts) rnext = 0;
+            rcur = rnext;
+
+            if (polygon->FacingView)
+            {
+                rnext = rcur - 1;
+                if (rnext < 0) rnext = nverts - 1;
+            }
+            else
+            {
+                rnext = rcur + 1;
+                if (rnext >= nverts) rnext = 0;
+            }
         }
 
-        if (polygon->Vertices[lnext]->FinalPosition[1] == polygon->Vertices[lcur]->FinalPosition[1])
-            lslope = 0;
-        else
-            lslope = ((polygon->Vertices[lnext]->FinalPosition[0] - polygon->Vertices[lcur]->FinalPosition[0]) << 12) /
-                      (polygon->Vertices[lnext]->FinalPosition[1] - polygon->Vertices[lcur]->FinalPosition[1]);
-
-        if (polygon->Vertices[rnext]->FinalPosition[1] == polygon->Vertices[rcur]->FinalPosition[1])
-            rslope = 0;
-        else
-            rslope = ((polygon->Vertices[rnext]->FinalPosition[0] - polygon->Vertices[rcur]->FinalPosition[0]) << 12) /
-                      (polygon->Vertices[rnext]->FinalPosition[1] - polygon->Vertices[rcur]->FinalPosition[1]);
-
-        l_xmajor = (lslope < -0x1000) || (lslope > 0x1000);
-        r_xmajor = (rslope < -0x1000) || (rslope > 0x1000);
+        xR = slopeR.Setup(polygon->Vertices[rcur]->FinalPosition[0], polygon->Vertices[rnext]->FinalPosition[0],
+                          polygon->Vertices[rcur]->FinalPosition[1], polygon->Vertices[rnext]->FinalPosition[1],
+                          polygon->FinalW[rcur], polygon->FinalW[rnext], 1);
     }
-
-    if (l_xmajor)    dxl = (lslope > 0) ? 0x800 : (-lslope-0x800)+0x1000;
-    else if (lslope) dxl = (lslope > 0) ? 0     : 0x1000;
-    else             dxl = 0;
-
-    if (r_xmajor)    dxr = (rslope > 0) ? rslope-0x800 : 0x800+0x1000;
-    else if (rslope) dxr = (rslope > 0) ? 0            : 0x1000;
-    else             dxr = 0x1000;
 
     if (ybot > 192) ybot = 192;
     for (s32 y = ytop; y < ybot; y++)
@@ -501,17 +757,9 @@ void RenderPolygon(Polygon* polygon)
                     }
                 }
 
-                if (polygon->Vertices[lnext]->FinalPosition[1] == polygon->Vertices[lcur]->FinalPosition[1])
-                    lslope = 0;
-                else
-                    lslope = ((polygon->Vertices[lnext]->FinalPosition[0] - polygon->Vertices[lcur]->FinalPosition[0]) << 12) /
-                              (polygon->Vertices[lnext]->FinalPosition[1] - polygon->Vertices[lcur]->FinalPosition[1]);
-
-                l_xmajor = (lslope < -0x1000) || (lslope > 0x1000);
-
-                if (l_xmajor)    dxl = (lslope > 0) ? 0x800 : (-lslope-0x800)+0x1000;
-                else if (lslope) dxl = (lslope > 0) ? 0     : 0x1000;
-                else             dxl = 0;
+                xL = slopeL.Setup(polygon->Vertices[lcur]->FinalPosition[0], polygon->Vertices[lnext]->FinalPosition[0],
+                                  polygon->Vertices[lcur]->FinalPosition[1], polygon->Vertices[lnext]->FinalPosition[1],
+                                  polygon->FinalW[lcur], polygon->FinalW[lnext], 0);
             }
 
             if (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
@@ -532,71 +780,25 @@ void RenderPolygon(Polygon* polygon)
                     }
                 }
 
-                if (polygon->Vertices[rnext]->FinalPosition[1] == polygon->Vertices[rcur]->FinalPosition[1])
-                    rslope = 0;
-                else
-                    rslope = ((polygon->Vertices[rnext]->FinalPosition[0] - polygon->Vertices[rcur]->FinalPosition[0]) << 12) /
-                              (polygon->Vertices[rnext]->FinalPosition[1] - polygon->Vertices[rcur]->FinalPosition[1]);
-
-                r_xmajor = (rslope < -0x1000) || (rslope > 0x1000);
-
-                if (r_xmajor)    dxr = (rslope > 0) ? rslope-0x800 : 0x800+0x1000;
-                else if (rslope) dxr = (rslope > 0) ? 0            : 0x1000;
-                else             dxr = 0x1000;
+                xR = slopeR.Setup(polygon->Vertices[rcur]->FinalPosition[0], polygon->Vertices[rnext]->FinalPosition[0],
+                                  polygon->Vertices[rcur]->FinalPosition[1], polygon->Vertices[rnext]->FinalPosition[1],
+                                  polygon->FinalW[rcur], polygon->FinalW[rnext], 1);
             }
         }
 
         Vertex *vlcur, *vlnext, *vrcur, *vrnext;
         s32 xstart, xend;
-        s32 xstart_int, xend_int;
-        s32 slope_start, slope_end;
+        Slope* slope_start;
+        Slope* slope_end;
 
-        if (lslope == 0 && rslope == 0 &&
-            polygon->Vertices[lcur]->FinalPosition[0] == polygon->Vertices[rcur]->FinalPosition[0])
-        {
-            xstart = polygon->Vertices[lcur]->FinalPosition[0];
-            xend = xstart;
-        }
-        else
-        {
-            if (lslope > 0)
-            {
-                xstart = polygon->Vertices[lcur]->FinalPosition[0] + (dxl >> 12);
-                if (xstart < polygon->Vertices[lcur]->FinalPosition[0])
-                    xstart = polygon->Vertices[lcur]->FinalPosition[0];
-                else if (xstart > polygon->Vertices[lnext]->FinalPosition[0]-1)
-                    xstart = polygon->Vertices[lnext]->FinalPosition[0]-1;
-            }
-            else if (lslope < 0)
-            {
-                xstart = polygon->Vertices[lcur]->FinalPosition[0] - (dxl >> 12);
-                if (xstart < polygon->Vertices[lnext]->FinalPosition[0])
-                    xstart = polygon->Vertices[lnext]->FinalPosition[0];
-                else if (xstart > polygon->Vertices[lcur]->FinalPosition[0]-1)
-                    xstart = polygon->Vertices[lcur]->FinalPosition[0]-1;
-            }
-            else
-                xstart = polygon->Vertices[lcur]->FinalPosition[0];
+        xstart = xL;
+        xend = xR;
 
-            if (rslope > 0)
-            {
-                xend = polygon->Vertices[rcur]->FinalPosition[0] + (dxr >> 12);
-                if (xend < polygon->Vertices[rcur]->FinalPosition[0])
-                    xend = polygon->Vertices[rcur]->FinalPosition[0];
-                else if (xend > polygon->Vertices[rnext]->FinalPosition[0]-1)
-                    xend = polygon->Vertices[rnext]->FinalPosition[0]-1;
-            }
-            else if (rslope < 0)
-            {
-                xend = polygon->Vertices[rcur]->FinalPosition[0] - (dxr >> 12);
-                if (xend < polygon->Vertices[rnext]->FinalPosition[0])
-                    xend = polygon->Vertices[rnext]->FinalPosition[0];
-                else if (xend > polygon->Vertices[rcur]->FinalPosition[0]-1)
-                    xend = polygon->Vertices[rcur]->FinalPosition[0]-1;
-            }
-            else
-                xend = polygon->Vertices[rcur]->FinalPosition[0] - 1;
-        }
+        s32 wl = slopeL.Interp.Interpolate(polygon->FinalW[lcur], polygon->FinalW[lnext]);
+        s32 wr = slopeR.Interp.Interpolate(polygon->FinalW[rcur], polygon->FinalW[rnext]);
+
+        s32 zl = slopeL.Interp.InterpolateZ(polygon->FinalZ[lcur], polygon->FinalZ[lnext]);
+        s32 zr = slopeR.Interp.InterpolateZ(polygon->FinalZ[rcur], polygon->FinalZ[rnext]);
 
         // if the left and right edges are swapped, render backwards.
         // note: we 'forget' to swap the xmajor flags, on purpose
@@ -608,10 +810,13 @@ void RenderPolygon(Polygon* polygon)
             vrcur = polygon->Vertices[lcur];
             vrnext = polygon->Vertices[lnext];
 
-            slope_start = rslope;
-            slope_end = lslope;
+            slope_start = &slopeR;
+            slope_end = &slopeL;
 
-            s32 tmp = xstart; xstart = xend; xend = tmp;
+            s32 tmp;
+            tmp = xstart; xstart = xend; xend = tmp;
+            tmp = wl; wl = wr; wr = tmp;
+            tmp = zl; zl = zr; zr = tmp;
         }
         else
         {
@@ -620,101 +825,67 @@ void RenderPolygon(Polygon* polygon)
             vrcur = polygon->Vertices[rcur];
             vrnext = polygon->Vertices[rnext];
 
-            slope_start = lslope;
-            slope_end = rslope;
+            slope_start = &slopeL;
+            slope_end = &slopeR;
         }
 
         // interpolate attributes along Y
-        s64 lfactor1, lfactor2;
-        s64 rfactor1, rfactor2;
 
-        if (l_xmajor)
-        {
-            lfactor1 = (vlnext->FinalPosition[0] - xstart) * vlnext->FinalPosition[3];
-            lfactor2 = (xstart - vlcur->FinalPosition[0]) * vlcur->FinalPosition[3];
-        }
-        else
-        {
-            lfactor1 = (vlnext->FinalPosition[1] - y) * vlnext->FinalPosition[3];
-            lfactor2 = (y - vlcur->FinalPosition[1]) * vlcur->FinalPosition[3];
-        }
+        s32 rl = slope_start->Interp.Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
+        s32 gl = slope_start->Interp.Interpolate(vlcur->FinalColor[1], vlnext->FinalColor[1]);
+        s32 bl = slope_start->Interp.Interpolate(vlcur->FinalColor[2], vlnext->FinalColor[2]);
 
-        s64 ldenom = lfactor1 + lfactor2;
-        if (ldenom == 0)
-        {
-            lfactor1 = 0x1000;
-            lfactor2 = 0;
-            ldenom = 0x1000;
-        }
+        s32 sl = slope_start->Interp.Interpolate(vlcur->TexCoords[0], vlnext->TexCoords[0]);
+        s32 tl = slope_start->Interp.Interpolate(vlcur->TexCoords[1], vlnext->TexCoords[1]);
 
-        if (r_xmajor)
-        {
-            rfactor1 = (vrnext->FinalPosition[0] - xend+1) * vrnext->FinalPosition[3];
-            rfactor2 = (xend+1 - vrcur->FinalPosition[0]) * vrcur->FinalPosition[3];
-        }
-        else
-        {
-            rfactor1 = (vrnext->FinalPosition[1] - y) * vrnext->FinalPosition[3];
-            rfactor2 = (y - vrcur->FinalPosition[1]) * vrcur->FinalPosition[3];
-        }
+        s32 rr = slope_end->Interp.Interpolate(vrcur->FinalColor[0], vrnext->FinalColor[0]);
+        s32 gr = slope_end->Interp.Interpolate(vrcur->FinalColor[1], vrnext->FinalColor[1]);
+        s32 br = slope_end->Interp.Interpolate(vrcur->FinalColor[2], vrnext->FinalColor[2]);
 
-        s64 rdenom = rfactor1 + rfactor2;
-        if (rdenom == 0)
-        {
-            rfactor1 = 0x1000;
-            rfactor2 = 0;
-            rdenom = 0x1000;
-        }
-
-        s32 zl = ((lfactor1 * vlcur->FinalPosition[2]) + (lfactor2 * vlnext->FinalPosition[2])) / ldenom;
-        s32 zr = ((rfactor1 * vrcur->FinalPosition[2]) + (rfactor2 * vrnext->FinalPosition[2])) / rdenom;
-
-        s32 wl = ((lfactor1 * vlcur->FinalPosition[3]) + (lfactor2 * vlnext->FinalPosition[3])) / ldenom;
-        s32 wr = ((rfactor1 * vrcur->FinalPosition[3]) + (rfactor2 * vrnext->FinalPosition[3])) / rdenom;
-
-        s32 rl = ((lfactor1 * vlcur->FinalColor[0]) + (lfactor2 * vlnext->FinalColor[0])) / ldenom;
-        s32 gl = ((lfactor1 * vlcur->FinalColor[1]) + (lfactor2 * vlnext->FinalColor[1])) / ldenom;
-        s32 bl = ((lfactor1 * vlcur->FinalColor[2]) + (lfactor2 * vlnext->FinalColor[2])) / ldenom;
-
-        s32 sl = ((lfactor1 * vlcur->TexCoords[0]) + (lfactor2 * vlnext->TexCoords[0])) / ldenom;
-        s32 tl = ((lfactor1 * vlcur->TexCoords[1]) + (lfactor2 * vlnext->TexCoords[1])) / ldenom;
-
-        s32 rr = ((rfactor1 * vrcur->FinalColor[0]) + (rfactor2 * vrnext->FinalColor[0])) / rdenom;
-        s32 gr = ((rfactor1 * vrcur->FinalColor[1]) + (rfactor2 * vrnext->FinalColor[1])) / rdenom;
-        s32 br = ((rfactor1 * vrcur->FinalColor[2]) + (rfactor2 * vrnext->FinalColor[2])) / rdenom;
-
-        s32 sr = ((rfactor1 * vrcur->TexCoords[0]) + (rfactor2 * vrnext->TexCoords[0])) / rdenom;
-        s32 tr = ((rfactor1 * vrcur->TexCoords[1]) + (rfactor2 * vrnext->TexCoords[1])) / rdenom;
+        s32 sr = slope_end->Interp.Interpolate(vrcur->TexCoords[0], vrnext->TexCoords[0]);
+        s32 tr = slope_end->Interp.Interpolate(vrcur->TexCoords[1], vrnext->TexCoords[1]);
 
         // calculate edges
-        s32 l_edgeend, r_edgestart;
-
-        if (l_xmajor)
-        {
-            if (slope_start > 0) l_edgeend = vlcur->FinalPosition[0] + ((dxl + slope_start) >> 12);
-            else                 l_edgeend = vlcur->FinalPosition[0] - ((dxl - slope_start) >> 12);
-
-            if (l_edgeend == xstart) l_edgeend++;
-        }
-        else
-            l_edgeend = xstart + 1;
-
-        if (r_xmajor)
-        {
-            if (slope_end > 0) r_edgestart = vrcur->FinalPosition[0] + ((dxr + slope_end) >> 12);
-            else               r_edgestart = vrcur->FinalPosition[0] - ((dxr - slope_end) >> 12);
-
-            if (r_edgestart == xend_int) r_edgestart--;
-        }
-        else
-            r_edgestart = xend - 1;
-
+        //
         // edge fill rules for opaque pixels:
         // * right edge is filled if slope > 1
         // * left edge is filled if slope <= 1
         // * edges with slope = 0 are always filled
         // edges are always filled if the pixels are translucent
         // in wireframe mode, there are special rules for equal Z (TODO)
+
+        s32 l_edgeend, r_edgestart;
+        bool l_filledge, r_filledge;
+
+        if (slopeL.XMajor)
+        {
+            l_edgeend = slope_start->EdgeLimit(0);
+            if (l_edgeend == xstart) l_edgeend++;
+
+            l_filledge = slope_start->Negative;
+        }
+        else
+        {
+            l_edgeend = xstart + 1;
+
+            l_filledge = true;
+        }
+
+        if (slopeR.XMajor)
+        {
+            r_edgestart = slope_end->EdgeLimit(1);
+            if (r_edgestart == xend) r_edgestart--;
+
+            r_filledge = !slope_end->Negative;
+        }
+        else
+        {
+            r_edgestart = xend - 1;
+
+            r_filledge = slope_end->Increment==0;
+        }
+
+        Interpolator interpX(xstart, xend+1, wl, wr, 8);
 
         for (s32 x = xstart; x <= xend; x++)
         {
@@ -731,28 +902,20 @@ void RenderPolygon(Polygon* polygon)
             if (wireframe && edge==0)
                 continue;
 
-            s64 factor1 = (xend+1 - x) * wr;
-            s64 factor2 = (x - xstart) * wl;
-            s64 denom = factor1 + factor2;
-            if (denom == 0)
-            {
-                factor1 = 0x1000;
-                factor2 = 0;
-                denom = 0x1000;
-            }
+            interpX.SetX(x);
 
             u32 pixeladdr = (y*256) + x;
 
-            s32 z = ((factor1 * zl) + (factor2 * zr)) / denom;
+            s32 z = interpX.InterpolateZ(zl, zr);
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
 
-            u32 vr = ((factor1 * rl) + (factor2 * rr)) / denom;
-            u32 vg = ((factor1 * gl) + (factor2 * gr)) / denom;
-            u32 vb = ((factor1 * bl) + (factor2 * br)) / denom;
+            u32 vr = interpX.Interpolate(rl, rr);
+            u32 vg = interpX.Interpolate(gl, gr);
+            u32 vb = interpX.Interpolate(bl, br);
 
-            s16 s = ((factor1 * sl) + (factor2 * sr)) / denom;
-            s16 t = ((factor1 * tl) + (factor2 * tr)) / denom;
+            s16 s = interpX.Interpolate(sl, sr);
+            s16 t = interpX.Interpolate(tl, tr);
 
             u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
             u32 attr = 0;
@@ -781,11 +944,11 @@ void RenderPolygon(Polygon* polygon)
             {
                 // edge fill rules for opaque pixels
                 // TODO, eventually: antialiasing
-                if (!wireframe)// && !(edge & 0x4))
+                if (!wireframe)
                 {
-                    if ((edge & 0x1) && slope_start > 0x1000)
+                    if ((edge & 0x1) && !l_filledge)
                         continue;
-                    if ((edge & 0x2) && (slope_end != 0 && slope_end <= 0x1000))
+                    if ((edge & 0x2) && !r_filledge)
                         continue;
                 }
 
@@ -824,19 +987,9 @@ void RenderPolygon(Polygon* polygon)
             AttrBuffer[pixeladdr] = attr;
         }
 
-        if (lslope > 0) dxl += lslope;
-        else            dxl -= lslope;
-        if (rslope > 0) dxr += rslope;
-        else            dxr -= rslope;
+        xL = slopeL.Step();
+        xR = slopeR.Step();
     }
-
-    /*for (int i = 0; i < polygon->NumVertices; i++)
-    {
-        Vertex* vtx = polygon->Vertices[i];
-        u32 addr = vtx->FinalPosition[0] + (vtx->FinalPosition[1]*256);
-        if (addr < 256*192)
-        ColorBuffer[addr] = 0x1F3F003F;
-    }*/
 }
 
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
@@ -863,7 +1016,6 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
                 u32 color = r | (g << 8) | (b << 16) | a;
 
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
-                if (z >= 0x10000 && z < 0xFFFFFF) z++;
 
                 ColorBuffer[y+x] = color;
                 DepthBuffer[y+x] = z;
@@ -885,7 +1037,6 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
         u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
-		if (z >= 0x10000 && z < 0xFFFFFF) z++;
 
 		polyid |= ((RenderClearAttr1 & 0x8000) >> 7);
 

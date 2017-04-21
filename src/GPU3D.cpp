@@ -717,9 +717,8 @@ void SubmitPolygon()
     poly->FacingView = facingview;
 
     u32 texfmt = (TexParam >> 26) & 0x7;
-    u32 blendmode = (CurPolygonAttr >> 4) & 0x3;
     u32 polyalpha = (CurPolygonAttr >> 16) & 0x1F;
-    poly->Translucent = ((texfmt == 1 || texfmt == 6) && (blendmode != 1)) || (polyalpha > 0 && polyalpha < 31);
+    poly->Translucent = ((texfmt == 1 || texfmt == 6) && !(CurPolygonAttr & 0x10)) || (polyalpha > 0 && polyalpha < 31);
 
     if (LastStripPolygon && clipstart > 0)
     {
@@ -764,24 +763,29 @@ void SubmitPolygon()
         }
         else
         {
+            // W is normalized, such that all the polygon's W values fit within 16 bits
+            // the viewport transform for X and Y uses the original W values, but
+            // the transform for Z uses the normalized W values
+            // W normalization is applied to separate polygons, even within strips
+
             posX = (((s64)(vtx->Position[0] + w) * Viewport[2]) / (((s64)w) << 1)) + Viewport[0];
             posY = (((s64)(-vtx->Position[1] + w) * Viewport[3]) / (((s64)w) << 1)) + Viewport[1];
 
-            if (FlushAttributes & 0x2) posZ = w;
-            else                       posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
+            //if (FlushAttributes & 0x2) posZ = w;
+            //else                       posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
         }
 
         if      (posX < 0)        posX = 0;
         else if (posX > 256)      posX = 256;
         if      (posY < 0)        posY = 0;
         else if (posY > 192)      posY = 192;
-        if      (posZ < 0)        posZ = 0;
-        else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
+        //if      (posZ < 0)        posZ = 0;
+        //else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
 
         vtx->FinalPosition[0] = posX;
         vtx->FinalPosition[1] = posY;
-        vtx->FinalPosition[2] = posZ;
-        vtx->FinalPosition[3] = w;
+        //vtx->FinalPosition[2] = posZ;
+        //vtx->FinalPosition[3] = w;
 
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
@@ -792,9 +796,12 @@ void SubmitPolygon()
     }
 
     // determine bounds of the polygon
+    // also determine the W shift and normalize W
+
     u32 vtop = 0, vbot = 0;
     s32 ytop = 192, ybot = 0;
     s32 xtop = 256, xbot = 0;
+    u32 wshift = 0;
 
     for (int i = 0; i < nverts; i++)
     {
@@ -812,11 +819,35 @@ void SubmitPolygon()
             ybot = vtx->FinalPosition[1];
             vbot = i;
         }
+
+        u32 w = (u32)vtx->Position[3];
+        while ((w >> wshift) & 0xFFFF0000)
+            wshift += 4;
     }
 
     poly->VTop = vtop; poly->VBottom = vbot;
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
+    poly->WShift = wshift;
+
+    for (int i = 0; i < nverts; i++)
+    {
+        Vertex* vtx = poly->Vertices[i];
+        s32 w = vtx->Position[3] >> wshift;
+
+        s32 z;
+        if (FlushAttributes & 0x2)
+            z = w << wshift;
+        else
+            z = (((s64)vtx->Position[2] * 0x800000) / (w << wshift)) + 0x7FFEFF;
+
+        // checkme
+        if (z < 0) z = 0;
+        else if (z > 0xFFFFFF) z = 0xFFFFFF;
+
+        poly->FinalZ[i] = z;
+        poly->FinalW[i] = w;
+    }
 
     if (PolygonMode >= 2)
         LastStripPolygon = poly;

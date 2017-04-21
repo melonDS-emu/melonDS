@@ -33,7 +33,7 @@ typedef struct
     // final vertex attributes.
     // allows them to be reused in polygon strips.
 
-    s32 FinalPosition[4];
+    s32 FinalPosition[2];
     s32 FinalColor[3];
 
 } Vertex;
@@ -42,6 +42,10 @@ typedef struct
 {
     Vertex* Vertices[10];
     u32 NumVertices;
+
+    s32 FinalZ[10];
+    s32 FinalW[10];
+    u8 WShift;
 
     u32 Attr;
     u32 TexParam;
