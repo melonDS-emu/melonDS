@@ -47,6 +47,15 @@ public:
         Halted = halt;
     }
 
+    void CheckIRQ()
+    {
+        if (!(NDS::IME[Num] & 0x1)) return;
+        if (NDS::IF[Num] & NDS::IE[Num])
+        {
+            TriggerIRQ();
+        }
+    }
+
     s32 Execute();
 
     bool CheckCondition(u32 code)

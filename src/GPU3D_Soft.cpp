@@ -32,8 +32,9 @@ u32 DepthBuffer[256*192];
 u32 AttrBuffer[256*192];
 
 // attribute buffer:
-// bit0-5: polygon ID
-// bit8: fog enable
+// bit15: fog enable
+// bit24-29: polygon ID
+// bit30: translucent flag
 
 
 bool Init()
@@ -918,7 +919,7 @@ void RenderPolygon(Polygon* polygon)
             s16 t = interpX.Interpolate(tl, tr);
 
             u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
-            u32 attr = 0;
+            u32 attr = polygon->Attr & 0x3F008000;
 
             u8 alpha = color >> 24;
 
@@ -937,9 +938,6 @@ void RenderPolygon(Polygon* polygon)
             if (!(DispCnt & (1<<3)))
                 alpha = 31;
 
-            u32 dstcolor = ColorBuffer[pixeladdr];
-            u32 dstalpha = dstcolor >> 24;
-
             if (alpha == 31)
             {
                 // edge fill rules for opaque pixels
@@ -954,33 +952,44 @@ void RenderPolygon(Polygon* polygon)
 
                 DepthBuffer[pixeladdr] = z;
             }
-            else if (dstalpha == 0)
-            {
-                // TODO: conditional Z-buffer update
-                DepthBuffer[pixeladdr] = z;
-            }
             else
             {
-                u32 srcR = color & 0x3F;
-                u32 srcG = (color >> 8) & 0x3F;
-                u32 srcB = (color >> 16) & 0x3F;
+                u32 dstattr = AttrBuffer[pixeladdr];
+                attr |= (1<<30);
 
-                u32 dstR = dstcolor & 0x3F;
-                u32 dstG = (dstcolor >> 8) & 0x3F;
-                u32 dstB = (dstcolor >> 16) & 0x3F;
+                // skip if polygon IDs are equal
+                // note: this only happens if the destination pixel was translucent
+                // the GPU keeps track of which pixels are translucent, regardless of
+                // the destination alpha
+                if ((dstattr & 0x7F000000) == (attr & 0x7F000000))
+                    continue;
 
-                alpha++;
-                dstR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
-                dstG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
-                dstB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+                u32 dstcolor = ColorBuffer[pixeladdr];
+                u32 dstalpha = dstcolor >> 24;
 
-                alpha--;
-                if (alpha > dstalpha) dstalpha = alpha;
+                if (dstalpha > 0)
+                {
+                    u32 srcR = color & 0x3F;
+                    u32 srcG = (color >> 8) & 0x3F;
+                    u32 srcB = (color >> 16) & 0x3F;
 
-                color = dstR | (dstG << 8) | (dstB << 16) | (dstalpha << 24);
+                    u32 dstR = dstcolor & 0x3F;
+                    u32 dstG = (dstcolor >> 8) & 0x3F;
+                    u32 dstB = (dstcolor >> 16) & 0x3F;
 
-                // TODO: conditional Z-buffer update
-                DepthBuffer[pixeladdr] = z;
+                    alpha++;
+                    dstR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
+                    dstG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
+                    dstB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+
+                    alpha--;
+                    if (alpha > dstalpha) dstalpha = alpha;
+
+                    color = dstR | (dstG << 8) | (dstB << 16) | (dstalpha << 24);
+                }
+
+                if (polygon->Attr & (1<<11))
+                    DepthBuffer[pixeladdr] = z;
             }
 
             ColorBuffer[pixeladdr] = color;
@@ -994,7 +1003,7 @@ void RenderPolygon(Polygon* polygon)
 
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
-    u32 polyid = (RenderClearAttr1 >> 24) & 0x3F;
+    u32 polyid = RenderClearAttr1 & 0x3F000000;
 
     if (DispCnt & (1<<14))
     {
@@ -1019,7 +1028,7 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 
                 ColorBuffer[y+x] = color;
                 DepthBuffer[y+x] = z;
-                AttrBuffer[y+x] = polyid | ((val3 & 0x8000) >> 7);
+                AttrBuffer[y+x] = polyid | (val3 & 0x8000);
 
                 xoff++;
             }
@@ -1038,7 +1047,7 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 
         u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
-		polyid |= ((RenderClearAttr1 & 0x8000) >> 7);
+		polyid |= (RenderClearAttr1 & 0x8000);
 
         for (int i = 0; i < 256*192; i++)
         {
