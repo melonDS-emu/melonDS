@@ -36,6 +36,12 @@ u32 AttrBuffer[256*192];
 // bit24-29: polygon ID
 // bit30: translucent flag
 
+u8 StencilBuffer[256*192];
+
+// note: the stencil buffer isn't emulated properly.
+// emulating it properly would require rendering polygons per-scanline
+// the stencil buffer is normally limited to 2 scanlines
+
 
 bool Init()
 {
@@ -662,9 +668,6 @@ void RenderPolygon(Polygon* polygon)
         if (rnext >= nverts) rnext = 0;
     }
 
-
-    /*s32 dxl, dxr;
-    s32 lslope, rslope;*/
     Slope slopeL, slopeR;
     s32 xL, xR;
     bool l_xmajor, r_xmajor;
@@ -736,6 +739,13 @@ void RenderPolygon(Polygon* polygon)
     }
 
     if (ybot > 192) ybot = 192;
+
+    if (polygon->ClearStencil)
+    {
+        s32 height = ybot - ytop;
+        memset(&StencilBuffer[ytop*256], 0, height*256);
+    }
+
     for (s32 y = ytop; y < ybot; y++)
     {
         if (!isline)
@@ -903,11 +913,43 @@ void RenderPolygon(Polygon* polygon)
             if (wireframe && edge==0)
                 continue;
 
+            u32 pixeladdr = (y*256) + x;
+            u32 attr = polygon->Attr & 0x3F008000;
+
+            // check stencil buffer for shadows
+            if (polygon->IsShadow)
+            {
+                if (StencilBuffer[pixeladdr] == 0)
+                    continue;
+            }
+
             interpX.SetX(x);
 
-            u32 pixeladdr = (y*256) + x;
-
             s32 z = interpX.InterpolateZ(zl, zr);
+
+            if (polygon->IsShadowMask)
+            {
+                // for shadow masks: set stencil bits where the depth test fails.
+                // draw nothing.
+
+                // checkme
+                if (polyalpha == 31)
+                {
+                    if (!wireframe)
+                    {
+                        if ((edge & 0x1) && !l_filledge)
+                            continue;
+                        if ((edge & 0x2) && !r_filledge)
+                            continue;
+                    }
+                }
+
+                if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+                    StencilBuffer[pixeladdr] = 1;
+
+                continue;
+            }
+
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
 
@@ -919,8 +961,6 @@ void RenderPolygon(Polygon* polygon)
             s16 t = interpX.Interpolate(tl, tr);
 
             u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
-            u32 attr = polygon->Attr & 0x3F008000;
-
             u8 alpha = color >> 24;
 
             // alpha test
@@ -952,11 +992,13 @@ void RenderPolygon(Polygon* polygon)
             {
                 u32 dstattr = AttrBuffer[pixeladdr];
                 attr |= (1<<30);
+                if (polygon->IsShadow) dstattr |= (1<<30);
 
                 // skip if polygon IDs are equal
                 // note: this only happens if the destination pixel was translucent
-                // the GPU keeps track of which pixels are translucent, regardless of
-                // the destination alpha
+                // or always when drawing a shadow
+                // (the GPU keeps track of which pixels are translucent, regardless of
+                // the destination alpha)
                 if ((dstattr & 0x7F000000) == (attr & 0x7F000000))
                     continue;
 

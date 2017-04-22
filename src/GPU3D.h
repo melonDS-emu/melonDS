@@ -54,6 +54,10 @@ typedef struct
     bool FacingView;
     bool Translucent;
 
+    bool IsShadowMask;
+    bool IsShadow;
+    bool ClearStencil;
+
     u32 VTop, VBottom; // vertex indices
     s32 YTop, YBottom; // Y coords
     s32 XTop, XBottom; // associated X coords
