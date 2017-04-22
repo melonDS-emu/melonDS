@@ -924,6 +924,7 @@ void RenderPolygon(Polygon* polygon)
             u8 alpha = color >> 24;
 
             // alpha test
+            // TODO: check alpha test when blending is disabled
             if (DispCnt & (1<<2))
             {
                 if (alpha <= AlphaRef) continue;
@@ -932,11 +933,6 @@ void RenderPolygon(Polygon* polygon)
             {
                 if (alpha == 0) continue;
             }
-
-            // alpha blending disable
-            // TODO: check alpha test when blending is disabled
-            if (!(DispCnt & (1<<3)))
-                alpha = 31;
 
             if (alpha == 31)
             {
@@ -967,7 +963,7 @@ void RenderPolygon(Polygon* polygon)
                 u32 dstcolor = ColorBuffer[pixeladdr];
                 u32 dstalpha = dstcolor >> 24;
 
-                if (dstalpha > 0)
+                if ((dstalpha > 0) && (DispCnt & (1<<3)))
                 {
                     u32 srcR = color & 0x3F;
                     u32 srcG = (color >> 8) & 0x3F;
