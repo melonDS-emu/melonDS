@@ -742,8 +742,7 @@ void RenderPolygon(Polygon* polygon)
 
     if (polygon->ClearStencil)
     {
-        s32 height = ybot - ytop;
-        memset(&StencilBuffer[ytop*256], 0, height*256);
+        memset(StencilBuffer, 0, 192*256);
     }
 
     for (s32 y = ytop; y < ybot; y++)
