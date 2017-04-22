@@ -620,7 +620,7 @@ void SubmitPolygon()
     normalX = (((s64)v0->Position[1] * v2->Position[3]) - ((s64)v0->Position[3] * v2->Position[1])) >> 12;
     normalY = (((s64)v0->Position[3] * v2->Position[0]) - ((s64)v0->Position[0] * v2->Position[3])) >> 12;
     normalZ = (((s64)v0->Position[0] * v2->Position[1]) - ((s64)v0->Position[1] * v2->Position[0])) >> 12;
-    dot = ((s64)(v1->Position[0] >> 0) * normalX) + ((s64)(v1->Position[1] >> 0) * normalY) + ((s64)(v1->Position[3] >> 0) * normalZ);
+    dot = ((s64)v1->Position[0] * normalX) + ((s64)v1->Position[1] * normalY) + ((s64)v1->Position[3] * normalZ);
 
     bool facingview = (dot < 0);
 
@@ -805,6 +805,7 @@ void SubmitPolygon()
 
     // determine bounds of the polygon
     // also determine the W shift and normalize W
+    // TODO: normalization works both ways
 
     u32 vtop = 0, vbot = 0;
     s32 ytop = 192, ybot = 0;

@@ -547,7 +547,7 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
     dstaddr &= 0xFFFF;
     srcBaddr &= 0xFFFF;
 
-    switch ((DispCnt >> 29) & 0x3)
+    switch ((CaptureCnt >> 29) & 0x3)
     {
     case 0: // source A
         {
