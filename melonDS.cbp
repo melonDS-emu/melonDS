@@ -51,12 +51,12 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-O3" />
 					<Add option="-m64" />
-					<Add option="-D_FILE_OFFSET_BITS=64" />
-					<Add option="-D__WXMSW__" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXMSW__" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -116,6 +116,45 @@
 					<Add option="-m64" />
 				</Linker>
 			</Target>
+			<Target title="Profile Windows">
+				<Option platforms="Windows;" />
+				<Option output="bin/Release/melonDS" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+					<Add option="-m64" />
+					<Add option="-g" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
+					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXMSW__" />
+				</Compiler>
+				<Linker>
+					<Add option="-m64" />
+					<Add library=":libwx_mswu_core-3.0.a" />
+					<Add library=":libwx_baseu-3.0.a" />
+					<Add library="SDL2" />
+					<Add library=":libpng.a" />
+					<Add library=":libjpeg.a" />
+					<Add library=":libtiff.a" />
+					<Add library=":libz.a" />
+					<Add library="rpcrt4" />
+					<Add library="oleaut32" />
+					<Add library="ole32" />
+					<Add library="uuid" />
+					<Add library="winspool" />
+					<Add library="winmm" />
+					<Add library="shell32" />
+					<Add library="comctl32" />
+					<Add library="comdlg32" />
+					<Add library="advapi32" />
+					<Add library="wsock32" />
+					<Add library="oleacc" />
+					<Add library="gdi32" />
+				</Linker>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
@@ -126,6 +165,7 @@
 			<Option compilerVar="WINDRES" />
 			<Option target="Debug Windows" />
 			<Option target="Release Windows" />
+			<Option target="Profile Windows" />
 		</Unit>
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
@@ -176,6 +216,7 @@
 		<Unit filename="xp.manifest">
 			<Option target="Debug Windows" />
 			<Option target="Release Windows" />
+			<Option target="Profile Windows" />
 		</Unit>
 		<Extensions>
 			<code_completion />

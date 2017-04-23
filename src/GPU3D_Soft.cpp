@@ -541,7 +541,6 @@ bool DepthTest(s32 oldz, s32 z)
 
 u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 {
-    u32 attr = polygon->Attr;
     u8 r, g, b, a;
 
     u32 blendmode = (polygon->Attr >> 4) & 0x3;
@@ -910,7 +909,10 @@ void RenderPolygon(Polygon* polygon)
 
             // wireframe polygons. really ugly, but works
             if (wireframe && edge==0)
+            {
+                x = r_edgestart + 1;
                 continue;
+            }
 
             u32 pixeladdr = (y*256) + x;
             u32 attr = polygon->Attr & 0x3F008000;

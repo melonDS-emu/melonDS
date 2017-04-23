@@ -1807,6 +1807,45 @@ u32* GetLine(int line)
 }
 
 
+void WriteToGXFIFO(u32 val)
+{
+    if (NumCommands == 0)
+    {
+        NumCommands = 4;
+        CurCommand = val;
+        ParamCount = 0;
+        TotalParams = CmdNumParams[CurCommand & 0xFF];
+
+        if (TotalParams > 0) return;
+    }
+    else
+        ParamCount++;
+
+    for (;;)
+    {
+        if ((CurCommand & 0xFF) || (NumCommands == 4 && CurCommand == 0))
+        {
+            CmdFIFOEntry entry;
+            entry.Command = CurCommand & 0xFF;
+            entry.Param = val;
+            CmdFIFOWrite(entry);
+        }
+
+        if (ParamCount >= TotalParams)
+        {
+            CurCommand >>= 8;
+            NumCommands--;
+            if (NumCommands == 0) break;
+
+            ParamCount = 0;
+            TotalParams = CmdNumParams[CurCommand & 0xFF];
+        }
+        if (ParamCount < TotalParams)
+            break;
+    }
+}
+
+
 u8 Read8(u32 addr)
 {
     printf("unknown GPU3D read8 %08X\n", addr);
@@ -2012,41 +2051,7 @@ void Write32(u32 addr, u32 val)
 
     if (addr >= 0x04000400 && addr < 0x04000440)
     {
-        if (NumCommands == 0)
-        {
-            NumCommands = 4;
-            CurCommand = val;
-            ParamCount = 0;
-            TotalParams = CmdNumParams[CurCommand & 0xFF];
-
-            if (TotalParams > 0) return;
-        }
-        else
-            ParamCount++;
-
-        for (;;)
-        {
-            if ((CurCommand & 0xFF) || (NumCommands == 4 && CurCommand == 0))
-            {
-                CmdFIFOEntry entry;
-                entry.Command = CurCommand & 0xFF;
-                entry.Param = val;
-                CmdFIFOWrite(entry);
-            }
-
-            if (ParamCount >= TotalParams)
-            {
-                CurCommand >>= 8;
-                NumCommands--;
-                if (NumCommands == 0) break;
-
-                ParamCount = 0;
-                TotalParams = CmdNumParams[CurCommand & 0xFF];
-            }
-            if (ParamCount < TotalParams)
-                break;
-        }
-
+        WriteToGXFIFO(val);
         return;
     }
 

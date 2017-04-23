@@ -332,7 +332,7 @@ s32 ARM::Execute()
         else if (NDS::HaltInterrupted(Num))
         {
             Halted = 0;
-            if (NDS::IME[Num]&1)
+            if (NDS::IME[Num] & 0x1)
                 TriggerIRQ();
         }
         else
@@ -403,9 +403,9 @@ s32 ARM::Execute()
                 Cycles = CyclesToRun;
             break;
         }
-        if (NDS::HaltInterrupted(Num))
+        if (NDS::IF[Num] & NDS::IE[Num])
         {
-            if (NDS::IME[Num]&1)
+            if (NDS::IME[Num] & 0x1)
                 TriggerIRQ();
         }
     }

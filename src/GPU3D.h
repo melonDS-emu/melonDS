@@ -85,6 +85,8 @@ void VBlank();
 void VCount215();
 u32* GetLine(int line);
 
+void WriteToGXFIFO(u32 val);
+
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);
 u32 Read32(u32 addr);

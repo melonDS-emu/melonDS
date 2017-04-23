@@ -233,6 +233,23 @@ s32 DMA::Run(s32 cycles)
     }
     else
     {
+        // optimized path for typical GXFIFO DMA
+        if (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0)
+        {
+            while (IterCount > 0 && cycles > 0)
+            {
+                GPU3D::WriteToGXFIFO(*(u32*)&NDS::MainRAM[CurSrcAddr&0x3FFFFF]);
+
+                s32 c = (Waitstates[1][0x2] + Waitstates[1][0x4]);
+                cycles -= c;
+                NDS::RunTimingCriticalDevices(0, c);
+
+                CurSrcAddr += SrcAddrInc<<2;
+                IterCount--;
+                RemCount--;
+            }
+        }
+
         u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
         void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
