@@ -1284,6 +1284,9 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000130: return KeyInput & 0xFF;
+    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+
     case 0x040001A2: return NDSCart::ReadSPIData();
 
     case 0x040001A8: return NDSCart::ROMCommand[0];
@@ -1883,6 +1886,11 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000130: return KeyInput & 0xFF;
+    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000136: return (KeyInput >> 16) & 0xFF;
+    case 0x04000137: return KeyInput >> 24;
+
     case 0x04000138: return RTC::Read() & 0xFF;
 
     case 0x040001A2: return NDSCart::ReadSPIData();
