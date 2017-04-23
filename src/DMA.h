@@ -66,6 +66,8 @@ private:
 
     bool Running;
     bool InProgress;
+
+    bool IsGXFIFODMA;
 };
 
 #endif

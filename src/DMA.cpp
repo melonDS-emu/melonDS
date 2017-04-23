@@ -200,6 +200,8 @@ void DMA::Start()
         return;
     }
 
+    IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
+
     // TODO eventually: not stop if we're running code in ITCM
 
     Running = true;
@@ -234,7 +236,7 @@ s32 DMA::Run(s32 cycles)
     else
     {
         // optimized path for typical GXFIFO DMA
-        if (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0)
+        if (IsGXFIFODMA)
         {
             while (IterCount > 0 && cycles > 0)
             {
