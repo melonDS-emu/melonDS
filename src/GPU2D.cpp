@@ -198,6 +198,21 @@ void GPU2D::Write8(u32 addr, u8 val)
     case 0x049: WinCnt[1] = val; return;
     case 0x04A: WinCnt[2] = val; return;
     case 0x04B: WinCnt[3] = val; return;
+
+    case 0x050: BlendCnt = (BlendCnt & 0xFF00) | val; return;
+    case 0x051: BlendCnt = (BlendCnt & 0x00FF) | (val << 8); return;
+    case 0x052:
+        EVA = val & 0x1F;
+        if (EVA > 16) EVA = 16;
+        return;
+    case 0x53:
+        EVB = val & 0x1F;
+        if (EVB > 16) EVB = 16;
+        return;
+    case 0x054:
+        EVY = val & 0x1F;
+        if (EVY > 16) EVY = 16;
+        return;
     }
 
     printf("unknown GPU write8 %08X %02X\n", addr, val);
