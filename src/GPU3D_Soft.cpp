@@ -894,6 +894,10 @@ void RenderPolygon(Polygon* polygon)
             r_filledge = slope_end->Increment==0;
         }
 
+        int yedge = 0;
+        if (y == ytop)        yedge = 0x4;
+        else if (y == ybot-1) yedge = 0x8;
+
         Interpolator interpX(xstart, xend+1, wl, wr, 8);
 
         for (s32 x = xstart; x <= xend; x++)
@@ -901,9 +905,7 @@ void RenderPolygon(Polygon* polygon)
             if (x < 0) continue;
             if (x > 255) break;
 
-            int edge = 0;
-            if (y == ytop)            edge |= 0x4;
-            else if (y == ybot-1)     edge |= 0x8;
+            int edge = yedge;
             if (x < l_edgeend)        edge |= 0x1;
             else if (x > r_edgestart) edge |= 0x2;
 
@@ -966,14 +968,7 @@ void RenderPolygon(Polygon* polygon)
 
             // alpha test
             // TODO: check alpha test when blending is disabled
-            if (DispCnt & (1<<2))
-            {
-                if (alpha <= AlphaRef) continue;
-            }
-            else
-            {
-                if (alpha == 0) continue;
-            }
+            if (alpha <= AlphaRef) continue;
 
             if (alpha == 31)
             {

@@ -65,7 +65,7 @@ typedef struct
 } Polygon;
 
 extern u32 DispCnt;
-extern u32 AlphaRef;
+extern u8 AlphaRef;
 extern s32 Viewport[4];
 extern u32 RenderClearAttr1, RenderClearAttr2;
 

@@ -153,7 +153,8 @@ FIFO<CmdFIFOEntry>* CmdPIPE;
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
 u32 DispCnt;
-u32 AlphaRef;
+u8 AlphaRefVal;
+u8 AlphaRef;
 
 u16 ToonTable[32];
 u16 EdgeTable[8];
@@ -1932,7 +1933,8 @@ void Write8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x04000340:
-        AlphaRef = val & 0x1F;
+        AlphaRefVal = val & 0x1F;
+        AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
     }
 
@@ -1953,10 +1955,12 @@ void Write16(u32 addr, u16 val)
         DispCnt = (val & 0x4FFF) | (DispCnt & 0x3000);
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
+        AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
     case 0x04000340:
-        AlphaRef = val & 0x1F;
+        AlphaRefVal = val & 0x1F;
+        AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
     case 0x04000350:
@@ -2014,10 +2018,12 @@ void Write32(u32 addr, u32 val)
         DispCnt = (val & 0x4FFF) | (DispCnt & 0x3000);
         if (val & (1<<12)) DispCnt &= ~(1<<12);
         if (val & (1<<13)) DispCnt &= ~(1<<13);
+        AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
     case 0x04000340:
-        AlphaRef = val & 0x1F;
+        AlphaRefVal = val & 0x1F;
+        AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
 
     case 0x04000350:
