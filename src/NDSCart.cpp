@@ -483,6 +483,8 @@ void Write(u8 val, u32 hold)
     case 0x0A:
     case 0x0B:
     case 0x9F:
+    case 0xD8:
+    case 0xDB:
         WriteFunc(val, islast);
         DataPos++;
         break;
