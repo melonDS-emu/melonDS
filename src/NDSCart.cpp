@@ -246,7 +246,7 @@ void Write_Discover(u8 val, bool islast)
                 {
                     Discover_MemoryType = 5;
                 }
-                else if (len > 2+128) // Flash
+                else if ((len > 2+128) || (len > 1+16 && CurCmd == 0xA)) // Flash
                 {
                     Discover_MemoryType = 4;
                 }
