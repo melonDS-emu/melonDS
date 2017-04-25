@@ -969,10 +969,12 @@ void WriteROMCnt(u32 val)
     // and it would take 4 cycles to receive a word of data
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
+    u32 cmddelay = 8 + (ROMCnt & 0x1FFF);
+
     if (datasize == 0)
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*8, ROMEndTransfer, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMEndTransfer, 0);
     else
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*(8+4), ROMPrepareData, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*(cmddelay+4), ROMPrepareData, 0);
 }
 
 u32 ReadROMData()
@@ -984,7 +986,10 @@ u32 ReadROMData()
         if (DataOutPos < DataOutLen)
         {
             u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
-            NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*4, ROMPrepareData, 0);
+            u32 delay = 4;
+            if (!(DataOutPos & 0x1FF)) delay += ((ROMCnt >> 16) & 0x3F);
+
+            NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*delay, ROMPrepareData, 0);
         }
         else
             ROMEndTransfer(0);
