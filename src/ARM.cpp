@@ -174,9 +174,6 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    //if (addr == 0x37FF234 && R[15]!=0x37FF23C) printf("poké infinite loop %08X, %08X\n", R[15], DataRead32(0x380FFC8));
-    // 37FD4BC. if R0=0, inf. loop
-    // 38098AC -> R0
 
     if (addr & 0x1)
     {

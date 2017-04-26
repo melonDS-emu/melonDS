@@ -218,6 +218,9 @@ void SetupDirectBoot()
     ARM9->JumpTo(bootparams[1]);
     ARM7->JumpTo(bootparams[5]);
 
+    PostFlag9 = 0x01;
+    PostFlag7 = 0x01;
+
     PowerControl9 = 0x820F;
     GPU::DisplaySwap(PowerControl9);
 
@@ -826,6 +829,14 @@ void debug(u32 param)
 
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
+
+    /*FILE* shit = fopen("debug/poke7.bin", "wb");
+    for (u32 i = 0x02000000; i < 0x03810000; i+=4)
+    {
+        u32 val = ARM7Read32(i);
+        fwrite(&val, 4, 1, shit);
+    }
+    fclose(shit);*/
 }
 
 
