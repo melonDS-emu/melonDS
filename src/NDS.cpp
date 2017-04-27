@@ -931,7 +931,7 @@ u16 ARM9Read16(u32 addr)
         return 0xFFFF;
     }
 
-    //printf("unknown arm9 read16 %08X %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[1], ARM9->R[2]);
+    //printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 

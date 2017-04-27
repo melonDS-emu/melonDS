@@ -828,8 +828,11 @@ void ROMPrepareData(u32 param)
     DataOutPos += 4;
 
     ROMCnt |= (1<<23);
-    NDS::CheckDMAs(0, 0x05);
-    NDS::CheckDMAs(1, 0x12);
+
+    if (NDS::ExMemCnt[0] & (1<<11))
+        NDS::CheckDMAs(1, 0x12);
+    else
+        NDS::CheckDMAs(0, 0x05);
 }
 
 void WriteROMCnt(u32 val)
@@ -969,9 +972,11 @@ void WriteROMCnt(u32 val)
     // the bus is parallel with 8 bits
     // thus a command would take 8 cycles to be transferred
     // and it would take 4 cycles to receive a word of data
+    // TODO: advance read position if bit28 is set
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
     u32 cmddelay = 8 + (ROMCnt & 0x1FFF);
+    if (datasize) cmddelay += ((ROMCnt >> 16) & 0x3F);
 
     if (datasize == 0)
         NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMEndTransfer, 0);
