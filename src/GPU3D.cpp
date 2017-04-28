@@ -849,6 +849,7 @@ void SubmitPolygon()
         if (FlushAttributes & 0x2)
             z = w << wshift;
         else
+            //z = vtx->Position[2]+0x7FFFFF;//((vtx->Position[2] + (w<<wshift)) * 0x1000) / (w<<(wshift+1));
             z = (((s64)vtx->Position[2] * 0x800000) / (w << wshift)) + 0x7FFEFF;
 
         // checkme
@@ -884,8 +885,8 @@ void SubmitVertex()
 
     if ((TexParam >> 30) == 3)
     {
-        vertextrans->TexCoords[0] = (vertex[0]*TexMatrix[0] + vertex[1]*TexMatrix[4] + vertex[2]*TexMatrix[8] + vertex[3]*(RawTexCoords[0]<<8)) >> 20;
-        vertextrans->TexCoords[1] = (vertex[0]*TexMatrix[1] + vertex[1]*TexMatrix[5] + vertex[2]*TexMatrix[9] + vertex[3]*(RawTexCoords[1]<<8)) >> 20;
+        vertextrans->TexCoords[0] = ((vertex[0]*TexMatrix[0] + vertex[1]*TexMatrix[4] + vertex[2]*TexMatrix[8]) >> 24) + RawTexCoords[0];
+        vertextrans->TexCoords[1] = ((vertex[0]*TexMatrix[1] + vertex[1]*TexMatrix[5] + vertex[2]*TexMatrix[9]) >> 24) + RawTexCoords[1];
     }
     else
     {
@@ -963,6 +964,8 @@ void SubmitVertex()
 s32 CalculateLighting()
 {
     // TODO: this requires matrix mode 2, apparently
+    // hardware seems to read garbage when matrix mode isn't 2
+    // also, non-normal normals seem to be treated as zero? or overflow to negative?
 
     if ((TexParam >> 30) == 2)
     {
