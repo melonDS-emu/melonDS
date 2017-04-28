@@ -129,14 +129,14 @@ public:
             return y0 + (((y1 - y0) * x) / xdiff);
     }
 
-    s32 InterpolateZ(s32 y0, s32 y1)
+    s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
     {
-        if (xdiff == 0) return y0;
+        if (xdiff == 0) return z0;
 
-        if (wdiff != 0)
-            return y0 + (((s64)(y1 - y0) * yfactor) >> shift);
+        if ((wdiff != 0) && wbuffer)
+            return z0 + (((s64)(z1 - z0) * yfactor) >> shift);
         else
-            return y0 + (((s64)(y1 - y0) * x) / xdiff);
+            return z0 + (((s64)(z1 - z0) * x) / xdiff);
     }
 
 private:
@@ -806,8 +806,8 @@ void RenderPolygon(Polygon* polygon)
         s32 wl = slopeL.Interp.Interpolate(polygon->FinalW[lcur], polygon->FinalW[lnext]);
         s32 wr = slopeR.Interp.Interpolate(polygon->FinalW[rcur], polygon->FinalW[rnext]);
 
-        s32 zl = slopeL.Interp.InterpolateZ(polygon->FinalZ[lcur], polygon->FinalZ[lnext]);
-        s32 zr = slopeR.Interp.InterpolateZ(polygon->FinalZ[rcur], polygon->FinalZ[rnext]);
+        s32 zl = slopeL.Interp.InterpolateZ(polygon->FinalZ[lcur], polygon->FinalZ[lnext], polygon->WBuffer);
+        s32 zr = slopeR.Interp.InterpolateZ(polygon->FinalZ[rcur], polygon->FinalZ[rnext], polygon->WBuffer);
 
         // if the left and right edges are swapped, render backwards.
         // note: we 'forget' to swap the xmajor flags, on purpose
@@ -928,7 +928,7 @@ void RenderPolygon(Polygon* polygon)
 
             interpX.SetX(x);
 
-            s32 z = interpX.InterpolateZ(zl, zr);
+            s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
 
             if (polygon->IsShadowMask)
             {

@@ -839,6 +839,7 @@ void SubmitPolygon()
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
     poly->WShift = wshift;
+    poly->WBuffer = (FlushAttributes & 0x2);
 
     for (int i = 0; i < nverts; i++)
     {
@@ -849,7 +850,6 @@ void SubmitPolygon()
         if (FlushAttributes & 0x2)
             z = w << wshift;
         else
-            //z = vtx->Position[2]+0x7FFFFF;//((vtx->Position[2] + (w<<wshift)) * 0x1000) / (w<<(wshift+1));
             z = (((s64)vtx->Position[2] * 0x800000) / (w << wshift)) + 0x7FFEFF;
 
         // checkme
