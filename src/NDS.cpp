@@ -1878,6 +1878,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
         GPU::MapVRAM_I(8, (val >> 8) & 0xFF);
         return;
 
+    case 0x04000280: DivCnt = val; StartDiv(); return;
+
+    case 0x040002B0: SqrtCnt = val; StartSqrt(); return;
+
     case 0x04000290: DivNumerator[0] = val; StartDiv(); return;
     case 0x04000294: DivNumerator[1] = val; StartDiv(); return;
     case 0x04000298: DivDenominator[0] = val; StartDiv(); return;
