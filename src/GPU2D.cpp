@@ -1859,21 +1859,44 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
         }
 
         u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
-        pixelsaddr += (xoff << 1);
 
-        for (; xoff < xend;)
+        if (attrib[1] & 0x1000)
         {
-            u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr);
-            pixelsaddr += 2;
+            pixelsaddr += ((width-1 - xoff) << 1);
 
-            if (color & 0x8000)
+            for (; xoff < xend;)
             {
-                if (window) ((u8*)dst)[xpos] = 1;
-                else        dst[xpos] = color | prio;
-            }
+                u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr);
+                pixelsaddr -= 2;
 
-            xoff++;
-            xpos++;
+                if (color & 0x8000)
+                {
+                    if (window) ((u8*)dst)[xpos] = 1;
+                    else        dst[xpos] = color | prio;
+                }
+
+                xoff++;
+                xpos++;
+            }
+        }
+        else
+        {
+            pixelsaddr += (xoff << 1);
+
+            for (; xoff < xend;)
+            {
+                u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr);
+                pixelsaddr += 2;
+
+                if (color & 0x8000)
+                {
+                    if (window) ((u8*)dst)[xpos] = 1;
+                    else        dst[xpos] = color | prio;
+                }
+
+                xoff++;
+                xpos++;
+            }
         }
     }
     else
