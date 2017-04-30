@@ -19,6 +19,7 @@ Note: the DS-mode firmware in the 3DS isn't bootable, it only contains the bare 
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
+
 How to build:
 
 Linux:
@@ -29,8 +30,9 @@ Linux:
 
 Windows:
  * use CodeBlocks
- 
-(build system not yet finished tho)
+
+Build system is not set in stone.
+
 
 TODO LIST
 

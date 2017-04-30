@@ -14,11 +14,11 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-m64" />
-					<Add option="-g" />
-					<Add option="-D_FILE_OFFSET_BITS=64" />
-					<Add option="-D__WXMSW__" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+					<Add option="-gdwarf-2" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-D__WXMSW__" />
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
@@ -125,9 +125,9 @@
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-m64" />
-					<Add option="-g" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/lib/wx/include/msw-unicode-static-3.0" />
 					<Add option="-I$(TARGET_COMPILER_DIR)/include/wx-3.0" />
+					<Add option="-gdwarf-2" />
 					<Add option="-D_FILE_OFFSET_BITS=64" />
 					<Add option="-D__WXMSW__" />
 				</Compiler>

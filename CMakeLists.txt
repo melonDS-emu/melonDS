@@ -2,13 +2,7 @@ cmake_minimum_required(VERSION 2.8.11)
 
 SET(PROJECT_WX melonDS)
 PROJECT(${PROJECT_WX})
-SET(APP_VERSION 0.1)
 SET(INSTALL_PATH /usr/local/bin/)
-
-SET(VERSION ${APP_VERSION})
-
-CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.cmake
-			   ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h)
 
 SET(SOURCES
 	src/wx/main.cpp
@@ -30,10 +24,13 @@ SET(SOURCES
 	src/NDSCart.cpp
 	src/RTC.cpp
 	src/SPI.cpp
+	src/SPU.cpp
 	src/Wifi.cpp)
 
+if (UNIX)
 find_package(GTK2 2.0 REQUIRED)
 include_directories(${GTK2_INCLUDE_DIRS})
+endif (UNIX)
 
 find_package(wxWidgets REQUIRED)
 include(${wxWidgets_USE_FILE})

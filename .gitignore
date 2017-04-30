@@ -2,4 +2,3 @@ bin
 obj
 *.depend
 *.layout
-src/version.h
