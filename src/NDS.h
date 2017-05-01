@@ -28,6 +28,7 @@ enum
 {
     Event_LCD = 0,
     Event_SPU,
+    Event_Wifi,
 
     Event_ROMTransfer,
 

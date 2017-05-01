@@ -96,6 +96,15 @@ enum
     W_USCompareCnt = 0x0EA,
     W_CmdCountCnt = 0x0EE,
 
+    W_USCount0 = 0x0F8,
+    W_USCount1 = 0x0FA,
+    W_USCount2 = 0x0FC,
+    W_USCount3 = 0x0FE,
+    W_USCompare0 = 0x0F0,
+    W_USCompare1 = 0x0F2,
+    W_USCompare2 = 0x0F4,
+    W_USCompare3 = 0x0F6,
+
     W_ContentFree = 0x10C,
     W_PreBeacon = 0x110,
     W_CmdCount = 0x118,
@@ -132,6 +141,8 @@ enum
 
 
 void Reset();
+
+void USTimer(u32 param);
 
 u16 Read(u32 addr);
 void Write(u32 addr, u16 val);

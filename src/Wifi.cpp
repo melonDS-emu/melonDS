@@ -33,6 +33,9 @@ u16 IO[0x1000>>1];
 
 u16 Random;
 
+u64 USCounter;
+u64 USCompare;
+
 u16 BBCnt;
 u8 BBWrite;
 u8 BBRegs[0x100];
@@ -88,6 +91,102 @@ void Reset()
 
     memset(&IOPORT(0x018), 0xFF, 6);
     memset(&IOPORT(0x020), 0xFF, 6);
+}
+
+
+void SetIRQ(u32 irq)
+{
+    u32 oldflags = IOPORT(W_IF) & IOPORT(W_IE);
+
+    IOPORT(W_IF) |= (1<<irq);
+    u32 newflags = IOPORT(W_IF) & IOPORT(W_IE);
+
+    if ((oldflags == 0) && (newflags != 0))
+        NDS::SetIRQ(1, NDS::IRQ_Wifi);
+}
+
+void SetIRQ13()
+{
+    SetIRQ(13);
+
+    if (!(IOPORT(W_PowerTX) & 0x0002))
+    {
+        IOPORT(0x034) = 0x0002;
+        // TODO: 03C
+        IOPORT(W_RFPins) = 0x0046;
+        IOPORT(W_RFStatus) = 9;
+    }
+}
+
+void SetIRQ14(bool forced)
+{
+    SetIRQ(14);
+
+    if (!forced)
+        IOPORT(W_BeaconCount1) = IOPORT(W_BeaconInterval);
+
+    IOPORT(W_BeaconCount2) = 0xFFFF;
+    IOPORT(W_TXReqRead) &= 0xFFF2; // todo, eventually?
+
+    // TODO: actually send beacon
+
+    if (IOPORT(W_ListenCount) == 0)
+        IOPORT(W_ListenCount) = IOPORT(W_ListenInterval);
+
+    IOPORT(W_ListenCount)--;
+}
+
+void SetIRQ15()
+{
+    SetIRQ(15);
+
+    if (IOPORT(W_PowerTX) & 0x0001)
+    {
+        IOPORT(W_RFPins) |= 0x0080;
+        IOPORT(W_RFStatus) = 1;
+    }
+}
+
+
+void MSTimer()
+{
+    IOPORT(W_BeaconCount1)--;
+    if (IOPORT(W_USCompareCnt))
+    {
+        if (IOPORT(W_BeaconCount1) == 0) SetIRQ14(false);
+    }
+
+    if (IOPORT(W_BeaconCount2) != 0)
+    {
+        IOPORT(W_BeaconCount2)--;
+        if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
+    }
+}
+
+void USTimer(u32 param)
+{
+    if (IOPORT(W_USCountCnt))
+    {
+        USCounter++;
+        u32 uspart = (USCounter & 0x3FF);
+
+        if (IOPORT(W_USCompareCnt))
+        {
+            if (USCounter == USCompare) SetIRQ14(false);
+
+            u32 beaconus = (IOPORT(W_BeaconCount1) << 10) | (0x3FF - uspart);
+            if (beaconus == IOPORT(W_PreBeacon)) SetIRQ15();
+        }
+
+        if (!uspart) MSTimer();
+    }
+
+    if (IOPORT(W_ContentFree) != 0)
+        IOPORT(W_ContentFree)--;
+
+    // TODO: make it more accurate, eventually
+    // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
+    NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
 }
 
 
@@ -152,6 +251,16 @@ u16 Read(u32 addr)
     case W_Preamble:
         return IOPORT(W_Preamble) & 0x0003;
 
+    case W_USCount0: return (u16)(USCounter & 0xFFFF);
+    case W_USCount1: return (u16)((USCounter >> 16) & 0xFFFF);
+    case W_USCount2: return (u16)((USCounter >> 32) & 0xFFFF);
+    case W_USCount3: return (u16)(USCounter >> 48);
+
+    case W_USCompare0: return (u16)(USCompare & 0xFFFF);
+    case W_USCompare1: return (u16)((USCompare >> 16) & 0xFFFF);
+    case W_USCompare2: return (u16)((USCompare >> 32) & 0xFFFF);
+    case W_USCompare3: return (u16)(USCompare >> 48);
+
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
         {
@@ -175,6 +284,12 @@ u16 Read(u32 addr)
             rdaddr += 2;
             if (rdaddr == (IOPORT(W_RXBufEnd) & 0x1FFE))
                 rdaddr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+            if (rdaddr == (IOPORT(W_RXBufGapAddr) & 0x1FFE))
+            {
+                rdaddr += ((IOPORT(W_RXBufGapSize) & 0x0FFF) << 1);
+                if (rdaddr >= (IOPORT(W_RXBufEnd) & 0x1FFE))
+                    rdaddr = rdaddr + (IOPORT(W_RXBufBegin) & 0x1FFE) - (IOPORT(W_RXBufEnd) & 0x1FFE);
+            }
 
             IOPORT(W_RXBufReadAddr) = rdaddr & 0x1FFE;
             IOPORT(W_RXBufDataRead) = ret;
@@ -267,21 +382,23 @@ void Write(u32 addr, u16 val)
         break;
 
     case W_IF:
-        // IF: TODO
+        IOPORT(W_IF) &= ~val;
         return;
-    case W_IE:
-        printf("WIFI IE=%04X\n", val);
-        break;
+    case W_IFSet:
+        IOPORT(W_IF) |= (val & 0xFBFF);
+        printf("wifi: force-setting IF %04X\n", val);
+        return;
 
     case W_PowerState:
         if (val & 0x0002)
         {
-            // TODO: IRQ11
+            // TODO: delay for this
+            SetIRQ(11);
             IOPORT(W_PowerState) = 0x0000;
         }
         return;
     case W_PowerForce:
-        printf("WIFI: forcing power %04X\n", val);
+        if ((val&0x8001)==0x8000) printf("WIFI: forcing power %04X\n", val);
         val &= 0x8001;
         if (val == 0x8001)
         {
@@ -292,6 +409,34 @@ void Write(u32 addr, u16 val)
             IOPORT(W_RFStatus) = 9;
         }
         break;
+    case W_PowerUS:
+        // schedule timer event when the clock is enabled
+        // TODO: check whether this resets USCOUNT (and also which other events can reset it)
+        if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
+            NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+        else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
+            NDS::CancelEvent(NDS::Event_Wifi);
+        break;
+
+    case W_USCountCnt: val &= 0x0001; break;
+    case W_USCompareCnt:
+        if (val & 0x0002) SetIRQ14(true);
+        val &= 0x0001;
+        break;
+
+    case W_USCount0: USCounter = (USCounter & 0xFFFFFFFFFFFF0000) | (u64)val; return;
+    case W_USCount1: USCounter = (USCounter & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
+    case W_USCount2: USCounter = (USCounter & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
+    case W_USCount3: USCounter = (USCounter & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
+
+    case W_USCompare0:
+        USCompare = (USCompare & 0xFFFFFFFFFFFF0000) | (u64)(val & 0xFC00);
+        if (val & 0x03FF)
+            printf("wifi: mysterious USCOMPARE bits set %08X%08X %04X\n", (u32)(USCompare>>32), (u32)USCompare, val); // TODO
+        return;
+    case W_USCompare1: USCompare = (USCompare & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
+    case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
+    case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
@@ -320,11 +465,15 @@ void Write(u32 addr, u16 val)
 
             wraddr += 2;
             if (wraddr == (IOPORT(W_TXBufGapAddr) & 0x1FFE))
-                wraddr += (IOPORT(W_TXBufGapSize) << 1);
+                wraddr += ((IOPORT(W_TXBufGapSize) & 0x0FFF) << 1);
 
             IOPORT(W_TXBufWriteAddr) = wraddr & 0x1FFE;
         }
         return;
+
+    case 0x80:
+        printf("BEACON ADDR %04X\n", val);
+        break;
 
     // read-only ports
     case 0x000:
