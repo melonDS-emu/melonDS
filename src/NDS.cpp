@@ -1192,6 +1192,9 @@ u32 ARM7Read32(u32 addr)
     case 0x04000000:
         return ARM7IORead32(addr);
 
+    case 0x04800000:
+        return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
+
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u32>(addr);
@@ -1287,6 +1290,11 @@ void ARM7Write32(u32 addr, u32 val)
 
     case 0x04000000:
         ARM7IOWrite32(addr, val);
+        return;
+
+    case 0x04800000:
+        Wifi::Write(addr, val & 0xFFFF);
+        Wifi::Write(addr+2, val >> 16);
         return;
 
     case 0x06000000:

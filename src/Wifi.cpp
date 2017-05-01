@@ -129,12 +129,19 @@ void RFTransfer_Type3()
 
 u16 Read(u32 addr)
 {
+    if (addr >= 0x04810000)
+        return 0;
+
     addr &= 0x7FFE;
     //printf("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
     {
         return *(u16*)&RAM[addr & 0x1FFE];
     }
+    if (addr >= 0x2000 && addr < 0x4000)
+        return 0xFFFF; // checkme
+
+    bool activeread = (addr < 0x1000);
 
     switch (addr)
     {
@@ -157,6 +164,22 @@ u16 Read(u32 addr)
         return 0; // TODO eventually (BB busy flag)
     case W_RFBusy:
         return 0; // TODO eventually (RF busy flag)
+
+    case W_RXBufDataRead:
+        if (activeread)
+        {
+            u32 rdaddr = IOPORT(W_RXBufReadAddr) & 0x1FFE;
+
+            u16 ret = *(u16*)&RAM[rdaddr];
+
+            rdaddr += 2;
+            if (rdaddr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+                rdaddr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+
+            IOPORT(W_RXBufReadAddr) = rdaddr & 0x1FFE;
+            IOPORT(W_RXBufDataRead) = ret;
+        }
+        break;
     }
 
     //printf("WIFI: read %08X\n", addr);
@@ -165,6 +188,9 @@ u16 Read(u32 addr)
 
 void Write(u32 addr, u16 val)
 {
+    if (addr >= 0x04810000)
+        return;
+
     addr &= 0x7FFE;
     //printf("WIFI: write %08X %04X\n", addr, val);
     if (addr >= 0x4000 && addr < 0x6000)
@@ -172,6 +198,8 @@ void Write(u32 addr, u16 val)
         *(u16*)&RAM[addr & 0x1FFE] = val;
         return;
     }
+    if (addr >= 0x2000 && addr < 0x4000)
+        return;
 
     switch (addr)
     {
@@ -283,6 +311,20 @@ void Write(u32 addr, u16 val)
     case W_RFCnt:
         val &= 0x413F;
         break;
+
+
+    case W_TXBufDataWrite:
+        {
+            u32 wraddr = IOPORT(W_TXBufWriteAddr) & 0x1FFE;
+            *(u16*)&RAM[wraddr] = val;
+
+            wraddr += 2;
+            if (wraddr == (IOPORT(W_TXBufGapAddr) & 0x1FFE))
+                wraddr += (IOPORT(W_TXBufGapSize) << 1);
+
+            IOPORT(W_TXBufWriteAddr) = wraddr & 0x1FFE;
+        }
+        return;
 
     // read-only ports
     case 0x000:
