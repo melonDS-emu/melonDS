@@ -124,6 +124,8 @@ void SetIRQ14(bool forced)
 
     if (!forced)
         IOPORT(W_BeaconCount1) = IOPORT(W_BeaconInterval);
+    else
+        printf("wifi: weird forced IRQ14\n");
 
     IOPORT(W_BeaconCount2) = 0xFFFF;
     IOPORT(W_TXReqRead) &= 0xFFF2; // todo, eventually?
