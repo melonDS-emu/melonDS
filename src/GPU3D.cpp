@@ -976,10 +976,6 @@ void SubmitVertex()
 
 s32 CalculateLighting()
 {
-    // TODO: this requires matrix mode 2, apparently
-    // hardware seems to read garbage when matrix mode isn't 2
-    // also, non-normal normals seem to be treated as zero? or overflow to negative?
-
     if ((TexParam >> 30) == 2)
     {
         TexCoords[0] = RawTexCoords[0] + (((s64)Normal[0]*TexMatrix[0] + (s64)Normal[1]*TexMatrix[4] + (s64)Normal[2]*TexMatrix[8]) >> 21);
@@ -1001,6 +997,11 @@ s32 CalculateLighting()
         if (!(CurPolygonAttr & (1<<i)))
             continue;
 
+        // overflow handling (for example, if the normal length is >1)
+        // according to some hardware tests
+        // * diffuse level is saturated to 255
+        // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
+
         s32 difflevel = (-(LightDirection[i][0]*normaltrans[0] +
                          LightDirection[i][1]*normaltrans[1] +
                          LightDirection[i][2]*normaltrans[2])) >> 10;
@@ -1011,9 +1012,9 @@ s32 CalculateLighting()
                           (LightDirection[i][1]>>1)*normaltrans[1] +
                           ((LightDirection[i][2]-0x200)>>1)*normaltrans[2]) >> 10);
         if (shinelevel < 0) shinelevel = 0;
+        else if (shinelevel > 255) shinelevel = (0x100 - shinelevel) & 0xFF;
         shinelevel = ((shinelevel * shinelevel) >> 7) - 0x100; // really (2*shinelevel*shinelevel)-1
         if (shinelevel < 0) shinelevel = 0;
-        else if (shinelevel > 255) shinelevel = 255;
 
         if (UseShininessTable)
         {
@@ -1155,7 +1156,6 @@ void PosTest()
 
 void VecTest(u32* params)
 {
-    // TODO: apparently requires matrix mode 2
     // TODO: maybe it overwrites the normal registers, too
 
     s16 normal[3];
