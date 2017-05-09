@@ -8,6 +8,7 @@ SET(SOURCES
 	src/wx/main.cpp
 	src/wx/EmuConfig.cpp
 	src/wx/InputConfig.cpp
+	src/wx/Platform.cpp
 	src/ARM.cpp
 	src/ARMInterpreter.cpp
 	src/ARMInterpreter_ALU.cpp

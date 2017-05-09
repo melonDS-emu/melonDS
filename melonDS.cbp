@@ -196,6 +196,7 @@
 		<Unit filename="src/NDS.h" />
 		<Unit filename="src/NDSCart.cpp" />
 		<Unit filename="src/NDSCart.h" />
+		<Unit filename="src/Platform.h" />
 		<Unit filename="src/RTC.cpp" />
 		<Unit filename="src/RTC.h" />
 		<Unit filename="src/SPI.cpp" />
@@ -210,6 +211,7 @@
 		<Unit filename="src/wx/EmuConfig.h" />
 		<Unit filename="src/wx/InputConfig.cpp" />
 		<Unit filename="src/wx/InputConfig.h" />
+		<Unit filename="src/wx/Platform.cpp" />
 		<Unit filename="src/wx/main.cpp" />
 		<Unit filename="src/wx/main.h" />
 		<Unit filename="src/wx/scancode_wx2sdl.h" />
