@@ -238,7 +238,12 @@ void Reset()
 
     f = fopen("bios9.bin", "rb");
     if (!f)
+    {
         printf("ARM9 BIOS not found\n");
+
+        for (i = 0; i < 16; i++)
+            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+    }
     else
     {
         fseek(f, 0, SEEK_SET);
@@ -250,7 +255,12 @@ void Reset()
 
     f = fopen("bios7.bin", "rb");
     if (!f)
+    {
         printf("ARM7 BIOS not found\n");
+
+        for (i = 0; i < 16; i++)
+            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+    }
     else
     {
         fseek(f, 0, SEEK_SET);
