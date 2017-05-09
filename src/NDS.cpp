@@ -837,6 +837,14 @@ void debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
+    /*FILE*
+    shit = fopen("debug/pictochat7.bin", "wb");
+    for (u32 i = 0x037F0000; i < 0x03810000; i+=4)
+    {
+        u32 val = ARM7Read32(i);
+        fwrite(&val, 4, 1, shit);
+    }
+    fclose(shit);*/
 }
 
 

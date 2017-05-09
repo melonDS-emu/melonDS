@@ -48,6 +48,32 @@ u16 RFData2;
 u32 RFRegs[0x40];
 
 
+// multiplayer host TX sequence:
+// 1. preamble
+// 2. IRQ7
+// 3. send data
+// 4. wait for client replies (duration: 112 + ((10 * CMD_REPLYTIME) * numclients))
+// 5. IRQ7
+// 6. send ack (16 bytes)
+// 7. IRQ12 (and optional IRQ1)
+//
+// RFSTATUS values:
+// 0 = initial
+// 1 = RX????
+// 2 = switching from RX to TX
+// 3 = TX
+// 4 = switching from TX to RX
+// 5 = MP host data sent, waiting for replies (RFPINS=0x0084)
+// 6 = RX
+// 7 = ??
+// 8 = MP host sending ack (RFPINS=0x0046)
+// 9 = idle
+
+
+// wifi TODO:
+// * work out how power saving works, there are oddities
+
+
 void Reset()
 {
     memset(RAM, 0, 0x2000);
@@ -131,6 +157,13 @@ void SetIRQ14(bool forced)
     IOPORT(W_TXReqRead) &= 0xFFF2; // todo, eventually?
 
     // TODO: actually send beacon
+    if (IOPORT(W_TXSlotBeacon) & 0x8000)
+    {
+        printf("SEND BEACON\n");
+        /*FILE* f = fopen("beacon.bin", "wb");
+        fwrite(RAM, 0x2000, 1, f);
+        fclose(f);*/
+    }
 
     if (IOPORT(W_ListenCount) == 0)
         IOPORT(W_ListenCount) = IOPORT(W_ListenInterval);
@@ -457,6 +490,21 @@ void Write(u32 addr, u16 val)
         return;
     case W_RFCnt:
         val &= 0x413F;
+        break;
+
+
+    case W_RXCnt:
+        if (val & 0x0001)
+        {
+            IOPORT(W_RXBufWriteCursor) = IOPORT(W_RXBufWriteAddr);
+        }
+        if (val & 0x0080)
+        {
+            IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
+            IOPORT(W_TXSlotReply1) = 0;
+        }
+        val &= 0xFF0E;
+        if (val & 0x7FFF) printf("wifi: unknown RXCNT bits set %04X\n", val);
         break;
 
 

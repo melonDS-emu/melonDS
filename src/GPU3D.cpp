@@ -1001,6 +1001,7 @@ s32 CalculateLighting()
         // according to some hardware tests
         // * diffuse level is saturated to 255
         // * shininess level mirrors back to 0 and is ANDed with 0xFF, that before being squared
+        // TODO: check how it behaves when the computed shininess is >=0x200
 
         s32 difflevel = (-(LightDirection[i][0]*normaltrans[0] +
                          LightDirection[i][1]*normaltrans[1] +
