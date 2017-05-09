@@ -371,7 +371,9 @@ wxThread::ExitCode EmuThread::Entry()
     axismask = 0;
 
     u32 nframes = 0;
-    u32 lasttick = SDL_GetTicks();
+    u32 starttick = SDL_GetTicks();
+    u32 lasttick = starttick;
+    u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
 
     for (;;)
@@ -384,8 +386,6 @@ wxThread::ExitCode EmuThread::Entry()
 
         if (emustatus == 1)
         {
-            u32 starttick = SDL_GetTicks();
-
             NDS::RunFrame();
 
             SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
@@ -409,21 +409,31 @@ wxThread::ExitCode EmuThread::Entry()
             SDL_RenderCopy(sdlrend, sdltex, &botsrc, &botdst);
             SDL_RenderPresent(sdlrend);
 
-            fpslimitcount++;
-            if (fpslimitcount >= 3) fpslimitcount = 0;
-            u32 frametime = (fpslimitcount == 0) ? 16 : 17;
+            // framerate limiter based off SDL2_gfx
+            float framerate = 1000.0f / 60.0f;
 
-            u32 endtick = SDL_GetTicks();
-            u32 diff = endtick - starttick;
-            if (diff < frametime)
-                Sleep(frametime - diff);
+            fpslimitcount++;
+            u32 curtick = SDL_GetTicks();
+            u32 delay = curtick - lasttick;
+            lasttick = curtick;
+
+            u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
+            if (curtick < wantedtick)
+            {
+                Sleep(wantedtick - curtick);
+            }
+            else
+            {
+                fpslimitcount = 0;
+                starttick = curtick;
+            }
 
             nframes++;
             if (nframes >= 30)
             {
                 u32 tick = SDL_GetTicks();
-                u32 diff = tick - lasttick;
-                lasttick = tick;
+                u32 diff = tick - lastmeasuretick;
+                lastmeasuretick = tick;
 
                 u32 fps = (nframes * 1000) / diff;
                 nframes = 0;
@@ -437,6 +447,8 @@ wxThread::ExitCode EmuThread::Entry()
         {
             nframes = 0;
             lasttick = SDL_GetTicks();
+            starttick = lasttick;
+            lastmeasuretick = lasttick;
             fpslimitcount = 0;
 
             Sleep(50);
