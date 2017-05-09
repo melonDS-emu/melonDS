@@ -60,7 +60,16 @@
 //
 // viewport Y coordinates are upside-down
 //
-// clear color/depth/bitmap/etc registers (04000350/04000354) are double-buffered
+// several registers are latched upon VBlank, the renderer uses the latched registers
+// latched registers include:
+// DISP3DCNT
+// alpha test ref value
+// fog color, offset, density table
+// toon table
+// edge table
+// clear attributes
+//
+// TODO: check how DISP_1DOT_DEPTH works and whether it's latched
 
 
 namespace GPU3D
@@ -153,15 +162,26 @@ FIFO<CmdFIFOEntry>* CmdPIPE;
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
 u32 DispCnt;
-u8 AlphaRefVal;
-u8 AlphaRef;
+u8 AlphaRefVal, AlphaRef;
 
 u16 ToonTable[32];
 u16 EdgeTable[8];
 
-u32 FogColor;
-u32 FogOffset;
+u32 FogColor, FogOffset;
 u8 FogDensityTable[32];
+
+u32 ClearAttr1, ClearAttr2;
+
+u32 RenderDispCnt;
+u8 RenderAlphaRef;
+
+u16 RenderToonTable[32];
+u16 RenderEdgeTable[8];
+
+u32 RenderFogColor, RenderFogOffset;
+u8 RenderFogDensityTable[32];
+
+u32 RenderClearAttr1, RenderClearAttr2;
 
 u32 GXStat;
 
@@ -240,9 +260,6 @@ u32 CurRAMBank;
 Vertex* RenderVertexRAM;
 Polygon* RenderPolygonRAM;
 u32 RenderNumPolygons;
-
-u32 ClearAttr1, ClearAttr2;
-u32 RenderClearAttr1, RenderClearAttr2;
 
 u32 FlushRequest;
 u32 FlushAttributes;
@@ -1790,7 +1807,16 @@ void VBlank()
         RenderPolygonRAM = CurPolygonRAM;
         RenderNumPolygons = NumPolygons;
 
-        // TODO: find out which other registers are latched for rendering
+        RenderDispCnt = DispCnt;
+        RenderAlphaRef = AlphaRef;
+
+        memcpy(RenderEdgeTable, EdgeTable, 8*2);
+        memcpy(RenderToonTable, ToonTable, 32*2);
+
+        RenderFogColor = FogColor;
+        RenderFogOffset = FogOffset;
+        memcpy(RenderFogDensityTable, FogDensityTable, 32);
+
         RenderClearAttr1 = ClearAttr1;
         RenderClearAttr2 = ClearAttr2;
 

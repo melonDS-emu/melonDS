@@ -549,14 +549,14 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 
     if (blendmode == 2)
     {
-        u16 tooncolor = ToonTable[vr >> 1];
+        u16 tooncolor = RenderToonTable[vr >> 1];
 
         vr = (tooncolor << 1) & 0x3E; if (vr) vr++;
         vg = (tooncolor >> 4) & 0x3E; if (vg) vg++;
         vb = (tooncolor >> 9) & 0x3E; if (vb) vb++;
     }
 
-    if ((DispCnt & (1<<0)) && (((polygon->TexParam >> 26) & 0x7) != 0))
+    if ((RenderDispCnt & (1<<0)) && (((polygon->TexParam >> 26) & 0x7) != 0))
     {
         u8 tr, tg, tb;
 
@@ -609,7 +609,7 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
         a = polyalpha;
     }
 
-    if ((blendmode == 2) && (DispCnt & (1<<1)))
+    if ((blendmode == 2) && (RenderDispCnt & (1<<1)))
     {
         r += vr;
         g += vg;
@@ -968,7 +968,7 @@ void RenderPolygon(Polygon* polygon)
 
             // alpha test
             // TODO: check alpha test when blending is disabled
-            if (alpha <= AlphaRef) continue;
+            if (alpha <= RenderAlphaRef) continue;
 
             if (alpha == 31)
             {
@@ -1001,7 +1001,7 @@ void RenderPolygon(Polygon* polygon)
                 u32 dstcolor = ColorBuffer[pixeladdr];
                 u32 dstalpha = dstcolor >> 24;
 
-                if ((dstalpha > 0) && (DispCnt & (1<<3)))
+                if ((dstalpha > 0) && (RenderDispCnt & (1<<3)))
                 {
                     u32 srcR = color & 0x3F;
                     u32 srcG = (color >> 8) & 0x3F;
@@ -1039,7 +1039,7 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
     u32 polyid = RenderClearAttr1 & 0x3F000000;
 
-    if (DispCnt & (1<<14))
+    if (RenderDispCnt & (1<<14))
     {
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;

@@ -65,12 +65,16 @@ typedef struct
 
 } Polygon;
 
-extern u32 DispCnt;
-extern u8 AlphaRef;
-extern s32 Viewport[4];
-extern u32 RenderClearAttr1, RenderClearAttr2;
+extern u32 RenderDispCnt;
+extern u8 RenderAlphaRef;
 
-extern u16 ToonTable[32];
+extern u16 RenderToonTable[32];
+extern u16 RenderEdgeTable[8];
+
+extern u32 RenderFogColor, RenderFogOffset;
+extern u8 RenderFogDensityTable[32];
+
+extern u32 RenderClearAttr1, RenderClearAttr2;
 
 bool Init();
 void DeInit();

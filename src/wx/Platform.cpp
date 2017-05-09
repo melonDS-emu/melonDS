@@ -17,7 +17,7 @@
 */
 
 #include <stdio.h>
-#include "Platform.h"
+#include "../Platform.h"
 
 
 namespace Platform
