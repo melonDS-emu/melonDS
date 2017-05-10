@@ -26,6 +26,7 @@ namespace GPU
 {
 
 extern u16 VCount;
+extern u16 TotalScanlines;
 
 extern u16 DispStat[2];
 
@@ -385,9 +386,12 @@ T ReadVRAM_TexPal(u32 addr)
 void DisplaySwap(u32 val);
 
 void StartFrame();
+void FinishFrame(u32 lines);
 void StartScanline(u32 line);
 
 void SetDispStat(u32 cpu, u16 val);
+
+void SetVCount(u16 val);
 
 }
 

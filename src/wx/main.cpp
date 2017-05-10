@@ -386,7 +386,7 @@ wxThread::ExitCode EmuThread::Entry()
 
         if (emustatus == 1)
         {
-            NDS::RunFrame();
+            u32 nlines = NDS::RunFrame();
 
             SDL_LockTexture(sdltex, NULL, &texpixels, &texstride);
             if (texstride == 256*4)
@@ -410,7 +410,9 @@ wxThread::ExitCode EmuThread::Entry()
             SDL_RenderPresent(sdlrend);
 
             // framerate limiter based off SDL2_gfx
-            float framerate = 1000.0f / 60.0f;
+            float framerate;
+            if (nlines == 263) framerate = 1000.0f / 60.0f;
+            else               framerate = 1000.0f / ((60.0f * nlines) / 263.0f);
 
             fpslimitcount++;
             u32 curtick = SDL_GetTicks();

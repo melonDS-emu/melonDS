@@ -30,6 +30,8 @@ namespace GPU
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
 u16 VCount;
+u32 NextVCount;
+u16 TotalScanlines;
 
 u16 DispStat[2], VMatch[2];
 
@@ -49,9 +51,6 @@ u8* VRAM[9] = {VRAM_A, VRAM_B, VRAM_C, VRAM_D, VRAM_E, VRAM_F, VRAM_G, VRAM_H, V
 
 u8 VRAMCNT[9];
 u8 VRAMSTAT;
-
-//u32 VRAM_Base[9];
-//u32 VRAM_Mask[9];
 
 u32 VRAMMap_LCDC;
 
@@ -95,6 +94,8 @@ void DeInit()
 void Reset()
 {
     VCount = 0;
+    NextVCount = -1;
+    TotalScanlines = 0;
 
     DispStat[0] = 0;
     DispStat[1] = 0;
@@ -607,6 +608,7 @@ void DisplaySwap(u32 val)
 
 void StartFrame()
 {
+    TotalScanlines = 0;
     StartScanline(0);
 }
 
@@ -615,23 +617,37 @@ void StartHBlank(u32 line)
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
-    if (line < 192) NDS::CheckDMAs(0, 0x02);
+    if (VCount < 192) NDS::CheckDMAs(0, 0x02);
 
     if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
 
-    if (line < 262)
+    if (VCount < 262)
         NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), StartScanline, line+1);
+    else
+        NDS::ScheduleEvent(NDS::Event_LCD, true, (LINE_CYCLES - HBLANK_CYCLES), FinishFrame, line+1);
+}
+
+void FinishFrame(u32 lines)
+{
+    TotalScanlines = lines;
 }
 
 void StartScanline(u32 line)
 {
-    VCount = line;
+    if (line == 0)
+        VCount = 0;
+    else if (NextVCount != -1)
+        VCount = NextVCount;
+    else
+        VCount++;
+
+    NextVCount = -1;
 
     DispStat[0] &= ~(1<<1);
     DispStat[1] &= ~(1<<1);
 
-    if (line == VMatch[0])
+    if (VCount == VMatch[0])
     {
         DispStat[0] |= (1<<2);
 
@@ -640,7 +656,7 @@ void StartScanline(u32 line)
     else
         DispStat[0] &= ~(1<<2);
 
-    if (line == VMatch[1])
+    if (VCount == VMatch[1])
     {
         DispStat[1] |= (1<<2);
 
@@ -649,12 +665,12 @@ void StartScanline(u32 line)
     else
         DispStat[1] &= ~(1<<2);
 
-    GPU2D_A->CheckWindows(line);
-    GPU2D_B->CheckWindows(line);
+    GPU2D_A->CheckWindows(VCount);
+    GPU2D_B->CheckWindows(VCount);
 
-    if (line >= 2 && line < 194)
+    if (VCount >= 2 && VCount < 194)
         NDS::CheckDMAs(0, 0x03);
-    else if (line == 194)
+    else if (VCount == 194)
         NDS::StopDMAs(0, 0x03);
 
     if (line < 192)
@@ -664,7 +680,8 @@ void StartScanline(u32 line)
         // properly would be too much trouble given barely anything
         // uses FIFO display
         // (TODO, eventually: emulate it properly)
-        NDS::CheckDMAs(0, 0x04);
+        if (VCount < 192)
+            NDS::CheckDMAs(0, 0x04);
 
         if (line == 0)
         {
@@ -676,7 +693,8 @@ void StartScanline(u32 line)
         GPU2D_A->DrawScanline(line);
         GPU2D_B->DrawScanline(line);
     }
-    else if (line == 262)
+
+    if (VCount == 262)
     {
         // frame end
 
@@ -685,7 +703,7 @@ void StartScanline(u32 line)
     }
     else
     {
-        if (line == 192)
+        if (VCount == 192)
         {
             // VBlank
             DispStat[0] |= (1<<0);
@@ -703,7 +721,7 @@ void StartScanline(u32 line)
             GPU2D_B->VBlank();
             GPU3D::VBlank();
         }
-        else if (line == 215)
+        else if (VCount == 215)
         {
             GPU3D::VCount215();
         }
@@ -720,6 +738,16 @@ void SetDispStat(u32 cpu, u16 val)
     DispStat[cpu] |= val;
 
     VMatch[cpu] = (val >> 8) | ((val & 0x80) << 1);
+}
+
+void SetVCount(u16 val)
+{
+    // VCount write is delayed until the next scanline
+
+    // TODO: how does the 3D engine react to VCount writes while it's rendering?
+    // TODO: also check the various DMA types that can be involved
+
+    NextVCount = val;
 }
 
 }

@@ -380,6 +380,18 @@ void GPU2D::DrawScanline(u32 line)
 {
     u32* dst = &Framebuffer[256*line];
 
+    line = GPU::VCount;
+
+    // scanlines that end up outside of the GPU drawing range
+    // (as a result of writing to VCount) are filled white
+    if (line > 192)
+    {
+        for (int i = 0; i < 256; i++)
+            dst[i] = 0xFF3F3F3F;
+
+        return;
+    }
+
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 

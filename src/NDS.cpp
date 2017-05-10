@@ -380,16 +380,16 @@ void RunSystem(s32 cycles)
     }
 }
 
-void RunFrame()
+u32 RunFrame()
 {
     s32 framecycles = 560190;
 
-    if (!Running) return; // dorp
+    if (!Running) return 263; // dorp
 
 
     GPU::StartFrame();
 
-    while (Running && framecycles>0)
+    while (Running && GPU::TotalScanlines==0)
     {
         s32 ndscyclestorun;
         s32 ndscycles = 0;
@@ -430,21 +430,9 @@ void RunFrame()
 
         RunSystem(ndscyclestorun);
         //GPU3D::Run(ndscyclestorun);
-
-        /*while (ndscycles < ndscyclestorun)
-        {
-            ARM7->CyclesToRun = ndscyclestorun - ndscycles - ARM7Offset;
-            ARM7->Execute();
-            ARM7Offset = 0;
-
-            RunEvents(ARM7->Cycles);
-            ndscycles += ARM7->Cycles;
-        }
-
-        ARM7Offset = ndscycles - ndscyclestorun;*/
-
-        framecycles -= ndscyclestorun;
     }
+
+    return GPU::TotalScanlines;
 }
 
 void Reschedule()
@@ -1657,6 +1645,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     switch (addr)
     {
     case 0x04000004: GPU::SetDispStat(0, val); return;
+    case 0x04000006: GPU::SetVCount(val); return;
 
     case 0x04000060: GPU3D::Write16(addr, val); return;
 
@@ -2198,6 +2187,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
     switch (addr)
     {
     case 0x04000004: GPU::SetDispStat(1, val); return;
+    case 0x04000006: GPU::SetVCount(val); return;
 
     case 0x040000B8: DMAs[4]->WriteCnt((DMAs[4]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[4]->WriteCnt((DMAs[4]->Cnt & 0x0000FFFF) | (val << 16)); return;

@@ -104,7 +104,7 @@ void LoadROM(const char* path, bool direct);
 void LoadBIOS();
 void SetupDirectBoot();
 
-void RunFrame();
+u32 RunFrame();
 
 void PressKey(u32 key);
 void ReleaseKey(u32 key);
