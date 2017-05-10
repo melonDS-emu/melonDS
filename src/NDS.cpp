@@ -382,8 +382,6 @@ void RunSystem(s32 cycles)
 
 u32 RunFrame()
 {
-    s32 framecycles = 560190;
-
     if (!Running) return 263; // dorp
 
 

@@ -412,7 +412,7 @@ wxThread::ExitCode EmuThread::Entry()
             // framerate limiter based off SDL2_gfx
             float framerate;
             if (nlines == 263) framerate = 1000.0f / 60.0f;
-            else               framerate = 1000.0f / ((60.0f * nlines) / 263.0f);
+            else               framerate = ((1000.0f * nlines) / 263.0f) / 60.0f;
 
             fpslimitcount++;
             u32 curtick = SDL_GetTicks();
