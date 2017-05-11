@@ -134,7 +134,9 @@ int MP_SendPacket(u8* data, int len)
     *(u16*)&PacketBuffer[6] = htons(len);
     memcpy(&PacketBuffer[8], data, len);
 
-    return sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
+    int slen = sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
+    if (slen < 8) return 0;
+    return slen - 8;
 }
 
 int MP_RecvPacket(u8* data, bool block)
@@ -174,7 +176,6 @@ int MP_RecvPacket(u8* data, bool block)
         return 0;
     }
 
-    rlen -= 8;
     if (ntohs(*(u16*)&PacketBuffer[6]) != rlen)
     {
         return 0;

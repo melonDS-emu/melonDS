@@ -60,7 +60,10 @@ typedef struct
 
 TXSlot TXSlots[6];
 
+u8 RXBuffer[2048];
+
 bool MPInited;
+
 
 
 // multiplayer host TX sequence:
@@ -197,7 +200,7 @@ void SetIRQ14(bool forced)
 
     if (IOPORT(W_TXSlotBeacon) & 0x8000)
     {
-        //StartTX_Beacon();
+        StartTX_Beacon();
     }
 
     if (IOPORT(W_ListenCount) == 0)
@@ -215,6 +218,12 @@ void SetIRQ15()
         IOPORT(W_RFPins) |= 0x0080;
         IOPORT(W_RFStatus) = 1;
     }
+}
+
+
+bool MACEqual(u8* a, u8* b)
+{
+    return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
 }
 
 
@@ -246,7 +255,8 @@ void StartTX_Beacon()
     u64 oldval = *(u64*)&RAM[slot->Addr + 0xC + 24];
     *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
 
-    Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    printf("wifi: sent %d/%d bytes of packet\n", txlen, 12+slot->Length);
 
     *(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
 }
@@ -287,6 +297,57 @@ void ProcessTX(TXSlot* slot, int busybit)
 }
 
 
+void CheckRX()
+{
+    int rxlen = Platform::MP_RecvPacket(RXBuffer, false);
+    if (rxlen < 12+24) return;
+
+    u16 framectl = *(u16*)&RXBuffer[12+0];
+
+    u32 a_src, a_dst, a_bss;
+    switch (framectl & 0x000C)
+    {
+    case 0x0000: // management:
+        a_src = 10;
+        a_dst = 4;
+        a_bss = 16;
+        break;
+
+    case 0x0004: // control
+        printf("blarg\n");
+        return;
+
+    case 0x0008: // data
+        switch (framectl & 0x0300)
+        {
+        case 0x0000: // STA to STA
+            a_src = 10;
+            a_dst = 4;
+            a_bss = 16;
+            break;
+        case 0x0100: // STA to DS
+            a_src = 10;
+            a_dst = 16;
+            a_bss = 4;
+            break;
+        case 0x0200: // DS to STA
+            a_src = 16;
+            a_dst = 4;
+            a_bss = 10;
+            break;
+        case 0x0300: // DS to DS
+            printf("blarg\n");
+            return;
+        }
+    }
+
+    if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
+        return; // oops. we received a packet we just sent.
+
+    printf("wifi: received packet. framectrl=%04X\n", framectl);
+}
+
+
 void MSTimer()
 {
     IOPORT(W_BeaconCount1)--;
@@ -300,6 +361,8 @@ void MSTimer()
         IOPORT(W_BeaconCount2)--;
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
+
+    CheckRX();
 }
 
 void USTimer(u32 param)
@@ -380,7 +443,7 @@ u16 Read(u32 addr)
         return *(u16*)&RAM[addr & 0x1FFE];
     }
     if (addr >= 0x2000 && addr < 0x4000)
-        return 0xFFFF; // checkme
+        return 0xFFFF;
 
     bool activeread = (addr < 0x1000);
 
