@@ -55,6 +55,14 @@ bool MP_Init()
     BOOL opt_true = TRUE;
     int res;
 
+#ifdef __WXMSW__
+    WSADATA wsadata;
+    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
+    {
+        return false;
+    }
+#endif // __WXMSW__
+
     MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (MPSocket < 0)
 	{
@@ -100,6 +108,10 @@ void MP_DeInit()
 {
     if (MPSocket >= 0)
         closesocket(MPSocket);
+
+#ifdef __WXMSW__
+    WSACleanup();
+#endif // __WXMSW__
 }
 
 
