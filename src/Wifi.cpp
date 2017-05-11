@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "SPI.h"
 #include "Wifi.h"
+#include "Platform.h"
 
 
 namespace Wifi
@@ -46,6 +47,8 @@ u16 RFCnt;
 u16 RFData1;
 u16 RFData2;
 u32 RFRegs[0x40];
+
+bool MPInited;
 
 
 // multiplayer host TX sequence:
@@ -73,6 +76,19 @@ u32 RFRegs[0x40];
 // wifi TODO:
 // * work out how power saving works, there are oddities
 
+
+bool Init()
+{
+    MPInited = false;
+
+    return true;
+}
+
+void DeInit()
+{
+    if (MPInited)
+        Platform::MP_DeInit();
+}
 
 void Reset()
 {
@@ -448,9 +464,18 @@ void Write(u32 addr, u16 val)
         // schedule timer event when the clock is enabled
         // TODO: check whether this resets USCOUNT (and also which other events can reset it)
         if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
+        {
             NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+            if (!MPInited)
+            {
+                Platform::MP_Init();
+                MPInited = true;
+            }
+        }
         else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
+        {
             NDS::CancelEvent(NDS::Event_Wifi);
+        }
         break;
 
     case W_USCountCnt: val &= 0x0001; break;

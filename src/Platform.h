@@ -19,10 +19,13 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include "types.h"
+
 namespace Platform
 {
 
-//
+bool MP_Init();
+void MP_DeInit();
 
 }
 

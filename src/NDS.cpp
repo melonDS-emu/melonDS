@@ -130,6 +130,7 @@ bool Init()
     if (!SPU::Init()) return false;
     if (!SPI::Init()) return false;
     if (!RTC::Init()) return false;
+    if (!Wifi::Init()) return false;
 
     return true;
 }
@@ -150,6 +151,7 @@ void DeInit()
     SPU::DeInit();
     SPI::DeInit();
     RTC::DeInit();
+    Wifi::DeInit();
 }
 
 

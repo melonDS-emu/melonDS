@@ -140,6 +140,8 @@ enum
 };
 
 
+bool Init();
+void DeInit();
 void Reset();
 
 void USTimer(u32 param);

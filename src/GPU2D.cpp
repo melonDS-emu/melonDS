@@ -387,7 +387,7 @@ void GPU2D::DrawScanline(u32 line)
     if (line > 192)
     {
         for (int i = 0; i < 256; i++)
-            dst[i] = 0xFF3F3F3F;
+            dst[i] = 0xFFFFFFFF;
 
         return;
     }
