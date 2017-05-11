@@ -117,7 +117,7 @@ void MP_DeInit()
 #endif // __WXMSW__
 }
 
-int MP_SendPacket(u8* data, int len, int rate)
+int MP_SendPacket(u8* data, int len)
 {
     if (MPSocket < 0)
         return 0;
@@ -130,14 +130,14 @@ int MP_SendPacket(u8* data, int len, int rate)
 
     *(u32*)&PacketBuffer[0] = htonl(0x4946494E); // NIFI
     PacketBuffer[4] = NIFI_VER;
-    PacketBuffer[5] = rate & 0xFF;
+    PacketBuffer[5] = 0;
     *(u16*)&PacketBuffer[6] = htons(len);
     memcpy(&PacketBuffer[8], data, len);
 
     return sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
 }
 
-int MP_RecvPacket(u8* data, bool block, int* rate)
+int MP_RecvPacket(u8* data, bool block)
 {
     if (MPSocket < 0)
         return 0;
@@ -181,7 +181,6 @@ int MP_RecvPacket(u8* data, bool block, int* rate)
     }
 
     memcpy(data, &PacketBuffer[8], rlen);
-    if (rate) *rate = PacketBuffer[5];
     return rlen;
 }
 

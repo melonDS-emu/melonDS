@@ -48,6 +48,18 @@ u16 RFData1;
 u16 RFData2;
 u32 RFRegs[0x40];
 
+typedef struct
+{
+    u16 Addr;
+    u16 Length;
+    u8 Rate;
+    u8 CurPhase;
+    u32 CurPhaseTime;
+
+} TXSlot;
+
+TXSlot TXSlots[6];
+
 bool MPInited;
 
 
@@ -131,6 +143,17 @@ void Reset()
     RFVersion = SPI_Firmware::GetRFVersion();
     memset(RFRegs, 0, 4*0x40);
 
+    u8 console = SPI_Firmware::GetConsoleType();
+    if (console == 0xFF)
+        IOPORT(0x000) = 0x1440;
+    else if (console == 0x20)
+        IOPORT(0x000) = 0xC340;
+    else
+    {
+        printf("wifi: unknown console type %02X\n", console);
+        IOPORT(0x000) = 0x1440;
+    }
+
     memset(&IOPORT(0x018), 0xFF, 6);
     memset(&IOPORT(0x020), 0xFF, 6);
 }
@@ -172,13 +195,9 @@ void SetIRQ14(bool forced)
     IOPORT(W_BeaconCount2) = 0xFFFF;
     IOPORT(W_TXReqRead) &= 0xFFF2; // todo, eventually?
 
-    // TODO: actually send beacon
     if (IOPORT(W_TXSlotBeacon) & 0x8000)
     {
-        printf("SEND BEACON\n");
-        /*FILE* f = fopen("beacon.bin", "wb");
-        fwrite(RAM, 0x2000, 1, f);
-        fclose(f);*/
+        //StartTX_Beacon();
     }
 
     if (IOPORT(W_ListenCount) == 0)
@@ -195,6 +214,75 @@ void SetIRQ15()
     {
         IOPORT(W_RFPins) |= 0x0080;
         IOPORT(W_RFStatus) = 1;
+    }
+}
+
+
+// TODO: set RFSTATUS/RFPINS
+
+int PreambleLen(int rate)
+{
+    if (rate == 1) return 192;
+    if (IOPORT(W_Preamble) & 0x0004) return 96;
+    return 192;
+}
+
+void StartTX_Beacon()
+{
+    TXSlot* slot = &TXSlots[4];
+
+    slot->Addr = (IOPORT(W_TXSlotBeacon) & 0x0FFF) << 1;
+    slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+    u16 rate = *(u16*)&RAM[slot->Addr];
+    if (rate == 0x14) slot->Rate = 2;
+    else              slot->Rate = 1;
+
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
+
+    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+
+    u64 oldval = *(u64*)&RAM[slot->Addr + 0xC + 24];
+    *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
+
+    Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+
+    *(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
+}
+
+void ProcessTX(TXSlot* slot, int busybit)
+{
+    slot->CurPhaseTime--;
+    if (slot->CurPhaseTime > 0) return;
+
+    switch (slot->CurPhase)
+    {
+    case 0: // preamble done
+        {
+            u32 len = slot->Length;
+            if (slot->Rate == 2) len *= 4;
+            else                 len *= 8;
+
+            slot->CurPhase = 1;
+            slot->CurPhaseTime = len;
+
+            SetIRQ(7);
+            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+        }
+        break;
+
+    case 1: // transmit done
+        {
+            // checkme
+            *(u16*)&RAM[slot->Addr] = 0x0001;
+            RAM[slot->Addr + 5] = 0;
+
+            IOPORT(W_TXBusy) &= ~(1<<busybit);
+
+            SetIRQ(1);
+        }
+        break;
     }
 }
 
@@ -234,6 +322,9 @@ void USTimer(u32 param)
 
     if (IOPORT(W_ContentFree) != 0)
         IOPORT(W_ContentFree)--;
+
+    u16 txbusy = IOPORT(W_TXBusy);
+    if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
@@ -328,22 +419,32 @@ u16 Read(u32 addr)
     case W_RXBufDataRead:
         if (activeread)
         {
-            u32 rdaddr = IOPORT(W_RXBufReadAddr) & 0x1FFE;
+            u32 rdaddr = IOPORT(W_RXBufReadAddr);
 
             u16 ret = *(u16*)&RAM[rdaddr];
 
             rdaddr += 2;
             if (rdaddr == (IOPORT(W_RXBufEnd) & 0x1FFE))
                 rdaddr = (IOPORT(W_RXBufBegin) & 0x1FFE);
-            if (rdaddr == (IOPORT(W_RXBufGapAddr) & 0x1FFE))
+            if (rdaddr == IOPORT(W_RXBufGapAddr))
             {
-                rdaddr += ((IOPORT(W_RXBufGapSize) & 0x0FFF) << 1);
+                rdaddr += (IOPORT(W_RXBufGapSize) << 1);
                 if (rdaddr >= (IOPORT(W_RXBufEnd) & 0x1FFE))
                     rdaddr = rdaddr + (IOPORT(W_RXBufBegin) & 0x1FFE) - (IOPORT(W_RXBufEnd) & 0x1FFE);
+
+                if (IOPORT(0x000) == 0xC340)
+                    IOPORT(W_RXBufGapSize) = 0;
             }
 
             IOPORT(W_RXBufReadAddr) = rdaddr & 0x1FFE;
             IOPORT(W_RXBufDataRead) = ret;
+
+            if (IOPORT(W_RXBufCount) > 0)
+            {
+                IOPORT(W_RXBufCount)--;
+                if (IOPORT(W_RXBufCount) == 0)
+                    SetIRQ(9);
+            }
         }
         break;
     }
@@ -532,22 +633,67 @@ void Write(u32 addr, u16 val)
         if (val & 0x7FFF) printf("wifi: unknown RXCNT bits set %04X\n", val);
         break;
 
-
-    case W_TXBufDataWrite:
+    case W_RXBufDataRead:
+        printf("wifi: writing to RXBUF_DATA_READ. wat\n");
+        if (IOPORT(W_RXBufCount) > 0)
         {
-            u32 wraddr = IOPORT(W_TXBufWriteAddr) & 0x1FFE;
-            *(u16*)&RAM[wraddr] = val;
-
-            wraddr += 2;
-            if (wraddr == (IOPORT(W_TXBufGapAddr) & 0x1FFE))
-                wraddr += ((IOPORT(W_TXBufGapSize) & 0x0FFF) << 1);
-
-            IOPORT(W_TXBufWriteAddr) = wraddr & 0x1FFE;
+            IOPORT(W_RXBufCount)--;
+            if (IOPORT(W_RXBufCount) == 0)
+                SetIRQ(9);
         }
         return;
 
-    case 0x80:
-        printf("BEACON ADDR %04X\n", val);
+    case W_RXBufReadAddr:
+    case W_RXBufGapAddr:
+        val &= 0x1FFE;
+        break;
+    case W_RXBufGapSize:
+    case W_RXBufCount:
+        val &= 0x0FFF;
+        break;
+
+
+    case W_TXSlotReset:
+        if (val & 0x0001) IOPORT(W_TXSlotLoc1) &= 0x7FFF;
+        if (val & 0x0002) IOPORT(W_TXSlotCmd) &= 0x7FFF;
+        if (val & 0x0004) IOPORT(W_TXSlotLoc2) &= 0x7FFF;
+        if (val & 0x0008) IOPORT(W_TXSlotLoc3) &= 0x7FFF;
+        // checkme: any bits affecting the beacon slot?
+        if (val & 0x0040) IOPORT(W_TXSlotReply2) &= 0x7FFF;
+        if (val & 0x0080) IOPORT(W_TXSlotReply1) &= 0x7FFF;
+        val = 0; // checkme (write-only port)
+        break;
+
+    case W_TXBufDataWrite:
+        {
+            u32 wraddr = IOPORT(W_TXBufWriteAddr);
+            *(u16*)&RAM[wraddr] = val;
+
+            wraddr += 2;
+            if (wraddr == IOPORT(W_TXBufGapAddr))
+                wraddr += (IOPORT(W_TXBufGapSize) << 1);
+
+            //if (IOPORT(0x000) == 0xC340)
+            //    IOPORT(W_TXBufGapSize) = 0;
+
+            IOPORT(W_TXBufWriteAddr) = wraddr & 0x1FFE;
+
+            if (IOPORT(W_TXBufCount) > 0)
+            {
+                IOPORT(W_TXBufCount)--;
+                if (IOPORT(W_TXBufCount) == 0)
+                    SetIRQ(8);
+            }
+        }
+        return;
+
+    case W_TXBufWriteAddr:
+    case W_TXBufGapAddr:
+        val &= 0x1FFE;
+        break;
+    case W_TXBufGapSize:
+    case W_TXBufCount:
+        val &= 0x0FFF;
         break;
 
     // read-only ports

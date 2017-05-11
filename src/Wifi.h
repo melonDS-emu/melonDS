@@ -144,6 +144,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void StartTX_Beacon();
+
 void USTimer(u32 param);
 
 u16 Read(u32 addr);
