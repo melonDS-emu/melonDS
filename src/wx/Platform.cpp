@@ -48,6 +48,9 @@ namespace Platform
 
 socket_t MPSocket;
 sockaddr_t MPSendAddr;
+u8 PacketBuffer[2048];
+
+#define NIFI_VER 1
 
 
 bool MP_Init()
@@ -112,6 +115,74 @@ void MP_DeInit()
 #ifdef __WXMSW__
     WSACleanup();
 #endif // __WXMSW__
+}
+
+int MP_SendPacket(u8* data, int len, int rate)
+{
+    if (MPSocket < 0)
+        return 0;
+
+    if (len > 2048-8)
+    {
+        printf("MP_SendPacket: error: packet too long (%d)\n", len);
+        return 0;
+    }
+
+    *(u32*)&PacketBuffer[0] = htonl(0x4946494E); // NIFI
+    PacketBuffer[4] = NIFI_VER;
+    PacketBuffer[5] = rate & 0xFF;
+    *(u16*)&PacketBuffer[6] = htons(len);
+    memcpy(&PacketBuffer[8], data, len);
+
+    return sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
+}
+
+int MP_RecvPacket(u8* data, bool block, int* rate)
+{
+    if (MPSocket < 0)
+        return 0;
+
+    fd_set fd;
+	struct timeval tv;
+
+	FD_ZERO(&fd);
+	FD_SET(MPSocket, &fd);
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+
+	if (!select(1, &fd, 0, 0, &tv))
+    {
+        return 0;
+    }
+
+    sockaddr_t fromAddr;
+    socklen_t fromLen = sizeof(sockaddr_t);
+    int rlen = recvfrom(MPSocket, (char*)PacketBuffer, 2048, 0, &fromAddr, &fromLen);
+    if (rlen < 8+24)
+    {
+        return 0;
+    }
+    rlen -= 8;
+
+    if (ntohl(*(u32*)&PacketBuffer[0]) != 0x4946494E)
+    {
+        return 0;
+    }
+
+    if (PacketBuffer[4] != NIFI_VER)
+    {
+        return 0;
+    }
+
+    rlen -= 8;
+    if (ntohs(*(u16*)&PacketBuffer[6]) != rlen)
+    {
+        return 0;
+    }
+
+    memcpy(data, &PacketBuffer[8], rlen);
+    if (rate) *rate = PacketBuffer[5];
+    return rlen;
 }
 
 

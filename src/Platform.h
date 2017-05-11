@@ -26,6 +26,8 @@ namespace Platform
 
 bool MP_Init();
 void MP_DeInit();
+int MP_SendPacket(u8* data, int len, int rate);
+int MP_RecvPacket(u8* data, bool block, int* rate);
 
 }
 
