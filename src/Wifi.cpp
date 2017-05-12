@@ -61,6 +61,8 @@ typedef struct
 TXSlot TXSlots[6];
 
 u8 RXBuffer[2048];
+u32 RXTime;
+u16 RXEndAddr;
 
 bool MPInited;
 
@@ -236,6 +238,29 @@ int PreambleLen(int rate)
     return 192;
 }
 
+void StartTX_LocN(int nslot, int loc)
+{
+    TXSlot* slot = &TXSlots[nslot];
+
+    if (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x7000)
+        printf("wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
+
+    slot->Addr = (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x0FFF) << 1;
+    slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+    u16 rate = *(u16*)&RAM[slot->Addr];
+    if (rate == 0x14) slot->Rate = 2;
+    else              slot->Rate = 1;
+
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
+
+    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+
+    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    printf("wifi: sent %d/%d bytes of loc%d packet\n", txlen, 12+slot->Length, loc);
+}
+
 void StartTX_Beacon()
 {
     TXSlot* slot = &TXSlots[4];
@@ -256,12 +281,47 @@ void StartTX_Beacon()
     *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
 
     int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    printf("wifi: sent %d/%d bytes of packet\n", txlen, 12+slot->Length);
+    //printf("wifi: sent %d/%d bytes of beacon packet\n", txlen, 12+slot->Length);
 
     *(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
+
+    IOPORT(W_TXBusy) |= 0x0010;
 }
 
-void ProcessTX(TXSlot* slot, int busybit)
+void FireTX()
+{
+    u16 txbusy = IOPORT(W_TXBusy);
+    if (txbusy & 0x0008)
+    {
+        if (IOPORT(W_TXSlotLoc3) & 0x8000)
+        {
+            StartTX_LocN(3, 2);
+            return;
+        }
+    }
+
+    if (txbusy & 0x0004)
+    {
+        if (IOPORT(W_TXSlotLoc2) & 0x8000)
+        {
+            StartTX_LocN(2, 1);
+            return;
+        }
+    }
+
+    if (txbusy & 0x0001)
+    {
+        if (IOPORT(W_TXSlotLoc1) & 0x8000)
+        {
+            StartTX_LocN(0, 0);
+            return;
+        }
+    }
+
+    IOPORT(W_TXBusy) = 0;
+}
+
+void ProcessTX(TXSlot* slot, int num)
 {
     slot->CurPhaseTime--;
     if (slot->CurPhaseTime > 0) return;
@@ -288,9 +348,28 @@ void ProcessTX(TXSlot* slot, int busybit)
             *(u16*)&RAM[slot->Addr] = 0x0001;
             RAM[slot->Addr + 5] = 0;
 
-            IOPORT(W_TXBusy) &= ~(1<<busybit);
+            IOPORT(W_TXBusy) &= ~(1<<num);
 
-            SetIRQ(1);
+            switch (num)
+            {
+            case 0:
+            case 2:
+            case 3:
+                IOPORT(W_TXStat) = 0x0001 | ((num?(num-1):0)<<12);
+                SetIRQ(1);
+                IOPORT(W_TXSlotLoc1 + ((num?(num-1):0)*4)) &= 0x7FFF;
+                break;
+
+            case 4: // beacon
+                if (IOPORT(W_TXStatCnt) & 0x8000)
+                {
+                    IOPORT(W_TXStat) = 0x0301;
+                    SetIRQ(1);
+                }
+                break;
+            }
+
+            FireTX();
         }
         break;
     }
@@ -299,18 +378,33 @@ void ProcessTX(TXSlot* slot, int busybit)
 
 void CheckRX()
 {
+    if (!(IOPORT(W_RXCnt) & 0x8000))
+        return;
+
     int rxlen = Platform::MP_RecvPacket(RXBuffer, false);
     if (rxlen < 12+24) return;
 
+    u16 framelen = *(u16*)&RXBuffer[10];
+    if (framelen != rxlen-12)
+    {
+        printf("bad frame length\n");
+        return;
+    }
+    framelen -= 4;
+
     u16 framectl = *(u16*)&RXBuffer[12+0];
+    u8 txrate = RXBuffer[8];
 
     u32 a_src, a_dst, a_bss;
+    u16 rxflags = 0x0010;
     switch (framectl & 0x000C)
     {
-    case 0x0000: // management:
+    case 0x0000: // management
         a_src = 10;
         a_dst = 4;
         a_bss = 16;
+        if ((framectl & 0x00F0) == 0x0080)
+            rxflags |= 0x0001;
         break;
 
     case 0x0004: // control
@@ -339,12 +433,57 @@ void CheckRX()
             printf("blarg\n");
             return;
         }
+        rxflags |= 0x0008;
+        break;
     }
 
     if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
         return; // oops. we received a packet we just sent.
 
-    printf("wifi: received packet. framectrl=%04X\n", framectl);
+    bool bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
+    if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
+        !bssidmatch)
+        return;
+
+    if (framectl != 0x0080)
+        printf("wifi: received packet. framectrl=%04X\n", framectl);
+
+    // make RX header
+
+    if (bssidmatch) rxflags |= 0x8000;
+
+    *(u16*)&RXBuffer[0] = rxflags;
+    *(u16*)&RXBuffer[2] = 0x0040; // ???
+    *(u16*)&RXBuffer[4] = 0x7777;
+    *(u16*)&RXBuffer[6] = txrate;
+    *(u16*)&RXBuffer[8] = framelen;
+    *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
+
+    RXTime = framelen * ((txrate==0x14) ? 4:8);
+
+    // TODO: write packet progressively?
+    // TODO: RX/TX addr register
+    framelen += 12;
+    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
+    for (int i = 0; i < framelen; i += 2)
+    {
+        *(u16*)&RAM[addr] = *(u16*)&RXBuffer[i];
+        addr += 2;
+
+        if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+            addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+
+        if (addr == (IOPORT(W_RXBufReadCursor) << 1))
+        {
+            printf("wifi: RX buffer full\n");
+            // TODO: proper error management
+            return;
+        }
+    }
+
+    RXEndAddr = ((addr >> 1) + 1) & ~0x1;
+
+    SetIRQ(6);
 }
 
 
@@ -362,7 +501,8 @@ void MSTimer()
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
 
-    CheckRX();
+    if (!IOPORT(W_TXBusy))
+        CheckRX();
 }
 
 void USTimer(u32 param)
@@ -387,7 +527,23 @@ void USTimer(u32 param)
         IOPORT(W_ContentFree)--;
 
     u16 txbusy = IOPORT(W_TXBusy);
-    if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
+    if (txbusy)
+    {
+        if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
+        else if (txbusy & 0x0008) ProcessTX(&TXSlots[3], 3);
+        else if (txbusy & 0x0004) ProcessTX(&TXSlots[2], 2);
+        // TODO CMD
+        else if (txbusy & 0x0001) ProcessTX(&TXSlots[0], 0);
+    }
+    else if (RXTime)
+    {
+        RXTime--;
+        if (RXTime == 0)
+        {
+            IOPORT(W_RXBufWriteCursor) = RXEndAddr;
+            SetIRQ(0);
+        }
+    }
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
@@ -712,9 +868,21 @@ void Write(u32 addr, u16 val)
         break;
     case W_RXBufGapSize:
     case W_RXBufCount:
+    case W_RXBufWriteAddr:
+    case W_RXBufReadCursor:
         val &= 0x0FFF;
         break;
 
+
+    case W_TXReqReset:
+        IOPORT(W_TXReqRead) &= ~val;
+        return;
+    case W_TXReqSet:
+        IOPORT(W_TXReqRead) |= val;
+        IOPORT(W_TXBusy) |= (val & 0x000F);
+        FireTX();
+        // CHECKME!!!!!!!!!!!
+        return;
 
     case W_TXSlotReset:
         if (val & 0x0001) IOPORT(W_TXSlotLoc1) &= 0x7FFF;
@@ -757,6 +925,14 @@ void Write(u32 addr, u16 val)
     case W_TXBufGapSize:
     case W_TXBufCount:
         val &= 0x0FFF;
+        break;
+
+    case 0x090:
+    case 0x0A0:
+    case 0x0A4:
+    case 0x0A8:
+    case 0x094:
+        printf("wifi: trying to send packet. %08X=%04X\n", addr, val);
         break;
 
     // read-only ports
