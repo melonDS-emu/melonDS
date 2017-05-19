@@ -208,7 +208,7 @@ void SetIRQ14(bool forced)
     if (IOPORT(W_ListenCount) == 0)
         IOPORT(W_ListenCount) = IOPORT(W_ListenInterval);
 
-    IOPORT(W_ListenCount)--;
+    IOPORT(W_ListenCount)--;printf("IRQ14 prebeacon %04X\n", IOPORT(W_PreBeacon));
 }
 
 void SetIRQ15()
@@ -216,7 +216,7 @@ void SetIRQ15()
     SetIRQ(15);
 
     if (IOPORT(W_PowerTX) & 0x0001)
-    {
+    {printf("wakeup\n");
         IOPORT(W_RFPins) |= 0x0080;
         IOPORT(W_RFStatus) = 1;
     }
@@ -291,6 +291,8 @@ void StartTX_Beacon()
 void FireTX()
 {
     u16 txbusy = IOPORT(W_TXBusy);
+    printf("attempting to fire TX: %04X %04X\n", txbusy, IOPORT(W_TXSlotLoc2));
+
     if (txbusy & 0x0008)
     {
         if (IOPORT(W_TXSlotLoc3) & 0x8000)
@@ -666,6 +668,8 @@ u16 Read(u32 addr)
             }
         }
         break;
+        //case 0x214: NDS::debug(0); break;
+        //case 0x040: NDS::debug(0); break;
     }
 
     //printf("WIFI: read %08X\n", addr);
@@ -766,6 +770,10 @@ void Write(u32 addr, u16 val)
             // TODO: delay for this
             SetIRQ(11);
             IOPORT(W_PowerState) = 0x0000;
+
+            // checkme
+            IOPORT(W_RFPins) = 0x00C6;
+            IOPORT(W_RFStatus) = 9;
         }
         return;
     case W_PowerForce:
@@ -776,7 +784,7 @@ void Write(u32 addr, u16 val)
             IOPORT(0x034) = 0x0002;
             IOPORT(W_PowerState) = 0x0200;
             IOPORT(W_TXReqRead) = 0;
-            IOPORT(W_RFPins) = 00046;
+            IOPORT(W_RFPins) = 0x0046;
             IOPORT(W_RFStatus) = 9;
         }
         break;
@@ -885,6 +893,7 @@ void Write(u32 addr, u16 val)
         return;
 
     case W_TXSlotReset:
+        printf("TX slot reset: %04X\n", val);
         if (val & 0x0001) IOPORT(W_TXSlotLoc1) &= 0x7FFF;
         if (val & 0x0002) IOPORT(W_TXSlotCmd) &= 0x7FFF;
         if (val & 0x0004) IOPORT(W_TXSlotLoc2) &= 0x7FFF;
