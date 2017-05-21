@@ -22,6 +22,11 @@
 namespace GPU3D
 {
 
+namespace SoftRenderer
+{
+class Slope;
+}
+
 typedef struct
 {
     s32 Position[4];
@@ -58,6 +63,8 @@ typedef struct
     bool IsShadowMask;
     bool IsShadow;
     bool ClearStencil;
+
+    // data below rather specific to the software renderer
 
     u32 VTop, VBottom; // vertex indices
     s32 YTop, YBottom; // Y coords
