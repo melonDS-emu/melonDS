@@ -92,7 +92,7 @@ bool MP_Init()
 		return false;
 	}
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(BOOL));
+	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
 	if (res < 0)
 	{
 		closesocket(MPSocket);
