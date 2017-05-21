@@ -55,7 +55,7 @@ u8 PacketBuffer[2048];
 
 bool MP_Init()
 {
-    BOOL opt_true = TRUE;
+    int opt_true = 1;
     int res;
 
 #ifdef __WXMSW__
@@ -72,7 +72,7 @@ bool MP_Init()
 		return false;
 	}
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(BOOL));
+	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
 	if (res < 0)
 	{
 		closesocket(MPSocket);
