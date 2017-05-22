@@ -1427,6 +1427,18 @@ void RenderPolygon(RendererPolygon* rp)
     }
 }
 
+void RenderScanline(s32 y, int npolys)
+{
+    for (int i = 0; i < npolys; i++)
+    {
+        RendererPolygon* rp = &PolygonList[i];
+        Polygon* polygon = rp->PolyData;
+
+        if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
+            RenderPolygonScanline(rp, y);
+    }
+}
+
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
     u32 polyid = RenderClearAttr1 & 0x3F000000;
@@ -1483,14 +1495,21 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
         }
     }
 
-    for (int i = 0; i < npolys; i++)
-    {
-        SetupPolygon(&PolygonList[i], &polygons[i]);
-    }
-
     // TODO: Y-sorting of translucent polygons
 
+    int j = 0;
     for (int i = 0; i < npolys; i++)
+    {
+        if (polygons[i].Translucent) continue;
+        SetupPolygon(&PolygonList[j++], &polygons[i]);
+    }
+    for (int i = 0; i < npolys; i++)
+    {
+        if (!polygons[i].Translucent) continue;
+        SetupPolygon(&PolygonList[j++], &polygons[i]);
+    }
+
+    /*for (int i = 0; i < npolys; i++)
     {
         if (polygons[i].Translucent) continue;
         RenderPolygon(&PolygonList[i]);
@@ -1500,6 +1519,10 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
     {
         if (!polygons[i].Translucent) continue;
         RenderPolygon(&PolygonList[i]);
+    }*/
+    for (s32 y = 0; y < 192; y++)
+    {
+        RenderScanline(y, npolys);
     }
 }
 
