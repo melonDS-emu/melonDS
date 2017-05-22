@@ -36,11 +36,7 @@ u32 AttrBuffer[256*192];
 // bit24-29: polygon ID
 // bit30: translucent flag
 
-u8 StencilBuffer[256*192];
-
-// note: the stencil buffer isn't emulated properly.
-// emulating it properly would require rendering polygons per-scanline
-// the stencil buffer is normally limited to 2 scanlines
+u8 StencilBuffer[256*2];
 
 
 bool Init()
@@ -751,8 +747,6 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
 
 void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
-    // TODO: shit
-
     Polygon* polygon = rp->PolyData;
 
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
@@ -763,6 +757,9 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         fnDepthTest = DepthTest<true>;
     else
         fnDepthTest = DepthTest<false>;
+
+    if (polygon->ClearStencil)
+        memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -904,7 +901,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            if (StencilBuffer[pixeladdr] == 0)
+            if (StencilBuffer[pixeladdr & 0x1FF] == 0)
                 continue;
         }
 
@@ -930,7 +927,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             }
 
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
-                StencilBuffer[pixeladdr] = 1;
+                StencilBuffer[pixeladdr & 0x1FF] = 1;
 
             continue;
         }
@@ -1130,10 +1127,10 @@ void RenderPolygon(RendererPolygon* rp)
 
     if (ybot > 192) ybot = 192;
 
-    if (polygon->ClearStencil)
+    /*if (polygon->ClearStencil)
     {
         memset(StencilBuffer, 0, 192*256);
-    }
+    }*/
 
     for (s32 y = ytop; y < ybot; y++)
     {
