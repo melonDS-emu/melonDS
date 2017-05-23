@@ -21,6 +21,11 @@
 #include <string.h>
 #include "../Platform.h"
 
+#include <wx/wxprec.h>
+#ifndef WX_PRECOMP
+#include <wx/wx.h>
+#endif
+
 #ifdef __WXMSW__
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
@@ -46,11 +51,73 @@ namespace Platform
 {
 
 
+class Thread : public wxThread
+{
+public:
+    Thread(void (*func)())
+    : wxThread(wxTHREAD_JOINABLE)
+    {
+        this->Func = func;
+    }
+
+    ~Thread() {}
+
+protected:
+    virtual ExitCode Entry()
+    {
+        Func();
+        return (ExitCode)0;
+    }
+
+private:
+    void (*Func)();
+};
+
+
 socket_t MPSocket;
 sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
 
 #define NIFI_VER 1
+
+
+void* Thread_Create(void (*func)())
+{
+    Thread* ret = new Thread(func);
+    ret->Run();
+    return (void*)ret;
+}
+
+void Thread_Free(void* thread)
+{
+    delete (Thread*)thread;
+}
+
+void Thread_Wait(void* thread)
+{
+    ((Thread*)thread)->Wait();
+}
+
+
+void* Semaphore_Create()
+{
+    return (void*)new wxSemaphore();
+}
+
+void Semaphore_Free(void* sema)
+{
+    delete (wxSemaphore*)sema;
+}
+
+void Semaphore_Wait(void* sema)
+{
+    ((wxSemaphore*)sema)->Wait();
+}
+
+void Semaphore_Post(void* sema)
+{
+    ((wxSemaphore*)sema)->Post();
+}
 
 
 bool MP_Init()

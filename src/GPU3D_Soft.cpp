@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Platform.h"
 
 
 namespace GPU3D
@@ -38,9 +39,25 @@ u32 AttrBuffer[256*192];
 
 u8 StencilBuffer[256*2];
 
+// threading
+
+void* RenderThread;
+bool RenderThreadRunning;
+void* Sema_RenderStart;
+void* Sema_RenderDone;
+void* Sema_ScanlineCount;
+
+void RenderThreadFunc();
+
 
 bool Init()
 {
+    Sema_RenderStart = Platform::Semaphore_Create();
+    Sema_RenderDone = Platform::Semaphore_Create();
+    Sema_ScanlineCount = Platform::Semaphore_Create();
+
+    RenderThreadRunning = false;
+
     return true;
 }
 
@@ -53,6 +70,15 @@ void Reset()
     memset(ColorBuffer, 0, 256*192 * 4);
     memset(DepthBuffer, 0, 256*192 * 4);
     memset(AttrBuffer, 0, 256*192 * 4);
+
+    // TODO: make it configurable
+    if (!RenderThreadRunning)
+    {
+        RenderThreadRunning = true;
+        RenderThread = Platform::Thread_Create(RenderThreadFunc);
+    }
+
+    Platform::Semaphore_Post(Sema_RenderStart);
 }
 
 
@@ -1013,6 +1039,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
+#if 0
 void RenderPolygon(RendererPolygon* rp)
 {
     Polygon* polygon = rp->PolyData;
@@ -1027,104 +1054,6 @@ void RenderPolygon(RendererPolygon* rp)
 
     // draw, line per line
 
-    /*u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
-    bool wireframe = (polyalpha == 0);
-
-    bool (*fnDepthTest)(s32 oldz, s32 z);
-    if (polygon->Attr & (1<<14))
-        fnDepthTest = DepthTest<true>;
-    else
-        fnDepthTest = DepthTest<false>;*/
-
-
-    /*int lcur = vtop, rcur = vtop;
-    int lnext, rnext;
-
-    if (polygon->FacingView)
-    {
-        lnext = lcur + 1;
-        if (lnext >= nverts) lnext = 0;
-        rnext = rcur - 1;
-        if (rnext < 0) rnext = nverts - 1;
-    }
-    else
-    {
-        lnext = lcur - 1;
-        if (lnext < 0) lnext = nverts - 1;
-        rnext = rcur + 1;
-        if (rnext >= nverts) rnext = 0;
-    }
-
-    Slope slopeL, slopeR;
-    s32 xL, xR;
-    bool l_xmajor, r_xmajor;
-
-    if (ybot == ytop)
-    {
-        ybot++;
-        isline = true;
-
-        vtop = 0; vbot = 0;
-        xtop = 256; xbot = 0;
-        int i;
-
-        i = 1;
-        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
-        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
-
-        i = nverts - 1;
-        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
-        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
-
-        lcur = vtop; lnext = vtop;
-        rcur = vbot; rnext = vbot;
-
-        xL = slopeL.SetupDummy(polygon->Vertices[lcur]->FinalPosition[0], 0);
-        xR = slopeR.SetupDummy(polygon->Vertices[rcur]->FinalPosition[0], 1);
-    }
-    else
-    {
-        while (ytop >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
-        {
-            lcur = lnext;
-
-            if (polygon->FacingView)
-            {
-                lnext = lcur + 1;
-                if (lnext >= nverts) lnext = 0;
-            }
-            else
-            {
-                lnext = lcur - 1;
-                if (lnext < 0) lnext = nverts - 1;
-            }
-        }
-
-        xL = slopeL.Setup(polygon->Vertices[lcur]->FinalPosition[0], polygon->Vertices[lnext]->FinalPosition[0],
-                          polygon->Vertices[lcur]->FinalPosition[1], polygon->Vertices[lnext]->FinalPosition[1],
-                          polygon->FinalW[lcur], polygon->FinalW[lnext], 0);
-
-        while (ytop >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
-        {
-            rcur = rnext;
-
-            if (polygon->FacingView)
-            {
-                rnext = rcur - 1;
-                if (rnext < 0) rnext = nverts - 1;
-            }
-            else
-            {
-                rnext = rcur + 1;
-                if (rnext >= nverts) rnext = 0;
-            }
-        }
-
-        xR = slopeR.Setup(polygon->Vertices[rcur]->FinalPosition[0], polygon->Vertices[rnext]->FinalPosition[0],
-                          polygon->Vertices[rcur]->FinalPosition[1], polygon->Vertices[rnext]->FinalPosition[1],
-                          polygon->FinalW[rcur], polygon->FinalW[rnext], 1);
-    }*/
-
     if (ybot > 192) ybot = 192;
 
     /*if (polygon->ClearStencil)
@@ -1135,294 +1064,9 @@ void RenderPolygon(RendererPolygon* rp)
     for (s32 y = ytop; y < ybot; y++)
     {
         RenderPolygonScanline(rp, y);
-        /*if (!isline)
-        {
-            if (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
-            {
-                while (y >= polygon->Vertices[lnext]->FinalPosition[1] && lcur != vbot)
-                {
-                    lcur = lnext;
-
-                    if (polygon->FacingView)
-                    {
-                        lnext = lcur + 1;
-                        if (lnext >= nverts) lnext = 0;
-                    }
-                    else
-                    {
-                        lnext = lcur - 1;
-                        if (lnext < 0) lnext = nverts - 1;
-                    }
-                }
-
-                xL = slopeL.Setup(polygon->Vertices[lcur]->FinalPosition[0], polygon->Vertices[lnext]->FinalPosition[0],
-                                  polygon->Vertices[lcur]->FinalPosition[1], polygon->Vertices[lnext]->FinalPosition[1],
-                                  polygon->FinalW[lcur], polygon->FinalW[lnext], 0);
-            }
-
-            if (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
-            {
-                while (y >= polygon->Vertices[rnext]->FinalPosition[1] && rcur != vbot)
-                {
-                    rcur = rnext;
-
-                    if (polygon->FacingView)
-                    {
-                        rnext = rcur - 1;
-                        if (rnext < 0) rnext = nverts - 1;
-                    }
-                    else
-                    {
-                        rnext = rcur + 1;
-                        if (rnext >= nverts) rnext = 0;
-                    }
-                }
-
-                xR = slopeR.Setup(polygon->Vertices[rcur]->FinalPosition[0], polygon->Vertices[rnext]->FinalPosition[0],
-                                  polygon->Vertices[rcur]->FinalPosition[1], polygon->Vertices[rnext]->FinalPosition[1],
-                                  polygon->FinalW[rcur], polygon->FinalW[rnext], 1);
-            }
-        }
-
-        Vertex *vlcur, *vlnext, *vrcur, *vrnext;
-        s32 xstart, xend;
-        Slope* slope_start;
-        Slope* slope_end;
-
-        xstart = xL;
-        xend = xR;
-
-        s32 wl = slopeL.Interp.Interpolate(polygon->FinalW[lcur], polygon->FinalW[lnext]);
-        s32 wr = slopeR.Interp.Interpolate(polygon->FinalW[rcur], polygon->FinalW[rnext]);
-
-        s32 zl = slopeL.Interp.InterpolateZ(polygon->FinalZ[lcur], polygon->FinalZ[lnext], polygon->WBuffer);
-        s32 zr = slopeR.Interp.InterpolateZ(polygon->FinalZ[rcur], polygon->FinalZ[rnext], polygon->WBuffer);
-
-        // if the left and right edges are swapped, render backwards.
-        // note: we 'forget' to swap the xmajor flags, on purpose
-        // the hardware has the same bug
-        if (xstart > xend)
-        {
-            vlcur = polygon->Vertices[rcur];
-            vlnext = polygon->Vertices[rnext];
-            vrcur = polygon->Vertices[lcur];
-            vrnext = polygon->Vertices[lnext];
-
-            slope_start = &slopeR;
-            slope_end = &slopeL;
-
-            s32 tmp;
-            tmp = xstart; xstart = xend; xend = tmp;
-            tmp = wl; wl = wr; wr = tmp;
-            tmp = zl; zl = zr; zr = tmp;
-        }
-        else
-        {
-            vlcur = polygon->Vertices[lcur];
-            vlnext = polygon->Vertices[lnext];
-            vrcur = polygon->Vertices[rcur];
-            vrnext = polygon->Vertices[rnext];
-
-            slope_start = &slopeL;
-            slope_end = &slopeR;
-        }
-
-        // interpolate attributes along Y
-
-        s32 rl = slope_start->Interp.Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
-        s32 gl = slope_start->Interp.Interpolate(vlcur->FinalColor[1], vlnext->FinalColor[1]);
-        s32 bl = slope_start->Interp.Interpolate(vlcur->FinalColor[2], vlnext->FinalColor[2]);
-
-        s32 sl = slope_start->Interp.Interpolate(vlcur->TexCoords[0], vlnext->TexCoords[0]);
-        s32 tl = slope_start->Interp.Interpolate(vlcur->TexCoords[1], vlnext->TexCoords[1]);
-
-        s32 rr = slope_end->Interp.Interpolate(vrcur->FinalColor[0], vrnext->FinalColor[0]);
-        s32 gr = slope_end->Interp.Interpolate(vrcur->FinalColor[1], vrnext->FinalColor[1]);
-        s32 br = slope_end->Interp.Interpolate(vrcur->FinalColor[2], vrnext->FinalColor[2]);
-
-        s32 sr = slope_end->Interp.Interpolate(vrcur->TexCoords[0], vrnext->TexCoords[0]);
-        s32 tr = slope_end->Interp.Interpolate(vrcur->TexCoords[1], vrnext->TexCoords[1]);
-
-        // calculate edges
-        //
-        // edge fill rules for opaque pixels:
-        // * right edge is filled if slope > 1
-        // * left edge is filled if slope <= 1
-        // * edges with slope = 0 are always filled
-        // edges are always filled if the pixels are translucent
-        // in wireframe mode, there are special rules for equal Z (TODO)
-
-        s32 l_edgeend, r_edgestart;
-        bool l_filledge, r_filledge;
-
-        if (slopeL.XMajor)
-        {
-            l_edgeend = slope_start->EdgeLimit(0);
-            if (l_edgeend == xstart) l_edgeend++;
-
-            l_filledge = slope_start->Negative;
-        }
-        else
-        {
-            l_edgeend = xstart + 1;
-
-            l_filledge = true;
-        }
-
-        if (slopeR.XMajor)
-        {
-            r_edgestart = slope_end->EdgeLimit(1);
-            if (r_edgestart == xend) r_edgestart--;
-
-            r_filledge = !slope_end->Negative;
-        }
-        else
-        {
-            r_edgestart = xend - 1;
-
-            r_filledge = slope_end->Increment==0;
-        }
-
-        int yedge = 0;
-        if (y == ytop)        yedge = 0x4;
-        else if (y == ybot-1) yedge = 0x8;
-
-        Interpolator interpX(xstart, xend+1, wl, wr, 8);
-
-        for (s32 x = xstart; x <= xend; x++)
-        {
-            if (x < 0) continue;
-            if (x > 255) break;
-
-            int edge = yedge;
-            if (x < l_edgeend)        edge |= 0x1;
-            else if (x > r_edgestart) edge |= 0x2;
-
-            // wireframe polygons. really ugly, but works
-            if (wireframe && edge==0)
-            {
-                x = r_edgestart + 1;
-                continue;
-            }
-
-            u32 pixeladdr = (y*256) + x;
-            u32 attr = polygon->Attr & 0x3F008000;
-
-            // check stencil buffer for shadows
-            if (polygon->IsShadow)
-            {
-                if (StencilBuffer[pixeladdr] == 0)
-                    continue;
-            }
-
-            interpX.SetX(x);
-
-            s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-
-            if (polygon->IsShadowMask)
-            {
-                // for shadow masks: set stencil bits where the depth test fails.
-                // draw nothing.
-
-                // checkme
-                if (polyalpha == 31)
-                {
-                    if (!wireframe)
-                    {
-                        if ((edge & 0x1) && !l_filledge)
-                            continue;
-                        if ((edge & 0x2) && !r_filledge)
-                            continue;
-                    }
-                }
-
-                if (!fnDepthTest(DepthBuffer[pixeladdr], z))
-                    StencilBuffer[pixeladdr] = 1;
-
-                continue;
-            }
-
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
-                continue;
-
-            u32 vr = interpX.Interpolate(rl, rr);
-            u32 vg = interpX.Interpolate(gl, gr);
-            u32 vb = interpX.Interpolate(bl, br);
-
-            s16 s = interpX.Interpolate(sl, sr);
-            s16 t = interpX.Interpolate(tl, tr);
-
-            u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
-            u8 alpha = color >> 24;
-
-            // alpha test
-            // TODO: check alpha test when blending is disabled
-            if (alpha <= RenderAlphaRef) continue;
-
-            if (alpha == 31)
-            {
-                // edge fill rules for opaque pixels
-                // TODO, eventually: antialiasing
-                if (!wireframe)
-                {
-                    if ((edge & 0x1) && !l_filledge)
-                        continue;
-                    if ((edge & 0x2) && !r_filledge)
-                        continue;
-                }
-
-                DepthBuffer[pixeladdr] = z;
-            }
-            else
-            {
-                u32 dstattr = AttrBuffer[pixeladdr];
-                attr |= (1<<30);
-                if (polygon->IsShadow) dstattr |= (1<<30);
-
-                // skip if polygon IDs are equal
-                // note: this only happens if the destination pixel was translucent
-                // or always when drawing a shadow
-                // (the GPU keeps track of which pixels are translucent, regardless of
-                // the destination alpha)
-                if ((dstattr & 0x7F000000) == (attr & 0x7F000000))
-                    continue;
-
-                u32 dstcolor = ColorBuffer[pixeladdr];
-                u32 dstalpha = dstcolor >> 24;
-
-                if ((dstalpha > 0) && (RenderDispCnt & (1<<3)))
-                {
-                    u32 srcR = color & 0x3F;
-                    u32 srcG = (color >> 8) & 0x3F;
-                    u32 srcB = (color >> 16) & 0x3F;
-
-                    u32 dstR = dstcolor & 0x3F;
-                    u32 dstG = (dstcolor >> 8) & 0x3F;
-                    u32 dstB = (dstcolor >> 16) & 0x3F;
-
-                    alpha++;
-                    dstR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
-                    dstG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
-                    dstB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
-
-                    alpha--;
-                    if (alpha > dstalpha) dstalpha = alpha;
-
-                    color = dstR | (dstG << 8) | (dstB << 16) | (dstalpha << 24);
-                }
-
-                if (polygon->Attr & (1<<11))
-                    DepthBuffer[pixeladdr] = z;
-            }
-
-            ColorBuffer[pixeladdr] = color;
-            AttrBuffer[pixeladdr] = attr;
-        }
-
-        xL = slopeL.Step();
-        xR = slopeR.Step();*/
     }
 }
+#endif
 
 void RenderScanline(s32 y, int npolys)
 {
@@ -1436,7 +1080,7 @@ void RenderScanline(s32 y, int npolys)
     }
 }
 
-void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
+void ClearBuffers()
 {
     u32 polyid = RenderClearAttr1 & 0x3F000000;
 
@@ -1491,8 +1135,13 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
             AttrBuffer[i] = polyid;
         }
     }
-
-    // TODO: Y-sorting of translucent polygons
+}
+int derp=0;int linebuf=0;
+void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
+{
+    // sort polygons
+    // TODO: Y-sorting for translucent polygons
+    // TODO: all sorting should be done in GPU3D.cpp
 
     int j = 0;
     for (int i = 0; i < npolys; i++)
@@ -1506,25 +1155,58 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
         SetupPolygon(&PolygonList[j++], &polygons[i]);
     }
 
-    /*for (int i = 0; i < npolys; i++)
-    {
-        if (polygons[i].Translucent) continue;
-        RenderPolygon(&PolygonList[i]);
-    }
-
-    for (int i = 0; i < npolys; i++)
-    {
-        if (!polygons[i].Translucent) continue;
-        RenderPolygon(&PolygonList[i]);
-    }*/
     for (s32 y = 0; y < 192; y++)
     {
         RenderScanline(y, npolys);
+
+        if (threaded)
+            Platform::Semaphore_Post(Sema_ScanlineCount);derp=y;linebuf++;
     }
+}
+
+void VCount144()
+{
+    Platform::Semaphore_Wait(Sema_RenderDone);
+}
+
+void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
+{
+    //ClearBuffers();
+    //RenderPolygons(false, polygons, npolys);
+    //Platform::Semaphore_Wait(Sema_ScanlineCount);
+    //Platform::Semaphore_Wait(Sema_RenderDone);
+    if (linebuf!=0) printf("last frame was bad! %d\n", linebuf);
+    Platform::Semaphore_Post(Sema_RenderStart);
+    //printf("start frame %d\n", derp);
+}
+
+void RenderThreadFunc()
+{
+    //Platform::Semaphore_Post(Sema_ScanlineCount);
+
+    for (;;)
+    {
+        Platform::Semaphore_Wait(Sema_RenderStart);
+        if (!RenderThreadRunning) return;
+
+        ClearBuffers();
+        RenderPolygons(true, RenderPolygonRAM, RenderNumPolygons);
+
+        //Platform::Semaphore_Post(Sema_ScanlineCount);
+        Platform::Semaphore_Post(Sema_RenderDone);
+    }
+}
+
+void RequestLine(int line)
+{
+    Platform::Semaphore_Wait(Sema_ScanlineCount);
+    linebuf--;
 }
 
 u32* GetLine(int line)
 {
+    //Platform::Semaphore_Wait(Sema_ScanlineCount);
+if (line > derp || linebuf<0) printf("bad! %d %d, %d\n", line, derp, linebuf);
     return &ColorBuffer[line * 256];
 }
 

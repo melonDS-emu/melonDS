@@ -83,6 +83,10 @@ extern u8 RenderFogDensityTable[32];
 
 extern u32 RenderClearAttr1, RenderClearAttr2;
 
+extern Vertex* RenderVertexRAM;
+extern Polygon* RenderPolygonRAM;
+extern u32 RenderNumPolygons;
+
 bool Init();
 void DeInit();
 void Reset();
@@ -93,8 +97,10 @@ void Run(s32 cycles);
 void CheckFIFOIRQ();
 void CheckFIFODMA();
 
+void VCount144();
 void VBlank();
 void VCount215();
+void RequestLine(int line);
 u32* GetLine(int line);
 
 void WriteToGXFIFO(u32 val);
@@ -113,7 +119,9 @@ bool Init();
 void DeInit();
 void Reset();
 
+void VCount144();
 void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys);
+void RequestLine(int line);
 u32* GetLine(int line);
 
 }

@@ -721,6 +721,10 @@ void StartScanline(u32 line)
             GPU2D_B->VBlank();
             GPU3D::VBlank();
         }
+        else if (VCount == 144)
+        {
+            GPU3D::VCount144();
+        }
         else if (VCount == 215)
         {
             GPU3D::VCount215();

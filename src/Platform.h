@@ -28,11 +28,6 @@ void* Thread_Create(void (*func)());
 void Thread_Free(void* thread);
 void Thread_Wait(void* thread);
 
-void* Event_Create();
-void Event_Free(void* event);
-void Event_Wait(void* event);
-void Event_Signal(void* event);
-
 void* Semaphore_Create();
 void Semaphore_Free(void* sema);
 void Semaphore_Wait(void* sema);

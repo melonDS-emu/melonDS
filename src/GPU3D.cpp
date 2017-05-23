@@ -1798,7 +1798,12 @@ void CheckFIFODMA()
         NDS::CheckDMAs(0, 0x07);
 }
 
+void VCount144()
+{
+    SoftRenderer::VCount144();
+}
 
+int frame=0;
 void VBlank()
 {
     if (FlushRequest & 0x1)
@@ -1828,7 +1833,7 @@ void VBlank()
         NumPolygons = 0;
 
         FlushRequest &= ~0x1;
-        FlushRequest |= 0x2;
+        FlushRequest |= 0x2;frame=1;
     }
 }
 
@@ -1837,12 +1842,17 @@ void VCount215()
     // TODO: detect other conditions that could require rerendering
     // the DS is said to present new 3D frames all the time, even if no commands are sent
 
-    if (FlushRequest & 0x2)
+    //if (FlushRequest & 0x2)
     {
         SoftRenderer::RenderFrame(RenderVertexRAM, RenderPolygonRAM, RenderNumPolygons);
 
         FlushRequest &= ~0x2;
     }
+}
+
+void RequestLine(int line)
+{
+    return SoftRenderer::RequestLine(line);
 }
 
 u32* GetLine(int line)
