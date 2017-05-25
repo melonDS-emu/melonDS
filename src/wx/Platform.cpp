@@ -109,6 +109,11 @@ void Semaphore_Free(void* sema)
     delete (wxSemaphore*)sema;
 }
 
+void Semaphore_Reset(void* sema)
+{
+    while (((wxSemaphore*)sema)->TryWait() == wxSEMA_NO_ERROR);
+}
+
 void Semaphore_Wait(void* sema)
 {
     ((wxSemaphore*)sema)->Wait();

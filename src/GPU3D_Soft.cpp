@@ -43,6 +43,7 @@ u8 StencilBuffer[256*2];
 
 void* RenderThread;
 bool RenderThreadRunning;
+bool RenderThreadRendering;
 void* Sema_RenderStart;
 void* Sema_RenderDone;
 void* Sema_ScanlineCount;
@@ -57,12 +58,24 @@ bool Init()
     Sema_ScanlineCount = Platform::Semaphore_Create();
 
     RenderThreadRunning = false;
+    RenderThreadRendering = false;
 
     return true;
 }
 
 void DeInit()
 {
+    if (RenderThreadRunning)
+    {
+        RenderThreadRunning = false;
+        Platform::Semaphore_Post(Sema_RenderStart);
+        Platform::Thread_Wait(RenderThread);
+        Platform::Thread_Free(RenderThread);
+    }
+
+    Platform::Semaphore_Free(Sema_RenderStart);
+    Platform::Semaphore_Free(Sema_RenderDone);
+    Platform::Semaphore_Free(Sema_ScanlineCount);
 }
 
 void Reset()
@@ -77,6 +90,12 @@ void Reset()
         RenderThreadRunning = true;
         RenderThread = Platform::Thread_Create(RenderThreadFunc);
     }
+
+    if (RenderThreadRendering)
+        Platform::Semaphore_Wait(Sema_RenderDone);
+
+    Platform::Semaphore_Reset(Sema_RenderStart);
+    Platform::Semaphore_Reset(Sema_ScanlineCount);
 
     Platform::Semaphore_Post(Sema_RenderStart);
 }
@@ -1136,7 +1155,7 @@ void ClearBuffers()
         }
     }
 }
-int derp=0;int linebuf=0;
+
 void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
 {
     // sort polygons
@@ -1160,7 +1179,7 @@ void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
         RenderScanline(y, npolys);
 
         if (threaded)
-            Platform::Semaphore_Post(Sema_ScanlineCount);derp=y;linebuf++;
+            Platform::Semaphore_Post(Sema_ScanlineCount);
     }
 }
 
@@ -1173,40 +1192,33 @@ void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
 {
     //ClearBuffers();
     //RenderPolygons(false, polygons, npolys);
-    //Platform::Semaphore_Wait(Sema_ScanlineCount);
-    //Platform::Semaphore_Wait(Sema_RenderDone);
-    if (linebuf!=0) printf("last frame was bad! %d\n", linebuf);
+
     Platform::Semaphore_Post(Sema_RenderStart);
-    //printf("start frame %d\n", derp);
 }
 
 void RenderThreadFunc()
 {
-    //Platform::Semaphore_Post(Sema_ScanlineCount);
-
     for (;;)
     {
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
 
+        RenderThreadRendering = true;
         ClearBuffers();
         RenderPolygons(true, RenderPolygonRAM, RenderNumPolygons);
 
-        //Platform::Semaphore_Post(Sema_ScanlineCount);
         Platform::Semaphore_Post(Sema_RenderDone);
+        RenderThreadRendering = false;
     }
 }
 
 void RequestLine(int line)
 {
     Platform::Semaphore_Wait(Sema_ScanlineCount);
-    linebuf--;
 }
 
 u32* GetLine(int line)
 {
-    //Platform::Semaphore_Wait(Sema_ScanlineCount);
-if (line > derp || linebuf<0) printf("bad! %d %d, %d\n", line, derp, linebuf);
     return &ColorBuffer[line * 256];
 }
 

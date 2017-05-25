@@ -30,6 +30,7 @@ void Thread_Wait(void* thread);
 
 void* Semaphore_Create();
 void Semaphore_Free(void* sema);
+void Semaphore_Reset(void* sema);
 void Semaphore_Wait(void* sema);
 void Semaphore_Post(void* sema);
 
