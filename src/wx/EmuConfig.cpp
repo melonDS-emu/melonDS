@@ -36,6 +36,10 @@ EmuConfigDialog::EmuConfigDialog(wxWindow* parent)
     vboxmain->Add(cbDirectBoot, 0, wxALL&(~wxBOTTOM), 15);
     cbDirectBoot->SetValue(Config::DirectBoot != 0);
 
+    cbThreaded3D = new wxCheckBox(this, wxID_ANY, "Threaded 3D renderer");
+    vboxmain->Add(cbThreaded3D, 0, wxALL&(~wxBOTTOM), 15);
+    cbThreaded3D->SetValue(Config::Threaded3D != 0);
+
     {
         wxPanel* p = new wxPanel(this);
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -62,6 +66,7 @@ EmuConfigDialog::~EmuConfigDialog()
 void EmuConfigDialog::OnOk(wxCommandEvent& event)
 {
     Config::DirectBoot = cbDirectBoot->GetValue() ? 1:0;
+    Config::Threaded3D = cbThreaded3D->GetValue() ? 1:0;
     Config::Save();
 
     Close();

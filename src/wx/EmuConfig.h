@@ -37,6 +37,7 @@ private:
     void OnCancel(wxCommandEvent& event);
 
     wxCheckBox* cbDirectBoot;
+    wxCheckBox* cbThreaded3D;
 };
 
 #endif // WX_EMUCONFIG_H

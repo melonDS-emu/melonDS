@@ -33,6 +33,8 @@ int WindowHeight;
 
 int DirectBoot;
 
+int Threaded3D;
+
 typedef struct
 {
     char Name[16];
@@ -76,6 +78,8 @@ ConfigEntry ConfigFile[] =
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+
+    {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

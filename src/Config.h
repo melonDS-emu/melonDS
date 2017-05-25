@@ -35,6 +35,8 @@ extern int WindowHeight;
 
 extern int DirectBoot;
 
+extern int Threaded3D;
+
 }
 
 #endif // CONFIG_H
