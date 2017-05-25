@@ -117,6 +117,7 @@ protected:
 
     int emustatus;
     volatile bool emupaused;
+    bool limitfps;
 };
 
 #endif // WX_MAIN_H

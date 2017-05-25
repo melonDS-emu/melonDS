@@ -326,6 +326,8 @@ wxThread::ExitCode EmuThread::Entry()
     emustatus = 3;
     emupaused = false;
 
+    limitfps = true;
+
     sdlwin = SDL_CreateWindow("melonDS " MELONDS_VERSION,
                               SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                               Config::WindowWidth, Config::WindowHeight,
@@ -422,7 +424,7 @@ wxThread::ExitCode EmuThread::Entry()
             lasttick = curtick;
 
             u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick)
+            if (curtick < wantedtick && limitfps)
             {
                 Sleep(wantedtick - curtick);
             }
@@ -571,6 +573,7 @@ void EmuThread::ProcessEvents()
             if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::PressKey(16);
             if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::PressKey(17);
             if (evt.key.keysym.scancode == SDL_SCANCODE_F12) NDS::debug(0);
+            if (evt.key.keysym.scancode == SDL_SCANCODE_TAB) limitfps = !limitfps;
             break;
 
         case SDL_KEYUP:
@@ -579,6 +582,7 @@ void EmuThread::ProcessEvents()
                 if (evt.key.keysym.scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
             if (evt.key.keysym.scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
             if (evt.key.keysym.scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+            //if (evt.key.keysym.scancode == SDL_SCANCODE_TAB) limitfps = true;
             break;
 
         case SDL_JOYBUTTONDOWN:

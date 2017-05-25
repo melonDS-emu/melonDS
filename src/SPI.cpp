@@ -451,7 +451,7 @@ void Reset()
 
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
-    SPI_TSC::Init();
+    SPI_TSC::Reset();
 }
 
 
