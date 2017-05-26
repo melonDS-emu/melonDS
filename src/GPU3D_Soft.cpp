@@ -38,6 +38,7 @@ u32 AttrBuffer[256*192];
 // bit30: translucent flag
 
 u8 StencilBuffer[256*2];
+bool PrevIsShadowMask;
 
 // threading
 
@@ -83,6 +84,8 @@ void Reset()
     memset(ColorBuffer, 0, 256*192 * 4);
     memset(DepthBuffer, 0, 256*192 * 4);
     memset(AttrBuffer, 0, 256*192 * 4);
+
+    PrevIsShadowMask = false;
 
     // TODO: make it configurable
     if (!RenderThreadRunning)
@@ -803,8 +806,10 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else
         fnDepthTest = DepthTest<false>;
 
-    if (polygon->ClearStencil)
+    if (polygon->IsShadowMask && !PrevIsShadowMask)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+
+    PrevIsShadowMask = polygon->IsShadowMask;
 
     if (polygon->YTop != polygon->YBottom)
     {

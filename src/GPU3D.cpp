@@ -751,11 +751,6 @@ void SubmitPolygon()
     poly->Translucent = ((texfmt == 1 || texfmt == 6) && !(CurPolygonAttr & 0x10)) || (polyalpha > 0 && polyalpha < 31);
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
-    if ((NumPolygons == 1) || (!CurPolygonRAM[NumPolygons-2].IsShadowMask))
-        poly->ClearStencil = poly->IsShadowMask;
-    else
-        poly->ClearStencil = false;
-
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
 
     if (LastStripPolygon && clipstart > 0)

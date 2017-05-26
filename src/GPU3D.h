@@ -62,7 +62,6 @@ typedef struct
 
     bool IsShadowMask;
     bool IsShadow;
-    bool ClearStencil;
 
     // data below rather specific to the software renderer
 
