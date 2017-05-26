@@ -179,7 +179,7 @@ u16 RenderToonTable[32];
 u16 RenderEdgeTable[8];
 
 u32 RenderFogColor, RenderFogOffset;
-u8 RenderFogDensityTable[32];
+u8 RenderFogDensityTable[34];
 
 u32 RenderClearAttr1, RenderClearAttr2;
 
@@ -1815,7 +1815,9 @@ void VBlank()
 
         RenderFogColor = FogColor;
         RenderFogOffset = FogOffset;
-        memcpy(RenderFogDensityTable, FogDensityTable, 32);
+        RenderFogDensityTable[0] = FogDensityTable[0];
+        memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
+        RenderFogDensityTable[33] = FogDensityTable[31];
 
         RenderClearAttr1 = ClearAttr1;
         RenderClearAttr2 = ClearAttr2;
@@ -1988,7 +1990,7 @@ void Write8(u32 addr, u8 val)
 
     if (addr >= 0x04000360 && addr < 0x04000380)
     {
-        FogDensityTable[addr - 0x04000360] = val;
+        FogDensityTable[addr - 0x04000360] = val & 0x7F;
         return;
     }
 
@@ -2031,7 +2033,7 @@ void Write16(u32 addr, u16 val)
         FogColor = (FogColor & 0xFFFF) | (val << 16);
         return;
     case 0x0400035C:
-        FogOffset = val;
+        FogOffset = val & 0x7FFF;
         return;
     }
 
@@ -2044,8 +2046,8 @@ void Write16(u32 addr, u16 val)
     if (addr >= 0x04000360 && addr < 0x04000380)
     {
         addr -= 0x04000360;
-        FogDensityTable[addr] = val & 0xFF;
-        FogDensityTable[addr+1] = val >> 8;
+        FogDensityTable[addr] = val & 0x7F;
+        FogDensityTable[addr+1] = (val >> 8) & 0x7F;
         return;
     }
 
@@ -2085,7 +2087,7 @@ void Write32(u32 addr, u32 val)
         FogColor = val;
         return;
     case 0x0400035C:
-        FogOffset = val;
+        FogOffset = val & 0x7FFF;
         return;
 
     case 0x04000600:
@@ -2129,10 +2131,10 @@ void Write32(u32 addr, u32 val)
     if (addr >= 0x04000360 && addr < 0x04000380)
     {
         addr -= 0x04000360;
-        FogDensityTable[addr] = val & 0xFF;
-        FogDensityTable[addr+1] = (val >> 8) & 0xFF;
-        FogDensityTable[addr+2] = (val >> 16) & 0xFF;
-        FogDensityTable[addr+3] = val >> 24;
+        FogDensityTable[addr] = val & 0x7F;
+        FogDensityTable[addr+1] = (val >> 8) & 0x7F;
+        FogDensityTable[addr+2] = (val >> 16) & 0x7F;
+        FogDensityTable[addr+3] = (val >> 24) & 0x7F;
         return;
     }
 

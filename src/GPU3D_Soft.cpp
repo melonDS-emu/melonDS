@@ -1027,6 +1027,9 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             if ((dstattr & 0x7F000000) == (attr & 0x7F000000))
                 continue;
 
+            if (!(dstattr & (1<<15)))
+                attr &= ~(1<<15);
+
             u32 dstcolor = ColorBuffer[pixeladdr];
             u32 dstalpha = dstcolor >> 24;
 
@@ -1105,6 +1108,78 @@ void RenderScanline(s32 y, int npolys)
 
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
             RenderPolygonScanline(rp, y);
+    }
+
+    if (RenderDispCnt & (1<<7))
+    {
+        // fog
+
+        // hardware testing shows that the fog step is 0x80000>>SHIFT
+        // basically, the depth values used in GBAtek need to be
+        // multiplied by 0x200 to match Z-buffer values
+
+        bool fogcolor = !(RenderDispCnt & (1<<6));
+        u32 fogshift = (RenderDispCnt >> 8) & 0xF;
+        u32 fogoffset = RenderFogOffset * 0x200;
+
+        u32 fogR = (RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
+        u32 fogG = (RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
+        u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
+        u32 fogA = (RenderFogColor >> 16) & 0x1F;
+
+        for (int x = 0; x < 256; x++)
+        {
+            u32 pixeladdr = (y*256) + x;
+
+            u32 attr = AttrBuffer[pixeladdr];
+            if (!(attr & (1<<15))) continue;
+
+            u32 z = DepthBuffer[pixeladdr];
+            u32 densityid, densityfrac;
+            if (z < fogoffset)
+            {
+                densityid = 0;
+                densityfrac = 0;
+            }
+            else
+            {
+                z = (z - fogoffset) << fogshift;
+                densityid = z >> 19;
+                if (densityid >= 32)
+                {
+                    densityid = 32;
+                    densityfrac = 0;
+                }
+                else
+                    densityfrac = z & 0x7FFFF;
+            }
+
+            // checkme
+            u32 density =
+                ((RenderFogDensityTable[densityid] * (0x80000-densityfrac)) +
+                 (RenderFogDensityTable[densityid+1] * densityfrac)) >> 19;
+            if (density >= 127) density = 128;
+
+            u32 srccolor = ColorBuffer[pixeladdr];
+            u32 srcR = srccolor & 0x3F;
+            u32 srcG = (srccolor >> 8) & 0x3F;
+            u32 srcB = (srccolor >> 16) & 0x3F;
+            u32 srcA = (srccolor >> 24) & 0x1F;
+
+            if (fogcolor)
+            {
+                srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
+                srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
+                srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
+            }
+
+            if (densityid > 0)
+                srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
+            else
+                srcA = ((0x1F * density) + (srcA * (128-density))) >> 7; // checkme
+
+            ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
+        }
     }
 }
 
