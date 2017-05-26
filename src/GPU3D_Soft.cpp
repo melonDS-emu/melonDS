@@ -1025,25 +1025,29 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             u32 dstcolor = ColorBuffer[pixeladdr];
             u32 dstalpha = dstcolor >> 24;
 
-            if ((dstalpha > 0) && (RenderDispCnt & (1<<3)))
+            if (dstalpha > 0)
             {
                 u32 srcR = color & 0x3F;
                 u32 srcG = (color >> 8) & 0x3F;
                 u32 srcB = (color >> 16) & 0x3F;
 
-                u32 dstR = dstcolor & 0x3F;
-                u32 dstG = (dstcolor >> 8) & 0x3F;
-                u32 dstB = (dstcolor >> 16) & 0x3F;
+                if (RenderDispCnt & (1<<3))
+                {
+                    u32 dstR = dstcolor & 0x3F;
+                    u32 dstG = (dstcolor >> 8) & 0x3F;
+                    u32 dstB = (dstcolor >> 16) & 0x3F;
 
-                alpha++;
-                dstR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
-                dstG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
-                dstB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+                    alpha++;
+                    srcR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
+                    srcG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
+                    srcB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+                    alpha--;
+                }
 
-                alpha--;
-                if (alpha > dstalpha) dstalpha = alpha;
+                if (alpha > dstalpha)
+                    dstalpha = alpha;
 
-                color = dstR | (dstG << 8) | (dstB << 16) | (dstalpha << 24);
+                color = srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
             }
 
             if (polygon->Attr & (1<<11))
