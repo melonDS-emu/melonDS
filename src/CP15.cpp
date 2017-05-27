@@ -64,13 +64,13 @@ void UpdateDTCMSetting()
     {
         DTCMBase = DTCMSetting & 0xFFFFF000;
         DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, DTCMBase, DTCMSize);
+        //printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, DTCMBase, DTCMSize);
     }
     else
     {
         DTCMBase = 0xFFFFFFFF;
         DTCMSize = 0;
-        printf("DTCM disabled\n");
+        //printf("DTCM disabled\n");
     }
 }
 
@@ -79,12 +79,12 @@ void UpdateITCMSetting()
     if (Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
-        printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
+        //printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
     }
     else
     {
         ITCMSize = 0;
-        printf("ITCM disabled\n");
+        //printf("ITCM disabled\n");
     }
 }
 

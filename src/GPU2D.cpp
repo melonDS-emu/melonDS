@@ -382,6 +382,7 @@ void GPU2D::DrawScanline(u32 line)
 
     // request each 3D scanline in advance
     // this is required for the threaded mode of the software renderer
+    // (alternately we could call GetLine() once and store the result somewhere)
     if (Num == 0)
         GPU3D::RequestLine(line);
 

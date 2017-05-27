@@ -617,7 +617,14 @@ void StartHBlank(u32 line)
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
-    if (VCount < 192) NDS::CheckDMAs(0, 0x02);
+    if (VCount < 192)
+    {
+        NDS::CheckDMAs(0, 0x02);
+    }
+    else if (VCount == 215)
+    {
+        GPU3D::VCount215();
+    }
 
     if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);
     if (DispStat[1] & (1<<4)) NDS::SetIRQ(1, NDS::IRQ_HBlank);
@@ -724,10 +731,6 @@ void StartScanline(u32 line)
         else if (VCount == 144)
         {
             GPU3D::VCount144();
-        }
-        else if (VCount == 215)
-        {
-            GPU3D::VCount215();
         }
     }
 
