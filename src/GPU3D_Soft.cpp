@@ -28,9 +28,9 @@ namespace GPU3D
 namespace SoftRenderer
 {
 
-u32 ColorBuffer[256*192];
-u32 DepthBuffer[256*192];
-u32 AttrBuffer[256*192];
+u32 ColorBuffer[258*3*194];
+u32 DepthBuffer[258*3*194];
+u32 AttrBuffer[258*3*194];
 
 // attribute buffer:
 // bit15: fog enable
@@ -952,6 +952,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     Interpolator interpX(xstart, xend+1, wl, wr, 8);
 //printf("%d: edge %d %d, %d %d\n", y, l_edgelen, r_edgelen, l_edgecov, r_edgecov);
+    // TODO: split this based on edge/middle
     for (s32 x = xstart; x <= xend; x++)
     {
         if (x < 0) continue;
@@ -968,13 +969,13 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             continue;
         }
 
-        u32 pixeladdr = (y*256) + x;
+        u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
         u32 attr = polygon->Attr & 0x3F008000;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            if (StencilBuffer[pixeladdr & 0x1FF] == 0)
+            if (StencilBuffer[256*(y&0x1) + x] == 0)
                 continue;
         }
 
@@ -1000,13 +1001,19 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             }
 
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
-                StencilBuffer[pixeladdr & 0x1FF] = 1;
+                StencilBuffer[256*(y&0x1) + x] = 1;
 
             continue;
         }
 
+        // if depth test against the topmost pixel fails, test
+        // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z))
-            continue;
+        {
+            pixeladdr += 258;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+                continue;
+        }
 
         u32 vr = interpX.Interpolate(rl, rr);
         u32 vg = interpX.Interpolate(gl, gr);
@@ -1019,19 +1026,25 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         u8 alpha = color >> 24;
 
         // alpha test
-        // TODO: check alpha test when blending is disabled
         if (alpha <= RenderAlphaRef) continue;
 
         if (alpha == 31)
         {
             // edge fill rules for opaque pixels
-            // TODO, eventually: antialiasing
             if (!wireframe)
             {
                 if ((edge & 0x1) && !l_filledge)
                     continue;
                 if ((edge & 0x2) && !r_filledge)
                     continue;
+            }
+
+            // push old pixel down if needed
+            if (edge)
+            {
+                ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
+                DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
+                AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
             }
 
             DepthBuffer[pixeladdr] = z;
@@ -1079,6 +1092,14 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                     dstalpha = alpha;
 
                 color = srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
+            }
+
+            // push old pixel down if needed
+            if (edge)
+            {
+                ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
+                DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
+                AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
             }
 
             if (polygon->Attr & (1<<11))
@@ -1132,7 +1153,10 @@ void RenderScanline(s32 y, int npolys)
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
             RenderPolygonScanline(rp, y);
     }
+}
 
+void ScanlineFinalPass(s32 y)
+{
     if (RenderDispCnt & (1<<7))
     {
         // fog
@@ -1140,6 +1164,9 @@ void RenderScanline(s32 y, int npolys)
         // hardware testing shows that the fog step is 0x80000>>SHIFT
         // basically, the depth values used in GBAtek need to be
         // multiplied by 0x200 to match Z-buffer values
+
+        // fog is applied to the topmost two pixels, which is required for
+        // proper antialiasing
 
         bool fogcolor = !(RenderDispCnt & (1<<6));
         u32 fogshift = (RenderDispCnt >> 8) & 0xF;
@@ -1150,72 +1177,106 @@ void RenderScanline(s32 y, int npolys)
         u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
 
-        for (int x = 0; x < 256; x++)
+        for (int i = 0; i < 258*2; i+=258)
         {
-            u32 pixeladdr = (y*256) + x;
-
-            u32 attr = AttrBuffer[pixeladdr];
-            if (!(attr & (1<<15))) continue;
-
-            u32 z = DepthBuffer[pixeladdr];
-            u32 densityid, densityfrac;
-            if (z < fogoffset)
+            for (int x = 0; x < 256; x++)
             {
-                densityid = 0;
-                densityfrac = 0;
-            }
-            else
-            {
-                z = (z - fogoffset) << fogshift;
-                densityid = z >> 19;
-                if (densityid >= 32)
+                u32 pixeladdr = 258*3 + 1 + (y*258*3) + i + x;
+
+                u32 attr = AttrBuffer[pixeladdr];
+                if (!(attr & (1<<15))) continue;
+
+                u32 z = DepthBuffer[pixeladdr];
+                u32 densityid, densityfrac;
+                if (z < fogoffset)
                 {
-                    densityid = 32;
+                    densityid = 0;
                     densityfrac = 0;
                 }
                 else
-                    densityfrac = z & 0x7FFFF;
+                {
+                    z = (z - fogoffset) << fogshift;
+                    densityid = z >> 19;
+                    if (densityid >= 32)
+                    {
+                        densityid = 32;
+                        densityfrac = 0;
+                    }
+                    else
+                        densityfrac = z & 0x7FFFF;
+                }
+
+                // checkme
+                u32 density =
+                    ((RenderFogDensityTable[densityid] * (0x80000-densityfrac)) +
+                     (RenderFogDensityTable[densityid+1] * densityfrac)) >> 19;
+                if (density >= 127) density = 128;
+
+                u32 srccolor = ColorBuffer[pixeladdr];
+                u32 srcR = srccolor & 0x3F;
+                u32 srcG = (srccolor >> 8) & 0x3F;
+                u32 srcB = (srccolor >> 16) & 0x3F;
+                u32 srcA = (srccolor >> 24) & 0x1F;
+
+                if (fogcolor)
+                {
+                    srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
+                    srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
+                    srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
+                }
+
+                if (densityid > 0)
+                    srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
+                else
+                    srcA = ((0x1F * density) + (srcA * (128-density))) >> 7; // checkme
+
+                ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
             }
-
-            // checkme
-            u32 density =
-                ((RenderFogDensityTable[densityid] * (0x80000-densityfrac)) +
-                 (RenderFogDensityTable[densityid+1] * densityfrac)) >> 19;
-            if (density >= 127) density = 128;
-
-            u32 srccolor = ColorBuffer[pixeladdr];
-            u32 srcR = srccolor & 0x3F;
-            u32 srcG = (srccolor >> 8) & 0x3F;
-            u32 srcB = (srccolor >> 16) & 0x3F;
-            u32 srcA = (srccolor >> 24) & 0x1F;
-
-            if (fogcolor)
-            {
-                srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
-                srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
-                srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
-            }
-
-            if (densityid > 0)
-                srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
-            else
-                srcA = ((0x1F * density) + (srcA * (128-density))) >> 7; // checkme
-
-            ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
         }
     }
 }
 
 void ClearBuffers()
 {
+    u32 clearz = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = RenderClearAttr1 & 0x3F000000;
+
+    // fill screen borders for edge marking
+    // CHECKME
+    // GBAtek is unsure about the polygon ID, and nothing is said about Z
+
+    for (int x = 0; x < 258; x++)
+    {
+        ColorBuffer[x] = 0;
+        DepthBuffer[x] = clearz;
+        AttrBuffer[x] = polyid;
+    }
+
+    for (int x = 258*3; x < 258*3*193; x+=(258*3))
+    {
+        ColorBuffer[x] = 0;
+        DepthBuffer[x] = clearz;
+        AttrBuffer[x] = polyid;
+        ColorBuffer[x+257] = 0;
+        DepthBuffer[x+257] = clearz;
+        AttrBuffer[x+257] = polyid;
+    }
+
+    for (int x = 258*3*193; x < 258*3*194; x++)
+    {
+        ColorBuffer[x] = 0;
+        DepthBuffer[x] = clearz;
+        AttrBuffer[x] = polyid;
+    }
+
+    // clear the screen
 
     if (RenderDispCnt & (1<<14))
     {
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
-        for (int y = 0; y < 256*192; y += 256)
+        for (int y = 0; y < 258*3*192; y+=(258*3))
         {
             for (int x = 0; x < 256; x++)
             {
@@ -1231,9 +1292,10 @@ void ClearBuffers()
 
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
 
-                ColorBuffer[y+x] = color;
-                DepthBuffer[y+x] = z;
-                AttrBuffer[y+x] = polyid | (val3 & 0x8000);
+                u32 pixeladdr = 258*3 + 1 + y + x;
+                ColorBuffer[pixeladdr] = color;
+                DepthBuffer[pixeladdr] = z;
+                AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
 
                 xoff++;
             }
@@ -1251,15 +1313,17 @@ void ClearBuffers()
         u32 a = (RenderClearAttr1 >> 16) & 0x1F;
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
-        u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
-
 		polyid |= (RenderClearAttr1 & 0x8000);
 
-        for (int i = 0; i < 256*192; i++)
+        for (int y = 0; y < 258*3*192; y+=(258*3))
         {
-            ColorBuffer[i] = color;
-            DepthBuffer[i] = z;
-            AttrBuffer[i] = polyid;
+            for (int x = 0; x < 256; x++)
+            {
+                u32 pixeladdr = 258*3 + 1 + y + x;
+                ColorBuffer[pixeladdr] = color;
+                DepthBuffer[pixeladdr] = clearz;
+                AttrBuffer[pixeladdr] = polyid;
+            }
         }
     }
 }
@@ -1282,13 +1346,21 @@ void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
         SetupPolygon(&PolygonList[j++], &polygons[i]);
     }
 
-    for (s32 y = 0; y < 192; y++)
+    RenderScanline(0, npolys);
+
+    for (s32 y = 1; y < 192; y++)
     {
         RenderScanline(y, npolys);
+        ScanlineFinalPass(y-1);
 
         if (threaded)
             Platform::Semaphore_Post(Sema_ScanlineCount);
     }
+
+    ScanlineFinalPass(191);
+
+    if (threaded)
+        Platform::Semaphore_Post(Sema_ScanlineCount);
 }
 
 void VCount144()
@@ -1327,7 +1399,7 @@ void RequestLine(int line)
 
 u32* GetLine(int line)
 {
-    return &ColorBuffer[line * 256];
+    return &ColorBuffer[line * 258*3  + 258*3 + 1];
 }
 
 }
