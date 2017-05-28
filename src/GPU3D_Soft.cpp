@@ -193,12 +193,13 @@ private:
 };
 
 
+template<int side>
 class Slope
 {
 public:
     Slope() {}
 
-    s32 SetupDummy(s32 x0, int side)
+    s32 SetupDummy(s32 x0)
     {
         if (side)
         {
@@ -223,7 +224,7 @@ public:
         return x0;
     }
 
-    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, int side)
+    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1)
     {
         this->x0 = x0;
         this->y = y0;
@@ -312,7 +313,41 @@ public:
         return ret;
     }
 
-    s32 EdgeLimit(int side)
+    void EdgeParams_XMajor(s32* length, s32* coverage)
+    {
+        if (side ^ Negative)
+            *length = (dx >> 16) - ((dx-Increment) >> 16);
+        else
+            *length = ((dx+Increment) >> 16) - (dx >> 16);
+
+        // for X-major edges, coverage will be calculated later
+        *coverage = -1;
+    }
+
+    void EdgeParams_YMajor(s32* length, s32* coverage)
+    {
+        *length = 1;
+
+        if (Increment == 0)
+        {
+            *coverage = 31;
+        }
+        else
+        {
+            *coverage = (dx & 0xF800) >> 11;
+            if (!(side ^ Negative)) *coverage = 0x1F - *coverage;
+        }
+    }
+
+    void EdgeParams(s32* length, s32* coverage)
+    {
+        if (XMajor)
+            return EdgeParams_XMajor(length, coverage);
+        else
+            return EdgeParams_YMajor(length, coverage);
+    }
+
+    /*s32 EdgeLimit()
     {
         s32 ret;
         if (side)
@@ -327,7 +362,7 @@ public:
         }
 
         return ret;
-    }
+    }*/
 
     s32 Increment;
     bool Negative;
@@ -344,7 +379,8 @@ typedef struct
 {
     Polygon* PolyData;
 
-    Slope SlopeL, SlopeR;
+    Slope<0> SlopeL;
+    Slope<1> SlopeR;
     s32 XL, XR;
     u32 CurVL, CurVR;
     u32 NextVL, NextVR;
@@ -707,7 +743,7 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
 
     rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
                               polygon->Vertices[rp->CurVL]->FinalPosition[1], polygon->Vertices[rp->NextVL]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], 0);
+                              polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
 }
 
 void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
@@ -734,7 +770,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 
     rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
                               polygon->Vertices[rp->CurVR]->FinalPosition[1], polygon->Vertices[rp->NextVR]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], 1);
+                              polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
 }
 
 void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
@@ -783,8 +819,8 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
         rp->CurVL = vtop; rp->NextVL = vtop;
         rp->CurVR = vbot; rp->NextVR = vbot;
 
-        rp->XL = rp->SlopeL.SetupDummy(polygon->Vertices[rp->CurVL]->FinalPosition[0], 0);
-        rp->XR = rp->SlopeR.SetupDummy(polygon->Vertices[rp->CurVR]->FinalPosition[0], 1);
+        rp->XL = rp->SlopeL.SetupDummy(polygon->Vertices[rp->CurVL]->FinalPosition[0]);
+        rp->XR = rp->SlopeR.SetupDummy(polygon->Vertices[rp->CurVR]->FinalPosition[0]);
     }
     else
     {
@@ -826,11 +862,25 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
-    Slope* slope_start;
-    Slope* slope_end;
+    bool l_filledge, r_filledge;
+    s32 l_edgelen, r_edgelen;
+    s32 l_edgecov, r_edgecov;
+    //Slope* slope_start;
+    //Slope* slope_end;
+    Interpolator* interp_start;
+    Interpolator* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
+
+    // edge fill rules for opaque pixels:
+    // * right edge is filled if slope > 1
+    // * left edge is filled if slope <= 1
+    // * edges with slope = 0 are always filled
+    // edges are always filled if antialiasing is enabled or if the pixels are translucent
+
+    l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
+    r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
 
     s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
     s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
@@ -839,8 +889,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
 
     // if the left and right edges are swapped, render backwards.
-    // note: we 'forget' to swap the xmajor flags, on purpose
-    // the hardware has the same bug
+    // on hardware, swapped edges seem to break edge length calculation,
+    // causing X-major edges to be rendered wrong when
+    // wireframe/edgemarking/antialiasing are used
+    // it also causes bad antialiasing, but not sure what's going on (TODO)
+    // most probable explanation is that such slopes are considered to be Y-major
+
     if (xstart > xend)
     {
         vlcur = polygon->Vertices[rp->CurVR];
@@ -848,13 +902,17 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         vrcur = polygon->Vertices[rp->CurVL];
         vrnext = polygon->Vertices[rp->NextVL];
 
-        slope_start = &rp->SlopeR;
-        slope_end = &rp->SlopeL;
+        interp_start = &rp->SlopeR.Interp;
+        interp_end = &rp->SlopeL.Interp;
+
+        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
+        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
 
         s32 tmp;
         tmp = xstart; xstart = xend; xend = tmp;
         tmp = wl; wl = wr; wr = tmp;
         tmp = zl; zl = zr; zr = tmp;
+        tmp = (s32)l_filledge; l_filledge = r_filledge; r_filledge = (bool)tmp;
     }
     else
     {
@@ -863,85 +921,50 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         vrcur = polygon->Vertices[rp->CurVR];
         vrnext = polygon->Vertices[rp->NextVR];
 
-        slope_start = &rp->SlopeL;
-        slope_end = &rp->SlopeR;
+        interp_start = &rp->SlopeL.Interp;
+        interp_end = &rp->SlopeR.Interp;
+
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
     }
 
     // interpolate attributes along Y
 
-    s32 rl = slope_start->Interp.Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
-    s32 gl = slope_start->Interp.Interpolate(vlcur->FinalColor[1], vlnext->FinalColor[1]);
-    s32 bl = slope_start->Interp.Interpolate(vlcur->FinalColor[2], vlnext->FinalColor[2]);
+    s32 rl = interp_start->Interpolate(vlcur->FinalColor[0], vlnext->FinalColor[0]);
+    s32 gl = interp_start->Interpolate(vlcur->FinalColor[1], vlnext->FinalColor[1]);
+    s32 bl = interp_start->Interpolate(vlcur->FinalColor[2], vlnext->FinalColor[2]);
 
-    s32 sl = slope_start->Interp.Interpolate(vlcur->TexCoords[0], vlnext->TexCoords[0]);
-    s32 tl = slope_start->Interp.Interpolate(vlcur->TexCoords[1], vlnext->TexCoords[1]);
+    s32 sl = interp_start->Interpolate(vlcur->TexCoords[0], vlnext->TexCoords[0]);
+    s32 tl = interp_start->Interpolate(vlcur->TexCoords[1], vlnext->TexCoords[1]);
 
-    s32 rr = slope_end->Interp.Interpolate(vrcur->FinalColor[0], vrnext->FinalColor[0]);
-    s32 gr = slope_end->Interp.Interpolate(vrcur->FinalColor[1], vrnext->FinalColor[1]);
-    s32 br = slope_end->Interp.Interpolate(vrcur->FinalColor[2], vrnext->FinalColor[2]);
+    s32 rr = interp_end->Interpolate(vrcur->FinalColor[0], vrnext->FinalColor[0]);
+    s32 gr = interp_end->Interpolate(vrcur->FinalColor[1], vrnext->FinalColor[1]);
+    s32 br = interp_end->Interpolate(vrcur->FinalColor[2], vrnext->FinalColor[2]);
 
-    s32 sr = slope_end->Interp.Interpolate(vrcur->TexCoords[0], vrnext->TexCoords[0]);
-    s32 tr = slope_end->Interp.Interpolate(vrcur->TexCoords[1], vrnext->TexCoords[1]);
+    s32 sr = interp_end->Interpolate(vrcur->TexCoords[0], vrnext->TexCoords[0]);
+    s32 tr = interp_end->Interpolate(vrcur->TexCoords[1], vrnext->TexCoords[1]);
 
-    // calculate edges
-    //
-    // edge fill rules for opaque pixels:
-    // * right edge is filled if slope > 1
-    // * left edge is filled if slope <= 1
-    // * edges with slope = 0 are always filled
-    // edges are always filled if the pixels are translucent
     // in wireframe mode, there are special rules for equal Z (TODO)
-
-    s32 l_edgeend, r_edgestart;
-    bool l_filledge, r_filledge;
-
-    if (rp->SlopeL.XMajor)
-    {
-        l_edgeend = slope_start->EdgeLimit(0);
-        if (l_edgeend == xstart) l_edgeend++;
-
-        l_filledge = slope_start->Negative;
-    }
-    else
-    {
-        l_edgeend = xstart + 1;
-
-        l_filledge = true;
-    }
-
-    if (rp->SlopeR.XMajor)
-    {
-        r_edgestart = slope_end->EdgeLimit(1);
-        if (r_edgestart == xend) r_edgestart--;
-
-        r_filledge = !slope_end->Negative;
-    }
-    else
-    {
-        r_edgestart = xend - 1;
-
-        r_filledge = slope_end->Increment==0;
-    }
 
     int yedge = 0;
     if (y == polygon->YTop)           yedge = 0x4;
     else if (y == polygon->YBottom-1) yedge = 0x8;
 
     Interpolator interpX(xstart, xend+1, wl, wr, 8);
-
+//printf("%d: edge %d %d, %d %d\n", y, l_edgelen, r_edgelen, l_edgecov, r_edgecov);
     for (s32 x = xstart; x <= xend; x++)
     {
         if (x < 0) continue;
         if (x > 255) break;
 
         int edge = yedge;
-        if (x < l_edgeend)        edge |= 0x1;
-        else if (x > r_edgestart) edge |= 0x2;
+        if (x < xstart+l_edgelen)    edge |= 0x1;
+        else if (x > xend-r_edgelen) edge |= 0x2;
 
         // wireframe polygons. really ugly, but works
         if (wireframe && edge==0)
         {
-            x = r_edgestart + 1;
+            x = xend-r_edgelen + 1;
             continue;
         }
 
@@ -1215,6 +1238,7 @@ void ClearBuffers()
                 xoff++;
             }
 
+            xoff = 0;
             yoff++;
         }
     }

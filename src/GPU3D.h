@@ -22,11 +22,6 @@
 namespace GPU3D
 {
 
-namespace SoftRenderer
-{
-class Slope;
-}
-
 typedef struct
 {
     s32 Position[4];
