@@ -37,6 +37,8 @@ extern int DirectBoot;
 
 extern int Threaded3D;
 
+extern int Microphone;
+
 }
 
 #endif // CONFIG_H

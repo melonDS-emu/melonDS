@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include "NDS.h"
 #include "SPI.h"
+#include "Config.h"
 
 
 namespace SPI_Firmware
@@ -408,7 +409,12 @@ void Write(u8 val, u32 hold)
         {
         case 0x10: ConvResult = TouchY; break;
         case 0x50: ConvResult = TouchX; break;
-        default: ConvResult = 0xFFF; break;
+        default: 
+		if (Config::Microphone != 0)
+			ConvResult = 0xFFF; 
+		else
+			ConvResult = 0x800;
+		break;
         }
 
         if (ControlByte & 0x08)
