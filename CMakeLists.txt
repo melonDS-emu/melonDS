@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8.11)
 
 SET(PROJECT_WX melonDS)
 PROJECT(${PROJECT_WX})
-SET(INSTALL_PATH /usr/local/bin/)
 
 SET(SOURCES
 	src/wx/main.cpp
@@ -44,4 +43,4 @@ link_libraries(${SDL2_LIBRARIES})
 add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
 
-install(TARGETS ${PROJECT_WX} DESTINATION ${INSTALL_PATH})
+install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
