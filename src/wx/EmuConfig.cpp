@@ -40,7 +40,7 @@ EmuConfigDialog::EmuConfigDialog(wxWindow* parent)
     vboxmain->Add(cbThreaded3D, 0, wxALL&(~wxBOTTOM), 15);
     cbThreaded3D->SetValue(Config::Threaded3D != 0);
 	
-    cbMicrophone = new wxCheckBox(this, wxID_ANY, "Auto mic");
+    cbMicrophone = new wxCheckBox(this, wxID_ANY, "Auto microphone input");
     vboxmain->Add(cbMicrophone, 0, wxALL&(~wxBOTTOM), 15);
     cbMicrophone->SetValue(Config::Microphone != 0);
 
