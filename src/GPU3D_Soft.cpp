@@ -33,6 +33,8 @@ u32 DepthBuffer[258*3*194];
 u32 AttrBuffer[258*3*194];
 
 // attribute buffer:
+// bit0-3: edge flags (left/right/top/bottom)
+// bit8-12: antialiasing alpha
 // bit15: fog enable
 // bit24-29: polygon ID
 // bit30: translucent flag
@@ -290,7 +292,7 @@ public:
         else        Interp.SetX(y);
         return x;
     }
-
+s32 DX() { return dx; }
     s32 Step()
     {
         dx += Increment;
@@ -632,6 +634,36 @@ bool DepthTest(s32 oldz, s32 z)
     return false;
 }
 
+u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha)
+{
+    u32 dstalpha = dstcolor >> 24;
+
+    if (dstalpha == 0)
+        return srccolor;
+
+    u32 srcR = srccolor & 0x3F;
+    u32 srcG = (srccolor >> 8) & 0x3F;
+    u32 srcB = (srccolor >> 16) & 0x3F;
+
+    if (RenderDispCnt & (1<<3))
+    {
+        u32 dstR = dstcolor & 0x3F;
+        u32 dstG = (dstcolor >> 8) & 0x3F;
+        u32 dstB = (dstcolor >> 16) & 0x3F;
+
+        alpha++;
+        srcR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
+        srcG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
+        srcB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
+        alpha--;
+    }
+
+    if (alpha > dstalpha)
+        dstalpha = alpha;
+
+    return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
+}
+
 u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 {
     u8 r, g, b, a;
@@ -965,12 +997,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // wireframe polygons. really ugly, but works
         if (wireframe && edge==0)
         {
-            x = xend-r_edgelen + 1;
+            x = xend-r_edgelen;
             continue;
         }
 
         u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
-        u32 attr = polygon->Attr & 0x3F008000;
+        u32 attr = (polygon->Attr & 0x3F008000) | edge;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -991,7 +1023,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             // checkme
             if (polyalpha == 31)
             {
-                if (!wireframe)
+                if (!wireframe && !(RenderDispCnt & (1<<4)))
                 {
                     if ((edge & 0x1) && !l_filledge)
                         continue;
@@ -1030,21 +1062,47 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
-            // edge fill rules for opaque pixels
-            if (!wireframe)
+            if (RenderDispCnt & (1<<4))
             {
-                if ((edge & 0x1) && !l_filledge)
-                    continue;
-                if ((edge & 0x2) && !r_filledge)
-                    continue;
-            }
+                // anti-aliasing: all edges are rendered
 
-            // push old pixel down if needed
-            if (edge)
+                if (edge)
+                {
+                    // calculate coverage
+                    // TODO: optimize
+                    s32 cov = 31;
+                    /*if (edge & 0x1)
+                    {if(y==48||true)printf("[y%d] coverage for %d: %d / %d = %d %d   %08X %d %08X\n", y, x, x-xstart, l_edgelen,
+                                     ((x - xstart) << 5) / (l_edgelen), ((x - xstart) *31) / (l_edgelen), rp->SlopeL.Increment, l_edgecov,
+                                           rp->SlopeL.DX());
+                        cov = l_edgecov;
+                        if (cov == -1) cov = ((x - xstart) << 5) / l_edgelen;
+                    }
+                    else if (edge & 0x2)
+                    {
+                        cov = r_edgecov;
+                        if (cov == -1) cov = ((xend - x) << 5) / r_edgelen;
+                    }cov=31;*/
+                    attr |= (cov << 8);
+
+                    // push old pixel down if needed
+                    // we only need to do it for opaque edge pixels, since
+                    // this only serves for antialiasing
+                    ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
+                    DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
+                    AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
+                }
+            }
+            else
             {
-                ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
-                DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
-                AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
+                // edge fill rules for opaque pixels
+                if (!wireframe)
+                {
+                    if ((edge & 0x1) && !l_filledge)
+                        continue;
+                    if ((edge & 0x2) && !r_filledge)
+                        continue;
+                }
             }
 
             DepthBuffer[pixeladdr] = z;
@@ -1060,47 +1118,15 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             // or always when drawing a shadow
             // (the GPU keeps track of which pixels are translucent, regardless of
             // the destination alpha)
+            // TODO: they say that there are two separate polygon ID buffers. verify that.
             if ((dstattr & 0x7F000000) == (attr & 0x7F000000))
                 continue;
 
+            // fog flag
             if (!(dstattr & (1<<15)))
                 attr &= ~(1<<15);
 
-            u32 dstcolor = ColorBuffer[pixeladdr];
-            u32 dstalpha = dstcolor >> 24;
-
-            if (dstalpha > 0)
-            {
-                u32 srcR = color & 0x3F;
-                u32 srcG = (color >> 8) & 0x3F;
-                u32 srcB = (color >> 16) & 0x3F;
-
-                if (RenderDispCnt & (1<<3))
-                {
-                    u32 dstR = dstcolor & 0x3F;
-                    u32 dstG = (dstcolor >> 8) & 0x3F;
-                    u32 dstB = (dstcolor >> 16) & 0x3F;
-
-                    alpha++;
-                    srcR = ((srcR * alpha) + (dstR * (32-alpha))) >> 5;
-                    srcG = ((srcG * alpha) + (dstG * (32-alpha))) >> 5;
-                    srcB = ((srcB * alpha) + (dstB * (32-alpha))) >> 5;
-                    alpha--;
-                }
-
-                if (alpha > dstalpha)
-                    dstalpha = alpha;
-
-                color = srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
-            }
-
-            // push old pixel down if needed
-            if (edge)
-            {
-                ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
-                DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
-                AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
-            }
+            color = AlphaBlend(color, ColorBuffer[pixeladdr], alpha);
 
             if (polygon->Attr & (1<<11))
                 DepthBuffer[pixeladdr] = z;
@@ -1234,6 +1260,57 @@ void ScanlineFinalPass(s32 y)
             }
         }
     }
+
+#if 0
+    if (RenderDispCnt & (1<<4))
+    {
+        // anti-aliasing
+
+        for (int x = 0; x < 256; x++)
+        {
+            u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
+
+            u32 attr = AttrBuffer[pixeladdr];
+            if (!(attr & 0xF)) continue;
+
+            u32 coverage = (attr >> 8) & 0x1F;
+            if (coverage == 0x1F) continue;
+
+            if (coverage == 0)
+            {
+                ColorBuffer[pixeladdr] = ColorBuffer[pixeladdr+258];
+                continue;
+            }
+
+            u32 topcolor = ColorBuffer[pixeladdr];
+            u32 topR = topcolor & 0x3F;
+            u32 topG = (topcolor >> 8) & 0x3F;
+            u32 topB = (topcolor >> 16) & 0x3F;
+            u32 topA = (topcolor >> 24) & 0x1F;
+
+            u32 botcolor = ColorBuffer[pixeladdr+258];
+            u32 botR = botcolor & 0x3F;
+            u32 botG = (botcolor >> 8) & 0x3F;
+            u32 botB = (botcolor >> 16) & 0x3F;
+            u32 botA = (botcolor >> 24) & 0x1F;
+if (y==48) printf("x=%d: cov=%d\n", x, coverage);
+            coverage++;
+
+            // only blend color if the bottom pixel isn't fully transparent
+            if (botA > 0)
+            {
+                topR = ((topR * coverage) + (botR * (32-coverage))) >> 5;
+                topG = ((topG * coverage) + (botG * (32-coverage))) >> 5;
+                topB = ((topB * coverage) + (botB * (32-coverage))) >> 5;
+            }
+
+            // alpha is always blended
+            topA = ((topA * coverage) + (botA * (32-coverage))) >> 5;
+
+            ColorBuffer[pixeladdr] = topR | (topG << 8) | (topB << 16) | (topA << 24);
+        }
+    }
+#endif
 }
 
 void ClearBuffers()
@@ -1300,7 +1377,6 @@ void ClearBuffers()
                 xoff++;
             }
 
-            xoff = 0;
             yoff++;
         }
     }
