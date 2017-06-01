@@ -1027,10 +1027,14 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             continue;
         }
 
+        u32 dstattr = AttrBuffer[pixeladdr];
+
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z))
         {
+            if (!(dstattr & 0x3)) continue;
+
             pixeladdr += 258;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
@@ -1096,7 +1100,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            u32 dstattr = AttrBuffer[pixeladdr];
             attr |= (1<<30);
             if (polygon->IsShadow) dstattr |= (1<<30);
 
@@ -1148,10 +1151,14 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             continue;
         }
 
+        u32 dstattr = AttrBuffer[pixeladdr];
+
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z))
         {
+            if (!(dstattr & 0x3)) continue;
+
             pixeladdr += 258;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
@@ -1244,10 +1251,14 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
             continue;
         }
 
+        u32 dstattr = AttrBuffer[pixeladdr];
+
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z))
         {
+            if (!(dstattr & 0x3)) continue;
+
             pixeladdr += 258;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
@@ -1313,7 +1324,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         }
         else
         {
-            u32 dstattr = AttrBuffer[pixeladdr];
             attr |= (1<<30);
             if (polygon->IsShadow) dstattr |= (1<<30);
 
