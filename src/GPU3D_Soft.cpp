@@ -28,9 +28,20 @@ namespace GPU3D
 namespace SoftRenderer
 {
 
-u32 ColorBuffer[258*3*194];
-u32 DepthBuffer[258*3*194];
-u32 AttrBuffer[258*3*194];
+// buffer dimensions are 258x194 to add a offscreen 1px border
+// which simplifies edge marking tests
+// buffer is duplicated to keep track of the two topmost pixels
+// TODO: check if the hardware can accidentally plot pixels
+// offscreen in that border
+
+const int ScanlineWidth = 258;
+const int NumScanlines = 194;
+const int BufferSize = ScanlineWidth * NumScanlines;
+const int FirstPixelOffset = ScanlineWidth + 1;
+
+u32 ColorBuffer[BufferSize * 2];
+u32 DepthBuffer[BufferSize * 2];
+u32 AttrBuffer[BufferSize * 2];
 
 // attribute buffer:
 // bit0-3: edge flags (left/right/top/bottom)
@@ -993,7 +1004,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x1;
     for (; x < xstart+l_edgelen; x++)
     {
-        u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
@@ -1036,7 +1047,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         {
             if (!(dstattr & 0x3)) continue;
 
-            pixeladdr += 258;
+            pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
         }
@@ -1084,11 +1095,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                     attr |= (cov << 8);
 
                     // push old pixel down if needed
-                    // we only need to do it for opaque edge pixels, since
-                    // this only serves for antialiasing
-                    ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
-                    DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
-                    AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
+                    if (pixeladdr < BufferSize)
+                    {
+                        ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                        AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                    }
                 }
             }
             else
@@ -1131,7 +1143,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     if (wireframe && !edge) x = xend-r_edgelen+1;
     else for (; x <= xend-r_edgelen; x++)
     {
-        u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
@@ -1164,7 +1176,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         {
             if (!(dstattr & 0x3)) continue;
 
-            pixeladdr += 258;
+            pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
         }
@@ -1222,7 +1234,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x2;
     for (; x <= xend; x++)
     {
-        u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
@@ -1265,7 +1277,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         {
             if (!(dstattr & 0x3)) continue;
 
-            pixeladdr += 258;
+            pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z))
                 continue;
         }
@@ -1313,11 +1325,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                     attr |= (cov << 8);
 
                     // push old pixel down if needed
-                    // we only need to do it for opaque edge pixels, since
-                    // this only serves for antialiasing
-                    ColorBuffer[pixeladdr+258] = ColorBuffer[pixeladdr];
-                    DepthBuffer[pixeladdr+258] = DepthBuffer[pixeladdr];
-                    AttrBuffer[pixeladdr+258] = AttrBuffer[pixeladdr];
+                    if (pixeladdr < BufferSize)
+                    {
+                        ColorBuffer[pixeladdr+BufferSize] = ColorBuffer[pixeladdr];
+                        DepthBuffer[pixeladdr+BufferSize] = DepthBuffer[pixeladdr];
+                        AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
+                    }
                 }
             }
             else
@@ -1359,35 +1372,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
-#if 0
-void RenderPolygon(RendererPolygon* rp)
-{
-    Polygon* polygon = rp->PolyData;
-    int nverts = polygon->NumVertices;
-    bool isline = false;
-
-    int vtop = polygon->VTop, vbot = polygon->VBottom;
-    s32 ytop = polygon->YTop, ybot = polygon->YBottom;
-    s32 xtop = polygon->XTop, xbot = polygon->XBottom;
-
-    if (ytop > 191) return;
-
-    // draw, line per line
-
-    if (ybot > 192) ybot = 192;
-
-    /*if (polygon->ClearStencil)
-    {
-        memset(StencilBuffer, 0, 192*256);
-    }*/
-
-    for (s32 y = ytop; y < ybot; y++)
-    {
-        RenderPolygonScanline(rp, y);
-    }
-}
-#endif
-
 void RenderScanline(s32 y, int npolys)
 {
     for (int i = 0; i < npolys; i++)
@@ -1422,11 +1406,11 @@ void ScanlineFinalPass(s32 y)
         u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
 
-        for (int i = 0; i < 258*2; i+=258)
+        //for (int i = 0; i < 258*2; i+=258)
         {
             for (int x = 0; x < 256; x++)
             {
-                u32 pixeladdr = 258*3 + 1 + (y*258*3) + i + x;
+                u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
                 u32 attr = AttrBuffer[pixeladdr];
                 if (!(attr & (1<<15))) continue;
@@ -1539,14 +1523,14 @@ void ClearBuffers()
 
     // fill screen borders for edge marking
 
-    for (int x = 0; x < 258; x++)
+    for (int x = 0; x < ScanlineWidth; x++)
     {
         ColorBuffer[x] = 0;
         DepthBuffer[x] = clearz;
         AttrBuffer[x] = polyid;
     }
 
-    for (int x = 258*3; x < 258*3*193; x+=(258*3))
+    for (int x = ScanlineWidth; x < ScanlineWidth*193; x+=ScanlineWidth)
     {
         ColorBuffer[x] = 0;
         DepthBuffer[x] = clearz;
@@ -1556,7 +1540,7 @@ void ClearBuffers()
         AttrBuffer[x+257] = polyid;
     }
 
-    for (int x = 258*3*193; x < 258*3*194; x++)
+    for (int x = ScanlineWidth*193; x < ScanlineWidth*194; x++)
     {
         ColorBuffer[x] = 0;
         DepthBuffer[x] = clearz;
@@ -1570,7 +1554,7 @@ void ClearBuffers()
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
-        for (int y = 0; y < 258*3*192; y+=(258*3))
+        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
         {
             for (int x = 0; x < 256; x++)
             {
@@ -1586,7 +1570,7 @@ void ClearBuffers()
 
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
 
-                u32 pixeladdr = 258*3 + 1 + y + x;
+                u32 pixeladdr = FirstPixelOffset + y + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
@@ -1608,11 +1592,11 @@ void ClearBuffers()
 
 		polyid |= (RenderClearAttr1 & 0x8000);
 
-        for (int y = 0; y < 258*3*192; y+=(258*3))
+        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
         {
             for (int x = 0; x < 256; x++)
             {
-                u32 pixeladdr = 258*3 + 1 + y + x;
+                u32 pixeladdr = FirstPixelOffset + y + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = clearz;
                 AttrBuffer[pixeladdr] = polyid;
@@ -1661,7 +1645,7 @@ void VCount144()
     Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
-void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys)
+void RenderFrame()
 {
     //ClearBuffers();
     //RenderPolygons(false, polygons, npolys);
@@ -1692,7 +1676,7 @@ void RequestLine(int line)
 
 u32* GetLine(int line)
 {
-    return &ColorBuffer[line * 258*3  + 258*3 + 1];
+    return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
 }
 
 }

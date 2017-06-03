@@ -114,7 +114,7 @@ void DeInit();
 void Reset();
 
 void VCount144();
-void RenderFrame(Vertex* vertices, Polygon* polygons, int npolys);
+void RenderFrame();
 void RequestLine(int line);
 u32* GetLine(int line);
 

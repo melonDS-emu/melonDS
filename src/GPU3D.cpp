@@ -1702,7 +1702,7 @@ void ExecuteCommand()
             break;
 
         case 0x50: // flush
-            FlushRequest |= 0x1;
+            FlushRequest = 1;
             FlushAttributes = ExecParams[0] & 0x3;
             CycleCount = 392;
             break;
@@ -1743,7 +1743,7 @@ void ExecuteCommand()
 
 void Run(s32 cycles)
 {
-    if (FlushRequest & 0x1)
+    if (FlushRequest)
         return;
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
         return;
@@ -1796,10 +1796,10 @@ void VCount144()
     SoftRenderer::VCount144();
 }
 
-int frame=0;
+
 void VBlank()
 {
-    if (FlushRequest & 0x1)
+    if (FlushRequest)
     {
         RenderVertexRAM = CurVertexRAM;
         RenderPolygonRAM = CurPolygonRAM;
@@ -1827,22 +1827,13 @@ void VBlank()
         NumVertices = 0;
         NumPolygons = 0;
 
-        FlushRequest &= ~0x1;
-        FlushRequest |= 0x2;frame=1;
+        FlushRequest = 0;
     }
 }
 
 void VCount215()
 {
-    // TODO: detect other conditions that could require rerendering
-    // the DS is said to present new 3D frames all the time, even if no commands are sent
-
-    //if (FlushRequest & 0x2)
-    {
-        SoftRenderer::RenderFrame(RenderVertexRAM, RenderPolygonRAM, RenderNumPolygons);
-
-        FlushRequest &= ~0x2;
-    }
+    SoftRenderer::RenderFrame();
 }
 
 void RequestLine(int line)
