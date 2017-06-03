@@ -248,6 +248,7 @@ public:
             this->xmax = this->xmin;
         }
 
+        // TODO: check the precision of the slope increment on hardware
         if (y0 == y1)
             Increment = 0;
         else
@@ -280,27 +281,44 @@ public:
             else                     dx = 0;
         }
 
+        s32 x = XVal();
+
         if (XMajor)
         {
             if (side) Interp.Setup(x0-1, x1-1, w0, w1, 9); // checkme
             else      Interp.Setup(x0, x1, w0, w1, 9);
-        }
-        else        Interp.Setup(y0, y1, w0, w1, 9);
+            Interp.SetX(x);
 
-        s32 x = XVal();
-        if (XMajor) Interp.SetX(x);
-        else        Interp.SetX(y);
+            // used for calculating AA coverage
+            //inv_incr = (1 << (16+10)) / Increment;
+        }
+        else
+        {
+            Interp.Setup(y0, y1, w0, w1, 9);
+            Interp.SetX(y);
+
+            //ycov_incr = Increment >> 2;
+            //ycoverage = ycov_incr >> 1;
+        }
+
         return x;
     }
-s32 DX() { return dx; }
+
     s32 Step()
     {
         dx += Increment;
         y++;
 
         s32 x = XVal();
-        if (XMajor) Interp.SetX(x);
-        else        Interp.SetX(y);
+        if (XMajor)
+        {
+            Interp.SetX(x);
+        }
+        else
+        {
+            Interp.SetX(y);
+            //ycoverage += ycov_incr;
+        }
         return x;
     }
 
@@ -323,22 +341,24 @@ s32 DX() { return dx; }
             *length = ((dx+Increment) >> 16) - (dx >> 16);
 
         // for X-major edges, coverage will be calculated later
-        *coverage = -1;
+        // we just return the factor for it
+        *coverage = 31;//inv_incr | (1<<31);
     }
 
     void EdgeParams_YMajor(s32* length, s32* coverage)
     {
         *length = 1;
 
-        if (Increment == 0)
+        /*if (Increment == 0)
         {
             *coverage = 31;
         }
         else
         {
-            *coverage = (dx & 0xF800) >> 11;
+            *coverage = (ycoverage >> 9) & 0x1F;
             if (!(side ^ Negative)) *coverage = 0x1F - *coverage;
-        }
+        }*/
+        *coverage = 31;
     }
 
     void EdgeParams(s32* length, s32* coverage)
@@ -349,23 +369,6 @@ s32 DX() { return dx; }
             return EdgeParams_YMajor(length, coverage);
     }
 
-    /*s32 EdgeLimit()
-    {
-        s32 ret;
-        if (side)
-        {
-            if (Negative) ret = x0 - ((dx+Increment) >> 16);
-            else          ret = x0 + ((dx-Increment) >> 16);
-        }
-        else
-        {
-            if (Negative) ret = x0 - ((dx-Increment) >> 16);
-            else          ret = x0 + ((dx+Increment) >> 16);
-        }
-
-        return ret;
-    }*/
-
     s32 Increment;
     bool Negative;
     bool XMajor;
@@ -375,6 +378,9 @@ private:
     s32 x0, xmin, xmax;
     s32 dx;
     s32 y;
+
+    s32 inv_incr;
+    s32 ycoverage, ycov_incr;
 };
 
 typedef struct
@@ -624,7 +630,7 @@ bool DepthTest(s32 oldz, s32 z)
     if (func_equal)
     {
         s32 diff = oldz - z;
-        if ((u32)(diff + 0x200) <= 0x400)
+        if ((u32)(diff + 0xFF) <= 0x1FE) // range is +-0xFF
             return true;
     }
     else
@@ -834,10 +840,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
 
     if (ybot == ytop)
     {
-        //ybot++;
-
         vtop = 0; vbot = 0;
-        //xtop = 256; xbot = 0;
         int i;
 
         i = 1;
@@ -897,8 +900,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    //Slope* slope_start;
-    //Slope* slope_end;
     Interpolator* interp_start;
     Interpolator* interp_end;
 
@@ -993,7 +994,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xstart+l_edgelen; x++)
     {
         u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
-        u32 attr = (polygon->Attr & 0x3F008000) | edge;
+        u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1055,6 +1056,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
+            attr |= edge;
+
             if (RenderDispCnt & (1<<4))
             {
                 // anti-aliasing: all edges are rendered
@@ -1076,6 +1079,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                         cov = r_edgecov;
                         if (cov == -1) cov = ((xend - x) << 5) / r_edgelen;
                     }cov=31;*/
+                    cov = l_edgecov;
+                    if (cov == -1) cov = 31;
                     attr |= (cov << 8);
 
                     // push old pixel down if needed
@@ -1127,7 +1132,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else for (; x <= xend-r_edgelen; x++)
     {
         u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
-        u32 attr = (polygon->Attr & 0x3F008000) | edge;
+        u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1179,6 +1184,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
+            attr |= edge;
             DepthBuffer[pixeladdr] = z;
         }
         else
@@ -1217,7 +1223,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x <= xend; x++)
     {
         u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
-        u32 attr = (polygon->Attr & 0x3F008000) | edge;
+        u32 attr = (polygon->Attr & 0x3F008000);
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1279,6 +1285,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
+            attr |= edge;
+
             if (RenderDispCnt & (1<<4))
             {
                 // anti-aliasing: all edges are rendered
@@ -1300,6 +1308,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                         cov = r_edgecov;
                         if (cov == -1) cov = ((xend - x) << 5) / r_edgelen;
                     }cov=31;*/
+                    cov = r_edgecov;
+                    if (cov == -1) cov = 31;
                     attr |= (cov << 8);
 
                     // push old pixel down if needed
@@ -1502,7 +1512,7 @@ void ScanlineFinalPass(s32 y)
             u32 botG = (botcolor >> 8) & 0x3F;
             u32 botB = (botcolor >> 16) & 0x3F;
             u32 botA = (botcolor >> 24) & 0x1F;
-if (y==48) printf("x=%d: cov=%d\n", x, coverage);
+//if (y==48) printf("x=%d: cov=%d\n", x, coverage);
             coverage++;
 
             // only blend color if the bottom pixel isn't fully transparent
@@ -1528,8 +1538,6 @@ void ClearBuffers()
     u32 polyid = RenderClearAttr1 & 0x3F000000;
 
     // fill screen borders for edge marking
-    // CHECKME
-    // GBAtek is unsure about the polygon ID, and nothing is said about Z
 
     for (int x = 0; x < 258; x++)
     {
