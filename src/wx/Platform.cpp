@@ -224,7 +224,7 @@ int MP_RecvPacket(u8* data, bool block)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 
-	if (!select(1, &fd, 0, 0, &tv))
+	if (!select(MPSocket+1, &fd, 0, 0, &tv))
     {
         return 0;
     }
