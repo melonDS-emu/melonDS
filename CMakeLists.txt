@@ -43,4 +43,6 @@ link_libraries(${SDL2_LIBRARIES})
 add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
 
+set(CMAKE_BUILD_TYPE Release)
+
 install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
