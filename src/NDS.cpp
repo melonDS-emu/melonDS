@@ -228,6 +228,9 @@ void SetupDirectBoot()
     PowerControl9 = 0x820F;
     GPU::DisplaySwap(PowerControl9);
 
+    // checkme
+    RCnt = 0x8000;
+
     SPU::SetBias(0x200);
 
     ARM7BIOSProt = 0x1204;

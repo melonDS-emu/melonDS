@@ -288,39 +288,38 @@ void StartTX_Beacon()
     IOPORT(W_TXBusy) |= 0x0010;
 }
 
+// TODO eventually: there is a small delay to firing TX
 void FireTX()
 {
     u16 txbusy = IOPORT(W_TXBusy);
-    printf("attempting to fire TX: %04X %04X\n", txbusy, IOPORT(W_TXSlotLoc2));
+
+    u16 txreq = IOPORT(W_TXReqRead);
+    if ((txreq & 0x0001) && (IOPORT(W_TXSlotLoc1) & 0x8000)) txbusy |= 0x0001;
+    if ((txreq & 0x0002) && (IOPORT(W_TXSlotCmd)  & 0x8000)) txbusy |= 0x0002;
+    if ((txreq & 0x0004) && (IOPORT(W_TXSlotLoc2) & 0x8000)) txbusy |= 0x0004;
+    if ((txreq & 0x0008) && (IOPORT(W_TXSlotLoc3) & 0x8000)) txbusy |= 0x0008;
+
+    IOPORT(W_TXBusy) = txbusy;
 
     if (txbusy & 0x0008)
     {
-        if (IOPORT(W_TXSlotLoc3) & 0x8000)
-        {
-            StartTX_LocN(3, 2);
-            return;
-        }
+        StartTX_LocN(3, 2);
+        return;
     }
 
     if (txbusy & 0x0004)
     {
-        if (IOPORT(W_TXSlotLoc2) & 0x8000)
-        {
-            StartTX_LocN(2, 1);
-            return;
-        }
+        StartTX_LocN(2, 1);
+        return;
     }
+
+    // TODO: CMD
 
     if (txbusy & 0x0001)
     {
-        if (IOPORT(W_TXSlotLoc1) & 0x8000)
-        {
-            StartTX_LocN(0, 0);
-            return;
-        }
+        StartTX_LocN(0, 0);
+        return;
     }
-
-    IOPORT(W_TXBusy) = 0;
 }
 
 void ProcessTX(TXSlot* slot, int num)
@@ -887,7 +886,6 @@ void Write(u32 addr, u16 val)
         return;
     case W_TXReqSet:
         IOPORT(W_TXReqRead) |= val;
-        IOPORT(W_TXBusy) |= (val & 0x000F);
         FireTX();
         // CHECKME!!!!!!!!!!!
         return;
@@ -936,10 +934,16 @@ void Write(u32 addr, u16 val)
         val &= 0x0FFF;
         break;
 
-    case 0x090:
-    case 0x0A0:
-    case 0x0A4:
-    case 0x0A8:
+    case W_TXSlotCmd:
+    case W_TXSlotLoc1:
+    case W_TXSlotLoc2:
+    case W_TXSlotLoc3:
+        // checkme: is it possible to cancel a queued transfer that hasn't started yet
+        // by clearing bit15 here?
+        IOPORT(addr&0xFFF) = val;
+        FireTX();
+        return;
+
     case 0x094:
         printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X\n", addr, val, IOPORT(W_TXReqRead));
         break;
