@@ -941,7 +941,7 @@ void Write(u32 addr, u16 val)
     case 0x0A4:
     case 0x0A8:
     case 0x094:
-        printf("wifi: trying to send packet. %08X=%04X\n", addr, val);
+        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X\n", addr, val, IOPORT(W_TXReqRead));
         break;
 
     // read-only ports
