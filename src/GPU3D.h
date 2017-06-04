@@ -113,6 +113,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetupRenderThread();
+
 void VCount144();
 void RenderFrame();
 void RequestLine(int line);

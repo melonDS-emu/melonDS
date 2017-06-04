@@ -22,6 +22,7 @@
 #include "../Config.h"
 #include "../NDS.h"
 #include "../GPU.h"
+#include "../GPU3D.h"
 #include "../SPU.h"
 
 #include "InputConfig.h"
@@ -283,8 +284,16 @@ void MainFrame::OnReset(wxCommandEvent& event)
 
 void MainFrame::OnEmuConfig(wxCommandEvent& event)
 {
+    bool oldpause = emuthread->EmuIsPaused();
+    if (!oldpause) emuthread->EmuPause();
+
     EmuConfigDialog dlg(this);
     dlg.ShowModal();
+
+    // apply threaded 3D setting
+    GPU3D::SoftRenderer::SetupRenderThread();
+
+    if (!oldpause) emuthread->EmuRun();
 }
 
 void MainFrame::OnInputConfig(wxCommandEvent& event)

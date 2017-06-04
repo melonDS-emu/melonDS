@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Config.h"
 #include "Platform.h"
 
 
@@ -65,6 +66,42 @@ void* Sema_ScanlineCount;
 void RenderThreadFunc();
 
 
+void StopRenderThread()
+{
+    if (RenderThreadRunning)
+    {
+        RenderThreadRunning = false;
+        Platform::Semaphore_Post(Sema_RenderStart);
+        Platform::Thread_Wait(RenderThread);
+        Platform::Thread_Free(RenderThread);
+    }
+}
+
+void SetupRenderThread()
+{
+    if (Config::Threaded3D)
+    {
+        if (!RenderThreadRunning)
+        {
+            RenderThreadRunning = true;
+            RenderThread = Platform::Thread_Create(RenderThreadFunc);
+        }
+
+        if (RenderThreadRendering)
+            Platform::Semaphore_Wait(Sema_RenderDone);
+
+        Platform::Semaphore_Reset(Sema_RenderStart);
+        Platform::Semaphore_Reset(Sema_ScanlineCount);
+
+        Platform::Semaphore_Post(Sema_RenderStart);
+    }
+    else
+    {
+        StopRenderThread();
+    }
+}
+
+
 bool Init()
 {
     Sema_RenderStart = Platform::Semaphore_Create();
@@ -79,13 +116,7 @@ bool Init()
 
 void DeInit()
 {
-    if (RenderThreadRunning)
-    {
-        RenderThreadRunning = false;
-        Platform::Semaphore_Post(Sema_RenderStart);
-        Platform::Thread_Wait(RenderThread);
-        Platform::Thread_Free(RenderThread);
-    }
+    StopRenderThread();
 
     Platform::Semaphore_Free(Sema_RenderStart);
     Platform::Semaphore_Free(Sema_RenderDone);
@@ -100,20 +131,7 @@ void Reset()
 
     PrevIsShadowMask = false;
 
-    // TODO: make it configurable
-    if (!RenderThreadRunning)
-    {
-        RenderThreadRunning = true;
-        RenderThread = Platform::Thread_Create(RenderThreadFunc);
-    }
-
-    if (RenderThreadRendering)
-        Platform::Semaphore_Wait(Sema_RenderDone);
-
-    Platform::Semaphore_Reset(Sema_RenderStart);
-    Platform::Semaphore_Reset(Sema_ScanlineCount);
-
-    Platform::Semaphore_Post(Sema_RenderStart);
+    SetupRenderThread();
 }
 
 
@@ -921,7 +939,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // * right edge is filled if slope > 1
     // * left edge is filled if slope <= 1
     // * edges with slope = 0 are always filled
-    // edges are always filled if antialiasing is enabled or if the pixels are translucent
+    // right vertical edges are pushed 1px to the left
+    // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
 
     if (wireframe || (RenderDispCnt & (1<<5)))
     {
@@ -1382,6 +1401,8 @@ void ScanlineFinalPass(s32 y)
     {
         // edge marking
 
+        // TODO: is it applied to bottom pixels?
+
         for (int x = 0; x < 256; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1666,15 +1687,21 @@ void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
 
 void VCount144()
 {
-    Platform::Semaphore_Wait(Sema_RenderDone);
+    if (RenderThreadRunning)
+        Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
 void RenderFrame()
 {
-    //ClearBuffers();
-    //RenderPolygons(false, polygons, npolys);
-
-    Platform::Semaphore_Post(Sema_RenderStart);
+    if (RenderThreadRunning)
+    {
+        Platform::Semaphore_Post(Sema_RenderStart);
+    }
+    else
+    {
+        ClearBuffers();
+        RenderPolygons(false, RenderPolygonRAM, RenderNumPolygons);
+    }
 }
 
 void RenderThreadFunc()
@@ -1695,7 +1722,8 @@ void RenderThreadFunc()
 
 void RequestLine(int line)
 {
-    Platform::Semaphore_Wait(Sema_ScanlineCount);
+    if (RenderThreadRunning)
+        Platform::Semaphore_Wait(Sema_ScanlineCount);
 }
 
 u32* GetLine(int line)
