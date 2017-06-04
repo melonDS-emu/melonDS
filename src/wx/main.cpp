@@ -85,11 +85,35 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 #endif // __WXMSW__
 
 
+bool _fileexists(char* name)
+{
+    FILE* f = fopen(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+
 bool wxApp_melonDS::OnInit()
 {
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
     Config::Load();
+    
+    if (!_fileexists("bios7.bin") || !_fileexists("bios9.bin") || !_fileexists("firmware.bin"))
+    {
+        wxMessageBox(
+            "One or more of the following required files don't exist or couldn't be accessed:\n\n"
+            "bios7.bin -- ARM7 BIOS\n"
+            "bios9.bin -- ARM9 BIOS\n"
+            "firmware.bin -- firmware image\n\n"
+            "Place the following files in the directory you run melonDS from.\n"
+            "Make sure that the files can be accessed.",
+            "melonDS",
+            wxICON_ERROR);
+            
+        return false;
+    }
 
     emuthread = new EmuThread();
     if (emuthread->Run() != wxTHREAD_NO_ERROR)
