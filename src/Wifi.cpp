@@ -37,6 +37,8 @@ u16 Random;
 u64 USCounter;
 u64 USCompare;
 
+u32 CmdCounter;
+
 u16 BBCnt;
 u8 BBWrite;
 u8 BBRegs[0x100];
@@ -161,6 +163,11 @@ void Reset()
 
     memset(&IOPORT(0x018), 0xFF, 6);
     memset(&IOPORT(0x020), 0xFF, 6);
+
+    USCounter = 0;
+    USCompare = 0;
+
+    CmdCounter = 0;
 }
 
 
@@ -208,7 +215,7 @@ void SetIRQ14(bool forced)
     if (IOPORT(W_ListenCount) == 0)
         IOPORT(W_ListenCount) = IOPORT(W_ListenInterval);
 
-    IOPORT(W_ListenCount)--;printf("IRQ14 prebeacon %04X\n", IOPORT(W_PreBeacon));
+    IOPORT(W_ListenCount)--;
 }
 
 void SetIRQ15()
@@ -216,7 +223,7 @@ void SetIRQ15()
     SetIRQ(15);
 
     if (IOPORT(W_PowerTX) & 0x0001)
-    {printf("wakeup\n");
+    {
         IOPORT(W_RFPins) |= 0x0080;
         IOPORT(W_RFStatus) = 1;
     }
@@ -258,7 +265,8 @@ void StartTX_LocN(int nslot, int loc)
     *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
 
     int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    printf("wifi: sent %d/%d bytes of loc%d packet\n", txlen, 12+slot->Length, loc);
+    printf("wifi: sent %d/%d bytes of loc%d packet. framectl=%04X\n",
+           txlen, 12+slot->Length, loc, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
 void StartTX_Beacon()
@@ -295,7 +303,7 @@ void FireTX()
 
     u16 txreq = IOPORT(W_TXReqRead);
     if ((txreq & 0x0001) && (IOPORT(W_TXSlotLoc1) & 0x8000)) txbusy |= 0x0001;
-    if ((txreq & 0x0002) && (IOPORT(W_TXSlotCmd)  & 0x8000)) txbusy |= 0x0002;
+    //if ((txreq & 0x0002) && (IOPORT(W_TXSlotCmd)  & 0x8000)) txbusy |= 0x0002;
     if ((txreq & 0x0004) && (IOPORT(W_TXSlotLoc2) & 0x8000)) txbusy |= 0x0004;
     if ((txreq & 0x0008) && (IOPORT(W_TXSlotLoc3) & 0x8000)) txbusy |= 0x0008;
 
@@ -441,6 +449,8 @@ void CheckRX()
     if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
         return; // oops. we received a packet we just sent.
 
+    printf("wifi: received %04X frame, checking bssid\n", framectl);
+
     bool bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
     if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
         !bssidmatch)
@@ -522,6 +532,21 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
+    }
+
+    if (IOPORT(W_CmdCountCnt) & 0x0001)
+    {
+        if (CmdCounter > 0)
+        {
+            CmdCounter--;
+            if (CmdCounter == 0)
+            {
+                if ((IOPORT(W_TXReqRead) & 0x0002) && (IOPORT(W_TXSlotCmd) & 0x8000))
+                {
+                    printf("send CMD packet\n");
+                }
+            }
+        }
     }
 
     if (IOPORT(W_ContentFree) != 0)
@@ -622,6 +647,8 @@ u16 Read(u32 addr)
     case W_USCompare1: return (u16)((USCompare >> 16) & 0xFFFF);
     case W_USCompare2: return (u16)((USCompare >> 32) & 0xFFFF);
     case W_USCompare3: return (u16)(USCompare >> 48);
+
+    case W_CmdCount: return (CmdCounter + 9) / 10;
 
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
@@ -746,7 +773,6 @@ void Write(u32 addr, u16 val)
                 IOPORT(0x1A2) = 0x0001;
                 IOPORT(0x224) = 0x0003;
                 IOPORT(0x230) = 0x0047;
-
             }
         }
         break;
@@ -825,6 +851,8 @@ void Write(u32 addr, u16 val)
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
     case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
+    case W_CmdCount: CmdCounter = val * 10; return;
+
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
         if ((IOPORT(W_BBCnt) & 0xF000) == 0x5000)
@@ -852,6 +880,7 @@ void Write(u32 addr, u16 val)
         }
         if (val & 0x0080)
         {
+            printf("wifi: latching shit\n");
             IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
             IOPORT(W_TXSlotReply1) = 0;
         }
@@ -887,11 +916,9 @@ void Write(u32 addr, u16 val)
     case W_TXReqSet:
         IOPORT(W_TXReqRead) |= val;
         FireTX();
-        // CHECKME!!!!!!!!!!!
         return;
 
     case W_TXSlotReset:
-        printf("TX slot reset: %04X\n", val);
         if (val & 0x0001) IOPORT(W_TXSlotLoc1) &= 0x7FFF;
         if (val & 0x0002) IOPORT(W_TXSlotCmd) &= 0x7FFF;
         if (val & 0x0004) IOPORT(W_TXSlotLoc2) &= 0x7FFF;
@@ -899,6 +926,7 @@ void Write(u32 addr, u16 val)
         // checkme: any bits affecting the beacon slot?
         if (val & 0x0040) IOPORT(W_TXSlotReply2) &= 0x7FFF;
         if (val & 0x0080) IOPORT(W_TXSlotReply1) &= 0x7FFF;
+        if ((val & 0xFF30) && (val != 0xFFFF)) printf("unusual TXSLOTRESET %04X\n", val);
         val = 0; // checkme (write-only port)
         break;
 
@@ -934,7 +962,6 @@ void Write(u32 addr, u16 val)
         val &= 0x0FFF;
         break;
 
-    case W_TXSlotCmd:
     case W_TXSlotLoc1:
     case W_TXSlotLoc2:
     case W_TXSlotLoc3:
