@@ -255,7 +255,7 @@ void StartTX_LocN(int nslot, int loc)
     slot->Addr = (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
 
-    u16 rate = *(u16*)&RAM[slot->Addr];
+    u8 rate = RAM[slot->Addr + 0x8];
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
@@ -269,6 +269,29 @@ void StartTX_LocN(int nslot, int loc)
            txlen, 12+slot->Length, loc, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
+void StartTX_Cmd()
+{
+    TXSlot* slot = &TXSlots[1];
+
+    // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
+
+    slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
+    slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+    u8 rate = RAM[slot->Addr + 0x8];
+    if (rate == 0x14) slot->Rate = 2;
+    else              slot->Rate = 1;
+
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = PreambleLen(slot->Rate);
+
+    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+
+    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    printf("wifi: sent %d/%d bytes of cmd packet\n", txlen, 12+slot->Length);
+printf("%08X%08X | %04X %04X\n", (u32)(USCounter>>32), (u32)USCounter, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC]);
+}
+
 void StartTX_Beacon()
 {
     TXSlot* slot = &TXSlots[4];
@@ -276,7 +299,7 @@ void StartTX_Beacon()
     slot->Addr = (IOPORT(W_TXSlotBeacon) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
 
-    u16 rate = *(u16*)&RAM[slot->Addr];
+    u8 rate = RAM[slot->Addr + 0x8];
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
@@ -302,32 +325,50 @@ void FireTX()
     u16 txbusy = IOPORT(W_TXBusy);
 
     u16 txreq = IOPORT(W_TXReqRead);
-    if ((txreq & 0x0001) && (IOPORT(W_TXSlotLoc1) & 0x8000)) txbusy |= 0x0001;
-    //if ((txreq & 0x0002) && (IOPORT(W_TXSlotCmd)  & 0x8000)) txbusy |= 0x0002;
-    if ((txreq & 0x0004) && (IOPORT(W_TXSlotLoc2) & 0x8000)) txbusy |= 0x0004;
-    if ((txreq & 0x0008) && (IOPORT(W_TXSlotLoc3) & 0x8000)) txbusy |= 0x0008;
+    u16 txstart = 0;
+    if (IOPORT(W_TXSlotLoc1) & 0x8000) txstart |= 0x0001;
+    if (IOPORT(W_TXSlotCmd ) & 0x8000) txstart |= 0x0002;
+    if (IOPORT(W_TXSlotLoc2) & 0x8000) txstart |= 0x0004;
+    if (IOPORT(W_TXSlotLoc3) & 0x8000) txstart |= 0x0008;
 
-    IOPORT(W_TXBusy) = txbusy;
+    txstart &= txreq;
+    txstart &= ~txbusy;
 
-    if (txbusy & 0x0008)
+    IOPORT(W_TXBusy) = txbusy | txstart;
+
+    if (txstart & 0x0008)
     {
         StartTX_LocN(3, 2);
         return;
     }
 
-    if (txbusy & 0x0004)
+    if (txstart & 0x0004)
     {
         StartTX_LocN(2, 1);
         return;
     }
 
-    // TODO: CMD
+    if (txstart & 0x0002)
+    {
+        StartTX_Cmd();
+        return;
+    }
 
-    if (txbusy & 0x0001)
+    if (txstart & 0x0001)
     {
         StartTX_LocN(0, 0);
         return;
     }
+}
+
+u32 NumClients(u16 bitmask)
+{
+    u32 ret = 0;
+    for (int i = 1; i < 16; i++)
+    {
+        if (bitmask & (1<<i)) ret++;
+    }
+    return ret;
 }
 
 void ProcessTX(TXSlot* slot, int num)
@@ -357,6 +398,18 @@ void ProcessTX(TXSlot* slot, int num)
             *(u16*)&RAM[slot->Addr] = 0x0001;
             RAM[slot->Addr + 5] = 0;
 
+            if (num == 1)
+            {
+                u16 nclients = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
+
+                slot->CurPhase = 2;
+                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * nclients);
+
+                // TODO: RFSTATUS/RFPINS
+
+                break;
+            }
+
             IOPORT(W_TXBusy) &= ~(1<<num);
 
             switch (num)
@@ -376,6 +429,42 @@ void ProcessTX(TXSlot* slot, int num)
                     SetIRQ(1);
                 }
                 break;
+            }
+
+            FireTX();
+        }
+        break;
+
+    case 2: // MP host transfer done
+        {
+            SetIRQ(7);
+
+            u8 rate = RAM[slot->Addr + 0x8];
+            if (rate == 0x14) slot->CurPhaseTime = 16 * 4;
+            else              slot->CurPhaseTime = 16 * 8;
+
+            slot->CurPhase = 3;
+        }
+        break;
+
+    case 3: // MP host ack transfer (reply wait done)
+        {
+            // checkme
+            IOPORT(W_TXBusy) &= ~(1<<1);
+            IOPORT(W_TXSlotCmd) &= 0x7FFF; // confirmed
+
+            SetIRQ(12);
+            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            if (IOPORT(W_TXStatCnt) & 0x2000)
+            {
+                IOPORT(W_TXStat) = 0x0B01;
+                SetIRQ(1);
+            }
+            else if (IOPORT(W_TXStatCnt) & 0x4000)
+            {
+                IOPORT(W_TXStat) = 0x0801; // checkme
+                SetIRQ(1);
             }
 
             FireTX();
@@ -442,21 +531,23 @@ void CheckRX()
             printf("blarg\n");
             return;
         }
-        rxflags |= 0x0008;
+        framectl &= 0xE7FF;
+        if (framectl == 0x0228) rxflags |= 0x000C;
+        else if (framectl == 0x0218) rxflags |= 0x000D;
+        else if (framectl == 0x0118) rxflags |= 0x000E; // checkme
+        else rxflags |= 0x0008;
         break;
     }
 
     if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
         return; // oops. we received a packet we just sent.
 
-    printf("wifi: received %04X frame, checking bssid\n", framectl);
-
     bool bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
     if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
         !bssidmatch)
         return;
 
-    if (framectl != 0x0080)
+    if (framectl != 0x0080 && framectl != 0x0228)
         printf("wifi: received packet. framectrl=%04X\n", framectl);
 
     // make RX header
@@ -539,13 +630,6 @@ void USTimer(u32 param)
         if (CmdCounter > 0)
         {
             CmdCounter--;
-            if (CmdCounter == 0)
-            {
-                if ((IOPORT(W_TXReqRead) & 0x0002) && (IOPORT(W_TXSlotCmd) & 0x8000))
-                {
-                    printf("send CMD packet\n");
-                }
-            }
         }
     }
 
@@ -558,11 +642,12 @@ void USTimer(u32 param)
         if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
         else if (txbusy & 0x0008) ProcessTX(&TXSlots[3], 3);
         else if (txbusy & 0x0004) ProcessTX(&TXSlots[2], 2);
-        // TODO CMD
+        else if (txbusy & 0x0002) ProcessTX(&TXSlots[1], 1);
         else if (txbusy & 0x0001) ProcessTX(&TXSlots[0], 0);
     }
     else if (RXTime)
     {
+        // TODO: make sure it isn't possible to send and receive at the same time
         RXTime--;
         if (RXTime == 0)
         {
@@ -965,6 +1050,7 @@ void Write(u32 addr, u16 val)
     case W_TXSlotLoc1:
     case W_TXSlotLoc2:
     case W_TXSlotLoc3:
+    case W_TXSlotCmd:
         // checkme: is it possible to cancel a queued transfer that hasn't started yet
         // by clearing bit15 here?
         IOPORT(addr&0xFFF) = val;
