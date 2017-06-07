@@ -22,6 +22,9 @@
 #include "NDS.h"
 #include "SPI.h"
 
+#ifdef __LIBRETRO__
+extern char retro_base_directory[4096];
+#endif
 
 namespace SPI_Firmware
 {
@@ -39,6 +42,8 @@ u8 Data;
 
 u8 StatusReg;
 u32 Addr;
+
+
 
 
 u16 CRC16(u8* data, u32 len, u32 start)
@@ -87,8 +92,13 @@ void Reset()
 {
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
-
+#ifdef __LIBRETRO__
+    char path[2047];
+    snprintf(path, sizeof(path), "%s/firmware.bin", retro_base_directory);
+    FILE* f = fopen(path, "rb");
+#else
     FILE* f = fopen("firmware.bin", "rb");
+#endif    
     if (!f)
     {
         printf("firmware.bin not found\n");
