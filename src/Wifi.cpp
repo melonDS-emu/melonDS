@@ -76,8 +76,15 @@ bool MPInited;
 // 3. send data
 // 4. wait for client replies (duration: 112 + ((10 * CMD_REPLYTIME) * numclients))
 // 5. IRQ7
-// 6. send ack (16 bytes)
-// 7. IRQ12 (and optional IRQ1)
+// 6. send ack (16 bytes, 1Mbps)
+// 7. optional IRQ1, along with IRQ12 if the transfer was successful or if
+//    there's no time left for a retry
+//
+// if the transfer has to be retried (for example, didn't get replies from all clients)
+// and there is time, it repeats the sequence
+//
+// if there isn't enough time left on CMD_COUNT, IRQ12 is triggered alone when
+// CMD_COUNT is 10, and the packet txheader[0] is set to 5
 //
 // RFSTATUS values:
 // 0 = initial
@@ -262,11 +269,9 @@ void StartTX_LocN(int nslot, int loc)
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
 
-    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-
-    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    printf("wifi: sent %d/%d bytes of loc%d packet. framectl=%04X\n",
-           txlen, 12+slot->Length, loc, *(u16*)&RAM[slot->Addr + 0xC]);
+    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    //printf("wifi: sent %d/%d bytes of loc%d packet. framectl=%04X\n",
+    //       txlen, 12+slot->Length, loc, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
 void StartTX_Cmd()
@@ -285,11 +290,9 @@ void StartTX_Cmd()
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
 
-    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-
-    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    printf("wifi: sent %d/%d bytes of cmd packet\n", txlen, 12+slot->Length);
-printf("%08X%08X | %04X %04X\n", (u32)(USCounter>>32), (u32)USCounter, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC]);
+    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    //printf("wifi: sent %d/%d bytes of cmd packet. clients=%04X\n", txlen, 12+slot->Length, *(u16*)&RAM[slot->Addr + 0xC + 26]);
+//printf("%08X%08X | %04X %04X\n", (u32)(USCounter>>32), (u32)USCounter, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
 void StartTX_Beacon()
@@ -306,15 +309,13 @@ void StartTX_Beacon()
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
 
-    *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-
     u64 oldval = *(u64*)&RAM[slot->Addr + 0xC + 24];
     *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
 
-    int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
     //printf("wifi: sent %d/%d bytes of beacon packet\n", txlen, 12+slot->Length);
 
-    *(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
+    //*(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
 
     IOPORT(W_TXBusy) |= 0x0010;
 }
@@ -361,6 +362,53 @@ void FireTX()
     }
 }
 
+void SendMPReply(u16 clienttime)
+{
+    TXSlot* slot = &TXSlots[5];
+
+    slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+    slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+    u8 rate = RAM[slot->Addr + 0x8];
+    if (rate == 0x14) slot->Rate = 2;
+    else              slot->Rate = 1;
+
+    slot->CurPhase = 0;
+    slot->CurPhaseTime = 32 + ((clienttime + 10) * (IOPORT(W_AIDLow) - 1));
+
+    IOPORT(W_TXBusy) |= 0x0080;
+}
+
+void SendMPAck()
+{
+    u8 ack[12 + 32];
+
+    *(u16*)&ack[0xA] = 32; // length
+
+    // rate
+    if (TXSlots[1].Rate == 2) ack[0x8] = 0x14;
+    else                      ack[0x8] = 0xA;
+
+	*(u16*)&ack[0xC + 0x00] = 0x0218;
+	*(u16*)&ack[0xC + 0x02] = 0;
+	*(u16*)&ack[0xC + 0x04] = 0x0903;
+	*(u16*)&ack[0xC + 0x06] = 0x00BF;
+	*(u16*)&ack[0xC + 0x08] = 0x0300;
+	*(u16*)&ack[0xC + 0x0A] = IOPORT(W_BSSID0);
+	*(u16*)&ack[0xC + 0x0C] = IOPORT(W_BSSID1);
+	*(u16*)&ack[0xC + 0x0E] = IOPORT(W_BSSID2);
+	*(u16*)&ack[0xC + 0x10] = IOPORT(W_MACAddr0);
+	*(u16*)&ack[0xC + 0x12] = IOPORT(W_MACAddr1);
+	*(u16*)&ack[0xC + 0x14] = IOPORT(W_MACAddr2);
+	*(u16*)&ack[0xC + 0x16] = (IOPORT(W_TXSeqNo) + 1) << 4;
+	*(u16*)&ack[0xC + 0x18] = 0x0033; // ???
+	*(u16*)&ack[0xC + 0x1A] = 0;
+	*(u32*)&ack[0xC + 0x1C] = 0;
+
+	int txlen = Platform::MP_SendPacket(ack, 12+32);
+	printf("wifi: sent %d/44 bytes of MP ack\n", txlen);
+}
+
 u32 NumClients(u16 bitmask)
 {
     u32 ret = 0;
@@ -370,6 +418,8 @@ u32 NumClients(u16 bitmask)
     }
     return ret;
 }
+
+void CheckRX(bool block);
 
 void ProcessTX(TXSlot* slot, int num)
 {
@@ -387,8 +437,13 @@ void ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
-            SetIRQ(7);
+            if (num != 5) SetIRQ(7);
+            *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, framectl=%04X, %04X\n",
+                                 txlen, slot->Length+12, num, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 2]);
         }
         break;
 
@@ -400,13 +455,23 @@ void ProcessTX(TXSlot* slot, int num)
 
             if (num == 1)
             {
-                u16 nclients = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
+                u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
+                u32 nclients = NumClients(clientmask);
 
                 slot->CurPhase = 2;
                 slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * nclients);
+printf("tx done. listen to replies\n");
+                CheckRX(true);
 
                 // TODO: RFSTATUS/RFPINS
 
+                break;
+            }
+            else if (num == 5)
+            {
+                IOPORT(W_TXBusy) &= ~0x80;
+                IOPORT(W_TXSlotReply2) &= 0x7FFF;
+                FireTX();
                 break;
             }
 
@@ -439,9 +504,10 @@ void ProcessTX(TXSlot* slot, int num)
         {
             SetIRQ(7);
 
-            u8 rate = RAM[slot->Addr + 0x8];
-            if (rate == 0x14) slot->CurPhaseTime = 16 * 4;
-            else              slot->CurPhaseTime = 16 * 8;
+            if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
+            else                 slot->CurPhaseTime = 32 * 8;
+
+            SendMPAck();
 
             slot->CurPhase = 3;
         }
@@ -466,7 +532,7 @@ void ProcessTX(TXSlot* slot, int num)
                 IOPORT(W_TXStat) = 0x0801; // checkme
                 SetIRQ(1);
             }
-
+printf("MP TX over\n");
             FireTX();
         }
         break;
@@ -474,12 +540,12 @@ void ProcessTX(TXSlot* slot, int num)
 }
 
 
-void CheckRX()
+void CheckRX(bool block)
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
         return;
 
-    int rxlen = Platform::MP_RecvPacket(RXBuffer, false);
+    int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
     if (rxlen < 12+24) return;
 
     u16 framelen = *(u16*)&RXBuffer[10];
@@ -489,6 +555,17 @@ void CheckRX()
         return;
     }
     framelen -= 4;
+
+    /*if (RXTime > 0)
+    {
+        printf("!! getting packet while already receiving\n");
+        return;
+    }
+    if (IOPORT(W_TXBusy) & 0x9D)
+    {
+        printf("!! getting packet while sending\n");
+        return;
+    }*/
 
     u16 framectl = *(u16*)&RXBuffer[12+0];
     u8 txrate = RXBuffer[8];
@@ -538,7 +615,7 @@ void CheckRX()
         else rxflags |= 0x0008;
         break;
     }
-
+if (framectl != 0x0080 && framectl != 0x0228)printf("got packet %04X\n", framectl);
     if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
         return; // oops. we received a packet we just sent.
 
@@ -561,7 +638,7 @@ void CheckRX()
     *(u16*)&RXBuffer[8] = framelen;
     *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
-    RXTime = framelen * ((txrate==0x14) ? 4:8);
+    RXTime = 16;//framelen * ((txrate==0x14) ? 4:8);
 
     // TODO: write packet progressively?
     // TODO: RX/TX addr register
@@ -603,8 +680,8 @@ void MSTimer()
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
 
-    if (!IOPORT(W_TXBusy))
-        CheckRX();
+    //if (!IOPORT(W_TXBusy))
+    //    CheckRX(false);
 }
 
 void USTimer(u32 param)
@@ -623,6 +700,8 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
+
+        if (!(uspart & 0x1FF)) CheckRX(false);
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
@@ -639,13 +718,14 @@ void USTimer(u32 param)
     u16 txbusy = IOPORT(W_TXBusy);
     if (txbusy)
     {
-        if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
+        if (txbusy & 0x0080) ProcessTX(&TXSlots[5], 5);
+        else if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
         else if (txbusy & 0x0008) ProcessTX(&TXSlots[3], 3);
         else if (txbusy & 0x0004) ProcessTX(&TXSlots[2], 2);
         else if (txbusy & 0x0002) ProcessTX(&TXSlots[1], 1);
         else if (txbusy & 0x0001) ProcessTX(&TXSlots[0], 0);
     }
-    else if (RXTime)
+    if (RXTime)
     {
         // TODO: make sure it isn't possible to send and receive at the same time
         RXTime--;
@@ -653,6 +733,23 @@ void USTimer(u32 param)
         {
             IOPORT(W_RXBufWriteCursor) = RXEndAddr;
             SetIRQ(0);
+
+            if ((RXBuffer[0] & 0x0F) == 0x0C)
+            {
+                u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
+                if (clientmask & (1 << IOPORT(W_AIDLow)))
+                {
+                    printf("MP: attempting to reply: %04X %04X\n", IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2));
+                    // this is a big fat guess
+                    if (IOPORT(W_TXSlotReply1) & 0x8000)
+                    {
+                        IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
+                        IOPORT(W_TXSlotReply1) = 0;
+
+                        SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
+                    }
+                }
+            }
         }
     }
 

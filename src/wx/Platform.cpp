@@ -154,7 +154,7 @@ bool MP_Init()
 
 	sockaddr_t saddr;
 	saddr.sa_family = AF_INET;
-	*(u32*)&saddr.sa_data[2] = htonl(INADDR_ANY);
+	*(u32*)&saddr.sa_data[2] = htonl(INADDR_LOOPBACK);//htonl(INADDR_ANY);
 	*(u16*)&saddr.sa_data[0] = htons(7064);
 	res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
 	if (res < 0)
@@ -222,7 +222,7 @@ int MP_RecvPacket(u8* data, bool block)
 	FD_ZERO(&fd);
 	FD_SET(MPSocket, &fd);
 	tv.tv_sec = 0;
-	tv.tv_usec = 0;
+	tv.tv_usec = block ? 5000 : 0;
 
 	if (!select(MPSocket+1, &fd, 0, 0, &tv))
     {
