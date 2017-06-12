@@ -393,7 +393,6 @@ u32 RunFrame()
 {
     if (!Running) return 263; // dorp
 
-
     GPU::StartFrame();
 
     while (Running && GPU::TotalScanlines==0)
@@ -426,7 +425,7 @@ u32 RunFrame()
             if (cycles > 0) cycles = DMAs[5]->Run(cycles);
             if (cycles > 0) cycles = DMAs[6]->Run(cycles);
             if (cycles > 0) cycles = DMAs[7]->Run(cycles);
-            ARM7Offset = cycles;
+            ARM7Offset = -cycles;
         }
         else
         {
@@ -835,15 +834,13 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE* shit = fopen("debug/poke7.bin", "wb");
-    for (u32 i = 0x02000000; i < 0x03810000; i+=4)
+    /*FILE*
+    shit = fopen("debug/pictochat.bin", "wb");
+    for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
-    /*FILE*
-    shit = fopen("debug/pictochat7.bin", "wb");
     for (u32 i = 0x037F0000; i < 0x03810000; i+=4)
     {
         u32 val = ARM7Read32(i);
@@ -1249,7 +1246,11 @@ void ARM7Write8(u32 addr, u8 val)
 }
 
 void ARM7Write16(u32 addr, u16 val)
-{
+{//if (addr==(ARM7Read32(0x380FFF4)+0x4A0)) printf("%08X set client bitmap %04X %08X\n", ARM7->R[15], val, addr);
+    //if (addr==0x0230F89C) printf("[%08X] set pkt type %04X %08X\n", ARM7->R[15], val, addr);
+    /*if (addr==0x03807D2C) printf("[%08X] SET SOME STATUS %04X %08X\n", ARM7->R[15], val, addr);
+    if (addr==0x0230E310) printf("[%08X] SET YET ANOTHER DUMB LAYER OF STATUS %04X %08X\n", ARM7->R[15], val, addr);*/
+    //if (addr==0x0230E310 && val==0x15) val = 0xC;
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -1859,7 +1860,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
-        {
+        {if((val&0x1F)==0xA)printf("ARM9->ARM7: %08X --- %08X -- %04X\n", val, val>>6, ARM7Read16(val>>6));
             if (IPCFIFO9->IsFull())
                 IPCFIFOCnt9 |= 0x4000;
             else
@@ -2389,7 +2390,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
-        {
+        {if((val&0x1F)==0xA)printf("ARM7->ARM9: %08X --- %08X -- %04X\n", val, val>>6, ARM7Read16(val>>6));
             if (IPCFIFO7->IsFull())
                 IPCFIFOCnt7 |= 0x4000;
             else
