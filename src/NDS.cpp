@@ -1246,11 +1246,7 @@ void ARM7Write8(u32 addr, u8 val)
 }
 
 void ARM7Write16(u32 addr, u16 val)
-{//if (addr==(ARM7Read32(0x380FFF4)+0x4A0)) printf("%08X set client bitmap %04X %08X\n", ARM7->R[15], val, addr);
-    //if (addr==0x0230F89C) printf("[%08X] set pkt type %04X %08X\n", ARM7->R[15], val, addr);
-    /*if (addr==0x03807D2C) printf("[%08X] SET SOME STATUS %04X %08X\n", ARM7->R[15], val, addr);
-    if (addr==0x0230E310) printf("[%08X] SET YET ANOTHER DUMB LAYER OF STATUS %04X %08X\n", ARM7->R[15], val, addr);*/
-    //if (addr==0x0230E310 && val==0x15) val = 0xC;
+{
     switch (addr & 0xFF800000)
     {
     case 0x02000000:

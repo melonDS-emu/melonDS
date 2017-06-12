@@ -36,6 +36,7 @@ u16 Random;
 
 u64 USCounter;
 u64 USCompare;
+bool BlockBeaconIRQ14;
 
 u32 CmdCounter;
 
@@ -173,6 +174,7 @@ void Reset()
 
     USCounter = 0;
     USCompare = 0;
+    BlockBeaconIRQ14 = false;
 
     CmdCounter = 0;
 }
@@ -202,17 +204,23 @@ void SetIRQ13()
     }
 }
 
-void SetIRQ14(bool forced)
+void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
 {
+    if (source != 2)
+        IOPORT(W_BeaconCount1) = IOPORT(W_BeaconInterval);
+
+    if (BlockBeaconIRQ14 && source == 1)
+        return;
+    if (!(IOPORT(W_USCompareCnt)) & 0x0001)
+        return;
+
     SetIRQ(14);
 
-    if (!forced)
-        IOPORT(W_BeaconCount1) = IOPORT(W_BeaconInterval);
-    else
+    if (source == 2)
         printf("wifi: weird forced IRQ14\n");
 
     IOPORT(W_BeaconCount2) = 0xFFFF;
-    IOPORT(W_TXReqRead) &= 0xFFF2; // todo, eventually?
+    IOPORT(W_TXReqRead) &= 0xFFF2;
 
     if (IOPORT(W_TXSlotBeacon) & 0x8000)
     {
@@ -400,7 +408,7 @@ void SendMPAck()
 	*(u16*)&ack[0xC + 0x10] = IOPORT(W_MACAddr0);
 	*(u16*)&ack[0xC + 0x12] = IOPORT(W_MACAddr1);
 	*(u16*)&ack[0xC + 0x14] = IOPORT(W_MACAddr2);
-	*(u16*)&ack[0xC + 0x16] = (IOPORT(W_TXSeqNo) + 1) << 4;
+	*(u16*)&ack[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
 	*(u16*)&ack[0xC + 0x18] = 0x0033; // ???
 	*(u16*)&ack[0xC + 0x1A] = 0;
 	*(u32*)&ack[0xC + 0x1C] = 0;
@@ -437,20 +445,31 @@ void ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
+            // CHECKME
+            // hardware seems to do this automatically?
+            // I saw it done on captured packets, but saw no code to do it
+            if (num == 1)
+            {
+                if (slot->Length > 32)
+                {
+                    *(u16*)&RAM[slot->Addr + 0xC + (slot->Length-6)] = *(u16*)&RAM[slot->Addr + 0x26];
+                }
+            }
+
             if (num != 5) SetIRQ(7);
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
             int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, framectl=%04X, %04X\n",
-                                 txlen, slot->Length+12, num, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 2]);
+            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, framectl=%04X, %04X %04X\n",
+                                 txlen, slot->Length+12, num, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
         }
         break;
 
     case 1: // transmit done
         {
             // checkme
-            *(u16*)&RAM[slot->Addr] = 0x0001;
+            if(num!=5)*(u16*)&RAM[slot->Addr] = 0x0001;
             RAM[slot->Addr + 5] = 0;
 
             if (num == 1)
@@ -612,20 +631,24 @@ void CheckRX(bool block)
         if (framectl == 0x0228) rxflags |= 0x000C;
         else if (framectl == 0x0218) rxflags |= 0x000D;
         else if (framectl == 0x0118) rxflags |= 0x000E; // checkme
+        else if (framectl == 0x0158) rxflags |= 0x000F; // wild guess. those two might be swapped
         else rxflags |= 0x0008;
         break;
     }
-if (framectl != 0x0080 && framectl != 0x0228)printf("got packet %04X\n", framectl);
+
     if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
         return; // oops. we received a packet we just sent.
 
     bool bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
     if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
         !bssidmatch)
+    {
+        printf("received packet %04X but it didn't pass the BSSID check\n", framectl);
         return;
+    }
 
-    if (framectl != 0x0080 && framectl != 0x0228)
-        printf("wifi: received packet. framectrl=%04X\n", framectl);
+    //if (framectl != 0x0080 && framectl != 0x0228)
+        printf("wifi: received packet FC:%04X SN:%04X CL:%04X\n", framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2]);
 
     // make RX header
 
@@ -660,7 +683,11 @@ if (framectl != 0x0080 && framectl != 0x0228)printf("got packet %04X\n", framect
         }
     }
 
-    RXEndAddr = ((addr >> 1) + 1) & ~0x1;
+    if (addr & 0x2) addr += 2;
+    if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+        addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+
+    RXEndAddr = (addr & ~0x3) >> 1;
 
     SetIRQ(6);
 }
@@ -668,10 +695,19 @@ if (framectl != 0x0080 && framectl != 0x0228)printf("got packet %04X\n", framect
 
 void MSTimer()
 {
-    IOPORT(W_BeaconCount1)--;
     if (IOPORT(W_USCompareCnt))
     {
-        if (IOPORT(W_BeaconCount1) == 0) SetIRQ14(false);
+        if (USCounter == USCompare)
+        {
+            BlockBeaconIRQ14 = false;
+            SetIRQ14(0);
+        }
+    }
+
+    IOPORT(W_BeaconCount1)--;
+    if (IOPORT(W_BeaconCount1) == 0)
+    {
+        SetIRQ14(1);
     }
 
     if (IOPORT(W_BeaconCount2) != 0)
@@ -683,7 +719,7 @@ void MSTimer()
     //if (!IOPORT(W_TXBusy))
     //    CheckRX(false);
 }
-
+u64 mpreplywindow;
 void USTimer(u32 param)
 {
     if (IOPORT(W_USCountCnt))
@@ -693,8 +729,6 @@ void USTimer(u32 param)
 
         if (IOPORT(W_USCompareCnt))
         {
-            if (USCounter == USCompare) SetIRQ14(false);
-
             u32 beaconus = (IOPORT(W_BeaconCount1) << 10) | (0x3FF - uspart);
             if (beaconus == IOPORT(W_PreBeacon)) SetIRQ15();
         }
@@ -739,7 +773,9 @@ void USTimer(u32 param)
                 u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
                 if (clientmask & (1 << IOPORT(W_AIDLow)))
                 {
-                    printf("MP: attempting to reply: %04X %04X\n", IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2));
+                    printf("MP: attempting to reply: %04X %04X, delay=%04X\n",
+                           IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2), *(u16*)&RXBuffer[0xC + 24]);
+                    mpreplywindow = USCounter;
                     // this is a big fat guess
                     if (IOPORT(W_TXSlotReply1) & 0x8000)
                     {
@@ -748,6 +784,8 @@ void USTimer(u32 param)
 
                         SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
                     }
+                    //if (IOPORT(W_TXSlotReply2) & 0x8000)
+                    //    SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
                 }
             }
         }
@@ -878,6 +916,7 @@ u16 Read(u32 addr)
         break;
         //case 0x214: NDS::debug(0); break;
         //case 0x040: NDS::debug(0); break;
+        //case 0x54: printf("wifi: read WRCSR -> %04X\n", IOPORT(0x54)); break;
     }
 
     //printf("WIFI: read %08X\n", addr);
@@ -1015,7 +1054,7 @@ void Write(u32 addr, u16 val)
 
     case W_USCountCnt: val &= 0x0001; break;
     case W_USCompareCnt:
-        if (val & 0x0002) SetIRQ14(true);
+        if (val & 0x0002) SetIRQ14(2);
         val &= 0x0001;
         break;
 
@@ -1026,8 +1065,7 @@ void Write(u32 addr, u16 val)
 
     case W_USCompare0:
         USCompare = (USCompare & 0xFFFFFFFFFFFF0000) | (u64)(val & 0xFC00);
-        if (val & 0x03FF)
-            printf("wifi: mysterious USCOMPARE bits set %08X%08X %04X\n", (u32)(USCompare>>32), (u32)USCompare, val); // TODO
+        if (val & 0x0001) BlockBeaconIRQ14 = true;
         return;
     case W_USCompare1: USCompare = (USCompare & 0xFFFFFFFF0000FFFF) | ((u64)val << 16); return;
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
@@ -1059,6 +1097,7 @@ void Write(u32 addr, u16 val)
         if (val & 0x0001)
         {
             IOPORT(W_RXBufWriteCursor) = IOPORT(W_RXBufWriteAddr);
+            printf("wifi: force WRCSR to %04X\n", IOPORT(W_RXBufWriteCursor));
         }
         if (val & 0x0080)
         {
@@ -1155,7 +1194,8 @@ void Write(u32 addr, u16 val)
         return;
 
     case 0x094:
-        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X\n", addr, val, IOPORT(W_TXReqRead));
+        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X. delay=%08X\n",
+               addr, val, IOPORT(W_TXReqRead), (u32)(USCounter-mpreplywindow));
         break;
 
     // read-only ports
