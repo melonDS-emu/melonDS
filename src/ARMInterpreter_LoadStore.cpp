@@ -461,7 +461,7 @@ void A_STM(ARM* cpu)
 
             if (i == baseid && !isbanked)
             {
-                if ((cpu->Num == 0) || (!(cpu->CurInstr & (i-1))))
+                if ((cpu->Num == 0) || (!(cpu->CurInstr & ((1<<i)-1))))
                     cpu->DataWrite32(base, oldbase);
                 else
                     cpu->DataWrite32(base, base); // checkme
