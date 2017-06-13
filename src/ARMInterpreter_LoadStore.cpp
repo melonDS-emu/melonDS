@@ -217,9 +217,10 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataWrite16(addr, cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
 
-// TODO: CHECK LDRD/STRD TIMINGS!! also, ARM9-only
+// TODO: CHECK LDRD/STRD TIMINGS!!
 
 #define A_LDRD \
+    if (cpu->Num != 0) return A_UNK(cpu); \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->Cycles += 1; \
@@ -228,6 +229,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[r+1] = cpu->DataRead32(offset+4); \
 
 #define A_LDRD_POST \
+    if (cpu->Num != 0) return A_UNK(cpu); \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->Cycles += 1; \
@@ -236,6 +238,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->R[r+1] = cpu->DataRead32(addr+4); \
 
 #define A_STRD \
+    if (cpu->Num != 0) return A_UNK(cpu); \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
@@ -243,6 +246,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataWrite32(offset+4, cpu->R[r+1]); \
 
 #define A_STRD_POST \
+    if (cpu->Num != 0) return A_UNK(cpu); \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
     cpu->DataWrite32(offset  , cpu->R[r  ]); \

@@ -32,14 +32,30 @@ namespace ARMInterpreter
 void A_UNK(ARM* cpu)
 {
     printf("undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
-    for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
-    NDS::Halt();
+    //for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
+    //NDS::Halt();
+    u32 oldcpsr = cpu->CPSR;
+    cpu->CPSR &= ~0xFF;
+    cpu->CPSR |= 0xDB;
+    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+
+    cpu->R_UND[2] = oldcpsr;
+    cpu->R[14] = cpu->R[15] - 4;
+    cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
 void T_UNK(ARM* cpu)
 {
     printf("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
-    NDS::Halt();
+    //NDS::Halt();
+    u32 oldcpsr = cpu->CPSR;
+    cpu->CPSR &= ~0xFF;
+    cpu->CPSR |= 0xDB;
+    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+
+    cpu->R_UND[2] = oldcpsr;
+    cpu->R[14] = cpu->R[15] - 2;
+    cpu->JumpTo(cpu->ExceptionBase + 0x04);
 }
 
 
