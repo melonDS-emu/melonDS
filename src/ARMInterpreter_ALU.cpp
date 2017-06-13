@@ -985,7 +985,7 @@ void A_CLZ(ARM* cpu)
 
 void A_QADD(ARM* cpu)
 {
-    // TODO: ARM9 only
+    if (cpu->Num != 0) return A_UNK(cpu);
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
@@ -997,12 +997,12 @@ void A_QADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 }
 
 void A_QSUB(ARM* cpu)
 {
-    // TODO: ARM9 only
+    if (cpu->Num != 0) return A_UNK(cpu);
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
@@ -1014,12 +1014,12 @@ void A_QSUB(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 }
 
 void A_QDADD(ARM* cpu)
 {
-    // TODO: ARM9 only
+    if (cpu->Num != 0) return A_UNK(cpu);
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
@@ -1039,12 +1039,12 @@ void A_QDADD(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 }
 
 void A_QDSUB(ARM* cpu)
 {
-    // TODO: ARM9 only
+    if (cpu->Num != 0) return A_UNK(cpu);
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
@@ -1064,7 +1064,7 @@ void A_QDSUB(ARM* cpu)
         cpu->CPSR |= 0x08000000;
     }
 
-    cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
 }
 
 

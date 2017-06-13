@@ -241,4 +241,12 @@ public:
     u32 debug;
 };
 
+namespace ARMInterpreter
+{
+
+void A_UNK(ARM* cpu);
+void T_UNK(ARM* cpu);
+
+}
+
 #endif // ARM_H
