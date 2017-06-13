@@ -865,7 +865,7 @@ void A_SMLAL(ARM* cpu)
 
 void A_SMLAxy(ARM* cpu)
 {
-    if (cpu->Num != 0) return A_UNK(cpu);
+    if (cpu->Num != 0) return;
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
@@ -886,7 +886,7 @@ void A_SMLAxy(ARM* cpu)
 
 void A_SMLAWy(ARM* cpu)
 {
-    if (cpu->Num != 0) return A_UNK(cpu);
+    if (cpu->Num != 0) return;
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
@@ -905,7 +905,7 @@ void A_SMLAWy(ARM* cpu)
 
 void A_SMULxy(ARM* cpu)
 {
-    if (cpu->Num != 0) return A_UNK(cpu);
+    if (cpu->Num != 0) return;
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
@@ -922,7 +922,7 @@ void A_SMULxy(ARM* cpu)
 
 void A_SMULWy(ARM* cpu)
 {
-    if (cpu->Num != 0) return A_UNK(cpu);
+    if (cpu->Num != 0) return;
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];
@@ -937,7 +937,7 @@ void A_SMULWy(ARM* cpu)
 
 void A_SMLALxy(ARM* cpu)
 {
-    if (cpu->Num != 0) return A_UNK(cpu);
+    if (cpu->Num != 0) return;
 
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rs = cpu->R[(cpu->CurInstr >> 8) & 0xF];

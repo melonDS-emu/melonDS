@@ -174,9 +174,14 @@ void A_MCR(ARM* cpu)
     {
         CP15::Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
     }
+    else if (cpu->Num==1 && cp==14)
+    {
+        printf("MCR p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
+    }
     else
     {
         printf("bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
     cpu->Cycles += 2; // TODO: checkme
@@ -194,9 +199,14 @@ void A_MRC(ARM* cpu)
     {
         cpu->R[(cpu->CurInstr>>12)&0xF] = CP15::Read((cn<<8)|(cm<<4)|cpinfo);
     }
+    else if (cpu->Num==1 && cp==14)
+    {
+        printf("MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
+    }
     else
     {
         printf("bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
     cpu->Cycles += 3; // TODO: checkme
