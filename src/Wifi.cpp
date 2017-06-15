@@ -71,6 +71,9 @@ u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
 u32 TXCurSlot;
 u32 RXCounter;
 
+int MPReplyTimer;
+int MPNumReplies;
+
 bool MPInited;
 
 
@@ -184,6 +187,9 @@ void Reset()
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
+
+    MPReplyTimer = 0;
+    MPNumReplies = 0;
 
     CmdCounter = 0;
 }
@@ -379,7 +385,7 @@ void FireTX()
     }
 }
 
-void SendMPReply(u16 clienttime)
+void SendMPReply(u16 clienttime, u16 clientmask)
 {
     TXSlot* slot = &TXSlots[5];
 
@@ -390,8 +396,15 @@ void SendMPReply(u16 clienttime)
     if (rate == 0x14) slot->Rate = 2;
     else              slot->Rate = 1;
 
+    u16 clientnum = 0;
+    for (int i = 1; i < IOPORT(W_AIDLow); i++)
+    {
+        if (clientmask & (1<<i))
+            clientnum++;
+    }
+
     slot->CurPhase = 0;
-    slot->CurPhaseTime = 32 + ((clienttime + 10) * (IOPORT(W_AIDLow) - 1));
+    slot->CurPhaseTime = 16 + ((clienttime + 10) * clientnum);
 
     IOPORT(W_TXBusy) |= 0x0080;
 }
@@ -441,7 +454,22 @@ bool CheckRX(bool block);
 bool ProcessTX(TXSlot* slot, int num)
 {
     slot->CurPhaseTime--;
-    if (slot->CurPhaseTime > 0) return false;
+    if (slot->CurPhaseTime > 0)
+    {
+        if (slot->CurPhase == 2)
+        {
+            MPReplyTimer--;
+            if (MPReplyTimer == 0 && MPNumReplies > 0)
+            {
+                if (CheckRX(true)) ComStatus |= 0x2;
+
+                MPReplyTimer = 10 + IOPORT(W_CmdReplyTime);
+                MPNumReplies--;
+            }
+        }
+
+        return false;
+    }
 
     switch (slot->CurPhase)
     {
@@ -465,7 +493,7 @@ bool ProcessTX(TXSlot* slot, int num)
                 }
             }*/
 
-            if (num != 5) SetIRQ(7);
+            SetIRQ(7);
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
@@ -483,13 +511,19 @@ bool ProcessTX(TXSlot* slot, int num)
 
             if (num == 1)
             {
+                if (IOPORT(W_TXStatCnt) & 0x4000)
+                {
+                    IOPORT(W_TXStat) = 0x0801;
+                    SetIRQ(1);
+                }
+
                 u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
-                u32 nclients = NumClients(clientmask);
+                MPNumReplies = NumClients(clientmask);
+                MPReplyTimer = 16;
 
                 slot->CurPhase = 2;
-                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * nclients);
+                slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * MPNumReplies);
 printf("tx done. listen to replies\n");
-                if (CheckRX(true)) ComStatus |= 0x2;
 
                 // TODO: RFSTATUS/RFPINS
 
@@ -497,10 +531,16 @@ printf("tx done. listen to replies\n");
             }
             else if (num == 5)
             {
+                if (IOPORT(W_TXStatCnt) & 0x1000)
+                {
+                    IOPORT(W_TXStat) = 0x0401;
+                    SetIRQ(1);
+                }
+
                 IOPORT(W_TXBusy) &= ~0x80;
                 IOPORT(W_TXSlotReply2) &= 0x7FFF;
                 FireTX();
-                break;
+                return true;
             }
 
             IOPORT(W_TXBusy) &= ~(1<<num);
@@ -553,11 +593,6 @@ printf("tx done. listen to replies\n");
             if (IOPORT(W_TXStatCnt) & 0x2000)
             {
                 IOPORT(W_TXStat) = 0x0B01;
-                SetIRQ(1);
-            }
-            else if (IOPORT(W_TXStatCnt) & 0x4000)
-            {
-                IOPORT(W_TXStat) = 0x0801; // checkme
                 SetIRQ(1);
             }
 printf("MP TX over\n");
@@ -674,7 +709,7 @@ bool CheckRX(bool block)
     *(u16*)&RXBuffer[8] = framelen;
     *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
-    RXTime = 16;//framelen * ((txrate==0x14) ? 4:8);
+    RXTime = framelen * ((txrate==0x14) ? 4:8);
 
     // TODO: write packet progressively?
     // TODO: RX/TX addr register
@@ -839,7 +874,7 @@ void USTimer(u32 param)
                         IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
                         IOPORT(W_TXSlotReply1) = 0;
 
-                        SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
+                        SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
                     }
                     //if (IOPORT(W_TXSlotReply2) & 0x8000)
                     //    SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
