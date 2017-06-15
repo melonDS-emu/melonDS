@@ -421,6 +421,36 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     IOPORT(W_TXBusy) |= 0x0080;
 }
 
+void SendMPDefaultReply()
+{
+    u8 reply[12 + 32];
+
+    *(u16*)&reply[0xA] = 28; // length
+
+    // rate
+    //if (TXSlots[1].Rate == 2) reply[0x8] = 0x14;
+    //else                      reply[0x8] = 0xA;
+    // TODO
+    reply[0x8] = 0x14;
+
+	*(u16*)&reply[0xC + 0x00] = 0x0158;
+	*(u16*)&reply[0xC + 0x02] = 0; // TODO??
+	*(u16*)&reply[0xC + 0x04] = IOPORT(W_BSSID0);
+	*(u16*)&reply[0xC + 0x06] = IOPORT(W_BSSID1);
+	*(u16*)&reply[0xC + 0x08] = IOPORT(W_BSSID2);
+	*(u16*)&reply[0xC + 0x0A] = IOPORT(W_MACAddr0);
+	*(u16*)&reply[0xC + 0x0C] = IOPORT(W_MACAddr1);
+	*(u16*)&reply[0xC + 0x0E] = IOPORT(W_MACAddr2);
+	*(u16*)&reply[0xC + 0x10] = 0x0903;
+	*(u16*)&reply[0xC + 0x12] = 0x00BF;
+	*(u16*)&reply[0xC + 0x14] = 0x1000;
+	*(u16*)&reply[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
+	*(u32*)&reply[0xC + 0x18] = 0;
+
+	int txlen = Platform::MP_SendPacket(reply, 12+28);
+	printf("wifi: sent %d/40 bytes of MP default reply\n", txlen);
+}
+
 void SendMPAck()
 {
     u8 ack[12 + 32];
@@ -499,16 +529,22 @@ bool ProcessTX(TXSlot* slot, int num)
                 // MP reply slot
                 // setup needs to be done now as port 098 can get changed in the meantime
 
-                // can be cancelled, but IRQ7 is still triggered
+                SetStatus(8);
+
+                // if no reply is configured, send a default empty reply
                 if (!(IOPORT(W_TXSlotReply2) & 0x8000))
                 {
-                    IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-                    IOPORT(W_TXBusy) &= ~0x80;
-                    FireTX();
-                    return true;
-                }
+                    SendMPDefaultReply();
 
-                SetStatus(8);
+                    slot->Addr = 0;
+                    slot->Length = 28;
+                    slot->Rate = 2; // TODO
+                    slot->CurPhase = 4;
+                    slot->CurPhaseTime = 28*4;
+                    slot->HalfwordTimeMask = 0xFFFFFFFF;
+                    IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+                    break;
+                }
 
                 slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
                 slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -543,15 +579,16 @@ bool ProcessTX(TXSlot* slot, int num)
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
             int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, framectl=%04X, %04X %04X\n",
-                                 txlen, slot->Length+12, num, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
+                                 txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
         }
         break;
 
     case 1: // transmit done
         {
             // checkme
-            if(num!=5)*(u16*)&RAM[slot->Addr] = 0x0001;
+            if (num != 5)
+                *(u16*)&RAM[slot->Addr] = 0x0001;
             RAM[slot->Addr + 5] = 0;
 
             if (num == 1)
@@ -646,6 +683,14 @@ bool ProcessTX(TXSlot* slot, int num)
             FireTX();
         }
         return true;
+
+    case 4: // MP default reply transfer finished
+        {
+            IOPORT(W_TXBusy) &= ~0x80;
+            SetStatus(1);
+            FireTX();
+        }
+        return true;
     }
 
     return false;
@@ -737,12 +782,14 @@ bool CheckRX(bool block)
                 printf("blarg\n");
                 continue;
             }
+            // TODO: those also trigger on other framectl values
+            // like 0208 -> C
             framectl &= 0xE7FF;
-            if (framectl == 0x0228) rxflags |= 0x000C;
-            else if (framectl == 0x0218) rxflags |= 0x000D;
-            else if (framectl == 0x0118) rxflags |= 0x000E; // checkme
-            else if (framectl == 0x0158) rxflags |= 0x000F; // wild guess. those two might be swapped
-            else rxflags |= 0x0008;
+            if      (framectl == 0x0228) rxflags |= 0x000C; // MP host frame
+            else if (framectl == 0x0218) rxflags |= 0x000D; // MP ack frame
+            else if (framectl == 0x0118) rxflags |= 0x000E; // MP reply frame
+            else if (framectl == 0x0158) rxflags |= 0x000F; // empty MP reply frame
+            else                         rxflags |= 0x0008;
             break;
         }
 
@@ -930,6 +977,8 @@ void USTimer(u32 param)
                 SetIRQ(0);
                 SetStatus(1);
 
+                printf("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
+
                 if (TXCurSlot == -1)
                 {
                     ComStatus = 0;
@@ -941,9 +990,6 @@ void USTimer(u32 param)
                     u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
                     if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
                     {
-                        printf("MP: attempting to reply: %04X %04X, delay=%04X\n",
-                               IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2), *(u16*)&RXBuffer[0xC + 24]);
-
                         SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
                     }
                 }
