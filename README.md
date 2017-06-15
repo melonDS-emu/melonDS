@@ -15,7 +15,10 @@ melonDS requires BIOS/firmware copies from a DS. Files required:
  * bios9.bin, 4KB: ARM9 BIOS
  * firmware.bin, 256KB: firmware
  
-Note: the DS-mode firmware in the 3DS isn't bootable, it only contains the bare minimum to run games.
+Firmware boot requires a firmware dump from an original DS or DS Lite.
+DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configuration data, thus they are only suitable when booting games directly.
+
+DS BIOS dumps from a 3DS can be used with no compatibility issues. DSi BIOS dumps should be usable too, provided they were dumped properly.
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 

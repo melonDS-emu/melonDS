@@ -67,6 +67,10 @@ u8 RXBuffer[2048];
 u32 RXTime;
 u16 RXEndAddr;
 
+u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
+u32 TXCurSlot;
+u32 RXCounter;
+
 bool MPInited;
 
 
@@ -75,10 +79,11 @@ bool MPInited;
 // 1. preamble
 // 2. IRQ7
 // 3. send data
-// 4. wait for client replies (duration: 112 + ((10 * CMD_REPLYTIME) * numclients))
-// 5. IRQ7
-// 6. send ack (16 bytes, 1Mbps)
-// 7. optional IRQ1, along with IRQ12 if the transfer was successful or if
+// 4. optional IRQ1
+// 5. wait for client replies (duration: 112 + ((10 * CMD_REPLYTIME) * numclients))
+// 6. IRQ7
+// 7. send ack (16 bytes, 1Mbps)
+// 8. optional IRQ1, along with IRQ12 if the transfer was successful or if
 //    there's no time left for a retry
 //
 // if the transfer has to be retried (for example, didn't get replies from all clients)
@@ -89,14 +94,14 @@ bool MPInited;
 //
 // RFSTATUS values:
 // 0 = initial
-// 1 = RX????
+// 1 = waiting for incoming packets
 // 2 = switching from RX to TX
 // 3 = TX
 // 4 = switching from TX to RX
 // 5 = MP host data sent, waiting for replies (RFPINS=0x0084)
 // 6 = RX
 // 7 = ??
-// 8 = MP host sending ack (RFPINS=0x0046)
+// 8 = MP client sending reply, MP host sending ack (RFPINS=0x0046)
 // 9 = idle
 
 
@@ -175,6 +180,10 @@ void Reset()
     USCounter = 0;
     USCompare = 0;
     BlockBeaconIRQ14 = false;
+
+    ComStatus = 0;
+    TXCurSlot = -1;
+    RXCounter = 0;
 
     CmdCounter = 0;
 }
@@ -427,12 +436,12 @@ u32 NumClients(u16 bitmask)
     return ret;
 }
 
-void CheckRX(bool block);
+bool CheckRX(bool block);
 
-void ProcessTX(TXSlot* slot, int num)
+bool ProcessTX(TXSlot* slot, int num)
 {
     slot->CurPhaseTime--;
-    if (slot->CurPhaseTime > 0) return;
+    if (slot->CurPhaseTime > 0) return false;
 
     switch (slot->CurPhase)
     {
@@ -448,13 +457,13 @@ void ProcessTX(TXSlot* slot, int num)
             // CHECKME
             // hardware seems to do this automatically?
             // I saw it done on captured packets, but saw no code to do it
-            if (num == 1)
+            /*if (num == 1)
             {
                 if (slot->Length > 32)
                 {
                     *(u16*)&RAM[slot->Addr + 0xC + (slot->Length-6)] = *(u16*)&RAM[slot->Addr + 0x26];
                 }
-            }
+            }*/
 
             if (num != 5) SetIRQ(7);
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
@@ -480,7 +489,7 @@ void ProcessTX(TXSlot* slot, int num)
                 slot->CurPhase = 2;
                 slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * nclients);
 printf("tx done. listen to replies\n");
-                CheckRX(true);
+                if (CheckRX(true)) ComStatus |= 0x2;
 
                 // TODO: RFSTATUS/RFPINS
 
@@ -517,7 +526,7 @@ printf("tx done. listen to replies\n");
 
             FireTX();
         }
-        break;
+        return true;
 
     case 2: // MP host transfer done
         {
@@ -554,103 +563,107 @@ printf("tx done. listen to replies\n");
 printf("MP TX over\n");
             FireTX();
         }
-        break;
+        return true;
     }
+
+    return false;
 }
 
 
-void CheckRX(bool block)
+bool CheckRX(bool block)
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
-        return;
+        return false;
 
-    int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
-    if (rxlen < 12+24) return;
+    u16 framelen;
+    u16 framectl;
+    u8 txrate;
+    bool bssidmatch;
+    u16 rxflags;
 
-    u16 framelen = *(u16*)&RXBuffer[10];
-    if (framelen != rxlen-12)
+    for (;;)
     {
-        printf("bad frame length\n");
-        return;
-    }
-    framelen -= 4;
+        int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
+        if (rxlen == 0) return false;
+        if (rxlen < 12+24) continue;
 
-    /*if (RXTime > 0)
-    {
-        printf("!! getting packet while already receiving\n");
-        return;
-    }
-    if (IOPORT(W_TXBusy) & 0x9D)
-    {
-        printf("!! getting packet while sending\n");
-        return;
-    }*/
-
-    u16 framectl = *(u16*)&RXBuffer[12+0];
-    u8 txrate = RXBuffer[8];
-
-    u32 a_src, a_dst, a_bss;
-    u16 rxflags = 0x0010;
-    switch (framectl & 0x000C)
-    {
-    case 0x0000: // management
-        a_src = 10;
-        a_dst = 4;
-        a_bss = 16;
-        if ((framectl & 0x00F0) == 0x0080)
-            rxflags |= 0x0001;
-        break;
-
-    case 0x0004: // control
-        printf("blarg\n");
-        return;
-
-    case 0x0008: // data
-        switch (framectl & 0x0300)
+        framelen = *(u16*)&RXBuffer[10];
+        if (framelen != rxlen-12)
         {
-        case 0x0000: // STA to STA
+            printf("bad frame length\n");
+            continue;
+        }
+        framelen -= 4;
+
+        framectl = *(u16*)&RXBuffer[12+0];
+        txrate = RXBuffer[8];
+
+        u32 a_src, a_dst, a_bss;
+        rxflags = 0x0010;
+        switch (framectl & 0x000C)
+        {
+        case 0x0000: // management
             a_src = 10;
             a_dst = 4;
             a_bss = 16;
+            if ((framectl & 0x00F0) == 0x0080)
+                rxflags |= 0x0001;
             break;
-        case 0x0100: // STA to DS
-            a_src = 10;
-            a_dst = 16;
-            a_bss = 4;
-            break;
-        case 0x0200: // DS to STA
-            a_src = 16;
-            a_dst = 4;
-            a_bss = 10;
-            break;
-        case 0x0300: // DS to DS
+
+        case 0x0004: // control
             printf("blarg\n");
-            return;
+            continue;
+
+        case 0x0008: // data
+            switch (framectl & 0x0300)
+            {
+            case 0x0000: // STA to STA
+                a_src = 10;
+                a_dst = 4;
+                a_bss = 16;
+                break;
+            case 0x0100: // STA to DS
+                a_src = 10;
+                a_dst = 16;
+                a_bss = 4;
+                break;
+            case 0x0200: // DS to STA
+                a_src = 16;
+                a_dst = 4;
+                a_bss = 10;
+                break;
+            case 0x0300: // DS to DS
+                printf("blarg\n");
+                continue;
+            }
+            framectl &= 0xE7FF;
+            if (framectl == 0x0228) rxflags |= 0x000C;
+            else if (framectl == 0x0218) rxflags |= 0x000D;
+            else if (framectl == 0x0118) rxflags |= 0x000E; // checkme
+            else if (framectl == 0x0158) rxflags |= 0x000F; // wild guess. those two might be swapped
+            else rxflags |= 0x0008;
+            break;
         }
-        framectl &= 0xE7FF;
-        if (framectl == 0x0228) rxflags |= 0x000C;
-        else if (framectl == 0x0218) rxflags |= 0x000D;
-        else if (framectl == 0x0118) rxflags |= 0x000E; // checkme
-        else if (framectl == 0x0158) rxflags |= 0x000F; // wild guess. those two might be swapped
-        else rxflags |= 0x0008;
+
+        if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
+            continue; // oops. we received a packet we just sent.
+
+        bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
+        if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
+            !bssidmatch)
+        {
+            printf("received packet %04X but it didn't pass the BSSID check\n", framectl);
+            continue;
+        }
+
         break;
-    }
-
-    if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
-        return; // oops. we received a packet we just sent.
-
-    bool bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
-    if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
-        !bssidmatch)
-    {
-        printf("received packet %04X but it didn't pass the BSSID check\n", framectl);
-        return;
     }
 
     //if (framectl != 0x0080 && framectl != 0x0228)
         printf("wifi: received packet FC:%04X SN:%04X CL:%04X\n", framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2]);
 
     // make RX header
+    // TODO: make it upon RX end
 
     if (bssidmatch) rxflags |= 0x8000;
 
@@ -679,7 +692,7 @@ void CheckRX(bool block)
         {
             printf("wifi: RX buffer full\n");
             // TODO: proper error management
-            return;
+            return false;
         }
     }
 
@@ -690,6 +703,7 @@ void CheckRX(bool block)
     RXEndAddr = (addr & ~0x3) >> 1;
 
     SetIRQ(6);
+    return true;
 }
 
 
@@ -735,7 +749,7 @@ void USTimer(u32 param)
 
         if (!uspart) MSTimer();
 
-        if (!(uspart & 0x1FF)) CheckRX(false);
+        //if (!(uspart & 0x1FF)) CheckRX(false);
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
@@ -749,17 +763,54 @@ void USTimer(u32 param)
     if (IOPORT(W_ContentFree) != 0)
         IOPORT(W_ContentFree)--;
 
-    u16 txbusy = IOPORT(W_TXBusy);
-    if (txbusy)
+    if (ComStatus == 0)
     {
-        if (txbusy & 0x0080) ProcessTX(&TXSlots[5], 5);
-        else if (txbusy & 0x0010) ProcessTX(&TXSlots[4], 4);
-        else if (txbusy & 0x0008) ProcessTX(&TXSlots[3], 3);
-        else if (txbusy & 0x0004) ProcessTX(&TXSlots[2], 2);
-        else if (txbusy & 0x0002) ProcessTX(&TXSlots[1], 1);
-        else if (txbusy & 0x0001) ProcessTX(&TXSlots[0], 0);
+        u16 txbusy = IOPORT(W_TXBusy);
+        if (txbusy)
+        {
+            ComStatus = 0x2;
+            if      (txbusy & 0x0080) TXCurSlot = 5;
+            else if (txbusy & 0x0010) TXCurSlot = 4;
+            else if (txbusy & 0x0008) TXCurSlot = 3;
+            else if (txbusy & 0x0004) TXCurSlot = 2;
+            else if (txbusy & 0x0002) TXCurSlot = 1;
+            else if (txbusy & 0x0001) TXCurSlot = 0;
+        }
+        else
+        {
+            if ((!(RXCounter & 0x1FF)))
+            {
+                if (CheckRX(false))
+                    ComStatus = 0x1;
+            }
+
+            RXCounter++;
+        }
     }
-    if (RXTime)
+
+    if (ComStatus & 0x2)
+    {
+        bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot);
+        if (finished)
+        {
+            // transfer finished, see if there's another slot to do
+            // checkme: priority order of beacon/reply
+            u16 txbusy = IOPORT(W_TXBusy);
+            if      (txbusy & 0x0080) TXCurSlot = 5;
+            else if (txbusy & 0x0010) TXCurSlot = 4;
+            else if (txbusy & 0x0008) TXCurSlot = 3;
+            else if (txbusy & 0x0004) TXCurSlot = 2;
+            else if (txbusy & 0x0002) TXCurSlot = 1;
+            else if (txbusy & 0x0001) TXCurSlot = 0;
+            else
+            {
+                TXCurSlot = -1;
+                ComStatus = 0;
+                RXCounter = 0;
+            }
+        }
+    }
+    if (ComStatus & 0x1)
     {
         // TODO: make sure it isn't possible to send and receive at the same time
         RXTime--;
@@ -767,6 +818,12 @@ void USTimer(u32 param)
         {
             IOPORT(W_RXBufWriteCursor) = RXEndAddr;
             SetIRQ(0);
+
+            if (TXCurSlot == -1)
+            {
+                ComStatus = 0;
+                RXCounter = 0;
+            }
 
             if ((RXBuffer[0] & 0x0F) == 0x0C)
             {
@@ -914,6 +971,10 @@ u16 Read(u32 addr)
             }
         }
         break;
+
+    case W_TXBusy:
+        return IOPORT(W_TXBusy) & 0x001F; // no bit for MP replies. odd
+
         //case 0x214: NDS::debug(0); break;
         //case 0x040: NDS::debug(0); break;
         //case 0x54: printf("wifi: read WRCSR -> %04X\n", IOPORT(0x54)); break;
@@ -1196,6 +1257,11 @@ void Write(u32 addr, u16 val)
     case 0x094:
         printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X. delay=%08X\n",
                addr, val, IOPORT(W_TXReqRead), (u32)(USCounter-mpreplywindow));
+        break;
+
+    case 0x228:
+    case 0x244:
+        printf("wifi: write port%03X %04X\n", addr, val);
         break;
 
     // read-only ports
