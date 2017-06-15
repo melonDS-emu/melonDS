@@ -389,12 +389,12 @@ void SendMPReply(u16 clienttime, u16 clientmask)
 {
     TXSlot* slot = &TXSlots[5];
 
-    slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
-    slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+    // mark the last packet as success. dunno what the MSB is, it changes.
+    if (IOPORT(W_TXSlotReply2) & 0x8000)
+        *(u16*)&RAM[slot->Addr] = 0x1201;
 
-    u8 rate = RAM[slot->Addr + 0x8];
-    if (rate == 0x14) slot->Rate = 2;
-    else              slot->Rate = 1;
+    IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
+    IOPORT(W_TXSlotReply1) = 0;
 
     u16 clientnum = 0;
     for (int i = 1; i < IOPORT(W_AIDLow); i++)
@@ -475,6 +475,29 @@ bool ProcessTX(TXSlot* slot, int num)
     {
     case 0: // preamble done
         {
+            SetIRQ(7);
+
+            if (num == 5)
+            {
+                // MP reply slot
+                // setup needs to be done now as port 098 can get changed in the meantime
+
+                // can be cancelled, but IRQ7 is still triggered
+                if (!(IOPORT(W_TXSlotReply2) & 0x8000))
+                {
+                    IOPORT(W_TXBusy) &= ~0x80;
+                    FireTX();
+                    return true;
+                }
+
+                slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+                slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+                u8 rate = RAM[slot->Addr + 0x8];
+                if (rate == 0x14) slot->Rate = 2;
+                else              slot->Rate = 1;
+            }
+
             u32 len = slot->Length;
             if (slot->Rate == 2) len *= 4;
             else                 len *= 8;
@@ -482,18 +505,6 @@ bool ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
-            // CHECKME
-            // hardware seems to do this automatically?
-            // I saw it done on captured packets, but saw no code to do it
-            /*if (num == 1)
-            {
-                if (slot->Length > 32)
-                {
-                    *(u16*)&RAM[slot->Addr + 0xC + (slot->Length-6)] = *(u16*)&RAM[slot->Addr + 0x26];
-                }
-            }*/
-
-            SetIRQ(7);
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
@@ -538,7 +549,6 @@ printf("tx done. listen to replies\n");
                 }
 
                 IOPORT(W_TXBusy) &= ~0x80;
-                IOPORT(W_TXSlotReply2) &= 0x7FFF;
                 FireTX();
                 return true;
             }
@@ -768,7 +778,7 @@ void MSTimer()
     //if (!IOPORT(W_TXBusy))
     //    CheckRX(false);
 }
-u64 mpreplywindow;
+
 void USTimer(u32 param)
 {
     if (IOPORT(W_USCountCnt))
@@ -863,21 +873,12 @@ void USTimer(u32 param)
             if ((RXBuffer[0] & 0x0F) == 0x0C)
             {
                 u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
-                if (clientmask & (1 << IOPORT(W_AIDLow)))
+                if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
                 {
                     printf("MP: attempting to reply: %04X %04X, delay=%04X\n",
                            IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2), *(u16*)&RXBuffer[0xC + 24]);
-                    mpreplywindow = USCounter;
-                    // this is a big fat guess
-                    if (IOPORT(W_TXSlotReply1) & 0x8000)
-                    {
-                        IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
-                        IOPORT(W_TXSlotReply1) = 0;
 
-                        SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
-                    }
-                    //if (IOPORT(W_TXSlotReply2) & 0x8000)
-                    //    SendMPReply(*(u16*)&RXBuffer[0xC + 24]);
+                    SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
                 }
             }
         }
@@ -1290,8 +1291,8 @@ void Write(u32 addr, u16 val)
         return;
 
     case 0x094:
-        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X. delay=%08X\n",
-               addr, val, IOPORT(W_TXReqRead), (u32)(USCounter-mpreplywindow));
+        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X.\n",
+               addr, val, IOPORT(W_TXReqRead));
         break;
 
     case 0x228:
