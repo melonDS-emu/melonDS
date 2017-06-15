@@ -58,13 +58,16 @@ typedef struct
     u8 Rate;
     u8 CurPhase;
     u32 CurPhaseTime;
+    u32 HalfwordTimeMask;
 
 } TXSlot;
 
 TXSlot TXSlots[6];
 
 u8 RXBuffer[2048];
+u32 RXBufferPtr;
 u32 RXTime;
+u32 RXHalfwordTimeMask;
 u16 RXEndAddr;
 
 u32 ComStatus; // 0=waiting for packets  1=receiving  2=sending
@@ -465,7 +468,12 @@ bool ProcessTX(TXSlot* slot, int num)
     slot->CurPhaseTime--;
     if (slot->CurPhaseTime > 0)
     {
-        if (slot->CurPhase == 2)
+        if (slot->CurPhase == 1)
+        {
+            if (!(slot->CurPhaseTime & slot->HalfwordTimeMask))
+                IOPORT(W_RXTXAddr)++;
+        }
+        else if (slot->CurPhase == 2)
         {
             MPReplyTimer--;
             if (MPReplyTimer == 0 && MPNumReplies > 0)
@@ -513,14 +521,26 @@ bool ProcessTX(TXSlot* slot, int num)
                 SetStatus(3);
 
             u32 len = slot->Length;
-            if (slot->Rate == 2) len *= 4;
-            else                 len *= 8;
+            if (slot->Rate == 2)
+            {
+                len *= 4;
+                slot->HalfwordTimeMask = 0x7;
+            }
+            else
+            {
+                len *= 8;
+                slot->HalfwordTimeMask = 0xF;
+            }
 
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            // set TX addr
+            // TODO: what does this say when sending a MP ack?? I don't think that packet is stored in RAM
+            IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
             int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
             if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, framectl=%04X, %04X %04X\n",
@@ -632,6 +652,25 @@ bool ProcessTX(TXSlot* slot, int num)
 }
 
 
+inline void IncrementRXAddr(u16& addr, u16 inc)
+{
+    addr += inc;
+    if (addr >= (IOPORT(W_RXBufEnd) & 0x1FFE))
+    {
+        addr -= (IOPORT(W_RXBufEnd) & 0x1FFE);
+        addr += (IOPORT(W_RXBufBegin) & 0x1FFE);
+    }
+}
+
+inline void IncrementRXAddr(u16& addr)
+{
+    addr += 2;
+    if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+    {
+        addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+    }
+}
+
 bool CheckRX(bool block)
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
@@ -725,44 +764,33 @@ bool CheckRX(bool block)
         printf("wifi: received packet FC:%04X SN:%04X CL:%04X\n", framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2]);
 
     // make RX header
-    // TODO: make it upon RX end
 
     if (bssidmatch) rxflags |= 0x8000;
 
     *(u16*)&RXBuffer[0] = rxflags;
     *(u16*)&RXBuffer[2] = 0x0040; // ???
-    *(u16*)&RXBuffer[4] = 0x7777;
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
     *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
 
-    RXTime = framelen * ((txrate==0x14) ? 4:8);
+    RXTime = framelen;
 
-    // TODO: write packet progressively?
-    // TODO: RX/TX addr register
-    framelen += 12;
-    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
-    for (int i = 0; i < framelen; i += 2)
+    if (txrate == 0x14)
     {
-        *(u16*)&RAM[addr] = *(u16*)&RXBuffer[i];
-        addr += 2;
-
-        if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
-            addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
-
-        if (addr == (IOPORT(W_RXBufReadCursor) << 1))
-        {
-            printf("wifi: RX buffer full\n");
-            // TODO: proper error management
-            return false;
-        }
+        RXTime *= 4;
+        RXHalfwordTimeMask = 0x7;
+    }
+    else
+    {
+        RXTime *= 8;
+        RXHalfwordTimeMask = 0xF;
     }
 
-    if (addr & 0x2) addr += 2;
-    if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
-        addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
+    IncrementRXAddr(addr, 12);
+    IOPORT(W_RXTXAddr) = addr >> 1;
 
-    RXEndAddr = (addr & ~0x3) >> 1;
+    RXBufferPtr = 12;
 
     SetIRQ(6);
     SetStatus(6);
@@ -877,29 +905,64 @@ void USTimer(u32 param)
     {
         // TODO: make sure it isn't possible to send and receive at the same time
         RXTime--;
-        if (RXTime == 0)
+        if (!(RXTime & RXHalfwordTimeMask))
         {
-            IOPORT(W_RXBufWriteCursor) = RXEndAddr;
-            SetIRQ(0);
-            SetStatus(1);
+            u16 addr = IOPORT(W_RXTXAddr) << 1;
+            *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
 
-            if (TXCurSlot == -1)
-            {
-                ComStatus = 0;
-                RXCounter = 0;
-            }
+            IncrementRXAddr(addr);
+            RXBufferPtr += 2;
 
-            if ((RXBuffer[0] & 0x0F) == 0x0C)
+            if (RXTime == 0) // finished receiving
             {
-                u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
-                if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
+                if (addr & 0x2) IncrementRXAddr(addr);
+
+                // copy the RX header
+                u16 headeraddr = IOPORT(W_RXBufWriteCursor) << 1;
+                *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[0]; IncrementRXAddr(headeraddr);
+                *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[2]; IncrementRXAddr(headeraddr, 4);
+                *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[6]; IncrementRXAddr(headeraddr);
+                *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[8]; IncrementRXAddr(headeraddr);
+                *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[10];
+
+                IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
+
+                SetIRQ(0);
+                SetStatus(1);
+
+                if (TXCurSlot == -1)
                 {
-                    printf("MP: attempting to reply: %04X %04X, delay=%04X\n",
-                           IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2), *(u16*)&RXBuffer[0xC + 24]);
+                    ComStatus = 0;
+                    RXCounter = 0;
+                }
 
-                    SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
+                if ((RXBuffer[0] & 0x0F) == 0x0C)
+                {
+                    u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
+                    if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
+                    {
+                        printf("MP: attempting to reply: %04X %04X, delay=%04X\n",
+                               IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2), *(u16*)&RXBuffer[0xC + 24]);
+
+                        SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
+                    }
                 }
             }
+
+            if (addr == (IOPORT(W_RXBufReadCursor) << 1))
+            {
+                printf("wifi: RX buffer full\n");
+                RXTime = 0;
+                SetStatus(1);
+                if (TXCurSlot == -1)
+                {
+                    ComStatus = 0;
+                    RXCounter = 0;
+                }
+                // TODO: proper error management
+            }
+
+            IOPORT(W_RXTXAddr) = addr >> 1;
         }
     }
 
@@ -1029,11 +1092,6 @@ u16 Read(u32 addr)
 
     case W_TXBusy:
         return IOPORT(W_TXBusy) & 0x001F; // no bit for MP replies. odd
-
-        //case 0x214: NDS::debug(0); break;
-        //case 0x040: NDS::debug(0); break;
-        //case 0x54: printf("wifi: read WRCSR -> %04X\n", IOPORT(0x54)); break;
-        case 0x268: printf("read RXTXADDR\n"); break;
     }
 
     //printf("WIFI: read %08X\n", addr);
