@@ -260,6 +260,15 @@ void SetIRQ15()
 }
 
 
+void SetStatus(u32 status)
+{
+    // TODO, eventually: states 2/4, also find out what state 7 is
+    u16 rfpins[10] = {0x04, 0x84, 0, 0x46, 0, 0x84, 0x87, 0, 0x46, 0x04};
+    IOPORT(W_RFStatus) = status;
+    IOPORT(W_RFPins) = rfpins[status];
+}
+
+
 bool MACEqual(u8* a, u8* b)
 {
     return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
@@ -485,10 +494,13 @@ bool ProcessTX(TXSlot* slot, int num)
                 // can be cancelled, but IRQ7 is still triggered
                 if (!(IOPORT(W_TXSlotReply2) & 0x8000))
                 {
+                    IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
                     IOPORT(W_TXBusy) &= ~0x80;
                     FireTX();
                     return true;
                 }
+
+                SetStatus(8);
 
                 slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
                 slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -497,6 +509,8 @@ bool ProcessTX(TXSlot* slot, int num)
                 if (rate == 0x14) slot->Rate = 2;
                 else              slot->Rate = 1;
             }
+            else
+                SetStatus(3);
 
             u32 len = slot->Length;
             if (slot->Rate == 2) len *= 4;
@@ -527,6 +541,7 @@ bool ProcessTX(TXSlot* slot, int num)
                     IOPORT(W_TXStat) = 0x0801;
                     SetIRQ(1);
                 }
+                SetStatus(5);
 
                 u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
                 MPNumReplies = NumClients(clientmask);
@@ -534,9 +549,6 @@ bool ProcessTX(TXSlot* slot, int num)
 
                 slot->CurPhase = 2;
                 slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * MPNumReplies);
-printf("tx done. listen to replies\n");
-
-                // TODO: RFSTATUS/RFPINS
 
                 break;
             }
@@ -547,6 +559,7 @@ printf("tx done. listen to replies\n");
                     IOPORT(W_TXStat) = 0x0401;
                     SetIRQ(1);
                 }
+                SetStatus(1);
 
                 IOPORT(W_TXBusy) &= ~0x80;
                 FireTX();
@@ -574,6 +587,8 @@ printf("tx done. listen to replies\n");
                 break;
             }
 
+            SetStatus(1);
+
             FireTX();
         }
         return true;
@@ -581,6 +596,7 @@ printf("tx done. listen to replies\n");
     case 2: // MP host transfer done
         {
             SetIRQ(7);
+            SetStatus(8);
 
             if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
             else                 slot->CurPhaseTime = 32 * 8;
@@ -605,7 +621,8 @@ printf("tx done. listen to replies\n");
                 IOPORT(W_TXStat) = 0x0B01;
                 SetIRQ(1);
             }
-printf("MP TX over\n");
+            SetStatus(1);
+
             FireTX();
         }
         return true;
@@ -748,6 +765,7 @@ bool CheckRX(bool block)
     RXEndAddr = (addr & ~0x3) >> 1;
 
     SetIRQ(6);
+    SetStatus(6);
     return true;
 }
 
@@ -863,6 +881,7 @@ void USTimer(u32 param)
         {
             IOPORT(W_RXBufWriteCursor) = RXEndAddr;
             SetIRQ(0);
+            SetStatus(1);
 
             if (TXCurSlot == -1)
             {
@@ -1014,6 +1033,7 @@ u16 Read(u32 addr)
         //case 0x214: NDS::debug(0); break;
         //case 0x040: NDS::debug(0); break;
         //case 0x54: printf("wifi: read WRCSR -> %04X\n", IOPORT(0x54)); break;
+        case 0x268: printf("read RXTXADDR\n"); break;
     }
 
     //printf("WIFI: read %08X\n", addr);
