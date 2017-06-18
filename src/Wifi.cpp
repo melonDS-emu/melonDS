@@ -315,6 +315,8 @@ void StartTX_Cmd()
 
     // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
 
+    if (IOPORT(W_TXSlotCmd) & 0x7000) printf("wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
+
     slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
 
@@ -434,7 +436,7 @@ void SendMPDefaultReply()
     reply[0x8] = 0x14;
 
 	*(u16*)&reply[0xC + 0x00] = 0x0158;
-	*(u16*)&reply[0xC + 0x02] = 0; // TODO??
+	*(u16*)&reply[0xC + 0x02] = 0x00F0;//0; // TODO??
 	*(u16*)&reply[0xC + 0x04] = IOPORT(W_BSSID0);
 	*(u16*)&reply[0xC + 0x06] = IOPORT(W_BSSID1);
 	*(u16*)&reply[0xC + 0x08] = IOPORT(W_BSSID2);
@@ -478,7 +480,7 @@ void SendMPAck()
 	*(u32*)&ack[0xC + 0x1C] = 0;
 
 	int txlen = Platform::MP_SendPacket(ack, 12+32);
-	printf("wifi: sent %d/44 bytes of MP ack\n", txlen);
+	printf("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
 u32 NumClients(u16 bitmask)
@@ -508,7 +510,11 @@ bool ProcessTX(TXSlot* slot, int num)
             MPReplyTimer--;
             if (MPReplyTimer == 0 && MPNumReplies > 0)
             {
-                if (CheckRX(true)) ComStatus |= 0x2;
+                if (CheckRX(true))
+                {
+                    printf("wifi: got MP reply! still %d to go\n", MPNumReplies-1);
+                    ComStatus |= 0x1;
+                }
 
                 MPReplyTimer = 10 + IOPORT(W_CmdReplyTime);
                 MPNumReplies--;
@@ -548,6 +554,10 @@ bool ProcessTX(TXSlot* slot, int num)
 
                 slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
                 slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+                // TODO: duration should be set by hardware
+                // doesn't seem to be important
+                //RAM[slot->Addr + 0xC + 2] = 0x00F0;
 
                 u8 rate = RAM[slot->Addr + 0x8];
                 if (rate == 0x14) slot->Rate = 2;
@@ -654,6 +664,8 @@ bool ProcessTX(TXSlot* slot, int num)
         {
             SetIRQ(7);
             SetStatus(8);
+
+            IOPORT(W_RXTXAddr) = 0xFC0;
 
             if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
             else                 slot->CurPhaseTime = 32 * 8;
@@ -808,7 +820,8 @@ bool CheckRX(bool block)
     }
 
     //if (framectl != 0x0080 && framectl != 0x0228)
-        printf("wifi: received packet FC:%04X SN:%04X CL:%04X\n", framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2]);
+        printf("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
+               framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 
     // make RX header
 
@@ -956,7 +969,7 @@ void USTimer(u32 param)
         {
             u16 addr = IOPORT(W_RXTXAddr) << 1;
             *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
-
+//printf("RX: addr=%04X, time=%d\n", addr, RXTime);
             IncrementRXAddr(addr);
             RXBufferPtr += 2;
 
@@ -979,11 +992,8 @@ void USTimer(u32 param)
 
                 printf("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
 
-                if (TXCurSlot == -1)
-                {
-                    ComStatus = 0;
-                    RXCounter = 0;
-                }
+                ComStatus &= ~0x1;
+                RXCounter = 0;
 
                 if ((RXBuffer[0] & 0x0F) == 0x0C)
                 {
@@ -1002,7 +1012,7 @@ void USTimer(u32 param)
                 SetStatus(1);
                 if (TXCurSlot == -1)
                 {
-                    ComStatus = 0;
+                    ComStatus &= ~0x1;
                     RXCounter = 0;
                 }
                 // TODO: proper error management
@@ -1062,7 +1072,7 @@ u16 Read(u32 addr)
     addr &= 0x7FFE;
     //printf("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
-    {
+    {if (addr>=0x5F60 && addr<0x5F80) printf("wifi: read mysterious RAM shit %04X\n", addr);
         return *(u16*)&RAM[addr & 0x1FFE];
     }
     if (addr >= 0x2000 && addr < 0x4000)
