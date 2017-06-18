@@ -174,9 +174,6 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    /*if (addr==0x037FBD49) printf("zog! %08X\n", R[15]);
-    if (addr==0x037FBD4C) printf("zog2 %08X\n", R[15]);
-    if (R[15]==0x037FBD54) printf("zog jump to %08X %08X\n", addr, CodeRead32(addr));*/
 
     if (addr & 0x1)
     {

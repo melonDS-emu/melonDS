@@ -27,6 +27,9 @@
 namespace Wifi
 {
 
+//#define WIFI_LOG printf
+#define WIFI_LOG(...) {}
+
 u8 RAM[0x2000];
 u16 IO[0x1000>>1];
 
@@ -112,7 +115,9 @@ bool MPInited;
 
 
 // wifi TODO:
-// * work out how power saving works, there are oddities
+// * power saving
+// * RXSTAT, multiplay reply errors
+// * TX errors (if applicable)
 
 
 bool Init()
@@ -303,10 +308,6 @@ void StartTX_LocN(int nslot, int loc)
 
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
-
-    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    //printf("wifi: sent %d/%d bytes of loc%d packet. framectl=%04X\n",
-    //       txlen, 12+slot->Length, loc, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
 void StartTX_Cmd()
@@ -326,10 +327,6 @@ void StartTX_Cmd()
 
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
-
-    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    //printf("wifi: sent %d/%d bytes of cmd packet. clients=%04X\n", txlen, 12+slot->Length, *(u16*)&RAM[slot->Addr + 0xC + 26]);
-//printf("%08X%08X | %04X %04X\n", (u32)(USCounter>>32), (u32)USCounter, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC]);
 }
 
 void StartTX_Beacon()
@@ -345,14 +342,6 @@ void StartTX_Beacon()
 
     slot->CurPhase = 0;
     slot->CurPhaseTime = PreambleLen(slot->Rate);
-
-    u64 oldval = *(u64*)&RAM[slot->Addr + 0xC + 24];
-    *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
-
-    //int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-    //printf("wifi: sent %d/%d bytes of beacon packet\n", txlen, 12+slot->Length);
-
-    //*(u64*)&RAM[slot->Addr + 0xC + 24] = oldval;
 
     IOPORT(W_TXBusy) |= 0x0010;
 }
@@ -405,10 +394,15 @@ void SendMPReply(u16 clienttime, u16 clientmask)
 
     // mark the last packet as success. dunno what the MSB is, it changes.
     if (IOPORT(W_TXSlotReply2) & 0x8000)
-        *(u16*)&RAM[slot->Addr] = 0x1201;
+        *(u16*)&RAM[slot->Addr] = 0x0001;
 
     IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
     IOPORT(W_TXSlotReply1) = 0;
+
+    // this seems to be set upon IRQ0
+    // TODO: how does it behave if the packet addr is changed before it gets sent?
+    slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+    *(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
 
     u16 clientnum = 0;
     for (int i = 1; i < IOPORT(W_AIDLow); i++)
@@ -450,7 +444,7 @@ void SendMPDefaultReply()
 	*(u32*)&reply[0xC + 0x18] = 0;
 
 	int txlen = Platform::MP_SendPacket(reply, 12+28);
-	printf("wifi: sent %d/40 bytes of MP default reply\n", txlen);
+	WIFI_LOG("wifi: sent %d/40 bytes of MP default reply\n", txlen);
 }
 
 void SendMPAck()
@@ -480,7 +474,7 @@ void SendMPAck()
 	*(u32*)&ack[0xC + 0x1C] = 0;
 
 	int txlen = Platform::MP_SendPacket(ack, 12+32);
-	printf("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
+	WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
 u32 NumClients(u16 bitmask)
@@ -512,9 +506,11 @@ bool ProcessTX(TXSlot* slot, int num)
             {
                 if (CheckRX(true))
                 {
-                    printf("wifi: got MP reply! still %d to go\n", MPNumReplies-1);
                     ComStatus |= 0x1;
                 }
+
+                // TODO: properly handle reply errors
+                // also, if the reply is too big to fit within its window, what happens?
 
                 MPReplyTimer = 10 + IOPORT(W_CmdReplyTime);
                 MPNumReplies--;
@@ -581,22 +577,35 @@ bool ProcessTX(TXSlot* slot, int num)
             slot->CurPhase = 1;
             slot->CurPhaseTime = len;
 
+            u64 oldts;
+            if (num == 4)
+            {
+                // beacon timestamp
+                oldts = *(u64*)&RAM[slot->Addr + 0xC + 24];
+                *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
+            }
+
             *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
             // set TX addr
-            // TODO: what does this say when sending a MP ack?? I don't think that packet is stored in RAM
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
             int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-            if (num != 4) printf("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                                 txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC], *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+            WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
+                     txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
+                     *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+
+            if (num == 4)
+            {
+                *(u64*)&RAM[slot->Addr + 0xC + 24] = oldts;
+            }
         }
         break;
 
     case 1: // transmit done
         {
-            // checkme
+            // for the MP reply slot, this is set later
             if (num != 5)
                 *(u16*)&RAM[slot->Addr] = 0x0001;
             RAM[slot->Addr + 5] = 0;
@@ -822,9 +831,8 @@ bool CheckRX(bool block)
         break;
     }
 
-    //if (framectl != 0x0080 && framectl != 0x0228)
-        printf("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
-               framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
+    WIFI_LOG("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
+             framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 
     // make RX header
 
@@ -883,9 +891,6 @@ void MSTimer()
         IOPORT(W_BeaconCount2)--;
         if (IOPORT(W_BeaconCount2) == 0) SetIRQ13();
     }
-
-    //if (!IOPORT(W_TXBusy))
-    //    CheckRX(false);
 }
 
 void USTimer(u32 param)
@@ -902,8 +907,6 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
-
-        //if (!(uspart & 0x1FF)) CheckRX(false);
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
@@ -972,7 +975,7 @@ void USTimer(u32 param)
         {
             u16 addr = IOPORT(W_RXTXAddr) << 1;
             *(u16*)&RAM[addr] = *(u16*)&RXBuffer[RXBufferPtr];
-//printf("RX: addr=%04X, time=%d\n", addr, RXTime);
+
             IncrementRXAddr(addr);
             RXBufferPtr += 2;
 
@@ -993,7 +996,7 @@ void USTimer(u32 param)
                 SetIRQ(0);
                 SetStatus(1);
 
-                printf("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
+                WIFI_LOG("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
 
                 ComStatus &= ~0x1;
                 RXCounter = 0;
@@ -1075,7 +1078,7 @@ u16 Read(u32 addr)
     addr &= 0x7FFE;
     //printf("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
-    {if (addr>=0x5F60 && addr<0x5F80) printf("wifi: read mysterious RAM shit %04X\n", addr);
+    {
         return *(u16*)&RAM[addr & 0x1FFE];
     }
     if (addr >= 0x2000 && addr < 0x4000)
@@ -1331,11 +1334,9 @@ void Write(u32 addr, u16 val)
         if (val & 0x0001)
         {
             IOPORT(W_RXBufWriteCursor) = IOPORT(W_RXBufWriteAddr);
-            printf("wifi: force WRCSR to %04X\n", IOPORT(W_RXBufWriteCursor));
         }
         if (val & 0x0080)
         {
-            printf("wifi: latching shit\n");
             IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
             IOPORT(W_TXSlotReply1) = 0;
         }
@@ -1426,11 +1427,6 @@ void Write(u32 addr, u16 val)
         IOPORT(addr&0xFFF) = val;
         FireTX();
         return;
-
-    case 0x094:
-        printf("wifi: trying to send packet. %08X=%04X. TXREQ=%04X.\n",
-               addr, val, IOPORT(W_TXReqRead));
-        break;
 
     case 0x228:
     case 0x244:

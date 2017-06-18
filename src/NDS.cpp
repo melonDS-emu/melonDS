@@ -1856,7 +1856,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
-        {if((val&0x1F)==0xA)printf("ARM9->ARM7: %08X --- %08X -- %04X\n", val, val>>6, ARM7Read16(val>>6));
+        {
             if (IPCFIFO9->IsFull())
                 IPCFIFOCnt9 |= 0x4000;
             else
@@ -2386,7 +2386,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
-        {if((val&0x1F)==0xA)printf("ARM7->ARM9: %08X --- %08X -- %04X\n", val, val>>6, ARM7Read16(val>>6));
+        {
             if (IPCFIFO7->IsFull())
                 IPCFIFOCnt7 |= 0x4000;
             else
