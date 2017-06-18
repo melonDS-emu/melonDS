@@ -682,6 +682,9 @@ bool ProcessTX(TXSlot* slot, int num)
             IOPORT(W_TXBusy) &= ~(1<<1);
             IOPORT(W_TXSlotCmd) &= 0x7FFF; // confirmed
 
+            // seems this is set to indicate which clients failed to reply
+            *(u16*)&RAM[slot->Addr + 0x2] = 0;
+
             SetIRQ(12);
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
 
