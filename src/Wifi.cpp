@@ -614,7 +614,7 @@ bool ProcessTX(TXSlot* slot, int num)
             {
                 if (IOPORT(W_TXStatCnt) & 0x4000)
                 {
-                    IOPORT(W_TXStat) = 0x0801;
+                    IOPORT(W_TXStat) = 0x0800;
                     SetIRQ(1);
                 }
                 SetStatus(5);
@@ -952,6 +952,7 @@ void USTimer(u32 param)
         {
             // transfer finished, see if there's another slot to do
             // checkme: priority order of beacon/reply
+            // TODO: for CMD, check CMDCOUNT
             u16 txbusy = IOPORT(W_TXBusy);
             if      (txbusy & 0x0080) TXCurSlot = 5;
             else if (txbusy & 0x0010) TXCurSlot = 4;
@@ -969,7 +970,6 @@ void USTimer(u32 param)
     }
     if (ComStatus & 0x1)
     {
-        // TODO: make sure it isn't possible to send and receive at the same time
         RXTime--;
         if (!(RXTime & RXHalfwordTimeMask))
         {
