@@ -400,9 +400,12 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     IOPORT(W_TXSlotReply1) = 0;
 
     // this seems to be set upon IRQ0
-    // TODO: how does it behave if the packet addr is changed before it gets sent?
-    slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
-    *(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
+    // TODO: how does it behave if the packet addr is changed before it gets sent? (maybe just not possible)
+    if (IOPORT(W_TXSlotReply2) & 0x8000)
+    {
+        slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+        *(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
+    }
 
     u16 clientnum = 0;
     for (int i = 1; i < IOPORT(W_AIDLow); i++)
@@ -585,8 +588,14 @@ bool ProcessTX(TXSlot* slot, int num)
                 *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
             }
 
-            *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
-            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+            //u32 noseqno = 0;
+            //if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
+
+            //if (!noseqno)
+            {
+                *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
+                IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+            }
 
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
