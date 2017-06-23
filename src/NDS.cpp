@@ -1438,6 +1438,8 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
+    case 0x04000210: return IE[0] & 0xFFFF;
+    case 0x04000212: return IE[0] >> 16;
 
     case 0x04000240: return GPU::VRAMCNT[0] | (GPU::VRAMCNT[1] << 8);
     case 0x04000242: return GPU::VRAMCNT[2] | (GPU::VRAMCNT[3] << 8);
@@ -1752,6 +1754,9 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000208: IME[0] = val & 0x1; return;
+    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; return;
+    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); return;
+    // TODO: what happens when writing to IF this way??
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);
@@ -2060,6 +2065,8 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04000204: return ExMemCnt[1];
     case 0x04000208: return IME[1];
+    case 0x04000210: return IE[1] & 0xFFFF;
+    case 0x04000212: return IE[1] >> 16;
 
     case 0x04000300: return PostFlag7;
     case 0x04000304: return PowerControl7;
@@ -2321,6 +2328,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000208: IME[1] = val & 0x1; return;
+    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; return;
+    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); return;
+    // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
         if (ARM7->R[15] >= 0x4000)

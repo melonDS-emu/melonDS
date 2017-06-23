@@ -117,6 +117,8 @@ public:
             break;
         }
     }
+
+    void PanOutput(s32* inbuf, u32 samples, s32* leftbuf, s32* rightbuf);
 };
 
 class CaptureUnit
