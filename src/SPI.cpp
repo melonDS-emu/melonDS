@@ -113,6 +113,17 @@ void Reset()
 
     fclose(f);
 
+    // take a backup
+    char* firmbkp = "firmware.bin.bak";
+    f = fopen(firmbkp, "rb");
+    if (f) fclose(f);
+    else
+    {
+        f = fopen(firmbkp, "wb");
+        fwrite(Firmware, 1, FirmwareLength, f);
+        fclose(f);
+    }
+
     FirmwareMask = FirmwareLength - 1;
 
     u32 userdata = 0x7FE00 & FirmwareMask;
@@ -193,6 +204,9 @@ void Write(u8 val, u32 hold)
 {
     if (!hold)
     {
+        if (!Hold) // commands with no paramters
+            CurCmd = val;
+
         Hold = 0;
     }
 
@@ -240,6 +254,26 @@ void Write(u8 val, u32 hold)
         Data = 0;
         break;
 
+    case 0x0A: // write
+        {
+            // TODO: what happens if you write too many bytes? (max 256, they say)
+            if (DataPos < 4)
+            {
+                Addr <<= 8;
+                Addr |= val;
+                Data = 0;
+            }
+            else
+            {
+                Firmware[Addr & FirmwareMask] = val;
+                Data = val;
+                Addr++;
+            }
+
+            DataPos++;
+        }
+        break;
+
     case 0x9F: // read JEDEC ID
         {
             switch (DataPos)
@@ -256,6 +290,18 @@ void Write(u8 val, u32 hold)
     default:
         printf("unknown firmware SPI command %02X\n", CurCmd);
         break;
+    }
+
+    if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
+    {
+        FILE* f = fopen("firmware.bin", "r+b");
+        if (f)
+        {
+            u32 cutoff = 0x7FA00 & FirmwareMask;
+            fseek(f, cutoff, SEEK_SET);
+            fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
+            fclose(f);
+        }
     }
 }
 
