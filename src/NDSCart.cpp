@@ -562,6 +562,7 @@ void Write(u8 val, u32 hold)
     if (!hold)
     {
         if (Hold) islast = true;
+        else CurCmd = val;
         Hold = 0;
     }
 
