@@ -339,8 +339,9 @@ void Reset()
     NumVertices = 0;
     NumPolygons = 0;
 
-    ClearAttr1 = 0;
-    ClearAttr2 = 0;
+    // TODO: confirm initial polyid/color/fog values
+    ClearAttr1 = 0x3F000000;
+    ClearAttr2 = 0x00007FFF;
 
     FlushRequest = 0;
     FlushAttributes = 0;
