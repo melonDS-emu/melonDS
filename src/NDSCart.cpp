@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "NDSCart.h"
+#include "ARM.h"
 
 
 namespace NDSCart_SRAM
@@ -36,6 +37,10 @@ u32 Discover_MemoryType;
 u32 Discover_Likeliness;
 u8* Discover_Buffer;
 u32 Discover_DataPos;
+u32 Discover_LastPC;
+u32 Discover_AddrLength;
+u32 Discover_Addr;
+u32 Discover_LikelySize;
 
 u32 Hold;
 u8 CurCmd;
@@ -80,6 +85,9 @@ void LoadSave(char* path)
     if (Discover_Buffer) delete[] Discover_Buffer;
 
     Discover_Buffer = NULL;
+    Discover_LastPC = 0;
+    Discover_AddrLength = 0x7FFFFFFF;
+    Discover_LikelySize = 0;
 
     strncpy(SRAMPath, path, 255);
     SRAMPath[255] = '\0';
@@ -136,6 +144,43 @@ u8 Read()
 
 void SetMemoryType()
 {
+    SRAMLength = 0;
+
+    if (Discover_LikelySize)
+    {
+        if (Discover_LikelySize >= 0x40000)
+        {
+            Discover_MemoryType = 4; // FLASH
+            SRAMLength = Discover_LikelySize;
+        }
+        else if (Discover_LikelySize == 0x10000 || Discover_MemoryType == 3)
+        {
+            if (Discover_MemoryType > 3)
+                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
+
+            Discover_MemoryType = 3;
+        }
+        else if (Discover_LikelySize == 0x2000)
+        {
+            if (Discover_MemoryType > 3)
+                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
+
+            Discover_MemoryType = 2;
+        }
+        else if (Discover_LikelySize == 0x200 || Discover_MemoryType == 1)
+        {
+            if (Discover_MemoryType > 1)
+                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
+
+            Discover_MemoryType = 1;
+        }
+        else
+        {
+            printf("bad save size %X. assuming EEPROM 64K\n");
+            Discover_MemoryType = 2;
+        }
+    }
+
     switch (Discover_MemoryType)
     {
     case 1:
@@ -157,9 +202,9 @@ void SetMemoryType()
         break;
 
     case 4:
-        printf("Save memory type: Flash. Hope the size is 256K.\n");
+        if (!SRAMLength) SRAMLength = 256*1024;
+        printf("Save memory type: Flash %dk\n", SRAMLength/1024);
         WriteFunc = Write_Flash;
-        SRAMLength = 256*1024;
         break;
 
     case 5:
@@ -207,7 +252,7 @@ void Write_Discover(u8 val, bool islast)
 
     if (CurCmd == 0x03 || CurCmd == 0x0B)
     {
-        if (Discover_Likeliness)
+        if (Discover_Likeliness) // writes have occured before this read
         {
             // apply. and pray.
             SetMemoryType();
@@ -219,6 +264,68 @@ void Write_Discover(u8 val, bool islast)
         }
         else
         {
+            if (DataPos == 0)
+            {
+                Discover_LastPC = NDS::GetPC((NDS::ExMemCnt[0] >> 11) & 0x1);
+                Discover_Addr = val;
+            }
+            else
+            {
+                bool addrlenchange = false;
+
+                Discover_Addr <<= 8;
+                Discover_Addr |= val;
+
+                u32 pc = NDS::GetPC((NDS::ExMemCnt[0] >> 11) & 0x1);
+                if ((pc != Discover_LastPC) || islast)
+                {
+                    if (DataPos < Discover_AddrLength)
+                    {
+                        Discover_AddrLength = DataPos;
+                        addrlenchange = true;
+                    }
+                }
+
+                if (DataPos == Discover_AddrLength)
+                {
+                    Discover_Addr >>= 8;
+
+                    // determine the address for this read
+                    // the idea is to see how far the game reads
+                    // but we need margins for games that have antipiracy
+                    // as those will generally read just past the limit
+                    // and expect it to wrap to zero
+
+                    u32 likelysize = 0;
+
+                    if (DataPos == 3) // FLASH
+                    {
+                        if (Discover_Addr >= 0x101000)
+                            likelysize = 0x800000; // 8M
+                        else if (Discover_Addr >= 0x81000)
+                            likelysize = 0x100000; // 1M
+                        else if (Discover_Addr >= 0x41000)
+                            likelysize = 0x80000; // 512K
+                        else
+                            likelysize = 0x40000; // 256K
+                    }
+                    else if (DataPos == 2) // EEPROM
+                    {
+                        if (Discover_Addr >= 0x3000)
+                            likelysize = 0x10000; // 64K
+                        else
+                            likelysize = 0x2000; // 8K
+                    }
+                    else if (DataPos == 1) // tiny EEPROM
+                    {
+                        likelysize = 0x200; // always 4K
+                    }
+
+                    if ((likelysize > Discover_LikelySize) || addrlenchange)
+                        Discover_LikelySize = likelysize;
+                }
+            }
+
             Data = 0;
             return;
         }
@@ -505,7 +612,7 @@ void Write(u8 val, u32 hold)
 
     default:
         if (DataPos==0)
-            printf("unknown save SPI command %02X %08X\n", CurCmd);
+            printf("unknown save SPI command %02X %02X\n", CurCmd, val);
         break;
     }
 

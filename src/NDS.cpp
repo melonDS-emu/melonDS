@@ -586,6 +586,11 @@ void ResumeCPU(u32 cpu, u32 mask)
     CPUStop &= ~mask;
 }
 
+u32 GetPC(u32 cpu)
+{
+    return cpu ? ARM7->R[15] : ARM9->R[15];
+}
+
 
 
 void HandleTimerOverflow(u32 tid)
