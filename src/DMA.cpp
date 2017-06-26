@@ -186,20 +186,6 @@ void DMA::Start()
 
     //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
-    // special path for the display FIFO. another gross hack.
-    // the display FIFO seems to be more like a circular buffer that holds 16 pixels
-    // from which the display controller reads. DMA is triggered every 8 pixels to fill it
-    // as it is being read from. emulating it properly would be resource intensive.
-    // proper emulation would only matter if something is trying to feed the FIFO manually
-    // instead of using the DMA. which is probably never happening. the only thing I know of
-    // that even uses the display FIFO is the aging cart.
-    if (StartMode == 0x04)
-    {
-        GPU::GPU2D_A->FIFODMA(CurSrcAddr);
-        CurSrcAddr += 256*2;
-        return;
-    }
-
     IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
     // TODO eventually: not stop if we're running code in ITCM

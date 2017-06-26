@@ -36,6 +36,18 @@ public:
     void Write16(u32 addr, u16 val);
     void Write32(u32 addr, u32 val);
 
+    bool UsesFIFO()
+    {
+        if (((DispCnt >> 16) & 0x3) == 3)
+            return true;
+        if ((CaptureCnt & (1<<25)) && ((CaptureCnt >> 29) & 0x3) != 0)
+            return true;
+
+        return false;
+    }
+
+    void SampleFIFO(u32 offset, u32 num);
+
     void DrawScanline(u32 line);
     void VBlank();
     void VBlankEnd();
@@ -48,11 +60,13 @@ public:
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal(u32 pal);
 
-    void FIFODMA(u32 addr);
-
 private:
     u32 Num;
     u32* Framebuffer;
+
+    u16 DispFIFO[16];
+    u32 DispFIFOReadPtr;
+    u32 DispFIFOWritePtr;
 
     u16 DispFIFOBuffer[256];
 

@@ -655,6 +655,16 @@ void RunTimingCriticalDevices(u32 cpu, s32 cycles)
 
 
 
+bool DMAsInMode(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    if (DMAs[cpu+0]->IsInMode(mode)) return true;
+    if (DMAs[cpu+1]->IsInMode(mode)) return true;
+    if (DMAs[cpu+2]->IsInMode(mode)) return true;
+    if (DMAs[cpu+3]->IsInMode(mode)) return true;
+    return false;
+}
+
 void CheckDMAs(u32 cpu, u32 mode)
 {
     cpu <<= 2;
@@ -1672,6 +1682,9 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000060: GPU3D::Write16(addr, val); return;
 
+    case 0x04000068:
+    case 0x0400006A: GPU::GPU2D_A->Write16(addr, val); return;
+
     case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
     case 0x040000C4: DMAs[1]->WriteCnt((DMAs[1]->Cnt & 0xFFFF0000) | val); return;
@@ -1823,7 +1836,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04000060: GPU3D::Write32(addr, val); return;
-    case 0x04000064: GPU::GPU2D_A->Write32(addr, val); return;
+    case 0x04000064:
+    case 0x04000068: GPU::GPU2D_A->Write32(addr, val); return;
 
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;
     case 0x040000B4: DMAs[0]->DstAddr = val; return;

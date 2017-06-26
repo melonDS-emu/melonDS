@@ -33,6 +33,8 @@ u16 VCount;
 u32 NextVCount;
 u16 TotalScanlines;
 
+bool RunFIFO;
+
 u16 DispStat[2], VMatch[2];
 
 u8 Palette[2*1024];
@@ -606,8 +608,36 @@ void DisplaySwap(u32 val)
 }
 
 
+void DisplayFIFO(u32 x)
+{
+    // sample the FIFO
+    // as this starts 16 cycles (~3 pixels) before display start,
+    // we aren't aligned to the 8-pixel grid
+    if (x > 0)
+    {
+        if (x == 8)
+            GPU2D_A->SampleFIFO(0, 5);
+        else
+            GPU2D_A->SampleFIFO(x-11, 8);
+    }
+
+    if (x < 256)
+    {
+        // transfer the next 8 pixels
+        NDS::CheckDMAs(0, 0x04);
+        NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 6*8, DisplayFIFO, x+8);
+    }
+    else
+        GPU2D_A->SampleFIFO(253, 3); // sample the remaining pixels
+}
+
 void StartFrame()
 {
+    // only run the display FIFO if needed:
+    // * if it is used for display or capture
+    // * if we have display FIFO DMA
+    RunFIFO = GPU2D_A->UsesFIFO() || NDS::DMAsInMode(0, 0x04);
+
     TotalScanlines = 0;
     StartScanline(0);
 }
@@ -619,6 +649,11 @@ void StartHBlank(u32 line)
 
     if (VCount < 192)
     {
+        // draw
+        // note: this should start 48 cycles after the scanline start
+        GPU2D_A->DrawScanline(line);
+        GPU2D_B->DrawScanline(line);
+
         NDS::CheckDMAs(0, 0x02);
     }
     else if (VCount == 215)
@@ -682,23 +717,14 @@ void StartScanline(u32 line)
 
     if (line < 192)
     {
-        // fill a line from the display FIFO if needed.
-        // this isn't how the real thing works, but emulating it
-        // properly would be too much trouble given barely anything
-        // uses FIFO display
-        // (TODO, eventually: emulate it properly)
-        if (VCount < 192)
-            NDS::CheckDMAs(0, 0x04);
-
         if (line == 0)
         {
             GPU2D_A->VBlankEnd();
             GPU2D_B->VBlankEnd();
         }
 
-        // draw
-        GPU2D_A->DrawScanline(line);
-        GPU2D_B->DrawScanline(line);
+        if (RunFIFO)
+            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 32, DisplayFIFO, 0);
     }
 
     if (VCount == 262)

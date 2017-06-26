@@ -108,6 +108,10 @@ void GPU2D::Reset()
     EVB = 0;
     EVY = 0;
 
+    memset(DispFIFO, 0, 16*2);
+    DispFIFOReadPtr = 0;
+    DispFIFOWritePtr = 0;
+
     memset(DispFIFOBuffer, 0, 256*2);
 
     CaptureCnt = 0;
@@ -328,6 +332,15 @@ void GPU2D::Write16(u32 addr, u16 val)
         if (EVY > 16) EVY = 16;
         return;
 
+    case 0x068:
+        DispFIFO[DispFIFOWritePtr] = val;
+        return;
+    case 0x06A:
+        DispFIFO[DispFIFOWritePtr+1] = val;
+        DispFIFOWritePtr += 2;
+        DispFIFOWritePtr &= 0xF;
+        return;
+
     case 0x06C: MasterBrightness = val; return;
     }
 
@@ -368,6 +381,13 @@ void GPU2D::Write32(u32 addr, u32 val)
         // TODO: check what happens when writing to it during display
         // esp. if a capture is happening
         CaptureCnt = val & 0xEF3F1F1F;
+        return;
+
+    case 0x068:
+        DispFIFO[DispFIFOWritePtr] = val & 0xFFFF;
+        DispFIFO[DispFIFOWritePtr+1] = val >> 16;
+        DispFIFOWritePtr += 2;
+        DispFIFOWritePtr &= 0xF;
         return;
     }
 
@@ -532,6 +552,9 @@ void GPU2D::DrawScanline(u32 line)
 void GPU2D::VBlank()
 {
     CaptureCnt &= ~(1<<31);
+
+    DispFIFOReadPtr = 0;
+    DispFIFOWritePtr = 0;
 }
 
 void GPU2D::VBlankEnd()
@@ -694,14 +717,15 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
     }
 }
 
-void GPU2D::FIFODMA(u32 addr)
+void GPU2D::SampleFIFO(u32 offset, u32 num)
 {
-    for (int i = 0; i < 256; i += 2)
+    for (u32 i = 0; i < num; i++)
     {
-        u32 val = NDS::ARM9Read32(addr);
-        addr += 4;
-        DispFIFOBuffer[i] = val & 0xFFFF;
-        DispFIFOBuffer[i+1] = val >> 16;
+        u16 val = DispFIFO[DispFIFOReadPtr];
+        DispFIFOReadPtr++;
+        DispFIFOReadPtr &= 0xF;
+
+        DispFIFOBuffer[offset+i] = val;
     }
 }
 

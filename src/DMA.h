@@ -34,6 +34,11 @@ public:
 
     s32 Run(s32 cycles);
 
+    bool IsInMode(u32 mode)
+    {
+        return ((mode == StartMode) && (Cnt & 0x80000000));
+    }
+
     void StartIfNeeded(u32 mode)
     {
         if ((mode == StartMode) && (Cnt & 0x80000000))
