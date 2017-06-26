@@ -26,7 +26,7 @@ namespace GPU
 {
 
 #define LINE_CYCLES  (355*6)
-#define HBLANK_CYCLES (256*6)
+#define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
 
 u16 VCount;
