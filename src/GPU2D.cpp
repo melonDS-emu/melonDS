@@ -399,6 +399,7 @@ void GPU2D::Write32(u32 addr, u32 val)
 void GPU2D::DrawScanline(u32 line)
 {
     u32* dst = &Framebuffer[256*line];
+    u32 mode1gfx[256];
 
     // request each 3D scanline in advance
     // this is required for the threaded mode of the software renderer
@@ -422,23 +423,7 @@ void GPU2D::DrawScanline(u32 line)
     dispmode &= (Num ? 0x1 : 0x3);
 
     // always render regular graphics
-    DrawScanline_Mode1(line, dst);
-
-    // capture
-    if ((Num == 0) && (CaptureCnt & (1<<31)))
-    {
-        u32 capwidth, capheight;
-        switch ((CaptureCnt >> 20) & 0x3)
-        {
-        case 0: capwidth = 128; capheight = 128; break;
-        case 1: capwidth = 256; capheight = 64;  break;
-        case 2: capwidth = 256; capheight = 128; break;
-        case 3: capwidth = 256; capheight = 192; break;
-        }
-
-        if (line < capheight)
-            DoCapture(line, capwidth, dst);
-    }
+    DrawScanline_Mode1(line, mode1gfx);
 
     switch (dispmode)
     {
@@ -449,7 +434,11 @@ void GPU2D::DrawScanline(u32 line)
         }
         break;
 
-    case 1: // regular display, already taken care of
+    case 1: // regular display
+        {
+            for (int i = 0; i < 256; i++)
+                dst[i] = mode1gfx[i];
+        }
         break;
 
     case 2: // VRAM display
@@ -480,7 +469,7 @@ void GPU2D::DrawScanline(u32 line)
         }
         break;
 
-    case 3: // FIFO display (grossly inaccurate)
+    case 3: // FIFO display
         {
             for (int i = 0; i < 256; i++)
             {
@@ -493,6 +482,22 @@ void GPU2D::DrawScanline(u32 line)
             }
         }
         break;
+    }
+
+    // capture
+    if ((Num == 0) && (CaptureCnt & (1<<31)))
+    {
+        u32 capwidth, capheight;
+        switch ((CaptureCnt >> 20) & 0x3)
+        {
+        case 0: capwidth = 128; capheight = 128; break;
+        case 1: capwidth = 256; capheight = 64;  break;
+        case 2: capwidth = 256; capheight = 128; break;
+        case 3: capwidth = 256; capheight = 192; break;
+        }
+
+        if (line < capheight)
+            DoCapture(line, capwidth, mode1gfx);
     }
 
     // master brightness
