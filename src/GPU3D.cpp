@@ -471,6 +471,7 @@ void MatrixTranslate(s32* m, s32* s)
     m[12] += ((s64)s[0]*m[0] + (s64)s[1]*m[4] + (s64)s[2]*m[8]) >> 12;
     m[13] += ((s64)s[0]*m[1] + (s64)s[1]*m[5] + (s64)s[2]*m[9]) >> 12;
     m[14] += ((s64)s[0]*m[2] + (s64)s[1]*m[6] + (s64)s[2]*m[10]) >> 12;
+    m[15] += ((s64)s[0]*m[3] + (s64)s[1]*m[7] + (s64)s[2]*m[11]) >> 12;
 }
 
 void UpdateClipMatrix()
@@ -722,7 +723,8 @@ void SubmitPolygon()
     // clipping
 
     nverts = ClipPolygon<true>(clippedvertices, nverts, clipstart);
-
+//if (((CurPolygonAttr >> 16) & 0x1F) != 0x1F) nverts=0;
+//CurPolygonAttr|=0x1F0000;
     if (nverts == 0)
     {
         LastStripPolygon = NULL;
