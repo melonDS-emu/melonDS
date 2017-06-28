@@ -709,11 +709,26 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 
     if (blendmode == 2)
     {
-        u16 tooncolor = RenderToonTable[vr >> 1];
+        if (RenderDispCnt & (1<<1))
+        {
+            // highlight mode: color is calculated normally
+            // except all vertex color components are set
+            // to the red component
+            // the toon color is added to the final color
 
-        vr = (tooncolor << 1) & 0x3E; if (vr) vr++;
-        vg = (tooncolor >> 4) & 0x3E; if (vg) vg++;
-        vb = (tooncolor >> 9) & 0x3E; if (vb) vb++;
+            vg = vr;
+            vb = vr;
+        }
+        else
+        {
+            // toon mode: vertex color is replaced by toon color
+
+            u16 tooncolor = RenderToonTable[vr >> 1];
+
+            vr = (tooncolor << 1) & 0x3E; if (vr) vr++;
+            vg = (tooncolor >> 4) & 0x3E; if (vg) vg++;
+            vb = (tooncolor >> 9) & 0x3E; if (vb) vb++;
+        }
     }
 
     if ((RenderDispCnt & (1<<0)) && (((polygon->TexParam >> 26) & 0x7) != 0))
@@ -771,6 +786,12 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 
     if ((blendmode == 2) && (RenderDispCnt & (1<<1)))
     {
+        u16 tooncolor = RenderToonTable[vr >> 1];
+
+        vr = (tooncolor << 1) & 0x3E; if (vr) vr++;
+        vg = (tooncolor >> 4) & 0x3E; if (vg) vg++;
+        vb = (tooncolor >> 9) & 0x3E; if (vb) vb++;
+
         r += vr;
         g += vg;
         b += vb;
