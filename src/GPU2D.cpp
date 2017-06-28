@@ -920,6 +920,36 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
     }
 }
 
+void GPU2D::DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst)
+{
+    if (Num)
+    {
+        printf("GPU2D: MODE6 ON SUB GPU???\n");
+        return;
+    }
+
+    for (int i = 3; i >= 0; i--)
+    {
+        if ((BGCnt[2] & 0x3) == i)
+        {
+            if (DispCnt & 0x0400)
+            {
+                printf("GPU2D: MODE6 LARGE BG TODO\n");
+            }
+        }
+        if ((BGCnt[0] & 0x3) == i)
+        {
+            if (DispCnt & 0x0100)
+            {
+                if (DispCnt & 0x8)
+                    DrawBG_3D(line, dst);
+            }
+        }
+        if (DispCnt & 0x1000)
+            InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
+    }
+}
+
 void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 {
     u32 linebuf[256*2 + 64];
@@ -950,6 +980,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
     memset(spritebuf, 0, 256*4);
     if (DispCnt & 0x1000) DrawSprites(line, spritebuf);
 
+    // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
     case 0: DrawScanlineBGMode<0>(line, spritebuf, linebuf); break;
@@ -958,6 +989,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
     case 3: DrawScanlineBGMode<3>(line, spritebuf, linebuf); break;
     case 4: DrawScanlineBGMode<4>(line, spritebuf, linebuf); break;
     case 5: DrawScanlineBGMode<5>(line, spritebuf, linebuf); break;
+    case 6: DrawScanlineBGMode6(line, spritebuf, linebuf); break;
     }
 
     // color special effects

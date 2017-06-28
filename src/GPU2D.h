@@ -105,6 +105,7 @@ private:
     u32 OBJExtPalStatus;
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst);
+    void DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst);
     void DrawScanline_Mode1(u32 line, u32* dst);
 
     void DrawPixel(u32* dst, u16 color, u32 flag);
