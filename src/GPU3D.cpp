@@ -723,8 +723,7 @@ void SubmitPolygon()
     // clipping
 
     nverts = ClipPolygon<true>(clippedvertices, nverts, clipstart);
-//if (((CurPolygonAttr >> 16) & 0x1F) != 0x1F) nverts=0;
-//CurPolygonAttr|=0x1F0000;
+
     if (nverts == 0)
     {
         LastStripPolygon = NULL;

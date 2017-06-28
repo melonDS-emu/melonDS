@@ -255,10 +255,10 @@ public:
         return x0;
     }
 
-    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1)
+    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
     {
         this->x0 = x0;
-        this->y = y0;
+        this->y = y;
 
         if (x1 > x0)
         {
@@ -309,6 +309,8 @@ public:
             else if (Increment != 0) dx = Negative ? 0x10000 : 0;
             else                     dx = 0;
         }
+
+        dx += (y - y0) * Increment;
 
         s32 x = XVal();
 
@@ -831,7 +833,7 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
 
     rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
                               polygon->Vertices[rp->CurVL]->FinalPosition[1], polygon->Vertices[rp->NextVL]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
+                              polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
 void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
@@ -858,7 +860,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 
     rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
                               polygon->Vertices[rp->CurVR]->FinalPosition[1], polygon->Vertices[rp->NextVR]->FinalPosition[1],
-                              polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
+                              polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
 void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
