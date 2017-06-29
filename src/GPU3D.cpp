@@ -1068,12 +1068,12 @@ void BoxTest(u32* params)
 
     GXStat &= ~(1<<1);
 
-    s32 x0 = (s32)(s16)(params[0] & 0xFFFF);
-    s32 y0 = ((s32)params[0]) >> 16;
-    s32 z0 = (s32)(s16)(params[1] & 0xFFFF);
-    s32 x1 = ((s32)params[1]) >> 16;
-    s32 y1 = (s32)(s16)(params[2] & 0xFFFF);
-    s32 z1 = ((s32)params[2]) >> 16;
+    s16 x0 = (s16)(params[0] & 0xFFFF);
+    s16 y0 = ((s32)params[0]) >> 16;
+    s16 z0 = (s16)(params[1] & 0xFFFF);
+    s16 x1 = ((s32)params[1]) >> 16;
+    s16 y1 = (s16)(params[2] & 0xFFFF);
+    s16 z1 = ((s32)params[2]) >> 16;
 
     x1 += x0;
     y1 += y0;
@@ -1095,10 +1095,10 @@ void BoxTest(u32* params)
         s32 y = cube[i].Position[1];
         s32 z = cube[i].Position[2];
 
-        cube[i].Position[0] = ((s64)x*ClipMatrix[0] + (s64)y*ClipMatrix[4] + (s64)z*ClipMatrix[8] + 0x1000*ClipMatrix[12]) >> 12;
-        cube[i].Position[1] = ((s64)x*ClipMatrix[1] + (s64)y*ClipMatrix[5] + (s64)z*ClipMatrix[9] + 0x1000*ClipMatrix[13]) >> 12;
-        cube[i].Position[2] = ((s64)x*ClipMatrix[2] + (s64)y*ClipMatrix[6] + (s64)z*ClipMatrix[10] + 0x1000*ClipMatrix[14]) >> 12;
-        cube[i].Position[3] = ((s64)x*ClipMatrix[3] + (s64)y*ClipMatrix[7] + (s64)z*ClipMatrix[11] + 0x1000*ClipMatrix[15]) >> 12;
+        cube[i].Position[0] = ((s64)x*ClipMatrix[0] + (s64)y*ClipMatrix[4] + (s64)z*ClipMatrix[8] + (s64)0x1000*ClipMatrix[12]) >> 12;
+        cube[i].Position[1] = ((s64)x*ClipMatrix[1] + (s64)y*ClipMatrix[5] + (s64)z*ClipMatrix[9] + (s64)0x1000*ClipMatrix[13]) >> 12;
+        cube[i].Position[2] = ((s64)x*ClipMatrix[2] + (s64)y*ClipMatrix[6] + (s64)z*ClipMatrix[10] + (s64)0x1000*ClipMatrix[14]) >> 12;
+        cube[i].Position[3] = ((s64)x*ClipMatrix[3] + (s64)y*ClipMatrix[7] + (s64)z*ClipMatrix[11] + (s64)0x1000*ClipMatrix[15]) >> 12;
     }
 
     // front face (-Z)
