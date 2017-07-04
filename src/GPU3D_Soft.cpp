@@ -1049,10 +1049,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     Interpolator interpX(xstart, xend+1, wl, wr, 8);
 
     if (x < 0) x = 0;
+    s32 xlimit;
 
     // part 1: left edge
     edge = yedge | 0x1;
-    for (; x < xstart+l_edgelen; x++)
+    xlimit = xstart+l_edgelen; if (xlimit > 256) xlimit = 256;
+    for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
@@ -1180,8 +1182,9 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     // part 2: polygon inside
     edge = yedge;
-    if (wireframe && !edge) x = xend-r_edgelen+1;
-    else for (; x <= xend-r_edgelen; x++)
+    xlimit = xend-r_edgelen+1; if (xlimit > 256) xlimit = 256;
+    if (wireframe && !edge) x = xlimit;
+    else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
@@ -1268,11 +1271,10 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         AttrBuffer[pixeladdr] = attr;
     }
 
-    if (xend > 255) xend = 255;
-
     // part 3: right edge
     edge = yedge | 0x2;
-    for (; x <= xend; x++)
+    xlimit = xend+1; if (xlimit > 256) xlimit = 256;
+    for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 attr = (polygon->Attr & 0x3F008000);
@@ -1679,23 +1681,29 @@ void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
     // TODO: Y-sorting for translucent polygons
     // TODO: all sorting should be done in GPU3D.cpp
 
+    // polygons with ybottom>192 aren't rendered at all
+
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
         if (polygons[i].Translucent) continue;
+
+        if (polygons[i].YBottom > 192) continue;
         SetupPolygon(&PolygonList[j++], &polygons[i]);
     }
     for (int i = 0; i < npolys; i++)
     {
         if (!polygons[i].Translucent) continue;
+
+        if (polygons[i].YBottom > 192) continue;
         SetupPolygon(&PolygonList[j++], &polygons[i]);
     }
 
-    RenderScanline(0, npolys);
+    RenderScanline(0, j);
 
     for (s32 y = 1; y < 192; y++)
     {
-        RenderScanline(y, npolys);
+        RenderScanline(y, j);
         ScanlineFinalPass(y-1);
 
         if (threaded)

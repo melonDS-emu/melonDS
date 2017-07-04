@@ -203,7 +203,7 @@ s32 TexMatrix[16];
 s32 ClipMatrix[16];
 bool ClipMatrixDirty;
 
-s32 Viewport[4];
+u32 Viewport[6];
 
 s32 ProjMatrixStack[16];
 s32 PosMatrixStack[31][16];
@@ -723,7 +723,6 @@ void SubmitPolygon()
     // clipping
 
     nverts = ClipPolygon<true>(clippedvertices, nverts, clipstart);
-
     if (nverts == 0)
     {
         LastStripPolygon = NULL;
@@ -803,24 +802,12 @@ void SubmitPolygon()
             // the transform for Z uses the normalized W values
             // W normalization is applied to separate polygons, even within strips
 
-            posX = (((s64)(vtx->Position[0] + w) * Viewport[2]) / (((s64)w) << 1)) + Viewport[0];
-            posY = (((s64)(-vtx->Position[1] + w) * Viewport[3]) / (((s64)w) << 1)) + Viewport[1];
-
-            //if (FlushAttributes & 0x2) posZ = w;
-            //else                       posZ = (((s64)vtx->Position[2] * 0x800000) / w) + 0x7FFEFF;
+            posX = (((s64)(vtx->Position[0] + w) * Viewport[4]) / (((s64)w) << 1)) + Viewport[0];
+            posY = (((s64)(-vtx->Position[1] + w) * Viewport[5]) / (((s64)w) << 1)) + Viewport[3];
         }
 
-        if      (posX < 0)        posX = 0;
-        else if (posX > 256)      posX = 256;
-        if      (posY < 0)        posY = 0;
-        else if (posY > 192)      posY = 192;
-        //if      (posZ < 0)        posZ = 0;
-        //else if (posZ > 0xFFFFFF) posZ = 0xFFFFFF;
-
-        vtx->FinalPosition[0] = posX;
-        vtx->FinalPosition[1] = posY;
-        //vtx->FinalPosition[2] = posZ;
-        //vtx->FinalPosition[3] = w;
+        vtx->FinalPosition[0] = posX & 0x1FF;
+        vtx->FinalPosition[1] = posY & 0xFF;
 
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
@@ -1711,10 +1698,12 @@ void ExecuteCommand()
 
         case 0x60: // viewport x1,y1,x2,y2
             // note: viewport Y coordinates are upside-down
-            Viewport[0] = ExecParams[0] & 0xFF;
-            Viewport[1] = 191 - (ExecParams[0] >> 24);
-            Viewport[2] = ((ExecParams[0] >> 16) & 0xFF) - Viewport[0] + 1;
-            Viewport[3] = (191 - ((ExecParams[0] >> 8) & 0xFF)) - Viewport[1] + 1;
+            Viewport[0] = ExecParams[0] & 0xFF;                             // x0
+            Viewport[1] = (191 - ((ExecParams[0] >> 8) & 0xFF)) & 0xFF;     // y0
+            Viewport[2] = (ExecParams[0] >> 16) & 0xFF;                     // x1
+            Viewport[3] = (191 - (ExecParams[0] >> 24)) & 0xFF;             // y1
+            Viewport[4] = (Viewport[2] - Viewport[0] + 1) & 0x1FF;          // width
+            Viewport[5] = (Viewport[1] - Viewport[3] + 1) & 0xFF;           // height
             break;
 
         case 0x70: // box test
