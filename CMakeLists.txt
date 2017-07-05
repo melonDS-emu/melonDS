@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8.11)
 
+set(CMAKE_CXX_STANDARD 11)
+
 SET(PROJECT_WX melonDS)
 PROJECT(${PROJECT_WX})
 
@@ -44,7 +46,5 @@ add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
 
 set(CMAKE_BUILD_TYPE Release)
-
-set (CMAKE_CXX_STANDARD 11)
 
 install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
