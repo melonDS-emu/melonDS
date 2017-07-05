@@ -114,6 +114,7 @@ private:
     void DrawBG_Text(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Affine(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Extended(u32 line, u32* dst, u32 bgnum);
+    void DrawBG_Large(u32 line, u32* dst);
 
     void InterleaveSprites(u32* buf, u32 prio, u32* dst);
     void DrawSprites(u32 line, u32* dst);
