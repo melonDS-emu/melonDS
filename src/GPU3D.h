@@ -60,11 +60,11 @@ typedef struct
     bool IsShadowMask;
     bool IsShadow;
 
-    // data below rather specific to the software renderer
-
     u32 VTop, VBottom; // vertex indices
     s32 YTop, YBottom; // Y coords
     s32 XTop, XBottom; // associated X coords
+
+    u32 SortKey;
 
 } Polygon;
 

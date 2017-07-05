@@ -1677,10 +1677,6 @@ void ClearBuffers()
 
 void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
-    // sort polygons
-    // TODO: Y-sorting for translucent polygons
-    // TODO: all sorting should be done in GPU3D.cpp
-
     // polygons with ybottom>192 aren't rendered at all
 
     int j = 0;

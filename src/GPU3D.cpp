@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
@@ -855,6 +856,10 @@ void SubmitPolygon()
     poly->VTop = vtop; poly->VBottom = vbot;
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
+
+    poly->SortKey = (ybot << 8) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000;
+
     poly->WShift = wshift;
     poly->WBuffer = (FlushAttributes & 0x2);
 
@@ -1791,20 +1796,39 @@ void VCount144()
 }
 
 
+bool YSort(Polygon* a, Polygon* b)
+{
+    // Y-sorting rules:
+    // * polygons with lower bottom Y come first
+    // * upon equal bottom Y, polygons with lower top Y come first
+    // * upon equal bottom AND top Y, original ordering is used
+
+    return a->SortKey < b->SortKey;
+}
+
 void VBlank()
 {
     if (FlushRequest)
     {
-        // separate translucent polygons from opaque ones
-
-        u32 io = 0, it = NumOpaquePolygons;
-        for (u32 i = 0; i < NumPolygons; i++)
+        if (NumPolygons)
         {
-            Polygon* poly = &CurPolygonRAM[i];
-            if (poly->Translucent)
-                RenderPolygonRAM[it++] = poly;
-            else
-                RenderPolygonRAM[io++] = poly;
+            // separate translucent polygons from opaque ones
+
+            u32 io = 0, it = NumOpaquePolygons;
+            for (u32 i = 0; i < NumPolygons; i++)
+            {
+                Polygon* poly = &CurPolygonRAM[i];
+                if (poly->Translucent)
+                    RenderPolygonRAM[it++] = poly;
+                else
+                    RenderPolygonRAM[io++] = poly;
+            }
+
+            // apply Y-sorting
+
+            std::stable_sort(RenderPolygonRAM.begin(),
+                RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
+                YSort);
         }
 
         RenderNumPolygons = NumPolygons;
