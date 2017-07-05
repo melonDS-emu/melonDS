@@ -19,6 +19,8 @@
 #ifndef GPU3D_H
 #define GPU3D_H
 
+#include <array>
+
 namespace GPU3D
 {
 
@@ -77,8 +79,7 @@ extern u8 RenderFogDensityTable[34];
 
 extern u32 RenderClearAttr1, RenderClearAttr2;
 
-extern Vertex* RenderVertexRAM;
-extern Polygon* RenderPolygonRAM;
+extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
 bool Init();

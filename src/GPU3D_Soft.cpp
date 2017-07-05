@@ -1675,7 +1675,7 @@ void ClearBuffers()
     }
 }
 
-void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
+void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
     // sort polygons
     // TODO: Y-sorting for translucent polygons
@@ -1686,17 +1686,8 @@ void RenderPolygons(bool threaded, Polygon* polygons, int npolys)
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
-        if (polygons[i].Translucent) continue;
-
-        if (polygons[i].YBottom > 192) continue;
-        SetupPolygon(&PolygonList[j++], &polygons[i]);
-    }
-    for (int i = 0; i < npolys; i++)
-    {
-        if (!polygons[i].Translucent) continue;
-
-        if (polygons[i].YBottom > 192) continue;
-        SetupPolygon(&PolygonList[j++], &polygons[i]);
+        if (polygons[i]->YBottom > 192) continue;
+        SetupPolygon(&PolygonList[j++], polygons[i]);
     }
 
     RenderScanline(0, j);
@@ -1731,7 +1722,7 @@ void RenderFrame()
     else
     {
         ClearBuffers();
-        RenderPolygons(false, RenderPolygonRAM, RenderNumPolygons);
+        RenderPolygons(false, &RenderPolygonRAM[0], RenderNumPolygons);
     }
 }
 
@@ -1744,7 +1735,7 @@ void RenderThreadFunc()
 
         RenderThreadRendering = true;
         ClearBuffers();
-        RenderPolygons(true, RenderPolygonRAM, RenderNumPolygons);
+        RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;

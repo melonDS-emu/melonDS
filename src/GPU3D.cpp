@@ -248,6 +248,7 @@ u32 VertexNum;
 u32 VertexNumInPoly;
 u32 NumConsecutivePolygons;
 Polygon* LastStripPolygon;
+u32 NumOpaquePolygons;
 
 Vertex VertexRAM[6144 * 2];
 Polygon PolygonRAM[2048 * 2];
@@ -257,8 +258,7 @@ Polygon* CurPolygonRAM;
 u32 NumVertices, NumPolygons;
 u32 CurRAMBank;
 
-Vertex* RenderVertexRAM;
-Polygon* RenderPolygonRAM;
+std::array<Polygon*,2048> RenderPolygonRAM;
 u32 RenderNumPolygons;
 
 u32 FlushRequest;
@@ -338,6 +338,7 @@ void Reset()
     CurPolygonRAM = &PolygonRAM[0];
     NumVertices = 0;
     NumPolygons = 0;
+    NumOpaquePolygons = 0;
 
     // TODO: confirm initial polyid/color/fog values
     ClearAttr1 = 0x3F000000;
@@ -753,6 +754,8 @@ void SubmitPolygon()
 
     poly->IsShadowMask = ((CurPolygonAttr & 0x3F000030) == 0x00000030);
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
+
+    if (!poly->Translucent) NumOpaquePolygons++;
 
     if (LastStripPolygon && clipstart > 0)
     {
@@ -1792,8 +1795,18 @@ void VBlank()
 {
     if (FlushRequest)
     {
-        RenderVertexRAM = CurVertexRAM;
-        RenderPolygonRAM = CurPolygonRAM;
+        // separate translucent polygons from opaque ones
+
+        u32 io = 0, it = NumOpaquePolygons;
+        for (u32 i = 0; i < NumPolygons; i++)
+        {
+            Polygon* poly = &CurPolygonRAM[i];
+            if (poly->Translucent)
+                RenderPolygonRAM[it++] = poly;
+            else
+                RenderPolygonRAM[io++] = poly;
+        }
+
         RenderNumPolygons = NumPolygons;
 
         RenderDispCnt = DispCnt;
@@ -1817,6 +1830,7 @@ void VBlank()
 
         NumVertices = 0;
         NumPolygons = 0;
+        NumOpaquePolygons = 0;
 
         FlushRequest = 0;
     }
