@@ -45,4 +45,6 @@ target_link_libraries(${PROJECT_WX})
 
 set(CMAKE_BUILD_TYPE Release)
 
+set (CMAKE_CXX_STANDARD 11)
+
 install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
