@@ -29,6 +29,12 @@
 #include "EmuConfig.h"
 
 
+// blarg
+#ifndef SDL_PIXELFORMAT_RGBA32
+#define SDL_PIXELFORMAT_RGBA32 SDL_PIXELFORMAT_ABGR8888
+#endif // SDL_PIXELFORMAT_RGBA32
+
+
 wxIMPLEMENT_APP_NO_MAIN(wxApp_melonDS);
 
 
@@ -99,7 +105,7 @@ bool wxApp_melonDS::OnInit()
     printf("melonDS " MELONDS_VERSION "\n" MELONDS_URL "\n");
 
     Config::Load();
-    
+
     if (!_fileexists("bios7.bin") || !_fileexists("bios9.bin") || !_fileexists("firmware.bin"))
     {
         wxMessageBox(
@@ -111,7 +117,7 @@ bool wxApp_melonDS::OnInit()
             "Make sure that the files can be accessed.",
             "melonDS",
             wxICON_ERROR);
-            
+
         return false;
     }
 
