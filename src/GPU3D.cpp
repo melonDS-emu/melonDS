@@ -823,13 +823,13 @@ void SubmitPolygon()
 
     // determine bounds of the polygon
     // also determine the W shift and normalize W
-    // TODO: normalization works both ways
+    // normalization works both ways
     // (ie two W's that span 12 bits or less will be brought to 16 bits)
 
     u32 vtop = 0, vbot = 0;
     s32 ytop = 192, ybot = 0;
     s32 xtop = 256, xbot = 0;
-    u32 wshift = 0;
+    u32 wsize = 0;
 
     for (int i = 0; i < nverts; i++)
     {
@@ -849,8 +849,8 @@ void SubmitPolygon()
         }
 
         u32 w = (u32)vtx->Position[3];
-        while ((w >> wshift) & 0xFFFF0000)
-            wshift += 4;
+        while (w >> wsize)
+            wsize += 4;
     }
 
     poly->VTop = vtop; poly->VBottom = vbot;
@@ -860,20 +860,32 @@ void SubmitPolygon()
     poly->SortKey = (ybot << 8) | ytop;
     if (poly->Translucent) poly->SortKey |= 0x10000;
 
-    poly->WShift = wshift;
     poly->WBuffer = (FlushAttributes & 0x2);
 
     for (int i = 0; i < nverts; i++)
     {
         Vertex* vtx = poly->Vertices[i];
-        s32 w = vtx->Position[3] >> wshift;
+        s32 w, wshifted;
+
+        if (wsize < 16)
+        {
+            w = vtx->Position[3] << (16 - wsize);
+            wshifted = w >> (16 - wsize);
+        }
+        else
+        {
+            w = vtx->Position[3] >> (wsize - 16);
+            wshifted = w << (wsize - 16);
+        }
 
         s32 z;
         if (FlushAttributes & 0x2)
-            z = w << wshift;
+            z = wshifted;
+        else if (wshifted)
+            z = (((s64)vtx->Position[2] * 0x800000) / wshifted) + 0x7FFEFF;
         else
-            z = (((s64)vtx->Position[2] * 0x800000) / (w << wshift)) + 0x7FFEFF;
-//printf("poly%d v%d: %d %d Z=%08X (%08X %08X)\n", NumPolygons-1, i, vtx->FinalPosition[0], vtx->FinalPosition[1], z, vtx->Position[2], vtx->Position[3]);
+            z = 0x7FFEFF;
+
         // checkme
         if (z < 0) z = 0;
         else if (z > 0xFFFFFF) z = 0xFFFFFF;

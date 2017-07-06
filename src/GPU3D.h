@@ -47,7 +47,6 @@ typedef struct
 
     s32 FinalZ[10];
     s32 FinalW[10];
-    u8 WShift;
     bool WBuffer;
 
     u32 Attr;
