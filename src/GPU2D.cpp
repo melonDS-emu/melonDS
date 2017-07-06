@@ -1829,6 +1829,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
             if (DispCnt & 0x20)
             {
                 // TODO ("reserved")
+                printf("bad reserved mode\n");
             }
             else
             {
@@ -1856,7 +1857,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
         {
             if ((u32)rotX < width && (u32)rotY < height)
             {
-                u8 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr + ((rotY >> 8) * ytilefactor) + ((rotX >> 8) << 1));
+                u16 color = GPU::ReadVRAM_OBJ<u16>(pixelsaddr + ((rotY >> 8) * ytilefactor) + ((rotX >> 8) << 1));
 
                 if (color & 0x8000)
                 {
@@ -2000,6 +2001,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, u32 ypos, u32* d
             if (DispCnt & 0x20)
             {
                 // TODO ("reserved")
+                printf("bad reserved mode\n");
             }
             else
             {
