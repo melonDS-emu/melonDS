@@ -858,7 +858,8 @@ void SubmitPolygon()
     poly->XTop = xtop; poly->XBottom = xbot;
 
     poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000;
+    if (poly->Translucent)      poly->SortKey |= 0x20000;
+    else if (!poly->FacingView) poly->SortKey |= 0x10000;
 
     poly->WShift = wshift;
     poly->WBuffer = (FlushAttributes & 0x2);
@@ -873,7 +874,7 @@ void SubmitPolygon()
             z = w << wshift;
         else
             z = (((s64)vtx->Position[2] * 0x800000) / (w << wshift)) + 0x7FFEFF;
-
+//printf("poly%d v%d: %d %d Z=%08X (%08X %08X)\n", NumPolygons-1, i, vtx->FinalPosition[0], vtx->FinalPosition[1], z, vtx->Position[2], vtx->Position[3]);
         // checkme
         if (z < 0) z = 0;
         else if (z > 0xFFFFFF) z = 0xFFFFFF;
@@ -1339,7 +1340,7 @@ void ExecuteCommand()
 
                 if (PosMatrixStackPointer < 0 || PosMatrixStackPointer > 30)
                 {
-                    printf("!! POS MATRIX STACK UNDER/OVERFLOW %d\n", PosMatrixStackPointer);
+                    //printf("!! POS MATRIX STACK UNDER/OVERFLOW %d\n", PosMatrixStackPointer);
                     PosMatrixStackPointer += offset;
                     GXStat |= (1<<15);
                     break;
@@ -1798,10 +1799,13 @@ void VCount144()
 
 bool YSort(Polygon* a, Polygon* b)
 {
-    // Y-sorting rules:
+    // polygon sorting rules:
+    // * opaque polygons come first
+    // * opaque polygons are sorted by winding, front-facing polygons come first
     // * polygons with lower bottom Y come first
     // * upon equal bottom Y, polygons with lower top Y come first
     // * upon equal bottom AND top Y, original ordering is used
+    // the SortKey is calculated as to implement these rules
 
     return a->SortKey < b->SortKey;
 }
