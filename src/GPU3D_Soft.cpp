@@ -50,6 +50,7 @@ u32 AttrBuffer[BufferSize * 2];
 // bit15: fog enable
 // bit24-29: polygon ID
 // bit30: translucent flag
+// bit31: backfacing flag
 
 u8 StencilBuffer[256*2];
 bool PrevIsShadowMask;
@@ -655,18 +656,39 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     }
 }
 
-template<bool func_equal>
-bool DepthTest(s32 oldz, s32 z)
+// depth test is 'less or equal' instead of 'less than' under the following conditions:
+// * when drawing a front-facing pixel over an opaque back-facing pixel
+// * when drawing wireframe edges, under certain conditions (TODO)
+
+bool DepthTest_Equal(s32 dstz, s32 z, u32 dstattr)
 {
-    if (func_equal)
+    s32 diff = dstz - z;
+    if ((u32)(diff + 0xFF) <= 0x1FE) // range is +-0xFF
+        return true;
+
+    return false;
+}
+
+bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr)
+{
+    if (z < dstz)
+        return true;
+
+    return false;
+}
+
+bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr)
+{
+    if ((dstattr >> 30) == 0x2) // opaque, back facing
     {
-        s32 diff = oldz - z;
-        if ((u32)(diff + 0xFF) <= 0x1FE) // range is +-0xFF
+        if (z <= dstz)
             return true;
     }
     else
-    if (z < oldz)
-        return true;
+    {
+        if (z < dstz)
+            return true;
+    }
 
     return false;
 }
@@ -920,14 +942,19 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
+    u32 polyattr = (polygon->Attr & 0x3F008000);
+    if (!polygon->FacingView) polyattr |= (1<<31);
+
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);
 
-    bool (*fnDepthTest)(s32 oldz, s32 z);
+    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
     if (polygon->Attr & (1<<14))
-        fnDepthTest = DepthTest<true>;
+        fnDepthTest = DepthTest_Equal;
+    else if (polygon->FacingView)
+        fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
-        fnDepthTest = DepthTest<false>;
+        fnDepthTest = DepthTest_LessThan;
 
     if (polygon->IsShadowMask && !PrevIsShadowMask)
         memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
@@ -1057,7 +1084,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr = (polygon->Attr & 0x3F008000);
+        u32 attr = polyattr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1069,6 +1096,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         if (polygon->IsShadowMask)
         {
@@ -1085,22 +1113,20 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 }
             }
 
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
                 StencilBuffer[256*(y&0x1) + x] = 1;
 
             continue;
         }
 
-        u32 dstattr = AttrBuffer[pixeladdr];
-
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
             if (!(dstattr & 0x3)) continue;
 
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
                 continue;
         }
 
@@ -1187,7 +1213,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr = (polygon->Attr & 0x3F008000);
+        u32 attr = polyattr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1199,28 +1225,27 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         if (polygon->IsShadowMask)
         {
             // for shadow masks: set stencil bits where the depth test fails.
             // draw nothing.
 
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
                 StencilBuffer[256*(y&0x1) + x] = 1;
 
             continue;
         }
 
-        u32 dstattr = AttrBuffer[pixeladdr];
-
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
             if (!(dstattr & 0x3)) continue;
 
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
                 continue;
         }
 
@@ -1277,7 +1302,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr = (polygon->Attr & 0x3F008000);
+        u32 attr = polyattr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1289,6 +1314,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         if (polygon->IsShadowMask)
         {
@@ -1305,22 +1331,20 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 }
             }
 
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
                 StencilBuffer[256*(y&0x1) + x] = 1;
 
             continue;
         }
 
-        u32 dstattr = AttrBuffer[pixeladdr];
-
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
-        if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
             if (!(dstattr & 0x3)) continue;
 
             pixeladdr += BufferSize;
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z))
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
                 continue;
         }
 

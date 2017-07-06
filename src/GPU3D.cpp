@@ -858,8 +858,7 @@ void SubmitPolygon()
     poly->XTop = xtop; poly->XBottom = xbot;
 
     poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent)      poly->SortKey |= 0x20000;
-    else if (!poly->FacingView) poly->SortKey |= 0x10000;
+    if (poly->Translucent) poly->SortKey |= 0x10000;
 
     poly->WShift = wshift;
     poly->WBuffer = (FlushAttributes & 0x2);
@@ -1801,7 +1800,6 @@ bool YSort(Polygon* a, Polygon* b)
 {
     // polygon sorting rules:
     // * opaque polygons come first
-    // * opaque polygons are sorted by winding, front-facing polygons come first
     // * polygons with lower bottom Y come first
     // * upon equal bottom Y, polygons with lower top Y come first
     // * upon equal bottom AND top Y, original ordering is used
