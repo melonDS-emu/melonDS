@@ -199,20 +199,44 @@ public:
     {
         if (xdiff == 0) return y0;
 
-        if (wdiff != 0)
-            return y0 + (((y1 - y0) * yfactor) >> shift);
+        s32 ybase, ydiff;
+        if (y1 < y0)
+        {
+            ybase = y0;
+            ydiff = y1 - y0 - 1;
+        }
         else
-            return y0 + (((y1 - y0) * x) / xdiff);
+        {
+            ybase = y0;
+            ydiff = y1 - y0;
+        }
+
+        if (wdiff != 0)
+            return ybase + ((ydiff * yfactor) >> shift);
+        else
+            return ybase + ((ydiff * x) / xdiff);
     }
 
     s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
     {
         if (xdiff == 0) return z0;
 
-        if ((wdiff != 0) && wbuffer)
-            return z0 + (((s64)(z1 - z0) * yfactor) >> shift);
+        s32 zbase, zdiff;
+        if (z1 < z0)
+        {
+            zbase = z0;
+            zdiff = z1 - z0 - 1;
+        }
         else
-            return z0 + (((s64)(z1 - z0) * x) / xdiff);
+        {
+            zbase = z0;
+            zdiff = z1 - z0;
+        }
+
+        if ((wdiff != 0) && wbuffer)
+            return zbase + (((s64)zdiff * yfactor) >> shift);
+        else
+            return zbase + (((s64)zdiff * x) / xdiff);
     }
 
 private:
