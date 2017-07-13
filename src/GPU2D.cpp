@@ -1005,11 +1005,18 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         u32 coloreffect, eva, evb;
 
         u32 flag1 = val1 >> 24;
+        u32 flag2 = val2 >> 24;
+
+        u32 target2;
+        if (flag2 & 0x80)      target2 = 0x1000;
+        else if (flag2 & 0x40) target2 = 0x0100;
+        else                   target2 = flag2 << 8;
+
         if (!(windowmask[i] & 0x20))
         {
             coloreffect = 0;
         }
-        else if ((flag1 & 0x80) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
+        else if ((flag1 & 0x80) && (BlendCnt & target2))
         {
             // sprite blending
 
@@ -1026,7 +1033,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
                 evb = EVB;
             }
         }
-        else if ((flag1 & 0x40) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
+        else if ((flag1 & 0x40) && (BlendCnt & target2))
         {
             // 3D layer blending
 
@@ -1054,7 +1061,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         }
         else if (BlendCnt & flag1)
         {
-            if ((bldcnteffect == 1) && (BlendCnt & ((val2 >> 16) & 0xFF00)))
+            if ((bldcnteffect == 1) && (BlendCnt & target2))
             {
                 coloreffect = 1;
                 eva = EVA;
