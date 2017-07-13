@@ -1545,15 +1545,19 @@ void ScanlineFinalPass(s32 y)
                 }
                 else
                 {
-                    z = (z - fogoffset) << fogshift;
-                    densityid = z >> 19;
+                    // technically: Z difference is shifted left by fog shift
+                    // then bit 0-18 are the fractional part and bit 19-23 are the density index
+                    // things are a little different here to avoid overflow in 32-bit range
+
+                    z -= fogoffset;
+                    densityid = z >> (19-fogshift);
                     if (densityid >= 32)
                     {
                         densityid = 32;
                         densityfrac = 0;
                     }
                     else
-                        densityfrac = z & 0x7FFFF;
+                        densityfrac = (z << fogshift) & 0x7FFFF;
                 }
 
                 // checkme
