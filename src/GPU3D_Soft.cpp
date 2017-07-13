@@ -48,9 +48,9 @@ u32 AttrBuffer[BufferSize * 2];
 // bit0-3: edge flags (left/right/top/bottom)
 // bit8-12: antialiasing alpha
 // bit15: fog enable
+// bit23: backfacing flag
 // bit24-29: polygon ID
 // bit30: translucent flag
-// bit31: backfacing flag
 
 u8 StencilBuffer[256*2];
 bool PrevIsShadowMask;
@@ -181,6 +181,9 @@ public:
         this->x = x;
         if (xdiff != 0 && wdiff != 0)
         {
+            // TODO: hardware tests show that this method is too precise
+            // I haven't yet figured out what the hardware does, though
+
             s64 num = ((s64)x << (shift + 40)) / w1factor;
             s64 denw0 = ((s64)(xdiff-x) << 40) / w0factor;
             s64 denw1 = num >> shift;
@@ -197,24 +200,24 @@ public:
 
     s32 Interpolate(s32 y0, s32 y1)
     {
-        if (xdiff == 0) return y0;
-
-        s32 ybase, ydiff;
-        if (y1 < y0)
-        {
-            ybase = y0;
-            ydiff = y1 - y0 - 1;
-        }
-        else
-        {
-            ybase = y0;
-            ydiff = y1 - y0;
-        }
+        if (xdiff == 0 || y0 == y1) return y0;
 
         if (wdiff != 0)
-            return ybase + ((ydiff * yfactor) >> shift);
+        {
+            // perspective-correct approx. interpolation
+            if (y0 < y1)
+                return y0 + (((y1-y0) * yfactor) >> shift);
+            else
+                return y1 + (((y0-y1) * ((1<<shift)-yfactor)) >> shift);
+        }
         else
-            return ybase + ((ydiff * x) / xdiff);
+        {
+            // linear interpolation
+            if (y0 < y1)
+                return y0 + (((y1-y0) * x) / xdiff);
+            else
+                return y1 + (((y0-y1) * (xdiff-x)) / xdiff);
+        }
     }
 
     s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
@@ -703,7 +706,7 @@ bool DepthTest_LessThan(s32 dstz, s32 z, u32 dstattr)
 
 bool DepthTest_LessThan_FrontFacing(s32 dstz, s32 z, u32 dstattr)
 {
-    if ((dstattr >> 30) == 0x2) // opaque, back facing
+    if ((dstattr & 0x40800000) == 0x00800000) // opaque, back facing
     {
         if (z <= dstz)
             return true;
@@ -967,7 +970,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     Polygon* polygon = rp->PolyData;
 
     u32 polyattr = (polygon->Attr & 0x3F008000);
-    if (!polygon->FacingView) polyattr |= (1<<31);
+    if (!polygon->FacingView) polyattr |= (1<<23);
 
     u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
     bool wireframe = (polyalpha == 0);

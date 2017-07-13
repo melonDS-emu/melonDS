@@ -849,7 +849,7 @@ void SubmitPolygon()
         }
 
         u32 w = (u32)vtx->Position[3];
-        while (w >> wsize)
+        while ((w >> wsize) && (wsize < 32))
             wsize += 4;
     }
 
@@ -1264,6 +1264,9 @@ void ExecuteCommand()
 
     if (ExecParamCount >= CmdNumParams[entry.Command])
     {
+        /*printf("0x%02X,  ", entry.Command);
+        for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
+        printf("\n");*/
         CycleCount += CmdNumCycles[entry.Command];
         ExecParamCount = 0;
 
