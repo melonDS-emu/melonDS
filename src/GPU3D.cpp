@@ -790,22 +790,15 @@ void SubmitPolygon()
         poly->NumVertices++;
 
         // viewport transform
-        s32 posX, posY, posZ;
+        s32 posX, posY;
         s32 w = vtx->Position[3];
         if (w == 0)
         {
             posX = 0;
             posY = 0;
-            posZ = 0;
-            w = 0x1000;
         }
         else
         {
-            // W is normalized, such that all the polygon's W values fit within 16 bits
-            // the viewport transform for X and Y uses the original W values, but
-            // the transform for Z uses the normalized W values
-            // W normalization is applied to separate polygons, even within strips
-
             posX = (((s64)(vtx->Position[0] + w) * Viewport[4]) / (((s64)w) << 1)) + Viewport[0];
             posY = (((s64)(-vtx->Position[1] + w) * Viewport[5]) / (((s64)w) << 1)) + Viewport[3];
         }
@@ -867,6 +860,11 @@ void SubmitPolygon()
         Vertex* vtx = poly->Vertices[i];
         s32 w, wshifted;
 
+        // W is normalized, such that all the polygon's W values fit within 16 bits
+        // the viewport transform for X/Y/Z uses the original W values, but
+        // when W-buffering is used, the normalized W is used
+        // W normalization is applied to separate polygons, even within strips
+
         if (wsize < 16)
         {
             w = vtx->Position[3] << (16 - wsize);
@@ -882,11 +880,10 @@ void SubmitPolygon()
         if (FlushAttributes & 0x2)
             z = wshifted;
         else if (wshifted)
-            z = ((((s64)vtx->Position[2] * 0x4000) / wshifted) * 0x200) + 0x7FFE00;
+            z = ((((s64)vtx->Position[2] * 0x4000) / vtx->Position[3]) + 0x3FFF) * 0x200;
         else
-            z = 0x7FFEFF;
+            z = 0x3FFF;
 
-        // checkme
         if (z < 0) z = 0;
         else if (z > 0xFFFFFF) z = 0xFFFFFF;
 
