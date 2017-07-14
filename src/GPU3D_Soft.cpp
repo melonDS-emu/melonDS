@@ -222,24 +222,24 @@ public:
 
     s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
     {
-        if (xdiff == 0) return z0;
-
-        s32 zbase, zdiff;
-        if (z1 < z0)
-        {
-            zbase = z0;
-            zdiff = z1 - z0 - 1;
-        }
-        else
-        {
-            zbase = z0;
-            zdiff = z1 - z0;
-        }
+        if (xdiff == 0 || z0 == z1) return z0;
 
         if ((wdiff != 0) && wbuffer)
-            return zbase + (((s64)zdiff * yfactor) >> shift);
+        {
+            // perspective-correct approx. interpolation
+            if (z0 < z1)
+                return z0 + (((s64)(z1-z0) * yfactor) >> shift);
+            else
+                return z1 + (((s64)(z0-z1) * ((1<<shift)-yfactor)) >> shift);
+        }
         else
-            return zbase + (((s64)zdiff * x) / xdiff);
+        {
+            // linear interpolation
+            if (z0 < z1)
+                return z0 + (((s64)(z1-z0) * x) / xdiff);
+            else
+                return z1 + (((s64)(z0-z1) * (xdiff-x)) / xdiff);
+        }
     }
 
 private:

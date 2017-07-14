@@ -882,7 +882,7 @@ void SubmitPolygon()
         if (FlushAttributes & 0x2)
             z = wshifted;
         else if (wshifted)
-            z = (((s64)vtx->Position[2] * 0x800000) / wshifted) + 0x7FFEFF;
+            z = ((((s64)vtx->Position[2] * 0x4000) / wshifted) * 0x200) + 0x7FFE00;
         else
             z = 0x7FFEFF;
 
