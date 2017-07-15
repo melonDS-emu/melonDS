@@ -1117,12 +1117,20 @@ u32 ReadROMData()
 void WriteSPICnt(u16 val)
 {
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
+    if (SPICnt & (1<<7))
+        printf("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
+}
+
+void SPITransferDone(u32 param)
+{
+    SPICnt &= ~(1<<7);
 }
 
 u8 ReadSPIData()
 {
     if (!(SPICnt & (1<<15))) return 0;
     if (!(SPICnt & (1<<13))) return 0;
+    if (SPICnt & (1<<7)) return 0; // checkme
 
     return NDSCart_SRAM::Read();
 }
@@ -1132,9 +1140,14 @@ void WriteSPIData(u8 val)
     if (!(SPICnt & (1<<15))) return;
     if (!(SPICnt & (1<<13))) return;
 
-    // TODO: take delays into account
+    if (SPICnt & (1<<7)) printf("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
 
+    SPICnt |= (1<<7);
     NDSCart_SRAM::Write(val, SPICnt&(1<<6));
+
+    // SPI transfers one bit per cycle -> 8 cycles per byte
+    u32 delay = 8 * (8 << (SPICnt & 0x3));
+    NDS::ScheduleEvent(NDS::Event_ROMSPITransfer, false, delay, SPITransferDone, 0);
 }
 
 }

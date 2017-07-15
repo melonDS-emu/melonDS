@@ -32,6 +32,8 @@ enum
 
     Event_DisplayFIFO,
     Event_ROMTransfer,
+    Event_ROMSPITransfer,
+    Event_SPITransfer,
 
     Event_MAX
 };

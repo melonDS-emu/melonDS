@@ -454,6 +454,7 @@ void Write(u8 val, u32 hold)
         {
         case 0x10: ConvResult = TouchY; break;
         case 0x50: ConvResult = TouchX; break;
+        case 0x60: ConvResult = 0x800; break; // TODO: mic
         default: ConvResult = 0xFFF; break;
         }
 
@@ -505,11 +506,21 @@ void WriteCnt(u16 val)
 {
     Cnt = (Cnt & 0x0080) | (val & 0xCF03);
     if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
+    if (Cnt & (1<<7)) printf("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
+}
+
+void TransferDone(u32 param)
+{
+    Cnt &= ~(1<<7);
+
+    if (Cnt & (1<<14))
+        NDS::SetIRQ(1, NDS::IRQ_SPI);
 }
 
 u8 ReadData()
 {
     if (!(Cnt & (1<<15))) return 0;
+    if (Cnt & (1<<7)) return 0; // checkme
 
     switch (Cnt & 0x0300)
     {
@@ -524,8 +535,9 @@ void WriteData(u8 val)
 {
     if (!(Cnt & (1<<15))) return;
 
-    // TODO: take delays into account
+    if (Cnt & (1<<7)) printf("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
 
+    Cnt |= (1<<7);
     switch (Cnt & 0x0300)
     {
     case 0x0000: SPI_Powerman::Write(val, Cnt&(1<<11)); break;
@@ -534,8 +546,9 @@ void WriteData(u8 val)
     default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 
-    if (Cnt & (1<<14))
-        NDS::SetIRQ(1, NDS::IRQ_SPI);
+    // SPI transfers one bit per cycle -> 8 cycles per byte
+    u32 delay = 8 * (8 << (Cnt & 0x3));
+    NDS::ScheduleEvent(NDS::Event_SPITransfer, false, delay, TransferDone, 0);
 }
 
 }
