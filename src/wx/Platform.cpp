@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../Platform.h"
+#include "../Config.h"
 
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
@@ -154,7 +155,7 @@ bool MP_Init()
 
 	sockaddr_t saddr;
 	saddr.sa_family = AF_INET;
-	*(u32*)&saddr.sa_data[2] = htonl(INADDR_LOOPBACK);//htonl(INADDR_ANY);
+	*(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
 	*(u16*)&saddr.sa_data[0] = htons(7064);
 	res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
 	if (res < 0)

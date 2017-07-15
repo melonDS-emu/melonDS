@@ -40,6 +40,10 @@ EmuConfigDialog::EmuConfigDialog(wxWindow* parent)
     vboxmain->Add(cbThreaded3D, 0, wxALL&(~wxBOTTOM), 15);
     cbThreaded3D->SetValue(Config::Threaded3D != 0);
 
+    cbBindAnyAddr = new wxCheckBox(this, wxID_ANY, "Wifi: bind socket to any address");
+    vboxmain->Add(cbBindAnyAddr, 0, wxALL&(~wxBOTTOM), 15);
+    cbBindAnyAddr->SetValue(Config::SocketBindAnyAddr != 0);
+
     {
         wxPanel* p = new wxPanel(this);
         wxBoxSizer* sizer = new wxBoxSizer(wxHORIZONTAL);
@@ -67,6 +71,7 @@ void EmuConfigDialog::OnOk(wxCommandEvent& event)
 {
     Config::DirectBoot = cbDirectBoot->GetValue() ? 1:0;
     Config::Threaded3D = cbThreaded3D->GetValue() ? 1:0;
+    Config::SocketBindAnyAddr = cbBindAnyAddr->GetValue() ? 1:0;
     Config::Save();
 
     Close();

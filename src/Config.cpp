@@ -35,6 +35,8 @@ int DirectBoot;
 
 int Threaded3D;
 
+int SocketBindAnyAddr;
+
 typedef struct
 {
     char Name[16];
@@ -80,6 +82,8 @@ ConfigEntry ConfigFile[] =
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
+
+    {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

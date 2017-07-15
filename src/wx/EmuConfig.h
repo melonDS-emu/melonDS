@@ -38,6 +38,7 @@ private:
 
     wxCheckBox* cbDirectBoot;
     wxCheckBox* cbThreaded3D;
+    wxCheckBox* cbBindAnyAddr;
 };
 
 #endif // WX_EMUCONFIG_H

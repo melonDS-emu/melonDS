@@ -140,6 +140,9 @@ enum
 };
 
 
+extern bool MPInited;
+
+
 bool Init();
 void DeInit();
 void Reset();

@@ -24,6 +24,8 @@
 #include "../GPU.h"
 #include "../GPU3D.h"
 #include "../SPU.h"
+#include "../Wifi.h"
+#include "../Platform.h"
 
 #include "InputConfig.h"
 #include "EmuConfig.h"
@@ -113,7 +115,7 @@ bool wxApp_melonDS::OnInit()
             "bios7.bin -- ARM7 BIOS\n"
             "bios9.bin -- ARM9 BIOS\n"
             "firmware.bin -- firmware image\n\n"
-            "Place the following files in the directory you run melonDS from.\n"
+            "Dump the files from your DS and place them in the directory you run melonDS from.\n"
             "Make sure that the files can be accessed.",
             "melonDS",
             wxICON_ERROR);
@@ -315,15 +317,26 @@ void MainFrame::OnReset(wxCommandEvent& event)
 void MainFrame::OnEmuConfig(wxCommandEvent& event)
 {
     bool oldpause = emuthread->EmuIsPaused();
-    if (!oldpause) emuthread->EmuPause();
+    if (!oldpause && emuthread->EmuIsRunning())
+        emuthread->EmuPause();
 
     EmuConfigDialog dlg(this);
     dlg.ShowModal();
 
-    // apply threaded 3D setting
-    GPU3D::SoftRenderer::SetupRenderThread();
+    if (emuthread->EmuIsRunning())
+    {
+        // apply threaded 3D setting
+        GPU3D::SoftRenderer::SetupRenderThread();
 
-    if (!oldpause) emuthread->EmuRun();
+        if (Wifi::MPInited)
+        {
+            Platform::MP_DeInit();
+            Platform::MP_Init();
+        }
+    }
+
+    if (!oldpause && emuthread->EmuIsRunning())
+        emuthread->EmuRun();
 }
 
 void MainFrame::OnInputConfig(wxCommandEvent& event)
