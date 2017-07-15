@@ -34,6 +34,8 @@ enum
     Event_ROMTransfer,
     Event_ROMSPITransfer,
     Event_SPITransfer,
+    Event_Div,
+    Event_Sqrt,
 
     Event_MAX
 };

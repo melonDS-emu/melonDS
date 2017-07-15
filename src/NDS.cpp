@@ -717,11 +717,9 @@ void TimerStart(u32 id, u16 cnt)
 
 
 
-void StartDiv()
+void DivDone(u32 param)
 {
-    // TODO: division isn't instant!
-
-    DivCnt &= ~0x2000;
+    DivCnt &= ~0xC000;
 
     switch (DivCnt & 0x0003)
     {
@@ -792,19 +790,26 @@ void StartDiv()
     }
 
     if ((DivDenominator[0] | DivDenominator[1]) == 0)
-        DivCnt |= 0x2000;
+        DivCnt |= 0x4000;
+}
+
+void StartDiv()
+{
+    NDS::CancelEvent(NDS::Event_Div);
+    DivCnt |= 0x8000;
+    NDS::ScheduleEvent(NDS::Event_Div, false, ((DivCnt&0x3)==0) ? 18:34, DivDone, 0);
 }
 
 // http://stackoverflow.com/questions/1100090/looking-for-an-efficient-integer-square-root-algorithm-for-arm-thumb2
-void StartSqrt()
+void SqrtDone(u32 param)
 {
-    // TODO: sqrt isn't instant either. oh well
-
     u64 val;
     u32 res = 0;
     u64 rem = 0;
     u32 prod = 0;
     u32 nbits, topshift;
+
+    SqrtCnt &= ~0x8000;
 
     if (SqrtCnt & 0x0001)
     {
@@ -834,6 +839,13 @@ void StartSqrt()
     }
 
     SqrtRes = res;
+}
+
+void StartSqrt()
+{
+    NDS::CancelEvent(NDS::Event_Sqrt);
+    SqrtCnt |= 0x8000;
+    NDS::ScheduleEvent(NDS::Event_Sqrt, false, 13, SqrtDone, 0);
 }
 
 
