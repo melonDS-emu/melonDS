@@ -585,6 +585,11 @@ void Write(u8 val, u32 hold)
         // TODO: design better
         CurCmd = val;
         break;
+    case 0x08:
+        // see above
+        // TODO: work out how the IR thing works. emulate it.
+        Data = 0xAA;
+        break;
 
     case 0x02:
     case 0x03:
