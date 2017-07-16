@@ -92,6 +92,7 @@ private:
     bool Win1Active;
 
     u16 BlendCnt;
+    u16 BlendAlpha;
     u8 EVA, EVB;
     u8 EVY;
 

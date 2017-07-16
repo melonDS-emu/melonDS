@@ -161,6 +161,8 @@ u16 GPU2D::Read16(u32 addr)
     case 0x04A: return WinCnt[2] | (WinCnt[3] << 8);
 
     case 0x050: return BlendCnt;
+    case 0x052: return BlendAlpha;
+    // BLDY is write-only
 
     case 0x064: return CaptureCnt & 0xFFFF;
     case 0x066: return CaptureCnt >> 16;
@@ -203,13 +205,15 @@ void GPU2D::Write8(u32 addr, u8 val)
     case 0x04A: WinCnt[2] = val; return;
     case 0x04B: WinCnt[3] = val; return;
 
-    case 0x050: BlendCnt = (BlendCnt & 0xFF00) | val; return;
+    case 0x050: BlendCnt = (BlendCnt & 0x3F00) | val; return;
     case 0x051: BlendCnt = (BlendCnt & 0x00FF) | (val << 8); return;
     case 0x052:
+        BlendAlpha = (BlendAlpha & 0x1F00) | (val & 0x1F);
         EVA = val & 0x1F;
         if (EVA > 16) EVA = 16;
         return;
     case 0x53:
+        BlendAlpha = (BlendAlpha & 0x001F) | ((val & 0x1F) << 8);
         EVB = val & 0x1F;
         if (EVB > 16) EVB = 16;
         return;
@@ -320,8 +324,9 @@ void GPU2D::Write16(u32 addr, u16 val)
         WinCnt[3] = val >> 8;
         return;
 
-    case 0x050: BlendCnt = val; return;
+    case 0x050: BlendCnt = val & 0x3FFF; return;
     case 0x052:
+        BlendAlpha = val & 0x1F1F;
         EVA = val & 0x1F;
         if (EVA > 16) EVA = 16;
         EVB = (val >> 8) & 0x1F;
