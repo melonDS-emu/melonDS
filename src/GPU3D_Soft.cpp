@@ -1522,8 +1522,7 @@ void ScanlineFinalPass(s32 y)
     if (RenderDispCnt & (1<<5))
     {
         // edge marking
-
-        // TODO: is it applied to bottom pixels?
+        // only applied to topmost pixels
 
         for (int x = 0; x < 256; x++)
         {
@@ -1842,7 +1841,10 @@ void RenderThreadFunc()
 void RequestLine(int line)
 {
     if (RenderThreadRunning)
-        Platform::Semaphore_Wait(Sema_ScanlineCount);
+    {
+        if (line < 192)
+            Platform::Semaphore_Wait(Sema_ScanlineCount);
+    }
 }
 
 u32* GetLine(int line)

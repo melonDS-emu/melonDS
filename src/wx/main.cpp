@@ -496,8 +496,12 @@ wxThread::ExitCode EmuThread::Entry()
                 u32 fps = (nframes * 1000) / diff;
                 nframes = 0;
 
+                float fpstarget;
+                if (framerate < 1) fpstarget = 999;
+                else fpstarget = 1000.0f/framerate;
+
                 char melontitle[100];
-                sprintf(melontitle, "%d FPS - melonDS " MELONDS_VERSION, fps);
+                sprintf(melontitle, "%d/%.0f FPS | melonDS " MELONDS_VERSION, fps, fpstarget);
                 SDL_SetWindowTitle(sdlwin, melontitle);
             }
         }

@@ -607,6 +607,10 @@ int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
 
     // TODO: check for 1-dot polygons
     // TODO: the hardware seems to use a different algorithm. it reacts differently to vertices with W=0
+    // some vertices that should get Y=-0x1000 get Y=0x1000 for some reason on hardware. it doesn't make sense.
+    // clipping seems to process the Y plane before the X plane.
+
+    // also, polygons with any negative W are completely rejected. (TODO)
 
     // X clipping
     nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);

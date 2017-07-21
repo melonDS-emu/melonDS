@@ -651,8 +651,11 @@ void StartHBlank(u32 line)
     {
         // draw
         // note: this should start 48 cycles after the scanline start
-        GPU2D_A->DrawScanline(line);
-        GPU2D_B->DrawScanline(line);
+        if (line < 192)
+        {
+            GPU2D_A->DrawScanline(line);
+            GPU2D_B->DrawScanline(line);
+        }
 
         NDS::CheckDMAs(0, 0x02);
     }

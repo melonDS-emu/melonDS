@@ -400,6 +400,7 @@ u32 RunFrame()
         s32 ndscyclestorun;
         s32 ndscycles = 0;
 
+        // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
         CalcIterationCycles();
 
         if (CPUStop & 0xFFFF)
