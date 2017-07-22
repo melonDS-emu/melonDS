@@ -74,6 +74,8 @@
 // mosaic:
 // * mosaic grid starts at 0,0 regardless of the BG/sprite position
 
+// TODO: find which parts of DISPCNT are latched. for example, not possible to change video mode midframe.
+
 
 GPU2D::GPU2D(u32 num)
 {
@@ -190,6 +192,37 @@ void GPU2D::Write8(u32 addr, u8 val)
 {
     switch (addr & 0x00000FFF)
     {
+    case 0x000: DispCnt = (DispCnt & 0xFFFFFF00) | val; return;
+    case 0x001: DispCnt = (DispCnt & 0xFFFF00FF) | (val << 8); return;
+    case 0x002: DispCnt = (DispCnt & 0xFF00FFFF) | (val << 16); return;
+    case 0x003: DispCnt = (DispCnt & 0x00FFFFFF) | (val << 24); return;
+
+    case 0x008: BGCnt[0] = (BGCnt[0] & 0xFF00) | val; return;
+    case 0x009: BGCnt[0] = (BGCnt[0] & 0x00FF) | (val << 8); return;
+    case 0x00A: BGCnt[1] = (BGCnt[1] & 0xFF00) | val; return;
+    case 0x00B: BGCnt[1] = (BGCnt[1] & 0x00FF) | (val << 8); return;
+    case 0x00C: BGCnt[2] = (BGCnt[2] & 0xFF00) | val; return;
+    case 0x00D: BGCnt[2] = (BGCnt[2] & 0x00FF) | (val << 8); return;
+    case 0x00E: BGCnt[3] = (BGCnt[3] & 0xFF00) | val; return;
+    case 0x00F: BGCnt[3] = (BGCnt[3] & 0x00FF) | (val << 8); return;
+
+    case 0x010: BGXPos[0] = (BGXPos[0] & 0xFF00) | val; return;
+    case 0x011: BGXPos[0] = (BGXPos[0] & 0x00FF) | (val << 8); return;
+    case 0x012: BGYPos[0] = (BGYPos[0] & 0xFF00) | val; return;
+    case 0x013: BGYPos[0] = (BGYPos[0] & 0x00FF) | (val << 8); return;
+    case 0x014: BGXPos[1] = (BGXPos[1] & 0xFF00) | val; return;
+    case 0x015: BGXPos[1] = (BGXPos[1] & 0x00FF) | (val << 8); return;
+    case 0x016: BGYPos[1] = (BGYPos[1] & 0xFF00) | val; return;
+    case 0x017: BGYPos[1] = (BGYPos[1] & 0x00FF) | (val << 8); return;
+    case 0x018: BGXPos[2] = (BGXPos[2] & 0xFF00) | val; return;
+    case 0x019: BGXPos[2] = (BGXPos[2] & 0x00FF) | (val << 8); return;
+    case 0x01A: BGYPos[2] = (BGYPos[2] & 0xFF00) | val; return;
+    case 0x01B: BGYPos[2] = (BGYPos[2] & 0x00FF) | (val << 8); return;
+    case 0x01C: BGXPos[3] = (BGXPos[3] & 0xFF00) | val; return;
+    case 0x01D: BGXPos[3] = (BGXPos[3] & 0x00FF) | (val << 8); return;
+    case 0x01E: BGYPos[3] = (BGYPos[3] & 0xFF00) | val; return;
+    case 0x01F: BGYPos[3] = (BGYPos[3] & 0x00FF) | (val << 8); return;
+
     case 0x040: Win0Coords[1] = val; return;
     case 0x041: Win0Coords[0] = val; return;
     case 0x042: Win1Coords[1] = val; return;
@@ -230,12 +263,8 @@ void GPU2D::Write16(u32 addr, u16 val)
 {
     switch (addr & 0x00000FFF)
     {
-    case 0x000:
-        DispCnt = (DispCnt & 0xFFFF0000) | val;
-        return;
-    case 0x002:
-        DispCnt = (DispCnt & 0x0000FFFF) | (val << 16);
-        return;
+    case 0x000: DispCnt = (DispCnt & 0xFFFF0000) | val; return;
+    case 0x002: DispCnt = (DispCnt & 0x0000FFFF) | (val << 16); return;
 
     case 0x008: BGCnt[0] = val; return;
     case 0x00A: BGCnt[1] = val; return;
