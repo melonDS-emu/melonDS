@@ -645,9 +645,12 @@ void SubmitPolygon()
     v0 = &TempVertexBuffer[0];
     v1 = &TempVertexBuffer[1];
     v2 = &TempVertexBuffer[2];
-    normalX = ((s64)v0->Position[1] * v2->Position[3]) - ((s64)v0->Position[3] * v2->Position[1]);
-    normalY = ((s64)v0->Position[3] * v2->Position[0]) - ((s64)v0->Position[0] * v2->Position[3]);
-    normalZ = ((s64)v0->Position[0] * v2->Position[1]) - ((s64)v0->Position[1] * v2->Position[0]);
+    normalX = ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[3]-v1->Position[3]))
+        - ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[1]-v1->Position[1]));
+    normalY = ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[0]-v1->Position[0]))
+        - ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[3]-v1->Position[3]));
+    normalZ = ((s64)(v0->Position[0]-v1->Position[0]) * (v2->Position[1]-v1->Position[1]))
+        - ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[0]-v1->Position[0]));
 
     while ((((normalX>>31) ^ (normalX>>63)) != 0) ||
            (((normalY>>31) ^ (normalY>>63)) != 0) ||
