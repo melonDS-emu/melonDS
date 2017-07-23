@@ -2518,7 +2518,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
                     else
                         xmos--;
 
-                    pixelsaddr++;
+                    if (xoff & 0x1) pixelsaddr++;
 
                     if (color)
                     {
