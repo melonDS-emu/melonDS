@@ -105,6 +105,11 @@ void GPU2D::Reset()
     memset(Win1Coords, 0, 4);
     memset(WinCnt, 0, 4);
 
+    BGMosaicSize[0] = 0;
+    BGMosaicSize[1] = 0;
+    OBJMosaicSize[0] = 0;
+    OBJMosaicSize[1] = 0;
+
     BlendCnt = 0;
     EVA = 16;
     EVB = 0;
@@ -238,6 +243,15 @@ void GPU2D::Write8(u32 addr, u8 val)
     case 0x04A: WinCnt[2] = val; return;
     case 0x04B: WinCnt[3] = val; return;
 
+    case 0x04C:
+        BGMosaicSize[0] = val & 0xF;
+        BGMosaicSize[1] = val >> 4;
+        return;
+    case 0x04D:
+        OBJMosaicSize[0] = val & 0xF;
+        OBJMosaicSize[1] = val >> 4;
+        return;
+
     case 0x050: BlendCnt = (BlendCnt & 0x3F00) | val; return;
     case 0x051: BlendCnt = (BlendCnt & 0x00FF) | (val << 8); return;
     case 0x052:
@@ -245,7 +259,7 @@ void GPU2D::Write8(u32 addr, u8 val)
         EVA = val & 0x1F;
         if (EVA > 16) EVA = 16;
         return;
-    case 0x53:
+    case 0x053:
         BlendAlpha = (BlendAlpha & 0x001F) | ((val & 0x1F) << 8);
         EVB = val & 0x1F;
         if (EVB > 16) EVB = 16;
@@ -351,6 +365,13 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x04A:
         WinCnt[2] = val & 0xFF;
         WinCnt[3] = val >> 8;
+        return;
+
+    case 0x04C:
+        BGMosaicSize[0] = val & 0xF;
+        BGMosaicSize[1] = (val >> 4) & 0xF;
+        OBJMosaicSize[0] = (val >> 8) & 0xF;
+        OBJMosaicSize[1] = val >> 12;
         return;
 
     case 0x050: BlendCnt = val & 0x3FFF; return;

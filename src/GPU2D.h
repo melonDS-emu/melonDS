@@ -91,6 +91,9 @@ private:
     bool Win0Active;
     bool Win1Active;
 
+    u8 BGMosaicSize[2];
+    u8 OBJMosaicSize[2];
+
     u16 BlendCnt;
     u16 BlendAlpha;
     u8 EVA, EVB;
