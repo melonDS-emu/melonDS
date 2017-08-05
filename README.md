@@ -13,10 +13,15 @@ How to use:
 melonDS requires BIOS/firmware copies from a DS. Files required:
  * bios7.bin, 16KB: ARM7 BIOS
  * bios9.bin, 4KB: ARM9 BIOS
- * firmware.bin, 256KB: firmware
+ * firmware.bin, 128/256/512KB: firmware
  
 Firmware boot requires a firmware dump from an original DS or DS Lite.
 DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configuration data, thus they are only suitable when booting games directly.
+
+Possible firmware sizes:
+ * 128KB: DSi/3DS DS-mode firmware (reduced size due to lacking bootcode)
+ * 256KB: regular DS firmware
+ * 512KB: iQue DS firmware
 
 DS BIOS dumps from a 3DS can be used with no compatibility issues. DSi BIOS dumps should be usable too, provided they were dumped properly.
 

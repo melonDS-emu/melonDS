@@ -100,10 +100,23 @@ void Reset()
     fseek(f, 0, SEEK_END);
 
     FirmwareLength = (u32)ftell(f);
-    if (FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
+    if (FirmwareLength != 0x20000 && FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
     {
-        printf("Bad firmware size %d, assuming 256K\n", FirmwareLength);
-        FirmwareLength = 0x40000;
+        printf("Bad firmware size %d, ", FirmwareLength);
+
+        // pick the nearest power-of-two length
+        FirmwareLength |= (FirmwareLength >> 1);
+        FirmwareLength |= (FirmwareLength >> 2);
+        FirmwareLength |= (FirmwareLength >> 4);
+        FirmwareLength |= (FirmwareLength >> 8);
+        FirmwareLength |= (FirmwareLength >> 16);
+        FirmwareLength++;
+
+        // ensure it's a sane length
+        if (FirmwareLength > 0x80000) FirmwareLength = 0x80000;
+        else if (FirmwareLength < 0x20000) FirmwareLength = 0x20000;
+
+        printf("assuming %d\n", FirmwareLength);
     }
 
     Firmware = new u8[FirmwareLength];
@@ -352,7 +365,7 @@ u8 Read()
 }
 
 void Write(u8 val, u32 hold)
-{
+{printf("SPI powerman %02X %d\n", val, hold?1:0);
     if (!hold)
     {
         Hold = 0;
@@ -369,15 +382,26 @@ void Write(u8 val, u32 hold)
 
     if (DataPos == 1)
     {
+        u32 regid = Index & 0x07;
+
         if (Index & 0x80)
         {
-            Data = Registers[Index & 0x07];
+            Data = Registers[regid];
         }
         else
         {
-            Registers[Index & 0x07] =
-                (Registers[Index & 0x07] & ~RegMasks[Index & 0x07]) |
-                (val & RegMasks[Index & 0x07]);
+            Registers[regid] = (Registers[regid] & ~RegMasks[regid]) | (val & RegMasks[regid]);
+
+            switch (regid)
+            {
+            case 0:
+                if (val & 0x40) printf("DS shutdown\n");
+                printf("power %02X\n", val);
+                break;
+            case 4:
+                printf("brightness %02X\n", val);
+                break;
+            }
         }
     }
     else
