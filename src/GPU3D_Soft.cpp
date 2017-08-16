@@ -185,6 +185,8 @@ public:
             // TODO: hardware tests show that this method is too precise
             // I haven't yet figured out what the hardware does, though
 
+            if (w1factor==0 || w0factor==0) { yfactor = 0; return; }
+
             s64 num = ((s64)x << (shift + 40)) / w1factor;
             s64 denw0 = ((s64)(xdiff-x) << 40) / w0factor;
             s64 denw1 = num >> shift;
@@ -1590,25 +1592,28 @@ void ScanlineFinalPass(s32 y)
                 }
                 else
                 {
-                    // technically: Z difference is shifted left by fog shift
-                    // then bit 0-18 are the fractional part and bit 19-23 are the density index
-                    // things are a little different here to avoid overflow in 32-bit range
+                    // technically: Z difference is shifted right by two, then shifted left by fog shift
+                    // then bit 0-16 are the fractional part and bit 17-31 are the density index
+                    // on hardware, the final value can overflow the 32-bit range with a shift big enough,
+                    // causing fog to 'wrap around' and accidentally apply to larger Z ranges
 
                     z -= fogoffset;
-                    densityid = z >> (19-fogshift);
+                    z = (z >> 2) << fogshift;
+
+                    densityid = z >> 17;
                     if (densityid >= 32)
                     {
                         densityid = 32;
                         densityfrac = 0;
                     }
                     else
-                        densityfrac = (z << fogshift) & 0x7FFFF;
+                        densityfrac = z & 0x1FFFF;
                 }
 
-                // checkme
+                // checkme (may be too precise?)
                 u32 density =
-                    ((RenderFogDensityTable[densityid] * (0x80000-densityfrac)) +
-                     (RenderFogDensityTable[densityid+1] * densityfrac)) >> 19;
+                    ((RenderFogDensityTable[densityid] * (0x20000-densityfrac)) +
+                     (RenderFogDensityTable[densityid+1] * densityfrac)) >> 17;
                 if (density >= 127) density = 128;
 
                 u32 srccolor = ColorBuffer[pixeladdr];

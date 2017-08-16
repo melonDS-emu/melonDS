@@ -618,7 +618,7 @@ void Write(u8 val, u32 hold)
 
     default:
         if (DataPos==0)
-            printf("unknown save SPI command %02X %02X\n", CurCmd, val);
+            printf("unknown save SPI command %02X %02X %d\n", CurCmd, val, islast);
         break;
     }
 
