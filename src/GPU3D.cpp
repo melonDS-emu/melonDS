@@ -891,6 +891,7 @@ void SubmitPolygon()
         else
             z = 0x3FFF;
 
+        // checkme (Z<0 shouldn't be possible, but Z>0xFFFFFF is possible)
         if (z < 0) z = 0;
         else if (z > 0xFFFFFF) z = 0xFFFFFF;
 

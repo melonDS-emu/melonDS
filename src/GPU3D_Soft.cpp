@@ -155,49 +155,82 @@ void Reset()
 // interpolation, avoiding precision loss from the aforementioned approximation.
 // Which is desirable when using the GPU to draw 2D graphics.
 
+template<int dir>
 class Interpolator
 {
 public:
     Interpolator() {}
-    Interpolator(s32 x0, s32 x1, s32 w0, s32 w1, int shift)
+    Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
     {
-        Setup(x0, x1, w0, w1, shift);
+        Setup(x0, x1, w0, w1);
     }
 
-    void Setup(s32 x0, s32 x1, s32 w0, s32 w1, int shift)
+    void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
     {
         this->x0 = x0;
         this->x1 = x1;
         this->xdiff = x1 - x0;
-        this->shift = shift;
 
-        this->w0factor = (s64)w0 * xdiff;
-        this->w1factor = (s64)w1 * xdiff;
-        this->wdiff = w1 - w0;
+        // calculate reciprocals for linear mode and Z interpolation
+        // TODO eventually: use a faster reciprocal function?
+        if (this->xdiff != 0)
+            this->xrecip = (1<<30) / this->xdiff;
+        else
+            this->xrecip = 0;
+        this->xrecip_z = this->xrecip >> 8;
+
+        // linear mode is used if both W values are equal and have
+        // low-order bits cleared (0-6 along X, 1-6 along Y)
+        u32 mask = dir ? 0x7E : 0x7F;
+        if ((w0 == w1) && !(w0 & mask) && !(w1 & mask))
+            this->linear = true;
+        else
+            this->linear = false;
+
+        if (dir)
+        {
+            // along Y
+
+            if ((w0 & 0x1) && !(w1 & 0x1))
+            {
+                this->w0n = w0 - 1;
+                this->w0d = w0 + 1;
+                this->w1d = w1;
+            }
+            else
+            {
+                this->w0n = w0 & 0xFFFE;
+                this->w0d = w0 & 0xFFFE;
+                this->w1d = w1 & 0xFFFE;
+            }
+
+            this->shift = 9;
+        }
+        else
+        {
+            // along X
+
+            this->w0n = w0;
+            this->w0d = w0;
+            this->w1d = w1;
+
+            this->shift = 8;
+        }
     }
 
     void SetX(s32 x)
     {
         x -= x0;
         this->x = x;
-        if (xdiff != 0 && wdiff != 0)
+        if (xdiff != 0 && !linear)
         {
-            // TODO: hardware tests show that this method is too precise
-            // I haven't yet figured out what the hardware does, though
+            s64 num = ((s64)x * w0n) << shift;
+            s32 den = (x * w0d) + ((xdiff-x) * w1d);
 
-            if (w1factor==0 || w0factor==0) { yfactor = 0; return; }
-
-            s64 num = ((s64)x << (shift + 40)) / w1factor;
-            s64 denw0 = ((s64)(xdiff-x) << 40) / w0factor;
-            s64 denw1 = num >> shift;
-
-            s64 denom = denw0 + denw1;
-            if (denom == 0)
-                yfactor = 0;
-            else
-            {
-                yfactor = (s32)(num / denom);
-            }
+            // this seems to be a proper division on hardware :/
+            // I haven't been able to find cases that produce imperfect output
+            if (den == 0) yfactor = 0;
+            else          yfactor = (s32)(num / den);
         }
     }
 
@@ -205,7 +238,7 @@ public:
     {
         if (xdiff == 0 || y0 == y1) return y0;
 
-        if (wdiff != 0)
+        if (!linear)
         {
             // perspective-correct approx. interpolation
             if (y0 < y1)
@@ -216,10 +249,11 @@ public:
         else
         {
             // linear interpolation
+            // checkme: the rounding bias there (3<<24) is a guess
             if (y0 < y1)
-                return y0 + (((y1-y0) * x) / xdiff);
+                return y0 + ((((s64)(y1-y0) * x * xrecip) + (3<<24)) >> 30);
             else
-                return y1 + (((y0-y1) * (xdiff-x)) / xdiff);
+                return y1 + ((((s64)(y0-y1) * (xdiff-x) * xrecip) + (3<<24)) >> 30);
         }
     }
 
@@ -227,9 +261,9 @@ public:
     {
         if (xdiff == 0 || z0 == z1) return z0;
 
-        if ((wdiff != 0) && wbuffer)
+        if (wbuffer)
         {
-            // perspective-correct approx. interpolation
+            // W-buffering: perspective-correct approx. interpolation
             if (z0 < z1)
                 return z0 + (((s64)(z1-z0) * yfactor) >> shift);
             else
@@ -237,21 +271,52 @@ public:
         }
         else
         {
-            // linear interpolation
+            // Z-buffering: linear interpolation
+            // still doesn't quite match hardware...
+            s32 base, disp, factor;
+
             if (z0 < z1)
-                return z0 + (((s64)(z1-z0) * x) / xdiff);
+            {
+                base = z0;
+                disp = z1 - z0;
+                factor = x;
+            }
             else
-                return z1 + (((s64)(z0-z1) * (xdiff-x)) / xdiff);
+            {
+                base = z1;
+                disp = z0 - z1,
+                factor = xdiff - x;
+            }
+
+            if (dir)
+            {
+                int shift = 0;
+                while (disp > 0x3FF)
+                {
+                    disp >>= 1;
+                    shift++;
+                }
+
+                return base + ((((s64)disp * factor * xrecip_z) >> 22) << shift);
+            }
+            else
+            {
+                disp >>= 9;
+                return base + (((s64)disp * factor * xrecip_z) >> 13);
+            }
         }
     }
 
 private:
     s32 x0, x1, xdiff, x;
-    s64 w0factor, w1factor;
-    s32 wdiff;
-    int shift;
 
-    s32 yfactor;
+    int shift;
+    bool linear;
+
+    s32 xrecip, xrecip_z;
+    s32 w0n, w0d, w1d;
+
+    u32 yfactor;
 };
 
 
@@ -280,7 +345,7 @@ public:
         Increment = 0;
         XMajor = false;
 
-        Interp.Setup(0, 0, 0, 0, 9);
+        Interp.Setup(0, 0, 0, 0);
         Interp.SetX(0);
 
         return x0;
@@ -347,8 +412,8 @@ public:
 
         if (XMajor)
         {
-            if (side) Interp.Setup(x0-1, x1-1, w0, w1, 9); // checkme
-            else      Interp.Setup(x0, x1, w0, w1, 9);
+            if (side) Interp.Setup(x0-1, x1-1, w0, w1); // checkme
+            else      Interp.Setup(x0, x1, w0, w1);
             Interp.SetX(x);
 
             // used for calculating AA coverage
@@ -356,7 +421,7 @@ public:
         }
         else
         {
-            Interp.Setup(y0, y1, w0, w1, 9);
+            Interp.Setup(y0, y1, w0, w1);
             Interp.SetX(y);
 
             //ycov_incr = Increment >> 2;
@@ -434,7 +499,7 @@ public:
     s32 Increment;
     bool Negative;
     bool XMajor;
-    Interpolator Interp;
+    Interpolator<1> Interp;
 
 private:
     s32 x0, xmin, xmax;
@@ -1009,8 +1074,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
     s32 l_edgecov, r_edgecov;
-    Interpolator* interp_start;
-    Interpolator* interp_end;
+    Interpolator<1>* interp_start;
+    Interpolator<1>* interp_end;
 
     xstart = rp->XL;
     xend = rp->XR;
@@ -1103,7 +1168,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     int edge;
 
     s32 x = xstart;
-    Interpolator interpX(xstart, xend+1, wl, wr, 8);
+    Interpolator<0> interpX(xstart, xend+1, wl, wr);
 
     if (x < 0) x = 0;
     s32 xlimit;
