@@ -493,8 +493,7 @@ public:
         }
         else
         {
-            *coverage = ((dx >> 13) + (Increment >> 14)) & 0x1F;
-            s32 cov = ((dx >> 7) + (Increment >> 8)) >> 4;
+            s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
             if ((cov >> 5) != (dx >> 18)) cov = 31;
             cov &= 0x1F;
             if (!(side ^ Negative)) cov = 0x1F - cov;
