@@ -1048,6 +1048,193 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     }
 }
 
+void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
+{
+    Polygon* polygon = rp->PolyData;
+
+    u32 polyattr = (polygon->Attr & 0x3F008000);
+    if (!polygon->FacingView) polyattr |= (1<<4);
+
+    u32 polyalpha = (polygon->Attr >> 16) & 0x1F;
+    bool wireframe = (polyalpha == 0);
+
+    bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
+    if (polygon->Attr & (1<<14))
+        fnDepthTest = DepthTest_Equal;
+    else if (polygon->FacingView)
+        fnDepthTest = DepthTest_LessThan_FrontFacing;
+    else
+        fnDepthTest = DepthTest_LessThan;
+
+    if (!PrevIsShadowMask)
+        memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+
+    PrevIsShadowMask = true;
+
+    if (polygon->YTop != polygon->YBottom)
+    {
+        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
+        {
+            SetupPolygonLeftEdge(rp, y);
+        }
+
+        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
+        {
+            SetupPolygonRightEdge(rp, y);
+        }
+    }
+
+    Vertex *vlcur, *vlnext, *vrcur, *vrnext;
+    s32 xstart, xend;
+    bool l_filledge, r_filledge;
+    s32 l_edgelen, r_edgelen;
+    s32 l_edgecov, r_edgecov;
+    Interpolator<1>* interp_start;
+    Interpolator<1>* interp_end;
+
+    xstart = rp->XL;
+    xend = rp->XR;
+
+    // CHECKME: edge fill rules for opaque shadow mask polygons
+
+    if ((polyalpha < 31) || (RenderDispCnt & (3<<4)))
+    {
+        l_filledge = true;
+        r_filledge = true;
+    }
+    else
+    {
+        l_filledge = (rp->SlopeL.Negative || !rp->SlopeL.XMajor);
+        r_filledge = (!rp->SlopeR.Negative && rp->SlopeR.XMajor) || (rp->SlopeR.Increment==0);
+    }
+
+    s32 wl = rp->SlopeL.Interp.Interpolate(polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL]);
+    s32 wr = rp->SlopeR.Interp.Interpolate(polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR]);
+
+    s32 zl = rp->SlopeL.Interp.InterpolateZ(polygon->FinalZ[rp->CurVL], polygon->FinalZ[rp->NextVL], polygon->WBuffer);
+    s32 zr = rp->SlopeR.Interp.InterpolateZ(polygon->FinalZ[rp->CurVR], polygon->FinalZ[rp->NextVR], polygon->WBuffer);
+
+    // if the left and right edges are swapped, render backwards.
+    if (xstart > xend)
+    {
+        vlcur = polygon->Vertices[rp->CurVR];
+        vlnext = polygon->Vertices[rp->NextVR];
+        vrcur = polygon->Vertices[rp->CurVL];
+        vrnext = polygon->Vertices[rp->NextVL];
+
+        interp_start = &rp->SlopeR.Interp;
+        interp_end = &rp->SlopeL.Interp;
+
+        rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
+        rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
+
+        s32 tmp;
+        tmp = xstart; xstart = xend; xend = tmp;
+        tmp = wl; wl = wr; wr = tmp;
+        tmp = zl; zl = zr; zr = tmp;
+        tmp = (s32)l_filledge; l_filledge = r_filledge; r_filledge = (bool)tmp;
+    }
+    else
+    {
+        vlcur = polygon->Vertices[rp->CurVL];
+        vlnext = polygon->Vertices[rp->NextVL];
+        vrcur = polygon->Vertices[rp->CurVR];
+        vrnext = polygon->Vertices[rp->NextVR];
+
+        interp_start = &rp->SlopeL.Interp;
+        interp_end = &rp->SlopeR.Interp;
+
+        rp->SlopeL.EdgeParams(&l_edgelen, &l_edgecov);
+        rp->SlopeR.EdgeParams(&r_edgelen, &r_edgecov);
+    }
+
+    // color/texcoord attributes aren't needed for shadow masks
+    // all the pixels are guaranteed to have the same alpha
+    // even if a texture is used (decal blending is used for shadows)
+    // similarly, we can perform alpha test early (checkme)
+
+    if (wireframe) polyalpha = 31;
+    if (polyalpha <= RenderAlphaRef) return;
+
+    // in wireframe mode, there are special rules for equal Z (TODO)
+
+    int yedge = 0;
+    if (y == polygon->YTop)           yedge = 0x4;
+    else if (y == polygon->YBottom-1) yedge = 0x8;
+    int edge;
+
+    s32 x = xstart;
+    Interpolator<0> interpX(xstart, xend+1, wl, wr);
+
+    if (x < 0) x = 0;
+    s32 xlimit;
+
+    // for shadow masks: set stencil bits where the depth test fails.
+    // draw nothing.
+
+    // part 1: left edge
+    edge = yedge | 0x1;
+    xlimit = xstart+l_edgelen; if (xlimit > 256) xlimit = 256;
+
+    for (; x < xlimit; x++)
+    {
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+
+        interpX.SetX(x);
+
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
+
+        // checkme
+        if (!l_filledge)
+            continue;
+
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            StencilBuffer[256*(y&0x1) + x] = 1;
+    }
+
+    // part 2: polygon inside
+    edge = yedge;
+    xlimit = xend-r_edgelen+1; if (xlimit > 256) xlimit = 256;
+    if (wireframe && !edge) x = xlimit;
+    else for (; x < xlimit; x++)
+    {
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+
+        interpX.SetX(x);
+
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
+
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            StencilBuffer[256*(y&0x1) + x] = 1;
+    }
+
+    // part 3: right edge
+    edge = yedge | 0x2;
+    xlimit = xend+1; if (xlimit > 256) xlimit = 256;
+
+    for (; x < xlimit; x++)
+    {
+        u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+
+        interpX.SetX(x);
+
+        s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
+        u32 dstattr = AttrBuffer[pixeladdr];
+
+        // checkme
+        if (!r_filledge)
+            continue;
+
+        if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
+            StencilBuffer[256*(y&0x1) + x] = 1;
+    }
+
+    rp->XL = rp->SlopeL.Step();
+    rp->XR = rp->SlopeR.Step();
+}
+
 void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
@@ -1066,10 +1253,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else
         fnDepthTest = DepthTest_LessThan;
 
-    if (polygon->IsShadowMask && !PrevIsShadowMask)
-        memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
-
-    PrevIsShadowMask = polygon->IsShadowMask;
+    PrevIsShadowMask = false;
 
     if (polygon->YTop != polygon->YBottom)
     {
@@ -1216,27 +1400,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (polygon->IsShadowMask)
-        {
-            // for shadow masks: set stencil bits where the depth test fails.
-            // draw nothing.
-
-            // checkme
-            if (polyalpha == 31)
-            {
-                if (!(RenderDispCnt & (1<<4)))
-                {
-                    if (!l_filledge)
-                        continue;
-                }
-            }
-
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-                StencilBuffer[256*(y&0x1) + x] = 1;
-
-            continue;
-        }
-
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
@@ -1353,17 +1516,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
 
-        if (polygon->IsShadowMask)
-        {
-            // for shadow masks: set stencil bits where the depth test fails.
-            // draw nothing.
-
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-                StencilBuffer[256*(y&0x1) + x] = 1;
-
-            continue;
-        }
-
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
@@ -1458,27 +1610,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
         u32 dstattr = AttrBuffer[pixeladdr];
-
-        if (polygon->IsShadowMask)
-        {
-            // for shadow masks: set stencil bits where the depth test fails.
-            // draw nothing.
-
-            // checkme
-            if (polyalpha == 31)
-            {
-                if (!(RenderDispCnt & (1<<4)))
-                {
-                    if (!r_filledge)
-                        continue;
-                }
-            }
-
-            if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-                StencilBuffer[256*(y&0x1) + x] = 1;
-
-            continue;
-        }
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1587,7 +1718,12 @@ void RenderScanline(s32 y, int npolys)
         Polygon* polygon = rp->PolyData;
 
         if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
-            RenderPolygonScanline(rp, y);
+        {
+            if (polygon->IsShadowMask)
+                RenderShadowMaskScanline(rp, y);
+            else
+                RenderPolygonScanline(rp, y);
+        }
     }
 }
 
