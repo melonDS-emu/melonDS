@@ -73,7 +73,7 @@ extern u8 RenderAlphaRef;
 extern u16 RenderToonTable[32];
 extern u16 RenderEdgeTable[8];
 
-extern u32 RenderFogColor, RenderFogOffset;
+extern u32 RenderFogColor, RenderFogOffset, RenderFogShift;
 extern u8 RenderFogDensityTable[34];
 
 extern u32 RenderClearAttr1, RenderClearAttr2;

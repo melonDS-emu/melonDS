@@ -330,7 +330,7 @@ public:
     {
         if (side)
         {
-            dx = -0x10000;
+            dx = -0x40000;
             x0--;
         }
         else
@@ -348,6 +348,8 @@ public:
         Interp.Setup(0, 0, 0, 0);
         Interp.SetX(0);
 
+        xcov_incr = 0;
+
         return x0;
     }
 
@@ -360,49 +362,56 @@ public:
         {
             this->xmin = x0;
             this->xmax = x1-1;
+            this->Negative = false;
         }
         else if (x1 < x0)
         {
             this->xmin = x1;
             this->xmax = x0-1;
+            this->Negative = true;
         }
         else
         {
             this->xmin = x0;
             if (side) this->xmin--;
             this->xmax = this->xmin;
+            this->Negative = false;
         }
 
-        // TODO: check the precision of the slope increment on hardware
-        if (y0 == y1)
+        xlen = xmax+1 - xmin;
+        ylen = y1 - y0;
+
+        // slope increment has a 18-bit fractional part
+        // note: for some reason, x/y isn't calculated directly,
+        // instead, 1/y is calculated and then multiplied by x
+        // TODO: this is still not perfect (see for example x=169 y=33)
+        if (ylen == 0)
             Increment = 0;
+        else if (ylen == xlen)
+            Increment = 0x40000;
         else
-            Increment = ((x1 - x0) << 16) / (y1 - y0);
-
-        if (Increment < 0)
         {
-            Increment = -Increment;
-            Negative = true;
+            s32 yrecip = (1<<18) / ylen;
+            Increment = (x1-x0) * yrecip;
+            if (Increment < 0) Increment = -Increment;
         }
-        else
-            Negative = false;
 
-        XMajor = (Increment > 0x10000);
+        XMajor = (Increment > 0x40000);
 
         if (side)
         {
             // right
 
-            if (XMajor)              dx = Negative ? (0x8000 + 0x10000) : (Increment - 0x8000);
-            else if (Increment != 0) dx = Negative ? 0x10000 : 0;
-            else                     dx = -0x10000;
+            if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
+            else if (Increment != 0) dx = Negative ? 0x40000 : 0;
+            else                     dx = -0x40000;
         }
         else
         {
             // left
 
-            if (XMajor)              dx = Negative ? ((Increment - 0x8000) + 0x10000) : 0x8000;
-            else if (Increment != 0) dx = Negative ? 0x10000 : 0;
+            if (XMajor)              dx = Negative ? ((Increment - 0x20000) + 0x40000) : 0x20000;
+            else if (Increment != 0) dx = Negative ? 0x40000 : 0;
             else                     dx = 0;
         }
 
@@ -417,15 +426,12 @@ public:
             Interp.SetX(x);
 
             // used for calculating AA coverage
-            //inv_incr = (1 << (16+10)) / Increment;
+            xcov_incr = (ylen << 10) / xlen;
         }
         else
         {
             Interp.Setup(y0, y1, w0, w1);
             Interp.SetX(y);
-
-            //ycov_incr = Increment >> 2;
-            //ycoverage = ycov_incr >> 1;
         }
 
         return x;
@@ -444,7 +450,6 @@ public:
         else
         {
             Interp.SetX(y);
-            //ycoverage += ycov_incr;
         }
         return x;
     }
@@ -452,8 +457,8 @@ public:
     s32 XVal()
     {
         s32 ret;
-        if (Negative) ret = x0 - (dx >> 16);
-        else          ret = x0 + (dx >> 16);
+        if (Negative) ret = x0 - (dx >> 18);
+        else          ret = x0 + (dx >> 18);
 
         if (ret < xmin) ret = xmin;
         else if (ret > xmax) ret = xmax;
@@ -463,29 +468,39 @@ public:
     void EdgeParams_XMajor(s32* length, s32* coverage)
     {
         if (side ^ Negative)
-            *length = (dx >> 16) - ((dx-Increment) >> 16);
+            *length = (dx >> 18) - ((dx-Increment) >> 18);
         else
-            *length = ((dx+Increment) >> 16) - (dx >> 16);
+            *length = ((dx+Increment) >> 18) - (dx >> 18);
 
-        // for X-major edges, coverage will be calculated later
-        // we just return the factor for it
-        *coverage = 31;//inv_incr | (1<<31);
+        // for X-major edges, we return the coverage
+        // for the first pixel, and the increment for
+        // further pixels on the same scanline
+        s32 startx = dx >> 18;
+        if (Negative) startx = xlen - startx;
+        if (side)     startx = startx - *length + 1;
+
+        s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
+        *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
     }
 
     void EdgeParams_YMajor(s32* length, s32* coverage)
     {
         *length = 1;
 
-        /*if (Increment == 0)
+        if (Increment == 0)
         {
             *coverage = 31;
         }
         else
         {
-            *coverage = (ycoverage >> 9) & 0x1F;
-            if (!(side ^ Negative)) *coverage = 0x1F - *coverage;
-        }*/
-        *coverage = 31;
+            *coverage = ((dx >> 13) + (Increment >> 14)) & 0x1F;
+            s32 cov = ((dx >> 7) + (Increment >> 8)) >> 4;
+            if ((cov >> 5) != (dx >> 18)) cov = 31;
+            cov &= 0x1F;
+            if (!(side ^ Negative)) cov = 0x1F - cov;
+
+            *coverage = cov;
+        }
     }
 
     void EdgeParams(s32* length, s32* coverage)
@@ -503,10 +518,11 @@ public:
 
 private:
     s32 x0, xmin, xmax;
+    s32 xlen, ylen;
     s32 dx;
     s32 y;
 
-    s32 inv_incr;
+    s32 xcov_incr;
     s32 ycoverage, ycov_incr;
 };
 
@@ -1173,9 +1189,17 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     if (x < 0) x = 0;
     s32 xlimit;
 
+    s32 xcov = 0;
+
     // part 1: left edge
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen; if (xlimit > 256) xlimit = 256;
+    if (l_edgecov & (1<<31))
+    {
+        xcov = (l_edgecov >> 12) & 0x3FF;
+        if (xcov == 0x3FF) xcov = 0;
+    }
+
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1248,22 +1272,13 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                // TODO: optimize
-                s32 cov = 31;
-                /*if (edge & 0x1)
-                {if(y==48||true)printf("[y%d] coverage for %d: %d / %d = %d %d   %08X %d %08X\n", y, x, x-xstart, l_edgelen,
-                                 ((x - xstart) << 5) / (l_edgelen), ((x - xstart) *31) / (l_edgelen), rp->SlopeL.Increment, l_edgecov,
-                                       rp->SlopeL.DX());
-                    cov = l_edgecov;
-                    if (cov == -1) cov = ((x - xstart) << 5) / l_edgelen;
-                }
-                else if (edge & 0x2)
+                s32 cov = l_edgecov;
+                if (cov & (1<<31))
                 {
-                    cov = r_edgecov;
-                    if (cov == -1) cov = ((xend - x) << 5) / r_edgelen;
-                }cov=31;*/
-                cov = l_edgecov;
-                if (cov == -1) cov = 31;
+                    cov = xcov >> 5;
+                    if (cov > 31) cov = 31;
+                    xcov += (l_edgecov & 0x3FF);
+                }
                 attr |= (cov << 8);
 
                 // push old pixel down if needed
@@ -1422,6 +1437,12 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // part 3: right edge
     edge = yedge | 0x2;
     xlimit = xend+1; if (xlimit > 256) xlimit = 256;
+    if (r_edgecov & (1<<31))
+    {
+        xcov = (r_edgecov >> 12) & 0x3FF;
+        if (xcov == 0x3FF) xcov = 0;
+    }
+
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1494,22 +1515,13 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 // anti-aliasing: all edges are rendered
 
                 // calculate coverage
-                // TODO: optimize
-                s32 cov = 31;
-                /*if (edge & 0x1)
-                {if(y==48||true)printf("[y%d] coverage for %d: %d / %d = %d %d   %08X %d %08X\n", y, x, x-xstart, l_edgelen,
-                                 ((x - xstart) << 5) / (l_edgelen), ((x - xstart) *31) / (l_edgelen), rp->SlopeL.Increment, l_edgecov,
-                                       rp->SlopeL.DX());
-                    cov = l_edgecov;
-                    if (cov == -1) cov = ((x - xstart) << 5) / l_edgelen;
-                }
-                else if (edge & 0x2)
+                s32 cov = r_edgecov;
+                if (cov & (1<<31))
                 {
-                    cov = r_edgecov;
-                    if (cov == -1) cov = ((xend - x) << 5) / r_edgelen;
-                }cov=31;*/
-                cov = r_edgecov;
-                if (cov == -1) cov = 31;
+                    cov = 0x1F - (xcov >> 5);
+                    if (cov < 0) cov = 0;
+                    xcov += (r_edgecov & 0x3FF);
+                }
                 attr |= (cov << 8);
 
                 // push old pixel down if needed
@@ -1580,6 +1592,46 @@ void RenderScanline(s32 y, int npolys)
     }
 }
 
+
+u32 CalculateFogDensity(u32 pixeladdr)
+{
+    u32 z = DepthBuffer[pixeladdr];
+    u32 densityid, densityfrac;
+
+    if (z < RenderFogOffset)
+    {
+        densityid = 0;
+        densityfrac = 0;
+    }
+    else
+    {
+        // technically: Z difference is shifted right by two, then shifted left by fog shift
+        // then bit 0-16 are the fractional part and bit 17-31 are the density index
+        // on hardware, the final value can overflow the 32-bit range with a shift big enough,
+        // causing fog to 'wrap around' and accidentally apply to larger Z ranges
+
+        z -= RenderFogOffset;
+        z = (z >> 2) << RenderFogShift;
+
+        densityid = z >> 17;
+        if (densityid >= 32)
+        {
+            densityid = 32;
+            densityfrac = 0;
+        }
+        else
+            densityfrac = z & 0x1FFFF;
+    }
+
+    // checkme (may be too precise?)
+    u32 density =
+        ((RenderFogDensityTable[densityid] * (0x20000-densityfrac)) +
+         (RenderFogDensityTable[densityid+1] * densityfrac)) >> 17;
+    if (density >= 127) density = 128;
+
+    return density;
+}
+
 void ScanlineFinalPass(s32 y)
 {
     // to consider:
@@ -1628,100 +1680,95 @@ void ScanlineFinalPass(s32 y)
         // multiplied by 0x200 to match Z-buffer values
 
         // fog is applied to the topmost two pixels, which is required for
-        // proper antialiasing (TODO)
+        // proper antialiasing
+
+        // TODO: check the 'fog alpha glitch with small Z' GBAtek talks about
 
         bool fogcolor = !(RenderDispCnt & (1<<6));
-        u32 fogshift = (RenderDispCnt >> 8) & 0xF;
-        u32 fogoffset = RenderFogOffset * 0x200;
 
         u32 fogR = (RenderFogColor << 1) & 0x3E; if (fogR) fogR++;
         u32 fogG = (RenderFogColor >> 4) & 0x3E; if (fogG) fogG++;
         u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
 
-        //for (int i = 0; i < 258*2; i+=258)
+        for (int x = 0; x < 256; x++)
         {
-            for (int x = 0; x < 256; x++)
+            u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+            u32 density, srccolor, srcR, srcG, srcB, srcA;
+
+            u32 attr = AttrBuffer[pixeladdr];
+            if (!(attr & (1<<15))) continue;
+
+            density = CalculateFogDensity(pixeladdr);
+
+            srccolor = ColorBuffer[pixeladdr];
+            srcR = srccolor & 0x3F;
+            srcG = (srccolor >> 8) & 0x3F;
+            srcB = (srccolor >> 16) & 0x3F;
+            srcA = (srccolor >> 24) & 0x1F;
+
+            if (fogcolor)
             {
-                u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-
-                u32 attr = AttrBuffer[pixeladdr];
-                if (!(attr & (1<<15))) continue;
-
-                u32 z = DepthBuffer[pixeladdr];
-                u32 densityid, densityfrac;
-                if (z < fogoffset)
-                {
-                    densityid = 0;
-                    densityfrac = 0;
-                }
-                else
-                {
-                    // technically: Z difference is shifted right by two, then shifted left by fog shift
-                    // then bit 0-16 are the fractional part and bit 17-31 are the density index
-                    // on hardware, the final value can overflow the 32-bit range with a shift big enough,
-                    // causing fog to 'wrap around' and accidentally apply to larger Z ranges
-
-                    z -= fogoffset;
-                    z = (z >> 2) << fogshift;
-
-                    densityid = z >> 17;
-                    if (densityid >= 32)
-                    {
-                        densityid = 32;
-                        densityfrac = 0;
-                    }
-                    else
-                        densityfrac = z & 0x1FFFF;
-                }
-
-                // checkme (may be too precise?)
-                u32 density =
-                    ((RenderFogDensityTable[densityid] * (0x20000-densityfrac)) +
-                     (RenderFogDensityTable[densityid+1] * densityfrac)) >> 17;
-                if (density >= 127) density = 128;
-
-                u32 srccolor = ColorBuffer[pixeladdr];
-                u32 srcR = srccolor & 0x3F;
-                u32 srcG = (srccolor >> 8) & 0x3F;
-                u32 srcB = (srccolor >> 16) & 0x3F;
-                u32 srcA = (srccolor >> 24) & 0x1F;
-
-                if (fogcolor)
-                {
-                    srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
-                    srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
-                    srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
-                }
-
-                if (densityid > 0)
-                    srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
-                else
-                    srcA = ((0x1F * density) + (srcA * (128-density))) >> 7; // checkme
-
-                ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
+                srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
+                srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
+                srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
             }
+
+            srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
+
+            ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
+
+            // fog for lower pixel
+            // TODO: make this code nicer, but avoid using a loop
+
+            if (!(attr & 0x3)) continue;
+            pixeladdr += BufferSize;
+
+            attr = AttrBuffer[pixeladdr];
+            if (!(attr & (1<<15))) continue;
+
+            density = CalculateFogDensity(pixeladdr);
+
+            srccolor = ColorBuffer[pixeladdr];
+            srcR = srccolor & 0x3F;
+            srcG = (srccolor >> 8) & 0x3F;
+            srcB = (srccolor >> 16) & 0x3F;
+            srcA = (srccolor >> 24) & 0x1F;
+
+            if (fogcolor)
+            {
+                srcR = ((fogR * density) + (srcR * (128-density))) >> 7;
+                srcG = ((fogG * density) + (srcG * (128-density))) >> 7;
+                srcB = ((fogB * density) + (srcB * (128-density))) >> 7;
+            }
+
+            srcA = ((fogA * density) + (srcA * (128-density))) >> 7;
+
+            ColorBuffer[pixeladdr] = srcR | (srcG << 8) | (srcB << 16) | (srcA << 24);
         }
     }
 
-#if 0
     if (RenderDispCnt & (1<<4))
     {
         // anti-aliasing
 
+        // TODO: antialiasing applies even if translucent polygons are drawn
+        // over an opaque polygon's edges, which requires blending translucent
+        // polygons with the topmost two pixels
+
         for (int x = 0; x < 256; x++)
         {
-            u32 pixeladdr = 258*3 + 1 + (y*258*3) + x;
+            u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
-            if (!(attr & 0xF)) continue;
+            if (!(attr & 0x3) || (attr & (1<<22))) continue;
 
             u32 coverage = (attr >> 8) & 0x1F;
             if (coverage == 0x1F) continue;
 
             if (coverage == 0)
             {
-                ColorBuffer[pixeladdr] = ColorBuffer[pixeladdr+258];
+                ColorBuffer[pixeladdr] = ColorBuffer[pixeladdr+BufferSize];
                 continue;
             }
 
@@ -1731,12 +1778,12 @@ void ScanlineFinalPass(s32 y)
             u32 topB = (topcolor >> 16) & 0x3F;
             u32 topA = (topcolor >> 24) & 0x1F;
 
-            u32 botcolor = ColorBuffer[pixeladdr+258];
+            u32 botcolor = ColorBuffer[pixeladdr+BufferSize];
             u32 botR = botcolor & 0x3F;
             u32 botG = (botcolor >> 8) & 0x3F;
             u32 botB = (botcolor >> 16) & 0x3F;
             u32 botA = (botcolor >> 24) & 0x1F;
-//if (y==48) printf("x=%d: cov=%d\n", x, coverage);
+
             coverage++;
 
             // only blend color if the bottom pixel isn't fully transparent
@@ -1753,7 +1800,6 @@ void ScanlineFinalPass(s32 y)
             ColorBuffer[pixeladdr] = topR | (topG << 8) | (topB << 16) | (topA << 24);
         }
     }
-#endif
 }
 
 void ClearBuffers()

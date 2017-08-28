@@ -179,7 +179,7 @@ u8 RenderAlphaRef;
 u16 RenderToonTable[32];
 u16 RenderEdgeTable[8];
 
-u32 RenderFogColor, RenderFogOffset;
+u32 RenderFogColor, RenderFogOffset, RenderFogShift;
 u8 RenderFogDensityTable[34];
 
 u32 RenderClearAttr1, RenderClearAttr2;
@@ -1862,7 +1862,8 @@ void VBlank()
         memcpy(RenderToonTable, ToonTable, 32*2);
 
         RenderFogColor = FogColor;
-        RenderFogOffset = FogOffset;
+        RenderFogOffset = FogOffset * 0x200;
+        RenderFogShift = (RenderDispCnt >> 8) & 0xF;
         RenderFogDensityTable[0] = FogDensityTable[0];
         memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
         RenderFogDensityTable[33] = FogDensityTable[31];
