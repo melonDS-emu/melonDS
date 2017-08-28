@@ -941,6 +941,45 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
+void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
+{
+    u32 dstattr = AttrBuffer[pixeladdr];
+    u32 attr = (polyattr & 0xE0F0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF001F0F);
+
+    if (shadow)
+    {
+        // for shadows, opaque pixels are also checked
+        if (dstattr & (1<<22))
+        {
+            if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
+                return;
+        }
+        else
+        {
+            if ((dstattr & 0x3F000000) == (polyattr & 0x3F000000))
+                return;
+        }
+    }
+    else
+    {
+        // skip if translucent polygon IDs are equal
+        if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
+            return;
+    }
+
+    // fog flag
+    if (!(dstattr & (1<<15)))
+        attr &= ~(1<<15);
+
+    color = AlphaBlend(color, ColorBuffer[pixeladdr], color>>24);
+
+    if (z != -1)
+        DepthBuffer[pixeladdr] = z;
+
+    ColorBuffer[pixeladdr] = color;
+    AttrBuffer[pixeladdr] = attr;
+}
+
 void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
@@ -1386,7 +1425,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1427,7 +1465,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
-            attr = polyattr | edge;
+            u32 attr = polyattr | edge;
 
             if (RenderDispCnt & (1<<4))
             {
@@ -1455,44 +1493,18 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 continue;
 
             DepthBuffer[pixeladdr] = z;
+            ColorBuffer[pixeladdr] = color;
+            AttrBuffer[pixeladdr] = attr;
         }
         else
         {
-            attr = (polyattr & 0xFFF0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF00000F);
+            if (!(polygon->Attr & (1<<11))) z = -1;
+            PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
-            if (polygon->IsShadow)
-            {
-                // for shadows, opaque pixels are also checked
-                if (dstattr & (1<<22))
-                {
-                    if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                        continue;
-                }
-                else
-                {
-                    if ((dstattr & 0x3F000000) == (polyattr & 0x3F000000))
-                        continue;
-                }
-            }
-            else
-            {
-                // skip if polygon IDs are equal
-                if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                    continue;
-            }
-
-            // fog flag
-            if (!(dstattr & (1<<15)))
-                attr &= ~(1<<15);
-
-            color = AlphaBlend(color, ColorBuffer[pixeladdr], alpha);
-
-            if (polygon->Attr & (1<<11))
-                DepthBuffer[pixeladdr] = z;
+            // blend with bottom pixel too, if needed
+            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+                PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
-
-        ColorBuffer[pixeladdr] = color;
-        AttrBuffer[pixeladdr] = attr;
     }
 
     // part 2: polygon inside
@@ -1502,7 +1514,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1543,46 +1554,20 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
-            attr = polyattr | edge;
+            u32 attr = polyattr | edge;
             DepthBuffer[pixeladdr] = z;
+            ColorBuffer[pixeladdr] = color;
+            AttrBuffer[pixeladdr] = attr;
         }
         else
         {
-            attr = (polyattr & 0xFFF0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF00000F);
+            if (!(polygon->Attr & (1<<11))) z = -1;
+            PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
-            if (polygon->IsShadow)
-            {
-                // for shadows, opaque pixels are also checked
-                if (dstattr & (1<<22))
-                {
-                    if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                        continue;
-                }
-                else
-                {
-                    if ((dstattr & 0x3F000000) == (polyattr & 0x3F000000))
-                        continue;
-                }
-            }
-            else
-            {
-                // skip if polygon IDs are equal
-                if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                    continue;
-            }
-
-            // fog flag
-            if (!(dstattr & (1<<15)))
-                attr &= ~(1<<15);
-
-            color = AlphaBlend(color, ColorBuffer[pixeladdr], alpha);
-
-            if (polygon->Attr & (1<<11))
-                DepthBuffer[pixeladdr] = z;
+            // blend with bottom pixel too, if needed
+            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+                PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
-
-        ColorBuffer[pixeladdr] = color;
-        AttrBuffer[pixeladdr] = attr;
     }
 
     // part 3: right edge
@@ -1597,7 +1582,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
-        u32 attr;
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
@@ -1638,7 +1622,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
         if (alpha == 31)
         {
-            attr = polyattr | edge;
+            u32 attr = polyattr | edge;
 
             if (RenderDispCnt & (1<<4))
             {
@@ -1666,44 +1650,18 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                 continue;
 
             DepthBuffer[pixeladdr] = z;
+            ColorBuffer[pixeladdr] = color;
+            AttrBuffer[pixeladdr] = attr;
         }
         else
         {
-            attr = (polyattr & 0xFFF0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF00000F);
+            if (!(polygon->Attr & (1<<11))) z = -1;
+            PlotTranslucentPixel(pixeladdr, color, z, polyattr, polygon->IsShadow);
 
-            if (polygon->IsShadow)
-            {
-                // for shadows, opaque pixels are also checked
-                if (dstattr & (1<<22))
-                {
-                    if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                        continue;
-                }
-                else
-                {
-                    if ((dstattr & 0x3F000000) == (polyattr & 0x3F000000))
-                        continue;
-                }
-            }
-            else
-            {
-                // skip if polygon IDs are equal
-                if ((dstattr & 0x007F0000) == (attr & 0x007F0000))
-                    continue;
-            }
-
-            // fog flag
-            if (!(dstattr & (1<<15)))
-                attr &= ~(1<<15);
-
-            color = AlphaBlend(color, ColorBuffer[pixeladdr], alpha);
-
-            if (polygon->Attr & (1<<11))
-                DepthBuffer[pixeladdr] = z;
+            // blend with bottom pixel too, if needed
+            if ((dstattr & 0x3) && (pixeladdr < BufferSize))
+                PlotTranslucentPixel(pixeladdr+BufferSize, color, z, polyattr, polygon->IsShadow);
         }
-
-        ColorBuffer[pixeladdr] = color;
-        AttrBuffer[pixeladdr] = attr;
     }
 
     rp->XL = rp->SlopeL.Step();
@@ -1896,7 +1854,7 @@ void ScanlineFinalPass(s32 y)
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
             u32 attr = AttrBuffer[pixeladdr];
-            if (!(attr & 0x3) || (attr & (1<<22))) continue;
+            if (!(attr & 0x3)) continue;
 
             u32 coverage = (attr >> 8) & 0x1F;
             if (coverage == 0x1F) continue;
