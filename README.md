@@ -38,23 +38,31 @@ Linux:
 
 Windows:
  * use CodeBlocks
+ * or receive golden cookies if you get Cmake to work
 
 Build system is not set in stone.
 
 
 TODO LIST
 
- * better 3D engine
- * wifi
+ * UI that doesn't suck
+ * better sound emulation
+ * emulating some fancy addons
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
 
  
 TODO LIST FOR LATER
 
- * more 3D engine features
- * hardware renderer for 3D
- * wifi
+ * hardware renderer for 3D (w/ upscaling and fancy shit)
+ * better wifi
  * maybe emulate flashcarts or other fancy hardware
  * big-endian compatibility (Wii, etc)
  * LCD refresh time (used by some games for blending effects)
  * any feature you can eventually ask for that isn't outright stupid
+ 
+ 
+CREDITS
+
+ * Martin for GBAtek, a good piece of documentation
+ * Cydrak for the extra 3D GPU research
+ * All of you comrades who have been testing melonDS, reporting issues, suggesting shit, etc
