@@ -93,7 +93,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 #endif // __WXMSW__
 
 
-bool _fileexists(char* name)
+bool _fileexists(const char* name)
 {
     FILE* f = fopen(name, "rb");
     if (!f) return false;
@@ -520,7 +520,7 @@ wxThread::ExitCode EmuThread::Entry()
 
             if (emustatus == 2)
             {
-                char* melontitle = "Paused - melonDS " MELONDS_VERSION;
+                const char* melontitle = "Paused - melonDS " MELONDS_VERSION;
                 SDL_SetWindowTitle(sdlwin, melontitle);
             }
 
