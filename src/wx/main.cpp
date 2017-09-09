@@ -622,6 +622,31 @@ void EmuThread::ProcessEvents()
             }
             break;
 
+        case SDL_FINGERDOWN: case SDL_FINGERMOTION:
+            if (!running) return;
+            if (evt.tfinger.x >= botdst.x && evt.tfinger.x < (botdst.x+botdst.w) &&
+                evt.tfinger.y >= botdst.y && evt.tfinger.y < (botdst.y+botdst.h))
+            {
+                NDS::PressKey(16+6);
+                int mx = ((evt.tfinger.x - botdst.x) * 256) / botdst.w;
+                int my = ((evt.tfinger.y - botdst.y) * 192) / botdst.h;
+
+                if (mx < 0)        mx = 0;
+                else if (mx > 255) mx = 255;
+
+                if (my < 0)        my = 0;
+                else if (my > 191) my = 191;
+
+                NDS::TouchScreen(mx, my);
+            }
+            break;
+
+        case SDL_FINGERUP:
+            if (!running) return;
+            NDS::ReleaseKey(16+6);
+            NDS::ReleaseScreen();
+            break;
+
         case SDL_KEYDOWN:
             if (!running) return;
             for (int i = 0; i < 10; i++)
