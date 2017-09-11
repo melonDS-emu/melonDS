@@ -21,8 +21,7 @@
 #include <stdio.h>
 
 #include <SDL2/SDL.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include "libui/ui.h"
 
 #include "../types.h"
 #include "../version.h"
@@ -33,6 +32,14 @@ SDL_GLContext MainGL;
 
 void RunMainWindow();
 
+
+void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
+    if (!file) return;
+
+    printf("file opened: %s\n", file);
+}
 
 int main(int argc, char** argv)
 {
@@ -47,8 +54,34 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    RunMainWindow();
+    uiInitOptions ui_opt;
+    memset(&ui_opt, 0, sizeof(uiInitOptions));
+    const char* ui_err = uiInit(&ui_opt);
+    if (ui_err != NULL)
+    {
+        printf("libui shat itself :( %s\n", ui_err);
+        uiFreeInitError(ui_err);
+        return 1;
+    }
 
+    //RunMainWindow();
+
+    uiMenu* menu;
+    uiMenuItem* menuitem;
+
+    menu = uiNewMenu("File");
+    menuitem = uiMenuAppendItem(menu, "Open...");
+    uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
+    uiMenuAppendSeparator(menu);
+    uiMenuAppendItem(menu, "Quit");
+
+    uiWindow* win;
+    win = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
+
+    uiControlShow(uiControl(win));
+    uiMain();
+
+    uiUninit();
     SDL_Quit();
     return 0;
 }

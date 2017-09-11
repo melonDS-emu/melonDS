@@ -16,7 +16,7 @@
 
 #define windowHWND(w) ((HWND) uiControlHandle(uiControl(w)))
 
-char *commonItemDialog(HWND parent, REFCLSID clsid, REFIID iid, FILEOPENDIALOGOPTIONS optsadd)
+char *commonItemDialog(HWND parent, REFCLSID clsid, REFIID iid, char* filter, char* initpath, FILEOPENDIALOGOPTIONS optsadd)
 {
 	IFileDialog *d = NULL;
 	FILEOPENDIALOGOPTIONS opts;
@@ -46,6 +46,38 @@ char *commonItemDialog(HWND parent, REFCLSID clsid, REFIID iid, FILEOPENDIALOGOP
 		logHRESULT(L"error setting options", hr);
 		goto out;
 	}
+
+	// filters
+	{
+        COMDLG_FILTERSPEC filterspec[8];
+        wchar_t _filter[256];
+        wchar_t* fp = &_filter[0]; int s = 0;
+        wchar_t* fname;
+        for (int i = 0; i < 255; i++)
+        {
+            if (filter[i] == '|' || filter[i] == '\0')
+            {
+                _filter[i] = '\0';
+                if (s & 1)
+                {
+                    filterspec[s>>1].pszName = fname;
+                    filterspec[s>>1].pszSpec = fp;
+                }
+                else
+                {
+                    fname = fp;
+                }
+                fp = &_filter[i+1];
+                s++;
+                if (s >= 8) break;
+                if (filter[i] == '\0') break;
+            }
+            else
+                _filter[i] = filter[i];
+        }
+        d->SetFileTypes(s>>1, filterspec);
+	}
+
 	hr = d->Show(parent);
 	if (hr == HRESULT_FROM_WIN32(ERROR_CANCELLED))
 		// cancelled; return NULL like we have ready
@@ -76,26 +108,28 @@ out:
 	return name;
 }
 
-char *uiOpenFile(uiWindow *parent)
+char *uiOpenFile(uiWindow *parent, char* filter, char* initpath)
 {
 	char *res;
 
 	disableAllWindowsExcept(parent);
 	res = commonItemDialog(windowHWND(parent),
 		CLSID_FileOpenDialog, IID_IFileOpenDialog,
-		FOS_NOCHANGEDIR | FOS_ALLNONSTORAGEITEMS | FOS_NOVALIDATE | FOS_PATHMUSTEXIST | FOS_FILEMUSTEXIST | FOS_SHAREAWARE | FOS_NOTESTFILECREATE | FOS_NODEREFERENCELINKS | FOS_FORCESHOWHIDDEN | FOS_DEFAULTNOMINIMODE);
+		filter, initpath,
+		FOS_NOCHANGEDIR | FOS_FORCEFILESYSTEM | FOS_NOVALIDATE | FOS_PATHMUSTEXIST | FOS_FILEMUSTEXIST | FOS_SHAREAWARE | FOS_NOTESTFILECREATE | FOS_NODEREFERENCELINKS | FOS_FORCESHOWHIDDEN | FOS_DEFAULTNOMINIMODE);
 	enableAllWindowsExcept(parent);
 	return res;
 }
 
-char *uiSaveFile(uiWindow *parent)
+char *uiSaveFile(uiWindow *parent, char* filter, char* initpath)
 {
 	char *res;
 
 	disableAllWindowsExcept(parent);
 	res = commonItemDialog(windowHWND(parent),
 		CLSID_FileSaveDialog, IID_IFileSaveDialog,
-		FOS_OVERWRITEPROMPT | FOS_NOCHANGEDIR | FOS_ALLNONSTORAGEITEMS | FOS_NOVALIDATE | FOS_SHAREAWARE | FOS_NOTESTFILECREATE | FOS_NODEREFERENCELINKS | FOS_FORCESHOWHIDDEN | FOS_DEFAULTNOMINIMODE);
+		filter, initpath,
+		FOS_OVERWRITEPROMPT | FOS_NOCHANGEDIR | FOS_FORCEFILESYSTEM | FOS_NOVALIDATE | FOS_SHAREAWARE | FOS_NOTESTFILECREATE | FOS_NODEREFERENCELINKS | FOS_FORCESHOWHIDDEN | FOS_DEFAULTNOMINIMODE);
 	enableAllWindowsExcept(parent);
 	return res;
 }
