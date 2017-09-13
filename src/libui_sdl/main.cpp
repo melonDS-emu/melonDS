@@ -27,11 +27,93 @@
 #include "../version.h"
 
 
-SDL_Window* MainWindow;
-SDL_GLContext MainGL;
+uiWindow* MainWindow;
+uiArea* MainDrawArea;
 
-void RunMainWindow();
+SDL_Thread* EmuThread;
+int EmuRunning;
 
+u32 derpo[256*384];
+uiDrawBitmap* test = NULL;
+
+
+int EmuThreadFunc(void* burp)
+{
+    // init shit.
+
+    for (int i = 0; i < 256*384; i++)
+    {
+        if (i >= 256*192)
+        {
+            if (i&1) derpo[i] = 0xFF0000FF;
+            else     derpo[i] = 0xFF00FF00;
+        }
+        else
+        {
+            if (i&1) derpo[i] = 0xFFFF0000;
+            else     derpo[i] = 0xFFFFFF00;
+        }
+    }
+
+    while (EmuRunning != 0)
+    {
+        if (EmuRunning == 1)
+        {
+            // emulate
+            printf("dfdssdf\n");
+        }
+        else
+        {
+            // paused
+
+            uiAreaQueueRedrawAll(MainDrawArea);
+            SDL_Delay(50);
+        }
+    }
+
+    return 44203;
+}
+
+
+void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
+{
+    if (!test) test = uiDrawNewBitmap(params->Context, 256, 384);
+
+    uiRect dorp = {0, 0, 256, 384};
+
+    uiDrawBitmapUpdate(test, derpo);
+    uiDrawBitmapDraw(params->Context, test, &dorp, &dorp);
+    //printf("draw\n");
+}
+
+void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
+{
+    //
+}
+
+void OnAreaMouseCrossed(uiAreaHandler* handler, uiArea* area, int left)
+{
+    //
+}
+
+void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
+{
+    //
+}
+
+int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
+{
+    printf("key event: %04X %02X\n", evt->ExtKey, evt->Key);
+    uiAreaQueueRedrawAll(MainDrawArea);
+    return 1;
+}
+
+
+int OnCloseWindow(uiWindow* window, void* blarg)
+{
+    uiQuit();
+    return 1;
+}
 
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 {
@@ -40,6 +122,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 
     printf("file opened: %s\n", file);
 }
+
 
 int main(int argc, char** argv)
 {
@@ -64,8 +147,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    //RunMainWindow();
-
     uiMenu* menu;
     uiMenuItem* menuitem;
 
@@ -77,9 +158,28 @@ int main(int argc, char** argv)
 
     uiWindow* win;
     win = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
+    uiWindowOnClosing(win, OnCloseWindow, NULL);
+
+    uiAreaHandler areahandler;
+
+    areahandler.Draw = OnAreaDraw;
+    areahandler.MouseEvent = OnAreaMouseEvent;
+    areahandler.MouseCrossed = OnAreaMouseCrossed;
+    areahandler.DragBroken = OnAreaDragBroken;
+    areahandler.KeyEvent = OnAreaKeyEvent;
+
+    MainDrawArea = uiNewArea(&areahandler);
+    uiWindowSetChild(win, uiControl(MainDrawArea));
+    //uiWindowSetChild(win, uiControl(uiNewButton("become a girl")));
+
+    EmuRunning = 2;
+    EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     uiControlShow(uiControl(win));
     uiMain();
+
+    EmuRunning = 0;
+    SDL_WaitThread(EmuThread, NULL);
 
     uiUninit();
     SDL_Quit();
@@ -122,42 +222,3 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 }
 
 #endif
-
-
-void RunMainWindow()
-{
-    MainWindow = SDL_CreateWindow("melonDS " MELONDS_VERSION,
-                                  SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                  640, 480,
-                                  SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    //MainGL=  SDL_GL_CreateContext(MainWindow);
-
-    // event loop
-    bool run = true;
-    while (run)
-    {
-        SDL_Event evt;
-        while (SDL_PollEvent(&evt))
-        {
-            switch (evt.type)
-            {
-            case SDL_WINDOWEVENT:
-                if (evt.window.event == SDL_WINDOWEVENT_CLOSE)
-                {
-                    run = false;
-                    break;
-                }
-                break;
-            }
-        }
-
-        // do extra shit here
-        /*glClearColor(1, 0, 1, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
-        SDL_GL_SwapWindow(MainWindow);
-        SDL_Delay(50);*/
-    }
-
-    //SDL_GL_DeleteContext(MainGL);
-    SDL_DestroyWindow(MainWindow);
-}
