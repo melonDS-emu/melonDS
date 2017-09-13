@@ -26,6 +26,9 @@
 #include "../types.h"
 #include "../version.h"
 
+#include "../NDS.h"
+#include "../GPU.h"
+
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
@@ -33,43 +36,84 @@ uiArea* MainDrawArea;
 SDL_Thread* EmuThread;
 int EmuRunning;
 
-u32 derpo[256*384];
 uiDrawBitmap* test = NULL;
 
 
 int EmuThreadFunc(void* burp)
 {
-    // init shit.
+    NDS::Init();
 
-    for (int i = 0; i < 256*384; i++)
-    {
-        if (i >= 256*192)
-        {
-            if (i&1) derpo[i] = 0xFF0000FF;
-            else     derpo[i] = 0xFF00FF00;
-        }
-        else
-        {
-            if (i&1) derpo[i] = 0xFFFF0000;
-            else     derpo[i] = 0xFFFFFF00;
-        }
-    }
+    u32 nframes = 0;
+    u32 starttick = SDL_GetTicks();
+    u32 lasttick = starttick;
+    u32 lastmeasuretick = lasttick;
+    u32 fpslimitcount = 0;
+    bool limitfps = true;
 
     while (EmuRunning != 0)
     {
         if (EmuRunning == 1)
         {
             // emulate
-            printf("dfdssdf\n");
+            u32 nlines = NDS::RunFrame();
+
+            uiAreaQueueRedrawAll(MainDrawArea);
+
+            // framerate limiter based off SDL2_gfx
+            float framerate;
+            if (nlines == 263) framerate = 1000.0f / 60.0f;
+            else               framerate = ((1000.0f * nlines) / 263.0f) / 60.0f;
+
+            fpslimitcount++;
+            u32 curtick = SDL_GetTicks();
+            u32 delay = curtick - lasttick;
+            lasttick = curtick;
+
+            u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
+            if (curtick < wantedtick && limitfps)
+            {
+                SDL_Delay(wantedtick - curtick);
+            }
+            else
+            {
+                fpslimitcount = 0;
+                starttick = curtick;
+            }
+
+            nframes++;
+            if (nframes >= 30)
+            {
+                u32 tick = SDL_GetTicks();
+                u32 diff = tick - lastmeasuretick;
+                lastmeasuretick = tick;
+
+                u32 fps = (nframes * 1000) / diff;
+                nframes = 0;
+
+                float fpstarget;
+                if (framerate < 1) fpstarget = 999;
+                else fpstarget = 1000.0f/framerate;
+
+                char melontitle[100];
+                sprintf(melontitle, "%d/%.0f FPS | melonDS " MELONDS_VERSION, fps, fpstarget);
+                uiWindowSetTitle(MainWindow, melontitle);
+            }
         }
         else
         {
             // paused
+            nframes = 0;
+            lasttick = SDL_GetTicks();
+            starttick = lasttick;
+            lastmeasuretick = lasttick;
+            fpslimitcount = 0;
 
             uiAreaQueueRedrawAll(MainDrawArea);
             SDL_Delay(50);
         }
     }
+
+    NDS::DeInit();
 
     return 44203;
 }
@@ -81,7 +125,7 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiRect dorp = {0, 0, 256, 384};
 
-    uiDrawBitmapUpdate(test, derpo);
+    uiDrawBitmapUpdate(test, GPU::Framebuffer);
     uiDrawBitmapDraw(params->Context, test, &dorp, &dorp);
     //printf("draw\n");
 }
@@ -104,7 +148,7 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
     printf("key event: %04X %02X\n", evt->ExtKey, evt->Key);
-    uiAreaQueueRedrawAll(MainDrawArea);
+    //uiAreaQueueRedrawAll(MainDrawArea);
     return 1;
 }
 
@@ -120,13 +164,18 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
     if (!file) return;
 
-    printf("file opened: %s\n", file);
+    NDS::LoadROM(file, true); // TODO direct boot setting
+
+    EmuRunning = 1;
 }
 
 
 int main(int argc, char** argv)
 {
     srand(time(NULL));
+
+    printf("melonDS " MELONDS_VERSION "\n");
+    printf(MELONDS_URL "\n");
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -156,9 +205,8 @@ int main(int argc, char** argv)
     uiMenuAppendSeparator(menu);
     uiMenuAppendItem(menu, "Quit");
 
-    uiWindow* win;
-    win = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
-    uiWindowOnClosing(win, OnCloseWindow, NULL);
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
+    uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
 
     uiAreaHandler areahandler;
 
@@ -169,13 +217,13 @@ int main(int argc, char** argv)
     areahandler.KeyEvent = OnAreaKeyEvent;
 
     MainDrawArea = uiNewArea(&areahandler);
-    uiWindowSetChild(win, uiControl(MainDrawArea));
-    //uiWindowSetChild(win, uiControl(uiNewButton("become a girl")));
+    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+    //uiWindowSetChild(MainWindow, uiControl(uiNewButton("become a girl")));
 
     EmuRunning = 2;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
-    uiControlShow(uiControl(win));
+    uiControlShow(uiControl(MainWindow));
     uiMain();
 
     EmuRunning = 0;
