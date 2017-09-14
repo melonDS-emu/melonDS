@@ -28,6 +28,7 @@
 
 #include "../NDS.h"
 #include "../GPU.h"
+#include "../SPU.h"
 
 
 uiWindow* MainWindow;
@@ -36,12 +37,41 @@ uiArea* MainDrawArea;
 SDL_Thread* EmuThread;
 int EmuRunning;
 
+SDL_mutex* ScreenMutex;
 uiDrawBitmap* test = NULL;
 
+
+void AudioCallback(void* data, Uint8* stream, int len)
+{
+    SPU::ReadOutput((s16*)stream, len>>2);
+}
 
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
+
+    // DS:
+    // 547.060546875 samples per frame
+    // 32823.6328125 samples per second
+    //
+    // 48000 samples per second:
+    // 800 samples per frame
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 32824; // 32823.6328125
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 1024;
+    whatIwant.callback = AudioCallback;
+    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!audio)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(audio, 0);
+    }
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -55,7 +85,9 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             // emulate
+            //SDL_LockMutex(ScreenMutex);
             u32 nlines = NDS::RunFrame();
+            //SDL_UnlockMutex(ScreenMutex);
 
             uiAreaQueueRedrawAll(MainDrawArea);
 
@@ -113,6 +145,8 @@ int EmuThreadFunc(void* burp)
         }
     }
 
+    if (audio) SDL_CloseAudioDevice(audio);
+
     NDS::DeInit();
 
     return 44203;
@@ -125,7 +159,10 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiRect dorp = {0, 0, 256, 384};
 
+    //SDL_LockMutex(ScreenMutex);
     uiDrawBitmapUpdate(test, GPU::Framebuffer);
+    //SDL_UnlockMutex(ScreenMutex);
+
     uiDrawBitmapDraw(params->Context, test, &dorp, &dorp);
     //printf("draw\n");
 }
@@ -161,6 +198,9 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 {
+    EmuRunning = 2;
+    // TODO: ensure the emu thread has indeed stopped at this point
+
     char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
     if (!file) return;
 
@@ -186,6 +226,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    ScreenMutex = SDL_CreateMutex();
+
     uiInitOptions ui_opt;
     memset(&ui_opt, 0, sizeof(uiInitOptions));
     const char* ui_err = uiInit(&ui_opt);
@@ -200,7 +242,7 @@ int main(int argc, char** argv)
     uiMenuItem* menuitem;
 
     menu = uiNewMenu("File");
-    menuitem = uiMenuAppendItem(menu, "Open...");
+    menuitem = uiMenuAppendItem(menu, "Open ROM...");
     uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
     uiMenuAppendSeparator(menu);
     uiMenuAppendItem(menu, "Quit");
@@ -228,6 +270,8 @@ int main(int argc, char** argv)
 
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
+
+    SDL_DestroyMutex(ScreenMutex);
 
     uiUninit();
     SDL_Quit();
