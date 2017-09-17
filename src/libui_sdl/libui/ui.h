@@ -72,6 +72,7 @@ struct uiControl {
 	int (*Enabled)(uiControl *);
 	void (*Enable)(uiControl *);
 	void (*Disable)(uiControl *);
+	void (*SetFocus)(uiControl *);
 };
 // TOOD add argument names to all arguments
 #define uiControl(this) ((uiControl *) (this))
@@ -86,6 +87,7 @@ _UI_EXTERN void uiControlHide(uiControl *);
 _UI_EXTERN int uiControlEnabled(uiControl *);
 _UI_EXTERN void uiControlEnable(uiControl *);
 _UI_EXTERN void uiControlDisable(uiControl *);
+_UI_EXTERN void uiControlSetFocus(uiControl *);
 
 _UI_EXTERN uiControl *uiAllocControl(size_t n, uint32_t OSsig, uint32_t typesig, const char *typenamestr);
 _UI_EXTERN void uiFreeControl(uiControl *);
@@ -653,7 +655,11 @@ struct uiAreaKeyEvent {
 
 	uiModifiers Modifiers;
 
+	// additional things
+	int Scancode; // bit0-7: scancode, bit8: ext flag
+
 	int Up;
+	int Repeat;
 };
 
 typedef struct uiFontButton uiFontButton;
@@ -700,6 +706,11 @@ _UI_EXTERN void uiGridInsertAt(uiGrid *g, uiControl *c, uiControl *existing, uiA
 _UI_EXTERN int uiGridPadded(uiGrid *g);
 _UI_EXTERN void uiGridSetPadded(uiGrid *g, int padded);
 _UI_EXTERN uiGrid *uiNewGrid(void);
+
+
+// misc.
+
+_UI_EXTERN char* uiKeyName(int scancode);
 
 #ifdef __cplusplus
 }

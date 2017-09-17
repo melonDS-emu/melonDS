@@ -25,6 +25,7 @@
 
 #include "../types.h"
 #include "../version.h"
+#include "../Config.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -38,7 +39,7 @@ SDL_Thread* EmuThread;
 int EmuRunning;
 
 SDL_mutex* ScreenMutex;
-uiDrawBitmap* test = NULL;
+uiDrawBitmap* ScreenBitmap = NULL;
 
 
 void AudioCallback(void* data, Uint8* stream, int len)
@@ -155,21 +156,24 @@ int EmuThreadFunc(void* burp)
 
 void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
-    if (!test) test = uiDrawNewBitmap(params->Context, 256, 384);
+    if (!ScreenBitmap)
+        ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
 
     uiRect dorp = {0, 0, 256, 384};
 
     //SDL_LockMutex(ScreenMutex);
-    uiDrawBitmapUpdate(test, GPU::Framebuffer);
+    uiDrawBitmapUpdate(ScreenBitmap, GPU::Framebuffer);
     //SDL_UnlockMutex(ScreenMutex);
 
-    uiDrawBitmapDraw(params->Context, test, &dorp, &dorp);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap, &dorp, &dorp);
     //printf("draw\n");
 }
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
 {
-    //
+    int x = (int)evt->X;
+    int y = (int)evt->Y;
+    printf("mouse: %08X %d,%d\n", (u32)evt->Held1To64, x, y);
 }
 
 void OnAreaMouseCrossed(uiAreaHandler* handler, uiArea* area, int left)
@@ -184,8 +188,28 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
-    printf("key event: %04X %02X\n", evt->ExtKey, evt->Key);
-    //uiAreaQueueRedrawAll(MainDrawArea);
+    // TODO: release all keys if the window loses focus? or somehow global key input?
+    if (evt->Scancode == 0x38) // ALT
+        return 0;
+    if (evt->Modifiers == 0x2) // ALT+key
+        return 0;
+
+    if (evt->Up)
+    {
+        for (int i = 0; i < 10; i++)
+            if (evt->Scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
+        if (evt->Scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
+        if (evt->Scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+    }
+    else if (!evt->Repeat)
+    {
+        //printf("key event: %08X %08X - %s\n", evt->Scancode, evt->Modifiers, uiKeyName(evt->Scancode));
+        for (int i = 0; i < 10; i++)
+            if (evt->Scancode == Config::KeyMapping[i]) NDS::PressKey(i);
+        if (evt->Scancode == Config::KeyMapping[10]) NDS::PressKey(16);
+        if (evt->Scancode == Config::KeyMapping[11]) NDS::PressKey(17);
+    }
+
     return 1;
 }
 
@@ -204,7 +228,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
     if (!file) return;
 
-    NDS::LoadROM(file, true); // TODO direct boot setting
+    NDS::LoadROM(file, Config::DirectBoot);
 
     EmuRunning = 1;
 }
@@ -238,6 +262,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    Config::Load();
+
     uiMenu* menu;
     uiMenuItem* menuitem;
 
@@ -260,18 +286,19 @@ int main(int argc, char** argv)
 
     MainDrawArea = uiNewArea(&areahandler);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-    //uiWindowSetChild(MainWindow, uiControl(uiNewButton("become a girl")));
 
     EmuRunning = 2;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     uiControlShow(uiControl(MainWindow));
+    uiControlSetFocus(uiControl(MainDrawArea)); // TODO: this needs to be done when the window regains focus
     uiMain();
 
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
 
     SDL_DestroyMutex(ScreenMutex);
+    uiDrawFreeBitmap(ScreenBitmap);
 
     uiUninit();
     SDL_Quit();
