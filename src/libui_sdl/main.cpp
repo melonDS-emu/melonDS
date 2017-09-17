@@ -41,6 +41,8 @@ int EmuRunning;
 SDL_mutex* ScreenMutex;
 uiDrawBitmap* ScreenBitmap = NULL;
 
+bool Touching = false;
+
 
 void AudioCallback(void* data, Uint8* stream, int len)
 {
@@ -50,6 +52,8 @@ void AudioCallback(void* data, Uint8* stream, int len)
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
+
+    Touching = false;
 
     // DS:
     // 547.060546875 samples per frame
@@ -173,7 +177,33 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
 {
     int x = (int)evt->X;
     int y = (int)evt->Y;
-    printf("mouse: %08X %d,%d\n", (u32)evt->Held1To64, x, y);
+
+    if (Touching && (evt->Up == 1))
+    {
+        Touching = false;
+        NDS::ReleaseKey(16+6);
+        NDS::ReleaseScreen();
+    }
+    else if (!Touching && (evt->Down == 1) && (y >= 192))
+    {
+        Touching = true;
+        NDS::PressKey(16+6);
+        // TODO: scaling/offset as needed
+    }
+
+    if (Touching)
+    {
+        // TODO: scaling, here too
+        y -= 192;
+
+        // clamp
+        if (x < 0) x = 0;
+        else if (x > 255) x = 255;
+        if (y < 0) y = 0;
+        else if (y > 191) y = 191;
+
+        NDS::TouchScreen(x, y);
+    }
 }
 
 void OnAreaMouseCrossed(uiAreaHandler* handler, uiArea* area, int left)
