@@ -5,6 +5,14 @@ struct uiDrawContext {
 	cairo_t *cr;
 };
 
+struct uiDrawBitmap {
+    int Width;
+    int Height;
+    int Stride;
+
+    // add cairo shit here
+};
+
 // drawpath.c
 extern void runPath(uiDrawPath *p, cairo_t *cr);
 extern uiDrawFillMode pathFillMode(uiDrawPath *path);

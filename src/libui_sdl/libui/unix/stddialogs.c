@@ -38,6 +38,7 @@ static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gcha
 					{
 						if (*j == ';')
 						{
+						    *j = '\0';
 							gtk_file_filter_add_pattern(filter, fp);
 							fp = j+1;
 						}
@@ -47,7 +48,7 @@ static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gcha
 							break;
 						}
 					}
-					
+					printf("add filter\n");
 					gtk_file_chooser_add_filter(fc, filter);
                 }
                 else

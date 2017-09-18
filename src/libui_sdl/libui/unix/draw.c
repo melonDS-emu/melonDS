@@ -139,3 +139,56 @@ void uiDrawRestore(uiDrawContext *c)
 {
 	cairo_restore(c->cr);
 }
+
+
+// bitmap API
+
+uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
+{
+    /*uiDrawBitmap* bmp;
+    HRESULT hr;
+
+    bmp = uiNew(uiDrawBitmap);
+
+    D2D1_BITMAP_PROPERTIES bp2 = D2D1::BitmapProperties();
+    bp2.dpiX = 0;
+    bp2.dpiY = 0;
+    bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
+    //bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
+    // TODO: fallback: convert to BGRA if needed (RGBA only works in hardware mode)
+
+    c->rt->BeginDraw();
+
+    hr = c->rt->CreateBitmap(D2D1::SizeU(width,height), NULL, 0, &bp2, &bmp->bmp);
+    if (hr != S_OK)
+		logHRESULT(L"error creating bitmap", hr);
+
+    c->rt->EndDraw();
+
+    bmp->Width = width;
+    bmp->Height = height;
+    bmp->Stride = width*4;
+
+    return bmp;*/
+    return NULL;
+}
+
+void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
+{
+    //D2D1_RECT_U rekt = D2D1::RectU(0, 0, bmp->Width, bmp->Height);
+    //bmp->bmp->CopyFromMemory(&rekt, data, bmp->Stride);
+}
+
+void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect)
+{
+    /*D2D_RECT_F _srcrect = D2D1::RectF(srcrect->X, srcrect->Y, srcrect->X+srcrect->Width, srcrect->Y+srcrect->Height);
+    D2D_RECT_F _dstrect = D2D1::RectF(dstrect->X, dstrect->Y, dstrect->X+dstrect->Width, dstrect->Y+dstrect->Height);
+
+    c->rt->DrawBitmap(bmp->bmp, &_dstrect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &_srcrect);*/
+}
+
+void uiDrawFreeBitmap(uiDrawBitmap* bmp)
+{
+    //bmp->bmp->Release();
+    //uiFree(bmp);
+}

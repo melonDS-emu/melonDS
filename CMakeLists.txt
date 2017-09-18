@@ -6,10 +6,8 @@ SET(PROJECT_WX melonDS)
 PROJECT(${PROJECT_WX})
 
 SET(SOURCES
-	src/wx/main.cpp
-	src/wx/EmuConfig.cpp
-	src/wx/InputConfig.cpp
-	src/wx/Platform.cpp
+	src/libui_sdl/main.cpp
+	src/libui_sdl/Platform.cpp
 	src/ARM.cpp
 	src/ARMInterpreter.cpp
 	src/ARMInterpreter_ALU.cpp
@@ -27,16 +25,64 @@ SET(SOURCES
 	src/RTC.cpp
 	src/SPI.cpp
 	src/SPU.cpp
-	src/Wifi.cpp)
+	src/Wifi.cpp
+	src/libui_sdl/libui/common/areaevents.c
+	src/libui_sdl/libui/common/control.c
+	src/libui_sdl/libui/common/debug.c
+	src/libui_sdl/libui/common/matrix.c
+	src/libui_sdl/libui/common/shouldquit.c
+	src/libui_sdl/libui/common/userbugs.c
+	src/libui_sdl/libui/unix/alloc.c
+	src/libui_sdl/libui/unix/area.c
+	src/libui_sdl/libui/unix/box.c
+	src/libui_sdl/libui/unix/button.c
+	src/libui_sdl/libui/unix/cellrendererbutton.c
+	src/libui_sdl/libui/unix/checkbox.c
+	src/libui_sdl/libui/unix/child.c
+	src/libui_sdl/libui/unix/colorbutton.c
+	src/libui_sdl/libui/unix/combobox.c
+	src/libui_sdl/libui/unix/control.c
+	src/libui_sdl/libui/unix/datetimepicker.c
+	src/libui_sdl/libui/unix/debug.c
+	src/libui_sdl/libui/unix/draw.c
+	src/libui_sdl/libui/unix/drawmatrix.c
+	src/libui_sdl/libui/unix/drawpath.c
+	src/libui_sdl/libui/unix/drawtext.c
+	src/libui_sdl/libui/unix/editablecombo.c
+	src/libui_sdl/libui/unix/entry.c
+	src/libui_sdl/libui/unix/fontbutton.c
+	src/libui_sdl/libui/unix/form.c
+	src/libui_sdl/libui/unix/future.c
+	src/libui_sdl/libui/unix/graphemes.c
+	src/libui_sdl/libui/unix/grid.c
+	src/libui_sdl/libui/unix/group.c
+	src/libui_sdl/libui/unix/image.c
+	src/libui_sdl/libui/unix/label.c
+	src/libui_sdl/libui/unix/main.c
+	src/libui_sdl/libui/unix/menu.c
+	src/libui_sdl/libui/unix/multilineentry.c
+	src/libui_sdl/libui/unix/progressbar.c
+	src/libui_sdl/libui/unix/radiobuttons.c
+	src/libui_sdl/libui/unix/separator.c
+	src/libui_sdl/libui/unix/slider.c
+	src/libui_sdl/libui/unix/spinbox.c
+	src/libui_sdl/libui/unix/stddialogs.c
+	src/libui_sdl/libui/unix/tab.c
+	src/libui_sdl/libui/unix/text.c
+	src/libui_sdl/libui/unix/util.c
+	src/libui_sdl/libui/unix/window.c)
 
 if (UNIX)
-find_package(GTK2 2.0 REQUIRED)
-include_directories(${GTK2_INCLUDE_DIRS})
-endif (UNIX)
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
 
-find_package(wxWidgets REQUIRED)
-include(${wxWidgets_USE_FILE})
-link_libraries(${wxWidgets_LIBRARIES})
+    INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
+    LINK_LIBRARIES(${GTK3_LIBRARIES})
+
+    ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
+    
+    LINK_LIBRARIES("dl")
+endif (UNIX)
 
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
@@ -45,6 +91,15 @@ link_libraries(${SDL2_LIBRARIES})
 add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
 
-set(CMAKE_BUILD_TYPE Release)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
+if(CMAKE_BUILD_TYPE EQUAL Debug)
+set(CMAKE_CXX_FLAGS "-g")
+endif()
+if(CMAKE_BUILD_TYPE EQUAL Release)
+set(CMAKE_CXX_FLAGS "-O3 -flto")
+endif()
 
 install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
