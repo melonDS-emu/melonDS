@@ -3,6 +3,9 @@
 
 uiInitOptions options;
 
+// kind of a hack
+GThread* gtkthread;
+
 const char *uiInit(uiInitOptions *o)
 {
 	GError *err = NULL;
@@ -16,6 +19,9 @@ const char *uiInit(uiInitOptions *o)
 	}
 	initAlloc();
 	loadFutures();
+	
+	gtkthread = g_thread_self();
+	
 	return NULL;
 }
 

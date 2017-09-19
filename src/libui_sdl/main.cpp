@@ -133,7 +133,7 @@ int EmuThreadFunc(void* burp)
 
                 char melontitle[100];
                 sprintf(melontitle, "%d/%.0f FPS | melonDS " MELONDS_VERSION, fps, fpstarget);
-                uiWindowSetTitle(MainWindow, melontitle);
+                //uiWindowSetTitle(MainWindow, melontitle);
             }
         }
         else
@@ -321,7 +321,7 @@ int main(int argc, char** argv)
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     uiControlShow(uiControl(MainWindow));
-    uiControlSetFocus(uiControl(MainDrawArea)); // TODO: this needs to be done when the window regains focus
+    //uiControlSetFocus(uiControl(MainDrawArea)); // TODO: this needs to be done when the window regains focus
     uiMain();
 
     EmuRunning = 0;

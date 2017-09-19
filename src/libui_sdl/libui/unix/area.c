@@ -1,6 +1,8 @@
 // 4 september 2015
 #include "uipriv_unix.h"
 
+extern GThread* gtkthread;
+
 // notes:
 // - G_DECLARE_DERIVABLE/FINAL_INTERFACE() requires glib 2.44 and that's starting with debian stretch (testing) (GTK+ 3.18) and ubuntu 15.04 (GTK+ 3.14) - debian jessie has 2.42 (GTK+ 3.14)
 #define areaWidgetType (areaWidget_get_type())
@@ -387,7 +389,7 @@ static int areaKeyEvent(uiArea *a, int up, GdkEventKey *e)
 	ke.Key = 0;
 	ke.ExtKey = 0;
 	ke.Modifier = 0;
-
+printf("keypress: %08X\n", e->hardware_keycode-8);
 	state = translateModifiers(e->state, e->window);
 	ke.Modifiers = toModifiers(state);
 
@@ -501,9 +503,20 @@ void uiAreaSetSize(uiArea *a, int width, int height)
 	gtk_widget_queue_resize(a->areaWidget);
 }
 
+gboolean _threadsaferefresh(gpointer data)
+{
+    uiArea* a = (uiArea*)data;
+    gtk_widget_queue_draw(a->areaWidget);
+    return FALSE;
+}
+
 void uiAreaQueueRedrawAll(uiArea *a)
 {
-	gtk_widget_queue_draw(a->areaWidget);
+    // TODO: figure out how we could generalize the "thread-safe function call" mechanism
+    if (g_thread_self() != gtkthread)
+        g_idle_add(_threadsaferefresh, a);
+    else
+	    gtk_widget_queue_draw(a->areaWidget);
 }
 
 void uiAreaScrollTo(uiArea *a, double x, double y, double width, double height)
