@@ -145,50 +145,57 @@ void uiDrawRestore(uiDrawContext *c)
 
 uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
 {
-    /*uiDrawBitmap* bmp;
-    HRESULT hr;
-
+    uiDrawBitmap* bmp;
+    
     bmp = uiNew(uiDrawBitmap);
-
-    D2D1_BITMAP_PROPERTIES bp2 = D2D1::BitmapProperties();
-    bp2.dpiX = 0;
-    bp2.dpiY = 0;
-    bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
-    //bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
-    // TODO: fallback: convert to BGRA if needed (RGBA only works in hardware mode)
-
-    c->rt->BeginDraw();
-
-    hr = c->rt->CreateBitmap(D2D1::SizeU(width,height), NULL, 0, &bp2, &bmp->bmp);
-    if (hr != S_OK)
-		logHRESULT(L"error creating bitmap", hr);
-
-    c->rt->EndDraw();
-
-    bmp->Width = width;
-    bmp->Height = height;
-    bmp->Stride = width*4;
-
-    return bmp;*/
-    return NULL;
+    
+    bmp->bmp = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
+    if (cairo_surface_status(bmp->bmp) != CAIRO_STATUS_SUCCESS)
+		implbug("error creating bitmap: %s",
+			cairo_status_to_string(cairo_surface_status(bmp->bmp)));
+			
+	bmp->Width = width;
+	bmp->Height = height;
+	bmp->Stride = cairo_image_surface_get_stride(bmp->bmp);
+    
+    return bmp;
 }
 
 void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
 {
-    //D2D1_RECT_U rekt = D2D1::RectU(0, 0, bmp->Width, bmp->Height);
-    //bmp->bmp->CopyFromMemory(&rekt, data, bmp->Stride);
+    unsigned char* src = data;
+    unsigned char* dst = cairo_image_surface_get_data(bmp->bmp);
+    
+    if (bmp->Stride == bmp->Width*4)
+    {
+        // stride 'good', can just directly copy all the shit
+        memcpy(dst, src, bmp->Stride*bmp->Height);
+    }
+    else
+    {
+        int y;
+        for (y = 0; y < bmp->Height; y++)
+        {
+            memcpy(dst, src, bmp->Width*4);
+            src += bmp->Width*4;
+            dst += bmp->Stride;
+        }
+    }
+    
+    cairo_surface_mark_dirty(bmp->bmp);
 }
 
 void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect)
 {
-    /*D2D_RECT_F _srcrect = D2D1::RectF(srcrect->X, srcrect->Y, srcrect->X+srcrect->Width, srcrect->Y+srcrect->Height);
-    D2D_RECT_F _dstrect = D2D1::RectF(dstrect->X, dstrect->Y, dstrect->X+dstrect->Width, dstrect->Y+dstrect->Height);
-
-    c->rt->DrawBitmap(bmp->bmp, &_dstrect, 1.0f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, &_srcrect);*/
+    // TODO: rect
+    
+    cairo_set_source_surface(c->cr, bmp->bmp, srcrect->X, srcrect->Y);
+    
+    cairo_paint(c->cr);
 }
 
 void uiDrawFreeBitmap(uiDrawBitmap* bmp)
 {
-    //bmp->bmp->Release();
-    //uiFree(bmp);
+    cairo_surface_destroy(bmp->bmp);
+    uiFree(bmp);
 }

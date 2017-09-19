@@ -10,7 +10,7 @@ struct uiDrawBitmap {
     int Height;
     int Stride;
 
-    // add cairo shit here
+    cairo_surface_t* bmp;
 };
 
 // drawpath.c
