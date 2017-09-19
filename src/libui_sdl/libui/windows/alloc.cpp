@@ -22,6 +22,7 @@ void uninitAlloc(void)
 		// note the void * cast; otherwise it'll be treated as a string
 		oss << (void *) (alloc.first) << " " << types[alloc.second] << "\n";
 	ossstr = oss.str();
+	printf("data leak: %s\n", ossstr.c_str());
 	userbug("Some data was leaked; either you left a uiControl lying around or there's a bug in libui itself. Leaked data:\n%s", ossstr.c_str());
 }
 

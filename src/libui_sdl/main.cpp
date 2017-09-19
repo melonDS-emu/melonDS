@@ -96,6 +96,8 @@ int EmuThreadFunc(void* burp)
             u32 nlines = NDS::RunFrame();
             //SDL_UnlockMutex(ScreenMutex);
 
+            if (EmuRunning == 0) break;
+
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -266,6 +268,9 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     if (!file) return;
 
     NDS::LoadROM(file, Config::DirectBoot);
+    uiFreeText(file);
+    // TODO: change libui to store strings in stack-allocated buffers?
+    // so we don't have to free it after use
 
     EmuRunning = 1;
 }
