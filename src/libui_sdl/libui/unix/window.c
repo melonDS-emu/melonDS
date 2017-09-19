@@ -262,6 +262,9 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar)
 	gtk_widget_set_valign(w->childHolderWidget, GTK_ALIGN_FILL);
 	gtk_box_set_homogeneous(GTK_BOX(w->childHolderWidget), TRUE);
 	gtk_container_add(w->vboxContainer, w->childHolderWidget);
+	
+	// set client size proper
+	gtk_widget_set_size_request(w->childHolderWidget, width, height);
 
 	// show everything in the vbox, but not the GtkWindow itself
 	gtk_widget_show_all(w->vboxWidget);
