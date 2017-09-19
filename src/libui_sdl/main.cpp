@@ -38,6 +38,7 @@ uiArea* MainDrawArea;
 SDL_Thread* EmuThread;
 int EmuRunning;
 
+bool ScreenDrawInited = false;
 SDL_mutex* ScreenMutex;
 uiDrawBitmap* ScreenBitmap = NULL;
 
@@ -53,6 +54,7 @@ int EmuThreadFunc(void* burp)
 {
     NDS::Init();
 
+    ScreenDrawInited = false;
     Touching = false;
 
     // DS:
@@ -160,8 +162,13 @@ int EmuThreadFunc(void* burp)
 
 void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
-    if (!ScreenBitmap)
+    if (!ScreenDrawInited)
+    {
         ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
+        ScreenDrawInited = true;
+    }
+
+    if (!ScreenBitmap) return;
 
     uiRect dorp = {0, 0, 256, 384};
 
@@ -280,7 +287,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    ScreenMutex = SDL_CreateMutex();
+    //ScreenMutex = SDL_CreateMutex();
 
     uiInitOptions ui_opt;
     memset(&ui_opt, 0, sizeof(uiInitOptions));
@@ -327,8 +334,8 @@ int main(int argc, char** argv)
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
 
-    SDL_DestroyMutex(ScreenMutex);
-    uiDrawFreeBitmap(ScreenBitmap);
+    //SDL_DestroyMutex(ScreenMutex);
+    if (ScreenBitmap) uiDrawFreeBitmap(ScreenBitmap);
 
     uiUninit();
     SDL_Quit();

@@ -63,7 +63,16 @@ ID2D1HwndRenderTarget *makeHWNDRenderTarget(HWND hwnd)
 		&hprops,
 		&rt);
 	if (hr != S_OK)
-		logHRESULT(L"error creating HWND render target", hr);
+    {
+        props.type = D2D1_RENDER_TARGET_TYPE_DEFAULT;
+        hr = d2dfactory->CreateHwndRenderTarget(
+            &props,
+            &hprops,
+            &rt);
+        if (hr != S_OK)
+            logHRESULT(L"error creating HWND render target", hr);
+    }
+
 	return rt;
 }
 
@@ -523,9 +532,7 @@ uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
     D2D1_BITMAP_PROPERTIES bp2 = D2D1::BitmapProperties();
     bp2.dpiX = 0;
     bp2.dpiY = 0;
-    bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
-    //bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
-    // TODO: fallback: convert to BGRA if needed (RGBA only works in hardware mode)
+    bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
 
     c->rt->BeginDraw();
 
