@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <SDL2/SDL.h>
 #include "../Platform.h"
 #include "../Config.h"
 
@@ -47,27 +48,19 @@ namespace Platform
 {
 
 
-/*class Thread : public wxThread
+typedef struct
 {
-public:
-    Thread(void (*func)())
-    : wxThread(wxTHREAD_JOINABLE)
-    {
-        this->Func = func;
-    }
-
-    ~Thread() {}
-
-protected:
-    virtual ExitCode Entry()
-    {
-        Func();
-        return (ExitCode)0;
-    }
-
-private:
+    SDL_Thread* ID;
     void (*Func)();
-};*/
+    
+} ThreadData;
+
+int ThreadEntry(void* data)
+{
+    ThreadData* thread = (ThreadData*)data;
+    thread->Func();
+    return 0;
+}
 
 
 /*socket_t MPSocket;
@@ -79,47 +72,46 @@ u8 PacketBuffer[2048];
 
 void* Thread_Create(void (*func)())
 {
-    /*Thread* ret = new Thread(func);
-    ret->Run();
-    return (void*)ret;*/
-    return NULL;
+    ThreadData* data = new ThreadData;
+    data->Func = func;
+    data->ID = SDL_CreateThread(ThreadEntry, "melonDS core thread", data);
+    return data;
 }
 
 void Thread_Free(void* thread)
 {
-    //delete (Thread*)thread;
+    delete (ThreadData*)thread;
 }
 
 void Thread_Wait(void* thread)
 {
-    //((Thread*)thread)->Wait();
+    SDL_WaitThread((SDL_Thread*)((ThreadData*)thread)->ID, NULL);
 }
 
 
 void* Semaphore_Create()
 {
-    //return (void*)new wxSemaphore();
-    return NULL;
+    return SDL_CreateSemaphore(0);
 }
 
 void Semaphore_Free(void* sema)
 {
-    //delete (wxSemaphore*)sema;
+    SDL_DestroySemaphore((SDL_sem*)sema);
 }
 
 void Semaphore_Reset(void* sema)
 {
-    //while (((wxSemaphore*)sema)->TryWait() == wxSEMA_NO_ERROR);
+    while (SDL_SemTryWait((SDL_sem*)sema) == 0);
 }
 
 void Semaphore_Wait(void* sema)
 {
-    //((wxSemaphore*)sema)->Wait();
+    SDL_SemWait((SDL_sem*)sema);
 }
 
 void Semaphore_Post(void* sema)
 {
-    //((wxSemaphore*)sema)->Post();
+    SDL_SemPost((SDL_sem*)sema);
 }
 
 
