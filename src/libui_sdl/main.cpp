@@ -41,6 +41,7 @@ uiMenuItem* MenuItem_Stop;
 
 SDL_Thread* EmuThread;
 int EmuRunning;
+volatile int EmuStatus;
 
 bool RunningSomething;
 char ROMPath[1024];
@@ -98,6 +99,8 @@ int EmuThreadFunc(void* burp)
     {
         if (EmuRunning == 1)
         {
+            EmuStatus = 1;
+
             // emulate
             u32 nlines = NDS::RunFrame();
 
@@ -148,6 +151,8 @@ int EmuThreadFunc(void* burp)
         }
         else
         {
+            EmuStatus = 2;
+
             // paused
             nframes = 0;
             lasttick = SDL_GetTicks();
@@ -159,6 +164,8 @@ int EmuThreadFunc(void* burp)
             SDL_Delay(50);
         }
     }
+
+    EmuStatus = 0;
 
     if (audio) SDL_CloseAudioDevice(audio);
 
@@ -269,6 +276,7 @@ void Run()
 void Stop()
 {
     EmuRunning = 2;
+    while (EmuStatus != 2);
     RunningSomething = false;
 
     uiMenuItemDisable(MenuItem_Pause);
@@ -291,13 +299,14 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     // TODO????
     // uiQuit() crashes
+    printf("TODO, eventually\n");
 }
 
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     int prevstatus = EmuRunning;
     EmuRunning = 2;
-    // TODO: ensure the emu thread has indeed stopped at this point
+    while (EmuStatus != 2);
 
     char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
     if (!file)
@@ -349,6 +358,9 @@ void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
 void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     if (!RunningSomething) return;
+
+    EmuRunning = 2;
+    while (EmuStatus != 2);
 
     if (ROMPath[0] == '\0')
         NDS::LoadBIOS();
