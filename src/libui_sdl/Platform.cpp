@@ -23,7 +23,7 @@
 #include "../Platform.h"
 #include "../Config.h"
 
-/*#ifdef __WXMSW__
+#ifdef __WIN32__
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#define socket_t    SOCKET
@@ -37,7 +37,7 @@
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
 	#define pcap_dev_name name
-#endif*/
+#endif
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET  (socket_t)-1
@@ -66,11 +66,11 @@ int ThreadEntry(void* data)
 }
 
 
-/*socket_t MPSocket;
+socket_t MPSocket;
 sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
 
-#define NIFI_VER 1*/
+#define NIFI_VER 1
 
 
 void StopEmu()
@@ -126,10 +126,10 @@ void Semaphore_Post(void* sema)
 
 bool MP_Init()
 {
-    /*int opt_true = 1;
+    int opt_true = 1;
     int res;
 
-#ifdef __WXMSW__
+#ifdef __WIN32__
     WSADATA wsadata;
     if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
     {
@@ -173,24 +173,24 @@ bool MP_Init()
 
 	MPSendAddr.sa_family = AF_INET;
 	*(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
-	*(u16*)&MPSendAddr.sa_data[0] = htons(7064);*/
+	*(u16*)&MPSendAddr.sa_data[0] = htons(7064);
 
 	return true;
 }
 
 void MP_DeInit()
 {
-    /*if (MPSocket >= 0)
+    if (MPSocket >= 0)
         closesocket(MPSocket);
 
-#ifdef __WXMSW__
+#ifdef __WIN32__
     WSACleanup();
-#endif // __WXMSW__*/
+#endif // __WXMSW__
 }
 
 int MP_SendPacket(u8* data, int len)
 {
-    /*if (MPSocket < 0)
+    if (MPSocket < 0)
         return 0;
 
     if (len > 2048-8)
@@ -207,13 +207,12 @@ int MP_SendPacket(u8* data, int len)
 
     int slen = sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
     if (slen < 8) return 0;
-    return slen - 8;*/
-    return 0;
+    return slen - 8;
 }
 
 int MP_RecvPacket(u8* data, bool block)
 {
-    /*if (MPSocket < 0)
+    if (MPSocket < 0)
         return 0;
 
     fd_set fd;
@@ -254,8 +253,7 @@ int MP_RecvPacket(u8* data, bool block)
     }
 
     memcpy(data, &PacketBuffer[8], rlen);
-    return rlen;*/
-    return 0;
+    return rlen;
 }
 
 

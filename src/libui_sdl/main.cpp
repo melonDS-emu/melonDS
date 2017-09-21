@@ -423,6 +423,7 @@ int main(int argc, char** argv)
 
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
+    uiMenuItemDisable(MenuItem_Stop);
 
     uiAreaHandler areahandler;
 
