@@ -306,7 +306,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
         return;
     }
 
-    strncpy_s(ROMPath, file, 1023);
+    strncpy(ROMPath, file, 1023);
     ROMPath[1023] = '\0';
     uiFreeText(file);
     // TODO: change libui to store strings in stack-allocated buffers?
