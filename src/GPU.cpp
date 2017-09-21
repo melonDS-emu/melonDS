@@ -151,6 +151,11 @@ void Reset()
     GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
 }
 
+void Stop()
+{
+    memset(Framebuffer, 0, 256*192*2*4);
+}
+
 
 // VRAM mapping notes
 //

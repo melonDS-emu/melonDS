@@ -347,6 +347,7 @@ void Stop()
 {
     printf("Stopping: shutdown\n");
     Platform::StopEmu();
+    GPU::Stop();
     SPU::Stop();
 }
 

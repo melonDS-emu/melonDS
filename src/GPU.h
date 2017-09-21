@@ -70,6 +70,7 @@ extern GPU2D* GPU2D_B;
 bool Init();
 void DeInit();
 void Reset();
+void Stop();
 
 void MapVRAM_AB(u32 bank, u8 cnt);
 void MapVRAM_CD(u32 bank, u8 cnt);

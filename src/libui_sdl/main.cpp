@@ -37,6 +37,7 @@ uiArea* MainDrawArea;
 
 uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
+uiMenuItem* MenuItem_Stop;
 
 SDL_Thread* EmuThread;
 int EmuRunning;
@@ -261,6 +262,7 @@ void Run()
 
     uiMenuItemEnable(MenuItem_Pause);
     uiMenuItemEnable(MenuItem_Reset);
+    uiMenuItemEnable(MenuItem_Stop);
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 }
 
@@ -271,6 +273,7 @@ void Stop()
 
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
+    uiMenuItemDisable(MenuItem_Stop);
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 
     memset(ScreenBuffer, 256*384*4, 0);
@@ -355,6 +358,13 @@ void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
     Run();
 }
 
+void OnStop(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    if (!RunningSomething) return;
+
+    Stop();
+}
+
 
 int main(int argc, char** argv)
 {
@@ -404,6 +414,9 @@ int main(int argc, char** argv)
     menuitem = uiMenuAppendItem(menu, "Reset");
     uiMenuItemOnClicked(menuitem, OnReset, NULL);
     MenuItem_Reset = menuitem;
+    menuitem = uiMenuAppendItem(menu, "Stop");
+    uiMenuItemOnClicked(menuitem, OnStop, NULL);
+    MenuItem_Stop = menuitem;
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
