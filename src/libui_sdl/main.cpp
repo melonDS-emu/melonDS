@@ -407,7 +407,7 @@ int main(int argc, char** argv)
     menu = uiNewMenu("System");
     menuitem = uiMenuAppendItem(menu, "Run");
     uiMenuItemOnClicked(menuitem, OnRun, NULL);
-    menuitem = uiMenuAppendItem(menu, "Pause");
+    menuitem = uiMenuAppendCheckItem(menu, "Pause");
     uiMenuItemOnClicked(menuitem, OnPause, NULL);
     MenuItem_Pause = menuitem;
     uiMenuAppendSeparator(menu);
