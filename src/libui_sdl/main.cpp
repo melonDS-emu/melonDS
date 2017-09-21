@@ -35,8 +35,14 @@
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
 
+uiMenuItem* MenuItem_Pause;
+uiMenuItem* MenuItem_Reset;
+
 SDL_Thread* EmuThread;
 int EmuRunning;
+
+bool RunningSomething;
+char ROMPath[1024];
 
 bool ScreenDrawInited = false;
 SDL_mutex* ScreenMutex;
@@ -253,26 +259,96 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 }
 
 
+void Run()
+{
+    EmuRunning = 1;
+    RunningSomething = true;
+
+    uiMenuItemEnable(MenuItem_Pause);
+    uiMenuItemEnable(MenuItem_Reset);
+    uiMenuItemSetChecked(MenuItem_Pause, 0);
+}
+
+void Stop()
+{
+    // TODO
+}
+
+
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     uiQuit();
     return 1;
 }
 
+void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    uiQuit();
+}
+
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 {
+    int prevstatus = EmuRunning;
     EmuRunning = 2;
     // TODO: ensure the emu thread has indeed stopped at this point
 
     char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
-    if (!file) return;
+    if (!file)
+    {
+        EmuRunning = prevstatus;
+        return;
+    }
 
-    NDS::LoadROM(file, Config::DirectBoot);
+    strncpy_s(ROMPath, file, 1023);
+    ROMPath[1023] = '\0';
     uiFreeText(file);
     // TODO: change libui to store strings in stack-allocated buffers?
     // so we don't have to free it after use
 
-    EmuRunning = 1;
+    NDS::LoadROM(ROMPath, Config::DirectBoot);
+
+    Run();
+}
+
+void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    if (!RunningSomething)
+    {
+        ROMPath[0] = '\0';
+        NDS::LoadBIOS();
+    }
+
+    Run();
+}
+
+void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    if (!RunningSomething) return;
+
+    if (EmuRunning == 1)
+    {
+        // enable pause
+        EmuRunning = 2;
+        uiMenuItemSetChecked(MenuItem_Pause, 1);
+    }
+    else
+    {
+        // disable pause
+        EmuRunning = 1;
+        uiMenuItemSetChecked(MenuItem_Pause, 0);
+    }
+}
+
+void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    if (!RunningSomething) return;
+
+    if (ROMPath[0] == '\0')
+        NDS::LoadBIOS();
+    else
+        NDS::LoadROM(ROMPath, Config::DirectBoot);
+
+    Run();
 }
 
 
@@ -313,10 +389,25 @@ int main(int argc, char** argv)
     menuitem = uiMenuAppendItem(menu, "Open ROM...");
     uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
     uiMenuAppendSeparator(menu);
-    uiMenuAppendItem(menu, "Quit");
+    menuitem = uiMenuAppendItem(menu, "Quit");
+    uiMenuItemOnClicked(menuitem, OnCloseByMenu, NULL);
+
+    menu = uiNewMenu("System");
+    menuitem = uiMenuAppendItem(menu, "Run");
+    uiMenuItemOnClicked(menuitem, OnRun, NULL);
+    menuitem = uiMenuAppendItem(menu, "Pause");
+    uiMenuItemOnClicked(menuitem, OnPause, NULL);
+    MenuItem_Pause = menuitem;
+    uiMenuAppendSeparator(menu);
+    menuitem = uiMenuAppendItem(menu, "Reset");
+    uiMenuItemOnClicked(menuitem, OnReset, NULL);
+    MenuItem_Reset = menuitem;
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
+
+    uiMenuItemDisable(MenuItem_Pause);
+    uiMenuItemDisable(MenuItem_Reset);
 
     uiAreaHandler areahandler;
 
@@ -330,6 +421,7 @@ int main(int argc, char** argv)
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
 
     EmuRunning = 2;
+    RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     uiControlShow(uiControl(MainWindow));
