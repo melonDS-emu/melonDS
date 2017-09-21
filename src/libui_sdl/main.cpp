@@ -45,8 +45,8 @@ bool RunningSomething;
 char ROMPath[1024];
 
 bool ScreenDrawInited = false;
-SDL_mutex* ScreenMutex;
 uiDrawBitmap* ScreenBitmap = NULL;
+u32 ScreenBuffer[256*384];
 
 bool Touching = false;
 
@@ -98,12 +98,11 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             // emulate
-            //SDL_LockMutex(ScreenMutex);
             u32 nlines = NDS::RunFrame();
-            //SDL_UnlockMutex(ScreenMutex);
 
             if (EmuRunning == 0) break;
 
+            memcpy(ScreenBuffer, GPU::Framebuffer, 256*384*4);
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -180,12 +179,9 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiRect dorp = {0, 0, 256, 384};
 
-    //SDL_LockMutex(ScreenMutex);
-    uiDrawBitmapUpdate(ScreenBitmap, GPU::Framebuffer);
-    //SDL_UnlockMutex(ScreenMutex);
+    uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
 
     uiDrawBitmapDraw(params->Context, ScreenBitmap, &dorp, &dorp);
-    //printf("draw\n");
 }
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
@@ -248,7 +244,6 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     }
     else if (!evt->Repeat)
     {
-        //printf("key event: %08X %08X - %s\n", evt->Scancode, evt->Modifiers, uiKeyName(evt->Scancode));
         for (int i = 0; i < 10; i++)
             if (evt->Scancode == Config::KeyMapping[i]) NDS::PressKey(i);
         if (evt->Scancode == Config::KeyMapping[10]) NDS::PressKey(16);
@@ -271,7 +266,12 @@ void Run()
 
 void Stop()
 {
-    // TODO
+    EmuRunning = 2;
+    RunningSomething = false;
+
+    uiMenuItemDisable(MenuItem_Pause);
+    uiMenuItemDisable(MenuItem_Reset);
+    uiMenuItemSetChecked(MenuItem_Pause, 0);
 }
 
 
@@ -283,7 +283,8 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 
 void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    uiQuit();
+    // TODO????
+    // uiQuit() crashes
 }
 
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -368,8 +369,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    //ScreenMutex = SDL_CreateMutex();
-
     uiInitOptions ui_opt;
     memset(&ui_opt, 0, sizeof(uiInitOptions));
     const char* ui_err = uiInit(&ui_opt);
@@ -431,7 +430,6 @@ int main(int argc, char** argv)
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
 
-    //SDL_DestroyMutex(ScreenMutex);
     if (ScreenBitmap) uiDrawFreeBitmap(ScreenBitmap);
 
     uiUninit();
