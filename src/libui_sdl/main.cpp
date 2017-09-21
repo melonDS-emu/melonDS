@@ -272,6 +272,9 @@ void Stop()
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
     uiMenuItemSetChecked(MenuItem_Pause, 0);
+
+    memset(ScreenBuffer, 256*384*4, 0);
+    uiAreaQueueRedrawAll(MainDrawArea);
 }
 
 

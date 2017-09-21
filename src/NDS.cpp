@@ -29,6 +29,7 @@
 #include "SPI.h"
 #include "RTC.h"
 #include "Wifi.h"
+#include "Platform.h"
 
 
 namespace NDS
@@ -340,6 +341,13 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
+}
+
+void Stop()
+{
+    printf("Stopping: shutdown\n");
+    Platform::StopEmu();
+    SPU::Stop();
 }
 
 void LoadROM(const char* path, bool direct)

@@ -104,6 +104,7 @@ extern u8 MainRAM[0x400000];
 bool Init();
 void DeInit();
 void Reset();
+void Stop();
 
 void LoadROM(const char* path, bool direct);
 void LoadBIOS();

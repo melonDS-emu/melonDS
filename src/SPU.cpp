@@ -114,6 +114,11 @@ void Reset()
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
 }
 
+void Stop()
+{
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+}
+
 
 void SetBias(u16 bias)
 {

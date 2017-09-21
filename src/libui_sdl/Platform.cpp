@@ -44,6 +44,9 @@
 #endif
 
 
+void Stop();
+
+
 namespace Platform
 {
 
@@ -52,7 +55,7 @@ typedef struct
 {
     SDL_Thread* ID;
     void (*Func)();
-    
+
 } ThreadData;
 
 int ThreadEntry(void* data)
@@ -68,6 +71,12 @@ sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
 
 #define NIFI_VER 1*/
+
+
+void StopEmu()
+{
+    Stop();
+}
 
 
 void* Thread_Create(void (*func)())

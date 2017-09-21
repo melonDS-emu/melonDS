@@ -25,6 +25,7 @@ namespace SPU
 bool Init();
 void DeInit();
 void Reset();
+void Stop();
 
 void SetBias(u16 bias);
 

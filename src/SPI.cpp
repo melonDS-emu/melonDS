@@ -365,7 +365,7 @@ u8 Read()
 }
 
 void Write(u8 val, u32 hold)
-{printf("SPI powerman %02X %d\n", val, hold?1:0);
+{
     if (!hold)
     {
         Hold = 0;
@@ -395,11 +395,11 @@ void Write(u8 val, u32 hold)
             switch (regid)
             {
             case 0:
-                if (val & 0x40) printf("DS shutdown\n");
-                printf("power %02X\n", val);
+                if (val & 0x40) NDS::Stop(); // shutdown
+                //printf("power %02X\n", val);
                 break;
             case 4:
-                printf("brightness %02X\n", val);
+                //printf("brightness %02X\n", val);
                 break;
             }
         }
