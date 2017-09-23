@@ -482,6 +482,12 @@ void uiWindowSetMargined(uiWindow *w, int margined)
 	windowRelayout(w);
 }
 
+
+void uiWindowSetDropTarget(uiWindow* w, int drop)
+{
+    DragAcceptFiles(w->hwnd, drop?TRUE:FALSE);
+}
+
 // see http://blogs.msdn.com/b/oldnewthing/archive/2003/09/11/54885.aspx and http://blogs.msdn.com/b/oldnewthing/archive/2003/09/13/54917.aspx
 // TODO use clientSizeToWindowSize()
 static void setClientSize(uiWindow *w, int width, int height, BOOL hasMenubar, DWORD style, DWORD exstyle)

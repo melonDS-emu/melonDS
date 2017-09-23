@@ -297,7 +297,22 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 
 void OnDropFile(uiWindow* window, char* file, void* blarg)
 {
-    printf("DROP: %s\n", file);
+    char* ext = &file[strlen(file)-3];
+
+    if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+    {
+        if (RunningSomething)
+        {
+            EmuRunning = 2;
+            while (EmuStatus != 2);
+        }
+
+        strncpy(ROMPath, file, 1023);
+        ROMPath[1023] = '\0';
+
+        NDS::LoadROM(ROMPath, Config::DirectBoot);
+        Run();
+    }
 }
 
 void OnGetFocus(uiWindow* window, void* blarg)
@@ -336,7 +351,6 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     // so we don't have to free it after use
 
     NDS::LoadROM(ROMPath, Config::DirectBoot);
-
     Run();
 }
 
@@ -392,6 +406,15 @@ void OnStop(uiMenuItem* item, uiWindow* window, void* blarg)
 }
 
 
+bool _fileexists(char* name)
+{
+    FILE* f = fopen(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+
 int main(int argc, char** argv)
 {
     srand(time(NULL));
@@ -420,6 +443,23 @@ int main(int argc, char** argv)
 
     Config::Load();
 
+    if (!_fileexists("bios7.bin") || !_fileexists("bios9.bin") || !_fileexists("firmware.bin"))
+    {
+        uiMsgBoxError(
+            NULL,
+            "BIOS/Firmware not found",
+            "One or more of the following required files don't exist or couldn't be accessed:\n\n"
+            "bios7.bin -- ARM7 BIOS\n"
+            "bios9.bin -- ARM9 BIOS\n"
+            "firmware.bin -- firmware image\n\n"
+            "Dump the files from your DS and place them in the directory you run melonDS from.\n"
+            "Make sure that the files can be accessed.");
+
+        uiUninit();
+        SDL_Quit();
+        return 0;
+    }
+
     uiMenu* menu;
     uiMenuItem* menuitem;
 
@@ -446,7 +486,10 @@ int main(int argc, char** argv)
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
+
+    uiWindowSetDropTarget(MainWindow, 1);
     uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
+
     uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
     uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
 
@@ -469,6 +512,21 @@ int main(int argc, char** argv)
     RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
+    if (argc > 1)
+    {
+        char* file = argv[1];
+        char* ext = &file[strlen(file)-3];
+
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        {
+            strncpy(ROMPath, file, 1023);
+            ROMPath[1023] = '\0';
+
+            NDS::LoadROM(ROMPath, Config::DirectBoot);
+            Run();
+        }
+    }
+
     uiControlShow(uiControl(MainWindow));
     uiControlSetFocus(uiControl(MainDrawArea));
     uiMain();
@@ -490,7 +548,7 @@ int main(int argc, char** argv)
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
     char cmdargs[16][256];
-    int arg = 0;
+    int arg = 1;
     int j = 0;
     bool inquote = false;
     int len = strlen(cmdline);
@@ -514,8 +572,16 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     }
     if (j > 255) j = 255;
     if (arg < 16) cmdargs[arg][j] = '\0';
+    if (len > 0) arg++;
 
-    return main(arg, (char**)cmdargs);
+    // FIXME!!
+    strncpy(cmdargs[0], "melonDS.exe", 256);
+
+    char* cmdargptr[16];
+    for (int i = 0; i < 16; i++)
+        cmdargptr[i] = &cmdargs[i][0];
+
+    return main(arg, cmdargptr);
 }
 
 #endif
