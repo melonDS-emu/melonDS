@@ -295,6 +295,21 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     return 1;
 }
 
+void OnDropFile(uiWindow* window, char* file, void* blarg)
+{
+    printf("DROP: %s\n", file);
+}
+
+void OnGetFocus(uiWindow* window, void* blarg)
+{
+    uiControlSetFocus(uiControl(MainDrawArea));
+}
+
+void OnLoseFocus(uiWindow* window, void* blarg)
+{
+    // TODO: shit here?
+}
+
 void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     uiControlDestroy(uiControl(window));
@@ -431,6 +446,9 @@ int main(int argc, char** argv)
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
+    uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
+    uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
+    uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
 
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
@@ -452,7 +470,7 @@ int main(int argc, char** argv)
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     uiControlShow(uiControl(MainWindow));
-    //uiControlSetFocus(uiControl(MainDrawArea)); // TODO: this needs to be done when the window regains focus
+    uiControlSetFocus(uiControl(MainDrawArea));
     uiMain();
 
     EmuRunning = 0;
