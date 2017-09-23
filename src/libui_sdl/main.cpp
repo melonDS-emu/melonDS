@@ -297,9 +297,8 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 
 void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    // TODO????
-    // uiQuit() crashes
-    printf("TODO, eventually\n");
+    uiControlDestroy(uiControl(window));
+    uiQuit();
 }
 
 void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
