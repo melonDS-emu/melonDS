@@ -27,9 +27,13 @@
 #include "../version.h"
 #include "../Config.h"
 
+#include "DlgEmuSettings.h"
+
 #include "../NDS.h"
 #include "../GPU.h"
 #include "../SPU.h"
+#include "../Wifi.h"
+#include "../Platform.h"
 
 
 uiWindow* MainWindow;
@@ -161,7 +165,7 @@ int EmuThreadFunc(void* burp)
             fpslimitcount = 0;
 
             uiAreaQueueRedrawAll(MainDrawArea);
-            SDL_Delay(50);
+            SDL_Delay(100);
         }
     }
 
@@ -405,6 +409,31 @@ void OnStop(uiMenuItem* item, uiWindow* window, void* blarg)
     Stop();
 }
 
+void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgEmuSettings::Open();
+}
+
+
+void ApplyNewSettings()
+{
+    if (!RunningSomething) return;
+
+    int prevstatus = EmuRunning;
+    EmuRunning = 2;
+    while (EmuStatus != 2);
+
+    GPU3D::SoftRenderer::SetupRenderThread();
+
+    if (Wifi::MPInited)
+    {
+        Platform::MP_DeInit();
+        Platform::MP_Init();
+    }
+
+    EmuRunning = prevstatus;
+}
+
 
 bool _fileexists(char* name)
 {
@@ -483,6 +512,10 @@ int main(int argc, char** argv)
     menuitem = uiMenuAppendItem(menu, "Stop");
     uiMenuItemOnClicked(menuitem, OnStop, NULL);
     MenuItem_Stop = menuitem;
+
+    menu = uiNewMenu("Config");
+    menuitem = uiMenuAppendItem(menu, "Emu settings");
+    uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);

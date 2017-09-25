@@ -191,6 +191,8 @@
 		<Unit filename="src/SPU.h" />
 		<Unit filename="src/Wifi.cpp" />
 		<Unit filename="src/Wifi.h" />
+		<Unit filename="src/libui_sdl/DlgEmuSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
