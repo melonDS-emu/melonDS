@@ -28,6 +28,7 @@
 #include "../Config.h"
 
 #include "DlgEmuSettings.h"
+#include "DlgInputConfig.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -414,6 +415,11 @@ void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgEmuSettings::Open();
 }
 
+void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgInputConfig::Open();
+}
+
 
 void ApplyNewSettings()
 {
@@ -516,6 +522,8 @@ int main(int argc, char** argv)
     menu = uiNewMenu("Config");
     menuitem = uiMenuAppendItem(menu, "Emu settings");
     uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
+    menuitem = uiMenuAppendItem(menu, "Input config");
+    uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
