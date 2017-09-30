@@ -117,6 +117,8 @@ void ReleaseKey(u32 key);
 void TouchScreen(u16 x, u16 y);
 void ReleaseScreen();
 
+void SetKeyMask(u32 mask);
+
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
 

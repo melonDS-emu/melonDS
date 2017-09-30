@@ -106,7 +106,13 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         if (pollid < 0x100) return 0;
         int id = pollid & 0xFF;
         if (id > 12) return 0;
-        if (evt->Scancode != 0x1) return 0; // ESC
+        if (evt->Scancode != 0x1) // ESC
+        {
+            if (evt->Scancode == 0xE) // backspace
+                joymap[id] = -1;
+            else
+                return 1;
+        }
 
         char keyname[16];
         JoyMappingName(joymap[id], keyname);

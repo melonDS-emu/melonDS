@@ -57,6 +57,7 @@ u32 ScreenBuffer[256*384];
 
 bool Touching = false;
 
+u32 KeyInputMask;
 SDL_Joystick* Joystick;
 
 
@@ -95,6 +96,8 @@ int EmuThreadFunc(void* burp)
         SDL_PauseAudioDevice(audio, 0);
     }
 
+    KeyInputMask = 0xFFF;
+
     // TODO: support more joysticks
     if (SDL_NumJoysticks() > 0)
         Joystick = SDL_JoystickOpen(0);
@@ -113,6 +116,39 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
+
+            // poll input
+            u32 keymask = KeyInputMask;
+            u32 joymask = 0xFFF;
+            if (Joystick)
+            {
+                SDL_JoystickUpdate();
+
+                Uint32 hat = SDL_JoystickGetHat(Joystick, 0);
+                Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
+                Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
+
+                for (int i = 0; i < 12; i++)
+                {
+                    int btnid = Config::JoyMapping[i];
+                    if (btnid < 0) continue;
+
+                    bool pressed;
+                    if (btnid == 0x101) // up
+                        pressed = (hat & SDL_HAT_UP) || (axisY <= -16384);
+                    else if (btnid == 0x104) // down
+                        pressed = (hat & SDL_HAT_DOWN) || (axisY >= 16384);
+                    else if (btnid == 0x102) // right
+                        pressed = (hat & SDL_HAT_RIGHT) || (axisX >= 16384);
+                    else if (btnid == 0x108) // left
+                        pressed = (hat & SDL_HAT_LEFT) || (axisX <= -16384);
+                    else
+                        pressed = SDL_JoystickGetButton(Joystick, btnid);
+
+                    if (pressed) joymask &= ~(1<<i);
+                }
+            }
+            NDS::SetKeyMask(keymask & joymask);
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -258,17 +294,15 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 
     if (evt->Up)
     {
-        for (int i = 0; i < 10; i++)
-            if (evt->Scancode == Config::KeyMapping[i]) NDS::ReleaseKey(i);
-        if (evt->Scancode == Config::KeyMapping[10]) NDS::ReleaseKey(16);
-        if (evt->Scancode == Config::KeyMapping[11]) NDS::ReleaseKey(17);
+        for (int i = 0; i < 12; i++)
+            if (evt->Scancode == Config::KeyMapping[i])
+                KeyInputMask |= (1<<i);
     }
     else if (!evt->Repeat)
     {
-        for (int i = 0; i < 10; i++)
-            if (evt->Scancode == Config::KeyMapping[i]) NDS::PressKey(i);
-        if (evt->Scancode == Config::KeyMapping[10]) NDS::PressKey(16);
-        if (evt->Scancode == Config::KeyMapping[11]) NDS::PressKey(17);
+        for (int i = 0; i < 12; i++)
+            if (evt->Scancode == Config::KeyMapping[i])
+                KeyInputMask &= ~(1<<i);
     }
 
     return 1;

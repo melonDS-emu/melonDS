@@ -508,6 +508,16 @@ void ReleaseScreen()
 }
 
 
+void SetKeyMask(u32 mask)
+{
+    u32 key_lo = mask & 0x3FF;
+    u32 key_hi = (mask >> 10) & 0x3;
+
+    KeyInput &= 0xFFFCFC00;
+    KeyInput |= key_lo | (key_hi << 16);
+}
+
+
 void Halt()
 {
     printf("Halt()\n");
