@@ -20,12 +20,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <SDL2/SDL.h>
 #include "libui/ui.h"
 
 #include "../types.h"
 #include "../Config.h"
 
 #include "DlgInputConfig.h"
+
+
+extern SDL_Joystick* Joystick;
 
 
 namespace DlgInputConfig
@@ -89,13 +93,32 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
-    if (pollid < 0 || pollid > 12)
+    if (pollid < 0)
         return 0;
 
     if (evt->Scancode == 0x38) // ALT
         return 0;
     if (evt->Modifiers == 0x2) // ALT+key
         return 0;
+
+    if (pollid > 12)
+    {
+        if (pollid < 0x100) return 0;
+        int id = pollid & 0xFF;
+        if (id > 12) return 0;
+        if (evt->Scancode != 0x1) return 0; // ESC
+
+        char keyname[16];
+        JoyMappingName(joymap[id], keyname);
+        uiButtonSetText(pollbtn, keyname);
+        uiControlEnable(uiControl(pollbtn));
+
+        pollid = -1;
+
+        uiControlSetFocus(uiControl(pollbtn));
+
+        return 1;
+    }
 
     if (!evt->Up)
     {
@@ -116,13 +139,68 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     return 1;
 }
 
+Uint32 JoyPoll(Uint32 interval, void* param)
+{
+    if (pollid < 0x100) return 0;
+    int id = pollid & 0xFF;
+    if (id > 12) return 0;
+
+    SDL_JoystickUpdate();
+
+    SDL_Joystick* joy = Joystick;
+    if (!joy) return 0;
+
+    int nbuttons = SDL_JoystickNumButtons(joy);
+    for (int i = 0; i < nbuttons; i++)
+    {
+        if (SDL_JoystickGetButton(joy, i))
+        {
+            joymap[id] = i;
+
+            char keyname[16];
+            JoyMappingName(joymap[id], keyname);
+            uiButtonSetText(pollbtn, keyname);
+            uiControlEnable(uiControl(pollbtn));
+
+            pollid = -1;
+
+            uiControlSetFocus(uiControl(pollbtn));
+            return 0;
+        }
+    }
+
+    u8 blackhat = SDL_JoystickGetHat(joy, 0);
+    if (blackhat)
+    {
+        if      (blackhat & 0x1) blackhat = 0x1;
+        else if (blackhat & 0x2) blackhat = 0x2;
+        else if (blackhat & 0x4) blackhat = 0x4;
+        else                     blackhat = 0x8;
+
+        joymap[id] = 0x100 | blackhat;
+
+        char keyname[16];
+        JoyMappingName(joymap[id], keyname);
+        uiButtonSetText(pollbtn, keyname);
+        uiControlEnable(uiControl(pollbtn));
+
+        pollid = -1;
+
+        uiControlSetFocus(uiControl(pollbtn));
+        return 0;
+    }
+
+    return 100;
+}
+
 
 void OnKeyStartConfig(uiButton* btn, void* data)
 {
     if (pollid != -1)
     {
         // TODO: handle this better?
-        uiControlSetFocus(uiControl(keypresscatcher));
+        if (pollid <= 12)
+            uiControlSetFocus(uiControl(keypresscatcher));
         return;
     }
 
@@ -136,10 +214,41 @@ void OnKeyStartConfig(uiButton* btn, void* data)
     uiControlSetFocus(uiControl(keypresscatcher));
 }
 
+void OnJoyStartConfig(uiButton* btn, void* data)
+{
+    if (pollid != -1)
+    {
+        // TODO: handle this better?
+        if (pollid <= 12)
+            uiControlSetFocus(uiControl(keypresscatcher));
+        return;
+    }
+
+    int id = *(int*)data;
+    pollid = id | 0x100;
+    pollbtn = btn;
+
+    uiButtonSetText(btn, "[press button]");
+    uiControlDisable(uiControl(btn));
+
+    SDL_AddTimer(100, JoyPoll, NULL);
+    uiControlSetFocus(uiControl(keypresscatcher));
+}
+
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     return 1;
+}
+
+void OnGetFocus(uiWindow* window, void* blarg)
+{
+    if (pollid >= 0)
+        uiControlSetFocus(uiControl(keypresscatcher));
+}
+
+void OnLoseFocus(uiWindow* window, void* blarg)
+{
 }
 
 void OnCancel(uiButton* btn, void* blarg)
@@ -167,6 +276,8 @@ void Open()
     win = uiNewWindow("Input config - melonDS", 600, 400, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
+    uiWindowOnGetFocus(win, OnGetFocus, NULL);
+    uiWindowOnLoseFocus(win, OnLoseFocus, NULL);
 
     areahandler.Draw = OnAreaDraw;
     areahandler.MouseEvent = OnAreaMouseEvent;
@@ -227,6 +338,7 @@ void Open()
 
             uiButton* btn = uiNewButton(keyname);
             uiBoxAppend(box, uiControl(btn), 1);
+            uiButtonOnClicked(btn, OnJoyStartConfig, &keyorder[i]);
         }
     }
 

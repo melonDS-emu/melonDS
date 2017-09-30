@@ -57,6 +57,8 @@ u32 ScreenBuffer[256*384];
 
 bool Touching = false;
 
+SDL_Joystick* Joystick;
+
 
 void AudioCallback(void* data, Uint8* stream, int len)
 {
@@ -92,6 +94,12 @@ int EmuThreadFunc(void* burp)
     {
         SDL_PauseAudioDevice(audio, 0);
     }
+
+    // TODO: support more joysticks
+    if (SDL_NumJoysticks() > 0)
+        Joystick = SDL_JoystickOpen(0);
+    else
+        Joystick = NULL;
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -171,6 +179,8 @@ int EmuThreadFunc(void* burp)
     }
 
     EmuStatus = 0;
+
+    if (Joystick) SDL_JoystickClose(Joystick);
 
     if (audio) SDL_CloseAudioDevice(audio);
 
@@ -463,6 +473,8 @@ int main(int argc, char** argv)
         printf("SDL shat itself :(\n");
         return 1;
     }
+
+    SDL_JoystickEventState(SDL_ENABLE);
 
     uiInitOptions ui_opt;
     memset(&ui_opt, 0, sizeof(uiInitOptions));
