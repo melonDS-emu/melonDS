@@ -232,12 +232,10 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
 
 void OnAreaMouseCrossed(uiAreaHandler* handler, uiArea* area, int left)
 {
-    //
 }
 
 void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 {
-    //
 }
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
@@ -539,7 +537,6 @@ int main(int argc, char** argv)
     uiMenuItemDisable(MenuItem_Stop);
 
     uiAreaHandler areahandler;
-
     areahandler.Draw = OnAreaDraw;
     areahandler.MouseEvent = OnAreaMouseEvent;
     areahandler.MouseCrossed = OnAreaMouseCrossed;
