@@ -534,13 +534,13 @@ uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
     bp2.dpiY = 0;
     bp2.pixelFormat = D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE);
 
-    c->rt->BeginDraw();
+    //c->rt->BeginDraw();
 
     hr = c->rt->CreateBitmap(D2D1::SizeU(width,height), NULL, 0, &bp2, &bmp->bmp);
     if (hr != S_OK)
 		logHRESULT(L"error creating bitmap", hr);
 
-    c->rt->EndDraw();
+    //c->rt->EndDraw();
 
     bmp->Width = width;
     bmp->Height = height;
