@@ -1845,9 +1845,8 @@ void ScanlineFinalPass(s32 y)
     {
         // anti-aliasing
 
-        // TODO: antialiasing applies even if translucent polygons are drawn
-        // over an opaque polygon's edges, which requires blending translucent
-        // polygons with the topmost two pixels
+        // edges were flagged and their coverages calculated during rendering
+        // this is where such edge pixels are blended with the pixels underneath
 
         for (int x = 0; x < 256; x++)
         {
