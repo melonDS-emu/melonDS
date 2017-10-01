@@ -320,10 +320,11 @@ void Run()
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 }
 
-void Stop()
+void Stop(bool internal)
 {
     EmuRunning = 2;
-    while (EmuStatus != 2);
+    if (!internal) // if shutting down from the UI thread, wait till the emu thread has stopped
+        while (EmuStatus != 2);
     RunningSomething = false;
 
     uiMenuItemDisable(MenuItem_Pause);
@@ -449,7 +450,7 @@ void OnStop(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     if (!RunningSomething) return;
 
-    Stop();
+    Stop(false);
 }
 
 void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)

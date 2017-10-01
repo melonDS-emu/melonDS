@@ -44,7 +44,7 @@
 #endif
 
 
-void Stop();
+void Stop(bool internal);
 
 
 namespace Platform
@@ -75,7 +75,7 @@ u8 PacketBuffer[2048];
 
 void StopEmu()
 {
-    Stop();
+    Stop(true);
 }
 
 
