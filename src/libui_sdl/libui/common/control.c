@@ -62,6 +62,14 @@ void uiControlSetFocus(uiControl *c)
 	(*(c->SetFocus))(c);
 }
 
+void uiControlSetMinSize(uiControl *c, int w, int h)
+{
+    c->MinWidth = w;
+    c->MinHeight = h;
+
+    // TODO: resize if needed
+}
+
 #define uiControlSignature 0x7569436F
 
 uiControl *uiAllocControl(size_t size, uint32_t OSsig, uint32_t typesig, const char *typenamestr)
@@ -72,6 +80,10 @@ uiControl *uiAllocControl(size_t size, uint32_t OSsig, uint32_t typesig, const c
 	c->Signature = uiControlSignature;
 	c->OSSignature = OSsig;
 	c->TypeSignature = typesig;
+
+	c->MinWidth = -1;
+	c->MinHeight = -1;
+
 	return c;
 }
 

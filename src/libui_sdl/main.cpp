@@ -592,6 +592,7 @@ int main(int argc, char** argv)
 
     MainDrawArea = uiNewArea(&areahandler);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
 
     EmuRunning = 2;
     RunningSomething = false;
