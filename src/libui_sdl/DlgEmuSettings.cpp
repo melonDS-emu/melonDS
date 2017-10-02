@@ -65,7 +65,7 @@ void OnOk(uiButton* btn, void* blarg)
 
 void Open()
 {
-    win = uiNewWindow("Emu settings - melonDS", 300, 200, 0);
+    win = uiNewWindow("Emu settings - melonDS", 300, 200, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 

@@ -283,7 +283,7 @@ void Open()
     memcpy(keymap, Config::KeyMapping, sizeof(int)*12);
     memcpy(joymap, Config::JoyMapping, sizeof(int)*12);
 
-    win = uiNewWindow("Input config - melonDS", 600, 400, 0);
+    win = uiNewWindow("Input config - melonDS", 600, 400, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
     uiWindowOnGetFocus(win, OnGetFocus, NULL);
