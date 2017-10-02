@@ -37,6 +37,11 @@ static LRESULT CALLBACK areaWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 		uiWindowsEnsureGetClientRect(a->hwnd, &client);
 		areaDrawOnResize(a, &client);
 		areaScrollOnResize(a, &client);
+		{
+		    double w, h;
+		    loadAreaSize(a, a->rt, &w, &h);
+		    a->ah->Resize(a->ah, a, (int)w, (int)h);
+		}
 		return 0;
 	}
 

@@ -37,6 +37,9 @@
 #include "../Platform.h"
 
 
+const int kScreenGap[] = {0, 1, 8, 64, 90, 128};
+
+
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
 
@@ -55,10 +58,14 @@ bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap = NULL;
 u32 ScreenBuffer[256*384];
 
+uiRect TopScreenRect;
+uiRect BottomScreenRect;
+
 bool Touching = false;
 
 u32 KeyInputMask;
 SDL_Joystick* Joystick;
+
 
 
 void AudioCallback(void* data, Uint8* stream, int len)
@@ -236,11 +243,13 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     if (!ScreenBitmap) return;
 
-    uiRect dorp = {0, 0, 256, 384};
+    uiRect top = {0, 0, 256, 192};
+    uiRect bot = {0, 192, 256, 192};
 
     uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
 
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &dorp, &dorp);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect);
 }
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
@@ -254,17 +263,23 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
         NDS::ReleaseKey(16+6);
         NDS::ReleaseScreen();
     }
-    else if (!Touching && (evt->Down == 1) && (y >= 192))
+    else if (!Touching && (evt->Down == 1) &&
+             (x >= BottomScreenRect.X) && (y >= BottomScreenRect.Y) &&
+             (x < (BottomScreenRect.X+BottomScreenRect.Width)) && (y < (BottomScreenRect.Y+BottomScreenRect.Height)))
     {
         Touching = true;
         NDS::PressKey(16+6);
-        // TODO: scaling/offset as needed
     }
 
     if (Touching)
     {
-        // TODO: scaling, here too
-        y -= 192;
+        x -= BottomScreenRect.X;
+        y -= BottomScreenRect.Y;
+
+        if (BottomScreenRect.Width != 256)
+            x = (x * 256) / BottomScreenRect.Width;
+        if (BottomScreenRect.Height != 192)
+            y = (y * 192) / BottomScreenRect.Height;
 
         // clamp
         if (x < 0) x = 0;
@@ -272,6 +287,7 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
         if (y < 0) y = 0;
         else if (y > 191) y = 191;
 
+        // TODO: take advantage of possible extra precision when possible? (scaled window for example)
         NDS::TouchScreen(x, y);
     }
 }
@@ -306,6 +322,47 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     }
 
     return 1;
+}
+
+void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
+{
+    float ratio = (height/2) / (float)width;
+
+    if (ratio <= 0.75)
+    {
+        // bars on the sides
+
+        int targetW = (height * 256) / 384;
+        int barW = (width - targetW) / 2;
+
+        TopScreenRect.X = barW;
+        TopScreenRect.Width = targetW;
+        TopScreenRect.Y = 0;
+        TopScreenRect.Height = height / 2;
+
+        BottomScreenRect.X = barW;
+        BottomScreenRect.Width = targetW;
+        BottomScreenRect.Y = height / 2;
+        BottomScreenRect.Height = height / 2;
+    }
+    else
+    {
+        // TODO: this should do bars on the top, and fixed screen gap
+        // for now we'll adjust the screen gap in consequence
+
+        int targetH = (width * 384) / 256;
+        int gap = height - targetH;
+
+        TopScreenRect.X = 0;
+        TopScreenRect.Width = width;
+        TopScreenRect.Y = 0;
+        TopScreenRect.Height = targetH / 2;
+
+        BottomScreenRect.X = 0;
+        BottomScreenRect.Width = width;
+        BottomScreenRect.Y = (targetH / 2) + gap;
+        BottomScreenRect.Height = targetH / 2;
+    }
 }
 
 
@@ -569,6 +626,13 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
     menuitem = uiMenuAppendItem(menu, "Input config");
     uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+    /*uiMenuAppendSeparator();
+    menuitem = uiMenuAppendItem(menu, "Mid-screen gap");
+    {
+        uiMenuItem* parent = menuitem;
+        //menuitem = uiMenu
+        // TODO: need submenu support in libui.
+    }*/
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
@@ -589,6 +653,7 @@ int main(int argc, char** argv)
     areahandler.MouseCrossed = OnAreaMouseCrossed;
     areahandler.DragBroken = OnAreaDragBroken;
     areahandler.KeyEvent = OnAreaKeyEvent;
+    areahandler.Resize = OnAreaResize;
 
     MainDrawArea = uiNewArea(&areahandler);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));

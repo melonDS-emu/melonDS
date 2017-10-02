@@ -91,6 +91,10 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 {
 }
 
+void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
+{
+}
+
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
     if (pollid < 0)
@@ -290,6 +294,7 @@ void Open()
     areahandler.MouseCrossed = OnAreaMouseCrossed;
     areahandler.DragBroken = OnAreaDragBroken;
     areahandler.KeyEvent = OnAreaKeyEvent;
+    areahandler.Resize = OnAreaResize;
 
     uiBox* top = uiNewVerticalBox();
     uiWindowSetChild(win, uiControl(top));
