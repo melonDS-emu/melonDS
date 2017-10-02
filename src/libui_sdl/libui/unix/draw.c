@@ -187,11 +187,24 @@ void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
 
 void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect)
 {
-    // TODO: rect
+    cairo_save(c->cr);
     
-    cairo_set_source_surface(c->cr, bmp->bmp, srcrect->X, srcrect->Y);
+    cairo_rectangle(c->cr, dstrect->X, dstrect->Y, dstrect->Width, dstrect->Height);
     
+    cairo_translate(c->cr, dstrect->X, dstrect->Y);
+    if ((dstrect->Width != srcrect->Width) || (dstrect->Height != srcrect->Height))
+    {
+        // scale shit if needed
+        double sx = dstrect->Width / (double)srcrect->Width;
+        double sy = dstrect->Height / (double)srcrect->Height;
+        cairo_scale(c->cr, sx, sy);
+    }
+    
+    cairo_set_source_surface(c->cr, bmp->bmp, -srcrect->X, -srcrect->Y);
+    cairo_clip(c->cr);
     cairo_paint(c->cr);
+    
+    cairo_restore(c->cr);
 }
 
 void uiDrawFreeBitmap(uiDrawBitmap* bmp)
