@@ -1367,6 +1367,16 @@ void ARM7Write32(u32 addr, u32 val)
 
 
 
+#define CASE_READ8_16BIT(addr, val) \
+    case (addr): return (val) & 0xFF; \
+    case (addr+1): return (val) >> 8;
+
+#define CASE_READ8_32BIT(addr, val) \
+    case (addr): return (val) & 0xFF; \
+    case (addr+1): return ((val) >> 8) & 0xFF; \
+    case (addr+2): return ((val) >> 16) & 0xFF; \
+    case (addr+3): return (val) >> 24;
+
 u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
@@ -1399,6 +1409,21 @@ u8 ARM9IORead8(u32 addr)
     case 0x04000247: return WRAMCnt;
     case 0x04000248: return GPU::VRAMCNT[7];
     case 0x04000249: return GPU::VRAMCNT[8];
+
+    CASE_READ8_16BIT(0x04000280, DivCnt)
+    CASE_READ8_32BIT(0x04000290, DivNumerator[0])
+    CASE_READ8_32BIT(0x04000294, DivNumerator[1])
+    CASE_READ8_32BIT(0x04000298, DivDenominator[0])
+    CASE_READ8_32BIT(0x0400029C, DivDenominator[1])
+    CASE_READ8_32BIT(0x040002A0, DivQuotient[0])
+    CASE_READ8_32BIT(0x040002A4, DivQuotient[1])
+    CASE_READ8_32BIT(0x040002A8, DivRemainder[0])
+    CASE_READ8_32BIT(0x040002AC, DivRemainder[1])
+
+    CASE_READ8_16BIT(0x040002B0, SqrtCnt)
+    CASE_READ8_32BIT(0x040002B4, SqrtRes)
+    CASE_READ8_32BIT(0x040002B8, SqrtVal[0])
+    CASE_READ8_32BIT(0x040002BC, SqrtVal[1])
 
     case 0x04000300: return PostFlag9;
     }
