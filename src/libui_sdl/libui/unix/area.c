@@ -439,6 +439,11 @@ static gboolean areaWidget_key_release_event(GtkWidget *w, GdkEventKey *e)
 	return GDK_EVENT_PROPAGATE;
 }
 
+char* uiKeyName(int scancode)
+{
+    return "TODO";
+}
+
 enum {
 	pArea = 1,
 	nProps,

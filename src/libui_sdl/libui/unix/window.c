@@ -24,6 +24,13 @@ struct uiWindow {
 	void *onClosingData;
 	void (*onContentSizeChanged)(uiWindow *, void *);
 	void *onContentSizeChangedData;
+	void (*onDropFile)(uiWindow *, char *, void *);
+	void *onDropFileData;
+	void (*onGetFocus)(uiWindow *, void *);
+	void *onGetFocusData;
+	void (*onLoseFocus)(uiWindow *, void *);
+	void *onLoseFocusData;
+	
 	gboolean fullscreen;
 };
 
@@ -44,6 +51,20 @@ static void onSizeAllocate(GtkWidget *widget, GdkRectangle *allocation, gpointer
 
 	// TODO deal with spurious size-allocates
 	(*(w->onContentSizeChanged))(w, w->onContentSizeChangedData);
+}
+
+static gboolean onGetFocus(GtkWidget *win, GdkEvent *e, gpointer data)
+{
+    uiWindow *w = uiWindow(data);
+    if (w->onGetFocus)
+        w->onGetFocus(w, w->onGetFocusData);
+}
+
+static gboolean onLoseFocus(GtkWidget *win, GdkEvent *e, gpointer data)
+{
+    uiWindow *w = uiWindow(data);
+    if (w->onLoseFocus)
+        w->onLoseFocus(w, w->onLoseFocusData);
 }
 
 static int defaultOnClosing(uiWindow *w, void *data)
@@ -112,6 +133,7 @@ uiUnixControlDefaultHide(uiWindow)
 uiUnixControlDefaultEnabled(uiWindow)
 uiUnixControlDefaultEnable(uiWindow)
 uiUnixControlDefaultDisable(uiWindow)
+uiUnixControlDefaultSetFocus(uiWindow)
 // TODO?
 uiUnixControlDefaultSetContainer(uiWindow)
 
@@ -194,6 +216,24 @@ void uiWindowOnClosing(uiWindow *w, int (*f)(uiWindow *, void *), void *data)
 	w->onClosingData = data;
 }
 
+void uiWindowOnDropFile(uiWindow *w, void (*f)(uiWindow *, char *, void *), void *data)
+{
+	w->onDropFile = f;
+	w->onDropFileData = data;
+}
+
+void uiWindowOnGetFocus(uiWindow *w, void (*f)(uiWindow *, void *), void *data)
+{
+	w->onGetFocus = f;
+	w->onGetFocusData = data;
+}
+
+void uiWindowOnLoseFocus(uiWindow *w, void (*f)(uiWindow *, void *), void *data)
+{
+	w->onLoseFocus = f;
+	w->onLoseFocusData = data;
+}
+
 int uiWindowBorderless(uiWindow *w)
 {
 	return gtk_window_get_decorated(w->window) == FALSE;
@@ -229,7 +269,12 @@ void uiWindowSetMargined(uiWindow *w, int margined)
 	setMargined(w->childHolderContainer, w->margined);
 }
 
-uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar)
+void uiWindowSetDropTarget(uiWindow* w, int drop)
+{
+    printf("DRAG DROP TODO!!!!!\n");
+}
+
+uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, int resizable)
 {
 	uiWindow *w;
 
@@ -272,12 +317,21 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar)
 	// and connect our events
 	g_signal_connect(w->widget, "delete-event", G_CALLBACK(onClosing), w);
 	g_signal_connect(w->childHolderWidget, "size-allocate", G_CALLBACK(onSizeAllocate), w);
+	g_signal_connect(w->widget, "focus-in-event", G_CALLBACK(onGetFocus), w);
+	g_signal_connect(w->widget, "focus-out-event", G_CALLBACK(onLoseFocus), w);
+	
 	uiWindowOnClosing(w, defaultOnClosing, NULL);
 	uiWindowOnContentSizeChanged(w, defaultOnPositionContentSizeChanged, NULL);
+	
+	uiWindowOnDropFile(w, NULL, NULL);
+	uiWindowOnGetFocus(w, NULL, NULL);
+	uiWindowOnLoseFocus(w, NULL, NULL);
 
 	// normally it's SetParent() that does this, but we can't call SetParent() on a uiWindow
 	// TODO we really need to clean this up, especially since see uiWindowDestroy() above
 	g_object_ref(w->widget);
+	
+	gtk_window_set_resizable(w->window, resizable?TRUE:FALSE);
 
 	return w;
 }
