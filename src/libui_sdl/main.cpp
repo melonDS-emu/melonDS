@@ -363,6 +363,13 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         BottomScreenRect.Y = (targetH / 2) + gap;
         BottomScreenRect.Height = targetH / 2;
     }
+
+    // TODO:
+    // should those be the size of the uiArea, or the size of the window client area?
+    // for now the uiArea fills the whole window anyway
+    // but... we never know, I guess
+    Config::WindowWidth = width;
+    Config::WindowHeight = height;
 }
 
 
@@ -634,7 +641,12 @@ int main(int argc, char** argv)
         // TODO: need submenu support in libui.
     }*/
 
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, 256, 384, 1);
+    int w = Config::WindowWidth;
+    int h = Config::WindowHeight;
+    if (w < 256) w = 256;
+    if (h < 384) h = 384;
+
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
 
     uiWindowSetDropTarget(MainWindow, 1);
@@ -684,6 +696,8 @@ int main(int argc, char** argv)
 
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
+
+    Config::Save();
 
     if (ScreenBitmap) uiDrawFreeBitmap(ScreenBitmap);
 
