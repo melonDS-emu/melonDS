@@ -95,6 +95,8 @@ static void areaWidget_size_allocate(GtkWidget *w, GtkAllocation *allocation)
 	if (!a->scrolling)
 		// we must redraw everything on resize because Windows requires it
 		gtk_widget_queue_resize(w);
+
+	a->ah->Resize(a->ah, a, allocation->width, allocation->height);
 }
 
 static void loadAreaSize(uiArea *a, double *width, double *height)
@@ -153,6 +155,8 @@ static void areaWidget_get_preferred_height(GtkWidget *w, gint *min, gint *nat)
 		*min = a->scrollHeight;
 		*nat = a->scrollHeight;
 	}
+	
+    // TODO: min size
 }
 
 static void areaWidget_get_preferred_width(GtkWidget *w, gint *min, gint *nat)
