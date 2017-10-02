@@ -2239,6 +2239,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000210: return IE[1];
     case 0x04000214: return IF[1];
 
+    case 0x04000308: return ARM7BIOSProt;
+
     case 0x04100000:
         if (IPCFIFOCnt7 & 0x8000)
         {
@@ -2453,7 +2455,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)
-            ARM7BIOSProt = val;
+            ARM7BIOSProt = val & 0xFFFE;
         return;
     }
 
@@ -2549,6 +2551,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000208: IME[1] = val & 0x1; return;
     case 0x04000210: IE[1] = val; return;
     case 0x04000214: IF[1] &= ~val; return;
+
+    case 0x04000308:
+        if (ARM7BIOSProt == 0)
+            ARM7BIOSProt = val & 0xFFFE;
+        return;
     }
 
     if (addr >= 0x04000400 && addr < 0x04000520)
