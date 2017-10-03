@@ -384,6 +384,65 @@ static const struct {
 	{ GDK_KEY_Print, 0 },
 };
 
+// http://www.comptechdoc.org/os/linux/howlinuxworks/linux_hlkeycodes.html
+int scancode_unix2normal(int scan)
+{
+    scan -= 8;
+    
+    // extended keys get weird scancodes. fix 'em up
+    switch (scan)
+    {
+    case 0x60: return 0x11C;
+    case 0x61: return 0x11D;
+    case 0x62: return 0x135;
+    case 0x63: return 0x137;
+    case 0x64: return 0x138;
+    case 0x66: return 0x147;
+    case 0x67: return 0x148;
+    case 0x68: return 0x149;
+    case 0x69: return 0x14B;
+    case 0x6A: return 0x14D;
+    case 0x6B: return 0x14F;
+    case 0x6C: return 0x150;
+    case 0x6D: return 0x151;
+    case 0x6E: return 0x152;
+    case 0x6F: return 0x153;
+    case 0x77: return 0x45; // PAUSE, this one is weird. check it.
+    case 0x7D: return 0x15B; // Windows key
+    case 0x7F: return 0x15D; // context menu key
+    // TODO: there may be more fancy keys
+    default: return scan;
+    }
+}
+
+int scancode_normal2unix(int scan)
+{
+    // extended keys get weird scancodes. fix 'em up
+    switch (scan)
+    {
+    case 0x11C: return 8+0x60;
+    case 0x11D: return 8+0x61;
+    case 0x135: return 8+0x62;
+    case 0x137: return 8+0x63;
+    case 0x138: return 8+0x64;
+    case 0x147: return 8+0x66;
+    case 0x148: return 8+0x67;
+    case 0x149: return 8+0x68;
+    case 0x14B: return 8+0x69;
+    case 0x14D: return 8+0x6A;
+    case 0x14F: return 8+0x6B;
+    case 0x150: return 8+0x6C;
+    case 0x151: return 8+0x6D;
+    case 0x152: return 8+0x6E;
+    case 0x153: return 8+0x6F;
+    case 0x45: return 8+0x77; // PAUSE, this one is weird. check it.
+    case 0x15B: return 8+0x7D; // Windows key
+    case 0x15D: return 8+0x7F; // context menu key
+    // TODO: there may be more fancy keys
+    default: return scan + 8;
+    }
+}
+
 static int areaKeyEvent(uiArea *a, int up, GdkEventKey *e)
 {
 	uiAreaKeyEvent ke;
@@ -393,12 +452,16 @@ static int areaKeyEvent(uiArea *a, int up, GdkEventKey *e)
 	ke.Key = 0;
 	ke.ExtKey = 0;
 	ke.Modifier = 0;
-printf("keypress: %08X\n", e->hardware_keycode-8);
+
 	state = translateModifiers(e->state, e->window);
 	ke.Modifiers = toModifiers(state);
 
 	ke.Up = up;
+	ke.Repeat = 0; // TODO!!!!!
+	
+	ke.Scancode = scancode_unix2normal(e->hardware_keycode);
 
+#if 0
 	for (i = 0; extKeys[i].keyval != GDK_KEY_Print; i++)
 		if (extKeys[i].keyval == e->keyval) {
 			ke.ExtKey = extKeys[i].extkey;
@@ -420,6 +483,7 @@ printf("keypress: %08X\n", e->hardware_keycode-8);
 	return 0;
 
 keyFound:
+#endif
 	return (*(a->ah->KeyEvent))(a->ah, a, &ke);
 }
 
