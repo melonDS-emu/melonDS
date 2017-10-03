@@ -48,7 +48,7 @@ static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gcha
 							break;
 						}
 					}
-					printf("add filter\n");
+
 					gtk_file_chooser_add_filter(fc, filter);
                 }
                 else
