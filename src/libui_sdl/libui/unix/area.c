@@ -509,7 +509,18 @@ static gboolean areaWidget_key_release_event(GtkWidget *w, GdkEventKey *e)
 
 char* uiKeyName(int scancode)
 {
-    return "TODO";
+    scancode = scancode_normal2unix(scancode);
+    
+    guint* keyvals; int num;
+    GdkKeymap* keymap = gdk_keymap_get_default();
+    gdk_keymap_get_entries_for_keycode(keymap, scancode, NULL, &keyvals, &num);
+    
+    // TODO: pick smarter??
+    int keyval = keyvals[0];
+    
+    g_free(keyvals);
+    
+    return uiUnixStrdupText(gdk_keyval_name(keyval));
 }
 
 enum {
