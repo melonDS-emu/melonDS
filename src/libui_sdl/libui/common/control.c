@@ -66,8 +66,7 @@ void uiControlSetMinSize(uiControl *c, int w, int h)
 {
     c->MinWidth = w;
     c->MinHeight = h;
-
-    // TODO: resize if needed
+    (*(c->SetMinSize))(c, w, h);
 }
 
 #define uiControlSignature 0x7569436F

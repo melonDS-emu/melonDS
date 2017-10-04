@@ -73,6 +73,7 @@ struct uiControl {
 	void (*Enable)(uiControl *);
 	void (*Disable)(uiControl *);
 	void (*SetFocus)(uiControl *);
+	void (*SetMinSize)(uiControl*, int, int);
 
 	int MinWidth, MinHeight;
 };
