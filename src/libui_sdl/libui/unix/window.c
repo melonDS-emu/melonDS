@@ -19,6 +19,8 @@ struct uiWindow {
 
 	uiControl *child;
 	int margined;
+	
+	int width, height;
 
 	int (*onClosing)(uiWindow *, void *);
 	void *onClosingData;
@@ -127,6 +129,20 @@ static void uiWindowShow(uiControl *c)
 	// don't use gtk_widget_show(); that doesn't bring to front or give keyboard focus
 	// (gtk_window_present() does call gtk_widget_show() though)
 	gtk_window_present(w->window);
+	
+	// set the size properly
+	int width = w->width;
+	int height = w->height;
+	if (w->menubar)
+	{
+	    GtkRequisition min, nat;
+	    int menuheight;
+	    gtk_widget_get_preferred_size(w->menubar, &min, &nat);
+	    menuheight = min.height;
+	    if (nat.height > menuheight) menuheight = nat.height;
+	    height += menuheight;
+	}
+	gtk_window_resize(w->window, width, height);
 }
 
 uiUnixControlDefaultHide(uiWindow)
@@ -299,6 +315,8 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 		w->menubar = makeMenubar(uiWindow(w));
 		gtk_container_add(w->vboxContainer, w->menubar);
 	}
+	else
+	    w->menubar = NULL;
 
 	w->childHolderWidget = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	w->childHolderContainer = GTK_CONTAINER(w->childHolderWidget);
@@ -308,10 +326,6 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 	gtk_widget_set_valign(w->childHolderWidget, GTK_ALIGN_FILL);
 	gtk_box_set_homogeneous(GTK_BOX(w->childHolderWidget), TRUE);
 	gtk_container_add(w->vboxContainer, w->childHolderWidget);
-	
-	// TODO: set client size properly
-	// menubar can consume height
-	// gtk_widget_set_size_request() is not good as it sets a minimum size
 
 	// show everything in the vbox, but not the GtkWindow itself
 	gtk_widget_show_all(w->vboxWidget);
@@ -334,6 +348,9 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 	g_object_ref(w->widget);
 	
 	gtk_window_set_resizable(w->window, resizable?TRUE:FALSE);
+	
+	w->width = width;
+	w->height = height;
 
 	return w;
 }
