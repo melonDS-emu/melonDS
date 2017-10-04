@@ -886,10 +886,10 @@ void SubmitPolygon()
         s32 z;
         if (FlushAttributes & 0x2)
             z = wshifted;
-        else if (wshifted)
+        else if (vtx->Position[3])
             z = ((((s64)vtx->Position[2] * 0x4000) / vtx->Position[3]) + 0x3FFF) * 0x200;
         else
-            z = 0x3FFF;
+            z = 0x7FFE00;
 
         // checkme (Z<0 shouldn't be possible, but Z>0xFFFFFF is possible)
         if (z < 0) z = 0;
