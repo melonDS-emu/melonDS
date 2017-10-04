@@ -303,27 +303,24 @@ void Open()
     {
         uiBox* in_ctrl = uiNewHorizontalBox();
         uiBoxAppend(top, uiControl(in_ctrl), 0);
-
+        uiBoxSetPadded(in_ctrl, 1);
 
         uiGroup* g_key = uiNewGroup("Keyboard");
         uiBoxAppend(in_ctrl, uiControl(g_key), 1);
-        uiBox* b_key = uiNewVerticalBox();
+        uiGrid* b_key = uiNewGrid();
         uiGroupSetChild(g_key, uiControl(b_key));
 
         for (int i = 0; i < 12; i++)
         {
             int j = keyorder[i];
 
-            uiBox* box = uiNewHorizontalBox();
-            uiBoxAppend(b_key, uiControl(box), 0);
-
             uiLabel* label = uiNewLabel(keylabels[j]);
-            uiBoxAppend(box, uiControl(label), 1);
+            uiGridAppend(b_key, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
 
             char* keyname = uiKeyName(Config::KeyMapping[j]);
 
             uiButton* btn = uiNewButton(keyname);
-            uiBoxAppend(box, uiControl(btn), 1);
+            uiGridAppend(b_key, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
             uiButtonOnClicked(btn, OnKeyStartConfig, &keyorder[i]);
 
             uiFreeText(keyname);
@@ -331,24 +328,21 @@ void Open()
 
         uiGroup* g_joy = uiNewGroup("Joystick");
         uiBoxAppend(in_ctrl, uiControl(g_joy), 1);
-        uiBox* b_joy = uiNewVerticalBox();
+        uiGrid* b_joy = uiNewGrid();
         uiGroupSetChild(g_joy, uiControl(b_joy));
 
         for (int i = 0; i < 12; i++)
         {
             int j = keyorder[i];
 
-            uiBox* box = uiNewHorizontalBox();
-            uiBoxAppend(b_joy, uiControl(box), 0);
-
             uiLabel* label = uiNewLabel(keylabels[j]);
-            uiBoxAppend(box, uiControl(label), 1);
+            uiGridAppend(b_joy, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
 
             char keyname[16];
             JoyMappingName(Config::JoyMapping[j], keyname);
 
             uiButton* btn = uiNewButton(keyname);
-            uiBoxAppend(box, uiControl(btn), 1);
+            uiGridAppend(b_joy, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
             uiButtonOnClicked(btn, OnJoyStartConfig, &keyorder[i]);
         }
     }
