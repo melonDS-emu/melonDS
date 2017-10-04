@@ -309,9 +309,9 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 	gtk_box_set_homogeneous(GTK_BOX(w->childHolderWidget), TRUE);
 	gtk_container_add(w->vboxContainer, w->childHolderWidget);
 	
-	// set client size proper
-	gtk_widget_set_size_request(w->childHolderWidget, width, height);
-	gtk_widget_set_size_request(w->childHolderWidget, 1, 1);
+	// TODO: set client size properly
+	// menubar can consume height
+	// gtk_widget_set_size_request() is not good as it sets a minimum size
 
 	// show everything in the vbox, but not the GtkWindow itself
 	gtk_widget_show_all(w->vboxWidget);
