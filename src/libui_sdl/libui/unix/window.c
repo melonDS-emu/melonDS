@@ -286,9 +286,57 @@ void uiWindowSetMargined(uiWindow *w, int margined)
 	setMargined(w->childHolderContainer, w->margined);
 }
 
+static void onDragDataReceived(GtkWidget* widget, GdkDragContext* ctx, gint x, gint y, GtkSelectionData* data, guint info, guint time, gpointer userdata)
+{
+    uiWindow* w = (uiWindow*)userdata;
+    
+    if (gtk_selection_data_get_length(data) > 0 && gtk_selection_data_get_format(data) == 8)
+    {
+        gchar** files = gtk_selection_data_get_uris(data);
+        if (files != NULL && files[0] != NULL)
+        {
+            // TODO: multi file support?
+            
+            gboolean success = FALSE;
+            
+            gchar* file = g_filename_from_uri(files[0], NULL, NULL);
+            if (file)
+            {
+                if (w->onDropFile)
+                    w->onDropFile(w, file, w->onDropFileData);
+                    
+                success = TRUE;
+                g_free(file);
+            }
+            
+            
+            g_strfreev(files);
+            gtk_drag_finish(ctx, success, FALSE, time);
+            return;
+        }
+        
+        if (files != NULL) g_strfreev(files);
+        gtk_drag_finish(ctx, FALSE, FALSE, time);
+    }
+}
+
 void uiWindowSetDropTarget(uiWindow* w, int drop)
 {
-    printf("DRAG DROP TODO!!!!!\n");
+    if (!drop)
+    {
+        gtk_drag_dest_unset(w->widget);
+        return;
+    }
+
+    GtkTargetEntry entry;
+    entry.target = "text/uri-list";
+    entry.flags = GTK_TARGET_OTHER_APP;
+    entry.info = 1;
+    
+    // CHECKME: action copy?
+    gtk_drag_dest_set(w->widget, GTK_DEST_DEFAULT_ALL, &entry, 1, GDK_ACTION_COPY|GDK_ACTION_MOVE);
+    
+    g_signal_connect(w->widget, "drag-data-received", G_CALLBACK(onDragDataReceived), w);
 }
 
 uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, int resizable)
