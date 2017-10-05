@@ -309,6 +309,8 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(g_key), 1);
         uiGrid* b_key = uiNewGrid();
         uiGroupSetChild(g_key, uiControl(b_key));
+        
+        const int width = 120;
 
         for (int i = 0; i < 12; i++)
         {
@@ -316,12 +318,14 @@ void Open()
 
             uiLabel* label = uiNewLabel(keylabels[j]);
             uiGridAppend(b_key, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
+            uiControlSetMinSize(uiControl(label), width, 1);
 
             char* keyname = uiKeyName(Config::KeyMapping[j]);
 
             uiButton* btn = uiNewButton(keyname);
             uiGridAppend(b_key, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
             uiButtonOnClicked(btn, OnKeyStartConfig, &keyorder[i]);
+            uiControlSetMinSize(uiControl(btn), width, 1);
 
             uiFreeText(keyname);
         }
@@ -337,6 +341,7 @@ void Open()
 
             uiLabel* label = uiNewLabel(keylabels[j]);
             uiGridAppend(b_joy, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
+            uiControlSetMinSize(uiControl(label), width, 1);
 
             char keyname[16];
             JoyMappingName(Config::JoyMapping[j], keyname);
@@ -344,6 +349,7 @@ void Open()
             uiButton* btn = uiNewButton(keyname);
             uiGridAppend(b_joy, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
             uiButtonOnClicked(btn, OnJoyStartConfig, &keyorder[i]);
+            uiControlSetMinSize(uiControl(btn), width, 1);
         }
     }
 
