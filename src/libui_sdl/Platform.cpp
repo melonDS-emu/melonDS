@@ -32,6 +32,8 @@
 #else
 	#include <unistd.h>
 	#include <arpa/inet.h>
+	#include <netinet/in.h>
+	#include <sys/select.h>
 	#include <sys/socket.h>
 	#define socket_t    int
 	#define sockaddr_t  struct sockaddr
