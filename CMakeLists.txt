@@ -82,8 +82,10 @@ if (UNIX)
     LINK_LIBRARIES(${GTK3_LIBRARIES})
 
     ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
-    
-    LINK_LIBRARIES("dl")
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        LINK_LIBRARIES("dl")
+    endif ()
 endif (UNIX)
 
 find_package(SDL2 REQUIRED)
