@@ -567,7 +567,11 @@ int main(int argc, char** argv)
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
-    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
+    if (SDL_Init(SDL_INIT_HAPTIC) < 0)
+    {
+        printf("SDL couldn't init rumble\n");
+    }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
     {
         printf("SDL shat itself :(\n");
         return 1;
