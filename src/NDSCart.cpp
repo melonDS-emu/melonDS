@@ -22,6 +22,8 @@
 #include "NDSCart.h"
 #include "ARM.h"
 
+#include "melon_fopen.h"
+
 
 namespace NDSCart_SRAM
 {
@@ -92,7 +94,7 @@ void LoadSave(char* path)
     strncpy(SRAMPath, path, 255);
     SRAMPath[255] = '\0';
 
-    FILE* f = fopen(path, "rb");
+    FILE* f = melon_fopen(path, "rb");
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -624,7 +626,7 @@ void Write(u8 val, u32 hold)
 
     if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
     {
-        FILE* f = fopen(SRAMPath, "wb");
+        FILE* f = melon_fopen(SRAMPath, "wb");
         if (f)
         {
             fwrite(SRAM, SRAMLength, 1, f);
@@ -817,7 +819,7 @@ bool LoadROM(const char* path, bool direct)
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
 
-    FILE* f = fopen(path, "rb");
+    FILE* f = melon_fopen(path, "rb");
     if (!f)
     {
         return false;

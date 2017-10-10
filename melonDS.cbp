@@ -229,6 +229,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/winpublic.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
+		<Unit filename="src/melon_fopen.h" />
 		<Unit filename="src/types.h" />
 		<Unit filename="src/version.h" />
 		<Unit filename="xp.manifest" />
