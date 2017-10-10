@@ -38,7 +38,9 @@ static FILE* melon_fopen(const char* path, const char* mode)
     fatmode[2] = mode[2];
     fatmode[3] = 0;
 
-    return _wfopen(fatass, fatmode);
+    FILE* ret = _wfopen(fatass, fatmode);
+    delete[] fatass;
+    return ret;
 }
 
 #else
