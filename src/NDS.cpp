@@ -352,14 +352,18 @@ void Stop()
     SPU::Stop();
 }
 
-void LoadROM(const char* path, bool direct)
+bool LoadROM(const char* path, bool direct)
 {
-    Reset();
-
     if (NDSCart::LoadROM(path, direct))
+    {
         Running = true;
+        return true;
+    }
     else
+    {
         printf("Failed to load ROM %s\n", path);
+        return false;
+    }
 }
 
 void LoadBIOS()

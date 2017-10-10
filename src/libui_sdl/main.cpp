@@ -400,6 +400,27 @@ void Stop(bool internal)
     uiAreaQueueRedrawAll(MainDrawArea);
 }
 
+void TryLoadROM(char* file, int prevstatus)
+{
+    char oldpath[1024];
+    strncpy(oldpath, ROMPath, 1024);
+
+    strncpy(ROMPath, file, 1023);
+    ROMPath[1023] = '\0';
+
+    if (NDS::LoadROM(ROMPath, Config::DirectBoot))
+        Run();
+    else
+    {
+        uiMsgBoxError(MainWindow,
+                      "Failed to load the ROM",
+                      "Make sure the file can be accessed and isn't opened in another application.");
+
+        strncpy(ROMPath, oldpath, 1024);
+        EmuRunning = prevstatus;
+    }
+}
+
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
@@ -410,6 +431,7 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 void OnDropFile(uiWindow* window, char* file, void* blarg)
 {
     char* ext = &file[strlen(file)-3];
+    int prevstatus = EmuRunning;
 
     if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
     {
@@ -419,11 +441,7 @@ void OnDropFile(uiWindow* window, char* file, void* blarg)
             while (EmuStatus != 2);
         }
 
-        strncpy(ROMPath, file, 1023);
-        ROMPath[1023] = '\0';
-
-        NDS::LoadROM(ROMPath, Config::DirectBoot);
-        Run();
+        TryLoadROM(file, prevstatus);
     }
 }
 
@@ -456,14 +474,8 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
         return;
     }
 
-    strncpy(ROMPath, file, 1023);
-    ROMPath[1023] = '\0';
+    TryLoadROM(file, prevstatus);
     uiFreeText(file);
-    // TODO: change libui to store strings in stack-allocated buffers?
-    // so we don't have to free it after use
-
-    NDS::LoadROM(ROMPath, Config::DirectBoot);
-    Run();
 }
 
 void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -685,8 +697,8 @@ int main(int argc, char** argv)
             strncpy(ROMPath, file, 1023);
             ROMPath[1023] = '\0';
 
-            NDS::LoadROM(ROMPath, Config::DirectBoot);
-            Run();
+            if (NDS::LoadROM(ROMPath, Config::DirectBoot))
+                Run();
         }
     }
 

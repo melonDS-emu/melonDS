@@ -106,7 +106,7 @@ void DeInit();
 void Reset();
 void Stop();
 
-void LoadROM(const char* path, bool direct);
+bool LoadROM(const char* path, bool direct);
 void LoadBIOS();
 void SetupDirectBoot();
 

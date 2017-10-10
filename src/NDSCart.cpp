@@ -817,14 +817,13 @@ bool LoadROM(const char* path, bool direct)
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
 
-    if (CartROM) delete[] CartROM;
-
     FILE* f = fopen(path, "rb");
     if (!f)
     {
-        printf("Failed to open ROM file %s\n", path);
         return false;
     }
+
+    NDS::Reset();
 
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
@@ -845,6 +844,11 @@ bool LoadROM(const char* path, bool direct)
     fclose(f);
     //CartROM = f;
 
+    // generate a ROM ID
+    // note: most games don't check the actual value
+    // it just has to stay the same throughout gameplay
+    CartID = 0x00001FC2;
+
     if (direct)
     {
         NDS::SetupDirectBoot();
@@ -852,11 +856,6 @@ bool LoadROM(const char* path, bool direct)
     }
 
     CartInserted = true;
-
-    // generate a ROM ID
-    // note: most games don't check the actual value
-    // it just has to stay the same throughout gameplay
-    CartID = 0x00001FC2;
 
     u32 arm9base = *(u32*)&CartROM[0x20];
     if (arm9base < 0x8000)
