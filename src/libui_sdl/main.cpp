@@ -68,6 +68,11 @@ SDL_Joystick* Joystick;
 
 
 
+void UpdateWindowTitle(void* data)
+{
+    uiWindowSetTitle(MainWindow, (const char*)data);
+}
+
 void AudioCallback(void* data, Uint8* stream, int len)
 {
     SPU::ReadOutput((s16*)stream, len>>2);
@@ -117,6 +122,7 @@ int EmuThreadFunc(void* burp)
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
     bool limitfps = true;
+    char melontitle[100];
 
     while (EmuRunning != 0)
     {
@@ -200,9 +206,8 @@ int EmuThreadFunc(void* burp)
                 if (framerate < 1) fpstarget = 999;
                 else fpstarget = 1000.0f/framerate;
 
-                char melontitle[100];
-                sprintf(melontitle, "%d/%.0f FPS | melonDS " MELONDS_VERSION, fps, fpstarget);
-                //uiWindowSetTitle(MainWindow, melontitle);
+                sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
+                uiQueueMain(UpdateWindowTitle, melontitle);
             }
         }
         else
