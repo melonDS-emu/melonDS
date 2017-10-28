@@ -1,14 +1,12 @@
 # melonDS
-DS emulator, sorta
 
+DS emulator, sorta
 
 The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
 
-
 The source code is provided under the GPLv3 license.
 
-
-How to use:
+## How to use
 
 melonDS requires BIOS/firmware copies from a DS. Files required:
  * bios7.bin, 16KB: ARM7 BIOS
@@ -18,7 +16,8 @@ melonDS requires BIOS/firmware copies from a DS. Files required:
 Firmware boot requires a firmware dump from an original DS or DS Lite.
 DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configuration data, thus they are only suitable when booting games directly.
 
-Possible firmware sizes:
+### Possible firmware sizes
+
  * 128KB: DSi/3DS DS-mode firmware (reduced size due to lacking bootcode)
  * 256KB: regular DS firmware
  * 512KB: iQue DS firmware
@@ -27,31 +26,32 @@ DS BIOS dumps from a 3DS can be used with no compatibility issues. DSi BIOS dump
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
+## How to build
 
-How to build:
+### Linux:
 
-Linux:
- * mkdir -p build
- * cd build
- * cmake ..
- * make
+```sh
+mkdir -p build
+cd build
+cmake ..
+make
+```
 
-Windows:
+### Windows:
+
  * use CodeBlocks
  * or receive golden cookies if you get Cmake to work
 
 Build system is not set in stone.
 
-
-TODO LIST
+## TODO LIST
 
  * UI that doesn't suck
  * better sound emulation
  * emulating some fancy addons
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
-
  
-TODO LIST FOR LATER
+### TODO LIST FOR LATER
 
  * hardware renderer for 3D (w/ upscaling and fancy shit)
  * better wifi
@@ -60,8 +60,7 @@ TODO LIST FOR LATER
  * LCD refresh time (used by some games for blending effects)
  * any feature you can eventually ask for that isn't outright stupid
  
- 
-CREDITS
+## Credits
 
  * Martin for GBAtek, a good piece of documentation
  * Cydrak for the extra 3D GPU research
