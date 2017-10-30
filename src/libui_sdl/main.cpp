@@ -335,39 +335,8 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     return 1;
 }
 
-void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
+void SetupScreenRects(int width, int height)
 {
-    float ratio = (height/2) / (float)width;
-    int availW, availH;
-    int startX, startY;
-
-    int screenW = 256;
-    int screenH = 384;
-
-    // TODO: "screw aspect ratio" option, I guess
-
-    /*if (ratio <= 0.75)
-    {
-        // bars on the sides
-
-        availW = (height * screenW) / screenH;
-        startX = (width - availW) / 2;
-
-        availH = height;
-        startY = 0;
-    }
-    else
-    {
-        availH = (width * screenH) / screenW;
-        startY = (height - availH) / 2;
-
-        availW = width;
-        startX = 0;
-    }*/
-
-
-
-
     bool horizontal = false;
     if (ScreenLayout == 2) horizontal = true;
     else if (ScreenLayout == 0)
@@ -385,8 +354,10 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         sizemode = ScreenSizing;
 
     // blarg.
-    screenW = 256;
-    screenH = 192;
+    // should be changed if rotation is used
+    // (also TODO: swap top/bottom screen if needed)
+    int screenW = 256;
+    int screenH = 192;
 
     if (horizontal)
     {
@@ -430,7 +401,7 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         else
         {
             TopScreenRect.Width = widthreq;
-            TopScreenRect.Height = height - screenH;
+            TopScreenRect.Height = (sizemode==0) ? (height / 2) : (height - screenH);
         }
         TopScreenRect.Y = startY;
         TopScreenRect.X = (width - TopScreenRect.Width) / 2;
@@ -446,48 +417,15 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         else
         {
             BottomScreenRect.Width = widthreq;
-            BottomScreenRect.Height = height - screenH;
+            BottomScreenRect.Height = height - TopScreenRect.Height;
         }
         BottomScreenRect.X = (width - BottomScreenRect.Width) / 2;
     }
+}
 
-    #if 0
-    if (ratio <= 0.75)
-    {
-        // bars on the sides
-
-        int targetW = (height * 256) / 384;
-        int barW = (width - targetW) / 2;
-
-        TopScreenRect.X = barW;
-        TopScreenRect.Width = targetW;
-        TopScreenRect.Y = 0;
-        TopScreenRect.Height = height / 2;
-
-        BottomScreenRect.X = barW;
-        BottomScreenRect.Width = targetW;
-        BottomScreenRect.Y = height / 2;
-        BottomScreenRect.Height = height / 2;
-    }
-    else
-    {
-        // TODO: this should do bars on the top, and fixed screen gap
-        // for now we'll adjust the screen gap in consequence
-
-        int targetH = (width * 384) / 256;
-        int gap = height - targetH;
-
-        TopScreenRect.X = 0;
-        TopScreenRect.Width = width;
-        TopScreenRect.Y = 0;
-        TopScreenRect.Height = targetH / 2;
-
-        BottomScreenRect.X = 0;
-        BottomScreenRect.Width = width;
-        BottomScreenRect.Y = (targetH / 2) + gap;
-        BottomScreenRect.Height = targetH / 2;
-    }
-    #endif
+void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
+{
+    SetupScreenRects(width, height);
 
     // TODO:
     // should those be the size of the uiArea, or the size of the window client area?
@@ -683,6 +621,8 @@ void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param)
 {
     int sizing = *(int*)param;
     ScreenSizing = sizing;
+
+    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
 }
 
 
