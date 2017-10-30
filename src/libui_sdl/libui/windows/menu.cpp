@@ -160,7 +160,7 @@ static uiMenuItem *newItem(uiMenu *m, int type, const char *name)
 	return item;
 }
 
-uiMenuItem *uiMenuAppendSubmenu(uiMenu *m, const char *name, uiMenu* child)
+uiMenuItem *uiMenuAppendSubmenu(uiMenu *m, uiMenu* child)
 {
 	uiMenuItem *item;
 
@@ -178,7 +178,7 @@ uiMenuItem *uiMenuAppendSubmenu(uiMenu *m, const char *name, uiMenu* child)
 	m->len++;
 
 	item->type = typeSubmenu;
-    item->name = toUTF16(name);
+    item->name = child->name;
 
     item->popupchild = child;
     child->ischild = TRUE;
