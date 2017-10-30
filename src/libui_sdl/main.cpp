@@ -397,28 +397,29 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         // top then bottom
 
         int widthreq;
-        int possibleheight;
+        int startY = 0;
 
         if (sizemode == 0) // even
         {
             widthreq = (height * screenW) / (screenH*2);
+            if (widthreq > width)
+            {
+                int newheight = (width * height) / widthreq;
+                startY = (height - newheight) / 2;
+                widthreq = width;
+                height = newheight;
+            }
         }
         else // emph. top/bottom
         {
             widthreq = ((height - screenH) * screenW) / screenH;
-        }
-
-        int startY;
-        if (widthreq > width)
-        {
-            possibleheight = (width * height) / widthreq;
-            startY = (height - possibleheight) / 2;
-            widthreq = width;
-        }
-        else
-        {
-            possibleheight = height;
-            startY = 0;
+            if (widthreq > width)
+            {
+                int newheight = ((width * (height - screenH)) / widthreq) + screenH;
+                startY = (height - newheight) / 2;
+                widthreq = width;
+                height = newheight;
+            }
         }
 
         if (sizemode == 2)
