@@ -64,6 +64,9 @@ int ScreenGap = 0;
 int ScreenLayout = 0;
 int ScreenSizing = 0;
 
+int MainScreenPos[3];
+int AutoScreenSizing;
+
 uiRect TopScreenRect;
 uiRect BottomScreenRect;
 
@@ -71,6 +74,9 @@ bool Touching = false;
 
 u32 KeyInputMask;
 SDL_Joystick* Joystick;
+
+
+void SetupScreenRects(int width, int height);
 
 
 
@@ -87,6 +93,11 @@ void AudioCallback(void* data, Uint8* stream, int len)
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
+
+    MainScreenPos[0] = 0;
+    MainScreenPos[1] = 0;
+    MainScreenPos[2] = 0;
+    AutoScreenSizing = 0;
 
     ScreenDrawInited = false;
     Touching = false;
@@ -173,6 +184,35 @@ int EmuThreadFunc(void* burp)
             u32 nlines = NDS::RunFrame();
 
             if (EmuRunning == 0) break;
+
+            // auto screen layout
+            {
+                MainScreenPos[2] = MainScreenPos[1];
+                MainScreenPos[1] = MainScreenPos[0];
+                MainScreenPos[0] = NDS::PowerControl9 >> 15;
+
+                int guess;
+                if (MainScreenPos[0] == MainScreenPos[2] &&
+                    MainScreenPos[0] != MainScreenPos[1])
+                {
+                    // constant flickering, likely displaying 3D on both screens
+                    // TODO: when both screens are used for 2D only...???
+                    guess = 0;
+                }
+                else
+                {
+                    if (MainScreenPos[0] == 1)
+                        guess = 1;
+                    else
+                        guess = 2;
+                }
+
+                if (guess != AutoScreenSizing)
+                {
+                    AutoScreenSizing = guess;
+                    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+                }
+            }
 
             memcpy(ScreenBuffer, GPU::Framebuffer, 256*384*4);
             uiAreaQueueRedrawAll(MainDrawArea);
@@ -346,10 +386,7 @@ void SetupScreenRects(int width, int height)
 
     int sizemode;
     if (ScreenSizing == 3)
-    {
-        // TODO!! auto mode
-        sizemode = 0;
-    }
+        sizemode = AutoScreenSizing;
     else
         sizemode = ScreenSizing;
 

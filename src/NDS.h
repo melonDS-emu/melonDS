@@ -92,6 +92,8 @@ extern u32 IE[2];
 extern u32 IF[2];
 extern Timer Timers[8];
 
+extern u16 PowerControl9;
+
 extern u16 ExMemCnt[2];
 extern u8 ROMSeed0[2*8];
 extern u8 ROMSeed1[2*8];
