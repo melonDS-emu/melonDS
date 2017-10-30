@@ -37,7 +37,9 @@
 #include "../Platform.h"
 
 
-const int kScreenGap[] = {0, 1, 8, 64, 90, 128};
+const int kScreenGap[] = {0, 1, 8, 64, 90, 128, -1};
+const int kScreenLayout[] = {0, 1, 2};
+const int kScreenSizing[] = {0, 1, 2, 3};
 
 
 uiWindow* MainWindow;
@@ -57,6 +59,10 @@ char ROMPath[1024];
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap = NULL;
 u32 ScreenBuffer[256*384];
+
+int ScreenGap = 0;
+int ScreenLayout = 0;
+int ScreenSizing = 0;
 
 uiRect TopScreenRect;
 uiRect BottomScreenRect;
@@ -332,7 +338,119 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 {
     float ratio = (height/2) / (float)width;
+    int availW, availH;
+    int startX, startY;
 
+    int screenW = 256;
+    int screenH = 384;
+
+    // TODO: "screw aspect ratio" option, I guess
+
+    /*if (ratio <= 0.75)
+    {
+        // bars on the sides
+
+        availW = (height * screenW) / screenH;
+        startX = (width - availW) / 2;
+
+        availH = height;
+        startY = 0;
+    }
+    else
+    {
+        availH = (width * screenH) / screenW;
+        startY = (height - availH) / 2;
+
+        availW = width;
+        startX = 0;
+    }*/
+
+
+
+
+    bool horizontal = false;
+    if (ScreenLayout == 2) horizontal = true;
+    else if (ScreenLayout == 0)
+    {
+        // TODO: make it horizontal if rotation is used, whenever that is implemented
+    }
+
+    int sizemode;
+    if (ScreenSizing == 3)
+    {
+        // TODO!! auto mode
+        sizemode = 0;
+    }
+    else
+        sizemode = ScreenSizing;
+
+    // blarg.
+    screenW = 256;
+    screenH = 192;
+
+    if (horizontal)
+    {
+        // side-by-side
+    }
+    else
+    {
+        // top then bottom
+
+        int widthreq;
+        int possibleheight;
+
+        if (sizemode == 0) // even
+        {
+            widthreq = (height * screenW) / (screenH*2);
+        }
+        else // emph. top/bottom
+        {
+            widthreq = ((height - screenH) * screenW) / screenH;
+        }
+
+        int startY;
+        if (widthreq > width)
+        {
+            possibleheight = (width * height) / widthreq;
+            startY = (height - possibleheight) / 2;
+            widthreq = width;
+        }
+        else
+        {
+            possibleheight = height;
+            startY = 0;
+        }
+
+        if (sizemode == 2)
+        {
+            TopScreenRect.Width = screenW;
+            TopScreenRect.Height = screenH;
+        }
+        else
+        {
+            TopScreenRect.Width = widthreq;
+            TopScreenRect.Height = height - screenH;
+        }
+        TopScreenRect.Y = startY;
+        TopScreenRect.X = (width - TopScreenRect.Width) / 2;
+
+        // TODO: gap
+        BottomScreenRect.Y = TopScreenRect.Y + TopScreenRect.Height;
+
+        if (sizemode == 1)
+        {
+            BottomScreenRect.Width = screenW;
+            BottomScreenRect.Height = screenH;
+        }
+        else
+        {
+            BottomScreenRect.Width = widthreq;
+            BottomScreenRect.Height = height - screenH;
+        }
+        BottomScreenRect.X = (width - BottomScreenRect.Width) / 2;
+    }
+
+    #if 0
     if (ratio <= 0.75)
     {
         // bars on the sides
@@ -368,6 +486,7 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
         BottomScreenRect.Y = (targetH / 2) + gap;
         BottomScreenRect.Height = targetH / 2;
     }
+    #endif
 
     // TODO:
     // should those be the size of the uiArea, or the size of the window client area?
@@ -545,6 +664,27 @@ void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 }
 
 
+void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int gap = *(int*)param;
+    ScreenGap = gap;
+    // TODO: check menu items!!!!!
+}
+
+void OnSetScreenLayout(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int layout = *(int*)param;
+    ScreenLayout = layout;
+    // TODO trigger resize
+}
+
+void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int sizing = *(int*)param;
+    ScreenSizing = sizing;
+}
+
+
 void ApplyNewSettings()
 {
     if (!RunningSomething) return;
@@ -654,13 +794,47 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
     menuitem = uiMenuAppendItem(menu, "Input config");
     uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
-    /*uiMenuAppendSeparator();
-    menuitem = uiMenuAppendItem(menu, "Mid-screen gap");
+    uiMenuAppendSeparator(menu);
     {
-        uiMenuItem* parent = menuitem;
-        //menuitem = uiMenu
-        // TODO: need submenu support in libui.
-    }*/
+        uiMenu* submenu = uiNewMenu("Mid-screen gap");
+
+        for (int i = 0; kScreenGap[i] != -1; i++)
+        {
+            char name[32];
+            sprintf(name, "%d pixels", kScreenGap[i]);
+            menuitem = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(menuitem, OnSetScreenGap, (void*)&kScreenGap[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Screen layout");
+
+        menuitem = uiMenuAppendItem(submenu, "Natural");
+        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[0]);
+        menuitem = uiMenuAppendItem(submenu, "Vertical");
+        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[1]);
+        menuitem = uiMenuAppendItem(submenu, "Horizontal");
+        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[2]);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Screen sizing");
+
+        menuitem = uiMenuAppendItem(submenu, "Even");
+        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[0]);
+        menuitem = uiMenuAppendItem(submenu, "Emphasize top");
+        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[1]);
+        menuitem = uiMenuAppendItem(submenu, "Emphasize bottom");
+        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[2]);
+        menuitem = uiMenuAppendItem(submenu, "Auto");
+        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[3]);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+
 
     int w = Config::WindowWidth;
     int h = Config::WindowHeight;
