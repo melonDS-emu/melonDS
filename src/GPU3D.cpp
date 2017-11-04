@@ -1940,6 +1940,33 @@ void WriteToGXFIFO(u32 val)
 
 u8 Read8(u32 addr)
 {
+    switch (addr)
+    {
+    case 0x04000600:
+        return GXStat & 0xFF;
+    case 0x04000601:
+        {
+            return ((GXStat >> 8) & 0xFF) |
+                   (PosMatrixStackPointer & 0x1F) |
+                   ((ProjMatrixStackPointer & 0x1) << 5);
+        }
+    case 0x04000602:
+        {
+            u32 fifolevel = CmdFIFO->Level();
+
+            return fifolevel & 0xFF;
+        }
+    case 0x04000603:
+        {
+            u32 fifolevel = CmdFIFO->Level();
+
+            return ((GXStat >> 24) & 0xFF) |
+                   (fifolevel >> 8) |
+                   (fifolevel < 128 ? (1<<1) : 0) |
+                   (fifolevel == 0  ? (1<<2) : 0);
+        }
+    }
+
     printf("unknown GPU3D read8 %08X\n", addr);
     return 0;
 }
@@ -1953,6 +1980,22 @@ u16 Read16(u32 addr)
 
     case 0x04000320:
         return 46; // TODO, eventually
+
+    case 0x04000600:
+        {
+            return (GXStat & 0xFFFF) |
+                   ((PosMatrixStackPointer & 0x1F) << 8) |
+                   ((ProjMatrixStackPointer & 0x1) << 13);
+        }
+    case 0x04000602:
+        {
+            u32 fifolevel = CmdFIFO->Level();
+
+            return (GXStat >> 16) |
+                   fifolevel |
+                   (fifolevel < 128 ? (1<<9) : 0) |
+                   (fifolevel == 0  ? (1<<10) : 0);
+        }
 
     case 0x04000604:
         return NumPolygons;
@@ -2027,6 +2070,22 @@ void Write8(u32 addr, u8 val)
         AlphaRefVal = val & 0x1F;
         AlphaRef = (DispCnt & (1<<2)) ? AlphaRefVal : 0;
         return;
+
+    case 0x04000601:
+        if (val & 0x80)
+        {
+            GXStat &= ~0x8000;
+            ProjMatrixStackPointer = 0;
+            //PosMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0;
+        }
+        return;
+    case 0x04000603:
+        val &= 0xC0;
+        GXStat &= 0x3FFFFFFF;
+        GXStat |= (val << 24);
+        CheckFIFOIRQ();
+        return;
     }
 
     if (addr >= 0x04000360 && addr < 0x04000380)
@@ -2075,6 +2134,22 @@ void Write16(u32 addr, u16 val)
         return;
     case 0x0400035C:
         FogOffset = val & 0x7FFF;
+        return;
+
+    case 0x04000600:
+        if (val & 0x8000)
+        {
+            GXStat &= ~0x8000;
+            ProjMatrixStackPointer = 0;
+            //PosMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0;
+        }
+        return;
+    case 0x04000602:
+        val &= 0xC000;
+        GXStat &= 0x3FFFFFFF;
+        GXStat |= (val << 16);
+        CheckFIFOIRQ();
         return;
     }
 
