@@ -344,10 +344,39 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
         x -= BottomScreenRect.X;
         y -= BottomScreenRect.Y;
 
-        if (BottomScreenRect.Width != 256)
-            x = (x * 256) / BottomScreenRect.Width;
-        if (BottomScreenRect.Height != 192)
-            y = (y * 192) / BottomScreenRect.Height;
+        if (ScreenRotation == 0 || ScreenRotation == 2)
+        {
+            if (BottomScreenRect.Width != 256)
+                x = (x * 256) / BottomScreenRect.Width;
+            if (BottomScreenRect.Height != 192)
+                y = (y * 192) / BottomScreenRect.Height;
+
+            if (ScreenRotation == 2)
+            {
+                x = 255 - x;
+                y = 191 - y;
+            }
+        }
+        else
+        {
+            if (BottomScreenRect.Width != 192)
+                x = (x * 192) / BottomScreenRect.Width;
+            if (BottomScreenRect.Height != 256)
+                y = (y * 256) / BottomScreenRect.Height;
+
+            if (ScreenRotation == 1)
+            {
+                int tmp = x;
+                x = y;
+                y = 191 - tmp;
+            }
+            else
+            {
+                int tmp = x;
+                x = 255 - y;
+                y = tmp;
+            }
+        }
 
         // clamp
         if (x < 0) x = 0;
@@ -396,7 +425,7 @@ void SetupScreenRects(int width, int height)
 {
     bool horizontal = false;
     bool sideways = false;
-ScreenRotation = 3; // TEST   1=90 CW  2=180 3=270
+ScreenRotation = 1; // TEST   1=90 CW  2=180 3=270
     if (ScreenRotation == 1 || ScreenRotation == 3)
         sideways = true;
 
