@@ -395,10 +395,65 @@ void SetupScreenRects(int width, int height)
     // (also TODO: swap top/bottom screen if needed)
     int screenW = 256;
     int screenH = 192;
-//horizontal = true; // TEST
+horizontal = true; // TEST
     if (horizontal)
     {
         // side-by-side
+
+        int heightreq;
+        int startX = 0;
+
+        width -= ScreenGap;
+
+        if (sizemode == 0) // even
+        {
+            heightreq = (width * screenH) / (screenW*2);
+            if (heightreq > height)
+            {
+                int newwidth = (height * width) / heightreq;
+                startX = (width - newwidth) / 2;
+                heightreq = height;
+                width = newwidth;
+            }
+        }
+        else // emph. top/bottom
+        {
+            heightreq = ((width - screenW) * screenH) / screenW;
+            if (heightreq > height)
+            {
+                int newwidth = ((height * (width - screenW)) / heightreq) + screenW;
+                startX = (width - newwidth) / 2;
+                heightreq = height;
+                width = newwidth;
+            }
+        }
+
+        if (sizemode == 2)
+        {
+            TopScreenRect.Width = screenW;
+            TopScreenRect.Height = screenH;
+        }
+        else
+        {
+            TopScreenRect.Width = (sizemode==0) ? (width / 2) : (width - screenW);
+            TopScreenRect.Height = heightreq;
+        }
+        TopScreenRect.X = startX;
+        TopScreenRect.Y = (height - TopScreenRect.Height) / 2;
+
+        BottomScreenRect.X = TopScreenRect.X + TopScreenRect.Width + ScreenGap;
+
+        if (sizemode == 1)
+        {
+            BottomScreenRect.Width = screenW;
+            BottomScreenRect.Height = screenH;
+        }
+        else
+        {
+            BottomScreenRect.Width = width - TopScreenRect.Width;
+            BottomScreenRect.Height = heightreq;
+        }
+        BottomScreenRect.Y = (height - BottomScreenRect.Height) / 2;
     }
     else
     {
