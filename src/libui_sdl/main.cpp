@@ -439,7 +439,7 @@ horizontal = true; // TEST
             TopScreenRect.Height = heightreq;
         }
         TopScreenRect.X = startX;
-        TopScreenRect.Y = (height - TopScreenRect.Height) / 2;
+        TopScreenRect.Y = ((height - heightreq) / 2) + (heightreq - TopScreenRect.Height);
 
         BottomScreenRect.X = TopScreenRect.X + TopScreenRect.Width + ScreenGap;
 
@@ -453,7 +453,7 @@ horizontal = true; // TEST
             BottomScreenRect.Width = width - TopScreenRect.Width;
             BottomScreenRect.Height = heightreq;
         }
-        BottomScreenRect.Y = (height - BottomScreenRect.Height) / 2;
+        BottomScreenRect.Y = ((height - heightreq) / 2) + (heightreq - BottomScreenRect.Height);
     }
     else
     {
