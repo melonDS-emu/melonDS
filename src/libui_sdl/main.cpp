@@ -395,7 +395,7 @@ void SetupScreenRects(int width, int height)
     // (also TODO: swap top/bottom screen if needed)
     int screenW = 256;
     int screenH = 192;
-
+//horizontal = true; // TEST
     if (horizontal)
     {
         // side-by-side
@@ -406,6 +406,8 @@ void SetupScreenRects(int width, int height)
 
         int widthreq;
         int startY = 0;
+
+        height -= ScreenGap;
 
         if (sizemode == 0) // even
         {
@@ -443,8 +445,7 @@ void SetupScreenRects(int width, int height)
         TopScreenRect.Y = startY;
         TopScreenRect.X = (width - TopScreenRect.Width) / 2;
 
-        // TODO: gap
-        BottomScreenRect.Y = TopScreenRect.Y + TopScreenRect.Height;
+        BottomScreenRect.Y = TopScreenRect.Y + TopScreenRect.Height + ScreenGap;
 
         if (sizemode == 1)
         {
@@ -643,8 +644,25 @@ void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
 {
     int gap = *(int*)param;
+
+    int oldgap = ScreenGap;
     ScreenGap = gap;
-    // TODO: check menu items!!!!!
+
+    // resize window as needed
+    // TODO: adapt to horizontal modes
+    // TODO: always resize window? except if it's maximized
+    int w, h;
+    uiWindowContentSize(window, &w, &h);
+    {
+        h -= gap;
+        if (h < 384)
+        {
+            h = 384 + gap;
+            uiWindowSetContentSize(window, w, h);
+        }
+    }
+
+    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
 }
 
 void OnSetScreenLayout(uiMenuItem* item, uiWindow* window, void* param)
