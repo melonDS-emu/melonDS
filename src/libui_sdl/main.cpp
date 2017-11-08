@@ -63,12 +63,15 @@ u32 ScreenBuffer[256*384];
 int ScreenGap = 0;
 int ScreenLayout = 0;
 int ScreenSizing = 0;
+int ScreenRotation = 0;
 
 int MainScreenPos[3];
 int AutoScreenSizing;
 
 uiRect TopScreenRect;
 uiRect BottomScreenRect;
+uiDrawMatrix TopScreenTrans;
+uiDrawMatrix BottomScreenTrans;
 
 bool Touching = false;
 
@@ -299,8 +302,22 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
 
+    uiDrawSave(params->Context);
+    uiDrawTransform(params->Context, &TopScreenTrans);
     uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect);
+    uiDrawRestore(params->Context);
+
+    /*uiDrawMatrix blirg;
+    uiDrawMatrixSetIdentity(&blirg);
+    uiDrawMatrixTranslate(&blirg, -BottomScreenRect.X, -BottomScreenRect.Y);
+    uiDrawMatrixRotate(&blirg, 0, 0, -M_PI/2.0f);//3.14);
+    uiDrawMatrixTranslate(&blirg, BottomScreenRect.X, BottomScreenRect.Y+BottomScreenRect.Height);
+    //uiDrawMatrixScale(&blirg, 128, 192, 2, 2);
+    uiDrawTransform(params->Context, &blirg);*/
+    uiDrawSave(params->Context);
+    uiDrawTransform(params->Context, &BottomScreenTrans);
     uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect);
+    uiDrawRestore(params->Context);
 }
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
@@ -378,10 +395,16 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 void SetupScreenRects(int width, int height)
 {
     bool horizontal = false;
+    bool sideways = false;
+ScreenRotation = 3; // TEST   1=90 CW  2=180 3=270
+    if (ScreenRotation == 1 || ScreenRotation == 3)
+        sideways = true;
+
     if (ScreenLayout == 2) horizontal = true;
     else if (ScreenLayout == 0)
     {
-        // TODO: make it horizontal if rotation is used, whenever that is implemented
+        if (sideways)
+            horizontal = true;
     }
 
     int sizemode;
@@ -390,12 +413,30 @@ void SetupScreenRects(int width, int height)
     else
         sizemode = ScreenSizing;
 
-    // blarg.
-    // should be changed if rotation is used
-    // (also TODO: swap top/bottom screen if needed)
-    int screenW = 256;
-    int screenH = 192;
-horizontal = true; // TEST
+    int screenW, screenH;
+    if (sideways)
+    {
+        screenW = 192;
+        screenH = 256;
+    }
+    else
+    {
+        screenW = 256;
+        screenH = 192;
+    }
+
+    uiRect *topscreen, *bottomscreen;
+    if (ScreenRotation == 1 || ScreenRotation == 2)
+    {
+        topscreen = &BottomScreenRect;
+        bottomscreen = &TopScreenRect;
+    }
+    else
+    {
+        topscreen = &TopScreenRect;
+        bottomscreen = &BottomScreenRect;
+    }
+//horizontal = true; // TEST
     if (horizontal)
     {
         // side-by-side
@@ -430,30 +471,30 @@ horizontal = true; // TEST
 
         if (sizemode == 2)
         {
-            TopScreenRect.Width = screenW;
-            TopScreenRect.Height = screenH;
+            topscreen->Width = screenW;
+            topscreen->Height = screenH;
         }
         else
         {
-            TopScreenRect.Width = (sizemode==0) ? (width / 2) : (width - screenW);
-            TopScreenRect.Height = heightreq;
+            topscreen->Width = (sizemode==0) ? (width / 2) : (width - screenW);
+            topscreen->Height = heightreq;
         }
-        TopScreenRect.X = startX;
-        TopScreenRect.Y = ((height - heightreq) / 2) + (heightreq - TopScreenRect.Height);
+        topscreen->X = startX;
+        topscreen->Y = ((height - heightreq) / 2) + (heightreq - topscreen->Height);
 
-        BottomScreenRect.X = TopScreenRect.X + TopScreenRect.Width + ScreenGap;
+        bottomscreen->X = topscreen->X + topscreen->Width + ScreenGap;
 
         if (sizemode == 1)
         {
-            BottomScreenRect.Width = screenW;
-            BottomScreenRect.Height = screenH;
+            bottomscreen->Width = screenW;
+            bottomscreen->Height = screenH;
         }
         else
         {
-            BottomScreenRect.Width = width - TopScreenRect.Width;
-            BottomScreenRect.Height = heightreq;
+            bottomscreen->Width = width - topscreen->Width;
+            bottomscreen->Height = heightreq;
         }
-        BottomScreenRect.Y = ((height - heightreq) / 2) + (heightreq - BottomScreenRect.Height);
+        bottomscreen->Y = ((height - heightreq) / 2) + (heightreq - bottomscreen->Height);
     }
     else
     {
@@ -489,30 +530,86 @@ horizontal = true; // TEST
 
         if (sizemode == 2)
         {
-            TopScreenRect.Width = screenW;
-            TopScreenRect.Height = screenH;
+            topscreen->Width = screenW;
+            topscreen->Height = screenH;
         }
         else
         {
-            TopScreenRect.Width = widthreq;
-            TopScreenRect.Height = (sizemode==0) ? (height / 2) : (height - screenH);
+            topscreen->Width = widthreq;
+            topscreen->Height = (sizemode==0) ? (height / 2) : (height - screenH);
         }
-        TopScreenRect.Y = startY;
-        TopScreenRect.X = (width - TopScreenRect.Width) / 2;
+        topscreen->Y = startY;
+        topscreen->X = (width - topscreen->Width) / 2;
 
-        BottomScreenRect.Y = TopScreenRect.Y + TopScreenRect.Height + ScreenGap;
+        bottomscreen->Y = topscreen->Y + topscreen->Height + ScreenGap;
 
         if (sizemode == 1)
         {
-            BottomScreenRect.Width = screenW;
-            BottomScreenRect.Height = screenH;
+            bottomscreen->Width = screenW;
+            bottomscreen->Height = screenH;
         }
         else
         {
-            BottomScreenRect.Width = widthreq;
-            BottomScreenRect.Height = height - TopScreenRect.Height;
+            bottomscreen->Width = widthreq;
+            bottomscreen->Height = height - topscreen->Height;
         }
-        BottomScreenRect.X = (width - BottomScreenRect.Width) / 2;
+        bottomscreen->X = (width - bottomscreen->Width) / 2;
+    }
+
+    // setup matrices for potential rotation
+
+    uiDrawMatrixSetIdentity(&TopScreenTrans);
+    uiDrawMatrixSetIdentity(&BottomScreenTrans);
+
+    switch (ScreenRotation)
+    {
+    case 1: // 90°
+        {
+            uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
+            uiDrawMatrixRotate(&TopScreenTrans, 0, 0, M_PI/2.0f);
+            uiDrawMatrixScale(&TopScreenTrans, 0, 0,
+                              TopScreenRect.Width/(double)TopScreenRect.Height,
+                              TopScreenRect.Height/(double)TopScreenRect.Width);
+            uiDrawMatrixTranslate(&TopScreenTrans, TopScreenRect.X+TopScreenRect.Width, TopScreenRect.Y);
+
+            uiDrawMatrixTranslate(&BottomScreenTrans, -BottomScreenRect.X, -BottomScreenRect.Y);
+            uiDrawMatrixRotate(&BottomScreenTrans, 0, 0, M_PI/2.0f);
+            uiDrawMatrixScale(&BottomScreenTrans, 0, 0,
+                              BottomScreenRect.Width/(double)BottomScreenRect.Height,
+                              BottomScreenRect.Height/(double)BottomScreenRect.Width);
+            uiDrawMatrixTranslate(&BottomScreenTrans, BottomScreenRect.X+BottomScreenRect.Width, BottomScreenRect.Y);
+        }
+        break;
+
+    case 2: // 180°
+        {
+            uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
+            uiDrawMatrixRotate(&TopScreenTrans, 0, 0, M_PI);
+            uiDrawMatrixTranslate(&TopScreenTrans, TopScreenRect.X+TopScreenRect.Width, TopScreenRect.Y+TopScreenRect.Height);
+
+            uiDrawMatrixTranslate(&BottomScreenTrans, -BottomScreenRect.X, -BottomScreenRect.Y);
+            uiDrawMatrixRotate(&BottomScreenTrans, 0, 0, M_PI);
+            uiDrawMatrixTranslate(&BottomScreenTrans, BottomScreenRect.X+BottomScreenRect.Width, BottomScreenRect.Y+BottomScreenRect.Height);
+        }
+        break;
+
+    case 3: // 270°
+        {
+            uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
+            uiDrawMatrixRotate(&TopScreenTrans, 0, 0, -M_PI/2.0f);
+            uiDrawMatrixScale(&TopScreenTrans, 0, 0,
+                              TopScreenRect.Width/(double)TopScreenRect.Height,
+                              TopScreenRect.Height/(double)TopScreenRect.Width);
+            uiDrawMatrixTranslate(&TopScreenTrans, TopScreenRect.X, TopScreenRect.Y+TopScreenRect.Height);
+
+            uiDrawMatrixTranslate(&BottomScreenTrans, -BottomScreenRect.X, -BottomScreenRect.Y);
+            uiDrawMatrixRotate(&BottomScreenTrans, 0, 0, -M_PI/2.0f);
+            uiDrawMatrixScale(&BottomScreenTrans, 0, 0,
+                              BottomScreenRect.Width/(double)BottomScreenRect.Height,
+                              BottomScreenRect.Height/(double)BottomScreenRect.Width);
+            uiDrawMatrixTranslate(&BottomScreenTrans, BottomScreenRect.X, BottomScreenRect.Y+BottomScreenRect.Height);
+        }
+        break;
     }
 }
 
