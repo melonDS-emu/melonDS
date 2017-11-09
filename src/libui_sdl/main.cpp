@@ -37,9 +37,10 @@
 #include "../Platform.h"
 
 
-const int kScreenGap[] = {0, 1, 8, 64, 90, 128, -1};
-const int kScreenLayout[] = {0, 1, 2};
-const int kScreenSizing[] = {0, 1, 2, 3};
+const int kScreenRot[4] = {0, 1, 2, 3};
+const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
+const int kScreenLayout[3] = {0, 1, 2};
+const int kScreenSizing[4] = {0, 1, 2, 3};
 
 
 uiWindow* MainWindow;
@@ -48,6 +49,11 @@ uiArea* MainDrawArea;
 uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
 uiMenuItem* MenuItem_Stop;
+
+uiMenuItem* MenuItem_ScreenRot[4];
+uiMenuItem* MenuItem_ScreenGap[6];
+uiMenuItem* MenuItem_ScreenLayout[3];
+uiMenuItem* MenuItem_ScreenSizing[4];
 
 SDL_Thread* EmuThread;
 int EmuRunning;
@@ -425,7 +431,7 @@ void SetupScreenRects(int width, int height)
 {
     bool horizontal = false;
     bool sideways = false;
-ScreenRotation = 1; // TEST   1=90 CW  2=180 3=270
+
     if (ScreenRotation == 1 || ScreenRotation == 3)
         sideways = true;
 
@@ -465,7 +471,7 @@ ScreenRotation = 1; // TEST   1=90 CW  2=180 3=270
         topscreen = &TopScreenRect;
         bottomscreen = &BottomScreenRect;
     }
-//horizontal = true; // TEST
+
     if (horizontal)
     {
         // side-by-side
@@ -656,7 +662,7 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 
 
 void Run()
-{
+{printf("go sonic go\n");
     EmuRunning = 1;
     RunningSomething = true;
 
@@ -822,6 +828,25 @@ void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 }
 
 
+void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int rot = *(int*)param;
+
+    int oldrot = ScreenRotation;
+    ScreenRotation = rot;
+
+    // TODO: adjust window size
+    if (rot == 1 || rot == 3)
+        uiControlSetMinSize(uiControl(MainDrawArea), 384, 256);
+    else
+        uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+
+    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+
+    for (int i = 0; i < 4; i++)
+        uiMenuItemSetChecked(MenuItem_ScreenRot[i], i==ScreenRotation);
+}
+
 void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
 {
     int gap = *(int*)param;
@@ -973,14 +998,28 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
     uiMenuAppendSeparator(menu);
     {
+        uiMenu* submenu = uiNewMenu("Screen rotation");
+
+        for (int i = 0; i < 4; i++)
+        {
+            char name[32];
+            sprintf(name, "%d", kScreenRot[i]*90);
+            MenuItem_ScreenRot[i] = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(MenuItem_ScreenRot[i], OnSetScreenRotation, (void*)&kScreenRot[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
         uiMenu* submenu = uiNewMenu("Mid-screen gap");
 
-        for (int i = 0; kScreenGap[i] != -1; i++)
+        //for (int i = 0; kScreenGap[i] != -1; i++)
+        for (int i = 0; i < 6; i++)
         {
             char name[32];
             sprintf(name, "%d pixels", kScreenGap[i]);
-            menuitem = uiMenuAppendItem(submenu, name);
-            uiMenuItemOnClicked(menuitem, OnSetScreenGap, (void*)&kScreenGap[i]);
+            MenuItem_ScreenGap[i] = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(MenuItem_ScreenGap[i], OnSetScreenGap, (void*)&kScreenGap[i]);
         }
 
         uiMenuAppendSubmenu(menu, submenu);
@@ -988,26 +1027,26 @@ int main(int argc, char** argv)
     {
         uiMenu* submenu = uiNewMenu("Screen layout");
 
-        menuitem = uiMenuAppendItem(submenu, "Natural");
-        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[0]);
-        menuitem = uiMenuAppendItem(submenu, "Vertical");
-        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[1]);
-        menuitem = uiMenuAppendItem(submenu, "Horizontal");
-        uiMenuItemOnClicked(menuitem, OnSetScreenLayout, (void*)&kScreenLayout[2]);
+        MenuItem_ScreenLayout[0] = uiMenuAppendItem(submenu, "Natural");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[0], OnSetScreenLayout, (void*)&kScreenLayout[0]);
+        MenuItem_ScreenLayout[1] = uiMenuAppendItem(submenu, "Vertical");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[1], OnSetScreenLayout, (void*)&kScreenLayout[1]);
+        MenuItem_ScreenLayout[2] = uiMenuAppendItem(submenu, "Horizontal");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[2], OnSetScreenLayout, (void*)&kScreenLayout[2]);
 
         uiMenuAppendSubmenu(menu, submenu);
     }
     {
         uiMenu* submenu = uiNewMenu("Screen sizing");
 
-        menuitem = uiMenuAppendItem(submenu, "Even");
-        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[0]);
-        menuitem = uiMenuAppendItem(submenu, "Emphasize top");
-        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[1]);
-        menuitem = uiMenuAppendItem(submenu, "Emphasize bottom");
-        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[2]);
-        menuitem = uiMenuAppendItem(submenu, "Auto");
-        uiMenuItemOnClicked(menuitem, OnSetScreenSizing, (void*)&kScreenSizing[3]);
+        MenuItem_ScreenSizing[0] = uiMenuAppendItem(submenu, "Even");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[0], OnSetScreenSizing, (void*)&kScreenSizing[0]);
+        MenuItem_ScreenSizing[1] = uiMenuAppendItem(submenu, "Emphasize top");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[1], OnSetScreenSizing, (void*)&kScreenSizing[1]);
+        MenuItem_ScreenSizing[2] = uiMenuAppendItem(submenu, "Emphasize bottom");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[2], OnSetScreenSizing, (void*)&kScreenSizing[2]);
+        MenuItem_ScreenSizing[3] = uiMenuAppendItem(submenu, "Auto");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[3], OnSetScreenSizing, (void*)&kScreenSizing[3]);
 
         uiMenuAppendSubmenu(menu, submenu);
     }
