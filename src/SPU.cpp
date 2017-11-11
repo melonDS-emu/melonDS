@@ -61,6 +61,8 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
+const u32 kSamplesPerRun = 1;
+
 const u32 OutputBufferSize = 2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
 u32 OutputReadOffset;
@@ -99,7 +101,7 @@ void Reset()
 {
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
     OutputReadOffset = 0;
-    OutputWriteOffset = 0;
+    OutputWriteOffset = OutputBufferSize;
 
     Cnt = 0;
     MasterVolume = 0;
@@ -111,7 +113,7 @@ void Reset()
     Capture[0]->Reset();
     Capture[1]->Reset();
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
 }
 
 void Stop()
@@ -144,6 +146,53 @@ void Channel::Reset()
     Length = 0;
 
     Timer = 0;
+
+    Pos = 0;
+    FIFOReadPos = 0;
+    FIFOWritePos = 0;
+    FIFOReadOffset = 0;
+    FIFOLevel = 0;
+}
+
+void Channel::FIFO_BufferData()
+{
+    u32 totallen = LoopPos + Length;
+
+    if (FIFOReadOffset >= totallen)
+    {
+        u32 repeatmode = (Cnt >> 27) & 0x3;
+        if (repeatmode == 2) return; // one-shot sound, we're done
+        if (repeatmode == 1) FIFOReadOffset = LoopPos;
+    }
+
+    u32 burstlen = 16;
+    if ((FIFOReadOffset + 16) > totallen)
+        burstlen = totallen - FIFOReadOffset;
+
+    for (u32 i = 0; i < burstlen; i += 4)
+    {
+        FIFO[FIFOWritePos] = NDS::ARM7Read32(SrcAddr + FIFOReadOffset);
+        FIFOReadOffset += 4;
+        FIFOWritePos++;
+        FIFOWritePos &= 0x7;
+    }
+
+    FIFOLevel += burstlen;
+}
+
+template<typename T>
+T Channel::FIFO_ReadData()
+{
+    T ret = *(T*)&((u8*)FIFO)[FIFOReadPos];
+
+    FIFOReadPos += sizeof(T);
+    FIFOReadPos &= 0x1F;
+    FIFOLevel -= sizeof(T);
+
+    if (FIFOLevel <= 16)
+        FIFO_BufferData();
+
+    return ret;
 }
 
 void Channel::Start()
@@ -157,6 +206,18 @@ void Channel::Start()
 
     NoiseVal = 0x7FFF;
     CurSample = 0;
+
+    FIFOReadPos = 0;
+    FIFOWritePos = 0;
+    FIFOReadOffset = 0;
+    FIFOLevel = 0;
+
+    // when starting a channel, two 4-word chunks are buffered
+    if (((Cnt >> 29) & 0x3) != 3)
+    {
+        FIFO_BufferData();
+        FIFO_BufferData();
+    }
 }
 
 void Channel::NextSample_PCM8()
@@ -179,7 +240,7 @@ void Channel::NextSample_PCM8()
         }
     }
 
-    s8 val = (s8)NDS::ARM7Read8(SrcAddr + Pos);
+    s8 val = FIFO_ReadData<s8>();
     CurSample = val << 8;
 }
 
@@ -203,7 +264,7 @@ void Channel::NextSample_PCM16()
         }
     }
 
-    s16 val = (s16)NDS::ARM7Read16(SrcAddr + (Pos<<1));
+    s16 val = FIFO_ReadData<s16>();
     CurSample = val;
 }
 
@@ -215,7 +276,7 @@ void Channel::NextSample_ADPCM()
         if (Pos == 0)
         {
             // setup ADPCM
-            u32 header = NDS::ARM7Read32(SrcAddr);
+            u32 header = FIFO_ReadData<u32>();
             ADPCMVal = header & 0xFFFF;
             ADPCMIndex = (header >> 16) & 0x7F;
             if (ADPCMIndex > 88) ADPCMIndex = 88;
@@ -242,12 +303,13 @@ void Channel::NextSample_ADPCM()
             Pos = LoopPos<<1;
             ADPCMVal = ADPCMValLoop;
             ADPCMIndex = ADPCMIndexLoop;
+            ADPCMCurByte = FIFO_ReadData<u8>();
         }
     }
     else
     {
         if (!(Pos & 0x1))
-            ADPCMCurByte = NDS::ARM7Read8(SrcAddr + (Pos>>1));
+            ADPCMCurByte = FIFO_ReadData<u8>();
         else
             ADPCMCurByte >>= 4;
 
@@ -308,6 +370,8 @@ void Channel::Run(s32* buf, u32 samples)
     for (u32 s = 0; s < samples; s++)
         buf[s] = 0;
 
+    if (!(Cnt & (1<<31))) return;
+
     for (u32 s = 0; s < samples; s++)
     {
         Timer += 512; // 1 sample = 512 cycles at 16MHz
@@ -335,6 +399,20 @@ void Channel::Run(s32* buf, u32 samples)
     }
 }
 
+void Channel::PanOutput(s32* inbuf, u32 samples, s32* leftbuf, s32* rightbuf)
+{
+    for (u32 s = 0; s < samples; s++)
+    {
+        s32 val = (s32)inbuf[s];
+
+        s32 l = ((s64)val * (128-Pan)) >> 10;
+        s32 r = ((s64)val * Pan) >> 10;
+
+        leftbuf[s] += l;
+        rightbuf[s] += r;
+    }
+}
+
 
 CaptureUnit::CaptureUnit(u32 num)
 {
@@ -353,6 +431,44 @@ void CaptureUnit::Reset()
     Length = 0;
 
     Timer = 0;
+
+    Pos = 0;
+    FIFOReadPos = 0;
+    FIFOWritePos = 0;
+    FIFOWriteOffset = 0;
+    FIFOLevel = 0;
+}
+
+void CaptureUnit::FIFO_FlushData()
+{
+    for (u32 i = 0; i < 4; i++)
+    {
+        NDS::ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+
+        FIFOReadPos++;
+        FIFOReadPos &= 0x3;
+        FIFOLevel -= 4;
+
+        FIFOWriteOffset += 4;
+        if (FIFOWriteOffset >= Length)
+        {
+            FIFOWriteOffset = 0;
+            break;
+        }
+    }
+}
+
+template<typename T>
+void CaptureUnit::FIFO_WriteData(T val)
+{
+    *(T*)&((u8*)FIFO)[FIFOWritePos] = val;
+
+    FIFOWritePos += sizeof(T);
+    FIFOWritePos &= 0xF;
+    FIFOLevel += sizeof(T);
+
+    if (FIFOLevel >= 16)
+        FIFO_FlushData();
 }
 
 void CaptureUnit::Run(s32 sample)
@@ -365,10 +481,13 @@ void CaptureUnit::Run(s32 sample)
         {
             Timer = TimerReload + (Timer - 0x10000);
 
-            NDS::ARM7Write8(DstAddr + Pos, (u8)(sample >> 8));
+            FIFO_WriteData<s8>((s8)(sample >> 8));
             Pos++;
             if (Pos >= Length)
             {
+                if (FIFOLevel >= 4)
+                    FIFO_FlushData();
+
                 if (Cnt & 0x04)
                 {
                     Cnt &= 0x7F;
@@ -385,10 +504,13 @@ void CaptureUnit::Run(s32 sample)
         {
             Timer = TimerReload + (Timer - 0x10000);
 
-            NDS::ARM7Write16(DstAddr + Pos, (u16)sample);
+            FIFO_WriteData<s16>((s16)sample);
             Pos += 2;
             if (Pos >= Length)
             {
+                if (FIFOLevel >= 4)
+                    FIFO_FlushData();
+
                 if (Cnt & 0x04)
                 {
                     Cnt &= 0x7F;
@@ -406,7 +528,7 @@ void Mix(u32 samples)
 {
     s32 channelbuf[32];
     s32 leftbuf[32], rightbuf[32];
-    s32 ch1buf[32], ch3buf[32];
+    s32 ch0buf[32], ch1buf[32], ch2buf[32], ch3buf[32];
     s32 leftoutput[32], rightoutput[32];
 
     for (u32 s = 0; s < samples; s++)
@@ -417,29 +539,24 @@ void Mix(u32 samples)
 
     if (Cnt & (1<<15))
     {
-        u32 mixermask = 0xFFFF;
-        if (Cnt & (1<<12)) mixermask &= ~(1<<1);
-        if (Cnt & (1<<13)) mixermask &= ~(1<<3);
+        Channels[0]->DoRun(ch0buf, samples);
+        Channels[1]->DoRun(ch1buf, samples);
+        Channels[2]->DoRun(ch2buf, samples);
+        Channels[3]->DoRun(ch3buf, samples);
 
-        for (int i = 0; i < 16; i++)
+        // TODO: addition from capture registers
+        Channels[0]->PanOutput(ch0buf, samples, leftbuf, rightbuf);
+        Channels[2]->PanOutput(ch2buf, samples, leftbuf, rightbuf);
+
+        if (!(Cnt & (1<<12))) Channels[1]->PanOutput(ch1buf, samples, leftbuf, rightbuf);
+        if (!(Cnt & (1<<13))) Channels[3]->PanOutput(ch3buf, samples, leftbuf, rightbuf);
+
+        for (int i = 4; i < 16; i++)
         {
-            if (!(mixermask & (1<<i))) continue;
             Channel* chan = Channels[i];
-            if (!(chan->Cnt & (1<<31))) continue;
 
-            // TODO: what happens if we use type 3 on channels 0-7??
             chan->DoRun(channelbuf, samples);
-
-            for (u32 s = 0; s < samples; s++)
-            {
-                s32 val = (s32)channelbuf[s];
-
-                s32 l = ((s64)val * (128-chan->Pan)) >> 10;
-                s32 r = ((s64)val * chan->Pan) >> 10;
-
-                leftbuf[s] += l;
-                rightbuf[s] += r;
-            }
+            chan->PanOutput(channelbuf, samples, leftbuf, rightbuf);
         }
 
         // sound capture
@@ -476,17 +593,6 @@ void Mix(u32 samples)
         }
 
         // final output
-
-        if (Cnt & 0x0500)
-        {
-            // mix channel 1 if needed
-            Channels[1]->DoRun(ch1buf, samples);
-        }
-        if (Cnt & 0x0A00)
-        {
-            // mix channel 3 if needed
-            Channels[3]->DoRun(ch3buf, samples);
-        }
 
         switch (Cnt & 0x0300)
         {
@@ -574,8 +680,7 @@ void Mix(u32 samples)
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
     }
 
-
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*16, Mix, 16);
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
 }
 
 

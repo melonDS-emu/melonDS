@@ -329,9 +329,6 @@ void Reset()
     memset(SchedList, 0, sizeof(SchedList));
     SchedListMask = 0;
 
-    /*ARM9Cycles = 0;
-    ARM7Cycles = 0;
-    SchedCycles = 0;*/
     CurIterationCycles = 0;
     ARM7Offset = 0;
 

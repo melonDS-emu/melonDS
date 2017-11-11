@@ -662,7 +662,7 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 
 
 void Run()
-{printf("go sonic go\n");
+{
     EmuRunning = 1;
     RunningSomething = true;
 

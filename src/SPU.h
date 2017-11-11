@@ -70,6 +70,15 @@ public:
     s32 ADPCMIndexLoop;
     u8 ADPCMCurByte;
 
+    u32 FIFO[8];
+    u32 FIFOReadPos;
+    u32 FIFOWritePos;
+    u32 FIFOReadOffset;
+    u32 FIFOLevel;
+
+    void FIFO_BufferData();
+    template<typename T> T FIFO_ReadData();
+
     void SetCnt(u32 val)
     {
         u32 oldcnt = Cnt;
@@ -139,6 +148,15 @@ public:
     u32 Timer;
     s32 Pos;
 
+    u32 FIFO[4];
+    u32 FIFOReadPos;
+    u32 FIFOWritePos;
+    u32 FIFOWriteOffset;
+    u32 FIFOLevel;
+
+    void FIFO_FlushData();
+    template<typename T> void FIFO_WriteData(T val);
+
     void SetCnt(u8 val)
     {
         if ((val & 0x80) && !(Cnt & 0x80))
@@ -153,7 +171,15 @@ public:
     void SetTimerReload(u32 val) { TimerReload = val & 0xFFFF; }
     void SetLength(u32 val) { Length = val << 2; if (Length == 0) Length = 4; }
 
-    void Start() { Timer = TimerReload; }
+    void Start()
+    {
+        Timer = TimerReload;
+        Pos = 0;
+        FIFOReadPos = 0;
+        FIFOWritePos = 0;
+        FIFOWriteOffset = 0;
+        FIFOLevel = 0;
+    }
 
     void Run(s32 sample);
 };
