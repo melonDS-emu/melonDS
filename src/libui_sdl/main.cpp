@@ -1112,8 +1112,8 @@ int main(int argc, char** argv)
 
     int w = Config::WindowWidth;
     int h = Config::WindowHeight;
-    if (w < 256) w = 256;
-    if (h < 384) h = 384;
+    //if (w < 256) w = 256;
+    //if (h < 384) h = 384;
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
