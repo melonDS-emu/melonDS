@@ -313,13 +313,6 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect);
     uiDrawRestore(params->Context);
 
-    /*uiDrawMatrix blirg;
-    uiDrawMatrixSetIdentity(&blirg);
-    uiDrawMatrixTranslate(&blirg, -BottomScreenRect.X, -BottomScreenRect.Y);
-    uiDrawMatrixRotate(&blirg, 0, 0, -M_PI/2.0f);//3.14);
-    uiDrawMatrixTranslate(&blirg, BottomScreenRect.X, BottomScreenRect.Y+BottomScreenRect.Height);
-    //uiDrawMatrixScale(&blirg, 128, 192, 2, 2);
-    uiDrawTransform(params->Context, &blirg);*/
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &BottomScreenTrans);
     uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect);
@@ -422,6 +415,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         for (int i = 0; i < 12; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
+
+        //if (evt->Scancode == 0x58) // F12
+        //    NDS::debug(0);
     }
 
     return 1;
@@ -1081,6 +1077,7 @@ int main(int argc, char** argv)
     MainDrawArea = uiNewArea(&areahandler);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?
 
     EmuRunning = 2;
     RunningSomething = false;
