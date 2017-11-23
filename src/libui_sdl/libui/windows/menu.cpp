@@ -14,6 +14,7 @@ static BOOL hasAbout = FALSE;
 
 struct uiMenu {
 	WCHAR *name;
+	HMENU handle;
 	uiMenuItem **items;
 	BOOL ischild;
 	size_t len;
@@ -292,6 +293,7 @@ static HMENU makeMenu(uiMenu *m)
 	menu = CreatePopupMenu();
 	if (menu == NULL)
 		logLastError(L"error creating menu");
+    m->handle = menu;
 	for (i = 0; i < m->len; i++)
 		appendMenuItem(menu, m->items[i]);
 	return menu;
@@ -363,21 +365,28 @@ static void freeMenu(uiMenu *m, HMENU submenu)
 			item->hmenus[j] = item->hmenus[j + 1];
 		item->hmenus[j] = NULL;
 		item->len--;
+
+		if (item->popupchild)
+            freeMenu(item->popupchild, item->popupchild->handle);
 	}
 }
 
 void freeMenubar(HMENU menubar)
 {
 	size_t i;
+	size_t j = 0;
 	MENUITEMINFOW mi;
 
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len; i++)
+    {
+        if (menus[i]->ischild) continue;
 		ZeroMemory(&mi, sizeof (MENUITEMINFOW));
 		mi.cbSize = sizeof (MENUITEMINFOW);
 		mi.fMask = MIIM_SUBMENU;
-		if (GetMenuItemInfoW(menubar, i, TRUE, &mi) == 0)
+		if (GetMenuItemInfoW(menubar, j, TRUE, &mi) == 0)
 			logLastError(L"error getting menu to delete item references from");
 		freeMenu(menus[i], mi.hSubMenu);
+		j++;
 	}
 	// no need to worry about destroying any menus; destruction of the window they're in will do it for us
 }
@@ -396,7 +405,7 @@ void uninitMenus(void)
 			if (item->len != 0)
 				// LONGTERM userbug()?
 				implbug("menu item %p (%ws) still has uiWindows attached; did you forget to destroy some windows?", item, item->name);
-			if (item->name != NULL)
+			if (item->type != typeSubmenu && item->name != NULL)
 				uiFree(item->name);
 			if (item->hmenus != NULL)
 				uiFree(item->hmenus);

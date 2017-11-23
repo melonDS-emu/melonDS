@@ -33,6 +33,11 @@ extern int JoyMapping[12];
 extern int WindowWidth;
 extern int WindowHeight;
 
+extern int ScreenRotation;
+extern int ScreenGap;
+extern int ScreenLayout;
+extern int ScreenSizing;
+
 extern int DirectBoot;
 
 extern int Threaded3D;

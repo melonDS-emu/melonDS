@@ -31,6 +31,11 @@ int JoyMapping[12];
 int WindowWidth;
 int WindowHeight;
 
+int ScreenRotation;
+int ScreenGap;
+int ScreenLayout;
+int ScreenSizing;
+
 int DirectBoot;
 
 int Threaded3D;
@@ -78,6 +83,11 @@ ConfigEntry ConfigFile[] =
 
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
+
+    {"ScreenRotation", 0, &ScreenRotation, 0, NULL, 0},
+    {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
+    {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
+    {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 

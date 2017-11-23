@@ -865,6 +865,8 @@ void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
             w = blarg;
 
             uiWindowSetContentSize(window, w, h);
+            Config::WindowWidth = w;
+            Config::WindowHeight = h;
         }
     }
     else if (ScreenLayout == 1) // vertical
@@ -1139,6 +1141,20 @@ int main(int argc, char** argv)
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
     uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?
 
+    ScreenRotation = Config::ScreenRotation;
+    ScreenGap = Config::ScreenGap;
+    ScreenLayout = Config::ScreenLayout;
+    ScreenSizing = Config::ScreenSizing;
+
+#define SANITIZE(var, min, max)  if ((var < min) || (var > max)) var = 0;
+    SANITIZE(ScreenRotation, 0, 3);
+    SANITIZE(ScreenGap, 0, 5);
+    SANITIZE(ScreenLayout, 0, 2);
+    SANITIZE(ScreenSizing, 0, 3);
+#undef SANITIZE
+
+    OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+
     EmuRunning = 2;
     RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
@@ -1164,6 +1180,11 @@ int main(int argc, char** argv)
 
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
+
+    Config::ScreenRotation = ScreenRotation;
+    Config::ScreenGap = ScreenGap;
+    Config::ScreenLayout = ScreenLayout;
+    Config::ScreenSizing = ScreenSizing;
 
     Config::Save();
 
