@@ -39,6 +39,8 @@ struct uiArea {
 	GtkWidget *areaWidget;
 	GtkDrawingArea *drawingArea;
 	areaWidget *area;
+	
+	int bgR, bgG, bgB;
 
 	uiAreaHandler *ah;
 
@@ -578,6 +580,13 @@ static void areaWidget_class_init(areaWidgetClass *class)
 
 uiUnixControlAllDefaults(uiArea)
 
+void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b)
+{
+    a->bgR = r;
+    a->bgG = g;
+    a->bgB = b;
+}
+
 void uiAreaSetSize(uiArea *a, int width, int height)
 {
 	if (!a->scrolling)
@@ -695,6 +704,8 @@ uiArea *uiNewArea(uiAreaHandler *ah)
 	a->area = areaWidget(a->areaWidget);
 
 	a->widget = a->areaWidget;
+	
+	uiAreaSetBackgroundColor(a, -1, -1, -1);
 
 	return a;
 }
@@ -721,6 +732,8 @@ uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
 	a->area = areaWidget(a->areaWidget);
 
 	a->widget = a->swidget;
+	
+	uiAreaSetBackgroundColor(a, -1, -1, -1);
 
 	gtk_container_add(a->scontainer, a->areaWidget);
 	// and make the area visible; only the scrolled window's visibility is controlled by libui
