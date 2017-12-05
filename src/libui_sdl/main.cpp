@@ -594,7 +594,7 @@ void SetupScreenRects(int width, int height)
 
     switch (ScreenRotation)
     {
-    case 1: // 90\B0
+    case 1: // 90°
         {
             uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
             uiDrawMatrixRotate(&TopScreenTrans, 0, 0, M_PI/2.0f);
@@ -612,7 +612,7 @@ void SetupScreenRects(int width, int height)
         }
         break;
 
-    case 2: // 180\B0
+    case 2: // 180°
         {
             uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
             uiDrawMatrixRotate(&TopScreenTrans, 0, 0, M_PI);
@@ -624,7 +624,7 @@ void SetupScreenRects(int width, int height)
         }
         break;
 
-    case 3: // 270\B0
+    case 3: // 270°
         {
             uiDrawMatrixTranslate(&TopScreenTrans, -TopScreenRect.X, -TopScreenRect.Y);
             uiDrawMatrixRotate(&TopScreenTrans, 0, 0, -M_PI/2.0f);
