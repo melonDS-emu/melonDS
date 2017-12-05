@@ -10,6 +10,7 @@ static gboolean hasAbout = FALSE;
 struct uiMenu {
 	char *name;
 	GArray *items;					// []*uiMenuItem
+	gboolean ischild;
 };
 
 struct uiMenuItem {
@@ -21,6 +22,7 @@ struct uiMenuItem {
 	gboolean disabled;
 	gboolean checked;
 	GHashTable *windows;			// map[GtkMenuItem]*menuItemWindow
+	uiMenu *popupchild;
 };
 
 struct menuItemWindow {
@@ -35,6 +37,7 @@ enum {
 	typePreferences,
 	typeAbout,
 	typeSeparator,
+	typeSubmenu,
 };
 
 // we do NOT want programmatic updates to raise an ::activated signal
@@ -179,6 +182,33 @@ static uiMenuItem *newItem(uiMenu *m, int type, const char *name)
 	}
 
 	item->windows = g_hash_table_new(g_direct_hash, g_direct_equal);
+	item->popupchild = NULL;
+
+	return item;
+}
+
+uiMenuItem *uiMenuAppendSubmenu(uiMenu *m, uiMenu* child)
+{
+	uiMenuItem *item;
+
+	if (menusFinalized)
+		userbug("You cannot create a new menu item after menus have been finalized.");
+
+	item = uiNew(uiMenuItem);
+
+	g_array_append_val(m->items, item);
+
+	item->type = typeSubmenu;
+	item->name = child->name;
+
+	uiMenuItemOnClicked(item, defaultOnClicked, NULL);
+
+    // checkme
+	item->gtype = GTK_TYPE_MENU_ITEM;
+
+	item->windows = g_hash_table_new(g_direct_hash, g_direct_equal);
+	item->popupchild = child;
+	child->ischild = TRUE;
 
 	return item;
 }
@@ -240,6 +270,7 @@ uiMenu *uiNewMenu(const char *name)
 
 	m->name = g_strdup(name);
 	m->items = g_array_new(FALSE, TRUE, sizeof (uiMenuItem *));
+	m->ischild = FALSE;
 
 	return m;
 }
@@ -260,10 +291,24 @@ static void appendMenuItem(GtkMenuShell *submenu, uiMenuItem *item, uiWindow *w)
 			singleSetChecked(GTK_CHECK_MENU_ITEM(menuitem), item->checked, signal);
 	}
 	gtk_menu_shell_append(submenu, menuitem);
+	
 	ww = uiNew(struct menuItemWindow);
 	ww->w = w;
 	ww->signal = signal;
 	g_hash_table_insert(item->windows, menuitem, ww);
+	
+	if (item->popupchild != NULL)
+	{
+	    int j;
+	    uiMenu* m;
+	    GtkWidget *submenu;
+	    
+	    m = item->popupchild;
+		submenu = gtk_menu_new();
+		gtk_menu_item_set_submenu(GTK_MENU_ITEM(menuitem), submenu);
+		for (j = 0; j < m->items->len; j++)
+			appendMenuItem(GTK_MENU_SHELL(submenu), g_array_index(m->items, uiMenuItem *, j), w);
+	}
 }
 
 GtkWidget *makeMenubar(uiWindow *w)
@@ -281,6 +326,7 @@ GtkWidget *makeMenubar(uiWindow *w)
 	if (menus != NULL)
 		for (i = 0; i < menus->len; i++) {
 			m = g_array_index(menus, uiMenu *, i);
+			if (m->ischild) continue;
 			menuitem = gtk_menu_item_new_with_label(m->name);
 			submenu = gtk_menu_new();
 			gtk_menu_item_set_submenu(GTK_MENU_ITEM(menuitem), submenu);
