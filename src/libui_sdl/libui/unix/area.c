@@ -134,6 +134,12 @@ static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 	dp.ClipY = clipY0;
 	dp.ClipWidth = clipX1 - clipX0;
 	dp.ClipHeight = clipY1 - clipY0;
+	
+	if (a->bgR != -1)
+	{
+	    cairo_set_source_rgb(cr, a->bgR/255.0, a->bgG/255.0, a->bgB/255.0);
+	    cairo_paint(cr);
+	}
 
 	// no need to save or restore the graphics state to reset transformations; GTK+ does that for us
 	(*(a->ah->Draw))(a->ah, a, &dp);
