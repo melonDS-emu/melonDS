@@ -108,6 +108,8 @@ u32 KeyInput;
 u16 KeyCnt;
 u16 RCnt;
 
+bool MicBlowing;
+
 bool Running;
 
 
@@ -522,6 +524,8 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+
+    MicBlowing = !(mask & 0x1000);
 }
 
 

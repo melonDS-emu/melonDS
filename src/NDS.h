@@ -103,6 +103,8 @@ extern u8 ARM7BIOS[0x4000];
 
 extern u8 MainRAM[0x400000];
 
+extern bool MicBlowing;
+
 bool Init();
 void DeInit();
 void Reset();

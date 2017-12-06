@@ -25,8 +25,8 @@
 namespace Config
 {
 
-int KeyMapping[12];
-int JoyMapping[12];
+int KeyMapping[13];
+int JoyMapping[13];
 
 int WindowWidth;
 int WindowHeight;
@@ -67,6 +67,7 @@ ConfigEntry ConfigFile[] =
     {"Key_L",      0, &KeyMapping[9],   42, NULL, 0},
     {"Key_X",      0, &KeyMapping[10],  17, NULL, 0},
     {"Key_Y",      0, &KeyMapping[11],  30, NULL, 0},
+    {"Key_Mic_blow", 0, &KeyMapping[12],  41, NULL, 0},
 
     {"Joy_A",      0, &JoyMapping[0],  -1, NULL, 0},
     {"Joy_B",      0, &JoyMapping[1],  -1, NULL, 0},
@@ -80,6 +81,7 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
+    {"Joy_Mic_blow", 0, &JoyMapping[12], -1, NULL, 0},
 
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},

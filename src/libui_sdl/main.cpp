@@ -134,7 +134,7 @@ int EmuThreadFunc(void* burp)
         SDL_PauseAudioDevice(audio, 0);
     }
 
-    KeyInputMask = 0xFFF;
+    KeyInputMask = 0x1FFF;
 
     // TODO: support more joysticks
     if (SDL_NumJoysticks() > 0)
@@ -158,7 +158,7 @@ int EmuThreadFunc(void* burp)
 
             // poll input
             u32 keymask = KeyInputMask;
-            u32 joymask = 0xFFF;
+            u32 joymask = 0x1FFF;
             if (Joystick)
             {
                 SDL_JoystickUpdate();
@@ -406,13 +406,13 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 
     if (evt->Up)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 13; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask |= (1<<i);
     }
     else if (!evt->Repeat)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 13; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
 

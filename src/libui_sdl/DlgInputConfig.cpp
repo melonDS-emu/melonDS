@@ -40,11 +40,11 @@ uiWindow* win;
 uiAreaHandler areahandler;
 uiArea* keypresscatcher;
 
-int keyorder[12] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 3, 2};
-char keylabels[12][8] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "Up:", "Down:", "R:", "L:", "X:", "Y:"};
+int keyorder[13] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 3, 2, 12};
+char keylabels[13][10] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "Up:", "Down:", "R:", "L:", "X:", "Y:", "Mic blow:"};
 
-int keymap[12];
-int joymap[12];
+int keymap[13];
+int joymap[13];
 
 int pollid;
 uiButton* pollbtn;
@@ -268,8 +268,8 @@ void OnCancel(uiButton* btn, void* blarg)
 
 void OnOk(uiButton* btn, void* blarg)
 {
-    memcpy(Config::KeyMapping, keymap, sizeof(int)*12);
-    memcpy(Config::JoyMapping, joymap, sizeof(int)*12);
+    memcpy(Config::KeyMapping, keymap, sizeof(int)*13);
+    memcpy(Config::JoyMapping, joymap, sizeof(int)*13);
 
     Config::Save();
 
@@ -280,8 +280,8 @@ void Open()
 {
     pollid = -1;
 
-    memcpy(keymap, Config::KeyMapping, sizeof(int)*12);
-    memcpy(joymap, Config::JoyMapping, sizeof(int)*12);
+    memcpy(keymap, Config::KeyMapping, sizeof(int)*13);
+    memcpy(joymap, Config::JoyMapping, sizeof(int)*13);
 
     win = uiNewWindow("Input config - melonDS", 600, 400, 0, 0);
     uiWindowSetMargined(win, 1);
@@ -312,7 +312,7 @@ void Open()
         
         const int width = 120;
 
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 13; i++)
         {
             int j = keyorder[i];
 
@@ -335,7 +335,7 @@ void Open()
         uiGrid* b_joy = uiNewGrid();
         uiGroupSetChild(g_joy, uiControl(b_joy));
 
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < 13; i++)
         {
             int j = keyorder[i];
 

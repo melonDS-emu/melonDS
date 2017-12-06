@@ -27,8 +27,8 @@ namespace Config
 void Load();
 void Save();
 
-extern int KeyMapping[12];
-extern int JoyMapping[12];
+extern int KeyMapping[13];
+extern int JoyMapping[13];
 
 extern int WindowWidth;
 extern int WindowHeight;

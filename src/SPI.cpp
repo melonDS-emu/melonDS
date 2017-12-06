@@ -478,7 +478,7 @@ void Write(u8 val, u32 hold)
         {
         case 0x10: ConvResult = TouchY; break;
         case 0x50: ConvResult = TouchX; break;
-        case 0x60: ConvResult = 0x800; break; // TODO: mic
+        case 0x60: ConvResult = NDS::MicBlowing ? rand() & 0xFFF : 0x800; break; // TODO: mic
         default: ConvResult = 0xFFF; break;
         }
 
