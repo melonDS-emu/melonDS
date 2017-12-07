@@ -1112,11 +1112,6 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
     uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
 
-    uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenGap[ScreenGap], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
-
 
     int w = Config::WindowWidth;
     int h = Config::WindowHeight;
@@ -1160,6 +1155,11 @@ int main(int argc, char** argv)
     SANITIZE(ScreenLayout, 0, 2);
     SANITIZE(ScreenSizing, 0, 3);
 #undef SANITIZE
+
+    uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
+    uiMenuItemSetChecked(MenuItem_ScreenGap[ScreenGap], 1);
+    uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
+    uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
