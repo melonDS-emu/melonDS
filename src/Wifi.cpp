@@ -1439,7 +1439,7 @@ void Write(u32 addr, u16 val)
 
     case 0x228:
     case 0x244:
-        printf("wifi: write port%03X %04X\n", addr, val);
+        //printf("wifi: write port%03X %04X\n", addr, val);
         break;
 
     // read-only ports

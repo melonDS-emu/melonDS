@@ -1110,7 +1110,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    //printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
