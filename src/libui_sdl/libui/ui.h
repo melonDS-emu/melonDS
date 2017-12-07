@@ -505,7 +505,7 @@ _UI_EXTERN void uiDrawRestore(uiDrawContext *c);
 // bitmap API
 _UI_EXTERN uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height);
 _UI_EXTERN void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data);
-_UI_EXTERN void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, bool filter);
+_UI_EXTERN void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, int filter);
 _UI_EXTERN void uiDrawFreeBitmap(uiDrawBitmap* bmp);
 
 // TODO manage the use of Text, Font, and TextFont, and of the uiDrawText prefix in general

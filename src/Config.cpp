@@ -35,6 +35,7 @@ int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
 int ScreenSizing;
+int ScreenFilter;
 
 int DirectBoot;
 
@@ -88,6 +89,7 @@ ConfigEntry ConfigFile[] =
     {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
+    {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 

@@ -310,12 +310,12 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &TopScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &BottomScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 }
 
@@ -937,6 +937,13 @@ void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param)
         uiMenuItemSetChecked(MenuItem_ScreenSizing[i], i==ScreenSizing);
 }
 
+void OnSetScreenFiltering(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::ScreenFilter = 1;
+    else          Config::ScreenFilter = 0;
+}
+
 
 void ApplyNewSettings()
 {
@@ -1101,6 +1108,9 @@ int main(int argc, char** argv)
 
         uiMenuAppendSubmenu(menu, submenu);
     }
+    menuitem = uiMenuAppendCheckItem(menu, "Screen filtering");
+    uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
+    uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
 
     uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
     uiMenuItemSetChecked(MenuItem_ScreenGap[ScreenGap], 1);

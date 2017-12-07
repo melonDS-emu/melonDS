@@ -37,6 +37,7 @@ extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
 extern int ScreenSizing;
+extern int ScreenFilter;
 
 extern int DirectBoot;
 

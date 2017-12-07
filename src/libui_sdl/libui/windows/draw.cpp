@@ -555,7 +555,7 @@ void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
     bmp->bmp->CopyFromMemory(&rekt, data, bmp->Stride);
 }
 
-void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, bool filter)
+void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, int filter)
 {
     D2D_RECT_F _srcrect = D2D1::RectF(srcrect->X, srcrect->Y, srcrect->X+srcrect->Width, srcrect->Y+srcrect->Height);
     D2D_RECT_F _dstrect = D2D1::RectF(dstrect->X, dstrect->Y, dstrect->X+dstrect->Width, dstrect->Y+dstrect->Height);

@@ -185,7 +185,7 @@ void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
     cairo_surface_mark_dirty(bmp->bmp);
 }
 
-void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, bool filter)
+void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, int filter)
 {
     cairo_save(c->cr);
     cairo_rectangle(c->cr, dstrect->X, dstrect->Y, dstrect->Width, dstrect->Height);
