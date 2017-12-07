@@ -29,7 +29,7 @@ static FILE* melon_fopen(const char* path, const char* mode)
     if (len < 1) return NULL;
     WCHAR* fatass = new WCHAR[len];
     int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, fatass, len);
-    if (res != len) return NULL; // checkme?
+    if (res != len) { delete[] fatass; return NULL; } // checkme?
 
     // this will be more than enough
     WCHAR fatmode[4];
