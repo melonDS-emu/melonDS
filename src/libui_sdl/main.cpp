@@ -838,18 +838,9 @@ void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 }
 
 
-void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
+void EnsureProperMinSize()
 {
-    int rot = *(int*)param;
-
-    int oldrot = ScreenRotation;
-    ScreenRotation = rot;
-
-    int w, h;
-    uiWindowContentSize(window, &w, &h);
-
-    bool isHori = (rot == 1 || rot == 3);
-    bool wasHori = (oldrot == 1 || oldrot == 3);
+    bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
     if (ScreenLayout == 0) // natural
     {
@@ -857,17 +848,6 @@ void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
             SetMinSize(384+ScreenGap, 256);
         else
             SetMinSize(256, 384+ScreenGap);
-
-        if (isHori ^ wasHori)
-        {
-            int blarg = h;
-            h = w;
-            w = blarg;
-
-            uiWindowSetContentSize(window, w, h);
-            Config::WindowWidth = w;
-            Config::WindowHeight = h;
-        }
     }
     else if (ScreenLayout == 1) // vertical
     {
@@ -883,6 +863,36 @@ void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
         else
             SetMinSize(512+ScreenGap, 192);
     }
+}
+
+void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int rot = *(int*)param;
+
+    int oldrot = ScreenRotation;
+    ScreenRotation = rot;
+
+    int w, h;
+    uiWindowContentSize(window, &w, &h);
+
+    bool isHori = (rot == 1 || rot == 3);
+    bool wasHori = (oldrot == 1 || oldrot == 3);
+
+    EnsureProperMinSize();
+
+    if (ScreenLayout == 0) // natural
+    {
+        if (isHori ^ wasHori)
+        {
+            int blarg = h;
+            h = w;
+            w = blarg;
+
+            uiWindowSetContentSize(window, w, h);
+            Config::WindowWidth = w;
+            Config::WindowHeight = h;
+        }
+    }
 
     SetupScreenRects(w, h);
 
@@ -894,23 +904,10 @@ void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
 {
     int gap = *(int*)param;
 
-    int oldgap = ScreenGap;
+    //int oldgap = ScreenGap;
     ScreenGap = gap;
 
-    // resize window as needed
-    // TODO: adapt to horizontal modes
-    // TODO: always resize window? except if it's maximized
-    int w, h;
-    uiWindowContentSize(window, &w, &h);
-    {
-        h -= gap;
-        if (h < 384)
-        {
-            h = 384 + gap;
-            uiWindowSetContentSize(window, w, h);
-        }
-    }
-
+    EnsureProperMinSize();
     SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
 
     for (int i = 0; i < 6; i++)
@@ -922,6 +919,7 @@ void OnSetScreenLayout(uiMenuItem* item, uiWindow* window, void* param)
     int layout = *(int*)param;
     ScreenLayout = layout;
 
+    EnsureProperMinSize();
     SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
 
     for (int i = 0; i < 3; i++)
