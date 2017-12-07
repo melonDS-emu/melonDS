@@ -185,10 +185,9 @@ void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
     cairo_surface_mark_dirty(bmp->bmp);
 }
 
-void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect)
+void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, bool filter)
 {
     cairo_save(c->cr);
-    
     cairo_rectangle(c->cr, dstrect->X, dstrect->Y, dstrect->Width, dstrect->Height);
     
     cairo_translate(c->cr, dstrect->X, dstrect->Y);
@@ -201,6 +200,7 @@ void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRe
     }
     
     cairo_set_source_surface(c->cr, bmp->bmp, -srcrect->X, -srcrect->Y);
+    cairo_pattern_set_filter(cairo_get_source(c->cr), filter ? CAIRO_FILTER_BILINEAR : CAIRO_FILTER_NEAREST);
     cairo_clip(c->cr);
     cairo_paint(c->cr);
     
