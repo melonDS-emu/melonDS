@@ -684,19 +684,26 @@ void Mix(u32 samples)
 }
 
 
-void ReadOutput(s16* data, int samples)
+int ReadOutput(s16* data, int samples)
 {
+    if (OutputReadOffset == OutputWriteOffset)
+        return 0;
+
     for (int i = 0; i < samples; i++)
     {
         *data++ = OutputBuffer[OutputReadOffset];
         *data++ = OutputBuffer[OutputReadOffset + 1];
 
-        if (OutputReadOffset != OutputWriteOffset)
+        //if (OutputReadOffset != OutputWriteOffset)
         {
             OutputReadOffset += 2;
             OutputReadOffset &= ((2*OutputBufferSize)-1);
         }
+        if (OutputReadOffset == OutputWriteOffset)
+            return i+1;
     }
+
+    return samples;
 }
 
 
