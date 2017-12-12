@@ -1184,15 +1184,19 @@ int main(int argc, char** argv)
 
 #define SANITIZE(var, min, max)  if ((var < min) || (var > max)) var = 0;
     SANITIZE(ScreenRotation, 0, 3);
-    SANITIZE(ScreenGap, 0, 5);
     SANITIZE(ScreenLayout, 0, 2);
     SANITIZE(ScreenSizing, 0, 3);
 #undef SANITIZE
 
     uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenGap[ScreenGap], 1);
     uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
     uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (ScreenGap == kScreenGap[i])
+            uiMenuItemSetChecked(MenuItem_ScreenGap[i], 1);
+    }
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
