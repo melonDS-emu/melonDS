@@ -34,47 +34,51 @@ SET(SOURCES
 	src/libui_sdl/libui/common/matrix.c
 	src/libui_sdl/libui/common/shouldquit.c
 	src/libui_sdl/libui/common/userbugs.c
-	src/libui_sdl/libui/unix/alloc.c
-	src/libui_sdl/libui/unix/area.c
-	src/libui_sdl/libui/unix/box.c
-	src/libui_sdl/libui/unix/button.c
-	src/libui_sdl/libui/unix/cellrendererbutton.c
-	src/libui_sdl/libui/unix/checkbox.c
-	src/libui_sdl/libui/unix/child.c
-	src/libui_sdl/libui/unix/colorbutton.c
-	src/libui_sdl/libui/unix/combobox.c
-	src/libui_sdl/libui/unix/control.c
-	src/libui_sdl/libui/unix/datetimepicker.c
-	src/libui_sdl/libui/unix/debug.c
-	src/libui_sdl/libui/unix/draw.c
-	src/libui_sdl/libui/unix/drawmatrix.c
-	src/libui_sdl/libui/unix/drawpath.c
-	src/libui_sdl/libui/unix/drawtext.c
-	src/libui_sdl/libui/unix/editablecombo.c
-	src/libui_sdl/libui/unix/entry.c
-	src/libui_sdl/libui/unix/fontbutton.c
-	src/libui_sdl/libui/unix/form.c
-	src/libui_sdl/libui/unix/future.c
-	src/libui_sdl/libui/unix/graphemes.c
-	src/libui_sdl/libui/unix/grid.c
-	src/libui_sdl/libui/unix/group.c
-	src/libui_sdl/libui/unix/image.c
-	src/libui_sdl/libui/unix/label.c
-	src/libui_sdl/libui/unix/main.c
-	src/libui_sdl/libui/unix/menu.c
-	src/libui_sdl/libui/unix/multilineentry.c
-	src/libui_sdl/libui/unix/progressbar.c
-	src/libui_sdl/libui/unix/radiobuttons.c
-	src/libui_sdl/libui/unix/separator.c
-	src/libui_sdl/libui/unix/slider.c
-	src/libui_sdl/libui/unix/spinbox.c
-	src/libui_sdl/libui/unix/stddialogs.c
-	src/libui_sdl/libui/unix/tab.c
-	src/libui_sdl/libui/unix/text.c
-	src/libui_sdl/libui/unix/util.c
-	src/libui_sdl/libui/unix/window.c)
+)
 
 if (UNIX)
+    LIST(APPEND SOURCES
+        src/libui_sdl/libui/unix/alloc.c
+        src/libui_sdl/libui/unix/area.c
+        src/libui_sdl/libui/unix/box.c
+        src/libui_sdl/libui/unix/button.c
+        src/libui_sdl/libui/unix/cellrendererbutton.c
+        src/libui_sdl/libui/unix/checkbox.c
+        src/libui_sdl/libui/unix/child.c
+        src/libui_sdl/libui/unix/colorbutton.c
+        src/libui_sdl/libui/unix/combobox.c
+        src/libui_sdl/libui/unix/control.c
+        src/libui_sdl/libui/unix/datetimepicker.c
+        src/libui_sdl/libui/unix/debug.c
+        src/libui_sdl/libui/unix/draw.c
+        src/libui_sdl/libui/unix/drawmatrix.c
+        src/libui_sdl/libui/unix/drawpath.c
+        src/libui_sdl/libui/unix/drawtext.c
+        src/libui_sdl/libui/unix/editablecombo.c
+        src/libui_sdl/libui/unix/entry.c
+        src/libui_sdl/libui/unix/fontbutton.c
+        src/libui_sdl/libui/unix/form.c
+        src/libui_sdl/libui/unix/future.c
+        src/libui_sdl/libui/unix/graphemes.c
+        src/libui_sdl/libui/unix/grid.c
+        src/libui_sdl/libui/unix/group.c
+        src/libui_sdl/libui/unix/image.c
+        src/libui_sdl/libui/unix/label.c
+        src/libui_sdl/libui/unix/main.c
+        src/libui_sdl/libui/unix/menu.c
+        src/libui_sdl/libui/unix/multilineentry.c
+        src/libui_sdl/libui/unix/progressbar.c
+        src/libui_sdl/libui/unix/radiobuttons.c
+        src/libui_sdl/libui/unix/separator.c
+        src/libui_sdl/libui/unix/slider.c
+        src/libui_sdl/libui/unix/spinbox.c
+        src/libui_sdl/libui/unix/stddialogs.c
+        src/libui_sdl/libui/unix/tab.c
+        src/libui_sdl/libui/unix/text.c
+        src/libui_sdl/libui/unix/util.c
+        src/libui_sdl/libui/unix/window.c
+    )
+
     FIND_PACKAGE(PkgConfig REQUIRED)
     PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
 
@@ -86,6 +90,68 @@ if (UNIX)
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         LINK_LIBRARIES("dl")
     endif ()
+elseif (WIN32)
+    LIST(APPEND SOURCES
+        src/libui_sdl/libui/windows/alloc.cpp
+        src/libui_sdl/libui/windows/area.cpp
+        src/libui_sdl/libui/windows/areadraw.cpp
+        src/libui_sdl/libui/windows/areaevents.cpp
+        src/libui_sdl/libui/windows/areascroll.cpp
+        src/libui_sdl/libui/windows/areautil.cpp
+        src/libui_sdl/libui/windows/box.cpp
+        src/libui_sdl/libui/windows/button.cpp
+        src/libui_sdl/libui/windows/checkbox.cpp
+        src/libui_sdl/libui/windows/colorbutton.cpp
+        src/libui_sdl/libui/windows/colordialog.cpp
+        src/libui_sdl/libui/windows/combobox.cpp
+        src/libui_sdl/libui/windows/container.cpp
+        src/libui_sdl/libui/windows/control.cpp
+        src/libui_sdl/libui/windows/d2dscratch.cpp
+        src/libui_sdl/libui/windows/datetimepicker.cpp
+        src/libui_sdl/libui/windows/debug.cpp
+        src/libui_sdl/libui/windows/draw.cpp
+        src/libui_sdl/libui/windows/drawmatrix.cpp
+        src/libui_sdl/libui/windows/drawpath.cpp
+        src/libui_sdl/libui/windows/drawtext.cpp
+        src/libui_sdl/libui/windows/dwrite.cpp
+        src/libui_sdl/libui/windows/editablecombo.cpp
+        #src/libui_sdl/libui/windows/entry.cpp
+        src/libui_sdl/libui/windows/events.cpp
+        src/libui_sdl/libui/windows/fontbutton.cpp
+        src/libui_sdl/libui/windows/fontdialog.cpp
+        src/libui_sdl/libui/windows/form.cpp
+        src/libui_sdl/libui/windows/graphemes.cpp
+        src/libui_sdl/libui/windows/grid.cpp
+        src/libui_sdl/libui/windows/group.cpp
+        src/libui_sdl/libui/windows/init.cpp
+        src/libui_sdl/libui/windows/label.cpp
+        src/libui_sdl/libui/windows/main.cpp
+        src/libui_sdl/libui/windows/menu.cpp
+        src/libui_sdl/libui/windows/multilineentry.cpp
+        src/libui_sdl/libui/windows/parent.cpp
+        src/libui_sdl/libui/windows/progressbar.cpp
+        src/libui_sdl/libui/windows/radiobuttons.cpp
+        src/libui_sdl/libui/windows/separator.cpp
+        src/libui_sdl/libui/windows/sizing.cpp
+        src/libui_sdl/libui/windows/slider.cpp
+        src/libui_sdl/libui/windows/spinbox.cpp
+        src/libui_sdl/libui/windows/stddialogs.cpp
+        #src/libui_sdl/libui/windows/tab.cpp
+        #src/libui_sdl/libui/windows/tabpage.cpp
+        src/libui_sdl/libui/windows/text.cpp
+        src/libui_sdl/libui/windows/utf16.cpp
+        src/libui_sdl/libui/windows/utilwin.cpp
+        src/libui_sdl/libui/windows/window.cpp
+        src/libui_sdl/libui/windows/winpublic.cpp
+        src/libui_sdl/libui/windows/winutil.cpp
+        src/libui_sdl/libui/windows/resources.rc
+    )
+
+    LINK_LIBRARIES("comctl32")
+    LINK_LIBRARIES("d2d1")
+    LINK_LIBRARIES("dwrite")
+    LINK_LIBRARIES("usp10")
+    LINK_LIBRARIES("ws2_32")
 endif (UNIX)
 
 find_package(SDL2 REQUIRED)
