@@ -178,7 +178,7 @@ void SetMemoryType()
         }
         else
         {
-            printf("bad save size %X. assuming EEPROM 64K\n");
+            printf("bad save size %X. assuming EEPROM 64K\n", Discover_LikelySize);
             Discover_MemoryType = 2;
         }
     }

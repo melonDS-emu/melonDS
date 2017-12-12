@@ -234,7 +234,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
 
     if (BlockBeaconIRQ14 && source == 1)
         return;
-    if (!(IOPORT(W_USCompareCnt)) & 0x0001)
+    if (!(IOPORT(W_USCompareCnt) & 0x0001))
         return;
 
     SetIRQ(14);
