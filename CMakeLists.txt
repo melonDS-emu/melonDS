@@ -77,6 +77,7 @@ if (UNIX)
         src/libui_sdl/libui/unix/text.c
         src/libui_sdl/libui/unix/util.c
         src/libui_sdl/libui/unix/window.c
+        melon_grc.c
     )
 
     FIND_PACKAGE(PkgConfig REQUIRED)
@@ -86,6 +87,10 @@ if (UNIX)
     LINK_LIBRARIES(${GTK3_LIBRARIES})
 
     ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
+    
+    add_custom_command(OUTPUT melon_grc.c 
+        COMMAND glib-compile-resources --generate-source melon_grc.xml
+        COMMAND glib-compile-resources --generate-header melon_grc.xml)
 
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         LINK_LIBRARIES("dl")

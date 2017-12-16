@@ -3,3 +3,5 @@ obj
 *.depend
 *.layout
 *.o
+melon_grc.c
+melon_grc.h

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/org/kuriboland/melonDS">
+    <file preprocess="to-pixdata">icon/melon_16x16.png</file>
+    <file preprocess="to-pixdata">icon/melon_32x32.png</file>
+    <file preprocess="to-pixdata">icon/melon_48x48.png</file>
+    <file preprocess="to-pixdata">icon/melon_64x64.png</file>
+    <file preprocess="to-pixdata">icon/melon_128x128.png</file>
+    <file preprocess="to-pixdata">icon/melon_256x256.png</file>
+  </gresource>
+</gresources>
