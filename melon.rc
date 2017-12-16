@@ -2,7 +2,7 @@
 #define VFT_APP                      0x00000001L
 
 //this will set your .exe icon
-//A ICON MOVEABLE PURE LOADONCALL DISCARDABLE "melon.ico"
+100 ICON MOVEABLE PURE LOADONCALL DISCARDABLE "melon.ico"
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
