@@ -755,6 +755,12 @@ void TryLoadROM(char* file, int prevstatus)
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
+    if (RunningSomething)
+    {
+        EmuRunning = 2;
+        while (EmuStatus != 2);
+    }
+
     uiQuit();
     return 1;
 }
