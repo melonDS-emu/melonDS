@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL2/SDL.h>
+#include <pcap/pcap.h>
 #include "../Platform.h"
 #include "../Config.h"
 
@@ -73,6 +74,17 @@ sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
 
 #define NIFI_VER 1
+
+
+const char* PCapLibNames[] =
+{
+#ifdef __WIN32__
+    "wpcap.dll",
+#else
+    // TODO: Linux lib names
+#endif
+    NULL
+};
 
 
 void StopEmu()
@@ -256,6 +268,26 @@ int MP_RecvPacket(u8* data, bool block)
 
     memcpy(data, &PacketBuffer[8], rlen);
     return rlen;
+}
+
+
+// LAN interface. Currently powered by libpcap, may change.
+
+bool LAN_Init()
+{
+    for (int i = 0; PCapLibNames[i]; i++)
+    {
+        void* lib = SDL_LoadObject(PCapLibNames[i]);
+        if (!lib) continue;
+
+        printf("loaded lib %s\n", PCapLibNames[i]);
+        SDL_UnloadObject(lib);
+    }
+}
+
+void LAN_DeInit()
+{
+    //
 }
 
 

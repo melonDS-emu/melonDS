@@ -75,7 +75,6 @@
 					<Add option="-D_FILE_OFFSET_BITS=64" />
 				</Compiler>
 				<Linker>
-					<Add option="-s" />
 					<Add option="-m64" />
 					<Add library="SDL2" />
 					<Add library="shell32" />
@@ -97,6 +96,7 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 			<Add option="-pipe" />
+			<Add directory="src" />
 		</Compiler>
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
@@ -230,6 +230,10 @@
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
 		<Unit filename="src/melon_fopen.h" />
+		<Unit filename="src/pcap/compiler-tests.h" />
+		<Unit filename="src/pcap/funcattrs.h" />
+		<Unit filename="src/pcap/pcap-inttypes.h" />
+		<Unit filename="src/pcap/pcap.h" />
 		<Unit filename="src/types.h" />
 		<Unit filename="src/version.h" />
 		<Unit filename="xp.manifest" />
