@@ -86,6 +86,21 @@ const char* PCapLibNames[] =
     NULL
 };
 
+void* PCapLib;
+
+#define DECL_PCAP_FUNC(ret, name, args, args2) \
+    typedef ret (*type_##name) args; \
+    type_##name ptr_##name = NULL; \
+    ret name args { return ptr_##name args2; }
+
+DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
+DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
+DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
+DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
+DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
+DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
+DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
+
 
 void StopEmu()
 {
@@ -273,21 +288,61 @@ int MP_RecvPacket(u8* data, bool block)
 
 // LAN interface. Currently powered by libpcap, may change.
 
+#define LOAD_PCAP_FUNC(sym) \
+    ptr_##sym = (type_##sym)SDL_LoadFunction(lib, #sym); \
+    if (!ptr_##sym) return false;
+
+bool TryLoadPCap(void* lib)
+{
+    LOAD_PCAP_FUNC(pcap_findalldevs)
+    LOAD_PCAP_FUNC(pcap_freealldevs)
+    LOAD_PCAP_FUNC(pcap_open_live)
+    LOAD_PCAP_FUNC(pcap_close)
+    LOAD_PCAP_FUNC(pcap_setnonblock)
+    LOAD_PCAP_FUNC(pcap_sendpacket)
+    LOAD_PCAP_FUNC(pcap_dispatch)
+
+    return true;
+}
+
 bool LAN_Init()
 {
+    PCapLib = NULL;
+
     for (int i = 0; PCapLibNames[i]; i++)
     {
         void* lib = SDL_LoadObject(PCapLibNames[i]);
         if (!lib) continue;
 
-        printf("loaded lib %s\n", PCapLibNames[i]);
-        SDL_UnloadObject(lib);
+        if (!TryLoadPCap(lib))
+        {
+            SDL_UnloadObject(lib);
+            continue;
+        }
+
+        printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
+        PCapLib = lib;
+        break;
     }
+
+    if (PCapLib == NULL)
+    {
+        printf("PCap: init failed\n");
+        return false;
+    }
+
+    //
+
+    return true;
 }
 
 void LAN_DeInit()
 {
-    //
+    if (PCapLib)
+    {
+        SDL_UnloadObject(PCapLib);
+        PCapLib = NULL;
+    }
 }
 
 

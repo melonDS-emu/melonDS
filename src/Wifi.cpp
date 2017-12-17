@@ -81,6 +81,7 @@ int MPReplyTimer;
 int MPNumReplies;
 
 bool MPInited;
+bool LANInited;
 
 
 
@@ -89,9 +90,9 @@ bool MPInited;
 // 2. IRQ7
 // 3. send data
 // 4. optional IRQ1
-// 5. wait for client replies (duration: 112 + ((10 * CMD_REPLYTIME) * numclients))
+// 5. wait for client replies (duration: 16 + ((10 * CMD_REPLYTIME) * numclients) + ack preamble (96))
 // 6. IRQ7
-// 7. send ack (16 bytes, 1Mbps)
+// 7. send ack (32 bytes)
 // 8. optional IRQ1, along with IRQ12 if the transfer was successful or if
 //    there's no time left for a retry
 //
@@ -123,6 +124,7 @@ bool MPInited;
 bool Init()
 {
     MPInited = false;
+    LANInited = false;
 
     return true;
 }
@@ -131,6 +133,8 @@ void DeInit()
 {
     if (MPInited)
         Platform::MP_DeInit();
+    if (LANInited)
+        Platform::LAN_DeInit();
 }
 
 void Reset()
@@ -1285,15 +1289,22 @@ void Write(u32 addr, u16 val)
         // TODO: check whether this resets USCOUNT (and also which other events can reset it)
         if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
         {
+            printf("WIFI ON\n");
             NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
             if (!MPInited)
             {
                 Platform::MP_Init();
                 MPInited = true;
             }
+            if (!LANInited)
+            {
+                Platform::LAN_Init();
+                LANInited = true;
+            }
         }
         else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
         {
+            printf("WIFI OFF\n");
             NDS::CancelEvent(NDS::Event_Wifi);
         }
         break;

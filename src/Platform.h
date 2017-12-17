@@ -41,6 +41,9 @@ void MP_DeInit();
 int MP_SendPacket(u8* data, int len);
 int MP_RecvPacket(u8* data, bool block);
 
+bool LAN_Init();
+void LAN_DeInit();
+
 }
 
 #endif // PLATFORM_H
