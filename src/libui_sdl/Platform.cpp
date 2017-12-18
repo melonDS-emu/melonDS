@@ -29,7 +29,6 @@
 	#include <ws2tcpip.h>
 	#define socket_t    SOCKET
 	#define sockaddr_t  SOCKADDR
-	#define pcap_dev_name description
 #else
 	#include <unistd.h>
 	#include <arpa/inet.h>
@@ -39,12 +38,25 @@
 	#define socket_t    int
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
-	#define pcap_dev_name name
 #endif
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET  (socket_t)-1
 #endif
+
+
+#define DECL_PCAP_FUNC(ret, name, args, args2) \
+    typedef ret (*type_##name) args; \
+    type_##name ptr_##name = NULL; \
+    ret name args { return ptr_##name args2; }
+
+DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
+DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
+DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
+DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
+DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
+DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
+DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
 
 
 void Stop(bool internal);
@@ -86,20 +98,12 @@ const char* PCapLibNames[] =
     NULL
 };
 
-void* PCapLib;
+void* PCapLib = NULL;
+pcap_t* PCapAdapter = NULL;
 
-#define DECL_PCAP_FUNC(ret, name, args, args2) \
-    typedef ret (*type_##name) args; \
-    type_##name ptr_##name = NULL; \
-    ret name args { return ptr_##name args2; }
-
-DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
-DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
-DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
-DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
-DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
-DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
-DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
+u8 PCapPacketBuffer[2048];
+int PCapPacketLen;
+int PCapRXNum;
 
 
 void StopEmu()
@@ -164,7 +168,7 @@ bool MP_Init()
     {
         return false;
     }
-#endif // __WXMSW__
+#endif // __WIN32__
 
     MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (MPSocket < 0)
@@ -214,7 +218,7 @@ void MP_DeInit()
 
 #ifdef __WIN32__
     WSACleanup();
-#endif // __WXMSW__
+#endif // __WIN32__
 }
 
 int MP_SendPacket(u8* data, int len)
@@ -308,6 +312,9 @@ bool TryLoadPCap(void* lib)
 bool LAN_Init()
 {
     PCapLib = NULL;
+    PCapAdapter = NULL;
+    PCapPacketLen = 0;
+    PCapRXNum = 0;
 
     for (int i = 0; PCapLibNames[i]; i++)
     {
@@ -331,7 +338,38 @@ bool LAN_Init()
         return false;
     }
 
-    //
+    char errbuf[PCAP_ERRBUF_SIZE];
+    int ret;
+
+    pcap_if_t* alldevs;
+    ret = pcap_findalldevs(&alldevs, errbuf);
+    if (ret < 0 || alldevs == NULL)
+    {
+        printf("PCap: no devices available\n");
+        return false;
+    }
+/*while (alldevs){
+    printf("picking dev %08X %s | %s\n", alldevs->flags, alldevs->name, alldevs->description);
+    alldevs = alldevs->next;}*/
+    // temp hack
+    // TODO: ADAPTER SELECTOR!!
+    pcap_if_t* dev = alldevs->next;
+
+    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
+    if (!PCapAdapter)
+    {
+        printf("PCap: failed to open adapter\n");
+        return false;
+    }
+
+    pcap_freealldevs(alldevs);
+
+    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
+    {
+        printf("PCap: failed to set nonblocking mode\n");
+        pcap_close(PCapAdapter); PCapAdapter = NULL;
+        return false;
+    }
 
     return true;
 }
@@ -340,9 +378,57 @@ void LAN_DeInit()
 {
     if (PCapLib)
     {
+        if (PCapAdapter)
+        {
+            pcap_close(PCapAdapter);
+            PCapAdapter = NULL;
+        }
+
         SDL_UnloadObject(PCapLib);
         PCapLib = NULL;
     }
+}
+
+int LAN_SendPacket(u8* data, int len)
+{
+    if (PCapAdapter == NULL)
+        return 0;
+
+    if (len > 2048)
+    {
+        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        return 0;
+    }
+
+    pcap_sendpacket(PCapAdapter, data, len);
+    // TODO: check success
+    return len;
+}
+
+void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
+{
+    PCapPacketLen = header->len;
+    memcpy(PCapPacketBuffer, data, PCapPacketLen);
+    PCapRXNum = 1;
+
+    printf("received shit\n");
+}
+
+int LAN_RecvPacket(u8* data)
+{
+    if (PCapAdapter == NULL)
+        return 0;
+
+    int ret = 0;
+    if (PCapRXNum > 0)
+    {
+        memcpy(data, PCapPacketBuffer, PCapPacketLen);
+        ret = PCapPacketLen;
+        PCapRXNum = 0;
+    }
+
+    pcap_dispatch(PCapAdapter, 1, LAN_RXCallback, NULL);
+    return ret;
 }
 
 

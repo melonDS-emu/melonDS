@@ -36,13 +36,19 @@ void Semaphore_Reset(void* sema);
 void Semaphore_Wait(void* sema);
 void Semaphore_Post(void* sema);
 
+// local multiplayer comm interface
+// packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();
 void MP_DeInit();
 int MP_SendPacket(u8* data, int len);
 int MP_RecvPacket(u8* data, bool block);
 
+// LAN comm interface
+// packet type: Ethernet (802.3)
 bool LAN_Init();
 void LAN_DeInit();
+int LAN_SendPacket(u8* data, int len);
+int LAN_RecvPacket(u8* data);
 
 }
 

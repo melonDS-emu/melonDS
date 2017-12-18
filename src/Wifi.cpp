@@ -767,6 +767,7 @@ bool CheckRX(bool block)
     for (;;)
     {
         int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
+        //if (rxlen == 0) rxlen = Platform::LAN_RecvPacket(RXBuffer);
         if (rxlen == 0) return false;
         if (rxlen < 12+24) continue;
 
