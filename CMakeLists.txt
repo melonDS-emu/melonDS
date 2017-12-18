@@ -28,6 +28,7 @@ SET(SOURCES
 	src/SPI.cpp
 	src/SPU.cpp
 	src/Wifi.cpp
+	src/WifiAP.cpp
 	src/libui_sdl/libui/common/areaevents.c
 	src/libui_sdl/libui/common/control.c
 	src/libui_sdl/libui/common/debug.c
