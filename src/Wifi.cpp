@@ -611,10 +611,16 @@ bool ProcessTX(TXSlot* slot, int num)
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
+            // send
             int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
             WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
                      txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
                      *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+
+            // if the packet is being sent via LOC1..3, send it to the AP
+            // any packet sent via CMD/REPLY/BEACON isn't going to have much use outside of local MP
+            if (num == 0 || num == 2 || num == 3)
+                WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
 
             if (num == 4)
             {

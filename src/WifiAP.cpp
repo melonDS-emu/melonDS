@@ -56,6 +56,7 @@ const u8 APMac[6] = {AP_MAC};
 //#define PALIGN_4(p, base)  p += ((4 - ((ptrdiff_t)(p-base) & 0x3)) & 0x3);
 // no idea what is the ideal padding there
 // but in the case of management frames the padding shouldn't be counted as an information element
+// (theory: the hardware just doesn't touch the space between the frame and the FCS)
 #define PLEN(p, base)      (int)(ptrdiff_t)(p-base)
 #define PALIGN_4(p, base)  while (PLEN(p,base) & 0x3) *p++ = 0xFF;
 
@@ -69,6 +70,10 @@ bool BeaconDue;
 u8 PacketBuffer[2048];
 int PacketLen;
 int RXNum;
+
+// this is a lazy AP, we only keep track of one client
+// 0=disconnected 1=authenticated 2=associated
+int ClientStatus;
 
 
 bool Init()
@@ -91,6 +96,14 @@ void Reset()
     memset(PacketBuffer, 0, sizeof(PacketBuffer));
     PacketLen = 0;
     RXNum = 0;
+
+    ClientStatus = 0;
+}
+
+
+bool MACEqual(u8* a, u8* b)
+{
+    return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
 }
 
 
@@ -107,9 +120,165 @@ void USTimer()
 }
 
 
+int HandleManagementFrame(u8* data, int len)
+{
+    // TODO: perfect this
+    // noting that frames sent pre-auth/assoc don't have a proper BSSID
+    //if (!MACEqual(&data[16], (u8*)APMac)) // check BSSID
+    //    return 0;
+
+    if (RXNum)
+    {
+        printf("wifiAP: can't reply!!\n");
+        return 0;
+    }
+
+    u16 framectl = *(u16*)&data[0];
+
+    u8* base = &PacketBuffer[0];
+    u8* p = base;
+
+    switch ((framectl >> 4) & 0xF)
+    {
+    case 0x0: // assoc request
+        {
+            if (ClientStatus != 1)
+            {
+                printf("wifiAP: bad assoc request, needs auth prior\n");
+                return 0;
+            }
+
+            ClientStatus = 2;
+            printf("wifiAP: client associated\n");
+
+            PWRITE_16(p, 0x0010);
+            PWRITE_16(p, 0x0000); // duration??
+            PWRITE_MAC2(p, (&data[10])); // recv
+            PWRITE_MAC2(p, APMac); // sender
+            PWRITE_MAC2(p, APMac); // BSSID
+            PWRITE_SEQNO(p);
+
+            PWRITE_16(p, 0x0021); // capability
+            PWRITE_16(p, 0); // status (success)
+            PWRITE_16(p, 0xC001); // assoc ID
+            PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
+
+            PacketLen = PLEN(p, base);
+            RXNum = 1;
+        }
+        return len;
+
+    case 0x4: // probe request
+        {
+            // Nintendo's WFC setup util sends probe requests when searching for APs
+            // these should be replied with a probe response, which is almost like a beacon
+
+            PWRITE_16(p, 0x0050);
+            PWRITE_16(p, 0x0000); // duration??
+            PWRITE_MAC2(p, (&data[10])); // recv
+            PWRITE_MAC2(p, APMac); // sender
+            PWRITE_MAC2(p, APMac); // BSSID (checkme)
+            PWRITE_SEQNO(p);
+
+            PWRITE_64(p, USCounter);
+            PWRITE_16(p, 128); // beacon interval
+            PWRITE_16(p, 0x0021); // capability
+            PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
+            PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
+            PWRITE_8(p, 0x00); PWRITE_8(p, strlen(AP_NAME));
+            memcpy(p, AP_NAME, strlen(AP_NAME)); p += strlen(AP_NAME);
+
+            PacketLen = PLEN(p, base);
+            RXNum = 1;
+        }
+        return len;
+
+    case 0xA: // deassoc
+        {
+            ClientStatus = 1;
+            printf("wifiAP: client deassociated\n");
+
+            PWRITE_16(p, 0x00A0);
+            PWRITE_16(p, 0x0000); // duration??
+            PWRITE_MAC2(p, (&data[10])); // recv
+            PWRITE_MAC2(p, APMac); // sender
+            PWRITE_MAC2(p, APMac); // BSSID
+            PWRITE_SEQNO(p);
+
+            PWRITE_16(p, 3); // reason code
+
+            PacketLen = PLEN(p, base);
+            RXNum = 1;
+        }
+        return len;
+
+    case 0xB: // auth
+        {
+            ClientStatus = 1;
+            printf("wifiAP: client authenticated\n");
+
+            PWRITE_16(p, 0x00B0);
+            PWRITE_16(p, 0x0000); // duration??
+            PWRITE_MAC2(p, (&data[10])); // recv
+            PWRITE_MAC2(p, APMac); // sender
+            PWRITE_MAC2(p, APMac); // BSSID
+            PWRITE_SEQNO(p);
+
+            PWRITE_16(p, 0); // auth algorithm (open)
+            PWRITE_16(p, 2); // auth sequence
+            PWRITE_16(p, 0); // status code (success)
+
+            PacketLen = PLEN(p, base);
+            RXNum = 1;
+        }
+        return len;
+
+    case 0xC: // deauth
+        {
+            ClientStatus = 0;
+            printf("wifiAP: client deauthenticated\n");
+
+            PWRITE_16(p, 0x00C0);
+            PWRITE_16(p, 0x0000); // duration??
+            PWRITE_MAC2(p, (&data[10])); // recv
+            PWRITE_MAC2(p, APMac); // sender
+            PWRITE_MAC2(p, APMac); // BSSID
+            PWRITE_SEQNO(p);
+
+            PWRITE_16(p, 3); // reason code
+
+            PacketLen = PLEN(p, base);
+            RXNum = 1;
+        }
+        return len;
+
+    default:
+        printf("wifiAP: unknown management frame type %X\n", (framectl>>4)&0xF);
+        return 0;
+    }
+}
+
+
 int SendPacket(u8* data, int len)
 {
-    //
+    data += 12;
+
+    u16 framectl = *(u16*)&data[0];
+    switch ((framectl >> 2) & 0x3)
+    {
+    case 0: // management
+        return HandleManagementFrame(data, len);
+
+    case 1: // control
+        // TODO ???
+        return 0;
+
+    case 2: // data
+        // TODO: forward to LAN
+        break;
+    }
+
+    return 0;
 }
 
 int RecvPacket(u8* data)
@@ -145,13 +314,25 @@ int RecvPacket(u8* data)
         p = data;
         PWRITE_TXH(p, len, 20);
 
-        /*static int zorp=0;
-        zorp++;
-        char derp[55];
-        sprintf(derp, "derpo%d.bin", zorp);
-        FILE* f = fopen(derp, "wb");
-        fwrite(data, len+12, 1, f);
-        fclose(f);*/
+        return len+12;
+    }
+
+    if (RXNum)
+    {
+        RXNum = 0;
+
+        u8* base = data + 12;
+        u8* p = base;
+
+        memcpy(p, PacketBuffer, PacketLen);
+        p += PacketLen;
+
+        PALIGN_4(p, base);
+        PWRITE_32(p, 0xDEADBEEF);
+
+        int len = PLEN(p, base);
+        p = data;
+        PWRITE_TXH(p, len, 20);
 
         return len+12;
     }
