@@ -150,6 +150,9 @@ int HandleManagementFrame(u8* data, int len)
     {
     case 0x0: // assoc request
         {
+            if (!MACEqual(&data[16], (u8*)APMac)) // check BSSID
+                return 0;
+
             if (ClientStatus != 1)
             {
                 printf("wifiAP: bad assoc request, needs auth prior\n");
@@ -203,6 +206,9 @@ int HandleManagementFrame(u8* data, int len)
 
     case 0xA: // deassoc
         {
+            if (!MACEqual(&data[16], (u8*)APMac)) // check BSSID
+                return 0;
+
             ClientStatus = 1;
             printf("wifiAP: client deassociated\n");
 
@@ -222,6 +228,9 @@ int HandleManagementFrame(u8* data, int len)
 
     case 0xB: // auth
         {
+            if (!MACEqual(&data[16], (u8*)APMac)) // check BSSID
+                return 0;
+
             ClientStatus = 1;
             printf("wifiAP: client authenticated\n");
 
@@ -243,6 +252,9 @@ int HandleManagementFrame(u8* data, int len)
 
     case 0xC: // deauth
         {
+            if (!MACEqual(&data[16], (u8*)APMac)) // check BSSID
+                return 0;
+
             ClientStatus = 0;
             printf("wifiAP: client deauthenticated\n");
 

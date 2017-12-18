@@ -848,10 +848,11 @@ bool CheckRX(bool block)
             continue; // oops. we received a packet we just sent.
 
         bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
-        if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
-            !bssidmatch)
+        //if (!(IOPORT(W_BSSID0) & 0x0001) && !(RXBuffer[12 + a_bss] & 0x01) &&
+        if (!MACEqual(&RXBuffer[12 + a_dst], (u8*)&IOPORT(W_MACAddr0)) &&
+            !(RXBuffer[12 + a_dst] & 0x01))
         {
-            printf("received packet %04X but it didn't pass the BSSID check\n", framectl);
+            printf("received packet %04X but it didn't pass the MAC check\n", framectl);
             continue;
         }
 
