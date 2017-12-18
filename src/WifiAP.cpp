@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "Wifi.h"
 #include "WifiAP.h"
+#include "Platform.h"
 
 
 namespace WifiAP
@@ -71,6 +72,8 @@ u8 PacketBuffer[2048];
 int PacketLen;
 int RXNum;
 
+u8 LANBuffer[2048];
+
 // this is a lazy AP, we only keep track of one client
 // 0=disconnected 1=authenticated 2=associated
 int ClientStatus;
@@ -104,6 +107,11 @@ void Reset()
 bool MACEqual(u8* a, u8* b)
 {
     return (*(u32*)&a[0] == *(u32*)&b[0]) && (*(u16*)&a[4] == *(u16*)&b[4]);
+}
+
+bool MACIsBroadcast(u8* a)
+{
+    return (*(u32*)&a[0] == 0xFFFFFFFF) && (*(u16*)&a[4] == 0xFFFF);
 }
 
 
@@ -274,8 +282,34 @@ int SendPacket(u8* data, int len)
         return 0;
 
     case 2: // data
-        // TODO: forward to LAN
-        break;
+        {
+            if ((framectl & 0x0300) != 0x0100)
+            {
+                printf("wifiAP: got data frame with bad fromDS/toDS bits %04X\n", framectl);
+                return 0;
+            }
+
+            // TODO: WFC patch??
+
+            if (*(u32*)&data[24] == 0x0003AAAA && *(u16*)&data[28] == 0x0000)
+            {
+                if (ClientStatus != 2)
+                {
+                    printf("wifiAP: trying to send shit without being associated\n");
+                    return 0;
+                }
+
+                int lan_len = (len - 30 - 4) + 14;
+
+                memcpy(&LANBuffer[0], &data[16], 6); // destination MAC
+                memcpy(&LANBuffer[6], &data[10], 6); // source MAC
+                *(u16*)&LANBuffer[12] = *(u16*)&data[30]; // type
+                memcpy(&LANBuffer[14], &data[32], lan_len - 14);
+
+                Platform::LAN_SendPacket(LANBuffer, lan_len);
+            }
+        }
+        return len;
     }
 
     return 0;
@@ -329,6 +363,45 @@ int RecvPacket(u8* data)
 
         PALIGN_4(p, base);
         PWRITE_32(p, 0xDEADBEEF);
+
+        int len = PLEN(p, base);
+        p = data;
+        PWRITE_TXH(p, len, 20);
+
+        return len+12;
+    }
+
+    if (ClientStatus < 2) return 0;
+
+    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
+    if (rxlen > 0)
+    {
+        // check destination MAC
+        if (!MACIsBroadcast(&LANBuffer[0]))
+        {
+            if (!MACEqual(&LANBuffer[0], Wifi::GetMAC()))
+                return 0;
+        }
+
+        // packet is good
+
+        u8* base = data + 12;
+        u8* p = base;
+
+        PWRITE_16(p, 0x0208);
+        PWRITE_16(p, 0x0000); // duration??
+        PWRITE_MAC2(p, (&LANBuffer[0])); // recv
+        PWRITE_MAC2(p, APMac); // BSSID
+        PWRITE_MAC2(p, (&LANBuffer[6])); // sender
+        PWRITE_SEQNO(p);
+
+        PWRITE_32(p, 0x0003AAAA);
+        PWRITE_16(p, 0x0000);
+        PWRITE_16(p, *(u16*)&LANBuffer[12]);
+        memcpy(p, &LANBuffer[14], rxlen-14); p += rxlen-14;
+
+        PALIGN_4(p, base);
+        PWRITE_32(p, 0xDEADBEEF); // checksum. doesn't matter for now
 
         int len = PLEN(p, base);
         p = data;

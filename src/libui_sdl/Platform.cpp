@@ -408,11 +408,11 @@ int LAN_SendPacket(u8* data, int len)
 
 void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
 {
+    while (PCapRXNum > 0);
+
     PCapPacketLen = header->len;
     memcpy(PCapPacketBuffer, data, PCapPacketLen);
     PCapRXNum = 1;
-
-    printf("received shit\n");
 }
 
 int LAN_RecvPacket(u8* data)
