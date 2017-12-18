@@ -528,6 +528,18 @@ void Reset()
 
 void WriteCnt(u16 val)
 {
+    // turning it off should clear chipselect
+    // TODO: confirm on hardware. libnds expects this, though.
+    if ((Cnt & (1<<15)) && !(val & (1<<15)))
+    {
+        switch (Cnt & 0x0300)
+        {
+        case 0x0000: SPI_Powerman::Hold = 0; break;
+        case 0x0100: SPI_Firmware::Hold = 0; break;
+        case 0x0200: SPI_TSC::DataPos = 0; break;
+        }
+    }
+
     Cnt = (Cnt & 0x0080) | (val & 0xCF03);
     if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
     if (Cnt & (1<<7)) printf("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
