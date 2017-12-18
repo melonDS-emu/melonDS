@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "SPI.h"
 #include "Wifi.h"
+#include "WifiAP.h"
 #include "Platform.h"
 
 
@@ -126,6 +127,8 @@ bool Init()
     MPInited = false;
     LANInited = false;
 
+    WifiAP::Init();
+
     return true;
 }
 
@@ -135,6 +138,8 @@ void DeInit()
         Platform::MP_DeInit();
     if (LANInited)
         Platform::LAN_DeInit();
+
+    WifiAP::DeInit();
 }
 
 void Reset()
@@ -204,6 +209,8 @@ void Reset()
     MPNumReplies = 0;
 
     CmdCounter = 0;
+
+    WifiAP::Reset();
 }
 
 
@@ -767,7 +774,7 @@ bool CheckRX(bool block)
     for (;;)
     {
         int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
-        //if (rxlen == 0) rxlen = Platform::LAN_RecvPacket(RXBuffer);
+        if (rxlen == 0) rxlen = WifiAP::RecvPacket(RXBuffer);
         if (rxlen == 0) return false;
         if (rxlen < 12+24) continue;
 
@@ -909,6 +916,8 @@ void MSTimer()
 
 void USTimer(u32 param)
 {
+    WifiAP::USTimer();
+
     if (IOPORT(W_USCountCnt))
     {
         USCounter++;
@@ -1476,6 +1485,17 @@ void Write(u32 addr, u16 val)
 
     //printf("WIFI: write %08X %04X\n", addr, val);
     IOPORT(addr&0xFFF) = val;
+}
+
+
+u8* GetMAC()
+{
+    return (u8*)&IOPORT(W_MACAddr0);
+}
+
+u8* GetBSSID()
+{
+    return (u8*)&IOPORT(W_BSSID0);
 }
 
 }

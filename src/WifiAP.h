@@ -26,7 +26,11 @@ bool Init();
 void DeInit();
 void Reset();
 
-//
+void USTimer();
+
+// packet format: 12-byte TX header + original 802.11 frame
+int SendPacket(u8* data, int len);
+int RecvPacket(u8* data);
 
 }
 

@@ -91,6 +91,7 @@ u8 PacketBuffer[2048];
 const char* PCapLibNames[] =
 {
 #ifdef __WIN32__
+    // TODO: name for npcap in non-WinPCap mode
     "wpcap.dll",
 #else
     // TODO: Linux lib names
