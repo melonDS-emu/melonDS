@@ -410,6 +410,8 @@ void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_cha
 {
     while (PCapRXNum > 0);
 
+    if (header->len > 2048-64) return;
+
     PCapPacketLen = header->len;
     memcpy(PCapPacketBuffer, data, PCapPacketLen);
     PCapRXNum = 1;
