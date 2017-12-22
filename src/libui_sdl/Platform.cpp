@@ -38,6 +38,7 @@
 	#define socket_t    int
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
+	#define PCAP_OPENFLAG_PROMISCUOUS 1
 #endif
 
 #ifndef INVALID_SOCKET

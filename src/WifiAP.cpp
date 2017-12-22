@@ -23,6 +23,9 @@
 #include "WifiAP.h"
 #include "Platform.h"
 
+#ifndef __WIN32__
+#include <stddef.h>
+#endif
 
 namespace WifiAP
 {
