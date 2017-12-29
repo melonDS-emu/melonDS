@@ -895,7 +895,7 @@ void A_SMLAWy(ARM* cpu)
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
 
-    u32 res_mul = ((s32)rm * (s16)rs) >> 16; // CHECKME
+    u32 res_mul = ((s64)(s32)rm * (s16)rs) >> 16;
     u32 res = res_mul + rn;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
@@ -930,7 +930,7 @@ void A_SMULWy(ARM* cpu)
     if (cpu->CurInstr & (1<<6)) rs >>= 16;
     else                        rs &= 0xFFFF;
 
-    u32 res = ((s32)rm * (s16)rs) >> 16; // CHECKME
+    u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
 }
