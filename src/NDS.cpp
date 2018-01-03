@@ -945,7 +945,8 @@ u8 ARM9Read8(u32 addr)
 
     case 0x08000000:
     case 0x09000000:
-        printf("GBA read8 %08X\n", addr);
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
         return 0xFF;
     }
 
@@ -993,7 +994,8 @@ u16 ARM9Read16(u32 addr)
 
     case 0x08000000:
     case 0x09000000:
-        printf("GBA read16 %08X\n", addr);
+        //return *(u16*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read16 %08X\n", addr);
         return 0xFFFF;
     }
 
@@ -1041,7 +1043,8 @@ u32 ARM9Read32(u32 addr)
 
     case 0x08000000:
     case 0x09000000:
-        printf("GBA read32 %08X\n", addr);
+        //return *(u32*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read32 %08X\n", addr);
         return 0xFFFFFFFF;
     }
 

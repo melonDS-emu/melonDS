@@ -303,6 +303,13 @@ int PreambleLen(int rate)
     return 192;
 }
 
+void IncrementTXCount(TXSlot* slot)
+{
+    u8 cnt = RAM[slot->Addr + 0x4];
+    if (cnt < 0xFF) cnt++;
+    *(u16*)&RAM[slot->Addr + 0x4] = cnt;
+}
+
 void StartTX_LocN(int nslot, int loc)
 {
     TXSlot* slot = &TXSlots[nslot];
@@ -415,7 +422,8 @@ void SendMPReply(u16 clienttime, u16 clientmask)
     if (IOPORT(W_TXSlotReply2) & 0x8000)
     {
         slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
-        *(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
+        //*(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
+        IncrementTXCount(slot);
     }
 
     u16 clientnum = 0;
@@ -719,6 +727,7 @@ bool ProcessTX(TXSlot* slot, int num)
 
             // seems this is set to indicate which clients failed to reply
             *(u16*)&RAM[slot->Addr + 0x2] = 0;
+            IncrementTXCount(slot);
 
             SetIRQ(12);
             IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
