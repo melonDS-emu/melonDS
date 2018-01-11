@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Config.h"
 #include "NDS.h"
 #include "ARM.h"
 #include "CP15.h"
@@ -244,7 +245,7 @@ void Reset()
     FILE* f;
     u32 i;
 
-    f = fopen("bios9.bin", "rb");
+    f = Config::GetConfigFile("bios9.bin", "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -261,7 +262,7 @@ void Reset()
         fclose(f);
     }
 
-    f = fopen("bios7.bin", "rb");
+    f = Config::GetConfigFile("bios7.bin", "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");

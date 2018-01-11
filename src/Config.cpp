@@ -20,6 +20,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include "Config.h"
+#include <string>
+#ifndef _WIN32
+#include <glib.h>
+#endif
 
 
 namespace Config
@@ -100,6 +104,46 @@ ConfigEntry ConfigFile[] =
     {"", -1, NULL, 0, NULL, 0}
 };
 
+FILE* GetConfigFile(const char* fileName, const char* permissions)
+{
+    // Locations are application directory, and XDG_CONFIG_HOME/melonds or AppData/MelonDS on windows
+
+    FILE* f;
+
+    // First check application directory
+    f = fopen(fileName, permissions);
+    if (f) return f;
+#ifdef _WIN32
+    // Now check AppData
+    PWSTR appDataPath = NULL;
+    SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
+    if (!appDataPath)
+        return NULL;
+    std::string path = std::string(appDataPath) + "\\melonds\\" + fileName;
+    f = fopen(path, permissions);
+    if (f) return f;
+#else
+    // Now check XDG_CONFIG_HOME
+    std::string path = std::string(g_get_user_config_dir()) + "/melonds/" + fileName;
+    f = fopen(path.c_str(), permissions);
+    if (f) return f;
+#endif
+
+    return NULL;
+
+}
+
+bool HasConfigFile(const char* fileName)
+{
+    FILE* f = GetConfigFile(fileName, "rb");
+    if (f)
+    {
+        fclose(f);
+        return true;
+    }
+    else
+        return false;
+}
 
 void Load()
 {
@@ -116,7 +160,7 @@ void Load()
         entry++;
     }
 
-    FILE* f = fopen("melonDS.ini", "r");
+    FILE* f = Config::GetConfigFile("melonDS.ini", "r");
     if (!f) return;
 
     char linebuf[1024];
@@ -152,7 +196,7 @@ void Load()
 
 void Save()
 {
-    FILE* f = fopen("melonDS.ini", "w");
+    FILE* f = Config::GetConfigFile("melonDS.ini", "w");
     if (!f) return;
 
     ConfigEntry* entry = &ConfigFile[0];

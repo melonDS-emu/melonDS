@@ -35,6 +35,7 @@
 #include "../SPU.h"
 #include "../Wifi.h"
 #include "../Platform.h"
+#include "../Config.h"
 
 
 const int kScreenRot[4] = {0, 1, 2, 3};
@@ -1047,7 +1048,7 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    if (!_fileexists("bios7.bin") || !_fileexists("bios9.bin") || !_fileexists("firmware.bin"))
+    if (!Config::HasConfigFile("bios7.bin") || !Config::HasConfigFile("bios9.bin") || !Config::HasConfigFile("firmware.bin"))
     {
         uiMsgBoxError(
             NULL,

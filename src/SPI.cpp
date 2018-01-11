@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
 
@@ -88,7 +89,7 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    FILE* f = fopen("firmware.bin", "rb");
+    FILE* f = Config::GetConfigFile("firmware.bin", "rb");
     if (!f)
     {
         printf("firmware.bin not found\n");
@@ -128,7 +129,7 @@ void Reset()
 
     // take a backup
     char* firmbkp = "firmware.bin.bak";
-    f = fopen(firmbkp, "rb");
+    f = Config::GetConfigFile(firmbkp, "rb");
     if (f) fclose(f);
     else
     {
@@ -307,7 +308,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = fopen("firmware.bin", "r+b");
+        FILE* f = Config::GetConfigFile("firmware.bin", "r+b");
         if (f)
         {
             u32 cutoff = 0x7FA00 & FirmwareMask;
