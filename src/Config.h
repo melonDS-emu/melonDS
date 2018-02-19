@@ -23,7 +23,8 @@
 
 namespace Config
 {
-
+FILE* GetConfigFile(const char* fileName, const char* permissions);
+bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
