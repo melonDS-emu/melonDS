@@ -90,8 +90,12 @@ if (UNIX)
     ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
     
     add_custom_command(OUTPUT melon_grc.c 
-        COMMAND glib-compile-resources --generate-source melon_grc.xml
-        COMMAND glib-compile-resources --generate-header melon_grc.xml)
+        COMMAND glib-compile-resources --sourcedir="${CMAKE_CURRENT_SOURCE_DIR}"
+                --target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
+                --generate-source "${CMAKE_CURRENT_SOURCE_DIR}/melon_grc.xml"
+        COMMAND glib-compile-resources --sourcedir="${CMAKE_CURRENT_SOURCE_DIR}"
+                --target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.h"
+                --generate-header "${CMAKE_CURRENT_SOURCE_DIR}/melon_grc.xml")
 
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         LINK_LIBRARIES("dl")
