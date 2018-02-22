@@ -95,7 +95,9 @@ const char* PCapLibNames[] =
     // TODO: name for npcap in non-WinPCap mode
     "wpcap.dll",
 #else
-    // TODO: Linux lib names
+    // Linux lib names
+    "libpcap.so.1",
+    "libpcap.so",
 #endif
     NULL
 };
