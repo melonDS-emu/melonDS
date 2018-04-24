@@ -21,7 +21,13 @@
 #include <stdlib.h>
 #include "Config.h"
 #include <string>
-#ifndef _WIN32
+#ifdef _WIN32
+#define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
+#include <windows.h>
+//#include <knownfolders.h> // FUCK THAT SHIT
+extern "C" const GUID DECLSPEC_SELECTANY FOLDERID_RoamingAppData = {0x3eb685db, 0x65f9, 0x4cf6, {0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d}};
+#include <shlobj.h>
+#else
 #include <glib.h>
 #endif
 
@@ -119,11 +125,21 @@ FILE* GetConfigFile(const char* fileName, const char* permissions)
     SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
     if (!appDataPath)
         return NULL;
-    std::string path = std::string(appDataPath) + "\\melonds\\" + fileName;
-    f = fopen(path, permissions);
+    CoTaskMemRealloc(appDataPath, (wcslen(appDataPath)+9+strlen(fileName)+1)*sizeof(WCHAR));
+
+    // this will be more than enough
+    WCHAR fatperm[4];
+    fatperm[0] = permissions[0];
+    fatperm[1] = permissions[1];
+    fatperm[2] = permissions[2];
+    fatperm[3] = 0;
+
+    f = _wfopen(appDataPath, fatperm);
+    CoTaskMemFree(appDataPath);
     if (f) return f;
 #else
     // Now check XDG_CONFIG_HOME
+    // TODO: check for memory leak there
     std::string path = std::string(g_get_user_config_dir()) + "/melonds/" + fileName;
     f = fopen(path.c_str(), permissions);
     if (f) return f;
