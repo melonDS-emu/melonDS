@@ -1616,6 +1616,8 @@ u32 ARM9IORead32(u32 addr)
 
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
+    case 0x04000180: return IPCSync9;
+
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
 
@@ -1983,6 +1985,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000130:
         KeyCnt = val >> 16;
         return;
+    case 0x04000180:
+        ARM9IOWrite16(addr, val);
+        return;
 
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
@@ -2234,6 +2239,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
     case 0x04000134: return RCnt | (KeyCnt & 0xFFFF0000);
     case 0x04000138: return RTC::Read();
+
+    case 0x04000180: return IPCSync7;
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -2521,6 +2528,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000134: RCnt = val & 0xFFFF; return;
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
+    case 0x04000180:
+        ARM7IOWrite16(addr, val);
+        return;
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
         {
