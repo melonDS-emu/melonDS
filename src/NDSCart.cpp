@@ -814,6 +814,148 @@ void Reset()
 }
 
 
+void ApplyDLDIPatch()
+{
+    // TODO: embed patches? let the user choose? default to some builtin driver?
+
+    u32 offset = *(u32*)&CartROM[0x20];
+    u32 size = *(u32*)&CartROM[0x2C];
+
+    u8* binary = &CartROM[offset];
+    u32 dldioffset = 0;
+
+    for (u32 i = 0; i < size; i++)
+    {
+        if (*(u32*)&binary[i  ] == 0xBF8DA5ED &&
+            *(u32*)&binary[i+4] == 0x69684320 &&
+            *(u32*)&binary[i+8] == 0x006D6873)
+        {
+            dldioffset = i;
+            break;
+        }
+    }
+
+    if (!dldioffset)
+    {
+        return;
+    }
+
+    printf("DLDI shit found at %08X (%08X)\n", dldioffset, offset+dldioffset);
+
+    FILE* f = fopen("dldi.bin", "rb");
+    if (!f)
+    {
+        printf("no DLDI patch available. oh well\n");
+        return;
+    }
+
+    u32 dldisize;
+    fseek(f, 0, SEEK_END);
+    dldisize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    u8* patch = new u8[dldisize];
+    fread(patch, dldisize, 1, f);
+    fclose(f);
+
+    if (*(u32*)&patch[0] != 0xBF8DA5ED ||
+        *(u32*)&patch[4] != 0x69684320 ||
+        *(u32*)&patch[8] != 0x006D6873)
+    {
+        printf("bad DLDI patch\n");
+        delete[] patch;
+        return;
+    }
+
+    if (patch[0x0D] > binary[dldioffset+0x0F])
+    {
+        printf("DLDI driver ain't gonna fit, sorry\n");
+        delete[] patch;
+        return;
+    }
+
+    printf("existing driver is: %s\n", &binary[dldioffset+0x10]);
+    printf("new driver is: %s\n", &patch[0x10]);
+
+    u32 memaddr = *(u32*)&binary[dldioffset+0x40];
+    if (memaddr == 0)
+        memaddr = *(u32*)&binary[dldioffset+0x68] - 0x80;
+
+    u32 patchbase = *(u32*)&patch[0x40];
+    u32 delta = memaddr - patchbase;
+
+    u32 patchsize = 1 << patch[0x0D];
+    u32 patchend = patchbase + patchsize;
+
+    memcpy(&binary[dldioffset], patch, dldisize);
+
+    *(u32*)&binary[dldioffset+0x40] += delta;
+    *(u32*)&binary[dldioffset+0x44] += delta;
+    *(u32*)&binary[dldioffset+0x48] += delta;
+    *(u32*)&binary[dldioffset+0x4C] += delta;
+    *(u32*)&binary[dldioffset+0x50] += delta;
+    *(u32*)&binary[dldioffset+0x54] += delta;
+    *(u32*)&binary[dldioffset+0x58] += delta;
+    *(u32*)&binary[dldioffset+0x5C] += delta;
+
+    *(u32*)&binary[dldioffset+0x68] += delta;
+    *(u32*)&binary[dldioffset+0x6C] += delta;
+    *(u32*)&binary[dldioffset+0x70] += delta;
+    *(u32*)&binary[dldioffset+0x74] += delta;
+    *(u32*)&binary[dldioffset+0x78] += delta;
+    *(u32*)&binary[dldioffset+0x7C] += delta;
+
+    u8 fixmask = patch[0x0E];
+
+    if (fixmask & 0x01)
+    {
+        u32 fixstart = *(u32*)&patch[0x40] - patchbase;
+        u32 fixend = *(u32*)&patch[0x44] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x02)
+    {
+        u32 fixstart = *(u32*)&patch[0x48] - patchbase;
+        u32 fixend = *(u32*)&patch[0x4C] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x04)
+    {
+        u32 fixstart = *(u32*)&patch[0x50] - patchbase;
+        u32 fixend = *(u32*)&patch[0x54] - patchbase;
+
+        for (u32 addr = fixstart; addr < fixend; addr+=4)
+        {
+            u32 val = *(u32*)&binary[dldioffset+addr];
+            if (val >= patchbase && val < patchend)
+                *(u32*)&binary[dldioffset+addr] += delta;
+        }
+    }
+    if (fixmask & 0x08)
+    {
+        u32 fixstart = *(u32*)&patch[0x58] - patchbase;
+        u32 fixend = *(u32*)&patch[0x5C] - patchbase;
+
+        memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
+    }
+
+    delete[] patch;
+    printf("applied DLDI patch\n");
+}
+
+
 bool LoadROM(const char* path, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
@@ -851,8 +993,15 @@ bool LoadROM(const char* path, bool direct)
     // it just has to stay the same throughout gameplay
     CartID = 0x00001FC2;
 
+    if (*(u32*)&CartROM[0x20] < 0x4000)
+    {
+        ApplyDLDIPatch();
+    }
+
     if (direct)
     {
+        // TODO: in the case of an already-encrypted secure area, direct boot
+        // needs it decrypted
         NDS::SetupDirectBoot();
         CmdEncMode = 2;
     }
@@ -950,7 +1099,7 @@ void ROMPrepareData(u32 param)
 }
 
 void WriteROMCnt(u32 val)
-{
+{printf("ROMCNT %08X %08X %04X\n", val, ROMCnt, SPICnt);
     ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x00800000);
 
     if (!(SPICnt & (1<<15))) return;
@@ -1004,11 +1153,11 @@ void WriteROMCnt(u32 val)
         *(u32*)&cmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            cmd[0], cmd[1], cmd[2], cmd[3],
            cmd[4], cmd[5], cmd[6], cmd[7],
-           datasize);*/
+           datasize);
 
     switch (cmd[0])
     {
