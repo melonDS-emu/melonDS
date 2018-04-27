@@ -36,6 +36,8 @@ extern u8 EncSeed1[5];
 extern u8* CartROM;
 extern u32 CartROMSize;
 
+extern u32 CartID;
+
 bool Init();
 void DeInit();
 void Reset();

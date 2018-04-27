@@ -189,15 +189,15 @@ void SetupDirectBoot()
         ARM9Write32(0x027FFE00+i, tmp);
     }
 
-    ARM9Write32(0x027FF800, 0x00001FC2);
-    ARM9Write32(0x027FF804, 0x00001FC2);
+    ARM9Write32(0x027FF800, NDSCart::CartID);
+    ARM9Write32(0x027FF804, NDSCart::CartID);
     ARM9Write16(0x027FF808, *(u16*)&NDSCart::CartROM[0x15E]);
     ARM9Write16(0x027FF80A, *(u16*)&NDSCart::CartROM[0x6C]);
 
     ARM9Write16(0x027FF850, 0x5835);
 
-    ARM9Write32(0x027FFC00, 0x00001FC2);
-    ARM9Write32(0x027FFC04, 0x00001FC2);
+    ARM9Write32(0x027FFC00, NDSCart::CartID);
+    ARM9Write32(0x027FFC04, NDSCart::CartID);
     ARM9Write16(0x027FFC08, *(u16*)&NDSCart::CartROM[0x15E]);
     ARM9Write16(0x027FFC0A, *(u16*)&NDSCart::CartROM[0x6C]);
 
