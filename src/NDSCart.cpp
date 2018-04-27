@@ -1098,8 +1098,10 @@ void ROMPrepareData(u32 param)
         NDS::CheckDMAs(0, 0x05);
 }
 
+u32 sc_addr = 0;
+
 void WriteROMCnt(u32 val)
-{printf("ROMCNT %08X %08X %04X\n", val, ROMCnt, SPICnt);
+{
     ROMCnt = (val & 0xFF7F7FFF) | (ROMCnt & 0x00800000);
 
     if (!(SPICnt & (1<<15))) return;
@@ -1153,11 +1155,11 @@ void WriteROMCnt(u32 val)
         *(u32*)&cmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            cmd[0], cmd[1], cmd[2], cmd[3],
            cmd[4], cmd[5], cmd[6], cmd[7],
-           datasize);
+           datasize);*/
 
     switch (cmd[0])
     {
@@ -1202,6 +1204,42 @@ void WriteROMCnt(u32 val)
                 ReadROM_B7(addr, DataOutLen, 0);
         }
         break;
+
+
+    // SUPERCARD EMULATION TEST
+    // TODO: INTEGRATE BETTER!!!!
+
+    case 0x70: // init??? returns whether SDHC addressing should be used
+        for (u32 pos = 0; pos < DataOutLen; pos += 4)
+            *(u32*)&DataOut[pos] = 0;
+        break;
+
+    case 0x53: // set address for read
+        sc_addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+        printf("SUPERCARD: read %08X\n", sc_addr);
+        break;
+
+    case 0x80: // read operation busy, I guess
+        // TODO: make it take some time
+        for (u32 pos = 0; pos < DataOutLen; pos += 4)
+            *(u32*)&DataOut[pos] = 0;
+        break;
+
+    case 0x81: // read data
+        {
+            if (DataOutLen != 0x200)
+                printf("SUPERCARD: BOGUS READ %d\n", DataOutLen);
+
+            // TODO: this is really inefficient. just testing
+            FILE* f = fopen("scsd.bin", "rb");
+            fseek(f, sc_addr, SEEK_SET);
+            fread(DataOut, 1, 0x200, f);
+            fclose(f);
+        }
+        break;
+
+    // SUPERCARD EMULATION TEST END
+
 
     default:
         switch (cmd[0] & 0xF0)
