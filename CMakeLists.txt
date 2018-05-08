@@ -165,6 +165,10 @@ elseif (WIN32)
 endif (UNIX)
 
 find_package(SDL2 REQUIRED)
+# If cmake couldn't find sdl2 libs and includes, then find them using pkg config
+if (UNIX AND NOT DEFINED SDL2_INCLUDE_DIR AND NOT DEFINED SDL2_LIBRARIES)
+    PKG_CHECK_MODULES(SDL2 REQUIRED sdl2)
+endif()
 include_directories(${SDL2_INCLUDE_DIR})
 link_libraries(${SDL2_LIBRARIES})
 
