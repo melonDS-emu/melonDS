@@ -83,13 +83,14 @@ if (UNIX)
 
     FIND_PACKAGE(PkgConfig REQUIRED)
     PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
+    PKG_CHECK_MODULES(SDL2 REQUIRED sdl2)
 
-    INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS})
-    LINK_LIBRARIES(${GTK3_LIBRARIES})
+    INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+    LINK_LIBRARIES(${GTK3_LIBRARIES} ${SDL2_LIBRARIES})
 
     ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
-    
-    add_custom_command(OUTPUT melon_grc.c 
+
+    add_custom_command(OUTPUT melon_grc.c
         COMMAND glib-compile-resources --sourcedir="${CMAKE_CURRENT_SOURCE_DIR}"
                 --target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
                 --generate-source "${CMAKE_CURRENT_SOURCE_DIR}/melon_grc.xml"
