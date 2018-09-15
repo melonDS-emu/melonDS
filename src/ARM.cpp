@@ -161,6 +161,27 @@ void ARM::Reset()
     JumpTo(ExceptionBase);
 }
 
+void ARM::Savestate(Savestate* file)
+{
+    file->Section(Num ? "ARM7" : "ARM9");
+
+    file->Var32(&(u32)Cycles);
+    file->Var32(&(u32)CyclesToRun);
+    file->Var32(&Halted);
+
+    file->VarArray(R, 16*sizeof(u32));
+    file->Var32(&CPSR);
+    file->VarArray(R_FIQ, 8*sizeof(u32));
+    file->VarArray(R_SVC, 3*sizeof(u32));
+    file->VarArray(R_ABT, 3*sizeof(u32));
+    file->VarArray(R_IRQ, 3*sizeof(u32));
+    file->VarArray(R_UND, 3*sizeof(u32));
+    file->Var32(&CurInstr);
+    file->VarArray(NextInstr, 2*sizeof(u32));
+
+    file->Var32(&ExceptionBase);
+}
+
 void ARM::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)

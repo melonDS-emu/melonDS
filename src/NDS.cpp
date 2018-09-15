@@ -356,6 +356,22 @@ void Stop()
     SPU::Stop();
 }
 
+void Savestate(Savestate* file)
+{
+    // NDS shito
+
+    ARM9->Savestate(file);
+    ARM7->Savestate(file);
+    CP15::Savestate(file);
+
+    // NDSCart
+    // GPU
+    // SPU
+    // SPI
+    // RTC
+    // wifi
+}
+
 bool LoadROM(const char* path, bool direct)
 {
     if (NDSCart::LoadROM(path, direct))

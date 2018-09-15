@@ -57,6 +57,25 @@ void Reset()
     DTCMSize = 0;
 }
 
+void Savestate(Savestate* file)
+{
+    file->Section("CP15");
+
+    file->Var32(&Control);
+
+    file->Var32(&DTCMSetting);
+    file->Var32(&ITCMSetting);
+
+    if (!file->Saving)
+    {
+        UpdateDTCMSetting();
+        UpdateITCMSetting();
+    }
+
+    file->VarArray(ITCM, 0x8000);
+    file->VarArray(DTCM, 0x4000);
+}
+
 
 void UpdateDTCMSetting()
 {

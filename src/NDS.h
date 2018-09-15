@@ -19,6 +19,7 @@
 #ifndef NDS_H
 #define NDS_H
 
+#include "Savestate.h"
 #include "types.h"
 
 namespace NDS
@@ -107,6 +108,8 @@ bool Init();
 void DeInit();
 void Reset();
 void Stop();
+
+void Savestate(Savestate* file);
 
 bool LoadROM(const char* path, bool direct);
 void LoadBIOS();
