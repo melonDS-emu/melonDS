@@ -160,6 +160,8 @@ void Savestate::Section(char* magic)
             fseek(file, pos, SEEK_SET);
         }
 
+        CurSection = (u32)ftell(file);
+
         fwrite(magic, 4, 1, file);
         fseek(file, 12, SEEK_CUR);
     }
@@ -185,7 +187,7 @@ void Savestate::Section(char* magic)
                 continue;
             }
 
-            fseek(file, 8, SEEK_CUR);
+            fseek(file, 12, SEEK_CUR);
             break;
         }
     }
