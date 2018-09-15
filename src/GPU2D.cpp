@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2017 StapleButter
+    Copyright 2016-2019 StapleButter
 
     This file is part of melonDS.
 
@@ -614,12 +614,12 @@ void GPU2D::DrawScanline(u32 line)
     for (int i = 0; i < 256; i++)
     {
         u32 c = dst[i];
-        
+
         u32 r = c << 18;
         u32 g = (c << 2) & 0xFC00;
         u32 b = (c >> 14) & 0xFC;
         c = r | g | b;
-        
+
         dst[i] = c | ((c & 0x00C0C0C0) >> 6) | 0xFF000000;
     }
 }

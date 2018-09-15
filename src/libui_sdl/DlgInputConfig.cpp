@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2017 StapleButter
+    Copyright 2016-2019 StapleButter
 
     This file is part of melonDS.
 
@@ -309,7 +309,7 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(g_key), 1);
         uiGrid* b_key = uiNewGrid();
         uiGroupSetChild(g_key, uiControl(b_key));
-        
+
         const int width = 120;
 
         for (int i = 0; i < 12; i++)

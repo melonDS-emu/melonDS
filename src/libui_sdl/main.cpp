@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2017 StapleButter
+    Copyright 2016-2019 StapleButter
 
     This file is part of melonDS.
 
@@ -36,6 +36,8 @@
 #include "../Wifi.h"
 #include "../Platform.h"
 #include "../Config.h"
+
+#include "../Savestate.h"
 
 
 const int kScreenRot[4] = {0, 1, 2, 3};
@@ -1045,6 +1047,46 @@ int main(int argc, char** argv)
         uiFreeInitError(ui_err);
         return 1;
     }
+
+    // TESTORZ
+
+    u32 zab = 12;
+    u16 zib = 18;
+    u8 zob = 9;
+    u32 zub = 42;
+
+    Savestate* dorp = new Savestate("dorp.zog", true);
+    dorp->Section("BAKA");
+    dorp->Var32(&zab);
+    dorp->Var8(&zob);
+    dorp->Section("SHIT");
+    dorp->Var16(&zib);
+    dorp->Var32(&zub);
+    delete dorp;
+
+    zab = 0; zib = 0; zob = 0; zub = 0;
+    dorp = new Savestate("dorp.zog", false);
+    dorp->Section("BAKA");
+    dorp->Var32(&zab);
+    dorp->Var8(&zob);
+    dorp->Section("SHIT");
+    dorp->Var16(&zib);
+    dorp->Var32(&zub);
+    delete dorp;
+    printf("-> %d %d %d %d\n", zab, zib, zob, zub);
+
+    zab = 0; zib = 0; zob = 0; zub = 0;
+    dorp = new Savestate("dorp.zog", false);
+    dorp->Section("SHIT");
+    dorp->Var16(&zib);
+    dorp->Var32(&zub);
+    dorp->Section("BAKA");
+    dorp->Var32(&zab);
+    dorp->Var8(&zob);
+    delete dorp;
+    printf("-> %d %d %d %d\n", zab, zib, zob, zub);
+
+    // TESTORZ END
 
     Config::Load();
 
