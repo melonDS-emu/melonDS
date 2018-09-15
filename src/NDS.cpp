@@ -358,11 +358,57 @@ void Stop()
 
 void Savestate(Savestate* file)
 {
-    // NDS shito
+    file->Section("NDSG");
+
+    file->VarArray(ARM9BIOS, 0x1000);
+    file->VarArray(ARM7BIOS, 0x4000);
+
+    file->VarArray(MainRAM, 0x400000);
+    file->VarArray(SharedWRAM, 0x8000);
+    file->VarArray(ARM7WRAM, 0x10000);
+
+    file->VarArray(ExMemCnt, 2*sizeof(u16));
+    file->VarArray(ROMSeed0, 2*8);
+    file->VarArray(ROMSeed1, 2*8);
+
+    file->VarArray(IME, 2*sizeof(u32));
+    file->VarArray(IE, 2*sizeof(u32));
+    file->VarArray(IF, 2*sizeof(u32));
+
+    file->Var8(&PostFlag9);
+    file->Var8(&PostFlag7);
+    file->Var16(&PowerControl9);
+    file->Var16(&PowerControl7);
+
+    file->Var16(&ARM7BIOSProt);
+
+    file->Var16(&IPCSync9);
+    file->Var16(&IPCSync7);
+    file->Var16(&IPCFIFOCnt9);
+    file->Var16(&IPCFIFOCnt7);
+    IPCFIFO9->Savestate(file);
+    IPCFIFO7->Savestate(file);
+
+    file->Var16(&DivCnt);
+    file->Var16(&SqrtCnt);
+
+    // MapSharedWRAM
+    // powcnt shito
+
 
     ARM9->Savestate(file);
     ARM7->Savestate(file);
     CP15::Savestate(file);
+
+    file->Var32(&CPUStop);
+
+    file->VarArray(Timers, 8*sizeof(Timer));
+    file->VarArray(TimerCheckMask, 2*sizeof(u8));
+
+    // DMA
+    file->VarArray(DMA9Fill, 4*sizeof(u32));
+
+    // sched etc
 
     // NDSCart
     // GPU

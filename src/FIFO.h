@@ -47,6 +47,16 @@ public:
     }
 
 
+    void Savestate(Savestate* file)
+    {
+        file->Var32(&NumOccupied);
+        file->Var32(&ReadPos);
+        file->Var32(&WritePos);
+
+        file->VarArray(Entries, sizeof(T)*NumEntries);
+    }
+
+
     void Write(T val)
     {
         if (IsFull()) return;

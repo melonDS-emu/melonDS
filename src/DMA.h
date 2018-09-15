@@ -29,6 +29,8 @@ public:
 
     void Reset();
 
+    void Savestate(Savestate* file);
+
     void WriteCnt(u32 val);
     void Start();
 

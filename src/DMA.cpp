@@ -118,6 +118,11 @@ void DMA::Reset()
     InProgress = false;
 }
 
+void DMA::Savestate(Savestate* file)
+{
+    //
+}
+
 void DMA::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
