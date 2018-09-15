@@ -120,7 +120,25 @@ void DMA::Reset()
 
 void DMA::Savestate(Savestate* file)
 {
-    //
+    char* magic = "DMAx";
+    magic[3] = '0' + Num + (CPU*4);
+    file->Section(magic);
+
+    file->Var32(&SrcAddr);
+    file->Var32(&DstAddr);
+    file->Var32(&Cnt);
+
+    file->Var32(&StartMode);
+    file->Var32(&CurSrcAddr);
+    file->Var32(&CurDstAddr);
+    file->Var32(&RemCount);
+    file->Var32(&IterCount);
+    file->Var32(&SrcAddrInc);
+    file->Var32(&DstAddrInc);
+
+    file->Var32(&(u32)Running);
+    file->Var32(&(u32)InProgress);
+    file->Var32(&(u32)IsGXFIFODMA);
 }
 
 void DMA::WriteCnt(u32 val)

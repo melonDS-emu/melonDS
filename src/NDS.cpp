@@ -392,6 +392,26 @@ void Savestate(Savestate* file)
     file->Var16(&DivCnt);
     file->Var16(&SqrtCnt);
 
+    file->Var32(&CPUStop);
+
+    file->VarArray(Timers, 8*sizeof(Timer));
+    file->VarArray(TimerCheckMask, 2*sizeof(u8));
+
+    file->VarArray(DMA9Fill, 4*sizeof(u32));
+
+    file->VarArray(SchedList, sizeof(SchedList));
+    file->Var32(&SchedListMask);
+    file->Var32(&(u32)CurIterationCycles);
+    file->Var32(&(u32)ARM7Offset);
+
+    // TODO: save KeyInput????
+    file->Var16(&KeyCnt);
+    file->Var16(&RCnt);
+
+
+    for (int i = 0; i < 8; i++)
+        DMAs[i]->Savestate(i);
+
     // MapSharedWRAM
     // powcnt shito
 
@@ -399,16 +419,6 @@ void Savestate(Savestate* file)
     ARM9->Savestate(file);
     ARM7->Savestate(file);
     CP15::Savestate(file);
-
-    file->Var32(&CPUStop);
-
-    file->VarArray(Timers, 8*sizeof(Timer));
-    file->VarArray(TimerCheckMask, 2*sizeof(u8));
-
-    // DMA
-    file->VarArray(DMA9Fill, 4*sizeof(u32));
-
-    // sched etc
 
     // NDSCart
     // GPU

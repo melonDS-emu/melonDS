@@ -26,7 +26,11 @@
     04 - version major
     06 - version minor
     08 - length
-    0C - reserved
+    0C - game serial
+    10 - ARM9 binary checksum
+    14 - ARM7 binary checksum
+    18 - reserved
+    1C - reserved
 
     section header:
     00 - section magic
