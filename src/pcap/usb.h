@@ -34,7 +34,7 @@
 #ifndef lib_pcap_usb_h
 #define lib_pcap_usb_h
 
-#include <pcap/pcap-inttypes.h>
+#include "pcap-inttypes.h"
 
 /*
  * possible transfer mode

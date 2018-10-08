@@ -39,7 +39,7 @@
 #ifndef lib_pcap_can_socketcan_h
 #define lib_pcap_can_socketcan_h
 
-#include <pcap/pcap-inttypes.h>
+#include "pcap-inttypes.h"
 
 /*
  * SocketCAN header, as per Documentation/networking/can.txt in the

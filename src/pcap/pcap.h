@@ -69,9 +69,9 @@
 #ifndef lib_pcap_pcap_h
 #define lib_pcap_pcap_h
 
-#include <pcap/funcattrs.h>
+#include "funcattrs.h"
 
-#include <pcap/pcap-inttypes.h>
+#include "pcap-inttypes.h"
 
 #if defined(_WIN32)
   #include <winsock2.h>		/* u_int, u_char etc. */
@@ -85,7 +85,7 @@
 #endif /* _WIN32/MSDOS/UN*X */
 
 #ifndef PCAP_DONT_INCLUDE_PCAP_BPF_H
-#include <pcap/bpf.h>
+#include "bpf.h"
 #endif
 
 #include <stdio.h>

@@ -356,7 +356,7 @@ void Stop()
     SPU::Stop();
 }
 
-void Savestate(Savestate* file)
+void Savestate(SavestateFile* file)
 {
     file->Section("NDSG");
 
@@ -401,8 +401,8 @@ void Savestate(Savestate* file)
 
     file->VarArray(SchedList, sizeof(SchedList));
     file->Var32(&SchedListMask);
-    file->Var32(&(u32)CurIterationCycles);
-    file->Var32(&(u32)ARM7Offset);
+    file->Var32(reinterpret_cast<u32*>(&CurIterationCycles));
+    file->Var32(reinterpret_cast<u32*>(&ARM7Offset));
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -410,7 +410,7 @@ void Savestate(Savestate* file)
 
 
     for (int i = 0; i < 8; i++)
-        DMAs[i]->Savestate(i);
+        DMAs[i]->Savestate(file);
 
     // MapSharedWRAM
     // powcnt shito

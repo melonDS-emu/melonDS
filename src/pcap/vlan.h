@@ -34,7 +34,7 @@
 #ifndef lib_pcap_vlan_h
 #define lib_pcap_vlan_h
 
-#include <pcap/pcap-inttypes.h>
+#include "pcap-inttypes.h"
 
 struct vlan_tag {
 	uint16_t	vlan_tpid;		/* ETH_P_8021Q */

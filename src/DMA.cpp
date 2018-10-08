@@ -118,7 +118,7 @@ void DMA::Reset()
     InProgress = false;
 }
 
-void DMA::Savestate(Savestate* file)
+void DMA::Savestate(SavestateFile* file)
 {
     char* magic = "DMAx";
     magic[3] = '0' + Num + (CPU*4);
@@ -136,9 +136,9 @@ void DMA::Savestate(Savestate* file)
     file->Var32(&SrcAddrInc);
     file->Var32(&DstAddrInc);
 
-    file->Var32(&(u32)Running);
-    file->Var32(&(u32)InProgress);
-    file->Var32(&(u32)IsGXFIFODMA);
+    file->Var32(reinterpret_cast<u32*>(&Running));
+    file->Var32(reinterpret_cast<u32*>(&InProgress));
+    file->Var32(reinterpret_cast<u32*>(&IsGXFIFODMA));
 }
 
 void DMA::WriteCnt(u32 val)

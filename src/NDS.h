@@ -109,7 +109,7 @@ void DeInit();
 void Reset();
 void Stop();
 
-void Savestate(Savestate* file);
+void Savestate(SavestateFile* file);
 
 bool LoadROM(const char* path, bool direct);
 void LoadBIOS();

@@ -28,7 +28,7 @@
 #ifndef lib_pcap_nflog_h
 #define lib_pcap_nflog_h
 
-#include <pcap/pcap-inttypes.h>
+#include "pcap-inttypes.h"
 
 /*
  * Structure of an NFLOG header and TLV parts, as described at

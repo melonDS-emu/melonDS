@@ -35,7 +35,7 @@
 #ifndef lib_pcap_funcattrs_h
 #define lib_pcap_funcattrs_h
 
-#include <pcap/compiler-tests.h>
+#include "compiler-tests.h"
 
 /*
  * Attributes to apply to functions and their arguments, using various

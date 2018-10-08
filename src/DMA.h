@@ -29,7 +29,7 @@ public:
 
     void Reset();
 
-    void Savestate(Savestate* file);
+    void Savestate(SavestateFile* file);
 
     void WriteCnt(u32 val);
     void Start();

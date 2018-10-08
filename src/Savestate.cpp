@@ -45,9 +45,9 @@
     * different minor means adjustments may have to be made
 */
 
-Savestate::Savestate(char* filename, bool save)
+void SavestateFile::Savestate(char* filename, bool save)
 {
-    char* magic = "MELN";
+    const char* magic = "MELN";
 
     Error = false;
 
@@ -121,7 +121,7 @@ Savestate::Savestate(char* filename, bool save)
     CurSection = -1;
 }
 
-Savestate::~Savestate()
+SavestateFile::~SavestateFile()
 {
     if (Error) return;
 
@@ -147,7 +147,7 @@ Savestate::~Savestate()
     if (file) fclose(file);
 }
 
-void Savestate::Section(char* magic)
+void SavestateFile::Section(const char* magic)
 {
     if (Error) return;
 
@@ -197,7 +197,7 @@ void Savestate::Section(char* magic)
     }
 }
 
-void Savestate::Var8(u8* var)
+void SavestateFile::Var8(u8* var)
 {
     if (Error) return;
 
@@ -211,7 +211,7 @@ void Savestate::Var8(u8* var)
     }
 }
 
-void Savestate::Var16(u16* var)
+void SavestateFile::Var16(u16* var)
 {
     if (Error) return;
 
@@ -225,7 +225,7 @@ void Savestate::Var16(u16* var)
     }
 }
 
-void Savestate::Var32(u32* var)
+void SavestateFile::Var32(u32* var)
 {
     if (Error) return;
 
@@ -239,7 +239,7 @@ void Savestate::Var32(u32* var)
     }
 }
 
-void Savestate::Var64(u64* var)
+void SavestateFile::Var64(u64* var)
 {
     if (Error) return;
 
@@ -253,7 +253,7 @@ void Savestate::Var64(u64* var)
     }
 }
 
-void Savestate::VarArray(void* data, u32 len)
+void SavestateFile::VarArray(void* data, u32 len)
 {
     if (Error) return;
 

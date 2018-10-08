@@ -25,11 +25,11 @@
 #define SAVESTATE_MAJOR 1
 #define SAVESTATE_MINOR 0
 
-class Savestate
+class SavestateFile
 {
 public:
-    Savestate(char* filename, bool save);
-    ~Savestate();
+    void Savestate(char* filename, bool save);
+    ~SavestateFile();
 
     bool Error;
 
@@ -39,7 +39,7 @@ public:
 
     u32 CurSection;
 
-    void Section(char* magic);
+    void Section(const char* magic);
 
     void Var8(u8* var);
     void Var16(u16* var);

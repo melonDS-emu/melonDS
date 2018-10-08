@@ -24,7 +24,7 @@ namespace CP15
 
 void Reset();
 
-void Savestate(Savestate* file);
+void Savestate(SavestateFile* file);
 
 void UpdateDTCMSetting();
 void UpdateITCMSetting();

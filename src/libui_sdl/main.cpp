@@ -1049,7 +1049,7 @@ int main(int argc, char** argv)
     }
 
     // TESTORZ
-
+/*
     u32 zab = 12;
     u16 zib = 18;
     u8 zob = 9;
@@ -1085,7 +1085,7 @@ int main(int argc, char** argv)
     dorp->Var8(&zob);
     delete dorp;
     printf("-> %d %d %d %d\n", zab, zib, zob, zub);
-
+*/
     // TESTORZ END
 
     Config::Load();

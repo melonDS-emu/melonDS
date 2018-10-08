@@ -57,7 +57,7 @@ void Reset()
     DTCMSize = 0;
 }
 
-void Savestate(Savestate* file)
+void Savestate(SavestateFile* file)
 {
     file->Section("CP15");
 
