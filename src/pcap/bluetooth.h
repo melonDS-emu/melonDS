@@ -34,7 +34,7 @@
 #ifndef lib_pcap_bluetooth_h
 #define lib_pcap_bluetooth_h
 
-#include "cap-inttypes.h"
+#include "pcap-inttypes.h"
 
 /*
  * Header prepended libpcap to each bluetooth h4 frame,
