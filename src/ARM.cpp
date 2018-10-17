@@ -161,12 +161,12 @@ void ARM::Reset()
     JumpTo(ExceptionBase);
 }
 
-void ARM::Savestate(Savestate* file)
+void ARM::DoSavestate(Savestate* file)
 {
-    file->Section(Num ? "ARM7" : "ARM9");
+    file->Section((char*)(Num ? "ARM7" : "ARM9"));
 
-    file->Var32(&(u32)Cycles);
-    file->Var32(&(u32)CyclesToRun);
+    file->Var32((u32*)&Cycles);
+    file->Var32((u32*)&CyclesToRun);
     file->Var32(&Halted);
 
     file->VarArray(R, 16*sizeof(u32));

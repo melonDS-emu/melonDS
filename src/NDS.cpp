@@ -356,7 +356,7 @@ void Stop()
     SPU::Stop();
 }
 
-void Savestate(Savestate* file)
+void DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
@@ -401,8 +401,8 @@ void Savestate(Savestate* file)
 
     file->VarArray(SchedList, sizeof(SchedList));
     file->Var32(&SchedListMask);
-    file->Var32(&(u32)CurIterationCycles);
-    file->Var32(&(u32)ARM7Offset);
+    file->Var32((u32*)&CurIterationCycles);
+    file->Var32((u32*)&ARM7Offset);
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -410,15 +410,15 @@ void Savestate(Savestate* file)
 
 
     for (int i = 0; i < 8; i++)
-        DMAs[i]->Savestate(i);
+        DMAs[i]->DoSavestate(file);
 
     // MapSharedWRAM
     // powcnt shito
 
 
-    ARM9->Savestate(file);
-    ARM7->Savestate(file);
-    CP15::Savestate(file);
+    ARM9->DoSavestate(file);
+    ARM7->DoSavestate(file);
+    CP15::DoSavestate(file);
 
     // NDSCart
     // GPU

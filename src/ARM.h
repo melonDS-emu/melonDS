@@ -38,7 +38,7 @@ public:
 
     void Reset();
 
-    void Savestate(Savestate* file);
+    void DoSavestate(Savestate* file);
 
     void JumpTo(u32 addr, bool restorecpsr = false);
     void RestoreCPSR();
