@@ -42,6 +42,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void DoSavestate(Savestate* file);
+
 bool LoadROM(const char* path, bool direct);
 
 void WriteROMCnt(u32 val);

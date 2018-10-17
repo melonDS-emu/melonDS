@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2017 StapleButter
 
     This file is part of melonDS.
 
@@ -27,6 +27,11 @@
 
 namespace NDSCart_SRAM
 {
+
+// BIG SRAM TODO!!!!
+// USE A DATABASE TO IDENTIFY SAVE MEMORY TYPE
+// (and maybe keep autodetect as a last resort??)
+// AUTODETECT IS BLARGY AND IS A MESS
 
 u8* SRAM;
 u32 SRAMLength;
@@ -79,6 +84,58 @@ void Reset()
     if (Discover_Buffer) delete[] Discover_Buffer;
     SRAM = NULL;
     Discover_Buffer = NULL;
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("NDCS");
+
+    // CHECKME/TODO/whatever
+    // should the autodetect status shit go in the savestate???
+    // I don't think so.
+    // worst case is that the savestate was taken before autodetect took place completely
+    // and that causes it to yield a different result, fucking things up
+    // but that is unlikely
+    // and we should just use a goddamn database anyway, this is a trainwreck
+
+    // we reload the SRAM contents, tho.
+    // it should be the same file (as it should be the same ROM, duh)
+    // but the contents may change
+    // TODO maybe: possibility to save to a separate file when using savestates????
+
+    // also the SRAM size shouldn't change. unless something something autodetect something but fuck that code.
+
+    //if (!file->Saving && SRAMLength)
+    //    delete[] SRAM;
+
+    u32 oldlen = SRAMLength;
+
+    file->Var32(&SRAMLength);
+    if (SRAMLength != oldlen)
+    {
+        printf("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        printf("oh well. loading it anyway. adsfgdsf\n");
+
+        if (oldlen) delete[] SRAM;
+        if (SRAMLength) SRAM = new u8[SRAMLength];
+    }
+    if (SRAMLength)
+    {
+        //if (!file->Saving)
+        //    SRAM = new u8[SRAMLength];
+
+        file->VarArray(SRAM, SRAMLength);
+    }
+
+    // SPI status shito
+
+    file->Var32(&Hold);
+    file->Var8(&CurCmd);
+    file->Var32(&DataPos);
+    file->Var8(&Data);
+
+    file->Var8(&StatusReg);
+    file->Var32(&Addr);
 }
 
 void LoadSave(char* path)
@@ -813,6 +870,33 @@ void Reset()
     NDSCart_SRAM::Reset();
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("NDSC");
+
+    file->Var16(&SPICnt);
+    file->Var32(&ROMCnt);
+
+    file->VarArray(ROMCommand, 8);
+    file->Var32(&ROMDataOut);
+
+    file->VarArray(DataOut, 0x4000);
+    file->Var32(&DataOutPos);
+    file->Var32(&DataOutLen);
+
+    // cart inserted/len/ROM/etc should be already populated
+    // savestate should be loaded after the right game is loaded
+    // (TODO: system to verify that indeed the right ROM is loaded)
+    // (what to CRC? whole ROM? code binaries? latter would be more convenient for ie. romhaxing)
+
+    file->Var32(&CmdEncMode);
+    file->Var32(&DataEncMode);
+
+    // TODO: check KEY1 shit??
+
+    NDSCart_SRAM::DoSavestate(file);
+}
+
 
 void ApplyDLDIPatch()
 {
@@ -995,7 +1079,7 @@ bool LoadROM(const char* path, bool direct)
 
     if (*(u32*)&CartROM[0x20] < 0x4000)
     {
-        ApplyDLDIPatch();
+        //ApplyDLDIPatch();
     }
 
     if (direct)
