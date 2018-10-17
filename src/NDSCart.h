@@ -53,6 +53,10 @@ void WriteSPICnt(u16 val);
 u8 ReadSPIData();
 void WriteSPIData(u8 val);
 
+void ROMPrepareData(u32 param);
+void ROMEndTransfer(u32 param);
+void SPITransferDone(u32 param);
+
 }
 
 #endif

@@ -112,6 +112,10 @@ u16 RCnt;
 bool Running;
 
 
+void DivDone(u32 param);
+void SqrtDone(u32 param);
+
+
 bool Init()
 {
     ARM9 = new ARM(0);
@@ -356,7 +360,91 @@ void Stop()
     SPU::Stop();
 }
 
-void DoSavestate(Savestate* file)
+bool DoSavestate_Scheduler(Savestate* file)
+{
+    // this is a bit of a hack
+    // but uh, your local coder realized that the scheduler list contains function pointers
+    // and that storing those as-is is not a very good idea
+    // unless you want it to crash and burn
+
+    // this is the solution your local coder came up with.
+    // it's gross but I think it's the best solution for this problem.
+    // just remember to add here if you add more event callbacks, kay?
+    // atleast until we come up with something more elegant.
+
+    void (*eventfuncs[])(u32) =
+    {
+        GPU::StartScanline, GPU::StartHBlank, GPU::FinishFrame,
+        SPU::Mix,
+        Wifi::USTimer,
+
+        GPU::DisplayFIFO,
+        NDSCart::ROMPrepareData, NDSCart::ROMEndTransfer,
+        NDSCart::SPITransferDone,
+        SPI::TransferDone,
+        DivDone,
+        SqrtDone,
+
+        NULL
+    };
+
+    int len = Event_MAX;
+    if (file->Saving)
+    {
+        for (int i = 0; i < len; i++)
+        {
+            SchedEvent* evt = &SchedList[i];
+
+            u32 funcid = -1;
+            for (int j = 0; eventfuncs[j]; j++)
+            {
+                if (evt->Func == eventfuncs[j])
+                {
+                    funcid = j;
+                    break;
+                }
+            }
+            if (funcid < 0)
+            {
+                printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
+                return false;
+            }
+
+            file->Var32(&funcid);
+            file->Var32((u32*)&evt->WaitCycles);
+            file->Var32(&evt->Param);
+        }
+    }
+    else
+    {
+        for (int i = 0; i < len; i++)
+        {
+            SchedEvent* evt = &SchedList[i];
+
+            u32 funcid;
+            file->Var32(&funcid);
+
+            for (int j = 0; ; j++)
+            {
+                if (!eventfuncs[j])
+                {
+                    printf("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
+                    return false;
+                }
+                if (j == funcid) break;
+            }
+
+            evt->Func = eventfuncs[funcid];
+
+            file->Var32((u32*)&evt->WaitCycles);
+            file->Var32(&evt->Param);
+        }
+    }
+
+    return true;
+}
+
+bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
@@ -399,7 +487,8 @@ void DoSavestate(Savestate* file)
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
-    file->VarArray(SchedList, sizeof(SchedList));
+    //file->VarArray(SchedList, sizeof(SchedList));
+    if (!DoSavestate_Scheduler(file)) return false;
     file->Var32(&SchedListMask);
     file->Var32((u32*)&CurIterationCycles);
     file->Var32((u32*)&ARM7Offset);
@@ -420,7 +509,7 @@ void DoSavestate(Savestate* file)
     ARM7->DoSavestate(file);
     CP15::DoSavestate(file);
 
-    // NDSCart
+    NDSCart::DoSavestate(file);
     // GPU
     // SPU
     // SPI

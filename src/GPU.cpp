@@ -156,6 +156,11 @@ void Stop()
     memset(Framebuffer, 0, 256*192*2*4);
 }
 
+void DoSavestate(Savestate* file)
+{
+    //
+}
+
 
 // VRAM mapping notes
 //

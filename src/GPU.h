@@ -72,6 +72,9 @@ void DeInit();
 void Reset();
 void Stop();
 
+void DoSavestate(Savestate* file);
+
+
 void MapVRAM_AB(u32 bank, u8 cnt);
 void MapVRAM_CD(u32 bank, u8 cnt);
 void MapVRAM_E(u32 bank, u8 cnt);
@@ -389,6 +392,9 @@ void DisplaySwap(u32 val);
 void StartFrame();
 void FinishFrame(u32 lines);
 void StartScanline(u32 line);
+void StartHBlank(u32 line);
+
+void DisplayFIFO(u32 x);
 
 void SetDispStat(u32 cpu, u16 val);
 

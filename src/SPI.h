@@ -52,6 +52,8 @@ void WriteCnt(u16 val);
 u8 ReadData();
 void WriteData(u8 val);
 
+void TransferDone(u32 param);
+
 }
 
 #endif
