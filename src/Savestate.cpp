@@ -86,7 +86,7 @@ Savestate::Savestate(char* filename, bool save)
         len = (u32)ftell(file);
         fseek(file, 0, SEEK_SET);
 
-        u32 buf;
+        u32 buf = 0;
 
         fread(&buf, 4, 1, file);
         if (buf != ((u32*)magic)[0])
@@ -95,6 +95,9 @@ Savestate::Savestate(char* filename, bool save)
             Error = true;
             return;
         }
+
+        VersionMajor = 0;
+        VersionMinor = 0;
 
         fread(&VersionMajor, 2, 1, file);
         if (VersionMajor != SAVESTATE_MAJOR)
@@ -107,6 +110,7 @@ Savestate::Savestate(char* filename, bool save)
         fread(&VersionMinor, 2, 1, file);
         // TODO: handle it???
 
+        buf = 0;
         fread(&buf, 4, 1, file);
         if (buf != len)
         {
@@ -175,7 +179,7 @@ void Savestate::Section(char* magic)
 
         for (;;)
         {
-            u32 buf;
+            u32 buf = 0;
 
             fread(&buf, 4, 1, file);
             if (buf != ((u32*)magic)[0])
@@ -186,6 +190,7 @@ void Savestate::Section(char* magic)
                     return;
                 }
 
+                buf = 0;
                 fread(&buf, 4, 1, file);
                 fseek(file, buf-8, SEEK_CUR);
                 continue;
