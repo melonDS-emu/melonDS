@@ -474,8 +474,8 @@ bool DoSavestate(Savestate* file)
     file->Var16(&IPCSync7);
     file->Var16(&IPCFIFOCnt9);
     file->Var16(&IPCFIFOCnt7);
-    IPCFIFO9->Savestate(file);
-    IPCFIFO7->Savestate(file);
+    IPCFIFO9->DoSavestate(file);
+    IPCFIFO7->DoSavestate(file);
 
     file->Var16(&DivCnt);
     file->Var16(&SqrtCnt);
@@ -510,11 +510,13 @@ bool DoSavestate(Savestate* file)
     CP15::DoSavestate(file);
 
     NDSCart::DoSavestate(file);
-    // GPU
+    GPU::DoSavestate(file);
     // SPU
     // SPI
     // RTC
     // wifi
+
+    return true;
 }
 
 bool LoadROM(const char* path, bool direct)

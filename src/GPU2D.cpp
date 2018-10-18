@@ -138,6 +138,64 @@ void GPU2D::Reset()
     OBJExtPalStatus = 0;
 }
 
+void GPU2D::DoSavestate(Savestate* file)
+{
+    file->Section((char*)(Num ? "GP2B" : "GP2A"));
+
+    file->Var32(&DispCnt);
+    file->VarArray(BGCnt, 4*2);
+    file->VarArray(BGXPos, 4*2);
+    file->VarArray(BGYPos, 4*2);
+    file->VarArray(BGXRef, 2*4);
+    file->VarArray(BGYRef, 2*4);
+    file->VarArray(BGXRefInternal, 2*4);
+    file->VarArray(BGYRefInternal, 2*4);
+    file->VarArray(BGRotA, 2*2);
+    file->VarArray(BGRotB, 2*2);
+    file->VarArray(BGRotC, 2*2);
+    file->VarArray(BGRotD, 2*2);
+
+    file->VarArray(Win0Coords, 4);
+    file->VarArray(Win1Coords, 4);
+    file->VarArray(WinCnt, 4);
+
+    file->VarArray(BGMosaicSize, 2);
+    file->VarArray(OBJMosaicSize, 2);
+    file->Var8(&BGMosaicY);
+    file->Var8(&BGMosaicYMax);
+    file->Var8(&OBJMosaicY);
+    file->Var8(&OBJMosaicYMax);
+
+    file->Var16(&BlendCnt);
+    file->Var16(&BlendAlpha);
+    file->Var8(&EVA);
+    file->Var8(&EVB);
+    file->Var8(&EVY);
+
+    file->Var16(&MasterBrightness);
+
+    if (!Num)
+    {
+        file->VarArray(DispFIFO, 16*2);
+        file->Var32(&DispFIFOReadPtr);
+        file->Var32(&DispFIFOWritePtr);
+
+        file->VarArray(DispFIFOBuffer, 256*2);
+
+        file->Var32(&CaptureCnt);
+    }
+
+    if (!file->Saving)
+    {
+        // refresh those
+        BGExtPalStatus[0] = 0;
+        BGExtPalStatus[1] = 0;
+        BGExtPalStatus[2] = 0;
+        BGExtPalStatus[3] = 0;
+        OBJExtPalStatus = 0;
+    }
+}
+
 void GPU2D::SetFramebuffer(u32* buf)
 {
     Framebuffer = buf;

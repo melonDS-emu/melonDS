@@ -45,7 +45,7 @@
 //   the added bias affects interpolation.
 //
 // depth buffer:
-// Z-buffering mode: val = ((Z * 0x800 * 0x1000) / W) + 0x7FFEFF
+// Z-buffering mode: val = ((Z * 0x800 * 0x1000) / W) + 0x7FFEFF (nope, wrong. TODO update)
 // W-buffering mode: val = W
 //
 // formula for clear depth: (GBAtek is wrong there)
@@ -349,6 +349,80 @@ void Reset()
     FlushAttributes = 0;
 
     SoftRenderer::Reset();
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("GP3D");
+
+    CmdFIFO->DoSavestate(file);
+    CmdPIPE->DoSavestate(file);
+
+    file->Var32(&NumCommands);
+    file->Var32(&CurCommand);
+    file->Var32(&ParamCount);
+    file->Var32(&TotalParams);
+
+    file->Var32(&NumPushPopCommands);
+    file->Var32(&NumTestCommands);
+
+    file->Var32(&DispCnt);
+    file->Var8(&AlphaRef);
+
+    file->Var32(&GXStat);
+
+    file->VarArray(ExecParams, 32*4);
+    file->Var32(&ExecParamCount);
+    file->Var32((u32*)&CycleCount);
+
+    file->Var32(&MatrixMode);
+
+    file->VarArray(ProjMatrix, 16*4);
+    file->VarArray(PosMatrix, 16*4);
+    file->VarArray(VecMatrix, 16*4);
+    file->VarArray(TexMatrix, 16*4);
+
+    file->VarArray(ProjMatrixStack, 16*4);
+    file->VarArray(PosMatrixStack, 31*16*4);
+    file->VarArray(VecMatrixStack, 31*16*4);
+    file->VarArray(TexMatrixStack, 16*4);
+
+    file->Var32((u32*)&ProjMatrixStackPointer);
+    file->Var32((u32*)&PosMatrixStackPointer);
+    file->Var32((u32*)&TexMatrixStackPointer);
+
+    file->VarArray(Viewport, sizeof(Viewport));
+
+    file->VarArray(PosTestResult, 4*4);
+    file->VarArray(VecTestResult, 2*3);
+
+    file->Var32(&VertexNum);
+    file->Var32(&VertexNumInPoly);
+
+    file->Var32(&CurRAMBank);
+    file->Var32(&NumVertices);
+    file->Var32(&NumPolygons);
+    file->Var32(&NumOpaquePolygons);
+
+    file->Var32(&ClearAttr1);
+    file->Var32(&ClearAttr2);
+
+    file->Var32(&FlushRequest);
+    file->Var32(&FlushAttributes);
+
+    file->VarArray(VertexRAM, sizeof(Vertex)*6144*2);
+    file->VarArray(PolygonRAM, sizeof(Polygon)*2048*2);
+
+    // probably not worth storing the vblank-latched Renderxxxxxx variables
+
+    if (!file->Saving)
+    {
+        ClipMatrixDirty = true;
+        UpdateClipMatrix();
+
+        CurVertexRAM = &VertexRAM[CurRAMBank];
+        CurPolygonRAM = &PolygonRAM[CurRAMBank];
+    }
 }
 
 

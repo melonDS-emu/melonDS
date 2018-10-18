@@ -27,6 +27,8 @@ public:
 
     void Reset();
 
+    void DoSavestate(Savestate* file);
+
     void SetFramebuffer(u32* buf);
 
     u8 Read8(u32 addr);

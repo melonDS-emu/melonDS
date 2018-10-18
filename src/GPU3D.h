@@ -20,6 +20,7 @@
 #define GPU3D_H
 
 #include <array>
+#include "Savestate.h"
 
 namespace GPU3D
 {
@@ -84,6 +85,8 @@ extern u32 RenderNumPolygons;
 bool Init();
 void DeInit();
 void Reset();
+
+void DoSavestate(Savestate* file);
 
 void ExecuteCommand();
 

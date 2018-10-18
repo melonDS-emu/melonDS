@@ -158,7 +158,54 @@ void Stop()
 
 void DoSavestate(Savestate* file)
 {
-    //
+    file->Section("GPUG");
+
+    file->Var16(&VCount);
+    file->Var32(&NextVCount);
+    file->Var16(&TotalScanlines);
+
+    file->Var16(&DispStat[0]);
+    file->Var16(&DispStat[1]);
+    file->Var16(&VMatch[0]);
+    file->Var16(&VMatch[1]);
+
+    file->VarArray(Palette, 2*1024);
+    file->VarArray(OAM, 2*1024);
+
+    file->VarArray(VRAM_A, 128*1024);
+    file->VarArray(VRAM_B, 128*1024);
+    file->VarArray(VRAM_C, 128*1024);
+    file->VarArray(VRAM_D, 128*1024);
+    file->VarArray(VRAM_E,  64*1024);
+    file->VarArray(VRAM_F,  16*1024);
+    file->VarArray(VRAM_G,  16*1024);
+    file->VarArray(VRAM_H,  32*1024);
+    file->VarArray(VRAM_I,  16*1024);
+
+    file->VarArray(VRAMCNT, 9);
+    file->Var8(&VRAMSTAT);
+
+    file->Var32(&VRAMMap_LCDC);
+
+    file->VarArray(VRAMMap_ABG, sizeof(VRAMMap_ABG));
+    file->VarArray(VRAMMap_AOBJ, sizeof(VRAMMap_AOBJ));
+    file->VarArray(VRAMMap_BBG, sizeof(VRAMMap_BBG));
+    file->VarArray(VRAMMap_BOBJ, sizeof(VRAMMap_BOBJ));
+
+    file->VarArray(VRAMMap_ABGExtPal, sizeof(VRAMMap_ABGExtPal));
+    file->Var32(&VRAMMap_AOBJExtPal);
+    file->VarArray(VRAMMap_BBGExtPal, sizeof(VRAMMap_BBGExtPal));
+    file->Var32(&VRAMMap_BOBJExtPal);
+
+    file->VarArray(VRAMMap_Texture, sizeof(VRAMMap_Texture));
+    file->VarArray(VRAMMap_TexPal, sizeof(VRAMMap_TexPal));
+
+    file->Var32(&VRAMMap_ARM7[0]);
+    file->Var32(&VRAMMap_ARM7[1]);
+
+    GPU2D_A->DoSavestate(file);
+    GPU2D_B->DoSavestate(file);
+    GPU3D::DoSavestate(file);
 }
 
 

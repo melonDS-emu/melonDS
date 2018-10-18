@@ -47,7 +47,7 @@ public:
     }
 
 
-    void Savestate(Savestate* file)
+    void DoSavestate(Savestate* file)
     {
         file->Var32(&NumOccupied);
         file->Var32(&ReadPos);
