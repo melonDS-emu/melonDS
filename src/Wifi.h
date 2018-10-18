@@ -19,6 +19,8 @@
 #ifndef WIFI_H
 #define WIFI_H
 
+#include "Savestate.h"
+
 namespace Wifi
 {
 
@@ -146,6 +148,7 @@ extern bool MPInited;
 bool Init();
 void DeInit();
 void Reset();
+void DoSavestate(Savestate* file);
 
 void StartTX_Beacon();
 

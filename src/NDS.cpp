@@ -527,7 +527,7 @@ bool DoSavestate(Savestate* file)
     SPU::DoSavestate(file);
     SPI::DoSavestate(file);
     RTC::DoSavestate(file);
-    // wifi
+    Wifi::DoSavestate(file);
 
     if (!file->Saving)
     {

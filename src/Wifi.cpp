@@ -213,6 +213,40 @@ void Reset()
     WifiAP::Reset();
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("WIFI");
+
+    // berp.
+    // not sure we're saving enough shit at all there.
+    // also: savestate and wifi can't fucking work together!!
+    // or it can but you would be disconnected
+
+    file->VarArray(RAM, 0x2000);
+    file->VarArray(IO, 0x1000);
+
+    file->Var16(&Random);
+
+    file->VarArray(BBRegs, 0x100);
+    file->VarArray(BBRegsRO, 0x100);
+
+    file->Var8(&RFVersion);
+    file->VarArray(RFRegs, 4*0x40);
+
+    file->Var64(&USCounter);
+    file->Var64(&USCompare);
+    file->Var32((u32*)&BlockBeaconIRQ14);
+
+    file->Var32(&ComStatus);
+    file->Var32(&TXCurSlot);
+    file->Var32(&RXCounter);
+
+    file->Var32((u32*)&MPReplyTimer);
+    file->Var32((u32*)&MPNumReplies);
+
+    file->Var32(&CmdCounter);
+}
+
 
 void SetIRQ(u32 irq)
 {
