@@ -396,18 +396,21 @@ bool DoSavestate_Scheduler(Savestate* file)
             SchedEvent* evt = &SchedList[i];
 
             u32 funcid = -1;
-            for (int j = 0; eventfuncs[j]; j++)
+            if (evt->Func)
             {
-                if (evt->Func == eventfuncs[j])
+                for (int j = 0; eventfuncs[j]; j++)
                 {
-                    funcid = j;
-                    break;
+                    if (evt->Func == eventfuncs[j])
+                    {
+                        funcid = j;
+                        break;
+                    }
                 }
-            }
-            if (funcid < 0)
-            {
-                printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
-                return false;
+                if (funcid < 0)
+                {
+                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
+                    return false;
+                }
             }
 
             file->Var32(&funcid);
@@ -424,17 +427,22 @@ bool DoSavestate_Scheduler(Savestate* file)
             u32 funcid;
             file->Var32(&funcid);
 
-            for (int j = 0; ; j++)
+            if (funcid != -1)
             {
-                if (!eventfuncs[j])
+                for (int j = 0; ; j++)
                 {
-                    printf("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
-                    return false;
+                    if (!eventfuncs[j])
+                    {
+                        printf("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
+                        return false;
+                    }
+                    if (j == funcid) break;
                 }
-                if (j == funcid) break;
-            }
 
-            evt->Func = eventfuncs[funcid];
+                evt->Func = eventfuncs[funcid];
+            }
+            else
+                evt->Func = NULL;
 
             file->Var32((u32*)&evt->WaitCycles);
             file->Var32(&evt->Param);
