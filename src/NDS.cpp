@@ -406,7 +406,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                         break;
                     }
                 }
-                if (funcid < 0)
+                if (funcid == -1)
                 {
                     printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
                     return false;
