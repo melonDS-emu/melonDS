@@ -19,6 +19,8 @@
 #ifndef SPI_H
 #define SPI_H
 
+#include "Savestate.h"
+
 namespace SPI_Firmware
 {
 
@@ -45,6 +47,7 @@ extern u16 Cnt;
 bool Init();
 void DeInit();
 void Reset();
+void DoSavestate(Savestate* file);
 
 u16 ReadCnt();
 void WriteCnt(u16 val);

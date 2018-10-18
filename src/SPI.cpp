@@ -193,6 +193,22 @@ void Reset()
     StatusReg = 0x00;
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("SPFW");
+
+    // CHECKME/TODO: trust the firmware to stay the same?????
+    // embedding the whole firmware in the savestate would be derpo tho??
+
+    file->Var32(&Hold);
+    file->Var8(&CurCmd);
+    file->Var32(&DataPos);
+    file->Var8(&Data);
+
+    file->Var8(&StatusReg);
+    file->Var32(&Addr);
+}
+
 void SetupDirectBoot()
 {
     NDS::ARM9Write32(0x027FF864, 0);
@@ -360,6 +376,19 @@ void Reset()
     RegMasks[4] = 0x0F;
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("SPPW");
+
+    file->Var32(&Hold);
+    file->Var32(&DataPos);
+    file->Var8(&Index);
+    file->Var8(&Data);
+
+    file->VarArray(Registers, 8);
+    file->VarArray(RegMasks, 8); // is that needed??
+}
+
 u8 Read()
 {
     return Data;
@@ -439,6 +468,17 @@ void Reset()
     Data = 0;
 
     ConvResult = 0;
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("SPTS");
+
+    file->Var32(&DataPos);
+    file->Var8(&ControlByte);
+    file->Var8(&Data);
+
+    file->Var16(&ConvResult);
 }
 
 void SetTouchCoords(u16 x, u16 y)
@@ -524,6 +564,18 @@ void Reset()
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
     SPI_TSC::Reset();
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("SPIG");
+
+    file->Var16(&Cnt);
+    file->Var32(&CurDevice);
+
+    SPI_Firmware::DoSavestate(file);
+    SPI_Powerman::DoSavestate(file);
+    SPI_TSC::DoSavestate(file);
 }
 
 

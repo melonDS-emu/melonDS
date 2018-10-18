@@ -512,7 +512,7 @@ bool DoSavestate(Savestate* file)
     NDSCart::DoSavestate(file);
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
-    // SPI
+    SPI::DoSavestate(file);
     // RTC
     // wifi
 
