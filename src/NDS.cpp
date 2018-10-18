@@ -501,9 +501,14 @@ bool DoSavestate(Savestate* file)
     for (int i = 0; i < 8; i++)
         DMAs[i]->DoSavestate(file);
 
-    // MapSharedWRAM
-    // powcnt shito
+    file->Var8(&WRAMCnt);
 
+    if (!file->Saving)
+    {
+        // 'dept of redundancy dept'
+        // but we do need to update the mappings
+        MapSharedWRAM(WRAMCnt);
+    }
 
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
@@ -513,8 +518,13 @@ bool DoSavestate(Savestate* file)
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
     SPI::DoSavestate(file);
-    // RTC
+    RTC::DoSavestate(file);
     // wifi
+
+    if (!file->Saving)
+    {
+        GPU::DisplaySwap(PowerControl9>>15);
+    }
 
     return true;
 }

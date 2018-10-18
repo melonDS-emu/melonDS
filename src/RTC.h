@@ -20,6 +20,7 @@
 #define RTC_H
 
 #include "types.h"
+#include "Savestate.h"
 
 namespace RTC
 {
@@ -27,6 +28,7 @@ namespace RTC
 bool Init();
 void DeInit();
 void Reset();
+void DoSavestate(Savestate* file);
 
 u16 Read();
 void Write(u16 val, bool byte);

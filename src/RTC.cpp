@@ -73,6 +73,30 @@ void Reset()
     FreeReg = 0;
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("RTC.");
+
+    file->Var16(&IO);
+
+    file->Var8(&Input);
+    file->Var32(&InputBit);
+    file->Var32(&InputPos);
+
+    file->VarArray(Output, sizeof(Output));
+    file->Var32(&OutputBit);
+    file->Var32(&OutputPos);
+
+    file->Var8(&CurCmd);
+
+    file->Var8(&StatusReg1);
+    file->Var8(&StatusReg2);
+    file->VarArray(Alarm1, sizeof(Alarm1));
+    file->VarArray(Alarm2, sizeof(Alarm2));
+    file->Var8(&ClockAdjust);
+    file->Var8(&FreeReg);
+}
+
 
 u8 BCD(u8 val)
 {
