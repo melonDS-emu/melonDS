@@ -456,9 +456,6 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
-    file->VarArray(ARM9BIOS, 0x1000);
-    file->VarArray(ARM7BIOS, 0x4000);
-
     file->VarArray(MainRAM, 0x400000);
     file->VarArray(SharedWRAM, 0x8000);
     file->VarArray(ARM7WRAM, 0x10000);
