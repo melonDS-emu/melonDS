@@ -120,7 +120,7 @@ void DMA::Reset()
 
 void DMA::DoSavestate(Savestate* file)
 {
-    char* magic = "DMAx";
+    char magic[5] = "DMAx";
     magic[3] = '0' + Num + (CPU*4);
     file->Section(magic);
 

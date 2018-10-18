@@ -141,6 +141,9 @@ void AudioCallback(void* data, Uint8* stream, int len)
     }
 }
 
+// hax.
+int savestate_cmd;
+
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
@@ -152,6 +155,8 @@ int EmuThreadFunc(void* burp)
 
     ScreenDrawInited = false;
     Touching = false;
+
+    savestate_cmd = 0;
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -191,6 +196,31 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
+
+            // HAX!!
+            if (savestate_cmd)
+            {
+                if (savestate_cmd == 1)
+                {
+                    Savestate* test = new Savestate("SAVEZORZ.bin", true);
+                    if (NDS::DoSavestate(test))
+                        printf("savestate saved OK\n");
+                    else
+                        printf("saving failed\n");
+                    delete test;
+                }
+                else if (savestate_cmd == 2)
+                {
+                    Savestate* test = new Savestate("SAVEZORZ.bin", false);
+                    if (NDS::DoSavestate(test))
+                        printf("savestate loaded OK\n");
+                    else
+                        printf("loading failed\n");
+                    delete test;
+                }
+
+                savestate_cmd = 0;
+            }
 
             // poll input
             u32 keymask = KeyInputMask;
@@ -448,6 +478,22 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     }
     else if (!evt->Repeat)
     {
+        // HAX
+        if (evt->Scancode == 0x3B) // F1
+        {
+            // save state.
+            savestate_cmd = 1;
+            printf("saving state\n");
+            return 1;
+        }
+        if (evt->Scancode == 0x3C) // F2
+        {
+            // load state.
+            savestate_cmd = 2;
+            printf("loading state\n");
+            return 1;
+        }
+
         for (int i = 0; i < 12; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
@@ -1047,46 +1093,6 @@ int main(int argc, char** argv)
         uiFreeInitError(ui_err);
         return 1;
     }
-
-    // TESTORZ
-
-    u32 zab = 12;
-    u16 zib = 18;
-    u8 zob = 9;
-    u32 zub = 42;
-
-    Savestate* dorp = new Savestate("dorp.zog", true);
-    dorp->Section("BAKA");
-    dorp->Var32(&zab);
-    dorp->Var8(&zob);
-    dorp->Section("SHIT");
-    dorp->Var16(&zib);
-    dorp->Var32(&zub);
-    delete dorp;
-
-    zab = 0; zib = 0; zob = 0; zub = 0;
-    dorp = new Savestate("dorp.zog", false);
-    dorp->Section("BAKA");
-    dorp->Var32(&zab);
-    dorp->Var8(&zob);
-    dorp->Section("SHIT");
-    dorp->Var16(&zib);
-    dorp->Var32(&zub);
-    delete dorp;
-    printf("-> %d %d %d %d\n", zab, zib, zob, zub);
-
-    zab = 0; zib = 0; zob = 0; zub = 0;
-    dorp = new Savestate("dorp.zog", false);
-    dorp->Section("SHIT");
-    dorp->Var16(&zib);
-    dorp->Var32(&zub);
-    dorp->Section("BAKA");
-    dorp->Var32(&zab);
-    dorp->Var8(&zob);
-    delete dorp;
-    printf("-> %d %d %d %d\n", zab, zib, zob, zub);
-
-    // TESTORZ END
 
     Config::Load();
 
