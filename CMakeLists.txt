@@ -25,6 +25,7 @@ SET(SOURCES
 	src/NDS.cpp
 	src/NDSCart.cpp
 	src/RTC.cpp
+	src/Savestate.cpp
 	src/SPI.cpp
 	src/SPU.cpp
 	src/Wifi.cpp
