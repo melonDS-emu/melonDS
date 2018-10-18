@@ -19,6 +19,8 @@
 #ifndef SPU_H
 #define SPU_H
 
+#include "Savestate.h"
+
 namespace SPU
 {
 
@@ -26,6 +28,8 @@ bool Init();
 void DeInit();
 void Reset();
 void Stop();
+
+void DoSavestate(Savestate* file);
 
 void SetBias(u16 bias);
 
@@ -46,6 +50,7 @@ public:
     Channel(u32 num);
     ~Channel();
     void Reset();
+    void DoSavestate(Savestate* file);
 
     u32 Num;
 
@@ -137,6 +142,7 @@ public:
     CaptureUnit(u32 num);
     ~CaptureUnit();
     void Reset();
+    void DoSavestate(Savestate* file);
 
     u32 Num;
 

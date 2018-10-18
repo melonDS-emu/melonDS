@@ -24,8 +24,6 @@
 
 // SPU TODO
 // * loop mode 3, what does it do?
-// * the FIFO, whatever it is. GBAtek mentions it but gives no details.
-// * consider mixing every sample instead of every 16?
 
 
 namespace SPU
@@ -121,6 +119,21 @@ void Stop()
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("SPU.");
+
+    file->Var16(&Cnt);
+    file->Var8(&MasterVolume);
+    file->Var16(&Bias);
+
+    for (int i = 0; i < 16; i++)
+        Channels[i]->DoSavestate(file);
+
+    Capture[0]->DoSavestate(file);
+    Capture[1]->DoSavestate(file);
+}
+
 
 void SetBias(u16 bias)
 {
@@ -152,6 +165,36 @@ void Channel::Reset()
     FIFOWritePos = 0;
     FIFOReadOffset = 0;
     FIFOLevel = 0;
+}
+
+void Channel::DoSavestate(Savestate* file)
+{
+    file->Var32(&Cnt);
+    file->Var32(&SrcAddr);
+    file->Var16(&TimerReload);
+    file->Var32(&LoopPos);
+    file->Var32(&Length);
+
+    file->Var8(&Volume);
+    file->Var8(&VolumeShift);
+    file->Var8(&Pan);
+
+    file->Var32(&Timer);
+    file->Var32((u32*)&Pos);
+    file->Var16((u16*)&CurSample);
+    file->Var16(&NoiseVal);
+
+    file->Var32((u32*)&ADPCMVal);
+    file->Var32((u32*)&ADPCMIndex);
+    file->Var32((u32*)&ADPCMValLoop);
+    file->Var32((u32*)&ADPCMIndexLoop);
+    file->Var8(&ADPCMCurByte);
+
+    file->Var32(&FIFOReadPos);
+    file->Var32(&FIFOWritePos);
+    file->Var32(&FIFOReadOffset);
+    file->Var32(&FIFOLevel);
+    file->VarArray(FIFO, 8*4);
 }
 
 void Channel::FIFO_BufferData()
@@ -437,6 +480,23 @@ void CaptureUnit::Reset()
     FIFOWritePos = 0;
     FIFOWriteOffset = 0;
     FIFOLevel = 0;
+}
+
+void CaptureUnit::DoSavestate(Savestate* file)
+{
+    file->Var8(&Cnt);
+    file->Var32(&DstAddr);
+    file->Var16(&TimerReload);
+    file->Var32(&Length);
+
+    file->Var32(&Timer);
+    file->Var32((u32*)&Pos);
+
+    file->Var32(&FIFOReadPos);
+    file->Var32(&FIFOWritePos);
+    file->Var32(&FIFOWriteOffset);
+    file->Var32(&FIFOLevel);
+    file->VarArray(FIFO, 4*4);
 }
 
 void CaptureUnit::FIFO_FlushData()
