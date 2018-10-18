@@ -156,6 +156,7 @@ elseif (WIN32)
         src/libui_sdl/libui/windows/winpublic.cpp
         src/libui_sdl/libui/windows/winutil.cpp
         src/libui_sdl/libui/windows/resources.rc
+		melon.rc
     )
 
     LINK_LIBRARIES("comctl32")
