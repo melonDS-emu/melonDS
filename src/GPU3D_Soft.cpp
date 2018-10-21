@@ -1229,7 +1229,14 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] = 1;
+            StencilBuffer[256*(y&0x1) + x] |= 0x1;
+
+        if (dstattr & 0x3)
+        {
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     // part 2: polygon inside
@@ -1247,6 +1254,13 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
+
+        if (dstattr & 0x3)
+        {
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     // part 3: right edge
@@ -1268,6 +1282,13 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
             StencilBuffer[256*(y&0x1) + x] = 1;
+
+        if (dstattr & 0x3)
+        {
+            pixeladdr += BufferSize;
+            if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
+                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+        }
     }
 
     rp->XL = rp->SlopeL.Step();
@@ -1425,18 +1446,23 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            if (StencilBuffer[256*(y&0x1) + x] == 0)
+            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            if (!stencil)
                 continue;
+            if (!(stencil & 0x1))
+                pixeladdr += BufferSize;
+            if (!(stencil & 0x2))
+                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1514,18 +1540,23 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     else for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            if (StencilBuffer[256*(y&0x1) + x] == 0)
+            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            if (!stencil)
                 continue;
+            if (!(stencil & 0x1))
+                pixeladdr += BufferSize;
+            if (!(stencil & 0x2))
+                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
@@ -1582,18 +1613,23 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
+        u32 dstattr = AttrBuffer[pixeladdr];
 
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            if (StencilBuffer[256*(y&0x1) + x] == 0)
+            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            if (!stencil)
                 continue;
+            if (!(stencil & 0x1))
+                pixeladdr += BufferSize;
+            if (!(stencil & 0x2))
+                dstattr &= ~0x3; // quick way to prevent drawing the shadow under antialiased edges
         }
 
         interpX.SetX(x);
 
         s32 z = interpX.InterpolateZ(zl, zr, polygon->WBuffer);
-        u32 dstattr = AttrBuffer[pixeladdr];
 
         // if depth test against the topmost pixel fails, test
         // against the pixel underneath
