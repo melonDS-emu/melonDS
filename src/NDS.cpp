@@ -487,7 +487,15 @@ bool DoSavestate(Savestate* file)
 
     file->Var32(&CPUStop);
 
-    file->VarArray(Timers, 8*sizeof(Timer));
+    for (int i = 0; i < 8; i++)
+    {
+        Timer* timer = &Timers[i];
+
+        file->Var16(&timer->Reload);
+        file->Var16(&timer->Cnt);
+        file->Var32(&timer->Counter);
+        file->Var32(&timer->CycleShift);
+    }
     file->VarArray(TimerCheckMask, 2*sizeof(u8));
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));

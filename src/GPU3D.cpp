@@ -150,10 +150,14 @@ const s32 CmdNumCycles[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-typedef struct
+typedef union
 {
-    u8 Command;
-    u32 Param;
+    u64 _contents;
+    struct
+    {
+        u32 Param;
+        u8 Command;
+    };
 
 } CmdFIFOEntry;
 
@@ -410,8 +414,73 @@ void DoSavestate(Savestate* file)
     file->Var32(&FlushRequest);
     file->Var32(&FlushAttributes);
 
-    file->VarArray(VertexRAM, sizeof(Vertex)*6144*2);
-    file->VarArray(PolygonRAM, sizeof(Polygon)*2048*2);
+    for (int i = 0; i < 6144*2; i++)
+    {
+        Vertex* vtx = &VertexRAM[i];
+
+        file->VarArray(vtx->Position, sizeof(s32)*4);
+        file->VarArray(vtx->Color, sizeof(s32)*3);
+        file->VarArray(vtx->TexCoords, sizeof(s16)*2);
+
+        file->Var32((u32*)&vtx->Clipped);
+
+        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
+        file->VarArray(vtx->FinalColor, sizeof(s32)*3);
+    }
+
+    for(int i = 0; i < 2048*2; i++)
+    {
+        Polygon* poly = &PolygonRAM[i];
+
+        // this is a bit ugly, but eh
+        // we can't save the pointers as-is, that's a bad idea
+        if (file->Saving)
+        {
+            for (int j = 0; j < 10; j++)
+            {
+                Vertex* ptr = poly->Vertices[j];
+                u32 id;
+                if (ptr) id = (u32)((ptr - (&VertexRAM[0])) / sizeof(Vertex));
+                else     id = -1;
+                file->Var32(&id);
+            }
+        }
+        else
+        {
+            for (int j = 0; j < 10; j++)
+            {
+                u32 id = -1;
+                file->Var32(&id);
+                if (id == -1) poly->Vertices[j] = NULL;
+                else          poly->Vertices[j] = &VertexRAM[id];
+            }
+        }
+
+        file->Var32(&poly->NumVertices);
+
+        file->VarArray(poly->FinalZ, sizeof(s32)*10);
+        file->VarArray(poly->FinalW, sizeof(s32)*10);
+        file->Var32((u32*)&poly->WBuffer);
+
+        file->Var32(&poly->Attr);
+        file->Var32(&poly->TexParam);
+        file->Var32(&poly->TexPalette);
+
+        file->Var32((u32*)&poly->FacingView);
+        file->Var32((u32*)&poly->Translucent);
+
+        file->Var32((u32*)&poly->IsShadowMask);
+        file->Var32((u32*)&poly->IsShadow);
+
+        file->Var32(&poly->VTop);
+        file->Var32(&poly->VBottom);
+        file->Var32((u32*)&poly->YTop);
+        file->Var32((u32*)&poly->YBottom);
+        file->Var32((u32*)&poly->XTop);
+        file->Var32((u32*)&poly->XBottom);
+
+        file->Var32(&poly->SortKey);
+    }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
 
