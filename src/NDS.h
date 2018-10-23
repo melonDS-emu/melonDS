@@ -111,7 +111,7 @@ void Stop();
 
 bool DoSavestate(Savestate* file);
 
-bool LoadROM(const char* path, bool direct);
+bool LoadROM(const char* path, const char* sram, bool direct);
 void LoadBIOS();
 void SetupDirectBoot();
 

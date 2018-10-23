@@ -403,12 +403,6 @@ void DoSavestate(Savestate* file)
     file->Var32(&VertexNum);
     file->Var32(&VertexNumInPoly);
     file->Var32(&NumConsecutivePolygons);
-    /*Vertex TempVertexBuffer[4];
-u32 VertexNum;
-u32 VertexNumInPoly;
-u32 NumConsecutivePolygons;
-Polygon* LastStripPolygon;
-u32 NumOpaquePolygons;*/
 
     for (int i = 0; i < 4; i++)
     {

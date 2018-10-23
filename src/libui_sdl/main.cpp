@@ -73,6 +73,8 @@ volatile int EmuStatus;
 
 bool RunningSomething;
 char ROMPath[1024];
+char SRAMPath[1024];
+char PrevSRAMPath[1024]; // for savestate 'undo load'
 
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap = NULL;
@@ -775,15 +777,26 @@ void Stop(bool internal)
     uiAreaQueueRedrawAll(MainDrawArea);
 }
 
+void SetupSRAMPath()
+{
+    strncpy(SRAMPath, ROMPath, 1023);
+    SRAMPath[1023] = '\0';
+    strncpy(SRAMPath + strlen(ROMPath) - 3, "sav", 3);
+}
+
 void TryLoadROM(char* file, int prevstatus)
 {
     char oldpath[1024];
+    char oldsram[1024];
     strncpy(oldpath, ROMPath, 1024);
+    strncpy(oldsram, SRAMPath, 1024);
 
     strncpy(ROMPath, file, 1023);
     ROMPath[1023] = '\0';
 
-    if (NDS::LoadROM(ROMPath, Config::DirectBoot))
+    SetupSRAMPath();
+
+    if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
         Run();
     else
     {
@@ -792,6 +805,7 @@ void TryLoadROM(char* file, int prevstatus)
                       "Make sure the file can be accessed and isn't opened in another application.");
 
         strncpy(ROMPath, oldpath, 1024);
+        strncpy(SRAMPath, oldsram, 1024);
         EmuRunning = prevstatus;
     }
 }
@@ -841,7 +855,7 @@ void LoadState(int slot)
     }
     else
     {
-        char* file = uiOpenFile(MainWindow, "melonDS savestate|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        char* file = uiOpenFile(MainWindow, "melonDS savestate (any)|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -889,7 +903,7 @@ void SaveState(int slot)
     }
     else
     {
-        char* file = uiSaveFile(MainWindow, "melonDS savestate|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        char* file = uiSaveFile(MainWindow, "melonDS savestate (*.mln)|*.mln", NULL);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -1052,7 +1066,7 @@ void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
     if (ROMPath[0] == '\0')
         NDS::LoadBIOS();
     else
-        NDS::LoadROM(ROMPath, Config::DirectBoot);
+        NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
 
     Run();
 }
@@ -1460,7 +1474,9 @@ int main(int argc, char** argv)
             strncpy(ROMPath, file, 1023);
             ROMPath[1023] = '\0';
 
-            if (NDS::LoadROM(ROMPath, Config::DirectBoot))
+            SetupSRAMPath();
+
+            if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
                 Run();
         }
     }

@@ -138,7 +138,7 @@ void DoSavestate(Savestate* file)
     file->Var32(&Addr);
 }
 
-void LoadSave(char* path)
+void LoadSave(const char* path)
 {
     if (SRAM) delete[] SRAM;
     if (Discover_Buffer) delete[] Discover_Buffer;
@@ -1040,7 +1040,7 @@ void ApplyDLDIPatch()
 }
 
 
-bool LoadROM(const char* path, bool direct)
+bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
@@ -1121,12 +1121,8 @@ bool LoadROM(const char* path, bool direct)
 
 
     // save
-    char savepath[256];
-    strncpy(savepath, path, 255);
-    savepath[255] = '\0';
-    strncpy(savepath + strlen(path) - 3, "sav", 3);
-    printf("Save file: %s\n", savepath);
-    NDSCart_SRAM::LoadSave(savepath);
+    printf("Save file: %s\n", sram);
+    NDSCart_SRAM::LoadSave(sram);
 
     return true;
 }
