@@ -402,6 +402,42 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&VertexNum);
     file->Var32(&VertexNumInPoly);
+    file->Var32(&NumConsecutivePolygons);
+    /*Vertex TempVertexBuffer[4];
+u32 VertexNum;
+u32 VertexNumInPoly;
+u32 NumConsecutivePolygons;
+Polygon* LastStripPolygon;
+u32 NumOpaquePolygons;*/
+
+    for (int i = 0; i < 4; i++)
+    {
+        Vertex* vtx = &TempVertexBuffer[i];
+
+        file->VarArray(vtx->Position, sizeof(s32)*4);
+        file->VarArray(vtx->Color, sizeof(s32)*3);
+        file->VarArray(vtx->TexCoords, sizeof(s16)*2);
+
+        file->Var32((u32*)&vtx->Clipped);
+
+        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
+        file->VarArray(vtx->FinalColor, sizeof(s32)*3);
+    }
+
+    if (file->Saving)
+    {
+        u32 id;
+        if (LastStripPolygon) id = (u32)((LastStripPolygon - (&PolygonRAM[0])) / sizeof(Polygon));
+        else                  id = -1;
+        file->Var32(&id);
+    }
+    else
+    {
+        u32 id;
+        file->Var32(&id);
+        if (id == -1) LastStripPolygon = NULL;
+        else          LastStripPolygon = &PolygonRAM[id];
+    }
 
     file->Var32(&CurRAMBank);
     file->Var32(&NumVertices);
