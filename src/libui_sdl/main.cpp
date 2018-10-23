@@ -81,6 +81,8 @@ char ROMPath[1024];
 char SRAMPath[1024];
 char PrevSRAMPath[1024]; // for savestate 'undo load'
 
+bool SavestateLoaded;
+
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap = NULL;
 u32 ScreenBuffer[256*384];
@@ -764,7 +766,11 @@ void Run()
 
     uiMenuItemEnable(MenuItem_SaveState);
     uiMenuItemEnable(MenuItem_LoadState);
-    uiMenuItemEnable(MenuItem_UndoStateLoad);
+
+    if (SavestateLoaded)
+        uiMenuItemEnable(MenuItem_UndoStateLoad);
+    else
+        uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     for (int i = 0; i < 8; i++)
     {
@@ -821,6 +827,9 @@ void TryLoadROM(char* file, int prevstatus)
 
     if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
     {
+        SavestateLoaded = false;
+        uiMenuItemDisable(MenuItem_UndoStateLoad);
+
         strncpy(PrevSRAMPath, SRAMPath, 1024); // safety
         Run();
     }
@@ -929,6 +938,9 @@ void LoadState(int slot)
         NDS::RelocateSave(SRAMPath, false);
     }
 
+    SavestateLoaded = true;
+    uiMenuItemEnable(MenuItem_UndoStateLoad);
+
     EmuRunning = prevstatus;
 }
 
@@ -989,6 +1001,8 @@ void SaveState(int slot)
 
 void UndoStateLoad()
 {
+    if (!SavestateLoaded) return;
+
     int prevstatus = EmuRunning;
     EmuRunning = 2;
     while (EmuStatus != 2);
@@ -1124,6 +1138,9 @@ void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
 
     EmuRunning = 2;
     while (EmuStatus != 2);
+
+    SavestateLoaded = false;
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     if (ROMPath[0] == '\0')
         NDS::LoadBIOS();
@@ -1352,9 +1369,9 @@ int main(int argc, char** argv)
         {
             char name[32];
             if (i < 8)
-                sprintf(name, "%d", kSavestateNum[i]);
+                sprintf(name, "%d\tShift+F%d", kSavestateNum[i], kSavestateNum[i]);
             else
-                strcpy(name, "File...");
+                strcpy(name, "File...\tShift+F9");
 
             uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
             uiMenuItemOnClicked(ssitem, OnSaveState, (void*)&kSavestateNum[i]);
@@ -1369,9 +1386,9 @@ int main(int argc, char** argv)
         {
             char name[32];
             if (i < 8)
-                sprintf(name, "%d", kSavestateNum[i]);
+                sprintf(name, "%d\tF%d", kSavestateNum[i], kSavestateNum[i]);
             else
-                strcpy(name, "File...");
+                strcpy(name, "File...\tF9");
 
             uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
             uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
