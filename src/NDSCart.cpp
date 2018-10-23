@@ -36,7 +36,7 @@ namespace NDSCart_SRAM
 u8* SRAM;
 u32 SRAMLength;
 
-char SRAMPath[256];
+char SRAMPath[1024];
 
 void (*WriteFunc)(u8 val, bool islast);
 
@@ -148,8 +148,8 @@ void LoadSave(const char* path)
     Discover_AddrLength = 0x7FFFFFFF;
     Discover_LikelySize = 0;
 
-    strncpy(SRAMPath, path, 255);
-    SRAMPath[255] = '\0';
+    strncpy(SRAMPath, path, 1023);
+    SRAMPath[1023] = '\0';
 
     FILE* f = melon_fopen(path, "rb");
     if (f)
@@ -194,6 +194,22 @@ void LoadSave(const char* path)
     CurCmd = 0;
     Data = 0;
     StatusReg = 0x00;
+}
+
+void RelocateSave(const char* path)
+{
+    strncpy(SRAMPath, path, 1023);
+    SRAMPath[1023] = '\0';
+
+    FILE* f = melon_fopen(path, "wb");
+    if (!f)
+    {
+        printf("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        return;
+    }
+
+    fwrite(SRAM, SRAMLength, 1, f);
+    fclose(f);
 }
 
 u8 Read()
@@ -1125,6 +1141,12 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     NDSCart_SRAM::LoadSave(sram);
 
     return true;
+}
+
+void RelocateSave(const char* path)
+{
+    // herp derp
+    NDSCart_SRAM::RelocateSave(path);
 }
 
 void ReadROM(u32 addr, u32 len, u32 offset)

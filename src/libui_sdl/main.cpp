@@ -24,6 +24,7 @@
 #include "libui/ui.h"
 
 #include "../types.h"
+#include "../melon_fopen.h"
 #include "../version.h"
 #include "../Config.h"
 
@@ -57,6 +58,8 @@ uiArea* MainDrawArea;
 uiMenuItem* MenuItem_SaveState;
 uiMenuItem* MenuItem_LoadState;
 uiMenuItem* MenuItem_UndoStateLoad;
+
+uiMenuItem* MenuItem_LoadStateSlot[8];
 
 uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
@@ -104,7 +107,17 @@ void SetupScreenRects(int width, int height);
 void SaveState(int slot);
 void LoadState(int slot);
 void UndoStateLoad();
+void GetSavestateName(int slot, char* filename, int len);
 
+
+
+bool FileExists(char* name)
+{
+    FILE* f = melon_fopen(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
 
 
 void UpdateWindowTitle(void* data)
@@ -751,6 +764,14 @@ void Run()
     uiMenuItemEnable(MenuItem_LoadState);
     uiMenuItemEnable(MenuItem_UndoStateLoad);
 
+    for (int i = 0; i < 8; i++)
+    {
+        char ssfile[1024];
+        GetSavestateName(i+1, ssfile, 1024);
+        if (FileExists(ssfile)) uiMenuItemEnable(MenuItem_LoadStateSlot[i]);
+        else                    uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
+    }
+
     uiMenuItemEnable(MenuItem_Pause);
     uiMenuItemEnable(MenuItem_Reset);
     uiMenuItemEnable(MenuItem_Stop);
@@ -867,6 +888,12 @@ void LoadState(int slot)
         uiFreeText(file);
     }
 
+    if (!FileExists(filename))
+    {
+        EmuRunning = prevstatus;
+        return;
+    }
+
     // backup
     Savestate* backup = new Savestate("timewarp.mln", true);
     NDS::DoSavestate(backup);
@@ -926,6 +953,9 @@ void SaveState(int slot)
     {
         NDS::DoSavestate(state);
         delete state;
+
+        if (slot > 0)
+            uiMenuItemEnable(MenuItem_LoadStateSlot[slot-1]);
     }
 
     EmuRunning = prevstatus;
@@ -1216,15 +1246,6 @@ void ApplyNewSettings()
 }
 
 
-bool _fileexists(char* name)
-{
-    FILE* f = fopen(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
-
-
 int main(int argc, char** argv)
 {
     srand(time(NULL));
@@ -1313,6 +1334,8 @@ int main(int argc, char** argv)
 
             uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
             uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
+
+            if (i < 8) MenuItem_LoadStateSlot[i] = ssitem;
         }
 
         MenuItem_LoadState = uiMenuAppendSubmenu(menu, submenu);
