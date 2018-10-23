@@ -19,7 +19,7 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define MELONDS_VERSION    "0.6b"
+#define MELONDS_VERSION    "0.7"
 
 #define MELONDS_URL        "http://melonds.kuribo64.net/"
 
