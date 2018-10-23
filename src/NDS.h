@@ -114,6 +114,7 @@ bool DoSavestate(Savestate* file);
 bool LoadROM(const char* path, const char* sram, bool direct);
 void LoadBIOS();
 void SetupDirectBoot();
+void RelocateSave(const char* path, bool write);
 
 u32 RunFrame();
 

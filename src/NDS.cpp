@@ -562,6 +562,12 @@ void LoadBIOS()
     Running = true;
 }
 
+void RelocateSave(const char* path, bool write)
+{
+    printf("SRAM: relocating to %s (write=%s)\n", path, write?"true":"false");
+    NDSCart::RelocateSave(path, write);
+}
+
 
 void CalcIterationCycles()
 {

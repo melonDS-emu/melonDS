@@ -45,7 +45,7 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 bool LoadROM(const char* path, const char* sram, bool direct);
-void RelocateSave(const char* path);
+void RelocateSave(const char* path, bool write);
 
 void WriteROMCnt(u32 val);
 u32 ReadROMData();

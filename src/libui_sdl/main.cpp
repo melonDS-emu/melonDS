@@ -65,6 +65,8 @@ uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
 uiMenuItem* MenuItem_Stop;
 
+uiMenuItem* MenuItem_SavestateSRAMReloc;
+
 uiMenuItem* MenuItem_ScreenRot[4];
 uiMenuItem* MenuItem_ScreenGap[6];
 uiMenuItem* MenuItem_ScreenLayout[3];
@@ -818,7 +820,10 @@ void TryLoadROM(char* file, int prevstatus)
     SetupSRAMPath();
 
     if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
+    {
+        strncpy(PrevSRAMPath, SRAMPath, 1024); // safety
         Run();
+    }
     else
     {
         uiMsgBoxError(MainWindow,
@@ -846,11 +851,10 @@ void GetSavestateName(int slot, char* filename, int len)
     }
     else
     {
-        int len = strlen(ROMPath);
-        pos = len;
+        int l = strlen(ROMPath);
+        pos = l;
         while (ROMPath[pos] != '.' && pos > 0) pos--;
-        if (pos == 0) pos = len;
-        else pos++;
+        if (pos == 0) pos = l;
 
         // avoid buffer overflow. shoddy
         if (pos > len-5) pos = len-5;
@@ -913,6 +917,18 @@ void LoadState(int slot)
     NDS::DoSavestate(state);
     delete state;
 
+    if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+    {
+        strncpy(PrevSRAMPath, SRAMPath, 1024);
+
+        strncpy(SRAMPath, filename, 1019);
+        int len = strlen(SRAMPath);
+        strcpy(&SRAMPath[len], ".sav");
+        SRAMPath[len+4] = '\0';
+
+        NDS::RelocateSave(SRAMPath, false);
+    }
+
     EmuRunning = prevstatus;
 }
 
@@ -956,6 +972,16 @@ void SaveState(int slot)
 
         if (slot > 0)
             uiMenuItemEnable(MenuItem_LoadStateSlot[slot-1]);
+
+        if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+        {
+            strncpy(SRAMPath, filename, 1019);
+            int len = strlen(SRAMPath);
+            strcpy(&SRAMPath[len], ".sav");
+            SRAMPath[len+4] = '\0';
+
+            NDS::RelocateSave(SRAMPath, true);
+        }
     }
 
     EmuRunning = prevstatus;
@@ -973,6 +999,12 @@ void UndoStateLoad()
     Savestate* backup = new Savestate("timewarp.mln", false);
     NDS::DoSavestate(backup);
     delete backup;
+
+    if (ROMPath[0]!='\0')
+    {
+        strncpy(SRAMPath, PrevSRAMPath, 1024);
+        NDS::RelocateSave(SRAMPath, false);
+    }
 
     EmuRunning = prevstatus;
 }
@@ -1096,7 +1128,10 @@ void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
     if (ROMPath[0] == '\0')
         NDS::LoadBIOS();
     else
+    {
+        SetupSRAMPath();
         NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
+    }
 
     Run();
 }
@@ -1116,6 +1151,12 @@ void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open();
+}
+
+
+void OnSetSavestateSRAMReloc(uiMenuItem* item, uiWindow* window, void* param)
+{
+    Config::SavestateRelocSRAM = uiMenuItemChecked(item) ? 1:0;
 }
 
 
@@ -1368,6 +1409,15 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
     uiMenuAppendSeparator(menu);
     {
+        uiMenu* submenu = uiNewMenu("Savestate settings");
+
+        MenuItem_SavestateSRAMReloc = uiMenuAppendCheckItem(submenu, "Separate savefiles");
+        uiMenuItemOnClicked(MenuItem_SavestateSRAMReloc, OnSetSavestateSRAMReloc, NULL);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    uiMenuAppendSeparator(menu);
+    {
         uiMenu* submenu = uiNewMenu("Screen rotation");
 
         for (int i = 0; i < 4; i++)
@@ -1470,6 +1520,8 @@ int main(int argc, char** argv)
     SANITIZE(ScreenLayout, 0, 2);
     SANITIZE(ScreenSizing, 0, 3);
 #undef SANITIZE
+
+    uiMenuItemSetChecked(MenuItem_SavestateSRAMReloc, Config::SavestateRelocSRAM?1:0);
 
     uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
     uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);

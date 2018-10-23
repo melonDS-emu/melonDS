@@ -46,6 +46,8 @@ extern int Threaded3D;
 
 extern int SocketBindAnyAddr;
 
+extern int SavestateRelocSRAM;
+
 }
 
 #endif // CONFIG_H

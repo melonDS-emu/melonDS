@@ -53,6 +53,8 @@ int Threaded3D;
 
 int SocketBindAnyAddr;
 
+int SavestateRelocSRAM;
+
 typedef struct
 {
     char Name[16];
@@ -106,6 +108,8 @@ ConfigEntry ConfigFile[] =
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
+
+    {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 1, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

@@ -196,8 +196,14 @@ void LoadSave(const char* path)
     StatusReg = 0x00;
 }
 
-void RelocateSave(const char* path)
+void RelocateSave(const char* path, bool write)
 {
+    if (!write)
+    {
+        LoadSave(path); // lazy
+        return;
+    }
+
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
@@ -1143,10 +1149,10 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     return true;
 }
 
-void RelocateSave(const char* path)
+void RelocateSave(const char* path, bool write)
 {
     // herp derp
-    NDSCart_SRAM::RelocateSave(path);
+    NDSCart_SRAM::RelocateSave(path, write);
 }
 
 void ReadROM(u32 addr, u32 len, u32 offset)
