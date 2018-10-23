@@ -16,7 +16,9 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <stdio.h>
 #include "Savestate.h"
+#include "melon_fopen.h"
 
 /*
     Savestate format
@@ -54,7 +56,7 @@ Savestate::Savestate(char* filename, bool save)
     if (save)
     {
         Saving = true;
-        file = fopen(filename, "wb");
+        file = melon_fopen(filename, "wb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);
@@ -73,7 +75,7 @@ Savestate::Savestate(char* filename, bool save)
     else
     {
         Saving = false;
-        file = fopen(filename, "rb");
+        file = melon_fopen(filename, "rb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);

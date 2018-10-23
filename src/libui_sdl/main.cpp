@@ -40,6 +40,11 @@
 #include "../Savestate.h"
 
 
+// savestate slot mapping
+// 1-8: regular slots (quick access)
+// '9': load/save arbitrary file
+const int kSavestateNum[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
+
 const int kScreenRot[4] = {0, 1, 2, 3};
 const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
 const int kScreenLayout[3] = {0, 1, 2};
@@ -48,6 +53,10 @@ const int kScreenSizing[4] = {0, 1, 2, 3};
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
+
+uiMenuItem* MenuItem_SaveState;
+uiMenuItem* MenuItem_LoadState;
+uiMenuItem* MenuItem_UndoStateLoad;
 
 uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
@@ -89,6 +98,10 @@ SDL_Joystick* Joystick;
 
 
 void SetupScreenRects(int width, int height);
+
+void SaveState(int slot);
+void LoadState(int slot);
+void UndoStateLoad();
 
 
 
@@ -141,9 +154,6 @@ void AudioCallback(void* data, Uint8* stream, int len)
     }
 }
 
-// hax.
-int savestate_cmd;
-
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
@@ -155,8 +165,6 @@ int EmuThreadFunc(void* burp)
 
     ScreenDrawInited = false;
     Touching = false;
-
-    savestate_cmd = 0;
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -196,31 +204,6 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
-
-            // HAX!!
-            if (savestate_cmd)
-            {
-                if (savestate_cmd == 1)
-                {
-                    Savestate* test = new Savestate("SAVEZORZ.bin", true);
-                    if (NDS::DoSavestate(test))
-                        printf("savestate saved OK\n");
-                    else
-                        printf("saving failed\n");
-                    delete test;
-                }
-                else if (savestate_cmd == 2)
-                {
-                    Savestate* test = new Savestate("SAVEZORZ.bin", false);
-                    if (NDS::DoSavestate(test))
-                        printf("savestate loaded OK\n");
-                    else
-                        printf("loading failed\n");
-                    delete test;
-                }
-
-                savestate_cmd = 0;
-            }
 
             // poll input
             u32 keymask = KeyInputMask;
@@ -470,6 +453,10 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (evt->Modifiers == 0x2) // ALT+key
         return 0;
 
+    // d0rp
+    if (!RunningSomething)
+        return 1;
+
     if (evt->Up)
     {
         for (int i = 0; i < 12; i++)
@@ -478,20 +465,20 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     }
     else if (!evt->Repeat)
     {
-        // HAX
-        if (evt->Scancode == 0x3B) // F1
+        // F keys: 3B-44, 57-58 | SHIFT: mod. 0x4
+        if (evt->Scancode >= 0x3B && evt->Scancode <= 0x42) // F1-F8, quick savestate
         {
-            // save state.
-            savestate_cmd = 1;
-            printf("saving state\n");
-            return 1;
+            if      (evt->Modifiers == 0x4) SaveState(1 + (evt->Scancode - 0x3B));
+            else if (evt->Modifiers == 0x0) LoadState(1 + (evt->Scancode - 0x3B));
         }
-        if (evt->Scancode == 0x3C) // F2
+        else if (evt->Scancode == 0x43) // F9, savestate from/to file
         {
-            // load state.
-            savestate_cmd = 2;
-            printf("loading state\n");
-            return 1;
+            if      (evt->Modifiers == 0x4) SaveState(0);
+            else if (evt->Modifiers == 0x0) LoadState(0);
+        }
+        else if (evt->Scancode == 0x58) // F12, undo savestate
+        {
+            if (evt->Modifiers == 0x0) UndoStateLoad();
         }
 
         for (int i = 0; i < 12; i++)
@@ -758,6 +745,10 @@ void Run()
     EmuRunning = 1;
     RunningSomething = true;
 
+    uiMenuItemEnable(MenuItem_SaveState);
+    uiMenuItemEnable(MenuItem_LoadState);
+    uiMenuItemEnable(MenuItem_UndoStateLoad);
+
     uiMenuItemEnable(MenuItem_Pause);
     uiMenuItemEnable(MenuItem_Reset);
     uiMenuItemEnable(MenuItem_Stop);
@@ -770,6 +761,10 @@ void Stop(bool internal)
     if (!internal) // if shutting down from the UI thread, wait till the emu thread has stopped
         while (EmuStatus != 2);
     RunningSomething = false;
+
+    uiMenuItemDisable(MenuItem_SaveState);
+    uiMenuItemDisable(MenuItem_LoadState);
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
@@ -799,6 +794,143 @@ void TryLoadROM(char* file, int prevstatus)
         strncpy(ROMPath, oldpath, 1024);
         EmuRunning = prevstatus;
     }
+}
+
+
+// SAVESTATE TODO
+// * configurable paths. not everyone wants their ROM directory to be polluted, I guess.
+
+void GetSavestateName(int slot, char* filename, int len)
+{
+    int pos;
+
+    if (ROMPath[0] == '\0') // running firmware, no ROM
+    {
+        strcpy(filename, "firmware");
+        pos = 8;
+    }
+    else
+    {
+        int len = strlen(ROMPath);
+        pos = len;
+        while (ROMPath[pos] != '.' && pos > 0) pos--;
+        if (pos == 0) pos = len;
+        else pos++;
+
+        // avoid buffer overflow. shoddy
+        if (pos > len-5) pos = len-5;
+
+        strncpy(&filename[0], ROMPath, pos);
+    }
+    strcpy(&filename[pos], ".ml");
+    filename[pos+3] = '0'+slot;
+    filename[pos+4] = '\0';
+}
+
+void LoadState(int slot)
+{
+    int prevstatus = EmuRunning;
+    EmuRunning = 2;
+    while (EmuStatus != 2);
+
+    char filename[1024];
+
+    if (slot > 0)
+    {
+        GetSavestateName(slot, filename, 1024);
+    }
+    else
+    {
+        char* file = uiOpenFile(MainWindow, "melonDS savestate|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        if (!file)
+        {
+            EmuRunning = prevstatus;
+            return;
+        }
+
+        strncpy(filename, file, 1023);
+        filename[1023] = '\0';
+        uiFreeText(file);
+    }
+
+    // backup
+    Savestate* backup = new Savestate("timewarp.mln", true);
+    NDS::DoSavestate(backup);
+    delete backup;
+
+    Savestate* state = new Savestate(filename, false);
+    if (state->Error)
+    {
+        delete state;
+
+        uiMsgBoxError(MainWindow, "Error", "Could not load savestate file.");
+
+        // current state might be crapoed, so restore from sane backup
+        state = new Savestate("timewarp.mln", false);
+    }
+
+    NDS::DoSavestate(state);
+    delete state;
+
+    EmuRunning = prevstatus;
+}
+
+void SaveState(int slot)
+{
+    int prevstatus = EmuRunning;
+    EmuRunning = 2;
+    while (EmuStatus != 2);
+
+    char filename[1024];
+
+    if (slot > 0)
+    {
+        GetSavestateName(slot, filename, 1024);
+    }
+    else
+    {
+        char* file = uiSaveFile(MainWindow, "melonDS savestate|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        if (!file)
+        {
+            EmuRunning = prevstatus;
+            return;
+        }
+
+        strncpy(filename, file, 1023);
+        filename[1023] = '\0';
+        uiFreeText(file);
+    }
+
+    Savestate* state = new Savestate(filename, true);
+    if (state->Error)
+    {
+        delete state;
+
+        uiMsgBoxError(MainWindow, "Error", "Could not save state.");
+    }
+    else
+    {
+        NDS::DoSavestate(state);
+        delete state;
+    }
+
+    EmuRunning = prevstatus;
+}
+
+void UndoStateLoad()
+{
+    int prevstatus = EmuRunning;
+    EmuRunning = 2;
+    while (EmuStatus != 2);
+
+    // pray that this works
+    // what do we do if it doesn't???
+    // but it should work.
+    Savestate* backup = new Savestate("timewarp.mln", false);
+    NDS::DoSavestate(backup);
+    delete backup;
+
+    EmuRunning = prevstatus;
 }
 
 
@@ -862,6 +994,23 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
 
     TryLoadROM(file, prevstatus);
     uiFreeText(file);
+}
+
+void OnSaveState(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int slot = *(int*)param;
+    SaveState(slot);
+}
+
+void OnLoadState(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int slot = *(int*)param;
+    LoadState(slot);
+}
+
+void OnUndoStateLoad(uiMenuItem* item, uiWindow* window, void* param)
+{
+    UndoStateLoad();
 }
 
 void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -1120,6 +1269,44 @@ int main(int argc, char** argv)
     menuitem = uiMenuAppendItem(menu, "Open ROM...");
     uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
     uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Save state");
+
+        for (int i = 0; i < 9; i++)
+        {
+            char name[32];
+            if (i < 8)
+                sprintf(name, "%d", kSavestateNum[i]);
+            else
+                strcpy(name, "File...");
+
+            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(ssitem, OnSaveState, (void*)&kSavestateNum[i]);
+        }
+
+        MenuItem_SaveState = uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Load state");
+
+        for (int i = 0; i < 9; i++)
+        {
+            char name[32];
+            if (i < 8)
+                sprintf(name, "%d", kSavestateNum[i]);
+            else
+                strcpy(name, "File...");
+
+            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
+        }
+
+        MenuItem_LoadState = uiMenuAppendSubmenu(menu, submenu);
+    }
+    menuitem = uiMenuAppendItem(menu, "Undo state load\tF12");
+    uiMenuItemOnClicked(menuitem, OnUndoStateLoad, NULL);
+    MenuItem_UndoStateLoad = menuitem;
+    uiMenuAppendSeparator(menu);
     menuitem = uiMenuAppendItem(menu, "Quit");
     uiMenuItemOnClicked(menuitem, OnCloseByMenu, NULL);
 
@@ -1214,6 +1401,10 @@ int main(int argc, char** argv)
 
     uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
     uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
+
+    uiMenuItemDisable(MenuItem_SaveState);
+    uiMenuItemDisable(MenuItem_LoadState);
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);

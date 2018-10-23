@@ -75,7 +75,7 @@ ConfigEntry ConfigFile[] =
     {"Key_Up",     0, &KeyMapping[6],  328, NULL, 0},
     {"Key_Down",   0, &KeyMapping[7],  336, NULL, 0},
     {"Key_R",      0, &KeyMapping[8],   54, NULL, 0},
-    {"Key_L",      0, &KeyMapping[9],   42, NULL, 0},
+    {"Key_L",      0, &KeyMapping[9],   86, NULL, 0},
     {"Key_X",      0, &KeyMapping[10],  17, NULL, 0},
     {"Key_Y",      0, &KeyMapping[11],  30, NULL, 0},
 
