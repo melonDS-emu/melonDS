@@ -489,8 +489,12 @@ void DoSavestate(Savestate* file)
         ClipMatrixDirty = true;
         UpdateClipMatrix();
 
-        CurVertexRAM = &VertexRAM[CurRAMBank];
-        CurPolygonRAM = &PolygonRAM[CurRAMBank];
+        CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
+        CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+
+        // better safe than sorry, I guess
+        // might cause a blank frame but atleast it won't shit itself
+        RenderNumPolygons = 0;
     }
 }
 
