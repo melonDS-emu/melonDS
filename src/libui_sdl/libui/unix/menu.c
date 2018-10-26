@@ -30,6 +30,8 @@ struct uiMenuItem {
 struct menuItemWindow {
 	uiWindow *w;
 	gulong signal;
+	
+	GtkWidget* submenu;
 };
 
 enum {
@@ -94,27 +96,54 @@ static void menuItemEnableDisable(uiMenuItem *item, gboolean enabled)
 {
 	GHashTableIter iter;
 	gpointer widget;
-
-	item->disabled = !enabled;
-	g_hash_table_iter_init(&iter, item->windows);
-	while (g_hash_table_iter_next(&iter, &widget, NULL))
-		gtk_widget_set_sensitive(GTK_WIDGET(widget), enabled);
-		
+	
 	// extra crummy code for disabling submenus
 	// TODO: find a better way to do it!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// noting that:
 	// * set_sensitive on the menu item does nothing (herpderp)
 	// * set_sensitive on the submenu disables all the submenu items at once (but then you can't fucking enable them back!!)
+	// * removing the submenu from the menu item causes it to be destroyed
 	// * googling gives no results, guess nobody has ever wanted to do this shit or...??????
 	// * under Windows we can just disable the menu item and call it good! works exactly as intended!
 	// * fucking stupid pile of shit
+	// so until we come up with a better solution, we're just going to do thie following shito
+	// * remove submenu
+	// * disable menu item
+
+	item->disabled = !enabled;
+	g_hash_table_iter_init(&iter, item->windows);
 	
-	/*if (item->popupchild != NULL)
+	if (item->popupchild != NULL)
 	{
-	    g_hash_table_iter_init(&iter, item->windows);
-	    while (g_hash_table_iter_next(&iter, &widget, NULL))
-		    gtk_widget_set_sensitive(GTK_WIDGET(gtk_menu_item_get_submenu(widget)), enabled);
-	}*/
+	    gpointer ww;
+	    struct menuItemWindow *w;
+	    
+	    if (enabled)
+	    {
+	        while (g_hash_table_iter_next(&iter, &widget, &ww))
+	        {
+	            w = (struct menuItemWindow*)ww;
+	            gtk_widget_set_sensitive(GTK_WIDGET(widget), TRUE);
+	            gtk_menu_item_set_submenu(GTK_MENU_ITEM(widget), w->submenu);
+	            g_object_unref(G_OBJECT(w->submenu));
+	        }
+	    }
+	    else
+	    {
+	        while (g_hash_table_iter_next(&iter, &widget, &ww))
+	        {
+	            w = (struct menuItemWindow*)ww;
+	            g_object_ref(G_OBJECT(w->submenu));
+	            gtk_menu_item_set_submenu(GTK_MENU_ITEM(widget), NULL);
+	            gtk_widget_set_sensitive(GTK_WIDGET(widget), FALSE);
+	        }
+	    }
+	    
+	    return;
+	}
+	
+	while (g_hash_table_iter_next(&iter, &widget, NULL))
+		gtk_widget_set_sensitive(GTK_WIDGET(widget), enabled);
 }
 
 void uiMenuItemEnable(uiMenuItem *item)
@@ -321,13 +350,15 @@ static void appendMenuItem(GtkMenuShell *submenu, uiMenuItem *item, uiWindow *w)
 	{
 	    int j;
 	    uiMenu* m;
-	    GtkWidget *submenu;
+	    GtkWidget *c_submenu;
 	    
 	    m = item->popupchild;
-		submenu = gtk_menu_new();
-		gtk_menu_item_set_submenu(GTK_MENU_ITEM(menuitem), submenu);
+		c_submenu = gtk_menu_new();
+		gtk_menu_item_set_submenu(GTK_MENU_ITEM(menuitem), c_submenu);
 		for (j = 0; j < m->items->len; j++)
-			appendMenuItem(GTK_MENU_SHELL(submenu), g_array_index(m->items, uiMenuItem *, j), w);
+			appendMenuItem(GTK_MENU_SHELL(c_submenu), g_array_index(m->items, uiMenuItem *, j), w);
+			
+		ww->submenu = c_submenu;
 	}
 }
 
@@ -403,10 +434,43 @@ static void freeMenu(GtkWidget *widget, gpointer data)
 	//(*i)++;
 }
 
+static void cleanupMenus()
+{
+    // bit of a hack
+    // take care of disabled submenus
+    
+    uiMenu *m;
+	guint i;
+	uiMenuItem *item;
+    guint j;
+
+	if (menus == NULL)
+		return;
+	for (i = 0; i < menus->len; i++) 
+	{
+		m = g_array_index(menus, uiMenu *, i);
+		
+		for (j = 0; j < m->items->len; j++) 
+		{
+		    item = g_array_index(m->items, uiMenuItem *, j);
+		    
+		    if (item->popupchild != NULL && item->disabled)
+		    {
+		        // re-enable this menu item
+		        // connecting its submenu back to it
+		        // so that GTK cleanup doesn't shit itself
+		        menuItemEnableDisable(item, TRUE);
+		    }
+	    }
+	}
+}
+
 void freeMenubar(GtkWidget *mb)
 {
 	guint i;
 
+    cleanupMenus();
+    
 	i = 0;
 	gtk_container_foreach(GTK_CONTAINER(mb), freeMenu, &i);
 	// no need to worry about destroying any widgets; destruction of the window they're in will do it for us
