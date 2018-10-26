@@ -13,7 +13,6 @@ struct uiMenu {
 	GArray *items;					// []*uiMenuItem
 	gboolean ischild;
 	guint id;
-	gboolean freed;
 };
 
 struct uiMenuItem {
@@ -100,6 +99,22 @@ static void menuItemEnableDisable(uiMenuItem *item, gboolean enabled)
 	g_hash_table_iter_init(&iter, item->windows);
 	while (g_hash_table_iter_next(&iter, &widget, NULL))
 		gtk_widget_set_sensitive(GTK_WIDGET(widget), enabled);
+		
+	// extra crummy code for disabling submenus
+	// TODO: find a better way to do it!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// noting that:
+	// * set_sensitive on the menu item does nothing (herpderp)
+	// * set_sensitive on the submenu disables all the submenu items at once (but then you can't fucking enable them back!!)
+	// * googling gives no results, guess nobody has ever wanted to do this shit or...??????
+	// * under Windows we can just disable the menu item and call it good! works exactly as intended!
+	// * fucking stupid pile of shit
+	
+	/*if (item->popupchild != NULL)
+	{
+	    g_hash_table_iter_init(&iter, item->windows);
+	    while (g_hash_table_iter_next(&iter, &widget, NULL))
+		    gtk_widget_set_sensitive(GTK_WIDGET(gtk_menu_item_get_submenu(widget)), enabled);
+	}*/
 }
 
 void uiMenuItemEnable(uiMenuItem *item)
@@ -276,7 +291,6 @@ uiMenu *uiNewMenu(const char *name)
 	m->name = g_strdup(name);
 	m->items = g_array_new(FALSE, TRUE, sizeof (uiMenuItem *));
 	m->ischild = FALSE;
-	m->freed = FALSE;
 
 	return m;
 }

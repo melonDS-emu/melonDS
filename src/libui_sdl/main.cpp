@@ -335,8 +335,6 @@ int EmuThreadFunc(void* burp)
         }
         else
         {
-            EmuStatus = 2;
-
             // paused
             nframes = 0;
             lasttick = SDL_GetTicks();
@@ -344,7 +342,13 @@ int EmuThreadFunc(void* burp)
             lastmeasuretick = lasttick;
             fpslimitcount = 0;
 
-            uiAreaQueueRedrawAll(MainDrawArea);
+            if (EmuRunning == 2)
+            {
+                uiAreaQueueRedrawAll(MainDrawArea);
+            }
+            
+            EmuStatus = EmuRunning;
+            
             SDL_Delay(100);
         }
     }
@@ -792,6 +796,8 @@ void Stop(bool internal)
     if (!internal) // if shutting down from the UI thread, wait till the emu thread has stopped
         while (EmuStatus != 2);
     RunningSomething = false;
+    
+    uiWindowSetTitle(MainWindow, "melonDS " MELONDS_VERSION);
 
     uiMenuItemDisable(MenuItem_SaveState);
     uiMenuItemDisable(MenuItem_LoadState);
@@ -1026,11 +1032,8 @@ void UndoStateLoad()
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
-    if (RunningSomething)
-    {
-        EmuRunning = 2;
-        while (EmuStatus != 2);
-    }
+    EmuRunning = 3;
+    while (EmuStatus != 3);
 
     uiQuit();
     return 1;
@@ -1065,6 +1068,9 @@ void OnLoseFocus(uiWindow* window, void* blarg)
 
 void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
+    EmuRunning = 3;
+    while (EmuStatus != 3);
+    
     uiControlDestroy(uiControl(window));
     uiQuit();
 }

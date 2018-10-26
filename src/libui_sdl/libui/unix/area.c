@@ -77,6 +77,10 @@ static void areaWidget_init(areaWidget *aw)
 
 static void areaWidget_dispose(GObject *obj)
 {
+    // remove any draw order that might still be pending
+    areaWidget *aw = areaWidget(obj);
+	while (g_idle_remove_by_data(aw->a));
+    
 	G_OBJECT_CLASS(areaWidget_parent_class)->dispose(obj);
 }
 
