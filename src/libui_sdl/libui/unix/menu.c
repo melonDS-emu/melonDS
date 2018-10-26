@@ -13,6 +13,7 @@ struct uiMenu {
 	GArray *items;					// []*uiMenuItem
 	gboolean ischild;
 	guint id;
+	gboolean freed;
 };
 
 struct uiMenuItem {
@@ -275,6 +276,7 @@ uiMenu *uiNewMenu(const char *name)
 	m->name = g_strdup(name);
 	m->items = g_array_new(FALSE, TRUE, sizeof (uiMenuItem *));
 	m->ischild = FALSE;
+	m->freed = FALSE;
 
 	return m;
 }
@@ -347,6 +349,7 @@ GtkWidget *makeMenubar(uiWindow *w)
 struct freeMenuItemData {
 	GArray *items;
 	guint i;
+	guint* parent_i;
 };
 
 static void freeMenu(GtkWidget *widget, gpointer data);
@@ -359,7 +362,7 @@ static void freeMenuItem(GtkWidget *widget, gpointer data)
 
 	item = g_array_index(fmi->items, uiMenuItem *, fmi->i);
 	if (item->popupchild != NULL)
-	    freeMenu(widget, &item->popupchild->id);
+	    freeMenu(widget, fmi->parent_i);//&item->popupchild->id);
 	w = (struct menuItemWindow *) g_hash_table_lookup(item->windows, widget);
 	if (g_hash_table_remove(item->windows, widget) == FALSE)
 		implbug("GtkMenuItem %p not in menu item's item/window map", widget);
@@ -374,14 +377,16 @@ static void freeMenu(GtkWidget *widget, gpointer data)
 	GtkMenuItem *item;
 	GtkWidget *submenu;
 	struct freeMenuItemData fmi;
-
+    
 	m = g_array_index(menus, uiMenu *, *i);
 	item = GTK_MENU_ITEM(widget);
 	submenu = gtk_menu_item_get_submenu(item);
 	fmi.items = m->items;
 	fmi.i = 0;
-	gtk_container_foreach(GTK_CONTAINER(submenu), freeMenuItem, &fmi);
 	(*i)++;
+	fmi.parent_i = i;
+	gtk_container_foreach(GTK_CONTAINER(submenu), freeMenuItem, &fmi);
+	//(*i)++;
 }
 
 void freeMenubar(GtkWidget *mb)
