@@ -22,7 +22,7 @@ DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configura
  * 256KB: regular DS firmware
  * 512KB: iQue DS firmware
 
-DS BIOS dumps from a 3DS can be used with no compatibility issues. DSi BIOS dumps should be usable too, provided they were dumped properly.
+DS BIOS dumps from a DSi or 3DS can be used with no compatibility issues. DSi BIOS dumps (in DSi mode) are not compatible. Or maybe they are. I don't know.
 
 As for the rest, the interface should be pretty straightforward. If you have a question, don't hesitate to ask, though!
 
@@ -46,8 +46,9 @@ Build system is not set in stone.
 
 ## TODO LIST
 
- * UI that doesn't suck
- * better sound emulation
+ * improve libui and the emulator UI
+ * fix occasional sound crackling in games that use surround (timing issue?)
+ * support for rendering screens to separate windows
  * emulating some fancy addons
  * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
  
