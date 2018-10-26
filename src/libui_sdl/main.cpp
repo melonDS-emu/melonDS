@@ -59,7 +59,8 @@ uiMenuItem* MenuItem_SaveState;
 uiMenuItem* MenuItem_LoadState;
 uiMenuItem* MenuItem_UndoStateLoad;
 
-uiMenuItem* MenuItem_LoadStateSlot[8];
+uiMenuItem* MenuItem_SaveStateSlot[9];
+uiMenuItem* MenuItem_LoadStateSlot[9];
 
 uiMenuItem* MenuItem_Pause;
 uiMenuItem* MenuItem_Reset;
@@ -346,9 +347,9 @@ int EmuThreadFunc(void* burp)
             {
                 uiAreaQueueRedrawAll(MainDrawArea);
             }
-            
+
             EmuStatus = EmuRunning;
-            
+
             SDL_Delay(100);
         }
     }
@@ -784,6 +785,9 @@ void Run()
         else                    uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
     }
 
+    for (int i = 0; i < 9; i++) uiMenuItemEnable(MenuItem_SaveStateSlot[i]);
+    uiMenuItemEnable(MenuItem_LoadStateSlot[8]);
+
     uiMenuItemEnable(MenuItem_Pause);
     uiMenuItemEnable(MenuItem_Reset);
     uiMenuItemEnable(MenuItem_Stop);
@@ -796,11 +800,11 @@ void Stop(bool internal)
     if (!internal) // if shutting down from the UI thread, wait till the emu thread has stopped
         while (EmuStatus != 2);
     RunningSomething = false;
-    
+
     uiWindowSetTitle(MainWindow, "melonDS " MELONDS_VERSION);
 
-    uiMenuItemDisable(MenuItem_SaveState);
-    uiMenuItemDisable(MenuItem_LoadState);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
     uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     uiMenuItemDisable(MenuItem_Pause);
@@ -1070,7 +1074,7 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     EmuRunning = 3;
     while (EmuStatus != 3);
-    
+
     uiControlDestroy(uiControl(window));
     uiQuit();
 }
@@ -1381,6 +1385,8 @@ int main(int argc, char** argv)
 
             uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
             uiMenuItemOnClicked(ssitem, OnSaveState, (void*)&kSavestateNum[i]);
+
+            MenuItem_SaveStateSlot[i] = ssitem;
         }
 
         MenuItem_SaveState = uiMenuAppendSubmenu(menu, submenu);
@@ -1399,7 +1405,7 @@ int main(int argc, char** argv)
             uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
             uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
 
-            if (i < 8) MenuItem_LoadStateSlot[i] = ssitem;
+            MenuItem_LoadStateSlot[i] = ssitem;
         }
 
         MenuItem_LoadState = uiMenuAppendSubmenu(menu, submenu);
@@ -1512,8 +1518,10 @@ int main(int argc, char** argv)
     uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
     uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
 
-    uiMenuItemDisable(MenuItem_SaveState);
-    uiMenuItemDisable(MenuItem_LoadState);
+    //uiMenuItemDisable(MenuItem_SaveState);
+    //uiMenuItemDisable(MenuItem_LoadState);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
     uiMenuItemDisable(MenuItem_UndoStateLoad);
 
     uiMenuItemDisable(MenuItem_Pause);
