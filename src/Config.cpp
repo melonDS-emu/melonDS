@@ -139,7 +139,9 @@ FILE* GetConfigFile(const char* fileName, const char* permissions)
     if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
 
     int pos = wcslen(appDataPath);
-    CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+    void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+    if (!ptr) { delete[] wfileName; return NULL; } // oh well
+    appDataPath = (PWSTR)ptr;
 
     wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
     wcscpy(&appDataPath[pos], wfileName);
