@@ -141,8 +141,8 @@ FILE* GetConfigFile(const char* fileName, const char* permissions)
     int pos = wcslen(appDataPath);
     CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
 
-    wcscpy(&appDataPath[pos], appdir);
-    wcscpy(&appDataPath[pos+9], wfileName);
+    wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
+    wcscpy(&appDataPath[pos], wfileName);
 
     // this will be more than enough
     WCHAR fatperm[4];
