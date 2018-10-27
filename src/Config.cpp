@@ -129,7 +129,20 @@ FILE* GetConfigFile(const char* fileName, const char* permissions)
     SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
     if (!appDataPath)
         return NULL;
-    CoTaskMemRealloc(appDataPath, (wcslen(appDataPath)+9+strlen(fileName)+1)*sizeof(WCHAR));
+
+    const WCHAR* appdir = L"\\melonDS\\";
+
+    int fnlen = MultiByteToWideChar(CP_UTF8, 0, fileName, -1, NULL, 0);
+    if (fnlen < 1) return NULL;
+    WCHAR* wfileName = new WCHAR[fnlen];
+    int res = MultiByteToWideChar(CP_UTF8, 0, fileName, -1, wfileName, fnlen);
+    if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
+
+    int pos = wcslen(appDataPath);
+    CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+
+    wcscpy(&appDataPath[pos], appdir);
+    wcscpy(&appDataPath[pos+9], wfileName);
 
     // this will be more than enough
     WCHAR fatperm[4];
@@ -140,6 +153,7 @@ FILE* GetConfigFile(const char* fileName, const char* permissions)
 
     f = _wfopen(appDataPath, fatperm);
     CoTaskMemFree(appDataPath);
+    delete[] wfileName;
     if (f) return f;
 #else
     // Now check XDG_CONFIG_HOME
