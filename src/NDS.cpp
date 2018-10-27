@@ -57,7 +57,7 @@ u32 CPUStop;
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
 
-u8 MainRAM[0x400000];
+u8 MainRAM[MAIN_RAM_SIZE];
 
 u8 SharedWRAM[0x8000];
 u8 WRAMCnt;
@@ -285,7 +285,7 @@ void Reset()
         fclose(f);
     }
 
-    memset(MainRAM, 0, 0x400000);
+    memset(MainRAM, 0, MAIN_RAM_SIZE);
     memset(SharedWRAM, 0, 0x8000);
     memset(ARM7WRAM, 0, 0x10000);
 
@@ -1110,7 +1110,7 @@ u8 ARM9Read8(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u8*)&MainRAM[addr & 0x3FFFFF];
+        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM9) return *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
@@ -1159,7 +1159,7 @@ u16 ARM9Read16(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u16*)&MainRAM[addr & 0x3FFFFF];
+        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM9) return *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
@@ -1208,7 +1208,7 @@ u32 ARM9Read32(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u32*)&MainRAM[addr & 0x3FFFFF];
+        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM9) return *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
@@ -1252,7 +1252,7 @@ void ARM9Write8(u32 addr, u8 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1277,7 +1277,7 @@ void ARM9Write16(u32 addr, u16 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1316,7 +1316,7 @@ void ARM9Write32(u32 addr, u32 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1368,7 +1368,7 @@ u8 ARM7Read8(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u8*)&MainRAM[addr & 0x3FFFFF];
+        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM7) return *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
@@ -1405,7 +1405,7 @@ u16 ARM7Read16(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u16*)&MainRAM[addr & 0x3FFFFF];
+        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM7) return *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
@@ -1445,7 +1445,7 @@ u32 ARM7Read32(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u32*)&MainRAM[addr & 0x3FFFFF];
+        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
 
     case 0x03000000:
         if (SWRAM_ARM7) return *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
@@ -1475,7 +1475,7 @@ void ARM7Write8(u32 addr, u8 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u8*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1506,7 +1506,7 @@ void ARM7Write16(u32 addr, u16 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u16*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1541,7 +1541,7 @@ void ARM7Write32(u32 addr, u32 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u32*)&MainRAM[addr & 0x3FFFFF] = val;
+        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
         return;
 
     case 0x03000000:
@@ -1648,7 +1648,7 @@ u8 ARM9IORead8(u32 addr)
         return GPU3D::Read8(addr);
     }
 
-    printf("unknown ARM9 IO read8 %08X\n", addr);
+    printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -1886,7 +1886,7 @@ u32 ARM9IORead32(u32 addr)
         return GPU3D::Read32(addr);
     }
 
-    printf("unknown ARM9 IO read32 %08X\n", addr);
+    printf("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -1966,7 +1966,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM9 IO write8 %08X %02X\n", addr, val);
+    printf("unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite16(u32 addr, u16 val)
@@ -2127,7 +2127,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[14]);
+    printf("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite32(u32 addr, u32 val)
@@ -2280,7 +2280,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM9 IO write32 %08X %08X\n", addr, val);
+    printf("unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
 }
 
 
@@ -2325,7 +2325,7 @@ u8 ARM7IORead8(u32 addr)
         return SPU::Read8(addr);
     }
 
-    printf("unknown ARM7 IO read8 %08X\n", addr);
+    printf("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2402,7 +2402,7 @@ u16 ARM7IORead16(u32 addr)
         return SPU::Read16(addr);
     }
 
-    printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM9->R[15]);
+    printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2488,7 +2488,7 @@ u32 ARM7IORead32(u32 addr)
         return SPU::Read32(addr);
     }
 
-    printf("unknown ARM7 IO read32 %08X\n", addr);
+    printf("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2560,7 +2560,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM7 IO write8 %08X %02X\n", addr, val);
+    printf("unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite16(u32 addr, u16 val)
@@ -2681,7 +2681,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM7 IO write16 %08X %04X\n", addr, val);
+    printf("unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite32(u32 addr, u32 val)
@@ -2783,7 +2783,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM7 IO write32 %08X %08X\n", addr, val);
+    printf("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
 }
 
 }
