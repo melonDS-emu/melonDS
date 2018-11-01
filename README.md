@@ -10,6 +10,7 @@ DS emulator, sorta
 
 The goal is to do things right and fast, akin to blargSNES (but hopefully better). But also to, you know, have a fun challenge :)
 <hr>
+
 ## How to use
 
 melonDS requires BIOS/firmware copies from a DS. Files required:
