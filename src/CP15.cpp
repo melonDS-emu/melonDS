@@ -316,4 +316,16 @@ bool HandleDataWrite32(u32 addr, u32 val, u32 forceuser)
     return false;
 }
 
+bool GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
+{
+    if (addr < ITCMSize)
+    {
+        region->Mem = ITCM;
+        region->Mask = 0x7FFF;
+        return true;
+    }
+
+    return false;
+}
+
 }

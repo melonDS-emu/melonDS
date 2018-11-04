@@ -87,6 +87,13 @@ typedef struct
 
 } Timer;
 
+typedef struct
+{
+    u8* Mem;
+    u32 Mask;
+
+} MemRegion;
+
 // hax
 extern u32 IME[2];
 extern u32 IE[2];
@@ -157,12 +164,16 @@ void ARM9Write8(u32 addr, u8 val);
 void ARM9Write16(u32 addr, u16 val);
 void ARM9Write32(u32 addr, u32 val);
 
+bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
+
 u8 ARM7Read8(u32 addr);
 u16 ARM7Read16(u32 addr);
 u32 ARM7Read32(u32 addr);
 void ARM7Write8(u32 addr, u8 val);
 void ARM7Write16(u32 addr, u16 val);
 void ARM7Write32(u32 addr, u32 val);
+
+bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region);
 
 u8 ARM9IORead8(u32 addr);
 u16 ARM9IORead16(u32 addr);

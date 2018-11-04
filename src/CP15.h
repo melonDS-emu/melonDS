@@ -22,6 +22,9 @@
 namespace CP15
 {
 
+extern u8 ITCM[0x8000];
+extern u32 ITCMSize;
+
 void Reset();
 
 void DoSavestate(Savestate* file);
@@ -40,6 +43,8 @@ bool HandleDataRead32(u32 addr, u32* val, u32 forceuser=0);
 bool HandleDataWrite8(u32 addr, u8 val, u32 forceuser=0);
 bool HandleDataWrite16(u32 addr, u16 val, u32 forceuser=0);
 bool HandleDataWrite32(u32 addr, u32 val, u32 forceuser=0);
+
+bool GetCodeMemRegion(u32 addr, NDS::MemRegion* region);
 
 }
 

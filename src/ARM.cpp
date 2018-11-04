@@ -157,6 +157,8 @@ void ARM::Reset()
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
+    CodeMem.Mem = NULL;
+
     // zorp
     JumpTo(ExceptionBase);
 }
@@ -180,6 +182,24 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(NextInstr, 2*sizeof(u32));
 
     file->Var32(&ExceptionBase);
+
+    if (!file->Saving)
+        SetupCodeMem(R[15]); // should fix it
+}
+
+void ARM::SetupCodeMem(u32 addr)
+{
+    if (!Num)
+    {
+        if (CP15::GetCodeMemRegion(addr, &CodeMem))
+            return;
+
+        NDS::ARM9GetMemRegion(addr, false, &CodeMem);
+    }
+    else
+    {
+        NDS::ARM7GetMemRegion(addr, false, &CodeMem);
+    }
 }
 
 void ARM::JumpTo(u32 addr, bool restorecpsr)
@@ -196,20 +216,31 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
 
+    u32 oldregion = R[15] >> 23;
+    u32 newregion = addr >> 23;
+//if(!Num)printf("ARM%c branch from %08X to %08X. %03X->%03X\n", Num?'7':'9', R[15], addr, oldregion, newregion);
     if (addr & 0x1)
     {
         addr &= ~0x1;
         R[15] = addr+2;
+
+        if (newregion != oldregion) SetupCodeMem(addr);
+
         NextInstr[0] = CodeRead16(addr);
         NextInstr[1] = CodeRead16(addr+2);
+
         CPSR |= 0x20;
     }
     else
     {
         addr &= ~0x3;
         R[15] = addr+4;
+
+        if (newregion != oldregion) SetupCodeMem(addr);
+
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
+
         CPSR &= ~0x20;
     }
 }

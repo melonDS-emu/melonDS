@@ -93,11 +93,19 @@ public:
 
     void TriggerIRQ();
 
+    void SetupCodeMem(u32 addr);
+
 
     u16 CodeRead16(u32 addr)
     {
+        Cycles += Waitstates[0][(addr>>24)&0xF];
+
+        if (CodeMem.Mem) return *(u16*)&CodeMem.Mem[addr & CodeMem.Mask];
+
         u16 val;
         // TODO eventually: on ARM9, THUMB opcodes are prefetched with 32bit reads
+        // probably not worth going through the trouble. we can probably just simulate
+        // the timing quirks resulting from this. or not.
         if (!Num)
         {
             if (!CP15::HandleCodeRead16(addr, &val))
@@ -106,12 +114,15 @@ public:
         else
             val = NDS::ARM7Read16(addr);
 
-        Cycles += Waitstates[0][(addr>>24)&0xF];
         return val;
     }
 
     u32 CodeRead32(u32 addr)
     {
+        Cycles += Waitstates[1][(addr>>24)&0xF];
+
+        if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
+
         u32 val;
         if (!Num)
         {
@@ -121,7 +132,6 @@ public:
         else
             val = NDS::ARM7Read32(addr);
 
-        Cycles += Waitstates[1][(addr>>24)&0xF];
         return val;
     }
 
@@ -220,6 +230,7 @@ public:
     // waitstates:
     // 0=code16 1=code32 2=data16 3=data32
     // TODO eventually: nonsequential waitstates
+    // TODO NOT MAKE THIS A FUCKING GROSS HACK!!!!!!
     s32 Waitstates[4][16];
 
     s32 Cycles;
@@ -238,9 +249,9 @@ public:
 
     u32 ExceptionBase;
 
-    static u32 ConditionTable[16];
+    NDS::MemRegion CodeMem;
 
-    u32 debug;
+    static u32 ConditionTable[16];
 };
 
 namespace ARMInterpreter

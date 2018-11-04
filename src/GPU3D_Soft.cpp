@@ -1213,7 +1213,9 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     // part 1: left edge
     edge = yedge | 0x1;
-    xlimit = xstart+l_edgelen; if (xlimit > 256) xlimit = 256;
+    xlimit = xstart+l_edgelen;
+    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
 
     for (; x < xlimit; x++)
     {
@@ -1241,7 +1243,9 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1; if (xlimit > 256) xlimit = 256;
+    xlimit = xend-r_edgelen+1;
+    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
     if (wireframe && !edge) x = xlimit;
     else for (; x < xlimit; x++)
     {
@@ -1265,7 +1269,8 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1; if (xlimit > 256) xlimit = 256;
+    xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
 
     for (; x < xlimit; x++)
     {
@@ -1436,7 +1441,9 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     // part 1: left edge
     edge = yedge | 0x1;
-    xlimit = xstart+l_edgelen; if (xlimit > 256) xlimit = 256;
+    xlimit = xstart+l_edgelen;
+    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
     if (l_edgecov & (1<<31))
     {
         xcov = (l_edgecov >> 12) & 0x3FF;
@@ -1535,7 +1542,9 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     // part 2: polygon inside
     edge = yedge;
-    xlimit = xend-r_edgelen+1; if (xlimit > 256) xlimit = 256;
+    xlimit = xend-r_edgelen+1;
+    if (xlimit > xend+1) xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
     if (wireframe && !edge) x = xlimit;
     else for (; x < xlimit; x++)
     {
@@ -1603,7 +1612,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     // part 3: right edge
     edge = yedge | 0x2;
-    xlimit = xend+1; if (xlimit > 256) xlimit = 256;
+    xlimit = xend+1;
+    if (xlimit > 256) xlimit = 256;
     if (r_edgecov & (1<<31))
     {
         xcov = (r_edgecov >> 12) & 0x3FF;

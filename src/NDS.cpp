@@ -36,10 +36,6 @@
 namespace NDS
 {
 
-// TODO LIST
-// * stick all the variables in a big structure?
-//   would make it easier to deal with savestates
-
 ARM* ARM9;
 ARM* ARM7;
 
@@ -1350,6 +1346,36 @@ void ARM9Write32(u32 addr, u32 val)
     printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
+bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
+{
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        region->Mem = MainRAM;
+        region->Mask = MAIN_RAM_SIZE-1;
+        return true;
+
+    case 0x03000000:
+        if (SWRAM_ARM9)
+        {
+            region->Mem = SWRAM_ARM9;
+            region->Mask = SWRAM_ARM9Mask;
+            return true;
+        }
+        break;
+    }
+
+    if ((addr & 0xFFFFF000) == 0xFFFF0000 && !write)
+    {
+        region->Mem = ARM9BIOS;
+        region->Mask = 0xFFF;
+        return true;
+    }
+
+    region->Mem = NULL;
+    return false;
+}
+
 
 
 u8 ARM7Read8(u32 addr)
@@ -1569,6 +1595,51 @@ void ARM7Write32(u32 addr, u32 val)
     }
 
     //printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+}
+
+bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
+{
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+    case 0x02800000:
+        region->Mem = MainRAM;
+        region->Mask = MAIN_RAM_SIZE-1;
+        return true;
+
+    case 0x03000000:
+        // note on this, and why we can only cover it in one particular case:
+        // it is typical for games to map all shared WRAM to the ARM7
+        // then access all the WRAM as one contiguous block starting at 0x037F8000
+        // this case needs a bit of a hack to cover
+        // it's not really worth bothering anyway
+        if (!SWRAM_ARM7)
+        {
+            region->Mem = ARM7WRAM;
+            region->Mask = 0xFFFF;
+            return true;
+        }
+        break;
+
+    case 0x03800000:
+        region->Mem = ARM7WRAM;
+        region->Mask = 0xFFFF;
+        return true;
+    }
+
+    // BIOS. ARM7 PC has to be within range.
+    if (addr < 0x00004000 && !write)
+    {
+        if (ARM7->R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7->R[15] < ARM7BIOSProt))
+        {
+            region->Mem = ARM7BIOS;
+            region->Mask = 0x3FFF;
+            return true;
+        }
+    }
+
+    region->Mem = NULL;
+    return false;
 }
 
 
