@@ -922,6 +922,8 @@ void LoadState(int slot)
     NDS::DoSavestate(backup);
     delete backup;
 
+    bool failed = false;
+
     Savestate* state = new Savestate(filename, false);
     if (state->Error)
     {
@@ -931,25 +933,29 @@ void LoadState(int slot)
 
         // current state might be crapoed, so restore from sane backup
         state = new Savestate("timewarp.mln", false);
+        failed = true;
     }
 
     NDS::DoSavestate(state);
     delete state;
 
-    if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+    if (!failed)
     {
-        strncpy(PrevSRAMPath, SRAMPath, 1024);
+        if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+        {
+            strncpy(PrevSRAMPath, SRAMPath, 1024);
 
-        strncpy(SRAMPath, filename, 1019);
-        int len = strlen(SRAMPath);
-        strcpy(&SRAMPath[len], ".sav");
-        SRAMPath[len+4] = '\0';
+            strncpy(SRAMPath, filename, 1019);
+            int len = strlen(SRAMPath);
+            strcpy(&SRAMPath[len], ".sav");
+            SRAMPath[len+4] = '\0';
 
-        NDS::RelocateSave(SRAMPath, false);
+            NDS::RelocateSave(SRAMPath, false);
+        }
+
+        SavestateLoaded = true;
+        uiMenuItemEnable(MenuItem_UndoStateLoad);
     }
-
-    SavestateLoaded = true;
-    uiMenuItemEnable(MenuItem_UndoStateLoad);
 
     EmuRunning = prevstatus;
 }

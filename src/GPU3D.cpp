@@ -387,8 +387,8 @@ void DoSavestate(Savestate* file)
     file->VarArray(TexMatrix, 16*4);
 
     file->VarArray(ProjMatrixStack, 16*4);
-    file->VarArray(PosMatrixStack, 31*16*4);
-    file->VarArray(VecMatrixStack, 31*16*4);
+    file->VarArray(PosMatrixStack, 32*16*4);
+    file->VarArray(VecMatrixStack, 32*16*4);
     file->VarArray(TexMatrixStack, 16*4);
 
     file->Var32((u32*)&ProjMatrixStackPointer);
