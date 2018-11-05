@@ -211,8 +211,8 @@ bool ClipMatrixDirty;
 u32 Viewport[6];
 
 s32 ProjMatrixStack[16];
-s32 PosMatrixStack[31][16];
-s32 VecMatrixStack[31][16];
+s32 PosMatrixStack[32][16];
+s32 VecMatrixStack[32][16];
 s32 TexMatrixStack[16];
 s32 ProjMatrixStackPointer;
 s32 PosMatrixStackPointer;
@@ -1465,40 +1465,28 @@ void ExecuteCommand()
             NumPushPopCommands--;
             if (MatrixMode == 0)
             {
-                if (ProjMatrixStackPointer > 0)
-                {
-                    printf("!! PROJ MATRIX STACK OVERFLOW\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (ProjMatrixStackPointer > 0) GXStat |= (1<<15);
 
                 memcpy(ProjMatrixStack, ProjMatrix, 16*4);
                 ProjMatrixStackPointer++;
+                ProjMatrixStackPointer &= 0x1;
             }
             else if (MatrixMode == 3)
             {
-                if (TexMatrixStackPointer > 0)
-                {
-                    printf("!! TEX MATRIX STACK OVERFLOW\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (TexMatrixStackPointer > 0) GXStat |= (1<<15);
 
                 memcpy(TexMatrixStack, TexMatrix, 16*4);
                 TexMatrixStackPointer++;
+                TexMatrixStackPointer &= 0x1;
             }
             else
             {
-                if (PosMatrixStackPointer > 30)
-                {
-                    printf("!! POS MATRIX STACK OVERFLOW\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (PosMatrixStackPointer > 30) GXStat |= (1<<15);
 
-                memcpy(PosMatrixStack[PosMatrixStackPointer], PosMatrix, 16*4);
-                memcpy(VecMatrixStack[PosMatrixStackPointer], VecMatrix, 16*4);
+                memcpy(PosMatrixStack[PosMatrixStackPointer & 0x1F], PosMatrix, 16*4);
+                memcpy(VecMatrixStack[PosMatrixStackPointer & 0x1F], VecMatrix, 16*4);
                 PosMatrixStackPointer++;
+                PosMatrixStackPointer &= 0x3F;
             }
             break;
 
@@ -1506,44 +1494,31 @@ void ExecuteCommand()
             NumPushPopCommands--;
             if (MatrixMode == 0)
             {
-                if (ProjMatrixStackPointer <= 0)
-                {
-                    printf("!! PROJ MATRIX STACK UNDERFLOW\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (ProjMatrixStackPointer == 0) GXStat |= (1<<15);
 
                 ProjMatrixStackPointer--;
+                ProjMatrixStackPointer &= 0x1;
                 memcpy(ProjMatrix, ProjMatrixStack, 16*4);
                 ClipMatrixDirty = true;
             }
             else if (MatrixMode == 3)
             {
-                if (TexMatrixStackPointer <= 0)
-                {
-                    printf("!! TEX MATRIX STACK UNDERFLOW\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (TexMatrixStackPointer == 0) GXStat |= (1<<15);
 
                 TexMatrixStackPointer--;
+                TexMatrixStackPointer &= 0x1;
                 memcpy(TexMatrix, TexMatrixStack, 16*4);
             }
             else
             {
                 s32 offset = (s32)(ExecParams[0] << 26) >> 26;
                 PosMatrixStackPointer -= offset;
+                PosMatrixStackPointer &= 0x3F;
 
-                if (PosMatrixStackPointer < 0 || PosMatrixStackPointer > 30)
-                {
-                    //printf("!! POS MATRIX STACK UNDER/OVERFLOW %d\n", PosMatrixStackPointer);
-                    PosMatrixStackPointer += offset;
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (PosMatrixStackPointer > 30) GXStat |= (1<<15);
 
-                memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer], 16*4);
-                memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer], 16*4);
+                memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
+                memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1560,12 +1535,7 @@ void ExecuteCommand()
             else
             {
                 u32 addr = ExecParams[0] & 0x1F;
-                if (addr > 30)
-                {
-                    printf("!! POS MATRIX STORE ADDR 31\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (addr > 30) GXStat |= (1<<15);
 
                 memcpy(PosMatrixStack[addr], PosMatrix, 16*4);
                 memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
@@ -1585,12 +1555,7 @@ void ExecuteCommand()
             else
             {
                 u32 addr = ExecParams[0] & 0x1F;
-                if (addr > 30)
-                {
-                    printf("!! POS MATRIX STORE ADDR 31\n");
-                    GXStat |= (1<<15);
-                    break;
-                }
+                if (addr > 30) GXStat |= (1<<15);
 
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
                 memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
@@ -2254,7 +2219,7 @@ void Write8(u32 addr, u8 val)
             GXStat &= ~0x8000;
             ProjMatrixStackPointer = 0;
             //PosMatrixStackPointer = 0;
-            TexMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0; // CHECKME
         }
         return;
     case 0x04000603:
@@ -2319,7 +2284,7 @@ void Write16(u32 addr, u16 val)
             GXStat &= ~0x8000;
             ProjMatrixStackPointer = 0;
             //PosMatrixStackPointer = 0;
-            TexMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0; // CHECKME
         }
         return;
     case 0x04000602:
@@ -2389,7 +2354,7 @@ void Write32(u32 addr, u32 val)
             GXStat &= ~0x8000;
             ProjMatrixStackPointer = 0;
             //PosMatrixStackPointer = 0;
-            TexMatrixStackPointer = 0;
+            TexMatrixStackPointer = 0; // CHECKME
         }
         val &= 0xC0000000;
         GXStat &= 0x3FFFFFFF;

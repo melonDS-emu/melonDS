@@ -22,9 +22,6 @@
 namespace CP15
 {
 
-extern u8 ITCM[0x8000];
-extern u32 ITCMSize;
-
 void Reset();
 
 void DoSavestate(Savestate* file);
