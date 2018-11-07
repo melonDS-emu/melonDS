@@ -48,6 +48,8 @@ ARM::ARM(u32 num)
     // well uh
     Num = num;
 
+    SetClockShift(0); // safe default
+
     for (int i = 0; i < 16; i++)
     {
         Waitstates[0][i] = 1;
@@ -432,18 +434,9 @@ s32 ARM::Execute()
             }
         }
 
-        if (Num==0)
-        {
-            s32 diff = Cycles - lastcycles;
-            NDS::RunTimingCriticalDevices(0, diff >> 1);
-            lastcycles = Cycles - (diff&1);
-        }
-        else
-        {
-            s32 diff = Cycles - lastcycles;
-            NDS::RunTimingCriticalDevices(1, diff);
-            lastcycles = Cycles;
-        }
+        s32 diff = Cycles - lastcycles;
+        NDS::RunTimingCriticalDevices(Num, diff >> ClockShift);
+        lastcycles = Cycles - (diff & ClockDiffMask);
 
         // TODO optimize this shit!!!
         if (Halted)

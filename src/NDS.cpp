@@ -345,6 +345,9 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
+
+    ARM9->SetClockShift(1);
+    ARM7->SetClockShift(0);
 }
 
 void Stop()

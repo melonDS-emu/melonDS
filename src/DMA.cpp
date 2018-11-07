@@ -26,6 +26,25 @@
 // NOTES ON DMA SHIT
 //
 // * could use optimized code paths for common types of DMA transfers. for example, VRAM
+//   have to profile it to see if it's actually worth doing
+
+
+// DMA TIMINGS
+//
+// sequential timing:
+// * 1 cycle per read or write
+// * in 32bit mode, accessing a 16bit bus (mainRAM, palette, VRAM) incurs 1 cycle of penalty
+// * in 32bit mode, transferring from mainRAM to another bank is 1 cycle faster
+// * if source and destination are the same memory bank, there is a 1 cycle penalty
+// * transferring from mainRAM to mainRAM is a trainwreck (all accesses are made nonsequential)
+//
+// nonsequential timing:
+// * nonseq penalty is applied to the first read and write
+// * I also figure it gets nonseq penalty again when resuming, after having been interrupted by
+//   another DMA (TODO: check)
+// * applied to all accesses for mainRAM->mainRAM, resulting in timings of 16-18 cycles per unit
+//
+// TODO: GBA slot
 
 
 DMA::DMA(u32 cpu, u32 num)

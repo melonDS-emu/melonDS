@@ -38,6 +38,12 @@ public:
 
     void Reset();
 
+    void SetClockShift(u32 shift)
+    {
+        ClockShift = shift;
+        ClockDiffMask = (1<<shift) - 1;
+    }
+
     void DoSavestate(Savestate* file);
 
     void JumpTo(u32 addr, bool restorecpsr = false);
@@ -226,6 +232,11 @@ public:
 
 
     u32 Num;
+
+    // shift relative to system clock
+    // 0=33MHz 1=66MHz 2=133MHz
+    u32 ClockShift;
+    u32 ClockDiffMask;
 
     // waitstates:
     // 0=code16 1=code32 2=data16 3=data32
