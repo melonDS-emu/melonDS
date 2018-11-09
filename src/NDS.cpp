@@ -39,11 +39,9 @@ namespace NDS
 ARM* ARM9;
 ARM* ARM7;
 
-/*s32 ARM9Cycles, ARM7Cycles;
-s32 CompensatedCycles;
-s32 SchedCycles;*/
 s32 CurIterationCycles;
 s32 ARM7Offset;
+int CurCPU;
 
 SchedEvent SchedList[Event_MAX];
 u32 SchedListMask;
@@ -608,45 +606,51 @@ u32 RunFrame()
     while (Running && GPU::TotalScanlines==0)
     {
         s32 ndscyclestorun;
-        s32 ndscycles = 0;
 
         // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
+        // TODO: we need to directly change CurIterationCycles when rescheduling shit
         CalcIterationCycles();
 
-        if (CPUStop & 0xFFFF)
+        if (CPUStop & 0x80000000)
         {
-            s32 cycles = CurIterationCycles;
-            cycles = DMAs[0]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[1]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[2]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[3]->Run(cycles);
-            ndscyclestorun = CurIterationCycles - cycles;
+            // GXFIFO stall
         }
         else
         {
-            ARM9->CyclesToRun = CurIterationCycles << 1;
-            ARM9->Execute();
-            ndscyclestorun = ARM9->Cycles >> 1;
-        }
+            if (CPUStop & 0x0FFF)
+            {
+                s32 cycles = CurIterationCycles;
+                cycles = DMAs[0]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[1]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[2]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[3]->Run(cycles);
+                ndscyclestorun = CurIterationCycles - cycles;
+            }
+            else
+            {
+                ARM9->CyclesToRun = CurIterationCycles << 1;
+                CurCPU = 1; ARM9->Execute(); CurCPU = 0;
+                ndscyclestorun = ARM9->Cycles >> 1;
+            }
 
-        if (CPUStop & 0xFFFF0000)
-        {
-            s32 cycles = ndscyclestorun - ARM7Offset;
-            cycles = DMAs[4]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[5]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[6]->Run(cycles);
-            if (cycles > 0) cycles = DMAs[7]->Run(cycles);
-            ARM7Offset = -cycles;
-        }
-        else
-        {
-            ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
-            ARM7->Execute();
-            ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+            if (CPUStop & 0x0FFF0000)
+            {
+                s32 cycles = ndscyclestorun - ARM7Offset;
+                cycles = DMAs[4]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[5]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[6]->Run(cycles);
+                if (cycles > 0) cycles = DMAs[7]->Run(cycles);
+                ARM7Offset = -cycles;
+            }
+            else
+            {
+                ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
+                CurCPU = 2; ARM7->Execute(); CurCPU = 0;
+                ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+            }
         }
 
         RunSystem(ndscyclestorun);
-        //GPU3D::Run(ndscyclestorun);
     }
 
     return GPU::TotalScanlines;
@@ -654,11 +658,18 @@ u32 RunFrame()
 
 void Reschedule()
 {
+    s32 oldcycles = CurIterationCycles;
     CalcIterationCycles();
 
-    ARM9->CyclesToRun = CurIterationCycles << 1;
-    //ARM7->CyclesToRun = CurIterationCycles - ARM7Offset;
-    //ARM7->CyclesToRun = (ARM9->Cycles >> 1) - ARM7->Cycles - ARM7Offset;
+    if (CurIterationCycles > oldcycles)
+    {
+        CurIterationCycles = oldcycles;
+        return;
+    }
+
+    if      (CurCPU == 1) ARM9->CyclesToRun = CurIterationCycles << 1;
+    else if (CurCPU == 2) ARM7->CyclesToRun = CurIterationCycles - ARM7Offset;
+    // this is all. a reschedule shouldn't happen during DMA or GXFIFO stall.
 }
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
