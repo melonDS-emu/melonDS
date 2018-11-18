@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.11)
 
 set(CMAKE_CXX_STANDARD 11)
-SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/Modules)
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ./cmake/Modules)
 
 SET(PROJECT_WX melonDS)
 PROJECT(${PROJECT_WX})
@@ -30,19 +30,18 @@ SET(SOURCES
 )
 
 # This is probably a bad ideia. But at least PCAP can be found
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
+INCLUDE_DIRECTORIES(./src)
 
 if (ANDROID)
 	LIST(APPEND SOURCES
 			src/android/MelonDS.cpp
 			src/android/ConfigAndroid.cpp
 			src/android/PlatformAndroid.cpp
-			src/android/AndroidJNI.cpp
 			src/android/InputAndroid.cpp
 			src/android/OboeCallback.cpp
 			)
 
-	SET(OBOE ${CMAKE_SOURCE_DIR}/oboe)
+	SET(OBOE ./oboe)
 else()
 	LIST(APPEND SOURCES
 		src/libui_sdl/main.cpp
