@@ -25,6 +25,7 @@ namespace Config
 {
 FILE* GetConfigFile(const char* fileName, const char* permissions);
 bool HasConfigFile(const char* fileName);
+char* GetConfigFilePath(const char *fileName);
 void Load();
 void Save();
 

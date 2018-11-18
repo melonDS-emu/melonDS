@@ -128,7 +128,7 @@ void Reset()
     fclose(f);
 
     // take a backup
-    char* firmbkp = "firmware.bin.bak";
+    char* firmbkp = Config::GetConfigFilePath("firmware.bin.bak");
     f = Config::GetConfigFile(firmbkp, "rb");
     if (f) fclose(f);
     else
@@ -137,6 +137,7 @@ void Reset()
         fwrite(Firmware, 1, FirmwareLength, f);
         fclose(f);
     }
+	delete firmbkp;
 
     FirmwareMask = FirmwareLength - 1;
 
