@@ -47,6 +47,8 @@ int ScreenLayout;
 int ScreenSizing;
 int ScreenFilter;
 
+int LimitFPS;
+
 int DirectBoot;
 
 int Threaded3D;
@@ -102,6 +104,8 @@ ConfigEntry ConfigFile[] =
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
+
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 

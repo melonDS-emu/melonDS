@@ -216,7 +216,6 @@ int EmuThreadFunc(void* burp)
     u32 lasttick = starttick;
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
-    bool limitfps = true;
     char melontitle[100];
 
     while (EmuRunning != 0)
@@ -306,7 +305,7 @@ int EmuThreadFunc(void* burp)
             lasttick = curtick;
 
             u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick && limitfps)
+            if (curtick < wantedtick && Config::LimitFPS)
             {
                 SDL_Delay(wantedtick - curtick);
             }
@@ -1299,6 +1298,12 @@ void OnSetScreenFiltering(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::ScreenFilter = 0;
 }
 
+void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::LimitFPS = true;
+    else          Config::LimitFPS = false;
+}
 
 void ApplyNewSettings()
 {
@@ -1508,6 +1513,10 @@ int main(int argc, char** argv)
     menuitem = uiMenuAppendCheckItem(menu, "Screen filtering");
     uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
     uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
+
+    menuitem = uiMenuAppendCheckItem(menu, "Limit framerate");
+    uiMenuItemOnClicked(menuitem, OnSetLimitFPS, NULL);
+    uiMenuItemSetChecked(menuitem, Config::LimitFPS==1);
 
 
     int w = Config::WindowWidth;
