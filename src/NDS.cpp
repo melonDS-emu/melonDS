@@ -108,6 +108,7 @@ bool Running;
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
+void RunTimer(u32 tid, s32 cycles);
 
 
 bool Init()
@@ -608,12 +609,27 @@ u32 RunFrame()
         s32 ndscyclestorun;
 
         // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
-        // TODO: we need to directly change CurIterationCycles when rescheduling shit
         CalcIterationCycles();
 
         if (CPUStop & 0x80000000)
         {
             // GXFIFO stall
+            // we just run the GPU and the timers.
+            // the rest of the hardware is driven by the event scheduler.
+
+            s32 cycles = GPU3D::CyclesToRunFor();
+            GPU3D::Run(cycles);
+
+            u32 timermask = TimerCheckMask[0];
+            if (timermask & 0x1) RunTimer(0, cycles);
+            if (timermask & 0x2) RunTimer(1, cycles);
+            if (timermask & 0x4) RunTimer(2, cycles);
+            if (timermask & 0x8) RunTimer(3, cycles);
+            timermask = TimerCheckMask[1];
+            if (timermask & 0x1) RunTimer(4, cycles);
+            if (timermask & 0x2) RunTimer(5, cycles);
+            if (timermask & 0x4) RunTimer(6, cycles);
+            if (timermask & 0x8) RunTimer(7, cycles);
         }
         else
         {
@@ -816,6 +832,27 @@ void ResumeCPU(u32 cpu, u32 mask)
 {
     if (cpu) mask <<= 16;
     CPUStop &= ~mask;
+}
+
+void GXFIFOStall()
+{
+    if (CPUStop & 0x80000000) return;
+
+    CPUStop |= 0x80000000;
+
+    if (CurCPU == 1) ARM9->Halt(2);
+    else
+    {
+        DMAs[0]->StallIfRunning();
+        DMAs[1]->StallIfRunning();
+        DMAs[2]->StallIfRunning();
+        DMAs[3]->StallIfRunning();
+    }
+}
+
+void GXFIFOUnstall()
+{
+    CPUStop &= ~0x80000000;
 }
 
 u32 GetPC(u32 cpu)

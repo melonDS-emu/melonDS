@@ -73,6 +73,13 @@
 // TODO: check how DISP_1DOT_DEPTH works and whether it's latched
 
 
+// command execution notes
+//
+// timings given by GBAtek are for individual commands
+// real-life timings are different depending on how commands are combined
+// the engine is able to do parallel execution to some extent
+
+
 namespace GPU3D
 {
 
@@ -116,38 +123,38 @@ const u32 CmdNumParams[256] =
 const s32 CmdNumCycles[256] =
 {
     // 0x00
-    0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x10
     1, 17, 36, 17, 36, 19, 34, 30, 35, 31, 28, 22, 22,
-    0, 0, 0,
+    1, 1, 1,
     // 0x20
-    1, 9, 1, 9, 8, 8, 8, 8, 8, 1, 1, 1,
-    0, 0, 0, 0,
+    1, 9, 1, 9, 9, 9, 9, 9, 9, 1, 1, 1,
+    1, 1, 1, 1,
     // 0x30
     4, 4, 6, 1, 32,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x40
     1, 1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x50
     392,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x60
     1,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x70
     103, 9, 5,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     // 0x80+
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
 
 typedef union
@@ -163,6 +170,8 @@ typedef union
 
 FIFO<CmdFIFOEntry>* CmdFIFO;
 FIFO<CmdFIFOEntry>* CmdPIPE;
+
+FIFO<CmdFIFOEntry>* CmdStallQueue;
 
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
@@ -276,6 +285,8 @@ bool Init()
     CmdFIFO = new FIFO<CmdFIFOEntry>(256);
     CmdPIPE = new FIFO<CmdFIFOEntry>(4);
 
+    CmdStallQueue = new FIFO<CmdFIFOEntry>(64);
+
     if (!SoftRenderer::Init()) return false;
 
     return true;
@@ -287,12 +298,16 @@ void DeInit()
 
     delete CmdFIFO;
     delete CmdPIPE;
+
+    delete CmdStallQueue;
 }
 
 void Reset()
 {
     CmdFIFO->Clear();
     CmdPIPE->Clear();
+
+    CmdStallQueue->Clear();
 
     NumCommands = 0;
     CurCommand = 0;
@@ -513,6 +528,20 @@ void DoSavestate(Savestate* file)
     }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
+
+    if (file->Saving ||
+        file->VersionMajor > 2 ||
+        (file->VersionMajor == 2 && file->VersionMinor >= 1))
+    {
+        // command stall queue, only in version 2.1 and up
+        CmdStallQueue->DoSavestate(file);
+    }
+    else
+    {
+        // for version 2.0, just clear it. not having it doesn't matter
+        // if this comes from older melonDS revisions.
+        CmdStallQueue->Clear();
+    }
 
     if (!file->Saving)
     {
@@ -1387,17 +1416,13 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
     {
         if (CmdFIFO->IsFull())
         {
-            //printf("!!! GX FIFO FULL\n");
-            //return;
+            // store it to the stall queue. stall the system.
+            // worst case is if a STMxx opcode causes this, which is why our stall queue
+            // has 64 entries. this is less complicated than trying to make STMxx stall-able.
 
-            // temp. hack
-            // SM64DS seems to overflow the FIFO occasionally
-            // either leftover bugs in our implementation, or the game accidentally doing that
-            // TODO: investigate.
-            // TODO: implement this behavior properly (freezes the bus until the FIFO isn't full anymore)
-
-            while (CmdFIFO->IsFull())
-                ExecuteCommand();
+            CmdStallQueue->Write(entry);
+            NDS::GXFIFOStall();
+            return;
         }
 
         CmdFIFO->Write(entry);
@@ -1426,6 +1451,21 @@ CmdFIFOEntry CmdFIFORead()
         if (!CmdFIFO->IsEmpty())
             CmdPIPE->Write(CmdFIFO->Read());
 
+        // empty stall queue if needed
+        // CmdFIFO should not be full at this point.
+        if (!CmdStallQueue->IsEmpty())
+        {
+            while (!CmdStallQueue->IsEmpty())
+            {
+                if (CmdFIFO->IsFull()) break;
+                CmdFIFOEntry entry = CmdStallQueue->Read();
+                CmdFIFOWrite(entry);
+            }
+
+            if (CmdStallQueue->IsEmpty())
+                NDS::GXFIFOUnstall();
+        }
+
         CheckFIFODMA();
         CheckFIFOIRQ();
     }
@@ -1450,6 +1490,7 @@ void ExecuteCommand()
         for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
         printf("\n");*/
         CycleCount += CmdNumCycles[entry.Command];
+
         ExecParamCount = 0;
 
         if (CycleCount > 0)
@@ -1852,6 +1893,8 @@ void ExecuteCommand()
             break;
 
         case 0x40: // begin polygons
+            // TODO: check if there was a polygon being defined but incomplete
+            // such cases seem to freeze the GPU
             PolygonMode = ExecParams[0] & 0x3;
             VertexNum = 0;
             VertexNumInPoly = 0;
@@ -1902,6 +1945,12 @@ void ExecuteCommand()
     }
 }
 
+s32 CyclesToRunFor()
+{
+    if (CycleCount < 0) return 0;
+    return CycleCount;
+}
+
 void Run(s32 cycles)
 {
     if (FlushRequest)
@@ -1924,6 +1973,8 @@ void Run(s32 cycles)
 
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
     {
+        // todo: advance remaining pipeline shit here
+
         CycleCount = 0;
         GXStat &= ~(1<<27);
 

@@ -242,12 +242,14 @@ s32 DMA::Run(s32 cycles)
     if (!Running)
         return cycles;
 
+    Executing = true;
+
     if (!(Cnt & 0x04000000))
     {
         u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
         void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
-        while (IterCount > 0 && cycles > 0)
+        while (IterCount > 0 && cycles > 0 && !Stall)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
@@ -264,7 +266,8 @@ s32 DMA::Run(s32 cycles)
     else
     {
         // optimized path for typical GXFIFO DMA
-        if (IsGXFIFODMA)
+        // likely not worth it tbh
+        /*if (IsGXFIFODMA)
         {
             while (IterCount > 0 && cycles > 0)
             {
@@ -278,12 +281,12 @@ s32 DMA::Run(s32 cycles)
                 IterCount--;
                 RemCount--;
             }
-        }
+        }*/
 
         u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
         void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
-        while (IterCount > 0 && cycles > 0)
+        while (IterCount > 0 && cycles > 0 && !Stall)
         {
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
@@ -297,6 +300,9 @@ s32 DMA::Run(s32 cycles)
             RemCount--;
         }
     }
+
+    Executing = false;
+    Stall = false;
 
     if (RemCount)
     {

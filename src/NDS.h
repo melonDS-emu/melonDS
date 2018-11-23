@@ -148,6 +148,8 @@ void ClearIRQ(u32 cpu, u32 irq);
 bool HaltInterrupted(u32 cpu);
 void StopCPU(u32 cpu, u32 mask);
 void ResumeCPU(u32 cpu, u32 mask);
+void GXFIFOStall();
+void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
 

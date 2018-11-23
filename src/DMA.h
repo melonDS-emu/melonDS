@@ -53,6 +53,11 @@ public:
             Cnt &= ~0x80000000;
     }
 
+    void StallIfRunning()
+    {
+        if (Executing) Stall = true;
+    }
+
     u32 SrcAddr;
     u32 DstAddr;
     u32 Cnt;
@@ -73,6 +78,9 @@ private:
 
     bool Running;
     bool InProgress;
+
+    bool Executing;
+    bool Stall;
 
     bool IsGXFIFODMA;
 };
