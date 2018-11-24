@@ -1663,9 +1663,6 @@ void ExecuteCommand()
 
         ExecParamCount = 0;
 
-        if (CycleCount > 0)
-            GXStat |= (1<<27);
-
         switch (entry.Command)
         {
         case 0x10: // matrix mode
@@ -2180,6 +2177,9 @@ void ExecuteCommand()
             break;
         }
     }
+
+    if (CycleCount > 0)
+        GXStat |= (1<<27);
 }
 
 s32 CyclesToRunFor()
@@ -2188,11 +2188,28 @@ s32 CyclesToRunFor()
     return CycleCount;
 }
 
+void FinishWork(s32 cycles)
+{
+    AddCycles(cycles);
+    if (NormalPipeline)
+        NormalPipeline -= std::min(NormalPipeline, cycles);
+
+    CycleCount = 0;
+
+    if (VertexPipeline || NormalPipeline || PolygonPipeline)
+        return;
+
+    GXStat &= ~(1<<27);
+
+    if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
+    if (NumTestCommands == 0)    GXStat &= ~(1<<0);
+}
+
 void Run(s32 cycles)
 {
     if (FlushRequest)
         return;
-    if (CycleCount <= 0 && CmdPIPE->IsEmpty())
+    if (CmdPIPE->IsEmpty() && !(GXStat & (1<<27)))
         return;
 
     CycleCount -= cycles;
@@ -2210,13 +2227,7 @@ void Run(s32 cycles)
 
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
     {
-        // todo: advance remaining pipeline shit here
-
-        CycleCount = 0;
-        GXStat &= ~(1<<27);
-
-        if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
-        if (NumTestCommands == 0)    GXStat &= ~(1<<0);
+        if (GXStat & (1<<27)) FinishWork(-CycleCount);
     }
 }
 
