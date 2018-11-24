@@ -71,13 +71,25 @@
 // clear attributes
 //
 // TODO: check how DISP_1DOT_DEPTH works and whether it's latched
+//
+// TODO: emulate GPU hanging
+// * when calling BEGIN with an incomplete polygon defined
+// * probably same with BOXTEST
+// * when sending vertices immediately after a BOXTEST
 
 
 // command execution notes
 //
 // timings given by GBAtek are for individual commands
-// real-life timings are different depending on how commands are combined
-// the engine is able to do parallel execution to some extent
+// actual display lists have different timing characteristics
+// * vertex pipeline: individual vertex commands are able to execute in parallel
+//   with certain other commands
+// * similarly, the normal command can execute in parallel with a subsequent vertex
+// * polygon pipeline: each vertex which completes a polygon takes longer to run
+//   and imposes rules on when further vertex commands can run
+//   (one every 9-cycle time slot during polygon setup)
+//   polygon setup time is 27 cycles for a triangle and 36 for a quad
+// * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
 
 namespace GPU3D
@@ -118,43 +130,6 @@ const u32 CmdNumParams[256] =
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-const s32 CmdNumCycles[256] =
-{
-    // 0x00
-    1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x10
-    1, 17, 36, 17, 36, 19, 34, 30, 35, 31, 28, 22, 22,
-    1, 1, 1,
-    // 0x20
-    1, 9, 1, 9, 9, 9, 9, 9, 9, 1, 1, 1,
-    1, 1, 1, 1,
-    // 0x30
-    4, 4, 6, 1, 32,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x40
-    1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x50
-    392,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x60
-    1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x70
-    103, 9, 5,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    // 0x80+
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
 
 typedef union
@@ -201,7 +176,13 @@ u32 GXStat;
 
 u32 ExecParams[32];
 u32 ExecParamCount;
+
 s32 CycleCount;
+s32 VertexPipeline;
+s32 NormalPipeline;
+s32 PolygonPipeline;
+s32 VertexSlotCounter;
+u32 VertexSlotsFree;
 
 u32 NumPushPopCommands;
 u32 NumTestCommands;
@@ -324,7 +305,13 @@ void Reset()
 
     memset(ExecParams, 0, 32*4);
     ExecParamCount = 0;
+
     CycleCount = 0;
+    VertexPipeline = 0;
+    NormalPipeline = 0;
+    PolygonPipeline = 0;
+    VertexSlotCounter = 0;
+    VertexSlotsFree = 1;
 
 
     MatrixMode = 0;
@@ -693,6 +680,105 @@ void UpdateClipMatrix()
 
 
 
+void AddCycles(s32 num)
+{
+    CycleCount += num;
+
+    if (VertexPipeline > 0)
+    {
+        if (VertexPipeline > num) VertexPipeline -= num;
+        else                      VertexPipeline = 0;
+    }
+
+    if (PolygonPipeline > 0)
+    {
+        if (PolygonPipeline > num)
+        {
+            PolygonPipeline -= num;
+            VertexSlotCounter += num;
+            while (VertexSlotCounter > 9)
+            {
+                VertexSlotCounter -= 9;
+                VertexSlotsFree >>= 1;
+            }
+        }
+        else
+        {
+            PolygonPipeline = 0;
+            VertexSlotCounter = 0;
+            VertexSlotsFree = 0x1;
+        }
+    }
+}
+
+void NextVertexSlot()
+{
+    s32 num = (9 - VertexSlotCounter) + 1;
+
+    for (;;)
+    {
+        CycleCount += num;
+
+        if (VertexPipeline > 0)
+        {
+            if (VertexPipeline > num) VertexPipeline -= num;
+            else                      VertexPipeline = 0;
+        }
+
+        if (PolygonPipeline > 0)
+        {
+            if (PolygonPipeline > num)
+            {
+                PolygonPipeline -= num;
+                VertexSlotCounter = 1;
+                VertexSlotsFree >>= 1;
+                if (VertexSlotsFree & 0x1)
+                {
+                    VertexSlotsFree &= ~0x1;
+                    break;
+                }
+                else
+                {
+                    num = 9;
+                    continue;
+                }
+            }
+            else
+            {
+                PolygonPipeline = 0;
+                VertexSlotCounter = 0;
+                VertexSlotsFree = 1;
+                break;
+            }
+        }
+    }
+}
+
+void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
+{
+    if (PolygonPipeline > 0)
+    {
+        CycleCount += PolygonPipeline + delay;
+
+        // can be safely assumed those two will go to zero
+        VertexPipeline = 0;
+        NormalPipeline = 0;
+
+        PolygonPipeline = 0;
+        VertexSlotCounter = 0;
+        VertexSlotsFree = 1;
+    }
+    else
+    {
+        if (VertexPipeline > nonstalldelay)
+            AddCycles((VertexPipeline - nonstalldelay) + 1);
+        else
+            AddCycles(NormalPipeline + 1);
+    }
+}
+
+
+
 template<int comp, s32 plane, bool attribs>
 void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
 {
@@ -840,6 +926,22 @@ void SubmitPolygon()
     int nverts = PolygonMode & 0x1 ? 4:3;
     int prev, next;
 
+    // submitting a polygon starts the polygon pipeline
+    if (nverts == 4)
+    {
+        PolygonPipeline = 35;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b11100;
+        else                   VertexSlotsFree = 0b11110;
+    }
+    else
+    {
+        PolygonPipeline = 26;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
+        else                   VertexSlotsFree = 0b1110;
+    }
+
     // culling
     // TODO: work out how it works on the real thing
     // the normalization part is a wild guess
@@ -889,7 +991,7 @@ void SubmitPolygon()
     }
 
     // for strips, check whether we can attach to the previous polygon
-    // this requires two vertices shared with the previous polygon, and that
+    // this requires two original vertices shared with the previous polygon, and that
     // the two polygons be of the same type
 
     if (PolygonMode >= 2 && LastStripPolygon)
@@ -1122,6 +1224,8 @@ void SubmitVertex()
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
 
+    // this probably shouldn't be.
+    // the way color is handled during clipping needs investigation. TODO
     vertextrans->Color[0] = (VertexColor[0] << 12) + 0xFFF;
     vertextrans->Color[1] = (VertexColor[1] << 12) + 0xFFF;
     vertextrans->Color[2] = (VertexColor[2] << 12) + 0xFFF;
@@ -1202,9 +1306,12 @@ void SubmitVertex()
         }
         break;
     }
+
+    VertexPipeline = 7;
+    AddCycles(3);
 }
 
-s32 CalculateLighting()
+void CalculateLighting()
 {
     if ((TexParam >> 30) == 2)
     {
@@ -1273,8 +1380,9 @@ s32 CalculateLighting()
         c++;
     }
 
-    // checkme: cycle count
-    return c;
+    if (c < 1) c = 1;
+    NormalPipeline = 7 + c;
+    AddCycles(c);
 }
 
 
@@ -1284,6 +1392,7 @@ void BoxTest(u32* params)
     Vertex face[10];
     int res;
 
+    AddCycles(254);
     GXStat &= ~(1<<1);
 
     s16 x0 = (s16)(params[0] & 0xFFFF);
@@ -1383,6 +1492,8 @@ void PosTest()
     PosTestResult[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
     PosTestResult[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     PosTestResult[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+
+    AddCycles(5);
 }
 
 void VecTest(u32* params)
@@ -1402,6 +1513,8 @@ void VecTest(u32* params)
     if (VecTestResult[0] & 0x1000) VecTestResult[0] |= 0xF000;
     if (VecTestResult[1] & 0x1000) VecTestResult[1] |= 0xF000;
     if (VecTestResult[2] & 0x1000) VecTestResult[2] |= 0xF000;
+
+    AddCycles(4);
 }
 
 
@@ -1481,6 +1594,63 @@ void ExecuteCommand()
 
     //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
 
+    // each FIFO entry takes 1 cycle to be processed
+    // commands (presumably) run when all the needed parameters have been read
+    // which is where we add the remaining cycles if any
+    if (ExecParamCount == 0)
+    {
+        // delay the first command entry as needed
+        switch (entry.Command)
+        {
+        // commands that stall the polygon pipeline
+        case 0x32: StallPolygonPipeline(8 + 1,  2); break; // 32 can run 6 cycles after a vertex
+        case 0x40: StallPolygonPipeline(1,      0); break;
+        case 0x70: StallPolygonPipeline(10 + 1, 0); break;
+
+        case 0x23:
+        case 0x24:
+        case 0x25:
+        case 0x26:
+        case 0x27:
+        case 0x28:
+            // vertex
+            if (!(VertexSlotsFree & 0x1)) NextVertexSlot();
+            else                          AddCycles(1);
+            NormalPipeline = 0;
+            break;
+
+        case 0x20:
+        case 0x30:
+        case 0x31:
+        case 0x72:
+            // commands that can run 6 cycles after a vertex
+            if (VertexPipeline > 2) AddCycles((VertexPipeline - 2) + 1);
+            else                    AddCycles(NormalPipeline + 1);
+            break;
+
+        case 0x29:
+        case 0x2A:
+        case 0x2B:
+        case 0x33:
+        case 0x34:
+        case 0x41:
+        case 0x60:
+        case 0x71:
+            // command that can run 8 cycles after a vertex
+            if (VertexPipeline > 0) AddCycles(VertexPipeline + 1);
+            else                    AddCycles(NormalPipeline + 1);
+            break;
+
+        default:
+            // all other commands can run 4 cycles after a vertex
+            // no need to do much here since that is the minimum
+            AddCycles(NormalPipeline + 1);
+            break;
+        }
+    }
+    else
+        AddCycles(1);
+
     ExecParams[ExecParamCount] = entry.Param;
     ExecParamCount++;
 
@@ -1489,7 +1659,7 @@ void ExecuteCommand()
         /*printf("0x%02X,  ", entry.Command);
         for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
         printf("\n");*/
-        CycleCount += CmdNumCycles[entry.Command];
+        //CycleCount += CmdNumCycles[entry.Command];
 
         ExecParamCount = 0;
 
@@ -1529,6 +1699,7 @@ void ExecuteCommand()
                 PosMatrixStackPointer++;
                 PosMatrixStackPointer &= 0x3F;
             }
+            AddCycles(16);
             break;
 
         case 0x12: // pop matrix
@@ -1541,6 +1712,7 @@ void ExecuteCommand()
                 ProjMatrixStackPointer &= 0x1;
                 memcpy(ProjMatrix, ProjMatrixStack, 16*4);
                 ClipMatrixDirty = true;
+                AddCycles(35);
             }
             else if (MatrixMode == 3)
             {
@@ -1549,6 +1721,7 @@ void ExecuteCommand()
                 TexMatrixStackPointer--;
                 TexMatrixStackPointer &= 0x1;
                 memcpy(TexMatrix, TexMatrixStack, 16*4);
+                AddCycles(17);
             }
             else
             {
@@ -1561,6 +1734,7 @@ void ExecuteCommand()
                 memcpy(PosMatrix, PosMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
                 memcpy(VecMatrix, VecMatrixStack[PosMatrixStackPointer & 0x1F], 16*4);
                 ClipMatrixDirty = true;
+                AddCycles(35);
             }
             break;
 
@@ -1581,6 +1755,7 @@ void ExecuteCommand()
                 memcpy(PosMatrixStack[addr], PosMatrix, 16*4);
                 memcpy(VecMatrixStack[addr], VecMatrix, 16*4);
             }
+            AddCycles(16);
             break;
 
         case 0x14: // restore matrix
@@ -1588,10 +1763,12 @@ void ExecuteCommand()
             {
                 memcpy(ProjMatrix, ProjMatrixStack, 16*4);
                 ClipMatrixDirty = true;
+                AddCycles(35);
             }
             else if (MatrixMode == 3)
             {
                 memcpy(TexMatrix, TexMatrixStack, 16*4);
+                AddCycles(17);
             }
             else
             {
@@ -1601,6 +1778,7 @@ void ExecuteCommand()
                 memcpy(PosMatrix, PosMatrixStack[addr], 16*4);
                 memcpy(VecMatrix, VecMatrixStack[addr], 16*4);
                 ClipMatrixDirty = true;
+                AddCycles(35);
             }
             break;
 
@@ -1609,6 +1787,7 @@ void ExecuteCommand()
             {
                 MatrixLoadIdentity(ProjMatrix);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             else if (MatrixMode == 3)
                 MatrixLoadIdentity(TexMatrix);
@@ -1618,6 +1797,7 @@ void ExecuteCommand()
                 if (MatrixMode == 2)
                     MatrixLoadIdentity(VecMatrix);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             break;
 
@@ -1626,15 +1806,20 @@ void ExecuteCommand()
             {
                 MatrixLoad4x4(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixLoad4x4(TexMatrix, (s32*)ExecParams);
+                AddCycles(10);
+            }
             else
             {
                 MatrixLoad4x4(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                     MatrixLoad4x4(VecMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             break;
 
@@ -1643,15 +1828,20 @@ void ExecuteCommand()
             {
                 MatrixLoad4x3(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixLoad4x3(TexMatrix, (s32*)ExecParams);
+                AddCycles(7);
+            }
             else
             {
                 MatrixLoad4x3(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                     MatrixLoad4x3(VecMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(18);
             }
             break;
 
@@ -1660,17 +1850,22 @@ void ExecuteCommand()
             {
                 MatrixMult4x4(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 16);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixMult4x4(TexMatrix, (s32*)ExecParams);
+                AddCycles(33 - 16);
+            }
             else
             {
                 MatrixMult4x4(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                 {
                     MatrixMult4x4(VecMatrix, (s32*)ExecParams);
-                    CycleCount += 30;
+                    AddCycles(35 + 30 - 16);
                 }
+                else AddCycles(35 - 16);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1680,17 +1875,22 @@ void ExecuteCommand()
             {
                 MatrixMult4x3(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 12);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixMult4x3(TexMatrix, (s32*)ExecParams);
+                AddCycles(33 - 12);
+            }
             else
             {
                 MatrixMult4x3(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                 {
                     MatrixMult4x3(VecMatrix, (s32*)ExecParams);
-                    CycleCount += 30;
+                    AddCycles(35 + 30 - 12);
                 }
+                else AddCycles(35 - 12);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1700,17 +1900,22 @@ void ExecuteCommand()
             {
                 MatrixMult3x3(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 9);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixMult3x3(TexMatrix, (s32*)ExecParams);
+                AddCycles(33 - 9);
+            }
             else
             {
                 MatrixMult3x3(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
                 {
                     MatrixMult3x3(VecMatrix, (s32*)ExecParams);
-                    CycleCount += 30;
+                    AddCycles(35 + 30 - 9);
                 }
+                else AddCycles(35 - 9);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1720,13 +1925,18 @@ void ExecuteCommand()
             {
                 MatrixScale(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 3);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixScale(TexMatrix, (s32*)ExecParams);
+                AddCycles(33 - 3);
+            }
             else
             {
                 MatrixScale(PosMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 3);
             }
             break;
 
@@ -1735,14 +1945,22 @@ void ExecuteCommand()
             {
                 MatrixTranslate(ProjMatrix, (s32*)ExecParams);
                 ClipMatrixDirty = true;
+                AddCycles(35 - 3);
             }
             else if (MatrixMode == 3)
+            {
                 MatrixTranslate(TexMatrix, (s32*)ExecParams);
+                AddCycles(33 - 3);
+            }
             else
             {
                 MatrixTranslate(PosMatrix, (s32*)ExecParams);
                 if (MatrixMode == 2)
+                {
                     MatrixTranslate(VecMatrix, (s32*)ExecParams);
+                    AddCycles(35 + 30 - 3);
+                }
+                else AddCycles(35 - 3);
                 ClipMatrixDirty = true;
             }
             break;
@@ -1760,10 +1978,12 @@ void ExecuteCommand()
             break;
 
         case 0x21: // normal
-            Normal[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
-            Normal[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
-            Normal[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
-            CycleCount += CalculateLighting();
+            {
+                Normal[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
+                Normal[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
+                Normal[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
+                CalculateLighting();
+            }
             break;
 
         case 0x22: // texcoord
@@ -1845,6 +2065,7 @@ void ExecuteCommand()
                 VertexColor[1] = MatDiffuse[1];
                 VertexColor[2] = MatDiffuse[2];
             }
+            AddCycles(3);
             break;
 
         case 0x31: // specular/emission material
@@ -1855,6 +2076,7 @@ void ExecuteCommand()
             MatEmission[1] = (ExecParams[0] >> 21) & 0x1F;
             MatEmission[2] = (ExecParams[0] >> 26) & 0x1F;
             UseShininessTable = (ExecParams[0] & 0x8000) != 0;
+            AddCycles(3);
             break;
 
         case 0x32: // light direction
@@ -1868,6 +2090,7 @@ void ExecuteCommand()
                 LightDirection[l][1] = (dir[0]*VecMatrix[1] + dir[1]*VecMatrix[5] + dir[2]*VecMatrix[9]) >> 12;
                 LightDirection[l][2] = (dir[0]*VecMatrix[2] + dir[1]*VecMatrix[6] + dir[2]*VecMatrix[10]) >> 12;
             }
+            AddCycles(5);
             break;
 
         case 0x33: // light color
@@ -1877,6 +2100,7 @@ void ExecuteCommand()
                 LightColor[l][1] = (ExecParams[0] >> 5) & 0x1F;
                 LightColor[l][2] = (ExecParams[0] >> 10) & 0x1F;
             }
+            AddCycles(1);
             break;
 
         case 0x34: // shininess table
@@ -1903,10 +2127,24 @@ void ExecuteCommand()
             CurPolygonAttr = PolygonAttr;
             break;
 
+        case 0x41: // end polygons
+            // TODO: research this?
+            // it doesn't seem to have any effect whatsoever, but
+            // its timing characteristics are different from those of other
+            // no-op commands
+            break;
+
         case 0x50: // flush
             FlushRequest = 1;
             FlushAttributes = ExecParams[0] & 0x3;
             CycleCount = 392;
+            // probably safe to just reset all pipelines
+            // but needs checked
+            VertexPipeline = 0;
+            NormalPipeline = 0;
+            PolygonPipeline = 0;
+            VertexSlotCounter = 0;
+            VertexSlotsFree = 1;
             break;
 
         case 0x60: // viewport x1,y1,x2,y2
@@ -1938,8 +2176,7 @@ void ExecuteCommand()
             break;
 
         default:
-            //if (entry.Command != 0x41)
-                //printf("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
+            //printf("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
             break;
         }
     }

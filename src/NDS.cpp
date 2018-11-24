@@ -597,7 +597,7 @@ void RunSystem(s32 cycles)
         }
     }
 }
-
+int stallcnt=0, stallcycle=0;
 u32 RunFrame()
 {
     if (!Running) return 263; // dorp
@@ -606,8 +606,6 @@ u32 RunFrame()
 
     while (Running && GPU::TotalScanlines==0)
     {
-        s32 ndscyclestorun;
-
         // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
         CalcIterationCycles();
 
@@ -617,7 +615,7 @@ u32 RunFrame()
             // we just run the GPU and the timers.
             // the rest of the hardware is driven by the event scheduler.
 
-            s32 cycles = GPU3D::CyclesToRunFor();
+            s32 cycles = GPU3D::CyclesToRunFor();stallcycle+=cycles;
             GPU3D::Run(cycles);
 
             u32 timermask = TimerCheckMask[0];
@@ -630,9 +628,23 @@ u32 RunFrame()
             if (timermask & 0x2) RunTimer(5, cycles);
             if (timermask & 0x4) RunTimer(6, cycles);
             if (timermask & 0x8) RunTimer(7, cycles);
+
+            // run system peripherals, step by step
+            // as to give the finer-grained ones a chance to reschedule properly
+            // in case we end up running a large chunk of GXFIFO commands
+            s32 syscyclesran = 0;
+            for (;;)
+            {
+                RunSystem(CurIterationCycles);
+                syscyclesran += CurIterationCycles;
+                if (syscyclesran >= cycles) break;
+                CalcIterationCycles();
+            }
         }
         else
         {
+            s32 ndscyclestorun;
+
             if (CPUStop & 0x0FFF)
             {
                 s32 cycles = CurIterationCycles;
@@ -664,11 +676,11 @@ u32 RunFrame()
                 CurCPU = 2; ARM7->Execute(); CurCPU = 0;
                 ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
             }
+
+            RunSystem(ndscyclestorun);
         }
-
-        RunSystem(ndscyclestorun);
     }
-
+    //printf("frame stallcnt: %d, %d cycles\n", stallcnt, stallcycle); stallcnt = 0; stallcycle = 0;
     return GPU::TotalScanlines;
 }
 
@@ -837,7 +849,7 @@ void ResumeCPU(u32 cpu, u32 mask)
 void GXFIFOStall()
 {
     if (CPUStop & 0x80000000) return;
-
+stallcnt++;
     CPUStop |= 0x80000000;
 
     if (CurCPU == 1) ARM9->Halt(2);
