@@ -597,7 +597,7 @@ void RunSystem(s32 cycles)
         }
     }
 }
-int stallcnt=0, stallcycle=0;
+
 u32 RunFrame()
 {
     if (!Running) return 263; // dorp
@@ -615,7 +615,7 @@ u32 RunFrame()
             // we just run the GPU and the timers.
             // the rest of the hardware is driven by the event scheduler.
 
-            s32 cycles = GPU3D::CyclesToRunFor();stallcycle+=cycles;
+            s32 cycles = GPU3D::CyclesToRunFor();
             GPU3D::Run(cycles);
 
             u32 timermask = TimerCheckMask[0];
@@ -623,21 +623,36 @@ u32 RunFrame()
             if (timermask & 0x2) RunTimer(1, cycles);
             if (timermask & 0x4) RunTimer(2, cycles);
             if (timermask & 0x8) RunTimer(3, cycles);
-            timermask = TimerCheckMask[1];
-            if (timermask & 0x1) RunTimer(4, cycles);
-            if (timermask & 0x2) RunTimer(5, cycles);
-            if (timermask & 0x4) RunTimer(6, cycles);
-            if (timermask & 0x8) RunTimer(7, cycles);
 
-            // run system peripherals, step by step
+            // run ARM7 and system peripherals, step by step
             // as to give the finer-grained ones a chance to reschedule properly
             // in case we end up running a large chunk of GXFIFO commands
-            s32 syscyclesran = 0;
+            s32 ndscyclesran = 0;
+            s32 ndscyclestorun;
             for (;;)
             {
-                RunSystem(CurIterationCycles);
-                syscyclesran += CurIterationCycles;
-                if (syscyclesran >= cycles) break;
+                ndscyclestorun = std::min(CurIterationCycles, cycles);
+
+                if (CPUStop & 0x0FFF0000)
+                {
+                    s32 cycles = ndscyclestorun - ARM7Offset;
+                    cycles = DMAs[4]->Run(cycles);
+                    if (cycles > 0) cycles = DMAs[5]->Run(cycles);
+                    if (cycles > 0) cycles = DMAs[6]->Run(cycles);
+                    if (cycles > 0) cycles = DMAs[7]->Run(cycles);
+                    ARM7Offset = -cycles;
+                }
+                else
+                {
+                    ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
+                    CurCPU = 2; ARM7->Execute(); CurCPU = 0;
+                    ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+                }
+
+                RunSystem(ndscyclestorun);
+
+                ndscyclesran += ndscyclestorun;
+                if (ndscyclesran >= cycles) break;
                 CalcIterationCycles();
             }
         }
@@ -680,7 +695,7 @@ u32 RunFrame()
             RunSystem(ndscyclestorun);
         }
     }
-    //printf("frame stallcnt: %d, %d cycles\n", stallcnt, stallcycle); stallcnt = 0; stallcycle = 0;
+
     return GPU::TotalScanlines;
 }
 
@@ -849,7 +864,7 @@ void ResumeCPU(u32 cpu, u32 mask)
 void GXFIFOStall()
 {
     if (CPUStop & 0x80000000) return;
-stallcnt++;
+
     CPUStop |= 0x80000000;
 
     if (CurCPU == 1) ARM9->Halt(2);
