@@ -518,18 +518,26 @@ void DoSavestate(Savestate* file)
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
 
-    if (file->Saving ||
-        file->VersionMajor > 2 ||
-        (file->VersionMajor == 2 && file->VersionMinor >= 1))
+    if (file->IsAtleastVersion(2, 1))
     {
         // command stall queue, only in version 2.1 and up
         CmdStallQueue->DoSavestate(file);
+        file->Var32((u32*)&VertexPipeline);
+        file->Var32((u32*)&NormalPipeline);
+        file->Var32((u32*)&PolygonPipeline);
+        file->Var32((u32*)&VertexSlotCounter);
+        file->Var32(&VertexSlotsFree);
     }
     else
     {
         // for version 2.0, just clear it. not having it doesn't matter
         // if this comes from older melonDS revisions.
         CmdStallQueue->Clear();
+        VertexPipeline = 0;
+        NormalPipeline = 0;
+        PolygonPipeline = 0;
+        VertexSlotCounter = 0;
+        VertexSlotsFree = 1;
     }
 
     if (!file->Saving)

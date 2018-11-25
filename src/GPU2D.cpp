@@ -188,6 +188,17 @@ void GPU2D::DoSavestate(Savestate* file)
         file->Var32(&CaptureCnt);
     }
 
+    if (file->IsAtleastVersion(2, 1))
+    {
+        file->Var32(&Win0Active);
+        file->Var32(&Win1Active);
+    }
+    else
+    {
+        Win0Active = 0;
+        Win1Active = 0;
+    }
+
     if (!file->Saving)
     {
         // refresh those

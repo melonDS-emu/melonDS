@@ -48,6 +48,13 @@ public:
 
     void VarArray(void* data, u32 len);
 
+    bool IsAtleastVersion(u32 major, u32 minor)
+    {
+        if (VersionMajor > major) return true;
+        if (VersionMajor == major && VersionMinor >= minor) return true;
+        return false;
+    }
+
 private:
     FILE* file;
 };
