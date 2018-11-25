@@ -53,6 +53,7 @@ namespace MelonDSAndroid
     {
         startTick = initialTicks;
         audioStream->requestStart();
+        memset(frameBuffer, 0, 256 * 384 * 4);
     }
 
     void loop(u64 currentTicks)
@@ -81,16 +82,17 @@ namespace MelonDSAndroid
         }
 
         nFrames++;
-        if (nFrames >= 30)
-        {
-            u32 diff = currentTicks - lastMeasureTick;
-            lastMeasureTick = currentTicks;
+        u32 delta = currentTicks - lastMeasureTick;
+        lastMeasureTick = currentTicks;
+        currentFps = 1000 / delta;
+    }
 
-            u32 fps = (nFrames * 1000) / diff;
-            nFrames = 0;
+    void pause() {
+        audioStream->requestPause();
+    }
 
-            currentFps = fps;
-        }
+    void resume() {
+        audioStream->requestStart();
     }
 
     void copyFrameBuffer(void* dstBuffer)
@@ -106,7 +108,11 @@ namespace MelonDSAndroid
     void cleanup()
     {
         NDS::DeInit();
-        audioStream->close();
+        audioStream->requestStop();
+        audioStream = NULL;
+
+        free(frameBuffer);
+        frameBuffer = NULL;
     }
 }
 

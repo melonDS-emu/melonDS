@@ -10,6 +10,8 @@ namespace MelonDSAndroid {
     extern bool loadRom(char* romPath, char* sramPath);
     extern void start(u64 initialTicks);
     extern void loop(u64 currentTicks);
+    extern void pause();
+    extern void resume();
     extern void copyFrameBuffer(void* dstBuffer);
     extern int getFPS();
     extern float getTargetFPS();
