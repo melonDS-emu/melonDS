@@ -988,25 +988,19 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
     if ((DispCnt & (1<<14)) && Win1Active)
     {
         // window 1
-        u32 x1 = Win1Coords[0];
-        u32 x2 = Win1Coords[1];
-        if (x2 == 0 && x1 > 0) x2 = 256;
-        if (x1 > x2) x2 = 255; // checkme
+        u8 x1 = Win1Coords[0];
+        u8 x2 = Win1Coords[1];
 
-        for (u32 i = x1; i < x2; i++)
-            mask[i] = WinCnt[1];
+        while (x1 != x2) mask[x1++] = WinCnt[1];
     }
 
     if ((DispCnt & (1<<13)) && Win0Active)
     {
         // window 0
-        u32 x1 = Win0Coords[0];
-        u32 x2 = Win0Coords[1];
-        if (x2 == 0 && x1 > 0) x2 = 256;
-        if (x1 > x2) x2 = 255; // checkme
+        u8 x1 = Win0Coords[0];
+        u8 x2 = Win0Coords[1];
 
-        for (u32 i = x1; i < x2; i++)
-            mask[i] = WinCnt[0];
+        while (x1 != x2) mask[x1++] = WinCnt[0];
     }
 }
 
