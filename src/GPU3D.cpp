@@ -76,6 +76,8 @@
 // * when calling BEGIN with an incomplete polygon defined
 // * probably same with BOXTEST
 // * when sending vertices immediately after a BOXTEST
+//
+// TODO: test results should probably not be presented immediately, even if we set the busy flag
 
 
 // command execution notes
@@ -1659,7 +1661,6 @@ void ExecuteCommand()
         /*printf("0x%02X,  ", entry.Command);
         for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
         printf("\n");*/
-        //CycleCount += CmdNumCycles[entry.Command];
 
         ExecParamCount = 0;
 
@@ -2178,7 +2179,8 @@ void ExecuteCommand()
         }
     }
 
-    if (CycleCount > 0)
+    if (CycleCount > 0 || !CmdPIPE->IsEmpty() ||
+        VertexPipeline || NormalPipeline || PolygonPipeline)
         GXStat |= (1<<27);
 }
 
@@ -2200,9 +2202,6 @@ void FinishWork(s32 cycles)
         return;
 
     GXStat &= ~(1<<27);
-
-    if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
-    if (NumTestCommands == 0)    GXStat &= ~(1<<0);
 }
 
 void Run(s32 cycles)
@@ -2228,6 +2227,10 @@ void Run(s32 cycles)
     if (CycleCount <= 0 && CmdPIPE->IsEmpty())
     {
         if (GXStat & (1<<27)) FinishWork(-CycleCount);
+        else                  CycleCount = 0;
+
+        if (NumPushPopCommands == 0) GXStat &= ~(1<<14);
+        if (NumTestCommands == 0)    GXStat &= ~(1<<0);
     }
 }
 
@@ -2465,7 +2468,7 @@ u32 Read32(u32 addr)
     case 0x04000600:
         {
             u32 fifolevel = CmdFIFO->Level();
-
+//printf("peeking gxstat: %08X %d, %08X\n", GXStat, fifolevel, NDS::GetPC(0));
             return GXStat |
                    ((PosMatrixStackPointer & 0x1F) << 8) |
                    ((ProjMatrixStackPointer & 0x1) << 13) |
