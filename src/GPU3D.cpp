@@ -1391,7 +1391,7 @@ void CalculateLighting()
     }
 
     if (c < 1) c = 1;
-    NormalPipeline = 7 + c;
+    NormalPipeline = 7;
     AddCycles(c);
 }
 
@@ -2476,7 +2476,7 @@ u32 Read32(u32 addr)
     case 0x04000600:
         {
             u32 fifolevel = CmdFIFO->Level();
-//printf("peeking gxstat: %08X %d, %08X\n", GXStat, fifolevel, NDS::GetPC(0));
+
             return GXStat |
                    ((PosMatrixStackPointer & 0x1F) << 8) |
                    ((ProjMatrixStackPointer & 0x1) << 13) |
