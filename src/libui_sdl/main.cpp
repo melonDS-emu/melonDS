@@ -243,15 +243,24 @@ int EmuThreadFunc(void* burp)
 
                     bool pressed;
                     if (btnid == 0x101) // up
-                        pressed = (hat & SDL_HAT_UP) || (axisY <= -16384);
+                        pressed = (hat & SDL_HAT_UP);
                     else if (btnid == 0x104) // down
-                        pressed = (hat & SDL_HAT_DOWN) || (axisY >= 16384);
+                        pressed = (hat & SDL_HAT_DOWN);
                     else if (btnid == 0x102) // right
-                        pressed = (hat & SDL_HAT_RIGHT) || (axisX >= 16384);
+                        pressed = (hat & SDL_HAT_RIGHT);
                     else if (btnid == 0x108) // left
-                        pressed = (hat & SDL_HAT_LEFT) || (axisX <= -16384);
+                        pressed = (hat & SDL_HAT_LEFT);
                     else
                         pressed = SDL_JoystickGetButton(Joystick, btnid);
+
+                    if (i == 4) // right
+                        pressed = pressed || (axisX >= 16384);
+                    else if (i == 5) // left
+                        pressed = pressed || (axisX <= -16384);
+                    else if (i == 6) // up
+                        pressed = pressed || (axisY <= -16384);
+                    else if (i == 7) // down
+                        pressed = pressed || (axisY >= 16384);
 
                     if (pressed) joymask &= ~(1<<i);
                 }
@@ -509,7 +518,7 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
 
-        //if (evt->Scancode == 0x58) // F12
+        //if (evt->Scancode == 0x57) // F11
         //    NDS::debug(0);
     }
 
