@@ -104,6 +104,84 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
 
+    case 0x200: // data cacheable
+        PU_DataCacheable = val;
+        printf("PU: DataCacheable=%08X\n", val);
+        return;
+
+    case 0x201: // code cacheable
+        PU_CodeCacheable = val;
+        printf("PU: CodeCacheable=%08X\n", val);
+        return;
+
+
+    case 0x300: // data cache write-buffer
+        PU_DataCacheWrite = val;
+        printf("PU: DataCacheWrite=%08X\n", val);
+        return;
+
+
+    case 0x500: // legacy data permissions
+        PU_DataRW = 0;
+        PU_DataRW |= (val & 0x0003);
+        PU_DataRW |= ((val & 0x000C) << 2);
+        PU_DataRW |= ((val & 0x0030) << 4);
+        PU_DataRW |= ((val & 0x00C0) << 6);
+        PU_DataRW |= ((val & 0x0300) << 8);
+        PU_DataRW |= ((val & 0x0C00) << 10);
+        PU_DataRW |= ((val & 0x3000) << 12);
+        PU_DataRW |= ((val & 0xC000) << 14);
+        printf("PU: DataRW=%08X (legacy %08X)\n", PU_DataRW, val);
+        return;
+
+    case 0x501: // legacy code permissions
+        PU_CodeRW = 0;
+        PU_CodeRW |= (val & 0x0003);
+        PU_CodeRW |= ((val & 0x000C) << 2);
+        PU_CodeRW |= ((val & 0x0030) << 4);
+        PU_CodeRW |= ((val & 0x00C0) << 6);
+        PU_CodeRW |= ((val & 0x0300) << 8);
+        PU_CodeRW |= ((val & 0x0C00) << 10);
+        PU_CodeRW |= ((val & 0x3000) << 12);
+        PU_CodeRW |= ((val & 0xC000) << 14);
+        printf("PU: CodeRW=%08X (legacy %08X)\n", PU_CodeRW, val);
+        return;
+
+    case 0x502: // data permissions
+        PU_DataRW = val;
+        printf("PU: DataRW=%08X\n", PU_DataRW);
+        return;
+
+    case 0x503: // code permissions
+        PU_CodeRW = val;
+        printf("PU: CodeRW=%08X\n", PU_CodeRW);
+        return;
+
+
+    case 0x600:
+    case 0x601:
+    case 0x610:
+    case 0x611:
+    case 0x620:
+    case 0x621:
+    case 0x630:
+    case 0x631:
+    case 0x640:
+    case 0x641:
+    case 0x650:
+    case 0x651:
+    case 0x660:
+    case 0x661:
+    case 0x670:
+    case 0x671:
+        PU_Region[(id >> 4) & 0xF] = val;
+        printf("PU: region %d = %08X : ", (id>>4)&0xF, val);
+        printf("%s, ", val&1 ? "enabled":"disabled");
+        printf("%08X-", val&0xFFFFF000);
+        printf("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
+        return;
+
+
     case 0x704:
     case 0x782:
         Halt(1);
@@ -129,6 +207,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         DTCMSetting = val;
         UpdateDTCMSetting();
         return;
+
     case 0x911:
         ITCMSetting = val;
         UpdateITCMSetting();
@@ -162,6 +241,65 @@ u32 ARMv5::CP15Read(u32 id)
 
     case 0x100: // control reg
         return CP15Control;
+
+
+    case 0x200:
+        return PU_DataCacheable;
+    case 0x201:
+        return PU_CodeCacheable;
+    case 0x300:
+        return PU_DataCacheWrite;
+
+
+    case 0x500:
+        {
+            u32 ret = 0;
+            ret |=  (PU_DataRW & 0x00000003);
+            ret |= ((PU_DataRW & 0x00000030) >> 2);
+            ret |= ((PU_DataRW & 0x00000300) >> 4);
+            ret |= ((PU_DataRW & 0x00003000) >> 6);
+            ret |= ((PU_DataRW & 0x00030000) >> 8);
+            ret |= ((PU_DataRW & 0x00300000) >> 10);
+            ret |= ((PU_DataRW & 0x03000000) >> 12);
+            ret |= ((PU_DataRW & 0x30000000) >> 14);
+            return ret;
+        }
+    case 0x501:
+        {
+            u32 ret = 0;
+            ret |=  (PU_CodeRW & 0x00000003);
+            ret |= ((PU_CodeRW & 0x00000030) >> 2);
+            ret |= ((PU_CodeRW & 0x00000300) >> 4);
+            ret |= ((PU_CodeRW & 0x00003000) >> 6);
+            ret |= ((PU_CodeRW & 0x00030000) >> 8);
+            ret |= ((PU_CodeRW & 0x00300000) >> 10);
+            ret |= ((PU_CodeRW & 0x03000000) >> 12);
+            ret |= ((PU_CodeRW & 0x30000000) >> 14);
+            return ret;
+        }
+    case 0x502:
+        return PU_DataRW;
+    case 0x503:
+        return PU_CodeRW;
+
+
+    case 0x600:
+    case 0x601:
+    case 0x610:
+    case 0x611:
+    case 0x620:
+    case 0x621:
+    case 0x630:
+    case 0x631:
+    case 0x640:
+    case 0x641:
+    case 0x650:
+    case 0x651:
+    case 0x660:
+    case 0x661:
+    case 0x670:
+    case 0x671:
+        return PU_Region[(id >> 4) & 0xF];
 
 
     case 0x910:

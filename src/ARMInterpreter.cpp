@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 #include "NDS.h"
-#include "CP15.h"
 #include "ARMInterpreter.h"
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_Branch.h"

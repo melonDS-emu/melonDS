@@ -23,7 +23,6 @@
 
 #include "types.h"
 #include "NDS.h"
-#include "CP15.h"
 
 #define ROR(x, n) (((x) >> (n)) | ((x) << (32-(n))))
 
@@ -235,6 +234,15 @@ public:
     u32 ITCMSize;
     u8 DTCM[0x4000];
     u32 DTCMBase, DTCMSize;
+
+    u32 PU_CodeCacheable;
+    u32 PU_DataCacheable;
+    u32 PU_DataCacheWrite;
+
+    u32 PU_CodeRW;
+    u32 PU_DataRW;
+
+    u32 PU_Region[8];
 };
 
 class ARMv4 : public ARM
