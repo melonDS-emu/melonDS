@@ -21,7 +21,6 @@
 #include "Config.h"
 #include "NDS.h"
 #include "ARM.h"
-#include "CP15.h"
 #include "NDSCart.h"
 #include "DMA.h"
 #include "FIFO.h"
@@ -36,8 +35,69 @@
 namespace NDS
 {
 
-ARM* ARM9;
-ARM* ARM7;
+// timing notes
+//
+// * this implementation is technically wrong for VRAM
+//   each bank is considered a separate region
+//   but this would only matter in specific VRAM->VRAM DMA transfers or
+//   when running code in VRAM, which is way unlikely
+//
+// bus/basedelay/nspenalty
+//
+// bus types:
+// * 0 / 32-bit: nothing special
+// * 1 / 16-bit: 32-bit accesses split into two 16-bit accesses, second is always sequential
+// * 2 / 8-bit/GBARAM: (presumably) split into multiple 8-bit accesses?
+// * 3 / ARM9 internal: cache/TCM
+//
+// ARM9 always gets 3c nonseq penalty when using the bus (except for mainRAM where the penalty is 7c)
+//
+// ARM7 only gets nonseq penalty when accessing mainRAM (7c as for ARM9)
+//
+// timings for GBA slot and wifi are set up at runtime
+
+RegionTimings ARM9MemTimingInfo[Region9_MAX] =
+{
+    {0, 1, 4}, // void
+    {0, 1, 4}, // BIOS
+    {3, 0, 0}, // icache
+    {3, 0, 0}, // dcache
+    {3, 0, 0}, // ITCM
+    {3, 0, 0}, // DTCM
+    {1, 1, 8}, // main RAM
+    {0, 1, 4}, // shared WRAM
+    {0, 1, 4}, // IO
+    {1, 1, 4}, // palette
+    {1, 1, 4}, // VRAM ABG
+    {1, 1, 4}, // VRAM BBG
+    {1, 1, 4}, // VRAM AOBJ
+    {1, 1, 4}, // VRAM BOBJ
+    {1, 1, 4}, // VRAM LCDC
+    {0, 1, 4}, // OAM
+    {1, 1, 4}, // GBA ROM
+    {2, 1, 4}, // GBA RAM
+};
+
+RegionTimings ARM7MemTimingInfo[Region7_MAX] =
+{
+    {0, 1, 1}, // void
+    {0, 1, 1}, // BIOS
+    {1, 1, 8}, // main RAM
+    {0, 1, 1}, // shared WRAM
+    {0, 1, 1}, // ARM7 WRAM
+    {0, 1, 1}, // IO
+    {1, 1, 1}, // wifi WS0
+    {1, 1, 1}, // wifi WS1
+    {1, 1, 1}, // ARM7 VRAM
+    {1, 1, 1}, // GBA ROM
+    {2, 1, 1}, // GBA RAM
+};
+
+u8 ARM9MemTimings[Region9_MAX+1][4];
+u8 ARM7MemTimings[Region7_MAX+1][4];
+
+ARMv5* ARM9;
+ARMv4* ARM7;
 
 s32 CurIterationCycles;
 s32 ARM7Offset;
@@ -113,8 +173,8 @@ void RunTimer(u32 tid, s32 cycles);
 
 bool Init()
 {
-    ARM9 = new ARM(0);
-    ARM7 = new ARM(1);
+    ARM9 = new ARMv5();
+    ARM7 = new ARMv4();
 
     DMAs[0] = new DMA(0, 0);
     DMAs[1] = new DMA(0, 1);
@@ -157,6 +217,80 @@ void DeInit()
     Wifi::DeInit();
 }
 
+
+void CalculateTimings(int arm9shift)
+{
+    int i;
+
+    for (i = 0; i < Region9_MAX; i++)
+    {
+        RegionTimings t = ARM9MemTimingInfo[i];
+
+        if (t.BusType == 3) // ARM9 internal
+        {
+            ARM9MemTimings[i][0] = 1; // 16-bit N
+            ARM9MemTimings[i][1] = 1; // 16-bit S
+            ARM9MemTimings[i][2] = 1; // 32-bit N
+            ARM9MemTimings[i][3] = 1; // 32-bit S
+            continue;
+        }
+
+        ARM9MemTimings[i][0] = t.DelayN << arm9shift; // 16-bit N
+        ARM9MemTimings[i][1] = t.DelayS << arm9shift; // 16-bit S
+
+        if (t.BusType == 0) // 32-bit
+        {
+            ARM9MemTimings[i][2] = t.DelayN << arm9shift; // 32-bit N
+            ARM9MemTimings[i][3] = t.DelayS << arm9shift; // 32-bit S
+        }
+        else if (t.BusType == 1) // 16-bit
+        {
+            ARM9MemTimings[i][2] = (t.DelayN + t.DelayS) << arm9shift; // 32-bit N
+            ARM9MemTimings[i][3] = (t.DelayS + t.DelayS) << arm9shift; // 32-bit S
+        }
+        else if (t.BusType == 2) // 8-bit
+        {
+            // TODO!!
+            ARM9MemTimings[i][2] = t.DelayN << arm9shift; // 32-bit N
+            ARM9MemTimings[i][3] = t.DelayS << arm9shift; // 32-bit S
+        }
+    }
+
+    ARM9MemTimings[i][0] = 0;
+    ARM9MemTimings[i][1] = 0;
+    ARM9MemTimings[i][2] = 0;
+    ARM9MemTimings[i][3] = 0;
+
+    for (i = 0; i < Region7_MAX; i++)
+    {
+        RegionTimings t = ARM7MemTimingInfo[i];
+
+        ARM7MemTimings[i][0] = t.DelayN; // 16-bit N
+        ARM7MemTimings[i][1] = t.DelayS; // 16-bit S
+
+        if (t.BusType == 0) // 32-bit
+        {
+            ARM7MemTimings[i][2] = t.DelayN; // 32-bit N
+            ARM7MemTimings[i][3] = t.DelayS; // 32-bit S
+        }
+        else if (t.BusType == 1) // 16-bit
+        {
+            ARM7MemTimings[i][2] = t.DelayN + t.DelayS; // 32-bit N
+            ARM7MemTimings[i][3] = t.DelayS + t.DelayS; // 32-bit S
+        }
+        else if (t.BusType == 2) // 8-bit
+        {
+            // TODO!!
+            ARM7MemTimings[i][2] = t.DelayN; // 32-bit N
+            ARM7MemTimings[i][3] = t.DelayS; // 32-bit S
+        }
+    }
+
+    ARM7MemTimings[i][0] = 0;
+    ARM7MemTimings[i][1] = 0;
+    ARM7MemTimings[i][2] = 0;
+    ARM7MemTimings[i][3] = 0;
+}
 
 void SetupDirectBoot()
 {
@@ -204,9 +338,9 @@ void SetupDirectBoot()
     ARM9Write16(0x027FFC30, 0xFFFF);
     ARM9Write16(0x027FFC40, 0x0001);
 
-    CP15::Write(0x910, 0x0300000A);
-    CP15::Write(0x911, 0x00000020);
-    CP15::Write(0x100, 0x00050000);
+    ARM9->CP15Write(0x910, 0x0300000A);
+    ARM9->CP15Write(0x911, 0x00000020);
+    ARM9->CP15Write(0x100, 0x00050000);
 
     ARM9->R[12] = bootparams[1];
     ARM9->R[13] = 0x03002F7C;
@@ -317,7 +451,6 @@ void Reset()
 
     ARM9->Reset();
     ARM7->Reset();
-    CP15::Reset();
 
     CPUStop = 0;
 
@@ -347,6 +480,8 @@ void Reset()
 
     ARM9->SetClockShift(1);
     ARM7->SetClockShift(0);
+
+    CalculateTimings(1);
 }
 
 void Stop()
@@ -523,7 +658,6 @@ bool DoSavestate(Savestate* file)
 
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
-    CP15::DoSavestate(file);
 
     NDSCart::DoSavestate(file);
     GPU::DoSavestate(file);
@@ -1174,254 +1308,307 @@ void debug(u32 param)
 
 
 
-u8 ARM9Read8(u32 addr)
+int ARM9Read8(u32 addr, u32* val)
 {
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u8*)&ARM9BIOS[addr & 0xFFF];
+        *val = *(u8*)&ARM9BIOS[addr & 0xFFF];
+        return Region9_BIOS;
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) return *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
-        else return 0;
+        if (SWRAM_ARM9)
+        {
+            *val = *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+            return Region9_SharedWRAM;
+        }
+        else
+        {
+            *val = 0;
+            return Region9_Void;
+        }
 
     case 0x04000000:
-        return ARM9IORead8(addr);
+        *val = ARM9IORead8(addr);
+        return Region9_IO;
 
     case 0x05000000:
-        return *(u8*)&GPU::Palette[addr & 0x7FF];
+        *val = *(u8*)&GPU::Palette[addr & 0x7FF];
+        return Region9_Palette;
 
     case 0x06000000:
+        switch (addr & 0x00E00000)
         {
-            switch (addr & 0x00E00000)
-            {
-            case 0x00000000: return GPU::ReadVRAM_ABG<u8>(addr);
-            case 0x00200000: return GPU::ReadVRAM_BBG<u8>(addr);
-            case 0x00400000: return GPU::ReadVRAM_AOBJ<u8>(addr);
-            case 0x00600000: return GPU::ReadVRAM_BOBJ<u8>(addr);
-            default:         return GPU::ReadVRAM_LCDC<u8>(addr);
-            }
+        case 0x00000000: *val = GPU::ReadVRAM_ABG<u8>(addr); return Region9_VRAM_ABG;
+        case 0x00200000: *val = GPU::ReadVRAM_BBG<u8>(addr); return Region9_VRAM_BBG;
+        case 0x00400000: *val = GPU::ReadVRAM_AOBJ<u8>(addr); return Region9_VRAM_AOBJ;
+        case 0x00600000: *val = GPU::ReadVRAM_BOBJ<u8>(addr); return Region9_VRAM_BOBJ;
+        default:         *val = GPU::ReadVRAM_LCDC<u8>(addr); return Region9_VRAM_LCDC;
         }
-        return 0;
 
     case 0x07000000:
-        return *(u8*)&GPU::OAM[addr & 0x7FF];
+        *val = *(u8*)&GPU::OAM[addr & 0x7FF];
+        return Region9_OAM;
 
     case 0x08000000:
     case 0x09000000:
         //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
         //printf("GBA read8 %08X\n", addr);
-        return 0xFF;
+        // TODO!!!
+        *val = 0xFF;
+        return Region9_Void;
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
-    return 0;
+    *val = 0;
+    return Region9_Void;
 }
 
-u16 ARM9Read16(u32 addr)
+int ARM9Read16(u32 addr, u32* val)
 {
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u16*)&ARM9BIOS[addr & 0xFFF];
+        *val = *(u16*)&ARM9BIOS[addr & 0xFFF];
+        return Region9_BIOS;
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) return *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
-        else return 0;
+        if (SWRAM_ARM9)
+        {
+            *val = *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+            return Region9_SharedWRAM;
+        }
+        else
+        {
+            *val = 0;
+            return Region9_Void;
+        }
 
     case 0x04000000:
-        return ARM9IORead16(addr);
+        *val = ARM9IORead16(addr);
+        return Region9_IO;
 
     case 0x05000000:
-        return *(u16*)&GPU::Palette[addr & 0x7FF];
+        *val = *(u16*)&GPU::Palette[addr & 0x7FF];
+        return Region9_Palette;
 
     case 0x06000000:
+        switch (addr & 0x00E00000)
         {
-            switch (addr & 0x00E00000)
-            {
-            case 0x00000000: return GPU::ReadVRAM_ABG<u16>(addr);
-            case 0x00200000: return GPU::ReadVRAM_BBG<u16>(addr);
-            case 0x00400000: return GPU::ReadVRAM_AOBJ<u16>(addr);
-            case 0x00600000: return GPU::ReadVRAM_BOBJ<u16>(addr);
-            default:         return GPU::ReadVRAM_LCDC<u16>(addr);
-            }
+        case 0x00000000: *val = GPU::ReadVRAM_ABG<u16>(addr); return Region9_VRAM_ABG;
+        case 0x00200000: *val = GPU::ReadVRAM_BBG<u16>(addr); return Region9_VRAM_BBG;
+        case 0x00400000: *val = GPU::ReadVRAM_AOBJ<u16>(addr); return Region9_VRAM_AOBJ;
+        case 0x00600000: *val = GPU::ReadVRAM_BOBJ<u16>(addr); return Region9_VRAM_BOBJ;
+        default:         *val = GPU::ReadVRAM_LCDC<u16>(addr); return Region9_VRAM_LCDC;
         }
-        return 0;
 
     case 0x07000000:
-        return *(u16*)&GPU::OAM[addr & 0x7FF];
+        *val = *(u16*)&GPU::OAM[addr & 0x7FF];
+        return Region9_OAM;
 
     case 0x08000000:
     case 0x09000000:
         //return *(u16*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
         //printf("GBA read16 %08X\n", addr);
-        return 0xFFFF;
+        // TODO!!!
+        *val = 0xFFFF;
+        return Region9_Void;
     }
 
     //printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
-    return 0;
+    *val = 0;
+    return Region9_Void;
 }
 
-u32 ARM9Read32(u32 addr)
+int ARM9Read32(u32 addr, u32* val)
 {
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u32*)&ARM9BIOS[addr & 0xFFF];
+        *val = *(u32*)&ARM9BIOS[addr & 0xFFF];
+        return Region9_BIOS;
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) return *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
-        else return 0;
+        if (SWRAM_ARM9)
+        {
+            *val = *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask];
+            return Region9_SharedWRAM;
+        }
+        else
+        {
+            *val = 0;
+            return Region9_Void;
+        }
 
     case 0x04000000:
-        return ARM9IORead32(addr);
+        *val = ARM9IORead32(addr);
+        return Region9_IO;
 
     case 0x05000000:
-        return *(u32*)&GPU::Palette[addr & 0x7FF];
+        *val = *(u32*)&GPU::Palette[addr & 0x7FF];
+        return Region9_Palette;
 
     case 0x06000000:
+        switch (addr & 0x00E00000)
         {
-            switch (addr & 0x00E00000)
-            {
-            case 0x00000000: return GPU::ReadVRAM_ABG<u32>(addr);
-            case 0x00200000: return GPU::ReadVRAM_BBG<u32>(addr);
-            case 0x00400000: return GPU::ReadVRAM_AOBJ<u32>(addr);
-            case 0x00600000: return GPU::ReadVRAM_BOBJ<u32>(addr);
-            default:         return GPU::ReadVRAM_LCDC<u32>(addr);
-            }
+        case 0x00000000: *val = GPU::ReadVRAM_ABG<u32>(addr); return Region9_VRAM_ABG;
+        case 0x00200000: *val = GPU::ReadVRAM_BBG<u32>(addr); return Region9_VRAM_BBG;
+        case 0x00400000: *val = GPU::ReadVRAM_AOBJ<u32>(addr); return Region9_VRAM_AOBJ;
+        case 0x00600000: *val = GPU::ReadVRAM_BOBJ<u32>(addr); return Region9_VRAM_BOBJ;
+        default:         *val = GPU::ReadVRAM_LCDC<u32>(addr); return Region9_VRAM_LCDC;
         }
-        return 0;
 
     case 0x07000000:
-        return *(u32*)&GPU::OAM[addr & 0x7FF];
+        *val = *(u32*)&GPU::OAM[addr & 0x7FF];
+        return Region9_OAM;
 
     case 0x08000000:
     case 0x09000000:
         //return *(u32*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
         //printf("GBA read32 %08X\n", addr);
-        return 0xFFFFFFFF;
+        // TODO!!!
+        *val = 0xFFFFFFFF;
+        return Region9_Void;
     }
 
-    printf("unknown arm9 read32 %08X | %08X %08X %08X\n", addr, ARM9->R[15], ARM9->R[12], ARM9Read32(0x027FF820));
-    return 0;
+    printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
+    *val = 0;
+    return Region9_Void;
 }
 
-void ARM9Write8(u32 addr, u8 val)
+int ARM9Write8(u32 addr, u8 val)
 {
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
         *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
-        return;
+        if (SWRAM_ARM9)
+        {
+            *(u8*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
+            return Region9_SharedWRAM;
+        }
+        return Region9_Void;
 
     case 0x04000000:
         ARM9IOWrite8(addr, val);
-        return;
+        return Region9_IO;
 
     case 0x05000000:
     case 0x06000000:
     case 0x07000000:
-        return;
+        // checkme
+        return Region9_Void;
     }
 
     printf("unknown arm9 write8 %08X %02X\n", addr, val);
+    return Region9_Void;
 }
 
-void ARM9Write16(u32 addr, u16 val)
+int ARM9Write16(u32 addr, u16 val)
 {
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
         *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
-        return;
+        if (SWRAM_ARM9)
+        {
+            *(u16*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
+            return Region9_SharedWRAM;
+        }
+        return Region9_Void;
 
     case 0x04000000:
         ARM9IOWrite16(addr, val);
-        return;
+        return Region9_IO;
 
     case 0x05000000:
         *(u16*)&GPU::Palette[addr & 0x7FF] = val;
-        return;
+        return Region9_Palette;
 
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU::WriteVRAM_ABG<u16>(addr, val); break;
-        case 0x00200000: GPU::WriteVRAM_BBG<u16>(addr, val); break;
-        case 0x00400000: GPU::WriteVRAM_AOBJ<u16>(addr, val); break;
-        case 0x00600000: GPU::WriteVRAM_BOBJ<u16>(addr, val); break;
-        default:         GPU::WriteVRAM_LCDC<u16>(addr, val); break;
+        case 0x00000000: GPU::WriteVRAM_ABG<u16>(addr, val); return Region9_VRAM_ABG;
+        case 0x00200000: GPU::WriteVRAM_BBG<u16>(addr, val); return Region9_VRAM_BBG;
+        case 0x00400000: GPU::WriteVRAM_AOBJ<u16>(addr, val); return Region9_VRAM_AOBJ;
+        case 0x00600000: GPU::WriteVRAM_BOBJ<u16>(addr, val); return Region9_VRAM_BOBJ;
+        default:         GPU::WriteVRAM_LCDC<u16>(addr, val); return Region9_VRAM_LCDC;
         }
-        return;
 
     case 0x07000000:
         *(u16*)&GPU::OAM[addr & 0x7FF] = val;
-        return;
+        return Region9_OAM;
     }
 
     //printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    return Region9_Void;
 }
 
-void ARM9Write32(u32 addr, u32 val)
+int ARM9Write32(u32 addr, u32 val)
 {
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
         *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region9_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM9) *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
-        return;
+        if (SWRAM_ARM9)
+        {
+            *(u32*)&SWRAM_ARM9[addr & SWRAM_ARM9Mask] = val;
+            return Region9_SharedWRAM;
+        }
+        return Region9_Void;
 
     case 0x04000000:
         ARM9IOWrite32(addr, val);
-        return;
+        return Region9_IO;
 
     case 0x05000000:
         *(u32*)&GPU::Palette[addr & 0x7FF] = val;
-        return;
+        return Region9_Palette;
 
     case 0x06000000:
         switch (addr & 0x00E00000)
         {
-        case 0x00000000: GPU::WriteVRAM_ABG<u32>(addr, val); break;
-        case 0x00200000: GPU::WriteVRAM_BBG<u32>(addr, val); break;
-        case 0x00400000: GPU::WriteVRAM_AOBJ<u32>(addr, val); break;
-        case 0x00600000: GPU::WriteVRAM_BOBJ<u32>(addr, val); break;
-        default:         GPU::WriteVRAM_LCDC<u32>(addr, val); break;
+        case 0x00000000: GPU::WriteVRAM_ABG<u32>(addr, val); return Region9_VRAM_ABG;
+        case 0x00200000: GPU::WriteVRAM_BBG<u32>(addr, val); return Region9_VRAM_BBG;
+        case 0x00400000: GPU::WriteVRAM_AOBJ<u32>(addr, val); return Region9_VRAM_AOBJ;
+        case 0x00600000: GPU::WriteVRAM_BOBJ<u32>(addr, val); return Region9_VRAM_BOBJ;
+        default:         GPU::WriteVRAM_LCDC<u32>(addr, val); return Region9_VRAM_LCDC;
         }
-        return;
 
     case 0x07000000:
         *(u32*)&GPU::OAM[addr & 0x7FF] = val;
-        return;
+        return Region9_OAM;
     }
 
     printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    return Region9_Void;
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -1429,6 +1616,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
+        region->Region = Region9_MainRAM;
         region->Mem = MainRAM;
         region->Mask = MAIN_RAM_SIZE-1;
         return true;
@@ -1436,6 +1624,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
     case 0x03000000:
         if (SWRAM_ARM9)
         {
+            region->Region = Region9_SharedWRAM;
             region->Mem = SWRAM_ARM9;
             region->Mask = SWRAM_ARM9Mask;
             return true;
@@ -1445,6 +1634,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
     if ((addr & 0xFFFFF000) == 0xFFFF0000 && !write)
     {
+        region->Region = Region9_BIOS;
         region->Mem = ARM9BIOS;
         region->Mask = 0xFFF;
         return true;
@@ -1456,223 +1646,306 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 
 
-u8 ARM7Read8(u32 addr)
+int ARM7Read8(u32 addr, u32* val)
 {
     if (addr < 0x00004000)
     {
         if (ARM7->R[15] >= 0x4000)
-            return 0xFF;
+            *val = 0xFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
-            return 0xFF;
+            *val = 0xFF;
 
-        return *(u8*)&ARM7BIOS[addr];
+        *val = *(u8*)&ARM7BIOS[addr];
+        return Region7_BIOS;
     }
 
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) return *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
-        else return *(u8*)&ARM7WRAM[addr & 0xFFFF];
+        if (SWRAM_ARM7)
+        {
+            *val = *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *val = *(u8*)&ARM7WRAM[addr & 0xFFFF];
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
-        return *(u8*)&ARM7WRAM[addr & 0xFFFF];
+        *val = *(u8*)&ARM7WRAM[addr & 0xFFFF];
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
-        return ARM7IORead8(addr);
+        *val = ARM7IORead8(addr);
+        return Region7_IO;
 
     case 0x06000000:
     case 0x06800000:
-        return GPU::ReadVRAM_ARM7<u8>(addr);
+        *val = GPU::ReadVRAM_ARM7<u8>(addr);
+        return Region7_VRAM;
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
-    return 0;
+    *val = 0;
+    return Region7_Void;
 }
 
-u16 ARM7Read16(u32 addr)
+int ARM7Read16(u32 addr, u32* val)
 {
     if (addr < 0x00004000)
     {
         if (ARM7->R[15] >= 0x4000)
-            return 0xFFFF;
+            *val = 0xFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
-            return 0xFFFF;
+            *val = 0xFFFF;
 
-        return *(u16*)&ARM7BIOS[addr];
+        *val = *(u16*)&ARM7BIOS[addr];
+        return Region7_BIOS;
     }
 
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) return *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
-        else return *(u16*)&ARM7WRAM[addr & 0xFFFF];
+        if (SWRAM_ARM7)
+        {
+            *val = *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *val = *(u16*)&ARM7WRAM[addr & 0xFFFF];
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
-        return *(u16*)&ARM7WRAM[addr & 0xFFFF];
+        *val = *(u16*)&ARM7WRAM[addr & 0xFFFF];
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
-        return ARM7IORead16(addr);
+        *val = ARM7IORead16(addr);
+        return Region7_IO;
 
     case 0x04800000:
-        return Wifi::Read(addr);
+        if (addr < 0x04810000)
+        {
+            *val = Wifi::Read(addr);
+            return (addr & 0x8000) ? Region7_Wifi1 : Region7_Wifi0;
+        }
+        break;
 
     case 0x06000000:
     case 0x06800000:
-        return GPU::ReadVRAM_ARM7<u16>(addr);
+        *val = GPU::ReadVRAM_ARM7<u16>(addr);
+        return Region7_VRAM;
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
-    return 0;
+    *val = 0;
+    return Region7_Void;
 }
 
-u32 ARM7Read32(u32 addr)
+int ARM7Read32(u32 addr, u32* val)
 {
     if (addr < 0x00004000)
     {
         if (ARM7->R[15] >= 0x4000)
-            return 0xFFFFFFFF;
+            *val = 0xFFFFFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
-            return 0xFFFFFFFF;
+            *val = 0xFFFFFFFF;
 
-        return *(u32*)&ARM7BIOS[addr];
+        *val = *(u32*)&ARM7BIOS[addr];
+        return Region7_BIOS;
     }
 
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        *val = *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) return *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
-        else return *(u32*)&ARM7WRAM[addr & 0xFFFF];
+        if (SWRAM_ARM7)
+        {
+            *val = *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask];
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *val = *(u32*)&ARM7WRAM[addr & 0xFFFF];
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
-        return *(u32*)&ARM7WRAM[addr & 0xFFFF];
+        *val = *(u32*)&ARM7WRAM[addr & 0xFFFF];
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
-        return ARM7IORead32(addr);
+        *val = ARM7IORead32(addr);
+        return Region7_IO;
 
     case 0x04800000:
-        return Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
+        if (addr < 0x04810000)
+        {
+            *val = Wifi::Read(addr) | (Wifi::Read(addr+2) << 16);
+            return (addr & 0x8000) ? Region7_Wifi1 : Region7_Wifi0;
+        }
+        break;
 
     case 0x06000000:
     case 0x06800000:
-        return GPU::ReadVRAM_ARM7<u32>(addr);
+        *val = GPU::ReadVRAM_ARM7<u32>(addr);
+        return Region7_VRAM;
     }
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
-    return 0;
+    *val = 0;
 }
 
-void ARM7Write8(u32 addr, u8 val)
+int ARM7Write8(u32 addr, u8 val)
 {
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
         *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
-        else *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        if (SWRAM_ARM7)
+        {
+            *(u8*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
         *(u8*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
         ARM7IOWrite8(addr, val);
-        return;
+        return Region7_IO;
 
     case 0x06000000:
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u8>(addr, val);
-        return;
+        return Region7_VRAM;
     }
 
     printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
+    return Region7_Void;
 }
 
-void ARM7Write16(u32 addr, u16 val)
+int ARM7Write16(u32 addr, u16 val)
 {
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
         *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
-        else *(u16*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        if (SWRAM_ARM7)
+        {
+            *(u16*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *(u16*)&ARM7WRAM[addr & 0xFFFF] = val;
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
         *(u16*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
         ARM7IOWrite16(addr, val);
-        return;
+        return Region7_IO;
 
     case 0x04800000:
-        Wifi::Write(addr, val);
-        return;
+        if (addr < 0x04810000)
+        {
+            Wifi::Write(addr, val);
+            return (addr & 0x8000) ? Region7_Wifi1 : Region7_Wifi0;
+        }
+        break;
 
     case 0x06000000:
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u16>(addr, val);
-        return;
+        return Region7_VRAM;
     }
 
     //printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    return Region7_Void;
 }
 
-void ARM7Write32(u32 addr, u32 val)
+int ARM7Write32(u32 addr, u32 val)
 {
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
     case 0x02800000:
         *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
-        return;
+        return Region7_MainRAM;
 
     case 0x03000000:
-        if (SWRAM_ARM7) *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
-        else *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        if (SWRAM_ARM7)
+        {
+            *(u32*)&SWRAM_ARM7[addr & SWRAM_ARM7Mask] = val;
+            return Region7_SharedWRAM;
+        }
+        else
+        {
+            *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
+            return Region7_ARM7WRAM;
+        }
 
     case 0x03800000:
         *(u32*)&ARM7WRAM[addr & 0xFFFF] = val;
-        return;
+        return Region7_ARM7WRAM;
 
     case 0x04000000:
         ARM7IOWrite32(addr, val);
-        return;
+        return Region7_IO;
 
     case 0x04800000:
-        Wifi::Write(addr, val & 0xFFFF);
-        Wifi::Write(addr+2, val >> 16);
-        return;
+        if (addr < 0x04810000)
+        {
+            Wifi::Write(addr, val & 0xFFFF);
+            Wifi::Write(addr+2, val >> 16);
+            return (addr & 0x8000) ? Region7_Wifi1 : Region7_Wifi0;
+        }
+        return Region7_Void;
 
     case 0x06000000:
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u32>(addr, val);
-        return;
+        return Region7_VRAM;
     }
 
     //printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    return Region7_Void;
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -1681,6 +1954,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
     case 0x02000000:
     case 0x02800000:
+        region->Region = Region7_MainRAM;
         region->Mem = MainRAM;
         region->Mask = MAIN_RAM_SIZE-1;
         return true;
@@ -1693,6 +1967,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
         // it's not really worth bothering anyway
         if (!SWRAM_ARM7)
         {
+            region->Region = Region7_ARM7WRAM;
             region->Mem = ARM7WRAM;
             region->Mask = 0xFFFF;
             return true;
@@ -1700,6 +1975,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
         break;
 
     case 0x03800000:
+        region->Region = Region7_ARM7WRAM;
         region->Mem = ARM7WRAM;
         region->Mask = 0xFFFF;
         return true;

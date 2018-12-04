@@ -518,8 +518,8 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
 
-        //if (evt->Scancode == 0x57) // F11
-        //    NDS::debug(0);
+        if (evt->Scancode == 0x57) // F11
+            NDS::debug(0);
     }
 
     return 1;

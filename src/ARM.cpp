@@ -22,6 +22,20 @@
 #include "ARMInterpreter.h"
 
 
+// instruction timing notes
+//
+// * simple instruction: 1S (code)
+// * LDR: 1N+1N+1I (code/data/internal)
+// * STR: 1N+1N (code/data)
+// * LDM: 1N+1N+(n-1)S+1I
+// * STM: 1N+1N+(n-1)S
+// * MUL/etc: 1N+xI (code/internal)
+// * branch: 1N+1S (code/code) (pipeline refill)
+//
+// MUL/MLA seems to take 1I on ARM9
+
+
+
 u32 ARM::ConditionTable[16] =
 {
     0xF0F0, // EQ
@@ -49,102 +63,21 @@ ARM::ARM(u32 num)
     Num = num;
 
     SetClockShift(0); // safe default
-
-    for (int i = 0; i < 16; i++)
-    {
-        Waitstates[0][i] = 1;
-        Waitstates[1][i] = 1;
-        Waitstates[2][i] = 1;
-        Waitstates[3][i] = 1;
-    }
-
-    if (!num)
-    {
-        // ARM9
-        Waitstates[0][0x2] = 1; // main RAM timing, assuming cache hit
-        Waitstates[0][0x3] = 4;
-        Waitstates[0][0x4] = 4;
-        Waitstates[0][0x5] = 5;
-        Waitstates[0][0x6] = 5;
-        Waitstates[0][0x7] = 4;
-        Waitstates[0][0x8] = 19;
-        Waitstates[0][0x9] = 19;
-        Waitstates[0][0xF] = 4;
-
-        Waitstates[1][0x2] = 1;
-        Waitstates[1][0x3] = 8;
-        Waitstates[1][0x4] = 8;
-        Waitstates[1][0x5] = 10;
-        Waitstates[1][0x6] = 10;
-        Waitstates[1][0x7] = 8;
-        Waitstates[1][0x8] = 38;
-        Waitstates[1][0x9] = 38;
-        Waitstates[1][0xF] = 8;
-
-        Waitstates[2][0x2] = 1;
-        Waitstates[2][0x3] = 2;
-        Waitstates[2][0x4] = 2;
-        Waitstates[2][0x5] = 2;
-        Waitstates[2][0x6] = 2;
-        Waitstates[2][0x7] = 2;
-        Waitstates[2][0x8] = 12;
-        Waitstates[2][0x9] = 12;
-        Waitstates[2][0xA] = 20;
-        Waitstates[2][0xF] = 2;
-
-        Waitstates[3][0x2] = 1;
-        Waitstates[3][0x3] = 2;
-        Waitstates[3][0x4] = 2;
-        Waitstates[3][0x5] = 4;
-        Waitstates[3][0x6] = 4;
-        Waitstates[3][0x7] = 2;
-        Waitstates[3][0x8] = 24;
-        Waitstates[3][0x9] = 24;
-        Waitstates[3][0xA] = 20;
-        Waitstates[3][0xF] = 2;
-    }
-    else
-    {
-        // ARM7
-        Waitstates[0][0x0] = 1;
-        Waitstates[0][0x2] = 1;
-        Waitstates[0][0x3] = 1;
-        Waitstates[0][0x4] = 1;
-        Waitstates[0][0x6] = 1;
-        Waitstates[0][0x8] = 6;
-        Waitstates[0][0x9] = 6;
-
-        Waitstates[1][0x0] = 1;
-        Waitstates[1][0x2] = 2;
-        Waitstates[1][0x3] = 1;
-        Waitstates[1][0x4] = 1;
-        Waitstates[1][0x6] = 2;
-        Waitstates[1][0x8] = 12;
-        Waitstates[1][0x9] = 12;
-
-        Waitstates[2][0x0] = 1;
-        Waitstates[2][0x2] = 1;
-        Waitstates[2][0x3] = 1;
-        Waitstates[2][0x4] = 1;
-        Waitstates[2][0x6] = 1;
-        Waitstates[2][0x8] = 6;
-        Waitstates[2][0x9] = 6;
-        Waitstates[2][0xA] = 10;
-
-        Waitstates[3][0x0] = 1;
-        Waitstates[3][0x2] = 2;
-        Waitstates[3][0x3] = 1;
-        Waitstates[3][0x4] = 1;
-        Waitstates[3][0x6] = 2;
-        Waitstates[3][0x8] = 12;
-        Waitstates[3][0x9] = 12;
-        Waitstates[3][0xA] = 10;
-    }
 }
 
 ARM::~ARM()
 {
     // dorp
+}
+
+ARMv5::ARMv5() : ARM(0)
+{
+    //
+}
+
+ARMv4::ARMv4() : ARM(1)
+{
+    //
 }
 
 void ARM::Reset()
@@ -164,6 +97,13 @@ void ARM::Reset()
     // zorp
     JumpTo(ExceptionBase);
 }
+
+void ARMv5::Reset()
+{
+    ARM::Reset();
+    CP15Reset();
+}
+
 
 void ARM::DoSavestate(Savestate* file)
 {
@@ -189,14 +129,29 @@ void ARM::DoSavestate(Savestate* file)
         SetupCodeMem(R[15]); // should fix it
 }
 
+void ARMv5::DoSavestate(Savestate* file)
+{
+    ARM::DoSavestate(file);
+    CP15DoSavestate(file);
+}
+
+
+void ARMv5::CalculateTimings()
+{
+    //
+}
+
+void ARMv4::CalculateTimings()
+{
+    //
+}
+
+
 void ARM::SetupCodeMem(u32 addr)
 {
     if (!Num)
     {
-        if (CP15::GetCodeMemRegion(addr, &CodeMem))
-            return;
-
-        NDS::ARM9GetMemRegion(addr, false, &CodeMem);
+        ((ARMv5*)this)->GetCodeMemRegion(addr, &CodeMem);
     }
     else
     {
@@ -204,7 +159,7 @@ void ARM::SetupCodeMem(u32 addr)
     }
 }
 
-void ARM::JumpTo(u32 addr, bool restorecpsr)
+void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
     {
@@ -221,16 +176,28 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
 
     u32 oldregion = R[15] >> 23;
     u32 newregion = addr >> 23;
-//if(!Num)printf("ARM%c branch from %08X to %08X. %03X->%03X\n", Num?'7':'9', R[15], addr, oldregion, newregion);
+
     if (addr & 0x1)
     {
         addr &= ~0x1;
         R[15] = addr+2;
 
-        if (newregion != oldregion) SetupCodeMem(addr);
+        //if (newregion != oldregion) SetupCodeMem(addr);
 
-        NextInstr[0] = CodeRead16(addr);
-        NextInstr[1] = CodeRead16(addr+2);
+        // two-opcodes-at-once fetch
+        // doesn't matter if we put garbage in the MSbs there
+        if (addr & 0x2)
+        {
+            NextInstr[0] = CodeRead32(addr-2) >> 16;
+            NextInstr[1] = CodeRead32(addr+2);
+            Cycles += NDS::ARM9MemTimings[CodeRegion][2] * 2;
+        }
+        else
+        {
+            NextInstr[0] = CodeRead32(addr);
+            NextInstr[1] = NextInstr[0] >> 16;
+            Cycles += NDS::ARM9MemTimings[CodeRegion][2];
+        }
 
         CPSR |= 0x20;
     }
@@ -239,10 +206,52 @@ void ARM::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x3;
         R[15] = addr+4;
 
-        if (newregion != oldregion) SetupCodeMem(addr);
+        //if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
+        Cycles += NDS::ARM9MemTimings[CodeRegion][2] * 2;
+
+        CPSR &= ~0x20;
+    }
+}
+
+void ARMv4::JumpTo(u32 addr, bool restorecpsr)
+{
+    if (restorecpsr)
+    {
+        RestoreCPSR();
+
+        if (CPSR & 0x20)    addr |= 0x1;
+        else                addr &= ~0x1;
+    }
+
+    u32 oldregion = R[15] >> 23;
+    u32 newregion = addr >> 23;
+
+    if (addr & 0x1)
+    {
+        addr &= ~0x1;
+        R[15] = addr+2;
+
+        //if (newregion != oldregion) SetupCodeMem(addr);
+
+        NextInstr[0] = CodeRead16(addr);
+        NextInstr[1] = CodeRead16(addr+2);
+        Cycles += NDS::ARM7MemTimings[CodeRegion][0] + NDS::ARM7MemTimings[CodeRegion][1];
+
+        CPSR |= 0x20;
+    }
+    else
+    {
+        addr &= ~0x3;
+        R[15] = addr+4;
+
+        //if (newregion != oldregion) SetupCodeMem(addr);
+
+        NextInstr[0] = CodeRead32(addr);
+        NextInstr[1] = CodeRead32(addr+4);
+        Cycles += NDS::ARM7MemTimings[CodeRegion][2] + NDS::ARM7MemTimings[CodeRegion][3];
 
         CPSR &= ~0x20;
     }
@@ -373,7 +382,7 @@ void ARM::TriggerIRQ()
     JumpTo(ExceptionBase + 0x18);
 }
 
-s32 ARM::Execute()
+s32 ARMv5::Execute()
 {
     if (Halted)
     {
@@ -381,19 +390,102 @@ s32 ARM::Execute()
         {
             Halted = 0;
         }
-        else if (NDS::HaltInterrupted(Num))
+        else if (NDS::HaltInterrupted(0))
         {
             Halted = 0;
-            if (NDS::IME[Num] & 0x1)
+            if (NDS::IME[0] & 0x1)
                 TriggerIRQ();
         }
         else
         {
             Cycles = CyclesToRun;
+            NDS::RunTimingCriticalDevices(0, CyclesToRun >> ClockShift);
+            return Cycles;
+        }
+    }
 
-            if (Num == 0) NDS::RunTimingCriticalDevices(0, CyclesToRun >> 1);
-            else          NDS::RunTimingCriticalDevices(1, CyclesToRun);
+    Cycles = 0;
+    s32 lastcycles = 0;
 
+    while (Cycles < CyclesToRun)
+    {
+        if (CPSR & 0x20) // THUMB
+        {
+            // prefetch
+            R[15] += 2;
+            CurInstr = NextInstr[0];
+            NextInstr[0] = NextInstr[1];
+            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeRegion = NDS::Region9_MAX; }
+            else               NextInstr[1] = CodeRead32(R[15]);
+
+            // actually execute
+            u32 icode = (CurInstr >> 6) & 0x3FF;
+            ARMInterpreter::THUMBInstrTable[icode](this);
+        }
+        else
+        {
+            // prefetch
+            R[15] += 4;
+            CurInstr = NextInstr[0];
+            NextInstr[0] = NextInstr[1];
+            NextInstr[1] = CodeRead32(R[15]);
+
+            // actually execute
+            if (CheckCondition(CurInstr >> 28))
+            {
+                u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
+                ARMInterpreter::ARMInstrTable[icode](this);
+            }
+            else if ((CurInstr & 0xFE000000) == 0xFA000000)
+            {
+                ARMInterpreter::A_BLX_IMM(this);
+            }
+            else
+                AddCycles_C();
+        }
+
+        s32 diff = Cycles - lastcycles;
+        NDS::RunTimingCriticalDevices(0, diff >> ClockShift);
+        lastcycles = Cycles - (diff & ClockDiffMask);
+
+        // TODO optimize this shit!!!
+        if (Halted)
+        {
+            if (Halted == 1)
+                Cycles = CyclesToRun;
+            break;
+        }
+        if (NDS::IF[0] & NDS::IE[0])
+        {
+            if (NDS::IME[0] & 0x1)
+                TriggerIRQ();
+        }
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+
+    return Cycles;
+}
+
+s32 ARMv4::Execute()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(1))
+        {
+            Halted = 0;
+            if (NDS::IME[1] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            Cycles = CyclesToRun;
+            NDS::RunTimingCriticalDevices(1, CyclesToRun);
             return Cycles;
         }
     }
@@ -429,15 +521,13 @@ s32 ARM::Execute()
                 u32 icode = ((CurInstr >> 4) & 0xF) | ((CurInstr >> 16) & 0xFF0);
                 ARMInterpreter::ARMInstrTable[icode](this);
             }
-            else if ((CurInstr & 0xFE000000) == 0xFA000000)
-            {
-                ARMInterpreter::A_BLX_IMM(this);
-            }
+            else
+                AddCycles_C();
         }
 
         s32 diff = Cycles - lastcycles;
-        NDS::RunTimingCriticalDevices(Num, diff >> ClockShift);
-        lastcycles = Cycles - (diff & ClockDiffMask);
+        NDS::RunTimingCriticalDevices(1, diff);
+        lastcycles = Cycles;
 
         // TODO optimize this shit!!!
         if (Halted)
@@ -446,9 +536,9 @@ s32 ARM::Execute()
                 Cycles = CyclesToRun;
             break;
         }
-        if (NDS::IF[Num] & NDS::IE[Num])
+        if (NDS::IF[1] & NDS::IE[1])
         {
-            if (NDS::IME[Num] & 0x1)
+            if (NDS::IME[1] & 0x1)
                 TriggerIRQ();
         }
     }

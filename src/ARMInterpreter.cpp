@@ -98,6 +98,8 @@ void A_MSR_IMM(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -138,6 +140,8 @@ void A_MSR_REG(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -159,6 +163,7 @@ void A_MRS(ARM* cpu)
         psr = cpu->CPSR;
 
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
+    cpu->AddCycles_C();
 }
 
 
@@ -172,7 +177,7 @@ void A_MCR(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        CP15::Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -184,7 +189,7 @@ void A_MCR(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->Cycles += 2; // TODO: checkme
+    cpu->AddCycles_CI(1 + 1); // TODO: checkme
 }
 
 void A_MRC(ARM* cpu)
@@ -197,7 +202,7 @@ void A_MRC(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        cpu->R[(cpu->CurInstr>>12)&0xF] = CP15::Read((cn<<8)|(cm<<4)|cpinfo);
+        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -209,7 +214,7 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->Cycles += 3; // TODO: checkme
+    cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
 
 

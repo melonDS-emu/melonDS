@@ -1984,12 +1984,10 @@ void ExecuteCommand()
             break;
 
         case 0x21: // normal
-            {
-                Normal[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
-                Normal[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
-                Normal[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
-                CalculateLighting();
-            }
+            Normal[0] = (s16)((ExecParams[0] & 0x000003FF) << 6) >> 6;
+            Normal[1] = (s16)((ExecParams[0] & 0x000FFC00) >> 4) >> 6;
+            Normal[2] = (s16)((ExecParams[0] & 0x3FF00000) >> 14) >> 6;
+            CalculateLighting();
             break;
 
         case 0x22: // texcoord

@@ -87,12 +87,77 @@ typedef struct
 
 } Timer;
 
+enum
+{
+    Region9_Void = 0,
+
+    Region9_BIOS,
+
+    Region9_ICache,
+    Region9_DCache,
+    Region9_ITCM,
+    Region9_DTCM,
+
+    Region9_MainRAM,
+    Region9_SharedWRAM,
+
+    Region9_IO,
+
+    Region9_Palette,
+    Region9_VRAM_ABG,
+    Region9_VRAM_BBG,
+    Region9_VRAM_AOBJ,
+    Region9_VRAM_BOBJ,
+    Region9_VRAM_LCDC,
+    Region9_OAM,
+
+    Region9_GBAROM,
+    Region9_GBARAM,
+
+    Region9_MAX
+};
+
+enum
+{
+    Region7_Void = 0,
+
+    Region7_BIOS,
+
+    Region7_MainRAM,
+    Region7_SharedWRAM,
+    Region7_ARM7WRAM,
+
+    Region7_IO,
+    Region7_Wifi0,
+    Region7_Wifi1,
+
+    Region7_VRAM,
+
+    Region7_GBAROM,
+    Region7_GBARAM,
+
+    Region7_MAX
+};
+
 typedef struct
 {
+    u8 BusType;   // 0=32bit 1=16bit 2=8bit/GBARAM 3=ARM9/internal
+    u8 DelayS;    // baseline sequential access delay
+    u8 DelayN;    // baseline nonsequential access delay
+    u8 _pad;
+
+} RegionTimings;
+
+typedef struct
+{
+    int Region;
     u8* Mem;
     u32 Mask;
 
 } MemRegion;
+
+extern u8 ARM9MemTimings[Region9_MAX+1][4];
+extern u8 ARM7MemTimings[Region7_MAX+1][4];
 
 // hax
 extern u32 IME[2];
@@ -159,21 +224,21 @@ void StopDMAs(u32 cpu, u32 mode);
 
 void RunTimingCriticalDevices(u32 cpu, s32 cycles);
 
-u8 ARM9Read8(u32 addr);
-u16 ARM9Read16(u32 addr);
-u32 ARM9Read32(u32 addr);
-void ARM9Write8(u32 addr, u8 val);
-void ARM9Write16(u32 addr, u16 val);
-void ARM9Write32(u32 addr, u32 val);
+int ARM9Read8(u32 addr, u32* val);
+int ARM9Read16(u32 addr, u32* val);
+int ARM9Read32(u32 addr, u32* val);
+int ARM9Write8(u32 addr, u8 val);
+int ARM9Write16(u32 addr, u16 val);
+int ARM9Write32(u32 addr, u32 val);
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region);
 
-u8 ARM7Read8(u32 addr);
-u16 ARM7Read16(u32 addr);
-u32 ARM7Read32(u32 addr);
-void ARM7Write8(u32 addr, u8 val);
-void ARM7Write16(u32 addr, u16 val);
-void ARM7Write32(u32 addr, u32 val);
+int ARM7Read8(u32 addr, u32* val);
+int ARM7Read16(u32 addr, u32* val);
+int ARM7Read32(u32 addr, u32* val);
+int ARM7Write8(u32 addr, u8 val);
+int ARM7Write16(u32 addr, u16 val);
+int ARM7Write32(u32 addr, u32 val);
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region);
 

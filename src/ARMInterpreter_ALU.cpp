@@ -282,7 +282,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 #define A_AND(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -297,7 +297,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -313,7 +313,7 @@ A_IMPLEMENT_ALU_OP(AND,_S)
 #define A_EOR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a ^ b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -328,7 +328,7 @@ A_IMPLEMENT_ALU_OP(AND,_S)
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -344,7 +344,7 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
 #define A_SUB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -361,7 +361,7 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
                  !res, \
                  CARRY_SUB(a, b), \
                  OVERFLOW_SUB(a, b, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -377,7 +377,7 @@ A_IMPLEMENT_ALU_OP(SUB,)
 #define A_RSB(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -394,7 +394,7 @@ A_IMPLEMENT_ALU_OP(SUB,)
                  !res, \
                  CARRY_SUB(b, a), \
                  OVERFLOW_SUB(b, a, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -410,7 +410,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
 #define A_ADD(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -427,7 +427,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
                  !res, \
                  CARRY_ADD(a, b), \
                  OVERFLOW_ADD(a, b, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -443,7 +443,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
 #define A_ADC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a + b + (cpu->CPSR&0x20000000 ? 1:0); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -462,7 +462,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
                  !res, \
                  CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry), \
                  OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -478,7 +478,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
 #define A_SBC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a - b - (cpu->CPSR&0x20000000 ? 0:1); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -497,7 +497,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
                  !res, \
                  CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry), \
                  OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -513,7 +513,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
 #define A_RSC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = b - a - (cpu->CPSR&0x20000000 ? 0:1); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -532,7 +532,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
                  !res, \
                  CARRY_SUB(b, a) & CARRY_SUB(res_tmp, carry), \
                  OVERFLOW_SUB(b, a, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res)); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -550,7 +550,7 @@ A_IMPLEMENT_ALU_OP(RSC,)
     u32 res = a & b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c;
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TST,_S)
 
@@ -560,7 +560,7 @@ A_IMPLEMENT_ALU_TEST(TST,_S)
     u32 res = a ^ b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c;
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(TEQ,_S)
 
@@ -572,7 +572,7 @@ A_IMPLEMENT_ALU_TEST(TEQ,_S)
                  !res, \
                  CARRY_SUB(a, b), \
                  OVERFLOW_SUB(a, b, res)); \
-    cpu->Cycles += c;
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMP,)
 
@@ -584,7 +584,7 @@ A_IMPLEMENT_ALU_TEST(CMP,)
                  !res, \
                  CARRY_ADD(a, b), \
                  OVERFLOW_ADD(a, b, res)); \
-    cpu->Cycles += c;
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C();
 
 A_IMPLEMENT_ALU_TEST(CMN,)
 
@@ -592,7 +592,7 @@ A_IMPLEMENT_ALU_TEST(CMN,)
 #define A_ORR(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a | b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -607,7 +607,7 @@ A_IMPLEMENT_ALU_TEST(CMN,)
     u32 res = a | b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -621,7 +621,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 
 
 #define A_MOV(c) \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b); \
@@ -634,7 +634,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 #define A_MOV_S(c) \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b, true); \
@@ -650,7 +650,7 @@ A_IMPLEMENT_ALU_OP(MOV,_S)
 #define A_BIC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     u32 res = a & ~b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res); \
@@ -665,7 +665,7 @@ A_IMPLEMENT_ALU_OP(MOV,_S)
     u32 res = a & ~b; \
     cpu->SetNZ(res & 0x80000000, \
                !res); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(res, true); \
@@ -680,7 +680,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
 
 #define A_MVN(c) \
     b = ~b; \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b); \
@@ -694,7 +694,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
     b = ~b; \
     cpu->SetNZ(b & 0x80000000, \
                !b); \
-    cpu->Cycles += c; \
+    if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
         cpu->JumpTo(b, true); \
@@ -724,12 +724,17 @@ void A_MUL(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
-    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
-    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
-    else cycles = 4;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 1;
+        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 2;
+        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 3;
+        else cycles = 4;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_MLA(ARM* cpu)
@@ -749,12 +754,17 @@ void A_MLA(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-    else cycles = 5;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+        else cycles = 5;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_UMULL(ARM* cpu)
@@ -774,12 +784,17 @@ void A_UMULL(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
-    else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
-    else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
-    else cycles = 5;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
+        else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
+        else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
+        else cycles = 5;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_UMLAL(ARM* cpu)
@@ -802,12 +817,17 @@ void A_UMLAL(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
-    else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
-    else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
-    else cycles = 5;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000) cycles = 2;
+        else if ((rs & 0xFFFF0000) == 0x00000000) cycles = 3;
+        else if ((rs & 0xFF000000) == 0x00000000) cycles = 4;
+        else cycles = 5;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_SMULL(ARM* cpu)
@@ -827,12 +847,17 @@ void A_SMULL(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-    else cycles = 5;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+        else cycles = 5;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_SMLAL(ARM* cpu)
@@ -855,12 +880,17 @@ void A_SMLAL(ARM* cpu)
     }
 
     u32 cycles;
-    if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
-    else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
-    else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
-    else cycles = 5;
+    if (cpu->Num == 0)
+        cycles = (cpu->CurInstr & (1<<20)) ? 3 : 1;
+    else
+    {
+        if      ((rs & 0xFFFFFF00) == 0x00000000 || (rs & 0xFFFFFF00) == 0xFFFFFF00) cycles = 2;
+        else if ((rs & 0xFFFF0000) == 0x00000000 || (rs & 0xFFFF0000) == 0xFFFF0000) cycles = 3;
+        else if ((rs & 0xFF000000) == 0x00000000 || (rs & 0xFF000000) == 0xFF000000) cycles = 4;
+        else cycles = 5;
+    }
 
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void A_SMLAxy(ARM* cpu)
@@ -882,6 +912,8 @@ void A_SMLAxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OVERFLOW_ADD(res_mul, rn, res))
         cpu->CPSR |= 0x08000000;
+
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_SMLAWy(ARM* cpu)
@@ -901,6 +933,8 @@ void A_SMLAWy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
     if (OVERFLOW_ADD(res_mul, rn, res))
         cpu->CPSR |= 0x08000000;
+
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_SMULxy(ARM* cpu)
@@ -918,6 +952,7 @@ void A_SMULxy(ARM* cpu)
     u32 res = ((s16)rm * (s16)rs);
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_SMULWy(ARM* cpu)
@@ -933,6 +968,7 @@ void A_SMULWy(ARM* cpu)
     u32 res = ((s64)(s32)rm * (s16)rs) >> 16;
 
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_SMLALxy(ARM* cpu)
@@ -955,7 +991,7 @@ void A_SMLALxy(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = (u32)res;
     cpu->R[(cpu->CurInstr >> 16) & 0xF] = (u32)(res >> 32ULL);
 
-    cpu->Cycles += 1;
+    cpu->AddCycles_CI(1); // TODO: interlock??
 }
 
 
@@ -981,6 +1017,7 @@ void A_CLZ(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    cpu->AddCycles_C();
 }
 
 void A_QADD(ARM* cpu)
@@ -998,6 +1035,7 @@ void A_QADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_QSUB(ARM* cpu)
@@ -1015,6 +1053,7 @@ void A_QSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_QDADD(ARM* cpu)
@@ -1040,6 +1079,7 @@ void A_QDADD(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 void A_QDSUB(ARM* cpu)
@@ -1065,6 +1105,7 @@ void A_QDSUB(ARM* cpu)
     }
 
     cpu->R[(cpu->CurInstr >> 12) & 0xF] = res;
+    cpu->AddCycles_C(); // TODO: interlock??
 }
 
 
@@ -1081,6 +1122,7 @@ void T_LSL_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+    cpu->AddCycles_C();
 }
 
 void T_LSR_IMM(ARM* cpu)
@@ -1091,6 +1133,7 @@ void T_LSR_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+    cpu->AddCycles_C();
 }
 
 void T_ASR_IMM(ARM* cpu)
@@ -1101,6 +1144,7 @@ void T_ASR_IMM(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = op;
     cpu->SetNZ(op & 0x80000000,
                !op);
+    cpu->AddCycles_C();
 }
 
 void T_ADD_REG_(ARM* cpu)
@@ -1113,6 +1157,7 @@ void T_ADD_REG_(ARM* cpu)
                  !res,
                  CARRY_ADD(a, b),
                  OVERFLOW_ADD(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_SUB_REG_(ARM* cpu)
@@ -1125,6 +1170,7 @@ void T_SUB_REG_(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_ADD_IMM_(ARM* cpu)
@@ -1137,6 +1183,7 @@ void T_ADD_IMM_(ARM* cpu)
                  !res,
                  CARRY_ADD(a, b),
                  OVERFLOW_ADD(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_SUB_IMM_(ARM* cpu)
@@ -1149,6 +1196,7 @@ void T_SUB_IMM_(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_MOV_IMM(ARM* cpu)
@@ -1157,6 +1205,7 @@ void T_MOV_IMM(ARM* cpu)
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = b;
     cpu->SetNZ(0,
                !b);
+    cpu->AddCycles_C();
 }
 
 void T_CMP_IMM(ARM* cpu)
@@ -1168,6 +1217,7 @@ void T_CMP_IMM(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_ADD_IMM(ARM* cpu)
@@ -1180,6 +1230,7 @@ void T_ADD_IMM(ARM* cpu)
                  !res,
                  CARRY_ADD(a, b),
                  OVERFLOW_ADD(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_SUB_IMM(ARM* cpu)
@@ -1192,6 +1243,7 @@ void T_SUB_IMM(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 
@@ -1203,6 +1255,7 @@ void T_AND_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 void T_EOR_REG(ARM* cpu)
@@ -1213,6 +1266,7 @@ void T_EOR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 void T_LSL_REG(ARM* cpu)
@@ -1223,7 +1277,7 @@ void T_LSL_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
-    cpu->Cycles += 1;
+    cpu->AddCycles_CI(1);
 }
 
 void T_LSR_REG(ARM* cpu)
@@ -1234,7 +1288,7 @@ void T_LSR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
-    cpu->Cycles += 1;
+    cpu->AddCycles_CI(1);
 }
 
 void T_ASR_REG(ARM* cpu)
@@ -1245,7 +1299,7 @@ void T_ASR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
-    cpu->Cycles += 1;
+    cpu->AddCycles_CI(1);
 }
 
 void T_ADC_REG(ARM* cpu)
@@ -1260,6 +1314,7 @@ void T_ADC_REG(ARM* cpu)
                  !res,
                  CARRY_ADD(a, b) | CARRY_ADD(res_tmp, carry),
                  OVERFLOW_ADD(a, b, res_tmp) | OVERFLOW_ADD(res_tmp, carry, res));
+    cpu->AddCycles_C();
 }
 
 void T_SBC_REG(ARM* cpu)
@@ -1274,6 +1329,7 @@ void T_SBC_REG(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b) & CARRY_SUB(res_tmp, carry),
                  OVERFLOW_SUB(a, b, res_tmp) | OVERFLOW_SUB(res_tmp, carry, res));
+    cpu->AddCycles_C();
 }
 
 void T_ROR_REG(ARM* cpu)
@@ -1284,7 +1340,7 @@ void T_ROR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = a;
     cpu->SetNZ(a & 0x80000000,
                !a);
-    cpu->Cycles += 1;
+    cpu->AddCycles_CI(1);
 }
 
 void T_TST_REG(ARM* cpu)
@@ -1294,6 +1350,7 @@ void T_TST_REG(ARM* cpu)
     u32 res = a & b;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 void T_NEG_REG(ARM* cpu)
@@ -1305,6 +1362,7 @@ void T_NEG_REG(ARM* cpu)
                  !res,
                  CARRY_SUB(0, b),
                  OVERFLOW_SUB(0, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_CMP_REG(ARM* cpu)
@@ -1316,6 +1374,7 @@ void T_CMP_REG(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_CMN_REG(ARM* cpu)
@@ -1327,6 +1386,7 @@ void T_CMN_REG(ARM* cpu)
                  !res,
                  CARRY_ADD(a, b),
                  OVERFLOW_ADD(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_ORR_REG(ARM* cpu)
@@ -1337,6 +1397,7 @@ void T_ORR_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 void T_MUL_REG(ARM* cpu)
@@ -1361,7 +1422,7 @@ void T_MUL_REG(ARM* cpu)
         else if (a & 0x0000FF00) cycles += 2;
         else                     cycles += 1;
     }
-    cpu->Cycles += cycles;
+    cpu->AddCycles_CI(cycles);
 }
 
 void T_BIC_REG(ARM* cpu)
@@ -1372,6 +1433,7 @@ void T_BIC_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 void T_MVN_REG(ARM* cpu)
@@ -1381,6 +1443,7 @@ void T_MVN_REG(ARM* cpu)
     cpu->R[cpu->CurInstr & 0x7] = res;
     cpu->SetNZ(res & 0x80000000,
                !res);
+    cpu->AddCycles_C();
 }
 
 
@@ -1394,6 +1457,8 @@ void T_ADD_HIREG(ARM* cpu)
 
     u32 a = cpu->R[rd];
     u32 b = cpu->R[rs];
+
+    cpu->AddCycles_C();
 
     if (rd == 15)
     {
@@ -1418,12 +1483,15 @@ void T_CMP_HIREG(ARM* cpu)
                  !res,
                  CARRY_SUB(a, b),
                  OVERFLOW_SUB(a, b, res));
+    cpu->AddCycles_C();
 }
 
 void T_MOV_HIREG(ARM* cpu)
 {
     u32 rd = (cpu->CurInstr & 0x7) | ((cpu->CurInstr >> 4) & 0x8);
     u32 rs = (cpu->CurInstr >> 3) & 0xF;
+
+    cpu->AddCycles_C();
 
     if (rd == 15)
     {
@@ -1441,6 +1509,7 @@ void T_ADD_PCREL(ARM* cpu)
     u32 val = cpu->R[15] & ~2;
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    cpu->AddCycles_C();
 }
 
 void T_ADD_SPREL(ARM* cpu)
@@ -1448,6 +1517,7 @@ void T_ADD_SPREL(ARM* cpu)
     u32 val = cpu->R[13];
     val += ((cpu->CurInstr & 0xFF) << 2);
     cpu->R[(cpu->CurInstr >> 8) & 0x7] = val;
+    cpu->AddCycles_C();
 }
 
 void T_ADD_SP(ARM* cpu)
@@ -1458,6 +1528,7 @@ void T_ADD_SP(ARM* cpu)
     else
         val += ((cpu->CurInstr & 0x7F) << 2);
     cpu->R[13] = val;
+    cpu->AddCycles_C();
 }
 
 

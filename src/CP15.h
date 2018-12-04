@@ -32,10 +32,9 @@ void UpdateITCMSetting();
 void Write(u32 id, u32 val);
 u32 Read(u32 id);
 
-bool HandleCodeRead16(u32 addr, u16* val);
 bool HandleCodeRead32(u32 addr, u32* val);
-bool HandleDataRead8(u32 addr, u8* val, u32 forceuser=0);
-bool HandleDataRead16(u32 addr, u16* val, u32 forceuser=0);
+bool HandleDataRead8(u32 addr, u32* val, u32 forceuser=0);
+bool HandleDataRead16(u32 addr, u32* val, u32 forceuser=0);
 bool HandleDataRead32(u32 addr, u32* val, u32 forceuser=0);
 bool HandleDataWrite8(u32 addr, u8 val, u32 forceuser=0);
 bool HandleDataWrite16(u32 addr, u16 val, u32 forceuser=0);
