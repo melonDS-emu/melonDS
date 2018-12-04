@@ -44,9 +44,9 @@ namespace MelonDSAndroid
         NDS::Init();
     }
 
-    bool loadRom(char* romPath, char* sramPath)
+    bool loadRom(char* romPath, char* sramPath, bool loadDirect)
     {
-        return NDS::LoadROM(romPath, sramPath, true);
+        return NDS::LoadROM(romPath, sramPath, loadDirect);
     }
 
     void start(u64 initialTicks)
