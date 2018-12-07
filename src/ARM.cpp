@@ -100,8 +100,8 @@ void ARM::Reset()
 
 void ARMv5::Reset()
 {
-    ARM::Reset();
     CP15Reset();
+    ARM::Reset();
 }
 
 
@@ -158,7 +158,7 @@ void ARM::SetupCodeMem(u32 addr)
         NDS::ARM7GetMemRegion(addr, false, &CodeMem);
     }
 }
-
+namespace GPU{extern u16 VCount;}
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -173,9 +173,18 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
     // R0=DMA# R1=src R2=size
+    if (addr==0x1FFD9E0) printf("[%03d] FMVdec\n", GPU::VCount);
+    if (R[15]==0x1FFDF40) printf("[%03d] FMVdec FINISHED\n", GPU::VCount);
+    if (addr==0x202585C)
+    {
+        //u32 dorp; NDS::ARM9Read32(0x20630DC, &dorp);
+        //printf("[%03d] IRQ handler thing. wait=%08X\n", GPU::VCount, dorp);
+    }
 
     u32 oldregion = R[15] >> 23;
     u32 newregion = addr >> 23;
+
+    s32 cycles;
 
     if (addr & 0x1)
     {
@@ -190,13 +199,13 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         {
             NextInstr[0] = CodeRead32(addr-2) >> 16;
             NextInstr[1] = CodeRead32(addr+2);
-            Cycles += NDS::ARM9MemTimings[CodeRegion][2] * 2;
+            cycles = NDS::ARM9MemTimings[CodeRegion][2] * 2;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += NDS::ARM9MemTimings[CodeRegion][2];
+            cycles = NDS::ARM9MemTimings[CodeRegion][2];
         }
 
         CPSR |= 0x20;
@@ -210,10 +219,22 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
-        Cycles += NDS::ARM9MemTimings[CodeRegion][2] * 2;
+        cycles = NDS::ARM9MemTimings[CodeRegion][2] * 2;
 
         CPSR &= ~0x20;
     }
+
+    // TODO: investigate this
+    // firmware jumps to region 01FFxxxx, but region 5 (01000000-02000000) is set to non-executable
+    // is melonDS fucked up somewhere, or is the DS PU just incomplete/crapoed?
+    /*if (!(PU_Map[addr>>12] & 0x04))
+    {
+        printf("jumped to %08X. very bad\n", addr);
+        PrefetchAbort();
+        return;
+    }*/
+
+    Cycles += cycles;
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
@@ -365,6 +386,15 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
     }
 
     #undef SWAP
+
+    if (Num == 0)
+    {
+        /*if ((newmode & 0x1F) == 0x16)
+            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
+        else
+            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
+        //if ((newmode & 0x1F) == 0x10) printf("!! USER MODE\n");
+    }
 }
 
 void ARM::TriggerIRQ()
@@ -380,6 +410,43 @@ void ARM::TriggerIRQ()
     R_IRQ[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x18);
+}
+
+void ARMv5::PrefetchAbort()
+{
+    printf("prefetch abort\n");
+
+    u32 oldcpsr = CPSR;
+    CPSR &= ~0xBF;
+    CPSR |= 0x97;
+    UpdateMode(oldcpsr, CPSR);
+
+    // this shouldn't happen, but if it does, we're stuck in some nasty endless loop
+    // so better take care of it
+    if (!(PU_Map[ExceptionBase>>12] & 0x04))
+    {
+        printf("!!!!! EXCEPTION REGION NOT READABLE. THIS IS VERY BAD!!\n");
+        NDS::Stop();
+        return;
+    }
+
+    R_IRQ[2] = oldcpsr;
+    R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
+    JumpTo(ExceptionBase + 0x0C);
+}
+
+void ARMv5::DataAbort()
+{
+    printf("data abort\n");
+
+    u32 oldcpsr = CPSR;
+    CPSR &= ~0xBF;
+    CPSR |= 0x97;
+    UpdateMode(oldcpsr, CPSR);
+
+    R_IRQ[2] = oldcpsr;
+    R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
+    JumpTo(ExceptionBase + 0x10);
 }
 
 s32 ARMv5::Execute()

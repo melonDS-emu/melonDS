@@ -255,7 +255,7 @@ s32 DMA::Run(s32 cycles)
             readfn(CurSrcAddr, &val);
             writefn(CurDstAddr, val);
 
-            s32 c = (Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
+            s32 c = 1;//(Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
             cycles -= c;
             NDS::RunTimingCriticalDevices(CPU, c);
 
@@ -294,7 +294,7 @@ s32 DMA::Run(s32 cycles)
             readfn(CurSrcAddr, &val);
             writefn(CurDstAddr, val);
 
-            s32 c = (Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
+            s32 c = 1;//(Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
             cycles -= c;
             NDS::RunTimingCriticalDevices(CPU, c);
 
