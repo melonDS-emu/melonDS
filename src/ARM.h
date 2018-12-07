@@ -166,6 +166,9 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false);
 
+    void PrefetchAbort();
+    void DataAbort();
+
     s32 Execute();
 
     // all code accesses are forced nonseq 32bit
@@ -223,6 +226,8 @@ public:
     void UpdateDTCMSetting();
     void UpdateITCMSetting();
 
+    void UpdatePURegions();
+
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id);
 
@@ -243,6 +248,16 @@ public:
     u32 PU_DataRW;
 
     u32 PU_Region[8];
+
+    // 0=dataR 1=dataW 2=codeR 4=datacache 5=datawrite 6=codecache
+    // seems the DS operates entirely under privileged mode? it never sets user regions to be read/writable
+    // TODO: investigate
+    u8 PU_UserMap[0x100000];
+    u8 PU_PrivMap[0x100000];
+    //u8* PU_Map;
+    #define PU_Map PU_PrivMap
+
+    bool CodeCached;
 };
 
 class ARMv4 : public ARM

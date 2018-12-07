@@ -226,6 +226,15 @@ void CalculateTimings(int arm9shift)
     {
         RegionTimings t = ARM9MemTimingInfo[i];
 
+        /*if (i==2||i==3) // ARM9 internal
+        {
+            ARM9MemTimings[i][0] = 5; // 16-bit N
+            ARM9MemTimings[i][1] = 5; // 16-bit S
+            ARM9MemTimings[i][2] = 5; // 32-bit N
+            ARM9MemTimings[i][3] = 5; // 32-bit S
+            continue;
+        }*/
+
         if (t.BusType == 3) // ARM9 internal
         {
             ARM9MemTimings[i][0] = 1; // 16-bit N
@@ -1030,7 +1039,7 @@ void HandleTimerOverflow(u32 tid)
     timer->Counter += timer->Reload << 16;
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
-
+//if (tid<4) printf("[%03d] timer%d IRQ\n", GPU::VCount, tid);
     if ((tid & 0x3) == 3)
         return;
 

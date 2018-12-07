@@ -34,8 +34,8 @@ void A_UNK(ARM* cpu)
     //for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xDB;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x9B;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_UND[2] = oldcpsr;
@@ -48,8 +48,8 @@ void T_UNK(ARM* cpu)
     printf("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xDB;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x9B;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_UND[2] = oldcpsr;
@@ -221,8 +221,8 @@ void A_MRC(ARM* cpu)
 void A_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xD3;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x93;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_SVC[2] = oldcpsr;
@@ -233,8 +233,8 @@ void A_SVC(ARM* cpu)
 void T_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xD3;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x93;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_SVC[2] = oldcpsr;
