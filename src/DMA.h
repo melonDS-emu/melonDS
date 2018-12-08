@@ -65,8 +65,6 @@ public:
 private:
     u32 CPU, Num;
 
-    s32 Waitstates[2][16];
-
     u32 StartMode;
     u32 CurSrcAddr;
     u32 CurDstAddr;

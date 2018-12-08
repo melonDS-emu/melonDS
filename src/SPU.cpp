@@ -214,7 +214,7 @@ void Channel::FIFO_BufferData()
 
     for (u32 i = 0; i < burstlen; i += 4)
     {
-        NDS::ARM7Read32(SrcAddr + FIFOReadOffset, &FIFO[FIFOWritePos]);
+        FIFO[FIFOWritePos] = NDS::ARM7Read32(SrcAddr + FIFOReadOffset);
         FIFOReadOffset += 4;
         FIFOWritePos++;
         FIFOWritePos &= 0x7;

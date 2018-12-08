@@ -57,61 +57,6 @@ DMA::DMA(u32 cpu, u32 num)
     else
         CountMask = (num==3 ? 0x0000FFFF : 0x00003FFF);
 
-    // TODO: merge with the one in ARM.cpp, somewhere
-    for (int i = 0; i < 16; i++)
-    {
-        Waitstates[0][i] = 1;
-        Waitstates[1][i] = 1;
-    }
-
-    if (!cpu)
-    {
-        // ARM9
-        // note: 33MHz cycles
-        Waitstates[0][0x2] = 1;
-        Waitstates[0][0x3] = 1;
-        Waitstates[0][0x4] = 1;
-        Waitstates[0][0x5] = 1;
-        Waitstates[0][0x6] = 1;
-        Waitstates[0][0x7] = 1;
-        Waitstates[0][0x8] = 6;
-        Waitstates[0][0x9] = 6;
-        Waitstates[0][0xA] = 10;
-        Waitstates[0][0xF] = 1;
-
-        Waitstates[1][0x2] = 2;
-        Waitstates[1][0x3] = 1;
-        Waitstates[1][0x4] = 1;
-        Waitstates[1][0x5] = 2;
-        Waitstates[1][0x6] = 2;
-        Waitstates[1][0x7] = 1;
-        Waitstates[1][0x8] = 12;
-        Waitstates[1][0x9] = 12;
-        Waitstates[1][0xA] = 10;
-        Waitstates[1][0xF] = 1;
-    }
-    else
-    {
-        // ARM7
-        Waitstates[0][0x0] = 1;
-        Waitstates[0][0x2] = 1;
-        Waitstates[0][0x3] = 1;
-        Waitstates[0][0x4] = 1;
-        Waitstates[0][0x6] = 1;
-        Waitstates[0][0x8] = 6;
-        Waitstates[0][0x9] = 6;
-        Waitstates[0][0xA] = 10;
-
-        Waitstates[1][0x0] = 1;
-        Waitstates[1][0x2] = 2;
-        Waitstates[1][0x3] = 1;
-        Waitstates[1][0x4] = 1;
-        Waitstates[1][0x6] = 2;
-        Waitstates[1][0x8] = 12;
-        Waitstates[1][0x9] = 12;
-        Waitstates[1][0xA] = 10;
-    }
-
     Reset();
 }
 
@@ -244,8 +189,55 @@ s32 DMA::Run(s32 cycles)
 
     Executing = true;
 
+    // add NS penalty for first accesses in burst
+    bool burststart;
+    if (StartMode == 0x07 && RemCount > 112)
+        burststart = (IterCount == 112);
+    else
+        burststart = (IterCount == RemCount);
+
     if (!(Cnt & 0x04000000))
     {
+        int unitcycles;
+        if (Num == 0)
+        {
+            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
+            {
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][0] + NDS::ARM9MemTimings[CurDstAddr >> 12][0];
+            }
+            else
+            {
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][1] + NDS::ARM9MemTimings[CurDstAddr >> 12][1];
+                if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
+                    unitcycles++;
+
+                if (burststart)
+                {
+                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 12][0] + NDS::ARM9MemTimings[CurDstAddr >> 12][0]);
+                    cycles += unitcycles;
+                }
+            }
+        }
+        else
+        {
+            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
+            {
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][0] + NDS::ARM7MemTimings[CurDstAddr >> 17][0];
+            }
+            else
+            {
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][1] + NDS::ARM7MemTimings[CurDstAddr >> 17][1];
+                if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
+                    unitcycles++;
+
+                if (burststart)
+                {
+                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 17][0] + NDS::ARM7MemTimings[CurDstAddr >> 17][0]);
+                    cycles += unitcycles;
+                }
+            }
+        }
+
         int (*readfn)(u32,u32*) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
         int (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
@@ -255,8 +247,7 @@ s32 DMA::Run(s32 cycles)
             readfn(CurSrcAddr, &val);
             writefn(CurDstAddr, val);
 
-            s32 c = 1;//(Waitstates[0][(CurSrcAddr >> 24) & 0xF] + Waitstates[0][(CurDstAddr >> 24) & 0xF]);
-            cycles -= c;
+            cycles -= unitcycles;
             NDS::RunTimingCriticalDevices(CPU, c);
 
             CurSrcAddr += SrcAddrInc<<1;
@@ -267,23 +258,49 @@ s32 DMA::Run(s32 cycles)
     }
     else
     {
-        // optimized path for typical GXFIFO DMA
-        // likely not worth it tbh
-        /*if (IsGXFIFODMA)
+        int unitcycles;
+        if (Num == 0)
         {
-            while (IterCount > 0 && cycles > 0)
+            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
-                GPU3D::WriteToGXFIFO(*(u32*)&NDS::MainRAM[CurSrcAddr&0x3FFFFF]);
-
-                s32 c = (Waitstates[1][0x2] + Waitstates[1][0x4]);
-                cycles -= c;
-                NDS::RunTimingCriticalDevices(0, c);
-
-                CurSrcAddr += SrcAddrInc<<2;
-                IterCount--;
-                RemCount--;
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][2] + NDS::ARM9MemTimings[CurDstAddr >> 12][2];
             }
-        }*/
+            else
+            {
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][3] + NDS::ARM9MemTimings[CurDstAddr >> 12][3];
+                if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
+                    unitcycles++;
+                else if ((CurSrcAddr >> 24) == 0x02)
+                    unitcycles--;
+
+                if (burststart)
+                {
+                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 12][2] + NDS::ARM9MemTimings[CurDstAddr >> 12][2]);
+                    cycles += unitcycles;
+                }
+            }
+        }
+        else
+        {
+            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
+            {
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][2] + NDS::ARM7MemTimings[CurDstAddr >> 17][2];
+            }
+            else
+            {
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][3] + NDS::ARM7MemTimings[CurDstAddr >> 17][3];
+                if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
+                    unitcycles++;
+                else if ((CurSrcAddr >> 24) == 0x02)
+                    unitcycles--;
+
+                if (burststart)
+                {
+                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 17][2] + NDS::ARM7MemTimings[CurDstAddr >> 17][2]);
+                    cycles += unitcycles;
+                }
+            }
+        }
 
         int (*readfn)(u32,u32*) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
         int (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
@@ -294,8 +311,7 @@ s32 DMA::Run(s32 cycles)
             readfn(CurSrcAddr, &val);
             writefn(CurDstAddr, val);
 
-            s32 c = 1;//(Waitstates[1][(CurSrcAddr >> 24) & 0xF] + Waitstates[1][(CurDstAddr >> 24) & 0xF]);
-            cycles -= c;
+            cycles -= unitcycles;
             NDS::RunTimingCriticalDevices(CPU, c);
 
             CurSrcAddr += SrcAddrInc<<2;
