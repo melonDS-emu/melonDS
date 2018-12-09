@@ -764,11 +764,13 @@ u32 RunFrame()
                 if (CPUStop & 0x0FFF0000)
                 {
                     s32 cycles = ndscyclestorun - ARM7Offset;
+                    s32 critcycles = cycles;
                     cycles = DMAs[4]->Run(cycles);
                     if (cycles > 0) cycles = DMAs[5]->Run(cycles);
                     if (cycles > 0) cycles = DMAs[6]->Run(cycles);
                     if (cycles > 0) cycles = DMAs[7]->Run(cycles);
                     ARM7Offset = -cycles;
+                    RunTimingCriticalDevices(1, critcycles);
                 }
                 else
                 {

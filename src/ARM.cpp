@@ -461,7 +461,7 @@ s32 ARMv5::Execute()
         else
         {
             Cycles = CyclesToRun;
-            NDS::RunTimingCriticalDevices(0, CyclesToRun >> ClockShift);
+            //NDS::RunTimingCriticalDevices(0, CyclesToRun >> ClockShift);
             return Cycles;
         }
     }
