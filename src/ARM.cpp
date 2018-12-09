@@ -506,9 +506,9 @@ s32 ARMv5::Execute()
                 AddCycles_C();
         }
 
-        s32 diff = Cycles - lastcycles;
-        NDS::RunTimingCriticalDevices(0, diff >> ClockShift);
-        lastcycles = Cycles - (diff & ClockDiffMask);
+        //s32 diff = Cycles - lastcycles;
+        //NDS::RunTimingCriticalDevices(0, diff >> ClockShift);
+        //lastcycles = Cycles - (diff & ClockDiffMask);
 
         // TODO optimize this shit!!!
         if (Halted)

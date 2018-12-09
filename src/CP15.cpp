@@ -24,6 +24,9 @@
 
 // access timing for cached regions
 // this would be an average between cache hits and cache misses
+// this was measured to be close to hardware average
+// a value of 1 would represent a perfect cache, but that causes
+// games to run too fast, causing a number of issues
 const int kDataCacheTiming = 2;
 const int kCodeCacheTiming = 1;
 

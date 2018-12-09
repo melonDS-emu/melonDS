@@ -246,8 +246,6 @@ s32 DMA::Run(s32 cycles)
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
             cycles -= unitcycles;
-            NDS::RunTimingCriticalDevices(CPU, unitcycles);
-
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
             IterCount--;
@@ -310,8 +308,6 @@ s32 DMA::Run(s32 cycles)
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
             cycles -= unitcycles;
-            NDS::RunTimingCriticalDevices(CPU, unitcycles);
-
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
             IterCount--;
