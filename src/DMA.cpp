@@ -203,17 +203,17 @@ s32 DMA::Run(s32 cycles)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][0] + NDS::ARM9MemTimings[CurDstAddr >> 12][0];
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0];
             }
             else
             {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][1] + NDS::ARM9MemTimings[CurDstAddr >> 12][1];
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][1] + NDS::ARM9MemTimings[CurDstAddr >> 14][1];
                 if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
                     unitcycles++;
 
                 if (burststart)
                 {
-                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 12][0] + NDS::ARM9MemTimings[CurDstAddr >> 12][0]);
+                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0]);
                     cycles += unitcycles;
                 }
             }
@@ -222,38 +222,38 @@ s32 DMA::Run(s32 cycles)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][0] + NDS::ARM7MemTimings[CurDstAddr >> 17][0];
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0];
             }
             else
             {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][1] + NDS::ARM7MemTimings[CurDstAddr >> 17][1];
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][1] + NDS::ARM7MemTimings[CurDstAddr >> 15][1];
                 if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
                     unitcycles++;
 
                 if (burststart)
                 {
-                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 17][0] + NDS::ARM7MemTimings[CurDstAddr >> 17][0]);
+                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0]);
                     cycles += unitcycles;
                 }
             }
         }
 
-        int (*readfn)(u32,u32*) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
-        int (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
+        u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
+        void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
-        while (IterCount > 0 && cycles > 0 && !Stall)
+        while (IterCount > 0 && !Stall)
         {
-            u32 val;
-            readfn(CurSrcAddr, &val);
-            writefn(CurDstAddr, val);
+            writefn(CurDstAddr, readfn(CurSrcAddr));
 
             cycles -= unitcycles;
-            NDS::RunTimingCriticalDevices(CPU, c);
+            NDS::RunTimingCriticalDevices(CPU, unitcycles);
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
             IterCount--;
             RemCount--;
+
+            if (cycles < 0) break;
         }
     }
     else
@@ -263,11 +263,11 @@ s32 DMA::Run(s32 cycles)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][2] + NDS::ARM9MemTimings[CurDstAddr >> 12][2];
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2];
             }
             else
             {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 12][3] + NDS::ARM9MemTimings[CurDstAddr >> 12][3];
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][3] + NDS::ARM9MemTimings[CurDstAddr >> 14][3];
                 if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
                     unitcycles++;
                 else if ((CurSrcAddr >> 24) == 0x02)
@@ -275,7 +275,7 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
-                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 12][2] + NDS::ARM9MemTimings[CurDstAddr >> 12][2]);
+                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2]);
                     cycles += unitcycles;
                 }
             }
@@ -284,11 +284,11 @@ s32 DMA::Run(s32 cycles)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][2] + NDS::ARM7MemTimings[CurDstAddr >> 17][2];
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2];
             }
             else
             {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 17][3] + NDS::ARM7MemTimings[CurDstAddr >> 17][3];
+                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][3] + NDS::ARM7MemTimings[CurDstAddr >> 15][3];
                 if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
                     unitcycles++;
                 else if ((CurSrcAddr >> 24) == 0x02)
@@ -296,28 +296,28 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
-                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 17][2] + NDS::ARM7MemTimings[CurDstAddr >> 17][2]);
+                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2]);
                     cycles += unitcycles;
                 }
             }
         }
 
-        int (*readfn)(u32,u32*) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
-        int (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
+        u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
+        void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
-        while (IterCount > 0 && cycles > 0 && !Stall)
+        while (IterCount > 0 && !Stall)
         {
-            u32 val;
-            readfn(CurSrcAddr, &val);
-            writefn(CurDstAddr, val);
+            writefn(CurDstAddr, readfn(CurSrcAddr));
 
             cycles -= unitcycles;
-            NDS::RunTimingCriticalDevices(CPU, c);
+            NDS::RunTimingCriticalDevices(CPU, unitcycles);
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
             IterCount--;
             RemCount--;
+
+            if (cycles < 0) break;
         }
     }
 

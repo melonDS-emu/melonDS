@@ -22,6 +22,11 @@
 #include "ARM.h"
 
 
+// access timing for cached regions
+// this would be an average between cache hits and cache misses
+const int kDataCacheTiming = 2;
+const int kCodeCacheTiming = 1;
+
 
 void ARMv5::CP15Reset()
 {
@@ -211,6 +216,47 @@ void ARMv5::UpdatePURegions()
         codecache >>= 1;
         datacache >>= 1;
         datawrite >>= 1;
+
+        // TODO: this will not be enough if they change their PU regions after the intial setup
+        //UpdateRegionTimings(start<<12, end<<12);
+    }
+
+    UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+}
+
+void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
+{
+    addrstart >>= 12;
+    addrend   >>= 12;
+
+    if (addrend == 0xFFFFF) addrend++;
+
+    for (u32 i = addrstart; i < addrend; i++)
+    {
+        u8 pu = PU_Map[i];
+        u8* bustimings = NDS::ARM9MemTimings[i >> 2];
+
+        if (pu & 0x40)
+        {
+            MemTimings[i][0] = kCodeCacheTiming;
+        }
+        else
+        {
+            MemTimings[i][0] = bustimings[2] << ClockShift;
+        }
+
+        if (pu & 0x10)
+        {
+            MemTimings[i][1] = kDataCacheTiming;
+            MemTimings[i][2] = kDataCacheTiming;
+            MemTimings[i][3] = kDataCacheTiming;
+        }
+        else
+        {
+            MemTimings[i][1] = bustimings[0] << ClockShift;
+            MemTimings[i][2] = bustimings[2] << ClockShift;
+            MemTimings[i][3] = bustimings[3] << ClockShift;
+        }
     }
 }
 
@@ -460,280 +506,183 @@ u32 ARMv5::CP15Read(u32 id)
 
 u32 ARMv5::CodeRead32(u32 addr)
 {
-    u8 pu = PU_Map[addr>>12];
-
     if (addr < ITCMSize)
     {
-        CodeRegion = NDS::Region9_ITCM;
         return *(u32*)&ITCM[addr & 0x7FFF];
     }
 
-    u32 ret;
-    CodeRegion = NDS::ARM9Read32(addr, &ret);
-    if (pu & 0x40) CodeRegion = NDS::Region9_ICache;
-    return ret;
+    return NDS::ARM9Read32(addr);
 }
 
 
-bool ARMv5::DataRead8(u32 addr, u32* val, u32 flags)
+void ARMv5::DataRead8(u32 addr, u32* val)
 {
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x01))
-    {
-        DataAbort();
-        return false;
-    }*/
-
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u8*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    DataRegion = NDS::ARM9Read8(addr, val);
-    if (pu & 0x10)
-    {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
-    }
-    else
-    {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
-    }
-    return true;
+    *val = NDS::ARM9Read8(addr);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool ARMv5::DataRead16(u32 addr, u32* val, u32 flags)
+void ARMv5::DataRead16(u32 addr, u32* val)
 {
     addr &= ~1;
 
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x01))
-    {
-        DataAbort();
-        return false;
-    }*/
-
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u16*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    DataRegion = NDS::ARM9Read16(addr, val);
-    if (pu & 0x10)
-    {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
-    }
-    else
-    {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
-    }
-    return true;
+    *val = NDS::ARM9Read16(addr);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool ARMv5::DataRead32(u32 addr, u32* val, u32 flags)
+void ARMv5::DataRead32(u32 addr, u32* val)
 {
     addr &= ~3;
 
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x01))
-    {
-        DataAbort();
-        return false;
-    }*/
-
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u32*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *val = *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    DataRegion = NDS::ARM9Read32(addr, val);
-    if (pu & 0x10)
-    {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
-    }
-    else
-    {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
-    }
-    return true;
+    *val = NDS::ARM9Read32(addr);
+    DataCycles = MemTimings[addr >> 12][2];
 }
 
-bool ARMv5::DataWrite8(u32 addr, u8 val, u32 flags)
+void ARMv5::DataRead32S(u32 addr, u32* val)
 {
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x02))
-    {
-        DataAbort();
-        return false;
-    }*/
+    addr &= ~3;
 
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
-        *(u8*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        DataCycles += 1;
+        *val = *(u32*)&ITCM[addr & 0x7FFF];
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
-        *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        DataCycles += 1;
+        *val = *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF];
+        return;
     }
 
-    DataRegion = NDS::ARM9Write8(addr, val);
-    if (pu & 0x20)
-    {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
-    }
-    else
-    {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
-    }
-    return true;
+    *val = NDS::ARM9Read32(addr);
+    DataCycles += MemTimings[addr >> 12][3];
 }
 
-bool ARMv5::DataWrite16(u32 addr, u16 val, u32 flags)
+void ARMv5::DataWrite8(u32 addr, u8 val)
+{
+    if (addr < ITCMSize)
+    {
+        DataCycles = 1;
+        *(u8*)&ITCM[addr & 0x7FFF] = val;
+        return;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        DataCycles = 1;
+        *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return;
+    }
+
+    NDS::ARM9Write8(addr, val);
+    DataCycles = MemTimings[addr >> 12][1];
+}
+
+void ARMv5::DataWrite16(u32 addr, u16 val)
 {
     addr &= ~1;
 
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x02))
-    {
-        DataAbort();
-        return false;
-    }*/
-
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *(u16*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        return;
     }
 
-    DataRegion = NDS::ARM9Write16(addr, val);
-    if (pu & 0x20)
-    {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
-    }
-    else
-    {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
-    }
-    return true;
+    NDS::ARM9Write16(addr, val);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool ARMv5::DataWrite32(u32 addr, u32 val, u32 flags)
+void ARMv5::DataWrite32(u32 addr, u32 val)
 {
     addr &= ~3;
 
-    u8 pu = PU_Map[addr>>12];
-    /*if (!(pu & 0x02))
-    {
-        DataAbort();
-        return false;
-    }*/
-
     if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_ITCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        DataRegion = NDS::Region9_DTCM;
-        if (flags & RWFlags_Nonseq) DataCycles = 1;
-        else                        DataCycles += 1;
+        DataCycles = 1;
         *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        return;
     }
 
-    DataRegion = NDS::ARM9Write32(addr, val);
-    if (pu & 0x20)
+    NDS::ARM9Write32(addr, val);
+    DataCycles = MemTimings[addr >> 12][2];
+}
+
+void ARMv5::DataWrite32S(u32 addr, u32 val)
+{
+    addr &= ~3;
+
+    if (addr < ITCMSize)
     {
-        DataRegion = NDS::Region9_DCache;
-        if (flags & RWFlags_Nonseq) DataCycles = 2;
-        else                        DataCycles += 2;
+        DataCycles += 1;
+        *(u32*)&ITCM[addr & 0x7FFF] = val;
+        return;
     }
-    else
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
-        if (flags & RWFlags_Nonseq) DataCycles = NDS::ARM9MemTimings[DataRegion][0];
-        else                        DataCycles += NDS::ARM9MemTimings[DataRegion][1];
+        DataCycles += 1;
+        *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return;
     }
-    return true;
+
+    NDS::ARM9Write32(addr, val);
+    DataCycles += MemTimings[addr >> 12][3];
 }
 
 void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
 {
     if (addr < ITCMSize)
     {
-        region->Region = NDS::Region9_ITCM;
         region->Mem = ITCM;
         region->Mask = 0x7FFF;
         return;

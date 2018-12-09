@@ -136,17 +136,6 @@ void ARMv5::DoSavestate(Savestate* file)
 }
 
 
-void ARMv5::CalculateTimings()
-{
-    //
-}
-
-void ARMv4::CalculateTimings()
-{
-    //
-}
-
-
 void ARM::SetupCodeMem(u32 addr)
 {
     if (!Num)
@@ -181,8 +170,11 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         //printf("[%03d] IRQ handler thing. wait=%08X\n", GPU::VCount, dorp);
     }
 
-    u32 oldregion = R[15] >> 23;
-    u32 newregion = addr >> 23;
+    u32 oldregion = R[15] >> 24;
+    u32 newregion = addr >> 24;
+
+    if (addr < ITCMSize) CodeCycles = 1;
+    else                 CodeCycles = MemTimings[addr >> 12][0];
 
     s32 cycles;
 
@@ -199,13 +191,13 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         {
             NextInstr[0] = CodeRead32(addr-2) >> 16;
             NextInstr[1] = CodeRead32(addr+2);
-            cycles = NDS::ARM9MemTimings[CodeRegion][2] * 2;
+            cycles = CodeCycles * 2;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr);
             NextInstr[1] = NextInstr[0] >> 16;
-            cycles = NDS::ARM9MemTimings[CodeRegion][2];
+            cycles = CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -219,7 +211,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
-        cycles = NDS::ARM9MemTimings[CodeRegion][2] * 2;
+        cycles = CodeCycles * 2;
 
         CPSR &= ~0x20;
     }
@@ -250,6 +242,9 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
     u32 oldregion = R[15] >> 23;
     u32 newregion = addr >> 23;
 
+    CodeRegion = addr >> 24;
+    CodeCycles = addr >> 15; // cheato
+
     if (addr & 0x1)
     {
         addr &= ~0x1;
@@ -259,7 +254,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead16(addr);
         NextInstr[1] = CodeRead16(addr+2);
-        Cycles += NDS::ARM7MemTimings[CodeRegion][0] + NDS::ARM7MemTimings[CodeRegion][1];
+        Cycles += NDS::ARM7MemTimings[CodeCycles][0] + NDS::ARM7MemTimings[CodeCycles][1];
 
         CPSR |= 0x20;
     }
@@ -272,7 +267,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
-        Cycles += NDS::ARM7MemTimings[CodeRegion][2] + NDS::ARM7MemTimings[CodeRegion][3];
+        Cycles += NDS::ARM7MemTimings[CodeCycles][2] + NDS::ARM7MemTimings[CodeCycles][3];
 
         CPSR &= ~0x20;
     }
@@ -482,8 +477,8 @@ s32 ARMv5::Execute()
             R[15] += 2;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeRegion = NDS::Region9_MAX; }
-            else               NextInstr[1] = CodeRead32(R[15]);
+            if (R[15] & 0x2) NextInstr[1] >>= 16;
+            else             NextInstr[1] = CodeRead32(R[15]);
 
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;

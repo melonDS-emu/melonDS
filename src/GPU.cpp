@@ -813,7 +813,7 @@ void StartScanline(u32 line)
             GPU2D_A->VBlank();
             GPU2D_B->VBlank();
             GPU3D::VBlank();
-            printf("VBlank. PC=%08X\n", NDS::GetPC(0));
+            //printf("VBlank. PC=%08X\n", NDS::GetPC(0));
         }
         else if (VCount == 144)
         {

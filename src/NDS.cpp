@@ -56,7 +56,7 @@ namespace NDS
 //
 // timings for GBA slot and wifi are set up at runtime
 
-u8 ARM9MemTimings[0x100000][4];
+u8 ARM9MemTimings[0x40000][4];
 u8 ARM7MemTimings[0x20000][4];
 
 ARMv5* ARM9;
@@ -134,6 +134,8 @@ bool Running;
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
+void SetWifiWaitCnt(u16 val);
+void SetGBASlotTimings();
 
 
 bool Init()
@@ -185,10 +187,10 @@ void DeInit()
 
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 12;
-    addrend   >>= 12;
+    addrstart >>= 14;
+    addrend   >>= 14;
 
-    if (addrend == 0xFFFFF) addrend++;
+    if (addrend == 0x3FFFF) addrend++;
 
     int N16, S16, N32, S32;
     N16 = nonseq;
@@ -211,12 +213,14 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][2] = N32;
         ARM9MemTimings[i][3] = S32;
     }
+
+    ARM9->UpdateRegionTimings(addrstart<<14, addrend<<14);
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 17;
-    addrend   >>= 17;
+    addrstart >>= 15;
+    addrend   >>= 15;
 
     if (addrend == 0x1FFFF) addrend++;
 
@@ -400,6 +404,9 @@ void Reset()
         fclose(f);
     }
 
+    ARM9->SetClockShift(1);
+    ARM7->SetClockShift(0);
+
     InitTimings();
 
     memset(MainRAM, 0, MAIN_RAM_SIZE);
@@ -469,9 +476,6 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
-
-    ARM9->SetClockShift(1);
-    ARM7->SetClockShift(0);
 }
 
 void Stop()
@@ -1449,7 +1453,7 @@ u16 ARM9Read16(u32 addr)
     return 0;
 }
 
-int ARM9Read32(u32 addr, u32* val)
+u32 ARM9Read32(u32 addr)
 {
     if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
@@ -1739,7 +1743,7 @@ u16 ARM7Read16(u32 addr)
     return 0;
 }
 
-int ARM7Read32(u32 addr, u32* val)
+u32 ARM7Read32(u32 addr)
 {
     if (addr < 0x00004000)
     {
