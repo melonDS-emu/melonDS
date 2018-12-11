@@ -43,15 +43,6 @@ enum
     Event_SPU,
     Event_Wifi,
 
-    /*Event_TimerIRQ_0,
-    Event_TimerIRQ_1,
-    Event_TimerIRQ_2,
-    Event_TimerIRQ_3,
-    Event_TimerIRQ_4,
-    Event_TimerIRQ_5,
-    Event_TimerIRQ_6,
-    Event_TimerIRQ_7,*/
-
     Event_DisplayFIFO,
     Event_ROMTransfer,
     Event_ROMSPITransfer,

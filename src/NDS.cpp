@@ -608,6 +608,8 @@ bool DoSavestate(Savestate* file)
     file->VarArray(ROMSeed0, 2*8);
     file->VarArray(ROMSeed1, 2*8);
 
+    file->Var16(&WifiWaitCnt);
+
     file->VarArray(IME, 2*sizeof(u32));
     file->VarArray(IE, 2*sizeof(u32));
     file->VarArray(IF, 2*sizeof(u32));
@@ -644,7 +646,6 @@ bool DoSavestate(Savestate* file)
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
-    //file->VarArray(SchedList, sizeof(SchedList));
     if (!DoSavestate_Scheduler(file)) return false;
     file->Var32(&SchedListMask);
     file->Var32((u32*)&CurIterationCycles);
@@ -667,6 +668,18 @@ bool DoSavestate(Savestate* file)
         MapSharedWRAM(WRAMCnt);
     }
 
+    if (!file->Saving)
+    {
+        GPU::DisplaySwap(PowerControl9>>15);
+
+        InitTimings();
+        SetGBASlotTimings();
+
+        u16 tmp = WifiWaitCnt;
+        WifiWaitCnt = 0xFFFF;
+        SetWifiWaitCnt(tmp); // force timing table update
+    }
+
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
 
@@ -676,11 +689,6 @@ bool DoSavestate(Savestate* file)
     SPI::DoSavestate(file);
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
-
-    if (!file->Saving)
-    {
-        GPU::DisplaySwap(PowerControl9>>15);
-    }
 
     return true;
 }

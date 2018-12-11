@@ -66,14 +66,24 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     file->Var32(&DTCMSetting);
     file->Var32(&ITCMSetting);
 
+    file->VarArray(ITCM, 0x8000);
+    file->VarArray(DTCM, 0x4000);
+
+    file->Var32(&PU_CodeCacheable);
+    file->Var32(&PU_DataCacheable);
+    file->Var32(&PU_DataCacheWrite);
+
+    file->Var32(&PU_CodeRW);
+    file->Var32(&PU_DataRW);
+
+    file->VarArray(PU_Region, 8*sizeof(u32));
+
     if (!file->Saving)
     {
         UpdateDTCMSetting();
         UpdateITCMSetting();
+        UpdatePURegions();
     }
-
-    file->VarArray(ITCM, 0x8000);
-    file->VarArray(DTCM, 0x4000);
 }
 
 
@@ -225,6 +235,8 @@ void ARMv5::UpdatePURegions()
         //UpdateRegionTimings(start<<12, end<<12);
     }
 
+    // TODO: this is way unoptimized
+    // should be okay unless the game keeps changing shit, tho
     UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
 }
 

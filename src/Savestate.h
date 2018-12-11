@@ -22,8 +22,8 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 2
-#define SAVESTATE_MINOR 1
+#define SAVESTATE_MAJOR 3
+#define SAVESTATE_MINOR 0
 
 class Savestate
 {

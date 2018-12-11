@@ -126,7 +126,18 @@ void ARM::DoSavestate(Savestate* file)
     file->Var32(&ExceptionBase);
 
     if (!file->Saving)
-        SetupCodeMem(R[15]); // should fix it
+    {
+        if (!Num)
+        {
+            SetupCodeMem(R[15]); // should fix it
+            ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][0];
+        }
+        else
+        {
+            CodeRegion = R[15] >> 24;
+            CodeCycles = R[15] >> 15; // cheato
+        }
+    }
 }
 
 void ARMv5::DoSavestate(Savestate* file)
