@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "NDSCart.h"
 #include "ARM.h"
+#include "CRC32.h"
 
 #include "melon_fopen.h"
 
@@ -733,6 +734,7 @@ u32 DataOutLen;
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
+u32 CartCRC;
 u32 CartID;
 bool CartIsHomebrew;
 
@@ -1093,6 +1095,9 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     fclose(f);
     //CartROM = f;
+
+    CartCRC = CRC32(CartROM, CartROMSize);
+    printf("ROM CRC32: %08X\n", CartCRC);
 
     // generate a ROM ID
     // note: most games don't check the actual value

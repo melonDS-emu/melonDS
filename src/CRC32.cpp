@@ -18,6 +18,8 @@
 
 #include "CRC32.h"
 
+// http://www.codeproject.com/KB/recipes/crc32_large.aspx
+
 u32 crctable[256];
 bool tableinited = false;
 
@@ -35,7 +37,7 @@ u32 _reflect(u32 refl, char ch)
 	return value;
 }
 
-void inittable()
+void _inittable()
 {
 	u32 polynomial = 0x04C11DB7;
 
