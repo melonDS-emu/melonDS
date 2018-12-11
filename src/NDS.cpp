@@ -30,6 +30,7 @@
 #include "RTC.h"
 #include "Wifi.h"
 #include "Platform.h"
+#include "melon_fopen.h"
 
 
 namespace NDS
@@ -386,7 +387,7 @@ void Reset()
         dbg_CyclesTimer7 = 0;
 #endif // DEBUG_CHECK_DESYNC
 
-    f = Config::GetConfigFile("bios9.bin", "rb");
+    f = melon_fopen_local("bios9.bin", "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -403,7 +404,7 @@ void Reset()
         fclose(f);
     }
 
-    f = Config::GetConfigFile("bios7.bin", "rb");
+    f = melon_fopen_local("bios7.bin", "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");

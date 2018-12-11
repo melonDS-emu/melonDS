@@ -20,20 +20,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include "Config.h"
-#include <string>
-#ifdef _WIN32
-#define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
-#include <windows.h>
-//#include <knownfolders.h> // FUCK THAT SHIT
-extern "C" const GUID DECLSPEC_SELECTANY FOLDERID_RoamingAppData = {0x3eb685db, 0x65f9, 0x4cf6, {0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d}};
-#include <shlobj.h>
-#else
-#include <glib.h>
-#endif
+#include "melon_fopen.h"
 
+
+bool LocalFileExists(const char* name);
+extern char* EmuDirectory;
 
 namespace Config
 {
+
+const char* kConfigFile = "melonDS.ini";
 
 int KeyMapping[12];
 int JoyMapping[12];
@@ -114,72 +110,6 @@ ConfigEntry ConfigFile[] =
     {"", -1, NULL, 0, NULL, 0}
 };
 
-FILE* GetConfigFile(const char* fileName, const char* permissions)
-{
-    // Locations are application directory, and XDG_CONFIG_HOME/melonds or AppData/MelonDS on windows
-
-    FILE* f;
-
-    // First check application directory
-    f = fopen(fileName, permissions);
-    if (f) return f;
-#ifdef _WIN32
-    // Now check AppData
-    PWSTR appDataPath = NULL;
-    SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
-    if (!appDataPath)
-        return NULL;
-
-    const WCHAR* appdir = L"\\melonDS\\";
-
-    int fnlen = MultiByteToWideChar(CP_UTF8, 0, fileName, -1, NULL, 0);
-    if (fnlen < 1) return NULL;
-    WCHAR* wfileName = new WCHAR[fnlen];
-    int res = MultiByteToWideChar(CP_UTF8, 0, fileName, -1, wfileName, fnlen);
-    if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
-
-    int pos = wcslen(appDataPath);
-    void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
-    if (!ptr) { delete[] wfileName; return NULL; } // oh well
-    appDataPath = (PWSTR)ptr;
-
-    wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
-    wcscpy(&appDataPath[pos], wfileName);
-
-    // this will be more than enough
-    WCHAR fatperm[4];
-    fatperm[0] = permissions[0];
-    fatperm[1] = permissions[1];
-    fatperm[2] = permissions[2];
-    fatperm[3] = 0;
-
-    f = _wfopen(appDataPath, fatperm);
-    CoTaskMemFree(appDataPath);
-    delete[] wfileName;
-    if (f) return f;
-#else
-    // Now check XDG_CONFIG_HOME
-    // TODO: check for memory leak there
-    std::string path = std::string(g_get_user_config_dir()) + "/melonds/" + fileName;
-    f = fopen(path.c_str(), permissions);
-    if (f) return f;
-#endif
-
-    return NULL;
-
-}
-
-bool HasConfigFile(const char* fileName)
-{
-    FILE* f = GetConfigFile(fileName, "rb");
-    if (f)
-    {
-        fclose(f);
-        return true;
-    }
-    else
-        return false;
-}
 
 void Load()
 {
@@ -196,7 +126,7 @@ void Load()
         entry++;
     }
 
-    FILE* f = Config::GetConfigFile("melonDS.ini", "r");
+    FILE* f = melon_fopen_local(kConfigFile, "r");
     if (!f) return;
 
     char linebuf[1024];
@@ -232,8 +162,26 @@ void Load()
 
 void Save()
 {
-    FILE* f = Config::GetConfigFile("melonDS.ini", "w");
-    if (!f) return;
+    FILE* f;
+    if (LocalFileExists(kConfigFile))
+    {
+        f = melon_fopen_local(kConfigFile, "w");
+        if (!f) return;
+    }
+    else
+    {
+        int dirlen = strlen(EmuDirectory);
+        int filelen = strlen(kConfigFile);
+        char* path = new char[dirlen + 1 + filelen + 1];
+        strncpy(&path[0], EmuDirectory, dirlen);
+        path[dirlen] = '/';
+        strncpy(&path[dirlen+1], kConfigFile, filelen);
+        path[dirlen+1+filelen] = '\0';
+
+        f = melon_fopen(path, "w");
+        delete[] path;
+        if (!f) return;
+    }
 
     ConfigEntry* entry = &ConfigFile[0];
     for (;;)

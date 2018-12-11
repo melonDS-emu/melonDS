@@ -52,6 +52,9 @@ const int kScreenLayout[3] = {0, 1, 2};
 const int kScreenSizing[4] = {0, 1, 2, 3};
 
 
+char* EmuDirectory;
+
+
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
 
@@ -116,9 +119,17 @@ void GetSavestateName(int slot, char* filename, int len);
 
 
 
-bool FileExists(char* name)
+bool FileExists(const char* name)
 {
     FILE* f = melon_fopen(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+bool LocalFileExists(const char* name)
+{
+    FILE* f = melon_fopen_local(name, "rb");
     if (!f) return false;
     fclose(f);
     return true;
@@ -1308,6 +1319,19 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    {
+        int len = strlen(argv[0]);
+        while (len > 0)
+        {
+            if (argv[0][len] == '/') break;
+            if (argv[0][len] == '\\') break;
+            len--;
+        }
+        EmuDirectory = new char[len];
+        strncpy(EmuDirectory, argv[0], len);
+        EmuDirectory[len] = '\0';
+    }
+
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
@@ -1335,7 +1359,7 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    if (!Config::HasConfigFile("bios7.bin") || !Config::HasConfigFile("bios9.bin") || !Config::HasConfigFile("firmware.bin"))
+    if (!LocalFileExists("bios7.bin") || !LocalFileExists("bios9.bin") || !LocalFileExists("firmware.bin"))
     {
         uiMsgBoxError(
             NULL,
@@ -1618,6 +1642,7 @@ int main(int argc, char** argv)
 
     uiUninit();
     SDL_Quit();
+    delete[] EmuDirectory;
     return 0;
 }
 
@@ -1627,41 +1652,26 @@ int main(int argc, char** argv)
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
-    char cmdargs[16][256];
-    int arg = 1;
-    int j = 0;
-    bool inquote = false;
-    int len = strlen(cmdline);
-    for (int i = 0; i < len; i++)
+    int argc = 0;
+    wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
+    char* nullarg = "";
+
+    char** argv = new char*[argc];
+    for (int i = 0; i < argc; i++)
     {
-        char c = cmdline[i];
-        if (c == '\0') break;
-        if (c == '"') inquote = !inquote;
-        if (!inquote && c==' ')
-        {
-            if (j > 255) j = 255;
-            if (arg < 16) cmdargs[arg][j] = '\0';
-            arg++;
-            j = 0;
-        }
-        else
-        {
-            if (arg < 16 && j < 255) cmdargs[arg][j] = c;
-            j++;
-        }
+        int len = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, NULL, 0, NULL, NULL);
+        if (len < 1) return NULL;
+        argv[i] = new char[len];
+        int res = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, argv[i], len, NULL, NULL);
+        if (res != len) { delete[] argv[i]; argv[i] = nullarg; }
     }
-    if (j > 255) j = 255;
-    if (arg < 16) cmdargs[arg][j] = '\0';
-    if (len > 0) arg++;
 
-    // FIXME!!
-    strncpy(cmdargs[0], "melonDS.exe", 256);
+    int ret = main(argc, argv);
 
-    char* cmdargptr[16];
-    for (int i = 0; i < 16; i++)
-        cmdargptr[i] = &cmdargs[i][0];
+    for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
+    delete[] argv;
 
-    return main(arg, cmdargptr);
+    return ret;
 }
 
 #endif

@@ -22,6 +22,7 @@
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
+#include "melon_fopen.h"
 
 
 namespace SPI_Firmware
@@ -89,7 +90,7 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    FILE* f = Config::GetConfigFile("firmware.bin", "rb");
+    FILE* f = melon_fopen_local("firmware.bin", "rb");
     if (!f)
     {
         printf("firmware.bin not found\n");
@@ -129,7 +130,7 @@ void Reset()
 
     // take a backup
     char* firmbkp = "firmware.bin.bak";
-    f = Config::GetConfigFile(firmbkp, "rb");
+    f = melon_fopen_local(firmbkp, "rb");
     if (f) fclose(f);
     else
     {
@@ -324,7 +325,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Config::GetConfigFile("firmware.bin", "r+b");
+        FILE* f = melon_fopen_local("firmware.bin", "r+b");
         if (f)
         {
             u32 cutoff = 0x7FA00 & FirmwareMask;

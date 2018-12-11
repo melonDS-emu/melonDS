@@ -19,34 +19,9 @@
 #ifndef MELON_FOPEN_H
 #define MELON_FOPEN_H
 
-#ifdef __WIN32__
 
-#include <windows.h>
+FILE* melon_fopen(const char* filename, const char* perm);
+FILE* melon_fopen_local(const char* filename, const char* perm);
 
-static FILE* melon_fopen(const char* path, const char* mode)
-{
-    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-    if (len < 1) return NULL;
-    WCHAR* fatass = new WCHAR[len];
-    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, fatass, len);
-    if (res != len) { delete[] fatass; return NULL; } // checkme?
-
-    // this will be more than enough
-    WCHAR fatmode[4];
-    fatmode[0] = mode[0];
-    fatmode[1] = mode[1];
-    fatmode[2] = mode[2];
-    fatmode[3] = 0;
-
-    FILE* ret = _wfopen(fatass, fatmode);
-    delete[] fatass;
-    return ret;
-}
-
-#else
-
-#define melon_fopen fopen
-
-#endif
 
 #endif // MELON_FOPEN_H
