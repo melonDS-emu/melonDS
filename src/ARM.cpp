@@ -147,7 +147,7 @@ void ARM::SetupCodeMem(u32 addr)
         NDS::ARM7GetMemRegion(addr, false, &CodeMem);
     }
 }
-namespace GPU{extern u16 VCount;}
+
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -162,8 +162,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
     // R0=DMA# R1=src R2=size
-    if (addr==0x1FFD9E0) printf("[%03d] FMVdec\n", GPU::VCount);
-    if (R[15]==0x1FFDF40) printf("[%03d] FMVdec FINISHED\n", GPU::VCount);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -438,7 +436,7 @@ void ARMv5::DataAbort()
     R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
     JumpTo(ExceptionBase + 0x10);
 }
-extern u64 arm9total, arm7total, arm9timer, arm7timer;
+
 s32 ARMv5::Execute()
 {
     if (Halted)
@@ -451,12 +449,14 @@ s32 ARMv5::Execute()
         {
             Halted = 0;
             if (NDS::IME[0] & 0x1)
-                TriggerIRQ(); //!! potential drift
+                TriggerIRQ();
         }
         else
         {
             Cycles = CyclesToRun;
-            arm9total+=(CyclesToRun>>1);//arm9timer+=(CyclesToRun>>1);
+#ifdef DEBUG_CHECK_DESYNC
+            NDS::dbg_CyclesARM9 += (CyclesToRun >> ClockShift);
+#endif // DEBUG_CHECK_DESYNC
             //NDS::RunTightTimers(0, CyclesToRun >> ClockShift);
             return Cycles;
         }
@@ -511,7 +511,7 @@ s32 ARMv5::Execute()
         {
             if (Halted == 1 && Cycles < CyclesToRun)
             {
-                s32 diff = CyclesToRun - Cycles;
+                //s32 diff = CyclesToRun - Cycles;
                 Cycles = CyclesToRun;
                 //NDS::RunTightTimers(0, diff >> ClockShift);
                 //arm9timer += (diff>>1);
@@ -528,13 +528,15 @@ s32 ARMv5::Execute()
     if (Halted == 2)
         Halted = 0;
 
-    if (Cycles > lastcycles)
+    /*if (Cycles > lastcycles)
     {
         //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
         //NDS::RunTightTimers(0, diff >> ClockShift);
-    }
+    }*/
+#ifdef DEBUG_CHECK_DESYNC
+    NDS::dbg_CyclesARM9 += (Cycles >> ClockShift);
+#endif // DEBUG_CHECK_DESYNC
 
-arm9total+=(Cycles>>1);
     return Cycles;
 }
 
@@ -555,8 +557,10 @@ s32 ARMv4::Execute()
         else
         {
             Cycles = CyclesToRun;
+#ifdef DEBUG_CHECK_DESYNC
+            NDS::dbg_CyclesARM7 += CyclesToRun;
+#endif // DEBUG_CHECK_DESYNC
             //NDS::RunTightTimers(1, CyclesToRun);
-            arm7total+=CyclesToRun; //arm7timer+=CyclesToRun;
             return Cycles;
         }
     }
@@ -605,7 +609,7 @@ s32 ARMv4::Execute()
         {
             if (Halted == 1 && Cycles < CyclesToRun)
             {
-                s32 diff = CyclesToRun - Cycles;
+                //s32 diff = CyclesToRun - Cycles;
                 Cycles = CyclesToRun;
                 //NDS::RunTightTimers(1, diff);
                 //arm7timer += diff;
@@ -622,12 +626,15 @@ s32 ARMv4::Execute()
     if (Halted == 2)
         Halted = 0;
 
-    if (Cycles > lastcycles)
+    /*if (Cycles > lastcycles)
     {
         //s32 diff = Cycles - lastcycles;arm7timer+=(diff);
         //NDS::RunTightTimers(1, diff);
-    }
+    }*/
 
-arm7total+=Cycles;
+#ifdef DEBUG_CHECK_DESYNC
+    NDS::dbg_CyclesARM7 += Cycles;
+#endif // DEBUG_CHECK_DESYNC
+
     return Cycles;
 }

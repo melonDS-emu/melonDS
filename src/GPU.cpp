@@ -653,12 +653,12 @@ void MapVRAM_I(u32 bank, u8 cnt)
 void DisplaySwap(u32 val)
 {
     if (val)
-    {printf("main GPU on top screen\n");
+    {
         GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
         GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
     }
     else
-    {printf("main GPU on bottom screen\n");
+    {
         GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
         GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
     }
@@ -813,7 +813,6 @@ void StartScanline(u32 line)
             GPU2D_A->VBlank();
             GPU2D_B->VBlank();
             GPU3D::VBlank();
-            //printf("VBlank. PC=%08X\n", NDS::GetPC(0));
         }
         else if (VCount == 144)
         {

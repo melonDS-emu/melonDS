@@ -170,8 +170,8 @@ void DMA::Start()
 
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
-if(CPU==0&&StartMode!=7&&false)
-    printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
+
+    //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
     IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
@@ -185,12 +185,16 @@ if(CPU==0&&StartMode!=7&&false)
     InProgress = true;
     NDS::StopCPU(CPU, 1<<Num);
 }
-extern u64 arm9total, arm7total;
+
 s32 DMA::Run(s32 cycles)
 {
     if (!Running)
         return cycles;
-s32 startc = cycles;
+
+#ifdef DEBUG_CHECK_DESYNC
+    s32 startc = cycles;
+#endif // DEBUG_CHECK_DESYNC
+
     Executing = true;
 
     // add NS penalty for first accesses in burst
@@ -257,7 +261,7 @@ s32 startc = cycles;
             cycles -= unitcycles;
 
             NDS::RunTightTimers(CPU, lastcycles-cycles);
-//if(CPU){arm7timer+=(lastcycles-cycles);}else{arm9timer+=(lastcycles-cycles);}
+
             lastcycles = cycles;
 
             writefn(CurDstAddr, readfn(CurSrcAddr));
@@ -325,7 +329,7 @@ s32 startc = cycles;
             cycles -= unitcycles;
 
             NDS::RunTightTimers(CPU, lastcycles-cycles);
-//if(CPU){arm7timer+=(lastcycles-cycles);}else{arm9timer+=(lastcycles-cycles);}
+
             lastcycles = cycles;
 
             writefn(CurDstAddr, readfn(CurSrcAddr));
@@ -341,7 +345,7 @@ s32 startc = cycles;
 
     Executing = false;
     Stall = false;
-//if (CPU) printf("ran DMA for %d cycles (asked %d)\n", startc-cycles, startc);
+
     if (RemCount)
     {
         if (IterCount == 0)
@@ -352,7 +356,12 @@ s32 startc = cycles;
             if (StartMode == 0x07)
                 GPU3D::CheckFIFODMA();
         }
-if(CPU){arm7total+=(startc-cycles);}else{arm9total+=(startc-cycles);}
+
+#ifdef DEBUG_CHECK_DESYNC
+        if (CPU) NDS::dbg_CyclesARM7 += (startc-cycles);
+        else     NDS::dbg_CyclesARM9 += (startc-cycles);
+#endif // DEBUG_CHECK_DESYNC
+
         return cycles;
     }
 
@@ -365,6 +374,11 @@ if(CPU){arm7total+=(startc-cycles);}else{arm9total+=(startc-cycles);}
     Running = 0;
     InProgress = false;
     NDS::ResumeCPU(CPU, 1<<Num);
-if(CPU){arm7total+=(startc-(cycles));}else{arm9total+=(startc-(cycles));}
+
+#ifdef DEBUG_CHECK_DESYNC
+    if (CPU) NDS::dbg_CyclesARM7 += (startc-cycles);
+    else     NDS::dbg_CyclesARM9 += (startc-cycles);
+#endif // DEBUG_CHECK_DESYNC
+
     return cycles;
 }

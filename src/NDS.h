@@ -22,8 +22,20 @@
 #include "Savestate.h"
 #include "types.h"
 
+// when touching the main loop/timing code, pls test a lot of shit
+// with this enabled, to make sure it doesn't desync
+//#define DEBUG_CHECK_DESYNC
+
 namespace NDS
 {
+
+#ifdef DEBUG_CHECK_DESYNC
+extern u64 dbg_CyclesSys;
+extern u64 dbg_CyclesARM9;
+extern u64 dbg_CyclesTimer9;
+extern u64 dbg_CyclesARM7;
+extern u64 dbg_CyclesTimer7;
+#endif
 
 enum
 {
