@@ -113,6 +113,8 @@
 		<Unit filename="src/ARMInterpreter_LoadStore.h" />
 		<Unit filename="src/ARM_InstrTable.h" />
 		<Unit filename="src/CP15.cpp" />
+		<Unit filename="src/CRC32.cpp" />
+		<Unit filename="src/CRC32.h" />
 		<Unit filename="src/Config.cpp" />
 		<Unit filename="src/Config.h" />
 		<Unit filename="src/DMA.cpp" />

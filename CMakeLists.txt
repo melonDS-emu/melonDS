@@ -17,6 +17,7 @@ SET(SOURCES
 	src/ARMInterpreter_LoadStore.cpp
 	src/Config.cpp
 	src/CP15.cpp
+	src/CRC32.cpp
 	src/DMA.cpp
 	src/GPU.cpp
 	src/GPU2D.cpp
