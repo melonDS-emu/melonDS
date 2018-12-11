@@ -132,7 +132,7 @@ FILE* melon_fopen_local(const char* fileName, const char* permissions)
 
 FILE* melon_fopen(const char* filename, const char* perm) { return fopen(filename, perm); }
 
-FILE* GetConfigFile(const char* fileName, const char* permissions)
+FILE* melon_fopen_local(const char* fileName, const char* permissions)
 {
     // Locations are application directory, and XDG_CONFIG_HOME/melonds
 
