@@ -28,7 +28,7 @@
 // a value of 1 would represent a perfect cache, but that causes
 // games to run too fast, causing a number of issues
 const int kDataCacheTiming = 2;
-const int kCodeCacheTiming = 1;
+const int kCodeCacheTiming = 2;
 
 
 void ARMv5::CP15Reset()
@@ -686,12 +686,12 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
 
 void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
 {
-    if (addr < ITCMSize)
+    /*if (addr < ITCMSize)
     {
         region->Mem = ITCM;
         region->Mask = 0x7FFF;
         return;
-    }
+    }*/
 
     NDS::ARM9GetMemRegion(addr, false, &CodeMem);
 }
