@@ -1064,6 +1064,63 @@ void ApplyDLDIPatch()
 }
 
 
+bool ReadROMParams(u32* params)
+{
+    // format for romlist.bin:
+    // [CRC32] [ROM size] [save type] [reserved]
+    // list must be sorted by CRC
+
+    FILE* f = fopen("romlist.bin", "rb");
+    if (!f) return false;
+
+    fseek(f, 0, SEEK_END);
+    u32 len = (u32)ftell(f);
+    u32 maxlen = len;
+    len >>= 4; // 16 bytes per entry
+
+    u32 offset = 0;
+    u32 chk_size = len >> 1;
+    for (;;)
+    {
+        u32 crc = 0;
+        fseek(f, offset + (chk_size << 4), SEEK_SET);
+        fread(&crc, 4, 1, f);
+
+        printf("chk_size=%d, crc=%08X, wanted=%08X, offset=%08X\n", chk_size, crc, CartCRC, offset);
+
+        if (crc == CartCRC)
+        {
+            fread(params, 4, 3, f);
+            fclose(f);
+            return true;
+        }
+        else
+        {
+            if (crc < CartCRC)
+            {
+                if (chk_size == 0)
+                    offset += 0x10;
+                else
+                    offset += (chk_size << 4);
+            }
+            else if (chk_size == 0)
+            {
+                fclose(f);
+                return false;
+            }
+
+            chk_size >>= 1;
+        }
+
+        if (offset >= maxlen)
+        {
+            fclose(f);
+            return false;
+        }
+    }
+}
+
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
@@ -1098,6 +1155,15 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     CartCRC = CRC32(CartROM, CartROMSize);
     printf("ROM CRC32: %08X\n", CartCRC);
+
+    u32 romparams[3];
+    if (!ReadROMParams(romparams))
+    {
+        // set defaults
+        printf("ROM entry not found\n");
+    }
+    else
+        printf("ROM entry: %08X %08X %08X\n", romparams[0], romparams[1], romparams[2]);
 
     // generate a ROM ID
     // note: most games don't check the actual value
