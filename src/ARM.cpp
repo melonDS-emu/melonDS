@@ -144,7 +144,10 @@ void ARM::SetupCodeMem(u32 addr)
     }
     else
     {
-        NDS::ARM7GetMemRegion(addr, false, &CodeMem);
+        // not sure it's worth it for the ARM7
+        // esp. as everything there generally runs on WRAM
+        // and due to how it's mapped, we can't use this optimization
+        //NDS::ARM7GetMemRegion(addr, false, &CodeMem);
     }
 }
 
@@ -176,7 +179,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x1;
         R[15] = addr+2;
 
-        //if (newregion != oldregion) SetupCodeMem(addr);
+        if (newregion != oldregion) SetupCodeMem(addr);
 
         // two-opcodes-at-once fetch
         // doesn't matter if we put garbage in the MSbs there
@@ -200,7 +203,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         addr &= ~0x3;
         R[15] = addr+4;
 
-        //if (newregion != oldregion) SetupCodeMem(addr);
+        if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);

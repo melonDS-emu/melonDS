@@ -514,6 +514,8 @@ u32 ARMv5::CodeRead32(u32 addr)
         return *(u32*)&ITCM[addr & 0x7FFF];
     }
 
+    if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
+
     return NDS::ARM9Read32(addr);
 }
 
