@@ -185,31 +185,7 @@ int EmuThreadFunc(void* burp)
 
     ScreenDrawInited = false;
     Touching = false;
-
-    SDL_AudioSpec whatIwant, whatIget;
-    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 47340;
-    whatIwant.format = AUDIO_S16LSB;
-    whatIwant.channels = 2;
-    whatIwant.samples = 1024;
-    whatIwant.callback = AudioCallback;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
-    if (!audio)
-    {
-        printf("Audio init failed: %s\n", SDL_GetError());
-    }
-    else
-    {
-        SDL_PauseAudioDevice(audio, 0);
-    }
-
     KeyInputMask = 0xFFF;
-
-    // TODO: support more joysticks
-    if (SDL_NumJoysticks() > 0)
-        Joystick = SDL_JoystickOpen(0);
-    else
-        Joystick = NULL;
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -364,10 +340,6 @@ int EmuThreadFunc(void* burp)
     }
 
     EmuStatus = 0;
-
-    if (Joystick) SDL_JoystickClose(Joystick);
-
-    if (audio) SDL_CloseAudioDevice(audio);
 
     NDS::DeInit();
 
@@ -1581,6 +1553,29 @@ int main(int argc, char** argv)
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 47340;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 1024;
+    whatIwant.callback = AudioCallback;
+    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!audio)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(audio, 0);
+    }
+
+    // TODO: support more joysticks
+    if (SDL_NumJoysticks() > 0)
+        Joystick = SDL_JoystickOpen(0);
+    else
+        Joystick = NULL;
+
     EmuRunning = 2;
     RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
@@ -1608,6 +1603,9 @@ int main(int argc, char** argv)
 
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
+
+    if (Joystick) SDL_JoystickClose(Joystick);
+    if (audio) SDL_CloseAudioDevice(audio);
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;
