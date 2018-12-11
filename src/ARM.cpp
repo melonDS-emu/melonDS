@@ -169,8 +169,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
 
-    if (addr < ITCMSize) CodeCycles = 1;
-    else                 CodeCycles = MemTimings[addr >> 12][0];
+    RegionCodeCycles = MemTimings[addr >> 12][0];
 
     s32 cycles;
 
@@ -476,7 +475,7 @@ s32 ARMv5::Execute()
             R[15] += 2;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            if (R[15] & 0x2) NextInstr[1] >>= 16;
+            if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
             else             NextInstr[1] = CodeRead32(R[15]);
 
             // actually execute

@@ -27,8 +27,9 @@
 // this was measured to be close to hardware average
 // a value of 1 would represent a perfect cache, but that causes
 // games to run too fast, causing a number of issues
+// code cache timing can get as low as 3
 const int kDataCacheTiming = 2;
-const int kCodeCacheTiming = 2;
+const int kCodeCacheTiming = 5;
 
 
 void ARMv5::CP15Reset()
@@ -241,7 +242,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 
         if (pu & 0x40)
         {
-            MemTimings[i][0] = kCodeCacheTiming;
+            MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
         }
         else
         {
@@ -252,7 +253,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         {
             MemTimings[i][1] = kDataCacheTiming;
             MemTimings[i][2] = kDataCacheTiming;
-            MemTimings[i][3] = kDataCacheTiming;
+            MemTimings[i][3] = 1;
         }
         else
         {
@@ -511,7 +512,16 @@ u32 ARMv5::CodeRead32(u32 addr)
 {
     if (addr < ITCMSize)
     {
+        CodeCycles = 1;
         return *(u32*)&ITCM[addr & 0x7FFF];
+    }
+
+    CodeCycles = RegionCodeCycles;
+    if (CodeCycles == 0xFF)
+    {
+        // sort of code cache hit/miss average
+        if (!(addr & 0x1F)) CodeCycles = kCodeCacheTiming;
+        else                CodeCycles = 1;
     }
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];

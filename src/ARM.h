@@ -263,6 +263,8 @@ public:
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];
+
+    s32 RegionCodeCycles;
 };
 
 class ARMv4 : public ARM
