@@ -806,7 +806,7 @@ bool ReadROMParams(u32* params)
     // [CRC32] [ROM size] [save type] [reserved]
     // list must be sorted by CRC
 
-    FILE* f = fopen("romlist.bin", "rb");
+    FILE* f = melon_fopen_local("romlist.bin", "rb");
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);
