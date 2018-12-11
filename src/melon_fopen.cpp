@@ -151,7 +151,7 @@ FILE* melon_fopen_local(const char* fileName, const char* permissions)
             int len = dirlen + 1 + filelen + 1;
             char* tmp = new char[len];
             strncpy(&tmp[0], EmuDirectory, dirlen);
-            tmp[dirlen] = '\\';
+            tmp[dirlen] = '/';
             strncpy(&tmp[dirlen+1], fileName, filelen);
             tmp[dirlen+1+filelen] = '\0';
 
