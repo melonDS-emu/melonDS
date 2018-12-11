@@ -164,11 +164,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // R0=DMA# R1=src R2=size
     if (addr==0x1FFD9E0) printf("[%03d] FMVdec\n", GPU::VCount);
     if (R[15]==0x1FFDF40) printf("[%03d] FMVdec FINISHED\n", GPU::VCount);
-    if (addr==0x202585C)
-    {
-        //u32 dorp; NDS::ARM9Read32(0x20630DC, &dorp);
-        //printf("[%03d] IRQ handler thing. wait=%08X\n", GPU::VCount, dorp);
-    }
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -443,7 +438,7 @@ void ARMv5::DataAbort()
     R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
     JumpTo(ExceptionBase + 0x10);
 }
-
+extern u64 arm9total, arm7total, arm9timer, arm7timer;
 s32 ARMv5::Execute()
 {
     if (Halted)
@@ -456,12 +451,13 @@ s32 ARMv5::Execute()
         {
             Halted = 0;
             if (NDS::IME[0] & 0x1)
-                TriggerIRQ();
+                TriggerIRQ(); //!! potential drift
         }
         else
         {
             Cycles = CyclesToRun;
-            //NDS::RunTimingCriticalDevices(0, CyclesToRun >> ClockShift);
+            arm9total+=(CyclesToRun>>1);//arm9timer+=(CyclesToRun>>1);
+            //NDS::RunTightTimers(0, CyclesToRun >> ClockShift);
             return Cycles;
         }
     }
@@ -506,15 +502,20 @@ s32 ARMv5::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;
-        //NDS::RunTimingCriticalDevices(0, diff >> ClockShift);
+        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
+        //NDS::RunTightTimers(0, diff >> ClockShift);
         //lastcycles = Cycles - (diff & ClockDiffMask);
 
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1)
+            if (Halted == 1 && Cycles < CyclesToRun)
+            {
+                s32 diff = CyclesToRun - Cycles;
                 Cycles = CyclesToRun;
+                //NDS::RunTightTimers(0, diff >> ClockShift);
+                //arm9timer += (diff>>1);
+            }
             break;
         }
         if (NDS::IF[0] & NDS::IE[0])
@@ -527,6 +528,13 @@ s32 ARMv5::Execute()
     if (Halted == 2)
         Halted = 0;
 
+    if (Cycles > lastcycles)
+    {
+        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
+        //NDS::RunTightTimers(0, diff >> ClockShift);
+    }
+
+arm9total+=(Cycles>>1);
     return Cycles;
 }
 
@@ -547,7 +555,8 @@ s32 ARMv4::Execute()
         else
         {
             Cycles = CyclesToRun;
-            NDS::RunTimingCriticalDevices(1, CyclesToRun);
+            //NDS::RunTightTimers(1, CyclesToRun);
+            arm7total+=CyclesToRun; //arm7timer+=CyclesToRun;
             return Cycles;
         }
     }
@@ -587,15 +596,20 @@ s32 ARMv4::Execute()
                 AddCycles_C();
         }
 
-        s32 diff = Cycles - lastcycles;
-        NDS::RunTimingCriticalDevices(1, diff);
-        lastcycles = Cycles;
+        //s32 diff = Cycles - lastcycles;arm7timer+=diff;
+        //NDS::RunTightTimers(1, diff);
+        //lastcycles = Cycles;
 
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1)
+            if (Halted == 1 && Cycles < CyclesToRun)
+            {
+                s32 diff = CyclesToRun - Cycles;
                 Cycles = CyclesToRun;
+                //NDS::RunTightTimers(1, diff);
+                //arm7timer += diff;
+            }
             break;
         }
         if (NDS::IF[1] & NDS::IE[1])
@@ -608,5 +622,12 @@ s32 ARMv4::Execute()
     if (Halted == 2)
         Halted = 0;
 
+    if (Cycles > lastcycles)
+    {
+        //s32 diff = Cycles - lastcycles;arm7timer+=(diff);
+        //NDS::RunTightTimers(1, diff);
+    }
+
+arm7total+=Cycles;
     return Cycles;
 }

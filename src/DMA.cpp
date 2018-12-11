@@ -100,7 +100,7 @@ void DMA::DoSavestate(Savestate* file)
     file->Var32(&SrcAddrInc);
     file->Var32(&DstAddrInc);
 
-    file->Var32((u32*)&Running);
+    file->Var32(&Running);
     file->Var32((u32*)&InProgress);
     file->Var32((u32*)&IsGXFIFODMA);
 }
@@ -170,36 +170,45 @@ void DMA::Start()
 
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
-
-    //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
+if(CPU==0&&StartMode!=7&&false)
+    printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
     IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
     // TODO eventually: not stop if we're running code in ITCM
 
-    Running = true;
+    if (NDS::DMAsRunning(CPU))
+        Running = 1;
+    else
+        Running = 2;
+
     InProgress = true;
     NDS::StopCPU(CPU, 1<<Num);
 }
-
+extern u64 arm9total, arm7total;
 s32 DMA::Run(s32 cycles)
 {
     if (!Running)
         return cycles;
-
+s32 startc = cycles;
     Executing = true;
 
     // add NS penalty for first accesses in burst
-    bool burststart;
-    if (StartMode == 0x07 && RemCount > 112)
-        burststart = (IterCount == 112);
-    else
-        burststart = (IterCount == RemCount);
+    // note: this seems to only apply when starting DMA 'in the void'
+    // for example, the aging cart DMA PRIORITY test:
+    // starts a big DMA immediately, and a small DMA upon HBlank
+    // each pulling from a timer incrementing once per cycle
+    // it expects that the values be increasing linearly (2c/unit)
+    // even as the small DMA starts and ends
+    bool burststart = (Running == 2);
+    Running = 1;
+
+    s32 unitcycles;
+    s32 lastcycles = cycles;
 
     if (!(Cnt & 0x04000000))
     {
-        int unitcycles;
-        if (Num == 0)
+        if (CPU == 0)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
@@ -213,6 +222,7 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
+                    cycles -= 2;
                     cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0]);
                     cycles += unitcycles;
                 }
@@ -232,6 +242,7 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
+                    cycles -= 2;
                     cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0]);
                     cycles += unitcycles;
                 }
@@ -243,21 +254,25 @@ s32 DMA::Run(s32 cycles)
 
         while (IterCount > 0 && !Stall)
         {
+            cycles -= unitcycles;
+
+            NDS::RunTightTimers(CPU, lastcycles-cycles);
+//if(CPU){arm7timer+=(lastcycles-cycles);}else{arm9timer+=(lastcycles-cycles);}
+            lastcycles = cycles;
+
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
-            cycles -= unitcycles;
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
             IterCount--;
             RemCount--;
 
-            if (cycles < 0) break;
+            if (cycles <= 0) break;
         }
     }
     else
     {
-        int unitcycles;
-        if (Num == 0)
+        if (CPU == 0)
         {
             if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
             {
@@ -273,6 +288,7 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
+                    cycles -= 2;
                     cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2]);
                     cycles += unitcycles;
                 }
@@ -294,6 +310,7 @@ s32 DMA::Run(s32 cycles)
 
                 if (burststart)
                 {
+                    cycles -= 2;
                     cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2]);
                     cycles += unitcycles;
                 }
@@ -305,32 +322,37 @@ s32 DMA::Run(s32 cycles)
 
         while (IterCount > 0 && !Stall)
         {
+            cycles -= unitcycles;
+
+            NDS::RunTightTimers(CPU, lastcycles-cycles);
+//if(CPU){arm7timer+=(lastcycles-cycles);}else{arm9timer+=(lastcycles-cycles);}
+            lastcycles = cycles;
+
             writefn(CurDstAddr, readfn(CurSrcAddr));
 
-            cycles -= unitcycles;
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
             IterCount--;
             RemCount--;
 
-            if (cycles < 0) break;
+            if (cycles <= 0) break;
         }
     }
 
     Executing = false;
     Stall = false;
-
+//if (CPU) printf("ran DMA for %d cycles (asked %d)\n", startc-cycles, startc);
     if (RemCount)
     {
         if (IterCount == 0)
         {
-            Running = false;
+            Running = 0;
             NDS::ResumeCPU(CPU, 1<<Num);
 
             if (StartMode == 0x07)
                 GPU3D::CheckFIFODMA();
         }
-
+if(CPU){arm7total+=(startc-cycles);}else{arm9total+=(startc-cycles);}
         return cycles;
     }
 
@@ -340,9 +362,9 @@ s32 DMA::Run(s32 cycles)
     if (Cnt & 0x40000000)
         NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
 
-    Running = false;
+    Running = 0;
     InProgress = false;
     NDS::ResumeCPU(CPU, 1<<Num);
-
-    return cycles - 2;
+if(CPU){arm7total+=(startc-(cycles));}else{arm9total+=(startc-(cycles));}
+    return cycles;
 }

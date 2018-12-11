@@ -31,7 +31,7 @@
 #include "Wifi.h"
 #include "Platform.h"
 
-
+u64 arm9total=0, arm7total=0, arm9timer=0, arm7timer=0, systotal=0;
 namespace NDS
 {
 
@@ -736,99 +736,72 @@ u32 RunFrame()
     {
         // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
         CalcIterationCycles();
-
+        s32 arm9cycles;
+u64 kiki = arm9total;
         if (CPUStop & 0x80000000)
         {
             // GXFIFO stall
             // we just run the GPU and the timers.
             // the rest of the hardware is driven by the event scheduler.
 
-            s32 cycles = GPU3D::CyclesToRunFor();
-            GPU3D::Run(cycles);
-
-            u32 timermask = TimerCheckMask[0];
-            if (timermask & 0x1) RunTimer(0, cycles);
-            if (timermask & 0x2) RunTimer(1, cycles);
-            if (timermask & 0x4) RunTimer(2, cycles);
-            if (timermask & 0x8) RunTimer(3, cycles);
-
-            // run ARM7 and system peripherals, step by step
-            // as to give the finer-grained ones a chance to reschedule properly
-            // in case we end up running a large chunk of GXFIFO commands
-            s32 ndscyclesran = 0;
-            s32 ndscyclestorun;
-            for (;;)
-            {
-                ndscyclestorun = std::min(CurIterationCycles, cycles);
-
-                if (CPUStop & 0x0FFF0000)
-                {
-                    s32 cycles = ndscyclestorun - ARM7Offset;
-                    s32 critcycles = cycles;
-                    cycles = DMAs[4]->Run(cycles);
-                    if (cycles > 0) cycles = DMAs[5]->Run(cycles);
-                    if (cycles > 0) cycles = DMAs[6]->Run(cycles);
-                    if (cycles > 0) cycles = DMAs[7]->Run(cycles);
-                    ARM7Offset = -cycles;
-                    RunTimingCriticalDevices(1, critcycles);
-                }
-                else
-                {
-                    ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
-                    CurCPU = 2; ARM7->Execute(); CurCPU = 0;
-                    ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
-                }
-
-                RunSystem(ndscyclestorun);
-
-                ndscyclesran += ndscyclestorun;
-                if (ndscyclesran >= cycles) break;
-                CalcIterationCycles();
-            }
+            arm9cycles = GPU3D::CyclesToRunFor();
+            arm9cycles = std::min(CurIterationCycles, arm9cycles);
+            RunTightTimers(0, arm9cycles); arm9total+=arm9cycles;//arm9timer += arm9cycles;
+        }
+        else if (CPUStop & 0x0FFF)
+        {
+            s32 cycles = CurIterationCycles;
+            cycles = DMAs[0]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[1]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[2]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[3]->Run(cycles);
+            //printf("DMAs been running for %d cycles, %d, asked for %d\n", CurIterationCycles-cycles, (u32)(arm9total-kiki), CurIterationCycles);
+            arm9cycles = CurIterationCycles - cycles;
         }
         else
         {
-            s32 ndscyclestorun;
-
-            if (CPUStop & 0x0FFF)
-            {
-                s32 cycles = CurIterationCycles;
-                cycles = DMAs[0]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[1]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[2]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[3]->Run(cycles);
-                ndscyclestorun = CurIterationCycles - cycles;
-            }
-            else
-            {
-                ARM9->CyclesToRun = CurIterationCycles << 1;
-                CurCPU = 1; ARM9->Execute(); CurCPU = 0;
-                ndscyclestorun = ARM9->Cycles >> 1;
-            }
-
-            RunTimingCriticalDevices(0, ndscyclestorun);
-
-            if (CPUStop & 0x0FFF0000)
-            {
-                s32 cycles = ndscyclestorun - ARM7Offset;
-                s32 critcycles = cycles;
-                cycles = DMAs[4]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[5]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[6]->Run(cycles);
-                if (cycles > 0) cycles = DMAs[7]->Run(cycles);
-                ARM7Offset = -cycles;
-                RunTimingCriticalDevices(1, critcycles);
-            }
-            else
-            {
-                ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
-                CurCPU = 2; ARM7->Execute(); CurCPU = 0;
-                ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
-            }
-
-            RunSystem(ndscyclestorun);
+            ARM9->CyclesToRun = CurIterationCycles << 1;
+            CurCPU = 1; ARM9->Execute(); CurCPU = 0;
+            arm9cycles = ARM9->Cycles >> 1;
+            RunTightTimers(0, arm9cycles); //arm9timer += arm9cycles;
         }
+//arm9total += arm9cycles;
+        RunLooseTimers(0, arm9cycles);
+        GPU3D::Run(arm9cycles);
+
+        s32 ndscyclestorun = arm9cycles;
+s32 zarp;
+        // ARM7Offset > ndscyclestorun means we are too far ahead of the ARM9
+        if (ARM7Offset > ndscyclestorun)
+        {
+            ARM7Offset -= ndscyclestorun;
+        }
+        else
+        if (CPUStop & 0x0FFF0000)
+        {
+            s32 cycles = ndscyclestorun - ARM7Offset; zarp=cycles;
+            cycles = DMAs[4]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[5]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[6]->Run(cycles);
+            if (cycles > 0) cycles = DMAs[7]->Run(cycles);
+            ARM7Offset = -cycles;
+            printf("ARM7 DMA: cyclestorun=%d, req=%d, offset=%d\n", ndscyclestorun, zarp, ARM7Offset);
+        }
+        else
+        {
+            ARM7->CyclesToRun = ndscyclestorun - ARM7Offset; zarp=ARM7->CyclesToRun;
+            CurCPU = 2; ARM7->Execute(); CurCPU = 0;
+            ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
+            RunTightTimers(1, ARM7->Cycles); //arm7timer += ndscyclestorun;
+        }
+//arm7total += zarp + ARM7Offset;//ARM7->Cycles;//ndscyclestorun+ARM7Offset;
+systotal += ndscyclestorun;
+        RunLooseTimers(1, ndscyclestorun);// + ARM7Offset);
+        RunSystem(ndscyclestorun);
     }
+
+    //printf("cycles: %ld %ld, %ld %ld, %ld\n", arm9total, arm9timer, arm7total, arm7timer, systotal);
+    printf("drift: [%ld] %ld %ld, %ld %ld\n", systotal, arm9total-systotal, arm9timer-systotal, arm7total-systotal, arm7timer-systotal);
 
     return GPU::TotalScanlines;
 }
@@ -838,12 +811,12 @@ void Reschedule()
     s32 oldcycles = CurIterationCycles;
     CalcIterationCycles();
 
-    if (CurIterationCycles > oldcycles)
+    if (CurIterationCycles >= oldcycles)
     {
         CurIterationCycles = oldcycles;
         return;
     }
-
+//printf("Reschedule %d->%d while in %d, %08X\n", oldcycles, CurIterationCycles, CurCPU, CPUStop);
     if      (CurCPU == 1) ARM9->CyclesToRun = CurIterationCycles << 1;
     else if (CurCPU == 2) ARM7->CyclesToRun = CurIterationCycles - ARM7Offset;
     // this is all. a reschedule shouldn't happen during DMA or GXFIFO stall.
@@ -859,14 +832,20 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
 
     SchedEvent* evt = &SchedList[id];
 
-    if (periodic) evt->WaitCycles += delay;
-    else          evt->WaitCycles  = delay + (ARM9->Cycles >> 1);
+    if (periodic)
+        evt->WaitCycles += delay;
+    else
+    {
+        if      (CurCPU == 1) evt->WaitCycles = delay + (ARM9->Cycles >> 1);
+        else if (CurCPU == 2) evt->WaitCycles = delay + ARM7->Cycles;
+        else                  evt->WaitCycles = delay;
+    }
 
     evt->Func = func;
     evt->Param = param;
 
     SchedListMask |= (1<<id);
-
+//printf("scheduling event %d for within %d cycles\n", id, delay);
     Reschedule();
 }
 
@@ -1041,7 +1020,7 @@ void ResumeCPU(u32 cpu, u32 mask)
 void GXFIFOStall()
 {
     if (CPUStop & 0x80000000) return;
-
+printf("GXFIFO STALL\n");
     CPUStop |= 0x80000000;
 
     if (CurCPU == 1) ARM9->Halt(2);
@@ -1069,11 +1048,17 @@ u32 GetPC(u32 cpu)
 void HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
+    //if ((timer->Cnt & 0x84) != 0x80) return;
 
     timer->Counter += timer->Reload << 16;
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
-//if (tid<4) printf("[%03d] timer%d IRQ\n", GPU::VCount, tid);
+
+    //u32 delay = (0x10000 - timer->Reload) << (16 - timer->CycleShift);
+    //delay -= (timer->Counter - timer->Reload) >> timer->CycleShift;
+    //printf("timer%d IRQ: resched %d, reload=%04X cnt=%08X\n", tid, delay, timer->Reload, timer->Counter);
+    //ScheduleEvent(Event_TimerIRQ_0 + tid, true, delay, HandleTimerOverflow, tid);
+
     if ((tid & 0x3) == 3)
         return;
 
@@ -1111,19 +1096,24 @@ void RunTimer(u32 tid, s32 cycles)
         HandleTimerOverflow(tid);
 }
 
-void RunTimingCriticalDevices(u32 cpu, s32 cycles)
+void RunTightTimers(u32 cpu, s32 cycles)
 {
     register u32 timermask = TimerCheckMask[cpu];
-
+if(cpu)arm7timer+=cycles;else arm9timer+=cycles;
     if (timermask & 0x1) RunTimer((cpu<<2)+0, cycles);
     if (timermask & 0x2) RunTimer((cpu<<2)+1, cycles);
     if (timermask & 0x4) RunTimer((cpu<<2)+2, cycles);
     if (timermask & 0x8) RunTimer((cpu<<2)+3, cycles);
+}
 
-    if (cpu == 0)
-    {
-        GPU3D::Run(cycles);
-    }
+void RunLooseTimers(u32 cpu, s32 cycles)
+{
+    register u32 timermask = TimerCheckMask[cpu];
+
+    if (timermask & 0x10) RunTimer((cpu<<2)+0, cycles);
+    if (timermask & 0x20) RunTimer((cpu<<2)+1, cycles);
+    if (timermask & 0x40) RunTimer((cpu<<2)+2, cycles);
+    if (timermask & 0x80) RunTimer((cpu<<2)+3, cycles);
 }
 
 
@@ -1135,6 +1125,16 @@ bool DMAsInMode(u32 cpu, u32 mode)
     if (DMAs[cpu+1]->IsInMode(mode)) return true;
     if (DMAs[cpu+2]->IsInMode(mode)) return true;
     if (DMAs[cpu+3]->IsInMode(mode)) return true;
+    return false;
+}
+
+bool DMAsRunning(u32 cpu)
+{
+    cpu <<= 2;
+    if (DMAs[cpu+0]->IsRunning()) return true;
+    if (DMAs[cpu+1]->IsRunning()) return true;
+    if (DMAs[cpu+2]->IsRunning()) return true;
+    if (DMAs[cpu+3]->IsRunning()) return true;
     return false;
 }
 
@@ -1180,12 +1180,28 @@ void TimerStart(u32 id, u16 cnt)
     if ((!curstart) && newstart)
     {
         timer->Counter = timer->Reload << 16;
+
+        /*if ((cnt & 0x84) == 0x80)
+        {
+            u32 delay = (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03];
+            printf("timer%d IRQ: start   %d, reload=%04X cnt=%08X\n", id, delay, timer->Reload, timer->Counter);
+            CancelEvent(Event_TimerIRQ_0 + id);
+            ScheduleEvent(Event_TimerIRQ_0 + id, false, delay, HandleTimerOverflow, id);
+        }*/
     }
 
     if ((cnt & 0x84) == 0x80)
-        TimerCheckMask[id>>2] |= (1<<(id&0x3));
+    {
+        u32 tmask;
+        if ((cnt & 0x03) == 0)
+            tmask = 0x01 << (id&0x3);
+        else
+            tmask = 0x10 << (id&0x3);
+
+        TimerCheckMask[id>>2] |= tmask;
+    }
     else
-        TimerCheckMask[id>>2] &= ~(1<<(id&0x3));
+        TimerCheckMask[id>>2] &= ~(0x11 << (id&0x3));
 }
 
 

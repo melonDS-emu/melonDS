@@ -31,6 +31,15 @@ enum
     Event_SPU,
     Event_Wifi,
 
+    /*Event_TimerIRQ_0,
+    Event_TimerIRQ_1,
+    Event_TimerIRQ_2,
+    Event_TimerIRQ_3,
+    Event_TimerIRQ_4,
+    Event_TimerIRQ_5,
+    Event_TimerIRQ_6,
+    Event_TimerIRQ_7,*/
+
     Event_DisplayFIFO,
     Event_ROMTransfer,
     Event_ROMSPITransfer,
@@ -160,10 +169,12 @@ void GXFIFOUnstall();
 u32 GetPC(u32 cpu);
 
 bool DMAsInMode(u32 cpu, u32 mode);
+bool DMAsRunning(u32 cpu);
 void CheckDMAs(u32 cpu, u32 mode);
 void StopDMAs(u32 cpu, u32 mode);
 
-void RunTimingCriticalDevices(u32 cpu, s32 cycles);
+void RunTightTimers(u32 cpu, s32 cycles);
+void RunLooseTimers(u32 cpu, s32 cycles);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);

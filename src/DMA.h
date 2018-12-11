@@ -41,6 +41,8 @@ public:
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
+    bool IsRunning() { return Running!=0; }
+
     void StartIfNeeded(u32 mode)
     {
         if ((mode == StartMode) && (Cnt & 0x80000000))
@@ -74,7 +76,7 @@ private:
     u32 DstAddrInc;
     u32 CountMask;
 
-    bool Running;
+    u32 Running;
     bool InProgress;
 
     bool Executing;
