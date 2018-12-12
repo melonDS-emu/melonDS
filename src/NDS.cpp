@@ -71,6 +71,10 @@ u8 ARM7MemTimings[0x20000][4];
 ARMv5* ARM9;
 ARMv4* ARM7;
 
+u32 NumFrames;
+u64 SysClockCycles;
+u64 LastSysClockCycles;
+
 s32 CurIterationCycles;
 s32 ARM7Offset;
 int CurCPU;
@@ -386,6 +390,9 @@ void Reset()
         dbg_CyclesARM7 = 0;
         dbg_CyclesTimer7 = 0;
 #endif // DEBUG_CHECK_DESYNC
+
+    SysClockCycles = 0;
+    LastSysClockCycles = 0;
 
     f = melon_fopen_local("bios9.bin", "rb");
     if (!f)
@@ -838,6 +845,9 @@ u32 RunFrame()
 
         RunLooseTimers(1, ndscyclestorun);
         RunSystem(ndscyclestorun);
+
+        SysClockCycles += ndscyclestorun;
+        LastSysClockCycles += ndscyclestorun;
     }
 
 #ifdef DEBUG_CHECK_DESYNC
@@ -848,6 +858,8 @@ u32 RunFrame()
            dbg_CyclesARM7-dbg_CyclesSys,
            dbg_CyclesTimer7-dbg_CyclesSys);
 #endif
+
+    NumFrames++;
 
     return GPU::TotalScanlines;
 }
@@ -1093,6 +1105,120 @@ void GXFIFOUnstall()
 u32 GetPC(u32 cpu)
 {
     return cpu ? ARM7->R[15] : ARM9->R[15];
+}
+
+u64 GetSysClockCycles(int num)
+{
+    u64 ret;
+
+    if (num == 0)
+    {
+        ret = SysClockCycles;
+
+        if      (CurCPU == 1) ret += (ARM9->Cycles >> 1);
+        else if (CurCPU == 2) ret += ARM7->Cycles;
+    }
+    else
+    {
+        ret = LastSysClockCycles;
+
+        if (CurCPU == 1)
+        {
+            ret += (ARM9->Cycles >> 1);
+            LastSysClockCycles = -(ARM9->Cycles >> 1);
+        }
+        else if (CurCPU == 2)
+        {
+            ret += ARM7->Cycles;
+            LastSysClockCycles = -ARM7->Cycles;
+        }
+    }
+
+    return ret;
+}
+
+void NocashPrint(u32 ncpu, u32 addr)
+{
+    // addr: u16 flags (TODO: research? libnds doesn't use those)
+    // addr+2: debug string
+
+    addr += 2;
+
+    ARM* cpu = ncpu ? (ARM*)ARM7 : (ARM*)ARM9;
+    u8 (*readfn)(u32) = ncpu ? NDS::ARM7Read8 : NDS::ARM9Read8;
+
+    char output[1024];
+    int ptr = 0;
+
+    for (int i = 0; i < 120 && ptr < 1023; )
+    {
+        char ch = readfn(addr++);
+        i++;
+
+        if (ch == '%')
+        {
+            char cmd[16]; int j;
+            for (j = 0; j < 15; )
+            {
+                char ch2 = readfn(addr++);
+                i++;
+                if (i >= 120) break;
+                if (ch2 == '%') break;
+                cmd[j++] = ch2;
+            }
+            cmd[j] = '\0';
+
+            char subs[64];
+
+            if (cmd[0] == 'r')
+            {
+                if      (!strcmp(cmd, "r0")) sprintf(subs, "%08X", cpu->R[0]);
+                else if (!strcmp(cmd, "r1")) sprintf(subs, "%08X", cpu->R[1]);
+                else if (!strcmp(cmd, "r2")) sprintf(subs, "%08X", cpu->R[2]);
+                else if (!strcmp(cmd, "r3")) sprintf(subs, "%08X", cpu->R[3]);
+                else if (!strcmp(cmd, "r4")) sprintf(subs, "%08X", cpu->R[4]);
+                else if (!strcmp(cmd, "r5")) sprintf(subs, "%08X", cpu->R[5]);
+                else if (!strcmp(cmd, "r6")) sprintf(subs, "%08X", cpu->R[6]);
+                else if (!strcmp(cmd, "r7")) sprintf(subs, "%08X", cpu->R[7]);
+                else if (!strcmp(cmd, "r8")) sprintf(subs, "%08X", cpu->R[8]);
+                else if (!strcmp(cmd, "r9")) sprintf(subs, "%08X", cpu->R[9]);
+                else if (!strcmp(cmd, "r10")) sprintf(subs, "%08X", cpu->R[10]);
+                else if (!strcmp(cmd, "r11")) sprintf(subs, "%08X", cpu->R[11]);
+                else if (!strcmp(cmd, "r12")) sprintf(subs, "%08X", cpu->R[12]);
+                else if (!strcmp(cmd, "r13")) sprintf(subs, "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "r14")) sprintf(subs, "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "r15")) sprintf(subs, "%08X", cpu->R[15]);
+            }
+            else
+            {
+                if      (!strcmp(cmd, "sp")) sprintf(subs, "%08X", cpu->R[13]);
+                else if (!strcmp(cmd, "lr")) sprintf(subs, "%08X", cpu->R[14]);
+                else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
+                else if (!strcmp(cmd, "frame")) sprintf(subs, "%d", NumFrames);
+                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%d", GPU::VCount);
+                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%lu", GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%lu", GetSysClockCycles(1));
+                else if (!strcmp(cmd, "zeroclks"))
+                {
+                    sprintf(subs, "");
+                    GetSysClockCycles(1);
+                }
+            }
+
+            int slen = strlen(subs);
+            if ((ptr+slen) > 1023) slen = 1023-ptr;
+            strncpy(&output[ptr], subs, slen);
+            ptr += slen;
+        }
+        else
+        {
+            output[ptr++] = ch;
+            if (ch == '\0') break;
+        }
+    }
+
+    output[ptr] = '\0';
+    printf("%s", output);
 }
 
 

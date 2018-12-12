@@ -1501,6 +1501,15 @@ void T_MOV_HIREG(ARM* cpu)
     {
         cpu->R[rd] = cpu->R[rs];
     }
+
+    // nocash-style debugging hook
+    if ((cpu->CurInstr & 0xFFFF) == 0x46E4 &&     // mov r12, r12
+        (cpu->NextInstr[0] & 0xF800) == 0xE000 && // branch
+        (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
+    {
+        u32 addr = cpu->R[15] + 2;
+        NDS::NocashPrint(cpu->Num, addr);
+    }
 }
 
 

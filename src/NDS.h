@@ -170,6 +170,7 @@ void GXFIFOStall();
 void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
+void NocashPrint(u32 cpu, u32 addr);
 
 bool DMAsInMode(u32 cpu, u32 mode);
 bool DMAsRunning(u32 cpu);
