@@ -1121,6 +1121,7 @@ u64 GetSysClockCycles(int num)
     else
     {
         ret = LastSysClockCycles;
+        LastSysClockCycles = 0;
 
         if (CurCPU == 1)
         {
@@ -1194,8 +1195,8 @@ void NocashPrint(u32 ncpu, u32 addr)
                 if      (!strcmp(cmd, "sp")) sprintf(subs, "%08X", cpu->R[13]);
                 else if (!strcmp(cmd, "lr")) sprintf(subs, "%08X", cpu->R[14]);
                 else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
-                else if (!strcmp(cmd, "frame")) sprintf(subs, "%d", NumFrames);
-                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%d", GPU::VCount);
+                else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NumFrames);
+                else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", GPU::VCount);
                 else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%lu", GetSysClockCycles(0));
                 else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%lu", GetSysClockCycles(1));
                 else if (!strcmp(cmd, "zeroclks"))
