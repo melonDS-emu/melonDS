@@ -153,8 +153,8 @@ void LoadSave(const char* path, u32 type)
     case 256*1024:
     case 512*1024:
     case 1024*1024:
-    case 8192*1024:
-    case 32768*1024: WriteFunc = Write_Flash; break;
+    case 8192*1024: WriteFunc = Write_Flash; break;
+    case 32768*1024: WriteFunc = Write_Null; break; // NAND FLASH, handled differently
     default:
         printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
     case 0:
@@ -484,6 +484,12 @@ u64 Key2_X;
 u64 Key2_Y;
 
 
+void ROMCommand_Retail(u8* cmd);
+void ROMCommand_RetailNAND(u8* cmd);
+
+void (*ROMCommandHandler)(u8* cmd);
+
+
 u32 ByteSwap(u32 val)
 {
     return (val >> 24) | ((val >> 8) & 0xFF00) | ((val << 8) & 0xFF0000) | (val << 24);
@@ -624,6 +630,8 @@ void Reset()
     CartROMSize = 0;
     CartID = 0;
     CartIsHomebrew = false;
+
+    ROMCommandHandler = NULL;
 
     CmdEncMode = 0;
     DataEncMode = 0;
@@ -908,10 +916,22 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     else
         printf("ROM entry: %08X %08X %08X\n", romparams[0], romparams[1], romparams[2]);
 
+    if (romparams[0] != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams[0], CartROMSize);
+
     // generate a ROM ID
     // note: most games don't check the actual value
     // it just has to stay the same throughout gameplay
-    CartID = 0x00001FC2;
+    CartID = 0x000000C2;
+
+    if (CartROMSize <= 128*1024*1024)
+        CartID |= ((CartROMSize >> 20) - 1) << 8;
+    else
+        CartID |= (0x100 - (CartROMSize >> 28)) << 8;
+
+    if (romparams[1] == 8)
+        CartID |= 0x08000000; // NAND flag
+
+    printf("Cart ID: %08X\n", CartID);
 
     if (*(u32*)&CartROM[0x20] < 0x4000)
     {
@@ -927,6 +947,12 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     }
 
     CartInserted = true;
+
+    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
+    if (CartID & 0x08000000)
+        ROMCommandHandler = ROMCommand_RetailNAND;
+    else
+        ROMCommandHandler = ROMCommand_Retail;
 
     u32 arm9base = *(u32*)&CartROM[0x20];
     if (arm9base < 0x8000)
@@ -1020,7 +1046,88 @@ void ROMPrepareData(u32 param)
         NDS::CheckDMAs(0, 0x05);
 }
 
-u32 sc_addr = 0;
+
+void ROMCommand_Retail(u8* cmd)
+{
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(DataOut, 0, DataOutLen);
+
+            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, 0);
+                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+            }
+            else
+                ReadROM_B7(addr, DataOutLen, 0);
+        }
+        break;
+
+    default:
+        printf("unknown retail cart command %02X\n", cmd[0]);
+        break;
+    }
+}
+
+void ROMCommand_RetailNAND(u8* cmd)
+{
+    switch (cmd[0])
+    {
+    case 0x94: // NAND init
+        {
+            // initial value: should have bit7 clear
+            NDSCart_SRAM::StatusReg = 0;
+
+            // Jam with the Band stores words 6-9 of this at 0x02131BB0
+            // it doesn't seem to use those anywhere later
+            for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                *(u32*)&DataOut[pos] = 0;
+        }
+        break;
+
+    case 0xB2: // set savemem addr
+        {
+            NDSCart_SRAM::StatusReg |= 0x20;
+        }
+        break;
+
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(DataOut, 0, DataOutLen);
+
+            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, 0);
+                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+            }
+            else
+                ReadROM_B7(addr, DataOutLen, 0);
+        }
+        break;
+
+    case 0xD6: // NAND status
+        {
+            // status reg bits:
+            // * bit7: busy? error?
+            // * bit5: accessing savemem
+
+            for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                *(u32*)&DataOut[pos] = NDSCart_SRAM::StatusReg * 0x01010101;
+        }
+        break;
+
+    default:
+        printf("unknown NAND command %02X %04Xn", cmd[0], DataOutLen);
+        break;
+    }
+}
+
 
 void WriteROMCnt(u32 val)
 {
@@ -1111,81 +1218,34 @@ void WriteROMCnt(u32 val)
         if (CartInserted) CmdEncMode = 1;
         break;
 
-    case 0xB7:
-        {
-            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(DataOut, 0, DataOutLen);
-
-            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
-            {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, 0);
-                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
-            }
-            else
-                ReadROM_B7(addr, DataOutLen, 0);
-        }
-        break;
-
-
-    // SUPERCARD EMULATION TEST
-    // TODO: INTEGRATE BETTER!!!!
-
-    case 0x70: // init??? returns whether SDHC addressing should be used
-        for (u32 pos = 0; pos < DataOutLen; pos += 4)
-            *(u32*)&DataOut[pos] = 0;
-        break;
-
-    case 0x53: // set address for read
-        sc_addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-        printf("SUPERCARD: read %08X\n", sc_addr);
-        break;
-
-    case 0x80: // read operation busy, I guess
-        // TODO: make it take some time
-        for (u32 pos = 0; pos < DataOutLen; pos += 4)
-            *(u32*)&DataOut[pos] = 0;
-        break;
-
-    case 0x81: // read data
-        {
-            if (DataOutLen != 0x200)
-                printf("SUPERCARD: BOGUS READ %d\n", DataOutLen);
-
-            // TODO: this is really inefficient. just testing
-            FILE* f = fopen("scsd.bin", "rb");
-            fseek(f, sc_addr, SEEK_SET);
-            fread(DataOut, 1, 0x200, f);
-            fclose(f);
-        }
-        break;
-
-    // SUPERCARD EMULATION TEST END
-
-
     default:
-        switch (cmd[0] & 0xF0)
+        if (CmdEncMode == 1)
         {
-        case 0x40:
-            DataEncMode = 2;
-            break;
-
-        case 0x10:
-            for (u32 pos = 0; pos < DataOutLen; pos += 4)
-                *(u32*)&DataOut[pos] = CartID;
-            break;
-
-        case 0x20:
+            switch (cmd[0] & 0xF0)
             {
-                u32 addr = (cmd[2] & 0xF0) << 8;
-                ReadROM(addr, 0x1000, 0);
-            }
-            break;
+            case 0x40:
+                DataEncMode = 2;
+                break;
 
-        case 0xA0:
-            CmdEncMode = 2;
-            break;
+            case 0x10:
+                for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                    *(u32*)&DataOut[pos] = CartID;
+                break;
+
+            case 0x20:
+                {
+                    u32 addr = (cmd[2] & 0xF0) << 8;
+                    ReadROM(addr, 0x1000, 0);
+                }
+                break;
+
+            case 0xA0:
+                CmdEncMode = 2;
+                break;
+            }
         }
+        else if (ROMCommandHandler)
+            ROMCommandHandler(cmd);
         break;
     }
 
