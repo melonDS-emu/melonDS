@@ -74,6 +74,7 @@ ARMv4* ARM7;
 u32 NumFrames;
 u64 SysClockCycles;
 u64 LastSysClockCycles;
+u32 FrameSysClockCycles;
 
 s32 CurIterationCycles;
 s32 ARM7Offset;
@@ -760,6 +761,8 @@ void RunSystem(s32 cycles)
 
 u32 RunFrame()
 {
+    FrameSysClockCycles = 0;
+
     if (!Running) return 263; // dorp
 
     GPU::StartFrame();
@@ -848,6 +851,7 @@ u32 RunFrame()
 
         SysClockCycles += ndscyclestorun;
         LastSysClockCycles += ndscyclestorun;
+        FrameSysClockCycles += ndscyclestorun;
     }
 
 #ifdef DEBUG_CHECK_DESYNC
@@ -947,6 +951,11 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+void MicInputFrame(s16* data, int samples)
+{
+    return SPI_TSC::MicInputFrame(data, samples);
 }
 
 
@@ -1111,14 +1120,15 @@ u64 GetSysClockCycles(int num)
 {
     u64 ret;
 
-    if (num == 0)
+    if (num == 0 || num == 2)
     {
-        ret = SysClockCycles;
+        if      (num == 0) ret = SysClockCycles;
+        else if (num == 2) ret = FrameSysClockCycles;
 
         if      (CurCPU == 1) ret += (ARM9->Cycles >> 1);
         else if (CurCPU == 2) ret += ARM7->Cycles;
     }
-    else
+    else if (num == 1)
     {
         ret = LastSysClockCycles;
         LastSysClockCycles = 0;

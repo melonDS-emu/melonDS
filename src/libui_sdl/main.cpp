@@ -109,6 +109,10 @@ bool Touching = false;
 u32 KeyInputMask;
 SDL_Joystick* Joystick;
 
+const u32 kMicBufferSize = 2048; // must be power of two
+s16 MicBuffer[kMicBufferSize];
+u32 MicBufferReadPos, MicBufferWritePos;
+
 
 void SetupScreenRects(int width, int height);
 
@@ -147,7 +151,6 @@ void AudioCallback(void* data, Uint8* stream, int len)
     // buffer length is 1024 samples
     // which is 710 samples at the original sample rate
 
-    //SPU::ReadOutput((s16*)stream, len>>2);
     s16 buf_in[710*2];
     s16* buf_out = (s16*)stream;
 
@@ -183,6 +186,23 @@ void AudioCallback(void* data, Uint8* stream, int len)
             res_pos++;
         }
     }
+}
+
+void MicCallback(void* data, Uint8* stream, int len)
+{
+    s16* input = (s16*)stream;
+    len /= sizeof(s16);
+
+    if ((MicBufferWritePos + len) > kMicBufferSize)
+    {
+        u32 len1 = kMicBufferSize-MicBufferWritePos;
+        memcpy(&MicBuffer[MicBufferWritePos], &input[0], len1*sizeof(s16));
+        memcpy(&MicBuffer[0], &input[len1], (len-len1)*sizeof(s16));
+    }
+    else
+        memcpy(&MicBuffer[MicBufferWritePos], input, len*sizeof(s16));
+    MicBufferWritePos += len;
+    MicBufferWritePos &= (kMicBufferSize-1);
 }
 
 int EmuThreadFunc(void* burp)
@@ -253,6 +273,20 @@ int EmuThreadFunc(void* burp)
                 }
             }
             NDS::SetKeyMask(keymask & joymask);
+
+            // microphone input
+            if ((MicBufferReadPos + 735) > kMicBufferSize)
+            {
+                s16 tmp[735];
+                u32 len1 = kMicBufferSize-MicBufferReadPos;
+                memcpy(&tmp[0], &MicBuffer[MicBufferReadPos], len1*sizeof(s16));
+                memcpy(&tmp[len1], &MicBuffer[0], (735-len1)*sizeof(s16));
+                NDS::MicInputFrame(tmp, 735);
+            }
+            else
+                NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+            MicBufferReadPos &= (kMicBufferSize-1);
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -1593,6 +1627,26 @@ int main(int argc, char** argv)
     {
         SDL_PauseAudioDevice(audio, 0);
     }
+
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 44100;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 1;
+    whatIwant.samples = 1024;
+    whatIwant.callback = MicCallback;
+    audio = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!audio)
+    {
+        printf("Mic init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(audio, 0);
+    }
+
+    memset(MicBuffer, 0, sizeof(MicBuffer));
+    MicBufferReadPos = 0;
+    MicBufferWritePos = 0;
 
     // TODO: support more joysticks
     if (SDL_NumJoysticks() > 0)

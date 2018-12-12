@@ -152,6 +152,8 @@ void ReleaseScreen();
 
 void SetKeyMask(u32 mask);
 
+void MicInputFrame(s16* data, int samples);
+
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
 
@@ -170,6 +172,7 @@ void GXFIFOStall();
 void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
+u64 GetSysClockCycles(int num);
 void NocashPrint(u32 cpu, u32 addr);
 
 bool DMAsInMode(u32 cpu, u32 mode);

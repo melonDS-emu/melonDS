@@ -453,6 +453,9 @@ u16 ConvResult;
 
 u16 TouchX, TouchY;
 
+s16 MicBuffer[1024];
+int MicBufferLen;
+
 
 bool Init()
 {
@@ -469,6 +472,8 @@ void Reset()
     Data = 0;
 
     ConvResult = 0;
+
+    MicBufferLen = 0;
 }
 
 void DoSavestate(Savestate* file)
@@ -497,6 +502,13 @@ void SetTouchCoords(u16 x, u16 y)
     TouchY <<= 4;
 }
 
+void MicInputFrame(s16* data, int samples)
+{
+    if (samples > 1024) samples = 1024;
+    memcpy(MicBuffer, data, samples*sizeof(s16));
+    MicBufferLen = samples;
+}
+
 u8 Read()
 {
     return Data;
@@ -520,7 +532,30 @@ void Write(u8 val, u32 hold)
         {
         case 0x10: ConvResult = TouchY; break;
         case 0x50: ConvResult = TouchX; break;
-        case 0x60: ConvResult = 0x800; break; // TODO: mic
+
+        case 0x60:
+            {
+                if (MicBufferLen == 0)
+                    ConvResult = 0x800;
+                else
+                {
+                    // 560190 cycles per frame
+                    u32 cyclepos = (u32)NDS::GetSysClockCycles(2);
+                    u32 samplepos = (cyclepos * MicBufferLen) / 560190;
+                    s16 sample = MicBuffer[samplepos];
+
+                    // make it louder
+                    //if (sample > 0x3FFF) sample = 0x7FFF;
+                    //else if (sample < -0x4000) sample = -0x8000;
+                    //else sample <<= 1;
+
+                    // make it unsigned 12-bit
+                    sample ^= 0x8000;
+                    ConvResult = sample >> 4;
+                }
+            }
+            break;
+
         default: ConvResult = 0xFFF; break;
         }
 
