@@ -542,6 +542,7 @@ void Write(u8 val, u32 hold)
                     // 560190 cycles per frame
                     u32 cyclepos = (u32)NDS::GetSysClockCycles(2);
                     u32 samplepos = (cyclepos * MicBufferLen) / 560190;
+                    if (samplepos >= MicBufferLen) samplepos = MicBufferLen-1;
                     s16 sample = MicBuffer[samplepos];
 
                     // make it louder
