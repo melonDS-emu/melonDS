@@ -1545,7 +1545,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     /*FILE*
-    shit = fopen("debug/dldio.bin", "wb");
+    shit = fopen("debug/jam.bin", "wb");
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
@@ -1609,6 +1609,11 @@ u8 ARM9Read8(u32 addr)
         //printf("GBA read8 %08X\n", addr);
         // TODO!!!
         return 0xFF;
+
+    case 0x0A000000:
+        if (ExMemCnt[0] & (1<<7)) return 0xFF; // TODO: proper open bus
+        // TODO!!!
+        return 0xFF;
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -1659,8 +1664,13 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFF; // TODO: proper open bus
-        //return *(u16*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read16 %08X\n", addr);
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
+        // TODO!!!
+        return 0xFFFF;
+
+    case 0x0A000000:
+        if (ExMemCnt[0] & (1<<7)) return 0xFFFF; // TODO: proper open bus
         // TODO!!!
         return 0xFFFF;
     }
@@ -1713,8 +1723,13 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFFFFFF; // TODO: proper open bus
-        //return *(u32*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read32 %08X\n", addr);
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
+        // TODO!!!
+        return 0xFFFFFFFF;
+
+    case 0x0A000000:
+        if (ExMemCnt[0] & (1<<7)) return 0xFFFFFFFF; // TODO: proper open bus
         // TODO!!!
         return 0xFFFFFFFF;
     }
@@ -1903,6 +1918,19 @@ u8 ARM7Read8(u32 addr)
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u8>(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFF; // TODO: proper open bus
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
+        // TODO!!!
+        return 0xFF;
+
+    case 0x0A000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFF; // TODO: proper open bus
+        // TODO!!!
+        return 0xFF;
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -1953,6 +1981,19 @@ u16 ARM7Read16(u32 addr)
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u16>(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFFFF; // TODO: proper open bus
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
+        // TODO!!!
+        return 0xFFFF;
+
+    case 0x0A000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFFFF; // TODO: proper open bus
+        // TODO!!!
+        return 0xFFFF;
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -2003,6 +2044,19 @@ u32 ARM7Read32(u32 addr)
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u32>(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFFFFFFFF; // TODO: proper open bus
+        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
+        //printf("GBA read8 %08X\n", addr);
+        // TODO!!!
+        return 0xFFFFFFFF;
+
+    case 0x0A000000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0xFFFFFFFF; // TODO: proper open bus
+        // TODO!!!
+        return 0xFFFFFFFF;
     }
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
