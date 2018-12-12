@@ -1666,7 +1666,16 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
         if (res != len) { delete[] argv[i]; argv[i] = nullarg; }
     }
 
+    if (AttachConsole(ATTACH_PARENT_PROCESS))
+    {
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+        printf("\n");
+    }
+
     int ret = main(argc, argv);
+
+    printf("\n\n>");
 
     for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
     delete[] argv;
