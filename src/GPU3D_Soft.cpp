@@ -769,11 +769,24 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
 // depth test is 'less or equal' instead of 'less than' under the following conditions:
 // * when drawing a front-facing pixel over an opaque back-facing pixel
 // * when drawing wireframe edges, under certain conditions (TODO)
+//
+// range is different based on depth-buffering mode
+// Z-buffering: +-0x200
+// W-buffering: +-0xFF
 
-bool DepthTest_Equal(s32 dstz, s32 z, u32 dstattr)
+bool DepthTest_Equal_Z(s32 dstz, s32 z, u32 dstattr)
 {
     s32 diff = dstz - z;
-    if ((u32)(diff + 0xFF) <= 0x1FE) // range is +-0xFF
+    if ((u32)(diff + 0x200) <= 0x400)
+        return true;
+
+    return false;
+}
+
+bool DepthTest_Equal_W(s32 dstz, s32 z, u32 dstattr)
+{
+    s32 diff = dstz - z;
+    if ((u32)(diff + 0xFF) <= 0x1FE)
         return true;
 
     return false;
@@ -1099,7 +1112,7 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
     if (polygon->Attr & (1<<14))
-        fnDepthTest = DepthTest_Equal;
+        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
     else if (polygon->FacingView)
         fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
@@ -1312,7 +1325,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     bool (*fnDepthTest)(s32 dstz, s32 z, u32 dstattr);
     if (polygon->Attr & (1<<14))
-        fnDepthTest = DepthTest_Equal;
+        fnDepthTest = polygon->WBuffer ? DepthTest_Equal_W : DepthTest_Equal_Z;
     else if (polygon->FacingView)
         fnDepthTest = DepthTest_LessThan_FrontFacing;
     else
