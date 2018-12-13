@@ -1167,11 +1167,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         else if (flag2 & 0x40) target2 = 0x0100;
         else                   target2 = flag2 << 8;
 
-        if (!(windowmask[i] & 0x20))
-        {
-            coloreffect = 0;
-        }
-        else if ((flag1 & 0x80) && (BlendCnt & target2))
+        if ((flag1 & 0x80) && (BlendCnt & target2))
         {
             // sprite blending
 
@@ -1214,7 +1210,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
             continue;
         }
-        else if (BlendCnt & flag1)
+        else if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
         {
             if ((bldcnteffect == 1) && (BlendCnt & target2))
             {
