@@ -2515,6 +2515,9 @@ u32 ARM9IORead32(u32 addr)
     case 0x040002B8: return SqrtVal[0];
     case 0x040002BC: return SqrtVal[1];
 
+    case 0x04000300: return PostFlag9;
+    case 0x04000304: return PowerControl9;
+
     case 0x04100000:
         if (IPCFIFOCnt9 & 0x8000)
         {
