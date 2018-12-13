@@ -1718,14 +1718,14 @@ int main(int argc, char** argv)
     whatIwant.channels = 1;
     whatIwant.samples = 1024;
     whatIwant.callback = MicCallback;
-    audio = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
-    if (!audio)
+    SDL_AudioDeviceID mic = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!mic)
     {
         printf("Mic init failed: %s\n", SDL_GetError());
     }
     else
     {
-        SDL_PauseAudioDevice(audio, 0);
+        SDL_PauseAudioDevice(mic, 0);
     }
 
     memset(MicBuffer, 0, sizeof(MicBuffer));
@@ -1770,6 +1770,7 @@ int main(int argc, char** argv)
 
     if (Joystick) SDL_JoystickClose(Joystick);
     if (audio) SDL_CloseAudioDevice(audio);
+    if (mic)   SDL_CloseAudioDevice(mic);
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;
