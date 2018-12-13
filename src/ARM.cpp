@@ -176,6 +176,22 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
     // R0=DMA# R1=src R2=size
+    //if (addr==0x020612B8) printf("read NAND status, %08X\n", R[15]);
+    //if(addr==0x020614A4) printf("isnandgood_75, %08X\n", R[15]);
+    if (addr==0x0206176C) printf("NAND SHIT %08X %08X %08X %08X\n", R[0], R[1], R[2], R[3]);
+    if (addr==0x206185C) printf("BORK!! %08X\n", R[0]);
+    if (addr==0x02061144) printf("NAND WRITE SHIT %08X %08X %08X %08X\n", R[0], R[1], R[2], R[3]);
+    if (addr==0x0205D6F0)
+    {
+        printf("VERIFY %08X, %08X %08X %08X %08X\n", R[15], R[0], R[1], R[2], R[3]);
+        /*FILE* f = fopen("kaka.bin", "wb");
+        fwrite(&NDS::MainRAM[0x031371C], 0x800, 1, f);
+        fclose(f);*/
+    }
+    if (R[15]==0x0205D75C) printf("returned %d\n", R[0]);
+    if (R[15]==0x02061298) printf("RETURN FROM NAND WRITE %d\n", R[0]);
+    //if ((addr>=0x02061144 && addr<0x02061290) ||
+    //    (R[15]>=0x0206114C && R[15]<0x02061298)) printf("!! %08X->%08X %d\n", R[15]-8, addr, R[0]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;

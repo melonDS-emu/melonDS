@@ -190,6 +190,16 @@ void RelocateSave(const char* path, bool write)
     fclose(f);
 }
 
+void Flush()
+{
+    FILE* f = melon_fopen(SRAMPath, "wb");
+    if (f)
+    {
+        fwrite(SRAM, SRAMLength, 1, f);
+        fclose(f);
+    }
+}
+
 u8 Read()
 {
     return Data;
@@ -443,12 +453,7 @@ void Write(u8 val, u32 hold)
 
     if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
     {
-        FILE* f = melon_fopen(SRAMPath, "wb");
-        if (f)
-        {
-            fwrite(SRAM, SRAMLength, 1, f);
-            fclose(f);
-        }
+        Flush();
     }
 }
 
@@ -986,6 +991,12 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     printf("Save file: %s\n", sram);
     NDSCart_SRAM::LoadSave(sram, romparams[1]);
 
+    // extra NAND init
+    if (CartID & 0x08000000)
+    {
+        NDSCart_SRAM::StatusReg = 0x60;
+    }
+
     return true;
 }
 
@@ -1027,16 +1038,40 @@ void ROMEndTransfer(u32 param)
 
     if (SPICnt & (1<<14))
         NDS::SetIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartSendDone);
+
+    // NAND write end
+    if (CartID & 0x08000000)
+    {
+        if (NDSCart_SRAM::CurCmd == 0x81)
+        {
+            u32 addr = NDSCart_SRAM::Addr & (NDSCart_SRAM::SRAMLength-1);
+            u32 len = DataOutLen;
+            if ((addr+len) > NDSCart_SRAM::SRAMLength)
+            {
+                u32 len1 = NDSCart_SRAM::SRAMLength - addr;
+                memcpy(&NDSCart_SRAM::SRAM[addr], &DataOut[0], len1);
+                memcpy(&NDSCart_SRAM::SRAM[0], &DataOut[len1], len-len1);
+            }
+            else
+                memcpy(&NDSCart_SRAM::SRAM[addr], DataOut, len);
+
+            NDSCart_SRAM::Flush();
+            NDSCart_SRAM::Addr += len;
+        }
+    }
 }
 
 void ROMPrepareData(u32 param)
 {
-    if (DataOutPos >= DataOutLen)
-        ROMDataOut = 0;
-    else
-        ROMDataOut = *(u32*)&DataOut[DataOutPos];
+    if (!(ROMCnt & (1<<30)))
+    {
+        if (DataOutPos >= DataOutLen)
+            ROMDataOut = 0;
+        else
+            ROMDataOut = *(u32*)&DataOut[DataOutPos];
 
-    DataOutPos += 4;
+        DataOutPos += 4;
+    }
 
     ROMCnt |= (1<<23);
 
@@ -1075,12 +1110,60 @@ void ROMCommand_Retail(u8* cmd)
 
 void ROMCommand_RetailNAND(u8* cmd)
 {
+    //if (cmd[0]!=0xB7) printf("NAND cmd %02X %08X %08X %04X\n", cmd[0], ((u32*)cmd)[0], ((u32*)cmd)[1], DataOutLen);
+    u8 prevcmd = NDSCart_SRAM::CurCmd;
+    NDSCart_SRAM::CurCmd = cmd[0];
+
     switch (cmd[0])
     {
+    case 0x81: // write
+        {
+            NDSCart_SRAM::StatusReg &= ~0x40;
+
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            addr -= 0x07200000;
+            if (prevcmd != 0x81) NDSCart_SRAM::Addr = addr;
+            printf("write %08X (%08X)\n", NDSCart_SRAM::Addr, addr);
+        }
+        break;
+
+    case 0x82: // erase sector
+        {
+            NDSCart_SRAM::StatusReg &= ~0x40;
+
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            addr -= 0x07200000;
+            printf("erase???? %08X\n", addr);
+            /*for (int i = 0; i < 0x200; i++)
+            {
+                NDSCart_SRAM::SRAM[addr & (NDSCart_SRAM::SRAMLength-1)] = 0;
+                addr++;
+            }
+            NDSCart_SRAM::Flush();*/
+        }
+        break;
+
+    case 0x84: // write disable
+        {
+            NDSCart_SRAM::StatusReg &= ~0x10;
+        }
+        break;
+    case 0x85: // write enable
+        {
+            NDSCart_SRAM::StatusReg |= 0x10;
+        }
+        break;
+
+    case 0x8B: // ??? set ROM mode??
+        {
+            NDSCart_SRAM::StatusReg |= 0x40;
+        }
+        break;
+
     case 0x94: // NAND init
         {
             // initial value: should have bit7 clear
-            NDSCart_SRAM::StatusReg = 0;
+            NDSCart_SRAM::StatusReg = 0x60;
 
             // Jam with the Band stores words 6-9 of this at 0x02131BB0
             // it doesn't seem to use those anywhere later
@@ -1091,23 +1174,38 @@ void ROMCommand_RetailNAND(u8* cmd)
 
     case 0xB2: // set savemem addr
         {
-            NDSCart_SRAM::StatusReg |= 0x20;
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            addr -= 0x07200000;
+            NDSCart_SRAM::Addr = addr;
+            printf("seek  %08X\n", addr);
+            NDSCart_SRAM::StatusReg &= ~0x40;
         }
         break;
 
     case 0xB7:
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(DataOut, 0, DataOutLen);
 
-            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+            if (!(NDSCart_SRAM::StatusReg & 0x40))
             {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, 0);
-                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+                addr -= 0x07200000;
+                printf("read  %08X\n", addr);
+                addr &= (NDSCart_SRAM::SRAMLength-1);
+                memcpy(DataOut, &NDSCart_SRAM::SRAM[addr], DataOutLen);
             }
             else
-                ReadROM_B7(addr, DataOutLen, 0);
+            {
+                memset(DataOut, 0, DataOutLen);
+
+                if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+                {
+                    u32 len1 = 0x1000 - (addr & 0xFFF);
+                    ReadROM_B7(addr, len1, 0);
+                    ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+                }
+                else
+                    ReadROM_B7(addr, DataOutLen, 0);
+            }
         }
         break;
 
@@ -1115,7 +1213,9 @@ void ROMCommand_RetailNAND(u8* cmd)
         {
             // status reg bits:
             // * bit7: busy? error?
-            // * bit5: accessing savemem
+            // * bit6: accessing ROM?
+            // * bit5: ??
+            // * bit4: write enable
 
             for (u32 pos = 0; pos < DataOutLen; pos += 4)
                 *(u32*)&DataOut[pos] = NDSCart_SRAM::StatusReg * 0x01010101;
@@ -1123,7 +1223,7 @@ void ROMCommand_RetailNAND(u8* cmd)
         break;
 
     default:
-        printf("unknown NAND command %02X %04Xn", cmd[0], DataOutLen);
+        printf("unknown NAND command %02X %04X\n", cmd[0], DataOutLen);
         break;
     }
 }
@@ -1269,6 +1369,12 @@ void WriteROMCnt(u32 val)
 
 u32 ReadROMData()
 {
+    if (ROMCnt & (1<<30))
+    {
+        printf("!! TRYING TO READ ROM DATA WHILE IN WRITE MODE\n");
+        return 0;
+    }
+
     if (ROMCnt & (1<<23))
     {
         ROMCnt &= ~(1<<23);
@@ -1286,6 +1392,41 @@ u32 ReadROMData()
     }
 
     return ROMDataOut;
+}
+
+void WriteROMData(u32 val)
+{
+    if (!(ROMCnt & (1<<30)))
+    {
+        printf("!! TRYING TO WRITE ROM DATA WHILE IN READ MODE\n");
+        return;
+    }
+
+    // TODO: check all the ROM write logic against hardware
+    // write process, according to game code:
+    // * send command, set ROMCnt
+    // * wait for DRQ
+    // * write data
+    // * wait for DRQ, repeat
+
+    if (ROMCnt & (1<<23))
+    {
+        ROMCnt &= ~(1<<23);
+
+        *(u32*)&DataOut[DataOutPos] = val;
+        DataOutPos += 4;
+
+        if (DataOutPos < DataOutLen)
+        {
+            u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
+            u32 delay = 4;
+            if (!(DataOutPos & 0x1FF)) delay += ((ROMCnt >> 16) & 0x3F);
+
+            NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*delay, ROMPrepareData, 0);
+        }
+        else
+            ROMEndTransfer(0);
+    }
 }
 
 

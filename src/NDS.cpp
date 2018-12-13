@@ -2931,6 +2931,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
         PowerControl9 = val & 0xFFFF;
         GPU::DisplaySwap(PowerControl9>>15);
         return;
+
+    case 0x04100010:
+        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteROMData(val);
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3449,6 +3453,10 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000308:
         if (ARM7BIOSProt == 0)
             ARM7BIOSProt = val & 0xFFFE;
+        return;
+
+    case 0x04100010:
+        if (ExMemCnt[0] & (1<<11)) NDSCart::WriteROMData(val);
         return;
     }
 
