@@ -113,6 +113,9 @@ const u32 kMicBufferSize = 2048; // must be power of two
 s16 MicBuffer[kMicBufferSize];
 u32 MicBufferReadPos, MicBufferWritePos;
 
+u32 MicWavLength;
+s16* MicWavBuffer;
+
 
 void SetupScreenRects(int width, int height);
 
@@ -137,6 +140,75 @@ bool LocalFileExists(const char* name)
     if (!f) return false;
     fclose(f);
     return true;
+}
+
+
+void MicLoadWav(char* name)
+{
+    SDL_AudioSpec format;
+    memset(&format, 0, sizeof(SDL_AudioSpec));
+
+    u8* buf;
+    u32 len;
+    SDL_LoadWAV(name, &format, &buf, &len);
+
+    const int dstfreq = 44100;
+
+    if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
+    {
+        int srcinc = format.channels;
+        len /= 2;
+
+        MicWavLength = (len * dstfreq) / format.freq;
+        MicWavBuffer = new s16[MicWavLength];
+
+        float res_incr = len / (float)MicWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < MicWavLength; i++)
+        {
+            u16 val = ((u16*)buf)[res_pos];
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            MicWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
+    {
+        int srcinc = format.channels;
+
+        MicWavLength = (len * dstfreq) / format.freq;
+        MicWavBuffer = new s16[MicWavLength];
+
+        float res_incr = len / (float)MicWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < MicWavLength; i++)
+        {
+            u16 val = buf[res_pos] << 8;
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            MicWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else
+        printf("bad WAV format %08X\n", format.format);
 }
 
 
@@ -287,6 +359,18 @@ int EmuThreadFunc(void* burp)
                 NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
             MicBufferReadPos += 735;
             MicBufferReadPos &= (kMicBufferSize-1);
+            /*if ((MicBufferReadPos + 735) > MicWavLength)
+            {
+                s16 tmp[735];
+                u32 len1 = MicWavLength-MicBufferReadPos;
+                memcpy(&tmp[0], &MicWavBuffer[MicBufferReadPos], len1*sizeof(s16));
+                memcpy(&tmp[len1], &MicWavBuffer[0], (735-len1)*sizeof(s16));
+                NDS::MicInputFrame(tmp, 735);
+            }
+            else
+                NDS::MicInputFrame(&MicWavBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+            MicBufferReadPos %= MicWavLength;*/
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -1647,6 +1731,8 @@ int main(int argc, char** argv)
     memset(MicBuffer, 0, sizeof(MicBuffer));
     MicBufferReadPos = 0;
     MicBufferWritePos = 0;
+
+    //MicLoadWav("blorp.wav");
 
     // TODO: support more joysticks
     if (SDL_NumJoysticks() > 0)
