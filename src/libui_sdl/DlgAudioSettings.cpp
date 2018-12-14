@@ -45,6 +45,18 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     return 1;
 }
 
+void OnMicWavBrowse(uiButton* btn, void* blarg)
+{
+    char* file = uiOpenFile(win, "WAV file (*.wav)|*.wav|Any file|*.*", NULL);
+    if (!file)
+    {
+        return;
+    }
+
+    uiEntrySetText(txMicWavPath, file);
+    uiFreeText(file);
+}
+
 void OnCancel(uiButton* btn, void* blarg)
 {
     uiControlDestroy(uiControl(win));
@@ -120,6 +132,7 @@ void Open()
         uiBoxAppend(path_box, uiControl(txMicWavPath), 1);
 
         uiButton* path_browse = uiNewButton("...");
+        uiButtonOnClicked(path_browse, OnMicWavBrowse, NULL);
         uiBoxAppend(path_box, uiControl(path_browse), 0);
     }
 
