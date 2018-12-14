@@ -145,11 +145,16 @@ static void uiWindowShow(uiControl *c)
 	gtk_window_resize(w->window, width, height);
 }
 
+static void uiWindowSetFocus(uiControl* c)
+{
+    gtk_window_present(GTK_WINDOW(uiWindow(c)->widget));
+}
+
 uiUnixControlDefaultHide(uiWindow)
 uiUnixControlDefaultEnabled(uiWindow)
 uiUnixControlDefaultEnable(uiWindow)
 uiUnixControlDefaultDisable(uiWindow)
-uiUnixControlDefaultSetFocus(uiWindow)
+//uiUnixControlDefaultSetFocus(uiWindow)
 uiUnixControlDefaultSetMinSize(uiWindow)
 // TODO?
 uiUnixControlDefaultSetContainer(uiWindow)
