@@ -8,6 +8,7 @@ PROJECT(${PROJECT_WX})
 SET(SOURCES
 	src/libui_sdl/main.cpp
 	src/libui_sdl/Platform.cpp
+	src/libui_sdl/DlgAudioSettings.cpp
 	src/libui_sdl/DlgEmuSettings.cpp
 	src/libui_sdl/DlgInputConfig.cpp
 	src/ARM.cpp

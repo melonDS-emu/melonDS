@@ -31,6 +31,7 @@
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
+#include "DlgAudioSettings.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -1350,6 +1351,11 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgInputConfig::Open(1);
 }
 
+void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgAudioSettings::Open();
+}
+
 
 void OnSetSavestateSRAMReloc(uiMenuItem* item, uiWindow* window, void* param)
 {
@@ -1615,12 +1621,16 @@ int main(int argc, char** argv)
     MenuItem_Stop = menuitem;
 
     menu = uiNewMenu("Config");
-    menuitem = uiMenuAppendItem(menu, "Emu settings");
-    uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
-    menuitem = uiMenuAppendItem(menu, "Input config");
-    uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
-    menuitem = uiMenuAppendItem(menu, "Hotkey config");
-    uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
+    {
+        menuitem = uiMenuAppendItem(menu, "Emu settings");
+        uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Input config");
+        uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Hotkey config");
+        uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Audio settings");
+        uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
+    }
     uiMenuAppendSeparator(menu);
     {
         uiMenu* submenu = uiNewMenu("Savestate settings");
