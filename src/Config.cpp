@@ -58,6 +58,8 @@ int AudioVolume;
 int MicInputType;
 char MicWavPath[512];
 
+char LastROMFolder[512];
+
 typedef struct
 {
     char Name[16];
@@ -123,6 +125,8 @@ ConfigEntry ConfigFile[] =
     {"AudioVolume", 0, &AudioVolume, 255, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 511},
+    
+    {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
 
     {"", -1, NULL, 0, NULL, 0}
 };

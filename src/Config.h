@@ -63,6 +63,8 @@ extern int AudioVolume;
 extern int MicInputType;
 extern char MicWavPath[512];
 
+extern char LastROMFolder[512];
+
 }
 
 #endif // CONFIG_H

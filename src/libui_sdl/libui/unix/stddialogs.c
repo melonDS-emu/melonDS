@@ -70,6 +70,9 @@ static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gcha
 	gtk_file_chooser_set_show_hidden(fc, TRUE);
 	gtk_file_chooser_set_do_overwrite_confirmation(fc, TRUE);
 	gtk_file_chooser_set_create_folders(fc, TRUE);
+	if (initpath && strlen(initpath)>0) 
+	    gtk_file_chooser_set_current_folder(fc, initpath);
+	
 	response = gtk_dialog_run(GTK_DIALOG(fcd));
 	if (response != GTK_RESPONSE_ACCEPT) {
 		gtk_widget_destroy(fcd);

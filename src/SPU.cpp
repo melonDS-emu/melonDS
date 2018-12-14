@@ -259,6 +259,7 @@ void Channel::Start()
     if (((Cnt >> 29) & 0x3) != 3)
     {
         FIFO_BufferData();
+        FIFO_BufferData();
     }
 }
 

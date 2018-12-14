@@ -1118,7 +1118,7 @@ void LoadState(int slot)
     }
     else
     {
-        char* file = uiOpenFile(MainWindow, "melonDS savestate (any)|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        char* file = uiOpenFile(MainWindow, "melonDS savestate (any)|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", Config::LastROMFolder);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -1193,7 +1193,7 @@ void SaveState(int slot)
     }
     else
     {
-        char* file = uiSaveFile(MainWindow, "melonDS savestate (*.mln)|*.mln", NULL);
+        char* file = uiSaveFile(MainWindow, "melonDS savestate (*.mln)|*.mln", Config::LastROMFolder);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -1310,12 +1310,17 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
+    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", Config::LastROMFolder);
     if (!file)
     {
         EmuRunning = prevstatus;
         return;
     }
+    
+    int pos = strlen(file)-1;
+    while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
+    strncpy(Config::LastROMFolder, file, pos);
+    Config::LastROMFolder[pos] = '\0';
 
     TryLoadROM(file, prevstatus);
     uiFreeText(file);
