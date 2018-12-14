@@ -316,7 +316,8 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 void FeedMicInput()
 {
     int type = Config::MicInputType;
-    if (type != 1 && MicCommand == 0)
+    if ((type != 1 && MicCommand == 0) ||
+        (type == 3 && MicWavBuffer == NULL))
     {
         type = 0;
         MicBufferReadPos = 0;
@@ -692,6 +693,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         for (int i = 0; i < 12; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask |= (1<<i);
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
+            MicCommand &= ~1;
     }
     else if (!evt->Repeat)
     {
@@ -722,8 +726,6 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand |= 1;
-        else
-            MicCommand &= ~1;
 
         if (evt->Scancode == 0x57) // F11
             NDS::debug(0);
