@@ -523,16 +523,26 @@ char* uiKeyName(int scancode)
 {
     scancode = scancode_normal2unix(scancode);
     
+    char* ret;
     guint* keyvals; int num;
-    GdkKeymap* keymap = gdk_keymap_get_default();
-    gdk_keymap_get_entries_for_keycode(keymap, scancode, NULL, &keyvals, &num);
+    GdkKeymap* keymap = gdk_keymap_get_for_display(gdk_display_get_default());
+    if (gdk_keymap_get_entries_for_keycode(keymap, scancode, NULL, &keyvals, &num))
+    {
+        // TODO: pick smarter??
+        int keyval = keyvals[0];
+        
+        g_free(keyvals);
+        
+        ret = gdk_keyval_name(keyval);
+    }
+    else
+    {
+        char tmp[16];
+        sprintf(tmp, "#%03X", scancode);
+        ret = tmp;
+    }
     
-    // TODO: pick smarter??
-    int keyval = keyvals[0];
-    
-    g_free(keyvals);
-    
-    return uiUnixStrdupText(gdk_keyval_name(keyval));
+    return uiUnixStrdupText(ret);
 }
 
 enum {
