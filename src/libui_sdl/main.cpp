@@ -154,6 +154,7 @@ void MicLoadWav(char* name)
     memset(&format, 0, sizeof(SDL_AudioSpec));
 
     if (MicWavBuffer) delete[] MicWavBuffer;
+    MicWavBuffer = NULL;
     MicWavLength = 0;
 
     u8* buf;
