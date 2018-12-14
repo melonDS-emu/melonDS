@@ -161,7 +161,7 @@ void MicLoadWav(char* name)
     if (!SDL_LoadWAV(name, &format, &buf, &len))
         return;
 
-    const int dstfreq = 44100;
+    const u64 dstfreq = 44100;
 
     if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
     {
