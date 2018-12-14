@@ -34,6 +34,9 @@ const char* kConfigFile = "melonDS.ini";
 int KeyMapping[12];
 int JoyMapping[12];
 
+int HKKeyMapping[HK_MAX];
+int HKJoyMapping[HK_MAX];
+
 int WindowWidth;
 int WindowHeight;
 
@@ -89,6 +92,12 @@ ConfigEntry ConfigFile[] =
     {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
+
+    {"HKKey_Lid",  0, &HKKeyMapping[HK_Lid], 0x0E, NULL, 0},
+    {"HKKey_Mic",  0, &HKKeyMapping[HK_Mic], 0x35, NULL, 0},
+
+    {"HKJoy_Lid",  0, &HKJoyMapping[HK_Lid], -1, NULL, 0},
+    {"HKJoy_Mic",  0, &HKJoyMapping[HK_Mic], -1, NULL, 0},
 
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},

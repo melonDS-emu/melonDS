@@ -35,19 +35,33 @@ extern SDL_Joystick* Joystick;
 namespace DlgInputConfig
 {
 
-uiWindow* win;
+typedef struct
+{
+    int type;
+    uiWindow* win;
 
-uiAreaHandler areahandler;
-uiArea* keypresscatcher;
+    uiAreaHandler areahandler;
+    uiArea* keypresscatcher;
 
-int keyorder[12] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 3, 2};
-char keylabels[12][8] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "Up:", "Down:", "R:", "L:", "X:", "Y:"};
+    int numkeys;
+    int keymap[32];
+    int joymap[32];
 
-int keymap[12];
-int joymap[12];
+    int pollid;
+    uiButton* pollbtn;
 
-int pollid;
-uiButton* pollbtn;
+} InputDlgData;
+
+
+int dskeyorder[12] = {0, 1, 10, 11, 5, 4, 6, 7, 9, 8, 3, 2};
+char dskeylabels[12][8] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "Up:", "Down:", "R:", "L:", "X:", "Y:"};
+
+int identity[32] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+
+char hotkeylabels[HK_MAX][32] = {"Close/open lid:", "Microphone:"};
+
+int openedmask;
+InputDlgData inputdlg[2];
 
 
 void JoyMappingName(int id, char* str)
@@ -97,7 +111,9 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
-    if (pollid < 0)
+    InputDlgData* dlg = (InputDlgData*)uiControl(area)->UserData;
+
+    if (dlg->pollid < 0)
         return 0;
 
     if (evt->Scancode == 0x38) // ALT
@@ -105,27 +121,27 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (evt->Modifiers == 0x2) // ALT+key
         return 0;
 
-    if (pollid > 12)
+    if (dlg->pollid > 12)
     {
-        if (pollid < 0x100) return 0;
-        int id = pollid & 0xFF;
+        if (dlg->pollid < 0x100) return 0;
+        int id = dlg->pollid & 0xFF;
         if (id > 12) return 0;
         if (evt->Scancode != 0x1) // ESC
         {
             if (evt->Scancode == 0xE) // backspace
-                joymap[id] = -1;
+                dlg->joymap[id] = -1;
             else
                 return 1;
         }
 
         char keyname[16];
-        JoyMappingName(joymap[id], keyname);
-        uiButtonSetText(pollbtn, keyname);
-        uiControlEnable(uiControl(pollbtn));
+        JoyMappingName(dlg->joymap[id], keyname);
+        uiButtonSetText(dlg->pollbtn, keyname);
+        uiControlEnable(uiControl(dlg->pollbtn));
 
-        pollid = -1;
+        dlg->pollid = -1;
 
-        uiControlSetFocus(uiControl(pollbtn));
+        uiControlSetFocus(uiControl(dlg->pollbtn));
 
         return 1;
     }
@@ -134,16 +150,16 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     {
         // set key.
         if (evt->Scancode != 0x1) // ESC
-            keymap[pollid] = evt->Scancode;
+            dlg->keymap[dlg->pollid] = evt->Scancode;
 
-        char* keyname = uiKeyName(keymap[pollid]);
-        uiButtonSetText(pollbtn, keyname);
-        uiControlEnable(uiControl(pollbtn));
+        char* keyname = uiKeyName(dlg->keymap[dlg->pollid]);
+        uiButtonSetText(dlg->pollbtn, keyname);
+        uiControlEnable(uiControl(dlg->pollbtn));
         uiFreeText(keyname);
 
-        pollid = -1;
+        dlg->pollid = -1;
 
-        uiControlSetFocus(uiControl(pollbtn));
+        uiControlSetFocus(uiControl(dlg->pollbtn));
     }
 
     return 1;
@@ -151,8 +167,10 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 
 Uint32 JoyPoll(Uint32 interval, void* param)
 {
-    if (pollid < 0x100) return 0;
-    int id = pollid & 0xFF;
+    InputDlgData* dlg = (InputDlgData*)param;
+
+    if (dlg->pollid < 0x100) return 0;
+    int id = dlg->pollid & 0xFF;
     if (id > 12) return 0;
 
     SDL_JoystickUpdate();
@@ -165,16 +183,16 @@ Uint32 JoyPoll(Uint32 interval, void* param)
     {
         if (SDL_JoystickGetButton(joy, i))
         {
-            joymap[id] = i;
+            dlg->joymap[id] = i;
 
             char keyname[16];
-            JoyMappingName(joymap[id], keyname);
-            uiButtonSetText(pollbtn, keyname);
-            uiControlEnable(uiControl(pollbtn));
+            JoyMappingName(dlg->joymap[id], keyname);
+            uiButtonSetText(dlg->pollbtn, keyname);
+            uiControlEnable(uiControl(dlg->pollbtn));
 
-            pollid = -1;
+            dlg->pollid = -1;
 
-            uiControlSetFocus(uiControl(pollbtn));
+            uiControlSetFocus(uiControl(dlg->pollbtn));
             return 0;
         }
     }
@@ -187,16 +205,16 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         else if (blackhat & 0x4) blackhat = 0x4;
         else                     blackhat = 0x8;
 
-        joymap[id] = 0x100 | blackhat;
+        dlg->joymap[id] = 0x100 | blackhat;
 
         char keyname[16];
-        JoyMappingName(joymap[id], keyname);
-        uiButtonSetText(pollbtn, keyname);
-        uiControlEnable(uiControl(pollbtn));
+        JoyMappingName(dlg->joymap[id], keyname);
+        uiButtonSetText(dlg->pollbtn, keyname);
+        uiControlEnable(uiControl(dlg->pollbtn));
 
-        pollid = -1;
+        dlg->pollid = -1;
 
-        uiControlSetFocus(uiControl(pollbtn));
+        uiControlSetFocus(uiControl(dlg->pollbtn));
         return 0;
     }
 
@@ -206,98 +224,147 @@ Uint32 JoyPoll(Uint32 interval, void* param)
 
 void OnKeyStartConfig(uiButton* btn, void* data)
 {
-    if (pollid != -1)
+    InputDlgData* dlg = (InputDlgData*)uiControl(btn)->UserData;
+
+    if (dlg->pollid != -1)
     {
         // TODO: handle this better?
-        if (pollid <= 12)
-            uiControlSetFocus(uiControl(keypresscatcher));
+        if (dlg->pollid <= 12)
+            uiControlSetFocus(uiControl(dlg->keypresscatcher));
         return;
     }
 
     int id = *(int*)data;
-    pollid = id;
-    pollbtn = btn;
+    dlg->pollid = id;
+    dlg->pollbtn = btn;
 
     uiButtonSetText(btn, "[press key]");
     uiControlDisable(uiControl(btn));
 
-    uiControlSetFocus(uiControl(keypresscatcher));
+    uiControlSetFocus(uiControl(dlg->keypresscatcher));
 }
 
 void OnJoyStartConfig(uiButton* btn, void* data)
 {
-    if (pollid != -1)
+    InputDlgData* dlg = (InputDlgData*)uiControl(btn)->UserData;
+
+    if (dlg->pollid != -1)
     {
         // TODO: handle this better?
-        if (pollid <= 12)
-            uiControlSetFocus(uiControl(keypresscatcher));
+        if (dlg->pollid <= 12)
+            uiControlSetFocus(uiControl(dlg->keypresscatcher));
         return;
     }
 
     int id = *(int*)data;
-    pollid = id | 0x100;
-    pollbtn = btn;
+    dlg->pollid = id | 0x100;
+    dlg->pollbtn = btn;
 
     uiButtonSetText(btn, "[press button]");
     uiControlDisable(uiControl(btn));
 
-    SDL_AddTimer(100, JoyPoll, NULL);
-    uiControlSetFocus(uiControl(keypresscatcher));
+    SDL_AddTimer(100, JoyPoll, dlg);
+    uiControlSetFocus(uiControl(dlg->keypresscatcher));
 }
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
+    InputDlgData* dlg = (InputDlgData*)(uiControl(window)->UserData);
+    openedmask &= ~(1 << dlg->type);
     return 1;
 }
 
 void OnGetFocus(uiWindow* window, void* blarg)
 {
-    if (pollid >= 0)
-        uiControlSetFocus(uiControl(keypresscatcher));
+    InputDlgData* dlg = (InputDlgData*)(uiControl(window)->UserData);
+
+    if (dlg->pollid >= 0)
+        uiControlSetFocus(uiControl(dlg->keypresscatcher));
 }
 
 void OnLoseFocus(uiWindow* window, void* blarg)
 {
 }
 
-void OnCancel(uiButton* btn, void* blarg)
+void OnCancel(uiButton* btn, void* data)
 {
-    uiControlDestroy(uiControl(win));
+    InputDlgData* dlg = (InputDlgData*)data;
+
+    uiControlDestroy(uiControl(dlg->win));
+    openedmask &= ~(1 << dlg->type);
 }
 
-void OnOk(uiButton* btn, void* blarg)
+void OnOk(uiButton* btn, void* data)
 {
-    memcpy(Config::KeyMapping, keymap, sizeof(int)*12);
-    memcpy(Config::JoyMapping, joymap, sizeof(int)*12);
+    InputDlgData* dlg = (InputDlgData*)data;
+
+    if (dlg->type == 0)
+    {
+        memcpy(Config::KeyMapping, dlg->keymap, sizeof(int)*12);
+        memcpy(Config::JoyMapping, dlg->joymap, sizeof(int)*12);
+    }
+    else if (dlg->type == 1)
+    {
+        memcpy(Config::HKKeyMapping, dlg->keymap, sizeof(int)*HK_MAX);
+        memcpy(Config::HKJoyMapping, dlg->joymap, sizeof(int)*HK_MAX);
+    }
 
     Config::Save();
 
-    uiControlDestroy(uiControl(win));
+    uiControlDestroy(uiControl(dlg->win));
+    openedmask &= ~(1 << dlg->type);
 }
 
-void Open()
+void Open(int type)
 {
-    pollid = -1;
+    InputDlgData* dlg = &inputdlg[type];
 
-    memcpy(keymap, Config::KeyMapping, sizeof(int)*12);
-    memcpy(joymap, Config::JoyMapping, sizeof(int)*12);
+    int mask = 1 << type;
+    if (openedmask & mask)
+    {
+        uiControlSetFocus(uiControl(dlg->win));
+        return;
+    }
 
-    win = uiNewWindow("Input config - melonDS", 600, 400, 0, 0);
-    uiWindowSetMargined(win, 1);
-    uiWindowOnClosing(win, OnCloseWindow, NULL);
-    uiWindowOnGetFocus(win, OnGetFocus, NULL);
-    uiWindowOnLoseFocus(win, OnLoseFocus, NULL);
+    openedmask |= mask;
 
-    areahandler.Draw = OnAreaDraw;
-    areahandler.MouseEvent = OnAreaMouseEvent;
-    areahandler.MouseCrossed = OnAreaMouseCrossed;
-    areahandler.DragBroken = OnAreaDragBroken;
-    areahandler.KeyEvent = OnAreaKeyEvent;
-    areahandler.Resize = OnAreaResize;
+    dlg->type = type;
+    dlg->pollid = -1;
+
+    if (type == 0)
+    {
+        dlg->numkeys = 12;
+        memcpy(dlg->keymap, Config::KeyMapping, sizeof(int)*12);
+        memcpy(dlg->joymap, Config::JoyMapping, sizeof(int)*12);
+
+        dlg->win = uiNewWindow("Input config - melonDS", 600, 100, 0, 0);
+    }
+    else if (type == 1)
+    {
+        dlg->numkeys = HK_MAX;
+        memcpy(dlg->keymap, Config::HKKeyMapping, sizeof(int)*HK_MAX);
+        memcpy(dlg->joymap, Config::HKJoyMapping, sizeof(int)*HK_MAX);
+
+        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0);
+    }
+
+    uiControl(dlg->win)->UserData = dlg;
+
+    uiWindowSetMargined(dlg->win, 1);
+    uiWindowOnClosing(dlg->win, OnCloseWindow, NULL);
+    uiWindowOnGetFocus(dlg->win, OnGetFocus, NULL);
+    uiWindowOnLoseFocus(dlg->win, OnLoseFocus, NULL);
+
+    dlg->areahandler.Draw = OnAreaDraw;
+    dlg->areahandler.MouseEvent = OnAreaMouseEvent;
+    dlg->areahandler.MouseCrossed = OnAreaMouseCrossed;
+    dlg->areahandler.DragBroken = OnAreaDragBroken;
+    dlg->areahandler.KeyEvent = OnAreaKeyEvent;
+    dlg->areahandler.Resize = OnAreaResize;
 
     uiBox* top = uiNewVerticalBox();
-    uiWindowSetChild(win, uiControl(top));
+    uiWindowSetChild(dlg->win, uiControl(top));
     uiControlHide(uiControl(top));
 
     {
@@ -312,19 +379,20 @@ void Open()
 
         const int width = 120;
 
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < dlg->numkeys; i++)
         {
-            int j = keyorder[i];
+            int j = (type==0) ? dskeyorder[i] : i;
 
-            uiLabel* label = uiNewLabel(keylabels[j]);
+            uiLabel* label = uiNewLabel((type==0) ? dskeylabels[j] : hotkeylabels[j]);
             uiGridAppend(b_key, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
             uiControlSetMinSize(uiControl(label), width, 1);
 
-            char* keyname = uiKeyName(Config::KeyMapping[j]);
+            char* keyname = uiKeyName(dlg->keymap[j]);
 
             uiButton* btn = uiNewButton(keyname);
+            uiControl(btn)->UserData = dlg;
             uiGridAppend(b_key, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
-            uiButtonOnClicked(btn, OnKeyStartConfig, &keyorder[i]);
+            uiButtonOnClicked(btn, OnKeyStartConfig, (type==0) ? &dskeyorder[i] : &identity[i]);
             uiControlSetMinSize(uiControl(btn), width, 1);
 
             uiFreeText(keyname);
@@ -335,20 +403,21 @@ void Open()
         uiGrid* b_joy = uiNewGrid();
         uiGroupSetChild(g_joy, uiControl(b_joy));
 
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < dlg->numkeys; i++)
         {
-            int j = keyorder[i];
+            int j = (type==0) ? dskeyorder[i] : i;
 
-            uiLabel* label = uiNewLabel(keylabels[j]);
+            uiLabel* label = uiNewLabel((type==0) ? dskeylabels[j] : hotkeylabels[j]);
             uiGridAppend(b_joy, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
             uiControlSetMinSize(uiControl(label), width, 1);
 
             char keyname[16];
-            JoyMappingName(Config::JoyMapping[j], keyname);
+            JoyMappingName(dlg->joymap[j], keyname);
 
             uiButton* btn = uiNewButton(keyname);
+            uiControl(btn)->UserData = dlg;
             uiGridAppend(b_joy, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
-            uiButtonOnClicked(btn, OnJoyStartConfig, &keyorder[i]);
+            uiButtonOnClicked(btn, OnJoyStartConfig, (type==0) ? &dskeyorder[i] : &identity[i]);
             uiControlSetMinSize(uiControl(btn), width, 1);
         }
     }
@@ -364,21 +433,22 @@ void Open()
         uiLabel* dummy = uiNewLabel("");
         uiBoxAppend(in_ctrl, uiControl(dummy), 1);
 
-        keypresscatcher = uiNewArea(&areahandler);
-        uiBoxAppend(in_ctrl, uiControl(keypresscatcher), 0);
+        dlg->keypresscatcher = uiNewArea(&dlg->areahandler);
+        uiControl(dlg->keypresscatcher)->UserData = dlg;
+        uiBoxAppend(in_ctrl, uiControl(dlg->keypresscatcher), 0);
 
         uiButton* btncancel = uiNewButton("Cancel");
-        uiButtonOnClicked(btncancel, OnCancel, NULL);
+        uiButtonOnClicked(btncancel, OnCancel, dlg);
         uiBoxAppend(in_ctrl, uiControl(btncancel), 0);
 
         uiButton* btnok = uiNewButton("Ok");
-        uiButtonOnClicked(btnok, OnOk, NULL);
+        uiButtonOnClicked(btnok, OnOk, dlg);
         uiBoxAppend(in_ctrl, uiControl(btnok), 0);
     }
 
     uiControlShow(uiControl(top));
 
-    uiControlShow(uiControl(win));
+    uiControlShow(uiControl(dlg->win));
 }
 
 }

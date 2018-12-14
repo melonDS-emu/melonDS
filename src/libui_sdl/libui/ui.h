@@ -76,6 +76,8 @@ struct uiControl {
 	void (*SetMinSize)(uiControl*, int, int);
 
 	int MinWidth, MinHeight;
+
+	void* UserData;
 };
 // TOOD add argument names to all arguments
 #define uiControl(this) ((uiControl *) (this))

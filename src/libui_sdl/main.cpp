@@ -1309,7 +1309,12 @@ void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    DlgInputConfig::Open();
+    DlgInputConfig::Open(0);
+}
+
+void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgInputConfig::Open(1);
 }
 
 
@@ -1581,6 +1586,8 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
     menuitem = uiMenuAppendItem(menu, "Input config");
     uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+    menuitem = uiMenuAppendItem(menu, "Hotkey config");
+    uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
     uiMenuAppendSeparator(menu);
     {
         uiMenu* submenu = uiNewMenu("Savestate settings");
