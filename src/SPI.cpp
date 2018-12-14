@@ -504,6 +504,12 @@ void SetTouchCoords(u16 x, u16 y)
 
 void MicInputFrame(s16* data, int samples)
 {
+    if (!data)
+    {
+        MicBufferLen = 0;
+        return;
+    }
+
     if (samples > 1024) samples = 1024;
     memcpy(MicBuffer, data, samples*sizeof(s16));
     MicBufferLen = samples;

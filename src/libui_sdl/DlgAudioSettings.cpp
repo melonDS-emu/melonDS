@@ -28,6 +28,9 @@
 #include "DlgAudioSettings.h"
 
 
+void MicLoadWav(char* path);
+
+
 namespace DlgAudioSettings
 {
 
@@ -38,11 +41,18 @@ uiSlider* slVolume;
 uiRadioButtons* rbMicInputType;
 uiEntry* txMicWavPath;
 
+int oldvolume;
+
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     opened = false;
     return 1;
+}
+
+void OnVolumeChanged(uiSlider* slider, void* blarg)
+{
+    Config::AudioVolume = uiSliderValue(slVolume);
 }
 
 void OnMicWavBrowse(uiButton* btn, void* blarg)
@@ -59,6 +69,8 @@ void OnMicWavBrowse(uiButton* btn, void* blarg)
 
 void OnCancel(uiButton* btn, void* blarg)
 {
+    Config::AudioVolume = oldvolume;
+
     uiControlDestroy(uiControl(win));
     opened = false;
 }
@@ -73,6 +85,8 @@ void OnOk(uiButton* btn, void* blarg)
     uiFreeText(wavpath);
 
     Config::Save();
+
+    if (Config::MicInputType == 3) MicLoadWav(Config::MicWavPath);
 
     uiControlDestroy(uiControl(win));
     opened = false;
@@ -106,7 +120,8 @@ void Open()
         uiLabel* label_vol = uiNewLabel("Volume:");
         uiBoxAppend(in_ctrl, uiControl(label_vol), 0);
 
-        slVolume = uiNewSlider(0, 255);
+        slVolume = uiNewSlider(0, 256);
+        uiSliderOnChanged(slVolume, OnVolumeChanged, NULL);
         uiBoxAppend(in_ctrl, uiControl(slVolume), 0);
     }
 
@@ -154,7 +169,9 @@ void Open()
     }
 
     if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    else if (Config::AudioVolume > 255) Config::AudioVolume = 255;
+    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+
+    oldvolume = Config::AudioVolume;
 
     uiSliderSetValue(slVolume, Config::AudioVolume);
     uiRadioButtonsSetSelected(rbMicInputType, Config::MicInputType);

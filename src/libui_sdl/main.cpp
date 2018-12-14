@@ -112,12 +112,14 @@ u32 KeyInputMask;
 bool LidCommand, LidStatus;
 SDL_Joystick* Joystick;
 
-const u32 kMicBufferSize = 2048; // must be power of two
-s16 MicBuffer[kMicBufferSize];
+u32 MicBufferLength = 2048;
+s16 MicBuffer[2048];
 u32 MicBufferReadPos, MicBufferWritePos;
 
 u32 MicWavLength;
 s16* MicWavBuffer;
+
+u32 MicCommand;
 
 
 void SetupScreenRects(int width, int height);
@@ -151,9 +153,13 @@ void MicLoadWav(char* name)
     SDL_AudioSpec format;
     memset(&format, 0, sizeof(SDL_AudioSpec));
 
+    if (MicWavBuffer) delete[] MicWavBuffer;
+    MicWavLength = 0;
+
     u8* buf;
     u32 len;
-    SDL_LoadWAV(name, &format, &buf, &len);
+    if (!SDL_LoadWAV(name, &format, &buf, &len))
+        return;
 
     const int dstfreq = 44100;
 
@@ -163,6 +169,7 @@ void MicLoadWav(char* name)
         len /= 2;
 
         MicWavLength = (len * dstfreq) / format.freq;
+        if (MicWavLength < 735) MicWavLength = 735;
         MicWavBuffer = new s16[MicWavLength];
 
         float res_incr = len / (float)MicWavLength;
@@ -189,6 +196,7 @@ void MicLoadWav(char* name)
         int srcinc = format.channels;
 
         MicWavLength = (len * dstfreq) / format.freq;
+        if (MicWavLength < 735) MicWavLength = 735;
         MicWavBuffer = new s16[MicWavLength];
 
         float res_incr = len / (float)MicWavLength;
@@ -212,6 +220,8 @@ void MicLoadWav(char* name)
     }
     else
         printf("bad WAV format %08X\n", format.format);
+
+    SDL_FreeWAV(buf);
 }
 
 
@@ -248,11 +258,13 @@ void AudioCallback(void* data, Uint8* stream, int len)
     float res_timer = 0;
     int res_pos = 0;
 
+    int volume = Config::AudioVolume;
+
     for (int i = 0; i < 1024; i++)
     {
         // TODO: interp!!
-        buf_out[i*2  ] = buf_in[res_pos*2  ];
-        buf_out[i*2+1] = buf_in[res_pos*2+1];
+        buf_out[i*2  ] = (buf_in[res_pos*2  ] * volume) >> 8;
+        buf_out[i*2+1] = (buf_in[res_pos*2+1] * volume) >> 8;
 
         res_timer += res_incr;
         while (res_timer >= 1.0)
@@ -265,19 +277,23 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
 void MicCallback(void* data, Uint8* stream, int len)
 {
+    if (Config::MicInputType != 1) return;
+
     s16* input = (s16*)stream;
     len /= sizeof(s16);
 
-    if ((MicBufferWritePos + len) > kMicBufferSize)
+    if ((MicBufferWritePos + len) > MicBufferLength)
     {
-        u32 len1 = kMicBufferSize-MicBufferWritePos;
+        u32 len1 = MicBufferLength - MicBufferWritePos;
         memcpy(&MicBuffer[MicBufferWritePos], &input[0], len1*sizeof(s16));
-        memcpy(&MicBuffer[0], &input[len1], (len-len1)*sizeof(s16));
+        memcpy(&MicBuffer[0], &input[len1], (len - len1)*sizeof(s16));
+        MicBufferWritePos = len - len1;
     }
     else
+    {
         memcpy(&MicBuffer[MicBufferWritePos], input, len*sizeof(s16));
-    MicBufferWritePos += len;
-    MicBufferWritePos &= (kMicBufferSize-1);
+        MicBufferWritePos += len;
+    }
 }
 
 bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
@@ -297,6 +313,67 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
     return pressed;
 }
 
+void FeedMicInput()
+{
+    int type = Config::MicInputType;
+    if (type != 1 && MicCommand == 0)
+    {
+        type = 0;
+        MicBufferReadPos = 0;
+    }
+
+    switch (type)
+    {
+    case 0: // no mic
+        NDS::MicInputFrame(NULL, 0);
+        break;
+
+    case 1: // host mic
+        if ((MicBufferReadPos + 735) > MicBufferLength)
+        {
+            s16 tmp[735];
+            u32 len1 = MicBufferLength - MicBufferReadPos;
+            memcpy(&tmp[0], &MicBuffer[MicBufferReadPos], len1*sizeof(s16));
+            memcpy(&tmp[len1], &MicBuffer[0], (735 - len1)*sizeof(s16));
+
+            NDS::MicInputFrame(tmp, 735);
+            MicBufferReadPos = 735 - len1;
+        }
+        else
+        {
+            NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+        }
+        break;
+
+    case 2: // white noise
+        {
+            s16 tmp[735];
+            for (int i = 0; i < 735; i++) tmp[i] = rand() & 0xFFFF;
+            NDS::MicInputFrame(tmp, 735);
+        }
+        break;
+
+    case 3: // WAV
+        if ((MicBufferReadPos + 735) > MicWavLength)
+        {
+            s16 tmp[735];
+            u32 len1 = MicWavLength - MicBufferReadPos;
+            memcpy(&tmp[0], &MicWavBuffer[MicBufferReadPos], len1*sizeof(s16));
+            memcpy(&tmp[len1], &MicWavBuffer[0], (735 - len1)*sizeof(s16));
+
+            NDS::MicInputFrame(tmp, 735);
+            MicBufferReadPos = 735 - len1;
+        }
+        else
+        {
+            NDS::MicInputFrame(&MicWavBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+        }
+        break;
+    }
+}
+
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
@@ -311,6 +388,7 @@ int EmuThreadFunc(void* burp)
     KeyInputMask = 0xFFF;
     LidCommand = false;
     LidStatus = false;
+    MicCommand = 0;
 
     Uint8* joybuttons = NULL; int njoybuttons = 0;
     if (Joystick)
@@ -332,6 +410,7 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
+
 
             // poll input
             u32 keymask = KeyInputMask;
@@ -372,9 +451,9 @@ int EmuThreadFunc(void* burp)
                     LidCommand = true;
                 }
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
-                {
-                    // microphone shit here
-                }
+                    MicCommand |= 2;
+                else
+                    MicCommand &= ~2;
             }
             NDS::SetKeyMask(keymask & joymask);
 
@@ -385,30 +464,7 @@ int EmuThreadFunc(void* burp)
             }
 
             // microphone input
-            if ((MicBufferReadPos + 735) > kMicBufferSize)
-            {
-                s16 tmp[735];
-                u32 len1 = kMicBufferSize-MicBufferReadPos;
-                memcpy(&tmp[0], &MicBuffer[MicBufferReadPos], len1*sizeof(s16));
-                memcpy(&tmp[len1], &MicBuffer[0], (735-len1)*sizeof(s16));
-                NDS::MicInputFrame(tmp, 735);
-            }
-            else
-                NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
-            MicBufferReadPos += 735;
-            MicBufferReadPos &= (kMicBufferSize-1);
-            /*if ((MicBufferReadPos + 735) > MicWavLength)
-            {
-                s16 tmp[735];
-                u32 len1 = MicWavLength-MicBufferReadPos;
-                memcpy(&tmp[0], &MicWavBuffer[MicBufferReadPos], len1*sizeof(s16));
-                memcpy(&tmp[len1], &MicWavBuffer[0], (735-len1)*sizeof(s16));
-                NDS::MicInputFrame(tmp, 735);
-            }
-            else
-                NDS::MicInputFrame(&MicWavBuffer[MicBufferReadPos], 735);
-            MicBufferReadPos += 735;
-            MicBufferReadPos %= MicWavLength;*/
+            FeedMicInput();
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -665,9 +721,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             LidCommand = true;
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
-        {
-            // microphone shit here
-        }
+            MicCommand |= 1;
+        else
+            MicCommand &= ~1;
 
         if (evt->Scancode == 0x57) // F11
             NDS::debug(0);
@@ -1537,6 +1593,9 @@ int main(int argc, char** argv)
 
     Config::Load();
 
+    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
+    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+
     if (!LocalFileExists("bios7.bin") || !LocalFileExists("bios9.bin") || !LocalFileExists("firmware.bin"))
     {
         uiMsgBoxError(
@@ -1788,6 +1847,7 @@ int main(int argc, char** argv)
     if (!mic)
     {
         printf("Mic init failed: %s\n", SDL_GetError());
+        MicBufferLength = 0;
     }
     else
     {
@@ -1798,7 +1858,8 @@ int main(int argc, char** argv)
     MicBufferReadPos = 0;
     MicBufferWritePos = 0;
 
-    //MicLoadWav("blorp.wav");
+    MicWavBuffer = NULL;
+    if (Config::MicInputType == 3) MicLoadWav(Config::MicWavPath);
 
     // TODO: support more joysticks
     if (SDL_NumJoysticks() > 0)
@@ -1837,6 +1898,8 @@ int main(int argc, char** argv)
     if (Joystick) SDL_JoystickClose(Joystick);
     if (audio) SDL_CloseAudioDevice(audio);
     if (mic)   SDL_CloseAudioDevice(mic);
+
+    if (MicWavBuffer) delete[] MicWavBuffer;
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;
