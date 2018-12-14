@@ -6,6 +6,9 @@ struct uiButton {
 	HWND hwnd;
 	void (*onClicked)(uiButton *, void *);
 	void *onClickedData;
+
+	SIZE idealSize;
+	int idealSizeCached;
 };
 
 static BOOL onWM_COMMAND(uiControl *c, HWND hwnd, WORD code, LRESULT *lResult)
@@ -41,6 +44,13 @@ static void uiButtonMinimumSize(uiWindowsControl *c, int *width, int *height)
 	uiWindowsSizing sizing;
 	int y;
 
+	if (b->idealSizeCached)
+    {
+        *width = b->idealSize.cx;
+        *height = b->idealSize.cy;
+        return;
+    }
+
 	// try the comctl32 version 6 way
 	size.cx = 0;		// explicitly ask for ideal size
 	size.cy = 0;
@@ -48,6 +58,9 @@ static void uiButtonMinimumSize(uiWindowsControl *c, int *width, int *height)
 		*width = size.cx;
 		if (*width < buttonMinWidth) *width = buttonMinWidth;
 		*height = size.cy;
+		b->idealSize.cx = *width;
+		b->idealSize.cy = *height;
+		b->idealSizeCached = true;
 		return;
 	}
 
@@ -60,6 +73,9 @@ static void uiButtonMinimumSize(uiWindowsControl *c, int *width, int *height)
 	uiWindowsGetSizing(b->hwnd, &sizing);
 	uiWindowsSizingDlgUnitsToPixels(&sizing, NULL, &y);
 	*height = y;
+	b->idealSize.cx = *width;
+    b->idealSize.cy = *height;
+    b->idealSizeCached = true;
 }
 
 static void defaultOnClicked(uiButton *b, void *data)
@@ -75,6 +91,7 @@ char *uiButtonText(uiButton *b)
 void uiButtonSetText(uiButton *b, const char *text)
 {
 	uiWindowsSetWindowText(b->hwnd, text);
+	b->idealSizeCached = 0;
 	// changing the text might necessitate a change in the button's size
 	uiWindowsControlMinimumSizeChanged(uiWindowsControl(b));
 }
@@ -102,6 +119,8 @@ uiButton *uiNewButton(const char *text)
 
 	uiWindowsRegisterWM_COMMANDHandler(b->hwnd, onWM_COMMAND, uiControl(b));
 	uiButtonOnClicked(b, defaultOnClicked, NULL);
+
+	b->idealSizeCached = 0;
 
 	return b;
 }
