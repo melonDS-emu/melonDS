@@ -59,6 +59,10 @@ extern int SocketBindAnyAddr;
 
 extern int SavestateRelocSRAM;
 
+extern int AudioVolume;
+extern int MicInputType;
+extern char MicWavPath[512];
+
 }
 
 #endif // CONFIG_H

@@ -54,6 +54,10 @@ int SocketBindAnyAddr;
 
 int SavestateRelocSRAM;
 
+int AudioVolume;
+int MicInputType;
+char MicWavPath[512];
+
 typedef struct
 {
     char Name[16];
@@ -61,7 +65,7 @@ typedef struct
     void* Value;
     int DefaultInt;
     char* DefaultStr;
-    int StrLength;
+    int StrLength; // should be set to actual array length minus one
 
 } ConfigEntry;
 
@@ -116,6 +120,10 @@ ConfigEntry ConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 1, NULL, 0},
 
+    {"AudioVolume", 0, &AudioVolume, 255, NULL, 0},
+    {"MicInputType", 0, &MicInputType, 1, NULL, 0},
+    {"MicWavPath", 1, MicWavPath, 0, "", 511},
+
     {"", -1, NULL, 0, NULL, 0}
 };
 
@@ -130,7 +138,10 @@ void Load()
         if (entry->Type == 0)
             *(int*)entry->Value = entry->DefaultInt;
         else
+        {
             strncpy((char*)entry->Value, entry->DefaultStr, entry->StrLength);
+            ((char*)entry->Value)[entry->StrLength] = '\0';
+        }
 
         entry++;
     }

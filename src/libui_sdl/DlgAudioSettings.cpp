@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "libui/ui.h"
 
@@ -33,7 +34,9 @@ namespace DlgAudioSettings
 bool opened;
 uiWindow* win;
 
-//
+uiSlider* slVolume;
+uiRadioButtons* rbMicInputType;
+uiEntry* txMicWavPath;
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -50,9 +53,12 @@ void OnCancel(uiButton* btn, void* blarg)
 
 void OnOk(uiButton* btn, void* blarg)
 {
-    /*Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
-    Config::Threaded3D = uiCheckboxChecked(cbThreaded3D);
-    Config::SocketBindAnyAddr = uiCheckboxChecked(cbBindAnyAddr);*/
+    Config::AudioVolume = uiSliderValue(slVolume);
+    Config::MicInputType = uiRadioButtonsSelected(rbMicInputType);
+
+    char* wavpath = uiEntryText(txMicWavPath);
+    strncpy(Config::MicWavPath, wavpath, 511);
+    uiFreeText(wavpath);
 
     Config::Save();
 
@@ -88,8 +94,8 @@ void Open()
         uiLabel* label_vol = uiNewLabel("Volume:");
         uiBoxAppend(in_ctrl, uiControl(label_vol), 0);
 
-        uiSlider* volslider = uiNewSlider(0, 255);
-        uiBoxAppend(in_ctrl, uiControl(volslider), 0);
+        slVolume = uiNewSlider(0, 255);
+        uiBoxAppend(in_ctrl, uiControl(slVolume), 0);
     }
 
     {
@@ -100,18 +106,18 @@ void Open()
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiRadioButtons* mictypes = uiNewRadioButtons();
-        uiRadioButtonsAppend(mictypes, "None");
-        uiRadioButtonsAppend(mictypes, "Microphone");
-        uiRadioButtonsAppend(mictypes, "White noise");
-        uiRadioButtonsAppend(mictypes, "WAV file:");
-        uiBoxAppend(in_ctrl, uiControl(mictypes), 0);
+        rbMicInputType = uiNewRadioButtons();
+        uiRadioButtonsAppend(rbMicInputType, "None");
+        uiRadioButtonsAppend(rbMicInputType, "Microphone");
+        uiRadioButtonsAppend(rbMicInputType, "White noise");
+        uiRadioButtonsAppend(rbMicInputType, "WAV file:");
+        uiBoxAppend(in_ctrl, uiControl(rbMicInputType), 0);
 
         uiBox* path_box = uiNewHorizontalBox();
         uiBoxAppend(in_ctrl, uiControl(path_box), 0);
 
-        uiEntry* path_entry = uiNewEntry();
-        uiBoxAppend(path_box, uiControl(path_entry), 1);
+        txMicWavPath = uiNewEntry();
+        uiBoxAppend(path_box, uiControl(txMicWavPath), 1);
 
         uiButton* path_browse = uiNewButton("...");
         uiBoxAppend(path_box, uiControl(path_browse), 0);
@@ -134,7 +140,12 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(btnok), 0);
     }
 
-    // shit
+    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
+    else if (Config::AudioVolume > 255) Config::AudioVolume = 255;
+
+    uiSliderSetValue(slVolume, Config::AudioVolume);
+    uiRadioButtonsSetSelected(rbMicInputType, Config::MicInputType);
+    uiEntrySetText(txMicWavPath, Config::MicWavPath);
 
     uiControlShow(uiControl(win));
 }
