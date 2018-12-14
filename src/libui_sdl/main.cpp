@@ -279,6 +279,23 @@ void MicCallback(void* data, Uint8* stream, int len)
     MicBufferWritePos &= (kMicBufferSize-1);
 }
 
+bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    bool pressed;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else
+        pressed = (btnid < njoybuttons) ? joybuttons[btnid] : false;
+
+    return pressed;
+}
+
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
@@ -293,6 +310,13 @@ int EmuThreadFunc(void* burp)
     KeyInputMask = 0xFFF;
     LidCommand = false;
     LidStatus = false;
+
+    Uint8* joybuttons = NULL; int njoybuttons = 0;
+    if (Joystick)
+    {
+        njoybuttons = SDL_JoystickNumButtons(Joystick);
+        if (njoybuttons) joybuttons = new Uint8[njoybuttons];
+    }
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -319,22 +343,15 @@ int EmuThreadFunc(void* burp)
                 Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
                 Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
 
+                for (int i = 0; i < njoybuttons; i++)
+                    joybuttons[i] = SDL_JoystickGetButton(Joystick, i);
+
                 for (int i = 0; i < 12; i++)
                 {
                     int btnid = Config::JoyMapping[i];
                     if (btnid < 0) continue;
 
-                    bool pressed;
-                    if (btnid == 0x101) // up
-                        pressed = (hat & SDL_HAT_UP);
-                    else if (btnid == 0x104) // down
-                        pressed = (hat & SDL_HAT_DOWN);
-                    else if (btnid == 0x102) // right
-                        pressed = (hat & SDL_HAT_RIGHT);
-                    else if (btnid == 0x108) // left
-                        pressed = (hat & SDL_HAT_LEFT);
-                    else
-                        pressed = SDL_JoystickGetButton(Joystick, btnid);
+                    bool pressed = JoyButtonPressed(btnid, njoybuttons, joybuttons, hat);
 
                     if (i == 4) // right
                         pressed = pressed || (axisX >= 16384);
@@ -346,6 +363,16 @@ int EmuThreadFunc(void* burp)
                         pressed = pressed || (axisY >= 16384);
 
                     if (pressed) joymask &= ~(1<<i);
+                }
+
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
+                {
+                    LidStatus = !LidStatus;
+                    LidCommand = true;
+                }
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
+                {
+                    // microphone shit here
                 }
             }
             NDS::SetKeyMask(keymask & joymask);
@@ -479,6 +506,8 @@ int EmuThreadFunc(void* burp)
     }
 
     EmuStatus = 0;
+
+    if (joybuttons) delete[] joybuttons;
 
     NDS::DeInit();
 
@@ -629,10 +658,14 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
 
-        if (evt->Scancode == 0x44) // F10, test
+        if (evt->Scancode == Config::HKKeyMapping[HK_Lid])
         {
             LidStatus = !LidStatus;
             LidCommand = true;
+        }
+        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
+        {
+            // microphone shit here
         }
 
         if (evt->Scancode == 0x57) // F11
