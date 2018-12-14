@@ -108,6 +108,7 @@ uiDrawMatrix BottomScreenTrans;
 bool Touching = false;
 
 u32 KeyInputMask;
+bool LidCommand, LidStatus;
 SDL_Joystick* Joystick;
 
 const u32 kMicBufferSize = 2048; // must be power of two
@@ -290,6 +291,8 @@ int EmuThreadFunc(void* burp)
     ScreenDrawInited = false;
     Touching = false;
     KeyInputMask = 0xFFF;
+    LidCommand = false;
+    LidStatus = false;
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -346,6 +349,12 @@ int EmuThreadFunc(void* burp)
                 }
             }
             NDS::SetKeyMask(keymask & joymask);
+
+            if (LidCommand)
+            {
+                NDS::SetLidClosed(LidStatus);
+                LidCommand = false;
+            }
 
             // microphone input
             if ((MicBufferReadPos + 735) > kMicBufferSize)
@@ -619,6 +628,12 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         for (int i = 0; i < 12; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
+
+        if (evt->Scancode == 0x44) // F10, test
+        {
+            LidStatus = !LidStatus;
+            LidCommand = true;
+        }
 
         if (evt->Scancode == 0x57) // F11
             NDS::debug(0);

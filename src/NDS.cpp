@@ -764,6 +764,7 @@ u32 RunFrame()
     FrameSysClockCycles = 0;
 
     if (!Running) return 263; // dorp
+    if (CPUStop & 0x40000000) return 263;
 
     GPU::StartFrame();
 
@@ -852,6 +853,14 @@ u32 RunFrame()
         SysClockCycles += ndscyclestorun;
         LastSysClockCycles += ndscyclestorun;
         FrameSysClockCycles += ndscyclestorun;
+
+        if (CPUStop & 0x40000000)
+        {
+            // checkme: when is sleep mode effective?
+            //CancelEvent(Event_LCD);
+            //GPU::TotalScanlines = 263;
+            break;
+        }
     }
 
 #ifdef DEBUG_CHECK_DESYNC
@@ -951,6 +960,20 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+void SetLidClosed(bool closed)
+{
+    if (closed)
+    {
+        KeyInput |= (1<<23);
+    }
+    else
+    {
+        KeyInput &= ~(1<<23);
+        SetIRQ(1, IRQ_LidOpen);
+        CPUStop &= ~0x40000000;
+    }
 }
 
 void MicInputFrame(s16* data, int samples)
@@ -1109,6 +1132,14 @@ void GXFIFOStall()
 void GXFIFOUnstall()
 {
     CPUStop &= ~0x80000000;
+}
+
+void EnterSleepMode()
+{
+    if (CPUStop & 0x40000000) return;
+
+    CPUStop |= 0x40000000;
+    ARM7->Halt(2);
 }
 
 u32 GetPC(u32 cpu)
@@ -3224,7 +3255,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000301:
-        if (val == 0x80) ARM7->Halt(1);
+        val & 0xC0;
+        if      (val == 0x40) printf("!! GBA MODE NOT SUPPORTED\n");
+        else if (val == 0x80) ARM7->Halt(1);
+        else if (val == 0xC0) EnterSleepMode();
         return;
     }
 

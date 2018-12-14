@@ -152,6 +152,8 @@ void ReleaseScreen();
 
 void SetKeyMask(u32 mask);
 
+void SetLidClosed(bool closed);
+
 void MicInputFrame(s16* data, int samples);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
