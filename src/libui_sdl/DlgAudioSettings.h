@@ -16,33 +16,14 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CP15_H
-#define CP15_H
+#ifndef DLGAUDIOSETTINGS_H
+#define DLGAUDIOSETTINGS_H
 
-namespace CP15
+namespace DlgAudioSettings
 {
 
-void Reset();
-
-void DoSavestate(Savestate* file);
-
-void UpdateDTCMSetting();
-void UpdateITCMSetting();
-
-void Write(u32 id, u32 val);
-u32 Read(u32 id);
-
-bool HandleCodeRead16(u32 addr, u16* val);
-bool HandleCodeRead32(u32 addr, u32* val);
-bool HandleDataRead8(u32 addr, u8* val, u32 forceuser=0);
-bool HandleDataRead16(u32 addr, u16* val, u32 forceuser=0);
-bool HandleDataRead32(u32 addr, u32* val, u32 forceuser=0);
-bool HandleDataWrite8(u32 addr, u8 val, u32 forceuser=0);
-bool HandleDataWrite16(u32 addr, u16 val, u32 forceuser=0);
-bool HandleDataWrite32(u32 addr, u32 val, u32 forceuser=0);
-
-bool GetCodeMemRegion(u32 addr, NDS::MemRegion* region);
+void Open();
 
 }
 
-#endif
+#endif // DLGAUDIOSETTINGS_H

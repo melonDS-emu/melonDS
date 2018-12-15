@@ -21,6 +21,14 @@
 
 #include "types.h"
 
+enum
+{
+    HK_Lid = 0,
+    HK_Mic,
+
+    HK_MAX
+};
+
 namespace Config
 {
 FILE* GetConfigFile(const char* fileName, const char* permissions);
@@ -32,6 +40,9 @@ void Save();
 extern int KeyMapping[12];
 extern int JoyMapping[12];
 
+extern int HKKeyMapping[HK_MAX];
+extern int HKJoyMapping[HK_MAX];
+
 extern int WindowWidth;
 extern int WindowHeight;
 
@@ -41,6 +52,8 @@ extern int ScreenLayout;
 extern int ScreenSizing;
 extern int ScreenFilter;
 
+extern int LimitFPS;
+
 extern int DirectBoot;
 
 extern int Threaded3D;
@@ -48,6 +61,12 @@ extern int Threaded3D;
 extern int SocketBindAnyAddr;
 
 extern int SavestateRelocSRAM;
+
+extern int AudioVolume;
+extern int MicInputType;
+extern char MicWavPath[512];
+
+extern char LastROMFolder[512];
 
 }
 

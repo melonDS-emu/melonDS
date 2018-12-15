@@ -41,6 +41,8 @@ public:
         return ((mode == StartMode) && (Cnt & 0x80000000));
     }
 
+    bool IsRunning() { return Running!=0; }
+
     void StartIfNeeded(u32 mode)
     {
         if ((mode == StartMode) && (Cnt & 0x80000000))
@@ -53,14 +55,17 @@ public:
             Cnt &= ~0x80000000;
     }
 
+    void StallIfRunning()
+    {
+        if (Executing) Stall = true;
+    }
+
     u32 SrcAddr;
     u32 DstAddr;
     u32 Cnt;
 
 private:
     u32 CPU, Num;
-
-    s32 Waitstates[2][16];
 
     u32 StartMode;
     u32 CurSrcAddr;
@@ -71,8 +76,11 @@ private:
     u32 DstAddrInc;
     u32 CountMask;
 
-    bool Running;
+    u32 Running;
     bool InProgress;
+
+    bool Executing;
+    bool Stall;
 
     bool IsGXFIFODMA;
 };

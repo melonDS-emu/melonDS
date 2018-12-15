@@ -22,6 +22,7 @@
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
+#include "melon_fopen.h"
 
 
 namespace SPI_Firmware
@@ -89,7 +90,7 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    FILE* f = Config::GetConfigFile("firmware.bin", "rb");
+    FILE* f = melon_fopen_local("firmware.bin", "rb");
     if (!f)
     {
         printf("firmware.bin not found\n");
@@ -128,8 +129,8 @@ void Reset()
     fclose(f);
 
     // take a backup
-    char* firmbkp = Config::GetConfigFilePath("firmware.bin.bak");
-    f = Config::GetConfigFile(firmbkp, "rb");
+    char* firmbkp = "firmware.bin.bak";
+    f = melon_fopen_local(firmbkp, "rb");
     if (f) fclose(f);
     else
     {
@@ -137,7 +138,6 @@ void Reset()
         fwrite(Firmware, 1, FirmwareLength, f);
         fclose(f);
     }
-	delete firmbkp;
 
     FirmwareMask = FirmwareLength - 1;
 
@@ -325,7 +325,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Config::GetConfigFile("firmware.bin", "r+b");
+        FILE* f = melon_fopen_local("firmware.bin", "r+b");
         if (f)
         {
             u32 cutoff = 0x7FA00 & FirmwareMask;
@@ -453,6 +453,9 @@ u16 ConvResult;
 
 u16 TouchX, TouchY;
 
+s16 MicBuffer[1024];
+int MicBufferLen;
+
 
 bool Init()
 {
@@ -469,6 +472,8 @@ void Reset()
     Data = 0;
 
     ConvResult = 0;
+
+    MicBufferLen = 0;
 }
 
 void DoSavestate(Savestate* file)
@@ -497,6 +502,19 @@ void SetTouchCoords(u16 x, u16 y)
     TouchY <<= 4;
 }
 
+void MicInputFrame(s16* data, int samples)
+{
+    if (!data)
+    {
+        MicBufferLen = 0;
+        return;
+    }
+
+    if (samples > 1024) samples = 1024;
+    memcpy(MicBuffer, data, samples*sizeof(s16));
+    MicBufferLen = samples;
+}
+
 u8 Read()
 {
     return Data;
@@ -520,7 +538,31 @@ void Write(u8 val, u32 hold)
         {
         case 0x10: ConvResult = TouchY; break;
         case 0x50: ConvResult = TouchX; break;
-        case 0x60: ConvResult = 0x800; break; // TODO: mic
+
+        case 0x60:
+            {
+                if (MicBufferLen == 0)
+                    ConvResult = 0x800;
+                else
+                {
+                    // 560190 cycles per frame
+                    u32 cyclepos = (u32)NDS::GetSysClockCycles(2);
+                    u32 samplepos = (cyclepos * MicBufferLen) / 560190;
+                    if (samplepos >= MicBufferLen) samplepos = MicBufferLen-1;
+                    s16 sample = MicBuffer[samplepos];
+
+                    // make it louder
+                    //if (sample > 0x3FFF) sample = 0x7FFF;
+                    //else if (sample < -0x4000) sample = -0x8000;
+                    //else sample <<= 1;
+
+                    // make it unsigned 12-bit
+                    sample ^= 0x8000;
+                    ConvResult = sample >> 4;
+                }
+            }
+            break;
+
         default: ConvResult = 0xFFF; break;
         }
 

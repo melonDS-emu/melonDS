@@ -121,6 +121,9 @@ public:
 
     void DoRun(s32* buf, u32 samples)
     {
+        for (u32 s = 0; s < samples; s++)
+            buf[s] = 0;
+
         switch ((Cnt >> 29) & 0x3)
         {
         case 0: Run<0>(buf, samples); break;

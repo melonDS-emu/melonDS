@@ -113,7 +113,8 @@
 		<Unit filename="src/ARMInterpreter_LoadStore.h" />
 		<Unit filename="src/ARM_InstrTable.h" />
 		<Unit filename="src/CP15.cpp" />
-		<Unit filename="src/CP15.h" />
+		<Unit filename="src/CRC32.cpp" />
+		<Unit filename="src/CRC32.h" />
 		<Unit filename="src/Config.cpp" />
 		<Unit filename="src/Config.h" />
 		<Unit filename="src/DMA.cpp" />
@@ -143,6 +144,8 @@
 		<Unit filename="src/Wifi.h" />
 		<Unit filename="src/WifiAP.cpp" />
 		<Unit filename="src/WifiAP.h" />
+		<Unit filename="src/libui_sdl/DlgAudioSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgAudioSettings.h" />
 		<Unit filename="src/libui_sdl/DlgEmuSettings.cpp" />
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
@@ -233,6 +236,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/winpublic.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
+		<Unit filename="src/melon_fopen.cpp" />
 		<Unit filename="src/melon_fopen.h" />
 		<Unit filename="src/pcap/bluetooth.h" />
 		<Unit filename="src/pcap/bpf.h" />

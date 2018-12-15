@@ -204,8 +204,8 @@ void Channel::FIFO_BufferData()
     if (FIFOReadOffset >= totallen)
     {
         u32 repeatmode = (Cnt >> 27) & 0x3;
-        if (repeatmode == 2) return; // one-shot sound, we're done
-        if (repeatmode == 1) FIFOReadOffset = LoopPos;
+        if      (repeatmode & 1) FIFOReadOffset = LoopPos;
+        else if (repeatmode & 2) return; // one-shot sound, we're done
     }
 
     u32 burstlen = 16;
@@ -255,7 +255,7 @@ void Channel::Start()
     FIFOReadOffset = 0;
     FIFOLevel = 0;
 
-    // when starting a channel, two 4-word chunks are buffered
+    // when starting a channel, buffer data
     if (((Cnt >> 29) & 0x3) != 3)
     {
         FIFO_BufferData();
@@ -269,17 +269,16 @@ void Channel::NextSample_PCM8()
     if (Pos < 0) return;
     if (Pos >= (LoopPos + Length))
     {
-        // TODO: what happens when mode 3 is used?
         u32 repeat = (Cnt >> 27) & 0x3;
-        if (repeat == 2)
+        if (repeat & 1)
+        {
+            Pos = LoopPos;
+        }
+        else if (repeat & 2)
         {
             CurSample = 0;
             Cnt &= ~(1<<31);
             return;
-        }
-        else if (repeat == 1)
-        {
-            Pos = LoopPos;
         }
     }
 
@@ -293,17 +292,16 @@ void Channel::NextSample_PCM16()
     if (Pos < 0) return;
     if ((Pos<<1) >= (LoopPos + Length))
     {
-        // TODO: what happens when mode 3 is used?
         u32 repeat = (Cnt >> 27) & 0x3;
-        if (repeat == 2)
+        if (repeat & 1)
+        {
+            Pos = LoopPos>>1;
+        }
+        else if (repeat & 2)
         {
             CurSample = 0;
             Cnt &= ~(1<<31);
             return;
-        }
-        else if (repeat == 1)
-        {
-            Pos = LoopPos>>1;
         }
     }
 
@@ -333,20 +331,19 @@ void Channel::NextSample_ADPCM()
 
     if ((Pos>>1) >= (LoopPos + Length))
     {
-        // TODO: what happens when mode 3 is used?
         u32 repeat = (Cnt >> 27) & 0x3;
-        if (repeat == 2)
-        {
-            CurSample = 0;
-            Cnt &= ~(1<<31);
-            return;
-        }
-        else if (repeat == 1)
+        if (repeat & 1)
         {
             Pos = LoopPos<<1;
             ADPCMVal = ADPCMValLoop;
             ADPCMIndex = ADPCMIndexLoop;
             ADPCMCurByte = FIFO_ReadData<u8>();
+        }
+        else if (repeat & 2)
+        {
+            CurSample = 0;
+            Cnt &= ~(1<<31);
+            return;
         }
     }
     else
@@ -410,9 +407,6 @@ void Channel::NextSample_Noise()
 template<u32 type>
 void Channel::Run(s32* buf, u32 samples)
 {
-    for (u32 s = 0; s < samples; s++)
-        buf[s] = 0;
-
     if (!(Cnt & (1<<31))) return;
 
     for (u32 s = 0; s < samples; s++)

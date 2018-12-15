@@ -107,6 +107,9 @@ void GPU2D::Reset()
     memset(Win1Coords, 0, 4);
     memset(WinCnt, 0, 4);
 
+    Win0Active = 0;
+    Win1Active = 0;
+
     BGMosaicSize[0] = 0;
     BGMosaicSize[1] = 0;
     OBJMosaicSize[0] = 0;
@@ -183,6 +186,17 @@ void GPU2D::DoSavestate(Savestate* file)
         file->VarArray(DispFIFOBuffer, 256*2);
 
         file->Var32(&CaptureCnt);
+    }
+
+    if (file->IsAtleastVersion(2, 1))
+    {
+        file->Var32(&Win0Active);
+        file->Var32(&Win1Active);
+    }
+    else
+    {
+        Win0Active = 0;
+        Win1Active = 0;
     }
 
     if (!file->Saving)
@@ -535,6 +549,15 @@ void GPU2D::DrawScanline(u32 line)
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
+        return;
+    }
+
+    // forced blank
+    // (checkme: are there still things that can run under this mode? likely not)
+    if (DispCnt & (1<<7))
+    {
+        for (int i = 0; i < 256; i++)
+            dst[i] = 0xFFFFFFFF;
         return;
     }
 
@@ -952,10 +975,10 @@ u16* GPU2D::GetOBJExtPal(u32 pal)
 void GPU2D::CheckWindows(u32 line)
 {
     line &= 0xFF;
-    if (line == Win0Coords[3])      Win0Active = false;
-    else if (line == Win0Coords[2]) Win0Active = true;
-    if (line == Win1Coords[3])      Win1Active = false;
-    else if (line == Win1Coords[2]) Win1Active = true;
+    if (line == Win0Coords[3])      Win0Active &= ~0x1;
+    else if (line == Win0Coords[2]) Win0Active |=  0x1;
+    if (line == Win1Coords[3])      Win1Active &= ~0x1;
+    else if (line == Win1Coords[2]) Win1Active |=  0x1;
 }
 
 void GPU2D::CalculateWindowMask(u32 line, u8* mask)
@@ -963,41 +986,40 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
     for (u32 i = 0; i < 256; i++)
         mask[i] = WinCnt[2]; // window outside
 
-    if ((DispCnt & (1<<15)) && (DispCnt & (1<<12)))
+    if (DispCnt & ((1<<15)|(1<<12)))
     {
         // OBJ window
-        u8 objwin[256];
-        memset(objwin, 0, 256);
-        DrawSpritesWindow(line, objwin);
+        DrawSpritesWindow(line, mask);
+    }
 
-        for (u32 i = 0; i < 256; i++)
+    if (DispCnt & (1<<14))
+    {
+        // window 1
+        u8 x1 = Win1Coords[0];
+        u8 x2 = Win1Coords[1];
+
+        for (int i = 0; i < 256; i++)
         {
-            if (objwin[i]) mask[i] = WinCnt[3];
+            if (i == x2)      Win1Active &= ~0x2;
+            else if (i == x1) Win1Active |=  0x2;
+
+            if (Win1Active == 0x3) mask[i] = WinCnt[1];
         }
     }
 
-    if ((DispCnt & (1<<14)) && Win1Active)
-    {
-        // window 1
-        u32 x1 = Win1Coords[0];
-        u32 x2 = Win1Coords[1];
-        if (x2 == 0 && x1 > 0) x2 = 256;
-        if (x1 > x2) x2 = 255; // checkme
-
-        for (u32 i = x1; i < x2; i++)
-            mask[i] = WinCnt[1];
-    }
-
-    if ((DispCnt & (1<<13)) && Win0Active)
+    if (DispCnt & (1<<13))
     {
         // window 0
-        u32 x1 = Win0Coords[0];
-        u32 x2 = Win0Coords[1];
-        if (x2 == 0 && x1 > 0) x2 = 256;
-        if (x1 > x2) x2 = 255; // checkme
+        u8 x1 = Win0Coords[0];
+        u8 x2 = Win0Coords[1];
 
-        for (u32 i = x1; i < x2; i++)
-            mask[i] = WinCnt[0];
+        for (int i = 0; i < 256; i++)
+        {
+            if (i == x2)      Win0Active &= ~0x2;
+            else if (i == x1) Win0Active |=  0x2;
+
+            if (Win0Active == 0x3) mask[i] = WinCnt[0];
+        }
     }
 }
 
@@ -1145,11 +1167,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         else if (flag2 & 0x40) target2 = 0x0100;
         else                   target2 = flag2 << 8;
 
-        if (!(windowmask[i] & 0x20))
-        {
-            coloreffect = 0;
-        }
-        else if ((flag1 & 0x80) && (BlendCnt & target2))
+        if ((flag1 & 0x80) && (BlendCnt & target2))
         {
             // sprite blending
 
@@ -1192,7 +1210,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
             continue;
         }
-        else if (BlendCnt & flag1)
+        else if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
         {
             if ((bldcnteffect == 1) && (BlendCnt & target2))
             {
@@ -2154,7 +2172,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                 if (color & 0x8000)
                 {
-                    if (window) ((u8*)dst)[xpos] = 1;
+                    if (window) ((u8*)dst)[xpos] = WinCnt[3];
                     else        dst[xpos] = color | prio;
                 }
             }
@@ -2218,7 +2236,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
                 }
@@ -2276,7 +2294,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
                 }
@@ -2390,7 +2408,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                 if (color & 0x8000)
                 {
-                    if (window) ((u8*)dst)[xpos] = 1;
+                    if (window) ((u8*)dst)[xpos] = WinCnt[3];
                     else        dst[xpos] = color | prio;
                 }
 
@@ -2417,7 +2435,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                 if (color & 0x8000)
                 {
-                    if (window) ((u8*)dst)[xpos] = 1;
+                    if (window) ((u8*)dst)[xpos] = WinCnt[3];
                     else        dst[xpos] = color | prio;
                 }
 
@@ -2477,7 +2495,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
 
@@ -2506,7 +2524,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
 
@@ -2555,7 +2573,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
 
@@ -2589,7 +2607,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* d
 
                     if (color)
                     {
-                        if (window) ((u8*)dst)[xpos] = 1;
+                        if (window) ((u8*)dst)[xpos] = WinCnt[3];
                         else        dst[xpos] = pal[color] | prio;
                     }
 

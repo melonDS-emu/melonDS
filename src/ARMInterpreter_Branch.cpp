@@ -66,6 +66,8 @@ void T_BCOND(ARM* cpu)
         s32 offset = (s32)(cpu->CurInstr << 24) >> 23;
         cpu->JumpTo(cpu->R[15] + offset + 1);
     }
+    else
+        cpu->AddCycles_C();
 }
 
 void T_BX(ARM* cpu)
@@ -96,6 +98,7 @@ void T_BL_LONG_1(ARM* cpu)
 {
     s32 offset = (s32)((cpu->CurInstr & 0x7FF) << 21) >> 9;
     cpu->R[14] = cpu->R[15] + offset;
+    cpu->AddCycles_C();
 }
 
 void T_BL_LONG_2(ARM* cpu)

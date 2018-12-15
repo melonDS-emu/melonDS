@@ -14,11 +14,13 @@ SET(SOURCES
 	src/ARMInterpreter_LoadStore.cpp
 	src/Config.cpp
 	src/CP15.cpp
+	src/CRC32.cpp
 	src/DMA.cpp
 	src/GPU.cpp
 	src/GPU2D.cpp
 	src/GPU3D.cpp
 	src/GPU3D_Soft.cpp
+	src/melon_fopen.cpp
 	src/NDS.cpp
 	src/NDSCart.cpp
 	src/RTC.cpp
@@ -46,6 +48,7 @@ else()
 	LIST(APPEND SOURCES
 		src/libui_sdl/main.cpp
 		src/libui_sdl/Platform.cpp
+        src/libui_sdl/DlgAudioSettings.cpp
 		src/libui_sdl/DlgEmuSettings.cpp
 		src/libui_sdl/DlgInputConfig.cpp
 		src/libui_sdl/libui/common/areaevents.c

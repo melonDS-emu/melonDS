@@ -90,6 +90,7 @@ void DoSavestate(Savestate* file);
 
 void ExecuteCommand();
 
+s32 CyclesToRunFor();
 void Run(s32 cycles);
 void CheckFIFOIRQ();
 void CheckFIFODMA();

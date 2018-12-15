@@ -20,31 +20,21 @@
 #include <string.h>
 #include "NDS.h"
 #include "ARM.h"
-#include "CP15.h"
 
 
-// derp
-namespace NDS
+// access timing for cached regions
+// this would be an average between cache hits and cache misses
+// this was measured to be close to hardware average
+// a value of 1 would represent a perfect cache, but that causes
+// games to run too fast, causing a number of issues
+// code cache timing can get as low as 3
+const int kDataCacheTiming = 2;
+const int kCodeCacheTiming = 5;
+
+
+void ARMv5::CP15Reset()
 {
-extern ARM* ARM9;
-}
-
-namespace CP15
-{
-
-u32 Control;
-
-u32 DTCMSetting, ITCMSetting;
-
-u8 ITCM[0x8000];
-u32 ITCMSize;
-u8 DTCM[0x4000];
-u32 DTCMBase, DTCMSize;
-
-
-void Reset()
-{
-    Control = 0x78; // dunno
+    CP15Control = 0x2078; // dunno
 
     DTCMSetting = 0;
     ITCMSetting = 0;
@@ -55,31 +45,51 @@ void Reset()
     ITCMSize = 0;
     DTCMBase = 0xFFFFFFFF;
     DTCMSize = 0;
+
+    PU_CodeCacheable = 0;
+    PU_DataCacheable = 0;
+    PU_DataCacheWrite = 0;
+
+    PU_CodeRW = 0;
+    PU_DataRW = 0;
+
+    memset(PU_Region, 0, 8*sizeof(u32));
+    UpdatePURegions();
 }
 
-void DoSavestate(Savestate* file)
+void ARMv5::CP15DoSavestate(Savestate* file)
 {
     file->Section("CP15");
 
-    file->Var32(&Control);
+    file->Var32(&CP15Control);
 
     file->Var32(&DTCMSetting);
     file->Var32(&ITCMSetting);
+
+    file->VarArray(ITCM, 0x8000);
+    file->VarArray(DTCM, 0x4000);
+
+    file->Var32(&PU_CodeCacheable);
+    file->Var32(&PU_DataCacheable);
+    file->Var32(&PU_DataCacheWrite);
+
+    file->Var32(&PU_CodeRW);
+    file->Var32(&PU_DataRW);
+
+    file->VarArray(PU_Region, 8*sizeof(u32));
 
     if (!file->Saving)
     {
         UpdateDTCMSetting();
         UpdateITCMSetting();
+        UpdatePURegions();
     }
-
-    file->VarArray(ITCM, 0x8000);
-    file->VarArray(DTCM, 0x4000);
 }
 
 
-void UpdateDTCMSetting()
+void ARMv5::UpdateDTCMSetting()
 {
-    if (Control & (1<<16))
+    if (CP15Control & (1<<16))
     {
         DTCMBase = DTCMSetting & 0xFFFFF000;
         DTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
@@ -93,9 +103,9 @@ void UpdateDTCMSetting()
     }
 }
 
-void UpdateITCMSetting()
+void ARMv5::UpdateITCMSetting()
 {
-    if (Control & (1<<18))
+    if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
         //printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
@@ -108,24 +118,277 @@ void UpdateITCMSetting()
 }
 
 
-void Write(u32 id, u32 val)
+void ARMv5::UpdatePURegions()
+{
+    if (!(CP15Control & (1<<0)))
+    {
+        // PU disabled
+
+        u8 mask = 0x07;
+        if (CP15Control & (1<<2))  mask |= 0x30;
+        if (CP15Control & (1<<12)) mask |= 0x40;
+
+        memset(PU_UserMap, mask, 0x100000);
+        memset(PU_PrivMap, mask, 0x100000);
+
+        return;
+    }
+
+    memset(PU_UserMap, 0, 0x100000);
+    memset(PU_PrivMap, 0, 0x100000);
+
+    u32 coderw = PU_CodeRW;
+    u32 datarw = PU_DataRW;
+
+    u32 codecache, datacache, datawrite;
+
+    // datacache/datawrite
+    // 0/0: goes to memory
+    // 0/1: goes to memory
+    // 1/0: goes to memory and cache
+    // 1/1: goes to cache
+
+    if (CP15Control & (1<<12))
+        codecache = PU_CodeCacheable;
+    else
+        codecache = 0;
+
+    if (CP15Control & (1<<2))
+    {
+        datacache = PU_DataCacheable;
+        datawrite = PU_DataCacheWrite;
+    }
+    else
+    {
+        datacache = 0;
+        datawrite = 0;
+    }
+
+    for (int n = 0; n < 8; n++)
+    {
+        u32 rgn = PU_Region[n];
+        if (!(rgn & (1<<0))) continue;
+
+        u32 start = rgn >> 12;
+        u32 sz = 2 << ((rgn >> 1) & 0x1F);
+        u32 end = start + (sz >> 12);
+        // TODO: check alignment of start
+
+        u8 usermask = 0;
+        u8 privmask = 0;
+
+        switch (datarw & 0xF)
+        {
+        case 0: break;
+        case 1: privmask |= 0x03; break;
+        case 2: privmask |= 0x03; usermask |= 0x01; break;
+        case 3: privmask |= 0x03; usermask |= 0x03; break;
+        case 5: privmask |= 0x01; break;
+        case 6: privmask |= 0x01; usermask |= 0x01; break;
+        default: printf("!! BAD DATARW VALUE %d\n", datarw&0xF);
+        }
+
+        switch (coderw & 0xF)
+        {
+        case 0: break;
+        case 1: privmask |= 0x04; break;
+        case 2: privmask |= 0x04; usermask |= 0x04; break;
+        case 3: privmask |= 0x04; usermask |= 0x04; break;
+        case 5: privmask |= 0x04; break;
+        case 6: privmask |= 0x04; usermask |= 0x04; break;
+        default: printf("!! BAD CODERW VALUE %d\n", datarw&0xF);
+        }
+
+        if (datacache & 0x1)
+        {
+            privmask |= 0x10;
+            usermask |= 0x10;
+
+            if (datawrite & 0x1)
+            {
+                privmask |= 0x20;
+                usermask |= 0x20;
+            }
+        }
+
+        if (codecache & 0x1)
+        {
+            privmask |= 0x40;
+            usermask |= 0x40;
+        }
+
+        printf("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
+
+        for (u32 i = start; i < end; i++)
+        {
+            PU_UserMap[i] = usermask;
+            PU_PrivMap[i] = privmask;
+        }
+
+        coderw >>= 4;
+        datarw >>= 4;
+        codecache >>= 1;
+        datacache >>= 1;
+        datawrite >>= 1;
+
+        // TODO: this will not be enough if they change their PU regions after the intial setup
+        //UpdateRegionTimings(start<<12, end<<12);
+    }
+
+    // TODO: this is way unoptimized
+    // should be okay unless the game keeps changing shit, tho
+    UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+}
+
+void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
+{
+    addrstart >>= 12;
+    addrend   >>= 12;
+
+    if (addrend == 0xFFFFF) addrend++;
+
+    for (u32 i = addrstart; i < addrend; i++)
+    {
+        u8 pu = PU_Map[i];
+        u8* bustimings = NDS::ARM9MemTimings[i >> 2];
+
+        if (pu & 0x40)
+        {
+            MemTimings[i][0] = 0xFF;//kCodeCacheTiming;
+        }
+        else
+        {
+            MemTimings[i][0] = bustimings[2] << ClockShift;
+        }
+
+        if (pu & 0x10)
+        {
+            MemTimings[i][1] = kDataCacheTiming;
+            MemTimings[i][2] = kDataCacheTiming;
+            MemTimings[i][3] = 1;
+        }
+        else
+        {
+            MemTimings[i][1] = bustimings[0] << ClockShift;
+            MemTimings[i][2] = bustimings[2] << ClockShift;
+            MemTimings[i][3] = bustimings[3] << ClockShift;
+        }
+    }
+}
+
+
+void ARMv5::CP15Write(u32 id, u32 val)
 {
     //printf("CP15 write op %03X %08X %08X\n", id, val, NDS::ARM9->R[15]);
 
     switch (id)
     {
     case 0x100:
-        val &= 0x000FF085;
-        Control &= ~0x000FF085;
-        Control |= val;
-        UpdateDTCMSetting();
-        UpdateITCMSetting();
+        {
+            u32 old = CP15Control;
+            val &= 0x000FF085;
+            CP15Control &= ~0x000FF085;
+            CP15Control |= val;
+            printf("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
+            UpdateDTCMSetting();
+            UpdateITCMSetting();
+            if ((old & 0x1005) != (val & 0x1005)) UpdatePURegions();
+            if (val & (1<<7)) printf("!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
+            else               ExceptionBase = 0x00000000;
+        }
+        return;
+
+
+    case 0x200: // data cacheable
+        PU_DataCacheable = val;
+        printf("PU: DataCacheable=%08X\n", val);
+        UpdatePURegions();
+        return;
+
+    case 0x201: // code cacheable
+        PU_CodeCacheable = val;
+        printf("PU: CodeCacheable=%08X\n", val);
+        UpdatePURegions();
+        return;
+
+
+    case 0x300: // data cache write-buffer
+        PU_DataCacheWrite = val;
+        printf("PU: DataCacheWrite=%08X\n", val);
+        UpdatePURegions();
+        return;
+
+
+    case 0x500: // legacy data permissions
+        PU_DataRW = 0;
+        PU_DataRW |= (val & 0x0003);
+        PU_DataRW |= ((val & 0x000C) << 2);
+        PU_DataRW |= ((val & 0x0030) << 4);
+        PU_DataRW |= ((val & 0x00C0) << 6);
+        PU_DataRW |= ((val & 0x0300) << 8);
+        PU_DataRW |= ((val & 0x0C00) << 10);
+        PU_DataRW |= ((val & 0x3000) << 12);
+        PU_DataRW |= ((val & 0xC000) << 14);
+        printf("PU: DataRW=%08X (legacy %08X)\n", PU_DataRW, val);
+        UpdatePURegions();
+        return;
+
+    case 0x501: // legacy code permissions
+        PU_CodeRW = 0;
+        PU_CodeRW |= (val & 0x0003);
+        PU_CodeRW |= ((val & 0x000C) << 2);
+        PU_CodeRW |= ((val & 0x0030) << 4);
+        PU_CodeRW |= ((val & 0x00C0) << 6);
+        PU_CodeRW |= ((val & 0x0300) << 8);
+        PU_CodeRW |= ((val & 0x0C00) << 10);
+        PU_CodeRW |= ((val & 0x3000) << 12);
+        PU_CodeRW |= ((val & 0xC000) << 14);
+        printf("PU: CodeRW=%08X (legacy %08X)\n", PU_CodeRW, val);
+        UpdatePURegions();
+        return;
+
+    case 0x502: // data permissions
+        PU_DataRW = val;
+        printf("PU: DataRW=%08X\n", PU_DataRW);
+        UpdatePURegions();
+        return;
+
+    case 0x503: // code permissions
+        PU_CodeRW = val;
+        printf("PU: CodeRW=%08X\n", PU_CodeRW);
+        UpdatePURegions();
+        return;
+
+
+    case 0x600:
+    case 0x601:
+    case 0x610:
+    case 0x611:
+    case 0x620:
+    case 0x621:
+    case 0x630:
+    case 0x631:
+    case 0x640:
+    case 0x641:
+    case 0x650:
+    case 0x651:
+    case 0x660:
+    case 0x661:
+    case 0x670:
+    case 0x671:
+        PU_Region[(id >> 4) & 0xF] = val;
+        printf("PU: region %d = %08X : ", (id>>4)&0xF, val);
+        printf("%s, ", val&1 ? "enabled":"disabled");
+        printf("%08X-", val&0xFFFFF000);
+        printf("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
+        UpdatePURegions();
         return;
 
 
     case 0x704:
     case 0x782:
-        NDS::ARM9->Halt(1);
+        Halt(1);
         return;
 
 
@@ -148,6 +411,7 @@ void Write(u32 id, u32 val)
         DTCMSetting = val;
         UpdateDTCMSetting();
         return;
+
     case 0x911:
         ITCMSetting = val;
         UpdateITCMSetting();
@@ -158,7 +422,7 @@ void Write(u32 id, u32 val)
         printf("unknown CP15 write op %03X %08X\n", id, val);
 }
 
-u32 Read(u32 id)
+u32 ARMv5::CP15Read(u32 id)
 {
     //printf("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
@@ -180,7 +444,66 @@ u32 Read(u32 id)
 
 
     case 0x100: // control reg
-        return Control;
+        return CP15Control;
+
+
+    case 0x200:
+        return PU_DataCacheable;
+    case 0x201:
+        return PU_CodeCacheable;
+    case 0x300:
+        return PU_DataCacheWrite;
+
+
+    case 0x500:
+        {
+            u32 ret = 0;
+            ret |=  (PU_DataRW & 0x00000003);
+            ret |= ((PU_DataRW & 0x00000030) >> 2);
+            ret |= ((PU_DataRW & 0x00000300) >> 4);
+            ret |= ((PU_DataRW & 0x00003000) >> 6);
+            ret |= ((PU_DataRW & 0x00030000) >> 8);
+            ret |= ((PU_DataRW & 0x00300000) >> 10);
+            ret |= ((PU_DataRW & 0x03000000) >> 12);
+            ret |= ((PU_DataRW & 0x30000000) >> 14);
+            return ret;
+        }
+    case 0x501:
+        {
+            u32 ret = 0;
+            ret |=  (PU_CodeRW & 0x00000003);
+            ret |= ((PU_CodeRW & 0x00000030) >> 2);
+            ret |= ((PU_CodeRW & 0x00000300) >> 4);
+            ret |= ((PU_CodeRW & 0x00003000) >> 6);
+            ret |= ((PU_CodeRW & 0x00030000) >> 8);
+            ret |= ((PU_CodeRW & 0x00300000) >> 10);
+            ret |= ((PU_CodeRW & 0x03000000) >> 12);
+            ret |= ((PU_CodeRW & 0x30000000) >> 14);
+            return ret;
+        }
+    case 0x502:
+        return PU_DataRW;
+    case 0x503:
+        return PU_CodeRW;
+
+
+    case 0x600:
+    case 0x601:
+    case 0x610:
+    case 0x611:
+    case 0x620:
+    case 0x621:
+    case 0x630:
+    case 0x631:
+    case 0x640:
+    case 0x641:
+    case 0x650:
+    case 0x651:
+    case 0x660:
+    case 0x661:
+    case 0x670:
+    case 0x671:
+        return PU_Region[(id >> 4) & 0xF];
 
 
     case 0x910:
@@ -197,135 +520,201 @@ u32 Read(u32 id)
 // TCM are handled here.
 // TODO: later on, handle PU, and maybe caches
 
-bool HandleCodeRead16(u32 addr, u16* val)
+u32 ARMv5::CodeRead32(u32 addr)
 {
     if (addr < ITCMSize)
     {
-        *val = *(u16*)&ITCM[addr & 0x7FFF];
-        return true;
+        CodeCycles = 1;
+        return *(u32*)&ITCM[addr & 0x7FFF];
     }
 
-    return false;
-}
-
-bool HandleCodeRead32(u32 addr, u32* val)
-{
-    if (addr < ITCMSize)
+    CodeCycles = RegionCodeCycles;
+    if (CodeCycles == 0xFF)
     {
-        *val = *(u32*)&ITCM[addr & 0x7FFF];
-        return true;
+        // sort of code cache hit/miss average
+        if (!(addr & 0x1F)) CodeCycles = kCodeCacheTiming;
+        else                CodeCycles = 1;
     }
 
-    return false;
+    if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
+
+    return NDS::ARM9Read32(addr);
 }
 
 
-bool HandleDataRead8(u32 addr, u8* val, u32 forceuser)
+void ARMv5::DataRead8(u32 addr, u32* val)
 {
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *val = *(u8*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *val = *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    return false;
+    *val = NDS::ARM9Read8(addr);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool HandleDataRead16(u32 addr, u16* val, u32 forceuser)
+void ARMv5::DataRead16(u32 addr, u32* val)
 {
+    addr &= ~1;
+
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *val = *(u16*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *val = *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    return false;
+    *val = NDS::ARM9Read16(addr);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool HandleDataRead32(u32 addr, u32* val, u32 forceuser)
+void ARMv5::DataRead32(u32 addr, u32* val)
 {
+    addr &= ~3;
+
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *val = *(u32*)&ITCM[addr & 0x7FFF];
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *val = *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF];
-        return true;
+        return;
     }
 
-    return false;
+    *val = NDS::ARM9Read32(addr);
+    DataCycles = MemTimings[addr >> 12][2];
 }
 
-bool HandleDataWrite8(u32 addr, u8 val, u32 forceuser)
+void ARMv5::DataRead32S(u32 addr, u32* val)
+{
+    addr &= ~3;
+
+    if (addr < ITCMSize)
+    {
+        DataCycles += 1;
+        *val = *(u32*)&ITCM[addr & 0x7FFF];
+        return;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        DataCycles += 1;
+        *val = *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF];
+        return;
+    }
+
+    *val = NDS::ARM9Read32(addr);
+    DataCycles += MemTimings[addr >> 12][3];
+}
+
+void ARMv5::DataWrite8(u32 addr, u8 val)
 {
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *(u8*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *(u8*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        return;
     }
 
-    return false;
+    NDS::ARM9Write8(addr, val);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool HandleDataWrite16(u32 addr, u16 val, u32 forceuser)
+void ARMv5::DataWrite16(u32 addr, u16 val)
 {
+    addr &= ~1;
+
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *(u16*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *(u16*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        return;
     }
 
-    return false;
+    NDS::ARM9Write16(addr, val);
+    DataCycles = MemTimings[addr >> 12][1];
 }
 
-bool HandleDataWrite32(u32 addr, u32 val, u32 forceuser)
+void ARMv5::DataWrite32(u32 addr, u32 val)
 {
+    addr &= ~3;
+
     if (addr < ITCMSize)
     {
+        DataCycles = 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
-        return true;
+        return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
     {
+        DataCycles = 1;
         *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
-        return true;
+        return;
     }
 
-    return false;
+    NDS::ARM9Write32(addr, val);
+    DataCycles = MemTimings[addr >> 12][2];
 }
 
-bool GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
+void ARMv5::DataWrite32S(u32 addr, u32 val)
 {
+    addr &= ~3;
+
     if (addr < ITCMSize)
+    {
+        DataCycles += 1;
+        *(u32*)&ITCM[addr & 0x7FFF] = val;
+        return;
+    }
+    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    {
+        DataCycles += 1;
+        *(u32*)&DTCM[(addr - DTCMBase) & 0x3FFF] = val;
+        return;
+    }
+
+    NDS::ARM9Write32(addr, val);
+    DataCycles += MemTimings[addr >> 12][3];
+}
+
+void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
+{
+    /*if (addr < ITCMSize)
     {
         region->Mem = ITCM;
         region->Mask = 0x7FFF;
-        return true;
-    }
+        return;
+    }*/
 
-    return false;
+    NDS::ARM9GetMemRegion(addr, false, &CodeMem);
 }
 
-}

@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 2
+#define SAVESTATE_MAJOR 3
 #define SAVESTATE_MINOR 0
 
 class Savestate
@@ -47,6 +47,13 @@ public:
     void Var64(u64* var);
 
     void VarArray(void* data, u32 len);
+
+    bool IsAtleastVersion(u32 major, u32 minor)
+    {
+        if (VersionMajor > major) return true;
+        if (VersionMajor == major && VersionMinor >= minor) return true;
+        return false;
+    }
 
 private:
     FILE* file;

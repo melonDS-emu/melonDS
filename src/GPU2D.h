@@ -90,8 +90,8 @@ private:
     u8 Win0Coords[4];
     u8 Win1Coords[4];
     u8 WinCnt[4];
-    bool Win0Active;
-    bool Win1Active;
+    u32 Win0Active;
+    u32 Win1Active;
 
     u8 BGMosaicSize[2];
     u8 OBJMosaicSize[2];

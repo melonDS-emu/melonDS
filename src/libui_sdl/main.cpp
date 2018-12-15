@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <SDL2/SDL.h>
 #include "libui/ui.h"
@@ -30,6 +31,7 @@
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
+#include "DlgAudioSettings.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -50,6 +52,9 @@ const int kScreenRot[4] = {0, 1, 2, 3};
 const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
 const int kScreenLayout[3] = {0, 1, 2};
 const int kScreenSizing[4] = {0, 1, 2, 3};
+
+
+char* EmuDirectory;
 
 
 uiWindow* MainWindow;
@@ -104,7 +109,17 @@ uiDrawMatrix BottomScreenTrans;
 bool Touching = false;
 
 u32 KeyInputMask;
+bool LidCommand, LidStatus;
 SDL_Joystick* Joystick;
+
+u32 MicBufferLength = 2048;
+s16 MicBuffer[2048];
+u32 MicBufferReadPos, MicBufferWritePos;
+
+u32 MicWavLength;
+s16* MicWavBuffer;
+
+u32 MicCommand;
 
 
 void SetupScreenRects(int width, int height);
@@ -116,12 +131,98 @@ void GetSavestateName(int slot, char* filename, int len);
 
 
 
-bool FileExists(char* name)
+bool FileExists(const char* name)
 {
     FILE* f = melon_fopen(name, "rb");
     if (!f) return false;
     fclose(f);
     return true;
+}
+
+bool LocalFileExists(const char* name)
+{
+    FILE* f = melon_fopen_local(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+
+void MicLoadWav(char* name)
+{
+    SDL_AudioSpec format;
+    memset(&format, 0, sizeof(SDL_AudioSpec));
+
+    if (MicWavBuffer) delete[] MicWavBuffer;
+    MicWavBuffer = NULL;
+    MicWavLength = 0;
+
+    u8* buf;
+    u32 len;
+    if (!SDL_LoadWAV(name, &format, &buf, &len))
+        return;
+
+    const u64 dstfreq = 44100;
+
+    if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
+    {
+        int srcinc = format.channels;
+        len /= 2;
+
+        MicWavLength = (len * dstfreq) / format.freq;
+        if (MicWavLength < 735) MicWavLength = 735;
+        MicWavBuffer = new s16[MicWavLength];
+
+        float res_incr = len / (float)MicWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < MicWavLength; i++)
+        {
+            u16 val = ((u16*)buf)[res_pos];
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            MicWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
+    {
+        int srcinc = format.channels;
+
+        MicWavLength = (len * dstfreq) / format.freq;
+        if (MicWavLength < 735) MicWavLength = 735;
+        MicWavBuffer = new s16[MicWavLength];
+
+        float res_incr = len / (float)MicWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < MicWavLength; i++)
+        {
+            u16 val = buf[res_pos] << 8;
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            MicWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else
+        printf("bad WAV format %08X\n", format.format);
+
+    SDL_FreeWAV(buf);
 }
 
 
@@ -136,7 +237,6 @@ void AudioCallback(void* data, Uint8* stream, int len)
     // buffer length is 1024 samples
     // which is 710 samples at the original sample rate
 
-    //SPU::ReadOutput((s16*)stream, len>>2);
     s16 buf_in[710*2];
     s16* buf_out = (s16*)stream;
 
@@ -159,11 +259,13 @@ void AudioCallback(void* data, Uint8* stream, int len)
     float res_timer = 0;
     int res_pos = 0;
 
+    int volume = Config::AudioVolume;
+
     for (int i = 0; i < 1024; i++)
     {
         // TODO: interp!!
-        buf_out[i*2  ] = buf_in[res_pos*2  ];
-        buf_out[i*2+1] = buf_in[res_pos*2+1];
+        buf_out[i*2  ] = (buf_in[res_pos*2  ] * volume) >> 8;
+        buf_out[i*2+1] = (buf_in[res_pos*2+1] * volume) >> 8;
 
         res_timer += res_incr;
         while (res_timer >= 1.0)
@@ -171,6 +273,106 @@ void AudioCallback(void* data, Uint8* stream, int len)
             res_timer -= 1.0;
             res_pos++;
         }
+    }
+}
+
+void MicCallback(void* data, Uint8* stream, int len)
+{
+    if (Config::MicInputType != 1) return;
+
+    s16* input = (s16*)stream;
+    len /= sizeof(s16);
+
+    if ((MicBufferWritePos + len) > MicBufferLength)
+    {
+        u32 len1 = MicBufferLength - MicBufferWritePos;
+        memcpy(&MicBuffer[MicBufferWritePos], &input[0], len1*sizeof(s16));
+        memcpy(&MicBuffer[0], &input[len1], (len - len1)*sizeof(s16));
+        MicBufferWritePos = len - len1;
+    }
+    else
+    {
+        memcpy(&MicBuffer[MicBufferWritePos], input, len*sizeof(s16));
+        MicBufferWritePos += len;
+    }
+}
+
+bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    bool pressed;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else
+        pressed = (btnid < njoybuttons) ? joybuttons[btnid] : false;
+
+    return pressed;
+}
+
+void FeedMicInput()
+{
+    int type = Config::MicInputType;
+    if ((type != 1 && MicCommand == 0) ||
+        (type == 3 && MicWavBuffer == NULL))
+    {
+        type = 0;
+        MicBufferReadPos = 0;
+    }
+
+    switch (type)
+    {
+    case 0: // no mic
+        NDS::MicInputFrame(NULL, 0);
+        break;
+
+    case 1: // host mic
+        if ((MicBufferReadPos + 735) > MicBufferLength)
+        {
+            s16 tmp[735];
+            u32 len1 = MicBufferLength - MicBufferReadPos;
+            memcpy(&tmp[0], &MicBuffer[MicBufferReadPos], len1*sizeof(s16));
+            memcpy(&tmp[len1], &MicBuffer[0], (735 - len1)*sizeof(s16));
+
+            NDS::MicInputFrame(tmp, 735);
+            MicBufferReadPos = 735 - len1;
+        }
+        else
+        {
+            NDS::MicInputFrame(&MicBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+        }
+        break;
+
+    case 2: // white noise
+        {
+            s16 tmp[735];
+            for (int i = 0; i < 735; i++) tmp[i] = rand() & 0xFFFF;
+            NDS::MicInputFrame(tmp, 735);
+        }
+        break;
+
+    case 3: // WAV
+        if ((MicBufferReadPos + 735) > MicWavLength)
+        {
+            s16 tmp[735];
+            u32 len1 = MicWavLength - MicBufferReadPos;
+            memcpy(&tmp[0], &MicWavBuffer[MicBufferReadPos], len1*sizeof(s16));
+            memcpy(&tmp[len1], &MicWavBuffer[0], (735 - len1)*sizeof(s16));
+
+            NDS::MicInputFrame(tmp, 735);
+            MicBufferReadPos = 735 - len1;
+        }
+        else
+        {
+            NDS::MicInputFrame(&MicWavBuffer[MicBufferReadPos], 735);
+            MicBufferReadPos += 735;
+        }
+        break;
     }
 }
 
@@ -185,38 +387,23 @@ int EmuThreadFunc(void* burp)
 
     ScreenDrawInited = false;
     Touching = false;
-
-    SDL_AudioSpec whatIwant, whatIget;
-    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 47340;
-    whatIwant.format = AUDIO_S16LSB;
-    whatIwant.channels = 2;
-    whatIwant.samples = 1024;
-    whatIwant.callback = AudioCallback;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
-    if (!audio)
-    {
-        printf("Audio init failed: %s\n", SDL_GetError());
-    }
-    else
-    {
-        SDL_PauseAudioDevice(audio, 0);
-    }
-
     KeyInputMask = 0xFFF;
+    LidCommand = false;
+    LidStatus = false;
+    MicCommand = 0;
 
-    // TODO: support more joysticks
-    if (SDL_NumJoysticks() > 0)
-        Joystick = SDL_JoystickOpen(0);
-    else
-        Joystick = NULL;
+    Uint8* joybuttons = NULL; int njoybuttons = 0;
+    if (Joystick)
+    {
+        njoybuttons = SDL_JoystickNumButtons(Joystick);
+        if (njoybuttons) joybuttons = new Uint8[njoybuttons];
+    }
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
     u32 lasttick = starttick;
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
-    bool limitfps = true;
     char melontitle[100];
 
     while (EmuRunning != 0)
@@ -224,6 +411,7 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
+
 
             // poll input
             u32 keymask = KeyInputMask;
@@ -236,27 +424,48 @@ int EmuThreadFunc(void* burp)
                 Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
                 Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
 
+                for (int i = 0; i < njoybuttons; i++)
+                    joybuttons[i] = SDL_JoystickGetButton(Joystick, i);
+
                 for (int i = 0; i < 12; i++)
                 {
                     int btnid = Config::JoyMapping[i];
                     if (btnid < 0) continue;
 
-                    bool pressed;
-                    if (btnid == 0x101) // up
-                        pressed = (hat & SDL_HAT_UP) || (axisY <= -16384);
-                    else if (btnid == 0x104) // down
-                        pressed = (hat & SDL_HAT_DOWN) || (axisY >= 16384);
-                    else if (btnid == 0x102) // right
-                        pressed = (hat & SDL_HAT_RIGHT) || (axisX >= 16384);
-                    else if (btnid == 0x108) // left
-                        pressed = (hat & SDL_HAT_LEFT) || (axisX <= -16384);
-                    else
-                        pressed = SDL_JoystickGetButton(Joystick, btnid);
+                    bool pressed = JoyButtonPressed(btnid, njoybuttons, joybuttons, hat);
+
+                    if (i == 4) // right
+                        pressed = pressed || (axisX >= 16384);
+                    else if (i == 5) // left
+                        pressed = pressed || (axisX <= -16384);
+                    else if (i == 6) // up
+                        pressed = pressed || (axisY <= -16384);
+                    else if (i == 7) // down
+                        pressed = pressed || (axisY >= 16384);
 
                     if (pressed) joymask &= ~(1<<i);
                 }
+
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
+                {
+                    LidStatus = !LidStatus;
+                    LidCommand = true;
+                }
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
+                    MicCommand |= 2;
+                else
+                    MicCommand &= ~2;
             }
             NDS::SetKeyMask(keymask & joymask);
+
+            if (LidCommand)
+            {
+                NDS::SetLidClosed(LidStatus);
+                LidCommand = false;
+            }
+
+            // microphone input
+            FeedMicInput();
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -306,7 +515,7 @@ int EmuThreadFunc(void* burp)
             lasttick = curtick;
 
             u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick && limitfps)
+            if (curtick < wantedtick && Config::LimitFPS)
             {
                 SDL_Delay(wantedtick - curtick);
             }
@@ -356,9 +565,7 @@ int EmuThreadFunc(void* burp)
 
     EmuStatus = 0;
 
-    if (Joystick) SDL_JoystickClose(Joystick);
-
-    if (audio) SDL_CloseAudioDevice(audio);
+    if (joybuttons) delete[] joybuttons;
 
     NDS::DeInit();
 
@@ -486,6 +693,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         for (int i = 0; i < 12; i++)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask |= (1<<i);
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
+            MicCommand &= ~1;
     }
     else if (!evt->Repeat)
     {
@@ -509,8 +719,16 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (evt->Scancode == Config::KeyMapping[i])
                 KeyInputMask &= ~(1<<i);
 
-        //if (evt->Scancode == 0x58) // F12
-        //    NDS::debug(0);
+        if (evt->Scancode == Config::HKKeyMapping[HK_Lid])
+        {
+            LidStatus = !LidStatus;
+            LidCommand = true;
+        }
+        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
+            MicCommand |= 1;
+
+        if (evt->Scancode == 0x57) // F11
+            NDS::debug(0);
     }
 
     return 1;
@@ -899,7 +1117,7 @@ void LoadState(int slot)
     }
     else
     {
-        char* file = uiOpenFile(MainWindow, "melonDS savestate (any)|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", NULL);
+        char* file = uiOpenFile(MainWindow, "melonDS savestate (any)|*.ml1;*.ml2;*.ml3;*.ml4;*.ml5;*.ml6;*.ml7;*.ml8;*.mln", Config::LastROMFolder);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -974,7 +1192,7 @@ void SaveState(int slot)
     }
     else
     {
-        char* file = uiSaveFile(MainWindow, "melonDS savestate (*.mln)|*.mln", NULL);
+        char* file = uiSaveFile(MainWindow, "melonDS savestate (*.mln)|*.mln", Config::LastROMFolder);
         if (!file)
         {
             EmuRunning = prevstatus;
@@ -1091,12 +1309,17 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", NULL);
+    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", Config::LastROMFolder);
     if (!file)
     {
         EmuRunning = prevstatus;
         return;
     }
+    
+    int pos = strlen(file)-1;
+    while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
+    strncpy(Config::LastROMFolder, file, pos);
+    Config::LastROMFolder[pos] = '\0';
 
     TryLoadROM(file, prevstatus);
     uiFreeText(file);
@@ -1183,7 +1406,17 @@ void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    DlgInputConfig::Open();
+    DlgInputConfig::Open(0);
+}
+
+void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgInputConfig::Open(1);
+}
+
+void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgAudioSettings::Open();
 }
 
 
@@ -1299,6 +1532,12 @@ void OnSetScreenFiltering(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::ScreenFilter = 0;
 }
 
+void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::LimitFPS = true;
+    else          Config::LimitFPS = false;
+}
 
 void ApplyNewSettings()
 {
@@ -1327,6 +1566,19 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    {
+        int len = strlen(argv[0]);
+        while (len > 0)
+        {
+            if (argv[0][len] == '/') break;
+            if (argv[0][len] == '\\') break;
+            len--;
+        }
+        EmuDirectory = new char[len];
+        strncpy(EmuDirectory, argv[0], len);
+        EmuDirectory[len] = '\0';
+    }
+
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 
@@ -1354,7 +1606,10 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    if (!Config::HasConfigFile("bios7.bin") || !Config::HasConfigFile("bios9.bin") || !Config::HasConfigFile("firmware.bin"))
+    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
+    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+
+    if (!LocalFileExists("bios7.bin") || !LocalFileExists("bios9.bin") || !LocalFileExists("firmware.bin"))
     {
         uiMsgBoxError(
             NULL,
@@ -1438,10 +1693,16 @@ int main(int argc, char** argv)
     MenuItem_Stop = menuitem;
 
     menu = uiNewMenu("Config");
-    menuitem = uiMenuAppendItem(menu, "Emu settings");
-    uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
-    menuitem = uiMenuAppendItem(menu, "Input config");
-    uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+    {
+        menuitem = uiMenuAppendItem(menu, "Emu settings");
+        uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Input config");
+        uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Hotkey config");
+        uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Audio settings");
+        uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
+    }
     uiMenuAppendSeparator(menu);
     {
         uiMenu* submenu = uiNewMenu("Savestate settings");
@@ -1509,6 +1770,10 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
     uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
 
+    menuitem = uiMenuAppendCheckItem(menu, "Limit framerate");
+    uiMenuItemOnClicked(menuitem, OnSetLimitFPS, NULL);
+    uiMenuItemSetChecked(menuitem, Config::LimitFPS==1);
+
 
     int w = Config::WindowWidth;
     int h = Config::WindowHeight;
@@ -1572,6 +1837,53 @@ int main(int argc, char** argv)
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 47340;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 1024;
+    whatIwant.callback = AudioCallback;
+    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!audio)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(audio, 0);
+    }
+
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 44100;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 1;
+    whatIwant.samples = 1024;
+    whatIwant.callback = MicCallback;
+    SDL_AudioDeviceID mic = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!mic)
+    {
+        printf("Mic init failed: %s\n", SDL_GetError());
+        MicBufferLength = 0;
+    }
+    else
+    {
+        SDL_PauseAudioDevice(mic, 0);
+    }
+
+    memset(MicBuffer, 0, sizeof(MicBuffer));
+    MicBufferReadPos = 0;
+    MicBufferWritePos = 0;
+
+    MicWavBuffer = NULL;
+    if (Config::MicInputType == 3) MicLoadWav(Config::MicWavPath);
+
+    // TODO: support more joysticks
+    if (SDL_NumJoysticks() > 0)
+        Joystick = SDL_JoystickOpen(0);
+    else
+        Joystick = NULL;
+
     EmuRunning = 2;
     RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
@@ -1600,6 +1912,12 @@ int main(int argc, char** argv)
     EmuRunning = 0;
     SDL_WaitThread(EmuThread, NULL);
 
+    if (Joystick) SDL_JoystickClose(Joystick);
+    if (audio) SDL_CloseAudioDevice(audio);
+    if (mic)   SDL_CloseAudioDevice(mic);
+
+    if (MicWavBuffer) delete[] MicWavBuffer;
+
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;
     Config::ScreenLayout = ScreenLayout;
@@ -1611,6 +1929,7 @@ int main(int argc, char** argv)
 
     uiUninit();
     SDL_Quit();
+    delete[] EmuDirectory;
     return 0;
 }
 
@@ -1620,41 +1939,35 @@ int main(int argc, char** argv)
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
-    char cmdargs[16][256];
-    int arg = 1;
-    int j = 0;
-    bool inquote = false;
-    int len = strlen(cmdline);
-    for (int i = 0; i < len; i++)
+    int argc = 0;
+    wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
+    char* nullarg = "";
+
+    char** argv = new char*[argc];
+    for (int i = 0; i < argc; i++)
     {
-        char c = cmdline[i];
-        if (c == '\0') break;
-        if (c == '"') inquote = !inquote;
-        if (!inquote && c==' ')
-        {
-            if (j > 255) j = 255;
-            if (arg < 16) cmdargs[arg][j] = '\0';
-            arg++;
-            j = 0;
-        }
-        else
-        {
-            if (arg < 16 && j < 255) cmdargs[arg][j] = c;
-            j++;
-        }
+        int len = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, NULL, 0, NULL, NULL);
+        if (len < 1) return NULL;
+        argv[i] = new char[len];
+        int res = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, argv[i], len, NULL, NULL);
+        if (res != len) { delete[] argv[i]; argv[i] = nullarg; }
     }
-    if (j > 255) j = 255;
-    if (arg < 16) cmdargs[arg][j] = '\0';
-    if (len > 0) arg++;
 
-    // FIXME!!
-    strncpy(cmdargs[0], "melonDS.exe", 256);
+    if (AttachConsole(ATTACH_PARENT_PROCESS))
+    {
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+        printf("\n");
+    }
 
-    char* cmdargptr[16];
-    for (int i = 0; i < 16; i++)
-        cmdargptr[i] = &cmdargs[i][0];
+    int ret = main(argc, argv);
 
-    return main(arg, cmdargptr);
+    printf("\n\n>");
+
+    for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
+    delete[] argv;
+
+    return ret;
 }
 
 #endif

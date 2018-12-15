@@ -22,8 +22,20 @@
 #include "Savestate.h"
 #include "types.h"
 
+// when touching the main loop/timing code, pls test a lot of shit
+// with this enabled, to make sure it doesn't desync
+//#define DEBUG_CHECK_DESYNC
+
 namespace NDS
 {
+
+#ifdef DEBUG_CHECK_DESYNC
+extern u64 dbg_CyclesSys;
+extern u64 dbg_CyclesARM9;
+extern u64 dbg_CyclesTimer9;
+extern u64 dbg_CyclesARM7;
+extern u64 dbg_CyclesTimer7;
+#endif
 
 enum
 {
@@ -94,6 +106,9 @@ typedef struct
 
 } MemRegion;
 
+extern u8 ARM9MemTimings[0x40000][4];
+extern u8 ARM7MemTimings[0x20000][4];
+
 // hax
 extern u32 IME[2];
 extern u32 IE[2];
@@ -120,6 +135,9 @@ void Stop();
 
 bool DoSavestate(Savestate* file);
 
+void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
+void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
+
 bool LoadROM(const char* path, const char* sram, bool direct);
 void LoadBIOS();
 void SetupDirectBoot();
@@ -133,6 +151,10 @@ void TouchScreen(u16 x, u16 y);
 void ReleaseScreen();
 
 void SetKeyMask(u32 mask);
+
+void SetLidClosed(bool closed);
+
+void MicInputFrame(s16* data, int samples);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
@@ -148,14 +170,20 @@ void ClearIRQ(u32 cpu, u32 irq);
 bool HaltInterrupted(u32 cpu);
 void StopCPU(u32 cpu, u32 mask);
 void ResumeCPU(u32 cpu, u32 mask);
+void GXFIFOStall();
+void GXFIFOUnstall();
 
 u32 GetPC(u32 cpu);
+u64 GetSysClockCycles(int num);
+void NocashPrint(u32 cpu, u32 addr);
 
 bool DMAsInMode(u32 cpu, u32 mode);
+bool DMAsRunning(u32 cpu);
 void CheckDMAs(u32 cpu, u32 mode);
 void StopDMAs(u32 cpu, u32 mode);
 
-void RunTimingCriticalDevices(u32 cpu, s32 cycles);
+void RunTightTimers(u32 cpu, s32 cycles);
+void RunLooseTimers(u32 cpu, s32 cycles);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);

@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "NDSCart.h"
 #include "ARM.h"
+#include "CRC32.h"
 
 #include "melon_fopen.h"
 
@@ -28,26 +29,12 @@
 namespace NDSCart_SRAM
 {
 
-// BIG SRAM TODO!!!!
-// USE A DATABASE TO IDENTIFY SAVE MEMORY TYPE
-// (and maybe keep autodetect as a last resort??)
-// AUTODETECT IS BLARGY AND IS A MESS
-
 u8* SRAM;
 u32 SRAMLength;
 
 char SRAMPath[1024];
 
 void (*WriteFunc)(u8 val, bool islast);
-
-u32 Discover_MemoryType;
-u32 Discover_Likeliness;
-u8* Discover_Buffer;
-u32 Discover_DataPos;
-u32 Discover_LastPC;
-u32 Discover_AddrLength;
-u32 Discover_Addr;
-u32 Discover_LikelySize;
 
 u32 Hold;
 u8 CurCmd;
@@ -68,37 +55,25 @@ void Write_Discover(u8 val, bool islast);
 bool Init()
 {
     SRAM = NULL;
-    Discover_Buffer = NULL;
     return true;
 }
 
 void DeInit()
 {
     if (SRAM) delete[] SRAM;
-    if (Discover_Buffer) delete[] Discover_Buffer;
 }
 
 void Reset()
 {
     if (SRAM) delete[] SRAM;
-    if (Discover_Buffer) delete[] Discover_Buffer;
     SRAM = NULL;
-    Discover_Buffer = NULL;
 }
 
 void DoSavestate(Savestate* file)
 {
     file->Section("NDCS");
 
-    // CHECKME/TODO/whatever
-    // should the autodetect status shit go in the savestate???
-    // I don't think so.
-    // worst case is that the savestate was taken before autodetect took place completely
-    // and that causes it to yield a different result, fucking things up
-    // but that is unlikely
-    // and we should just use a goddamn database anyway, this is a trainwreck
-
-    // we reload the SRAM contents, tho.
+    // we reload the SRAM contents.
     // it should be the same file (as it should be the same ROM, duh)
     // but the contents may change
     // TODO maybe: possibility to save to a separate file when using savestates????
@@ -138,15 +113,9 @@ void DoSavestate(Savestate* file)
     file->Var32(&Addr);
 }
 
-void LoadSave(const char* path)
+void LoadSave(const char* path, u32 type)
 {
     if (SRAM) delete[] SRAM;
-    if (Discover_Buffer) delete[] Discover_Buffer;
-
-    Discover_Buffer = NULL;
-    Discover_LastPC = 0;
-    Discover_AddrLength = 0x7FFFFFFF;
-    Discover_LikelySize = 0;
 
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
@@ -162,32 +131,35 @@ void LoadSave(const char* path)
         fread(SRAM, SRAMLength, 1, f);
 
         fclose(f);
-
-        switch (SRAMLength)
-        {
-        case 512: WriteFunc = Write_EEPROMTiny; break;
-        case 8192:
-        case 65536: WriteFunc = Write_EEPROM; break;
-        case 256*1024:
-        case 512*1024:
-        case 1024*1024:
-        case 8192*1024: WriteFunc = Write_Flash; break;
-        default:
-            printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
-            WriteFunc = Write_Null;
-            break;
-        }
     }
     else
     {
-        SRAMLength = 0;
-        WriteFunc = Write_Discover;
-        Discover_MemoryType = 2;
-        Discover_Likeliness = 0;
+        if (type > 8) type = 0;
+        int sramlen[] = {0, 512, 8192, 65536, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
+        SRAMLength = sramlen[type];
 
-        Discover_DataPos = 0;
-        Discover_Buffer = new u8[256*1024];
-        memset(Discover_Buffer, 0, 256*1024);
+        if (SRAMLength)
+        {
+            SRAM = new u8[SRAMLength];
+            memset(SRAM, 0, SRAMLength);
+        }
+    }
+
+    switch (SRAMLength)
+    {
+    case 512: WriteFunc = Write_EEPROMTiny; break;
+    case 8192:
+    case 65536: WriteFunc = Write_EEPROM; break;
+    case 256*1024:
+    case 512*1024:
+    case 1024*1024:
+    case 8192*1024: WriteFunc = Write_Flash; break;
+    case 32768*1024: WriteFunc = Write_Null; break; // NAND FLASH, handled differently
+    default:
+        printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
+    case 0:
+        WriteFunc = Write_Null;
+        break;
     }
 
     Hold = 0;
@@ -200,7 +172,7 @@ void RelocateSave(const char* path, bool write)
 {
     if (!write)
     {
-        LoadSave(path); // lazy
+        LoadSave(path, 0); // lazy
         return;
     }
 
@@ -221,240 +193,6 @@ void RelocateSave(const char* path, bool write)
 u8 Read()
 {
     return Data;
-}
-
-void SetMemoryType()
-{
-    SRAMLength = 0;
-
-    if (Discover_LikelySize)
-    {
-        if (Discover_LikelySize >= 0x40000)
-        {
-            Discover_MemoryType = 4; // FLASH
-            SRAMLength = Discover_LikelySize;
-        }
-        else if (Discover_LikelySize == 0x10000 || Discover_MemoryType == 3)
-        {
-            if (Discover_MemoryType > 3)
-                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
-
-            Discover_MemoryType = 3;
-        }
-        else if (Discover_LikelySize == 0x2000)
-        {
-            if (Discover_MemoryType > 3)
-                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
-
-            Discover_MemoryType = 2;
-        }
-        else if (Discover_LikelySize == 0x200 || Discover_MemoryType == 1)
-        {
-            if (Discover_MemoryType > 1)
-                printf("incoherent detection result: type=%d size=%X\n", Discover_MemoryType, Discover_LikelySize);
-
-            Discover_MemoryType = 1;
-        }
-        else
-        {
-            printf("bad save size %X. assuming EEPROM 64K\n", Discover_LikelySize);
-            Discover_MemoryType = 2;
-        }
-    }
-
-    switch (Discover_MemoryType)
-    {
-    case 1:
-        printf("Save memory type: EEPROM 4k\n");
-        WriteFunc = Write_EEPROMTiny;
-        SRAMLength = 512;
-        break;
-
-    case 2:
-        printf("Save memory type: EEPROM 64k\n");
-        WriteFunc = Write_EEPROM;
-        SRAMLength = 8192;
-        break;
-
-    case 3:
-        printf("Save memory type: EEPROM 512k\n");
-        WriteFunc = Write_EEPROM;
-        SRAMLength = 65536;
-        break;
-
-    case 4:
-        if (!SRAMLength) SRAMLength = 256*1024;
-        printf("Save memory type: Flash %dk\n", SRAMLength/1024);
-        WriteFunc = Write_Flash;
-        break;
-
-    case 5:
-        printf("Save memory type: ...something else\n");
-        WriteFunc = Write_Null;
-        SRAMLength = 0;
-        break;
-    }
-
-    if (!SRAMLength)
-        return;
-
-    SRAM = new u8[SRAMLength];
-
-    // replay writes that occured during discovery
-    u8 prev_cmd = CurCmd;
-    u32 pos = 0;
-    while (pos < 256*1024)
-    {
-        u32 len = *(u32*)&Discover_Buffer[pos];
-        pos += 4;
-        if (len == 0) break;
-
-        CurCmd = Discover_Buffer[pos++];
-        DataPos = 0;
-        Addr = 0;
-        Data = 0;
-        for (u32 i = 1; i < len; i++)
-        {
-            WriteFunc(Discover_Buffer[pos++], (i==(len-1)));
-            DataPos++;
-        }
-    }
-
-    CurCmd = prev_cmd;
-
-    delete[] Discover_Buffer;
-    Discover_Buffer = NULL;
-}
-
-void Write_Discover(u8 val, bool islast)
-{
-    // attempt at autodetecting the type of save memory.
-    // we basically hope the game will be nice and clear whole pages of memory.
-
-    if (CurCmd == 0x03 || CurCmd == 0x0B)
-    {
-        if (Discover_Likeliness) // writes have occured before this read
-        {
-            // apply. and pray.
-            SetMemoryType();
-
-            DataPos = 0;
-            Addr = 0;
-            Data = 0;
-            return WriteFunc(val, islast);
-        }
-        else
-        {
-            if (DataPos == 0)
-            {
-                Discover_LastPC = NDS::GetPC((NDS::ExMemCnt[0] >> 11) & 0x1);
-                Discover_Addr = val;
-            }
-            else
-            {
-                bool addrlenchange = false;
-
-                Discover_Addr <<= 8;
-                Discover_Addr |= val;
-
-                u32 pc = NDS::GetPC((NDS::ExMemCnt[0] >> 11) & 0x1);
-                if ((pc != Discover_LastPC) || islast)
-                {
-                    if (DataPos < Discover_AddrLength)
-                    {
-                        Discover_AddrLength = DataPos;
-                        addrlenchange = true;
-                    }
-                }
-
-                if (DataPos == Discover_AddrLength)
-                {
-                    Discover_Addr >>= 8;
-
-                    // determine the address for this read
-                    // the idea is to see how far the game reads
-                    // but we need margins for games that have antipiracy
-                    // as those will generally read just past the limit
-                    // and expect it to wrap to zero
-
-                    u32 likelysize = 0;
-
-                    if (DataPos == 3) // FLASH
-                    {
-                        if (Discover_Addr >= 0x101000)
-                            likelysize = 0x800000; // 8M
-                        else if (Discover_Addr >= 0x81000)
-                            likelysize = 0x100000; // 1M
-                        else if (Discover_Addr >= 0x41000)
-                            likelysize = 0x80000; // 512K
-                        else
-                            likelysize = 0x40000; // 256K
-                    }
-                    else if (DataPos == 2) // EEPROM
-                    {
-                        if (Discover_Addr >= 0x3000)
-                            likelysize = 0x10000; // 64K
-                        else
-                            likelysize = 0x2000; // 8K
-                    }
-                    else if (DataPos == 1) // tiny EEPROM
-                    {
-                        likelysize = 0x200; // always 4K
-                    }
-
-                    if ((likelysize > Discover_LikelySize) || addrlenchange)
-                        Discover_LikelySize = likelysize;
-                }
-            }
-
-            Data = 0;
-            return;
-        }
-    }
-
-    if (CurCmd == 0x02 || CurCmd == 0x0A)
-    {
-        if (DataPos == 0)
-            Discover_Buffer[Discover_DataPos + 4] = CurCmd;
-
-        Discover_Buffer[Discover_DataPos + 5 + DataPos] = val;
-
-        if (islast)
-        {
-            u32 len = DataPos+1;
-
-            *(u32*)&Discover_Buffer[Discover_DataPos] = len+1;
-            Discover_DataPos += 5+len;
-
-            if (Discover_Likeliness <= len)
-            {
-                Discover_Likeliness = len;
-
-                if (len > 3+256) // bigger Flash, FRAM, whatever
-                {
-                    Discover_MemoryType = 5;
-                }
-                else if ((len > 2+128) || (len > 1+16 && CurCmd == 0xA)) // Flash
-                {
-                    Discover_MemoryType = 4;
-                }
-                else if (len > 2+32) // EEPROM 512k
-                {
-                    Discover_MemoryType = 3;
-                }
-                else if (len > 1+16 || (len != 1+16 && CurCmd != 0x0A)) // EEPROM 64k
-                {
-                    Discover_MemoryType = 2;
-                }
-                else // EEPROM 4k
-                {
-                    Discover_MemoryType = 1;
-                }
-            }
-
-            printf("discover: type=%d likeliness=%d\n", Discover_MemoryType, Discover_Likeliness);
-        }
-    }
 }
 
 void Write_Null(u8 val, bool islast) {}
@@ -733,6 +471,7 @@ u32 DataOutLen;
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
+u32 CartCRC;
 u32 CartID;
 bool CartIsHomebrew;
 
@@ -743,6 +482,12 @@ u32 Key1_KeyBuf[0x412];
 
 u64 Key2_X;
 u64 Key2_Y;
+
+
+void ROMCommand_Retail(u8* cmd);
+void ROMCommand_RetailNAND(u8* cmd);
+
+void (*ROMCommandHandler)(u8* cmd);
 
 
 u32 ByteSwap(u32 val)
@@ -885,6 +630,8 @@ void Reset()
     CartROMSize = 0;
     CartID = 0;
     CartIsHomebrew = false;
+
+    ROMCommandHandler = NULL;
 
     CmdEncMode = 0;
     DataEncMode = 0;
@@ -1062,6 +809,63 @@ void ApplyDLDIPatch()
 }
 
 
+bool ReadROMParams(u32* params)
+{
+    // format for romlist.bin:
+    // [CRC32] [ROM size] [save type] [reserved]
+    // list must be sorted by CRC
+
+    FILE* f = melon_fopen_local("romlist.bin", "rb");
+    if (!f) return false;
+
+    fseek(f, 0, SEEK_END);
+    u32 len = (u32)ftell(f);
+    u32 maxlen = len;
+    len >>= 4; // 16 bytes per entry
+
+    u32 offset = 0;
+    u32 chk_size = len >> 1;
+    for (;;)
+    {
+        u32 crc = 0;
+        fseek(f, offset + (chk_size << 4), SEEK_SET);
+        fread(&crc, 4, 1, f);
+
+        printf("chk_size=%d, crc=%08X, wanted=%08X, offset=%08X\n", chk_size, crc, CartCRC, offset);
+
+        if (crc == CartCRC)
+        {
+            fread(params, 4, 3, f);
+            fclose(f);
+            return true;
+        }
+        else
+        {
+            if (crc < CartCRC)
+            {
+                if (chk_size == 0)
+                    offset += 0x10;
+                else
+                    offset += (chk_size << 4);
+            }
+            else if (chk_size == 0)
+            {
+                fclose(f);
+                return false;
+            }
+
+            chk_size >>= 1;
+        }
+
+        if (offset >= maxlen)
+        {
+            fclose(f);
+            return false;
+        }
+    }
+}
+
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
@@ -1094,10 +898,40 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     fclose(f);
     //CartROM = f;
 
+    CartCRC = CRC32(CartROM, CartROMSize);
+    printf("ROM CRC32: %08X\n", CartCRC);
+
+    u32 romparams[3];
+    if (!ReadROMParams(romparams))
+    {
+        // set defaults
+        printf("ROM entry not found\n");
+
+        romparams[0] = CartROMSize;
+        if (*(u32*)&CartROM[0x20] < 0x4000)
+            romparams[1] = 0; // no saveRAM for homebrew
+        else
+            romparams[1] = 2; // assume EEPROM 64k (TODO FIXME)
+    }
+    else
+        printf("ROM entry: %08X %08X %08X\n", romparams[0], romparams[1], romparams[2]);
+
+    if (romparams[0] != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams[0], CartROMSize);
+
     // generate a ROM ID
     // note: most games don't check the actual value
     // it just has to stay the same throughout gameplay
-    CartID = 0x00001FC2;
+    CartID = 0x000000C2;
+
+    if (CartROMSize <= 128*1024*1024)
+        CartID |= ((CartROMSize >> 20) - 1) << 8;
+    else
+        CartID |= (0x100 - (CartROMSize >> 28)) << 8;
+
+    if (romparams[1] == 8)
+        CartID |= 0x08000000; // NAND flag
+
+    printf("Cart ID: %08X\n", CartID);
 
     if (*(u32*)&CartROM[0x20] < 0x4000)
     {
@@ -1113,6 +947,12 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     }
 
     CartInserted = true;
+
+    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
+    if (CartID & 0x08000000)
+        ROMCommandHandler = ROMCommand_RetailNAND;
+    else
+        ROMCommandHandler = ROMCommand_Retail;
 
     u32 arm9base = *(u32*)&CartROM[0x20];
     if (arm9base < 0x8000)
@@ -1144,7 +984,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     // save
     printf("Save file: %s\n", sram);
-    NDSCart_SRAM::LoadSave(sram);
+    NDSCart_SRAM::LoadSave(sram, romparams[1]);
 
     return true;
 }
@@ -1206,7 +1046,88 @@ void ROMPrepareData(u32 param)
         NDS::CheckDMAs(0, 0x05);
 }
 
-u32 sc_addr = 0;
+
+void ROMCommand_Retail(u8* cmd)
+{
+    switch (cmd[0])
+    {
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(DataOut, 0, DataOutLen);
+
+            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, 0);
+                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+            }
+            else
+                ReadROM_B7(addr, DataOutLen, 0);
+        }
+        break;
+
+    default:
+        printf("unknown retail cart command %02X\n", cmd[0]);
+        break;
+    }
+}
+
+void ROMCommand_RetailNAND(u8* cmd)
+{
+    switch (cmd[0])
+    {
+    case 0x94: // NAND init
+        {
+            // initial value: should have bit7 clear
+            NDSCart_SRAM::StatusReg = 0;
+
+            // Jam with the Band stores words 6-9 of this at 0x02131BB0
+            // it doesn't seem to use those anywhere later
+            for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                *(u32*)&DataOut[pos] = 0;
+        }
+        break;
+
+    case 0xB2: // set savemem addr
+        {
+            NDSCart_SRAM::StatusReg |= 0x20;
+        }
+        break;
+
+    case 0xB7:
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+            memset(DataOut, 0, DataOutLen);
+
+            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
+            {
+                u32 len1 = 0x1000 - (addr & 0xFFF);
+                ReadROM_B7(addr, len1, 0);
+                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
+            }
+            else
+                ReadROM_B7(addr, DataOutLen, 0);
+        }
+        break;
+
+    case 0xD6: // NAND status
+        {
+            // status reg bits:
+            // * bit7: busy? error?
+            // * bit5: accessing savemem
+
+            for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                *(u32*)&DataOut[pos] = NDSCart_SRAM::StatusReg * 0x01010101;
+        }
+        break;
+
+    default:
+        printf("unknown NAND command %02X %04Xn", cmd[0], DataOutLen);
+        break;
+    }
+}
+
 
 void WriteROMCnt(u32 val)
 {
@@ -1297,81 +1218,34 @@ void WriteROMCnt(u32 val)
         if (CartInserted) CmdEncMode = 1;
         break;
 
-    case 0xB7:
-        {
-            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(DataOut, 0, DataOutLen);
-
-            if (((addr + DataOutLen - 1) >> 12) != (addr >> 12))
-            {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, 0);
-                ReadROM_B7(addr+len1, DataOutLen-len1, len1);
-            }
-            else
-                ReadROM_B7(addr, DataOutLen, 0);
-        }
-        break;
-
-
-    // SUPERCARD EMULATION TEST
-    // TODO: INTEGRATE BETTER!!!!
-
-    case 0x70: // init??? returns whether SDHC addressing should be used
-        for (u32 pos = 0; pos < DataOutLen; pos += 4)
-            *(u32*)&DataOut[pos] = 0;
-        break;
-
-    case 0x53: // set address for read
-        sc_addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-        printf("SUPERCARD: read %08X\n", sc_addr);
-        break;
-
-    case 0x80: // read operation busy, I guess
-        // TODO: make it take some time
-        for (u32 pos = 0; pos < DataOutLen; pos += 4)
-            *(u32*)&DataOut[pos] = 0;
-        break;
-
-    case 0x81: // read data
-        {
-            if (DataOutLen != 0x200)
-                printf("SUPERCARD: BOGUS READ %d\n", DataOutLen);
-
-            // TODO: this is really inefficient. just testing
-            FILE* f = fopen("scsd.bin", "rb");
-            fseek(f, sc_addr, SEEK_SET);
-            fread(DataOut, 1, 0x200, f);
-            fclose(f);
-        }
-        break;
-
-    // SUPERCARD EMULATION TEST END
-
-
     default:
-        switch (cmd[0] & 0xF0)
+        if (CmdEncMode == 1)
         {
-        case 0x40:
-            DataEncMode = 2;
-            break;
-
-        case 0x10:
-            for (u32 pos = 0; pos < DataOutLen; pos += 4)
-                *(u32*)&DataOut[pos] = CartID;
-            break;
-
-        case 0x20:
+            switch (cmd[0] & 0xF0)
             {
-                u32 addr = (cmd[2] & 0xF0) << 8;
-                ReadROM(addr, 0x1000, 0);
-            }
-            break;
+            case 0x40:
+                DataEncMode = 2;
+                break;
 
-        case 0xA0:
-            CmdEncMode = 2;
-            break;
+            case 0x10:
+                for (u32 pos = 0; pos < DataOutLen; pos += 4)
+                    *(u32*)&DataOut[pos] = CartID;
+                break;
+
+            case 0x20:
+                {
+                    u32 addr = (cmd[2] & 0xF0) << 8;
+                    ReadROM(addr, 0x1000, 0);
+                }
+                break;
+
+            case 0xA0:
+                CmdEncMode = 2;
+                break;
+            }
         }
+        else if (ROMCommandHandler)
+            ROMCommandHandler(cmd);
         break;
     }
 

@@ -16,15 +16,11 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DLGINPUTCONFIG_H
-#define DLGINPUTCONFIG_H
+#ifndef CRC32_H
+#define CRC32_H
 
-namespace DlgInputConfig
-{
+#include "types.h"
 
-void Open(int type);
+u32 CRC32(u8* data, int len);
 
-}
-
-#endif // DLGINPUTCONFIG_H
-
+#endif // CRC32_H

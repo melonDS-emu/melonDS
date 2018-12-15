@@ -20,13 +20,22 @@
 #include <string.h>
 #include <stdlib.h>
 #include "Config.h"
-#include <string>
+#include "melon_fopen.h"
+
+
+bool LocalFileExists(const char* name);
+extern char* EmuDirectory;
 
 namespace Config
 {
 
+const char* kConfigFile = "melonDS.ini";
+
 int KeyMapping[12];
 int JoyMapping[12];
+
+int HKKeyMapping[HK_MAX];
+int HKJoyMapping[HK_MAX];
 
 int WindowWidth;
 int WindowHeight;
@@ -37,6 +46,8 @@ int ScreenLayout;
 int ScreenSizing;
 int ScreenFilter;
 
+int LimitFPS;
+
 int DirectBoot;
 
 int Threaded3D;
@@ -45,6 +56,12 @@ int SocketBindAnyAddr;
 
 int SavestateRelocSRAM;
 
+int AudioVolume;
+int MicInputType;
+char MicWavPath[512];
+
+char LastROMFolder[512];
+
 typedef struct
 {
     char Name[16];
@@ -52,7 +69,7 @@ typedef struct
     void* Value;
     int DefaultInt;
     char* DefaultStr;
-    int StrLength;
+    int StrLength; // should be set to actual array length minus one
 
 } ConfigEntry;
 
@@ -84,6 +101,12 @@ ConfigEntry ConfigFile[] =
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
 
+    {"HKKey_Lid",  0, &HKKeyMapping[HK_Lid], 0x0E, NULL, 0},
+    {"HKKey_Mic",  0, &HKKeyMapping[HK_Mic], 0x35, NULL, 0},
+
+    {"HKJoy_Lid",  0, &HKJoyMapping[HK_Lid], -1, NULL, 0},
+    {"HKJoy_Mic",  0, &HKJoyMapping[HK_Mic], -1, NULL, 0},
+
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
 
@@ -93,6 +116,8 @@ ConfigEntry ConfigFile[] =
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
@@ -101,20 +126,15 @@ ConfigEntry ConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 1, NULL, 0},
 
+    {"AudioVolume", 0, &AudioVolume, 255, NULL, 0},
+    {"MicInputType", 0, &MicInputType, 1, NULL, 0},
+    {"MicWavPath", 1, MicWavPath, 0, "", 511},
+
+    {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
+
     {"", -1, NULL, 0, NULL, 0}
 };
 
-bool HasConfigFile(const char* fileName)
-{
-    FILE* f = GetConfigFile(fileName, "rb");
-    if (f)
-    {
-        fclose(f);
-        return true;
-    }
-    else
-        return false;
-}
 
 void Load()
 {
@@ -126,12 +146,15 @@ void Load()
         if (entry->Type == 0)
             *(int*)entry->Value = entry->DefaultInt;
         else
+        {
             strncpy((char*)entry->Value, entry->DefaultStr, entry->StrLength);
+            ((char*)entry->Value)[entry->StrLength] = '\0';
+        }
 
         entry++;
     }
 
-    FILE* f = Config::GetConfigFile("melonDS.ini", "r");
+    FILE* f = melon_fopen_local(kConfigFile, "r");
     if (!f) return;
 
     char linebuf[1024];
@@ -167,8 +190,26 @@ void Load()
 
 void Save()
 {
-    FILE* f = Config::GetConfigFile("melonDS.ini", "w");
-    if (!f) return;
+    FILE* f;
+    if (LocalFileExists(kConfigFile))
+    {
+        f = melon_fopen_local(kConfigFile, "w");
+        if (!f) return;
+    }
+    else
+    {
+        int dirlen = strlen(EmuDirectory);
+        int filelen = strlen(kConfigFile);
+        char* path = new char[dirlen + 1 + filelen + 1];
+        strncpy(&path[0], EmuDirectory, dirlen);
+        path[dirlen] = '/';
+        strncpy(&path[dirlen+1], kConfigFile, filelen);
+        path[dirlen+1+filelen] = '\0';
+
+        f = melon_fopen(path, "w");
+        delete[] path;
+        if (!f) return;
+    }
 
     ConfigEntry* entry = &ConfigFile[0];
     for (;;)

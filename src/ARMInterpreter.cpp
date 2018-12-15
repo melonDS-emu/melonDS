@@ -18,7 +18,6 @@
 
 #include <stdio.h>
 #include "NDS.h"
-#include "CP15.h"
 #include "ARMInterpreter.h"
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_Branch.h"
@@ -35,8 +34,8 @@ void A_UNK(ARM* cpu)
     //for (int i = 0; i < 16; i++) printf("R%d: %08X\n", i, cpu->R[i]);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xDB;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x9B;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_UND[2] = oldcpsr;
@@ -49,8 +48,8 @@ void T_UNK(ARM* cpu)
     printf("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xDB;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x9B;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_UND[2] = oldcpsr;
@@ -98,6 +97,8 @@ void A_MSR_IMM(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    cpu->AddCycles_C();
 }
 
 void A_MSR_REG(ARM* cpu)
@@ -138,6 +139,8 @@ void A_MSR_REG(ARM* cpu)
 
     if (!(cpu->CurInstr & (1<<22)))
         cpu->UpdateMode(oldpsr, cpu->CPSR);
+
+    cpu->AddCycles_C();
 }
 
 void A_MRS(ARM* cpu)
@@ -159,6 +162,7 @@ void A_MRS(ARM* cpu)
         psr = cpu->CPSR;
 
     cpu->R[(cpu->CurInstr>>12) & 0xF] = psr;
+    cpu->AddCycles_C();
 }
 
 
@@ -172,7 +176,7 @@ void A_MCR(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        CP15::Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
+        ((ARMv5*)cpu)->CP15Write((cn<<8)|(cm<<4)|cpinfo, cpu->R[(cpu->CurInstr>>12)&0xF]);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -184,7 +188,7 @@ void A_MCR(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->Cycles += 2; // TODO: checkme
+    cpu->AddCycles_CI(1 + 1); // TODO: checkme
 }
 
 void A_MRC(ARM* cpu)
@@ -197,7 +201,7 @@ void A_MRC(ARM* cpu)
 
     if (cpu->Num==0 && cp==15)
     {
-        cpu->R[(cpu->CurInstr>>12)&0xF] = CP15::Read((cn<<8)|(cm<<4)|cpinfo);
+        cpu->R[(cpu->CurInstr>>12)&0xF] = ((ARMv5*)cpu)->CP15Read((cn<<8)|(cm<<4)|cpinfo);
     }
     else if (cpu->Num==1 && cp==14)
     {
@@ -209,7 +213,7 @@ void A_MRC(ARM* cpu)
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
-    cpu->Cycles += 3; // TODO: checkme
+    cpu->AddCycles_CI(2 + 1); // TODO: checkme
 }
 
 
@@ -217,8 +221,8 @@ void A_MRC(ARM* cpu)
 void A_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xD3;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x93;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_SVC[2] = oldcpsr;
@@ -229,8 +233,8 @@ void A_SVC(ARM* cpu)
 void T_SVC(ARM* cpu)
 {
     u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xFF;
-    cpu->CPSR |= 0xD3;
+    cpu->CPSR &= ~0xBF;
+    cpu->CPSR |= 0x93;
     cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
     cpu->R_SVC[2] = oldcpsr;

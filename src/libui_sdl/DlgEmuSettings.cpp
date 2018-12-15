@@ -33,6 +33,7 @@ void ApplyNewSettings();
 namespace DlgEmuSettings
 {
 
+bool opened;
 uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
@@ -42,12 +43,14 @@ uiCheckbox* cbBindAnyAddr;
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
+    opened = false;
     return 1;
 }
 
 void OnCancel(uiButton* btn, void* blarg)
 {
     uiControlDestroy(uiControl(win));
+    opened = false;
 }
 
 void OnOk(uiButton* btn, void* blarg)
@@ -59,12 +62,20 @@ void OnOk(uiButton* btn, void* blarg)
     Config::Save();
 
     uiControlDestroy(uiControl(win));
+    opened = false;
 
     ApplyNewSettings();
 }
 
 void Open()
 {
+    if (opened)
+    {
+        uiControlSetFocus(uiControl(win));
+        return;
+    }
+
+    opened = true;
     win = uiNewWindow("Emu settings - melonDS", 300, 200, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
