@@ -2143,7 +2143,7 @@ void ExecuteCommand()
         case 0x50: // flush
             FlushRequest = 1;
             FlushAttributes = ExecParams[0] & 0x3;
-            CycleCount = 392;
+            CycleCount = 325;
             // probably safe to just reset all pipelines
             // but needs checked
             VertexPipeline = 0;
