@@ -1551,6 +1551,8 @@ void CmdFIFOWrite(CmdFIFOEntry& entry)
         CmdFIFO->Write(entry);
     }
 
+    GXStat |= (1<<27);
+
     if (entry.Command == 0x11 || entry.Command == 0x12)
     {
         GXStat |= (1<<14); // push/pop matrix
@@ -1666,7 +1668,7 @@ void ExecuteCommand()
 
     if (ExecParamCount >= CmdNumParams[entry.Command])
     {
-        /*printf("0x%02X,  ", entry.Command);
+        /*printf("[GXS:%08X] 0x%02X,  ", GXStat, entry.Command);
         for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
         printf("\n");*/
 
@@ -2184,10 +2186,6 @@ void ExecuteCommand()
             break;
         }
     }
-
-    if (CycleCount > 0 || !CmdPIPE->IsEmpty() ||
-        VertexPipeline || NormalPipeline || PolygonPipeline)
-        GXStat |= (1<<27);
 }
 
 s32 CyclesToRunFor()
