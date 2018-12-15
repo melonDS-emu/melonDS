@@ -1575,9 +1575,17 @@ int main(int argc, char** argv)
             if (argv[0][len] == '\\') break;
             len--;
         }
-        EmuDirectory = new char[len];
-        strncpy(EmuDirectory, argv[0], len);
-        EmuDirectory[len] = '\0';
+        if (len > 0)
+        {
+            EmuDirectory = new char[len];
+            strncpy(EmuDirectory, argv[0], len);
+            EmuDirectory[len] = '\0';
+        }
+        else
+        {
+            EmuDirectory = new char[2];
+            strcpy(EmuDirectory, ".");
+        }
     }
     else
     {
