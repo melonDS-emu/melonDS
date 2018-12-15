@@ -20,7 +20,6 @@ SET(SOURCES
 	src/GPU2D.cpp
 	src/GPU3D.cpp
 	src/GPU3D_Soft.cpp
-	src/melon_fopen.cpp
 	src/NDS.cpp
 	src/NDSCart.cpp
 	src/RTC.cpp
@@ -37,7 +36,7 @@ INCLUDE_DIRECTORIES(./src)
 if (ANDROID)
 	LIST(APPEND SOURCES
 			src/android/MelonDS.cpp
-			src/android/ConfigAndroid.cpp
+			src/android/melon_fopen_android.cpp
 			src/android/PlatformAndroid.cpp
 			src/android/InputAndroid.cpp
 			src/android/OboeCallback.cpp
@@ -60,7 +59,7 @@ else()
 		)
 	if (UNIX)
 		LIST(APPEND SOURCES
-			src/unix/ConfigUnix.cpp
+			src/unix/melon_fopen_unix.cpp
 			src/libui_sdl/libui/unix/alloc.c
 			src/libui_sdl/libui/unix/area.c
 			src/libui_sdl/libui/unix/box.c
@@ -125,7 +124,7 @@ else()
 		endif ()
 	elseif (WIN32)
 		LIST(APPEND SOURCES
-			src/win32/ConfigWin32.cpp
+			src/win32/melon_fopen_win32.cpp
 			src/libui_sdl/libui/windows/alloc.cpp
 			src/libui_sdl/libui/windows/area.cpp
 			src/libui_sdl/libui/windows/areadraw.cpp

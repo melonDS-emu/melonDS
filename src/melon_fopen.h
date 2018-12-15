@@ -19,9 +19,9 @@
 #ifndef MELON_FOPEN_H
 #define MELON_FOPEN_H
 
+#include <cstdio>
 
 FILE* melon_fopen(const char* filename, const char* perm);
 FILE* melon_fopen_local(const char* filename, const char* perm);
-
 
 #endif // MELON_FOPEN_H

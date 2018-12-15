@@ -3,6 +3,7 @@
 #include "../NDS.h"
 #include "../GPU.h"
 #include "../SPU.h"
+#include "../melon_fopen.h"
 #include "OboeCallback.h"
 
 u32* frameBuffer;
@@ -16,6 +17,8 @@ u32 currentFps = 0;
 bool limitFps = true;
 oboe::AudioStream *audioStream;
 
+char* EmuDirectory;
+
 namespace MelonDSAndroid
 {
     char* configDir;
@@ -23,6 +26,8 @@ namespace MelonDSAndroid
     void setup(char* configDirPath)
     {
         configDir = configDirPath;
+        EmuDirectory = configDirPath;
+
         frameBuffer = new u32[256 * 384 * 4];
 
         // TODO: Gotta find the correct sound setup
@@ -118,4 +123,12 @@ namespace MelonDSAndroid
 
 void Stop(bool internal)
 {
+}
+
+bool LocalFileExists(const char* name)
+{
+    FILE* f = melon_fopen_local(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
 }
