@@ -1315,7 +1315,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
         EmuRunning = prevstatus;
         return;
     }
-    
+
     int pos = strlen(file)-1;
     while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
     strncpy(Config::LastROMFolder, file, pos);
@@ -1566,6 +1566,7 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    if (argc > 0 && strlen(argv[0]) > 0)
     {
         int len = strlen(argv[0]);
         while (len > 0)
@@ -1577,6 +1578,11 @@ int main(int argc, char** argv)
         EmuDirectory = new char[len];
         strncpy(EmuDirectory, argv[0], len);
         EmuDirectory[len] = '\0';
+    }
+    else
+    {
+        EmuDirectory = new char[2];
+        strcpy(EmuDirectory, ".");
     }
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
