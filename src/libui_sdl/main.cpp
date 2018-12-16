@@ -299,6 +299,8 @@ void MicCallback(void* data, Uint8* stream, int len)
 
 bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 {
+    if (btnid < 0) return false;
+
     bool pressed;
     if (btnid == 0x101) // up
         pressed = (hat & SDL_HAT_UP);
@@ -318,6 +320,7 @@ void FeedMicInput()
 {
     int type = Config::MicInputType;
     if ((type != 1 && MicCommand == 0) ||
+        (type == 1 && MicBufferLength == 0) ||
         (type == 3 && MicWavBuffer == NULL))
     {
         type = 0;
@@ -392,6 +395,8 @@ int EmuThreadFunc(void* burp)
     LidStatus = false;
     MicCommand = 0;
 
+    bool lastlidcmd = false;
+
     Uint8* joybuttons = NULL; int njoybuttons = 0;
     if (Joystick)
     {
@@ -429,10 +434,7 @@ int EmuThreadFunc(void* burp)
 
                 for (int i = 0; i < 12; i++)
                 {
-                    int btnid = Config::JoyMapping[i];
-                    if (btnid < 0) continue;
-
-                    bool pressed = JoyButtonPressed(btnid, njoybuttons, joybuttons, hat);
+                    bool pressed = JoyButtonPressed(Config::JoyMapping[i], njoybuttons, joybuttons, hat);
 
                     if (i == 4) // right
                         pressed = pressed || (axisX >= 16384);
@@ -448,9 +450,16 @@ int EmuThreadFunc(void* burp)
 
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
                 {
-                    LidStatus = !LidStatus;
-                    LidCommand = true;
+                    if (!lastlidcmd)
+                    {
+                        LidStatus = !LidStatus;
+                        LidCommand = true;
+                        lastlidcmd = true;
+                    }
                 }
+                else
+                    lastlidcmd = false;
+
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
                     MicCommand |= 2;
                 else
@@ -1315,7 +1324,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
         EmuRunning = prevstatus;
         return;
     }
-    
+
     int pos = strlen(file)-1;
     while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
     strncpy(Config::LastROMFolder, file, pos);
@@ -1566,6 +1575,7 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    if (argc > 0 && strlen(argv[0]) > 0)
     {
         int len = strlen(argv[0]);
         while (len > 0)
@@ -1574,9 +1584,22 @@ int main(int argc, char** argv)
             if (argv[0][len] == '\\') break;
             len--;
         }
-        EmuDirectory = new char[len];
-        strncpy(EmuDirectory, argv[0], len);
-        EmuDirectory[len] = '\0';
+        if (len > 0)
+        {
+            EmuDirectory = new char[len];
+            strncpy(EmuDirectory, argv[0], len);
+            EmuDirectory[len] = '\0';
+        }
+        else
+        {
+            EmuDirectory = new char[2];
+            strcpy(EmuDirectory, ".");
+        }
+    }
+    else
+    {
+        EmuDirectory = new char[2];
+        strcpy(EmuDirectory, ".");
     }
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
