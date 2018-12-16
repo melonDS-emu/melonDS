@@ -318,6 +318,7 @@ void FeedMicInput()
 {
     int type = Config::MicInputType;
     if ((type != 1 && MicCommand == 0) ||
+        (type == 1 && MicBufferLength == 0) ||
         (type == 3 && MicWavBuffer == NULL))
     {
         type = 0;
