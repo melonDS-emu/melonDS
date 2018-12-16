@@ -299,6 +299,8 @@ void MicCallback(void* data, Uint8* stream, int len)
 
 bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 {
+    if (btnid < 0) return false;
+
     bool pressed;
     if (btnid == 0x101) // up
         pressed = (hat & SDL_HAT_UP);
@@ -393,6 +395,8 @@ int EmuThreadFunc(void* burp)
     LidStatus = false;
     MicCommand = 0;
 
+    bool lastlidcmd = false;
+
     Uint8* joybuttons = NULL; int njoybuttons = 0;
     if (Joystick)
     {
@@ -430,10 +434,7 @@ int EmuThreadFunc(void* burp)
 
                 for (int i = 0; i < 12; i++)
                 {
-                    int btnid = Config::JoyMapping[i];
-                    if (btnid < 0) continue;
-
-                    bool pressed = JoyButtonPressed(btnid, njoybuttons, joybuttons, hat);
+                    bool pressed = JoyButtonPressed(Config::JoyMapping[i], njoybuttons, joybuttons, hat);
 
                     if (i == 4) // right
                         pressed = pressed || (axisX >= 16384);
@@ -449,9 +450,16 @@ int EmuThreadFunc(void* burp)
 
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
                 {
-                    LidStatus = !LidStatus;
-                    LidCommand = true;
+                    if (!lastlidcmd)
+                    {
+                        LidStatus = !LidStatus;
+                        LidCommand = true;
+                        lastlidcmd = true;
+                    }
                 }
+                else
+                    lastlidcmd = false;
+
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
                     MicCommand |= 2;
                 else

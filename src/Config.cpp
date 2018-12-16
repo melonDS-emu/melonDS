@@ -126,10 +126,10 @@ ConfigEntry ConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 1, NULL, 0},
 
-    {"AudioVolume", 0, &AudioVolume, 255, NULL, 0},
+    {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 511},
-    
+
     {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
 
     {"", -1, NULL, 0, NULL, 0}
