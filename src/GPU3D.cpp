@@ -1638,6 +1638,7 @@ void ExecuteCommand()
             // commands that can run 6 cycles after a vertex
             if (VertexPipeline > 2) AddCycles((VertexPipeline - 2) + 1);
             else                    AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
 
         case 0x29:
@@ -1651,12 +1652,14 @@ void ExecuteCommand()
             // command that can run 8 cycles after a vertex
             if (VertexPipeline > 0) AddCycles(VertexPipeline + 1);
             else                    AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
 
         default:
             // all other commands can run 4 cycles after a vertex
             // no need to do much here since that is the minimum
             AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
         }
     }
