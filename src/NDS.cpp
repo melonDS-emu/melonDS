@@ -1840,7 +1840,7 @@ void ARM9Write16(u32 addr, u16 val)
 }
 
 void ARM9Write32(u32 addr, u32 val)
-{if (addr==0x02FE2E60) printf("!!!! %08X->%08X, %08X\n", addr, val, ARM9->R[15]);
+{
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -2469,7 +2469,7 @@ u16 ARM9IORead16(u32 addr)
         return GPU3D::Read16(addr);
     }
 
-    //printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
+    printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
