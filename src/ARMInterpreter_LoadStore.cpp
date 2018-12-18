@@ -236,7 +236,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r); } \
+    if (r&1) { r--; printf("!! MISALIGNED LDRD %d\n", r+1); } \
     cpu->DataRead32 (offset  , &cpu->R[r  ]); \
     cpu->DataRead32S(offset+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
@@ -246,7 +246,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r); } \
+    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r+1); } \
     cpu->DataRead32 (addr  , &cpu->R[r  ]); \
     cpu->DataRead32S(addr+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
@@ -256,18 +256,19 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r); } \
+    if (r&1) { r--; printf("!! MISALIGNED STRD %d\n", r+1); } \
     cpu->DataWrite32 (offset  , cpu->R[r  ]); \
     cpu->DataWrite32S(offset+4, cpu->R[r+1]); \
     cpu->AddCycles_CD();
 
 #define A_STRD_POST \
     if (cpu->Num != 0) return; \
+    u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r); } \
-    cpu->DataWrite32 (offset  , cpu->R[r  ]); \
-    cpu->DataWrite32S(offset+4, cpu->R[r+1]); \
+    if (r&1) { r--; printf("!! MISALIGNED STRD_POST %d\n", r+1); } \
+    cpu->DataWrite32 (addr  , cpu->R[r  ]); \
+    cpu->DataWrite32S(addr+4, cpu->R[r+1]); \
     cpu->AddCycles_CD();
 
 #define A_LDRH \
