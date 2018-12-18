@@ -56,6 +56,8 @@ u32 AttrBuffer[BufferSize * 2];
 u8 StencilBuffer[256*2];
 bool PrevIsShadowMask;
 
+bool Enabled;
+
 // threading
 
 void* RenderThread;
@@ -135,6 +137,7 @@ void Reset()
 
     SetupRenderThread();
 }
+
 
 
 // Notes on the interpolator:

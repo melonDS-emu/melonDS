@@ -29,6 +29,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
+    void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
 
     u8 Read8(u32 addr);
@@ -64,6 +65,7 @@ public:
 
 private:
     u32 Num;
+    bool Enabled;
     u32* Framebuffer;
 
     u16 DispFIFO[16];

@@ -363,7 +363,7 @@ void SetupDirectBoot()
     PostFlag7 = 0x01;
 
     PowerControl9 = 0x820F;
-    GPU::DisplaySwap(PowerControl9);
+    GPU::SetPowerCnt(PowerControl9);
 
     // checkme
     RCnt = 0x8000;
@@ -678,8 +678,6 @@ bool DoSavestate(Savestate* file)
 
     if (!file->Saving)
     {
-        GPU::DisplaySwap(PowerControl9>>15);
-
         InitTimings();
         SetGBASlotTimings();
 
@@ -697,6 +695,11 @@ bool DoSavestate(Savestate* file)
     SPI::DoSavestate(file);
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
+
+    if (!file->Saving)
+    {
+        GPU::SetPowerCnt(PowerControl9);
+    }
 
     return true;
 }
@@ -1618,6 +1621,7 @@ u8 ARM9Read8(u32 addr)
         return ARM9IORead8(addr);
 
     case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u8*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
@@ -1631,6 +1635,7 @@ u8 ARM9Read8(u32 addr)
         }
 
     case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u8*)&GPU::OAM[addr & 0x7FF];
 
     case 0x08000000:
@@ -1677,6 +1682,7 @@ u16 ARM9Read16(u32 addr)
         return ARM9IORead16(addr);
 
     case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u16*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
@@ -1690,6 +1696,7 @@ u16 ARM9Read16(u32 addr)
         }
 
     case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u16*)&GPU::OAM[addr & 0x7FF];
 
     case 0x08000000:
@@ -1736,6 +1743,7 @@ u32 ARM9Read32(u32 addr)
         return ARM9IORead32(addr);
 
     case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u32*)&GPU::Palette[addr & 0x7FF];
 
     case 0x06000000:
@@ -1749,6 +1757,7 @@ u32 ARM9Read32(u32 addr)
         }
 
     case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
         return *(u32*)&GPU::OAM[addr & 0x7FF];
 
     case 0x08000000:
@@ -1818,6 +1827,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
 
     case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u16*)&GPU::Palette[addr & 0x7FF] = val;
         return;
 
@@ -1832,6 +1842,7 @@ void ARM9Write16(u32 addr, u16 val)
         }
 
     case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u16*)&GPU::OAM[addr & 0x7FF] = val;
         return;
     }
@@ -1859,6 +1870,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
 
     case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u32*)&GPU::Palette[addr & 0x7FF] = val;
         return;
 
@@ -1873,6 +1885,7 @@ void ARM9Write32(u32 addr, u32 val)
         }
 
     case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u32*)&GPU::OAM[addr & 0x7FF] = val;
         return;
     }
@@ -2809,8 +2822,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000304:
-        PowerControl9 = val;
-        GPU::DisplaySwap(PowerControl9>>15);
+        PowerControl9 = val & 0x820F;
+        GPU::SetPowerCnt(PowerControl9);
         return;
     }
 
@@ -2962,8 +2975,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040002BC: SqrtVal[1] = val; StartSqrt(); return;
 
     case 0x04000304:
-        PowerControl9 = val & 0xFFFF;
-        GPU::DisplaySwap(PowerControl9>>15);
+        PowerControl9 = val & 0x820F;
+        GPU::SetPowerCnt(PowerControl9);
         return;
     }
 

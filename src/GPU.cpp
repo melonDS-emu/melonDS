@@ -650,9 +650,23 @@ void MapVRAM_I(u32 bank, u8 cnt)
 }
 
 
-void DisplaySwap(u32 val)
+void SetPowerCnt(u32 val)
 {
-    if (val)
+    // POWCNT1 effects:
+    // * bit0: asplodes hardware??? not tested.
+    // * bit1: disables engine A palette and OAM (zero-filled) (TODO: affects mem timings???)
+    // * bit2: disables rendering engine, resets its internal state (polygons and registers)
+    // * bit3: disables geometry engine
+    // * bit9: disables engine B palette, OAM and rendering (screen turns white)
+    // * bit15: screen swap
+
+    if (!(val & (1<<0))) printf("!!! CLEARING POWCNT BIT0. DANGER\n");
+
+    GPU2D_A->SetEnabled(val & (1<<1));
+    GPU2D_B->SetEnabled(val & (1<<9));
+    GPU3D::SetEnabled(val & (1<<3), val & (1<<2));
+
+    if (val & (1<<15))
     {
         GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
         GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
@@ -838,6 +852,7 @@ void SetVCount(u16 val)
     // VCount write is delayed until the next scanline
 
     // TODO: how does the 3D engine react to VCount writes while it's rendering?
+    // 3D engine seems to give up on the current frame in that situation, repeating the last two scanlines
     // TODO: also check the various DMA types that can be involved
 
     NextVCount = val;

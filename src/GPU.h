@@ -387,7 +387,7 @@ T ReadVRAM_TexPal(u32 addr)
 }
 
 
-void DisplaySwap(u32 val);
+void SetPowerCnt(u32 val);
 
 void StartFrame();
 void FinishFrame(u32 lines);

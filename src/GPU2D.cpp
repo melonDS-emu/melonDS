@@ -273,6 +273,8 @@ u32 GPU2D::Read32(u32 addr)
 
 void GPU2D::Write8(u32 addr, u8 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000: DispCnt = (DispCnt & 0xFFFFFF00) | val; return;
@@ -353,6 +355,8 @@ void GPU2D::Write8(u32 addr, u8 val)
 
 void GPU2D::Write16(u32 addr, u16 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000: DispCnt = (DispCnt & 0xFFFF0000) | val; return;
@@ -482,6 +486,8 @@ void GPU2D::Write16(u32 addr, u16 val)
 
 void GPU2D::Write32(u32 addr, u32 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000:
@@ -542,19 +548,21 @@ void GPU2D::DrawScanline(u32 line)
 
     line = GPU::VCount;
 
+    bool forceblank = false;
+
     // scanlines that end up outside of the GPU drawing range
     // (as a result of writing to VCount) are filled white
-    if (line > 192)
-    {
-        for (int i = 0; i < 256; i++)
-            dst[i] = 0xFFFFFFFF;
+    if (line > 192) forceblank = true;
 
-        return;
-    }
+    // GPU B can be completely disabled by POWCNT1
+    // oddly that's not the case for GPU A
+    if (Num && !Enabled) forceblank = true;
 
     // forced blank
     // (checkme: are there still things that can run under this mode? likely not)
-    if (DispCnt & (1<<7))
+    if (DispCnt & (1<<7)) forceblank = true;
+
+    if (forceblank)
     {
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;

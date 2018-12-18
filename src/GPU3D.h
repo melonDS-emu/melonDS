@@ -88,6 +88,8 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+void SetEnabled(bool geometry, bool rendering);
+
 void ExecuteCommand();
 
 s32 CyclesToRunFor();

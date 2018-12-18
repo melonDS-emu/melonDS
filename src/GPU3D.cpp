@@ -152,6 +152,9 @@ FIFO<CmdFIFOEntry>* CmdStallQueue;
 
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
+bool GeometryEnabled;
+bool RenderingEnabled;
+
 u32 DispCnt;
 u8 AlphaRefVal, AlphaRef;
 
@@ -285,6 +288,25 @@ void DeInit()
     delete CmdStallQueue;
 }
 
+void ResetRenderingState()
+{
+    RenderNumPolygons = 0;
+
+    RenderDispCnt = 0;
+    RenderAlphaRef = 0;
+
+    memset(RenderEdgeTable, 0, 8*2);
+    memset(RenderToonTable, 0, 32*2);
+
+    RenderFogColor = 0;
+    RenderFogOffset = 0;
+    RenderFogShift = 0;
+    memset(RenderFogDensityTable, 0, 34);
+
+    RenderClearAttr1 = 0x3F000000;
+    RenderClearAttr2 = 0x00007FFF;
+}
+
 void Reset()
 {
     CmdFIFO->Clear();
@@ -356,6 +378,7 @@ void Reset()
     FlushRequest = 0;
     FlushAttributes = 0;
 
+    ResetRenderingState();
     SoftRenderer::Reset();
 }
 
@@ -552,6 +575,16 @@ void DoSavestate(Savestate* file)
         // might cause a blank frame but atleast it won't shit itself
         RenderNumPolygons = 0;
     }
+}
+
+
+
+void SetEnabled(bool geometry, bool rendering)
+{
+    GeometryEnabled = geometry;
+    RenderingEnabled = rendering;
+
+    if (!rendering) ResetRenderingState();
 }
 
 
@@ -2213,6 +2246,8 @@ void FinishWork(s32 cycles)
 
 void Run(s32 cycles)
 {
+    if (!GeometryEnabled)
+        return;
     if (FlushRequest)
         return;
     if (CmdPIPE->IsEmpty() && !(GXStat & (1<<27)))
@@ -2281,46 +2316,49 @@ bool YSort(Polygon* a, Polygon* b)
 
 void VBlank()
 {
-    if (FlushRequest)
+    if (GeometryEnabled && FlushRequest)
     {
-        if (NumPolygons)
+        if (RenderingEnabled)
         {
-            // separate translucent polygons from opaque ones
-
-            u32 io = 0, it = NumOpaquePolygons;
-            for (u32 i = 0; i < NumPolygons; i++)
+            if (NumPolygons)
             {
-                Polygon* poly = &CurPolygonRAM[i];
-                if (poly->Translucent)
-                    RenderPolygonRAM[it++] = poly;
-                else
-                    RenderPolygonRAM[io++] = poly;
+                // separate translucent polygons from opaque ones
+
+                u32 io = 0, it = NumOpaquePolygons;
+                for (u32 i = 0; i < NumPolygons; i++)
+                {
+                    Polygon* poly = &CurPolygonRAM[i];
+                    if (poly->Translucent)
+                        RenderPolygonRAM[it++] = poly;
+                    else
+                        RenderPolygonRAM[io++] = poly;
+                }
+
+                // apply Y-sorting
+
+                std::stable_sort(RenderPolygonRAM.begin(),
+                    RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
+                    YSort);
             }
 
-            // apply Y-sorting
+            RenderNumPolygons = NumPolygons;
 
-            std::stable_sort(RenderPolygonRAM.begin(),
-                RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
-                YSort);
+            RenderDispCnt = DispCnt;
+            RenderAlphaRef = AlphaRef;
+
+            memcpy(RenderEdgeTable, EdgeTable, 8*2);
+            memcpy(RenderToonTable, ToonTable, 32*2);
+
+            RenderFogColor = FogColor;
+            RenderFogOffset = FogOffset * 0x200;
+            RenderFogShift = (RenderDispCnt >> 8) & 0xF;
+            RenderFogDensityTable[0] = FogDensityTable[0];
+            memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
+            RenderFogDensityTable[33] = FogDensityTable[31];
+
+            RenderClearAttr1 = ClearAttr1;
+            RenderClearAttr2 = ClearAttr2;
         }
-
-        RenderNumPolygons = NumPolygons;
-
-        RenderDispCnt = DispCnt;
-        RenderAlphaRef = AlphaRef;
-
-        memcpy(RenderEdgeTable, EdgeTable, 8*2);
-        memcpy(RenderToonTable, ToonTable, 32*2);
-
-        RenderFogColor = FogColor;
-        RenderFogOffset = FogOffset * 0x200;
-        RenderFogShift = (RenderDispCnt >> 8) & 0xF;
-        RenderFogDensityTable[0] = FogDensityTable[0];
-        memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
-        RenderFogDensityTable[33] = FogDensityTable[31];
-
-        RenderClearAttr1 = ClearAttr1;
-        RenderClearAttr2 = ClearAttr2;
 
         CurRAMBank = CurRAMBank?0:1;
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
@@ -2515,6 +2553,9 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000340:
@@ -2550,6 +2591,9 @@ void Write8(u32 addr, u8 val)
 
 void Write16(u32 addr, u16 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000060:
@@ -2629,6 +2673,9 @@ void Write16(u32 addr, u16 val)
 
 void Write32(u32 addr, u32 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000060:
