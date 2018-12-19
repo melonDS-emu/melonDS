@@ -1218,21 +1218,27 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
             continue;
         }
-        else if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
+        else
         {
-            if ((bldcnteffect == 1) && (BlendCnt & target2))
+            if (flag1 & 0x80)      flag1 = 0x10;
+            else if (flag1 & 0x40) flag1 = 0x01;
+
+            if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
             {
-                coloreffect = 1;
-                eva = EVA;
-                evb = EVB;
+                if ((bldcnteffect == 1) && (BlendCnt & target2))
+                {
+                    coloreffect = 1;
+                    eva = EVA;
+                    evb = EVB;
+                }
+                else if (bldcnteffect >= 2)
+                    coloreffect = bldcnteffect;
+                else
+                    coloreffect = 0;
             }
-            else if (bldcnteffect >= 2)
-                coloreffect = bldcnteffect;
             else
                 coloreffect = 0;
         }
-        else
-            coloreffect = 0;
 
         switch (coloreffect)
         {
@@ -1905,7 +1911,6 @@ void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
     {
         if (((buf[i] & 0xF8000) == prio) && (windowmask[i] & 0x10))
         {
-            u32 blendfunc = 0;
             DrawPixel(&dst[i], buf[i] & 0x7FFF, buf[i] & 0xFF000000);
         }
     }
