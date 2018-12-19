@@ -130,7 +130,7 @@ elseif (WIN32)
         src/libui_sdl/libui/windows/drawtext.cpp
         src/libui_sdl/libui/windows/dwrite.cpp
         src/libui_sdl/libui/windows/editablecombo.cpp
-        #src/libui_sdl/libui/windows/entry.cpp
+        src/libui_sdl/libui/windows/entry.cpp
         src/libui_sdl/libui/windows/events.cpp
         src/libui_sdl/libui/windows/fontbutton.cpp
         src/libui_sdl/libui/windows/fontdialog.cpp
