@@ -54,6 +54,8 @@ typedef struct
     u32 TexParam;
     u32 TexPalette;
 
+    bool Degenerate;
+
     bool FacingView;
     bool Translucent;
 

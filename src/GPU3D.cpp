@@ -537,6 +537,19 @@ void DoSavestate(Savestate* file)
         file->Var32((u32*)&poly->XBottom);
 
         file->Var32(&poly->SortKey);
+
+        if (!file->Saving)
+        {
+            poly->Degenerate = false;
+
+            for (int j = 0; j < poly->NumVertices; j++)
+            {
+                if (poly->Vertices[j]->Position[3] == 0)
+                    poly->Degenerate = true;
+            }
+
+            if (poly->YBottom > 192) poly->Degenerate = true;
+        }
     }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
@@ -945,16 +958,14 @@ int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
     // some vertices that should get Y=-0x1000 get Y=0x1000 for some reason on hardware. it doesn't make sense.
     // clipping seems to process the Y plane before the X plane.
 
-    // also, polygons with any negative W are completely rejected. (TODO)
-
-    // X clipping
-    nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);
+    // Z clipping
+    nverts = ClipAgainstPlane<2, attribs>(vertices, nverts, clipstart);
 
     // Y clipping
     nverts = ClipAgainstPlane<1, attribs>(vertices, nverts, clipstart);
 
-    // Z clipping
-    nverts = ClipAgainstPlane<2, attribs>(vertices, nverts, clipstart);
+    // X clipping
+    nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);
 
     return nverts;
 }
@@ -1105,6 +1116,8 @@ void SubmitPolygon()
     poly->TexParam = TexParam;
     poly->TexPalette = TexPalette;
 
+    poly->Degenerate = false;
+
     poly->FacingView = facingview;
 
     u32 texfmt = (TexParam >> 26) & 0x7;
@@ -1147,6 +1160,10 @@ void SubmitPolygon()
         NumVertices++;
         poly->NumVertices++;
 
+        // W is truncated to 24 bits at this point
+        // if this W is zero, the polygon isn't rendered
+        vtx->Position[3] &= 0x00FFFFFF;
+
         // viewport transform
         s32 posX, posY;
         s32 w = vtx->Position[3];
@@ -1154,6 +1171,7 @@ void SubmitPolygon()
         {
             posX = 0;
             posY = 0;
+            poly->Degenerate = true;
         }
         else
         {
@@ -1207,6 +1225,8 @@ void SubmitPolygon()
     poly->VTop = vtop; poly->VBottom = vbot;
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
+
+    if (ybot > 192) poly->Degenerate = true;
 
     poly->SortKey = (ybot << 8) | ytop;
     if (poly->Translucent) poly->SortKey |= 0x10000;
@@ -1266,6 +1286,9 @@ void SubmitVertex()
     vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
+
+    //vertextrans->Position[3] &= 0x00FFFFFF;
+    //if (vertextrans->Position[3] < 0) printf("NEGATIVE W: %08X\n", vertextrans->Position[3]);
 
     // this probably shouldn't be.
     // the way color is handled during clipping needs investigation. TODO

@@ -2047,12 +2047,10 @@ void ClearBuffers()
 
 void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
-    // polygons with ybottom>192 aren't rendered at all
-
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
-        if (polygons[i]->YBottom > 192) continue;
+        if (polygons[i]->Degenerate) continue;
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
 
