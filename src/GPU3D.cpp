@@ -1171,7 +1171,6 @@ void SubmitPolygon()
         {
             posX = 0;
             posY = 0;
-            poly->Degenerate = true;
         }
         else
         {
@@ -1218,6 +1217,8 @@ void SubmitPolygon()
         }
 
         u32 w = (u32)vtx->Position[3];
+        if (w == 0) poly->Degenerate = true;
+
         while ((w >> wsize) && (wsize < 32))
             wsize += 4;
     }
@@ -1286,9 +1287,6 @@ void SubmitVertex()
     vertextrans->Position[1] = (vertex[0]*ClipMatrix[1] + vertex[1]*ClipMatrix[5] + vertex[2]*ClipMatrix[9] + vertex[3]*ClipMatrix[13]) >> 12;
     vertextrans->Position[2] = (vertex[0]*ClipMatrix[2] + vertex[1]*ClipMatrix[6] + vertex[2]*ClipMatrix[10] + vertex[3]*ClipMatrix[14]) >> 12;
     vertextrans->Position[3] = (vertex[0]*ClipMatrix[3] + vertex[1]*ClipMatrix[7] + vertex[2]*ClipMatrix[11] + vertex[3]*ClipMatrix[15]) >> 12;
-
-    //vertextrans->Position[3] &= 0x00FFFFFF;
-    //if (vertextrans->Position[3] < 0) printf("NEGATIVE W: %08X\n", vertextrans->Position[3]);
 
     // this probably shouldn't be.
     // the way color is handled during clipping needs investigation. TODO
