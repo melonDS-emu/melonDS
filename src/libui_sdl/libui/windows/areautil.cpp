@@ -14,6 +14,7 @@ void loadAreaSize(uiArea *a, ID2D1RenderTarget *rt, double *width, double *heigh
 		size = realGetSize(rt);
 		*width = size.width;
 		*height = size.height;
+		dipToPixels(a, width, height);
 	}
 }
 

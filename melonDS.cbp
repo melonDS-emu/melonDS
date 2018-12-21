@@ -26,12 +26,14 @@
 					<Add library="advapi32" />
 					<Add library="wsock32" />
 					<Add library="oleacc" />
+					<Add library="ole32" />
 					<Add library="usp10" />
 					<Add library="gdi32" />
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
-					<Add library="ole32" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
 				</Linker>
 			</Target>
 			<Target title="Release Windows">
@@ -61,6 +63,8 @@
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
 				</Linker>
 			</Target>
 			<Target title="DebugFast Windows">
@@ -89,6 +93,8 @@
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
 				</Linker>
 			</Target>
 		</Build>

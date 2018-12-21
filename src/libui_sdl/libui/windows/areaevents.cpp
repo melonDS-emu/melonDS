@@ -101,7 +101,7 @@ static void areaMouseEvent(uiArea *a, int down, int  up, WPARAM wParam, LPARAM l
 	xpix = (double) GET_X_LPARAM(lParam);
 	ypix = (double) GET_Y_LPARAM(lParam);
 	// these are in pixels; we need points
-	pixelsToDIP(a, &xpix, &ypix);
+	//pixelsToDIP(a, &xpix, &ypix);
 	me.X = xpix;
 	me.Y = ypix;
 	if (a->scrolling) {

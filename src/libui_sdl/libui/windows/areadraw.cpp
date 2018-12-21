@@ -26,6 +26,16 @@ static HRESULT doPaint(uiArea *a, ID2D1RenderTarget *rt, RECT *clip)
 
 	rt->BeginDraw();
 
+	{
+        float dpi_x, dpi_y;
+        D2D1_MATRIX_3X2_F dm;
+        rt->GetDpi(&dpi_x, &dpi_y);
+        ZeroMemory(&dm, sizeof (D2D1_MATRIX_3X2_F));
+        dm._11 = 96.f/dpi_x;
+        dm._22 = 96.f/dpi_y;
+        rt->SetTransform(&dm);
+	}
+
 	if (a->scrolling) {
 		ZeroMemory(&scrollTransform, sizeof (D2D1_MATRIX_3X2_F));
 		scrollTransform._11 = 1;
