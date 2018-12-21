@@ -220,6 +220,20 @@ u8 GPU2D::Read8(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
+    case 0x000: return DispCnt & 0xFF;
+    case 0x001: return (DispCnt >> 8) & 0xFF;
+    case 0x002: return (DispCnt >> 16) & 0xFF;
+    case 0x003: return DispCnt >> 24;
+
+    case 0x008: return BGCnt[0] & 0xFF;
+    case 0x009: return BGCnt[0] >> 8;
+    case 0x00A: return BGCnt[1] & 0xFF;
+    case 0x00B: return BGCnt[1] >> 8;
+    case 0x00C: return BGCnt[2] & 0xFF;
+    case 0x00D: return BGCnt[2] >> 8;
+    case 0x00E: return BGCnt[3] & 0xFF;
+    case 0x00F: return BGCnt[3] >> 8;
+
     case 0x048: return WinCnt[0];
     case 0x049: return WinCnt[1];
     case 0x04A: return WinCnt[2];
@@ -234,8 +248,8 @@ u16 GPU2D::Read16(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
-    case 0x000: return DispCnt&0xFFFF;
-    case 0x002: return DispCnt>>16;
+    case 0x000: return DispCnt & 0xFFFF;
+    case 0x002: return DispCnt >> 16;
 
     case 0x008: return BGCnt[0];
     case 0x00A: return BGCnt[1];
