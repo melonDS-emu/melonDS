@@ -35,12 +35,22 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 
 ### Linux:
 
+* Install dependencies:
+
+```sh
+sudo apt-get install libpcap0.8-dev libcurl4-gnutls-dev libsdl2-dev gtk+-3.0
+```
+
+* Compile:
+
 ```sh
 mkdir -p build
 cd build
 cmake ..
 make
 ```
+
+
 
 ### Windows:
 
