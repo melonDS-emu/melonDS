@@ -172,6 +172,7 @@ endif (UNIX)
 
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
+string(STRIP ${SDL2_LIBRARIES} SDL2_LIBRARIES)
 link_libraries(${SDL2_LIBRARIES})
 
 add_executable(${PROJECT_WX} ${SOURCES})
