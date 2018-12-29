@@ -401,7 +401,11 @@ int EmuThreadFunc(void* burp)
     if (Joystick)
     {
         njoybuttons = SDL_JoystickNumButtons(Joystick);
-        if (njoybuttons) joybuttons = new Uint8[njoybuttons];
+        if (njoybuttons) 
+        {
+            joybuttons = new Uint8[njoybuttons];
+            memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
+        }
     }
 
     u32 nframes = 0;
@@ -416,15 +420,27 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
-
+            
+            SDL_JoystickUpdate();
+            
+            if (Joystick)
+            {
+                if (!SDL_JoystickGetAttached(Joystick))
+                {
+                    SDL_JoystickClose(Joystick);
+                    Joystick = NULL;
+                }
+            }
+            if (!Joystick && (SDL_NumJoysticks() > 0))
+            {
+                Joystick = SDL_JoystickOpen(0);
+            }
 
             // poll input
             u32 keymask = KeyInputMask;
             u32 joymask = 0xFFF;
             if (Joystick)
             {
-                SDL_JoystickUpdate();
-
                 Uint32 hat = SDL_JoystickGetHat(Joystick, 0);
                 Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
                 Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
