@@ -44,6 +44,7 @@ extern int HKJoyMapping[HK_MAX];
 
 extern int WindowWidth;
 extern int WindowHeight;
+extern int WindowMaximized;
 
 extern int ScreenRotation;
 extern int ScreenGap;
