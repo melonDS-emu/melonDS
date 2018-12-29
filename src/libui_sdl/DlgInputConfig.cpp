@@ -165,6 +165,21 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     return 1;
 }
 
+void FinishJoyMapping(void* param)
+{
+    InputDlgData* dlg = (InputDlgData*)param;
+    int id = dlg->pollid & 0xFF;
+    
+    char keyname[16];
+    JoyMappingName(dlg->joymap[id], keyname);
+    uiButtonSetText(dlg->pollbtn, keyname);
+    uiControlEnable(uiControl(dlg->pollbtn));
+
+    dlg->pollid = -1;
+
+    uiControlSetFocus(uiControl(dlg->pollbtn));
+}
+
 Uint32 JoyPoll(Uint32 interval, void* param)
 {
     InputDlgData* dlg = (InputDlgData*)param;
@@ -184,15 +199,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         if (SDL_JoystickGetButton(joy, i))
         {
             dlg->joymap[id] = i;
-
-            char keyname[16];
-            JoyMappingName(dlg->joymap[id], keyname);
-            uiButtonSetText(dlg->pollbtn, keyname);
-            uiControlEnable(uiControl(dlg->pollbtn));
-
-            dlg->pollid = -1;
-
-            uiControlSetFocus(uiControl(dlg->pollbtn));
+            uiQueueMain(FinishJoyMapping, dlg);
             return 0;
         }
     }
@@ -206,15 +213,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         else                     blackhat = 0x8;
 
         dlg->joymap[id] = 0x100 | blackhat;
-
-        char keyname[16];
-        JoyMappingName(dlg->joymap[id], keyname);
-        uiButtonSetText(dlg->pollbtn, keyname);
-        uiControlEnable(uiControl(dlg->pollbtn));
-
-        dlg->pollid = -1;
-
-        uiControlSetFocus(uiControl(dlg->pollbtn));
+        uiQueueMain(FinishJoyMapping, dlg);
         return 0;
     }
 
