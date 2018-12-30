@@ -48,6 +48,7 @@
 // '9': load/save arbitrary file
 const int kSavestateNum[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
 
+const int kScreenSize[4] = {1, 2, 3, 4};
 const int kScreenRot[4] = {0, 1, 2, 3};
 const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
 const int kScreenLayout[3] = {0, 1, 2};
@@ -1500,6 +1501,37 @@ void EnsureProperMinSize()
     }
 }
 
+void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int factor = *(int*)param;
+    bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
+
+    int w = 256*factor;
+    int h = 192*factor;
+
+    if (ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, (h*2)+ScreenGap, w);
+        else
+            uiWindowSetContentSize(window, w, (h*2)+ScreenGap);
+    }
+    else if (ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, h, (w*2)+ScreenGap);
+        else
+            uiWindowSetContentSize(window, w, (h*2)+ScreenGap);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, (h*2)+ScreenGap, w);
+        else
+            uiWindowSetContentSize(window, (w*2)+ScreenGap, h);
+    }
+}
+
 void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
 {
     int rot = *(int*)param;
@@ -1772,6 +1804,19 @@ int main(int argc, char** argv)
         uiMenuAppendSubmenu(menu, submenu);
     }
     uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Screen size");
+
+        for (int i = 0; i < 4; i++)
+        {
+            char name[32];
+            sprintf(name, "%dx", kScreenSize[i]);
+            uiMenuItem* item = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(item, OnSetScreenSize, (void*)&kScreenSize[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
     {
         uiMenu* submenu = uiNewMenu("Screen rotation");
 
