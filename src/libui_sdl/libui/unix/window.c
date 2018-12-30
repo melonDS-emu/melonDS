@@ -437,6 +437,8 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int maximized, i
 	
 	if (maximized)
 	    gtk_window_maximize(w->window);
+	else
+	    gtk_window_set_position(w->window, GTK_WIN_POS_CENTER);
 
 	return w;
 }
