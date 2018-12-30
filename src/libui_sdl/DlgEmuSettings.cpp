@@ -76,7 +76,7 @@ void Open()
     }
 
     opened = true;
-    win = uiNewWindow("Emu settings - melonDS", 300, 200, 0, 0);
+    win = uiNewWindow("Emu settings - melonDS", 300, 200, 0, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 

@@ -60,6 +60,8 @@ char* EmuDirectory;
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
 
+int WindowWidth, WindowHeight;
+
 uiMenuItem* MenuItem_SaveState;
 uiMenuItem* MenuItem_LoadState;
 uiMenuItem* MenuItem_UndoStateLoad;
@@ -522,7 +524,7 @@ int EmuThreadFunc(void* burp)
                 if (guess != AutoScreenSizing)
                 {
                     AutoScreenSizing = guess;
-                    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+                    SetupScreenRects(WindowWidth, WindowHeight);
                 }
             }
 
@@ -1002,8 +1004,18 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
     // should those be the size of the uiArea, or the size of the window client area?
     // for now the uiArea fills the whole window anyway
     // but... we never know, I guess
-    Config::WindowWidth = width;
-    Config::WindowHeight = height;
+    WindowWidth = width;
+    WindowHeight = height;
+    
+    int max = uiWindowMaximized(MainWindow);
+    int min = uiWindowMinimized(MainWindow);
+    
+    Config::WindowMaximized = max;
+    if (!max && !min)
+    {
+        Config::WindowWidth = width;
+        Config::WindowHeight = height;
+    }
 }
 
 
@@ -1502,8 +1514,6 @@ void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
             w = blarg;
 
             uiWindowSetContentSize(window, w, h);
-            Config::WindowWidth = w;
-            Config::WindowHeight = h;
         }
     }
 
@@ -1521,7 +1531,7 @@ void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
     ScreenGap = gap;
 
     EnsureProperMinSize();
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 6; i++)
         uiMenuItemSetChecked(MenuItem_ScreenGap[i], kScreenGap[i]==ScreenGap);
@@ -1533,7 +1543,7 @@ void OnSetScreenLayout(uiMenuItem* item, uiWindow* window, void* param)
     ScreenLayout = layout;
 
     EnsureProperMinSize();
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 3; i++)
         uiMenuItemSetChecked(MenuItem_ScreenLayout[i], i==ScreenLayout);
@@ -1544,7 +1554,7 @@ void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param)
     int sizing = *(int*)param;
     ScreenSizing = sizing;
 
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 4; i++)
         uiMenuItemSetChecked(MenuItem_ScreenSizing[i], i==ScreenSizing);
@@ -1818,8 +1828,11 @@ int main(int argc, char** argv)
     int h = Config::WindowHeight;
     //if (w < 256) w = 256;
     //if (h < 384) h = 384;
+    
+    WindowWidth = w;
+    WindowHeight = h;
 
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, 1, 1);
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
 
     uiWindowSetDropTarget(MainWindow, 1);

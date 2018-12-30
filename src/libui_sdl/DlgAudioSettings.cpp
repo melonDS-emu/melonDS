@@ -101,7 +101,7 @@ void Open()
     }
 
     opened = true;
-    win = uiNewWindow("Audio settings - melonDS", 400, 100, 0, 0);
+    win = uiNewWindow("Audio settings - melonDS", 400, 100, 0, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 

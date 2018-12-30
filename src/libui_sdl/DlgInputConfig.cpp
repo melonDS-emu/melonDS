@@ -337,7 +337,7 @@ void Open(int type)
         memcpy(dlg->keymap, Config::KeyMapping, sizeof(int)*12);
         memcpy(dlg->joymap, Config::JoyMapping, sizeof(int)*12);
 
-        dlg->win = uiNewWindow("Input config - melonDS", 600, 100, 0, 0);
+        dlg->win = uiNewWindow("Input config - melonDS", 600, 100, 0, 0, 0);
     }
     else if (type == 1)
     {
@@ -345,7 +345,7 @@ void Open(int type)
         memcpy(dlg->keymap, Config::HKKeyMapping, sizeof(int)*HK_MAX);
         memcpy(dlg->joymap, Config::HKJoyMapping, sizeof(int)*HK_MAX);
 
-        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0);
+        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0, 0);
     }
 
     uiControl(dlg->win)->UserData = dlg;
