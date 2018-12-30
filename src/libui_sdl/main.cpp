@@ -403,7 +403,7 @@ int EmuThreadFunc(void* burp)
     if (Joystick)
     {
         njoybuttons = SDL_JoystickNumButtons(Joystick);
-        if (njoybuttons) 
+        if (njoybuttons)
         {
             joybuttons = new Uint8[njoybuttons];
             memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
@@ -422,9 +422,9 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
-            
+
             SDL_JoystickUpdate();
-            
+
             if (Joystick)
             {
                 if (!SDL_JoystickGetAttached(Joystick))
@@ -436,6 +436,16 @@ int EmuThreadFunc(void* burp)
             if (!Joystick && (SDL_NumJoysticks() > 0))
             {
                 Joystick = SDL_JoystickOpen(0);
+                if (Joystick)
+                {
+                    njoybuttons = SDL_JoystickNumButtons(Joystick);
+                    if (joybuttons) delete[] joybuttons;
+                    if (njoybuttons)
+                    {
+                        joybuttons = new Uint8[njoybuttons];
+                        memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
+                    }
+                }
             }
 
             // poll input
@@ -1006,10 +1016,10 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
     // but... we never know, I guess
     WindowWidth = width;
     WindowHeight = height;
-    
+
     int max = uiWindowMaximized(MainWindow);
     int min = uiWindowMinimized(MainWindow);
-    
+
     Config::WindowMaximized = max;
     if (!max && !min)
     {
@@ -1828,7 +1838,7 @@ int main(int argc, char** argv)
     int h = Config::WindowHeight;
     //if (w < 256) w = 256;
     //if (h < 384) h = 384;
-    
+
     WindowWidth = w;
     WindowHeight = h;
 
