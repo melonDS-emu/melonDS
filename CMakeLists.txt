@@ -168,6 +168,7 @@ elseif (WIN32)
     LINK_LIBRARIES("dwrite")
     LINK_LIBRARIES("usp10")
     LINK_LIBRARIES("ws2_32")
+    LINK_LIBRARIES("uxtheme")
 endif (UNIX)
 
 find_package(SDL2 REQUIRED)
