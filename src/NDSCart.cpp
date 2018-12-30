@@ -141,7 +141,7 @@ void LoadSave(const char* path, u32 type)
         if (SRAMLength)
         {
             SRAM = new u8[SRAMLength];
-            memset(SRAM, 0, SRAMLength);
+            memset(SRAM, 0xFF, SRAMLength);
         }
     }
 
