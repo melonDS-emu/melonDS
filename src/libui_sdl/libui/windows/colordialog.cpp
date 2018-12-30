@@ -309,17 +309,9 @@ static void drawGrid(ID2D1RenderTarget *rt, D2D1_RECT_F *fillRect)
 	size.width = 100 / 10;
 	size.height = 100 / 10;
 	// yay more ABI bugs
-#ifdef _MSC_VER
-	pformat = rt->GetPixelFormat();
-#else
-	{
-		typedef D2D1_PIXEL_FORMAT *(__stdcall ID2D1RenderTarget::* GetPixelFormatF)(D2D1_PIXEL_FORMAT *);
-		GetPixelFormatF gpf;
 
-		gpf = (GetPixelFormatF) (&(rt->GetPixelFormat));
-		(rt->*gpf)(&pformat);
-	}
-#endif
+	pformat = rt->GetPixelFormat();
+
 	hr = rt->CreateCompatibleRenderTarget(&size, NULL,
 		&pformat, D2D1_COMPATIBLE_RENDER_TARGET_OPTIONS_NONE,
 		&brt);
