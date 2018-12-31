@@ -135,7 +135,7 @@ void LoadSave(const char* path, u32 type)
     else
     {
         if (type > 8) type = 0;
-        int sramlen[] = {0, 512, 8192, 65536, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
+        int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
         SRAMLength = sramlen[type];
 
         if (SRAMLength)
@@ -149,7 +149,8 @@ void LoadSave(const char* path, u32 type)
     {
     case 512: WriteFunc = Write_EEPROMTiny; break;
     case 8192:
-    case 65536: WriteFunc = Write_EEPROM; break;
+    case 65536:
+    case 128*1024: WriteFunc = Write_EEPROM; break;
     case 256*1024:
     case 512*1024:
     case 1024*1024:
@@ -242,10 +243,13 @@ void Write_EEPROMTiny(u8 val, bool islast)
 
 void Write_EEPROM(u8 val, bool islast)
 {
+    u32 addrsize = 2;
+    if (SRAMLength > 65536) addrsize++;
+
     switch (CurCmd)
     {
     case 0x02:
-        if (DataPos < 2)
+        if (DataPos < addrsize)
         {
             Addr <<= 8;
             Addr |= val;
@@ -259,7 +263,7 @@ void Write_EEPROM(u8 val, bool islast)
         break;
 
     case 0x03:
-        if (DataPos < 2)
+        if (DataPos < addrsize)
         {
             Addr <<= 8;
             Addr |= val;
