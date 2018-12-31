@@ -134,7 +134,7 @@ void LoadSave(const char* path, u32 type)
     }
     else
     {
-        if (type > 8) type = 0;
+        if (type > 9) type = 0;
         int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
         SRAMLength = sramlen[type];
 
