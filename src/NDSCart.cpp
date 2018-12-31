@@ -809,11 +809,11 @@ void ApplyDLDIPatch()
 }
 
 
-bool ReadROMParams(u32* params)
+bool ReadROMParams(u32 gamecode, u32* params)
 {
     // format for romlist.bin:
-    // [CRC32] [ROM size] [save type] [reserved]
-    // list must be sorted by CRC
+    // [gamecode] [ROM size] [save type] [reserved]
+    // list must be sorted by gamecode
 
     FILE* f = melon_fopen_local("romlist.bin", "rb");
     if (!f) return false;
@@ -827,13 +827,13 @@ bool ReadROMParams(u32* params)
     u32 chk_size = len >> 1;
     for (;;)
     {
-        u32 crc = 0;
+        u32 key = 0;
         fseek(f, offset + (chk_size << 4), SEEK_SET);
-        fread(&crc, 4, 1, f);
+        fread(&key, 4, 1, f);
 
-        printf("chk_size=%d, crc=%08X, wanted=%08X, offset=%08X\n", chk_size, crc, CartCRC, offset);
+        printf("chk_size=%d, key=%08X, wanted=%08X, offset=%08X\n", chk_size, key, gamecode, offset);
 
-        if (crc == CartCRC)
+        if (key == gamecode)
         {
             fread(params, 4, 3, f);
             fclose(f);
@@ -841,7 +841,7 @@ bool ReadROMParams(u32* params)
         }
         else
         {
-            if (crc < CartCRC)
+            if (key < gamecode)
             {
                 if (chk_size == 0)
                     offset += 0x10;
@@ -889,6 +889,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     u32 gamecode;
     fseek(f, 0x0C, SEEK_SET);
     fread(&gamecode, 4, 1, f);
+    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
 
     CartROM = new u8[CartROMSize];
     memset(CartROM, 0, CartROMSize);
@@ -902,7 +903,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     printf("ROM CRC32: %08X\n", CartCRC);
 
     u32 romparams[3];
-    if (!ReadROMParams(romparams))
+    if (!ReadROMParams(gamecode, romparams))
     {
         // set defaults
         printf("ROM entry not found\n");
@@ -923,7 +924,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     // it just has to stay the same throughout gameplay
     CartID = 0x000000C2;
 
-    if (CartROMSize <= 128*1024*1024)
+    if (CartROMSize >= 1024*1024 && CartROMSize <= 128*1024*1024)
         CartID |= ((CartROMSize >> 20) - 1) << 8;
     else
         CartID |= (0x100 - (CartROMSize >> 28)) << 8;
