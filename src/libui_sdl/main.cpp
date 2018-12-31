@@ -1717,6 +1717,24 @@ int main(int argc, char** argv)
         return 0;
     }
 
+    {
+        FILE* f = melon_fopen_local("romlist.bin", "rb");
+        if (f)
+        {
+            u32 data;
+            fread(&data, 4, 1, f);
+            fclose(f);
+
+            if ((data >> 24) == 0) // old CRC-based list
+            {
+                uiMsgBoxError(NULL,
+                              "Your version of romlist.bin is outdated.",
+                              "Save memory type detection will not work correctly.\n\n"
+                              "You should use the latest version of romlist.bin (provided in melonDS release packages).");
+            }
+        }
+    }
+
     uiMenu* menu;
     uiMenuItem* menuitem;
 
