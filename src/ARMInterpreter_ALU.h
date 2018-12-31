@@ -72,6 +72,8 @@ A_PROTO_ALU_OP(MOV)
 A_PROTO_ALU_OP(BIC)
 A_PROTO_ALU_OP(MVN)
 
+void A_MOV_REG_LSL_IMM_DBG(ARM* cpu);
+
 void A_MUL(ARM* cpu);
 void A_MLA(ARM* cpu);
 void A_UMULL(ARM* cpu);

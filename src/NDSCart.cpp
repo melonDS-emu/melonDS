@@ -76,9 +76,6 @@ void DoSavestate(Savestate* file)
     // we reload the SRAM contents.
     // it should be the same file (as it should be the same ROM, duh)
     // but the contents may change
-    // TODO maybe: possibility to save to a separate file when using savestates????
-
-    // also the SRAM size shouldn't change. unless something something autodetect something but fuck that code.
 
     //if (!file->Saving && SRAMLength)
     //    delete[] SRAM;

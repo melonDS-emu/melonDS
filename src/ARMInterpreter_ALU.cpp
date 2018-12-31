@@ -646,6 +646,21 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
 
 A_IMPLEMENT_ALU_OP(MOV,_S)
 
+// debug hook
+void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
+{
+    A_MOV_REG_LSL_IMM(cpu);
+
+    // nocash-style debugging hook
+    if ( cpu->CurInstr == 0xE1A0C00C &&                   // mov r12, r12
+        (cpu->NextInstr[0] & 0xFF000000) == 0xEA000000 && // branch
+        (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
+    {
+        u32 addr = cpu->R[15] + 2;
+        NDS::NocashPrint(cpu->Num, addr);
+    }
+}
+
 
 #define A_BIC(c) \
     u32 a = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
