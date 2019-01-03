@@ -1654,7 +1654,7 @@ int main(int argc, char** argv)
         }
         if (len > 0)
         {
-            EmuDirectory = new char[len];
+            EmuDirectory = new char[len+1];
             strncpy(EmuDirectory, argv[0], len);
             EmuDirectory[len] = '\0';
         }
