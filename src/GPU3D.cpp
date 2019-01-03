@@ -2337,32 +2337,35 @@ bool YSort(Polygon* a, Polygon* b)
 
 void VBlank()
 {
-    if (GeometryEnabled && FlushRequest)
+    if (GeometryEnabled)
     {
         if (RenderingEnabled)
         {
-            if (NumPolygons)
+            if (FlushRequest)
             {
-                // separate translucent polygons from opaque ones
-
-                u32 io = 0, it = NumOpaquePolygons;
-                for (u32 i = 0; i < NumPolygons; i++)
+                if (NumPolygons)
                 {
-                    Polygon* poly = &CurPolygonRAM[i];
-                    if (poly->Translucent)
-                        RenderPolygonRAM[it++] = poly;
-                    else
-                        RenderPolygonRAM[io++] = poly;
+                    // separate translucent polygons from opaque ones
+
+                    u32 io = 0, it = NumOpaquePolygons;
+                    for (u32 i = 0; i < NumPolygons; i++)
+                    {
+                        Polygon* poly = &CurPolygonRAM[i];
+                        if (poly->Translucent)
+                            RenderPolygonRAM[it++] = poly;
+                        else
+                            RenderPolygonRAM[io++] = poly;
+                    }
+
+                    // apply Y-sorting
+
+                    std::stable_sort(RenderPolygonRAM.begin(),
+                        RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
+                        YSort);
                 }
 
-                // apply Y-sorting
-
-                std::stable_sort(RenderPolygonRAM.begin(),
-                    RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
-                    YSort);
+                RenderNumPolygons = NumPolygons;
             }
-
-            RenderNumPolygons = NumPolygons;
 
             RenderDispCnt = DispCnt;
             RenderAlphaRef = AlphaRef;
@@ -2381,15 +2384,18 @@ void VBlank()
             RenderClearAttr2 = ClearAttr2;
         }
 
-        CurRAMBank = CurRAMBank?0:1;
-        CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
-        CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
+        if (FlushRequest)
+        {
+            CurRAMBank = CurRAMBank?0:1;
+            CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
+            CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
 
-        NumVertices = 0;
-        NumPolygons = 0;
-        NumOpaquePolygons = 0;
+            NumVertices = 0;
+            NumPolygons = 0;
+            NumOpaquePolygons = 0;
 
-        FlushRequest = 0;
+            FlushRequest = 0;
+        }
     }
 }
 
