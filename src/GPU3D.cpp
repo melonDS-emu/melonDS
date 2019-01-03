@@ -981,20 +981,11 @@ void SubmitPolygon()
     int prev, next;
 
     // submitting a polygon starts the polygon pipeline
-    if (nverts == 4)
-    {
-        PolygonPipeline = 35;
-        VertexSlotCounter = 1;
-        if (PolygonMode & 0x2) VertexSlotsFree = 0b11100;
-        else                   VertexSlotsFree = 0b11110;
-    }
-    else
-    {
-        PolygonPipeline = 26;
-        VertexSlotCounter = 1;
-        if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
-        else                   VertexSlotsFree = 0b1110;
-    }
+    // noting that for now we are only reserving one vertex slot
+    // further slots only get reserved if the polygon makes it through culling/clipping
+    PolygonPipeline = 8;
+    VertexSlotCounter = 1;
+    VertexSlotsFree = 0b11110;
 
     // culling
     // TODO: work out how it works on the real thing
@@ -1101,6 +1092,21 @@ void SubmitPolygon()
     }
 
     // build the actual polygon
+
+    if (nverts == 4)
+    {
+        PolygonPipeline = 35;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b11100;
+        else                   VertexSlotsFree = 0b11110;
+    }
+    else
+    {
+        PolygonPipeline = 26;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
+        else                   VertexSlotsFree = 0b1110;
+    }
 
     if (NumPolygons >= 2048 || NumVertices+nverts > 6144)
     {
