@@ -173,7 +173,7 @@ public:
     s32 Execute();
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(u32 addr);
+    u32 CodeRead32(u32 addr, bool branch);
 
     void DataRead8(u32 addr, u32* val);
     void DataRead16(u32 addr, u32* val);
@@ -233,10 +233,18 @@ public:
 
     void UpdatePURegions();
 
+    u32 RandomLineIndex();
+
+    void ICacheLookup(u32 addr);
+    void ICacheInvalidateByAddr(u32 addr);
+    void ICacheInvalidateAll();
+
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id);
 
     u32 CP15Control;
+
+    u32 RNGSeed;
 
     u32 DTCMSetting, ITCMSetting;
 
@@ -244,6 +252,10 @@ public:
     u32 ITCMSize;
     u8 DTCM[0x4000];
     u32 DTCMBase, DTCMSize;
+
+    u8 ICache[0x2000];
+    u32 ICacheTags[64*4];
+    u8 ICacheCount[64];
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;
@@ -265,6 +277,7 @@ public:
     u8 MemTimings[0x100000][4];
 
     s32 RegionCodeCycles;
+    u8* CurICacheLine;
 };
 
 class ARMv4 : public ARM

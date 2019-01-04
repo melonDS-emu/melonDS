@@ -35,6 +35,8 @@ void ARMv5::CP15Reset()
 {
     CP15Control = 0x2078; // dunno
 
+    RNGSeed = 44203;
+
     DTCMSetting = 0;
     ITCMSetting = 0;
 
@@ -45,6 +47,10 @@ void ARMv5::CP15Reset()
     DTCMBase = 0xFFFFFFFF;
     DTCMSize = 0;
 
+    memset(ICache, 0, 0x2000);
+    ICacheInvalidateAll();
+    memset(ICacheCount, 0, 64);
+
     PU_CodeCacheable = 0;
     PU_DataCacheable = 0;
     PU_DataCacheWrite = 0;
@@ -54,6 +60,8 @@ void ARMv5::CP15Reset()
 
     memset(PU_Region, 0, 8*sizeof(u32));
     UpdatePURegions();
+
+    CurICacheLine = NULL;
 }
 
 void ARMv5::CP15DoSavestate(Savestate* file)
@@ -276,6 +284,119 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 }
 
 
+u32 ARMv5::RandomLineIndex()
+{
+    // lame RNG, but good enough for this purpose
+    u32 s = RNGSeed;
+    RNGSeed ^= (s*17);
+    RNGSeed ^= (s*7);
+
+    return (RNGSeed >> 17) & 0x3;
+}
+
+int zog=1;
+void ARMv5::ICacheLookup(u32 addr)
+{
+    u32 tag = addr & 0xFFFFF800;
+    u32 id = (addr >> 5) & 0x3F;
+
+    id <<= 2;
+    if (ICacheTags[id+0] == tag)
+    {
+        CodeCycles = 1;zog=1;
+        CurICacheLine = &ICache[(id+0) << 5];
+        return;
+    }
+    if (ICacheTags[id+1] == tag)
+    {
+        CodeCycles = 1;zog=2;
+        CurICacheLine = &ICache[(id+1) << 5];
+        return;
+    }
+    if (ICacheTags[id+2] == tag)
+    {
+        CodeCycles = 1;zog=3;
+        CurICacheLine = &ICache[(id+2) << 5];
+        return;
+    }
+    if (ICacheTags[id+3] == tag)
+    {
+        CodeCycles = 1;zog=4;
+        CurICacheLine = &ICache[(id+3) << 5];
+        return;
+    }
+
+    // cache miss
+
+    u32 line;
+    if (CP15Control & (1<<14))
+    {
+        line = ICacheCount[id>>2];
+        ICacheCount[id>>2] = (line+1) & 0x3;
+    }
+    else
+    {
+        line = RandomLineIndex();
+    }
+
+    line += id;
+
+    addr &= ~0x1F;
+    u8* ptr = &ICache[line << 5];
+
+    if (CodeMem.Mem)
+    {
+        memcpy(ptr, &CodeMem.Mem[addr & CodeMem.Mask], 32);
+    }
+    else
+    {
+        for (int i = 0; i < 32; i+=4)
+            *(u32*)&ptr[i] = NDS::ARM9Read32(addr+i);
+    }
+
+    ICacheTags[line] = tag;
+
+    // ouch :/
+    //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
+    CodeCycles = (NDS::ARM9MemTimings[addr >> 14][2] + (NDS::ARM9MemTimings[addr >> 14][3] * 7)) << ClockShift;
+    CurICacheLine = ptr;
+}
+
+void ARMv5::ICacheInvalidateByAddr(u32 addr)
+{
+    u32 tag = addr & 0xFFFFF800;
+    u32 id = (addr >> 5) & 0x3F;
+
+    id <<= 2;
+    if (ICacheTags[id+0] == tag)
+    {
+        ICacheTags[id+0] = 1;
+        return;
+    }
+    if (ICacheTags[id+1] == tag)
+    {
+        ICacheTags[id+1] = 1;
+        return;
+    }
+    if (ICacheTags[id+2] == tag)
+    {
+        ICacheTags[id+2] = 1;
+        return;
+    }
+    if (ICacheTags[id+3] == tag)
+    {
+        ICacheTags[id+3] = 1;
+        return;
+    }
+}
+
+void ARMv5::ICacheInvalidateAll()
+{
+    for (int i = 0; i < 64*4; i++)
+        ICacheTags[i] = 1;
+}
+
+
 void ARMv5::CP15Write(u32 id, u32 val)
 {
     //printf("CP15 write op %03X %08X %08X\n", id, val, NDS::ARM9->R[15]);
@@ -388,6 +509,17 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x704:
     case 0x782:
         Halt(1);
+        return;
+
+
+    case 0x750:
+        ICacheInvalidateAll();
+        return;
+    case 0x751:
+        ICacheInvalidateByAddr(val);
+        return;
+    case 0x752:
+        printf("CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
         return;
 
 
@@ -519,7 +651,7 @@ u32 ARMv5::CP15Read(u32 id)
 // TCM are handled here.
 // TODO: later on, handle PU, and maybe caches
 
-u32 ARMv5::CodeRead32(u32 addr)
+u32 ARMv5::CodeRead32(u32 addr, bool branch)
 {
     if (addr < ITCMSize)
     {
@@ -528,11 +660,14 @@ u32 ARMv5::CodeRead32(u32 addr)
     }
 
     CodeCycles = RegionCodeCycles;
-    if (CodeCycles == 0xFF)
+    if (CodeCycles == 0xFF) // cached memory. hax
     {
-        // sort of code cache hit/miss average
-        if (!(addr & 0x1F)) CodeCycles = kCodeCacheTiming;
-        else                CodeCycles = 1;
+        if (branch || !(addr & 0x1F))
+            CodeCycles = kCodeCacheTiming;//ICacheLookup(addr);
+        else
+            CodeCycles = 1;
+
+        //return *(u32*)&CurICacheLine[addr & 0x1C];
     }
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];

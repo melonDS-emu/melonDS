@@ -176,13 +176,13 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
     // R0=DMA# R1=src R2=size
+    //if (addr==0x02019A88) printf("[%08X] [%03d] GX FIFO CMD %08X\n", R[15], NDS::ARM9Read16(0x04000006), R[0]);
+    //if (addr==0x02022A5C) printf("[%08X] [%03d|%04X] RENDE SHITO %08X\n", R[15], NDS::ARM9Read16(0x04000006), NDS::ARM9Read16(0x04000304), R[0]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
-
-    s32 cycles;
 
     if (addr & 0x1)
     {
@@ -195,15 +195,16 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         // doesn't matter if we put garbage in the MSbs there
         if (addr & 0x2)
         {
-            NextInstr[0] = CodeRead32(addr-2) >> 16;
-            NextInstr[1] = CodeRead32(addr+2);
-            cycles = CodeCycles * 2;
+            NextInstr[0] = CodeRead32(addr-2, true) >> 16;
+            Cycles += CodeCycles;
+            NextInstr[1] = CodeRead32(addr+2, false);
+            Cycles += CodeCycles;
         }
         else
         {
-            NextInstr[0] = CodeRead32(addr);
+            NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            cycles = CodeCycles;
+            Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -215,9 +216,10 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
         if (newregion != oldregion) SetupCodeMem(addr);
 
-        NextInstr[0] = CodeRead32(addr);
-        NextInstr[1] = CodeRead32(addr+4);
-        cycles = CodeCycles * 2;
+        NextInstr[0] = CodeRead32(addr, true);
+        Cycles += CodeCycles;
+        NextInstr[1] = CodeRead32(addr+4, false);
+        Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -231,8 +233,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         PrefetchAbort();
         return;
     }*/
-
-    Cycles += cycles;
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
@@ -487,7 +487,7 @@ s32 ARMv5::Execute()
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
             if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
-            else             NextInstr[1] = CodeRead32(R[15]);
+            else             NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
@@ -499,7 +499,7 @@ s32 ARMv5::Execute()
             R[15] += 4;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            NextInstr[1] = CodeRead32(R[15]);
+            NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
             if (CheckCondition(CurInstr >> 28))
@@ -515,7 +515,7 @@ s32 ARMv5::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
+        //s32 diff = Cycles - lastcycles;
         //NDS::RunTightTimers(0, diff >> ClockShift);
         //lastcycles = Cycles - (diff & ClockDiffMask);
 
@@ -543,7 +543,7 @@ s32 ARMv5::Execute()
 
     /*if (Cycles > lastcycles)
     {
-        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
+        s32 diff = Cycles - lastcycles;
         //NDS::RunTightTimers(0, diff >> ClockShift);
     }*/
 #ifdef DEBUG_CHECK_DESYNC
@@ -613,7 +613,7 @@ s32 ARMv4::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;arm7timer+=diff;
+        //s32 diff = Cycles - lastcycles;
         //NDS::RunTightTimers(1, diff);
         //lastcycles = Cycles;
 
@@ -641,7 +641,7 @@ s32 ARMv4::Execute()
 
     /*if (Cycles > lastcycles)
     {
-        //s32 diff = Cycles - lastcycles;arm7timer+=(diff);
+        //s32 diff = Cycles - lastcycles;
         //NDS::RunTightTimers(1, diff);
     }*/
 
