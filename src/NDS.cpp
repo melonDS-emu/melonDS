@@ -36,14 +36,6 @@
 namespace NDS
 {
 
-#ifdef DEBUG_CHECK_DESYNC
-u64 dbg_CyclesSys;
-u64 dbg_CyclesARM9;
-u64 dbg_CyclesTimer9;
-u64 dbg_CyclesARM7;
-u64 dbg_CyclesTimer7;
-#endif
-
 // timing notes
 //
 // * this implementation is technically wrong for VRAM
@@ -60,6 +52,7 @@ u64 dbg_CyclesTimer7;
 // * 3 / ARM9 internal: cache/TCM
 //
 // ARM9 always gets 3c nonseq penalty when using the bus (except for mainRAM where the penalty is 7c)
+// /!\ 3c penalty doesn't apply to DMA!
 //
 // ARM7 only gets nonseq penalty when accessing mainRAM (7c as for ARM9)
 //
@@ -72,13 +65,19 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
-u64 SysClockCycles;
 u64 LastSysClockCycles;
-u32 FrameSysClockCycles;
+u64 FrameStartTimestamp;
 
-s32 CurIterationCycles;
-s32 ARM7Offset;
 int CurCPU;
+
+const s32 kMaxIterationCycles = 16;
+
+u32 ARM9ClockShift;
+
+// no need to worry about those overflowing, they can keep going for atleast 4350 years
+u64 ARM9Timestamp, ARM9Target;
+u64 ARM7Timestamp, ARM7Target;
+u64 SysTimestamp;
 
 SchedEvent SchedList[Event_MAX];
 u32 SchedListMask;
@@ -119,6 +118,7 @@ u16 ARM7BIOSProt;
 
 Timer Timers[8];
 u8 TimerCheckMask[2];
+u64 TimerTimestamp[2];
 
 DMA* DMAs[8];
 u32 DMA9Fill[4];
@@ -270,6 +270,8 @@ void InitTimings()
     // (especially wrt VRAM mirroring and overlapping and whatnot).
 
     // ARM9
+    // TODO: +3c nonseq waitstate doesn't apply to DMA!
+    // but of course mainRAM always gets 8c nonseq waitstate
 
     SetARM9RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1 + 3, 1); // void
 
@@ -384,15 +386,6 @@ void Reset()
     FILE* f;
     u32 i;
 
-#ifdef DEBUG_CHECK_DESYNC
-        dbg_CyclesSys = 0;
-        dbg_CyclesARM9 = 0;
-        dbg_CyclesTimer9 = 0;
-        dbg_CyclesARM7 = 0;
-        dbg_CyclesTimer7 = 0;
-#endif // DEBUG_CHECK_DESYNC
-
-    SysClockCycles = 0;
     LastSysClockCycles = 0;
 
     f = melon_fopen_local("bios9.bin", "rb");
@@ -429,8 +422,12 @@ void Reset()
         fclose(f);
     }
 
-    ARM9->SetClockShift(1);
-    ARM7->SetClockShift(0);
+    // TODO for later: configure this when emulating a DSi
+    ARM9ClockShift = 1;
+
+    ARM9Timestamp = 0; ARM9Target = 0;
+    ARM7Timestamp = 0; ARM7Target = 0;
+    SysTimestamp = 0;
 
     InitTimings();
 
@@ -481,15 +478,14 @@ void Reset()
     memset(Timers, 0, 8*sizeof(Timer));
     TimerCheckMask[0] = 0;
     TimerCheckMask[1] = 0;
+    TimerTimestamp[0] = 0;
+    TimerTimestamp[1] = 0;
 
     for (i = 0; i < 8; i++) DMAs[i]->Reset();
     memset(DMA9Fill, 0, 4*4);
 
     memset(SchedList, 0, sizeof(SchedList));
     SchedListMask = 0;
-
-    CurIterationCycles = 0;
-    ARM7Offset = 0;
 
     KeyInput = 0x007F03FF;
     KeyCnt = 0;
@@ -566,7 +562,7 @@ bool DoSavestate_Scheduler(Savestate* file)
             }
 
             file->Var32(&funcid);
-            file->Var32((u32*)&evt->WaitCycles);
+            file->Var64(&evt->Timestamp);
             file->Var32(&evt->Param);
         }
     }
@@ -596,7 +592,7 @@ bool DoSavestate_Scheduler(Savestate* file)
             else
                 evt->Func = NULL;
 
-            file->Var32((u32*)&evt->WaitCycles);
+            file->Var64(&evt->Timestamp);
             file->Var32(&evt->Param);
         }
     }
@@ -651,13 +647,20 @@ bool DoSavestate(Savestate* file)
         file->Var32(&timer->CycleShift);
     }
     file->VarArray(TimerCheckMask, 2*sizeof(u8));
+    file->VarArray(TimerTimestamp, 2*sizeof(u64));
 
     file->VarArray(DMA9Fill, 4*sizeof(u32));
 
     if (!DoSavestate_Scheduler(file)) return false;
     file->Var32(&SchedListMask);
-    file->Var32((u32*)&CurIterationCycles);
-    file->Var32((u32*)&ARM7Offset);
+    file->Var64(&ARM9Timestamp);
+    file->Var64(&ARM9Target);
+    file->Var64(&ARM7Timestamp);
+    file->Var64(&ARM7Target);
+    file->Var64(&SysTimestamp);
+    file->Var64(&LastSysClockCycles);
+    file->Var64(&FrameStartTimestamp);
+    file->Var32(&NumFrames);
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -731,40 +734,51 @@ void RelocateSave(const char* path, bool write)
 }
 
 
-void CalcIterationCycles()
-{
-    CurIterationCycles = 16;
 
+u64 NextTarget()
+{
+    u64 ret = SysTimestamp + kMaxIterationCycles;
+
+    u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
     {
-        if (!(SchedListMask & (1<<i)))
-            continue;
+        if (!mask) break;
+        if (mask & 0x1)
+        {
+            if (SchedList[i].Timestamp < ret)
+                ret = SchedList[i].Timestamp;
+        }
 
-        if (SchedList[i].WaitCycles < CurIterationCycles)
-            CurIterationCycles = SchedList[i].WaitCycles;
+        mask >>= 1;
     }
+
+    return ret;
 }
 
-void RunSystem(s32 cycles)
+void RunSystem(u64 timestamp)
 {
+    SysTimestamp = timestamp;
+
+    u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
     {
-        if (!(SchedListMask & (1<<i)))
-            continue;
-
-        SchedList[i].WaitCycles -= cycles;
-
-        if (SchedList[i].WaitCycles < 1)
+        if (!mask) break;
+        if (mask & 0x1)
         {
-            SchedListMask &= ~(1<<i);
-            SchedList[i].Func(SchedList[i].Param);
+            if (SchedList[i].Timestamp <= SysTimestamp)
+            {
+                SchedListMask &= ~(1<<i);
+                SchedList[i].Func(SchedList[i].Param);
+            }
         }
+
+        mask >>= 1;
     }
 }
 
 u32 RunFrame()
 {
-    FrameSysClockCycles = 0;
+    FrameStartTimestamp = SysTimestamp;
 
     if (!Running) return 263; // dorp
     if (CPUStop & 0x40000000) return 263;
@@ -774,88 +788,55 @@ u32 RunFrame()
     while (Running && GPU::TotalScanlines==0)
     {
         // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
-        CalcIterationCycles();
-        s32 arm9cycles;
+        u64 target = NextTarget();
+        ARM9Target = target << ARM9ClockShift;
+        CurCPU = 0;
 
         if (CPUStop & 0x80000000)
         {
             // GXFIFO stall
-            // we just run the GPU and the timers.
-            // the rest of the hardware is driven by the event scheduler.
+            s32 cycles = GPU3D::CyclesToRunFor();
 
-            arm9cycles = GPU3D::CyclesToRunFor();
-            arm9cycles = std::min(CurIterationCycles, arm9cycles);
-            RunTightTimers(0, arm9cycles);
-
-#ifdef DEBUG_CHECK_DESYNC
-            dbg_CyclesARM9 += arm9cycles;
-#endif // DEBUG_CHECK_DESYNC
+            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
         }
         else if (CPUStop & 0x0FFF)
         {
-            s32 cycles = CurIterationCycles;
-
-            cycles = DMAs[0]->Run(cycles);
-            if (cycles > 0 && !(CPUStop & 0x80000000))
-                cycles = DMAs[1]->Run(cycles);
-            if (cycles > 0 && !(CPUStop & 0x80000000))
-                cycles = DMAs[2]->Run(cycles);
-            if (cycles > 0 && !(CPUStop & 0x80000000))
-                cycles = DMAs[3]->Run(cycles);
-
-            arm9cycles = CurIterationCycles - cycles;
+            DMAs[0]->Run();
+            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
+            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
+            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
         }
         else
         {
-            ARM9->CyclesToRun = CurIterationCycles << 1;
-            CurCPU = 1; ARM9->Execute(); CurCPU = 0;
-            arm9cycles = ARM9->Cycles >> 1;
-            RunTightTimers(0, arm9cycles);
+            ARM9->Execute();
         }
 
-        RunLooseTimers(0, arm9cycles);
-        GPU3D::Run(arm9cycles);
+        RunTimers(0);
+        GPU3D::Run();
 
-        s32 ndscyclestorun = arm9cycles;
+        target = ARM9Timestamp >> ARM9ClockShift;
+        CurCPU = 1;
 
-        // ARM7Offset > ndscyclestorun means we are too far ahead of the ARM9
-        if (ARM7Offset > ndscyclestorun)
+        while (ARM7Timestamp < target)
         {
-            ARM7Offset -= ndscyclestorun;
-        }
-        else
-        if (CPUStop & 0x0FFF0000)
-        {
-            s32 cycles = ndscyclestorun - ARM7Offset;
+            ARM7Target = target; // might be changed by a reschedule
 
-            cycles = DMAs[4]->Run(cycles);
-            if (cycles > 0)
-                cycles = DMAs[5]->Run(cycles);
-            if (cycles > 0)
-                cycles = DMAs[6]->Run(cycles);
-            if (cycles > 0)
-                cycles = DMAs[7]->Run(cycles);
+            if (CPUStop & 0x0FFF0000)
+            {
+                DMAs[4]->Run();
+                DMAs[5]->Run();
+                DMAs[6]->Run();
+                DMAs[7]->Run();
+            }
+            else
+            {
+                ARM7->Execute();
+            }
 
-            ARM7Offset = -cycles;
-        }
-        else
-        {
-            ARM7->CyclesToRun = ndscyclestorun - ARM7Offset;
-            CurCPU = 2; ARM7->Execute(); CurCPU = 0;
-            ARM7Offset = ARM7->Cycles - ARM7->CyclesToRun;
-            RunTightTimers(1, ARM7->Cycles);
+            RunTimers(1);
         }
 
-#ifdef DEBUG_CHECK_DESYNC
-        dbg_CyclesSys += ndscyclestorun;
-#endif // DEBUG_CHECK_DESYNC
-
-        RunLooseTimers(1, ndscyclestorun);
-        RunSystem(ndscyclestorun);
-
-        SysClockCycles += ndscyclestorun;
-        LastSysClockCycles += ndscyclestorun;
-        FrameSysClockCycles += ndscyclestorun;
+        RunSystem(target);
 
         if (CPUStop & 0x40000000)
         {
@@ -867,12 +848,11 @@ u32 RunFrame()
     }
 
 #ifdef DEBUG_CHECK_DESYNC
-    printf("[%08X%08X] ARM9=%ld timer9=%ld, ARM7=%ld timer7=%ld\n",
-           (u32)(dbg_CyclesSys>>32), (u32)dbg_CyclesSys,
-           dbg_CyclesARM9-dbg_CyclesSys,
-           dbg_CyclesTimer9-dbg_CyclesSys,
-           dbg_CyclesARM7-dbg_CyclesSys,
-           dbg_CyclesTimer7-dbg_CyclesSys);
+    printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
+           (u32)(SysTimestamp>>32), (u32)SysTimestamp,
+           (ARM9Timestamp>>1)-SysTimestamp,
+           ARM7Timestamp-SysTimestamp,
+           GPU3D::Timestamp-SysTimestamp);
 #endif
 
     NumFrames++;
@@ -880,26 +860,18 @@ u32 RunFrame()
     return GPU::TotalScanlines;
 }
 
-void Reschedule()
+void Reschedule(u64 target)
 {
-    s32 oldcycles = CurIterationCycles;
-    CalcIterationCycles();
-
-    if (CurIterationCycles >= oldcycles)
-    {
-        CurIterationCycles = oldcycles;
-        return;
-    }
-
     if (CurCPU == 0)
     {
-        CurIterationCycles = oldcycles;
-        return;
+        if (target < (ARM9Target >> ARM9ClockShift))
+            ARM9Target = (target << ARM9ClockShift);
     }
-
-    if      (CurCPU == 1) ARM9->CyclesToRun = CurIterationCycles << 1;
-    else if (CurCPU == 2) ARM7->CyclesToRun = CurIterationCycles - ARM7Offset;
-    // this is all. a reschedule shouldn't happen during DMA or GXFIFO stall.
+    else
+    {
+        if (target < ARM7Target)
+            ARM7Target = target;
+    }
 }
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param)
@@ -913,12 +885,13 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
     SchedEvent* evt = &SchedList[id];
 
     if (periodic)
-        evt->WaitCycles += delay;
+        evt->Timestamp += delay;
     else
     {
-        if      (CurCPU == 1) evt->WaitCycles = delay + (ARM9->Cycles >> 1);
-        else if (CurCPU == 2) evt->WaitCycles = delay + ARM7->Cycles;
-        else                  evt->WaitCycles = delay;
+        if (CurCPU == 0)
+            evt->Timestamp = (ARM9Timestamp >> ARM9ClockShift) + delay;
+        else
+            evt->Timestamp = ARM7Timestamp + delay;
     }
 
     evt->Func = func;
@@ -926,7 +899,7 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
 
     SchedListMask |= (1<<id);
 
-    Reschedule();
+    Reschedule(evt->Timestamp);
 }
 
 void CancelEvent(u32 id)
@@ -1156,27 +1129,22 @@ u64 GetSysClockCycles(int num)
 
     if (num == 0 || num == 2)
     {
-        if      (num == 0) ret = SysClockCycles;
-        else if (num == 2) ret = FrameSysClockCycles;
+        if (CurCPU == 0)
+            ret = ARM9Timestamp >> ARM9ClockShift;
+        else
+            ret = ARM7Timestamp;
 
-        if      (CurCPU == 1) ret += (ARM9->Cycles >> 1);
-        else if (CurCPU == 2) ret += ARM7->Cycles;
+        if (num == 2) ret -= FrameStartTimestamp;
     }
     else if (num == 1)
     {
         ret = LastSysClockCycles;
         LastSysClockCycles = 0;
 
-        if (CurCPU == 1)
-        {
-            ret += (ARM9->Cycles >> 1);
-            LastSysClockCycles = -(ARM9->Cycles >> 1);
-        }
-        else if (CurCPU == 2)
-        {
-            ret += ARM7->Cycles;
-            LastSysClockCycles = -ARM7->Cycles;
-        }
+        if (CurCPU == 0)
+            LastSysClockCycles = ARM9Timestamp >> ARM9ClockShift;
+        else
+            LastSysClockCycles = ARM7Timestamp;
     }
 
     return ret;
@@ -1271,16 +1239,10 @@ void NocashPrint(u32 ncpu, u32 addr)
 void HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
-    //if ((timer->Cnt & 0x84) != 0x80) return;
 
     timer->Counter += timer->Reload << 16;
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
-
-    //u32 delay = (0x10000 - timer->Reload) << (16 - timer->CycleShift);
-    //delay -= (timer->Counter - timer->Reload) >> timer->CycleShift;
-    //printf("timer%d IRQ: resched %d, reload=%04X cnt=%08X\n", tid, delay, timer->Reload, timer->Counter);
-    //ScheduleEvent(Event_TimerIRQ_0 + tid, true, delay, HandleTimerOverflow, tid);
 
     if ((tid & 0x3) == 3)
         return;
@@ -1310,8 +1272,6 @@ void HandleTimerOverflow(u32 tid)
 void RunTimer(u32 tid, s32 cycles)
 {
     Timer* timer = &Timers[tid];
-    //if ((timer->Cnt & 0x84) != 0x80)
-    //    return;
 
     u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
@@ -1319,29 +1279,22 @@ void RunTimer(u32 tid, s32 cycles)
         HandleTimerOverflow(tid);
 }
 
-void RunTightTimers(u32 cpu, s32 cycles)
+void RunTimers(u32 cpu)
 {
     register u32 timermask = TimerCheckMask[cpu];
+    s32 cycles;
+
+    if (cpu == 0)
+        cycles = (ARM9Timestamp >> ARM9ClockShift) - TimerTimestamp[0];
+    else
+        cycles = ARM7Timestamp - TimerTimestamp[1];
 
     if (timermask & 0x1) RunTimer((cpu<<2)+0, cycles);
     if (timermask & 0x2) RunTimer((cpu<<2)+1, cycles);
     if (timermask & 0x4) RunTimer((cpu<<2)+2, cycles);
     if (timermask & 0x8) RunTimer((cpu<<2)+3, cycles);
 
-#ifdef DEBUG_CHECK_DESYNC
-    if (cpu) dbg_CyclesTimer7 += cycles;
-    else     dbg_CyclesTimer9 += cycles;
-#endif // DEBUG_CHECK_DESYNC
-}
-
-void RunLooseTimers(u32 cpu, s32 cycles)
-{
-    register u32 timermask = TimerCheckMask[cpu];
-
-    if (timermask & 0x10) RunTimer((cpu<<2)+0, cycles);
-    if (timermask & 0x20) RunTimer((cpu<<2)+1, cycles);
-    if (timermask & 0x40) RunTimer((cpu<<2)+2, cycles);
-    if (timermask & 0x80) RunTimer((cpu<<2)+3, cycles);
+    TimerTimestamp[cpu] += cycles;
 }
 
 
@@ -1391,6 +1344,7 @@ const s32 TimerPrescaler[4] = {0, 6, 8, 10};
 
 u16 TimerGetCounter(u32 timer)
 {
+    RunTimers(timer>>2);
     u32 ret = Timers[timer].Counter;
 
     return ret >> 16;
@@ -1421,10 +1375,10 @@ void TimerStart(u32 id, u16 cnt)
     if ((cnt & 0x84) == 0x80)
     {
         u32 tmask;
-        if ((cnt & 0x03) == 0)
+        //if ((cnt & 0x03) == 0)
             tmask = 0x01 << (id&0x3);
-        else
-            tmask = 0x10 << (id&0x3);
+        //else
+        //    tmask = 0x10 << (id&0x3);
 
         TimerCheckMask[id>>2] |= tmask;
     }
@@ -1579,7 +1533,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     /*FILE*
-    shit = fopen("debug/justbeep.bin", "wb");
+    shit = fopen("debug/colourfuck.bin", "wb");
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);

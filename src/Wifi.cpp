@@ -1350,7 +1350,7 @@ void Write(u32 addr, u16 val)
         if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
         {
             printf("WIFI ON\n");
-            NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+            NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 0);
             if (!MPInited)
             {
                 Platform::MP_Init();

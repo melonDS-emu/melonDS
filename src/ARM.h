@@ -42,12 +42,6 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    void SetClockShift(u32 shift)
-    {
-        ClockShift = shift;
-        ClockDiffMask = (1<<shift) - 1;
-    }
-
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
     void RestoreCPSR();
 
@@ -67,7 +61,7 @@ public:
         }
     }
 
-    virtual s32 Execute() = 0;
+    virtual void Execute() = 0;
 
     bool CheckCondition(u32 code)
     {
@@ -122,13 +116,7 @@ public:
 
     u32 Num;
 
-    // shift relative to system clock
-    // 0=33MHz 1=66MHz 2=133MHz
-    u32 ClockShift;
-    u32 ClockDiffMask;
-
     s32 Cycles;
-    s32 CyclesToRun;
     u32 Halted;
 
     u32 CodeRegion;
@@ -170,7 +158,7 @@ public:
     void PrefetchAbort();
     void DataAbort();
 
-    s32 Execute();
+    void Execute();
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -287,7 +275,7 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false);
 
-    s32 Execute();
+    void Execute();
 
     u16 CodeRead16(u32 addr)
     {

@@ -29,14 +29,6 @@
 namespace NDS
 {
 
-#ifdef DEBUG_CHECK_DESYNC
-extern u64 dbg_CyclesSys;
-extern u64 dbg_CyclesARM9;
-extern u64 dbg_CyclesTimer9;
-extern u64 dbg_CyclesARM7;
-extern u64 dbg_CyclesTimer7;
-#endif
-
 enum
 {
     Event_LCD = 0,
@@ -56,7 +48,7 @@ enum
 typedef struct
 {
     void (*Func)(u32 param);
-    s32 WaitCycles;
+    u64 Timestamp;
     u32 Param;
 
 } SchedEvent;
@@ -108,6 +100,10 @@ typedef struct
 
 extern u8 ARM9MemTimings[0x40000][4];
 extern u8 ARM7MemTimings[0x20000][4];
+
+extern u64 ARM9Timestamp, ARM9Target;
+extern u64 ARM7Timestamp, ARM7Target;
+extern u32 ARM9ClockShift;
 
 // hax
 extern u32 IME[2];
@@ -182,8 +178,7 @@ bool DMAsRunning(u32 cpu);
 void CheckDMAs(u32 cpu, u32 mode);
 void StopDMAs(u32 cpu, u32 mode);
 
-void RunTightTimers(u32 cpu, s32 cycles);
-void RunLooseTimers(u32 cpu, s32 cycles);
+void RunTimers(u32 cpu);
 
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);

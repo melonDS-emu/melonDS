@@ -61,8 +61,6 @@ ARM::ARM(u32 num)
 {
     // well uh
     Num = num;
-
-    SetClockShift(0); // safe default
 }
 
 ARM::~ARM()
@@ -110,7 +108,7 @@ void ARM::DoSavestate(Savestate* file)
     file->Section((char*)(Num ? "ARM7" : "ARM9"));
 
     file->Var32((u32*)&Cycles);
-    file->Var32((u32*)&CyclesToRun);
+    //file->Var32((u32*)&CyclesToRun);
     file->Var32(&Halted);
 
     file->VarArray(R, 16*sizeof(u32));
@@ -450,7 +448,7 @@ void ARMv5::DataAbort()
     JumpTo(ExceptionBase + 0x10);
 }
 
-s32 ARMv5::Execute()
+void ARMv5::Execute()
 {
     if (Halted)
     {
@@ -466,19 +464,12 @@ s32 ARMv5::Execute()
         }
         else
         {
-            Cycles = CyclesToRun;
-#ifdef DEBUG_CHECK_DESYNC
-            NDS::dbg_CyclesARM9 += (CyclesToRun >> ClockShift);
-#endif // DEBUG_CHECK_DESYNC
-            //NDS::RunTightTimers(0, CyclesToRun >> ClockShift);
-            return Cycles;
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            return;
         }
     }
 
-    Cycles = 0;
-    s32 lastcycles = 0;
-
-    while (Cycles < CyclesToRun)
+    while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
         if (CPSR & 0x20) // THUMB
         {
@@ -515,19 +506,12 @@ s32 ARMv5::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;
-        //NDS::RunTightTimers(0, diff >> ClockShift);
-        //lastcycles = Cycles - (diff & ClockDiffMask);
-
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1 && Cycles < CyclesToRun)
+            if (Halted == 1 && NDS::ARM9Timestamp < NDS::ARM9Target)
             {
-                //s32 diff = CyclesToRun - Cycles;
-                Cycles = CyclesToRun;
-                //NDS::RunTightTimers(0, diff >> ClockShift);
-                //arm9timer += (diff>>1);
+                NDS::ARM9Timestamp = NDS::ARM9Target;
             }
             break;
         }
@@ -536,24 +520,16 @@ s32 ARMv5::Execute()
             if (NDS::IME[0] & 0x1)
                 TriggerIRQ();
         }
+
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
-
-    /*if (Cycles > lastcycles)
-    {
-        s32 diff = Cycles - lastcycles;
-        //NDS::RunTightTimers(0, diff >> ClockShift);
-    }*/
-#ifdef DEBUG_CHECK_DESYNC
-    NDS::dbg_CyclesARM9 += (Cycles >> ClockShift);
-#endif // DEBUG_CHECK_DESYNC
-
-    return Cycles;
 }
 
-s32 ARMv4::Execute()
+void ARMv4::Execute()
 {
     if (Halted)
     {
@@ -569,19 +545,12 @@ s32 ARMv4::Execute()
         }
         else
         {
-            Cycles = CyclesToRun;
-#ifdef DEBUG_CHECK_DESYNC
-            NDS::dbg_CyclesARM7 += CyclesToRun;
-#endif // DEBUG_CHECK_DESYNC
-            //NDS::RunTightTimers(1, CyclesToRun);
-            return Cycles;
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            return;
         }
     }
 
-    Cycles = 0;
-    s32 lastcycles = 0;
-
-    while (Cycles < CyclesToRun)
+    while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
         if (CPSR & 0x20) // THUMB
         {
@@ -613,19 +582,12 @@ s32 ARMv4::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;
-        //NDS::RunTightTimers(1, diff);
-        //lastcycles = Cycles;
-
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1 && Cycles < CyclesToRun)
+            if (Halted == 1 && NDS::ARM7Timestamp < NDS::ARM7Target)
             {
-                //s32 diff = CyclesToRun - Cycles;
-                Cycles = CyclesToRun;
-                //NDS::RunTightTimers(1, diff);
-                //arm7timer += diff;
+                NDS::ARM7Timestamp = NDS::ARM7Target;
             }
             break;
         }
@@ -634,20 +596,11 @@ s32 ARMv4::Execute()
             if (NDS::IME[1] & 0x1)
                 TriggerIRQ();
         }
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
-
-    /*if (Cycles > lastcycles)
-    {
-        //s32 diff = Cycles - lastcycles;
-        //NDS::RunTightTimers(1, diff);
-    }*/
-
-#ifdef DEBUG_CHECK_DESYNC
-    NDS::dbg_CyclesARM7 += Cycles;
-#endif // DEBUG_CHECK_DESYNC
-
-    return Cycles;
 }

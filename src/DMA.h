@@ -34,7 +34,10 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
-    s32 Run(s32 cycles);
+    void Run();
+
+    void Run9();
+    void Run7();
 
     bool IsInMode(u32 mode)
     {

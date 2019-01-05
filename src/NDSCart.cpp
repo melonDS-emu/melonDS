@@ -1266,7 +1266,7 @@ void WriteROMCnt(u32 val)
     if (datasize == 0)
         NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMEndTransfer, 0);
     else
-        NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*(cmddelay+4), ROMPrepareData, 0);
+        NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*(cmddelay+4), ROMPrepareData, 0);
 }
 
 u32 ReadROMData()
@@ -1281,7 +1281,7 @@ u32 ReadROMData()
             u32 delay = 4;
             if (!(DataOutPos & 0x1FF)) delay += ((ROMCnt >> 16) & 0x3F);
 
-            NDS::ScheduleEvent(NDS::Event_ROMTransfer, true, xfercycle*delay, ROMPrepareData, 0);
+            NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMPrepareData, 0);
         }
         else
             ROMEndTransfer(0);

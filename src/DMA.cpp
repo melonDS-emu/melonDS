@@ -45,6 +45,8 @@
 // * applied to all accesses for mainRAM->mainRAM, resulting in timings of 16-18 cycles per unit
 //
 // TODO: GBA slot
+// TODO: re-add initial NS delay
+// TODO: timings are nonseq when address is fixed/decrementing
 
 
 DMA::DMA(u32 cpu, u32 num)
@@ -186,160 +188,94 @@ void DMA::Start()
     NDS::StopCPU(CPU, 1<<Num);
 }
 
-s32 DMA::Run(s32 cycles)
+void DMA::Run()
 {
-    if (!Running)
-        return cycles;
+    if (!Running) return;
+    if (CPU == 0) return Run9();
+    else          return Run7();
+}
 
-#ifdef DEBUG_CHECK_DESYNC
-    s32 startc = cycles;
-#endif // DEBUG_CHECK_DESYNC
+void DMA::Run9()
+{
+    if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
 
     Executing = true;
 
     // add NS penalty for first accesses in burst
-    // note: this seems to only apply when starting DMA 'in the void'
-    // for example, the aging cart DMA PRIORITY test:
-    // starts a big DMA immediately, and a small DMA upon HBlank
-    // each pulling from a timer incrementing once per cycle
-    // it expects that the values be increasing linearly (2c/unit)
-    // even as the small DMA starts and ends
     bool burststart = (Running == 2);
     Running = 1;
 
     s32 unitcycles;
-    s32 lastcycles = cycles;
+    //s32 lastcycles = cycles;
 
-    if (!(Cnt & 0x04000000))
+    if (!(Cnt & (1<<26)))
     {
-        if (CPU == 0)
+        if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
         {
-            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
-            {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0];
-            }
-            else
-            {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][1] + NDS::ARM9MemTimings[CurDstAddr >> 14][1];
-                if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
-                    unitcycles++;
-
-                if (burststart)
-                {
-                    cycles -= 2;
-                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0]);
-                    cycles += unitcycles;
-                }
-            }
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0];
         }
         else
         {
-            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
-            {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0];
-            }
-            else
-            {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][1] + NDS::ARM7MemTimings[CurDstAddr >> 15][1];
-                if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
-                    unitcycles++;
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][1] + NDS::ARM9MemTimings[CurDstAddr >> 14][1];
+            if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
+                unitcycles++;
 
-                if (burststart)
-                {
-                    cycles -= 2;
-                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0]);
-                    cycles += unitcycles;
-                }
-            }
+            /*if (burststart)
+            {
+                cycles -= 2;
+                cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0]);
+                cycles += unitcycles;
+            }*/
         }
-
-        u16 (*readfn)(u32) = CPU ? NDS::ARM7Read16 : NDS::ARM9Read16;
-        void (*writefn)(u32,u16) = CPU ? NDS::ARM7Write16 : NDS::ARM9Write16;
 
         while (IterCount > 0 && !Stall)
         {
-            cycles -= unitcycles;
+            NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::RunTightTimers(CPU, lastcycles-cycles);
-
-            lastcycles = cycles;
-
-            writefn(CurDstAddr, readfn(CurSrcAddr));
+            NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
             IterCount--;
             RemCount--;
 
-            if (cycles <= 0) break;
+            if (NDS::ARM9Timestamp >= NDS::ARM9Target) break;
         }
     }
     else
     {
-        if (CPU == 0)
+        if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
         {
-            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
-            {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2];
-            }
-            else
-            {
-                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][3] + NDS::ARM9MemTimings[CurDstAddr >> 14][3];
-                if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
-                    unitcycles++;
-                else if ((CurSrcAddr >> 24) == 0x02)
-                    unitcycles--;
-
-                if (burststart)
-                {
-                    cycles -= 2;
-                    cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2]);
-                    cycles += unitcycles;
-                }
-            }
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2];
         }
         else
         {
-            if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
-            {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2];
-            }
-            else
-            {
-                unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][3] + NDS::ARM7MemTimings[CurDstAddr >> 15][3];
-                if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
-                    unitcycles++;
-                else if ((CurSrcAddr >> 24) == 0x02)
-                    unitcycles--;
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][3] + NDS::ARM9MemTimings[CurDstAddr >> 14][3];
+            if ((CurSrcAddr >> 24) == (CurDstAddr >> 24))
+                unitcycles++;
+            else if ((CurSrcAddr >> 24) == 0x02)
+                unitcycles--;
 
-                if (burststart)
-                {
-                    cycles -= 2;
-                    cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2]);
-                    cycles += unitcycles;
-                }
-            }
+            /*if (burststart)
+            {
+                cycles -= 2;
+                cycles -= (NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2]);
+                cycles += unitcycles;
+            }*/
         }
-
-        u32 (*readfn)(u32) = CPU ? NDS::ARM7Read32 : NDS::ARM9Read32;
-        void (*writefn)(u32,u32) = CPU ? NDS::ARM7Write32 : NDS::ARM9Write32;
 
         while (IterCount > 0 && !Stall)
         {
-            cycles -= unitcycles;
+            NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::RunTightTimers(CPU, lastcycles-cycles);
-
-            lastcycles = cycles;
-
-            writefn(CurDstAddr, readfn(CurSrcAddr));
+            NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
             IterCount--;
             RemCount--;
 
-            if (cycles <= 0) break;
+            if (NDS::ARM9Timestamp >= NDS::ARM9Target) break;
         }
     }
 
@@ -351,34 +287,131 @@ s32 DMA::Run(s32 cycles)
         if (IterCount == 0)
         {
             Running = 0;
-            NDS::ResumeCPU(CPU, 1<<Num);
+            NDS::ResumeCPU(0, 1<<Num);
 
             if (StartMode == 0x07)
                 GPU3D::CheckFIFODMA();
         }
 
-#ifdef DEBUG_CHECK_DESYNC
-        if (CPU) NDS::dbg_CyclesARM7 += (startc-cycles);
-        else     NDS::dbg_CyclesARM9 += (startc-cycles);
-#endif // DEBUG_CHECK_DESYNC
-
-        return cycles;
+        return;
     }
 
-    if (!(Cnt & 0x02000000))
-        Cnt &= ~0x80000000;
+    if (!(Cnt & (1<<25)))
+        Cnt &= ~(1<<31);
 
-    if (Cnt & 0x40000000)
-        NDS::SetIRQ(CPU, NDS::IRQ_DMA0 + Num);
+    if (Cnt & (1<<30))
+        NDS::SetIRQ(0, NDS::IRQ_DMA0 + Num);
 
     Running = 0;
     InProgress = false;
-    NDS::ResumeCPU(CPU, 1<<Num);
+    NDS::ResumeCPU(0, 1<<Num);
+}
 
-#ifdef DEBUG_CHECK_DESYNC
-    if (CPU) NDS::dbg_CyclesARM7 += (startc-cycles);
-    else     NDS::dbg_CyclesARM9 += (startc-cycles);
-#endif // DEBUG_CHECK_DESYNC
+void DMA::Run7()
+{
+    if (NDS::ARM7Timestamp >= NDS::ARM7Target) return;
 
-    return cycles;
+    Executing = true;
+
+    // add NS penalty for first accesses in burst
+    bool burststart = (Running == 2);
+    Running = 1;
+
+    s32 unitcycles;
+    //s32 lastcycles = cycles;
+
+    if (!(Cnt & (1<<26)))
+    {
+        if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
+        {
+            unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0];
+        }
+        else
+        {
+            unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][1] + NDS::ARM7MemTimings[CurDstAddr >> 15][1];
+            if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
+                unitcycles++;
+
+            /*if (burststart)
+            {
+                cycles -= 2;
+                cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][0] + NDS::ARM7MemTimings[CurDstAddr >> 15][0]);
+                cycles += unitcycles;
+            }*/
+        }
+
+        while (IterCount > 0 && !Stall)
+        {
+            NDS::ARM7Timestamp += unitcycles;
+
+            NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
+
+            CurSrcAddr += SrcAddrInc<<1;
+            CurDstAddr += DstAddrInc<<1;
+            IterCount--;
+            RemCount--;
+
+            if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
+        }
+    }
+    else
+    {
+        if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
+        {
+            unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2];
+        }
+        else
+        {
+            unitcycles = NDS::ARM7MemTimings[CurSrcAddr >> 15][3] + NDS::ARM7MemTimings[CurDstAddr >> 15][3];
+            if ((CurSrcAddr >> 23) == (CurDstAddr >> 23))
+                unitcycles++;
+            else if ((CurSrcAddr >> 24) == 0x02)
+                unitcycles--;
+
+            /*if (burststart)
+            {
+                cycles -= 2;
+                cycles -= (NDS::ARM7MemTimings[CurSrcAddr >> 15][2] + NDS::ARM7MemTimings[CurDstAddr >> 15][2]);
+                cycles += unitcycles;
+            }*/
+        }
+
+        while (IterCount > 0 && !Stall)
+        {
+            NDS::ARM7Timestamp += unitcycles;
+
+            NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
+
+            CurSrcAddr += SrcAddrInc<<2;
+            CurDstAddr += DstAddrInc<<2;
+            IterCount--;
+            RemCount--;
+
+            if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
+        }
+    }
+
+    Executing = false;
+    Stall = false;
+
+    if (RemCount)
+    {
+        if (IterCount == 0)
+        {
+            Running = 0;
+            NDS::ResumeCPU(1, 1<<Num);
+        }
+
+        return;
+    }
+
+    if (!(Cnt & (1<<25)))
+        Cnt &= ~(1<<31);
+
+    if (Cnt & (1<<30))
+        NDS::SetIRQ(1, NDS::IRQ_DMA0 + Num);
+
+    Running = 0;
+    InProgress = false;
+    NDS::ResumeCPU(1, 1<<Num);
 }

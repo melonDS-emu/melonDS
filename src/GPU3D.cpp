@@ -91,6 +91,7 @@
 //   and imposes rules on when further vertex commands can run
 //   (one every 9-cycle time slot during polygon setup)
 //   polygon setup time is 27 cycles for a triangle and 36 for a quad
+//   except: only one time slot is taken if the polygon is rejected by culling/clipping
 // * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
 
@@ -182,6 +183,7 @@ u32 GXStat;
 u32 ExecParams[32];
 u32 ExecParamCount;
 
+u64 Timestamp;
 s32 CycleCount;
 s32 VertexPipeline;
 s32 NormalPipeline;
@@ -330,6 +332,7 @@ void Reset()
     memset(ExecParams, 0, 32*4);
     ExecParamCount = 0;
 
+    Timestamp = 0;
     CycleCount = 0;
     VertexPipeline = 0;
     NormalPipeline = 0;
@@ -405,6 +408,7 @@ void DoSavestate(Savestate* file)
     file->VarArray(ExecParams, 32*4);
     file->Var32(&ExecParamCount);
     file->Var32((u32*)&CycleCount);
+    file->Var64(&Timestamp);
 
     file->Var32(&MatrixMode);
 
@@ -2271,16 +2275,18 @@ void FinishWork(s32 cycles)
     GXStat &= ~(1<<27);
 }
 
-void Run(s32 cycles)
+void Run()
 {
-    if (!GeometryEnabled)
+    if (!GeometryEnabled || FlushRequest ||
+        (CmdPIPE->IsEmpty() && !(GXStat & (1<<27))))
+    {
+        Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
         return;
-    if (FlushRequest)
-        return;
-    if (CmdPIPE->IsEmpty() && !(GXStat & (1<<27)))
-        return;
+    }
 
+    s32 cycles = (NDS::ARM9Timestamp >> NDS::ARM9ClockShift) - Timestamp;
     CycleCount -= cycles;
+    Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
 
     if (CycleCount <= 0)
     {
@@ -2465,21 +2471,27 @@ u8 Read8(u32 addr)
     switch (addr)
     {
     case 0x04000600:
+        Run();
         return GXStat & 0xFF;
     case 0x04000601:
         {
+            Run();
             return ((GXStat >> 8) & 0xFF) |
                    (PosMatrixStackPointer & 0x1F) |
                    ((ProjMatrixStackPointer & 0x1) << 5);
         }
     case 0x04000602:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return fifolevel & 0xFF;
         }
     case 0x04000603:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return ((GXStat >> 24) & 0xFF) |
@@ -2505,12 +2517,16 @@ u16 Read16(u32 addr)
 
     case 0x04000600:
         {
+            Run();
+
             return (GXStat & 0xFFFF) |
                    ((PosMatrixStackPointer & 0x1F) << 8) |
                    ((ProjMatrixStackPointer & 0x1) << 13);
         }
     case 0x04000602:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return (GXStat >> 16) |
@@ -2545,6 +2561,8 @@ u32 Read32(u32 addr)
 
     case 0x04000600:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return GXStat |

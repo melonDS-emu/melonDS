@@ -84,6 +84,8 @@ extern u32 RenderClearAttr1, RenderClearAttr2;
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
+extern u64 Timestamp;
+
 bool Init();
 void DeInit();
 void Reset();
@@ -95,7 +97,7 @@ void SetEnabled(bool geometry, bool rendering);
 void ExecuteCommand();
 
 s32 CyclesToRunFor();
-void Run(s32 cycles);
+void Run();
 void CheckFIFOIRQ();
 void CheckFIFODMA();
 

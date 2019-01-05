@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+// TODO: all this should ideally go in Platform.cpp
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

@@ -798,7 +798,7 @@ void StartScanline(u32 line)
         }
 
         if (RunFIFO)
-            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, true, 32, DisplayFIFO, 0);
+            NDS::ScheduleEvent(NDS::Event_DisplayFIFO, false, 32, DisplayFIFO, 0);
     }
 
     if (VCount == 262)

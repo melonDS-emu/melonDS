@@ -265,7 +265,7 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         }
         else
         {
-            MemTimings[i][0] = bustimings[2] << ClockShift;
+            MemTimings[i][0] = bustimings[2] << NDS::ARM9ClockShift;
         }
 
         if (pu & 0x10)
@@ -276,9 +276,9 @@ void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
         }
         else
         {
-            MemTimings[i][1] = bustimings[0] << ClockShift;
-            MemTimings[i][2] = bustimings[2] << ClockShift;
-            MemTimings[i][3] = bustimings[3] << ClockShift;
+            MemTimings[i][1] = bustimings[0] << NDS::ARM9ClockShift;
+            MemTimings[i][2] = bustimings[2] << NDS::ARM9ClockShift;
+            MemTimings[i][3] = bustimings[3] << NDS::ARM9ClockShift;
         }
     }
 }
@@ -358,7 +358,7 @@ void ARMv5::ICacheLookup(u32 addr)
 
     // ouch :/
     //printf("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
-    CodeCycles = (NDS::ARM9MemTimings[addr >> 14][2] + (NDS::ARM9MemTimings[addr >> 14][3] * 7)) << ClockShift;
+    CodeCycles = (NDS::ARM9MemTimings[addr >> 14][2] + (NDS::ARM9MemTimings[addr >> 14][3] * 7)) << NDS::ARM9ClockShift;
     CurICacheLine = ptr;
 }
 
