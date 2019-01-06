@@ -183,10 +183,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if(CMAKE_BUILD_TYPE EQUAL Debug)
+if(CMAKE_BUILD_TYPE STREQUAL Debug)
 set(CMAKE_CXX_FLAGS "-g")
-endif()
-if(CMAKE_BUILD_TYPE EQUAL Release)
+elseif(CMAKE_BUILD_TYPE STREQUAL Release)
 set(CMAKE_CXX_FLAGS "-O3 -flto")
 endif()
 
