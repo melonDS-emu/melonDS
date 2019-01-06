@@ -31,6 +31,10 @@
 #include <uxtheme.h>
 #include <windowsx.h>
 #include <shobjidl.h>
+// workaround for MinGW builds -> https://stackoverflow.com/questions/27888109/rendertarget-getsize-not-working
+#ifdef __MINGW32__
+#define WIDL_EXPLICIT_AGGREGATE_RETURNS
+#endif
 #include <d2d1.h>
 #include <d2d1helper.h>
 #include <dwrite.h>
