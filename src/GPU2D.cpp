@@ -1047,7 +1047,7 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
 
 
 template<u32 bgmode>
-void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -1092,12 +1092,12 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
                     DrawBG_Text(line, dst, 0);
             }
         }
-        if (DispCnt & 0x1000)
+        if ((DispCnt & 0x1000) && nsprites)
             InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
     }
 }
 
-void GPU2D::DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
 {
     if (Num)
     {
@@ -1122,7 +1122,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst)
                     DrawBG_3D(line, dst);
             }
         }
-        if (DispCnt & 0x1000)
+        if ((DispCnt & 0x1000) && nsprites)
             InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
     }
 }
@@ -1153,20 +1153,20 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         memset(windowmask, 0xFF, 256);
 
     // prerender sprites
-    u32 spritebuf[256];
+    u32 spritebuf[256]; u32 nsprites = 0;
     memset(spritebuf, 0, 256*4);
-    if (DispCnt & 0x1000) DrawSprites(line, spritebuf);
+    if (DispCnt & 0x1000) nsprites = DrawSprites(line, spritebuf);
 
     // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
-    case 0: DrawScanlineBGMode<0>(line, spritebuf, linebuf); break;
-    case 1: DrawScanlineBGMode<1>(line, spritebuf, linebuf); break;
-    case 2: DrawScanlineBGMode<2>(line, spritebuf, linebuf); break;
-    case 3: DrawScanlineBGMode<3>(line, spritebuf, linebuf); break;
-    case 4: DrawScanlineBGMode<4>(line, spritebuf, linebuf); break;
-    case 5: DrawScanlineBGMode<5>(line, spritebuf, linebuf); break;
-    case 6: DrawScanlineBGMode6(line, spritebuf, linebuf); break;
+    case 0: DrawScanlineBGMode<0>(line, nsprites, spritebuf, linebuf); break;
+    case 1: DrawScanlineBGMode<1>(line, nsprites, spritebuf, linebuf); break;
+    case 2: DrawScanlineBGMode<2>(line, nsprites, spritebuf, linebuf); break;
+    case 3: DrawScanlineBGMode<3>(line, nsprites, spritebuf, linebuf); break;
+    case 4: DrawScanlineBGMode<4>(line, nsprites, spritebuf, linebuf); break;
+    case 5: DrawScanlineBGMode<5>(line, nsprites, spritebuf, linebuf); break;
+    case 6: DrawScanlineBGMode6(line, nsprites, spritebuf, linebuf); break;
     }
 
     // color special effects
@@ -1930,7 +1930,7 @@ void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
     }
 }
 
-void GPU2D::DrawSprites(u32 line, u32* dst)
+u32 GPU2D::DrawSprites(u32 line, u32* dst)
 {
     u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
 
@@ -1948,6 +1948,8 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
         32, 16, 32, 0,
         64, 32, 64, 0
     };
+
+    u32 nsprites = 0;
 
     for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum -= 0x0400)
     {
@@ -1987,6 +1989,7 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                 u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
 
                 DrawSprite_Rotscale<false>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos, dst);
+                nsprites++;
             }
             else
             {
@@ -2011,9 +2014,12 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                     ypos = height-1 - ypos;
 
                 DrawSprite_Normal<false>(attrib, width, xpos, ypos, dst);
+                nsprites++;
             }
         }
     }
+
+    return nsprites;
 }
 
 void GPU2D::DrawSpritesWindow(u32 line, u8* dst)
