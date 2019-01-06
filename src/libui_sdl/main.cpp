@@ -115,6 +115,8 @@ u32 KeyInputMask;
 bool LidCommand, LidStatus;
 SDL_Joystick* Joystick;
 
+SDL_AudioDeviceID AudioDevice, MicDevice;
+
 u32 MicBufferLength = 2048;
 s16 MicBuffer[2048];
 u32 MicBufferReadPos, MicBufferWritePos;
@@ -1035,6 +1037,9 @@ void Run()
     EmuRunning = 1;
     RunningSomething = true;
 
+    SDL_PauseAudioDevice(AudioDevice, 0);
+    SDL_PauseAudioDevice(MicDevice, 0);
+
     uiMenuItemEnable(MenuItem_SaveState);
     uiMenuItemEnable(MenuItem_LoadState);
 
@@ -1080,6 +1085,9 @@ void Stop(bool internal)
 
     memset(ScreenBuffer, 0, 256*384*4);
     uiAreaQueueRedrawAll(MainDrawArea);
+
+    SDL_PauseAudioDevice(AudioDevice, 1);
+    SDL_PauseAudioDevice(MicDevice, 1);
 }
 
 void SetupSRAMPath()
@@ -1410,12 +1418,18 @@ void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
         // enable pause
         EmuRunning = 2;
         uiMenuItemSetChecked(MenuItem_Pause, 1);
+
+        SDL_PauseAudioDevice(AudioDevice, 1);
+        SDL_PauseAudioDevice(MicDevice, 1);
     }
     else
     {
         // disable pause
         EmuRunning = 1;
         uiMenuItemSetChecked(MenuItem_Pause, 0);
+
+        SDL_PauseAudioDevice(AudioDevice, 0);
+        SDL_PauseAudioDevice(MicDevice, 0);
     }
 }
 
@@ -1969,14 +1983,14 @@ int main(int argc, char** argv)
     whatIwant.channels = 2;
     whatIwant.samples = 1024;
     whatIwant.callback = AudioCallback;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
-    if (!audio)
+    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!AudioDevice)
     {
         printf("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
-        SDL_PauseAudioDevice(audio, 0);
+        SDL_PauseAudioDevice(AudioDevice, 1);
     }
 
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -1985,15 +1999,15 @@ int main(int argc, char** argv)
     whatIwant.channels = 1;
     whatIwant.samples = 1024;
     whatIwant.callback = MicCallback;
-    SDL_AudioDeviceID mic = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
-    if (!mic)
+    MicDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!MicDevice)
     {
         printf("Mic init failed: %s\n", SDL_GetError());
         MicBufferLength = 0;
     }
     else
     {
-        SDL_PauseAudioDevice(mic, 0);
+        SDL_PauseAudioDevice(MicDevice, 1);
     }
 
     memset(MicBuffer, 0, sizeof(MicBuffer));
@@ -2038,8 +2052,8 @@ int main(int argc, char** argv)
     SDL_WaitThread(EmuThread, NULL);
 
     if (Joystick) SDL_JoystickClose(Joystick);
-    if (audio) SDL_CloseAudioDevice(audio);
-    if (mic)   SDL_CloseAudioDevice(mic);
+    if (AudioDevice) SDL_CloseAudioDevice(AudioDevice);
+    if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
 
