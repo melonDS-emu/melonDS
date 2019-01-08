@@ -188,19 +188,18 @@ Uint32 JoyPoll(Uint32 interval, void* param)
     int id = dlg->pollid & 0xFF;
     if (id > 12) return 0;
 
-    SDL_JoystickUpdate();
-
     SDL_Joystick* joy = Joystick;
     if (!joy) return 0;
 
-    int nbuttons = SDL_JoystickNumButtons(joy);
-    for (int i = 0; i < nbuttons; i++)
+    SDL_Event event;
+    while (SDL_PollEvent(&event) > 0)
     {
-        if (SDL_JoystickGetButton(joy, i))
+        switch (event.type)
         {
-            dlg->joymap[id] = i;
-            uiQueueMain(FinishJoyMapping, dlg);
-            return 0;
+            case SDL_JOYBUTTONDOWN:
+                dlg->joymap[id] = event.jbutton.button;
+                uiQueueMain(FinishJoyMapping, dlg);
+                return 0;
         }
     }
 
