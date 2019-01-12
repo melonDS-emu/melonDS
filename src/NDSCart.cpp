@@ -974,11 +974,11 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
 
     CartROM = new u8[CartROMSize];
+    memset(CartROM, 0, CartROMSize);
     if(IsArchive)
         memcpy(CartROM, extractBuf, len);
     else
     {
-        memset(CartROM, 0, CartROMSize);
         fseek(f, 0, SEEK_SET);
         fread(CartROM, 1, len, f);
     }
