@@ -171,6 +171,8 @@ elseif (WIN32)
     LINK_LIBRARIES("uxtheme")
 endif (UNIX)
 
+LINK_LIBRARIES("archive")
+
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 string(STRIP ${SDL2_LIBRARIES} SDL2_LIBRARIES)
