@@ -1094,7 +1094,10 @@ void SetupSRAMPath()
 {
     strncpy(SRAMPath, ROMPath, 1023);
     SRAMPath[1023] = '\0';
-    strncpy(SRAMPath + strlen(ROMPath) - 3, "sav", 3);
+    int ExtLength = 1;
+    while(ROMPath[strlen(ROMPath) - ExtLength - 1] != '.')
+        ++ExtLength;
+    strncpy(SRAMPath + strlen(ROMPath) - ExtLength, "sav", 3);
 }
 
 void TryLoadROM(char* file, int prevstatus)
@@ -1328,7 +1331,7 @@ void OnDropFile(uiWindow* window, char* file, void* blarg)
     char* ext = &file[strlen(file)-3];
     int prevstatus = EmuRunning;
 
-    if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+    if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "zip") || !strcasecmp(ext, ".7z"))
     {
         if (RunningSomething)
         {
@@ -1365,7 +1368,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", Config::LastROMFolder);
+    char* file = uiOpenFile(window, "DS ROM (*.nds, *.zip, *.7z)|*.nds;*.srl;*.zip;*.7z|Any file|*.*", Config::LastROMFolder);
     if (!file)
     {
         EmuRunning = prevstatus;
@@ -2032,7 +2035,7 @@ int main(int argc, char** argv)
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "zip") || !strcasecmp(ext, ".7z"))
         {
             strncpy(ROMPath, file, 1023);
             ROMPath[1023] = '\0';
