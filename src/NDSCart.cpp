@@ -402,7 +402,7 @@ void Write(u8 val, u32 hold)
     switch (CurCmd)
     {
     case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
+        // PokÃ©mon carts have an IR transceiver thing, and send this
         // to bypass it and access SRAM.
         // TODO: design better
         CurCmd = val;
@@ -876,7 +876,7 @@ bool CheckArchiveExtensions(const char *ext)
     };
 
     for(int i = 0; i < sizeof(extensions)/sizeof(char *); ++i)
-        if(!strcmp(ext, extensions[i]))
+        if(!strcasecmp(ext, extensions[i]))
             return true;
 
     return false;
