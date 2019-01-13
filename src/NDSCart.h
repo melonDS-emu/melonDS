@@ -44,6 +44,7 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+bool CheckArchiveExtensions(const char *ext);
 bool LoadROM(const char* path, const char* sram, bool direct);
 void RelocateSave(const char* path, bool write);
 

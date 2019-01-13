@@ -34,6 +34,7 @@
 #include "DlgAudioSettings.h"
 
 #include "../NDS.h"
+#include "../NDSCart.h"
 #include "../GPU.h"
 #include "../SPU.h"
 #include "../Wifi.h"
@@ -1331,7 +1332,7 @@ void OnDropFile(uiWindow* window, char* file, void* blarg)
     char* ext = &file[strlen(file)-3];
     int prevstatus = EmuRunning;
 
-    if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "zip") || !strcasecmp(ext, ".7z"))
+    if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || NDSCart::CheckArchiveExtensions(ext))
     {
         if (RunningSomething)
         {
@@ -2035,7 +2036,7 @@ int main(int argc, char** argv)
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "zip") || !strcasecmp(ext, ".7z"))
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || NDSCart::CheckArchiveExtensions(ext))
         {
             strncpy(ROMPath, file, 1023);
             ROMPath[1023] = '\0';
