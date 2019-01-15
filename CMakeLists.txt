@@ -176,10 +176,7 @@ find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 string(STRIP "${SDL2_LIBRARIES}" SDL2_LIBRARIES)
 link_libraries(${SDL2_LIBRARIES})
-
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    include_directories(src) # TODO: Could be done better; these are for pcap include headers
-endif()
+include_directories(src) # TODO: Could be done better; these are for pcap include headers
 
 add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
