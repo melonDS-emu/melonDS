@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <SDL2/SDL.h>
+#include "SDL.h"
 #include "libui/ui.h"
 
 #include "../types.h"
@@ -169,7 +169,7 @@ void FinishJoyMapping(void* param)
 {
     InputDlgData* dlg = (InputDlgData*)param;
     int id = dlg->pollid & 0xFF;
-    
+
     char keyname[16];
     JoyMappingName(dlg->joymap[id], keyname);
     uiButtonSetText(dlg->pollbtn, keyname);
