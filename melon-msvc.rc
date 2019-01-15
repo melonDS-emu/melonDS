@@ -30,5 +30,3 @@ FILETYPE VFT_APP
 		VALUE "Translation", 0x0409, 1252 //language codes
 	}
 }
-
-1 24 "xp.manifest"

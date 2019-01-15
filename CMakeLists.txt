@@ -160,9 +160,17 @@ elseif (WIN32)
         src/libui_sdl/libui/windows/winpublic.cpp
         src/libui_sdl/libui/windows/winutil.cpp
         src/libui_sdl/libui/windows/resources.rc
-		melon.rc
-		xp.manifest
     )
+
+    # CMake 3.4+ can handle the manifest as a source file for MSVC
+    if(MSVC)
+        list(APPEND SOURCES
+            melon-msvc.rc
+            xp.manifest
+        )
+    else()
+        list(APPEND SOURCES melon.rc)
+    endif()
 
     LINK_LIBRARIES("comctl32")
     LINK_LIBRARIES("d2d1")
@@ -186,9 +194,20 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL Debug)
-set(CMAKE_CXX_FLAGS "-g")
+    if(NOT MSVC)
+        set(CMAKE_CXX_FLAGS "-g")
+    endif()
 elseif(CMAKE_BUILD_TYPE STREQUAL Release)
-set(CMAKE_CXX_FLAGS "-O3 -flto")
+    if(MSVC)
+        set(CMAKE_CXX_FLAGS "/O2 /GA")
+    else()
+        set(CMAKE_CXX_FLAGS "-O3 -flto")
+    endif()
+endif()
+
+# MSVC: Silences warning regarding use of /EHsc
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
 endif()
 
 install(TARGETS ${PROJECT_WX} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
