@@ -160,7 +160,8 @@ elseif (WIN32)
         src/libui_sdl/libui/windows/winpublic.cpp
         src/libui_sdl/libui/windows/winutil.cpp
         src/libui_sdl/libui/windows/resources.rc
-		#melon.rc
+		melon.rc
+		xp.manifest
     )
 
     LINK_LIBRARIES("comctl32")
@@ -175,7 +176,10 @@ find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 string(STRIP "${SDL2_LIBRARIES}" SDL2_LIBRARIES)
 link_libraries(${SDL2_LIBRARIES})
-include_directories(src) # For pcap include headers
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    include_directories(src) # TODO: Could be done better; these are for pcap include headers
+endif()
 
 add_executable(${PROJECT_WX} ${SOURCES})
 target_link_libraries(${PROJECT_WX})
