@@ -18,7 +18,7 @@ FILETYPE VFT_APP
 			VALUE "FileVersion", "0.7.3"
 			VALUE "FileDescription", "DS emulator, sorta. also 1st quality melon."
 			VALUE "InternalName", "SDnolem"
-			VALUE "LegalCopyright", "2016-2019 StapleButter & co."
+			VALUE "LegalCopyright", "2016-2019 Arisotura & co."
 			VALUE "LegalTrademarks", ""
 			VALUE "OriginalFilename", "zafkflzdasd.exe"
 			VALUE "ProductName", "melonDS"

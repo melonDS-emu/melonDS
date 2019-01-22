@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 

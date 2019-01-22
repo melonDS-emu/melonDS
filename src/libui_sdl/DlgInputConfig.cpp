@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -169,7 +169,7 @@ void FinishJoyMapping(void* param)
 {
     InputDlgData* dlg = (InputDlgData*)param;
     int id = dlg->pollid & 0xFF;
-    
+
     char keyname[16];
     JoyMappingName(dlg->joymap[id], keyname);
     uiButtonSetText(dlg->pollbtn, keyname);
