@@ -306,7 +306,9 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 {
     if (btnid < 0) return false;
 
-    bool pressed;
+    hat &= ~(hat >> 4);
+
+    bool pressed = false;
     if (btnid == 0x101) // up
         pressed = (hat & SDL_HAT_UP);
     else if (btnid == 0x104) // down
@@ -315,8 +317,27 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
         pressed = (hat & SDL_HAT_RIGHT);
     else if (btnid == 0x108) // left
         pressed = (hat & SDL_HAT_LEFT);
-    else
-        pressed = (btnid < njoybuttons) ? joybuttons[btnid] : false;
+    else if (btnid < njoybuttons)
+        pressed = (joybuttons[btnid] & ~(joybuttons[btnid] >> 1)) & 0x01;
+
+    return pressed;
+}
+
+bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    if (btnid < 0) return false;
+
+    bool pressed = false;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else if (btnid < njoybuttons)
+        pressed = joybuttons[btnid] & 0x01;
 
     return pressed;
 }
@@ -400,9 +421,9 @@ int EmuThreadFunc(void* burp)
     LidStatus = false;
     MicCommand = 0;
 
-    bool lastlidcmd = false;
-
     Uint8* joybuttons = NULL; int njoybuttons = 0;
+    Uint32 joyhat = 0;
+
     if (Joystick)
     {
         njoybuttons = SDL_JoystickNumButtons(Joystick);
@@ -447,6 +468,7 @@ int EmuThreadFunc(void* burp)
                     {
                         joybuttons = new Uint8[njoybuttons];
                         memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
+                        joyhat = 0;
                     }
                 }
             }
@@ -456,16 +478,21 @@ int EmuThreadFunc(void* burp)
             u32 joymask = 0xFFF;
             if (Joystick)
             {
-                Uint32 hat = SDL_JoystickGetHat(Joystick, 0);
+                joyhat <<= 4;
+                joyhat |= SDL_JoystickGetHat(Joystick, 0);
+
                 Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
                 Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
 
                 for (int i = 0; i < njoybuttons; i++)
-                    joybuttons[i] = SDL_JoystickGetButton(Joystick, i);
+                {
+                    joybuttons[i] <<= 1;
+                    joybuttons[i] |= SDL_JoystickGetButton(Joystick, i);
+                }
 
                 for (int i = 0; i < 12; i++)
                 {
-                    bool pressed = JoyButtonPressed(Config::JoyMapping[i], njoybuttons, joybuttons, hat);
+                    bool pressed = JoyButtonHeld(Config::JoyMapping[i], njoybuttons, joybuttons, joyhat);
 
                     if (i == 4) // right
                         pressed = pressed || (axisX >= 16384);
@@ -479,19 +506,13 @@ int EmuThreadFunc(void* burp)
                     if (pressed) joymask &= ~(1<<i);
                 }
 
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, joyhat))
                 {
-                    if (!lastlidcmd)
-                    {
-                        LidStatus = !LidStatus;
-                        LidCommand = true;
-                        lastlidcmd = true;
-                    }
+                    LidStatus = !LidStatus;
+                    LidCommand = true;
                 }
-                else
-                    lastlidcmd = false;
 
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
+                if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
                     MicCommand |= 2;
                 else
                     MicCommand &= ~2;
