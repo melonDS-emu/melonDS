@@ -112,7 +112,8 @@ uiDrawMatrix BottomScreenTrans;
 bool Touching = false;
 
 u32 KeyInputMask;
-bool LidCommand, LidStatus;
+u32 HotkeyMask;
+bool LidStatus;
 SDL_Joystick* Joystick;
 
 SDL_AudioDeviceID AudioDevice, MicDevice;
@@ -417,7 +418,7 @@ int EmuThreadFunc(void* burp)
     ScreenDrawInited = false;
     Touching = false;
     KeyInputMask = 0xFFF;
-    LidCommand = false;
+    HotkeyMask = 0;
     LidStatus = false;
     MicCommand = 0;
 
@@ -509,7 +510,7 @@ int EmuThreadFunc(void* burp)
                 if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, joyhat))
                 {
                     LidStatus = !LidStatus;
-                    LidCommand = true;
+                    HotkeyMask |= 0x1;
                 }
 
                 if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
@@ -519,10 +520,10 @@ int EmuThreadFunc(void* burp)
             }
             NDS::SetKeyMask(keymask & joymask);
 
-            if (LidCommand)
+            if (HotkeyMask & 0x1)
             {
                 NDS::SetLidClosed(LidStatus);
-                LidCommand = false;
+                HotkeyMask &= ~0x1;
             }
 
             // microphone input
@@ -783,7 +784,7 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         if (evt->Scancode == Config::HKKeyMapping[HK_Lid])
         {
             LidStatus = !LidStatus;
-            LidCommand = true;
+            HotkeyMask |= 0x1;
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand |= 1;
