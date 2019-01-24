@@ -105,6 +105,71 @@ if (UNIX)
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
         LINK_LIBRARIES("dl")
     endif ()
+elseif (APPLE)
+    set(SRCS
+        src/libui_sdl/libui/unix/alloc.c
+        src/libui_sdl/libui/unix/area.c
+        src/libui_sdl/libui/unix/box.c
+        src/libui_sdl/libui/unix/button.c
+        src/libui_sdl/libui/unix/cellrendererbutton.c
+        src/libui_sdl/libui/unix/checkbox.c
+        src/libui_sdl/libui/unix/child.c
+        src/libui_sdl/libui/unix/colorbutton.c
+        src/libui_sdl/libui/unix/combobox.c
+        src/libui_sdl/libui/unix/control.c
+        src/libui_sdl/libui/unix/datetimepicker.c
+        src/libui_sdl/libui/unix/debug.c
+        src/libui_sdl/libui/unix/draw.c
+        src/libui_sdl/libui/unix/drawmatrix.c
+        src/libui_sdl/libui/unix/drawpath.c
+        src/libui_sdl/libui/unix/drawtext.c
+        src/libui_sdl/libui/unix/editablecombo.c
+        src/libui_sdl/libui/unix/entry.c
+        src/libui_sdl/libui/unix/fontbutton.c
+        src/libui_sdl/libui/unix/form.c
+        src/libui_sdl/libui/unix/future.c
+        src/libui_sdl/libui/unix/graphemes.c
+        src/libui_sdl/libui/unix/grid.c
+        src/libui_sdl/libui/unix/group.c
+        src/libui_sdl/libui/unix/image.c
+        src/libui_sdl/libui/unix/label.c
+        src/libui_sdl/libui/unix/main.c
+        src/libui_sdl/libui/unix/menu.c
+        src/libui_sdl/libui/unix/multilineentry.c
+        src/libui_sdl/libui/unix/progressbar.c
+        src/libui_sdl/libui/unix/radiobuttons.c
+        src/libui_sdl/libui/unix/separator.c
+        src/libui_sdl/libui/unix/slider.c
+        src/libui_sdl/libui/unix/spinbox.c
+        src/libui_sdl/libui/unix/stddialogs.c
+        src/libui_sdl/libui/unix/tab.c
+        src/libui_sdl/libui/unix/text.c
+        src/libui_sdl/libui/unix/util.c
+        src/libui_sdl/libui/unix/window.c
+        melon_grc.c
+    )
+    set(CMAKE_INCLUE_CURRENT_DIR ON)
+
+    FIND_PACKAGE(PkgConfig REQUIRED)
+    PKG_CHECK_MODULES(GTK3 REQUIRED gtk+-3.0)
+    PKG_CHECK_MODULES(SDL2 REQUIRED sdl2)
+
+    INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS})
+    LINK_LIBRARIES(${GTK3_LIBRARIES} ${SDL2_LIBRARIES})
+
+    ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
+
+    add_custom_command(OUTPUT melon_grc.c
+        COMMAND glib-compile-resources --sourcedir="${CMAKE_CURRENT_SOURCE_DIR}"
+                --target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
+                --generate-source "${CMAKE_CURRENT_SOURCE_DIR}/melon_grc.xml"
+        COMMAND glib-compile-resources --sourcedir="${CMAKE_CURRENT_SOURCE_DIR}"
+                --target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.h"
+                --generate-header "${CMAKE_CURRENT_SOURCE_DIR}/melon_grc.xml")
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        LINK_LIBRARIES("dl")
+    endif ()
 elseif (WIN32)
     LIST(APPEND SOURCES
         src/libui_sdl/libui/windows/alloc.cpp
