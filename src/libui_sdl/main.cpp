@@ -173,7 +173,7 @@ void MicLoadWav(char* name)
     if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
     {
         int srcinc = format.channels;
-        len /= 2;
+        len /= (2 * srcinc);
 
         MicWavLength = (len * dstfreq) / format.freq;
         if (MicWavLength < 735) MicWavLength = 735;
@@ -201,6 +201,7 @@ void MicLoadWav(char* name)
     else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
     {
         int srcinc = format.channels;
+        len /= srcinc;
 
         MicWavLength = (len * dstfreq) / format.freq;
         if (MicWavLength < 735) MicWavLength = 735;
