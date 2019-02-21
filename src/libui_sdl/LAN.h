@@ -26,13 +26,14 @@ namespace LAN
 
 typedef struct
 {
-    //pcap_if_t* PCapInterface; // no, this shit shouldn't be exposed here. blarg
     char DeviceName[128];
     char FriendlyName[128];
     char Description[128];
     u8 MAC[6];
     u8 IP_v4[4];
     u8 DNS[8][4];
+
+    void* Internal;
 
 } AdapterData;
 
