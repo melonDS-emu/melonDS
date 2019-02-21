@@ -32,6 +32,7 @@
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
 #include "DlgAudioSettings.h"
+#include "DlgWifiSettings.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -1504,6 +1505,11 @@ void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgAudioSettings::Open();
 }
 
+void OnOpenWifiSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgWifiSettings::Open();
+}
+
 
 void OnSetSavestateSRAMReloc(uiMenuItem* item, uiWindow* window, void* param)
 {
@@ -1848,6 +1854,8 @@ int main(int argc, char** argv)
         uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
         menuitem = uiMenuAppendItem(menu, "Audio settings");
         uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Wifi settings");
+        uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
     }
     uiMenuAppendSeparator(menu);
     {
