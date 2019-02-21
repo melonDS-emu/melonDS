@@ -156,6 +156,8 @@
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
+		<Unit filename="src/libui_sdl/LAN.cpp" />
+		<Unit filename="src/libui_sdl/LAN.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
