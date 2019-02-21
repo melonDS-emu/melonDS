@@ -1659,7 +1659,7 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::LimitFPS = false;
 }
 
-void ApplyNewSettings()
+void ApplyNewSettings(int type)
 {
     if (!RunningSomething) return;
 
@@ -1667,12 +1667,17 @@ void ApplyNewSettings()
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    GPU3D::SoftRenderer::SetupRenderThread();
-
-    if (Wifi::MPInited)
+    if (type == 0) // general emu settings)
     {
-        Platform::MP_DeInit();
-        Platform::MP_Init();
+        GPU3D::SoftRenderer::SetupRenderThread();
+    }
+    else if (type == 1) // wifi settings
+    {
+        if (Wifi::MPInited)
+        {
+            Platform::MP_DeInit();
+            Platform::MP_Init();
+        }
     }
 
     EmuRunning = prevstatus;

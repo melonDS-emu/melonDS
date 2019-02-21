@@ -27,7 +27,7 @@
 #include "DlgEmuSettings.h"
 
 
-void ApplyNewSettings();
+void ApplyNewSettings(int type);
 
 
 namespace DlgEmuSettings
@@ -38,7 +38,6 @@ uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
 uiCheckbox* cbThreaded3D;
-uiCheckbox* cbBindAnyAddr;
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -57,14 +56,13 @@ void OnOk(uiButton* btn, void* blarg)
 {
     Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
     Config::Threaded3D = uiCheckboxChecked(cbThreaded3D);
-    Config::SocketBindAnyAddr = uiCheckboxChecked(cbBindAnyAddr);
 
     Config::Save();
 
     uiControlDestroy(uiControl(win));
     opened = false;
 
-    ApplyNewSettings();
+    ApplyNewSettings(0);
 }
 
 void Open()
@@ -92,9 +90,6 @@ void Open()
 
         cbThreaded3D = uiNewCheckbox("Threaded 3D renderer");
         uiBoxAppend(in_ctrl, uiControl(cbThreaded3D), 0);
-
-        cbBindAnyAddr = uiNewCheckbox("Wifi: bind socket to any address");
-        uiBoxAppend(in_ctrl, uiControl(cbBindAnyAddr), 0);
     }
 
     {
@@ -116,7 +111,6 @@ void Open()
 
     uiCheckboxSetChecked(cbDirectBoot, Config::DirectBoot);
     uiCheckboxSetChecked(cbThreaded3D, Config::Threaded3D);
-    uiCheckboxSetChecked(cbBindAnyAddr, Config::SocketBindAnyAddr);
 
     uiControlShow(uiControl(win));
 }

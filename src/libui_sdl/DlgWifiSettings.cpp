@@ -28,17 +28,16 @@
 #include "DlgWifiSettings.h"
 
 
+void ApplyNewSettings(int type);
+
+
 namespace DlgWifiSettings
 {
 
 bool opened;
 uiWindow* win;
 
-/*uiSlider* slVolume;
-uiRadioButtons* rbMicInputType;
-uiEntry* txMicWavPath;
-
-int oldvolume;*/
+uiCheckbox* cbBindAnyAddr;
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -47,46 +46,22 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     return 1;
 }
 
-void OnVolumeChanged(uiSlider* slider, void* blarg)
-{
-    //Config::AudioVolume = uiSliderValue(slVolume);
-}
-
-/*void OnMicWavBrowse(uiButton* btn, void* blarg)
-{
-    char* file = uiOpenFile(win, "WAV file (*.wav)|*.wav|Any file|*.*", NULL);
-    if (!file)
-    {
-        return;
-    }
-
-    uiEntrySetText(txMicWavPath, file);
-    uiFreeText(file);
-}*/
-
 void OnCancel(uiButton* btn, void* blarg)
 {
-    Config::AudioVolume = oldvolume;
-
     uiControlDestroy(uiControl(win));
     opened = false;
 }
 
 void OnOk(uiButton* btn, void* blarg)
 {
-    /*Config::AudioVolume = uiSliderValue(slVolume);
-    Config::MicInputType = uiRadioButtonsSelected(rbMicInputType);
-
-    char* wavpath = uiEntryText(txMicWavPath);
-    strncpy(Config::MicWavPath, wavpath, 511);
-    uiFreeText(wavpath);*/
+    Config::SocketBindAnyAddr = uiCheckboxChecked(cbBindAnyAddr);
 
     Config::Save();
 
-    //if (Config::MicInputType == 3) MicLoadWav(Config::MicWavPath);
-
     uiControlDestroy(uiControl(win));
     opened = false;
+
+    ApplyNewSettings(1);
 }
 
 void Open()
@@ -106,47 +81,29 @@ void Open()
     uiWindowSetChild(win, uiControl(top));
     uiBoxSetPadded(top, 1);
 
-    /*{
-        uiGroup* grp = uiNewGroup("Audio output");
+    {
+        uiGroup* grp = uiNewGroup("Local");
         uiBoxAppend(top, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiLabel* label_vol = uiNewLabel("Volume:");
-        uiBoxAppend(in_ctrl, uiControl(label_vol), 0);
-
-        slVolume = uiNewSlider(0, 256);
-        uiSliderOnChanged(slVolume, OnVolumeChanged, NULL);
-        uiBoxAppend(in_ctrl, uiControl(slVolume), 0);
+        cbBindAnyAddr = uiNewCheckbox("Bind socket to any address");
+        uiBoxAppend(in_ctrl, uiControl(cbBindAnyAddr), 0);
     }
 
     {
-        uiGroup* grp = uiNewGroup("Microphone input");
+        uiGroup* grp = uiNewGroup("Online");
         uiBoxAppend(top, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        rbMicInputType = uiNewRadioButtons();
-        uiRadioButtonsAppend(rbMicInputType, "None");
-        uiRadioButtonsAppend(rbMicInputType, "Microphone");
-        uiRadioButtonsAppend(rbMicInputType, "White noise");
-        uiRadioButtonsAppend(rbMicInputType, "WAV file:");
-        uiBoxAppend(in_ctrl, uiControl(rbMicInputType), 0);
-
-        uiBox* path_box = uiNewHorizontalBox();
-        uiBoxAppend(in_ctrl, uiControl(path_box), 0);
-
-        txMicWavPath = uiNewEntry();
-        uiBoxAppend(path_box, uiControl(txMicWavPath), 1);
-
-        uiButton* path_browse = uiNewButton("...");
-        uiButtonOnClicked(path_browse, OnMicWavBrowse, NULL);
-        uiBoxAppend(path_box, uiControl(path_browse), 0);
-    }*/
+        uiLabel* dorp = uiNewLabel("placeholder");
+        uiBoxAppend(in_ctrl, uiControl(dorp), 0);
+    }
 
     {
         uiBox* in_ctrl = uiNewHorizontalBox();
@@ -165,14 +122,7 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(btnok), 0);
     }
 
-    /*if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
-
-    oldvolume = Config::AudioVolume;
-
-    uiSliderSetValue(slVolume, Config::AudioVolume);
-    uiRadioButtonsSetSelected(rbMicInputType, Config::MicInputType);
-    uiEntrySetText(txMicWavPath, Config::MicWavPath);*/
+    uiCheckboxSetChecked(cbBindAnyAddr, Config::SocketBindAnyAddr);
 
     uiControlShow(uiControl(win));
 }
