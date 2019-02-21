@@ -38,7 +38,8 @@ typedef struct
 } AdapterData;
 
 
-// function shito here
+bool Init();
+void DeInit();
 
 }
 
