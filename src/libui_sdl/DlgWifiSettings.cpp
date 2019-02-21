@@ -53,6 +53,7 @@ void UpdateAdapterInfo()
 {
     int sel = uiComboboxSelected(cmAdapterList);
     if (sel < 0 || sel >= LAN::NumAdapters) return;
+    if (LAN::NumAdapters < 1) return;
 
     LAN::AdapterData* adapter = &LAN::Adapters[sel];
     char tmp[64];
@@ -98,6 +99,19 @@ void OnCancel(uiButton* btn, void* blarg)
 void OnOk(uiButton* btn, void* blarg)
 {
     Config::SocketBindAnyAddr = uiCheckboxChecked(cbBindAnyAddr);
+    Config::DirectLAN = uiCheckboxChecked(cbDirectLAN);
+
+    int sel = uiComboboxSelected(cmAdapterList);
+    if (sel < 0 || sel >= LAN::NumAdapters) sel = 0;
+    if (LAN::NumAdapters < 1)
+    {
+        Config::LANDevice[0] = '\0';
+    }
+    else
+    {
+        strncpy(Config::LANDevice, LAN::Adapters[sel].DeviceName, 127);
+        Config::LANDevice[127] = '\0';
+    }
 
     Config::Save();
 
@@ -193,10 +207,14 @@ void Open()
         LAN::AdapterData* adapter = &LAN::Adapters[i];
 
         uiComboboxAppend(cmAdapterList, adapter->FriendlyName);
+
+        if (!strncmp(adapter->DeviceName, Config::LANDevice, 128))
+            sel = i;
     }
-    // TODO: select the right one!
     uiComboboxSetSelected(cmAdapterList, sel);
     UpdateAdapterInfo();
+
+    uiCheckboxSetChecked(cbDirectLAN, Config::DirectLAN);
 
     uiControlShow(uiControl(win));
 }

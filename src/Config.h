@@ -59,6 +59,8 @@ extern int DirectBoot;
 extern int Threaded3D;
 
 extern int SocketBindAnyAddr;
+extern char LANDevice[128];
+extern int DirectLAN;
 
 extern int SavestateRelocSRAM;
 

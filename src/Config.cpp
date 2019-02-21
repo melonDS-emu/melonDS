@@ -54,6 +54,8 @@ int DirectBoot;
 int Threaded3D;
 
 int SocketBindAnyAddr;
+char LANDevice[128];
+int DirectLAN;
 
 int SavestateRelocSRAM;
 
@@ -125,6 +127,8 @@ ConfigEntry ConfigFile[] =
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
+    {"LANDevice", 1, LANDevice, 0, "", 127},
+    {"DirectLAN", 0, &DirectLAN, 0, NULL, 0},
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
