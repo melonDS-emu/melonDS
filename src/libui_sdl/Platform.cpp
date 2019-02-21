@@ -22,6 +22,7 @@
 #include <SDL2/SDL.h>
 #include "../Platform.h"
 #include "../Config.h"
+#include "LAN.h"
 
 #ifdef __WIN32__
 	#include <winsock2.h>
@@ -260,59 +261,23 @@ int MP_RecvPacket(u8* data, bool block)
 
 bool LAN_Init()
 {
-    // welp
+    if (!LAN::Init()) return false;
     return true;
 }
 
 void LAN_DeInit()
 {
-    //
+    LAN::DeInit();
 }
 
 int LAN_SendPacket(u8* data, int len)
 {
-    /*if (PCapAdapter == NULL)
-        return 0;
-
-    if (len > 2048)
-    {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
-        return 0;
-    }
-
-    pcap_sendpacket(PCapAdapter, data, len);
-    // TODO: check success
-    return len;*/
-    return len;
+    return LAN::SendPacket(data, len);
 }
-
-/*void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
-{
-    while (PCapRXNum > 0);
-
-    if (header->len > 2048-64) return;
-
-    PCapPacketLen = header->len;
-    memcpy(PCapPacketBuffer, data, PCapPacketLen);
-    PCapRXNum = 1;
-}*/
 
 int LAN_RecvPacket(u8* data)
 {
-    /*if (PCapAdapter == NULL)
-        return 0;
-
-    int ret = 0;
-    if (PCapRXNum > 0)
-    {
-        memcpy(data, PCapPacketBuffer, PCapPacketLen);
-        ret = PCapPacketLen;
-        PCapRXNum = 0;
-    }
-
-    pcap_dispatch(PCapAdapter, 1, LAN_RXCallback, NULL);
-    return ret;*/
-    return 0;
+    return LAN::RecvPacket(data);
 }
 
 

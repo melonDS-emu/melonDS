@@ -45,6 +45,9 @@ extern int NumAdapters;
 bool Init();
 void DeInit();
 
+int SendPacket(u8* data, int len);
+int RecvPacket(u8* data);
+
 }
 
 #endif // LAN_H

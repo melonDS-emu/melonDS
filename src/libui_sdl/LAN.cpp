@@ -24,6 +24,7 @@
 #include <SDL2/SDL.h>
 #include <pcap/pcap.h>
 #include "LAN.h"
+#include "../Config.h"
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>
@@ -243,23 +244,28 @@ bool Init()
 
 #endif // __WIN32__
 
-    printf("devices: %d\n", NumAdapters);
+    // open pcap device
+    dev = (pcap_if_t*)Adapters[0].Internal;
     for (int i = 0; i < NumAdapters; i++)
     {
-        AdapterData* zog = &Adapters[i];
+        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice, 128))
+            dev = (pcap_if_t*)Adapters[i].Internal;
+    }
 
-        printf("%s:\n", ((pcap_if_t*)zog->Internal)->name);
+    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
+    if (!PCapAdapter)
+    {
+        printf("PCap: failed to open adapter\n");
+        return false;
+    }
 
-        printf("* %s\n", zog->FriendlyName);
-        printf("* %s\n", zog->Description);
+    pcap_freealldevs(alldevs);
 
-        printf("* "); for (int j = 0; j < 6; j++) printf("%02X:", zog->MAC[j]); printf("\n");
-        printf("* "); for (int j = 0; j < 4; j++) printf("%d.", zog->IP_v4[j]); printf("\n");
-
-        for (int k = 0; k < 8; k++)
-        {
-             printf("* "); for (int j = 0; j < 4; j++) printf("%d.", zog->DNS[k][j]); printf("\n");
-        }
+    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
+    {
+        printf("PCap: failed to set nonblocking mode\n");
+        pcap_close(PCapAdapter); PCapAdapter = NULL;
+        return false;
     }
 
     return true;
@@ -278,6 +284,55 @@ void DeInit()
         SDL_UnloadObject(PCapLib);
         PCapLib = NULL;
     }
+}
+
+void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
+{
+    while (PCapRXNum > 0);
+
+    if (header->len > 2048-64) return;
+
+    PCapPacketLen = header->len;
+    memcpy(PCapPacketBuffer, data, PCapPacketLen);
+    PCapRXNum = 1;
+}
+
+int SendPacket(u8* data, int len)
+{
+    if (PCapAdapter == NULL)
+        return 0;
+
+    if (len > 2048)
+    {
+        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        return 0;
+    }
+
+    if (!Config::DirectLAN)
+    {
+        // TODO!
+    }
+
+    pcap_sendpacket(PCapAdapter, data, len);
+    // TODO: check success
+    return len;
+}
+
+int RecvPacket(u8* data)
+{
+    if (PCapAdapter == NULL)
+        return 0;
+
+    int ret = 0;
+    if (PCapRXNum > 0)
+    {
+        memcpy(data, PCapPacketBuffer, PCapPacketLen);
+        ret = PCapPacketLen;
+        PCapRXNum = 0;
+    }
+
+    pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
+    return ret;
 }
 
 }
