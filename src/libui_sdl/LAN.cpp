@@ -25,6 +25,12 @@
 #include <pcap/pcap.h>
 #include "LAN.h"
 
+#ifdef __WIN32__
+	#include <iphlpapi.h>
+#else
+	// Linux includes go here
+#endif
+
 
 // welp
 #ifndef PCAP_OPENFLAG_PROMISCUOUS
@@ -61,6 +67,9 @@ const char* PCapLibNames[] =
 #endif
     NULL
 };
+
+AdapterData* Adapters = NULL;
+int NumAdapters = 0;
 
 void* PCapLib = NULL;
 pcap_t* PCapAdapter = NULL;
@@ -126,27 +135,128 @@ bool Init()
         printf("PCap: no devices available\n");
         return false;
     }
-/*while (alldevs){
-    printf("picking dev %08X %s | %s\n", alldevs->flags, alldevs->name, alldevs->description);
-    alldevs = alldevs->next;}*/
-    // temp hack
-    // TODO: ADAPTER SELECTOR!!
-    pcap_if_t* dev = alldevs->next;
 
-    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
-    if (!PCapAdapter)
+    pcap_if_t* dev = alldevs;
+    while (dev) { NumAdapters++; dev = dev->next; }
+
+    Adapters = new AdapterData[NumAdapters];
+    memset(Adapters, 0, sizeof(AdapterData)*NumAdapters);
+
+    AdapterData* adata = &Adapters[0];
+    dev = alldevs;
+    while (dev)
     {
-        printf("PCap: failed to open adapter\n");
+        adata->Internal = dev;
+
+        // hax
+        int len = strlen(dev->name);
+        len -= 12; if (len > 127) len = 127;
+        strncpy(adata->DeviceName, &dev->name[12], len);
+        adata->DeviceName[len] = '\0';
+
+        dev = dev->next;
+        adata++;
+    }
+
+#ifdef __WIN32__
+
+    ULONG bufsize = 16384;
+    IP_ADAPTER_ADDRESSES* buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
+    ULONG uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
+    if (uret == ERROR_BUFFER_OVERFLOW)
+    {
+        HeapFree(GetProcessHeap(), 0, buf);
+        buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
+        uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
+    }
+    if (uret != ERROR_SUCCESS)
+    {
+        printf("GetAdaptersAddresses() shat itself: %08X\n", ret);
         return false;
     }
 
-    pcap_freealldevs(alldevs);
-
-    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
+    for (int i = 0; i < NumAdapters; i++)
     {
-        printf("PCap: failed to set nonblocking mode\n");
-        pcap_close(PCapAdapter); PCapAdapter = NULL;
-        return false;
+        adata = &Adapters[i];
+        IP_ADAPTER_ADDRESSES* addr = buf;
+        while (addr)
+        {
+            if (strcmp(addr->AdapterName, adata->DeviceName))
+            {
+                addr = addr->Next;
+                continue;
+            }
+
+            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata->FriendlyName, 127, NULL, NULL);
+            adata->FriendlyName[127] = '\0';
+
+            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata->Description, 127, NULL, NULL);
+            adata->Description[127] = '\0';
+
+            if (addr->PhysicalAddressLength != 6)
+            {
+                printf("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
+            }
+            else
+                memcpy(adata->MAC, addr->PhysicalAddress, 6);
+
+            IP_ADAPTER_UNICAST_ADDRESS* ipaddr = addr->FirstUnicastAddress;
+            while (ipaddr)
+            {
+                SOCKADDR* sa = ipaddr->Address.lpSockaddr;
+                if (sa->sa_family == AF_INET)
+                {
+                    struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
+                    memcpy(adata->IP_v4, &sa4.S_un.S_addr, 4);
+                }
+
+                ipaddr = ipaddr->Next;
+            }
+
+            IP_ADAPTER_DNS_SERVER_ADDRESS* dnsaddr = addr->FirstDnsServerAddress;
+            int ndns = 0;
+            while (dnsaddr)
+            {
+                SOCKADDR* sa = dnsaddr->Address.lpSockaddr;
+                if (sa->sa_family == AF_INET)
+                {
+                    struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
+                    memcpy(adata->DNS[ndns++], &sa4.S_un.S_addr, 4);
+                }
+
+                if (ndns >= 8) break;
+                dnsaddr = dnsaddr->Next;
+            }
+
+            break;
+        }
+    }
+
+    HeapFree(GetProcessHeap(), 0, buf);
+
+#else
+
+    // TODO
+
+#endif // __WIN32__
+
+    printf("devices: %d\n", NumAdapters);
+    for (int i = 0; i < NumAdapters; i++)
+    {
+        AdapterData* zog = &Adapters[i];
+
+        printf("%s:\n", ((pcap_if_t*)zog->Internal)->name);
+
+        printf("* %s\n", zog->FriendlyName);
+        printf("* %s\n", zog->Description);
+
+        printf("* "); for (int j = 0; j < 6; j++) printf("%02X:", zog->MAC[j]); printf("\n");
+        printf("* "); for (int j = 0; j < 4; j++) printf("%d.", zog->IP_v4[j]); printf("\n");
+
+        for (int k = 0; k < 8; k++)
+        {
+             printf("* "); for (int j = 0; j < 4; j++) printf("%d.", zog->DNS[k][j]); printf("\n");
+        }
     }
 
     return true;
