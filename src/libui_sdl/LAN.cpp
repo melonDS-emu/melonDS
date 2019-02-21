@@ -98,6 +98,9 @@ bool TryLoadPCap(void* lib)
 
 bool Init()
 {
+    // TODO: how to deal with cases where an adapter is unplugged or changes config??
+    if (PCapLib) return true;
+
     PCapLib = NULL;
     PCapAdapter = NULL;
     PCapPacketLen = 0;

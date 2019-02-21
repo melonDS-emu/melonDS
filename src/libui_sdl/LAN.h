@@ -38,6 +38,10 @@ typedef struct
 } AdapterData;
 
 
+extern AdapterData* Adapters;
+extern int NumAdapters;
+
+
 bool Init();
 void DeInit();
 

@@ -25,6 +25,7 @@
 #include "../types.h"
 #include "../Config.h"
 
+#include "LAN.h"
 #include "DlgWifiSettings.h"
 
 
@@ -39,11 +40,53 @@ uiWindow* win;
 
 uiCheckbox* cbBindAnyAddr;
 
+uiCombobox* cmAdapterList;
+uiCheckbox* cbDirectLAN;
+
+uiLabel* lbAdapterMAC;
+uiLabel* lbAdapterIP;
+uiLabel* lbAdapterDNS0;
+uiLabel* lbAdapterDNS1;
+
+
+void UpdateAdapterInfo()
+{
+    int sel = uiComboboxSelected(cmAdapterList);
+    if (sel < 0 || sel >= LAN::NumAdapters) return;
+
+    LAN::AdapterData* adapter = &LAN::Adapters[sel];
+    char tmp[64];
+
+    sprintf(tmp, "MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+            adapter->MAC[0], adapter->MAC[1], adapter->MAC[2],
+            adapter->MAC[3], adapter->MAC[4], adapter->MAC[5]);
+    uiLabelSetText(lbAdapterMAC, tmp);
+
+    sprintf(tmp, "IP: %d.%d.%d.%d",
+            adapter->IP_v4[0], adapter->IP_v4[1],
+            adapter->IP_v4[2], adapter->IP_v4[3]);
+    uiLabelSetText(lbAdapterIP, tmp);
+
+    sprintf(tmp, "Primary DNS: %d.%d.%d.%d",
+            adapter->DNS[0][0], adapter->DNS[0][1],
+            adapter->DNS[0][2], adapter->DNS[0][3]);
+    uiLabelSetText(lbAdapterDNS0, tmp);
+
+    sprintf(tmp, "Secondary DNS: %d.%d.%d.%d",
+            adapter->DNS[1][0], adapter->DNS[1][1],
+            adapter->DNS[1][2], adapter->DNS[1][3]);
+    uiLabelSetText(lbAdapterDNS1, tmp);
+}
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     opened = false;
     return 1;
+}
+
+void OnAdapterSelect(uiCombobox* c, void* blarg)
+{
+    UpdateAdapterInfo();
 }
 
 void OnCancel(uiButton* btn, void* blarg)
@@ -72,6 +115,8 @@ void Open()
         return;
     }
 
+    LAN::Init();
+
     opened = true;
     win = uiNewWindow("Wifi settings - melonDS", 400, 100, 0, 0, 0);
     uiWindowSetMargined(win, 1);
@@ -94,6 +139,8 @@ void Open()
     }
 
     {
+        uiLabel* lbl;
+
         uiGroup* grp = uiNewGroup("Online");
         uiBoxAppend(top, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
@@ -101,8 +148,24 @@ void Open()
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiLabel* dorp = uiNewLabel("placeholder");
-        uiBoxAppend(in_ctrl, uiControl(dorp), 0);
+        lbl = uiNewLabel("Network adapter:");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        cmAdapterList = uiNewCombobox();
+        uiComboboxOnSelected(cmAdapterList, OnAdapterSelect, NULL);
+        uiBoxAppend(in_ctrl, uiControl(cmAdapterList), 0);
+
+        lbAdapterMAC = uiNewLabel("MAC");
+        uiBoxAppend(in_ctrl, uiControl(lbAdapterMAC), 0);
+        lbAdapterIP = uiNewLabel("IP");
+        uiBoxAppend(in_ctrl, uiControl(lbAdapterIP), 0);
+        lbAdapterDNS0 = uiNewLabel("DNS0");
+        uiBoxAppend(in_ctrl, uiControl(lbAdapterDNS0), 0);
+        lbAdapterDNS1 = uiNewLabel("DNS1");
+        uiBoxAppend(in_ctrl, uiControl(lbAdapterDNS1), 0);
+
+        cbDirectLAN = uiNewCheckbox("Direct mode (requires ethernet connection)");
+        uiBoxAppend(in_ctrl, uiControl(cbDirectLAN), 0);
     }
 
     {
@@ -123,6 +186,17 @@ void Open()
     }
 
     uiCheckboxSetChecked(cbBindAnyAddr, Config::SocketBindAnyAddr);
+
+    int sel = 0;
+    for (int i = 0; i < LAN::NumAdapters; i++)
+    {
+        LAN::AdapterData* adapter = &LAN::Adapters[i];
+
+        uiComboboxAppend(cmAdapterList, adapter->FriendlyName);
+    }
+    // TODO: select the right one!
+    uiComboboxSetSelected(cmAdapterList, sel);
+    UpdateAdapterInfo();
 
     uiControlShow(uiControl(win));
 }
