@@ -77,7 +77,9 @@ pcap_t* PCapAdapter = NULL;
 
 u8 PCapPacketBuffer[2048];
 int PCapPacketLen;
-int PCapRXNum;
+volatile int PCapRXNum;
+
+u16 IPv4ID;
 
 
 #define LOAD_PCAP_FUNC(sym) \
@@ -106,6 +108,8 @@ bool Init()
     PCapAdapter = NULL;
     PCapPacketLen = 0;
     PCapRXNum = 0;
+
+    IPv4ID = 1;
 
     for (int i = 0; PCapLibNames[i]; i++)
     {
@@ -296,6 +300,179 @@ void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* d
     memcpy(PCapPacketBuffer, data, PCapPacketLen);
     PCapRXNum = 1;
 }
+u32 zarp=0;
+bool HandleDHCPFrame(u8* data, int len)
+{
+    const u32 serverip = 0x0A404001;
+    const u32 clientip = 0x0A404010;
+
+    u8 type = 0xFF;
+
+    u32 transid = *(u32*)&data[0x2E];
+zarp=transid;
+    u8* options = &data[0x11A];
+    for (;;)
+    {
+        if (options >= &data[len]) break;
+        u8 opt = *options++;
+        if (opt == 255) break;
+
+        u8 len = *options++;
+        switch (opt)
+        {
+        case 53: // frame type
+            type = options[0];
+            break;
+        }
+
+        options += len;
+    }
+
+    if (type == 0xFF)
+    {
+        printf("DHCP: bad frame\n");
+        return false;
+    }
+
+    printf("DHCP: frame type %d, transid %08X\n", type, transid);
+
+    if (type == 1) // discover
+    {
+        u8 resp[512];
+        u8* out = &resp[0];
+
+        // ethernet
+        memcpy(out, &data[6], 6); out += 6;
+        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
+        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        *(u16*)out = htons(0x0800); out += 2;
+
+        // IP
+        u8* ipheader = out;
+        *out++ = 0x45;
+        *out++ = 0x00;
+        *(u16*)out = 0; out += 2; // total length
+        *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+        *out++ = 0x00;
+        *out++ = 0x00;
+        *out++ = 0x80; // TTL
+        *out++ = 0x11; // protocol (UDP)
+        *(u16*)out = 0; out += 2; // checksum
+        *(u32*)out = htonl(serverip); out += 4; // source IP
+        *(u32*)out = htonl(0xFFFFFFFF); out += 4; // destination IP
+
+        // UDP
+        u8* udpheader = out;
+        *(u16*)out = htons(67); out += 2; // source port
+        *(u16*)out = htons(68); out += 2; // destination port
+        *(u16*)out = 0; out += 2; // length
+        *(u16*)out = 0; out += 2; // checksum
+
+        // DHCP
+        u8* body = out;
+        *out++ = 0x02;
+        *out++ = 0x01;
+        *out++ = 0x06;
+        *out++ = 0x00;
+        *(u32*)out = transid; out += 4;
+        *(u16*)out = 0; out += 2; // seconds elapsed
+        *(u16*)out = 0; out += 2;
+        *(u32*)out = htonl(0x00000000); out += 4; // client IP
+        *(u32*)out = htonl(clientip); out += 4; // your IP
+        *(u32*)out = htonl(serverip); out += 4; // server IP
+        *(u32*)out = htonl(0x00000000); out += 4; // gateway IP
+        memcpy(out, &data[6], 6); out += 6;
+        memset(out, 0, 10); out += 10;
+        memset(out, 0, 192); out += 192;
+        *(u32*)out = 0x63538263; out += 4; // DHCP magic
+
+        // DHCP options
+        *out++ = 53; *out++ = 1;
+        *out++ = 2; // DHCP type: offer
+        *out++ = 1; *out++ = 4;
+        *(u32*)out = htonl(0xFFFFFF00); out += 4; // subnet mask
+        *out++ = 3; *out++ = 4;
+        *(u32*)out = htonl(serverip); out += 4; // router
+        *out++ = 51; *out++ = 4;
+        *(u32*)out = htonl(442030); out += 4; // lease time
+        *out++ = 54; *out++ = 4;
+        *(u32*)out = htonl(serverip); out += 4; // DHCP server
+        *out++ = 6; *out++ = 4;
+        *(u32*)out = htonl(0x08080808); out += 4; // DNS (TODO!!)
+
+        *out++ = 0xFF;
+        memset(out, 0, 20); out += 20;
+
+        // lengths
+        u32 framelen = (u32)(out - &resp[0]);
+        if (framelen & 1) { *out++ = 0; framelen++; }
+        *(u16*)&ipheader[2] = htons(framelen - 0xE);
+        *(u16*)&udpheader[4] = htons(framelen - (0xE + 0x14));
+
+        // IP checksum
+        u32 tmp = 0;
+
+        for (int i = 0; i < 20; i += 2)
+            tmp += ntohs(*(u16*)&ipheader[i]);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        *(u16*)&ipheader[10] = htons(tmp);
+
+        // UDP checksum
+        // (note: normally not mandatory, but some older sgIP versions require it)
+        tmp = 0;
+        tmp += ntohs(*(u16*)&ipheader[12]);
+        tmp += ntohs(*(u16*)&ipheader[14]);
+        tmp += ntohs(*(u16*)&ipheader[16]);
+        tmp += ntohs(*(u16*)&ipheader[18]);
+        tmp += ntohs(0x1100);
+        tmp += (u32)(out - udpheader);
+        for (u8* i = udpheader; i < out; i += 2)
+            tmp += ntohs(*(u16*)i);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        if (tmp == 0) tmp = 0xFFFF;
+        *(u16*)&udpheader[6] = htons(tmp);
+
+        // TODO: if there is already a packet queued, this will overwrite it
+        // that being said, this will only happen during DHCP setup, so probably
+        // not a big deal
+
+        PCapPacketLen = framelen;
+        memcpy(PCapPacketBuffer, resp, PCapPacketLen);
+        PCapRXNum = 1;
+
+        // DEBUG!!
+        //pcap_sendpacket(PCapAdapter, data, len);
+        //pcap_sendpacket(PCapAdapter, resp, framelen);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool HandlePacket(u8* data, int len)
+{
+    if (ntohs(*(u16*)&data[0xC]) != 0x0800) // IPv4
+        return false;
+
+    u8 protocol = data[0x17];
+    if (protocol == 0x11) // UDP
+    {
+        u16 srcport = ntohs(*(u16*)&data[0x22]);
+        u16 dstport = ntohs(*(u16*)&data[0x24]);
+        if (srcport == 68 && dstport == 67) // DHCP
+        {
+            printf("LANMAGIC: DHCP packet\n");
+            return HandleDHCPFrame(data, len);
+        }
+    }
+
+    return false;
+}
 
 int SendPacket(u8* data, int len)
 {
@@ -310,7 +487,8 @@ int SendPacket(u8* data, int len)
 
     if (!Config::DirectLAN)
     {
-        // TODO!
+        if (HandlePacket(data, len))
+            return len;
     }
 
     pcap_sendpacket(PCapAdapter, data, len);
@@ -331,7 +509,7 @@ int RecvPacket(u8* data)
         PCapRXNum = 0;
     }
 
-    pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
+    //pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
     return ret;
 }
 

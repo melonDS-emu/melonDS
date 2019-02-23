@@ -176,6 +176,13 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // R0=DMA# R1=src R2=size
     //if (addr==0x02019A88) printf("[%08X] [%03d] GX FIFO CMD %08X\n", R[15], NDS::ARM9Read16(0x04000006), R[0]);
     //if (addr==0x02022A5C) printf("[%08X] [%03d|%04X] RENDE SHITO %08X\n", R[15], NDS::ARM9Read16(0x04000006), NDS::ARM9Read16(0x04000304), R[0]);
+    /*if (addr==0x0204BE29) printf("%08X -> recvfrom\n", R[15]);
+    if (R[15]==0x0204BE5E) printf("recvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
+    if (R[15]==0x0205038A) printf("sgrecvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
+    if (addr==0x02050379 || addr==0x0205036D) printf("morp %08X->%08X, %d\n", R[15], addr, R[7]);*/
+    if (R[15]==0x02050542) printf("calc UDP checksum: %04X\n", R[0]);
+    if (addr==0x0204FC2D) printf("calcchk %08X\n", R[15]);
+    if (addr==0x0204B521) printf("zog check %08X\n", R[15]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -447,7 +454,7 @@ void ARMv5::DataAbort()
     R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
     JumpTo(ExceptionBase + 0x10);
 }
-
+namespace LAN{extern u32 zarp;}
 void ARMv5::Execute()
 {
     if (Halted)
@@ -505,6 +512,18 @@ void ARMv5::Execute()
             else
                 AddCycles_C();
         }
+        /*if (R[15]>=0x0204E07C && R[15]<=0x0204E388)
+        {
+            printf("TACHYCARDIE. %08X\n", R[15]-4);
+        }
+        if (LAN::zarp!=0)
+        {
+            for (int i = 0; i < 15; i++)
+            {
+                if (R[i]==LAN::zarp)
+                    printf("!! TRANSID IN R%d AT %08X\n", i, R[15]);
+            }
+        }*/
 
         // TODO optimize this shit!!!
         if (Halted)

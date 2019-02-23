@@ -1532,8 +1532,8 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE*
-    shit = fopen("debug/colourfuck.bin", "wb");
+    FILE*
+    shit = fopen("debug/clirc.bin", "wb");
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
@@ -1544,7 +1544,7 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 
