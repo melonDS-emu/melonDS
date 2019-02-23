@@ -74,6 +74,7 @@ int NumAdapters = 0;
 
 void* PCapLib = NULL;
 pcap_t* PCapAdapter = NULL;
+AdapterData* PCapAdapterData;
 
 u8 PCapPacketBuffer[2048];
 int PCapPacketLen;
@@ -249,13 +250,14 @@ bool Init()
 #endif // __WIN32__
 
     // open pcap device
-    dev = (pcap_if_t*)Adapters[0].Internal;
+    PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {
         if (!strncmp(Adapters[i].DeviceName, Config::LANDevice, 128))
-            dev = (pcap_if_t*)Adapters[i].Internal;
+            PCapAdapterData = &Adapters[i];
     }
 
+    dev = (pcap_if_t*)PCapAdapterData->Internal;
     PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
@@ -336,7 +338,8 @@ zarp=transid;
 
     printf("DHCP: frame type %d, transid %08X\n", type, transid);
 
-    if (type == 1) // discover
+    if (type == 1 || // discover
+        type == 3)   // request
     {
         u8 resp[512];
         u8* out = &resp[0];
@@ -359,7 +362,14 @@ zarp=transid;
         *out++ = 0x11; // protocol (UDP)
         *(u16*)out = 0; out += 2; // checksum
         *(u32*)out = htonl(serverip); out += 4; // source IP
-        *(u32*)out = htonl(0xFFFFFFFF); out += 4; // destination IP
+        if (type == 1)
+        {
+            *(u32*)out = htonl(0xFFFFFFFF); out += 4; // destination IP
+        }
+        else if (type == 3)
+        {
+            *(u32*)out = htonl(clientip); out += 4; // destination IP
+        }
 
         // UDP
         u8* udpheader = out;
@@ -388,7 +398,7 @@ zarp=transid;
 
         // DHCP options
         *out++ = 53; *out++ = 1;
-        *out++ = 2; // DHCP type: offer
+        *out++ = (type==1) ? 2 : 5; // DHCP type: offer/ack
         *out++ = 1; *out++ = 4;
         *(u32*)out = htonl(0xFFFFFF00); out += 4; // subnet mask
         *out++ = 3; *out++ = 4;
@@ -397,8 +407,22 @@ zarp=transid;
         *(u32*)out = htonl(442030); out += 4; // lease time
         *out++ = 54; *out++ = 4;
         *(u32*)out = htonl(serverip); out += 4; // DHCP server
-        *out++ = 6; *out++ = 4;
-        *(u32*)out = htonl(0x08080808); out += 4; // DNS (TODO!!)
+
+        u8 numdns = 0;
+        for (int i = 0; i < 8; i++)
+        {
+            if (*(u32*)&PCapAdapterData->DNS[i][0] != 0)
+                numdns++;
+        }
+        *out++ = 6; *out++ = 4*numdns;
+        for (int i = 0; i < 8; i++)
+        {
+            u32 dnsip = *(u32*)&PCapAdapterData->DNS[i][0];
+            if (dnsip != 0)
+            {
+                *(u32*)out = htonl(dnsip); out += 4;
+            }
+        }
 
         *out++ = 0xFF;
         memset(out, 0, 20); out += 20;
@@ -454,21 +478,86 @@ zarp=transid;
     return false;
 }
 
+bool HandleARPFrame(u8* data, int len)
+{
+    const u32 serverip = 0x0A404001;
+    const u32 clientip = 0x0A404010;
+
+    u16 protocol = ntohs(*(u16*)&data[0x10]);
+    if (protocol != 0x0800) return false;
+
+    u16 op = ntohs(*(u16*)&data[0x14]);
+    u32 targetip = ntohl(*(u32*)&data[0x26]);
+
+    if (op == 1 && targetip == serverip)
+    {
+        // opcode 1=req 2=reply
+        // sender MAC
+        // sender IP
+        // target MAC
+        // target IP
+
+        u8 resp[64];
+        u8* out = &resp[0];
+
+        // ethernet
+        memcpy(out, &data[6], 6); out += 6;
+        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
+        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        *(u16*)out = htons(0x0806); out += 2;
+
+        // ARP
+        *(u16*)out = htons(0x0001); out += 2; // hardware type
+        *(u16*)out = htons(0x0800); out += 2; // protocol
+        *out++ = 6; // MAC address size
+        *out++ = 4; // IP address size
+        *(u16*)out = htons(0x0002); out += 2; // opcode
+        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
+        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        *(u32*)out = htonl(targetip); out += 4;
+        memcpy(out, &data[0x16], 6+4); out += 6+4;
+
+        u32 framelen = (u32)(out - &resp[0]);
+
+        // TODO: if there is already a packet queued, this will overwrite it
+        // that being said, this will only happen during DHCP setup, so probably
+        // not a big deal
+
+        PCapPacketLen = framelen;
+        memcpy(PCapPacketBuffer, resp, PCapPacketLen);
+        PCapRXNum = 1;
+
+        // also broadcast them to the network
+        pcap_sendpacket(PCapAdapter, data, len);
+        pcap_sendpacket(PCapAdapter, resp, framelen);
+
+        return true;
+    }
+
+    return false;
+}
+
 bool HandlePacket(u8* data, int len)
 {
-    if (ntohs(*(u16*)&data[0xC]) != 0x0800) // IPv4
-        return false;
+    u16 ethertype = ntohs(*(u16*)&data[0xC]);
 
-    u8 protocol = data[0x17];
-    if (protocol == 0x11) // UDP
+    if (ethertype == 0x0800) // IPv4
     {
-        u16 srcport = ntohs(*(u16*)&data[0x22]);
-        u16 dstport = ntohs(*(u16*)&data[0x24]);
-        if (srcport == 68 && dstport == 67) // DHCP
+        u8 protocol = data[0x17];
+        if (protocol == 0x11) // UDP
         {
-            printf("LANMAGIC: DHCP packet\n");
-            return HandleDHCPFrame(data, len);
+            u16 srcport = ntohs(*(u16*)&data[0x22]);
+            u16 dstport = ntohs(*(u16*)&data[0x24]);
+            if (srcport == 68 && dstport == 67) // DHCP
+            {
+                printf("LANMAGIC: DHCP packet\n");
+                return HandleDHCPFrame(data, len);
+            }
         }
+    }
+    else if (ethertype == 0x0806) // ARP
+    {
+        return HandleARPFrame(data, len);
     }
 
     return false;
