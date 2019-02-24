@@ -85,6 +85,20 @@ volatile int PCapRXNum;
 u16 IPv4ID;
 
 
+typedef struct
+{
+    u8 DestIP[4];
+    u16 DestPort;
+
+    // 0: unused
+    // 1: connected
+    u8 Status;
+
+} TCPSocket;
+
+TCPSocket TCPSocketList[64];
+
+
 #define LOAD_PCAP_FUNC(sym) \
     ptr_##sym = (type_##sym)SDL_LoadFunction(lib, #sym); \
     if (!ptr_##sym) return false;
@@ -114,6 +128,8 @@ bool Init()
     PCapRXNum = 0;
 
     IPv4ID = 1;
+
+    memset(TCPSocketList, 0, sizeof(TCPSocketList));
 
     for (int i = 0; PCapLibNames[i]; i++)
     {
@@ -371,13 +387,13 @@ void DeInit()
     }
 }
 
-void HandleIncomingIPFrame(u8* data, int len)
+bool HandleIncomingIPFrame(u8* data, int len)
 {
     const u32 serverip = 0x0A404001;
     const u32 clientip = 0x0A404010;
 
     if (memcmp(&data[0x1E], PCapAdapterData->IP_v4, 4))
-        return;
+        return false;
 
     u8 protocol = data[0x17];
 
@@ -428,6 +444,27 @@ void HandleIncomingIPFrame(u8* data, int len)
     {
         u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
 
+        u16 srcport = ntohs(*(u16*)&protoheader[0]);
+        u16 dstport = ntohs(*(u16*)&protoheader[2]);
+        u16 flags = ntohs(*(u16*)&protoheader[12]);
+
+        // TODO: check if they send a FIN, I guess
+        int sockid = -1;
+        for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+        {
+            TCPSocket* sock = &TCPSocketList[i];
+            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[12], 4) && sock->DestPort == srcport)
+            {
+                sockid = i;
+                break;
+            }
+        }
+
+        if (sockid == -1)
+        {
+            return true;
+        }
+
         // TCP checksum
         tmp = 0;
         *(u16*)&protoheader[16] = 0;
@@ -445,6 +482,8 @@ void HandleIncomingIPFrame(u8* data, int len)
         tmp ^= 0xFFFF;
         *(u16*)&protoheader[16] = htons(tmp);
     }
+
+    return false;
 }
 
 void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
@@ -463,7 +502,8 @@ void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* d
 
         if (ethertype == 0x0800) // IPv4
         {
-            HandleIncomingIPFrame(PCapPacketBuffer, header->len);
+            if (HandleIncomingIPFrame(PCapPacketBuffer, header->len))
+                PCapRXNum = 0;
         }
     }
 }
@@ -704,6 +744,83 @@ bool HandleIPFrame(u8* data, int len)
     else if (protocol == 0x06)
     {
         u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+
+        u16 srcport = ntohs(*(u16*)&protoheader[0]);
+        u16 dstport = ntohs(*(u16*)&protoheader[2]);
+        u16 flags = ntohs(*(u16*)&protoheader[12]);
+
+        if (flags & 0x002) // SYN
+        {
+            int sockid = -1;
+            for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+            {
+                TCPSocket* sock = &TCPSocketList[i];
+                if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) && sock->DestPort == dstport)
+                {
+                    printf("LANMAGIC: duplicate TCP socket\n");
+                    sockid = i;
+                    break;
+                }
+            }
+
+            if (sockid == -1)
+            {
+                for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+                {
+                    TCPSocket* sock = &TCPSocketList[i];
+                    if (sock->Status == 0)
+                    {
+                        sockid = i;
+                        break;
+                    }
+                }
+            }
+
+            if (sockid == -1)
+            {
+                printf("LANMAGIC: !! TCP SOCKET LIST FULL\n");
+                return true;
+            }
+
+            printf("LANMAGIC: opening TCP socket #%d to %d.%d.%d.%d:%d\n",
+                   sockid,
+                   ipheader[16], ipheader[17], ipheader[18], ipheader[19],
+                   dstport);
+
+            // keep track of it
+            // (TODO: also keep track of source port?)
+
+            TCPSocket* sock = &TCPSocketList[sockid];
+            sock->Status = 1;
+            memcpy(sock->DestIP, &ipheader[16], 4);
+            sock->DestPort = dstport;
+        }
+        else
+        {
+            int sockid = -1;
+            for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+            {
+                TCPSocket* sock = &TCPSocketList[i];
+                if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) && sock->DestPort == dstport)
+                {
+                    sockid = i;
+                    break;
+                }
+            }
+
+            if (sockid == -1)
+            {
+                printf("LANMAGIC: bad TCP packet\n");
+                return true;
+            }
+
+            if (flags & 0x001) // FIN
+            {
+                // TODO: cleverer termination?
+                // also timeout etc
+                TCPSocketList[sockid].Status = 0;
+            }
+        }
 
         // TCP checksum
         tmp = 0;
