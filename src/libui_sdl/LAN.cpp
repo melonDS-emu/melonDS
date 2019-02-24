@@ -23,6 +23,7 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <pcap/pcap.h>
+#include "Wifi.h"
 #include "LAN.h"
 #include "../Config.h"
 
@@ -51,6 +52,7 @@ DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
 DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
 DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
 DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
+DECL_PCAP_FUNC(const u_char*, pcap_next, (pcap_t* dev, struct pcap_pkthdr* hdr), (dev,hdr))
 
 
 namespace LAN
@@ -96,6 +98,7 @@ bool TryLoadPCap(void* lib)
     LOAD_PCAP_FUNC(pcap_setnonblock)
     LOAD_PCAP_FUNC(pcap_sendpacket)
     LOAD_PCAP_FUNC(pcap_dispatch)
+    LOAD_PCAP_FUNC(pcap_next)
 
     return true;
 }
@@ -237,6 +240,15 @@ bool Init()
                 dnsaddr = dnsaddr->Next;
             }
 
+            if (addr->Dhcpv4Enabled && addr->Dhcpv4Server.lpSockaddr)
+            {
+                SOCKADDR* sa = addr->Dhcpv4Server.lpSockaddr;
+                struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
+                memcpy(adata->DHCP_IP_v4, &sa4.S_un.S_addr, 4);
+            }
+            else
+                memset(adata->DHCP_IP_v4, 0, 4);
+
             break;
         }
     }
@@ -267,6 +279,73 @@ bool Init()
 
     pcap_freealldevs(alldevs);
 
+    for (int ntries = 0; ntries < 4; ntries++)
+    {
+        bool good = false;
+
+        // get router MAC
+        printf("DHCP: %d.%d.%d.%d\n",
+               PCapAdapterData->DHCP_IP_v4[0], PCapAdapterData->DHCP_IP_v4[1],
+               PCapAdapterData->DHCP_IP_v4[2], PCapAdapterData->DHCP_IP_v4[3]);
+
+        u8 arp[64];
+        u8* out = &arp[0];
+
+        *out++ = 0xFF; *out++ = 0xFF; *out++ = 0xFF;
+        *out++ = 0xFF; *out++ = 0xFF; *out++ = 0xFF;
+        memcpy(out, PCapAdapterData->MAC, 6); out += 6;
+        *(u16*)out = htons(0x0806); out += 2;
+
+        *(u16*)out = htons(0x0001); out += 2;
+        *(u16*)out = htons(0x0800); out += 2;
+        *out++ = 6;
+        *out++ = 4;
+
+        *(u16*)out = htons(0x0001); out += 2;
+        memcpy(out, PCapAdapterData->MAC, 6); out += 6;
+        memcpy(out, PCapAdapterData->IP_v4, 4); out += 4;
+        *out++ = 0; *out++ = 0; *out++ = 0;
+        *out++ = 0; *out++ = 0; *out++ = 0;
+        memcpy(out, PCapAdapterData->DHCP_IP_v4, 4); out += 4;
+
+        u32 len = (u32)(out - &arp[0]);
+        pcap_sendpacket(PCapAdapter, arp, len);
+
+        for (int t = 0; t < 16; t++)
+        {
+            struct pcap_pkthdr hdr;
+            const u8* rep = pcap_next(PCapAdapter, &hdr);
+            if (!rep) continue;
+            if (hdr.len < 0x2A) continue;
+
+            if (memcmp(&rep[0], PCapAdapterData->MAC, 6))
+                continue;
+            if (ntohs(*(u16*)&rep[12]) != 0x0806)
+                continue;
+            if (ntohs(*(u16*)&rep[14]) != 0x0001)
+                continue;
+            if (ntohs(*(u16*)&rep[16]) != 0x0800)
+                continue;
+            if (ntohs(*(u16*)&rep[18]) != 0x0604)
+                continue;
+            if (ntohs(*(u16*)&rep[20]) != 0x0002)
+                continue;
+            if (memcmp(&rep[28], PCapAdapterData->DHCP_IP_v4, 4))
+                continue;
+
+            printf("DHCP MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                   rep[22], rep[23], rep[24],
+                   rep[25], rep[26], rep[27]);
+
+            memcpy(PCapAdapterData->DHCP_MAC, &rep[22], 6);
+
+            good = true;
+            break;
+        }
+
+        if (good) break;
+    }
+
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {
         printf("PCap: failed to set nonblocking mode\n");
@@ -292,6 +371,82 @@ void DeInit()
     }
 }
 
+void HandleIncomingIPFrame(u8* data, int len)
+{
+    const u32 serverip = 0x0A404001;
+    const u32 clientip = 0x0A404010;
+
+    if (memcmp(&data[0x1E], PCapAdapterData->IP_v4, 4))
+        return;
+
+    u8 protocol = data[0x17];
+
+    //memcpy(&data[6], &PCapAdapterData->DHCP_MAC[0], 6);
+    memcpy(&data[0], Wifi::GetMAC(), 6);
+    data[6] = 0x00; data[7] = 0xAB; data[8] = 0x33;
+    data[9] = 0x28; data[10] = 0x99; data[11] = 0x44;
+
+    *(u32*)&data[0x1E] = htonl(clientip);
+
+    u8* ipheader = &data[0xE];
+    u8* protoheader = &data[0x22];
+
+    // IP checksum
+    u32 tmp = 0;
+
+    *(u16*)&ipheader[10] = 0;
+    for (int i = 0; i < 20; i += 2)
+        tmp += ntohs(*(u16*)&ipheader[i]);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&ipheader[10] = htons(tmp);
+
+    if (protocol == 0x11)
+    {
+        u32 udplen = ntohs(*(u16*)&protoheader[4]);
+
+        // UDP checksum
+        tmp = 0;
+        *(u16*)&protoheader[6] = 0;
+        tmp += ntohs(*(u16*)&ipheader[12]);
+        tmp += ntohs(*(u16*)&ipheader[14]);
+        tmp += ntohs(*(u16*)&ipheader[16]);
+        tmp += ntohs(*(u16*)&ipheader[18]);
+        tmp += ntohs(0x1100);
+        tmp += udplen;
+        for (u8* i = protoheader; i < &protoheader[udplen-1]; i += 2)
+            tmp += ntohs(*(u16*)i);
+        if (udplen & 1) tmp += (protoheader[udplen-1] << 8);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        if (tmp == 0) tmp = 0xFFFF;
+        *(u16*)&protoheader[6] = htons(tmp);
+    }
+    else if (protocol == 0x06)
+    {
+        u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+
+        // TCP checksum
+        tmp = 0;
+        *(u16*)&protoheader[16] = 0;
+        tmp += ntohs(*(u16*)&ipheader[12]);
+        tmp += ntohs(*(u16*)&ipheader[14]);
+        tmp += ntohs(*(u16*)&ipheader[16]);
+        tmp += ntohs(*(u16*)&ipheader[18]);
+        tmp += ntohs(0x0600);
+        tmp += tcplen;
+        for (u8* i = protoheader; i < &protoheader[tcplen-1]; i += 2)
+            tmp += ntohs(*(u16*)i);
+        if (tcplen & 1) tmp += (protoheader[tcplen-1] << 8);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        *(u16*)&protoheader[16] = htons(tmp);
+    }
+}
+
 void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
 {
     while (PCapRXNum > 0);
@@ -301,6 +456,16 @@ void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* d
     PCapPacketLen = header->len;
     memcpy(PCapPacketBuffer, data, PCapPacketLen);
     PCapRXNum = 1;
+
+    if (!Config::DirectLAN)
+    {
+        u16 ethertype = ntohs(*(u16*)&data[0xC]);
+
+        if (ethertype == 0x0800) // IPv4
+        {
+            HandleIncomingIPFrame(PCapPacketBuffer, header->len);
+        }
+    }
 }
 u32 zarp=0;
 bool HandleDHCPFrame(u8* data, int len)
@@ -420,7 +585,7 @@ zarp=transid;
             u32 dnsip = *(u32*)&PCapAdapterData->DNS[i][0];
             if (dnsip != 0)
             {
-                *(u32*)out = htonl(dnsip); out += 4;
+                *(u32*)out = dnsip; out += 4;
             }
         }
 
@@ -478,6 +643,89 @@ zarp=transid;
     return false;
 }
 
+bool HandleIPFrame(u8* data, int len)
+{
+    const u32 serverip = 0x0A404001;
+    const u32 clientip = 0x0A404010;
+
+    // debug
+    //pcap_sendpacket(PCapAdapter, data, len);
+
+    u8 protocol = data[0x17];
+
+    // any kind of IPv4 frame that isn't DHCP
+    // we do NAT and forward it to the network
+
+    // like:
+    // melonRouter -> host
+    // destination MAC set to host MAC
+    // source MAC set to melonRouter MAC
+
+    memcpy(&data[0], &PCapAdapterData->DHCP_MAC[0], 6);
+    memcpy(&data[6], &PCapAdapterData->MAC[0], 6);
+
+    *(u32*)&data[0x1A] = *(u32*)&PCapAdapterData->IP_v4[0];
+
+    u8* ipheader = &data[0xE];
+    u8* protoheader = &data[0x22];
+
+    // IP checksum
+    u32 tmp = 0;
+
+    *(u16*)&ipheader[10] = 0;
+    for (int i = 0; i < 20; i += 2)
+        tmp += ntohs(*(u16*)&ipheader[i]);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&ipheader[10] = htons(tmp);
+
+    if (protocol == 0x11)
+    {
+        u32 udplen = ntohs(*(u16*)&protoheader[4]);
+
+        // UDP checksum
+        tmp = 0;
+        *(u16*)&protoheader[6] = 0;
+        tmp += ntohs(*(u16*)&ipheader[12]);
+        tmp += ntohs(*(u16*)&ipheader[14]);
+        tmp += ntohs(*(u16*)&ipheader[16]);
+        tmp += ntohs(*(u16*)&ipheader[18]);
+        tmp += ntohs(0x1100);
+        tmp += udplen;
+        for (u8* i = protoheader; i < &protoheader[udplen]; i += 2)
+            tmp += ntohs(*(u16*)i);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        if (tmp == 0) tmp = 0xFFFF;
+        *(u16*)&protoheader[6] = htons(tmp);
+    }
+    else if (protocol == 0x06)
+    {
+        u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+
+        // TCP checksum
+        tmp = 0;
+        *(u16*)&protoheader[16] = 0;
+        tmp += ntohs(*(u16*)&ipheader[12]);
+        tmp += ntohs(*(u16*)&ipheader[14]);
+        tmp += ntohs(*(u16*)&ipheader[16]);
+        tmp += ntohs(*(u16*)&ipheader[18]);
+        tmp += ntohs(0x0600);
+        tmp += tcplen;
+        for (u8* i = protoheader; i < &protoheader[tcplen]; i += 2)
+            tmp += ntohs(*(u16*)i);
+        while (tmp >> 16)
+            tmp = (tmp & 0xFFFF) + (tmp >> 16);
+        tmp ^= 0xFFFF;
+        if (tmp == 0) tmp = 0xFFFF;
+        *(u16*)&protoheader[16] = htons(tmp);
+    }
+
+    return false;
+}
+
 bool HandleARPFrame(u8* data, int len)
 {
     const u32 serverip = 0x0A404001;
@@ -488,6 +736,9 @@ bool HandleARPFrame(u8* data, int len)
 
     u16 op = ntohs(*(u16*)&data[0x14]);
     u32 targetip = ntohl(*(u32*)&data[0x26]);
+
+    // TODO: handle ARP to the client
+    // this only handles ARP to the DHCP/router
 
     if (op == 1 && targetip == serverip)
     {
@@ -554,9 +805,13 @@ bool HandlePacket(u8* data, int len)
                 return HandleDHCPFrame(data, len);
             }
         }
+
+        printf("LANMAGIC: IP frame, doing NAT\n");
+        return HandleIPFrame(data, len);
     }
     else if (ethertype == 0x0806) // ARP
     {
+        printf("LANMAGIC: ARP\n");
         return HandleARPFrame(data, len);
     }
 
@@ -598,7 +853,7 @@ int RecvPacket(u8* data)
         PCapRXNum = 0;
     }
 
-    //pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
+    pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
     return ret;
 }
 

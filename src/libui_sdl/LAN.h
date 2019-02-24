@@ -29,9 +29,14 @@ typedef struct
     char DeviceName[128];
     char FriendlyName[128];
     char Description[128];
+
     u8 MAC[6];
     u8 IP_v4[4];
+
     u8 DNS[8][4];
+
+    u8 DHCP_MAC[6];
+    u8 DHCP_IP_v4[4];
 
     void* Internal;
 
