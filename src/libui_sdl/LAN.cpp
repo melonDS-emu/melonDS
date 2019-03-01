@@ -173,18 +173,21 @@ bool Init()
 
     AdapterData* adata = &Adapters[0];
     dev = alldevs;
-    while (dev)
+    while (dev != NULL)
     {
         adata->Internal = dev;
-
-        // hax
-        int len = strlen(dev->name);
-        len -= 12; if (len > 127) len = 127;
-        strncpy(adata->DeviceName, &dev->name[12], len);
-        adata->DeviceName[len] = '\0';
-
+        if (dev->name != NULL) { //crude, but it *mostly* works...
+            int len = strlen(dev->name);
+            //len -= 12; //wha?
+            if (len > 127) len = 127;
+            printf("Found Device %s\n", dev->name);
+            strncpy(adata->DeviceName, dev->name, len);
+            adata->DeviceName[len] = '\0';
+            adata++;
+        } else {
+            printf("WARNING: Unexpected null device name");
+        }
         dev = dev->next;
-        adata++;
     }
 
 #ifdef __WIN32__
