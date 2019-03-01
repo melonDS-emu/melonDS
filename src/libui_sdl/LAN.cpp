@@ -176,16 +176,16 @@ bool Init()
     while (dev != NULL)
     {
         adata->Internal = dev;
-        if (dev->name != NULL) { //crude, but it *mostly* works...
+        if (dev->name != NULL) { //crude, but it works...
             int len = strlen(dev->name);
             //len -= 12; //wha?
             if (len > 127) len = 127;
-            printf("Found Device %s\n", dev->name);
+            printf("PCap: Found Device %s\n", dev->name);
             strncpy(adata->DeviceName, dev->name, len);
             adata->DeviceName[len] = '\0';
             adata++;
         } else {
-            printf("WARNING: Unexpected null device name");
+            printf("PCap: ERROR: Unexpected null device name, expect a crash");
         }
         dev = dev->next;
     }
@@ -277,7 +277,33 @@ bool Init()
 
 #else
 
-    // TODO
+/*   //WIP: Get MAC and IP address on *nix
+    struct ifaddrs *ifaddr, *ifa;
+
+    if (getifaddrs(&ifaddr) == -1) {
+        printf("LAN: WARNING: Failed to get interface names
+    }
+
+    for (int i = 0; i < NumAdapters; i++)
+    {
+        adata = &Adapters[i];
+        for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++)
+        {
+            if (ifa->ifa_addr == NULL)
+                continue;
+            if (ifa->ifa_addr->sa_family != AF_PACKET)
+                continue;
+            if (strncmp(ifa->ifa_name, adata->DeviceName, 16))
+            {
+
+                
+
+            }
+        }
+    }
+
+    freeifaddrs(ifaddr);
+*/
 
 #endif // __WIN32__
 
@@ -298,6 +324,11 @@ bool Init()
     }
 
     pcap_freealldevs(alldevs);
+
+//this currently doesn't work on linux, it just hangs.
+//A better solution would be to encapsulate frames
+//in a custom protocol and use bog standard sockets.
+#ifdef __WIN32__
 
     for (int ntries = 0; ntries < 4; ntries++)
     {
@@ -365,6 +396,8 @@ bool Init()
 
         if (good) break;
     }
+
+#endif //__WIN32__
 
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {

@@ -204,9 +204,11 @@ void Open()
     int sel = 0;
     for (int i = 0; i < LAN::NumAdapters; i++)
     {
-        LAN::AdapterData* adapter = &LAN::Adapters[i];
-
-        uiComboboxAppend(cmAdapterList, adapter->FriendlyName);
+        LAN::AdapterData* adapter = &(LAN::Adapters[i]);
+        if (adapter->FriendlyName[0]) //are we on a system with friendly interface names?
+            uiComboboxAppend(cmAdapterList, adapter->FriendlyName);
+        else
+            uiComboboxAppend(cmAdapterList, adapter->DeviceName);
 
         if (!strncmp(adapter->DeviceName, Config::LANDevice, 128))
             sel = i;
