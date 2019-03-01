@@ -23,7 +23,8 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include <pcap/pcap.h>
-#include "Wifi.h"
+#include <arpa/inet.h>
+#include "../Wifi.h"
 #include "LAN.h"
 #include "../Config.h"
 
