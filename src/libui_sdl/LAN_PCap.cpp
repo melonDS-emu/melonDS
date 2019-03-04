@@ -111,6 +111,8 @@ bool Init()
     PacketLen = 0;
     RXNum = 0;
 
+    NumAdapters = 0;
+
     for (int i = 0; PCapLibNames[i]; i++)
     {
         void* lib = SDL_LoadObject(PCapLibNames[i]);
