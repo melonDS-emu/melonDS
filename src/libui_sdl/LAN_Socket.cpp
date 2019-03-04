@@ -49,6 +49,14 @@
 namespace LAN_Socket
 {
 
+const u32 kSubnet   = 0x0A400000;
+const u32 kServerIP = kSubnet | 0x01;
+const u32 kDNSIP    = kSubnet | 0x02;
+const u32 kClientIP = kSubnet | 0x10;
+
+const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
+const u8 kDNSMAC[6]    = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x55};
+
 u8 PacketBuffer[2048];
 int PacketLen;
 volatile int RXNum;
@@ -219,9 +227,6 @@ void DeInit()
 
 bool HandleDHCPFrame(u8* data, int len)
 {
-    const u32 serverip = 0x0A404001;
-    const u32 clientip = 0x0A404010;
-
     u8 type = 0xFF;
 
     u32 transid = *(u32*)&data[0x2E];
@@ -260,8 +265,7 @@ bool HandleDHCPFrame(u8* data, int len)
 
         // ethernet
         memcpy(out, &data[6], 6); out += 6;
-        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
-        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        memcpy(out, kServerMAC, 6); out += 6;
         *(u16*)out = htons(0x0800); out += 2;
 
         // IP
@@ -275,14 +279,14 @@ bool HandleDHCPFrame(u8* data, int len)
         *out++ = 0x80; // TTL
         *out++ = 0x11; // protocol (UDP)
         *(u16*)out = 0; out += 2; // checksum
-        *(u32*)out = htonl(serverip); out += 4; // source IP
+        *(u32*)out = htonl(kServerIP); out += 4; // source IP
         if (type == 1)
         {
             *(u32*)out = htonl(0xFFFFFFFF); out += 4; // destination IP
         }
         else if (type == 3)
         {
-            *(u32*)out = htonl(clientip); out += 4; // destination IP
+            *(u32*)out = htonl(kClientIP); out += 4; // destination IP
         }
 
         // UDP
@@ -302,8 +306,8 @@ bool HandleDHCPFrame(u8* data, int len)
         *(u16*)out = 0; out += 2; // seconds elapsed
         *(u16*)out = 0; out += 2;
         *(u32*)out = htonl(0x00000000); out += 4; // client IP
-        *(u32*)out = htonl(clientip); out += 4; // your IP
-        *(u32*)out = htonl(serverip); out += 4; // server IP
+        *(u32*)out = htonl(kClientIP); out += 4; // your IP
+        *(u32*)out = htonl(kServerIP); out += 4; // server IP
         *(u32*)out = htonl(0x00000000); out += 4; // gateway IP
         memcpy(out, &data[6], 6); out += 6;
         memset(out, 0, 10); out += 10;
@@ -316,29 +320,13 @@ bool HandleDHCPFrame(u8* data, int len)
         *out++ = 1; *out++ = 4;
         *(u32*)out = htonl(0xFFFFFF00); out += 4; // subnet mask
         *out++ = 3; *out++ = 4;
-        *(u32*)out = htonl(serverip); out += 4; // router
+        *(u32*)out = htonl(kServerIP); out += 4; // router
         *out++ = 51; *out++ = 4;
         *(u32*)out = htonl(442030); out += 4; // lease time
         *out++ = 54; *out++ = 4;
-        *(u32*)out = htonl(serverip); out += 4; // DHCP server
-
-        /*u8 numdns = 0;
-        for (int i = 0; i < 8; i++)
-        {
-            if (*(u32*)&PCapAdapterData->DNS[i][0] != 0)
-                numdns++;
-        }
-        *out++ = 6; *out++ = 4*numdns;
-        for (int i = 0; i < 8; i++)
-        {
-            u32 dnsip = *(u32*)&PCapAdapterData->DNS[i][0];
-            if (dnsip != 0)
-            {
-                *(u32*)out = dnsip; out += 4;
-            }
-        }*/
+        *(u32*)out = htonl(kServerIP); out += 4; // DHCP server
         *out++ = 6; *out++ = 4;
-        *(u32*)out = htonl(0x08080808); out += 4; // DNS (hax)
+        *(u32*)out = htonl(kDNSIP); out += 4; // DNS (hax)
 
         *out++ = 0xFF;
         memset(out, 0, 20); out += 20;
@@ -392,9 +380,6 @@ bool HandleDHCPFrame(u8* data, int len)
 
 bool HandleIPFrame(u8* data, int len)
 {
-    const u32 serverip = 0x0A404001;
-    const u32 clientip = 0x0A404010;
-
     u8 protocol = data[0x17];
 
     // any kind of IPv4 frame that isn't DHCP
@@ -549,9 +534,6 @@ bool HandleIPFrame(u8* data, int len)
 
 bool HandleARPFrame(u8* data, int len)
 {
-    const u32 serverip = 0x0A404001;
-    const u32 clientip = 0x0A404010;
-
     u16 protocol = ntohs(*(u16*)&data[0x10]);
     if (protocol != 0x0800) return false;
 
@@ -561,7 +543,7 @@ bool HandleARPFrame(u8* data, int len)
     // TODO: handle ARP to the client
     // this only handles ARP to the DHCP/router
 
-    if (op == 1 && targetip == serverip)
+    if (op == 1)
     {
         // opcode 1=req 2=reply
         // sender MAC
@@ -569,13 +551,17 @@ bool HandleARPFrame(u8* data, int len)
         // target MAC
         // target IP
 
+        const u8* targetmac;
+        if (targetip == kServerIP)   targetmac = kServerMAC;
+        else if (targetip == kDNSIP) targetmac = kDNSMAC;
+        else return false;
+
         u8 resp[64];
         u8* out = &resp[0];
 
         // ethernet
         memcpy(out, &data[6], 6); out += 6;
-        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
-        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        memcpy(out, kServerMAC, 6); out += 6;
         *(u16*)out = htons(0x0806); out += 2;
 
         // ARP
@@ -584,8 +570,7 @@ bool HandleARPFrame(u8* data, int len)
         *out++ = 6; // MAC address size
         *out++ = 4; // IP address size
         *(u16*)out = htons(0x0002); out += 2; // opcode
-        *out++ = 0x00; *out++ = 0xAB; *out++ = 0x33;
-        *out++ = 0x28; *out++ = 0x99; *out++ = 0x44;
+        memcpy(out, targetmac, 6); out += 6;
         *(u32*)out = htonl(targetip); out += 4;
         memcpy(out, &data[0x16], 6+4); out += 6+4;
 

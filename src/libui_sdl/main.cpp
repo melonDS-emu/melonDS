@@ -1667,7 +1667,7 @@ void ApplyNewSettings(int type)
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    if (type == 0) // general emu settings)
+    if (type == 0) // general emu settings
     {
         GPU3D::SoftRenderer::SetupRenderThread();
     }
@@ -1678,6 +1678,8 @@ void ApplyNewSettings(int type)
             Platform::MP_DeInit();
             Platform::MP_Init();
         }
+
+        // TODO: cycle LAN shito
     }
 
     EmuRunning = prevstatus;
