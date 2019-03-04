@@ -25,6 +25,26 @@
 #include "LAN_Socket.h"
 #include "../Config.h"
 
+#ifdef __WIN32__
+	#include <winsock2.h>
+	#include <ws2tcpip.h>
+	#define socket_t    SOCKET
+	#define sockaddr_t  SOCKADDR
+#else
+	#include <unistd.h>
+	#include <arpa/inet.h>
+	#include <netinet/in.h>
+	#include <sys/select.h>
+	#include <sys/socket.h>
+	#define socket_t    int
+	#define sockaddr_t  struct sockaddr
+	#define closesocket close
+#endif
+
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET  (socket_t)-1
+#endif
+
 
 namespace LAN_Socket
 {
