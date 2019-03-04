@@ -16,7 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// LAN interface. Currently powered by libpcap, may change.
+// direct LAN interface. Currently powered by libpcap, may change.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +24,7 @@
 #include <SDL2/SDL.h>
 #include <pcap/pcap.h>
 #include "Wifi.h"
-#include "LAN.h"
+#include "LAN_PCap.h"
 #include "../Config.h"
 
 #ifdef __WIN32__
@@ -55,7 +55,7 @@ DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback,
 DECL_PCAP_FUNC(const u_char*, pcap_next, (pcap_t* dev, struct pcap_pkthdr* hdr), (dev,hdr))
 
 
-namespace LAN
+namespace LAN_PCap
 {
 
 const char* PCapLibNames[] =
