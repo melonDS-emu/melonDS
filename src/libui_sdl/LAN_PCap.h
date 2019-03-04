@@ -16,12 +16,12 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_H
-#define LAN_H
+#ifndef LAN_PCAP_H
+#define LAN_PCAP_H
 
 #include "../types.h"
 
-namespace LAN
+namespace LAN_PCap
 {
 
 typedef struct
@@ -55,4 +55,4 @@ int RecvPacket(u8* data);
 
 }
 
-#endif // LAN_H
+#endif // LAN_PCAP_H

@@ -158,8 +158,10 @@
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.cpp" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.h" />
-		<Unit filename="src/libui_sdl/LAN.cpp" />
-		<Unit filename="src/libui_sdl/LAN.h" />
+		<Unit filename="src/libui_sdl/LAN_PCap.cpp" />
+		<Unit filename="src/libui_sdl/LAN_PCap.h" />
+		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
+		<Unit filename="src/libui_sdl/LAN_Socket.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
