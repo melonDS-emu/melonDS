@@ -21,16 +21,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL.h>
 #include "Wifi.h"
 #include "LAN_Socket.h"
 #include "../Config.h"
-
-#ifdef __WIN32__
-	#include <iphlpapi.h>
-#else
-	// Linux includes go here
-#endif
 
 
 namespace LAN_Socket
@@ -65,271 +58,22 @@ TCPSocket TCPSocketList[16];
 bool Init()
 {
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
-    if (PCapLib) return true;
+    //if (PCapLib) return true;
 
-    PCapLib = NULL;
-    PCapAdapter = NULL;
-    PCapPacketLen = 0;
-    PCapRXNum = 0;
+    //Lib = NULL;
+    PacketLen = 0;
+    RXNum = 0;
 
     IPv4ID = 1;
 
     memset(TCPSocketList, 0, sizeof(TCPSocketList));
-
-    for (int i = 0; PCapLibNames[i]; i++)
-    {
-        void* lib = SDL_LoadObject(PCapLibNames[i]);
-        if (!lib) continue;
-
-        if (!TryLoadPCap(lib))
-        {
-            SDL_UnloadObject(lib);
-            continue;
-        }
-
-        printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
-        PCapLib = lib;
-        break;
-    }
-
-    if (PCapLib == NULL)
-    {
-        printf("PCap: init failed\n");
-        return false;
-    }
-
-    char errbuf[PCAP_ERRBUF_SIZE];
-    int ret;
-
-    pcap_if_t* alldevs;
-    ret = pcap_findalldevs(&alldevs, errbuf);
-    if (ret < 0 || alldevs == NULL)
-    {
-        printf("PCap: no devices available\n");
-        return false;
-    }
-
-    pcap_if_t* dev = alldevs;
-    while (dev) { NumAdapters++; dev = dev->next; }
-
-    Adapters = new AdapterData[NumAdapters];
-    memset(Adapters, 0, sizeof(AdapterData)*NumAdapters);
-
-    AdapterData* adata = &Adapters[0];
-    dev = alldevs;
-    while (dev)
-    {
-        adata->Internal = dev;
-
-        // hax
-        int len = strlen(dev->name);
-        len -= 12; if (len > 127) len = 127;
-        strncpy(adata->DeviceName, &dev->name[12], len);
-        adata->DeviceName[len] = '\0';
-
-        dev = dev->next;
-        adata++;
-    }
-
-#ifdef __WIN32__
-
-    ULONG bufsize = 16384;
-    IP_ADAPTER_ADDRESSES* buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
-    ULONG uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
-    if (uret == ERROR_BUFFER_OVERFLOW)
-    {
-        HeapFree(GetProcessHeap(), 0, buf);
-        buf = (IP_ADAPTER_ADDRESSES*)HeapAlloc(GetProcessHeap(), 0, bufsize);
-        uret = GetAdaptersAddresses(AF_INET, 0, NULL, buf, &bufsize);
-    }
-    if (uret != ERROR_SUCCESS)
-    {
-        printf("GetAdaptersAddresses() shat itself: %08X\n", ret);
-        return false;
-    }
-
-    for (int i = 0; i < NumAdapters; i++)
-    {
-        adata = &Adapters[i];
-        IP_ADAPTER_ADDRESSES* addr = buf;
-        while (addr)
-        {
-            if (strcmp(addr->AdapterName, adata->DeviceName))
-            {
-                addr = addr->Next;
-                continue;
-            }
-
-            WideCharToMultiByte(CP_UTF8, 0, addr->FriendlyName, 127, adata->FriendlyName, 127, NULL, NULL);
-            adata->FriendlyName[127] = '\0';
-
-            WideCharToMultiByte(CP_UTF8, 0, addr->Description, 127, adata->Description, 127, NULL, NULL);
-            adata->Description[127] = '\0';
-
-            if (addr->PhysicalAddressLength != 6)
-            {
-                printf("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
-            }
-            else
-                memcpy(adata->MAC, addr->PhysicalAddress, 6);
-
-            IP_ADAPTER_UNICAST_ADDRESS* ipaddr = addr->FirstUnicastAddress;
-            while (ipaddr)
-            {
-                SOCKADDR* sa = ipaddr->Address.lpSockaddr;
-                if (sa->sa_family == AF_INET)
-                {
-                    struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                    memcpy(adata->IP_v4, &sa4.S_un.S_addr, 4);
-                }
-
-                ipaddr = ipaddr->Next;
-            }
-
-            IP_ADAPTER_DNS_SERVER_ADDRESS* dnsaddr = addr->FirstDnsServerAddress;
-            int ndns = 0;
-            while (dnsaddr)
-            {
-                SOCKADDR* sa = dnsaddr->Address.lpSockaddr;
-                if (sa->sa_family == AF_INET)
-                {
-                    struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                    memcpy(adata->DNS[ndns++], &sa4.S_un.S_addr, 4);
-                }
-
-                if (ndns >= 8) break;
-                dnsaddr = dnsaddr->Next;
-            }
-
-            if (addr->Dhcpv4Enabled && addr->Dhcpv4Server.lpSockaddr)
-            {
-                SOCKADDR* sa = addr->Dhcpv4Server.lpSockaddr;
-                struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                memcpy(adata->DHCP_IP_v4, &sa4.S_un.S_addr, 4);
-            }
-            else
-                memset(adata->DHCP_IP_v4, 0, 4);
-
-            break;
-        }
-    }
-
-    HeapFree(GetProcessHeap(), 0, buf);
-
-#else
-
-    // TODO
-
-#endif // __WIN32__
-
-    // open pcap device
-    PCapAdapterData = &Adapters[0];
-    for (int i = 0; i < NumAdapters; i++)
-    {
-        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice, 128))
-            PCapAdapterData = &Adapters[i];
-    }
-
-    dev = (pcap_if_t*)PCapAdapterData->Internal;
-    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
-    if (!PCapAdapter)
-    {
-        printf("PCap: failed to open adapter\n");
-        return false;
-    }
-
-    pcap_freealldevs(alldevs);
-
-    for (int ntries = 0; ntries < 4; ntries++)
-    {
-        bool good = false;
-
-        // get router MAC
-        printf("DHCP: %d.%d.%d.%d\n",
-               PCapAdapterData->DHCP_IP_v4[0], PCapAdapterData->DHCP_IP_v4[1],
-               PCapAdapterData->DHCP_IP_v4[2], PCapAdapterData->DHCP_IP_v4[3]);
-
-        u8 arp[64];
-        u8* out = &arp[0];
-
-        *out++ = 0xFF; *out++ = 0xFF; *out++ = 0xFF;
-        *out++ = 0xFF; *out++ = 0xFF; *out++ = 0xFF;
-        memcpy(out, PCapAdapterData->MAC, 6); out += 6;
-        *(u16*)out = htons(0x0806); out += 2;
-
-        *(u16*)out = htons(0x0001); out += 2;
-        *(u16*)out = htons(0x0800); out += 2;
-        *out++ = 6;
-        *out++ = 4;
-
-        *(u16*)out = htons(0x0001); out += 2;
-        memcpy(out, PCapAdapterData->MAC, 6); out += 6;
-        memcpy(out, PCapAdapterData->IP_v4, 4); out += 4;
-        *out++ = 0; *out++ = 0; *out++ = 0;
-        *out++ = 0; *out++ = 0; *out++ = 0;
-        memcpy(out, PCapAdapterData->DHCP_IP_v4, 4); out += 4;
-
-        u32 len = (u32)(out - &arp[0]);
-        pcap_sendpacket(PCapAdapter, arp, len);
-
-        for (int t = 0; t < 16; t++)
-        {
-            struct pcap_pkthdr hdr;
-            const u8* rep = pcap_next(PCapAdapter, &hdr);
-            if (!rep) continue;
-            if (hdr.len < 0x2A) continue;
-
-            if (memcmp(&rep[0], PCapAdapterData->MAC, 6))
-                continue;
-            if (ntohs(*(u16*)&rep[12]) != 0x0806)
-                continue;
-            if (ntohs(*(u16*)&rep[14]) != 0x0001)
-                continue;
-            if (ntohs(*(u16*)&rep[16]) != 0x0800)
-                continue;
-            if (ntohs(*(u16*)&rep[18]) != 0x0604)
-                continue;
-            if (ntohs(*(u16*)&rep[20]) != 0x0002)
-                continue;
-            if (memcmp(&rep[28], PCapAdapterData->DHCP_IP_v4, 4))
-                continue;
-
-            printf("DHCP MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                   rep[22], rep[23], rep[24],
-                   rep[25], rep[26], rep[27]);
-
-            memcpy(PCapAdapterData->DHCP_MAC, &rep[22], 6);
-
-            good = true;
-            break;
-        }
-
-        if (good) break;
-    }
-
-    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
-    {
-        printf("PCap: failed to set nonblocking mode\n");
-        pcap_close(PCapAdapter); PCapAdapter = NULL;
-        return false;
-    }
 
     return true;
 }
 
 void DeInit()
 {
-    if (PCapLib)
-    {
-        if (PCapAdapter)
-        {
-            pcap_close(PCapAdapter);
-            PCapAdapter = NULL;
-        }
-
-        SDL_UnloadObject(PCapLib);
-        PCapLib = NULL;
-    }
+    //
 }
 
 bool HandleIncomingIPFrame(u8* data, int len)
