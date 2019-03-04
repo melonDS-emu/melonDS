@@ -96,13 +96,13 @@ void DeInit()
     //
 }
 
-bool HandleIncomingIPFrame(u8* data, int len)
+/*bool HandleIncomingIPFrame(u8* data, int len)
 {
     const u32 serverip = 0x0A404001;
     const u32 clientip = 0x0A404010;
 
-    if (memcmp(&data[0x1E], PCapAdapterData->IP_v4, 4))
-        return false;
+    //if (memcmp(&data[0x1E], PCapAdapterData->IP_v4, 4))
+    //    return false;
 
     u8 protocol = data[0x17];
 
@@ -193,9 +193,9 @@ bool HandleIncomingIPFrame(u8* data, int len)
     }
 
     return false;
-}
+}*/
 
-void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
+/*void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
 {
     while (PCapRXNum > 0);
 
@@ -215,8 +215,8 @@ void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* d
                 PCapRXNum = 0;
         }
     }
-}
-u32 zarp=0;
+}*/
+
 bool HandleDHCPFrame(u8* data, int len)
 {
     const u32 serverip = 0x0A404001;
@@ -225,7 +225,7 @@ bool HandleDHCPFrame(u8* data, int len)
     u8 type = 0xFF;
 
     u32 transid = *(u32*)&data[0x2E];
-zarp=transid;
+
     u8* options = &data[0x11A];
     for (;;)
     {
@@ -322,7 +322,7 @@ zarp=transid;
         *out++ = 54; *out++ = 4;
         *(u32*)out = htonl(serverip); out += 4; // DHCP server
 
-        u8 numdns = 0;
+        /*u8 numdns = 0;
         for (int i = 0; i < 8; i++)
         {
             if (*(u32*)&PCapAdapterData->DNS[i][0] != 0)
@@ -336,7 +336,9 @@ zarp=transid;
             {
                 *(u32*)out = dnsip; out += 4;
             }
-        }
+        }*/
+        *out++ = 6; *out++ = 4;
+        *(u32*)out = htonl(0x08080808); out += 4; // DNS (hax)
 
         *out++ = 0xFF;
         memset(out, 0, 20); out += 20;
@@ -378,13 +380,9 @@ zarp=transid;
         // that being said, this will only happen during DHCP setup, so probably
         // not a big deal
 
-        PCapPacketLen = framelen;
-        memcpy(PCapPacketBuffer, resp, PCapPacketLen);
-        PCapRXNum = 1;
-
-        // DEBUG!!
-        //pcap_sendpacket(PCapAdapter, data, len);
-        //pcap_sendpacket(PCapAdapter, resp, framelen);
+        PacketLen = framelen;
+        memcpy(PacketBuffer, resp, PacketLen);
+        RXNum = 1;
 
         return true;
     }
@@ -397,9 +395,6 @@ bool HandleIPFrame(u8* data, int len)
     const u32 serverip = 0x0A404001;
     const u32 clientip = 0x0A404010;
 
-    // debug
-    //pcap_sendpacket(PCapAdapter, data, len);
-
     u8 protocol = data[0x17];
 
     // any kind of IPv4 frame that isn't DHCP
@@ -410,10 +405,10 @@ bool HandleIPFrame(u8* data, int len)
     // destination MAC set to host MAC
     // source MAC set to melonRouter MAC
 
-    memcpy(&data[0], &PCapAdapterData->DHCP_MAC[0], 6);
-    memcpy(&data[6], &PCapAdapterData->MAC[0], 6);
+    //memcpy(&data[0], &PCapAdapterData->DHCP_MAC[0], 6);
+    //memcpy(&data[6], &PCapAdapterData->MAC[0], 6);
 
-    *(u32*)&data[0x1A] = *(u32*)&PCapAdapterData->IP_v4[0];
+    //*(u32*)&data[0x1A] = *(u32*)&PCapAdapterData->IP_v4[0];
 
     u8* ipheader = &data[0xE];
     u8* protoheader = &data[0x22];
@@ -600,13 +595,9 @@ bool HandleARPFrame(u8* data, int len)
         // that being said, this will only happen during DHCP setup, so probably
         // not a big deal
 
-        PCapPacketLen = framelen;
-        memcpy(PCapPacketBuffer, resp, PCapPacketLen);
-        PCapRXNum = 1;
-
-        // also broadcast them to the network
-        pcap_sendpacket(PCapAdapter, data, len);
-        pcap_sendpacket(PCapAdapter, resp, framelen);
+        PacketLen = framelen;
+        memcpy(PacketBuffer, resp, PacketLen);
+        RXNum = 1;
 
         return true;
     }
@@ -632,12 +623,12 @@ bool HandlePacket(u8* data, int len)
             }
         }
 
-        printf("LANMAGIC: IP frame, doing NAT\n");
+        printf("LANMAGIC: IP packet\n");
         return HandleIPFrame(data, len);
     }
     else if (ethertype == 0x0806) // ARP
     {
-        printf("LANMAGIC: ARP\n");
+        printf("LANMAGIC: ARP packet\n");
         return HandleARPFrame(data, len);
     }
 
@@ -646,40 +637,30 @@ bool HandlePacket(u8* data, int len)
 
 int SendPacket(u8* data, int len)
 {
-    if (PCapAdapter == NULL)
-        return 0;
-
     if (len > 2048)
     {
         printf("LAN_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 
-    if (!Config::DirectLAN)
-    {
-        if (HandlePacket(data, len))
-            return len;
-    }
+    // TODO: blarg
+    if (HandlePacket(data, len))
+        return len;
 
-    pcap_sendpacket(PCapAdapter, data, len);
-    // TODO: check success
     return len;
 }
 
 int RecvPacket(u8* data)
 {
-    if (PCapAdapter == NULL)
-        return 0;
-
     int ret = 0;
-    if (PCapRXNum > 0)
+    if (RXNum > 0)
     {
-        memcpy(data, PCapPacketBuffer, PCapPacketLen);
-        ret = PCapPacketLen;
-        PCapRXNum = 0;
+        memcpy(data, PacketBuffer, PacketLen);
+        ret = PacketLen;
+        RXNum = 0;
     }
 
-    pcap_dispatch(PCapAdapter, 1, RXCallback, NULL);
+    // TODO: check sockets
     return ret;
 }
 

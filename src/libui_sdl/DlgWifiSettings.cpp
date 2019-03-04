@@ -25,7 +25,8 @@
 #include "../types.h"
 #include "../Config.h"
 
-#include "LAN.h"
+#include "LAN_Socket.h"
+#include "LAN_PCap.h"
 #include "DlgWifiSettings.h"
 
 
@@ -37,6 +38,8 @@ namespace DlgWifiSettings
 
 bool opened;
 uiWindow* win;
+
+bool haspcap;
 
 uiCheckbox* cbBindAnyAddr;
 
@@ -52,10 +55,10 @@ uiLabel* lbAdapterDNS1;
 void UpdateAdapterInfo()
 {
     int sel = uiComboboxSelected(cmAdapterList);
-    if (sel < 0 || sel >= LAN::NumAdapters) return;
-    if (LAN::NumAdapters < 1) return;
+    if (sel < 0 || sel >= LAN_PCap::NumAdapters) return;
+    if (LAN_PCap::NumAdapters < 1) return;
 
-    LAN::AdapterData* adapter = &LAN::Adapters[sel];
+    LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
     char tmp[64];
 
     sprintf(tmp, "MAC: %02X:%02X:%02X:%02X:%02X:%02X",
@@ -102,14 +105,14 @@ void OnOk(uiButton* btn, void* blarg)
     Config::DirectLAN = uiCheckboxChecked(cbDirectLAN);
 
     int sel = uiComboboxSelected(cmAdapterList);
-    if (sel < 0 || sel >= LAN::NumAdapters) sel = 0;
-    if (LAN::NumAdapters < 1)
+    if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
+    if (LAN_PCap::NumAdapters < 1)
     {
         Config::LANDevice[0] = '\0';
     }
     else
     {
-        strncpy(Config::LANDevice, LAN::Adapters[sel].DeviceName, 127);
+        strncpy(Config::LANDevice, LAN_PCap::Adapters[sel].DeviceName, 127);
         Config::LANDevice[127] = '\0';
     }
 
@@ -129,7 +132,8 @@ void Open()
         return;
     }
 
-    LAN::Init();
+    LAN_Socket::Init();
+    haspcap = LAN_PCap::Init();
 
     opened = true;
     win = uiNewWindow("Wifi settings - melonDS", 400, 100, 0, 0, 0);
@@ -202,9 +206,9 @@ void Open()
     uiCheckboxSetChecked(cbBindAnyAddr, Config::SocketBindAnyAddr);
 
     int sel = 0;
-    for (int i = 0; i < LAN::NumAdapters; i++)
+    for (int i = 0; i < LAN_PCap::NumAdapters; i++)
     {
-        LAN::AdapterData* adapter = &LAN::Adapters[i];
+        LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[i];
 
         uiComboboxAppend(cmAdapterList, adapter->FriendlyName);
 

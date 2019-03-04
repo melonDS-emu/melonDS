@@ -303,7 +303,7 @@ void DeInit()
 
 void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
 {
-    while (PCapRXNum > 0);
+    while (RXNum > 0);
 
     if (header->len > 2048-64) return;
 
