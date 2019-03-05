@@ -78,6 +78,8 @@ typedef struct
     // 1: connected
     u8 Status;
 
+    SOCKET Backend;
+
 } TCPSocket;
 
 TCPSocket TCPSocketList[16];
@@ -103,6 +105,45 @@ void DeInit()
 {
     //
 }
+
+
+void FinishUDPFrame(u8* data, int len)
+{
+    u8* ipheader = &data[0xE];
+    u8* udpheader = &data[0x22];
+
+    // lengths
+    *(u16*)&ipheader[2] = htons(len - 0xE);
+    *(u16*)&udpheader[4] = htons(len - (0xE + 0x14));
+
+    // IP checksum
+    u32 tmp = 0;
+
+    for (int i = 0; i < 20; i += 2)
+        tmp += ntohs(*(u16*)&ipheader[i]);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&ipheader[10] = htons(tmp);
+
+    // UDP checksum
+    // (note: normally not mandatory, but some older sgIP versions require it)
+    tmp = 0;
+    tmp += ntohs(*(u16*)&ipheader[12]);
+    tmp += ntohs(*(u16*)&ipheader[14]);
+    tmp += ntohs(*(u16*)&ipheader[16]);
+    tmp += ntohs(*(u16*)&ipheader[18]);
+    tmp += ntohs(0x1100);
+    tmp += (len-0x22);
+    for (u8* i = udpheader; i < &udpheader[len-0x22]; i += 2)
+        tmp += ntohs(*(u16*)i);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    if (tmp == 0) tmp = 0xFFFF;
+    *(u16*)&udpheader[6] = htons(tmp);
+}
+
 
 /*bool HandleIncomingIPFrame(u8* data, int len)
 {
@@ -331,38 +372,9 @@ void HandleDHCPFrame(u8* data, int len)
         *out++ = 0xFF;
         memset(out, 0, 20); out += 20;
 
-        // lengths
         u32 framelen = (u32)(out - &resp[0]);
         if (framelen & 1) { *out++ = 0; framelen++; }
-        *(u16*)&ipheader[2] = htons(framelen - 0xE);
-        *(u16*)&udpheader[4] = htons(framelen - (0xE + 0x14));
-
-        // IP checksum
-        u32 tmp = 0;
-
-        for (int i = 0; i < 20; i += 2)
-            tmp += ntohs(*(u16*)&ipheader[i]);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        *(u16*)&ipheader[10] = htons(tmp);
-
-        // UDP checksum
-        // (note: normally not mandatory, but some older sgIP versions require it)
-        tmp = 0;
-        tmp += ntohs(*(u16*)&ipheader[12]);
-        tmp += ntohs(*(u16*)&ipheader[14]);
-        tmp += ntohs(*(u16*)&ipheader[16]);
-        tmp += ntohs(*(u16*)&ipheader[18]);
-        tmp += ntohs(0x1100);
-        tmp += (u32)(out - udpheader);
-        for (u8* i = udpheader; i < out; i += 2)
-            tmp += ntohs(*(u16*)i);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        if (tmp == 0) tmp = 0xFFFF;
-        *(u16*)&udpheader[6] = htons(tmp);
+        FinishUDPFrame(resp, framelen);
 
         // TODO: if there is already a packet queued, this will overwrite it
         // that being said, this will only happen during DHCP setup, so probably
@@ -521,38 +533,9 @@ void HandleDNSFrame(u8* data, int len)
 		*(u32*)out = addr_res; out += 4; // address
     }
 
-    // lengths
     u32 framelen = (u32)(out - &resp[0]);
     if (framelen & 1) { *out++ = 0; framelen++; }
-    *(u16*)&resp_ipheader[2] = htons(framelen - 0xE);
-    *(u16*)&resp_udpheader[4] = htons(framelen - (0xE + 0x14));
-
-    // IP checksum
-    u32 tmp = 0;
-
-    for (int i = 0; i < 20; i += 2)
-        tmp += ntohs(*(u16*)&resp_ipheader[i]);
-    while (tmp >> 16)
-        tmp = (tmp & 0xFFFF) + (tmp >> 16);
-    tmp ^= 0xFFFF;
-    *(u16*)&resp_ipheader[10] = htons(tmp);
-
-    // UDP checksum
-    // (note: normally not mandatory, but some older sgIP versions require it)
-    tmp = 0;
-    tmp += ntohs(*(u16*)&resp_ipheader[12]);
-    tmp += ntohs(*(u16*)&resp_ipheader[14]);
-    tmp += ntohs(*(u16*)&resp_ipheader[16]);
-    tmp += ntohs(*(u16*)&resp_ipheader[18]);
-    tmp += ntohs(0x1100);
-    tmp += (u32)(out - resp_udpheader);
-    for (u8* i = resp_udpheader; i < out; i += 2)
-        tmp += ntohs(*(u16*)i);
-    while (tmp >> 16)
-        tmp = (tmp & 0xFFFF) + (tmp >> 16);
-    tmp ^= 0xFFFF;
-    if (tmp == 0) tmp = 0xFFFF;
-    *(u16*)&resp_udpheader[6] = htons(tmp);
+    FinishUDPFrame(resp, framelen);
 
     // TODO: if there is already a packet queued, this will overwrite it
     // that being said, this will only happen during DHCP setup, so probably
@@ -668,6 +651,21 @@ void HandleIPFrame(u8* data, int len)
             sock->Status = 1;
             memcpy(sock->DestIP, &ipheader[16], 4);
             sock->DestPort = dstport;
+
+            // open backend socket
+            if (!sock->Backend)
+            {
+                sock->Backend = socket(AF_INET, SOCK_STREAM, 0);
+            }
+
+            struct sockaddr_in conn_addr;
+            memset(&conn_addr, 0, sizeof(conn_addr));
+            conn_addr.sin_family = AF_INET;
+            conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
+            if (connect(sock->Backend, (sockaddr*)&conn_addr, sizeof(conn_addr)) == SOCKET_ERROR)
+            {
+                printf("connect() shat itself :(\n");
+            }
         }
         else
         {
