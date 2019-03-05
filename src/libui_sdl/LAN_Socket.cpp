@@ -225,7 +225,7 @@ void DeInit()
     }
 }*/
 
-bool HandleDHCPFrame(u8* data, int len)
+void HandleDHCPFrame(u8* data, int len)
 {
     u8 type = 0xFF;
 
@@ -252,7 +252,7 @@ bool HandleDHCPFrame(u8* data, int len)
     if (type == 0xFF)
     {
         printf("DHCP: bad frame\n");
-        return false;
+        return;
     }
 
     printf("DHCP: frame type %d, transid %08X\n", type, transid);
@@ -371,14 +371,55 @@ bool HandleDHCPFrame(u8* data, int len)
         PacketLen = framelen;
         memcpy(PacketBuffer, resp, PacketLen);
         RXNum = 1;
-
-        return true;
     }
-
-    return false;
 }
 
-bool HandleIPFrame(u8* data, int len)
+void HandleDNSFrame(u8* data, int len)
+{
+    u8* ipheader = &data[0xE];
+    u8* udpheader = &data[0x22];
+    u8* dnsbody = &data[0x2A];
+
+    u16 id = ntohs(*(u16*)&dnsbody[0]);
+    u16 flags = ntohs(*(u16*)&dnsbody[2]);
+    u16 numquestions = ntohs(*(u16*)&dnsbody[4]);
+    u16 numanswers = ntohs(*(u16*)&dnsbody[6]);
+    u16 numauth = ntohs(*(u16*)&dnsbody[8]);
+    u16 numadd = ntohs(*(u16*)&dnsbody[10]);
+
+    printf("DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
+           id, flags, numquestions, numanswers, numauth, numadd);
+
+    u32 curoffset = 12;
+	for (u16 i = 0; i < numquestions; i++)
+	{
+		// Assemble the requested domain name
+		u8 bitlength = 0;
+		char domainname[256] = ""; int o = 0;
+		while ((bitlength = dnsbody[curoffset++]) != 0)
+		{
+		    if ((o+bitlength) >= 255) break;
+
+			strncpy(&domainname[o], (const char *)&dnsbody[curoffset], bitlength);
+			o += bitlength;
+
+			curoffset += bitlength;
+			if (dnsbody[curoffset] != 0)
+			{
+				domainname[o++] = '.';
+			}
+		}
+
+		printf("- q%d: %s", i, domainname);
+
+		// TODO: get answer
+
+		printf("\n");
+		curoffset += 4;
+    }
+}
+
+void HandleIPFrame(u8* data, int len)
 {
     u8 protocol = data[0x17];
 
@@ -468,7 +509,7 @@ bool HandleIPFrame(u8* data, int len)
             if (sockid == -1)
             {
                 printf("LANMAGIC: !! TCP SOCKET LIST FULL\n");
-                return true;
+                return;
             }
 
             printf("LANMAGIC: opening TCP socket #%d to %d.%d.%d.%d:%d\n",
@@ -500,7 +541,7 @@ bool HandleIPFrame(u8* data, int len)
             if (sockid == -1)
             {
                 printf("LANMAGIC: bad TCP packet\n");
-                return true;
+                return;
             }
 
             if (flags & 0x001) // FIN
@@ -528,14 +569,12 @@ bool HandleIPFrame(u8* data, int len)
         if (tmp == 0) tmp = 0xFFFF;
         *(u16*)&protoheader[16] = htons(tmp);
     }
-
-    return false;
 }
 
-bool HandleARPFrame(u8* data, int len)
+void HandleARPFrame(u8* data, int len)
 {
     u16 protocol = ntohs(*(u16*)&data[0x10]);
-    if (protocol != 0x0800) return false;
+    if (protocol != 0x0800) return;
 
     u16 op = ntohs(*(u16*)&data[0x14]);
     u32 targetip = ntohl(*(u32*)&data[0x26]);
@@ -554,7 +593,7 @@ bool HandleARPFrame(u8* data, int len)
         const u8* targetmac;
         if (targetip == kServerIP)   targetmac = kServerMAC;
         else if (targetip == kDNSIP) targetmac = kDNSMAC;
-        else return false;
+        else return;
 
         u8 resp[64];
         u8* out = &resp[0];
@@ -583,14 +622,14 @@ bool HandleARPFrame(u8* data, int len)
         PacketLen = framelen;
         memcpy(PacketBuffer, resp, PacketLen);
         RXNum = 1;
-
-        return true;
     }
-
-    return false;
+    else
+    {
+        printf("wat??\n");
+    }
 }
 
-bool HandlePacket(u8* data, int len)
+void HandlePacket(u8* data, int len)
 {
     u16 ethertype = ntohs(*(u16*)&data[0xC]);
 
@@ -606,6 +645,11 @@ bool HandlePacket(u8* data, int len)
                 printf("LANMAGIC: DHCP packet\n");
                 return HandleDHCPFrame(data, len);
             }
+            else if (dstport == 53) // DNS
+            {
+                printf("LANMAGIC: DNS packet\n");
+                return HandleDNSFrame(data, len);
+            }
         }
 
         printf("LANMAGIC: IP packet\n");
@@ -616,8 +660,6 @@ bool HandlePacket(u8* data, int len)
         printf("LANMAGIC: ARP packet\n");
         return HandleARPFrame(data, len);
     }
-
-    return false;
 }
 
 int SendPacket(u8* data, int len)
@@ -628,10 +670,7 @@ int SendPacket(u8* data, int len)
         return 0;
     }
 
-    // TODO: blarg
-    if (HandlePacket(data, len))
-        return len;
-
+    HandlePacket(data, len);
     return len;
 }
 
