@@ -72,7 +72,10 @@ u16 IPv4ID;
 typedef struct
 {
     u8 DestIP[4];
+    u16 SourcePort;
     u16 DestPort;
+
+    u32 SeqNum;
 
     // 0: unused
     // 1: connected
@@ -142,6 +145,42 @@ void FinishUDPFrame(u8* data, int len)
     tmp ^= 0xFFFF;
     if (tmp == 0) tmp = 0xFFFF;
     *(u16*)&udpheader[6] = htons(tmp);
+}
+
+void FinishTCPFrame(u8* data, int len)
+{
+    u8* ipheader = &data[0xE];
+    u8* tcpheader = &data[0x22];
+
+    // lengths
+    *(u16*)&ipheader[2] = htons(len - 0xE);
+
+    // IP checksum
+    u32 tmp = 0;
+
+    for (int i = 0; i < 20; i += 2)
+        tmp += ntohs(*(u16*)&ipheader[i]);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&ipheader[10] = htons(tmp);
+
+    u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+
+    // TCP checksum
+    tmp = 0;
+    tmp += ntohs(*(u16*)&ipheader[12]);
+    tmp += ntohs(*(u16*)&ipheader[14]);
+    tmp += ntohs(*(u16*)&ipheader[16]);
+    tmp += ntohs(*(u16*)&ipheader[18]);
+    tmp += ntohs(0x0600);
+    tmp += tcplen;
+    for (u8* i = tcpheader; i < &tcpheader[tcplen]; i += 2)
+        tmp += ntohs(*(u16*)i);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&tcpheader[16] = htons(tmp);
 }
 
 
@@ -546,171 +585,200 @@ void HandleDNSFrame(u8* data, int len)
     RXNum = 1;
 }
 
-void HandleIPFrame(u8* data, int len)
+void HandleUDPFrame(u8* data, int len)
 {
-    u8 protocol = data[0x17];
+    u8* ipheader = &data[0xE];
+    u8* udpheader = &data[0x22];
 
-    // any kind of IPv4 frame that isn't DHCP
-    // we do NAT and forward it to the network
+    // TODO!
+}
 
-    // like:
-    // melonRouter -> host
-    // destination MAC set to host MAC
-    // source MAC set to melonRouter MAC
-
-    //memcpy(&data[0], &PCapAdapterData->DHCP_MAC[0], 6);
-    //memcpy(&data[6], &PCapAdapterData->MAC[0], 6);
-
-    //*(u32*)&data[0x1A] = *(u32*)&PCapAdapterData->IP_v4[0];
+void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
+{
+    u8 resp[128];
+    u8* out = &resp[0];
 
     u8* ipheader = &data[0xE];
-    u8* protoheader = &data[0x22];
+    u8* tcpheader = &data[0x22];
 
-    // IP checksum
-    u32 tmp = 0;
+    u32 seqnum = htonl(*(u32*)&tcpheader[4]);
 
-    *(u16*)&ipheader[10] = 0;
-    for (int i = 0; i < 20; i += 2)
-        tmp += ntohs(*(u16*)&ipheader[i]);
-    while (tmp >> 16)
-        tmp = (tmp & 0xFFFF) + (tmp >> 16);
-    tmp ^= 0xFFFF;
-    *(u16*)&ipheader[10] = htons(tmp);
+    // ethernet
+    memcpy(out, &data[6], 6); out += 6;
+    memcpy(out, kServerMAC, 6); out += 6;
+    *(u16*)out = htons(0x0800); out += 2;
 
-    if (protocol == 0x11)
+    // IP
+    u8* resp_ipheader = out;
+    *out++ = 0x45;
+    *out++ = 0x00;
+    *(u16*)out = 0; out += 2; // total length
+    *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+    *out++ = 0x00;
+    *out++ = 0x00;
+    *out++ = 0x80; // TTL
+    *out++ = 0x06; // protocol (TCP)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u32*)out = *(u32*)&ipheader[16]; out += 4; // source IP
+    *(u32*)out = *(u32*)&ipheader[12]; out += 4; // destination IP
+
+    // TCP
+    u8* resp_tcpheader = out;
+    *(u16*)out = *(u16*)&tcpheader[2]; out += 2; // source port
+    *(u16*)out = *(u16*)&tcpheader[0]; out += 2; // destination port
+    *(u32*)out = htonl(sock->SeqNum); out += 4; sock->SeqNum++; // seq number
+    *(u32*)out = htonl(seqnum+1); out += 4; // ack seq number
+    *(u16*)out = htons(0x8012); out += 2; // flags (SYN+ACK)
+    *(u16*)out = htons(0x7000); out += 2; // window size (uuuh)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u16*)out = 0; out += 2; // urgent pointer
+
+    // TCP options
+    *out++ = 0x02; *out++ = 0x04; // max segment size
+    *(u16*)out = htons(0x05B4); out += 2;
+    *out++ = 0x01;
+    *out++ = 0x01;
+    *out++ = 0x04; *out++ = 0x02; // SACK permitted
+    *out++ = 0x01;
+    *out++ = 0x03; *out++ = 0x03; // window size
+    *out++ = 0x08;
+
+    u32 framelen = (u32)(out - &resp[0]);
+    if (framelen & 1) { *out++ = 0; framelen++; }
+    FinishTCPFrame(resp, framelen);
+
+    // TODO: if there is already a packet queued, this will overwrite it
+    // that being said, this will only happen during DHCP setup, so probably
+    // not a big deal
+
+    PacketLen = framelen;
+    memcpy(PacketBuffer, resp, PacketLen);
+    RXNum = 1;
+}
+
+void HandleTCPFrame(u8* data, int len)
+{
+    u8* ipheader = &data[0xE];
+    u8* tcpheader = &data[0x22];
+
+    u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+
+    u16 srcport = ntohs(*(u16*)&tcpheader[0]);
+    u16 dstport = ntohs(*(u16*)&tcpheader[2]);
+    u16 flags = ntohs(*(u16*)&tcpheader[12]);
+
+    if (flags & 0x002) // SYN
     {
-        u32 udplen = ntohs(*(u16*)&protoheader[4]);
-
-        // UDP checksum
-        tmp = 0;
-        *(u16*)&protoheader[6] = 0;
-        tmp += ntohs(*(u16*)&ipheader[12]);
-        tmp += ntohs(*(u16*)&ipheader[14]);
-        tmp += ntohs(*(u16*)&ipheader[16]);
-        tmp += ntohs(*(u16*)&ipheader[18]);
-        tmp += ntohs(0x1100);
-        tmp += udplen;
-        for (u8* i = protoheader; i < &protoheader[udplen]; i += 2)
-            tmp += ntohs(*(u16*)i);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        if (tmp == 0) tmp = 0xFFFF;
-        *(u16*)&protoheader[6] = htons(tmp);
-    }
-    else if (protocol == 0x06)
-    {
-        u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
-
-        u16 srcport = ntohs(*(u16*)&protoheader[0]);
-        u16 dstport = ntohs(*(u16*)&protoheader[2]);
-        u16 flags = ntohs(*(u16*)&protoheader[12]);
-
-        if (flags & 0x002) // SYN
+        int sockid = -1;
+        for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
         {
-            int sockid = -1;
+            TCPSocket* sock = &TCPSocketList[i];
+            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
+                sock->SourcePort == srcport && sock->DestPort == dstport)
+            {
+                printf("LANMAGIC: duplicate TCP socket\n");
+                sockid = i;
+                break;
+            }
+        }
+
+        if (sockid == -1)
+        {
             for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
             {
                 TCPSocket* sock = &TCPSocketList[i];
-                if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) && sock->DestPort == dstport)
+                if (sock->Status == 0)
                 {
-                    printf("LANMAGIC: duplicate TCP socket\n");
                     sockid = i;
                     break;
                 }
             }
+        }
 
-            if (sockid == -1)
-            {
-                for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
-                {
-                    TCPSocket* sock = &TCPSocketList[i];
-                    if (sock->Status == 0)
-                    {
-                        sockid = i;
-                        break;
-                    }
-                }
-            }
+        if (sockid == -1)
+        {
+            printf("LANMAGIC: !! TCP SOCKET LIST FULL\n");
+            return;
+        }
 
-            if (sockid == -1)
-            {
-                printf("LANMAGIC: !! TCP SOCKET LIST FULL\n");
-                return;
-            }
+        printf("LANMAGIC: opening TCP socket #%d to %d.%d.%d.%d:%d, srcport %d\n",
+               sockid,
+               ipheader[16], ipheader[17], ipheader[18], ipheader[19],
+               dstport, srcport);
 
-            printf("LANMAGIC: opening TCP socket #%d to %d.%d.%d.%d:%d\n",
-                   sockid,
-                   ipheader[16], ipheader[17], ipheader[18], ipheader[19],
-                   dstport);
+        // keep track of it
+        TCPSocket* sock = &TCPSocketList[sockid];
+        sock->Status = 1;
+        memcpy(sock->DestIP, &ipheader[16], 4);
+        sock->DestPort = dstport;
+        sock->SourcePort = srcport;
+        sock->SeqNum = 0x13370000;
 
-            // keep track of it
-            // (TODO: also keep track of source port?)
+        // open backend socket
+        if (!sock->Backend)
+        {
+            sock->Backend = socket(AF_INET, SOCK_STREAM, 0);
+        }
 
-            TCPSocket* sock = &TCPSocketList[sockid];
-            sock->Status = 1;
-            memcpy(sock->DestIP, &ipheader[16], 4);
-            sock->DestPort = dstport;
-
-            // open backend socket
-            if (!sock->Backend)
-            {
-                sock->Backend = socket(AF_INET, SOCK_STREAM, 0);
-            }
-
-            struct sockaddr_in conn_addr;
-            memset(&conn_addr, 0, sizeof(conn_addr));
-            conn_addr.sin_family = AF_INET;
-            conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
-            if (connect(sock->Backend, (sockaddr*)&conn_addr, sizeof(conn_addr)) == SOCKET_ERROR)
-            {
-                printf("connect() shat itself :(\n");
-            }
+        struct sockaddr_in conn_addr;
+        memset(&conn_addr, 0, sizeof(conn_addr));
+        conn_addr.sin_family = AF_INET;
+        conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
+        conn_addr.sin_port = htons(dstport);
+        if (connect(sock->Backend, (sockaddr*)&conn_addr, sizeof(conn_addr)) == SOCKET_ERROR)
+        {
+            printf("connect() shat itself :(\n");
         }
         else
         {
-            int sockid = -1;
-            for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+            // acknowledge it
+            TCP_SYNACK(sock, data, len);
+        }
+    }
+    else
+    {
+        int sockid = -1;
+        for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+        {
+            TCPSocket* sock = &TCPSocketList[i];
+            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
+                sock->SourcePort == srcport && sock->DestPort == dstport)
             {
-                TCPSocket* sock = &TCPSocketList[i];
-                if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) && sock->DestPort == dstport)
-                {
-                    sockid = i;
-                    break;
-                }
-            }
-
-            if (sockid == -1)
-            {
-                printf("LANMAGIC: bad TCP packet\n");
-                return;
-            }
-
-            if (flags & 0x001) // FIN
-            {
-                // TODO: cleverer termination?
-                // also timeout etc
-                TCPSocketList[sockid].Status = 0;
+                sockid = i;
+                break;
             }
         }
 
-        // TCP checksum
-        tmp = 0;
-        *(u16*)&protoheader[16] = 0;
-        tmp += ntohs(*(u16*)&ipheader[12]);
-        tmp += ntohs(*(u16*)&ipheader[14]);
-        tmp += ntohs(*(u16*)&ipheader[16]);
-        tmp += ntohs(*(u16*)&ipheader[18]);
-        tmp += ntohs(0x0600);
-        tmp += tcplen;
-        for (u8* i = protoheader; i < &protoheader[tcplen]; i += 2)
-            tmp += ntohs(*(u16*)i);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        if (tmp == 0) tmp = 0xFFFF;
-        *(u16*)&protoheader[16] = htons(tmp);
+        if (sockid == -1)
+        {
+            printf("LANMAGIC: bad TCP packet\n");
+            return;
+        }
+
+        if (flags & 0x001) // FIN
+        {
+            // TODO: cleverer termination?
+            // also timeout etc
+            TCPSocketList[sockid].Status = 0;
+        }
     }
+
+    // TCP checksum
+    /*tmp = 0;
+    *(u16*)&tcpheader[16] = 0;
+    tmp += ntohs(*(u16*)&ipheader[12]);
+    tmp += ntohs(*(u16*)&ipheader[14]);
+    tmp += ntohs(*(u16*)&ipheader[16]);
+    tmp += ntohs(*(u16*)&ipheader[18]);
+    tmp += ntohs(0x0600);
+    tmp += tcplen;
+    for (u8* i = tcpheader; i < &tcpheader[tcplen]; i += 2)
+        tmp += ntohs(*(u16*)i);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    if (tmp == 0) tmp = 0xFFFF;
+    *(u16*)&tcpheader[16] = htons(tmp);*/
 }
 
 void HandleARPFrame(u8* data, int len)
@@ -792,16 +860,25 @@ void HandlePacket(u8* data, int len)
                 printf("LANMAGIC: DNS packet\n");
                 return HandleDNSFrame(data, len);
             }
-        }
 
-        printf("LANMAGIC: IP packet\n");
-        return HandleIPFrame(data, len);
+            printf("LANMAGIC: UDP packet\n");
+            return HandleUDPFrame(data, len);
+        }
+        else if (protocol == 0x06) // TCP
+        {
+            printf("LANMAGIC: TCP packet\n");
+            return HandleTCPFrame(data, len);
+        }
+        else
+            printf("LANMAGIC: unsupported IP protocol %02X\n", protocol);
     }
     else if (ethertype == 0x0806) // ARP
     {
         printf("LANMAGIC: ARP packet\n");
         return HandleARPFrame(data, len);
     }
+    else
+        printf("LANMAGIC: unsupported ethernet type %04X\n", ethertype);
 }
 
 int SendPacket(u8* data, int len)
