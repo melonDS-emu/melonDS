@@ -380,6 +380,9 @@ void HandleDNSFrame(u8* data, int len)
     u8* udpheader = &data[0x22];
     u8* dnsbody = &data[0x2A];
 
+    u32 srcip = ntohl(*(u32*)&ipheader[12]);
+    u16 srcport = ntohs(*(u16*)&udpheader[0]);
+
     u16 id = ntohs(*(u16*)&dnsbody[0]);
     u16 flags = ntohs(*(u16*)&dnsbody[2]);
     u16 numquestions = ntohs(*(u16*)&dnsbody[4]);
@@ -390,33 +393,174 @@ void HandleDNSFrame(u8* data, int len)
     printf("DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
            id, flags, numquestions, numanswers, numauth, numadd);
 
+    // for now we only take 'simple' DNS requests
+    if (flags & 0x8000) return;
+    if (numquestions != 1 || numanswers != 0) return;
+
+    u8 resp[1024];
+    u8* out = &resp[0];
+
+    // ethernet
+    memcpy(out, &data[6], 6); out += 6;
+    memcpy(out, kServerMAC, 6); out += 6;
+    *(u16*)out = htons(0x0800); out += 2;
+
+    // IP
+    u8* resp_ipheader = out;
+    *out++ = 0x45;
+    *out++ = 0x00;
+    *(u16*)out = 0; out += 2; // total length
+    *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+    *out++ = 0x00;
+    *out++ = 0x00;
+    *out++ = 0x80; // TTL
+    *out++ = 0x11; // protocol (UDP)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u32*)out = htonl(kDNSIP); out += 4; // source IP
+    *(u32*)out = htonl(srcip); out += 4; // destination IP
+
+    // UDP
+    u8* resp_udpheader = out;
+    *(u16*)out = htons(53); out += 2; // source port
+    *(u16*)out = htons(srcport); out += 2; // destination port
+    *(u16*)out = 0; out += 2; // length
+    *(u16*)out = 0; out += 2; // checksum
+
+    // DNS
+    u8* resp_body = out;
+    *(u16*)out = htons(id); out += 2; // ID
+    *(u16*)out = htons(0x8000); out += 2; // flags
+    *(u16*)out = htons(numquestions); out += 2; // num questions
+    *(u16*)out = htons(numquestions); out += 2; // num answers
+    *(u16*)out = 0; out += 2; // num authority
+    *(u16*)out = 0; out += 2; // num additional
+
     u32 curoffset = 12;
+    for (u16 i = 0; i < numquestions; i++)
+    {
+        if (curoffset >= (len-0x2A)) return;
+
+        u8 bitlength = 0;
+        while ((bitlength = dnsbody[curoffset++]) != 0)
+            curoffset += bitlength;
+
+        curoffset += 4;
+    }
+
+    u32 qlen = curoffset-12;
+    if (qlen > 512) return;
+    memcpy(out, &dnsbody[12], qlen); out += qlen;
+
+    curoffset = 12;
 	for (u16 i = 0; i < numquestions; i++)
 	{
-		// Assemble the requested domain name
+		// assemble the requested domain name
 		u8 bitlength = 0;
 		char domainname[256] = ""; int o = 0;
 		while ((bitlength = dnsbody[curoffset++]) != 0)
 		{
-		    if ((o+bitlength) >= 255) break;
+		    if ((o+bitlength) >= 255)
+            {
+                // welp. atleast try not to explode.
+                domainname[o++] = '\0';
+                break;
+            }
 
 			strncpy(&domainname[o], (const char *)&dnsbody[curoffset], bitlength);
 			o += bitlength;
 
 			curoffset += bitlength;
 			if (dnsbody[curoffset] != 0)
-			{
 				domainname[o++] = '.';
-			}
+            else
+                domainname[o++] = '\0';
 		}
 
-		printf("- q%d: %s", i, domainname);
+		u16 type = ntohs(*(u16*)&dnsbody[curoffset]);
+		u16 cls = ntohs(*(u16*)&dnsbody[curoffset+2]);
 
-		// TODO: get answer
+		printf("- q%d: %04X %04X %s", i, type, cls, domainname);
+
+		// get answer
+		struct addrinfo dns_hint;
+		struct addrinfo* dns_res;
+		u32 addr_res;
+
+		memset(&dns_hint, 0, sizeof(dns_hint));
+		dns_hint.ai_family = AF_INET; // TODO: other address types (INET6, etc)
+		if (getaddrinfo(domainname, "0", &dns_hint, &dns_res) == 0)
+        {
+            struct addrinfo* p = dns_res;
+            while (p)
+            {
+                struct sockaddr_in* addr = (struct sockaddr_in*)p->ai_addr;
+                printf(" -> %d.%d.%d.%d",
+                       addr->sin_addr.S_un.S_un_b.s_b1, addr->sin_addr.S_un.S_un_b.s_b2,
+                       addr->sin_addr.S_un.S_un_b.s_b3, addr->sin_addr.S_un.S_un_b.s_b4);
+
+                addr_res = addr->sin_addr.S_un.S_addr;
+                p = p->ai_next;
+            }
+        }
+        else
+        {
+            printf(" shat itself :(");
+            addr_res = 0;
+        }
 
 		printf("\n");
 		curoffset += 4;
+
+		// TODO: betterer support
+		// (under which conditions does the C00C marker work?)
+		*(u16*)out = htons(0xC00C); out += 2;
+		*(u16*)out = htons(type); out += 2;
+		*(u16*)out = htons(cls); out += 2;
+		*(u32*)out = htonl(3600); out += 4; // TTL (hardcoded for now)
+		*(u16*)out = htons(4); out += 2; // address length
+		*(u32*)out = addr_res; out += 4; // address
     }
+
+    // lengths
+    u32 framelen = (u32)(out - &resp[0]);
+    if (framelen & 1) { *out++ = 0; framelen++; }
+    *(u16*)&resp_ipheader[2] = htons(framelen - 0xE);
+    *(u16*)&resp_udpheader[4] = htons(framelen - (0xE + 0x14));
+
+    // IP checksum
+    u32 tmp = 0;
+
+    for (int i = 0; i < 20; i += 2)
+        tmp += ntohs(*(u16*)&resp_ipheader[i]);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    *(u16*)&resp_ipheader[10] = htons(tmp);
+
+    // UDP checksum
+    // (note: normally not mandatory, but some older sgIP versions require it)
+    tmp = 0;
+    tmp += ntohs(*(u16*)&resp_ipheader[12]);
+    tmp += ntohs(*(u16*)&resp_ipheader[14]);
+    tmp += ntohs(*(u16*)&resp_ipheader[16]);
+    tmp += ntohs(*(u16*)&resp_ipheader[18]);
+    tmp += ntohs(0x1100);
+    tmp += (u32)(out - resp_udpheader);
+    for (u8* i = resp_udpheader; i < out; i += 2)
+        tmp += ntohs(*(u16*)i);
+    while (tmp >> 16)
+        tmp = (tmp & 0xFFFF) + (tmp >> 16);
+    tmp ^= 0xFFFF;
+    if (tmp == 0) tmp = 0xFFFF;
+    *(u16*)&resp_udpheader[6] = htons(tmp);
+
+    // TODO: if there is already a packet queued, this will overwrite it
+    // that being said, this will only happen during DHCP setup, so probably
+    // not a big deal
+
+    PacketLen = framelen;
+    memcpy(PacketBuffer, resp, PacketLen);
+    RXNum = 1;
 }
 
 void HandleIPFrame(u8* data, int len)
