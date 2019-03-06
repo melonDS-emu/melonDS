@@ -661,18 +661,21 @@ void HandleTCPFrame(u8* data, int len)
     u8* ipheader = &data[0xE];
     u8* tcpheader = &data[0x22];
 
-    u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
-
     u16 srcport = ntohs(*(u16*)&tcpheader[0]);
     u16 dstport = ntohs(*(u16*)&tcpheader[2]);
     u16 flags = ntohs(*(u16*)&tcpheader[12]);
 
+    u32 tcpheaderlen = 4 * (flags >> 12);
+    u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
+    u32 tcpdatalen = tcplen - tcpheaderlen;
+
     if (flags & 0x002) // SYN
     {
         int sockid = -1;
+        TCPSocket* sock;
         for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
         {
-            TCPSocket* sock = &TCPSocketList[i];
+            sock = &TCPSocketList[i];
             if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
                 sock->SourcePort == srcport && sock->DestPort == dstport)
             {
@@ -686,7 +689,7 @@ void HandleTCPFrame(u8* data, int len)
         {
             for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
             {
-                TCPSocket* sock = &TCPSocketList[i];
+                sock = &TCPSocketList[i];
                 if (sock->Status == 0)
                 {
                     sockid = i;
@@ -707,7 +710,6 @@ void HandleTCPFrame(u8* data, int len)
                dstport, srcport);
 
         // keep track of it
-        TCPSocket* sock = &TCPSocketList[sockid];
         sock->Status = 1;
         memcpy(sock->DestIP, &ipheader[16], 4);
         sock->DestPort = dstport;
@@ -738,9 +740,10 @@ void HandleTCPFrame(u8* data, int len)
     else
     {
         int sockid = -1;
+        TCPSocket* sock;
         for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
         {
-            TCPSocket* sock = &TCPSocketList[i];
+            sock = &TCPSocketList[i];
             if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
                 sock->SourcePort == srcport && sock->DestPort == dstport)
             {
@@ -755,30 +758,22 @@ void HandleTCPFrame(u8* data, int len)
             return;
         }
 
+        // send data over the socket
+        if (tcpdatalen > 0)
+        {
+            u8* tcpdata = &tcpheader[tcpheaderlen];
+
+            printf("TCP: forwarding %d bytes\n", tcpdatalen);
+            send(sock->Backend, (char*)tcpdata, tcpdatalen, 0);
+        }
+
         if (flags & 0x001) // FIN
         {
             // TODO: cleverer termination?
             // also timeout etc
-            TCPSocketList[sockid].Status = 0;
+            sock->Status = 0;
         }
     }
-
-    // TCP checksum
-    /*tmp = 0;
-    *(u16*)&tcpheader[16] = 0;
-    tmp += ntohs(*(u16*)&ipheader[12]);
-    tmp += ntohs(*(u16*)&ipheader[14]);
-    tmp += ntohs(*(u16*)&ipheader[16]);
-    tmp += ntohs(*(u16*)&ipheader[18]);
-    tmp += ntohs(0x0600);
-    tmp += tcplen;
-    for (u8* i = tcpheader; i < &tcpheader[tcplen]; i += 2)
-        tmp += ntohs(*(u16*)i);
-    while (tmp >> 16)
-        tmp = (tmp & 0xFFFF) + (tmp >> 16);
-    tmp ^= 0xFFFF;
-    if (tmp == 0) tmp = 0xFFFF;
-    *(u16*)&tcpheader[16] = htons(tmp);*/
 }
 
 void HandleARPFrame(u8* data, int len)
