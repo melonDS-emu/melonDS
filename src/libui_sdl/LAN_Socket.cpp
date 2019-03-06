@@ -75,7 +75,8 @@ typedef struct
     u16 SourcePort;
     u16 DestPort;
 
-    u32 SeqNum;
+    u32 SeqNum; // sequence number for incoming frames
+    u32 AckNum;
 
     // 0: unused
     // 1: connected
@@ -183,127 +184,6 @@ void FinishTCPFrame(u8* data, int len)
     *(u16*)&tcpheader[16] = htons(tmp);
 }
 
-
-/*bool HandleIncomingIPFrame(u8* data, int len)
-{
-    const u32 serverip = 0x0A404001;
-    const u32 clientip = 0x0A404010;
-
-    //if (memcmp(&data[0x1E], PCapAdapterData->IP_v4, 4))
-    //    return false;
-
-    u8 protocol = data[0x17];
-
-    //memcpy(&data[6], &PCapAdapterData->DHCP_MAC[0], 6);
-    memcpy(&data[0], Wifi::GetMAC(), 6);
-    data[6] = 0x00; data[7] = 0xAB; data[8] = 0x33;
-    data[9] = 0x28; data[10] = 0x99; data[11] = 0x44;
-
-    *(u32*)&data[0x1E] = htonl(clientip);
-
-    u8* ipheader = &data[0xE];
-    u8* protoheader = &data[0x22];
-
-    // IP checksum
-    u32 tmp = 0;
-
-    *(u16*)&ipheader[10] = 0;
-    for (int i = 0; i < 20; i += 2)
-        tmp += ntohs(*(u16*)&ipheader[i]);
-    while (tmp >> 16)
-        tmp = (tmp & 0xFFFF) + (tmp >> 16);
-    tmp ^= 0xFFFF;
-    *(u16*)&ipheader[10] = htons(tmp);
-
-    if (protocol == 0x11)
-    {
-        u32 udplen = ntohs(*(u16*)&protoheader[4]);
-
-        // UDP checksum
-        tmp = 0;
-        *(u16*)&protoheader[6] = 0;
-        tmp += ntohs(*(u16*)&ipheader[12]);
-        tmp += ntohs(*(u16*)&ipheader[14]);
-        tmp += ntohs(*(u16*)&ipheader[16]);
-        tmp += ntohs(*(u16*)&ipheader[18]);
-        tmp += ntohs(0x1100);
-        tmp += udplen;
-        for (u8* i = protoheader; i < &protoheader[udplen-1]; i += 2)
-            tmp += ntohs(*(u16*)i);
-        if (udplen & 1) tmp += (protoheader[udplen-1] << 8);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        if (tmp == 0) tmp = 0xFFFF;
-        *(u16*)&protoheader[6] = htons(tmp);
-    }
-    else if (protocol == 0x06)
-    {
-        u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
-
-        u16 srcport = ntohs(*(u16*)&protoheader[0]);
-        u16 dstport = ntohs(*(u16*)&protoheader[2]);
-        u16 flags = ntohs(*(u16*)&protoheader[12]);
-
-        // TODO: check if they send a FIN, I guess
-        int sockid = -1;
-        for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
-        {
-            TCPSocket* sock = &TCPSocketList[i];
-            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[12], 4) && sock->DestPort == srcport)
-            {
-                sockid = i;
-                break;
-            }
-        }
-
-        if (sockid == -1)
-        {
-            return true;
-        }
-
-        // TCP checksum
-        tmp = 0;
-        *(u16*)&protoheader[16] = 0;
-        tmp += ntohs(*(u16*)&ipheader[12]);
-        tmp += ntohs(*(u16*)&ipheader[14]);
-        tmp += ntohs(*(u16*)&ipheader[16]);
-        tmp += ntohs(*(u16*)&ipheader[18]);
-        tmp += ntohs(0x0600);
-        tmp += tcplen;
-        for (u8* i = protoheader; i < &protoheader[tcplen-1]; i += 2)
-            tmp += ntohs(*(u16*)i);
-        if (tcplen & 1) tmp += (protoheader[tcplen-1] << 8);
-        while (tmp >> 16)
-            tmp = (tmp & 0xFFFF) + (tmp >> 16);
-        tmp ^= 0xFFFF;
-        *(u16*)&protoheader[16] = htons(tmp);
-    }
-
-    return false;
-}*/
-
-/*void RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
-{
-    while (PCapRXNum > 0);
-
-    if (header->len > 2048-64) return;
-
-    PCapPacketLen = header->len;
-    memcpy(PCapPacketBuffer, data, PCapPacketLen);
-    PCapRXNum = 1;
-
-    if (!Config::DirectLAN)
-    {
-        u16 ethertype = ntohs(*(u16*)&data[0xC]);
-
-        if (ethertype == 0x0800) // IPv4
-        {
-            if (HandleIncomingIPFrame(PCapPacketBuffer, header->len))
-                PCapRXNum = 0;
-        }
-    }
-}*/
 
 void HandleDHCPFrame(u8* data, int len)
 {
@@ -602,6 +482,8 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     u8* tcpheader = &data[0x22];
 
     u32 seqnum = htonl(*(u32*)&tcpheader[4]);
+    seqnum++;
+    sock->AckNum = seqnum;
 
     // ethernet
     memcpy(out, &data[6], 6); out += 6;
@@ -627,7 +509,7 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     *(u16*)out = *(u16*)&tcpheader[2]; out += 2; // source port
     *(u16*)out = *(u16*)&tcpheader[0]; out += 2; // destination port
     *(u32*)out = htonl(sock->SeqNum); out += 4; sock->SeqNum++; // seq number
-    *(u32*)out = htonl(seqnum+1); out += 4; // ack seq number
+    *(u32*)out = htonl(seqnum); out += 4; // ack seq number
     *(u16*)out = htons(0x8012); out += 2; // flags (SYN+ACK)
     *(u16*)out = htons(0x7000); out += 2; // window size (uuuh)
     *(u16*)out = 0; out += 2; // checksum
@@ -642,6 +524,58 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     *out++ = 0x01;
     *out++ = 0x03; *out++ = 0x03; // window size
     *out++ = 0x08;
+
+    u32 framelen = (u32)(out - &resp[0]);
+    if (framelen & 1) { *out++ = 0; framelen++; }
+    FinishTCPFrame(resp, framelen);
+
+    // TODO: if there is already a packet queued, this will overwrite it
+    // that being said, this will only happen during DHCP setup, so probably
+    // not a big deal
+
+    PacketLen = framelen;
+    memcpy(PacketBuffer, resp, PacketLen);
+    RXNum = 1;
+}
+
+void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
+{
+    u8 resp[2048];
+    u8* out = &resp[0];
+
+    if (len > 1536) return;
+
+    // ethernet
+    memcpy(out, Wifi::GetMAC(), 6); out += 6; // hurf
+    memcpy(out, kServerMAC, 6); out += 6;
+    *(u16*)out = htons(0x0800); out += 2;
+
+    // IP
+    u8* resp_ipheader = out;
+    *out++ = 0x45;
+    *out++ = 0x00;
+    *(u16*)out = 0; out += 2; // total length
+    *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+    *out++ = 0x00;
+    *out++ = 0x00;
+    *out++ = 0x80; // TTL
+    *out++ = 0x06; // protocol (TCP)
+    *(u16*)out = 0; out += 2; // checksum
+    memcpy(out, sock->DestIP, 4); out += 4; // source IP
+    *(u32*)out = htonl(kClientIP); out += 4; // destination IP
+
+    // TCP
+    u8* resp_tcpheader = out;
+    *(u16*)out = htons(sock->DestPort); out += 2; // source port
+    *(u16*)out = htons(sock->SourcePort); out += 2; // destination port
+    *(u32*)out = htonl(sock->SeqNum); out += 4; // seq number
+    *(u32*)out = htonl(sock->AckNum); out += 4; // ack seq number
+    *(u16*)out = htons(0x5018); out += 2; // flags (ACK, PSH)
+    *(u16*)out = htons(0x7000); out += 2; // window size (uuuh)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u16*)out = 0; out += 2; // urgent pointer
+
+    memcpy(out, data, len); out += len;
 
     u32 framelen = (u32)(out - &resp[0]);
     if (framelen & 1) { *out++ = 0; framelen++; }
@@ -715,6 +649,7 @@ void HandleTCPFrame(u8* data, int len)
         sock->DestPort = dstport;
         sock->SourcePort = srcport;
         sock->SeqNum = 0x13370000;
+        sock->AckNum = 0;
 
         // open backend socket
         if (!sock->Backend)
@@ -725,7 +660,8 @@ void HandleTCPFrame(u8* data, int len)
         struct sockaddr_in conn_addr;
         memset(&conn_addr, 0, sizeof(conn_addr));
         conn_addr.sin_family = AF_INET;
-        conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
+        //conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
+        memcpy(&conn_addr.sin_addr, &ipheader[16], 4);
         conn_addr.sin_port = htons(dstport);
         if (connect(sock->Backend, (sockaddr*)&conn_addr, sizeof(conn_addr)) == SOCKET_ERROR)
         {
@@ -763,7 +699,13 @@ void HandleTCPFrame(u8* data, int len)
         {
             u8* tcpdata = &tcpheader[tcpheaderlen];
 
-            printf("TCP: forwarding %d bytes\n", tcpdatalen);
+            // TODO: check those
+            u32 seqnum = ntohl(*(u32*)&tcpheader[4]);
+            u32 acknum = ntohl(*(u32*)&tcpheader[8]);
+            sock->SeqNum = acknum;
+            sock->AckNum = seqnum + tcpdatalen;
+
+            printf("TCP: socket %d sending %d bytes\n", sockid, tcpdatalen);
             send(sock->Backend, (char*)tcpdata, tcpdatalen, 0);
         }
 
@@ -898,7 +840,32 @@ int RecvPacket(u8* data)
         RXNum = 0;
     }
 
-    // TODO: check sockets
+    for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+    {
+        TCPSocket* sock = &TCPSocketList[i];
+        if (sock->Status != 1) continue;
+
+        fd_set fd;
+        struct timeval tv;
+
+        FD_ZERO(&fd);
+        FD_SET(sock->Backend, &fd);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+
+        if (!select(sock->Backend+1, &fd, 0, 0, &tv))
+        {
+            continue;
+        }
+
+        u8 recvbuf[1024];
+        int recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
+        if (recvlen < 1) continue;
+
+        printf("TCP: socket %d receiving %d bytes\n", i, recvlen);
+        TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
+    }
+
     return ret;
 }
 
