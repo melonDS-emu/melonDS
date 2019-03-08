@@ -538,6 +538,57 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     RXNum = 1;
 }
 
+void TCP_ACK(TCPSocket* sock, u8* data, int len)
+{
+    u8 resp[64];
+    u8* out = &resp[0];
+
+    u8* ipheader = &data[0xE];
+    u8* tcpheader = &data[0x22];
+
+    // ethernet
+    memcpy(out, &data[6], 6); out += 6;
+    memcpy(out, kServerMAC, 6); out += 6;
+    *(u16*)out = htons(0x0800); out += 2;
+
+    // IP
+    u8* resp_ipheader = out;
+    *out++ = 0x45;
+    *out++ = 0x00;
+    *(u16*)out = 0; out += 2; // total length
+    *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+    *out++ = 0x00;
+    *out++ = 0x00;
+    *out++ = 0x80; // TTL
+    *out++ = 0x06; // protocol (TCP)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u32*)out = *(u32*)&ipheader[16]; out += 4; // source IP
+    *(u32*)out = *(u32*)&ipheader[12]; out += 4; // destination IP
+
+    // TCP
+    u8* resp_tcpheader = out;
+    *(u16*)out = *(u16*)&tcpheader[2]; out += 2; // source port
+    *(u16*)out = *(u16*)&tcpheader[0]; out += 2; // destination port
+    *(u32*)out = htonl(sock->SeqNum); out += 4; // seq number
+    *(u32*)out = htonl(sock->AckNum); out += 4; // ack seq number
+    *(u16*)out = htons(0x5010); out += 2; // flags (ACK)
+    *(u16*)out = htons(0x7000); out += 2; // window size (uuuh)
+    *(u16*)out = 0; out += 2; // checksum
+    *(u16*)out = 0; out += 2; // urgent pointer
+
+    u32 framelen = (u32)(out - &resp[0]);
+    if (framelen & 1) { *out++ = 0; framelen++; }
+    FinishTCPFrame(resp, framelen);
+
+    // TODO: if there is already a packet queued, this will overwrite it
+    // that being said, this will only happen during DHCP setup, so probably
+    // not a big deal
+
+    PacketLen = framelen;
+    memcpy(PacketBuffer, resp, PacketLen);
+    RXNum = 1;
+}
+
 void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
 {
     u8 resp[2048];
@@ -707,6 +758,9 @@ void HandleTCPFrame(u8* data, int len)
 
             printf("TCP: socket %d sending %d bytes\n", sockid, tcpdatalen);
             send(sock->Backend, (char*)tcpdata, tcpdatalen, 0);
+
+            // kind of a hack, there
+            TCP_ACK(sock, data, len);
         }
 
         if (flags & 0x001) // FIN
