@@ -156,8 +156,10 @@ void FinishUDPFrame(u8* data, int len)
     tmp += ntohs(*(u16*)&ipheader[18]);
     tmp += ntohs(0x1100);
     tmp += (len-0x22);
-    for (u8* i = udpheader; i < &udpheader[len-0x22]; i += 2)
+    for (u8* i = udpheader; i < &udpheader[len-0x23]; i += 2)
         tmp += ntohs(*(u16*)i);
+    if (len & 1)
+        tmp += ntohs((u_short)udpheader[len-0x23]);
     while (tmp >> 16)
         tmp = (tmp & 0xFFFF) + (tmp >> 16);
     tmp ^= 0xFFFF;
@@ -484,6 +486,53 @@ void HandleDNSFrame(u8* data, int len)
     RXNum = 1;
 }
 
+void UDP_BuildIncomingFrame(UDPSocket* sock, u8* data, int len)
+{
+    u8 resp[2048];
+    u8* out = &resp[0];
+
+    if (len > 1536) return;
+
+    // ethernet
+    memcpy(out, Wifi::GetMAC(), 6); out += 6; // hurf
+    memcpy(out, kServerMAC, 6); out += 6;
+    *(u16*)out = htons(0x0800); out += 2;
+
+    // IP
+    u8* resp_ipheader = out;
+    *out++ = 0x45;
+    *out++ = 0x00;
+    *(u16*)out = 0; out += 2; // total length
+    *(u16*)out = htons(IPv4ID); out += 2; IPv4ID++;
+    *out++ = 0x00;
+    *out++ = 0x00;
+    *out++ = 0x80; // TTL
+    *out++ = 0x11; // protocol (UDP)
+    *(u16*)out = 0; out += 2; // checksum
+    memcpy(out, sock->DestIP, 4); out += 4; // source IP
+    *(u32*)out = htonl(kClientIP); out += 4; // destination IP
+
+    // UDP
+    u8* resp_tcpheader = out;
+    *(u16*)out = htons(sock->DestPort); out += 2; // source port
+    *(u16*)out = htons(sock->SourcePort); out += 2; // destination port
+    *(u16*)out = htons(len+8); out += 2; // length of header+data
+    *(u16*)out = 0; out += 2; // checksum
+
+    memcpy(out, data, len); out += len;
+
+    u32 framelen = (u32)(out - &resp[0]);
+    FinishUDPFrame(resp, framelen);
+
+    // TODO: if there is already a packet queued, this will overwrite it
+    // that being said, this will only happen during DHCP setup, so probably
+    // not a big deal
+
+    PacketLen = framelen;
+    memcpy(PacketBuffer, resp, PacketLen);
+    RXNum = 1;
+}
+
 void HandleUDPFrame(u8* data, int len)
 {
     u8* ipheader = &data[0xE];
@@ -534,14 +583,18 @@ void HandleUDPFrame(u8* data, int len)
 
         sock->Backend = socket(AF_INET, SOCK_DGRAM, 0);
 
+        memcpy(sock->DestIP, &ipheader[16], 4);
+        sock->SourcePort = srcport;
+        sock->DestPort = dstport;
+
         memset(&sock->BackendAddr, 0, sizeof(sock->BackendAddr));
         sock->BackendAddr.sin_family = AF_INET;
         sock->BackendAddr.sin_port = htons(dstport);
         memcpy(&sock->BackendAddr.sin_addr, &ipheader[16], 4);
-        if (bind(sock->Backend, (struct sockaddr*)&sock->BackendAddr, sizeof(sock->BackendAddr)) == SOCKET_ERROR)
+        /*if (bind(sock->Backend, (struct sockaddr*)&sock->BackendAddr, sizeof(sock->BackendAddr)) == SOCKET_ERROR)
         {
             printf("bind() shat itself :(\n");
-        }
+        }*/
 
         printf("LANMAGIC: opening UDP socket #%d to %d.%d.%d.%d:%d, srcport %d\n",
                sockid,
@@ -1030,8 +1083,13 @@ int RecvPacket(u8* data)
         int recvlen = recvfrom(sock->Backend, (char*)recvbuf, 1024, 0, &fromAddr, &fromLen);
         if (recvlen < 1) continue;
 
+        if (fromAddr.sa_family != AF_INET) continue;
+        struct sockaddr_in* fromAddrIn = (struct sockaddr_in*)&fromAddr;
+        if (memcmp(&fromAddrIn->sin_addr, sock->DestIP, 4)) continue;
+        if (ntohs(fromAddrIn->sin_port) != sock->DestPort) continue;
+
         printf("UDP: socket %d receiving %d bytes\n", i, recvlen);
-        //TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
+        UDP_BuildIncomingFrame(sock, recvbuf, recvlen);
     }
 
     return ret;
