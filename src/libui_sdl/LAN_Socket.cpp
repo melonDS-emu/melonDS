@@ -176,8 +176,10 @@ void FinishTCPFrame(u8* data, int len)
     tmp += ntohs(*(u16*)&ipheader[18]);
     tmp += ntohs(0x0600);
     tmp += tcplen;
-    for (u8* i = tcpheader; i < &tcpheader[tcplen]; i += 2)
+    for (u8* i = tcpheader; i < &tcpheader[tcplen-1]; i += 2)
         tmp += ntohs(*(u16*)i);
+    if (tcplen & 1)
+        tmp += ntohs((u_short)tcpheader[tcplen-1]);
     while (tmp >> 16)
         tmp = (tmp & 0xFFFF) + (tmp >> 16);
     tmp ^= 0xFFFF;
@@ -526,7 +528,7 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     *out++ = 0x08;
 
     u32 framelen = (u32)(out - &resp[0]);
-    if (framelen & 1) { *out++ = 0; framelen++; }
+    //if (framelen & 1) { *out++ = 0; framelen++; }
     FinishTCPFrame(resp, framelen);
 
     // TODO: if there is already a packet queued, this will overwrite it
@@ -577,7 +579,7 @@ void TCP_ACK(TCPSocket* sock, u8* data, int len)
     *(u16*)out = 0; out += 2; // urgent pointer
 
     u32 framelen = (u32)(out - &resp[0]);
-    if (framelen & 1) { *out++ = 0; framelen++; }
+    //if (framelen & 1) { *out++ = 0; framelen++; }
     FinishTCPFrame(resp, framelen);
 
     // TODO: if there is already a packet queued, this will overwrite it
@@ -629,7 +631,6 @@ void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
     memcpy(out, data, len); out += len;
 
     u32 framelen = (u32)(out - &resp[0]);
-    if (framelen & 1) { *out++ = 0; framelen++; }
     FinishTCPFrame(resp, framelen);
 
     // TODO: if there is already a packet queued, this will overwrite it
