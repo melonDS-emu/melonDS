@@ -86,7 +86,21 @@ typedef struct
 
 } TCPSocket;
 
+typedef struct
+{
+    u8 DestIP[4];
+    u16 SourcePort;
+    u16 DestPort;
+
+    SOCKET Backend;
+    struct sockaddr_in BackendAddr;
+
+} UDPSocket;
+
 TCPSocket TCPSocketList[16];
+UDPSocket UDPSocketList[4];
+
+int UDPSocketID = 0;
 
 
 bool Init()
@@ -101,13 +115,16 @@ bool Init()
     IPv4ID = 1;
 
     memset(TCPSocketList, 0, sizeof(TCPSocketList));
+    memset(UDPSocketList, 0, sizeof(UDPSocketList));
+
+    UDPSocketID = 0;
 
     return true;
 }
 
 void DeInit()
 {
-    //
+    // TODO CLEANUP SHIT!!!!
 }
 
 
@@ -472,7 +489,71 @@ void HandleUDPFrame(u8* data, int len)
     u8* ipheader = &data[0xE];
     u8* udpheader = &data[0x22];
 
-    // TODO!
+    // debug
+    /*for (int j = 0; j < len; j += 16)
+    {
+        int rem = len - j;
+        if (rem > 16) rem = 16;
+        for (int i = 0; i < rem; i++)
+        {
+            printf("%02X ", data[i+j]);
+        }
+        printf("\n");
+    }*/
+
+    u16 srcport = ntohs(*(u16*)&udpheader[0]);
+    u16 dstport = ntohs(*(u16*)&udpheader[2]);
+
+    int sockid = -1;
+    UDPSocket* sock;
+    for (int i = 0; i < (sizeof(UDPSocketList)/sizeof(UDPSocket)); i++)
+    {
+        sock = &UDPSocketList[i];
+        if (sock->Backend != 0 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
+            sock->SourcePort == srcport && sock->DestPort == dstport)
+        {
+            sockid = i;
+            break;
+        }
+    }
+
+    if (sockid == -1)
+    {
+        sockid = UDPSocketID;
+        sock = &UDPSocketList[sockid];
+
+        UDPSocketID++;
+        if (UDPSocketID >= (sizeof(UDPSocketList)/sizeof(UDPSocket)))
+            UDPSocketID = 0;
+
+        if (sock->Backend != 0)
+        {
+            printf("LANMAGIC: closing previous UDP socket #%d\n", sockid);
+            closesocket(sock->Backend);
+        }
+
+        sock->Backend = socket(AF_INET, SOCK_DGRAM, 0);
+
+        memset(&sock->BackendAddr, 0, sizeof(sock->BackendAddr));
+        sock->BackendAddr.sin_family = AF_INET;
+        sock->BackendAddr.sin_port = htons(dstport);
+        memcpy(&sock->BackendAddr.sin_addr, &ipheader[16], 4);
+        if (bind(sock->Backend, (struct sockaddr*)&sock->BackendAddr, sizeof(sock->BackendAddr)) == SOCKET_ERROR)
+        {
+            printf("bind() shat itself :(\n");
+        }
+
+        printf("LANMAGIC: opening UDP socket #%d to %d.%d.%d.%d:%d, srcport %d\n",
+               sockid,
+               ipheader[16], ipheader[17], ipheader[18], ipheader[19],
+               dstport, srcport);
+    }
+
+    u16 udplen = ntohs(*(u16*)&udpheader[4]) - 8;
+
+    printf("UDP: socket %d sending %d bytes\n", sockid, udplen);
+    sendto(sock->Backend, (char*)&udpheader[8], udplen, 0,
+           (struct sockaddr*)&sock->BackendAddr, sizeof(sock->BackendAddr));
 }
 
 void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
@@ -850,13 +931,13 @@ void HandlePacket(u8* data, int len)
                 printf("LANMAGIC: DHCP packet\n");
                 return HandleDHCPFrame(data, len);
             }
-            else if (dstport == 53) // DNS
+            else if (dstport == 53 && htonl(*(u32*)&data[0x1E]) == kDNSIP) // DNS
             {
                 printf("LANMAGIC: DNS packet\n");
                 return HandleDNSFrame(data, len);
             }
 
-            printf("LANMAGIC: UDP packet\n");
+            printf("LANMAGIC: UDP packet %d->%d\n", srcport, dstport);
             return HandleUDPFrame(data, len);
         }
         else if (protocol == 0x06) // TCP
@@ -922,6 +1003,35 @@ int RecvPacket(u8* data)
 
         printf("TCP: socket %d receiving %d bytes\n", i, recvlen);
         TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
+    }
+
+    for (int i = 0; i < (sizeof(UDPSocketList)/sizeof(UDPSocket)); i++)
+    {
+        UDPSocket* sock = &UDPSocketList[i];
+        if (sock->Backend == 0) continue;
+
+        fd_set fd;
+        struct timeval tv;
+
+        FD_ZERO(&fd);
+        FD_SET(sock->Backend, &fd);
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
+
+        if (!select(sock->Backend+1, &fd, 0, 0, &tv))
+        {
+            continue;
+        }
+
+        u8 recvbuf[1024];
+        //int recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
+        sockaddr_t fromAddr;
+        socklen_t fromLen = sizeof(sockaddr_t);
+        int recvlen = recvfrom(sock->Backend, (char*)recvbuf, 1024, 0, &fromAddr, &fromLen);
+        if (recvlen < 1) continue;
+
+        printf("UDP: socket %d receiving %d bytes\n", i, recvlen);
+        //TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
     }
 
     return ret;
