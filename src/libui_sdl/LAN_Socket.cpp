@@ -766,9 +766,12 @@ void HandleTCPFrame(u8* data, int len)
 
         if (flags & 0x001) // FIN
         {
-            // TODO: cleverer termination?
-            // also timeout etc
+            // TODO: timeout etc
+            printf("TCP: socket %d closing\n", sockid);
+
             sock->Status = 0;
+            closesocket(sock->Backend);
+            sock->Backend = 0;
         }
     }
 }
