@@ -745,18 +745,18 @@ void HandleTCPFrame(u8* data, int len)
             return;
         }
 
+        // TODO: check those
+        u32 seqnum = ntohl(*(u32*)&tcpheader[4]);
+        u32 acknum = ntohl(*(u32*)&tcpheader[8]);
+        sock->SeqNum = acknum;
+        sock->AckNum = seqnum + tcpdatalen;
+
         // send data over the socket
         if (tcpdatalen > 0)
         {
             u8* tcpdata = &tcpheader[tcpheaderlen];
 
-            // TODO: check those
-            u32 seqnum = ntohl(*(u32*)&tcpheader[4]);
-            u32 acknum = ntohl(*(u32*)&tcpheader[8]);
-            sock->SeqNum = acknum;
-            sock->AckNum = seqnum + tcpdatalen;
-
-            printf("TCP: socket %d sending %d bytes\n", sockid, tcpdatalen);
+            printf("TCP: socket %d sending %d bytes (flags=%04X)\n", sockid, tcpdatalen, flags);
             send(sock->Backend, (char*)tcpdata, tcpdatalen, 0);
 
             // kind of a hack, there
