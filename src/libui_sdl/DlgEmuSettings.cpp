@@ -22,7 +22,7 @@
 #include "libui/ui.h"
 
 #include "../types.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #include "DlgEmuSettings.h"
 

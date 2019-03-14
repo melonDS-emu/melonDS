@@ -21,7 +21,7 @@
 #include <string.h>
 #include <SDL2/SDL.h>
 #include "../Platform.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 

@@ -25,7 +25,7 @@
 #include <pcap/pcap.h>
 #include "Wifi.h"
 #include "LAN_PCap.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #ifdef __WIN32__
 	#include <iphlpapi.h>

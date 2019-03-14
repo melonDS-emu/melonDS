@@ -621,6 +621,8 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     seqnum++;
     sock->AckNum = seqnum;
 
+    printf("SYNACK  SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
+
     // ethernet
     memcpy(out, &data[6], 6); out += 6;
     memcpy(out, kServerMAC, 6); out += 6;
@@ -674,16 +676,18 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     RXNum = 1;
 }
 
-void TCP_ACK(TCPSocket* sock, u8* data, int len)
+void TCP_ACK(TCPSocket* sock, bool fin)
 {
     u8 resp[64];
     u8* out = &resp[0];
 
-    u8* ipheader = &data[0xE];
-    u8* tcpheader = &data[0x22];
+    u16 flags       = 0x5010;
+    if (fin) flags |= 0x0001;
+
+    printf("%sACK  SEQ=%08X|%08X\n", fin?"FIN":"   ", sock->SeqNum, sock->AckNum);
 
     // ethernet
-    memcpy(out, &data[6], 6); out += 6;
+    memcpy(out, Wifi::GetMAC(), 6); out += 6;
     memcpy(out, kServerMAC, 6); out += 6;
     *(u16*)out = htons(0x0800); out += 2;
 
@@ -698,16 +702,16 @@ void TCP_ACK(TCPSocket* sock, u8* data, int len)
     *out++ = 0x80; // TTL
     *out++ = 0x06; // protocol (TCP)
     *(u16*)out = 0; out += 2; // checksum
-    *(u32*)out = *(u32*)&ipheader[16]; out += 4; // source IP
-    *(u32*)out = *(u32*)&ipheader[12]; out += 4; // destination IP
+    *(u32*)out = *(u32*)&sock->DestIP; out += 4; // source IP
+    *(u32*)out = htonl(kClientIP); out += 4; // destination IP
 
     // TCP
     u8* resp_tcpheader = out;
-    *(u16*)out = *(u16*)&tcpheader[2]; out += 2; // source port
-    *(u16*)out = *(u16*)&tcpheader[0]; out += 2; // destination port
+    *(u16*)out = htonl(sock->DestPort); out += 2; // source port
+    *(u16*)out = htonl(sock->SourcePort); out += 2; // destination port
     *(u32*)out = htonl(sock->SeqNum); out += 4; // seq number
     *(u32*)out = htonl(sock->AckNum); out += 4; // ack seq number
-    *(u16*)out = htons(0x5010); out += 2; // flags (ACK)
+    *(u16*)out = htons(flags); out += 2; // flags
     *(u16*)out = htons(0x7000); out += 2; // window size (uuuh)
     *(u16*)out = 0; out += 2; // checksum
     *(u16*)out = 0; out += 2; // urgent pointer
@@ -731,7 +735,7 @@ void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
     u8* out = &resp[0];
 
     if (len > 1536) return;
-
+printf("INCOMING SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
     // ethernet
     memcpy(out, Wifi::GetMAC(), 6); out += 6; // hurf
     memcpy(out, kServerMAC, 6); out += 6;
@@ -774,6 +778,8 @@ void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
     PacketLen = framelen;
     memcpy(PacketBuffer, resp, PacketLen);
     RXNum = 1;
+
+    sock->SeqNum += len;
 }
 
 void HandleTCPFrame(u8* data, int len)
@@ -789,6 +795,11 @@ void HandleTCPFrame(u8* data, int len)
     u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
     u32 tcpdatalen = tcplen - tcpheaderlen;
 
+    printf("tcpflags=%04X header=%d data=%d seq=%08X|%08X\n",
+           flags, tcpheaderlen, tcpdatalen,
+           ntohl(*(u32*)&tcpheader[4]),
+           ntohl(*(u32*)&tcpheader[8]));
+
     if (flags & 0x002) // SYN
     {
         int sockid = -1;
@@ -796,7 +807,7 @@ void HandleTCPFrame(u8* data, int len)
         for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
         {
             sock = &TCPSocketList[i];
-            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
+            if (sock->Status != 0 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
                 sock->SourcePort == srcport && sock->DestPort == dstport)
             {
                 printf("LANMAGIC: duplicate TCP socket\n");
@@ -846,7 +857,6 @@ void HandleTCPFrame(u8* data, int len)
         struct sockaddr_in conn_addr;
         memset(&conn_addr, 0, sizeof(conn_addr));
         conn_addr.sin_family = AF_INET;
-        //conn_addr.sin_addr.S_un.S_addr = *(u32*)&ipheader[16];
         memcpy(&conn_addr.sin_addr, &ipheader[16], 4);
         conn_addr.sin_port = htons(dstport);
         if (connect(sock->Backend, (sockaddr*)&conn_addr, sizeof(conn_addr)) == SOCKET_ERROR)
@@ -866,7 +876,7 @@ void HandleTCPFrame(u8* data, int len)
         for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
         {
             sock = &TCPSocketList[i];
-            if (sock->Status == 1 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
+            if (sock->Status != 0 && !memcmp(&sock->DestIP, &ipheader[16], 4) &&
                 sock->SourcePort == srcport && sock->DestPort == dstport)
             {
                 sockid = i;
@@ -895,7 +905,7 @@ void HandleTCPFrame(u8* data, int len)
             send(sock->Backend, (char*)tcpdata, tcpdatalen, 0);
 
             // kind of a hack, there
-            TCP_ACK(sock, data, len);
+            TCP_ACK(sock, false);
         }
 
         if (flags & 0x001) // FIN
@@ -1052,10 +1062,35 @@ int RecvPacket(u8* data)
 
         u8 recvbuf[1024];
         int recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
-        if (recvlen < 1) continue;
+        if (recvlen < 1)
+        {
+            if (recvlen == 0)
+            {
+                // socket has closed from the other side
+                printf("TCP: socket %d closed from other side\n", i);
+                sock->Status = 2;
+                TCP_ACK(sock, true);
+            }
+            continue;
+        }
 
         printf("TCP: socket %d receiving %d bytes\n", i, recvlen);
         TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
+
+        // debug
+        for (int j = 0; j < recvlen; j += 16)
+        {
+            int rem = recvlen - j;
+            if (rem > 16) rem = 16;
+            for (int k = 0; k < rem; k++)
+            {
+                printf("%02X ", recvbuf[k+j]);
+            }
+            printf("\n");
+        }
+
+        //recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
+        //if (recvlen == 0) printf("it closed immediately after\n");
     }
 
     for (int i = 0; i < (sizeof(UDPSocketList)/sizeof(UDPSocket)); i++)
@@ -1077,7 +1112,6 @@ int RecvPacket(u8* data)
         }
 
         u8 recvbuf[1024];
-        //int recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
         sockaddr_t fromAddr;
         socklen_t fromLen = sizeof(sockaddr_t);
         int recvlen = recvfrom(sock->Backend, (char*)recvbuf, 1024, 0, &fromAddr, &fromLen);

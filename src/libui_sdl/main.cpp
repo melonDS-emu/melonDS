@@ -27,7 +27,7 @@
 #include "../types.h"
 #include "../melon_fopen.h"
 #include "../version.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"

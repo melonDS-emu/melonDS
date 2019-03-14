@@ -24,7 +24,7 @@
 #include "libui/ui.h"
 
 #include "../types.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #include "DlgInputConfig.h"
 
