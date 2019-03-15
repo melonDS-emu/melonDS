@@ -632,6 +632,7 @@ int EmuThreadFunc(void* burp)
     if (joybuttons) delete[] joybuttons;
 
     NDS::DeInit();
+    Platform::LAN_DeInit();
 
     return 44203;
 }
@@ -1679,7 +1680,8 @@ void ApplyNewSettings(int type)
             Platform::MP_Init();
         }
 
-        // TODO: cycle LAN shito
+        Platform::LAN_DeInit();
+        Platform::LAN_Init();
     }
 
     EmuRunning = prevstatus;

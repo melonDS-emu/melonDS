@@ -124,7 +124,17 @@ bool Init()
 
 void DeInit()
 {
-    // TODO CLEANUP SHIT!!!!
+    for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+    {
+        TCPSocket* sock = &TCPSocketList[i];
+        if (sock->Backend) closesocket(sock->Backend);
+    }
+
+    for (int i = 0; i < (sizeof(UDPSocketList)/sizeof(UDPSocket)); i++)
+    {
+        UDPSocket* sock = &UDPSocketList[i];
+        if (sock->Backend) closesocket(sock->Backend);
+    }
 }
 
 

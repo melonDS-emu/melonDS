@@ -279,10 +279,12 @@ bool LAN_Init()
 void LAN_DeInit()
 {
     // checkme. blarg
-    if (Config::DirectLAN)
-        LAN_PCap::DeInit();
-    else
-        LAN_Socket::DeInit();
+    //if (Config::DirectLAN)
+    //    LAN_PCap::DeInit();
+    //else
+    //    LAN_Socket::DeInit();
+    LAN_PCap::DeInit();
+    LAN_Socket::DeInit();
 }
 
 int LAN_SendPacket(u8* data, int len)
