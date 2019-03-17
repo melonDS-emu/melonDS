@@ -33,11 +33,6 @@ typedef struct
     u8 MAC[6];
     u8 IP_v4[4];
 
-    u8 DNS[8][4];
-
-    u8 DHCP_MAC[6];
-    u8 DHCP_IP_v4[4];
-
     void* Internal;
 
 } AdapterData;

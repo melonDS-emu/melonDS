@@ -223,30 +223,6 @@ bool Init()
                 ipaddr = ipaddr->Next;
             }
 
-            IP_ADAPTER_DNS_SERVER_ADDRESS* dnsaddr = addr->FirstDnsServerAddress;
-            int ndns = 0;
-            while (dnsaddr)
-            {
-                SOCKADDR* sa = dnsaddr->Address.lpSockaddr;
-                if (sa->sa_family == AF_INET)
-                {
-                    struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                    memcpy(adata->DNS[ndns++], &sa4.S_un.S_addr, 4);
-                }
-
-                if (ndns >= 8) break;
-                dnsaddr = dnsaddr->Next;
-            }
-
-            if (addr->Dhcpv4Enabled && addr->Dhcpv4Server.lpSockaddr)
-            {
-                SOCKADDR* sa = addr->Dhcpv4Server.lpSockaddr;
-                struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                memcpy(adata->DHCP_IP_v4, &sa4.S_un.S_addr, 4);
-            }
-            else
-                memset(adata->DHCP_IP_v4, 0, 4);
-
             break;
         }
     }
