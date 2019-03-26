@@ -16,14 +16,15 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DLGEMUSETTINGS_H
-#define DLGEMUSETTINGS_H
+#ifndef DLGWIFISETTINGS_H
+#define DLGWIFISETTINGS_H
 
-namespace DlgEmuSettings
+namespace DlgWifiSettings
 {
 
 void Open();
 
 }
 
-#endif // DLGEMUSETTINGS_H
+#endif // DLGWIFISETTINGS_H
+

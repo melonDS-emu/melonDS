@@ -16,14 +16,23 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DLGEMUSETTINGS_H
-#define DLGEMUSETTINGS_H
+#ifndef LAN_SOCKET_H
+#define LAN_SOCKET_H
 
-namespace DlgEmuSettings
+#include "../types.h"
+
+namespace LAN_Socket
 {
 
-void Open();
+//
+
+
+bool Init();
+void DeInit();
+
+int SendPacket(u8* data, int len);
+int RecvPacket(u8* data);
 
 }
 
-#endif // DLGEMUSETTINGS_H
+#endif // LAN_SOCKET_H

@@ -35,6 +35,7 @@
 					<Add library="iphlpapi" />
 					<Add library="user32" />
 					<Add library="archive" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="Release Windows">
@@ -67,6 +68,7 @@
 					<Add library="iphlpapi" />
 					<Add library="user32" />
 					<Add library="archive" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="DebugFast Windows">
@@ -98,6 +100,7 @@
 					<Add library="iphlpapi" />
 					<Add library="user32" />
 					<Add library="archive" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 		</Build>
@@ -159,7 +162,15 @@
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
+		<Unit filename="src/libui_sdl/DlgWifiSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgWifiSettings.h" />
+		<Unit filename="src/libui_sdl/LAN_PCap.cpp" />
+		<Unit filename="src/libui_sdl/LAN_PCap.h" />
+		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
+		<Unit filename="src/libui_sdl/LAN_Socket.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
+		<Unit filename="src/libui_sdl/PlatformConfig.cpp" />
+		<Unit filename="src/libui_sdl/PlatformConfig.h" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
 		</Unit>

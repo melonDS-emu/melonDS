@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -27,8 +27,8 @@
 // this was measured to be close to hardware average
 // a value of 1 would represent a perfect cache, but that causes
 // games to run too fast, causing a number of issues
-const int kDataCacheTiming = 2;
-const int kCodeCacheTiming = 5;
+const int kDataCacheTiming = 3;//2;
+const int kCodeCacheTiming = 3;//5;
 
 
 void ARMv5::CP15Reset()

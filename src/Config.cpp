@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -31,119 +31,31 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
-int KeyMapping[12];
-int JoyMapping[12];
-
-int HKKeyMapping[HK_MAX];
-int HKJoyMapping[HK_MAX];
-
-int WindowWidth;
-int WindowHeight;
-int WindowMaximized;
-
-int ScreenRotation;
-int ScreenGap;
-int ScreenLayout;
-int ScreenSizing;
-int ScreenFilter;
-
-int LimitFPS;
-
-int DirectBoot;
-
 int Threaded3D;
-
-int SocketBindAnyAddr;
-
-int SavestateRelocSRAM;
-
-int AudioVolume;
-int MicInputType;
-char MicWavPath[512];
-
-char LastROMFolder[512];
-
-typedef struct
-{
-    char Name[16];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
-
-} ConfigEntry;
 
 ConfigEntry ConfigFile[] =
 {
-    {"Key_A",      0, &KeyMapping[0],   32, NULL, 0},
-    {"Key_B",      0, &KeyMapping[1],   31, NULL, 0},
-    {"Key_Select", 0, &KeyMapping[2],   57, NULL, 0},
-    {"Key_Start",  0, &KeyMapping[3],   28, NULL, 0},
-    {"Key_Right",  0, &KeyMapping[4],  333, NULL, 0},
-    {"Key_Left",   0, &KeyMapping[5],  331, NULL, 0},
-    {"Key_Up",     0, &KeyMapping[6],  328, NULL, 0},
-    {"Key_Down",   0, &KeyMapping[7],  336, NULL, 0},
-    {"Key_R",      0, &KeyMapping[8],   54, NULL, 0},
-    {"Key_L",      0, &KeyMapping[9],   86, NULL, 0},
-    {"Key_X",      0, &KeyMapping[10],  17, NULL, 0},
-    {"Key_Y",      0, &KeyMapping[11],  30, NULL, 0},
-
-    {"Joy_A",      0, &JoyMapping[0],  -1, NULL, 0},
-    {"Joy_B",      0, &JoyMapping[1],  -1, NULL, 0},
-    {"Joy_Select", 0, &JoyMapping[2],  -1, NULL, 0},
-    {"Joy_Start",  0, &JoyMapping[3],  -1, NULL, 0},
-    {"Joy_Right",  0, &JoyMapping[4],  -1, NULL, 0},
-    {"Joy_Left",   0, &JoyMapping[5],  -1, NULL, 0},
-    {"Joy_Up",     0, &JoyMapping[6],  -1, NULL, 0},
-    {"Joy_Down",   0, &JoyMapping[7],  -1, NULL, 0},
-    {"Joy_R",      0, &JoyMapping[8],  -1, NULL, 0},
-    {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
-    {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
-    {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
-
-    {"HKKey_Lid",  0, &HKKeyMapping[HK_Lid], 0x0E, NULL, 0},
-    {"HKKey_Mic",  0, &HKKeyMapping[HK_Mic], 0x35, NULL, 0},
-
-    {"HKJoy_Lid",  0, &HKJoyMapping[HK_Lid], -1, NULL, 0},
-    {"HKJoy_Mic",  0, &HKJoyMapping[HK_Mic], -1, NULL, 0},
-
-    {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
-    {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
-    {"WindowMax", 0, &WindowMaximized, 0, NULL, 0},
-
-    {"ScreenRotation", 0, &ScreenRotation, 0, NULL, 0},
-    {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
-    {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
-    {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
-    {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
-
-    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
-
-    {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
-
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
-
-    {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
-
-    {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
-
-    {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
-    {"MicInputType", 0, &MicInputType, 1, NULL, 0},
-    {"MicWavPath", 1, MicWavPath, 0, "", 511},
-
-    {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
 
     {"", -1, NULL, 0, NULL, 0}
 };
+
+extern ConfigEntry PlatformConfigFile[];
 
 
 void Load()
 {
     ConfigEntry* entry = &ConfigFile[0];
+    int c = 0;
     for (;;)
     {
-        if (!entry->Value) break;
+        if (!entry->Value)
+        {
+            if (c > 0) break;
+            entry = &PlatformConfigFile[0];
+            if (!entry->Value) break;
+            c++;
+        }
 
         if (entry->Type == 0)
             *(int*)entry->Value = entry->DefaultInt;
@@ -169,9 +81,16 @@ void Load()
         if (ret < 2) continue;
 
         ConfigEntry* entry = &ConfigFile[0];
+        c = 0;
         for (;;)
         {
-            if (!entry->Value) break;
+            if (!entry->Value)
+            {
+                if (c > 0) break;
+                entry = &PlatformConfigFile[0];
+                if (!entry->Value) break;
+                c++;
+            }
 
             if (!strncmp(entry->Name, entryname, 15))
             {
@@ -192,6 +111,7 @@ void Load()
 
 void Save()
 {
+    // TODO not make path search shit tself and pick the wrong ath every damn tiem!!!!!
     FILE* f;
     if (LocalFileExists(kConfigFile))
     {
@@ -214,9 +134,16 @@ void Save()
     }
 
     ConfigEntry* entry = &ConfigFile[0];
+    int c = 0;
     for (;;)
     {
-        if (!entry->Value) break;
+        if (!entry->Value)
+        {
+            if (c > 0) break;
+            entry = &PlatformConfigFile[0];
+            if (!entry->Value) break;
+            c++;
+        }
 
         if (entry->Type == 0)
             fprintf(f, "%s=%d\n", entry->Name, *(int*)entry->Value);

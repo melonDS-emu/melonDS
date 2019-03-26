@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -19,7 +19,7 @@
 #ifndef VERSION_H
 #define VERSION_H
 
-#define MELONDS_VERSION    "0.7.3"
+#define MELONDS_VERSION    "0.7.4"
 
 #define MELONDS_URL        "http://melonds.kuribo64.net/"
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2017 StapleButter
+    Copyright 2016-2017 Arisotura
 
     This file is part of melonDS.
 
@@ -1348,8 +1348,14 @@ void WriteROMCnt(u32 val)
     // TODO: advance read position if bit28 is set
 
     u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
-    u32 cmddelay = 8 + (ROMCnt & 0x1FFF);
-    if (datasize) cmddelay += ((ROMCnt >> 16) & 0x3F);
+    u32 cmddelay = 8;
+
+    // delays are only applied when the WR bit is cleared
+    if (!(ROMCnt & (1<<30)))
+    {
+        cmddelay += (ROMCnt & 0x1FFF);
+        if (datasize) cmddelay += ((ROMCnt >> 16) & 0x3F);
+    }
 
     if (datasize == 0)
         NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*cmddelay, ROMEndTransfer, 0);
@@ -1367,7 +1373,11 @@ u32 ReadROMData()
         {
             u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
             u32 delay = 4;
-            if (!(DataOutPos & 0x1FF)) delay += ((ROMCnt >> 16) & 0x3F);
+            if (!(ROMCnt & (1<<30)))
+            {
+                if (!(DataOutPos & 0x1FF))
+                    delay += ((ROMCnt >> 16) & 0x3F);
+            }
 
             NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMPrepareData, 0);
         }
