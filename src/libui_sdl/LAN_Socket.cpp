@@ -631,7 +631,7 @@ void TCP_SYNACK(TCPSocket* sock, u8* data, int len)
     seqnum++;
     sock->AckNum = seqnum;
 
-    printf("SYNACK  SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
+    //printf("SYNACK  SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
 
     // ethernet
     memcpy(out, &data[6], 6); out += 6;
@@ -694,7 +694,7 @@ void TCP_ACK(TCPSocket* sock, bool fin)
     u16 flags       = 0x5010;
     if (fin) flags |= 0x0001;
 
-    printf("%sACK  SEQ=%08X|%08X\n", fin?"FIN":"   ", sock->SeqNum, sock->AckNum);
+    //printf("%sACK  SEQ=%08X|%08X\n", fin?"FIN":"   ", sock->SeqNum, sock->AckNum);
 
     // ethernet
     memcpy(out, Wifi::GetMAC(), 6); out += 6;
@@ -745,7 +745,7 @@ void TCP_BuildIncomingFrame(TCPSocket* sock, u8* data, int len)
     u8* out = &resp[0];
 
     if (len > 1536) return;
-printf("INCOMING SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
+//printf("INCOMING SEQ=%08X|%08X\n", sock->SeqNum, sock->AckNum);
     // ethernet
     memcpy(out, Wifi::GetMAC(), 6); out += 6; // hurf
     memcpy(out, kServerMAC, 6); out += 6;
@@ -805,10 +805,10 @@ void HandleTCPFrame(u8* data, int len)
     u32 tcplen = ntohs(*(u16*)&ipheader[2]) - 0x14;
     u32 tcpdatalen = tcplen - tcpheaderlen;
 
-    printf("tcpflags=%04X header=%d data=%d seq=%08X|%08X\n",
+    /*printf("tcpflags=%04X header=%d data=%d seq=%08X|%08X\n",
            flags, tcpheaderlen, tcpdatalen,
            ntohl(*(u32*)&tcpheader[4]),
-           ntohl(*(u32*)&tcpheader[8]));
+           ntohl(*(u32*)&tcpheader[8]));*/
 
     if (flags & 0x002) // SYN
     {
@@ -1088,7 +1088,7 @@ int RecvPacket(u8* data)
         TCP_BuildIncomingFrame(sock, recvbuf, recvlen);
 
         // debug
-        for (int j = 0; j < recvlen; j += 16)
+        /*for (int j = 0; j < recvlen; j += 16)
         {
             int rem = recvlen - j;
             if (rem > 16) rem = 16;
@@ -1097,7 +1097,7 @@ int RecvPacket(u8* data)
                 printf("%02X ", recvbuf[k+j]);
             }
             printf("\n");
-        }
+        }*/
 
         //recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
         //if (recvlen == 0) printf("it closed immediately after\n");
