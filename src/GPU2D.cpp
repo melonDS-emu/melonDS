@@ -1334,8 +1334,6 @@ void GPU2D::DrawPixel(u32* dst, u16 color, u32 flag)
 
 void GPU2D::DrawBG_3D(u32 line, u32* dst)
 {
-    // TODO: check if window can prevent blending from happening
-
     u32* src = GPU3D::GetLine(line);
     u8* windowmask = (u8*)&dst[256*2];
 
