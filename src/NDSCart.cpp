@@ -1285,7 +1285,11 @@ u32 ReadROMData()
         {
             u32 xfercycle = (ROMCnt & (1<<27)) ? 8 : 5;
             u32 delay = 4;
-            if (!(DataOutPos & 0x1FF)) delay += ((ROMCnt >> 16) & 0x3F);
+            if (!(ROMCnt & (1<<30)))
+            {
+                if (!(DataOutPos & 0x1FF))
+                    delay += ((ROMCnt >> 16) & 0x3F);
+            }
 
             NDS::ScheduleEvent(NDS::Event_ROMTransfer, false, xfercycle*delay, ROMPrepareData, 0);
         }
