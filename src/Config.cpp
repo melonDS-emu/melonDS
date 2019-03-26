@@ -53,6 +53,7 @@ void Load()
         {
             if (c > 0) break;
             entry = &PlatformConfigFile[0];
+            if (!entry->Value) break;
             c++;
         }
 
@@ -87,6 +88,7 @@ void Load()
             {
                 if (c > 0) break;
                 entry = &PlatformConfigFile[0];
+                if (!entry->Value) break;
                 c++;
             }
 
@@ -139,6 +141,7 @@ void Save()
         {
             if (c > 0) break;
             entry = &PlatformConfigFile[0];
+            if (!entry->Value) break;
             c++;
         }
 
