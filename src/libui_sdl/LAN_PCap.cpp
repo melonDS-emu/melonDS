@@ -30,7 +30,10 @@
 #ifdef __WIN32__
 	#include <iphlpapi.h>
 #else
-	// Linux includes go here
+	#include <sys/types.h>
+	#include <ifaddrs.h>
+	#include <netinet/in.h>
+	#include <linux/if_packet.h>
 #endif
 
 
@@ -101,39 +104,41 @@ bool TryLoadPCap(void* lib)
     return true;
 }
 
-bool Init()
+bool Init(bool open_adapter)
 {
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
-    if (PCapLib) return true;
+    if (!PCapLib)
+    {
+        PCapLib = NULL;
 
-    PCapLib = NULL;
+        for (int i = 0; PCapLibNames[i]; i++)
+        {
+            void* lib = SDL_LoadObject(PCapLibNames[i]);
+            if (!lib) continue;
+
+            if (!TryLoadPCap(lib))
+            {
+                SDL_UnloadObject(lib);
+                continue;
+            }
+
+            printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
+            PCapLib = lib;
+            break;
+        }
+
+        if (PCapLib == NULL)
+        {
+            printf("PCap: init failed\n");
+            return false;
+        }
+    }
+    
     PCapAdapter = NULL;
     PacketLen = 0;
     RXNum = 0;
 
     NumAdapters = 0;
-
-    for (int i = 0; PCapLibNames[i]; i++)
-    {
-        void* lib = SDL_LoadObject(PCapLibNames[i]);
-        if (!lib) continue;
-
-        if (!TryLoadPCap(lib))
-        {
-            SDL_UnloadObject(lib);
-            continue;
-        }
-
-        printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
-        PCapLib = lib;
-        break;
-    }
-
-    if (PCapLib == NULL)
-    {
-        printf("PCap: init failed\n");
-        return false;
-    }
 
     char errbuf[PCAP_ERRBUF_SIZE];
     int ret;
@@ -158,11 +163,19 @@ bool Init()
     {
         adata->Internal = dev;
 
+#ifdef __WIN32__
         // hax
         int len = strlen(dev->name);
         len -= 12; if (len > 127) len = 127;
         strncpy(adata->DeviceName, &dev->name[12], len);
         adata->DeviceName[len] = '\0';
+#else
+        strncpy(adata->DeviceName, dev->name, 127);
+        adata->DeviceName[127] = '\0';
+        
+        strncpy(adata->FriendlyName, adata->DeviceName, 127);
+        adata->FriendlyName[127] = '\0';
+#endif // __WIN32__
 
         dev = dev->next;
         adata++;
@@ -181,7 +194,7 @@ bool Init()
     }
     if (uret != ERROR_SUCCESS)
     {
-        printf("GetAdaptersAddresses() shat itself: %08X\n", ret);
+        printf("GetAdaptersAddresses() shat itself: %08X\n", uret);
         return false;
     }
 
@@ -217,7 +230,7 @@ bool Init()
                 if (sa->sa_family == AF_INET)
                 {
                     struct in_addr sa4 = ((sockaddr_in*)sa)->sin_addr;
-                    memcpy(adata->IP_v4, &sa4.S_un.S_addr, 4);
+                    memcpy(adata->IP_v4, &sa4, 4);
                 }
 
                 ipaddr = ipaddr->Next;
@@ -231,10 +244,52 @@ bool Init()
 
 #else
 
-    // TODO
+    struct ifaddrs* addrs;
+    if (getifaddrs(&addrs) != 0)
+    {
+        printf("getifaddrs() shat itself :(\n");
+        return false;
+    }
+    
+    for (int i = 0; i < NumAdapters; i++)
+    {
+        adata = &Adapters[i];
+        struct ifaddrs* curaddr = addrs;
+        while (curaddr)
+        {
+            if (strcmp(curaddr->ifa_name, adata->DeviceName))
+            {
+                curaddr = curaddr->ifa_next;
+                continue;
+            }
+            if (!curaddr->ifa_addr) continue;
+            
+            u16 af = curaddr->ifa_addr->sa_family;
+            if (af == AF_INET)
+            {
+                struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
+                memcpy(adata->IP_v4, &sa->sin_addr, 4);
+            }
+            else if (af == AF_PACKET)
+            {
+                struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
+                if (sa->sll_halen != 6) 
+                    printf("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
+                else
+                    memcpy(adata->MAC, sa->sll_addr, 6);
+            }
+            
+            curaddr = curaddr->ifa_next;
+        }
+    }
+    
+    freeifaddrs(addrs);
 
 #endif // __WIN32__
 
+    if (!open_adapter) return true;
+    if (PCapAdapter) pcap_close(PCapAdapter);
+    
     // open pcap device
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
@@ -247,7 +302,7 @@ bool Init()
     PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
-        printf("PCap: failed to open adapter\n");
+        printf("PCap: failed to open adapter %s\n", errbuf);
         return false;
     }
 

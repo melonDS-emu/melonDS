@@ -42,7 +42,7 @@ extern AdapterData* Adapters;
 extern int NumAdapters;
 
 
-bool Init();
+bool Init(bool open_adapter);
 void DeInit();
 
 int SendPacket(u8* data, int len);

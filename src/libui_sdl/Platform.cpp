@@ -264,7 +264,7 @@ bool LAN_Init()
 {
     if (Config::DirectLAN)
     {
-        if (!LAN_PCap::Init())
+        if (!LAN_PCap::Init(true))
             return false;
     }
     else

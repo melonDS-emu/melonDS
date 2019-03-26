@@ -168,7 +168,7 @@ void Open()
     }
 
     LAN_Socket::Init();
-    haspcap = LAN_PCap::Init();
+    haspcap = LAN_PCap::Init(false);
 
     opened = true;
     win = uiNewWindow("Wifi settings - melonDS", 400, 100, 0, 0, 0);
@@ -253,10 +253,10 @@ void Open()
     }
     uiComboboxSetSelected(cmAdapterList, sel);
     UpdateAdapterInfo();
-    UpdateAdapterControls();
 
     uiCheckboxSetChecked(cbDirectLAN, Config::DirectLAN);
     if (!haspcap) uiControlDisable(uiControl(cbDirectLAN));
+    UpdateAdapterControls();
 
     uiControlShow(uiControl(win));
 }
