@@ -23,8 +23,6 @@
 #include "Platform.h"
 
 
-extern char* EmuDirectory;
-
 namespace Config
 {
 
@@ -111,20 +109,7 @@ void Load()
 void Save()
 {
     FILE* f = Platform::OpenLocalFile(kConfigFile, "w");
-    if (!f)
-    {
-        int dirlen = strlen(EmuDirectory);
-        int filelen = strlen(kConfigFile);
-        char* path = new char[dirlen + 1 + filelen + 1];
-        strncpy(&path[0], EmuDirectory, dirlen);
-        path[dirlen] = '/';
-        strncpy(&path[dirlen+1], kConfigFile, filelen);
-        path[dirlen+1+filelen] = '\0';
-
-        f = Platform::OpenFile(path, "w");
-        delete[] path;
-        if (!f) return;
-    }
+    if (!f) return;
 
     ConfigEntry* entry = &ConfigFile[0];
     int c = 0;

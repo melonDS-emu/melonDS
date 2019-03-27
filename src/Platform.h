@@ -36,7 +36,8 @@ void StopEmu();
 //     * current working directory
 //     * emulator directory (essentially where the melonDS executable is) if supported
 //     * any platform-specific application data directories
-//     requires that the file already exist.
+//     in create mode, if the file doesn't exist, it will be created in the emulator
+//     directory if supported, or in the current directory otherwise
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);

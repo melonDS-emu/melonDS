@@ -138,131 +138,118 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     bool relpath = false;
     int pathlen = strlen(path);
 
+#ifdef __WIN32__
+    if (pathlen > 3)
+    {
+        if (path[1] == ':' && path[2] == '\\')
+            return OpenFile(path, mode);
+    }
+#else
+    if (pathlen > 1)
+    {
+        if (path[0] == '/')
+            return OpenFile(path, mode);
+    }
+#endif
+
     if (pathlen >= 3)
     {
         if (path[0] == '.' && path[1] == '.' && (path[2] == '/' || path[2] == '\\'))
             relpath = true;
     }
 
-#ifdef __WIN32__
-
-    if (pathlen > 3)
+    int emudirlen = strlen(EmuDirectory);
+    char* emudirpath;
+    if (emudirlen)
     {
-        if (path[1] == ':' && path[2] == '\\')
-            return OpenFile(path, mode);
+        int len = emudirlen + 1 + pathlen + 1;
+        emudirpath = new char[len];
+        strncpy(&emudirpath[0], EmuDirectory, emudirlen);
+        emudirpath[emudirlen] = '\\';
+        strncpy(&emudirpath[emudirlen+1], path, pathlen);
+        emudirpath[emudirlen+1+pathlen] = '\0';
+    }
+    else
+    {
+        emudirpath = new char[pathlen+1];
+        strncpy(&emudirpath[0], path, pathlen);
+        emudirpath[pathlen] = '\0';
     }
 
-    // Locations are application directory, and AppData/melonDS on windows
+    // Locations are application directory, and AppData/melonDS on Windows or XDG_CONFIG_HOME/melonds on Linux
 
     FILE* f;
 
     // First check current working directory
     f = OpenFile(path, mode, true);
-    if (f) return f;
+    if (f) { delete[] emudirpath; return f; }
 
     // then emu directory
-    {
-        int dirlen = strlen(EmuDirectory);
-        if (dirlen)
-        {
-            int len = dirlen + 1 + pathlen + 1;
-            char* tmp = new char[len];
-            strncpy(&tmp[0], EmuDirectory, dirlen);
-            tmp[dirlen] = '\\';
-            strncpy(&tmp[dirlen+1], path, pathlen);
-            tmp[dirlen+1+pathlen] = '\0';
+    f = OpenFile(emudirpath, mode, true);
+    if (f) { delete[] emudirpath; return f; }
 
-            f = OpenFile(tmp, mode, true);
-            delete[] tmp;
-            if (f) return f;
-        }
-    }
+#ifdef __WIN32__
 
     // a path relative to AppData wouldn't make much sense
-    if (relpath) return NULL;
+    if (!relpath)
+    {
+        // Now check AppData
+        PWSTR appDataPath = NULL;
+        SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
+        if (!appDataPath)
+            return NULL;
 
-    // Now check AppData
-    PWSTR appDataPath = NULL;
-    SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
-    if (!appDataPath)
-        return NULL;
+        // this will be more than enough
+        WCHAR fatperm[4];
+        fatperm[0] = mode[0];
+        fatperm[1] = mode[1];
+        fatperm[2] = mode[2];
+        fatperm[3] = 0;
 
-    // this will be more than enough
-    WCHAR fatperm[4];
-    fatperm[0] = mode[0];
-    fatperm[1] = mode[1];
-    fatperm[2] = mode[2];
-    fatperm[3] = 0;
+        int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+        if (fnlen < 1) return NULL;
+        WCHAR* wfileName = new WCHAR[fnlen];
+        int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
+        if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
 
-    int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-    if (fnlen < 1) return NULL;
-    WCHAR* wfileName = new WCHAR[fnlen];
-    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
-    if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
+        const WCHAR* appdir = L"\\melonDS\\";
 
-    const WCHAR* appdir = L"\\melonDS\\";
+        int pos = wcslen(appDataPath);
+        void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+        if (!ptr) { delete[] wfileName; return NULL; } // oh well
+        appDataPath = (PWSTR)ptr;
 
-    int pos = wcslen(appDataPath);
-    void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
-    if (!ptr) { delete[] wfileName; return NULL; } // oh well
-    appDataPath = (PWSTR)ptr;
+        wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
+        wcscpy(&appDataPath[pos], wfileName);
 
-    wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
-    wcscpy(&appDataPath[pos], wfileName);
-
-    f = _wfopen(appDataPath, L"rb");
-    if (f) f = _wfreopen(appDataPath, fatperm, f);
-    CoTaskMemFree(appDataPath);
-    delete[] wfileName;
-    if (f) return f;
-
-    return NULL;
+        f = _wfopen(appDataPath, L"rb");
+        if (f) f = _wfreopen(appDataPath, fatperm, f);
+        CoTaskMemFree(appDataPath);
+        delete[] wfileName;
+        if (f) { delete[] emudirpath; return f; }
+    }
 
 #else
 
-    if (pathlen > 1)
+    if (!relpath)
     {
-        if (path[0] == '/')
-            return OpenFile(path, mode);
+        // Now check XDG_CONFIG_HOME
+        // TODO: check for memory leak there
+        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonds/" + path;
+        f = OpenFile(fullpath.c_str(), mode, true);
+        if (f) { delete[] emudirpath; return f; }
     }
-
-    // Locations are application directory, and XDG_CONFIG_HOME/melonds
-
-    FILE* f;
-
-    // First check current working directory
-    f = OpenFile(path, mode, true);
-    if (f) return f;
-
-    // then emu directory
-    {
-        int dirlen = strlen(EmuDirectory);
-        if (dirlen)
-        {
-            int len = dirlen + 1 + pathlen + 1;
-            char* tmp = new char[len];
-            strncpy(&tmp[0], EmuDirectory, dirlen);
-            tmp[dirlen] = '/';
-            strncpy(&tmp[dirlen+1], path, pathlen);
-            tmp[dirlen+1+pathlen] = '\0';
-
-            f = OpenFile(tmp, mode, true);
-            delete[] tmp;
-            if (f) return f;
-        }
-    }
-
-    if (relpath) return NULL;
-
-    // Now check XDG_CONFIG_HOME
-    // TODO: check for memory leak there
-    std::string fullpath = std::string(g_get_user_config_dir()) + "/melonds/" + path;
-    f = OpenFile(fullpath.c_str(), mode, true);
-    if (f) return f;
-
-    return NULL;
 
 #endif
+
+    if (mode[0] != 'r')
+    {
+        f = OpenFile(emudirpath, mode);
+        if (f) { delete[] emudirpath; return f; }
+    }
+
+    delete[] emudirpath;
+    return NULL;
 }
 
 
