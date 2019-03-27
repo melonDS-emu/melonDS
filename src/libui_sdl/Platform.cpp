@@ -26,11 +26,17 @@
 #include "LAN_PCap.h"
 
 #ifdef __WIN32__
+    #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
+    #include <windows.h>
+    //#include <knownfolders.h> // FUCK THAT SHIT
+    extern "C" const GUID DECLSPEC_SELECTANY FOLDERID_RoamingAppData = {0x3eb685db, 0x65f9, 0x4cf6, {0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d}};
+    #include <shlobj.h>
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#define socket_t    SOCKET
 	#define sockaddr_t  SOCKADDR
 #else
+    #include <glib.h>
 	#include <unistd.h>
 	#include <arpa/inet.h>
 	#include <netinet/in.h>
@@ -45,6 +51,8 @@
 #define INVALID_SOCKET  (socket_t)-1
 #endif
 
+
+extern char* EmuDirectory;
 
 void Stop(bool internal);
 
@@ -81,8 +89,10 @@ void StopEmu()
 }
 
 
-FILE* OpenFile(const char* path, const char* mode)
+FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
+    FILE* ret;
+
 #ifdef __WIN32__
 
     int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
@@ -98,13 +108,159 @@ FILE* OpenFile(const char* path, const char* mode)
     fatmode[2] = mode[2];
     fatmode[3] = 0;
 
-    FILE* ret = _wfopen(fatpath, fatmode);
+    if (mustexist)
+    {
+        ret = _wfopen(fatpath, L"rb");
+        if (ret) ret = _wfreopen(fatpath, fatmode, ret);
+    }
+    else
+        ret = _wfopen(fatpath, fatmode);
+
     delete[] fatpath;
-    return ret;
 
 #else
 
-    return fopen(path, mode);
+    if (mustexist)
+    {
+        ret = fopen(path, "rb");
+        if (ret) ret = freopen(path, mode);
+    }
+    else
+        ret = fopen(path, mode);
+
+#endif
+
+    return ret;
+}
+
+FILE* OpenLocalFile(const char* path, const char* mode)
+{
+    bool relpath = false;
+    int pathlen = strlen(path);
+
+    if (pathlen >= 3)
+    {
+        if (path[0] == '.' && path[1] == '.' && (path[2] == '/' || path[2] == '\\'))
+            relpath = true;
+    }
+
+#ifdef __WIN32__
+
+    if (pathlen > 3)
+    {
+        if (path[1] == ':' && path[2] == '\\')
+            return OpenFile(path, mode);
+    }
+
+    // Locations are application directory, and AppData/melonDS on windows
+
+    FILE* f;
+
+    // First check current working directory
+    f = OpenFile(path, mode, true);
+    if (f) return f;
+
+    // then emu directory
+    {
+        int dirlen = strlen(EmuDirectory);
+        if (dirlen)
+        {
+            int len = dirlen + 1 + pathlen + 1;
+            char* tmp = new char[len];
+            strncpy(&tmp[0], EmuDirectory, dirlen);
+            tmp[dirlen] = '\\';
+            strncpy(&tmp[dirlen+1], path, pathlen);
+            tmp[dirlen+1+pathlen] = '\0';
+
+            f = OpenFile(tmp, mode, true);
+            delete[] tmp;
+            if (f) return f;
+        }
+    }
+
+    // a path relative to AppData wouldn't make much sense
+    if (relpath) return NULL;
+
+    // Now check AppData
+    PWSTR appDataPath = NULL;
+    SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
+    if (!appDataPath)
+        return NULL;
+
+    // this will be more than enough
+    WCHAR fatperm[4];
+    fatperm[0] = mode[0];
+    fatperm[1] = mode[1];
+    fatperm[2] = mode[2];
+    fatperm[3] = 0;
+
+    int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+    if (fnlen < 1) return NULL;
+    WCHAR* wfileName = new WCHAR[fnlen];
+    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
+    if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
+
+    const WCHAR* appdir = L"\\melonDS\\";
+
+    int pos = wcslen(appDataPath);
+    void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+    if (!ptr) { delete[] wfileName; return NULL; } // oh well
+    appDataPath = (PWSTR)ptr;
+
+    wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
+    wcscpy(&appDataPath[pos], wfileName);
+
+    f = _wfopen(appDataPath, L"rb");
+    if (f) f = _wfreopen(appDataPath, fatperm, f);
+    CoTaskMemFree(appDataPath);
+    delete[] wfileName;
+    if (f) return f;
+
+    return NULL;
+
+#else
+
+    if (pathlen > 1)
+    {
+        if (path[0] == '/')
+            return OpenFile(path, mode);
+    }
+
+    // Locations are application directory, and XDG_CONFIG_HOME/melonds
+
+    FILE* f;
+
+    // First check current working directory
+    f = OpenFile(path, mode, true);
+    if (f) return f;
+
+    // then emu directory
+    {
+        int dirlen = strlen(EmuDirectory);
+        if (dirlen)
+        {
+            int len = dirlen + 1 + pathlen + 1;
+            char* tmp = new char[len];
+            strncpy(&tmp[0], EmuDirectory, dirlen);
+            tmp[dirlen] = '/';
+            strncpy(&tmp[dirlen+1], path, pathlen);
+            tmp[dirlen+1+pathlen] = '\0';
+
+            f = OpenFile(tmp, mode, true);
+            delete[] tmp;
+            if (f) return f;
+        }
+    }
+
+    if (relpath) return NULL;
+
+    // Now check XDG_CONFIG_HOME
+    // TODO: check for memory leak there
+    std::string fullpath = std::string(g_get_user_config_dir()) + "/melonds/" + path;
+    f = OpenFile(fullpath.c_str(), mode, true);
+    if (f) return f;
+
+    return NULL;
 
 #endif
 }

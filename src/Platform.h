@@ -26,7 +26,36 @@ namespace Platform
 
 void StopEmu();
 
-FILE* OpenFile(const char* path, const char* mode);
+// fopen() wrappers
+// * OpenFile():
+//     simple fopen() wrapper that supports UTF8.
+//     can be optionally restricted to only opening a file that already exists.
+// * OpenLocalFile():
+//     opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
+//     checks, by order of priority:
+//     * current working directory
+//     * emulator directory (essentially where the melonDS executable is) if supported
+//     * any platform-specific application data directories
+//     requires that the file already exist.
+
+FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
+FILE* OpenLocalFile(const char* path, const char* mode);
+
+inline bool FileExists(const char* name)
+{
+    FILE* f = OpenFile(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
+
+inline bool LocalFileExists(const char* name)
+{
+    FILE* f = OpenLocalFile(name, "rb");
+    if (!f) return false;
+    fclose(f);
+    return true;
+}
 
 void* Thread_Create(void (*func)());
 void Thread_Free(void* thread);

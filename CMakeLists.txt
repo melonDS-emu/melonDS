@@ -28,7 +28,6 @@ SET(SOURCES
 	src/GPU2D.cpp
 	src/GPU3D.cpp
 	src/GPU3D_Soft.cpp
-	src/melon_fopen.cpp
 	src/NDS.cpp
 	src/NDSCart.cpp
 	src/RTC.cpp

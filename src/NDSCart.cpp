@@ -22,8 +22,6 @@
 #include "NDSCart.h"
 #include "ARM.h"
 #include "CRC32.h"
-
-#include "melon_fopen.h"
 #include "Platform.h"
 
 
@@ -817,7 +815,7 @@ bool ReadROMParams(u32 gamecode, u32* params)
     // [gamecode] [ROM size] [save type] [reserved]
     // list must be sorted by gamecode
 
-    FILE* f = melon_fopen_local("romlist.bin", "rb");
+    FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);

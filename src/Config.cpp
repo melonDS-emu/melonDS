@@ -21,10 +21,8 @@
 #include <stdlib.h>
 #include "Config.h"
 #include "Platform.h"
-#include "melon_fopen.h"
 
 
-bool LocalFileExists(const char* name);
 extern char* EmuDirectory;
 
 namespace Config
@@ -69,7 +67,7 @@ void Load()
         entry++;
     }
 
-    FILE* f = melon_fopen_local(kConfigFile, "r");
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "r");
     if (!f) return;
 
     char linebuf[1024];
@@ -112,14 +110,8 @@ void Load()
 
 void Save()
 {
-    // TODO not make path search shit tself and pick the wrong ath every damn tiem!!!!!
-    FILE* f;
-    if (LocalFileExists(kConfigFile))
-    {
-        f = melon_fopen_local(kConfigFile, "w");
-        if (!f) return;
-    }
-    else
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "w");
+    if (!f)
     {
         int dirlen = strlen(EmuDirectory);
         int filelen = strlen(kConfigFile);

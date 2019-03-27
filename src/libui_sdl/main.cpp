@@ -25,7 +25,6 @@
 #include "libui/ui.h"
 
 #include "../types.h"
-#include "../melon_fopen.h"
 #include "../version.h"
 #include "PlatformConfig.h"
 
@@ -136,23 +135,6 @@ void LoadState(int slot);
 void UndoStateLoad();
 void GetSavestateName(int slot, char* filename, int len);
 
-
-
-bool FileExists(const char* name)
-{
-    FILE* f = Platform::OpenFile(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
-
-bool LocalFileExists(const char* name)
-{
-    FILE* f = melon_fopen_local(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
 
 
 void MicLoadWav(char* name)
@@ -1077,8 +1059,8 @@ void Run()
     {
         char ssfile[1024];
         GetSavestateName(i+1, ssfile, 1024);
-        if (FileExists(ssfile)) uiMenuItemEnable(MenuItem_LoadStateSlot[i]);
-        else                    uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
+        if (Platform::FileExists(ssfile)) uiMenuItemEnable(MenuItem_LoadStateSlot[i]);
+        else                              uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
     }
 
     for (int i = 0; i < 9; i++) uiMenuItemEnable(MenuItem_SaveStateSlot[i]);
@@ -1210,7 +1192,7 @@ void LoadState(int slot)
         uiFreeText(file);
     }
 
-    if (!FileExists(filename))
+    if (!Platform::FileExists(filename))
     {
         EmuRunning = prevstatus;
         return;
@@ -1752,7 +1734,9 @@ int main(int argc, char** argv)
     if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
     else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
 
-    if (!LocalFileExists("bios7.bin") || !LocalFileExists("bios9.bin") || !LocalFileExists("firmware.bin"))
+    if (!Platform::LocalFileExists("bios7.bin") ||
+        !Platform::LocalFileExists("bios9.bin") ||
+        !Platform::LocalFileExists("firmware.bin"))
     {
         uiMsgBoxError(
             NULL,
@@ -1770,7 +1754,7 @@ int main(int argc, char** argv)
     }
 
     {
-        FILE* f = melon_fopen_local("romlist.bin", "rb");
+        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
         if (f)
         {
             u32 data;
