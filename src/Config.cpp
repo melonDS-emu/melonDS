@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "Config.h"
+#include "Platform.h"
 #include "melon_fopen.h"
 
 
@@ -128,7 +129,7 @@ void Save()
         strncpy(&path[dirlen+1], kConfigFile, filelen);
         path[dirlen+1+filelen] = '\0';
 
-        f = melon_fopen(path, "w");
+        f = Platform::OpenFile(path, "w");
         delete[] path;
         if (!f) return;
     }

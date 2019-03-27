@@ -18,7 +18,7 @@
 
 #include <stdio.h>
 #include "Savestate.h"
-#include "melon_fopen.h"
+#include "Platform.h"
 
 /*
     Savestate format
@@ -56,7 +56,7 @@ Savestate::Savestate(char* filename, bool save)
     if (save)
     {
         Saving = true;
-        file = melon_fopen(filename, "wb");
+        file = Platform::OpenFile(filename, "wb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);
@@ -75,7 +75,7 @@ Savestate::Savestate(char* filename, bool save)
     else
     {
         Saving = false;
-        file = melon_fopen(filename, "rb");
+        file = Platform::OpenFile(filename, "rb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);

@@ -26,6 +26,8 @@ namespace Platform
 
 void StopEmu();
 
+FILE* OpenFile(const char* path, const char* mode);
+
 void* Thread_Create(void (*func)());
 void Thread_Free(void* thread);
 void Thread_Wait(void* thread);

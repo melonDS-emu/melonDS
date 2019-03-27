@@ -26,6 +26,7 @@
 #include "CRC32.h"
 
 #include "melon_fopen.h"
+#include "Platform.h"
 
 
 namespace NDSCart_SRAM
@@ -119,7 +120,7 @@ void LoadSave(const char* path, u32 type)
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
-    FILE* f = melon_fopen(path, "rb");
+    FILE* f = Platform::OpenFile(path, "rb");
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -179,7 +180,7 @@ void RelocateSave(const char* path, bool write)
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
-    FILE* f = melon_fopen(path, "wb");
+    FILE* f = Platform::OpenFile(path, "wb");
     if (!f)
     {
         printf("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
@@ -446,7 +447,7 @@ void Write(u8 val, u32 hold)
 
     if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
     {
-        FILE* f = melon_fopen(SRAMPath, "wb");
+        FILE* f = Platform::OpenFile(SRAMPath, "wb");
         if (f)
         {
             fwrite(SRAM, SRAMLength, 1, f);
@@ -892,7 +893,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     FILE* f;
     if(!IsArchive)
     {
-        f = melon_fopen(path, "rb");
+        f = Platform::OpenFile(path, "rb");
         if (!f)
         {
             return false;
