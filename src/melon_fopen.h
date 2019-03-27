@@ -20,7 +20,6 @@
 #define MELON_FOPEN_H
 
 
-FILE* melon_fopen(const char* filename, const char* perm);
 FILE* melon_fopen_local(const char* filename, const char* perm);
 
 

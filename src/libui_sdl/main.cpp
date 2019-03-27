@@ -140,7 +140,7 @@ void GetSavestateName(int slot, char* filename, int len);
 
 bool FileExists(const char* name)
 {
-    FILE* f = melon_fopen(name, "rb");
+    FILE* f = Platform::OpenFile(name, "rb");
     if (!f) return false;
     fclose(f);
     return true;

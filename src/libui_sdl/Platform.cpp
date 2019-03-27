@@ -81,6 +81,35 @@ void StopEmu()
 }
 
 
+FILE* OpenFile(const char* path, const char* mode)
+{
+#ifdef __WIN32__
+
+    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+    if (len < 1) return NULL;
+    WCHAR* fatpath = new WCHAR[len];
+    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, fatpath, len);
+    if (res != len) { delete[] fatpath; return NULL; } // checkme?
+
+    // this will be more than enough
+    WCHAR fatmode[4];
+    fatmode[0] = mode[0];
+    fatmode[1] = mode[1];
+    fatmode[2] = mode[2];
+    fatmode[3] = 0;
+
+    FILE* ret = _wfopen(fatpath, fatmode);
+    delete[] fatpath;
+    return ret;
+
+#else
+
+    return fopen(path, mode);
+
+#endif
+}
+
+
 void* Thread_Create(void (*func)())
 {
     ThreadData* data = new ThreadData;
