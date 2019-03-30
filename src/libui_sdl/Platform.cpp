@@ -123,7 +123,7 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     if (mustexist)
     {
         ret = fopen(path, "rb");
-        if (ret) ret = freopen(path, mode);
+        if (ret) ret = freopen(path, mode, ret);
     }
     else
         ret = fopen(path, mode);
