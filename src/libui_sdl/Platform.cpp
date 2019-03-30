@@ -24,6 +24,7 @@
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
+#include <string>
 
 #ifdef __WIN32__
     #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
