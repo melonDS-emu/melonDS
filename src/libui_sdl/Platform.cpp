@@ -197,7 +197,10 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         PWSTR appDataPath = NULL;
         SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
         if (!appDataPath)
+        {
+            delete[] emudirpath;
             return NULL;
+        }
 
         // this will be more than enough
         WCHAR fatperm[4];
@@ -207,16 +210,16 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         fatperm[3] = 0;
 
         int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-        if (fnlen < 1) return NULL;
+        if (fnlen < 1) { delete[] emudirpath; return NULL; }
         WCHAR* wfileName = new WCHAR[fnlen];
         int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
-        if (res != fnlen) { delete[] wfileName; return NULL; } // checkme?
+        if (res != fnlen) { delete[] wfileName; delete[] emudirpath; return NULL; } // checkme?
 
         const WCHAR* appdir = L"\\melonDS\\";
 
         int pos = wcslen(appDataPath);
         void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
-        if (!ptr) { delete[] wfileName; return NULL; } // oh well
+        if (!ptr) { delete[] wfileName; delete[] emudirpath; return NULL; } // oh well
         appDataPath = (PWSTR)ptr;
 
         wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
