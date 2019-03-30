@@ -343,7 +343,7 @@ void SetupDirectBoot()
 
     ARM9->CP15Write(0x910, 0x0300000A);
     ARM9->CP15Write(0x911, 0x00000020);
-    ARM9->CP15Write(0x100, 0x00050000);
+    ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
 
     ARM9->R[12] = bootparams[1];
     ARM9->R[13] = 0x03002F7C;
@@ -1532,7 +1532,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     FILE*
-    shit = fopen("debug/clirc.bin", "wb");
+    shit = fopen("debug/lmnts.bin", "wb");
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
