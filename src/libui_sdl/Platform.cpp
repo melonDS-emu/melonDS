@@ -24,6 +24,7 @@
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
+#include <string>
 
 #ifdef __WIN32__
     #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
@@ -123,7 +124,7 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     if (mustexist)
     {
         ret = fopen(path, "rb");
-        if (ret) ret = freopen(path, mode);
+        if (ret) ret = freopen(path, mode, ret);
     }
     else
         ret = fopen(path, mode);
