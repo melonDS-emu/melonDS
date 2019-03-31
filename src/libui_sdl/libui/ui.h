@@ -601,11 +601,11 @@ _UI_EXTERN void uiDrawText(uiDrawContext *c, double x, double y, uiDrawTextLayou
 
 
 // OpenGL support
-// TODO for later: allow using OpenGL inside a uiWindow or uiArea
 
 typedef struct uiGLContext uiGLContext;
 
 _UI_EXTERN uiGLContext *uiGLNewContext(uiControl* c);
+_UI_EXTERN void uiGLFreeContext(uiGLContext* ctx);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
 

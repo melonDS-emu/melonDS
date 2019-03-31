@@ -138,6 +138,7 @@ elseif (WIN32)
         src/libui_sdl/libui/windows/fontbutton.cpp
         src/libui_sdl/libui/windows/fontdialog.cpp
         src/libui_sdl/libui/windows/form.cpp
+	src/libui_sdl/libui/windows/gl.cpp
         src/libui_sdl/libui/windows/graphemes.cpp
         src/libui_sdl/libui/windows/grid.cpp
         src/libui_sdl/libui/windows/group.cpp
@@ -172,6 +173,7 @@ elseif (WIN32)
     LINK_LIBRARIES("usp10")
     LINK_LIBRARIES("ws2_32")
     LINK_LIBRARIES("uxtheme")
+    LINK_LIBRARIES("opengl32")
 endif (UNIX)
 
 find_package(SDL2 REQUIRED)

@@ -222,6 +222,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/fontbutton.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/fontdialog.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/form.cpp" />
+		<Unit filename="src/libui_sdl/libui/windows/gl.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/graphemes.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/grid.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/group.cpp" />
