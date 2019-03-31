@@ -20,7 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-
+u64 vbltime;
 
 namespace GPU
 {
@@ -811,7 +811,7 @@ void StartScanline(u32 line)
     else
     {
         if (VCount == 192)
-        {
+        {//printf("- VBLANK -\n");vbltime=NDS::ARM9Timestamp;
             // VBlank
             DispStat[0] |= (1<<0);
             DispStat[1] |= (1<<0);
