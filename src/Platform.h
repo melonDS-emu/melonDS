@@ -68,6 +68,8 @@ void Semaphore_Reset(void* sema);
 void Semaphore_Wait(void* sema);
 void Semaphore_Post(void* sema);
 
+void* GL_GetProcAddress(const char* proc);
+
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();

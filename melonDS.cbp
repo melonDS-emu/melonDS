@@ -19,22 +19,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="Release Windows">
@@ -51,22 +35,6 @@
 				<Linker>
 					<Add option="-s" />
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="DebugFast Windows">
@@ -82,22 +50,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 		</Build>
@@ -107,6 +59,25 @@
 			<Add option="-pipe" />
 			<Add directory="src" />
 		</Compiler>
+		<Linker>
+			<Add library="SDL2" />
+			<Add library="shell32" />
+			<Add library="comctl32" />
+			<Add library="comdlg32" />
+			<Add library="advapi32" />
+			<Add library="wsock32" />
+			<Add library="oleacc" />
+			<Add library="ole32" />
+			<Add library="usp10" />
+			<Add library="gdi32" />
+			<Add library="d2d1" />
+			<Add library="dwrite" />
+			<Add library="uxtheme" />
+			<Add library="iphlpapi" />
+			<Add library="user32" />
+			<Add library="ws2_32" />
+			<Add library="opengl32" />
+		</Linker>
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
@@ -135,6 +106,7 @@
 		<Unit filename="src/GPU2D.h" />
 		<Unit filename="src/GPU3D.cpp" />
 		<Unit filename="src/GPU3D.h" />
+		<Unit filename="src/GPU3D_OpenGL43.cpp" />
 		<Unit filename="src/GPU3D_Soft.cpp" />
 		<Unit filename="src/NDS.cpp" />
 		<Unit filename="src/NDS.h" />

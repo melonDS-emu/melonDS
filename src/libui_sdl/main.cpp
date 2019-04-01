@@ -392,6 +392,14 @@ void FeedMicInput()
 
 int EmuThreadFunc(void* burp)
 {
+    // TODO: fail gracefully, support older OpenGL, etc
+    uiGLContext* glctx = uiGLNewContext(uiControl(MainDrawArea), 4, 3); // haw haw haw
+    uiGLMakeContextCurrent(glctx);
+
+    void* testor = uiGLGetProcAddress("glUseProgram");
+    void* testor2 = uiGLGetProcAddress("glBindFramebuffer");
+    printf("OPENGL: %p %p\n", testor, testor2);
+
     NDS::Init();
 
     MainScreenPos[0] = 0;
@@ -615,6 +623,8 @@ int EmuThreadFunc(void* burp)
 
     NDS::DeInit();
     Platform::LAN_DeInit();
+
+    uiGLFreeContext(glctx);
 
     return 44203;
 }
@@ -1652,6 +1662,7 @@ void ApplyNewSettings(int type)
 
     if (type == 0) // general emu settings
     {
+        // TODO!! REMOVE ME
         GPU3D::SoftRenderer::SetupRenderThread();
     }
     else if (type == 1) // wifi settings

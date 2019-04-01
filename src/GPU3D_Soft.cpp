@@ -129,9 +129,9 @@ void DeInit()
 
 void Reset()
 {
-    memset(ColorBuffer, 0, 256*192 * 4);
-    memset(DepthBuffer, 0, 256*192 * 4);
-    memset(AttrBuffer, 0, 256*192 * 4);
+    memset(ColorBuffer, 0, BufferSize * 2 * 4);
+    memset(DepthBuffer, 0, BufferSize * 2 * 4);
+    memset(AttrBuffer, 0, BufferSize * 2 * 4);
 
     PrevIsShadowMask = false;
 

@@ -24,6 +24,7 @@
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
+#include "libui/ui.h"
 #include <string>
 
 #ifdef __WIN32__
@@ -299,6 +300,12 @@ void Semaphore_Wait(void* sema)
 void Semaphore_Post(void* sema)
 {
     SDL_SemPost((SDL_sem*)sema);
+}
+
+
+void* GL_GetProcAddress(const char* proc)
+{
+    return uiGLGetProcAddress(proc);
 }
 
 

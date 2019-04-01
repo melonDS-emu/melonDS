@@ -132,6 +132,20 @@ u32* GetLine(int line);
 
 }
 
+namespace GLRenderer43
+{
+
+bool Init();
+void DeInit();
+void Reset();
+
+void VCount144();
+void RenderFrame();
+void RequestLine(int line);
+u32* GetLine(int line);
+
+}
+
 }
 
 #endif

@@ -604,7 +604,7 @@ _UI_EXTERN void uiDrawText(uiDrawContext *c, double x, double y, uiDrawTextLayou
 
 typedef struct uiGLContext uiGLContext;
 
-_UI_EXTERN uiGLContext *uiGLNewContext(uiControl* c);
+_UI_EXTERN uiGLContext *uiGLNewContext(uiControl* c, int vermajor, int verminor);
 _UI_EXTERN void uiGLFreeContext(uiGLContext* ctx);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
