@@ -114,7 +114,8 @@ bool Init()
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
+    //glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
     return true;
 }
@@ -142,7 +143,8 @@ void RenderFrame()
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     //glReadPixels(0, 0, 256, 48, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glReadPixels(0, 0, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    //glReadPixels(0, 0, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 void RequestLine(int line)
@@ -150,12 +152,13 @@ void RequestLine(int line)
     if (line == 0)
     {
         u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*48);
+        //if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*48);
+        if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*192);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
-        glReadPixels(0, 48, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        //glReadPixels(0, 48, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
     }
-    else if (line == 48)
+    /*else if (line == 48)
     {
         u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
         if (data) memcpy(&Framebuffer[4*256*48], data, 4*256*48);
@@ -176,7 +179,7 @@ void RequestLine(int line)
         u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
         if (data) memcpy(&Framebuffer[4*256*144], data, 4*256*48);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    }
+    }*/
 }
 
 u32* GetLine(int line)
