@@ -32,7 +32,7 @@ void *uiAlloc(size_t size, const char *type)
 {
 	byteArray *out;
 
-	out = new byteArray(size, 0);//printf("alloc %s at %08X\n", type, rawBytes(out));
+	out = new byteArray(size, 0);
 	heap[rawBytes(out)] = out;
 	types[out] = type;
 	return rawBytes(out);
