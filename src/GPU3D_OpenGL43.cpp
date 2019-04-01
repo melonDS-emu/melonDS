@@ -147,17 +147,8 @@ void RenderFrame()
 
 void RequestLine(int line)
 {
-    //
-}
-
-u32* GetLine(int line)
-{
     if (line == 0)
     {
-        /*glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glReadPixels(0, 0, 256, 192, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);*/
-
         u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
         if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*48);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
@@ -186,7 +177,10 @@ u32* GetLine(int line)
         if (data) memcpy(&Framebuffer[4*256*144], data, 4*256*48);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }
+}
 
+u32* GetLine(int line)
+{
     return (u32*)&Framebuffer[256*4 * line];
 }
 
