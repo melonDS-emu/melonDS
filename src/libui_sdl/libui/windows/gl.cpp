@@ -120,7 +120,14 @@ void uiGLFreeContext(uiGLContext* ctx)
 
 void uiGLMakeContextCurrent(uiGLContext* ctx)
 {
-    wglMakeCurrent(ctx->dc, ctx->rc);
+    if (ctx == NULL)
+    {
+        wglMakeCurrent(NULL, NULL);
+        return;
+    }
+
+    if (wglGetCurrentContext() == ctx->rc) return;
+    int res = wglMakeCurrent(ctx->dc, ctx->rc);
 }
 
 void *uiGLGetProcAddress(const char* proc)

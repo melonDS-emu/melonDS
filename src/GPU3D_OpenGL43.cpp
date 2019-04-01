@@ -53,7 +53,7 @@ bool InitGLExtensions()
 {
 #define LOADPROC(type, name)  \
     name = (PFN##type##PROC)Platform::GL_GetProcAddress(#name); \
-    if (!name) return false;
+    if (!name) { printf("OpenGL: " #name " not found\n"); return false; }
 
     LOADPROC(GLGENFRAMEBUFFERS, glGenFramebuffers);
     LOADPROC(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers);

@@ -60,6 +60,7 @@ char* EmuDirectory;
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
+uiGLContext* GLContext;
 
 int WindowWidth, WindowHeight;
 
@@ -392,14 +393,7 @@ void FeedMicInput()
 
 int EmuThreadFunc(void* burp)
 {
-    // TODO: fail gracefully, support older OpenGL, etc
-    uiGLContext* glctx = uiGLNewContext(uiControl(MainDrawArea), 4, 3); // haw haw haw
-    uiGLMakeContextCurrent(glctx);
-
-    void* testor = uiGLGetProcAddress("glUseProgram");
-    void* testor2 = uiGLGetProcAddress("glBindFramebuffer");
-    printf("OPENGL: %p %p\n", testor, testor2);
-
+    uiGLMakeContextCurrent(GLContext);
     NDS::Init();
 
     MainScreenPos[0] = 0;
@@ -407,7 +401,6 @@ int EmuThreadFunc(void* burp)
     MainScreenPos[2] = 0;
     AutoScreenSizing = 0;
 
-    ScreenDrawInited = false;
     Touching = false;
     KeyInputMask = 0xFFF;
     HotkeyMask = 0;
@@ -439,6 +432,8 @@ int EmuThreadFunc(void* burp)
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
+
+            uiGLMakeContextCurrent(GLContext);
 
             SDL_JoystickUpdate();
 
@@ -624,8 +619,6 @@ int EmuThreadFunc(void* burp)
     NDS::DeInit();
     Platform::LAN_DeInit();
 
-    uiGLFreeContext(glctx);
-
     return 44203;
 }
 
@@ -634,8 +627,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
     if (!ScreenDrawInited)
     {
-        ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
         ScreenDrawInited = true;
+        ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
     }
 
     if (!ScreenBitmap) return;
@@ -1981,6 +1974,7 @@ int main(int argc, char** argv)
     areahandler.KeyEvent = OnAreaKeyEvent;
     areahandler.Resize = OnAreaResize;
 
+    ScreenDrawInited = false;
     MainDrawArea = uiNewArea(&areahandler);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
@@ -2010,6 +2004,15 @@ int main(int argc, char** argv)
     }
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+
+    // TODO: fail gracefully, support older OpenGL, etc
+    GLContext = uiGLNewContext(uiControl(MainDrawArea), 4, 3); // haw haw haw
+    uiGLMakeContextCurrent(GLContext);
+
+    void* testor = uiGLGetProcAddress("glUseProgram");
+    void* testor2 = uiGLGetProcAddress("glBindFramebuffer");
+    printf("OPENGL: %p %p\n", testor, testor2);
+    uiGLMakeContextCurrent(NULL);
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -2091,6 +2094,8 @@ int main(int argc, char** argv)
     if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
+
+    uiGLFreeContext(GLContext);
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;
