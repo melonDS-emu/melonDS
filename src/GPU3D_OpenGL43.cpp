@@ -30,12 +30,21 @@ namespace GPU3D
 namespace GLRenderer43
 {
 
-PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers;
-PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer;
-PFNGLFRAMEBUFFERTEXTUREPROC glFramebufferTexture;
+PFNGLGENFRAMEBUFFERSPROC        glGenFramebuffers;
+PFNGLDELETEFRAMEBUFFERSPROC     glDeleteFramebuffers;
+PFNGLBINDFRAMEBUFFERPROC        glBindFramebuffer;
+PFNGLFRAMEBUFFERTEXTUREPROC     glFramebufferTexture;
+
+PFNGLGENBUFFERSPROC             glGenBuffers;
+PFNGLDELETEBUFFERSPROC          glDeleteBuffers;
+PFNGLBINDBUFFERPROC             glBindBuffer;
+PFNGLMAPBUFFERPROC              glMapBuffer;
+PFNGLMAPBUFFERRANGEPROC         glMapBufferRange;
+PFNGLUNMAPBUFFERPROC            glUnmapBuffer;
+PFNGLBUFFERDATAPROC             glBufferData;
 
 
-GLuint FramebufferID;
+GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
 u8 CurLine[256*4];
 
@@ -47,8 +56,17 @@ bool InitGLExtensions()
     if (!name) return false;
 
     LOADPROC(GLGENFRAMEBUFFERS, glGenFramebuffers);
+    LOADPROC(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers);
     LOADPROC(GLBINDFRAMEBUFFER, glBindFramebuffer);
     LOADPROC(GLFRAMEBUFFERTEXTURE, glFramebufferTexture);
+
+    LOADPROC(GLGENBUFFERS, glGenBuffers);
+    LOADPROC(GLDELETEBUFFERS, glDeleteBuffers);
+    LOADPROC(GLBINDBUFFER, glBindBuffer);
+    LOADPROC(GLMAPBUFFER, glMapBuffer);
+    LOADPROC(GLMAPBUFFERRANGE, glMapBufferRange);
+    LOADPROC(GLUNMAPBUFFER, glUnmapBuffer);
+    LOADPROC(GLBUFFERDATA, glBufferData);
 
 #undef LOADPROC
     return true;
@@ -66,16 +84,16 @@ bool Init()
         {
             if ((x & 0x10) ^ (y & 0x10))
             {
-                *ptr++ = 0x00;
-                *ptr++ = 0x00;
                 *ptr++ = 0x3F;
+                *ptr++ = 0x00;
+                *ptr++ = 0;
                 *ptr++ = 0x1F;
             }
             else
             {
-                *ptr++ = 0;
-                *ptr++ = y>>2;
                 *ptr++ = 0x3F;
+                *ptr++ = y>>2;
+                *ptr++ = 0;
                 *ptr++ = 0x1F;
             }
         }
@@ -93,6 +111,10 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_tex);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frametex, 0);
+
+    glGenBuffers(1, &PixelbufferID);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
 
     return true;
 }
@@ -114,7 +136,13 @@ void VCount144()
 
 void RenderFrame()
 {
-    //
+    // render shit here
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    //glReadPixels(0, 0, 256, 48, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
+    glReadPixels(0, 0, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 void RequestLine(int line)
@@ -126,9 +154,37 @@ u32* GetLine(int line)
 {
     if (line == 0)
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
+        /*glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
         glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glReadPixels(0, 0, 256, 192, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);
+        glReadPixels(0, 0, 256, 192, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);*/
+
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*48);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+        glReadPixels(0, 48, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    }
+    else if (line == 48)
+    {
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&Framebuffer[4*256*48], data, 4*256*48);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+        glReadPixels(0, 96, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    }
+    else if (line == 96)
+    {
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&Framebuffer[4*256*96], data, 4*256*48);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+        glReadPixels(0, 144, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    }
+    else if (line == 144)
+    {
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&Framebuffer[4*256*144], data, 4*256*48);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }
 
     return (u32*)&Framebuffer[256*4 * line];
