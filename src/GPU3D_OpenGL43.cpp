@@ -43,6 +43,44 @@ PFNGLMAPBUFFERRANGEPROC         glMapBufferRange;
 PFNGLUNMAPBUFFERPROC            glUnmapBuffer;
 PFNGLBUFFERDATAPROC             glBufferData;
 
+PFNGLCREATESHADERPROC           glCreateShader;
+PFNGLSHADERSOURCEPROC           glShaderSource;
+PFNGLCOMPILESHADERPROC          glCompileShader;
+PFNGLCREATEPROGRAMPROC          glCreateProgram;
+PFNGLATTACHSHADERPROC           glAttachShader;
+PFNGLLINKPROGRAMPROC            glLinkProgram;
+PFNGLUSEPROGRAMPROC             glUseProgram;
+PFNGLGETSHADERIVPROC            glGetShaderiv;
+PFNGLGETSHADERINFOLOGPROC       glGetShaderInfoLog;
+PFNGLGETPROGRAMIVPROC           glGetProgramiv;
+PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
+PFNGLDELETESHADERPROC           glDeleteShader;
+PFNGLDELETEPROGRAMPROC          glDeleteProgram;
+
+
+const char* kRenderVS = R"(#version 400
+
+in vec4 vPosition;
+
+void main()
+{
+    // burp
+    gl_Position = vPosition;
+}
+)";
+
+const char* kRenderFS = R"(#version 400
+
+out vec4 oColor;
+
+void main()
+{
+    oColor = vec4(0,1,1,1);
+}
+)";
+
+
+GLuint RenderShader[3];
 
 GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
@@ -68,13 +106,108 @@ bool InitGLExtensions()
     LOADPROC(GLUNMAPBUFFER, glUnmapBuffer);
     LOADPROC(GLBUFFERDATA, glBufferData);
 
+    LOADPROC(GLCREATESHADER, glCreateShader);
+    LOADPROC(GLSHADERSOURCE, glShaderSource);
+    LOADPROC(GLCOMPILESHADER, glCompileShader);
+    LOADPROC(GLCREATEPROGRAM, glCreateProgram);
+    LOADPROC(GLATTACHSHADER, glAttachShader);
+    LOADPROC(GLLINKPROGRAM, glLinkProgram);
+    LOADPROC(GLUSEPROGRAM, glUseProgram);
+    LOADPROC(GLGETSHADERIV, glGetShaderiv);
+    LOADPROC(GLGETSHADERINFOLOG, glGetShaderInfoLog);
+    LOADPROC(GLGETPROGRAMIV, glGetProgramiv);
+    LOADPROC(GLGETPROGRAMINFOLOG, glGetProgramInfoLog);
+    LOADPROC(GLDELETESHADER, glDeleteShader);
+    LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
+
 #undef LOADPROC
+    return true;
+}
+
+bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
+{
+    int len;
+    int res;
+
+    ids[0] = glCreateShader(GL_VERTEX_SHADER);
+    len = strlen(vs);
+    glShaderSource(ids[0], 1, &vs, &len);
+    glCompileShader(ids[0]);
+
+    glGetShaderiv(ids[0], GL_COMPILE_STATUS, &res);
+    if (res != GL_TRUE)
+    {
+        glGetShaderiv(ids[0], GL_INFO_LOG_LENGTH, &res);
+        if (res < 1) res = 1024;
+        char* log = new char[res+1];
+        glGetShaderInfoLog(ids[0], res+1, NULL, log);
+        printf("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
+        delete[] log;
+
+        glDeleteShader(ids[0]);
+
+        return false;
+    }
+
+    ids[1] = glCreateShader(GL_FRAGMENT_SHADER);
+    len = strlen(vs);
+    glShaderSource(ids[1], 1, &fs, &len);
+    glCompileShader(ids[1]);
+
+    glGetShaderiv(ids[1], GL_COMPILE_STATUS, &res);
+    if (res != GL_TRUE)
+    {
+        glGetShaderiv(ids[1], GL_INFO_LOG_LENGTH, &res);
+        if (res < 1) res = 1024;
+        char* log = new char[res+1];
+        glGetShaderInfoLog(ids[1], res+1, NULL, log);
+        printf("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
+        delete[] log;
+
+        glDeleteShader(ids[0]);
+        glDeleteShader(ids[1]);
+
+        return false;
+    }
+
+    ids[2] = glCreateProgram();
+    glAttachShader(ids[2], ids[0]);
+    glAttachShader(ids[2], ids[1]);
+    glLinkProgram(ids[2]);
+
+    glGetProgramiv(ids[2], GL_LINK_STATUS, &res);
+    if (res != GL_TRUE)
+    {
+        glGetProgramiv(ids[2], GL_INFO_LOG_LENGTH, &res);
+        if (res < 1) res = 1024;
+        char* log = new char[res+1];
+        glGetProgramInfoLog(ids[2], res+1, NULL, log);
+        printf("OpenGL: failed to link program %s: %s\n", name, log);
+        delete[] log;
+
+        glDeleteShader(ids[0]);
+        glDeleteShader(ids[1]);
+        glDeleteProgram(ids[2]);
+
+        return false;
+    }
+
     return true;
 }
 
 bool Init()
 {
     if (!InitGLExtensions()) return false;
+
+    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
+    const GLubyte* version = glGetString(GL_VERSION); // version as a string
+    printf("OpenGL: renderer: %s\n", renderer);
+    printf("OpenGL: version: %s\n", version);
+
+
+    if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
+        return false;
+
 
     u8* test_tex = new u8[256*192*4];
     u8* ptr = test_tex;
