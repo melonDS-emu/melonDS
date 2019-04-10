@@ -42,6 +42,14 @@ PFNGLMAPBUFFERPROC              glMapBuffer;
 PFNGLMAPBUFFERRANGEPROC         glMapBufferRange;
 PFNGLUNMAPBUFFERPROC            glUnmapBuffer;
 PFNGLBUFFERDATAPROC             glBufferData;
+PFNGLBUFFERSUBDATAPROC          glBufferSubData;
+
+PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
+PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
+PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
+PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
+PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
+PFNGLVERTEXATTRIBIPOINTERPROC        glVertexAttribIPointer;
 
 PFNGLCREATESHADERPROC           glCreateShader;
 PFNGLSHADERSOURCEPROC           glShaderSource;
@@ -60,12 +68,18 @@ PFNGLDELETEPROGRAMPROC          glDeleteProgram;
 
 const char* kRenderVS = R"(#version 400
 
-in vec4 vPosition;
+layout(location=0) in uvec4 vPosition;
 
 void main()
 {
     // burp
-    gl_Position = vPosition;
+    vec4 fpos;
+    fpos.x = ((float(vPosition.x) / 256.0) * 2.0) - 1.0;
+    fpos.y = ((float(vPosition.y) / 192.0) * 2.0) - 1.0;
+    fpos.z = 0.0;
+    fpos.w = 1.0;
+
+    gl_Position = fpos;
 }
 )";
 
@@ -75,12 +89,32 @@ out vec4 oColor;
 
 void main()
 {
-    oColor = vec4(0,1,1,1);
+    oColor = vec4(0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
 }
 )";
 
 
 GLuint RenderShader[3];
+
+// vertex buffer
+// * XYZW: 4x16bit
+// * RGBA: 4x8bit
+// * ST: 2x16bit
+// * polygon data: 3x32bit (polygon/texture attributes)
+//
+// polygon attributes:
+// * bit4-7, 11, 14-15, 24-29: POLYGON_ATTR
+// * bit16-20: Z shift
+// * bit8: front-facing (?)
+// * bit9: W-buffering
+
+GLuint VertexBufferID;
+u32 VertexBuffer[10240 * 7];
+u32 NumVertices;
+
+GLuint VertexArrayID;
+u16 IndexBuffer[2048 * 10];
+u32 NumTriangles;
 
 GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
@@ -105,6 +139,14 @@ bool InitGLExtensions()
     LOADPROC(GLMAPBUFFERRANGE, glMapBufferRange);
     LOADPROC(GLUNMAPBUFFER, glUnmapBuffer);
     LOADPROC(GLBUFFERDATA, glBufferData);
+    LOADPROC(GLBUFFERSUBDATA, glBufferSubData);
+
+    LOADPROC(GLGENVERTEXARRAYS, glGenVertexArrays);
+    LOADPROC(GLDELETEVERTEXARRAYS, glDeleteVertexArrays);
+    LOADPROC(GLBINDVERTEXARRAY, glBindVertexArray);
+    LOADPROC(GLENABLEVERTEXATTRIBARRAY, glEnableVertexAttribArray);
+    LOADPROC(GLVERTEXATTRIBPOINTER, glVertexAttribPointer);
+    LOADPROC(GLVERTEXATTRIBIPOINTER, glVertexAttribIPointer);
 
     LOADPROC(GLCREATESHADER, glCreateShader);
     LOADPROC(GLSHADERSOURCE, glShaderSource);
@@ -150,7 +192,7 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
     }
 
     ids[1] = glCreateShader(GL_FRAGMENT_SHADER);
-    len = strlen(vs);
+    len = strlen(fs);
     glShaderSource(ids[1], 1, &fs, &len);
     glCompileShader(ids[1]);
 
@@ -205,8 +247,29 @@ bool Init()
     printf("OpenGL: version: %s\n", version);
 
 
+    // TODO: make configurable (hires, etc)
+    glViewport(0, 0, 256, 192);
+    glDepthRange(0, 1);
+
+
     if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
         return false;
+
+
+    glGenBuffers(1, &VertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(VertexBuffer), NULL, GL_DYNAMIC_DRAW);
+
+    glGenVertexArrays(1, &VertexArrayID);
+    glBindVertexArray(VertexArrayID);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribIPointer(0, 4, GL_UNSIGNED_SHORT, 7*4, (void*)(0));
+    glEnableVertexAttribArray(1); // color
+    glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, 7*4, (void*)(2*4));
+    glEnableVertexAttribArray(2); // texcoords
+    glVertexAttribIPointer(2, 2, GL_UNSIGNED_SHORT, 7*4, (void*)(3*4));
+    glEnableVertexAttribArray(3); // attrib
+    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
 
     u8* test_tex = new u8[256*192*4];
@@ -264,13 +327,94 @@ void Reset()
 }
 
 
+void BuildPolygons(Polygon** polygons, int npolys)
+{
+    u32* vptr = &VertexBuffer[0];
+    u32 vidx = 0;
+
+    u16* iptr = &IndexBuffer[0];
+    u32 numtriangles = 0;
+
+    for (int i = 0; i < npolys; i++)
+    {
+        Polygon* poly = polygons[i];
+        if (poly->Degenerate) continue;
+
+        u32 vidx_first = vidx;
+
+        u32 polyattr = poly->Attr;
+
+        u32 alpha = (polyattr >> 16) & 0x1F;
+
+        u32 vtxattr = polyattr & 0x1F00C8F0;
+        if (poly->FacingView) vtxattr |= (1<<8);
+        if (poly->WBuffer)    vtxattr |= (1<<9);
+
+        // assemble vertices
+        for (int j = 0; j < poly->NumVertices; j++)
+        {
+            Vertex* vtx = poly->Vertices[j];
+
+            u32 z = poly->FinalZ[j];
+            u32 w = poly->FinalW[j];
+
+            // Z should always fit within 16 bits, so it's okay to do this
+            u32 zshift = 0;
+            while (z > 0xFFFF) { z >>= 1; zshift++; }
+
+            // TODO hires-upgraded positions?
+            *vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
+            *vptr++ = z | (w << 16);
+
+            *vptr++ =  (vtx->FinalColor[0] >> 1) |
+                      ((vtx->FinalColor[1] >> 1) << 8) |
+                      ((vtx->FinalColor[2] >> 1) << 16) |
+                      (alpha << 24);
+
+            *vptr++ = vtx->TexCoords[0] | (vtx->TexCoords[1] << 16);
+
+            *vptr++ = vtxattr | (zshift << 16);
+            *vptr++ = poly->TexParam;
+            *vptr++ = poly->TexPalette;
+
+            if (j >= 2)
+            {
+                // build a triangle
+                *iptr++ = vidx_first;
+                *iptr++ = vidx - 1;
+                *iptr++ = vidx;
+                numtriangles++;
+            }
+
+            vidx++;
+        }
+    }
+
+    NumTriangles = numtriangles;
+    NumVertices = vidx;
+}
+
+
 void VCount144()
 {
 }
 
 void RenderFrame()
 {
+    // TODO: proper clear color!!
+    glClearColor(0, 0, 0, 31.0/255.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+
     // render shit here
+    glUseProgram(RenderShader[2]);
+
+    BuildPolygons(&RenderPolygonRAM[0], RenderNumPolygons);
+    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+
+    glBindVertexArray(VertexArrayID);
+    glDrawElements(GL_TRIANGLES, NumTriangles, GL_UNSIGNED_SHORT, IndexBuffer);
+
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
