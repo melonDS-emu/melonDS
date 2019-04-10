@@ -80,7 +80,8 @@ void main()
     fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
     fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
     fpos.z = 0.5;
-    fpos.w = 1.0;
+    fpos.w = float(vPosition.w) / 65535.0f;
+    fpos.xyz *= fpos.w;
 
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
 
