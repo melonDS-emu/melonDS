@@ -69,6 +69,9 @@ PFNGLDELETEPROGRAMPROC          glDeleteProgram;
 const char* kRenderVS = R"(#version 400
 
 layout(location=0) in uvec4 vPosition;
+layout(location=1) in uvec4 vColor;
+
+smooth out vec4 fColor;
 
 void main()
 {
@@ -79,7 +82,7 @@ void main()
     fpos.z = 0.5;
     fpos.w = 1.0;
 
-    //if (fpos.y < 0.0) fpos.y = -fpos.y;
+    fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
 
     gl_Position = fpos;
 }
@@ -87,13 +90,18 @@ void main()
 
 const char* kRenderFS = R"(#version 400
 
+smooth in vec4 fColor;
+
 out vec4 oColor;
 
 void main()
 {
-    vec4 finalcolor = vec4(0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+    vec4 finalcolor;
 
-    oColor = finalcolor.bgra;
+    finalcolor.rgb = fColor.rgb;
+    finalcolor.a = 1.0;
+
+    oColor = finalcolor.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
 }
 )";
 
