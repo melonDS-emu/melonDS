@@ -74,10 +74,12 @@ void main()
 {
     // burp
     vec4 fpos;
-    fpos.x = ((float(vPosition.x) / 256.0) * 2.0) - 1.0;
-    fpos.y = ((float(vPosition.y) / 192.0) * 2.0) - 1.0;
-    fpos.z = 0.0;
+    fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
+    fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
+    fpos.z = 0.5;
     fpos.w = 1.0;
+
+    //if (fpos.y < 0.0) fpos.y = -fpos.y;
 
     gl_Position = fpos;
 }
@@ -89,7 +91,9 @@ out vec4 oColor;
 
 void main()
 {
-    oColor = vec4(0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+    vec4 finalcolor = vec4(0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+
+    oColor = finalcolor.bgra;
 }
 )";
 
@@ -365,7 +369,7 @@ void BuildPolygons(Polygon** polygons, int npolys)
             // TODO hires-upgraded positions?
             *vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
             *vptr++ = z | (w << 16);
-
+//printf("vertex %d (%d): %08X\n", j, vidx, vptr[-2]);
             *vptr++ =  (vtx->FinalColor[0] >> 1) |
                       ((vtx->FinalColor[1] >> 1) << 8) |
                       ((vtx->FinalColor[2] >> 1) << 16) |
@@ -384,6 +388,8 @@ void BuildPolygons(Polygon** polygons, int npolys)
                 *iptr++ = vidx - 1;
                 *iptr++ = vidx;
                 numtriangles++;
+
+                //printf("BUILDZORZ TRIANGLE: %d,%d,%d\n", vidx_first, vidx-1, vidx);
             }
 
             vidx++;
@@ -413,7 +419,7 @@ void RenderFrame()
     glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 
     glBindVertexArray(VertexArrayID);
-    glDrawElements(GL_TRIANGLES, NumTriangles, GL_UNSIGNED_SHORT, IndexBuffer);
+    glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
