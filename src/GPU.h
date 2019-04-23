@@ -25,6 +25,8 @@
 namespace GPU
 {
 
+extern u8 FrameskipVal;
+
 extern u16 VCount;
 extern u16 TotalScanlines;
 

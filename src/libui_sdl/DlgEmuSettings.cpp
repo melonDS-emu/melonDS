@@ -38,12 +38,18 @@ uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
 uiCheckbox* cbThreaded3D;
+uiSlider* slFrameskip;
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     opened = false;
     return 1;
+}
+
+void OnFrameskipChanged(uiSlider* slider, void* blarg)
+{
+    Config::Frameskip = uiSliderValue(slFrameskip);
 }
 
 void OnCancel(uiButton* btn, void* blarg)
@@ -90,6 +96,13 @@ void Open()
 
         cbThreaded3D = uiNewCheckbox("Threaded 3D renderer");
         uiBoxAppend(in_ctrl, uiControl(cbThreaded3D), 0);
+
+        uiLabel* label_skip = uiNewLabel("Frameskip:");
+        uiBoxAppend(in_ctrl, uiControl(label_skip), 0);
+
+        slFrameskip = uiNewSlider(0, 9);
+        uiSliderOnChanged(slFrameskip, OnFrameskipChanged, NULL);
+        uiBoxAppend(in_ctrl, uiControl(slFrameskip), 0);
     }
 
     {

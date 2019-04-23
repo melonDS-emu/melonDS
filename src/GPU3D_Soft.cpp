@@ -2083,7 +2083,7 @@ void RenderFrame()
     {
         Platform::Semaphore_Post(Sema_RenderStart);
     }
-    else
+    else if (GPU::FrameskipVal == 0)
     {
         ClearBuffers();
         RenderPolygons(false, &RenderPolygonRAM[0], RenderNumPolygons);
@@ -2098,8 +2098,11 @@ void RenderThreadFunc()
         if (!RenderThreadRunning) return;
 
         RenderThreadRendering = true;
-        ClearBuffers();
-        RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        if (GPU::FrameskipVal == 0)
+        {
+            ClearBuffers();
+            RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        }
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
@@ -2110,7 +2113,7 @@ void RequestLine(int line)
 {
     if (RenderThreadRunning)
     {
-        if (line < 192)
+        if (line < 192 && GPU::FrameskipVal == 0)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
 }

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Config.h"
 #include "NDS.h"
 #include "GPU.h"
 
@@ -28,6 +29,8 @@ namespace GPU
 #define LINE_CYCLES  (355*6)
 #define HBLANK_CYCLES (48+(256*6))
 #define FRAME_CYCLES  (LINE_CYCLES * 263)
+
+u8 FrameskipVal;
 
 u16 VCount;
 u32 NextVCount;
@@ -722,7 +725,7 @@ void StartHBlank(u32 line)
     {
         // draw
         // note: this should start 48 cycles after the scanline start
-        if (line < 192)
+        if (line < 192 && FrameskipVal == 0)
         {
             GPU2D_A->DrawScanline(line);
             GPU2D_B->DrawScanline(line);
@@ -733,6 +736,11 @@ void StartHBlank(u32 line)
     else if (VCount == 215)
     {
         GPU3D::VCount215();
+
+        if (FrameskipVal >= Config::Frameskip)
+            FrameskipVal = 0;
+        else
+            FrameskipVal++;
     }
 
     if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);

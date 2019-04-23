@@ -41,6 +41,7 @@ void Load();
 void Save();
 
 extern int Threaded3D;
+extern int Frameskip;
 
 }
 

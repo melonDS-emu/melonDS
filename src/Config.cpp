@@ -29,10 +29,12 @@ namespace Config
 const char* kConfigFile = "melonDS.ini";
 
 int Threaded3D;
+int Frameskip;
 
 ConfigEntry ConfigFile[] =
 {
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
+    {"Frameskip",  0, &Frameskip,  0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };
