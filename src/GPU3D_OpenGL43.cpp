@@ -49,7 +49,7 @@ PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
 PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
 PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
 PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
-PFNGLVERTEXATTRIBIPOINTERPROC        glVertexAttribIPointer;
+PFNGLVERTEXATTRIBIPOINTERPROC       glVertexAttribIPointer;
 
 PFNGLCREATESHADERPROC           glCreateShader;
 PFNGLSHADERSOURCEPROC           glShaderSource;
@@ -65,21 +65,29 @@ PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
 PFNGLDELETESHADERPROC           glDeleteShader;
 PFNGLDELETEPROGRAMPROC          glDeleteProgram;
 
+PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
 
-const char* kRenderVS = R"(#version 400
+PFNGLGETSTRINGIPROC             glGetStringi;
+
+
+const char* kRenderVS = R"(#version 420
 
 layout(location=0) in uvec4 vPosition;
 layout(location=1) in uvec4 vColor;
+layout(location=2) in uvec2 vTexcoord;
+layout(location=3) in uvec3 vPolygonAttr;
 
 smooth out vec4 fColor;
 
 void main()
 {
-    // burp
+    uint attr = vPolygonAttr.x;
+    uint zshift = (attr >> 16) & 0x1F;
+
     vec4 fpos;
     fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
     fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
-    fpos.z = 0.5;
+    fpos.z = float(vPosition.z << zshift) / 16777216.0;
     fpos.w = float(vPosition.w) / 65535.0f;
     fpos.xyz *= fpos.w;
 
@@ -89,7 +97,7 @@ void main()
 }
 )";
 
-const char* kRenderFS = R"(#version 400
+const char* kRenderFS = R"(#version 420
 
 smooth in vec4 fColor;
 
@@ -129,9 +137,12 @@ GLuint VertexArrayID;
 u16 IndexBuffer[2048 * 10];
 u32 NumTriangles;
 
+GLuint FramebufferTex[2];
 GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
 u8 CurLine[256*4];
+
+GLuint AuxBufferID;
 
 
 bool InitGLExtensions()
@@ -174,6 +185,10 @@ bool InitGLExtensions()
     LOADPROC(GLGETPROGRAMINFOLOG, glGetProgramInfoLog);
     LOADPROC(GLDELETESHADER, glDeleteShader);
     LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
+
+    LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
+
+    LOADPROC(GLGETSTRINGI, glGetStringi);
 
 #undef LOADPROC
     return true;
@@ -259,10 +274,28 @@ bool Init()
     printf("OpenGL: renderer: %s\n", renderer);
     printf("OpenGL: version: %s\n", version);
 
+    int barg1, barg2;
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &barg1);
+    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &barg2);
+    printf("max texture: %d\n", barg1);
+    printf("max comb. texture: %d\n", barg2);
+
+    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &barg1);
+    printf("max arraytex levels: %d\n", barg1);
+
+    /*glGetIntegerv(GL_NUM_EXTENSIONS, &barg1);
+    printf("extensions: %d\n", barg1);
+    for (int i = 0; i < barg1; i++)
+    {
+        const GLubyte* ext = glGetStringi(GL_EXTENSIONS, i);
+        printf("- %s\n", ext);
+    }*/
+
 
     // TODO: make configurable (hires, etc)
     glViewport(0, 0, 256, 192);
     glDepthRange(0, 1);
+    glClearDepth(1.0);
 
 
     if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
@@ -285,53 +318,46 @@ bool Init()
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
 
-    u8* test_tex = new u8[256*192*4];
-    u8* ptr = test_tex;
-    for (int y = 0; y < 192; y++)
-    {
-        for (int x = 0; x < 256; x++)
-        {
-            if ((x & 0x10) ^ (y & 0x10))
-            {
-                *ptr++ = 0x3F;
-                *ptr++ = 0x00;
-                *ptr++ = 0;
-                *ptr++ = 0x1F;
-            }
-            else
-            {
-                *ptr++ = 0x3F;
-                *ptr++ = y>>2;
-                *ptr++ = 0;
-                *ptr++ = 0x1F;
-            }
-        }
-    }
-
     glGenFramebuffers(1, &FramebufferID);
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
 
-    GLuint frametex;
-    glGenTextures(1, &frametex);
-    glBindTexture(GL_TEXTURE_2D, frametex);
+    glGenTextures(1, &FramebufferTex[0]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, test_tex);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frametex, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
+
+    glGenTextures(1, &FramebufferTex[1]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 256, 192, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); // welp
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, FramebufferTex[1], 0);
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     //glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
+    glGenTextures(1, &AuxBufferID);
+    glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32UI, 256, 192, 0, GL_RG_INTEGER, GL_UNSIGNED_INT, NULL);
+
     return true;
 }
 
 void DeInit()
 {
-    //
+    // TODO CLEAN UP SHIT!!!!
 }
 
 void Reset()
@@ -378,7 +404,7 @@ void BuildPolygons(Polygon** polygons, int npolys)
             // TODO hires-upgraded positions?
             *vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
             *vptr++ = z | (w << 16);
-//printf("vertex %d (%d): %08X\n", j, vidx, vptr[-2]);
+
             *vptr++ =  (vtx->FinalColor[0] >> 1) |
                       ((vtx->FinalColor[1] >> 1) << 8) |
                       ((vtx->FinalColor[2] >> 1) << 16) |
@@ -397,8 +423,6 @@ void BuildPolygons(Polygon** polygons, int npolys)
                 *iptr++ = vidx - 1;
                 *iptr++ = vidx;
                 numtriangles++;
-
-                //printf("BUILDZORZ TRIANGLE: %d,%d,%d\n", vidx_first, vidx-1, vidx);
             }
 
             vidx++;
@@ -418,10 +442,29 @@ void RenderFrame()
 {
     // TODO: proper clear color!!
     glClearColor(0, 0, 0, 31.0/255.0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClearDepth(1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    {
+        u32* dorp = new u32[256*192*2];
+        for (int i = 0; i < 256*192; i++)
+        {
+            dorp[i*2+0] = 0xFFFFFF;
+            dorp[i*2+1] = 0;
+        }
+        glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RG_INTEGER, GL_UNSIGNED_INT, dorp);
+        delete[] dorp;
+    }
 
     // render shit here
     glUseProgram(RenderShader[2]);
+
+    glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+    glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
+
+    // zorp
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
 
     BuildPolygons(&RenderPolygonRAM[0], RenderNumPolygons);
     glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
