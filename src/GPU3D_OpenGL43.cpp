@@ -70,7 +70,24 @@ PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
 PFNGLGETSTRINGIPROC             glGetStringi;
 
 
-const char* kRenderVS = R"(#version 420
+const char* kShaderHeader = "#version 420";
+
+
+const char* kRenderVSCommon = R"(
+
+// common shit goes here
+)";
+
+const char* kRenderFSCommon = R"(
+
+vec4 FinalColor(vec4 col)
+{
+    return col.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+}
+)";
+
+
+const char* kRenderVS_Z = R"(
 
 layout(location=0) in uvec4 vPosition;
 layout(location=1) in uvec4 vColor;
@@ -88,7 +105,7 @@ void main()
     fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
     fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
     fpos.z = float(vPosition.z << zshift) / 16777216.0;
-    fpos.w = float(vPosition.w) / 65535.0f;
+    fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
 
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
@@ -97,7 +114,36 @@ void main()
 }
 )";
 
-const char* kRenderFS = R"(#version 420
+const char* kRenderVS_W = R"(
+
+layout(location=0) in uvec4 vPosition;
+layout(location=1) in uvec4 vColor;
+layout(location=2) in uvec2 vTexcoord;
+layout(location=3) in uvec3 vPolygonAttr;
+
+smooth out float fZ;
+smooth out vec4 fColor;
+
+void main()
+{
+    uint attr = vPolygonAttr.x;
+    uint zshift = (attr >> 16) & 0x1F;
+
+    vec4 fpos;
+    fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
+    fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
+    fZ = float(vPosition.z << zshift) / 16777216.0;
+    fpos.w = float(vPosition.w) / 65536.0f;
+    fpos.xy *= fpos.w;
+
+    fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
+
+    gl_Position = fpos;
+}
+)";
+
+
+const char* kRenderFS_Z = R"(
 
 smooth in vec4 fColor;
 
@@ -110,12 +156,38 @@ void main()
     finalcolor.rgb = fColor.rgb;
     finalcolor.a = 1.0;
 
-    oColor = finalcolor.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+    oColor = FinalColor(finalcolor);
+}
+)";
+
+const char* kRenderFS_W = R"(
+
+smooth in float fZ;
+smooth in vec4 fColor;
+
+out vec4 oColor;
+
+void main()
+{
+    vec4 finalcolor;
+
+    finalcolor.rgb = fColor.rgb;
+    finalcolor.a = 1.0;
+
+    oColor = FinalColor(finalcolor);
+
+    gl_FragDepth = fZ;
 }
 )";
 
 
-GLuint RenderShader[3];
+enum
+{
+    RenderFlag_WBuffer = 0x01,
+};
+
+
+GLuint RenderShader[16][3];
 
 // vertex buffer
 // * XYZW: 4x16bit
@@ -127,7 +199,7 @@ GLuint RenderShader[3];
 // * bit4-7, 11, 14-15, 24-29: POLYGON_ATTR
 // * bit16-20: Z shift
 // * bit8: front-facing (?)
-// * bit9: W-buffering
+// * bit9: W-buffering (?)
 
 GLuint VertexBufferID;
 u32 VertexBuffer[10240 * 7];
@@ -265,6 +337,40 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
     return true;
 }
 
+bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
+{
+    char shadername[32];
+    sprintf(shadername, "RenderShader%02X", flags);
+
+    int headerlen = strlen(kShaderHeader);
+
+    int vslen = strlen(vs);
+    int vsclen = strlen(kRenderVSCommon);
+    char* vsbuf = new char[headerlen + vsclen + vslen + 1];
+    strcpy(&vsbuf[0], kShaderHeader);
+    strcpy(&vsbuf[headerlen], kRenderVSCommon);
+    strcpy(&vsbuf[headerlen + vsclen], vs);
+
+    int fslen = strlen(fs);
+    int fsclen = strlen(kRenderFSCommon);
+    char* fsbuf = new char[headerlen + fsclen + fslen + 1];
+    strcpy(&fsbuf[0], kShaderHeader);
+    strcpy(&fsbuf[headerlen], kRenderFSCommon);
+    strcpy(&fsbuf[headerlen + fsclen], fs);
+
+    bool ret = BuildShaderProgram(vsbuf, fsbuf, RenderShader[flags], shadername);
+
+    delete[] vsbuf;
+    delete[] fsbuf;
+
+    return ret;
+}
+
+void UseRenderShader(u32 flags)
+{
+    glUseProgram(RenderShader[flags][2]);
+}
+
 bool Init()
 {
     if (!InitGLExtensions()) return false;
@@ -298,8 +404,10 @@ bool Init()
     glClearDepth(1.0);
 
 
-    if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
-        return false;
+    //if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
+    //    return false;
+    if (!BuildRenderShader(0,                       kRenderVS_Z, kRenderFS_Z)) return false;
+    if (!BuildRenderShader(RenderFlag_WBuffer,      kRenderVS_W, kRenderFS_W)) return false;
 
 
     glGenBuffers(1, &VertexBufferID);
@@ -456,22 +564,27 @@ void RenderFrame()
         delete[] dorp;
     }
 
-    // render shit here
-    glUseProgram(RenderShader[2]);
+    if (RenderNumPolygons)
+    {
+        // render shit here
+        u32 flags = 0;
+        if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
+        UseRenderShader(flags);
 
-    glBindTexture(GL_TEXTURE_2D, AuxBufferID);
-    glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
+        glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+        glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
 
-    // zorp
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+        // zorp
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
 
-    BuildPolygons(&RenderPolygonRAM[0], RenderNumPolygons);
-    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+        BuildPolygons(&RenderPolygonRAM[0], RenderNumPolygons);
+        glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 
-    glBindVertexArray(VertexArrayID);
-    glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
+        glBindVertexArray(VertexArrayID);
+        glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
+    }
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
