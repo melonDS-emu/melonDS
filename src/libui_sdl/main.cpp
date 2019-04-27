@@ -578,7 +578,9 @@ int EmuThreadFunc(void* burp)
                 u32 diff = tick - lastmeasuretick;
                 lastmeasuretick = tick;
 
-                u32 fps = (nframes * 1000) / diff;
+                u32 fps;
+                if (diff < 1) fps = 77777;
+                else fps = (nframes * 1000) / diff;
                 nframes = 0;
 
                 float fpstarget;
