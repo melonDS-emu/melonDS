@@ -108,8 +108,35 @@ vec4 TextureLookup()
     int vramaddr = int(attr & 0xFFFF) << 3;
     ivec2 st = ivec2(fTexcoord);
 
-    st.x &= (tw-1);
-    st.y &= (th-1);
+    if ((attr & (1<<16)) != 0)
+    {
+        if ((attr & (1<<18)) != 0)
+        {
+            if ((st.x & tw) != 0)
+                st.x = (tw-1) - (st.x & (tw-1));
+            else
+                st.x = (st.x & (tw-1));
+        }
+        else
+            st.x &= (tw-1);
+    }
+    else
+        st.x = clamp(st.x, 0, tw-1);
+
+    if ((attr & (1<<17)) != 0)
+    {
+        if ((attr & (1<<19)) != 0)
+        {
+            if ((st.y & th) != 0)
+                st.y = (th-1) - (st.y & (th-1));
+            else
+                st.y = (st.y & (th-1));
+        }
+        else
+            st.y &= (th-1);
+    }
+    else
+        st.y = clamp(st.y, 0, th-1);
 
     uint type = (attr >> 26) & 0x7;
     if (type == 4)
