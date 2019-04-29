@@ -167,7 +167,7 @@ vec4 TextureLookup()
         paladdr = (paladdr << 2) + pixel.r;
         vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
 
-        return vec4(color.rgb, step(1,pixel.r)*alpha0);
+        return vec4(color.rgb, max(step(1,pixel.r),alpha0));
     }
     else if (type == 3)
     {
@@ -179,7 +179,7 @@ vec4 TextureLookup()
         paladdr = (paladdr << 3) + pixel.r;
         vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
 
-        return vec4(color.rgb, step(1,pixel.r)*alpha0);
+        return vec4(color.rgb, max(step(1,pixel.r),alpha0));
     }
     else if (type == 4)
     {
@@ -189,7 +189,7 @@ vec4 TextureLookup()
         paladdr = (paladdr << 3) + pixel.r;
         vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
 
-        return vec4(color.rgb, step(1,pixel.r)*alpha0);
+        return vec4(color.rgb, max(step(1,pixel.r),alpha0));
     }
     else if (type == 5)
     {
