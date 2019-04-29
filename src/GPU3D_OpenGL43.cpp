@@ -102,6 +102,10 @@ vec4 TextureLookup()
     uint attr = fPolygonAttr.y;
     uint paladdr = fPolygonAttr.z;
 
+    float alpha0;
+    if ((attr & (1<<29)) != 0) alpha0 = 0.0;
+    else                       alpha0 = 1.0;
+
     int tw = 8 << int((attr >> 20) & 0x7);
     int th = 8 << int((attr >> 23) & 0x7);
 
@@ -139,7 +143,45 @@ vec4 TextureLookup()
         st.y = clamp(st.y, 0, th-1);
 
     uint type = (attr >> 26) & 0x7;
-    if (type == 4)
+    if (type == 1)
+    {
+        vramaddr += ((st.y * tw) + st.x);
+        uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+
+        pixel.a = (pixel.r & 0xE0);
+        pixel.a = (pixel.a >> 3) + (pixel.a >> 6);
+        pixel.r &= 0x1F;
+
+        paladdr = (paladdr << 3) + pixel.r;
+        vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+
+        return vec4(color.rgb, float(pixel.a)/31.0);
+    }
+    else if (type == 2)
+    {
+        vramaddr += ((st.y * tw) + st.x) >> 2;
+        uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+        pixel.r >>= (2 * (st.x & 3));
+        pixel.r &= 0x03;
+
+        paladdr = (paladdr << 2) + pixel.r;
+        vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+
+        return vec4(color.rgb, step(1,pixel.r)*alpha0);
+    }
+    else if (type == 3)
+    {
+        vramaddr += ((st.y * tw) + st.x) >> 1;
+        uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+        if ((st.x & 1) != 0) pixel.r >>= 4;
+        else                 pixel.r &= 0x0F;
+
+        paladdr = (paladdr << 3) + pixel.r;
+        vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+
+        return vec4(color.rgb, step(1,pixel.r)*alpha0);
+    }
+    else if (type == 4)
     {
         vramaddr += ((st.y * tw) + st.x);
         uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
@@ -147,7 +189,7 @@ vec4 TextureLookup()
         paladdr = (paladdr << 3) + pixel.r;
         vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
 
-        return vec4(color.rgb, 1);
+        return vec4(color.rgb, step(1,pixel.r)*alpha0);
     }
     else if (type == 5)
     {
@@ -223,17 +265,53 @@ vec4 TextureLookup()
             }
         }
     }
+    else if (type == 6)
+    {
+        vramaddr += ((st.y * tw) + st.x);
+        uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
 
-    return vec4(0,0,1,1);
+        pixel.a = (pixel.r & 0xF8) >> 3;
+        pixel.r &= 0x07;
+
+        paladdr = (paladdr << 3) + pixel.r;
+        vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+
+        return vec4(color.rgb, float(pixel.a)/31.0);
+    }
+    else
+    {
+        vramaddr += ((st.y * tw) + st.x) << 1;
+        uvec4 pixelL = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+        vramaddr++;
+        uvec4 pixelH = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+
+        vec4 color;
+        color.r = float(pixelL.r & 0x1F) / 31.0;
+        color.g = float((pixelL.r >> 5) | ((pixelH.r & 0x03) << 3)) / 31.0;
+        color.b = float((pixelH.r & 0x7C) >> 2) / 31.0;
+        color.a = float(pixelH.r >> 7);
+
+        return color;
+    }
 }
 
 vec4 FinalColor()
 {
     vec4 col;
     vec4 vcol = vec4(fColor.rgb,1.0);
-    vec4 tcol = TextureLookup();
 
-    col = vcol * tcol;
+    // TODO: also check DISPCNT
+    if (((fPolygonAttr.y >> 26) & 0x7) == 0)
+    {
+        // no texture
+        col = vcol;
+    }
+    else
+    {
+        vec4 tcol = TextureLookup();
+
+        col = vcol * tcol;
+    }
 
     return col.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
 }
