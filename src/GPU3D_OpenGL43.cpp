@@ -65,6 +65,7 @@ PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
 PFNGLDELETESHADERPROC           glDeleteShader;
 PFNGLDELETEPROGRAMPROC          glDeleteProgram;
 
+PFNGLACTIVETEXTUREPROC          glActiveTexture;
 PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
 
 PFNGLGETSTRINGIPROC             glGetStringi;
@@ -75,26 +76,70 @@ const char* kShaderHeader = "#version 420";
 
 const char* kRenderVSCommon = R"(
 
-// common shit goes here
+layout(location=0) in uvec4 vPosition;
+layout(location=1) in uvec4 vColor;
+layout(location=2) in ivec2 vTexcoord;
+layout(location=3) in uvec3 vPolygonAttr;
+
+smooth out vec4 fColor;
+smooth out vec2 fTexcoord;
+flat out uvec3 fPolygonAttr;
 )";
 
 const char* kRenderFSCommon = R"(
 
-vec4 FinalColor(vec4 col)
+layout(binding=0) uniform usampler2D TexMem;
+layout(binding=1) uniform sampler2D TexPalMem;
+
+smooth in vec4 fColor;
+smooth in vec2 fTexcoord;
+flat in uvec3 fPolygonAttr;
+
+out vec4 oColor;
+
+vec4 TextureLookup()
 {
+    uint attr = fPolygonAttr.y;
+    uint paladdr = fPolygonAttr.z;
+
+    int tw = 8 << int((attr >> 20) & 0x7);
+    int th = 8 << int((attr >> 23) & 0x7);
+
+    int vramaddr = int(attr & 0xFFFF) << 3;
+    ivec2 st = ivec2(fTexcoord);
+
+    st.x &= (tw-1);
+    st.y &= (th-1);
+
+    uint type = (attr >> 26) & 0x7;
+    if (type == 4)
+    {
+        vramaddr += ((st.y * tw) + st.x);
+        uvec4 pixel = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+
+        paladdr = (paladdr << 3) + pixel.r;
+        vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+
+        return vec4(color.rgb, 1);
+    }
+
+    return vec4(0,0,1,1);
+}
+
+vec4 FinalColor()
+{
+    vec4 col;
+    vec4 vcol = vec4(fColor.rgb,1.0);
+    vec4 tcol = TextureLookup();
+
+    col = vcol * tcol;
+
     return col.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
 }
 )";
 
 
 const char* kRenderVS_Z = R"(
-
-layout(location=0) in uvec4 vPosition;
-layout(location=1) in uvec4 vColor;
-layout(location=2) in uvec2 vTexcoord;
-layout(location=3) in uvec3 vPolygonAttr;
-
-smooth out vec4 fColor;
 
 void main()
 {
@@ -109,6 +154,8 @@ void main()
     fpos.xyz *= fpos.w;
 
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
+    fTexcoord = vec2(vTexcoord) / 16.0;
+    fPolygonAttr = vPolygonAttr;
 
     gl_Position = fpos;
 }
@@ -116,13 +163,7 @@ void main()
 
 const char* kRenderVS_W = R"(
 
-layout(location=0) in uvec4 vPosition;
-layout(location=1) in uvec4 vColor;
-layout(location=2) in uvec2 vTexcoord;
-layout(location=3) in uvec3 vPolygonAttr;
-
 smooth out float fZ;
-smooth out vec4 fColor;
 
 void main()
 {
@@ -137,6 +178,8 @@ void main()
     fpos.xy *= fpos.w;
 
     fColor = vec4(vColor) / vec4(255.0,255.0,255.0,31.0);
+    fTexcoord = vec2(vTexcoord) / 16.0;
+    fPolygonAttr = vPolygonAttr;
 
     gl_Position = fpos;
 }
@@ -145,36 +188,19 @@ void main()
 
 const char* kRenderFS_Z = R"(
 
-smooth in vec4 fColor;
-
-out vec4 oColor;
-
 void main()
 {
-    vec4 finalcolor;
-
-    finalcolor.rgb = fColor.rgb;
-    finalcolor.a = 1.0;
-
-    oColor = FinalColor(finalcolor);
+    oColor = FinalColor();
 }
 )";
 
 const char* kRenderFS_W = R"(
 
 smooth in float fZ;
-smooth in vec4 fColor;
-
-out vec4 oColor;
 
 void main()
 {
-    vec4 finalcolor;
-
-    finalcolor.rgb = fColor.rgb;
-    finalcolor.a = 1.0;
-
-    oColor = FinalColor(finalcolor);
+    oColor = FinalColor();
 
     gl_FragDepth = fZ;
 }
@@ -208,6 +234,9 @@ u32 NumVertices;
 GLuint VertexArrayID;
 u16 IndexBuffer[2048 * 10];
 u32 NumTriangles;
+
+GLuint TexMemID;
+GLuint TexPalMemID;
 
 GLuint FramebufferTex[2];
 GLuint FramebufferID, PixelbufferID;
@@ -258,6 +287,7 @@ bool InitGLExtensions()
     LOADPROC(GLDELETESHADER, glDeleteShader);
     LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
 
+    LOADPROC(GLACTIVETEXTURE, glActiveTexture);
     LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
 
     LOADPROC(GLGETSTRINGI, glGetStringi);
@@ -284,6 +314,7 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[0], res+1, NULL, log);
         printf("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
+        printf("shader source:\n--\n%s\n--\n", vs);
         delete[] log;
 
         glDeleteShader(ids[0]);
@@ -304,6 +335,7 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[1], res+1, NULL, log);
         printf("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
+        printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
         glDeleteShader(ids[0]);
@@ -386,6 +418,9 @@ bool Init()
     printf("max texture: %d\n", barg1);
     printf("max comb. texture: %d\n", barg2);
 
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &barg1);
+    printf("max tex size: %d\n", barg1);
+
     glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &barg1);
     printf("max arraytex levels: %d\n", barg1);
 
@@ -421,7 +456,7 @@ bool Init()
     glEnableVertexAttribArray(1); // color
     glVertexAttribIPointer(1, 4, GL_UNSIGNED_BYTE, 7*4, (void*)(2*4));
     glEnableVertexAttribArray(2); // texcoords
-    glVertexAttribIPointer(2, 2, GL_UNSIGNED_SHORT, 7*4, (void*)(3*4));
+    glVertexAttribIPointer(2, 2, GL_SHORT, 7*4, (void*)(3*4));
     glEnableVertexAttribArray(3); // attrib
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
@@ -452,13 +487,23 @@ bool Init()
     //glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
-    glGenTextures(1, &AuxBufferID);
-    glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+    glActiveTexture(GL_TEXTURE0);
+    glGenTextures(1, &TexMemID);
+    glBindTexture(GL_TEXTURE_2D, TexMemID);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32UI, 256, 192, 0, GL_RG_INTEGER, GL_UNSIGNED_INT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, 512, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, NULL);
+
+    glActiveTexture(GL_TEXTURE1);
+    glGenTextures(1, &TexPalMemID);
+    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
 
     return true;
 }
@@ -473,7 +518,7 @@ void Reset()
     //
 }
 
-
+//u64 texpool1[1024]; u32 texpool2[1024];
 void BuildPolygons(Polygon** polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
@@ -482,10 +527,39 @@ void BuildPolygons(Polygon** polygons, int npolys)
     u16* iptr = &IndexBuffer[0];
     u32 numtriangles = 0;
 
+    /*memset(texpool1, 0, 1024*8);
+    memset(texpool2, 0, 1024*4);
+    u32 texcount1 = 0, texcount2 = 0;
+
+    u32 texsizecnt[64];
+    memset(texsizecnt, 0, 64*4);*/
+
     for (int i = 0; i < npolys; i++)
     {
         Polygon* poly = polygons[i];
         if (poly->Degenerate) continue;
+
+        /*u32 tid1 = -1, tid2 = -1;
+        for (int k = 0; k < 1024; k++)
+        {
+            if (texpool1[k] == ((u64)poly->TexParam | ((u64)poly->TexPalette << 32)))
+            {
+                tid1 = k;
+            }
+            if (texpool2[k] == poly->TexParam)
+            {
+                tid2 = k;
+            }
+        }
+        if (tid1 == -1)
+        {
+            texpool1[texcount1++] = ((u64)poly->TexParam | ((u64)poly->TexPalette << 32));
+        }
+        if (tid2 == -1)
+        {
+            texpool2[texcount2++] = poly->TexParam;
+            texsizecnt[(poly->TexParam >> 20) & 0x3F]++;
+        }*/
 
         u32 vidx_first = vidx;
 
@@ -539,6 +613,17 @@ void BuildPolygons(Polygon** polygons, int npolys)
 
     NumTriangles = numtriangles;
     NumVertices = vidx;
+    /*printf("polygons done: %d | textures by attr+pal: %d | textures by attr: %d\n", RenderNumPolygons, texcount1, texcount2);
+    printf("texture sizes: ");
+    for (int s = 0; s < 64; s++)
+    {
+        u32 n = texsizecnt[s];
+        if (!n) continue;
+        int sizes = 8 << (s & 0x7);
+        int sizet = 8 << (s >> 3);
+        printf("%dx%d: %d, ", sizes, sizet, n);
+    }
+    printf("\n");*/
 }
 
 
@@ -552,17 +637,40 @@ void RenderFrame()
     glClearColor(0, 0, 0, 31.0/255.0);
     glClearDepth(1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // SUCKY!!!!!!!!!!!!!!!!!!
+    // TODO: detect when VRAM blocks are modified!
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TexMemID);
+    for (int i = 0; i < 4; i++)
     {
-        u32* dorp = new u32[256*192*2];
-        for (int i = 0; i < 256*192; i++)
-        {
-            dorp[i*2+0] = 0xFFFFFF;
-            dorp[i*2+1] = 0;
-        }
-        glBindTexture(GL_TEXTURE_2D, AuxBufferID);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RG_INTEGER, GL_UNSIGNED_INT, dorp);
-        delete[] dorp;
+        u32 mask = GPU::VRAMMap_Texture[i];
+        u8* vram;
+        if (!mask) continue;
+        else if (mask & (1<<0)) vram = GPU::VRAM_A;
+        else if (mask & (1<<1)) vram = GPU::VRAM_B;
+        else if (mask & (1<<2)) vram = GPU::VRAM_C;
+        else if (mask & (1<<3)) vram = GPU::VRAM_D;
+
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
     }
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
+    for (int i = 0; i < 6; i++)
+    {
+        // 6 x 16K chunks
+        u32 mask = GPU::VRAMMap_TexPal[i];
+        u8* vram;
+        if (!mask) continue;
+        else if (mask & (1<<4)) vram = &GPU::VRAM_E[(i&3)*0x4000];
+        else if (mask & (1<<5)) vram = GPU::VRAM_F;
+        else if (mask & (1<<6)) vram = GPU::VRAM_G;
+
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
+    }
+
+    //glActiveTexture(GL_TEXTURE0);
 
     if (RenderNumPolygons)
     {
@@ -571,8 +679,8 @@ void RenderFrame()
         if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
         UseRenderShader(flags);
 
-        glBindTexture(GL_TEXTURE_2D, AuxBufferID);
-        glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
+        //glBindTexture(GL_TEXTURE_2D, AuxBufferID);
+        //glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
 
         // zorp
         glEnable(GL_DEPTH_TEST);
