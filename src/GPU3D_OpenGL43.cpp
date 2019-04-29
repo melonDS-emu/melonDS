@@ -328,7 +328,7 @@ void main()
     vec4 fpos;
     fpos.x = ((float(vPosition.x) * 2.0) / 256.0) - 1.0;
     fpos.y = ((float(vPosition.y) * 2.0) / 192.0) - 1.0;
-    fpos.z = float(vPosition.z << zshift) / 16777216.0;
+    fpos.z = (float(vPosition.z << zshift) / 8388608.0) - 1.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
 
