@@ -122,6 +122,80 @@ vec4 TextureLookup()
 
         return vec4(color.rgb, 1);
     }
+    else if (type == 5)
+    {
+        vramaddr += ((st.y & 0x3FC) * (tw>>2)) + (st.x & 0x3FC) + (st.y & 0x3);
+        uvec4 p = texelFetch(TexMem, ivec2(vramaddr&0x3FF, vramaddr>>10), 0);
+        uint val = (p.r >> (2 * (st.x & 0x3))) & 0x3;
+
+        int slot1addr = 0x20000 + ((vramaddr & 0x1FFFC) >> 1);
+        if (vramaddr >= 0x40000) slot1addr += 0x10000;
+
+        uint palinfo;
+        p = texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0);
+        palinfo = p.r;
+        slot1addr++;
+        p = texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0);
+        palinfo |= (p.r << 8);
+
+        paladdr = (paladdr << 3) + ((palinfo & 0x3FFF) << 1);
+        palinfo >>= 14;
+
+        if (val == 0)
+        {
+            vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+            return vec4(color.rgb, 1.0);
+        }
+        else if (val == 1)
+        {
+            paladdr++;
+            vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+            return vec4(color.rgb, 1.0);
+        }
+        else if (val == 2)
+        {
+            if (palinfo == 1)
+            {
+                vec4 color0 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                paladdr++;
+                vec4 color1 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                return vec4((color0.rgb + color1.rgb) / 2.0, 1.0);
+            }
+            else if (palinfo == 3)
+            {
+                vec4 color0 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                paladdr++;
+                vec4 color1 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                return vec4((color0.rgb*5.0 + color1.rgb*3.0) / 8.0, 1.0);
+            }
+            else
+            {
+                paladdr += 2;
+                vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                return vec4(color.rgb, 1.0);
+            }
+        }
+        else
+        {
+            if (palinfo == 2)
+            {
+                paladdr += 3;
+                vec4 color = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                return vec4(color.rgb, 1.0);
+            }
+            else if (palinfo == 3)
+            {
+                vec4 color0 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                paladdr++;
+                vec4 color1 = texelFetch(TexPalMem, ivec2(paladdr&0x3FF, paladdr>>10), 0);
+                return vec4((color0.rgb*3.0 + color1.rgb*5.0) / 8.0, 1.0);
+            }
+            else
+            {
+                return vec4(0.0);
+            }
+        }
+    }
 
     return vec4(0,0,1,1);
 }
@@ -592,7 +666,7 @@ void BuildPolygons(Polygon** polygons, int npolys)
                       ((vtx->FinalColor[2] >> 1) << 16) |
                       (alpha << 24);
 
-            *vptr++ = vtx->TexCoords[0] | (vtx->TexCoords[1] << 16);
+            *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
 
             *vptr++ = vtxattr | (zshift << 16);
             *vptr++ = poly->TexParam;
