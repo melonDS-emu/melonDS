@@ -365,22 +365,52 @@ void main()
 )";
 
 
-const char* kRenderFS_Z = R"(
+const char* kRenderFS_ZO = R"(
 
 void main()
 {
-    oColor = FinalColor();
+    vec4 col = FinalColor();
+    if (col.a < 31.0/255.0) discard;
+
+    oColor = col;
 }
 )";
 
-const char* kRenderFS_W = R"(
+const char* kRenderFS_WO = R"(
 
 smooth in float fZ;
 
 void main()
 {
-    oColor = FinalColor();
+    vec4 col = FinalColor();
+    if (col.a < 31.0/255.0) discard;
 
+    oColor = col;
+    gl_FragDepth = fZ;
+}
+)";
+
+const char* kRenderFS_ZT = R"(
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a > 30.0/255.0) discard;
+
+    oColor = col;
+}
+)";
+
+const char* kRenderFS_WT = R"(
+
+smooth in float fZ;
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a > 30.0/255.0) discard;
+
+    oColor = col;
     gl_FragDepth = fZ;
 }
 )";
@@ -389,10 +419,22 @@ void main()
 enum
 {
     RenderFlag_WBuffer = 0x01,
+    RenderFlag_Trans   = 0x02,
 };
 
 
 GLuint RenderShader[16][3];
+
+typedef struct
+{
+    Polygon* PolyData;
+
+    u16* Indices;
+    u32 RenderKey;
+
+} RendererPolygon;
+
+RendererPolygon PolygonList[2048];
 
 // vertex buffer
 // * XYZW: 4x16bit
@@ -421,8 +463,6 @@ GLuint FramebufferTex[2];
 GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
 u8 CurLine[256*4];
-
-GLuint AuxBufferID;
 
 
 bool InitGLExtensions()
@@ -620,8 +660,14 @@ bool Init()
 
     //if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
     //    return false;
-    if (!BuildRenderShader(0,                       kRenderVS_Z, kRenderFS_Z)) return false;
-    if (!BuildRenderShader(RenderFlag_WBuffer,      kRenderVS_W, kRenderFS_W)) return false;
+    if (!BuildRenderShader(0,
+                           kRenderVS_Z, kRenderFS_ZO)) return false;
+    if (!BuildRenderShader(RenderFlag_WBuffer,
+                           kRenderVS_W, kRenderFS_WO)) return false;
+    if (!BuildRenderShader(RenderFlag_Trans,
+                           kRenderVS_Z, kRenderFS_ZT)) return false;
+    if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
+                           kRenderVS_W, kRenderFS_WT)) return false;
 
 
     glGenBuffers(1, &VertexBufferID);
@@ -697,8 +743,43 @@ void Reset()
     //
 }
 
-//u64 texpool1[1024]; u32 texpool2[1024];
-void BuildPolygons(Polygon** polygons, int npolys)
+
+void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
+{
+    rp->PolyData = polygon;
+
+    // render key: depending on what we're drawing
+    // opaque polygons:
+    // - depthfunc
+    // -- alpha=0
+    // regular translucent polygons:
+    // - depthfunc
+    // -- depthwrite
+    // --- polyID
+    // shadow mask polygons:
+    // - depthfunc?????
+    // shadow polygons:
+    // - depthfunc
+    // -- depthwrite
+    // --- polyID
+
+    rp->RenderKey = (polygon->Attr >> 14) & 0x1; // bit14 - depth func
+    if (!polygon->IsShadowMask)
+    {
+        if (polygon->Translucent)
+        {
+            rp->RenderKey |= (polygon->Attr >> 10) & 0x2; // bit11 - depth write
+            rp->RenderKey |= (polygon->Attr & 0x3F000000) >> 16; // polygon ID
+        }
+        else
+        {
+            if ((polygon->Attr & 0x001F0000) == 0)
+                rp->RenderKey |= 0x2;
+        }
+    }
+}
+
+void BuildPolygons(RendererPolygon* polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
@@ -706,39 +787,12 @@ void BuildPolygons(Polygon** polygons, int npolys)
     u16* iptr = &IndexBuffer[0];
     u32 numtriangles = 0;
 
-    /*memset(texpool1, 0, 1024*8);
-    memset(texpool2, 0, 1024*4);
-    u32 texcount1 = 0, texcount2 = 0;
-
-    u32 texsizecnt[64];
-    memset(texsizecnt, 0, 64*4);*/
-
     for (int i = 0; i < npolys; i++)
     {
-        Polygon* poly = polygons[i];
-        if (poly->Degenerate) continue;
+        RendererPolygon* rp = &polygons[i];
+        Polygon* poly = rp->PolyData;
 
-        /*u32 tid1 = -1, tid2 = -1;
-        for (int k = 0; k < 1024; k++)
-        {
-            if (texpool1[k] == ((u64)poly->TexParam | ((u64)poly->TexPalette << 32)))
-            {
-                tid1 = k;
-            }
-            if (texpool2[k] == poly->TexParam)
-            {
-                tid2 = k;
-            }
-        }
-        if (tid1 == -1)
-        {
-            texpool1[texcount1++] = ((u64)poly->TexParam | ((u64)poly->TexPalette << 32));
-        }
-        if (tid2 == -1)
-        {
-            texpool2[texcount2++] = poly->TexParam;
-            texsizecnt[(poly->TexParam >> 20) & 0x3F]++;
-        }*/
+        rp->Indices = iptr;
 
         u32 vidx_first = vidx;
 
@@ -792,17 +846,6 @@ void BuildPolygons(Polygon** polygons, int npolys)
 
     NumTriangles = numtriangles;
     NumVertices = vidx;
-    /*printf("polygons done: %d | textures by attr+pal: %d | textures by attr: %d\n", RenderNumPolygons, texcount1, texcount2);
-    printf("texture sizes: ");
-    for (int s = 0; s < 64; s++)
-    {
-        u32 n = texsizecnt[s];
-        if (!n) continue;
-        int sizes = 8 << (s & 0x7);
-        int sizet = 8 << (s >> 3);
-        printf("%dx%d: %d, ", sizes, sizet, n);
-    }
-    printf("\n");*/
 }
 
 
@@ -856,16 +899,21 @@ void RenderFrame()
         // render shit here
         u32 flags = 0;
         if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
-        UseRenderShader(flags);
 
-        //glBindTexture(GL_TEXTURE_2D, AuxBufferID);
-        //glBindImageTexture(0, AuxBufferID, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RG32UI);
+        int npolys = 0;
+        for (int i = 0; i < RenderNumPolygons; i++)
+        {
+            if (RenderPolygonRAM[i]->Degenerate) continue;
+            SetupPolygon(&PolygonList[npolys++], RenderPolygonRAM[i]);
+        }
+
+        UseRenderShader(flags);
 
         // zorp
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
 
-        BuildPolygons(&RenderPolygonRAM[0], RenderNumPolygons);
+        BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 
