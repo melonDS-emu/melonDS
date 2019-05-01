@@ -32,4 +32,3 @@ endif()
 configure_file(
 	${CMAKE_SOURCE_DIR}/romlist.bin
 	${CMAKE_BINARY_DIR}/romlist.bin COPYONLY)
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
