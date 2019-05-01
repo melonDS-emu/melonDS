@@ -10,12 +10,6 @@ SET(SOURCES_LIBUI
 	DlgEmuSettings.cpp
 	DlgInputConfig.cpp
 	DlgWifiSettings.cpp
-	#libui/common/areaevents.c
-	#libui/common/control.c
-	#libui/common/debug.c
-	#libui/common/matrix.c
-	#libui/common/shouldquit.c
-	#libui/common/userbugs.c
 )
 
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
