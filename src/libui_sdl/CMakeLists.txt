@@ -36,13 +36,6 @@ if (UNIX)
 
 	ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
 
-	#	add_custom_command(OUTPUT melon_grc.c
-	#	COMMAND glib-compile-resources
-	#			--sourcedir="${CMAKE_SOURCE_DIR}"
-	#			--target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
-	#			--generate-source --generate-header
-	#			"${CMAKE_SOURCE_DIR}/melon_grc.xml"
-	#	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 	add_custom_command(OUTPUT melon_grc.c
 		COMMAND glib-compile-resources --sourcedir="${CMAKE_SOURCE_DIR}"
 				--target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
