@@ -48,6 +48,7 @@ PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
 PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
 PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
 PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
+PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
 PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
 PFNGLVERTEXATTRIBIPOINTERPROC       glVertexAttribIPointer;
 
@@ -64,6 +65,8 @@ PFNGLGETPROGRAMIVPROC           glGetProgramiv;
 PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
 PFNGLDELETESHADERPROC           glDeleteShader;
 PFNGLDELETEPROGRAMPROC          glDeleteProgram;
+PFNGLUNIFORM1UIPROC             glUniform1ui;
+PFNGLUNIFORM4UIPROC             glUniform4ui;
 
 PFNGLACTIVETEXTUREPROC          glActiveTexture;
 PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
@@ -71,7 +74,33 @@ PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
 PFNGLGETSTRINGIPROC             glGetStringi;
 
 
-const char* kShaderHeader = "#version 420";
+#define kShaderHeader "#version 430"
+
+
+const char* kClearVS = kShaderHeader R"(
+
+layout(location=0) in vec2 vPosition;
+
+layout(location=1) uniform uint uDepth;
+
+void main()
+{
+    float fdepth = (float(uDepth) / 8388608.0) - 1.0;
+    gl_Position = vec4(vPosition, fdepth, 1.0);
+}
+)";
+
+const char* kClearFS = kShaderHeader R"(
+
+layout(location=0) uniform uvec4 uColor;
+
+out vec4 oColor;
+
+void main()
+{
+    oColor = vec4(uColor).bgra / 255.0;
+}
+)";
 
 
 const char* kRenderVSCommon = R"(
@@ -423,6 +452,8 @@ enum
 };
 
 
+GLuint ClearShaderPlain[3];
+
 GLuint RenderShader[16][3];
 
 typedef struct
@@ -435,6 +466,8 @@ typedef struct
 } RendererPolygon;
 
 RendererPolygon PolygonList[2048];
+
+GLuint ClearVertexBufferID, ClearVertexArrayID;
 
 // vertex buffer
 // * XYZW: 4x16bit
@@ -459,7 +492,7 @@ u32 NumTriangles;
 GLuint TexMemID;
 GLuint TexPalMemID;
 
-GLuint FramebufferTex[2];
+GLuint FramebufferTex[3];
 GLuint FramebufferID, PixelbufferID;
 u8 Framebuffer[256*192*4];
 u8 CurLine[256*4];
@@ -489,6 +522,7 @@ bool InitGLExtensions()
     LOADPROC(GLDELETEVERTEXARRAYS, glDeleteVertexArrays);
     LOADPROC(GLBINDVERTEXARRAY, glBindVertexArray);
     LOADPROC(GLENABLEVERTEXATTRIBARRAY, glEnableVertexAttribArray);
+    LOADPROC(GLDISABLEVERTEXATTRIBARRAY, glDisableVertexAttribArray);
     LOADPROC(GLVERTEXATTRIBPOINTER, glVertexAttribPointer);
     LOADPROC(GLVERTEXATTRIBIPOINTER, glVertexAttribIPointer);
 
@@ -505,6 +539,8 @@ bool InitGLExtensions()
     LOADPROC(GLGETPROGRAMINFOLOG, glGetProgramInfoLog);
     LOADPROC(GLDELETESHADER, glDeleteShader);
     LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
+    LOADPROC(GLUNIFORM1UI, glUniform1ui);
+    LOADPROC(GLUNIFORM4UI, glUniform4ui);
 
     LOADPROC(GLACTIVETEXTURE, glActiveTexture);
     LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
@@ -651,6 +687,8 @@ bool Init()
         printf("- %s\n", ext);
     }*/
 
+    glEnable(GL_DEPTH_TEST);
+
 
     // TODO: make configurable (hires, etc)
     glViewport(0, 0, 256, 192);
@@ -658,8 +696,9 @@ bool Init()
     glClearDepth(1.0);
 
 
-    //if (!BuildShaderProgram(kRenderVS, kRenderFS, RenderShader, "RenderShader"))
-    //    return false;
+    if (!BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
+        return false;
+
     if (!BuildRenderShader(0,
                            kRenderVS_Z, kRenderFS_ZO)) return false;
     if (!BuildRenderShader(RenderFlag_WBuffer,
@@ -668,6 +707,27 @@ bool Init()
                            kRenderVS_Z, kRenderFS_ZT)) return false;
     if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WT)) return false;
+
+
+    float clearvtx[6*2] =
+    {
+        -1.0, -1.0,
+        1.0, 1.0,
+        -1.0, 1.0,
+
+        -1.0, -1.0,
+        1.0, -1.0,
+        1.0, 1.0
+    };
+
+    glGenBuffers(1, &ClearVertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(clearvtx), clearvtx, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &ClearVertexArrayID);
+    glBindVertexArray(ClearVertexArrayID);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
 
 
     glGenBuffers(1, &VertexBufferID);
@@ -706,6 +766,15 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 256, 192, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); // welp
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, FramebufferTex[1], 0);
+
+    glGenTextures(1, &FramebufferTex[2]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_STENCIL_INDEX, 256, 192, 0, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_STENCIL_INDEX, FramebufferTex[2], 0);
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
@@ -855,11 +924,6 @@ void VCount144()
 
 void RenderFrame()
 {
-    // TODO: proper clear color!!
-    glClearColor(0, 0, 0, 31.0/255.0);
-    glClearDepth(1.0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     // SUCKY!!!!!!!!!!!!!!!!!!
     // TODO: detect when VRAM blocks are modified!
     glActiveTexture(GL_TEXTURE0);
@@ -892,7 +956,30 @@ void RenderFrame()
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
     }
 
-    //glActiveTexture(GL_TEXTURE0);
+    // clear buffers
+    // TODO: clear bitmap
+    {
+        glUseProgram(ClearShaderPlain[2]);
+        glDepthFunc(GL_ALWAYS);
+        glDepthMask(GL_TRUE);
+
+        u32 r = RenderClearAttr1 & 0x1F;
+        u32 g = (RenderClearAttr1 >> 5) & 0x1F;
+        u32 b = (RenderClearAttr1 >> 10) & 0x1F;
+        u32 a = (RenderClearAttr1 >> 16) & 0x1F;
+        u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
+
+        if (r) r = r*2 + 1;
+        if (g) g = g*2 + 1;
+        if (b) b = b*2 + 1;
+
+        glUniform4ui(0, r, g, b, a);
+        glUniform1ui(1, z);
+
+        glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+        glBindVertexArray(ClearVertexArrayID);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    }
 
     if (RenderNumPolygons)
     {
@@ -907,15 +994,16 @@ void RenderFrame()
             SetupPolygon(&PolygonList[npolys++], RenderPolygonRAM[i]);
         }
 
-        UseRenderShader(flags);
-
-        // zorp
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+
+        // pass 1: opaque pixels
+
+        UseRenderShader(flags);
+
+        // zorp
+        glDepthFunc(GL_LESS);
 
         glBindVertexArray(VertexArrayID);
         glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
