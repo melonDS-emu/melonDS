@@ -71,8 +71,16 @@ PFNGLUNIFORM4UIPROC             glUniform4ui;
 PFNGLACTIVETEXTUREPROC          glActiveTexture;
 PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
 
+PFNGLDRAWBUFFERSPROC            glDrawBuffers;
+
+PFNGLBLENDFUNCSEPARATEIPROC      glBlendFuncSeparatei;
+PFNGLBLENDEQUATIONSEPARATEIPROC  glBlendEquationSeparatei;
+
 PFNGLGETSTRINGIPROC             glGetStringi;
 
+
+// GL version requirements
+// * explicit uniform location: 4.3 (or extension)
 
 #define kShaderHeader "#version 430"
 
@@ -93,12 +101,17 @@ void main()
 const char* kClearFS = kShaderHeader R"(
 
 layout(location=0) uniform uvec4 uColor;
+layout(location=2) uniform uint uOpaquePolyID;
+layout(location=3) uniform uint uFogFlag;
 
-out vec4 oColor;
+layout(location=0) out vec4 oColor;
+layout(location=1) out uvec2 oAttr;
 
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
+    oAttr.r = uOpaquePolyID;
+    oAttr.g = uFogFlag;
 }
 )";
 
@@ -124,7 +137,8 @@ smooth in vec4 fColor;
 smooth in vec2 fTexcoord;
 flat in uvec3 fPolygonAttr;
 
-out vec4 oColor;
+layout(location=0) out vec4 oColor;
+layout(location=1) out uvec2 oAttr;
 
 vec4 TextureLookup()
 {
@@ -446,11 +460,31 @@ void main()
 }
 )";
 
+const char* kRenderFS_ZS = R"(
+
+void main()
+{
+    oColor = vec4(0,0,0,1);
+}
+)";
+
+const char* kRenderFS_WS = R"(
+
+smooth in float fZ;
+
+void main()
+{
+    oColor = vec4(0,0,0,1);
+    gl_FragDepth = fZ;
+}
+)";
+
 
 enum
 {
-    RenderFlag_WBuffer = 0x01,
-    RenderFlag_Trans   = 0x02,
+    RenderFlag_WBuffer     = 0x01,
+    RenderFlag_Trans       = 0x02,
+    RenderFlag_ShadowMask  = 0x04,
 };
 
 
@@ -546,6 +580,11 @@ bool InitGLExtensions()
 
     LOADPROC(GLACTIVETEXTURE, glActiveTexture);
     LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
+
+    LOADPROC(GLDRAWBUFFERS, glDrawBuffers);
+
+    LOADPROC(GLBLENDFUNCSEPARATEI, glBlendFuncSeparatei);
+    LOADPROC(GLBLENDEQUATIONSEPARATEI, glBlendEquationSeparatei);
 
     LOADPROC(GLGETSTRINGI, glGetStringi);
 
@@ -692,9 +731,6 @@ bool Init()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 
     // TODO: make configurable (hires, etc)
     glViewport(0, 0, 256, 192);
@@ -713,6 +749,10 @@ bool Init()
                            kRenderVS_Z, kRenderFS_ZT)) return false;
     if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WT)) return false;
+    if (!BuildRenderShader(RenderFlag_ShadowMask,
+                           kRenderVS_Z, kRenderFS_ZS)) return false;
+    if (!BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer,
+                           kRenderVS_W, kRenderFS_WS)) return false;
 
 
     float clearvtx[6*2] =
@@ -788,8 +828,25 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 256, 192, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL); printf("%04X\n", glGetError());
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);printf("%04X\n", glGetError());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 256, 192, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);
+
+    glGenTextures(1, &FramebufferTex[2]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8UI, 256, 192, 0, GL_RG_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
+
+    GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(2, fbassign);
+
+    glEnable(GL_BLEND);
+    glBlendFuncSeparatei(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+    glBlendEquationSeparatei(0, GL_ADD, GL_MAX);
+    glBlendFuncSeparatei(1, GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
@@ -985,19 +1042,13 @@ void RenderFrame()
         u32 r = RenderClearAttr1 & 0x1F;
         u32 g = (RenderClearAttr1 >> 5) & 0x1F;
         u32 b = (RenderClearAttr1 >> 10) & 0x1F;
+        u32 fog = (RenderClearAttr1 >> 15) & 0x1;
         u32 a = (RenderClearAttr1 >> 16) & 0x1F;
+        u32 polyid = (RenderClearAttr1 >> 24) & 0x3F;
         u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
-        if (a == 0)
-        {
-            glStencilFunc(GL_ALWAYS, 0x80, 0xFF);
-            glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-        }
-        else
-        {
-            glStencilFunc(GL_ALWAYS, 0, 0xFF);
-            glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-        }
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
         /*if (r) r = r*2 + 1;
         if (g) g = g*2 + 1;
@@ -1005,6 +1056,8 @@ void RenderFrame()
 
         glUniform4ui(0, r, g, b, a);
         glUniform1ui(1, z);
+        glUniform1ui(2, polyid);
+        glUniform1ui(3, fog);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
@@ -1041,34 +1094,79 @@ void RenderFrame()
         // zorp
         glDepthFunc(GL_LESS);
 
-        glStencilFunc(GL_ALWAYS, 0, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+        glStencilFunc(GL_ALWAYS, 0xFF, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
         glBindVertexArray(VertexArrayID);
         glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
 
-        // pass 2: if needed, render translucent pixels that are against background pixels
 
         glEnable(GL_BLEND);
         UseRenderShader(flags | RenderFlag_Trans);
 
         u16* iptr;
         u32 curkey;
-
-        /*if ((RenderClearAttr1 & 0x001F0000) == 0)
-        {
-            glStencilFunc(GL_EQUAL, 0x80, 0x80);
-            glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
-
-            //
-        }*/
-
-        // pass 3: translucent pixels
+        bool lastwasshadow;
 
         if (firsttrans > -1)
         {
+            // pass 2: if needed, render translucent pixels that are against background pixels
+            // when background alpha is zero, those need to be rendered with blending disabled
+
+            if ((RenderClearAttr1 & 0x001F0000) == 0)
+            {
+                iptr = PolygonList[firsttrans].Indices;
+                curkey = 0xFFFFFFFF;
+
+                glDisable(GL_BLEND);
+
+                for (int i = firsttrans; i < npolys; i++)
+                {
+                    RendererPolygon* rp = &PolygonList[i];
+                    if (rp->RenderKey != curkey)
+                    {
+                        u16* endptr = rp->Indices;
+                        u32 num = (u32)(endptr - iptr);
+                        if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+
+                        iptr = rp->Indices;
+                        curkey = rp->RenderKey;
+
+                        // configure new one
+
+                        // shadows aren't likely to pass against the clear-plane, so
+                        if (rp->PolyData->IsShadow) continue;
+
+                        // zorp
+                        glDepthFunc(GL_LESS);
+
+                        u32 polyattr = rp->PolyData->Attr;
+                        u32 polyid = (polyattr >> 24) & 0x3F;
+
+                        glStencilFunc(GL_EQUAL, 0, 0xFF);
+                        glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
+                        glStencilMask(0x40|polyid); // heheh
+
+                        if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                        else                    glDepthMask(GL_FALSE);
+                    }
+                }
+
+                {
+                    u16* endptr = &IndexBuffer[NumTriangles*3];
+                    u32 num = (u32)(endptr - iptr);
+                    if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+                }
+
+                glEnable(GL_BLEND);
+                glStencilMask(0xFF);
+            }
+
+            // pass 3: translucent pixels
+
             iptr = PolygonList[firsttrans].Indices;
             curkey = 0xFFFFFFFF;
+            lastwasshadow = false;
 
             for (int i = firsttrans; i < npolys; i++)
             {
@@ -1084,17 +1182,46 @@ void RenderFrame()
 
                     // configure new one
 
-                    // zorp
-                    glDepthFunc(GL_LESS);
+                    if (rp->PolyData->IsShadowMask)
+                    {
+                        if (!lastwasshadow)
+                        {
+                            glDisable(GL_BLEND);
+                            UseRenderShader(flags | RenderFlag_ShadowMask);
 
-                    u32 polyattr = rp->PolyData->Attr;
-                    u32 polyid = (polyattr >> 24) & 0x3F;
+                            //glStencilFunc(GL_ALWAYS, 0x80, 0x80);
+                            //glStencilOp(GL_REPLACE, GL_REPLACE, GL_KEEP);
 
-                    glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
-                    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                            glDepthMask(GL_FALSE);
 
-                    if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
-                    else                    glDepthMask(GL_FALSE);
+                            lastwasshadow = true;
+                        }
+                    }
+                    else
+                    {
+                        if (lastwasshadow)
+                        {
+                            glEnable(GL_BLEND);
+                            UseRenderShader(flags | RenderFlag_Trans);
+
+                            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+                            lastwasshadow = false;
+                        }
+
+                        // zorp
+                        glDepthFunc(GL_LESS);
+
+                        u32 polyattr = rp->PolyData->Attr;
+                        u32 polyid = (polyattr >> 24) & 0x3F;
+
+                        glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0xFF);
+                        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+                        if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                        else                    glDepthMask(GL_FALSE);
+                    }
                 }
             }
 
