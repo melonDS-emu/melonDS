@@ -98,7 +98,7 @@ out vec4 oColor;
 
 void main()
 {
-    oColor = vec4(uColor).bgra / 255.0;
+    oColor = vec4(uColor).bgra / 31.0;
 }
 )";
 
@@ -327,7 +327,7 @@ vec4 TextureLookup()
 vec4 FinalColor()
 {
     vec4 col;
-    vec4 vcol = vec4(fColor.rgb,1.0);
+    vec4 vcol = fColor;
 
     // TODO: also check DISPCNT
     if (((fPolygonAttr.y >> 26) & 0x7) == 0)
@@ -342,7 +342,7 @@ vec4 FinalColor()
         col = vcol * tcol;
     }
 
-    return col.bgra * vec4(63.0/255.0, 63.0/255.0, 63.0/255.0, 31.0/255.0);
+    return col.bgra;
 }
 )";
 
@@ -399,7 +399,7 @@ const char* kRenderFS_ZO = R"(
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 31.0/255.0) discard;
+    if (col.a < 30.5/31) discard;
 
     oColor = col;
 }
@@ -412,7 +412,7 @@ smooth in float fZ;
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 31.0/255.0) discard;
+    if (col.a < 30.5/31) discard;
 
     oColor = col;
     gl_FragDepth = fZ;
@@ -424,7 +424,8 @@ const char* kRenderFS_ZT = R"(
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a > 30.0/255.0) discard;
+    if (col.a < 0.5/31) discard;
+    if (col.a >= 30.5/31) discard;
 
     oColor = col;
 }
@@ -437,7 +438,8 @@ smooth in float fZ;
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a > 30.0/255.0) discard;
+    if (col.a < 0.5/31) discard;
+    if (col.a >= 30.5/31) discard;
 
     oColor = col;
     gl_FragDepth = fZ;
@@ -688,6 +690,10 @@ bool Init()
     }*/
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 
     // TODO: make configurable (hires, etc)
@@ -758,7 +764,7 @@ bool Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
 
-    glGenTextures(1, &FramebufferTex[1]);
+    /*glGenTextures(1, &FramebufferTex[1]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -774,7 +780,16 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_STENCIL_INDEX, 256, 192, 0, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, NULL);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_STENCIL_INDEX, FramebufferTex[2], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, FramebufferTex[2], 0);*/
+
+    glGenTextures(1, &FramebufferTex[1]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 256, 192, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL); printf("%04X\n", glGetError());
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);printf("%04X\n", glGetError());
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
@@ -956,8 +971,12 @@ void RenderFrame()
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
     }
 
+    glDisable(GL_BLEND);
+
     // clear buffers
     // TODO: clear bitmap
+    // TODO: check whether 'clear polygon ID' affects translucent polyID
+    // (for example when alpha is 1..30)
     {
         glUseProgram(ClearShaderPlain[2]);
         glDepthFunc(GL_ALWAYS);
@@ -969,9 +988,20 @@ void RenderFrame()
         u32 a = (RenderClearAttr1 >> 16) & 0x1F;
         u32 z = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
 
-        if (r) r = r*2 + 1;
+        if (a == 0)
+        {
+            glStencilFunc(GL_ALWAYS, 0x80, 0xFF);
+            glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+        }
+        else
+        {
+            glStencilFunc(GL_ALWAYS, 0, 0xFF);
+            glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+        }
+
+        /*if (r) r = r*2 + 1;
         if (g) g = g*2 + 1;
-        if (b) b = b*2 + 1;
+        if (b) b = b*2 + 1;*/
 
         glUniform4ui(0, r, g, b, a);
         glUniform1ui(1, z);
@@ -988,10 +1018,16 @@ void RenderFrame()
         if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
         int npolys = 0;
+        int firsttrans = -1;
         for (int i = 0; i < RenderNumPolygons; i++)
         {
             if (RenderPolygonRAM[i]->Degenerate) continue;
-            SetupPolygon(&PolygonList[npolys++], RenderPolygonRAM[i]);
+
+            SetupPolygon(&PolygonList[npolys], RenderPolygonRAM[i]);
+            if (firsttrans < 0 && RenderPolygonRAM[i]->Translucent)
+                firsttrans = npolys;
+
+            npolys++;
         }
 
         BuildPolygons(&PolygonList[0], npolys);
@@ -1005,8 +1041,69 @@ void RenderFrame()
         // zorp
         glDepthFunc(GL_LESS);
 
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+
         glBindVertexArray(VertexArrayID);
         glDrawElements(GL_TRIANGLES, NumTriangles*3, GL_UNSIGNED_SHORT, IndexBuffer);
+
+        // pass 2: if needed, render translucent pixels that are against background pixels
+
+        glEnable(GL_BLEND);
+        UseRenderShader(flags | RenderFlag_Trans);
+
+        u16* iptr;
+        u32 curkey;
+
+        /*if ((RenderClearAttr1 & 0x001F0000) == 0)
+        {
+            glStencilFunc(GL_EQUAL, 0x80, 0x80);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+
+            //
+        }*/
+
+        // pass 3: translucent pixels
+
+        if (firsttrans > -1)
+        {
+            iptr = PolygonList[firsttrans].Indices;
+            curkey = 0xFFFFFFFF;
+
+            for (int i = firsttrans; i < npolys; i++)
+            {
+                RendererPolygon* rp = &PolygonList[i];
+                if (rp->RenderKey != curkey)
+                {
+                    u16* endptr = rp->Indices;
+                    u32 num = (u32)(endptr - iptr);
+                    if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+
+                    iptr = rp->Indices;
+                    curkey = rp->RenderKey;
+
+                    // configure new one
+
+                    // zorp
+                    glDepthFunc(GL_LESS);
+
+                    u32 polyattr = rp->PolyData->Attr;
+                    u32 polyid = (polyattr >> 24) & 0x3F;
+
+                    glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+                    if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                    else                    glDepthMask(GL_FALSE);
+                }
+            }
+
+            {
+                u16* endptr = &IndexBuffer[NumTriangles*3];
+                u32 num = (u32)(endptr - iptr);
+                if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+            }
+        }
     }
 
 
@@ -1051,6 +1148,15 @@ void RequestLine(int line)
         if (data) memcpy(&Framebuffer[4*256*144], data, 4*256*48);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }*/
+
+    u32* ptr = (u32*)&Framebuffer[256*4 * line];
+    for (int i = 0; i < 256; i++)
+    {
+        u32 rgb = *ptr & 0x00FCFCFC;
+        u32 a = *ptr & 0xF8000000;
+
+        *ptr++ = (rgb >> 2) | (a >> 3);
+    }
 }
 
 u32* GetLine(int line)
