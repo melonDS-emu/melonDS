@@ -76,6 +76,10 @@ PFNGLDRAWBUFFERSPROC            glDrawBuffers;
 PFNGLBLENDFUNCSEPARATEIPROC      glBlendFuncSeparatei;
 PFNGLBLENDEQUATIONSEPARATEIPROC  glBlendEquationSeparatei;
 
+PFNGLCOLORMASKIPROC             glColorMaski;
+
+PFNGLMEMORYBARRIERPROC glMemoryBarrier;
+
 PFNGLGETSTRINGIPROC             glGetStringi;
 
 
@@ -111,7 +115,7 @@ void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
     oAttr.r = uOpaquePolyID;
-    oAttr.g = uFogFlag;
+    oAttr.g = 0;
 }
 )";
 
@@ -416,6 +420,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
+    oAttr.r = (fPolygonAttr.x >> 24) & 0x3F;
 }
 )";
 
@@ -429,6 +434,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
+    oAttr.r = (fPolygonAttr.x >> 24) & 0x3F;
     gl_FragDepth = fZ;
 }
 )";
@@ -460,21 +466,62 @@ void main()
 }
 )";
 
-const char* kRenderFS_ZS = R"(
+const char* kRenderFS_ZSM = R"(
 
 void main()
 {
     oColor = vec4(0,0,0,1);
+    oAttr.g = 1;
 }
 )";
 
-const char* kRenderFS_WS = R"(
+const char* kRenderFS_WSM = R"(
 
 smooth in float fZ;
 
 void main()
 {
     oColor = vec4(0,0,0,1);
+    oAttr.g = 1;
+    gl_FragDepth = fZ;
+}
+)";
+
+const char* kRenderFS_ZS = R"(
+
+layout(binding=2) uniform usampler2D iAttrTex;
+//layout(origin_upper_left) in vec4 gl_FragCoord;
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a < 0.5/31) discard;
+    if (col.a >= 30.5/31) discard;
+
+    uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
+    if (iAttr.y != 1) discard;
+
+    oColor = col;
+}
+)";
+
+const char* kRenderFS_WS = R"(
+
+layout(binding=2) uniform usampler2D iAttrTex;
+//layout(origin_upper_left) in vec4 gl_FragCoord;
+
+smooth in float fZ;
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a < 0.5/31) discard;
+    if (col.a >= 30.5/31) discard;
+
+    uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
+    if (iAttr.y != 1) discard;
+
+    oColor = col;
     gl_FragDepth = fZ;
 }
 )";
@@ -485,6 +532,7 @@ enum
     RenderFlag_WBuffer     = 0x01,
     RenderFlag_Trans       = 0x02,
     RenderFlag_ShadowMask  = 0x04,
+    RenderFlag_Shadow      = 0x08,
 };
 
 
@@ -585,6 +633,10 @@ bool InitGLExtensions()
 
     LOADPROC(GLBLENDFUNCSEPARATEI, glBlendFuncSeparatei);
     LOADPROC(GLBLENDEQUATIONSEPARATEI, glBlendEquationSeparatei);
+
+    LOADPROC(GLCOLORMASKI, glColorMaski);
+
+    LOADPROC(GLMEMORYBARRIER, glMemoryBarrier);
 
     LOADPROC(GLGETSTRINGI, glGetStringi);
 
@@ -750,8 +802,12 @@ bool Init()
     if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WT)) return false;
     if (!BuildRenderShader(RenderFlag_ShadowMask,
-                           kRenderVS_Z, kRenderFS_ZS)) return false;
+                           kRenderVS_Z, kRenderFS_ZSM)) return false;
     if (!BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer,
+                           kRenderVS_W, kRenderFS_WSM)) return false;
+    if (!BuildRenderShader(RenderFlag_Shadow,
+                           kRenderVS_Z, kRenderFS_ZS)) return false;
+    if (!BuildRenderShader(RenderFlag_Shadow | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WS)) return false;
 
 
@@ -871,6 +927,9 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]); // opaque polyID / shadow bits
+
     return true;
 }
 
@@ -909,6 +968,8 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     {
         if (polygon->Translucent)
         {
+            if (polygon->IsShadow) rp->RenderKey |= 0x20000;
+            else                   rp->RenderKey |= 0x10000;
             rp->RenderKey |= (polygon->Attr >> 10) & 0x2; // bit11 - depth write
             rp->RenderKey |= (polygon->Attr & 0x3F000000) >> 16; // polygon ID
         }
@@ -917,6 +978,10 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
             if ((polygon->Attr & 0x001F0000) == 0)
                 rp->RenderKey |= 0x2;
         }
+    }
+    else
+    {
+        rp->RenderKey |= 0x30000;
     }
 }
 
@@ -1029,6 +1094,8 @@ void RenderFrame()
     }
 
     glDisable(GL_BLEND);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_FALSE, GL_FALSE);
 
     // clear buffers
     // TODO: clear bitmap
@@ -1063,6 +1130,8 @@ void RenderFrame()
         glBindVertexArray(ClearVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
+
+    glColorMaski(1, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (RenderNumPolygons)
     {
@@ -1106,10 +1175,12 @@ void RenderFrame()
 
         u16* iptr;
         u32 curkey;
-        bool lastwasshadow;
-
+        bool lastwasshadow;bool darp;
+//printf("morp %08X\n", RenderClearAttr1);
         if (firsttrans > -1)
         {
+            glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+if (PolygonList[firsttrans].PolyData->IsShadow) printf("!! GLORG!!! %08X\n", PolygonList[firsttrans].PolyData->Attr);
             // pass 2: if needed, render translucent pixels that are against background pixels
             // when background alpha is zero, those need to be rendered with blending disabled
 
@@ -1166,11 +1237,12 @@ void RenderFrame()
 
             iptr = PolygonList[firsttrans].Indices;
             curkey = 0xFFFFFFFF;
-            lastwasshadow = false;
+            lastwasshadow = false; darp = false;
 
             for (int i = firsttrans; i < npolys; i++)
             {
                 RendererPolygon* rp = &PolygonList[i];
+                //printf("PASS 3 POLYGON %i: ATTR %08X (%d) | KEY %08X\n", i, rp->PolyData->Attr, (rp->PolyData->Attr>>4)&0x3, rp->RenderKey);
                 if (rp->RenderKey != curkey)
                 {
                     u16* endptr = rp->Indices;
@@ -1184,28 +1256,57 @@ void RenderFrame()
 
                     if (rp->PolyData->IsShadowMask)
                     {
-                        if (!lastwasshadow)
+                        //printf("beginning shadowmask batch: %d, %d\n", lastwasshadow, darp);
+                        /*if (!lastwasshadow)
                         {
+                            //glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+
                             glDisable(GL_BLEND);
                             UseRenderShader(flags | RenderFlag_ShadowMask);
+
+                            // shadow bits are set where the depth test fails
+                            // sure enough, if GL_LESS fails, the opposite function would pass
+                            glDepthFunc(GL_GEQUAL);
 
                             //glStencilFunc(GL_ALWAYS, 0x80, 0x80);
                             //glStencilOp(GL_REPLACE, GL_REPLACE, GL_KEEP);
 
-                            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                            glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                            glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
                             glDepthMask(GL_FALSE);
 
                             lastwasshadow = true;
-                        }
+                        }*/
+
+                        glDisable(GL_BLEND);
+                        UseRenderShader(flags | RenderFlag_ShadowMask);
+
+                        glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                        glDepthMask(GL_FALSE);
+                        glDepthFunc(GL_GEQUAL);
+                        glStencilFunc(GL_ALWAYS,0,0);
+                        glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
+                        lastwasshadow=true;
+
+                        darp = false;
                     }
                     else
                     {
+                        if (rp->PolyData->IsShadow) glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+                        //if (rp->PolyData->IsShadow) printf("beginning shadow batch: %d, %d\n", lastwasshadow, darp);
+
+                        if (rp->PolyData->IsShadow)
+                            UseRenderShader(flags | RenderFlag_Shadow);
+                        else
+                            UseRenderShader(flags | RenderFlag_Trans);
+
                         if (lastwasshadow)
                         {
                             glEnable(GL_BLEND);
-                            UseRenderShader(flags | RenderFlag_Trans);
 
-                            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                            glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                            glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
                             lastwasshadow = false;
                         }
@@ -1221,6 +1322,8 @@ void RenderFrame()
 
                         if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                         else                    glDepthMask(GL_FALSE);
+
+                        darp = rp->PolyData->IsShadow;
                     }
                 }
             }
