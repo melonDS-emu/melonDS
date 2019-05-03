@@ -71,7 +71,9 @@ u32 VRAMMap_TexPal[8];
 
 u32 VRAMMap_ARM7[2];
 
-u32 Framebuffer[256*192*2];
+u32* Framebuffer;
+int FBScale;
+int FBScreenStride;
 
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
@@ -83,6 +85,9 @@ bool Init()
     GPU2D_B = new GPU2D(1);
     if (!GPU3D::Init()) return false;
 
+    //SetFramebufferScale(1);
+    SetFramebufferScale(2);
+
     return true;
 }
 
@@ -91,6 +96,8 @@ void DeInit()
     delete GPU2D_A;
     delete GPU2D_B;
     GPU3D::DeInit();
+
+    if (Framebuffer) delete[] Framebuffer;
 }
 
 void Reset()
@@ -147,13 +154,13 @@ void Reset()
     GPU2D_B->Reset();
     GPU3D::Reset();
 
-    GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
-    GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
+    GPU2D_A->SetFramebuffer(&Framebuffer[FBScreenStride]);
+    GPU2D_B->SetFramebuffer(&Framebuffer[0]);
 }
 
 void Stop()
 {
-    memset(Framebuffer, 0, 256*192*2*4);
+    memset(Framebuffer, 0, FBScreenStride*2*sizeof(u32));
 }
 
 void DoSavestate(Savestate* file)
@@ -206,6 +213,15 @@ void DoSavestate(Savestate* file)
     GPU2D_A->DoSavestate(file);
     GPU2D_B->DoSavestate(file);
     GPU3D::DoSavestate(file);
+}
+
+void SetFramebufferScale(int scale)
+{
+    FBScale = scale;
+    FBScreenStride = (256*scale) * (192*scale);
+
+    if (Framebuffer) delete[] Framebuffer;
+    Framebuffer = new u32[FBScreenStride * 2];
 }
 
 
@@ -668,13 +684,13 @@ void SetPowerCnt(u32 val)
 
     if (val & (1<<15))
     {
-        GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
-        GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
+        GPU2D_A->SetFramebuffer(&Framebuffer[0]);
+        GPU2D_B->SetFramebuffer(&Framebuffer[FBScreenStride]);
     }
     else
     {
-        GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
-        GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
+        GPU2D_A->SetFramebuffer(&Framebuffer[FBScreenStride]);
+        GPU2D_B->SetFramebuffer(&Framebuffer[0]);
     }
 }
 

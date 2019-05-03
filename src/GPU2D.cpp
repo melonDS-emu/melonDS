@@ -551,7 +551,7 @@ void GPU2D::Write32(u32 addr, u32 val)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    u32* dst = &Framebuffer[256*line];
+    u32* dst = &Framebuffer[256*4*line];
     u32 mode1gfx[256];
 
     // request each 3D scanline in advance
@@ -724,6 +724,17 @@ void GPU2D::DrawScanline(u32 line)
         c = r | g | b;
 
         dst[i] = c | ((c & 0x00C0C0C0) >> 6) | 0xFF000000;
+    }
+
+    // hax
+    for (int i = 255; i >= 0; i--)
+    {
+        u32 c = dst[i];
+
+        dst[i*2] = c;
+        dst[i*2+1] = c;
+        dst[i*2+512] = c;
+        dst[i*2+513] = c;
     }
 }
 

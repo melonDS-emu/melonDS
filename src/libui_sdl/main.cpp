@@ -95,7 +95,9 @@ bool SavestateLoaded;
 
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap = NULL;
-u32 ScreenBuffer[256*384];
+u32* ScreenBuffer;
+
+int ScreenScale;
 
 int ScreenGap = 0;
 int ScreenLayout = 0;
@@ -396,6 +398,8 @@ int EmuThreadFunc(void* burp)
     uiGLMakeContextCurrent(GLContext);
     NDS::Init();
 
+    ScreenBuffer = new u32[(256*ScreenScale) * (384*ScreenScale)];
+
     MainScreenPos[0] = 0;
     MainScreenPos[1] = 0;
     MainScreenPos[2] = 0;
@@ -550,7 +554,7 @@ int EmuThreadFunc(void* burp)
                 }
             }
 
-            memcpy(ScreenBuffer, GPU::Framebuffer, 256*384*4);
+            memcpy(ScreenBuffer, GPU::Framebuffer, (256*ScreenScale)*(384*ScreenScale)*4);
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -616,6 +620,8 @@ int EmuThreadFunc(void* burp)
 
     if (joybuttons) delete[] joybuttons;
 
+    delete[] ScreenBuffer;
+
     NDS::DeInit();
     Platform::LAN_DeInit();
 
@@ -625,16 +631,17 @@ int EmuThreadFunc(void* burp)
 
 void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
+    // TODO: recreate bitmap if screen scale changed
     if (!ScreenDrawInited)
     {
         ScreenDrawInited = true;
-        ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
+        ScreenBitmap = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
     }
 
     if (!ScreenBitmap) return;
 
-    uiRect top = {0, 0, 256, 192};
-    uiRect bot = {0, 192, 256, 192};
+    uiRect top = {0, 0, 256*ScreenScale, 192*ScreenScale};
+    uiRect bot = {0, 192*ScreenScale, 256*ScreenScale, 192*ScreenScale};
 
     uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
 
@@ -816,6 +823,9 @@ void SetupScreenRects(int width, int height)
         screenW = 256;
         screenH = 192;
     }
+
+    screenW *= ScreenScale;
+    screenH *= ScreenScale;
 
     uiRect *topscreen, *bottomscreen;
     if (ScreenRotation == 1 || ScreenRotation == 2)
@@ -1009,6 +1019,9 @@ void SetMinSize(int w, int h)
 {
     int cw, ch;
     uiWindowContentSize(MainWindow, &cw, &ch);
+
+    w *= ScreenScale;
+    h *= ScreenScale;
 
     uiControlSetMinSize(uiControl(MainDrawArea), w, h);
     if ((cw < w) || (ch < h))
@@ -1535,8 +1548,8 @@ void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
     int factor = *(int*)param;
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
-    int w = 256*factor;
-    int h = 192*factor;
+    int w = 256*factor * ScreenScale;
+    int h = 192*factor * ScreenScale;
 
     if (ScreenLayout == 0) // natural
     {
@@ -1946,6 +1959,9 @@ int main(int argc, char** argv)
 
     WindowWidth = w;
     WindowHeight = h;
+
+    //ScreenScale = 1;
+    ScreenScale = 2; // HAW HAW HAW
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
