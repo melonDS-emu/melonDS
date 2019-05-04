@@ -47,9 +47,9 @@
     * different minor means adjustments may have to be made
 */
 
-Savestate::Savestate(char* filename, bool save)
+Savestate::Savestate(const char* filename, bool save)
 {
-    char* magic = "MELN";
+    const char* magic = "MELN";
 
     Error = false;
 
@@ -153,7 +153,7 @@ Savestate::~Savestate()
     if (file) fclose(file);
 }
 
-void Savestate::Section(char* magic)
+void Savestate::Section(const char* magic)
 {
     if (Error) return;
 

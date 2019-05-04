@@ -163,7 +163,7 @@ uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
 
 void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data)
 {
-    unsigned char* src = data;
+    const unsigned char* src = data;
     unsigned char* dst = cairo_image_surface_get_data(bmp->bmp);
     
     if (bmp->Stride == bmp->Width*4)
