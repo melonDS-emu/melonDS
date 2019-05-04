@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.10.2)
 
-cmake_policy(VERSION 3.13)
+cmake_policy(VERSION 3.10.2)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -22,11 +22,16 @@ if(ENABLE_LTO)
 endif()
 
 option(BUILD_LIBUI "Build libui frontend" ON)
+option(BUILD_SDL "Build SDL2 frontend" OFF)
 
 add_subdirectory(src)
 
 if (BUILD_LIBUI)
 	add_subdirectory(src/libui_sdl)
+endif()
+
+if (BUILD_SDL)
+	add_subdirectory(src/sdl)
 endif()
 
 configure_file(
