@@ -129,7 +129,7 @@ void Reset()
     fclose(f);
 
     // take a backup
-    char* firmbkp = "firmware.bin.bak";
+    const char* firmbkp = "firmware.bin.bak";
     f = fopen(firmbkp, "rb");
     if (f) fclose(f);
     else

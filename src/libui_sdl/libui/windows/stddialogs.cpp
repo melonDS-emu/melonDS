@@ -16,7 +16,7 @@
 
 #define windowHWND(w) (w ? (HWND) uiControlHandle(uiControl(w)) : NULL)
 
-char *commonItemDialog(HWND parent, REFCLSID clsid, REFIID iid, char* filter, char* initpath, FILEOPENDIALOGOPTIONS optsadd)
+char *commonItemDialog(HWND parent, REFCLSID clsid, REFIID iid, const char* filter, const char* initpath, FILEOPENDIALOGOPTIONS optsadd)
 {
 	IFileDialog *d = NULL;
 	FILEOPENDIALOGOPTIONS opts;
@@ -108,7 +108,7 @@ out:
 	return name;
 }
 
-char *uiOpenFile(uiWindow *parent, char* filter, char* initpath)
+char *uiOpenFile(uiWindow *parent, const char* filter, const char* initpath)
 {
 	char *res;
 
@@ -121,7 +121,7 @@ char *uiOpenFile(uiWindow *parent, char* filter, char* initpath)
 	return res;
 }
 
-char *uiSaveFile(uiWindow *parent, char* filter, char* initpath)
+char *uiSaveFile(uiWindow *parent, const char* filter, const char* initpath)
 {
 	char *res;
 
