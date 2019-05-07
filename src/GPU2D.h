@@ -68,6 +68,9 @@ private:
     bool Enabled;
     u32* Framebuffer;
 
+    u32 LineStride;
+    u32 LineScale;
+
     u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
     u32 DispFIFOWritePtr;
@@ -114,13 +117,20 @@ private:
     u32 BGExtPalStatus[4];
     u32 OBJExtPalStatus;
 
-    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst);
-    void DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst);
-    void DrawScanline_Mode1(u32 line, u32* dst);
+    u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
+    u32 ColorBlend5(u32 val1, u32 val2);
+    u32 ColorBrightnessUp(u32 val, u32 factor);
+    u32 ColorBrightnessDown(u32 val, u32 factor);
 
-    void DrawPixel(u32* dst, u16 color, u32 flag);
+    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst, u32* _3dgfx);
+    void DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst, u32* _3dgfx);
+    void DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx);
 
-    void DrawBG_3D(u32 line, u32* dst);
+    static void DrawPixel_1x(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_2x(u32* dst, u16 color, u32 flag);
+    void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+
+    void DrawBG_3D(u32 line, u32* dst, u32* src);
     void DrawBG_Text(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Affine(u32 line, u32* dst, u32 bgnum);
     void DrawBG_Extended(u32 line, u32* dst, u32 bgnum);
@@ -132,7 +142,7 @@ private:
     template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos, u32* dst);
     template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* dst);
 
-    void DoCapture(u32 line, u32 width, u32* src);
+    void DoCapture(u32 line, u32 width, u32* src, u32* _3dgfx);
 
     void CalculateWindowMask(u32 line, u8* mask);
 };

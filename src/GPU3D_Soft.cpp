@@ -2106,17 +2106,14 @@ void RenderThreadFunc()
     }
 }
 
-void RequestLine(int line)
+u32* GetLine(int line)
 {
     if (RenderThreadRunning)
     {
         if (line < 192)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
-}
 
-u32* GetLine(int line)
-{
     return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
 }
 

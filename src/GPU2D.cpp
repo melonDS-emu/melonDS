@@ -549,17 +549,81 @@ void GPU2D::Write32(u32 addr, u32 val)
 }
 
 
+u32 GPU2D::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
+{
+    u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;
+    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 4) & 0x007F00;
+    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 4) & 0x7F0000;
+
+    if (r > 0x00003F) r = 0x00003F;
+    if (g > 0x003F00) g = 0x003F00;
+    if (b > 0x3F0000) b = 0x3F0000;
+
+    return r | g | b;
+}
+
+u32 GPU2D::ColorBlend5(u32 val1, u32 val2)
+{
+    u32 eva = ((val1 >> 24) & 0x1F) + 1;
+    u32 evb = 32 - eva;
+
+    u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 5;
+    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 5) & 0x007F00;
+    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 5) & 0x7F0000;
+
+    if (eva <= 16)
+    {
+        r += 0x000001;
+        g += 0x000100;
+        b += 0x010000;
+    }
+
+    if (r > 0x00003F) r = 0x00003F;
+    if (g > 0x003F00) g = 0x003F00;
+    if (b > 0x3F0000) b = 0x3F0000;
+
+    return r | g | b;
+}
+
+u32 GPU2D::ColorBrightnessUp(u32 val, u32 factor)
+{
+    u32 r = val & 0x00003F;
+    u32 g = val & 0x003F00;
+    u32 b = val & 0x3F0000;
+
+    r += (((0x00003F - r) * factor) >> 4);
+    g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
+    b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
+
+    return r | g | b;
+}
+
+u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
+{
+    u32 r = val & 0x00003F;
+    u32 g = val & 0x003F00;
+    u32 b = val & 0x3F0000;
+
+    r -= ((r * factor) >> 4);
+    g -= (((g * factor) >> 4) & 0x003F00);
+    b -= (((b * factor) >> 4) & 0x3F0000);
+
+    return r | g | b;
+}
+
+
 void GPU2D::DrawScanline(u32 line)
 {
     u32* dst = &Framebuffer[256*4*line];
-    u32 mode1gfx[256];
+    u32 mode1gfx[1024];
+    u32* _3dgfx;
 
-    // request each 3D scanline in advance
-    // this is required for the threaded mode of the software renderer
-    // (alternately we could call GetLine() once and store the result somewhere)
-    if (Num == 0)
-        GPU3D::RequestLine(line);
+    // HAX
+    LineScale = 2;
+    LineStride = 1024;
+    DrawPixel = DrawPixel_2x;
 
+    int _3dline = line;
     line = GPU::VCount;
 
     bool forceblank = false;
@@ -586,21 +650,23 @@ void GPU2D::DrawScanline(u32 line)
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 
+    _3dgfx = GPU3D::GetLine(_3dline);
+
     // always render regular graphics
-    DrawScanline_Mode1(line, mode1gfx);
+    DrawScanline_Mode1(line, mode1gfx, _3dgfx);
 
     switch (dispmode)
     {
     case 0: // screen off
         {
-            for (int i = 0; i < 256; i++)
+            for (int i = 0; i < LineStride; i++)
                 dst[i] = 0xFF3F3F3F;
         }
         break;
 
     case 1: // regular display
         {
-            for (int i = 0; i < 256; i++)
+            for (int i = 0; i < LineStride; i++)
                 dst[i] = mode1gfx[i];
         }
         break;
@@ -620,12 +686,19 @@ void GPU2D::DrawScanline(u32 line)
                     u8 g = (color & 0x03E0) >> 4;
                     u8 b = (color & 0x7C00) >> 9;
 
-                    dst[i] = r | (g << 8) | (b << 16);
+                    int d = i*LineScale;
+                    dst[d] = r | (g << 8) | (b << 16);
+                    if (LineScale >= 2)
+                    {
+                        dst[d+1] = dst[d];
+                        dst[d+512] = dst[d];
+                        dst[d+513] = dst[d];
+                    }
                 }
             }
             else
             {
-                for (int i = 0; i < 256; i++)
+                for (int i = 0; i < LineStride; i++)
                 {
                     dst[i] = 0;
                 }
@@ -642,7 +715,14 @@ void GPU2D::DrawScanline(u32 line)
                 u8 g = (color & 0x03E0) >> 4;
                 u8 b = (color & 0x7C00) >> 9;
 
-                dst[i] = r | (g << 8) | (b << 16);
+                int d = i*LineScale;
+                dst[d] = r | (g << 8) | (b << 16);
+                if (LineScale >= 2)
+                {
+                    dst[d+1] = dst[d];
+                    dst[d+512] = dst[d];
+                    dst[d+513] = dst[d];
+                }
             }
         }
         break;
@@ -661,7 +741,7 @@ void GPU2D::DrawScanline(u32 line)
         }
 
         if (line < capheight)
-            DoCapture(line, capwidth, mode1gfx);
+            DoCapture(line, capwidth, mode1gfx, _3dgfx);
     }
 
     // master brightness
@@ -673,19 +753,9 @@ void GPU2D::DrawScanline(u32 line)
             u32 factor = MasterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
-            for (int i = 0; i < 256; i++)
+            for (int i = 0; i < LineStride; i++)
             {
-                u32 val = dst[i];
-
-                u32 r = val & 0x00003F;
-                u32 g = val & 0x003F00;
-                u32 b = val & 0x3F0000;
-
-                r += (((0x00003F - r) * factor) >> 4);
-                g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
-                b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
-
-                dst[i] = r | g | b;
+                dst[i] = ColorBrightnessUp(dst[i], factor);
             }
         }
         else if ((MasterBrightness >> 14) == 2)
@@ -694,19 +764,9 @@ void GPU2D::DrawScanline(u32 line)
             u32 factor = MasterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
-            for (int i = 0; i < 256; i++)
+            for (int i = 0; i < LineStride; i++)
             {
-                u32 val = dst[i];
-
-                u32 r = val & 0x00003F;
-                u32 g = val & 0x003F00;
-                u32 b = val & 0x3F0000;
-
-                r -= ((r * factor) >> 4);
-                g -= (((g * factor) >> 4) & 0x003F00);
-                b -= (((b * factor) >> 4) & 0x3F0000);
-
-                dst[i] = r | g | b;
+                dst[i] = ColorBrightnessDown(dst[i], factor);
             }
         }
     }
@@ -714,7 +774,7 @@ void GPU2D::DrawScanline(u32 line)
     // convert to 32-bit BGRA
     // note: 32-bit RGBA would be more straightforward, but
     // BGRA seems to be more compatible (Direct2D soft, cairo...)
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < LineStride; i++)
     {
         u32 c = dst[i];
 
@@ -724,17 +784,6 @@ void GPU2D::DrawScanline(u32 line)
         c = r | g | b;
 
         dst[i] = c | ((c & 0x00C0C0C0) >> 6) | 0xFF000000;
-    }
-
-    // hax
-    for (int i = 255; i >= 0; i--)
-    {
-        u32 c = dst[i];
-
-        dst[i*2] = c;
-        dst[i*2+1] = c;
-        dst[i*2+512] = c;
-        dst[i*2+513] = c;
     }
 }
 
@@ -761,7 +810,7 @@ void GPU2D::VBlankEnd()
 }
 
 
-void GPU2D::DoCapture(u32 line, u32 width, u32* src)
+void GPU2D::DoCapture(u32 line, u32 width, u32* src, u32* _3dgfx)
 {
     u32 dstvram = (CaptureCnt >> 16) & 0x3;
 
@@ -774,7 +823,7 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
     u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
 
     if (CaptureCnt & (1<<24))
-        src = (u32*)GPU3D::GetLine(line);
+        src = _3dgfx;
 
     u16* srcB = NULL;
     u32 srcBaddr = line * 256;
@@ -803,7 +852,7 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
         {
             for (u32 i = 0; i < width; i++)
             {
-                u32 val = src[i];
+                u32 val = src[i * LineScale];
 
                 // TODO: check what happens when alpha=0
 
@@ -854,7 +903,7 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
             {
                 for (u32 i = 0; i < width; i++)
                 {
-                    u32 val = src[i];
+                    u32 val = src[i * LineScale];
 
                     // TODO: check what happens when alpha=0
 
@@ -888,7 +937,7 @@ void GPU2D::DoCapture(u32 line, u32 width, u32* src)
             {
                 for (u32 i = 0; i < width; i++)
                 {
-                    u32 val = src[i];
+                    u32 val = src[i * LineScale];
 
                     // TODO: check what happens when alpha=0
 
@@ -1058,7 +1107,7 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
 
 
 template<u32 bgmode>
-void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst, u32* _3dgfx)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -1098,7 +1147,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
             if (DispCnt & 0x0100)
             {
                 if ((!Num) && (DispCnt & 0x8))
-                    DrawBG_3D(line, dst);
+                    DrawBG_3D(line, dst, _3dgfx);
                 else
                     DrawBG_Text(line, dst, 0);
             }
@@ -1108,7 +1157,7 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
     }
 }
 
-void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst, u32* _3dgfx)
 {
     if (Num)
     {
@@ -1130,7 +1179,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst
             if (DispCnt & 0x0100)
             {
                 if (DispCnt & 0x8)
-                    DrawBG_3D(line, dst);
+                    DrawBG_3D(line, dst, _3dgfx);
             }
         }
         if ((DispCnt & 0x1000) && nsprites)
@@ -1138,10 +1187,10 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst
     }
 }
 
-void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
+void GPU2D::DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx)
 {
-    u32 linebuf[256*2 + 64];
-    u8* windowmask = (u8*)&linebuf[256*2];
+    u32 linebuf[1024*2 + 64];
+    u8* windowmask = (u8*)&linebuf[1024*2];
 
     u32 backdrop;
     if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
@@ -1154,7 +1203,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
         backdrop = r | (g << 8) | (b << 16) | 0x20000000;
 
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < LineStride; i++)
             linebuf[i] = backdrop;
     }
 
@@ -1171,13 +1220,13 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
     // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
-    case 0: DrawScanlineBGMode<0>(line, nsprites, spritebuf, linebuf); break;
-    case 1: DrawScanlineBGMode<1>(line, nsprites, spritebuf, linebuf); break;
-    case 2: DrawScanlineBGMode<2>(line, nsprites, spritebuf, linebuf); break;
-    case 3: DrawScanlineBGMode<3>(line, nsprites, spritebuf, linebuf); break;
-    case 4: DrawScanlineBGMode<4>(line, nsprites, spritebuf, linebuf); break;
-    case 5: DrawScanlineBGMode<5>(line, nsprites, spritebuf, linebuf); break;
-    case 6: DrawScanlineBGMode6(line, nsprites, spritebuf, linebuf); break;
+    case 0: DrawScanlineBGMode<0>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 1: DrawScanlineBGMode<1>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 2: DrawScanlineBGMode<2>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 3: DrawScanlineBGMode<3>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 4: DrawScanlineBGMode<4>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 5: DrawScanlineBGMode<5>(line, nsprites, spritebuf, linebuf, _3dgfx); break;
+    case 6: DrawScanlineBGMode6(line, nsprites, spritebuf, linebuf, _3dgfx); break;
     }
 
     // color special effects
@@ -1185,10 +1234,10 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
     u32 bldcnteffect = (BlendCnt >> 6) & 0x3;
 
-    for (int i = 0; i < 256; i++)
+    for (int i = 0; i < LineStride; i++)
     {
         u32 val1 = linebuf[i];
-        u32 val2 = linebuf[256+i];
+        u32 val2 = linebuf[1024+i];
 
         u32 coloreffect, eva, evb;
 
@@ -1221,26 +1270,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         {
             // 3D layer blending
 
-            eva = (flag1 & 0x1F) + 1;
-            evb = 32 - eva;
-
-            u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 5;
-            u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 5) & 0x007F00;
-            u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 5) & 0x7F0000;
-
-            if (eva <= 16)
-            {
-                r += 0x000001;
-                g += 0x000100;
-                b += 0x010000;
-            }
-
-            if (r > 0x00003F) r = 0x00003F;
-            if (g > 0x003F00) g = 0x003F00;
-            if (b > 0x3F0000) b = 0x3F0000;
-
-            dst[i] = r | g | b | 0xFF000000;
-
+            dst[i] = ColorBlend5(val1, val2);
             continue;
         }
         else
@@ -1272,45 +1302,15 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
             break;
 
         case 1:
-            {
-                u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;
-                u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 4) & 0x007F00;
-                u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 4) & 0x7F0000;
-
-                if (r > 0x00003F) r = 0x00003F;
-                if (g > 0x003F00) g = 0x003F00;
-                if (b > 0x3F0000) b = 0x3F0000;
-
-                dst[i] = r | g | b | 0xFF000000;
-            }
+            dst[i] = ColorBlend4(val1, val2, eva, evb);
             break;
 
         case 2:
-            {
-                u32 r = val1 & 0x00003F;
-                u32 g = val1 & 0x003F00;
-                u32 b = val1 & 0x3F0000;
-
-                r += ((0x00003F - r) * EVY) >> 4;
-                g += (((0x003F00 - g) * EVY) >> 4) & 0x003F00;
-                b += (((0x3F0000 - b) * EVY) >> 4) & 0x3F0000;
-
-                dst[i] = r | g | b | 0xFF000000;
-            }
+            dst[i] = ColorBrightnessUp(val1, EVY);
             break;
 
         case 3:
-            {
-                u32 r = val1 & 0x00003F;
-                u32 g = val1 & 0x003F00;
-                u32 b = val1 & 0x3F0000;
-
-                r -= (r * EVY) >> 4;
-                g -= ((g * EVY) >> 4) & 0x003F00;
-                b -= ((b * EVY) >> 4) & 0x3F0000;
-
-                dst[i] = r | g | b | 0xFF000000;
-            }
+            dst[i] = ColorBrightnessDown(val1, EVY);
             break;
         }
     }
@@ -1333,20 +1333,35 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 }
 
 
-void GPU2D::DrawPixel(u32* dst, u16 color, u32 flag)
+void GPU2D::DrawPixel_1x(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
     u8 b = (color & 0x7C00) >> 9;
 
-    *(dst+256) = *dst;
+    *(dst+1024) = *dst;
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void GPU2D::DrawBG_3D(u32 line, u32* dst)
+void GPU2D::DrawPixel_2x(u32* dst, u16 color, u32 flag)
 {
-    u32* src = GPU3D::GetLine(line);
-    u8* windowmask = (u8*)&dst[256*2];
+    u8 r = (color & 0x001F) << 1;
+    u8 g = (color & 0x03E0) >> 4;
+    u8 b = (color & 0x7C00) >> 9;
+
+    u64 val = r | (g << 8) | (b << 16) | flag;
+    val |= (val << 32);
+
+    *(u64*)(dst+1024) = *(u64*)dst;
+    *(u64*)(dst+1536) = *(u64*)(dst+512);
+
+    *(u64*)dst = val;
+    *(u64*)(dst+512) = val;
+}
+
+void GPU2D::DrawBG_3D(u32 line, u32* dst, u32* src)
+{
+    u8* windowmask = (u8*)&dst[1024*2];
 
     u16 xoff = BGXPos[0];
     int i = 0;
@@ -1362,22 +1377,65 @@ void GPU2D::DrawBG_3D(u32 line, u32* dst)
         iend -= (xoff & 0xFF);
     }
 
-    for (; i < iend; i++)
+    if (LineScale == 1)
     {
-        u32 c = src[xoff];
-        xoff++;
+        for (; i < iend; i++)
+        {
+            u32 c = src[xoff];
+            xoff++;
 
-        if ((c >> 24) == 0) continue;
-        if (!(windowmask[i] & 0x01)) continue;
+            if ((c >> 24) == 0) continue;
+            if (!(windowmask[i] & 0x01)) continue;
 
-        dst[i+256] = dst[i];
-        dst[i] = c | 0x40000000;
+            dst[i+1024] = dst[i];
+            dst[i] = c | 0x40000000;
+        }
+    }
+    else if (LineScale == 2)
+    {
+        for (; i < iend; i++)
+        {
+            int is = i * 2;
+            int xs = xoff * 2;
+            u32 c;
+
+            xoff++;
+            if (!(windowmask[i] & 0x01)) continue;
+
+            c = src[xs];
+            if ((c >> 24) != 0)
+            {
+                dst[is+1024] = dst[is];
+                dst[is] = c | 0x40000000;
+            }
+
+            c = src[xs+1]; is++;
+            if ((c >> 24) != 0)
+            {
+                dst[is+1024] = dst[is];
+                dst[is] = c | 0x40000000;
+            }
+
+            c = src[xs+512]; is += 511;
+            if ((c >> 24) != 0)
+            {
+                dst[is+1024] = dst[is];
+                dst[is] = c | 0x40000000;
+            }
+
+            c = src[xs+513]; is++;
+            if ((c >> 24) != 0)
+            {
+                dst[is+1024] = dst[is];
+                dst[is] = c | 0x40000000;
+            }
+        }
     }
 }
 
 void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
 {
-    u8* windowmask = (u8*)&dst[256*2];
+    u8* windowmask = (u8*)&dst[1024*2];
     u16 bgcnt = BGCnt[bgnum];
     u32 xmos = 0, xmossize = 0;
 
@@ -1474,7 +1532,7 @@ void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
                     xmos--;
 
                 if (color)
-                    DrawPixel(&dst[i], curpal[color], 0x01000000<<bgnum);
+                    DrawPixel(&dst[i*LineScale], curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1526,7 +1584,7 @@ void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
                     xmos--;
 
                 if (color)
-                    DrawPixel(&dst[i], curpal[color], 0x01000000<<bgnum);
+                    DrawPixel(&dst[i*LineScale], curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1536,7 +1594,7 @@ void GPU2D::DrawBG_Text(u32 line, u32* dst, u32 bgnum)
 
 void GPU2D::DrawBG_Affine(u32 line, u32* dst, u32 bgnum)
 {
-    u8* windowmask = (u8*)&dst[256*2];
+    u8* windowmask = (u8*)&dst[1024*2];
     u16 bgcnt = BGCnt[bgnum];
     u32 xmos = 0, xmossize = 0;
 
@@ -1600,7 +1658,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32* dst, u32 bgnum)
             if (xmos > 0)
             {
                 if (color)
-                    DrawPixel(&dst[i], pal[color], 0x01000000<<bgnum);
+                    DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<bgnum);
 
                 xmos--;
             }
@@ -1616,7 +1674,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32* dst, u32 bgnum)
                 color = GPU::ReadVRAM_BG<u8>(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff);
 
                 if (color)
-                    DrawPixel(&dst[i], pal[color], 0x01000000<<bgnum);
+                    DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<bgnum);
 
                 xmos = xmossize;
             }
@@ -1632,7 +1690,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32* dst, u32 bgnum)
 
 void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
 {
-    u8* windowmask = (u8*)&dst[256*2];
+    u8* windowmask = (u8*)&dst[1024*2];
     u16 bgcnt = BGCnt[bgnum];
     u32 xmos = 0, xmossize = 0;
 
@@ -1700,7 +1758,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                     if (xmos > 0)
                     {
                         if (color & 0x8000)
-                            DrawPixel(&dst[i], color, 0x01000000<<bgnum);
+                            DrawPixel(&dst[i*LineScale], color, 0x01000000<<bgnum);
 
                         xmos--;
                     }
@@ -1710,7 +1768,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                         color = GPU::ReadVRAM_BG<u16>(tilemapaddr + (((((rotY & ymask) >> 8) << yshift) + ((rotX & xmask) >> 8)) << 1));
 
                         if (color & 0x8000)
-                            DrawPixel(&dst[i], color, 0x01000000<<bgnum);
+                            DrawPixel(&dst[i*LineScale], color, 0x01000000<<bgnum);
 
                         xmos = xmossize;
                     }
@@ -1736,7 +1794,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                     if (xmos > 0)
                     {
                         if (color)
-                            DrawPixel(&dst[i], pal[color], 0x01000000<<bgnum);
+                            DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<bgnum);
 
                         xmos--;
                     }
@@ -1746,7 +1804,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                         color = GPU::ReadVRAM_BG<u8>(tilemapaddr + (((rotY & ymask) >> 8) << yshift) + ((rotX & xmask) >> 8));
 
                         if (color)
-                            DrawPixel(&dst[i], pal[color], 0x01000000<<bgnum);
+                            DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<bgnum);
 
                         xmos = xmossize;
                     }
@@ -1803,7 +1861,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                 if (xmos > 0)
                 {
                     if (color)
-                        DrawPixel(&dst[i], curpal[color], 0x01000000<<bgnum);
+                        DrawPixel(&dst[i*LineScale], curpal[color], 0x01000000<<bgnum);
 
                     xmos--;
                 }
@@ -1825,7 +1883,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
                     color = GPU::ReadVRAM_BG<u8>(tilesetaddr + ((curtile & 0x03FF) << 6) + (tileyoff << 3) + tilexoff);
 
                     if (color)
-                        DrawPixel(&dst[i], curpal[color], 0x01000000<<bgnum);
+                        DrawPixel(&dst[i*LineScale], curpal[color], 0x01000000<<bgnum);
 
                     xmos = xmossize;
                 }
@@ -1842,7 +1900,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32* dst, u32 bgnum)
 
 void GPU2D::DrawBG_Large(u32 line, u32* dst) // BG is always BG2
 {
-    u8* windowmask = (u8*)&dst[256*2];
+    u8* windowmask = (u8*)&dst[1024*2];
     u16 bgcnt = BGCnt[2];
     u32 xmos = 0, xmossize = 0;
 
@@ -1904,7 +1962,7 @@ void GPU2D::DrawBG_Large(u32 line, u32* dst) // BG is always BG2
             if (xmos > 0)
             {
                 if (color)
-                    DrawPixel(&dst[i], pal[color], 0x01000000<<2);
+                    DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<2);
 
                 xmos--;
             }
@@ -1914,7 +1972,7 @@ void GPU2D::DrawBG_Large(u32 line, u32* dst) // BG is always BG2
                 color = GPU::ReadVRAM_BG<u8>(tilemapaddr + (((rotY & ymask) >> 8) << yshift) + ((rotX & xmask) >> 8));
 
                 if (color)
-                    DrawPixel(&dst[i], pal[color], 0x01000000<<2);
+                    DrawPixel(&dst[i*LineScale], pal[color], 0x01000000<<2);
             }
         }
 
@@ -1928,13 +1986,13 @@ void GPU2D::DrawBG_Large(u32 line, u32* dst) // BG is always BG2
 
 void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
 {
-    u8* windowmask = (u8*)&dst[256*2];
+    u8* windowmask = (u8*)&dst[1024*2];
 
     for (u32 i = 0; i < 256; i++)
     {
         if (((buf[i] & 0xF8000) == prio) && (windowmask[i] & 0x10))
         {
-            DrawPixel(&dst[i], buf[i] & 0x7FFF, buf[i] & 0xFF000000);
+            DrawPixel(&dst[i*LineScale], buf[i] & 0x7FFF, buf[i] & 0xFF000000);
         }
     }
 }

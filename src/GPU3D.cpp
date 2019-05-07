@@ -2420,12 +2420,6 @@ void VCount215()
     GLRenderer43::RenderFrame();
 }
 
-void RequestLine(int line)
-{
-    //return SoftRenderer::RequestLine(line);
-    return GLRenderer43::RequestLine(line);
-}
-
 u32* GetLine(int line)
 {
     //return SoftRenderer::GetLine(line);

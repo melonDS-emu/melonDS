@@ -104,7 +104,6 @@ void CheckFIFODMA();
 void VCount144();
 void VBlank();
 void VCount215();
-void RequestLine(int line);
 u32* GetLine(int line);
 
 void WriteToGXFIFO(u32 val);
@@ -127,7 +126,6 @@ void SetupRenderThread();
 
 void VCount144();
 void RenderFrame();
-void RequestLine(int line);
 u32* GetLine(int line);
 
 }
@@ -141,7 +139,6 @@ void Reset();
 
 void VCount144();
 void RenderFrame();
-void RequestLine(int line);
 u32* GetLine(int line);
 
 }
