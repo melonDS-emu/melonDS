@@ -1019,7 +1019,7 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
     for (u32 i = 0; i < 256; i++)
         mask[i] = WinCnt[2]; // window outside
 
-    if (DispCnt & ((1<<15)|(1<<12)))
+    if ((DispCnt & (1<<15)) && (DispCnt & (1<<12)))
     {
         // OBJ window
         DrawSpritesWindow(line, mask);
