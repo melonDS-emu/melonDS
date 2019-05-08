@@ -642,7 +642,7 @@ void GPU2D::DrawScanline(u32 line)
 
     if (forceblank)
     {
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < LineStride; i++)
             dst[i] = 0xFFFFFFFF;
         return;
     }
@@ -1236,6 +1236,8 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx)
 
     for (int i = 0; i < LineStride; i++)
     {
+        int j = (i & 0x1FF) >> 1; // FIXME!!!!!!
+
         u32 val1 = linebuf[i];
         u32 val2 = linebuf[1024+i];
 
@@ -1278,7 +1280,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx)
             if (flag1 & 0x80)      flag1 = 0x10;
             else if (flag1 & 0x40) flag1 = 0x01;
 
-            if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
+            if ((BlendCnt & flag1) && (windowmask[j] & 0x20))
             {
                 if ((bldcnteffect == 1) && (BlendCnt & target2))
                 {
