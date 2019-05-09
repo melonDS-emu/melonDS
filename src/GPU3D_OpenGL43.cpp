@@ -43,6 +43,7 @@ PFNGLMAPBUFFERRANGEPROC         glMapBufferRange;
 PFNGLUNMAPBUFFERPROC            glUnmapBuffer;
 PFNGLBUFFERDATAPROC             glBufferData;
 PFNGLBUFFERSUBDATAPROC          glBufferSubData;
+PFNGLBINDBUFFERBASEPROC         glBindBufferBase;
 
 PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
 PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
@@ -65,8 +66,10 @@ PFNGLGETPROGRAMIVPROC           glGetProgramiv;
 PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
 PFNGLDELETESHADERPROC           glDeleteShader;
 PFNGLDELETEPROGRAMPROC          glDeleteProgram;
+
 PFNGLUNIFORM1UIPROC             glUniform1ui;
 PFNGLUNIFORM4UIPROC             glUniform4ui;
+PFNGLUNIFORMBLOCKBINDINGPROC    glUniformBlockBinding;
 
 PFNGLACTIVETEXTUREPROC          glActiveTexture;
 PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
@@ -85,6 +88,11 @@ PFNGLGETSTRINGIPROC             glGetStringi;
 
 // GL version requirements
 // * explicit uniform location: 4.3 (or extension)
+// * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
+// * UBO: 3.1
+// * glMemoryBarrier: 4.2
+
+// TODO: consider other way to handle uniforms (UBO?)
 
 #define kShaderHeader "#version 430"
 
@@ -126,6 +134,11 @@ layout(location=0) in uvec4 vPosition;
 layout(location=1) in uvec4 vColor;
 layout(location=2) in ivec2 vTexcoord;
 layout(location=3) in uvec3 vPolygonAttr;
+
+layout(std140, binding=0) uniform uConfig
+{
+    vec2 uScreenSize;
+};
 
 smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
@@ -364,7 +377,7 @@ vec4 FinalColor()
 }
 )";
 
-// TODO!!! NOT HARDCODE SCREEN SIZE!!!!!!!
+
 const char* kRenderVS_Z = R"(
 
 void main()
@@ -373,8 +386,7 @@ void main()
     uint zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.x = ((float(vPosition.x) * 2.0) / 512.0) - 1.0;
-    fpos.y = ((float(vPosition.y) * 2.0) / 384.0) - 1.0;
+    fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
     fpos.z = (float(vPosition.z << zshift) / 8388608.0) - 1.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
@@ -397,8 +409,7 @@ void main()
     uint zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.x = ((float(vPosition.x) * 2.0) / 512.0) - 1.0;
-    fpos.y = ((float(vPosition.y) * 2.0) / 384.0) - 1.0;
+    fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
     fZ = float(vPosition.z << zshift) / 16777216.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xy *= fpos.w;
@@ -540,6 +551,14 @@ GLuint ClearShaderPlain[3];
 
 GLuint RenderShader[16][3];
 
+struct
+{
+    float uScreenSize[2];
+
+} ShaderConfig;
+
+GLuint ShaderConfigUBO;
+
 typedef struct
 {
     Polygon* PolyData;
@@ -600,6 +619,7 @@ bool InitGLExtensions()
     LOADPROC(GLUNMAPBUFFER, glUnmapBuffer);
     LOADPROC(GLBUFFERDATA, glBufferData);
     LOADPROC(GLBUFFERSUBDATA, glBufferSubData);
+    LOADPROC(GLBINDBUFFERBASE, glBindBufferBase);
 
     LOADPROC(GLGENVERTEXARRAYS, glGenVertexArrays);
     LOADPROC(GLDELETEVERTEXARRAYS, glDeleteVertexArrays);
@@ -622,8 +642,10 @@ bool InitGLExtensions()
     LOADPROC(GLGETPROGRAMINFOLOG, glGetProgramInfoLog);
     LOADPROC(GLDELETESHADER, glDeleteShader);
     LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
+
     LOADPROC(GLUNIFORM1UI, glUniform1ui);
     LOADPROC(GLUNIFORM4UI, glUniform4ui);
+    LOADPROC(GLUNIFORMBLOCKBINDING, glUniformBlockBinding);
 
     LOADPROC(GLACTIVETEXTURE, glActiveTexture);
     LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
@@ -784,13 +806,19 @@ bool Init()
 
 
     // TODO: make configurable (hires, etc)
-    glViewport(0, 0, 512, 384);
+    int screenW = 512;
+    int screenH = 384;
+
+
+    glViewport(0, 0, screenW, screenH);
     glDepthRange(0, 1);
     glClearDepth(1.0);
 
 
     if (!BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
+
+    memset(RenderShader, 0, sizeof(RenderShader));
 
     if (!BuildRenderShader(0,
                            kRenderVS_Z, kRenderFS_ZO)) return false;
@@ -808,6 +836,21 @@ bool Init()
                            kRenderVS_Z, kRenderFS_ZS)) return false;
     if (!BuildRenderShader(RenderFlag_Shadow | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WS)) return false;
+
+
+    ShaderConfig.uScreenSize[0] = screenW;
+    ShaderConfig.uScreenSize[1] = screenH;
+
+    glGenBuffers(1, &ShaderConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (!RenderShader[i][2]) continue;
+        glUniformBlockBinding(RenderShader[i][2], 0, 0);
+    }
 
 
     float clearvtx[6*2] =
@@ -856,7 +899,7 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 384, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenW, screenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
 
     glGenTextures(1, &FramebufferTex[1]);
@@ -865,7 +908,7 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 512, 384, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, screenW, screenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);
 
     glGenTextures(1, &FramebufferTex[2]);
@@ -874,7 +917,7 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8UI, 512, 384, 0, GL_RG_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8UI, screenW, screenH, 0, GL_RG_INTEGER, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
 
     GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
@@ -887,8 +930,7 @@ bool Init()
 
     glGenBuffers(1, &PixelbufferID);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    //glBufferData(GL_PIXEL_PACK_BUFFER, 256*48*4, NULL, GL_DYNAMIC_READ);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 512*384*4, NULL, GL_DYNAMIC_READ);
+    glBufferData(GL_PIXEL_PACK_BUFFER, screenW*screenH*4, NULL, GL_DYNAMIC_READ);
 
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &TexMemID);
