@@ -601,6 +601,8 @@ GLuint FramebufferTex[4];
 GLuint FramebufferID[2], PixelbufferID;
 u8 Framebuffer[512*384*4];
 
+bool ChunkedRendering = false;
+
 
 bool InitGLExtensions()
 {
@@ -1108,6 +1110,7 @@ void RenderSceneChunk(int y, int h)
 
     // zorp
     glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
 
     glStencilFunc(GL_ALWAYS, 0xFF, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -1322,12 +1325,8 @@ void RenderFrame()
 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
     }
-//u32 _start = SDL_GetTicks();
-    //glEnable(GL_SCISSOR_TEST);
-    //for (int sy=0; sy<384; sy+=96)
-     //   {
-    //glScissor(0, sy, 512, 96);
 
+    glDisable(GL_SCISSOR_TEST);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     glDisable(GL_BLEND);
@@ -1398,10 +1397,16 @@ void RenderFrame()
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 
-        RenderSceneChunk(0, 192);
+        if (!ChunkedRendering)
+        {
+            RenderSceneChunk(0, 192);
+        }
+        else
+        {
+            glEnable(GL_SCISSOR_TEST);
+            RenderSceneChunk(0, 48);
+        }
     }
-    //}
-//glFinish();u32 _end=SDL_GetTicks(); printf("render time: %d\n", _end-_start);s
 
     if (false)
     {
@@ -1417,45 +1422,61 @@ void RenderFrame()
     }
 
     glReadBuffer(GL_COLOR_ATTACHMENT0);
-    //glReadPixels(0, 0, 256, 48, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    //glReadPixels(0, 0, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    glReadPixels(0, 0, 512, 384, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+
+    if (!ChunkedRendering)
+        glReadPixels(0, 0, 256*2, 192*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    else
+        glReadPixels(0, 0, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 u32* GetLine(int line)
 {
-    if (line == 0)
+    if (!ChunkedRendering)
     {
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        //if (data) memcpy(&Framebuffer[4*256*0], data, 4*256*48);
-        if (data) memcpy(&Framebuffer[4*256*0], data, 4*512*384);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-
-        //glReadPixels(0, 48, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        if (line == 0)
+        {
+            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            if (data) memcpy(&Framebuffer[4*1024*0], data, 4*1024*192);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
     }
-    /*else if (line == 48)
+    else
     {
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[4*256*48], data, 4*256*48);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        if (line == 0)
+        {
+            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            if (data) memcpy(&Framebuffer[4*1024*0], data, 4*1024*48);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
-        glReadPixels(0, 96, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    }
-    else if (line == 96)
-    {
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[4*256*96], data, 4*256*48);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+            if (RenderNumPolygons) RenderSceneChunk(48, 48);
+            glReadPixels(0, 48*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        }
+        else if (line == 48)
+        {
+            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            if (data) memcpy(&Framebuffer[4*1024*48], data, 4*1024*48);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
-        glReadPixels(0, 144, 256, 48, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+            if (RenderNumPolygons) RenderSceneChunk(96, 48);
+            glReadPixels(0, 96*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        }
+        else if (line == 96)
+        {
+            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            if (data) memcpy(&Framebuffer[4*1024*96], data, 4*1024*48);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+            if (RenderNumPolygons) RenderSceneChunk(144, 48);
+            glReadPixels(0, 144*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        }
+        else if (line == 144)
+        {
+            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            if (data) memcpy(&Framebuffer[4*1024*144], data, 4*1024*48);
+            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+        }
     }
-    else if (line == 144)
-    {
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[4*256*144], data, 4*256*48);
-        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-    }*/
 
     u32* ptr = (u32*)&Framebuffer[512*2*4 * line];
     for (int i = 0; i < 1024; i++)

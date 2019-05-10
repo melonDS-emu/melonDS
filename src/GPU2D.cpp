@@ -650,7 +650,8 @@ void GPU2D::DrawScanline(u32 line)
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 
-    _3dgfx = GPU3D::GetLine(_3dline);
+    if (Num == 0)
+        _3dgfx = GPU3D::GetLine(_3dline);
 
     // always render regular graphics
     DrawScanline_Mode1(line, mode1gfx, _3dgfx);

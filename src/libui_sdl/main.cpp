@@ -643,7 +643,7 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     uiRect top = {0, 0, 256*ScreenScale, 192*ScreenScale};
     uiRect bot = {0, 192*ScreenScale, 256*ScreenScale, 192*ScreenScale};
 
-    uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
+    if (ScreenBuffer) uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &TopScreenTrans);
