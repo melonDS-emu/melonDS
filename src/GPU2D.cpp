@@ -559,7 +559,7 @@ u32 GPU2D::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
     if (g > 0x003F00) g = 0x003F00;
     if (b > 0x3F0000) b = 0x3F0000;
 
-    return r | g | b;
+    return r | g | b | 0xFF000000;
 }
 
 u32 GPU2D::ColorBlend5(u32 val1, u32 val2)
@@ -582,7 +582,7 @@ u32 GPU2D::ColorBlend5(u32 val1, u32 val2)
     if (g > 0x003F00) g = 0x003F00;
     if (b > 0x3F0000) b = 0x3F0000;
 
-    return r | g | b;
+    return r | g | b | 0xFF000000;
 }
 
 u32 GPU2D::ColorBrightnessUp(u32 val, u32 factor)
@@ -595,7 +595,7 @@ u32 GPU2D::ColorBrightnessUp(u32 val, u32 factor)
     g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
     b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
 
-    return r | g | b;
+    return r | g | b | 0xFF000000;
 }
 
 u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
@@ -608,7 +608,7 @@ u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
     g -= (((g * factor) >> 4) & 0x003F00);
     b -= (((b * factor) >> 4) & 0x3F0000);
 
-    return r | g | b;
+    return r | g | b | 0xFF000000;
 }
 
 
