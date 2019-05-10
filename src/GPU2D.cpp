@@ -567,6 +567,8 @@ u32 GPU2D::ColorBlend5(u32 val1, u32 val2)
     u32 eva = ((val1 >> 24) & 0x1F) + 1;
     u32 evb = 32 - eva;
 
+    if (eva == 32) return val1;
+
     u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 5;
     u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 5) & 0x007F00;
     u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 5) & 0x7F0000;
@@ -587,28 +589,24 @@ u32 GPU2D::ColorBlend5(u32 val1, u32 val2)
 
 u32 GPU2D::ColorBrightnessUp(u32 val, u32 factor)
 {
-    u32 r = val & 0x00003F;
+    u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
-    u32 b = val & 0x3F0000;
 
-    r += (((0x00003F - r) * factor) >> 4);
+    rb += ((((0x3F003F - rb) * factor) >> 4) & 0x3F003F);
     g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
-    b += ((((0x3F0000 - b) * factor) >> 4) & 0x3F0000);
 
-    return r | g | b | 0xFF000000;
+    return rb | g | 0xFF000000;
 }
 
 u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
 {
-    u32 r = val & 0x00003F;
+    u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
-    u32 b = val & 0x3F0000;
 
-    r -= ((r * factor) >> 4);
+    rb -= (((rb * factor) >> 4) & 0x3F003F);
     g -= (((g * factor) >> 4) & 0x003F00);
-    b -= (((b * factor) >> 4) & 0x3F0000);
 
-    return r | g | b | 0xFF000000;
+    return rb | g | 0xFF000000;
 }
 
 
@@ -667,8 +665,8 @@ void GPU2D::DrawScanline(u32 line)
 
     case 1: // regular display
         {
-            for (int i = 0; i < LineStride; i++)
-                dst[i] = mode1gfx[i];
+            for (int i = 0; i < LineStride; i+=2)
+                *(u64*)&dst[i] = *(u64*)&mode1gfx[i];
         }
         break;
 
@@ -1193,7 +1191,7 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx)
     u32 linebuf[1024*2 + 64];
     u8* windowmask = (u8*)&linebuf[1024*2];
 
-    u32 backdrop;
+    u64 backdrop;
     if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
     else     backdrop = *(u16*)&GPU::Palette[0];
 
@@ -1203,9 +1201,10 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst, u32* _3dgfx)
         u8 b = (backdrop & 0x7C00) >> 9;
 
         backdrop = r | (g << 8) | (b << 16) | 0x20000000;
+        backdrop |= (backdrop << 32);
 
-        for (int i = 0; i < LineStride; i++)
-            linebuf[i] = backdrop;
+        for (int i = 0; i < LineStride; i+=2)
+            *(u64*)&linebuf[i] = backdrop;
     }
 
     if (DispCnt & 0xE000)
