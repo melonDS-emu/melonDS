@@ -34,6 +34,7 @@ PFNGLGENFRAMEBUFFERSPROC        glGenFramebuffers;
 PFNGLDELETEFRAMEBUFFERSPROC     glDeleteFramebuffers;
 PFNGLBINDFRAMEBUFFERPROC        glBindFramebuffer;
 PFNGLFRAMEBUFFERTEXTUREPROC     glFramebufferTexture;
+PFNGLBLITFRAMEBUFFERPROC        glBlitFramebuffer;
 
 PFNGLGENBUFFERSPROC             glGenBuffers;
 PFNGLDELETEBUFFERSPROC          glDeleteBuffers;
@@ -595,8 +596,8 @@ u32 NumTriangles;
 GLuint TexMemID;
 GLuint TexPalMemID;
 
-GLuint FramebufferTex[3];
-GLuint FramebufferID, PixelbufferID;
+GLuint FramebufferTex[4];
+GLuint FramebufferID[2], PixelbufferID;
 u8 Framebuffer[512*384*4];
 
 
@@ -610,6 +611,7 @@ bool InitGLExtensions()
     LOADPROC(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers);
     LOADPROC(GLBINDFRAMEBUFFER, glBindFramebuffer);
     LOADPROC(GLFRAMEBUFFERTEXTURE, glFramebufferTexture);
+    LOADPROC(GLBLITFRAMEBUFFER, glBlitFramebuffer);
 
     LOADPROC(GLGENBUFFERS, glGenBuffers);
     LOADPROC(GLDELETEBUFFERS, glDeleteBuffers);
@@ -806,6 +808,7 @@ bool Init()
 
 
     // TODO: make configurable (hires, etc)
+    // set those to 2x the final resolution for antialiased rendering
     int screenW = 512;
     int screenH = 384;
 
@@ -890,8 +893,8 @@ bool Init()
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
 
-    glGenFramebuffers(1, &FramebufferID);
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
+    glGenFramebuffers(2, &FramebufferID[0]);
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glGenTextures(1, &FramebufferTex[0]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
@@ -919,6 +922,18 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8UI, screenW, screenH, 0, GL_RG_INTEGER, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    glGenTextures(1, &FramebufferTex[3]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenW/2, screenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
     glDrawBuffers(2, fbassign);
@@ -1048,6 +1063,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             // TODO hires-upgraded positions?
             //*vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
             *vptr++ = (vtx->FinalPosition[0] << 1) | (vtx->FinalPosition[1] << 17);
+            //*vptr++ = (vtx->FinalPosition[0] << 2) | (vtx->FinalPosition[1] << 18);
             *vptr++ = z | (w << 16);
 
             *vptr++ =  (vtx->FinalColor[0] >> 1) |
@@ -1117,6 +1133,7 @@ void RenderFrame()
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
     }
 
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_FALSE, GL_FALSE);
@@ -1361,7 +1378,19 @@ if (PolygonList[firsttrans].PolyData->IsShadow) printf("!! GLORG!!! %08X\n", Pol
     }
 
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID);
+    if (false)
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[0]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[1]);
+        glBlitFramebuffer(0, 0, 1024, 768, 0, 0, 512, 384, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    }
+    else
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+    }
+
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     //glReadPixels(0, 0, 256, 48, GL_RGBA, GL_UNSIGNED_BYTE, Framebuffer);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
