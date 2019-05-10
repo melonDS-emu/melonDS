@@ -773,16 +773,16 @@ void GPU2D::DrawScanline(u32 line)
     // convert to 32-bit BGRA
     // note: 32-bit RGBA would be more straightforward, but
     // BGRA seems to be more compatible (Direct2D soft, cairo...)
-    for (int i = 0; i < LineStride; i++)
+    for (int i = 0; i < LineStride; i+=2)
     {
-        u32 c = dst[i];
+        u64 c = *(u64*)&dst[i];
 
-        u32 r = c << 18;
-        u32 g = (c << 2) & 0xFC00;
-        u32 b = (c >> 14) & 0xFC;
+        u64 r = (c << 18) & 0xFC000000FC0000;
+        u64 g = (c << 2) & 0xFC000000FC00;
+        u64 b = (c >> 14) & 0xFC000000FC;
         c = r | g | b;
 
-        dst[i] = c | ((c & 0x00C0C0C0) >> 6) | 0xFF000000;
+        *(u64*)&dst[i] = c | ((c & 0x00C0C0C000C0C0C0) >> 6) | 0xFF000000FF000000;
     }
 }
 

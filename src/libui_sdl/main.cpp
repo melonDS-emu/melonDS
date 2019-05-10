@@ -812,7 +812,7 @@ void SetupScreenRects(int width, int height)
     else
         sizemode = ScreenSizing;
 
-    int screenW, screenH;
+    int screenW, screenH, gap;
     if (sideways)
     {
         screenW = 192;
@@ -824,8 +824,11 @@ void SetupScreenRects(int width, int height)
         screenH = 192;
     }
 
+    gap = ScreenGap;
+
     screenW *= ScreenScale;
     screenH *= ScreenScale;
+    gap *= ScreenScale;
 
     uiRect *topscreen, *bottomscreen;
     if (ScreenRotation == 1 || ScreenRotation == 2)
@@ -846,7 +849,7 @@ void SetupScreenRects(int width, int height)
         int heightreq;
         int startX = 0;
 
-        width -= ScreenGap;
+        width -= gap;
 
         if (sizemode == 0) // even
         {
@@ -884,7 +887,7 @@ void SetupScreenRects(int width, int height)
         topscreen->X = startX;
         topscreen->Y = ((height - heightreq) / 2) + (heightreq - topscreen->Height);
 
-        bottomscreen->X = topscreen->X + topscreen->Width + ScreenGap;
+        bottomscreen->X = topscreen->X + topscreen->Width + gap;
 
         if (sizemode == 1)
         {
@@ -905,7 +908,7 @@ void SetupScreenRects(int width, int height)
         int widthreq;
         int startY = 0;
 
-        height -= ScreenGap;
+        height -= gap;
 
         if (sizemode == 0) // even
         {
@@ -943,7 +946,7 @@ void SetupScreenRects(int width, int height)
         topscreen->Y = startY;
         topscreen->X = (width - topscreen->Width) / 2;
 
-        bottomscreen->Y = topscreen->Y + topscreen->Height + ScreenGap;
+        bottomscreen->Y = topscreen->Y + topscreen->Height + gap;
 
         if (sizemode == 1)
         {
