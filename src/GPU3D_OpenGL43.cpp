@@ -131,15 +131,17 @@ void main()
 
 const char* kRenderVSCommon = R"(
 
+layout(std140, binding=0) uniform uConfig
+{
+    vec2 uScreenSize;
+    uint uDispCnt;
+    vec4 uToonColors[32];
+};
+
 layout(location=0) in uvec4 vPosition;
 layout(location=1) in uvec4 vColor;
 layout(location=2) in ivec2 vTexcoord;
 layout(location=3) in uvec3 vPolygonAttr;
-
-layout(std140, binding=0) uniform uConfig
-{
-    vec2 uScreenSize;
-};
 
 smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
@@ -150,6 +152,13 @@ const char* kRenderFSCommon = R"(
 
 layout(binding=0) uniform usampler2D TexMem;
 layout(binding=1) uniform sampler2D TexPalMem;
+
+layout(std140, binding=0) uniform uConfig
+{
+    vec2 uScreenSize;
+    uint uDispCnt;
+    vec4 uToonColors[32];
+};
 
 smooth in vec4 fColor;
 smooth in vec2 fTexcoord;
@@ -360,9 +369,24 @@ vec4 FinalColor()
 {
     vec4 col;
     vec4 vcol = fColor;
+    uint blendmode = (fPolygonAttr.x >> 4) & 0x3;
 
-    // TODO: also check DISPCNT
-    if (((fPolygonAttr.y >> 26) & 0x7) == 0)
+    if (blendmode == 2)
+    {
+        if ((uDispCnt & (1<<1)) == 0)
+        {
+            // toon
+            vec3 tooncolor = uToonColors[int(vcol.r * 31)].rgb;
+            vcol.rgb = tooncolor;
+        }
+        else
+        {
+            // highlight
+            vcol.rgb = vcol.rrr;
+        }
+    }
+
+    if ((((fPolygonAttr.y >> 26) & 0x7) == 0) || ((uDispCnt & (1<<0)) == 0))
     {
         // no texture
         col = vcol;
@@ -371,7 +395,26 @@ vec4 FinalColor()
     {
         vec4 tcol = TextureLookup();
 
-        col = vcol * tcol;
+        if ((blendmode & 1) != 0)
+        {
+            // decal
+            col.rgb = (tcol.rgb * tcol.a) + (vcol.rgb * (1.0-tcol.a));
+            col.a = vcol.a;
+        }
+        else
+        {
+            // modulate
+            col = vcol * tcol;
+        }
+    }
+
+    if (blendmode == 2)
+    {
+        if ((uDispCnt & (1<<1)) != 0)
+        {
+            vec3 tooncolor = uToonColors[int(vcol.r * 31)].rgb;
+            col.rgb = min(col.rgb + tooncolor, 1.0);
+        }
     }
 
     return col.bgra;
@@ -555,6 +598,9 @@ GLuint RenderShader[16][3];
 struct
 {
     float uScreenSize[2];
+    u32 uDispCnt;
+    u32 __pad0;
+    float uToonColors[32][4];
 
 } ShaderConfig;
 
@@ -709,7 +755,7 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[1], res+1, NULL, log);
         printf("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
-        printf("shader source:\n--\n%s\n--\n", fs);
+        //printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
         glDeleteShader(ids[0]);
@@ -1294,6 +1340,25 @@ void VCount144()
 
 void RenderFrame()
 {
+    ShaderConfig.uDispCnt = RenderDispCnt;
+
+    for (int i = 0; i < 32; i++)
+    {
+        u16 c = RenderToonTable[i];
+        u32 r = c & 0x1F;
+        u32 g = (c >> 5) & 0x1F;
+        u32 b = (c >> 10) & 0x1F;
+
+        ShaderConfig.uToonColors[i][0] = (float)r / 31.0;
+        ShaderConfig.uToonColors[i][1] = (float)g / 31.0;
+        ShaderConfig.uToonColors[i][2] = (float)b / 31.0;
+    }
+
+    glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
+    void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+
     // SUCKY!!!!!!!!!!!!!!!!!!
     // TODO: detect when VRAM blocks are modified!
     glActiveTexture(GL_TEXTURE0);
