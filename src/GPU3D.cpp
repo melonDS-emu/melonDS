@@ -1194,6 +1194,16 @@ void SubmitPolygon()
         vtx->FinalPosition[0] = posX & 0x1FF;
         vtx->FinalPosition[1] = posY & 0xFF;
 
+        // hi-res positions
+        if (w != 0)
+        {
+            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
+            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
+
+            vtx->HiresPosition[0] = posX & 0x1FFF;
+            vtx->HiresPosition[1] = posY & 0xFFF;
+        }
+
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
         vtx->FinalColor[1] = vtx->Color[1] >> 12;

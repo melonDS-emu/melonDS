@@ -1120,9 +1120,13 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             u32 zshift = 0;
             while (z > 0xFFFF) { z >>= 1; zshift++; }
 
+            u32 x = vtx->HiresPosition[0] >> 3;
+            u32 y = vtx->HiresPosition[1] >> 3;
+            *vptr++ = x | (y << 16);
+
             // TODO hires-upgraded positions?
             //*vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
-            *vptr++ = (vtx->FinalPosition[0] << 1) | (vtx->FinalPosition[1] << 17);
+            //*vptr++ = (vtx->FinalPosition[0] << 1) | (vtx->FinalPosition[1] << 17);
             //*vptr++ = (vtx->FinalPosition[0] << 2) | (vtx->FinalPosition[1] << 18);
             *vptr++ = z | (w << 16);
 

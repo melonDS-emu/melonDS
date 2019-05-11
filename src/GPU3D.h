@@ -39,6 +39,10 @@ typedef struct
     s32 FinalPosition[2];
     s32 FinalColor[3];
 
+    // hi-res position (4-bit fractional part)
+    // TODO maybe: hi-res color? (that survives clipping)
+    s32 HiresPosition[2];
+
 } Vertex;
 
 typedef struct
