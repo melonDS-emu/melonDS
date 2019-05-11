@@ -24,7 +24,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "Platform.h"
-extern "C" u32 SDL_GetTicks();
+
 namespace GPU3D
 {
 namespace GLRenderer43
@@ -82,7 +82,7 @@ PFNGLBLENDEQUATIONSEPARATEIPROC  glBlendEquationSeparatei;
 
 PFNGLCOLORMASKIPROC             glColorMaski;
 
-PFNGLMEMORYBARRIERPROC glMemoryBarrier;
+PFNGLMEMORYBARRIERPROC          glMemoryBarrier;
 
 PFNGLGETSTRINGIPROC             glGetStringi;
 
@@ -118,13 +118,14 @@ layout(location=2) uniform uint uOpaquePolyID;
 layout(location=3) uniform uint uFogFlag;
 
 layout(location=0) out vec4 oColor;
-layout(location=1) out uvec2 oAttr;
+layout(location=1) out uvec3 oAttr;
 
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
-    oAttr.r = uOpaquePolyID;
-    oAttr.g = 0;
+    oAttr.r = 0;
+    oAttr.g = uOpaquePolyID;
+    oAttr.b = 0;
 }
 )";
 
@@ -165,7 +166,7 @@ smooth in vec2 fTexcoord;
 flat in uvec3 fPolygonAttr;
 
 layout(location=0) out vec4 oColor;
-layout(location=1) out uvec2 oAttr;
+layout(location=1) out uvec3 oAttr;
 
 vec4 TextureLookup()
 {
@@ -475,7 +476,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.r = (fPolygonAttr.x >> 24) & 0x3F;
+    oAttr.g = (fPolygonAttr.x >> 24) & 0x3F;
 }
 )";
 
@@ -489,7 +490,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.r = (fPolygonAttr.x >> 24) & 0x3F;
+    oAttr.g = (fPolygonAttr.x >> 24) & 0x3F;
     gl_FragDepth = fZ;
 }
 )";
@@ -503,6 +504,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
+    oAttr.g = 0xFF;
 }
 )";
 
@@ -517,6 +519,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
+    oAttr.g = 0xFF;
     gl_FragDepth = fZ;
 }
 )";
@@ -526,7 +529,8 @@ const char* kRenderFS_ZSM = R"(
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = 1;
+    oAttr.g = 0xFF;
+    oAttr.b = 1;
 }
 )";
 
@@ -537,7 +541,8 @@ smooth in float fZ;
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = 1;
+    oAttr.g = 0xFF;
+    oAttr.b = 1;
     gl_FragDepth = fZ;
 }
 )";
@@ -554,7 +559,8 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
-    if (iAttr.y != 1) discard;
+    if (iAttr.b != 1) discard;
+    if (iAttr.g == ((fPolygonAttr.x >> 24) & 0x3F)) discard;
 
     oColor = col;
 }
@@ -574,7 +580,8 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
-    if (iAttr.y != 1) discard;
+    if (iAttr.b != 1) discard;
+    if (iAttr.g == ((fPolygonAttr.x >> 24) & 0x3F)) discard;
 
     oColor = col;
     gl_FragDepth = fZ;
@@ -945,7 +952,8 @@ bool Init()
     glGenFramebuffers(2, &FramebufferID[0]);
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
-    glGenTextures(1, &FramebufferTex[0]);
+    // color buffer
+    glGenTextures(4, &FramebufferTex[0]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -954,7 +962,7 @@ bool Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenW, screenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
 
-    glGenTextures(1, &FramebufferTex[1]);
+    // depth/stencil buffer
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -963,17 +971,20 @@ bool Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, screenW, screenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);
 
-    glGenTextures(1, &FramebufferTex[2]);
+    // attribute buffer
+    // R: opaque polyID (for edgemarking)
+    // G: opaque polyID (for shadows, suppressed when rendering translucent polygons)
+    // B: stencil flag
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG8UI, screenW, screenH, 0, GL_RG_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, screenW, screenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
 
+    // downscale framebuffer, for antialiased mode
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    glGenTextures(1, &FramebufferTex[3]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -1154,7 +1165,8 @@ void RenderSceneChunk(int y, int h)
 
     UseRenderShader(flags);
 
-    // zorp
+    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
 
@@ -1277,7 +1289,7 @@ if (PolygonList[NumOpaqueFinalPolys].PolyData->IsShadow) printf("!! GLORG!!! %08
                     UseRenderShader(flags | RenderFlag_ShadowMask);
 
                     glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-                    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                    glColorMaski(1, GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE);
                     glDepthMask(GL_FALSE);
                     glDepthFunc(GL_GEQUAL);
                     glStencilFunc(GL_ALWAYS,0,0);
@@ -1301,7 +1313,7 @@ if (PolygonList[NumOpaqueFinalPolys].PolyData->IsShadow) printf("!! GLORG!!! %08
                         glEnable(GL_BLEND);
 
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-                        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
 
                         lastwasshadow = false;
                     }
@@ -1396,7 +1408,7 @@ void RenderFrame()
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glColorMaski(1, GL_TRUE, GL_TRUE, GL_FALSE, GL_FALSE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
 
     // clear buffers
     // TODO: clear bitmap
@@ -1431,8 +1443,6 @@ void RenderFrame()
         glBindVertexArray(ClearVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
-
-    glColorMaski(1, GL_TRUE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (RenderNumPolygons)
     {
