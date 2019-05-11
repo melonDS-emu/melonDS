@@ -30,6 +30,7 @@
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
+#include "DlgVideoSettings.h"
 #include "DlgAudioSettings.h"
 #include "DlgWifiSettings.h"
 
@@ -1502,6 +1503,11 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgInputConfig::Open(1);
 }
 
+void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgVideoSettings::Open();
+}
+
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgAudioSettings::Open();
@@ -1865,6 +1871,8 @@ int main(int argc, char** argv)
         uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
         menuitem = uiMenuAppendItem(menu, "Hotkey config");
         uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Video settings");
+        uiMenuItemOnClicked(menuitem, OnOpenVideoSettings, NULL);
         menuitem = uiMenuAppendItem(menu, "Audio settings");
         uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
         menuitem = uiMenuAppendItem(menu, "Wifi settings");

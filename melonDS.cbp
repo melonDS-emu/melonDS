@@ -131,6 +131,8 @@
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
+		<Unit filename="src/libui_sdl/DlgVideoSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgVideoSettings.h" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.cpp" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.h" />
 		<Unit filename="src/libui_sdl/LAN_PCap.cpp" />
