@@ -83,47 +83,88 @@ void Open()
     uiWindowSetChild(win, uiControl(top));
     uiBoxSetPadded(top, 1);
 
-    /*{
-        uiGroup* grp = uiNewGroup("Audio output");
-        uiBoxAppend(top, uiControl(grp), 0);
+    uiBox* splitter = uiNewHorizontalBox();
+    uiBoxAppend(top, uiControl(splitter), 0);
+    uiBoxSetPadded(splitter, 1);
+
+    uiBox* left = uiNewVerticalBox();
+    uiBoxAppend(splitter, uiControl(left), 1);
+    uiBoxSetPadded(left, 1);
+    uiBox* right = uiNewVerticalBox();
+    uiBoxAppend(splitter, uiControl(right), 1);
+    uiBoxSetPadded(right, 1);
+
+    {
+        uiGroup* grp = uiNewGroup("3D renderer");
+        uiBoxAppend(left, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiLabel* label_vol = uiNewLabel("Volume:");
-        uiBoxAppend(in_ctrl, uiControl(label_vol), 0);
-
-        slVolume = uiNewSlider(0, 256);
-        uiSliderOnChanged(slVolume, OnVolumeChanged, NULL);
-        uiBoxAppend(in_ctrl, uiControl(slVolume), 0);
+        uiRadioButtons* rbRenderer = uiNewRadioButtons();
+        uiRadioButtonsAppend(rbRenderer, "Software");
+        uiRadioButtonsAppend(rbRenderer, "OpenGL");
+        uiBoxAppend(in_ctrl, uiControl(rbRenderer), 0);
     }
 
     {
-        uiGroup* grp = uiNewGroup("Microphone input");
-        uiBoxAppend(top, uiControl(grp), 0);
+        uiGroup* grp = uiNewGroup("Software renderer");
+        uiBoxAppend(left, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        rbMicInputType = uiNewRadioButtons();
-        uiRadioButtonsAppend(rbMicInputType, "None");
-        uiRadioButtonsAppend(rbMicInputType, "Microphone");
-        uiRadioButtonsAppend(rbMicInputType, "White noise");
-        uiRadioButtonsAppend(rbMicInputType, "WAV file:");
-        uiBoxAppend(in_ctrl, uiControl(rbMicInputType), 0);
+        uiCheckbox* cbThreaded3D = uiNewCheckbox("Threaded");
+        uiBoxAppend(in_ctrl, uiControl(cbThreaded3D), 0);
+    }
 
-        uiBox* path_box = uiNewHorizontalBox();
-        uiBoxAppend(in_ctrl, uiControl(path_box), 0);
+    {
+        uiGroup* grp = uiNewGroup("OpenGL renderer");
+        uiBoxAppend(left, uiControl(grp), 0);
+        uiGroupSetMargined(grp, 1);
 
-        txMicWavPath = uiNewEntry();
-        uiBoxAppend(path_box, uiControl(txMicWavPath), 1);
+        uiBox* in_ctrl = uiNewVerticalBox();
+        uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiButton* path_browse = uiNewButton("...");
-        uiButtonOnClicked(path_browse, OnMicWavBrowse, NULL);
-        uiBoxAppend(path_box, uiControl(path_browse), 0);
-    }*/
+        uiCheckbox* cbAntialias = uiNewCheckbox("Antialiasing");
+        uiBoxAppend(in_ctrl, uiControl(cbAntialias), 0);
+    }
+
+    {
+        uiGroup* grp = uiNewGroup("Display settings");
+        uiBoxAppend(right, uiControl(grp), 0);
+        uiGroupSetMargined(grp, 1);
+
+        uiBox* in_ctrl = uiNewVerticalBox();
+        uiGroupSetChild(grp, uiControl(in_ctrl));
+
+        uiLabel* lbl = uiNewLabel("Resolution:");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        uiRadioButtons* rbResolution = uiNewRadioButtons();
+        uiRadioButtonsAppend(rbResolution, "1x");
+        uiRadioButtonsAppend(rbResolution, "2x");
+        uiRadioButtonsAppend(rbResolution, "4x");
+        uiBoxAppend(in_ctrl, uiControl(rbResolution), 0);
+
+        uiCheckbox* cbWidescreen = uiNewCheckbox("Stretch to 16:9");
+        uiBoxAppend(in_ctrl, uiControl(cbWidescreen), 0);
+
+        lbl = uiNewLabel("");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        lbl = uiNewLabel("Apply upscaling to:");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        uiRadioButtons* rbApplyScalingTo = uiNewRadioButtons();
+        uiRadioButtonsAppend(rbApplyScalingTo, "Both screens");
+        uiRadioButtonsAppend(rbApplyScalingTo, "Emphasized screen");
+        uiRadioButtonsAppend(rbApplyScalingTo, "Top screen");
+        uiRadioButtonsAppend(rbApplyScalingTo, "Bottom screen");
+        uiBoxAppend(in_ctrl, uiControl(rbApplyScalingTo), 0);
+    }
 
     {
         uiBox* in_ctrl = uiNewHorizontalBox();
