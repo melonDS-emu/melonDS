@@ -48,6 +48,10 @@ extern int ScreenLayout;
 extern int ScreenSizing;
 extern int ScreenFilter;
 
+extern int ScreenScale;
+extern int ScreenRatio;
+extern int ScreenScaleMode;
+
 extern int LimitFPS;
 
 extern int DirectBoot;

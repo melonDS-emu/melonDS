@@ -40,7 +40,10 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
+extern int _3DRenderer;
 extern int Threaded3D;
+
+extern int GL_Antialias;
 
 }
 
