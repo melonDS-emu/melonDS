@@ -1489,8 +1489,8 @@ void GPU2D::DrawBG_3D()
     {
         for (; i < iend; i++)
         {
-            int is = i << 1;
-            int xs = xoff << 1;
+            int is = i << 2;
+            int xs = xoff << 2;
             u32 c;
 
             xoff++;
@@ -1511,8 +1511,8 @@ void GPU2D::DrawBG_3D()
                     xs++;
                 }
 
-                is += 1021;
-                xs += 1021;
+                is += 1020;
+                xs += 1020;
             }
         }
     }

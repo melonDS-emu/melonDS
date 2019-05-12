@@ -28,7 +28,7 @@
 #include "DlgVideoSettings.h"
 
 
-//
+void ApplyNewSettings(int type);
 
 
 namespace DlgVideoSettings
@@ -50,7 +50,8 @@ void OnResolutionChanged(uiRadioButtons* rb, void* blarg)
 {
     int id = uiRadioButtonsSelected(rb);
 
-    printf("res=%d\n", id);
+    Config::ScreenScale = id;
+    ApplyNewSettings(2);
 }
 
 void OnCancel(uiButton* btn, void* blarg)
@@ -167,8 +168,8 @@ void Open()
         uiRadioButtons* rbApplyScalingTo = uiNewRadioButtons();
         uiRadioButtonsAppend(rbApplyScalingTo, "Both screens");
         uiRadioButtonsAppend(rbApplyScalingTo, "Emphasized screen (see 'Screen sizing')");
-        uiRadioButtonsAppend(rbApplyScalingTo, "Top screen");
-        uiRadioButtonsAppend(rbApplyScalingTo, "Bottom screen");
+        //uiRadioButtonsAppend(rbApplyScalingTo, "Top screen");
+        //uiRadioButtonsAppend(rbApplyScalingTo, "Bottom screen");
         uiBoxAppend(in_ctrl, uiControl(rbApplyScalingTo), 0);
     }
 

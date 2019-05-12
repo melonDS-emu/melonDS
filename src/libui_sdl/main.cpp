@@ -96,10 +96,9 @@ bool SavestateLoaded;
 
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
-SDL_mutex* ScreenMutex;
-u32* ScreenBuffer;
 
-int ScreenScale;
+int ScreenScale[3];
+int ScreenScaleMode;
 
 int ScreenGap = 0;
 int ScreenLayout = 0;
@@ -400,12 +399,17 @@ int EmuThreadFunc(void* burp)
     uiGLMakeContextCurrent(GLContext);
     NDS::Init();
 
-    ScreenBuffer = new u32[(256*ScreenScale) * (384*ScreenScale)];
-
     MainScreenPos[0] = 0;
     MainScreenPos[1] = 0;
     MainScreenPos[2] = 0;
     AutoScreenSizing = 0;
+
+    // FIXME
+    ScreenScale[2] = Config::ScreenScale;
+    ScreenScale[0] = ScreenScale[2];
+    ScreenScale[1] = ScreenScale[2];
+
+    int lastscale[2] = {-1, -1};
 
     Touching = false;
     KeyInputMask = 0xFFF;
@@ -522,11 +526,6 @@ int EmuThreadFunc(void* burp)
             // microphone input
             FeedMicInput();
 
-            // emulate
-            u32 nlines = NDS::RunFrame();
-
-            if (EmuRunning == 0) break;
-
             // auto screen layout
             {
                 MainScreenPos[2] = MainScreenPos[1];
@@ -556,7 +555,18 @@ int EmuThreadFunc(void* burp)
                 }
             }
 
-            //memcpy(ScreenBuffer, GPU::Framebuffer, (256*ScreenScale)*(384*ScreenScale)*4);
+            if (ScreenScale[0] != lastscale[0] ||
+                ScreenScale[1] != lastscale[1])
+            {
+                GPU::SetFramebufferScale(ScreenScale[0], ScreenScale[1]);
+                ScreenDrawInited = false;
+            }
+
+            // emulate
+            u32 nlines = NDS::RunFrame();
+
+            if (EmuRunning == 0) break;
+
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -622,8 +632,6 @@ int EmuThreadFunc(void* burp)
 
     if (joybuttons) delete[] joybuttons;
 
-    delete[] ScreenBuffer;
-
     NDS::DeInit();
     Platform::LAN_DeInit();
 
@@ -636,16 +644,19 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     // TODO: recreate bitmap if screen scale changed
     if (!ScreenDrawInited)
     {
+        if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+        if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
+
         ScreenDrawInited = true;
-        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 192*ScreenScale);
-        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 192*ScreenScale);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256<<ScreenScale[0], 192<<ScreenScale[0]);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256<<ScreenScale[1], 192<<ScreenScale[1]);
     }
 
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
     if (!GPU::Framebuffer[0][0]) return;
 
-    uiRect top = {0, 0, 256*ScreenScale, 192*ScreenScale};
-    uiRect bot = {0, 0, 256*ScreenScale, 192*ScreenScale};
+    uiRect top = {0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0]};
+    uiRect bot = {0, 0, 256<<ScreenScale[1], 192<<ScreenScale[1]};
 
     int frontbuf = GPU::FrontBuffer;
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
@@ -830,10 +841,34 @@ void SetupScreenRects(int width, int height)
         screenH = 192;
     }
 
-    gap = ScreenGap;
+    if (ScreenScaleMode == 0 || sizemode == 0)
+    {
+        // scale both screens
+        screenW <<= ScreenScale[2];
+        screenH <<= ScreenScale[2];
 
-    screenW *= ScreenScale;
-    screenH *= ScreenScale;
+        ScreenScale[0] = ScreenScale[2];
+        ScreenScale[1] = ScreenScale[2];
+    }
+    else
+    {
+        // scale emphasized screen
+        // screenW/screenH will apply to the non-emphasized screen
+        // the emphasized screen basically taking up all the remaining space
+
+        if (sizemode == 1)
+        {
+            ScreenScale[0] = ScreenScale[2];
+            ScreenScale[1] = 0;
+        }
+        else if (sizemode == 2)
+        {
+            ScreenScale[0] = 0;
+            ScreenScale[1] = ScreenScale[2];
+        }
+    }
+
+    gap = ScreenGap;
 
     uiRect *topscreen, *bottomscreen;
     if (ScreenRotation == 1 || ScreenRotation == 2)
@@ -1111,7 +1146,6 @@ void Stop(bool internal)
     uiMenuItemDisable(MenuItem_Stop);
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 
-    memset(ScreenBuffer, 0, 256*384*4);
     uiAreaQueueRedrawAll(MainDrawArea);
 
     SDL_PauseAudioDevice(AudioDevice, 1);
@@ -1530,10 +1564,16 @@ void EnsureProperMinSize()
 {
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
-    int w0 = 256 * ScreenScale;
-    int h0 = 192 * ScreenScale;
-    int w1 = 256 * ScreenScale;
-    int h1 = 192 * ScreenScale;
+    int w0 = 256 << ScreenScale[2];
+    int h0 = 192 << ScreenScale[2];
+    int w1 = 256;
+    int h1 = 192;
+
+    if (ScreenScale[2] != 0 && (ScreenScaleMode != 1 || ScreenSizing == 0 || ScreenSizing == 3))
+    {
+        w1 <<= ScreenScale[2];
+        h1 <<= ScreenScale[2];
+    }
 
     if (ScreenLayout == 0) // natural
     {
@@ -1563,8 +1603,8 @@ void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
     int factor = *(int*)param;
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
-    int w = 256*factor * ScreenScale;
-    int h = 192*factor * ScreenScale;
+    int w = 256*factor;// * ScreenScale;
+    int h = 192*factor;// * ScreenScale;
 
     // FIXME
 
@@ -1701,7 +1741,14 @@ void ApplyNewSettings(int type)
     }
     else if (type == 2) // upscaling/video settings
     {
-        //
+        int scale = Config::ScreenScale;
+        if (scale != ScreenScale[2])
+        {
+            ScreenScale[2] = scale;
+
+            EnsureProperMinSize();
+            SetupScreenRects(WindowWidth, WindowHeight);
+        }
     }
 
     EmuRunning = prevstatus;
@@ -1984,7 +2031,7 @@ int main(int argc, char** argv)
     WindowHeight = h;
 
     //ScreenScale = 1;
-    ScreenScale = 2; // HAW HAW HAW
+    ScreenScale[2] = 0; // FIXME
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
@@ -2004,8 +2051,6 @@ int main(int argc, char** argv)
     uiMenuItemDisable(MenuItem_Pause);
     uiMenuItemDisable(MenuItem_Reset);
     uiMenuItemDisable(MenuItem_Stop);
-
-    ScreenMutex = SDL_CreateMutex();
 
     uiAreaHandler areahandler;
     areahandler.Draw = OnAreaDraw;
@@ -2144,8 +2189,6 @@ int main(int argc, char** argv)
     Config::ScreenSizing = ScreenSizing;
 
     Config::Save();
-
-    SDL_DestroyMutex(ScreenMutex);
 
     if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
     if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
