@@ -13,6 +13,7 @@ struct uiWindow {
 	int margined;
 	BOOL hasMenubar;
 	BOOL changingSize;
+	int maximized;
 	int fullscreen;
 	WINDOWPLACEMENT fsPrevPlacement;
 	int borderless;
@@ -248,9 +249,16 @@ static void uiWindowShow(uiControl *c)
 		return;
 	}
 	w->shownOnce = TRUE;
+
+	int cmd;
+	if (w->maximized)
+        cmd = SW_SHOWMAXIMIZED;
+	else
+        cmd = SW_SHOWDEFAULT;
+
 	// make sure the child is the correct size
 	uiWindowsControlMinimumSizeChanged(uiWindowsControl(w));
-	ShowWindow(w->hwnd, nCmdShow);
+	ShowWindow(w->hwnd, cmd);//nCmdShow);
 	if (UpdateWindow(w->hwnd) == 0)
 		logLastError(L"error calling UpdateWindow() after showing uiWindow for the first time");
 }
@@ -373,6 +381,36 @@ void uiWindowSetContentSize(uiWindow *w, int width, int height)
 		logLastError(L"error resizing window");
 	w->changingSize = FALSE;
 }
+
+int uiWindowMinimized(uiWindow *w)
+{
+    return IsIconic(w->hwnd);
+}
+
+void uiWindowSetMinimized(uiWindow *w, int minimized)
+{
+    if (minimized)
+        ShowWindow(w->hwnd, SW_MINIMIZE);
+    else if (w->maximized)
+        ShowWindow(w->hwnd, SW_MAXIMIZE);
+    else
+        ShowWindow(w->hwnd, SW_RESTORE);
+}
+
+int uiWindowMaximized(uiWindow *w)
+{
+    return IsZoomed(w->hwnd);
+}
+
+void uiWindowSetMaximized(uiWindow *w, int maximized)
+{
+    w->maximized = maximized;
+    if (maximized)
+        ShowWindow(w->hwnd, SW_MAXIMIZE);
+    else
+        ShowWindow(w->hwnd, SW_RESTORE);
+}
+
 
 int uiWindowFullscreen(uiWindow *w)
 {
@@ -517,11 +555,13 @@ static void setClientSize(uiWindow *w, int width, int height, BOOL hasMenubar, D
 		logLastError(L"error resizing window");
 }
 
-uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, int resizable)
+uiWindow *uiNewWindow(const char *title, int width, int height, int maximized, int hasMenubar, int resizable)
 {
 	uiWindow *w;
 	WCHAR *wtitle;
 	BOOL hasMenubarBOOL;
+
+	if (!resizable) maximized = 0;
 
 	uiWindowsNewControl(uiWindow, w);
 
@@ -558,6 +598,8 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 
 	// and use the proper size
 	setClientSize(w, width, height, hasMenubarBOOL, style, exstyle);
+
+	w->maximized = maximized;
 
 	uiWindowOnClosing(w, defaultOnClosing, NULL);
 	uiWindowOnContentSizeChanged(w, defaultOnPositionContentSizeChanged, NULL);

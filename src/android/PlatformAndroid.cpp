@@ -23,9 +23,11 @@
 #include <pthread.h>
 #include "../pcap/pcap.h"
 #include "../Platform.h"
-#include "../Config.h"
+#include "MelonDS.h"
+#include "PlatformConfig.h"
+#include "LAN_Socket.h"
+#include "LAN_PCap.h"
 
-#include <dlfcn.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -34,29 +36,14 @@
 #define socket_t    int
 #define sockaddr_t  struct sockaddr
 #define closesocket close
-#define PCAP_OPENFLAG_PROMISCUOUS 1
 
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET  (socket_t)-1
 #endif
 
-
-#define DECL_PCAP_FUNC(ret, name, args, args2) \
-    typedef ret (*type_##name) args; \
-    type_##name ptr_##name = NULL; \
-    ret name args { return ptr_##name args2; }
-
-DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
-DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
-DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
-DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
-DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
-DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
-DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
-
+extern char* EmuDirectory;
 
 void Stop(bool internal);
-
 
 namespace Platform
 {
@@ -108,6 +95,31 @@ namespace Platform
         Stop(true);
     }
 
+    FILE* OpenFile(const char* path, const char* mode, bool mustexist)
+    {
+        FILE* file = fopen(path, mode);
+
+        if (file)
+            return file;
+
+        return NULL;
+    }
+
+    FILE* OpenLocalFile(const char* path, const char* mode)
+    {
+        const char* configDir = MelonDSAndroid::configDir;
+
+        size_t configDirLength = strlen(configDir);
+        size_t configFileLength = configDirLength + strlen(path);
+        char* configFile = new char[configFileLength + 1];
+        strcpy(configFile, configDir);
+        strcpy(&configFile[configDirLength], path);
+        configFile[configFileLength] = '\0';
+
+        FILE* file = OpenFile(configFile, mode, false);
+        delete[] configFile;
+        return file;
+    }
 
     void* Thread_Create(void (*func)())
     {
@@ -308,85 +320,18 @@ namespace Platform
     }
 
 
-// LAN interface. Currently powered by libpcap, may change.
-
-#define LOAD_PCAP_FUNC(sym) \
-    ptr_##sym = (type_##sym)dlsym(lib, #sym); \
-    if (!ptr_##sym) return false;
-
-    bool TryLoadPCap(void* lib)
-    {
-        LOAD_PCAP_FUNC(pcap_findalldevs)
-        LOAD_PCAP_FUNC(pcap_freealldevs)
-        LOAD_PCAP_FUNC(pcap_open_live)
-        LOAD_PCAP_FUNC(pcap_close)
-        LOAD_PCAP_FUNC(pcap_setnonblock)
-        LOAD_PCAP_FUNC(pcap_sendpacket)
-        LOAD_PCAP_FUNC(pcap_dispatch)
-
-        return true;
-    }
 
     bool LAN_Init()
     {
-        PCapLib = NULL;
-        PCapAdapter = NULL;
-        PCapPacketLen = 0;
-        PCapRXNum = 0;
-
-        for (int i = 0; PCapLibNames[i]; i++)
+        if (Config::DirectLAN)
         {
-            void* lib = dlopen(PCapLibNames[i], RTLD_NOW | RTLD_GLOBAL);
-            if (!lib) continue;
-
-            if (!TryLoadPCap(lib))
-            {
-                dlclose(lib);
-                continue;
-            }
-
-            printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
-            PCapLib = lib;
-            break;
+            if (!LAN_PCap::Init(true))
+                return false;
         }
-
-        if (PCapLib == NULL)
+        else
         {
-            printf("PCap: init failed\n");
-            return false;
-        }
-
-        char errbuf[PCAP_ERRBUF_SIZE];
-        int ret;
-
-        pcap_if_t* alldevs;
-        ret = pcap_findalldevs(&alldevs, errbuf);
-        if (ret < 0 || alldevs == NULL)
-        {
-            printf("PCap: no devices available\n");
-            return false;
-        }
-/*while (alldevs){
-    printf("picking dev %08X %s | %s\n", alldevs->flags, alldevs->name, alldevs->description);
-    alldevs = alldevs->next;}*/
-        // temp hack
-        // TODO: ADAPTER SELECTOR!!
-        pcap_if_t* dev = alldevs->next;
-
-        PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
-        if (!PCapAdapter)
-        {
-            printf("PCap: failed to open adapter\n");
-            return false;
-        }
-
-        pcap_freealldevs(alldevs);
-
-        if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
-        {
-            printf("PCap: failed to set nonblocking mode\n");
-            pcap_close(PCapAdapter); PCapAdapter = NULL;
-            return false;
+            if (!LAN_Socket::Init())
+                return false;
         }
 
         return true;
@@ -394,60 +339,28 @@ namespace Platform
 
     void LAN_DeInit()
     {
-        if (PCapLib)
-        {
-            if (PCapAdapter)
-            {
-                pcap_close(PCapAdapter);
-                PCapAdapter = NULL;
-            }
-
-            dlclose(PCapLib);
-            PCapLib = NULL;
-        }
+        // checkme. blarg
+        //if (Config::DirectLAN)
+        //    LAN_PCap::DeInit();
+        //else
+        //    LAN_Socket::DeInit();
+        LAN_PCap::DeInit();
+        LAN_Socket::DeInit();
     }
 
     int LAN_SendPacket(u8* data, int len)
     {
-        if (PCapAdapter == NULL)
-            return 0;
-
-        if (len > 2048)
-        {
-            printf("LAN_SendPacket: error: packet too long (%d)\n", len);
-            return 0;
-        }
-
-        pcap_sendpacket(PCapAdapter, data, len);
-        // TODO: check success
-        return len;
-    }
-
-    void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
-    {
-        while (PCapRXNum > 0);
-
-        if (header->len > 2048-64) return;
-
-        PCapPacketLen = header->len;
-        memcpy(PCapPacketBuffer, data, PCapPacketLen);
-        PCapRXNum = 1;
+        if (Config::DirectLAN)
+            return LAN_PCap::SendPacket(data, len);
+        else
+            return LAN_Socket::SendPacket(data, len);
     }
 
     int LAN_RecvPacket(u8* data)
     {
-        if (PCapAdapter == NULL)
-            return 0;
-
-        int ret = 0;
-        if (PCapRXNum > 0)
-        {
-            memcpy(data, PCapPacketBuffer, PCapPacketLen);
-            ret = PCapPacketLen;
-            PCapRXNum = 0;
-        }
-
-        pcap_dispatch(PCapAdapter, 1, LAN_RXCallback, NULL);
-        return ret;
+        if (Config::DirectLAN)
+            return LAN_PCap::RecvPacket(data);
+        else
+            return LAN_Socket::RecvPacket(data);
     }
 }

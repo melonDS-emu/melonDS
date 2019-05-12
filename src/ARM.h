@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -42,12 +42,6 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    void SetClockShift(u32 shift)
-    {
-        ClockShift = shift;
-        ClockDiffMask = (1<<shift) - 1;
-    }
-
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
     void RestoreCPSR();
 
@@ -67,7 +61,7 @@ public:
         }
     }
 
-    virtual s32 Execute() = 0;
+    virtual void Execute() = 0;
 
     bool CheckCondition(u32 code)
     {
@@ -122,13 +116,7 @@ public:
 
     u32 Num;
 
-    // shift relative to system clock
-    // 0=33MHz 1=66MHz 2=133MHz
-    u32 ClockShift;
-    u32 ClockDiffMask;
-
     s32 Cycles;
-    s32 CyclesToRun;
     u32 Halted;
 
     u32 CodeRegion;
@@ -170,10 +158,10 @@ public:
     void PrefetchAbort();
     void DataAbort();
 
-    s32 Execute();
+    void Execute();
 
     // all code accesses are forced nonseq 32bit
-    u32 CodeRead32(u32 addr);
+    u32 CodeRead32(u32 addr, bool branch);
 
     void DataRead8(u32 addr, u32* val);
     void DataRead16(u32 addr, u32* val);
@@ -233,10 +221,18 @@ public:
 
     void UpdatePURegions();
 
+    u32 RandomLineIndex();
+
+    void ICacheLookup(u32 addr);
+    void ICacheInvalidateByAddr(u32 addr);
+    void ICacheInvalidateAll();
+
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id);
 
     u32 CP15Control;
+
+    u32 RNGSeed;
 
     u32 DTCMSetting, ITCMSetting;
 
@@ -244,6 +240,10 @@ public:
     u32 ITCMSize;
     u8 DTCM[0x4000];
     u32 DTCMBase, DTCMSize;
+
+    u8 ICache[0x2000];
+    u32 ICacheTags[64*4];
+    u8 ICacheCount[64];
 
     u32 PU_CodeCacheable;
     u32 PU_DataCacheable;
@@ -265,6 +265,7 @@ public:
     u8 MemTimings[0x100000][4];
 
     s32 RegionCodeCycles;
+    u8* CurICacheLine;
 };
 
 class ARMv4 : public ARM
@@ -274,7 +275,7 @@ public:
 
     void JumpTo(u32 addr, bool restorecpsr = false);
 
-    s32 Execute();
+    void Execute();
 
     u16 CodeRead16(u32 addr)
     {

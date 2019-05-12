@@ -137,18 +137,7 @@ void invalidateRect(HWND hwnd, RECT *r, BOOL erase)
 		logLastError(L"error invalidating window rect");
 }
 
-// that damn ABI bug is never going to escape me is it
 D2D1_SIZE_F realGetSize(ID2D1RenderTarget *rt)
 {
-#ifdef _MSC_VER
 	return rt->GetSize();
-#else
-	D2D1_SIZE_F size;
-	typedef D2D1_SIZE_F *(__stdcall ID2D1RenderTarget::* GetSizeF)(D2D1_SIZE_F *);
-	GetSizeF gs;
-
-	gs = (GetSizeF) (&(rt->GetSize));
-	(rt->*gs)(&size);
-	return size;
-#endif
 }

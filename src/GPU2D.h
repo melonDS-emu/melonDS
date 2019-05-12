@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -29,6 +29,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
+    void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
 
     u8 Read8(u32 addr);
@@ -64,6 +65,7 @@ public:
 
 private:
     u32 Num;
+    bool Enabled;
     u32* Framebuffer;
 
     u16 DispFIFO[16];
@@ -112,8 +114,8 @@ private:
     u32 BGExtPalStatus[4];
     u32 OBJExtPalStatus;
 
-    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst);
-    void DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst);
+    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst);
+    void DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst);
     void DrawScanline_Mode1(u32 line, u32* dst);
 
     void DrawPixel(u32* dst, u16 color, u32 flag);
@@ -125,7 +127,7 @@ private:
     void DrawBG_Large(u32 line, u32* dst);
 
     void InterleaveSprites(u32* buf, u32 prio, u32* dst);
-    void DrawSprites(u32 line, u32* dst);
+    u32 DrawSprites(u32 line, u32* dst);
     void DrawSpritesWindow(u32 line, u8* dst);
     template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos, u32* dst);
     template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos, u32* dst);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -22,13 +22,13 @@
 #include <stdio.h>
 #include "types.h"
 
-#define SAVESTATE_MAJOR 3
+#define SAVESTATE_MAJOR 4
 #define SAVESTATE_MINOR 0
 
 class Savestate
 {
 public:
-    Savestate(char* filename, bool save);
+    Savestate(const char* filename, bool save);
     ~Savestate();
 
     bool Error;
@@ -39,7 +39,7 @@ public:
 
     u32 CurSection;
 
-    void Section(char* magic);
+    void Section(const char* magic);
 
     void Var8(u8* var);
     void Var16(u16* var);

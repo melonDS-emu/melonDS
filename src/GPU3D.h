@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -54,6 +54,8 @@ typedef struct
     u32 TexParam;
     u32 TexPalette;
 
+    bool Degenerate;
+
     bool FacingView;
     bool Translucent;
 
@@ -82,16 +84,20 @@ extern u32 RenderClearAttr1, RenderClearAttr2;
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
+extern u64 Timestamp;
+
 bool Init();
 void DeInit();
 void Reset();
 
 void DoSavestate(Savestate* file);
 
+void SetEnabled(bool geometry, bool rendering);
+
 void ExecuteCommand();
 
 s32 CyclesToRunFor();
-void Run(s32 cycles);
+void Run();
 void CheckFIFOIRQ();
 void CheckFIFODMA();
 

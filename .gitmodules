@@ -1,3 +1,3 @@
 [submodule "oboe"]
-	path = oboe
+	path = src/android/oboe
 	url = https://github.com/google/oboe.git

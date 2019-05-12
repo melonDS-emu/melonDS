@@ -209,6 +209,34 @@ void uiWindowSetContentSize(uiWindow *w, int width, int height)
 	gtk_window_resize(w->window, winWidth, winHeight);
 }
 
+int uiWindowMinimized(uiWindow *w)
+{
+    // TODO!!
+    return 0;
+}
+
+void uiWindowSetMinimized(uiWindow *w, int minimized)
+{
+    if (minimized)
+        gtk_window_iconify(w->window);
+    else
+        gtk_window_deiconify(w->window);
+}
+
+int uiWindowMaximized(uiWindow *w)
+{
+    return gtk_window_is_maximized(w->window);
+}
+
+void uiWindowSetMaximized(uiWindow *w, int maximized)
+{
+    if (maximized)
+        gtk_window_maximize(w->window);
+    else
+        gtk_window_unmaximize(w->window);
+}
+
+
 int uiWindowFullscreen(uiWindow *w)
 {
 	return w->fullscreen;
@@ -344,9 +372,11 @@ void uiWindowSetDropTarget(uiWindow* w, int drop)
     g_signal_connect(w->widget, "drag-data-received", G_CALLBACK(onDragDataReceived), w);
 }
 
-uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, int resizable)
+uiWindow *uiNewWindow(const char *title, int width, int height, int maximized, int hasMenubar, int resizable)
 {
 	uiWindow *w;
+	
+	if (!resizable) maximized = 0;
 
 	uiUnixNewControl(uiWindow, w);
 
@@ -404,6 +434,11 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int hasMenubar, 
 	
 	w->width = width;
 	w->height = height;
+	
+	if (maximized)
+	    gtk_window_maximize(w->window);
+	else
+	    gtk_window_set_position(w->window, GTK_WIN_POS_CENTER);
 
 	return w;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,12 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef MELON_FOPEN_H
-#define MELON_FOPEN_H
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "PlatformConfig.h"
 
-#include <cstdio>
+namespace Config
+{
+    int SocketBindAnyAddr;
+    char LANDevice[128];
+    int DirectLAN;
 
-FILE* melon_fopen(const char* filename, const char* perm);
-FILE* melon_fopen_local(const char* filename, const char* perm);
-
-#endif // MELON_FOPEN_H
+    ConfigEntry PlatformConfigFile[] =
+            {
+            };
+}

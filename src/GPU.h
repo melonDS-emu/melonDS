@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -387,7 +387,7 @@ T ReadVRAM_TexPal(u32 addr)
 }
 
 
-void DisplaySwap(u32 val);
+void SetPowerCnt(u32 val);
 
 void StartFrame();
 void FinishFrame(u32 lines);

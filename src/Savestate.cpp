@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -18,7 +18,7 @@
 
 #include <stdio.h>
 #include "Savestate.h"
-#include "melon_fopen.h"
+#include "Platform.h"
 
 /*
     Savestate format
@@ -47,16 +47,16 @@
     * different minor means adjustments may have to be made
 */
 
-Savestate::Savestate(char* filename, bool save)
+Savestate::Savestate(const char* filename, bool save)
 {
-    char* magic = "MELN";
+    const char* magic = "MELN";
 
     Error = false;
 
     if (save)
     {
         Saving = true;
-        file = melon_fopen(filename, "wb");
+        file = Platform::OpenFile(filename, "wb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);
@@ -75,7 +75,7 @@ Savestate::Savestate(char* filename, bool save)
     else
     {
         Saving = false;
-        file = melon_fopen(filename, "rb");
+        file = Platform::OpenFile(filename, "rb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);
@@ -153,7 +153,7 @@ Savestate::~Savestate()
     if (file) fclose(file);
 }
 
-void Savestate::Section(char* magic)
+void Savestate::Section(const char* magic)
 {
     if (Error) return;
 

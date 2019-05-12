@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -91,6 +91,7 @@
 //   and imposes rules on when further vertex commands can run
 //   (one every 9-cycle time slot during polygon setup)
 //   polygon setup time is 27 cycles for a triangle and 36 for a quad
+//   except: only one time slot is taken if the polygon is rejected by culling/clipping
 // * additionally, some commands (BEGIN, LIGHT_VECTOR, BOXTEST) stall the polygon pipeline
 
 
@@ -152,6 +153,9 @@ FIFO<CmdFIFOEntry>* CmdStallQueue;
 
 u32 NumCommands, CurCommand, ParamCount, TotalParams;
 
+bool GeometryEnabled;
+bool RenderingEnabled;
+
 u32 DispCnt;
 u8 AlphaRefVal, AlphaRef;
 
@@ -179,6 +183,7 @@ u32 GXStat;
 u32 ExecParams[32];
 u32 ExecParamCount;
 
+u64 Timestamp;
 s32 CycleCount;
 s32 VertexPipeline;
 s32 NormalPipeline;
@@ -285,6 +290,25 @@ void DeInit()
     delete CmdStallQueue;
 }
 
+void ResetRenderingState()
+{
+    RenderNumPolygons = 0;
+
+    RenderDispCnt = 0;
+    RenderAlphaRef = 0;
+
+    memset(RenderEdgeTable, 0, 8*2);
+    memset(RenderToonTable, 0, 32*2);
+
+    RenderFogColor = 0;
+    RenderFogOffset = 0;
+    RenderFogShift = 0;
+    memset(RenderFogDensityTable, 0, 34);
+
+    RenderClearAttr1 = 0x3F000000;
+    RenderClearAttr2 = 0x00007FFF;
+}
+
 void Reset()
 {
     CmdFIFO->Clear();
@@ -308,6 +332,7 @@ void Reset()
     memset(ExecParams, 0, 32*4);
     ExecParamCount = 0;
 
+    Timestamp = 0;
     CycleCount = 0;
     VertexPipeline = 0;
     NormalPipeline = 0;
@@ -356,6 +381,7 @@ void Reset()
     FlushRequest = 0;
     FlushAttributes = 0;
 
+    ResetRenderingState();
     SoftRenderer::Reset();
 }
 
@@ -382,6 +408,7 @@ void DoSavestate(Savestate* file)
     file->VarArray(ExecParams, 32*4);
     file->Var32(&ExecParamCount);
     file->Var32((u32*)&CycleCount);
+    file->Var64(&Timestamp);
 
     file->Var32(&MatrixMode);
 
@@ -514,6 +541,19 @@ void DoSavestate(Savestate* file)
         file->Var32((u32*)&poly->XBottom);
 
         file->Var32(&poly->SortKey);
+
+        if (!file->Saving)
+        {
+            poly->Degenerate = false;
+
+            for (int j = 0; j < poly->NumVertices; j++)
+            {
+                if (poly->Vertices[j]->Position[3] == 0)
+                    poly->Degenerate = true;
+            }
+
+            if (poly->YBottom > 192) poly->Degenerate = true;
+        }
     }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
@@ -552,6 +592,16 @@ void DoSavestate(Savestate* file)
         // might cause a blank frame but atleast it won't shit itself
         RenderNumPolygons = 0;
     }
+}
+
+
+
+void SetEnabled(bool geometry, bool rendering)
+{
+    GeometryEnabled = geometry;
+    RenderingEnabled = rendering;
+
+    if (!rendering) ResetRenderingState();
 }
 
 
@@ -912,16 +962,14 @@ int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
     // some vertices that should get Y=-0x1000 get Y=0x1000 for some reason on hardware. it doesn't make sense.
     // clipping seems to process the Y plane before the X plane.
 
-    // also, polygons with any negative W are completely rejected. (TODO)
-
-    // X clipping
-    nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);
+    // Z clipping
+    nverts = ClipAgainstPlane<2, attribs>(vertices, nverts, clipstart);
 
     // Y clipping
     nverts = ClipAgainstPlane<1, attribs>(vertices, nverts, clipstart);
 
-    // Z clipping
-    nverts = ClipAgainstPlane<2, attribs>(vertices, nverts, clipstart);
+    // X clipping
+    nverts = ClipAgainstPlane<0, attribs>(vertices, nverts, clipstart);
 
     return nverts;
 }
@@ -937,20 +985,11 @@ void SubmitPolygon()
     int prev, next;
 
     // submitting a polygon starts the polygon pipeline
-    if (nverts == 4)
-    {
-        PolygonPipeline = 35;
-        VertexSlotCounter = 1;
-        if (PolygonMode & 0x2) VertexSlotsFree = 0b11100;
-        else                   VertexSlotsFree = 0b11110;
-    }
-    else
-    {
-        PolygonPipeline = 26;
-        VertexSlotCounter = 1;
-        if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
-        else                   VertexSlotsFree = 0b1110;
-    }
+    // noting that for now we are only reserving one vertex slot
+    // further slots only get reserved if the polygon makes it through culling/clipping
+    PolygonPipeline = 8;
+    VertexSlotCounter = 1;
+    VertexSlotsFree = 0b11110;
 
     // culling
     // TODO: work out how it works on the real thing
@@ -1058,6 +1097,21 @@ void SubmitPolygon()
 
     // build the actual polygon
 
+    if (nverts == 4)
+    {
+        PolygonPipeline = 35;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b11100;
+        else                   VertexSlotsFree = 0b11110;
+    }
+    else
+    {
+        PolygonPipeline = 26;
+        VertexSlotCounter = 1;
+        if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
+        else                   VertexSlotsFree = 0b1110;
+    }
+
     if (NumPolygons >= 2048 || NumVertices+nverts > 6144)
     {
         LastStripPolygon = NULL;
@@ -1071,6 +1125,8 @@ void SubmitPolygon()
     poly->Attr = CurPolygonAttr;
     poly->TexParam = TexParam;
     poly->TexPalette = TexPalette;
+
+    poly->Degenerate = false;
 
     poly->FacingView = facingview;
 
@@ -1113,6 +1169,10 @@ void SubmitPolygon()
 
         NumVertices++;
         poly->NumVertices++;
+
+        // W is truncated to 24 bits at this point
+        // if this W is zero, the polygon isn't rendered
+        vtx->Position[3] &= 0x00FFFFFF;
 
         // viewport transform
         s32 posX, posY;
@@ -1167,6 +1227,8 @@ void SubmitPolygon()
         }
 
         u32 w = (u32)vtx->Position[3];
+        if (w == 0) poly->Degenerate = true;
+
         while ((w >> wsize) && (wsize < 32))
             wsize += 4;
     }
@@ -1174,6 +1236,8 @@ void SubmitPolygon()
     poly->VTop = vtop; poly->VBottom = vbot;
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
+
+    if (ybot > 192) poly->Degenerate = true;
 
     poly->SortKey = (ybot << 8) | ytop;
     if (poly->Translucent) poly->SortKey |= 0x10000;
@@ -1638,6 +1702,7 @@ void ExecuteCommand()
             // commands that can run 6 cycles after a vertex
             if (VertexPipeline > 2) AddCycles((VertexPipeline - 2) + 1);
             else                    AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
 
         case 0x29:
@@ -1651,12 +1716,14 @@ void ExecuteCommand()
             // command that can run 8 cycles after a vertex
             if (VertexPipeline > 0) AddCycles(VertexPipeline + 1);
             else                    AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
 
         default:
             // all other commands can run 4 cycles after a vertex
             // no need to do much here since that is the minimum
             AddCycles(NormalPipeline + 1);
+            NormalPipeline = 0;
             break;
         }
     }
@@ -2208,14 +2275,18 @@ void FinishWork(s32 cycles)
     GXStat &= ~(1<<27);
 }
 
-void Run(s32 cycles)
+void Run()
 {
-    if (FlushRequest)
+    if (!GeometryEnabled || FlushRequest ||
+        (CmdPIPE->IsEmpty() && !(GXStat & (1<<27))))
+    {
+        Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
         return;
-    if (CmdPIPE->IsEmpty() && !(GXStat & (1<<27)))
-        return;
+    }
 
+    s32 cycles = (NDS::ARM9Timestamp >> NDS::ARM9ClockShift) - Timestamp;
     CycleCount -= cycles;
+    Timestamp = NDS::ARM9Timestamp >> NDS::ARM9ClockShift;
 
     if (CycleCount <= 0)
     {
@@ -2278,56 +2349,65 @@ bool YSort(Polygon* a, Polygon* b)
 
 void VBlank()
 {
-    if (FlushRequest)
+    if (GeometryEnabled)
     {
-        if (NumPolygons)
+        if (RenderingEnabled)
         {
-            // separate translucent polygons from opaque ones
-
-            u32 io = 0, it = NumOpaquePolygons;
-            for (u32 i = 0; i < NumPolygons; i++)
+            if (FlushRequest)
             {
-                Polygon* poly = &CurPolygonRAM[i];
-                if (poly->Translucent)
-                    RenderPolygonRAM[it++] = poly;
-                else
-                    RenderPolygonRAM[io++] = poly;
+                if (NumPolygons)
+                {
+                    // separate translucent polygons from opaque ones
+
+                    u32 io = 0, it = NumOpaquePolygons;
+                    for (u32 i = 0; i < NumPolygons; i++)
+                    {
+                        Polygon* poly = &CurPolygonRAM[i];
+                        if (poly->Translucent)
+                            RenderPolygonRAM[it++] = poly;
+                        else
+                            RenderPolygonRAM[io++] = poly;
+                    }
+
+                    // apply Y-sorting
+
+                    std::stable_sort(RenderPolygonRAM.begin(),
+                        RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
+                        YSort);
+                }
+
+                RenderNumPolygons = NumPolygons;
             }
 
-            // apply Y-sorting
+            RenderDispCnt = DispCnt;
+            RenderAlphaRef = AlphaRef;
 
-            std::stable_sort(RenderPolygonRAM.begin(),
-                RenderPolygonRAM.begin() + ((FlushAttributes & 0x1) ? NumOpaquePolygons : NumPolygons),
-                YSort);
+            memcpy(RenderEdgeTable, EdgeTable, 8*2);
+            memcpy(RenderToonTable, ToonTable, 32*2);
+
+            RenderFogColor = FogColor;
+            RenderFogOffset = FogOffset * 0x200;
+            RenderFogShift = (RenderDispCnt >> 8) & 0xF;
+            RenderFogDensityTable[0] = FogDensityTable[0];
+            memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
+            RenderFogDensityTable[33] = FogDensityTable[31];
+
+            RenderClearAttr1 = ClearAttr1;
+            RenderClearAttr2 = ClearAttr2;
         }
 
-        RenderNumPolygons = NumPolygons;
+        if (FlushRequest)
+        {
+            CurRAMBank = CurRAMBank?0:1;
+            CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
+            CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
 
-        RenderDispCnt = DispCnt;
-        RenderAlphaRef = AlphaRef;
+            NumVertices = 0;
+            NumPolygons = 0;
+            NumOpaquePolygons = 0;
 
-        memcpy(RenderEdgeTable, EdgeTable, 8*2);
-        memcpy(RenderToonTable, ToonTable, 32*2);
-
-        RenderFogColor = FogColor;
-        RenderFogOffset = FogOffset * 0x200;
-        RenderFogShift = (RenderDispCnt >> 8) & 0xF;
-        RenderFogDensityTable[0] = FogDensityTable[0];
-        memcpy(&RenderFogDensityTable[1], FogDensityTable, 32);
-        RenderFogDensityTable[33] = FogDensityTable[31];
-
-        RenderClearAttr1 = ClearAttr1;
-        RenderClearAttr2 = ClearAttr2;
-
-        CurRAMBank = CurRAMBank?0:1;
-        CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
-        CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
-
-        NumVertices = 0;
-        NumPolygons = 0;
-        NumOpaquePolygons = 0;
-
-        FlushRequest = 0;
+            FlushRequest = 0;
+        }
     }
 }
 
@@ -2391,21 +2471,27 @@ u8 Read8(u32 addr)
     switch (addr)
     {
     case 0x04000600:
+        Run();
         return GXStat & 0xFF;
     case 0x04000601:
         {
+            Run();
             return ((GXStat >> 8) & 0xFF) |
                    (PosMatrixStackPointer & 0x1F) |
                    ((ProjMatrixStackPointer & 0x1) << 5);
         }
     case 0x04000602:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return fifolevel & 0xFF;
         }
     case 0x04000603:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return ((GXStat >> 24) & 0xFF) |
@@ -2431,12 +2517,16 @@ u16 Read16(u32 addr)
 
     case 0x04000600:
         {
+            Run();
+
             return (GXStat & 0xFFFF) |
                    ((PosMatrixStackPointer & 0x1F) << 8) |
                    ((ProjMatrixStackPointer & 0x1) << 13);
         }
     case 0x04000602:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return (GXStat >> 16) |
@@ -2471,6 +2561,8 @@ u32 Read32(u32 addr)
 
     case 0x04000600:
         {
+            Run();
+
             u32 fifolevel = CmdFIFO->Level();
 
             return GXStat |
@@ -2512,6 +2604,9 @@ u32 Read32(u32 addr)
 
 void Write8(u32 addr, u8 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000340:
@@ -2547,6 +2642,9 @@ void Write8(u32 addr, u8 val)
 
 void Write16(u32 addr, u16 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000060:
@@ -2626,6 +2724,9 @@ void Write16(u32 addr, u16 val)
 
 void Write32(u32 addr, u32 val)
 {
+    if (!RenderingEnabled && addr >= 0x04000320 && addr < 0x04000400) return;
+    if (!GeometryEnabled  && addr >= 0x04000400 && addr < 0x04000700) return;
+
     switch (addr)
     {
     case 0x04000060:

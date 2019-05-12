@@ -26,12 +26,15 @@
 					<Add library="advapi32" />
 					<Add library="wsock32" />
 					<Add library="oleacc" />
+					<Add library="ole32" />
 					<Add library="usp10" />
 					<Add library="gdi32" />
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
-					<Add library="ole32" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="Release Windows">
@@ -61,6 +64,9 @@
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="DebugFast Windows">
@@ -89,6 +95,9 @@
 					<Add library="d2d1" />
 					<Add library="dwrite" />
 					<Add library="uxtheme" />
+					<Add library="iphlpapi" />
+					<Add library="user32" />
+					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 		</Build>
@@ -150,7 +159,15 @@
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
+		<Unit filename="src/libui_sdl/DlgWifiSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgWifiSettings.h" />
+		<Unit filename="src/libui_sdl/LAN_PCap.cpp" />
+		<Unit filename="src/libui_sdl/LAN_PCap.h" />
+		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
+		<Unit filename="src/libui_sdl/LAN_Socket.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
+		<Unit filename="src/libui_sdl/PlatformConfig.cpp" />
+		<Unit filename="src/libui_sdl/PlatformConfig.h" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -236,8 +253,6 @@
 		<Unit filename="src/libui_sdl/libui/windows/winpublic.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
-		<Unit filename="src/melon_fopen.cpp" />
-		<Unit filename="src/melon_fopen.h" />
 		<Unit filename="src/pcap/bluetooth.h" />
 		<Unit filename="src/pcap/bpf.h" />
 		<Unit filename="src/pcap/can_socketcan.h" />

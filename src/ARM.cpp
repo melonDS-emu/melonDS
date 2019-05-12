@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -61,8 +61,6 @@ ARM::ARM(u32 num)
 {
     // well uh
     Num = num;
-
-    SetClockShift(0); // safe default
 }
 
 ARM::~ARM()
@@ -110,7 +108,7 @@ void ARM::DoSavestate(Savestate* file)
     file->Section((char*)(Num ? "ARM7" : "ARM9"));
 
     file->Var32((u32*)&Cycles);
-    file->Var32((u32*)&CyclesToRun);
+    //file->Var32((u32*)&CyclesToRun);
     file->Var32(&Halted);
 
     file->VarArray(R, 16*sizeof(u32));
@@ -176,13 +174,17 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
     // R0=DMA# R1=src R2=size
+    //if (addr==0x02019A88) printf("[%08X] [%03d] GX FIFO CMD %08X\n", R[15], NDS::ARM9Read16(0x04000006), R[0]);
+    //if (addr==0x02022A5C) printf("[%08X] [%03d|%04X] RENDE SHITO %08X\n", R[15], NDS::ARM9Read16(0x04000006), NDS::ARM9Read16(0x04000304), R[0]);
+    /*if (addr==0x0204BE29) printf("%08X -> recvfrom\n", R[15]);
+    if (R[15]==0x0204BE5E) printf("recvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
+    if (R[15]==0x0205038A) printf("sgrecvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
+    if (addr==0x02050379 || addr==0x0205036D) printf("morp %08X->%08X, %d\n", R[15], addr, R[7]);*/
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
 
     RegionCodeCycles = MemTimings[addr >> 12][0];
-
-    s32 cycles;
 
     if (addr & 0x1)
     {
@@ -195,15 +197,16 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         // doesn't matter if we put garbage in the MSbs there
         if (addr & 0x2)
         {
-            NextInstr[0] = CodeRead32(addr-2) >> 16;
-            NextInstr[1] = CodeRead32(addr+2);
-            cycles = CodeCycles * 2;
+            NextInstr[0] = CodeRead32(addr-2, true) >> 16;
+            Cycles += CodeCycles;
+            NextInstr[1] = CodeRead32(addr+2, false);
+            Cycles += CodeCycles;
         }
         else
         {
-            NextInstr[0] = CodeRead32(addr);
+            NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            cycles = CodeCycles;
+            Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -215,9 +218,10 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
         if (newregion != oldregion) SetupCodeMem(addr);
 
-        NextInstr[0] = CodeRead32(addr);
-        NextInstr[1] = CodeRead32(addr+4);
-        cycles = CodeCycles * 2;
+        NextInstr[0] = CodeRead32(addr, true);
+        Cycles += CodeCycles;
+        NextInstr[1] = CodeRead32(addr+4, false);
+        Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -231,8 +235,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         PrefetchAbort();
         return;
     }*/
-
-    Cycles += cycles;
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
@@ -450,7 +452,7 @@ void ARMv5::DataAbort()
     JumpTo(ExceptionBase + 0x10);
 }
 
-s32 ARMv5::Execute()
+void ARMv5::Execute()
 {
     if (Halted)
     {
@@ -466,19 +468,12 @@ s32 ARMv5::Execute()
         }
         else
         {
-            Cycles = CyclesToRun;
-#ifdef DEBUG_CHECK_DESYNC
-            NDS::dbg_CyclesARM9 += (CyclesToRun >> ClockShift);
-#endif // DEBUG_CHECK_DESYNC
-            //NDS::RunTightTimers(0, CyclesToRun >> ClockShift);
-            return Cycles;
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            return;
         }
     }
 
-    Cycles = 0;
-    s32 lastcycles = 0;
-
-    while (Cycles < CyclesToRun)
+    while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
         if (CPSR & 0x20) // THUMB
         {
@@ -487,7 +482,7 @@ s32 ARMv5::Execute()
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
             if (R[15] & 0x2) { NextInstr[1] >>= 16; CodeCycles = 0; }
-            else             NextInstr[1] = CodeRead32(R[15]);
+            else             NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
@@ -499,7 +494,7 @@ s32 ARMv5::Execute()
             R[15] += 4;
             CurInstr = NextInstr[0];
             NextInstr[0] = NextInstr[1];
-            NextInstr[1] = CodeRead32(R[15]);
+            NextInstr[1] = CodeRead32(R[15], false);
 
             // actually execute
             if (CheckCondition(CurInstr >> 28))
@@ -515,19 +510,12 @@ s32 ARMv5::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
-        //NDS::RunTightTimers(0, diff >> ClockShift);
-        //lastcycles = Cycles - (diff & ClockDiffMask);
-
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1 && Cycles < CyclesToRun)
+            if (Halted == 1 && NDS::ARM9Timestamp < NDS::ARM9Target)
             {
-                //s32 diff = CyclesToRun - Cycles;
-                Cycles = CyclesToRun;
-                //NDS::RunTightTimers(0, diff >> ClockShift);
-                //arm9timer += (diff>>1);
+                NDS::ARM9Timestamp = NDS::ARM9Target;
             }
             break;
         }
@@ -536,24 +524,16 @@ s32 ARMv5::Execute()
             if (NDS::IME[0] & 0x1)
                 TriggerIRQ();
         }
+
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
-
-    /*if (Cycles > lastcycles)
-    {
-        //s32 diff = Cycles - lastcycles;arm9timer+=(diff>>1);
-        //NDS::RunTightTimers(0, diff >> ClockShift);
-    }*/
-#ifdef DEBUG_CHECK_DESYNC
-    NDS::dbg_CyclesARM9 += (Cycles >> ClockShift);
-#endif // DEBUG_CHECK_DESYNC
-
-    return Cycles;
 }
 
-s32 ARMv4::Execute()
+void ARMv4::Execute()
 {
     if (Halted)
     {
@@ -569,19 +549,12 @@ s32 ARMv4::Execute()
         }
         else
         {
-            Cycles = CyclesToRun;
-#ifdef DEBUG_CHECK_DESYNC
-            NDS::dbg_CyclesARM7 += CyclesToRun;
-#endif // DEBUG_CHECK_DESYNC
-            //NDS::RunTightTimers(1, CyclesToRun);
-            return Cycles;
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            return;
         }
     }
 
-    Cycles = 0;
-    s32 lastcycles = 0;
-
-    while (Cycles < CyclesToRun)
+    while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
         if (CPSR & 0x20) // THUMB
         {
@@ -613,19 +586,12 @@ s32 ARMv4::Execute()
                 AddCycles_C();
         }
 
-        //s32 diff = Cycles - lastcycles;arm7timer+=diff;
-        //NDS::RunTightTimers(1, diff);
-        //lastcycles = Cycles;
-
         // TODO optimize this shit!!!
         if (Halted)
         {
-            if (Halted == 1 && Cycles < CyclesToRun)
+            if (Halted == 1 && NDS::ARM7Timestamp < NDS::ARM7Target)
             {
-                //s32 diff = CyclesToRun - Cycles;
-                Cycles = CyclesToRun;
-                //NDS::RunTightTimers(1, diff);
-                //arm7timer += diff;
+                NDS::ARM7Timestamp = NDS::ARM7Target;
             }
             break;
         }
@@ -634,20 +600,11 @@ s32 ARMv4::Execute()
             if (NDS::IME[1] & 0x1)
                 TriggerIRQ();
         }
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
-
-    /*if (Cycles > lastcycles)
-    {
-        //s32 diff = Cycles - lastcycles;arm7timer+=(diff);
-        //NDS::RunTightTimers(1, diff);
-    }*/
-
-#ifdef DEBUG_CHECK_DESYNC
-    NDS::dbg_CyclesARM7 += Cycles;
-#endif // DEBUG_CHECK_DESYNC
-
-    return Cycles;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -220,6 +220,20 @@ u8 GPU2D::Read8(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
+    case 0x000: return DispCnt & 0xFF;
+    case 0x001: return (DispCnt >> 8) & 0xFF;
+    case 0x002: return (DispCnt >> 16) & 0xFF;
+    case 0x003: return DispCnt >> 24;
+
+    case 0x008: return BGCnt[0] & 0xFF;
+    case 0x009: return BGCnt[0] >> 8;
+    case 0x00A: return BGCnt[1] & 0xFF;
+    case 0x00B: return BGCnt[1] >> 8;
+    case 0x00C: return BGCnt[2] & 0xFF;
+    case 0x00D: return BGCnt[2] >> 8;
+    case 0x00E: return BGCnt[3] & 0xFF;
+    case 0x00F: return BGCnt[3] >> 8;
+
     case 0x048: return WinCnt[0];
     case 0x049: return WinCnt[1];
     case 0x04A: return WinCnt[2];
@@ -234,8 +248,8 @@ u16 GPU2D::Read16(u32 addr)
 {
     switch (addr & 0x00000FFF)
     {
-    case 0x000: return DispCnt&0xFFFF;
-    case 0x002: return DispCnt>>16;
+    case 0x000: return DispCnt & 0xFFFF;
+    case 0x002: return DispCnt >> 16;
 
     case 0x008: return BGCnt[0];
     case 0x00A: return BGCnt[1];
@@ -273,6 +287,8 @@ u32 GPU2D::Read32(u32 addr)
 
 void GPU2D::Write8(u32 addr, u8 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000: DispCnt = (DispCnt & 0xFFFFFF00) | val; return;
@@ -353,6 +369,8 @@ void GPU2D::Write8(u32 addr, u8 val)
 
 void GPU2D::Write16(u32 addr, u16 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000: DispCnt = (DispCnt & 0xFFFF0000) | val; return;
@@ -482,6 +500,8 @@ void GPU2D::Write16(u32 addr, u16 val)
 
 void GPU2D::Write32(u32 addr, u32 val)
 {
+    if (!Enabled) return;
+
     switch (addr & 0x00000FFF)
     {
     case 0x000:
@@ -542,19 +562,21 @@ void GPU2D::DrawScanline(u32 line)
 
     line = GPU::VCount;
 
+    bool forceblank = false;
+
     // scanlines that end up outside of the GPU drawing range
     // (as a result of writing to VCount) are filled white
-    if (line > 192)
-    {
-        for (int i = 0; i < 256; i++)
-            dst[i] = 0xFFFFFFFF;
+    if (line > 192) forceblank = true;
 
-        return;
-    }
+    // GPU B can be completely disabled by POWCNT1
+    // oddly that's not the case for GPU A
+    if (Num && !Enabled) forceblank = true;
 
     // forced blank
     // (checkme: are there still things that can run under this mode? likely not)
-    if (DispCnt & (1<<7))
+    if (DispCnt & (1<<7)) forceblank = true;
+
+    if (forceblank)
     {
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
@@ -1025,7 +1047,7 @@ void GPU2D::CalculateWindowMask(u32 line, u8* mask)
 
 
 template<u32 bgmode>
-void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -1070,12 +1092,12 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32* spritebuf, u32* dst)
                     DrawBG_Text(line, dst, 0);
             }
         }
-        if (DispCnt & 0x1000)
+        if ((DispCnt & 0x1000) && nsprites)
             InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
     }
 }
 
-void GPU2D::DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst)
+void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites, u32* spritebuf, u32* dst)
 {
     if (Num)
     {
@@ -1100,7 +1122,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32* spritebuf, u32* dst)
                     DrawBG_3D(line, dst);
             }
         }
-        if (DispCnt & 0x1000)
+        if ((DispCnt & 0x1000) && nsprites)
             InterleaveSprites(spritebuf, 0x8000 | (i<<16), dst);
     }
 }
@@ -1131,20 +1153,20 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
         memset(windowmask, 0xFF, 256);
 
     // prerender sprites
-    u32 spritebuf[256];
+    u32 spritebuf[256]; u32 nsprites = 0;
     memset(spritebuf, 0, 256*4);
-    if (DispCnt & 0x1000) DrawSprites(line, spritebuf);
+    if (DispCnt & 0x1000) nsprites = DrawSprites(line, spritebuf);
 
     // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
-    case 0: DrawScanlineBGMode<0>(line, spritebuf, linebuf); break;
-    case 1: DrawScanlineBGMode<1>(line, spritebuf, linebuf); break;
-    case 2: DrawScanlineBGMode<2>(line, spritebuf, linebuf); break;
-    case 3: DrawScanlineBGMode<3>(line, spritebuf, linebuf); break;
-    case 4: DrawScanlineBGMode<4>(line, spritebuf, linebuf); break;
-    case 5: DrawScanlineBGMode<5>(line, spritebuf, linebuf); break;
-    case 6: DrawScanlineBGMode6(line, spritebuf, linebuf); break;
+    case 0: DrawScanlineBGMode<0>(line, nsprites, spritebuf, linebuf); break;
+    case 1: DrawScanlineBGMode<1>(line, nsprites, spritebuf, linebuf); break;
+    case 2: DrawScanlineBGMode<2>(line, nsprites, spritebuf, linebuf); break;
+    case 3: DrawScanlineBGMode<3>(line, nsprites, spritebuf, linebuf); break;
+    case 4: DrawScanlineBGMode<4>(line, nsprites, spritebuf, linebuf); break;
+    case 5: DrawScanlineBGMode<5>(line, nsprites, spritebuf, linebuf); break;
+    case 6: DrawScanlineBGMode6(line, nsprites, spritebuf, linebuf); break;
     }
 
     // color special effects
@@ -1210,21 +1232,27 @@ void GPU2D::DrawScanline_Mode1(u32 line, u32* dst)
 
             continue;
         }
-        else if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
+        else
         {
-            if ((bldcnteffect == 1) && (BlendCnt & target2))
+            if (flag1 & 0x80)      flag1 = 0x10;
+            else if (flag1 & 0x40) flag1 = 0x01;
+
+            if ((BlendCnt & flag1) && (windowmask[i] & 0x20))
             {
-                coloreffect = 1;
-                eva = EVA;
-                evb = EVB;
+                if ((bldcnteffect == 1) && (BlendCnt & target2))
+                {
+                    coloreffect = 1;
+                    eva = EVA;
+                    evb = EVB;
+                }
+                else if (bldcnteffect >= 2)
+                    coloreffect = bldcnteffect;
+                else
+                    coloreffect = 0;
             }
-            else if (bldcnteffect >= 2)
-                coloreffect = bldcnteffect;
             else
                 coloreffect = 0;
         }
-        else
-            coloreffect = 0;
 
         switch (coloreffect)
         {
@@ -1306,8 +1334,6 @@ void GPU2D::DrawPixel(u32* dst, u16 color, u32 flag)
 
 void GPU2D::DrawBG_3D(u32 line, u32* dst)
 {
-    // TODO: check if window can prevent blending from happening
-
     u32* src = GPU3D::GetLine(line);
     u8* windowmask = (u8*)&dst[256*2];
 
@@ -1897,13 +1923,12 @@ void GPU2D::InterleaveSprites(u32* buf, u32 prio, u32* dst)
     {
         if (((buf[i] & 0xF8000) == prio) && (windowmask[i] & 0x10))
         {
-            u32 blendfunc = 0;
             DrawPixel(&dst[i], buf[i] & 0x7FFF, buf[i] & 0xFF000000);
         }
     }
 }
 
-void GPU2D::DrawSprites(u32 line, u32* dst)
+u32 GPU2D::DrawSprites(u32 line, u32* dst)
 {
     u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
 
@@ -1921,6 +1946,8 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
         32, 16, 32, 0,
         64, 32, 64, 0
     };
+
+    u32 nsprites = 0;
 
     for (int bgnum = 0x0C00; bgnum >= 0x0000; bgnum -= 0x0400)
     {
@@ -1960,6 +1987,7 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                 u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
 
                 DrawSprite_Rotscale<false>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos, dst);
+                nsprites++;
             }
             else
             {
@@ -1984,9 +2012,12 @@ void GPU2D::DrawSprites(u32 line, u32* dst)
                     ypos = height-1 - ypos;
 
                 DrawSprite_Normal<false>(attrib, width, xpos, ypos, dst);
+                nsprites++;
             }
         }
     }
+
+    return nsprites;
 }
 
 void GPU2D::DrawSpritesWindow(u32 line, u8* dst)

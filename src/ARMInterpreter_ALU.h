@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -71,6 +71,8 @@ A_PROTO_ALU_OP(ORR)
 A_PROTO_ALU_OP(MOV)
 A_PROTO_ALU_OP(BIC)
 A_PROTO_ALU_OP(MVN)
+
+void A_MOV_REG_LSL_IMM_DBG(ARM* cpu);
 
 void A_MUL(ARM* cpu);
 void A_MLA(ARM* cpu);

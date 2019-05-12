@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -24,7 +24,7 @@
 #include "libui/ui.h"
 
 #include "../types.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #include "DlgInputConfig.h"
 
@@ -165,6 +165,21 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     return 1;
 }
 
+void FinishJoyMapping(void* param)
+{
+    InputDlgData* dlg = (InputDlgData*)param;
+    int id = dlg->pollid & 0xFF;
+
+    char keyname[16];
+    JoyMappingName(dlg->joymap[id], keyname);
+    uiButtonSetText(dlg->pollbtn, keyname);
+    uiControlEnable(uiControl(dlg->pollbtn));
+
+    dlg->pollid = -1;
+
+    uiControlSetFocus(uiControl(dlg->pollbtn));
+}
+
 Uint32 JoyPoll(Uint32 interval, void* param)
 {
     InputDlgData* dlg = (InputDlgData*)param;
@@ -184,15 +199,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         if (SDL_JoystickGetButton(joy, i))
         {
             dlg->joymap[id] = i;
-
-            char keyname[16];
-            JoyMappingName(dlg->joymap[id], keyname);
-            uiButtonSetText(dlg->pollbtn, keyname);
-            uiControlEnable(uiControl(dlg->pollbtn));
-
-            dlg->pollid = -1;
-
-            uiControlSetFocus(uiControl(dlg->pollbtn));
+            uiQueueMain(FinishJoyMapping, dlg);
             return 0;
         }
     }
@@ -206,15 +213,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         else                     blackhat = 0x8;
 
         dlg->joymap[id] = 0x100 | blackhat;
-
-        char keyname[16];
-        JoyMappingName(dlg->joymap[id], keyname);
-        uiButtonSetText(dlg->pollbtn, keyname);
-        uiControlEnable(uiControl(dlg->pollbtn));
-
-        dlg->pollid = -1;
-
-        uiControlSetFocus(uiControl(dlg->pollbtn));
+        uiQueueMain(FinishJoyMapping, dlg);
         return 0;
     }
 
@@ -338,7 +337,7 @@ void Open(int type)
         memcpy(dlg->keymap, Config::KeyMapping, sizeof(int)*12);
         memcpy(dlg->joymap, Config::JoyMapping, sizeof(int)*12);
 
-        dlg->win = uiNewWindow("Input config - melonDS", 600, 100, 0, 0);
+        dlg->win = uiNewWindow("Input config - melonDS", 600, 100, 0, 0, 0);
     }
     else if (type == 1)
     {
@@ -346,7 +345,7 @@ void Open(int type)
         memcpy(dlg->keymap, Config::HKKeyMapping, sizeof(int)*HK_MAX);
         memcpy(dlg->joymap, Config::HKJoyMapping, sizeof(int)*HK_MAX);
 
-        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0);
+        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0, 0);
     }
 
     uiControl(dlg->win)->UserData = dlg;

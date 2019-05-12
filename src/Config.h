@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -21,51 +21,26 @@
 
 #include "types.h"
 
-enum
-{
-    HK_Lid = 0,
-    HK_Mic,
-
-    HK_MAX
-};
-
 namespace Config
 {
+
+typedef struct
+{
+    char Name[16];
+    int Type;
+    void* Value;
+    int DefaultInt;
+    const char* DefaultStr;
+    int StrLength; // should be set to actual array length minus one
+
+} ConfigEntry;
+
 FILE* GetConfigFile(const char* fileName, const char* permissions);
 bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
-extern int KeyMapping[12];
-extern int JoyMapping[12];
-
-extern int HKKeyMapping[HK_MAX];
-extern int HKJoyMapping[HK_MAX];
-
-extern int WindowWidth;
-extern int WindowHeight;
-
-extern int ScreenRotation;
-extern int ScreenGap;
-extern int ScreenLayout;
-extern int ScreenSizing;
-extern int ScreenFilter;
-
-extern int LimitFPS;
-
-extern int DirectBoot;
-
 extern int Threaded3D;
-
-extern int SocketBindAnyAddr;
-
-extern int SavestateRelocSRAM;
-
-extern int AudioVolume;
-extern int MicInputType;
-extern char MicWavPath[512];
-
-extern char LastROMFolder[512];
 
 }
 

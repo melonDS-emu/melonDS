@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -20,16 +20,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL2/SDL.h>
-#include <pcap/pcap.h>
 #include "../Platform.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
+#include "LAN_Socket.h"
+#include "LAN_PCap.h"
+#include <string>
 
 #ifdef __WIN32__
+    #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
+    #include <windows.h>
+    //#include <knownfolders.h> // FUCK THAT SHIT
+    extern "C" const GUID DECLSPEC_SELECTANY FOLDERID_RoamingAppData = {0x3eb685db, 0x65f9, 0x4cf6, {0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d}};
+    #include <shlobj.h>
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
 	#define socket_t    SOCKET
 	#define sockaddr_t  SOCKADDR
 #else
+    #include <glib.h>
 	#include <unistd.h>
 	#include <arpa/inet.h>
 	#include <netinet/in.h>
@@ -38,7 +46,6 @@
 	#define socket_t    int
 	#define sockaddr_t  struct sockaddr
 	#define closesocket close
-	#define PCAP_OPENFLAG_PROMISCUOUS 1
 #endif
 
 #ifndef INVALID_SOCKET
@@ -46,19 +53,7 @@
 #endif
 
 
-#define DECL_PCAP_FUNC(ret, name, args, args2) \
-    typedef ret (*type_##name) args; \
-    type_##name ptr_##name = NULL; \
-    ret name args { return ptr_##name args2; }
-
-DECL_PCAP_FUNC(int, pcap_findalldevs, (pcap_if_t** alldevs, char* errbuf), (alldevs,errbuf))
-DECL_PCAP_FUNC(void, pcap_freealldevs, (pcap_if_t* alldevs), (alldevs))
-DECL_PCAP_FUNC(pcap_t*, pcap_open_live, (const char* src, int snaplen, int flags, int readtimeout, char* errbuf), (src,snaplen,flags,readtimeout,errbuf))
-DECL_PCAP_FUNC(void, pcap_close, (pcap_t* dev), (dev))
-DECL_PCAP_FUNC(int, pcap_setnonblock, (pcap_t* dev, int nonblock, char* errbuf), (dev,nonblock,errbuf))
-DECL_PCAP_FUNC(int, pcap_sendpacket, (pcap_t* dev, const u_char* data, int len), (dev,data,len))
-DECL_PCAP_FUNC(int, pcap_dispatch, (pcap_t* dev, int num, pcap_handler callback, u_char* data), (dev,num,callback,data))
-
+extern char* EmuDirectory;
 
 void Stop(bool internal);
 
@@ -89,30 +84,176 @@ u8 PacketBuffer[2048];
 #define NIFI_VER 1
 
 
-const char* PCapLibNames[] =
-{
-#ifdef __WIN32__
-    // TODO: name for npcap in non-WinPCap mode
-    "wpcap.dll",
-#else
-    // Linux lib names
-    "libpcap.so.1",
-    "libpcap.so",
-#endif
-    NULL
-};
-
-void* PCapLib = NULL;
-pcap_t* PCapAdapter = NULL;
-
-u8 PCapPacketBuffer[2048];
-int PCapPacketLen;
-int PCapRXNum;
-
-
 void StopEmu()
 {
     Stop(true);
+}
+
+
+FILE* OpenFile(const char* path, const char* mode, bool mustexist)
+{
+    FILE* ret;
+
+#ifdef __WIN32__
+
+    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+    if (len < 1) return NULL;
+    WCHAR* fatpath = new WCHAR[len];
+    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, fatpath, len);
+    if (res != len) { delete[] fatpath; return NULL; } // checkme?
+
+    // this will be more than enough
+    WCHAR fatmode[4];
+    fatmode[0] = mode[0];
+    fatmode[1] = mode[1];
+    fatmode[2] = mode[2];
+    fatmode[3] = 0;
+
+    if (mustexist)
+    {
+        ret = _wfopen(fatpath, L"rb");
+        if (ret) ret = _wfreopen(fatpath, fatmode, ret);
+    }
+    else
+        ret = _wfopen(fatpath, fatmode);
+
+    delete[] fatpath;
+
+#else
+
+    if (mustexist)
+    {
+        ret = fopen(path, "rb");
+        if (ret) ret = freopen(path, mode, ret);
+    }
+    else
+        ret = fopen(path, mode);
+
+#endif
+
+    return ret;
+}
+
+FILE* OpenLocalFile(const char* path, const char* mode)
+{
+    bool relpath = false;
+    int pathlen = strlen(path);
+
+#ifdef __WIN32__
+    if (pathlen > 3)
+    {
+        if (path[1] == ':' && path[2] == '\\')
+            return OpenFile(path, mode);
+    }
+#else
+    if (pathlen > 1)
+    {
+        if (path[0] == '/')
+            return OpenFile(path, mode);
+    }
+#endif
+
+    if (pathlen >= 3)
+    {
+        if (path[0] == '.' && path[1] == '.' && (path[2] == '/' || path[2] == '\\'))
+            relpath = true;
+    }
+
+    int emudirlen = strlen(EmuDirectory);
+    char* emudirpath;
+    if (emudirlen)
+    {
+        int len = emudirlen + 1 + pathlen + 1;
+        emudirpath = new char[len];
+        strncpy(&emudirpath[0], EmuDirectory, emudirlen);
+        emudirpath[emudirlen] = '\\';
+        strncpy(&emudirpath[emudirlen+1], path, pathlen);
+        emudirpath[emudirlen+1+pathlen] = '\0';
+    }
+    else
+    {
+        emudirpath = new char[pathlen+1];
+        strncpy(&emudirpath[0], path, pathlen);
+        emudirpath[pathlen] = '\0';
+    }
+
+    // Locations are application directory, and AppData/melonDS on Windows or XDG_CONFIG_HOME/melonds on Linux
+
+    FILE* f;
+
+    // First check current working directory
+    f = OpenFile(path, mode, true);
+    if (f) { delete[] emudirpath; return f; }
+
+    // then emu directory
+    f = OpenFile(emudirpath, mode, true);
+    if (f) { delete[] emudirpath; return f; }
+
+#ifdef __WIN32__
+
+    // a path relative to AppData wouldn't make much sense
+    if (!relpath)
+    {
+        // Now check AppData
+        PWSTR appDataPath = NULL;
+        SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
+        if (!appDataPath)
+        {
+            delete[] emudirpath;
+            return NULL;
+        }
+
+        // this will be more than enough
+        WCHAR fatperm[4];
+        fatperm[0] = mode[0];
+        fatperm[1] = mode[1];
+        fatperm[2] = mode[2];
+        fatperm[3] = 0;
+
+        int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
+        if (fnlen < 1) { delete[] emudirpath; return NULL; }
+        WCHAR* wfileName = new WCHAR[fnlen];
+        int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
+        if (res != fnlen) { delete[] wfileName; delete[] emudirpath; return NULL; } // checkme?
+
+        const WCHAR* appdir = L"\\melonDS\\";
+
+        int pos = wcslen(appDataPath);
+        void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
+        if (!ptr) { delete[] wfileName; delete[] emudirpath; return NULL; } // oh well
+        appDataPath = (PWSTR)ptr;
+
+        wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
+        wcscpy(&appDataPath[pos], wfileName);
+
+        f = _wfopen(appDataPath, L"rb");
+        if (f) f = _wfreopen(appDataPath, fatperm, f);
+        CoTaskMemFree(appDataPath);
+        delete[] wfileName;
+        if (f) { delete[] emudirpath; return f; }
+    }
+
+#else
+
+    if (!relpath)
+    {
+        // Now check XDG_CONFIG_HOME
+        // TODO: check for memory leak there
+        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonds/" + path;
+        f = OpenFile(fullpath.c_str(), mode, true);
+        if (f) { delete[] emudirpath; return f; }
+    }
+
+#endif
+
+    if (mode[0] != 'r')
+    {
+        f = OpenFile(emudirpath, mode);
+        if (f) { delete[] emudirpath; return f; }
+    }
+
+    delete[] emudirpath;
+    return NULL;
 }
 
 
@@ -294,85 +435,18 @@ int MP_RecvPacket(u8* data, bool block)
 }
 
 
-// LAN interface. Currently powered by libpcap, may change.
-
-#define LOAD_PCAP_FUNC(sym) \
-    ptr_##sym = (type_##sym)SDL_LoadFunction(lib, #sym); \
-    if (!ptr_##sym) return false;
-
-bool TryLoadPCap(void* lib)
-{
-    LOAD_PCAP_FUNC(pcap_findalldevs)
-    LOAD_PCAP_FUNC(pcap_freealldevs)
-    LOAD_PCAP_FUNC(pcap_open_live)
-    LOAD_PCAP_FUNC(pcap_close)
-    LOAD_PCAP_FUNC(pcap_setnonblock)
-    LOAD_PCAP_FUNC(pcap_sendpacket)
-    LOAD_PCAP_FUNC(pcap_dispatch)
-
-    return true;
-}
 
 bool LAN_Init()
 {
-    PCapLib = NULL;
-    PCapAdapter = NULL;
-    PCapPacketLen = 0;
-    PCapRXNum = 0;
-
-    for (int i = 0; PCapLibNames[i]; i++)
+    if (Config::DirectLAN)
     {
-        void* lib = SDL_LoadObject(PCapLibNames[i]);
-        if (!lib) continue;
-
-        if (!TryLoadPCap(lib))
-        {
-            SDL_UnloadObject(lib);
-            continue;
-        }
-
-        printf("PCap: lib %s, init successful\n", PCapLibNames[i]);
-        PCapLib = lib;
-        break;
+        if (!LAN_PCap::Init(true))
+            return false;
     }
-
-    if (PCapLib == NULL)
+    else
     {
-        printf("PCap: init failed\n");
-        return false;
-    }
-
-    char errbuf[PCAP_ERRBUF_SIZE];
-    int ret;
-
-    pcap_if_t* alldevs;
-    ret = pcap_findalldevs(&alldevs, errbuf);
-    if (ret < 0 || alldevs == NULL)
-    {
-        printf("PCap: no devices available\n");
-        return false;
-    }
-/*while (alldevs){
-    printf("picking dev %08X %s | %s\n", alldevs->flags, alldevs->name, alldevs->description);
-    alldevs = alldevs->next;}*/
-    // temp hack
-    // TODO: ADAPTER SELECTOR!!
-    pcap_if_t* dev = alldevs->next;
-
-    PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
-    if (!PCapAdapter)
-    {
-        printf("PCap: failed to open adapter\n");
-        return false;
-    }
-
-    pcap_freealldevs(alldevs);
-
-    if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
-    {
-        printf("PCap: failed to set nonblocking mode\n");
-        pcap_close(PCapAdapter); PCapAdapter = NULL;
-        return false;
+        if (!LAN_Socket::Init())
+            return false;
     }
 
     return true;
@@ -380,61 +454,29 @@ bool LAN_Init()
 
 void LAN_DeInit()
 {
-    if (PCapLib)
-    {
-        if (PCapAdapter)
-        {
-            pcap_close(PCapAdapter);
-            PCapAdapter = NULL;
-        }
-
-        SDL_UnloadObject(PCapLib);
-        PCapLib = NULL;
-    }
+    // checkme. blarg
+    //if (Config::DirectLAN)
+    //    LAN_PCap::DeInit();
+    //else
+    //    LAN_Socket::DeInit();
+    LAN_PCap::DeInit();
+    LAN_Socket::DeInit();
 }
 
 int LAN_SendPacket(u8* data, int len)
 {
-    if (PCapAdapter == NULL)
-        return 0;
-
-    if (len > 2048)
-    {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
-        return 0;
-    }
-
-    pcap_sendpacket(PCapAdapter, data, len);
-    // TODO: check success
-    return len;
-}
-
-void LAN_RXCallback(u_char* blarg, const struct pcap_pkthdr* header, const u_char* data)
-{
-    while (PCapRXNum > 0);
-
-    if (header->len > 2048-64) return;
-
-    PCapPacketLen = header->len;
-    memcpy(PCapPacketBuffer, data, PCapPacketLen);
-    PCapRXNum = 1;
+    if (Config::DirectLAN)
+        return LAN_PCap::SendPacket(data, len);
+    else
+        return LAN_Socket::SendPacket(data, len);
 }
 
 int LAN_RecvPacket(u8* data)
 {
-    if (PCapAdapter == NULL)
-        return 0;
-
-    int ret = 0;
-    if (PCapRXNum > 0)
-    {
-        memcpy(data, PCapPacketBuffer, PCapPacketLen);
-        ret = PCapPacketLen;
-        PCapRXNum = 0;
-    }
-
-    pcap_dispatch(PCapAdapter, 1, LAN_RXCallback, NULL);
-    return ret;
+    if (Config::DirectLAN)
+        return LAN_PCap::RecvPacket(data);
+    else
+        return LAN_Socket::RecvPacket(data);
 }
 
 

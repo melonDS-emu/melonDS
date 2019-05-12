@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 StapleButter
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -25,13 +25,13 @@
 #include "libui/ui.h"
 
 #include "../types.h"
-#include "../melon_fopen.h"
 #include "../version.h"
-#include "../Config.h"
+#include "PlatformConfig.h"
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
 #include "DlgAudioSettings.h"
+#include "DlgWifiSettings.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -48,6 +48,7 @@
 // '9': load/save arbitrary file
 const int kSavestateNum[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
 
+const int kScreenSize[4] = {1, 2, 3, 4};
 const int kScreenRot[4] = {0, 1, 2, 3};
 const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
 const int kScreenLayout[3] = {0, 1, 2};
@@ -59,6 +60,8 @@ char* EmuDirectory;
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
+
+int WindowWidth, WindowHeight;
 
 uiMenuItem* MenuItem_SaveState;
 uiMenuItem* MenuItem_LoadState;
@@ -109,8 +112,11 @@ uiDrawMatrix BottomScreenTrans;
 bool Touching = false;
 
 u32 KeyInputMask;
-bool LidCommand, LidStatus;
+u32 HotkeyMask;
+bool LidStatus;
 SDL_Joystick* Joystick;
+
+SDL_AudioDeviceID AudioDevice, MicDevice;
 
 u32 MicBufferLength = 2048;
 s16 MicBuffer[2048];
@@ -129,23 +135,6 @@ void LoadState(int slot);
 void UndoStateLoad();
 void GetSavestateName(int slot, char* filename, int len);
 
-
-
-bool FileExists(const char* name)
-{
-    FILE* f = melon_fopen(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
-
-bool LocalFileExists(const char* name)
-{
-    FILE* f = melon_fopen_local(name, "rb");
-    if (!f) return false;
-    fclose(f);
-    return true;
-}
 
 
 void MicLoadWav(char* name)
@@ -167,7 +156,7 @@ void MicLoadWav(char* name)
     if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
     {
         int srcinc = format.channels;
-        len /= 2;
+        len /= (2 * srcinc);
 
         MicWavLength = (len * dstfreq) / format.freq;
         if (MicWavLength < 735) MicWavLength = 735;
@@ -195,6 +184,7 @@ void MicLoadWav(char* name)
     else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
     {
         int srcinc = format.channels;
+        len /= srcinc;
 
         MicWavLength = (len * dstfreq) / format.freq;
         if (MicWavLength < 735) MicWavLength = 735;
@@ -301,7 +291,9 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 {
     if (btnid < 0) return false;
 
-    bool pressed;
+    hat &= ~(hat >> 4);
+
+    bool pressed = false;
     if (btnid == 0x101) // up
         pressed = (hat & SDL_HAT_UP);
     else if (btnid == 0x104) // down
@@ -310,8 +302,27 @@ bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
         pressed = (hat & SDL_HAT_RIGHT);
     else if (btnid == 0x108) // left
         pressed = (hat & SDL_HAT_LEFT);
-    else
-        pressed = (btnid < njoybuttons) ? joybuttons[btnid] : false;
+    else if (btnid < njoybuttons)
+        pressed = (joybuttons[btnid] & ~(joybuttons[btnid] >> 1)) & 0x01;
+
+    return pressed;
+}
+
+bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    if (btnid < 0) return false;
+
+    bool pressed = false;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else if (btnid < njoybuttons)
+        pressed = joybuttons[btnid] & 0x01;
 
     return pressed;
 }
@@ -391,17 +402,21 @@ int EmuThreadFunc(void* burp)
     ScreenDrawInited = false;
     Touching = false;
     KeyInputMask = 0xFFF;
-    LidCommand = false;
+    HotkeyMask = 0;
     LidStatus = false;
     MicCommand = 0;
 
-    bool lastlidcmd = false;
-
     Uint8* joybuttons = NULL; int njoybuttons = 0;
+    Uint32 joyhat = 0;
+
     if (Joystick)
     {
         njoybuttons = SDL_JoystickNumButtons(Joystick);
-        if (njoybuttons) joybuttons = new Uint8[njoybuttons];
+        if (njoybuttons)
+        {
+            joybuttons = new Uint8[njoybuttons];
+            memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
+        }
     }
 
     u32 nframes = 0;
@@ -417,24 +432,52 @@ int EmuThreadFunc(void* burp)
         {
             EmuStatus = 1;
 
+            SDL_JoystickUpdate();
+
+            if (Joystick)
+            {
+                if (!SDL_JoystickGetAttached(Joystick))
+                {
+                    SDL_JoystickClose(Joystick);
+                    Joystick = NULL;
+                }
+            }
+            if (!Joystick && (SDL_NumJoysticks() > 0))
+            {
+                Joystick = SDL_JoystickOpen(0);
+                if (Joystick)
+                {
+                    njoybuttons = SDL_JoystickNumButtons(Joystick);
+                    if (joybuttons) delete[] joybuttons;
+                    if (njoybuttons)
+                    {
+                        joybuttons = new Uint8[njoybuttons];
+                        memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
+                        joyhat = 0;
+                    }
+                }
+            }
 
             // poll input
             u32 keymask = KeyInputMask;
             u32 joymask = 0xFFF;
             if (Joystick)
             {
-                SDL_JoystickUpdate();
+                joyhat <<= 4;
+                joyhat |= SDL_JoystickGetHat(Joystick, 0);
 
-                Uint32 hat = SDL_JoystickGetHat(Joystick, 0);
                 Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
                 Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
 
                 for (int i = 0; i < njoybuttons; i++)
-                    joybuttons[i] = SDL_JoystickGetButton(Joystick, i);
+                {
+                    joybuttons[i] <<= 1;
+                    joybuttons[i] |= SDL_JoystickGetButton(Joystick, i);
+                }
 
                 for (int i = 0; i < 12; i++)
                 {
-                    bool pressed = JoyButtonPressed(Config::JoyMapping[i], njoybuttons, joybuttons, hat);
+                    bool pressed = JoyButtonHeld(Config::JoyMapping[i], njoybuttons, joybuttons, joyhat);
 
                     if (i == 4) // right
                         pressed = pressed || (axisX >= 16384);
@@ -448,29 +491,23 @@ int EmuThreadFunc(void* burp)
                     if (pressed) joymask &= ~(1<<i);
                 }
 
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, hat))
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, joyhat))
                 {
-                    if (!lastlidcmd)
-                    {
-                        LidStatus = !LidStatus;
-                        LidCommand = true;
-                        lastlidcmd = true;
-                    }
+                    LidStatus = !LidStatus;
+                    HotkeyMask |= 0x1;
                 }
-                else
-                    lastlidcmd = false;
 
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, hat))
+                if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
                     MicCommand |= 2;
                 else
                     MicCommand &= ~2;
             }
             NDS::SetKeyMask(keymask & joymask);
 
-            if (LidCommand)
+            if (HotkeyMask & 0x1)
             {
                 NDS::SetLidClosed(LidStatus);
-                LidCommand = false;
+                HotkeyMask &= ~0x1;
             }
 
             // microphone input
@@ -506,7 +543,7 @@ int EmuThreadFunc(void* burp)
                 if (guess != AutoScreenSizing)
                 {
                     AutoScreenSizing = guess;
-                    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+                    SetupScreenRects(WindowWidth, WindowHeight);
                 }
             }
 
@@ -541,7 +578,9 @@ int EmuThreadFunc(void* burp)
                 u32 diff = tick - lastmeasuretick;
                 lastmeasuretick = tick;
 
-                u32 fps = (nframes * 1000) / diff;
+                u32 fps;
+                if (diff < 1) fps = 77777;
+                else fps = (nframes * 1000) / diff;
                 nframes = 0;
 
                 float fpstarget;
@@ -577,6 +616,7 @@ int EmuThreadFunc(void* burp)
     if (joybuttons) delete[] joybuttons;
 
     NDS::DeInit();
+    Platform::LAN_DeInit();
 
     return 44203;
 }
@@ -731,7 +771,7 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         if (evt->Scancode == Config::HKKeyMapping[HK_Lid])
         {
             LidStatus = !LidStatus;
-            LidCommand = true;
+            HotkeyMask |= 0x1;
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand |= 1;
@@ -986,8 +1026,18 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
     // should those be the size of the uiArea, or the size of the window client area?
     // for now the uiArea fills the whole window anyway
     // but... we never know, I guess
-    Config::WindowWidth = width;
-    Config::WindowHeight = height;
+    WindowWidth = width;
+    WindowHeight = height;
+
+    int max = uiWindowMaximized(MainWindow);
+    int min = uiWindowMinimized(MainWindow);
+
+    Config::WindowMaximized = max;
+    if (!max && !min)
+    {
+        Config::WindowWidth = width;
+        Config::WindowHeight = height;
+    }
 }
 
 
@@ -995,6 +1045,9 @@ void Run()
 {
     EmuRunning = 1;
     RunningSomething = true;
+
+    SDL_PauseAudioDevice(AudioDevice, 0);
+    SDL_PauseAudioDevice(MicDevice, 0);
 
     uiMenuItemEnable(MenuItem_SaveState);
     uiMenuItemEnable(MenuItem_LoadState);
@@ -1008,8 +1061,8 @@ void Run()
     {
         char ssfile[1024];
         GetSavestateName(i+1, ssfile, 1024);
-        if (FileExists(ssfile)) uiMenuItemEnable(MenuItem_LoadStateSlot[i]);
-        else                    uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
+        if (Platform::FileExists(ssfile)) uiMenuItemEnable(MenuItem_LoadStateSlot[i]);
+        else                              uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
     }
 
     for (int i = 0; i < 9; i++) uiMenuItemEnable(MenuItem_SaveStateSlot[i]);
@@ -1041,6 +1094,9 @@ void Stop(bool internal)
 
     memset(ScreenBuffer, 0, 256*384*4);
     uiAreaQueueRedrawAll(MainDrawArea);
+
+    SDL_PauseAudioDevice(AudioDevice, 1);
+    SDL_PauseAudioDevice(MicDevice, 1);
 }
 
 void SetupSRAMPath()
@@ -1138,7 +1194,7 @@ void LoadState(int slot)
         uiFreeText(file);
     }
 
-    if (!FileExists(filename))
+    if (!Platform::FileExists(filename))
     {
         EmuRunning = prevstatus;
         return;
@@ -1371,12 +1427,18 @@ void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
         // enable pause
         EmuRunning = 2;
         uiMenuItemSetChecked(MenuItem_Pause, 1);
+
+        SDL_PauseAudioDevice(AudioDevice, 1);
+        SDL_PauseAudioDevice(MicDevice, 1);
     }
     else
     {
         // disable pause
         EmuRunning = 1;
         uiMenuItemSetChecked(MenuItem_Pause, 0);
+
+        SDL_PauseAudioDevice(AudioDevice, 0);
+        SDL_PauseAudioDevice(MicDevice, 0);
     }
 }
 
@@ -1428,6 +1490,11 @@ void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgAudioSettings::Open();
 }
 
+void OnOpenWifiSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgWifiSettings::Open();
+}
+
 
 void OnSetSavestateSRAMReloc(uiMenuItem* item, uiWindow* window, void* param)
 {
@@ -1462,6 +1529,37 @@ void EnsureProperMinSize()
     }
 }
 
+void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
+{
+    int factor = *(int*)param;
+    bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
+
+    int w = 256*factor;
+    int h = 192*factor;
+
+    if (ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, (h*2)+ScreenGap, w);
+        else
+            uiWindowSetContentSize(window, w, (h*2)+ScreenGap);
+    }
+    else if (ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, h, (w*2)+ScreenGap);
+        else
+            uiWindowSetContentSize(window, w, (h*2)+ScreenGap);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            uiWindowSetContentSize(window, (h*2)+ScreenGap, w);
+        else
+            uiWindowSetContentSize(window, (w*2)+ScreenGap, h);
+    }
+}
+
 void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
 {
     int rot = *(int*)param;
@@ -1486,8 +1584,6 @@ void OnSetScreenRotation(uiMenuItem* item, uiWindow* window, void* param)
             w = blarg;
 
             uiWindowSetContentSize(window, w, h);
-            Config::WindowWidth = w;
-            Config::WindowHeight = h;
         }
     }
 
@@ -1505,7 +1601,7 @@ void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
     ScreenGap = gap;
 
     EnsureProperMinSize();
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 6; i++)
         uiMenuItemSetChecked(MenuItem_ScreenGap[i], kScreenGap[i]==ScreenGap);
@@ -1517,7 +1613,7 @@ void OnSetScreenLayout(uiMenuItem* item, uiWindow* window, void* param)
     ScreenLayout = layout;
 
     EnsureProperMinSize();
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 3; i++)
         uiMenuItemSetChecked(MenuItem_ScreenLayout[i], i==ScreenLayout);
@@ -1528,7 +1624,7 @@ void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param)
     int sizing = *(int*)param;
     ScreenSizing = sizing;
 
-    SetupScreenRects(Config::WindowWidth, Config::WindowHeight);
+    SetupScreenRects(WindowWidth, WindowHeight);
 
     for (int i = 0; i < 4; i++)
         uiMenuItemSetChecked(MenuItem_ScreenSizing[i], i==ScreenSizing);
@@ -1548,7 +1644,7 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::LimitFPS = false;
 }
 
-void ApplyNewSettings()
+void ApplyNewSettings(int type)
 {
     if (!RunningSomething) return;
 
@@ -1556,12 +1652,20 @@ void ApplyNewSettings()
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    GPU3D::SoftRenderer::SetupRenderThread();
-
-    if (Wifi::MPInited)
+    if (type == 0) // general emu settings
     {
-        Platform::MP_DeInit();
-        Platform::MP_Init();
+        GPU3D::SoftRenderer::SetupRenderThread();
+    }
+    else if (type == 1) // wifi settings
+    {
+        if (Wifi::MPInited)
+        {
+            Platform::MP_DeInit();
+            Platform::MP_Init();
+        }
+
+        Platform::LAN_DeInit();
+        Platform::LAN_Init();
     }
 
     EmuRunning = prevstatus;
@@ -1586,7 +1690,7 @@ int main(int argc, char** argv)
         }
         if (len > 0)
         {
-            EmuDirectory = new char[len];
+            EmuDirectory = new char[len+1];
             strncpy(EmuDirectory, argv[0], len);
             EmuDirectory[len] = '\0';
         }
@@ -1632,7 +1736,9 @@ int main(int argc, char** argv)
     if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
     else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
 
-    if (!LocalFileExists("bios7.bin") || !LocalFileExists("bios9.bin") || !LocalFileExists("firmware.bin"))
+    if (!Platform::LocalFileExists("bios7.bin") ||
+        !Platform::LocalFileExists("bios9.bin") ||
+        !Platform::LocalFileExists("firmware.bin"))
     {
         uiMsgBoxError(
             NULL,
@@ -1647,6 +1753,24 @@ int main(int argc, char** argv)
         uiUninit();
         SDL_Quit();
         return 0;
+    }
+
+    {
+        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+        if (f)
+        {
+            u32 data;
+            fread(&data, 4, 1, f);
+            fclose(f);
+
+            if ((data >> 24) == 0) // old CRC-based list
+            {
+                uiMsgBoxError(NULL,
+                              "Your version of romlist.bin is outdated.",
+                              "Save memory type detection will not work correctly.\n\n"
+                              "You should use the latest version of romlist.bin (provided in melonDS release packages).");
+            }
+        }
     }
 
     uiMenu* menu;
@@ -1725,6 +1849,8 @@ int main(int argc, char** argv)
         uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
         menuitem = uiMenuAppendItem(menu, "Audio settings");
         uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Wifi settings");
+        uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
     }
     uiMenuAppendSeparator(menu);
     {
@@ -1736,6 +1862,19 @@ int main(int argc, char** argv)
         uiMenuAppendSubmenu(menu, submenu);
     }
     uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Screen size");
+
+        for (int i = 0; i < 4; i++)
+        {
+            char name[32];
+            sprintf(name, "%dx", kScreenSize[i]);
+            uiMenuItem* item = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(item, OnSetScreenSize, (void*)&kScreenSize[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
     {
         uiMenu* submenu = uiNewMenu("Screen rotation");
 
@@ -1803,7 +1942,10 @@ int main(int argc, char** argv)
     //if (w < 256) w = 256;
     //if (h < 384) h = 384;
 
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, 1, 1);
+    WindowWidth = w;
+    WindowHeight = h;
+
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
 
     uiWindowSetDropTarget(MainWindow, 1);
@@ -1867,14 +2009,14 @@ int main(int argc, char** argv)
     whatIwant.channels = 2;
     whatIwant.samples = 1024;
     whatIwant.callback = AudioCallback;
-    SDL_AudioDeviceID audio = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
-    if (!audio)
+    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    if (!AudioDevice)
     {
         printf("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
-        SDL_PauseAudioDevice(audio, 0);
+        SDL_PauseAudioDevice(AudioDevice, 1);
     }
 
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -1883,15 +2025,15 @@ int main(int argc, char** argv)
     whatIwant.channels = 1;
     whatIwant.samples = 1024;
     whatIwant.callback = MicCallback;
-    SDL_AudioDeviceID mic = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
-    if (!mic)
+    MicDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!MicDevice)
     {
         printf("Mic init failed: %s\n", SDL_GetError());
         MicBufferLength = 0;
     }
     else
     {
-        SDL_PauseAudioDevice(mic, 0);
+        SDL_PauseAudioDevice(MicDevice, 1);
     }
 
     memset(MicBuffer, 0, sizeof(MicBuffer));
@@ -1936,8 +2078,8 @@ int main(int argc, char** argv)
     SDL_WaitThread(EmuThread, NULL);
 
     if (Joystick) SDL_JoystickClose(Joystick);
-    if (audio) SDL_CloseAudioDevice(audio);
-    if (mic)   SDL_CloseAudioDevice(mic);
+    if (AudioDevice) SDL_CloseAudioDevice(AudioDevice);
+    if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
 

@@ -101,7 +101,7 @@ static void areaMouseEvent(uiArea *a, int down, int  up, WPARAM wParam, LPARAM l
 	xpix = (double) GET_X_LPARAM(lParam);
 	ypix = (double) GET_Y_LPARAM(lParam);
 	// these are in pixels; we need points
-	pixelsToDIP(a, &xpix, &ypix);
+	//pixelsToDIP(a, &xpix, &ypix);
 	me.X = xpix;
 	me.Y = ypix;
 	if (a->scrolling) {
@@ -267,7 +267,7 @@ static int areaKeyEvent(uiArea *a, int up, WPARAM wParam, LPARAM lParam)
 	ke.Up = up;
 	ke.Repeat = (lParam & 0x40000000) ? 1:0;
 
-	// StapleButter note: I don't actually need all this key decoding
+	// Arisotura note: I don't actually need all this key decoding
 	// raw scancodes are all I need for this
 #if 0
 	// the numeric keypad keys when Num Lock is off are considered left-hand keys as the separate navigation buttons were added later
