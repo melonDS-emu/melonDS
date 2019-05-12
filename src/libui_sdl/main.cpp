@@ -637,8 +637,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     if (!ScreenDrawInited)
     {
         ScreenDrawInited = true;
-        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
-        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 192*ScreenScale);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 192*ScreenScale);
     }
 
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
