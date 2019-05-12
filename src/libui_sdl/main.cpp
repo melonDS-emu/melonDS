@@ -415,7 +415,7 @@ int EmuThreadFunc(void* burp)
 
     if (Joystick)
     {
-        njoybuttons = SDL_JoysticEmuDirectorykNumButtons(Joystick);
+        njoybuttons = SDL_JoystickNumButtons(Joystick);
         if (njoybuttons)
         {
             joybuttons = new Uint8[njoybuttons];
