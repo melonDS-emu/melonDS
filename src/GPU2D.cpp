@@ -82,6 +82,7 @@
 GPU2D::GPU2D(u32 num)
 {
     Num = num;
+    SetScale(0);
 }
 
 GPU2D::~GPU2D()
@@ -213,6 +214,16 @@ void GPU2D::DoSavestate(Savestate* file)
 void GPU2D::SetFramebuffer(u32* buf)
 {
     Framebuffer = buf;
+}
+
+void GPU2D::SetScale(int scale)
+{
+    LineScale = scale;
+    LineStride = 256 << (scale*2);
+
+    if      (scale == 1) DrawPixel = DrawPixel_2x;
+    else if (scale == 2) DrawPixel = DrawPixel_4x;
+    else                 DrawPixel = DrawPixel_1x;
 }
 
 
@@ -612,12 +623,7 @@ u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    u32* dst = &Framebuffer[256*4*line];
-
-    // HAX
-    LineScale = 1;
-    LineStride = 1024;
-    DrawPixel = DrawPixel_2x;
+    u32* dst = &Framebuffer[LineStride * line];
 
     int n3dline = line;
     line = GPU::VCount;
@@ -691,6 +697,24 @@ void GPU2D::DrawScanline(u32 line)
                         dst[d+512] = dst[d];
                         dst[d+513] = dst[d];
                     }
+                    else if (LineScale == 2)
+                    {
+                        dst[d+1] = dst[d];
+                        dst[d+2] = dst[d];
+                        dst[d+3] = dst[d];
+                        dst[d+1024] = dst[d];
+                        dst[d+1024+1] = dst[d];
+                        dst[d+1024+2] = dst[d];
+                        dst[d+1024+3] = dst[d];
+                        dst[d+2048] = dst[d];
+                        dst[d+2048+1] = dst[d];
+                        dst[d+2048+2] = dst[d];
+                        dst[d+2048+3] = dst[d];
+                        dst[d+3072] = dst[d];
+                        dst[d+3072+1] = dst[d];
+                        dst[d+3072+2] = dst[d];
+                        dst[d+3072+3] = dst[d];
+                    }
                 }
             }
             else
@@ -719,6 +743,24 @@ void GPU2D::DrawScanline(u32 line)
                     dst[d+1] = dst[d];
                     dst[d+512] = dst[d];
                     dst[d+513] = dst[d];
+                }
+                else if (LineScale == 2)
+                {
+                    dst[d+1] = dst[d];
+                    dst[d+2] = dst[d];
+                    dst[d+3] = dst[d];
+                    dst[d+1024] = dst[d];
+                    dst[d+1024+1] = dst[d];
+                    dst[d+1024+2] = dst[d];
+                    dst[d+1024+3] = dst[d];
+                    dst[d+2048] = dst[d];
+                    dst[d+2048+1] = dst[d];
+                    dst[d+2048+2] = dst[d];
+                    dst[d+2048+3] = dst[d];
+                    dst[d+3072] = dst[d];
+                    dst[d+3072+1] = dst[d];
+                    dst[d+3072+2] = dst[d];
+                    dst[d+3072+3] = dst[d];
                 }
             }
         }
@@ -1359,6 +1401,34 @@ void GPU2D::DrawPixel_2x(u32* dst, u16 color, u32 flag)
     *(u64*)(dst+512) = val;
 }
 
+void GPU2D::DrawPixel_4x(u32* dst, u16 color, u32 flag)
+{
+    u8 r = (color & 0x001F) << 1;
+    u8 g = (color & 0x03E0) >> 4;
+    u8 b = (color & 0x7C00) >> 9;
+
+    u64 val = r | (g << 8) | (b << 16) | flag;
+    val |= (val << 32);
+
+    *(u64*)(dst+4096) = *(u64*)dst;
+    *(u64*)(dst+4096+2) = *(u64*)(dst+2);
+    *(u64*)(dst+4096+1024) = *(u64*)(dst+1024);
+    *(u64*)(dst+4096+1024+2) = *(u64*)(dst+1024+2);
+    *(u64*)(dst+4096+2048) = *(u64*)(dst+2048);
+    *(u64*)(dst+4096+2048+2) = *(u64*)(dst+2048+2);
+    *(u64*)(dst+4096+3072) = *(u64*)(dst+3072);
+    *(u64*)(dst+4096+3072+2) = *(u64*)(dst+3072+2);
+
+    *(u64*)dst = val;
+    *(u64*)(dst+2) = val;
+    *(u64*)(dst+1024) = val;
+    *(u64*)(dst+1024+2) = val;
+    *(u64*)(dst+2048) = val;
+    *(u64*)(dst+2048+2) = val;
+    *(u64*)(dst+3072) = val;
+    *(u64*)(dst+3072+2) = val;
+}
+
 void GPU2D::DrawBG_3D()
 {
     u16 xoff = BGXPos[0];
@@ -1412,6 +1482,37 @@ void GPU2D::DrawBG_3D()
             {
                 BGOBJLine[is+4096] = BGOBJLine[is];
                 BGOBJLine[is] = c | 0x40000000;
+            }
+        }
+    }
+    else if (LineScale == 2)
+    {
+        for (; i < iend; i++)
+        {
+            int is = i << 1;
+            int xs = xoff << 1;
+            u32 c;
+
+            xoff++;
+            if (!(WindowMask[i] & 0x01)) continue;
+
+            for (int by = 0; by < 4; by++)
+            {
+                for (int bx = 0; bx < 4; bx++)
+                {
+                    c = _3DLine[xs];
+                    if ((c >> 24) != 0)
+                    {
+                        BGOBJLine[is+4096] = BGOBJLine[is];
+                        BGOBJLine[is] = c | 0x40000000;
+                    }
+
+                    is++;
+                    xs++;
+                }
+
+                is += 1021;
+                xs += 1021;
             }
         }
     }

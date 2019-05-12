@@ -135,6 +135,7 @@ private:
 
     static void DrawPixel_1x(u32* dst, u16 color, u32 flag);
     static void DrawPixel_2x(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_4x(u32* dst, u16 color, u32 flag);
     void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();
