@@ -44,6 +44,11 @@ int LimitFPS;
 
 int DirectBoot;
 
+int UseSavePath;
+char SavePath[512];
+
+
+
 int SocketBindAnyAddr;
 char LANDevice[128];
 int DirectLAN;
@@ -104,6 +109,9 @@ ConfigEntry PlatformConfigFile[] =
     {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+
+    {"UseSavePath", 0, &UseSavePath, 0, NULL, 0},
+    {"SavePath", 1, SavePath, 0, "./save", 511},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},

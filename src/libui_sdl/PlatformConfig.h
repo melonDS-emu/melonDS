@@ -52,6 +52,9 @@ extern int LimitFPS;
 
 extern int DirectBoot;
 
+extern int UseSavePath;
+extern char SavePath[512];
+
 extern int SocketBindAnyAddr;
 extern char LANDevice[128];
 extern int DirectLAN;

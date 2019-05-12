@@ -20,6 +20,9 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <SDL2/SDL.h>
 #include "libui/ui.h"
@@ -29,6 +32,7 @@
 #include "PlatformConfig.h"
 
 #include "DlgEmuSettings.h"
+#include "DlgPathSettings.h"
 #include "DlgInputConfig.h"
 #include "DlgAudioSettings.h"
 #include "DlgWifiSettings.h"
@@ -411,7 +415,7 @@ int EmuThreadFunc(void* burp)
 
     if (Joystick)
     {
-        njoybuttons = SDL_JoystickNumButtons(Joystick);
+        njoybuttons = SDL_JoysticEmuDirectorykNumButtons(Joystick);
         if (njoybuttons)
         {
             joybuttons = new Uint8[njoybuttons];
@@ -1101,9 +1105,35 @@ void Stop(bool internal)
 
 void SetupSRAMPath()
 {
-    strncpy(SRAMPath, ROMPath, 1023);
-    SRAMPath[1023] = '\0';
-    strncpy(SRAMPath + strlen(ROMPath) - 3, "sav", 3);
+    if(Config::UseSavePath){
+            struct stat st = {0};
+
+            if (stat(Config::SavePath, &st) == -1) {
+                mkdir(Config::SavePath);
+            }
+
+            char *pos;
+            char *bslh = "/";
+            #ifdef _WIN32
+            pos = strrchr(ROMPath, '\\');
+            #endif
+
+            #ifdef linux
+            pos = strrchr(ROMPath, '/');
+            #endif
+            pos++;
+            strncpy(SRAMPath, Config::SavePath, 511);
+            strcat(SRAMPath,bslh);
+            strcat(SRAMPath,pos);
+            strncpy(SRAMPath + strlen(SRAMPath) - 3, "sav", 3);
+            printf("%s",SRAMPath);
+
+    }
+    else{
+        strncpy(SRAMPath, ROMPath, 1023);
+        SRAMPath[1023] = '\0';
+        strncpy(SRAMPath + strlen(ROMPath) - 3, "sav", 3);
+    }
 }
 
 void TryLoadROM(char* file, int prevstatus)
@@ -1475,6 +1505,13 @@ void OnOpenEmuSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgEmuSettings::Open();
 }
 
+void OnOpenPathSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgPathSettings::Open();
+}
+
+
+
 void OnOpenInputConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open(0);
@@ -1843,6 +1880,8 @@ int main(int argc, char** argv)
     {
         menuitem = uiMenuAppendItem(menu, "Emu settings");
         uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Path settings");
+        uiMenuItemOnClicked(menuitem, OnOpenPathSettings, NULL);
         menuitem = uiMenuAppendItem(menu, "Input config");
         uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
         menuitem = uiMenuAppendItem(menu, "Hotkey config");

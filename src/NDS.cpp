@@ -708,6 +708,7 @@ bool DoSavestate(Savestate* file)
 
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
+
     if (NDSCart::LoadROM(path, sram, direct))
     {
         Running = true;
