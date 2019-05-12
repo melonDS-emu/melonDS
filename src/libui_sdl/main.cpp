@@ -95,7 +95,8 @@ char PrevSRAMPath[1024]; // for savestate 'undo load'
 bool SavestateLoaded;
 
 bool ScreenDrawInited = false;
-uiDrawBitmap* ScreenBitmap = NULL;
+uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
+SDL_mutex* ScreenMutex;
 u32* ScreenBuffer;
 
 int ScreenScale;
@@ -555,7 +556,7 @@ int EmuThreadFunc(void* burp)
                 }
             }
 
-            memcpy(ScreenBuffer, GPU::Framebuffer, (256*ScreenScale)*(384*ScreenScale)*4);
+            //memcpy(ScreenBuffer, GPU::Framebuffer, (256*ScreenScale)*(384*ScreenScale)*4);
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -636,24 +637,27 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     if (!ScreenDrawInited)
     {
         ScreenDrawInited = true;
-        ScreenBitmap = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256*ScreenScale, 384*ScreenScale);
     }
 
-    if (!ScreenBitmap) return;
+    if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
 
     uiRect top = {0, 0, 256*ScreenScale, 192*ScreenScale};
-    uiRect bot = {0, 192*ScreenScale, 256*ScreenScale, 192*ScreenScale};
+    uiRect bot = {0, 0, 256*ScreenScale, 192*ScreenScale};
 
-    if (ScreenBuffer) uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
+    int frontbuf = GPU::FrontBuffer;
+    uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
+    uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &TopScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect, Config::ScreenFilter==1);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap[0], &top, &TopScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &BottomScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect, Config::ScreenFilter==1);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap[1], &bot, &BottomScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 }
 
@@ -1993,6 +1997,8 @@ int main(int argc, char** argv)
     uiMenuItemDisable(MenuItem_Reset);
     uiMenuItemDisable(MenuItem_Stop);
 
+    ScreenMutex = SDL_CreateMutex();
+
     uiAreaHandler areahandler;
     areahandler.Draw = OnAreaDraw;
     areahandler.MouseEvent = OnAreaMouseEvent;
@@ -2131,7 +2137,10 @@ int main(int argc, char** argv)
 
     Config::Save();
 
-    if (ScreenBitmap) uiDrawFreeBitmap(ScreenBitmap);
+    SDL_DestroyMutex(ScreenMutex);
+
+    if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+    if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
     uiUninit();
     SDL_Quit();

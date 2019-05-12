@@ -61,7 +61,8 @@ extern u32 VRAMMap_Texture[4];
 extern u32 VRAMMap_TexPal[8];
 extern u32 VRAMMap_ARM7[2];
 
-extern u32* Framebuffer;
+extern int FrontBuffer;
+extern u32* Framebuffer[2][2];
 
 extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;
@@ -74,7 +75,7 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
-void SetFramebufferScale(int scale);
+void SetFramebufferScale(int top, int bottom);
 
 
 void MapVRAM_AB(u32 bank, u8 cnt);

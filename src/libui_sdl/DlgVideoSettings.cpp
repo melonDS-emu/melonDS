@@ -160,7 +160,7 @@ void Open()
 
         uiRadioButtons* rbApplyScalingTo = uiNewRadioButtons();
         uiRadioButtonsAppend(rbApplyScalingTo, "Both screens");
-        uiRadioButtonsAppend(rbApplyScalingTo, "Emphasized screen");
+        uiRadioButtonsAppend(rbApplyScalingTo, "Emphasized screen (see 'Screen sizing')");
         uiRadioButtonsAppend(rbApplyScalingTo, "Top screen");
         uiRadioButtonsAppend(rbApplyScalingTo, "Bottom screen");
         uiBoxAppend(in_ctrl, uiControl(rbApplyScalingTo), 0);
