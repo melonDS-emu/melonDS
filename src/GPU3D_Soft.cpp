@@ -138,6 +138,11 @@ void Reset()
     SetupRenderThread();
 }
 
+void SetScale(int scale)
+{
+    printf("SOFT RENDERER SCALE FACTOR: TODO!!!\n");
+}
+
 
 
 // Notes on the interpolator:

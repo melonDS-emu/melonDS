@@ -92,6 +92,11 @@ bool Init()
     //SetFramebufferScale(1);
     SetFramebufferScale(1, 1);
 
+    memset(Framebuffer[0][0], 0, (256*192)<<(FBScale[0]*2));
+    memset(Framebuffer[0][1], 0, (256*192)<<(FBScale[1]*2));
+    memset(Framebuffer[1][0], 0, (256*192)<<(FBScale[0]*2));
+    memset(Framebuffer[1][1], 0, (256*192)<<(FBScale[1]*2));
+
     return true;
 }
 
@@ -258,6 +263,19 @@ void SetFramebufferScale(int top, int bottom)
         if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
         Framebuffer[0][0] = new u32[fbsize];
         Framebuffer[1][0] = new u32[fbsize];
+
+        int backbuf = FrontBuffer ? 0 : 1;
+        if (NDS::PowerControl9 & (1<<15))
+        {
+            GPU2D_A->SetFramebuffer(Framebuffer[backbuf][0]);
+            GPU2D_A->SetScale(FBScale[0]);
+            GPU3D::SetScale(FBScale[0]);
+        }
+        else
+        {
+            GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
+            GPU2D_B->SetScale(FBScale[0]);
+        }
     }
 
     if (bottom != FBScale[1])
@@ -269,9 +287,20 @@ void SetFramebufferScale(int top, int bottom)
         if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
         Framebuffer[0][1] = new u32[fbsize];
         Framebuffer[1][1] = new u32[fbsize];
-    }
 
-    AssignFramebuffers();
+        int backbuf = FrontBuffer ? 0 : 1;
+        if (NDS::PowerControl9 & (1<<15))
+        {
+            GPU2D_B->SetFramebuffer(Framebuffer[backbuf][1]);
+            GPU2D_B->SetScale(FBScale[1]);
+        }
+        else
+        {
+            GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
+            GPU2D_A->SetScale(FBScale[1]);
+            GPU3D::SetScale(FBScale[1]);
+        }
+    }
 }
 
 

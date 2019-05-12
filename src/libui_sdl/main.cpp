@@ -642,6 +642,7 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     }
 
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
+    if (!GPU::Framebuffer[0][0]) return;
 
     uiRect top = {0, 0, 256*ScreenScale, 192*ScreenScale};
     uiRect bot = {0, 0, 256*ScreenScale, 192*ScreenScale};

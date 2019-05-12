@@ -607,6 +607,11 @@ void SetEnabled(bool geometry, bool rendering)
     if (!rendering) ResetRenderingState();
 }
 
+void SetScale(int scale)
+{
+    GLRenderer43::SetScale(scale);
+}
+
 
 
 void MatrixLoadIdentity(s32* m)

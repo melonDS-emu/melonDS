@@ -650,9 +650,12 @@ u32 NumTriangles;
 GLuint TexMemID;
 GLuint TexPalMemID;
 
+int ScaleFactor;
+int ScreenW, ScreenH;
+
 GLuint FramebufferTex[4];
 GLuint FramebufferID[2], PixelbufferID;
-u8 Framebuffer[512*384*4];
+u32* Framebuffer = NULL;
 
 bool ChunkedRendering = false;
 
@@ -863,13 +866,6 @@ bool Init()
     glEnable(GL_STENCIL_TEST);
 
 
-    // TODO: make configurable (hires, etc)
-    // set those to 2x the final resolution for antialiased rendering
-    int screenW = 512;
-    int screenH = 384;
-
-
-    glViewport(0, 0, screenW, screenH);
     glDepthRange(0, 1);
     glClearDepth(1.0);
 
@@ -897,8 +893,7 @@ bool Init()
                            kRenderVS_W, kRenderFS_WS)) return false;
 
 
-    ShaderConfig.uScreenSize[0] = screenW;
-    ShaderConfig.uScreenSize[1] = screenH;
+    memset(&ShaderConfig, 0, sizeof(ShaderConfig));
 
     glGenBuffers(1, &ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
@@ -959,7 +954,6 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenW, screenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
 
     // depth/stencil buffer
@@ -968,7 +962,6 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, screenW, screenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);
 
     // attribute buffer
@@ -980,7 +973,6 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, screenW, screenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
 
     // downscale framebuffer, for antialiased mode
@@ -990,7 +982,6 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenW/2, screenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
@@ -1004,8 +995,6 @@ bool Init()
     glBlendFuncSeparatei(1, GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
 
     glGenBuffers(1, &PixelbufferID);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glBufferData(GL_PIXEL_PACK_BUFFER, screenW*screenH*4, NULL, GL_DYNAMIC_READ);
 
     glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &TexMemID);
@@ -1039,6 +1028,32 @@ void DeInit()
 void Reset()
 {
     //
+}
+
+void SetScale(int scale)
+{
+    ScaleFactor = scale;
+
+    // TODO: antialiasing setting
+    ScreenW = 256 << scale;
+    ScreenH = 192 << scale;
+
+    glViewport(0, 0, ScreenW, ScreenH);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
+    glBufferData(GL_PIXEL_PACK_BUFFER, ScreenW*ScreenH*4, NULL, GL_DYNAMIC_READ);
+
+    if (Framebuffer) delete[] Framebuffer;
+    Framebuffer = new u32[ScreenW*ScreenH];
 }
 
 
@@ -1120,14 +1135,19 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             u32 zshift = 0;
             while (z > 0xFFFF) { z >>= 1; zshift++; }
 
-            u32 x = vtx->HiresPosition[0] >> 3;
-            u32 y = vtx->HiresPosition[1] >> 3;
-            *vptr++ = x | (y << 16);
+            u32 x, y;
+            if (ScaleFactor > 0)
+            {
+                x = vtx->HiresPosition[0] >> (4-ScaleFactor);
+                y = vtx->HiresPosition[1] >> (4-ScaleFactor);
+            }
+            else
+            {
+                x = vtx->FinalPosition[0];
+                y = vtx->FinalPosition[1];
+            }
 
-            // TODO hires-upgraded positions?
-            //*vptr++ = vtx->FinalPosition[0] | (vtx->FinalPosition[1] << 16);
-            //*vptr++ = (vtx->FinalPosition[0] << 1) | (vtx->FinalPosition[1] << 17);
-            //*vptr++ = (vtx->FinalPosition[0] << 2) | (vtx->FinalPosition[1] << 18);
+            *vptr++ = x | (y << 16);
             *vptr++ = z | (w << 16);
 
             *vptr++ =  (vtx->FinalColor[0] >> 1) |
@@ -1163,7 +1183,7 @@ void RenderSceneChunk(int y, int h)
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
-    if (h != 192) glScissor(0, y*2, 256*2, h*2);
+    if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
     // pass 1: opaque pixels
 
@@ -1356,6 +1376,8 @@ void VCount144()
 
 void RenderFrame()
 {
+    ShaderConfig.uScreenSize[0] = ScreenW;
+    ShaderConfig.uScreenSize[1] = ScreenH;
     ShaderConfig.uDispCnt = RenderDispCnt;
 
     for (int i = 0; i < 32; i++)
@@ -1491,7 +1513,7 @@ void RenderFrame()
     {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[0]);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[1]);
-        glBlitFramebuffer(0, 0, 1024, 768, 0, 0, 512, 384, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
         glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
     }
@@ -1504,19 +1526,21 @@ void RenderFrame()
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
 
     if (!ChunkedRendering)
-        glReadPixels(0, 0, 256*2, 192*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        glReadPixels(0, 0, 256<<ScaleFactor, 192<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
     else
-        glReadPixels(0, 0, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+        glReadPixels(0, 0, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 u32* GetLine(int line)
 {
+    int stride = 256 << (ScaleFactor*2);
+
     if (!ChunkedRendering)
     {
         if (line == 0)
         {
             u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[4*1024*0], data, 4*1024*192);
+            if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         }
     }
@@ -1525,48 +1549,48 @@ u32* GetLine(int line)
         if (line == 0)
         {
             u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[4*1024*0], data, 4*1024*48);
+            if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*48);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
             if (RenderNumPolygons) RenderSceneChunk(48, 48);
-            glReadPixels(0, 48*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+            glReadPixels(0, 48<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
         }
         else if (line == 48)
         {
             u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[4*1024*48], data, 4*1024*48);
+            if (data) memcpy(&Framebuffer[stride*48], data, 4*stride*48);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
             if (RenderNumPolygons) RenderSceneChunk(96, 48);
-            glReadPixels(0, 96*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+            glReadPixels(0, 96<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
         }
         else if (line == 96)
         {
             u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[4*1024*96], data, 4*1024*48);
+            if (data) memcpy(&Framebuffer[stride*96], data, 4*stride*48);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
 
             if (RenderNumPolygons) RenderSceneChunk(144, 48);
-            glReadPixels(0, 144*2, 256*2, 48*2, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+            glReadPixels(0, 144<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
         }
         else if (line == 144)
         {
             u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[4*1024*144], data, 4*1024*48);
+            if (data) memcpy(&Framebuffer[stride*144], data, 4*stride*48);
             glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
         }
     }
 
-    u32* ptr = (u32*)&Framebuffer[512*2*4 * line];
-    for (int i = 0; i < 1024; i++)
+    u64* ptr = (u64*)&Framebuffer[stride * line];
+    for (int i = 0; i < stride; i+=2)
     {
-        u32 rgb = *ptr & 0x00FCFCFC;
-        u32 a = *ptr & 0xF8000000;
+        u64 rgb = *ptr & 0x00FCFCFC00FCFCFC;
+        u64 a = *ptr & 0xF8000000F8000000;
 
         *ptr++ = (rgb >> 2) | (a >> 3);
     }
 
-    return (u32*)&Framebuffer[512*2*4 * line];
+    return &Framebuffer[stride * line];
 }
 
 }

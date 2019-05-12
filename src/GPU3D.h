@@ -97,6 +97,7 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
+void SetScale(int scale);
 
 void ExecuteCommand();
 
@@ -126,6 +127,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetScale(int scale);
+
 void SetupRenderThread();
 
 void VCount144();
@@ -140,6 +143,8 @@ namespace GLRenderer43
 bool Init();
 void DeInit();
 void Reset();
+
+void SetScale(int scale);
 
 void VCount144();
 void RenderFrame();
