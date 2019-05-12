@@ -81,6 +81,8 @@ uiMenuItem* MenuItem_ScreenGap[6];
 uiMenuItem* MenuItem_ScreenLayout[3];
 uiMenuItem* MenuItem_ScreenSizing[4];
 
+uiMenuItem* MenuItem_LimitFPS;
+
 SDL_Thread* EmuThread;
 int EmuRunning;
 volatile int EmuStatus;
@@ -127,6 +129,7 @@ s16* MicWavBuffer;
 
 u32 MicCommand;
 
+bool HotkeyFPSToggle = false;
 
 void SetupScreenRects(int width, int height);
 
@@ -497,6 +500,27 @@ int EmuThreadFunc(void* burp)
                     HotkeyMask |= 0x1;
                 }
 
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_FastForwardToggle], njoybuttons, joybuttons, joyhat))
+                {
+                    HotkeyFPSToggle = !HotkeyFPSToggle;
+                    Config::LimitFPS = !Config::LimitFPS;
+                    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+                }
+
+                if (!HotkeyFPSToggle)   // For fast forward (hold) hotkey
+                {
+                    if (JoyButtonHeld(Config::HKJoyMapping[HK_FastForward], njoybuttons, joybuttons, joyhat))
+                    {
+                        Config::LimitFPS = false;
+                        uiMenuItemSetChecked(MenuItem_LimitFPS, false);
+                    }
+                    else if (!Config::LimitFPS)
+                    {
+                        Config::LimitFPS = true;
+                        uiMenuItemSetChecked(MenuItem_LimitFPS, true);
+                    }
+                }
+
                 if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
                     MicCommand |= 2;
                 else
@@ -745,6 +769,19 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand &= ~1;
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForwardToggle])
+        {
+            HotkeyFPSToggle = !HotkeyFPSToggle;
+            Config::LimitFPS = !Config::LimitFPS;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
+        {
+            Config::LimitFPS = true;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
     }
     else if (!evt->Repeat)
     {
@@ -775,6 +812,12 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand |= 1;
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
+        {
+            Config::LimitFPS = false;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
 
         if (evt->Scancode == 0x57) // F11
             NDS::debug(0);
@@ -1932,9 +1975,9 @@ int main(int argc, char** argv)
     uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
     uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
 
-    menuitem = uiMenuAppendCheckItem(menu, "Limit framerate");
-    uiMenuItemOnClicked(menuitem, OnSetLimitFPS, NULL);
-    uiMenuItemSetChecked(menuitem, Config::LimitFPS==1);
+    MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
+    uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
+    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
 
 
     int w = Config::WindowWidth;

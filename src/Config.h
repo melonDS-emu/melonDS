@@ -26,7 +26,7 @@ namespace Config
 
 typedef struct
 {
-    char Name[16];
+    char Name[32];
     int Type;
     void* Value;
     int DefaultInt;
