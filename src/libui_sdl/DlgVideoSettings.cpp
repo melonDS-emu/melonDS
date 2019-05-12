@@ -46,7 +46,12 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     return 1;
 }
 
-//
+void OnResolutionChanged(uiRadioButtons* rb, void* blarg)
+{
+    int id = uiRadioButtonsSelected(rb);
+
+    printf("res=%d\n", id);
+}
 
 void OnCancel(uiButton* btn, void* blarg)
 {
@@ -144,6 +149,7 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(lbl), 0);
 
         uiRadioButtons* rbResolution = uiNewRadioButtons();
+        uiRadioButtonsOnSelected(rbResolution, OnResolutionChanged, NULL);
         uiRadioButtonsAppend(rbResolution, "1x");
         uiRadioButtonsAppend(rbResolution, "2x");
         uiRadioButtonsAppend(rbResolution, "4x");

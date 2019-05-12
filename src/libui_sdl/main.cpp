@@ -834,7 +834,6 @@ void SetupScreenRects(int width, int height)
 
     screenW *= ScreenScale;
     screenH *= ScreenScale;
-    gap *= ScreenScale;
 
     uiRect *topscreen, *bottomscreen;
     if (ScreenRotation == 1 || ScreenRotation == 2)
@@ -1028,9 +1027,6 @@ void SetMinSize(int w, int h)
 {
     int cw, ch;
     uiWindowContentSize(MainWindow, &cw, &ch);
-
-    w *= ScreenScale;
-    h *= ScreenScale;
 
     uiControlSetMinSize(uiControl(MainDrawArea), w, h);
     if ((cw < w) || (ch < h))
@@ -1534,26 +1530,31 @@ void EnsureProperMinSize()
 {
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
+    int w0 = 256 * ScreenScale;
+    int h0 = 192 * ScreenScale;
+    int w1 = 256 * ScreenScale;
+    int h1 = 192 * ScreenScale;
+
     if (ScreenLayout == 0) // natural
     {
         if (isHori)
-            SetMinSize(384+ScreenGap, 256);
+            SetMinSize(h0+ScreenGap+h1, std::max(w0,w1));
         else
-            SetMinSize(256, 384+ScreenGap);
+            SetMinSize(std::max(w0,w1), h0+ScreenGap+h1);
     }
     else if (ScreenLayout == 1) // vertical
     {
         if (isHori)
-            SetMinSize(192, 512+ScreenGap);
+            SetMinSize(std::max(h0,h1), w0+ScreenGap+w1);
         else
-            SetMinSize(256, 384+ScreenGap);
+            SetMinSize(std::max(w0,w1), h0+ScreenGap+h1);
     }
     else // horizontal
     {
         if (isHori)
-            SetMinSize(384+ScreenGap, 256);
+            SetMinSize(h0+ScreenGap+h1, std::max(w0,w1));
         else
-            SetMinSize(512+ScreenGap, 192);
+            SetMinSize(w0+ScreenGap+w1, std::max(h0,h1));
     }
 }
 
@@ -1564,6 +1565,8 @@ void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
 
     int w = 256*factor * ScreenScale;
     int h = 192*factor * ScreenScale;
+
+    // FIXME
 
     if (ScreenLayout == 0) // natural
     {
@@ -1695,6 +1698,10 @@ void ApplyNewSettings(int type)
 
         Platform::LAN_DeInit();
         Platform::LAN_Init();
+    }
+    else if (type == 2) // upscaling/video settings
+    {
+        //
     }
 
     EmuRunning = prevstatus;

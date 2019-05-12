@@ -92,11 +92,6 @@ bool Init()
     //SetFramebufferScale(1);
     SetFramebufferScale(1, 1);
 
-    memset(Framebuffer[0][0], 0, (256*192)<<(FBScale[0]*2));
-    memset(Framebuffer[0][1], 0, (256*192)<<(FBScale[1]*2));
-    memset(Framebuffer[1][0], 0, (256*192)<<(FBScale[0]*2));
-    memset(Framebuffer[1][1], 0, (256*192)<<(FBScale[1]*2));
-
     return true;
 }
 
@@ -264,6 +259,9 @@ void SetFramebufferScale(int top, int bottom)
         Framebuffer[0][0] = new u32[fbsize];
         Framebuffer[1][0] = new u32[fbsize];
 
+        memset(Framebuffer[0][0], 0, fbsize*4);
+        memset(Framebuffer[1][0], 0, fbsize*4);
+
         int backbuf = FrontBuffer ? 0 : 1;
         if (NDS::PowerControl9 & (1<<15))
         {
@@ -287,6 +285,9 @@ void SetFramebufferScale(int top, int bottom)
         if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
         Framebuffer[0][1] = new u32[fbsize];
         Framebuffer[1][1] = new u32[fbsize];
+
+        memset(Framebuffer[0][1], 0, fbsize*4);
+        memset(Framebuffer[1][1], 0, fbsize*4);
 
         int backbuf = FrontBuffer ? 0 : 1;
         if (NDS::PowerControl9 & (1<<15))
