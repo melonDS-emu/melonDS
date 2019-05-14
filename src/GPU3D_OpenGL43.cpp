@@ -168,7 +168,7 @@ flat in uvec3 fPolygonAttr;
 layout(location=0) out vec4 oColor;
 layout(location=1) out uvec3 oAttr;
 
-vec4 TextureLookup()
+vec4 TextureLookup(ivec2 st)
 {
     uint attr = fPolygonAttr.y;
     uint paladdr = fPolygonAttr.z;
@@ -181,7 +181,6 @@ vec4 TextureLookup()
     int th = 8 << int((attr >> 23) & 0x7);
 
     int vramaddr = int(attr & 0xFFFF) << 3;
-    ivec2 st = ivec2(fTexcoord);
 
     if ((attr & (1<<16)) != 0)
     {
@@ -366,6 +365,60 @@ vec4 TextureLookup()
     }
 }
 
+vec4 TextureLookup_Nearest(vec2 texcoord)
+{
+    return TextureLookup(ivec2(texcoord));
+}
+
+vec4 TextureLookup_Linear(vec2 texcoord)
+{
+    ivec2 intpart = ivec2(texcoord);
+    vec2 fracpart = fract(texcoord);
+
+    vec4 A = TextureLookup(intpart);
+    vec4 B = TextureLookup(intpart + ivec2(1,0));
+    vec4 C = TextureLookup(intpart + ivec2(0,1));
+    vec4 D = TextureLookup(intpart + ivec2(1,1));
+
+    float fx = fracpart.x;
+    vec4 AB;
+    if (A.a < (0.5/31.0) && B.a < (0.5/31.0))
+        AB = vec4(0);
+    else
+    {
+        //if (A.a < (0.5/31.0) || B.a < (0.5/31.0))
+        //    fx = step(0.5, fx);
+
+        AB = mix(A, B, fx);
+    }
+
+    fx = fracpart.x;
+    vec4 CD;
+    if (C.a < (0.5/31.0) && D.a < (0.5/31.0))
+        CD = vec4(0);
+    else
+    {
+        //if (C.a < (0.5/31.0) || D.a < (0.5/31.0))
+        //    fx = step(0.5, fx);
+
+        CD = mix(C, D, fx);
+    }
+
+    fx = fracpart.y;
+    vec4 ret;
+    if (AB.a < (0.5/31.0) && CD.a < (0.5/31.0))
+        ret = vec4(0);
+    else
+    {
+        //if (AB.a < (0.5/31.0) || CD.a < (0.5/31.0))
+        //    fx = step(0.5, fx);
+
+        ret = mix(AB, CD, fx);
+    }
+
+    return ret;
+}
+
 vec4 FinalColor()
 {
     vec4 col;
@@ -394,7 +447,8 @@ vec4 FinalColor()
     }
     else
     {
-        vec4 tcol = TextureLookup();
+        vec4 tcol = TextureLookup_Nearest(fTexcoord);
+        //vec4 tcol = TextureLookup_Linear(fTexcoord);
 
         if ((blendmode & 1) != 0)
         {
