@@ -1685,6 +1685,7 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     int chk = uiMenuItemChecked(item);
     if (chk != 0) Config::LimitFPS = true;
     else          Config::LimitFPS = false;
+    HotkeyFPSToggle = !Config::LimitFPS; // ensure that the hotkey toggle indicator is synced with this menu item
 }
 
 void ApplyNewSettings(int type)
