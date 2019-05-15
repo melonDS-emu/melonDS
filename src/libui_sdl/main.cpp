@@ -24,6 +24,9 @@
 #include <SDL2/SDL.h>
 #include "libui/ui.h"
 
+#include "../OpenGLSupport.h"
+#include "main_shaders.h"
+
 #include "../types.h"
 #include "../version.h"
 #include "PlatformConfig.h"
@@ -97,6 +100,19 @@ bool SavestateLoaded;
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
 
+GLuint GL_ScreenShader[3];
+struct
+{
+    float uScreenSize[2];
+    u32 uFilterMode;
+
+} GL_ShaderConfig;
+GLuint GL_ShaderConfigUBO;
+GLuint GL_ScreenVertexArrayID, GL_ScreenVertexBufferID;
+float GL_ScreenVertices[2 * 3*2 * 4]; // position/texcoord
+GLuint GL_ScreenTexture;
+bool GL_ScreenSizeDirty;
+
 int ScreenScale[3];
 int ScreenScaleMode;
 
@@ -140,6 +156,204 @@ void UndoStateLoad();
 void GetSavestateName(int slot, char* filename, int len);
 
 
+
+bool GLDrawing_Init()
+{
+    if (!OpenGL_Init())
+        return false;
+
+    if (!OpenGL_BuildShaderProgram(kScreenVS, kScreenFS, GL_ScreenShader, "ScreenShader"))
+        return false;
+
+    memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
+
+    glGenBuffers(1, &GL_ShaderConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 16, GL_ShaderConfigUBO);
+    glUniformBlockBinding(GL_ScreenShader[2], 0, 16);
+
+    glGenBuffers(1, &GL_ScreenVertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GL_ScreenVertices), NULL, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &GL_ScreenVertexArrayID);
+    glBindVertexArray(GL_ScreenVertexArrayID);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &GL_ScreenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 1024, 1536, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+
+    GL_ScreenSizeDirty = true;
+
+    return true;
+}
+
+void GLDrawing_DeInit()
+{
+    glDeleteTextures(1, &GL_ScreenTexture);
+
+    glDeleteVertexArrays(1, &GL_ScreenVertexArrayID);
+    glDeleteBuffers(1, &GL_ScreenVertexBufferID);
+
+    OpenGL_DeleteShaderProgram(GL_ScreenShader);
+}
+
+void GLDrawing_DrawScreen()
+{
+    if (GL_ScreenSizeDirty)
+    {
+        GL_ScreenSizeDirty = false;
+
+        GL_ShaderConfig.uScreenSize[0] = WindowWidth;
+        GL_ShaderConfig.uScreenSize[1] = WindowHeight;
+
+        glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
+        void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+        if (unibuf) memcpy(unibuf, &GL_ShaderConfig, sizeof(GL_ShaderConfig));
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+        float scwidth, scheight;
+        scwidth = 512;
+        scheight = 384;
+
+        float x0, y0, x1, y1;
+        float s0, s1, s2, s3;
+        float t0, t1, t2, t3;
+
+#define SETVERTEX(i, x, y, s, t) \
+    GL_ScreenVertices[4*(i) + 0] = x; \
+    GL_ScreenVertices[4*(i) + 1] = y; \
+    GL_ScreenVertices[4*(i) + 2] = s; \
+    GL_ScreenVertices[4*(i) + 3] = t;
+
+        x0 = TopScreenRect.X;
+        y0 = TopScreenRect.Y;
+        x1 = TopScreenRect.X + TopScreenRect.Width;
+        y1 = TopScreenRect.Y + TopScreenRect.Height;
+
+        switch (ScreenRotation)
+        {
+        case 0:
+            s0 = 0; t0 = 0;
+            s1 = scwidth; t1 = 0;
+            s2 = 0; t2 = scheight;
+            s3 = scwidth; t3 = scheight;
+            break;
+
+        case 1:
+            s0 = 0; t0 = scheight;
+            s1 = 0; t1 = 0;
+            s2 = scwidth; t2 = scheight;
+            s3 = scwidth; t3 = 0;
+            break;
+
+        case 2:
+            s0 = scwidth; t0 = scheight;
+            s1 = 0; t1 = scheight;
+            s2 = scwidth; t2 = 0;
+            s3 = 0; t3 = 0;
+            break;
+
+        case 3:
+            s0 = scwidth; t0 = 0;
+            s1 = scwidth; t1 = scheight;
+            s2 = 0; t2 = 0;
+            s3 = 0; t3 = scheight;
+            break;
+        }
+
+        SETVERTEX(0, x0, y0, s0, t0);
+        SETVERTEX(1, x1, y1, s3, t3);
+        SETVERTEX(2, x1, y0, s1, t1);
+        SETVERTEX(3, x0, y0, s0, t0);
+        SETVERTEX(4, x0, y1, s2, t2);
+        SETVERTEX(5, x1, y1, s3, t3);
+
+        // TODO: adjust scwidth/scheight
+
+        x0 = BottomScreenRect.X;
+        y0 = BottomScreenRect.Y;
+        x1 = BottomScreenRect.X + BottomScreenRect.Width;
+        y1 = BottomScreenRect.Y + BottomScreenRect.Height;
+
+        switch (ScreenRotation)
+        {
+        case 0:
+            s0 = 0; t0 = 768;
+            s1 = scwidth; t1 = 768;
+            s2 = 0; t2 = 768+scheight;
+            s3 = scwidth; t3 = 768+scheight;
+            break;
+
+        case 1:
+            s0 = 0; t0 = 768+scheight;
+            s1 = 0; t1 = 768;
+            s2 = scwidth; t2 = 768+scheight;
+            s3 = scwidth; t3 = 768;
+            break;
+
+        case 2:
+            s0 = scwidth; t0 = 768+scheight;
+            s1 = 0; t1 = 768+scheight;
+            s2 = scwidth; t2 = 768;
+            s3 = 0; t3 = 768;
+            break;
+
+        case 3:
+            s0 = scwidth; t0 = 768;
+            s1 = scwidth; t1 = 768+scheight;
+            s2 = 0; t2 = 768;
+            s3 = 0; t3 = 768+scheight;
+            break;
+        }
+
+        SETVERTEX(6, x0, y0, s0, t0);
+        SETVERTEX(7, x1, y1, s3, t3);
+        SETVERTEX(8, x1, y0, s1, t1);
+        SETVERTEX(9, x0, y0, s0, t0);
+        SETVERTEX(10, x0, y1, s2, t2);
+        SETVERTEX(11, x1, y1, s3, t3);
+
+#undef SETVERTEX
+
+        glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GL_ScreenVertices), GL_ScreenVertices);
+    }
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
+    glViewport(0, 0, WindowWidth, WindowHeight);
+
+    OpenGL_UseShaderProgram(GL_ScreenShader);
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glClearColor(0, 1, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    int frontbuf = GPU::FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 384, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 512, 384, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+    glBindVertexArray(GL_ScreenVertexArrayID);
+    glDrawArrays(GL_TRIANGLES, 0, 4*3);
+
+    uiGLSwapBuffers(GLContext);
+    uiAreaQueueRedrawAll(MainDrawArea);
+}
 
 void MicLoadWav(char* name)
 {
@@ -397,6 +611,8 @@ void FeedMicInput()
 int EmuThreadFunc(void* burp)
 {
     uiGLMakeContextCurrent(GLContext);
+    GLDrawing_Init();
+
     NDS::Init();
 
     MainScreenPos[0] = 0;
@@ -567,7 +783,9 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 0) break;
 
-            uiAreaQueueRedrawAll(MainDrawArea);
+            GLDrawing_DrawScreen();
+
+            //uiAreaQueueRedrawAll(MainDrawArea);
             //uiGLSwapBuffers(GLContext);
 
             // framerate limiter based off SDL2_gfx
@@ -622,6 +840,7 @@ int EmuThreadFunc(void* burp)
             {
                 //uiAreaQueueRedrawAll(MainDrawArea);
                 //uiGLSwapBuffers(GLContext);
+                GLDrawing_DrawScreen();
             }
 
             EmuStatus = EmuRunning;
@@ -636,6 +855,8 @@ int EmuThreadFunc(void* burp)
 
     NDS::DeInit();
     Platform::LAN_DeInit();
+
+    GLDrawing_DeInit();
 
     return 44203;
 }
@@ -1058,6 +1279,8 @@ void SetupScreenRects(int width, int height)
         }
         break;
     }
+
+    GL_ScreenSizeDirty = true;
 }
 
 void SetMinSize(int w, int h)
@@ -2063,7 +2286,7 @@ int main(int argc, char** argv)
     areahandler.Resize = OnAreaResize;
 
     ScreenDrawInited = false;
-    MainDrawArea = uiNewArea(&areahandler, 0);
+    MainDrawArea = uiNewArea(&areahandler, 1);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
     uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?

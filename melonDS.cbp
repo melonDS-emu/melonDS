@@ -230,6 +230,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/winpublic.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
+		<Unit filename="src/libui_sdl/main_shaders.h" />
 		<Unit filename="src/pcap/bluetooth.h" />
 		<Unit filename="src/pcap/bpf.h" />
 		<Unit filename="src/pcap/can_socketcan.h" />

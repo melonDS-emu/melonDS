@@ -109,4 +109,8 @@ DO_PROCLIST(DECLPROC_EXT);
 
 bool OpenGL_Init();
 
+bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name);
+void OpenGL_DeleteShaderProgram(GLuint* ids);
+void OpenGL_UseShaderProgram(GLuint* ids);
+
 #endif // OPENGLSUPPORT_H

@@ -732,7 +732,8 @@ bool ChunkedRendering = false;
 
 bool InitGLExtensions()
 {
-    if (!OpenGL_Init()) return false;
+    // TODO move this elsewhere!!
+    //if (!OpenGL_Init()) return false;
     return true;
 }
 
@@ -1385,7 +1386,7 @@ void VCount144()
 }
 
 void RenderFrame()
-{
+{return;
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
     ShaderConfig.uDispCnt = RenderDispCnt;
@@ -1544,7 +1545,7 @@ void RenderFrame()
 u32* GetLine(int line)
 {
     int stride = 256 << (ScaleFactor*2);
-
+return &Framebuffer[stride * line];
     if (!ChunkedRendering)
     {
         if (line == 0)
