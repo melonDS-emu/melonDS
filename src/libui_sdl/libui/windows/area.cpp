@@ -25,8 +25,11 @@ static LRESULT CALLBACK areaWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	}
 
 	// always recreate the render target if necessary
-	if (a->rt == NULL)
-		a->rt = makeHWNDRenderTarget(a->hwnd);
+	if (!a->openGL)
+    {
+        if (a->rt == NULL)
+            a->rt = makeHWNDRenderTarget(a->hwnd);
+    }
 
 	if (areaDoDraw(a, uMsg, wParam, lParam, &lResult) != FALSE)
 		return lResult;
@@ -34,12 +37,14 @@ static LRESULT CALLBACK areaWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 	if (uMsg == WM_WINDOWPOSCHANGED) {
 		if ((wp->flags & SWP_NOSIZE) != 0)
 			return DefWindowProcW(hwnd, uMsg, wParam, lParam);
+        a->width = -1;
+        a->height = -1;
 		uiWindowsEnsureGetClientRect(a->hwnd, &client);
 		areaDrawOnResize(a, &client);
 		areaScrollOnResize(a, &client);
 		{
 		    double w, h;
-		    loadAreaSize(a, a->rt, &w, &h);
+		    loadAreaSize(a, &w, &h);
 		    a->ah->Resize(a->ah, a, (int)w, (int)h);
 		}
 		return 0;
@@ -176,11 +181,14 @@ void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b)
 }
 
 
-uiArea *uiNewArea(uiAreaHandler *ah)
+uiArea *uiNewArea(uiAreaHandler *ah, int opengl)
 {
 	uiArea *a;
 
 	uiWindowsNewControl(uiArea, a);
+
+	a->width = -1;
+	a->height = -1;
 
 	a->ah = ah;
 	a->scrolling = FALSE;
@@ -195,6 +203,8 @@ uiArea *uiNewArea(uiAreaHandler *ah)
 
     uiAreaSetBackgroundColor(a, -1, -1, -1);
 
+    a->openGL = opengl;
+
 	return a;
 }
 
@@ -203,6 +213,9 @@ uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
 	uiArea *a;
 
 	uiWindowsNewControl(uiArea, a);
+
+	a->width = -1;
+	a->height = -1;
 
 	a->ah = ah;
 	a->scrolling = TRUE;
@@ -218,6 +231,8 @@ uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
 		FALSE);
 
     uiAreaSetBackgroundColor(a, -1, -1, -1);
+
+    a->openGL = 0; // TODO, eventually???
 
 	// set initial scrolling parameters
 	areaUpdateScroll(a);

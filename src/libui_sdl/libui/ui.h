@@ -341,7 +341,7 @@ _UI_EXTERN void uiAreaScrollTo(uiArea *a, double x, double y, double width, doub
 _UI_EXTERN void uiAreaBeginUserWindowMove(uiArea *a);
 _UI_EXTERN void uiAreaBeginUserWindowResize(uiArea *a, uiWindowResizeEdge edge);
 _UI_EXTERN void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b);
-_UI_EXTERN uiArea *uiNewArea(uiAreaHandler *ah);
+_UI_EXTERN uiArea *uiNewArea(uiAreaHandler *ah, int opengl);
 _UI_EXTERN uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height);
 
 struct uiAreaDrawParams {
@@ -608,6 +608,7 @@ _UI_EXTERN uiGLContext *uiGLNewContext(uiControl* c, int vermajor, int verminor)
 _UI_EXTERN void uiGLFreeContext(uiGLContext* ctx);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
+_UI_EXTERN void uiGLSwapBuffers(uiGLContext* ctx);
 
 
 _UI_ENUM(uiModifiers) {

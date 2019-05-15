@@ -568,6 +568,7 @@ int EmuThreadFunc(void* burp)
             if (EmuRunning == 0) break;
 
             uiAreaQueueRedrawAll(MainDrawArea);
+            //uiGLSwapBuffers(GLContext);
 
             // framerate limiter based off SDL2_gfx
             float framerate;
@@ -619,7 +620,8 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 2)
             {
-                uiAreaQueueRedrawAll(MainDrawArea);
+                //uiAreaQueueRedrawAll(MainDrawArea);
+                //uiGLSwapBuffers(GLContext);
             }
 
             EmuStatus = EmuRunning;
@@ -2061,7 +2063,7 @@ int main(int argc, char** argv)
     areahandler.Resize = OnAreaResize;
 
     ScreenDrawInited = false;
-    MainDrawArea = uiNewArea(&areahandler);
+    MainDrawArea = uiNewArea(&areahandler, 0);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
     uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?

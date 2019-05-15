@@ -134,3 +134,8 @@ void *uiGLGetProcAddress(const char* proc)
 {
     return (void*)wglGetProcAddress(proc);
 }
+
+void uiGLSwapBuffers(uiGLContext* ctx)
+{
+    SwapBuffers(ctx->dc);
+}

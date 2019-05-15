@@ -2,20 +2,35 @@
 #include "uipriv_windows.hpp"
 #include "area.hpp"
 
-void loadAreaSize(uiArea *a, ID2D1RenderTarget *rt, double *width, double *height)
+// TODO: make those int rather than double
+void loadAreaSize(uiArea *a, double *width, double *height)
 {
 	D2D1_SIZE_F size;
+
+	if (a->width != -1)
+    {
+        *width = (double)a->width;
+        *height = (double)a->height;
+        return;
+    }
 
 	*width = 0;
 	*height = 0;
 	if (!a->scrolling) {
-		if (rt == NULL)
+		/*if (rt == NULL)
 			rt = a->rt;
 		size = realGetSize(rt);
 		*width = size.width;
 		*height = size.height;
-		dipToPixels(a, width, height);
+		dipToPixels(a, width, height);*/
+		RECT rect;
+        GetWindowRect(a->hwnd, &rect);
+        *width = (double)(rect.right - rect.left);
+        *height = (double)(rect.bottom - rect.top);
 	}
+
+	a->width = (int)*width;
+	a->height = (int)*height;
 }
 
 void pixelsToDIP(uiArea *a, double *x, double *y)

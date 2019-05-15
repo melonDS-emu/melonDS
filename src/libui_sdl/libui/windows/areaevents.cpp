@@ -109,7 +109,7 @@ static void areaMouseEvent(uiArea *a, int down, int  up, WPARAM wParam, LPARAM l
 		me.Y += a->vscrollpos;
 	}
 
-	loadAreaSize(a, NULL, &(me.AreaWidth), &(me.AreaHeight));
+	loadAreaSize(a, &(me.AreaWidth), &(me.AreaHeight));
 
 	me.Down = down;
 	me.Up = up;
