@@ -9,7 +9,7 @@ static HRESULT doPaint(uiArea *a, ID2D1RenderTarget *rt, RECT *clip)
 
 	if (a->openGL)
     {
-        (*(ah->Draw))(ah, a, &dp);
+        //(*(ah->Draw))(ah, a, &dp);
         return S_OK;
     }
 

@@ -16,76 +16,16 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <GL/gl.h>
-#include <GL/glext.h>
-
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-#include "Platform.h"
+#include "OpenGLSupport.h"
 
 namespace GPU3D
 {
 namespace GLRenderer43
 {
-
-PFNGLGENFRAMEBUFFERSPROC        glGenFramebuffers;
-PFNGLDELETEFRAMEBUFFERSPROC     glDeleteFramebuffers;
-PFNGLBINDFRAMEBUFFERPROC        glBindFramebuffer;
-PFNGLFRAMEBUFFERTEXTUREPROC     glFramebufferTexture;
-PFNGLBLITFRAMEBUFFERPROC        glBlitFramebuffer;
-
-PFNGLGENBUFFERSPROC             glGenBuffers;
-PFNGLDELETEBUFFERSPROC          glDeleteBuffers;
-PFNGLBINDBUFFERPROC             glBindBuffer;
-PFNGLMAPBUFFERPROC              glMapBuffer;
-PFNGLMAPBUFFERRANGEPROC         glMapBufferRange;
-PFNGLUNMAPBUFFERPROC            glUnmapBuffer;
-PFNGLBUFFERDATAPROC             glBufferData;
-PFNGLBUFFERSUBDATAPROC          glBufferSubData;
-PFNGLBINDBUFFERBASEPROC         glBindBufferBase;
-
-PFNGLGENVERTEXARRAYSPROC            glGenVertexArrays;
-PFNGLDELETEVERTEXARRAYSPROC         glDeleteVertexArrays;
-PFNGLBINDVERTEXARRAYPROC            glBindVertexArray;
-PFNGLENABLEVERTEXATTRIBARRAYPROC    glEnableVertexAttribArray;
-PFNGLDISABLEVERTEXATTRIBARRAYPROC   glDisableVertexAttribArray;
-PFNGLVERTEXATTRIBPOINTERPROC        glVertexAttribPointer;
-PFNGLVERTEXATTRIBIPOINTERPROC       glVertexAttribIPointer;
-
-PFNGLCREATESHADERPROC           glCreateShader;
-PFNGLSHADERSOURCEPROC           glShaderSource;
-PFNGLCOMPILESHADERPROC          glCompileShader;
-PFNGLCREATEPROGRAMPROC          glCreateProgram;
-PFNGLATTACHSHADERPROC           glAttachShader;
-PFNGLLINKPROGRAMPROC            glLinkProgram;
-PFNGLUSEPROGRAMPROC             glUseProgram;
-PFNGLGETSHADERIVPROC            glGetShaderiv;
-PFNGLGETSHADERINFOLOGPROC       glGetShaderInfoLog;
-PFNGLGETPROGRAMIVPROC           glGetProgramiv;
-PFNGLGETPROGRAMINFOLOGPROC      glGetProgramInfoLog;
-PFNGLDELETESHADERPROC           glDeleteShader;
-PFNGLDELETEPROGRAMPROC          glDeleteProgram;
-
-PFNGLUNIFORM1UIPROC             glUniform1ui;
-PFNGLUNIFORM4UIPROC             glUniform4ui;
-PFNGLUNIFORMBLOCKBINDINGPROC    glUniformBlockBinding;
-
-PFNGLACTIVETEXTUREPROC          glActiveTexture;
-PFNGLBINDIMAGETEXTUREPROC       glBindImageTexture;
-
-PFNGLDRAWBUFFERSPROC            glDrawBuffers;
-
-PFNGLBLENDFUNCSEPARATEIPROC      glBlendFuncSeparatei;
-PFNGLBLENDEQUATIONSEPARATEIPROC  glBlendEquationSeparatei;
-
-PFNGLCOLORMASKIPROC             glColorMaski;
-
-PFNGLMEMORYBARRIERPROC          glMemoryBarrier;
-
-PFNGLGETSTRINGIPROC             glGetStringi;
-
 
 // GL version requirements
 // * explicit uniform location: 4.3 (or extension)
@@ -792,67 +732,7 @@ bool ChunkedRendering = false;
 
 bool InitGLExtensions()
 {
-#define LOADPROC(type, name)  \
-    name = (PFN##type##PROC)Platform::GL_GetProcAddress(#name); \
-    if (!name) { printf("OpenGL: " #name " not found\n"); return false; }
-
-    LOADPROC(GLGENFRAMEBUFFERS, glGenFramebuffers);
-    LOADPROC(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers);
-    LOADPROC(GLBINDFRAMEBUFFER, glBindFramebuffer);
-    LOADPROC(GLFRAMEBUFFERTEXTURE, glFramebufferTexture);
-    LOADPROC(GLBLITFRAMEBUFFER, glBlitFramebuffer);
-
-    LOADPROC(GLGENBUFFERS, glGenBuffers);
-    LOADPROC(GLDELETEBUFFERS, glDeleteBuffers);
-    LOADPROC(GLBINDBUFFER, glBindBuffer);
-    LOADPROC(GLMAPBUFFER, glMapBuffer);
-    LOADPROC(GLMAPBUFFERRANGE, glMapBufferRange);
-    LOADPROC(GLUNMAPBUFFER, glUnmapBuffer);
-    LOADPROC(GLBUFFERDATA, glBufferData);
-    LOADPROC(GLBUFFERSUBDATA, glBufferSubData);
-    LOADPROC(GLBINDBUFFERBASE, glBindBufferBase);
-
-    LOADPROC(GLGENVERTEXARRAYS, glGenVertexArrays);
-    LOADPROC(GLDELETEVERTEXARRAYS, glDeleteVertexArrays);
-    LOADPROC(GLBINDVERTEXARRAY, glBindVertexArray);
-    LOADPROC(GLENABLEVERTEXATTRIBARRAY, glEnableVertexAttribArray);
-    LOADPROC(GLDISABLEVERTEXATTRIBARRAY, glDisableVertexAttribArray);
-    LOADPROC(GLVERTEXATTRIBPOINTER, glVertexAttribPointer);
-    LOADPROC(GLVERTEXATTRIBIPOINTER, glVertexAttribIPointer);
-
-    LOADPROC(GLCREATESHADER, glCreateShader);
-    LOADPROC(GLSHADERSOURCE, glShaderSource);
-    LOADPROC(GLCOMPILESHADER, glCompileShader);
-    LOADPROC(GLCREATEPROGRAM, glCreateProgram);
-    LOADPROC(GLATTACHSHADER, glAttachShader);
-    LOADPROC(GLLINKPROGRAM, glLinkProgram);
-    LOADPROC(GLUSEPROGRAM, glUseProgram);
-    LOADPROC(GLGETSHADERIV, glGetShaderiv);
-    LOADPROC(GLGETSHADERINFOLOG, glGetShaderInfoLog);
-    LOADPROC(GLGETPROGRAMIV, glGetProgramiv);
-    LOADPROC(GLGETPROGRAMINFOLOG, glGetProgramInfoLog);
-    LOADPROC(GLDELETESHADER, glDeleteShader);
-    LOADPROC(GLDELETEPROGRAM, glDeleteProgram);
-
-    LOADPROC(GLUNIFORM1UI, glUniform1ui);
-    LOADPROC(GLUNIFORM4UI, glUniform4ui);
-    LOADPROC(GLUNIFORMBLOCKBINDING, glUniformBlockBinding);
-
-    LOADPROC(GLACTIVETEXTURE, glActiveTexture);
-    LOADPROC(GLBINDIMAGETEXTURE, glBindImageTexture);
-
-    LOADPROC(GLDRAWBUFFERS, glDrawBuffers);
-
-    LOADPROC(GLBLENDFUNCSEPARATEI, glBlendFuncSeparatei);
-    LOADPROC(GLBLENDEQUATIONSEPARATEI, glBlendEquationSeparatei);
-
-    LOADPROC(GLCOLORMASKI, glColorMaski);
-
-    LOADPROC(GLMEMORYBARRIER, glMemoryBarrier);
-
-    LOADPROC(GLGETSTRINGI, glGetStringi);
-
-#undef LOADPROC
+    if (!OpenGL_Init()) return false;
     return true;
 }
 

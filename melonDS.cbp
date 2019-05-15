@@ -112,6 +112,8 @@
 		<Unit filename="src/NDS.h" />
 		<Unit filename="src/NDSCart.cpp" />
 		<Unit filename="src/NDSCart.h" />
+		<Unit filename="src/OpenGLSupport.cpp" />
+		<Unit filename="src/OpenGLSupport.h" />
 		<Unit filename="src/Platform.h" />
 		<Unit filename="src/RTC.cpp" />
 		<Unit filename="src/RTC.h" />
