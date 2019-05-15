@@ -737,79 +737,6 @@ bool InitGLExtensions()
     return true;
 }
 
-bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
-{
-    int len;
-    int res;
-
-    ids[0] = glCreateShader(GL_VERTEX_SHADER);
-    len = strlen(vs);
-    glShaderSource(ids[0], 1, &vs, &len);
-    glCompileShader(ids[0]);
-
-    glGetShaderiv(ids[0], GL_COMPILE_STATUS, &res);
-    if (res != GL_TRUE)
-    {
-        glGetShaderiv(ids[0], GL_INFO_LOG_LENGTH, &res);
-        if (res < 1) res = 1024;
-        char* log = new char[res+1];
-        glGetShaderInfoLog(ids[0], res+1, NULL, log);
-        printf("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
-        printf("shader source:\n--\n%s\n--\n", vs);
-        delete[] log;
-
-        glDeleteShader(ids[0]);
-
-        return false;
-    }
-
-    ids[1] = glCreateShader(GL_FRAGMENT_SHADER);
-    len = strlen(fs);
-    glShaderSource(ids[1], 1, &fs, &len);
-    glCompileShader(ids[1]);
-
-    glGetShaderiv(ids[1], GL_COMPILE_STATUS, &res);
-    if (res != GL_TRUE)
-    {
-        glGetShaderiv(ids[1], GL_INFO_LOG_LENGTH, &res);
-        if (res < 1) res = 1024;
-        char* log = new char[res+1];
-        glGetShaderInfoLog(ids[1], res+1, NULL, log);
-        printf("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
-        //printf("shader source:\n--\n%s\n--\n", fs);
-        delete[] log;
-
-        glDeleteShader(ids[0]);
-        glDeleteShader(ids[1]);
-
-        return false;
-    }
-
-    ids[2] = glCreateProgram();
-    glAttachShader(ids[2], ids[0]);
-    glAttachShader(ids[2], ids[1]);
-    glLinkProgram(ids[2]);
-
-    glGetProgramiv(ids[2], GL_LINK_STATUS, &res);
-    if (res != GL_TRUE)
-    {
-        glGetProgramiv(ids[2], GL_INFO_LOG_LENGTH, &res);
-        if (res < 1) res = 1024;
-        char* log = new char[res+1];
-        glGetProgramInfoLog(ids[2], res+1, NULL, log);
-        printf("OpenGL: failed to link program %s: %s\n", name, log);
-        delete[] log;
-
-        glDeleteShader(ids[0]);
-        glDeleteShader(ids[1]);
-        glDeleteProgram(ids[2]);
-
-        return false;
-    }
-
-    return true;
-}
-
 bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 {
     char shadername[32];
@@ -831,7 +758,7 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
     strcpy(&fsbuf[headerlen], kRenderFSCommon);
     strcpy(&fsbuf[headerlen + fsclen], fs);
 
-    bool ret = BuildShaderProgram(vsbuf, fsbuf, RenderShader[flags], shadername);
+    bool ret = OpenGL_BuildShaderProgram(vsbuf, fsbuf, RenderShader[flags], shadername);
 
     delete[] vsbuf;
     delete[] fsbuf;
@@ -881,7 +808,7 @@ bool Init()
     glClearDepth(1.0);
 
 
-    if (!BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
+    if (!OpenGL_BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
 
     memset(RenderShader, 0, sizeof(RenderShader));
@@ -1048,8 +975,6 @@ void SetScale(int scale)
     // TODO: antialiasing setting
     ScreenW = 256 << scale;
     ScreenH = 192 << scale;
-
-    glViewport(0, 0, ScreenW, ScreenH);
 
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -1386,7 +1311,7 @@ void VCount144()
 }
 
 void RenderFrame()
-{return;
+{
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
     ShaderConfig.uDispCnt = RenderDispCnt;
@@ -1441,6 +1366,10 @@ void RenderFrame()
     }
 
     glDisable(GL_SCISSOR_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+
+    glViewport(0, 0, ScreenW, ScreenH);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     glDisable(GL_BLEND);
@@ -1545,7 +1474,7 @@ void RenderFrame()
 u32* GetLine(int line)
 {
     int stride = 256 << (ScaleFactor*2);
-return &Framebuffer[stride * line];
+
     if (!ChunkedRendering)
     {
         if (line == 0)

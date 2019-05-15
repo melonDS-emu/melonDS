@@ -333,14 +333,16 @@ void GLDrawing_DrawScreen()
     }
 
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glViewport(0, 0, WindowWidth, WindowHeight);
 
     OpenGL_UseShaderProgram(GL_ScreenShader);
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glClearColor(0, 1, 0, 1);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     int frontbuf = GPU::FrontBuffer;
@@ -353,6 +355,7 @@ void GLDrawing_DrawScreen()
     glBindVertexArray(GL_ScreenVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
 
+    glFlush();
     uiGLSwapBuffers(GLContext);
     uiAreaQueueRedrawAll(MainDrawArea);
 }
