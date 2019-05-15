@@ -223,8 +223,6 @@ void GLDrawing_DrawScreen()
         glUnmapBuffer(GL_UNIFORM_BUFFER);
 
         float scwidth, scheight;
-        scwidth = 512;
-        scheight = 384;
 
         float x0, y0, x1, y1;
         float s0, s1, s2, s3;
@@ -240,6 +238,9 @@ void GLDrawing_DrawScreen()
         y0 = TopScreenRect.Y;
         x1 = TopScreenRect.X + TopScreenRect.Width;
         y1 = TopScreenRect.Y + TopScreenRect.Height;
+
+        scwidth = 256 << ScreenScale[0];
+        scheight = 192 << ScreenScale[0];
 
         switch (ScreenRotation)
         {
@@ -279,12 +280,13 @@ void GLDrawing_DrawScreen()
         SETVERTEX(4, x0, y1, s2, t2);
         SETVERTEX(5, x1, y1, s3, t3);
 
-        // TODO: adjust scwidth/scheight
-
         x0 = BottomScreenRect.X;
         y0 = BottomScreenRect.Y;
         x1 = BottomScreenRect.X + BottomScreenRect.Width;
         y1 = BottomScreenRect.Y + BottomScreenRect.Height;
+
+        scwidth = 256 << ScreenScale[1];
+        scheight = 192 << ScreenScale[1];
 
         switch (ScreenRotation)
         {
