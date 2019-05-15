@@ -184,6 +184,7 @@ bool GLDrawing_Init()
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
 
+    // TODO: consider reallocating the texture when changing screen sizes
     glGenTextures(1, &GL_ScreenTexture);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -348,8 +349,10 @@ void GLDrawing_DrawScreen()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 512, 384, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 512, 384, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0], GL_RGBA_INTEGER,
+                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256<<ScreenScale[1], 192<<ScreenScale[1], GL_RGBA_INTEGER,
+                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
 
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBindVertexArray(GL_ScreenVertexArrayID);
