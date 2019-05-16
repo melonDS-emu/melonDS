@@ -612,6 +612,11 @@ void SetDisplaySettings(int scale, bool accel)
     GLRenderer43::SetDisplaySettings(scale, accel);
 }
 
+int GetScale()
+{
+    return GLRenderer43::GetScale();
+}
+
 
 
 void MatrixLoadIdentity(s32* m)
@@ -2439,6 +2444,11 @@ u32* GetLine(int line)
 {
     //return SoftRenderer::GetLine(line);
     return GLRenderer43::GetLine(line);
+}
+
+void SetupAccelFrame()
+{
+    GLRenderer43::SetupAccelFrame();
 }
 
 

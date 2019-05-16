@@ -143,6 +143,11 @@ void SetDisplaySettings(int scale, bool accel)
     printf("SOFT RENDERER SCALE FACTOR: TODO!!!\n");
 }
 
+int GetScale()
+{
+    return 0;
+}
+
 
 
 // Notes on the interpolator:

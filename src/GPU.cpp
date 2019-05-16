@@ -254,7 +254,7 @@ void SetDisplaySettings(int topscale, int bottomscale, bool accel)
         FBScale[0] = accel ? 0 : topscale;
 
         int fbsize;
-        if (accel) fbsize = 256*3 * 192;
+        if (accel) fbsize = (256*3 + 1) * 192;
         else       fbsize = (256 * 192) << (FBScale[0] * 2);
         if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
         if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
@@ -283,7 +283,7 @@ void SetDisplaySettings(int topscale, int bottomscale, bool accel)
         FBScale[1] = accel ? 0 : bottomscale;
 
         int fbsize;
-        if (accel) fbsize = 256*3 * 192;
+        if (accel) fbsize = (256*3 + 1) * 192;
         else       fbsize = (256 * 192) << (FBScale[1] * 2);
         if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
         if (Framebuffer[1][1]) delete[] Framebuffer[1][1];

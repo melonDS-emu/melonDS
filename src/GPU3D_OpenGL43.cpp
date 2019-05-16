@@ -100,7 +100,8 @@ int ScaleFactor;
 bool Accelerated;
 int ScreenW, ScreenH;
 
-GLuint FramebufferTex[4];
+GLuint FramebufferTex[6];
+int FrontBuffer;
 GLuint FramebufferID[2], PixelbufferID;
 u32* Framebuffer = NULL;
 
@@ -262,8 +263,10 @@ bool Init()
     glGenFramebuffers(2, &FramebufferID[0]);
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
-    // color buffer
-    glGenTextures(4, &FramebufferTex[0]);
+    glGenTextures(6, &FramebufferTex[0]);
+    FrontBuffer = 0;
+
+    // color buffers
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -271,33 +274,39 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
 
-    // depth/stencil buffer
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[1], 0);
+
+    // depth/stencil buffer
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
 
     // attribute buffer
     // R: opaque polyID (for edgemarking)
     // G: opaque polyID (for shadows, suppressed when rendering translucent polygons)
     // B: stencil flag
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+
+    // downscale framebuffer, for antialiased mode
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[2], 0);
-
-    // downscale framebuffer, for antialiased mode
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
@@ -330,7 +339,7 @@ bool Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
 
     glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]); // opaque polyID / shadow bits
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]); // opaque polyID / shadow bits
 
     return true;
 }
@@ -357,11 +366,13 @@ void SetDisplaySettings(int scale, bool accel)
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     if (accel) glBufferData(GL_PIXEL_PACK_BUFFER, ScreenW*ScreenH*4, NULL, GL_DYNAMIC_READ);
@@ -370,6 +381,11 @@ void SetDisplaySettings(int scale, bool accel)
     if (Framebuffer) delete[] Framebuffer;
     if (accel) Framebuffer = new u32[256*192];
     else       Framebuffer = new u32[ScreenW*ScreenH];
+}
+
+int GetScale()
+{
+    return ScaleFactor;
 }
 
 
@@ -756,6 +772,12 @@ void RenderFrame()
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
 
+    if (Accelerated)
+    {
+        int backbuf = FrontBuffer ? 0 : 1;
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[backbuf], 0);
+    }
+
     // clear buffers
     // TODO: clear bitmap
     // TODO: check whether 'clear polygon ID' affects translucent polyID
@@ -818,15 +840,7 @@ void RenderFrame()
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
 
-        if (!ChunkedRendering)
-        {
-            RenderSceneChunk(0, 192);
-        }
-        else
-        {
-            glEnable(GL_SCISSOR_TEST);
-            RenderSceneChunk(0, 48);
-        }
+        RenderSceneChunk(0, 192);
     }
 
     if (false)
@@ -842,63 +856,24 @@ void RenderFrame()
         glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     }
 
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
+    if (!Accelerated)
+    {
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
 
-    if (!ChunkedRendering)
         glReadPixels(0, 0, 256<<ScaleFactor, 192<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    else
-        glReadPixels(0, 0, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    }
 }
 
 u32* GetLine(int line)
 {
     int stride = 256 << (ScaleFactor*2);
 
-    if (!ChunkedRendering)
+    if (line == 0)
     {
-        if (line == 0)
-        {
-            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-        }
-    }
-    else
-    {
-        if (line == 0)
-        {
-            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*48);
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-
-            if (RenderNumPolygons) RenderSceneChunk(48, 48);
-            glReadPixels(0, 48<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-        }
-        else if (line == 48)
-        {
-            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[stride*48], data, 4*stride*48);
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-
-            if (RenderNumPolygons) RenderSceneChunk(96, 48);
-            glReadPixels(0, 96<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-        }
-        else if (line == 96)
-        {
-            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[stride*96], data, 4*stride*48);
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-
-            if (RenderNumPolygons) RenderSceneChunk(144, 48);
-            glReadPixels(0, 144<<ScaleFactor, 256<<ScaleFactor, 48<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-        }
-        else if (line == 144)
-        {
-            u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-            if (data) memcpy(&Framebuffer[stride*144], data, 4*stride*48);
-            glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-        }
+        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
+        glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }
 
     u64* ptr = (u64*)&Framebuffer[stride * line];
@@ -915,7 +890,8 @@ u32* GetLine(int line)
 
 void SetupAccelFrame()
 {
-    //
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
+    FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
 }

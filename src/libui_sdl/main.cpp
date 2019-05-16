@@ -104,6 +104,7 @@ GLuint GL_ScreenShader[3];
 struct
 {
     float uScreenSize[2];
+    u32 u3DScale;
     u32 uFilterMode;
 
 } GL_ShaderConfig;
@@ -217,6 +218,7 @@ void GLDrawing_DrawScreen()
 
         GL_ShaderConfig.uScreenSize[0] = WindowWidth;
         GL_ShaderConfig.uScreenSize[1] = WindowHeight;
+        GL_ShaderConfig.u3DScale = 1 << GPU3D::GetScale();
 
         glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
         void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
@@ -342,7 +344,7 @@ void GLDrawing_DrawScreen()
 
     OpenGL_UseShaderProgram(GL_ScreenShader);
 
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -353,10 +355,13 @@ void GLDrawing_DrawScreen()
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256<<ScreenScale[1], 192<<ScreenScale[1], GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);*/
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3, 192, GL_RGBA_INTEGER,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3, 192, GL_RGBA_INTEGER,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 1, 192, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+
+    glActiveTexture(GL_TEXTURE1);
+    GPU3D::SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBindVertexArray(GL_ScreenVertexArrayID);

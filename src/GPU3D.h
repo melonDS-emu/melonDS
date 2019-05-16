@@ -98,6 +98,7 @@ void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
 void SetDisplaySettings(int scale, bool accel);
+int GetScale();
 
 void ExecuteCommand();
 
@@ -129,6 +130,7 @@ void DeInit();
 void Reset();
 
 void SetDisplaySettings(int scale, bool accel);
+int GetScale();
 
 void SetupRenderThread();
 
@@ -147,6 +149,7 @@ void DeInit();
 void Reset();
 
 void SetDisplaySettings(int scale, bool accel);
+int GetScale();
 
 void VCount144();
 void RenderFrame();

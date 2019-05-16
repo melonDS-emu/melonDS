@@ -626,7 +626,7 @@ u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    int stride = Accelerated ? (256*3) : LineStride;
+    int stride = Accelerated ? (256*3 + 1) : LineStride;
     u32* dst = &Framebuffer[stride * line];
 
     int n3dline = line;
@@ -787,7 +787,17 @@ void GPU2D::DrawScanline(u32 line)
             DoCapture(line, capwidth);
     }
 
-    if (Accelerated) return;
+    if (Accelerated)
+    {
+        u32 ctl = (BlendCnt & 0x3FFF);
+        ctl    |= ((DispCnt & 0x30000) >> 2);
+        ctl    |= (EVA << 16);
+        ctl    |= (EVB << 21);
+        ctl    |= (EVY << 26);
+
+        dst[256*3] = ctl;
+        return;
+    }
 
     // master brightness
     if (dispmode != 0)
@@ -1367,6 +1377,13 @@ void GPU2D::DrawScanline_Mode1(u32 line)
             }
         }
     }
+    else
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            BGOBJLine[i] |= ((WindowMask[i] & 0x20) << 18);
+        }
+    }
 
     if (BGMosaicY >= BGMosaicYMax)
     {
@@ -1471,11 +1488,13 @@ void GPU2D::DrawBG_3D()
     {
         for (; i < iend; i++)
         {
+            int pos = xoff++;
+
             if (!(WindowMask[i] & 0x01)) continue;
 
             BGOBJLine[i+512] = BGOBJLine[i+256];
             BGOBJLine[i+256] = BGOBJLine[i];
-            BGOBJLine[i] = 0x40000000; // 3D-layer placeholder
+            BGOBJLine[i] = 0x40000000 | pos; // 3D-layer placeholder
         }
     }
     else if (LineScale == 1)
