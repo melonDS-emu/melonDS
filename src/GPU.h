@@ -75,7 +75,7 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
-void SetFramebufferScale(int top, int bottom);
+void SetDisplaySettings(int topscale, int bottomscale, bool accel);
 
 
 void MapVRAM_AB(u32 bank, u8 cnt);

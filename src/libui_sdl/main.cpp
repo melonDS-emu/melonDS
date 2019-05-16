@@ -240,8 +240,8 @@ void GLDrawing_DrawScreen()
         x1 = TopScreenRect.X + TopScreenRect.Width;
         y1 = TopScreenRect.Y + TopScreenRect.Height;
 
-        scwidth = 256 << ScreenScale[0];
-        scheight = 192 << ScreenScale[0];
+        scwidth = 256;// << ScreenScale[0];
+        scheight = 192;// << ScreenScale[0];
 
         switch (ScreenRotation)
         {
@@ -286,8 +286,8 @@ void GLDrawing_DrawScreen()
         x1 = BottomScreenRect.X + BottomScreenRect.Width;
         y1 = BottomScreenRect.Y + BottomScreenRect.Height;
 
-        scwidth = 256 << ScreenScale[1];
-        scheight = 192 << ScreenScale[1];
+        scwidth = 256;// << ScreenScale[1];
+        scheight = 192;// << ScreenScale[1];
 
         switch (ScreenRotation)
         {
@@ -349,9 +349,13 @@ void GLDrawing_DrawScreen()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0], GL_RGBA_INTEGER,
+    /*glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0], GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256<<ScreenScale[1], 192<<ScreenScale[1], GL_RGBA_INTEGER,
+                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);*/
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3, 192, GL_RGBA_INTEGER,
+                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3, 192, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
 
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
@@ -633,7 +637,8 @@ int EmuThreadFunc(void* burp)
     ScreenScale[0] = ScreenScale[2];
     ScreenScale[1] = ScreenScale[2];
 
-    int lastscale[2] = {-1, -1};
+    int lastscale[2] = {ScreenScale[0], ScreenScale[1]};
+    GPU::SetDisplaySettings(ScreenScale[0], ScreenScale[1], false);
 
     Touching = false;
     KeyInputMask = 0xFFF;
@@ -782,7 +787,7 @@ int EmuThreadFunc(void* burp)
             if (ScreenScale[0] != lastscale[0] ||
                 ScreenScale[1] != lastscale[1])
             {
-                GPU::SetFramebufferScale(ScreenScale[0], ScreenScale[1]);
+                GPU::SetDisplaySettings(ScreenScale[0], ScreenScale[1], false);
                 ScreenDrawInited = false;
             }
 

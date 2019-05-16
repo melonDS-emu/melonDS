@@ -97,7 +97,7 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
-void SetScale(int scale);
+void SetDisplaySettings(int scale, bool accel);
 
 void ExecuteCommand();
 
@@ -110,6 +110,7 @@ void VCount144();
 void VBlank();
 void VCount215();
 u32* GetLine(int line);
+void SetupAccelFrame();
 
 void WriteToGXFIFO(u32 val);
 
@@ -127,13 +128,14 @@ bool Init();
 void DeInit();
 void Reset();
 
-void SetScale(int scale);
+void SetDisplaySettings(int scale, bool accel);
 
 void SetupRenderThread();
 
 void VCount144();
 void RenderFrame();
 u32* GetLine(int line);
+void SetupAccelFrame();
 
 }
 
@@ -144,11 +146,12 @@ bool Init();
 void DeInit();
 void Reset();
 
-void SetScale(int scale);
+void SetDisplaySettings(int scale, bool accel);
 
 void VCount144();
 void RenderFrame();
 u32* GetLine(int line);
+void SetupAccelFrame();
 
 }
 

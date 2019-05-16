@@ -607,9 +607,9 @@ void SetEnabled(bool geometry, bool rendering)
     if (!rendering) ResetRenderingState();
 }
 
-void SetScale(int scale)
+void SetDisplaySettings(int scale, bool accel)
 {
-    GLRenderer43::SetScale(scale);
+    GLRenderer43::SetDisplaySettings(scale, accel);
 }
 
 

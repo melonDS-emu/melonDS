@@ -31,7 +31,7 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
-    void SetScale(int scale);
+    void SetDisplaySettings(int scale, bool accel);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -71,6 +71,7 @@ private:
 
     u32 LineStride;
     u32 LineScale;
+    bool Accelerated;
 
     u32 BGOBJLine[1024*4 * 2];
     u32* _3DLine;
@@ -136,6 +137,7 @@ private:
     static void DrawPixel_1x(u32* dst, u16 color, u32 flag);
     static void DrawPixel_2x(u32* dst, u16 color, u32 flag);
     static void DrawPixel_4x(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
     void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();

@@ -82,7 +82,6 @@
 GPU2D::GPU2D(u32 num)
 {
     Num = num;
-    SetScale(0);
 }
 
 GPU2D::~GPU2D()
@@ -216,12 +215,16 @@ void GPU2D::SetFramebuffer(u32* buf)
     Framebuffer = buf;
 }
 
-void GPU2D::SetScale(int scale)
+void GPU2D::SetDisplaySettings(int scale, bool accel)
 {
+    if (accel) scale = 0;
+    Accelerated = accel;
+
     LineScale = scale;
     LineStride = 256 << (scale*2);
 
-    if      (scale == 1) DrawPixel = DrawPixel_2x;
+    if (Accelerated)     DrawPixel = DrawPixel_Accel;
+    else if (scale == 1) DrawPixel = DrawPixel_2x;
     else if (scale == 2) DrawPixel = DrawPixel_4x;
     else                 DrawPixel = DrawPixel_1x;
 }
@@ -623,7 +626,8 @@ u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    u32* dst = &Framebuffer[LineStride * line];
+    int stride = Accelerated ? (256*3) : LineStride;
+    u32* dst = &Framebuffer[stride * line];
 
     int n3dline = line;
     line = GPU::VCount;
@@ -652,7 +656,7 @@ void GPU2D::DrawScanline(u32 line)
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 
-    if (Num == 0)
+    if (Num == 0 && !Accelerated)
         _3DLine = GPU3D::GetLine(n3dline);
 
     // always render regular graphics
@@ -663,13 +667,13 @@ void GPU2D::DrawScanline(u32 line)
     case 0: // screen off
         {
             for (int i = 0; i < LineStride; i++)
-                dst[i] = 0xFF3F3F3F;
+                dst[i] = 0x003F3F3F;
         }
         break;
 
     case 1: // regular display
         {
-            for (int i = 0; i < LineStride; i+=2)
+            for (int i = 0; i < stride; i+=2)
                 *(u64*)&dst[i] = *(u64*)&BGOBJLine[i];
         }
         break;
@@ -783,6 +787,8 @@ void GPU2D::DrawScanline(u32 line)
             DoCapture(line, capwidth);
     }
 
+    if (Accelerated) return;
+
     // master brightness
     if (dispmode != 0)
     {
@@ -860,6 +866,8 @@ void GPU2D::DoCapture(u32 line, u32 width)
 
     u16* dst = (u16*)GPU::VRAM[dstvram];
     u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
+
+    // TODO: handle 3D in accelerated mode!!
 
     u32* srcA;
     if (CaptureCnt & (1<<24))
@@ -1272,88 +1280,91 @@ void GPU2D::DrawScanline_Mode1(u32 line)
     // color special effects
     // can likely be optimized
 
-    u32 bldcnteffect = (BlendCnt >> 6) & 0x3;
-
-    for (int i = 0; i < LineStride; i++)
+    if (!Accelerated)
     {
-        int j = (i >> LineScale) & 0xFF;
+        u32 bldcnteffect = (BlendCnt >> 6) & 0x3;
 
-        u32 val1 = BGOBJLine[i];
-        u32 val2 = BGOBJLine[4096+i];
-
-        u32 coloreffect, eva, evb;
-
-        u32 flag1 = val1 >> 24;
-        u32 flag2 = val2 >> 24;
-
-        u32 target2;
-        if (flag2 & 0x80)      target2 = 0x1000;
-        else if (flag2 & 0x40) target2 = 0x0100;
-        else                   target2 = flag2 << 8;
-
-        if ((flag1 & 0x80) && (BlendCnt & target2))
+        for (int i = 0; i < LineStride; i++)
         {
-            // sprite blending
+            int j = (i >> LineScale) & 0xFF;
 
-            coloreffect = 1;
+            u32 val1 = BGOBJLine[i];
+            u32 val2 = BGOBJLine[4096+i];
 
-            if (flag1 & 0x40)
+            u32 coloreffect, eva, evb;
+
+            u32 flag1 = val1 >> 24;
+            u32 flag2 = val2 >> 24;
+
+            u32 target2;
+            if (flag2 & 0x80)      target2 = 0x1000;
+            else if (flag2 & 0x40) target2 = 0x0100;
+            else                   target2 = flag2 << 8;
+
+            if ((flag1 & 0x80) && (BlendCnt & target2))
             {
-                eva = flag1 & 0x1F;
-                evb = 16 - eva;
-            }
-            else
-            {
-                eva = EVA;
-                evb = EVB;
-            }
-        }
-        else if ((flag1 & 0x40) && (BlendCnt & target2))
-        {
-            // 3D layer blending
+                // sprite blending
 
-            BGOBJLine[i] = ColorBlend5(val1, val2);
-            continue;
-        }
-        else
-        {
-            if (flag1 & 0x80)      flag1 = 0x10;
-            else if (flag1 & 0x40) flag1 = 0x01;
+                coloreffect = 1;
 
-            if ((BlendCnt & flag1) && (WindowMask[j] & 0x20))
-            {
-                if ((bldcnteffect == 1) && (BlendCnt & target2))
+                if (flag1 & 0x40)
                 {
-                    coloreffect = 1;
+                    eva = flag1 & 0x1F;
+                    evb = 16 - eva;
+                }
+                else
+                {
                     eva = EVA;
                     evb = EVB;
                 }
-                else if (bldcnteffect >= 2)
-                    coloreffect = bldcnteffect;
+            }
+            else if ((flag1 & 0x40) && (BlendCnt & target2))
+            {
+                // 3D layer blending
+
+                BGOBJLine[i] = ColorBlend5(val1, val2);
+                continue;
+            }
+            else
+            {
+                if (flag1 & 0x80)      flag1 = 0x10;
+                else if (flag1 & 0x40) flag1 = 0x01;
+
+                if ((BlendCnt & flag1) && (WindowMask[j] & 0x20))
+                {
+                    if ((bldcnteffect == 1) && (BlendCnt & target2))
+                    {
+                        coloreffect = 1;
+                        eva = EVA;
+                        evb = EVB;
+                    }
+                    else if (bldcnteffect >= 2)
+                        coloreffect = bldcnteffect;
+                    else
+                        coloreffect = 0;
+                }
                 else
                     coloreffect = 0;
             }
-            else
-                coloreffect = 0;
-        }
 
-        switch (coloreffect)
-        {
-        case 0:
-            BGOBJLine[i] = val1;
-            break;
+            switch (coloreffect)
+            {
+            case 0:
+                BGOBJLine[i] = val1;
+                break;
 
-        case 1:
-            BGOBJLine[i] = ColorBlend4(val1, val2, eva, evb);
-            break;
+            case 1:
+                BGOBJLine[i] = ColorBlend4(val1, val2, eva, evb);
+                break;
 
-        case 2:
-            BGOBJLine[i] = ColorBrightnessUp(val1, EVY);
-            break;
+            case 2:
+                BGOBJLine[i] = ColorBrightnessUp(val1, EVY);
+                break;
 
-        case 3:
-            BGOBJLine[i] = ColorBrightnessDown(val1, EVY);
-            break;
+            case 3:
+                BGOBJLine[i] = ColorBrightnessDown(val1, EVY);
+                break;
+            }
         }
     }
 
@@ -1429,6 +1440,17 @@ void GPU2D::DrawPixel_4x(u32* dst, u16 color, u32 flag)
     *(u64*)(dst+3072+2) = val;
 }
 
+void GPU2D::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
+{
+    u8 r = (color & 0x001F) << 1;
+    u8 g = (color & 0x03E0) >> 4;
+    u8 b = (color & 0x7C00) >> 9;
+
+    *(dst+512) = *(dst+256);
+    *(dst+256) = *dst;
+    *dst = r | (g << 8) | (b << 16) | flag;
+}
+
 void GPU2D::DrawBG_3D()
 {
     u16 xoff = BGXPos[0];
@@ -1445,7 +1467,18 @@ void GPU2D::DrawBG_3D()
         iend -= (xoff & 0xFF);
     }
 
-    if (LineScale == 1)
+    if (Accelerated)
+    {
+        for (; i < iend; i++)
+        {
+            if (!(WindowMask[i] & 0x01)) continue;
+
+            BGOBJLine[i+512] = BGOBJLine[i+256];
+            BGOBJLine[i+256] = BGOBJLine[i];
+            BGOBJLine[i] = 0x40000000; // 3D-layer placeholder
+        }
+    }
+    else if (LineScale == 1)
     {
         for (; i < iend; i++)
         {

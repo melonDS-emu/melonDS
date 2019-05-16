@@ -74,6 +74,7 @@ u32 VRAMMap_ARM7[2];
 int FrontBuffer;
 u32* Framebuffer[2][2];
 int FBScale[2];
+bool Accelerated;
 
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
@@ -88,9 +89,8 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    FBScale[0] = -1; FBScale[1] = -1;
-    //SetFramebufferScale(1);
-    SetFramebufferScale(1, 1);
+    FBScale[0] = -1; FBScale[1] = -1; Accelerated = false;
+    SetDisplaySettings(0, 0, false);
 
     return true;
 }
@@ -247,13 +247,15 @@ void AssignFramebuffers()
     }
 }
 
-void SetFramebufferScale(int top, int bottom)
-{
-    if (top != FBScale[0])
+void SetDisplaySettings(int topscale, int bottomscale, bool accel)
+{accel=true;
+    if (topscale != FBScale[0] || accel != Accelerated)
     {
-        FBScale[0] = top;
+        FBScale[0] = accel ? 0 : topscale;
 
-        int fbsize = (256 * 192) << (FBScale[0] * 2);
+        int fbsize;
+        if (accel) fbsize = 256*3 * 192;
+        else       fbsize = (256 * 192) << (FBScale[0] * 2);
         if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
         if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
         Framebuffer[0][0] = new u32[fbsize];
@@ -266,21 +268,23 @@ void SetFramebufferScale(int top, int bottom)
         if (NDS::PowerControl9 & (1<<15))
         {
             GPU2D_A->SetFramebuffer(Framebuffer[backbuf][0]);
-            GPU2D_A->SetScale(FBScale[0]);
-            GPU3D::SetScale(FBScale[0]);
+            GPU2D_A->SetDisplaySettings(FBScale[0], accel);
+            GPU3D::SetDisplaySettings(topscale, accel);
         }
         else
         {
             GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
-            GPU2D_B->SetScale(FBScale[0]);
+            GPU2D_B->SetDisplaySettings(FBScale[0], accel);
         }
     }
 
-    if (bottom != FBScale[1])
+    if (bottomscale != FBScale[1] || accel != Accelerated)
     {
-        FBScale[1] = bottom;
+        FBScale[1] = accel ? 0 : bottomscale;
 
-        int fbsize = (256 * 192) << (FBScale[1] * 2);
+        int fbsize;
+        if (accel) fbsize = 256*3 * 192;
+        else       fbsize = (256 * 192) << (FBScale[1] * 2);
         if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
         if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
         Framebuffer[0][1] = new u32[fbsize];
@@ -293,15 +297,17 @@ void SetFramebufferScale(int top, int bottom)
         if (NDS::PowerControl9 & (1<<15))
         {
             GPU2D_B->SetFramebuffer(Framebuffer[backbuf][1]);
-            GPU2D_B->SetScale(FBScale[1]);
+            GPU2D_B->SetDisplaySettings(FBScale[1], accel);
         }
         else
         {
             GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
-            GPU2D_A->SetScale(FBScale[1]);
-            GPU3D::SetScale(FBScale[1]);
+            GPU2D_A->SetDisplaySettings(FBScale[1], accel);
+            GPU3D::SetDisplaySettings(bottomscale, accel);
         }
     }
+
+    Accelerated = accel;
 }
 
 
