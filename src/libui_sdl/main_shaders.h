@@ -89,7 +89,8 @@ void main()
         if ((top.a & 0x40) != 0)
         {
             float xpos = top.r + fract(fTexcoord.x);
-            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, fTexcoord.y)*u3DScale), 0).bgra
+            float ypos = mod(fTexcoord.y, 768);
+            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0) { top = _3dpix; top.a |= 0x40; bot = mid; }
@@ -98,7 +99,8 @@ void main()
         else if ((mid.a & 0x40) != 0)
         {
             float xpos = mid.r + fract(fTexcoord.x);
-            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, fTexcoord.y)*u3DScale), 0).bgra
+            float ypos = mod(fTexcoord.y, 768);
+            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0) { bot = _3dpix; bot.a |= 0x40; }
