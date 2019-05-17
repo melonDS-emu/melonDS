@@ -917,7 +917,7 @@ void GPU2D::DoCapture(u32 line, u32 width)
 
                 if ((val1 >> 30) == 1)
                 {
-                    u32 _3dval = _3DLine[i];
+                    u32 _3dval = _3DLine[val1 & 0xFF];
                     if ((_3dval >> 24) > 0)
                     {
                         val1 = _3dval | 0x40000000;
@@ -928,7 +928,7 @@ void GPU2D::DoCapture(u32 line, u32 width)
                 }
                 else if ((val3 >> 30) == 1)
                 {
-                    u32 _3dval = _3DLine[i];
+                    u32 _3dval = _3DLine[val3 & 0xFF];
                     if ((_3dval >> 24) > 0)
                         val2 = _3dval | 0x40000000;
                 }
