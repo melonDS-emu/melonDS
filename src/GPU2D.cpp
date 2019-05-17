@@ -668,7 +668,7 @@ void GPU2D::DrawScanline(u32 line)
     }
 
     // always render regular graphics
-    DrawScanline_Mode1(line);
+    DrawScanline_BGOBJ(line);
 
     switch (dispmode)
     {
@@ -895,10 +895,127 @@ void GPU2D::DoCapture(u32 line, u32 width)
 
     u32* srcA;
     if (CaptureCnt & (1<<24))
+    {
         srcA = _3DLine;
+    }
     else
+    {
         srcA = BGOBJLine;
-srcA = _3DLine;
+        if (Accelerated)
+        {
+            // in accelerated mode, compositing is normally done on the GPU
+            // but when doing display capture, we do need the composited output
+            // so we do it here
+
+            u32 bldcnteffect = (BlendCnt >> 6) & 0x3;
+
+            for (int i = 0; i < 256; i++)
+            {
+                u32 val1 = BGOBJLine[i];
+                u32 val3 = BGOBJLine[256+i];
+                u32 val2 = BGOBJLine[512+i];
+
+                if ((val1 >> 30) == 1)
+                {
+                    u32 _3dval = _3DLine[i];
+                    if ((_3dval >> 24) > 0)
+                    {
+                        val1 = _3dval | 0x40000000;
+                        val2 = val3;
+                    }
+                    else
+                        val1 = val3;
+                }
+                else if ((val3 >> 30) == 1)
+                {
+                    u32 _3dval = _3DLine[i];
+                    if ((_3dval >> 24) > 0)
+                        val2 = _3dval | 0x40000000;
+                }
+                else
+                    val2 = val3;
+
+                val1 &= ~0x00800000;
+                val2 &= ~0x00800000;
+
+                u32 coloreffect, eva, evb;
+
+                u32 flag1 = val1 >> 24;
+                u32 flag2 = val2 >> 24;
+
+                u32 target2;
+                if (flag2 & 0x80)      target2 = 0x1000;
+                else if (flag2 & 0x40) target2 = 0x0100;
+                else                   target2 = flag2 << 8;
+
+                if ((flag1 & 0x80) && (BlendCnt & target2))
+                {
+                    // sprite blending
+
+                    coloreffect = 1;
+
+                    if (flag1 & 0x40)
+                    {
+                        eva = flag1 & 0x1F;
+                        evb = 16 - eva;
+                    }
+                    else
+                    {
+                        eva = EVA;
+                        evb = EVB;
+                    }
+                }
+                else if ((flag1 & 0x40) && (BlendCnt & target2))
+                {
+                    // 3D layer blending
+
+                    BGOBJLine[i] = ColorBlend5(val1, val2);
+                    continue;
+                }
+                else
+                {
+                    if (flag1 & 0x80)      flag1 = 0x10;
+                    else if (flag1 & 0x40) flag1 = 0x01;
+
+                    if ((BlendCnt & flag1) && (WindowMask[i] & 0x20))
+                    {
+                        if ((bldcnteffect == 1) && (BlendCnt & target2))
+                        {
+                            coloreffect = 1;
+                            eva = EVA;
+                            evb = EVB;
+                        }
+                        else if (bldcnteffect >= 2)
+                            coloreffect = bldcnteffect;
+                        else
+                            coloreffect = 0;
+                    }
+                    else
+                        coloreffect = 0;
+                }
+
+                switch (coloreffect)
+                {
+                case 0:
+                    BGOBJLine[i] = val1;
+                    break;
+
+                case 1:
+                    BGOBJLine[i] = ColorBlend4(val1, val2, eva, evb);
+                    break;
+
+                case 2:
+                    BGOBJLine[i] = ColorBrightnessUp(val1, EVY);
+                    break;
+
+                case 3:
+                    BGOBJLine[i] = ColorBrightnessDown(val1, EVY);
+                    break;
+                }
+            }
+        }
+    }
+
     u16* srcB = NULL;
     u32 srcBaddr = line * 256;
 
@@ -1261,7 +1378,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites)
     }
 }
 
-void GPU2D::DrawScanline_Mode1(u32 line)
+void GPU2D::DrawScanline_BGOBJ(u32 line)
 {
     u64 backdrop;
     if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
