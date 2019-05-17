@@ -774,8 +774,8 @@ void RenderFrame()
 
     if (Accelerated)
     {
-        int backbuf = FrontBuffer ? 0 : 1;
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[backbuf], 0);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[FrontBuffer], 0);
+        FrontBuffer = FrontBuffer ? 0 : 1;
     }
 
     // clear buffers
@@ -891,7 +891,6 @@ u32* GetLine(int line)
 void SetupAccelFrame()
 {
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
-    FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
 }
