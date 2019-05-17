@@ -65,7 +65,7 @@ out vec4 oColor;
 void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
-
+ivec4 zog=pixel;
     // bit0-13: BLDCNT
     // bit14-15: DISPCNT display mode
     // bit16-20: EVA
@@ -86,7 +86,7 @@ void main()
 
         int winmask = top.b >> 7;
 
-        if ((top.a & 0x40) != 0)
+        if ((top.a & 0xC0) == 0x40)
         {
             float xpos = top.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 768);
@@ -96,7 +96,7 @@ void main()
             if (_3dpix.a > 0) { top = _3dpix; top.a |= 0x40; bot = mid; }
             else              top = mid;
         }
-        else if ((mid.a & 0x40) != 0)
+        else if ((mid.a & 0xC0) == 0x40)
         {
             float xpos = mid.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 768);

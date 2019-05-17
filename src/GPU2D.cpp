@@ -656,8 +656,16 @@ void GPU2D::DrawScanline(u32 line)
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
 
-    if (Num == 0 && !Accelerated)
-        _3DLine = GPU3D::GetLine(n3dline);
+    if (Num == 0)
+    {
+        if (!Accelerated)
+            _3DLine = GPU3D::GetLine(n3dline);
+        else if ((CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
+        {
+            _3DLine = GPU3D::GetLine(n3dline);
+            //GPU3D::GLRenderer43::PrepareCaptureFrame();
+        }
+    }
 
     // always render regular graphics
     DrawScanline_Mode1(line);
@@ -862,6 +870,12 @@ void GPU2D::VBlankEnd()
     BGMosaicYMax = BGMosaicSize[1];
     OBJMosaicY = 0;
     OBJMosaicYMax = OBJMosaicSize[1];
+
+    // TODO: make optional
+    if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
+    {
+        GPU3D::GLRenderer43::PrepareCaptureFrame();
+    }
 }
 
 
@@ -884,7 +898,7 @@ void GPU2D::DoCapture(u32 line, u32 width)
         srcA = _3DLine;
     else
         srcA = BGOBJLine;
-
+srcA = _3DLine;
     u16* srcB = NULL;
     u32 srcBaddr = line * 256;
 

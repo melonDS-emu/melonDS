@@ -153,6 +153,7 @@ int GetScale();
 
 void VCount144();
 void RenderFrame();
+void PrepareCaptureFrame();
 u32* GetLine(int line);
 void SetupAccelFrame();
 

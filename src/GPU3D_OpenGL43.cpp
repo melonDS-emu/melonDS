@@ -100,9 +100,9 @@ int ScaleFactor;
 bool Accelerated;
 int ScreenW, ScreenH;
 
-GLuint FramebufferTex[6];
+GLuint FramebufferTex[8];
 int FrontBuffer;
-GLuint FramebufferID[2], PixelbufferID;
+GLuint FramebufferID[4], PixelbufferID;
 u32* Framebuffer = NULL;
 
 bool ChunkedRendering = false;
@@ -260,10 +260,10 @@ bool Init()
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
 
-    glGenFramebuffers(2, &FramebufferID[0]);
+    glGenFramebuffers(4, &FramebufferID[0]);
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
-    glGenTextures(6, &FramebufferTex[0]);
+    glGenTextures(8, &FramebufferTex[0]);
     FrontBuffer = 0;
 
     // color buffers
@@ -286,7 +286,12 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     // attribute buffer
     // R: opaque polyID (for edgemarking)
@@ -297,16 +302,40 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
 
-    // downscale framebuffer, for antialiased mode
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // downscale framebuffer for antialiased mode
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
+
+    // downscale framebuffer for display capture (always 256x192)
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[3]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
@@ -373,10 +402,13 @@ void SetDisplaySettings(int scale, bool accel)
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    if (accel) glBufferData(GL_PIXEL_PACK_BUFFER, ScreenW*ScreenH*4, NULL, GL_DYNAMIC_READ);
-    else       glBufferData(GL_PIXEL_PACK_BUFFER, 256*192, NULL, GL_DYNAMIC_READ);
+    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
     if (Framebuffer) delete[] Framebuffer;
     if (accel) Framebuffer = new u32[256*192];
@@ -774,7 +806,8 @@ void RenderFrame()
 
     if (Accelerated)
     {
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[FrontBuffer], 0);
+        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[FrontBuffer], 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
         FrontBuffer = FrontBuffer ? 0 : 1;
     }
 
@@ -856,18 +889,36 @@ void RenderFrame()
         glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     }
 
-    if (!Accelerated)
+    /*if (!Accelerated)
     {
         glReadBuffer(GL_COLOR_ATTACHMENT0);
         glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
 
         glReadPixels(0, 0, 256<<ScaleFactor, 192<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    }
+    }*/
+}
+
+void PrepareCaptureFrame()
+{
+    // TODO: make sure this picks the right buffer when doing antialiasing
+    int original_fb = FrontBuffer^1;
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[original_fb]);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[3]);
+    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, 256, 192, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
+    glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+
+    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[original_fb]);
+    //glFlush();
 }
 
 u32* GetLine(int line)
 {
-    int stride = 256 << (ScaleFactor*2);
+    int stride = 256;// << (ScaleFactor*2);
 
     if (line == 0)
     {
