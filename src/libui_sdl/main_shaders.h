@@ -19,17 +19,17 @@
 #ifndef MAIN_SHADERS_H
 #define MAIN_SHADERS_H
 
-const char* kScreenVS = R"(#version 420
+const char* kScreenVS = R"(#version 140
 
-layout(std140, binding=0) uniform uConfig
+layout(std140) uniform uConfig
 {
     vec2 uScreenSize;
     uint u3DScale;
     uint uFilterMode;
 };
 
-layout(location=0) in vec2 vPosition;
-layout(location=1) in vec2 vTexcoord;
+in vec2 vPosition;
+in vec2 vTexcoord;
 
 smooth out vec2 fTexcoord;
 
@@ -46,51 +46,51 @@ void main()
 }
 )";
 
-const char* kScreenFS = R"(#version 420
+const char* kScreenFS = R"(#version 140
 
-layout(std140, binding=0) uniform uConfig
+layout(std140) uniform uConfig
 {
     vec2 uScreenSize;
     uint u3DScale;
     uint uFilterMode;
 };
 
-layout(binding=0) uniform usampler2D ScreenTex;
-layout(binding=1) uniform sampler2D _3DTex;
+uniform usampler2D ScreenTex;
+uniform sampler2D _3DTex;
 
 smooth in vec2 fTexcoord;
 
-layout(location=0) out vec4 oColor;
+out vec4 oColor;
 
 void main()
 {
-    uvec4 pixel = texelFetch(ScreenTex, ivec2(fTexcoord), 0);
+    ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
 
     // bit0-13: BLDCNT
     // bit14-15: DISPCNT display mode
     // bit16-20: EVA
     // bit21-25: EVB
     // bit26-30: EVY
-    uvec4 ctl = texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0);
-    uint dispmode = (ctl.g >> 6) & 0x3;
+    ivec4 ctl = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
+    int dispmode = (ctl.g >> 6) & 0x3;
 
     if (dispmode == 1)
     {
-        uint eva = ctl.b & 0x1F;
-        uint evb = (ctl.b >> 5) | ((ctl.a & 0x03) << 3);
-        uint evy = ctl.a >> 2;
+        int eva = ctl.b & 0x1F;
+        int evb = (ctl.b >> 5) | ((ctl.a & 0x03) << 3);
+        int evy = ctl.a >> 2;
 
-        uvec4 top = pixel;
-        uvec4 mid = texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0);
-        uvec4 bot = texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(512,0), 0);
+        ivec4 top = pixel;
+        ivec4 mid = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0));
+        ivec4 bot = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(512,0), 0));
 
-        uint winmask = top.b >> 7;
+        int winmask = top.b >> 7;
 
         if ((top.a & 0x40) != 0)
         {
             float xpos = top.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 768);
-            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0) { top = _3dpix; top.a |= 0x40; bot = mid; }
@@ -100,7 +100,7 @@ void main()
         {
             float xpos = mid.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 768);
-            uvec4 _3dpix = uvec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0) { bot = _3dpix; bot.a |= 0x40; }
@@ -115,13 +115,13 @@ void main()
         top.b &= 0x3F;
         bot.b &= 0x3F;
 
-        uint target2;
+        int target2;
         if      ((bot.a & 0x80) != 0) target2 = 0x10;
         else if ((bot.a & 0x40) != 0) target2 = 0x01;
         else                          target2 = bot.a;
         bool t2pass = ((ctl.g & target2) != 0);
 
-        uint coloreffect = 0;
+        int coloreffect = 0;
 
         if ((top.a & 0x80) != 0 && t2pass)
         {
@@ -150,7 +150,7 @@ void main()
 
             if ((ctl.r & top.a) != 0 && winmask != 0)
             {
-                uint effect = ctl.r >> 6;
+                int effect = ctl.r >> 6;
                 if ((effect != 1) || t2pass) coloreffect = effect;
             }
         }
@@ -167,7 +167,7 @@ void main()
         else if (coloreffect == 2)
         {
             pixel = top;
-            pixel += ((uvec4(0x3F,0x3F,0x3F,0) - pixel) * evy) >> 4;
+            pixel += ((ivec4(0x3F,0x3F,0x3F,0) - pixel) * evy) >> 4;
         }
         else if (coloreffect == 3)
         {
@@ -177,7 +177,7 @@ void main()
         else
         {
             pixel = ((top * eva) + (bot * evb)) >> 5;
-            if (eva <= 16) pixel += uvec4(1,1,1,0);
+            if (eva <= 16) pixel += ivec4(1,1,1,0);
             pixel = min(pixel, 0x3F);
         }
     }
@@ -188,7 +188,6 @@ void main()
     // TODO: filters
 
     oColor = vec4(vec3(pixel.rgb) / 255.0, 1.0);
-    //oColor = texelFetch(_3DTex, ivec2(fTexcoord*4), 0).bgra;
 }
 )";
 

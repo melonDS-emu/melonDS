@@ -70,6 +70,8 @@
     func(GLDISABLEVERTEXATTRIBARRAY, glDisableVertexAttribArray); \
     func(GLVERTEXATTRIBPOINTER, glVertexAttribPointer); \
     func(GLVERTEXATTRIBIPOINTER, glVertexAttribIPointer); \
+    func(GLBINDATTRIBLOCATION, glBindAttribLocation); \
+    func(GLBINDFRAGDATALOCATION, glBindFragDataLocation); \
      \
     func(GLCREATESHADER, glCreateShader); \
     func(GLSHADERSOURCE, glShaderSource); \
@@ -85,9 +87,12 @@
     func(GLDELETESHADER, glDeleteShader); \
     func(GLDELETEPROGRAM, glDeleteProgram); \
      \
+    func(GLUNIFORM1I, glUniform1i); \
     func(GLUNIFORM1UI, glUniform1ui); \
     func(GLUNIFORM4UI, glUniform4ui); \
     func(GLUNIFORMBLOCKBINDING, glUniformBlockBinding); \
+    func(GLGETUNIFORMLOCATION, glGetUniformLocation); \
+    func(GLGETUNIFORMBLOCKINDEX, glGetUniformBlockIndex); \
      \
     func(GLACTIVETEXTURE, glActiveTexture); \
     func(GLBINDIMAGETEXTURE, glBindImageTexture); \

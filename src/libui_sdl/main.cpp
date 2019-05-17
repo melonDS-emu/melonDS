@@ -166,13 +166,21 @@ bool GLDrawing_Init()
     if (!OpenGL_BuildShaderProgram(kScreenVS, kScreenFS, GL_ScreenShader, "ScreenShader"))
         return false;
 
+    GLuint uni_id;
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
 
     glGenBuffers(1, &GL_ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 16, GL_ShaderConfigUBO);
-    glUniformBlockBinding(GL_ScreenShader[2], 0, 16);
+    uni_id = glGetUniformBlockIndex(GL_ScreenShader[2], "uConfig");
+    glUniformBlockBinding(GL_ScreenShader[2], uni_id, 16);
+
+    glUseProgram(GL_ScreenShader[2]);
+    uni_id = glGetUniformLocation(GL_ScreenShader[2], "ScreenTex");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(GL_ScreenShader[2], "_3DTex");
+    glUniform1i(uni_id, 1);
 
     glGenBuffers(1, &GL_ScreenVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
@@ -184,6 +192,10 @@ bool GLDrawing_Init()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glBindAttribLocation(GL_ScreenShader[2], 0, "vPosition");
+    glBindAttribLocation(GL_ScreenShader[2], 1, "vTexcoord");
+    glBindFragDataLocation(GL_ScreenShader[2], 0, "oColor");
 
     // TODO: consider reallocating the texture when changing screen sizes
     glGenTextures(1, &GL_ScreenTexture);
