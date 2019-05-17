@@ -626,7 +626,7 @@ u32 GPU2D::ColorBrightnessDown(u32 val, u32 factor)
 
 void GPU2D::DrawScanline(u32 line)
 {
-    int stride = Accelerated ? (256*3 + 1) : LineStride;
+    int stride = Accelerated ? (256*3 + 2) : LineStride;
     u32* dst = &Framebuffer[stride * line];
 
     int n3dline = line;
@@ -804,6 +804,7 @@ void GPU2D::DrawScanline(u32 line)
         ctl    |= (EVY << 26);
 
         dst[256*3] = ctl;
+        dst[256*3 + 1] = MasterBrightness;
         return;
     }
 

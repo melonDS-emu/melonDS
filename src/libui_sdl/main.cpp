@@ -367,9 +367,9 @@ void GLDrawing_DrawScreen()
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256<<ScreenScale[1], 192<<ScreenScale[1], GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);*/
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 2, 192, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 1, 192, GL_RGBA_INTEGER,
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 2, 192, GL_RGBA_INTEGER,
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
 
     glActiveTexture(GL_TEXTURE1);

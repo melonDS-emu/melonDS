@@ -65,13 +65,14 @@ out vec4 oColor;
 void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
-ivec4 zog=pixel;
+
     // bit0-13: BLDCNT
     // bit14-15: DISPCNT display mode
     // bit16-20: EVA
     // bit21-25: EVB
     // bit26-30: EVY
     ivec4 ctl = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
+    ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3 + 1, int(fTexcoord.y)), 0));
     int dispmode = (ctl.g >> 6) & 0x3;
 
     if (dispmode == 1)
@@ -179,6 +180,27 @@ ivec4 zog=pixel;
             pixel = ((top * eva) + (bot * evb)) >> 5;
             if (eva <= 16) pixel += ivec4(1,1,1,0);
             pixel = min(pixel, 0x3F);
+        }
+    }
+
+    if (dispmode != 0)
+    {
+        int brightmode = mbright.g >> 6;
+        if (brightmode == 1)
+        {
+            // up
+            int evy = mbright.r & 0x1F;
+            if (evy > 16) evy = 16;
+
+            pixel += ((ivec4(0x3F,0x3F,0x3F,0) - pixel) * evy) >> 4;
+        }
+        else if (brightmode == 2)
+        {
+            // down
+            int evy = mbright.r & 0x1F;
+            if (evy > 16) evy = 16;
+
+            pixel -= (pixel * evy) >> 4;
         }
     }
 
