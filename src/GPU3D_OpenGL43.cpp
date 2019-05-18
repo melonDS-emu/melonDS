@@ -647,15 +647,31 @@ if (PolygonList[NumOpaqueFinalPolys].PolyData->IsShadow) printf("!! GLORG!!! %08
                         lastwasshadow = true;
                     }*/
 
-                    glDisable(GL_BLEND);
-                    UseRenderShader(flags | RenderFlag_ShadowMask);
+                    // clear 'stencil buffer'
+                    glUseProgram(ClearShaderPlain[2]);
 
+                    glDisable(GL_BLEND);
                     glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
                     glColorMaski(1, GL_FALSE, GL_FALSE, GL_TRUE, GL_FALSE);
                     glDepthMask(GL_FALSE);
+
+                    glDepthFunc(GL_ALWAYS);
+                    glStencilFunc(GL_ALWAYS, 0, 0);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+                    glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+                    glBindVertexArray(ClearVertexArrayID);
+                    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+                    // draw actual shadow mask
+
+                    UseRenderShader(flags | RenderFlag_ShadowMask);
+
                     glDepthFunc(GL_GEQUAL);
-                    glStencilFunc(GL_ALWAYS,0,0);
-                    glStencilOp(GL_KEEP,GL_KEEP,GL_KEEP);
+
+                    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
+                    glBindVertexArray(VertexArrayID);
+
                     lastwasshadow=true;
 
                     darp = false;
@@ -773,19 +789,22 @@ void RenderFrame()
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+    if (Accelerated)
+    {
+        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[FrontBuffer], 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 7 : 5]);
+
+        FrontBuffer = FrontBuffer ? 0 : 1;
+    }
+
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
     glDepthMask(GL_TRUE);
     glStencilMask(0xFF);
-
-    if (Accelerated)
-    {
-        //glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[FrontBuffer], 0);
-        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
-        FrontBuffer = FrontBuffer ? 0 : 1;
-    }
 
     // clear buffers
     // TODO: clear bitmap
