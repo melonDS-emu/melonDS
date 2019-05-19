@@ -601,45 +601,4 @@ void main()
 }
 )";
 
-const char* kRenderFS_ZS = R"(
-
-layout(binding=2) uniform usampler2D iAttrTex;
-//layout(origin_upper_left) in vec4 gl_FragCoord;
-
-void main()
-{
-    vec4 col = FinalColor();
-    if (col.a < 0.5/31) discard;
-    if (col.a >= 30.5/31) discard;
-
-    uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
-    if (iAttr.b != 1) discard;
-    if (iAttr.g == ((fPolygonAttr.x >> 24) & 0x3F)) discard;
-
-    oColor = col;
-}
-)";
-
-const char* kRenderFS_WS = R"(
-
-layout(binding=2) uniform usampler2D iAttrTex;
-//layout(origin_upper_left) in vec4 gl_FragCoord;
-
-smooth in float fZ;
-
-void main()
-{
-    vec4 col = FinalColor();
-    if (col.a < 0.5/31) discard;
-    if (col.a >= 30.5/31) discard;
-
-    uvec4 iAttr = texelFetch(iAttrTex, ivec2(gl_FragCoord.xy), 0);
-    if (iAttr.b != 1) discard;
-    if (iAttr.g == ((fPolygonAttr.x >> 24) & 0x3F)) discard;
-
-    oColor = col;
-    gl_FragDepth = fZ;
-}
-)";
-
 #endif // GPU3D_OPENGL43_SHADERS_H
