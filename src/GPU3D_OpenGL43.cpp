@@ -104,15 +104,7 @@ int FrontBuffer;
 GLuint FramebufferID[4], PixelbufferID;
 u32* Framebuffer = NULL;
 
-bool ChunkedRendering = false;
 
-
-bool InitGLExtensions()
-{
-    // TODO move this elsewhere!!
-    //if (!OpenGL_Init()) return false;
-    return true;
-}
 
 bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 {
@@ -159,8 +151,6 @@ void SetupDefaultTexParams(GLuint tex)
 
 bool Init()
 {
-    if (!InitGLExtensions()) return false;
-
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("OpenGL: renderer: %s\n", renderer);
@@ -341,7 +331,24 @@ bool Init()
 
 void DeInit()
 {
-    // TODO CLEAN UP SHIT!!!!
+    glDeleteTextures(1, &TexMemID);
+    glDeleteTextures(1, &TexPalMemID);
+
+    glDeleteFramebuffers(4, &FramebufferID[0]);
+    glDeleteTextures(8, &FramebufferTex[0]);
+
+    glDeleteVertexArrays(1, &VertexArrayID);
+    glDeleteBuffers(1, &VertexBufferID);
+    glDeleteVertexArrays(1, &ClearVertexArrayID);
+    glDeleteBuffers(1, &ClearVertexBufferID);
+
+    glDeleteBuffers(1, &ShaderConfigUBO);
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (!RenderShader[i][2]) continue;
+        OpenGL_DeleteShaderProgram(RenderShader[i]);
+    }
 }
 
 void Reset()
@@ -696,6 +703,8 @@ void RenderSceneChunk(int y, int h)
                                     _endptr = rp->Indices;
                                     break;
                                 }
+
+                                // berg.
                             }
                             u32 num = (u32)(_endptr - iptr);
                             if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
