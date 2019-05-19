@@ -21,11 +21,11 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "OpenGLSupport.h"
-#include "GPU3D_OpenGL43_shaders.h"
+#include "GPU3D_OpenGL_shaders.h"
 
 namespace GPU3D
 {
-namespace GLRenderer43
+namespace GLRenderer
 {
 
 // GL version requirements
@@ -767,10 +767,6 @@ void RenderSceneChunk(int y, int h)
     glFlush();
 }
 
-
-void VCount144()
-{
-}
 
 void RenderFrame()
 {

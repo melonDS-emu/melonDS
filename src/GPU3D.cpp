@@ -276,7 +276,7 @@ bool Init()
     CmdStallQueue = new FIFO<CmdFIFOEntry>(64);
 
     //if (!SoftRenderer::Init()) return false;
-    if (!GLRenderer43::Init()) return false;
+    if (!GLRenderer::Init()) return false;
 
     return true;
 }
@@ -284,7 +284,7 @@ bool Init()
 void DeInit()
 {
     //SoftRenderer::DeInit();
-    GLRenderer43::DeInit();
+    GLRenderer::DeInit();
 
     delete CmdFIFO;
     delete CmdPIPE;
@@ -385,7 +385,7 @@ void Reset()
 
     ResetRenderingState();
     //SoftRenderer::Reset();
-    GLRenderer43::Reset();
+    GLRenderer::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -609,12 +609,12 @@ void SetEnabled(bool geometry, bool rendering)
 
 void SetDisplaySettings(int scale, bool accel)
 {
-    GLRenderer43::SetDisplaySettings(scale, accel);
+    GLRenderer::SetDisplaySettings(scale, accel);
 }
 
 int GetScale()
 {
-    return GLRenderer43::GetScale();
+    return GLRenderer::GetScale();
 }
 
 
@@ -2437,18 +2437,18 @@ void VBlank()
 void VCount215()
 {
     //SoftRenderer::RenderFrame();
-    GLRenderer43::RenderFrame();
+    GLRenderer::RenderFrame();
 }
 
 u32* GetLine(int line)
 {
     //return SoftRenderer::GetLine(line);
-    return GLRenderer43::GetLine(line);
+    return GLRenderer::GetLine(line);
 }
 
 void SetupAccelFrame()
 {
-    GLRenderer43::SetupAccelFrame();
+    GLRenderer::SetupAccelFrame();
 }
 
 

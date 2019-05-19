@@ -663,7 +663,7 @@ void GPU2D::DrawScanline(u32 line)
         else if ((CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
         {
             _3DLine = GPU3D::GetLine(n3dline);
-            //GPU3D::GLRenderer43::PrepareCaptureFrame();
+            //GPU3D::GLRenderer::PrepareCaptureFrame();
         }
     }
 
@@ -825,7 +825,7 @@ void GPU2D::VBlankEnd()
     // TODO: make optional
     if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
     {
-        GPU3D::GLRenderer43::PrepareCaptureFrame();
+        GPU3D::GLRenderer::PrepareCaptureFrame();
     }
 }
 

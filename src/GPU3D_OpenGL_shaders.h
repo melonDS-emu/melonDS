@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU3D_OPENGL43_SHADERS_H
-#define GPU3D_OPENGL43_SHADERS_H
+#ifndef GPU3D_OPENGL_SHADERS_H
+#define GPU3D_OPENGL_SHADERS_H
 
 #define kShaderHeader "#version 140"
 
@@ -599,4 +599,4 @@ void main()
 }
 )";
 
-#endif // GPU3D_OPENGL43_SHADERS_H
+#endif // GPU3D_OPENGL_SHADERS_H

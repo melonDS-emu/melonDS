@@ -141,7 +141,7 @@ void SetupAccelFrame();
 
 }
 
-namespace GLRenderer43
+namespace GLRenderer
 {
 
 bool Init();
@@ -151,7 +151,6 @@ void Reset();
 void SetDisplaySettings(int scale, bool accel);
 int GetScale();
 
-void VCount144();
 void RenderFrame();
 void PrepareCaptureFrame();
 u32* GetLine(int line);
