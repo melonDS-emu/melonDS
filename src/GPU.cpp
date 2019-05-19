@@ -73,7 +73,7 @@ u32 VRAMMap_ARM7[2];
 
 int FrontBuffer;
 u32* Framebuffer[2][2];
-int FBScale[2];
+int ScreenScale[2];
 bool Accelerated;
 
 GPU2D* GPU2D_A;
@@ -89,7 +89,7 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    FBScale[0] = -1; FBScale[1] = -1; Accelerated = false;
+    ScreenScale[0] = -1; ScreenScale[1] = -1; Accelerated = false;
     SetDisplaySettings(0, 0, false);
 
     return true;
@@ -152,12 +152,12 @@ void Reset()
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
 
-    for (int i = 0; i < (256*192)<<(FBScale[0]*2); i++)
+    for (int i = 0; i < (256*192); i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
         Framebuffer[1][0][i] = 0xFFFFFFFF;
     }
-    for (int i = 0; i < (256*192)<<(FBScale[1]*2); i++)
+    for (int i = 0; i < (256*192); i++)
     {
         Framebuffer[0][1][i] = 0xFFFFFFFF;
         Framebuffer[1][1][i] = 0xFFFFFFFF;
@@ -174,10 +174,10 @@ void Reset()
 
 void Stop()
 {
-    memset(Framebuffer[0][0], 0, (256*192)<<(FBScale[0]*2));
-    memset(Framebuffer[0][1], 0, (256*192)<<(FBScale[1]*2));
-    memset(Framebuffer[1][0], 0, (256*192)<<(FBScale[0]*2));
-    memset(Framebuffer[1][1], 0, (256*192)<<(FBScale[1]*2));
+    memset(Framebuffer[0][0], 0, 256*192);
+    memset(Framebuffer[0][1], 0, 256*192);
+    memset(Framebuffer[1][0], 0, 256*192);
+    memset(Framebuffer[1][1], 0, 256*192);
 }
 
 void DoSavestate(Savestate* file)
@@ -249,61 +249,57 @@ void AssignFramebuffers()
 
 void SetDisplaySettings(int topscale, int bottomscale, bool accel)
 {accel=true;
-    if (topscale != FBScale[0] || accel != Accelerated)
+    if (accel != Accelerated)
     {
-        FBScale[0] = accel ? 0 : topscale;
+        ScreenScale[0] = accel ? 0 : topscale;
 
         int fbsize;
         if (accel) fbsize = (256*3 + 2) * 192;
-        else       fbsize = (256 * 192) << (FBScale[0] * 2);
+        else       fbsize = 256 * 192;
         if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
         if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
-        Framebuffer[0][0] = new u32[fbsize];
-        Framebuffer[1][0] = new u32[fbsize];
-
-        memset(Framebuffer[0][0], 0, fbsize*4);
-        memset(Framebuffer[1][0], 0, fbsize*4);
-
-        int backbuf = FrontBuffer ? 0 : 1;
-        if (NDS::PowerControl9 & (1<<15))
-        {
-            GPU2D_A->SetFramebuffer(Framebuffer[backbuf][0]);
-            GPU2D_A->SetDisplaySettings(FBScale[0], accel);
-            GPU3D::SetDisplaySettings(topscale, accel);
-        }
-        else
-        {
-            GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
-            GPU2D_B->SetDisplaySettings(FBScale[0], accel);
-        }
-    }
-
-    if (bottomscale != FBScale[1] || accel != Accelerated)
-    {
-        FBScale[1] = accel ? 0 : bottomscale;
-
-        int fbsize;
-        if (accel) fbsize = (256*3 + 2) * 192;
-        else       fbsize = (256 * 192) << (FBScale[1] * 2);
         if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
         if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+        Framebuffer[0][0] = new u32[fbsize];
+        Framebuffer[1][0] = new u32[fbsize];
         Framebuffer[0][1] = new u32[fbsize];
         Framebuffer[1][1] = new u32[fbsize];
 
+        memset(Framebuffer[0][0], 0, fbsize*4);
+        memset(Framebuffer[1][0], 0, fbsize*4);
         memset(Framebuffer[0][1], 0, fbsize*4);
         memset(Framebuffer[1][1], 0, fbsize*4);
 
-        int backbuf = FrontBuffer ? 0 : 1;
+        AssignFramebuffers();
+    }
+
+    if (topscale != ScreenScale[0])
+    {
+        ScreenScale[0] = topscale;
+
         if (NDS::PowerControl9 & (1<<15))
         {
-            GPU2D_B->SetFramebuffer(Framebuffer[backbuf][1]);
-            GPU2D_B->SetDisplaySettings(FBScale[1], accel);
+            GPU2D_A->SetDisplaySettings(ScreenScale[0], accel);
+            GPU3D::SetDisplaySettings(ScreenScale[0], accel);
         }
         else
         {
-            GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
-            GPU2D_A->SetDisplaySettings(FBScale[1], accel);
-            GPU3D::SetDisplaySettings(bottomscale, accel);
+            GPU2D_B->SetDisplaySettings(ScreenScale[0], accel);
+        }
+    }
+
+    if (bottomscale != ScreenScale[1] || accel != Accelerated)
+    {
+        ScreenScale[1] = bottomscale;
+
+        if (NDS::PowerControl9 & (1<<15))
+        {
+            GPU2D_B->SetDisplaySettings(ScreenScale[1], accel);
+        }
+        else
+        {
+            GPU2D_A->SetDisplaySettings(ScreenScale[1], accel);
+            GPU3D::SetDisplaySettings(ScreenScale[1], accel);
         }
     }
 
