@@ -29,10 +29,8 @@ namespace GLRenderer43
 {
 
 // GL version requirements
-// * explicit uniform location: 4.3 (or extension)
 // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
 // * UBO: 3.1
-// * glMemoryBarrier: 4.2
 
 
 enum
@@ -71,6 +69,7 @@ RendererPolygon PolygonList[2048];
 int NumFinalPolys, NumOpaqueFinalPolys;
 
 GLuint ClearVertexBufferID, ClearVertexArrayID;
+GLint ClearUniformLoc[4];
 
 // vertex buffer
 // * XYZW: 4x16bit
@@ -132,7 +131,28 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
     delete[] vsbuf;
     delete[] fsbuf;
 
-    return ret;
+    if (!ret) return false;
+
+    GLuint prog = RenderShader[flags][2];
+
+    GLint uni_id = glGetUniformBlockIndex(prog, "uConfig");
+    glUniformBlockBinding(prog, uni_id, 0);
+
+    glBindAttribLocation(prog, 0, "vPosition");
+    glBindAttribLocation(prog, 1, "vColor");
+    glBindAttribLocation(prog, 2, "vTexcoord");
+    glBindAttribLocation(prog, 3, "vPolygonAttr");
+    glBindFragDataLocation(prog, 0, "oColor");
+    glBindFragDataLocation(prog, 1, "oAttr");
+
+    glUseProgram(prog);
+
+    uni_id = glGetUniformLocation(prog, "TexMem");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(prog, "TexPalMem");
+    glUniform1i(uni_id, 1);
+
+    return true;
 }
 
 void UseRenderShader(u32 flags)
@@ -187,6 +207,14 @@ bool Init()
     if (!OpenGL_BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
 
+    glBindAttribLocation(ClearShaderPlain[2], 0, "vPosition");
+    glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
+    glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
+    ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain[2], "uColor");
+    ClearUniformLoc[1] = glGetUniformLocation(ClearShaderPlain[2], "uDepth");
+    ClearUniformLoc[2] = glGetUniformLocation(ClearShaderPlain[2], "uOpaquePolyId");
+    ClearUniformLoc[3] = glGetUniformLocation(ClearShaderPlain[2], "uFogFlag");
+
     memset(RenderShader, 0, sizeof(RenderShader));
 
     if (!BuildRenderShader(0,
@@ -209,12 +237,6 @@ bool Init()
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (!RenderShader[i][2]) continue;
-        glUniformBlockBinding(RenderShader[i][2], 0, 0);
-    }
 
 
     float clearvtx[6*2] =
@@ -843,10 +865,10 @@ void RenderFrame()
         if (g) g = g*2 + 1;
         if (b) b = b*2 + 1;*/
 
-        glUniform4ui(0, r, g, b, a);
-        glUniform1ui(1, z);
-        glUniform1ui(2, polyid);
-        glUniform1ui(3, fog);
+        glUniform4ui(ClearUniformLoc[0], r, g, b, a);
+        glUniform1ui(ClearUniformLoc[1], z);
+        glUniform1ui(ClearUniformLoc[2], polyid);
+        glUniform1ui(ClearUniformLoc[3], fog);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);

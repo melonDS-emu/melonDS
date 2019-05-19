@@ -19,14 +19,14 @@
 #ifndef GPU3D_OPENGL43_SHADERS_H
 #define GPU3D_OPENGL43_SHADERS_H
 
-#define kShaderHeader "#version 430"
+#define kShaderHeader "#version 140"
 
 
 const char* kClearVS = kShaderHeader R"(
 
-layout(location=0) in vec2 vPosition;
+in vec2 vPosition;
 
-layout(location=1) uniform uint uDepth;
+uniform uint uDepth;
 
 void main()
 {
@@ -37,62 +37,62 @@ void main()
 
 const char* kClearFS = kShaderHeader R"(
 
-layout(location=0) uniform uvec4 uColor;
-layout(location=2) uniform uint uOpaquePolyID;
-layout(location=3) uniform uint uFogFlag;
+uniform uvec4 uColor;
+uniform uint uOpaquePolyID;
+uniform uint uFogFlag;
 
-layout(location=0) out vec4 oColor;
-layout(location=1) out uvec3 oAttr;
+out vec4 oColor;
+out uvec3 oAttr;
 
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
-    oAttr.r = 0;
+    oAttr.r = uint(0);
     oAttr.g = uOpaquePolyID;
-    oAttr.b = 0;
+    oAttr.b = uint(0);
 }
 )";
 
 
 const char* kRenderVSCommon = R"(
 
-layout(std140, binding=0) uniform uConfig
+layout(std140) uniform uConfig
 {
     vec2 uScreenSize;
-    uint uDispCnt;
+    int uDispCnt;
     vec4 uToonColors[32];
 };
 
-layout(location=0) in uvec4 vPosition;
-layout(location=1) in uvec4 vColor;
-layout(location=2) in ivec2 vTexcoord;
-layout(location=3) in uvec3 vPolygonAttr;
+in uvec4 vPosition;
+in uvec4 vColor;
+in ivec2 vTexcoord;
+in ivec3 vPolygonAttr;
 
 smooth out vec4 fColor;
 smooth out vec2 fTexcoord;
-flat out uvec3 fPolygonAttr;
+flat out ivec3 fPolygonAttr;
 )";
 
 const char* kRenderFSCommon = R"(
 
-layout(binding=0) uniform usampler2D TexMem;
-layout(binding=1) uniform sampler2D TexPalMem;
+uniform usampler2D TexMem;
+uniform sampler2D TexPalMem;
 
-layout(std140, binding=0) uniform uConfig
+layout(std140) uniform uConfig
 {
     vec2 uScreenSize;
-    uint uDispCnt;
+    int uDispCnt;
     vec4 uToonColors[32];
 };
 
 smooth in vec4 fColor;
 smooth in vec2 fTexcoord;
-flat in uvec3 fPolygonAttr;
+flat in ivec3 fPolygonAttr;
 
-layout(location=0) out vec4 oColor;
-layout(location=1) out uvec3 oAttr;
+out vec4 oColor;
+out uvec3 oAttr;
 
-int TexcoordWrap(int c, int maxc, uint mode)
+int TexcoordWrap(int c, int maxc, int mode)
 {
     if ((mode & (1<<0)) != 0)
     {
@@ -105,90 +105,90 @@ int TexcoordWrap(int c, int maxc, uint mode)
         return clamp(c, 0, maxc-1);
 }
 
-vec4 TextureFetch_A3I5(ivec2 addr, ivec4 st, uint wrapmode)
+vec4 TextureFetch_A3I5(ivec2 addr, ivec4 st, int wrapmode)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x);
-    uvec4 pixel = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixel = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
 
     pixel.a = (pixel.r & 0xE0);
     pixel.a = (pixel.a >> 3) + (pixel.a >> 6);
     pixel.r &= 0x1F;
 
-    addr.y = (addr.y << 3) + int(pixel.r);
+    addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
     return vec4(color.rgb, float(pixel.a)/31.0);
 }
 
-vec4 TextureFetch_I2(ivec2 addr, ivec4 st, uint wrapmode, float alpha0)
+vec4 TextureFetch_I2(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x) >> 2;
-    uvec4 pixel = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixel = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
     pixel.r >>= (2 * (st.x & 3));
     pixel.r &= 0x03;
 
-    addr.y = (addr.y << 2) + int(pixel.r);
+    addr.y = (addr.y << 2) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, max(step(1,pixel.r),alpha0));
+    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
 }
 
-vec4 TextureFetch_I4(ivec2 addr, ivec4 st, uint wrapmode, float alpha0)
+vec4 TextureFetch_I4(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x) >> 1;
-    uvec4 pixel = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixel = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
     if ((st.x & 1) != 0) pixel.r >>= 4;
     else                 pixel.r &= 0x0F;
 
-    addr.y = (addr.y << 3) + int(pixel.r);
+    addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, max(step(1,pixel.r),alpha0));
+    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
 }
 
-vec4 TextureFetch_I8(ivec2 addr, ivec4 st, uint wrapmode, float alpha0)
+vec4 TextureFetch_I8(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x);
-    uvec4 pixel = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixel = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
 
-    addr.y = (addr.y << 3) + int(pixel.r);
+    addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, max(step(1,pixel.r),alpha0));
+    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
 }
 
-vec4 TextureFetch_Compressed(ivec2 addr, ivec4 st, uint wrapmode)
+vec4 TextureFetch_Compressed(ivec2 addr, ivec4 st, int wrapmode)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y & 0x3FC) * (st.z>>2)) + (st.x & 0x3FC) + (st.y & 0x3);
-    uvec4 p = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
-    uint val = (p.r >> (2 * (st.x & 0x3))) & 0x3;
+    ivec4 p = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
+    int val = (p.r >> (2 * (st.x & 0x3))) & 0x3;
 
     int slot1addr = 0x20000 + ((addr.x & 0x1FFFC) >> 1);
     if (addr.x >= 0x40000) slot1addr += 0x10000;
 
-    uint palinfo;
-    p = texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0);
+    int palinfo;
+    p = ivec4(texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0));
     palinfo = p.r;
     slot1addr++;
-    p = texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0);
+    p = ivec4(texelFetch(TexMem, ivec2(slot1addr&0x3FF, slot1addr>>10), 0));
     palinfo |= (p.r << 8);
 
-    addr.y = (addr.y << 3) + ((int(palinfo) & 0x3FFF) << 1);
+    addr.y = (addr.y << 3) + ((palinfo & 0x3FFF) << 1);
     palinfo >>= 14;
 
     if (val == 0)
@@ -247,32 +247,32 @@ vec4 TextureFetch_Compressed(ivec2 addr, ivec4 st, uint wrapmode)
     }
 }
 
-vec4 TextureFetch_A5I3(ivec2 addr, ivec4 st, uint wrapmode)
+vec4 TextureFetch_A5I3(ivec2 addr, ivec4 st, int wrapmode)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x);
-    uvec4 pixel = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixel = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
 
     pixel.a = (pixel.r & 0xF8) >> 3;
     pixel.r &= 0x07;
 
-    addr.y = (addr.y << 3) + int(pixel.r);
+    addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
     return vec4(color.rgb, float(pixel.a)/31.0);
 }
 
-vec4 TextureFetch_Direct(ivec2 addr, ivec4 st, uint wrapmode)
+vec4 TextureFetch_Direct(ivec2 addr, ivec4 st, int wrapmode)
 {
     st.x = TexcoordWrap(st.x, st.z, wrapmode>>0);
     st.y = TexcoordWrap(st.y, st.w, wrapmode>>1);
 
     addr.x += ((st.y * st.z) + st.x) << 1;
-    uvec4 pixelL = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixelL = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
     addr.x++;
-    uvec4 pixelH = texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0);
+    ivec4 pixelH = ivec4(texelFetch(TexMem, ivec2(addr.x&0x3FF, addr.x>>10), 0));
 
     vec4 color;
     color.r = float(pixelL.r & 0x1F) / 31.0;
@@ -285,21 +285,21 @@ vec4 TextureFetch_Direct(ivec2 addr, ivec4 st, uint wrapmode)
 
 vec4 TextureLookup_Nearest(vec2 st)
 {
-    uint attr = fPolygonAttr.y;
-    uint paladdr = fPolygonAttr.z;
+    int attr = int(fPolygonAttr.y);
+    int paladdr = int(fPolygonAttr.z);
 
     float alpha0;
     if ((attr & (1<<29)) != 0) alpha0 = 0.0;
     else                       alpha0 = 1.0;
 
-    int tw = 8 << int((attr >> 20) & 0x7);
-    int th = 8 << int((attr >> 23) & 0x7);
+    int tw = 8 << ((attr >> 20) & 0x7);
+    int th = 8 << ((attr >> 23) & 0x7);
     ivec4 st_full = ivec4(ivec2(st), tw, th);
 
-    ivec2 vramaddr = ivec2(int(attr & 0xFFFF) << 3, int(paladdr));
-    uint wrapmode = attr >> 16;
+    ivec2 vramaddr = ivec2((attr & 0xFFFF) << 3, paladdr);
+    int wrapmode = (attr >> 16);
 
-    uint type = (attr >> 26) & 0x7;
+    int type = (attr >> 26) & 0x7;
     if      (type == 5) return TextureFetch_Compressed(vramaddr, st_full, wrapmode);
     else if (type == 2) return TextureFetch_I2        (vramaddr, st_full, wrapmode, alpha0);
     else if (type == 3) return TextureFetch_I4        (vramaddr, st_full, wrapmode, alpha0);
@@ -314,22 +314,22 @@ vec4 TextureLookup_Linear(vec2 texcoord)
     ivec2 intpart = ivec2(texcoord);
     vec2 fracpart = fract(texcoord);
 
-    uint attr = fPolygonAttr.y;
-    uint paladdr = fPolygonAttr.z;
+    int attr = int(fPolygonAttr.y);
+    int paladdr = int(fPolygonAttr.z);
 
     float alpha0;
     if ((attr & (1<<29)) != 0) alpha0 = 0.0;
     else                       alpha0 = 1.0;
 
-    int tw = 8 << int((attr >> 20) & 0x7);
-    int th = 8 << int((attr >> 23) & 0x7);
+    int tw = 8 << ((attr >> 20) & 0x7);
+    int th = 8 << ((attr >> 23) & 0x7);
     ivec4 st_full = ivec4(intpart, tw, th);
 
-    ivec2 vramaddr = ivec2(int(attr & 0xFFFF) << 3, int(paladdr));
-    uint wrapmode = attr >> 16;
+    ivec2 vramaddr = ivec2((attr & 0xFFFF) << 3, paladdr);
+    int wrapmode = (attr >> 16);
 
     vec4 A, B, C, D;
-    uint type = (attr >> 26) & 0x7;
+    int type = (attr >> 26) & 0x7;
     if (type == 5)
     {
         A = TextureFetch_Compressed(vramaddr, st_full                 , wrapmode);
@@ -423,7 +423,7 @@ vec4 FinalColor()
 {
     vec4 col;
     vec4 vcol = fColor;
-    uint blendmode = (fPolygonAttr.x >> 4) & 0x3;
+    int blendmode = (fPolygonAttr.x >> 4) & 0x3;
 
     if (blendmode == 2)
     {
@@ -481,8 +481,8 @@ const char* kRenderVS_Z = R"(
 
 void main()
 {
-    uint attr = vPolygonAttr.x;
-    uint zshift = (attr >> 16) & 0x1F;
+    int attr = vPolygonAttr.x;
+    int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
     fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
@@ -504,8 +504,8 @@ smooth out float fZ;
 
 void main()
 {
-    uint attr = vPolygonAttr.x;
-    uint zshift = (attr >> 16) & 0x1F;
+    int attr = vPolygonAttr.x;
+    int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
     fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
@@ -530,7 +530,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = (fPolygonAttr.x >> 24) & 0x3F;
+    oAttr.g = uint((fPolygonAttr.x >> 24) & 0x3F);
 }
 )";
 
@@ -544,7 +544,7 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = (fPolygonAttr.x >> 24) & 0x3F;
+    oAttr.g = uint((fPolygonAttr.x >> 24) & 0x3F);
     gl_FragDepth = fZ;
 }
 )";
@@ -558,7 +558,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = 0xFF;
+    oAttr.g = uint(0xFF);
 }
 )";
 
@@ -573,7 +573,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = 0xFF;
+    oAttr.g = uint(0xFF);
     gl_FragDepth = fZ;
 }
 )";
@@ -583,8 +583,7 @@ const char* kRenderFS_ZSM = R"(
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = 0xFF;
-    oAttr.b = 1;
+    oAttr.g = uint(0xFF);
 }
 )";
 
@@ -595,8 +594,7 @@ smooth in float fZ;
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = 0xFF;
-    oAttr.b = 1;
+    oAttr.g = uint(0xFF);
     gl_FragDepth = fZ;
 }
 )";
