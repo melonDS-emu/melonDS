@@ -69,11 +69,9 @@ private:
     bool Enabled;
     u32* Framebuffer;
 
-    u32 LineStride;
-    u32 LineScale;
     bool Accelerated;
 
-    u32 BGOBJLine[1024*4 * 2];
+    u32 BGOBJLine[256*3];
     u32* _3DLine;
 
     u8 WindowMask[256];
@@ -134,9 +132,7 @@ private:
     void DrawScanlineBGMode6(u32 line, u32 nsprites);
     void DrawScanline_BGOBJ(u32 line);
 
-    static void DrawPixel_1x(u32* dst, u16 color, u32 flag);
-    static void DrawPixel_2x(u32* dst, u16 color, u32 flag);
-    static void DrawPixel_4x(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
     static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
     void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
