@@ -52,6 +52,7 @@
     func(GLBINDFRAMEBUFFER, glBindFramebuffer); \
     func(GLFRAMEBUFFERTEXTURE, glFramebufferTexture); \
     func(GLBLITFRAMEBUFFER, glBlitFramebuffer); \
+    func(GLCHECKFRAMEBUFFERSTATUS, glCheckFramebufferStatus); \
      \
     func(GLGENBUFFERS, glGenBuffers); \
     func(GLDELETEBUFFERS, glDeleteBuffers); \

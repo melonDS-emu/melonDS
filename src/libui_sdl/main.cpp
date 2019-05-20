@@ -165,7 +165,7 @@ bool GLDrawing_Init()
 
     if (!OpenGL_BuildShaderProgram(kScreenVS, kScreenFS, GL_ScreenShader, "ScreenShader"))
         return false;
-
+printf("GL init looking good\n");
     GLuint uni_id;
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
 
@@ -208,7 +208,7 @@ bool GLDrawing_Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 1024, 1536, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     GL_ScreenSizeDirty = true;
-
+printf("finished w/ err: %04X\n", glGetError());
     return true;
 }
 
@@ -357,7 +357,7 @@ void GLDrawing_DrawScreen()
     OpenGL_UseShaderProgram(GL_ScreenShader);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0, 1, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     int frontbuf = GPU::FrontBuffer;
@@ -689,8 +689,6 @@ int EmuThreadFunc(void* burp)
         {
             EmuStatus = 1;
 
-            uiGLMakeContextCurrent(GLContext);
-
             SDL_JoystickUpdate();
 
             if (Joystick)
@@ -772,6 +770,8 @@ int EmuThreadFunc(void* burp)
             // microphone input
             FeedMicInput();
 
+            uiGLMakeContextCurrent(GLContext);
+
             // auto screen layout
             {
                 MainScreenPos[2] = MainScreenPos[1];
@@ -819,9 +819,7 @@ int EmuThreadFunc(void* burp)
             //uiGLSwapBuffers(GLContext);
 
             // framerate limiter based off SDL2_gfx
-            float framerate;
-            if (nlines == 263) framerate = 1000.0f / 60.0f;
-            else               framerate = ((1000.0f * nlines) / 263.0f) / 60.0f;
+            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
             fpslimitcount++;
             u32 curtick = SDL_GetTicks();
@@ -868,6 +866,8 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 2)
             {
+                uiGLMakeContextCurrent(GLContext);
+
                 //uiAreaQueueRedrawAll(MainDrawArea);
                 //uiGLSwapBuffers(GLContext);
                 GLDrawing_DrawScreen();
@@ -1792,10 +1792,46 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open(1);
 }
-
+uiAreaHandler eeareahandler;
 void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    DlgVideoSettings::Open();
+    //DlgVideoSettings::Open();
+
+    int oldstatus = EmuRunning;
+    EmuRunning = 3;
+    while (EmuStatus != 3);
+
+    uiGLMakeContextCurrent(GLContext);
+    GPU3D::GLRenderer::DeInit();
+    GLDrawing_DeInit();
+    uiGLMakeContextCurrent(NULL);
+    uiGLFreeContext(GLContext);
+
+    uiWindowSetChild(MainWindow, NULL);
+    uiControlDestroy(uiControl(MainDrawArea));
+
+
+    eeareahandler.Draw = OnAreaDraw;
+    eeareahandler.MouseEvent = OnAreaMouseEvent;
+    eeareahandler.MouseCrossed = OnAreaMouseCrossed;
+    eeareahandler.DragBroken = OnAreaDragBroken;
+    eeareahandler.KeyEvent = OnAreaKeyEvent;
+    eeareahandler.Resize = OnAreaResize;
+
+    MainDrawArea = uiNewArea(&eeareahandler, 1);
+    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
+    //uiControlShow(uiControl(MainDrawArea));
+    GLContext = uiGLNewContext(uiControl(MainDrawArea), 3, 1);
+
+    uiGLMakeContextCurrent(GLContext);
+    GLDrawing_Init();
+    GPU3D::GLRenderer::Init();
+    GPU3D::GLRenderer::SetDisplaySettings(1, true);
+    uiGLMakeContextCurrent(NULL);
+
+    EmuRunning = oldstatus;
 }
 
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -2347,7 +2383,7 @@ int main(int argc, char** argv)
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
     // TODO: fail gracefully, support older OpenGL, etc
-    GLContext = uiGLNewContext(uiControl(MainDrawArea), 4, 3); // haw haw haw
+    GLContext = uiGLNewContext(uiControl(MainDrawArea), 3, 1); // haw haw haw
     uiGLMakeContextCurrent(GLContext);
 
     void* testor = uiGLGetProcAddress("glUseProgram");
