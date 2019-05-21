@@ -215,7 +215,7 @@ void GPU2D::SetFramebuffer(u32* buf)
     Framebuffer = buf;
 }
 
-void GPU2D::SetDisplaySettings(int scale, bool accel)
+void GPU2D::SetDisplaySettings(bool accel)
 {
     Accelerated = accel;
 

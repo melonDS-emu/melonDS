@@ -37,7 +37,38 @@ namespace DlgVideoSettings
 bool opened;
 uiWindow* win;
 
-//
+uiRadioButtons* rbRenderer;
+uiCheckbox* cbGLDisplay;
+uiCheckbox* cbThreaded3D;
+uiCombobox* cbResolution;
+uiCheckbox* cbAntialias;
+
+int old_renderer;
+int old_gldisplay;
+int old_threaded3D;
+int old_resolution;
+int old_antialias;
+
+
+void UpdateControls()
+{
+    int renderer = uiRadioButtonsSelected(rbRenderer);
+
+    if (renderer == 0)
+    {
+        uiControlEnable(uiControl(cbGLDisplay));
+        uiControlEnable(uiControl(cbThreaded3D));
+        uiControlDisable(uiControl(cbResolution));
+        uiControlDisable(uiControl(cbAntialias));
+    }
+    else
+    {
+        uiControlDisable(uiControl(cbGLDisplay));
+        uiControlDisable(uiControl(cbThreaded3D));
+        uiControlEnable(uiControl(cbResolution));
+        uiControlEnable(uiControl(cbAntialias));
+    }
+}
 
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -46,17 +77,68 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     return 1;
 }
 
-void OnResolutionChanged(uiRadioButtons* rb, void* blarg)
+void OnRendererChanged(uiRadioButtons* rb, void* blarg)
 {
     int id = uiRadioButtonsSelected(rb);
-
-    Config::ScreenScale = id;
+printf("RENDERER CHANGE: %d\n", id);
+    Config::_3DRenderer = id;
+    UpdateControls();
     ApplyNewSettings(2);
+}
+
+void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
+{
+    Config::ScreenUseGL = uiCheckboxChecked(cb);
+    ApplyNewSettings(2);
+}
+
+void OnThreaded3DChanged(uiCheckbox* cb, void* blarg)
+{
+    Config::Threaded3D = uiCheckboxChecked(cb);
+    ApplyNewSettings(0);
+}
+
+void OnResolutionChanged(uiCombobox* cb, void* blarg)
+{
+    int id = uiComboboxSelected(cb);
+
+    Config::GL_ScaleFactor = id+1;
+    ApplyNewSettings(3);
+}
+
+void OnAntialiasChanged(uiCheckbox* cb, void* blarg)
+{
+    Config::GL_Antialias = uiCheckboxChecked(cb);
+    ApplyNewSettings(3);
 }
 
 void OnCancel(uiButton* btn, void* blarg)
 {
-    // restore old settings here
+    if (old_renderer != Config::_3DRenderer)
+    {
+        Config::_3DRenderer = old_renderer;
+        ApplyNewSettings(2);
+    }
+
+    if (old_gldisplay != Config::ScreenUseGL)
+    {
+        Config::ScreenUseGL = old_gldisplay;
+        ApplyNewSettings(2);
+    }
+
+    if (old_threaded3D != Config::Threaded3D)
+    {
+        Config::Threaded3D = old_threaded3D;
+        ApplyNewSettings(0);
+    }
+
+    if (old_resolution != Config::GL_ScaleFactor ||
+        old_antialias != Config::GL_Antialias)
+    {
+        Config::GL_ScaleFactor = old_resolution;
+        Config::GL_Antialias = old_antialias;
+        ApplyNewSettings(3);
+    }
 
     uiControlDestroy(uiControl(win));
     opened = false;
@@ -64,8 +146,6 @@ void OnCancel(uiButton* btn, void* blarg)
 
 void OnOk(uiButton* btn, void* blarg)
 {
-    // set config entries here
-
     Config::Save();
 
     uiControlDestroy(uiControl(win));
@@ -101,76 +181,70 @@ void Open()
     uiBoxSetPadded(right, 1);
 
     {
-        uiGroup* grp = uiNewGroup("3D renderer");
+        uiGroup* grp = uiNewGroup("Display settings");
         uiBoxAppend(left, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiRadioButtons* rbRenderer = uiNewRadioButtons();
+        uiLabel* lbl = uiNewLabel("3D renderer:");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        rbRenderer = uiNewRadioButtons();
         uiRadioButtonsAppend(rbRenderer, "Software");
         uiRadioButtonsAppend(rbRenderer, "OpenGL");
+        uiRadioButtonsOnSelected(rbRenderer, OnRendererChanged, NULL);
         uiBoxAppend(in_ctrl, uiControl(rbRenderer), 0);
+
+        lbl = uiNewLabel("");
+        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+
+        cbGLDisplay = uiNewCheckbox("OpenGL display");
+        uiCheckboxOnToggled(cbGLDisplay, OnGLDisplayChanged, NULL);
+        uiBoxAppend(in_ctrl, uiControl(cbGLDisplay), 0);
     }
 
     {
         uiGroup* grp = uiNewGroup("Software renderer");
-        uiBoxAppend(left, uiControl(grp), 0);
-        uiGroupSetMargined(grp, 1);
-
-        uiBox* in_ctrl = uiNewVerticalBox();
-        uiGroupSetChild(grp, uiControl(in_ctrl));
-
-        uiCheckbox* cbThreaded3D = uiNewCheckbox("Threaded");
-        uiBoxAppend(in_ctrl, uiControl(cbThreaded3D), 0);
-    }
-
-    {
-        uiGroup* grp = uiNewGroup("OpenGL renderer");
-        uiBoxAppend(left, uiControl(grp), 0);
-        uiGroupSetMargined(grp, 1);
-
-        uiBox* in_ctrl = uiNewVerticalBox();
-        uiGroupSetChild(grp, uiControl(in_ctrl));
-
-        uiCheckbox* cbAntialias = uiNewCheckbox("Antialiasing");
-        uiBoxAppend(in_ctrl, uiControl(cbAntialias), 0);
-    }
-
-    {
-        uiGroup* grp = uiNewGroup("Display settings");
         uiBoxAppend(right, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
         uiBox* in_ctrl = uiNewVerticalBox();
         uiGroupSetChild(grp, uiControl(in_ctrl));
 
-        uiLabel* lbl = uiNewLabel("Resolution:");
+        cbThreaded3D = uiNewCheckbox("Threaded");
+        uiCheckboxOnToggled(cbThreaded3D, OnThreaded3DChanged, NULL);
+        uiBoxAppend(in_ctrl, uiControl(cbThreaded3D), 0);
+    }
+
+    {
+        uiGroup* grp = uiNewGroup("OpenGL renderer");
+        uiBoxAppend(right, uiControl(grp), 0);
+        uiGroupSetMargined(grp, 1);
+
+        uiBox* in_ctrl = uiNewVerticalBox();
+        uiGroupSetChild(grp, uiControl(in_ctrl));
+
+        uiLabel* lbl = uiNewLabel("Internal resolution:");
         uiBoxAppend(in_ctrl, uiControl(lbl), 0);
 
-        uiRadioButtons* rbResolution = uiNewRadioButtons();
-        uiRadioButtonsOnSelected(rbResolution, OnResolutionChanged, NULL);
-        uiRadioButtonsAppend(rbResolution, "1x");
-        uiRadioButtonsAppend(rbResolution, "2x");
-        uiRadioButtonsAppend(rbResolution, "4x");
-        uiBoxAppend(in_ctrl, uiControl(rbResolution), 0);
-
-        uiCheckbox* cbWidescreen = uiNewCheckbox("Stretch to 16:9");
-        uiBoxAppend(in_ctrl, uiControl(cbWidescreen), 0);
+        cbResolution = uiNewCombobox();
+        uiComboboxOnSelected(cbResolution, OnResolutionChanged, NULL);
+        for (int i = 1; i <= 8; i++)
+        {
+            char txt[64];
+            sprintf(txt, "%dx native (%dx%d)", i, 256*i, 192*i);
+            uiComboboxAppend(cbResolution, txt);
+        }
+        uiBoxAppend(in_ctrl, uiControl(cbResolution), 0);
 
         lbl = uiNewLabel("");
         uiBoxAppend(in_ctrl, uiControl(lbl), 0);
 
-        lbl = uiNewLabel("Apply upscaling to:");
-        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
-
-        uiRadioButtons* rbApplyScalingTo = uiNewRadioButtons();
-        uiRadioButtonsAppend(rbApplyScalingTo, "Both screens");
-        uiRadioButtonsAppend(rbApplyScalingTo, "Emphasized screen (see 'Screen sizing')");
-        //uiRadioButtonsAppend(rbApplyScalingTo, "Top screen");
-        //uiRadioButtonsAppend(rbApplyScalingTo, "Bottom screen");
-        uiBoxAppend(in_ctrl, uiControl(rbApplyScalingTo), 0);
+        cbAntialias = uiNewCheckbox("Antialiasing");
+        uiCheckboxOnToggled(cbAntialias, OnAntialiasChanged, NULL);
+        uiBoxAppend(in_ctrl, uiControl(cbAntialias), 0);
     }
 
     {
@@ -190,7 +264,23 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(btnok), 0);
     }
 
-    //
+    Config::_3DRenderer = Config::_3DRenderer ? 1 : 0;
+
+    if      (Config::GL_ScaleFactor < 1) Config::GL_ScaleFactor = 1;
+    else if (Config::GL_ScaleFactor > 8) Config::GL_ScaleFactor = 8;
+
+    old_renderer = Config::_3DRenderer;
+    old_gldisplay = Config::ScreenUseGL;
+    old_threaded3D = Config::Threaded3D;
+    old_resolution = Config::GL_ScaleFactor;
+    old_antialias = Config::GL_Antialias;
+
+    uiCheckboxSetChecked(cbGLDisplay, Config::ScreenUseGL);
+    uiCheckboxSetChecked(cbThreaded3D, Config::Threaded3D);
+    uiComboboxSetSelected(cbResolution, Config::GL_ScaleFactor-1);
+    uiCheckboxSetChecked(cbAntialias, Config::GL_Antialias);
+    uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
+    UpdateControls();
 
     uiControlShow(uiControl(win));
 }

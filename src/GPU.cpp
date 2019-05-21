@@ -73,7 +73,6 @@ u32 VRAMMap_ARM7[2];
 
 int FrontBuffer;
 u32* Framebuffer[2][2];
-int ScreenScale[2];
 bool Accelerated;
 
 GPU2D* GPU2D_A;
@@ -89,8 +88,8 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    ScreenScale[0] = -1; ScreenScale[1] = -1; Accelerated = false;
-    SetDisplaySettings(0, 0, false);
+    Accelerated = false;
+    SetDisplaySettings(false);
 
     return true;
 }
@@ -247,12 +246,10 @@ void AssignFramebuffers()
     }
 }
 
-void SetDisplaySettings(int topscale, int bottomscale, bool accel)
-{accel=true;
+void SetDisplaySettings(bool accel)
+{
     if (accel != Accelerated)
     {
-        ScreenScale[0] = accel ? 0 : topscale;
-
         int fbsize;
         if (accel) fbsize = (256*3 + 2) * 192;
         else       fbsize = 256 * 192;
@@ -273,35 +270,8 @@ void SetDisplaySettings(int topscale, int bottomscale, bool accel)
         AssignFramebuffers();
     }
 
-    if (topscale != ScreenScale[0])
-    {
-        ScreenScale[0] = topscale;
-
-        if (NDS::PowerControl9 & (1<<15))
-        {
-            GPU2D_A->SetDisplaySettings(ScreenScale[0], accel);
-            GPU3D::SetDisplaySettings(ScreenScale[0], accel);
-        }
-        else
-        {
-            GPU2D_B->SetDisplaySettings(ScreenScale[0], accel);
-        }
-    }
-
-    if (bottomscale != ScreenScale[1] || accel != Accelerated)
-    {
-        ScreenScale[1] = bottomscale;
-
-        if (NDS::PowerControl9 & (1<<15))
-        {
-            GPU2D_B->SetDisplaySettings(ScreenScale[1], accel);
-        }
-        else
-        {
-            GPU2D_A->SetDisplaySettings(ScreenScale[1], accel);
-            GPU3D::SetDisplaySettings(ScreenScale[1], accel);
-        }
-    }
+    GPU2D_A->SetDisplaySettings(accel);
+    GPU2D_B->SetDisplaySettings(accel);
 
     Accelerated = accel;
 }

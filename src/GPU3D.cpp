@@ -156,6 +156,8 @@ u32 NumCommands, CurCommand, ParamCount, TotalParams;
 bool GeometryEnabled;
 bool RenderingEnabled;
 
+int Renderer;
+
 u32 DispCnt;
 u8 AlphaRefVal, AlphaRef;
 
@@ -275,16 +277,16 @@ bool Init()
 
     CmdStallQueue = new FIFO<CmdFIFOEntry>(64);
 
-    //if (!SoftRenderer::Init()) return false;
-    if (!GLRenderer::Init()) return false;
+    Renderer = -1;
+    // SetRenderer() will be called to set it up later
 
     return true;
 }
 
 void DeInit()
 {
-    //SoftRenderer::DeInit();
-    GLRenderer::DeInit();
+    if (Renderer == 0) SoftRenderer::DeInit();
+    else               GLRenderer::DeInit();
 
     delete CmdFIFO;
     delete CmdPIPE;
@@ -384,8 +386,8 @@ void Reset()
     FlushAttributes = 0;
 
     ResetRenderingState();
-    //SoftRenderer::Reset();
-    GLRenderer::Reset();
+    if (Renderer == 0) SoftRenderer::Reset();
+    else               GLRenderer::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -607,14 +609,24 @@ void SetEnabled(bool geometry, bool rendering)
     if (!rendering) ResetRenderingState();
 }
 
-void SetDisplaySettings(int scale, bool accel)
-{
-    GLRenderer::SetDisplaySettings(scale, accel);
-}
 
-int GetScale()
+int SetRenderer(int renderer)
 {
-    return GLRenderer::GetScale();
+    //if (renderer == Renderer) return renderer;
+
+    //if (Renderer == 0) SoftRenderer::DeInit();
+    //else               GLRenderer::DeInit();
+
+    if (renderer == 1)
+    {
+        if (!GLRenderer::Init())
+            renderer = 0;
+    }
+
+    if (renderer == 0) SoftRenderer::Init();
+
+    Renderer = renderer;
+    return renderer;
 }
 
 
@@ -2354,7 +2366,7 @@ void CheckFIFODMA()
 
 void VCount144()
 {
-    //SoftRenderer::VCount144();
+    if (Renderer == 0) SoftRenderer::VCount144();
 }
 
 
@@ -2436,19 +2448,14 @@ void VBlank()
 
 void VCount215()
 {
-    //SoftRenderer::RenderFrame();
-    GLRenderer::RenderFrame();
+    if (Renderer == 0) SoftRenderer::RenderFrame();
+    else               GLRenderer::RenderFrame();
 }
 
 u32* GetLine(int line)
 {
-    //return SoftRenderer::GetLine(line);
-    return GLRenderer::GetLine(line);
-}
-
-void SetupAccelFrame()
-{
-    GLRenderer::SetupAccelFrame();
+    if (Renderer == 0) return SoftRenderer::GetLine(line);
+    else               return GLRenderer::GetLine(line);
 }
 
 

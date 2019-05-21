@@ -40,9 +40,8 @@ int ScreenLayout;
 int ScreenSizing;
 int ScreenFilter;
 
-int ScreenScale;
+int ScreenUseGL;
 int ScreenRatio;
-int ScreenScaleMode;
 
 int LimitFPS;
 
@@ -105,9 +104,8 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
-    {"ScreenScale",     0, &ScreenScale,     0, NULL, 0},
+    {"ScreenUseGL",     0, &ScreenUseGL,     1, NULL, 0},
     {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
-    {"ScreenScaleMode", 0, &ScreenScaleMode, 0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
 

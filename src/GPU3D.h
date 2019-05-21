@@ -97,8 +97,8 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
-void SetDisplaySettings(int scale, bool accel);
-int GetScale();
+
+int SetRenderer(int renderer);
 
 void ExecuteCommand();
 
@@ -129,15 +129,11 @@ bool Init();
 void DeInit();
 void Reset();
 
-void SetDisplaySettings(int scale, bool accel);
-int GetScale();
-
 void SetupRenderThread();
 
 void VCount144();
 void RenderFrame();
 u32* GetLine(int line);
-void SetupAccelFrame();
 
 }
 
@@ -148,8 +144,7 @@ bool Init();
 void DeInit();
 void Reset();
 
-void SetDisplaySettings(int scale, bool accel);
-int GetScale();
+void SetDisplaySettings(int scale, bool antialias);
 
 void RenderFrame();
 void PrepareCaptureFrame();

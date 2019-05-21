@@ -100,6 +100,9 @@ char PrevSRAMPath[1024]; // for savestate 'undo load'
 
 bool SavestateLoaded;
 
+bool Screen_UseGL;
+int _3DRenderer;
+
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
 
@@ -117,8 +120,7 @@ float GL_ScreenVertices[2 * 3*2 * 4]; // position/texcoord
 GLuint GL_ScreenTexture;
 bool GL_ScreenSizeDirty;
 
-int ScreenScale[3];
-int ScreenScaleMode;
+int GL_3DScale;
 
 int ScreenGap = 0;
 int ScreenLayout = 0;
@@ -161,14 +163,14 @@ void GetSavestateName(int slot, char* filename, int len);
 
 
 
-bool GLDrawing_Init()
+bool GLScreen_Init()
 {
     if (!OpenGL_Init())
         return false;
 
     if (!OpenGL_BuildShaderProgram(kScreenVS, kScreenFS, GL_ScreenShader, "ScreenShader"))
         return false;
-printf("GL init looking good\n");
+
     GLuint uni_id;
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
 
@@ -211,11 +213,11 @@ printf("GL init looking good\n");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 1024, 1536, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     GL_ScreenSizeDirty = true;
-printf("finished w/ err: %04X\n", glGetError());
+
     return true;
 }
 
-void GLDrawing_DeInit()
+void GLScreen_DeInit()
 {
     glDeleteTextures(1, &GL_ScreenTexture);
 
@@ -225,7 +227,7 @@ void GLDrawing_DeInit()
     OpenGL_DeleteShaderProgram(GL_ScreenShader);
 }
 
-void GLDrawing_DrawScreen()
+void GLScreen_DrawScreen()
 {
     if (GL_ScreenSizeDirty)
     {
@@ -233,8 +235,8 @@ void GLDrawing_DrawScreen()
 
         GL_ShaderConfig.uScreenSize[0] = WindowWidth;
         GL_ShaderConfig.uScreenSize[1] = WindowHeight;
-        GL_ShaderConfig.u3DScale = 1 << GPU3D::GetScale();
-
+        GL_ShaderConfig.u3DScale = GL_3DScale;
+printf("updating GL scale: %d\n", GL_3DScale);
         glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
         void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
         if (unibuf) memcpy(unibuf, &GL_ShaderConfig, sizeof(GL_ShaderConfig));
@@ -257,8 +259,8 @@ void GLDrawing_DrawScreen()
         x1 = TopScreenRect.X + TopScreenRect.Width;
         y1 = TopScreenRect.Y + TopScreenRect.Height;
 
-        scwidth = 256;// << ScreenScale[0];
-        scheight = 192;// << ScreenScale[0];
+        scwidth = 256;
+        scheight = 192;
 
         switch (ScreenRotation)
         {
@@ -303,8 +305,8 @@ void GLDrawing_DrawScreen()
         x1 = BottomScreenRect.X + BottomScreenRect.Width;
         y1 = BottomScreenRect.Y + BottomScreenRect.Height;
 
-        scwidth = 256;// << ScreenScale[1];
-        scheight = 192;// << ScreenScale[1];
+        scwidth = 256;
+        scheight = 192;
 
         switch (ScreenRotation)
         {
@@ -376,7 +378,8 @@ void GLDrawing_DrawScreen()
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
 
     glActiveTexture(GL_TEXTURE1);
-    GPU3D::SetupAccelFrame();
+    if (_3DRenderer != 0)
+        GPU3D::GLRenderer::SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBindVertexArray(GL_ScreenVertexArrayID);
@@ -384,7 +387,89 @@ void GLDrawing_DrawScreen()
 
     glFlush();
     uiGLSwapBuffers(GLContext);
-    uiAreaQueueRedrawAll(MainDrawArea);
+}
+
+void ScreenCreateArea(bool opengl)
+{
+    bool opengl_good = opengl;
+    if (opengl_good)
+    {
+        MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
+        uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+        uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+        uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
+        GLContext = uiAreaGetGLContext(MainDrawArea);
+        if (!GLContext) opengl_good = false;
+    }
+
+    if (opengl_good)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        if (!GLScreen_Init()) opengl_good = false;
+    }
+
+    if (opengl_good)
+    {
+        //if (_3DRenderer != 0)
+        {
+            _3DRenderer = GPU3D::SetRenderer(_3DRenderer);
+            if (_3DRenderer != 0)
+                GPU3D::GLRenderer::SetDisplaySettings(Config::GL_ScaleFactor, Config::GL_Antialias);
+            else if (RunningSomething)
+                GPU3D::SoftRenderer::SetupRenderThread();
+        }
+        uiGLMakeContextCurrent(NULL);
+    }
+    else
+    {
+        if (opengl)
+        {
+            uiWindowSetChild(MainWindow, NULL);
+            uiControlDestroy(uiControl(MainDrawArea));
+        }
+
+        Screen_UseGL = false;
+
+        MainDrawArea = uiNewArea(&MainDrawAreaHandler);
+        uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+        uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+        uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
+        ScreenDrawInited = false;
+    }
+
+    uiControlShow(uiControl(MainWindow));
+    uiControlSetFocus(uiControl(MainDrawArea));
+}
+
+void ScreenSetMethod(bool opengl)
+{
+    int oldstatus = EmuRunning;
+    EmuRunning = 3;
+    while (EmuStatus != 3);
+
+    if (Screen_UseGL)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        if (_3DRenderer != 0) GPU3D::GLRenderer::DeInit();
+        else                  GPU3D::SoftRenderer::DeInit();
+        GLScreen_DeInit();
+        uiGLMakeContextCurrent(NULL);
+    }
+    else
+    {
+        if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+        if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
+    }
+
+    uiWindowSetChild(MainWindow, NULL);
+    uiControlDestroy(uiControl(MainDrawArea));
+
+    Screen_UseGL = Config::ScreenUseGL;
+    _3DRenderer = Config::_3DRenderer;
+
+    ScreenCreateArea(opengl);
+
+    EmuRunning = oldstatus;
 }
 
 void MicLoadWav(char* name)
@@ -642,8 +727,11 @@ void FeedMicInput()
 
 int EmuThreadFunc(void* burp)
 {
-    uiGLMakeContextCurrent(GLContext);
-    GLDrawing_Init();
+    if (Screen_UseGL)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        GLScreen_Init();
+    }
 
     NDS::Init();
 
@@ -652,13 +740,8 @@ int EmuThreadFunc(void* burp)
     MainScreenPos[2] = 0;
     AutoScreenSizing = 0;
 
-    // FIXME
-    ScreenScale[2] = Config::ScreenScale;
-    ScreenScale[0] = ScreenScale[2];
-    ScreenScale[1] = ScreenScale[2];
-
-    int lastscale[2] = {ScreenScale[0], ScreenScale[1]};
-    GPU::SetDisplaySettings(ScreenScale[0], ScreenScale[1], false);
+    GPU::SetDisplaySettings(_3DRenderer != 0);
+    if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
     Touching = false;
     KeyInputMask = 0xFFF;
@@ -773,7 +856,7 @@ int EmuThreadFunc(void* burp)
             // microphone input
             FeedMicInput();
 
-            uiGLMakeContextCurrent(GLContext);
+            if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
 
             // auto screen layout
             {
@@ -804,22 +887,16 @@ int EmuThreadFunc(void* burp)
                 }
             }
 
-            if (ScreenScale[0] != lastscale[0] ||
-                ScreenScale[1] != lastscale[1])
-            {
-                GPU::SetDisplaySettings(ScreenScale[0], ScreenScale[1], false);
-                ScreenDrawInited = false;
-            }
-
             // emulate
             u32 nlines = NDS::RunFrame();
 
             if (EmuRunning == 0) break;
 
-            GLDrawing_DrawScreen();
-
-            //uiAreaQueueRedrawAll(MainDrawArea);
-            //uiGLSwapBuffers(GLContext);
+            if (Screen_UseGL)
+            {
+                GLScreen_DrawScreen();
+            }
+            uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
             float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
@@ -869,12 +946,15 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 2)
             {
-                uiGLMakeContextCurrent(GLContext);
-
-                //uiAreaQueueRedrawAll(MainDrawArea);
-                //uiGLSwapBuffers(GLContext);
-                GLDrawing_DrawScreen();
+                if (Screen_UseGL)
+                {
+                    uiGLMakeContextCurrent(GLContext);
+                    GLScreen_DrawScreen();
+                }
+                uiAreaQueueRedrawAll(MainDrawArea);
             }
+
+            if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
             EmuStatus = EmuRunning;
 
@@ -889,7 +969,7 @@ int EmuThreadFunc(void* burp)
     NDS::DeInit();
     Platform::LAN_DeInit();
 
-    GLDrawing_DeInit();
+    if (Screen_UseGL) GLScreen_DeInit();
 
     return 44203;
 }
@@ -897,22 +977,21 @@ int EmuThreadFunc(void* burp)
 
 void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
-    // TODO: recreate bitmap if screen scale changed
     if (!ScreenDrawInited)
     {
         if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
         if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
         ScreenDrawInited = true;
-        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256<<ScreenScale[0], 192<<ScreenScale[0]);
-        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256<<ScreenScale[1], 192<<ScreenScale[1]);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192);
     }
 
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
     if (!GPU::Framebuffer[0][0]) return;
 
-    uiRect top = {0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0]};
-    uiRect bot = {0, 0, 256<<ScreenScale[1], 192<<ScreenScale[1]};
+    uiRect top = {0, 0, 256, 192};
+    uiRect bot = {0, 0, 256, 192};
 
     int frontbuf = GPU::FrontBuffer;
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
@@ -1095,33 +1174,6 @@ void SetupScreenRects(int width, int height)
     {
         screenW = 256;
         screenH = 192;
-    }
-
-    if (ScreenScaleMode == 0 || sizemode == 0)
-    {
-        // scale both screens
-        screenW <<= ScreenScale[2];
-        screenH <<= ScreenScale[2];
-
-        ScreenScale[0] = ScreenScale[2];
-        ScreenScale[1] = ScreenScale[2];
-    }
-    else
-    {
-        // scale emphasized screen
-        // screenW/screenH will apply to the non-emphasized screen
-        // the emphasized screen basically taking up all the remaining space
-
-        if (sizemode == 1)
-        {
-            ScreenScale[0] = ScreenScale[2];
-            ScreenScale[1] = 0;
-        }
-        else if (sizemode == 2)
-        {
-            ScreenScale[0] = 0;
-            ScreenScale[1] = ScreenScale[2];
-        }
     }
 
     gap = ScreenGap;
@@ -1798,35 +1850,7 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    //DlgVideoSettings::Open();
-
-    int oldstatus = EmuRunning;
-    EmuRunning = 3;
-    while (EmuStatus != 3);
-
-    uiGLMakeContextCurrent(GLContext);
-    GPU3D::GLRenderer::DeInit();
-    GLDrawing_DeInit();
-    uiGLMakeContextCurrent(NULL);
-
-    uiWindowSetChild(MainWindow, NULL);
-    uiControlDestroy(uiControl(MainDrawArea));
-
-
-    MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
-    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
-    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
-    //uiControlShow(uiControl(MainDrawArea));
-    GLContext = uiAreaGetGLContext(MainDrawArea);
-
-    uiGLMakeContextCurrent(GLContext);
-    GLDrawing_Init();
-    GPU3D::GLRenderer::Init();
-    GPU3D::GLRenderer::SetDisplaySettings(1, true);
-    uiGLMakeContextCurrent(NULL);
-
-    EmuRunning = oldstatus;
+    DlgVideoSettings::Open();
 }
 
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -1850,16 +1874,10 @@ void EnsureProperMinSize()
 {
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
-    int w0 = 256 << ScreenScale[2];
-    int h0 = 192 << ScreenScale[2];
+    int w0 = 256;
+    int h0 = 192;
     int w1 = 256;
     int h1 = 192;
-
-    if (ScreenScale[2] != 0 && (ScreenScaleMode != 1 || ScreenSizing == 0 || ScreenSizing == 3))
-    {
-        w1 <<= ScreenScale[2];
-        h1 <<= ScreenScale[2];
-    }
 
     if (ScreenLayout == 0) // natural
     {
@@ -1889,8 +1907,8 @@ void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
     int factor = *(int*)param;
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
-    int w = 256*factor;// * ScreenScale;
-    int h = 192*factor;// * ScreenScale;
+    int w = 256*factor;
+    int h = 192*factor;
 
     // FIXME
 
@@ -2003,16 +2021,23 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void ApplyNewSettings(int type)
 {
+    if (type == 2)
+    {
+        bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+        ScreenSetMethod(usegl);
+        return;
+    }
+
     if (!RunningSomething) return;
 
     int prevstatus = EmuRunning;
-    EmuRunning = 2;
-    while (EmuStatus != 2);
+    EmuRunning = 3;
+    while (EmuStatus != 3);
 
-    if (type == 0) // general emu settings
+    if (type == 0) // software renderer thread
     {
-        // TODO!! REMOVE ME
-        GPU3D::SoftRenderer::SetupRenderThread();
+        if (_3DRenderer == 0)
+            GPU3D::SoftRenderer::SetupRenderThread();
     }
     else if (type == 1) // wifi settings
     {
@@ -2025,15 +2050,18 @@ void ApplyNewSettings(int type)
         Platform::LAN_DeInit();
         Platform::LAN_Init();
     }
-    else if (type == 2) // upscaling/video settings
+    else if (type == 3) // GL renderer settings
     {
-        int scale = Config::ScreenScale;
-        if (scale != ScreenScale[2])
-        {
-            ScreenScale[2] = scale;
+        GL_3DScale = Config::GL_ScaleFactor;
 
-            EnsureProperMinSize();
-            SetupScreenRects(WindowWidth, WindowHeight);
+        if (_3DRenderer != 0)
+        {
+            uiGLMakeContextCurrent(GLContext);
+            printf("%04X\n", glGetError());
+            printf("%04X\n", glGetError());
+            GPU3D::GLRenderer::SetDisplaySettings(Config::GL_ScaleFactor, Config::GL_Antialias);
+            uiGLMakeContextCurrent(NULL);
+            GL_ScreenSizeDirty = true;
         }
     }
 
@@ -2316,8 +2344,12 @@ int main(int argc, char** argv)
     WindowWidth = w;
     WindowHeight = h;
 
-    //ScreenScale = 1;
-    ScreenScale[2] = 0; // FIXME
+    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+    _3DRenderer = Config::_3DRenderer;
+
+    GL_3DScale = Config::GL_ScaleFactor;
+    if      (GL_3DScale < 1) GL_3DScale = 1;
+    else if (GL_3DScale > 8) GL_3DScale = 8;
 
     MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
@@ -2346,11 +2378,7 @@ int main(int argc, char** argv)
     MainDrawAreaHandler.Resize = OnAreaResize;
 
     ScreenDrawInited = false;
-    //MainDrawArea = uiNewArea(&MainDrawAreaHandler);
-    MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
-    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
-    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?
+    ScreenCreateArea(Screen_UseGL);
 
     ScreenRotation = Config::ScreenRotation;
     ScreenGap = Config::ScreenGap;
@@ -2376,15 +2404,6 @@ int main(int argc, char** argv)
     }
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
-
-    // TODO: fail gracefully, support older OpenGL, etc
-    GLContext = uiAreaGetGLContext(MainDrawArea);
-    uiGLMakeContextCurrent(GLContext);
-
-    void* testor = uiGLGetProcAddress("glUseProgram");
-    void* testor2 = uiGLGetProcAddress("glBindFramebuffer");
-    printf("OPENGL: %p %p\n", testor, testor2);
-    uiGLMakeContextCurrent(NULL);
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -2454,8 +2473,6 @@ int main(int argc, char** argv)
         }
     }
 
-    uiControlShow(uiControl(MainWindow));
-    uiControlSetFocus(uiControl(MainDrawArea));
     uiMain();
 
     EmuRunning = 0;

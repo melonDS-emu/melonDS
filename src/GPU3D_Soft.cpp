@@ -138,16 +138,6 @@ void Reset()
     SetupRenderThread();
 }
 
-void SetDisplaySettings(int scale, bool accel)
-{
-    printf("SOFT RENDERER SCALE FACTOR: TODO!!!\n");
-}
-
-int GetScale()
-{
-    return 0;
-}
-
 
 
 // Notes on the interpolator:
@@ -2125,11 +2115,6 @@ u32* GetLine(int line)
     }
 
     return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
-}
-
-void SetupAccelFrame()
-{
-    // TODO
 }
 
 }

@@ -95,13 +95,13 @@ GLuint TexMemID;
 GLuint TexPalMemID;
 
 int ScaleFactor;
-bool Accelerated;
+bool Antialias;
 int ScreenW, ScreenH;
 
 GLuint FramebufferTex[8];
 int FrontBuffer;
 GLuint FramebufferID[4], PixelbufferID;
-u32* Framebuffer = NULL;
+u32 Framebuffer[256*192];
 
 
 
@@ -175,26 +175,6 @@ bool Init()
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("OpenGL: renderer: %s\n", renderer);
     printf("OpenGL: version: %s\n", version);
-
-    int barg1, barg2;
-    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &barg1);
-    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &barg2);
-    printf("max texture: %d\n", barg1);
-    printf("max comb. texture: %d\n", barg2);
-
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &barg1);
-    printf("max tex size: %d\n", barg1);
-
-    glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &barg1);
-    printf("max arraytex levels: %d\n", barg1);
-
-    /*glGetIntegerv(GL_NUM_EXTENSIONS, &barg1);
-    printf("extensions: %d\n", barg1);
-    for (int i = 0; i < barg1; i++)
-    {
-        const GLubyte* ext = glGetStringi(GL_EXTENSIONS, i);
-        printf("- %s\n", ext);
-    }*/
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
@@ -317,6 +297,12 @@ bool Init()
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
     glDrawBuffers(2, fbassign);
@@ -324,8 +310,9 @@ bool Init()
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glEnable(GL_BLEND);
+    // TODO: these are said to require GL 4.0; use the regular ones instead?
     glBlendFuncSeparatei(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    glBlendEquationSeparatei(0, GL_ADD, GL_MAX);
+    glBlendEquationSeparatei(0, GL_FUNC_ADD, GL_MAX);
     glBlendFuncSeparatei(1, GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
 
     glGenBuffers(1, &PixelbufferID);
@@ -347,7 +334,7 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
-
+printf("init done. %04X\n", glGetError());
     return true;
 }
 
@@ -375,44 +362,55 @@ void DeInit()
 
 void Reset()
 {
-    //
 }
 
-void SetDisplaySettings(int scale, bool accel)
+void SetDisplaySettings(int scale, bool antialias)
 {
+    if (antialias) scale *= 2;
+
     ScaleFactor = scale;
-    Accelerated = accel;
+    Antialias = antialias;
 
-    // TODO: antialiasing setting
-    ScreenW = 256 << scale;
-    ScreenH = 192 << scale;
+    ScreenW = 256 * scale;
+    ScreenH = 192 * scale;
 
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    if (!antialias)
+    {
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, 1, 1, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    }
+    else
+    {
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW/2, ScreenH/2, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW/2, ScreenH/2, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    }
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
-
-    if (Framebuffer) delete[] Framebuffer;
-    if (accel) Framebuffer = new u32[256*192];
-    else       Framebuffer = new u32[ScreenW*ScreenH];
-}
-
-int GetScale()
-{
-    return ScaleFactor;
 }
 
 
@@ -496,10 +494,10 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             while (z > 0xFFFF) { z >>= 1; zshift++; }
 
             u32 x, y;
-            if (ScaleFactor > 0)
+            if (ScaleFactor > 1)
             {
-                x = vtx->HiresPosition[0] >> (4-ScaleFactor);
-                y = vtx->HiresPosition[1] >> (4-ScaleFactor);
+                x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
+                y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
             }
             else
             {
@@ -829,8 +827,8 @@ void RenderFrame()
 
     glViewport(0, 0, ScreenW, ScreenH);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
-    FrontBuffer = FrontBuffer ? 0 : 1;
+    if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
+    else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -902,26 +900,15 @@ void RenderFrame()
         RenderSceneChunk(0, 192);
     }
 
-    if (false)
+    if (Antialias)
     {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[0]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[1]);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[2]);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
         glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    }
-    else
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
     }
 
-    /*if (!Accelerated)
-    {
-        glReadBuffer(GL_COLOR_ATTACHMENT0);
-        glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-
-        glReadPixels(0, 0, 256<<ScaleFactor, 192<<ScaleFactor, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-    }*/
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
 void PrepareCaptureFrame()
@@ -937,14 +924,11 @@ void PrepareCaptureFrame()
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
     glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
-
-    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[original_fb]);
-    //glFlush();
 }
 
 u32* GetLine(int line)
 {
-    int stride = 256;// << (ScaleFactor*2);
+    int stride = 256;
 
     if (line == 0)
     {
