@@ -432,7 +432,7 @@ void Open(int type)
         uiLabel* dummy = uiNewLabel("");
         uiBoxAppend(in_ctrl, uiControl(dummy), 1);
 
-        dlg->keypresscatcher = uiNewArea(&dlg->areahandler, 0);
+        dlg->keypresscatcher = uiNewArea(&dlg->areahandler);
         uiControl(dlg->keypresscatcher)->UserData = dlg;
         uiBoxAppend(in_ctrl, uiControl(dlg->keypresscatcher), 0);
 

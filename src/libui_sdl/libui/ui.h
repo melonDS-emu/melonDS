@@ -326,6 +326,10 @@ _UI_ENUM(uiWindowResizeEdge) {
 	// TODO way to bring up the system menu instead?
 };
 
+#define uiGLVersion(major, minor)  ((major) | ((minor)<<16))
+#define uiGLVerMajor(ver)          ((ver) & 0xFFFF)
+#define uiGLVerMinor(ver)          ((ver) >> 16)
+
 #define uiArea(this) ((uiArea *) (this))
 // TODO give a better name
 // TODO document the types of width and height
@@ -341,7 +345,8 @@ _UI_EXTERN void uiAreaScrollTo(uiArea *a, double x, double y, double width, doub
 _UI_EXTERN void uiAreaBeginUserWindowMove(uiArea *a);
 _UI_EXTERN void uiAreaBeginUserWindowResize(uiArea *a, uiWindowResizeEdge edge);
 _UI_EXTERN void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b);
-_UI_EXTERN uiArea *uiNewArea(uiAreaHandler *ah, int opengl);
+_UI_EXTERN uiArea *uiNewArea(uiAreaHandler *ah);
+_UI_EXTERN uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions);
 _UI_EXTERN uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height);
 
 struct uiAreaDrawParams {
@@ -604,9 +609,9 @@ _UI_EXTERN void uiDrawText(uiDrawContext *c, double x, double y, uiDrawTextLayou
 
 typedef struct uiGLContext uiGLContext;
 
-_UI_EXTERN uiGLContext *uiGLNewContext(uiControl* c, int vermajor, int verminor);
-_UI_EXTERN void uiGLFreeContext(uiGLContext* ctx);
+_UI_EXTERN uiGLContext *uiAreaGetGLContext(uiArea* a);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
+_UI_EXTERN unsigned int uiGLGetVersion(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
 _UI_EXTERN void uiGLSwapBuffers(uiGLContext* ctx);
 

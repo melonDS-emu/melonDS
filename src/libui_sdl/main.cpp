@@ -64,6 +64,9 @@ char* EmuDirectory;
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
+uiAreaHandler MainDrawAreaHandler;
+
+const u32 kGLVersions[] = {uiGLVersion(3,1), 0};
 uiGLContext* GLContext;
 
 int WindowWidth, WindowHeight;
@@ -1792,7 +1795,7 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open(1);
 }
-uiAreaHandler eeareahandler;
+
 void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     //DlgVideoSettings::Open();
@@ -1805,25 +1808,17 @@ void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     GPU3D::GLRenderer::DeInit();
     GLDrawing_DeInit();
     uiGLMakeContextCurrent(NULL);
-    uiGLFreeContext(GLContext);
 
     uiWindowSetChild(MainWindow, NULL);
     uiControlDestroy(uiControl(MainDrawArea));
 
 
-    eeareahandler.Draw = OnAreaDraw;
-    eeareahandler.MouseEvent = OnAreaMouseEvent;
-    eeareahandler.MouseCrossed = OnAreaMouseCrossed;
-    eeareahandler.DragBroken = OnAreaDragBroken;
-    eeareahandler.KeyEvent = OnAreaKeyEvent;
-    eeareahandler.Resize = OnAreaResize;
-
-    MainDrawArea = uiNewArea(&eeareahandler, 1);
+    MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
     uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
     //uiControlShow(uiControl(MainDrawArea));
-    GLContext = uiGLNewContext(uiControl(MainDrawArea), 3, 1);
+    GLContext = uiAreaGetGLContext(MainDrawArea);
 
     uiGLMakeContextCurrent(GLContext);
     GLDrawing_Init();
@@ -2343,16 +2338,16 @@ int main(int argc, char** argv)
     uiMenuItemDisable(MenuItem_Reset);
     uiMenuItemDisable(MenuItem_Stop);
 
-    uiAreaHandler areahandler;
-    areahandler.Draw = OnAreaDraw;
-    areahandler.MouseEvent = OnAreaMouseEvent;
-    areahandler.MouseCrossed = OnAreaMouseCrossed;
-    areahandler.DragBroken = OnAreaDragBroken;
-    areahandler.KeyEvent = OnAreaKeyEvent;
-    areahandler.Resize = OnAreaResize;
+    MainDrawAreaHandler.Draw = OnAreaDraw;
+    MainDrawAreaHandler.MouseEvent = OnAreaMouseEvent;
+    MainDrawAreaHandler.MouseCrossed = OnAreaMouseCrossed;
+    MainDrawAreaHandler.DragBroken = OnAreaDragBroken;
+    MainDrawAreaHandler.KeyEvent = OnAreaKeyEvent;
+    MainDrawAreaHandler.Resize = OnAreaResize;
 
     ScreenDrawInited = false;
-    MainDrawArea = uiNewArea(&areahandler, 1);
+    //MainDrawArea = uiNewArea(&MainDrawAreaHandler);
+    MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
     uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
     uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
     uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?
@@ -2383,7 +2378,7 @@ int main(int argc, char** argv)
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
 
     // TODO: fail gracefully, support older OpenGL, etc
-    GLContext = uiGLNewContext(uiControl(MainDrawArea), 3, 1); // haw haw haw
+    GLContext = uiAreaGetGLContext(MainDrawArea);
     uiGLMakeContextCurrent(GLContext);
 
     void* testor = uiGLGetProcAddress("glUseProgram");
@@ -2471,8 +2466,6 @@ int main(int argc, char** argv)
     if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
-
-    uiGLFreeContext(GLContext);
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;

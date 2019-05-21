@@ -61,7 +61,15 @@ static LRESULT CALLBACK areaWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 // control implementation
 
-uiWindowsControlAllDefaults(uiArea)
+uiWindowsControlAllDefaultsExceptDestroy(uiArea)
+
+static void uiAreaDestroy(uiControl *c)
+{
+    uiArea* a = uiArea(c);
+    if (a->openGL && a->glcontext) freeGLContext(a->glcontext);
+    uiWindowsEnsureDestroyWindow(a->hwnd);
+    uiFreeControl(c);
+}
 
 static void uiAreaMinimumSize(uiWindowsControl *c, int *width, int *height)
 {
@@ -181,7 +189,7 @@ void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b)
 }
 
 
-uiArea *uiNewArea(uiAreaHandler *ah, int opengl)
+uiArea *uiNewArea(uiAreaHandler *ah)
 {
 	uiArea *a;
 
@@ -203,7 +211,49 @@ uiArea *uiNewArea(uiAreaHandler *ah, int opengl)
 
     uiAreaSetBackgroundColor(a, -1, -1, -1);
 
-    a->openGL = opengl;
+    a->openGL = 0;
+
+	return a;
+}
+
+uiGLContext *uiAreaGetGLContext(uiArea* a)
+{
+    if (!a->openGL) userbug("trying to get GL context from non-GL area");
+
+    return a->glcontext;
+}
+
+uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions)
+{
+	uiArea *a;
+
+	uiWindowsNewControl(uiArea, a);
+
+	a->width = -1;
+	a->height = -1;
+
+	a->ah = ah;
+	a->scrolling = FALSE;
+	clickCounterReset(&(a->cc));
+
+	// a->hwnd is assigned in areaWndProc()
+	uiWindowsEnsureCreateControlHWND(0,
+		areaClass, L"",
+		0,
+		hInstance, a,
+		FALSE);
+
+    uiAreaSetBackgroundColor(a, -1, -1, -1);
+
+    a->openGL = 1;
+
+    for (int i = 0; req_versions[i]; i++)
+    {
+        int major = uiGLVerMajor(req_versions[i]);
+        int minor = uiGLVerMinor(req_versions[i]);
+        a->glcontext = createGLContext(a, major, minor);
+        if (a->glcontext) break;
+    }
 
 	return a;
 }

@@ -1,39 +1,31 @@
 // 31 march 2019
 #include "uipriv_windows.hpp"
+#include "area.hpp"
 
 #include <GL/gl.h>
 #include <GL/wglext.h>
 
 struct uiGLContext
 {
-    uiControl* c;
+    uiArea* a;
 
     HWND hwnd;
     HDC dc;
     HGLRC rc;
+
+    unsigned int version;
 };
 
 
-uiGLContext* uiGLNewContext(uiControl* c, int vermajor, int verminor)
+uiGLContext* createGLContext(uiArea* a, int vermajor, int verminor)
 {
     uiGLContext* ctx;
     BOOL res;
 
     ctx = uiNew(uiGLContext);
 
-    ctx->c = c;
-    if (c)
-    {
-        ctx->hwnd = (HWND)c->Handle(c); // welp
-    }
-    else
-    {
-        // windowless context
-        //ctx->hwnd = GetDesktopWindow();
-        // nope.
-        uiFree(ctx);
-        return NULL;
-    }
+    ctx->a = a;
+    ctx->hwnd = a->hwnd;
 
     PIXELFORMATDESCRIPTOR pfd;
     memset(&pfd, 0, sizeof(pfd));
@@ -103,6 +95,7 @@ uiGLContext* uiGLNewContext(uiControl* c, int vermajor, int verminor)
             return NULL;
         }
 
+        ctx->version = uiGLVersion(vermajor, verminor);
         ctx->rc = rc_better;
         wglMakeCurrent(ctx->dc, ctx->rc);
     }
@@ -110,8 +103,9 @@ uiGLContext* uiGLNewContext(uiControl* c, int vermajor, int verminor)
     return ctx;
 }
 
-void uiGLFreeContext(uiGLContext* ctx)
+void freeGLContext(uiGLContext* ctx)
 {
+    if (ctx == NULL) return;
     wglMakeCurrent(NULL, NULL);
     wglDeleteContext(ctx->rc);
     ReleaseDC(ctx->hwnd, ctx->dc);
@@ -130,6 +124,12 @@ void uiGLMakeContextCurrent(uiGLContext* ctx)
     int res = wglMakeCurrent(ctx->dc, ctx->rc);
 }
 
+unsigned int uiGLGetVersion(uiGLContext* ctx)
+{
+    if (ctx == NULL) return 0;
+    return ctx->version;
+}
+
 void *uiGLGetProcAddress(const char* proc)
 {
     return (void*)wglGetProcAddress(proc);
@@ -137,5 +137,6 @@ void *uiGLGetProcAddress(const char* proc)
 
 void uiGLSwapBuffers(uiGLContext* ctx)
 {
+    if (ctx == NULL) return;
     SwapBuffers(ctx->dc);
 }

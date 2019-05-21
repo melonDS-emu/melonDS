@@ -106,8 +106,8 @@
 		<Unit filename="src/GPU2D.h" />
 		<Unit filename="src/GPU3D.cpp" />
 		<Unit filename="src/GPU3D.h" />
-		<Unit filename="src/GPU3D_OpenGL43.cpp" />
-		<Unit filename="src/GPU3D_OpenGL43_shaders.h" />
+		<Unit filename="src/GPU3D_OpenGL.cpp" />
+		<Unit filename="src/GPU3D_OpenGL_shaders.h" />
 		<Unit filename="src/GPU3D_Soft.cpp" />
 		<Unit filename="src/NDS.cpp" />
 		<Unit filename="src/NDS.h" />
