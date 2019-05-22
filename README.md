@@ -55,9 +55,25 @@ make
 ### Windows:
 
  * use CodeBlocks
- * or receive golden cookies if you get Cmake to work
 
-Build system is not set in stone.
+#### MSYS2 and CMake
+
+1. Install [MSYS2](https://www.msys2.org/)
+2. Open the **MSYS2 MinGW 64-bit** terminal
+3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
+4. Install dependencies: `pacman -S mingw-w64-x86_64-{toolchain,SDL2,cmake} make git`
+5. Run the following commands
+   ```bash
+   git clone https://github.com/Arisotura/melonDS.git
+   cd melonDS
+   mkdir build
+   cd build
+   cmake .. -G "MSYS Makefiles"
+   make -j5
+   ../msys-dist.sh
+   ```
+
+If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
 ## TODO LIST
 

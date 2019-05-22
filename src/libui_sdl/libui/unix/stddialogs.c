@@ -6,7 +6,7 @@
 
 #define windowWindow(w) ((w)?(GTK_WINDOW(uiControlHandle(uiControl(w)))):NULL)
 
-static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gchar *confirm, char* filter, char* initpath)
+static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gchar *confirm, const char* filter, const char* initpath)
 {
 	GtkWidget *fcd;
 	GtkFileChooser *fc;
@@ -83,12 +83,12 @@ static char *filedialog(GtkWindow *parent, GtkFileChooserAction mode, const gcha
 	return filename;
 }
 
-char *uiOpenFile(uiWindow *parent, char* filter, char* initpath)
+char *uiOpenFile(uiWindow *parent, const char* filter, const char* initpath)
 {
 	return filedialog(windowWindow(parent), GTK_FILE_CHOOSER_ACTION_OPEN, "_Open", filter, initpath);
 }
 
-char *uiSaveFile(uiWindow *parent, char* filter, char* initpath)
+char *uiSaveFile(uiWindow *parent, const char* filter, const char* initpath)
 {
 	return filedialog(windowWindow(parent), GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", filter, initpath);
 }

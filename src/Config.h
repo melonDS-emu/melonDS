@@ -30,7 +30,7 @@ typedef struct
     int Type;
     void* Value;
     int DefaultInt;
-    char* DefaultStr;
+    const char* DefaultStr;
     int StrLength; // should be set to actual array length minus one
 
 } ConfigEntry;
