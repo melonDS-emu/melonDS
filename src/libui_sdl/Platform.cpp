@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <SDL2/SDL.h>
+#include <archive.h>
+#include <archive_entry.h>
 #include "../Platform.h"
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
@@ -256,6 +258,77 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     return NULL;
 }
 
+bool CheckArchiveExtensions(const char *ext)
+{
+    const char *extensions[] =
+    {
+        "zip", ".7z", "lz4"
+    };
+
+    for(int i = 0; i < sizeof(extensions)/sizeof(char *); ++i)
+        if(!strcasecmp(ext, extensions[i]))
+            return true;
+
+    return false;
+}
+
+u8* OpenArchive(const char *path, size_t *extractSize)
+{
+    u8 *extractBuf = nullptr;
+    struct archive *a = archive_read_new();
+    struct archive_entry *entry;
+
+    archive_read_support_filter_all(a);
+    archive_read_support_format_all(a);
+    int r = archive_read_open_filename(a, path, 10240);
+    if (r != ARCHIVE_OK)
+    {
+        printf("libarchive error : '%s'\n", archive_error_string(a));
+        return nullptr;
+    }
+
+    while(archive_read_next_header(a, &entry) == ARCHIVE_OK)
+    {
+        const char *ext = archive_entry_pathname(entry);
+        printf("Archive Entry = %s\n", ext);
+        ext = &ext[strlen(ext)-3];
+        if(!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        {
+            *extractSize = archive_entry_size(entry);
+            printf("NDS Rom Size = %lu\n", *extractSize);
+            extractBuf = new u8[*extractSize];
+            if(!extractBuf)
+            {
+                printf("Could not allocate memory for extraction!\n");
+                return nullptr;
+            }
+            ssize_t bytes_read = archive_read_data(a, extractBuf, *extractSize);
+            if(bytes_read < 0)
+            {
+                printf("Error in archive_read_data!\n");
+                delete[] extractBuf;
+                return nullptr;
+            }
+            break;
+        }
+    }
+
+    if(!extractBuf)
+    {
+        printf("No NDS rom found in archive!\n");
+        return nullptr;
+    }
+
+    r = archive_read_free(a);
+    if(r != ARCHIVE_OK)
+    {
+        printf("libarchive error : '%s'\n", archive_error_string(a));
+        delete[] extractBuf;
+        return nullptr;
+    }
+
+    return extractBuf;
+}
 
 void* Thread_Create(void (*func)())
 {

@@ -42,6 +42,10 @@ void StopEmu();
 FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);
 
+bool CheckArchiveExtensions(const char *ext);
+u8* OpenArchive(const char *path, size_t *extractSize);
+
+
 inline bool FileExists(const char* name)
 {
     FILE* f = OpenFile(name, "rb");
