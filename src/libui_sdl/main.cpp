@@ -1859,9 +1859,12 @@ void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 3;
     while (EmuStatus != 3);
 
+    int winX, winY;
+    uiWindowPosition(MainWindow, &winX, &winY);
     uiControlDestroy(uiControl(window));
 
     zarg();
+    uiWindowSetPosition(MainWindow, winX, winY);
 
     EmuRunning = zerp;
 }
