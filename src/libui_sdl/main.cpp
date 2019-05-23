@@ -89,6 +89,9 @@ uiMenuItem* MenuItem_ScreenGap[6];
 uiMenuItem* MenuItem_ScreenLayout[3];
 uiMenuItem* MenuItem_ScreenSizing[4];
 
+uiMenuItem* MenuItem_ScreenFilter;
+uiMenuItem* MenuItem_LimitFPS;
+
 SDL_Thread* EmuThread;
 int EmuRunning;
 volatile int EmuStatus;
@@ -985,8 +988,9 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
         ScreenDrawInited = true;
         ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192);
         ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192);
+        printf("D2D bitmaps inited\n");
     }
-
+if (!ScreenBitmap[0] || !ScreenBitmap[1]) printf("draw but no bitmaps :(\n");
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
     if (!GPU::Framebuffer[0][0]) return;
 
@@ -1847,10 +1851,19 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open(1);
 }
-
+void zarg();
 void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    DlgVideoSettings::Open();
+    //DlgVideoSettings::Open();
+    int zerp = EmuRunning;
+    EmuRunning = 3;
+    while (EmuStatus != 3);
+
+    uiControlDestroy(uiControl(window));
+
+    zarg();
+
+    EmuRunning = zerp;
 }
 
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -2069,107 +2082,8 @@ void ApplyNewSettings(int type)
 }
 
 
-int main(int argc, char** argv)
+void CreateMainWindowMenu()
 {
-    srand(time(NULL));
-
-    printf("melonDS " MELONDS_VERSION "\n");
-    printf(MELONDS_URL "\n");
-
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            EmuDirectory = new char[len+1];
-            strncpy(EmuDirectory, argv[0], len);
-            EmuDirectory[len] = '\0';
-        }
-        else
-        {
-            EmuDirectory = new char[2];
-            strcpy(EmuDirectory, ".");
-        }
-    }
-    else
-    {
-        EmuDirectory = new char[2];
-        strcpy(EmuDirectory, ".");
-    }
-
-    // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
-    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-
-    if (SDL_Init(SDL_INIT_HAPTIC) < 0)
-    {
-        printf("SDL couldn't init rumble\n");
-    }
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
-    {
-        printf("SDL shat itself :(\n");
-        return 1;
-    }
-
-    SDL_JoystickEventState(SDL_ENABLE);
-
-    uiInitOptions ui_opt;
-    memset(&ui_opt, 0, sizeof(uiInitOptions));
-    const char* ui_err = uiInit(&ui_opt);
-    if (ui_err != NULL)
-    {
-        printf("libui shat itself :( %s\n", ui_err);
-        uiFreeInitError(ui_err);
-        return 1;
-    }
-
-    Config::Load();
-
-    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
-
-    if (!Platform::LocalFileExists("bios7.bin") ||
-        !Platform::LocalFileExists("bios9.bin") ||
-        !Platform::LocalFileExists("firmware.bin"))
-    {
-        uiMsgBoxError(
-            NULL,
-            "BIOS/Firmware not found",
-            "One or more of the following required files don't exist or couldn't be accessed:\n\n"
-            "bios7.bin -- ARM7 BIOS\n"
-            "bios9.bin -- ARM9 BIOS\n"
-            "firmware.bin -- firmware image\n\n"
-            "Dump the files from your DS and place them in the directory you run melonDS from.\n"
-            "Make sure that the files can be accessed.");
-
-        uiUninit();
-        SDL_Quit();
-        return 0;
-    }
-
-    {
-        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
-        if (f)
-        {
-            u32 data;
-            fread(&data, 4, 1, f);
-            fclose(f);
-
-            if ((data >> 24) == 0) // old CRC-based list
-            {
-                uiMsgBoxError(NULL,
-                              "Your version of romlist.bin is outdated.",
-                              "Save memory type detection will not work correctly.\n\n"
-                              "You should use the latest version of romlist.bin (provided in melonDS release packages).");
-            }
-        }
-    }
-
     uiMenu* menu;
     uiMenuItem* menuitem;
 
@@ -2327,14 +2241,178 @@ int main(int argc, char** argv)
 
         uiMenuAppendSubmenu(menu, submenu);
     }
-    menuitem = uiMenuAppendCheckItem(menu, "Screen filtering");
-    uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
-    uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
+    MenuItem_ScreenFilter = uiMenuAppendCheckItem(menu, "Screen filtering");
+    uiMenuItemOnClicked(MenuItem_ScreenFilter, OnSetScreenFiltering, NULL);
 
-    menuitem = uiMenuAppendCheckItem(menu, "Limit framerate");
-    uiMenuItemOnClicked(menuitem, OnSetLimitFPS, NULL);
-    uiMenuItemSetChecked(menuitem, Config::LimitFPS==1);
+    MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
+    uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
+}
 
+void zarg()
+{
+    int w = Config::WindowWidth;
+    int h = Config::WindowHeight;
+    //if (w < 256) w = 256;
+    //if (h < 384) h = 384;
+
+    WindowWidth = w;
+    WindowHeight = h;
+
+    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+    _3DRenderer = Config::_3DRenderer;
+
+    GL_3DScale = Config::GL_ScaleFactor;
+    if      (GL_3DScale < 1) GL_3DScale = 1;
+    else if (GL_3DScale > 8) GL_3DScale = 8;
+
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
+    uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
+
+    uiWindowSetDropTarget(MainWindow, 1);
+    uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
+
+    uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
+    uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
+
+    MainDrawAreaHandler.Draw = OnAreaDraw;
+    MainDrawAreaHandler.MouseEvent = OnAreaMouseEvent;
+    MainDrawAreaHandler.MouseCrossed = OnAreaMouseCrossed;
+    MainDrawAreaHandler.DragBroken = OnAreaDragBroken;
+    MainDrawAreaHandler.KeyEvent = OnAreaKeyEvent;
+    MainDrawAreaHandler.Resize = OnAreaResize;
+
+    ScreenDrawInited = false;
+    ScreenCreateArea(Screen_UseGL);
+
+    ScreenRotation = Config::ScreenRotation;
+    ScreenGap = Config::ScreenGap;
+    ScreenLayout = Config::ScreenLayout;
+    ScreenSizing = Config::ScreenSizing;
+
+#define SANITIZE(var, min, max)  if ((var < min) || (var > max)) var = 0;
+    SANITIZE(ScreenRotation, 0, 3);
+    SANITIZE(ScreenLayout, 0, 2);
+    SANITIZE(ScreenSizing, 0, 3);
+#undef SANITIZE
+
+    /*uiMenuItemSetChecked(MenuItem_SavestateSRAMReloc, Config::SavestateRelocSRAM?1:0);
+
+    uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
+    uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
+    uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (ScreenGap == kScreenGap[i])
+            uiMenuItemSetChecked(MenuItem_ScreenGap[i], 1);
+    }*/
+
+    OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+}
+
+
+int main(int argc, char** argv)
+{
+    srand(time(NULL));
+
+    printf("melonDS " MELONDS_VERSION "\n");
+    printf(MELONDS_URL "\n");
+
+    if (argc > 0 && strlen(argv[0]) > 0)
+    {
+        int len = strlen(argv[0]);
+        while (len > 0)
+        {
+            if (argv[0][len] == '/') break;
+            if (argv[0][len] == '\\') break;
+            len--;
+        }
+        if (len > 0)
+        {
+            EmuDirectory = new char[len+1];
+            strncpy(EmuDirectory, argv[0], len);
+            EmuDirectory[len] = '\0';
+        }
+        else
+        {
+            EmuDirectory = new char[2];
+            strcpy(EmuDirectory, ".");
+        }
+    }
+    else
+    {
+        EmuDirectory = new char[2];
+        strcpy(EmuDirectory, ".");
+    }
+
+    // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+
+    if (SDL_Init(SDL_INIT_HAPTIC) < 0)
+    {
+        printf("SDL couldn't init rumble\n");
+    }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
+    {
+        printf("SDL shat itself :(\n");
+        return 1;
+    }
+
+    SDL_JoystickEventState(SDL_ENABLE);
+
+    uiInitOptions ui_opt;
+    memset(&ui_opt, 0, sizeof(uiInitOptions));
+    const char* ui_err = uiInit(&ui_opt);
+    if (ui_err != NULL)
+    {
+        printf("libui shat itself :( %s\n", ui_err);
+        uiFreeInitError(ui_err);
+        return 1;
+    }
+
+    Config::Load();
+
+    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
+    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+
+    if (!Platform::LocalFileExists("bios7.bin") ||
+        !Platform::LocalFileExists("bios9.bin") ||
+        !Platform::LocalFileExists("firmware.bin"))
+    {
+        uiMsgBoxError(
+            NULL,
+            "BIOS/Firmware not found",
+            "One or more of the following required files don't exist or couldn't be accessed:\n\n"
+            "bios7.bin -- ARM7 BIOS\n"
+            "bios9.bin -- ARM9 BIOS\n"
+            "firmware.bin -- firmware image\n\n"
+            "Dump the files from your DS and place them in the directory you run melonDS from.\n"
+            "Make sure that the files can be accessed.");
+
+        uiUninit();
+        SDL_Quit();
+        return 0;
+    }
+
+    {
+        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+        if (f)
+        {
+            u32 data;
+            fread(&data, 4, 1, f);
+            fclose(f);
+
+            if ((data >> 24) == 0) // old CRC-based list
+            {
+                uiMsgBoxError(NULL,
+                              "Your version of romlist.bin is outdated.",
+                              "Save memory type detection will not work correctly.\n\n"
+                              "You should use the latest version of romlist.bin (provided in melonDS release packages).");
+            }
+        }
+    }
+
+    CreateMainWindowMenu();
 
     int w = Config::WindowWidth;
     int h = Config::WindowHeight;
@@ -2404,6 +2482,9 @@ int main(int argc, char** argv)
     }
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+
+    uiMenuItemSetChecked(MenuItem_ScreenFilter, Config::ScreenFilter==1);
+    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
