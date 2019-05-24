@@ -45,6 +45,7 @@ enum
 GLuint ClearShaderPlain[3];
 
 GLuint RenderShader[16][3];
+GLuint CurShaderID = -1;
 
 struct
 {
@@ -61,6 +62,7 @@ typedef struct
 {
     Polygon* PolyData;
 
+    u32 NumIndices;
     u16* Indices;
     u32 RenderKey;
 
@@ -158,7 +160,9 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 
 void UseRenderShader(u32 flags)
 {
+    if (CurShaderID == flags) return;
     glUseProgram(RenderShader[flags][2]);
+    CurShaderID = flags;
 }
 
 void SetupDefaultTexParams(GLuint tex)
@@ -311,10 +315,7 @@ bool Init()
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glEnable(GL_BLEND);
-    // TODO: these are said to require GL 4.0; use the regular ones instead?
-    glBlendFuncSeparatei(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    glBlendEquationSeparatei(0, GL_FUNC_ADD, GL_MAX);
-    glBlendFuncSeparatei(1, GL_ONE, GL_ZERO, GL_ONE, GL_ZERO);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
 
     glGenBuffers(1, &PixelbufferID);
 
@@ -335,7 +336,7 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
-printf("init done. %04X\n", glGetError());
+
     return true;
 }
 
@@ -486,6 +487,8 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
 
+        rp->NumIndices = 0;
+
         // assemble vertices
         for (int j = 0; j < poly->NumVertices; j++)
         {
@@ -531,6 +534,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 *iptr++ = vidx - 1;
                 *iptr++ = vidx;
                 numtriangles++;
+                rp->NumIndices += 3;
             }
 
             vidx++;
@@ -541,13 +545,37 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
     NumVertices = vidx;
 }
 
+void RenderSinglePolygon(int i)
+{
+    RendererPolygon* rp = &PolygonList[i];
+
+    glDrawElements(GL_TRIANGLES, rp->NumIndices, GL_UNSIGNED_SHORT, rp->Indices);
+}
+
+int RenderPolygonBatch(int i)
+{
+    RendererPolygon* rp = &PolygonList[i];
+    u32 key = rp->RenderKey;
+    int numpolys = 0;
+    u32 numindices = 0;
+
+    for (int iend = i; iend < NumFinalPolys; iend++)
+    {
+        RendererPolygon* cur_rp = &PolygonList[iend];
+        if (cur_rp->RenderKey != key) break;
+
+        numpolys++;
+        numindices += cur_rp->NumIndices;
+    }
+
+    glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+    return numpolys;
+}
+
 void RenderSceneChunk(int y, int h)
 {
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
-
-    u16* iptr;
-    u32 curkey;
 
     if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
@@ -562,37 +590,21 @@ void RenderSceneChunk(int y, int h)
 
     glBindVertexArray(VertexArrayID);
 
-    iptr = PolygonList[0].Indices;
-    curkey = 0xFFFFFFFF;
-
-    for (int i = 0; i < NumFinalPolys; i++)
+    for (int i = 0; i < NumFinalPolys; )
     {
         RendererPolygon* rp = &PolygonList[i];
-        if (rp->RenderKey != curkey)
-        {
-            u16* endptr = rp->Indices;
-            u32 num = (u32)(endptr - iptr);
-            if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
 
-            iptr = rp->Indices;
-            curkey = rp->RenderKey;
+        // zorp
+        glDepthFunc(GL_LESS);
 
-            // zorp
-            glDepthFunc(GL_LESS);
+        u32 polyattr = rp->PolyData->Attr;
+        u32 polyid = (polyattr >> 24) & 0x3F;
 
-            u32 polyattr = rp->PolyData->Attr;
-            u32 polyid = (polyattr >> 24) & 0x3F;
+        glStencilFunc(GL_ALWAYS, polyid, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glStencilMask(0xFF);
 
-            glStencilFunc(GL_ALWAYS, polyid, 0xFF);
-            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-            glStencilMask(0xFF);
-        }
-    }
-
-    {
-        u16* endptr = &IndexBuffer[NumTriangles*3];
-        u32 num = (u32)(endptr - iptr);
-        if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+        i += RenderPolygonBatch(i);
     }
 
     glEnable(GL_BLEND);
@@ -602,78 +614,16 @@ void RenderSceneChunk(int y, int h)
     {
         glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
-        if (PolygonList[NumOpaqueFinalPolys].PolyData->IsShadow) printf("!! GLORG!!! %08X\n", PolygonList[NumOpaqueFinalPolys].PolyData->Attr);
-
-         // pass 2: if needed, render translucent pixels that are against background pixels
+        // pass 2: if needed, render translucent pixels that are against background pixels
         // when background alpha is zero, those need to be rendered with blending disabled
 
         if ((RenderClearAttr1 & 0x001F0000) == 0)
         {
-            iptr = PolygonList[NumOpaqueFinalPolys].Indices;
-            curkey = 0xFFFFFFFF;
-
             glDisable(GL_BLEND);
 
-            for (int i = NumOpaqueFinalPolys; i < NumFinalPolys; i++)
+            for (int i = 0; i < NumFinalPolys; )
             {
                 RendererPolygon* rp = &PolygonList[i];
-                if (rp->RenderKey != curkey)
-                {
-                    u16* endptr = rp->Indices;
-                    u32 num = (u32)(endptr - iptr);
-                    if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
-
-                    iptr = rp->Indices;
-                    curkey = rp->RenderKey;
-
-                    // configure new one
-
-                    // shadows aren't likely to pass against the clear-plane, so
-                    if (rp->PolyData->IsShadow) continue;
-
-                    // zorp
-                    glDepthFunc(GL_LESS);
-
-                    u32 polyattr = rp->PolyData->Attr;
-                    u32 polyid = (polyattr >> 24) & 0x3F;
-
-                    glStencilFunc(GL_EQUAL, 0xFF, 0xFF);
-                    glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
-                    glStencilMask(~(0x40|polyid)); // heheh
-
-                    if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
-                    else                    glDepthMask(GL_FALSE);
-                }
-            }
-
-            {
-                u16* endptr = &IndexBuffer[NumTriangles*3];
-                u32 num = (u32)(endptr - iptr);
-                if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
-            }
-
-            glEnable(GL_BLEND);
-            glStencilMask(0xFF);
-        }
-
-        // pass 3: translucent pixels
-
-        iptr = PolygonList[NumOpaqueFinalPolys].Indices;
-        curkey = 0xFFFFFFFF;
-
-        for (int i = NumOpaqueFinalPolys; i < NumFinalPolys; i++)
-        {
-            RendererPolygon* rp = &PolygonList[i];
-            if (rp->RenderKey != curkey)
-            {
-                u16* endptr = rp->Indices;
-                u32 num = (u32)(endptr - iptr);
-                if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
-
-                iptr = rp->Indices;
-                curkey = rp->RenderKey;
-
-                // configure new one
 
                 if (rp->PolyData->IsShadowMask)
                 {
@@ -692,78 +642,141 @@ void RenderSceneChunk(int y, int h)
                     glDepthMask(GL_FALSE);
 
                     glDepthFunc(GL_LESS);
-                    glStencilFunc(GL_ALWAYS, 0x80, 0x80);
-                    glStencilOp(GL_KEEP, GL_REPLACE, GL_KEEP);
+                    glStencilFunc(GL_EQUAL, 0xFF, 0xFE);
+                    glStencilOp(GL_KEEP, GL_INVERT, GL_KEEP);
+                    glStencilMask(0x01);
 
-                    glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
-                    glBindVertexArray(VertexArrayID);
+                    i += RenderPolygonBatch(i);
                 }
-                else
+                else if (rp->PolyData->Translucent)
                 {
-                    UseRenderShader(flags | RenderFlag_Trans);
+                    // zorp
+                    glDepthFunc(GL_LESS);
 
                     u32 polyattr = rp->PolyData->Attr;
                     u32 polyid = (polyattr >> 24) & 0x3F;
 
-                    // zorp
-                    glDepthFunc(GL_LESS);
-
                     if (rp->PolyData->IsShadow)
                     {
-                        glDisable(GL_BLEND);
-                        glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-                        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-                        glDepthMask(GL_FALSE);
-                        glStencilFunc(GL_EQUAL, polyid, 0x3F);
-                        glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
-                        glStencilMask(0x80);
-
-                        {
-                            u16* _endptr = &IndexBuffer[NumTriangles*3];
-                            for (int j = i; j < NumFinalPolys; j++)
-                            {
-                                RendererPolygon* rp = &PolygonList[j];
-                                if (!rp->PolyData->IsShadow)
-                                {
-                                    _endptr = rp->Indices;
-                                    break;
-                                }
-
-                                // berg.
-                            }
-                            u32 num = (u32)(_endptr - iptr);
-                            if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
-                        }
+                        // shadow against clear-plane will only pass if its polyID matches that of the clear plane
+                        u32 clrpolyid = (RenderClearAttr1 >> 24) & 0x3F;
+                        if (polyid != clrpolyid) { i++; continue; }
 
                         glEnable(GL_BLEND);
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
                         glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
 
-                        glStencilFunc(GL_EQUAL, 0xC0|polyid, 0x80);
-                        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-                        glStencilMask(0x7F);
+                        glStencilFunc(GL_EQUAL, 0xFE, 0xFF);
+                        glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
+                        glStencilMask(~(0x40|polyid)); // heheh
+
+                        if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                        else                    glDepthMask(GL_FALSE);
+
+                        i += RenderPolygonBatch(i);
                     }
                     else
                     {
-                        glEnable(GL_BLEND);
-                        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-                        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                        glStencilFunc(GL_EQUAL, 0xFF, 0xFE);
+                        glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
+                        glStencilMask(~(0x40|polyid)); // heheh
 
-                        glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
-                        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-                        glStencilMask(0x7F);
+                        if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                        else                    glDepthMask(GL_FALSE);
+
+                        i += RenderPolygonBatch(i);
                     }
+                }
+                else
+                    i++;
+            }
+
+            glEnable(GL_BLEND);
+            glStencilMask(0xFF);
+        }
+
+        // pass 3: translucent pixels
+
+        for (int i = 0; i < NumFinalPolys; )
+        {
+            RendererPolygon* rp = &PolygonList[i];
+
+            if (rp->PolyData->IsShadowMask)
+            {
+                // clear shadow bits in stencil buffer
+
+                glStencilMask(0x80);
+                glClear(GL_STENCIL_BUFFER_BIT);
+
+                // draw actual shadow mask
+
+                UseRenderShader(flags | RenderFlag_ShadowMask);
+
+                glDisable(GL_BLEND);
+                glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                glDepthMask(GL_FALSE);
+
+                glDepthFunc(GL_LESS);
+                glStencilFunc(GL_ALWAYS, 0x80, 0x80);
+                glStencilOp(GL_KEEP, GL_REPLACE, GL_KEEP);
+
+                i += RenderPolygonBatch(i);
+            }
+            else if (rp->PolyData->Translucent)
+            {
+                UseRenderShader(flags | RenderFlag_Trans);
+
+                u32 polyattr = rp->PolyData->Attr;
+                u32 polyid = (polyattr >> 24) & 0x3F;
+
+                // zorp
+                glDepthFunc(GL_LESS);
+
+                if (rp->PolyData->IsShadow)
+                {
+                    glDisable(GL_BLEND);
+                    glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                    glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+                    glDepthMask(GL_FALSE);
+                    glStencilFunc(GL_EQUAL, polyid, 0x3F);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_ZERO);
+                    glStencilMask(0x80);
+
+                    RenderSinglePolygon(i);
+
+                    glEnable(GL_BLEND);
+                    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+
+                    glStencilFunc(GL_EQUAL, 0xC0|polyid, 0x80);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                    glStencilMask(0x7F);
 
                     if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                     else                    glDepthMask(GL_FALSE);
+
+                    RenderSinglePolygon(i);
+                    i++;
+                }
+                else
+                {
+                    glEnable(GL_BLEND);
+                    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+
+                    glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                    glStencilMask(0x7F);
+
+                    if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
+                    else                    glDepthMask(GL_FALSE);
+
+                    i += RenderPolygonBatch(i);
                 }
             }
-        }
-
-        {
-            u16* endptr = &IndexBuffer[NumTriangles*3];
-            u32 num = (u32)(endptr - iptr);
-            if (num) glDrawElements(GL_TRIANGLES, num, GL_UNSIGNED_SHORT, iptr);
+            else
+                i++;
         }
     }
 
@@ -835,9 +848,14 @@ void RenderFrame()
     if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
     else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
+    if (RenderDispCnt & (1<<3))
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+    else
+        glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
+
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_TRUE);
     glStencilMask(0xFF);
 

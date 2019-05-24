@@ -100,8 +100,8 @@
      \
     func(GLDRAWBUFFERS, glDrawBuffers); \
      \
-    func(GLBLENDFUNCSEPARATEI, glBlendFuncSeparatei); \
-    func(GLBLENDEQUATIONSEPARATEI, glBlendEquationSeparatei); \
+    func(GLBLENDFUNCSEPARATE, glBlendFuncSeparate); \
+    func(GLBLENDEQUATIONSEPARATE, glBlendEquationSeparate); \
      \
     func(GLCOLORMASKI, glColorMaski); \
      \
