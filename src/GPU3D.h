@@ -90,6 +90,8 @@ extern u32 RenderNumPolygons;
 
 extern u64 Timestamp;
 
+extern int Renderer;
+
 bool Init();
 void DeInit();
 void Reset();
@@ -98,7 +100,9 @@ void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
 
-int SetRenderer(int renderer);
+int InitRenderer(bool hasGL);
+void DeInitRenderer();
+void UpdateRendererConfig();
 
 void ExecuteCommand();
 
@@ -111,7 +115,6 @@ void VCount144();
 void VBlank();
 void VCount215();
 u32* GetLine(int line);
-void SetupAccelFrame();
 
 void WriteToGXFIFO(u32 val);
 
@@ -144,7 +147,7 @@ bool Init();
 void DeInit();
 void Reset();
 
-void SetDisplaySettings(int scale, bool antialias);
+void UpdateDisplaySettings();
 
 void RenderFrame();
 void PrepareCaptureFrame();

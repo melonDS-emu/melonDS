@@ -22,6 +22,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
+#include "Config.h"
 
 
 // 3D engine notes
@@ -610,12 +611,9 @@ void SetEnabled(bool geometry, bool rendering)
 }
 
 
-int SetRenderer(int renderer)
+int InitRenderer(bool hasGL)
 {
-    //if (renderer == Renderer) return renderer;
-
-    //if (Renderer == 0) SoftRenderer::DeInit();
-    //else               GLRenderer::DeInit();
+    int renderer = hasGL ? Config::_3DRenderer : 0;
 
     if (renderer == 1)
     {
@@ -627,6 +625,24 @@ int SetRenderer(int renderer)
 
     Renderer = renderer;
     return renderer;
+}
+
+void DeInitRenderer()
+{
+    if (Renderer == 0) SoftRenderer::DeInit();
+    else               GLRenderer::DeInit();
+}
+
+void UpdateRendererConfig()
+{
+    if (Renderer == 0)
+    {
+        SoftRenderer::SetupRenderThread();
+    }
+    else
+    {
+        GLRenderer::UpdateDisplaySettings();
+    }
 }
 
 

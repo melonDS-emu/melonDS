@@ -83,13 +83,14 @@ void OnRendererChanged(uiRadioButtons* rb, void* blarg)
 printf("RENDERER CHANGE: %d\n", id);
     Config::_3DRenderer = id;
     UpdateControls();
-    ApplyNewSettings(2);
+    ApplyNewSettings(3);
 }
 
 void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
 {
     Config::ScreenUseGL = uiCheckboxChecked(cb);
     ApplyNewSettings(2);
+    uiControlSetFocus(uiControl(cb));
 }
 
 void OnThreaded3DChanged(uiCheckbox* cb, void* blarg)
@@ -103,21 +104,23 @@ void OnResolutionChanged(uiCombobox* cb, void* blarg)
     int id = uiComboboxSelected(cb);
 
     Config::GL_ScaleFactor = id+1;
-    ApplyNewSettings(3);
+    ApplyNewSettings(0);
 }
 
 void OnAntialiasChanged(uiCheckbox* cb, void* blarg)
 {
     Config::GL_Antialias = uiCheckboxChecked(cb);
-    ApplyNewSettings(3);
+    ApplyNewSettings(0);
 }
 
 void OnCancel(uiButton* btn, void* blarg)
 {
+    bool apply0 = false;
+
     if (old_renderer != Config::_3DRenderer)
     {
         Config::_3DRenderer = old_renderer;
-        ApplyNewSettings(2);
+        ApplyNewSettings(3);
     }
 
     if (old_gldisplay != Config::ScreenUseGL)
@@ -129,7 +132,7 @@ void OnCancel(uiButton* btn, void* blarg)
     if (old_threaded3D != Config::Threaded3D)
     {
         Config::Threaded3D = old_threaded3D;
-        ApplyNewSettings(0);
+        apply0 = true;
     }
 
     if (old_resolution != Config::GL_ScaleFactor ||
@@ -137,8 +140,10 @@ void OnCancel(uiButton* btn, void* blarg)
     {
         Config::GL_ScaleFactor = old_resolution;
         Config::GL_Antialias = old_antialias;
-        ApplyNewSettings(3);
+        apply0 = true;
     }
+
+    if (apply0) ApplyNewSettings(0);
 
     uiControlDestroy(uiControl(win));
     opened = false;

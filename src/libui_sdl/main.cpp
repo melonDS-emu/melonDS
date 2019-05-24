@@ -104,7 +104,6 @@ char PrevSRAMPath[1024]; // for savestate 'undo load'
 bool SavestateLoaded;
 
 bool Screen_UseGL;
-int _3DRenderer;
 
 bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
@@ -163,6 +162,10 @@ void SaveState(int slot);
 void LoadState(int slot);
 void UndoStateLoad();
 void GetSavestateName(int slot, char* filename, int len);
+
+void CreateMainWindow(bool opengl);
+void DestroyMainWindow();
+void RecreateMainWindow(bool opengl);
 
 
 
@@ -239,7 +242,7 @@ void GLScreen_DrawScreen()
         GL_ShaderConfig.uScreenSize[0] = WindowWidth;
         GL_ShaderConfig.uScreenSize[1] = WindowHeight;
         GL_ShaderConfig.u3DScale = GL_3DScale;
-printf("updating GL scale: %d\n", GL_3DScale);
+
         glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
         void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
         if (unibuf) memcpy(unibuf, &GL_ShaderConfig, sizeof(GL_ShaderConfig));
@@ -381,7 +384,7 @@ printf("updating GL scale: %d\n", GL_3DScale);
                     GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
 
     glActiveTexture(GL_TEXTURE1);
-    if (_3DRenderer != 0)
+    if (GPU3D::Renderer != 0)
         GPU3D::GLRenderer::SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
@@ -390,89 +393,6 @@ printf("updating GL scale: %d\n", GL_3DScale);
 
     glFlush();
     uiGLSwapBuffers(GLContext);
-}
-
-void ScreenCreateArea(bool opengl)
-{
-    bool opengl_good = opengl;
-    if (opengl_good)
-    {
-        MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
-        uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-        uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
-        uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
-        GLContext = uiAreaGetGLContext(MainDrawArea);
-        if (!GLContext) opengl_good = false;
-    }
-
-    if (opengl_good)
-    {
-        uiGLMakeContextCurrent(GLContext);
-        if (!GLScreen_Init()) opengl_good = false;
-    }
-
-    if (opengl_good)
-    {
-        //if (_3DRenderer != 0)
-        {
-            _3DRenderer = GPU3D::SetRenderer(_3DRenderer);
-            if (_3DRenderer != 0)
-                GPU3D::GLRenderer::SetDisplaySettings(Config::GL_ScaleFactor, Config::GL_Antialias);
-            else if (RunningSomething)
-                GPU3D::SoftRenderer::SetupRenderThread();
-        }
-        uiGLMakeContextCurrent(NULL);
-    }
-    else
-    {
-        if (opengl)
-        {
-            uiWindowSetChild(MainWindow, NULL);
-            uiControlDestroy(uiControl(MainDrawArea));
-        }
-
-        Screen_UseGL = false;
-
-        MainDrawArea = uiNewArea(&MainDrawAreaHandler);
-        uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-        uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
-        uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
-        ScreenDrawInited = false;
-    }
-
-    uiControlShow(uiControl(MainWindow));
-    uiControlSetFocus(uiControl(MainDrawArea));
-}
-
-void ScreenSetMethod(bool opengl)
-{
-    int oldstatus = EmuRunning;
-    EmuRunning = 3;
-    while (EmuStatus != 3);
-
-    if (Screen_UseGL)
-    {
-        uiGLMakeContextCurrent(GLContext);
-        if (_3DRenderer != 0) GPU3D::GLRenderer::DeInit();
-        else                  GPU3D::SoftRenderer::DeInit();
-        GLScreen_DeInit();
-        uiGLMakeContextCurrent(NULL);
-    }
-    else
-    {
-        if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
-        if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
-    }
-
-    uiWindowSetChild(MainWindow, NULL);
-    uiControlDestroy(uiControl(MainDrawArea));
-
-    Screen_UseGL = Config::ScreenUseGL;
-    _3DRenderer = Config::_3DRenderer;
-
-    ScreenCreateArea(opengl);
-
-    EmuRunning = oldstatus;
 }
 
 void MicLoadWav(char* name)
@@ -730,12 +650,6 @@ void FeedMicInput()
 
 int EmuThreadFunc(void* burp)
 {
-    if (Screen_UseGL)
-    {
-        uiGLMakeContextCurrent(GLContext);
-        GLScreen_Init();
-    }
-
     NDS::Init();
 
     MainScreenPos[0] = 0;
@@ -743,8 +657,18 @@ int EmuThreadFunc(void* burp)
     MainScreenPos[2] = 0;
     AutoScreenSizing = 0;
 
-    GPU::SetDisplaySettings(_3DRenderer != 0);
-    if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+    if (Screen_UseGL)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        GPU3D::InitRenderer(true);
+        GPU::SetDisplaySettings(GPU3D::Renderer != 0);
+        uiGLMakeContextCurrent(NULL);
+    }
+    else
+    {
+        GPU3D::InitRenderer(false);
+        GPU::SetDisplaySettings(false);
+    }
 
     Touching = false;
     KeyInputMask = 0xFFF;
@@ -895,10 +819,7 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 0) break;
 
-            if (Screen_UseGL)
-            {
-                GLScreen_DrawScreen();
-            }
+            if (Screen_UseGL) GLScreen_DrawScreen();
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -1731,7 +1652,7 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 3;
     while (EmuStatus != 3);
 
-    uiControlDestroy(uiControl(window));
+    DestroyMainWindow();
     uiQuit();
 }
 
@@ -1851,22 +1772,10 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgInputConfig::Open(1);
 }
-void zarg();
+
 void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    //DlgVideoSettings::Open();
-    int zerp = EmuRunning;
-    EmuRunning = 3;
-    while (EmuStatus != 3);
-
-    int winX, winY;
-    uiWindowPosition(MainWindow, &winX, &winY);
-    uiControlDestroy(uiControl(window));
-
-    zarg();
-    uiWindowSetPosition(MainWindow, winX, winY);
-
-    EmuRunning = zerp;
+    DlgVideoSettings::Open();
 }
 
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -2037,23 +1946,18 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void ApplyNewSettings(int type)
 {
-    if (type == 2)
-    {
-        bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
-        ScreenSetMethod(usegl);
-        return;
-    }
-
-    if (!RunningSomething) return;
+    if (!RunningSomething && type != 2) return;
 
     int prevstatus = EmuRunning;
     EmuRunning = 3;
     while (EmuStatus != 3);
 
-    if (type == 0) // software renderer thread
+    if (type == 0) // 3D renderer settings
     {
-        if (_3DRenderer == 0)
-            GPU3D::SoftRenderer::SetupRenderThread();
+        GPU3D::UpdateRendererConfig();
+
+        GL_3DScale = Config::GL_ScaleFactor; // dorp
+        GL_ScreenSizeDirty = true;
     }
     else if (type == 1) // wifi settings
     {
@@ -2066,19 +1970,36 @@ void ApplyNewSettings(int type)
         Platform::LAN_DeInit();
         Platform::LAN_Init();
     }
-    else if (type == 3) // GL renderer settings
+    else if (type == 2) // video output method
     {
-        GL_3DScale = Config::GL_ScaleFactor;
-
-        if (_3DRenderer != 0)
+        bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+        if (usegl != Screen_UseGL)
         {
-            uiGLMakeContextCurrent(GLContext);
-            printf("%04X\n", glGetError());
-            printf("%04X\n", glGetError());
-            GPU3D::GLRenderer::SetDisplaySettings(Config::GL_ScaleFactor, Config::GL_Antialias);
-            uiGLMakeContextCurrent(NULL);
-            GL_ScreenSizeDirty = true;
+            Screen_UseGL = usegl;
+
+            if (RunningSomething)
+            {
+                if (usegl) uiGLMakeContextCurrent(GLContext);
+                GPU3D::DeInitRenderer();
+                if (usegl) uiGLMakeContextCurrent(NULL);
+            }
+
+            RecreateMainWindow(usegl);
+
+            if (RunningSomething)
+            {
+                if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+                GPU3D::InitRenderer(Screen_UseGL);
+                if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+            }
         }
+    }
+    else if (type == 3) // 3D renderer
+    {
+        if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+        GPU3D::DeInitRenderer();
+        GPU3D::InitRenderer(Screen_UseGL);
+        if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
     }
 
     EmuRunning = prevstatus;
@@ -2251,24 +2172,11 @@ void CreateMainWindowMenu()
     uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
 }
 
-void zarg()
+void CreateMainWindow(bool opengl)
 {
-    int w = Config::WindowWidth;
-    int h = Config::WindowHeight;
-    //if (w < 256) w = 256;
-    //if (h < 384) h = 384;
-
-    WindowWidth = w;
-    WindowHeight = h;
-
-    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
-    _3DRenderer = Config::_3DRenderer;
-
-    GL_3DScale = Config::GL_ScaleFactor;
-    if      (GL_3DScale < 1) GL_3DScale = 1;
-    else if (GL_3DScale > 8) GL_3DScale = 8;
-
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION,
+                             WindowWidth, WindowHeight,
+                             Config::WindowMaximized, 1, 1);
     uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
 
     uiWindowSetDropTarget(MainWindow, 1);
@@ -2277,40 +2185,57 @@ void zarg()
     uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
     uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
 
-    MainDrawAreaHandler.Draw = OnAreaDraw;
-    MainDrawAreaHandler.MouseEvent = OnAreaMouseEvent;
-    MainDrawAreaHandler.MouseCrossed = OnAreaMouseCrossed;
-    MainDrawAreaHandler.DragBroken = OnAreaDragBroken;
-    MainDrawAreaHandler.KeyEvent = OnAreaKeyEvent;
-    MainDrawAreaHandler.Resize = OnAreaResize;
-
     ScreenDrawInited = false;
-    ScreenCreateArea(Screen_UseGL);
+    bool opengl_good = opengl;
 
-    ScreenRotation = Config::ScreenRotation;
-    ScreenGap = Config::ScreenGap;
-    ScreenLayout = Config::ScreenLayout;
-    ScreenSizing = Config::ScreenSizing;
+    if (!opengl) MainDrawArea = uiNewArea(&MainDrawAreaHandler);
+    else         MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
 
-#define SANITIZE(var, min, max)  if ((var < min) || (var > max)) var = 0;
-    SANITIZE(ScreenRotation, 0, 3);
-    SANITIZE(ScreenLayout, 0, 2);
-    SANITIZE(ScreenSizing, 0, 3);
-#undef SANITIZE
+    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
 
-    /*uiMenuItemSetChecked(MenuItem_SavestateSRAMReloc, Config::SavestateRelocSRAM?1:0);
+    uiControlShow(uiControl(MainWindow));
+    uiControlSetFocus(uiControl(MainDrawArea));
 
-    uiMenuItemSetChecked(MenuItem_ScreenRot[ScreenRotation], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
-    uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
-
-    for (int i = 0; i < 6; i++)
+    if (opengl_good)
     {
-        if (ScreenGap == kScreenGap[i])
-            uiMenuItemSetChecked(MenuItem_ScreenGap[i], 1);
-    }*/
+        GLContext = uiAreaGetGLContext(MainDrawArea);
+        if (!GLContext) opengl_good = false;
+    }
+    if (opengl_good)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        if (!GLScreen_Init()) opengl_good = false;
+        uiGLMakeContextCurrent(NULL);
+    }
 
-    OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+    if (opengl && !opengl_good)
+    {
+        printf("OpenGL: initialization failed\n");
+        RecreateMainWindow(false);
+        Screen_UseGL = false;
+    }
+}
+
+void DestroyMainWindow()
+{
+    uiControlDestroy(uiControl(MainWindow));
+
+    if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+    if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
+
+    ScreenBitmap[0] = NULL;
+    ScreenBitmap[1] = NULL;
+}
+
+void RecreateMainWindow(bool opengl)
+{
+    int winX, winY;
+    uiWindowPosition(MainWindow, &winX, &winY);
+    DestroyMainWindow();
+    CreateMainWindow(opengl);
+    uiWindowSetPosition(MainWindow, winX, winY);
 }
 
 
@@ -2417,40 +2342,6 @@ int main(int argc, char** argv)
 
     CreateMainWindowMenu();
 
-    int w = Config::WindowWidth;
-    int h = Config::WindowHeight;
-    //if (w < 256) w = 256;
-    //if (h < 384) h = 384;
-
-    WindowWidth = w;
-    WindowHeight = h;
-
-    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
-    _3DRenderer = Config::_3DRenderer;
-
-    GL_3DScale = Config::GL_ScaleFactor;
-    if      (GL_3DScale < 1) GL_3DScale = 1;
-    else if (GL_3DScale > 8) GL_3DScale = 8;
-
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
-    uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
-
-    uiWindowSetDropTarget(MainWindow, 1);
-    uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
-
-    uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
-    uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
-
-    //uiMenuItemDisable(MenuItem_SaveState);
-    //uiMenuItemDisable(MenuItem_LoadState);
-    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
-    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
-    uiMenuItemDisable(MenuItem_UndoStateLoad);
-
-    uiMenuItemDisable(MenuItem_Pause);
-    uiMenuItemDisable(MenuItem_Reset);
-    uiMenuItemDisable(MenuItem_Stop);
-
     MainDrawAreaHandler.Draw = OnAreaDraw;
     MainDrawAreaHandler.MouseEvent = OnAreaMouseEvent;
     MainDrawAreaHandler.MouseCrossed = OnAreaMouseCrossed;
@@ -2458,8 +2349,16 @@ int main(int argc, char** argv)
     MainDrawAreaHandler.KeyEvent = OnAreaKeyEvent;
     MainDrawAreaHandler.Resize = OnAreaResize;
 
-    ScreenDrawInited = false;
-    ScreenCreateArea(Screen_UseGL);
+    WindowWidth = Config::WindowWidth;
+    WindowHeight = Config::WindowHeight;
+
+    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+
+    GL_3DScale = Config::GL_ScaleFactor;
+    if      (GL_3DScale < 1) GL_3DScale = 1;
+    else if (GL_3DScale > 8) GL_3DScale = 8;
+
+    CreateMainWindow(Screen_UseGL);
 
     ScreenRotation = Config::ScreenRotation;
     ScreenGap = Config::ScreenGap;
@@ -2471,6 +2370,14 @@ int main(int argc, char** argv)
     SANITIZE(ScreenLayout, 0, 2);
     SANITIZE(ScreenSizing, 0, 3);
 #undef SANITIZE
+
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
+
+    uiMenuItemDisable(MenuItem_Pause);
+    uiMenuItemDisable(MenuItem_Reset);
+    uiMenuItemDisable(MenuItem_Stop);
 
     uiMenuItemSetChecked(MenuItem_SavestateSRAMReloc, Config::SavestateRelocSRAM?1:0);
 
@@ -2574,9 +2481,6 @@ int main(int argc, char** argv)
     Config::ScreenSizing = ScreenSizing;
 
     Config::Save();
-
-    if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
-    if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
     uiUninit();
     SDL_Quit();

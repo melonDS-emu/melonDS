@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Config.h"
 #include "OpenGLSupport.h"
 #include "GPU3D_OpenGL_shaders.h"
 
@@ -362,10 +363,14 @@ void DeInit()
 
 void Reset()
 {
+    UpdateDisplaySettings();
 }
 
-void SetDisplaySettings(int scale, bool antialias)
+void UpdateDisplaySettings()
 {
+    int scale = Config::GL_ScaleFactor;
+    bool antialias = false; //Config::GL_Antialias;
+
     if (antialias) scale *= 2;
 
     ScaleFactor = scale;
@@ -950,7 +955,7 @@ u32* GetLine(int line)
 }
 
 void SetupAccelFrame()
-{
+{printf("morp %04X\n", glGetError());
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
 }
 
