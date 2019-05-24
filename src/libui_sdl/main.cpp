@@ -375,7 +375,7 @@ void GLScreen_DrawScreen()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
 
-    if (GPU::Framebuffer[frontbuf][1])
+    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
     {
         if (GPU3D::Renderer == 0)
         {
@@ -922,7 +922,7 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     int frontbuf = GPU::FrontBuffer;
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
-    if (!GPU::Framebuffer[frontbuf][1]) return;
+    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
 
     uiRect top = {0, 0, 256, 192};
     uiRect bot = {0, 0, 256, 192};

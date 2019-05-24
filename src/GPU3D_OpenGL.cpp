@@ -955,7 +955,7 @@ u32* GetLine(int line)
 }
 
 void SetupAccelFrame()
-{printf("morp %04X\n", glGetError());
+{
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
 }
 
