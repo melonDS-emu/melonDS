@@ -1962,7 +1962,9 @@ void ApplyNewSettings(int type)
 
     if (type == 0) // 3D renderer settings
     {
+        if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
         GPU3D::UpdateRendererConfig();
+        if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
         GL_3DScale = Config::GL_ScaleFactor; // dorp
         GL_ScreenSizeDirty = true;
