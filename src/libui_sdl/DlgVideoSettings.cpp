@@ -80,10 +80,16 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 void OnRendererChanged(uiRadioButtons* rb, void* blarg)
 {
     int id = uiRadioButtonsSelected(rb);
-printf("RENDERER CHANGE: %d\n", id);
+    bool old_usegl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
     Config::_3DRenderer = id;
     UpdateControls();
-    ApplyNewSettings(3);
+
+    bool new_usegl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    if (new_usegl != old_usegl)
+        ApplyNewSettings(2);
+    else
+        ApplyNewSettings(3);
 }
 
 void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
@@ -116,17 +122,25 @@ void OnAntialiasChanged(uiCheckbox* cb, void* blarg)
 void OnCancel(uiButton* btn, void* blarg)
 {
     bool apply0 = false;
+    bool apply2 = false;
+    bool apply3 = false;
+
+    bool old_usegl = (old_gldisplay != 0) || (old_renderer != 0);
+    bool new_usegl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
 
     if (old_renderer != Config::_3DRenderer)
     {
         Config::_3DRenderer = old_renderer;
-        ApplyNewSettings(3);
+        apply3 = true;
     }
 
     if (old_gldisplay != Config::ScreenUseGL)
     {
         Config::ScreenUseGL = old_gldisplay;
-        ApplyNewSettings(2);
+    }
+    if (old_usegl != new_usegl)
+    {
+        apply2 = true;
     }
 
     if (old_threaded3D != Config::Threaded3D)
@@ -143,6 +157,8 @@ void OnCancel(uiButton* btn, void* blarg)
         apply0 = true;
     }
 
+    if (apply2) ApplyNewSettings(2);
+    else if (apply3) ApplyNewSettings(3);
     if (apply0) ApplyNewSettings(0);
 
     uiControlDestroy(uiControl(win));
