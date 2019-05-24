@@ -151,12 +151,15 @@ void Reset()
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
 
-    for (int i = 0; i < (256*192); i++)
+    int fbsize;
+    if (Accelerated) fbsize = (256*3 + 2) * 192;
+    else             fbsize = 256 * 192;
+    for (int i = 0; i < fbsize; i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
         Framebuffer[1][0][i] = 0xFFFFFFFF;
     }
-    for (int i = 0; i < (256*192); i++)
+    for (int i = 0; i < fbsize; i++)
     {
         Framebuffer[0][1][i] = 0xFFFFFFFF;
         Framebuffer[1][1][i] = 0xFFFFFFFF;
@@ -173,10 +176,13 @@ void Reset()
 
 void Stop()
 {
-    memset(Framebuffer[0][0], 0, 256*192);
-    memset(Framebuffer[0][1], 0, 256*192);
-    memset(Framebuffer[1][0], 0, 256*192);
-    memset(Framebuffer[1][1], 0, 256*192);
+    int fbsize;
+    if (Accelerated) fbsize = (256*3 + 2) * 192;
+    else             fbsize = 256 * 192;
+    memset(Framebuffer[0][0], 0, fbsize*4);
+    memset(Framebuffer[0][1], 0, fbsize*4);
+    memset(Framebuffer[1][0], 0, fbsize*4);
+    memset(Framebuffer[1][1], 0, fbsize*4);
 }
 
 void DoSavestate(Savestate* file)

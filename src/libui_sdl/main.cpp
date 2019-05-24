@@ -374,14 +374,24 @@ void GLScreen_DrawScreen()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
-    /*glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256<<ScreenScale[0], 192<<ScreenScale[0], GL_RGBA_INTEGER,
-                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256<<ScreenScale[1], 192<<ScreenScale[1], GL_RGBA_INTEGER,
-                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);*/
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 2, 192, GL_RGBA_INTEGER,
-                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 2, 192, GL_RGBA_INTEGER,
-                    GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+
+    if (GPU::Framebuffer[frontbuf][1])
+    {
+        if (GPU3D::Renderer == 0)
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
+        else
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 2, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 2, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
+    }
 
     glActiveTexture(GL_TEXTURE1);
     if (GPU3D::Renderer != 0)
@@ -661,7 +671,6 @@ int EmuThreadFunc(void* burp)
     {
         uiGLMakeContextCurrent(GLContext);
         GPU3D::InitRenderer(true);
-        GPU::SetDisplaySettings(GPU3D::Renderer != 0);
         uiGLMakeContextCurrent(NULL);
     }
     else
@@ -909,16 +918,15 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
         ScreenDrawInited = true;
         ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192);
         ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192);
-        printf("D2D bitmaps inited\n");
     }
-if (!ScreenBitmap[0] || !ScreenBitmap[1]) printf("draw but no bitmaps :(\n");
+
+    int frontbuf = GPU::FrontBuffer;
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
-    if (!GPU::Framebuffer[0][0]) return;
+    if (!GPU::Framebuffer[frontbuf][1]) return;
 
     uiRect top = {0, 0, 256, 192};
     uiRect bot = {0, 0, 256, 192};
 
-    int frontbuf = GPU::FrontBuffer;
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
     uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
 
