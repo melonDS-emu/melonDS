@@ -384,7 +384,7 @@ void GLScreen_DrawScreen()
         OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0, 1, 0, 1);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     int frontbuf = GPU::FrontBuffer;

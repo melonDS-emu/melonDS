@@ -150,7 +150,7 @@ void Reset()
 
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
-
+printf("RESET: ACCEL=%d FRAMEBUFFER=%p\n", Accelerated, Framebuffer[0][0]);
     int fbsize;
     if (Accelerated) fbsize = (256*3 + 1) * 192;
     else             fbsize = 256 * 192;
@@ -254,27 +254,24 @@ void AssignFramebuffers()
 
 void SetDisplaySettings(bool accel)
 {
-    if (accel != Accelerated)
-    {
-        int fbsize;
-        if (accel) fbsize = (256*3 + 1) * 192;
-        else       fbsize = 256 * 192;
-        if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
-        if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
-        if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
-        if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
-        Framebuffer[0][0] = new u32[fbsize];
-        Framebuffer[1][0] = new u32[fbsize];
-        Framebuffer[0][1] = new u32[fbsize];
-        Framebuffer[1][1] = new u32[fbsize];
+    int fbsize;
+    if (accel) fbsize = (256*3 + 1) * 192;
+    else       fbsize = 256 * 192;
+    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
+    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
+    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
+    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+    Framebuffer[0][0] = new u32[fbsize];
+    Framebuffer[1][0] = new u32[fbsize];
+    Framebuffer[0][1] = new u32[fbsize];
+    Framebuffer[1][1] = new u32[fbsize];
 
-        memset(Framebuffer[0][0], 0, fbsize*4);
-        memset(Framebuffer[1][0], 0, fbsize*4);
-        memset(Framebuffer[0][1], 0, fbsize*4);
-        memset(Framebuffer[1][1], 0, fbsize*4);
+    memset(Framebuffer[0][0], 0, fbsize*4);
+    memset(Framebuffer[1][0], 0, fbsize*4);
+    memset(Framebuffer[0][1], 0, fbsize*4);
+    memset(Framebuffer[1][1], 0, fbsize*4);
 
-        AssignFramebuffers();
-    }
+    AssignFramebuffers();
 
     GPU2D_A->SetDisplaySettings(accel);
     GPU2D_B->SetDisplaySettings(accel);
