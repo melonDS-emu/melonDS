@@ -10,6 +10,8 @@ SET(SOURCES_LIBUI
 	DlgEmuSettings.cpp
 	DlgInputConfig.cpp
 	DlgWifiSettings.cpp
+	# opengl backend stuff
+	DlgVideoSettings.cpp
 )
 
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)

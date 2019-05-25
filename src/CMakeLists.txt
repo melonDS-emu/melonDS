@@ -22,8 +22,13 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
+	# opengl backend stuff
+	GPU3D_OpenGL.cpp
+	OpenGLSupport.cpp
 )
 
 if (WIN32)
-	target_link_libraries(core ole32 comctl32 ws2_32)
+	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
+else()
+	target_link_libraries(core OpenGL)
 endif()
