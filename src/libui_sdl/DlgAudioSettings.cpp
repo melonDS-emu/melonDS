@@ -44,8 +44,15 @@ uiEntry* txMicWavPath;
 int oldvolume;
 
 
+void RevertSettings()
+{
+    Config::AudioVolume = oldvolume;
+}
+
+
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
+    RevertSettings();
     opened = false;
     return 1;
 }
@@ -69,7 +76,7 @@ void OnMicWavBrowse(uiButton* btn, void* blarg)
 
 void OnCancel(uiButton* btn, void* blarg)
 {
-    Config::AudioVolume = oldvolume;
+    RevertSettings();
 
     uiControlDestroy(uiControl(win));
     opened = false;
