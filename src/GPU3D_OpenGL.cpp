@@ -594,6 +594,8 @@ void RenderSceneChunk(int y, int h)
     {
         RendererPolygon* rp = &PolygonList[i];
 
+        if (rp->PolyData->IsShadowMask) { i++; continue; }
+
         // zorp
         glDepthFunc(GL_LESS);
 
@@ -627,11 +629,6 @@ void RenderSceneChunk(int y, int h)
 
                 if (rp->PolyData->IsShadowMask)
                 {
-                    // clear shadow bits in stencil buffer
-
-                    glStencilMask(0x80);
-                    glClear(GL_STENCIL_BUFFER_BIT);
-
                     // draw actual shadow mask
 
                     UseRenderShader(flags | RenderFlag_ShadowMask);
@@ -642,7 +639,7 @@ void RenderSceneChunk(int y, int h)
                     glDepthMask(GL_FALSE);
 
                     glDepthFunc(GL_LESS);
-                    glStencilFunc(GL_EQUAL, 0xFF, 0xFE);
+                    glStencilFunc(GL_EQUAL, 0xFF, 0xFF);
                     glStencilOp(GL_KEEP, GL_INVERT, GL_KEEP);
                     glStencilMask(0x01);
 
