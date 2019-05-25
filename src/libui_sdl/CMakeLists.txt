@@ -9,6 +9,7 @@ SET(SOURCES_LIBUI
 	DlgAudioSettings.cpp
 	DlgEmuSettings.cpp
 	DlgInputConfig.cpp
+	DlgVideoSettings.cpp
 	DlgWifiSettings.cpp
 )
 
