@@ -216,7 +216,7 @@ bool GLScreen_Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 1024, 1536, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3 + 1, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     GL_ScreenSizeDirty = true;
 
@@ -317,31 +317,31 @@ void GLScreen_DrawScreen()
         switch (ScreenRotation)
         {
         case 0:
-            s0 = 0; t0 = 768;
-            s1 = scwidth; t1 = 768;
-            s2 = 0; t2 = 768+scheight;
-            s3 = scwidth; t3 = 768+scheight;
+            s0 = 0; t0 = 192;
+            s1 = scwidth; t1 = 192;
+            s2 = 0; t2 = 192+scheight;
+            s3 = scwidth; t3 = 192+scheight;
             break;
 
         case 1:
-            s0 = 0; t0 = 768+scheight;
-            s1 = 0; t1 = 768;
-            s2 = scwidth; t2 = 768+scheight;
-            s3 = scwidth; t3 = 768;
+            s0 = 0; t0 = 192+scheight;
+            s1 = 0; t1 = 192;
+            s2 = scwidth; t2 = 192+scheight;
+            s3 = scwidth; t3 = 192;
             break;
 
         case 2:
-            s0 = scwidth; t0 = 768+scheight;
-            s1 = 0; t1 = 768+scheight;
-            s2 = scwidth; t2 = 768;
-            s3 = 0; t3 = 768;
+            s0 = scwidth; t0 = 192+scheight;
+            s1 = 0; t1 = 192+scheight;
+            s2 = scwidth; t2 = 192;
+            s3 = 0; t3 = 192;
             break;
 
         case 3:
-            s0 = scwidth; t0 = 768;
-            s1 = scwidth; t1 = 768+scheight;
-            s2 = 0; t2 = 768;
-            s3 = 0; t3 = 768+scheight;
+            s0 = scwidth; t0 = 192;
+            s1 = scwidth; t1 = 192+scheight;
+            s2 = 0; t2 = 192;
+            s3 = 0; t3 = 192+scheight;
             break;
         }
 
@@ -381,14 +381,14 @@ void GLScreen_DrawScreen()
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256, 192, GL_RGBA_INTEGER,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA_INTEGER,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
         }
         else
         {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 2, 192, GL_RGBA_INTEGER,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 768, 256*3 + 2, 192, GL_RGBA_INTEGER,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
         }
     }
@@ -2241,11 +2241,13 @@ void DestroyMainWindow()
 
 void RecreateMainWindow(bool opengl)
 {
-    int winX, winY;
+    int winX, winY, maxi;
     uiWindowPosition(MainWindow, &winX, &winY);
+    maxi = uiWindowMaximized(MainWindow);
     DestroyMainWindow();
     CreateMainWindow(opengl);
     uiWindowSetPosition(MainWindow, winX, winY);
+    uiWindowSetMaximized(MainWindow, maxi);
 }
 
 

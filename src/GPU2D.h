@@ -127,6 +127,7 @@ private:
     u32 ColorBlend5(u32 val1, u32 val2);
     u32 ColorBrightnessUp(u32 val, u32 factor);
     u32 ColorBrightnessDown(u32 val, u32 factor);
+    u32 ColorComposite(int i, u32 val1, u32 val2);
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32 nsprites);
     void DrawScanlineBGMode6(u32 line, u32 nsprites);

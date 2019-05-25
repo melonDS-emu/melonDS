@@ -890,6 +890,8 @@ void RenderSceneChunk(int y, int h)
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+        glFlush();
     }
 }
 

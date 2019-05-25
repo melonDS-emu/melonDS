@@ -152,7 +152,7 @@ void Reset()
     VRAMMap_ARM7[1] = 0;
 
     int fbsize;
-    if (Accelerated) fbsize = (256*3 + 2) * 192;
+    if (Accelerated) fbsize = (256*3 + 1) * 192;
     else             fbsize = 256 * 192;
     for (int i = 0; i < fbsize; i++)
     {
@@ -177,7 +177,7 @@ void Reset()
 void Stop()
 {
     int fbsize;
-    if (Accelerated) fbsize = (256*3 + 2) * 192;
+    if (Accelerated) fbsize = (256*3 + 1) * 192;
     else             fbsize = 256 * 192;
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
@@ -257,7 +257,7 @@ void SetDisplaySettings(bool accel)
     if (accel != Accelerated)
     {
         int fbsize;
-        if (accel) fbsize = (256*3 + 2) * 192;
+        if (accel) fbsize = (256*3 + 1) * 192;
         else       fbsize = 256 * 192;
         if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
         if (Framebuffer[1][0]) delete[] Framebuffer[1][0];

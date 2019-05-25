@@ -66,121 +66,81 @@ void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
 
-    // bit0-13: BLDCNT
-    // bit14-15: DISPCNT display mode
-    // bit16-20: EVA
-    // bit21-25: EVB
-    // bit26-30: EVY
-    ivec4 ctl = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
-    ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3 + 1, int(fTexcoord.y)), 0));
-    int dispmode = (ctl.g >> 6) & 0x3;
+    ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
+    int dispmode = mbright.b & 0x3;
 
     if (dispmode == 1)
     {
-        int eva = ctl.b & 0x1F;
-        int evb = (ctl.b >> 5) | ((ctl.a & 0x03) << 3);
-        int evy = ctl.a >> 2;
+        ivec4 val1 = pixel;
+        ivec4 val2 = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0));
+        ivec4 val3 = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(512,0), 0));
 
-        ivec4 top = pixel;
-        ivec4 mid = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(256,0), 0));
-        ivec4 bot = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord) + ivec2(512,0), 0));
+        int compmode = val3.a & 0xF;
+        int eva, evb, evy;
 
-        int winmask = top.b >> 7;
-
-        if ((top.a & 0xC0) == 0x40)
+        if (compmode == 4)
         {
-            float xpos = top.r + fract(fTexcoord.x);
-            float ypos = mod(fTexcoord.y, 768);
+            // 3D on top, blending
+
+            float xpos = val3.r + fract(fTexcoord.x);
+            float ypos = mod(fTexcoord.y, 192);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
-            if (_3dpix.a > 0) { top = _3dpix; top.a |= 0x40; bot = mid; }
-            else              top = mid;
+            if (_3dpix.a > 0)
+            {
+                eva = (_3dpix.a & 0x1F) + 1;
+                evb = 32 - eva;
+
+                val1 = ((_3dpix * eva) + (val1 * evb)) >> 5;
+                if (eva <= 16) val1 += ivec4(1,1,1,0);
+                val1 = min(val1, 0x3F);
+            }
+            else
+                val1 = val2;
         }
-        else if ((mid.a & 0xC0) == 0x40)
+        else if (compmode == 1)
         {
-            float xpos = mid.r + fract(fTexcoord.x);
-            float ypos = mod(fTexcoord.y, 768);
+            // 3D on bottom, blending
+
+            float xpos = val3.r + fract(fTexcoord.x);
+            float ypos = mod(fTexcoord.y, 192);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
-            if (_3dpix.a > 0) { bot = _3dpix; bot.a |= 0x40; }
-        }
-        else
-        {
-            // conditional texture fetch no good for performance, apparently
-            //texelFetch(_3DTex, ivec2(0, fTexcoord.y*2), 0);
-            bot = mid;
-        }
-
-        top.b &= 0x3F;
-        bot.b &= 0x3F;
-
-        int target2;
-        if      ((bot.a & 0x80) != 0) target2 = 0x10;
-        else if ((bot.a & 0x40) != 0) target2 = 0x01;
-        else                          target2 = bot.a;
-        bool t2pass = ((ctl.g & target2) != 0);
-
-        int coloreffect = 0;
-
-        if ((top.a & 0x80) != 0 && t2pass)
-        {
-            // sprite blending
-
-            coloreffect = 1;
-
-            if ((top.a & 0x40) != 0)
+            if (_3dpix.a > 0)
             {
-                eva = top.a & 0x1F;
-                evb = 16 - eva;
+                eva = val3.g;
+                evb = val3.b;
+
+                val1 = ((val1 * eva) + (_3dpix * evb)) >> 4;
+                val1 = min(val1, 0x3F);
             }
+            else
+                val1 = val2;
         }
-        else if ((top.a & 0x40) != 0 && t2pass)
+        else if (compmode <= 3)
         {
-            // 3D layer blending
+            // 3D on top, normal/fade
 
-            coloreffect = 4;
-            eva = (top.a & 0x1F) + 1;
-            evb = 32 - eva;
-        }
-        else
-        {
-            if      ((top.a & 0x80) != 0) top.a = 0x10;
-            else if ((top.a & 0x40) != 0) top.a = 0x01;
+            float xpos = val3.r + fract(fTexcoord.x);
+            float ypos = mod(fTexcoord.y, 192);
+            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+                         * vec4(63,63,63,31));
 
-            if ((ctl.r & top.a) != 0 && winmask != 0)
+            if (_3dpix.a > 0)
             {
-                int effect = ctl.r >> 6;
-                if ((effect != 1) || t2pass) coloreffect = effect;
+                evy = val3.g;
+
+                val1 = _3dpix;
+                if      (compmode == 2) val1 += ((ivec4(0x3F,0x3F,0x3F,0) - val1) * evy) >> 4;
+                else if (compmode == 3) val1 -= (val1 * evy) >> 4;
             }
+            else
+                val1 = val2;
         }
 
-        if (coloreffect == 0)
-        {
-            pixel = top;
-        }
-        else if (coloreffect == 1)
-        {
-            pixel = ((top * eva) + (bot * evb)) >> 4;
-            pixel = min(pixel, 0x3F);
-        }
-        else if (coloreffect == 2)
-        {
-            pixel = top;
-            pixel += ((ivec4(0x3F,0x3F,0x3F,0) - pixel) * evy) >> 4;
-        }
-        else if (coloreffect == 3)
-        {
-            pixel = top;
-            pixel -= (pixel * evy) >> 4;
-        }
-        else
-        {
-            pixel = ((top * eva) + (bot * evb)) >> 5;
-            if (eva <= 16) pixel += ivec4(1,1,1,0);
-            pixel = min(pixel, 0x3F);
-        }
+        pixel = val1;
     }
 
     if (dispmode != 0)
