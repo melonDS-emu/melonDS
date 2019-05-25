@@ -111,12 +111,9 @@ vec4 CalculateFog(float depth)
             densityfrac = int(udepth & uint(0x1FFFF));
     }
 
-    float density =
-        ((uFogDensity[densityid] * float(0x20000-densityfrac)) +
-         (uFogDensity[densityid+1] * float(densityfrac))) / float(0x20000);
+    float density = mix(uFogDensity[densityid], uFogDensity[densityid+1], float(densityfrac)/131072.0);
 
-         return vec4(uFogColor.bgr,density);
-    return uFogColor * density;
+    return vec4(density, density, density, density);
 }
 
 void main()

@@ -102,6 +102,7 @@
      \
     func(GLBLENDFUNCSEPARATE, glBlendFuncSeparate); \
     func(GLBLENDEQUATIONSEPARATE, glBlendEquationSeparate); \
+    func(GLBLENDCOLOR, glBlendColor); \
      \
     func(GLCOLORMASKI, glColorMaski); \
      \

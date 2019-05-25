@@ -71,6 +71,9 @@ typedef struct
 
     u32 NumIndices;
     u16* Indices;
+    u32 NumEdgeIndices;
+    u16* EdgeIndices;
+
     u32 RenderKey;
 
 } RendererPolygon;
@@ -98,7 +101,7 @@ u32 VertexBuffer[10240 * 7];
 u32 NumVertices;
 
 GLuint VertexArrayID;
-u16 IndexBuffer[2048 * 10];
+u16 IndexBuffer[2048 * 40];
 u32 NumTriangles;
 
 GLuint TexMemID;
@@ -443,6 +446,8 @@ void UpdateDisplaySettings()
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
+    //glLineWidth(scale);
 }
 
 
@@ -495,6 +500,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
     u32 vidx = 0;
 
     u16* iptr = &IndexBuffer[0];
+    u16* eiptr = &IndexBuffer[2048*30];
     u32 numtriangles = 0;
 
     for (int i = 0; i < npolys; i++)
@@ -503,6 +509,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         Polygon* poly = rp->PolyData;
 
         rp->Indices = iptr;
+        rp->NumIndices = 0;
 
         u32 vidx_first = vidx;
 
@@ -513,8 +520,6 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         u32 vtxattr = polyattr & 0x1F00C8F0;
         if (poly->FacingView) vtxattr |= (1<<8);
         if (poly->WBuffer)    vtxattr |= (1<<9);
-
-        rp->NumIndices = 0;
 
         // assemble vertices
         for (int j = 0; j < poly->NumVertices; j++)
@@ -566,6 +571,17 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
             vidx++;
         }
+
+        rp->EdgeIndices = eiptr;
+        rp->NumEdgeIndices = 0;
+
+        for (int j = 1; j < poly->NumVertices; j++)
+        {
+            *eiptr++ = vidx_first;
+            *eiptr++ = vidx_first + 1;
+            vidx_first++;
+            rp->NumEdgeIndices += 2;
+        }
     }
 
     NumTriangles = numtriangles;
@@ -596,6 +612,24 @@ int RenderPolygonBatch(int i)
     }
 
     glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+    return numpolys;
+}
+
+int RenderPolygonEdges()
+{
+    RendererPolygon* rp = &PolygonList[0];
+    int numpolys = 0;
+    u32 numindices = 0;
+
+    for (int iend = 0; iend < NumOpaqueFinalPolys; iend++)
+    {
+        RendererPolygon* cur_rp = &PolygonList[iend];
+
+        numpolys++;
+        numindices += cur_rp->NumEdgeIndices;
+    }
+
+    glDrawElements(GL_LINES, numindices, GL_UNSIGNED_SHORT, rp->EdgeIndices);
     return numpolys;
 }
 
@@ -639,6 +673,11 @@ void RenderSceneChunk(int y, int h)
     }
 
     glEnable(GL_BLEND);
+    if (RenderDispCnt & (1<<3))
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+    else
+        glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
+
     UseRenderShader(flags | RenderFlag_Trans);
 
     if (NumOpaqueFinalPolys > -1)
@@ -821,6 +860,19 @@ void RenderSceneChunk(int y, int h)
     {
         glUseProgram(FinalPassShader[2]);
 
+        glEnable(GL_BLEND);
+        glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+
+        {
+            u32 c = RenderFogColor;
+            u32 r = c & 0x1F;
+            u32 g = (c >> 5) & 0x1F;
+            u32 b = (c >> 10) & 0x1F;
+            u32 a = (c >> 16) & 0x1F;
+
+            glBlendColor((float)b/31.0, (float)g/31.0, (float)r/31.0, (float)a/31.0);
+        }
+
         glDepthFunc(GL_ALWAYS);
         glDepthMask(GL_FALSE);
         glStencilFunc(GL_ALWAYS, 0, 0);
@@ -938,11 +990,6 @@ void RenderFrame()
 
     if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
     else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
-
-    if (RenderDispCnt & (1<<3))
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    else
-        glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
 
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
