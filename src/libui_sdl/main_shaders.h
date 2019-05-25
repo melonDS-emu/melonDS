@@ -56,6 +56,31 @@ layout(std140) uniform uConfig
 };
 
 uniform usampler2D ScreenTex;
+
+smooth in vec2 fTexcoord;
+
+out vec4 oColor;
+
+void main()
+{
+    ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
+
+    // TODO: filters
+
+    oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
+}
+)";
+
+const char* kScreenFS_Accel = R"(#version 140
+
+layout(std140) uniform uConfig
+{
+    vec2 uScreenSize;
+    uint u3DScale;
+    uint uFilterMode;
+};
+
+uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
 
 smooth in vec2 fTexcoord;

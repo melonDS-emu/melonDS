@@ -109,6 +109,7 @@ bool ScreenDrawInited = false;
 uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
 
 GLuint GL_ScreenShader[3];
+GLuint GL_ScreenShaderAccel[3];
 struct
 {
     float uScreenSize[2];
@@ -169,29 +170,45 @@ void RecreateMainWindow(bool opengl);
 
 
 
+bool GLScreen_InitShader(GLuint* shader, const char* fs)
+{
+    if (!OpenGL_BuildShaderProgram(kScreenVS, fs, shader, "ScreenShader"))
+        return false;
+
+    GLuint uni_id;
+
+    uni_id = glGetUniformBlockIndex(shader[2], "uConfig");
+    glUniformBlockBinding(shader[2], uni_id, 16);
+
+    glUseProgram(shader[2]);
+    uni_id = glGetUniformLocation(shader[2], "ScreenTex");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(shader[2], "_3DTex");
+    glUniform1i(uni_id, 1);
+
+    glBindAttribLocation(shader[2], 0, "vPosition");
+    glBindAttribLocation(shader[2], 1, "vTexcoord");
+    glBindFragDataLocation(shader[2], 0, "oColor");
+
+    return true;
+}
+
 bool GLScreen_Init()
 {
     if (!OpenGL_Init())
         return false;
 
-    if (!OpenGL_BuildShaderProgram(kScreenVS, kScreenFS, GL_ScreenShader, "ScreenShader"))
+    if (!GLScreen_InitShader(GL_ScreenShader, kScreenFS))
+        return false;
+    if (!GLScreen_InitShader(GL_ScreenShaderAccel, kScreenFS_Accel))
         return false;
 
-    GLuint uni_id;
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
 
     glGenBuffers(1, &GL_ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 16, GL_ShaderConfigUBO);
-    uni_id = glGetUniformBlockIndex(GL_ScreenShader[2], "uConfig");
-    glUniformBlockBinding(GL_ScreenShader[2], uni_id, 16);
-
-    glUseProgram(GL_ScreenShader[2]);
-    uni_id = glGetUniformLocation(GL_ScreenShader[2], "ScreenTex");
-    glUniform1i(uni_id, 0);
-    uni_id = glGetUniformLocation(GL_ScreenShader[2], "_3DTex");
-    glUniform1i(uni_id, 1);
 
     glGenBuffers(1, &GL_ScreenVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
@@ -204,11 +221,6 @@ bool GLScreen_Init()
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
 
-    glBindAttribLocation(GL_ScreenShader[2], 0, "vPosition");
-    glBindAttribLocation(GL_ScreenShader[2], 1, "vTexcoord");
-    glBindFragDataLocation(GL_ScreenShader[2], 0, "oColor");
-
-    // TODO: consider reallocating the texture when changing screen sizes
     glGenTextures(1, &GL_ScreenTexture);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -231,6 +243,7 @@ void GLScreen_DeInit()
     glDeleteBuffers(1, &GL_ScreenVertexBufferID);
 
     OpenGL_DeleteShaderProgram(GL_ScreenShader);
+    OpenGL_DeleteShaderProgram(GL_ScreenShaderAccel);
 }
 
 void GLScreen_DrawScreen()
@@ -365,7 +378,10 @@ void GLScreen_DrawScreen()
 
     glViewport(0, 0, WindowWidth, WindowHeight);
 
-    OpenGL_UseShaderProgram(GL_ScreenShader);
+    if (GPU3D::Renderer == 0)
+        OpenGL_UseShaderProgram(GL_ScreenShader);
+    else
+        OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClearColor(0, 1, 0, 1);
