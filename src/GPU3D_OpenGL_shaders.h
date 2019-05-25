@@ -47,11 +47,92 @@ out uvec3 oAttr;
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
-    oAttr.r = uint(0);
-    oAttr.g = uOpaquePolyID;
-    oAttr.b = uint(0);
+    oAttr.r = uOpaquePolyID;
+    oAttr.g = uint(0);
+    oAttr.b = uFogFlag;
 }
 )";
+
+
+
+const char* kFinalPassVS = kShaderHeader R"(
+
+in vec2 vPosition;
+
+void main()
+{
+    // heh
+    gl_Position = vec4(vPosition, 0.0, 1.0);
+}
+)";
+
+const char* kFinalPassFS = kShaderHeader R"(
+
+uniform sampler2D DepthBuffer;
+uniform usampler2D AttrBuffer;
+
+layout(std140) uniform uConfig
+{
+    vec2 uScreenSize;
+    int uDispCnt;
+    vec4 uToonColors[32];
+    vec4 uEdgeColors[8];
+    vec4 uFogColor;
+    float uFogDensity[34];
+    int uFogOffset;
+    int uFogShift;
+};
+
+out vec4 oColor;
+
+vec4 CalculateFog(float depth)
+{
+    int idepth = int(depth * 16777216.0);
+    int densityid, densityfrac;
+
+    if (idepth < uFogOffset)
+    {
+        densityid = 0;
+        densityfrac = 0;
+    }
+    else
+    {
+        uint udepth = uint(idepth);
+        udepth -= uint(uFogOffset);
+        udepth = (udepth >> 2) << uint(uFogShift);
+
+        densityid = int(udepth >> 17);
+        if (densityid >= 32)
+        {
+            densityid = 32;
+            densityfrac = 0;
+        }
+        else
+            densityfrac = int(udepth & uint(0x1FFFF));
+    }
+
+    float density =
+        ((uFogDensity[densityid] * float(0x20000-densityfrac)) +
+         (uFogDensity[densityid+1] * float(densityfrac))) / float(0x20000);
+
+         return vec4(uFogColor.bgr,density);
+    return uFogColor * density;
+}
+
+void main()
+{
+    ivec2 coord = ivec2(gl_FragCoord.xy);
+
+    vec4 ret = vec4(0,0,0,0);
+    vec4 depth = texelFetch(DepthBuffer, coord, 0);
+    ivec4 attr = ivec4(texelFetch(AttrBuffer, coord, 0));
+
+    if (attr.b != 0) ret = CalculateFog(depth.r);
+
+    oColor = ret;
+}
+)";
+
 
 
 const char* kRenderVSCommon = R"(
@@ -61,6 +142,11 @@ layout(std140) uniform uConfig
     vec2 uScreenSize;
     int uDispCnt;
     vec4 uToonColors[32];
+    vec4 uEdgeColors[8];
+    vec4 uFogColor;
+    float uFogDensity[34];
+    int uFogOffset;
+    int uFogShift;
 };
 
 in uvec4 vPosition;
@@ -83,6 +169,11 @@ layout(std140) uniform uConfig
     vec2 uScreenSize;
     int uDispCnt;
     vec4 uToonColors[32];
+    vec4 uEdgeColors[8];
+    vec4 uFogColor;
+    float uFogDensity[34];
+    int uFogOffset;
+    int uFogShift;
 };
 
 smooth in vec4 fColor;
@@ -530,7 +621,8 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = uint((fPolygonAttr.x >> 24) & 0x3F);
+    oAttr.r = uint((fPolygonAttr.x >> 24) & 0x3F);
+    oAttr.b = uint((fPolygonAttr.x >> 15) & 0x1);
 }
 )";
 
@@ -544,7 +636,8 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = uint((fPolygonAttr.x >> 24) & 0x3F);
+    oAttr.r = uint((fPolygonAttr.x >> 24) & 0x3F);
+    oAttr.b = uint((fPolygonAttr.x >> 15) & 0x1);
     gl_FragDepth = fZ;
 }
 )";
@@ -558,7 +651,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = uint(0xFF);
+    oAttr.b = uint(0);
 }
 )";
 
@@ -573,7 +666,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.g = uint(0xFF);
+    oAttr.b = uint(0);
     gl_FragDepth = fZ;
 }
 )";
@@ -583,7 +676,6 @@ const char* kRenderFS_ZSM = R"(
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = uint(0xFF);
 }
 )";
 
@@ -594,7 +686,6 @@ smooth in float fZ;
 void main()
 {
     oColor = vec4(0,0,0,1);
-    oAttr.g = uint(0xFF);
     gl_FragDepth = fZ;
 }
 )";

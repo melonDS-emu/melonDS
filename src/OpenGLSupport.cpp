@@ -71,6 +71,10 @@ bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, cons
         //printf("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
+        FILE* logf = fopen("shaderfail.log", "w");
+        fwrite(fs, len+1, 1, logf);
+        fclose(logf);
+
         glDeleteShader(ids[0]);
         glDeleteShader(ids[1]);
 

@@ -47,12 +47,19 @@ GLuint ClearShaderPlain[3];
 GLuint RenderShader[16][3];
 GLuint CurShaderID = -1;
 
+GLuint FinalPassShader[3];
+
 struct
 {
     float uScreenSize[2];
     u32 uDispCnt;
     u32 __pad0;
     float uToonColors[32][4];
+    float uEdgeColors[8][4];
+    float uFogColor[4];
+    float uFogDensity[34][4];
+    u32 uFogOffset;
+    u32 uFogShift;
 
 } ShaderConfig;
 
@@ -176,6 +183,8 @@ void SetupDefaultTexParams(GLuint tex)
 
 bool Init()
 {
+    GLint uni_id;
+
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("OpenGL: renderer: %s\n", renderer);
@@ -214,6 +223,23 @@ bool Init()
                            kRenderVS_Z, kRenderFS_ZSM)) return false;
     if (!BuildRenderShader(RenderFlag_ShadowMask | RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WSM)) return false;
+
+
+    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassFS, FinalPassShader, "FinalPassShader"))
+        return false;
+
+    uni_id = glGetUniformBlockIndex(FinalPassShader[2], "uConfig");
+    glUniformBlockBinding(FinalPassShader[2], uni_id, 0);
+
+    glBindAttribLocation(FinalPassShader[2], 0, "vPosition");
+    glBindFragDataLocation(FinalPassShader[2], 0, "oColor");
+
+    glUseProgram(FinalPassShader[2]);
+
+    uni_id = glGetUniformLocation(FinalPassShader[2], "DepthBuffer");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(FinalPassShader[2], "AttrBuffer");
+    glUniform1i(uni_id, 1);
 
 
     memset(&ShaderConfig, 0, sizeof(ShaderConfig));
@@ -277,8 +303,8 @@ bool Init()
 
     // attribute buffer
     // R: opaque polyID (for edgemarking)
-    // G: opaque polyID (for shadows, suppressed when rendering translucent polygons)
-    // B: stencil flag
+    // G: edge flag
+    // B: fog flag
     SetupDefaultTexParams(FramebufferTex[5]);
     SetupDefaultTexParams(FramebufferTex[7]);
 
@@ -447,6 +473,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
             if (polygon->IsShadow) rp->RenderKey |= 0x20000;
             else                   rp->RenderKey |= 0x10000;
             rp->RenderKey |= (polygon->Attr >> 10) & 0x2; // bit11 - depth write
+            rp->RenderKey |= (polygon->Attr >> 13) & 0x4; // bit15 - fog
             rp->RenderKey |= (polygon->Attr & 0x3F000000) >> 16; // polygon ID
         }
         else
@@ -579,11 +606,13 @@ void RenderSceneChunk(int y, int h)
 
     if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
 
+    GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
+
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
 
-    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+    glColorMaski(1, GL_TRUE, GL_FALSE, fogenable, GL_FALSE);
 
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
@@ -614,8 +643,6 @@ void RenderSceneChunk(int y, int h)
 
     if (NumOpaqueFinalPolys > -1)
     {
-        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
         // pass 2: if needed, render translucent pixels that are against background pixels
         // when background alpha is zero, those need to be rendered with blending disabled
 
@@ -653,6 +680,10 @@ void RenderSceneChunk(int y, int h)
                     u32 polyattr = rp->PolyData->Attr;
                     u32 polyid = (polyattr >> 24) & 0x3F;
 
+                    GLboolean transfog;
+                    if (!(polyattr & (1<<15))) transfog = fogenable;
+                    else                       transfog = GL_FALSE;
+
                     if (rp->PolyData->IsShadow)
                     {
                         // shadow against clear-plane will only pass if its polyID matches that of the clear plane
@@ -661,7 +692,7 @@ void RenderSceneChunk(int y, int h)
 
                         glEnable(GL_BLEND);
                         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-                        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                        glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
                         glStencilFunc(GL_EQUAL, 0xFE, 0xFF);
                         glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
@@ -674,6 +705,9 @@ void RenderSceneChunk(int y, int h)
                     }
                     else
                     {
+                        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                        glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
+
                         glStencilFunc(GL_EQUAL, 0xFF, 0xFE);
                         glStencilOp(GL_KEEP, GL_KEEP, GL_INVERT);
                         glStencilMask(~(0x40|polyid)); // heheh
@@ -727,6 +761,10 @@ void RenderSceneChunk(int y, int h)
                 u32 polyattr = rp->PolyData->Attr;
                 u32 polyid = (polyattr >> 24) & 0x3F;
 
+                GLboolean transfog;
+                if (!(polyattr & (1<<15))) transfog = fogenable;
+                else                       transfog = GL_FALSE;
+
                 // zorp
                 glDepthFunc(GL_LESS);
 
@@ -744,7 +782,7 @@ void RenderSceneChunk(int y, int h)
 
                     glEnable(GL_BLEND);
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-                    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                    glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
                     glStencilFunc(GL_EQUAL, 0xC0|polyid, 0x80);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -760,7 +798,7 @@ void RenderSceneChunk(int y, int h)
                 {
                     glEnable(GL_BLEND);
                     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-                    glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+                    glColorMaski(1, GL_FALSE, GL_FALSE, transfog, GL_FALSE);
 
                     glStencilFunc(GL_NOTEQUAL, 0x40|polyid, 0x7F);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
@@ -778,11 +816,33 @@ void RenderSceneChunk(int y, int h)
     }
 
     glFlush();
+
+    if (RenderDispCnt & 0x00A0) // fog/edge enabled
+    {
+        glUseProgram(FinalPassShader[2]);
+
+        glDepthFunc(GL_ALWAYS);
+        glDepthMask(GL_FALSE);
+        glStencilFunc(GL_ALWAYS, 0, 0);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        glStencilMask(0);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+
+        glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
+        glBindVertexArray(ClearVertexArrayID);
+        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+    }
 }
 
 
 void RenderFrame()
 {
+    CurShaderID = -1;
+
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
     ShaderConfig.uDispCnt = RenderDispCnt;
@@ -798,6 +858,40 @@ void RenderFrame()
         ShaderConfig.uToonColors[i][1] = (float)g / 31.0;
         ShaderConfig.uToonColors[i][2] = (float)b / 31.0;
     }
+
+    for (int i = 0; i < 8; i++)
+    {
+        u16 c = RenderEdgeTable[i];
+        u32 r = c & 0x1F;
+        u32 g = (c >> 5) & 0x1F;
+        u32 b = (c >> 10) & 0x1F;
+
+        ShaderConfig.uEdgeColors[i][0] = (float)r / 31.0;
+        ShaderConfig.uEdgeColors[i][1] = (float)g / 31.0;
+        ShaderConfig.uEdgeColors[i][2] = (float)b / 31.0;
+    }
+
+    {
+        u32 c = RenderFogColor;
+        u32 r = c & 0x1F;
+        u32 g = (c >> 5) & 0x1F;
+        u32 b = (c >> 10) & 0x1F;
+        u32 a = (c >> 16) & 0x1F;
+
+        ShaderConfig.uFogColor[0] = (float)r / 31.0;
+        ShaderConfig.uFogColor[1] = (float)g / 31.0;
+        ShaderConfig.uFogColor[2] = (float)b / 31.0;
+        ShaderConfig.uFogColor[3] = (float)a / 31.0;
+    }
+
+    for (int i = 0; i < 34; i++)
+    {
+        u8 d = RenderFogDensityTable[i];
+        ShaderConfig.uFogDensity[i][0] = (float)d / 127.0;
+    }
+
+    ShaderConfig.uFogOffset = RenderFogOffset;
+    ShaderConfig.uFogShift = RenderFogShift;
 
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
     void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
