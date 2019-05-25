@@ -59,14 +59,14 @@ void UpdateControls()
         uiControlEnable(uiControl(cbGLDisplay));
         uiControlEnable(uiControl(cbThreaded3D));
         uiControlDisable(uiControl(cbResolution));
-        uiControlDisable(uiControl(cbAntialias));
+        //uiControlDisable(uiControl(cbAntialias));
     }
     else
     {
         uiControlDisable(uiControl(cbGLDisplay));
         uiControlDisable(uiControl(cbThreaded3D));
         uiControlEnable(uiControl(cbResolution));
-        uiControlEnable(uiControl(cbAntialias));
+        //uiControlEnable(uiControl(cbAntialias));
     }
 }
 
@@ -260,12 +260,12 @@ void Open()
         }
         uiBoxAppend(in_ctrl, uiControl(cbResolution), 0);
 
-        lbl = uiNewLabel("");
-        uiBoxAppend(in_ctrl, uiControl(lbl), 0);
+        //lbl = uiNewLabel("");
+        //uiBoxAppend(in_ctrl, uiControl(lbl), 0);
 
-        cbAntialias = uiNewCheckbox("Antialiasing");
-        uiCheckboxOnToggled(cbAntialias, OnAntialiasChanged, NULL);
-        uiBoxAppend(in_ctrl, uiControl(cbAntialias), 0);
+        //cbAntialias = uiNewCheckbox("Antialiasing");
+        //uiCheckboxOnToggled(cbAntialias, OnAntialiasChanged, NULL);
+        //uiBoxAppend(in_ctrl, uiControl(cbAntialias), 0);
     }
 
     {
@@ -299,7 +299,7 @@ void Open()
     uiCheckboxSetChecked(cbGLDisplay, Config::ScreenUseGL);
     uiCheckboxSetChecked(cbThreaded3D, Config::Threaded3D);
     uiComboboxSetSelected(cbResolution, Config::GL_ScaleFactor-1);
-    uiCheckboxSetChecked(cbAntialias, Config::GL_Antialias);
+    //uiCheckboxSetChecked(cbAntialias, Config::GL_Antialias);
     uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
     UpdateControls();
 
