@@ -46,7 +46,22 @@
 // if you need more OpenGL functions, add them to the macronator here
 // TODO: handle conditionally loading certain functions for different GL versions
 
+#ifdef GL_VERSION_1_3
+
+#define DO_PROCLIST_1_3(func) 
+
+#else
+
+#define DO_PROCLIST_1_3(func) \
+    func(GLACTIVETEXTURE, glActiveTexture); \
+    func(GLBLENDCOLOR, glBlendColor); \
+
+#endif
+
+
 #define DO_PROCLIST(func) \
+    DO_PROCLIST_1_3(func) \
+    \
     func(GLGENFRAMEBUFFERS, glGenFramebuffers); \
     func(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers); \
     func(GLBINDFRAMEBUFFER, glBindFramebuffer); \
@@ -95,14 +110,12 @@
     func(GLGETUNIFORMLOCATION, glGetUniformLocation); \
     func(GLGETUNIFORMBLOCKINDEX, glGetUniformBlockIndex); \
      \
-    func(GLACTIVETEXTURE, glActiveTexture); \
     func(GLBINDIMAGETEXTURE, glBindImageTexture); \
      \
     func(GLDRAWBUFFERS, glDrawBuffers); \
      \
     func(GLBLENDFUNCSEPARATE, glBlendFuncSeparate); \
     func(GLBLENDEQUATIONSEPARATE, glBlendEquationSeparate); \
-    func(GLBLENDCOLOR, glBlendColor); \
      \
     func(GLCOLORMASKI, glColorMaski); \
      \
