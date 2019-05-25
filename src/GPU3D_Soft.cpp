@@ -129,9 +129,9 @@ void DeInit()
 
 void Reset()
 {
-    memset(ColorBuffer, 0, 256*192 * 4);
-    memset(DepthBuffer, 0, 256*192 * 4);
-    memset(AttrBuffer, 0, 256*192 * 4);
+    memset(ColorBuffer, 0, BufferSize * 2 * 4);
+    memset(DepthBuffer, 0, BufferSize * 2 * 4);
+    memset(AttrBuffer, 0, BufferSize * 2 * 4);
 
     PrevIsShadowMask = false;
 
@@ -2106,17 +2106,14 @@ void RenderThreadFunc()
     }
 }
 
-void RequestLine(int line)
+u32* GetLine(int line)
 {
     if (RenderThreadRunning)
     {
         if (line < 192)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
-}
 
-u32* GetLine(int line)
-{
     return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
 }
 

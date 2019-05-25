@@ -108,6 +108,8 @@ typedef struct uiWindow uiWindow;
 #define uiWindow(this) ((uiWindow *) (this))
 _UI_EXTERN char *uiWindowTitle(uiWindow *w);
 _UI_EXTERN void uiWindowSetTitle(uiWindow *w, const char *title);
+_UI_EXTERN void uiWindowPosition(uiWindow *w, int *x, int *y);
+_UI_EXTERN void uiWindowSetPosition(uiWindow *w, int x, int y);
 _UI_EXTERN void uiWindowContentSize(uiWindow *w, int *width, int *height);
 _UI_EXTERN void uiWindowSetContentSize(uiWindow *w, int width, int height);
 _UI_EXTERN int uiWindowMinimized(uiWindow *w);
@@ -326,6 +328,10 @@ _UI_ENUM(uiWindowResizeEdge) {
 	// TODO way to bring up the system menu instead?
 };
 
+#define uiGLVersion(major, minor)  ((major) | ((minor)<<16))
+#define uiGLVerMajor(ver)          ((ver) & 0xFFFF)
+#define uiGLVerMinor(ver)          ((ver) >> 16)
+
 #define uiArea(this) ((uiArea *) (this))
 // TODO give a better name
 // TODO document the types of width and height
@@ -342,6 +348,7 @@ _UI_EXTERN void uiAreaBeginUserWindowMove(uiArea *a);
 _UI_EXTERN void uiAreaBeginUserWindowResize(uiArea *a, uiWindowResizeEdge edge);
 _UI_EXTERN void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b);
 _UI_EXTERN uiArea *uiNewArea(uiAreaHandler *ah);
+_UI_EXTERN uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions);
 _UI_EXTERN uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height);
 
 struct uiAreaDrawParams {
@@ -598,6 +605,18 @@ _UI_EXTERN void uiDrawTextLayoutExtents(uiDrawTextLayout *layout, double *width,
 _UI_EXTERN void uiDrawTextLayoutSetColor(uiDrawTextLayout *layout, int startChar, int endChar, double r, double g, double b, double a);
 
 _UI_EXTERN void uiDrawText(uiDrawContext *c, double x, double y, uiDrawTextLayout *layout);
+
+
+// OpenGL support
+
+typedef struct uiGLContext uiGLContext;
+
+_UI_EXTERN uiGLContext *uiAreaGetGLContext(uiArea* a);
+_UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
+_UI_EXTERN unsigned int uiGLGetVersion(uiGLContext* ctx);
+_UI_EXTERN void *uiGLGetProcAddress(const char* proc);
+_UI_EXTERN void uiGLSwapBuffers(uiGLContext* ctx);
+
 
 _UI_ENUM(uiModifiers) {
 	uiModifierCtrl = 1 << 0,

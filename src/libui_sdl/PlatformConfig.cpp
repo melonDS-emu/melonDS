@@ -40,6 +40,9 @@ int ScreenLayout;
 int ScreenSizing;
 int ScreenFilter;
 
+int ScreenUseGL;
+int ScreenRatio;
+
 int LimitFPS;
 
 int DirectBoot;
@@ -100,6 +103,9 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
+
+    {"ScreenUseGL",     0, &ScreenUseGL,     1, NULL, 0},
+    {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
 

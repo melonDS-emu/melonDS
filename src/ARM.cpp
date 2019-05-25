@@ -159,7 +159,7 @@ void ARM::SetupCodeMem(u32 addr)
         //NDS::ARM7GetMemRegion(addr, false, &CodeMem);
     }
 }
-
+extern u64 vbltime;
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
@@ -180,6 +180,16 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     if (R[15]==0x0204BE5E) printf("recvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
     if (R[15]==0x0205038A) printf("sgrecvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
     if (addr==0x02050379 || addr==0x0205036D) printf("morp %08X->%08X, %d\n", R[15], addr, R[7]);*/
+    /*if (addr==0x020B5F14) printf("VRAM UNMAP %02X %08X\n", R[0], R[15]);
+    if (addr==0x020B5FAC) printf("VRAM MAP %2X %08X\n", R[0], R[15]);
+    if (addr==0x0209F860) printf("VRAM BLORP %02X %08X\n", R[0], R[15]);
+    if (addr==0x02005A34) printf("VAZAVAZORP %08X. VCOUNT=%d\n", R[15], NDS::ARM9Read16(0x04000006));
+    if (addr==0x0209FBEC) printf("COUILLON. %08X %08X\n", R[0], R[1]);
+    if (addr==0x02004AA8) printf("ANEBATE 1  %d\n", NDS::ARM9Read16(0x04000006));
+    if (addr==0x020058C8) printf("ANEBATE 2  %d\n", NDS::ARM9Read16(0x04000006));
+    if (addr==0x02005398) printf("ANEBATE 3  %d  %d\n", NDS::ARM9Read16(0x04000006), (u32)(NDS::ARM9Timestamp-vbltime));
+    if (addr==0x02005A5C) printf("PLAFORP %d\n", NDS::ARM9Read16(0x04000006));
+    if (addr==0x209FBDC) printf("ROLOLORP\n");*/
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -508,6 +518,8 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
+
+            //if (R[15]>=0x02005A5C && R[15]<=0x02005A84) printf("NORP %08X  %d\n", R[15]-8, NDS::ARM9Read16(0x04000006));
         }
 
         // TODO optimize this shit!!!

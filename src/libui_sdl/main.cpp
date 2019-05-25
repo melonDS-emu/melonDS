@@ -24,12 +24,16 @@
 #include <SDL2/SDL.h>
 #include "libui/ui.h"
 
+#include "../OpenGLSupport.h"
+#include "main_shaders.h"
+
 #include "../types.h"
 #include "../version.h"
 #include "PlatformConfig.h"
 
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
+#include "DlgVideoSettings.h"
 #include "DlgAudioSettings.h"
 #include "DlgWifiSettings.h"
 
@@ -60,6 +64,10 @@ char* EmuDirectory;
 
 uiWindow* MainWindow;
 uiArea* MainDrawArea;
+uiAreaHandler MainDrawAreaHandler;
+
+const u32 kGLVersions[] = {uiGLVersion(3,1), 0};
+uiGLContext* GLContext;
 
 int WindowWidth, WindowHeight;
 
@@ -81,6 +89,9 @@ uiMenuItem* MenuItem_ScreenGap[6];
 uiMenuItem* MenuItem_ScreenLayout[3];
 uiMenuItem* MenuItem_ScreenSizing[4];
 
+uiMenuItem* MenuItem_ScreenFilter;
+uiMenuItem* MenuItem_LimitFPS;
+
 SDL_Thread* EmuThread;
 int EmuRunning;
 volatile int EmuStatus;
@@ -92,9 +103,27 @@ char PrevSRAMPath[1024]; // for savestate 'undo load'
 
 bool SavestateLoaded;
 
+bool Screen_UseGL;
+
 bool ScreenDrawInited = false;
-uiDrawBitmap* ScreenBitmap = NULL;
-u32 ScreenBuffer[256*384];
+uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
+
+GLuint GL_ScreenShader[3];
+GLuint GL_ScreenShaderAccel[3];
+struct
+{
+    float uScreenSize[2];
+    u32 u3DScale;
+    u32 uFilterMode;
+
+} GL_ShaderConfig;
+GLuint GL_ShaderConfigUBO;
+GLuint GL_ScreenVertexArrayID, GL_ScreenVertexBufferID;
+float GL_ScreenVertices[2 * 3*2 * 4]; // position/texcoord
+GLuint GL_ScreenTexture;
+bool GL_ScreenSizeDirty;
+
+int GL_3DScale;
 
 int ScreenGap = 0;
 int ScreenLayout = 0;
@@ -135,7 +164,262 @@ void LoadState(int slot);
 void UndoStateLoad();
 void GetSavestateName(int slot, char* filename, int len);
 
+void CreateMainWindow(bool opengl);
+void DestroyMainWindow();
+void RecreateMainWindow(bool opengl);
 
+
+
+bool GLScreen_InitShader(GLuint* shader, const char* fs)
+{
+    if (!OpenGL_BuildShaderProgram(kScreenVS, fs, shader, "ScreenShader"))
+        return false;
+
+    GLuint uni_id;
+
+    uni_id = glGetUniformBlockIndex(shader[2], "uConfig");
+    glUniformBlockBinding(shader[2], uni_id, 16);
+
+    glUseProgram(shader[2]);
+    uni_id = glGetUniformLocation(shader[2], "ScreenTex");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(shader[2], "_3DTex");
+    glUniform1i(uni_id, 1);
+
+    glBindAttribLocation(shader[2], 0, "vPosition");
+    glBindAttribLocation(shader[2], 1, "vTexcoord");
+    glBindFragDataLocation(shader[2], 0, "oColor");
+
+    return true;
+}
+
+bool GLScreen_Init()
+{
+    if (!OpenGL_Init())
+        return false;
+
+    if (!GLScreen_InitShader(GL_ScreenShader, kScreenFS))
+        return false;
+    if (!GLScreen_InitShader(GL_ScreenShaderAccel, kScreenFS_Accel))
+        return false;
+
+    memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
+
+    glGenBuffers(1, &GL_ShaderConfigUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 16, GL_ShaderConfigUBO);
+
+    glGenBuffers(1, &GL_ScreenVertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GL_ScreenVertices), NULL, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &GL_ScreenVertexArrayID);
+    glBindVertexArray(GL_ScreenVertexArrayID);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &GL_ScreenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3 + 1, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+
+    GL_ScreenSizeDirty = true;
+
+    return true;
+}
+
+void GLScreen_DeInit()
+{
+    glDeleteTextures(1, &GL_ScreenTexture);
+
+    glDeleteVertexArrays(1, &GL_ScreenVertexArrayID);
+    glDeleteBuffers(1, &GL_ScreenVertexBufferID);
+
+    OpenGL_DeleteShaderProgram(GL_ScreenShader);
+    OpenGL_DeleteShaderProgram(GL_ScreenShaderAccel);
+}
+
+void GLScreen_DrawScreen()
+{
+    if (GL_ScreenSizeDirty)
+    {
+        GL_ScreenSizeDirty = false;
+
+        GL_ShaderConfig.uScreenSize[0] = WindowWidth;
+        GL_ShaderConfig.uScreenSize[1] = WindowHeight;
+        GL_ShaderConfig.u3DScale = GL_3DScale;
+
+        glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
+        void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+        if (unibuf) memcpy(unibuf, &GL_ShaderConfig, sizeof(GL_ShaderConfig));
+        glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+        float scwidth, scheight;
+
+        float x0, y0, x1, y1;
+        float s0, s1, s2, s3;
+        float t0, t1, t2, t3;
+
+#define SETVERTEX(i, x, y, s, t) \
+    GL_ScreenVertices[4*(i) + 0] = x; \
+    GL_ScreenVertices[4*(i) + 1] = y; \
+    GL_ScreenVertices[4*(i) + 2] = s; \
+    GL_ScreenVertices[4*(i) + 3] = t;
+
+        x0 = TopScreenRect.X;
+        y0 = TopScreenRect.Y;
+        x1 = TopScreenRect.X + TopScreenRect.Width;
+        y1 = TopScreenRect.Y + TopScreenRect.Height;
+
+        scwidth = 256;
+        scheight = 192;
+
+        switch (ScreenRotation)
+        {
+        case 0:
+            s0 = 0; t0 = 0;
+            s1 = scwidth; t1 = 0;
+            s2 = 0; t2 = scheight;
+            s3 = scwidth; t3 = scheight;
+            break;
+
+        case 1:
+            s0 = 0; t0 = scheight;
+            s1 = 0; t1 = 0;
+            s2 = scwidth; t2 = scheight;
+            s3 = scwidth; t3 = 0;
+            break;
+
+        case 2:
+            s0 = scwidth; t0 = scheight;
+            s1 = 0; t1 = scheight;
+            s2 = scwidth; t2 = 0;
+            s3 = 0; t3 = 0;
+            break;
+
+        case 3:
+            s0 = scwidth; t0 = 0;
+            s1 = scwidth; t1 = scheight;
+            s2 = 0; t2 = 0;
+            s3 = 0; t3 = scheight;
+            break;
+        }
+
+        SETVERTEX(0, x0, y0, s0, t0);
+        SETVERTEX(1, x1, y1, s3, t3);
+        SETVERTEX(2, x1, y0, s1, t1);
+        SETVERTEX(3, x0, y0, s0, t0);
+        SETVERTEX(4, x0, y1, s2, t2);
+        SETVERTEX(5, x1, y1, s3, t3);
+
+        x0 = BottomScreenRect.X;
+        y0 = BottomScreenRect.Y;
+        x1 = BottomScreenRect.X + BottomScreenRect.Width;
+        y1 = BottomScreenRect.Y + BottomScreenRect.Height;
+
+        scwidth = 256;
+        scheight = 192;
+
+        switch (ScreenRotation)
+        {
+        case 0:
+            s0 = 0; t0 = 192;
+            s1 = scwidth; t1 = 192;
+            s2 = 0; t2 = 192+scheight;
+            s3 = scwidth; t3 = 192+scheight;
+            break;
+
+        case 1:
+            s0 = 0; t0 = 192+scheight;
+            s1 = 0; t1 = 192;
+            s2 = scwidth; t2 = 192+scheight;
+            s3 = scwidth; t3 = 192;
+            break;
+
+        case 2:
+            s0 = scwidth; t0 = 192+scheight;
+            s1 = 0; t1 = 192+scheight;
+            s2 = scwidth; t2 = 192;
+            s3 = 0; t3 = 192;
+            break;
+
+        case 3:
+            s0 = scwidth; t0 = 192;
+            s1 = scwidth; t1 = 192+scheight;
+            s2 = 0; t2 = 192;
+            s3 = 0; t3 = 192+scheight;
+            break;
+        }
+
+        SETVERTEX(6, x0, y0, s0, t0);
+        SETVERTEX(7, x1, y1, s3, t3);
+        SETVERTEX(8, x1, y0, s1, t1);
+        SETVERTEX(9, x0, y0, s0, t0);
+        SETVERTEX(10, x0, y1, s2, t2);
+        SETVERTEX(11, x1, y1, s3, t3);
+
+#undef SETVERTEX
+
+        glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GL_ScreenVertices), GL_ScreenVertices);
+    }
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+    glDisable(GL_BLEND);
+    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    glViewport(0, 0, WindowWidth, WindowHeight);
+
+    if (GPU3D::Renderer == 0)
+        OpenGL_UseShaderProgram(GL_ScreenShader);
+    else
+        OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    int frontbuf = GPU::FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
+
+    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    {
+        if (GPU3D::Renderer == 0)
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
+        else
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
+    }
+
+    glActiveTexture(GL_TEXTURE1);
+    if (GPU3D::Renderer != 0)
+        GPU3D::GLRenderer::SetupAccelFrame();
+
+    glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+    glBindVertexArray(GL_ScreenVertexArrayID);
+    glDrawArrays(GL_TRIANGLES, 0, 4*3);
+
+    glFlush();
+    uiGLSwapBuffers(GLContext);
+}
 
 void MicLoadWav(char* name)
 {
@@ -399,7 +683,18 @@ int EmuThreadFunc(void* burp)
     MainScreenPos[2] = 0;
     AutoScreenSizing = 0;
 
-    ScreenDrawInited = false;
+    if (Screen_UseGL)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        GPU3D::InitRenderer(true);
+        uiGLMakeContextCurrent(NULL);
+    }
+    else
+    {
+        GPU3D::InitRenderer(false);
+        GPU::SetDisplaySettings(false);
+    }
+
     Touching = false;
     KeyInputMask = 0xFFF;
     HotkeyMask = 0;
@@ -513,10 +808,7 @@ int EmuThreadFunc(void* burp)
             // microphone input
             FeedMicInput();
 
-            // emulate
-            u32 nlines = NDS::RunFrame();
-
-            if (EmuRunning == 0) break;
+            if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
 
             // auto screen layout
             {
@@ -547,13 +839,16 @@ int EmuThreadFunc(void* burp)
                 }
             }
 
-            memcpy(ScreenBuffer, GPU::Framebuffer, 256*384*4);
+            // emulate
+            u32 nlines = NDS::RunFrame();
+
+            if (EmuRunning == 0) break;
+
+            if (Screen_UseGL) GLScreen_DrawScreen();
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
-            float framerate;
-            if (nlines == 263) framerate = 1000.0f / 60.0f;
-            else               framerate = ((1000.0f * nlines) / 263.0f) / 60.0f;
+            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
             fpslimitcount++;
             u32 curtick = SDL_GetTicks();
@@ -602,8 +897,15 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 2)
             {
+                if (Screen_UseGL)
+                {
+                    uiGLMakeContextCurrent(GLContext);
+                    GLScreen_DrawScreen();
+                }
                 uiAreaQueueRedrawAll(MainDrawArea);
             }
+
+            if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
             EmuStatus = EmuRunning;
 
@@ -618,6 +920,8 @@ int EmuThreadFunc(void* burp)
     NDS::DeInit();
     Platform::LAN_DeInit();
 
+    if (Screen_UseGL) GLScreen_DeInit();
+
     return 44203;
 }
 
@@ -626,25 +930,32 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 {
     if (!ScreenDrawInited)
     {
-        ScreenBitmap = uiDrawNewBitmap(params->Context, 256, 384);
+        if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+        if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
+
         ScreenDrawInited = true;
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192);
     }
 
-    if (!ScreenBitmap) return;
+    int frontbuf = GPU::FrontBuffer;
+    if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
+    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
 
     uiRect top = {0, 0, 256, 192};
-    uiRect bot = {0, 192, 256, 192};
+    uiRect bot = {0, 0, 256, 192};
 
-    uiDrawBitmapUpdate(ScreenBitmap, ScreenBuffer);
+    uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
+    uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &TopScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &top, &TopScreenRect, Config::ScreenFilter==1);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap[0], &top, &TopScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 
     uiDrawSave(params->Context);
     uiDrawTransform(params->Context, &BottomScreenTrans);
-    uiDrawBitmapDraw(params->Context, ScreenBitmap, &bot, &BottomScreenRect, Config::ScreenFilter==1);
+    uiDrawBitmapDraw(params->Context, ScreenBitmap[1], &bot, &BottomScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
 }
 
@@ -804,7 +1115,7 @@ void SetupScreenRects(int width, int height)
     else
         sizemode = ScreenSizing;
 
-    int screenW, screenH;
+    int screenW, screenH, gap;
     if (sideways)
     {
         screenW = 192;
@@ -815,6 +1126,8 @@ void SetupScreenRects(int width, int height)
         screenW = 256;
         screenH = 192;
     }
+
+    gap = ScreenGap;
 
     uiRect *topscreen, *bottomscreen;
     if (ScreenRotation == 1 || ScreenRotation == 2)
@@ -835,7 +1148,7 @@ void SetupScreenRects(int width, int height)
         int heightreq;
         int startX = 0;
 
-        width -= ScreenGap;
+        width -= gap;
 
         if (sizemode == 0) // even
         {
@@ -873,7 +1186,7 @@ void SetupScreenRects(int width, int height)
         topscreen->X = startX;
         topscreen->Y = ((height - heightreq) / 2) + (heightreq - topscreen->Height);
 
-        bottomscreen->X = topscreen->X + topscreen->Width + ScreenGap;
+        bottomscreen->X = topscreen->X + topscreen->Width + gap;
 
         if (sizemode == 1)
         {
@@ -894,7 +1207,7 @@ void SetupScreenRects(int width, int height)
         int widthreq;
         int startY = 0;
 
-        height -= ScreenGap;
+        height -= gap;
 
         if (sizemode == 0) // even
         {
@@ -932,7 +1245,7 @@ void SetupScreenRects(int width, int height)
         topscreen->Y = startY;
         topscreen->X = (width - topscreen->Width) / 2;
 
-        bottomscreen->Y = topscreen->Y + topscreen->Height + ScreenGap;
+        bottomscreen->Y = topscreen->Y + topscreen->Height + gap;
 
         if (sizemode == 1)
         {
@@ -1002,6 +1315,8 @@ void SetupScreenRects(int width, int height)
         }
         break;
     }
+
+    GL_ScreenSizeDirty = true;
 }
 
 void SetMinSize(int w, int h)
@@ -1092,7 +1407,6 @@ void Stop(bool internal)
     uiMenuItemDisable(MenuItem_Stop);
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 
-    memset(ScreenBuffer, 0, 256*384*4);
     uiAreaQueueRedrawAll(MainDrawArea);
 
     SDL_PauseAudioDevice(AudioDevice, 1);
@@ -1364,7 +1678,7 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 3;
     while (EmuStatus != 3);
 
-    uiControlDestroy(uiControl(window));
+    DestroyMainWindow();
     uiQuit();
 }
 
@@ -1485,6 +1799,11 @@ void OnOpenHotkeyConfig(uiMenuItem* item, uiWindow* window, void* blarg)
     DlgInputConfig::Open(1);
 }
 
+void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgVideoSettings::Open();
+}
+
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgAudioSettings::Open();
@@ -1506,26 +1825,31 @@ void EnsureProperMinSize()
 {
     bool isHori = (ScreenRotation == 1 || ScreenRotation == 3);
 
+    int w0 = 256;
+    int h0 = 192;
+    int w1 = 256;
+    int h1 = 192;
+
     if (ScreenLayout == 0) // natural
     {
         if (isHori)
-            SetMinSize(384+ScreenGap, 256);
+            SetMinSize(h0+ScreenGap+h1, std::max(w0,w1));
         else
-            SetMinSize(256, 384+ScreenGap);
+            SetMinSize(std::max(w0,w1), h0+ScreenGap+h1);
     }
     else if (ScreenLayout == 1) // vertical
     {
         if (isHori)
-            SetMinSize(192, 512+ScreenGap);
+            SetMinSize(std::max(h0,h1), w0+ScreenGap+w1);
         else
-            SetMinSize(256, 384+ScreenGap);
+            SetMinSize(std::max(w0,w1), h0+ScreenGap+h1);
     }
     else // horizontal
     {
         if (isHori)
-            SetMinSize(384+ScreenGap, 256);
+            SetMinSize(h0+ScreenGap+h1, std::max(w0,w1));
         else
-            SetMinSize(512+ScreenGap, 192);
+            SetMinSize(w0+ScreenGap+w1, std::max(h0,h1));
     }
 }
 
@@ -1536,6 +1860,8 @@ void OnSetScreenSize(uiMenuItem* item, uiWindow* window, void* param)
 
     int w = 256*factor;
     int h = 192*factor;
+
+    // FIXME
 
     if (ScreenLayout == 0) // natural
     {
@@ -1646,15 +1972,20 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void ApplyNewSettings(int type)
 {
-    if (!RunningSomething) return;
+    if (!RunningSomething && type != 2) return;
 
     int prevstatus = EmuRunning;
-    EmuRunning = 2;
-    while (EmuStatus != 2);
+    EmuRunning = 3;
+    while (EmuStatus != 3);
 
-    if (type == 0) // general emu settings
+    if (type == 0) // 3D renderer settings
     {
-        GPU3D::SoftRenderer::SetupRenderThread();
+        if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+        GPU3D::UpdateRendererConfig();
+        if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+
+        GL_3DScale = Config::GL_ScaleFactor; // dorp
+        GL_ScreenSizeDirty = true;
     }
     else if (type == 1) // wifi settings
     {
@@ -1667,8 +1998,274 @@ void ApplyNewSettings(int type)
         Platform::LAN_DeInit();
         Platform::LAN_Init();
     }
+    else if (type == 2) // video output method
+    {
+        bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
+        if (usegl != Screen_UseGL)
+        {
+            Screen_UseGL = usegl;
+
+            if (RunningSomething)
+            {
+                if (usegl) uiGLMakeContextCurrent(GLContext);
+                GPU3D::DeInitRenderer();
+                if (usegl) uiGLMakeContextCurrent(NULL);
+            }
+
+            RecreateMainWindow(usegl);
+
+            if (RunningSomething)
+            {
+                if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+                GPU3D::InitRenderer(Screen_UseGL);
+                if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+            }
+        }
+    }
+    else if (type == 3) // 3D renderer
+    {
+        if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+        GPU3D::DeInitRenderer();
+        GPU3D::InitRenderer(Screen_UseGL);
+        if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+    }
 
     EmuRunning = prevstatus;
+}
+
+
+void CreateMainWindowMenu()
+{
+    uiMenu* menu;
+    uiMenuItem* menuitem;
+
+    menu = uiNewMenu("File");
+    menuitem = uiMenuAppendItem(menu, "Open ROM...");
+    uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
+    uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Save state");
+
+        for (int i = 0; i < 9; i++)
+        {
+            char name[32];
+            if (i < 8)
+                sprintf(name, "%d\tShift+F%d", kSavestateNum[i], kSavestateNum[i]);
+            else
+                strcpy(name, "File...\tShift+F9");
+
+            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(ssitem, OnSaveState, (void*)&kSavestateNum[i]);
+
+            MenuItem_SaveStateSlot[i] = ssitem;
+        }
+
+        MenuItem_SaveState = uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Load state");
+
+        for (int i = 0; i < 9; i++)
+        {
+            char name[32];
+            if (i < 8)
+                sprintf(name, "%d\tF%d", kSavestateNum[i], kSavestateNum[i]);
+            else
+                strcpy(name, "File...\tF9");
+
+            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
+
+            MenuItem_LoadStateSlot[i] = ssitem;
+        }
+
+        MenuItem_LoadState = uiMenuAppendSubmenu(menu, submenu);
+    }
+    menuitem = uiMenuAppendItem(menu, "Undo state load\tF12");
+    uiMenuItemOnClicked(menuitem, OnUndoStateLoad, NULL);
+    MenuItem_UndoStateLoad = menuitem;
+    uiMenuAppendSeparator(menu);
+    menuitem = uiMenuAppendItem(menu, "Quit");
+    uiMenuItemOnClicked(menuitem, OnCloseByMenu, NULL);
+
+    menu = uiNewMenu("System");
+    menuitem = uiMenuAppendItem(menu, "Run");
+    uiMenuItemOnClicked(menuitem, OnRun, NULL);
+    menuitem = uiMenuAppendCheckItem(menu, "Pause");
+    uiMenuItemOnClicked(menuitem, OnPause, NULL);
+    MenuItem_Pause = menuitem;
+    uiMenuAppendSeparator(menu);
+    menuitem = uiMenuAppendItem(menu, "Reset");
+    uiMenuItemOnClicked(menuitem, OnReset, NULL);
+    MenuItem_Reset = menuitem;
+    menuitem = uiMenuAppendItem(menu, "Stop");
+    uiMenuItemOnClicked(menuitem, OnStop, NULL);
+    MenuItem_Stop = menuitem;
+
+    menu = uiNewMenu("Config");
+    {
+        menuitem = uiMenuAppendItem(menu, "Emu settings");
+        uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Input config");
+        uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Hotkey config");
+        uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
+        menuitem = uiMenuAppendItem(menu, "Video settings");
+        uiMenuItemOnClicked(menuitem, OnOpenVideoSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Audio settings");
+        uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
+        menuitem = uiMenuAppendItem(menu, "Wifi settings");
+        uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
+    }
+    uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Savestate settings");
+
+        MenuItem_SavestateSRAMReloc = uiMenuAppendCheckItem(submenu, "Separate savefiles");
+        uiMenuItemOnClicked(MenuItem_SavestateSRAMReloc, OnSetSavestateSRAMReloc, NULL);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    uiMenuAppendSeparator(menu);
+    {
+        uiMenu* submenu = uiNewMenu("Screen size");
+
+        for (int i = 0; i < 4; i++)
+        {
+            char name[32];
+            sprintf(name, "%dx", kScreenSize[i]);
+            uiMenuItem* item = uiMenuAppendItem(submenu, name);
+            uiMenuItemOnClicked(item, OnSetScreenSize, (void*)&kScreenSize[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Screen rotation");
+
+        for (int i = 0; i < 4; i++)
+        {
+            char name[32];
+            sprintf(name, "%d", kScreenRot[i]*90);
+            MenuItem_ScreenRot[i] = uiMenuAppendCheckItem(submenu, name);
+            uiMenuItemOnClicked(MenuItem_ScreenRot[i], OnSetScreenRotation, (void*)&kScreenRot[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Mid-screen gap");
+
+        //for (int i = 0; kScreenGap[i] != -1; i++)
+        for (int i = 0; i < 6; i++)
+        {
+            char name[32];
+            sprintf(name, "%d pixels", kScreenGap[i]);
+            MenuItem_ScreenGap[i] = uiMenuAppendCheckItem(submenu, name);
+            uiMenuItemOnClicked(MenuItem_ScreenGap[i], OnSetScreenGap, (void*)&kScreenGap[i]);
+        }
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Screen layout");
+
+        MenuItem_ScreenLayout[0] = uiMenuAppendCheckItem(submenu, "Natural");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[0], OnSetScreenLayout, (void*)&kScreenLayout[0]);
+        MenuItem_ScreenLayout[1] = uiMenuAppendCheckItem(submenu, "Vertical");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[1], OnSetScreenLayout, (void*)&kScreenLayout[1]);
+        MenuItem_ScreenLayout[2] = uiMenuAppendCheckItem(submenu, "Horizontal");
+        uiMenuItemOnClicked(MenuItem_ScreenLayout[2], OnSetScreenLayout, (void*)&kScreenLayout[2]);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    {
+        uiMenu* submenu = uiNewMenu("Screen sizing");
+
+        MenuItem_ScreenSizing[0] = uiMenuAppendCheckItem(submenu, "Even");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[0], OnSetScreenSizing, (void*)&kScreenSizing[0]);
+        MenuItem_ScreenSizing[1] = uiMenuAppendCheckItem(submenu, "Emphasize top");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[1], OnSetScreenSizing, (void*)&kScreenSizing[1]);
+        MenuItem_ScreenSizing[2] = uiMenuAppendCheckItem(submenu, "Emphasize bottom");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[2], OnSetScreenSizing, (void*)&kScreenSizing[2]);
+        MenuItem_ScreenSizing[3] = uiMenuAppendCheckItem(submenu, "Auto");
+        uiMenuItemOnClicked(MenuItem_ScreenSizing[3], OnSetScreenSizing, (void*)&kScreenSizing[3]);
+
+        uiMenuAppendSubmenu(menu, submenu);
+    }
+    MenuItem_ScreenFilter = uiMenuAppendCheckItem(menu, "Screen filtering");
+    uiMenuItemOnClicked(MenuItem_ScreenFilter, OnSetScreenFiltering, NULL);
+
+    MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
+    uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
+}
+
+void CreateMainWindow(bool opengl)
+{
+    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION,
+                             WindowWidth, WindowHeight,
+                             Config::WindowMaximized, 1, 1);
+    uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
+
+    uiWindowSetDropTarget(MainWindow, 1);
+    uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
+
+    uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
+    uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
+
+    ScreenDrawInited = false;
+    bool opengl_good = opengl;
+
+    if (!opengl) MainDrawArea = uiNewArea(&MainDrawAreaHandler);
+    else         MainDrawArea = uiNewGLArea(&MainDrawAreaHandler, kGLVersions);
+
+    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
+    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
+    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0);
+
+    uiControlShow(uiControl(MainWindow));
+    uiControlSetFocus(uiControl(MainDrawArea));
+
+    if (opengl_good)
+    {
+        GLContext = uiAreaGetGLContext(MainDrawArea);
+        if (!GLContext) opengl_good = false;
+    }
+    if (opengl_good)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        if (!GLScreen_Init()) opengl_good = false;
+        uiGLMakeContextCurrent(NULL);
+    }
+
+    if (opengl && !opengl_good)
+    {
+        printf("OpenGL: initialization failed\n");
+        RecreateMainWindow(false);
+        Screen_UseGL = false;
+    }
+}
+
+void DestroyMainWindow()
+{
+    uiControlDestroy(uiControl(MainWindow));
+
+    if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+    if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
+
+    ScreenBitmap[0] = NULL;
+    ScreenBitmap[1] = NULL;
+}
+
+void RecreateMainWindow(bool opengl)
+{
+    int winX, winY, maxi;
+    uiWindowPosition(MainWindow, &winX, &winY);
+    maxi = uiWindowMaximized(MainWindow);
+    DestroyMainWindow();
+    CreateMainWindow(opengl);
+    uiWindowSetPosition(MainWindow, winX, winY);
+    uiWindowSetMaximized(MainWindow, maxi);
 }
 
 
@@ -1773,209 +2370,25 @@ int main(int argc, char** argv)
         }
     }
 
-    uiMenu* menu;
-    uiMenuItem* menuitem;
+    CreateMainWindowMenu();
 
-    menu = uiNewMenu("File");
-    menuitem = uiMenuAppendItem(menu, "Open ROM...");
-    uiMenuItemOnClicked(menuitem, OnOpenFile, NULL);
-    uiMenuAppendSeparator(menu);
-    {
-        uiMenu* submenu = uiNewMenu("Save state");
+    MainDrawAreaHandler.Draw = OnAreaDraw;
+    MainDrawAreaHandler.MouseEvent = OnAreaMouseEvent;
+    MainDrawAreaHandler.MouseCrossed = OnAreaMouseCrossed;
+    MainDrawAreaHandler.DragBroken = OnAreaDragBroken;
+    MainDrawAreaHandler.KeyEvent = OnAreaKeyEvent;
+    MainDrawAreaHandler.Resize = OnAreaResize;
 
-        for (int i = 0; i < 9; i++)
-        {
-            char name[32];
-            if (i < 8)
-                sprintf(name, "%d\tShift+F%d", kSavestateNum[i], kSavestateNum[i]);
-            else
-                strcpy(name, "File...\tShift+F9");
+    WindowWidth = Config::WindowWidth;
+    WindowHeight = Config::WindowHeight;
 
-            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
-            uiMenuItemOnClicked(ssitem, OnSaveState, (void*)&kSavestateNum[i]);
+    Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
 
-            MenuItem_SaveStateSlot[i] = ssitem;
-        }
+    GL_3DScale = Config::GL_ScaleFactor;
+    if      (GL_3DScale < 1) GL_3DScale = 1;
+    else if (GL_3DScale > 8) GL_3DScale = 8;
 
-        MenuItem_SaveState = uiMenuAppendSubmenu(menu, submenu);
-    }
-    {
-        uiMenu* submenu = uiNewMenu("Load state");
-
-        for (int i = 0; i < 9; i++)
-        {
-            char name[32];
-            if (i < 8)
-                sprintf(name, "%d\tF%d", kSavestateNum[i], kSavestateNum[i]);
-            else
-                strcpy(name, "File...\tF9");
-
-            uiMenuItem* ssitem = uiMenuAppendItem(submenu, name);
-            uiMenuItemOnClicked(ssitem, OnLoadState, (void*)&kSavestateNum[i]);
-
-            MenuItem_LoadStateSlot[i] = ssitem;
-        }
-
-        MenuItem_LoadState = uiMenuAppendSubmenu(menu, submenu);
-    }
-    menuitem = uiMenuAppendItem(menu, "Undo state load\tF12");
-    uiMenuItemOnClicked(menuitem, OnUndoStateLoad, NULL);
-    MenuItem_UndoStateLoad = menuitem;
-    uiMenuAppendSeparator(menu);
-    menuitem = uiMenuAppendItem(menu, "Quit");
-    uiMenuItemOnClicked(menuitem, OnCloseByMenu, NULL);
-
-    menu = uiNewMenu("System");
-    menuitem = uiMenuAppendItem(menu, "Run");
-    uiMenuItemOnClicked(menuitem, OnRun, NULL);
-    menuitem = uiMenuAppendCheckItem(menu, "Pause");
-    uiMenuItemOnClicked(menuitem, OnPause, NULL);
-    MenuItem_Pause = menuitem;
-    uiMenuAppendSeparator(menu);
-    menuitem = uiMenuAppendItem(menu, "Reset");
-    uiMenuItemOnClicked(menuitem, OnReset, NULL);
-    MenuItem_Reset = menuitem;
-    menuitem = uiMenuAppendItem(menu, "Stop");
-    uiMenuItemOnClicked(menuitem, OnStop, NULL);
-    MenuItem_Stop = menuitem;
-
-    menu = uiNewMenu("Config");
-    {
-        menuitem = uiMenuAppendItem(menu, "Emu settings");
-        uiMenuItemOnClicked(menuitem, OnOpenEmuSettings, NULL);
-        menuitem = uiMenuAppendItem(menu, "Input config");
-        uiMenuItemOnClicked(menuitem, OnOpenInputConfig, NULL);
-        menuitem = uiMenuAppendItem(menu, "Hotkey config");
-        uiMenuItemOnClicked(menuitem, OnOpenHotkeyConfig, NULL);
-        menuitem = uiMenuAppendItem(menu, "Audio settings");
-        uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
-        menuitem = uiMenuAppendItem(menu, "Wifi settings");
-        uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
-    }
-    uiMenuAppendSeparator(menu);
-    {
-        uiMenu* submenu = uiNewMenu("Savestate settings");
-
-        MenuItem_SavestateSRAMReloc = uiMenuAppendCheckItem(submenu, "Separate savefiles");
-        uiMenuItemOnClicked(MenuItem_SavestateSRAMReloc, OnSetSavestateSRAMReloc, NULL);
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    uiMenuAppendSeparator(menu);
-    {
-        uiMenu* submenu = uiNewMenu("Screen size");
-
-        for (int i = 0; i < 4; i++)
-        {
-            char name[32];
-            sprintf(name, "%dx", kScreenSize[i]);
-            uiMenuItem* item = uiMenuAppendItem(submenu, name);
-            uiMenuItemOnClicked(item, OnSetScreenSize, (void*)&kScreenSize[i]);
-        }
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    {
-        uiMenu* submenu = uiNewMenu("Screen rotation");
-
-        for (int i = 0; i < 4; i++)
-        {
-            char name[32];
-            sprintf(name, "%d", kScreenRot[i]*90);
-            MenuItem_ScreenRot[i] = uiMenuAppendCheckItem(submenu, name);
-            uiMenuItemOnClicked(MenuItem_ScreenRot[i], OnSetScreenRotation, (void*)&kScreenRot[i]);
-        }
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    {
-        uiMenu* submenu = uiNewMenu("Mid-screen gap");
-
-        //for (int i = 0; kScreenGap[i] != -1; i++)
-        for (int i = 0; i < 6; i++)
-        {
-            char name[32];
-            sprintf(name, "%d pixels", kScreenGap[i]);
-            MenuItem_ScreenGap[i] = uiMenuAppendCheckItem(submenu, name);
-            uiMenuItemOnClicked(MenuItem_ScreenGap[i], OnSetScreenGap, (void*)&kScreenGap[i]);
-        }
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    {
-        uiMenu* submenu = uiNewMenu("Screen layout");
-
-        MenuItem_ScreenLayout[0] = uiMenuAppendCheckItem(submenu, "Natural");
-        uiMenuItemOnClicked(MenuItem_ScreenLayout[0], OnSetScreenLayout, (void*)&kScreenLayout[0]);
-        MenuItem_ScreenLayout[1] = uiMenuAppendCheckItem(submenu, "Vertical");
-        uiMenuItemOnClicked(MenuItem_ScreenLayout[1], OnSetScreenLayout, (void*)&kScreenLayout[1]);
-        MenuItem_ScreenLayout[2] = uiMenuAppendCheckItem(submenu, "Horizontal");
-        uiMenuItemOnClicked(MenuItem_ScreenLayout[2], OnSetScreenLayout, (void*)&kScreenLayout[2]);
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    {
-        uiMenu* submenu = uiNewMenu("Screen sizing");
-
-        MenuItem_ScreenSizing[0] = uiMenuAppendCheckItem(submenu, "Even");
-        uiMenuItemOnClicked(MenuItem_ScreenSizing[0], OnSetScreenSizing, (void*)&kScreenSizing[0]);
-        MenuItem_ScreenSizing[1] = uiMenuAppendCheckItem(submenu, "Emphasize top");
-        uiMenuItemOnClicked(MenuItem_ScreenSizing[1], OnSetScreenSizing, (void*)&kScreenSizing[1]);
-        MenuItem_ScreenSizing[2] = uiMenuAppendCheckItem(submenu, "Emphasize bottom");
-        uiMenuItemOnClicked(MenuItem_ScreenSizing[2], OnSetScreenSizing, (void*)&kScreenSizing[2]);
-        MenuItem_ScreenSizing[3] = uiMenuAppendCheckItem(submenu, "Auto");
-        uiMenuItemOnClicked(MenuItem_ScreenSizing[3], OnSetScreenSizing, (void*)&kScreenSizing[3]);
-
-        uiMenuAppendSubmenu(menu, submenu);
-    }
-    menuitem = uiMenuAppendCheckItem(menu, "Screen filtering");
-    uiMenuItemOnClicked(menuitem, OnSetScreenFiltering, NULL);
-    uiMenuItemSetChecked(menuitem, Config::ScreenFilter==1);
-
-    menuitem = uiMenuAppendCheckItem(menu, "Limit framerate");
-    uiMenuItemOnClicked(menuitem, OnSetLimitFPS, NULL);
-    uiMenuItemSetChecked(menuitem, Config::LimitFPS==1);
-
-
-    int w = Config::WindowWidth;
-    int h = Config::WindowHeight;
-    //if (w < 256) w = 256;
-    //if (h < 384) h = 384;
-
-    WindowWidth = w;
-    WindowHeight = h;
-
-    MainWindow = uiNewWindow("melonDS " MELONDS_VERSION, w, h, Config::WindowMaximized, 1, 1);
-    uiWindowOnClosing(MainWindow, OnCloseWindow, NULL);
-
-    uiWindowSetDropTarget(MainWindow, 1);
-    uiWindowOnDropFile(MainWindow, OnDropFile, NULL);
-
-    uiWindowOnGetFocus(MainWindow, OnGetFocus, NULL);
-    uiWindowOnLoseFocus(MainWindow, OnLoseFocus, NULL);
-
-    //uiMenuItemDisable(MenuItem_SaveState);
-    //uiMenuItemDisable(MenuItem_LoadState);
-    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
-    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
-    uiMenuItemDisable(MenuItem_UndoStateLoad);
-
-    uiMenuItemDisable(MenuItem_Pause);
-    uiMenuItemDisable(MenuItem_Reset);
-    uiMenuItemDisable(MenuItem_Stop);
-
-    uiAreaHandler areahandler;
-    areahandler.Draw = OnAreaDraw;
-    areahandler.MouseEvent = OnAreaMouseEvent;
-    areahandler.MouseCrossed = OnAreaMouseCrossed;
-    areahandler.DragBroken = OnAreaDragBroken;
-    areahandler.KeyEvent = OnAreaKeyEvent;
-    areahandler.Resize = OnAreaResize;
-
-    MainDrawArea = uiNewArea(&areahandler);
-    uiWindowSetChild(MainWindow, uiControl(MainDrawArea));
-    uiControlSetMinSize(uiControl(MainDrawArea), 256, 384);
-    uiAreaSetBackgroundColor(MainDrawArea, 0, 0, 0); // TODO: make configurable?
+    CreateMainWindow(Screen_UseGL);
 
     ScreenRotation = Config::ScreenRotation;
     ScreenGap = Config::ScreenGap;
@@ -1987,6 +2400,14 @@ int main(int argc, char** argv)
     SANITIZE(ScreenLayout, 0, 2);
     SANITIZE(ScreenSizing, 0, 3);
 #undef SANITIZE
+
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);
+    for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_LoadStateSlot[i]);
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
+
+    uiMenuItemDisable(MenuItem_Pause);
+    uiMenuItemDisable(MenuItem_Reset);
+    uiMenuItemDisable(MenuItem_Stop);
 
     uiMenuItemSetChecked(MenuItem_SavestateSRAMReloc, Config::SavestateRelocSRAM?1:0);
 
@@ -2001,6 +2422,9 @@ int main(int argc, char** argv)
     }
 
     OnSetScreenRotation(MenuItem_ScreenRot[ScreenRotation], MainWindow, (void*)&kScreenRot[ScreenRotation]);
+
+    uiMenuItemSetChecked(MenuItem_ScreenFilter, Config::ScreenFilter==1);
+    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
@@ -2070,8 +2494,6 @@ int main(int argc, char** argv)
         }
     }
 
-    uiControlShow(uiControl(MainWindow));
-    uiControlSetFocus(uiControl(MainDrawArea));
     uiMain();
 
     EmuRunning = 0;
@@ -2089,8 +2511,6 @@ int main(int argc, char** argv)
     Config::ScreenSizing = ScreenSizing;
 
     Config::Save();
-
-    if (ScreenBitmap) uiDrawFreeBitmap(ScreenBitmap);
 
     uiUninit();
     SDL_Quit();

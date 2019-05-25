@@ -20,7 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-
+u64 vbltime;
 
 namespace GPU
 {
@@ -71,7 +71,9 @@ u32 VRAMMap_TexPal[8];
 
 u32 VRAMMap_ARM7[2];
 
-u32 Framebuffer[256*192*2];
+int FrontBuffer;
+u32* Framebuffer[2][2];
+bool Accelerated;
 
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
@@ -83,6 +85,12 @@ bool Init()
     GPU2D_B = new GPU2D(1);
     if (!GPU3D::Init()) return false;
 
+    FrontBuffer = 0;
+    Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
+    Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
+    Accelerated = false;
+    SetDisplaySettings(false);
+
     return true;
 }
 
@@ -91,6 +99,11 @@ void DeInit()
     delete GPU2D_A;
     delete GPU2D_B;
     GPU3D::DeInit();
+
+    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
+    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
+    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
+    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
 }
 
 void Reset()
@@ -137,23 +150,39 @@ void Reset()
 
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
-
-    for (int i = 0; i < 256*192*2; i++)
+printf("RESET: ACCEL=%d FRAMEBUFFER=%p\n", Accelerated, Framebuffer[0][0]);
+    int fbsize;
+    if (Accelerated) fbsize = (256*3 + 1) * 192;
+    else             fbsize = 256 * 192;
+    for (int i = 0; i < fbsize; i++)
     {
-        Framebuffer[i] = 0xFFFFFFFF;
+        Framebuffer[0][0][i] = 0xFFFFFFFF;
+        Framebuffer[1][0][i] = 0xFFFFFFFF;
+    }
+    for (int i = 0; i < fbsize; i++)
+    {
+        Framebuffer[0][1][i] = 0xFFFFFFFF;
+        Framebuffer[1][1][i] = 0xFFFFFFFF;
     }
 
     GPU2D_A->Reset();
     GPU2D_B->Reset();
     GPU3D::Reset();
 
-    GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
-    GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
+    int backbuf = FrontBuffer ? 0 : 1;
+    GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
+    GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
 }
 
 void Stop()
 {
-    memset(Framebuffer, 0, 256*192*2*4);
+    int fbsize;
+    if (Accelerated) fbsize = (256*3 + 1) * 192;
+    else             fbsize = 256 * 192;
+    memset(Framebuffer[0][0], 0, fbsize*4);
+    memset(Framebuffer[0][1], 0, fbsize*4);
+    memset(Framebuffer[1][0], 0, fbsize*4);
+    memset(Framebuffer[1][1], 0, fbsize*4);
 }
 
 void DoSavestate(Savestate* file)
@@ -206,6 +235,48 @@ void DoSavestate(Savestate* file)
     GPU2D_A->DoSavestate(file);
     GPU2D_B->DoSavestate(file);
     GPU3D::DoSavestate(file);
+}
+
+void AssignFramebuffers()
+{
+    int backbuf = FrontBuffer ? 0 : 1;
+    if (NDS::PowerControl9 & (1<<15))
+    {
+        GPU2D_A->SetFramebuffer(Framebuffer[backbuf][0]);
+        GPU2D_B->SetFramebuffer(Framebuffer[backbuf][1]);
+    }
+    else
+    {
+        GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
+        GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
+    }
+}
+
+void SetDisplaySettings(bool accel)
+{
+    int fbsize;
+    if (accel) fbsize = (256*3 + 1) * 192;
+    else       fbsize = 256 * 192;
+    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
+    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
+    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
+    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+    Framebuffer[0][0] = new u32[fbsize];
+    Framebuffer[1][0] = new u32[fbsize];
+    Framebuffer[0][1] = new u32[fbsize];
+    Framebuffer[1][1] = new u32[fbsize];
+
+    memset(Framebuffer[0][0], 0, fbsize*4);
+    memset(Framebuffer[1][0], 0, fbsize*4);
+    memset(Framebuffer[0][1], 0, fbsize*4);
+    memset(Framebuffer[1][1], 0, fbsize*4);
+
+    AssignFramebuffers();
+
+    GPU2D_A->SetDisplaySettings(accel);
+    GPU2D_B->SetDisplaySettings(accel);
+
+    Accelerated = accel;
 }
 
 
@@ -666,16 +737,7 @@ void SetPowerCnt(u32 val)
     GPU2D_B->SetEnabled(val & (1<<9));
     GPU3D::SetEnabled(val & (1<<3), val & (1<<2));
 
-    if (val & (1<<15))
-    {
-        GPU2D_A->SetFramebuffer(&Framebuffer[256*0]);
-        GPU2D_B->SetFramebuffer(&Framebuffer[256*192]);
-    }
-    else
-    {
-        GPU2D_A->SetFramebuffer(&Framebuffer[256*192]);
-        GPU2D_B->SetFramebuffer(&Framebuffer[256*0]);
-    }
+    AssignFramebuffers();
 }
 
 
@@ -746,6 +808,9 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
+    FrontBuffer = FrontBuffer ? 0 : 1;
+    AssignFramebuffers();
+
     TotalScanlines = lines;
 }
 

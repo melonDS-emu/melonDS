@@ -23,7 +23,9 @@
 
 
 // SPU TODO
-// * loop mode 3, what does it do?
+// * capture addition modes, overflow bugs
+// * channel hold
+// * 'length less than 4' glitch
 
 
 namespace SPU
