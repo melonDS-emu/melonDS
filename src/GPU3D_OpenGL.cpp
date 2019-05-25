@@ -861,7 +861,10 @@ void RenderSceneChunk(int y, int h)
         glUseProgram(FinalPassShader[2]);
 
         glEnable(GL_BLEND);
-        glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        if (RenderDispCnt & (1<<6))
+            glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+        else
+            glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
 
         {
             u32 c = RenderFogColor;
