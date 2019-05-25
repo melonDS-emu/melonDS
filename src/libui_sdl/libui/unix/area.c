@@ -38,7 +38,10 @@ struct uiArea {
 
 	GtkWidget *areaWidget;
 	GtkDrawingArea *drawingArea;
+	GtkGLArea *glArea;
 	areaWidget *area;
+
+	GdkGLContext *glContext;
 	
 	int bgR, bgG, bgB;
 
@@ -728,6 +731,44 @@ uiArea *uiNewArea(uiAreaHandler *ah)
 	uiAreaSetBackgroundColor(a, -1, -1, -1);
 
 	return a;
+}
+
+uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions)
+{
+	uiArea *a;
+
+	uiUnixNewControl(uiArea, a);
+
+	a->ah = ah;
+	a->scrolling = FALSE;
+
+	GtkGLArea* gla = (GtkGLArea*)gtk_gl_area_new();
+	GdkGLContext* ctx = NULL;
+
+	for (int i = 0; req_versions[i] && !ctx; i++) {
+		int major = uiGLVerMajor(req_versions[i]);
+		int minor = uiGLVerMinor(req_versions[i]);
+		gtk_gl_area_set_required_version(gla, major, minor);
+		ctx = createGLContext(gla, major, minor);
+	}
+
+	a->glContext = ctx;
+	a->areaWidget = GTK_WIDGET(g_object_new(areaWidgetType, "libui-area",
+				a, NULL));
+	a->glArea = gla;
+	a->area = areaWidget(a->areaWidget);
+
+	a->widget = a->areaWidget;
+
+	uiAreaSetBackgroundColor(a, -1, -1, -1);
+
+	return a;
+}
+
+uiGLContext *uiAreaGetGLContext(uiArea* a)
+{
+	if (!a) return NULL;
+	return a->glContext;
 }
 
 uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
