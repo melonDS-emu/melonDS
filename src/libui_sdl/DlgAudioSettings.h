@@ -23,6 +23,7 @@ namespace DlgAudioSettings
 {
 
 void Open();
+void Close();
 
 }
 

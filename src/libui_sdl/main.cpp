@@ -1637,11 +1637,23 @@ void UndoStateLoad()
 }
 
 
+void CloseAllDialogs()
+{
+    DlgAudioSettings::Close();
+    DlgEmuSettings::Close();
+    DlgInputConfig::Close(0);
+    DlgInputConfig::Close(1);
+    DlgVideoSettings::Close();
+    DlgWifiSettings::Close();
+}
+
+
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     EmuRunning = 3;
     while (EmuStatus != 3);
 
+    CloseAllDialogs();
     uiQuit();
     return 1;
 }
@@ -1678,6 +1690,7 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 3;
     while (EmuStatus != 3);
 
+    CloseAllDialogs();
     DestroyMainWindow();
     uiQuit();
 }

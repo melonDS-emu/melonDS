@@ -450,5 +450,13 @@ void Open(int type)
     uiControlShow(uiControl(dlg->win));
 }
 
+void Close(int type)
+{
+    if (openedmask & (1<<type))
+        uiControlDestroy(uiControl(inputdlg[type].win));
+
+    openedmask &= ~(1<<type);
+}
+
 }
 

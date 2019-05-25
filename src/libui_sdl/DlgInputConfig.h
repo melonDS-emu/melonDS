@@ -23,6 +23,7 @@ namespace DlgInputConfig
 {
 
 void Open(int type);
+void Close(int type);
 
 }
 

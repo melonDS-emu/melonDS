@@ -23,6 +23,7 @@ namespace DlgVideoSettings
 {
 
 void Open();
+void Close();
 
 }
 

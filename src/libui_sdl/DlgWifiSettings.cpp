@@ -261,4 +261,11 @@ void Open()
     uiControlShow(uiControl(win));
 }
 
+void Close()
+{
+    if (!opened) return;
+    uiControlDestroy(uiControl(win));
+    opened = false;
+}
+
 }
