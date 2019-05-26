@@ -25,16 +25,11 @@ if(ENABLE_LTO)
 endif()
 
 option(BUILD_LIBUI "Build libui frontend" ON)
-option(BUILD_SDL "Build SDL2 frontend" OFF)
 
 add_subdirectory(src)
 
 if (BUILD_LIBUI)
 	add_subdirectory(src/libui_sdl)
-endif()
-
-if (BUILD_SDL)
-	add_subdirectory(src/sdl)
 endif()
 
 configure_file(
