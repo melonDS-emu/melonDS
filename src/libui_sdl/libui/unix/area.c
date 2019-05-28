@@ -28,6 +28,8 @@ struct areaWidgetClass {
 	GtkDrawingAreaClass parent_class;
 };
 
+typedef struct uiGLContext uiGLContext;
+
 struct uiArea {
 	uiUnixControl c;
 	GtkWidget *widget;		// either swidget or areaWidget depending on whether it is scrolling
@@ -41,7 +43,8 @@ struct uiArea {
 	GtkGLArea *glArea;
 	areaWidget *area;
 
-	GdkGLContext *glContext;
+    gboolean opengl;
+	uiGLContext *glContext;
 	
 	int bgR, bgG, bgB;
 
@@ -125,6 +128,8 @@ static void loadAreaSize(uiArea *a, double *width, double *height)
 	}
 }
 
+void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx);
+
 static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 {
 	areaWidget *aw = areaWidget(w);
@@ -136,20 +141,27 @@ static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 
 	loadAreaSize(a, &(dp.AreaWidth), &(dp.AreaHeight));
 
-	cairo_clip_extents(cr, &clipX0, &clipY0, &clipX1, &clipY1);
-	dp.ClipX = clipX0;
-	dp.ClipY = clipY0;
-	dp.ClipWidth = clipX1 - clipX0;
-	dp.ClipHeight = clipY1 - clipY0;
-	
-	if (a->bgR != -1)
-	{
-	    cairo_set_source_rgb(cr, a->bgR/255.0, a->bgG/255.0, a->bgB/255.0);
-	    cairo_paint(cr);
-	}
+    if (!a->opengl)
+    {
+	    cairo_clip_extents(cr, &clipX0, &clipY0, &clipX1, &clipY1);
+	    dp.ClipX = clipX0;
+	    dp.ClipY = clipY0;
+	    dp.ClipWidth = clipX1 - clipX0;
+	    dp.ClipHeight = clipY1 - clipY0;
+	    
+	    if (a->bgR != -1)
+	    {
+	        cairo_set_source_rgb(cr, a->bgR/255.0, a->bgG/255.0, a->bgB/255.0);
+	        cairo_paint(cr);
+	    }
 
-	// no need to save or restore the graphics state to reset transformations; GTK+ does that for us
-	(*(a->ah->Draw))(a->ah, a, &dp);
+	    // no need to save or restore the graphics state to reset transformations; GTK+ does that for us
+	    (*(a->ah->Draw))(a->ah, a, &dp);
+	}
+	else
+	{
+	    areaDrawGL(w, &dp, cr, a->glContext);
+	}
 
 	freeContext(dp.Context);
 	return FALSE;
@@ -714,11 +726,12 @@ void uiAreaBeginUserWindowResize(uiArea *a, uiWindowResizeEdge edge)
 uiArea *uiNewArea(uiAreaHandler *ah)
 {
 	uiArea *a;
-
+printf("create regular area\n");
 	uiUnixNewControl(uiArea, a);
 
 	a->ah = ah;
 	a->scrolling = FALSE;
+	a->opengl = FALSE;
 
 	a->areaWidget = GTK_WIDGET(g_object_new(areaWidgetType,
 		"libui-area", a,
@@ -733,35 +746,54 @@ uiArea *uiNewArea(uiAreaHandler *ah)
 	return a;
 }
 
+uiGLContext* FARTOMATIC(int major, int minor);
+void databotte(GtkWidget* gla, uiGLContext* ctx);
+void majoricc(GtkWidget* widget, gpointer data)
+{
+    printf("ACTUALLY CREATE CONTEXT\n");
+    
+    uiArea* a = (uiArea*)data;
+    uiGLContext* ctx = a->glContext;
+    
+    databotte(a->widget, ctx);
+}
+
 uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions)
 {
 	uiArea *a;
-
+printf("create glarea\n");
 	uiUnixNewControl(uiArea, a);
 
 	a->ah = ah;
 	a->scrolling = FALSE;
+	a->opengl = TRUE;
 
-	GtkGLArea* gla = (GtkGLArea*)gtk_gl_area_new();
-	GdkGLContext* ctx = NULL;
-
+	//GtkGLArea* gla = (GtkGLArea*)gtk_gl_area_new();
+	uiGLContext* ctx = NULL;
+printf("create sdfsf\n");
 	for (int i = 0; req_versions[i] && !ctx; i++) {
 		int major = uiGLVerMajor(req_versions[i]);
 		int minor = uiGLVerMinor(req_versions[i]);
-		gtk_gl_area_set_required_version(gla, major, minor);
-		ctx = createGLContext(gla, major, minor);
+		//gtk_gl_area_set_required_version(gla, major, minor);
+		//ctx = createGLContext(gla, major, minor);
+		ctx = FARTOMATIC(major, minor);
 	}
-
+printf("create jfghjjgh: %p\n", ctx);
 	a->glContext = ctx;
-	a->areaWidget = GTK_WIDGET(g_object_new(areaWidgetType, "libui-area",
-				a, NULL));
-	a->glArea = gla;
+	//a->areaWidget = GTK_WIDGET(gla);
+	//a->glArea = gla;
+	a->areaWidget = GTK_WIDGET(g_object_new(areaWidgetType,
+		"libui-area", a,
+		NULL));
 	a->area = areaWidget(a->areaWidget);
 
 	a->widget = a->areaWidget;
+	
+	g_signal_connect(a->widget, "realize", G_CALLBACK(majoricc), a);
 
 	uiAreaSetBackgroundColor(a, -1, -1, -1);
-
+	//printf("is area realized: %d\n", gtk_widget_get_realized(GTK_WIDGET(gla)));
+printf("create qssssq\n");
 	return a;
 }
 
@@ -781,6 +813,7 @@ uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
 	a->scrolling = TRUE;
 	a->scrollWidth = width;
 	a->scrollHeight = height;
+	a->opengl = FALSE;
 
 	a->swidget = gtk_scrolled_window_new(NULL, NULL);
 	a->scontainer = GTK_CONTAINER(a->swidget);

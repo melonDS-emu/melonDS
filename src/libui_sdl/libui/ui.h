@@ -615,6 +615,8 @@ _UI_EXTERN uiGLContext *uiAreaGetGLContext(uiArea* a);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
 _UI_EXTERN unsigned int uiGLGetVersion(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
+_UI_EXTERN int uiGLGetFramebuffer(uiGLContext* ctx);
+_UI_EXTERN float uiGLGetFramebufferScale(uiGLContext* ctx);
 _UI_EXTERN void uiGLSwapBuffers(uiGLContext* ctx);
 
 

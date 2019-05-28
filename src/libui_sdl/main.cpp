@@ -194,9 +194,16 @@ bool GLScreen_InitShader(GLuint* shader, const char* fs)
 }
 
 bool GLScreen_Init()
-{
+{printf("BEGINNING GL SHITO\n");
     if (!OpenGL_Init())
         return false;
+        
+    printf("GL INIT: %p, %p\n", glGenFramebuffers, glCreateShader);
+    
+    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
+    const GLubyte* version = glGetString(GL_VERSION); // version as a string
+    printf("OpenGL: renderer: %s\n", renderer);
+    printf("OpenGL: version: %s\n", version);
 
     if (!GLScreen_InitShader(GL_ScreenShader, kScreenFS))
         return false;
@@ -204,7 +211,7 @@ bool GLScreen_Init()
         return false;
 
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
-
+printf("morp0\n");
     glGenBuffers(1, &GL_ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
@@ -213,14 +220,14 @@ bool GLScreen_Init()
     glGenBuffers(1, &GL_ScreenVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GL_ScreenVertices), NULL, GL_STATIC_DRAW);
-
+printf("morp1\n");
     glGenVertexArrays(1, &GL_ScreenVertexArrayID);
     glBindVertexArray(GL_ScreenVertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
-
+printf("morp2\n");
     glGenTextures(1, &GL_ScreenTexture);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -231,7 +238,7 @@ bool GLScreen_Init()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3 + 1, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     GL_ScreenSizeDirty = true;
-
+printf("morp3\n");
     return true;
 }
 
@@ -248,6 +255,8 @@ void GLScreen_DeInit()
 
 void GLScreen_DrawScreen()
 {
+    float scale = uiGLGetFramebufferScale(GLContext);
+    
     if (GL_ScreenSizeDirty)
     {
         GL_ScreenSizeDirty = false;
@@ -370,23 +379,26 @@ void GLScreen_DrawScreen()
         glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GL_ScreenVertices), GL_ScreenVertices);
     }
-
+    printf("rarp4 %04X\n", glGetError());
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+printf("rarp2 %04X\n", glGetError());
 
-    glViewport(0, 0, WindowWidth, WindowHeight);
+    glViewport(0, 0, WindowWidth*scale, WindowHeight*scale);
+    printf("draw screen: viewport=%d/%d\n", WindowWidth, WindowHeight);
 
     if (GPU3D::Renderer == 0)
         OpenGL_UseShaderProgram(GL_ScreenShader);
     else
         OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClearColor(0, 0, 0, 1);
+printf("rarp3 %04X\n", glGetError());
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
+    printf("rarp8 %04X\n", glGetError());
+    glClearColor(0, 0, 1, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-
+printf("rarp5 %04X\n", glGetError());
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -412,13 +424,19 @@ void GLScreen_DrawScreen()
     glActiveTexture(GL_TEXTURE1);
     if (GPU3D::Renderer != 0)
         GPU3D::GLRenderer::SetupAccelFrame();
-
+printf("rarp6 %04X\n", glGetError());
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBindVertexArray(GL_ScreenVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
-
+printf("rarp7 %04X\n", glGetError());
     glFlush();
     uiGLSwapBuffers(GLContext);
+}
+
+void norp(void* data)
+{
+    uiGLMakeContextCurrent(GLContext);
+    GLScreen_DrawScreen();
 }
 
 void MicLoadWav(char* name)
@@ -901,6 +919,8 @@ int EmuThreadFunc(void* burp)
                 {
                     uiGLMakeContextCurrent(GLContext);
                     GLScreen_DrawScreen();
+                    //uiGLMakeContextCurrent(NULL);
+                    //uiQueueMain(norp, NULL);
                 }
                 uiAreaQueueRedrawAll(MainDrawArea);
             }

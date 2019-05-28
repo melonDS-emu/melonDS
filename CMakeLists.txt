@@ -21,8 +21,11 @@ else()
 endif()
 
 if(ENABLE_LTO)
-	add_compile_options(-flto)
+	add_compile_options(-O2 -flto)
 endif()
+
+add_compile_options(-fno-pic)
+add_link_options(-no-pie)
 
 option(BUILD_LIBUI "Build libui frontend" ON)
 option(BUILD_SDL "Build SDL2 frontend" OFF)

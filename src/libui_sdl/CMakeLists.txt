@@ -47,7 +47,7 @@ if (UNIX)
 				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-		target_link_libraries(melonDS dl)
+		target_link_libraries(melonDS dl X11)
 	endif ()
 
 	target_sources(melonDS PUBLIC melon_grc.c)

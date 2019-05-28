@@ -18,7 +18,6 @@
 
 #include "OpenGLSupport.h"
 
-#include <cstring>
 
 
 DO_PROCLIST(DECLPROC);

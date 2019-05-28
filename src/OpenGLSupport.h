@@ -20,6 +20,7 @@
 #define OPENGLSUPPORT_H
 
 #include <stdio.h>
+#include <string.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
 
