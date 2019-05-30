@@ -21,7 +21,7 @@ else()
 endif()
 
 if(ENABLE_LTO)
-	add_compile_options(-O2 -flto)
+	add_compile_options(-O3 -flto)
 endif()
 
 add_compile_options(-fno-pic)
