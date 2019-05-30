@@ -66,7 +66,7 @@ uiWindow* MainWindow;
 uiArea* MainDrawArea;
 uiAreaHandler MainDrawAreaHandler;
 
-const u32 kGLVersions[] = {uiGLVersion(3,1), 0};
+const u32 kGLVersions[] = {uiGLVersion(3,2), uiGLVersion(3,1), 0};
 uiGLContext* GLContext;
 
 int WindowWidth, WindowHeight;

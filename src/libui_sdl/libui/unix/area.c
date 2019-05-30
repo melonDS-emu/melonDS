@@ -28,12 +28,11 @@ struct uiArea {
 
 	GtkWidget *areaWidget;
 	GtkDrawingArea *drawingArea;
-	GtkGLArea *glArea;
 	areaWidget *area;
 
     gboolean opengl;
 	uiGLContext *glContext;
-	gboolean drawreq;
+	unsigned int* req_versions;
 	
 	int bgR, bgG, bgB;
 
@@ -132,8 +131,6 @@ static void loadAreaSize(uiArea *a, double *width, double *height)
 	}
 }
 
-void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx);
-
 void areaPreRedraw(areaWidget* widget)
 {
     uiArea* a = widget->a;
@@ -181,8 +178,6 @@ static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 	else
 	{
 	    areaDrawGL(w, &dp, cr, a->glContext);
-	    //if (a->drawreq) uiGLEnd(a->glContext);
-	    a->drawreq = FALSE;
 	}
 
 	freeContext(dp.Context);
@@ -664,8 +659,6 @@ void uiAreaSetSize(uiArea *a, int width, int height)
 gboolean _threadsaferefresh(gpointer data)
 {
     uiArea* a = (uiArea*)data;
-    a->drawreq = TRUE;
-    //if (a->opengl) uiGLBegin(a->glContext);
     gtk_widget_queue_draw(a->areaWidget);
     return FALSE;
 }
@@ -676,11 +669,7 @@ void uiAreaQueueRedrawAll(uiArea *a)
     if (g_thread_self() != gtkthread)
         g_idle_add(_threadsaferefresh, a);
     else
-    {
-        a->drawreq = TRUE;
-        //if (a->opengl) uiGLBegin(a->glContext);
 	    gtk_widget_queue_draw(a->areaWidget);
-	}
 }
 
 void uiAreaScrollTo(uiArea *a, double x, double y, double width, double height)
@@ -762,7 +751,7 @@ void uiAreaBeginUserWindowResize(uiArea *a, uiWindowResizeEdge edge)
 uiArea *uiNewArea(uiAreaHandler *ah)
 {
 	uiArea *a;
-printf("create regular area\n");
+
 	uiUnixNewControl(uiArea, a);
 
 	a->ah = ah;
@@ -782,44 +771,38 @@ printf("create regular area\n");
 	return a;
 }
 
-uiGLContext* FARTOMATIC(int major, int minor);
-void databotte(GtkWidget* gla, uiGLContext* ctx);
-void majoricc(GtkWidget* widget, gpointer data)
+void _areaCreateGLContext(GtkWidget* widget, gpointer data)
 {
-    printf("ACTUALLY CREATE CONTEXT\n");
-    
     uiArea* a = (uiArea*)data;
-    uiGLContext* ctx = a->glContext;
     
-    databotte(a->widget, ctx);
+    uiGLContext* ctx = NULL;
+    for (int i = 0; a->req_versions[i] && !ctx; i++) 
+    {
+		int major = uiGLVerMajor(a->req_versions[i]);
+		int minor = uiGLVerMinor(a->req_versions[i]);
+		
+		// we cannot support any version older than 3.2 via GDK
+		if ((major < 3) || (major == 3 && minor < 2))
+		    break;
+
+		ctx = createGLContext(widget, major, minor);
+	}
+	
+    a->glContext = ctx;
 }
 
 uiArea *uiNewGLArea(uiAreaHandler *ah, const unsigned int* req_versions)
 {
 	uiArea *a;
-printf("create glarea\n");
+
 	uiUnixNewControl(uiArea, a);
 
 	a->ah = ah;
 	a->scrolling = FALSE;
 	a->opengl = TRUE;
-	a->drawreq = FALSE;
-
-	//GtkGLArea* gla = (GtkGLArea*)gtk_gl_area_new();
-	uiGLContext* ctx = NULL;
-printf("create sdfsf\n");
-    // TODO: move this elsewhere!! so we can actually try all possible versions
-	for (int i = 0; req_versions[i] && !ctx; i++) {
-		int major = uiGLVerMajor(req_versions[i]);
-		int minor = uiGLVerMinor(req_versions[i]);
-		//gtk_gl_area_set_required_version(gla, major, minor);
-		//ctx = createGLContext(gla, major, minor);
-		ctx = FARTOMATIC(major, minor);
-	}
-printf("create jfghjjgh: %p\n", ctx);
-	a->glContext = ctx;
-	//a->areaWidget = GTK_WIDGET(gla);
-	//a->glArea = gla;
+	
+	a->glContext = NULL;
+	a->req_versions = req_versions;
 	a->areaWidget = GTK_WIDGET(g_object_new(areaWidgetType,
 		"libui-area", a,
 		NULL));
@@ -827,7 +810,7 @@ printf("create jfghjjgh: %p\n", ctx);
 
 	a->widget = a->areaWidget;
 	
-	g_signal_connect(a->widget, "realize", G_CALLBACK(majoricc), a);
+	g_signal_connect(a->widget, "realize", G_CALLBACK(_areaCreateGLContext), a);
 
 	uiAreaSetBackgroundColor(a, -1, -1, -1);
 

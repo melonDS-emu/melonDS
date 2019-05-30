@@ -68,6 +68,7 @@ extern gboolean FUTURE_gtk_widget_path_iter_set_object_name(GtkWidgetPath *path,
 extern uiGLContext *createGLContext(GtkWidget* widget, int maj, int min);
 extern void freeGLContext(uiGLContext* glctx);
 extern void areaPreRedrawGL(uiGLContext* glctx);
+extern void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx);
 extern void areaPostRedrawGL(uiGLContext* glctx);
 
 // notes:
