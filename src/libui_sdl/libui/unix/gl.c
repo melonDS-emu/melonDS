@@ -105,6 +105,11 @@ uiGLContext *createGLContext(GtkWidget* widget, int maj, int min)
 void freeGLContext(uiGLContext* glctx)
 {
     if (glctx == NULL) return;
+    
+    gdk_gl_context_make_current(glctx->gctx);
+    _glDeleteRenderbuffers(4, &glctx->renderbuffer[0][0]);
+    _glDeleteFramebuffers(2, &glctx->framebuffer[0]);
+    
     gdk_gl_context_clear_current();
     g_object_unref(glctx->gctx);
     uiFree(glctx);
