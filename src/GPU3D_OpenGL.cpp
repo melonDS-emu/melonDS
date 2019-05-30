@@ -209,7 +209,7 @@ bool Init()
     glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
     ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain[2], "uColor");
     ClearUniformLoc[1] = glGetUniformLocation(ClearShaderPlain[2], "uDepth");
-    ClearUniformLoc[2] = glGetUniformLocation(ClearShaderPlain[2], "uOpaquePolyId");
+    ClearUniformLoc[2] = glGetUniformLocation(ClearShaderPlain[2], "uOpaquePolyID");
     ClearUniformLoc[3] = glGetUniformLocation(ClearShaderPlain[2], "uFogFlag");
 
     memset(RenderShader, 0, sizeof(RenderShader));
@@ -420,7 +420,8 @@ void UpdateDisplaySettings()
         glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
         glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
         glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
         glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
