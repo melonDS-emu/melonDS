@@ -613,6 +613,8 @@ typedef struct uiGLContext uiGLContext;
 
 _UI_EXTERN uiGLContext *uiAreaGetGLContext(uiArea* a);
 _UI_EXTERN void uiGLMakeContextCurrent(uiGLContext* ctx);
+_UI_EXTERN void uiGLBegin(uiGLContext* ctx);
+_UI_EXTERN void uiGLEnd(uiGLContext* ctx);
 _UI_EXTERN unsigned int uiGLGetVersion(uiGLContext* ctx);
 _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
 _UI_EXTERN int uiGLGetFramebuffer(uiGLContext* ctx);

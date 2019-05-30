@@ -9,9 +9,8 @@ SET(SOURCES_LIBUI
 	DlgAudioSettings.cpp
 	DlgEmuSettings.cpp
 	DlgInputConfig.cpp
-	DlgWifiSettings.cpp
-	# opengl backend stuff
 	DlgVideoSettings.cpp
+	DlgWifiSettings.cpp
 )
 
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
@@ -47,7 +46,7 @@ if (UNIX)
 				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-		target_link_libraries(melonDS dl X11)
+		target_link_libraries(melonDS dl)
 	endif ()
 
 	target_sources(melonDS PUBLIC melon_grc.c)

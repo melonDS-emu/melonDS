@@ -379,26 +379,24 @@ void GLScreen_DrawScreen()
         glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GL_ScreenVertices), GL_ScreenVertices);
     }
-    printf("rarp4 %04X\n", glGetError());
+
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-printf("rarp2 %04X\n", glGetError());
 
     glViewport(0, 0, WindowWidth*scale, WindowHeight*scale);
-    printf("draw screen: viewport=%d/%d\n", WindowWidth, WindowHeight);
 
     if (GPU3D::Renderer == 0)
         OpenGL_UseShaderProgram(GL_ScreenShader);
     else
         OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
-printf("rarp3 %04X\n", glGetError());
+
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
-    printf("rarp8 %04X\n", glGetError());
+
     glClearColor(0, 0, 1, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-printf("rarp5 %04X\n", glGetError());
+
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -424,11 +422,11 @@ printf("rarp5 %04X\n", glGetError());
     glActiveTexture(GL_TEXTURE1);
     if (GPU3D::Renderer != 0)
         GPU3D::GLRenderer::SetupAccelFrame();
-printf("rarp6 %04X\n", glGetError());
+
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBindVertexArray(GL_ScreenVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
-printf("rarp7 %04X\n", glGetError());
+
     glFlush();
     uiGLSwapBuffers(GLContext);
 }
@@ -826,7 +824,11 @@ int EmuThreadFunc(void* burp)
             // microphone input
             FeedMicInput();
 
-            if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+            if (Screen_UseGL)
+            {
+                uiGLBegin(GLContext);
+                uiGLMakeContextCurrent(GLContext);
+            }
 
             // auto screen layout
             {
@@ -862,7 +864,11 @@ int EmuThreadFunc(void* burp)
 
             if (EmuRunning == 0) break;
 
-            if (Screen_UseGL) GLScreen_DrawScreen();
+            if (Screen_UseGL)
+            {
+                GLScreen_DrawScreen();
+                uiGLEnd(GLContext);
+            }
             uiAreaQueueRedrawAll(MainDrawArea);
 
             // framerate limiter based off SDL2_gfx
@@ -917,8 +923,10 @@ int EmuThreadFunc(void* burp)
             {
                 if (Screen_UseGL)
                 {
+                    uiGLBegin(GLContext);
                     uiGLMakeContextCurrent(GLContext);
                     GLScreen_DrawScreen();
+                    uiGLEnd(GLContext);
                     //uiGLMakeContextCurrent(NULL);
                     //uiQueueMain(norp, NULL);
                 }
@@ -2537,6 +2545,9 @@ int main(int argc, char** argv)
     if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
+    
+    if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
+    if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
     Config::ScreenRotation = ScreenRotation;
     Config::ScreenGap = ScreenGap;

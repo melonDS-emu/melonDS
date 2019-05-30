@@ -3,18 +3,6 @@
 
 extern GThread* gtkthread;
 
-// notes:
-// - G_DECLARE_DERIVABLE/FINAL_INTERFACE() requires glib 2.44 and that's starting with debian stretch (testing) (GTK+ 3.18) and ubuntu 15.04 (GTK+ 3.14) - debian jessie has 2.42 (GTK+ 3.14)
-#define areaWidgetType (areaWidget_get_type())
-#define areaWidget(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), areaWidgetType, areaWidget))
-#define isAreaWidget(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), areaWidgetType))
-#define areaWidgetClass(class) (G_TYPE_CHECK_CLASS_CAST((class), areaWidgetType, areaWidgetClass))
-#define isAreaWidgetClass(class) (G_TYPE_CHECK_CLASS_TYPE((class), areaWidget))
-#define getAreaWidgetClass(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), areaWidgetType, areaWidgetClass))
-
-typedef struct areaWidget areaWidget;
-typedef struct areaWidgetClass areaWidgetClass;
-
 struct areaWidget {
 	GtkDrawingArea parent_instance;
 	uiArea *a;
@@ -45,6 +33,7 @@ struct uiArea {
 
     gboolean opengl;
 	uiGLContext *glContext;
+	gboolean drawreq;
 	
 	int bgR, bgG, bgB;
 
@@ -62,6 +51,21 @@ struct uiArea {
 };
 
 G_DEFINE_TYPE(areaWidget, areaWidget, GTK_TYPE_DRAWING_AREA)
+
+int boub(GtkWidget* w) { return isAreaWidget(w); }
+void baba(GtkWidget* w)
+{
+    if (!isAreaWidget(w)) return;
+    
+    areaWidget *aw = areaWidget(w);
+	uiArea *a = aw->a;
+	if (!a->opengl) return;
+	
+	GdkGLContext* oldctx = gdk_gl_context_get_current();
+	uiGLMakeContextCurrent(a->glContext);
+	glFinish();
+	gdk_gl_context_make_current(oldctx);
+}
 
 static void areaWidget_init(areaWidget *aw)
 {
@@ -130,6 +134,22 @@ static void loadAreaSize(uiArea *a, double *width, double *height)
 
 void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx);
 
+void areaPreRedraw(areaWidget* widget)
+{
+    uiArea* a = widget->a;
+    if (!a->opengl) return;
+    
+    areaPreRedrawGL(a->glContext);
+}
+
+void areaPostRedraw(areaWidget* widget)
+{
+    uiArea* a = widget->a;
+    if (!a->opengl) return;
+    
+    areaPostRedrawGL(a->glContext);
+}
+
 static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 {
 	areaWidget *aw = areaWidget(w);
@@ -161,6 +181,8 @@ static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
 	else
 	{
 	    areaDrawGL(w, &dp, cr, a->glContext);
+	    //if (a->drawreq) uiGLEnd(a->glContext);
+	    a->drawreq = FALSE;
 	}
 
 	freeContext(dp.Context);
@@ -613,7 +635,15 @@ static void areaWidget_class_init(areaWidgetClass *class)
 
 // control implementation
 
-uiUnixControlAllDefaults(uiArea)
+uiUnixControlAllDefaultsExceptDestroy(uiArea)
+
+static void uiAreaDestroy(uiControl *c)
+{
+    uiArea* a = uiArea(c);
+    if (a->opengl && a->glContext) freeGLContext(a->glContext);
+    g_object_unref(uiArea(c)->widget);
+    uiFreeControl(c);
+}
 
 void uiAreaSetBackgroundColor(uiArea *a, int r, int g, int b)
 {
@@ -634,6 +664,8 @@ void uiAreaSetSize(uiArea *a, int width, int height)
 gboolean _threadsaferefresh(gpointer data)
 {
     uiArea* a = (uiArea*)data;
+    a->drawreq = TRUE;
+    //if (a->opengl) uiGLBegin(a->glContext);
     gtk_widget_queue_draw(a->areaWidget);
     return FALSE;
 }
@@ -644,7 +676,11 @@ void uiAreaQueueRedrawAll(uiArea *a)
     if (g_thread_self() != gtkthread)
         g_idle_add(_threadsaferefresh, a);
     else
+    {
+        a->drawreq = TRUE;
+        //if (a->opengl) uiGLBegin(a->glContext);
 	    gtk_widget_queue_draw(a->areaWidget);
+	}
 }
 
 void uiAreaScrollTo(uiArea *a, double x, double y, double width, double height)
@@ -767,10 +803,12 @@ printf("create glarea\n");
 	a->ah = ah;
 	a->scrolling = FALSE;
 	a->opengl = TRUE;
+	a->drawreq = FALSE;
 
 	//GtkGLArea* gla = (GtkGLArea*)gtk_gl_area_new();
 	uiGLContext* ctx = NULL;
 printf("create sdfsf\n");
+    // TODO: move this elsewhere!! so we can actually try all possible versions
 	for (int i = 0; req_versions[i] && !ctx; i++) {
 		int major = uiGLVerMajor(req_versions[i]);
 		int minor = uiGLVerMinor(req_versions[i]);
@@ -792,8 +830,7 @@ printf("create jfghjjgh: %p\n", ctx);
 	g_signal_connect(a->widget, "realize", G_CALLBACK(majoricc), a);
 
 	uiAreaSetBackgroundColor(a, -1, -1, -1);
-	//printf("is area realized: %d\n", gtk_widget_get_realized(GTK_WIDGET(gla)));
-printf("create qssssq\n");
+
 	return a;
 }
 

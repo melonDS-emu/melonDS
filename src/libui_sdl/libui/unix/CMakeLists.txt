@@ -63,6 +63,7 @@ macro(_handle_static)
 	set(_oname libui-combined.o)
 	add_custom_command(
 		OUTPUT ${_oname}
+		DEPENDS ${_LIBUINAME}
 		COMMAND
 			ld -r --whole-archive ${_aname} -o ${_oname}
 		COMMAND

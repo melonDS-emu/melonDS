@@ -6,6 +6,33 @@ uiInitOptions options;
 // kind of a hack
 GThread* gtkthread;
 
+GMutex glmutex;
+int boub(GtkWidget* w);
+void baba(GtkWidget* w);
+
+static void _eventfilter(GdkEvent* evt, gpointer data)
+{
+    if (evt->type == GDK_EXPOSE)
+    {
+        GtkWidget* widget = gtk_get_event_widget(evt);
+        if (isAreaWidget(widget))
+        {
+            areaWidget* area = areaWidget(widget);
+            areaPreRedraw(area);
+            gtk_main_do_event(evt);
+            areaPostRedraw(area);
+            return;
+        }
+    }
+    
+    gtk_main_do_event(evt);
+}
+
+static void _eventfilterdestroy(gpointer data)
+{
+    printf("DELET\n");
+}
+
 const char *uiInit(uiInitOptions *o)
 {
 	GError *err = NULL;
@@ -30,6 +57,10 @@ const char *uiInit(uiInitOptions *o)
 	iconlist = g_list_append(iconlist, gdk_pixbuf_new_from_resource("/org/kuriboland/melonDS/icon/melon_128x128.png", NULL));
 	
 	gtk_window_set_default_icon_list(iconlist);
+	
+	g_mutex_init(&glmutex);
+	
+	gdk_event_handler_set(_eventfilter, NULL, _eventfilterdestroy);
 	
 	return NULL;
 }
