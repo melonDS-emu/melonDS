@@ -2,8 +2,8 @@
 #include "uipriv_unix.h"
 
 #include <GL/gl.h>
-
-void* glXGetProcAddressARB(const GLubyte* name);
+#include <GL/glx.h>
+#include <EGL/egl.h>
 
 extern GThread* gtkthread;
 extern GMutex glmutex;
@@ -220,10 +220,15 @@ void *uiGLGetProcAddress(const char* proc)
 {
 	// TODO: consider using epoxy or something funny
 	
-	void* ptr = dlsym(NULL /* RTLD_DEFAULT */, proc);
+	void* ptr;
+
+	ptr = glXGetProcAddressARB((const GLubyte*)proc);
 	if (ptr) return ptr;
 	
-	ptr = glXGetProcAddressARB((const GLubyte*)proc);
+	ptr = eglGetProcAddress(proc);
+	if (ptr) return ptr;
+	
+	ptr = dlsym(NULL /* RTLD_DEFAULT */, proc);
 	if (ptr) return ptr;
 	
 	return NULL;

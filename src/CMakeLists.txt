@@ -29,5 +29,5 @@ add_library(core STATIC
 if (WIN32)
 	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
 else()
-	target_link_libraries(core GL)
+	target_link_libraries(core GL EGL)
 endif()
