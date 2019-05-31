@@ -148,15 +148,18 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 
     GLuint prog = RenderShader[flags][2];
 
-    GLint uni_id = glGetUniformBlockIndex(prog, "uConfig");
-    glUniformBlockBinding(prog, uni_id, 0);
-
     glBindAttribLocation(prog, 0, "vPosition");
     glBindAttribLocation(prog, 1, "vColor");
     glBindAttribLocation(prog, 2, "vTexcoord");
     glBindAttribLocation(prog, 3, "vPolygonAttr");
     glBindFragDataLocation(prog, 0, "oColor");
     glBindFragDataLocation(prog, 1, "oAttr");
+
+    if (!OpenGL_LinkShaderProgram(RenderShader[flags]))
+        return false;
+
+    GLint uni_id = glGetUniformBlockIndex(prog, "uConfig");
+    glUniformBlockBinding(prog, uni_id, 0);
 
     glUseProgram(prog);
 
@@ -202,6 +205,10 @@ bool Init()
     glBindAttribLocation(ClearShaderPlain[2], 0, "vPosition");
     glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
     glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
+
+    if (!OpenGL_LinkShaderProgram(ClearShaderPlain))
+        return false;
+
     ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain[2], "uColor");
     ClearUniformLoc[1] = glGetUniformLocation(ClearShaderPlain[2], "uDepth");
     ClearUniformLoc[2] = glGetUniformLocation(ClearShaderPlain[2], "uOpaquePolyID");
@@ -226,11 +233,14 @@ bool Init()
     if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassFS, FinalPassShader, "FinalPassShader"))
         return false;
 
-    uni_id = glGetUniformBlockIndex(FinalPassShader[2], "uConfig");
-    glUniformBlockBinding(FinalPassShader[2], uni_id, 0);
-
     glBindAttribLocation(FinalPassShader[2], 0, "vPosition");
     glBindFragDataLocation(FinalPassShader[2], 0, "oColor");
+
+    if (!OpenGL_LinkShaderProgram(FinalPassShader))
+        return false;
+
+    uni_id = glGetUniformBlockIndex(FinalPassShader[2], "uConfig");
+    glUniformBlockBinding(FinalPassShader[2], uni_id, 0);
 
     glUseProgram(FinalPassShader[2]);
 

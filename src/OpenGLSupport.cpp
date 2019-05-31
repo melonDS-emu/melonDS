@@ -85,6 +85,14 @@ bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, cons
     ids[2] = glCreateProgram();
     glAttachShader(ids[2], ids[0]);
     glAttachShader(ids[2], ids[1]);
+
+    return true;
+}
+
+bool OpenGL_LinkShaderProgram(GLuint* ids)
+{
+    int res;
+
     glLinkProgram(ids[2]);
 
     glGetProgramiv(ids[2], GL_LINK_STATUS, &res);
@@ -94,7 +102,7 @@ bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, cons
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetProgramInfoLog(ids[2], res+1, NULL, log);
-        printf("OpenGL: failed to link program %s: %s\n", name, log);
+        printf("OpenGL: failed to link shader program: %s\n", log);
         delete[] log;
 
         glDeleteShader(ids[0]);

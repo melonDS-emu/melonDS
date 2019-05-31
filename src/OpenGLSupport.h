@@ -49,7 +49,7 @@
 
 #ifndef __WIN32__
 
-#define DO_PROCLIST_1_3(func) 
+#define DO_PROCLIST_1_3(func)
 
 #else
 
@@ -131,6 +131,7 @@ DO_PROCLIST(DECLPROC_EXT);
 bool OpenGL_Init();
 
 bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name);
+bool OpenGL_LinkShaderProgram(GLuint* ids);
 void OpenGL_DeleteShaderProgram(GLuint* ids);
 void OpenGL_UseShaderProgram(GLuint* ids);
 

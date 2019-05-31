@@ -175,6 +175,13 @@ bool GLScreen_InitShader(GLuint* shader, const char* fs)
     if (!OpenGL_BuildShaderProgram(kScreenVS, fs, shader, "ScreenShader"))
         return false;
 
+    glBindAttribLocation(shader[2], 0, "vPosition");
+    glBindAttribLocation(shader[2], 1, "vTexcoord");
+    glBindFragDataLocation(shader[2], 0, "oColor");
+
+    if (!OpenGL_LinkShaderProgram(shader))
+        return false;
+
     GLuint uni_id;
 
     uni_id = glGetUniformBlockIndex(shader[2], "uConfig");
@@ -186,10 +193,6 @@ bool GLScreen_InitShader(GLuint* shader, const char* fs)
     uni_id = glGetUniformLocation(shader[2], "_3DTex");
     glUniform1i(uni_id, 1);
 
-    glBindAttribLocation(shader[2], 0, "vPosition");
-    glBindAttribLocation(shader[2], 1, "vTexcoord");
-    glBindFragDataLocation(shader[2], 0, "oColor");
-
     return true;
 }
 
@@ -198,7 +201,7 @@ bool GLScreen_Init()
     // TODO: consider using epoxy?
     if (!OpenGL_Init())
         return false;
-        
+
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("OpenGL: renderer: %s\n", renderer);
@@ -255,7 +258,7 @@ void GLScreen_DeInit()
 void GLScreen_DrawScreen()
 {
     float scale = uiGLGetFramebufferScale(GLContext);
-    
+
     if (GL_ScreenSizeDirty)
     {
         GL_ScreenSizeDirty = false;
@@ -2540,7 +2543,7 @@ int main(int argc, char** argv)
     if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
-    
+
     if (ScreenBitmap[0]) uiDrawFreeBitmap(ScreenBitmap[0]);
     if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
