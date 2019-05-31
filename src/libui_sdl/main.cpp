@@ -427,7 +427,7 @@ void GLScreen_DrawScreen()
         glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
         glBindVertexArray(GL_ScreenVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 4*3);
-        }
+    }
 
     glFlush();
     uiGLSwapBuffers(GLContext);

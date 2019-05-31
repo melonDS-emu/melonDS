@@ -47,7 +47,7 @@
 // if you need more OpenGL functions, add them to the macronator here
 // TODO: handle conditionally loading certain functions for different GL versions
 
-#ifdef GL_VERSION_1_3
+#ifndef __WIN32__
 
 #define DO_PROCLIST_1_3(func) 
 
