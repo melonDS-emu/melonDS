@@ -134,13 +134,15 @@ void OnRendererChanged(uiRadioButtons* rb, void* blarg)
         ApplyNewSettings(2);
     else
         ApplyNewSettings(3);
+    
+    uiControlSetFocus(uiControl(win));
 }
 
 void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
 {
     Config::ScreenUseGL = uiCheckboxChecked(cb);
     ApplyNewSettings(2);
-    uiControlSetFocus(uiControl(cb));
+    uiControlSetFocus(uiControl(win));
 }
 
 void OnThreaded3DChanged(uiCheckbox* cb, void* blarg)

@@ -2043,15 +2043,14 @@ void ApplyNewSettings(int type)
         bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
         if (usegl != Screen_UseGL)
         {
-            Screen_UseGL = usegl;
-
             if (RunningSomething)
             {
-                if (usegl) uiGLMakeContextCurrent(GLContext);
+                if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
                 GPU3D::DeInitRenderer();
-                if (usegl) uiGLMakeContextCurrent(NULL);
+                if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
             }
 
+            Screen_UseGL = usegl;
             RecreateMainWindow(usegl);
 
             if (RunningSomething)
