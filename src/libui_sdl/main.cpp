@@ -396,35 +396,38 @@ void GLScreen_DrawScreen()
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    int frontbuf = GPU::FrontBuffer;
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
-
-    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    if (RunningSomething)
     {
-        if (GPU3D::Renderer == 0)
-        {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
-        }
-        else
-        {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
-        }
-    }
+        int frontbuf = GPU::FrontBuffer;
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
 
-    glActiveTexture(GL_TEXTURE1);
-    if (GPU3D::Renderer != 0)
-        GPU3D::GLRenderer::SetupAccelFrame();
+        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+        {
+            if (GPU3D::Renderer == 0)
+            {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA_INTEGER,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+            }
+            else
+            {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+            }
+        }
 
-    glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
-    glBindVertexArray(GL_ScreenVertexArrayID);
-    glDrawArrays(GL_TRIANGLES, 0, 4*3);
+        glActiveTexture(GL_TEXTURE1);
+        if (GPU3D::Renderer != 0)
+            GPU3D::GLRenderer::SetupAccelFrame();
+
+        glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
+        glBindVertexArray(GL_ScreenVertexArrayID);
+        glDrawArrays(GL_TRIANGLES, 0, 4*3);
+        }
 
     glFlush();
     uiGLSwapBuffers(GLContext);
