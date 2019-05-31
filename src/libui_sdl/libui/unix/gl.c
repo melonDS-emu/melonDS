@@ -6,6 +6,7 @@
 void* glXGetProcAddressARB(const GLubyte* name);
 
 extern GThread* gtkthread;
+extern GMutex glmutex;
 
 struct uiGLContext 
 {
@@ -14,8 +15,6 @@ struct uiGLContext
 	
 	GdkGLContext *gctx;
 	int vermaj, vermin;
-	
-	GMutex mutex;
 	
 	int width, height;
 	int scale;
@@ -96,8 +95,6 @@ uiGLContext *createGLContext(GtkWidget* widget, int maj, int min)
 	areaAllocRenderbuffer(ctx);
 	ctx->backbuffer = 0;
 	
-	g_mutex_init(&ctx->mutex);
-	
 	ctx->widget = widget;
 	ctx->window = gdkwin;
 	ctx->gctx = gctx;
@@ -144,7 +141,7 @@ static void areaAllocRenderbuffer(uiGLContext* glctx)
     //    printf("FRAMEBUFFER IS BAD!! %04X\n", _glCheckFramebufferStatus(GL_FRAMEBUFFER));
 }
 
-static void areaRellocRenderbuffer(uiGLContext* glctx)
+static void areaReallocRenderbuffer(uiGLContext* glctx)
 {
     _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][0]);
     _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);
@@ -157,16 +154,6 @@ static void areaRellocRenderbuffer(uiGLContext* glctx)
     //_glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
 }
 
-void areaPreRedrawGL(uiGLContext* glctx)
-{
-    g_mutex_lock(&glctx->mutex);
-}
-
-void areaPostRedrawGL(uiGLContext* glctx)
-{
-    g_mutex_unlock(&glctx->mutex);
-}
-
 void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx)
 {
     int window_scale = gdk_window_get_scale_factor(glctx->window);
@@ -176,12 +163,14 @@ void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContex
         glctx->width = dp->AreaWidth;
         glctx->height = dp->AreaHeight;
         glctx->scale = window_scale;
-        areaRellocRenderbuffer(glctx);
+        areaReallocRenderbuffer(glctx);
     }
-    
-    gdk_cairo_draw_from_gl(cr, gtk_widget_get_window(widget), 
-                           glctx->renderbuffer[glctx->backbuffer][0], GL_RENDERBUFFER, 
-                           1, 0, 0, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    else
+    {
+        gdk_cairo_draw_from_gl(cr, gtk_widget_get_window(widget), 
+                               glctx->renderbuffer[glctx->backbuffer][0], GL_RENDERBUFFER, 
+                               1, 0, 0, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    }
 }
 
 int uiGLGetFramebuffer(uiGLContext* ctx)
@@ -215,7 +204,7 @@ void uiGLBegin(uiGLContext* ctx)
 {
     if (g_thread_self() != gtkthread)
     {
-        g_mutex_lock(&ctx->mutex);
+        g_mutex_lock(&glmutex);
     }
 }
 
@@ -223,7 +212,7 @@ void uiGLEnd(uiGLContext* ctx)
 {
     if (g_thread_self() != gtkthread)
     {
-        g_mutex_unlock(&ctx->mutex);
+        g_mutex_unlock(&glmutex);
     }
 }
 

@@ -430,12 +430,6 @@ void GLScreen_DrawScreen()
     uiGLSwapBuffers(GLContext);
 }
 
-void norp(void* data)
-{
-    uiGLMakeContextCurrent(GLContext);
-    GLScreen_DrawScreen();
-}
-
 void MicLoadWav(char* name)
 {
     SDL_AudioSpec format;

@@ -3,6 +3,18 @@
 
 extern GThread* gtkthread;
 
+// notes:
+// - G_DECLARE_DERIVABLE/FINAL_INTERFACE() requires glib 2.44 and that's starting with debian stretch (testing) (GTK+ 3.18) and ubuntu 15.04 (GTK+ 3.14) - debian jessie has 2.42 (GTK+ 3.14)
+#define areaWidgetType (areaWidget_get_type())
+#define areaWidget(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), areaWidgetType, areaWidget))
+#define isAreaWidget(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), areaWidgetType))
+#define areaWidgetClass(class) (G_TYPE_CHECK_CLASS_CAST((class), areaWidgetType, areaWidgetClass))
+#define isAreaWidgetClass(class) (G_TYPE_CHECK_CLASS_TYPE((class), areaWidget))
+#define getAreaWidgetClass(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), areaWidgetType, areaWidgetClass))
+
+typedef struct areaWidget areaWidget;
+typedef struct areaWidgetClass areaWidgetClass;
+
 struct areaWidget {
 	GtkDrawingArea parent_instance;
 	uiArea *a;
@@ -129,22 +141,6 @@ static void loadAreaSize(uiArea *a, double *width, double *height)
 		*width = allocation.width;
 		*height = allocation.height;
 	}
-}
-
-void areaPreRedraw(areaWidget* widget)
-{
-    uiArea* a = widget->a;
-    if (!a->opengl) return;
-    
-    areaPreRedrawGL(a->glContext);
-}
-
-void areaPostRedraw(areaWidget* widget)
-{
-    uiArea* a = widget->a;
-    if (!a->opengl) return;
-    
-    areaPostRedrawGL(a->glContext);
 }
 
 static gboolean areaWidget_draw(GtkWidget *w, cairo_t *cr)
