@@ -194,12 +194,11 @@ bool GLScreen_InitShader(GLuint* shader, const char* fs)
 }
 
 bool GLScreen_Init()
-{printf("BEGINNING GL SHITO\n");
+{
+    // TODO: consider using epoxy?
     if (!OpenGL_Init())
         return false;
         
-    printf("GL INIT: %p, %p\n", glGenFramebuffers, glCreateShader);
-    
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
     printf("OpenGL: renderer: %s\n", renderer);
@@ -211,7 +210,7 @@ bool GLScreen_Init()
         return false;
 
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
-printf("morp0\n");
+
     glGenBuffers(1, &GL_ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, GL_ShaderConfigUBO);
     glBufferData(GL_UNIFORM_BUFFER, sizeof(GL_ShaderConfig), &GL_ShaderConfig, GL_STATIC_DRAW);
@@ -220,14 +219,14 @@ printf("morp0\n");
     glGenBuffers(1, &GL_ScreenVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GL_ScreenVertices), NULL, GL_STATIC_DRAW);
-printf("morp1\n");
+
     glGenVertexArrays(1, &GL_ScreenVertexArrayID);
     glBindVertexArray(GL_ScreenVertexArrayID);
     glEnableVertexAttribArray(0); // position
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
-printf("morp2\n");
+
     glGenTextures(1, &GL_ScreenTexture);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
@@ -238,7 +237,7 @@ printf("morp2\n");
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3 + 1, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
     GL_ScreenSizeDirty = true;
-printf("morp3\n");
+
     return true;
 }
 
@@ -394,7 +393,7 @@ void GLScreen_DrawScreen()
 
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
 
-    glClearColor(0, 0, 1, 1);
+    glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     int frontbuf = GPU::FrontBuffer;

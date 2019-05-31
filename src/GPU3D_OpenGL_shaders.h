@@ -42,14 +42,14 @@ uniform uint uOpaquePolyID;
 uniform uint uFogFlag;
 
 out vec4 oColor;
-out uvec3 oAttr;
+out vec3 oAttr;
 
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
-    oAttr.r = uOpaquePolyID;
-    oAttr.g = uint(0);
-    oAttr.b = uFogFlag;
+    oAttr.r = float(uOpaquePolyID) / 63.0;
+    oAttr.g = 0;
+    oAttr.b = float(uFogFlag);
 }
 )";
 
@@ -69,7 +69,7 @@ void main()
 const char* kFinalPassFS = kShaderHeader R"(
 
 uniform sampler2D DepthBuffer;
-uniform usampler2D AttrBuffer;
+uniform sampler2D AttrBuffer;
 
 layout(std140) uniform uConfig
 {
@@ -122,7 +122,7 @@ void main()
 
     vec4 ret = vec4(0,0,0,0);
     vec4 depth = texelFetch(DepthBuffer, coord, 0);
-    ivec4 attr = ivec4(texelFetch(AttrBuffer, coord, 0));
+    vec4 attr = texelFetch(AttrBuffer, coord, 0);
 
     if (attr.b != 0) ret = CalculateFog(depth.r);
 
@@ -178,7 +178,7 @@ smooth in vec2 fTexcoord;
 flat in ivec3 fPolygonAttr;
 
 out vec4 oColor;
-out uvec3 oAttr;
+out vec3 oAttr;
 
 int TexcoordWrap(int c, int maxc, int mode)
 {
@@ -618,8 +618,8 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.r = uint((fPolygonAttr.x >> 24) & 0x3F);
-    oAttr.b = uint((fPolygonAttr.x >> 15) & 0x1);
+    oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
+    oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
 }
 )";
 
@@ -633,8 +633,8 @@ void main()
     if (col.a < 30.5/31) discard;
 
     oColor = col;
-    oAttr.r = uint((fPolygonAttr.x >> 24) & 0x3F);
-    oAttr.b = uint((fPolygonAttr.x >> 15) & 0x1);
+    oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
+    oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
     gl_FragDepth = fZ;
 }
 )";
@@ -648,7 +648,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.b = uint(0);
+    oAttr.b = 0;
 }
 )";
 
@@ -663,7 +663,7 @@ void main()
     if (col.a >= 30.5/31) discard;
 
     oColor = col;
-    oAttr.b = uint(0);
+    oAttr.b = 0;
     gl_FragDepth = fZ;
 }
 )";

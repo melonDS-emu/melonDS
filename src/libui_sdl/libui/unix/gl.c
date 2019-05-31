@@ -115,67 +115,46 @@ void freeGLContext(uiGLContext* glctx)
 
 static void areaAllocRenderbuffer(uiGLContext* glctx)
 {
-    _glGenRenderbuffers(4, &glctx->renderbuffer[0][0]);printf("ylarg0 %04X, %d %d\n", glGetError(), glctx->width, glctx->height);
-    //glGenTextures(2, &glctx->renderbuffer[0]);
-    _glGenFramebuffers(2, &glctx->framebuffer[0]);printf("ylarg1 %04X\n", glGetError());
-    printf("FB %08X created under ctx %p (%p %p)\n", glctx?glctx->framebuffer[0]:0, gdk_gl_context_get_current(), glctx?glctx->gctx:NULL, glctx);
-    /*glBindTexture(GL_TEXTURE_2D, glctx->renderbuffer[0]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    // TODO: create textures as a fallback if GL_RGB renderbuffer isn't supported?
+    // they say GL implementations aren't required to support a GL_RGB renderbuffer
+    // however, a GL_RGBA one would cause gdk_cairo_draw_from_gl() to fall back to glReadPixels()
     
-    glBindTexture(GL_TEXTURE_2D, glctx->renderbuffer[1]);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);*/
+    _glGenRenderbuffers(4, &glctx->renderbuffer[0][0]);
+    _glGenFramebuffers(2, &glctx->framebuffer[0]);
     
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][0]);printf("ylarg1 %04X\n", glGetError());
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);printf("ylarg1 %04X\n", glGetError());
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][1]);printf("ylarg1 %04X\n", glGetError());
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);printf("ylarg1 %04X\n", glGetError());
-    
-    _glBindFramebuffer(GL_FRAMEBUFFER, glctx->framebuffer[0]);printf("ylarg2 %04X\n", glGetError());
-    /*_glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, glctx->renderbuffer[0], 0);
-    _glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, glctx->renderbuffer[1], 0);*/
-    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, glctx->renderbuffer[0][0]);printf("ylarg3 %04X\n", glGetError());
-    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, glctx->renderbuffer[0][1]);printf("ylarg4 %04X\n", glGetError());
-    //printf("ylarg: %08X, %04X, %08X %08X\n", glctx->framebuffer, glGetError(), glctx->renderbuffer[0], glctx->renderbuffer[1]);
-    
-    
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][0]);printf("ylarg1 %04X\n", glGetError());
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);printf("ylarg1 %04X\n", glGetError());
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][1]);printf("ylarg1 %04X\n", glGetError());
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);printf("ylarg1 %04X\n", glGetError());
-    
-    _glBindFramebuffer(GL_FRAMEBUFFER, glctx->framebuffer[1]);printf("ylarg2 %04X\n", glGetError());
-    /*_glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, glctx->renderbuffer[0], 0);
-    _glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, glctx->renderbuffer[1], 0);*/
-    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, glctx->renderbuffer[1][0]);printf("ylarg3 %04X\n", glGetError());
-    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, glctx->renderbuffer[1][1]);printf("ylarg4 %04X\n", glGetError());
-    //printf("ylarg: %08X, %04X, %08X %08X\n", glctx->framebuffer, glGetError(), glctx->renderbuffer[0], glctx->renderbuffer[1]);
-    
-    if(_glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    printf("FRAMEBUFFER IS BAD!! %04X\n", _glCheckFramebufferStatus(GL_FRAMEBUFFER));
-    
-    int alpha_size;
     _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][0]);
-    _glGetRenderbufferParameteriv (GL_RENDERBUFFER, GL_RENDERBUFFER_ALPHA_SIZE, &alpha_size);
-    printf("FRAMEBUFFER GOOD. ALPHA SIZE IS %d\n", alpha_size);
+    _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    //_glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][1]);
+    //_glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    
+    _glBindFramebuffer(GL_FRAMEBUFFER, glctx->framebuffer[0]);
+    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, glctx->renderbuffer[0][0]);
+    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, glctx->renderbuffer[0][1]);
+    
+    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][0]);
+    _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    //_glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][1]);
+    //_glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    
+    _glBindFramebuffer(GL_FRAMEBUFFER, glctx->framebuffer[1]);
+    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, glctx->renderbuffer[1][0]);
+    _glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, glctx->renderbuffer[1][1]);
+    
+    //if (_glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    //    printf("FRAMEBUFFER IS BAD!! %04X\n", _glCheckFramebufferStatus(GL_FRAMEBUFFER));
 }
 
 static void areaRellocRenderbuffer(uiGLContext* glctx)
 {
     _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][0]);
     _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][1]);
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    //_glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[0][1]);
+    //_glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
     
     _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][0]);
     _glRenderbufferStorage(GL_RENDERBUFFER, GL_RGB, glctx->width*glctx->scale, glctx->height*glctx->scale);
-    _glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][1]);
-    _glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
+    //_glBindRenderbuffer(GL_RENDERBUFFER, glctx->renderbuffer[1][1]);
+    //_glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, glctx->width*glctx->scale, glctx->height*glctx->scale);
 }
 
 void areaPreRedrawGL(uiGLContext* glctx)

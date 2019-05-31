@@ -187,12 +187,7 @@ void SetupDefaultTexParams(GLuint tex)
 bool Init()
 {
     GLint uni_id;
-
-    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
-    const GLubyte* version = glGetString(GL_VERSION); // version as a string
-    printf("OpenGL: renderer: %s\n", renderer);
-    printf("OpenGL: version: %s\n", version);
-
+    
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
