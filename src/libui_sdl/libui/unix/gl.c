@@ -3,6 +3,8 @@
 
 #include <GL/gl.h>
 
+void* glXGetProcAddressARB(const GLubyte* name);
+
 extern GThread* gtkthread;
 
 struct uiGLContext 
@@ -179,7 +181,6 @@ static void areaRellocRenderbuffer(uiGLContext* glctx)
 void areaPreRedrawGL(uiGLContext* glctx)
 {
     g_mutex_lock(&glctx->mutex);
-    glctx->backbuffer = glctx->backbuffer ? 0 : 1;
 }
 
 void areaPostRedrawGL(uiGLContext* glctx)
@@ -206,7 +207,7 @@ void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContex
 
 int uiGLGetFramebuffer(uiGLContext* ctx)
 {
-    return ctx->framebuffer[ctx->backbuffer];// ? 0 : 1];
+    return ctx->framebuffer[ctx->backbuffer];
 }
 
 float uiGLGetFramebufferScale(uiGLContext* ctx)
@@ -216,8 +217,7 @@ float uiGLGetFramebufferScale(uiGLContext* ctx)
 
 void uiGLSwapBuffers(uiGLContext* ctx)
 {
-    // nothing to do here, GTK will take care of this
-    //glFinish();
+    ctx->backbuffer = ctx->backbuffer ? 0 : 1;
 }
 
 void uiGLMakeContextCurrent(uiGLContext* ctx)
@@ -250,15 +250,15 @@ void uiGLEnd(uiGLContext* ctx)
 
 void *uiGLGetProcAddress(const char* proc)
 {
-printf("get: %s - ", proc);
-void* a = dlsym(NULL, proc);
-void* b = glXGetProcAddress(proc);
-void* c = glXGetProcAddressARB(proc);
-printf("%p / %p / %p\n", a, b, c);
-return a;
-	// this *will* break for older systems that don't have libglvnd!
-	// TODO: use a real solution
-	return dlsym(NULL /* RTLD_DEFAULT */, proc);
+	// TODO: consider using epoxy or something funny
+	
+	void* ptr = dlsym(NULL /* RTLD_DEFAULT */, proc);
+	if (ptr) return ptr;
+	
+	ptr = glXGetProcAddressARB((const GLubyte*)proc);
+	if (ptr) return ptr;
+	
+	return NULL;
 }
 unsigned int uiGLGetVersion(uiGLContext* ctx)
 {
