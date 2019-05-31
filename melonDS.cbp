@@ -30,6 +30,7 @@
 				<Compiler>
 					<Add option="-O3" />
 					<Add option="-m64" />
+					<Add option="-flto" />
 					<Add option="-D_FILE_OFFSET_BITS=64" />
 				</Compiler>
 				<Linker>
