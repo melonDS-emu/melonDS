@@ -42,7 +42,7 @@ uniform uint uOpaquePolyID;
 uniform uint uFogFlag;
 
 out vec4 oColor;
-out vec3 oAttr;
+out vec4 oAttr;
 
 void main()
 {
@@ -50,6 +50,7 @@ void main()
     oAttr.r = float(uOpaquePolyID) / 63.0;
     oAttr.g = 0;
     oAttr.b = float(uFogFlag);
+    oAttr.a = 1;
 }
 )";
 
@@ -178,7 +179,7 @@ smooth in vec2 fTexcoord;
 flat in ivec3 fPolygonAttr;
 
 out vec4 oColor;
-out vec3 oAttr;
+out vec4 oAttr;
 
 int TexcoordWrap(int c, int maxc, int mode)
 {
@@ -620,6 +621,7 @@ void main()
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
+    oAttr.a = 1;
 }
 )";
 
@@ -635,6 +637,7 @@ void main()
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
+    oAttr.a = 1;
     gl_FragDepth = fZ;
 }
 )";
@@ -649,6 +652,7 @@ void main()
 
     oColor = col;
     oAttr.b = 0;
+    oAttr.a = 1;
 }
 )";
 
@@ -664,6 +668,7 @@ void main()
 
     oColor = col;
     oAttr.b = 0;
+    oAttr.a = 1;
     gl_FragDepth = fZ;
 }
 )";

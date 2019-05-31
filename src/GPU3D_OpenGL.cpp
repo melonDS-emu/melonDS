@@ -187,7 +187,7 @@ void SetupDefaultTexParams(GLuint tex)
 bool Init()
 {
     GLint uni_id;
-    
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
@@ -1042,9 +1042,6 @@ void RenderFrame()
         for (int i = 0; i < RenderNumPolygons; i++)
         {
             if (RenderPolygonRAM[i]->Degenerate) continue;
-
-            // zog.
-            //if (RenderPolygonRAM[i]->YBottom <= 96 || RenderPolygonRAM[i]->YTop >= 144) continue;
 
             SetupPolygon(&PolygonList[npolys], RenderPolygonRAM[i]);
             if (firsttrans < 0 && RenderPolygonRAM[i]->Translucent)

@@ -135,8 +135,27 @@ void *uiGLGetProcAddress(const char* proc)
     return (void*)wglGetProcAddress(proc);
 }
 
+void uiGLBegin(uiGLContext* ctx)
+{
+}
+
+void uiGLEnd(uiGLContext* ctx)
+{
+}
+
 void uiGLSwapBuffers(uiGLContext* ctx)
 {
     if (ctx == NULL) return;
     SwapBuffers(ctx->dc);
+}
+
+int uiGLGetFramebuffer(uiGLContext* ctx)
+{
+    return 0;
+}
+
+float uiGLGetFramebufferScale(uiGLContext* ctx)
+{
+    // TODO
+    return 1;
 }
