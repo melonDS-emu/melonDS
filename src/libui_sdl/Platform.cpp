@@ -167,7 +167,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         int len = emudirlen + 1 + pathlen + 1;
         emudirpath = new char[len];
         strncpy(&emudirpath[0], EmuDirectory, emudirlen);
-        emudirpath[emudirlen] = '\\';
+        emudirpath[emudirlen] = '/';
         strncpy(&emudirpath[emudirlen+1], path, pathlen);
         emudirpath[emudirlen+1+pathlen] = '\0';
     }
