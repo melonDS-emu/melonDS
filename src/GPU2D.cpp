@@ -1443,7 +1443,8 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
                         eva = flag1 & 0x1F;
                         evb = 16 - eva;
                     }
-                    else if ((BlendCnt & target1) && (WindowMask[i] & 0x20))
+                    else if (((BlendCnt & target1) && (WindowMask[i] & 0x20)) ||
+                             ((flag1 & 0xC0) == 0x80))
                     {
                         eva = EVA;
                         evb = EVB;
@@ -1453,7 +1454,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val1;
                     BGOBJLine[256+i] = ColorComposite(i, val1, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val1 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val2 & 0xFF);
                 }
                 else
                 {
