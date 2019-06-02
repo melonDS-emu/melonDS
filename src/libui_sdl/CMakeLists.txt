@@ -11,6 +11,7 @@ SET(SOURCES_LIBUI
 	DlgInputConfig.cpp
 	DlgVideoSettings.cpp
 	DlgWifiSettings.cpp
+	OSD.cpp
 )
 
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)

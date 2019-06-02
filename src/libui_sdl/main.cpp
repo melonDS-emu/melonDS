@@ -46,6 +46,8 @@
 
 #include "../Savestate.h"
 
+#include "OSD.h"
+
 
 // savestate slot mapping
 // 1-8: regular slots (quick access)
@@ -971,6 +973,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiRect top = {0, 0, 256, 192};
     uiRect bot = {0, 0, 256, 192};
+
+    //OSD::test(GPU::Framebuffer[frontbuf][0]);
 
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
     uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
