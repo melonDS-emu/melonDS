@@ -143,6 +143,8 @@
 		<Unit filename="src/libui_sdl/LAN_PCap.h" />
 		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
 		<Unit filename="src/libui_sdl/LAN_Socket.h" />
+		<Unit filename="src/libui_sdl/OSD.cpp" />
+		<Unit filename="src/libui_sdl/OSD.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.h" />

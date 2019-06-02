@@ -882,10 +882,12 @@ void GPU2D::VBlankEnd()
     OBJMosaicY = 0;
     OBJMosaicYMax = OBJMosaicSize[1];
 
-    // TODO: make optional
-    if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
+    if (GPU3D::Renderer != 0)
     {
-        GPU3D::GLRenderer::PrepareCaptureFrame();
+        if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
+        {
+            GPU3D::GLRenderer::PrepareCaptureFrame();
+        }
     }
 }
 
