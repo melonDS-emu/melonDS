@@ -148,6 +148,7 @@
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.h" />
+		<Unit filename="src/libui_sdl/font.h" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
 		</Unit>
