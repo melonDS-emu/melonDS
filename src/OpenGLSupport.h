@@ -120,8 +120,6 @@
      \
     func(GLCOLORMASKI, glColorMaski); \
      \
-    func(GLMEMORYBARRIER, glMemoryBarrier); \
-     \
     func(GLGETSTRINGI, glGetStringi); \
 
 
