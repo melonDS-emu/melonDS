@@ -20,7 +20,7 @@
 #include <string.h>
 #include <queue>
 #include <SDL2/SDL.h>
-#include "types.h"
+#include "../types.h"
 #include "OSD.h"
 
 #include "libui/ui.h"
