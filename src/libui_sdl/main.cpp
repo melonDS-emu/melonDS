@@ -709,7 +709,6 @@ int EmuThreadFunc(void* burp)
     else
     {
         GPU3D::InitRenderer(false);
-        GPU::SetDisplaySettings(false);
     }
 
     Touching = false;
@@ -1389,6 +1388,14 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 
 void Run()
 {
+    if (GPU3D::Renderer != Config::_3DRenderer)
+    {
+        if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+        GPU3D::DeInitRenderer();
+        GPU3D::InitRenderer(Screen_UseGL);
+        if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+    }
+
     EmuRunning = 1;
     RunningSomething = true;
 
