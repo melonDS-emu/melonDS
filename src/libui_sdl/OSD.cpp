@@ -205,7 +205,7 @@ void RenderText(u32 color, const char* text, Item* item)
     u32 rainbowinc = (text[0] * 17) % 600;
 
     color |= 0xFF000000;
-    const u32 shadow = 0xFE000000;
+    const u32 shadow = 0xE0000000;
 
     LayoutText(text, &w, &h, breaks);
 

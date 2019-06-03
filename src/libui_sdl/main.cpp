@@ -1591,6 +1591,11 @@ void LoadState(int slot)
 
     if (!Platform::FileExists(filename))
     {
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
+        else          sprintf(msg, "State file does not exist");
+        OSD::AddMessage(0xFFA0A0, msg);
+
         EmuRunning = prevstatus;
         return;
     }
@@ -1630,6 +1635,11 @@ void LoadState(int slot)
 
             NDS::RelocateSave(SRAMPath, false);
         }
+
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
+        else          sprintf(msg, "State loaded from file");
+        OSD::AddMessage(0, msg);
 
         SavestateLoaded = true;
         uiMenuItemEnable(MenuItem_UndoStateLoad);
@@ -1690,6 +1700,11 @@ void SaveState(int slot)
         }
     }
 
+    char msg[64];
+    if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
+    else          sprintf(msg, "State saved to file");
+    OSD::AddMessage(0, msg);
+
     EmuRunning = prevstatus;
 }
 
@@ -1713,6 +1728,8 @@ void UndoStateLoad()
         strncpy(SRAMPath, PrevSRAMPath, 1024);
         NDS::RelocateSave(SRAMPath, false);
     }
+
+    OSD::AddMessage(0, "State load undone");
 
     EmuRunning = prevstatus;
 }
