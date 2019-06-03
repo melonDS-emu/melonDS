@@ -106,6 +106,7 @@
      \
     func(GLUNIFORM1I, glUniform1i); \
     func(GLUNIFORM1UI, glUniform1ui); \
+    func(GLUNIFORM2I, glUniform2i); \
     func(GLUNIFORM4UI, glUniform4ui); \
     func(GLUNIFORMBLOCKBINDING, glUniformBlockBinding); \
     func(GLGETUNIFORMLOCATION, glGetUniformLocation); \

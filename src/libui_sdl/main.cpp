@@ -112,6 +112,7 @@ uiDrawBitmap* ScreenBitmap[2] = {NULL,NULL};
 
 GLuint GL_ScreenShader[3];
 GLuint GL_ScreenShaderAccel[3];
+GLuint GL_ScreenShaderOSD[3];
 struct
 {
     float uScreenSize[2];
@@ -198,6 +199,29 @@ bool GLScreen_InitShader(GLuint* shader, const char* fs)
     return true;
 }
 
+bool GLScreen_InitOSDShader(GLuint* shader)
+{
+    if (!OpenGL_BuildShaderProgram(kScreenVS_OSD, kScreenFS_OSD, shader, "ScreenShaderOSD"))
+        return false;
+
+    glBindAttribLocation(shader[2], 0, "vPosition");
+    glBindFragDataLocation(shader[2], 0, "oColor");
+
+    if (!OpenGL_LinkShaderProgram(shader))
+        return false;
+
+    GLuint uni_id;
+
+    uni_id = glGetUniformBlockIndex(shader[2], "uConfig");
+    glUniformBlockBinding(shader[2], uni_id, 16);
+
+    glUseProgram(shader[2]);
+    uni_id = glGetUniformLocation(shader[2], "OSDTex");
+    glUniform1i(uni_id, 0);
+
+    return true;
+}
+
 bool GLScreen_Init()
 {
     // TODO: consider using epoxy?
@@ -212,6 +236,8 @@ bool GLScreen_Init()
     if (!GLScreen_InitShader(GL_ScreenShader, kScreenFS))
         return false;
     if (!GLScreen_InitShader(GL_ScreenShaderAccel, kScreenFS_Accel))
+        return false;
+    if (!GLScreen_InitOSDShader(GL_ScreenShaderOSD))
         return false;
 
     memset(&GL_ShaderConfig, 0, sizeof(GL_ShaderConfig));
@@ -255,6 +281,7 @@ void GLScreen_DeInit()
 
     OpenGL_DeleteShaderProgram(GL_ScreenShader);
     OpenGL_DeleteShaderProgram(GL_ScreenShaderAccel);
+    OpenGL_DeleteShaderProgram(GL_ScreenShaderOSD);
 }
 
 void GLScreen_DrawScreen()
@@ -396,7 +423,7 @@ void GLScreen_DrawScreen()
     else
         OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
 
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
+    glBindFramebuffer(GL_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -434,6 +461,7 @@ void GLScreen_DrawScreen()
         glDrawArrays(GL_TRIANGLES, 0, 4*3);
     }
 
+    OpenGL_UseShaderProgram(GL_ScreenShaderOSD);
     OSD::Update(true, NULL);
 
     glFlush();
@@ -947,18 +975,20 @@ int EmuThreadFunc(void* burp)
 
     if (joybuttons) delete[] joybuttons;
 
+    if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+
     NDS::DeInit();
     Platform::LAN_DeInit();
 
     if (Screen_UseGL)
     {
-        uiGLMakeContextCurrent(GLContext);
         OSD::DeInit(true);
         GLScreen_DeInit();
-        uiGLMakeContextCurrent(NULL);
     }
     else
         OSD::DeInit(false);
+
+    if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
     return 44203;
 }
@@ -1128,7 +1158,7 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             MicCommand |= 1;
 
         if (evt->Scancode == 0x57) // F11
-            OSD::AddMessage(0, "OSD test");
+            OSD::AddMessage(0x00FFFF, "OSD test");
             //NDS::debug(0);
     }
 
@@ -2302,6 +2332,11 @@ void CreateMainWindow(bool opengl)
     {
         uiGLMakeContextCurrent(GLContext);
         if (!GLScreen_Init()) opengl_good = false;
+        if (opengl_good)
+        {
+            OpenGL_UseShaderProgram(GL_ScreenShaderOSD);
+            OSD::Init(true);
+        }
         uiGLMakeContextCurrent(NULL);
     }
 
@@ -2312,7 +2347,7 @@ void CreateMainWindow(bool opengl)
         Screen_UseGL = false;
     }
 
-    OSD::Init(opengl);
+    if (!opengl) OSD::Init(false);
 }
 
 void DestroyMainWindow()

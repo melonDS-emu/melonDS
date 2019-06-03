@@ -35,7 +35,7 @@ namespace OSD
 
 const u32 kOSDMargin = 6;
 
-typedef struct
+struct Item
 {
     Uint32 Timestamp;
     char Text[256];
@@ -50,13 +50,45 @@ typedef struct
     bool GLTextureLoaded;
     GLuint GLTexture;
 
-} Item;
+};
 
-std::deque<Item*> ItemQueue;
+std::deque<Item> ItemQueue;
+
+GLint uOSDPos, uOSDSize;
+GLuint OSDVertexArray;
+GLuint OSDVertexBuffer;
+
+volatile bool Rendering;
 
 
 bool Init(bool opengl)
 {
+    if (opengl)
+    {
+        GLuint prog; glGetIntegerv(GL_CURRENT_PROGRAM, (GLint*)&prog);
+        uOSDPos = glGetUniformLocation(prog, "uOSDPos");
+        uOSDSize = glGetUniformLocation(prog, "uOSDSize");
+
+        float vertices[6*2] =
+        {
+            0, 0,
+            1, 1,
+            1, 0,
+            0, 0,
+            0, 1,
+            1, 1
+        };
+
+        glGenBuffers(1, &OSDVertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glGenVertexArrays(1, &OSDVertexArray);
+        glBindVertexArray(OSDVertexArray);
+        glEnableVertexAttribArray(0); // position
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, (void*)(0));
+    }
+
     return true;
 }
 
@@ -64,15 +96,13 @@ void DeInit(bool opengl)
 {
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
-        Item* item = *it;
+        Item& item = *it;
 
-        if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
-        if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
-        if (item->Bitmap) delete[] item->Bitmap;
+        if (item.DrawBitmapLoaded && item.DrawBitmap) uiDrawFreeBitmap(item.DrawBitmap);
+        if (item.GLTextureLoaded && opengl) glDeleteTextures(1, &item.GLTexture);
+        if (item.Bitmap) delete[] item.Bitmap;
 
-        delete item;
-
-        ItemQueue.erase(it);
+        it = ItemQueue.erase(it);
     }
 }
 
@@ -276,15 +306,17 @@ void RenderText(u32 color, const char* text, Item* item)
 
 void AddMessage(u32 color, const char* text)
 {
-    Item* item = new Item;
+    while (Rendering);
 
-    item->Timestamp = SDL_GetTicks();
-    strncpy(item->Text, text, 255); item->Text[255] = '\0';
-    item->Color = color;
-    item->Bitmap = NULL;
+    Item item;
 
-    item->DrawBitmapLoaded = false;
-    item->GLTextureLoaded = false;
+    item.Timestamp = SDL_GetTicks();
+    strncpy(item.Text, text, 255); item.Text[255] = '\0';
+    item.Color = color;
+    item.Bitmap = NULL;
+
+    item.DrawBitmapLoaded = false;
+    item.GLTextureLoaded = false;
 
     ItemQueue.push_back(item);
 }
@@ -293,7 +325,7 @@ void WindowResized(bool opengl)
 {
     /*for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
-        Item* item = *it;
+        Item& item = *it;
 
         if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
         //if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
@@ -309,53 +341,83 @@ void WindowResized(bool opengl)
 
 void Update(bool opengl, uiAreaDrawParams* params)
 {
+    Rendering = true;
+
     Uint32 tick_now = SDL_GetTicks();
     Uint32 tick_min = tick_now - 2500;
     u32 y = kOSDMargin;
 
+    if (opengl)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
+        glBindVertexArray(OSDVertexArray);
+
+        glActiveTexture(GL_TEXTURE0);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
     for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
     {
-        Item* item = *it;
+        Item& item = *it;
 
-        if (item->Timestamp < tick_min)
+        if (item.Timestamp < tick_min)
         {
-            if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
-            if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
-            if (item->Bitmap) delete[] item->Bitmap;
+            if (item.DrawBitmapLoaded && item.DrawBitmap) uiDrawFreeBitmap(item.DrawBitmap);
+            if (item.GLTextureLoaded && opengl) glDeleteTextures(1, &item.GLTexture);
+            if (item.Bitmap) delete[] item.Bitmap;
 
-            delete item;
-
-            ItemQueue.erase(it);
+            it = ItemQueue.erase(it);
             continue;
         }
 
-        if (!item->Bitmap)
+        if (!item.Bitmap)
         {
-            RenderText(item->Color, item->Text, item);
+            RenderText(item.Color, item.Text, &item);
         }
 
         if (opengl)
         {
-            //
+            if (!item.GLTextureLoaded)
+            {
+                glGenTextures(1, &item.GLTexture);
+                glBindTexture(GL_TEXTURE_2D, item.GLTexture);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, item.Width, item.Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, item.Bitmap);
+
+                item.GLTextureLoaded = true;
+            }
+
+            glBindTexture(GL_TEXTURE_2D, item.GLTexture);
+            glUniform2i(uOSDPos, kOSDMargin, y);
+            glUniform2i(uOSDSize, item.Width, item.Height);
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
         else
         {
-            if (!item->DrawBitmapLoaded)
+            if (!item.DrawBitmapLoaded)
             {
-                item->DrawBitmap = uiDrawNewBitmap(params->Context, item->Width, item->Height, 1);
-                uiDrawBitmapUpdate(item->DrawBitmap, item->Bitmap);
-                item->DrawBitmapLoaded = true;
+                item.DrawBitmap = uiDrawNewBitmap(params->Context, item.Width, item.Height, 1);
+                uiDrawBitmapUpdate(item.DrawBitmap, item.Bitmap);
+
+                item.DrawBitmapLoaded = true;
             }
 
-            uiRect rc_src = {0, 0, item->Width, item->Height};
-            uiRect rc_dst = {kOSDMargin, y, item->Width, item->Height};
+            uiRect rc_src = {0, 0, item.Width, item.Height};
+            uiRect rc_dst = {kOSDMargin, y, item.Width, item.Height};
 
-            uiDrawBitmapDraw(params->Context, item->DrawBitmap, &rc_src, &rc_dst, 0);
+            uiDrawBitmapDraw(params->Context, item.DrawBitmap, &rc_src, &rc_dst, 0);
         }
 
-        y += item->Height;
+        y += item.Height;
         it++;
     }
+
+    Rendering = false;
 }
 
 }

@@ -36,7 +36,7 @@ smooth out vec2 fTexcoord;
 void main()
 {
     vec4 fpos;
-    fpos.xy = ((vPosition.xy * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = ((vPosition * 2.0) / uScreenSize) - 1.0;
     fpos.y *= -1;
     fpos.z = 0.0;
     fpos.w = 1.0;
@@ -195,6 +195,55 @@ void main()
     // TODO: filters
 
     oColor = vec4(vec3(pixel.rgb) / 255.0, 1.0);
+}
+)";
+
+
+const char* kScreenVS_OSD = R"(#version 140
+
+layout(std140) uniform uConfig
+{
+    vec2 uScreenSize;
+    uint u3DScale;
+    uint uFilterMode;
+};
+
+uniform ivec2 uOSDPos;
+uniform ivec2 uOSDSize;
+
+in vec2 vPosition;
+
+smooth out vec2 fTexcoord;
+
+void main()
+{
+    vec4 fpos;
+
+    vec2 osdpos = (vPosition * vec2(uOSDSize));
+    fTexcoord = osdpos;
+    osdpos += uOSDPos;
+
+    fpos.xy = ((osdpos * 2.0) / uScreenSize) - 1.0;
+    fpos.y *= -1;
+    fpos.z = 0.0;
+    fpos.w = 1.0;
+
+    gl_Position = fpos;
+}
+)";
+
+const char* kScreenFS_OSD = R"(#version 140
+
+uniform sampler2D OSDTex;
+
+smooth in vec2 fTexcoord;
+
+out vec4 oColor;
+
+void main()
+{
+    vec4 pixel = texelFetch(OSDTex, ivec2(fTexcoord), 0);
+    oColor = pixel.bgra;
 }
 )";
 
