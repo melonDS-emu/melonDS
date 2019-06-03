@@ -143,13 +143,13 @@ void uiDrawRestore(uiDrawContext *c)
 
 // bitmap API
 
-uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height)
+uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height, int alpha)
 {
     uiDrawBitmap* bmp;
     
     bmp = uiNew(uiDrawBitmap);
     
-    bmp->bmp = cairo_image_surface_create(CAIRO_FORMAT_RGB24, width, height);
+    bmp->bmp = cairo_image_surface_create(alpha ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_RGB24, width, height);
     if (cairo_surface_status(bmp->bmp) != CAIRO_STATUS_SUCCESS)
 		implbug("error creating bitmap: %s",
 			cairo_status_to_string(cairo_surface_status(bmp->bmp)));

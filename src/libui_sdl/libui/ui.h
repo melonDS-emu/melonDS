@@ -516,7 +516,7 @@ _UI_EXTERN void uiDrawSave(uiDrawContext *c);
 _UI_EXTERN void uiDrawRestore(uiDrawContext *c);
 
 // bitmap API
-_UI_EXTERN uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height);
+_UI_EXTERN uiDrawBitmap* uiDrawNewBitmap(uiDrawContext* c, int width, int height, int alpha);
 _UI_EXTERN void uiDrawBitmapUpdate(uiDrawBitmap* bmp, const void* data);
 _UI_EXTERN void uiDrawBitmapDraw(uiDrawContext* c, uiDrawBitmap* bmp, uiRect* srcrect, uiRect* dstrect, int filter);
 _UI_EXTERN void uiDrawFreeBitmap(uiDrawBitmap* bmp);

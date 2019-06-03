@@ -434,6 +434,8 @@ void GLScreen_DrawScreen()
         glDrawArrays(GL_TRIANGLES, 0, 4*3);
     }
 
+    OSD::Update(true, NULL);
+
     glFlush();
     uiGLSwapBuffers(GLContext);
 }
@@ -948,7 +950,15 @@ int EmuThreadFunc(void* burp)
     NDS::DeInit();
     Platform::LAN_DeInit();
 
-    if (Screen_UseGL) GLScreen_DeInit();
+    if (Screen_UseGL)
+    {
+        uiGLMakeContextCurrent(GLContext);
+        OSD::DeInit(true);
+        GLScreen_DeInit();
+        uiGLMakeContextCurrent(NULL);
+    }
+    else
+        OSD::DeInit(false);
 
     return 44203;
 }
@@ -962,8 +972,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
         if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
         ScreenDrawInited = true;
-        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192);
-        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192, 0);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192, 0);
     }
 
     int frontbuf = GPU::FrontBuffer;
@@ -972,8 +982,6 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
     uiRect top = {0, 0, 256, 192};
     uiRect bot = {0, 0, 256, 192};
-
-    //OSD::test(GPU::Framebuffer[frontbuf][0]);
 
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
     uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
@@ -987,6 +995,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
     uiDrawTransform(params->Context, &BottomScreenTrans);
     uiDrawBitmapDraw(params->Context, ScreenBitmap[1], &bot, &BottomScreenRect, Config::ScreenFilter==1);
     uiDrawRestore(params->Context);
+
+    OSD::Update(false, params);
 }
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
@@ -1118,7 +1128,8 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             MicCommand |= 1;
 
         if (evt->Scancode == 0x57) // F11
-            NDS::debug(0);
+            OSD::AddMessage(0, "OSD test");
+            //NDS::debug(0);
     }
 
     return 1;
@@ -1374,15 +1385,17 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
     WindowWidth = width;
     WindowHeight = height;
 
-    int max = uiWindowMaximized(MainWindow);
-    int min = uiWindowMinimized(MainWindow);
+    int ismax = uiWindowMaximized(MainWindow);
+    int ismin = uiWindowMinimized(MainWindow);
 
-    Config::WindowMaximized = max;
-    if (!max && !min)
+    Config::WindowMaximized = ismax;
+    if (!ismax && !ismin)
     {
         Config::WindowWidth = width;
         Config::WindowHeight = height;
     }
+
+    OSD::WindowResized(Screen_UseGL);
 }
 
 
@@ -2061,6 +2074,10 @@ void ApplyNewSettings(int type)
                 if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
             }
 
+            if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+            OSD::DeInit(Screen_UseGL);
+            if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+
             Screen_UseGL = usegl;
             RecreateMainWindow(usegl);
 
@@ -2294,6 +2311,8 @@ void CreateMainWindow(bool opengl)
         RecreateMainWindow(false);
         Screen_UseGL = false;
     }
+
+    OSD::Init(opengl);
 }
 
 void DestroyMainWindow()

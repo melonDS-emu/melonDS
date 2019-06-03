@@ -22,14 +22,13 @@
 namespace OSD
 {
 
-bool Init();
-void DeInit();
-
-void test(u32* berp);
+bool Init(bool opengl);
+void DeInit(bool opengl);
 
 void AddMessage(u32 color, const char* text);
 
-void Update(bool opengl);
+void WindowResized(bool opengl);
+void Update(bool opengl, uiAreaDrawParams* params);
 
 }
 

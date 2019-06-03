@@ -18,14 +18,14 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <queue>
+#include <deque>
 #include <SDL2/SDL.h>
 #include "../types.h"
-#include "OSD.h"
 
 #include "libui/ui.h"
 #include "../OpenGLSupport.h"
 
+#include "OSD.h"
 #include "font.h"
 
 extern int WindowWidth, WindowHeight;
@@ -38,6 +38,9 @@ const u32 kOSDMargin = 6;
 typedef struct
 {
     Uint32 Timestamp;
+    char Text[256];
+    u32 Color;
+
     u32 Width, Height;
     u32* Bitmap;
 
@@ -49,15 +52,28 @@ typedef struct
 
 } Item;
 
-std::queue<Item*> CurrentItems;
+std::deque<Item*> ItemQueue;
 
 
-bool Init()
+bool Init(bool opengl)
 {
+    return true;
 }
 
-void DeInit()
+void DeInit(bool opengl)
 {
+    for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
+    {
+        Item* item = *it;
+
+        if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
+        if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
+        if (item->Bitmap) delete[] item->Bitmap;
+
+        delete item;
+
+        ItemQueue.erase(it);
+    }
 }
 
 
@@ -142,7 +158,7 @@ u32 RainbowColor(u32 inc)
 {
     // inspired from Acmlmboard
 
-    if      (inc < 100) return 0xFFFF9BFF + (inc << 8);
+    if      (inc < 100) return 0xFFFF9B9B + (inc << 8);
     else if (inc < 200) return 0xFFFFFF9B - ((inc-100) << 16);
     else if (inc < 300) return 0xFF9BFF9B + (inc-200);
     else if (inc < 400) return 0xFF9BFFFF - ((inc-300) << 8);
@@ -156,10 +172,10 @@ void RenderText(u32 color, const char* text, Item* item)
     int breaks[64];
 
     bool rainbow = (color == 0);
-    u32 rainbowinc = rand() % 600;
+    u32 rainbowinc = (text[0] * 17) % 600;
 
     color |= 0xFF000000;
-    const u32 shadow = 0xC0000000;
+    const u32 shadow = 0xFE000000;
 
     LayoutText(text, &w, &h, breaks);
 
@@ -257,49 +273,89 @@ void RenderText(u32 color, const char* text, Item* item)
     }
 }
 
-void test(u32* berp)
-{
-    Item barp;
-    RenderText(0x000000, "This is a test of OSD, it can display really long messages, like thiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiis. Also, pancakes are the best thing ever.", &barp);
-
-    for (int y = 0; y < barp.Height; y++)
-    {
-        for (int x = 0; x < barp.Width; x++)
-        {
-            u32 src = barp.Bitmap[(y*barp.Width)+x];
-            u32 dst = berp[((y+6)*256)+x+6];
-
-            u32 sR = (src >> 16) & 0xFF;
-            u32 sG = (src >>  8) & 0xFF;
-            u32 sB = (src      ) & 0xFF;
-            u32 sA = (src >> 24) & 0xFF;
-
-            u32 dR = (dst >> 16) & 0xFF;
-            u32 dG = (dst >>  8) & 0xFF;
-            u32 dB = (dst      ) & 0xFF;
-
-            dR = ((sR * sA) + (dR * (255-sA))) >> 8;
-            dG = ((sG * sA) + (dG * (255-sA))) >> 8;
-            dB = ((sB * sA) + (dB * (255-sA))) >> 8;
-
-            dst = (dR << 16) | (dG << 8) | dB;
-
-            berp[((y+6)*256)+x+6] = dst | 0xFF000000;
-        }
-    }
-
-    delete[] barp.Bitmap;
-}
-
 
 void AddMessage(u32 color, const char* text)
 {
-    //
+    Item* item = new Item;
+
+    item->Timestamp = SDL_GetTicks();
+    strncpy(item->Text, text, 255); item->Text[255] = '\0';
+    item->Color = color;
+    item->Bitmap = NULL;
+
+    item->DrawBitmapLoaded = false;
+    item->GLTextureLoaded = false;
+
+    ItemQueue.push_back(item);
 }
 
-void Update(bool opengl)
+void WindowResized(bool opengl)
 {
-    //
+    /*for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
+    {
+        Item* item = *it;
+
+        if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
+        //if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
+
+        item->DrawBitmapLoaded = false;
+        item->GLTextureLoaded = false;
+
+        if (item->Bitmap) delete[] item->Bitmap;
+
+        it++;
+    }*/
+}
+
+void Update(bool opengl, uiAreaDrawParams* params)
+{
+    Uint32 tick_now = SDL_GetTicks();
+    Uint32 tick_min = tick_now - 2500;
+    u32 y = kOSDMargin;
+
+    for (auto it = ItemQueue.begin(); it != ItemQueue.end(); )
+    {
+        Item* item = *it;
+
+        if (item->Timestamp < tick_min)
+        {
+            if (item->DrawBitmapLoaded && item->DrawBitmap) uiDrawFreeBitmap(item->DrawBitmap);
+            if (item->GLTextureLoaded && opengl) glDeleteTextures(1, &item->GLTexture);
+            if (item->Bitmap) delete[] item->Bitmap;
+
+            delete item;
+
+            ItemQueue.erase(it);
+            continue;
+        }
+
+        if (!item->Bitmap)
+        {
+            RenderText(item->Color, item->Text, item);
+        }
+
+        if (opengl)
+        {
+            //
+        }
+        else
+        {
+            if (!item->DrawBitmapLoaded)
+            {
+                item->DrawBitmap = uiDrawNewBitmap(params->Context, item->Width, item->Height, 1);
+                uiDrawBitmapUpdate(item->DrawBitmap, item->Bitmap);
+                item->DrawBitmapLoaded = true;
+            }
+
+            uiRect rc_src = {0, 0, item->Width, item->Height};
+            uiRect rc_dst = {kOSDMargin, y, item->Width, item->Height};
+
+            uiDrawBitmapDraw(params->Context, item->DrawBitmap, &rc_src, &rc_dst, 0);
+        }
+
+        y += item->Height;
+        it++;
+    }
 }
 
 }
