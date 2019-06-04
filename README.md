@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install libpcap0.8-dev libcurl4-gnutls-dev libsdl2-dev gtk+-3.0
+sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
 ```
 
 * Compile:
@@ -47,10 +47,8 @@ sudo apt-get install libpcap0.8-dev libcurl4-gnutls-dev libsdl2-dev gtk+-3.0
 mkdir -p build
 cd build
 cmake ..
-make
+make -j$(nproc --all)
 ```
-
-
 
 ### Windows:
 
@@ -61,7 +59,7 @@ make
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-4. Install dependencies: `pacman -S mingw-w64-x86_64-{toolchain,SDL2,cmake} make git`
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
@@ -69,7 +67,7 @@ make
    mkdir build
    cd build
    cmake .. -G "MSYS Makefiles"
-   make -j5
+   make -j$(nproc --all)
    ../msys-dist.sh
    ```
 
