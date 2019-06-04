@@ -58,7 +58,7 @@ char dskeylabels[12][8] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "
 
 int identity[32] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 
-char hotkeylabels[HK_MAX][32] = {"Close/open lid:", "Microphone:", "Fast Forward:", "Fast Forward (Toggle):"};
+char hotkeylabels[HK_MAX][32] = {"Close/open lid:", "Microphone:", "Fast forward:", "Fast forward (toggle):"};
 
 int openedmask;
 InputDlgData inputdlg[2];
