@@ -253,7 +253,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         return 0;
     }
 
-    return 100;
+    return interval;
 }
 
 
