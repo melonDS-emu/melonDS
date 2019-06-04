@@ -19,22 +19,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="Release Windows">
@@ -46,27 +30,12 @@
 				<Compiler>
 					<Add option="-O3" />
 					<Add option="-m64" />
+					<Add option="-flto" />
 					<Add option="-D_FILE_OFFSET_BITS=64" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 			<Target title="DebugFast Windows">
@@ -82,22 +51,6 @@
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
-					<Add library="SDL2" />
-					<Add library="shell32" />
-					<Add library="comctl32" />
-					<Add library="comdlg32" />
-					<Add library="advapi32" />
-					<Add library="wsock32" />
-					<Add library="oleacc" />
-					<Add library="ole32" />
-					<Add library="usp10" />
-					<Add library="gdi32" />
-					<Add library="d2d1" />
-					<Add library="dwrite" />
-					<Add library="uxtheme" />
-					<Add library="iphlpapi" />
-					<Add library="user32" />
-					<Add library="ws2_32" />
 				</Linker>
 			</Target>
 		</Build>
@@ -107,6 +60,25 @@
 			<Add option="-pipe" />
 			<Add directory="src" />
 		</Compiler>
+		<Linker>
+			<Add library="SDL2" />
+			<Add library="shell32" />
+			<Add library="comctl32" />
+			<Add library="comdlg32" />
+			<Add library="advapi32" />
+			<Add library="wsock32" />
+			<Add library="oleacc" />
+			<Add library="ole32" />
+			<Add library="usp10" />
+			<Add library="gdi32" />
+			<Add library="d2d1" />
+			<Add library="dwrite" />
+			<Add library="uxtheme" />
+			<Add library="iphlpapi" />
+			<Add library="user32" />
+			<Add library="ws2_32" />
+			<Add library="opengl32" />
+		</Linker>
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
@@ -135,11 +107,15 @@
 		<Unit filename="src/GPU2D.h" />
 		<Unit filename="src/GPU3D.cpp" />
 		<Unit filename="src/GPU3D.h" />
+		<Unit filename="src/GPU3D_OpenGL.cpp" />
+		<Unit filename="src/GPU3D_OpenGL_shaders.h" />
 		<Unit filename="src/GPU3D_Soft.cpp" />
 		<Unit filename="src/NDS.cpp" />
 		<Unit filename="src/NDS.h" />
 		<Unit filename="src/NDSCart.cpp" />
 		<Unit filename="src/NDSCart.h" />
+		<Unit filename="src/OpenGLSupport.cpp" />
+		<Unit filename="src/OpenGLSupport.h" />
 		<Unit filename="src/Platform.h" />
 		<Unit filename="src/RTC.cpp" />
 		<Unit filename="src/RTC.h" />
@@ -159,15 +135,20 @@
 		<Unit filename="src/libui_sdl/DlgEmuSettings.h" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.cpp" />
 		<Unit filename="src/libui_sdl/DlgInputConfig.h" />
+		<Unit filename="src/libui_sdl/DlgVideoSettings.cpp" />
+		<Unit filename="src/libui_sdl/DlgVideoSettings.h" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.cpp" />
 		<Unit filename="src/libui_sdl/DlgWifiSettings.h" />
 		<Unit filename="src/libui_sdl/LAN_PCap.cpp" />
 		<Unit filename="src/libui_sdl/LAN_PCap.h" />
 		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
 		<Unit filename="src/libui_sdl/LAN_Socket.h" />
+		<Unit filename="src/libui_sdl/OSD.cpp" />
+		<Unit filename="src/libui_sdl/OSD.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.cpp" />
 		<Unit filename="src/libui_sdl/PlatformConfig.h" />
+		<Unit filename="src/libui_sdl/font.h" />
 		<Unit filename="src/libui_sdl/libui/common/areaevents.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -222,6 +203,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/fontbutton.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/fontdialog.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/form.cpp" />
+		<Unit filename="src/libui_sdl/libui/windows/gl.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/graphemes.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/grid.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/group.cpp" />
@@ -253,6 +235,7 @@
 		<Unit filename="src/libui_sdl/libui/windows/winpublic.cpp" />
 		<Unit filename="src/libui_sdl/libui/windows/winutil.cpp" />
 		<Unit filename="src/libui_sdl/main.cpp" />
+		<Unit filename="src/libui_sdl/main_shaders.h" />
 		<Unit filename="src/pcap/bluetooth.h" />
 		<Unit filename="src/pcap/bpf.h" />
 		<Unit filename="src/pcap/can_socketcan.h" />

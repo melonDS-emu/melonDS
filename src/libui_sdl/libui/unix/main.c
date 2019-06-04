@@ -5,6 +5,25 @@ uiInitOptions options;
 
 // kind of a hack
 GThread* gtkthread;
+GMutex glmutex;
+
+static void _eventfilter(GdkEvent* evt, gpointer data)
+{
+    if (evt->type == GDK_EXPOSE)
+    {
+        g_mutex_lock(&glmutex);
+        gtk_main_do_event(evt);
+        g_mutex_unlock(&glmutex);
+        return;
+    }
+    
+    gtk_main_do_event(evt);
+}
+
+static void _eventfilterdestroy(gpointer data)
+{
+    printf("DELET\n");
+}
 
 const char *uiInit(uiInitOptions *o)
 {
@@ -21,6 +40,7 @@ const char *uiInit(uiInitOptions *o)
 	loadFutures();
 	
 	gtkthread = g_thread_self();
+	g_mutex_init(&glmutex);
 	
 	GList* iconlist = NULL;
 	iconlist = g_list_append(iconlist, gdk_pixbuf_new_from_resource("/org/kuriboland/melonDS/icon/melon_16x16.png", NULL));
@@ -30,6 +50,10 @@ const char *uiInit(uiInitOptions *o)
 	iconlist = g_list_append(iconlist, gdk_pixbuf_new_from_resource("/org/kuriboland/melonDS/icon/melon_128x128.png", NULL));
 	
 	gtk_window_set_default_icon_list(iconlist);
+	
+	g_mutex_init(&glmutex);
+	
+	gdk_event_handler_set(_eventfilter, NULL, _eventfilterdestroy);
 	
 	return NULL;
 }

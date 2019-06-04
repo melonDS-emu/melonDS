@@ -16,36 +16,20 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef OSD_H
+#define OSD_H
 
-#include "types.h"
-
-namespace Config
+namespace OSD
 {
 
-typedef struct
-{
-    char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
+bool Init(bool opengl);
+void DeInit(bool opengl);
 
-} ConfigEntry;
+void AddMessage(u32 color, const char* text);
 
-FILE* GetConfigFile(const char* fileName, const char* permissions);
-bool HasConfigFile(const char* fileName);
-void Load();
-void Save();
-
-extern int _3DRenderer;
-extern int Threaded3D;
-
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+void WindowResized(bool opengl);
+void Update(bool opengl, uiAreaDrawParams* params);
 
 }
 
-#endif // CONFIG_H
+#endif // OSD_H

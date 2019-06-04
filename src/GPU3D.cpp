@@ -22,6 +22,7 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
+#include "Config.h"
 
 
 // 3D engine notes
@@ -156,6 +157,8 @@ u32 NumCommands, CurCommand, ParamCount, TotalParams;
 bool GeometryEnabled;
 bool RenderingEnabled;
 
+int Renderer;
+
 u32 DispCnt;
 u8 AlphaRefVal, AlphaRef;
 
@@ -275,14 +278,16 @@ bool Init()
 
     CmdStallQueue = new FIFO<CmdFIFOEntry>(64);
 
-    if (!SoftRenderer::Init()) return false;
+    Renderer = -1;
+    // SetRenderer() will be called to set it up later
 
     return true;
 }
 
 void DeInit()
 {
-    SoftRenderer::DeInit();
+    if (Renderer == 0) SoftRenderer::DeInit();
+    else               GLRenderer::DeInit();
 
     delete CmdFIFO;
     delete CmdPIPE;
@@ -382,7 +387,8 @@ void Reset()
     FlushAttributes = 0;
 
     ResetRenderingState();
-    SoftRenderer::Reset();
+    if (Renderer == 0) SoftRenderer::Reset();
+    else               GLRenderer::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -602,6 +608,43 @@ void SetEnabled(bool geometry, bool rendering)
     RenderingEnabled = rendering;
 
     if (!rendering) ResetRenderingState();
+}
+
+
+int InitRenderer(bool hasGL)
+{
+    int renderer = hasGL ? Config::_3DRenderer : 0;
+
+    if (renderer == 1)
+    {
+        if (!GLRenderer::Init())
+            renderer = 0;
+    }
+
+    if (renderer == 0) SoftRenderer::Init();
+
+    Renderer = renderer;
+    UpdateRendererConfig();
+    GPU::SetDisplaySettings(Renderer != 0);
+    return renderer;
+}
+
+void DeInitRenderer()
+{
+    if (Renderer == 0) SoftRenderer::DeInit();
+    else               GLRenderer::DeInit();
+}
+
+void UpdateRendererConfig()
+{
+    if (Renderer == 0)
+    {
+        SoftRenderer::SetupRenderThread();
+    }
+    else
+    {
+        GLRenderer::UpdateDisplaySettings();
+    }
 }
 
 
@@ -1190,6 +1233,16 @@ void SubmitPolygon()
 
         vtx->FinalPosition[0] = posX & 0x1FF;
         vtx->FinalPosition[1] = posY & 0xFF;
+
+        // hi-res positions
+        if (w != 0)
+        {
+            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
+            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
+
+            vtx->HiresPosition[0] = posX & 0x1FFF;
+            vtx->HiresPosition[1] = posY & 0xFFF;
+        }
 
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
@@ -2331,7 +2384,7 @@ void CheckFIFODMA()
 
 void VCount144()
 {
-    SoftRenderer::VCount144();
+    if (Renderer == 0) SoftRenderer::VCount144();
 }
 
 
@@ -2413,17 +2466,14 @@ void VBlank()
 
 void VCount215()
 {
-    SoftRenderer::RenderFrame();
-}
-
-void RequestLine(int line)
-{
-    return SoftRenderer::RequestLine(line);
+    if (Renderer == 0) SoftRenderer::RenderFrame();
+    else               GLRenderer::RenderFrame();
 }
 
 u32* GetLine(int line)
 {
-    return SoftRenderer::GetLine(line);
+    if (Renderer == 0) return SoftRenderer::GetLine(line);
+    else               return GLRenderer::GetLine(line);
 }
 
 

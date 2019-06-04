@@ -6,6 +6,13 @@ static HRESULT doPaint(uiArea *a, ID2D1RenderTarget *rt, RECT *clip)
 {
 	uiAreaHandler *ah = a->ah;
 	uiAreaDrawParams dp;
+
+	if (a->openGL)
+    {
+        //(*(ah->Draw))(ah, a, &dp);
+        return S_OK;
+    }
+
 	COLORREF bgcolorref;
 	D2D1_COLOR_F bgcolor;
 	D2D1_MATRIX_3X2_F scrollTransform;
@@ -13,7 +20,7 @@ static HRESULT doPaint(uiArea *a, ID2D1RenderTarget *rt, RECT *clip)
 	// no need to save or restore the graphics state to reset transformations;  it's handled by resetTarget() in draw.c, called during the following
 	dp.Context = newContext(rt);
 
-	loadAreaSize(a, rt, &(dp.AreaWidth), &(dp.AreaHeight));
+	loadAreaSize(a, &(dp.AreaWidth), &(dp.AreaHeight));
 
 	dp.ClipX = clip->left;
 	dp.ClipY = clip->top;
@@ -113,6 +120,9 @@ static void onWM_PAINT(uiArea *a)
 
 static void onWM_PRINTCLIENT(uiArea *a, HDC dc)
 {
+    // TODO????
+    if (a->openGL) return;
+
 	ID2D1DCRenderTarget *rt;
 	RECT client;
 	HRESULT hr;
@@ -143,13 +153,16 @@ BOOL areaDoDraw(uiArea *a, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT *lRe
 // TODO only if the render target wasn't just created?
 void areaDrawOnResize(uiArea *a, RECT *newClient)
 {
-	D2D1_SIZE_U size;
+    if (!a->openGL)
+    {
+        D2D1_SIZE_U size;
 
-	size.width = newClient->right - newClient->left;
-	size.height = newClient->bottom - newClient->top;
-	// don't track the error; we'll get that in EndDraw()
-	// see https://msdn.microsoft.com/en-us/library/windows/desktop/dd370994%28v=vs.85%29.aspx
-	a->rt->Resize(&size);
+        size.width = newClient->right - newClient->left;
+        size.height = newClient->bottom - newClient->top;
+        // don't track the error; we'll get that in EndDraw()
+        // see https://msdn.microsoft.com/en-us/library/windows/desktop/dd370994%28v=vs.85%29.aspx
+        a->rt->Resize(&size);
+    }
 
 	// according to Rick Brewster, we must always redraw the entire client area after calling ID2D1RenderTarget::Resize() (see http://stackoverflow.com/a/33222983/3408572)
 	// we used to have a uiAreaHandler.RedrawOnResize() method to decide this; now you know why we don't anymore

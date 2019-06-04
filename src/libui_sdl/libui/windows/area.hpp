@@ -10,6 +10,8 @@ struct uiArea {
 	HWND hwnd;
 	uiAreaHandler *ah;
 
+	int width, height;
+
 	BOOL scrolling;
 	int scrollWidth;
 	int scrollHeight;
@@ -25,6 +27,9 @@ struct uiArea {
 	BOOL tracking;
 
 	int bgR, bgG, bgB;
+
+	int openGL;
+	uiGLContext* glcontext;
 
 	ID2D1HwndRenderTarget *rt;
 };
@@ -42,6 +47,10 @@ extern void areaUpdateScroll(uiArea *a);
 extern BOOL areaDoEvents(uiArea *a, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT *lResult);
 
 // areautil.cpp
-extern void loadAreaSize(uiArea *a, ID2D1RenderTarget *rt, double *width, double *height);
+extern void loadAreaSize(uiArea *a, double *width, double *height);
 extern void pixelsToDIP(uiArea *a, double *x, double *y);
 extern void dipToPixels(uiArea *a, double *x, double *y);
+
+// gl.cpp
+extern uiGLContext* createGLContext(uiArea* a, int vermajor, int verminor);
+extern void freeGLContext(uiGLContext* c);

@@ -5,7 +5,7 @@
 #define GDK_VERSION_MAX_ALLOWED GDK_VERSION_3_10
 #include <gtk/gtk.h>
 #include <math.h>
-#include <dlfcn.h>		// see drawtext.c
+#include <dlfcn.h>		// see drawtext.c, gl.c
 #include <langinfo.h>
 #include <string.h>
 #include <stdlib.h>
@@ -63,3 +63,9 @@ extern GtkCellRenderer *newCellRendererButton(void);
 extern void loadFutures(void);
 extern PangoAttribute *FUTURE_pango_attr_foreground_alpha_new(guint16 alpha);
 extern gboolean FUTURE_gtk_widget_path_iter_set_object_name(GtkWidgetPath *path, gint pos, const char *name);
+
+// gl.c
+extern uiGLContext *createGLContext(GtkWidget* widget, int maj, int min);
+extern void freeGLContext(uiGLContext* glctx);
+extern void areaDrawGL(GtkWidget* widget, uiAreaDrawParams* dp, cairo_t* cr, uiGLContext* glctx);
+

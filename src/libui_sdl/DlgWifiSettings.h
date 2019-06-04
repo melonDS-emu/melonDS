@@ -23,6 +23,7 @@ namespace DlgWifiSettings
 {
 
 void Open();
+void Close();
 
 }
 

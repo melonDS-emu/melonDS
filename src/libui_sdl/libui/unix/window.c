@@ -102,6 +102,23 @@ static void uiWindowDestroy(uiControl *c)
 	uiFreeControl(uiControl(w));
 }
 
+void uiWindowSetPosition(uiWindow *w, int x, int y)
+{
+	if (!w) return;
+
+	gtk_window_move(w->window, x, y);
+}
+
+void uiWindowPosition(uiWindow *w, int *x, int *y)
+{
+	if (!w) return;
+
+	int xx, yy;
+	gtk_window_get_position(w->window, &xx, &yy);
+	if (x) *x = xx;
+	if (y) *y = yy;
+}
+
 uiUnixControlDefaultHandle(uiWindow)
 
 uiControl *uiWindowParent(uiControl *c)
@@ -442,3 +459,4 @@ uiWindow *uiNewWindow(const char *title, int width, int height, int maximized, i
 
 	return w;
 }
+

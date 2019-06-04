@@ -13,9 +13,11 @@ add_library(core STATIC
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp
+	GPU3D_OpenGL.cpp
 	GPU3D_Soft.cpp
 	NDS.cpp
 	NDSCart.cpp
+	OpenGLSupport.cpp
 	RTC.cpp
 	Savestate.cpp
 	SPI.cpp
@@ -25,5 +27,7 @@ add_library(core STATIC
 )
 
 if (WIN32)
-	target_link_libraries(core ole32 comctl32 ws2_32)
+	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
+else()
+	target_link_libraries(core GL EGL)
 endif()

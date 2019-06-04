@@ -24,6 +24,7 @@
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
+#include "libui/ui.h"
 #include <string>
 
 #ifdef __WIN32__
@@ -166,7 +167,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         int len = emudirlen + 1 + pathlen + 1;
         emudirpath = new char[len];
         strncpy(&emudirpath[0], EmuDirectory, emudirlen);
-        emudirpath[emudirlen] = '\\';
+        emudirpath[emudirlen] = '/';
         strncpy(&emudirpath[emudirlen+1], path, pathlen);
         emudirpath[emudirlen+1+pathlen] = '\0';
     }
@@ -299,6 +300,12 @@ void Semaphore_Wait(void* sema)
 void Semaphore_Post(void* sema)
 {
     SDL_SemPost((SDL_sem*)sema);
+}
+
+
+void* GL_GetProcAddress(const char* proc)
+{
+    return uiGLGetProcAddress(proc);
 }
 
 

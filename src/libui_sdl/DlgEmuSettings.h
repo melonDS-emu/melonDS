@@ -23,6 +23,7 @@ namespace DlgEmuSettings
 {
 
 void Open();
+void Close();
 
 }
 

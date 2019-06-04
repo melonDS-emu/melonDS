@@ -43,6 +43,7 @@ list(APPEND _LIBUI_SOURCES
 	unix/text.c
 	unix/util.c
 	unix/window.c
+	unix/gl.c
 )
 set(_LIBUI_SOURCES ${_LIBUI_SOURCES} PARENT_SCOPE)
 
@@ -62,6 +63,7 @@ macro(_handle_static)
 	set(_oname libui-combined.o)
 	add_custom_command(
 		OUTPUT ${_oname}
+		DEPENDS ${_LIBUINAME}
 		COMMAND
 			ld -r --whole-archive ${_aname} -o ${_oname}
 		COMMAND

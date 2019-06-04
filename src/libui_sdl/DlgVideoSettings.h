@@ -16,36 +16,15 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef DLGVIDEOSETTINGS_H
+#define DLGVIDEOSETTINGS_H
 
-#include "types.h"
-
-namespace Config
+namespace DlgVideoSettings
 {
 
-typedef struct
-{
-    char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
-
-} ConfigEntry;
-
-FILE* GetConfigFile(const char* fileName, const char* permissions);
-bool HasConfigFile(const char* fileName);
-void Load();
-void Save();
-
-extern int _3DRenderer;
-extern int Threaded3D;
-
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+void Open();
+void Close();
 
 }
 
-#endif // CONFIG_H
+#endif // DLGVIDEOSETTINGS_H
