@@ -88,7 +88,7 @@ ConfigEntry PlatformConfigFile[] =
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
 
-    {"HKKey_Lid",  0, &HKKeyMapping[HK_Lid], 0x0E, NULL, 0},
+    {"HKKey_Lid",  0, &HKKeyMapping[HK_Lid], 0x0D, NULL, 0},
     {"HKKey_Mic",  0, &HKKeyMapping[HK_Mic], 0x35, NULL, 0},
 
     {"HKJoy_Lid",  0, &HKJoyMapping[HK_Lid], -1, NULL, 0},
