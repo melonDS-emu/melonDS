@@ -159,6 +159,7 @@ s16* MicWavBuffer;
 
 u32 MicCommand;
 
+bool HotkeyFPSToggle = false;
 
 void SetupScreenRects(int width, int height);
 
@@ -838,6 +839,27 @@ int EmuThreadFunc(void* burp)
                     HotkeyMask |= 0x1;
                 }
 
+                if (JoyButtonPressed(Config::HKJoyMapping[HK_FastForwardToggle], njoybuttons, joybuttons, joyhat))
+                {
+                    HotkeyFPSToggle = !HotkeyFPSToggle;
+                    Config::LimitFPS = !Config::LimitFPS;
+                    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+                }
+
+                if (!HotkeyFPSToggle)   // For fast forward (hold) hotkey
+                {
+                    if (JoyButtonHeld(Config::HKJoyMapping[HK_FastForward], njoybuttons, joybuttons, joyhat))
+                    {
+                        Config::LimitFPS = false;
+                        uiMenuItemSetChecked(MenuItem_LimitFPS, false);
+                    }
+                    else if (!Config::LimitFPS)
+                    {
+                        Config::LimitFPS = true;
+                        uiMenuItemSetChecked(MenuItem_LimitFPS, true);
+                    }
+                }
+
                 if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
                     MicCommand |= 2;
                 else
@@ -1126,6 +1148,19 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand &= ~1;
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForwardToggle])
+        {
+            HotkeyFPSToggle = !HotkeyFPSToggle;
+            Config::LimitFPS = !Config::LimitFPS;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
+        {
+            Config::LimitFPS = true;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
     }
     else if (!evt->Repeat)
     {
@@ -1156,6 +1191,12 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
         if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
             MicCommand |= 1;
+
+        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
+        {
+            Config::LimitFPS = false;
+            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+        }
 
         if (evt->Scancode == 0x57) // F11
             OSD::AddMessage(0x00FFFF, "OSD test");
@@ -2079,6 +2120,7 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     int chk = uiMenuItemChecked(item);
     if (chk != 0) Config::LimitFPS = true;
     else          Config::LimitFPS = false;
+    HotkeyFPSToggle = !Config::LimitFPS; // ensure that the hotkey toggle indicator is synced with this menu item
 }
 
 void ApplyNewSettings(int type)
@@ -2307,6 +2349,7 @@ void CreateMainWindowMenu()
 
         uiMenuAppendSubmenu(menu, submenu);
     }
+
     MenuItem_ScreenFilter = uiMenuAppendCheckItem(menu, "Screen filtering");
     uiMenuItemOnClicked(MenuItem_ScreenFilter, OnSetScreenFiltering, NULL);
 
