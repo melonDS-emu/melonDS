@@ -49,6 +49,7 @@ typedef struct
 
     int pollid;
     uiButton* pollbtn;
+    SDL_TimerID timer;
 
 } InputDlgData;
 
@@ -204,14 +205,27 @@ Uint32 JoyPoll(Uint32 interval, void* param)
 {
     InputDlgData* dlg = (InputDlgData*)param;
 
-    if (dlg->pollid < 0x100) return 0;
+    if (dlg->pollid < 0x100)
+    {
+        dlg->timer = 0;
+        return 0;
+    }
+
     int id = dlg->pollid & 0xFF;
-    if (id > 12) return 0;
+    if (id > 12)
+    {
+        dlg->timer = 0;
+        return 0;
+    }
 
     SDL_JoystickUpdate();
 
     SDL_Joystick* joy = Joystick;
-    if (!joy) return 0;
+    if (!joy)
+    {
+        dlg->timer = 0;
+        return 0;
+    }
 
     int nbuttons = SDL_JoystickNumButtons(joy);
     for (int i = 0; i < nbuttons; i++)
@@ -220,6 +234,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         {
             dlg->joymap[id] = i;
             uiQueueMain(FinishJoyMapping, dlg);
+            dlg->timer = 0;
             return 0;
         }
     }
@@ -234,6 +249,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
 
         dlg->joymap[id] = 0x100 | blackhat;
         uiQueueMain(FinishJoyMapping, dlg);
+        dlg->timer = 0;
         return 0;
     }
 
@@ -282,7 +298,7 @@ void OnJoyStartConfig(uiButton* btn, void* data)
     uiButtonSetText(btn, "[press button]");
     uiControlDisable(uiControl(btn));
 
-    SDL_AddTimer(100, JoyPoll, dlg);
+    dlg->timer = SDL_AddTimer(100, JoyPoll, dlg);
     uiControlSetFocus(uiControl(dlg->keypresscatcher));
 }
 
@@ -291,6 +307,7 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 {
     InputDlgData* dlg = (InputDlgData*)(uiControl(window)->UserData);
     openedmask &= ~(1 << dlg->type);
+    if (dlg->timer) SDL_RemoveTimer(dlg->timer);
     return 1;
 }
 
@@ -312,6 +329,7 @@ void OnCancel(uiButton* btn, void* data)
 
     uiControlDestroy(uiControl(dlg->win));
     openedmask &= ~(1 << dlg->type);
+    if (dlg->timer) SDL_RemoveTimer(dlg->timer);
 }
 
 void OnOk(uiButton* btn, void* data)
@@ -333,6 +351,7 @@ void OnOk(uiButton* btn, void* data)
 
     uiControlDestroy(uiControl(dlg->win));
     openedmask &= ~(1 << dlg->type);
+    if (dlg->timer) SDL_RemoveTimer(dlg->timer);
 }
 
 void Open(int type)
@@ -350,6 +369,7 @@ void Open(int type)
 
     dlg->type = type;
     dlg->pollid = -1;
+    dlg->timer = 0;
 
     if (type == 0)
     {
@@ -475,6 +495,7 @@ void Close(int type)
         uiControlDestroy(uiControl(inputdlg[type].win));
 
     openedmask &= ~(1<<type);
+    if (inputdlg[type].timer) SDL_RemoveTimer(inputdlg[type].timer);
 }
 
 }
