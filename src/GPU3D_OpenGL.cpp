@@ -398,7 +398,6 @@ void DeInit()
 
 void Reset()
 {
-    UpdateDisplaySettings();
 }
 
 void UpdateDisplaySettings()
