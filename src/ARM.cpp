@@ -83,6 +83,8 @@ void ARM::Reset()
     Cycles = 0;
     Halted = 0;
 
+    IRQ = 0;
+
     for (int i = 0; i < 16; i++)
         R[i] = 0;
 
@@ -173,23 +175,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    // R0=DMA# R1=src R2=size
-    //if (addr==0x02019A88) printf("[%08X] [%03d] GX FIFO CMD %08X\n", R[15], NDS::ARM9Read16(0x04000006), R[0]);
-    //if (addr==0x02022A5C) printf("[%08X] [%03d|%04X] RENDE SHITO %08X\n", R[15], NDS::ARM9Read16(0x04000006), NDS::ARM9Read16(0x04000304), R[0]);
-    /*if (addr==0x0204BE29) printf("%08X -> recvfrom\n", R[15]);
-    if (R[15]==0x0204BE5E) printf("recvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
-    if (R[15]==0x0205038A) printf("sgrecvfrom() ret:%d errno:%d  %08X\n", R[0], NDS::ARM9Read32(0x217F398), addr);
-    if (addr==0x02050379 || addr==0x0205036D) printf("morp %08X->%08X, %d\n", R[15], addr, R[7]);*/
-    /*if (addr==0x020B5F14) printf("VRAM UNMAP %02X %08X\n", R[0], R[15]);
-    if (addr==0x020B5FAC) printf("VRAM MAP %2X %08X\n", R[0], R[15]);
-    if (addr==0x0209F860) printf("VRAM BLORP %02X %08X\n", R[0], R[15]);
-    if (addr==0x02005A34) printf("VAZAVAZORP %08X. VCOUNT=%d\n", R[15], NDS::ARM9Read16(0x04000006));
-    if (addr==0x0209FBEC) printf("COUILLON. %08X %08X\n", R[0], R[1]);
-    if (addr==0x02004AA8) printf("ANEBATE 1  %d\n", NDS::ARM9Read16(0x04000006));
-    if (addr==0x020058C8) printf("ANEBATE 2  %d\n", NDS::ARM9Read16(0x04000006));
-    if (addr==0x02005398) printf("ANEBATE 3  %d  %d\n", NDS::ARM9Read16(0x04000006), (u32)(NDS::ARM9Timestamp-vbltime));
-    if (addr==0x02005A5C) printf("PLAFORP %d\n", NDS::ARM9Read16(0x04000006));
-    if (addr==0x209FBDC) printf("ROLOLORP\n");*/
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -518,8 +503,6 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
-
-            //if (R[15]>=0x02005A5C && R[15]<=0x02005A84) printf("NORP %08X  %d\n", R[15]-8, NDS::ARM9Read16(0x04000006));
         }
 
         // TODO optimize this shit!!!
@@ -531,11 +514,12 @@ void ARMv5::Execute()
             }
             break;
         }
-        if (NDS::IF[0] & NDS::IE[0])
+        /*if (NDS::IF[0] & NDS::IE[0])
         {
             if (NDS::IME[0] & 0x1)
                 TriggerIRQ();
-        }
+        }*/
+        if (IRQ) TriggerIRQ();
 
         NDS::ARM9Timestamp += Cycles;
         Cycles = 0;
@@ -607,11 +591,12 @@ void ARMv4::Execute()
             }
             break;
         }
-        if (NDS::IF[1] & NDS::IE[1])
+        /*if (NDS::IF[1] & NDS::IE[1])
         {
             if (NDS::IME[1] & 0x1)
                 TriggerIRQ();
-        }
+        }*/
+        if (IRQ) TriggerIRQ();
 
         NDS::ARM7Timestamp += Cycles;
         Cycles = 0;

@@ -1044,14 +1044,30 @@ void SetGBASlotTimings()
 }
 
 
+void UpdateIRQ(u32 cpu)
+{
+    ARM* arm = cpu ? (ARM*)ARM7 : (ARM*)ARM9;
+
+    if (IME[cpu] & 0x1)
+    {
+        arm->IRQ = IE[cpu] & IF[cpu];
+    }
+    else
+    {
+        arm->IRQ = 0;
+    }
+}
+
 void SetIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] |= (1 << irq);
+    UpdateIRQ(cpu);
 }
 
 void ClearIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] &= ~(1 << irq);
+    UpdateIRQ(cpu);
 }
 
 bool HaltInterrupted(u32 cpu)
@@ -2599,7 +2615,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x040001AE: NDSCart::ROMCommand[6] = val; return;
     case 0x040001AF: NDSCart::ROMCommand[7] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
 
     case 0x04000240: GPU::MapVRAM_AB(0, val); return;
     case 0x04000241: GPU::MapVRAM_AB(1, val); return;
@@ -2739,9 +2755,9 @@ void ARM9IOWrite16(u32 addr, u16 val)
         SetGBASlotTimings();
         return;
 
-    case 0x04000208: IME[0] = val & 0x1; return;
-    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; return;
-    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
+    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
+    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0); return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000240:
@@ -2894,9 +2910,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; return;
-    case 0x04000210: IE[0] = val; return;
-    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
+    case 0x04000210: IE[0] = val; UpdateIRQ(0); return;
+    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0); return;
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);
@@ -3211,7 +3227,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         SPI::WriteData(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
 
     case 0x04000300:
         if (ARM7->R[15] >= 0x4000)
@@ -3333,9 +3349,9 @@ void ARM7IOWrite16(u32 addr, u16 val)
         SetWifiWaitCnt(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; return;
-    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; return;
-    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
+    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; UpdateIRQ(1); return;
+    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); UpdateIRQ(1); return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
@@ -3445,9 +3461,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
 
-    case 0x04000208: IME[1] = val & 0x1; return;
-    case 0x04000210: IE[1] = val; return;
-    case 0x04000214: IF[1] &= ~val; return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
+    case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
+    case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)

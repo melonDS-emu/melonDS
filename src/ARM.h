@@ -51,16 +51,6 @@ public:
         Halted = halt;
     }
 
-    // TODO: is this actually used??
-    void CheckIRQ()
-    {
-        if (!(NDS::IME[Num] & 0x1)) return;
-        if (NDS::IF[Num] & NDS::IE[Num])
-        {
-            TriggerIRQ();
-        }
-    }
-
     virtual void Execute() = 0;
 
     bool CheckCondition(u32 code)
@@ -118,6 +108,8 @@ public:
 
     s32 Cycles;
     u32 Halted;
+
+    u32 IRQ; // nonzero to trigger IRQ
 
     u32 CodeRegion;
     s32 CodeCycles;
