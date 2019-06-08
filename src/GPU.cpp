@@ -150,7 +150,7 @@ void Reset()
 
     VRAMMap_ARM7[0] = 0;
     VRAMMap_ARM7[1] = 0;
-printf("RESET: ACCEL=%d FRAMEBUFFER=%p\n", Accelerated, Framebuffer[0][0]);
+
     int fbsize;
     if (Accelerated) fbsize = (256*3 + 1) * 192;
     else             fbsize = 256 * 192;
