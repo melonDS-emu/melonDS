@@ -987,6 +987,9 @@ void RenderFrame()
 {
     CurShaderID = -1;
 
+    if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
+    else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
     ShaderConfig.uDispCnt = RenderDispCnt;
@@ -1079,9 +1082,6 @@ void RenderFrame()
     glEnable(GL_STENCIL_TEST);
 
     glViewport(0, 0, ScreenW, ScreenH);
-
-    if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

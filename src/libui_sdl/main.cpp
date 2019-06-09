@@ -289,6 +289,8 @@ void GLScreen_DrawScreen()
 {
     float scale = uiGLGetFramebufferScale(GLContext);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
+
     if (GL_ScreenSizeDirty)
     {
         GL_ScreenSizeDirty = false;
@@ -423,8 +425,6 @@ void GLScreen_DrawScreen()
         OpenGL_UseShaderProgram(GL_ScreenShader);
     else
         OpenGL_UseShaderProgram(GL_ScreenShaderAccel);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -2151,26 +2151,17 @@ void ApplyNewSettings(int type)
         bool usegl = Config::ScreenUseGL || (Config::_3DRenderer != 0);
         if (usegl != Screen_UseGL)
         {
-            if (RunningSomething)
-            {
-                if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
-                GPU3D::DeInitRenderer();
-                if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
-            }
-
             if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+            GPU3D::DeInitRenderer();
             OSD::DeInit(Screen_UseGL);
             if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
             Screen_UseGL = usegl;
             RecreateMainWindow(usegl);
 
-            if (RunningSomething)
-            {
-                if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
-                GPU3D::InitRenderer(Screen_UseGL);
-                if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
-            }
+            if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
+            GPU3D::InitRenderer(Screen_UseGL);
+            if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
         }
     }
     else if (type == 3) // 3D renderer
