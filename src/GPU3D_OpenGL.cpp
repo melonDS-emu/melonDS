@@ -735,6 +735,8 @@ void RenderSceneChunk(int y, int h)
     }
 
     glEnable(GL_BLEND);
+    glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
+
     if (RenderDispCnt & (1<<3))
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     else
@@ -923,6 +925,9 @@ void RenderSceneChunk(int y, int h)
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
+        glEnable(GL_BLEND);
+        glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+
         glDepthFunc(GL_ALWAYS);
         glDepthMask(GL_FALSE);
         glStencilFunc(GL_ALWAYS, 0, 0);
@@ -944,7 +949,6 @@ void RenderSceneChunk(int y, int h)
 
             glUseProgram(FinalPassEdgeShader[2]);
 
-            glEnable(GL_BLEND);
             glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
 
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
@@ -956,7 +960,6 @@ void RenderSceneChunk(int y, int h)
 
             glUseProgram(FinalPassFogShader[2]);
 
-            glEnable(GL_BLEND);
             if (RenderDispCnt & (1<<6))
                 glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
             else
