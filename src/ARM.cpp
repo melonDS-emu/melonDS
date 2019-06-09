@@ -161,7 +161,7 @@ void ARM::SetupCodeMem(u32 addr)
         //NDS::ARM7GetMemRegion(addr, false, &CodeMem);
     }
 }
-extern u64 vbltime;
+
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
     if (restorecpsr)
