@@ -39,6 +39,7 @@ enum
     RenderFlag_WBuffer     = 0x01,
     RenderFlag_Trans       = 0x02,
     RenderFlag_ShadowMask  = 0x04,
+    RenderFlag_Edge        = 0x08,
 };
 
 
@@ -47,7 +48,8 @@ GLuint ClearShaderPlain[3];
 GLuint RenderShader[16][3];
 GLuint CurShaderID = -1;
 
-GLuint FinalPassShader[3];
+GLuint FinalPassEdgeShader[3];
+GLuint FinalPassFogShader[3];
 
 struct
 {
@@ -220,6 +222,10 @@ bool Init()
                            kRenderVS_Z, kRenderFS_ZO)) return false;
     if (!BuildRenderShader(RenderFlag_WBuffer,
                            kRenderVS_W, kRenderFS_WO)) return false;
+    if (!BuildRenderShader(RenderFlag_Edge,
+                           kRenderVS_Z, kRenderFS_ZE)) return false;
+    if (!BuildRenderShader(RenderFlag_Edge | RenderFlag_WBuffer,
+                           kRenderVS_W, kRenderFS_WE)) return false;
     if (!BuildRenderShader(RenderFlag_Trans,
                            kRenderVS_Z, kRenderFS_ZT)) return false;
     if (!BuildRenderShader(RenderFlag_Trans | RenderFlag_WBuffer,
@@ -230,23 +236,41 @@ bool Init()
                            kRenderVS_W, kRenderFS_WSM)) return false;
 
 
-    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassFS, FinalPassShader, "FinalPassShader"))
+    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassEdgeFS, FinalPassEdgeShader, "FinalPassEdgeShader"))
+        return false;
+    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassFogFS, FinalPassFogShader, "FinalPassFogShader"))
         return false;
 
-    glBindAttribLocation(FinalPassShader[2], 0, "vPosition");
-    glBindFragDataLocation(FinalPassShader[2], 0, "oColor");
+    glBindAttribLocation(FinalPassEdgeShader[2], 0, "vPosition");
+    glBindFragDataLocation(FinalPassEdgeShader[2], 0, "oColor");
 
-    if (!OpenGL_LinkShaderProgram(FinalPassShader))
+    if (!OpenGL_LinkShaderProgram(FinalPassEdgeShader))
         return false;
 
-    uni_id = glGetUniformBlockIndex(FinalPassShader[2], "uConfig");
-    glUniformBlockBinding(FinalPassShader[2], uni_id, 0);
+    uni_id = glGetUniformBlockIndex(FinalPassEdgeShader[2], "uConfig");
+    glUniformBlockBinding(FinalPassEdgeShader[2], uni_id, 0);
 
-    glUseProgram(FinalPassShader[2]);
+    glUseProgram(FinalPassEdgeShader[2]);
 
-    uni_id = glGetUniformLocation(FinalPassShader[2], "DepthBuffer");
+    uni_id = glGetUniformLocation(FinalPassEdgeShader[2], "DepthBuffer");
     glUniform1i(uni_id, 0);
-    uni_id = glGetUniformLocation(FinalPassShader[2], "AttrBuffer");
+    uni_id = glGetUniformLocation(FinalPassEdgeShader[2], "AttrBuffer");
+    glUniform1i(uni_id, 1);
+
+    glBindAttribLocation(FinalPassFogShader[2], 0, "vPosition");
+    glBindFragDataLocation(FinalPassFogShader[2], 0, "oColor");
+
+    if (!OpenGL_LinkShaderProgram(FinalPassFogShader))
+        return false;
+
+    uni_id = glGetUniformBlockIndex(FinalPassFogShader[2], "uConfig");
+    glUniformBlockBinding(FinalPassFogShader[2], uni_id, 0);
+
+    glUseProgram(FinalPassFogShader[2]);
+
+    uni_id = glGetUniformLocation(FinalPassFogShader[2], "DepthBuffer");
+    glUniform1i(uni_id, 0);
+    uni_id = glGetUniformLocation(FinalPassFogShader[2], "AttrBuffer");
     glUniform1i(uni_id, 1);
 
 
@@ -452,7 +476,7 @@ void UpdateDisplaySettings()
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
-    //glLineWidth(scale);
+    glLineWidth(scale);
 }
 
 
@@ -580,13 +604,17 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         rp->EdgeIndices = eiptr;
         rp->NumEdgeIndices = 0;
 
+        u32 vidx_cur = vidx_first;
         for (int j = 1; j < poly->NumVertices; j++)
         {
-            *eiptr++ = vidx_first;
-            *eiptr++ = vidx_first + 1;
-            vidx_first++;
+            *eiptr++ = vidx_cur;
+            *eiptr++ = vidx_cur + 1;
+            vidx_cur++;
             rp->NumEdgeIndices += 2;
         }
+        *eiptr++ = vidx_cur;
+        *eiptr++ = vidx_first;
+        rp->NumEdgeIndices += 2;
     }
 
     NumTriangles = numtriangles;
@@ -620,15 +648,17 @@ int RenderPolygonBatch(int i)
     return numpolys;
 }
 
-int RenderPolygonEdges()
+int RenderPolygonEdgeBatch(int i)
 {
-    RendererPolygon* rp = &PolygonList[0];
+    RendererPolygon* rp = &PolygonList[i];
+    u32 key = rp->RenderKey;
     int numpolys = 0;
     u32 numindices = 0;
 
-    for (int iend = 0; iend < NumOpaqueFinalPolys; iend++)
+    for (int iend = i; iend < NumFinalPolys; iend++)
     {
         RendererPolygon* cur_rp = &PolygonList[iend];
+        if (cur_rp->RenderKey != key) break;
 
         numpolys++;
         numindices += cur_rp->NumEdgeIndices;
@@ -651,7 +681,7 @@ void RenderSceneChunk(int y, int h)
 
     UseRenderShader(flags);
 
-    glColorMaski(1, GL_TRUE, GL_FALSE, fogenable, GL_FALSE);
+    glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
 
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
@@ -675,6 +705,33 @@ void RenderSceneChunk(int y, int h)
         glStencilMask(0xFF);
 
         i += RenderPolygonBatch(i);
+    }
+
+    // if edge marking is enabled, mark all opaque edges
+    if (RenderDispCnt & (1<<5))
+    {
+        UseRenderShader(flags | RenderFlag_Edge);
+
+        glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
+
+        glDepthFunc(GL_ALWAYS);
+        glDepthMask(GL_FALSE);
+
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        glStencilMask(0);
+
+        for (int i = 0; i < NumFinalPolys; )
+        {
+            RendererPolygon* rp = &PolygonList[i];
+
+            if (rp->PolyData->IsShadowMask) { i++; continue; }
+
+            i += RenderPolygonEdgeBatch(i);
+        }
+
+        glDepthMask(GL_TRUE);
     }
 
     glEnable(GL_BLEND);
@@ -863,23 +920,8 @@ void RenderSceneChunk(int y, int h)
 
     if (RenderDispCnt & 0x00A0) // fog/edge enabled
     {
-        glUseProgram(FinalPassShader[2]);
-
-        glEnable(GL_BLEND);
-        if (RenderDispCnt & (1<<6))
-            glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-        else
-            glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-
-        {
-            u32 c = RenderFogColor;
-            u32 r = c & 0x1F;
-            u32 g = (c >> 5) & 0x1F;
-            u32 b = (c >> 10) & 0x1F;
-            u32 a = (c >> 16) & 0x1F;
-
-            glBlendColor((float)b/31.0, (float)g/31.0, (float)r/31.0, (float)a/31.0);
-        }
+        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glColorMaski(1, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
         glDepthFunc(GL_ALWAYS);
         glDepthMask(GL_FALSE);
@@ -894,7 +936,44 @@ void RenderSceneChunk(int y, int h)
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
-        glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+        if (RenderDispCnt & (1<<5))
+        {
+            // edge marking
+            // TODO: depth/polyid values at screen edges
+
+            glUseProgram(FinalPassEdgeShader[2]);
+
+            glEnable(GL_BLEND);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        }
+
+        if (RenderDispCnt & (1<<7))
+        {
+            // fog
+
+            glUseProgram(FinalPassFogShader[2]);
+
+            glEnable(GL_BLEND);
+            if (RenderDispCnt & (1<<6))
+                glBlendFuncSeparate(GL_ZERO, GL_ONE, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+            else
+                glBlendFuncSeparate(GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_SRC_ALPHA);
+
+            {
+                u32 c = RenderFogColor;
+                u32 r = c & 0x1F;
+                u32 g = (c >> 5) & 0x1F;
+                u32 b = (c >> 10) & 0x1F;
+                u32 a = (c >> 16) & 0x1F;
+
+                glBlendColor((float)b/31.0, (float)g/31.0, (float)r/31.0, (float)a/31.0);
+            }
+
+            glDrawArrays(GL_TRIANGLES, 0, 2*3);
+        }
 
         glFlush();
     }

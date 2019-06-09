@@ -67,7 +67,77 @@ void main()
 }
 )";
 
-const char* kFinalPassFS = kShaderHeader R"(
+const char* kFinalPassEdgeFS = kShaderHeader R"(
+
+uniform sampler2D DepthBuffer;
+uniform sampler2D AttrBuffer;
+
+layout(std140) uniform uConfig
+{
+    vec2 uScreenSize;
+    int uDispCnt;
+    vec4 uToonColors[32];
+    vec4 uEdgeColors[8];
+    vec4 uFogColor;
+    float uFogDensity[34];
+    int uFogOffset;
+    int uFogShift;
+};
+
+out vec4 oColor;
+
+// make up for crapo zbuffer precision
+bool isless(float a, float b)
+{return true;
+    // a < b
+    float diff = a - b;
+    return diff < (256.0 / 16777216.0);
+}
+
+void main()
+{
+    ivec2 coord = ivec2(gl_FragCoord.xy);
+    int scale = int(uScreenSize.x / 256);
+
+    vec4 ret = vec4(0,0,0,0);
+    vec4 depth = texelFetch(DepthBuffer, coord, 0);
+    vec4 attr = texelFetch(AttrBuffer, coord, 0);
+
+    int polyid = int(attr.r * 63.0);
+
+    if (attr.g != 0)
+    {
+        vec4 depthU = texelFetch(DepthBuffer, coord + ivec2(0,-scale), 0);
+        vec4 attrU = texelFetch(AttrBuffer, coord + ivec2(0,-scale), 0);
+        vec4 depthD = texelFetch(DepthBuffer, coord + ivec2(0,scale), 0);
+        vec4 attrD = texelFetch(AttrBuffer, coord + ivec2(0,scale), 0);
+        vec4 depthL = texelFetch(DepthBuffer, coord + ivec2(-scale,0), 0);
+        vec4 attrL = texelFetch(AttrBuffer, coord + ivec2(-scale,0), 0);
+        vec4 depthR = texelFetch(DepthBuffer, coord + ivec2(scale,0), 0);
+        vec4 attrR = texelFetch(AttrBuffer, coord + ivec2(scale,0), 0);
+
+        if ((polyid != int(attrU.r * 63.0) && isless(depth.r, depthU.r)) ||
+            (polyid != int(attrD.r * 63.0) && isless(depth.r, depthD.r)) ||
+            (polyid != int(attrL.r * 63.0) && isless(depth.r, depthL.r)) ||
+            (polyid != int(attrR.r * 63.0) && isless(depth.r, depthR.r)))
+        {
+            // mark this pixel!
+
+            ret.rgb = uEdgeColors[polyid >> 3].bgr;
+
+            // this isn't quite accurate, but it will have to do
+            if ((uDispCnt & (1<<4)) != 0)
+                ret.a = 0.5;
+            else
+                ret.a = 1;
+        }
+    }
+
+    oColor = ret;
+}
+)";
+
+const char* kFinalPassFogFS = kShaderHeader R"(
 
 uniform sampler2D DepthBuffer;
 uniform sampler2D AttrBuffer;
@@ -620,6 +690,7 @@ void main()
 
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
+    oAttr.g = 0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
     oAttr.a = 1;
 }
@@ -636,7 +707,35 @@ void main()
 
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
+    oAttr.g = 0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
+    oAttr.a = 1;
+    gl_FragDepth = fZ;
+}
+)";
+
+const char* kRenderFS_ZE = R"(
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a < 30.5/31) discard;
+
+    oAttr.g = 1;
+    oAttr.a = 1;
+}
+)";
+
+const char* kRenderFS_WE = R"(
+
+smooth in float fZ;
+
+void main()
+{
+    vec4 col = FinalColor();
+    if (col.a < 30.5/31) discard;
+
+    oAttr.g = 1;
     oAttr.a = 1;
     gl_FragDepth = fZ;
 }
