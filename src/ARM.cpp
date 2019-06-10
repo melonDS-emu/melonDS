@@ -387,7 +387,7 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
 
     if (Num == 0)
     {
-        /*if ((newmode & 0x1F) == 0x16)
+        /*if ((newmode & 0x1F) == 0x10)
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
         else
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
@@ -428,7 +428,7 @@ void ARMv5::PrefetchAbort()
         return;
     }
 
-    R_IRQ[2] = oldcpsr;
+    R_ABT[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x0C);
 }
@@ -442,7 +442,7 @@ void ARMv5::DataAbort()
     CPSR |= 0x97;
     UpdateMode(oldcpsr, CPSR);
 
-    R_IRQ[2] = oldcpsr;
+    R_ABT[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
     JumpTo(ExceptionBase + 0x10);
 }
