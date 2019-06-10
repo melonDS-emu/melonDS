@@ -871,11 +871,23 @@ void StartHBlank(u32 line)
             GPU2D_B->DrawScanline(line);
         }
 
+        // sprites are pre-rendered one scanline in advance
+        if (line < 191)
+        {
+            GPU2D_A->DrawSprites(line+1);
+            GPU2D_B->DrawSprites(line+1);
+        }
+
         NDS::CheckDMAs(0, 0x02);
     }
     else if (VCount == 215)
     {
         GPU3D::VCount215();
+    }
+    else if (VCount == 262)
+    {
+        GPU2D_A->DrawSprites(0);
+        GPU2D_B->DrawSprites(0);
     }
 
     if (DispStat[0] & (1<<4)) NDS::SetIRQ(0, NDS::IRQ_HBlank);

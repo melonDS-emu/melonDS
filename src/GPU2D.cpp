@@ -1218,10 +1218,14 @@ void GPU2D::CalculateWindowMask(u32 line)
     for (u32 i = 0; i < 256; i++)
         WindowMask[i] = WinCnt[2]; // window outside
 
-    if ((DispCnt & (1<<15)) && (DispCnt & (1<<12)))
+    if (DispCnt & (1<<15))
     {
         // OBJ window
-        DrawSpritesWindow(line);
+        for (int i = 0; i < 256; i++)
+        {
+            if (OBJWindow[i])
+                WindowMask[i] = WinCnt[3];
+        }
     }
 
     if (DispCnt & (1<<14))
@@ -1257,7 +1261,7 @@ void GPU2D::CalculateWindowMask(u32 line)
 
 
 template<u32 bgmode>
-void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites)
+void GPU2D::DrawScanlineBGMode(u32 line)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -1302,12 +1306,12 @@ void GPU2D::DrawScanlineBGMode(u32 line, u32 nsprites)
                     DrawBG_Text(line, 0);
             }
         }
-        if ((DispCnt & 0x1000) && nsprites)
+        if ((DispCnt & 0x1000) && NumSprites)
             InterleaveSprites(0x8000 | (i<<16));
     }
 }
 
-void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites)
+void GPU2D::DrawScanlineBGMode6(u32 line)
 {
     if (Num)
     {
@@ -1332,7 +1336,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line, u32 nsprites)
                     DrawBG_3D();
             }
         }
-        if ((DispCnt & 0x1000) && nsprites)
+        if ((DispCnt & 0x1000) && NumSprites)
             InterleaveSprites(0x8000 | (i<<16));
     }
 }
@@ -1360,21 +1364,16 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     else
         memset(WindowMask, 0xFF, 256);
 
-    // prerender sprites
-    u32 nsprites = 0;
-    memset(OBJLine, 0, 256*4);
-    if (DispCnt & 0x1000) nsprites = DrawSprites(line);
-
     // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
-    case 0: DrawScanlineBGMode<0>(line, nsprites); break;
-    case 1: DrawScanlineBGMode<1>(line, nsprites); break;
-    case 2: DrawScanlineBGMode<2>(line, nsprites); break;
-    case 3: DrawScanlineBGMode<3>(line, nsprites); break;
-    case 4: DrawScanlineBGMode<4>(line, nsprites); break;
-    case 5: DrawScanlineBGMode<5>(line, nsprites); break;
-    case 6: DrawScanlineBGMode6(line, nsprites); break;
+    case 0: DrawScanlineBGMode<0>(line); break;
+    case 1: DrawScanlineBGMode<1>(line); break;
+    case 2: DrawScanlineBGMode<2>(line); break;
+    case 3: DrawScanlineBGMode<3>(line); break;
+    case 4: DrawScanlineBGMode<4>(line); break;
+    case 5: DrawScanlineBGMode<5>(line); break;
+    case 6: DrawScanlineBGMode6(line); break;
     }
 
     // color special effects
@@ -2124,8 +2123,13 @@ void GPU2D::InterleaveSprites(u32 prio)
     }
 }
 
-u32 GPU2D::DrawSprites(u32 line)
+void GPU2D::DrawSprites(u32 line)
 {
+    NumSprites = 0;
+    memset(OBJLine, 0, 256*4);
+    memset(OBJWindow, 0, 256);
+    if (!(DispCnt & 0x1000)) return;
+
     u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
 
     const s32 spritewidth[16] =
@@ -2154,8 +2158,7 @@ u32 GPU2D::DrawSprites(u32 line)
             if ((attrib[2] & 0x0C00) != bgnum)
                 continue;
 
-            if (((attrib[0] >> 10) & 0x3) == 2)
-                continue;
+            bool iswin = (((attrib[0] >> 10) & 0x3) == 2);
 
             if (attrib[0] & 0x0100)
             {
@@ -2182,8 +2185,12 @@ u32 GPU2D::DrawSprites(u32 line)
 
                 u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
 
-                DrawSprite_Rotscale<false>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos);
-                nsprites++;
+                if (iswin)
+                    DrawSprite_Rotscale<true>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos);
+                else
+                    DrawSprite_Rotscale<false>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos);
+
+                NumSprites++;
             }
             else
             {
@@ -2207,91 +2214,13 @@ u32 GPU2D::DrawSprites(u32 line)
                 if (attrib[1] & 0x2000)
                     ypos = height-1 - ypos;
 
-                DrawSprite_Normal<false>(attrib, width, xpos, ypos);
-                nsprites++;
+                if (iswin)
+                    DrawSprite_Normal<true>(attrib, width, xpos, ypos);
+                else
+                    DrawSprite_Normal<false>(attrib, width, xpos, ypos);
+
+                NumSprites++;
             }
-        }
-    }
-
-    return nsprites;
-}
-
-void GPU2D::DrawSpritesWindow(u32 line)
-{
-    u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
-
-    const s32 spritewidth[16] =
-    {
-        8, 16, 8, 0,
-        16, 32, 8, 0,
-        32, 32, 16, 0,
-        64, 64, 32, 0
-    };
-    const s32 spriteheight[16] =
-    {
-        8, 8, 16, 0,
-        16, 8, 32, 0,
-        32, 16, 32, 0,
-        64, 32, 64, 0
-    };
-
-    for (int sprnum = 127; sprnum >= 0; sprnum--)
-    {
-        u16* attrib = &oam[sprnum*4];
-
-        if (((attrib[0] >> 10) & 0x3) != 2)
-            continue;
-
-        if (attrib[0] & 0x0100)
-        {
-            u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-            s32 width = spritewidth[sizeparam];
-            s32 height = spriteheight[sizeparam];
-            s32 boundwidth = width;
-            s32 boundheight = height;
-
-            if (attrib[0] & 0x0200)
-            {
-                boundwidth <<= 1;
-                boundheight <<= 1;
-            }
-
-            u32 ypos = attrib[0] & 0xFF;
-            ypos = (line - ypos) & 0xFF;
-            if (ypos >= (u32)boundheight)
-                continue;
-
-            s32 xpos = (s32)(attrib[1] << 23) >> 23;
-            if (xpos <= -boundwidth)
-                continue;
-
-            u32 rotparamgroup = (attrib[1] >> 9) & 0x1F;
-
-            DrawSprite_Rotscale<true>(attrib, &oam[(rotparamgroup*16) + 3], boundwidth, boundheight, width, height, xpos, ypos);
-        }
-        else
-        {
-            if (attrib[0] & 0x0200)
-                continue;
-
-            u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
-            s32 width = spritewidth[sizeparam];
-            s32 height = spriteheight[sizeparam];
-
-            u32 ypos = attrib[0] & 0xFF;
-            ypos = (line - ypos) & 0xFF;
-            if (ypos >= (u32)height)
-                continue;
-
-            s32 xpos = (s32)(attrib[1] << 23) >> 23;
-            if (xpos <= -width)
-                continue;
-
-            // yflip
-            if (attrib[1] & 0x2000)
-                ypos = height-1 - ypos;
-
-            DrawSprite_Normal<true>(attrib, width, xpos, ypos);
         }
     }
 }
@@ -2399,7 +2328,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                 if (color & 0x8000)
                 {
-                    if (window) WindowMask[xpos] = WinCnt[3];
+                    if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | prio;
                 }
             }
@@ -2463,7 +2392,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
                 }
@@ -2521,7 +2450,7 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
                 }
@@ -2635,7 +2564,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                 if (color & 0x8000)
                 {
-                    if (window) WindowMask[xpos] = WinCnt[3];
+                    if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | prio;
                 }
 
@@ -2662,7 +2591,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                 if (color & 0x8000)
                 {
-                    if (window) WindowMask[xpos] = WinCnt[3];
+                    if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | prio;
                 }
 
@@ -2722,7 +2651,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
 
@@ -2751,7 +2680,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
 
@@ -2800,7 +2729,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
 
@@ -2834,7 +2763,7 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
                     if (color)
                     {
-                        if (window) WindowMask[xpos] = WinCnt[3];
+                        if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = pal[color] | prio;
                     }
 

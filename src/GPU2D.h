@@ -53,6 +53,7 @@ public:
     void SampleFIFO(u32 offset, u32 num);
 
     void DrawScanline(u32 line);
+    void DrawSprites(u32 line);
     void VBlank();
     void VBlankEnd();
 
@@ -76,6 +77,9 @@ private:
 
     u8 WindowMask[256] __attribute__((aligned (8)));
     u32 OBJLine[256] __attribute__((aligned (8)));
+    u8 OBJWindow[256] __attribute__((aligned (8)));
+
+    u32 NumSprites;
 
     u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
@@ -129,8 +133,8 @@ private:
     u32 ColorBrightnessDown(u32 val, u32 factor);
     u32 ColorComposite(int i, u32 val1, u32 val2);
 
-    template<u32 bgmode> void DrawScanlineBGMode(u32 line, u32 nsprites);
-    void DrawScanlineBGMode6(u32 line, u32 nsprites);
+    template<u32 bgmode> void DrawScanlineBGMode(u32 line);
+    void DrawScanlineBGMode6(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
@@ -144,8 +148,6 @@ private:
     void DrawBG_Large(u32 line);
 
     void InterleaveSprites(u32 prio);
-    u32 DrawSprites(u32 line);
-    void DrawSpritesWindow(u32 line);
     template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos);
 
