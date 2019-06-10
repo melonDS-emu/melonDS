@@ -1199,8 +1199,7 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
 
         if (evt->Scancode == 0x57) // F11
-            OSD::AddMessage(0x00FFFF, "OSD test");
-            //NDS::debug(0);
+            NDS::debug(0);
     }
 
     return 1;

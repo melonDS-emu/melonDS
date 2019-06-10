@@ -174,7 +174,15 @@ void ARMv5::UpdatePURegions()
     for (int n = 0; n < 8; n++)
     {
         u32 rgn = PU_Region[n];
-        if (!(rgn & (1<<0))) continue;
+        if (!(rgn & (1<<0)))
+        {
+            coderw >>= 4;
+            datarw >>= 4;
+            codecache >>= 1;
+            datacache >>= 1;
+            datawrite >>= 1;
+            continue;
+        }
 
         u32 start = rgn >> 12;
         u32 sz = 2 << ((rgn >> 1) & 0x1F);
@@ -399,7 +407,7 @@ void ARMv5::ICacheInvalidateAll()
 
 void ARMv5::CP15Write(u32 id, u32 val)
 {
-    //printf("CP15 write op %03X %08X %08X\n", id, val, NDS::ARM9->R[15]);
+    //printf("CP15 write op %03X %08X %08X\n", id, val, R[15]);
 
     switch (id)
     {
