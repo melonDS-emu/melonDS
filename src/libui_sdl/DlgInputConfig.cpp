@@ -54,6 +54,8 @@ typedef struct
     uiButton* pollbtn;
     SDL_TimerID timer;
 
+    Sint16 axes_rest[16];
+
 } InputDlgData;
 
 
@@ -117,7 +119,7 @@ void JoyMappingName(int id, char* str)
 
     if (id & 0x100)
     {
-        int hatnum = (id >> 4) & 0xF;
+        int hatnum = ((id >> 4) & 0xF) + 1;
 
         switch (id & 0xF)
         {
@@ -129,18 +131,21 @@ void JoyMappingName(int id, char* str)
     }
     else
     {
-        sprintf(str, "Button %d", id+1);
+        sprintf(str, "Button %d", (id & 0xFFFF) + 1);
     }
 
     if (id & 0x10000)
     {
-        int axisnum = (id >> 24) & 0xF;
+        int axisnum = ((id >> 24) & 0xF) + 1;
+
+        char tmp[64];
+        memcpy(tmp, str, 64);
 
         switch ((id >> 20) & 0xF)
         {
-        case 0: sprintf(str, "%s / Axis %d +", str, axisnum); break;
-        case 1: sprintf(str, "%s / Axis %d -", str, axisnum); break;
-        case 2: sprintf(str, "%s / Trigger %d", str, axisnum); break;
+        case 0: sprintf(str, "%s / Axis %d +", tmp, axisnum); break;
+        case 1: sprintf(str, "%s / Axis %d -", tmp, axisnum); break;
+        case 2: sprintf(str, "%s / Trigger %d", tmp, axisnum); break;
         }
     }
 }
@@ -269,31 +274,72 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         dlg->timer = 0;
         return 0;
     }
+    if (!SDL_JoystickGetAttached(joy))
+    {
+        dlg->timer = 0;
+        return 0;
+    }
+
+    int oldmap;
+    if (dlg->joymap[id] == -1) oldmap = 0;
+    else                       oldmap = dlg->joymap[id];
 
     int nbuttons = SDL_JoystickNumButtons(joy);
     for (int i = 0; i < nbuttons; i++)
     {
         if (SDL_JoystickGetButton(joy, i))
         {
-            dlg->joymap[id] = i;
+            dlg->joymap[id] = (oldmap & 0xFFFF0000) | i;
             uiQueueMain(FinishJoyMapping, dlg);
             dlg->timer = 0;
             return 0;
         }
     }
 
-    u8 blackhat = SDL_JoystickGetHat(joy, 0);
-    if (blackhat)
+    int nhats = SDL_JoystickNumHats(joy);
+    if (nhats > 16) nhats = 16;
+    for (int i = 0; i < nhats; i++)
     {
-        if      (blackhat & 0x1) blackhat = 0x1;
-        else if (blackhat & 0x2) blackhat = 0x2;
-        else if (blackhat & 0x4) blackhat = 0x4;
-        else                     blackhat = 0x8;
+        Uint8 blackhat = SDL_JoystickGetHat(joy, i);
+        if (blackhat)
+        {
+            if      (blackhat & 0x1) blackhat = 0x1;
+            else if (blackhat & 0x2) blackhat = 0x2;
+            else if (blackhat & 0x4) blackhat = 0x4;
+            else                     blackhat = 0x8;
 
-        dlg->joymap[id] = 0x100 | blackhat;
-        uiQueueMain(FinishJoyMapping, dlg);
-        dlg->timer = 0;
-        return 0;
+            dlg->joymap[id] = (oldmap & 0xFFFF0000) | 0x100 | blackhat | (i << 4);
+            uiQueueMain(FinishJoyMapping, dlg);
+            dlg->timer = 0;
+            return 0;
+        }
+    }
+
+    int naxes = SDL_JoystickNumAxes(joy);
+    if (naxes > 16) naxes = 16;
+    for (int i = 0; i < naxes; i++)
+    {
+        Sint16 axisval = SDL_JoystickGetAxis(joy, i);
+        Sint16 diff = abs(axisval - dlg->axes_rest[i]);
+
+        if (dlg->axes_rest[i] < -16384 && axisval >= 0)
+        {
+            dlg->joymap[id] = (oldmap & 0xFFFF) | 0x10000 | (2 << 20) | (i << 24);
+            uiQueueMain(FinishJoyMapping, dlg);
+            dlg->timer = 0;
+            return 0;
+        }
+        else if (diff > 16384)
+        {
+            int axistype;
+            if (axisval > 0) axistype = 0;
+            else             axistype = 1;
+
+            dlg->joymap[id] = (oldmap & 0xFFFF) | 0x10000 | (axistype << 20) | (i << 24);
+            uiQueueMain(FinishJoyMapping, dlg);
+            dlg->timer = 0;
+            return 0;
+        }
     }
 
     return interval;
@@ -334,11 +380,19 @@ void OnJoyStartConfig(uiButton* btn, void* data)
         return;
     }
 
+    SDL_JoystickUpdate();
+    int naxes = SDL_JoystickNumAxes(Joystick);
+    if (naxes > 16) naxes = 16;
+    for (int a = 0; a < naxes; a++)
+    {
+        dlg->axes_rest[a] = SDL_JoystickGetAxis(Joystick, a);
+    }
+
     int id = *(int*)data;
     dlg->pollid = id | 0x100;
     dlg->pollbtn = btn;
 
-    uiButtonSetText(btn, "[press button]");
+    uiButtonSetText(btn, "[press button / axis]");
     uiControlDisable(uiControl(btn));
 
     dlg->timer = SDL_AddTimer(100, JoyPoll, dlg);
@@ -538,7 +592,7 @@ void Open(int type)
                 {
                     const char* joyname = SDL_JoystickNameForIndex(i);
                     char fullname[256];
-                    snprintf(fullname, 256, "%d. %s", i, joyname);
+                    snprintf(fullname, 256, "%d. %s", i+1, joyname);
 
                     uiComboboxAppend(joycombo, fullname);
                 }

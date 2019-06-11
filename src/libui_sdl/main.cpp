@@ -998,8 +998,6 @@ int EmuThreadFunc(void* burp)
                     uiGLMakeContextCurrent(GLContext);
                     GLScreen_DrawScreen();
                     uiGLEnd(GLContext);
-                    //uiGLMakeContextCurrent(NULL);
-                    //uiQueueMain(norp, NULL);
                 }
                 uiAreaQueueRedrawAll(MainDrawArea);
             }
