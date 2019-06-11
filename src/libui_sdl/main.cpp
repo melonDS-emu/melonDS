@@ -146,6 +146,8 @@ bool Touching = false;
 u32 KeyInputMask;
 u32 HotkeyMask;
 bool LidStatus;
+
+int JoystickID;
 SDL_Joystick* Joystick;
 
 SDL_AudioDeviceID AudioDevice, MicDevice;
@@ -547,12 +549,6 @@ void MicLoadWav(char* name)
     SDL_FreeWAV(buf);
 }
 
-
-void UpdateWindowTitle(void* data)
-{
-    uiWindowSetTitle(MainWindow, (const char*)data);
-}
-
 void AudioCallback(void* data, Uint8* stream, int len)
 {
     // resampling:
@@ -619,46 +615,6 @@ void MicCallback(void* data, Uint8* stream, int len)
     }
 }
 
-bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
-{
-    if (btnid < 0) return false;
-
-    hat &= ~(hat >> 4);
-
-    bool pressed = false;
-    if (btnid == 0x101) // up
-        pressed = (hat & SDL_HAT_UP);
-    else if (btnid == 0x104) // down
-        pressed = (hat & SDL_HAT_DOWN);
-    else if (btnid == 0x102) // right
-        pressed = (hat & SDL_HAT_RIGHT);
-    else if (btnid == 0x108) // left
-        pressed = (hat & SDL_HAT_LEFT);
-    else if (btnid < njoybuttons)
-        pressed = (joybuttons[btnid] & ~(joybuttons[btnid] >> 1)) & 0x01;
-
-    return pressed;
-}
-
-bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
-{
-    if (btnid < 0) return false;
-
-    bool pressed = false;
-    if (btnid == 0x101) // up
-        pressed = (hat & SDL_HAT_UP);
-    else if (btnid == 0x104) // down
-        pressed = (hat & SDL_HAT_DOWN);
-    else if (btnid == 0x102) // right
-        pressed = (hat & SDL_HAT_RIGHT);
-    else if (btnid == 0x108) // left
-        pressed = (hat & SDL_HAT_LEFT);
-    else if (btnid < njoybuttons)
-        pressed = joybuttons[btnid] & 0x01;
-
-    return pressed;
-}
-
 void FeedMicInput()
 {
     int type = Config::MicInputType;
@@ -720,6 +676,68 @@ void FeedMicInput()
         }
         break;
     }
+}
+
+void OpenJoystick()
+{
+    if (Joystick) SDL_JoystickClose(Joystick);
+
+    int num = SDL_NumJoysticks();
+    if (num < 1)
+    {
+        Joystick = NULL;
+        return;
+    }
+
+    if (JoystickID >= num)
+        JoystickID = 0;
+
+    Joystick = SDL_JoystickOpen(JoystickID);
+}
+
+bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    if (btnid < 0) return false;
+
+    hat &= ~(hat >> 4);
+
+    bool pressed = false;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else if (btnid < njoybuttons)
+        pressed = (joybuttons[btnid] & ~(joybuttons[btnid] >> 1)) & 0x01;
+
+    return pressed;
+}
+
+bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
+{
+    if (btnid < 0) return false;
+
+    bool pressed = false;
+    if (btnid == 0x101) // up
+        pressed = (hat & SDL_HAT_UP);
+    else if (btnid == 0x104) // down
+        pressed = (hat & SDL_HAT_DOWN);
+    else if (btnid == 0x102) // right
+        pressed = (hat & SDL_HAT_RIGHT);
+    else if (btnid == 0x108) // left
+        pressed = (hat & SDL_HAT_LEFT);
+    else if (btnid < njoybuttons)
+        pressed = joybuttons[btnid] & 0x01;
+
+    return pressed;
+}
+
+void UpdateWindowTitle(void* data)
+{
+    uiWindowSetTitle(MainWindow, (const char*)data);
 }
 
 int EmuThreadFunc(void* burp)
@@ -786,7 +804,8 @@ int EmuThreadFunc(void* burp)
             }
             if (!Joystick && (SDL_NumJoysticks() > 0))
             {
-                Joystick = SDL_JoystickOpen(0);
+                JoystickID = Config::JoystickID;
+                OpenJoystick();
                 if (Joystick)
                 {
                     njoybuttons = SDL_JoystickNumButtons(Joystick);
@@ -2627,11 +2646,9 @@ int main(int argc, char** argv)
     MicWavBuffer = NULL;
     if (Config::MicInputType == 3) MicLoadWav(Config::MicWavPath);
 
-    // TODO: support more joysticks
-    if (SDL_NumJoysticks() > 0)
-        Joystick = SDL_JoystickOpen(0);
-    else
-        Joystick = NULL;
+    JoystickID = Config::JoystickID;
+    Joystick = NULL;
+    OpenJoystick();
 
     EmuRunning = 2;
     RunningSomething = false;

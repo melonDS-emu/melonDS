@@ -29,7 +29,10 @@
 #include "DlgInputConfig.h"
 
 
+extern int JoystickID;
 extern SDL_Joystick* Joystick;
+
+extern void OpenJoystick();
 
 
 namespace DlgInputConfig
@@ -303,6 +306,13 @@ void OnJoyStartConfig(uiButton* btn, void* data)
 }
 
 
+void OnJoystickChanged(uiCombobox* cb, void* data)
+{
+    JoystickID = uiComboboxSelected(cb);
+    OpenJoystick();
+}
+
+
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
     InputDlgData* dlg = (InputDlgData*)(uiControl(window)->UserData);
@@ -457,6 +467,36 @@ void Open(int type)
             uiGridAppend(b_joy, uiControl(btn), 1, i, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
             uiButtonOnClicked(btn, OnJoyStartConfig, (type==0) ? &dskeyorder[i] : &identity[i]);
             uiControlSetMinSize(uiControl(btn), width, 1);
+        }
+
+        if (type == 0)
+        {
+            uiLabel* dummy = uiNewLabel(" ");
+            uiGridAppend(b_key, uiControl(dummy), 0, dlg->numkeys, 2, 1, 1, uiAlignFill, 1, uiAlignCenter);
+
+            uiCombobox* joycombo = uiNewCombobox();
+            uiGridAppend(b_joy, uiControl(joycombo), 0, dlg->numkeys, 2, 1, 1, uiAlignFill, 1, uiAlignCenter);
+
+            int numjoys = SDL_NumJoysticks();
+            if (numjoys < 1)
+            {
+                uiComboboxAppend(joycombo, "(no joysticks available)");
+                uiControlDisable(uiControl(joycombo));
+            }
+            else
+            {
+                for (int i = 0; i < numjoys; i++)
+                {
+                    const char* joyname = SDL_JoystickNameForIndex(i);
+                    char fullname[256];
+                    snprintf(fullname, 256, "%d. %s", i, joyname);
+
+                    uiComboboxAppend(joycombo, fullname);
+                }
+
+                uiComboboxSetSelected(joycombo, JoystickID);
+                uiComboboxOnSelected(joycombo, OnJoystickChanged, NULL);
+            }
         }
     }
 

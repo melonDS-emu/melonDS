@@ -30,6 +30,8 @@ int JoyMapping[12];
 int HKKeyMapping[HK_MAX];
 int HKJoyMapping[HK_MAX];
 
+int JoystickID;
+
 int WindowWidth;
 int WindowHeight;
 int WindowMaximized;
@@ -97,6 +99,8 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_Mic",               0, &HKJoyMapping[HK_Mic],               -1, NULL, 0},
     {"HKJoy_FastForward",       0, &HKJoyMapping[HK_FastForward],       -1, NULL, 0},
     {"HKJoy_FastForwardToggle", 0, &HKJoyMapping[HK_FastForwardToggle], -1, NULL, 0},
+
+    {"JoystickID", 0, &JoystickID, 0, NULL, 0},
 
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},

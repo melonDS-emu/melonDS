@@ -39,6 +39,8 @@ extern int JoyMapping[12];
 extern int HKKeyMapping[HK_MAX];
 extern int HKJoyMapping[HK_MAX];
 
+extern int JoystickID;
+
 extern int WindowWidth;
 extern int WindowHeight;
 extern int WindowMaximized;
