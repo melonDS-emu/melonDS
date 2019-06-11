@@ -318,6 +318,10 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     InputDlgData* dlg = (InputDlgData*)(uiControl(window)->UserData);
     openedmask &= ~(1 << dlg->type);
     if (dlg->timer) SDL_RemoveTimer(dlg->timer);
+
+    JoystickID = Config::JoystickID;
+    OpenJoystick();
+
     return 1;
 }
 
@@ -340,6 +344,9 @@ void OnCancel(uiButton* btn, void* data)
     uiControlDestroy(uiControl(dlg->win));
     openedmask &= ~(1 << dlg->type);
     if (dlg->timer) SDL_RemoveTimer(dlg->timer);
+
+    JoystickID = Config::JoystickID;
+    OpenJoystick();
 }
 
 void OnOk(uiButton* btn, void* data)
@@ -356,6 +363,8 @@ void OnOk(uiButton* btn, void* data)
         memcpy(Config::HKKeyMapping, dlg->keymap, sizeof(int)*HK_MAX);
         memcpy(Config::HKJoyMapping, dlg->joymap, sizeof(int)*HK_MAX);
     }
+
+    Config::JoystickID = JoystickID;
 
     Config::Save();
 
