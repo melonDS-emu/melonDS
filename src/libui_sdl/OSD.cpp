@@ -202,7 +202,7 @@ void RenderText(u32 color, const char* text, Item* item)
     int breaks[64];
 
     bool rainbow = (color == 0);
-    u32 rainbowinc = (text[0] * 17) % 600;
+    u32 rainbowinc = ((text[0] * 17) + (SDL_GetTicks() * 13)) % 600;
 
     color |= 0xFF000000;
     const u32 shadow = 0xE0000000;

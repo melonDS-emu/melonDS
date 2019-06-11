@@ -77,12 +77,12 @@ void Load()
     if (!f) return;
 
     char linebuf[1024];
-    char entryname[16];
+    char entryname[32];
     char entryval[1024];
     while (!feof(f))
     {
         fgets(linebuf, 1024, f);
-        int ret = sscanf(linebuf, "%15[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        int ret = sscanf(linebuf, "%32[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
         if (ret < 2) continue;
 
         ConfigEntry* entry = &ConfigFile[0];
@@ -97,7 +97,7 @@ void Load()
                 c++;
             }
 
-            if (!strncmp(entry->Name, entryname, 15))
+            if (!strncmp(entry->Name, entryname, 32))
             {
                 if (entry->Type == 0)
                     *(int*)entry->Value = strtol(entryval, NULL, 10);
