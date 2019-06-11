@@ -76,11 +76,35 @@ void KeyMappingName(int id, char* str)
         return;
     }
 
-    char* keyname = uiKeyName(id);
-    strncpy(str, keyname, 31);
+    int key = id & 0xFFFF;
+    char* keyname = uiKeyName(key);
+    strncpy(str, keyname, 63); str[63] = '\0';
     uiFreeText(keyname);
 
-    str[31] = '\0';
+    int mod = id >> 16;
+
+    if      (key == 0x11D) mod = 0;
+    else if (key == 0x138) mod = 0;
+    else if (key == 0x036) mod = 0;
+
+    if (mod != 0)
+    {
+        // CTRL / ALT / SHIFT
+        const int modscan[] = {0x1D, 0x38, 0x2A};
+        char tmp[64];
+
+        for (int m = 2; m >= 0; m--)
+        {
+            if (!(mod & (1<<m))) continue;
+
+            char* modname = uiKeyName(modscan[m]);
+            memcpy(tmp, str, 64);
+            snprintf(str, 64, "%s+%s", modname, tmp);
+            uiFreeText(modname);
+        }
+    }
+
+    str[63] = '\0';
 }
 
 void JoyMappingName(int id, char* str)
@@ -93,17 +117,31 @@ void JoyMappingName(int id, char* str)
 
     if (id & 0x100)
     {
+        int hatnum = (id >> 4) & 0xF;
+
         switch (id & 0xF)
         {
-        case 0x1: strcpy(str, "Up"); break;
-        case 0x2: strcpy(str, "Right"); break;
-        case 0x4: strcpy(str, "Down"); break;
-        case 0x8: strcpy(str, "Left"); break;
+        case 0x1: sprintf(str, "Hat %d up", hatnum); break;
+        case 0x2: sprintf(str, "Hat %d right", hatnum); break;
+        case 0x4: sprintf(str, "Hat %d down", hatnum); break;
+        case 0x8: sprintf(str, "Hat %d left", hatnum); break;
         }
     }
     else
     {
         sprintf(str, "Button %d", id+1);
+    }
+
+    if (id & 0x10000)
+    {
+        int axisnum = (id >> 24) & 0xF;
+
+        switch ((id >> 20) & 0xF)
+        {
+        case 0: sprintf(str, "%s / Axis %d +", str, axisnum); break;
+        case 1: sprintf(str, "%s / Axis %d -", str, axisnum); break;
+        case 2: sprintf(str, "%s / Trigger %d", str, axisnum); break;
+        }
     }
 }
 
@@ -135,25 +173,27 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (dlg->pollid < 0)
         return 0;
 
+    if (evt->Scancode == 0x1D) // CTRL
+        return 1;
     if (evt->Scancode == 0x38) // ALT
-        return 0;
-    if (evt->Modifiers == 0x2) // ALT+key
-        return 0;
+        return 1;
+    if (evt->Scancode == 0x2A) // SHIFT
+        return 1;
 
     if (dlg->pollid > 12)
     {
         if (dlg->pollid < 0x100) return 0;
         int id = dlg->pollid & 0xFF;
         if (id > 12) return 0;
-        if (evt->Scancode != 0x1) // ESC
+        if (evt->Scancode != 0x1 || evt->Modifiers != 0) // ESC
         {
-            if (evt->Scancode == 0xE) // backspace
+            if (evt->Scancode == 0xE && evt->Modifiers == 0) // backspace
                 dlg->joymap[id] = -1;
             else
                 return 1;
         }
 
-        char keyname[32];
+        char keyname[64];
         JoyMappingName(dlg->joymap[id], keyname);
         uiButtonSetText(dlg->pollbtn, keyname);
         uiControlEnable(uiControl(dlg->pollbtn));
@@ -168,15 +208,15 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (!evt->Up)
     {
         // set key.
-        if (evt->Scancode != 0x1) // ESC
+        if (evt->Scancode != 0x1 || evt->Modifiers != 0) // ESC
         {
-            if (evt->Scancode == 0xE) // backspace
+            if (evt->Scancode == 0xE && evt->Modifiers == 0) // backspace
                 dlg->keymap[dlg->pollid] = -1;
             else
-                dlg->keymap[dlg->pollid] = evt->Scancode;
+                dlg->keymap[dlg->pollid] = evt->Scancode | (evt->Modifiers << 16);
         }
 
-        char keyname[32];
+        char keyname[64];
         KeyMappingName(dlg->keymap[dlg->pollid], keyname);
         uiButtonSetText(dlg->pollbtn, keyname);
         uiControlEnable(uiControl(dlg->pollbtn));
@@ -194,7 +234,7 @@ void FinishJoyMapping(void* param)
     InputDlgData* dlg = (InputDlgData*)param;
     int id = dlg->pollid & 0xFF;
 
-    char keyname[32];
+    char keyname[64];
     JoyMappingName(dlg->joymap[id], keyname);
     uiButtonSetText(dlg->pollbtn, keyname);
     uiControlEnable(uiControl(dlg->pollbtn));
@@ -435,7 +475,7 @@ void Open(int type)
         uiGrid* b_key = uiNewGrid();
         uiGroupSetChild(g_key, uiControl(b_key));
 
-        const int width = 120;
+        const int width = 240;
 
         for (int i = 0; i < dlg->numkeys; i++)
         {
@@ -445,7 +485,7 @@ void Open(int type)
             uiGridAppend(b_key, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
             uiControlSetMinSize(uiControl(label), width, 1);
 
-            char keyname[32];
+            char keyname[64];
             KeyMappingName(dlg->keymap[j], keyname);
 
             uiButton* btn = uiNewButton(keyname);
@@ -468,7 +508,7 @@ void Open(int type)
             uiGridAppend(b_joy, uiControl(label), 0, i, 1, 1, 1, uiAlignStart, 1, uiAlignCenter);
             uiControlSetMinSize(uiControl(label), width, 1);
 
-            char keyname[32];
+            char keyname[64];
             JoyMappingName(dlg->joymap[j], keyname);
 
             uiButton* btn = uiNewButton(keyname);
