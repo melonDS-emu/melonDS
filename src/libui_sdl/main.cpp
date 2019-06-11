@@ -143,8 +143,15 @@ uiDrawMatrix BottomScreenTrans;
 
 bool Touching = false;
 
-u32 KeyInputMask;
-u32 HotkeyMask;
+u32 KeyInputMask, JoyInputMask;
+u32 KeyHotkeyMask, JoyHotkeyMask;
+u32 HotkeyMask, LastHotkeyMask;
+u32 HotkeyPress, HotkeyRelease;
+
+#define HotkeyDown(hk)     (HotkeyMask & (1<<(hk)))
+#define HotkeyPressed(hk)  (HotkeyPress & (1<<(hk)))
+#define HotkeyReleased(hk) (HotkeyRelease & (1<<(hk)))
+
 bool LidStatus;
 
 int JoystickID;
@@ -158,10 +165,6 @@ u32 MicBufferReadPos, MicBufferWritePos;
 
 u32 MicWavLength;
 s16* MicWavBuffer;
-
-u32 MicCommand;
-
-bool HotkeyFPSToggle = false;
 
 void SetupScreenRects(int width, int height);
 
@@ -618,7 +621,9 @@ void MicCallback(void* data, Uint8* stream, int len)
 void FeedMicInput()
 {
     int type = Config::MicInputType;
-    if ((type != 1 && MicCommand == 0) ||
+    bool cmd = HotkeyDown(HK_Mic);
+
+    if ((type != 1 && !cmd) ||
         (type == 1 && MicBufferLength == 0) ||
         (type == 3 && MicWavBuffer == NULL))
     {
@@ -695,6 +700,91 @@ void OpenJoystick()
     Joystick = SDL_JoystickOpen(JoystickID);
 }
 
+bool JoystickButtonDown(int val)
+{
+    if (val == -1) return false;
+
+    if (val & 0x100)
+    {
+        int hatnum = (val >> 4) & 0xF;
+        int hatdir = val & 0xF;
+        Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
+
+        bool pressed = false;
+        if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
+        else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
+        else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
+        else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
+
+        if (pressed) return true;
+    }
+    else
+    {
+        int btnnum = val & 0xFFFF;
+        Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
+
+        if (btnval) return true;
+    }
+
+    if (val & 0x10000)
+    {
+        int axisnum = (val >> 24) & 0xF;
+        int axisdir = (val >> 20) & 0xF;
+        Sint16 axisval = SDL_JoystickGetAxis(Joystick, axisnum);
+
+        switch (axisdir)
+        {
+        case 0: // positive
+            if (axisval > 16384) return true;
+            break;
+
+        case 1: // negative
+            if (axisval < -16384) return true;
+            break;
+
+        case 2: // trigger
+            if (axisval > 0) return true;
+            break;
+        }
+    }
+
+    return false;
+}
+
+void ProcessInput()
+{
+    SDL_JoystickUpdate();
+
+    if (Joystick)
+    {
+        if (!SDL_JoystickGetAttached(Joystick))
+        {
+            SDL_JoystickClose(Joystick);
+            Joystick = NULL;
+        }
+    }
+    if (!Joystick && (SDL_NumJoysticks() > 0))
+    {
+        JoystickID = Config::JoystickID;
+        OpenJoystick();
+    }
+
+    JoyInputMask = 0xFFF;
+    for (int i = 0; i < 12; i++)
+        if (JoystickButtonDown(Config::JoyMapping[i]))
+            JoyInputMask &= ~(1<<i);
+
+    JoyHotkeyMask = 0;
+    for (int i = 0; i < HK_MAX; i++)
+        if (JoystickButtonDown(Config::HKJoyMapping[i]))
+            JoyHotkeyMask |= (1<<i);
+
+    HotkeyMask = KeyHotkeyMask | JoyHotkeyMask;
+    HotkeyPress = HotkeyMask & ~LastHotkeyMask;
+    HotkeyRelease = LastHotkeyMask & ~HotkeyMask;
+    LastHotkeyMask = HotkeyMask;
+}
+
 bool JoyButtonPressed(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 {
     if (btnid < 0) return false;
@@ -740,6 +830,11 @@ void UpdateWindowTitle(void* data)
     uiWindowSetTitle(MainWindow, (const char*)data);
 }
 
+void UpdateFPSLimit(void* data)
+{
+    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+}
+
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
@@ -762,22 +857,12 @@ int EmuThreadFunc(void* burp)
 
     Touching = false;
     KeyInputMask = 0xFFF;
+    JoyInputMask = 0xFFF;
+    KeyHotkeyMask = 0;
+    JoyHotkeyMask = 0;
     HotkeyMask = 0;
+    LastHotkeyMask = 0;
     LidStatus = false;
-    MicCommand = 0;
-
-    Uint8* joybuttons = NULL; int njoybuttons = 0;
-    Uint32 joyhat = 0;
-
-    if (Joystick)
-    {
-        njoybuttons = SDL_JoystickNumButtons(Joystick);
-        if (njoybuttons)
-        {
-            joybuttons = new Uint8[njoybuttons];
-            memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
-        }
-    }
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -788,108 +873,26 @@ int EmuThreadFunc(void* burp)
 
     while (EmuRunning != 0)
     {
-        SDL_JoystickUpdate();
+        ProcessInput();
+
+        if (HotkeyPressed(HK_FastForwardToggle))
+        {
+            Config::LimitFPS = !Config::LimitFPS;
+            uiQueueMain(UpdateFPSLimit, NULL);
+        }
 
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
 
-            if (Joystick)
+            // process input and hotkeys
+            NDS::SetKeyMask(KeyInputMask & JoyInputMask);
+
+            if (HotkeyPressed(HK_Lid))
             {
-                if (!SDL_JoystickGetAttached(Joystick))
-                {
-                    SDL_JoystickClose(Joystick);
-                    Joystick = NULL;
-                }
-            }
-            if (!Joystick && (SDL_NumJoysticks() > 0))
-            {
-                JoystickID = Config::JoystickID;
-                OpenJoystick();
-                if (Joystick)
-                {
-                    njoybuttons = SDL_JoystickNumButtons(Joystick);
-                    if (joybuttons) delete[] joybuttons;
-                    if (njoybuttons)
-                    {
-                        joybuttons = new Uint8[njoybuttons];
-                        memset(joybuttons, 0, sizeof(Uint8)*njoybuttons);
-                        joyhat = 0;
-                    }
-                }
-            }
-
-            // poll input
-            u32 keymask = KeyInputMask;
-            u32 joymask = 0xFFF;
-            if (Joystick)
-            {
-                joyhat <<= 4;
-                joyhat |= SDL_JoystickGetHat(Joystick, 0);
-
-                Sint16 axisX = SDL_JoystickGetAxis(Joystick, 0);
-                Sint16 axisY = SDL_JoystickGetAxis(Joystick, 1);
-
-                for (int i = 0; i < njoybuttons; i++)
-                {
-                    joybuttons[i] <<= 1;
-                    joybuttons[i] |= SDL_JoystickGetButton(Joystick, i);
-                }
-
-                for (int i = 0; i < 12; i++)
-                {
-                    bool pressed = JoyButtonHeld(Config::JoyMapping[i], njoybuttons, joybuttons, joyhat);
-
-                    if (i == 4) // right
-                        pressed = pressed || (axisX >= 16384);
-                    else if (i == 5) // left
-                        pressed = pressed || (axisX <= -16384);
-                    else if (i == 6) // up
-                        pressed = pressed || (axisY <= -16384);
-                    else if (i == 7) // down
-                        pressed = pressed || (axisY >= 16384);
-
-                    if (pressed) joymask &= ~(1<<i);
-                }
-
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_Lid], njoybuttons, joybuttons, joyhat))
-                {
-                    LidStatus = !LidStatus;
-                    HotkeyMask |= 0x1;
-                }
-
-                if (JoyButtonPressed(Config::HKJoyMapping[HK_FastForwardToggle], njoybuttons, joybuttons, joyhat))
-                {
-                    HotkeyFPSToggle = !HotkeyFPSToggle;
-                    Config::LimitFPS = !Config::LimitFPS;
-                    uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
-                }
-
-                if (!HotkeyFPSToggle)   // For fast forward (hold) hotkey
-                {
-                    if (JoyButtonHeld(Config::HKJoyMapping[HK_FastForward], njoybuttons, joybuttons, joyhat))
-                    {
-                        Config::LimitFPS = false;
-                        uiMenuItemSetChecked(MenuItem_LimitFPS, false);
-                    }
-                    else if (!Config::LimitFPS)
-                    {
-                        Config::LimitFPS = true;
-                        uiMenuItemSetChecked(MenuItem_LimitFPS, true);
-                    }
-                }
-
-                if (JoyButtonHeld(Config::HKJoyMapping[HK_Mic], njoybuttons, joybuttons, joyhat))
-                    MicCommand |= 2;
-                else
-                    MicCommand &= ~2;
-            }
-            NDS::SetKeyMask(keymask & joymask);
-
-            if (HotkeyMask & 0x1)
-            {
+                LidStatus = !LidStatus;
                 NDS::SetLidClosed(LidStatus);
-                HotkeyMask &= ~0x1;
+                OSD::AddMessage(0, LidStatus ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
@@ -950,8 +953,10 @@ int EmuThreadFunc(void* burp)
             u32 delay = curtick - lasttick;
             lasttick = curtick;
 
+            bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
+
             u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick && Config::LimitFPS)
+            if (curtick < wantedtick && limitfps)
             {
                 SDL_Delay(wantedtick - curtick);
             }
@@ -1011,8 +1016,6 @@ int EmuThreadFunc(void* burp)
     }
 
     EmuStatus = 0;
-
-    if (joybuttons) delete[] joybuttons;
 
     if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
 
@@ -1145,6 +1148,15 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 {
 }
 
+bool EventMatchesKey(uiAreaKeyEvent* evt, int val)
+{
+    if (val == -1) return false;
+
+    int key = val & 0xFFFF;
+    int mod = val >> 16;
+    return evt->Scancode == key && evt->Modifiers == mod;
+}
+
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
 {
     // TODO: release all keys if the window loses focus? or somehow global key input?
@@ -1153,34 +1165,19 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (evt->Modifiers == 0x2) // ALT+key
         return 0;
 
-    // d0rp
-    if (!RunningSomething)
-        return 1;
-
     if (evt->Up)
     {
         for (int i = 0; i < 12; i++)
-            if (evt->Scancode == Config::KeyMapping[i])
+            if (EventMatchesKey(evt, Config::KeyMapping[i]))
                 KeyInputMask |= (1<<i);
 
-        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
-            MicCommand &= ~1;
-
-        if (evt->Scancode == Config::HKKeyMapping[HK_FastForwardToggle])
-        {
-            HotkeyFPSToggle = !HotkeyFPSToggle;
-            Config::LimitFPS = !Config::LimitFPS;
-            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
-        }
-
-        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
-        {
-            Config::LimitFPS = true;
-            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
-        }
+        for (int i = 0; i < HK_MAX; i++)
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+                KeyHotkeyMask &= ~(1<<i);
     }
     else if (!evt->Repeat)
     {
+        // TODO, eventually: make savestate keys configurable?
         // F keys: 3B-44, 57-58 | SHIFT: mod. 0x4
         if (evt->Scancode >= 0x3B && evt->Scancode <= 0x42) // F1-F8, quick savestate
         {
@@ -1198,23 +1195,14 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
 
         for (int i = 0; i < 12; i++)
-            if (evt->Scancode == Config::KeyMapping[i])
+            if (EventMatchesKey(evt, Config::KeyMapping[i]))
                 KeyInputMask &= ~(1<<i);
 
-        if (evt->Scancode == Config::HKKeyMapping[HK_Lid])
-        {
-            LidStatus = !LidStatus;
-            HotkeyMask |= 0x1;
-        }
-        if (evt->Scancode == Config::HKKeyMapping[HK_Mic])
-            MicCommand |= 1;
+        for (int i = 0; i < HK_MAX; i++)
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+                KeyHotkeyMask |= (1<<i);
 
-        if (evt->Scancode == Config::HKKeyMapping[HK_FastForward] && !HotkeyFPSToggle)
-        {
-            Config::LimitFPS = false;
-            uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
-        }
-
+        // REMOVE ME
         if (evt->Scancode == 0x57) // F11
             NDS::debug(0);
     }
@@ -2139,7 +2127,6 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     int chk = uiMenuItemChecked(item);
     if (chk != 0) Config::LimitFPS = true;
     else          Config::LimitFPS = false;
-    HotkeyFPSToggle = !Config::LimitFPS; // ensure that the hotkey toggle indicator is synced with this menu item
 }
 
 void ApplyNewSettings(int type)
