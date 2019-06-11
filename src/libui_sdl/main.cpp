@@ -788,11 +788,11 @@ int EmuThreadFunc(void* burp)
 
     while (EmuRunning != 0)
     {
+        SDL_JoystickUpdate();
+
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
-
-            SDL_JoystickUpdate();
 
             if (Joystick)
             {

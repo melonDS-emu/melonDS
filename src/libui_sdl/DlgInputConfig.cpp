@@ -54,7 +54,7 @@ typedef struct
     uiButton* pollbtn;
     SDL_TimerID timer;
 
-    Sint16 axes_rest[16];
+    int axes_rest[16];
 
 } InputDlgData;
 
@@ -266,8 +266,6 @@ Uint32 JoyPoll(Uint32 interval, void* param)
         return 0;
     }
 
-    SDL_JoystickUpdate();
-
     SDL_Joystick* joy = Joystick;
     if (!joy)
     {
@@ -320,8 +318,8 @@ Uint32 JoyPoll(Uint32 interval, void* param)
     for (int i = 0; i < naxes; i++)
     {
         Sint16 axisval = SDL_JoystickGetAxis(joy, i);
-        Sint16 diff = abs(axisval - dlg->axes_rest[i]);
-
+        int diff = abs(axisval - dlg->axes_rest[i]);
+printf("axis%d: val=%d, diff=%d\n", i, axisval, diff);
         if (dlg->axes_rest[i] < -16384 && axisval >= 0)
         {
             dlg->joymap[id] = (oldmap & 0xFFFF) | 0x10000 | (2 << 20) | (i << 24);
@@ -380,7 +378,6 @@ void OnJoyStartConfig(uiButton* btn, void* data)
         return;
     }
 
-    SDL_JoystickUpdate();
     int naxes = SDL_JoystickNumAxes(Joystick);
     if (naxes > 16) naxes = 16;
     for (int a = 0; a < naxes; a++)
