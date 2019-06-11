@@ -1502,6 +1502,34 @@ void Run()
     uiMenuItemSetChecked(MenuItem_Pause, 0);
 }
 
+void TogglePause(void* blarg)
+{
+    if (!RunningSomething) return;
+
+    if (EmuRunning == 1)
+    {
+        // enable pause
+        EmuRunning = 2;
+        uiMenuItemSetChecked(MenuItem_Pause, 1);
+
+        SDL_PauseAudioDevice(AudioDevice, 1);
+        SDL_PauseAudioDevice(MicDevice, 1);
+
+        OSD::AddMessage(0, "Paused");
+    }
+    else
+    {
+        // disable pause
+        EmuRunning = 1;
+        uiMenuItemSetChecked(MenuItem_Pause, 0);
+
+        SDL_PauseAudioDevice(AudioDevice, 0);
+        SDL_PauseAudioDevice(MicDevice, 0);
+
+        OSD::AddMessage(0, "Resumed");
+    }
+}
+
 void Stop(bool internal)
 {
     EmuRunning = 2;
@@ -1524,6 +1552,8 @@ void Stop(bool internal)
 
     SDL_PauseAudioDevice(AudioDevice, 1);
     SDL_PauseAudioDevice(MicDevice, 1);
+
+    OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
 void SetupSRAMPath()
@@ -1877,26 +1907,7 @@ void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    if (!RunningSomething) return;
-
-    if (EmuRunning == 1)
-    {
-        // enable pause
-        EmuRunning = 2;
-        uiMenuItemSetChecked(MenuItem_Pause, 1);
-
-        SDL_PauseAudioDevice(AudioDevice, 1);
-        SDL_PauseAudioDevice(MicDevice, 1);
-    }
-    else
-    {
-        // disable pause
-        EmuRunning = 1;
-        uiMenuItemSetChecked(MenuItem_Pause, 0);
-
-        SDL_PauseAudioDevice(AudioDevice, 0);
-        SDL_PauseAudioDevice(MicDevice, 0);
-    }
+    TogglePause(NULL);
 }
 
 void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
