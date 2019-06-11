@@ -66,6 +66,8 @@ typedef struct
     bool IsShadowMask;
     bool IsShadow;
 
+    int Type; // 0=polygon 1=horizontal line 2=vertical line 3=diagonal line 4=point
+
     u32 VTop, VBottom; // vertex indices
     s32 YTop, YBottom; // Y coords
     s32 XTop, XBottom; // associated X coords

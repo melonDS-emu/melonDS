@@ -1367,7 +1367,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // right vertical edges are pushed 1px to the left
     // edges are always filled if antialiasing/edgemarking are enabled or if the pixels are translucent
 
-    if (wireframe || (RenderDispCnt & (1<<5)))
+    if (wireframe || (RenderDispCnt & ((1<<4)|(1<<5))))
     {
         l_filledge = true;
         r_filledge = true;
@@ -1466,6 +1466,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         if (xcov == 0x3FF) xcov = 0;
     }
 
+    if (!l_filledge) x = std::min(xlimit, xend-r_edgelen+1);
+    else
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1538,8 +1540,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-            else if (!l_filledge)
-                continue;
 
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
@@ -1561,8 +1561,10 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
     if (xlimit > 256) xlimit = 256;
+
     if (wireframe && !edge) x = xlimit;
-    else for (; x < xlimit; x++)
+    else
+    for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
         u32 dstattr = AttrBuffer[pixeladdr];
@@ -1636,6 +1638,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         if (xcov == 0x3FF) xcov = 0;
     }
 
+    if (r_filledge)
     for (; x < xlimit; x++)
     {
         u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
@@ -1708,8 +1711,6 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
                     AttrBuffer[pixeladdr+BufferSize] = AttrBuffer[pixeladdr];
                 }
             }
-            else if (!r_filledge)
-                continue;
 
             DepthBuffer[pixeladdr] = z;
             ColorBuffer[pixeladdr] = color;
