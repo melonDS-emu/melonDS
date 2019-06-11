@@ -168,6 +168,11 @@ s16* MicWavBuffer;
 
 void SetupScreenRects(int width, int height);
 
+void TogglePause(void* blarg);
+void Reset(void* blarg);
+
+void SetupSRAMPath();
+
 void SaveState(int slot);
 void LoadState(int slot);
 void UndoStateLoad();
@@ -881,6 +886,9 @@ int EmuThreadFunc(void* burp)
             uiQueueMain(UpdateFPSLimit, NULL);
         }
 
+        if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
+        if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
+
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
@@ -1535,6 +1543,29 @@ void TogglePause(void* blarg)
     }
 }
 
+void Reset(void* blarg)
+{
+    if (!RunningSomething) return;
+
+    EmuRunning = 2;
+    while (EmuStatus != 2);
+
+    SavestateLoaded = false;
+    uiMenuItemDisable(MenuItem_UndoStateLoad);
+
+    if (ROMPath[0] == '\0')
+        NDS::LoadBIOS();
+    else
+    {
+        SetupSRAMPath();
+        NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
+    }
+
+    Run();
+
+    OSD::AddMessage(0, "Reset");
+}
+
 void Stop(bool internal)
 {
     EmuRunning = 2;
@@ -1917,23 +1948,7 @@ void OnPause(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void OnReset(uiMenuItem* item, uiWindow* window, void* blarg)
 {
-    if (!RunningSomething) return;
-
-    EmuRunning = 2;
-    while (EmuStatus != 2);
-
-    SavestateLoaded = false;
-    uiMenuItemDisable(MenuItem_UndoStateLoad);
-
-    if (ROMPath[0] == '\0')
-        NDS::LoadBIOS();
-    else
-    {
-        SetupSRAMPath();
-        NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
-    }
-
-    Run();
+    Reset(NULL);
 }
 
 void OnStop(uiMenuItem* item, uiWindow* window, void* blarg)

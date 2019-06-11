@@ -64,7 +64,15 @@ char dskeylabels[12][8] = {"A:", "B:", "Select:", "Start:", "Right:", "Left:", "
 
 int identity[32] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 
-char hotkeylabels[HK_MAX][32] = {"Close/open lid:", "Microphone:", "Fast forward:", "Fast forward (toggle):"};
+char hotkeylabels[HK_MAX][32] =
+{
+    "Close/open lid:",
+    "Microphone:",
+    "Pause/resume:",
+    "Reset:",
+    "Fast forward:",
+    "Fast forward (toggle):"
+};
 
 int openedmask;
 InputDlgData inputdlg[2];
@@ -319,7 +327,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
     {
         Sint16 axisval = SDL_JoystickGetAxis(joy, i);
         int diff = abs(axisval - dlg->axes_rest[i]);
-printf("axis%d: val=%d, diff=%d\n", i, axisval, diff);
+
         if (dlg->axes_rest[i] < -16384 && axisval >= 0)
         {
             dlg->joymap[id] = (oldmap & 0xFFFF) | 0x10000 | (2 << 20) | (i << 24);

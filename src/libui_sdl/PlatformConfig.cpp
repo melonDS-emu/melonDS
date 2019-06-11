@@ -92,11 +92,15 @@ ConfigEntry PlatformConfigFile[] =
 
     {"HKKey_Lid",               0, &HKKeyMapping[HK_Lid],               0x0D, NULL, 0},
     {"HKKey_Mic",               0, &HKKeyMapping[HK_Mic],               0x35, NULL, 0},
+    {"HKKey_Pause",             0, &HKKeyMapping[HK_Pause],               -1, NULL, 0},
+    {"HKKey_Reset",             0, &HKKeyMapping[HK_Reset],               -1, NULL, 0},
     {"HKKey_FastForward",       0, &HKKeyMapping[HK_FastForward],       0x0F, NULL, 0},
     {"HKKey_FastForwardToggle", 0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
 
     {"HKJoy_Lid",               0, &HKJoyMapping[HK_Lid],               -1, NULL, 0},
     {"HKJoy_Mic",               0, &HKJoyMapping[HK_Mic],               -1, NULL, 0},
+    {"HKJoy_Pause",             0, &HKJoyMapping[HK_Pause],             -1, NULL, 0},
+    {"HKJoy_Reset",             0, &HKJoyMapping[HK_Reset],             -1, NULL, 0},
     {"HKJoy_FastForward",       0, &HKJoyMapping[HK_FastForward],       -1, NULL, 0},
     {"HKJoy_FastForwardToggle", 0, &HKJoyMapping[HK_FastForwardToggle], -1, NULL, 0},
 

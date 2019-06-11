@@ -25,6 +25,8 @@ enum
 {
     HK_Lid = 0,
     HK_Mic,
+    HK_Pause,
+    HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
     HK_MAX
