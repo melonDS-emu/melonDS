@@ -88,16 +88,28 @@ out vec4 oColor;
 
 // make up for crapo zbuffer precision
 bool isless(float a, float b)
-{return true;
+{
+    return a < b;
+
     // a < b
     float diff = a - b;
     return diff < (256.0 / 16777216.0);
 }
 
+bool isgood(vec4 attr, float depth, int refPolyID, float refDepth)
+{
+    int polyid = int(attr.r * 63.0);
+
+    if (polyid != refPolyID && isless(refDepth, depth))
+        return true;
+
+    return false;
+}
+
 void main()
 {
     ivec2 coord = ivec2(gl_FragCoord.xy);
-    int scale = int(uScreenSize.x / 256);
+    int scale = 1;//int(uScreenSize.x / 256);
 
     vec4 ret = vec4(0,0,0,0);
     vec4 depth = texelFetch(DepthBuffer, coord, 0);
@@ -116,10 +128,14 @@ void main()
         vec4 depthR = texelFetch(DepthBuffer, coord + ivec2(scale,0), 0);
         vec4 attrR = texelFetch(AttrBuffer, coord + ivec2(scale,0), 0);
 
-        if ((polyid != int(attrU.r * 63.0) && isless(depth.r, depthU.r)) ||
+        /*if ((polyid != int(attrU.r * 63.0) && isless(depth.r, depthU.r)) ||
             (polyid != int(attrD.r * 63.0) && isless(depth.r, depthD.r)) ||
             (polyid != int(attrL.r * 63.0) && isless(depth.r, depthL.r)) ||
-            (polyid != int(attrR.r * 63.0) && isless(depth.r, depthR.r)))
+            (polyid != int(attrR.r * 63.0) && isless(depth.r, depthR.r)))*/
+        if (isgood(attrU, depthU.r, polyid, depth.r) ||
+            isgood(attrD, depthD.r, polyid, depth.r) ||
+            isgood(attrL, depthL.r, polyid, depth.r) ||
+            isgood(attrR, depthR.r, polyid, depth.r))
         {
             // mark this pixel!
 
