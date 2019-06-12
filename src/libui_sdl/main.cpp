@@ -93,6 +93,7 @@ uiMenuItem* MenuItem_ScreenSizing[4];
 
 uiMenuItem* MenuItem_ScreenFilter;
 uiMenuItem* MenuItem_LimitFPS;
+uiMenuItem* MenuItem_ShowOSD;
 
 SDL_Thread* EmuThread;
 int EmuRunning;
@@ -2144,6 +2145,13 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::LimitFPS = false;
 }
 
+void OnSetShowOSD(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::ShowOSD = true;
+    else          Config::ShowOSD = false;
+}
+
 void ApplyNewSettings(int type)
 {
     if (!RunningSomething)
@@ -2370,6 +2378,9 @@ void CreateMainWindowMenu()
 
     MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
     uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
+
+    MenuItem_ShowOSD = uiMenuAppendCheckItem(menu, "Show OSD");
+    uiMenuItemOnClicked(MenuItem_ShowOSD, OnSetShowOSD, NULL);
 }
 
 void CreateMainWindow(bool opengl)
@@ -2604,6 +2615,7 @@ int main(int argc, char** argv)
 
     uiMenuItemSetChecked(MenuItem_ScreenFilter, Config::ScreenFilter==1);
     uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+    uiMenuItemSetChecked(MenuItem_ShowOSD, Config::ShowOSD==1);
 
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));

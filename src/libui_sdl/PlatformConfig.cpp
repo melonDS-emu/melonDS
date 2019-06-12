@@ -46,6 +46,7 @@ int ScreenUseGL;
 int ScreenRatio;
 
 int LimitFPS;
+int ShowOSD;
 
 int DirectBoot;
 
@@ -120,6 +121,7 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 

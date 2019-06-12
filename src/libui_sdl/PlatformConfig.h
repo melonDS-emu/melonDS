@@ -57,6 +57,7 @@ extern int ScreenUseGL;
 extern int ScreenRatio;
 
 extern int LimitFPS;
+extern int ShowOSD;
 
 extern int DirectBoot;
 

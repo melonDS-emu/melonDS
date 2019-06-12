@@ -28,6 +28,8 @@
 #include "OSD.h"
 #include "font.h"
 
+#include "PlatformConfig.h"
+
 extern int WindowWidth, WindowHeight;
 
 namespace OSD
@@ -306,6 +308,8 @@ void RenderText(u32 color, const char* text, Item* item)
 
 void AddMessage(u32 color, const char* text)
 {
+    if (!Config::ShowOSD) return;
+
     while (Rendering);
 
     Item item;
@@ -341,6 +345,14 @@ void WindowResized(bool opengl)
 
 void Update(bool opengl, uiAreaDrawParams* params)
 {
+    if (!Config::ShowOSD)
+    {
+        Rendering = true;
+        if (ItemQueue.size() > 0) DeInit(opengl);
+        Rendering = false;
+        return;
+    }
+
     Rendering = true;
 
     Uint32 tick_now = SDL_GetTicks();
