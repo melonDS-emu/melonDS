@@ -1144,6 +1144,23 @@ void SubmitPolygon()
     for (int i = clipstart; i < nverts; i++)
         clippedvertices[i] = TempVertexBuffer[i];
 
+    // detect lines, for the OpenGL renderer
+
+    int polytype = 0;
+    if (nverts == 3)
+    {
+        if (ClipCoordsEqual(&clippedvertices[0], &clippedvertices[1]) ||
+            ClipCoordsEqual(&clippedvertices[0], &clippedvertices[2]) ||
+            ClipCoordsEqual(&clippedvertices[1], &clippedvertices[2]))
+        {
+            polytype = 1;
+        }
+    }
+    else if (nverts == 4)
+    {
+        // TODO
+    }
+
     // clipping
 
     nverts = ClipPolygon<true>(clippedvertices, nverts, clipstart);
@@ -1198,21 +1215,7 @@ void SubmitPolygon()
 
     if (!poly->Translucent) NumOpaquePolygons++;
 
-    if (ClipCoordsEqual(v0, v1) ||
-        ClipCoordsEqual(v0, v2) ||
-        ClipCoordsEqual(v1, v2))
-    {
-        poly->Type = 1;
-    }
-    else if (nverts == 4)
-    {
-        if (ClipCoordsEqual(v0, v3) ||
-            ClipCoordsEqual(v1, v3) ||
-            ClipCoordsEqual(v2, v3))
-        {
-            poly->Type = 1;
-        }
-    }
+    poly->Type = polytype;
 
     if (LastStripPolygon && clipstart > 0)
     {

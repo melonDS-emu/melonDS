@@ -582,7 +582,10 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                     y = vtx->FinalPosition[1];
                 }
 
-                if (lastx == x && lasty == y) continue;
+                if (j > 0)
+                {
+                    if (lastx == x && lasty == y) continue;
+                }
 
                 *vptr++ = x | (y << 16);
                 *vptr++ = z | (w << 16);
