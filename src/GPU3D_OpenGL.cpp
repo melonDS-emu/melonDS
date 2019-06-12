@@ -73,6 +73,8 @@ typedef struct
 
     u32 NumIndices;
     u16* Indices;
+    GLuint PrimType;
+
     u32 NumEdgeIndices;
     u16* EdgeIndices;
 
@@ -104,7 +106,6 @@ u32 NumVertices;
 
 GLuint VertexArrayID;
 u16 IndexBuffer[2048 * 40];
-u32 NumTriangles;
 
 GLuint TexMemID;
 GLuint TexPalMemID;
@@ -532,7 +533,6 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
     u16* iptr = &IndexBuffer[0];
     u16* eiptr = &IndexBuffer[2048*30];
-    u32 numtriangles = 0;
 
     for (int i = 0; i < npolys; i++)
     {
@@ -553,54 +553,111 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         if (poly->WBuffer)    vtxattr |= (1<<9);
 
         // assemble vertices
-        for (int j = 0; j < poly->NumVertices; j++)
+        if (poly->Type == 1) // line
         {
-            Vertex* vtx = poly->Vertices[j];
+            rp->PrimType = GL_LINES;
 
-            u32 z = poly->FinalZ[j];
-            u32 w = poly->FinalW[j];
-
-            // Z should always fit within 16 bits, so it's okay to do this
-            u32 zshift = 0;
-            while (z > 0xFFFF) { z >>= 1; zshift++; }
-
-            u32 x, y;
-            if (ScaleFactor > 1)
+            u32 lastx, lasty;
+            int nout = 0;
+            for (int j = 0; j < poly->NumVertices; j++)
             {
-                x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-            }
-            else
-            {
-                x = vtx->FinalPosition[0];
-                y = vtx->FinalPosition[1];
-            }
+                Vertex* vtx = poly->Vertices[j];
 
-            *vptr++ = x | (y << 16);
-            *vptr++ = z | (w << 16);
+                u32 z = poly->FinalZ[j];
+                u32 w = poly->FinalW[j];
 
-            *vptr++ =  (vtx->FinalColor[0] >> 1) |
-                      ((vtx->FinalColor[1] >> 1) << 8) |
-                      ((vtx->FinalColor[2] >> 1) << 16) |
-                      (alpha << 24);
+                // Z should always fit within 16 bits, so it's okay to do this
+                u32 zshift = 0;
+                while (z > 0xFFFF) { z >>= 1; zshift++; }
 
-            *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+                u32 x, y;
+                if (ScaleFactor > 1)
+                {
+                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
+                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
+                }
+                else
+                {
+                    x = vtx->FinalPosition[0];
+                    y = vtx->FinalPosition[1];
+                }
 
-            *vptr++ = vtxattr | (zshift << 16);
-            *vptr++ = poly->TexParam;
-            *vptr++ = poly->TexPalette;
+                if (lastx == x && lasty == y) continue;
 
-            if (j >= 2)
-            {
-                // build a triangle
-                *iptr++ = vidx_first;
-                *iptr++ = vidx - 1;
+                *vptr++ = x | (y << 16);
+                *vptr++ = z | (w << 16);
+
+                *vptr++ =  (vtx->FinalColor[0] >> 1) |
+                          ((vtx->FinalColor[1] >> 1) << 8) |
+                          ((vtx->FinalColor[2] >> 1) << 16) |
+                          (alpha << 24);
+
+                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+
+                *vptr++ = vtxattr | (zshift << 16);
+                *vptr++ = poly->TexParam;
+                *vptr++ = poly->TexPalette;
+
                 *iptr++ = vidx;
-                numtriangles++;
-                rp->NumIndices += 3;
-            }
+                rp->NumIndices++;
 
-            vidx++;
+                vidx++;
+                nout++;
+                if (nout >= 2) break;
+            }
+        }
+        else
+        {
+            rp->PrimType = GL_TRIANGLES;
+
+            for (int j = 0; j < poly->NumVertices; j++)
+            {
+                Vertex* vtx = poly->Vertices[j];
+
+                u32 z = poly->FinalZ[j];
+                u32 w = poly->FinalW[j];
+
+                // Z should always fit within 16 bits, so it's okay to do this
+                u32 zshift = 0;
+                while (z > 0xFFFF) { z >>= 1; zshift++; }
+
+                u32 x, y;
+                if (ScaleFactor > 1)
+                {
+                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
+                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
+                }
+                else
+                {
+                    x = vtx->FinalPosition[0];
+                    y = vtx->FinalPosition[1];
+                }
+
+                *vptr++ = x | (y << 16);
+                *vptr++ = z | (w << 16);
+
+                *vptr++ =  (vtx->FinalColor[0] >> 1) |
+                          ((vtx->FinalColor[1] >> 1) << 8) |
+                          ((vtx->FinalColor[2] >> 1) << 16) |
+                          (alpha << 24);
+
+                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+
+                *vptr++ = vtxattr | (zshift << 16);
+                *vptr++ = poly->TexParam;
+                *vptr++ = poly->TexPalette;
+
+                if (j >= 2)
+                {
+                    // build a triangle
+                    *iptr++ = vidx_first;
+                    *iptr++ = vidx - 1;
+                    *iptr++ = vidx;
+                    rp->NumIndices += 3;
+                }
+
+                vidx++;
+            }
         }
 
         rp->EdgeIndices = eiptr;
@@ -619,7 +676,6 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         rp->NumEdgeIndices += 2;
     }
 
-    NumTriangles = numtriangles;
     NumVertices = vidx;
 }
 
@@ -627,12 +683,13 @@ void RenderSinglePolygon(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
 
-    glDrawElements(GL_TRIANGLES, rp->NumIndices, GL_UNSIGNED_SHORT, rp->Indices);
+    glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, rp->Indices);
 }
 
 int RenderPolygonBatch(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
+    GLuint primtype = rp->PrimType;
     u32 key = rp->RenderKey;
     int numpolys = 0;
     u32 numindices = 0;
@@ -640,13 +697,14 @@ int RenderPolygonBatch(int i)
     for (int iend = i; iend < NumFinalPolys; iend++)
     {
         RendererPolygon* cur_rp = &PolygonList[iend];
+        if (cur_rp->PrimType != primtype) break;
         if (cur_rp->RenderKey != key) break;
 
         numpolys++;
         numindices += cur_rp->NumIndices;
     }
 
-    glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+    glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, rp->Indices);
     return numpolys;
 }
 

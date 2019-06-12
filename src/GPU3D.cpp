@@ -539,6 +539,11 @@ void DoSavestate(Savestate* file)
         file->Var32((u32*)&poly->IsShadowMask);
         file->Var32((u32*)&poly->IsShadow);
 
+        if (file->IsAtleastVersion(4, 1))
+            file->Var32((u32*)&poly->Type);
+        else
+            poly->Type = 0;
+
         file->Var32(&poly->VTop);
         file->Var32(&poly->VBottom);
         file->Var32((u32*)&poly->YTop);
@@ -1017,6 +1022,14 @@ int ClipPolygon(Vertex* vertices, int nverts, int clipstart)
     return nverts;
 }
 
+bool ClipCoordsEqual(Vertex* a, Vertex* b)
+{
+    return a->Position[0] == b->Position[0] &&
+           a->Position[1] == b->Position[1] &&
+           a->Position[2] == b->Position[2] &&
+           a->Position[3] == b->Position[3];
+}
+
 void SubmitPolygon()
 {
     Vertex clippedvertices[10];
@@ -1038,13 +1051,15 @@ void SubmitPolygon()
     // TODO: work out how it works on the real thing
     // the normalization part is a wild guess
 
-    Vertex *v0, *v1, *v2;
+    Vertex *v0, *v1, *v2, *v3;
     s64 normalX, normalY, normalZ;
     s64 dot;
 
     v0 = &TempVertexBuffer[0];
     v1 = &TempVertexBuffer[1];
     v2 = &TempVertexBuffer[2];
+    v3 = &TempVertexBuffer[3];
+
     normalX = ((s64)(v0->Position[1]-v1->Position[1]) * (v2->Position[3]-v1->Position[3]))
         - ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[1]-v1->Position[1]));
     normalY = ((s64)(v0->Position[3]-v1->Position[3]) * (v2->Position[0]-v1->Position[0]))
@@ -1170,6 +1185,7 @@ void SubmitPolygon()
     poly->TexPalette = TexPalette;
 
     poly->Degenerate = false;
+    poly->Type = 0;
 
     poly->FacingView = facingview;
 
@@ -1181,6 +1197,22 @@ void SubmitPolygon()
     poly->IsShadow = ((CurPolygonAttr & 0x30) == 0x30) && !poly->IsShadowMask;
 
     if (!poly->Translucent) NumOpaquePolygons++;
+
+    if (ClipCoordsEqual(v0, v1) ||
+        ClipCoordsEqual(v0, v2) ||
+        ClipCoordsEqual(v1, v2))
+    {
+        poly->Type = 1;
+    }
+    else if (nverts == 4)
+    {
+        if (ClipCoordsEqual(v0, v3) ||
+            ClipCoordsEqual(v1, v3) ||
+            ClipCoordsEqual(v2, v3))
+        {
+            poly->Type = 1;
+        }
+    }
 
     if (LastStripPolygon && clipstart > 0)
     {
