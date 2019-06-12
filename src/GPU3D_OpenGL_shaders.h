@@ -128,10 +128,6 @@ void main()
         vec4 depthR = texelFetch(DepthBuffer, coord + ivec2(scale,0), 0);
         vec4 attrR = texelFetch(AttrBuffer, coord + ivec2(scale,0), 0);
 
-        /*if ((polyid != int(attrU.r * 63.0) && isless(depth.r, depthU.r)) ||
-            (polyid != int(attrD.r * 63.0) && isless(depth.r, depthD.r)) ||
-            (polyid != int(attrL.r * 63.0) && isless(depth.r, depthL.r)) ||
-            (polyid != int(attrR.r * 63.0) && isless(depth.r, depthR.r)))*/
         if (isgood(attrU, depthU.r, polyid, depth.r) ||
             isgood(attrD, depthD.r, polyid, depth.r) ||
             isgood(attrL, depthL.r, polyid, depth.r) ||
@@ -660,7 +656,7 @@ void main()
     int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = (((vec2(vPosition.xy) + 0.5) * 2.0) / uScreenSize) - 1.0;
     fpos.z = (float(vPosition.z << zshift) / 8388608.0) - 1.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
@@ -683,7 +679,7 @@ void main()
     int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.xy = ((vec2(vPosition.xy) * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = (((vec2(vPosition.xy) + 0.5) * 2.0) / uScreenSize) - 1.0;
     fZ = float(vPosition.z << zshift) / 16777216.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xy *= fpos.w;
