@@ -15,3 +15,17 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
+
+#ifndef DSI_H
+#define DSI_H
+
+#include "types.h"
+
+namespace DSi
+{
+
+bool LoadNAND();
+
+}
+
+#endif // DSI_H

@@ -254,6 +254,15 @@
 		<Unit filename="src/pcap/sll.h" />
 		<Unit filename="src/pcap/usb.h" />
 		<Unit filename="src/pcap/vlan.h" />
+		<Unit filename="src/sha1/sha1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/sha1/sha1.h" />
+		<Unit filename="src/tiny-AES-c/aes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/tiny-AES-c/aes.h" />
+		<Unit filename="src/tiny-AES-c/aes.hpp" />
 		<Unit filename="src/types.h" />
 		<Unit filename="src/version.h" />
 		<Unit filename="xp.manifest" />

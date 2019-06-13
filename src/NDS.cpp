@@ -31,6 +31,8 @@
 #include "Wifi.h"
 #include "Platform.h"
 
+#include "DSi.h"
+
 
 namespace NDS
 {
@@ -83,8 +85,8 @@ u32 SchedListMask;
 
 u32 CPUStop;
 
-u8 ARM9BIOS[0x1000];
-u8 ARM7BIOS[0x4000];
+u8 ARM9BIOS[0x10000];
+u8 ARM7BIOS[0x10000];
 
 u8 MainRAM[MAIN_RAM_SIZE];
 
@@ -387,6 +389,9 @@ void Reset()
 
     LastSysClockCycles = 0;
 
+    memset(ARM9BIOS, 0, 0x10000);
+    memset(ARM7BIOS, 0, 0x10000);
+
     f = Platform::OpenLocalFile("bios9.bin", "rb");
     if (!f)
     {
@@ -420,6 +425,8 @@ void Reset()
         printf("ARM7 BIOS loaded\n");
         fclose(f);
     }
+
+    DSi::LoadNAND();
 
     // TODO for later: configure this when emulating a DSi
     ARM9ClockShift = 1;
@@ -1566,9 +1573,9 @@ void debug(u32 param)
 
 u8 ARM9Read8(u32 addr)
 {
-    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    if ((addr & 0xFFFF0000) == 0xFFFF0000)
     {
-        return *(u8*)&ARM9BIOS[addr & 0xFFF];
+        return *(u8*)&ARM9BIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -1627,9 +1634,9 @@ u8 ARM9Read8(u32 addr)
 
 u16 ARM9Read16(u32 addr)
 {
-    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    if ((addr & 0xFFFF0000) == 0xFFFF0000)
     {
-        return *(u16*)&ARM9BIOS[addr & 0xFFF];
+        return *(u16*)&ARM9BIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -1688,9 +1695,9 @@ u16 ARM9Read16(u32 addr)
 
 u32 ARM9Read32(u32 addr)
 {
-    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    if ((addr & 0xFFFF0000) == 0xFFFF0000)
     {
-        return *(u32*)&ARM9BIOS[addr & 0xFFF];
+        return *(u32*)&ARM9BIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -1896,9 +1903,10 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 ARM7Read8(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < 0x00010000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        // TODO: check the boundary? is it 4000 or higher on regular DS?
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
@@ -1952,9 +1960,9 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < 0x00010000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
@@ -2015,9 +2023,9 @@ u16 ARM7Read16(u32 addr)
 
 u32 ARM7Read32(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < 0x00010000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x00010000)
             return 0xFFFFFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;

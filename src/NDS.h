@@ -117,8 +117,8 @@ extern u16 ExMemCnt[2];
 extern u8 ROMSeed0[2*8];
 extern u8 ROMSeed1[2*8];
 
-extern u8 ARM9BIOS[0x1000];
-extern u8 ARM7BIOS[0x4000];
+extern u8 ARM9BIOS[0x10000];
+extern u8 ARM7BIOS[0x10000];
 
 //#define MAIN_RAM_SIZE 0x400000
 #define MAIN_RAM_SIZE 0x1000000

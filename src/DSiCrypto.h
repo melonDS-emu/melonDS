@@ -15,3 +15,10 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
+
+#ifndef DSICRYPTO_H
+#define DSICRYPTO_H
+
+//
+
+#endif // DSICRYPTO_H

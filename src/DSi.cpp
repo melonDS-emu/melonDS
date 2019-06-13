@@ -15,3 +15,19 @@
     You should have received a copy of the GNU General Public License along
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
+
+#include "DSi.h"
+#include "tiny-AES-c/aes.hpp"
+#include "sha1/sha1.h"
+
+namespace DSi
+{
+
+bool LoadNAND()
+{
+    //
+
+    return true;
+}
+
+}
