@@ -581,7 +581,7 @@ namespace SPI
 
 u16 Cnt;
 
-u32 CurDevice;
+u32 CurDevice; // remove me
 
 
 bool Init()

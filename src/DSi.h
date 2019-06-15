@@ -19,7 +19,7 @@
 #ifndef DSI_H
 #define DSI_H
 
-#include "types.h"
+#include "NDS.h"
 
 namespace DSi
 {

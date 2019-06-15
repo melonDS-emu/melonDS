@@ -25,6 +25,8 @@
 #include "sha1/sha1.h"
 #include "Platform.h"
 
+#include "DSi_I2C.h"
+
 
 namespace NDS
 {
@@ -59,6 +61,8 @@ void Reset()
 {
     NDS::ARM9->JumpTo(BootAddr[0]);
     NDS::ARM7->JumpTo(BootAddr[1]);
+
+    DSi_I2C::Reset();
 }
 
 bool LoadBIOS()
@@ -855,6 +859,8 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004500: return DSi_I2C::ReadData();
+    case 0x04004501: return DSi_I2C::Cnt;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -882,6 +888,8 @@ void ARM7IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04004500: DSi_I2C::WriteData(val); return;
+    case 0x04004501: DSi_I2C::WriteCnt(val); return;
     }
 
     return NDS::ARM7IOWrite8(addr, val);

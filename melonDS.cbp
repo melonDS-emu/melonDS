@@ -104,6 +104,8 @@
 		<Unit filename="src/DSi.h" />
 		<Unit filename="src/DSiCrypto.cpp" />
 		<Unit filename="src/DSiCrypto.h" />
+		<Unit filename="src/DSi_I2C.cpp" />
+		<Unit filename="src/DSi_I2C.h" />
 		<Unit filename="src/FIFO.h" />
 		<Unit filename="src/GPU.cpp" />
 		<Unit filename="src/GPU.h" />

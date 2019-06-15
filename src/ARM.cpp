@@ -175,6 +175,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
+    if (addr==0x037CA0D0) printf("VLORP %08X\n", R[15]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
