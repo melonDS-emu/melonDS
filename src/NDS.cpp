@@ -392,44 +392,51 @@ void Reset()
     memset(ARM9BIOS, 0, 0x10000);
     memset(ARM7BIOS, 0, 0x10000);
 
-    f = Platform::OpenLocalFile("bios9.bin", "rb");
-    if (!f)
+    if (true)
     {
-        printf("ARM9 BIOS not found\n");
+        DSi::LoadBIOS();
+        DSi::LoadNAND();
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        ARM9ClockShift = 2;
     }
     else
     {
-        fseek(f, 0, SEEK_SET);
-        fread(ARM9BIOS, 0x1000, 1, f);
+        f = Platform::OpenLocalFile("bios9.bin", "rb");
+        if (!f)
+        {
+            printf("ARM9 BIOS not found\n");
 
-        printf("ARM9 BIOS loaded\n");
-        fclose(f);
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        }
+        else
+        {
+            fseek(f, 0, SEEK_SET);
+            fread(ARM9BIOS, 0x1000, 1, f);
+
+            printf("ARM9 BIOS loaded\n");
+            fclose(f);
+        }
+
+        f = Platform::OpenLocalFile("bios7.bin", "rb");
+        if (!f)
+        {
+            printf("ARM7 BIOS not found\n");
+
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+        }
+        else
+        {
+            fseek(f, 0, SEEK_SET);
+            fread(ARM7BIOS, 0x4000, 1, f);
+
+            printf("ARM7 BIOS loaded\n");
+            fclose(f);
+        }
+
+        ARM9ClockShift = 1;
     }
-
-    f = Platform::OpenLocalFile("bios7.bin", "rb");
-    if (!f)
-    {
-        printf("ARM7 BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
-    }
-    else
-    {
-        fseek(f, 0, SEEK_SET);
-        fread(ARM7BIOS, 0x4000, 1, f);
-
-        printf("ARM7 BIOS loaded\n");
-        fclose(f);
-    }
-
-    DSi::LoadNAND();
-
-    // TODO for later: configure this when emulating a DSi
-    ARM9ClockShift = 1;
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
@@ -443,8 +450,8 @@ void Reset()
 
     MapSharedWRAM(0);
 
-    ExMemCnt[0] = 0;
-    ExMemCnt[1] = 0;
+    ExMemCnt[0] = 0x4000;
+    ExMemCnt[1] = 0x4000;
     memset(ROMSeed0, 0, 2*8);
     memset(ROMSeed1, 0, 2*8);
     SetGBASlotTimings();

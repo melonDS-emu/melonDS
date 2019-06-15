@@ -23,6 +23,7 @@
 
 #include "types.h"
 #include "NDS.h"
+#include "DSi.h"
 
 #define ROR(x, n) (((x) >> (n)) | ((x) << (32-(n))))
 
@@ -271,17 +272,20 @@ public:
 
     u16 CodeRead16(u32 addr)
     {
-        return NDS::ARM7Read16(addr);
+        //return NDS::ARM7Read16(addr);
+        return DSi::ARM7Read16(addr);
     }
 
     u32 CodeRead32(u32 addr)
     {
-        return NDS::ARM7Read32(addr);
+        //return NDS::ARM7Read32(addr);
+        return DSi::ARM7Read32(addr);
     }
 
     void DataRead8(u32 addr, u32* val)
     {
-        *val = NDS::ARM7Read8(addr);
+        *val = DSi::ARM7Read8(addr);
+        //*val = NDS::ARM7Read8(addr);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][0];
     }
@@ -290,7 +294,8 @@ public:
     {
         addr &= ~1;
 
-        *val = NDS::ARM7Read16(addr);
+        *val = DSi::ARM7Read16(addr);
+        //*val = NDS::ARM7Read16(addr);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][0];
     }
@@ -299,7 +304,8 @@ public:
     {
         addr &= ~3;
 
-        *val = NDS::ARM7Read32(addr);
+        *val = DSi::ARM7Read32(addr);
+        //*val = NDS::ARM7Read32(addr);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][2];
     }
@@ -308,13 +314,15 @@ public:
     {
         addr &= ~3;
 
-        *val = NDS::ARM7Read32(addr);
+        *val = DSi::ARM7Read32(addr);
+        //*val = NDS::ARM7Read32(addr);
         DataCycles += NDS::ARM7MemTimings[DataRegion][3];
     }
 
     void DataWrite8(u32 addr, u8 val)
     {
-        NDS::ARM7Write8(addr, val);
+        DSi::ARM7Write8(addr, val);
+        //NDS::ARM7Write8(addr, val);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][0];
     }
@@ -323,7 +331,8 @@ public:
     {
         addr &= ~1;
 
-        NDS::ARM7Write16(addr, val);
+        DSi::ARM7Write16(addr, val);
+        //NDS::ARM7Write16(addr, val);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][0];
     }
@@ -332,7 +341,8 @@ public:
     {
         addr &= ~3;
 
-        NDS::ARM7Write32(addr, val);
+        DSi::ARM7Write32(addr, val);
+        //NDS::ARM7Write32(addr, val);
         DataRegion = addr >> 24;
         DataCycles = NDS::ARM7MemTimings[DataRegion][2];
     }
@@ -341,7 +351,8 @@ public:
     {
         addr &= ~3;
 
-        NDS::ARM7Write32(addr, val);
+        DSi::ARM7Write32(addr, val);
+        //NDS::ARM7Write32(addr, val);
         DataCycles += NDS::ARM7MemTimings[DataRegion][3];
     }
 
