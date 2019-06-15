@@ -133,7 +133,6 @@ void WriteCnt(u8 val)
 {
     printf("I2C: write CNT %02X\n", val);
 
-    val &= 0xF7;
     // TODO: check ACK flag
     // TODO: transfer delay
     // TODO: IRQ
@@ -141,41 +140,47 @@ void WriteCnt(u8 val)
 
     if (val & (1<<7))
     {
-        bool islast = Cnt & (1<<0);
+        bool islast = val & (1<<0);
 
         if (val & (1<<5))
         {
             // read
-            printf("I2C read, device=%02X, cnt=%02X, last=%d\n", Device, Cnt, islast);
+            val &= 0xF7;
 
             switch (Device)
             {
             case 0x4A: Data = DSi_BPTWL::Read(islast); break;
             default: Data = 0; break;
             }
+
+            printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
             // write
-            printf("I2C write, device=%02X, cnt=%02X, last=%d\n", Device, Cnt, islast);
+            val &= 0xE7;
 
             if (val & (1<<1))
             {
-                Device = Data;
-                printf("I2C: start, device=%02X\n", Device);
+                Device = Data & 0xFE;
+                printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
-                case 0x4A: DSi_BPTWL::Start(); return;
+                case 0x4A: DSi_BPTWL::Start(); break;
                 }
             }
             else
             {
+                printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+
                 switch (Device)
                 {
                 case 0x4A: DSi_BPTWL::Write(Data, islast); break;
                 }
             }
+
+            val |= (1<<4);
         }
 
         val &= 0x7F;

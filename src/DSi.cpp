@@ -817,6 +817,7 @@ u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004004: return 0; // TODO
     }
 
     return NDS::ARM9IORead16(addr);
