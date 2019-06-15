@@ -103,6 +103,8 @@ namespace DSi_I2C
 {
 
 u8 Cnt;
+u8 Data;
+
 u32 Device;
 
 bool Init()
@@ -119,6 +121,9 @@ void DeInit()
 
 void Reset()
 {
+    Cnt = 0;
+    Data = 0;
+
     Device = -1;
 
     DSi_BPTWL::Reset();
@@ -126,17 +131,54 @@ void Reset()
 
 void WriteCnt(u8 val)
 {
+    printf("I2C: write CNT %02X\n", val);
+
     val &= 0xF7;
     // TODO: check ACK flag
     // TODO: transfer delay
+    // TODO: IRQ
+    // TODO: check read/write direction
 
     if (val & (1<<7))
     {
-        if (val & (1<<2))
+        bool islast = Cnt & (1<<0);
+
+        if (val & (1<<5))
         {
-            Device = -1;
-            printf("I2C: start\n");
+            // read
+            printf("I2C read, device=%02X, cnt=%02X, last=%d\n", Device, Cnt, islast);
+
+            switch (Device)
+            {
+            case 0x4A: Data = DSi_BPTWL::Read(islast); break;
+            default: Data = 0; break;
+            }
         }
+        else
+        {
+            // write
+            printf("I2C write, device=%02X, cnt=%02X, last=%d\n", Device, Cnt, islast);
+
+            if (val & (1<<1))
+            {
+                Device = Data;
+                printf("I2C: start, device=%02X\n", Device);
+
+                switch (Device)
+                {
+                case 0x4A: DSi_BPTWL::Start(); return;
+                }
+            }
+            else
+            {
+                switch (Device)
+                {
+                case 0x4A: DSi_BPTWL::Write(Data, islast); break;
+                }
+            }
+        }
+
+        val &= 0x7F;
     }
 
     Cnt = val;
@@ -144,42 +186,12 @@ void WriteCnt(u8 val)
 
 u8 ReadData()
 {
-    switch (Device)
-    {
-    case 0x4A: return DSi_BPTWL::Read(Cnt & (1<<0));
-
-    default:
-        printf("I2C: read from unknown device %02X\n", Device);
-        break;
-    }
-
-    return 0;
+    return Data;
 }
 
 void WriteData(u8 val)
 {
-    if (Device == -1)
-    {
-        Device = val;
-        switch (Device)
-        {
-        case 0x4A: DSi_BPTWL::Start(); return;
-
-        default:
-            printf("I2C: start on unknown device %02X\n", Device);
-            break;
-        }
-        return;
-    }
-
-    switch (Device)
-    {
-    case 0x4A: DSi_BPTWL::Write(val, Cnt & (1<<0)); return;
-
-    default:
-        printf("I2C: write to unknown device %02X\n", Device);
-        break;
-    }
+    Data = val;
 }
 
 }

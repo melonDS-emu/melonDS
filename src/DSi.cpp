@@ -59,6 +59,10 @@ u32 NWRAMMask[2][3];
 
 void Reset()
 {
+    //NDS::ARM9->CP15Write(0x910, 0x0D00000A);
+    //NDS::ARM9->CP15Write(0x911, 0x00000020);
+    //NDS::ARM9->CP15Write(0x100, NDS::ARM9->CP15Read(0x100) | 0x00050000);
+
     NDS::ARM9->JumpTo(BootAddr[0]);
     NDS::ARM7->JumpTo(BootAddr[1]);
 
