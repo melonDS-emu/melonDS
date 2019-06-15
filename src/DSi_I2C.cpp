@@ -39,7 +39,7 @@ void DeInit()
 
 void Reset()
 {
-    CurPos = 0;
+    CurPos = -1;
     memset(Registers, 0x5A, 0x100);
 
     Registers[0x00] = 0x33; // TODO: support others??
@@ -72,16 +72,36 @@ void Reset()
 
 void Start()
 {
-    CurPos = 0;
+    printf("BPTWL: start\n");
 }
 
 u8 Read(bool last)
 {
+    if (last)
+    {
+        CurPos = -1;
+        return 0;
+    }
+
+    printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
     return Registers[CurPos++];
 }
 
 void Write(u8 val, bool last)
 {
+    if (last)
+    {
+        CurPos = -1;
+        return;
+    }
+
+    if (CurPos == -1)
+    {
+        CurPos = val;
+        printf("BPTWL: reg=%02X\n", val);
+        return;
+    }
+
     if (CurPos == 0x11 || CurPos == 0x12 ||
         CurPos == 0x21 ||
         CurPos == 0x30 || CurPos == 0x31 ||
@@ -93,7 +113,8 @@ void Write(u8 val, bool last)
         Registers[CurPos] = val;
     }
 
-    CurPos++;
+    printf("BPTWL: write %02X -> %02X\n", CurPos, val);
+    CurPos++; // CHECKME
 }
 
 }
