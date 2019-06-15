@@ -510,6 +510,8 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
+
+    DSi::Reset();
 }
 
 void Stop()

@@ -24,6 +24,8 @@
 namespace DSi
 {
 
+void Reset();
+
 bool LoadBIOS();
 bool LoadNAND();
 

@@ -20,13 +20,25 @@
 #include <string.h>
 #include "NDS.h"
 #include "DSi.h"
+#include "ARM.h"
 #include "tiny-AES-c/aes.hpp"
 #include "sha1/sha1.h"
 #include "Platform.h"
 
 
+namespace NDS
+{
+
+extern ARMv5* ARM9;
+extern ARMv4* ARM7;
+
+}
+
+
 namespace DSi
 {
+
+u32 BootAddr[2];
 
 u32 MBK[2][9];
 
@@ -42,6 +54,12 @@ u32 NWRAMStart[2][3];
 u32 NWRAMEnd[2][3];
 u32 NWRAMMask[2][3];
 
+
+void Reset()
+{
+    NDS::ARM9->JumpTo(BootAddr[0]);
+    NDS::ARM7->JumpTo(BootAddr[1]);
+}
 
 bool LoadBIOS()
 {
@@ -157,6 +175,56 @@ bool LoadNAND()
         MapNWRAMRange(1, 2, mbk[10]);
 
         // TODO: MBK9 protect thing
+
+        // load binaries
+        // TODO: optionally support loading from actual NAND?
+        // currently decrypted binaries have to be provided
+        // they can be decrypted with twltool
+
+        FILE* bin;
+
+        bin = Platform::OpenLocalFile("boot2_9.bin", "rb");
+        if (bin)
+        {
+            u32 dstaddr = bootparams[2];
+            for (u32 i = 0; i < bootparams[1]; i += 4)
+            {
+                u32 _tmp;
+                fread(&_tmp, 4, 1, bin);
+                ARM9Write32(dstaddr, _tmp);
+                dstaddr += 4;
+            }
+
+            fclose(bin);
+        }
+        else
+        {
+            printf("ARM9 boot2 not found\n");
+        }
+
+        bin = Platform::OpenLocalFile("boot2_7.bin", "rb");
+        if (bin)
+        {
+            u32 dstaddr = bootparams[6];
+            for (u32 i = 0; i < bootparams[5]; i += 4)
+            {
+                u32 _tmp;
+                fread(&_tmp, 4, 1, bin);
+                ARM7Write32(dstaddr, _tmp);
+                dstaddr += 4;
+            }
+
+            fclose(bin);
+        }
+        else
+        {
+            printf("ARM7 boot2 not found\n");
+        }
+
+        // repoint CPUs to the boot2 binaries
+
+        BootAddr[0] = bootparams[2];
+        BootAddr[1] = bootparams[6];
 
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
@@ -316,6 +384,24 @@ u8 ARM9Read8(u32 addr)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            return ptr ? *(u8*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            return ptr ? *(u8*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            return ptr ? *(u8*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM9Read8(addr);
+
     case 0x04000000:
         return ARM9IORead8(addr);
     }
@@ -327,6 +413,24 @@ u16 ARM9Read16(u32 addr)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            return ptr ? *(u16*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM9Read16(addr);
+
     case 0x04000000:
         return ARM9IORead16(addr);
     }
@@ -338,6 +442,24 @@ u32 ARM9Read32(u32 addr)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            return ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM9Read32(addr);
+
     case 0x04000000:
         return ARM9IORead32(addr);
     }
@@ -349,6 +471,24 @@ void ARM9Write8(u32 addr, u8 val)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM9Write8(addr, val);
+
     case 0x04000000:
         ARM9IOWrite8(addr, val);
         return;
@@ -361,6 +501,24 @@ void ARM9Write16(u32 addr, u16 val)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM9Write16(addr, val);
+
     case 0x04000000:
         ARM9IOWrite16(addr, val);
         return;
@@ -373,6 +531,24 @@ void ARM9Write32(u32 addr, u32 val)
 {
     switch (addr & 0xFF000000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
+        {
+            u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
+            if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
+        {
+            u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
+            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
+        {
+            u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
+            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM9Write32(addr, val);
+
     case 0x04000000:
         ARM9IOWrite32(addr, val);
         return;
@@ -408,6 +584,24 @@ u8 ARM7Read8(u32 addr)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            return ptr ? *(u8*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            return ptr ? *(u8*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            return ptr ? *(u8*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM7Read8(addr);
+
     case 0x04000000:
         return ARM7IORead8(addr);
     }
@@ -419,6 +613,24 @@ u16 ARM7Read16(u32 addr)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            return ptr ? *(u16*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            return ptr ? *(u16*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM7Read16(addr);
+
     case 0x04000000:
         return ARM7IORead16(addr);
     }
@@ -430,6 +642,24 @@ u32 ARM7Read32(u32 addr)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            return ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
+        }
+        return NDS::ARM7Read32(addr);
+
     case 0x04000000:
         return ARM7IORead32(addr);
     }
@@ -441,6 +671,24 @@ void ARM7Write8(u32 addr, u8 val)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM7Write8(addr, val);
+
     case 0x04000000:
         ARM7IOWrite8(addr, val);
         return;
@@ -453,6 +701,24 @@ void ARM7Write16(u32 addr, u16 val)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM7Write16(addr, val);
+
     case 0x04000000:
         ARM7IOWrite16(addr, val);
         return;
@@ -465,6 +731,24 @@ void ARM7Write32(u32 addr, u32 val)
 {
     switch (addr & 0xFF800000)
     {
+    case 0x03000000:
+        if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
+        {
+            u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
+            if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+        }
+        if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
+        {
+            u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
+            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+        }
+        if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
+        {
+            u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
+            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+        }
+        return NDS::ARM7Write32(addr, val);
+
     case 0x04000000:
         ARM7IOWrite32(addr, val);
         return;
