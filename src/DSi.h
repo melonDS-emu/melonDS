@@ -27,6 +27,11 @@ namespace DSi
 bool LoadBIOS();
 bool LoadNAND();
 
+void MapNWRAM_A(u32 num, u8 val);
+void MapNWRAM_B(u32 num, u8 val);
+void MapNWRAM_C(u32 num, u8 val);
+void MapNWRAMRange(u32 cpu, u32 num, u32 val);
+
 u8 ARM9Read8(u32 addr);
 u16 ARM9Read16(u32 addr);
 u32 ARM9Read32(u32 addr);

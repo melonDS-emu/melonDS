@@ -16,6 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <stdio.h>
+#include <string.h>
 #include "NDS.h"
 #include "DSi.h"
 #include "tiny-AES-c/aes.hpp"
@@ -26,7 +28,19 @@
 namespace DSi
 {
 
-//
+u32 MBK[2][9];
+
+u8 NWRAM_A[0x40000];
+u8 NWRAM_B[0x40000];
+u8 NWRAM_C[0x40000];
+
+u8* NWRAMMap_A[2][4];
+u8* NWRAMMap_B[3][4];
+u8* NWRAMMap_C[3][4];
+
+u32 NWRAMStart[2][3];
+u32 NWRAMEnd[2][3];
+u32 NWRAMMask[2][3];
 
 
 bool LoadBIOS()
@@ -81,6 +95,18 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
+    memset(NWRAM_A, 0, 0x40000);
+    memset(NWRAM_B, 0, 0x40000);
+    memset(NWRAM_C, 0, 0x40000);
+
+    memset(MBK, 0, sizeof(MBK));
+    memset(NWRAMMap_A, 0, sizeof(NWRAMMap_A));
+    memset(NWRAMMap_B, 0, sizeof(NWRAMMap_B));
+    memset(NWRAMMap_C, 0, sizeof(NWRAMMap_C));
+    memset(NWRAMStart, 0, sizeof(NWRAMStart));
+    memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
+    memset(NWRAMMask, 0, sizeof(NWRAMMask));
+
     FILE* f = Platform::OpenLocalFile("nand.bin", "rb");
     if (f)
     {
@@ -92,6 +118,45 @@ bool LoadNAND()
                bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
         printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
                bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+
+        // read and apply new-WRAM settings
+
+        u32 mbk[12];
+        fseek(f, 0x380, SEEK_SET);
+        fread(mbk, 4, 12, f);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        // TODO: MBK9 protect thing
 
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
@@ -109,6 +174,141 @@ bool LoadNAND()
     }
 
     return true;
+}
+
+
+// new WRAM mapping
+// TODO: find out what happens upon overlapping slots!!
+
+void MapNWRAM_A(u32 num, u8 val)
+{
+    int mbkn = 0, mbks = 8*num;
+
+    u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
+    if (oldval == val) return;
+
+    MBK[0][mbkn] &= ~(0xFF << mbks);
+    MBK[0][mbkn] |= (val << mbks);
+    MBK[1][mbkn] = MBK[0][mbkn];
+
+    u8* ptr = &NWRAM_A[num << 16];
+
+    if (oldval & 0x80)
+    {
+        if (NWRAMMap_A[oldval & 0x01][(oldval >> 2) & 0x3] == ptr)
+            NWRAMMap_A[oldval & 0x01][(oldval >> 2) & 0x3] = NULL;
+    }
+
+    if (val & 0x80)
+    {
+        NWRAMMap_A[val & 0x01][(val >> 2) & 0x3] = ptr;
+    }
+}
+
+void MapNWRAM_B(u32 num, u8 val)
+{
+    int mbkn = 1+(num>>2), mbks = 8*(num&3);
+
+    u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
+    if (oldval == val) return;
+
+    MBK[0][mbkn] &= ~(0xFF << mbks);
+    MBK[0][mbkn] |= (val << mbks);
+    MBK[1][mbkn] = MBK[0][mbkn];
+
+    u8* ptr = &NWRAM_B[num << 15];
+
+    if (oldval & 0x80)
+    {
+        if (oldval & 0x02) oldval &= 0xFE;
+
+        if (NWRAMMap_B[oldval & 0x03][(oldval >> 2) & 0x7] == ptr)
+            NWRAMMap_B[oldval & 0x03][(oldval >> 2) & 0x7] = NULL;
+    }
+
+    if (val & 0x80)
+    {
+        if (val & 0x02) val &= 0xFE;
+
+        NWRAMMap_B[val & 0x03][(val >> 2) & 0x7] = ptr;
+    }
+}
+
+void MapNWRAM_C(u32 num, u8 val)
+{
+    int mbkn = 3+(num>>2), mbks = 8*(num&3);
+
+    u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
+    if (oldval == val) return;
+
+    MBK[0][mbkn] &= ~(0xFF << mbks);
+    MBK[0][mbkn] |= (val << mbks);
+    MBK[1][mbkn] = MBK[0][mbkn];
+
+    u8* ptr = &NWRAM_C[num << 15];
+
+    if (oldval & 0x80)
+    {
+        if (oldval & 0x02) oldval &= 0xFE;
+
+        if (NWRAMMap_C[oldval & 0x03][(oldval >> 2) & 0x7] == ptr)
+            NWRAMMap_C[oldval & 0x03][(oldval >> 2) & 0x7] = NULL;
+    }
+
+    if (val & 0x80)
+    {
+        if (val & 0x02) val &= 0xFE;
+
+        NWRAMMap_C[val & 0x03][(val >> 2) & 0x7] = ptr;
+    }
+}
+
+void MapNWRAMRange(u32 cpu, u32 num, u32 val)
+{
+    u32 oldval = MBK[cpu][5+num];
+    if (oldval == val) return;
+
+    MBK[cpu][5+num] = val;
+
+    // TODO: what happens when the ranges are 'out of range'????
+    if (num == 0)
+    {
+        u32 start = 0x03000000 + (((val >> 4) & 0xFF) << 16);
+        u32 end   = 0x03000000 + (((val >> 20) & 0x1FF) << 16);
+        u32 size  = (val >> 12) & 0x3;
+
+        printf("NWRAM-A: ARM%d range %08X-%08X, size %d\n", cpu?7:9, start, end, size);
+
+        NWRAMStart[cpu][num] = start;
+        NWRAMEnd[cpu][num] = end;
+
+        switch (size)
+        {
+        case 0:
+        case 1: NWRAMMask[cpu][num] = 0x0; break;
+        case 2: NWRAMMask[cpu][num] = 0x1; break; // CHECKME
+        case 3: NWRAMMask[cpu][num] = 0x3; break;
+        }
+    }
+    else
+    {
+        u32 start = 0x03000000 + (((val >> 3) & 0x1FF) << 15);
+        u32 end   = 0x03000000 + (((val >> 19) & 0x3FF) << 15);
+        u32 size  = (val >> 12) & 0x3;
+
+        printf("NWRAM-%c: ARM%d range %08X-%08X, size %d\n", 'A'+num, cpu?7:9, start, end, size);
+
+        NWRAMStart[cpu][num] = start;
+        NWRAMEnd[cpu][num] = end;
+
+        switch (size)
+        {
+        case 0: NWRAMMask[cpu][num] = 0x0; break;
+        case 1: NWRAMMask[cpu][num] = 0x1; break;
+        case 2: NWRAMMask[cpu][num] = 0x3; break;
+        case 3: NWRAMMask[cpu][num] = 0x7; break;
+        }
+    }
 }
 
 
