@@ -24,6 +24,8 @@
 namespace DSi
 {
 
+bool Init();
+void DeInit();
 void Reset();
 
 bool LoadBIOS();

@@ -16,12 +16,26 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef DSI_SD_H
+#define DSI_SD_H
 
-#define MELONDS_VERSION    "0.8.1-DSi"
+class DSi_SD
+{
+public:
+    DSi_SD(u32 num);
+    ~DSi_SD();
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+    void Reset();
 
-#endif // VERSION_H
+    void DoSavestate(Savestate* file);
 
+    u16 Read(u32 addr);
+    void Write(u32 addr, u16 val);
+
+private:
+    u32 Num;
+
+    u16 PortSelect;
+};
+
+#endif // DSI_SD_H

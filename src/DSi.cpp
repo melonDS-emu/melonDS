@@ -26,6 +26,7 @@
 #include "Platform.h"
 
 #include "DSi_I2C.h"
+#include "DSi_SD.h"
 
 
 namespace NDS
@@ -56,6 +57,27 @@ u32 NWRAMStart[2][3];
 u32 NWRAMEnd[2][3];
 u32 NWRAMMask[2][3];
 
+DSi_SD* SDMMC;
+DSi_SD* SDIO;
+
+
+bool Init()
+{
+    if (!DSi_I2C::Init()) return false;
+
+    SDMMC = new DSi_SD(0);
+    SDIO = new DSi_SD(1);
+
+    return true;
+}
+
+void DeInit()
+{
+    DSi_I2C::DeInit();
+
+    delete SDMMC;
+    delete SDIO;
+}
 
 void Reset()
 {
@@ -67,6 +89,9 @@ void Reset()
     NDS::ARM7->JumpTo(BootAddr[1]);
 
     DSi_I2C::Reset();
+
+    SDMMC->Reset();
+    SDIO->Reset();
 }
 
 bool LoadBIOS()
@@ -904,6 +929,15 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004006: return 0; // JTAG register
     }
 
+    if (addr >= 0x04004800 && addr < 0x04004A00)
+    {
+        return SDMMC->Read(addr);
+    }
+    if (addr >= 0x04004A00 && addr < 0x04004C00)
+    {
+        return SDIO->Read(addr);
+    }
+
     return NDS::ARM7IORead16(addr);
 }
 
@@ -915,6 +949,15 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004008: return 0x80000000; // HAX
+    }
+
+    if (addr >= 0x04004800 && addr < 0x04004A00)
+    {
+        return SDMMC->Read(addr) | (SDMMC->Read(addr+2) << 16);
+    }
+    if (addr >= 0x04004A00 && addr < 0x04004C00)
+    {
+        return SDIO->Read(addr) | (SDIO->Read(addr+2) << 16);
     }
 
     return NDS::ARM7IORead32(addr);
@@ -939,6 +982,17 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
     }
 
+    if (addr >= 0x04004800 && addr < 0x04004A00)
+    {
+        SDMMC->Write(addr, val);
+        return;
+    }
+    if (addr >= 0x04004A00 && addr < 0x04004C00)
+    {
+        SDIO->Write(addr, val);
+        return;
+    }
+
     return NDS::ARM7IOWrite16(addr, val);
 }
 
@@ -948,6 +1002,19 @@ void ARM7IOWrite32(u32 addr, u32 val)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    }
+
+    if (addr >= 0x04004800 && addr < 0x04004A00)
+    {
+        SDMMC->Write(addr, val & 0xFFFF);
+        SDMMC->Write(addr+2, val >> 16);
+        return;
+    }
+    if (addr >= 0x04004A00 && addr < 0x04004C00)
+    {
+        SDIO->Write(addr, val & 0xFFFF);
+        SDIO->Write(addr+2, val >> 16);
+        return;
     }
 
     return NDS::ARM7IOWrite32(addr, val);

@@ -178,6 +178,8 @@ bool Init()
     if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
 
+    if (!DSi::Init()) return false;
+
     return true;
 }
 
@@ -198,6 +200,8 @@ void DeInit()
     SPI::DeInit();
     RTC::DeInit();
     Wifi::DeInit();
+
+    DSi::DeInit();
 }
 
 
