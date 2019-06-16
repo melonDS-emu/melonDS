@@ -107,6 +107,7 @@ u8 ROMSeed1[2*8];
 // IO shit
 u32 IME[2];
 u32 IE[2], IF[2];
+u32 IE2, IF2;
 
 u8 PostFlag9;
 u8 PostFlag7;
@@ -462,6 +463,8 @@ void Reset()
     IME[1] = 0;
     IE[1] = 0;
     IF[1] = 0;
+    IE2 = 0;
+    IF2 = 0;
 
     PostFlag9 = 0x00;
     PostFlag7 = 0x00;
@@ -1067,6 +1070,7 @@ void UpdateIRQ(u32 cpu)
     if (IME[cpu] & 0x1)
     {
         arm->IRQ = IE[cpu] & IF[cpu];
+        if (cpu) arm->IRQ |= (IE2 & IF2);
     }
     else
     {
@@ -1084,6 +1088,18 @@ void ClearIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] &= ~(1 << irq);
     UpdateIRQ(cpu);
+}
+
+void SetIRQ2(u32 irq)
+{
+    IF2 |= (1 << irq);
+    UpdateIRQ(1);
+}
+
+void ClearIRQ2(u32 irq)
+{
+    IF2 &= ~(1 << irq);
+    UpdateIRQ(1);
 }
 
 bool HaltInterrupted(u32 cpu)

@@ -897,6 +897,9 @@ u16 ARM7IORead16(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000218: return NDS::IE2;
+    case 0x0400021C: return NDS::IF2;
+
     case 0x04004004: return 0x0187;
     case 0x04004006: return 0; // JTAG register
     }
@@ -908,6 +911,9 @@ u32 ARM7IORead32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000218: return NDS::IE2;
+    case 0x0400021C: return NDS::IF2;
+
     case 0x04004008: return 0x80000000; // HAX
     }
 
@@ -929,6 +935,8 @@ void ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
+    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
     }
 
     return NDS::ARM7IOWrite16(addr, val);
@@ -938,6 +946,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
     }
 
     return NDS::ARM7IOWrite32(addr, val);
