@@ -175,7 +175,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    //if (addr==0x037CA0D0) printf("VLORP %08X\n", R[15]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -222,9 +221,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         CPSR &= ~0x20;
     }
 
-    // TODO: investigate this
-    // firmware jumps to region 01FFxxxx, but region 5 (01000000-02000000) is set to non-executable
-    // is melonDS fucked up somewhere, or is the DS PU just incomplete/crapoed?
     /*if (!(PU_Map[addr>>12] & 0x04))
     {
         printf("jumped to %08X. very bad\n", addr);
@@ -242,8 +238,6 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
         if (CPSR & 0x20)    addr |= 0x1;
         else                addr &= ~0x1;
     }
-
-    //if (addr==0x037D5A18) printf("SHITTY FUNC. %08X\n", R[15]);
 
     u32 oldregion = R[15] >> 23;
     u32 newregion = addr >> 23;

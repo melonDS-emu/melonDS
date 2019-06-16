@@ -484,16 +484,19 @@ void ARM9Write8(u32 addr, u8 val)
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
             if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
             if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
             if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM9Write8(addr, val);
 
@@ -514,16 +517,19 @@ void ARM9Write16(u32 addr, u16 val)
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
             if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
             if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
             if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM9Write16(addr, val);
 
@@ -544,16 +550,19 @@ void ARM9Write32(u32 addr, u32 val)
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
             if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
             if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
             if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM9Write32(addr, val);
 
@@ -684,16 +693,19 @@ void ARM7Write8(u32 addr, u8 val)
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
             if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
             if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
             if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM7Write8(addr, val);
 
@@ -714,16 +726,19 @@ void ARM7Write16(u32 addr, u16 val)
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
             if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
             if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
             if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM7Write16(addr, val);
 
@@ -744,16 +759,19 @@ void ARM7Write32(u32 addr, u32 val)
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
             if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
             if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
             if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            return;
         }
         return NDS::ARM7Write32(addr, val);
 
@@ -827,6 +845,7 @@ u32 ARM9IORead32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004010: return 1; // todo
     }
 
     return NDS::ARM9IORead32(addr);
@@ -864,8 +883,11 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004000: return 0x01;
+    case 0x04004001: return 0x01;
+
     case 0x04004500: return DSi_I2C::ReadData();
-    case 0x04004501: return DSi_I2C::Cnt;
+    case 0x04004501: printf("read I2C CNT %02X\n", DSi_I2C::Cnt); return DSi_I2C::Cnt;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -875,6 +897,8 @@ u16 ARM7IORead16(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004004: return 0x0187;
+    case 0x04004006: return 0; // JTAG register
     }
 
     return NDS::ARM7IORead16(addr);
@@ -884,6 +908,7 @@ u32 ARM7IORead32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004008: return 0x80000000; // HAX
     }
 
     return NDS::ARM7IORead32(addr);

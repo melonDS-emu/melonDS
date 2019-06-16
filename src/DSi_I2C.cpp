@@ -212,6 +212,7 @@ void WriteCnt(u8 val)
 
 u8 ReadData()
 {
+    printf("I2C: read the data: %02X\n", Data);
     return Data;
 }
 
