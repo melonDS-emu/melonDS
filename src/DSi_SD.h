@@ -19,15 +19,20 @@
 #ifndef DSI_SD_H
 #define DSI_SD_H
 
-class DSi_SD
+class DSi_SDDevice;
+
+
+class DSi_SDHost
 {
 public:
-    DSi_SD(u32 num);
-    ~DSi_SD();
+    DSi_SDHost(u32 num);
+    ~DSi_SDHost();
 
     void Reset();
 
     void DoSavestate(Savestate* file);
+
+    void SendResponse(u32 val, bool last);
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
@@ -36,6 +41,50 @@ private:
     u32 Num;
 
     u16 PortSelect;
+    u16 SoftReset;
+
+    u32 IRQStatus;  // IF
+    u32 IRQMask;    // ~IE
+
+    u16 Command;
+    u32 Param;
+    u16 ResponseBuffer[8];
+
+    DSi_SDDevice* Ports[2];
+
+    void SetIRQ(u32 irq);
+};
+
+
+class DSi_SDDevice
+{
+public:
+    DSi_SDDevice(DSi_SDHost* host) { Host = host; }
+    ~DSi_SDDevice() {}
+
+    virtual void SendCMD(u8 cmd, u32 param) = 0;
+    virtual void SendACMD(u8 cmd, u32 param) = 0;
+
+protected:
+    DSi_SDHost* Host;
+};
+
+
+class DSi_MMCStorage : public DSi_SDDevice
+{
+public:
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path);
+    ~DSi_MMCStorage();
+
+    void SendCMD(u8 cmd, u32 param);
+    void SendACMD(u8 cmd, u32 param);
+
+private:
+    bool Internal;
+    char FilePath[1024];
+    FILE* File;
+
+    u8 CSR;
 };
 
 #endif // DSI_SD_H

@@ -57,16 +57,16 @@ u32 NWRAMStart[2][3];
 u32 NWRAMEnd[2][3];
 u32 NWRAMMask[2][3];
 
-DSi_SD* SDMMC;
-DSi_SD* SDIO;
+DSi_SDHost* SDMMC;
+DSi_SDHost* SDIO;
 
 
 bool Init()
 {
     if (!DSi_I2C::Init()) return false;
 
-    SDMMC = new DSi_SD(0);
-    SDIO = new DSi_SD(1);
+    SDMMC = new DSi_SDHost(0);
+    SDIO = new DSi_SDHost(1);
 
     return true;
 }
