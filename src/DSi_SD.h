@@ -42,6 +42,7 @@ private:
 
     u16 PortSelect;
     u16 SoftReset;
+    u16 SDClock;
 
     u32 IRQStatus;  // IF
     u32 IRQMask;    // ~IE
@@ -63,7 +64,6 @@ public:
     ~DSi_SDDevice() {}
 
     virtual void SendCMD(u8 cmd, u32 param) = 0;
-    virtual void SendACMD(u8 cmd, u32 param) = 0;
 
 protected:
     DSi_SDHost* Host;
@@ -76,6 +76,8 @@ public:
     DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path);
     ~DSi_MMCStorage();
 
+    void SetCID(u8* cid) { memcpy(CID, cid, 16); }
+
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
 
@@ -84,7 +86,14 @@ private:
     char FilePath[1024];
     FILE* File;
 
-    u8 CSR;
+    u8 CID[16];
+    u8 CSD[16];
+
+    u32 CSR;
+    u32 OCR;
+    u32 RCA;
+
+    void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 };
 
 #endif // DSI_SD_H

@@ -60,6 +60,9 @@ u32 NWRAMMask[2][3];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
+u64 ConsoleID;
+u8 eMMC_CID[16];
+
 
 bool Init()
 {
@@ -262,14 +265,12 @@ bool LoadNAND()
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-        u8 emmc_cid[16];
-        u8 consoleid[8];
         fseek(f, 0xF000010, SEEK_SET);
-        fread(emmc_cid, 1, 16, f);
-        fread(consoleid, 1, 8, f);
+        fread(eMMC_CID, 1, 16, f);
+        fread(&ConsoleID, 1, 8, f);
 
-        printf("eMMC CID: "); printhex(emmc_cid, 16);
-        printf("Console ID: "); printhex_rev(consoleid, 8);
+        printf("eMMC CID: "); printhex(eMMC_CID, 16);
+        printf("Console ID: %llx\n", ConsoleID);
 
         fclose(f);
     }

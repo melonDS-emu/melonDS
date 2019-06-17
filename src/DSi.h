@@ -24,6 +24,8 @@
 namespace DSi
 {
 
+extern u8 eMMC_CID[16];
+
 bool Init();
 void DeInit();
 void Reset();
