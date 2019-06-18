@@ -281,8 +281,53 @@ u16 DSi_SDHost::Read(u32 addr)
 
 u32 DSi_SDHost::ReadFIFO32()
 {
-    //
-    return 0;
+    if (DataMode != 1) return 0;
+
+    // TODO: decrement BlockLen????
+
+    u32 f = CurFIFO;
+    if (DataFIFO[f]->IsEmpty())
+    {
+        // TODO
+        return 0;
+    }
+
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    u32 ret = DataFIFO[f]->Read();
+    ret |= (DataFIFO[f]->Read() << 16);
+
+    if (DataFIFO[f]->IsEmpty())
+    {
+        ClearIRQ(24);
+
+        if (BlockCountInternal == 0)
+        {
+            printf("%s: data32 RX complete", SD_DESC);
+
+            if (StopAction & (1<<8))
+            {
+                printf(", sending CMD12");
+                if (dev) dev->SendCMD(12, 0);
+            }
+
+            printf("\n");
+
+            // CHECKME: presumably IRQ2 should not trigger here, but rather
+            // when the data transfer is done
+            //SetIRQ(0);
+            //SetIRQ(2);
+        }
+        else
+        {
+            BlockCountInternal--;
+
+            if (dev) dev->ContinueTransfer();
+        }
+
+        SetIRQ(25);
+    }
+
+    return ret;
 }
 
 void DSi_SDHost::Write(u32 addr, u16 val)

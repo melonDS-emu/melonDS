@@ -1101,10 +1101,12 @@ u32 ARM7IORead32(u32 addr)
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
+        if (addr == 0x0400490C) return SDMMC->ReadFIFO32();
         return SDMMC->Read(addr) | (SDMMC->Read(addr+2) << 16);
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
+        if (addr == 0x04004B0C) return SDIO->ReadFIFO32();
         return SDIO->Read(addr) | (SDIO->Read(addr+2) << 16);
     }
 
@@ -1184,12 +1186,14 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
     {
+        if (addr == 0x0400490C) { SDMMC->WriteFIFO32(val); return; }
         SDMMC->Write(addr, val & 0xFFFF);
         SDMMC->Write(addr+2, val >> 16);
         return;
     }
     if (addr >= 0x04004A00 && addr < 0x04004C00)
     {
+        if (addr == 0x04004B0C) { SDIO->WriteFIFO32(val); return; }
         SDIO->Write(addr, val & 0xFFFF);
         SDIO->Write(addr+2, val >> 16);
         return;
