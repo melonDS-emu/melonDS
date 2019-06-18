@@ -118,13 +118,16 @@ void DSi_NDMA::Start()
     // TODO: how does GXFIFO DMA work with all the block shito?
     IterCount = RemCount;
 
-    if (IterCount > TotalRemCount)
-        IterCount = TotalRemCount;
+    if (((StartMode & 0x1F) != 0x10) && !(Cnt & (1<<29)))
+    {
+        if (IterCount > TotalRemCount)
+            IterCount = TotalRemCount;
+    }
 
     if (Cnt & (1<<12)) CurDstAddr = DstAddr;
     if (Cnt & (1<<15)) CurSrcAddr = SrcAddr;
 
-    printf("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4);
+    printf("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes, total=%d\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4, TotalRemCount*4);
 
     //IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
