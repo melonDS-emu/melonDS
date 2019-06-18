@@ -19,6 +19,10 @@
 #ifndef DSI_SD_H
 #define DSI_SD_H
 
+#include <string.h>
+#include "FIFO.h"
+
+
 class DSi_SDDevice;
 
 
@@ -32,7 +36,9 @@ public:
 
     void DoSavestate(Savestate* file);
 
+    static void FinishSend(u32 param);
     void SendResponse(u32 val, bool last);
+    void SendData(u8* data, u32 len, bool last);
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
@@ -43,16 +49,28 @@ private:
     u16 PortSelect;
     u16 SoftReset;
     u16 SDClock;
+    u16 SDOption;
 
     u32 IRQStatus;  // IF
     u32 IRQMask;    // ~IE
+
+    u16 DataCtl;
+    u16 Data32IRQ;
+    u32 DataMode; // 0=16bit 1=32bit
+    u16 BlockCount16, BlockCount32, BlockCountInternal;
+    u16 BlockLen16, BlockLen32;
+    u16 StopAction;
 
     u16 Command;
     u32 Param;
     u16 ResponseBuffer[8];
 
+    FIFO<u16>* DataFIFO[2];
+    u32 CurFIFO; // FIFO accessible for read/write
+
     DSi_SDDevice* Ports[2];
 
+    void ClearIRQ(u32 irq);
     void SetIRQ(u32 irq);
 };
 
@@ -64,6 +82,7 @@ public:
     ~DSi_SDDevice() {}
 
     virtual void SendCMD(u8 cmd, u32 param) = 0;
+    virtual void ContinueTransfer() = 0;
 
 protected:
     DSi_SDHost* Host;
@@ -81,6 +100,8 @@ public:
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
 
+    void ContinueTransfer();
+
 private:
     bool Internal;
     char FilePath[1024];
@@ -92,6 +113,10 @@ private:
     u32 CSR;
     u32 OCR;
     u32 RCA;
+    u8 SCR[8];
+    u8 SSR[64];
+
+    u32 BlockSize;
 
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 };

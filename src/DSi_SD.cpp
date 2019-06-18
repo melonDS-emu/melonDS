@@ -30,12 +30,18 @@ DSi_SDHost::DSi_SDHost(u32 num)
 {
     Num = num;
 
+    DataFIFO[0] = new FIFO<u16>(0x100);
+    DataFIFO[1] = new FIFO<u16>(0x100);
+
     Ports[0] = NULL;
     Ports[1] = NULL;
 }
 
 DSi_SDHost::~DSi_SDHost()
 {
+    delete DataFIFO[0];
+    delete DataFIFO[1];
+
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
 }
@@ -53,13 +59,25 @@ void DSi_SDHost::Reset()
 
     SoftReset = 0x0007; // CHECKME
     SDClock = 0;
+    SDOption = 0;
 
     Command = 0;
     Param = 0;
     memset(ResponseBuffer, 0, sizeof(ResponseBuffer));
 
+    DataFIFO[0]->Clear();
+    DataFIFO[1]->Clear();
+    CurFIFO = 0;
+
     IRQStatus = 0;
     IRQMask = 0x8B7F031D;
+
+    DataCtl = 0;
+    Data32IRQ = 0;
+    DataMode = 0;
+    BlockCount16 = 0; BlockCount32 = 0; BlockCountInternal = 0;
+    BlockLen16 = 0;   BlockLen32 = 0;
+    StopAction = 0;
 
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
@@ -86,6 +104,11 @@ void DSi_SDHost::DoSavestate(Savestate* file)
 }
 
 
+void DSi_SDHost::ClearIRQ(u32 irq)
+{
+    IRQStatus &= ~(1<<irq);
+}
+
 void DSi_SDHost::SetIRQ(u32 irq)
 {
     u32 oldflags = IRQStatus & ~IRQMask;
@@ -107,6 +130,37 @@ void DSi_SDHost::SendResponse(u32 val, bool last)
     if (last) SetIRQ(0);
 }
 
+void DSi_SDHost::FinishSend(u32 param)
+{
+    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+
+    host->CurFIFO ^= 1;
+
+    host->ClearIRQ(25);
+    host->SetIRQ(24);
+    if (param & 0x2) host->SetIRQ(2);
+}
+
+void DSi_SDHost::SendData(u8* data, u32 len, bool last)
+{
+    printf("%s: data RX, len=%d, blkcnt=%d blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockLen16, IRQMask);
+    if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
+
+    u32 f = CurFIFO ^ 1;
+    for (u32 i = 0; i < len; i += 2)
+        DataFIFO[f]->Write(*(u16*)&data[i]);
+
+    //CurFIFO = f;
+    //SetIRQ(24);
+    // TODO: determine what the delay should be!
+    // for now, this is a placeholder
+    // we need a delay because DSi boot2 will send a command and then wait for IRQ0
+    // but if IRQ24 is thrown instantly, the handler clears IRQ0 before the
+    // send-command function starts polling IRQ status
+    u32 param = Num | (last << 1);
+    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishSend, param);
+}
+
 
 u16 DSi_SDHost::Read(u32 addr)
 {
@@ -119,6 +173,9 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x004: return Param & 0xFFFF;
     case 0x006: return Param >> 16;
 
+    case 0x008: return StopAction;
+    case 0x00A: return BlockCount16;
+
     case 0x00C: return ResponseBuffer[0];
     case 0x00E: return ResponseBuffer[1];
     case 0x010: return ResponseBuffer[2];
@@ -128,14 +185,70 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x018: return ResponseBuffer[6];
     case 0x01A: return ResponseBuffer[7];
 
-    case 0x01C: return IRQStatus & 0x031D;
-    case 0x01E: return (IRQStatus >> 16) & 0x8B7F;
+    case 0x01C: return (IRQStatus & 0x031D) | 0x0030; // TODO: adjust insert flags for SD card
+    case 0x01E: return ((IRQStatus >> 16) & 0x8B7F);
     case 0x020: return IRQMask & 0x031D;
     case 0x022: return (IRQMask >> 16) & 0x8B7F;
 
     case 0x024: return SDClock;
+    case 0x026: return BlockLen16;
+    case 0x028: return SDOption;
+
+    case 0x030: // FIFO16
+        {
+            // TODO: decrement BlockLen????
+
+            u32 f = CurFIFO;
+            if (DataFIFO[f]->IsEmpty())
+            {
+                // TODO
+                return 0;
+            }
+
+            DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+            u16 ret = DataFIFO[f]->Read();
+
+            if (DataFIFO[f]->IsEmpty())
+            {
+                ClearIRQ(24);
+
+                if (BlockCountInternal == 0)
+                {
+                    printf("%s: data RX complete", SD_DESC);
+
+                    if (StopAction & (1<<8))
+                    {
+                        printf(", sending CMD12");
+                        if (dev) dev->SendCMD(12, 0);
+                    }
+
+                    printf("\n");
+
+                    // CHECKME: presumably IRQ2 should not trigger here, but rather
+                    // when the data transfer is done
+                    //SetIRQ(0);
+                    //SetIRQ(2);
+                }
+                else
+                {
+                    BlockCountInternal--;
+
+                    if (dev) dev->ContinueTransfer();
+                }
+
+                SetIRQ(25);
+            }
+
+            return ret;
+        }
+
+    case 0x0D8: return DataCtl;
 
     case 0x0E0: return SoftReset;
+
+    case 0x100: return Data32IRQ;
+    case 0x104: return BlockLen32;
+    case 0x108: return BlockCount32;
     }
 
     printf("unknown %s read %08X\n", SD_DESC, addr);
@@ -171,32 +284,55 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         }
         return;
 
-    case 0x002: PortSelect = val; return;
+    case 0x002: PortSelect = val; printf("%s: PORT SELECT %04X\n", SD_DESC, val); return;
     case 0x004: Param = (Param & 0xFFFF0000) | val; return;
     case 0x006: Param = (Param & 0x0000FFFF) | (val << 16); return;
 
-    case 0x01C: IRQStatus &= ~(u32)val; return;
-    case 0x01E: IRQStatus &= ~((u32)val << 16); return;
+    case 0x008: StopAction = val & 0x0101; return;
+    case 0x00A: BlockCount16 = val; BlockCountInternal = val; return;
+
+    case 0x01C: IRQStatus &= (val | 0xFFFF0000); return;
+    case 0x01E: IRQStatus &= ((val << 16) | 0xFFFF); return;
     case 0x020: IRQMask = (IRQMask & 0x8B7F0000) | (val & 0x031D); return;
     case 0x022: IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16); return;
 
     case 0x024: SDClock = val & 0x03FF; return;
+    case 0x026:
+        BlockLen16 = val & 0x03FF;
+        if (BlockLen16 > 0x200) BlockLen16 = 0x200;
+        return;
+    case 0x028: SDOption = val & 0xC1FF; return;
+
+    case 0x0D8:
+        DataCtl = (val & 0x0022);
+        DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
+        printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
+        return;
 
     case 0x0E0:
         if ((SoftReset & 0x0001) && !(val & 0x0001))
         {
             printf("%s: RESET\n", SD_DESC);
-            // TODO: STOP_INTERNAL_ACTION
-            // TODO: SD_RESPONSE
+            StopAction = 0;
+            memset(ResponseBuffer, 0, sizeof(ResponseBuffer));
             IRQStatus = 0;
             // TODO: ERROR_DETAIL_STATUS
-            // TODO: CARD_CLK_CTL
-            // TODO: CARD_OPTION
+            SDClock &= ~0x0500;
+            SDOption = 0x40EE;
             // TODO: CARD_IRQ_STAT
             // TODO: FIFO16 shit
         }
         SoftReset = 0x0006 | (val & 0x0001);
         return;
+
+    case 0x100:
+        Data32IRQ = (val & 0x1802) | (Data32IRQ & 0x0300);
+        if (val & (1<<10)) printf("TODO: SD/MMC: CLEAR FIFO32\n");
+        DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
+        printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
+        return;
+    case 0x104: BlockLen32 = val & 0x03FF; return;
+    case 0x108: BlockCount32 = val; return;
     }
 
     printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
@@ -210,7 +346,7 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path
 
     File = Platform::OpenLocalFile(path, "r+b");
 
-    CSR = 0x00; // checkme
+    CSR = 0x00000100; // checkme
 
     // TODO: busy bit
     // TODO: SDHC/SDXC bit
@@ -219,6 +355,12 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path
     // TODO: customize based on card size etc
     u8 csd_template[16] = {0x40, 0x40, 0x96, 0xE9, 0x7F, 0xDB, 0xF6, 0xDF, 0x01, 0x59, 0x0F, 0x2A, 0x01, 0x26, 0x90, 0x00};
     memcpy(CSD, csd_template, 16);
+
+    // checkme
+    memset(SCR, 0, 8);
+    *(u32*)&SCR[0] = 0x012A0000;
+
+    memset(SSR, 0, 64);
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
@@ -277,8 +419,16 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(*(u32*)&CSD[3], true);
         return;
 
+    case 12: // stop operation
+        Host->SendResponse(CSR, true);
+        return;
+
+    case 16: // set block size
+        BlockSize = param;
+        Host->SendResponse(CSR, true);
+        return;
+
     case 55: // ??
-        printf("CMD55 %08X\n", param);
         CSR |= (1<<5);
         Host->SendResponse(CSR, true);
         return;
@@ -291,13 +441,37 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 {
     switch (cmd)
     {
+    case 6: // set bus width (TODO?)
+        printf("SET BUS WIDTH %08X\n", param);
+        Host->SendResponse(CSR, true);
+        return;
+
+    case 13: // get SSR
+        Host->SendResponse(CSR, true);
+        Host->SendData(SSR, 64, true);
+        return;
+
     case 41: // set operating conditions
         OCR &= 0xBF000000;
         OCR |= (param & 0x40FFFFFF);
         Host->SendResponse(OCR, true);
         SetState(0x01);
         return;
+
+    case 42: // ???
+        Host->SendResponse(CSR, true);
+        return;
+
+    case 51: // get SCR
+        Host->SendResponse(CSR, true);
+        Host->SendData(SCR, 8, true);
+        return;
     }
 
     printf("MMC: unknown ACMD %d %08X\n", cmd, param);
+}
+
+void DSi_MMCStorage::ContinueTransfer()
+{
+    //
 }

@@ -20,11 +20,16 @@
 #define DSI_H
 
 #include "NDS.h"
+#include "DSi_SD.h"
 
 namespace DSi
 {
 
 extern u8 eMMC_CID[16];
+
+extern DSi_SDHost* SDMMC;
+extern DSi_SDHost* SDIO;
+
 
 bool Init();
 void DeInit();

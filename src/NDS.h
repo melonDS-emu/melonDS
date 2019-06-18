@@ -42,6 +42,9 @@ enum
     Event_Div,
     Event_Sqrt,
 
+    // DSi
+    Event_DSi_SDTransfer,
+
     Event_MAX
 };
 
