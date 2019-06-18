@@ -104,8 +104,12 @@
 		<Unit filename="src/DSi.h" />
 		<Unit filename="src/DSiCrypto.cpp" />
 		<Unit filename="src/DSiCrypto.h" />
+		<Unit filename="src/DSi_AES.cpp" />
+		<Unit filename="src/DSi_AES.h" />
 		<Unit filename="src/DSi_I2C.cpp" />
 		<Unit filename="src/DSi_I2C.h" />
+		<Unit filename="src/DSi_NDMA.cpp" />
+		<Unit filename="src/DSi_NDMA.h" />
 		<Unit filename="src/DSi_SD.cpp" />
 		<Unit filename="src/DSi_SD.h" />
 		<Unit filename="src/FIFO.h" />
