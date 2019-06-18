@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "DMA.h"
 #include "NDSCart.h"
 #include "GPU.h"
@@ -232,7 +233,8 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
+            //NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
+            DSi::ARM9Write16(CurDstAddr, DSi::ARM9Read16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -268,7 +270,8 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
+            //NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
+            DSi::ARM9Write32(CurDstAddr, DSi::ARM9Read32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -344,7 +347,8 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
+            //NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
+            DSi::ARM7Write16(CurDstAddr, DSi::ARM7Read16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -380,7 +384,8 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
+            //NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
+            DSi::ARM7Write32(CurDstAddr, DSi::ARM7Read32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
