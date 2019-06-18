@@ -38,10 +38,12 @@ public:
 
     static void FinishSend(u32 param);
     void SendResponse(u32 val, bool last);
-    void SendData(u8* data, u32 len, bool last);
+    void SendData(u8* data, u32 len);
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
+    u32 ReadFIFO32();
+    void WriteFIFO32(u32 val);
 
 private:
     u32 Num;
@@ -70,6 +72,7 @@ private:
 
     DSi_SDDevice* Ports[2];
 
+    void UpdateData32IRQ();
     void ClearIRQ(u32 irq);
     void SetIRQ(u32 irq);
 };
@@ -117,8 +120,12 @@ private:
     u8 SSR[64];
 
     u32 BlockSize;
+    u32 RWAddress;
+    u32 RWCommand;
 
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
+
+    void ReadBlock(u32 addr);
 };
 
 #endif // DSI_SD_H

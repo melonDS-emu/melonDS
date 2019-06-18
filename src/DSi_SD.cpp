@@ -104,9 +104,29 @@ void DSi_SDHost::DoSavestate(Savestate* file)
 }
 
 
+void DSi_SDHost::UpdateData32IRQ()
+{
+    if (DataMode == 0) return;
+
+    u32 oldflags = ((Data32IRQ >> 8) & 0x1) | (((~Data32IRQ) >> 8) & 0x2);
+    oldflags &= (Data32IRQ >> 11);
+
+    Data32IRQ &= ~0x0300;
+    if (IRQStatus & (1<<24)) Data32IRQ |= (1<<8);
+    if (!(IRQStatus & (1<<25))) Data32IRQ |= (1<<9);
+
+    u32 newflags = ((Data32IRQ >> 8) & 0x1) | (((~Data32IRQ) >> 8) & 0x2);
+    newflags &= (Data32IRQ >> 11);
+
+    if ((oldflags == 0) && (newflags != 0))
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+}
+
 void DSi_SDHost::ClearIRQ(u32 irq)
 {
     IRQStatus &= ~(1<<irq);
+
+    if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
 void DSi_SDHost::SetIRQ(u32 irq)
@@ -118,6 +138,8 @@ void DSi_SDHost::SetIRQ(u32 irq)
 
     if ((oldflags == 0) && (newflags != 0))
         NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+
+    if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
 void DSi_SDHost::SendResponse(u32 val, bool last)
@@ -141,10 +163,12 @@ void DSi_SDHost::FinishSend(u32 param)
     if (param & 0x2) host->SetIRQ(2);
 }
 
-void DSi_SDHost::SendData(u8* data, u32 len, bool last)
+void DSi_SDHost::SendData(u8* data, u32 len)
 {
     printf("%s: data RX, len=%d, blkcnt=%d blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockLen16, IRQMask);
     if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
+
+    bool last = (BlockCountInternal == 0);
 
     u32 f = CurFIFO ^ 1;
     for (u32 i = 0; i < len; i += 2)
@@ -255,6 +279,12 @@ u16 DSi_SDHost::Read(u32 addr)
     return 0;
 }
 
+u32 DSi_SDHost::ReadFIFO32()
+{
+    //
+    return 0;
+}
+
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
     //printf("SDMMC WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
@@ -289,7 +319,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x006: Param = (Param & 0x0000FFFF) | (val << 16); return;
 
     case 0x008: StopAction = val & 0x0101; return;
-    case 0x00A: BlockCount16 = val; BlockCountInternal = val; return;
+    case 0x00A: BlockCount16 = val; BlockCountInternal = val; printf("%s: BLOCK COUNT %d\n", SD_DESC, val); return;
 
     case 0x01C: IRQStatus &= (val | 0xFFFF0000); return;
     case 0x01E: IRQStatus &= ((val << 16) | 0xFFFF); return;
@@ -327,7 +357,12 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
     case 0x100:
         Data32IRQ = (val & 0x1802) | (Data32IRQ & 0x0300);
-        if (val & (1<<10)) printf("TODO: SD/MMC: CLEAR FIFO32\n");
+        if (val & (1<<10))
+        {
+            // kind of hacky
+            u32 f = CurFIFO;
+            DataFIFO[f]->Clear();
+        }
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
         printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
         return;
@@ -336,6 +371,11 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     }
 
     printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
+}
+
+void DSi_SDHost::WriteFIFO32(u32 val)
+{
+    //
 }
 
 
@@ -361,6 +401,10 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path
     *(u32*)&SCR[0] = 0x012A0000;
 
     memset(SSR, 0, 64);
+
+    BlockSize = 0;
+    RWAddress = 0;
+    RWCommand = 0;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
@@ -425,7 +469,22 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 16: // set block size
         BlockSize = param;
+        if (BlockSize > 0x200)
+        {
+            // TODO! raise error
+            printf("!! SD/MMC: BAD BLOCK LEN %d\n", BlockSize);
+            BlockSize = 0x200;
+        }
         Host->SendResponse(CSR, true);
+        return;
+
+    case 18: // read multiple blocks
+        printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
+        RWAddress = param;
+        RWCommand = 18;
+        Host->SendResponse(CSR, true);
+        ReadBlock(RWAddress);
+        RWAddress += BlockSize;
         return;
 
     case 55: // ??
@@ -448,7 +507,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
     case 13: // get SSR
         Host->SendResponse(CSR, true);
-        Host->SendData(SSR, 64, true);
+        Host->SendData(SSR, 64);
         return;
 
     case 41: // set operating conditions
@@ -464,7 +523,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
     case 51: // get SCR
         Host->SendResponse(CSR, true);
-        Host->SendData(SCR, 8, true);
+        Host->SendData(SCR, 8);
         return;
     }
 
@@ -473,5 +532,18 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
 void DSi_MMCStorage::ContinueTransfer()
 {
-    //
+    ReadBlock(RWAddress);
+    RWAddress += BlockSize;
+}
+
+void DSi_MMCStorage::ReadBlock(u32 addr)
+{
+    if (!File) return;
+
+    printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
+
+    u8 data[0x200];
+    fseek(File, addr, SEEK_SET); // TODO: adjust for SDHC/etc
+    fread(data, 1, BlockSize, File);
+    Host->SendData(data, BlockSize);
 }
