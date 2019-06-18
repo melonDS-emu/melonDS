@@ -20,14 +20,8 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "DMA.h"
-#include "NDSCart.h"
 #include "GPU.h"
 
-
-// NOTES ON DMA SHIT
-//
-// * could use optimized code paths for common types of DMA transfers. for example, VRAM
-//   have to profile it to see if it's actually worth doing
 
 
 // DMA TIMINGS

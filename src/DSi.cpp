@@ -25,6 +25,7 @@
 #include "sha1/sha1.h"
 #include "Platform.h"
 
+#include "DSi_NDMA.h"
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 
@@ -57,6 +58,9 @@ u32 NWRAMStart[2][3];
 u32 NWRAMEnd[2][3];
 u32 NWRAMMask[2][3];
 
+u32 NDMACnt[2];
+DSi_NDMA* NDMAs[8];
+
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
@@ -68,6 +72,15 @@ bool Init()
 {
     if (!DSi_I2C::Init()) return false;
 
+    NDMAs[0] = new DSi_NDMA(0, 0);
+    NDMAs[1] = new DSi_NDMA(0, 1);
+    NDMAs[2] = new DSi_NDMA(0, 2);
+    NDMAs[3] = new DSi_NDMA(0, 3);
+    NDMAs[4] = new DSi_NDMA(1, 0);
+    NDMAs[5] = new DSi_NDMA(1, 1);
+    NDMAs[6] = new DSi_NDMA(1, 2);
+    NDMAs[7] = new DSi_NDMA(1, 3);
+
     SDMMC = new DSi_SDHost(0);
     SDIO = new DSi_SDHost(1);
 
@@ -77,6 +90,8 @@ bool Init()
 void DeInit()
 {
     DSi_I2C::DeInit();
+
+    for (int i = 0; i < 8; i++) delete NDMAs[i];
 
     delete SDMMC;
     delete SDIO;
@@ -90,6 +105,9 @@ void Reset()
 
     NDS::ARM9->JumpTo(BootAddr[0]);
     NDS::ARM7->JumpTo(BootAddr[1]);
+
+    NDMACnt[0] = 0; NDMACnt[1] = 0;
+    for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
     DSi_I2C::Reset();
 
@@ -276,6 +294,40 @@ bool LoadNAND()
     }
 
     return true;
+}
+
+
+void RunNDMAs(u32 cpu)
+{
+    // TODO: round-robin mode (requires DMA channels to have a subblock delay set)
+
+    if (cpu == 0)
+    {
+        if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
+
+        //
+    }
+    else
+    {
+        if (NDS::ARM7Timestamp >= NDS::ARM7Target) return;
+
+        //
+    }
+}
+
+void StallNDMAs()
+{
+    // TODO
+}
+
+bool NDMAsRunning(u32 cpu)
+{
+    cpu <<= 2;
+    if (NDMAs[cpu+0]->IsRunning()) return true;
+    if (NDMAs[cpu+1]->IsRunning()) return true;
+    if (NDMAs[cpu+2]->IsRunning()) return true;
+    if (NDMAs[cpu+3]->IsRunning()) return true;
+    return false;
 }
 
 
@@ -872,6 +924,36 @@ u32 ARM9IORead32(u32 addr)
     switch (addr)
     {
     case 0x04004010: return 1; // todo
+
+    case 0x04004100: return NDMACnt[0];
+    case 0x04004104: return NDMAs[0]->SrcAddr;
+    case 0x04004108: return NDMAs[0]->DstAddr;
+    case 0x0400410C: return NDMAs[0]->TotalLength;
+    case 0x04004110: return NDMAs[0]->BlockLength;
+    case 0x04004114: return NDMAs[0]->SubblockTimer;
+    case 0x04004118: return NDMAs[0]->FillData;
+    case 0x0400411C: return NDMAs[0]->Cnt;
+    case 0x04004120: return NDMAs[1]->SrcAddr;
+    case 0x04004124: return NDMAs[1]->DstAddr;
+    case 0x04004128: return NDMAs[1]->TotalLength;
+    case 0x0400412C: return NDMAs[1]->BlockLength;
+    case 0x04004130: return NDMAs[1]->SubblockTimer;
+    case 0x04004134: return NDMAs[1]->FillData;
+    case 0x04004138: return NDMAs[1]->Cnt;
+    case 0x0400413C: return NDMAs[2]->SrcAddr;
+    case 0x04004140: return NDMAs[2]->DstAddr;
+    case 0x04004144: return NDMAs[2]->TotalLength;
+    case 0x04004148: return NDMAs[2]->BlockLength;
+    case 0x0400414C: return NDMAs[2]->SubblockTimer;
+    case 0x04004150: return NDMAs[2]->FillData;
+    case 0x04004154: return NDMAs[2]->Cnt;
+    case 0x04004158: return NDMAs[3]->SrcAddr;
+    case 0x0400415C: return NDMAs[3]->DstAddr;
+    case 0x04004160: return NDMAs[3]->TotalLength;
+    case 0x04004164: return NDMAs[3]->BlockLength;
+    case 0x04004168: return NDMAs[3]->SubblockTimer;
+    case 0x0400416C: return NDMAs[3]->FillData;
+    case 0x04004170: return NDMAs[3]->Cnt;
     }
 
     return NDS::ARM9IORead32(addr);
@@ -899,6 +981,35 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
+    case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004108: NDMAs[0]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x0400410C: NDMAs[0]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004110: NDMAs[0]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004114: NDMAs[0]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004118: NDMAs[0]->FillData = val; return;
+    case 0x0400411C: NDMAs[0]->WriteCnt(val); return;
+    case 0x04004120: NDMAs[1]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004124: NDMAs[1]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004128: NDMAs[1]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x0400412C: NDMAs[1]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004130: NDMAs[1]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004134: NDMAs[1]->FillData = val; return;
+    case 0x04004138: NDMAs[1]->WriteCnt(val); return;
+    case 0x0400413C: NDMAs[2]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004140: NDMAs[2]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004144: NDMAs[2]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004148: NDMAs[2]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x0400414C: NDMAs[2]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004150: NDMAs[2]->FillData = val; return;
+    case 0x04004154: NDMAs[2]->WriteCnt(val); return;
+    case 0x04004158: NDMAs[3]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x0400415C: NDMAs[3]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004160: NDMAs[3]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004164: NDMAs[3]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004168: NDMAs[3]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x0400416C: NDMAs[3]->FillData = val; return;
+    case 0x04004170: NDMAs[3]->WriteCnt(val); return;
     }
 
     return NDS::ARM9IOWrite32(addr, val);
@@ -950,6 +1061,36 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004008: return 0x80000000; // HAX
+
+    case 0x04004100: return NDMACnt[1];
+    case 0x04004104: return NDMAs[4]->SrcAddr;
+    case 0x04004108: return NDMAs[4]->DstAddr;
+    case 0x0400410C: return NDMAs[4]->TotalLength;
+    case 0x04004110: return NDMAs[4]->BlockLength;
+    case 0x04004114: return NDMAs[4]->SubblockTimer;
+    case 0x04004118: return NDMAs[4]->FillData;
+    case 0x0400411C: return NDMAs[4]->Cnt;
+    case 0x04004120: return NDMAs[5]->SrcAddr;
+    case 0x04004124: return NDMAs[5]->DstAddr;
+    case 0x04004128: return NDMAs[5]->TotalLength;
+    case 0x0400412C: return NDMAs[5]->BlockLength;
+    case 0x04004130: return NDMAs[5]->SubblockTimer;
+    case 0x04004134: return NDMAs[5]->FillData;
+    case 0x04004138: return NDMAs[5]->Cnt;
+    case 0x0400413C: return NDMAs[6]->SrcAddr;
+    case 0x04004140: return NDMAs[6]->DstAddr;
+    case 0x04004144: return NDMAs[6]->TotalLength;
+    case 0x04004148: return NDMAs[6]->BlockLength;
+    case 0x0400414C: return NDMAs[6]->SubblockTimer;
+    case 0x04004150: return NDMAs[6]->FillData;
+    case 0x04004154: return NDMAs[6]->Cnt;
+    case 0x04004158: return NDMAs[7]->SrcAddr;
+    case 0x0400415C: return NDMAs[7]->DstAddr;
+    case 0x04004160: return NDMAs[7]->TotalLength;
+    case 0x04004164: return NDMAs[7]->BlockLength;
+    case 0x04004168: return NDMAs[7]->SubblockTimer;
+    case 0x0400416C: return NDMAs[7]->FillData;
+    case 0x04004170: return NDMAs[7]->Cnt;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -1003,6 +1144,36 @@ void ARM7IOWrite32(u32 addr, u32 val)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+
+    case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
+    case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004108: NDMAs[4]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x0400410C: NDMAs[4]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004110: NDMAs[4]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004114: NDMAs[4]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004118: NDMAs[4]->FillData = val; return;
+    case 0x0400411C: NDMAs[4]->WriteCnt(val); return;
+    case 0x04004120: NDMAs[5]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004124: NDMAs[5]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004128: NDMAs[5]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x0400412C: NDMAs[5]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004130: NDMAs[5]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004134: NDMAs[5]->FillData = val; return;
+    case 0x04004138: NDMAs[5]->WriteCnt(val); return;
+    case 0x0400413C: NDMAs[6]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x04004140: NDMAs[6]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004144: NDMAs[6]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004148: NDMAs[6]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x0400414C: NDMAs[6]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x04004150: NDMAs[6]->FillData = val; return;
+    case 0x04004154: NDMAs[6]->WriteCnt(val); return;
+    case 0x04004158: NDMAs[7]->SrcAddr = val & 0xFFFFFFFC; return;
+    case 0x0400415C: NDMAs[7]->DstAddr = val & 0xFFFFFFFC; return;
+    case 0x04004160: NDMAs[7]->TotalLength = val & 0x0FFFFFFF; return;
+    case 0x04004164: NDMAs[7]->BlockLength = val & 0x00FFFFFF; return;
+    case 0x04004168: NDMAs[7]->SubblockTimer = val & 0x0003FFFF; return;
+    case 0x0400416C: NDMAs[7]->FillData = val; return;
+    case 0x04004170: NDMAs[7]->WriteCnt(val); return;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)

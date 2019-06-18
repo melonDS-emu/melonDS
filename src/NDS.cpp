@@ -827,6 +827,7 @@ u32 RunFrame()
             if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
+            DSi::RunNDMAs(0);
         }
         else
         {
@@ -849,6 +850,7 @@ u32 RunFrame()
                 DMAs[5]->Run();
                 DMAs[6]->Run();
                 DMAs[7]->Run();
+                DSi::RunNDMAs(1);
             }
             else
             {
@@ -1153,6 +1155,7 @@ void GXFIFOStall()
         DMAs[1]->StallIfRunning();
         DMAs[2]->StallIfRunning();
         DMAs[3]->StallIfRunning();
+        DSi::StallNDMAs();
     }
 }
 
@@ -1367,6 +1370,7 @@ bool DMAsRunning(u32 cpu)
     if (DMAs[cpu+1]->IsRunning()) return true;
     if (DMAs[cpu+2]->IsRunning()) return true;
     if (DMAs[cpu+3]->IsRunning()) return true;
+    if (DSi::NDMAsRunning(cpu>>2)) return true;
     return false;
 }
 

@@ -38,6 +38,10 @@ void Reset();
 bool LoadBIOS();
 bool LoadNAND();
 
+void RunNDMAs(u32 cpu);
+void StallNDMAs();
+bool NDMAsRunning(u32 cpu);
+
 void MapNWRAM_A(u32 num, u8 val);
 void MapNWRAM_B(u32 num, u8 val);
 void MapNWRAM_C(u32 num, u8 val);

@@ -101,7 +101,7 @@ enum
     IRQ2_DSi_GPIO18_0 = 0,
     IRQ2_DSi_GPIO18_1,
     IRQ2_DSi_GPIO18_2,
-    IRQ2_DSi_Unused35,
+    IRQ2_DSi_Unused3,
     IRQ2_DSi_GPIO33_0,
     IRQ2_DSi_Headphone,
     IRQ2_DSi_PowerButton,
@@ -138,13 +138,14 @@ extern u64 ARM9Timestamp, ARM9Target;
 extern u64 ARM7Timestamp, ARM7Target;
 extern u32 ARM9ClockShift;
 
-// hax
 extern u32 IME[2];
 extern u32 IE[2];
 extern u32 IF[2];
 extern u32 IE2;
 extern u32 IF2;
 extern Timer Timers[8];
+
+extern u32 CPUStop;
 
 extern u16 PowerControl9;
 
