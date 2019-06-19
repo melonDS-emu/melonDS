@@ -571,7 +571,8 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
         // CHECKME:
         // DSi boot2 sets this to 0x40100000 (hardcoded)
         // then has two codepaths depending on whether bit30 did get set
-        // is it settable at all on the MMC?
+        // is it settable at all on the MMC? probably not.
+        if (Internal) param &= ~(1<<30);
         OCR &= 0xBF000000;
         OCR |= (param & 0x40FFFFFF);
         Host->SendResponse(OCR, true);
