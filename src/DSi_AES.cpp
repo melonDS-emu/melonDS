@@ -222,18 +222,6 @@ void WriteInputFIFO(u32 val)
     if (!(Cnt & (1<<31))) return;
 
     Update();
-
-    if (RemBlocks == 0)
-    {
-        Cnt &= ~(1<<31);
-        if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
-        DSi::StopNDMAs(1, 0x2A);
-        DSi::StopNDMAs(1, 0x2B);
-    }
-    else
-    {
-        CheckInputDMA();
-    }
 }
 
 void CheckInputDMA()
@@ -276,6 +264,14 @@ void Update()
     }
 
     CheckOutputDMA();
+
+    if (RemBlocks == 0)
+    {
+        Cnt &= ~(1<<31);
+        if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
+        DSi::StopNDMAs(1, 0x2A);
+        DSi::StopNDMAs(1, 0x2B);
+    }
 }
 
 
