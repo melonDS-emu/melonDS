@@ -68,6 +68,8 @@ DSi_SDHost* SDIO;
 u64 ConsoleID;
 u8 eMMC_CID[16];
 
+u8 ITCMInit[0x8000];
+
 
 bool Init()
 {
@@ -111,6 +113,8 @@ void Reset()
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
+
+    memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
     DSi_I2C::Reset();
     DSi_AES::Reset();
@@ -301,6 +305,22 @@ bool LoadNAND()
         printf("Console ID: %llx\n", ConsoleID);
 
         fclose(f);
+    }
+
+    memset(ITCMInit, 0, 0x8000);
+
+    f = fopen("dsikeys.bin", "rb");
+    if (f)
+    {
+        // first 0x2524 bytes are loaded to 0x01FFC400
+
+        u32 dstaddr = 0x01FFC400;
+        fread(&ITCMInit[dstaddr & 0x7FFF], 0x2524, 1, f);
+        fclose(f);
+    }
+    else
+    {
+        printf("DSi keys not found\n");
     }
 
     return true;
