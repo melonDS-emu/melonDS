@@ -1053,6 +1053,16 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x04004500: return DSi_I2C::ReadData();
     case 0x04004501: printf("read I2C CNT %02X\n", DSi_I2C::Cnt); return DSi_I2C::Cnt;
+
+    case 0x04004D00: return ConsoleID & 0xFF;
+    case 0x04004D01: return (ConsoleID >> 8) & 0xFF;
+    case 0x04004D02: return (ConsoleID >> 16) & 0xFF;
+    case 0x04004D03: return (ConsoleID >> 24) & 0xFF;
+    case 0x04004D04: return (ConsoleID >> 32) & 0xFF;
+    case 0x04004D05: return (ConsoleID >> 40) & 0xFF;
+    case 0x04004D06: return (ConsoleID >> 48) & 0xFF;
+    case 0x04004D07: return ConsoleID >> 56;
+    case 0x04004D08: return 0;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -1067,6 +1077,12 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04004004: return 0x0187;
     case 0x04004006: return 0; // JTAG register
+
+    case 0x04004D00: return ConsoleID & 0xFFFF;
+    case 0x04004D02: return (ConsoleID >> 16) & 0xFFFF;
+    case 0x04004D04: return (ConsoleID >> 32) & 0xFFFF;
+    case 0x04004D06: return ConsoleID >> 48;
+    case 0x04004D08: return 0;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -1122,6 +1138,10 @@ u32 ARM7IORead32(u32 addr)
 
     case 0x04004400: return DSi_AES::ReadCnt();
     case 0x0400440C: return DSi_AES::ReadOutputFIFO();
+
+    case 0x04004D00: return ConsoleID & 0xFFFFFFFF;
+    case 0x04004D04: return ConsoleID >> 32;
+    case 0x04004D08: return 0;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
