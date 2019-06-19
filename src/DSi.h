@@ -26,6 +26,7 @@ namespace DSi
 {
 
 extern u8 eMMC_CID[16];
+extern u64 ConsoleID;
 
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
@@ -41,6 +42,8 @@ bool LoadNAND();
 void RunNDMAs(u32 cpu);
 void StallNDMAs();
 bool NDMAsRunning(u32 cpu);
+void CheckNDMAs(u32 cpu, u32 mode);
+void StopNDMAs(u32 cpu, u32 mode);
 
 void MapNWRAM_A(u32 num, u8 val);
 void MapNWRAM_B(u32 num, u8 val);

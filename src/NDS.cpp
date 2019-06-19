@@ -1582,12 +1582,12 @@ void debug(u32 param)
     printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
     printf("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
-    printf("ARM7 IME=%08X IE=%08X IF=%08X\n", IME[1], IE[1], IF[1]);
+    printf("ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
 
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/card.bin", "wb");
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1599,7 +1599,7 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 

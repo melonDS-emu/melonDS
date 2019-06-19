@@ -239,36 +239,6 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
         else                addr &= ~0x1;
     }
 
-    /*if (addr==0x037D4668) printf("MYSTERY START\n");
-    if (addr==0x037CA71C) printf("MYSTERY END\n");
-    if (addr==0x037CCD68) printf("atomic_store %08X %08X, %08X\n", R[0], R[1], R[15]);
-    if (addr==0x037CDD00) printf("zog %08X\n", R[15]);*/
-    /*if (addr==0x037CDC00) printf("sendcmd %08X %08X\n", R[0], R[15]);
-    if (addr==0x037CA700) printf("prepare CID, %08X\n", R[15]);
-    if(addr==0x037D4498) printf("READ SHITTY FIFO. %08X\n", R[15]);
-    if (addr==0x037CCD68) printf("atomic_store %08X %08X, %08X\n", R[0], R[1], R[15]);
-    if (addr>=0x037CEE00 && addr<=0x037CEE30) printf("shitty loop: %08X->%08X\n", R[15], addr);
-    if (R[15]==0x037CCD8C) printf("BERG!!! %08X\n", addr);
-    if (addr==0x037CD600) printf("XFER IRQ HANDLER\n");
-    if (R[15]==0x037CD62C) printf("TERRIBLE HANDLER: %08X\n", addr);
-    if (addr==0x037CCE24) printf("SD IRQ HANDLER\n");
-    if (addr==0x037CCD94) printf("atomic_load %08X %08X, %08X\n", R[0], R[1], R[15]);
-    if (addr==0x037CEB7C) printf("CHECK CSR RESULT. %08X %08X %08X, %08X\n", R[0], R[1], R[2], R[15]);
-    if (R[15]==0x037CEC6C) printf("RETURN FROM CSR CHECK: %08X  %08X\n", R[0], R[3]+0x38);
-    if (addr==0x037CB2AC) printf("ZOG!\n");
-    if (addr==0x037CB2A0) printf("GONP %08X %08X, %08X\n", R[1]+0x28, R[3]+0x34, R[15]);
-    if (addr==0x037CCFC0) printf("SDMMC TIMEOUT. %08X\n", R[15]);
-    if (addr==0x037D68A8) printf("BARKBARKBARK. %08X\n", R[15]);
-    if (addr==0x037CCF04) printf("BAKAAA\n");
-    if (addr==0x037D6988) printf("MORPMORPMORPMORPMORPMORPMORPMORPMORP %08X\n", R[15]);
-    if (addr==0x37D6904) printf("TIMEOUT FARTORED! %08X, %08X %08X, %08X\n", R[4], R[3], R[12], R[15]);
-    // TIMEOUT FARTORED! 037E89B8, 00000000 00200BFB, 037D68FC
-    if (addr==0x037CD660) printf("BRAAAAAAAAAAAP %08X\n", R[15]);
-    if (addr==0x037CD798) printf("BRAAPP SHATORED. %08X, %08X %08X\n", R[0], R[1], R[2]);
-    if (addr==0x037CCD34) printf("atomic_and %08X %08X, %08X\n", R[0], R[1], R[15]);*/
-    // atomic_and 0400481C 0000FFE7, 037CD850
-
-
     u32 oldregion = R[15] >> 23;
     u32 newregion = addr >> 23;
 
@@ -607,13 +577,6 @@ void ARMv4::Execute()
             }
             else
                 AddCycles_C();
-
-            /*if (R[15]==0x037CEE18) printf("SHITTY POINTER = %08X\n", R[0]+0x34);
-            if (R[15]==0x037CEE1C) printf("SHITTY FLAG = %08X\n", R[0]);
-            if (R[15]==0x037D68F0) printf("TIMESTAMP THING = %08X:%08X, CUR=%08X:%08X, ptr=%08X\n",
-                                          R[3], R[12], R[1], R[0], R[4]);
-            //if (R[15]==0x037CB29C) printf("GLORG!!! %08X\n", R[3]+0x34);  037E8A8C
-            if (R[15]==0x037CD730) printf("COUNT OF SHITO. %08X %08X\n", R[0], R[2]);*/
         }
 
         // TODO optimize this shit!!!

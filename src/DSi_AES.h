@@ -19,6 +19,30 @@
 #ifndef DSI_AES_H
 #define DSI_AES_H
 
-//
+#include "types.h"
+
+namespace DSi_AES
+{
+
+extern u32 Cnt;
+
+bool Init();
+void DeInit();
+void Reset();
+
+u32 ReadCnt();
+void WriteCnt(u32 val);
+void WriteBlkCnt(u32 val);
+
+u32 ReadOutputFIFO();
+void WriteInputFIFO(u32 val);
+
+void WriteIV(u32 offset, u32 val, u32 mask);
+void WriteMAC(u32 offset, u32 val, u32 mask);
+void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
+void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
+void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
+
+}
 
 #endif // DSI_AES_H

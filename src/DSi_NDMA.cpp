@@ -99,7 +99,8 @@ void DSi_NDMA::WriteCnt(u32 val)
         if ((StartMode & 0x1F) == 0x10)
             Start();
 
-        if (StartMode != 0x10 && StartMode != 0x30)
+        if (StartMode != 0x10 && StartMode != 0x30 &&
+            StartMode != 0x2B)
             printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
     }
 }
@@ -223,15 +224,18 @@ void DSi_NDMA::Run9()
     }
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
+    {
         Cnt &= ~(1<<31);
+        if (Cnt & (1<<30)) NDS::SetIRQ(0, NDS::IRQ_DSi_NDMA0 + Num);
+    }
     else if (!(Cnt & (1<<29)))
     {
         if (TotalRemCount == 0)
+        {
             Cnt &= ~(1<<31);
+            if (Cnt & (1<<30)) NDS::SetIRQ(0, NDS::IRQ_DSi_NDMA0 + Num);
+        }
     }
-
-    if (Cnt & (1<<30))
-        NDS::SetIRQ(0, NDS::IRQ_DSi_NDMA0 + Num);
 
     Running = 0;
     InProgress = false;
@@ -305,15 +309,18 @@ void DSi_NDMA::Run7()
     }
 
     if ((StartMode & 0x1F) == 0x10) // CHECKME
+    {
         Cnt &= ~(1<<31);
+        if (Cnt & (1<<30)) NDS::SetIRQ(1, NDS::IRQ_DSi_NDMA0 + Num);
+    }
     else if (!(Cnt & (1<<29)))
     {
         if (TotalRemCount == 0)
+        {
             Cnt &= ~(1<<31);
+            if (Cnt & (1<<30)) NDS::SetIRQ(1, NDS::IRQ_DSi_NDMA0 + Num);
+        }
     }
-
-    if (Cnt & (1<<30))
-        NDS::SetIRQ(1, NDS::IRQ_DSi_NDMA0 + Num);
 
     Running = 0;
     InProgress = false;

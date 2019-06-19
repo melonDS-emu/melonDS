@@ -473,10 +473,10 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 2:
     case 10: // get CID
-        Host->SendResponse(*(u32*)&CID[0], false);
-        Host->SendResponse(*(u32*)&CID[1], false);
-        Host->SendResponse(*(u32*)&CID[2], false);
-        Host->SendResponse(*(u32*)&CID[3], true);
+        Host->SendResponse(*(u32*)&CID[12], false);
+        Host->SendResponse(*(u32*)&CID[8], false);
+        Host->SendResponse(*(u32*)&CID[4], false);
+        Host->SendResponse(*(u32*)&CID[0], true);
         //if (cmd == 2) SetState(0x02);
         return;
 
@@ -502,13 +502,18 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
 
     case 9: // get CSD
-        Host->SendResponse(*(u32*)&CSD[0], false);
-        Host->SendResponse(*(u32*)&CSD[1], false);
-        Host->SendResponse(*(u32*)&CSD[2], false);
-        Host->SendResponse(*(u32*)&CSD[3], true);
+        Host->SendResponse(*(u32*)&CSD[12], false);
+        Host->SendResponse(*(u32*)&CSD[8], false);
+        Host->SendResponse(*(u32*)&CSD[4], false);
+        Host->SendResponse(*(u32*)&CSD[0], true);
         return;
 
     case 12: // stop operation
+        // TODO
+        Host->SendResponse(CSR, true);
+        return;
+
+    case 13: // get status
         Host->SendResponse(CSR, true);
         return;
 

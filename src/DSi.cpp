@@ -28,6 +28,7 @@
 #include "DSi_NDMA.h"
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
+#include "DSi_AES.h"
 
 
 namespace NDS
@@ -71,6 +72,7 @@ u8 eMMC_CID[16];
 bool Init()
 {
     if (!DSi_I2C::Init()) return false;
+    if (!DSi_AES::Init()) return false;
 
     NDMAs[0] = new DSi_NDMA(0, 0);
     NDMAs[1] = new DSi_NDMA(0, 1);
@@ -90,6 +92,7 @@ bool Init()
 void DeInit()
 {
     DSi_I2C::DeInit();
+    DSi_AES::DeInit();
 
     for (int i = 0; i < 8; i++) delete NDMAs[i];
 
@@ -110,6 +113,7 @@ void Reset()
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
     DSi_I2C::Reset();
+    DSi_AES::Reset();
 
     SDMMC->Reset();
     SDIO->Reset();
@@ -334,6 +338,24 @@ bool NDMAsRunning(u32 cpu)
     if (NDMAs[cpu+2]->IsRunning()) return true;
     if (NDMAs[cpu+3]->IsRunning()) return true;
     return false;
+}
+
+void CheckNDMAs(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    NDMAs[cpu+0]->StartIfNeeded(mode);
+    NDMAs[cpu+1]->StartIfNeeded(mode);
+    NDMAs[cpu+2]->StartIfNeeded(mode);
+    NDMAs[cpu+3]->StartIfNeeded(mode);
+}
+
+void StopNDMAs(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    NDMAs[cpu+0]->StopIfNeeded(mode);
+    NDMAs[cpu+1]->StopIfNeeded(mode);
+    NDMAs[cpu+2]->StopIfNeeded(mode);
+    NDMAs[cpu+3]->StopIfNeeded(mode);
 }
 
 
@@ -1097,6 +1119,9 @@ u32 ARM7IORead32(u32 addr)
     case 0x04004168: return NDMAs[7]->SubblockTimer;
     case 0x0400416C: return NDMAs[7]->FillData;
     case 0x04004170: return NDMAs[7]->Cnt;
+
+    case 0x04004400: return DSi_AES::ReadCnt();
+    case 0x0400440C: return DSi_AES::ReadOutputFIFO();
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -1182,6 +1207,36 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004168: NDMAs[7]->SubblockTimer = val & 0x0003FFFF; return;
     case 0x0400416C: NDMAs[7]->FillData = val; return;
     case 0x04004170: NDMAs[7]->WriteCnt(val); return;
+
+    case 0x04004400: DSi_AES::WriteCnt(val); return;
+    case 0x04004404: DSi_AES::WriteBlkCnt(val); return;
+    case 0x04004408: DSi_AES::WriteInputFIFO(val); return;
+    }
+
+    if (addr >= 0x04004420 && addr < 0x04004430)
+    {
+        addr -= 0x04004420;
+        DSi_AES::WriteIV(addr, val, 0xFFFFFFFF);
+        return;
+    }
+    if (addr >= 0x04004430 && addr < 0x04004440)
+    {
+        addr -= 0x04004430;
+        DSi_AES::WriteMAC(addr, val, 0xFFFFFFFF);
+        return;
+    }
+    if (addr >= 0x04004440 && addr < 0x04004500)
+    {
+        addr -= 0x04004440;
+        int n = 0;
+        while (addr > 0x30) { addr -= 0x30; n++; }
+
+        switch (addr >> 4)
+        {
+        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 1: DSi_AES::WriteKeyX(n, addr&0xF, val, 0xFFFFFFFF); return;
+        case 2: DSi_AES::WriteKeyY(n, addr&0xF, val, 0xFFFFFFFF); return;
+        }
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
