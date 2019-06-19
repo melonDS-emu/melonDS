@@ -197,6 +197,9 @@ bool LoadNAND()
 
         // read and apply new-WRAM settings
 
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
         u32 mbk[12];
         fseek(f, 0x380, SEEK_SET);
         fread(mbk, 4, 12, f);
@@ -232,7 +235,10 @@ bool LoadNAND()
         MapNWRAMRange(1, 1, mbk[9]);
         MapNWRAMRange(1, 2, mbk[10]);
 
-        // TODO: MBK9 protect thing
+        // TODO: find out why it is 0xFF000000
+        mbk[11] &= 0x00FFFF0F;
+        MBK[0][8] = mbk[11];
+        MBK[1][8] = mbk[11];
 
         // load binaries
         // TODO: optionally support loading from actual NAND?
@@ -364,6 +370,12 @@ void StopNDMAs(u32 cpu, u32 mode)
 
 void MapNWRAM_A(u32 num, u8 val)
 {
+    if (MBK[0][8] & (1 << num))
+    {
+        printf("trying to map NWRAM_A %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        return;
+    }
+
     int mbkn = 0, mbks = 8*num;
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
@@ -389,6 +401,12 @@ void MapNWRAM_A(u32 num, u8 val)
 
 void MapNWRAM_B(u32 num, u8 val)
 {
+    if (MBK[0][8] & (1 << (8+num)))
+    {
+        printf("trying to map NWRAM_B %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        return;
+    }
+
     int mbkn = 1+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
@@ -418,6 +436,12 @@ void MapNWRAM_B(u32 num, u8 val)
 
 void MapNWRAM_C(u32 num, u8 val)
 {
+    if (MBK[0][8] & (1 << (16+num)))
+    {
+        printf("trying to map NWRAM_C %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        return;
+    }
+
     int mbkn = 3+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
@@ -928,10 +952,23 @@ bool ARM7GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
     case (addr+2): return ((val) >> 16) & 0xFF; \
     case (addr+3): return (val) >> 24;
 
+#define CASE_READ16_32BIT(addr, val) \
+    case (addr): return (val) & 0xFFFF; \
+    case (addr+2): return (val) >> 16;
+
 u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    CASE_READ8_32BIT(0x04004040, MBK[0][0])
+    CASE_READ8_32BIT(0x04004044, MBK[0][1])
+    CASE_READ8_32BIT(0x04004048, MBK[0][2])
+    CASE_READ8_32BIT(0x0400404C, MBK[0][3])
+    CASE_READ8_32BIT(0x04004050, MBK[0][4])
+    CASE_READ8_32BIT(0x04004054, MBK[0][5])
+    CASE_READ8_32BIT(0x04004058, MBK[0][6])
+    CASE_READ8_32BIT(0x0400405C, MBK[0][7])
+    CASE_READ8_32BIT(0x04004060, MBK[0][8])
     }
 
     return NDS::ARM9IORead8(addr);
@@ -942,6 +979,16 @@ u16 ARM9IORead16(u32 addr)
     switch (addr)
     {
     case 0x04004004: return 0; // TODO
+
+    CASE_READ16_32BIT(0x04004040, MBK[0][0])
+    CASE_READ16_32BIT(0x04004044, MBK[0][1])
+    CASE_READ16_32BIT(0x04004048, MBK[0][2])
+    CASE_READ16_32BIT(0x0400404C, MBK[0][3])
+    CASE_READ16_32BIT(0x04004050, MBK[0][4])
+    CASE_READ16_32BIT(0x04004054, MBK[0][5])
+    CASE_READ16_32BIT(0x04004058, MBK[0][6])
+    CASE_READ16_32BIT(0x0400405C, MBK[0][7])
+    CASE_READ16_32BIT(0x04004060, MBK[0][8])
     }
 
     return NDS::ARM9IORead16(addr);
@@ -952,6 +999,16 @@ u32 ARM9IORead32(u32 addr)
     switch (addr)
     {
     case 0x04004010: return 1; // todo
+
+    case 0x04004040: return MBK[0][0];
+    case 0x04004044: return MBK[0][1];
+    case 0x04004048: return MBK[0][2];
+    case 0x0400404C: return MBK[0][3];
+    case 0x04004050: return MBK[0][4];
+    case 0x04004054: return MBK[0][5];
+    case 0x04004058: return MBK[0][6];
+    case 0x0400405C: return MBK[0][7];
+    case 0x04004060: return MBK[0][8];
 
     case 0x04004100: return NDMACnt[0];
     case 0x04004104: return NDMAs[0]->SrcAddr;
@@ -991,6 +1048,26 @@ void ARM9IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04004040: MapNWRAM_A(0, val); return;
+    case 0x04004041: MapNWRAM_A(1, val); return;
+    case 0x04004042: MapNWRAM_A(2, val); return;
+    case 0x04004043: MapNWRAM_A(3, val); return;
+    case 0x04004044: MapNWRAM_B(0, val); return;
+    case 0x04004045: MapNWRAM_B(1, val); return;
+    case 0x04004046: MapNWRAM_B(2, val); return;
+    case 0x04004047: MapNWRAM_B(3, val); return;
+    case 0x04004048: MapNWRAM_B(4, val); return;
+    case 0x04004049: MapNWRAM_B(5, val); return;
+    case 0x0400404A: MapNWRAM_B(6, val); return;
+    case 0x0400404B: MapNWRAM_B(7, val); return;
+    case 0x0400404C: MapNWRAM_C(0, val); return;
+    case 0x0400404D: MapNWRAM_C(1, val); return;
+    case 0x0400404E: MapNWRAM_C(2, val); return;
+    case 0x0400404F: MapNWRAM_C(3, val); return;
+    case 0x04004050: MapNWRAM_C(4, val); return;
+    case 0x04004051: MapNWRAM_C(5, val); return;
+    case 0x04004052: MapNWRAM_C(6, val); return;
+    case 0x04004053: MapNWRAM_C(7, val); return;
     }
 
     return NDS::ARM9IOWrite8(addr, val);
@@ -1009,6 +1086,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04004054: MapNWRAMRange(0, 0, val); return;
+    case 0x04004058: MapNWRAMRange(0, 1, val); return;
+    case 0x0400405C: MapNWRAMRange(0, 2, val); return;
+
     case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
     case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
     case 0x04004108: NDMAs[0]->DstAddr = val & 0xFFFFFFFC; return;
@@ -1051,6 +1132,16 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004000: return 0x01;
     case 0x04004001: return 0x01;
 
+    CASE_READ8_32BIT(0x04004040, MBK[1][0])
+    CASE_READ8_32BIT(0x04004044, MBK[1][1])
+    CASE_READ8_32BIT(0x04004048, MBK[1][2])
+    CASE_READ8_32BIT(0x0400404C, MBK[1][3])
+    CASE_READ8_32BIT(0x04004050, MBK[1][4])
+    CASE_READ8_32BIT(0x04004054, MBK[1][5])
+    CASE_READ8_32BIT(0x04004058, MBK[1][6])
+    CASE_READ8_32BIT(0x0400405C, MBK[1][7])
+    CASE_READ8_32BIT(0x04004060, MBK[1][8])
+
     case 0x04004500: return DSi_I2C::ReadData();
     case 0x04004501: printf("read I2C CNT %02X\n", DSi_I2C::Cnt); return DSi_I2C::Cnt;
 
@@ -1077,6 +1168,16 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04004004: return 0x0187;
     case 0x04004006: return 0; // JTAG register
+
+    CASE_READ16_32BIT(0x04004040, MBK[1][0])
+    CASE_READ16_32BIT(0x04004044, MBK[1][1])
+    CASE_READ16_32BIT(0x04004048, MBK[1][2])
+    CASE_READ16_32BIT(0x0400404C, MBK[1][3])
+    CASE_READ16_32BIT(0x04004050, MBK[1][4])
+    CASE_READ16_32BIT(0x04004054, MBK[1][5])
+    CASE_READ16_32BIT(0x04004058, MBK[1][6])
+    CASE_READ16_32BIT(0x0400405C, MBK[1][7])
+    CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
     case 0x04004D00: return ConsoleID & 0xFFFF;
     case 0x04004D02: return (ConsoleID >> 16) & 0xFFFF;
@@ -1105,6 +1206,16 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004008: return 0x80000000; // HAX
+
+    case 0x04004040: return MBK[1][0];
+    case 0x04004044: return MBK[1][1];
+    case 0x04004048: return MBK[1][2];
+    case 0x0400404C: return MBK[1][3];
+    case 0x04004050: return MBK[1][4];
+    case 0x04004054: return MBK[1][5];
+    case 0x04004058: return MBK[1][6];
+    case 0x0400405C: return MBK[1][7];
+    case 0x04004060: return MBK[1][8];
 
     case 0x04004100: return NDMACnt[1];
     case 0x04004104: return NDMAs[4]->SrcAddr;
@@ -1197,6 +1308,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+
+    case 0x04004054: MapNWRAMRange(1, 0, val); return;
+    case 0x04004058: MapNWRAMRange(1, 1, val); return;
+    case 0x0400405C: MapNWRAMRange(1, 2, val); return;
+    case 0x04004060: val &= 0x00FFFF0F; MBK[0][8] = val; MBK[1][8] = val; return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
     case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
