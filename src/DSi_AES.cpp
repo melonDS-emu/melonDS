@@ -191,6 +191,8 @@ void WriteCnt(u32 val)
     {
         // transfer start (checkme)
         RemBlocks = BlkCnt >> 16;
+
+        DSi::CheckNDMAs(1, 0x2A);
     }
 
     printf("AES CNT: %08X / mode=%d inDMA=%d outDMA=%d blocks=%d\n",
@@ -204,7 +206,8 @@ void WriteBlkCnt(u32 val)
 
 u32 ReadOutputFIFO()
 {
-    return OutputFIFO->Read();
+    u32 ret = OutputFIFO->Read();
+    return ret;
 }
 
 void WriteInputFIFO(u32 val)
@@ -234,16 +237,29 @@ void WriteInputFIFO(u32 val)
 
     if (OutputFIFO->Level() >= OutputDMASize)
     {
-        // trigger DMA
+        // trigger output DMA
         DSi::CheckNDMAs(1, 0x2B);
     }
-    // TODO: DMA the other way around
 
     if (RemBlocks == 0)
     {
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
+        DSi::StopNDMAs(1, 0x2A);
         DSi::StopNDMAs(1, 0x2B);
+    }
+    else
+    {
+        CheckInputDMA();
+    }
+}
+
+void CheckInputDMA()
+{
+    if (InputFIFO->Level() < InputDMASize)
+    {
+        // trigger input DMA
+        DSi::CheckNDMAs(1, 0x2A);
     }
 }
 

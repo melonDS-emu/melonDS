@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DSi_NDMA.h"
 #include "GPU.h"
+#include "DSi_AES.h"
 
 
 
@@ -100,7 +101,7 @@ void DSi_NDMA::WriteCnt(u32 val)
             Start();
 
         if (StartMode != 0x10 && StartMode != 0x30 &&
-            StartMode != 0x2B)
+            StartMode != 0x2A && StartMode != 0x2B)
             printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
     }
 }
@@ -290,6 +291,7 @@ void DSi_NDMA::Run7()
         CurDstAddr += DstAddrInc<<2;
         IterCount--;
         RemCount--;
+        TotalRemCount--;
 
         if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
     }
@@ -303,6 +305,8 @@ void DSi_NDMA::Run7()
         {
             Running = 0;
             NDS::ResumeCPU(1, 1<<(Num+4));
+
+            DSi_AES::CheckInputDMA();
         }
 
         return;
@@ -325,4 +329,6 @@ void DSi_NDMA::Run7()
     Running = 0;
     InProgress = false;
     NDS::ResumeCPU(1, 1<<(Num+4));
+
+    DSi_AES::CheckInputDMA();
 }
