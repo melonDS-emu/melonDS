@@ -32,6 +32,8 @@ u32 Cnt;
 u32 BlkCnt;
 u32 RemBlocks;
 
+bool OutputFlush;
+
 u32 InputDMASize, OutputDMASize;
 u32 AESMode;
 
@@ -73,6 +75,7 @@ void ROL16(u8* val, u32 n)
 }
 
 #define _printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
+#define _printhex2(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); }
 
 
 bool Init()
@@ -99,6 +102,8 @@ void Reset()
     BlkCnt = 0;
     RemBlocks = 0;
 
+    OutputFlush = false;
+
     InputDMASize = 0;
     OutputDMASize = 0;
     AESMode = 0;
@@ -113,6 +118,10 @@ void Reset()
     memset(CurKey, 0, sizeof(CurKey));
 
     // initialize keys, as per GBAtek
+
+    // slot 0: modcrypt
+    *(u32*)&KeyX[0][0] = 0x746E694E;
+    *(u32*)&KeyX[0][4] = 0x6F646E65;
 
     // slot 3: console-unique eMMC crypto
     *(u32*)&KeyX[3][0] = (u32)DSi::ConsoleID;
@@ -135,13 +144,13 @@ void ProcessBlock_CTR()
     *(u32*)&data[8] = InputFIFO->Read();
     *(u32*)&data[12] = InputFIFO->Read();
 
-    //printf("AES-CTR: INPUT: "); _printhex(data, 16);
+    //printf("AES-CTR: "); _printhex2(data, 16);
 
     Swap16(data_rev, data);
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
     Swap16(data, data_rev);
 
-    //printf("AES-CTR: OUTPUT: "); _printhex(data, 16);
+    //printf(" -> "); _printhex(data, 16);
 
     OutputFIFO->Write(*(u32*)&data[0]);
     OutputFIFO->Write(*(u32*)&data[4]);
@@ -165,8 +174,11 @@ void WriteCnt(u32 val)
     u32 oldcnt = Cnt;
     Cnt = val & 0xFC1FF000;
 
-    if (val & (1<<10)) InputFIFO->Clear();
-    if (val & (1<<11)) OutputFIFO->Clear();
+    /*if (val & (3<<10))
+    {
+        if (val & (1<<11)) OutputFlush = true;
+        Update();
+    }*/
 
     u32 dmasize[4] = {4, 8, 12, 16};
     InputDMASize = dmasize[3 - ((val >> 12) & 0x3)];
@@ -208,8 +220,19 @@ u32 ReadOutputFIFO()
 {
     u32 ret = OutputFIFO->Read();
 
-    CheckInputDMA();
-    CheckOutputDMA();
+    if (Cnt & (1<<31))
+    {
+        CheckInputDMA();
+        CheckOutputDMA();
+    }
+    else
+    {
+        if (OutputFIFO->Level() > 0)
+            DSi::CheckNDMAs(1, 0x2B);
+        else
+            DSi::StopNDMAs(1, 0x2B);
+    }
+
     return ret;
 }
 
@@ -226,6 +249,8 @@ void WriteInputFIFO(u32 val)
 
 void CheckInputDMA()
 {
+    if (RemBlocks == 0) return;
+
     if (InputFIFO->Level() < InputDMASize)
     {
         // trigger input DMA
@@ -270,7 +295,12 @@ void Update()
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
         DSi::StopNDMAs(1, 0x2A);
-        DSi::StopNDMAs(1, 0x2B);
+
+        if (OutputFIFO->Level() > 0)
+            DSi::CheckNDMAs(1, 0x2B);
+        else
+            DSi::StopNDMAs(1, 0x2B);
+        OutputFlush = false;
     }
 }
 
@@ -298,8 +328,8 @@ void DeriveNormalKey(u32 slot)
     const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
     u8 tmp[16];
 
-    //printf("keyX: "); _printhex(KeyX[slot], 16);
-    //printf("keyY: "); _printhex(KeyY[slot], 16);
+    //printf("slot%d keyX: ", slot); _printhex(KeyX[slot], 16);
+    //printf("slot%d keyY: ", slot); _printhex(KeyY[slot], 16);
 
     for (int i = 0; i < 16; i++)
         tmp[i] = KeyX[slot][i] ^ KeyY[slot][i];

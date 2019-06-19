@@ -52,8 +52,8 @@ u8 NWRAM_B[0x40000];
 u8 NWRAM_C[0x40000];
 
 u8* NWRAMMap_A[2][4];
-u8* NWRAMMap_B[3][4];
-u8* NWRAMMap_C[3][4];
+u8* NWRAMMap_B[3][8];
+u8* NWRAMMap_C[3][8];
 
 u32 NWRAMStart[2][3];
 u32 NWRAMEnd[2][3];
