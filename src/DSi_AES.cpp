@@ -207,6 +207,9 @@ void WriteBlkCnt(u32 val)
 u32 ReadOutputFIFO()
 {
     u32 ret = OutputFIFO->Read();
+
+    CheckInputDMA();
+    CheckOutputDMA();
     return ret;
 }
 
@@ -218,28 +221,7 @@ void WriteInputFIFO(u32 val)
 
     if (!(Cnt & (1<<31))) return;
 
-    while (InputFIFO->Level() >= 4 && RemBlocks > 0)
-    {
-        switch (AESMode)
-        {
-        case 2:
-        case 3: ProcessBlock_CTR(); break;
-        default:
-            // dorp
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
-        }
-
-        RemBlocks--;
-    }
-
-    if (OutputFIFO->Level() >= OutputDMASize)
-    {
-        // trigger output DMA
-        DSi::CheckNDMAs(1, 0x2B);
-    }
+    Update();
 
     if (RemBlocks == 0)
     {
@@ -261,6 +243,39 @@ void CheckInputDMA()
         // trigger input DMA
         DSi::CheckNDMAs(1, 0x2A);
     }
+
+    Update();
+}
+
+void CheckOutputDMA()
+{
+    if (OutputFIFO->Level() >= OutputDMASize)
+    {
+        // trigger output DMA
+        DSi::CheckNDMAs(1, 0x2B);
+    }
+}
+
+void Update()
+{
+    while (InputFIFO->Level() >= 4 && OutputFIFO->Level() <= 12 && RemBlocks > 0)
+    {
+        switch (AESMode)
+        {
+        case 2:
+        case 3: ProcessBlock_CTR(); break;
+        default:
+            // dorp
+            OutputFIFO->Write(InputFIFO->Read());
+            OutputFIFO->Write(InputFIFO->Read());
+            OutputFIFO->Write(InputFIFO->Read());
+            OutputFIFO->Write(InputFIFO->Read());
+        }
+
+        RemBlocks--;
+    }
+
+    CheckOutputDMA();
 }
 
 

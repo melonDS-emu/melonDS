@@ -129,7 +129,7 @@ void DSi_NDMA::Start()
     if (Cnt & (1<<12)) CurDstAddr = DstAddr;
     if (Cnt & (1<<15)) CurSrcAddr = SrcAddr;
 
-    printf("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes, total=%d\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4, TotalRemCount*4);
+    //printf("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes, total=%d\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4, TotalRemCount*4);
 
     //IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
@@ -307,6 +307,7 @@ void DSi_NDMA::Run7()
             NDS::ResumeCPU(1, 1<<(Num+4));
 
             DSi_AES::CheckInputDMA();
+            DSi_AES::CheckOutputDMA();
         }
 
         return;
@@ -331,4 +332,5 @@ void DSi_NDMA::Run7()
     NDS::ResumeCPU(1, 1<<(Num+4));
 
     DSi_AES::CheckInputDMA();
+    DSi_AES::CheckOutputDMA();
 }

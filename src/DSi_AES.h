@@ -37,6 +37,8 @@ void WriteBlkCnt(u32 val);
 u32 ReadOutputFIFO();
 void WriteInputFIFO(u32 val);
 void CheckInputDMA();
+void CheckOutputDMA();
+void Update();
 
 void WriteIV(u32 offset, u32 val, u32 mask);
 void WriteMAC(u32 offset, u32 val, u32 mask);
