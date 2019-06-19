@@ -532,6 +532,11 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
     case 18: // read multiple blocks
         printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
+        if (OCR & (1<<30))
+        {
+            RWAddress <<= 9;
+            BlockSize = 512;
+        }
         RWCommand = 18;
         Host->SendResponse(CSR, true);
         ReadBlock(RWAddress);
@@ -563,6 +568,10 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
         return;
 
     case 41: // set operating conditions
+        // CHECKME:
+        // DSi boot2 sets this to 0x40100000 (hardcoded)
+        // then has two codepaths depending on whether bit30 did get set
+        // is it settable at all on the MMC?
         OCR &= 0xBF000000;
         OCR |= (param & 0x40FFFFFF);
         Host->SendResponse(OCR, true);
@@ -588,7 +597,7 @@ void DSi_MMCStorage::ContinueTransfer()
     RWAddress += BlockSize;
 }
 
-void DSi_MMCStorage::ReadBlock(u32 addr)
+void DSi_MMCStorage::ReadBlock(u64 addr)
 {
     if (!File) return;
 

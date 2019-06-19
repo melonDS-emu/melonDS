@@ -120,12 +120,12 @@ private:
     u8 SSR[64];
 
     u32 BlockSize;
-    u32 RWAddress;
+    u64 RWAddress;
     u32 RWCommand;
 
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 
-    void ReadBlock(u32 addr);
+    void ReadBlock(u64 addr);
 };
 
 #endif // DSI_SD_H
