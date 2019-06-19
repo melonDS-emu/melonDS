@@ -477,7 +477,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(*(u32*)&CID[8], false);
         Host->SendResponse(*(u32*)&CID[4], false);
         Host->SendResponse(*(u32*)&CID[0], true);
-        //if (cmd == 2) SetState(0x02);
+        if (cmd == 2) SetState(0x02);
         return;
 
     case 3: // get/set RCA
@@ -509,7 +509,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
 
     case 12: // stop operation
-        // TODO
+        SetState(0x04);
         Host->SendResponse(CSR, true);
         return;
 
@@ -525,6 +525,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             printf("!! SD/MMC: BAD BLOCK LEN %d\n", BlockSize);
             BlockSize = 0x200;
         }
+        SetState(0x04); // CHECKME
         Host->SendResponse(CSR, true);
         return;
 
@@ -535,6 +536,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         ReadBlock(RWAddress);
         RWAddress += BlockSize;
+        SetState(0x05);
         return;
 
     case 55: // ??

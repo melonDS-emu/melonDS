@@ -243,6 +243,7 @@ void WriteInputFIFO(u32 val)
     {
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
+        DSi::StopNDMAs(1, 0x2B);
     }
 }
 
