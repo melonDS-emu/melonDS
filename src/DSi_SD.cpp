@@ -160,12 +160,12 @@ void DSi_SDHost::FinishSend(u32 param)
 
     host->ClearIRQ(25);
     host->SetIRQ(24);
-    if (param & 0x2) host->SetIRQ(2);
+    //if (param & 0x2) host->SetIRQ(2);
 }
 
 void DSi_SDHost::SendData(u8* data, u32 len)
 {
-    printf("%s: data RX, len=%d, blkcnt=%d blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockLen16, IRQMask);
+    printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
     if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
 
     bool last = (BlockCountInternal == 0);
@@ -236,7 +236,7 @@ u16 DSi_SDHost::Read(u32 addr)
             {
                 ClearIRQ(24);
 
-                if (BlockCountInternal == 0)
+                if (BlockCountInternal <= 1)
                 {
                     printf("%s: data RX complete", SD_DESC);
 
@@ -251,7 +251,7 @@ u16 DSi_SDHost::Read(u32 addr)
                     // CHECKME: presumably IRQ2 should not trigger here, but rather
                     // when the data transfer is done
                     //SetIRQ(0);
-                    //SetIRQ(2);
+                    SetIRQ(2);
                 }
                 else
                 {
@@ -300,7 +300,7 @@ u32 DSi_SDHost::ReadFIFO32()
     {
         ClearIRQ(24);
 
-        if (BlockCountInternal == 0)
+        if (BlockCountInternal <= 1)
         {
             printf("%s: data32 RX complete", SD_DESC);
 
@@ -315,7 +315,7 @@ u32 DSi_SDHost::ReadFIFO32()
             // CHECKME: presumably IRQ2 should not trigger here, but rather
             // when the data transfer is done
             //SetIRQ(0);
-            //SetIRQ(2);
+            SetIRQ(2);
         }
         else
         {
