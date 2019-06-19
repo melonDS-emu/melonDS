@@ -980,6 +980,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004000: return 1;
+
     CASE_READ8_32BIT(0x04004040, MBK[0][0])
     CASE_READ8_32BIT(0x04004044, MBK[0][1])
     CASE_READ8_32BIT(0x04004048, MBK[0][2])
@@ -1018,6 +1020,7 @@ u32 ARM9IORead32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004008: return 0x8307F100;
     case 0x04004010: return 1; // todo
 
     case 0x04004040: return MBK[0][0];
@@ -1097,6 +1100,46 @@ void ARM9IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
+    case 0x04004040:
+        MapNWRAM_A(0, val & 0xFF);
+        MapNWRAM_A(1, val >> 8);
+        return;
+    case 0x04004042:
+        MapNWRAM_A(2, val & 0xFF);
+        MapNWRAM_A(3, val >> 8);
+        return;
+    case 0x04004044:
+        MapNWRAM_B(0, val & 0xFF);
+        MapNWRAM_B(1, val >> 8);
+        return;
+    case 0x04004046:
+        MapNWRAM_B(2, val & 0xFF);
+        MapNWRAM_B(3, val >> 8);
+        return;
+    case 0x04004048:
+        MapNWRAM_B(4, val & 0xFF);
+        MapNWRAM_B(5, val >> 8);
+        return;
+    case 0x0400404A:
+        MapNWRAM_B(6, val & 0xFF);
+        MapNWRAM_B(7, val >> 8);
+        return;
+    case 0x0400404C:
+        MapNWRAM_C(0, val & 0xFF);
+        MapNWRAM_C(1, val >> 8);
+        return;
+    case 0x0400404E:
+        MapNWRAM_C(2, val & 0xFF);
+        MapNWRAM_C(3, val >> 8);
+        return;
+    case 0x04004050:
+        MapNWRAM_C(4, val & 0xFF);
+        MapNWRAM_C(5, val >> 8);
+        return;
+    case 0x04004052:
+        MapNWRAM_C(6, val & 0xFF);
+        MapNWRAM_C(7, val >> 8);
+        return;
     }
 
     return NDS::ARM9IOWrite16(addr, val);
@@ -1106,6 +1149,36 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04004040:
+        MapNWRAM_A(0, val & 0xFF);
+        MapNWRAM_A(1, (val >> 8) & 0xFF);
+        MapNWRAM_A(2, (val >> 16) & 0xFF);
+        MapNWRAM_A(3, val >> 24);
+        return;
+    case 0x04004044:
+        MapNWRAM_B(0, val & 0xFF);
+        MapNWRAM_B(1, (val >> 8) & 0xFF);
+        MapNWRAM_B(2, (val >> 16) & 0xFF);
+        MapNWRAM_B(3, val >> 24);
+        return;
+    case 0x04004048:
+        MapNWRAM_B(4, val & 0xFF);
+        MapNWRAM_B(5, (val >> 8) & 0xFF);
+        MapNWRAM_B(6, (val >> 16) & 0xFF);
+        MapNWRAM_B(7, val >> 24);
+        return;
+    case 0x0400404C:
+        MapNWRAM_C(0, val & 0xFF);
+        MapNWRAM_C(1, (val >> 8) & 0xFF);
+        MapNWRAM_C(2, (val >> 16) & 0xFF);
+        MapNWRAM_C(3, val >> 24);
+        return;
+    case 0x04004050:
+        MapNWRAM_C(4, val & 0xFF);
+        MapNWRAM_C(5, (val >> 8) & 0xFF);
+        MapNWRAM_C(6, (val >> 16) & 0xFF);
+        MapNWRAM_C(7, val >> 24);
+        return;
     case 0x04004054: MapNWRAMRange(0, 0, val); return;
     case 0x04004058: MapNWRAMRange(0, 1, val); return;
     case 0x0400405C: MapNWRAMRange(0, 2, val); return;
