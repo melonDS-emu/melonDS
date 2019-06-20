@@ -1239,7 +1239,7 @@ u8 ARM7IORead8(u32 addr)
     CASE_READ8_32BIT(0x04004060, MBK[1][8])
 
     case 0x04004500: return DSi_I2C::ReadData();
-    case 0x04004501: printf("read I2C CNT %02X\n", DSi_I2C::Cnt); return DSi_I2C::Cnt;
+    case 0x04004501: return DSi_I2C::Cnt;
 
     case 0x04004D00: return ConsoleID & 0xFF;
     case 0x04004D01: return (ConsoleID >> 8) & 0xFF;

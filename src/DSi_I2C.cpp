@@ -152,7 +152,7 @@ void Reset()
 
 void WriteCnt(u8 val)
 {
-    printf("I2C: write CNT %02X\n", val);
+    //printf("I2C: write CNT %02X\n", val);
 
     // TODO: check ACK flag
     // TODO: transfer delay
@@ -174,7 +174,7 @@ void WriteCnt(u8 val)
             default: Data = 0; break;
             }
 
-            printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+            //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
@@ -184,7 +184,7 @@ void WriteCnt(u8 val)
             if (val & (1<<1))
             {
                 Device = Data & 0xFE;
-                printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
+                //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
@@ -193,7 +193,7 @@ void WriteCnt(u8 val)
             }
             else
             {
-                printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
                 switch (Device)
                 {
@@ -212,7 +212,6 @@ void WriteCnt(u8 val)
 
 u8 ReadData()
 {
-    printf("I2C: read the data: %02X\n", Data);
     return Data;
 }
 

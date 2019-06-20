@@ -218,6 +218,8 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x026: return BlockLen16;
     case 0x028: return SDOption;
 
+    case 0x02C: return 0; // TODO
+
     case 0x030: // FIFO16
         {
             // TODO: decrement BlockLen????
@@ -275,7 +277,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x108: return BlockCount32;
     }
 
-    printf("unknown %s read %08X\n", SD_DESC, addr);
+    printf("unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
     return 0;
 }
 
@@ -356,6 +358,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
                     break;
                 }
             }
+            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SD_DESC, val);
         }
         return;
 

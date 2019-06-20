@@ -1600,7 +1600,7 @@ void debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
-    FILE*
+    /*FILE*
     shit = fopen("debug/dump9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1614,7 +1614,7 @@ void debug(u32 param)
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 

@@ -135,8 +135,8 @@ void DSi_NDMA::Start()
 
     // TODO eventually: not stop if we're running code in ITCM
 
-    if (SubblockTimer & 0xFFFF)
-        printf("TODO! NDMA SUBBLOCK TIMER: %08X\n", SubblockTimer);
+    //if (SubblockTimer & 0xFFFF)
+    //    printf("TODO! NDMA SUBBLOCK TIMER: %08X\n", SubblockTimer);
 
     if (NDS::DMAsRunning(CPU))
         Running = 1;
