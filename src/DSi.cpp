@@ -21,8 +21,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
-#include "tiny-AES-c/aes.hpp"
-#include "sha1/sha1.h"
+#include "GPU.h"
 #include "Platform.h"
 
 #include "DSi_NDMA.h"
@@ -121,6 +120,10 @@ void Reset()
 
     SDMMC->Reset();
     SDIO->Reset();
+
+    // LCD init flag
+    GPU::DispStat[0] |= (1<<6);
+    GPU::DispStat[1] |= (1<<6);
 }
 
 bool LoadBIOS()
