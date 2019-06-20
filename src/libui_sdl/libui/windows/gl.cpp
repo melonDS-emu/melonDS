@@ -3,6 +3,7 @@
 #include "area.hpp"
 
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <GL/wglext.h>
 
 struct uiGLContext
@@ -158,4 +159,38 @@ float uiGLGetFramebufferScale(uiGLContext* ctx)
 {
     // TODO
     return 1;
+}
+
+void uiGLSetVSync(int sync)
+{
+	static PFNWGLSWAPINTERVALEXTPROC _wglSwapIntervalEXT = NULL;
+	static bool symloaded = false;
+
+	if (!symloaded)
+    {
+        PFNGLGETSTRINGIPROC _glGetStringi = (PFNGLGETSTRINGIPROC)wglGetProcAddress("glGetStringi");
+        if (_glGetStringi == NULL) return;
+
+        GLint numext;
+        glGetIntegerv(GL_NUM_EXTENSIONS, &numext);
+
+        bool hasswapctrl = false;
+        for (GLint i = 0; i < numext; i++)
+        {
+            const char* ext = (const char*)_glGetStringi(GL_EXTENSIONS, i);
+            if (!stricmp(ext, "WGL_EXT_swap_control"))
+            {
+                hasswapctrl = true;
+                break;
+            }
+        }
+
+        if (hasswapctrl)
+            _wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)wglGetProcAddress("wglSwapIntervalEXT");
+
+        symloaded = true;
+    }
+
+    if (_wglSwapIntervalEXT)
+        _wglSwapIntervalEXT(sync);
 }

@@ -2417,6 +2417,7 @@ void CreateMainWindow(bool opengl)
     if (opengl_good)
     {
         uiGLMakeContextCurrent(GLContext);
+        uiGLSetVSync(0); // TODO: make configurable?
         if (!GLScreen_Init()) opengl_good = false;
         if (opengl_good)
         {
