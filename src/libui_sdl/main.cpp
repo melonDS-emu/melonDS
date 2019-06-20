@@ -710,26 +710,31 @@ bool JoystickButtonDown(int val)
 {
     if (val == -1) return false;
 
-    if (val & 0x100)
+    bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
+
+    if (hasbtn)
     {
-        int hatnum = (val >> 4) & 0xF;
-        int hatdir = val & 0xF;
-        Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
+        if (val & 0x100)
+        {
+            int hatnum = (val >> 4) & 0xF;
+            int hatdir = val & 0xF;
+            Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
 
-        bool pressed = false;
-        if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
-        else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
-        else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
-        else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
+            bool pressed = false;
+            if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
+            else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
+            else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
+            else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
 
-        if (pressed) return true;
-    }
-    else
-    {
-        int btnnum = val & 0xFFFF;
-        Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
+            if (pressed) return true;
+        }
+        else
+        {
+            int btnnum = val & 0xFFFF;
+            Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
 
-        if (btnval) return true;
+            if (btnval) return true;
+        }
     }
 
     if (val & 0x10000)
