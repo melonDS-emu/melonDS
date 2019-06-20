@@ -44,6 +44,8 @@ namespace DSi
 
 u32 BootAddr[2];
 
+u32 SCFG_MC;
+
 u32 MBK[2][9];
 
 u8 NWRAM_A[0x40000];
@@ -120,6 +122,8 @@ void Reset()
 
     SDMMC->Reset();
     SDIO->Reset();
+
+    SCFG_MC = 0x0011;
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
@@ -1004,6 +1008,7 @@ u16 ARM9IORead16(u32 addr)
     switch (addr)
     {
     case 0x04004004: return 0; // TODO
+    case 0x04004010: return SCFG_MC & 0xFFFF;
 
     CASE_READ16_32BIT(0x04004040, MBK[0][0])
     CASE_READ16_32BIT(0x04004044, MBK[0][1])
@@ -1024,7 +1029,7 @@ u32 ARM9IORead32(u32 addr)
     switch (addr)
     {
     case 0x04004008: return 0x8307F100;
-    case 0x04004010: return 1; // todo
+    case 0x04004010: return SCFG_MC & 0xFFFF;
 
     case 0x04004040: return MBK[0][0];
     case 0x04004044: return MBK[0][1];
@@ -1264,6 +1269,7 @@ u16 ARM7IORead16(u32 addr)
 
     case 0x04004004: return 0x0187;
     case 0x04004006: return 0; // JTAG register
+    case 0x04004010: return SCFG_MC & 0xFFFF;
 
     CASE_READ16_32BIT(0x04004040, MBK[1][0])
     CASE_READ16_32BIT(0x04004044, MBK[1][1])
@@ -1302,6 +1308,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x0400021C: return NDS::IF2;
 
     case 0x04004008: return 0x80000000; // HAX
+    case 0x04004010: return SCFG_MC;
 
     case 0x04004040: return MBK[1][0];
     case 0x04004044: return MBK[1][1];
@@ -1382,6 +1389,13 @@ void ARM7IOWrite16(u32 addr, u16 val)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+
+    case 0x04004010:
+        val &= 0x800C;
+        if ((val & 0xC) == 0xC) val &= ~0xC; // hax
+        if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
+        SCFG_MC = (SCFG_MC & ~0x800C) | val;
+        return;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -1404,6 +1418,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
     {
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+
+    case 0x04004010:
+        val &= 0xFFFF800C;
+        if ((val & 0xC) == 0xC) val &= ~0xC; // hax
+        if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
+        SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
+        return;
 
     case 0x04004054: MapNWRAMRange(1, 0, val); return;
     case 0x04004058: MapNWRAMRange(1, 1, val); return;
