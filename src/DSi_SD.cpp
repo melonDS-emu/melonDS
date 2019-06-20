@@ -190,13 +190,34 @@ void DSi_SDHost::ReceiveData(u8* data, u32 len)
     printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
     if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
 
-    bool last = (BlockCountInternal == 0);
-
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
     for (u32 i = 0; i < len; i += 2)
         *(u16*)&data[i] = DataFIFO[f]->Read();
 
     CurFIFO ^= 1;
+
+    if (BlockCountInternal <= 1)
+    {
+        printf("%s: data32 TX complete", SD_DESC);
+
+        if (StopAction & (1<<8))
+        {
+            printf(", sending CMD12");
+            if (dev) dev->SendCMD(12, 0);
+        }
+
+        printf("\n");
+
+        // CHECKME: presumably IRQ2 should not trigger here, but rather
+        // when the data transfer is done
+        //SetIRQ(0);
+        SetIRQ(2);
+    }
+    else
+    {
+        BlockCountInternal--;
+    }
 }
 
 
@@ -464,28 +485,6 @@ void DSi_SDHost::WriteFIFO32(u32 val)
     SetIRQ(25);
 
     if (dev) dev->ContinueTransfer();
-
-    if (BlockCountInternal <= 1)
-    {
-        printf("%s: data32 TX complete", SD_DESC);
-
-        if (StopAction & (1<<8))
-        {
-            printf(", sending CMD12");
-            if (dev) dev->SendCMD(12, 0);
-        }
-
-        printf("\n");
-
-        // CHECKME: presumably IRQ2 should not trigger here, but rather
-        // when the data transfer is done
-        //SetIRQ(0);
-        SetIRQ(2);
-    }
-    else
-    {
-        BlockCountInternal--;
-    }
 }
 
 
