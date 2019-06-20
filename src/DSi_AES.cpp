@@ -180,9 +180,10 @@ void WriteCnt(u32 val)
         Update();
     }*/
 
-    u32 dmasize[4] = {4, 8, 12, 16};
-    InputDMASize = dmasize[3 - ((val >> 12) & 0x3)];
-    OutputDMASize = dmasize[(val >> 14) & 0x3];
+    u32 dmasize_in[4] = {0, 4, 8, 12};
+    u32 dmasize_out[4] = {4, 8, 12, 16};
+    InputDMASize = dmasize_in[(val >> 12) & 0x3];
+    OutputDMASize = dmasize_out[(val >> 14) & 0x3];
 
     AESMode = (val >> 28) & 0x3;
     if (AESMode < 2) printf("AES-CCM TODO\n");
@@ -251,7 +252,7 @@ void CheckInputDMA()
 {
     if (RemBlocks == 0) return;
 
-    if (InputFIFO->Level() < InputDMASize)
+    if (InputFIFO->Level() <= InputDMASize)
     {
         // trigger input DMA
         DSi::CheckNDMAs(1, 0x2A);
