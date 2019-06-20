@@ -37,8 +37,10 @@ public:
     void DoSavestate(Savestate* file);
 
     static void FinishSend(u32 param);
+    static void FinishReceive(u32 param);
     void SendResponse(u32 val, bool last);
     void SendData(u8* data, u32 len);
+    void ReceiveData(u8* data, u32 len);
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
@@ -126,6 +128,7 @@ private:
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 
     void ReadBlock(u64 addr);
+    void WriteBlock(u64 addr);
 };
 
 #endif // DSI_SD_H

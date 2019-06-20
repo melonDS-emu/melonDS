@@ -163,6 +163,42 @@ void DSi_SDHost::FinishSend(u32 param)
     //if (param & 0x2) host->SetIRQ(2);
 }
 
+void DSi_SDHost::FinishReceive(u32 param)
+{
+    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+    DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
+
+    //host->CurFIFO ^= 1;
+
+    host->ClearIRQ(24);
+
+    if (host->BlockCountInternal <= 0)
+    {
+        printf("%s: data32 TX complete", (param&0x1)?"SDIO":"SD/MMC");
+
+        if (host->StopAction & (1<<8))
+        {
+            printf(", sending CMD12");
+            if (dev) dev->SendCMD(12, 0);
+        }
+
+        printf("\n");
+
+        // CHECKME: presumably IRQ2 should not trigger here, but rather
+        // when the data transfer is done
+        //SetIRQ(0);
+        host->SetIRQ(2);
+    }
+    else
+    {
+        host->BlockCountInternal--;
+
+        if (dev) dev->ContinueTransfer();
+    }
+
+    host->SetIRQ(25);
+}
+
 void DSi_SDHost::SendData(u8* data, u32 len)
 {
     printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
@@ -183,6 +219,24 @@ void DSi_SDHost::SendData(u8* data, u32 len)
     // send-command function starts polling IRQ status
     u32 param = Num | (last << 1);
     NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishSend, param);
+}
+
+void DSi_SDHost::ReceiveData(u8* data, u32 len)
+{
+    printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
+    if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
+
+    bool last = (BlockCountInternal == 0);
+
+    u32 f = CurFIFO;
+    for (u32 i = 0; i < len; i += 2)
+        *(u16*)&data[i] = DataFIFO[f]->Read();
+
+    CurFIFO ^= 1;
+
+    // TODO: determine what the delay should be!
+    u32 param = Num | (last << 1);
+    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishReceive, param);
 }
 
 
@@ -423,7 +477,21 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
 void DSi_SDHost::WriteFIFO32(u32 val)
 {
-    //
+    if (DataMode != 1) return;
+
+    u32 f = CurFIFO;
+    if (DataFIFO[f]->IsFull())
+    {
+        // TODO
+        printf("!!!! %s FIFO FULL\n", SD_DESC);
+        return;
+    }
+
+    DataFIFO[f]->Write(val & 0xFFFF);
+    DataFIFO[f]->Write(val >> 16);
+
+    ClearIRQ(25);
+    SetIRQ(24);
 }
 
 
@@ -513,6 +581,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 12: // stop operation
         SetState(0x04);
+        if (File) fflush(File);
         Host->SendResponse(CSR, true);
         return;
 
@@ -545,6 +614,21 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         ReadBlock(RWAddress);
         RWAddress += BlockSize;
         SetState(0x05);
+        return;
+
+    case 25: // write multiple blocks
+        printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
+        RWAddress = param;
+        if (OCR & (1<<30))
+        {
+            RWAddress <<= 9;
+            BlockSize = 512;
+        }
+        RWCommand = 25;
+        Host->SendResponse(CSR, true);
+        WriteBlock(RWAddress);
+        RWAddress += BlockSize;
+        SetState(0x06);
         return;
 
     case 55: // ??
@@ -597,7 +681,17 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
 void DSi_MMCStorage::ContinueTransfer()
 {
-    ReadBlock(RWAddress);
+    switch (RWCommand)
+    {
+    case 18:
+        ReadBlock(RWAddress);
+        break;
+
+    case 25:
+        WriteBlock(RWAddress);
+        break;
+    }
+
     RWAddress += BlockSize;
 }
 
@@ -608,7 +702,19 @@ void DSi_MMCStorage::ReadBlock(u64 addr)
     printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
 
     u8 data[0x200];
-    fseek(File, addr, SEEK_SET); // TODO: adjust for SDHC/etc
+    fseek(File, addr, SEEK_SET);
     fread(data, 1, BlockSize, File);
     Host->SendData(data, BlockSize);
+}
+
+void DSi_MMCStorage::WriteBlock(u64 addr)
+{
+    if (!File) return;
+
+    printf("SD/MMC: write block @ %08X, len=%08X\n", addr, BlockSize);
+
+    u8 data[0x200];
+    Host->ReceiveData(data, BlockSize);
+    fseek(File, addr, SEEK_SET);
+    fwrite(data, 1, BlockSize, File);
 }
