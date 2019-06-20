@@ -37,7 +37,6 @@ public:
     void DoSavestate(Savestate* file);
 
     static void FinishSend(u32 param);
-    static void FinishReceive(u32 param);
     void SendResponse(u32 val, bool last);
     void SendData(u8* data, u32 len);
     void ReceiveData(u8* data, u32 len);

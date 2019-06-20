@@ -163,42 +163,6 @@ void DSi_SDHost::FinishSend(u32 param)
     //if (param & 0x2) host->SetIRQ(2);
 }
 
-void DSi_SDHost::FinishReceive(u32 param)
-{
-    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
-    DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
-
-    //host->CurFIFO ^= 1;
-
-    host->ClearIRQ(24);
-
-    if (host->BlockCountInternal <= 0)
-    {
-        printf("%s: data32 TX complete", (param&0x1)?"SDIO":"SD/MMC");
-
-        if (host->StopAction & (1<<8))
-        {
-            printf(", sending CMD12");
-            if (dev) dev->SendCMD(12, 0);
-        }
-
-        printf("\n");
-
-        // CHECKME: presumably IRQ2 should not trigger here, but rather
-        // when the data transfer is done
-        //SetIRQ(0);
-        host->SetIRQ(2);
-    }
-    else
-    {
-        host->BlockCountInternal--;
-
-        if (dev) dev->ContinueTransfer();
-    }
-
-    host->SetIRQ(25);
-}
-
 void DSi_SDHost::SendData(u8* data, u32 len)
 {
     printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
@@ -233,10 +197,6 @@ void DSi_SDHost::ReceiveData(u8* data, u32 len)
         *(u16*)&data[i] = DataFIFO[f]->Read();
 
     CurFIFO ^= 1;
-
-    // TODO: determine what the delay should be!
-    u32 param = Num | (last << 1);
-    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishReceive, param);
 }
 
 
@@ -479,6 +439,7 @@ void DSi_SDHost::WriteFIFO32(u32 val)
 {
     if (DataMode != 1) return;
 
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
     if (DataFIFO[f]->IsFull())
     {
@@ -490,8 +451,41 @@ void DSi_SDHost::WriteFIFO32(u32 val)
     DataFIFO[f]->Write(val & 0xFFFF);
     DataFIFO[f]->Write(val >> 16);
 
-    ClearIRQ(25);
-    SetIRQ(24);
+    if (DataFIFO[f]->Level() < (BlockLen16>>1))
+    {
+        ClearIRQ(25);
+        SetIRQ(24);
+        return;
+    }
+
+    // we completed one block, send it to the SD card
+
+    ClearIRQ(24);
+    SetIRQ(25);
+
+    if (dev) dev->ContinueTransfer();
+
+    if (BlockCountInternal <= 1)
+    {
+        printf("%s: data32 TX complete", SD_DESC);
+
+        if (StopAction & (1<<8))
+        {
+            printf(", sending CMD12");
+            if (dev) dev->SendCMD(12, 0);
+        }
+
+        printf("\n");
+
+        // CHECKME: presumably IRQ2 should not trigger here, but rather
+        // when the data transfer is done
+        //SetIRQ(0);
+        SetIRQ(2);
+    }
+    else
+    {
+        BlockCountInternal--;
+    }
 }
 
 
@@ -582,6 +576,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
     case 12: // stop operation
         SetState(0x04);
         if (File) fflush(File);
+        RWCommand = 0;
         Host->SendResponse(CSR, true);
         return;
 
@@ -681,6 +676,8 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
 void DSi_MMCStorage::ContinueTransfer()
 {
+    if (RWCommand == 0) return;
+
     switch (RWCommand)
     {
     case 18:
