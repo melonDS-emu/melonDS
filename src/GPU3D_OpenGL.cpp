@@ -342,36 +342,11 @@ bool Init()
     SetupDefaultTexParams(FramebufferTex[7]);
 
     // downscale framebuffer for antialiased mode
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
     SetupDefaultTexParams(FramebufferTex[2]);
 
     // downscale framebuffer for display capture (always 256x192)
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
     SetupDefaultTexParams(FramebufferTex[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
-
-    GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
@@ -474,6 +449,31 @@ void UpdateDisplaySettings()
         glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
     }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+
+    GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
