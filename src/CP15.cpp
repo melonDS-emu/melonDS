@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "ARM.h"
+#include "ARMJIT.h"
 
 
 // access timing for cached regions
@@ -772,6 +773,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
     {
         DataCycles = 1;
         *(u8*)&ITCM[addr & 0x7FFF] = val;
+        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
         return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
@@ -793,6 +795,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
     {
         DataCycles = 1;
         *(u16*)&ITCM[addr & 0x7FFF] = val;
+        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
         return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
@@ -814,6 +817,8 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
     {
         DataCycles = 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
+        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
+        ARMJIT::cache.ARM9_ITCM[((addr + 2) & 0x7FFF) >> 1] = NULL;
         return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
@@ -835,6 +840,8 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
     {
         DataCycles += 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
+        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) / 2] = NULL;
+        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) / 2 + 1] = NULL;
         return;
     }
     if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))

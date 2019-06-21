@@ -38,6 +38,8 @@ uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
 
+uiCheckbox* cbJITEnabled;
+uiEntry* enJITMaxBlockSize;
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
@@ -61,6 +63,14 @@ void OnOk(uiButton* btn, void* blarg)
     opened = false;
 }
 
+void OnJITStateChanged(uiCheckbox* cb, void* blarg)
+{
+    if (uiCheckboxChecked(cb))
+        uiControlEnable(uiControl(enJITMaxBlockSize));
+    else
+        uiControlDisable(uiControl(enJITMaxBlockSize));
+}
+
 void Open()
 {
     if (opened)
@@ -70,7 +80,7 @@ void Open()
     }
 
     opened = true;
-    win = uiNewWindow("Emu settings - melonDS", 300, 200, 0, 0, 0);
+    win = uiNewWindow("Emu settings - melonDS", 300, 170, 0, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 
@@ -79,10 +89,39 @@ void Open()
 
     {
         uiBox* in_ctrl = uiNewVerticalBox();
-        uiBoxAppend(top, uiControl(in_ctrl), 1);
+        uiBoxAppend(top, uiControl(in_ctrl), 0);
 
         cbDirectBoot = uiNewCheckbox("Boot game directly");
         uiBoxAppend(in_ctrl, uiControl(cbDirectBoot), 0);
+    }
+
+    {
+        uiLabel* dummy = uiNewLabel("");
+        uiBoxAppend(top, uiControl(dummy), 0);
+    }
+
+    {
+        uiGroup* grp = uiNewGroup("JIT");
+        uiBoxAppend(top, uiControl(grp), 1);
+
+        uiBox* in_ctrl = uiNewVerticalBox();
+        uiGroupSetChild(grp, uiControl(in_ctrl));
+
+        cbJITEnabled = uiNewCheckbox("Enable JIT recompiler");
+        uiBoxAppend(in_ctrl, uiControl(cbJITEnabled), 0);
+
+        uiCheckboxOnToggled(cbJITEnabled, OnJITStateChanged, NULL);
+
+        {
+            uiBox* row = uiNewHorizontalBox();
+            uiBoxAppend(in_ctrl, uiControl(row), 0);
+
+            uiLabel* lbl = uiNewLabel("Maximum block size (1-32): ");
+            uiBoxAppend(row, uiControl(lbl), 0);
+
+            enJITMaxBlockSize = uiNewEntry();
+            uiBoxAppend(row, uiControl(enJITMaxBlockSize), 0);
+        }
     }
 
     {
@@ -103,6 +142,8 @@ void Open()
     }
 
     uiCheckboxSetChecked(cbDirectBoot, Config::DirectBoot);
+
+    OnJITStateChanged(cbJITEnabled, NULL);
 
     uiControlShow(uiControl(win));
 }

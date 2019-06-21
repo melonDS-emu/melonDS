@@ -1,11 +1,14 @@
 project(core)
 
+set (CMAKE_CXX_STANDARD 14)
+
 add_library(core STATIC
 	ARM.cpp
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp
 	ARMInterpreter_Branch.cpp
 	ARMInterpreter_LoadStore.cpp
+	ARM_InstrInfo.cpp
 	Config.cpp
 	CP15.cpp
 	CRC32.cpp
@@ -24,6 +27,15 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
+
+	ARMJIT.cpp
+	ARMJIT_x64/ARMJIT_Compiler.cpp
+
+	dolphin/CommonFuncs.cpp
+	dolphin/x64ABI.cpp
+	dolphin/x64CPUDetect.cpp
+	dolphin/x64Emitter.cpp
+	dolphin/MemoryUtil.cpp
 )
 
 if (WIN32)

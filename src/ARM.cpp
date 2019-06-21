@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "ARMJIT.h"
 
 
 // instruction timing notes
@@ -470,7 +471,7 @@ void ARMv5::Execute()
 
     while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
-        if (CPSR & 0x20) // THUMB
+        /*if (CPSR & 0x20) // THUMB
         {
             // prefetch
             R[15] += 2;
@@ -503,7 +504,15 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
-        }
+        }*/
+
+        if (!ARMJIT::IsMapped(Num, R[15] - ((CPSR&0x20)?2:4)))
+            printf("aaarg ungempappter raum %x\n", R[15]);
+
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(Num, R[15] - ((CPSR&0x20)?2:4));
+        if (block == NULL)
+            block = ARMJIT::CompileBlock(this);
+        Cycles += block();
 
         // TODO optimize this shit!!!
         if (Halted)
