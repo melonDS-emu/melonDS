@@ -72,12 +72,12 @@ private:
 
     bool Accelerated;
 
-    u32 BGOBJLine[256*3] __attribute__((aligned (8)));
+    alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 
-    u8 WindowMask[256] __attribute__((aligned (8)));
-    u32 OBJLine[256] __attribute__((aligned (8)));
-    u8 OBJWindow[256] __attribute__((aligned (8)));
+    alignas(8) u8 WindowMask[256];
+    alignas(8) u32 OBJLine[256];
+    alignas(8) u8 OBJWindow[256];
 
     u32 NumSprites;
 
