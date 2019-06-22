@@ -2724,6 +2724,7 @@ int main(int argc, char** argv)
 #ifdef __WIN32__
 
 #include <windows.h>
+#include <shellapi.h>
 
 int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdshow)
 {
