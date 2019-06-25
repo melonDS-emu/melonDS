@@ -560,10 +560,10 @@ void ARMv5::Execute()
                 AddCycles_C();
         }*/
 
-        if (!ARMJIT::IsMapped(Num, R[15] - ((CPSR&0x20)?2:4)))
-            printf("aaarg ungempappter raum %x\n", R[15]);
+        /*if (!ARMJIT::IsMapped(0, R[15] - ((CPSR&0x20)?2:4)))
+            printf("aaarg ungempappter raum %x\n", R[15]);*/
 
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(Num, R[15] - ((CPSR&0x20)?2:4));
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, R[15] - ((CPSR&0x20)?2:4));
         if (block == NULL)
             block = ARMJIT::CompileBlock(this);
         Cycles += block();
@@ -615,7 +615,7 @@ void ARMv4::Execute()
 
     while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
-        if (CPSR & 0x20) // THUMB
+        /*if (CPSR & 0x20) // THUMB
         {
             // prefetch
             R[15] += 2;
@@ -643,7 +643,15 @@ void ARMv4::Execute()
             }
             else
                 AddCycles_C();
-        }
+        }*/
+
+        /*if (!ARMJIT::IsMapped(1, R[15] - ((CPSR&0x20)?2:4)))
+            printf("aaarg ungempappter raum %x\n", R[15]);*/
+
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, R[15] - ((CPSR&0x20)?2:4));
+        if (block == NULL)
+            block = ARMJIT::CompileBlock(this);
+        Cycles += block();
 
         // TODO optimize this shit!!!
         if (Halted)

@@ -3,8 +3,6 @@
 
 #include "types.h"
 
-#include <string.h>
-
 #include "ARM.h"
 #include "ARM_InstrInfo.h"
 
@@ -12,14 +10,6 @@ namespace ARMJIT
 {
 
 typedef u32 (*CompiledBlock)();
-
-class RegCache
-{
-
-static const int NativeRegAllocOrder[];
-static const int NativeRegsCount;
-
-};
 
 struct FetchedInstr
 {
@@ -117,23 +107,12 @@ inline void InsertBlock(u32 num, u32 addr, CompiledBlock func)
 	cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1] = func;
 }
 
-inline void ResetBlocks()
-{
-	memset(cache.MainRAM, 0, sizeof(cache.MainRAM));
-	memset(cache.SWRAM, 0, sizeof(cache.SWRAM));
-	memset(cache.ARM9_BIOS, 0, sizeof(cache.ARM9_BIOS));
-	memset(cache.ARM9_ITCM, 0, sizeof(cache.ARM9_ITCM));
-	memset(cache.ARM9_LCDC, 0, sizeof(cache.ARM9_LCDC));
-	memset(cache.ARM7_BIOS, 0, sizeof(cache.ARM7_BIOS));
-	memset(cache.ARM7_WIRAM, 0, sizeof(cache.ARM7_WIRAM));
-	memset(cache.ARM7_WRAM, 0, sizeof(cache.ARM7_WRAM));
-	memset(cache.ARM7_WVRAM, 0, sizeof(cache.ARM7_WVRAM));
-}
-
 void Init();
 void DeInit();
 
 CompiledBlock CompileBlock(ARM* cpu);
+
+void ResetBlocks();
 
 }
 

@@ -1,5 +1,7 @@
 #include "ARMJIT.h"
 
+#include <string.h>
+
 #include "ARMJIT_x64/ARMJIT_Compiler.h"
 
 namespace ARMJIT
@@ -7,7 +9,6 @@ namespace ARMJIT
 
 Compiler* compiler;
 BlockCache cache;
-
 
 #define DUP2(x) x, x
 
@@ -172,6 +173,19 @@ CompiledBlock CompileBlock(ARM* cpu)
     InsertBlock(cpu->Num, cpu->R[15] - (thumb ? 2 : 4), block);
 
     return block;
+}
+
+void ResetBlocks()
+{
+	memset(cache.MainRAM, 0, sizeof(cache.MainRAM));
+	memset(cache.SWRAM, 0, sizeof(cache.SWRAM));
+	memset(cache.ARM9_BIOS, 0, sizeof(cache.ARM9_BIOS));
+	memset(cache.ARM9_ITCM, 0, sizeof(cache.ARM9_ITCM));
+	memset(cache.ARM9_LCDC, 0, sizeof(cache.ARM9_LCDC));
+	memset(cache.ARM7_BIOS, 0, sizeof(cache.ARM7_BIOS));
+	memset(cache.ARM7_WIRAM, 0, sizeof(cache.ARM7_WIRAM));
+	memset(cache.ARM7_WRAM, 0, sizeof(cache.ARM7_WRAM));
+	memset(cache.ARM7_WVRAM, 0, sizeof(cache.ARM7_WVRAM));
 }
 
 }
