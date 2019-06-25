@@ -1223,8 +1223,8 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
                 KeyHotkeyMask |= (1<<i);
 
         // REMOVE ME
-        if (evt->Scancode == 0x57) // F11
-            NDS::debug(0);
+        //if (evt->Scancode == 0x57) // F11
+        //    NDS::debug(0);
     }
 
     return 1;

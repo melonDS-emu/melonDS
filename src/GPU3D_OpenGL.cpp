@@ -479,7 +479,7 @@ void UpdateDisplaySettings()
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
     //glLineWidth(scale);
-    glLineWidth(1.5);
+    //glLineWidth(1.5);
 }
 
 
@@ -743,6 +743,7 @@ void RenderSceneChunk(int y, int h)
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
+    glLineWidth(1.0);
 
     glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
 
@@ -774,6 +775,7 @@ void RenderSceneChunk(int y, int h)
     if (RenderDispCnt & (1<<5))
     {
         UseRenderShader(flags | RenderFlag_Edge);
+        glLineWidth(1.5);
 
         glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
@@ -806,6 +808,7 @@ void RenderSceneChunk(int y, int h)
         glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
 
     UseRenderShader(flags | RenderFlag_Trans);
+    glLineWidth(1.0);
 
     if (NumOpaqueFinalPolys > -1)
     {
