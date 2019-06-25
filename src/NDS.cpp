@@ -69,7 +69,7 @@ u64 FrameStartTimestamp;
 
 int CurCPU;
 
-const s32 kMaxIterationCycles = 16;
+const s32 kMaxIterationCycles = 64;
 
 u32 ARM9ClockShift;
 

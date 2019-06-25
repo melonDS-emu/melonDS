@@ -246,6 +246,11 @@ u8 GPU2D::Read8(u32 addr)
     case 0x049: return WinCnt[1];
     case 0x04A: return WinCnt[2];
     case 0x04B: return WinCnt[3];
+
+    // there are games accidentally trying to read those
+    // those are write-only
+    case 0x04C:
+    case 0x04D: return 0;
     }
 
     printf("unknown GPU read8 %08X\n", addr);
