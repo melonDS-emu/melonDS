@@ -456,7 +456,10 @@ void Compiler::T_Comp_ALU()
 
     u32 op = (CurrentInstr.Instr >> 6) & 0xF;
 
-    Comp_AddCycles_C();
+    if ((op >= 0x2 && op < 0x4) || op == 0x7)
+        Comp_AddCycles_CI(1);
+    else
+        Comp_AddCycles_C();
 
     switch (op)
     {
@@ -471,7 +474,7 @@ void Compiler::T_Comp_ALU()
     case 0x4:
     case 0x7:
         {
-            int shiftOp = op == 7 ? 3 : op - 0x2;
+            int shiftOp = op == 0x7 ? 3 : op - 0x2;
             bool carryUsed;
             OpArg shifted = Comp_RegShiftReg(shiftOp, rs, rd, true, carryUsed);
             TEST(32, shifted, shifted);
