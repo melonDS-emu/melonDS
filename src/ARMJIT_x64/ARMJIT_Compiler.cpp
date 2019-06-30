@@ -9,13 +9,43 @@ using namespace Gen;
 namespace ARMJIT
 {
 template <>
-const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] = {RBX, RSI, RDI, R12, R13};
+const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] = 
+{
+#ifdef _WIN32
+    RBX, RSI, RDI, R12, R13
+#else
+    RBX, R12, R13
+#endif
+};
 template <>
-const int RegCache<Compiler, X64Reg>::NativeRegsAvailable = 5;
+const int RegCache<Compiler, X64Reg>::NativeRegsAvailable = 
+#ifdef _WIN32
+    5
+#else
+    3
+#endif
+;
 
 Compiler::Compiler()
 {
-    AllocCodeSpace(1024 * 1024 * 4);
+    AllocCodeSpace(1024 * 1024 * 16);
+
+    for (int i = 0; i < 15; i++)
+    {
+        ReadMemFuncs9[i] = Gen_MemoryRoutine9(false, 32, 0x1000000 * i);
+        WriteMemFuncs9[i] = Gen_MemoryRoutine9(true, 32, 0x1000000 * i);
+        for (int j = 0; j < 2; j++)
+        {
+            ReadMemFuncs7[j][i] = Gen_MemoryRoutine7(false, 32, j, 0x1000000 * i);
+            WriteMemFuncs7[j][i] = Gen_MemoryRoutine7(true, 32, j, 0x1000000 * i);
+        }
+    }
+    ReadMemFuncs9[15] = Gen_MemoryRoutine9(false, 32, 0xFF000000);
+    WriteMemFuncs9[15] = Gen_MemoryRoutine9(true, 32, 0xFF000000);
+    ReadMemFuncs7[15][0] = ReadMemFuncs7[15][1] = Gen_MemoryRoutine7(false, 32, false, 0xFF000000);
+    WriteMemFuncs7[15][0] = WriteMemFuncs7[15][1] = Gen_MemoryRoutine7(true, 32, false, 0xFF000000);
+
+    ResetStart = GetWritableCodePtr();
 }
 
 void Compiler::LoadCPSR()
@@ -42,7 +72,7 @@ void Compiler::LoadReg(int reg, X64Reg nativeReg)
         MOV(32, R(nativeReg), Imm32(R15));
 }
 
-void Compiler::UnloadReg(int reg, X64Reg nativeReg)
+void Compiler::SaveReg(int reg, X64Reg nativeReg)
 {
     MOV(32, MDisp(RCPU, offsetof(ARM, R[reg])), R(nativeReg));
 }
@@ -52,7 +82,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     if (IsAlmostFull())
     {
         ResetBlocks();
-        ResetCodePtr();
+        SetCodePtr((u8*)ResetStart);
     }
 
     CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
@@ -61,8 +91,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     Thumb = cpu->CPSR & 0x20;
     Num = cpu->Num;
     R15 = cpu->R[15];
+    CodeRegion = cpu->CodeRegion;
 
-    ABI_PushRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED}, 8, 0);
+    ABI_PushRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
 
     MOV(64, R(RCPU), ImmPtr(cpu));
     XOR(32, R(RCycles), R(RCycles));
@@ -142,9 +173,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
                     else
                     {
                         // could have used a LUT, but then where would be the fun?
-                        BT(32, R(RCPSR), Imm8(28 + ((~(cond >> 1) & 1) << 1 | (cond >> 2 & 1) ^ (cond >> 1 & 1))));
+                        TEST(32, R(RCPSR), Imm32(1 << (28 + ((~(cond >> 1) & 1) << 1 | (cond >> 2 & 1) ^ (cond >> 1 & 1)))));
 
-                        skipExecute = J_CC(cond & 1 ? CC_C : CC_NC);
+                        skipExecute = J_CC(cond & 1 ? CC_NZ : CC_Z);
                     }
 
                 }
@@ -187,7 +218,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     LEA(32, RAX, MDisp(RCycles, ConstantCycles));
 
-    ABI_PopRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED}, 8, 0);
+    ABI_PopRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
     RET();
 
     return res;
@@ -243,23 +274,38 @@ CompileFunc Compiler::GetCompFunc(int kind)
         A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
         // CMN
         A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
+        // Mul
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        // ARMv5 stuff
+        NULL, NULL, NULL, NULL, NULL, 
+        // STR
+        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
+        // STRB
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        // LDR
+        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
+        // LDRB
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        // STRH
+        NULL, NULL, NULL, NULL, 
+        // LDRD
         NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        // STRD
+        NULL, NULL, NULL, NULL,
+        // LDRH
+        NULL, NULL, NULL, NULL, 
+        // LDRSB
+        NULL, NULL, NULL, NULL,
+        // LDRSH
+        NULL, NULL, NULL, NULL, 
+        // swap
+        NULL, NULL, 
+        // LDM/STM
+        NULL, NULL,
+        // Branch
+        NULL, NULL, NULL, NULL, NULL,
+        // system stuff
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     };
 
     const CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
@@ -278,10 +324,17 @@ CompileFunc Compiler::GetCompFunc(int kind)
         T_Comp_ALU_HiReg, T_Comp_ALU_HiReg, T_Comp_ALU_HiReg,
         // pc/sp relative
         NULL, NULL, NULL, 
-        // mem...
-        NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL,
+        // LDR pcrel
+        NULL, 
+        // LDR/STR reg offset
+        T_Comp_MemReg, NULL, T_Comp_MemReg, NULL,
+        // LDR/STR sign extended, half 
+        NULL, NULL, NULL, NULL,
+        // LDR/STR imm offset
+        T_Comp_MemImm, T_Comp_MemImm, NULL, NULL, 
+        // LDR/STR half imm offset
+        NULL, NULL,
+        // branch, etc.
         NULL, NULL, NULL, NULL, NULL, NULL,
         NULL, NULL, NULL, NULL, NULL, NULL,
         NULL, NULL

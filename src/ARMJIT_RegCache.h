@@ -30,7 +30,7 @@ public:
         assert(Mapping[reg] != -1);
 
         if (DirtyRegs & (1 << reg))
-            Compiler->UnloadReg(reg, Mapping[reg]);
+            Compiler->SaveReg(reg, Mapping[reg]);
 
         DirtyRegs &= ~(1 << reg);
         LoadedRegs &= ~(1 << reg);
