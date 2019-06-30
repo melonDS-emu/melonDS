@@ -63,14 +63,13 @@ struct BlockCache
 {
     CompiledBlock* AddrMapping[2][0x4000] = {0};
 
-    CompiledBlock MainRAM[16*1024*1024/2];
+    CompiledBlock MainRAM[4*1024*1024/2];
 	CompiledBlock SWRAM[0x8000/2]; // Shared working RAM
 	CompiledBlock ARM9_ITCM[0x8000/2];
 	CompiledBlock ARM9_LCDC[0xA4000/2];
 	CompiledBlock ARM9_BIOS[0x8000/2];
 	CompiledBlock ARM7_BIOS[0x4000/2];
 	CompiledBlock ARM7_WRAM[0x10000/2]; // dedicated ARM7 WRAM
-	CompiledBlock ARM7_WIRAM[0x10000/2]; // Wifi
 	CompiledBlock ARM7_WVRAM[0x40000/2]; // VRAM allocated as Working RAM
 };
 

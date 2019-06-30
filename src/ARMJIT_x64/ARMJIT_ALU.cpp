@@ -255,8 +255,8 @@ OpArg Compiler::Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, b
     if (S)
     {
         XOR(32, R(RSCRATCH2), R(RSCRATCH2));
-        BT(32, R(RCPSR), Imm8(29));
-        SETcc(CC_C, R(RSCRATCH2));
+        TEST(32, R(RCPSR), Imm32(1 << 29));
+        SETcc(CC_NZ, R(RSCRATCH2));
     }
 
     MOV(32, R(RSCRATCH), rm);

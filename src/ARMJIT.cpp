@@ -40,8 +40,7 @@ static ptrdiff_t JIT_MEM[2][32] = {
 		/* 2X*/	DUP2(offsetof(BlockCache, MainRAM)),
 		/* 3X*/	     offsetof(BlockCache, SWRAM),
 		             offsetof(BlockCache, ARM7_WRAM),
-		/* 4X*/	     -1,
-		             offsetof(BlockCache, ARM7_WIRAM),
+		/* 4X*/	DUP2(-1),
 		/* 5X*/	DUP2(-1),
 		/* 6X*/ DUP2(offsetof(BlockCache, ARM7_WVRAM)), /* contrary to Gbatek, melonDS and itself, 
 														DeSmuME doesn't mirror the 64 MB region at 0x6800000 */
@@ -183,7 +182,6 @@ void ResetBlocks()
 	memset(cache.ARM9_ITCM, 0, sizeof(cache.ARM9_ITCM));
 	memset(cache.ARM9_LCDC, 0, sizeof(cache.ARM9_LCDC));
 	memset(cache.ARM7_BIOS, 0, sizeof(cache.ARM7_BIOS));
-	memset(cache.ARM7_WIRAM, 0, sizeof(cache.ARM7_WIRAM));
 	memset(cache.ARM7_WRAM, 0, sizeof(cache.ARM7_WRAM));
 	memset(cache.ARM7_WVRAM, 0, sizeof(cache.ARM7_WVRAM));
 }

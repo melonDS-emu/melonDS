@@ -83,10 +83,10 @@ enum
     ak_ALU(BIC),
     ak_ALU(MVN),
 
-    ak_ALU(TST),
-    ak_ALU(TEQ),
-    ak_ALU(CMP),
-    ak_ALU(CMN),
+    ak_Test(TST),
+    ak_Test(TEQ),
+    ak_Test(CMP),
+    ak_Test(CMN),
 
     ak_MUL,
     ak_MLA,

@@ -29,7 +29,7 @@ public:
     CompiledBlock CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
-    void UnloadReg(int reg, Gen::X64Reg nativeReg);
+    void SaveReg(int reg, Gen::X64Reg nativeReg);
 
 private:
     CompileFunc GetCompFunc(int kind);
@@ -51,11 +51,16 @@ private:
     void A_Comp_MovOp();
     void A_Comp_CmpOp();
 
+    void A_Comp_MemWB();
+
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
     void T_Comp_ALU_Imm8();
     void T_Comp_ALU();
     void T_Comp_ALU_HiReg();
+
+    void T_Comp_MemReg();
+    void T_Comp_MemImm();
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
@@ -65,10 +70,14 @@ private:
 
     void Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed);
 
+    void* Gen_MemoryRoutine9(bool store, int size, u32 region);
+    void* Gen_MemoryRoutine7(bool store, int size, bool mainRAMCode, u32 region);
+
     Gen::OpArg Comp_RegShiftImm(int op, int amount, Gen::OpArg rm, bool S, bool& carryUsed);
     Gen::OpArg Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, bool& carryUsed);
 
     Gen::OpArg A_Comp_GetALUOp2(bool S, bool& carryUsed);
+    Gen::OpArg A_Comp_GetMemWBOffset();
 
     void LoadCPSR();
     void SaveCPSR();
@@ -82,6 +91,8 @@ private:
         return Gen::R(RegCache.Mapping[reg]);
     }
 
+    void* ResetStart;
+
     bool CPSRDirty = false;
 
     FetchedInstr CurrentInstr;
@@ -91,9 +102,15 @@ private:
     bool Thumb;
     u32 Num;
     u32 R15;
+    u32 CodeRegion;
 
     u32 ConstantCycles;
 };
+
+extern void* ReadMemFuncs9[16];
+extern void* ReadMemFuncs7[2][16];
+extern void* WriteMemFuncs9[16];
+extern void* WriteMemFuncs7[2][16];
 
 }
 
