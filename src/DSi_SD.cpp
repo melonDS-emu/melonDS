@@ -20,6 +20,7 @@
 #include <string.h>
 #include "DSi.h"
 #include "DSi_SD.h"
+#include "DSi_NWifi.h"
 #include "Platform.h"
 
 
@@ -94,7 +95,9 @@ void DSi_SDHost::Reset()
     }
     else
     {
-        // TODO: SDIO (wifi)
+        DSi_NWifi* nwifi = new DSi_NWifi(this);
+
+        Ports[0] = nwifi;
     }
 }
 

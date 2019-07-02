@@ -110,6 +110,8 @@
 		<Unit filename="src/DSi_I2C.h" />
 		<Unit filename="src/DSi_NDMA.cpp" />
 		<Unit filename="src/DSi_NDMA.h" />
+		<Unit filename="src/DSi_NWifi.cpp" />
+		<Unit filename="src/DSi_NWifi.h" />
 		<Unit filename="src/DSi_SD.cpp" />
 		<Unit filename="src/DSi_SD.h" />
 		<Unit filename="src/FIFO.h" />
