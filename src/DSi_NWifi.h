@@ -33,7 +33,21 @@ public:
     void ContinueTransfer();
 
 private:
-    //
+    u32 TransferCmd;
+    u32 TransferAddr;
+    u32 RemSize;
+
+    u8 F0_Read(u32 addr);
+    void F0_Write(u32 addr, u8 val);
+
+    u8 F1_Read(u32 addr);
+    void F1_Write(u32 addr, u8 val);
+
+    u8 SDIO_Read(u32 func, u32 addr);
+    void SDIO_Write(u32 func, u32 addr, u8 val);
+
+    void ReadBlock();
+    void WriteBlock();
 };
 
 #endif // DSI_NWIFI_H
