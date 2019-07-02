@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "SPU.h"
 
 
@@ -216,7 +217,8 @@ void Channel::FIFO_BufferData()
 
     for (u32 i = 0; i < burstlen; i += 4)
     {
-        FIFO[FIFOWritePos] = NDS::ARM7Read32(SrcAddr + FIFOReadOffset);
+        //FIFO[FIFOWritePos] = NDS::ARM7Read32(SrcAddr + FIFOReadOffset);
+        FIFO[FIFOWritePos] = DSi::ARM7Read32(SrcAddr + FIFOReadOffset);
         FIFOReadOffset += 4;
         FIFOWritePos++;
         FIFOWritePos &= 0x7;
@@ -499,7 +501,8 @@ void CaptureUnit::FIFO_FlushData()
 {
     for (u32 i = 0; i < 4; i++)
     {
-        NDS::ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        //NDS::ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        DSi::ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
 
         FIFOReadPos++;
         FIFOReadPos &= 0x3;

@@ -44,6 +44,8 @@ namespace DSi
 
 u32 BootAddr[2];
 
+u16 SCFG_Clock9;
+u16 SCFG_Clock7;
 u32 SCFG_MC;
 
 u32 MBK[2][9];
@@ -123,11 +125,19 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
+    SCFG_Clock9 = 0x0187; // CHECKME
+    SCFG_Clock7 = 0x0187;
     SCFG_MC = 0x0011;
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
+
+    NDS::MapSharedWRAM(3);
+
+    // TEST
+    u8 derp[16] = {0xE5, 0xCC, 0x5A, 0x8B, 0x56, 0xD0, 0xC9, 0x72, 0x9C, 0x17, 0xE8, 0xDC, 0x39, 0x12, 0x36, 0xA9};
+    for (int i = 0; i < 16; i+=4) ARM7Write32(0x03FFC580+i, *(u32*)&derp[i]);
 }
 
 bool LoadBIOS()
@@ -1007,7 +1017,7 @@ u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004004: return 0; // TODO
+    case 0x04004004: return SCFG_Clock9;
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
     CASE_READ16_32BIT(0x04004040, MBK[0][0])
@@ -1079,6 +1089,16 @@ void ARM9IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04000301:
+        // TODO: OPTIONAL PERFORMANCE HACK
+        // the DSi ARM9 BIOS has a bug where the IRQ wait function attempts to use (ARM7-only) HALTCNT
+        // effectively causing it to wait in a busy loop.
+        // for better DSi performance, we can implement an actual IRQ wait here.
+        // in practice this would only matter when running DS software in DSi mode (ie already a hack).
+        // DSi software does not use the BIOS IRQ wait function.
+        //if (val == 0x80 && NDS::ARM9->R[15] == 0xFFFF0268) NDS::ARM9->Halt(1);
+        return;
+
     case 0x04004040: MapNWRAM_A(0, val); return;
     case 0x04004041: MapNWRAM_A(1, val); return;
     case 0x04004042: MapNWRAM_A(2, val); return;
@@ -1108,6 +1128,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
+    case 0x04004004:
+        // TODO: actually change clock!
+        printf("CLOCK9=%04X\n", val);
+        SCFG_Clock9 = val & 0x0187;
+        return;
+
     case 0x04004040:
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, val >> 8);
@@ -1267,7 +1293,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
-    case 0x04004004: return 0x0187;
+    case 0x04004004: return SCFG_Clock7;
     case 0x04004006: return 0; // JTAG register
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
@@ -1390,6 +1416,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
+    case 0x04004004:
+        SCFG_Clock7 = val & 0x0187;
+        return;
+
     case 0x04004010:
         val &= 0x800C;
         if ((val & 0xC) == 0xC) val &= ~0xC; // hax
@@ -1482,7 +1512,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     {
         addr -= 0x04004440;
         int n = 0;
-        while (addr > 0x30) { addr -= 0x30; n++; }
+        while (addr >= 0x30) { addr -= 0x30; n++; }
 
         switch (addr >> 4)
         {

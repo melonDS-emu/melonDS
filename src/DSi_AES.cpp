@@ -42,11 +42,14 @@ FIFO<u32>* OutputFIFO;
 
 u8 IV[16];
 
+u8 MAC[16];
+
 u8 KeyNormal[4][16];
 u8 KeyX[4][16];
 u8 KeyY[4][16];
 
 u8 CurKey[16];
+u8 CurMAC[16];
 
 AES_ctx Ctx;
 
@@ -76,6 +79,9 @@ void ROL16(u8* val, u32 n)
 
 #define _printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define _printhex2(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); }
+
+#define _printhexR(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); printf("\n"); }
+#define _printhex2R(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); }
 
 
 bool Init()
@@ -111,17 +117,28 @@ void Reset()
     InputFIFO->Clear();
     OutputFIFO->Clear();
 
+    memset(IV, 0, sizeof(IV));
+
+    memset(MAC, 0, sizeof(MAC));
+
     memset(KeyNormal, 0, sizeof(KeyNormal));
     memset(KeyX, 0, sizeof(KeyX));
     memset(KeyY, 0, sizeof(KeyY));
 
     memset(CurKey, 0, sizeof(CurKey));
+    memset(CurMAC, 0, sizeof(CurMAC));
 
     // initialize keys, as per GBAtek
 
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
     *(u32*)&KeyX[0][4] = 0x6F646E65;
+
+    // slot 1: 'Tad'/dev.kp
+    *(u32*)&KeyX[1][0] = 0x4E00004A;
+    *(u32*)&KeyX[1][4] = 0x4A00004E;
+    *(u32*)&KeyX[1][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xC80C4B72;
+    *(u32*)&KeyX[1][12] = (u32)DSi::ConsoleID;
 
     // slot 3: console-unique eMMC crypto
     *(u32*)&KeyX[3][0] = (u32)DSi::ConsoleID;
@@ -133,6 +150,34 @@ void Reset()
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
+
+void ProcessBlock_CCM_Decrypt()
+{
+    u8 data[16];
+    u8 data_rev[16];
+
+    *(u32*)&data[0] = InputFIFO->Read();
+    *(u32*)&data[4] = InputFIFO->Read();
+    *(u32*)&data[8] = InputFIFO->Read();
+    *(u32*)&data[12] = InputFIFO->Read();
+
+    //printf("AES-CCM: "); _printhex2(data, 16);
+
+    Swap16(data_rev, data);
+    AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
+
+    for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
+    AES_ECB_encrypt(&Ctx, CurMAC);
+
+    Swap16(data, data_rev);
+
+    //printf(" -> "); _printhex2(data, 16);
+
+    OutputFIFO->Write(*(u32*)&data[0]);
+    OutputFIFO->Write(*(u32*)&data[4]);
+    OutputFIFO->Write(*(u32*)&data[8]);
+    OutputFIFO->Write(*(u32*)&data[12]);
+}
 
 void ProcessBlock_CTR()
 {
@@ -186,18 +231,12 @@ void WriteCnt(u32 val)
     OutputDMASize = dmasize_out[(val >> 14) & 0x3];
 
     AESMode = (val >> 28) & 0x3;
-    if (AESMode < 2) printf("AES-CCM TODO\n");
+    if (AESMode == 1) printf("AES-CCM TODO\n");
 
     if (val & (1<<24))
     {
         u32 slot = (val >> 26) & 0x3;
         memcpy(CurKey, KeyNormal[slot], 16);
-
-        //printf("AES: key(%d): ", slot); _printhex(CurKey, 16);
-
-        u8 tmp[16];
-        Swap16(tmp, CurKey);
-        AES_init_ctx(&Ctx, tmp);
     }
 
     if (!(oldcnt & (1<<31)) && (val & (1<<31)))
@@ -205,11 +244,45 @@ void WriteCnt(u32 val)
         // transfer start (checkme)
         RemBlocks = BlkCnt >> 16;
 
+        u8 key[16];
+        u8 iv[16];
+
+        Swap16(key, CurKey);
+        Swap16(iv, IV);
+
+        if (AESMode < 2)
+        {
+            if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
+
+            u32 maclen = (val >> 16) & 0x7;
+            if (maclen < 1) maclen = 1;
+
+            iv[0] = 0x02;
+            for (int i = 0; i < 12; i++) iv[1+i] = iv[4+i];
+            iv[13] = 0x00;
+            iv[14] = 0x00;
+            iv[15] = 0x01;
+
+            AES_init_ctx_iv(&Ctx, key, iv);
+
+            iv[0] |= (maclen << 3) | ((BlkCnt & 0xFFFF) ? (1<<6) : 0);
+            iv[13] = RemBlocks >> 12;
+            iv[14] = RemBlocks >> 4;
+            iv[15] = RemBlocks << 4;
+
+            memcpy(CurMAC, iv, 16);
+            AES_ECB_encrypt(&Ctx, CurMAC);
+        }
+        else
+        {
+            AES_init_ctx_iv(&Ctx, key, iv);
+        }
+
         DSi::CheckNDMAs(1, 0x2A);
     }
 
-    printf("AES CNT: %08X / mode=%d inDMA=%d outDMA=%d blocks=%d\n",
-           val, AESMode, InputDMASize, OutputDMASize, RemBlocks);
+    printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
+           val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
 }
 
 void WriteBlkCnt(u32 val)
@@ -219,6 +292,8 @@ void WriteBlkCnt(u32 val)
 
 u32 ReadOutputFIFO()
 {
+    if (OutputFIFO->IsEmpty()) printf("!!! AES OUTPUT FIFO EMPTY\n");
+
     u32 ret = OutputFIFO->Read();
 
     if (Cnt & (1<<31))
@@ -240,6 +315,8 @@ u32 ReadOutputFIFO()
 void WriteInputFIFO(u32 val)
 {
     // TODO: add some delay to processing
+
+    if (InputFIFO->IsFull()) printf("!!! AES INPUT FIFO FULL\n");
 
     InputFIFO->Write(val);
 
@@ -276,6 +353,7 @@ void Update()
     {
         switch (AESMode)
         {
+        case 0: ProcessBlock_CCM_Decrypt(); break;
         case 2:
         case 3: ProcessBlock_CTR(); break;
         default:
@@ -293,6 +371,28 @@ void Update()
 
     if (RemBlocks == 0)
     {
+        if (AESMode == 0)
+        {
+            Ctx.Iv[13] = 0x00;
+            Ctx.Iv[14] = 0x00;
+            Ctx.Iv[15] = 0x00;_printhex(Ctx.Iv, 16);
+            AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
+
+            //printf("FINAL MAC: "); _printhexR(CurMAC, 16);
+            //printf("INPUT MAC: "); _printhex(MAC, 16);
+
+            Cnt |= (1<<21);
+            for (int i = 0; i < 16; i++)
+            {
+                if (CurMAC[15-i] != MAC[i]) Cnt &= ~(1<<21);
+            }
+        }
+        else
+        {
+            // CHECKME
+            Cnt &= ~(1<<21);
+        }
+
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
         DSi::StopNDMAs(1, 0x2A);
@@ -313,15 +413,15 @@ void WriteIV(u32 offset, u32 val, u32 mask)
     *(u32*)&IV[offset] = (old & ~mask) | (val & mask);
 
     //printf("AES: IV: "); _printhex(IV, 16);
-
-    u8 tmp[16];
-    Swap16(tmp, IV);
-    AES_ctx_set_iv(&Ctx, tmp);
 }
 
 void WriteMAC(u32 offset, u32 val, u32 mask)
 {
-    //
+    u32 old = *(u32*)&MAC[offset];
+
+    *(u32*)&MAC[offset] = (old & ~mask) | (val & mask);
+
+    //printf("AES: MAC: "); _printhex(MAC, 16);
 }
 
 void DeriveNormalKey(u32 slot)
@@ -355,6 +455,8 @@ void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
     u32 old = *(u32*)&KeyNormal[slot][offset];
 
     *(u32*)&KeyNormal[slot][offset] = (old & ~mask) | (val & mask);
+
+    //printf("KeyNormal(%d): ", slot); _printhex(KeyNormal[slot], 16);
 }
 
 void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
@@ -362,6 +464,8 @@ void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
     u32 old = *(u32*)&KeyX[slot][offset];
 
     *(u32*)&KeyX[slot][offset] = (old & ~mask) | (val & mask);
+
+    //printf("KeyX(%d): ", slot); _printhex(KeyX[slot], 16);
 }
 
 void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
@@ -369,6 +473,8 @@ void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
     u32 old = *(u32*)&KeyY[slot][offset];
 
     *(u32*)&KeyY[slot][offset] = (old & ~mask) | (val & mask);
+
+    //printf("[%08X] KeyY(%d): ", NDS::GetPC(1), slot); _printhex(KeyY[slot], 16);
 
     if (offset >= 0xC)
     {

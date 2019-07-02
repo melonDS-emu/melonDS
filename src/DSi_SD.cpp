@@ -185,6 +185,17 @@ void DSi_SDHost::SendData(u8* data, u32 len)
     NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishSend, param);
 }
 
+void DSi_SDHost::FinishReceive(u32 param)
+{
+    DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
+    DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
+
+    host->ClearIRQ(24);
+    host->SetIRQ(25);
+
+    if (dev) dev->ContinueTransfer();
+}
+
 void DSi_SDHost::ReceiveData(u8* data, u32 len)
 {
     printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
@@ -481,10 +492,12 @@ void DSi_SDHost::WriteFIFO32(u32 val)
 
     // we completed one block, send it to the SD card
 
-    ClearIRQ(24);
-    SetIRQ(25);
+    //ClearIRQ(24);
+    //SetIRQ(25);
 
-    if (dev) dev->ContinueTransfer();
+    //if (dev) dev->ContinueTransfer();
+    // TODO measure the actual delay!!
+    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 2048, FinishReceive, Num);
 }
 
 
@@ -622,10 +635,10 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         WriteBlock(RWAddress);
         RWAddress += BlockSize;
-        SetState(0x06);
+        SetState(0x04);
         return;
 
-    case 55: // ??
+    case 55: // appcmd prefix
         CSR |= (1<<5);
         Host->SendResponse(CSR, true);
         return;

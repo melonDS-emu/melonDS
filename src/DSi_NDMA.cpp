@@ -123,7 +123,10 @@ void DSi_NDMA::Start()
     if (((StartMode & 0x1F) != 0x10) && !(Cnt & (1<<29)))
     {
         if (IterCount > TotalRemCount)
+        {
             IterCount = TotalRemCount;
+            RemCount = IterCount;
+        }
     }
 
     if (Cnt & (1<<12)) CurDstAddr = DstAddr;
