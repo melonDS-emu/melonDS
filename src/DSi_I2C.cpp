@@ -72,7 +72,7 @@ void Reset()
 
 void Start()
 {
-    printf("BPTWL: start\n");
+    //printf("BPTWL: start\n");
 }
 
 u8 Read(bool last)
@@ -83,7 +83,7 @@ u8 Read(bool last)
         return 0;
     }
 
-    printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
+    //printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
     return Registers[CurPos++];
 }
 
@@ -98,7 +98,7 @@ void Write(u8 val, bool last)
     if (CurPos == -1)
     {
         CurPos = val;
-        printf("BPTWL: reg=%02X\n", val);
+        //printf("BPTWL: reg=%02X\n", val);
         return;
     }
 
@@ -113,7 +113,7 @@ void Write(u8 val, bool last)
         Registers[CurPos] = val;
     }
 
-    printf("BPTWL: write %02X -> %02X\n", CurPos, val);
+    //printf("BPTWL: write %02X -> %02X\n", CurPos, val);
     CurPos++; // CHECKME
 }
 

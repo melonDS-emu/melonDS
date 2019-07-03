@@ -46,6 +46,7 @@ u32 BootAddr[2];
 
 u16 SCFG_Clock9;
 u16 SCFG_Clock7;
+u32 SCFG_EXT[2];
 u32 SCFG_MC;
 
 u32 MBK[2][9];
@@ -127,7 +128,9 @@ void Reset()
 
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
-    SCFG_MC = 0x0011;
+    SCFG_EXT[0] = 0x8307F100;
+    SCFG_EXT[1] = 0x93FFFB06;
+    SCFG_MC = 0x0010;//0x0011;
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
@@ -1038,7 +1041,7 @@ u32 ARM9IORead32(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004008: return 0x8307F100;
+    case 0x04004008: return SCFG_EXT[0];
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
     case 0x04004040: return MBK[0][0];
@@ -1183,6 +1186,14 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04004008:
+        SCFG_EXT[0] &= ~0x8007F19F;
+        SCFG_EXT[0] |= (val & 0x8007F19F);
+        SCFG_EXT[1] &= ~0x0000F080;
+        SCFG_EXT[1] |= (val & 0x0000F080);
+        printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+        return;
+
     case 0x04004040:
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, (val >> 8) & 0xFF);
@@ -1333,7 +1344,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
-    case 0x04004008: return 0x80000000; // HAX
+    case 0x04004008: return SCFG_EXT[1];
     case 0x04004010: return SCFG_MC;
 
     case 0x04004040: return MBK[1][0];
@@ -1449,6 +1460,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
+    case 0x04004008:
+        SCFG_EXT[0] &= ~0x03000000;
+        SCFG_EXT[0] |= (val & 0x03000000);
+        SCFG_EXT[1] &= ~0x93FF0F07;
+        SCFG_EXT[1] |= (val & 0x93FF0F07);
+        printf("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+        return;
     case 0x04004010:
         val &= 0xFFFF800C;
         if ((val & 0xC) == 0xC) val &= ~0xC; // hax

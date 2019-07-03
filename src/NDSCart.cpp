@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "NDSCart.h"
 #include "ARM.h"
 #include "CRC32.h"
@@ -558,7 +559,8 @@ void Key1_ApplyKeycode(u32* keycode, u32 mod)
 
 void Key1_InitKeycode(u32 idcode, u32 level, u32 mod)
 {
-    memcpy(Key1_KeyBuf, &NDS::ARM7BIOS[0x30], 0x1048); // hax
+    //memcpy(Key1_KeyBuf, &NDS::ARM7BIOS[0x30], 0x1048); // hax
+    memcpy(Key1_KeyBuf, &DSi::ITCMInit[0x4894], 0x1048); // hax
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
@@ -1185,11 +1187,11 @@ void WriteROMCnt(u32 val)
         *(u32*)&cmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            cmd[0], cmd[1], cmd[2], cmd[3],
            cmd[4], cmd[5], cmd[6], cmd[7],
-           datasize);*/
+           datasize);
 
     switch (cmd[0])
     {

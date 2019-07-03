@@ -31,6 +31,8 @@ extern u64 ConsoleID;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
+extern u8 ITCMInit[0x8000];
+
 
 bool Init();
 void DeInit();
