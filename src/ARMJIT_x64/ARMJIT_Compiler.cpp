@@ -9,7 +9,7 @@ using namespace Gen;
 namespace ARMJIT
 {
 template <>
-const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] = 
+const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 {
 #ifdef _WIN32
     RBX, RSI, RDI, R12, R13
@@ -18,7 +18,7 @@ const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 #endif
 };
 template <>
-const int RegCache<Compiler, X64Reg>::NativeRegsAvailable = 
+const int RegCache<Compiler, X64Reg>::NativeRegsAvailable =
 #ifdef _WIN32
     5
 #else
@@ -30,22 +30,31 @@ Compiler::Compiler()
 {
     AllocCodeSpace(1024 * 1024 * 16);
 
-    for (int i = 0; i < 15; i++)
+    for (int i = 0; i < 3; i++)
     {
-        ReadMemFuncs9[i] = Gen_MemoryRoutine9(false, 32, 0x1000000 * i);
-        WriteMemFuncs9[i] = Gen_MemoryRoutine9(true, 32, 0x1000000 * i);
         for (int j = 0; j < 2; j++)
         {
-            ReadMemFuncs7[j][i] = Gen_MemoryRoutine7(false, 32, j, 0x1000000 * i);
-            WriteMemFuncs7[j][i] = Gen_MemoryRoutine7(true, 32, j, 0x1000000 * i);
+            MemoryFuncs9[i][j] = Gen_MemoryRoutine9(j, 8 << i);
+            MemoryFuncs7[i][j][0] = Gen_MemoryRoutine7(j, false, 8 << i);
+            MemoryFuncs7[i][j][1] = Gen_MemoryRoutine7(j, true, 8 << i);
         }
     }
-    ReadMemFuncs9[15] = Gen_MemoryRoutine9(false, 32, 0xFF000000);
-    WriteMemFuncs9[15] = Gen_MemoryRoutine9(true, 32, 0xFF000000);
-    ReadMemFuncs7[15][0] = ReadMemFuncs7[15][1] = Gen_MemoryRoutine7(false, 32, false, 0xFF000000);
-    WriteMemFuncs7[15][0] = WriteMemFuncs7[15][1] = Gen_MemoryRoutine7(true, 32, false, 0xFF000000);
 
     ResetStart = GetWritableCodePtr();
+}
+
+DataRegion Compiler::ClassifyAddress(u32 addr)
+{
+    if (Num == 0 && addr >= ((ARMv5*)CurCPU)->DTCMBase && addr < ((ARMv5*)CurCPU)->DTCMBase)
+        return dataRegionDTCM;
+    switch (addr & 0xFF000000)
+    {
+        case 0x02000000: return dataRegionMainRAM;
+        case 0x03000000: return Num == 1 && (addr & 0xF00000) == 0x800000 ? dataRegionWRAM7 : dataRegionSWRAM;
+        case 0x04000000: return dataRegionIO;
+        case 0x06000000: return dataRegionVRAM;
+    }
+    return dataRegionGeneric;
 }
 
 void Compiler::LoadCPSR()
@@ -92,6 +101,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     Num = cpu->Num;
     R15 = cpu->R[15];
     CodeRegion = cpu->CodeRegion;
+    CurCPU = cpu;
 
     ABI_PushRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
 
@@ -106,26 +116,31 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     for (int i = 0; i < instrsCount; i++)
     {
         R15 += Thumb ? 2 : 4;
-        CurrentInstr = instrs[i];
+        CurInstr = instrs[i];
 
-        CompileFunc comp = GetCompFunc(CurrentInstr.Info.Kind);
-
-        if (CurrentInstr.Info.Branches())
-            comp = NULL;
+        CompileFunc comp = GetCompFunc(CurInstr.Info.Kind);
 
         if (comp == NULL || i == instrsCount - 1)
         {
             MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(R15));
-            MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurrentInstr.CodeCycles));
-            MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurrentInstr.Instr));
+            MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
+            MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurInstr.Instr));
             if (i == instrsCount - 1)
             {
-                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[0])), Imm32(CurrentInstr.NextInstr[0]));
-                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[1])), Imm32(CurrentInstr.NextInstr[1]));
+                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[0])), Imm32(CurInstr.NextInstr[0]));
+                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[1])), Imm32(CurInstr.NextInstr[1]));
             }
 
-            SaveCPSR();
+            if (comp == NULL || CurInstr.Info.Branches())
+                SaveCPSR();
         }
+
+        // run interpreter
+        cpu->CodeCycles = CurInstr.CodeCycles;
+        cpu->R[15] = R15;
+        cpu->CurInstr = CurInstr.Instr;
+        cpu->NextInstr[0] = CurInstr.NextInstr[0];
+        cpu->NextInstr[1] = CurInstr.NextInstr[1];
 
         if (comp != NULL)
             RegCache.Prepare(i);
@@ -134,26 +149,33 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
         if (Thumb)
         {
+            u32 icode = (CurInstr.Instr >> 6) & 0x3FF;
             if (comp == NULL)
             {
                 MOV(64, R(ABI_PARAM1), R(RCPU));
 
-                u32 icode = (CurrentInstr.Instr >> 6) & 0x3FF;
                 ABI_CallFunction(ARMInterpreter::THUMBInstrTable[icode]);
             }
             else
                 (this->*comp)();
+
+            ARMInterpreter::THUMBInstrTable[icode](cpu);
         }
         else
         {
-            u32 cond = CurrentInstr.Cond();
-            if (CurrentInstr.Info.Kind == ARMInstrInfo::ak_BLX_IMM)
+            u32 cond = CurInstr.Cond();
+            if (CurInstr.Info.Kind == ARMInstrInfo::ak_BLX_IMM)
             {
                 MOV(64, R(ABI_PARAM1), R(RCPU));
                 ABI_CallFunction(ARMInterpreter::A_BLX_IMM);
+
+                ARMInterpreter::A_BLX_IMM(cpu);
             }
             else if (cond == 0xF)
+            {
                 Comp_AddCycles_C();
+                cpu->AddCycles_C();
+            }
             else
             {
                 FixupBranch skipExecute;
@@ -180,18 +202,18 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
                 }
 
+                u32 icode = ((CurInstr.Instr >> 4) & 0xF) | ((CurInstr.Instr >> 16) & 0xFF0);
                 if (comp == NULL)
                 {
                     MOV(64, R(ABI_PARAM1), R(RCPU));
 
-                    u32 icode = ((CurrentInstr.Instr >> 4) & 0xF) | ((CurrentInstr.Instr >> 16) & 0xFF0);
                     ABI_CallFunction(ARMInterpreter::ARMInstrTable[icode]);
                 }
                 else
                     (this->*comp)();
 
                 FixupBranch skipFailed;
-                if (CurrentInstr.Cond() < 0xE)
+                if (CurInstr.Cond() < 0xE)
                 {
                     skipFailed = J();
                     SetJumpTarget(skipExecute);
@@ -200,13 +222,17 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
                     SetJumpTarget(skipFailed);
                 }
+
+                if (cpu->CheckCondition(cond))
+                    ARMInterpreter::ARMInstrTable[icode](cpu);
+                else
+                    cpu->AddCycles_C();
             }
         }
 
         /*
             we don't need to collect the interpreted cycles,
-            since all functions only add to it, the dispatcher
-            takes care of it.
+            since cpu->Cycles is taken into account by the dispatcher.
         */
 
         if (comp == NULL && i != instrsCount - 1)
@@ -277,29 +303,29 @@ CompileFunc Compiler::GetCompFunc(int kind)
         // Mul
         NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         // ARMv5 stuff
-        NULL, NULL, NULL, NULL, NULL, 
+        NULL, NULL, NULL, NULL, NULL,
         // STR
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // STRB
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // LDR
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // LDRB
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // STRH
-        NULL, NULL, NULL, NULL, 
+        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
         // LDRD
         NULL, NULL, NULL, NULL,
         // STRD
         NULL, NULL, NULL, NULL,
         // LDRH
-        NULL, NULL, NULL, NULL, 
+        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
         // LDRSB
-        NULL, NULL, NULL, NULL,
+        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
         // LDRSH
-        NULL, NULL, NULL, NULL, 
+        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
         // swap
-        NULL, NULL, 
+        NULL, NULL,
         // LDM/STM
         NULL, NULL,
         // Branch
@@ -314,26 +340,26 @@ CompileFunc Compiler::GetCompFunc(int kind)
         // Three operand ADD/SUB
         T_Comp_AddSub_, T_Comp_AddSub_, T_Comp_AddSub_, T_Comp_AddSub_,
         // 8 bit imm
-        T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, 
+        T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8,
         // general ALU
-        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, 
         T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
-        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, 
+        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
+        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
         T_Comp_ALU, NULL, T_Comp_ALU, T_Comp_ALU,
         // hi reg
         T_Comp_ALU_HiReg, T_Comp_ALU_HiReg, T_Comp_ALU_HiReg,
         // pc/sp relative
-        NULL, NULL, NULL, 
+        T_Comp_RelAddr, T_Comp_RelAddr, T_Comp_AddSP,
         // LDR pcrel
-        NULL, 
+        NULL,
         // LDR/STR reg offset
-        T_Comp_MemReg, NULL, T_Comp_MemReg, NULL,
-        // LDR/STR sign extended, half 
-        NULL, NULL, NULL, NULL,
+        T_Comp_MemReg, T_Comp_MemReg, T_Comp_MemReg, T_Comp_MemReg,
+        // LDR/STR sign extended, half
+        T_Comp_MemRegHalf, T_Comp_MemRegHalf, T_Comp_MemRegHalf, T_Comp_MemRegHalf,
         // LDR/STR imm offset
-        T_Comp_MemImm, T_Comp_MemImm, NULL, NULL, 
+        T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm,
         // LDR/STR half imm offset
-        NULL, NULL,
+        T_Comp_MemImmHalf, T_Comp_MemImmHalf,
         // branch, etc.
         NULL, NULL, NULL, NULL, NULL, NULL,
         NULL, NULL, NULL, NULL, NULL, NULL,
@@ -346,10 +372,10 @@ CompileFunc Compiler::GetCompFunc(int kind)
 void Compiler::Comp_AddCycles_C()
 {
     s32 cycles = Num ?
-        NDS::ARM7MemTimings[CurrentInstr.CodeCycles][Thumb ? 1 : 3]
-        : ((R15 & 0x2) ? 0 : CurrentInstr.CodeCycles);
+        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 1 : 3]
+        : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
-    if (CurrentInstr.Cond() < 0xE)
+    if (CurInstr.Cond() < 0xE)
         ADD(32, R(RCycles), Imm8(cycles));
     else
         ConstantCycles += cycles;
@@ -358,13 +384,26 @@ void Compiler::Comp_AddCycles_C()
 void Compiler::Comp_AddCycles_CI(u32 i)
 {
     s32 cycles = (Num ?
-        NDS::ARM7MemTimings[CurrentInstr.CodeCycles][Thumb ? 0 : 2]
-        : ((R15 & 0x2) ? 0 : CurrentInstr.CodeCycles)) + i;
-    
-    if (CurrentInstr.Cond() < 0xE)
+        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
+
+    if (CurInstr.Cond() < 0xE)
         ADD(32, R(RCycles), Imm8(cycles));
     else
         ConstantCycles += cycles;
+}
+
+void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
+{
+    SaveCPSR();
+
+    MOV(64, R(ABI_PARAM1), R(RCPU));
+    MOV(32, R(ABI_PARAM2), R(addr));
+    MOV(32, R(ABI_PARAM3), Imm32(restoreCPSR));
+    if (Num == 0)
+        CALL((void*)&ARMv5::JumpTo);
+    else
+        CALL((void*)&ARMv4::JumpTo);
 }
 
 }

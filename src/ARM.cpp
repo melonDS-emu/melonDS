@@ -511,8 +511,9 @@ void ARMv5::Execute()
 
         ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, R[15] - ((CPSR&0x20)?2:4));
         if (block == NULL)
-            block = ARMJIT::CompileBlock(this);
-        Cycles += block();
+            ARMJIT::CompileBlock(this);
+        else
+            Cycles += block();
 
         // TODO optimize this shit!!!
         if (Halted)
@@ -596,8 +597,9 @@ void ARMv4::Execute()
 
         ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, R[15] - ((CPSR&0x20)?2:4));
         if (block == NULL)
-            block = ARMJIT::CompileBlock(this);
-        Cycles += block();
+            ARMJIT::CompileBlock(this);
+        else
+            Cycles += block();
 
         // TODO optimize this shit!!!
         if (Halted)

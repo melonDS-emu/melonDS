@@ -317,7 +317,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
     else
     {
         u32 data = ARMInstrTable[((instr >> 4) & 0xF) | ((instr >> 16) & 0xFF0)];
-        if ((instr & 0xFE000000) == 0xFA000000)
+        if (num == 0 && (instr & 0xFE000000) == 0xFA000000)
             data = A_BLX_IMM;
 
         if (data & A_ARM9Only && num != 0)
