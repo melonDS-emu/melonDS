@@ -566,6 +566,8 @@ void Reset()
     KeyCnt = 0;
     RCnt = 0;
 
+    ARMJIT::ResetBlocks();
+
     NDSCart::Reset();
     GBACart::Reset();
     GPU::Reset();

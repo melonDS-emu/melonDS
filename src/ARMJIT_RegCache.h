@@ -114,7 +114,7 @@ public:
             for (int reg : needToBeLoaded)
                 LoadRegister(reg);
         }
-        DirtyRegs |= Instr.Info.DstRegs;
+        DirtyRegs |= Instr.Info.DstRegs & ~(1 << 15);
     }
 
 	static const Reg NativeRegAllocOrder[];
