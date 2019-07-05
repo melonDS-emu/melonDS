@@ -5,7 +5,6 @@
 
 namespace NDS
 {
-#define MAIN_RAM_SIZE 0x400000
 extern u8* SWRAM_ARM9;
 extern u32 SWRAM_ARM9Mask;
 extern u8* SWRAM_ARM7;
@@ -19,11 +18,6 @@ using namespace Gen;
 namespace ARMJIT
 {
 
-void* ReadMemFuncs9[16];
-void* ReadMemFuncs7[2][16];
-void* WriteMemFuncs9[16];
-void* WriteMemFuncs7[2][16];
-
 template <typename T>
 int squeezePointer(T* ptr)
 {
@@ -32,569 +26,434 @@ int squeezePointer(T* ptr)
     return truncated;
 }
 
-u32 ReadVRAM9(u32 addr)
-{
-    switch (addr & 0x00E00000)
-    {
-        case 0x00000000: return GPU::ReadVRAM_ABG<u32>(addr);
-        case 0x00200000: return GPU::ReadVRAM_BBG<u32>(addr);
-        case 0x00400000: return GPU::ReadVRAM_AOBJ<u32>(addr);
-        case 0x00600000: return GPU::ReadVRAM_BOBJ<u32>(addr);
-        default:         return GPU::ReadVRAM_LCDC<u32>(addr);
-    }
-}
+/*
+    According to DeSmuME and my own research, approx. 99% (seriously, that's an empirical number)
+    of all memory load and store instructions always access addresses in the same region as
+    during the their first execution.
 
-void WriteVRAM9(u32 addr, u32 val)
-{
-    switch (addr & 0x00E00000)
-    {
-        case 0x00000000: GPU::WriteVRAM_ABG<u32>(addr, val); return;
-        case 0x00200000: GPU::WriteVRAM_BBG<u32>(addr, val); return;
-        case 0x00400000: GPU::WriteVRAM_AOBJ<u32>(addr, val); return;
-        case 0x00600000: GPU::WriteVRAM_BOBJ<u32>(addr, val); return;
-        default:         GPU::WriteVRAM_LCDC<u32>(addr, val); return;
-    }
-}
+    I tried multiple optimisations, which would benefit from this behaviour
+    (having fast paths for the first region, …), though none of them yielded a measureable
+    improvement.
+*/
 
 /*
-    R11 - data to write (store only)
-    RSCRATCH2 - address
-    RSCRATCH3 - code cycles
+    address - ABI_PARAM1 (a.k.a. ECX = RSCRATCH3 on Windows)
+    store value - ABI_PARAM2 (a.k.a. RDX = RSCRATCH2 on Windows)
+    code cycles - ABI_PARAM3
 */
-void* Compiler::Gen_MemoryRoutine9(bool store, int size, u32 region)
+void* Compiler::Gen_MemoryRoutine9(bool store, int size)
 {
+    u32 addressMask = ~(size == 32 ? 3 : (size == 16 ? 1 : 0));
     AlignCode4();
-    void* res = (void*)GetWritableCodePtr();
+    void* res = GetWritableCodePtr();
 
-    if (!store)
-    {
-        MOV(32, R(RSCRATCH), R(RSCRATCH2));
-        AND(32, R(RSCRATCH), Imm8(0x3));
-        SHL(32, R(RSCRATCH), Imm8(3));
-        // enter the shadow realm!
-        MOV(32, MDisp(RSP, 8), R(RSCRATCH));
-    }
+    MOV(32, R(RSCRATCH), R(ABI_PARAM1));
+    SUB(32, R(RSCRATCH), MDisp(RCPU, offsetof(ARMv5, DTCMBase)));
+    CMP(32, R(RSCRATCH), MDisp(RCPU, offsetof(ARMv5, DTCMSize)));
+    FixupBranch insideDTCM = J_CC(CC_B);
+
+    CMP(32, R(ABI_PARAM1), MDisp(RCPU, offsetof(ARMv5, ITCMSize)));
+    FixupBranch insideITCM = J_CC(CC_B);
 
     // cycle counting!
-    // this is AddCycles_CDI
-    MOV(32, R(R10), R(RSCRATCH2));
-    SHR(32, R(R10), Imm8(12));
-    MOVZX(32, 8, R10, MComplex(RCPU, R10, SCALE_1, offsetof(ARMv5, MemTimings) + 2));
-    LEA(32, RSCRATCH, MComplex(RSCRATCH3, R10, SCALE_1, -6));
-    CMP(32, R(R10), R(RSCRATCH3));
-    CMOVcc(32, RSCRATCH3, R(R10), CC_G);
-    CMP(32, R(RSCRATCH), R(RSCRATCH3));
-    CMOVcc(32, RSCRATCH3, R(RSCRATCH), CC_G);
-    ADD(32, R(RCycles), R(RSCRATCH3));
+    MOV(32, R(RSCRATCH), R(ABI_PARAM1));
+    SHR(32, R(RSCRATCH), Imm8(12));
+    MOVZX(32, 8, RSCRATCH, MComplex(RCPU, RSCRATCH, SCALE_1, offsetof(ARMv5, MemTimings) + (size == 32 ? 2 : 0)));
+    LEA(32, ABI_PARAM4, MComplex(RSCRATCH, ABI_PARAM3, SCALE_1, -6));
+    CMP(32, R(ABI_PARAM3), R(RSCRATCH));
+    CMOVcc(32, RSCRATCH, R(ABI_PARAM3), CC_G);
+    CMP(32, R(ABI_PARAM4), R(RSCRATCH));
+    CMOVcc(32, RSCRATCH, R(ABI_PARAM4), CC_G);
+    ADD(32, R(RCycles), R(RSCRATCH));
 
-    if (!store)
-        XOR(32, R(RSCRATCH), R(RSCRATCH));
-    AND(32, R(RSCRATCH2), Imm32(~3));
-
+    if (store)
     {
-        MOV(32, R(RSCRATCH3), R(RSCRATCH2));
-        SUB(32, R(RSCRATCH2), MDisp(RCPU, offsetof(ARMv5, DTCMBase)));
-        CMP(32, R(RSCRATCH2), MDisp(RCPU, offsetof(ARMv5, DTCMSize)));
-        FixupBranch outsideDTCM = J_CC(CC_AE);
-        AND(32, R(RSCRATCH2), Imm32(0x3FFF));
-        if (!store)
+        if (size > 8)
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+        switch (size)
         {
-            MOV(32, R(RSCRATCH), MComplex(RCPU, RSCRATCH2, SCALE_1, offsetof(ARMv5, DTCM)));
-            MOV(32, R(ECX), MDisp(RSP, 8));
+        case 32: JMP((u8*)NDS::ARM9Write32, true); break;
+        case 16: JMP((u8*)NDS::ARM9Write16, true); break;
+        case 8: JMP((u8*)NDS::ARM9Write8, true); break;
+        }
+    }
+    else
+    {
+        if (size == 32)
+        {
+            ABI_PushRegistersAndAdjustStack({ABI_PARAM1}, 8);
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+            // everything's already in the appropriate register
+            ABI_CallFunction(NDS::ARM9Read32);
+            ABI_PopRegistersAndAdjustStack({ECX}, 8);
+            AND(32, R(ECX), Imm8(3));
+            SHL(32, R(ECX), Imm8(3));
+            ROR_(32, R(RSCRATCH), R(ECX));
+            RET();
+        }
+        else if (size == 16)
+        {
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+            JMP((u8*)NDS::ARM9Read16, true);
+        }
+        else
+            JMP((u8*)NDS::ARM9Read8, true);
+    }
+
+    SetJumpTarget(insideDTCM);
+    ADD(32, R(RCycles), R(ABI_PARAM3));
+    AND(32, R(RSCRATCH), Imm32(0x3FFF & addressMask));
+    if (store)
+        MOV(size, MComplex(RCPU, RSCRATCH, SCALE_1, offsetof(ARMv5, DTCM)), R(ABI_PARAM2));
+    else
+    {
+        MOVZX(32, size, RSCRATCH, MComplex(RCPU, RSCRATCH, SCALE_1, offsetof(ARMv5, DTCM)));
+        if (size == 32)
+        {
+            if (ABI_PARAM1 != ECX)
+                MOV(32, R(ECX), R(ABI_PARAM1));
+            AND(32, R(ECX), Imm8(3));
+            SHL(32, R(ECX), Imm8(3));
             ROR_(32, R(RSCRATCH), R(ECX));
         }
-        else
-            MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_1, offsetof(ARMv5, DTCM)), R(R11));
-        RET();
-        SetJumpTarget(outsideDTCM);
-        MOV(32, R(RSCRATCH2), R(RSCRATCH3));
     }
-
-    switch (region)
-    {
-    case 0x00000000:
-    case 0x01000000:
-        {
-            CMP(32, R(RSCRATCH2), MDisp(RCPU, offsetof(ARMv5, ITCMSize)));
-            FixupBranch insideITCM = J_CC(CC_B);
-            RET();
-            SetJumpTarget(insideITCM);
-            AND(32, R(RSCRATCH2), Imm32(0x7FFF));
-            if (!store)
-                MOV(32, R(RSCRATCH), MComplex(RCPU, RSCRATCH2, SCALE_1, offsetof(ARMv5, ITCM)));
-            else
-            {
-                MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_1, offsetof(ARMv5, ITCM)), R(R11));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.ARM9_ITCM)), Imm32(0));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.ARM9_ITCM) + 8), Imm32(0));
-            }
-        }
-        break;
-    case 0x02000000:
-        AND(32, R(RSCRATCH2), Imm32(MAIN_RAM_SIZE - 1));
-        if (!store)
-            MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(NDS::MainRAM)));
-        else
-        {
-            MOV(32, MDisp(RSCRATCH2, squeezePointer(NDS::MainRAM)), R(R11));
-            MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.MainRAM)), Imm32(0));
-            MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.MainRAM) + 8), Imm32(0));
-        }
-        break;
-    case 0x03000000:
-        {
-            MOV(64, R(RSCRATCH3), M(&NDS::SWRAM_ARM9));
-            TEST(64, R(RSCRATCH3), R(RSCRATCH3));
-            FixupBranch notMapped = J_CC(CC_Z);
-            AND(32, R(RSCRATCH2), M(&NDS::SWRAM_ARM9Mask));
-            if (!store)
-                MOV(32, R(RSCRATCH), MRegSum(RSCRATCH2, RSCRATCH3));
-            else
-            {
-                MOV(32, MRegSum(RSCRATCH2, RSCRATCH3), R(R11));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.SWRAM)), Imm32(0));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.SWRAM) + 8), Imm32(0));
-            }
-            SetJumpTarget(notMapped);
-        }
-        break;
-    case 0x04000000:
-        MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-        if (!store)
-        {
-            ABI_PushRegistersAndAdjustStack({}, 8, 0);
-            ABI_CallFunction(NDS::ARM9IORead32);
-            ABI_PopRegistersAndAdjustStack({}, 8, 0);
-        }
-        else
-        {
-            MOV(32, R(ABI_PARAM2), R(R11));
-            JMP((u8*)NDS::ARM9IOWrite32, true);
-        }
-        break;
-    case 0x05000000:
-        {        
-            MOV(32, R(RSCRATCH), Imm32(1<<1));
-            MOV(32, R(RSCRATCH3), Imm32(1<<9));
-            TEST(32, R(RSCRATCH2), Imm32(0x400));
-            CMOVcc(32, RSCRATCH, R(RSCRATCH3), CC_NZ);
-            TEST(16, R(RSCRATCH), M(&NDS::PowerControl9));
-            FixupBranch available = J_CC(CC_NZ);
-            RET();
-            SetJumpTarget(available);
-            AND(32, R(RSCRATCH2), Imm32(0x7FF));
-            if (!store)
-                MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(GPU::Palette)));
-            else
-                MOV(32, MDisp(RSCRATCH2, squeezePointer(GPU::Palette)), R(R11));
-        }
-        break;
-    case 0x06000000:
-        MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-        if (!store)
-        { 
-            ABI_PushRegistersAndAdjustStack({}, 8);
-            ABI_CallFunction(ReadVRAM9);
-            ABI_PopRegistersAndAdjustStack({}, 8);
-        }
-        else
-        {
-            MOV(32, R(ABI_PARAM2), R(R11));
-            JMP((u8*)WriteVRAM9, true);
-        }
-        break;
-    case 0x07000000:
-        {
-            MOV(32, R(RSCRATCH), Imm32(1<<1));
-            MOV(32, R(RSCRATCH3), Imm32(1<<9));
-            TEST(32, R(RSCRATCH2), Imm32(0x400));
-            CMOVcc(32, RSCRATCH, R(RSCRATCH3), CC_NZ);
-            TEST(16, R(RSCRATCH), M(&NDS::PowerControl9));
-            FixupBranch available = J_CC(CC_NZ);
-            RET();
-            SetJumpTarget(available);
-            AND(32, R(RSCRATCH2), Imm32(0x7FF));
-            if (!store)
-                MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(GPU::OAM)));
-            else
-                MOV(32, MDisp(RSCRATCH2, squeezePointer(GPU::OAM)), R(R11));
-        }
-        break;
-    case 0x08000000:
-    case 0x09000000:
-    case 0x0A000000:
-        if (!store)
-            MOV(32, R(RSCRATCH), Imm32(0xFFFFFFFF));
-        break;
-    case 0xFF000000:
-        if (!store)
-        {
-            AND(32, R(RSCRATCH2), Imm32(0xFFF));
-            MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(NDS::ARM9BIOS)));
-        }
-        break;
-    default:
-        MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-        if (!store)
-        {
-            ABI_PushRegistersAndAdjustStack({}, 8, 0);
-            ABI_CallFunction(NDS::ARM9Read32);
-            ABI_PopRegistersAndAdjustStack({}, 8, 0);
-        }
-        else
-        {
-            MOV(32, R(ABI_PARAM2), R(R11));
-            JMP((u8*)NDS::ARM9Write32, true);
-        }
-        break;
-    }
-
-    if (!store)
-    {
-        MOV(32, R(ECX), MDisp(RSP, 8));
-        ROR_(32, R(RSCRATCH), R(ECX));
-    }
-
     RET();
+
+    SetJumpTarget(insideITCM);
+    ADD(32, R(RCycles), R(ABI_PARAM3));
+    MOV(32, R(ABI_PARAM3), R(ABI_PARAM1)); // free up ECX
+    AND(32, R(ABI_PARAM3), Imm32(0x7FFF & addressMask));
+    if (store)
+    {
+        MOV(size, MComplex(RCPU, ABI_PARAM3, SCALE_1, offsetof(ARMv5, ITCM)), R(ABI_PARAM2));
+        XOR(32, R(RSCRATCH), R(RSCRATCH));
+        MOV(64, MScaled(ABI_PARAM3, SCALE_4, squeezePointer(cache.ARM9_ITCM)), R(RSCRATCH));
+        if (size == 32)
+            MOV(64, MScaled(ABI_PARAM3, SCALE_4, squeezePointer(cache.ARM9_ITCM) + 8), R(RSCRATCH));
+    }
+    else
+    {
+        MOVZX(32, size, RSCRATCH, MComplex(RCPU, ABI_PARAM3, SCALE_1, offsetof(ARMv5, ITCM)));
+        if (size == 32)
+        {
+            if (ABI_PARAM1 != ECX)
+                MOV(32, R(ECX), R(ABI_PARAM1));
+            AND(32, R(ECX), Imm8(3));
+            SHL(32, R(ECX), Imm8(3));
+            ROR_(32, R(RSCRATCH), R(ECX));
+        }
+    }
+    RET();
+
+    static_assert(RSCRATCH == EAX);
 
     return res;
 }
 
-void* Compiler::Gen_MemoryRoutine7(bool store, int size, bool mainRAMCode, u32 region)
+void* Compiler::Gen_MemoryRoutine7(bool store, bool codeMainRAM, int size)
 {
+    u32 addressMask = ~(size == 32 ? 3 : (size == 16 ? 1 : 0));
     AlignCode4();
     void* res = GetWritableCodePtr();
 
-    if (!store)
-    {
-        MOV(32, R(RSCRATCH), R(RSCRATCH2));
-        AND(32, R(RSCRATCH), Imm8(0x3));
-        SHL(32, R(RSCRATCH), Imm8(3));
-        // enter the shadow realm!
-        MOV(32, MDisp(RSP, 8), R(RSCRATCH));
-    }
-
-    // AddCycles_CDI
-    MOV(32, R(RSCRATCH), R(RSCRATCH2));
+    MOV(32, R(RSCRATCH), R(ABI_PARAM1));
     SHR(32, R(RSCRATCH), Imm8(15));
-    MOVZX(32, 8, RSCRATCH, MDisp(RSCRATCH, squeezePointer(NDS::ARM7MemTimings + 2)));
-    if ((region == 0x02000000 && mainRAMCode) || (region != 0x02000000 && !mainRAMCode))
+    MOVZX(32, 8, ABI_PARAM4, MDisp(RSCRATCH, (size == 32 ? 2 : 0) + squeezePointer(NDS::ARM7MemTimings)));
+
+    MOV(32, R(RSCRATCH), R(ABI_PARAM1));
+    AND(32, R(RSCRATCH), Imm32(0xFF000000));
+    CMP(32, R(RSCRATCH), Imm32(0x02000000));
+    FixupBranch outsideMainRAM = J_CC(CC_NE);
+    if (codeMainRAM)
     {
-        if (!store && region != 0x02000000)
-            LEA(32, RSCRATCH3, MComplex(RSCRATCH, RSCRATCH3, SCALE_1, 1));
-        ADD(32, R(RCycles), R(RSCRATCH3));
+        LEA(32, RSCRATCH, MRegSum(ABI_PARAM4, ABI_PARAM3));
+        ADD(32, R(RCycles), R(RSCRATCH));
     }
     else
     {
         if (!store)
-            ADD(32, R(region == 0x02000000 ? RSCRATCH2 : RSCRATCH), Imm8(1));
-        LEA(32, R10, MComplex(RSCRATCH, RSCRATCH3, SCALE_1, -3));
-        CMP(32, R(RSCRATCH3), R(RSCRATCH));
-        CMOVcc(32, RSCRATCH, R(RSCRATCH3), CC_G);
-        CMP(32, R(R10), R(RSCRATCH));
-        CMOVcc(32, RSCRATCH, R(R10), CC_G);
+            ADD(32, R(ABI_PARAM3), Imm8(1));
+        LEA(32, RSCRATCH, MComplex(ABI_PARAM4, ABI_PARAM3, SCALE_1, -3));
+        CMP(32, R(ABI_PARAM4), R(ABI_PARAM3));
+        CMOVcc(32, ABI_PARAM3, R(ABI_PARAM4), CC_G);
+        CMP(32, R(ABI_PARAM3), R(RSCRATCH));
+        CMOVcc(32, RSCRATCH, R(ABI_PARAM3), CC_G);
         ADD(32, R(RCycles), R(RSCRATCH));
     }
-
-    if (!store)
+    MOV(32, R(ABI_PARAM3), R(ABI_PARAM1));
+    AND(32, R(ABI_PARAM3), Imm32((MAIN_RAM_SIZE - 1) & addressMask));
+    if (store)
+    {
+        MOV(size, MDisp(ABI_PARAM3, squeezePointer(NDS::MainRAM)), R(ABI_PARAM2));
         XOR(32, R(RSCRATCH), R(RSCRATCH));
-    AND(32, R(RSCRATCH2), Imm32(~3));
-
-    switch (region)
-    {
-        case 0x00000000:
-            if (!store) {
-                CMP(32, R(RSCRATCH2), Imm32(0x4000));
-                FixupBranch outsideBIOS1 = J_CC(CC_AE);
-
-                MOV(32, R(RSCRATCH), MDisp(RCPU, offsetof(ARM, R[15])));
-                CMP(32, R(RSCRATCH), Imm32(0x4000));
-                FixupBranch outsideBIOS2 = J_CC(CC_AE);
-                MOV(32, R(RSCRATCH3), M(&NDS::ARM7BIOSProt));
-                CMP(32, R(RSCRATCH2), R(RSCRATCH3));
-                FixupBranch notDenied1 = J_CC(CC_AE);
-                CMP(32, R(RSCRATCH), R(RSCRATCH3));
-                FixupBranch notDenied2 = J_CC(CC_B);
-                SetJumpTarget(outsideBIOS2);
-                MOV(32, R(RSCRATCH), Imm32(0xFFFFFFFF));
-                RET();
-
-                SetJumpTarget(notDenied1);
-                SetJumpTarget(notDenied2);
-                MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(NDS::ARM7BIOS)));
-                MOV(32, R(ECX), MDisp(RSP, 8));
-                ROR_(32, R(RSCRATCH), R(ECX));
-                RET();
-
-                SetJumpTarget(outsideBIOS1);
-            }
-            break;
-        case 0x02000000:
-            AND(32, R(RSCRATCH2), Imm32(MAIN_RAM_SIZE - 1));
-            if (!store)
-                MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(NDS::MainRAM)));
-            else
-            {
-                MOV(32, MDisp(RSCRATCH2, squeezePointer(NDS::MainRAM)), R(R11));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.MainRAM)), Imm32(0));
-                MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.MainRAM) + 8), Imm32(0));
-            }
-            break;
-        case 0x03000000:
-            {
-                TEST(32, R(RSCRATCH2), Imm32(0x800000));
-                FixupBranch region = J_CC(CC_NZ);
-                MOV(64, R(RSCRATCH), M(&NDS::SWRAM_ARM7));
-                TEST(64, R(RSCRATCH), R(RSCRATCH));
-                FixupBranch notMapped = J_CC(CC_Z);
-                AND(32, R(RSCRATCH2), M(&NDS::SWRAM_ARM7Mask));
-                if (!store)
-                {
-                    MOV(32, R(RSCRATCH), MRegSum(RSCRATCH, RSCRATCH2));
-                    MOV(32, R(ECX), MDisp(RSP, 8));
-                    ROR_(32, R(RSCRATCH), R(ECX));
-                }
-                else
-                {
-                    MOV(32, MRegSum(RSCRATCH, RSCRATCH2), R(R11));
-                    MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.SWRAM)), Imm32(0));
-                    MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.SWRAM) + 8), Imm32(0));
-                }
-                RET();
-                SetJumpTarget(region);
-                SetJumpTarget(notMapped);
-                AND(32, R(RSCRATCH2), Imm32(0xFFFF));
-                if (!store)
-                    MOV(32, R(RSCRATCH), MDisp(RSCRATCH2, squeezePointer(NDS::ARM7WRAM)));
-                else
-                {
-                    MOV(32, MDisp(RSCRATCH2, squeezePointer(NDS::ARM7WRAM)), R(R11));
-                    MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.ARM7_WRAM)), Imm32(0));
-                    MOV(64, MScaled(RSCRATCH2, SCALE_4, squeezePointer(cache.ARM7_WRAM) + 8), Imm32(0));
-                }
-            }
-            break;
-        case 0x04000000:
-            {
-                TEST(32, R(RSCRATCH2), Imm32(0x800000));
-                FixupBranch region = J_CC(CC_NZ);
-                MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-                if (!store)
-                {
-                    ABI_PushRegistersAndAdjustStack({}, 8);
-                    ABI_CallFunction(NDS::ARM7IORead32);
-                    ABI_PopRegistersAndAdjustStack({}, 8);
-
-                    MOV(32, R(ECX), MDisp(RSP, 8));
-                    ROR_(32, R(RSCRATCH), R(ECX));
-                    RET();
-                }
-                else
-                {
-                    MOV(32, R(ABI_PARAM2), R(R11));
-                    JMP((u8*)NDS::ARM7IOWrite32, true);
-                }
-                SetJumpTarget(region);
-
-                if (!store)
-                {
-                    ABI_PushRegistersAndAdjustStack({RSCRATCH2}, 8);
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-                    ABI_CallFunction(Wifi::Read);
-                    ABI_PopRegistersAndAdjustStack({RSCRATCH2}, 8);
-
-                    ADD(32, R(RSCRATCH2), Imm8(2));
-                    ABI_PushRegistersAndAdjustStack({EAX}, 8);
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-                    ABI_CallFunction(Wifi::Read);
-                    MOV(32, R(RSCRATCH2), R(EAX));
-                    SHL(32, R(RSCRATCH2), Imm8(16));
-                    ABI_PopRegistersAndAdjustStack({EAX}, 8);
-                    OR(32, R(EAX), R(RSCRATCH2));
-                }
-                else
-                {
-                    ABI_PushRegistersAndAdjustStack({RSCRATCH2, R11}, 8);
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-                    MOVZX(32, 16, ABI_PARAM2, R(R11));
-                    ABI_CallFunction(Wifi::Write);
-                    ABI_PopRegistersAndAdjustStack({RSCRATCH2, R11}, 8);
-                    SHR(32, R(R11), Imm8(16));
-                    ADD(32, R(RSCRATCH2), Imm8(2));
-                    ABI_PushRegistersAndAdjustStack({RSCRATCH2, R11}, 8);
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-                    MOVZX(32, 16, ABI_PARAM2, R(R11));
-                    ABI_CallFunction(Wifi::Write);
-                    ABI_PopRegistersAndAdjustStack({RSCRATCH2, R11}, 8);
-                }
-            }
-            break;
-        case 0x06000000:
-            MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-            if (!store)
-            {
-                ABI_PushRegistersAndAdjustStack({}, 8);
-                ABI_CallFunction(GPU::ReadVRAM_ARM7<u32>);
-                ABI_PopRegistersAndAdjustStack({}, 8);
-            }
-            else
-            {
-                AND(32, R(ABI_PARAM1), Imm32(0x40000 - 1));
-                MOV(64, MScaled(ABI_PARAM1, SCALE_4, squeezePointer(cache.ARM7_WVRAM)), Imm32(0));
-                MOV(64, MScaled(ABI_PARAM1, SCALE_4, squeezePointer(cache.ARM7_WVRAM) + 8), Imm32(0));
-                MOV(32, R(ABI_PARAM2), R(R11));
-                JMP((u8*)GPU::WriteVRAM_ARM7<u32>, true);
-            }
-            break;
-        case 0x08000000:
-        case 0x09000000:
-        case 0x0A000000:
-            if (!store)
-                MOV(32, R(RSCRATCH), Imm32(0xFFFFFFFF));
-            break;
-        /*default:
-            ABI_PushRegistersAndAdjustStack({}, 8, 0);
-            MOV(32, R(ABI_PARAM1), R(RSCRATCH2));
-            ABI_CallFunction(NDS::ARM7Read32);
-            ABI_PopRegistersAndAdjustStack({}, 8, 0);
-            break;*/
+        MOV(64, MScaled(ABI_PARAM3, SCALE_4, squeezePointer(cache.MainRAM)), R(RSCRATCH));
+        if (size == 32)
+            MOV(64, MScaled(ABI_PARAM3, SCALE_4, squeezePointer(cache.MainRAM) + 8), R(RSCRATCH));
     }
-
-    if (!store)
+    else
     {
-        MOV(32, R(ECX), MDisp(RSP, 8));
-        ROR_(32, R(RSCRATCH), R(ECX));
+        MOVZX(32, size, RSCRATCH, MDisp(ABI_PARAM3, squeezePointer(NDS::MainRAM)));
+        if (size == 32)
+        {
+            if (ABI_PARAM1 != ECX)
+                MOV(32, R(ECX), R(ABI_PARAM1));
+            AND(32, R(ECX), Imm8(3));
+            SHL(32, R(ECX), Imm8(3));
+            ROR_(32, R(RSCRATCH), R(ECX));
+        }
     }
-
     RET();
 
+    SetJumpTarget(outsideMainRAM);
+    if (codeMainRAM)
+    {
+        if (!store)
+            ADD(32, R(ABI_PARAM4), Imm8(1));
+        LEA(32, RSCRATCH, MComplex(ABI_PARAM4, ABI_PARAM3, SCALE_1, -3));
+        CMP(32, R(ABI_PARAM4), R(ABI_PARAM3));
+        CMOVcc(32, ABI_PARAM3, R(ABI_PARAM4), CC_G);
+        CMP(32, R(ABI_PARAM3), R(RSCRATCH));
+        CMOVcc(32, RSCRATCH, R(ABI_PARAM3), CC_G);
+        ADD(32, R(RCycles), R(RSCRATCH));
+    }
+    else
+    {
+        LEA(32, RSCRATCH, MComplex(ABI_PARAM4, ABI_PARAM3, SCALE_1, store ? 0 : 1));
+        ADD(32, R(RCycles), R(RSCRATCH));
+    }
+    if (store)
+    {
+        if (size > 8)
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+        switch (size)
+        {
+        case 32: JMP((u8*)NDS::ARM7Write32, true); break;
+        case 16: JMP((u8*)NDS::ARM7Write16, true); break;
+        case 8: JMP((u8*)NDS::ARM7Write8, true); break;
+        }
+    }
+    else
+    {
+        if (size == 32)
+        {
+            ABI_PushRegistersAndAdjustStack({ABI_PARAM1}, 8);
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+            ABI_CallFunction(NDS::ARM7Read32);
+            ABI_PopRegistersAndAdjustStack({ECX}, 8);
+            AND(32, R(ECX), Imm8(3));
+            SHL(32, R(ECX), Imm8(3));
+            ROR_(32, R(RSCRATCH), R(ECX));
+            RET();
+        }
+        else if (size == 16)
+        {
+            AND(32, R(ABI_PARAM1), Imm32(addressMask));
+            JMP((u8*)NDS::ARM7Read16, true);
+        }
+        else
+            JMP((u8*)NDS::ARM7Read8, true);
+    }
+
     return res;
+}
+
+void Compiler::Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size)
+{
+    if (store)
+        MOV(32, R(ABI_PARAM2), rd);
+    u32 cycles = Num
+        ? NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        : (R15 & 0x2 ? 0 : CurInstr.CodeCycles);
+    MOV(32, R(ABI_PARAM3), Imm32(cycles));
+    CALL(Num == 0
+        ? MemoryFuncs9[size >> 4][store]
+        : MemoryFuncs7[size >> 4][store][CodeRegion == 0x02]);
+
+    if (!store)
+    {
+        if (signExtend)
+            MOVSX(32, size, rd.GetSimpleReg(), R(RSCRATCH));
+        else
+            MOVZX(32, size, rd.GetSimpleReg(), R(RSCRATCH));
+    }
 }
 
 OpArg Compiler::A_Comp_GetMemWBOffset()
 {
-    if (!(CurrentInstr.Instr & (1 << 25)))
-        return Imm32(CurrentInstr.Instr & 0xFFF);
+    if (!(CurInstr.Instr & (1 << 25)))
+    {
+        u32 imm = CurInstr.Instr & 0xFFF;
+        return Imm32(imm);
+    }
     else
     {
-        int op = (CurrentInstr.Instr >> 5) & 0x3;
-        int amount = (CurrentInstr.Instr >> 7) & 0x1F;
-        OpArg rm = MapReg(CurrentInstr.A_Reg(0));
+        int op = (CurInstr.Instr >> 5) & 0x3;
+        int amount = (CurInstr.Instr >> 7) & 0x1F;
+        OpArg rm = MapReg(CurInstr.A_Reg(0));
         bool carryUsed;
+
         return Comp_RegShiftImm(op, amount, rm, false, carryUsed);
     }
 }
 
 void Compiler::A_Comp_MemWB()
-{    
-    OpArg rn = MapReg(CurrentInstr.A_Reg(16));
-    OpArg rd = MapReg(CurrentInstr.A_Reg(12));
-    bool load = CurrentInstr.Instr & (1 << 20);
+{
+    OpArg rn = MapReg(CurInstr.A_Reg(16));
+    OpArg rd = MapReg(CurInstr.A_Reg(12));
+    bool load = CurInstr.Instr & (1 << 20);
+    bool byte = CurInstr.Instr & (1 << 22);
+    int size = byte ? 8 : 32;
 
-    MOV(32, R(RSCRATCH2), rn);
-    if (CurrentInstr.Instr & (1 << 24))
+    if (CurInstr.Instr & (1 << 24))
     {
         OpArg offset = A_Comp_GetMemWBOffset();
-        if (CurrentInstr.Instr & (1 << 23))
-            ADD(32, R(RSCRATCH2), offset);
+        if (CurInstr.Instr & (1 << 23))
+            MOV_sum(32, ABI_PARAM1, rn, offset);
         else
-            SUB(32, R(RSCRATCH2), offset);
+        {
+            MOV(32, R(ABI_PARAM1), rn);
+            SUB(32, R(ABI_PARAM1), offset);
+        }
 
-        if (CurrentInstr.Instr & (1 << 21))
-            MOV(32, rn, R(RSCRATCH2));
+        if (CurInstr.Instr & (1 << 21))
+            MOV(32, rn, R(ABI_PARAM1));
     }
-
-    u32 cycles = Num ? NDS::ARM7MemTimings[CurrentInstr.CodeCycles][2] : CurrentInstr.CodeCycles;
-    MOV(32, R(RSCRATCH3), Imm32(cycles));
-    MOV(32, R(RSCRATCH), R(RSCRATCH2));
-    SHR(32, R(RSCRATCH), Imm8(24));
-    AND(32, R(RSCRATCH), Imm8(0xF));
-    void** funcArray;
-    if (load)
-        funcArray = Num ? ReadMemFuncs7[CodeRegion == 0x02] : ReadMemFuncs9;
     else
-    {
-        funcArray = Num ? WriteMemFuncs7[CodeRegion == 0x02] : WriteMemFuncs9; 
-        MOV(32, R(R11), rd);
-    }
-    CALLptr(MScaled(RSCRATCH, SCALE_8, squeezePointer(funcArray)));
+        MOV(32, R(ABI_PARAM1), rn);
 
-    if (load)
-        MOV(32, R(RSCRATCH2), R(RSCRATCH));
-
-    if (!(CurrentInstr.Instr & (1 << 24)))
+    if (!(CurInstr.Instr & (1 << 24)))
     {
         OpArg offset = A_Comp_GetMemWBOffset();
 
-        if (CurrentInstr.Instr & (1 << 23))
+        if (CurInstr.Instr & (1 << 23))
             ADD(32, rn, offset);
         else
             SUB(32, rn, offset);
     }
 
-    if (load)
-        MOV(32, rd, R(RSCRATCH2));
+    Comp_MemAccess(rd, false, !load, byte ? 8 : 32);
+    if (load && CurInstr.A_Reg(12) == 15)
+    {
+        if (byte)
+            printf("!!! LDRB PC %08X\n", R15);
+        else
+        {
+            if (Num == 1)
+                AND(32, rd, Imm8(0xFE)); // immediate is sign extended
+            Comp_JumpTo(rd.GetSimpleReg());
+        }
+    }
+}
+
+void Compiler::A_Comp_MemHalf()
+{
+    OpArg rn = MapReg(CurInstr.A_Reg(16));
+    OpArg rd = MapReg(CurInstr.A_Reg(12));
+
+    OpArg offset = CurInstr.Instr & (1 << 22)
+        ? Imm32(CurInstr.Instr & 0xF | ((CurInstr.Instr >> 4) & 0xF0))
+        : MapReg(CurInstr.A_Reg(0));
+
+    if (CurInstr.Instr & (1 << 24))
+    {
+        if (CurInstr.Instr & (1 << 23))
+            MOV_sum(32, ABI_PARAM1, rn, offset);
+        else
+        {
+            MOV(32, R(ABI_PARAM1), rn);
+            SUB(32, R(ABI_PARAM1), offset);
+        }
+        
+        if (CurInstr.Instr & (1 << 21))
+            MOV(32, rn, R(ABI_PARAM1));
+    }
+    else
+        MOV(32, R(ABI_PARAM1), rn);
+
+    int op = (CurInstr.Instr >> 5) & 0x3;
+    bool load = CurInstr.Instr & (1 << 20);
+
+    bool signExtend = false;
+    int size;
+    if (!load && op == 1)
+        size = 16;
+    else if (load)
+    {
+        size = op == 2 ? 8 : 16;
+        signExtend = op > 1;
+    }
+
+    if (!(CurInstr.Instr & (1 << 24)))
+    {
+        if (CurInstr.Instr & (1 << 23))
+            ADD(32, rn, offset);
+        else
+            SUB(32, rn, offset);
+    }
+
+    Comp_MemAccess(rd, signExtend, !load, size);
+
+    if (load && CurInstr.A_Reg(12) == 15)
+        printf("!!! MemHalf op PC %08X\n", R15);;
 }
 
 void Compiler::T_Comp_MemReg()
 {
-    OpArg rd = MapReg(CurrentInstr.T_Reg(0));
-    OpArg rb = MapReg(CurrentInstr.T_Reg(3));
-    OpArg ro = MapReg(CurrentInstr.T_Reg(6));
+    OpArg rd = MapReg(CurInstr.T_Reg(0));
+    OpArg rb = MapReg(CurInstr.T_Reg(3));
+    OpArg ro = MapReg(CurInstr.T_Reg(6));
 
-    int op = (CurrentInstr.Instr >> 10) & 0x3;
+    int op = (CurInstr.Instr >> 10) & 0x3;
     bool load = op & 0x2;
-    
-    MOV(32, R(RSCRATCH2), rb);
-    ADD(32, R(RSCRATCH2), ro);
+    bool byte = op & 0x1;
 
-    u32 cycles = Num ? NDS::ARM7MemTimings[CurrentInstr.CodeCycles][0] : (R15 & 0x2 ? 0 : CurrentInstr.CodeCycles);
-    MOV(32, R(RSCRATCH3), Imm32(cycles));
-    MOV(32, R(RSCRATCH), R(RSCRATCH2));
-    SHR(32, R(RSCRATCH), Imm8(24));
-    AND(32, R(RSCRATCH), Imm8(0xF));
-    void** funcArray;
-    if (load)
-        funcArray = Num ? ReadMemFuncs7[CodeRegion == 0x02] : ReadMemFuncs9;
-    else
-    {
-        funcArray = Num ? WriteMemFuncs7[CodeRegion == 0x02] : WriteMemFuncs9; 
-        MOV(32, R(R11), rd);
-    }
-    CALLptr(MScaled(RSCRATCH, SCALE_8, squeezePointer(funcArray)));
+    MOV_sum(32, ABI_PARAM1, rb, ro);
 
-    if (load)
-        MOV(32, rd, R(RSCRATCH));
+    Comp_MemAccess(rd, false, !load, byte ? 8 : 32);
 }
 
 void Compiler::T_Comp_MemImm()
 {
-    // TODO: aufräumen!!!
-    OpArg rd = MapReg(CurrentInstr.T_Reg(0));
-    OpArg rb = MapReg(CurrentInstr.T_Reg(3));
-    
-    int op = (CurrentInstr.Instr >> 11) & 0x3;
-    u32 offset = ((CurrentInstr.Instr >> 6) & 0x1F) * 4;
+    OpArg rd = MapReg(CurInstr.T_Reg(0));
+    OpArg rb = MapReg(CurInstr.T_Reg(3));
+
+    int op = (CurInstr.Instr >> 11) & 0x3;
     bool load = op & 0x1;
+    bool byte = op & 0x2;
+    u32 offset = ((CurInstr.Instr >> 6) & 0x1F) * (byte ? 1 : 4);
 
-    LEA(32, RSCRATCH2, MDisp(rb.GetSimpleReg(), offset));
-    u32 cycles = Num ? NDS::ARM7MemTimings[CurrentInstr.CodeCycles][0] : (R15 & 0x2 ? 0 : CurrentInstr.CodeCycles);
-    MOV(32, R(RSCRATCH3), Imm32(cycles));
-    MOV(32, R(RSCRATCH), R(RSCRATCH2));
-    SHR(32, R(RSCRATCH), Imm8(24));
-    AND(32, R(RSCRATCH), Imm8(0xF));
-    void** funcArray;
-    if (load)
-        funcArray = Num ? ReadMemFuncs7[CodeRegion == 0x02] : ReadMemFuncs9;
-    else
-    {
-        funcArray = Num ? WriteMemFuncs7[CodeRegion == 0x02] : WriteMemFuncs9; 
-        MOV(32, R(R11), rd);
-    }
-    CALLptr(MScaled(RSCRATCH, SCALE_8, squeezePointer(funcArray)));
+    LEA(32, ABI_PARAM1, MDisp(rb.GetSimpleReg(), offset));
 
-    if (load)
-        MOV(32, rd, R(RSCRATCH));
+    Comp_MemAccess(rd, false, !load, byte ? 8 : 32);
+}
+
+void Compiler::T_Comp_MemRegHalf()
+{
+    OpArg rd = MapReg(CurInstr.T_Reg(0));
+    OpArg rb = MapReg(CurInstr.T_Reg(3));
+    OpArg ro = MapReg(CurInstr.T_Reg(6));
+
+    int op = (CurInstr.Instr >> 10) & 0x3;
+    bool load = op != 0;
+    int size = op != 1 ? 16 : 8;
+    bool signExtend = op & 1;
+
+    MOV_sum(32, ABI_PARAM1, rb, ro);
+
+    Comp_MemAccess(rd, signExtend, !load, size);
+}
+
+void Compiler::T_Comp_MemImmHalf()
+{
+    OpArg rd = MapReg(CurInstr.T_Reg(0));
+    OpArg rb = MapReg(CurInstr.T_Reg(3));
+
+    u32 offset = (CurInstr.Instr >> 5) & 0x3E;
+    bool load = CurInstr.Instr & (1 << 11);
+
+    LEA(32, ABI_PARAM1, MDisp(rb.GetSimpleReg(), offset));
+
+    Comp_MemAccess(rd, false, !load, 16);
 }
 
 }

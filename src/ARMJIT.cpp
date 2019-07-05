@@ -121,12 +121,13 @@ void DeInit()
 	delete compiler;
 }
 
-CompiledBlock CompileBlock(ARM* cpu)
+void CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
 
     FetchedInstr instrs[12];
     int i = 0;
+	u32 r15Initial = cpu->R[15];
     u32 r15 = cpu->R[15];
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
     //printf("block %x %d\n", r15, thumb);
@@ -169,9 +170,7 @@ CompiledBlock CompileBlock(ARM* cpu)
 
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
-    InsertBlock(cpu->Num, cpu->R[15] - (thumb ? 2 : 4), block);
-
-    return block;
+    InsertBlock(cpu->Num, r15Initial - (thumb ? 2 : 4), block);
 }
 
 void ResetBlocks()
