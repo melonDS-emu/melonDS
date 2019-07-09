@@ -4,7 +4,7 @@
 #include "../dolphin/x64Emitter.h"
 
 #include "../ARMJIT.h"
-#include "../ARMJIT_RegCache.h"
+#include "../ARMJIT_RegisterCache.h"
 
 #include <tuple>
 
@@ -12,7 +12,6 @@ namespace ARMJIT
 {
 
 const Gen::X64Reg RCPU = Gen::RBP;
-const Gen::X64Reg RCycles = Gen::R14;
 const Gen::X64Reg RCPSR = Gen::R15;
 
 const Gen::X64Reg RSCRATCH = Gen::EAX;
@@ -72,6 +71,7 @@ private:
 
     void A_Comp_MemWB();
     void A_Comp_MemHalf();
+    void A_Comp_LDM_STM();
 
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
@@ -86,8 +86,13 @@ private:
     void T_Comp_MemImm();
     void T_Comp_MemRegHalf();
     void T_Comp_MemImmHalf();
+    void T_Comp_LoadPCRel();
+    void T_Comp_MemSPRel();
+    void T_Comp_PUSH_POP();
+    void T_Comp_LDMIA_STMIA();
 
     void Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size);
+    s32 Comp_MemAccessBlock(Gen::OpArg rb, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
@@ -99,6 +104,11 @@ private:
 
     void* Gen_MemoryRoutine9(bool store, int size);
     void* Gen_MemoryRoutine7(bool store, bool codeMainRAM, int size);
+
+    void* Gen_MemoryRoutineSeq9(bool store, bool preinc);
+    void* Gen_MemoryRoutineSeq7(bool store, bool preinc, bool codeMainRAM);
+
+    void* Gen_ChangeCPSRRoutine();
 
     Gen::OpArg Comp_RegShiftImm(int op, int amount, Gen::OpArg rm, bool S, bool& carryUsed);
     Gen::OpArg Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, bool& carryUsed);
@@ -122,11 +132,14 @@ private:
     void* MemoryFuncs9[3][2];
     void* MemoryFuncs7[3][2][2];
 
+    void* MemoryFuncsSeq9[2][2];
+    void* MemoryFuncsSeq7[2][2][2];
+
     bool CPSRDirty = false;
 
     FetchedInstr CurInstr;
 
-    RegCache<Compiler, Gen::X64Reg> RegCache;
+    RegisterCache<Compiler, Gen::X64Reg> RegCache;
 
     bool Thumb;
     u32 Num;

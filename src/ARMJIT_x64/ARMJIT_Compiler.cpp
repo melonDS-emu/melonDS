@@ -9,20 +9,20 @@ using namespace Gen;
 namespace ARMJIT
 {
 template <>
-const X64Reg RegCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
+const X64Reg RegisterCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 {
 #ifdef _WIN32
-    RBX, RSI, RDI, R12, R13
+    RBX, RSI, RDI, R12, R13, R14
 #else
-    RBX, R12, R13
+    RBX, R12, R13, R14 // this is sad
 #endif
 };
 template <>
-const int RegCache<Compiler, X64Reg>::NativeRegsAvailable =
+const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #ifdef _WIN32
-    5
+    6
 #else
-    3
+    4
 #endif
 ;
 
@@ -39,8 +39,45 @@ Compiler::Compiler()
             MemoryFuncs7[i][j][1] = Gen_MemoryRoutine7(j, true, 8 << i);
         }
     }
+    for (int i = 0; i < 2; i++)
+        for (int j = 0; j < 2; j++)
+        {
+            MemoryFuncsSeq9[i][j] = Gen_MemoryRoutineSeq9(i, j);
+            MemoryFuncsSeq7[i][j][0] = Gen_MemoryRoutineSeq7(i, j, false);
+            MemoryFuncsSeq7[i][j][1] = Gen_MemoryRoutineSeq7(i, j, true);
+        }
 
     ResetStart = GetWritableCodePtr();
+}
+
+void* Compiler::Gen_ChangeCPSRRoutine()
+{
+    void* res = (void*)GetWritableCodePtr();
+
+    MOV(32, R(RSCRATCH), R(RCPSR));
+    AND(32, R(RSCRATCH), Imm8(0x1F));
+    CMP(32, R(RSCRATCH), Imm8(0x11));
+    FixupBranch fiq = J_CC(CC_E);
+    CMP(32, R(RSCRATCH), Imm8(0x12));
+    FixupBranch irq = J_CC(CC_E);
+    CMP(32, R(RSCRATCH), Imm8(0x13));
+    FixupBranch svc = J_CC(CC_E);
+    CMP(32, R(RSCRATCH), Imm8(0x17));
+    FixupBranch abt = J_CC(CC_E);
+    CMP(32, R(RSCRATCH), Imm8(0x1B));
+    FixupBranch und = J_CC(CC_E);
+
+    SetJumpTarget(fiq);
+
+    SetJumpTarget(irq);
+
+    SetJumpTarget(svc);
+
+    SetJumpTarget(abt);
+
+    SetJumpTarget(und);
+
+    return res;
 }
 
 DataRegion Compiler::ClassifyAddress(u32 addr)
@@ -106,12 +143,11 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     ABI_PushRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
 
     MOV(64, R(RCPU), ImmPtr(cpu));
-    XOR(32, R(RCycles), R(RCycles));
 
     LoadCPSR();
 
     // TODO: this is ugly as a whole, do better
-    RegCache = ARMJIT::RegCache<Compiler, X64Reg>(this, instrs, instrsCount);
+    RegCache = RegisterCache<Compiler, X64Reg>(this, instrs, instrsCount);
 
     for (int i = 0; i < instrsCount; i++)
     {
@@ -242,7 +278,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     RegCache.Flush();
     SaveCPSR();
 
-    LEA(32, RAX, MDisp(RCycles, ConstantCycles));
+    MOV(32, R(RAX), Imm32(ConstantCycles));
 
     ABI_PopRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
     RET();
@@ -306,18 +342,20 @@ CompileFunc Compiler::GetCompFunc(int kind)
         NULL, NULL, NULL, NULL, NULL,
         // STR
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
+        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         // STRB
+        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // LDR
+        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // LDRB
+        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         // STRH
         A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
-        // LDRD
-        NULL, NULL, NULL, NULL,
-        // STRD
-        NULL, NULL, NULL, NULL,
+        // LDRD, STRD never used by anything so they stay interpreted (by anything I mean the 5 games I checked)
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         // LDRH
         A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
         // LDRSB
@@ -360,10 +398,14 @@ CompileFunc Compiler::GetCompFunc(int kind)
         T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm,
         // LDR/STR half imm offset
         T_Comp_MemImmHalf, T_Comp_MemImmHalf,
-        // branch, etc.
-        NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL, NULL, NULL, NULL, NULL,
-        NULL, NULL
+        // LDR/STR sp rel
+        NULL, NULL,
+        // PUSH/POP
+        NULL, NULL, 
+        // LDMIA, STMIA
+        NULL, NULL, 
+        NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL
     };
 
     return Thumb ? T_Comp[kind] : A_Comp[kind];
@@ -376,7 +418,7 @@ void Compiler::Comp_AddCycles_C()
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if (CurInstr.Cond() < 0xE)
-        ADD(32, R(RCycles), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
@@ -388,13 +430,15 @@ void Compiler::Comp_AddCycles_CI(u32 i)
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
 
     if (CurInstr.Cond() < 0xE)
-        ADD(32, R(RCycles), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
+    // potentieller Bug: falls ein Register das noch gecacht ist, beim Modeswitch gespeichert
+    // wird der alte Wert gespeichert
     SaveCPSR();
 
     MOV(64, R(ABI_PARAM1), R(RCPU));
