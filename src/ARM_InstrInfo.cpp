@@ -25,9 +25,7 @@ enum {
 
     A_Link              = 1 << 10,
 
-    A_LDMSTM            = 1 << 11,
-
-    A_ARM9Only          = 1 << 12,
+    A_UnkOnARM7         = 1 << 11,
 };
 
 #define A_BIOP A_Read16
@@ -97,12 +95,12 @@ const u32 A_SMULWy = A_Write16 | A_Read0 | A_Read8 | ak(ak_SMULWy);
 const u32 A_SMLALxy = A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_SMLALxy);
 const u32 A_SMULxy = A_Write16 | A_Read0 | A_Read8 | ak(ak_SMULxy);
 
-const u32 A_CLZ = A_Write12 | A_Read0 | A_ARM9Only | ak(ak_CLZ);
+const u32 A_CLZ = A_Write12 | A_Read0 | A_UnkOnARM7 | ak(ak_CLZ);
 
-const u32 A_QADD = A_Write12 | A_Read0 | A_Read16 | A_ARM9Only | ak(ak_QADD);
-const u32 A_QSUB = A_Write12 | A_Read0 | A_Read16 | A_ARM9Only | ak(ak_QSUB);
-const u32 A_QDADD = A_Write12 | A_Read0 | A_Read16 | A_ARM9Only | ak(ak_QDADD);
-const u32 A_QDSUB = A_Write12 | A_Read0 | A_Read16 | A_ARM9Only | ak(ak_QDSUB);
+const u32 A_QADD = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QADD);
+const u32 A_QSUB = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QSUB);
+const u32 A_QDADD = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDADD);
+const u32 A_QDSUB = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDSUB);
 
 #define A_LDR A_Write12
 #define A_STR A_Read12
@@ -144,8 +142,8 @@ A_IMPLEMENT_HD_LDRSTR(LDRSH,LDR)
 const u32 A_SWP = A_Write12 | A_Read16 | A_Read0 | ak(ak_SWP);
 const u32 A_SWPB = A_Write12 | A_Read16 | A_Read0 | ak(ak_SWPB);
 
-const u32 A_LDM = A_Read16 | A_LDMSTM | ak(ak_LDM);
-const u32 A_STM = A_Read16 | A_LDMSTM | ak(ak_STM);
+const u32 A_LDM = A_Read16 | A_MemWriteback | ak(ak_LDM);
+const u32 A_STM = A_Read16 | A_MemWriteback | ak(ak_STM);
 
 const u32 A_B = A_BranchAlways | ak(ak_B);
 const u32 A_BL = A_BranchAlways | A_Link | ak(ak_BL);
@@ -154,11 +152,11 @@ const u32 A_BX = A_BranchAlways | A_Read0 | ak(ak_BX);
 const u32 A_BLX_REG = A_BranchAlways | A_Link | A_Read0 | ak(ak_BLX_REG);
 
 const u32 A_UNK = A_BranchAlways | A_Link | ak(ak_UNK);
-const u32 A_MSR_IMM = A_ARM9Only | ak(ak_MSR_IMM);
-const u32 A_MSR_REG = A_Read0 | A_ARM9Only | ak(ak_MSR_REG);
-const u32 A_MRS = A_Write12 | A_ARM9Only | ak(ak_MRS);
-const u32 A_MCR = A_Read12 | A_ARM9Only | ak(ak_MCR);
-const u32 A_MRC = A_Write12 | A_ARM9Only | ak(ak_MRC);
+const u32 A_MSR_IMM = A_UnkOnARM7 | ak(ak_MSR_IMM);
+const u32 A_MSR_REG = A_Read0 | A_UnkOnARM7 | ak(ak_MSR_REG);
+const u32 A_MRS = A_Write12 | A_UnkOnARM7 | ak(ak_MRS);
+const u32 A_MCR = A_Read12 | A_UnkOnARM7 | ak(ak_MCR);
+const u32 A_MRC = A_Write12 | A_UnkOnARM7 | ak(ak_MRC);
 const u32 A_SVC = A_BranchAlways | A_Link | ak(ak_SVC);
 
 // THUMB
@@ -249,7 +247,7 @@ const u32 T_LDRH_IMM = T_Write0 | T_Read3 | tk(tk_LDRH_IMM);
 const u32 T_STR_SPREL = T_Read8 | T_ReadR13 | tk(tk_STR_SPREL);
 const u32 T_LDR_SPREL = T_Write8 | T_ReadR13 | tk(tk_LDR_SPREL);
 
-const u32 T_PUSH = T_ReadR15 | T_ReadR13 | T_WriteR13 | tk(tk_PUSH);
+const u32 T_PUSH = T_ReadR13 | T_WriteR13 | tk(tk_PUSH);
 const u32 T_POP = T_PopPC | T_ReadR13 | T_WriteR13 | tk(tk_POP);
 
 const u32 T_LDMIA = T_Read8 | T_Write8 | tk(tk_LDMIA);
@@ -320,8 +318,10 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (num == 0 && (instr & 0xFE000000) == 0xFA000000)
             data = A_BLX_IMM;
 
-        if (data & A_ARM9Only && num != 0)
-            data |= A_BranchAlways | A_Link;
+        if (data & A_UnkOnARM7 && num != 0)
+            data = A_UNK;
+
+        res.Kind = (data >> 13) & 0x1FF;
 
         if (data & A_Read0)
             res.SrcRegs |= 1 << (instr & 0xF);
@@ -360,14 +360,8 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.SrcRegs |= 1 << 15;
         }
 
-        if (data & A_LDMSTM)
-        {
-            res.DstRegs |= instr & (!!(instr & (1 << 20)) << 15);
-            if (instr & (1 << 21))
-                res.DstRegs |= 1 << ((instr >> 16) & 0xF);
-        }
-
-        res.Kind = (data >> 13) & 0x1FF;
+        if (res.Kind == ak_LDM)
+            res.DstRegs |= instr & (1 << 15); // this is right
 
         return res;
     }

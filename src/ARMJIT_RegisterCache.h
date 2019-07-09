@@ -12,13 +12,13 @@ namespace ARMJIT
 {
 
 template <typename T, typename Reg>
-class RegCache
+class RegisterCache
 {
 public:
-    RegCache()
+    RegisterCache()
     {}
 
-	RegCache(T* compiler, FetchedInstr instrs[], int instrsCount)
+	RegisterCache(T* compiler, FetchedInstr instrs[], int instrsCount)
 		: Compiler(compiler), Instrs(instrs), InstrsCount(instrsCount)
     {
         for (int i = 0; i < 16; i++)
