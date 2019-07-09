@@ -1168,13 +1168,13 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 {
 }
 
-bool EventMatchesKey(uiAreaKeyEvent* evt, int val)
+bool EventMatchesKey(uiAreaKeyEvent* evt, int val, bool checkmod)
 {
     if (val == -1) return false;
 
     int key = val & 0xFFFF;
     int mod = val >> 16;
-    return evt->Scancode == key && evt->Modifiers == mod;
+    return evt->Scancode == key && (!checkmod || evt->Modifiers == mod);
 }
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
@@ -1188,11 +1188,11 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (evt->Up)
     {
         for (int i = 0; i < 12; i++)
-            if (EventMatchesKey(evt, Config::KeyMapping[i]))
+            if (EventMatchesKey(evt, Config::KeyMapping[i], false))
                 KeyInputMask |= (1<<i);
 
         for (int i = 0; i < HK_MAX; i++)
-            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i], true))
                 KeyHotkeyMask &= ~(1<<i);
     }
     else if (!evt->Repeat)
@@ -1215,11 +1215,11 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
 
         for (int i = 0; i < 12; i++)
-            if (EventMatchesKey(evt, Config::KeyMapping[i]))
+            if (EventMatchesKey(evt, Config::KeyMapping[i], false))
                 KeyInputMask &= ~(1<<i);
 
         for (int i = 0; i < HK_MAX; i++)
-            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i], true))
                 KeyHotkeyMask |= (1<<i);
 
         // REMOVE ME
