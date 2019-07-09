@@ -232,10 +232,12 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         // set key.
         if (evt->Scancode != 0x1 || evt->Modifiers != 0) // ESC
         {
+            int mod = (dlg->type == 0) ? 0 : evt->Modifiers;
+
             if (evt->Scancode == 0xE && evt->Modifiers == 0) // backspace
                 dlg->keymap[dlg->pollid] = -1;
             else
-                dlg->keymap[dlg->pollid] = evt->Scancode | (evt->Modifiers << 16);
+                dlg->keymap[dlg->pollid] = evt->Scancode | (mod << 16);
         }
 
         char keyname[64];
