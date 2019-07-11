@@ -109,7 +109,7 @@ inline void InsertBlock(u32 num, u32 addr, CompiledBlock func)
 void Init();
 void DeInit();
 
-void CompileBlock(ARM* cpu);
+CompiledBlock CompileBlock(ARM* cpu);
 
 void ResetBlocks();
 

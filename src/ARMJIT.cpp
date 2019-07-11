@@ -121,7 +121,7 @@ void DeInit()
 	delete compiler;
 }
 
-void CompileBlock(ARM* cpu)
+CompiledBlock CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
 
@@ -171,6 +171,8 @@ void CompileBlock(ARM* cpu)
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
     InsertBlock(cpu->Num, r15Initial - (thumb ? 2 : 4), block);
+
+	return block;
 }
 
 void ResetBlocks()
