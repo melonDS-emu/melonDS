@@ -521,11 +521,8 @@ void ARMv5::Execute()
             printf("aaarg ungempappter raum %x\n", R[15]);*/
 
         ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, R[15] - ((CPSR&0x20)?2:4));
-        if (block == NULL)
-            ARMJIT::CompileBlock(this);
-        else
-            Cycles += block();
-
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+        
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -607,10 +604,7 @@ void ARMv4::Execute()
             printf("aaarg ungempappter raum %x\n", R[15]);*/
 
         ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, R[15] - ((CPSR&0x20)?2:4));
-        if (block == NULL)
-            ARMJIT::CompileBlock(this);
-        else
-            Cycles += block();
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
 
         // TODO optimize this shit!!!
         if (Halted)

@@ -462,38 +462,10 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
 {
     int regsCount = regs.Count();
 
-    const u8 userModeOffsets[] =
-    {
-        offsetof(ARM, R[8]), offsetof(ARM, R[9]), offsetof(ARM, R[10]), offsetof(ARM, R[11]),
-        offsetof(ARM, R[12]), offsetof(ARM, R[13]), offsetof(ARM, R[14]), 0,
-
-        offsetof(ARM, R_FIQ[0]), offsetof(ARM, R_FIQ[1]), offsetof(ARM, R_FIQ[2]), offsetof(ARM, R_FIQ[3]),
-        offsetof(ARM, R_FIQ[4]), offsetof(ARM, R_FIQ[5]), offsetof(ARM, R_FIQ[6]), 0,
-
-        offsetof(ARM, R[8]), offsetof(ARM, R[9]), offsetof(ARM, R[10]), offsetof(ARM, R[11]),
-        offsetof(ARM, R[12]), offsetof(ARM, R_IRQ[13]), offsetof(ARM, R_IRQ[14]), 0,
-
-        offsetof(ARM, R[8]), offsetof(ARM, R[9]), offsetof(ARM, R[10]), offsetof(ARM, R[11]),
-        offsetof(ARM, R[12]), offsetof(ARM, R_SVC[13]), offsetof(ARM, R_SVC[14]), 0,
-
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-
-        offsetof(ARM, R[8]), offsetof(ARM, R[9]), offsetof(ARM, R[10]), offsetof(ARM, R[11]),
-        offsetof(ARM, R[12]), offsetof(ARM, R_ABT[13]), offsetof(ARM, R_ABT[14]), 0,
-
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0,
-
-        offsetof(ARM, R[8]), offsetof(ARM, R[9]), offsetof(ARM, R[10]), offsetof(ARM, R[11]),
-        offsetof(ARM, R[12]), offsetof(ARM, R_UND[13]), offsetof(ARM, R_UND[14]), 0,
-    };
-
     if (decrement)
     {
         MOV_sum(32, ABI_PARAM1, rb, Imm32(-regsCount * 4));
-        preinc = !preinc;
+        preinc ^= true;
     }
     else
         MOV(32, R(ABI_PARAM1), rb);
@@ -516,16 +488,16 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
         {
             if (regs[reg])
             {
-                if (usermode && reg >= 8 && reg < 15)
+                /*if (usermode && reg >= 8 && reg < 15)
                 {
                     MOV(32, R(RSCRATCH2), R(RCPSR));
                     AND(32, R(RSCRATCH2), Imm8(0x1F));
                     // (RSCRATCH2 - 0x11) * 8 + squeezePointer(userModeOffsets) + (reg - 8), algebra is great!
-                    MOVZX(32, 8, RSCRATCH2, MScaled(RSCRATCH2, SCALE_8, squeezePointer(userModeOffsets) - 0x11 * 8 + (reg - 8)));
+                    MOVZX(32, 8, RSCRATCH2, MScaled(RSCRATCH2, SCALE_8, squeezePointer(userModeOffsets) - 0x10 * 8 + (reg - 8)));
                     POP(RSCRATCH);
                     MOV(32, MRegSum(RCPU, RSCRATCH2), R(RSCRATCH));
                 }
-                else if (RegCache.Mapping[reg] == INVALID_REG)
+                else */if (RegCache.Mapping[reg] == INVALID_REG)
                 {
                     assert(reg != 15);
 
@@ -552,16 +524,16 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
     {
         for (int reg : regs)
         {
-            if (usermode && reg >= 8 && reg < 15)
+            /*if (usermode && reg >= 8 && reg < 15)
             {
                 MOV(32, R(RSCRATCH), R(RCPSR));
                 AND(32, R(RSCRATCH), Imm8(0x1F));
                 // (RSCRATCH2 - 0x11) * 8 + squeezePointer(userModeOffsets) + (reg - 8), algebra is great!
-                MOVZX(32, 8, RSCRATCH, MScaled(RSCRATCH, SCALE_8, squeezePointer(userModeOffsets) - 0x11 * 8 + (reg - 8)));
+                MOVZX(32, 8, RSCRATCH, MScaled(RSCRATCH, SCALE_8, squeezePointer(userModeOffsets) - 0x10 * 8 + (reg - 8)));
                 MOV(32, R(RSCRATCH), MRegSum(RCPU, RSCRATCH));
                 PUSH(RSCRATCH);
             }
-            else if (RegCache.Mapping[reg] == INVALID_REG)
+            else */if (RegCache.Mapping[reg] == INVALID_REG)
             {
                 LoadReg(reg, RSCRATCH);
                 PUSH(RSCRATCH);
