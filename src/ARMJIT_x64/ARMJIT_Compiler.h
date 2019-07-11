@@ -22,19 +22,6 @@ class Compiler;
 
 typedef void (Compiler::*CompileFunc)();
 
-enum DataRegion
-{
-    dataRegionGeneric, // hey, that's me!
-    dataRegionMainRAM,
-    dataRegionSWRAM,
-    dataRegionVRAM,
-    dataRegionIO,
-    dataRegionExclusive,
-    dataRegionsCount,
-    dataRegionDTCM = dataRegionExclusive,
-    dataRegionWRAM7 = dataRegionExclusive,
-};
-
 class Compiler : public Gen::X64CodeBlock
 {
 public:
@@ -49,8 +36,9 @@ private:
     CompileFunc GetCompFunc(int kind);
 
     void Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR = false);
+    void Comp_JumpTo(u32 addr, bool forceNonConstantCycles = false);
 
-    void Comp_AddCycles_C();
+    void Comp_AddCycles_C(bool forceNonConstant = false);
     void Comp_AddCycles_CI(u32 i);
 
     enum
@@ -63,8 +51,6 @@ private:
         opInvertOp2 = 1 << 5,
     };
 
-    DataRegion ClassifyAddress(u32 addr);
-
     void A_Comp_Arith();
     void A_Comp_MovOp();
     void A_Comp_CmpOp();
@@ -72,6 +58,9 @@ private:
     void A_Comp_MemWB();
     void A_Comp_MemHalf();
     void A_Comp_LDM_STM();
+
+    void A_Comp_BranchImm();
+    void A_Comp_BranchXchangeReg();
 
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
@@ -90,6 +79,13 @@ private:
     void T_Comp_MemSPRel();
     void T_Comp_PUSH_POP();
     void T_Comp_LDMIA_STMIA();
+
+    void T_Comp_BCOND();
+    void T_Comp_B();
+    void T_Comp_BranchXchangeReg();
+    void T_Comp_BL_LONG_1();
+    void T_Comp_BL_LONG_2();
+    void T_Comp_BL_Merged(FetchedInstr prefix);
 
     void Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size);
     s32 Comp_MemAccessBlock(Gen::OpArg rb, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
@@ -118,6 +114,8 @@ private:
 
     void LoadCPSR();
     void SaveCPSR();
+
+    Gen::FixupBranch CheckCondition(u32 cond);
 
     Gen::OpArg MapReg(int reg)
     {

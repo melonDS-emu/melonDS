@@ -32,6 +32,7 @@ add_library(core STATIC
 	ARMJIT_x64/ARMJIT_Compiler.cpp
 	ARMJIT_x64/ARMJIT_ALU.cpp
 	ARMJIT_x64/ARMJIT_LoadStore.cpp
+	ARMJIT_x64/ARMJIT_Branch.cpp
 
 	dolphin/CommonFuncs.cpp
 	dolphin/x64ABI.cpp

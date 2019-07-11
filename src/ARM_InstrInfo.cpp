@@ -255,7 +255,7 @@ const u32 T_STMIA = T_Read8 | T_Write8 | tk(tk_STMIA);
 
 const u32 T_BCOND = T_BranchAlways | tk(tk_BCOND);
 const u32 T_BX = T_BranchAlways | T_ReadHi3 | tk(tk_BX);
-const u32 T_BLX_REG = T_BranchAlways | T_ReadR15 | T_WriteR14 | T_ReadHi3 | tk(tk_BLX_REG);
+const u32 T_BLX_REG = T_BranchAlways | T_WriteR14 | T_ReadHi3 | tk(tk_BLX_REG);
 const u32 T_B = T_BranchAlways | tk(tk_B);
 const u32 T_BL_LONG_1 = T_WriteR14 | T_ReadR15 | tk(tk_BL_LONG_1);
 const u32 T_BL_LONG_2 = T_BranchAlways | T_ReadR14 | T_WriteR14 | T_ReadR15 | tk(tk_BL_LONG_2);
@@ -301,6 +301,10 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.DstRegs |= (1 << 13);
         if (data & T_ReadR15)
             res.SrcRegs |= (1 << 15);
+        if (data & T_WriteR14)
+            res.DstRegs |= (1 << 14);
+        if (data & T_ReadR14)
+            res.SrcRegs |= (1 << 14);
 
         if (data & T_BranchAlways)
             res.DstRegs |= (1 << 15);
