@@ -126,17 +126,14 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
-    BitSet16 hiRegsLoaded(RegCache.DirtyRegs & 0xFFFF0000);
+    BitSet16 hiRegsLoaded(RegCache.DirtyRegs & 0xFF00);
     bool previouslyDirty = CPSRDirty;
     SaveCPSR();
 
     if (restoreCPSR)
     {
         if (Thumb || CurInstr.Cond() >= 0xE)
-        {
-            for (int reg : hiRegsLoaded)
-                RegCache.UnloadRegister(reg);
-        }
+            RegCache.Flush();
         else
         {
             // the ugly way...
