@@ -1,7 +1,5 @@
 #include "ARMJIT_Compiler.h"
 
-#include "../GPU.h"
-#include "../Wifi.h"
 
 using namespace Gen;
 
@@ -362,7 +360,7 @@ void* Compiler::Gen_MemoryRoutineSeq9(bool store, bool preinc)
     CMP(32, R(ABI_PARAM3), Imm8(1));
     FixupBranch skipSequential = J_CC(CC_E);
     SUB(32, R(ABI_PARAM3), Imm8(1));
-    IMUL(32, R(ABI_PARAM3));
+    IMUL(32, RSCRATCH, R(ABI_PARAM3));
     ADD(32, R(ABI_PARAM2), R(RSCRATCH));
     SetJumpTarget(skipSequential);
 
@@ -413,10 +411,11 @@ void* Compiler::Gen_MemoryRoutineSeq7(bool store, bool preinc, bool codeMainRAM)
     POP(ABI_PARAM4);
     POP(ABI_PARAM3);
 
+    // TODO: optimise this
     CMP(32, R(ABI_PARAM3), Imm8(1));
     FixupBranch skipSequential = J_CC(CC_E);
     SUB(32, R(ABI_PARAM3), Imm8(1));
-    IMUL(32, R(ABI_PARAM3));
+    IMUL(32, RSCRATCH, R(ABI_PARAM3));
     ADD(32, R(ABI_PARAM2), R(RSCRATCH));
     SetJumpTarget(skipSequential);
 
@@ -458,25 +457,35 @@ void Compiler::Comp_MemAccess(OpArg rd, bool signExtend, bool store, int size)
     }
 }
 
-s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
+void printStuff2(u32 a, u32 b)
 {
+    printf("b %x %x\n", a, b);
+}
+
+s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
+{
+    FILE* f;
+    const u8* start = GetCodePtr();
+
     int regsCount = regs.Count();
 
     if (decrement)
     {
-        MOV_sum(32, ABI_PARAM1, rb, Imm32(-regsCount * 4));
+        MOV_sum(32, ABI_PARAM1, MapReg(rn), Imm32(-regsCount * 4));
         preinc ^= true;
     }
     else
-        MOV(32, R(ABI_PARAM1), rb);
+        MOV(32, R(ABI_PARAM1), MapReg(rn));
 
-    MOV(32, R(ABI_PARAM3), Imm32(regsCount));
-        u32 cycles = Num
+    s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
+
+    u32 cycles = Num
             ? NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
             : (R15 & 0x2 ? 0 : CurInstr.CodeCycles);
     MOV(32, R(ABI_PARAM4), Imm32(cycles));
     if (!store)
     {
+        MOV(32, R(ABI_PARAM3), Imm32(regsCount));
         SUB(32, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
         MOV(64, R(ABI_PARAM2), R(RSP));
 
@@ -484,20 +493,29 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
             ? MemoryFuncsSeq9[0][preinc]
             : MemoryFuncsSeq7[0][preinc][CodeRegion == 0x02]);
 
+        bool firstUserMode = true;
         for (int reg = 15; reg >= 0; reg--)
         {
             if (regs[reg])
             {
-                /*if (usermode && reg >= 8 && reg < 15)
+                if (usermode && reg >= 8 && reg < 15)
                 {
-                    MOV(32, R(RSCRATCH2), R(RCPSR));
-                    AND(32, R(RSCRATCH2), Imm8(0x1F));
-                    // (RSCRATCH2 - 0x11) * 8 + squeezePointer(userModeOffsets) + (reg - 8), algebra is great!
-                    MOVZX(32, 8, RSCRATCH2, MScaled(RSCRATCH2, SCALE_8, squeezePointer(userModeOffsets) - 0x10 * 8 + (reg - 8)));
-                    POP(RSCRATCH);
-                    MOV(32, MRegSum(RCPU, RSCRATCH2), R(RSCRATCH));
+                    if (firstUserMode)
+                    {
+                        MOV(32, R(RSCRATCH), R(RCPSR));
+                        AND(32, R(RSCRATCH), Imm8(0x1F));
+                        firstUserMode = false;
+                    }
+                    MOV(32, R(ABI_PARAM2), Imm32(reg - 8));
+                    POP(ABI_PARAM3);
+                    CALL(WriteBanked);
+                    FixupBranch sucessfulWritten = J_CC(CC_NC);
+                    if (RegCache.Mapping[reg] != INVALID_REG && RegCache.DirtyRegs & (1 << reg))
+                        MOV(32, R(RegCache.Mapping[reg]), R(ABI_PARAM3));
+                    SaveReg(reg, ABI_PARAM3);
+                    SetJumpTarget(sucessfulWritten);
                 }
-                else */if (RegCache.Mapping[reg] == INVALID_REG)
+                else if (RegCache.Mapping[reg] == INVALID_REG)
                 {
                     assert(reg != 15);
 
@@ -516,32 +534,48 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
         if (regs[15])
         {
             if (Num == 1)
-                OR(32, MapReg(15), Imm8(1));
+            {
+                if (Thumb)
+                    OR(32, MapReg(15), Imm8(1));
+                else
+                    AND(32, MapReg(15), Imm8(0xFE));
+            }
             Comp_JumpTo(MapReg(15).GetSimpleReg(), usermode);
         }
     }
     else
     {
+        bool firstUserMode = true;
         for (int reg : regs)
         {
-            /*if (usermode && reg >= 8 && reg < 15)
+            if (usermode && reg >= 8 && reg < 15)
             {
-                MOV(32, R(RSCRATCH), R(RCPSR));
-                AND(32, R(RSCRATCH), Imm8(0x1F));
-                // (RSCRATCH2 - 0x11) * 8 + squeezePointer(userModeOffsets) + (reg - 8), algebra is great!
-                MOVZX(32, 8, RSCRATCH, MScaled(RSCRATCH, SCALE_8, squeezePointer(userModeOffsets) - 0x10 * 8 + (reg - 8)));
-                MOV(32, R(RSCRATCH), MRegSum(RCPU, RSCRATCH));
-                PUSH(RSCRATCH);
+                if (firstUserMode)
+                {
+                    MOV(32, R(RSCRATCH), R(RCPSR));
+                    AND(32, R(RSCRATCH), Imm8(0x1F));
+                    firstUserMode = false;
+                }
+                if (RegCache.Mapping[reg] == INVALID_REG)
+                    LoadReg(reg, ABI_PARAM3);
+                else
+                    MOV(32, R(ABI_PARAM3), R(RegCache.Mapping[reg]));
+                MOV(32, R(ABI_PARAM2), Imm32(reg - 8));
+                CALL(ReadBanked);
+                PUSH(ABI_PARAM3);
             }
-            else */if (RegCache.Mapping[reg] == INVALID_REG)
+            else if (RegCache.Mapping[reg] == INVALID_REG)
             {
                 LoadReg(reg, RSCRATCH);
                 PUSH(RSCRATCH);
             }
             else
+            {
                 PUSH(MapReg(reg).GetSimpleReg());
+            }
         }
         MOV(64, R(ABI_PARAM2), R(RSP));
+        MOV(32, R(ABI_PARAM3), Imm32(regsCount));
 
         CALL(Num == 0
             ? MemoryFuncsSeq9[1][preinc]
@@ -550,7 +584,14 @@ s32 Compiler::Comp_MemAccessBlock(OpArg rb, BitSet16 regs, bool store, bool prei
         ADD(32, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
     }
 
-    return (regsCount * 4) * (decrement ? -1 : 1);
+    if (usermode && !store)
+    {
+        f= fopen("ldm", "a");
+        fwrite(start, GetCodePtr() - start, 1, f);
+        fclose(f);
+    }
+
+    return offset;
 }
 
 OpArg Compiler::A_Comp_GetMemWBOffset()
@@ -697,16 +738,20 @@ void Compiler::A_Comp_LDM_STM()
 {
     BitSet16 regs(CurInstr.Instr & 0xFFFF);
 
-    bool load = (CurInstr.Instr >> 20) & 1;
-    bool pre = (CurInstr.Instr >> 24) & 1;
-    bool add = (CurInstr.Instr >> 23) & 1;
-    bool writeback = (CurInstr.Instr >> 21) & 1;
-    bool usermode = (CurInstr.Instr >> 22) & 1;
+    bool load = CurInstr.Instr & (1 << 20);
+    bool pre = CurInstr.Instr & (1 << 24);
+    bool add = CurInstr.Instr & (1 << 23);
+    bool writeback = CurInstr.Instr & (1 << 21);
+    bool usermode = CurInstr.Instr & (1 << 22);
 
     OpArg rn = MapReg(CurInstr.A_Reg(16));
 
-    s32 offset = Comp_MemAccessBlock(rn, regs, !load, pre, !add, false);
+    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode);
 
+    if (load && writeback && regs[CurInstr.A_Reg(16)])
+        writeback = Num == 0
+            ? (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1))
+            : false;
     if (writeback)
         ADD(32, rn, offset >= INT8_MIN && offset < INT8_MAX ? Imm8(offset) : Imm32(offset));
 }
@@ -789,8 +834,7 @@ void Compiler::T_Comp_PUSH_POP()
     }
 
     OpArg sp = MapReg(13);
-    
-    s32 offset = Comp_MemAccessBlock(sp, regs, !load, !load, !load, false);
+    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false);
 
     ADD(32, sp, Imm8(offset)); // offset will be always be in range since PUSH accesses 9 regs max
 }
@@ -801,7 +845,7 @@ void Compiler::T_Comp_LDMIA_STMIA()
     OpArg rb = MapReg(CurInstr.T_Reg(8));
     bool load = CurInstr.Instr & (1 << 11);
 
-    s32 offset = Comp_MemAccessBlock(rb, regs, !load, false, false, false);
+    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false);
 
     if (!load || !regs[CurInstr.T_Reg(8)])
         ADD(32, rb, Imm8(offset));

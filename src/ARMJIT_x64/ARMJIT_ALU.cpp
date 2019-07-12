@@ -223,6 +223,73 @@ void Compiler::A_Comp_MovOp()
         Comp_JumpTo(rd.GetSimpleReg(), S);
 }
 
+void Compiler::A_Comp_CLZ()
+{
+    OpArg rd = MapReg(CurInstr.A_Reg(12));
+    OpArg rm = MapReg(CurInstr.A_Reg(0));
+
+    MOV(32, R(RSCRATCH), Imm32(32));
+    TEST(32, rm, rm);
+    FixupBranch skipZero = J_CC(CC_Z);
+    BSR(32, RSCRATCH, rm);
+    XOR(32, R(RSCRATCH), Imm8(0x1F)); // 31 - RSCRATCH
+    SetJumpTarget(skipZero);
+    MOV(32, rd, R(RSCRATCH));
+}
+
+void Compiler::Comp_MulOp(bool S, bool add, Gen::OpArg rd, Gen::OpArg rm, Gen::OpArg rs, Gen::OpArg rn)
+{
+    if (Num == 0)
+        Comp_AddCycles_CI(S ? 3 : 1);
+    else
+    {
+        XOR(32, R(RSCRATCH), R(RSCRATCH));
+        MOV(32, R(RSCRATCH3), rs);
+        TEST(32, R(RSCRATCH3), R(RSCRATCH3));
+        FixupBranch zeroBSR = J_CC(CC_Z);
+        BSR(32, RSCRATCH2, R(RSCRATCH3));
+        NOT(32, R(RSCRATCH3));
+        BSR(32, RSCRATCH, R(RSCRATCH3));
+        CMP(32, R(RSCRATCH2), R(RSCRATCH));
+        CMOVcc(32, RSCRATCH, R(RSCRATCH2), CC_L);
+        SHR(32, R(RSCRATCH), Imm8(3));
+        SetJumpTarget(zeroBSR); // fortunately that's even right
+        Comp_AddCycles_CI(RSCRATCH, add ? 2 : 1);
+    }
+
+    static_assert(EAX == RSCRATCH);
+    MOV(32, R(RSCRATCH), rm);
+    if (add)
+    {
+        IMUL(32, RSCRATCH, rs);
+        LEA(32, rd.GetSimpleReg(), MRegSum(RSCRATCH, rn.GetSimpleReg()));
+        TEST(32, rd, rd);
+    }
+    else
+    {
+        IMUL(32, RSCRATCH, rs);
+        MOV(32, rd, R(RSCRATCH));
+        TEST(32, R(RSCRATCH), R(RSCRATCH));
+    }
+
+    if (S)
+        Comp_RetriveFlags(false, false, false);
+}
+
+void Compiler::A_Comp_MUL_MLA()
+{
+    bool S = CurInstr.Instr & (1 << 20);
+    bool add = CurInstr.Instr & (1 << 21);
+    OpArg rd = MapReg(CurInstr.A_Reg(16));
+    OpArg rm = MapReg(CurInstr.A_Reg(0));
+    OpArg rs = MapReg(CurInstr.A_Reg(8));
+    OpArg rn;
+    if (add)
+        rn = MapReg(CurInstr.A_Reg(12));
+
+    Comp_MulOp(S, add, rd, rm, rs, rn);
+}
+
 void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
 {
     CPSRDirty = true;
@@ -453,6 +520,13 @@ void Compiler::T_Comp_ALU_Imm8()
         Comp_ArithTriOp(SUB, rd, rd, imm, false, opSetsFlags|opInvertCarry|opRetriveCV);
         return;
     }
+}
+
+void Compiler::T_Comp_MUL()
+{
+    OpArg rd = MapReg(CurInstr.T_Reg(0));
+    OpArg rs = MapReg(CurInstr.T_Reg(3));
+    Comp_MulOp(true, false, rd, rd, rs, Imm8(-1));
 }
 
 void Compiler::T_Comp_ALU()

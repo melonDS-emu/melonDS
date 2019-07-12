@@ -26,9 +26,13 @@ const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #endif
 ;
 
+int instructionPopularityARM[ARMInstrInfo::ak_Count];
+
 Compiler::Compiler()
 {
     AllocCodeSpace(1024 * 1024 * 16);
+
+    memset(instructionPopularityARM, 0, sizeof(instructionPopularityARM));
 
     for (int i = 0; i < 3; i++)
     {
@@ -47,7 +51,88 @@ Compiler::Compiler()
             MemoryFuncsSeq7[i][j][1] = Gen_MemoryRoutineSeq7(i, j, true);
         }
 
-    ResetStart = GetWritableCodePtr();
+    {
+        // RSCRATCH mode
+        // ABI_PARAM2 reg number
+        // ABI_PARAM3 value in current mode
+        // ret - ABI_PARAM3
+        ReadBanked = (void*)GetWritableCodePtr();
+        CMP(32, R(RSCRATCH), Imm8(0x11));
+        FixupBranch fiq = J_CC(CC_E);
+        SUB(32, R(ABI_PARAM2), Imm8(13 - 8));
+        FixupBranch notEverything = J_CC(CC_L);
+        CMP(32, R(RSCRATCH), Imm8(0x12));
+        FixupBranch irq = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x13));
+        FixupBranch svc = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x17));
+        FixupBranch abt = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x1B));
+        FixupBranch und = J_CC(CC_E);
+        SetJumpTarget(notEverything);
+        RET();
+
+        SetJumpTarget(fiq);
+        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_FIQ)));
+        RET();
+        SetJumpTarget(irq);
+        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_IRQ)));
+        RET();
+        SetJumpTarget(svc);
+        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_SVC)));
+        RET();
+        SetJumpTarget(abt);
+        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_ABT)));
+        RET();
+        SetJumpTarget(und);
+        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)));
+        RET();
+        }
+    {
+        // RSCRATCH  mode
+        // ABI_PARAM2 reg n
+        // ABI_PARAM3 value
+        // carry flag set if the register isn't banked
+        WriteBanked = (void*)GetWritableCodePtr();
+        CMP(32, R(RSCRATCH), Imm8(0x11));
+        FixupBranch fiq = J_CC(CC_E);
+        SUB(32, R(ABI_PARAM2), Imm8(13 - 8));
+        FixupBranch notEverything = J_CC(CC_L);
+        CMP(32, R(RSCRATCH), Imm8(0x12));
+        FixupBranch irq = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x13));
+        FixupBranch svc = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x17));
+        FixupBranch abt = J_CC(CC_E);
+        CMP(32, R(RSCRATCH), Imm8(0x1B));
+        FixupBranch und = J_CC(CC_E);
+        SetJumpTarget(notEverything);
+        STC();
+        RET();
+
+        SetJumpTarget(fiq);
+        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_FIQ)), R(ABI_PARAM3));
+        CLC();
+        RET();
+        SetJumpTarget(irq);
+        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_IRQ)), R(ABI_PARAM3));
+        CLC();
+        RET();
+        SetJumpTarget(svc);
+        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_SVC)), R(ABI_PARAM3));
+        CLC();
+        RET();
+        SetJumpTarget(abt);
+        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_ABT)), R(ABI_PARAM3));
+        CLC();
+        RET();
+        SetJumpTarget(und);
+        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)), R(ABI_PARAM3));
+        CLC();
+        RET();
+    }
+
+    ResetStart = (void*)GetWritableCodePtr();
 }
 
 void Compiler::LoadCPSR()
@@ -136,6 +221,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
         CurInstr = instrs[i];
 
         CompileFunc comp = GetCompFunc(CurInstr.Info.Kind);
+        
+        if (!Thumb)
+            instructionPopularityARM[CurInstr.Info.Kind] += comp == NULL;
 
         if (comp == NULL || i == instrsCount - 1)
         {
@@ -287,9 +375,9 @@ CompileFunc Compiler::GetCompFunc(int kind)
         // CMN
         A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
         // Mul
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        A_Comp_MUL_MLA, A_Comp_MUL_MLA, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
         // ARMv5 stuff
-        NULL, NULL, NULL, NULL, NULL,
+        A_Comp_CLZ, NULL, NULL, NULL, NULL,
         // STR
         A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
         //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -315,7 +403,7 @@ CompileFunc Compiler::GetCompFunc(int kind)
         // swap
         NULL, NULL,
         // LDM/STM
-        NULL, NULL,
+        A_Comp_LDM_STM, A_Comp_LDM_STM,
         // Branch
         A_Comp_BranchImm, A_Comp_BranchImm, A_Comp_BranchImm, A_Comp_BranchXchangeReg, A_Comp_BranchXchangeReg,
         // system stuff
@@ -333,7 +421,7 @@ CompileFunc Compiler::GetCompFunc(int kind)
         T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
         T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
         T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
-        T_Comp_ALU, NULL, T_Comp_ALU, T_Comp_ALU,
+        T_Comp_ALU, T_Comp_MUL, T_Comp_ALU, T_Comp_ALU,
         // hi reg
         T_Comp_ALU_HiReg, T_Comp_ALU_HiReg, T_Comp_ALU_HiReg,
         // pc/sp relative
@@ -385,6 +473,16 @@ void Compiler::Comp_AddCycles_CI(u32 i)
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
+}
+
+void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
+{
+    s32 cycles = Num ?
+        NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
+        : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
+    
+    LEA(32, RSCRATCH, MDisp(i, add + cycles));
+    ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
 }
 
 }

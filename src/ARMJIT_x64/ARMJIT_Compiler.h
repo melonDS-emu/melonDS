@@ -40,6 +40,7 @@ private:
 
     void Comp_AddCycles_C(bool forceNonConstant = false);
     void Comp_AddCycles_CI(u32 i);
+    void Comp_AddCycles_CI(Gen::X64Reg i, int add);
 
     enum
     {
@@ -55,6 +56,10 @@ private:
     void A_Comp_MovOp();
     void A_Comp_CmpOp();
 
+    void A_Comp_MUL_MLA();
+
+    void A_Comp_CLZ();
+    
     void A_Comp_MemWB();
     void A_Comp_MemHalf();
     void A_Comp_LDM_STM();
@@ -62,11 +67,13 @@ private:
     void A_Comp_BranchImm();
     void A_Comp_BranchXchangeReg();
 
+
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
     void T_Comp_ALU_Imm8();
     void T_Comp_ALU();
     void T_Comp_ALU_HiReg();
+    void T_Comp_MUL();
 
     void T_Comp_RelAddr();
     void T_Comp_AddSP();
@@ -88,13 +95,15 @@ private:
     void T_Comp_BL_Merged(FetchedInstr prefix);
 
     void Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size);
-    s32 Comp_MemAccessBlock(Gen::OpArg rb, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
+    s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
     void Comp_ArithTriOpReverse(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&),
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
     void Comp_CmpOp(int op, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed);
+
+    void Comp_MulOp(bool S, bool add, Gen::OpArg rd, Gen::OpArg rm, Gen::OpArg rs, Gen::OpArg rn);
 
     void Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed);
 
@@ -132,6 +141,9 @@ private:
 
     void* MemoryFuncsSeq9[2][2];
     void* MemoryFuncsSeq7[2][2][2];
+
+    void* ReadBanked;
+    void* WriteBanked;
 
     bool CPSRDirty = false;
 
