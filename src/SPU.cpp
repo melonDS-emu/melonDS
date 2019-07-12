@@ -734,6 +734,7 @@ void Mix(u32 samples)
         OutputBuffer[OutputWriteOffset + 1] = r >> 1;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
+        if (OutputWriteOffset == OutputReadOffset) printf("!! SOUND FIFO OVERFLOW\n");
     }
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);

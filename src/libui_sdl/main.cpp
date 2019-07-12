@@ -569,7 +569,7 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     int num_in = SPU::ReadOutput(buf_in, 710);
     int num_out = 1024;
-
+printf("took %d/%d samples\n", num_in, 710);
     int margin = 6;
     if (num_in < 710-margin)
     {
@@ -962,7 +962,7 @@ int EmuThreadFunc(void* burp)
             // framerate limiter based off SDL2_gfx
             float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
-            fpslimitcount++;
+            /*fpslimitcount++;
             u32 curtick = SDL_GetTicks();
             u32 delay = curtick - lasttick;
             lasttick = curtick;
@@ -978,6 +978,24 @@ int EmuThreadFunc(void* burp)
             {
                 fpslimitcount = 0;
                 starttick = curtick;
+            }*/
+
+            fpslimitcount++;
+            if (fpslimitcount >= 3)
+            {
+                u32 curtick = SDL_GetTicks();
+                u32 delay = curtick - lasttick;
+
+                bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
+
+                u32 wantedtick = lasttick + (u32)((float)fpslimitcount * framerate);
+                if (curtick < wantedtick && limitfps)
+                {
+                    SDL_Delay(wantedtick - curtick);
+                }
+
+                lasttick = SDL_GetTicks();
+                fpslimitcount = 0;
             }
 
             nframes++;
