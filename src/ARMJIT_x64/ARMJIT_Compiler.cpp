@@ -375,7 +375,7 @@ CompileFunc Compiler::GetCompFunc(int kind)
         // CMN
         A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
         // Mul
-        A_Comp_MUL_MLA, A_Comp_MUL_MLA, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+        A_Comp_MUL_MLA, A_Comp_MUL_MLA, NULL, NULL, NULL, A_Comp_SMULL_SMLAL, NULL, NULL, NULL, NULL, NULL,
         // ARMv5 stuff
         A_Comp_CLZ, NULL, NULL, NULL, NULL,
         // STR

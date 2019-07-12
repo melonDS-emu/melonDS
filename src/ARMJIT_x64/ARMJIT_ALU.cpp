@@ -290,6 +290,59 @@ void Compiler::A_Comp_MUL_MLA()
     Comp_MulOp(S, add, rd, rm, rs, rn);
 }
 
+void Compiler::A_Comp_SMULL_SMLAL()
+{
+    bool S = CurInstr.Instr & (1 << 20);
+    bool add = CurInstr.Instr & (1 << 21);
+    OpArg rd = MapReg(CurInstr.A_Reg(16));
+    OpArg rm = MapReg(CurInstr.A_Reg(0));
+    OpArg rs = MapReg(CurInstr.A_Reg(8));
+    OpArg rn = MapReg(CurInstr.A_Reg(12));
+
+    if (Num == 0)
+        Comp_AddCycles_CI(S ? 3 : 1);
+    else
+    {
+        XOR(32, R(RSCRATCH), R(RSCRATCH));
+        MOV(32, R(RSCRATCH3), rs);
+        TEST(32, R(RSCRATCH3), R(RSCRATCH3));
+        FixupBranch zeroBSR = J_CC(CC_Z);
+        BSR(32, RSCRATCH2, R(RSCRATCH3));
+        NOT(32, R(RSCRATCH3));
+        BSR(32, RSCRATCH, R(RSCRATCH3));
+        CMP(32, R(RSCRATCH2), R(RSCRATCH));
+        CMOVcc(32, RSCRATCH, R(RSCRATCH2), CC_L);
+        SHR(32, R(RSCRATCH), Imm8(3));
+        SetJumpTarget(zeroBSR); // fortunately that's even right
+        Comp_AddCycles_CI(RSCRATCH, 2);
+    }
+
+    MOVSX(64, 32, RSCRATCH2, rm);
+    MOVSX(64, 32, RSCRATCH3, rs);
+    if (add)
+    {
+        MOV(32, R(RSCRATCH), rd);
+        SHL(64, R(RSCRATCH), Imm8(32));
+        OR(64, R(RSCRATCH), rn);
+
+        IMUL(64, RSCRATCH2, R(RSCRATCH3));
+        ADD(64, R(RSCRATCH2), R(RSCRATCH));
+    }
+    else
+    {
+        IMUL(64, RSCRATCH2, R(RSCRATCH3));
+        if (S)
+            TEST(64, R(RSCRATCH2), R(RSCRATCH2));
+    }
+
+    if (S)
+        Comp_RetriveFlags(false, false, false);
+
+    MOV(32, rn, R(RSCRATCH2));
+    SHR(64, R(RSCRATCH2), Imm8(32));
+    MOV(32, rd, R(RSCRATCH2));
+}
+
 void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
 {
     CPSRDirty = true;
@@ -301,9 +354,6 @@ void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
         SETcc(sign ? CC_NC : CC_C, R(RSCRATCH3));
         LEA(32, RSCRATCH2, MComplex(RSCRATCH, RSCRATCH3, SCALE_2, 0));
     }
-
-    if (carryUsed == 983298)
-        printf("etwas ist faul im lande daenemark %x\n", CurInstr.Instr);
 
     SETcc(CC_S, R(RSCRATCH));
     SETcc(CC_Z, R(RSCRATCH3));
