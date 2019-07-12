@@ -328,7 +328,7 @@ CompileFunc Compiler::GetCompFunc(int kind)
 {
     // this might look like waste of space, so many repeatitions, but it's invaluable for debugging.
     // see ARMInstrInfo.h for the order
-    const CompileFunc A_Comp[ARMInstrInfo::ak_Count] =
+    CompileFunc const A_Comp[ARMInstrInfo::ak_Count] =
     {
         // AND
         A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
@@ -410,7 +410,7 @@ CompileFunc Compiler::GetCompFunc(int kind)
         NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     };
 
-    const CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
+    CompileFunc const T_Comp[ARMInstrInfo::tk_Count] = {
         // Shift imm
         T_Comp_ShiftImm, T_Comp_ShiftImm, T_Comp_ShiftImm,
         // Three operand ADD/SUB
