@@ -753,8 +753,10 @@ void GPU2D::DrawScanline(u32 line)
 
     case 1: // regular display
         {
-            for (int i = 0; i < stride; i+=2)
+            int i = 0;
+            for (; i < (stride & ~1); i+=2)
                 *(u64*)&dst[i] = *(u64*)&BGOBJLine[i];
+            if (stride & 1) dst[i] = BGOBJLine[i];
         }
         break;
 

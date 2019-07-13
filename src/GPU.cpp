@@ -284,6 +284,7 @@ void SetDisplaySettings(bool accel)
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+
     Framebuffer[0][0] = new u32[fbsize];
     Framebuffer[1][0] = new u32[fbsize];
     Framebuffer[0][1] = new u32[fbsize];
