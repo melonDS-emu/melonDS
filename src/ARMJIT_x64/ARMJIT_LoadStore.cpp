@@ -464,9 +464,6 @@ void printStuff2(u32 a, u32 b)
 
 s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
 {
-    FILE* f;
-    const u8* start = GetCodePtr();
-
     int regsCount = regs.Count();
 
     if (decrement)
@@ -482,11 +479,12 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     u32 cycles = Num
             ? NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
             : (R15 & 0x2 ? 0 : CurInstr.CodeCycles);
+
     MOV(32, R(ABI_PARAM4), Imm32(cycles));
     if (!store)
     {
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
-        SUB(32, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
+        SUB(64, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
         MOV(64, R(ABI_PARAM2), R(RSP));
 
         CALL(Num == 0
@@ -581,14 +579,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             ? MemoryFuncsSeq9[1][preinc]
             : MemoryFuncsSeq7[1][preinc][CodeRegion == 0x02]);
 
-        ADD(32, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
-    }
-
-    if (usermode && !store)
-    {
-        f= fopen("ldm", "a");
-        fwrite(start, GetCodePtr() - start, 1, f);
-        fclose(f);
+        ADD(64, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
     }
 
     return offset;

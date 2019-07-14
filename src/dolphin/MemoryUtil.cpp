@@ -6,15 +6,9 @@
 #include <cstdlib>
 #include <string>
 
-#define PanicAlert(fmt, ...) \
-  do \
-  { \
-    printf(fmt "\n", ## __VA_ARGS__); \
-    abort(); \
-  } while (false)
-
 #include "../types.h"
 #include "CommonFuncs.h"
+#include "Log.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -39,8 +33,6 @@ namespace Common
 
 void* AllocateExecutableMemory(size_t size)
 {
-  printf("c\n");
-
 #if defined(_WIN32)
   void* ptr = VirtualAlloc(nullptr, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #else
@@ -50,12 +42,9 @@ void* AllocateExecutableMemory(size_t size)
   if (ptr == MAP_FAILED)
     ptr = nullptr;
 #endif
-  printf("a\n");
 
   if (ptr == nullptr)
     PanicAlert("Failed to allocate executable memory");
-
-  printf("b\n");
 
   return ptr;
 }

@@ -118,7 +118,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 
     if (setupRegion)
     {
-        MOV(32, R(ABI_PARAM1), R(RCPU));
+        MOV(64, R(ABI_PARAM1), R(RCPU));
         MOV(32, R(ABI_PARAM2), Imm32(newPC));
         CALL((void*)&ARMv5::SetupCodeMem);
     }

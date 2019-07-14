@@ -6,8 +6,6 @@
 #include "../ARMJIT.h"
 #include "../ARMJIT_RegisterCache.h"
 
-#include <tuple>
-
 namespace ARMJIT
 {
 
@@ -18,9 +16,6 @@ const Gen::X64Reg RSCRATCH = Gen::EAX;
 const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
 
-class Compiler;
-
-typedef void (Compiler::*CompileFunc)();
 
 class Compiler : public Gen::X64CodeBlock
 {
@@ -32,8 +27,7 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
-private:
-    CompileFunc GetCompFunc(int kind);
+    typedef void (Compiler::*CompileFunc)();
 
     void Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR = false);
     void Comp_JumpTo(u32 addr, bool forceNonConstantCycles = false);
