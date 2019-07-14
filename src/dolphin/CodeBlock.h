@@ -49,15 +49,6 @@ public:
   CodeBlock(CodeBlock&&) = delete;
   CodeBlock& operator=(CodeBlock&&) = delete;
 
-  // Call this before you generate any code.
-  void AllocCodeSpace(size_t size)
-  {
-    region_size = size;
-    total_region_size = size;
-    region = static_cast<u8*>(Common::AllocateExecutableMemory(total_region_size));
-    T::SetCodePtr(region);
-  }
-
   // Always clear code space with breakpoints, so that if someone accidentally executes
   // uninitialized, it just breaks into the debugger.
   void ClearCodeSpace()
@@ -66,26 +57,8 @@ public:
     ResetCodePtr();
   }
 
-  // Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-  void FreeCodeSpace()
-  {
-    ASSERT(!m_is_child);
-    Common::FreeMemoryPages(region, total_region_size);
-    region = nullptr;
-    region_size = 0;
-    total_region_size = 0;
-    for (CodeBlock* child : m_children)
-    {
-      child->region = nullptr;
-      child->region_size = 0;
-      child->total_region_size = 0;
-    }
-  }
-
   bool IsInSpace(const u8* ptr) const { return ptr >= region && ptr < (region + region_size); }
-  // Cannot currently be undone. Will write protect the entire code region.
-  // Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-  void WriteProtect() { Common::WriteProtectMemory(region, region_size, true); }
+
   void ResetCodePtr() { T::SetCodePtr(region); }
   size_t GetSpaceLeft() const
   {
