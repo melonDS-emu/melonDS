@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "Config.h"
+
 #include "ARMJIT_x64/ARMJIT_Compiler.h"
 
 namespace ARMJIT
@@ -125,18 +127,21 @@ CompiledBlock CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
 
-    FetchedInstr instrs[12];
+	if (Config::JIT_MaxBlockSize < 1)
+		Config::JIT_MaxBlockSize = 1;
+	if (Config::JIT_MaxBlockSize > 32)
+		Config::JIT_MaxBlockSize = 32;
+
+    FetchedInstr instrs[Config::JIT_MaxBlockSize];
     int i = 0;
-	u32 r15Initial = cpu->R[15];
+	u32 blockAddr = cpu->R[15] - (thumb ? 2 : 4);
     u32 r15 = cpu->R[15];
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
-    //printf("block %x %d\n", r15, thumb);
     do
     {
         r15 += thumb ? 2 : 4;
 
         instrs[i].Instr = nextInstr[0];
-        //printf("%x %x\n", instrs[i].Instr, r15);
         instrs[i].NextInstr[0] = nextInstr[0] = nextInstr[1];
 
         if (cpu->Num == 0)
@@ -166,16 +171,16 @@ CompiledBlock CompileBlock(ARM* cpu)
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
 
         i++;
-    } while(!instrs[i - 1].Info.Branches() && i < 10);
+    } while(!instrs[i - 1].Info.Branches() && i < Config::JIT_MaxBlockSize);
 
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
-    InsertBlock(cpu->Num, r15Initial - (thumb ? 2 : 4), block);
+    InsertBlock(cpu->Num, blockAddr, block);
 
 	return block;
 }
 
-void ResetBlocks()
+void InvalidateBlockCache()
 {
 	memset(cache.MainRAM, 0, sizeof(cache.MainRAM));
 	memset(cache.SWRAM, 0, sizeof(cache.SWRAM));
@@ -185,6 +190,8 @@ void ResetBlocks()
 	memset(cache.ARM7_BIOS, 0, sizeof(cache.ARM7_BIOS));
 	memset(cache.ARM7_WRAM, 0, sizeof(cache.ARM7_WRAM));
 	memset(cache.ARM7_WVRAM, 0, sizeof(cache.ARM7_WVRAM));
+
+	compiler->Reset();
 }
 
 }

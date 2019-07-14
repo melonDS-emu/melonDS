@@ -52,6 +52,7 @@ public:
     }
 
     virtual void Execute() = 0;
+    virtual void ExecuteJIT() = 0;
 
     bool CheckCondition(u32 code)
     {
@@ -159,6 +160,7 @@ public:
     void DataAbort();
 
     void Execute();
+    void ExecuteJIT();
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -281,6 +283,7 @@ public:
     void JumpTo(u32 addr, bool restorecpsr = false);
 
     void Execute();
+    void ExecuteJIT();
 
     u16 CodeRead16(u32 addr)
     {

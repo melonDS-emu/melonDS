@@ -37,6 +37,9 @@ char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
 char DSiNANDPath[1024];
 
+bool JIT_Enable = false;
+int JIT_MaxBlockSize = 12;
+
 ConfigEntry ConfigFile[] =
 {
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
@@ -47,6 +50,9 @@ ConfigEntry ConfigFile[] =
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
+
+    {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
+    {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 10, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

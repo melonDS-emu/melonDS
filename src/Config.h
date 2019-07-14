@@ -51,6 +51,9 @@ extern char DSiBIOS7Path[1024];
 extern char DSiFirmwarePath[1024];
 extern char DSiNANDPath[1024];
 
+extern bool JIT_Enable;
+extern int JIT_MaxBlockSize;
+
 }
 
 #endif // CONFIG_H
