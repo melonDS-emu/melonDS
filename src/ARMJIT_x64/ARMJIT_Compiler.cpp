@@ -336,13 +336,15 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 };
 #undef F
 
+void Compiler::Reset()
+{
+    SetCodePtr((u8*)ResetStart);
+}
+
 CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount)
 {
     if (IsAlmostFull())
-    {
-        ResetBlocks();
-        SetCodePtr((u8*)ResetStart);
-    }
+        InvalidateBlockCache();
 
     CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
 
@@ -355,7 +357,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     bool mergedThumbBL = false;
 
-    ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~RSP), 8);
+    ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
 
     MOV(64, R(RCPU), ImmPtr(cpu));
 
@@ -469,7 +471,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     MOV(32, R(RAX), Imm32(ConstantCycles));
 
-    ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~RSP), 8);
+    ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
     RET();
 
     return res;

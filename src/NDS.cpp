@@ -524,7 +524,7 @@ void Reset()
     KeyCnt = 0;
     RCnt = 0;
 
-    ARMJIT::ResetBlocks();
+    ARMJIT::InvalidateBlockCache();
 
     NDSCart::Reset();
     GBACart::Reset();
@@ -741,6 +741,11 @@ bool DoSavestate(Savestate* file)
         GPU::SetPowerCnt(PowerControl9);
     }
 
+    if (!file->Saving)
+    {
+        ARMJIT::InvalidateBlockCache();
+    }
+
     return true;
 }
 
@@ -826,6 +831,7 @@ void RunSystem(u64 timestamp)
     }
 }
 
+template <bool EnableJIT>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -858,7 +864,10 @@ u32 RunFrame()
         }
         else
         {
-            ARM9->Execute();
+            if (EnableJIT)
+                ARM9->ExecuteJIT();
+            else
+                ARM9->Execute();
         }
 
         RunTimers(0);
@@ -880,7 +889,10 @@ u32 RunFrame()
             }
             else
             {
-                ARM7->Execute();
+                if (EnableJIT)
+                    ARM7->ExecuteJIT();
+                else
+                    ARM7->Execute();
             }
 
             RunTimers(1);
@@ -908,6 +920,14 @@ u32 RunFrame()
     NumFrames++;
 
     return GPU::TotalScanlines;
+}
+
+u32 RunFrame()
+{
+    if (Config::JIT_Enable)
+        return RunFrame<true>();
+    else
+        return RunFrame<false>();
 }
 
 void Reschedule(u64 target)

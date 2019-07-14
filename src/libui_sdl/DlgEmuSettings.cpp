@@ -57,10 +57,20 @@ void OnOk(uiButton* btn, void* blarg)
 {
     Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
 
+    Config::JIT_Enable = uiCheckboxChecked(cbJITEnabled);
+    long blockSize = strtol(uiEntryText(enJITMaxBlockSize), NULL, 10);
+    if (blockSize < 1)
+        blockSize = 1;
+    if (blockSize > 32)
+        blockSize = 32;
+    Config::JIT_MaxBlockSize = blockSize;
+
     Config::Save();
 
     uiControlDestroy(uiControl(win));
     opened = false;
+
+    ApplyNewSettings(4);
 }
 
 void OnJITStateChanged(uiCheckbox* cb, void* blarg)
@@ -143,6 +153,12 @@ void Open()
 
     uiCheckboxSetChecked(cbDirectBoot, Config::DirectBoot);
 
+    uiCheckboxSetChecked(cbJITEnabled, Config::JIT_Enable);
+    {
+        char maxBlockSizeStr[10];
+        sprintf(maxBlockSizeStr, "%d", Config::JIT_MaxBlockSize);
+        uiEntrySetText(enJITMaxBlockSize, maxBlockSizeStr);
+    }
     OnJITStateChanged(cbJITEnabled, NULL);
 
     uiControlShow(uiControl(win));
