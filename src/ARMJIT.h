@@ -111,7 +111,7 @@ void DeInit();
 
 CompiledBlock CompileBlock(ARM* cpu);
 
-void ResetBlocks();
+void InvalidateBlockCache();
 
 }
 

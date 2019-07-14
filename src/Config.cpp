@@ -34,6 +34,9 @@ int Threaded3D;
 int GL_ScaleFactor;
 int GL_Antialias;
 
+bool JIT_Enable = false;
+int JIT_MaxBlockSize = 12;
+
 ConfigEntry ConfigFile[] =
 {
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
@@ -41,6 +44,9 @@ ConfigEntry ConfigFile[] =
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+
+    {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
+    {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 10, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

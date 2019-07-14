@@ -478,7 +478,7 @@ void ARMv5::Execute()
 
     while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
-        /*if (CPSR & 0x20) // THUMB
+        if (CPSR & 0x20) // THUMB
         {
             // prefetch
             R[15] += 2;
@@ -511,14 +511,8 @@ void ARMv5::Execute()
             }
             else
                 AddCycles_C();
-        }*/
-
-        /*if (!ARMJIT::IsMapped(0, R[15] - ((CPSR&0x20)?2:4)))
-            printf("aaarg ungempappter raum %x\n", R[15]);*/
-
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, R[15] - ((CPSR&0x20)?2:4));
-        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
-        
+        }
+ 
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -533,6 +527,58 @@ void ARMv5::Execute()
             if (NDS::IME[0] & 0x1)
                 TriggerIRQ();
         }*/
+        if (IRQ) TriggerIRQ();
+
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+}
+
+void ARMv5::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(0))
+        {
+            Halted = 0;
+            if (NDS::IME[0] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM9Timestamp < NDS::ARM9Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+        if (!ARMJIT::IsMapped(0, instrAddr))
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            printf("ARMv5 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, instrAddr);
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+
+        if (Halted)
+        {
+            if (Halted == 1 && NDS::ARM9Timestamp < NDS::ARM9Target)
+            {
+                NDS::ARM9Timestamp = NDS::ARM9Target;
+            }
+            break;
+        }
         if (IRQ) TriggerIRQ();
 
         NDS::ARM9Timestamp += Cycles;
@@ -566,7 +612,7 @@ void ARMv4::Execute()
 
     while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
-        /*if (CPSR & 0x20) // THUMB
+        if (CPSR & 0x20) // THUMB
         {
             // prefetch
             R[15] += 2;
@@ -594,13 +640,7 @@ void ARMv4::Execute()
             }
             else
                 AddCycles_C();
-        }*/
-
-        /*if (!ARMJIT::IsMapped(1, R[15] - ((CPSR&0x20)?2:4)))
-            printf("aaarg ungempappter raum %x\n", R[15]);*/
-
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, R[15] - ((CPSR&0x20)?2:4));
-        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+        }
 
         // TODO optimize this shit!!!
         if (Halted)
@@ -616,6 +656,59 @@ void ARMv4::Execute()
             if (NDS::IME[1] & 0x1)
                 TriggerIRQ();
         }*/
+        if (IRQ) TriggerIRQ();
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+}
+
+void ARMv4::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(1))
+        {
+            Halted = 0;
+            if (NDS::IME[1] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM7Timestamp < NDS::ARM7Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+        if (!ARMJIT::IsMapped(1, instrAddr))
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            printf("ARMv4 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, instrAddr);
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+
+        // TODO optimize this shit!!!
+        if (Halted)
+        {
+            if (Halted == 1 && NDS::ARM7Timestamp < NDS::ARM7Target)
+            {
+                NDS::ARM7Timestamp = NDS::ARM7Target;
+            }
+            break;
+        }
+
         if (IRQ) TriggerIRQ();
 
         NDS::ARM7Timestamp += Cycles;

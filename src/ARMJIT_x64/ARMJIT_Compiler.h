@@ -22,6 +22,8 @@ class Compiler : public Gen::X64CodeBlock
 public:
     Compiler();
 
+    void Reset();
+
     CompiledBlock CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
