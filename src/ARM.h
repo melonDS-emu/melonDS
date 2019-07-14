@@ -52,7 +52,9 @@ public:
     }
 
     virtual void Execute() = 0;
+#ifdef ENABLE_JIT
     virtual void ExecuteJIT() = 0;
+#endif
 
     bool CheckCondition(u32 code)
     {
@@ -152,7 +154,9 @@ public:
     void DataAbort();
 
     void Execute();
+#ifdef JIT_ENABLED
     void ExecuteJIT();
+#endif
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -270,7 +274,9 @@ public:
     void JumpTo(u32 addr, bool restorecpsr = false);
 
     void Execute();
+#ifdef JIT_ENABLED
     void ExecuteJIT();
+#endif
 
     u16 CodeRead16(u32 addr)
     {

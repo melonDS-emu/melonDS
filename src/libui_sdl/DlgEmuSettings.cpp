@@ -38,8 +38,10 @@ uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
 
+#ifdef JIT_ENABLED
 uiCheckbox* cbJITEnabled;
 uiEntry* enJITMaxBlockSize;
+#endif
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
@@ -57,13 +59,17 @@ void OnOk(uiButton* btn, void* blarg)
 {
     Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
 
+#ifdef JIT_ENABLED
     Config::JIT_Enable = uiCheckboxChecked(cbJITEnabled);
-    long blockSize = strtol(uiEntryText(enJITMaxBlockSize), NULL, 10);
+    char* maxBlockSizeStr = uiEntryText(enJITMaxBlockSize);
+    long blockSize = strtol(maxBlockSizeStr, NULL, 10);
+    uiFreeText(maxBlockSizeStr);
     if (blockSize < 1)
         blockSize = 1;
     if (blockSize > 32)
         blockSize = 32;
     Config::JIT_MaxBlockSize = blockSize;
+#endif
 
     Config::Save();
 
@@ -73,6 +79,7 @@ void OnOk(uiButton* btn, void* blarg)
     ApplyNewSettings(4);
 }
 
+#ifdef JIT_ENABLED
 void OnJITStateChanged(uiCheckbox* cb, void* blarg)
 {
     if (uiCheckboxChecked(cb))
@@ -80,6 +87,7 @@ void OnJITStateChanged(uiCheckbox* cb, void* blarg)
     else
         uiControlDisable(uiControl(enJITMaxBlockSize));
 }
+#endif
 
 void Open()
 {
@@ -90,7 +98,7 @@ void Open()
     }
 
     opened = true;
-    win = uiNewWindow("Emu settings - melonDS", 300, 170, 0, 0, 0);
+    win = uiNewWindow("Emu settings - melonDS", 300, 50, 0, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 
@@ -105,6 +113,7 @@ void Open()
         uiBoxAppend(in_ctrl, uiControl(cbDirectBoot), 0);
     }
 
+#ifdef JIT_ENABLED
     {
         uiLabel* dummy = uiNewLabel("");
         uiBoxAppend(top, uiControl(dummy), 0);
@@ -133,6 +142,12 @@ void Open()
             uiBoxAppend(row, uiControl(enJITMaxBlockSize), 0);
         }
     }
+#endif
+
+    {
+        uiLabel* dummy = uiNewLabel("");
+        uiBoxAppend(top, uiControl(dummy), 0);
+    }
 
     {
         uiBox* in_ctrl = uiNewHorizontalBox();
@@ -153,6 +168,7 @@ void Open()
 
     uiCheckboxSetChecked(cbDirectBoot, Config::DirectBoot);
 
+#ifdef JIT_ENABLED
     uiCheckboxSetChecked(cbJITEnabled, Config::JIT_Enable);
     {
         char maxBlockSizeStr[10];
@@ -160,6 +176,7 @@ void Open()
         uiEntrySetText(enJITMaxBlockSize, maxBlockSizeStr);
     }
     OnJITStateChanged(cbJITEnabled, NULL);
+#endif
 
     uiControlShow(uiControl(win));
 }

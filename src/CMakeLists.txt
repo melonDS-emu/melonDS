@@ -27,19 +27,22 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
-
-	ARMJIT.cpp
-	ARMJIT_x64/ARMJIT_Compiler.cpp
-	ARMJIT_x64/ARMJIT_ALU.cpp
-	ARMJIT_x64/ARMJIT_LoadStore.cpp
-	ARMJIT_x64/ARMJIT_Branch.cpp
-
-	dolphin/CommonFuncs.cpp
-	dolphin/x64ABI.cpp
-	dolphin/x64CPUDetect.cpp
-	dolphin/x64Emitter.cpp
-	dolphin/MemoryUtil.cpp
 )
+
+if (ENABLE_JIT)
+	target_sources(core PRIVATE
+		ARMJIT.cpp
+		ARMJIT_x64/ARMJIT_Compiler.cpp
+		ARMJIT_x64/ARMJIT_ALU.cpp
+		ARMJIT_x64/ARMJIT_LoadStore.cpp
+		ARMJIT_x64/ARMJIT_Branch.cpp
+
+		dolphin/CommonFuncs.cpp
+		dolphin/x64ABI.cpp
+		dolphin/x64CPUDetect.cpp
+		dolphin/x64Emitter.cpp
+	)
+endif()
 
 if (WIN32)
 	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)

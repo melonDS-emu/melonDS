@@ -79,15 +79,8 @@ ARMv4::ARMv4() : ARM(1)
     //
 }
 
-namespace ARMJIT {extern int instructionPopularityARM[ARMInstrInfo::ak_Count];}
-
 void ARM::Reset()
 {
-    FILE* blabla = fopen("fhhg", "w");
-    for (int i = 0; i < ARMInstrInfo::ak_Count; i++)
-        fprintf(blabla, "%d -> %dx\n", i, ARMJIT::instructionPopularityARM[i]);
-    fclose(blabla);
-
     Cycles = 0;
     Halted = 0;
 
@@ -537,6 +530,7 @@ void ARMv5::Execute()
         Halted = 0;
 }
 
+#ifdef JIT_ENABLED
 void ARMv5::ExecuteJIT()
 {
     if (Halted)
@@ -588,6 +582,7 @@ void ARMv5::ExecuteJIT()
     if (Halted == 2)
         Halted = 0;
 }
+#endif
 
 void ARMv4::Execute()
 {
@@ -666,6 +661,7 @@ void ARMv4::Execute()
         Halted = 0;
 }
 
+#ifdef JIT_ENABLED
 void ARMv4::ExecuteJIT()
 {
     if (Halted)
@@ -718,3 +714,4 @@ void ARMv4::ExecuteJIT()
     if (Halted == 2)
         Halted = 0;
 }
+#endif

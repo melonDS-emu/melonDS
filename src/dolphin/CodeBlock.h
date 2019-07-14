@@ -9,7 +9,6 @@
 
 #include "Assert.h"
 #include "../types.h"
-#include "MemoryUtil.h"
 
 namespace Common
 {
@@ -41,8 +40,6 @@ public:
   CodeBlock() = default;
   virtual ~CodeBlock()
   {
-    if (region)
-      FreeCodeSpace();
   }
   CodeBlock(const CodeBlock&) = delete;
   CodeBlock& operator=(const CodeBlock&) = delete;
