@@ -4,12 +4,13 @@
 
 #include <stdio.h>
 
-#define PanicAlert(msg) \
-    do \
-    { \
-        printf("%s\n", msg); \
-        Crash(); \
-    } while (false)
+#define PanicAlert(fmt, ...) \
+  do \
+  { \
+    printf(fmt "\n", ## __VA_ARGS__); \
+    abort(); \
+  } while (false)
+
 
 #define DYNA_REC 0
 

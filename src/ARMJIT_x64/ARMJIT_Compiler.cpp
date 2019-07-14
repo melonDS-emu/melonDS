@@ -4,6 +4,12 @@
 
 #include <assert.h>
 
+#ifdef _WIN32
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
 using namespace Gen;
 
 namespace ARMJIT
@@ -28,9 +34,34 @@ const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 
 int instructionPopularityARM[ARMInstrInfo::ak_Count];
 
+/*
+    We'll repurpose this .bss memory
+
+ */
+u8 CodeMemory[1024 * 1024 * 32];
+
 Compiler::Compiler()
 {
-    AllocCodeSpace(1024 * 1024 * 16);
+#ifdef _WIN32
+#else
+    u64 pagesize = sysconf(_SC_PAGE_SIZE);
+#endif
+
+    u8* pageAligned = (u8*)(((u64)CodeMemory & ~(pagesize - 1)) + pagesize);
+    u64 alignedSize = (((u64)CodeMemory + sizeof(CodeMemory)) & ~(pagesize - 1)) - (u64)pageAligned;
+
+#ifdef _WIN32
+#else
+    mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+#endif
+
+    region = pageAligned;
+    region_size = alignedSize;
+    total_region_size = region_size;
+
+    ClearCodeSpace();
+
+    SetCodePtr(pageAligned);
 
     memset(instructionPopularityARM, 0, sizeof(instructionPopularityARM));
 
@@ -187,6 +218,124 @@ Gen::FixupBranch Compiler::CheckCondition(u32 cond)
     }
 }
 
+#define F(x) &Compiler::x
+const Compiler::CompileFunc A_Comp[ARMInstrInfo::ak_Count] =
+{
+    // AND
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // EOR
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // SUB
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // RSB
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // ADD
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // ADC
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // SBC
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // RSC
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // ORR
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // MOV
+    F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp),
+    F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp),
+    // BIC
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith), F(A_Comp_Arith),
+    // MVN
+    F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp),
+    F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp), F(A_Comp_MovOp),
+    // TST
+    F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp),
+    // TEQ
+    F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp),
+    // CMP
+    F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp),
+    // CMN
+    F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp),
+    // Mul
+    F(A_Comp_MUL_MLA), F(A_Comp_MUL_MLA), NULL, NULL, NULL, F(A_Comp_SMULL_SMLAL), NULL, NULL, NULL, NULL, NULL,
+    // ARMv5 stuff
+    F(A_Comp_CLZ), NULL, NULL, NULL, NULL,
+    // STR
+    F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB),
+    // STRB
+    F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB),
+    // LDR
+    F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB),
+    // LDRB
+    F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB), F(A_Comp_MemWB),
+    // STRH
+    F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf),
+    // LDRD, STRD never used by anything so they stay interpreted (by anything I mean the 5 games I checked)
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    // LDRH
+    F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf),
+    // LDRSB
+    F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf),
+    // LDRSH
+    F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf), F(A_Comp_MemHalf),
+    // swap
+    NULL, NULL,
+    // LDM/STM
+    F(A_Comp_LDM_STM), F(A_Comp_LDM_STM),
+    // Branch
+    F(A_Comp_BranchImm), F(A_Comp_BranchImm), F(A_Comp_BranchImm), F(A_Comp_BranchXchangeReg), F(A_Comp_BranchXchangeReg),
+    // system stuff
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+};
+
+const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
+    // Shift imm
+    F(T_Comp_ShiftImm), F(T_Comp_ShiftImm), F(T_Comp_ShiftImm),
+    // Three operand ADD/SUB
+    F(T_Comp_AddSub_), F(T_Comp_AddSub_), F(T_Comp_AddSub_), F(T_Comp_AddSub_),
+    // 8 bit imm
+    F(T_Comp_ALU_Imm8), F(T_Comp_ALU_Imm8), F(T_Comp_ALU_Imm8), F(T_Comp_ALU_Imm8),
+    // general ALU
+    F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU),
+    F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU),
+    F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU), F(T_Comp_ALU),
+    F(T_Comp_ALU), F(T_Comp_MUL), F(T_Comp_ALU), F(T_Comp_ALU),
+    // hi reg
+    F(T_Comp_ALU_HiReg), F(T_Comp_ALU_HiReg), F(T_Comp_ALU_HiReg),
+    // pc/sp relative
+    F(T_Comp_RelAddr), F(T_Comp_RelAddr), F(T_Comp_AddSP),
+    // LDR pcrel
+    F(T_Comp_LoadPCRel),
+    // LDR/STR reg offset
+    F(T_Comp_MemReg), F(T_Comp_MemReg), F(T_Comp_MemReg), F(T_Comp_MemReg),
+    // LDR/STR sign extended, half
+    F(T_Comp_MemRegHalf), F(T_Comp_MemRegHalf), F(T_Comp_MemRegHalf), F(T_Comp_MemRegHalf),
+    // LDR/STR imm offset
+    F(T_Comp_MemImm), F(T_Comp_MemImm), F(T_Comp_MemImm), F(T_Comp_MemImm),
+    // LDR/STR half imm offset
+    F(T_Comp_MemImmHalf), F(T_Comp_MemImmHalf),
+    // LDR/STR sp rel
+    F(T_Comp_MemSPRel), F(T_Comp_MemSPRel),
+    // PUSH/POP
+    F(T_Comp_PUSH_POP), F(T_Comp_PUSH_POP), 
+    // LDMIA, STMIA
+    F(T_Comp_LDMIA_STMIA), F(T_Comp_LDMIA_STMIA), 
+    // Branch
+    F(T_Comp_BCOND), F(T_Comp_BranchXchangeReg), F(T_Comp_BranchXchangeReg), F(T_Comp_B), F(T_Comp_BL_LONG_1), F(T_Comp_BL_LONG_2), 
+    // Unk, SVC
+    NULL, NULL
+};
+#undef F
+
 CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount)
 {
     if (IsAlmostFull())
@@ -206,7 +355,7 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     bool mergedThumbBL = false;
 
-    ABI_PushRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
+    ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~RSP), 8);
 
     MOV(64, R(RCPU), ImmPtr(cpu));
 
@@ -220,8 +369,10 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
         R15 += Thumb ? 2 : 4;
         CurInstr = instrs[i];
 
-        CompileFunc comp = GetCompFunc(CurInstr.Info.Kind);
-        
+        CompileFunc comp = Thumb
+            ? T_Comp[CurInstr.Info.Kind]
+            : A_Comp[CurInstr.Info.Kind];
+
         if (!Thumb)
             instructionPopularityARM[CurInstr.Info.Kind] += comp == NULL;
 
@@ -318,137 +469,10 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     MOV(32, R(RAX), Imm32(ConstantCycles));
 
-    ABI_PopRegistersAndAdjustStack({ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS}, 8, 16);
+    ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~RSP), 8);
     RET();
 
     return res;
-}
-
-CompileFunc Compiler::GetCompFunc(int kind)
-{
-    // this might look like waste of space, so many repeatitions, but it's invaluable for debugging.
-    // see ARMInstrInfo.h for the order
-    CompileFunc const A_Comp[ARMInstrInfo::ak_Count] =
-    {
-        // AND
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // EOR
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // SUB
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // RSB
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // ADD
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // ADC
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // SBC
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // RSC
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // ORR
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // MOV
-        A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp,
-        A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp,
-        // BIC
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith, A_Comp_Arith,
-        // MVN
-        A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp,
-        A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp, A_Comp_MovOp,
-        // TST
-        A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
-        // TEQ
-        A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
-        // CMP
-        A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
-        // CMN
-        A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp, A_Comp_CmpOp,
-        // Mul
-        A_Comp_MUL_MLA, A_Comp_MUL_MLA, NULL, NULL, NULL, A_Comp_SMULL_SMLAL, NULL, NULL, NULL, NULL, NULL,
-        // ARMv5 stuff
-        A_Comp_CLZ, NULL, NULL, NULL, NULL,
-        // STR
-        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
-        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        // STRB
-        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
-        // LDR
-        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
-        // LDRB
-        //NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB, A_Comp_MemWB,
-        // STRH
-        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
-        // LDRD, STRD never used by anything so they stay interpreted (by anything I mean the 5 games I checked)
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-        // LDRH
-        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
-        // LDRSB
-        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
-        // LDRSH
-        A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf, A_Comp_MemHalf,
-        // swap
-        NULL, NULL,
-        // LDM/STM
-        A_Comp_LDM_STM, A_Comp_LDM_STM,
-        // Branch
-        A_Comp_BranchImm, A_Comp_BranchImm, A_Comp_BranchImm, A_Comp_BranchXchangeReg, A_Comp_BranchXchangeReg,
-        // system stuff
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    };
-
-    CompileFunc const T_Comp[ARMInstrInfo::tk_Count] = {
-        // Shift imm
-        T_Comp_ShiftImm, T_Comp_ShiftImm, T_Comp_ShiftImm,
-        // Three operand ADD/SUB
-        T_Comp_AddSub_, T_Comp_AddSub_, T_Comp_AddSub_, T_Comp_AddSub_,
-        // 8 bit imm
-        T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8, T_Comp_ALU_Imm8,
-        // general ALU
-        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
-        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
-        T_Comp_ALU, T_Comp_ALU, T_Comp_ALU, T_Comp_ALU,
-        T_Comp_ALU, T_Comp_MUL, T_Comp_ALU, T_Comp_ALU,
-        // hi reg
-        T_Comp_ALU_HiReg, T_Comp_ALU_HiReg, T_Comp_ALU_HiReg,
-        // pc/sp relative
-        T_Comp_RelAddr, T_Comp_RelAddr, T_Comp_AddSP,
-        // LDR pcrel
-        T_Comp_LoadPCRel,
-        // LDR/STR reg offset
-        T_Comp_MemReg, T_Comp_MemReg, T_Comp_MemReg, T_Comp_MemReg,
-        // LDR/STR sign extended, half
-        T_Comp_MemRegHalf, T_Comp_MemRegHalf, T_Comp_MemRegHalf, T_Comp_MemRegHalf,
-        // LDR/STR imm offset
-        T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm, T_Comp_MemImm,
-        // LDR/STR half imm offset
-        T_Comp_MemImmHalf, T_Comp_MemImmHalf,
-        // LDR/STR sp rel
-        T_Comp_MemSPRel, T_Comp_MemSPRel,
-        // PUSH/POP
-        T_Comp_PUSH_POP, T_Comp_PUSH_POP, 
-        // LDMIA, STMIA
-        T_Comp_LDMIA_STMIA, T_Comp_LDMIA_STMIA, 
-        // Branch
-        T_Comp_BCOND, T_Comp_BranchXchangeReg, T_Comp_BranchXchangeReg, T_Comp_B, T_Comp_BL_LONG_1, T_Comp_BL_LONG_2, 
-        // Unk, SVC
-        NULL, NULL
-    };
-
-    return Thumb ? T_Comp[kind] : A_Comp[kind];
 }
 
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
