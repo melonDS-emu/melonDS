@@ -46,8 +46,10 @@ extern int Threaded3D;
 extern int GL_ScaleFactor;
 extern int GL_Antialias;
 
+#ifdef JIT_ENABLED
 extern bool JIT_Enable;
 extern int JIT_MaxBlockSize;
+#endif
 
 }
 

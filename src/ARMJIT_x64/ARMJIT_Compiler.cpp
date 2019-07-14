@@ -4,7 +4,10 @@
 
 #include <assert.h>
 
+#include "../dolphin/CommonFuncs.h"
+
 #ifdef _WIN32
+#include <windows.h>
 #else
 #include <sys/mman.h>
 #include <unistd.h>
@@ -32,8 +35,6 @@ const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #endif
 ;
 
-int instructionPopularityARM[ARMInstrInfo::ak_Count];
-
 /*
     We'll repurpose this .bss memory
 
@@ -42,28 +43,32 @@ u8 CodeMemory[1024 * 1024 * 32];
 
 Compiler::Compiler()
 {
-#ifdef _WIN32
-#else
-    u64 pagesize = sysconf(_SC_PAGE_SIZE);
-#endif
+    {
+    #ifdef _WIN32
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
 
-    u8* pageAligned = (u8*)(((u64)CodeMemory & ~(pagesize - 1)) + pagesize);
-    u64 alignedSize = (((u64)CodeMemory + sizeof(CodeMemory)) & ~(pagesize - 1)) - (u64)pageAligned;
+        u64 pageSize = (u64)sysInfo.dwPageSize;
+    #else
+        u64 pageSize = sysconf(_SC_PAGE_SIZE);
+    #endif
 
-#ifdef _WIN32
-#else
-    mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
-#endif
+        u8* pageAligned = (u8*)(((u64)CodeMemory & ~(pageSize - 1)) + pageSize);
+        u64 alignedSize = (((u64)CodeMemory + sizeof(CodeMemory)) & ~(pageSize - 1)) - (u64)pageAligned;
 
-    region = pageAligned;
-    region_size = alignedSize;
-    total_region_size = region_size;
+    #ifdef _WIN32
+        DWORD dummy;
+        VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
+    #else
+        mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+    #endif
+
+        region = pageAligned;
+        region_size = alignedSize;
+        total_region_size = region_size;
+    }
 
     ClearCodeSpace();
-
-    SetCodePtr(pageAligned);
-
-    memset(instructionPopularityARM, 0, sizeof(instructionPopularityARM));
 
     for (int i = 0; i < 3; i++)
     {
@@ -118,7 +123,7 @@ Compiler::Compiler()
         SetJumpTarget(und);
         MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)));
         RET();
-        }
+    }
     {
         // RSCRATCH  mode
         // ABI_PARAM2 reg n
@@ -163,7 +168,10 @@ Compiler::Compiler()
         RET();
     }
 
-    ResetStart = (void*)GetWritableCodePtr();
+    // move the region forward to prevent overwriting the generated functions
+    region_size -= GetWritableCodePtr() - region;
+    total_region_size = region_size;
+    region = GetWritableCodePtr();
 }
 
 void Compiler::LoadCPSR()
@@ -338,7 +346,7 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 
 void Compiler::Reset()
 {
-    SetCodePtr((u8*)ResetStart);
+    ClearCodeSpace();
 }
 
 CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount)
@@ -374,9 +382,6 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
         CompileFunc comp = Thumb
             ? T_Comp[CurInstr.Info.Kind]
             : A_Comp[CurInstr.Info.Kind];
-
-        if (!Thumb)
-            instructionPopularityARM[CurInstr.Info.Kind] += comp == NULL;
 
         if (comp == NULL || i == instrsCount - 1)
         {
