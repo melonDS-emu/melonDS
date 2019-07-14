@@ -154,13 +154,13 @@ void Compiler::A_Comp_Arith()
     switch (op)
     {
     case 0x0: // AND
-        Comp_ArithTriOp(AND, rd, rn, op2, carryUsed, opSymmetric|sFlag);
+        Comp_ArithTriOp(&Compiler::AND, rd, rn, op2, carryUsed, opSymmetric|sFlag);
         break;
     case 0x1: // EOR
-        Comp_ArithTriOp(XOR, rd, rn, op2, carryUsed, opSymmetric|sFlag);
+        Comp_ArithTriOp(&Compiler::XOR, rd, rn, op2, carryUsed, opSymmetric|sFlag);
         break;
     case 0x2: // SUB
-        Comp_ArithTriOp(SUB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry);
+        Comp_ArithTriOp(&Compiler::SUB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry);
         break;
     case 0x3: // RSB
         if (op2.IsZero())
@@ -172,25 +172,25 @@ void Compiler::A_Comp_Arith()
                 Comp_RetriveFlags(true, true, false);
         }
         else
-            Comp_ArithTriOpReverse(SUB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry);
+            Comp_ArithTriOpReverse(&Compiler::SUB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry);
         break;
     case 0x4: // ADD
-        Comp_ArithTriOp(ADD, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADD, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV);
         break;
     case 0x5: // ADC
-        Comp_ArithTriOp(ADC, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry);
+        Comp_ArithTriOp(&Compiler::ADC, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry);
         break;
     case 0x6: // SBC
-        Comp_ArithTriOp(SBB, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry|opInvertCarry);
+        Comp_ArithTriOp(&Compiler::SBB, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry|opInvertCarry);
         break;
     case 0x7: // RSC
-        Comp_ArithTriOpReverse(SBB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry|opSyncCarry);
+        Comp_ArithTriOpReverse(&Compiler::SBB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry|opSyncCarry);
         break;
     case 0xC: // ORR
-        Comp_ArithTriOp(OR, rd, rn, op2, carryUsed, opSymmetric|sFlag);
+        Comp_ArithTriOp(&Compiler::OR, rd, rn, op2, carryUsed, opSymmetric|sFlag);
         break;
     case 0xE: // BIC
-        Comp_ArithTriOp(AND, rd, rn, op2, carryUsed, sFlag|opSymmetric|opInvertOp2);
+        Comp_ArithTriOp(&Compiler::AND, rd, rn, op2, carryUsed, sFlag|opSymmetric|opInvertOp2);
         break;
     default:
         assert("unimplemented");
@@ -392,11 +392,11 @@ OpArg Compiler::Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, b
     {
         void (Compiler::*shiftOp)(int, const OpArg&, const OpArg&) = NULL;
         if (op == 0)
-            shiftOp = SHL;
+            shiftOp = &Compiler::SHL;
         else if (op == 1)
-            shiftOp = SHR;
+            shiftOp = &Compiler::SHR;
         else if (op == 2)
-            shiftOp = SAR;
+            shiftOp = &Compiler::SAR;
 
         CMP(32, R(ECX), Imm8(32));
         FixupBranch lt32 = J_CC(CC_L);
@@ -539,9 +539,9 @@ void Compiler::T_Comp_AddSub_()
     Comp_AddCycles_C();
 
     if (op & 1)
-        Comp_ArithTriOp(SUB, rd, rs, rn, false, opSetsFlags|opInvertCarry|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::SUB, rd, rs, rn, false, opSetsFlags|opInvertCarry|opRetriveCV);
     else
-        Comp_ArithTriOp(ADD, rd, rs, rn, false, opSetsFlags|opSymmetric|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADD, rd, rs, rn, false, opSetsFlags|opSymmetric|opRetriveCV);
 }
 
 void Compiler::T_Comp_ALU_Imm8()
@@ -564,10 +564,10 @@ void Compiler::T_Comp_ALU_Imm8()
         Comp_CmpOp(2, rd, imm, false);
         return;
     case 0x2:
-        Comp_ArithTriOp(ADD, rd, rd, imm, false, opSetsFlags|opSymmetric|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADD, rd, rd, imm, false, opSetsFlags|opSymmetric|opRetriveCV);
         return;
     case 0x3:
-        Comp_ArithTriOp(SUB, rd, rd, imm, false, opSetsFlags|opInvertCarry|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::SUB, rd, rd, imm, false, opSetsFlags|opInvertCarry|opRetriveCV);
         return;
     }
 }
@@ -594,10 +594,10 @@ void Compiler::T_Comp_ALU()
     switch (op)
     {
     case 0x0: // AND
-        Comp_ArithTriOp(AND, rd, rd, rs, false, opSetsFlags|opSymmetric);
+        Comp_ArithTriOp(&Compiler::AND, rd, rd, rs, false, opSetsFlags|opSymmetric);
         return;
     case 0x1: // EOR
-        Comp_ArithTriOp(XOR, rd, rd, rs, false, opSetsFlags|opSymmetric);
+        Comp_ArithTriOp(&Compiler::XOR, rd, rd, rs, false, opSetsFlags|opSymmetric);
         return;
     case 0x2:
     case 0x3:
@@ -613,10 +613,10 @@ void Compiler::T_Comp_ALU()
         }
         return;
     case 0x5: // ADC
-        Comp_ArithTriOp(ADC, rd, rd, rs, false, opSetsFlags|opSymmetric|opSyncCarry|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADC, rd, rd, rs, false, opSetsFlags|opSymmetric|opSyncCarry|opRetriveCV);
         return;
     case 0x6: // SBC
-        Comp_ArithTriOp(SBB, rd, rd, rs, false, opSetsFlags|opSyncCarry|opInvertCarry|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::SBB, rd, rd, rs, false, opSetsFlags|opSyncCarry|opInvertCarry|opRetriveCV);
         return;
     case 0x8: // TST
         Comp_CmpOp(0, rd, rs, false);
@@ -634,10 +634,10 @@ void Compiler::T_Comp_ALU()
         Comp_CmpOp(3, rd, rs, false);
         return;
     case 0xC: // ORR
-        Comp_ArithTriOp(OR, rd, rd, rs, false, opSetsFlags|opSymmetric);
+        Comp_ArithTriOp(&Compiler::OR, rd, rd, rs, false, opSetsFlags|opSymmetric);
         return;
     case 0xE: // BIC
-        Comp_ArithTriOp(AND, rd, rd, rs, false, opSetsFlags|opSymmetric|opInvertOp2);
+        Comp_ArithTriOp(&Compiler::AND, rd, rd, rs, false, opSetsFlags|opSymmetric|opInvertOp2);
         return;
     case 0xF: // MVN
         if (rd != rs)
@@ -663,7 +663,7 @@ void Compiler::T_Comp_ALU_HiReg()
     switch (op)
     {
     case 0x0: // ADD
-        Comp_ArithTriOp(ADD, rdMapped, rdMapped, rs, false, opSymmetric|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADD, rdMapped, rdMapped, rs, false, opSymmetric|opRetriveCV);
         break;
     case 0x1: // CMP
         Comp_CmpOp(2, rdMapped, rs, false);
