@@ -132,7 +132,6 @@ public:
         return Gen::R(RegCache.Mapping[reg]);
     }
 
-    void* ResetStart;
     void* MemoryFuncs9[3][2];
     void* MemoryFuncs7[3][2][2];
 

@@ -169,7 +169,9 @@ bool Init()
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
+#ifdef JIT_ENABLED
     ARMJIT::Init();
+#endif
 
     DMAs[0] = new DMA(0, 0);
     DMAs[1] = new DMA(0, 1);
@@ -203,7 +205,9 @@ void DeInit()
     delete ARM9;
     delete ARM7;
 
+#ifdef JIT_ENABLED
     ARMJIT::DeInit();
+#endif
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
@@ -566,7 +570,9 @@ void Reset()
     KeyCnt = 0;
     RCnt = 0;
 
+#ifdef JIT_ENABLED
     ARMJIT::InvalidateBlockCache();
+#endif
 
     NDSCart::Reset();
     GBACart::Reset();
@@ -794,10 +800,12 @@ bool DoSavestate(Savestate* file)
         GPU::SetPowerCnt(PowerControl9);
     }
 
+#ifdef JIT_ENABLED
     if (!file->Saving)
     {
         ARMJIT::InvalidateBlockCache();
     }
+#endif
 
     return true;
 }
@@ -923,9 +931,11 @@ u32 RunFrame()
         }
         else
         {
+#ifdef JIT_ENABLED
             if (EnableJIT)
                 ARM9->ExecuteJIT();
             else
+#endif
                 ARM9->Execute();
         }
 
@@ -949,9 +959,11 @@ u32 RunFrame()
             }
             else
             {
+#ifdef JIT_ENABLED
                 if (EnableJIT)
                     ARM7->ExecuteJIT();
                 else
+#endif
                     ARM7->Execute();
             }
 
@@ -984,9 +996,11 @@ u32 RunFrame()
 
 u32 RunFrame()
 {
+#ifdef JIT_ENABLED
     if (Config::JIT_Enable)
         return RunFrame<true>();
     else
+#endif
         return RunFrame<false>();
 }
 
@@ -1998,7 +2012,9 @@ u32 ARM9Read32(u32 addr)
 
 void ARM9Write8(u32 addr, u8 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate16(0, addr);
+#endif
 
     switch (addr & 0xFF000000)
     {
@@ -2050,7 +2066,9 @@ void ARM9Write8(u32 addr, u8 val)
 
 void ARM9Write16(u32 addr, u16 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate16(0, addr);
+#endif
 
     switch (addr & 0xFF000000)
     {
@@ -2118,7 +2136,9 @@ void ARM9Write16(u32 addr, u16 val)
 
 void ARM9Write32(u32 addr, u32 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate32(0, addr);
+#endif
 
     switch (addr & 0xFF000000)
     {
@@ -2414,7 +2434,9 @@ u32 ARM7Read32(u32 addr)
 
 void ARM7Write8(u32 addr, u8 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate16(1, addr);
+#endif
 
     switch (addr & 0xFF800000)
     {
@@ -2475,7 +2497,9 @@ void ARM7Write8(u32 addr, u8 val)
 
 void ARM7Write16(u32 addr, u16 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate16(1, addr);
+#endif
 
     switch (addr & 0xFF800000)
     {
@@ -2546,7 +2570,9 @@ void ARM7Write16(u32 addr, u16 val)
 
 void ARM7Write32(u32 addr, u32 val)
 {
+#ifdef JIT_ENABLED
     ARMJIT::Invalidate32(1, addr);
+#endif
 
     switch (addr & 0xFF800000)
     {

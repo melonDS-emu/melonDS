@@ -37,8 +37,10 @@ char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
 char DSiNANDPath[1024];
 
+#ifdef JIT_ENABLED
 bool JIT_Enable = false;
 int JIT_MaxBlockSize = 12;
+#endif
 
 ConfigEntry ConfigFile[] =
 {
@@ -51,8 +53,10 @@ ConfigEntry ConfigFile[] =
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
 
+#ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 10, NULL, 0},
+#endif
 
     {"", -1, NULL, 0, NULL, 0}
 };
