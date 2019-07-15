@@ -359,10 +359,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         }
 
         if (data & A_Link)
-        {
             res.DstRegs |= 1 << 14;
-            res.SrcRegs |= 1 << 15;
-        }
 
         if (res.Kind == ak_LDM)
             res.DstRegs |= instr & (1 << 15); // this is right
