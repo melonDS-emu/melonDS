@@ -187,9 +187,10 @@ void Compiler::A_Comp_BranchImm()
 void Compiler::A_Comp_BranchXchangeReg()
 {
     OpArg rn = MapReg(CurInstr.A_Reg(0));
+    MOV(32, R(RSCRATCH), rn);
     if ((CurInstr.Instr & 0xF0) == 0x30) // BLX_reg
         MOV(32, MapReg(14), Imm32(R15 - 4));
-    Comp_JumpTo(rn.GetSimpleReg());
+    Comp_JumpTo(RSCRATCH);
 }
 
 void Compiler::T_Comp_BCOND()
