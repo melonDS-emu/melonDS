@@ -480,11 +480,14 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             ? NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
             : (R15 & 0x2 ? 0 : CurInstr.CodeCycles);
 
+    // we need to make sure that the stack stays aligned to 16 bytes
+    u32 stackAlloc = ((regsCount + 1) & ~1) * 8;
+
     MOV(32, R(ABI_PARAM4), Imm32(cycles));
     if (!store)
     {
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
-        SUB(64, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
+        SUB(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
         MOV(64, R(ABI_PARAM2), R(RSP));
 
         CALL(Num == 0
@@ -508,7 +511,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     POP(ABI_PARAM3);
                     CALL(WriteBanked);
                     FixupBranch sucessfulWritten = J_CC(CC_NC);
-                    if (RegCache.Mapping[reg] != INVALID_REG && RegCache.DirtyRegs & (1 << reg))
+                    if (RegCache.Mapping[reg] != INVALID_REG)
                         MOV(32, R(RegCache.Mapping[reg]), R(ABI_PARAM3));
                     SaveReg(reg, ABI_PARAM3);
                     SetJumpTarget(sucessfulWritten);
@@ -529,6 +532,9 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             }
         }
 
+        if (regsCount & 1)
+            POP(RSCRATCH);
+
         if (regs[15])
         {
             if (Num == 1)
@@ -543,6 +549,9 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     }
     else
     {
+        if (regsCount & 1)
+            PUSH(RSCRATCH);
+
         bool firstUserMode = true;
         for (int reg : regs)
         {
@@ -572,6 +581,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 PUSH(MapReg(reg).GetSimpleReg());
             }
         }
+
         MOV(64, R(ABI_PARAM2), R(RSP));
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
 
@@ -579,7 +589,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             ? MemoryFuncsSeq9[1][preinc]
             : MemoryFuncsSeq7[1][preinc][CodeRegion == 0x02]);
 
-        ADD(64, R(RSP), regsCount < 16 ? Imm8(regsCount * 8) : Imm32(regsCount * 8));
+        ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
     }
 
     return offset;
