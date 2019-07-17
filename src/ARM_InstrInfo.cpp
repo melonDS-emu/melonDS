@@ -178,7 +178,6 @@ enum {
 
     T_ReadR13       = 1 << 9,
     T_WriteR13      = 1 << 10,
-    T_ReadR15       = 1 << 11,
 
     T_BranchAlways  = 1 << 12,
     T_ReadR14       = 1 << 13,
@@ -222,7 +221,7 @@ const u32 T_ADD_HIREG = T_WriteHi0 | T_ReadHi0 | T_ReadHi3 | tk(tk_ADD_HIREG);
 const u32 T_CMP_HIREG = T_ReadHi0 | T_ReadHi3 | tk(tk_CMP_HIREG);
 const u32 T_MOV_HIREG = T_WriteHi0 | T_ReadHi3 | tk(tk_MOV_HIREG);
 
-const u32 T_ADD_PCREL = T_Write8 | T_ReadR15 | tk(tk_ADD_PCREL);
+const u32 T_ADD_PCREL = T_Write8 | tk(tk_ADD_PCREL);
 const u32 T_ADD_SPREL = T_Write8 | T_ReadR13 | tk(tk_ADD_SPREL);
 const u32 T_ADD_SP = T_WriteR13 | tk(tk_ADD_SP);
 
@@ -257,11 +256,11 @@ const u32 T_BCOND = T_BranchAlways | tk(tk_BCOND);
 const u32 T_BX = T_BranchAlways | T_ReadHi3 | tk(tk_BX);
 const u32 T_BLX_REG = T_BranchAlways | T_WriteR14 | T_ReadHi3 | tk(tk_BLX_REG);
 const u32 T_B = T_BranchAlways | tk(tk_B);
-const u32 T_BL_LONG_1 = T_WriteR14 | T_ReadR15 | tk(tk_BL_LONG_1);
-const u32 T_BL_LONG_2 = T_BranchAlways | T_ReadR14 | T_WriteR14 | T_ReadR15 | tk(tk_BL_LONG_2);
+const u32 T_BL_LONG_1 = T_WriteR14 | tk(tk_BL_LONG_1);
+const u32 T_BL_LONG_2 = T_BranchAlways | T_ReadR14 | T_WriteR14 | tk(tk_BL_LONG_2);
 
 const u32 T_UNK = T_BranchAlways | T_WriteR14 | tk(tk_UNK);
-const u32 T_SVC = T_BranchAlways | T_WriteR14 | T_ReadR15 | tk(tk_SVC);
+const u32 T_SVC = T_BranchAlways | T_WriteR14 | tk(tk_SVC);
 
 #define INSTRFUNC_PROTO(x) u32 x
 #include "ARM_InstrTable.h"
@@ -299,8 +298,6 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.SrcRegs |= (1 << 13);
         if (data & T_WriteR13)
             res.DstRegs |= (1 << 13);
-        if (data & T_ReadR15)
-            res.SrcRegs |= (1 << 15);
         if (data & T_WriteR14)
             res.DstRegs |= (1 << 14);
         if (data & T_ReadR14)
