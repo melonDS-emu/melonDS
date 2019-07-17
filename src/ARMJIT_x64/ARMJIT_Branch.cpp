@@ -35,6 +35,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         u32 newregion = addr >> 24;
 
         u32 regionCodeCycles = cpu9->MemTimings[addr >> 12][0];
+        u32 compileTimeCodeCycles = cpu9->RegionCodeCycles;
         cpu9->RegionCodeCycles = regionCodeCycles;
 
         MOV(32, MDisp(RCPU, offsetof(ARMv5, RegionCodeCycles)), Imm32(regionCodeCycles));
@@ -53,7 +54,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             if (addr & 0x2)
             {
                 nextInstr[0] = cpu9->CodeRead32(addr-2, true) >> 16;
-                cycles += CurCPU->CodeCycles;
+                cycles += cpu9->CodeCycles;
                 nextInstr[1] = cpu9->CodeRead32(addr+2, false);
                 cycles += CurCPU->CodeCycles;
             }
@@ -61,7 +62,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             {
                 nextInstr[0] = cpu9->CodeRead32(addr, true);
                 nextInstr[1] = nextInstr[0] >> 16;
-                cycles += CurCPU->CodeCycles;
+                cycles += cpu9->CodeCycles;
             }
         }
         else
@@ -74,6 +75,10 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             nextInstr[1] = cpu9->CodeRead32(addr+4, false);
             cycles += cpu9->CodeCycles;
         }
+
+        cpu9->RegionCodeCycles = compileTimeCodeCycles;
+        if (setupRegion)
+            cpu9->SetupCodeMem(R15);
     }
     else
     {
@@ -86,26 +91,40 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         cpu7->CodeCycles = codeCycles;
 
         MOV(32, MDisp(RCPU, offsetof(ARM, CodeRegion)), Imm32(codeRegion));
-        MOV(32, MDisp(RCPU, offsetof(ARM, CodeRegion)), Imm32(codeCycles));
+        MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(codeCycles));
 
         if (addr & 0x1)
         {
             addr &= ~0x1;
             newPC = addr+2;
 
+            // this is necessary because ARM7 bios protection
+            u32 compileTimePC = CurCPU->R[15];
+            CurCPU->R[15] = newPC;
+
             nextInstr[0] = ((ARMv4*)CurCPU)->CodeRead16(addr);
             nextInstr[1] = ((ARMv4*)CurCPU)->CodeRead16(addr+2);
             cycles += NDS::ARM7MemTimings[codeCycles][0] + NDS::ARM7MemTimings[codeCycles][1];
+
+            CurCPU->R[15] = compileTimePC;
         }
         else
         {
             addr &= ~0x3;
             newPC = addr+4;
 
+            u32 compileTimePC = CurCPU->R[15];
+            CurCPU->R[15] = newPC;
+
             nextInstr[0] = cpu7->CodeRead32(addr);
             nextInstr[1] = cpu7->CodeRead32(addr+4);
             cycles += NDS::ARM7MemTimings[codeCycles][2] + NDS::ARM7MemTimings[codeCycles][3];
+
+            CurCPU->R[15] = compileTimePC;
         }
+
+        cpu7->CodeRegion = R15 >> 24;
+        cpu7->CodeCycles = addr >> 15;
     }
 
     MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(newPC));
@@ -204,7 +223,7 @@ void Compiler::T_Comp_BCOND()
     FixupBranch skipFailed = J();
     SetJumpTarget(skipExecute);
     Comp_AddCycles_C(true);
-    SetJumpTarget(skipFailed);
+   SetJumpTarget(skipFailed);
 }
 
 void Compiler::T_Comp_B()

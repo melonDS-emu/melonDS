@@ -354,14 +354,19 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     if (IsAlmostFull())
         InvalidateBlockCache();
 
-    CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
-
     ConstantCycles = 0;
     Thumb = cpu->CPSR & 0x20;
     Num = cpu->Num;
     R15 = cpu->R[15];
     CodeRegion = cpu->CodeRegion;
     CurCPU = cpu;
+
+    CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
+
+    if (!IsMapped(Num, R15 - Thumb ? 2 : 4))
+    {
+        printf("Trying to compile a block in unmapped memory\n");
+    }
 
     bool mergedThumbBL = false;
 
@@ -383,7 +388,8 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
             ? T_Comp[CurInstr.Info.Kind]
             : A_Comp[CurInstr.Info.Kind];
 
-        if (comp == NULL || i == instrsCount - 1)
+        bool isConditional = Thumb ? CurInstr.Info.Kind == ARMInstrInfo::tk_BCOND : CurInstr.Cond() < 0xE;
+        if (comp == NULL || (i == instrsCount - 1 && (!CurInstr.Info.Branches() || isConditional)))
         {
             MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(R15));
             MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
@@ -454,10 +460,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
                 else
                     (this->*comp)();
 
-                FixupBranch skipFailed;
                 if (CurInstr.Cond() < 0xE)
                 {
-                    skipFailed = J();
+                    FixupBranch skipFailed = J();
                     SetJumpTarget(skipExecute);
 
                     Comp_AddCycles_C();
