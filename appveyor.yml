@@ -1,0 +1,39 @@
+version: '{build}-{branch}'
+
+image:
+- Visual Studio 2017
+- Ubuntu1804
+
+install:
+  - cmd: |
+      set PATH=C:\msys64\mingw64\bin;C:\msys64\usr\bin;%PATH%
+      pacman --noconfirm --needed -Syu
+      pacman --noconfirm --needed -Syu
+      pacman --noconfirm --needed -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}
+  - sh: |
+      sudo apt-get update 
+      sudo apt-get -y install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
+
+build_script:
+  - cmd: |
+      mkdir build
+      cd build
+      cmake ..\ -G "MSYS Makefiles"
+      make -j 2
+  - sh: |
+      mkdir -p build
+      cd build
+      cmake ..
+      make -j$(nproc --all)
+
+after_build:
+  - cmd: |
+      ..\msys-dist.sh
+      cd dist
+      7z a ..\..\melonDS.zip *.*
+  - sh: 7z a ../melonDS.zip melonDS ../romlist.bin
+
+test: off
+
+artifacts:
+  - path: melonDS.zip
