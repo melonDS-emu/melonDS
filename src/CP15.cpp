@@ -257,8 +257,10 @@ void ARMv5::UpdatePURegions(bool update_all)
 
 void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
 {
+    printf("initialising region timings %x %x\n", addrstart, addrend);
     addrstart >>= 12;
     addrend   >>= 12;
+
 
     if (addrend == 0xFFFFF) addrend++;
 

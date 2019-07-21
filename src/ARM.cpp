@@ -102,7 +102,6 @@ void ARM::Reset()
 
 void ARMv5::Reset()
 {
-    CP15Reset();
     ARM::Reset();
 }
 
