@@ -152,11 +152,11 @@ const u32 A_BX = A_BranchAlways | A_Read0 | ak(ak_BX);
 const u32 A_BLX_REG = A_BranchAlways | A_Link | A_Read0 | ak(ak_BLX_REG);
 
 const u32 A_UNK = A_BranchAlways | A_Link | ak(ak_UNK);
-const u32 A_MSR_IMM = A_UnkOnARM7 | ak(ak_MSR_IMM);
-const u32 A_MSR_REG = A_Read0 | A_UnkOnARM7 | ak(ak_MSR_REG);
-const u32 A_MRS = A_Write12 | A_UnkOnARM7 | ak(ak_MRS);
-const u32 A_MCR = A_Read12 | A_UnkOnARM7 | ak(ak_MCR);
-const u32 A_MRC = A_Write12 | A_UnkOnARM7 | ak(ak_MRC);
+const u32 A_MSR_IMM = ak(ak_MSR_IMM);
+const u32 A_MSR_REG = A_Read0 | ak(ak_MSR_REG);
+const u32 A_MRS = A_Write12 | ak(ak_MRS);
+const u32 A_MCR = A_Read12 | ak(ak_MCR);
+const u32 A_MRC = A_Write12 | ak(ak_MRC);
 const u32 A_SVC = A_BranchAlways | A_Link | ak(ak_SVC);
 
 // THUMB
@@ -310,6 +310,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.DstRegs |= 1 << 15;
 
         res.Kind = (data >> 16) & 0x3F;
+        res.EndBlock = res.Branches();
 
         return res;
     }
@@ -323,6 +324,26 @@ Info Decode(bool thumb, u32 num, u32 instr)
             data = A_UNK;
 
         res.Kind = (data >> 13) & 0x1FF;
+
+        if (res.Kind == ak_MCR)
+        {
+            u32 cn = (instr >> 16) & 0xF;
+            u32 cm = instr & 0xF;
+            u32 cpinfo = (instr >> 5) & 0x7;
+            u32 id = (cn<<8)|(cm<<4)|cpinfo;
+            if (id == 0x704 || id == 0x782)
+                res.EndBlock |= true;
+        }
+        if (res.Kind == ak_MCR || res.Kind == ak_MRC)
+        {
+            u32 cp = ((instr >> 8) & 0xF);
+            if ((num == 0 && cp != 15) || (num == 1 && cp != 14))
+            {
+                printf("happens\n");
+                data = A_UNK;
+                res.Kind = ak_UNK;
+            }
+        }
 
         if (data & A_Read0)
             res.SrcRegs |= 1 << (instr & 0xF);
@@ -360,6 +381,8 @@ Info Decode(bool thumb, u32 num, u32 instr)
 
         if (res.Kind == ak_LDM)
             res.DstRegs |= instr & (1 << 15); // this is right
+
+        res.EndBlock |= res.Branches();
 
         return res;
     }

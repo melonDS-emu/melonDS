@@ -663,7 +663,7 @@ void Compiler::T_Comp_ALU_HiReg()
     switch (op)
     {
     case 0x0: // ADD
-        Comp_ArithTriOp(&Compiler::ADD, rdMapped, rdMapped, rs, false, opSymmetric|opRetriveCV);
+        Comp_ArithTriOp(&Compiler::ADD, rdMapped, rdMapped, rs, false, opSymmetric);
         break;
     case 0x1: // CMP
         Comp_CmpOp(2, rdMapped, rs, false);
@@ -671,8 +671,6 @@ void Compiler::T_Comp_ALU_HiReg()
     case 0x2: // MOV
         if (rdMapped != rs)
             MOV(32, rdMapped, rs);
-        TEST(32, rdMapped, rdMapped);
-        Comp_RetriveFlags(false, false, false);
         break;
     }
 

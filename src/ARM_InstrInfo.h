@@ -220,6 +220,7 @@ struct Info
     u16 DstRegs, SrcRegs;
     u16 Kind;
 
+    bool EndBlock;
     bool Branches()
     {
         return DstRegs & (1 << 15);
