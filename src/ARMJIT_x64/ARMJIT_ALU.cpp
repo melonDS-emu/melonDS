@@ -181,7 +181,7 @@ void Compiler::A_Comp_Arith()
         Comp_ArithTriOp(&Compiler::ADC, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry);
         break;
     case 0x6: // SBC
-        Comp_ArithTriOp(&Compiler::SBB, rd, rn, op2, carryUsed, opSymmetric|sFlag|opRetriveCV|opSyncCarry|opInvertCarry);
+        Comp_ArithTriOp(&Compiler::SBB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opSyncCarry|opInvertCarry);
         break;
     case 0x7: // RSC
         Comp_ArithTriOpReverse(&Compiler::SBB, rd, rn, op2, carryUsed, sFlag|opRetriveCV|opInvertCarry|opSyncCarry);
