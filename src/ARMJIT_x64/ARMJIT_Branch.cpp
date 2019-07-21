@@ -235,16 +235,23 @@ void Compiler::T_Comp_B()
 void Compiler::T_Comp_BranchXchangeReg()
 {
     bool link = CurInstr.Instr & (1 << 7);
-    if (link && Num == 1)
-    {
-        printf("BLX unsupported on ARM7!!!\n");
-        return;
-    }
 
-    OpArg rn = MapReg(CurInstr.A_Reg(3));
     if (link)
+    {
+        if (Num == 1)
+        {
+            printf("BLX unsupported on ARM7!!!\n");
+            return;
+        }
+        MOV(32, R(RSCRATCH), MapReg(CurInstr.A_Reg(3)));
         MOV(32, MapReg(14), Imm32(R15 - 1));
-    Comp_JumpTo(rn.GetSimpleReg());
+        Comp_JumpTo(RSCRATCH);
+    }
+    else
+    {
+        OpArg rn = MapReg(CurInstr.A_Reg(3));
+        Comp_JumpTo(rn.GetSimpleReg());
+    }
 }
 
 void Compiler::T_Comp_BL_LONG_1()
