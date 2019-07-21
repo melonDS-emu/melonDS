@@ -174,7 +174,7 @@ CompiledBlock CompileBlock(ARM* cpu)
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
 
         i++;
-    } while(!instrs[i - 1].Info.Branches() && i < Config::JIT_MaxBlockSize);
+    } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize);
 
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
