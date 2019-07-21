@@ -124,7 +124,6 @@ void ARMv5::Reset()
         GetMemRegion = NDS::ARM9GetMemRegion;
     }
 
-    CP15Reset();
     ARM::Reset();
 }
 

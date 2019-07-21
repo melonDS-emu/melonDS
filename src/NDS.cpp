@@ -501,6 +501,10 @@ void Reset()
         ARM9ClockShift = 1;
         MainRAMMask = 0x3FFFFF;
     }
+    // has to be called before InitTimings
+    // otherwise some PU settings are completely
+    // unitialised on the first run
+    ARM9->CP15Reset();
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
