@@ -236,7 +236,9 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][3] = S32;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend<<14);
+    ARM9->UpdateRegionTimings(addrstart<<14, addrend == 0x40000
+        ? 0xFFFFFFFF
+        : (addrend<<14));
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
@@ -429,6 +431,11 @@ void Reset()
         printf("ARM7 BIOS loaded\n");
         fclose(f);
     }
+
+    // has to be called before InitTimings
+    // otherwise some PU settings are completely
+    // unitialised on the first run
+    ARM9->CP15Reset();
 
     // TODO for later: configure this when emulating a DSi
     ARM9ClockShift = 1;
