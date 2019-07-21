@@ -363,7 +363,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
 
-    if (!IsMapped(Num, R15 - Thumb ? 2 : 4))
+    if (!(Num == 0 
+        ? IsMapped<0>(R15 - (Thumb ? 2 : 4)) 
+        : IsMapped<1>(R15 - (Thumb ? 2 : 4))))
     {
         printf("Trying to compile a block in unmapped memory\n");
     }

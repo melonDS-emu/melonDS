@@ -555,14 +555,14 @@ void ARMv5::ExecuteJIT()
     while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-        if (!ARMJIT::IsMapped(0, instrAddr))
+        if (!ARMJIT::IsMapped<0>(instrAddr))
         {
             NDS::ARM9Timestamp = NDS::ARM9Target;
             printf("ARMv5 PC in non executable region %08X\n", R[15]);
             return;
         }
 
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(0, instrAddr);
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<0>(instrAddr);
         Cycles += (block ? block : ARMJIT::CompileBlock(this))();
 
         if (Halted)
@@ -686,13 +686,13 @@ void ARMv4::ExecuteJIT()
     while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-        if (!ARMJIT::IsMapped(1, instrAddr))
+        if (!ARMJIT::IsMapped<1>(instrAddr))
         {
             NDS::ARM7Timestamp = NDS::ARM7Target;
             printf("ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock(1, instrAddr);
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<1>(instrAddr);
         Cycles += (block ? block : ARMJIT::CompileBlock(this))();
 
         // TODO optimize this shit!!!
