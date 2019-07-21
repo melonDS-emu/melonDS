@@ -47,9 +47,11 @@ struct FetchedInstr
 		a function which executes a block instructions starting from there.
 
 		The most significant 4 bits of each address is ignored. This 28 bit space is
-		divided into 0x4000 16 KB blocks, each of which a pointer to the relevant
-		place inside the before mentioned arrays. Only half of the bytes need to be
-		addressed (ARM address are aligned to 4, Thumb addresses to a 2 byte boundary).
+		divided into 0x2000 32 KB for ARM9 and 0x4000 16 KB for ARM7, each of which 
+		a pointer to the relevant place inside the afore mentioned arrays. 32 and 16 KB
+		are the sizes of the smallest contigous memory region mapped to the respective CPU.
+		Because ARM addresses are always aligned to 4 bytes and Thumb to a 2 byte boundary,
+		we only need every second half word to be adressable.
 
 		In case a memory write hits mapped memory, the function block at this
 		address is set to null, so it's recompiled the next time it's executed.
@@ -61,7 +63,8 @@ struct FetchedInstr
 
 struct BlockCache
 {
-    CompiledBlock* AddrMapping[2][0x4000] = {0};
+    CompiledBlock* AddrMapping9[0x2000] = {0};
+    CompiledBlock* AddrMapping7[0x4000] = {0};
 
     CompiledBlock MainRAM[4*1024*1024/2];
 	CompiledBlock SWRAM[0x8000/2]; // Shared working RAM
@@ -75,35 +78,63 @@ struct BlockCache
 
 extern BlockCache cache;
 
-inline bool IsMapped(u32 num, u32 addr)
+template <u32 num>
+inline bool IsMapped(u32 addr)
 {
-	return cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14];
+	if (num == 0)
+		return cache.AddrMapping9[(addr & 0xFFFFFFF) >> 15];
+	else
+		return cache.AddrMapping7[(addr & 0xFFFFFFF) >> 14];
 }
 
-inline CompiledBlock LookUpBlock(u32 num, u32 addr)
+template <u32 num>
+inline CompiledBlock LookUpBlock(u32 addr)
 {
-	return cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1];
+	if (num == 0)
+		return cache.AddrMapping9[(addr & 0xFFFFFFF) >> 15][(addr & 0x7FFF) >> 1];
+	else
+		return cache.AddrMapping7[(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1];
 }
 
-inline void Invalidate16(u32 num, u32 addr)
+template <u32 num>
+inline void Invalidate16(u32 addr)
 {
-	if (IsMapped(num, addr))
-		cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1] = NULL;
-}
-
-inline void Invalidate32(u32 num, u32 addr)
-{
-	if (IsMapped(num, addr))
+	if (IsMapped<num>(addr))
 	{
-		CompiledBlock* page = cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14];
-		page[(addr & 0x3FFF) >> 1] = NULL;
-		page[((addr + 2) & 0x3FFF) >> 1] = NULL;
+		if (num == 0)
+			cache.AddrMapping9[(addr & 0xFFFFFFF) >> 15][(addr & 0x7FFF) >> 1] = NULL;
+		else
+			cache.AddrMapping7[(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1] = NULL;
 	}
 }
 
-inline void InsertBlock(u32 num, u32 addr, CompiledBlock func)
+template <u32 num>
+inline void Invalidate32(u32 addr)
 {
-	cache.AddrMapping[num][(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1] = func;
+	if (IsMapped<num>(addr))
+	{
+		if (num == 0)
+		{
+			CompiledBlock* page = cache.AddrMapping9[(addr & 0xFFFFFFF) >> 15];
+			page[(addr & 0x7FFF) >> 1] = NULL;
+			page[((addr + 2) & 0x7FFF) >> 1] = NULL;
+		}
+		else
+		{
+			CompiledBlock* page = cache.AddrMapping7[(addr & 0xFFFFFFF) >> 14];
+			page[(addr & 0x3FFF) >> 1] = NULL;
+			page[((addr + 2) & 0x3FFF) >> 1] = NULL;
+		}
+	}
+}
+
+template <u32 num>
+inline void InsertBlock(u32 addr, CompiledBlock func)
+{
+	if (num == 0)
+		cache.AddrMapping9[(addr & 0xFFFFFFF) >> 15][(addr & 0x7FFF) >> 1] = func;
+	else
+		cache.AddrMapping7[(addr & 0xFFFFFFF) >> 14][(addr & 0x3FFF) >> 1] = func;
 }
 
 void Init();

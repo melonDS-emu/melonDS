@@ -109,11 +109,14 @@ void Init()
 {
     memset(&cache, 0, sizeof(BlockCache));
 
-    for (int cpu = 0; cpu < 2; cpu++)
-        for (int i = 0; i < 0x4000; i++)
-            cache.AddrMapping[cpu][i] = JIT_MEM[cpu][i >> 9] == -1 ? NULL :
-				(CompiledBlock*)((u8*)&cache + JIT_MEM[cpu][i >> 9])
-                + (((i << 14) & JIT_MASK[cpu][i >> 9]) >> 1);
+	for (int i = 0; i < 0x2000; i++)
+		cache.AddrMapping9[i] = JIT_MEM[0][i >> 8] == -1 ? NULL :
+			(CompiledBlock*)((u8*)&cache + JIT_MEM[0][i >> 8])
+			+ (((i << 15) & JIT_MASK[0][i >> 8]) >> 1);
+	for (int i = 0; i < 0x4000; i++)
+		cache.AddrMapping7[i] = JIT_MEM[1][i >> 9] == -1 ? NULL :
+			(CompiledBlock*)((u8*)&cache + JIT_MEM[1][i >> 9])
+			+ (((i << 14) & JIT_MASK[1][i >> 9]) >> 1);
 
 	compiler = new Compiler();
 }
@@ -175,7 +178,10 @@ CompiledBlock CompileBlock(ARM* cpu)
 
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
-    InsertBlock(cpu->Num, blockAddr, block);
+	if (cpu->Num == 0)
+    	InsertBlock<0>(blockAddr, block);
+	else
+    	InsertBlock<1>(blockAddr, block);
 
 	return block;
 }

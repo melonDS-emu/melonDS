@@ -1864,7 +1864,7 @@ u32 ARM9Read32(u32 addr)
 void ARM9Write8(u32 addr, u8 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate16(0, addr);
+    ARMJIT::Invalidate16<0>(addr);
 #endif
 
     switch (addr & 0xFF000000)
@@ -1918,7 +1918,7 @@ void ARM9Write8(u32 addr, u8 val)
 void ARM9Write16(u32 addr, u16 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate16(0, addr);
+    ARMJIT::Invalidate16<0>(addr);
 #endif
 
     switch (addr & 0xFF000000)
@@ -1988,7 +1988,7 @@ void ARM9Write16(u32 addr, u16 val)
 void ARM9Write32(u32 addr, u32 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate32(0, addr);
+    ARMJIT::Invalidate32<0>(addr);
 #endif
 
     switch (addr & 0xFF000000)
@@ -2285,7 +2285,7 @@ u32 ARM7Read32(u32 addr)
 void ARM7Write8(u32 addr, u8 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate16(1, addr);
+    ARMJIT::Invalidate16<1>(addr);
 #endif
 
     switch (addr & 0xFF800000)
@@ -2348,7 +2348,7 @@ void ARM7Write8(u32 addr, u8 val)
 void ARM7Write16(u32 addr, u16 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate16(1, addr);
+    ARMJIT::Invalidate16<1>(addr);
 #endif
 
     switch (addr & 0xFF800000)
@@ -2421,7 +2421,7 @@ void ARM7Write16(u32 addr, u16 val)
 void ARM7Write32(u32 addr, u32 val)
 {
 #ifdef JIT_ENABLED
-    ARMJIT::Invalidate32(1, addr);
+    ARMJIT::Invalidate32<1>(addr);
 #endif
 
     switch (addr & 0xFF800000)
