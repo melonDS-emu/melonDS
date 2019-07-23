@@ -709,10 +709,6 @@ void GPU2D::DrawScanline(u32 line)
     // oddly that's not the case for GPU A
     if (Num && !Enabled) forceblank = true;
 
-    // forced blank
-    // (checkme: are there still things that can run under this mode? likely not)
-    if (DispCnt & (1<<7)) forceblank = true;
-
     if (forceblank)
     {
         for (int i = 0; i < 256; i++)
@@ -1350,6 +1346,15 @@ void GPU2D::DrawScanlineBGMode6(u32 line)
 
 void GPU2D::DrawScanline_BGOBJ(u32 line)
 {
+    // forced blank disables BG/OBJ compositing
+    if (DispCnt & (1<<7))
+    {
+        for (int i = 0; i < 256; i++)
+            BGOBJLine[i] = 0xFF3F3F3F;
+
+        return;
+    }
+
     u64 backdrop;
     if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
     else     backdrop = *(u16*)&GPU::Palette[0];
