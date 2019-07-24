@@ -2069,14 +2069,19 @@ void GPU2D::DrawBG_Large(u32 line) // BG is always BG2
     u32 tilesetaddr, tilemapaddr;
     u16* pal;
 
+    // large BG sizes:
+    // 0: 512x1024
+    // 1: 1024x512
+    // 2: 512x256
+    // 3: 512x512
     u32 xmask, ymask;
     u32 yshift;
     switch (bgcnt & 0xC000)
     {
     case 0x0000: xmask = 0x1FFFF; ymask = 0x3FFFF; yshift = 9; break;
     case 0x4000: xmask = 0x3FFFF; ymask = 0x1FFFF; yshift = 10; break;
-    case 0x8000: // TODO (most likely the second size bit is just ignored)
-    case 0xC000: printf("bad BG size for large BG: %04X\n", bgcnt); return;
+    case 0x8000: xmask = 0x1FFFF; ymask = 0x0FFFF; yshift = 9; break;
+    case 0xC000: xmask = 0x1FFFF; ymask = 0x1FFFF; yshift = 9; break;
     }
 
     u32 ofxmask, ofymask;
