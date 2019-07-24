@@ -266,7 +266,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
 
         case 0x00478:
             WindowWriteAddr = (WindowWriteAddr & 0xFFFFFF00) | val;
-            WindowWrite();
+            WindowWrite(WindowWriteAddr, WindowData);
             return;
         case 0x00479: WindowWriteAddr = (WindowWriteAddr & 0xFFFF00FF) | (val << 8); return;
         case 0x0047A: WindowWriteAddr = (WindowWriteAddr & 0xFF00FFFF) | (val << 16); return;
@@ -274,7 +274,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
 
         case 0x0047C:
             WindowReadAddr = (WindowReadAddr & 0xFFFFFF00) | val;
-            WindowRead();
+            WindowData = WindowRead(WindowReadAddr);
             return;
         case 0x0047D: WindowReadAddr = (WindowReadAddr & 0xFFFF00FF) | (val << 8); return;
         case 0x0047E: WindowReadAddr = (WindowReadAddr & 0xFF00FFFF) | (val << 16); return;
@@ -487,30 +487,97 @@ void DSi_NWifi::BMI_Command()
 
     switch (cmd)
     {
+    case 0x03: // BMI_WRITE_MEMORY
+        {
+            u32 addr = MB_Read32(0);
+            u32 len = MB_Read32(0);
+            printf("BMI mem write %08X %08X\n", addr, len);
+
+            for (int i = 0; i < len; i++)
+            {
+                u8 val = Mailbox[0]->Read();
+
+                // TODO: do something with it!!
+            }
+        }
+        return;
+
+    case 0x04: // BMI_EXECUTE
+        {
+            u32 entry = MB_Read32(0);
+            u32 arg = MB_Read32(0);
+
+            printf("BMI_EXECUTE %08X %08X\n", entry, arg);
+        }
+        return;
+
+    case 0x06: // BMI_READ_SOC_REGISTER
+        {
+            u32 addr = MB_Read32(0);
+            u32 val = WindowRead(addr);
+            MB_Write32(4, val);
+        }
+        return;
+
+    case 0x07: // BMI_WRITE_SOC_REGISTER
+        {
+            u32 addr = MB_Read32(0);
+            u32 val = MB_Read32(0);
+            WindowWrite(addr, val);
+        }
+        return;
+
     case 0x08: // BMI_GET_TARGET_ID
         MB_Write32(4, 0xFFFFFFFF);
         MB_Write32(4, 0x0000000C);
-        MB_Write32(4, 0x20000118);
+        //MB_Write32(4, 0x20000118);
+        MB_Write32(4, 0x23000024); // ROM version (TODO: how to determine correct one?)
         MB_Write32(4, 0x00000002);
+        return;
+
+    case 0x0D: // BMI_LZ_STREAM_START
+        {
+            u32 addr = MB_Read32(0);
+            printf("BMI_LZ_STREAM_START %08X\n", addr);
+        }
+        return;
+
+    case 0x0E: // BMI_LZ_DATA
+        {
+            u32 len = MB_Read32(0);
+            printf("BMI LZ write %08X\n", len);
+
+            for (int i = 0; i < len; i++)
+            {
+                u8 val = Mailbox[0]->Read();
+
+                // TODO: do something with it!!
+            }
+        }
         return;
     }
 }
 
 
-void DSi_NWifi::WindowRead()
+u32 DSi_NWifi::WindowRead(u32 addr)
 {
-    printf("NWifi: window read %08X\n", WindowReadAddr);
+    printf("NWifi: window read %08X\n", addr);
 
-    switch (WindowReadAddr)
+    switch (addr)
     {
-    case 0x40EC: WindowData = 0x02000001; return;
+    case 0x40EC: // chip ID
+        // 0D000000 / 0D000001 == AR6013
+        // TODO: check firmware.bin to determine the correct value
+        return 0x0D000001;
 
     // SOC_RESET_CAUSE
-    case 0x40C0: WindowData = 2; return;
+    case 0x40C0: return 2;
     }
+
+    return 0;
 }
 
-void DSi_NWifi::WindowWrite()
+void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 {
-    printf("NWifi: window write %08X %08X\n", WindowWriteAddr, WindowData);
+    printf("NWifi: window write %08X %08X\n", addr, val);
 }

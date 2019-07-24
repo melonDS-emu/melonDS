@@ -52,8 +52,8 @@ private:
 
     void BMI_Command();
 
-    void WindowRead();
-    void WindowWrite();
+    u32 WindowRead(u32 addr);
+    void WindowWrite(u32 addr, u32 val);
 
     u32 MB_Read32(int n)
     {
