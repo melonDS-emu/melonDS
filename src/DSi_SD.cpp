@@ -185,7 +185,8 @@ void DSi_SDHost::SendData(u8* data, u32 len)
     // but if IRQ24 is thrown instantly, the handler clears IRQ0 before the
     // send-command function starts polling IRQ status
     u32 param = Num | (last << 1);
-    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 512, FinishSend, param);
+    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                       false, 512, FinishSend, param);
 }
 
 void DSi_SDHost::FinishReceive(u32 param)
@@ -199,13 +200,19 @@ void DSi_SDHost::FinishReceive(u32 param)
     if (dev) dev->ContinueTransfer();
 }
 
-void DSi_SDHost::ReceiveData(u8* data, u32 len)
+bool DSi_SDHost::ReceiveData(u8* data, u32 len)
 {
     printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
     if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
 
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
+    if ((DataFIFO[f]->Level() << 1) < len)
+    {
+        printf("%s: FIFO not full enough for a transfer (%d / %d)\n", SD_DESC, DataFIFO[f]->Level()<<1, len);
+        return false;
+    }
+
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     for (u32 i = 0; i < len; i += 2)
         *(u16*)&data[i] = DataFIFO[f]->Read();
 
@@ -213,7 +220,7 @@ void DSi_SDHost::ReceiveData(u8* data, u32 len)
 
     if (BlockCountInternal <= 1)
     {
-        printf("%s: data32 TX complete", SD_DESC);
+        printf("%s: data TX complete", SD_DESC);
 
         if (StopAction & (1<<8))
         {
@@ -232,12 +239,14 @@ void DSi_SDHost::ReceiveData(u8* data, u32 len)
     {
         BlockCountInternal--;
     }
+
+    return true;
 }
 
 
 u16 DSi_SDHost::Read(u32 addr)
 {
-    //printf("SDMMC READ %08X %08X\n", addr, NDS::GetPC(1));
+    //if(Num)printf("SDIO READ %08X %08X\n", addr, NDS::GetPC(1));
 
     switch (addr & 0x1FF)
     {
@@ -383,7 +392,7 @@ u32 DSi_SDHost::ReadFIFO32()
 
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
-    //printf("SDMMC WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
+    //if(Num)printf("SDIO WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
 
     switch (addr & 0x1FF)
     {
@@ -421,7 +430,11 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x01C: IRQStatus &= (val | 0xFFFF0000); return;
     case 0x01E: IRQStatus &= ((val << 16) | 0xFFFF); return;
     case 0x020: IRQMask = (IRQMask & 0x8B7F0000) | (val & 0x031D); return;
-    case 0x022: IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16); return;
+    case 0x022:
+        IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16);
+        if (!DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(24); // checkme
+        if (DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(25); // checkme
+        return;
 
     case 0x024: SDClock = val & 0x03FF; return;
     case 0x026:
@@ -429,6 +442,33 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         if (BlockLen16 > 0x200) BlockLen16 = 0x200;
         return;
     case 0x028: SDOption = val & 0xC1FF; return;
+
+    case 0x030: // FIFO16
+        {
+            DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+            u32 f = CurFIFO;
+            if (DataFIFO[f]->IsFull())
+            {
+                // TODO
+                printf("!!!! %s FIFO FULL\n", SD_DESC);
+                return;
+            }
+
+            DataFIFO[f]->Write(val);
+
+            if (DataFIFO[f]->Level() < (BlockLen16>>1))
+            {
+                ClearIRQ(25);
+                SetIRQ(24);
+                return;
+            }
+
+            // we completed one block, send it to the SD card
+            // TODO measure the actual delay!!
+            NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                               false, 2048, FinishReceive, Num);
+        }
+        return;
 
     case 0x0D8:
         DataCtl = (val & 0x0022);
@@ -494,13 +534,9 @@ void DSi_SDHost::WriteFIFO32(u32 val)
     }
 
     // we completed one block, send it to the SD card
-
-    //ClearIRQ(24);
-    //SetIRQ(25);
-
-    //if (dev) dev->ContinueTransfer();
     // TODO measure the actual delay!!
-    NDS::ScheduleEvent(NDS::Event_DSi_SDTransfer, false, 2048, FinishReceive, Num);
+    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                       false, 2048, FinishReceive, Num);
 }
 
 
@@ -726,7 +762,9 @@ void DSi_MMCStorage::WriteBlock(u64 addr)
     printf("SD/MMC: write block @ %08X, len=%08X\n", addr, BlockSize);
 
     u8 data[0x200];
-    Host->ReceiveData(data, BlockSize);
-    fseek(File, addr, SEEK_SET);
-    fwrite(data, 1, BlockSize, File);
+    if (Host->ReceiveData(data, BlockSize))
+    {
+        fseek(File, addr, SEEK_SET);
+        fwrite(data, 1, BlockSize, File);
+    }
 }

@@ -73,6 +73,7 @@ u64 ConsoleID;
 u8 eMMC_CID[16];
 
 u8 ITCMInit[0x8000];
+u8 ARM7Init[0x3C00];
 
 
 bool Init()
@@ -120,6 +121,9 @@ void Reset()
 
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
+    for (u32 i = 0; i < 0x3C00; i+=4)
+        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
+
     DSi_I2C::Reset();
     DSi_AES::Reset();
 
@@ -138,9 +142,16 @@ void Reset()
 
     NDS::MapSharedWRAM(3);
 
-    // TEST
-    u8 derp[16] = {0xE5, 0xCC, 0x5A, 0x8B, 0x56, 0xD0, 0xC9, 0x72, 0x9C, 0x17, 0xE8, 0xDC, 0x39, 0x12, 0x36, 0xA9};
-    for (int i = 0; i < 16; i+=4) ARM7Write32(0x03FFC580+i, *(u32*)&derp[i]);
+    u32 eaddr = 0x03FFE6E4;
+    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
+    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
+    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
+    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
+    ARM7Write16(eaddr+0x2C, 0x0001);
+    ARM7Write16(eaddr+0x2E, 0x0001);
+    ARM7Write16(eaddr+0x3C, 0x0100);
+    ARM7Write16(eaddr+0x3E, 0x40E0);
+    ARM7Write16(eaddr+0x42, 0x0001);
 }
 
 bool LoadBIOS()
@@ -328,19 +339,31 @@ bool LoadNAND()
     }
 
     memset(ITCMInit, 0, 0x8000);
+    memset(ARM7Init, 0, 0x3C00);
 
-    f = fopen("dsikeys.bin", "rb");
+    f = fopen("initmem9.bin", "rb");
     if (f)
     {
         // first 0x2524 bytes are loaded to 0x01FFC400
 
         u32 dstaddr = 0x01FFC400;
-        fread(&ITCMInit[dstaddr & 0x7FFF], 0x2524, 1, f);
+        fread(&ITCMInit[dstaddr & 0x7FFF], /*0x2524*/0x3C00, 1, f);
         fclose(f);
     }
     else
     {
-        printf("DSi keys not found\n");
+        printf("DSi ARM9 meminit not found\n");
+    }
+
+    f = fopen("initmem7.bin", "rb");
+    if (f)
+    {
+        fread(ARM7Init, 0x3C00, 1, f);
+        fclose(f);
+    }
+    else
+    {
+        printf("DSi ARM7 meminit not found\n");
     }
 
     return true;
@@ -559,7 +582,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 
 
 u8 ARM9Read8(u32 addr)
-{
+{if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 8 9 %08X %08X\n", addr, NDS::GetPC(0));
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -588,7 +611,7 @@ u8 ARM9Read8(u32 addr)
 }
 
 u16 ARM9Read16(u32 addr)
-{
+{if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 16 9 %08X %08X\n", addr, NDS::GetPC(0));
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -617,7 +640,8 @@ u16 ARM9Read16(u32 addr)
 }
 
 u32 ARM9Read32(u32 addr)
-{
+{if(addr==0x029D02D8) printf("READ SHITTY VTABLE: %08X\n", NDS::GetPC(0));
+if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 32 9 %08X %08X\n", addr, NDS::GetPC(0));
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -712,7 +736,7 @@ void ARM9Write16(u32 addr, u16 val)
 }
 
 void ARM9Write32(u32 addr, u32 val)
-{
+{if(addr==0x02B05E34) printf("VGONP. %08X, %08X\n", val, NDS::GetPC(0));
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -768,7 +792,8 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
 
 
 u8 ARM7Read8(u32 addr)
-{
+{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 8 %08X %08X\n", addr, NDS::GetPC(1));
+if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 8 7 %08X %08X\n", addr, NDS::GetPC(1));
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -797,7 +822,8 @@ u8 ARM7Read8(u32 addr)
 }
 
 u16 ARM7Read16(u32 addr)
-{
+{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 16 %08X %08X\n", addr, NDS::GetPC(1));
+if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 16 7 %08X %08X\n", addr, NDS::GetPC(1));
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -826,7 +852,8 @@ u16 ARM7Read16(u32 addr)
 }
 
 u32 ARM7Read32(u32 addr)
-{
+{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 32 %08X %08X\n", addr, NDS::GetPC(1));
+if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 32 7 %08X %08X\n", addr, NDS::GetPC(1));
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -855,7 +882,7 @@ u32 ARM7Read32(u32 addr)
 }
 
 void ARM7Write8(u32 addr, u8 val)
-{
+{if(addr==0x0228CD74) printf("RAKAKA %02X %08X\n", val, NDS::GetPC(1));
     switch (addr & 0xFF800000)
     {
     case 0x03000000:

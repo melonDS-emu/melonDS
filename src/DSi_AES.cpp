@@ -22,6 +22,7 @@
 #include "DSi_AES.h"
 #include "FIFO.h"
 #include "tiny-AES-c/aes.hpp"
+#include "Platform.h"
 
 
 namespace DSi_AES
@@ -130,6 +131,7 @@ void Reset()
 
     // initialize keys, as per GBAtek
 
+#if 0
     // slot 0: modcrypt
     *(u32*)&KeyX[0][0] = 0x746E694E;
     *(u32*)&KeyX[0][4] = 0x6F646E65;
@@ -148,6 +150,27 @@ void Reset()
     *(u32*)&KeyY[3][0] = 0x0AB9DC76;
     *(u32*)&KeyY[3][4] = 0xBD4DC4D3;
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
+#endif
+    FILE* f = Platform::OpenLocalFile("aeskeys.bin", "rb");
+    if (f)
+    {
+        fread(KeyNormal[0], 16, 1, f);
+        fread(KeyX[0], 16, 1, f);
+        fread(KeyY[0], 16, 1, f);
+        fread(KeyNormal[1], 16, 1, f);
+        fread(KeyX[1], 16, 1, f);
+        fread(KeyY[1], 16, 1, f);
+        fread(KeyNormal[2], 16, 1, f);
+        fread(KeyX[2], 16, 1, f);
+        fread(KeyY[2], 16, 1, f);
+        fread(KeyNormal[3], 16, 1, f);
+        fread(KeyX[3], 16, 1, f);
+        fread(KeyY[3], 16, 1, f);
+
+        fclose(f);
+    }
+    else
+        printf("AES: aeskeys.bin not found\n");
 }
 
 

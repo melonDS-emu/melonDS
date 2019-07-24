@@ -40,7 +40,7 @@ public:
     static void FinishReceive(u32 param);
     void SendResponse(u32 val, bool last);
     void SendData(u8* data, u32 len);
-    void ReceiveData(u8* data, u32 len);
+    bool ReceiveData(u8* data, u32 len);
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);

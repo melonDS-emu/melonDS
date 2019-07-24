@@ -43,7 +43,8 @@ enum
     Event_Sqrt,
 
     // DSi
-    Event_DSi_SDTransfer,
+    Event_DSi_SDMMCTransfer,
+    Event_DSi_SDIOTransfer,
 
     Event_MAX
 };

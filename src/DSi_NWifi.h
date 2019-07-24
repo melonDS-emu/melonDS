@@ -20,6 +20,7 @@
 #define DSI_NWIFI_H
 
 #include "DSi_SD.h"
+#include "FIFO.h"
 
 class DSi_NWifi : public DSi_SDDevice
 {
@@ -48,6 +49,32 @@ private:
 
     void ReadBlock();
     void WriteBlock();
+
+    void BMI_Command();
+
+    void WindowRead();
+    void WindowWrite();
+
+    u32 MB_Read32(int n)
+    {
+        u32 ret = Mailbox[n]->Read();
+        ret |= (Mailbox[n]->Read() << 8);
+        ret |= (Mailbox[n]->Read() << 16);
+        ret |= (Mailbox[n]->Read() << 24);
+        return ret;
+    }
+
+    void MB_Write32(int n, u32 val)
+    {
+        Mailbox[n]->Write(val & 0xFF); val >>= 8;
+        Mailbox[n]->Write(val & 0xFF); val >>= 8;
+        Mailbox[n]->Write(val & 0xFF); val >>= 8;
+        Mailbox[n]->Write(val & 0xFF);
+    }
+
+    FIFO<u8>* Mailbox[8];
+
+    u32 WindowData, WindowReadAddr, WindowWriteAddr;
 };
 
 #endif // DSI_NWIFI_H
