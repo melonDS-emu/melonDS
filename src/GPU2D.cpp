@@ -304,10 +304,22 @@ void GPU2D::Write8(u32 addr, u8 val)
 
     switch (addr & 0x00000FFF)
     {
-    case 0x000: DispCnt = (DispCnt & 0xFFFFFF00) | val; return;
-    case 0x001: DispCnt = (DispCnt & 0xFFFF00FF) | (val << 8); return;
-    case 0x002: DispCnt = (DispCnt & 0xFF00FFFF) | (val << 16); return;
-    case 0x003: DispCnt = (DispCnt & 0x00FFFFFF) | (val << 24); return;
+    case 0x000:
+        DispCnt = (DispCnt & 0xFFFFFF00) | val;
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
+    case 0x001:
+        DispCnt = (DispCnt & 0xFFFF00FF) | (val << 8);
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
+    case 0x002:
+        DispCnt = (DispCnt & 0xFF00FFFF) | (val << 16);
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
+    case 0x003:
+        DispCnt = (DispCnt & 0x00FFFFFF) | (val << 24);
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
 
     case 0x008: BGCnt[0] = (BGCnt[0] & 0xFF00) | val; return;
     case 0x009: BGCnt[0] = (BGCnt[0] & 0x00FF) | (val << 8); return;
@@ -386,8 +398,14 @@ void GPU2D::Write16(u32 addr, u16 val)
 
     switch (addr & 0x00000FFF)
     {
-    case 0x000: DispCnt = (DispCnt & 0xFFFF0000) | val; return;
-    case 0x002: DispCnt = (DispCnt & 0x0000FFFF) | (val << 16); return;
+    case 0x000:
+        DispCnt = (DispCnt & 0xFFFF0000) | val;
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
+    case 0x002:
+        DispCnt = (DispCnt & 0x0000FFFF) | (val << 16);
+        if (Num) DispCnt &= 0xC0B1FFF7;
+        return;
 
     case 0x008: BGCnt[0] = val; return;
     case 0x00A: BGCnt[1] = val; return;
@@ -519,6 +537,7 @@ void GPU2D::Write32(u32 addr, u32 val)
     {
     case 0x000:
         DispCnt = val;
+        if (Num) DispCnt &= 0xC0B1FFF7;
         return;
 
     case 0x028:
@@ -2326,8 +2345,10 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
         {
             if (DispCnt & 0x20)
             {
-                // TODO ("reserved")
-                printf("bad reserved mode\n");
+                // 'reserved'
+                // draws nothing
+
+                return;
             }
             else
             {
@@ -2559,8 +2580,10 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
         {
             if (DispCnt & 0x20)
             {
-                // TODO ("reserved")
-                printf("bad reserved mode\n");
+                // 'reserved'
+                // draws nothing
+
+                return;
             }
             else
             {
