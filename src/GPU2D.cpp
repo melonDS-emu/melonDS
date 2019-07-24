@@ -1316,12 +1316,6 @@ void GPU2D::DrawScanlineBGMode(u32 line)
 
 void GPU2D::DrawScanlineBGMode6(u32 line)
 {
-    if (Num)
-    {
-        printf("GPU2D: MODE6 ON SUB GPU???\n");
-        return;
-    }
-
     for (int i = 3; i >= 0; i--)
     {
         if ((BGCnt[2] & 0x3) == i)
@@ -1335,8 +1329,36 @@ void GPU2D::DrawScanlineBGMode6(u32 line)
         {
             if (DispCnt & 0x0100)
             {
-                if (DispCnt & 0x8)
+                if ((!Num) && (DispCnt & 0x8))
                     DrawBG_3D();
+            }
+        }
+        if ((DispCnt & 0x1000) && NumSprites)
+            InterleaveSprites(0x8000 | (i<<16));
+    }
+}
+
+void GPU2D::DrawScanlineBGMode7(u32 line)
+{
+    // mode 7 only has text-mode BG0 and BG1
+
+    for (int i = 3; i >= 0; i--)
+    {
+        if ((BGCnt[1] & 0x3) == i)
+        {
+            if (DispCnt & 0x0200)
+            {
+                DrawBG_Text(line, 1);
+            }
+        }
+        if ((BGCnt[0] & 0x3) == i)
+        {
+            if (DispCnt & 0x0100)
+            {
+                if ((!Num) && (DispCnt & 0x8))
+                    DrawBG_3D();
+                else
+                    DrawBG_Text(line, 0);
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
@@ -1376,7 +1398,6 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     else
         memset(WindowMask, 0xFF, 256);
 
-    // TODO: what happens in mode 7? mode 6 on the sub engine?
     switch (DispCnt & 0x7)
     {
     case 0: DrawScanlineBGMode<0>(line); break;
@@ -1386,6 +1407,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     case 4: DrawScanlineBGMode<4>(line); break;
     case 5: DrawScanlineBGMode<5>(line); break;
     case 6: DrawScanlineBGMode6(line); break;
+    case 7: DrawScanlineBGMode7(line); break;
     }
 
     // color special effects

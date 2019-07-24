@@ -135,6 +135,7 @@ private:
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
+    void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
