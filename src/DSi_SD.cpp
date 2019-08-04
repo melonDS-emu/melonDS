@@ -191,7 +191,7 @@ void DSi_SDHost::FinishSend(u32 param)
 
 u32 DSi_SDHost::SendData(u8* data, u32 len)
 {
-    printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
+    //printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
     if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     bool last = (BlockCountInternal == 0);
@@ -796,7 +796,7 @@ void DSi_MMCStorage::ContinueTransfer()
 
 u32 DSi_MMCStorage::ReadBlock(u64 addr)
 {
-    printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
+    //printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
 
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);

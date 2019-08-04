@@ -22,6 +22,7 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "GPU.h"
+#include "NDSCart.h"
 #include "Platform.h"
 
 #include "DSi_NDMA.h"
@@ -577,6 +578,22 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
         case 2: NWRAMMask[cpu][num] = 0x3; break;
         case 3: NWRAMMask[cpu][num] = 0x7; break;
         }
+    }
+}
+
+
+void Set_SCFG_MC(u32 val)
+{
+    u32 oldslotstatus = SCFG_MC & 0xC;
+
+    val &= 0xFFFF800C;
+    if ((val & 0xC) == 0xC) val &= ~0xC; // hax
+    if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
+    SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
+
+    if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
+    {
+        NDSCart::ResetCart();
     }
 }
 
@@ -1455,10 +1472,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04004010:
-        val &= 0x800C;
-        if ((val & 0xC) == 0xC) val &= ~0xC; // hax
-        if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
-        SCFG_MC = (SCFG_MC & ~0x800C) | val;
+        Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
         return;
     }
 
@@ -1491,10 +1505,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         printf("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
-        val &= 0xFFFF800C;
-        if ((val & 0xC) == 0xC) val &= ~0xC; // hax
-        if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
-        SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
+        Set_SCFG_MC(val);
         return;
 
     case 0x04004054: MapNWRAMRange(1, 0, val); return;
