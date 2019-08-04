@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "DSi.h"
+#include "SPI.h"
 #include "DSi_SPI_TSC.h"
 
 
@@ -27,10 +28,11 @@ namespace DSi_SPI_TSC
 
 u32 DataPos;
 u8 Index;
-u8 Mode;
+u8 Bank;
 u8 Data;
 
-u8 Mode3Regs[0x80];
+u8 Bank3Regs[0x80];
+u8 TSCMode;
 
 u16 TouchX, TouchY;
 
@@ -48,21 +50,23 @@ void Reset()
 {
     DataPos = 0;
 
-    Mode = 0;
+    Bank = 0;
     Index = 0;
     Data = 0;
 
-    memset(Mode3Regs, 0, 0x80);
-    Mode3Regs[0x02] = 0x18;
-    Mode3Regs[0x03] = 0x87;
-    Mode3Regs[0x04] = 0x22;
-    Mode3Regs[0x05] = 0x04;
-    Mode3Regs[0x06] = 0x20;
-    Mode3Regs[0x09] = 0x40;
-    Mode3Regs[0x0E] = 0xAD;
-    Mode3Regs[0x0F] = 0xA0;
-    Mode3Regs[0x10] = 0x88;
-    Mode3Regs[0x11] = 0x81;
+    memset(Bank3Regs, 0, 0x80);
+    Bank3Regs[0x02] = 0x18;
+    Bank3Regs[0x03] = 0x87;
+    Bank3Regs[0x04] = 0x22;
+    Bank3Regs[0x05] = 0x04;
+    Bank3Regs[0x06] = 0x20;
+    Bank3Regs[0x09] = 0x40;
+    Bank3Regs[0x0E] = 0xAD;
+    Bank3Regs[0x0F] = 0xA0;
+    Bank3Regs[0x10] = 0x88;
+    Bank3Regs[0x11] = 0x81;
+
+    TSCMode = 0x01; // DSi mode
 }
 
 void DoSavestate(Savestate* file)
@@ -79,10 +83,17 @@ void DoSavestate(Savestate* file)
 
 void SetTouchCoords(u16 x, u16 y)
 {
+    if (TSCMode == 0x00)
+    {
+        if (y == 0xFFF) NDS::KeyInput |=  (1 << (16+6));
+        else            NDS::KeyInput &= ~(1 << (16+6));
+        return SPI_TSC::SetTouchCoords(x, y);
+    }
+
     TouchX = x;
     TouchY = y;
-printf("touching: %d/%d\n", x, y);
-    u8 oldpress = Mode3Regs[0x0E] & 0x01;
+
+    u8 oldpress = Bank3Regs[0x0E] & 0x01;
 
     if (y == 0xFFF)
     {
@@ -92,8 +103,9 @@ printf("touching: %d/%d\n", x, y);
         TouchX = 0x7000;
         TouchY = 0x7000;
 
-        Mode3Regs[0x09] = 0x40;
-        Mode3Regs[0x0E] |= 0x01;
+        Bank3Regs[0x09] = 0x40;
+        //Bank3Regs[0x09] &= ~0x80;
+        Bank3Regs[0x0E] |= 0x01;
     }
     else
     {
@@ -102,11 +114,12 @@ printf("touching: %d/%d\n", x, y);
         TouchX <<= 4;
         TouchY <<= 4;
 
-        Mode3Regs[0x09] = 0x80;
-        Mode3Regs[0x0E] &= ~0x01;
+        Bank3Regs[0x09] = 0x80;
+        //Bank3Regs[0x09] |= 0x80;
+        Bank3Regs[0x0E] &= ~0x01;
     }
 
-    if (oldpress ^ (Mode3Regs[0x0E] & 0x01))
+    if (oldpress ^ (Bank3Regs[0x0E] & 0x01))
     {
         TouchX |= 0x8000;
         TouchY |= 0x8000;
@@ -115,16 +128,23 @@ printf("touching: %d/%d\n", x, y);
 
 void MicInputFrame(s16* data, int samples)
 {
-    // TODO: forward to DS-mode TSC if needed
+    if (TSCMode == 0x00) return SPI_TSC::MicInputFrame(data, samples);
+
+    // otherwise we don't handle mic input
+    // TODO: handle it where it needs to be
 }
 
 u8 Read()
 {
+    if (TSCMode == 0x00) return SPI_TSC::Read();
+
     return Data;
 }
 
 void Write(u8 val, u32 hold)
 {
+    if (TSCMode == 0x00) return SPI_TSC::Write(val, hold);
+
 #define READWRITE(var) { if (Index & 0x01) Data = var; else var = val; }
 
     if (DataPos == 0)
@@ -137,18 +157,18 @@ void Write(u8 val, u32 hold)
 
         if (id == 0)
         {
-            READWRITE(Mode);
+            READWRITE(Bank);
         }
-        else if (Mode == 0x03)
+        else if (Bank == 0x03)
         {
-            if (Index & 0x01) Data = Mode3Regs[id];
+            if (Index & 0x01) Data = Bank3Regs[id];
             else
             {
                 if (id == 0x0D || id == 0x0E)
-                    Mode3Regs[id] = (Mode3Regs[id] & 0x03) | (val & 0xFC);
+                    Bank3Regs[id] = (Bank3Regs[id] & 0x03) | (val & 0xFC);
             }
         }
-        else if ((Mode == 0xFC) && (Index & 0x01))
+        else if ((Bank == 0xFC) && (Index & 0x01))
         {
             if (id < 0x0B)
             {
@@ -174,9 +194,31 @@ void Write(u8 val, u32 hold)
                 Data = 0;
             }
         }
+        else if (Bank == 0xFF)
+        {
+            if (id == 0x05)
+            {
+                // TSC mode register
+                // 01: normal (DSi) mode
+                // 00: compatibility (DS) mode
+
+                if (Index & 0x01) Data = TSCMode;
+                else
+                {
+                    TSCMode = val;
+                    if (TSCMode == 0x00)
+                    {
+                        printf("DSi_SPI_TSC: DS-compatibility mode\n");
+                        DataPos = 0;
+                        NDS::KeyInput |= (1 << (16+6));
+                        return;
+                    }
+                }
+            }
+        }
         else
         {
-            printf("DSi_SPI_TSC: unknown IO, mode=%02X, index=%02X (%02X %s)\n", Mode, Index, Index>>1, (Index&1)?"read":"write");
+            printf("DSi_SPI_TSC: unknown IO, bank=%02X, index=%02X (%02X %s)\n", Bank, Index, Index>>1, (Index&1)?"read":"write");
         }
 
         Index += (1<<1); // increment index

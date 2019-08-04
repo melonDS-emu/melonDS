@@ -580,7 +580,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 }
                 if (funcid == -1)
                 {
-                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
+                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
                 }
             }
@@ -694,7 +694,7 @@ bool DoSavestate(Savestate* file)
     for (int i = 0; i < 8; i++)
         DMAs[i]->DoSavestate(file);
 
-    file->Var8(&WRAMCnt);
+    file->Var8(&WRAMCnt); // FIXME!!!!!
 
     if (!file->Saving)
     {

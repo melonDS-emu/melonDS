@@ -163,6 +163,8 @@ extern u8 ARM7BIOS[0x10000];
 
 extern u8 MainRAM[MAIN_RAM_SIZE];
 
+extern u32 KeyInput;
+
 bool Init();
 void DeInit();
 void Reset();
