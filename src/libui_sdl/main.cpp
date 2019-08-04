@@ -1088,7 +1088,6 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
     if (Touching && (evt->Up == 1))
     {
         Touching = false;
-        NDS::ReleaseKey(16+6);
         NDS::ReleaseScreen();
     }
     else if (!Touching && (evt->Down == 1) &&
@@ -1096,7 +1095,6 @@ void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* ev
              (x < (BottomScreenRect.X+BottomScreenRect.Width)) && (y < (BottomScreenRect.Y+BottomScreenRect.Height)))
     {
         Touching = true;
-        NDS::PressKey(16+6);
     }
 
     if (Touching)

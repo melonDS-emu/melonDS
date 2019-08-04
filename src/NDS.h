@@ -180,8 +180,6 @@ void RelocateSave(const char* path, bool write);
 
 u32 RunFrame();
 
-void PressKey(u32 key);
-void ReleaseKey(u32 key);
 void TouchScreen(u16 x, u16 y);
 void ReleaseScreen();
 

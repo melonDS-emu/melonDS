@@ -22,6 +22,7 @@
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
+#include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
 
@@ -590,6 +591,7 @@ bool Init()
     if (!SPI_Firmware::Init()) return false;
     if (!SPI_Powerman::Init()) return false;
     if (!SPI_TSC::Init()) return false;
+    if (!DSi_SPI_TSC::Init()) return false;
 
     return true;
 }
@@ -599,6 +601,7 @@ void DeInit()
     SPI_Firmware::DeInit();
     SPI_Powerman::DeInit();
     SPI_TSC::DeInit();
+    DSi_SPI_TSC::DeInit();
 }
 
 void Reset()
@@ -608,6 +611,7 @@ void Reset()
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
     SPI_TSC::Reset();
+    DSi_SPI_TSC::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -620,6 +624,7 @@ void DoSavestate(Savestate* file)
     SPI_Firmware::DoSavestate(file);
     SPI_Powerman::DoSavestate(file);
     SPI_TSC::DoSavestate(file);
+    DSi_SPI_TSC::DoSavestate(file);
 }
 
 
@@ -633,7 +638,8 @@ void WriteCnt(u16 val)
         {
         case 0x0000: SPI_Powerman::Hold = 0; break;
         case 0x0100: SPI_Firmware::Hold = 0; break;
-        case 0x0200: SPI_TSC::DataPos = 0; break;
+        //case 0x0200: SPI_TSC::DataPos = 0; break;
+        case 0x0200: DSi_SPI_TSC::DataPos = 0; break;
         }
     }
 
@@ -659,7 +665,8 @@ u8 ReadData()
     {
     case 0x0000: return SPI_Powerman::Read();
     case 0x0100: return SPI_Firmware::Read();
-    case 0x0200: return SPI_TSC::Read();
+    //case 0x0200: return SPI_TSC::Read();
+    case 0x0200: return DSi_SPI_TSC::Read();
     default: return 0;
     }
 }
@@ -675,7 +682,8 @@ void WriteData(u8 val)
     {
     case 0x0000: SPI_Powerman::Write(val, Cnt&(1<<11)); break;
     case 0x0100: SPI_Firmware::Write(val, Cnt&(1<<11)); break;
-    case 0x0200: SPI_TSC::Write(val, Cnt&(1<<11)); break;
+    //case 0x0200: SPI_TSC::Write(val, Cnt&(1<<11)); break;
+    case 0x0200: DSi_SPI_TSC::Write(val, Cnt&(1<<11)); break;
     default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 

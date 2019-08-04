@@ -32,6 +32,7 @@
 #include "Platform.h"
 
 #include "DSi.h"
+#include "DSi_SPI_TSC.h"
 
 
 namespace NDS
@@ -519,6 +520,7 @@ void Reset()
     Wifi::Reset();
 
     DSi::Reset();
+    KeyInput &= ~(1 << (16+6)); // TODO
 }
 
 void Stop()
@@ -932,24 +934,30 @@ void CancelEvent(u32 id)
 }
 
 
-void PressKey(u32 key)
-{
-    KeyInput &= ~(1 << key);
-}
-
-void ReleaseKey(u32 key)
-{
-    KeyInput |= (1 << key);
-}
-
 void TouchScreen(u16 x, u16 y)
 {
-    SPI_TSC::SetTouchCoords(x, y);
+    if (true) // TODO!!
+    {
+        DSi_SPI_TSC::SetTouchCoords(x, y);
+    }
+    else
+    {
+        SPI_TSC::SetTouchCoords(x, y);
+        KeyInput &= ~(1 << (16+6));
+    }
 }
 
 void ReleaseScreen()
 {
-    SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+    if (true) // TODO!!
+    {
+        DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+    }
+    else
+    {
+        SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+        KeyInput |= (1 << (16+6));
+    }
 }
 
 
