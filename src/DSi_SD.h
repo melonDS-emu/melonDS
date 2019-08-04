@@ -39,8 +39,11 @@ public:
     static void FinishSend(u32 param);
     static void FinishReceive(u32 param);
     void SendResponse(u32 val, bool last);
-    void SendData(u8* data, u32 len);
-    bool ReceiveData(u8* data, u32 len);
+    u32 SendData(u8* data, u32 len);
+    u32 ReceiveData(u8* data, u32 len);
+    u32 GetTransferrableLen(u32 len);
+
+    void SetCardIRQ();
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
@@ -57,6 +60,10 @@ private:
 
     u32 IRQStatus;  // IF
     u32 IRQMask;    // ~IE
+
+    u16 CardIRQStatus;
+    u16 CardIRQMask;
+    u16 CardIRQCtl;
 
     u16 DataCtl;
     u16 Data32IRQ;
@@ -83,11 +90,13 @@ private:
 class DSi_SDDevice
 {
 public:
-    DSi_SDDevice(DSi_SDHost* host) { Host = host; }
+    DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; }
     ~DSi_SDDevice() {}
 
     virtual void SendCMD(u8 cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
+
+    bool IRQ;
 
 protected:
     DSi_SDHost* Host;
@@ -127,8 +136,8 @@ private:
 
     void SetState(u32 state) { CSR &= ~(0xF << 9); CSR |= (state << 9); }
 
-    void ReadBlock(u64 addr);
-    void WriteBlock(u64 addr);
+    u32 ReadBlock(u64 addr);
+    u32 WriteBlock(u64 addr);
 };
 
 #endif // DSI_SD_H

@@ -225,6 +225,7 @@ void SetupDirectBoot()
 u8 GetConsoleType() { return Firmware[0x1D]; }
 u8 GetWifiVersion() { return Firmware[0x2F]; }
 u8 GetRFVersion() { return Firmware[0x40]; }
+u8* GetWifiMAC() { return &Firmware[0x36]; }
 
 u8 Read()
 {

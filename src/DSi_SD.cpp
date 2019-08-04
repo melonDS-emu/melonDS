@@ -73,6 +73,10 @@ void DSi_SDHost::Reset()
     IRQStatus = 0;
     IRQMask = 0x8B7F031D;
 
+    CardIRQStatus = 0;
+    CardIRQMask = 0xC007;
+    CardIRQCtl = 0;
+
     DataCtl = 0;
     Data32IRQ = 0;
     DataMode = 0;
@@ -145,6 +149,25 @@ void DSi_SDHost::SetIRQ(u32 irq)
     if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
+void DSi_SDHost::SetCardIRQ()
+{
+    if (!(CardIRQCtl & (1<<0))) return;
+
+    u16 oldflags = CardIRQStatus & ~CardIRQMask;
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+
+    if (dev->IRQ) CardIRQStatus |=  (1<<0);
+    else          CardIRQStatus &= ~(1<<0);
+
+    u16 newflags = CardIRQStatus & ~CardIRQMask;
+
+    if ((oldflags == 0) && (newflags != 0)) // checkme
+    {
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+    }
+}
+
 void DSi_SDHost::SendResponse(u32 val, bool last)
 {
     *(u32*)&ResponseBuffer[6] = *(u32*)&ResponseBuffer[4];
@@ -166,10 +189,10 @@ void DSi_SDHost::FinishSend(u32 param)
     //if (param & 0x2) host->SetIRQ(2);
 }
 
-void DSi_SDHost::SendData(u8* data, u32 len)
+u32 DSi_SDHost::SendData(u8* data, u32 len)
 {
     printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
-    if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
+    if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     bool last = (BlockCountInternal == 0);
 
@@ -187,6 +210,8 @@ void DSi_SDHost::SendData(u8* data, u32 len)
     u32 param = Num | (last << 1);
     NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                        false, 512, FinishSend, param);
+
+    return len;
 }
 
 void DSi_SDHost::FinishReceive(u32 param)
@@ -200,16 +225,16 @@ void DSi_SDHost::FinishReceive(u32 param)
     if (dev) dev->ContinueTransfer();
 }
 
-bool DSi_SDHost::ReceiveData(u8* data, u32 len)
+u32 DSi_SDHost::ReceiveData(u8* data, u32 len)
 {
     printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
-    if (len != BlockLen16) printf("!! BAD BLOCKLEN\n");
+    if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     u32 f = CurFIFO;
     if ((DataFIFO[f]->Level() << 1) < len)
     {
         printf("%s: FIFO not full enough for a transfer (%d / %d)\n", SD_DESC, DataFIFO[f]->Level()<<1, len);
-        return false;
+        return 0;
     }
 
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
@@ -240,7 +265,13 @@ bool DSi_SDHost::ReceiveData(u8* data, u32 len)
         BlockCountInternal--;
     }
 
-    return true;
+    return len;
+}
+
+u32 DSi_SDHost::GetTransferrableLen(u32 len)
+{
+    if (len > BlockLen16) len = BlockLen16; // checkme
+    return len;
 }
 
 
@@ -277,6 +308,10 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x028: return SDOption;
 
     case 0x02C: return 0; // TODO
+
+    case 0x034: return CardIRQCtl;
+    case 0x036: return CardIRQStatus;
+    case 0x038: return CardIRQMask;
 
     case 0x030: // FIFO16
         {
@@ -389,7 +424,7 @@ u32 DSi_SDHost::ReadFIFO32()
 
     return ret;
 }
-
+int morp = 0;
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
     //if(Num)printf("SDIO WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
@@ -468,6 +503,20 @@ void DSi_SDHost::Write(u32 addr, u16 val)
             NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
                                false, 2048, FinishReceive, Num);
         }
+        return;
+
+    case 0x034:
+        CardIRQCtl = val & 0x0305;
+        printf("[%d] CardIRQCtl = %04X\n", Num, val);
+        SetCardIRQ();
+        return;
+    case 0x036:
+        CardIRQStatus &= val;
+        return;
+    case 0x038:
+        CardIRQMask = val & 0xC007;
+        printf("[%d] CardIRQMask = %04X\n", Num, val);
+        SetCardIRQ();
         return;
 
     case 0x0D8:
@@ -729,42 +778,54 @@ void DSi_MMCStorage::ContinueTransfer()
 {
     if (RWCommand == 0) return;
 
+    u32 len = 0;
+
     switch (RWCommand)
     {
     case 18:
-        ReadBlock(RWAddress);
+        len = ReadBlock(RWAddress);
         break;
 
     case 25:
-        WriteBlock(RWAddress);
+        len = WriteBlock(RWAddress);
         break;
     }
 
-    RWAddress += BlockSize;
+    RWAddress += len;
 }
 
-void DSi_MMCStorage::ReadBlock(u64 addr)
+u32 DSi_MMCStorage::ReadBlock(u64 addr)
 {
-    if (!File) return;
-
     printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
 
-    u8 data[0x200];
-    fseek(File, addr, SEEK_SET);
-    fread(data, 1, BlockSize, File);
-    Host->SendData(data, BlockSize);
-}
-
-void DSi_MMCStorage::WriteBlock(u64 addr)
-{
-    if (!File) return;
-
-    printf("SD/MMC: write block @ %08X, len=%08X\n", addr, BlockSize);
+    u32 len = BlockSize;
+    len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (Host->ReceiveData(data, BlockSize))
+    if (File)
     {
         fseek(File, addr, SEEK_SET);
-        fwrite(data, 1, BlockSize, File);
+        fread(data, 1, len, File);
     }
+    return Host->SendData(data, len);
+}
+
+u32 DSi_MMCStorage::WriteBlock(u64 addr)
+{
+    printf("SD/MMC: write block @ %08X, len=%08X\n", addr, BlockSize);
+
+    u32 len = BlockSize;
+    len = Host->GetTransferrableLen(len);
+
+    u8 data[0x200];
+    if (len = Host->ReceiveData(data, len))
+    {
+        if (File)
+        {
+            fseek(File, addr, SEEK_SET);
+            fwrite(data, 1, len, File);
+        }
+    }
+
+    return len;
 }

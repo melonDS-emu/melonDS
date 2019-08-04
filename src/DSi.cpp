@@ -582,7 +582,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 
 
 u8 ARM9Read8(u32 addr)
-{if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 8 9 %08X %08X\n", addr, NDS::GetPC(0));
+{
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -611,7 +611,7 @@ u8 ARM9Read8(u32 addr)
 }
 
 u16 ARM9Read16(u32 addr)
-{if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 16 9 %08X %08X\n", addr, NDS::GetPC(0));
+{
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -640,8 +640,7 @@ u16 ARM9Read16(u32 addr)
 }
 
 u32 ARM9Read32(u32 addr)
-{if(addr==0x029D02D8) printf("READ SHITTY VTABLE: %08X\n", NDS::GetPC(0));
-if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 32 9 %08X %08X\n", addr, NDS::GetPC(0));
+{
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -736,7 +735,7 @@ void ARM9Write16(u32 addr, u16 val)
 }
 
 void ARM9Write32(u32 addr, u32 val)
-{if(addr==0x02B05E34) printf("VGONP. %08X, %08X\n", val, NDS::GetPC(0));
+{
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -792,8 +791,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
 
 
 u8 ARM7Read8(u32 addr)
-{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 8 %08X %08X\n", addr, NDS::GetPC(1));
-if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 8 7 %08X %08X\n", addr, NDS::GetPC(1));
+{
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -822,8 +820,7 @@ if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 8 7 %08X %08X\n", addr, 
 }
 
 u16 ARM7Read16(u32 addr)
-{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 16 %08X %08X\n", addr, NDS::GetPC(1));
-if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 16 7 %08X %08X\n", addr, NDS::GetPC(1));
+{
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -852,8 +849,7 @@ if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 16 7 %08X %08X\n", addr,
 }
 
 u32 ARM7Read32(u32 addr)
-{if(addr>=0x3FFC400 && addr<0x3FFE728) printf("OGON 32 %08X %08X\n", addr, NDS::GetPC(1));
-if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 32 7 %08X %08X\n", addr, NDS::GetPC(1));
+{
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -882,7 +878,7 @@ if (addr>=0x2FFD7BC && addr<0x2FFD800) printf("EMMCGONP 32 7 %08X %08X\n", addr,
 }
 
 void ARM7Write8(u32 addr, u8 val)
-{if(addr==0x0228CD74) printf("RAKAKA %02X %08X\n", val, NDS::GetPC(1));
+{
     switch (addr & 0xFF800000)
     {
     case 0x03000000:

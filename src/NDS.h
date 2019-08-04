@@ -45,6 +45,7 @@ enum
     // DSi
     Event_DSi_SDMMCTransfer,
     Event_DSi_SDIOTransfer,
+    Event_DSi_NWifi,
 
     Event_MAX
 };
