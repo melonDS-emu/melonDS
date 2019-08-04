@@ -30,6 +30,8 @@ u8 Index;
 u8 Mode;
 u8 Data;
 
+u8 Mode3Regs[0x80];
+
 u16 TouchX, TouchY;
 
 
@@ -49,6 +51,18 @@ void Reset()
     Mode = 0;
     Index = 0;
     Data = 0;
+
+    memset(Mode3Regs, 0, 0x80);
+    Mode3Regs[0x02] = 0x18;
+    Mode3Regs[0x03] = 0x87;
+    Mode3Regs[0x04] = 0x22;
+    Mode3Regs[0x05] = 0x04;
+    Mode3Regs[0x06] = 0x20;
+    Mode3Regs[0x09] = 0x40;
+    Mode3Regs[0x0E] = 0xAD;
+    Mode3Regs[0x0F] = 0xA0;
+    Mode3Regs[0x10] = 0x88;
+    Mode3Regs[0x11] = 0x81;
 }
 
 void DoSavestate(Savestate* file)
@@ -67,11 +81,36 @@ void SetTouchCoords(u16 x, u16 y)
 {
     TouchX = x;
     TouchY = y;
+printf("touching: %d/%d\n", x, y);
+    u8 oldpress = Mode3Regs[0x0E] & 0x01;
 
-    if (y == 0xFFF) return;
+    if (y == 0xFFF)
+    {
+        // released
 
-    TouchX <<= 4;
-    TouchY <<= 4;
+        // TODO: GBAtek says it can also be 1000 or 3000??
+        TouchX = 0x7000;
+        TouchY = 0x7000;
+
+        Mode3Regs[0x09] = 0x40;
+        Mode3Regs[0x0E] |= 0x01;
+    }
+    else
+    {
+        // pressed
+
+        TouchX <<= 4;
+        TouchY <<= 4;
+
+        Mode3Regs[0x09] = 0x80;
+        Mode3Regs[0x0E] &= ~0x01;
+    }
+
+    if (oldpress ^ (Mode3Regs[0x0E] & 0x01))
+    {
+        TouchX |= 0x8000;
+        TouchY |= 0x8000;
+    }
 }
 
 void MicInputFrame(s16* data, int samples)
@@ -87,16 +126,53 @@ u8 Read()
 void Write(u8 val, u32 hold)
 {
 #define READWRITE(var) { if (Index & 0x01) Data = var; else var = val; }
-printf("TSC: %02X %d\n", val, hold?1:0);
+
     if (DataPos == 0)
     {
         Index = val;
     }
     else
     {
-        if ((Index & 0xFE) == 0)
+        u8 id = Index >> 1;
+
+        if (id == 0)
         {
             READWRITE(Mode);
+        }
+        else if (Mode == 0x03)
+        {
+            if (Index & 0x01) Data = Mode3Regs[id];
+            else
+            {
+                if (id == 0x0D || id == 0x0E)
+                    Mode3Regs[id] = (Mode3Regs[id] & 0x03) | (val & 0xFC);
+            }
+        }
+        else if ((Mode == 0xFC) && (Index & 0x01))
+        {
+            if (id < 0x0B)
+            {
+                // X coordinates
+
+                if (id & 0x01) Data = TouchX >> 8;
+                else           Data = TouchX & 0xFF;
+
+                TouchX &= 0x7FFF;
+            }
+            else if (id < 0x15)
+            {
+                // Y coordinates
+
+                if (id & 0x01) Data = TouchY >> 8;
+                else           Data = TouchY & 0xFF;
+
+                TouchY &= 0x7FFF; // checkme
+            }
+            else
+            {
+                // whatever (TODO)
+                Data = 0;
+            }
         }
         else
         {
