@@ -86,10 +86,11 @@ u32 SchedListMask;
 
 u32 CPUStop;
 
-u8 ARM9BIOS[0x10000];
-u8 ARM7BIOS[0x10000];
+u8 ARM9BIOS[0x1000];
+u8 ARM7BIOS[0x4000];
 
-u8 MainRAM[MAIN_RAM_SIZE];
+u8 MainRAM[0x1000000];
+u32 MainRAMMask;
 
 u8 SharedWRAM[0x8000];
 u8 WRAMCnt;
@@ -235,7 +236,11 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][3] = S32;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend<<14);
+    addrstart <<= 14;
+    addrend <<= 14;
+    if (!addrend) addrend = 0xFFFFFFFF;
+
+    ARM9->UpdateRegionTimings(addrstart, addrend);
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
@@ -395,8 +400,45 @@ void Reset()
 
     LastSysClockCycles = 0;
 
-    memset(ARM9BIOS, 0, 0x10000);
-    memset(ARM7BIOS, 0, 0x10000);
+    memset(ARM9BIOS, 0, 0x1000);
+    memset(ARM7BIOS, 0, 0x4000);
+
+    // DS BIOSes are always loaded, even in DSi mode
+    // we need them for DS-compatible mode
+
+    f = Platform::OpenLocalFile("bios9.bin", "rb");
+    if (!f)
+    {
+        printf("ARM9 BIOS not found\n");
+
+        for (i = 0; i < 16; i++)
+            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+    }
+    else
+    {
+        fseek(f, 0, SEEK_SET);
+        fread(ARM9BIOS, 0x1000, 1, f);
+
+        printf("ARM9 BIOS loaded\n");
+        fclose(f);
+    }
+
+    f = Platform::OpenLocalFile("bios7.bin", "rb");
+    if (!f)
+    {
+        printf("ARM7 BIOS not found\n");
+
+        for (i = 0; i < 16; i++)
+            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+    }
+    else
+    {
+        fseek(f, 0, SEEK_SET);
+        fread(ARM7BIOS, 0x4000, 1, f);
+
+        printf("ARM7 BIOS loaded\n");
+        fclose(f);
+    }
 
     if (true)
     {
@@ -404,44 +446,12 @@ void Reset()
         DSi::LoadNAND();
 
         ARM9ClockShift = 2;
+        MainRAMMask = 0xFFFFFF;
     }
     else
     {
-        f = Platform::OpenLocalFile("bios9.bin", "rb");
-        if (!f)
-        {
-            printf("ARM9 BIOS not found\n");
-
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
-        }
-        else
-        {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM9BIOS, 0x1000, 1, f);
-
-            printf("ARM9 BIOS loaded\n");
-            fclose(f);
-        }
-
-        f = Platform::OpenLocalFile("bios7.bin", "rb");
-        if (!f)
-        {
-            printf("ARM7 BIOS not found\n");
-
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
-        }
-        else
-        {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM7BIOS, 0x4000, 1, f);
-
-            printf("ARM7 BIOS loaded\n");
-            fclose(f);
-        }
-
         ARM9ClockShift = 1;
+        MainRAMMask = 0x3FFFFF;
     }
 
     ARM9Timestamp = 0; ARM9Target = 0;
@@ -450,7 +460,7 @@ void Reset()
 
     InitTimings();
 
-    memset(MainRAM, 0, MAIN_RAM_SIZE);
+    memset(MainRAM, 0, 0x1000000);
     memset(SharedWRAM, 0, 0x8000);
     memset(ARM7WRAM, 0, 0x10000);
 
@@ -1608,36 +1618,36 @@ void debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
-    /*FILE*
-    shit = fopen("debug/dump9.bin", "wb");
+    FILE*
+    /*shit = fopen("debug/dump9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
-    shit = fopen("debug/dump7.bin", "wb");
+    fclose(shit);*/
+    shit = fopen("debug/dump7_2.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 
 
 u8 ARM9Read8(u32 addr)
 {
-    if ((addr & 0xFFFF0000) == 0xFFFF0000)
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u8*)&ARM9BIOS[addr & 0xFFFF];
+        return *(u8*)&ARM9BIOS[addr & 0xFFF];
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1690,15 +1700,15 @@ u8 ARM9Read8(u32 addr)
 
 u16 ARM9Read16(u32 addr)
 {
-    if ((addr & 0xFFFF0000) == 0xFFFF0000)
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u16*)&ARM9BIOS[addr & 0xFFFF];
+        return *(u16*)&ARM9BIOS[addr & 0xFFF];
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1751,15 +1761,15 @@ u16 ARM9Read16(u32 addr)
 
 u32 ARM9Read32(u32 addr)
 {
-    if ((addr & 0xFFFF0000) == 0xFFFF0000)
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
     {
-        return *(u32*)&ARM9BIOS[addr & 0xFFFF];
+        return *(u32*)&ARM9BIOS[addr & 0xFFF];
     }
 
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1815,7 +1825,7 @@ void ARM9Write8(u32 addr, u8 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -1844,7 +1854,7 @@ void ARM9Write16(u32 addr, u16 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -1887,7 +1897,7 @@ void ARM9Write32(u32 addr, u32 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return ;
 
     case 0x03000000:
@@ -1931,7 +1941,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
     case 0x02000000:
         region->Mem = MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = MainRAMMask;
         return true;
 
     case 0x03000000:
@@ -1959,10 +1969,10 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 ARM7Read8(u32 addr)
 {
-    if (addr < 0x00010000)
+    if (addr < 0x00004000)
     {
         // TODO: check the boundary? is it 4000 or higher on regular DS?
-        if (ARM7->R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
@@ -1974,7 +1984,7 @@ u8 ARM7Read8(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2016,9 +2026,9 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
-    if (addr < 0x00010000)
+    if (addr < 0x00004000)
     {
-        if (ARM7->R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
@@ -2030,7 +2040,7 @@ u16 ARM7Read16(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2079,9 +2089,9 @@ u16 ARM7Read16(u32 addr)
 
 u32 ARM7Read32(u32 addr)
 {
-    if (addr < 0x00010000)
+    if (addr < 0x00004000)
     {
-        if (ARM7->R[15] >= 0x00010000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFFFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
@@ -2093,7 +2103,7 @@ u32 ARM7Read32(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2146,7 +2156,7 @@ void ARM7Write8(u32 addr, u8 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2184,7 +2194,7 @@ void ARM7Write16(u32 addr, u16 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2230,7 +2240,7 @@ void ARM7Write32(u32 addr, u32 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2278,7 +2288,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     case 0x02000000:
     case 0x02800000:
         region->Mem = MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = MainRAMMask;
         return true;
 
     case 0x03000000:
@@ -2555,7 +2565,7 @@ u32 ARM9IORead32(u32 addr)
 
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
-    case 0x04000180: return IPCSync9;
+    case 0x04000180: /*printf("ARM9 read IPCSYNC: %04X\n", IPCSync9);*/ return IPCSync9;
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -2764,6 +2774,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000180:
+        printf("ARM9 IPCSYNC = %04X\n", val);
         IPCSync7 &= 0xFFF0;
         IPCSync7 |= ((val & 0x0F00) >> 8);
         IPCSync9 &= 0xB0FF;
@@ -3348,6 +3359,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x04000138: RTC::Write(val, false); return;
 
     case 0x04000180:
+        printf("ARM7 IPCSYNC = %04X\n", val);
         IPCSync9 &= 0xFFF0;
         IPCSync9 |= ((val & 0x0F00) >> 8);
         IPCSync7 &= 0xB0FF;

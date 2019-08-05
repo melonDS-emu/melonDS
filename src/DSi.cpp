@@ -45,10 +45,14 @@ namespace DSi
 
 u32 BootAddr[2];
 
+u16 SCFG_BIOS;
 u16 SCFG_Clock9;
 u16 SCFG_Clock7;
 u32 SCFG_EXT[2];
 u32 SCFG_MC;
+
+u8 ARM9iBIOS[0x10000];
+u8 ARM7iBIOS[0x10000];
 
 u32 MBK[2][9];
 
@@ -131,6 +135,7 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
+    SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -160,18 +165,21 @@ bool LoadBIOS()
     FILE* f;
     u32 i;
 
+    memset(ARM9iBIOS, 0, 0x10000);
+    memset(ARM7iBIOS, 0, 0x10000);
+
     f = Platform::OpenLocalFile("bios9i.bin", "rb");
     if (!f)
     {
         printf("ARM9i BIOS not found\n");
 
         for (i = 0; i < 16; i++)
-            ((u32*)NDS::ARM9BIOS)[i] = 0xE7FFDEFF;
+            ((u32*)ARM9iBIOS)[i] = 0xE7FFDEFF;
     }
     else
     {
         fseek(f, 0, SEEK_SET);
-        fread(NDS::ARM9BIOS, 0x10000, 1, f);
+        fread(ARM9iBIOS, 0x10000, 1, f);
 
         printf("ARM9i BIOS loaded\n");
         fclose(f);
@@ -183,22 +191,25 @@ bool LoadBIOS()
         printf("ARM7i BIOS not found\n");
 
         for (i = 0; i < 16; i++)
-            ((u32*)NDS::ARM7BIOS)[i] = 0xE7FFDEFF;
+            ((u32*)ARM7iBIOS)[i] = 0xE7FFDEFF;
     }
     else
     {
         // TODO: check if the first 32 bytes are crapoed
 
         fseek(f, 0, SEEK_SET);
-        fread(NDS::ARM7BIOS, 0x10000, 1, f);
+        fread(ARM7iBIOS, 0x10000, 1, f);
 
         printf("ARM7i BIOS loaded\n");
         fclose(f);
     }
 
     // herp
-    *(u32*)&NDS::ARM9BIOS[0] = 0xEAFFFFFE;
-    *(u32*)&NDS::ARM7BIOS[0] = 0xEAFFFFFE;
+    *(u32*)&ARM9iBIOS[0] = 0xEAFFFFFE;
+    *(u32*)&ARM7iBIOS[0] = 0xEAFFFFFE;
+
+    // TODO!!!!
+    // hax the upper 32K out of the goddamn DSi
 
     return true;
 }
@@ -582,6 +593,22 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 }
 
 
+void Set_SCFG_Clock9(u16 val)
+{
+    SCFG_Clock9 = val & 0x0187;
+    return;
+
+    NDS::ARM9Timestamp >>= NDS::ARM9ClockShift;
+
+    printf("CLOCK9=%04X\n", val);
+    SCFG_Clock9 = val & 0x0187;
+
+    if (SCFG_Clock9 & (1<<0)) NDS::ARM9ClockShift = 2;
+    else                      NDS::ARM9ClockShift = 1;
+    NDS::ARM9Timestamp <<= NDS::ARM9ClockShift;
+    NDS::ARM9->UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+}
+
 void Set_SCFG_MC(u32 val)
 {
     u32 oldslotstatus = SCFG_MC & 0xC;
@@ -600,6 +627,14 @@ void Set_SCFG_MC(u32 val)
 
 u8 ARM9Read8(u32 addr)
 {
+    if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
+    {
+        if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
+            return 0xFF;
+
+        return *(u8*)&ARM9iBIOS[addr & 0xFFFF];
+    }
+
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -629,6 +664,14 @@ u8 ARM9Read8(u32 addr)
 
 u16 ARM9Read16(u32 addr)
 {
+    if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
+    {
+        if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
+            return 0xFFFF;
+
+        return *(u16*)&ARM9iBIOS[addr & 0xFFFF];
+    }
+
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -658,6 +701,14 @@ u16 ARM9Read16(u32 addr)
 
 u32 ARM9Read32(u32 addr)
 {
+    if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
+    {
+        if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
+            return 0xFFFFFFFF;
+
+        return *(u32*)&ARM9iBIOS[addr & 0xFFFF];
+    }
+
     switch (addr & 0xFF000000)
     {
     case 0x03000000:
@@ -790,14 +841,28 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
     {
     case 0x02000000:
         region->Mem = NDS::MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = NDS::MainRAMMask;
         return true;
     }
 
     if ((addr & 0xFFFF0000) == 0xFFFF0000 && !write)
     {
-        region->Mem = NDS::ARM9BIOS;
-        region->Mask = 0xFFFF;
+        if (SCFG_BIOS & (1<<1))
+        {
+            if (addr >= 0xFFFF1000)
+            {
+                region->Mem = NULL;
+                return false;
+            }
+
+            region->Mem = NDS::ARM9BIOS;
+            region->Mask = 0xFFF;
+        }
+        else
+        {
+            region->Mem = ARM9iBIOS;
+            region->Mask = 0xFFFF;
+        }
         return true;
     }
 
@@ -809,6 +874,18 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
 
 u8 ARM7Read8(u32 addr)
 {
+    if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
+    {
+        if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
+            return 0xFF;
+        if (NDS::ARM7->R[15] >= 0x00010000)
+            return 0xFF;
+        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+            return 0xFF;
+
+        return *(u8*)&ARM7iBIOS[addr];
+    }
+
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -838,6 +915,18 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
+    if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
+    {
+        if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
+            return 0xFFFF;
+        if (NDS::ARM7->R[15] >= 0x00010000)
+            return 0xFFFF;
+        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+            return 0xFFFF;
+
+        return *(u16*)&ARM7iBIOS[addr];
+    }
+
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -867,6 +956,18 @@ u16 ARM7Read16(u32 addr)
 
 u32 ARM7Read32(u32 addr)
 {
+    if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
+    {
+        if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
+            return 0xFFFFFFFF;
+        if (NDS::ARM7->R[15] >= 0x00010000)
+            return 0xFFFFFFFF;
+        if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
+            return 0xFFFFFFFF;
+
+        return *(u32*)&ARM7iBIOS[addr];
+    }
+
     switch (addr & 0xFF800000)
     {
     case 0x03000000:
@@ -1000,7 +1101,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
     case 0x02000000:
     case 0x02800000:
         region->Mem = NDS::MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = NDS::MainRAMMask;
         return true;
     }
 
@@ -1040,7 +1141,7 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: return 1;
+    case 0x04004000: return SCFG_BIOS & 0xFF;
 
     CASE_READ8_32BIT(0x04004040, MBK[0][0])
     CASE_READ8_32BIT(0x04004044, MBK[0][1])
@@ -1060,6 +1161,7 @@ u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004004: return SCFG_Clock9;
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
@@ -1081,6 +1183,7 @@ u32 ARM9IORead32(u32 addr)
 {
     switch (addr)
     {
+    case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004008: return SCFG_EXT[0];
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
@@ -1172,9 +1275,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     switch (addr)
     {
     case 0x04004004:
-        // TODO: actually change clock!
-        printf("CLOCK9=%04X\n", val);
-        SCFG_Clock9 = val & 0x0187;
+        Set_SCFG_Clock9(val);
         return;
 
     case 0x04004040:
@@ -1232,6 +1333,20 @@ void ARM9IOWrite32(u32 addr, u32 val)
         SCFG_EXT[1] &= ~0x0000F080;
         SCFG_EXT[1] |= (val & 0x0000F080);
         printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+        /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+        {
+        case 0:
+        case 1:
+            NDS::MainRAMMask = 0x3FFFFF;
+            printf("RAM: 4MB\n");
+            break;
+        case 2:
+        case 3: // TODO: debug console w/ 32MB?
+            NDS::MainRAMMask = 0xFFFFFF;
+            printf("RAM: 16MB\n");
+            break;
+        }*/
+        printf("from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
         return;
 
     case 0x04004040:
@@ -1307,8 +1422,8 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: return 0x01;
-    case 0x04004001: return 0x01;
+    case 0x04004000: return SCFG_BIOS & 0xFF;
+    case 0x04004001: return SCFG_BIOS >> 8;
 
     CASE_READ8_32BIT(0x04004040, MBK[1][0])
     CASE_READ8_32BIT(0x04004044, MBK[1][1])
@@ -1323,14 +1438,14 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004500: return DSi_I2C::ReadData();
     case 0x04004501: return DSi_I2C::Cnt;
 
-    case 0x04004D00: return ConsoleID & 0xFF;
-    case 0x04004D01: return (ConsoleID >> 8) & 0xFF;
-    case 0x04004D02: return (ConsoleID >> 16) & 0xFF;
-    case 0x04004D03: return (ConsoleID >> 24) & 0xFF;
-    case 0x04004D04: return (ConsoleID >> 32) & 0xFF;
-    case 0x04004D05: return (ConsoleID >> 40) & 0xFF;
-    case 0x04004D06: return (ConsoleID >> 48) & 0xFF;
-    case 0x04004D07: return ConsoleID >> 56;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFF;
+    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFF;
+    case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 24) & 0xFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFF;
+    case 0x04004D05: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 40) & 0xFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 48) & 0xFF;
+    case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 56;
     case 0x04004D08: return 0;
     }
 
@@ -1344,6 +1459,7 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
+    case 0x04004000: return SCFG_BIOS;
     case 0x04004004: return SCFG_Clock7;
     case 0x04004006: return 0; // JTAG register
     case 0x04004010: return SCFG_MC & 0xFFFF;
@@ -1358,10 +1474,10 @@ u16 ARM7IORead16(u32 addr)
     CASE_READ16_32BIT(0x0400405C, MBK[1][7])
     CASE_READ16_32BIT(0x04004060, MBK[1][8])
 
-    case 0x04004D00: return ConsoleID & 0xFFFF;
-    case 0x04004D02: return (ConsoleID >> 16) & 0xFFFF;
-    case 0x04004D04: return (ConsoleID >> 32) & 0xFFFF;
-    case 0x04004D06: return ConsoleID >> 48;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFFFF;
+    case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFFFF;
+    case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 48;
     case 0x04004D08: return 0;
     }
 
@@ -1384,6 +1500,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000218: return NDS::IE2;
     case 0x0400021C: return NDS::IF2;
 
+    case 0x04004000: return SCFG_BIOS;
     case 0x04004008: return SCFG_EXT[1];
     case 0x04004010: return SCFG_MC;
 
@@ -1430,8 +1547,8 @@ u32 ARM7IORead32(u32 addr)
     case 0x04004400: return DSi_AES::ReadCnt();
     case 0x0400440C: return DSi_AES::ReadOutputFIFO();
 
-    case 0x04004D00: return ConsoleID & 0xFFFFFFFF;
-    case 0x04004D04: return ConsoleID >> 32;
+    case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFFFFFFFF;
+    case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 32;
     case 0x04004D08: return 0;
     }
 
@@ -1453,6 +1570,13 @@ void ARM7IOWrite8(u32 addr, u8 val)
 {
     switch (addr)
     {
+    case 0x04004000:
+        SCFG_BIOS |= (val & 0x03);
+        return;
+    case 0x04004001:
+        SCFG_BIOS |= ((val & 0x07) << 8);
+        return;
+
     case 0x04004500: DSi_I2C::WriteData(val); return;
     case 0x04004501: DSi_I2C::WriteCnt(val); return;
     }
@@ -1467,10 +1591,12 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
+    case 0x04004000:
+        SCFG_BIOS |= (val & 0x0703);
+        return;
     case 0x04004004:
         SCFG_Clock7 = val & 0x0187;
         return;
-
     case 0x04004010:
         Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
         return;
@@ -1497,6 +1623,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
+    case 0x04004000:
+        SCFG_BIOS |= (val & 0x0703);
+        return;
     case 0x04004008:
         SCFG_EXT[0] &= ~0x03000000;
         SCFG_EXT[0] |= (val & 0x03000000);
