@@ -61,6 +61,9 @@ void DSi_Camera::ResetCam()
     DataPos = 0;
     RegAddr = 0;
     RegData = 0;
+
+    PLLCnt = 0;
+    StandbyCnt = 0x4029; // checkme
 }
 
 
@@ -130,7 +133,11 @@ u16 DSi_Camera::ReadReg(u16 addr)
 {
     switch (addr)
     {
-    case 0x301A: return 0x0002; // HAX
+    case 0x0000: return 0x2280; // chip ID
+    case 0x0014: return PLLCnt;
+    case 0x0018: return StandbyCnt;
+
+    case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
     printf("DSi_Camera%d: unknown read %04X\n", Num, addr);
@@ -139,5 +146,21 @@ u16 DSi_Camera::ReadReg(u16 addr)
 
 void DSi_Camera::WriteReg(u16 addr, u16 val)
 {
+    switch (addr)
+    {
+    case 0x0014:
+        // shouldn't be instant either?
+        val &= 0x7FFF;
+        val |= ((val & 0x0002) << 14);
+        PLLCnt = val;
+        return;
+    case 0x0018:
+        // TODO: this shouldn't be instant, but uh
+        val &= 0x003F;
+        val |= ((val & 0x0001) << 14);
+        StandbyCnt = val;
+        return;
+    }
+
     printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }

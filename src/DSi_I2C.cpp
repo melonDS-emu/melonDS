@@ -156,7 +156,7 @@ void Reset()
 
 void WriteCnt(u8 val)
 {
-    //printf("I2C: write CNT %02X\n", val);
+    //printf("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
 
     // TODO: check ACK flag
     // TODO: transfer delay
@@ -179,11 +179,11 @@ void WriteCnt(u8 val)
             case 0x7A: Data = DSi_Camera1->Read(islast); break;
             default:
                 printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
-                Data = 0;
+                Data = 0xFF;
                 break;
             }
 
-            printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+            //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
@@ -194,7 +194,7 @@ void WriteCnt(u8 val)
             if (val & (1<<1))
             {
                 Device = Data & 0xFE;
-                printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
+                //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
@@ -203,13 +203,13 @@ void WriteCnt(u8 val)
                 case 0x7A: DSi_Camera1->Start(); break;
                 default:
                     printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
-                    ack = false;
+                    //ack = false;
                     break;
                 }
             }
             else
             {
-                printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
                 switch (Device)
                 {
@@ -218,7 +218,7 @@ void WriteCnt(u8 val)
                 case 0x7A: DSi_Camera1->Write(Data, islast); break;
                 default:
                     printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
-                    ack = false;
+                    //ack = false;
                     break;
                 }
             }

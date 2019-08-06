@@ -46,6 +46,9 @@ private:
 
     u16 ReadReg(u16 addr);
     void WriteReg(u16 addr, u16 val);
+
+    u16 PLLCnt;
+    u16 StandbyCnt;
 };
 
 
