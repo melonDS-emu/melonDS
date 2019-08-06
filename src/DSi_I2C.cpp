@@ -20,6 +20,7 @@
 #include <string.h>
 #include "DSi.h"
 #include "DSi_I2C.h"
+#include "DSi_Camera.h"
 
 
 namespace DSi_BPTWL
@@ -131,6 +132,7 @@ u32 Device;
 bool Init()
 {
     if (!DSi_BPTWL::Init()) return false;
+    if (!DSi_Camera::Init()) return false;
 
     return true;
 }
@@ -138,6 +140,7 @@ bool Init()
 void DeInit()
 {
     DSi_BPTWL::DeInit();
+    DSi_Camera::DeInit();
 }
 
 void Reset()
@@ -148,6 +151,7 @@ void Reset()
     Device = -1;
 
     DSi_BPTWL::Reset();
+    DSi_Camera::Reset();
 }
 
 void WriteCnt(u8 val)
@@ -171,37 +175,55 @@ void WriteCnt(u8 val)
             switch (Device)
             {
             case 0x4A: Data = DSi_BPTWL::Read(islast); break;
-            default: Data = 0; break;
+            case 0x78: Data = DSi_Camera0->Read(islast); break;
+            case 0x7A: Data = DSi_Camera1->Read(islast); break;
+            default:
+                printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
+                Data = 0;
+                break;
             }
 
-            //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+            printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
             // write
             val &= 0xE7;
+            bool ack = true;
 
             if (val & (1<<1))
             {
                 Device = Data & 0xFE;
-                //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
+                printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
                 case 0x4A: DSi_BPTWL::Start(); break;
+                case 0x78: DSi_Camera0->Start(); break;
+                case 0x7A: DSi_Camera1->Start(); break;
+                default:
+                    printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
+                    ack = false;
+                    break;
                 }
             }
             else
             {
-                //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
                 switch (Device)
                 {
                 case 0x4A: DSi_BPTWL::Write(Data, islast); break;
+                case 0x78: DSi_Camera0->Write(Data, islast); break;
+                case 0x7A: DSi_Camera1->Write(Data, islast); break;
+                default:
+                    printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                    ack = false;
+                    break;
                 }
             }
 
-            val |= (1<<4);
+            if (ack) val |= (1<<4);
         }
 
         val &= 0x7F;

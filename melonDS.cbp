@@ -106,6 +106,8 @@
 		<Unit filename="src/DSiCrypto.h" />
 		<Unit filename="src/DSi_AES.cpp" />
 		<Unit filename="src/DSi_AES.h" />
+		<Unit filename="src/DSi_Camera.cpp" />
+		<Unit filename="src/DSi_Camera.h" />
 		<Unit filename="src/DSi_I2C.cpp" />
 		<Unit filename="src/DSi_I2C.h" />
 		<Unit filename="src/DSi_NDMA.cpp" />
