@@ -203,7 +203,7 @@ void WriteCnt(u8 val)
                 case 0x7A: DSi_Camera1->Start(); break;
                 default:
                     printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
-                    //ack = false;
+                    ack = false;
                     break;
                 }
             }
@@ -218,7 +218,7 @@ void WriteCnt(u8 val)
                 case 0x7A: DSi_Camera1->Write(Data, islast); break;
                 default:
                     printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
-                    //ack = false;
+                    ack = false;
                     break;
                 }
             }
