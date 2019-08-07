@@ -149,6 +149,15 @@ void DSi_SDHost::SetIRQ(u32 irq)
     if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
+void DSi_SDHost::UpdateIRQ(u32 oldmask)
+{
+    u32 oldflags = IRQStatus & ~oldmask;
+    u32 newflags = IRQStatus & ~IRQMask;
+
+    if ((oldflags == 0) && (newflags != 0))
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+}
+
 void DSi_SDHost::SetCardIRQ()
 {
     if (!(CardIRQCtl & (1<<0))) return;
@@ -424,7 +433,7 @@ u32 DSi_SDHost::ReadFIFO32()
 
     return ret;
 }
-int morp = 0;
+
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
     //if(Num)printf("SDIO WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
@@ -464,11 +473,21 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
     case 0x01C: IRQStatus &= (val | 0xFFFF0000); return;
     case 0x01E: IRQStatus &= ((val << 16) | 0xFFFF); return;
-    case 0x020: IRQMask = (IRQMask & 0x8B7F0000) | (val & 0x031D); return;
+    case 0x020:
+        {
+            u32 oldmask = IRQMask;
+            IRQMask = (IRQMask & 0x8B7F0000) | (val & 0x031D);
+            UpdateIRQ(oldmask);
+        }
+        return;
     case 0x022:
-        IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16);
-        if (!DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(24); // checkme
-        if (DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(25); // checkme
+        {
+            u32 oldmask = IRQMask;
+            IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16);
+            UpdateIRQ(oldmask);
+            if (!DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(24); // checkme
+            if (DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(25); // checkme
+        }
         return;
 
     case 0x024: SDClock = val & 0x03FF; return;

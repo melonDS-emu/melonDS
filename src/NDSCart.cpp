@@ -23,6 +23,7 @@
 #include "NDSCart.h"
 #include "ARM.h"
 #include "CRC32.h"
+#include "DSi_AES.h"
 #include "Platform.h"
 
 
@@ -599,6 +600,15 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
+void ApplyModcrypt(u32 addr, u32 len, u8* iv)
+{return;
+    u8 key[16];
+
+    DSi_AES::GetModcryptKey(&CartROM[0], key);
+    DSi_AES::ApplyModcrypt(&CartROM[addr], len, key, iv);
+}
+
+
 bool Init()
 {
     if (!NDSCart_SRAM::Init()) return false;
@@ -978,6 +988,19 @@ bool LoadROM(const char* path, const char* sram, bool direct)
         }
         else
             CartIsHomebrew = true;
+    }
+
+    // re-encrypt modcrypt areas if needed
+    // TODO: somehow detect whether those are already encrypted
+    if (true)
+    {
+        u32 mod1 = *(u32*)&CartROM[0x220];
+        u32 mod2 = *(u32*)&CartROM[0x228];
+
+        printf("Re-encrypting modcrypt areas: %08X, %08X\n", mod1, mod2);
+
+        if (mod1) ApplyModcrypt(mod1, *(u32*)&CartROM[0x224], &CartROM[0x300]);
+        if (mod2) ApplyModcrypt(mod2, *(u32*)&CartROM[0x22C], &CartROM[0x314]);
     }
 
 

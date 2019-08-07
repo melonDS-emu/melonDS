@@ -46,6 +46,9 @@ void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
 void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
 void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
 
+void GetModcryptKey(u8* romheader, u8* key);
+void ApplyModcrypt(u8* data, u32 len, u8* key, u8* iv);
+
 }
 
 #endif // DSI_AES_H

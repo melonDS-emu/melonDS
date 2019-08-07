@@ -84,6 +84,7 @@ private:
     void UpdateData32IRQ();
     void ClearIRQ(u32 irq);
     void SetIRQ(u32 irq);
+    void UpdateIRQ(u32 oldmask);
 };
 
 
