@@ -30,6 +30,7 @@
 #include "RTC.h"
 #include "Wifi.h"
 #include "Platform.h"
+#include "ARMJIT.h"
 
 
 namespace NDS
@@ -156,6 +157,10 @@ bool Init()
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
+#ifdef JIT_ENABLED
+    ARMJIT::Init();
+#endif
+
     DMAs[0] = new DMA(0, 0);
     DMAs[1] = new DMA(0, 1);
     DMAs[2] = new DMA(0, 2);
@@ -182,6 +187,10 @@ void DeInit()
 {
     delete ARM9;
     delete ARM7;
+
+#ifdef JIT_ENABLED
+    ARMJIT::DeInit();
+#endif
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
@@ -227,7 +236,9 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][3] = S32;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend<<14);
+    ARM9->UpdateRegionTimings(addrstart<<14, addrend == 0x40000
+        ? 0xFFFFFFFF
+        : (addrend<<14));
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
@@ -421,6 +432,11 @@ void Reset()
         fclose(f);
     }
 
+    // has to be called before InitTimings
+    // otherwise some PU settings are completely
+    // unitialised on the first run
+    ARM9->CP15Reset();
+
     // TODO for later: configure this when emulating a DSi
     ARM9ClockShift = 1;
 
@@ -489,6 +505,10 @@ void Reset()
     KeyInput = 0x007F03FF;
     KeyCnt = 0;
     RCnt = 0;
+
+#ifdef JIT_ENABLED
+    ARMJIT::InvalidateBlockCache();
+#endif
 
     NDSCart::Reset();
     GPU::Reset();
@@ -703,6 +723,13 @@ bool DoSavestate(Savestate* file)
         GPU::SetPowerCnt(PowerControl9);
     }
 
+#ifdef JIT_ENABLED
+    if (!file->Saving)
+    {
+        ARMJIT::InvalidateBlockCache();
+    }
+#endif
+
     return true;
 }
 
@@ -775,6 +802,7 @@ void RunSystem(u64 timestamp)
     }
 }
 
+template <bool EnableJIT>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -807,7 +835,12 @@ u32 RunFrame()
         }
         else
         {
-            ARM9->Execute();
+#ifdef JIT_ENABLED
+            if (EnableJIT)
+                ARM9->ExecuteJIT();
+            else
+#endif
+                ARM9->Execute();
         }
 
         RunTimers(0);
@@ -829,7 +862,12 @@ u32 RunFrame()
             }
             else
             {
-                ARM7->Execute();
+#ifdef JIT_ENABLED
+                if (EnableJIT)
+                    ARM7->ExecuteJIT();
+                else
+#endif
+                    ARM7->Execute();
             }
 
             RunTimers(1);
@@ -857,6 +895,16 @@ u32 RunFrame()
     NumFrames++;
 
     return GPU::TotalScanlines;
+}
+
+u32 RunFrame()
+{
+#ifdef JIT_ENABLED
+    if (Config::JIT_Enable)
+        return RunFrame<true>();
+    else
+#endif
+        return RunFrame<false>();
 }
 
 void Reschedule(u64 target)
@@ -1750,6 +1798,10 @@ u32 ARM9Read32(u32 addr)
 
 void ARM9Write8(u32 addr, u8 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate16<0>(addr);
+#endif
+
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -1779,6 +1831,10 @@ void ARM9Write8(u32 addr, u8 val)
 
 void ARM9Write16(u32 addr, u16 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate16<0>(addr);
+#endif
+
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -1822,6 +1878,10 @@ void ARM9Write16(u32 addr, u16 val)
 
 void ARM9Write32(u32 addr, u32 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate32<0>(addr);
+#endif
+
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
@@ -2079,6 +2139,10 @@ u32 ARM7Read32(u32 addr)
 
 void ARM7Write8(u32 addr, u8 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate16<1>(addr);
+#endif
+
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -2117,6 +2181,10 @@ void ARM7Write8(u32 addr, u8 val)
 
 void ARM7Write16(u32 addr, u16 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate16<1>(addr);
+#endif
+
     switch (addr & 0xFF800000)
     {
     case 0x02000000:
@@ -2163,6 +2231,10 @@ void ARM7Write16(u32 addr, u16 val)
 
 void ARM7Write32(u32 addr, u32 val)
 {
+#ifdef JIT_ENABLED
+    ARMJIT::Invalidate32<1>(addr);
+#endif
+
     switch (addr & 0xFF800000)
     {
     case 0x02000000:

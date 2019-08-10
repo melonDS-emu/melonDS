@@ -43,6 +43,7 @@
 #include "../Wifi.h"
 #include "../Platform.h"
 #include "../Config.h"
+#include "../ARMJIT.h"
 
 #include "../Savestate.h"
 
@@ -2238,6 +2239,13 @@ void ApplyNewSettings(int type)
         GPU3D::DeInitRenderer();
         GPU3D::InitRenderer(Screen_UseGL);
         if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+    }
+    else if (type == 4)
+    {
+#ifdef JIT_ENABLED
+        if (Config::JIT_Enable)
+            ARMJIT::InvalidateBlockCache();
+#endif
     }
 
     EmuRunning = prevstatus;

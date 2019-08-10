@@ -1,11 +1,14 @@
 project(core)
 
+set (CMAKE_CXX_STANDARD 14)
+
 add_library(core STATIC
 	ARM.cpp
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp
 	ARMInterpreter_Branch.cpp
 	ARMInterpreter_LoadStore.cpp
+	ARM_InstrInfo.cpp
 	Config.cpp
 	CP15.cpp
 	CRC32.cpp
@@ -25,6 +28,21 @@ add_library(core STATIC
 	Wifi.cpp
 	WifiAP.cpp
 )
+
+if (ENABLE_JIT)
+	target_sources(core PRIVATE
+		ARMJIT.cpp
+		ARMJIT_x64/ARMJIT_Compiler.cpp
+		ARMJIT_x64/ARMJIT_ALU.cpp
+		ARMJIT_x64/ARMJIT_LoadStore.cpp
+		ARMJIT_x64/ARMJIT_Branch.cpp
+
+		dolphin/CommonFuncs.cpp
+		dolphin/x64ABI.cpp
+		dolphin/x64CPUDetect.cpp
+		dolphin/x64Emitter.cpp
+	)
+endif()
 
 if (WIN32)
 	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)

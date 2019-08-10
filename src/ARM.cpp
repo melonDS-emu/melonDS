@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "ARMJIT.h"
 
 
 // instruction timing notes
@@ -100,7 +101,6 @@ void ARM::Reset()
 
 void ARMv5::Reset()
 {
-    CP15Reset();
     ARM::Reset();
 }
 
@@ -504,7 +504,7 @@ void ARMv5::Execute()
             else
                 AddCycles_C();
         }
-
+ 
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -528,6 +528,60 @@ void ARMv5::Execute()
     if (Halted == 2)
         Halted = 0;
 }
+
+#ifdef JIT_ENABLED
+void ARMv5::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(0))
+        {
+            Halted = 0;
+            if (NDS::IME[0] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM9Timestamp < NDS::ARM9Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+        if (!ARMJIT::IsMapped<0>(instrAddr))
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            printf("ARMv5 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<0>(instrAddr);
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+
+        if (Halted)
+        {
+            if (Halted == 1 && NDS::ARM9Timestamp < NDS::ARM9Target)
+            {
+                NDS::ARM9Timestamp = NDS::ARM9Target;
+            }
+            break;
+        }
+        if (IRQ) TriggerIRQ();
+
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+}
+#endif
 
 void ARMv4::Execute()
 {
@@ -605,3 +659,58 @@ void ARMv4::Execute()
     if (Halted == 2)
         Halted = 0;
 }
+
+#ifdef JIT_ENABLED
+void ARMv4::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(1))
+        {
+            Halted = 0;
+            if (NDS::IME[1] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM7Timestamp < NDS::ARM7Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+        if (!ARMJIT::IsMapped<1>(instrAddr))
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            printf("ARMv4 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<1>(instrAddr);
+        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+
+        // TODO optimize this shit!!!
+        if (Halted)
+        {
+            if (Halted == 1 && NDS::ARM7Timestamp < NDS::ARM7Target)
+            {
+                NDS::ARM7Timestamp = NDS::ARM7Target;
+            }
+            break;
+        }
+
+        if (IRQ) TriggerIRQ();
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+}
+#endif
