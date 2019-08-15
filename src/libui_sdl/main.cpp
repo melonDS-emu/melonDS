@@ -2573,7 +2573,6 @@ int main(int argc, char** argv)
         SDL_Quit();
         return 0;
     }
-
     {
         FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
         if (f)
@@ -2589,6 +2588,13 @@ int main(int argc, char** argv)
                               "Save memory type detection will not work correctly.\n\n"
                               "You should use the latest version of romlist.bin (provided in melonDS release packages).");
             }
+        }
+        else
+        {
+        	uiMsgBoxError(NULL,
+        			     "romlist.bin not found.",
+        			     "Save memory type detection will not work correctly.\n\n"
+				         "You should use the latest version of romlist.bin (provided in melonDS release packages).");
         }
     }
 
