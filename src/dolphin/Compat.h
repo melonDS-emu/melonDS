@@ -1,11 +1,9 @@
-// Copyright 2015 Dolphin Emulator Project
-// Licensed under GPLv2+
-// Refer to the license_dolphin.txt file included.
-
+// Stubs for Assert.h and Log.h
 #pragma once
 
 #include <assert.h>
 
+// Assert stub
 #define ASSERT_MSG(_t_, _a_, _fmt_, ...)                                                           \
   assert(_a_) \
   /*do                                                                                               \
@@ -45,3 +43,21 @@
     if (MAX_LOGLEVEL >= LogTypes::LOG_LEVELS::LDEBUG)                                              \
       ASSERT(_a_);                                                                                 \
   } while (0)*/
+
+// Log Stub
+#include <cstdio>
+
+#define PanicAlert(fmt, ...) \
+  do \
+  { \
+    printf(fmt "\n", ## __VA_ARGS__); \
+    abort(); \
+  } while (false)
+
+#define DYNA_REC 0
+
+#define ERROR_LOG(which, fmt, ...) \
+    do \
+    { \
+        printf(fmt "\n", ## __VA_ARGS__); \
+    } while (false)

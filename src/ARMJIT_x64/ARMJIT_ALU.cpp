@@ -257,7 +257,7 @@ void Compiler::Comp_MulOp(bool S, bool add, Gen::OpArg rd, Gen::OpArg rm, Gen::O
         Comp_AddCycles_CI(RSCRATCH, add ? 2 : 1);
     }
 
-    static_assert(EAX == RSCRATCH);
+    static_assert(EAX == RSCRATCH, "Someone changed RSCRATCH!");
     MOV(32, R(RSCRATCH), rm);
     if (add)
     {
@@ -383,7 +383,7 @@ OpArg Compiler::Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, b
     }
 
     MOV(32, R(RSCRATCH), rm);
-    static_assert(RSCRATCH3 == ECX);
+    static_assert(RSCRATCH3 == ECX, "Someone changed RSCRATCH3");
     MOV(32, R(ECX), rs);
     AND(32, R(ECX), Imm32(0xFF));
 

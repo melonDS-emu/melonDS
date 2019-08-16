@@ -188,6 +188,8 @@ CompiledBlock CompileBlock(ARM* cpu)
 
 void InvalidateBlockCache()
 {
+	printf("Resetting JIT block cache...\n");
+
 	memset(cache.MainRAM, 0, sizeof(cache.MainRAM));
 	memset(cache.SWRAM, 0, sizeof(cache.SWRAM));
 	memset(cache.ARM9_BIOS, 0, sizeof(cache.ARM9_BIOS));
