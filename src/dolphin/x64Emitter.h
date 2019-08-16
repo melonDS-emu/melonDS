@@ -12,9 +12,8 @@
 #include <tuple>
 #include <type_traits>
 
-#include "Assert.h"
+#include "Compat.h"
 #include "BitSet.h"
-#include "CodeBlock.h"
 #include "../types.h"
 #include "x64ABI.h"
 
@@ -1166,15 +1165,5 @@ public:
     ABI_CallFunctionPC(trampoline, reinterpret_cast<const void*>(f), p1);
   }
 };  // class XEmitter
-
-class X64CodeBlock : public Common::CodeBlock<XEmitter>
-{
-private:
-  void PoisonMemory() override
-  {
-    // x86/64: 0xCC = breakpoint
-    memset(region, 0xCC, region_size);
-  }
-};
 
 }  // namespace
