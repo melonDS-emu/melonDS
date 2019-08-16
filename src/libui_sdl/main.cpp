@@ -570,7 +570,7 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     int num_in = SPU::ReadOutput(buf_in, 710);
     int num_out = 1024;
-printf("took %d/%d samples\n", num_in, 710);
+//printf("took %d/%d samples\n", num_in, 710);
     int margin = 6;
     if (num_in < 710-margin)
     {

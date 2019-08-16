@@ -17,7 +17,7 @@ const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
 
 
-class Compiler : public Gen::X64CodeBlock
+class Compiler : public Gen::XEmitter
 {
 public:
     Compiler();
@@ -131,6 +131,9 @@ public:
         assert(RegCache.Mapping[reg] != Gen::INVALID_REG);
         return Gen::R(RegCache.Mapping[reg]);
     }
+
+    u8* ResetStart;
+    u32 CodeMemSize;
 
     void* MemoryFuncs9[3][2];
     void* MemoryFuncs7[3][2][2];

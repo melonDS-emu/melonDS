@@ -63,12 +63,11 @@ Compiler::Compiler()
         mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
     #endif
 
-        region = pageAligned;
-        region_size = alignedSize;
-        total_region_size = region_size;
+        ResetStart = pageAligned;
+        CodeMemSize = alignedSize;
     }
 
-    ClearCodeSpace();
+    Reset();
 
     for (int i = 0; i < 3; i++)
     {
@@ -169,9 +168,8 @@ Compiler::Compiler()
     }
 
     // move the region forward to prevent overwriting the generated functions
-    region_size -= GetWritableCodePtr() - region;
-    total_region_size = region_size;
-    region = GetWritableCodePtr();
+    CodeMemSize -= GetWritableCodePtr() - ResetStart;
+    ResetStart = GetWritableCodePtr();
 }
 
 void Compiler::LoadCPSR()
@@ -208,7 +206,7 @@ Gen::FixupBranch Compiler::CheckCondition(u32 cond)
 {
     if (cond >= 0x8)
     {
-        static_assert(RSCRATCH3 == ECX);
+        static_assert(RSCRATCH3 == ECX, "RSCRATCH has to be equal to ECX!");
         MOV(32, R(RSCRATCH3), R(RCPSR));
         SHR(32, R(RSCRATCH3), Imm8(28));
         MOV(32, R(RSCRATCH), Imm32(1));
@@ -346,12 +344,13 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 
 void Compiler::Reset()
 {
-    ClearCodeSpace();
+    memset(ResetStart, 0xcc, CodeMemSize);
+    SetCodePtr(ResetStart);
 }
 
 CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount)
 {
-    if (IsAlmostFull())
+    if (CodeMemSize - (GetWritableCodePtr() - ResetStart) < 1024 * 32) // guess...
         InvalidateBlockCache();
 
     ConstantCycles = 0;

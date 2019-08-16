@@ -7,7 +7,6 @@
 
 #include "CPUDetect.h"
 #include "../types.h"
-#include "Intrinsics.h"
 
 #ifndef _MSVC_VER
 

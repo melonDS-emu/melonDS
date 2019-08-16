@@ -171,7 +171,7 @@ void* Compiler::Gen_MemoryRoutine9(bool store, int size)
     }
     RET();
 
-    static_assert(RSCRATCH == EAX);
+    static_assert(RSCRATCH == EAX, "Someone changed RSCRATCH!");
 
     return res;
 }

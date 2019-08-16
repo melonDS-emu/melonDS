@@ -7,9 +7,10 @@
 
 #include "CPUDetect.h"
 #include "../types.h"
-#include "Log.h"
 #include "x64Emitter.h"
 #include "x64Reg.h"
+#include "Compat.h"
+#include "CommonFuncs.h"
 
 namespace Gen
 {
