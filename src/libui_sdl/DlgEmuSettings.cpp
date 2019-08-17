@@ -78,7 +78,7 @@ void OnOk(uiButton* btn, void* blarg)
             return;
 
         Config::JIT_Enable = enableJit;
-        Config::JIT_MaxBlockSize = Config::JIT_MaxBlockSize;
+        Config::JIT_MaxBlockSize = blockSize;
 
         restart = true;
     }
