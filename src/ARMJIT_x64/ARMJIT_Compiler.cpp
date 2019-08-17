@@ -395,11 +395,6 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
             MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(R15));
             MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
             MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurInstr.Instr));
-            if (i == instrsCount - 1)
-            {
-                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[0])), Imm32(CurInstr.NextInstr[0]));
-                MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[1])), Imm32(CurInstr.NextInstr[1]));
-            }
 
             if (comp == NULL)
                 SaveCPSR();

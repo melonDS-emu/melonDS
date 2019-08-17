@@ -2355,6 +2355,14 @@ void OnSetShowOSD(uiMenuItem* item, uiWindow* window, void* blarg)
 
 void ApplyNewSettings(int type)
 {
+#ifdef JIT_ENABLED
+    if (type == 4)
+    {
+        Reset(NULL);
+        return;
+    }
+#endif
+
     if (!RunningSomething)
     {
         if (type == 1) return;
@@ -2409,14 +2417,6 @@ void ApplyNewSettings(int type)
         GPU3D::InitRenderer(Screen_UseGL);
         if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
     }
-    else if (type == 4)
-    {
-#ifdef JIT_ENABLED
-        if (Config::JIT_Enable)
-            ARMJIT::InvalidateBlockCache();
-#endif
-    }
-
     EmuRunning = prevstatus;
 }
 

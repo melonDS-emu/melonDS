@@ -136,7 +136,7 @@ char *uiSaveFile(uiWindow *parent, const char* filter, const char* initpath)
 
 // TODO switch to TaskDialogIndirect()?
 
-static void msgbox(HWND parent, const char *title, const char *description, TASKDIALOG_COMMON_BUTTON_FLAGS buttons, PCWSTR icon)
+static int msgbox(HWND parent, const char *title, const char *description, TASKDIALOG_COMMON_BUTTON_FLAGS buttons, PCWSTR icon)
 {
 	WCHAR *wtitle, *wdescription;
 	HRESULT hr;
@@ -144,12 +144,15 @@ static void msgbox(HWND parent, const char *title, const char *description, TASK
 	wtitle = toUTF16(title);
 	wdescription = toUTF16(description);
 
-	hr = TaskDialog(parent, NULL, NULL, wtitle, wdescription, buttons, icon, NULL);
+	int result;
+	hr = TaskDialog(parent, NULL, NULL, wtitle, wdescription, buttons, icon, &result);
 	if (hr != S_OK)
 		logHRESULT(L"error showing task dialog", hr);
 
 	uiFree(wdescription);
 	uiFree(wtitle);
+
+	return result;
 }
 
 void uiMsgBox(uiWindow *parent, const char *title, const char *description)
@@ -164,4 +167,14 @@ void uiMsgBoxError(uiWindow *parent, const char *title, const char *description)
 	disableAllWindowsExcept(parent);
 	msgbox(windowHWND(parent), title, description, TDCBF_OK_BUTTON, TD_ERROR_ICON);
 	enableAllWindowsExcept(parent);
+}
+
+int uiMsgBoxConfirm(uiWindow * parent, const char *title, const char *description)
+{
+	disableAllWindowsExcept(parent);
+	int result =
+		msgbox(windowHWND(parent), title, description, TDCBF_OK_BUTTON | TDCBF_CANCEL_BUTTON, TD_WARNING_ICON);
+	enableAllWindowsExcept(parent);
+
+	return result == IDOK;
 }

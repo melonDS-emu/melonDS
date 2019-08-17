@@ -457,11 +457,6 @@ void Compiler::Comp_MemAccess(OpArg rd, bool signExtend, bool store, int size)
     }
 }
 
-void printStuff2(u32 a, u32 b)
-{
-    printf("b %x %x\n", a, b);
-}
-
 s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
 {
     int regsCount = regs.Count();
