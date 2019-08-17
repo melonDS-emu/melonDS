@@ -127,8 +127,8 @@ A_IMPLEMENT_WB_LDRSTR(LDRB,LDR)
 #define A_STRD A_Read12Double
 
 #define A_IMPLEMENT_HD_LDRSTR(x,k) \
-    const u32 A_##x##_IMM = A_##k | A_Read16 | A_Write16 | ak(ak_##x##_IMM); \
-    const u32 A_##x##_REG = A_##k | A_Read16 | A_Write16 | A_Read0 | ak(ak_##x##_REG); \
+    const u32 A_##x##_IMM = A_##k | A_Read16 | A_MemWriteback | ak(ak_##x##_IMM); \
+    const u32 A_##x##_REG = A_##k | A_Read16 | A_MemWriteback | A_Read0 | ak(ak_##x##_REG); \
     const u32 A_##x##_POST_IMM = A_##k | A_Read16 | A_Write16 | ak(ak_##x##_POST_IMM); \
     const u32 A_##x##_POST_REG = A_##k | A_Read16 | A_Write16 | A_Read0 | ak(ak_##x##_POST_REG);
 
