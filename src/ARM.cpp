@@ -21,6 +21,7 @@
 #include "ARM.h"
 #include "ARMInterpreter.h"
 #include "ARMJIT.h"
+#include "Config.h"
 
 
 // instruction timing notes
@@ -121,6 +122,13 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_IRQ, 3*sizeof(u32));
     file->VarArray(R_UND, 3*sizeof(u32));
     file->Var32(&CurInstr);
+    if (!file->Saving && Config::JIT_Enable)
+    {
+        // hack, the JIT doesn't really pipeline
+        // but we still want JIT save states to be
+        // loaded while running the interpreter
+        FillPipeline();
+    }
     file->VarArray(NextInstr, 2*sizeof(u32));
 
     file->Var32(&ExceptionBase);
@@ -714,3 +722,39 @@ void ARMv4::ExecuteJIT()
         Halted = 0;
 }
 #endif
+
+void ARMv5::FillPipeline()
+{
+    if (CPSR & 0x20)
+    {
+        if ((R[15] - 2) & 0x2)
+        {
+            NextInstr[0] = CodeRead32(R[15] - 4, false) >> 16;
+            NextInstr[1] = CodeRead32(R[15], false);
+        }
+        else
+        {
+            NextInstr[0] = CodeRead32(R[15] - 2, false);
+            NextInstr[1] = NextInstr[0] >> 16;
+        }
+    }
+    else
+    {
+        NextInstr[0] = CodeRead32(R[15] - 4, false);
+        NextInstr[1] = CodeRead32(R[15], false);
+    }
+}
+
+void ARMv4::FillPipeline()
+{
+    if (CPSR & 0x20)
+    {
+        NextInstr[0] = CodeRead16(R[15] - 2);
+        NextInstr[1] = CodeRead16(R[15]);
+    }
+    else
+    {
+        NextInstr[0] = CodeRead32(R[15] - 4);
+        NextInstr[1] = CodeRead32(R[15]);
+    }
+}

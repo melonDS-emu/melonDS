@@ -29,6 +29,7 @@
 
 void ApplyNewSettings(int type);
 
+extern bool RunningSomething;
 
 namespace DlgEmuSettings
 {
@@ -57,10 +58,10 @@ void OnCancel(uiButton* btn, void* blarg)
 
 void OnOk(uiButton* btn, void* blarg)
 {
-    Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
-
 #ifdef JIT_ENABLED
-    Config::JIT_Enable = uiCheckboxChecked(cbJITEnabled);
+    bool restart = false;
+
+    bool enableJit = uiCheckboxChecked(cbJITEnabled);
     char* maxBlockSizeStr = uiEntryText(enJITMaxBlockSize);
     long blockSize = strtol(maxBlockSizeStr, NULL, 10);
     uiFreeText(maxBlockSizeStr);
@@ -68,15 +69,32 @@ void OnOk(uiButton* btn, void* blarg)
         blockSize = 1;
     if (blockSize > 32)
         blockSize = 32;
-    Config::JIT_MaxBlockSize = blockSize;
+
+    if (enableJit != Config::JIT_Enable || blockSize != Config::JIT_MaxBlockSize)
+    {
+        if (RunningSomething && 
+            !uiMsgBoxConfirm(win, "Reset emulator", 
+                "Changing JIT settings requires a reset.\n\nDo you want to continue?"))
+            return;
+
+        Config::JIT_Enable = enableJit;
+        Config::JIT_MaxBlockSize = Config::JIT_MaxBlockSize;
+
+        restart = true;
+    }
 #endif
+
+    Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
 
     Config::Save();
 
     uiControlDestroy(uiControl(win));
     opened = false;
 
-    ApplyNewSettings(4);
+#ifdef JIT_ENABLED
+    if (restart)
+        ApplyNewSettings(4);
+#endif
 }
 
 #ifdef JIT_ENABLED

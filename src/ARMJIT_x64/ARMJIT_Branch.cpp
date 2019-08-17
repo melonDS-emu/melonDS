@@ -4,6 +4,14 @@ using namespace Gen;
 
 namespace ARMJIT
 {
+
+template <typename T>
+int squeezePointer(T* ptr)
+{
+    int truncated = (int)((u64)ptr);
+    assert((T*)((u64)truncated) == ptr);
+    return truncated;
+}
     
 void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 {
@@ -12,9 +20,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     // we'll see how it works out
 
     u32 newPC;
-    u32 nextInstr[2];
     u32 cycles = 0;
-    bool setupRegion = false;
 
     if (addr & 0x1 && !Thumb)
     {
@@ -40,7 +46,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 
         MOV(32, MDisp(RCPU, offsetof(ARMv5, RegionCodeCycles)), Imm32(regionCodeCycles));
 
-        setupRegion = newregion != oldregion;
+        bool setupRegion = newregion != oldregion;
         if (setupRegion)
             cpu9->SetupCodeMem(addr);
 
@@ -53,15 +59,14 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             // doesn't matter if we put garbage in the MSbs there
             if (addr & 0x2)
             {
-                nextInstr[0] = cpu9->CodeRead32(addr-2, true) >> 16;
+                cpu9->CodeRead32(addr-2, true);
                 cycles += cpu9->CodeCycles;
-                nextInstr[1] = cpu9->CodeRead32(addr+2, false);
+                cpu9->CodeRead32(addr+2, false);
                 cycles += CurCPU->CodeCycles;
             }
             else
             {
-                nextInstr[0] = cpu9->CodeRead32(addr, true);
-                nextInstr[1] = nextInstr[0] >> 16;
+                cpu9->CodeRead32(addr, true);
                 cycles += cpu9->CodeCycles;
             }
         }
@@ -70,11 +75,14 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             addr &= ~0x3;
             newPC = addr+4;
 
-            nextInstr[0] = cpu9->CodeRead32(addr, true);
+            cpu9->CodeRead32(addr, true);
             cycles += cpu9->CodeCycles;
-            nextInstr[1] = cpu9->CodeRead32(addr+4, false);
+            cpu9->CodeRead32(addr+4, false);
             cycles += cpu9->CodeCycles;
         }
+
+        MOV(64, MDisp(RCPU, offsetof(ARM, CodeMem.Mem)), Imm32(squeezePointer(cpu9->CodeMem.Mem)));
+        MOV(32, MDisp(RCPU, offsetof(ARM, CodeMem.Mask)), Imm32(cpu9->CodeMem.Mask));
 
         cpu9->RegionCodeCycles = compileTimeCodeCycles;
         if (setupRegion)
@@ -102,8 +110,6 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            nextInstr[0] = ((ARMv4*)CurCPU)->CodeRead16(addr);
-            nextInstr[1] = ((ARMv4*)CurCPU)->CodeRead16(addr+2);
             cycles += NDS::ARM7MemTimings[codeCycles][0] + NDS::ARM7MemTimings[codeCycles][1];
 
             CurCPU->R[15] = compileTimePC;
@@ -116,8 +122,6 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             u32 compileTimePC = CurCPU->R[15];
             CurCPU->R[15] = newPC;
 
-            nextInstr[0] = cpu7->CodeRead32(addr);
-            nextInstr[1] = cpu7->CodeRead32(addr+4);
             cycles += NDS::ARM7MemTimings[codeCycles][2] + NDS::ARM7MemTimings[codeCycles][3];
 
             CurCPU->R[15] = compileTimePC;
@@ -128,19 +132,10 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     }
 
     MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(newPC));
-    MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[0])), Imm32(nextInstr[0]));
-    MOV(32, MDisp(RCPU, offsetof(ARM, NextInstr[1])), Imm32(nextInstr[1]));
     if ((Thumb || CurInstr.Cond() >= 0xE) && !forceNonConstantCycles)
         ConstantCycles += cycles;
     else
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
-
-    if (setupRegion)
-    {
-        MOV(64, R(ABI_PARAM1), R(RCPU));
-        MOV(32, R(ABI_PARAM2), Imm32(newPC));
-        CALL((void*)&ARMv5::SetupCodeMem);
-    }
 }
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)

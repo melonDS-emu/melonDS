@@ -139,6 +139,7 @@ CompiledBlock CompileBlock(ARM* cpu)
     int i = 0;
 	u32 blockAddr = cpu->R[15] - (thumb ? 2 : 4);
     u32 r15 = cpu->R[15];
+	cpu->FillPipeline();
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
     do
     {

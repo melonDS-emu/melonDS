@@ -289,6 +289,7 @@ _UI_EXTERN char *uiOpenFile(uiWindow *parent, const char* filter, const char* in
 _UI_EXTERN char *uiSaveFile(uiWindow *parent, const char* filter, const char* initpath);
 _UI_EXTERN void uiMsgBox(uiWindow *parent, const char *title, const char *description);
 _UI_EXTERN void uiMsgBoxError(uiWindow *parent, const char *title, const char *description);
+_UI_EXTERN int uiMsgBoxConfirm(uiWindow * parent, const char *title, const char *description);
 
 typedef struct uiArea uiArea;
 typedef struct uiAreaHandler uiAreaHandler;
