@@ -42,6 +42,8 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
+    virtual void FillPipeline() = 0;
+
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
     void RestoreCPSR();
 
@@ -155,6 +157,8 @@ public:
     void DoSavestate(Savestate* file);
 
     void UpdateRegionTimings(u32 addrstart, u32 addrend);
+
+    void FillPipeline();
 
     void JumpTo(u32 addr, bool restorecpsr = false);
 
@@ -283,6 +287,8 @@ public:
     ARMv4();
 
     void Reset();
+
+    void FillPipeline();
 
     void JumpTo(u32 addr, bool restorecpsr = false);
 
