@@ -26,7 +26,7 @@
 // * capture addition modes, overflow bugs
 // * channel hold
 // * 'length less than 4' glitch
-
+int brap = 0;
 
 namespace SPU
 {
@@ -63,7 +63,7 @@ const s16 PSGTable[8][8] =
 
 const u32 kSamplesPerRun = 1;
 
-const u32 OutputBufferSize = 2*1024;
+const u32 OutputBufferSize = 2*2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
 u32 OutputReadOffset;
 u32 OutputWriteOffset;
@@ -101,7 +101,7 @@ void Reset()
 {
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
     OutputReadOffset = 0;
-    OutputWriteOffset = OutputBufferSize;
+    OutputWriteOffset = 0;//OutputBufferSize;
 
     Cnt = 0;
     MasterVolume = 0;
@@ -579,7 +579,7 @@ void CaptureUnit::Run(s32 sample)
     }
 }
 
-
+int zog = 0, zig = 0;
 void Mix(u32 samples)
 {
     s32 channelbuf[32];
@@ -734,15 +734,23 @@ void Mix(u32 samples)
         OutputBuffer[OutputWriteOffset + 1] = r >> 1;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
-        if (OutputWriteOffset == OutputReadOffset) printf("!! SOUND FIFO OVERFLOW\n");
+        if (OutputWriteOffset == OutputReadOffset) printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
+        zog++; zig++; brap++;
     }
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
 }
 
 
+int GetOutputSize()
+{
+    return zog; // derp
+}
+
 int ReadOutput(s16* data, int samples)
 {
+    printf("ReadOutput(%d): wrote=%d level=%d ReadOffset=%d WriteOffset=%d\n", samples, zog, zig, OutputReadOffset>>1, OutputWriteOffset>>1);
+    zog = 0; zig -= (zig<samples ? zig : samples);
     if (OutputReadOffset == OutputWriteOffset)
         return 0;
 
@@ -908,8 +916,8 @@ void Write16(u32 addr, u16 val)
             return;
         case 0xA: chan->SetLoopPos(val); return;
 
-        case 0xC: chan->SetLength((chan->Length & 0xFFFF0000) | val); return;
-        case 0xE: chan->SetLength((chan->Length & 0x0000FFFF) | (val << 16)); return;
+        case 0xC: chan->SetLength(((chan->Length >> 2) & 0xFFFF0000) | val); return;
+        case 0xE: chan->SetLength(((chan->Length >> 2) & 0x0000FFFF) | (val << 16)); return;
         }
     }
     else
