@@ -10,7 +10,6 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
-	GBACart.cpp
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp
@@ -25,6 +24,10 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
+	slot2/GBACart.cpp
+	slot2/GBACartGBAMP.cpp
+	slot2/GBACartNone.cpp
+	slot2/IDEDrive.cpp
 )
 
 if (WIN32)

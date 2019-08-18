@@ -48,6 +48,7 @@
 
 #include "OSD.h"
 
+#include "../slot2/GBACartGBAMP.h"
 
 // savestate slot mapping
 // 1-8: regular slots (quick access)
@@ -1571,6 +1572,10 @@ void Run()
 
     SPU::InitOutput();
     AudioSampleFrac = 0;
+
+    // TODO this should not be here
+    NDS::SetGBACart(new GBACartGBAMP("cf.img"));
+
     SDL_PauseAudioDevice(AudioDevice, 0);
     SDL_PauseAudioDevice(MicDevice, 0);
 

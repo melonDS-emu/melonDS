@@ -19,6 +19,7 @@
 #ifndef NDS_H
 #define NDS_H
 
+#include "slot2/GBACart.h"
 #include "Savestate.h"
 #include "types.h"
 
@@ -211,6 +212,8 @@ u32 ARM7IORead32(u32 addr);
 void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
+
+void SetGBACart(GBACart *cart);
 
 }
 

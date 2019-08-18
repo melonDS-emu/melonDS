@@ -16,35 +16,15 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GBACART_H
-#define GBACART_H
+#include "GBACart.h"
+#include "IDEDrive.h"
 
-#include "types.h"
-
-namespace GBACart_GBAMP
-{
-
-bool Load(const char *path);
-void Unload();
-
-}
-
-namespace GBACart
-{
-
-bool Init();
-void DeInit();
-
-bool InitGBAMP(const char *path);
-
-u8 Read8(u32 addr);
-u16 Read16(u32 addr);
-u32 Read32(u32 addr);
-
-void Write8(u32 addr, u8 val);
-void Write16(u32 addr, u16 val);
-void Write32(u32 addr, u32 val);
-
-}
-
-#endif /* GBACART_H */
+class GBACartGBAMP: public GBACart {
+public:
+    GBACartGBAMP(const char *path);
+    ~GBACartGBAMP();
+    virtual u16 RomReadWord(u32 addr);
+    virtual void RomWriteWord(u32 addr, u16 value);
+private:
+    IDEDrive Drive;
+};
