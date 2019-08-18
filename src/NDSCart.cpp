@@ -399,7 +399,7 @@ void Write(u8 val, u32 hold)
     switch (CurCmd)
     {
     case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
+        // Pokï¿½mon carts have an IR transceiver thing, and send this
         // to bypass it and access SRAM.
         // TODO: design better
         CurCmd = val;
@@ -934,9 +934,10 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     printf("Cart ID: %08X\n", CartID);
 
-    if (*(u32*)&CartROM[0x20] < 0x4000)
+    // TODO: This is incorrect - needs a better form of detection
+    // if (*(u32*)&CartROM[0x20] < 0x4000)
     {
-        //ApplyDLDIPatch();
+        ApplyDLDIPatch();
     }
 
     if (direct)

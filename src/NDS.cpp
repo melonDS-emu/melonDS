@@ -30,7 +30,7 @@
 #include "RTC.h"
 #include "Wifi.h"
 #include "Platform.h"
-
+#include "GBACart.h"
 
 namespace NDS
 {
@@ -174,6 +174,7 @@ bool Init()
     if (!SPI::Init()) return false;
     if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
+    if (!GBACart::Init()) return false;
 
     return true;
 }
@@ -1611,10 +1612,7 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFF;
+        return GBACart::Read8(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFF; // TODO: proper open bus
@@ -1672,10 +1670,7 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFFFF;
+        return GBACart::Read16(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFF; // TODO: proper open bus
@@ -1733,10 +1728,7 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFFFFFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFFFFFFFF;
+       return GBACart::Read32(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0xFFFFFFFF; // TODO: proper open bus
@@ -1771,6 +1763,11 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x06000000:
     case 0x07000000:
         // checkme
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write8(addr, val);
         return;
     }
 
@@ -1815,6 +1812,11 @@ void ARM9Write16(u32 addr, u16 val)
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u16*)&GPU::OAM[addr & 0x7FF] = val;
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write16(addr, val);
+        return;
     }
 
     //printf("unknown arm9 write16 %08X %04X\n", addr, val);
@@ -1857,6 +1859,11 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u32*)&GPU::OAM[addr & 0x7FF] = val;
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write32(addr, val);
         return;
     }
 
@@ -1936,10 +1943,7 @@ u8 ARM7Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFF;
+        return GBACart::Read8(addr);
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFF; // TODO: proper open bus
@@ -1999,10 +2003,7 @@ u16 ARM7Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFFFF;
+        return GBACart::Read16(addr);
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFF; // TODO: proper open bus
@@ -2062,10 +2063,7 @@ u32 ARM7Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFFFFFF; // TODO: proper open bus
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
-        return 0xFFFFFFFF;
+        return GBACart::Read32(addr);
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFFFFFF; // TODO: proper open bus
@@ -2109,6 +2107,11 @@ void ARM7Write8(u32 addr, u8 val)
     case 0x06000000:
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u8>(addr, val);
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write8(addr, val);
         return;
     }
 
@@ -2156,6 +2159,11 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u16>(addr, val);
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write16(addr, val);
+        return;
     }
 
     //printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
@@ -2202,6 +2210,11 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x06000000:
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u32>(addr, val);
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+        GBACart::Write32(addr, val);
         return;
     }
 
