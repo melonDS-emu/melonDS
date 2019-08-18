@@ -85,7 +85,7 @@ namespace GBACart_GBAMP
     bool Load(const char *path) {
         Unload();
 
-        image = fopen(path, "rb");
+        image = fopen(path, "r+b");
         if (image == NULL) {
             return false;
         }
@@ -132,7 +132,7 @@ namespace GBACart_GBAMP
                 data_buffer_pos = 0;
                 data_buffer_size = (sectors == 0 ? 256 : sectors) * 0x100;
                 data_buffer = (u16*) malloc(data_buffer_size * sizeof(u16));
-                printf("GBACart_GBAMP: command: read %d bytes @ %d\n", data_buffer_size, file_pos);
+                printf("GBACart_GBAMP: command: read %d words @ %d\n", data_buffer_size, file_pos);
                 if (image != NULL) {
                     fseek(image, file_pos, 0);
                     for (u32 i = 0; i < data_buffer_size; i++) {
@@ -148,7 +148,6 @@ namespace GBACart_GBAMP
                 data_buffer_pos = 0;
                 data_buffer_size = (sectors == 0 ? 256 : sectors) * 0x100;
                 data_buffer = (u16*) malloc(data_buffer_size * sizeof(u16));
-                printf("GBACart_GBAMP: command: write %d bytes\n", data_buffer_size);
                 status |= CF_STATUS_DRQ;
                 break;
             }
@@ -207,6 +206,9 @@ namespace GBACart_GBAMP
                             return;
                         }
                         
+                        if (data_buffer_pos < data_buffer_size)
+                            data_buffer[data_buffer_pos++] = value;
+
                         if (data_buffer_pos >= data_buffer_size) {
                             if (image != NULL) {
                                 u32 file_pos = GetSector() * 512;
@@ -216,10 +218,10 @@ namespace GBACart_GBAMP
                                     fputc(data_buffer[i] & 0xFF, image);
                                     fputc(data_buffer[i] >> 8, image);
                                 }
+                                printf("GBACart_GBAMP: command: write %d words @ %d\n", data_buffer_size, file_pos);
                             }
+                            FreeBuffers();
                             status &= ~CF_STATUS_DRQ;
-                        } else {
-                            data_buffer[data_buffer_pos++] = value;
                         }
                         return;
                     default:
