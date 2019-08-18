@@ -26,6 +26,7 @@ add_library(core STATIC
 	WifiAP.cpp
 	slot2/GBACart.cpp
 	slot2/GBACartGBAMP.cpp
+	slot2/GBACartMemoryPak.cpp
 	slot2/GBACartNone.cpp
 	slot2/IDEDrive.cpp
 )

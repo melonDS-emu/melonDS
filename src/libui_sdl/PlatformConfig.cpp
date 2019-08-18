@@ -24,6 +24,13 @@
 namespace Config
 {
 
+const char *Slot2Types[] = {
+    "Empty",
+    "GBA Movie Player (CompactFlash)",
+    "DS Memory Expansion Pak",
+    NULL
+};
+
 int KeyMapping[12];
 int JoyMapping[12];
 
@@ -63,6 +70,9 @@ int MicInputType;
 char MicWavPath[512];
 
 char LastROMFolder[512];
+
+int Slot2Type;
+char Slot2DiskImagePath[512];
 
 
 ConfigEntry PlatformConfigFile[] =
@@ -140,6 +150,9 @@ ConfigEntry PlatformConfigFile[] =
     {"MicWavPath", 1, MicWavPath, 0, "", 511},
 
     {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
+
+    {"Slot2Type", 0, &Slot2Type, 0, NULL, 0},
+    {"Slot2DiskImagePath", 1, Slot2DiskImagePath, 0, "", 511},
 
     {"", -1, NULL, 0, NULL, 0}
 };

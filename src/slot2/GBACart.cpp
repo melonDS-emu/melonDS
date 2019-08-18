@@ -28,6 +28,11 @@ namespace GBACartHelper {
     static GBACart *cart = &GBACartNone::singleton();
 
     void Use(GBACart *inputCart) {
+        GBACart *singleton = &GBACartNone::singleton();
+        if (cart != singleton) {
+            delete cart;
+        }
+
         if (inputCart == NULL) {
             cart = &GBACartNone::singleton();
         } else {

@@ -16,28 +16,16 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
-#include <string.h>
-#include "../Platform.h"
-#include "GBACartGBAMP.h"
+#include "GBACart.h"
+#include "IDEDrive.h"
 
-#define ADDR_TO_DRIVE(addr) (((addr) >> 16) & 0x7 | (((addr) >> 19) & 0x8))
-
-GBACartGBAMP::GBACartGBAMP(const char *path) {
-    this->Valid = this->Drive.Open(path);
-}
-
-GBACartGBAMP::~GBACartGBAMP() {
-    this->Drive.Close();
-}
-
-u16 GBACartGBAMP::RomReadWord(u32 addr) {
-    u16 value = this->Drive.Read(ADDR_TO_DRIVE(addr));
-    printf("GBACartGBAMP read %08X(%d) = %04X\n", addr, ADDR_TO_DRIVE(addr), value);
-    return value;
-}
-
-void GBACartGBAMP::RomWriteWord(u32 addr, u16 value) {
-    printf("GBACartGBAMP write %08X = %04X\n", addr, value);
-    return this->Drive.Write(ADDR_TO_DRIVE(addr), value);
-}
+class GBACartMemoryPak: public GBACart {
+public:
+    GBACartMemoryPak();
+    ~GBACartMemoryPak();
+    virtual u16 RomReadWord(u32 addr);
+    virtual void RomWriteWord(u32 addr, u16 value);
+private:
+    u16 *Memory;
+    u16 Unlocked;
+};

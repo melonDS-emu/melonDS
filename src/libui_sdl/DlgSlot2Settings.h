@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2019 Adrian "asie" Siekierka
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,17 +16,15 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include "GBACart.h"
-#include "IDEDrive.h"
+#ifndef DLGSLOT2SETTINGS_H
+#define DLGSLOT2SETTINGS_H
 
-class GBACartGBAMP: public GBACart {
-public:
-    GBACartGBAMP(const char *path);
-    ~GBACartGBAMP();
-    bool IsValid() { return this->Valid; }
-    virtual u16 RomReadWord(u32 addr);
-    virtual void RomWriteWord(u32 addr, u16 value);
-private:
-    IDEDrive Drive;
-    bool Valid;
-};
+namespace DlgSlot2Settings
+{
+
+void Open();
+void Close();
+
+}
+
+#endif // DLGSLOT2SETTINGS_H

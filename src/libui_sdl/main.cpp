@@ -36,6 +36,7 @@
 #include "DlgVideoSettings.h"
 #include "DlgAudioSettings.h"
 #include "DlgWifiSettings.h"
+#include "DlgSlot2Settings.h"
 
 #include "../NDS.h"
 #include "../GPU.h"
@@ -49,6 +50,7 @@
 #include "OSD.h"
 
 #include "../slot2/GBACartGBAMP.h"
+#include "../slot2/GBACartMemoryPak.h"
 
 // savestate slot mapping
 // 1-8: regular slots (quick access)
@@ -1565,6 +1567,32 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 }
 
 
+void LoadSlot2Cart()
+{
+    NDS::SetGBACart(NULL);
+
+    switch (Config::Slot2Type) {
+        case SLOT2_Empty:
+            break;
+        case SLOT2_GBAMP: {
+            GBACartGBAMP *cart = new GBACartGBAMP(Config::Slot2DiskImagePath);
+            if (!cart->IsValid()) {
+                printf("Could not load Slot-2 cartridge!\n");
+                delete cart;
+            } else {
+                NDS::SetGBACart(cart);
+            }
+        } break;
+        case SLOT2_MemoryPak: {
+            NDS::SetGBACart(new GBACartMemoryPak());
+        } break;
+        default: {
+            printf("Unknown Slot-2 cartridge (in LoadSlot2Cart())!");
+        } break;
+    }
+}
+
+
 void Run()
 {
     EmuRunning = 1;
@@ -1572,9 +1600,6 @@ void Run()
 
     SPU::InitOutput();
     AudioSampleFrac = 0;
-
-    // TODO this should not be here
-    NDS::SetGBACart(new GBACartGBAMP("cf.img"));
 
     SDL_PauseAudioDevice(AudioDevice, 0);
     SDL_PauseAudioDevice(MicDevice, 0);
@@ -1653,6 +1678,7 @@ void Reset(void* blarg)
         NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
     }
 
+    LoadSlot2Cart();
     Run();
 
     OSD::AddMessage(0, "Reset");
@@ -1932,6 +1958,7 @@ void CloseAllDialogs()
     DlgEmuSettings::Close();
     DlgInputConfig::Close(0);
     DlgInputConfig::Close(1);
+    DlgSlot2Settings::Close();
     DlgVideoSettings::Close();
     DlgWifiSettings::Close();
 }
@@ -2081,6 +2108,11 @@ void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 void OnOpenWifiSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgWifiSettings::Open();
+}
+
+void OnOpenSlot2Settings(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgSlot2Settings::Open();
 }
 
 
@@ -2322,6 +2354,10 @@ void ApplyNewSettings(int type)
             // TODO eventually: VSync for non-GL screen?
         }
     }*/
+    else if (type == 5) // slot 2
+    {
+        LoadSlot2Cart();
+    }
 
     EmuRunning = prevstatus;
 }
@@ -2409,6 +2445,11 @@ void CreateMainWindowMenu()
         uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
         menuitem = uiMenuAppendItem(menu, "Wifi settings");
         uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
+    }
+    uiMenuAppendSeparator(menu);
+    {
+        menuitem = uiMenuAppendItem(menu, "Slot-2 (GBA) settings");
+        uiMenuItemOnClicked(menuitem, OnOpenSlot2Settings, NULL);
     }
     uiMenuAppendSeparator(menu);
     {

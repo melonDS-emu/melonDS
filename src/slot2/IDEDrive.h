@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright (c) 2019 Adrian "asie" Siekierka
 
     This file is part of melonDS.
 
@@ -43,6 +43,7 @@ public:
 
     bool Open(const char *path);
     bool Close();
+    bool IsValid();
 
     u16 Read(u8 addr);
     void Write(u8 addr, u16 val);

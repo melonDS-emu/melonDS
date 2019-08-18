@@ -23,6 +23,14 @@
 
 enum
 {
+    SLOT2_Empty = 0,
+    SLOT2_GBAMP,
+    SLOT2_MemoryPak,
+    SLOT2_MAX
+};
+
+enum
+{
     HK_Lid = 0,
     HK_Mic,
     HK_Pause,
@@ -34,6 +42,8 @@ enum
 
 namespace Config
 {
+
+extern const char *Slot2Types[];
 
 extern int KeyMapping[12];
 extern int JoyMapping[12];
@@ -74,6 +84,9 @@ extern int MicInputType;
 extern char MicWavPath[512];
 
 extern char LastROMFolder[512];
+
+extern int Slot2Type;
+extern char Slot2DiskImagePath[512];
 
 }
 
