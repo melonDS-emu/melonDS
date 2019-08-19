@@ -27,5 +27,5 @@ public:
     virtual void RomWrite16(u32 addr, u16 value);
 private:
     u16 *Memory;
-    u16 Unlocked;
+    u32 Unlocked;
 };

@@ -36,21 +36,40 @@ GBACartMemoryPak::~GBACartMemoryPak() {
 }
 
 u16 GBACartMemoryPak::RomRead16(u32 addr) {
-    printf("GBACartMemoryPak read %08X\n", addr);
     if (addr & 0x800000) {
         return this->Memory[addr & 0x3FFFFF];
     } else {
-        return 0xFFFF;
+        printf("GBACartMemoryPak read %08X\n", addr);
+        switch (addr) {
+            case 0x5A:
+                return 0x24FF; // 0x24 is the Memory Pak's Device Type
+            case 0x5F:
+            case 0xFFFF:
+                return 0x7FFF; // must be cleared for Memory Pak to be detected
+            case 0x120000:
+                return (this->Unlocked) & 0xFFFF;
+            case 0x120001:
+                return (this->Unlocked >> 16) & 0xFFFF;
+            default:
+                return 0xFFFF;
+        }
     }
 }
 
 void GBACartMemoryPak::RomWrite16(u32 addr, u16 value) {
-    printf("GBACartMemoryPak write %08X = %04X\n", addr, value);
     if (addr & 0x800000) {
         if (this->Unlocked) {
             this->Memory[addr & 0x3FFFFF] = value;
         }
-    } else if (addr == 0x120000) {
-        this->Unlocked = value & 0x1;
+    } else {
+        printf("GBACartMemoryPak write %08X = %04X\n", addr, value);
+        switch (addr) {
+            case 0x120000:
+                this->Unlocked = (this->Unlocked & 0xFFFF0000) | value;
+                break;
+            case 0x120001:
+                this->Unlocked = (this->Unlocked & 0x0000FFFF) | (value << 16);
+                break;   
+        }
     }
 }

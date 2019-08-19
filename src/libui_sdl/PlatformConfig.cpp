@@ -26,9 +26,9 @@ namespace Config
 
 const char *Slot2Types[] = {
     "Empty",
-    "GBA Movie Player (CompactFlash)",
-    "DS Memory Expansion Pak",
-    "SuperCard (CompactFlash)",
+    "GBA Movie Player (CompactFlash; I/O only)",
+    "Memory Expansion Pak",
+    "SuperCard (CompactFlash; I/O only)",
     NULL
 };
 
