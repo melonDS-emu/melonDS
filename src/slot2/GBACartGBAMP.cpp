@@ -33,13 +33,13 @@ GBACartGBAMP::~GBACartGBAMP() {
     this->Drive.Close();
 }
 
-u16 GBACartGBAMP::RomReadWord(u32 addr) {
+u16 GBACartGBAMP::RomRead16(u32 addr) {
     u16 value = this->Drive.Read(ADDR_TO_DRIVE(addr));
     printf("GBACartGBAMP read %08X(%d) = %04X\n", addr, ADDR_TO_DRIVE(addr), value);
     return value;
 }
 
-void GBACartGBAMP::RomWriteWord(u32 addr, u16 value) {
+void GBACartGBAMP::RomWrite16(u32 addr, u16 value) {
     printf("GBACartGBAMP write %08X = %04X\n", addr, value);
     this->Drive.Write(ADDR_TO_DRIVE(addr), value);
 }

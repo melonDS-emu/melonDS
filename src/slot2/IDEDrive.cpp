@@ -47,7 +47,7 @@ IDEDrive::~IDEDrive() {
 
 void IDEDrive::ResetBuffer() {
     if (this->Buffer != NULL) {
-        free(this->Buffer);
+        delete this->Buffer;
         this->Buffer = NULL;
     }
 }
@@ -97,7 +97,7 @@ void IDEDrive::RunCommand(u8 cmd) {
             u32 file_pos = this->CurrentFileOffset();
             this->BufferPos = 0;
             this->BufferSize = (this->Sectors == 0 ? 256 : this->Sectors) * 0x100;
-            this->Buffer = (u16*) malloc(this->BufferSize * sizeof(u16));
+            this->Buffer = new u16[this->BufferSize];
             printf("IDEDrive: command: read %d words @ %d\n", this->BufferSize, file_pos);
             if (this->File != NULL) {
                 fseek(this->File, file_pos, 0);
@@ -113,7 +113,7 @@ void IDEDrive::RunCommand(u8 cmd) {
         case IDE_COMMAND_WRITE: {
             this->BufferPos = 0;
             this->BufferSize = (this->Sectors == 0 ? 256 : this->Sectors) * 0x100;
-            this->Buffer = (u16*) malloc(this->BufferSize * sizeof(u16));
+            this->Buffer = new u16[this->BufferSize];
             this->Status |= IDE_STATUS_DRQ;
             break;
         }

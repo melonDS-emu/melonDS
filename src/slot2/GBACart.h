@@ -21,16 +21,35 @@
 
 #include "../types.h"
 
+enum
+{
+    GBACart_Empty = 0,
+    GBACart_GBAMP,
+    GBACart_MemoryPak,
+    GBACart_SuperCardCF,
+    GBACart_MAX
+};
+
+typedef struct
+{
+    int Type;
+    char *ROMPath;
+    char *DiskImagePath;
+} GBACartConfig;
+
 // Addresses are per-word, so 24 bits wide.
 class GBACart {
 public:
     virtual ~GBACart() {};
-    virtual u16 RomReadWord(u32 addr) { return 0xFFFF; };
-    virtual void RomWriteWord(u32 addr, u16 value) { };
+    // initialization verification
+    virtual bool IsValid() { return true; }
+    // memory access
+    virtual u16 RomRead16(u32 addr) { return 0xFFFF; };
+    virtual void RomWrite16(u32 addr, u16 value) { };
 };
 
 namespace GBACartHelper {
-    void Use(GBACart *cart);
+    void Init(GBACartConfig &config);
 
     u8 RomRead8(u32 addr);
     u16 RomRead16(u32 addr);

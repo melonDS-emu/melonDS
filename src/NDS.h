@@ -213,8 +213,6 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
-void SetGBACart(GBACart *cart);
-
 }
 
 #endif // NDS_H

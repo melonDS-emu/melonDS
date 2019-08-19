@@ -23,8 +23,8 @@ class GBACartMemoryPak: public GBACart {
 public:
     GBACartMemoryPak();
     ~GBACartMemoryPak();
-    virtual u16 RomReadWord(u32 addr);
-    virtual void RomWriteWord(u32 addr, u16 value);
+    virtual u16 RomRead16(u32 addr);
+    virtual void RomWrite16(u32 addr, u16 value);
 private:
     u16 *Memory;
     u16 Unlocked;

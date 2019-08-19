@@ -49,9 +49,7 @@
 
 #include "OSD.h"
 
-#include "../slot2/GBACartGBAMP.h"
-#include "../slot2/GBACartMemoryPak.h"
-#include "../slot2/GBACartSuperCardCF.h"
+#include "../slot2/GBACart.h"
 
 // savestate slot mapping
 // 1-8: regular slots (quick access)
@@ -1570,36 +1568,13 @@ void OnAreaResize(uiAreaHandler* handler, uiArea* area, int width, int height)
 
 void LoadSlot2Cart()
 {
-    NDS::SetGBACart(NULL);
+    GBACartConfig config = {
+        Config::Slot2Type,
+        NULL,
+        Config::Slot2DiskImagePath
+    };
 
-    switch (Config::Slot2Type) {
-        case SLOT2_Empty:
-            break;
-        case SLOT2_GBAMP: {
-            GBACartGBAMP *cart = new GBACartGBAMP(Config::Slot2DiskImagePath);
-            if (!cart->IsValid()) {
-                printf("Could not load Slot-2 cartridge!\n");
-                delete cart;
-            } else {
-                NDS::SetGBACart(cart);
-            }
-        } break;
-        case SLOT2_MemoryPak: {
-            NDS::SetGBACart(new GBACartMemoryPak());
-        } break;
-        case SLOT2_SuperCardCF: {
-            GBACartSuperCardCF *cart = new GBACartSuperCardCF(Config::Slot2DiskImagePath);
-            if (!cart->IsValid()) {
-                printf("Could not load Slot-2 cartridge!\n");
-                delete cart;
-            } else {
-                NDS::SetGBACart(cart);
-            }
-        } break;
-        default: {
-            printf("Unknown Slot-2 cartridge (in LoadSlot2Cart())!");
-        } break;
-    }
+    GBACartHelper::Init(config);
 }
 
 

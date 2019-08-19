@@ -25,15 +25,17 @@
 // TODO: This is insufficient. Testing with real hardware is necessary.
 
 GBACartMemoryPak::GBACartMemoryPak() {
-    this->Memory = (u16*) malloc(0x800000);
+    this->Memory = new u16[0x400000];
     this->Unlocked = 0;
 }
 
 GBACartMemoryPak::~GBACartMemoryPak() {
-    free(this->Memory);
+    if (this->Memory != NULL) {
+        delete this->Memory;
+    }
 }
 
-u16 GBACartMemoryPak::RomReadWord(u32 addr) {
+u16 GBACartMemoryPak::RomRead16(u32 addr) {
     printf("GBACartMemoryPak read %08X\n", addr);
     if (addr & 0x800000) {
         return this->Memory[addr & 0x3FFFFF];
@@ -42,7 +44,7 @@ u16 GBACartMemoryPak::RomReadWord(u32 addr) {
     }
 }
 
-void GBACartMemoryPak::RomWriteWord(u32 addr, u16 value) {
+void GBACartMemoryPak::RomWrite16(u32 addr, u16 value) {
     printf("GBACartMemoryPak write %08X = %04X\n", addr, value);
     if (addr & 0x800000) {
         if (this->Unlocked) {

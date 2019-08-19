@@ -23,9 +23,9 @@ class GBACartGBAMP: public GBACart {
 public:
     GBACartGBAMP(const char *path);
     ~GBACartGBAMP();
-    bool IsValid() { return this->Valid; }
-    virtual u16 RomReadWord(u32 addr);
-    virtual void RomWriteWord(u32 addr, u16 value);
+    virtual bool IsValid() { return this->Valid; }
+    virtual u16 RomRead16(u32 addr);
+    virtual void RomWrite16(u32 addr, u16 value);
 private:
     IDEDrive Drive;
     bool Valid;

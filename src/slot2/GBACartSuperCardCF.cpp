@@ -35,7 +35,7 @@ GBACartSuperCardCF::GBACartSuperCardCF(const char *drivePath) {
     this->Mode = MODE_MEMORY_READ_ONLY;
     this->Valid = false;
     if (this->Drive.Open(drivePath)) {
-        this->Memory = (u16*) malloc(0x2000000 - 2);
+        this->Memory = new u16[0x1000000 - 1];
         if (this->Memory != NULL) {
             this->Valid = true;
         }
@@ -44,12 +44,12 @@ GBACartSuperCardCF::GBACartSuperCardCF(const char *drivePath) {
 
 GBACartSuperCardCF::~GBACartSuperCardCF() {
     if (this->Memory != NULL) {
-        free(this->Memory);
+        delete this->Memory;
     }
     this->Drive.Close();
 }
 
-u16 GBACartSuperCardCF::RomReadWord(u32 addr) {
+u16 GBACartSuperCardCF::RomRead16(u32 addr) {
     printf("GBACartSuperCardCF read %08X\n", addr);
     if (addr < ADDR_UNLOCK) switch (this->Mode) {
         case MODE_MEMORY:
@@ -63,7 +63,7 @@ u16 GBACartSuperCardCF::RomReadWord(u32 addr) {
     return 0xFFFF;
 }
 
-void GBACartSuperCardCF::RomWriteWord(u32 addr, u16 value) {
+void GBACartSuperCardCF::RomWrite16(u32 addr, u16 value) {
     printf("GBACartSuperCardCF write %08X = %04X\n", addr, value);
     if (addr >= ADDR_UNLOCK) {
         if (value == 0xA55A) {

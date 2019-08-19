@@ -20,38 +20,64 @@
 #include <string.h>
 #include "../Platform.h"
 #include "GBACart.h"
+#include "GBACartGBAMP.h"
+#include "GBACartMemoryPak.h"
 #include "GBACartNone.h"
+#include "GBACartSuperCardCF.h"
 
 #define RAM_TO_CART(addr) (((addr) >> 1) & 0x00FFFFFF)
 
 namespace GBACartHelper {
     static GBACart *cart = &GBACartNone::singleton();
 
-    void Use(GBACart *inputCart) {
+    void Init(GBACartConfig &config) {
         GBACart *singleton = &GBACartNone::singleton();
         if (cart != singleton) {
             delete cart;
+            cart = singleton;
         }
 
-        if (inputCart == NULL) {
-            cart = &GBACartNone::singleton();
-        } else {
-            cart = inputCart;
+        GBACart *newCart = NULL;
+
+        switch (config.Type) {
+            case GBACart_Empty:
+                break;
+            case GBACart_GBAMP: {
+                newCart = new GBACartGBAMP(config.DiskImagePath);
+            } break;
+            case GBACart_MemoryPak: {
+                newCart = new GBACartMemoryPak();
+            } break;
+            case GBACart_SuperCardCF: {
+                newCart = new GBACartSuperCardCF(config.DiskImagePath);
+            } break;
+            default: {
+                printf("Unknown Slot-2 cartridge type %d!\n", config.Type);
+            } break;
+        }
+
+        if (newCart != NULL) {
+            if (!newCart->IsValid()) {
+                printf("Could not load Slot-2 cartridge!\n");
+                delete newCart;
+            } else {
+                cart = newCart;
+            }
         }
     }
 
     u8 RomRead8(u32 addr) {
-        if (addr & 1) return (cart->RomReadWord(RAM_TO_CART(addr)) >> 8) & 0xFF;
-        else return cart->RomReadWord(RAM_TO_CART(addr)) & 0xFF;
+        if (addr & 1) return (cart->RomRead16(RAM_TO_CART(addr)) >> 8) & 0xFF;
+        else return cart->RomRead16(RAM_TO_CART(addr)) & 0xFF;
     }
 
     u16 RomRead16(u32 addr) {
-        return cart->RomReadWord(RAM_TO_CART(addr));
+        return cart->RomRead16(RAM_TO_CART(addr));
     }
 
     u32 RomRead32(u32 addr) {
-        u16 low = cart->RomReadWord(RAM_TO_CART(addr));
-        u16 high = cart->RomReadWord(RAM_TO_CART(addr + 2));
+        u16 low = cart->RomRead16(RAM_TO_CART(addr));
+        u16 high = cart->RomRead16(RAM_TO_CART(addr + 2));
         return (low | (high << 16));
     }
 
@@ -60,11 +86,11 @@ namespace GBACartHelper {
     }
 
     void RomWrite16(u32 addr, u16 value) {
-        cart->RomWriteWord(RAM_TO_CART(addr), value);
+        cart->RomWrite16(RAM_TO_CART(addr), value);
     }
 
     void RomWrite32(u32 addr, u32 value) {
-        cart->RomWriteWord(RAM_TO_CART(addr), value & 0xFFFF);
-        cart->RomWriteWord(RAM_TO_CART(addr + 2), (value >> 16) & 0xFFFF);
+        cart->RomWrite16(RAM_TO_CART(addr), value & 0xFFFF);
+        cart->RomWrite16(RAM_TO_CART(addr + 2), (value >> 16) & 0xFFFF);
     }
 }

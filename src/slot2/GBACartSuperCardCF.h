@@ -23,9 +23,9 @@ class GBACartSuperCardCF: public GBACart {
 public:
     GBACartSuperCardCF(const char *drivePath);
     ~GBACartSuperCardCF();
-    bool IsValid() { return this->Valid; }
-    virtual u16 RomReadWord(u32 addr);
-    virtual void RomWriteWord(u32 addr, u16 value);
+    virtual bool IsValid() { return this->Valid; }
+    virtual u16 RomRead16(u32 addr);
+    virtual void RomWrite16(u32 addr, u16 value);
 private:
     u16 *Memory;
     u16 Unlocked;

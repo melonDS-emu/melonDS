@@ -23,15 +23,6 @@
 
 enum
 {
-    SLOT2_Empty = 0,
-    SLOT2_GBAMP,
-    SLOT2_MemoryPak,
-    SLOT2_SuperCardCF,
-    SLOT2_MAX
-};
-
-enum
-{
     HK_Lid = 0,
     HK_Mic,
     HK_Pause,
