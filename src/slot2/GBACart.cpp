@@ -50,8 +50,9 @@ namespace GBACartHelper {
     }
 
     u32 RomRead32(u32 addr) {
-        printf("GBACart: TODO Read32\n");
-        return 0xFFFFFFFF;
+        u16 low = cart->RomReadWord(RAM_TO_CART(addr));
+        u16 high = cart->RomReadWord(RAM_TO_CART(addr + 2));
+        return (low | (high << 16));
     }
 
     void RomWrite8(u32 addr, u8 value) {
@@ -63,6 +64,7 @@ namespace GBACartHelper {
     }
 
     void RomWrite32(u32 addr, u32 value) {
-        printf("GBACart: TODO Write32\n");
+        cart->RomWriteWord(RAM_TO_CART(addr), value & 0xFFFF);
+        cart->RomWriteWord(RAM_TO_CART(addr + 2), (value >> 16) & 0xFFFF);
     }
 }

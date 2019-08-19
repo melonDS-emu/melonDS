@@ -28,6 +28,7 @@ const char *Slot2Types[] = {
     "Empty",
     "GBA Movie Player (CompactFlash)",
     "DS Memory Expansion Pak",
+    "SuperCard (CompactFlash)",
     NULL
 };
 

@@ -21,6 +21,8 @@
 #include "../Platform.h"
 #include "GBACartGBAMP.h"
 
+// TODO: This is all based on guesswork and I/O code. Real specimen required to verify.
+
 #define ADDR_TO_DRIVE(addr) (((addr) >> 16) & 0x7 | (((addr) >> 19) & 0x8))
 
 GBACartGBAMP::GBACartGBAMP(const char *path) {
@@ -39,5 +41,5 @@ u16 GBACartGBAMP::RomReadWord(u32 addr) {
 
 void GBACartGBAMP::RomWriteWord(u32 addr, u16 value) {
     printf("GBACartGBAMP write %08X = %04X\n", addr, value);
-    return this->Drive.Write(ADDR_TO_DRIVE(addr), value);
+    this->Drive.Write(ADDR_TO_DRIVE(addr), value);
 }

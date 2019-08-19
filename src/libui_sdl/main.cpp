@@ -51,6 +51,7 @@
 
 #include "../slot2/GBACartGBAMP.h"
 #include "../slot2/GBACartMemoryPak.h"
+#include "../slot2/GBACartSuperCardCF.h"
 
 // savestate slot mapping
 // 1-8: regular slots (quick access)
@@ -1586,6 +1587,15 @@ void LoadSlot2Cart()
         case SLOT2_MemoryPak: {
             NDS::SetGBACart(new GBACartMemoryPak());
         } break;
+        case SLOT2_SuperCardCF: {
+            GBACartSuperCardCF *cart = new GBACartSuperCardCF(Config::Slot2DiskImagePath);
+            if (!cart->IsValid()) {
+                printf("Could not load Slot-2 cartridge!\n");
+                delete cart;
+            } else {
+                NDS::SetGBACart(cart);
+            }
+        } break;
         default: {
             printf("Unknown Slot-2 cartridge (in LoadSlot2Cart())!");
         } break;
@@ -2851,6 +2861,7 @@ int main(int argc, char** argv)
             ROMPath[1023] = '\0';
 
             SetupSRAMPath();
+            LoadSlot2Cart();
 
             if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
                 Run();
