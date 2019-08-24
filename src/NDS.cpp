@@ -1416,7 +1416,7 @@ void DivDone(u32 param)
             if (den == 0)
             {
                 DivQuotient[0] = (num<0) ? 1:-1;
-                DivQuotient[1] = (num<0) ? -1:1;
+                DivQuotient[1] = (num<0) ? -1:0;
                 *(s64*)&DivRemainder[0] = num;
             }
             else if (num == -0x80000000 && den == -1)
