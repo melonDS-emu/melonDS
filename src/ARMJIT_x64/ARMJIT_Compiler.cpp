@@ -342,6 +342,11 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
 };
 #undef F
 
+bool Compiler::CanCompile(bool thumb, u16 kind)
+{
+    return (thumb ? T_Comp[kind] : A_Comp[kind]) != NULL;
+}
+
 void Compiler::Reset()
 {
     memset(ResetStart, 0xcc, CodeMemSize);
@@ -380,10 +385,14 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     // TODO: this is ugly as a whole, do better
     RegCache = RegisterCache<Compiler, X64Reg>(this, instrs, instrsCount);
 
+    printf("block start %d\n", Thumb);
+
     for (int i = 0; i < instrsCount; i++)
     {
         R15 += Thumb ? 2 : 4;
         CurInstr = instrs[i];
+
+        printf("%x %d %d %d\n", CurInstr.Instr, CurInstr.SetFlags, CurInstr.Info.WriteFlags, CurInstr.Info.ReadFlags);
 
         CompileFunc comp = Thumb
             ? T_Comp[CurInstr.Info.Kind]

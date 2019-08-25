@@ -28,6 +28,7 @@ struct FetchedInstr
         return Instr >> 28;
     }
 
+	u8 SetFlags;
     u32 Instr;
     u32 NextInstr[2];
 

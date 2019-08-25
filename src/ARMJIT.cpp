@@ -126,6 +126,24 @@ void DeInit()
 	delete compiler;
 }
 
+void floodFillSetFlags(FetchedInstr instrs[], int start, u8 flags)
+{
+	for (int j = start; j >= 0; j--)
+	{
+		u8 match = instrs[j].Info.WriteFlags & flags;
+		u8 matchMaybe = (instrs[j].Info.WriteFlags >> 4) & flags;
+		if (matchMaybe) // writes flags maybe
+			instrs[j].SetFlags |= matchMaybe;
+		if (match)
+		{
+			instrs[j].SetFlags |= match;
+			flags &= ~match;
+			if (!flags)
+				return;
+		}
+	}
+}
+
 CompiledBlock CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
@@ -175,7 +193,13 @@ CompiledBlock CompileBlock(ARM* cpu)
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
 
         i++;
+
+		bool canCompile = compiler->CanCompile(thumb, instrs[i - 1].Info.Kind);
+		if (instrs[i - 1].Info.ReadFlags != 0 || !canCompile)
+			floodFillSetFlags(instrs, i - 2, canCompile ? instrs[i - 1].Info.ReadFlags : 0xF);
     } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize);
+
+	floodFillSetFlags(instrs, i - 1, 0xF);
 
     CompiledBlock block = compiler->CompileBlock(cpu, instrs, i);
 
