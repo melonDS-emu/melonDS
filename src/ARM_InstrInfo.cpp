@@ -5,7 +5,7 @@
 namespace ARMInstrInfo
 {
 
-#define ak(x) ((x) << 13)
+#define ak(x) ((x) << 18)
 
 enum {
     A_Read0             = 1 << 0,
@@ -26,69 +26,81 @@ enum {
     A_Link              = 1 << 10,
 
     A_UnkOnARM7         = 1 << 11,
+
+    A_SetNZ             = 1 << 12,
+    A_SetCV             = 1 << 13,
+    A_SetMaybeC         = 1 << 14,
+    A_MulFlags          = 1 << 15,
+    A_ReadC             = 1 << 16,
+    A_RRXReadC          = 1 << 17,
 };
 
 #define A_BIOP A_Read16
 #define A_MONOOP 0
 
-#define A_IMPLEMENT_ALU_OP(x,k) \
-    const u32 A_##x##_IMM = A_Write12 | A_##k | ak(ak_##x##_IMM); \
-    const u32 A_##x##_REG_LSL_IMM = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSL_IMM); \
-    const u32 A_##x##_REG_LSR_IMM = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSR_IMM); \
-    const u32 A_##x##_REG_ASR_IMM = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ASR_IMM); \
-    const u32 A_##x##_REG_ROR_IMM = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ROR_IMM); \
-    const u32 A_##x##_REG_LSL_REG = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG); \
-    const u32 A_##x##_REG_LSR_REG = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG); \
-    const u32 A_##x##_REG_ASR_REG = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG); \
-    const u32 A_##x##_REG_ROR_REG = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG); \
-    \
-    const u32 A_##x##_IMM_S = A_Write12 | A_##k | ak(ak_##x##_IMM_S); \
-    const u32 A_##x##_REG_LSL_IMM_S = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSL_IMM_S); \
-    const u32 A_##x##_REG_LSR_IMM_S = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSR_IMM_S); \
-    const u32 A_##x##_REG_ASR_IMM_S = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ASR_IMM_S); \
-    const u32 A_##x##_REG_ROR_IMM_S = A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ROR_IMM_S); \
-    const u32 A_##x##_REG_LSL_REG_S = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG_S); \
-    const u32 A_##x##_REG_LSR_REG_S = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG_S); \
-    const u32 A_##x##_REG_ASR_REG_S = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG_S); \
-    const u32 A_##x##_REG_ROR_REG_S = A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG_S);
+#define A_ARITH A_SetCV
+#define A_LOGIC A_SetMaybeC
+#define A_ARITH_IMM A_SetCV
+#define A_LOGIC_IMM 0
 
-A_IMPLEMENT_ALU_OP(AND,BIOP)
-A_IMPLEMENT_ALU_OP(EOR,BIOP)
-A_IMPLEMENT_ALU_OP(SUB,BIOP)
-A_IMPLEMENT_ALU_OP(RSB,BIOP)
-A_IMPLEMENT_ALU_OP(ADD,BIOP)
-A_IMPLEMENT_ALU_OP(ADC,BIOP)
-A_IMPLEMENT_ALU_OP(SBC,BIOP)
-A_IMPLEMENT_ALU_OP(RSC,BIOP)
-A_IMPLEMENT_ALU_OP(ORR,BIOP)
-A_IMPLEMENT_ALU_OP(MOV,MONOOP)
-A_IMPLEMENT_ALU_OP(BIC,BIOP)
-A_IMPLEMENT_ALU_OP(MVN,MONOOP)
+#define A_IMPLEMENT_ALU_OP(x,k,a,c) \
+    const u32 A_##x##_IMM = A_Write12 | c | A_##k | ak(ak_##x##_IMM); \
+    const u32 A_##x##_REG_LSL_IMM = A_Write12 | c | A_##k | A_Read0 | ak(ak_##x##_REG_LSL_IMM); \
+    const u32 A_##x##_REG_LSR_IMM = A_Write12 | c | A_##k | A_Read0 | ak(ak_##x##_REG_LSR_IMM); \
+    const u32 A_##x##_REG_ASR_IMM = A_Write12 | c | A_##k | A_Read0 | ak(ak_##x##_REG_ASR_IMM); \
+    const u32 A_##x##_REG_ROR_IMM = A_RRXReadC | A_Write12 | c | A_##k | A_Read0 | ak(ak_##x##_REG_ROR_IMM); \
+    const u32 A_##x##_REG_LSL_REG = A_Write12 | c | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG); \
+    const u32 A_##x##_REG_LSR_REG = A_Write12 | c | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG); \
+    const u32 A_##x##_REG_ASR_REG = A_Write12 | c | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG); \
+    const u32 A_##x##_REG_ROR_REG = A_Write12 | c | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG); \
+    \
+    const u32 A_##x##_IMM_S = A_SetNZ | c | A_##a##_IMM | A_Write12 | A_##k | ak(ak_##x##_IMM_S); \
+    const u32 A_##x##_REG_LSL_IMM_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSL_IMM_S); \
+    const u32 A_##x##_REG_LSR_IMM_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_LSR_IMM_S); \
+    const u32 A_##x##_REG_ASR_IMM_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ASR_IMM_S); \
+    const u32 A_##x##_REG_ROR_IMM_S = A_RRXReadC | A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | ak(ak_##x##_REG_ROR_IMM_S); \
+    const u32 A_##x##_REG_LSL_REG_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG_S); \
+    const u32 A_##x##_REG_LSR_REG_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG_S); \
+    const u32 A_##x##_REG_ASR_REG_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG_S); \
+    const u32 A_##x##_REG_ROR_REG_S = A_SetNZ | c | A_##a | A_Write12 | A_##k | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG_S);
+
+A_IMPLEMENT_ALU_OP(AND,BIOP,LOGIC,0)
+A_IMPLEMENT_ALU_OP(EOR,BIOP,LOGIC,0)
+A_IMPLEMENT_ALU_OP(SUB,BIOP,ARITH,0)
+A_IMPLEMENT_ALU_OP(RSB,BIOP,ARITH,0)
+A_IMPLEMENT_ALU_OP(ADD,BIOP,ARITH,0)
+A_IMPLEMENT_ALU_OP(ADC,BIOP,ARITH,A_ReadC)
+A_IMPLEMENT_ALU_OP(SBC,BIOP,ARITH,A_ReadC)
+A_IMPLEMENT_ALU_OP(RSC,BIOP,ARITH,A_ReadC)
+A_IMPLEMENT_ALU_OP(ORR,BIOP,LOGIC,0)
+A_IMPLEMENT_ALU_OP(MOV,MONOOP,LOGIC,0)
+A_IMPLEMENT_ALU_OP(BIC,BIOP,LOGIC,0)
+A_IMPLEMENT_ALU_OP(MVN,MONOOP,LOGIC,0)
 
 const u32 A_MOV_REG_LSL_IMM_DBG = A_MOV_REG_LSL_IMM;
 
-#define A_IMPLEMENT_ALU_TEST(x) \
-    const u32 A_##x##_IMM = A_Read16 | A_Read0 | ak(ak_##x##_IMM); \
-    const u32 A_##x##_REG_LSL_IMM = A_Read16 | A_Read0 | ak(ak_##x##_REG_LSL_IMM); \
-    const u32 A_##x##_REG_LSR_IMM = A_Read16 | A_Read0 | ak(ak_##x##_REG_LSR_IMM); \
-    const u32 A_##x##_REG_ASR_IMM = A_Read16 | A_Read0 | ak(ak_##x##_REG_ASR_IMM); \
-    const u32 A_##x##_REG_ROR_IMM = A_Read16 | A_Read0 | ak(ak_##x##_REG_ROR_IMM); \
-    const u32 A_##x##_REG_LSL_REG = A_Read16 | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG); \
-    const u32 A_##x##_REG_LSR_REG = A_Read16 | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG); \
-    const u32 A_##x##_REG_ASR_REG = A_Read16 | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG); \
-    const u32 A_##x##_REG_ROR_REG = A_Read16 | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG);
+#define A_IMPLEMENT_ALU_TEST(x,a) \
+    const u32 A_##x##_IMM = A_SetNZ | A_Read16 | A_##a | A_Read0 | ak(ak_##x##_IMM); \
+    const u32 A_##x##_REG_LSL_IMM = A_SetNZ | A_Read16 | A_##a | A_Read0 | ak(ak_##x##_REG_LSL_IMM); \
+    const u32 A_##x##_REG_LSR_IMM = A_SetNZ | A_Read16 | A_##a | A_Read0 | ak(ak_##x##_REG_LSR_IMM); \
+    const u32 A_##x##_REG_ASR_IMM = A_SetNZ | A_Read16 | A_##a | A_Read0 | ak(ak_##x##_REG_ASR_IMM); \
+    const u32 A_##x##_REG_ROR_IMM = A_RRXReadC | A_SetNZ | A_Read16 | A_##a | A_Read0 | ak(ak_##x##_REG_ROR_IMM); \
+    const u32 A_##x##_REG_LSL_REG = A_SetNZ | A_Read16 | A_##a | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSL_REG); \
+    const u32 A_##x##_REG_LSR_REG = A_SetNZ | A_Read16 | A_##a | A_Read0 | A_Read8 | ak(ak_##x##_REG_LSR_REG); \
+    const u32 A_##x##_REG_ASR_REG = A_SetNZ | A_Read16 | A_##a | A_Read0 | A_Read8 | ak(ak_##x##_REG_ASR_REG); \
+    const u32 A_##x##_REG_ROR_REG = A_SetNZ | A_Read16 | A_##a | A_Read0 | A_Read8 | ak(ak_##x##_REG_ROR_REG);
 
-A_IMPLEMENT_ALU_TEST(TST)
-A_IMPLEMENT_ALU_TEST(TEQ)
-A_IMPLEMENT_ALU_TEST(CMP)
-A_IMPLEMENT_ALU_TEST(CMN)
+A_IMPLEMENT_ALU_TEST(TST,LOGIC)
+A_IMPLEMENT_ALU_TEST(TEQ,LOGIC)
+A_IMPLEMENT_ALU_TEST(CMP,ARITH)
+A_IMPLEMENT_ALU_TEST(CMN,ARITH)
 
-const u32 A_MUL = A_Write16 | A_Read0 | A_Read8 | ak(ak_MUL);
-const u32 A_MLA = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_MLA);
-const u32 A_UMULL = A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(ak_UMULL);
-const u32 A_UMLAL = A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_UMLAL);
-const u32 A_SMULL = A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(ak_SMULL);
-const u32 A_SMLAL = A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_SMLAL);
+const u32 A_MUL = A_MulFlags | A_Write16 | A_Read0 | A_Read8 | ak(ak_MUL);
+const u32 A_MLA = A_MulFlags | A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_MLA);
+const u32 A_UMULL = A_MulFlags | A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(ak_UMULL);
+const u32 A_UMLAL = A_MulFlags | A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_UMLAL);
+const u32 A_SMULL = A_MulFlags | A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(ak_SMULL);
+const u32 A_SMLAL = A_MulFlags | A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_SMLAL);
 const u32 A_SMLAxy = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_SMLALxy);
 const u32 A_SMLAWy = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_SMLAWy);
 const u32 A_SMULWy = A_Write16 | A_Read0 | A_Read8 | ak(ak_SMULWy);
@@ -161,7 +173,7 @@ const u32 A_SVC = A_BranchAlways | A_Link | ak(ak_SVC);
 
 // THUMB
 
-#define tk(x) ((x) << 16)
+#define tk(x) ((x) << 20)
 
 enum {
     T_Read0         = 1 << 0,
@@ -183,42 +195,47 @@ enum {
     T_ReadR14       = 1 << 13,
     T_WriteR14      = 1 << 14,
 
-    T_PopPC         = 1 << 15
+    T_PopPC         = 1 << 15,
+
+    T_SetNZ         = 1 << 16,
+    T_SetCV         = 1 << 17,
+    T_SetMaybeC     = 1 << 18,
+    T_ReadC         = 1 << 19
 };
 
-const u32 T_LSL_IMM = T_Write0 | T_Read3 | tk(tk_LSL_IMM);
-const u32 T_LSR_IMM = T_Write0 | T_Read3 | tk(tk_LSR_IMM);
-const u32 T_ASR_IMM = T_Write0 | T_Read3 | tk(tk_ASR_IMM);
+const u32 T_LSL_IMM = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read3 | tk(tk_LSL_IMM);
+const u32 T_LSR_IMM = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read3 | tk(tk_LSR_IMM);
+const u32 T_ASR_IMM = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read3 | tk(tk_ASR_IMM);
 
-const u32 T_ADD_REG_ = T_Write0 | T_Read3 | T_Read6 | tk(tk_ADD_REG_);
-const u32 T_SUB_REG_ = T_Write0 | T_Read3 | T_Read6 | tk(tk_SUB_REG_);
-const u32 T_ADD_IMM_ = T_Write0 | T_Read3 | tk(tk_ADD_IMM_);
-const u32 T_SUB_IMM_ = T_Write0 | T_Read3 | tk(tk_SUB_IMM_);
+const u32 T_ADD_REG_ = T_SetNZ | T_SetCV | T_Write0 | T_Read3 | T_Read6 | tk(tk_ADD_REG_);
+const u32 T_SUB_REG_ = T_SetNZ | T_SetCV | T_Write0 | T_Read3 | T_Read6 | tk(tk_SUB_REG_);
+const u32 T_ADD_IMM_ = T_SetNZ | T_SetCV | T_Write0 | T_Read3 | tk(tk_ADD_IMM_);
+const u32 T_SUB_IMM_ = T_SetNZ | T_SetCV | T_Write0 | T_Read3 | tk(tk_SUB_IMM_);
 
-const u32 T_MOV_IMM = T_Write8 | tk(tk_MOV_IMM);
-const u32 T_CMP_IMM = T_Write8 | tk(tk_CMP_IMM);
-const u32 T_ADD_IMM = T_Write8 | T_Read8 | tk(tk_ADD_IMM);
-const u32 T_SUB_IMM = T_Write8 | T_Read8 | tk(tk_SUB_IMM);
+const u32 T_MOV_IMM = T_SetNZ | T_Write8 | tk(tk_MOV_IMM);
+const u32 T_CMP_IMM = T_SetNZ | T_SetCV | T_Write8 | tk(tk_CMP_IMM);
+const u32 T_ADD_IMM = T_SetNZ | T_SetCV | T_Write8 | T_Read8 | tk(tk_ADD_IMM);
+const u32 T_SUB_IMM = T_SetNZ | T_SetCV | T_Write8 | T_Read8 | tk(tk_SUB_IMM);
 
-const u32 T_AND_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_AND_REG);
-const u32 T_EOR_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_EOR_REG);
-const u32 T_LSL_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_LSL_REG);
-const u32 T_LSR_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_LSR_REG);
-const u32 T_ASR_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_ASR_REG);
-const u32 T_ADC_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_ADC_REG);
-const u32 T_SBC_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_SBC_REG);
-const u32 T_ROR_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_ROR_REG);
-const u32 T_TST_REG = T_Read0 | T_Read3 | tk(tk_TST_REG);
-const u32 T_NEG_REG = T_Write0 | T_Read3 | tk(tk_NEG_REG);
-const u32 T_CMP_REG = T_Read0 | T_Read3 | tk(tk_CMP_REG);
-const u32 T_CMN_REG = T_Read0 | T_Read3 | tk(tk_CMN_REG);
-const u32 T_ORR_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_ORR_REG);
-const u32 T_MUL_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_MUL_REG);
-const u32 T_BIC_REG = T_Write0 | T_Read0 | T_Read3 | tk(tk_BIC_REG);
-const u32 T_MVN_REG = T_Write0 | T_Read3 | tk(tk_MVN_REG);
+const u32 T_AND_REG = T_SetNZ | T_Write0 | T_Read0 | T_Read3 | tk(tk_AND_REG);
+const u32 T_EOR_REG = T_SetNZ | T_Write0 | T_Read0 | T_Read3 | tk(tk_EOR_REG);
+const u32 T_LSL_REG = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read0 | T_Read3 | tk(tk_LSL_REG);
+const u32 T_LSR_REG = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read0 | T_Read3 | tk(tk_LSR_REG);
+const u32 T_ASR_REG = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read0 | T_Read3 | tk(tk_ASR_REG);
+const u32 T_ADC_REG = T_ReadC | T_SetNZ | T_SetCV | T_Write0 | T_Read0 | T_Read3 | tk(tk_ADC_REG);
+const u32 T_SBC_REG = T_ReadC | T_SetNZ | T_SetCV | T_Write0 | T_Read0 | T_Read3 | tk(tk_SBC_REG);
+const u32 T_ROR_REG = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read0 | T_Read3 | tk(tk_ROR_REG);
+const u32 T_TST_REG = T_SetNZ | T_Read0 | T_Read3 | tk(tk_TST_REG);
+const u32 T_NEG_REG = T_SetNZ | T_SetCV | T_Write0 | T_Read3 | tk(tk_NEG_REG);
+const u32 T_CMP_REG = T_SetNZ | T_SetCV | T_Read0 | T_Read3 | tk(tk_CMP_REG);
+const u32 T_CMN_REG = T_SetNZ | T_SetCV | T_Read0 | T_Read3 | tk(tk_CMN_REG);
+const u32 T_ORR_REG = T_SetNZ | T_Write0 | T_Read0 | T_Read3 | tk(tk_ORR_REG);
+const u32 T_MUL_REG = T_SetNZ | T_Write0 | T_Read0 | T_Read3 | tk(tk_MUL_REG);
+const u32 T_BIC_REG = T_SetNZ | T_Write0 | T_Read0 | T_Read3 | tk(tk_BIC_REG);
+const u32 T_MVN_REG = T_SetNZ | T_Write0 | T_Read3 | tk(tk_MVN_REG);
 
 const u32 T_ADD_HIREG = T_WriteHi0 | T_ReadHi0 | T_ReadHi3 | tk(tk_ADD_HIREG);
-const u32 T_CMP_HIREG = T_ReadHi0 | T_ReadHi3 | tk(tk_CMP_HIREG);
+const u32 T_CMP_HIREG = T_SetNZ | T_SetCV | T_ReadHi0 | T_ReadHi3 | tk(tk_CMP_HIREG);
 const u32 T_MOV_HIREG = T_WriteHi0 | T_ReadHi3 | tk(tk_MOV_HIREG);
 
 const u32 T_ADD_PCREL = T_Write8 | tk(tk_ADD_PCREL);
@@ -268,10 +285,20 @@ const u32 T_SVC = T_BranchAlways | T_WriteR14 | tk(tk_SVC);
 
 Info Decode(bool thumb, u32 num, u32 instr)
 {
+    const u8 FlagsReadPerCond[7] = {
+        flag_Z,
+        flag_C,
+        flag_N,
+        flag_V,
+        flag_C | flag_Z,
+        flag_N | flag_V,
+        flag_Z | flag_N | flag_V};
+
     Info res = {0};
     if (thumb)
     {
         u32 data = THUMBInstrTable[(instr >> 6) & 0x3FF];
+        res.Kind = (data >> 20) & 0x3F;
 
         if (data & T_Read0)
             res.SrcRegs |= 1 << (instr & 0x7);
@@ -309,7 +336,18 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & T_PopPC && instr & (1 << 8))
             res.DstRegs |= 1 << 15;
 
-        res.Kind = (data >> 16) & 0x3F;
+        if (data & T_SetNZ)
+            res.WriteFlags |= flag_N | flag_Z;
+        if (data & T_SetCV)
+            res.WriteFlags |= flag_C | flag_V;
+        if (data & T_SetMaybeC)
+            res.WriteFlags |= flag_C << 4;
+        if (data & T_ReadC)
+            res.ReadFlags |= flag_C;
+
+        if (res.Kind == tk_BCOND)
+            res.ReadFlags |= FlagsReadPerCond[(instr >> 9) & 0x7];
+
         res.EndBlock = res.Branches();
 
         return res;
@@ -323,7 +361,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_UnkOnARM7 && num != 0)
             data = A_UNK;
 
-        res.Kind = (data >> 13) & 0x1FF;
+        res.Kind = (data >> 18) & 0x1FF;
 
         if (res.Kind == ak_MCR)
         {
@@ -381,6 +419,26 @@ Info Decode(bool thumb, u32 num, u32 instr)
 
         if (res.Kind == ak_LDM)
             res.DstRegs |= instr & (1 << 15); // this is right
+
+        if (data & A_SetNZ)
+            res.WriteFlags |= flag_N | flag_Z;
+        if (data & A_SetCV)
+            res.WriteFlags |= flag_C | flag_V;
+        if (data & A_SetMaybeC)
+            res.WriteFlags |= flag_C << 4;
+        if ((data & A_MulFlags) && (instr & (1 << 20)))
+            res.WriteFlags |= flag_N | flag_Z;
+        if (data & A_ReadC)
+            res.ReadFlags |= flag_C;
+        if ((data & A_RRXReadC) && !((instr >> 7) & 0x1F))
+            res.ReadFlags |= flag_C;
+
+        if ((instr >> 28) < 0xE)
+        {
+            // make non conditional flag sets conditional
+            res.WriteFlags = res.WriteFlags | (res.WriteFlags << 4);
+            res.ReadFlags |= FlagsReadPerCond[instr >> 29];
+        }
 
         res.EndBlock |= res.Branches();
 

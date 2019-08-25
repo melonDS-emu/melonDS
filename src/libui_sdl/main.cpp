@@ -2675,6 +2675,8 @@ void RecreateMainWindow(bool opengl)
 
 int main(int argc, char** argv)
 {
+    freopen("miauz.txt", "w", stdout);
+
     srand(time(NULL));
 
     printf("melonDS " MELONDS_VERSION "\n");
