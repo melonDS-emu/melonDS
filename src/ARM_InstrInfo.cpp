@@ -436,7 +436,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if ((instr >> 28) < 0xE)
         {
             // make non conditional flag sets conditional
-            res.WriteFlags = res.WriteFlags | (res.WriteFlags << 4);
+            res.WriteFlags = (res.WriteFlags | (res.WriteFlags << 4)) & 0xF0;
             res.ReadFlags |= FlagsReadPerCond[instr >> 29];
         }
 
