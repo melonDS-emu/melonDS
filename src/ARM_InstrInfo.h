@@ -215,10 +215,23 @@ enum
     tk_Count
 };
 
+enum
+{
+    flag_N = 1 << 3,
+    flag_Z = 1 << 2,
+    flag_C = 1 << 1,
+    flag_V = 1 << 0,
+};
+
 struct Info
 {
     u16 DstRegs, SrcRegs;
     u16 Kind;
+
+    u8 ReadFlags;
+    // lower 4 bits - set always
+    // upper 4 bits - might set flag
+    u8 WriteFlags;
 
     bool EndBlock;
     bool Branches()

@@ -111,6 +111,8 @@ OpArg Compiler::A_Comp_GetALUOp2(bool S, bool& carryUsed)
     }
     else
     {
+        S = S && (CurInstr.SetFlags & 0x2);
+
         int op = (CurInstr.Instr >> 5) & 0x3;
         if (CurInstr.Instr & (1 << 4))
         {
@@ -215,7 +217,8 @@ void Compiler::A_Comp_MovOp()
 
     if (S)
     {
-        TEST(32, rd, rd);
+        if (FlagsNZRequired())
+            TEST(32, rd, rd);
         Comp_RetriveFlags(false, false, carryUsed);
     }
 
@@ -263,12 +266,14 @@ void Compiler::Comp_MulOp(bool S, bool add, Gen::OpArg rd, Gen::OpArg rm, Gen::O
     {
         IMUL(32, RSCRATCH, rs);
         LEA(32, rd.GetSimpleReg(), MRegSum(RSCRATCH, rn.GetSimpleReg()));
-        TEST(32, rd, rd);
+        if (S && FlagsNZRequired())
+            TEST(32, rd, rd);
     }
     else
     {
         IMUL(32, RSCRATCH, rs);
         MOV(32, rd, R(RSCRATCH));
+        if (S && FlagsNZRequired())
         TEST(32, R(RSCRATCH), R(RSCRATCH));
     }
 
@@ -331,7 +336,7 @@ void Compiler::A_Comp_SMULL_SMLAL()
     else
     {
         IMUL(64, RSCRATCH2, R(RSCRATCH3));
-        if (S)
+        if (S && FlagsNZRequired())
             TEST(64, R(RSCRATCH2), R(RSCRATCH2));
     }
 
@@ -345,9 +350,20 @@ void Compiler::A_Comp_SMULL_SMLAL()
 
 void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
 {
-    CPSRDirty = true;
+    if (CurInstr.SetFlags == 0)
+        return;
+    if (retriveCV && !(CurInstr.SetFlags & 0x3))
+        retriveCV = false;
 
     bool carryOnly = !retriveCV && carryUsed;
+    if (carryOnly && !(CurInstr.SetFlags & 0x2))
+    {
+        carryUsed = false;
+        carryOnly = false;
+    }
+
+    CPSRDirty = true;
+
     if (retriveCV)
     {
         SETcc(CC_O, R(RSCRATCH));
@@ -355,19 +371,28 @@ void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
         LEA(32, RSCRATCH2, MComplex(RSCRATCH, RSCRATCH3, SCALE_2, 0));
     }
 
-    SETcc(CC_S, R(RSCRATCH));
-    SETcc(CC_Z, R(RSCRATCH3));
-    LEA(32, RSCRATCH, MComplex(RSCRATCH3, RSCRATCH, SCALE_2, 0));
-    int shiftAmount = 30;
-    if (retriveCV || carryUsed)
+    if (FlagsNZRequired())
     {
-        LEA(32, RSCRATCH, MComplex(RSCRATCH2, RSCRATCH, carryOnly ? SCALE_2 : SCALE_4, 0));
-        shiftAmount = carryOnly ? 29 : 28;
-    }
-    SHL(32, R(RSCRATCH), Imm8(shiftAmount));
+        SETcc(CC_S, R(RSCRATCH));
+        SETcc(CC_Z, R(RSCRATCH3));
+        LEA(32, RSCRATCH, MComplex(RSCRATCH3, RSCRATCH, SCALE_2, 0));
+        int shiftAmount = 30;
+        if (retriveCV || carryUsed)
+        {
+            LEA(32, RSCRATCH, MComplex(RSCRATCH2, RSCRATCH, carryOnly ? SCALE_2 : SCALE_4, 0));
+            shiftAmount = carryOnly ? 29 : 28;
+        }
+        SHL(32, R(RSCRATCH), Imm8(shiftAmount));
 
-    AND(32, R(RCPSR), Imm32(0x3FFFFFFF & ~(carryUsed << 29) & ~((retriveCV ? 3 : 0) << 28)));
-    OR(32, R(RCPSR), R(RSCRATCH));
+        AND(32, R(RCPSR), Imm32(0x3FFFFFFF & ~(carryUsed << 29) & ~((retriveCV ? 3 : 0) << 28)));
+        OR(32, R(RCPSR), R(RSCRATCH));
+    }
+    else
+    {
+        SHL(32, R(RSCRATCH2), Imm8(carryOnly ? 29 : 28));
+        AND(32, R(RCPSR), Imm32(0xFFFFFFFF & ~(carryUsed << 29) & ~((retriveCV ? 3 : 0) << 28)));
+        OR(32, R(RCPSR), R(RSCRATCH2));
+    }
 }
 
 // always uses RSCRATCH, RSCRATCH2 only if S == true
@@ -523,7 +548,8 @@ void Compiler::T_Comp_ShiftImm()
     if (shifted != rd)
         MOV(32, rd, shifted);
 
-    TEST(32, rd, rd);
+    if (FlagsNZRequired())
+        TEST(32, rd, rd);
     Comp_RetriveFlags(false, false, carryUsed);
 }
 
@@ -557,7 +583,8 @@ void Compiler::T_Comp_ALU_Imm8()
     {
     case 0x0:
         MOV(32, rd, imm);
-        TEST(32, rd, rd);
+        if (FlagsNZRequired())
+            TEST(32, rd, rd);
         Comp_RetriveFlags(false, false, false);
         return;
     case 0x1:
@@ -607,7 +634,8 @@ void Compiler::T_Comp_ALU()
             int shiftOp = op == 0x7 ? 3 : op - 0x2;
             bool carryUsed;
             OpArg shifted = Comp_RegShiftReg(shiftOp, rs, rd, true, carryUsed);
-            TEST(32, shifted, shifted);
+            if (FlagsNZRequired())
+                TEST(32, shifted, shifted);
             MOV(32, rd, shifted);
             Comp_RetriveFlags(false, false, true);
         }

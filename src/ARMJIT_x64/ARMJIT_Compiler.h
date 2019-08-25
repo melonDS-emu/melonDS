@@ -29,6 +29,8 @@ public:
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
 
+    bool CanCompile(bool thumb, u16 kind);
+
     typedef void (Compiler::*CompileFunc)();
 
     void Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR = false);
@@ -63,7 +65,6 @@ public:
 
     void A_Comp_BranchImm();
     void A_Comp_BranchXchangeReg();
-
 
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
@@ -120,6 +121,9 @@ public:
 
     void LoadCPSR();
     void SaveCPSR();
+
+    bool FlagsNZRequired()
+    { return CurInstr.SetFlags & 0xC; }
 
     Gen::FixupBranch CheckCondition(u32 cond);
 
