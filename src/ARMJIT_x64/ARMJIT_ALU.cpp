@@ -387,7 +387,7 @@ void Compiler::Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed)
         AND(32, R(RCPSR), Imm32(0x3FFFFFFF & ~(carryUsed << 29) & ~((retriveCV ? 3 : 0) << 28)));
         OR(32, R(RCPSR), R(RSCRATCH));
     }
-    else
+    else if (carryUsed || retriveCV)
     {
         SHL(32, R(RSCRATCH2), Imm8(carryOnly ? 29 : 28));
         AND(32, R(RCPSR), Imm32(0xFFFFFFFF & ~(carryUsed << 29) & ~((retriveCV ? 3 : 0) << 28)));

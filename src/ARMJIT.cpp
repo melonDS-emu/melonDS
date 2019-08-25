@@ -163,6 +163,7 @@ CompiledBlock CompileBlock(ARM* cpu)
     {
         r15 += thumb ? 2 : 4;
 
+		instrs[i].SetFlags = 0;
         instrs[i].Instr = nextInstr[0];
         instrs[i].NextInstr[0] = nextInstr[0] = nextInstr[1];
 
