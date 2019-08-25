@@ -93,7 +93,7 @@ char *uiSaveFile(uiWindow *parent, const char* filter, const char* initpath)
 	return filedialog(windowWindow(parent), GTK_FILE_CHOOSER_ACTION_SAVE, "_Save", filter, initpath);
 }
 
-static void msgbox(GtkWindow *parent, const char *title, const char *description, GtkMessageType type, GtkButtonsType buttons)
+static int msgbox(GtkWindow *parent, const char *title, const char *description, GtkMessageType type, GtkButtonsType buttons)
 {
 	GtkWidget *md;
 
@@ -101,8 +101,10 @@ static void msgbox(GtkWindow *parent, const char *title, const char *description
 		type, buttons,
 		"%s", title);
 	gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(md), "%s", description);
-	gtk_dialog_run(GTK_DIALOG(md));
+	int result = gtk_dialog_run(GTK_DIALOG(md));
 	gtk_widget_destroy(md);
+
+	return result;
 }
 
 void uiMsgBox(uiWindow *parent, const char *title, const char *description)
@@ -113,4 +115,12 @@ void uiMsgBox(uiWindow *parent, const char *title, const char *description)
 void uiMsgBoxError(uiWindow *parent, const char *title, const char *description)
 {
 	msgbox(windowWindow(parent), title, description, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK);
+}
+
+int uiMsgBoxConfirm(uiWindow * parent, const char *title, const char *description)
+{
+	int result =
+		msgbox(windowWindow(parent), title, description, GTK_MESSAGE_QUESTION, GTK_BUTTONS_OK_CANCEL);
+
+	return result == GTK_RESPONSE_OK;
 }
