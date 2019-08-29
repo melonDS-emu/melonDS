@@ -26,7 +26,6 @@
 // * capture addition modes, overflow bugs
 // * channel hold
 // * 'length less than 4' glitch
-int brap = 0;
 
 namespace SPU
 {
@@ -63,10 +62,10 @@ const s16 PSGTable[8][8] =
 
 const u32 kSamplesPerRun = 1;
 
-const u32 OutputBufferSize = 2*2*1024;
+const u32 OutputBufferSize = 2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
-u32 OutputReadOffset;
-u32 OutputWriteOffset;
+volatile u32 OutputReadOffset;
+volatile u32 OutputWriteOffset;
 
 
 u16 Cnt;
@@ -579,7 +578,7 @@ void CaptureUnit::Run(s32 sample)
     }
 }
 
-int zog = 0, zig = 0;
+
 void Mix(u32 samples)
 {
     s32 channelbuf[32];
@@ -629,7 +628,7 @@ void Mix(u32 samples)
                 else if (val > 0x7FFF)  val = 0x7FFF;
 
                 Capture[0]->Run(val);
-                if (!((Capture[0]->Cnt & (1<<7)))) break;
+                if (!(Capture[0]->Cnt & (1<<7))) break;
             }
         }
 
@@ -644,7 +643,7 @@ void Mix(u32 samples)
                 else if (val > 0x7FFF)  val = 0x7FFF;
 
                 Capture[1]->Run(val);
-                if (!((Capture[1]->Cnt & (1<<7)))) break;
+                if (!(Capture[1]->Cnt & (1<<7))) break;
             }
         }
 
@@ -735,7 +734,6 @@ void Mix(u32 samples)
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
         if (OutputWriteOffset == OutputReadOffset) printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
-        zog++; zig++; brap++;
     }
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
@@ -744,13 +742,40 @@ void Mix(u32 samples)
 
 int GetOutputSize()
 {
-    return zog; // derp
+    int ret;
+    if (OutputWriteOffset >= OutputReadOffset)
+        ret = OutputWriteOffset - OutputReadOffset;
+    else
+        ret = (OutputBufferSize*2) - OutputReadOffset + OutputWriteOffset;
+
+    ret >>= 1;
+    return ret;
+}
+
+void Sync(bool wait)
+{
+    // sync to audio output in case the core is running too fast
+    // * wait=true: wait until enough audio data has been played
+    // * wait=false: merely skip some audio data to avoid a FIFO overflow
+
+    const int halflimit = (OutputBufferSize / 2);
+
+    if (wait)
+    {
+        // TODO: less CPU-intensive wait?
+        while (GetOutputSize() > halflimit);
+    }
+    else if (GetOutputSize() > halflimit)
+    {
+        int readpos = OutputWriteOffset - (halflimit*2);
+        if (readpos < 0) readpos += (OutputBufferSize*2);
+
+        OutputReadOffset = readpos;
+    }
 }
 
 int ReadOutput(s16* data, int samples)
 {
-    printf("ReadOutput(%d): wrote=%d level=%d ReadOffset=%d WriteOffset=%d\n", samples, zog, zig, OutputReadOffset>>1, OutputWriteOffset>>1);
-    zog = 0; zig -= (zig<samples ? zig : samples);
     if (OutputReadOffset == OutputWriteOffset)
         return 0;
 
