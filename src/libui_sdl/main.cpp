@@ -158,6 +158,7 @@ bool LidStatus;
 int JoystickID;
 SDL_Joystick* Joystick;
 
+int AudioFreq;
 SDL_AudioDeviceID AudioDevice, MicDevice;
 
 u32 MicBufferLength = 2048;
@@ -560,26 +561,28 @@ void MicLoadWav(char* name)
 
 void AudioCallback(void* data, Uint8* stream, int len)
 {
-    // resampling:
-    // buffer length is 1024 samples
-    // which is 710 samples at the original sample rate
+    len /= (sizeof(s16) * 2);
 
-    s16 buf_in[710*2];
+    // resample incoming audio to match the output sample rate
+
+    int len_in = (int)ceil((len * 32823.6328125) / (float)AudioFreq);
+
+    s16 buf_in[1024*2];
     s16* buf_out = (s16*)stream;
 
-    int num_in = SPU::ReadOutput(buf_in, 710);
-    int num_out = 1024;
-printf("took %d/%d samples\n", num_in, 710);
+    int num_in = SPU::ReadOutput(buf_in, len_in);
+    int num_out = len;
+
     int margin = 6;
-    if (num_in < 710-margin)
+    if (num_in < len_in-margin)
     {
         int last = num_in-1;
         if (last < 0) last = 0;
 
-        for (int i = num_in; i < 710-margin; i++)
+        for (int i = num_in; i < len_in-margin; i++)
             ((u32*)buf_in)[i] = ((u32*)buf_in)[last];
 
-        num_in = 710-margin;
+        num_in = len_in-margin;
     }
 
     float res_incr = num_in / (float)num_out;
@@ -590,9 +593,19 @@ printf("took %d/%d samples\n", num_in, 710);
 
     for (int i = 0; i < 1024; i++)
     {
-        // TODO: interp!!
         buf_out[i*2  ] = (buf_in[res_pos*2  ] * volume) >> 8;
         buf_out[i*2+1] = (buf_in[res_pos*2+1] * volume) >> 8;
+
+        /*s16 s_l = buf_in[res_pos*2  ];
+        s16 s_r = buf_in[res_pos*2+1];
+
+        float a = res_timer;
+        float b = 1.0 - a;
+        s_l = (s_l * a) + (buf_in[(res_pos-1)*2  ] * b);
+        s_r = (s_r * a) + (buf_in[(res_pos-1)*2+1] * b);
+
+        buf_out[i*2  ] = (s_l * volume) >> 8;
+        buf_out[i*2+1] = (s_r * volume) >> 8;*/
 
         res_timer += res_incr;
         while (res_timer >= 1.0)
@@ -838,6 +851,7 @@ bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 
 void UpdateWindowTitle(void* data)
 {
+    if (EmuStatus == 0) return;
     uiWindowSetTitle(MainWindow, (const char*)data);
 }
 
@@ -880,6 +894,10 @@ int EmuThreadFunc(void* burp)
     u32 lasttick = starttick;
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
+    u64 perfcount = SDL_GetPerformanceCounter();
+    u64 perffreq = SDL_GetPerformanceFrequency();
+    float samplesleft = 0;
+    u32 nsamples = 0;
     char melontitle[100];
 
     while (EmuRunning != 0)
@@ -959,43 +977,30 @@ int EmuThreadFunc(void* burp)
             }
             uiAreaQueueRedrawAll(MainDrawArea);
 
-            // framerate limiter based off SDL2_gfx
+            bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
+            SPU::Sync(limitfps);
+
             float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
-            /*fpslimitcount++;
-            u32 curtick = SDL_GetTicks();
-            u32 delay = curtick - lasttick;
-            lasttick = curtick;
-
-            bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
-
-            u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick && limitfps)
-            {
-                SDL_Delay(wantedtick - curtick);
-            }
-            else
-            {
-                fpslimitcount = 0;
-                starttick = curtick;
-            }*/
-
-            fpslimitcount++;
-            if (fpslimitcount >= 3)
             {
                 u32 curtick = SDL_GetTicks();
                 u32 delay = curtick - lasttick;
 
-                bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
-
-                u32 wantedtick = lasttick + (u32)((float)fpslimitcount * framerate);
-                if (curtick < wantedtick && limitfps)
+                if (limitfps)
                 {
-                    SDL_Delay(wantedtick - curtick);
-                }
+                    float wantedtickF = starttick + (framerate * (fpslimitcount+1));
+                    u32 wantedtick = (u32)ceil(wantedtickF);
+                    if (curtick < wantedtick) SDL_Delay(wantedtick - curtick);
 
-                lasttick = SDL_GetTicks();
-                fpslimitcount = 0;
+                    lasttick = SDL_GetTicks();
+                    fpslimitcount++;
+                    if ((abs(wantedtickF - (float)wantedtick) < 0.001312) || (fpslimitcount > 60))
+                    {
+                        fpslimitcount = 0;
+                        nsamples = 0;
+                        starttick = lasttick;
+                    }
+                }
             }
 
             nframes++;
@@ -2649,20 +2654,23 @@ int main(int argc, char** argv)
     uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
     uiMenuItemSetChecked(MenuItem_ShowOSD, Config::ShowOSD==1);
 
+    AudioFreq = 48000; // TODO: make configurable?
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 47340;
+    whatIwant.freq = AudioFreq;
     whatIwant.format = AUDIO_S16LSB;
     whatIwant.channels = 2;
     whatIwant.samples = 1024;
     whatIwant.callback = AudioCallback;
-    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!AudioDevice)
     {
         printf("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
+        AudioFreq = whatIget.freq;
+        printf("Audio output frequency: %d Hz\n", AudioFreq);
         SDL_PauseAudioDevice(AudioDevice, 1);
     }
 
