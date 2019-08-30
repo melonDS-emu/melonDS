@@ -34,6 +34,13 @@ int Threaded3D;
 int GL_ScaleFactor;
 int GL_Antialias;
 
+
+//int RTCOffsetYear;
+int RTCOffsetDay;
+int RTCOffsetHour;
+int RTCOffsetMinute;
+int RTCOffsetSecond;
+
 ConfigEntry ConfigFile[] =
 {
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
@@ -41,6 +48,11 @@ ConfigEntry ConfigFile[] =
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+    
+    {"RTCOffsetDay", 0, &RTCOffsetDay, 0, NULL, 0},
+    {"RTCOffsetHour", 0, &RTCOffsetHour, 0, NULL, 0},
+    {"RTCOffsetMinute", 0, &RTCOffsetMinute, 0, NULL, 0},
+    {"RTCOffsetSecond", 0, &RTCOffsetSecond, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

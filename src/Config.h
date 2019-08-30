@@ -46,6 +46,13 @@ extern int Threaded3D;
 extern int GL_ScaleFactor;
 extern int GL_Antialias;
 
+//for now no Year offset would require recalculating the month, weekday
+//extern int RTCOffsetYear;
+extern int RTCOffsetDay;
+extern int RTCOffsetHour;
+extern int RTCOffsetMinute;
+extern int RTCOffsetSecond;
+
 }
 
 #endif // CONFIG_H

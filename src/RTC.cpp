@@ -20,6 +20,7 @@
 #include <string.h>
 #include <time.h>
 #include "RTC.h"
+#include "Config.h"
 
 
 namespace RTC
@@ -103,6 +104,13 @@ u8 BCD(u8 val)
     return (val % 10) | ((val / 10) << 4);
 }
 
+void ApplyOffset(time_t& timestamp)
+{
+	timestamp += Config::RTCOffsetSecond;
+	timestamp += Config::RTCOffsetMinute * 60;
+	timestamp += Config::RTCOffsetHour * 60 * 60;
+	timestamp += Config::RTCOffsetDay * 60 * 60 * 24;
+}
 
 void ByteIn(u8 val)
 {
@@ -129,8 +137,9 @@ void ByteIn(u8 val)
                     time_t timestamp;
                     struct tm* timedata;
                     time(&timestamp);
+	                ApplyOffset(timestamp);
                     timedata = localtime(&timestamp);
-
+                    
                     Output[0] = BCD(timedata->tm_year - 100);
                     Output[1] = BCD(timedata->tm_mon + 1);
                     Output[2] = BCD(timedata->tm_mday);
@@ -146,8 +155,9 @@ void ByteIn(u8 val)
                     time_t timestamp;
                     struct tm* timedata;
                     time(&timestamp);
+	                ApplyOffset(timestamp);
                     timedata = localtime(&timestamp);
-
+	
                     Output[0] = BCD(timedata->tm_hour);
                     Output[1] = BCD(timedata->tm_min);
                     Output[2] = BCD(timedata->tm_sec);
