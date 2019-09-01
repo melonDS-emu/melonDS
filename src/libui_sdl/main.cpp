@@ -159,6 +159,7 @@ int JoystickID;
 SDL_Joystick* Joystick;
 
 int AudioFreq;
+float AudioSampleFrac;
 SDL_AudioDeviceID AudioDevice, MicDevice;
 
 u32 MicBufferLength = 2048;
@@ -565,13 +566,22 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     // resample incoming audio to match the output sample rate
 
-    int len_in = (int)ceil((len * 32823.6328125) / (float)AudioFreq);
+    float f_len_in = (len * 32823.6328125) / (float)AudioFreq;
+    f_len_in += AudioSampleFrac;
+    int len_in = (int)floor(f_len_in);
+    AudioSampleFrac = f_len_in - len_in;
 
     s16 buf_in[1024*2];
     s16* buf_out = (s16*)stream;
 
     int num_in = SPU::ReadOutput(buf_in, len_in);
     int num_out = len;
+
+    if (num_in < 1)
+    {
+        memset(stream, 0, len*sizeof(s16)*2);
+        return;
+    }
 
     int margin = 6;
     if (num_in < len_in-margin)
@@ -591,7 +601,7 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     int volume = Config::AudioVolume;
 
-    for (int i = 0; i < 1024; i++)
+    for (int i = 0; i < len; i++)
     {
         buf_out[i*2  ] = (buf_in[res_pos*2  ] * volume) >> 8;
         buf_out[i*2+1] = (buf_in[res_pos*2+1] * volume) >> 8;
@@ -1522,6 +1532,8 @@ void Run()
     EmuRunning = 1;
     RunningSomething = true;
 
+    SPU::InitOutput();
+    AudioSampleFrac = 0;
     SDL_PauseAudioDevice(AudioDevice, 0);
     SDL_PauseAudioDevice(MicDevice, 0);
 
@@ -1560,6 +1572,7 @@ void TogglePause(void* blarg)
         EmuRunning = 2;
         uiMenuItemSetChecked(MenuItem_Pause, 1);
 
+        SPU::DrainOutput();
         SDL_PauseAudioDevice(AudioDevice, 1);
         SDL_PauseAudioDevice(MicDevice, 1);
 
@@ -1571,6 +1584,8 @@ void TogglePause(void* blarg)
         EmuRunning = 1;
         uiMenuItemSetChecked(MenuItem_Pause, 0);
 
+        SPU::InitOutput();
+        AudioSampleFrac = 0;
         SDL_PauseAudioDevice(AudioDevice, 0);
         SDL_PauseAudioDevice(MicDevice, 0);
 
@@ -1621,6 +1636,7 @@ void Stop(bool internal)
 
     uiAreaQueueRedrawAll(MainDrawArea);
 
+    SPU::DrainOutput();
     SDL_PauseAudioDevice(AudioDevice, 1);
     SDL_PauseAudioDevice(MicDevice, 1);
 
