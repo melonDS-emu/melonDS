@@ -98,9 +98,7 @@ void DeInit()
 
 void Reset()
 {
-    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
-    OutputReadOffset = 0;
-    OutputWriteOffset = 0;//OutputBufferSize;
+    InitOutput();
 
     Cnt = 0;
     MasterVolume = 0;
@@ -739,6 +737,19 @@ void Mix(u32 samples)
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
 }
 
+
+void DrainOutput()
+{
+    OutputReadOffset = 0;
+    OutputWriteOffset = 0;
+}
+
+void InitOutput()
+{
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    OutputReadOffset = 0;
+    OutputWriteOffset = OutputBufferSize;
+}
 
 int GetOutputSize()
 {
