@@ -6,8 +6,8 @@
 
 //include version information in .exe, modify these values to match your needs
 1 VERSIONINFO
-FILEVERSION 0,8,2,0
-PRODUCTVERSION 0,8,2,0
+FILEVERSION 0,8,3,0
+PRODUCTVERSION 0,8,3,0
 FILETYPE VFT_APP
 {
   BLOCK "StringFileInfo"
@@ -15,14 +15,14 @@ FILETYPE VFT_APP
 		BLOCK "040904E4"
 		{
 			VALUE "CompanyName", "Melon Factory of Kuribo64"
-			VALUE "FileVersion", "0.8.2"
+			VALUE "FileVersion", "0.8.3"
 			VALUE "FileDescription", "DS emulator, sorta. also 1st quality melon."
 			VALUE "InternalName", "SDnolem"
 			VALUE "LegalCopyright", "2016-2019 Arisotura & co."
 			VALUE "LegalTrademarks", ""
 			VALUE "OriginalFilename", "zafkflzdasd.exe"
 			VALUE "ProductName", "melonDS"
-			VALUE "ProductVersion", "0.8.2"
+			VALUE "ProductVersion", "0.8.3"
 		}
 	}
   BLOCK "VarFileInfo"
