@@ -137,6 +137,10 @@ void OnRendererChanged(uiRadioButtons* rb, void* blarg)
     UpdateControls();
 
     bool new_usegl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    
+    if (new_usegl) uiControlEnable(uiControl(cbVSync));
+    else           uiControlDisable(uiControl(cbVSync));
+    
     if (new_usegl != old_usegl)
         ApplyNewSettings(2);
     else
@@ -332,8 +336,10 @@ void Open()
     uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
     UpdateControls();
 
-    if (Config::ScreenUseGL) uiControlEnable(uiControl(cbVSync));
-    else                     uiControlDisable(uiControl(cbVSync));
+    if (Config::ScreenUseGL || Config::_3DRenderer != 0) 
+        uiControlEnable(uiControl(cbVSync));
+    else
+        uiControlDisable(uiControl(cbVSync));
 
     uiControlShow(uiControl(win));
 }
