@@ -39,12 +39,14 @@ uiWindow* win;
 
 uiRadioButtons* rbRenderer;
 uiCheckbox* cbGLDisplay;
+uiCheckbox* cbVSync;
 uiCheckbox* cbThreaded3D;
 uiCombobox* cbResolution;
 uiCheckbox* cbAntialias;
 
 int old_renderer;
 int old_gldisplay;
+int old_vsync;
 int old_threaded3D;
 int old_resolution;
 int old_antialias;
@@ -88,6 +90,11 @@ void RevertSettings()
     if (old_gldisplay != Config::ScreenUseGL)
     {
         Config::ScreenUseGL = old_gldisplay;
+    }
+    if (old_vsync != Config::ScreenVSync)
+    {
+        Config::ScreenVSync = old_vsync;
+        ApplyNewSettings(4);
     }
     if (old_usegl != new_usegl)
     {
@@ -134,15 +141,23 @@ void OnRendererChanged(uiRadioButtons* rb, void* blarg)
         ApplyNewSettings(2);
     else
         ApplyNewSettings(3);
-    
+
     uiControlSetFocus(uiControl(win));
 }
 
 void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
 {
     Config::ScreenUseGL = uiCheckboxChecked(cb);
+    if (Config::ScreenUseGL) uiControlEnable(uiControl(cbVSync));
+    else                     uiControlDisable(uiControl(cbVSync));
     ApplyNewSettings(2);
     uiControlSetFocus(uiControl(win));
+}
+
+void OnVSyncChanged(uiCheckbox* cb, void* blarg)
+{
+    Config::ScreenVSync = uiCheckboxChecked(cb);
+    ApplyNewSettings(4);
 }
 
 void OnThreaded3DChanged(uiCheckbox* cb, void* blarg)
@@ -232,6 +247,10 @@ void Open()
         cbGLDisplay = uiNewCheckbox("OpenGL display");
         uiCheckboxOnToggled(cbGLDisplay, OnGLDisplayChanged, NULL);
         uiBoxAppend(in_ctrl, uiControl(cbGLDisplay), 0);
+
+        cbVSync = uiNewCheckbox("VSync");
+        uiCheckboxOnToggled(cbVSync, OnVSyncChanged, NULL);
+        uiBoxAppend(in_ctrl, uiControl(cbVSync), 0);
     }
 
     {
@@ -300,16 +319,21 @@ void Open()
 
     old_renderer = Config::_3DRenderer;
     old_gldisplay = Config::ScreenUseGL;
+    old_vsync = Config::ScreenVSync;
     old_threaded3D = Config::Threaded3D;
     old_resolution = Config::GL_ScaleFactor;
     old_antialias = Config::GL_Antialias;
 
     uiCheckboxSetChecked(cbGLDisplay, Config::ScreenUseGL);
+    uiCheckboxSetChecked(cbVSync, Config::ScreenVSync);
     uiCheckboxSetChecked(cbThreaded3D, Config::Threaded3D);
     uiComboboxSetSelected(cbResolution, Config::GL_ScaleFactor-1);
     //uiCheckboxSetChecked(cbAntialias, Config::GL_Antialias);
     uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
     UpdateControls();
+
+    if (Config::ScreenUseGL) uiControlEnable(uiControl(cbVSync));
+    else                     uiControlDisable(uiControl(cbVSync));
 
     uiControlShow(uiControl(win));
 }

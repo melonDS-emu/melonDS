@@ -54,6 +54,7 @@ extern int ScreenSizing;
 extern int ScreenFilter;
 
 extern int ScreenUseGL;
+extern int ScreenVSync;
 extern int ScreenRatio;
 
 extern int LimitFPS;
