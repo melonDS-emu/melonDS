@@ -93,6 +93,7 @@ uiMenuItem* MenuItem_ScreenSizing[4];
 
 uiMenuItem* MenuItem_ScreenFilter;
 uiMenuItem* MenuItem_LimitFPS;
+uiMenuItem* MenuItem_AudioSync;
 uiMenuItem* MenuItem_ShowOSD;
 
 SDL_Thread* EmuThread;
@@ -2198,6 +2199,13 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::LimitFPS = false;
 }
 
+void OnSetAudioSync(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::AudioSync = true;
+    else          Config::AudioSync = false;
+}
+
 void OnSetShowOSD(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     int chk = uiMenuItemChecked(item);
@@ -2442,11 +2450,16 @@ void CreateMainWindowMenu()
     MenuItem_ScreenFilter = uiMenuAppendCheckItem(menu, "Screen filtering");
     uiMenuItemOnClicked(MenuItem_ScreenFilter, OnSetScreenFiltering, NULL);
 
+    MenuItem_ShowOSD = uiMenuAppendCheckItem(menu, "Show OSD");
+    uiMenuItemOnClicked(MenuItem_ShowOSD, OnSetShowOSD, NULL);
+
+    uiMenuAppendSeparator(menu);
+
     MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
     uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
 
-    MenuItem_ShowOSD = uiMenuAppendCheckItem(menu, "Show OSD");
-    uiMenuItemOnClicked(MenuItem_ShowOSD, OnSetShowOSD, NULL);
+    MenuItem_AudioSync = uiMenuAppendCheckItem(menu, "Audio sync");
+    uiMenuItemOnClicked(MenuItem_AudioSync, OnSetAudioSync, NULL);
 }
 
 void CreateMainWindow(bool opengl)
@@ -2688,6 +2701,7 @@ int main(int argc, char** argv)
 
     uiMenuItemSetChecked(MenuItem_ScreenFilter, Config::ScreenFilter==1);
     uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+    uiMenuItemSetChecked(MenuItem_AudioSync, Config::AudioSync==1);
     uiMenuItemSetChecked(MenuItem_ShowOSD, Config::ShowOSD==1);
 
     AudioFreq = 48000; // TODO: make configurable?
