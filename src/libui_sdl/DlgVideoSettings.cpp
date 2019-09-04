@@ -94,7 +94,7 @@ void RevertSettings()
     if (old_vsync != Config::ScreenVSync)
     {
         Config::ScreenVSync = old_vsync;
-        ApplyNewSettings(4);
+        //ApplyNewSettings(4);
     }
     if (old_usegl != new_usegl)
     {
@@ -137,10 +137,10 @@ void OnRendererChanged(uiRadioButtons* rb, void* blarg)
     UpdateControls();
 
     bool new_usegl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
-    
+
     if (new_usegl) uiControlEnable(uiControl(cbVSync));
     else           uiControlDisable(uiControl(cbVSync));
-    
+
     if (new_usegl != old_usegl)
         ApplyNewSettings(2);
     else
@@ -161,7 +161,7 @@ void OnGLDisplayChanged(uiCheckbox* cb, void* blarg)
 void OnVSyncChanged(uiCheckbox* cb, void* blarg)
 {
     Config::ScreenVSync = uiCheckboxChecked(cb);
-    ApplyNewSettings(4);
+    //ApplyNewSettings(4);
 }
 
 void OnThreaded3DChanged(uiCheckbox* cb, void* blarg)
@@ -336,7 +336,7 @@ void Open()
     uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
     UpdateControls();
 
-    if (Config::ScreenUseGL || Config::_3DRenderer != 0) 
+    if (Config::ScreenUseGL || Config::_3DRenderer != 0)
         uiControlEnable(uiControl(cbVSync));
     else
         uiControlDisable(uiControl(cbVSync));

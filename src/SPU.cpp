@@ -738,6 +738,16 @@ void Mix(u32 samples)
 }
 
 
+void TrimOutput()
+{
+    const int halflimit = (OutputBufferSize / 2);
+
+    int readpos = OutputWriteOffset - (halflimit*2);
+    if (readpos < 0) readpos += (OutputBufferSize*2);
+
+    OutputReadOffset = readpos;
+}
+
 void DrainOutput()
 {
     OutputReadOffset = 0;
