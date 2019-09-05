@@ -2463,7 +2463,10 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 
             if (!window)
             {
-                if (!(DispCnt & 0x80000000)) pixelattr |= 0x1000;
+                if (!(DispCnt & 0x80000000))
+                    pixelattr |= 0x1000;
+                else
+                    pixelattr |= ((attrib[2] & 0xF000) >> 4);
             }
 
             if (xmos && !(attrib[0]&0x0200))
@@ -2716,7 +2719,10 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 
             if (!window)
             {
-                if (!(DispCnt & 0x80000000)) pixelattr |= 0x1000;
+                if (!(DispCnt & 0x80000000))
+                    pixelattr |= 0x1000;
+                else
+                    pixelattr |= ((attrib[2] & 0xF000) >> 4);
             }
 
             if (attrib[1] & 0x1000) // xflip. TODO: do better? oh well for now this works
