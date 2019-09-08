@@ -271,15 +271,17 @@ void Compiler::T_Comp_BL_LONG_2()
     Comp_JumpTo(RSCRATCH);
 }
 
-void Compiler::T_Comp_BL_Merged(FetchedInstr part1)
+void Compiler::T_Comp_BL_Merged()
 {
-    assert(part1.Info.Kind == ARMInstrInfo::tk_BL_LONG_1);
     Comp_AddCycles_C();
 
-    u32 target = (R15 - 2) + ((s32)((part1.Instr & 0x7FF) << 21) >> 9);
-    target += (CurInstr.Instr & 0x7FF) << 1;
+    R15 += 2;
 
-    if (Num == 1 || CurInstr.Instr & (1 << 12))
+    u32 upperPart = CurInstr.Instr >> 16;
+    u32 target = (R15 - 2) + ((s32)((CurInstr.Instr & 0x7FF) << 21) >> 9);
+    target += (upperPart & 0x7FF) << 1;
+
+    if (Num == 1 || upperPart & (1 << 12))
         target |= 1;
 
     MOV(32, MapReg(14), Imm32((R15 - 2) | 1));

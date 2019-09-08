@@ -212,6 +212,9 @@ enum
     tk_UNK,
     tk_SVC,
 
+    // not a real instruction
+    tk_BL_LONG,
+
     tk_Count
 };
 

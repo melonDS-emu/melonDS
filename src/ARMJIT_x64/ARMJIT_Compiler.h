@@ -90,7 +90,7 @@ public:
     void T_Comp_BranchXchangeReg();
     void T_Comp_BL_LONG_1();
     void T_Comp_BL_LONG_2();
-    void T_Comp_BL_Merged(FetchedInstr prefix);
+    void T_Comp_BL_Merged();
 
     void Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size);
     s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);

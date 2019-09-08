@@ -159,6 +159,7 @@ CompiledBlock CompileBlock(ARM* cpu)
     u32 r15 = cpu->R[15];
 	cpu->FillPipeline();
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
+	u32 nextInstrAddr[2] = {blockAddr, r15};
     do
     {
         r15 += thumb ? 2 : 4;
@@ -166,6 +167,10 @@ CompiledBlock CompileBlock(ARM* cpu)
 		instrs[i].SetFlags = 0;
         instrs[i].Instr = nextInstr[0];
         instrs[i].NextInstr[0] = nextInstr[0] = nextInstr[1];
+	
+		instrs[i].Addr = nextInstrAddr[0];
+		nextInstrAddr[0] = nextInstrAddr[1];
+		nextInstrAddr[1] = r15;
 
         if (cpu->Num == 0)
         {
@@ -193,7 +198,18 @@ CompiledBlock CompileBlock(ARM* cpu)
         instrs[i].NextInstr[1] = nextInstr[1];
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
 
+		if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
+			&& instrs[i - 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_1)
+		{
+			instrs[i - 1].Info.Kind = ARMInstrInfo::tk_BL_LONG;
+			instrs[i - 1].Instr = (instrs[i - 1].Instr & 0xFFFF) | (instrs[i].Instr << 16);
+			instrs[i - 1].Info.DstRegs = 0xC000;
+			instrs[i - 1].Info.SrcRegs = 0;
+			instrs[i - 1].Info.EndBlock = true;
+			i--;
+		}
         i++;
+
 
 		bool canCompile = compiler->CanCompile(thumb, instrs[i - 1].Info.Kind);
 		if (instrs[i - 1].Info.ReadFlags != 0 || !canCompile)
