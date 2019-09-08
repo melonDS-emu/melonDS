@@ -1939,7 +1939,9 @@ u8 ARM7Read8(u32 addr)
         return GPU::ReadVRAM_ARM7<u8>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFF; // TODO: proper open bus
         return GBACartHelper::RomRead8(addr);
 
@@ -1999,7 +2001,9 @@ u16 ARM7Read16(u32 addr)
         return GPU::ReadVRAM_ARM7<u16>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFF; // TODO: proper open bus
         return GBACartHelper::RomRead16(addr);
 
@@ -2059,7 +2063,9 @@ u32 ARM7Read32(u32 addr)
         return GPU::ReadVRAM_ARM7<u32>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0xFFFFFFFF; // TODO: proper open bus
         return GBACartHelper::RomRead32(addr);
 
@@ -2108,7 +2114,9 @@ void ARM7Write8(u32 addr, u8 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         GBACartHelper::RomWrite8(addr, val);
         return;
     }
@@ -2159,7 +2167,9 @@ void ARM7Write16(u32 addr, u16 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         GBACartHelper::RomWrite16(addr, val);
         return;
     }
@@ -2211,7 +2221,9 @@ void ARM7Write32(u32 addr, u32 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         GBACartHelper::RomWrite32(addr, val);
         return;
     }
@@ -2504,6 +2516,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
+    case 0x04000184: return ARM9IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -2882,6 +2895,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         KeyCnt = val >> 16;
         return;
     case 0x04000180:
+    case 0x04000184:
         ARM9IOWrite16(addr, val);
         return;
 
@@ -3139,6 +3153,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
+    case 0x04000184: return ARM7IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3439,6 +3454,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
+    case 0x04000184:
         ARM7IOWrite16(addr, val);
         return;
     case 0x04000188:
