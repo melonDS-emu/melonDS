@@ -31,6 +31,7 @@ struct FetchedInstr
 	u8 SetFlags;
     u32 Instr;
     u32 NextInstr[2];
+	u32 Addr;
 
     u8 CodeCycles;
 
