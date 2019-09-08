@@ -139,6 +139,8 @@ public:
     u8* ResetStart;
     u32 CodeMemSize;
 
+    bool IrregularCycles;
+
     void* MemoryFuncs9[3][2];
     void* MemoryFuncs7[3][2][2];
 

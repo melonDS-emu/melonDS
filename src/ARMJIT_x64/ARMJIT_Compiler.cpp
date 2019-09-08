@@ -447,6 +447,8 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
                 Comp_AddCycles_C();
             else
             {
+                IrregularCycles = false;
+
                 FixupBranch skipExecute;
                 if (cond < 0xE)
                     skipExecute = CheckCondition(cond);
@@ -463,13 +465,19 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
                 if (CurInstr.Cond() < 0xE)
                 {
-                    FixupBranch skipFailed = J();
-                    SetJumpTarget(skipExecute);
+                    if (IrregularCycles)
+                    {
+                        FixupBranch skipFailed = J();
+                        SetJumpTarget(skipExecute);
 
-                    Comp_AddCycles_C();
+                        Comp_AddCycles_C(true);
 
-                    SetJumpTarget(skipFailed);
+                        SetJumpTarget(skipFailed);
+                    }
+                    else
+                        SetJumpTarget(skipExecute);
                 }
+                
             }
         }
 
@@ -518,8 +526,16 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
         NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
     
-    LEA(32, RSCRATCH, MDisp(i, add + cycles));
-    ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
+    if (!Thumb && CurInstr.Cond() < 0xE)
+    {
+        LEA(32, RSCRATCH, MDisp(i, add + cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
+    }
+    else
+    {
+        ConstantCycles += i + cycles;
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
+    }
 }
 
 }
