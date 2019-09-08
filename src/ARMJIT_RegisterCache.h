@@ -38,7 +38,7 @@ public:
         Mapping[reg] = (Reg)-1;
     }
 
-    void LoadRegister(int reg)
+    void LoadRegister(int reg, bool loadValue)
     {
         assert(Mapping[reg] == -1);
         for (int i = 0; i < NativeRegsAvailable; i++)
@@ -50,7 +50,8 @@ public:
                 NativeRegsUsed |= 1 << (int)nativeReg;
                 LoadedRegs |= 1 << reg;
 
-                Compiler->LoadReg(reg, nativeReg);
+                if (loadValue)
+                    Compiler->LoadReg(reg, nativeReg);
 
                 return;
             }
@@ -66,7 +67,7 @@ public:
             UnloadRegister(reg);
     }
 
-	void Prepare(int i)
+	void Prepare(bool thumb, int i)
     {
         u16 futureNeeded = 0;
         int ranking[16];
@@ -111,8 +112,11 @@ public:
                 loadedSet.m_val = LoadedRegs;
             }
 
+            BitSet16 needValueLoaded(needToBeLoaded);
+            if (thumb || Instr.Cond() >= 0xE)
+                needValueLoaded = BitSet16(Instr.Info.SrcRegs);
             for (int reg : needToBeLoaded)
-                LoadRegister(reg);
+                LoadRegister(reg, needValueLoaded[reg]);
         }
         DirtyRegs |= Instr.Info.DstRegs & ~(1 << 15);
     }

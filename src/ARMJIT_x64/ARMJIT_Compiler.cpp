@@ -338,7 +338,8 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
     // Branch
     F(T_Comp_BCOND), F(T_Comp_BranchXchangeReg), F(T_Comp_BranchXchangeReg), F(T_Comp_B), F(T_Comp_BL_LONG_1), F(T_Comp_BL_LONG_2), 
     // Unk, SVC
-    NULL, NULL
+    NULL, NULL,
+    F(T_Comp_BL_Merged)
 };
 #undef F
 
@@ -361,20 +362,17 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
     ConstantCycles = 0;
     Thumb = cpu->CPSR & 0x20;
     Num = cpu->Num;
-    R15 = cpu->R[15];
     CodeRegion = cpu->CodeRegion;
     CurCPU = cpu;
 
     CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
 
     if (!(Num == 0 
-        ? IsMapped<0>(R15 - (Thumb ? 2 : 4)) 
-        : IsMapped<1>(R15 - (Thumb ? 2 : 4))))
+        ? IsMapped<0>(instrs[0].Addr - (Thumb ? 2 : 4)) 
+        : IsMapped<1>(instrs[0].Addr - (Thumb ? 2 : 4))))
     {
         printf("Trying to compile a block in unmapped memory\n");
     }
-
-    bool mergedThumbBL = false;
 
     ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
 
@@ -387,8 +385,8 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     for (int i = 0; i < instrsCount; i++)
     {
-        R15 += Thumb ? 2 : 4;
         CurInstr = instrs[i];
+        R15 = CurInstr.Addr + (Thumb ? 4 : 8);
 
         CompileFunc comp = Thumb
             ? T_Comp[CurInstr.Info.Kind]
@@ -406,29 +404,21 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
         }
         
         if (comp != NULL)
-            RegCache.Prepare(i);
+            RegCache.Prepare(Thumb, i);
         else
             RegCache.Flush();
 
         if (Thumb)
         {
-            if (i < instrsCount - 1 && CurInstr.Info.Kind == ARMInstrInfo::tk_BL_LONG_1
-                && instrs[i + 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_2)
-                mergedThumbBL = true;
-            else
+            u32 icode = (CurInstr.Instr >> 6) & 0x3FF;
+            if (comp == NULL)
             {
-                u32 icode = (CurInstr.Instr >> 6) & 0x3FF;
-                if (comp == NULL)
-                {
-                    MOV(64, R(ABI_PARAM1), R(RCPU));
+                MOV(64, R(ABI_PARAM1), R(RCPU));
 
-                    ABI_CallFunction(ARMInterpreter::THUMBInstrTable[icode]);
-                }
-                else if (mergedThumbBL)
-                    T_Comp_BL_Merged(instrs[i - 1]);
-                else
-                    (this->*comp)();
+                ABI_CallFunction(ARMInterpreter::THUMBInstrTable[icode]);
             }
+            else
+                (this->*comp)();
         }
         else
         {
