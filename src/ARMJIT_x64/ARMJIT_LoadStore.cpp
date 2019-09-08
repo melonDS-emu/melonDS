@@ -438,6 +438,8 @@ void* Compiler::Gen_MemoryRoutineSeq7(bool store, bool preinc, bool codeMainRAM)
 
 void Compiler::Comp_MemAccess(OpArg rd, bool signExtend, bool store, int size)
 {
+    IrregularCycles = true;
+
     if (store)
         MOV(32, R(ABI_PARAM2), rd);
     u32 cycles = Num
@@ -459,6 +461,8 @@ void Compiler::Comp_MemAccess(OpArg rd, bool signExtend, bool store, int size)
 
 s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
 {
+    IrregularCycles = true;
+
     int regsCount = regs.Count();
 
     if (decrement)

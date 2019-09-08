@@ -19,6 +19,8 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     // it's not completely safe to assume stuff like, which instructions to preload
     // we'll see how it works out
 
+    IrregularCycles = true;
+
     u32 newPC;
     u32 cycles = 0;
 
@@ -140,6 +142,8 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
+    IrregularCycles = true;
+
     BitSet16 hiRegsLoaded(RegCache.DirtyRegs & 0xFF00);
     bool previouslyDirty = CPSRDirty;
     SaveCPSR();
