@@ -2293,6 +2293,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000006: return GPU::VCount;
+
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
@@ -3004,6 +3006,8 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
+    case 0x04000006: return GPU::VCount;
+
     case 0x04000130: return KeyInput & 0xFF;
     case 0x04000131: return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
