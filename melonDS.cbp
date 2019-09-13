@@ -53,6 +53,22 @@
 					<Add option="-m64" />
 				</Linker>
 			</Target>
+			<Target title="DebugFast-Cap Windows">
+				<Option platforms="Windows;" />
+				<Option output="bin/DebugFast/melonDS" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/DebugFast/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O3" />
+					<Add option="-m64" />
+					<Add option="-D_FILE_OFFSET_BITS=64" />
+					<Add option="-DMELONCAP" />
+				</Compiler>
+				<Linker>
+					<Add option="-m64" />
+				</Linker>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
@@ -143,6 +159,12 @@
 		<Unit filename="src/libui_sdl/LAN_PCap.h" />
 		<Unit filename="src/libui_sdl/LAN_Socket.cpp" />
 		<Unit filename="src/libui_sdl/LAN_Socket.h" />
+		<Unit filename="src/libui_sdl/MelonCap.cpp">
+			<Option target="DebugFast-Cap Windows" />
+		</Unit>
+		<Unit filename="src/libui_sdl/MelonCap.h">
+			<Option target="DebugFast-Cap Windows" />
+		</Unit>
 		<Unit filename="src/libui_sdl/OSD.cpp" />
 		<Unit filename="src/libui_sdl/OSD.h" />
 		<Unit filename="src/libui_sdl/Platform.cpp" />
