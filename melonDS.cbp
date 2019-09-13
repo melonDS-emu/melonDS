@@ -67,6 +67,8 @@
 				</Compiler>
 				<Linker>
 					<Add option="-m64" />
+					<Add library="winusb" />
+					<Add library="setupapi" />
 				</Linker>
 			</Target>
 		</Build>
