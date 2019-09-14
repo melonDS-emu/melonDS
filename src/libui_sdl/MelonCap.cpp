@@ -41,6 +41,7 @@ bool WinBitmapInited;
 u32* WinBitmapData;
 
 // this crap was built from the reverse-engineering of ds_capture.exe
+// mixed in with their Linux capture sample code
 
 GUID InterfaceClass = {0xA0B880F6, 0xD6A5, 0x4700, {0xA8, 0xEA, 0x22, 0x28, 0x2A, 0xCA, 0x55, 0x87}};
 HANDLE CapHandle;
@@ -92,8 +93,7 @@ void Init()
 {
     printf("MelonCap init\n");
 
-    // TODO: flags value!!!!!
-    HDEVINFO devinfo = SetupDiGetClassDevsW(&InterfaceClass, NULL, NULL, 0x12);
+    HDEVINFO devinfo = SetupDiGetClassDevsW(&InterfaceClass, NULL, NULL, DIGCF_DEVICEINTERFACE|DIGCF_PRESENT);
     if (devinfo == INVALID_HANDLE_VALUE) return;
 
     int member = 0;
@@ -121,7 +121,9 @@ void Init()
         if (ret)
         {
             printf("got interface detail: path=%S\n", interfacedetail->DevicePath);
-            HANDLE file = CreateFileW(interfacedetail->DevicePath, 0xC0000000, 3, NULL, 3, 0x40000080, NULL);
+            HANDLE file = CreateFileW(interfacedetail->DevicePath, GENERIC_READ|GENERIC_WRITE,
+                                      FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+                                      FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED, NULL);
             if (file != INVALID_HANDLE_VALUE)
             {
                 WINUSB_INTERFACE_HANDLE usbhandle;
@@ -130,11 +132,11 @@ void Init()
                 {
                     int val;
                     val = 0x1E;
-                    WinUsb_SetPipePolicy(usbhandle, 0x00, 3, 4, &val);
+                    WinUsb_SetPipePolicy(usbhandle, 0x00, PIPE_TRANSFER_TIMEOUT, 4, &val);
                     val = 0x32;
-                    WinUsb_SetPipePolicy(usbhandle, 0x82, 3, 4, &val);
+                    WinUsb_SetPipePolicy(usbhandle, 0x82, PIPE_TRANSFER_TIMEOUT, 4, &val);
                     val = 0x01;
-                    WinUsb_SetPipePolicy(usbhandle, 0x82, 7, 1, &val);
+                    WinUsb_SetPipePolicy(usbhandle, 0x82, RAW_IO, 1, &val);
 
                     printf("looking good\n");
                     good = true;
@@ -186,7 +188,7 @@ void DeInit()
 }
 
 
-u32 VendorIn(u8 req, u16 len, u8* buf)
+int VendorIn(u8 req, u16 len, u8* buf)
 {
     WINUSB_SETUP_PACKET pkt;
     pkt.RequestType = 0xC0; // device to host
@@ -201,10 +203,10 @@ u32 VendorIn(u8 req, u16 len, u8* buf)
     return ret;
 }
 
-u32 VendorOut(u8 req, u16 val, u16 len, u8* buf)
+int VendorOut(u8 req, u16 val, u16 len, u8* buf)
 {
     WINUSB_SETUP_PACKET pkt;
-    pkt.RequestType = 0x40; // device to host
+    pkt.RequestType = 0x40; // host to device
     pkt.Request = req;
     pkt.Value = val;
     pkt.Index = 0;
@@ -216,7 +218,7 @@ u32 VendorOut(u8 req, u16 val, u16 len, u8* buf)
     return ret;
 }
 
-u32 BulkIn(u8* buf, u32 len)
+int BulkIn(u8* buf, u32 len)
 {
     ULONG ret = 0;
     BOOL res = WinUsb_ReadPipe(CapUSBHandle, 0x82, buf, len, &ret, NULL);
@@ -250,11 +252,18 @@ void CaptureFrame()
     ret = VendorOut(0x30, 0, 0, &derp);
     if (ret < 0) return;
 
+    int tries = 0;
     while (framepos < framelen)
     {
         ret = BulkIn((u8*)&frame[framepos/2], framelen-framepos);
         if (ret < 0) break;
-        if (ret > 0) framepos += ret;
+        if (ret == 0)
+        {
+            tries++;
+            if (tries >= 100) break;
+            continue;
+        }
+        framepos += ret;
     }
 
     ret = VendorIn(0x30, 64, frameinfo);
