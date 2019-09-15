@@ -2238,6 +2238,28 @@ void GPU2D::DrawBG_Large(u32 line) // BG is always BG2
 
 void GPU2D::InterleaveSprites(u32 prio)
 {
+    // apply X mosaic if needed
+    // X mosaic for sprites is applied after all sprites are rendered
+
+    if (OBJMosaicSize[0] > 0)
+    {
+        u32 lastcolor = OBJLine[0];
+
+        for (u32 i = 1; i < 256; i++)
+        {
+            if (!(OBJLine[i] & 0x100000))
+            {
+                // not a mosaic'd sprite pixel
+                continue;
+            }
+
+            if ((!(OBJLine[i-1] & 0x100000)) || (CurOBJXMosaicTable[i] == 0))
+                lastcolor = OBJLine[i];
+            else
+                OBJLine[i] = lastcolor;
+        }
+    }
+
     u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
 
     if (DispCnt & 0x80000000)
@@ -2391,7 +2413,7 @@ void GPU2D::DrawSprites(u32 line)
 template<bool window>
 void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
 {
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0x40000;
+    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
     u32 tilenum = attrib[2] & 0x03FF;
     u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
 
@@ -2400,14 +2422,13 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
     s32 centerX = boundwidth >> 1;
     s32 centerY = boundheight >> 1;
 
-    s32 limitX = 0;//(boundwidth - width) << 7;
-    s32 limitY = 0;//(boundheight - height) << 7;
-
-    if (attrib[0] & 0x1000)
+    if ((attrib[0] & 0x1000) && !window)
     {
         // apply Y mosaic
         ypos = OBJMosaicY - (attrib[0] & 0xFF);
         if (ypos < 0) ypos = 0;
+
+        pixelattr |= 0x100000;
     }
 
     u32 xoff;
@@ -2486,6 +2507,11 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
                     if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | pixelattr;
                 }
+                else if (!window)
+                {
+                    if (OBJLine[xpos] == 0)
+                        OBJLine[xpos] = pixelattr & 0x180000;
+                }
             }
 
             rotX += rotA;
@@ -2535,6 +2561,11 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
                         if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = color | pixelattr;
                     }
+                    else if (!window)
+                    {
+                        if (OBJLine[xpos] == 0)
+                            OBJLine[xpos] = pixelattr & 0x180000;
+                    }
                 }
 
                 rotX += rotA;
@@ -2571,6 +2602,11 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
                         if (window) OBJWindow[xpos] = 1;
                         else        OBJLine[xpos] = color | pixelattr;
                     }
+                    else if (!window)
+                    {
+                        if (OBJLine[xpos] == 0)
+                            OBJLine[xpos] = pixelattr & 0x180000;
+                    }
                 }
 
                 rotX += rotA;
@@ -2585,17 +2621,19 @@ void GPU2D::DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32
 template<bool window>
 void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
 {
-    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0x40000;
+    u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
     u32 tilenum = attrib[2] & 0x03FF;
     u32 spritemode = window ? 0 : ((attrib[0] >> 10) & 0x3);
 
     u32 wmask = width - 8; // really ((width - 1) & ~0x7)
 
-    if (attrib[0] & 0x1000)
+    if ((attrib[0] & 0x1000) && !window)
     {
         // apply Y mosaic
         ypos = OBJMosaicY - (attrib[0] & 0xFF);
         if (ypos < 0) ypos = 0;
+
+        pixelattr |= 0x100000;
     }
 
     u32 xoff;
@@ -2679,6 +2717,11 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
                 if (window) OBJWindow[xpos] = 1;
                 else        OBJLine[xpos] = color | pixelattr;
             }
+            else if (!window)
+            {
+                if (OBJLine[xpos] == 0)
+                    OBJLine[xpos] = pixelattr & 0x180000;
+            }
 
             xoff++;
             xpos++;
@@ -2741,6 +2784,11 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
                     if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | pixelattr;
                 }
+                else if (!window)
+                {
+                    if (OBJLine[xpos] == 0)
+                        OBJLine[xpos] = pixelattr & 0x180000;
+                }
 
                 xoff++;
                 xpos++;
@@ -2796,6 +2844,11 @@ void GPU2D::DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos)
                 {
                     if (window) OBJWindow[xpos] = 1;
                     else        OBJLine[xpos] = color | pixelattr;
+                }
+                else if (!window)
+                {
+                    if (OBJLine[xpos] == 0)
+                        OBJLine[xpos] = pixelattr & 0x180000;
                 }
 
                 xoff++;
