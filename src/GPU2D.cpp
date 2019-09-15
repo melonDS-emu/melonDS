@@ -1465,6 +1465,8 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     else
         memset(WindowMask, 0xFF, 256);
 
+    ApplySpriteMosaicX();
+
     switch (DispCnt & 0x7)
     {
     case 0: DrawScanlineBGMode<0>(line); break;
@@ -2236,30 +2238,32 @@ void GPU2D::DrawBG_Large(u32 line) // BG is always BG2
     BGYRefInternal[0] += rotD;
 }
 
-void GPU2D::InterleaveSprites(u32 prio)
+void GPU2D::ApplySpriteMosaicX()
 {
     // apply X mosaic if needed
     // X mosaic for sprites is applied after all sprites are rendered
 
-    if (OBJMosaicSize[0] > 0)
+    if (OBJMosaicSize[0] == 0) return;
+
+    u32 lastcolor = OBJLine[0];
+
+    for (u32 i = 1; i < 256; i++)
     {
-        u32 lastcolor = OBJLine[0];
-
-        for (u32 i = 1; i < 256; i++)
+        if (!(OBJLine[i] & 0x100000))
         {
-            if (!(OBJLine[i] & 0x100000))
-            {
-                // not a mosaic'd sprite pixel
-                continue;
-            }
-
-            if ((!(OBJLine[i-1] & 0x100000)) || (CurOBJXMosaicTable[i] == 0))
-                lastcolor = OBJLine[i];
-            else
-                OBJLine[i] = lastcolor;
+            // not a mosaic'd sprite pixel
+            continue;
         }
-    }
 
+        if ((!(OBJLine[i-1] & 0x100000)) || (CurOBJXMosaicTable[i] == 0))
+            lastcolor = OBJLine[i];
+        else
+            OBJLine[i] = lastcolor;
+    }
+}
+
+void GPU2D::InterleaveSprites(u32 prio)
+{
     u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
 
     if (DispCnt & 0x80000000)

@@ -154,6 +154,7 @@ private:
     template<bool mosaic> void DrawBG_Extended(u32 line, u32 bgnum);
     template<bool mosaic> void DrawBG_Large(u32 line);
 
+    void ApplySpriteMosaicX();
     void InterleaveSprites(u32 prio);
     template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos);
