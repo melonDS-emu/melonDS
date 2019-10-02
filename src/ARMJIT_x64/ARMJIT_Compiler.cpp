@@ -598,8 +598,6 @@ void Compiler::Comp_AddCycles_CDI()
             cycles = numC + numD + 1;
         }
         
-        printf("%x: %d %d cycles cdi (%d)\n", CurInstr.Instr, Num, CurInstr.DataCycles, cycles);
-
         if (!Thumb && CurInstr.Cond() < 0xE)
             ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
         else
