@@ -54,6 +54,7 @@ extern char DSiNANDPath[1024];
 #ifdef JIT_ENABLED
 extern bool JIT_Enable;
 extern int JIT_MaxBlockSize;
+extern bool JIT_BrancheOptimisations;
 #endif
 
 }

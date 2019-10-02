@@ -60,15 +60,46 @@ public:
         assert("Welp!");
     }
 
+    void PutLiteral(int reg, u32 val)
+    {
+        LiteralsLoaded |= (1 << reg);
+        LiteralValues[reg] = val;
+    }
+
+    void UnloadLiteral(int reg)
+    {
+        LiteralsLoaded &= ~(1 << reg);
+    }
+
+    bool IsLiteral(int reg)
+    {
+        return LiteralsLoaded & (1 << reg);
+    }
+
+    void PrepareExit()
+    {
+        BitSet16 dirtyRegs(DirtyRegs);
+        for (int reg : dirtyRegs)
+            Compiler->SaveReg(reg, Mapping[reg]);
+    }
+
     void Flush()
     {
         BitSet16 loadedSet(LoadedRegs);
         for (int reg : loadedSet)
             UnloadRegister(reg);
+        LiteralsLoaded = 0;
     }
 
 	void Prepare(bool thumb, int i)
     {
+        if (LoadedRegs & (1 << 15))
+            UnloadRegister(15);
+
+        BitSet16 invalidedLiterals(LiteralsLoaded & Instrs[i].Info.DstRegs);
+        for (int reg : invalidedLiterals)
+            UnloadLiteral(reg);
+
         u16 futureNeeded = 0;
         int ranking[16];
         for (int j = 0; j < 16; j++)
@@ -86,7 +117,7 @@ public:
         for (int reg : neverNeededAgain)
             UnloadRegister(reg);
 
-		FetchedInstr Instr = Instrs[i];
+        FetchedInstr Instr = Instrs[i];
         u16 necessaryRegs = (Instr.Info.SrcRegs & ~(1 << 15)) | Instr.Info.DstRegs;
         BitSet16 needToBeLoaded(necessaryRegs & ~LoadedRegs);
         if (needToBeLoaded != BitSet16(0))
@@ -125,6 +156,9 @@ public:
 	static const int NativeRegsAvailable;
 
 	Reg Mapping[16];
+    u32 LiteralValues[16];
+
+    u16 LiteralsLoaded = 0;
 	u32 NativeRegsUsed = 0;
 	u16 LoadedRegs = 0;
 	u16 DirtyRegs = 0;

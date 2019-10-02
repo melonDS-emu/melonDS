@@ -226,10 +226,19 @@ enum
     flag_V = 1 << 0,
 };
 
+enum
+{
+    special_NotSpecialAtAll = 0,
+    special_WriteMem,
+    special_WaitForInterrupt
+};
+
 struct Info
 {
     u16 DstRegs, SrcRegs;
     u16 Kind;
+
+    u8 SpecialKind;
 
     u8 ReadFlags;
     // lower 4 bits - set always
@@ -237,7 +246,7 @@ struct Info
     u8 WriteFlags;
 
     bool EndBlock;
-    bool Branches()
+    bool Branches() const
     {
         return DstRegs & (1 << 15);
     }

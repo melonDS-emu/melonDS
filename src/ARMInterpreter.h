@@ -28,6 +28,15 @@ namespace ARMInterpreter
 extern void (*ARMInstrTable[4096])(ARM* cpu);
 extern void (*THUMBInstrTable[1024])(ARM* cpu);
 
+void A_MSR_IMM(ARM* cpu);
+void A_MSR_REG(ARM* cpu);
+void A_MRS(ARM* cpu);
+void A_MCR(ARM* cpu);
+void A_MRC(ARM* cpu);
+void A_SVC(ARM* cpu);
+
+void T_SVC(ARM* cpu);
+
 void A_BLX_IMM(ARM* cpu); // I'm a special one look at me
 
 }

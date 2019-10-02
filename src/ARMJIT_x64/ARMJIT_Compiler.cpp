@@ -72,12 +72,15 @@ Compiler::Compiler()
     for (int i = 0; i < 3; i++)
     {
         for (int j = 0; j < 2; j++)
-        {
             MemoryFuncs9[i][j] = Gen_MemoryRoutine9(j, 8 << i);
-            MemoryFuncs7[i][j][0] = Gen_MemoryRoutine7(j, false, 8 << i);
-            MemoryFuncs7[i][j][1] = Gen_MemoryRoutine7(j, true, 8 << i);
-        }
     }
+    MemoryFuncs7[0][0] = (void*)NDS::ARM7Read8;
+    MemoryFuncs7[0][1] = (void*)NDS::ARM7Write8;
+    MemoryFuncs7[1][0] = (void*)NDS::ARM7Read16;
+    MemoryFuncs7[1][1] = (void*)NDS::ARM7Write16;
+    MemoryFuncs7[2][0] = (void*)NDS::ARM7Read32;
+    MemoryFuncs7[2][1] = (void*)NDS::ARM7Write32;
+
     for (int i = 0; i < 2; i++)
         for (int j = 0; j < 2; j++)
         {
@@ -179,12 +182,13 @@ void Compiler::LoadCPSR()
     MOV(32, R(RCPSR), MDisp(RCPU, offsetof(ARM, CPSR)));
 }
 
-void Compiler::SaveCPSR()
+void Compiler::SaveCPSR(bool flagClean)
 {
     if (CPSRDirty)
     {
         MOV(32, MDisp(RCPU, offsetof(ARM, CPSR)), R(RCPSR));
-        CPSRDirty = false;
+        if (flagClean)
+            CPSRDirty = false;
     }
 }
 
@@ -204,6 +208,9 @@ void Compiler::SaveReg(int reg, X64Reg nativeReg)
 // invalidates RSCRATCH and RSCRATCH3
 Gen::FixupBranch Compiler::CheckCondition(u32 cond)
 {
+    // hack, ldm/stm can get really big TODO: make this better
+    bool ldmStm = !Thumb &&
+        (CurInstr.Info.Kind == ARMInstrInfo::ak_LDM || CurInstr.Info.Kind == ARMInstrInfo::ak_STM);
     if (cond >= 0x8)
     {
         static_assert(RSCRATCH3 == ECX, "RSCRATCH has to be equal to ECX!");
@@ -213,14 +220,14 @@ Gen::FixupBranch Compiler::CheckCondition(u32 cond)
         SHL(32, R(RSCRATCH), R(RSCRATCH3));
         TEST(32, R(RSCRATCH), Imm32(ARM::ConditionTable[cond]));
 
-        return J_CC(CC_Z);
+        return J_CC(CC_Z, ldmStm);
     }
     else
     {
         // could have used a LUT, but then where would be the fun?
         TEST(32, R(RCPSR), Imm32(1 << (28 + ((~(cond >> 1) & 1) << 1 | (cond >> 2 & 1) ^ (cond >> 1 & 1)))));
 
-        return J_CC(cond & 1 ? CC_NZ : CC_Z);
+        return J_CC(cond & 1 ? CC_NZ : CC_Z, ldmStm);
     }
 }
 
@@ -354,25 +361,34 @@ void Compiler::Reset()
     SetCodePtr(ResetStart);
 }
 
-CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount)
+void Compiler::Comp_SpecialBranchBehaviour()
+{
+    if (CurInstr.BranchFlags & branch_IdleBranch)
+        OR(32, MDisp(RCPU, offsetof(ARM, Halted)), Imm8(0x20));
+
+    if (CurInstr.BranchFlags & branch_FollowCondNotTaken)
+    {
+        RegCache.PrepareExit();
+        SaveCPSR(false);
+        
+        MOV(32, R(RAX), Imm32(ConstantCycles));
+        ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
+        RET();
+    }
+}
+
+JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
 {
     if (CodeMemSize - (GetWritableCodePtr() - ResetStart) < 1024 * 32) // guess...
-        InvalidateBlockCache();
+        ResetBlockCache();
 
     ConstantCycles = 0;
-    Thumb = cpu->CPSR & 0x20;
+    Thumb = thumb;
     Num = cpu->Num;
-    CodeRegion = cpu->CodeRegion;
+    CodeRegion = instrs[0].Addr >> 24;
     CurCPU = cpu;
 
-    CompiledBlock res = (CompiledBlock)GetWritableCodePtr();
-
-    if (!(Num == 0 
-        ? IsMapped<0>(instrs[0].Addr - (Thumb ? 2 : 4)) 
-        : IsMapped<1>(instrs[0].Addr - (Thumb ? 2 : 4))))
-    {
-        printf("Trying to compile a block in unmapped memory\n");
-    }
+    JitBlockEntry res = (JitBlockEntry)GetWritableCodePtr();
 
     ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
 
@@ -380,7 +396,6 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     LoadCPSR();
 
-    // TODO: this is ugly as a whole, do better
     RegCache = RegisterCache<Compiler, X64Reg>(this, instrs, instrsCount);
 
     for (int i = 0; i < instrsCount; i++)
@@ -388,21 +403,25 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
         CurInstr = instrs[i];
         R15 = CurInstr.Addr + (Thumb ? 4 : 8);
 
+        Exit = i == instrsCount - 1 || (CurInstr.BranchFlags & branch_FollowCondNotTaken);
+
         CompileFunc comp = Thumb
             ? T_Comp[CurInstr.Info.Kind]
             : A_Comp[CurInstr.Info.Kind];
 
         bool isConditional = Thumb ? CurInstr.Info.Kind == ARMInstrInfo::tk_BCOND : CurInstr.Cond() < 0xE;
-        if (comp == NULL || (i == instrsCount - 1 && (!CurInstr.Info.Branches() || isConditional)))
+        if (comp == NULL || (CurInstr.BranchFlags & branch_FollowCondTaken) || (i == instrsCount - 1 && (!CurInstr.Info.Branches() || isConditional)))
         {
             MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(R15));
-            MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
-            MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurInstr.Instr));
-
             if (comp == NULL)
+            {
+                MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(CurInstr.CodeCycles));
+                MOV(32, MDisp(RCPU, offsetof(ARM, CurInstr)), Imm32(CurInstr.Instr));
+
                 SaveCPSR();
+            }
         }
-        
+
         if (comp != NULL)
             RegCache.Prepare(Thumb, i);
         else
@@ -410,12 +429,11 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
         if (Thumb)
         {
-            u32 icode = (CurInstr.Instr >> 6) & 0x3FF;
             if (comp == NULL)
             {
                 MOV(64, R(ABI_PARAM1), R(RCPU));
 
-                ABI_CallFunction(ARMInterpreter::THUMBInstrTable[icode]);
+                ABI_CallFunction(InterpretTHUMB[CurInstr.Info.Kind]);
             }
             else
                 (this->*comp)();
@@ -434,7 +452,9 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
                 }
             }
             else if (cond == 0xF)
+            {
                 Comp_AddCycles_C();
+            }
             else
             {
                 IrregularCycles = false;
@@ -443,24 +463,35 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
                 if (cond < 0xE)
                     skipExecute = CheckCondition(cond);
 
-                u32 icode = ((CurInstr.Instr >> 4) & 0xF) | ((CurInstr.Instr >> 16) & 0xFF0);
                 if (comp == NULL)
                 {
                     MOV(64, R(ABI_PARAM1), R(RCPU));
 
-                    ABI_CallFunction(ARMInterpreter::ARMInstrTable[icode]);
+                    ABI_CallFunction(InterpretARM[CurInstr.Info.Kind]);
                 }
                 else
                     (this->*comp)();
 
+                Comp_SpecialBranchBehaviour();
+
                 if (CurInstr.Cond() < 0xE)
                 {
-                    if (IrregularCycles)
+                    if (IrregularCycles || (CurInstr.BranchFlags & branch_FollowCondTaken))
                     {
                         FixupBranch skipFailed = J();
                         SetJumpTarget(skipExecute);
 
                         Comp_AddCycles_C(true);
+
+                        if (CurInstr.BranchFlags & branch_FollowCondTaken)
+                        {
+                            RegCache.PrepareExit();
+                            SaveCPSR(false);
+                            
+                            MOV(32, R(RAX), Imm32(ConstantCycles));
+                            ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
+                            RET();
+                        }
 
                         SetJumpTarget(skipFailed);
                     }
@@ -482,6 +513,12 @@ CompiledBlock Compiler::CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrs
 
     ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
     RET();
+
+    /*FILE* codeout = fopen("codeout", "a");
+    fprintf(codeout, "beginning block argargarg__ %x!!!", instrs[0].Addr);
+    fwrite((u8*)res, GetWritableCodePtr() - (u8*)res, 1, codeout);
+
+    fclose(codeout);*/
 
     return res;
 }
@@ -526,6 +563,91 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
         ConstantCycles += i + cycles;
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
     }
+}
+
+void Compiler::Comp_AddCycles_CDI()
+{
+    if (Num == 0)
+        Comp_AddCycles_CD();
+    else
+    {
+        IrregularCycles = true;
+
+        s32 cycles;
+
+        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numD = CurInstr.DataCycles;
+
+        if (CurInstr.DataRegion == 0x02) // mainRAM
+        {
+            if (CodeRegion == 0x02)
+                cycles = numC + numD;
+            else
+            {
+                numC++;
+                cycles = std::max(numC + numD - 3, std::max(numC, numD));
+            }
+        }
+        else if (CodeRegion == 0x02)
+        {
+            numD++;
+            cycles = std::max(numC + numD - 3, std::max(numC, numD));
+        }
+        else
+        {
+            cycles = numC + numD + 1;
+        }
+        
+        printf("%x: %d %d cycles cdi (%d)\n", CurInstr.Instr, Num, CurInstr.DataCycles, cycles);
+
+        if (!Thumb && CurInstr.Cond() < 0xE)
+            ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        else
+            ConstantCycles += cycles;
+    }
+}
+
+void Compiler::Comp_AddCycles_CD()
+{
+    u32 cycles = 0;
+    if (Num == 0)
+    {
+        s32 numC = (R15 & 0x2) ? 0 : CurInstr.CodeCycles;
+        s32 numD = CurInstr.DataCycles;
+
+        //if (DataRegion != CodeRegion)
+            cycles = std::max(numC + numD - 6, std::max(numC, numD));
+
+        IrregularCycles = cycles != numC;
+    }
+    else
+    {
+        s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
+        s32 numD = CurInstr.DataCycles;
+
+        if (CurInstr.DataRegion == 0x02)
+        {
+            if (CodeRegion == 0x02)
+                cycles += numC + numD;
+            else
+                cycles += std::max(numC + numD - 3, std::max(numC, numD));
+        }
+        else if (CodeRegion == 0x02)
+        {
+            cycles += std::max(numC + numD - 3, std::max(numC, numD));
+        }
+        else
+        {
+            cycles += numC + numD;
+        }
+
+        IrregularCycles = true;
+    }
+
+    if (!Thumb && CurInstr.Cond() < 0xE)
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+    else
+        ConstantCycles += cycles;
 }
 
 }

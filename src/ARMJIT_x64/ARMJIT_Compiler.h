@@ -4,6 +4,7 @@
 #include "../dolphin/x64Emitter.h"
 
 #include "../ARMJIT.h"
+#include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
 namespace ARMJIT
@@ -16,6 +17,32 @@ const Gen::X64Reg RSCRATCH = Gen::EAX;
 const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
 
+struct ComplexOperand
+{
+    ComplexOperand()
+    {}
+
+    ComplexOperand(u32 imm)
+        : IsImm(true), Imm(imm)
+    {}
+    ComplexOperand(int reg, int op, int amount)
+        : IsImm(false)
+    {
+        Reg.Reg = reg;
+        Reg.Op = op;
+        Reg.Amount = amount;
+    }
+
+    bool IsImm;
+    union
+    {
+        struct
+        {
+            int Reg, Op, Amount;
+        } Reg;
+        u32 Imm;
+    };
+};
 
 class Compiler : public Gen::XEmitter
 {
@@ -24,7 +51,7 @@ public:
 
     void Reset();
 
-    CompiledBlock CompileBlock(ARM* cpu, FetchedInstr instrs[], int instrsCount);
+    JitBlockEntry CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
@@ -39,6 +66,8 @@ public:
     void Comp_AddCycles_C(bool forceNonConstant = false);
     void Comp_AddCycles_CI(u32 i);
     void Comp_AddCycles_CI(Gen::X64Reg i, int add);
+    void Comp_AddCycles_CDI();
+    void Comp_AddCycles_CD();
 
     enum
     {
@@ -92,8 +121,17 @@ public:
     void T_Comp_BL_LONG_2();
     void T_Comp_BL_Merged();
 
-    void Comp_MemAccess(Gen::OpArg rd, bool signExtend, bool store, int size);
+    enum
+    {
+        memop_Writeback = 1 << 0,
+        memop_Post = 1 << 1,
+        memop_SignExtend = 1 << 2,
+        memop_Store = 1 << 3,
+        memop_SubtractOffset = 1 << 4
+    };
+    void Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags);
     s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
+    void Comp_MemLoadLiteral(int size, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
@@ -105,8 +143,9 @@ public:
 
     void Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed);
 
+    void Comp_SpecialBranchBehaviour();
+
     void* Gen_MemoryRoutine9(bool store, int size);
-    void* Gen_MemoryRoutine7(bool store, bool codeMainRAM, int size);
 
     void* Gen_MemoryRoutineSeq9(bool store, bool preinc);
     void* Gen_MemoryRoutineSeq7(bool store, bool preinc, bool codeMainRAM);
@@ -117,10 +156,9 @@ public:
     Gen::OpArg Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, bool& carryUsed);
 
     Gen::OpArg A_Comp_GetALUOp2(bool S, bool& carryUsed);
-    Gen::OpArg A_Comp_GetMemWBOffset();
 
     void LoadCPSR();
-    void SaveCPSR();
+    void SaveCPSR(bool flagClean = true);
 
     bool FlagsNZRequired()
     { return CurInstr.SetFlags & 0xC; }
@@ -139,10 +177,11 @@ public:
     u8* ResetStart;
     u32 CodeMemSize;
 
+    bool Exit;
     bool IrregularCycles;
 
     void* MemoryFuncs9[3][2];
-    void* MemoryFuncs7[3][2][2];
+    void* MemoryFuncs7[3][2];
 
     void* MemoryFuncsSeq9[2][2];
     void* MemoryFuncsSeq7[2][2][2];

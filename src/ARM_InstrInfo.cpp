@@ -36,7 +36,7 @@ enum {
     A_StaticShiftSetC   = 1 << 18,
     A_SetC              = 1 << 19,
 
-    A_WriteMemory       = 1 << 20,
+    A_WriteMem          = 1 << 20
 };
 
 #define A_BIOP A_Read16
@@ -109,7 +109,7 @@ const u32 A_UMULL = A_MulFlags | A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(
 const u32 A_UMLAL = A_MulFlags | A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_UMLAL);
 const u32 A_SMULL = A_MulFlags | A_Write16 | A_Write12 | A_Read0 | A_Read8 | ak(ak_SMULL);
 const u32 A_SMLAL = A_MulFlags | A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_SMLAL);
-const u32 A_SMLAxy = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_SMLALxy);
+const u32 A_SMLAxy = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_SMLAxy);
 const u32 A_SMLAWy = A_Write16 | A_Read0 | A_Read8 | A_Read12 | ak(ak_SMLAWy);
 const u32 A_SMULWy = A_Write16 | A_Read0 | A_Read8 | ak(ak_SMULWy);
 const u32 A_SMLALxy = A_Write16 | A_Write12 | A_Read16 | A_Read12 | A_Read0 | A_Read8 | ak(ak_SMLALxy);
@@ -123,7 +123,7 @@ const u32 A_QDADD = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDADD);
 const u32 A_QDSUB = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDSUB);
 
 #define A_LDR A_Write12
-#define A_STR A_Read12 | A_WriteMemory
+#define A_STR A_Read12 | A_WriteMem
 
 #define A_IMPLEMENT_WB_LDRSTR(x,k) \
     const u32 A_##x##_IMM = A_##k | A_Read16 | A_MemWriteback | ak(ak_##x##_IMM); \
@@ -144,7 +144,7 @@ A_IMPLEMENT_WB_LDRSTR(LDR,LDR)
 A_IMPLEMENT_WB_LDRSTR(LDRB,LDR)
 
 #define A_LDRD A_Write12Double
-#define A_STRD A_Read12Double | A_WriteMemory
+#define A_STRD A_Read12Double | A_WriteMem
 
 #define A_IMPLEMENT_HD_LDRSTR(x,k) \
     const u32 A_##x##_IMM = A_##k | A_Read16 | A_MemWriteback | ak(ak_##x##_IMM); \
@@ -159,11 +159,11 @@ A_IMPLEMENT_HD_LDRSTR(LDRH,LDR)
 A_IMPLEMENT_HD_LDRSTR(LDRSB,LDR)
 A_IMPLEMENT_HD_LDRSTR(LDRSH,LDR)
 
-const u32 A_SWP = A_Write12 | A_Read16 | A_Read0 | A_WriteMemory | ak(ak_SWP);
-const u32 A_SWPB = A_Write12 | A_Read16 | A_Read0  | A_WriteMemory | ak(ak_SWPB);
+const u32 A_SWP = A_Write12 | A_Read16 | A_Read0 | A_WriteMem | ak(ak_SWP);
+const u32 A_SWPB = A_Write12 | A_Read16 | A_Read0  | A_WriteMem | ak(ak_SWPB);
 
 const u32 A_LDM = A_Read16 | A_MemWriteback | ak(ak_LDM);
-const u32 A_STM = A_Read16 | A_MemWriteback | A_WriteMemory | ak(ak_STM);
+const u32 A_STM = A_Read16 | A_MemWriteback | A_WriteMem | ak(ak_STM);
 
 const u32 A_B = A_BranchAlways | ak(ak_B);
 const u32 A_BL = A_BranchAlways | A_Link | ak(ak_BL);
@@ -181,7 +181,7 @@ const u32 A_SVC = A_BranchAlways | A_Link | ak(ak_SVC);
 
 // THUMB
 
-#define tk(x) ((x) << 21)
+#define tk(x) ((x) << 22)
 
 enum {
     T_Read0         = 1 << 0,
@@ -210,6 +210,8 @@ enum {
     T_SetMaybeC     = 1 << 18,
     T_ReadC         = 1 << 19,
     T_SetC          = 1 << 20,
+    
+    T_WriteMem      = 1 << 21,
 };
 
 const u32 T_LSL_IMM = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read3 | tk(tk_LSL_IMM);
@@ -253,30 +255,30 @@ const u32 T_ADD_SP = T_WriteR13 | T_ReadR13 | tk(tk_ADD_SP);
 
 const u32 T_LDR_PCREL = T_Write8 | tk(tk_LDR_PCREL);
 
-const u32 T_STR_REG = T_Read0 | T_Read3 | T_Read6 | tk(tk_STR_REG);
-const u32 T_STRB_REG = T_Read0 | T_Read3 | T_Read6 | tk(tk_STRB_REG);
+const u32 T_STR_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STR_REG);
+const u32 T_STRB_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STRB_REG);
 const u32 T_LDR_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDR_REG);
 const u32 T_LDRB_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRB_REG);
-const u32 T_STRH_REG = T_Read0 | T_Read3 | T_Read6 | tk(tk_STRH_REG);
+const u32 T_STRH_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STRH_REG);
 const u32 T_LDRSB_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRSB_REG);
 const u32 T_LDRH_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRH_REG);
 const u32 T_LDRSH_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRSH_REG);
 
-const u32 T_STR_IMM = T_Read0 | T_Read3 | tk(tk_STR_IMM);
+const u32 T_STR_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STR_IMM);
 const u32 T_LDR_IMM = T_Write0 | T_Read3 | tk(tk_LDR_IMM);
-const u32 T_STRB_IMM = T_Read0 | T_Read3 | tk(tk_STRB_IMM);
+const u32 T_STRB_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STRB_IMM);
 const u32 T_LDRB_IMM = T_Write0 | T_Read3 | tk(tk_LDRB_IMM);
-const u32 T_STRH_IMM = T_Read0 | T_Read3 | tk(tk_STRH_IMM);
+const u32 T_STRH_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STRH_IMM);
 const u32 T_LDRH_IMM = T_Write0 | T_Read3 | tk(tk_LDRH_IMM);
 
-const u32 T_STR_SPREL = T_Read8 | T_ReadR13 | tk(tk_STR_SPREL);
+const u32 T_STR_SPREL = T_Read8 | T_ReadR13 | T_WriteMem | tk(tk_STR_SPREL);
 const u32 T_LDR_SPREL = T_Write8 | T_ReadR13 | tk(tk_LDR_SPREL);
 
-const u32 T_PUSH = T_ReadR13 | T_WriteR13 | tk(tk_PUSH);
+const u32 T_PUSH = T_ReadR13 | T_WriteR13 | T_WriteMem | tk(tk_PUSH);
 const u32 T_POP = T_PopPC | T_ReadR13 | T_WriteR13 | tk(tk_POP);
 
 const u32 T_LDMIA = T_Read8 | T_Write8 | tk(tk_LDMIA);
-const u32 T_STMIA = T_Read8 | T_Write8 | tk(tk_STMIA);
+const u32 T_STMIA = T_Read8 | T_Write8 | T_WriteMem | tk(tk_STMIA);
 
 const u32 T_BCOND = T_BranchAlways | tk(tk_BCOND);
 const u32 T_BX = T_BranchAlways | T_ReadHi3 | tk(tk_BX);
@@ -307,7 +309,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
     if (thumb)
     {
         u32 data = THUMBInstrTable[(instr >> 6) & 0x3FF];
-        res.Kind = (data >> 21) & 0x3F;
+        res.Kind = (data >> 22) & 0x3F;
 
         if (data & T_Read0)
             res.SrcRegs |= 1 << (instr & 0x7);
@@ -356,6 +358,9 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & T_SetC)
             res.WriteFlags |= flag_C;
 
+        if (data & T_WriteMem)
+            res.SpecialKind = special_WriteMem;
+
         res.EndBlock |= res.Branches();
 
         if (res.Kind == tk_BCOND)
@@ -382,6 +387,9 @@ Info Decode(bool thumb, u32 num, u32 instr)
             u32 id = (cn<<8)|(cm<<4)|cpinfo;
             if (id == 0x704 || id == 0x782 || id == 0x750 || id == 0x751 || id == 0x752)
                 res.EndBlock |= true;
+
+            if (id == 0x704 || id == 0x782)
+                res.SpecialKind = special_WaitForInterrupt;
         }
         if (res.Kind == ak_MCR || res.Kind == ak_MRC)
         {
@@ -448,6 +456,9 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.ReadFlags |= flag_C;
         if ((data & A_SetC) || (data & A_StaticShiftSetC) && ((instr >> 7) & 0x1F))
             res.WriteFlags |= flag_C;
+
+        if (data & A_WriteMem)
+            res.SpecialKind = special_WriteMem;
 
         if ((instr >> 28) < 0xE)
         {
