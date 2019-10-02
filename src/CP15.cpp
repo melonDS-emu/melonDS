@@ -522,9 +522,11 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x750:
+        ARMJIT::InvalidateAll();
         ICacheInvalidateAll();
         return;
     case 0x751:
+        ARMJIT::InvalidateByAddr(ARMJIT::TranslateAddr<0>(val));
         ICacheInvalidateByAddr(val);
         return;
     case 0x752:
@@ -774,7 +776,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
         DataCycles = 1;
         *(u8*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
+        ARMJIT::InvalidateITCM(addr & 0x7FFF);
 #endif
         return;
     }
@@ -798,7 +800,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
         DataCycles = 1;
         *(u16*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
+        ARMJIT::InvalidateITCM(addr & 0x7FFF);
 #endif
         return;
     }
@@ -822,8 +824,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
         DataCycles = 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
-        ARMJIT::cache.ARM9_ITCM[((addr + 2) & 0x7FFF) >> 1] = NULL;
+        ARMJIT::InvalidateITCM(addr & 0x7FFF);
 #endif
         return;
     }
@@ -847,8 +848,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
         DataCycles += 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::cache.ARM9_ITCM[(addr & 0x7FFF) >> 1] = NULL;
-        ARMJIT::cache.ARM9_ITCM[((addr & 0x7FFF) >> 1) + 1] = NULL;
+        ARMJIT::InvalidateITCM(addr & 0x7FFF);
 #endif
         return;
     }

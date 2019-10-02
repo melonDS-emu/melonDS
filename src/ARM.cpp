@@ -569,21 +569,26 @@ void ARMv5::ExecuteJIT()
             return;
         }
 
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<0>(instrAddr);
-        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock<0>(instrAddr);
+        if (block)
+            Cycles += block();
+        else
+            ARMJIT::CompileBlock(this);
 
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
+
+        if (IRQ) TriggerIRQ();
         if (Halted)
         {
-            if (Halted == 1 && NDS::ARM9Timestamp < NDS::ARM9Target)
+            bool idleLoop = Halted & 0x20;
+            Halted &= ~0x20;
+            if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
             {
                 NDS::ARM9Timestamp = NDS::ARM9Target;
             }
             break;
         }
-        if (IRQ) TriggerIRQ();
-
-        NDS::ARM9Timestamp += Cycles;
-        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -699,23 +704,28 @@ void ARMv4::ExecuteJIT()
             printf("ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
-        ARMJIT::CompiledBlock block = ARMJIT::LookUpBlock<1>(instrAddr);
-        Cycles += (block ? block : ARMJIT::CompileBlock(this))();
+
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock<1>(instrAddr);
+        if (block)
+            Cycles += block();
+        else
+            ARMJIT::CompileBlock(this);
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
 
         // TODO optimize this shit!!!
+        if (IRQ) TriggerIRQ();
         if (Halted)
         {
-            if (Halted == 1 && NDS::ARM7Timestamp < NDS::ARM7Target)
+            bool idleLoop = Halted & 0x20;
+            Halted &= ~0x20;
+            if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
             {
                 NDS::ARM7Timestamp = NDS::ARM7Target;
             }
             break;
         }
-
-        if (IRQ) TriggerIRQ();
-
-        NDS::ARM7Timestamp += Cycles;
-        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -725,6 +735,8 @@ void ARMv4::ExecuteJIT()
 
 void ARMv5::FillPipeline()
 {
+    SetupCodeMem(R[15]);
+
     if (CPSR & 0x20)
     {
         if ((R[15] - 2) & 0x2)
@@ -747,6 +759,8 @@ void ARMv5::FillPipeline()
 
 void ARMv4::FillPipeline()
 {
+    SetupCodeMem(R[15]);
+
     if (CPSR & 0x20)
     {
         NextInstr[0] = CodeRead16(R[15] - 2);
