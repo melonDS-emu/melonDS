@@ -16,9 +16,6 @@ int squeezePointer(T* ptr)
 void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 {
     // we can simplify constant branches by a lot
-    // it's not completely safe to assume stuff like, which instructions to preload
-    // we'll see how it works out
-
     IrregularCycles = true;
 
     u32 newPC;
@@ -39,18 +36,12 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     {
         ARMv5* cpu9 = (ARMv5*)CurCPU;
 
-        u32 oldregion = R15 >> 24;
-        u32 newregion = addr >> 24;
-
         u32 regionCodeCycles = cpu9->MemTimings[addr >> 12][0];
         u32 compileTimeCodeCycles = cpu9->RegionCodeCycles;
         cpu9->RegionCodeCycles = regionCodeCycles;
 
-        MOV(32, MDisp(RCPU, offsetof(ARMv5, RegionCodeCycles)), Imm32(regionCodeCycles));
-
-        bool setupRegion = newregion != oldregion;
-        if (setupRegion)
-            cpu9->SetupCodeMem(addr);
+        if (Exit)
+            MOV(32, MDisp(RCPU, offsetof(ARMv5, RegionCodeCycles)), Imm32(regionCodeCycles));
 
         if (addr & 0x1)
         {
@@ -83,12 +74,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
             cycles += cpu9->CodeCycles;
         }
 
-        MOV(64, MDisp(RCPU, offsetof(ARM, CodeMem.Mem)), Imm32(squeezePointer(cpu9->CodeMem.Mem)));
-        MOV(32, MDisp(RCPU, offsetof(ARM, CodeMem.Mask)), Imm32(cpu9->CodeMem.Mask));
-
         cpu9->RegionCodeCycles = compileTimeCodeCycles;
-        if (setupRegion)
-            cpu9->SetupCodeMem(R15);
     }
     else
     {
@@ -100,8 +86,11 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         cpu7->CodeRegion = codeRegion;
         cpu7->CodeCycles = codeCycles;
 
-        MOV(32, MDisp(RCPU, offsetof(ARM, CodeRegion)), Imm32(codeRegion));
-        MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(codeCycles));
+        if (Exit)
+        {
+            MOV(32, MDisp(RCPU, offsetof(ARM, CodeRegion)), Imm32(codeRegion));
+            MOV(32, MDisp(RCPU, offsetof(ARM, CodeCycles)), Imm32(codeCycles));
+        }
 
         if (addr & 0x1)
         {
@@ -133,7 +122,8 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         cpu7->CodeCycles = addr >> 15;
     }
 
-    MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(newPC));
+    if (Exit)
+        MOV(32, MDisp(RCPU, offsetof(ARM, R[15])), Imm32(newPC));
     if ((Thumb || CurInstr.Cond() >= 0xE) && !forceNonConstantCycles)
         ConstantCycles += cycles;
     else
@@ -219,10 +209,23 @@ void Compiler::T_Comp_BCOND()
     s32 offset = (s32)(CurInstr.Instr << 24) >> 23;
     Comp_JumpTo(R15 + offset + 1, true);
 
+    Comp_SpecialBranchBehaviour();
+
     FixupBranch skipFailed = J();
     SetJumpTarget(skipExecute);
+
+    if (CurInstr.BranchFlags & branch_FollowCondTaken)
+    {
+        RegCache.PrepareExit();
+        SaveCPSR(false);
+        
+        MOV(32, R(RAX), Imm32(ConstantCycles));
+        ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
+        RET();
+    }
+
     Comp_AddCycles_C(true);
-   SetJumpTarget(skipFailed);
+    SetJumpTarget(skipFailed);
 }
 
 void Compiler::T_Comp_B()

@@ -299,7 +299,7 @@ public:
     {
         *val = NDS::ARM7Read8(addr);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataRead16(u32 addr, u32* val)
@@ -308,7 +308,7 @@ public:
 
         *val = NDS::ARM7Read16(addr);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataRead32(u32 addr, u32* val)
@@ -317,7 +317,7 @@ public:
 
         *val = NDS::ARM7Read32(addr);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][2];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
     void DataRead32S(u32 addr, u32* val)
@@ -325,14 +325,14 @@ public:
         addr &= ~3;
 
         *val = NDS::ARM7Read32(addr);
-        DataCycles += NDS::ARM7MemTimings[DataRegion][3];
+        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
     }
 
     void DataWrite8(u32 addr, u8 val)
     {
         NDS::ARM7Write8(addr, val);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataWrite16(u32 addr, u16 val)
@@ -341,7 +341,7 @@ public:
 
         NDS::ARM7Write16(addr, val);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataWrite32(u32 addr, u32 val)
@@ -350,7 +350,7 @@ public:
 
         NDS::ARM7Write32(addr, val);
         DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][2];
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
     void DataWrite32S(u32 addr, u32 val)
@@ -358,7 +358,7 @@ public:
         addr &= ~3;
 
         NDS::ARM7Write32(addr, val);
-        DataCycles += NDS::ARM7MemTimings[DataRegion][3];
+        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
     }
 
 

@@ -213,7 +213,13 @@ void Compiler::A_Comp_MovOp()
         MOV(32, rd, op2);
 
     if (((CurInstr.Instr >> 21) & 0xF) == 0xF)
+    {
         NOT(32, rd);
+        if (op2.IsImm() && CurInstr.Cond() == 0xE)
+            RegCache.PutLiteral(CurInstr.A_Reg(12), ~op2.Imm32());
+    }
+    else if (op2.IsImm() && CurInstr.Cond() == 0xE)
+            RegCache.PutLiteral(CurInstr.A_Reg(12), op2.Imm32());
 
     if (S)
     {
@@ -564,7 +570,13 @@ void Compiler::T_Comp_AddSub_()
     
     Comp_AddCycles_C();
 
-    if (op & 1)
+    // special case for thumb mov being alias to add rd, rn, #0
+    if (CurInstr.SetFlags == 0 && rn.IsImm() && rn.Imm32() == 0)
+    {
+        if (rd != rs)
+            MOV(32, rd, rs);
+    }
+    else if (op & 1)
         Comp_ArithTriOp(&Compiler::SUB, rd, rs, rn, false, opSetsFlags|opInvertCarry|opRetriveCV);
     else
         Comp_ArithTriOp(&Compiler::ADD, rd, rs, rn, false, opSetsFlags|opSymmetric|opRetriveCV);
@@ -614,7 +626,7 @@ void Compiler::T_Comp_ALU()
     u32 op = (CurInstr.Instr >> 6) & 0xF;
 
     if ((op >= 0x2 && op < 0x4) || op == 0x7)
-        Comp_AddCycles_CI(1);
+        Comp_AddCycles_CI(1); // shift by reg
     else
         Comp_AddCycles_C();
 

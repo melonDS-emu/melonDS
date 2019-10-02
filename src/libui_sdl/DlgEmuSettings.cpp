@@ -42,6 +42,7 @@ uiCheckbox* cbDirectBoot;
 #ifdef JIT_ENABLED
 uiCheckbox* cbJITEnabled;
 uiEntry* enJITMaxBlockSize;
+uiCheckbox* cbJITBranchOptimisations;
 #endif
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -64,13 +65,15 @@ void OnOk(uiButton* btn, void* blarg)
     bool enableJit = uiCheckboxChecked(cbJITEnabled);
     char* maxBlockSizeStr = uiEntryText(enJITMaxBlockSize);
     long blockSize = strtol(maxBlockSizeStr, NULL, 10);
+    bool branchOptimisations = uiCheckboxChecked(cbJITBranchOptimisations);
     uiFreeText(maxBlockSizeStr);
     if (blockSize < 1)
         blockSize = 1;
     if (blockSize > 32)
         blockSize = 32;
 
-    if (enableJit != Config::JIT_Enable || blockSize != Config::JIT_MaxBlockSize)
+    if (enableJit != Config::JIT_Enable || blockSize != Config::JIT_MaxBlockSize ||
+        branchOptimisations != Config::JIT_BrancheOptimisations)
     {
         if (RunningSomething && 
             !uiMsgBoxConfirm(win, "Reset emulator", 
@@ -79,6 +82,7 @@ void OnOk(uiButton* btn, void* blarg)
 
         Config::JIT_Enable = enableJit;
         Config::JIT_MaxBlockSize = blockSize;
+        Config::JIT_BrancheOptimisations = uiCheckboxChecked(cbJITBranchOptimisations);
 
         restart = true;
     }
@@ -101,9 +105,15 @@ void OnOk(uiButton* btn, void* blarg)
 void OnJITStateChanged(uiCheckbox* cb, void* blarg)
 {
     if (uiCheckboxChecked(cb))
+    {
         uiControlEnable(uiControl(enJITMaxBlockSize));
+        uiControlEnable(uiControl(cbJITBranchOptimisations));
+    }
     else
+    {
         uiControlDisable(uiControl(enJITMaxBlockSize));
+        uiControlDisable(uiControl(cbJITBranchOptimisations));
+    }
 }
 #endif
 
@@ -159,6 +169,14 @@ void Open()
             enJITMaxBlockSize = uiNewEntry();
             uiBoxAppend(row, uiControl(enJITMaxBlockSize), 0);
         }
+
+        {
+            uiBox* row = uiNewHorizontalBox();
+            uiBoxAppend(in_ctrl, uiControl(row), 0);
+
+            cbJITBranchOptimisations = uiNewCheckbox("Branch optimisations (breaks in rare cases games!)");
+            uiBoxAppend(row, uiControl(cbJITBranchOptimisations), 0);
+        }
     }
 #endif
 
@@ -194,6 +212,8 @@ void Open()
         uiEntrySetText(enJITMaxBlockSize, maxBlockSizeStr);
     }
     OnJITStateChanged(cbJITEnabled, NULL);
+
+    uiCheckboxSetChecked(cbJITBranchOptimisations, Config::JIT_BrancheOptimisations);
 #endif
 
     uiControlShow(uiControl(win));
