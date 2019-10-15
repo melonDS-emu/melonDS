@@ -80,3 +80,8 @@ DLL bool Init()
     inited = true;
     return true;
 }
+
+DLL void LoadROM(u8* file, s32 fileSize)
+{
+    NDS::LoadROM(file, fileSize, false);
+}
