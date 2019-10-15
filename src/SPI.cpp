@@ -152,6 +152,7 @@ void Reset()
     UserSettings = userdata;
 
     // fix touchscreen coords
+    #if 0
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;
     Firmware[userdata+0x5C] = 0;
@@ -174,12 +175,12 @@ void Reset()
     Firmware[0x39] = rand()&0xFF;
     Firmware[0x3A] = rand()&0xFF;
     Firmware[0x3B] = rand()&0xFF;
-
+#endif
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
            Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
 
-    *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+    //*(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
 
     // verify shit
     printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
