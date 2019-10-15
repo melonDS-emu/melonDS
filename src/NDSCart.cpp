@@ -894,43 +894,13 @@ void DecryptSecureArea(u8* out)
 }
 
 
-bool LoadROM(const char* path, const char* sram, bool direct)
+u32 InitROM(u32 expectedLen, bool direct)
 {
-    // TODO: streaming mode? for really big ROMs or systems with limited RAM
-    // for now we're lazy
-
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    NDS::Reset();
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    u32 gamecode;
-    fseek(f, 0x0C, SEEK_SET);
-    fread(&gamecode, 4, 1, f);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    fseek(f, 0, SEEK_SET);
-    fread(CartROM, 1, len, f);
-
-    fclose(f);
-    //CartROM = f;
-
     CartCRC = CRC32(CartROM, CartROMSize);
     printf("ROM CRC32: %08X\n", CartCRC);
 
     u32 romparams[3];
+    u32 gamecode = *((u32*)CartROM + 3);
     if (!ReadROMParams(gamecode, romparams))
     {
         // set defaults
@@ -945,7 +915,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     else
         printf("ROM entry: %08X %08X %08X\n", romparams[0], romparams[1], romparams[2]);
 
-    if (romparams[0] != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams[0], CartROMSize);
+    if (romparams[0] != expectedLen) printf("!! bad ROM size %d (expected %d) rounded to %d\n", expectedLen, romparams[0], CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1009,11 +979,57 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     // encryption
     Key1_InitKeycode(gamecode, 2, 2);
 
+    return romparams[1];
+}
+bool LoadROM(const char* path, const char* sram, bool direct)
+{
+    // TODO: streaming mode? for really big ROMs or systems with limited RAM
+    // for now we're lazy
+
+    FILE* f = Platform::OpenFile(path, "rb");
+    if (!f)
+    {
+        return false;
+    }
+
+    NDS::Reset();
+
+    fseek(f, 0, SEEK_END);
+    u32 len = (u32)ftell(f);
+
+    CartROMSize = 0x200;
+    while (CartROMSize < len)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memset(CartROM, 0, CartROMSize);
+    fseek(f, 0, SEEK_SET);
+    fread(CartROM, 1, len, f);
+
+    fclose(f);
+    //CartROM = f;
+
+    u32 sramType = InitROM(len, direct);
 
     // save
     printf("Save file: %s\n", sram);
-    NDSCart_SRAM::LoadSave(sram, romparams[1]);
+    NDSCart_SRAM::LoadSave(sram, sramType);
 
+    return true;
+}
+bool LoadROM(const u8* file, s32 fileSize, bool direct)
+{
+    NDS::Reset();
+    CartROMSize = 0x200;
+    while (CartROMSize < fileSize)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memcpy(CartROM, file, fileSize);
+    memset(CartROM + fileSize, 0, CartROMSize - fileSize);
+
+    u32 sramType = InitROM(CartROMSize, direct);
+    NDSCart_SRAM::LoadSave(new char[1024], sramType);
     return true;
 }
 

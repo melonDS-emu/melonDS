@@ -750,6 +750,19 @@ bool LoadROM(const char* path, const char* sram, bool direct)
         return false;
     }
 }
+bool LoadROM(const u8* file, s32 fileSize, bool direct)
+{
+    if (NDSCart::LoadROM(file, fileSize, direct))
+    {
+        Running = true;
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM.\n");
+        return false;
+    }
+}
 
 bool LoadGBAROM(const char* path, const char* sram)
 {
