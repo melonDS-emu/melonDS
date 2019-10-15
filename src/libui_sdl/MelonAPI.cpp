@@ -10,8 +10,12 @@
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
 
+DLL void ResetCounters();
+
 char* EmuDirectory;
 bool inited = false;
+int frameCount;
+bool LidStatus;
 
 DLL void Deinit()
 {
@@ -67,6 +71,7 @@ DLL bool Init()
         }
     }
 
+	LidStatus = false;
     if (!NDS::Init())
     {
         printf("failed to init NDS");
@@ -77,6 +82,8 @@ DLL bool Init()
         printf("failed to init OpenGL");
     GPU3D::InitRenderer(true);
 
+	ResetCounters();
+
     inited = true;
     return true;
 }
@@ -84,4 +91,35 @@ DLL bool Init()
 DLL void LoadROM(u8* file, s32 fileSize)
 {
     NDS::LoadROM(file, fileSize, false);
+}
+
+DLL void ResetCounters()
+{
+	frameCount = 0;
+}
+DLL int GetFrameCount()
+{
+	return frameCount;
+}
+
+DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
+{
+    if (!inited) return;
+
+    if (buttons & 0x2000)
+        NDS::TouchScreen(touchX, touchY);
+    else
+        NDS::ReleaseScreen();    
+        
+    NDS::SetKeyMask(~buttons & 0xFFF); // 12 buttons
+    if (buttons & 0x4000)
+    {
+        LidStatus = !LidStatus;
+        NDS::SetLidClosed(LidStatus);
+    }
+
+    NDS::MicInputFrame(NULL, 0);
+
+    NDS::RunFrame();
+    frameCount++;
 }
