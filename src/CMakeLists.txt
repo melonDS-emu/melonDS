@@ -10,6 +10,14 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
+	DSi.cpp
+	DSi_AES.cpp
+	DSi_Camera.cpp
+	DSi_I2C.cpp
+	DSi_NDMA.cpp
+	DSi_NWifi.cpp
+	DSi_SD.cpp
+	DSi_SPI_TSC.cpp
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp
@@ -24,6 +32,8 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
+	
+	tiny-AES-c/aes.c
 )
 
 if (WIN32)
