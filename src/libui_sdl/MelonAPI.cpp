@@ -4,6 +4,7 @@
 #include <SDL2/SDL.h>
 #include "../NDS.h"
 #include "../GPU3D.h"
+#include "../GPU.h"
 #include "../Platform.h"
 #include "../OpenGLSupport.h"
 
@@ -122,4 +123,14 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
 
     NDS::RunFrame();
     frameCount++;
+}
+
+DLL void VideoBuffer32bit(s32* dst)
+{
+    // 2D
+    u32* src = GPU::Framebuffer[GPU::FrontBuffer][0];
+    memcpy(dst, src, 4 * 256 * 192);
+    dst += 256 * 192;
+    src = GPU::Framebuffer[GPU::FrontBuffer][1];
+    memcpy(dst, src, 4 * 256 * 192);
 }
