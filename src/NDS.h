@@ -124,6 +124,8 @@ extern u8 ARM7BIOS[0x4000];
 
 extern u8 MainRAM[MAIN_RAM_SIZE];
 
+extern bool LagFrameFlag;
+
 bool Init();
 void DeInit();
 void Reset();
