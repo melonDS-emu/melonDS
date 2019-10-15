@@ -1,34 +1,44 @@
 project(libui_sdl)
 
-SET(SOURCES_LIBUI
-	main.cpp
-	Platform.cpp
-	PlatformConfig.cpp
-	LAN_Socket.cpp
-	LAN_PCap.cpp
-	DlgAudioSettings.cpp
-	DlgEmuSettings.cpp
-	DlgInputConfig.cpp
-	DlgVideoSettings.cpp
-	DlgWifiSettings.cpp
-	OSD.cpp
-)
+option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
+set(BUILD_SHARED_LIBS OFF)
 
 if (WIN32)
 	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
 
-option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(libui)
-
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 #string(STRIP ${SDL2_LIBRARIES} SDL2_LIBRARIES)
 
-add_executable(melonDS ${SOURCES_LIBUI})
-target_link_libraries(melonDS
-	core ${SDL2_LIBRARIES} libui)
+SET(SOURCES_LIBUI
+	Platform.cpp
+	PlatformConfig.cpp
+	LAN_Socket.cpp
+	LAN_PCap.cpp
+)
+
+if (BUILD_FRONTEND)
+	add_subdirectory(libui)
+	list(APPEND SOURCES_LIBUI
+		main.cpp
+		DlgAudioSettings.cpp
+		DlgEmuSettings.cpp
+		DlgInputConfig.cpp
+		DlgVideoSettings.cpp
+		DlgWifiSettings.cpp
+		OSD.cpp
+	)
+
+	add_executable(melonDS ${SOURCES_LIBUI})
+	target_link_libraries(melonDS
+		core ${SDL2_LIBRARIES} libui)
+else()
+	list(APPEND SOURCES_LIBUI MelonAPI.cpp)
+	add_library(melonDS SHARED ${SOURCES_LIBUI})
+	target_link_libraries(melonDS
+		core ${SDL2_LIBRARIES})
+endif()
 
 if (UNIX)
 	find_package(PkgConfig REQUIRED)

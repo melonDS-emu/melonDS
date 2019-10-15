@@ -32,13 +32,10 @@ endif()
 add_compile_options(-fno-pic)
 add_link_options(-no-pie)
 
-option(BUILD_LIBUI "Build libui frontend" ON)
+option(BUILD_FRONTEND "Build frontend" OFF)
 
 add_subdirectory(src)
-
-if (BUILD_LIBUI)
-	add_subdirectory(src/libui_sdl)
-endif()
+add_subdirectory(src/libui_sdl)
 
 configure_file(
 	${CMAKE_SOURCE_DIR}/romlist.bin

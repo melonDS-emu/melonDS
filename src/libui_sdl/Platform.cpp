@@ -24,8 +24,12 @@
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
-#include "libui/ui.h"
+//#include "libui/ui.h" // Will need to do something about this (and GL_GetProcAddress) for OpenGL support.
 #include <string>
+
+// #ifndef BUILD_FRONTEND
+// #include "MelonAPI.h"
+// #endif
 
 #ifdef __WIN32__
     #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
@@ -305,7 +309,8 @@ void Semaphore_Post(void* sema)
 
 void* GL_GetProcAddress(const char* proc)
 {
-    return uiGLGetProcAddress(proc);
+    return NULL; // Do something about this for OpenGL support.
+    //return uiGLGetProcAddress(proc);
 }
 
 
