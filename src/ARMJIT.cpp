@@ -106,7 +106,7 @@ u32 AddrTranslate9[0x2000];
 u32 AddrTranslate7[0x4000];
 
 JitBlockEntry FastBlockAccess[ExeMemSpaceSize / 2];
-AddressRange CodeRanges[ExeMemSpaceSize / 256];
+AddressRange CodeRanges[ExeMemSpaceSize / 512];
 
 TinyVector<JitBlock*> JitBlocks;
 JitBlock* RestoreCandidates[0x1000] = {NULL};
@@ -285,6 +285,13 @@ InterpreterFunc InterpretARM[ARMInstrInfo::ak_Count] =
 #undef F_MEM_HD
 #undef F
 
+void T_BL_LONG(ARM* cpu)
+{
+	ARMInterpreter::T_BL_LONG_1(cpu);
+	cpu->R[15] += 2;
+	ARMInterpreter::T_BL_LONG_2(cpu);
+}
+
 #define F(x) ARMInterpreter::T_##x
 InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
 {
@@ -302,7 +309,7 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
 	F(PUSH), F(POP), F(LDMIA), F(STMIA),
 	F(BCOND), F(BX), F(BLX_REG), F(B), F(BL_LONG_1), F(BL_LONG_2),
 	F(UNK), F(SVC), 
-	NULL // BL_LONG psudo opcode
+	T_BL_LONG // BL_LONG psudo opcode
 };
 #undef F
 
@@ -341,7 +348,7 @@ void CompileBlock(ARM* cpu)
 	JIT_DEBUGPRINT("start block %x (%x) %p %p (region invalidates %dx)\n", 
 		blockAddr, pseudoPhysicalAddr, FastBlockAccess[pseudoPhysicalAddr / 2], 
 		cpu->Num == 0 ? LookUpBlock<0>(blockAddr) : LookUpBlock<1>(blockAddr),
-		CodeRanges[pseudoPhysicalAddr / 256].TimesInvalidated);
+		CodeRanges[pseudoPhysicalAddr / 512].TimesInvalidated);
 
 	u32 lastSegmentStart = blockAddr;
 
@@ -352,7 +359,7 @@ void CompileBlock(ARM* cpu)
 		instrs[i].BranchFlags = 0;
 		instrs[i].SetFlags = 0;
         instrs[i].Instr = nextInstr[0];
-        instrs[i].NextInstr[0] = nextInstr[0] = nextInstr[1];
+        nextInstr[0] = nextInstr[1];
 	
 		instrs[i].Addr = nextInstrAddr[0];
 		nextInstrAddr[0] = nextInstrAddr[1];
@@ -361,7 +368,7 @@ void CompileBlock(ARM* cpu)
 
 		u32 translatedAddr = (cpu->Num == 0
 			? TranslateAddr<0>(instrs[i].Addr)
-			: TranslateAddr<1>(instrs[i].Addr)) & ~0xFF;
+			: TranslateAddr<1>(instrs[i].Addr)) & ~0x1FF;
 		if (i == 0 || translatedAddr != addresseRanges[numAddressRanges - 1])
 		{
 			bool returning = false;
@@ -400,7 +407,6 @@ void CompileBlock(ARM* cpu)
                 nextInstr[1] = cpuv4->CodeRead32(r15);
             instrs[i].CodeCycles = cpu->CodeCycles;
         }
-        instrs[i].NextInstr[1] = nextInstr[1];
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
 
 		cpu->R[15] = r15;
@@ -584,7 +590,7 @@ void CompileBlock(ARM* cpu)
 	for (int j = 0; j < numAddressRanges; j++)
 	{
 		assert(addresseRanges[j] == block->AddressRanges()[j]);
-		CodeRanges[addresseRanges[j] / 256].Blocks.Add(block);
+		CodeRanges[addresseRanges[j] / 512].Blocks.Add(block);
 	}
 
 	FastBlockAccess[block->PseudoPhysicalAddr / 2] = block->EntryPoint;
@@ -595,7 +601,7 @@ void CompileBlock(ARM* cpu)
 void InvalidateByAddr(u32 pseudoPhysical)
 {
 	JIT_DEBUGPRINT("invalidating by addr %x\n", pseudoPhysical);
-	AddressRange* range = &CodeRanges[pseudoPhysical / 256];
+	AddressRange* range = &CodeRanges[pseudoPhysical / 512];
 	int startLength = range->Blocks.Length;
 	for (int i = 0; i < range->Blocks.Length; i++)
 	{
@@ -604,15 +610,17 @@ void InvalidateByAddr(u32 pseudoPhysical)
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			if ((addr / 256) != (pseudoPhysical / 256))
+			if ((addr / 512) != (pseudoPhysical / 512))
 			{
-				AddressRange* otherRange = &CodeRanges[addr / 256];
+				AddressRange* otherRange = &CodeRanges[addr / 512];
 				assert(otherRange != range);
-				assert(otherRange->Blocks.RemoveByValue(block));
+				bool removed = otherRange->Blocks.RemoveByValue(block);
+				assert(removed);
 			}
 		}
 
-		assert(JitBlocks.RemoveByValue(block));
+		bool removed = JitBlocks.RemoveByValue(block);
+		assert(removed);
 
 		FastBlockAccess[block->PseudoPhysicalAddr / 2] = NULL;
 
@@ -631,14 +639,14 @@ void InvalidateByAddr(u32 pseudoPhysical)
 void InvalidateByAddr7(u32 addr)
 {
 	u32 pseudoPhysical = TranslateAddr<1>(addr);
-	if (__builtin_expect(CodeRanges[pseudoPhysical / 256].Blocks.Length > 0, false))
+	if (__builtin_expect(CodeRanges[pseudoPhysical / 512].Blocks.Length > 0, false))
 		InvalidateByAddr(pseudoPhysical);
 }
 
 void InvalidateITCM(u32 addr)
 {
 	u32 pseudoPhysical = addr + ExeMemRegionOffsets[exeMem_ITCM];
-	if (CodeRanges[pseudoPhysical / 256].Blocks.Length > 0)
+	if (CodeRanges[pseudoPhysical / 512].Blocks.Length > 0)
 		InvalidateByAddr(pseudoPhysical);
 }
 
@@ -654,7 +662,7 @@ void InvalidateAll()
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			AddressRange* range = &CodeRanges[addr / 256];
+			AddressRange* range = &CodeRanges[addr / 512];
 			range->Blocks.Clear();
 			if (range->TimesInvalidated + 1 > range->TimesInvalidated)
 				range->TimesInvalidated++;
@@ -689,8 +697,8 @@ void ResetBlockCache()
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			CodeRanges[addr / 256].Blocks.Clear();
-			CodeRanges[addr / 256].TimesInvalidated = 0;
+			CodeRanges[addr / 512].Blocks.Clear();
+			CodeRanges[addr / 512].TimesInvalidated = 0;
 		}
 		delete block;
 	}
