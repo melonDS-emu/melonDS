@@ -105,7 +105,7 @@ void* Compiler::Gen_MemoryRoutine9(bool store, int size)
         static_assert(sizeof(AddressRange) == 16);
         LEA(32, ABI_PARAM1, MDisp(ABI_PARAM3, ExeMemRegionOffsets[exeMem_ITCM]));
         MOV(32, R(RSCRATCH), R(ABI_PARAM1));
-        SHR(32, R(RSCRATCH), Imm8(8));
+        SHR(32, R(RSCRATCH), Imm8(9));
         SHL(32, R(RSCRATCH), Imm8(4));
         CMP(32, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
         FixupBranch noCode = J_CC(CC_Z);
@@ -203,7 +203,7 @@ void* Compiler::Gen_MemoryRoutineSeq9(bool store, bool preinc)
 
         ADD(32, R(RSCRATCH), Imm32(ExeMemRegionOffsets[exeMem_ITCM]));
         MOV(32, R(ABI_PARAM4), R(RSCRATCH));
-        SHR(32, R(RSCRATCH), Imm8(8));
+        SHR(32, R(RSCRATCH), Imm8(9));
         SHL(32, R(RSCRATCH), Imm8(4));
         CMP(32, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
         FixupBranch noCode = J_CC(CC_Z);
@@ -284,28 +284,29 @@ void fault(u32 a, u32 b)
 
 void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags)
 {
-    if (flags & memop_Store)
-    {
-        Comp_AddCycles_CD();
-    }
-    else
-    {
-        Comp_AddCycles_CDI();
-    }
-
     u32 addressMask = ~0;
     if (size == 32)
         addressMask = ~3;
     if (size == 16)
         addressMask = ~1;
 
-    if (rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_SignExtend|memop_Post|memop_Store|memop_Writeback)))
     {
-        Comp_MemLoadLiteral(size, rd, 
-            R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1));
+        u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
+        Comp_MemLoadLiteral(size, rd, addr);
+        return;
     }
-    else
+
     {
+        if (flags & memop_Store)
+        {
+            Comp_AddCycles_CD();
+        }
+        else
+        {
+            Comp_AddCycles_CDI();
+        }
+
         OpArg rdMapped = MapReg(rd);
         OpArg rnMapped = MapReg(rn);
 
