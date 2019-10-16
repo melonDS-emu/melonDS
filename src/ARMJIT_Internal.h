@@ -38,7 +38,6 @@ struct FetchedInstr
 	u8 BranchFlags;
 	u8 SetFlags;
     u32 Instr;
-    u32 NextInstr[2];
 	u32 Addr;
 
     u8 CodeCycles;
@@ -185,7 +184,7 @@ struct __attribute__((packed)) AddressRange
 	u16 TimesInvalidated;
 };
 
-extern AddressRange CodeRanges[ExeMemSpaceSize / 256];
+extern AddressRange CodeRanges[ExeMemSpaceSize / 512];
 
 typedef void (*InterpreterFunc)(ARM* cpu);
 extern InterpreterFunc InterpretARM[];

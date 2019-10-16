@@ -5,7 +5,7 @@
 namespace ARMInstrInfo
 {
 
-#define ak(x) ((x) << 21)
+#define ak(x) ((x) << 22)
 
 enum {
     A_Read0             = 1 << 0,
@@ -36,7 +36,8 @@ enum {
     A_StaticShiftSetC   = 1 << 18,
     A_SetC              = 1 << 19,
 
-    A_WriteMem          = 1 << 20
+    A_WriteMem          = 1 << 20,
+    A_LoadMem           = 1 << 21
 };
 
 #define A_BIOP A_Read16
@@ -122,7 +123,7 @@ const u32 A_QSUB = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QSUB);
 const u32 A_QDADD = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDADD);
 const u32 A_QDSUB = A_Write12 | A_Read0 | A_Read16 | A_UnkOnARM7 | ak(ak_QDSUB);
 
-#define A_LDR A_Write12
+#define A_LDR A_Write12 | A_LoadMem
 #define A_STR A_Read12 | A_WriteMem
 
 #define A_IMPLEMENT_WB_LDRSTR(x,k) \
@@ -143,7 +144,7 @@ A_IMPLEMENT_WB_LDRSTR(STRB,STR)
 A_IMPLEMENT_WB_LDRSTR(LDR,LDR)
 A_IMPLEMENT_WB_LDRSTR(LDRB,LDR)
 
-#define A_LDRD A_Write12Double
+#define A_LDRD A_Write12Double | A_LoadMem
 #define A_STRD A_Read12Double | A_WriteMem
 
 #define A_IMPLEMENT_HD_LDRSTR(x,k) \
@@ -159,10 +160,10 @@ A_IMPLEMENT_HD_LDRSTR(LDRH,LDR)
 A_IMPLEMENT_HD_LDRSTR(LDRSB,LDR)
 A_IMPLEMENT_HD_LDRSTR(LDRSH,LDR)
 
-const u32 A_SWP = A_Write12 | A_Read16 | A_Read0 | A_WriteMem | ak(ak_SWP);
-const u32 A_SWPB = A_Write12 | A_Read16 | A_Read0  | A_WriteMem | ak(ak_SWPB);
+const u32 A_SWP = A_Write12 | A_Read16 | A_Read0 | A_LoadMem | A_WriteMem | ak(ak_SWP);
+const u32 A_SWPB = A_Write12 | A_Read16 | A_Read0 | A_LoadMem | A_WriteMem | ak(ak_SWPB);
 
-const u32 A_LDM = A_Read16 | A_MemWriteback | ak(ak_LDM);
+const u32 A_LDM = A_Read16 | A_MemWriteback | A_LoadMem | ak(ak_LDM);
 const u32 A_STM = A_Read16 | A_MemWriteback | A_WriteMem | ak(ak_STM);
 
 const u32 A_B = A_BranchAlways | ak(ak_B);
@@ -360,6 +361,9 @@ Info Decode(bool thumb, u32 num, u32 instr)
 
         if (data & T_WriteMem)
             res.SpecialKind = special_WriteMem;
+        
+        if (res.Kind == ARMInstrInfo::tk_LDR_PCREL)
+            res.SpecialKind = special_LoadLiteral;
 
         res.EndBlock |= res.Branches();
 
@@ -377,7 +381,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_UnkOnARM7 && num != 0)
             data = A_UNK;
 
-        res.Kind = (data >> 21) & 0x1FF;
+        res.Kind = (data >> 22) & 0x1FF;
 
         if (res.Kind == ak_MCR)
         {
@@ -454,11 +458,14 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.ReadFlags |= flag_C;
         if ((data & A_RRXReadC) && !((instr >> 7) & 0x1F))
             res.ReadFlags |= flag_C;
-        if ((data & A_SetC) || (data & A_StaticShiftSetC) && ((instr >> 7) & 0x1F))
+        if ((data & A_SetC) || ((data & A_StaticShiftSetC) && ((instr >> 7) & 0x1F)))
             res.WriteFlags |= flag_C;
 
         if (data & A_WriteMem)
             res.SpecialKind = special_WriteMem;
+
+        if ((data & A_LoadMem) && res.SrcRegs == (1 << 15))
+            res.SpecialKind = special_LoadLiteral;
 
         if ((instr >> 28) < 0xE)
         {

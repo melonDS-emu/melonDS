@@ -230,7 +230,8 @@ enum
 {
     special_NotSpecialAtAll = 0,
     special_WriteMem,
-    special_WaitForInterrupt
+    special_WaitForInterrupt,
+    special_LoadLiteral
 };
 
 struct Info
