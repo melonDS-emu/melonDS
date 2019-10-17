@@ -33,6 +33,9 @@ add_compile_options(-fno-pic)
 add_link_options(-no-pie)
 
 option(BUILD_FRONTEND "Build frontend" OFF)
+if(BUILD_FRONTEND)
+	add_definitions(-DBUILD_FRONTEND)
+endif()
 
 add_subdirectory(src)
 add_subdirectory(src/libui_sdl)
