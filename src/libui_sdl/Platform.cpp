@@ -25,7 +25,6 @@
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 //#include "libui/ui.h" // Will need to do something about this (and GL_GetProcAddress) for OpenGL support.
-#include <string>
 
 // #ifndef BUILD_FRONTEND
 // #include "MelonAPI.h"
