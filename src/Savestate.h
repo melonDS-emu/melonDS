@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include "types.h"
+#include "MemoryStream.h"
 
 #define SAVESTATE_MAJOR 4
 #define SAVESTATE_MINOR 1
@@ -29,6 +30,7 @@ class Savestate
 {
 public:
     Savestate(const char* filename, bool save);
+    Savestate(u8* data, s32 len);
     ~Savestate();
 
     bool Error;
@@ -55,8 +57,18 @@ public:
         return false;
     }
 
+    u8* GetData();
+    s32 GetDataLength();
+
 private:
     FILE* file;
+    MemoryStream* mStream;
+
+    void InitRead();
+    void Finalize();
+
+    void Seek(s32 pos, s32 origin);
+    s32 Tell();
 };
 
 #endif // SAVESTATE_H
