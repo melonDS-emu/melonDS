@@ -66,6 +66,7 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 NumLagFrames;
 bool LagFrameFlag;
 u64 LastSysClockCycles;
 u64 FrameStartTimestamp;
@@ -693,6 +694,8 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
+    if (file->IsAtleastVersion(6, 1))
+        file->Var32(&NumLagFrames);
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -901,6 +904,8 @@ u32 RunFrame()
 #endif
 
     NumFrames++;
+    if (LagFrameFlag)
+        NumLagFrames++;
 
     return GPU::TotalScanlines;
 }
