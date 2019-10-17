@@ -124,6 +124,7 @@ extern u8 ARM7BIOS[0x4000];
 
 extern u8 MainRAM[MAIN_RAM_SIZE];
 
+extern u32 NumFrames;
 extern bool LagFrameFlag;
 
 bool Init();
