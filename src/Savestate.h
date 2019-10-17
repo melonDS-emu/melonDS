@@ -24,7 +24,7 @@
 #include "MemoryStream.h"
 
 #define SAVESTATE_MAJOR 4
-#define SAVESTATE_MINOR 1
+#define SAVESTATE_MINOR 2
 
 class Savestate
 {
