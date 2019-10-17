@@ -16,7 +16,6 @@ DLL void ResetCounters();
 
 char* EmuDirectory;
 bool inited = false;
-int lagFrameCount;
 bool LidStatus;
 
 DLL void Deinit()
@@ -98,7 +97,7 @@ DLL void LoadROM(u8* file, s32 fileSize)
 DLL void ResetCounters()
 {
 	NDS::NumFrames = 0;
-	lagFrameCount = 0;
+	NDS::NumLagFrames = 0;
 }
 DLL int GetFrameCount()
 {
@@ -110,7 +109,7 @@ DLL bool IsLagFrame()
 }
 DLL int GetLagFrameCount()
 {
-	return lagFrameCount;
+	return NDS::NumLagFrames;
 }
 
 DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
@@ -132,8 +131,6 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
     NDS::MicInputFrame(NULL, 0);
 
     NDS::RunFrame();
-	if (NDS::LagFrameFlag)
-		lagFrameCount++;
 }
 
 DLL void VideoBuffer32bit(s32* dst)
