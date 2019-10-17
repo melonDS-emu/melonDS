@@ -7,6 +7,7 @@
 #include "../GPU.h"
 #include "../Platform.h"
 #include "../OpenGLSupport.h"
+#include "../Savestate.h"
 
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
@@ -145,4 +146,38 @@ DLL void VideoBuffer32bit(s32* dst)
     dst += 256 * 192;
     src = GPU::Framebuffer[GPU::FrontBuffer][1];
     memcpy(dst, src, 4 * 256 * 192);
+}
+
+DLL void UseSavestate(u8* data, s32 len)
+{
+	Savestate* state = new Savestate(data, len);
+	NDS::DoSavestate(state);
+	delete state;
+}
+Savestate* _loadedState;
+u8* stateData;
+s32 stateLength = -1;
+DLL int GetSavestateSize()
+{
+	if (_loadedState) delete _loadedState;
+
+	_loadedState = new Savestate("", true);
+	NDS::DoSavestate(_loadedState);
+	stateData = _loadedState->GetData();
+	stateLength = _loadedState->GetDataLength();
+
+	return stateLength;
+}
+DLL void GetSavestateData(u8* data, s32 size)
+{
+	if (size != stateLength)
+		throw "size mismatch; call GetSavestateSize first";
+	if (stateData)
+	{
+		memcpy(data, stateData, stateLength);
+		delete _loadedState;
+		_loadedState = NULL;
+		stateData = NULL;
+		stateLength = -1;
+	}
 }
