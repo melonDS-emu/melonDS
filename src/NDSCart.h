@@ -21,6 +21,14 @@
 
 #include "types.h"
 
+namespace NDSCart_SRAM
+{
+extern u8* SRAM;
+extern u32 SRAMLength;
+
+extern bool SRAMModified;
+}
+
 namespace NDSCart
 {
 

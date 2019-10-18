@@ -30,6 +30,7 @@ namespace NDSCart_SRAM
 
 u8* SRAM;
 u32 SRAMLength;
+bool SRAMModified;
 
 char SRAMPath[1024];
 
@@ -54,6 +55,7 @@ void Write_Discover(u8 val, bool islast);
 bool Init()
 {
     SRAM = NULL;
+    SRAMModified = false;
     return true;
 }
 
@@ -443,6 +445,7 @@ void Write(u8 val, u32 hold)
 
     if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
     {
+        SRAMModified = true;
         FILE* f = Platform::OpenFile(SRAMPath, "wb");
         if (f)
         {
