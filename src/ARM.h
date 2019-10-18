@@ -112,9 +112,16 @@ public:
     u32 Num;
 
     s32 Cycles;
-    u32 Halted;
-
-    u32 IRQ; // nonzero to trigger IRQ
+    union
+    {
+        struct
+        {
+            u8 Halted;
+            u8 IRQ; // nonzero to trigger IRQ
+            u8 IdleLoop;
+        };
+        u32 StopExecution;
+    };
 
     u32 CodeRegion;
     s32 CodeCycles;

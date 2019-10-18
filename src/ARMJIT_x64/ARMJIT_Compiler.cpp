@@ -364,7 +364,7 @@ void Compiler::Reset()
 void Compiler::Comp_SpecialBranchBehaviour()
 {
     if (CurInstr.BranchFlags & branch_IdleBranch)
-        OR(32, MDisp(RCPU, offsetof(ARM, Halted)), Imm8(0x20));
+        OR(32, MDisp(RCPU, offsetof(ARM, IdleLoop)), Imm8(0x1));
 
     if (CurInstr.BranchFlags & branch_FollowCondNotTaken)
     {
@@ -402,6 +402,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     {
         CurInstr = instrs[i];
         R15 = CurInstr.Addr + (Thumb ? 4 : 8);
+        CodeRegion = R15 >> 24;
 
         Exit = i == instrsCount - 1 || (CurInstr.BranchFlags & branch_FollowCondNotTaken);
 
@@ -571,8 +572,6 @@ void Compiler::Comp_AddCycles_CDI()
         Comp_AddCycles_CD();
     else
     {
-        IrregularCycles = true;
-
         s32 cycles;
 
         s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
@@ -642,7 +641,7 @@ void Compiler::Comp_AddCycles_CD()
         IrregularCycles = true;
     }
 
-    if (!Thumb && CurInstr.Cond() < 0xE)
+    if (IrregularCycles && !Thumb && CurInstr.Cond() < 0xE)
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;

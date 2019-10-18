@@ -55,6 +55,7 @@ extern char DSiNANDPath[1024];
 extern bool JIT_Enable;
 extern int JIT_MaxBlockSize;
 extern bool JIT_BrancheOptimisations;
+extern bool JIT_LiteralOptimisations;
 #endif
 
 }

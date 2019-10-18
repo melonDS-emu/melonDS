@@ -41,6 +41,7 @@ char DSiNANDPath[1024];
 bool JIT_Enable = false;
 int JIT_MaxBlockSize = 12;
 bool JIT_BrancheOptimisations = true;
+bool JIT_LiteralOptimisations = true;
 #endif
 
 ConfigEntry ConfigFile[] =
@@ -58,6 +59,7 @@ ConfigEntry ConfigFile[] =
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 10, NULL, 0},
     {"JIT_BrancheOptimisations", 0, &JIT_BrancheOptimisations, 1, NULL, 0},
+    {"JIT_BrancheOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
 #endif
 
     {"", -1, NULL, 0, NULL, 0}
