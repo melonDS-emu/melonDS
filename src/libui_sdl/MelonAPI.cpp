@@ -9,6 +9,7 @@
 #include "../OpenGLSupport.h"
 #include "../Savestate.h"
 #include "../SPU.h"
+#include "../NDSCart.h"
 
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
@@ -207,4 +208,29 @@ DLL void DiscardSamples()
 {
     SPU::DrainOutput();
 }
-// SOUND
+
+DLL s32 GetSRAMLength()
+{
+    return (s32)NDSCart_SRAM::SRAMLength;
+}
+DLL void GetSRAM(u8* dst, s32 size)
+{
+    if (!inited) return;
+
+    if (size != NDSCart_SRAM::SRAMLength)
+        throw "SRAM size mismatch; call GetSRAMLength first";
+    memcpy(dst, NDSCart_SRAM::SRAM, size);
+    NDSCart_SRAM::SRAMModified = false;
+}
+DLL void SetSRAM(u8* src, s32 size)
+{
+    if (!inited) return;
+
+    if (size != NDSCart_SRAM::SRAMLength)
+        throw "SRAM size mismatch";
+    memcpy(NDSCart_SRAM::SRAM, src, size);
+}
+DLL bool IsSRAMModified()
+{
+    return NDSCart_SRAM::SRAMModified;
+}
