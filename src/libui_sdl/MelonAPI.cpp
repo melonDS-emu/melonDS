@@ -117,10 +117,17 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
 {
     if (!inited) return;
 
+    const int screenKey = 16+6; // got this number from main.cpp
     if (buttons & 0x2000)
+    {
+        NDS::PressKey(screenKey);
         NDS::TouchScreen(touchX, touchY);
+    }
     else
-        NDS::ReleaseScreen();    
+    {
+        NDS::ReleaseKey(screenKey);
+        NDS::ReleaseScreen();
+    }
         
     NDS::SetKeyMask(~buttons & 0xFFF); // 12 buttons
     if (buttons & 0x4000)
