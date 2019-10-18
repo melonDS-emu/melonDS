@@ -8,6 +8,7 @@
 #include "../Platform.h"
 #include "../OpenGLSupport.h"
 #include "../Savestate.h"
+#include "../SPU.h"
 
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
@@ -176,3 +177,23 @@ DLL void GetSavestateData(u8* data, s32 size)
 		stateLength = -1;
 	}
 }
+
+s32 sampleCount = -1;
+DLL int GetSampleCount()
+{
+    // OutputSize is double sample count, because stereo sound
+    return sampleCount = SPU::GetOutputSize() / 2;
+}
+DLL void GetSamples(s16* data, s32 count)
+{
+    if (count != sampleCount)
+        throw "sample count mismatch; call GetSampleCount first";
+    if (SPU::ReadOutput(data, count) != count)
+        throw "sample count was less than expected";
+    sampleCount = -1;
+}
+DLL void DiscardSamples()
+{
+    SPU::DrainOutput();
+}
+// SOUND
