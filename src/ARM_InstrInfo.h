@@ -236,7 +236,7 @@ enum
 
 struct Info
 {
-    u16 DstRegs, SrcRegs;
+    u16 DstRegs, SrcRegs, NotStrictlyNeeded;
     u16 Kind;
 
     u8 SpecialKind;

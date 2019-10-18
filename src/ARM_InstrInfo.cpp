@@ -365,6 +365,21 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (res.Kind == ARMInstrInfo::tk_LDR_PCREL)
             res.SpecialKind = special_LoadLiteral;
 
+        if (res.Kind == tk_LDMIA || res.Kind == tk_POP)
+        {
+            u32 set = (instr & 0xFF) & ~(res.DstRegs|res.SrcRegs);
+            res.NotStrictlyNeeded |= set;
+            res.DstRegs |= set;
+        }
+        if (res.Kind == tk_STMIA || res.Kind == tk_PUSH)
+        {
+            u32 set = (instr & 0xFF) & ~(res.DstRegs|res.SrcRegs);
+            if (res.Kind == tk_PUSH && instr & (1 << 8))
+                set |= (1 << 14);
+            res.NotStrictlyNeeded |= set;
+            res.SrcRegs |= set;
+        }
+
         res.EndBlock |= res.Branches();
 
         if (res.Kind == tk_BCOND)
@@ -466,6 +481,19 @@ Info Decode(bool thumb, u32 num, u32 instr)
 
         if ((data & A_LoadMem) && res.SrcRegs == (1 << 15))
             res.SpecialKind = special_LoadLiteral;
+        
+        if (res.Kind == ak_LDM)
+        {
+            u16 set = (instr & 0xFFFF) & ~(res.SrcRegs|res.DstRegs|(1<<15));
+            res.DstRegs |= set;
+            res.NotStrictlyNeeded |= set;
+        }
+        if (res.Kind == ak_STM)
+        {
+            u16 set = (instr & 0xFFFF) & ~(res.SrcRegs|res.DstRegs|(1<<15));
+            res.SrcRegs |= set;
+            res.NotStrictlyNeeded |= set;
+        }
 
         if ((instr >> 28) < 0xE)
         {

@@ -16,11 +16,13 @@
 #include "GPU3D.h"
 #include "SPU.h"
 #include "Wifi.h"
+#include "NDSCart.h"
 
 namespace ARMJIT
 {
 
 #define JIT_DEBUGPRINT(msg, ...)
+//#define JIT_DEBUGPRINT(msg, ...) printf(msg, ## __VA_ARGS__)
 
 Compiler* compiler;
 
@@ -159,12 +161,16 @@ void FloodFillSetFlags(FetchedInstr instrs[], int start, u8 flags)
 	}
 }
 
-bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, u32& targetAddr)
+bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link, 
+	u32& linkAddr, u32& targetAddr)
 {
 	if (thumb)
 	{
 		u32 r15 = instr.Addr + 4;
 		cond = 0xE;
+
+		link = instr.Info.Kind == ARMInstrInfo::tk_BL_LONG;
+		linkAddr = instr.Addr + 4;
 
 		if (instr.Info.Kind == ARMInstrInfo::tk_BL_LONG && !(instr.Instr & (1 << 12)))
 		{
@@ -185,9 +191,18 @@ bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, u32& targetA
 			targetAddr = r15 + offset;
 			return true;
 		}
+		else if (hasLink && instr.Info.Kind == ARMInstrInfo::tk_BX && instr.A_Reg(3) == 14)
+		{
+			JIT_DEBUGPRINT("returning!\n");
+			targetAddr = lr;
+			return true;
+		}
 	}
 	else
 	{
+		link = instr.Info.Kind == ARMInstrInfo::ak_BL;
+		linkAddr = instr.Addr + 4;
+
 		cond = instr.Cond();
 		if (instr.Info.Kind == ARMInstrInfo::ak_BL 
 			|| instr.Info.Kind == ARMInstrInfo::ak_B)
@@ -195,6 +210,12 @@ bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, u32& targetA
 			s32 offset = (s32)(instr.Instr << 8) >> 6;
 			u32 r15 = instr.Addr + 8;
 			targetAddr = r15 + offset;
+			return true;
+		}
+		else if (hasLink && instr.Info.Kind == ARMInstrInfo::ak_BX && instr.A_Reg(0) == 14)
+		{
+			JIT_DEBUGPRINT("returning!\n");
+			targetAddr = lr;
 			return true;
 		}
 	}
@@ -351,6 +372,8 @@ void CompileBlock(ARM* cpu)
 		CodeRanges[pseudoPhysicalAddr / 512].TimesInvalidated);
 
 	u32 lastSegmentStart = blockAddr;
+	u32 lr;
+	bool hasLink = false;
 
     do
     {
@@ -413,6 +436,9 @@ void CompileBlock(ARM* cpu)
 		cpu->CurInstr = instrs[i].Instr;
 		cpu->CodeCycles = instrs[i].CodeCycles;
 
+		if (instrs[i].Info.DstRegs & (1 << 14))
+			hasLink = false;
+
 		if (thumb)
 		{
 			InterpretTHUMB[instrs[i].Info.Kind](cpu);
@@ -452,8 +478,9 @@ void CompileBlock(ARM* cpu)
 		{
 			bool hasBranched = cpu->R[15] != r15;
 
-			u32 cond, target;
-			bool staticBranch = DecodeBranch(thumb, instrs[i], cond, target);
+			bool link;
+			u32 cond, target, linkAddr;
+			bool staticBranch = DecodeBranch(thumb, instrs[i], cond, hasLink, lr, link, linkAddr, target);
 			JIT_DEBUGPRINT("branch cond %x target %x (%d)\n", cond, target, hasBranched);
 
 			if (staticBranch)
@@ -474,18 +501,24 @@ void CompileBlock(ARM* cpu)
 				if (cond < 0xE && target < instrs[i].Addr && target >= lastSegmentStart)
 				{
 					// we might have an idle loop
-					u32 offset = (target - blockAddr) / (thumb ? 2 : 4);
-					if (IsIdleLoop(instrs + offset, i - offset + 1))
+					u32 backwardsOffset = (instrs[i].Addr - target) / (thumb ? 2 : 4);
+					if (IsIdleLoop(&instrs[i - backwardsOffset], backwardsOffset + 1))
 					{
 						instrs[i].BranchFlags |= branch_IdleBranch;
 						JIT_DEBUGPRINT("found %s idle loop %d in block %x\n", thumb ? "thumb" : "arm", cpu->Num, blockAddr);
 					}
 				}
-				else if (hasBranched && (!thumb || cond == 0xE) && !isBackJump && i + 1 < Config::JIT_MaxBlockSize)
+				else if (hasBranched && !isBackJump && i + 1 < Config::JIT_MaxBlockSize)
 				{
 					u32 targetPseudoPhysical = cpu->Num == 0
 						? TranslateAddr<0>(target)
 						: TranslateAddr<1>(target);
+
+					if (link)
+					{
+						lr = linkAddr;
+						hasLink = true;
+					}
 					
 					r15 = target + (thumb ? 2 : 4);
 					assert(r15 == cpu->R[15]);
@@ -520,7 +553,7 @@ void CompileBlock(ARM* cpu)
 		bool secondaryFlagReadCond = !canCompile || (instrs[i - 1].BranchFlags & (branch_FollowCondTaken | branch_FollowCondNotTaken));
 		if (instrs[i - 1].Info.ReadFlags != 0 || secondaryFlagReadCond)
 			FloodFillSetFlags(instrs, i - 2, !secondaryFlagReadCond ? instrs[i - 1].Info.ReadFlags : 0xF);
-    } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted);
+    } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
 
 	u32 restoreSlot = HashRestoreCandidate(pseudoPhysicalAddr);
 	JitBlock* prevBlock = RestoreCandidates[restoreSlot];
@@ -713,6 +746,9 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
 	{
 		if ((addr & 0xFF000000) == 0x04000000)
 		{
+			if (!store && size == 32 && addr == 0x04100010 && NDS::ExMemCnt[0] & (1<<11))
+				return (void*)NDSCart::ReadROMData;
+
 			/*
 				unfortunately we can't map GPU2D this way
 				since it's hidden inside an object

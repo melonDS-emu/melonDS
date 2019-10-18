@@ -43,6 +43,7 @@ uiCheckbox* cbDirectBoot;
 uiCheckbox* cbJITEnabled;
 uiEntry* enJITMaxBlockSize;
 uiCheckbox* cbJITBranchOptimisations;
+uiCheckbox* cbJITLiteralOptimisations;
 #endif
 
 int OnCloseWindow(uiWindow* window, void* blarg)
@@ -66,14 +67,16 @@ void OnOk(uiButton* btn, void* blarg)
     char* maxBlockSizeStr = uiEntryText(enJITMaxBlockSize);
     long blockSize = strtol(maxBlockSizeStr, NULL, 10);
     bool branchOptimisations = uiCheckboxChecked(cbJITBranchOptimisations);
+    bool literalOptimisations = uiCheckboxChecked(cbJITLiteralOptimisations);
     uiFreeText(maxBlockSizeStr);
     if (blockSize < 1)
         blockSize = 1;
     if (blockSize > 32)
         blockSize = 32;
 
-    if (enableJit != Config::JIT_Enable || blockSize != Config::JIT_MaxBlockSize ||
-        branchOptimisations != Config::JIT_BrancheOptimisations)
+    if (enableJit != Config::JIT_Enable || blockSize != Config::JIT_MaxBlockSize
+        || branchOptimisations != Config::JIT_BrancheOptimisations
+        || literalOptimisations != Config::JIT_LiteralOptimisations)
     {
         if (RunningSomething && 
             !uiMsgBoxConfirm(win, "Reset emulator", 
@@ -82,7 +85,8 @@ void OnOk(uiButton* btn, void* blarg)
 
         Config::JIT_Enable = enableJit;
         Config::JIT_MaxBlockSize = blockSize;
-        Config::JIT_BrancheOptimisations = uiCheckboxChecked(cbJITBranchOptimisations);
+        Config::JIT_BrancheOptimisations = branchOptimisations;
+        Config::JIT_LiteralOptimisations = literalOptimisations;
 
         restart = true;
     }
@@ -108,11 +112,13 @@ void OnJITStateChanged(uiCheckbox* cb, void* blarg)
     {
         uiControlEnable(uiControl(enJITMaxBlockSize));
         uiControlEnable(uiControl(cbJITBranchOptimisations));
+        uiControlEnable(uiControl(cbJITLiteralOptimisations));
     }
     else
     {
         uiControlDisable(uiControl(enJITMaxBlockSize));
         uiControlDisable(uiControl(cbJITBranchOptimisations));
+        uiControlDisable(uiControl(cbJITLiteralOptimisations));
     }
 }
 #endif
@@ -174,8 +180,24 @@ void Open()
             uiBox* row = uiNewHorizontalBox();
             uiBoxAppend(in_ctrl, uiControl(row), 0);
 
-            cbJITBranchOptimisations = uiNewCheckbox("Branch optimisations (breaks in rare cases games!)");
+            uiLabel* lbl = uiNewLabel("If you experience problems with a certain game, you can try disabling these options:");
+            uiBoxAppend(row, uiControl(lbl), 0);
+        }
+
+        {
+            uiBox* row = uiNewHorizontalBox();
+            uiBoxAppend(in_ctrl, uiControl(row), 0);
+
+            cbJITBranchOptimisations = uiNewCheckbox("Branch optimisations");
             uiBoxAppend(row, uiControl(cbJITBranchOptimisations), 0);
+        }
+
+        {
+            uiBox* row = uiNewHorizontalBox();
+            uiBoxAppend(in_ctrl, uiControl(row), 0);
+
+            cbJITLiteralOptimisations = uiNewCheckbox("Literal optimisations");
+            uiBoxAppend(row, uiControl(cbJITLiteralOptimisations), 0);
         }
     }
 #endif
@@ -214,6 +236,7 @@ void Open()
     OnJITStateChanged(cbJITEnabled, NULL);
 
     uiCheckboxSetChecked(cbJITBranchOptimisations, Config::JIT_BrancheOptimisations);
+    uiCheckboxSetChecked(cbJITLiteralOptimisations, Config::JIT_LiteralOptimisations);
 #endif
 
     uiControlShow(uiControl(win));
