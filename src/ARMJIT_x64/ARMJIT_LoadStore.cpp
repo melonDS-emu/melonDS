@@ -1,5 +1,6 @@
 #include "ARMJIT_Compiler.h"
 
+#include "../Config.h"
 
 using namespace Gen;
 
@@ -290,7 +291,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
     if (size == 16)
         addressMask = ~1;
 
-    if (rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_SignExtend|memop_Post|memop_Store|memop_Writeback)))
+    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_SignExtend|memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         Comp_MemLoadLiteral(size, rd, addr);
@@ -309,6 +310,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
 
         OpArg rdMapped = MapReg(rd);
         OpArg rnMapped = MapReg(rn);
+        if (Thumb && rn == 15)
+            rnMapped = Imm32(R15 & ~0x2);
 
         bool inlinePreparation = Num == 1;
         u32 constLocalROR32 = 4;
@@ -317,7 +320,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
             ? MemoryFuncs9[size >> 4][!!(flags & memop_Store)]
             : MemoryFuncs7[size >> 4][!!((flags & memop_Store))];
 
-        if ((rd != 15 || (flags & memop_Store)) && op2.IsImm && RegCache.IsLiteral(rn))
+        if (Config::JIT_LiteralOptimisations && (rd != 15 || (flags & memop_Store)) && op2.IsImm && RegCache.IsLiteral(rn))
         {
             u32 addr = RegCache.LiteralValues[rn] + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
 
@@ -749,9 +752,12 @@ void Compiler::T_Comp_MemImmHalf()
 
 void Compiler::T_Comp_LoadPCRel()
 {
-    u32 addr = (R15 & ~0x2) + ((CurInstr.Instr & 0xFF) << 2);
-
-    Comp_MemLoadLiteral(32, CurInstr.T_Reg(8), addr);
+    u32 offset = (CurInstr.Instr & 0xFF) << 2;
+    u32 addr = (R15 & ~0x2) + offset;
+    if (Config::JIT_LiteralOptimisations)
+        Comp_MemLoadLiteral(32, CurInstr.T_Reg(8), addr);
+    else
+        Comp_MemAccess(CurInstr.T_Reg(8), 15, ComplexOperand(offset), 32, 0);
 }
 
 void Compiler::T_Comp_MemSPRel()

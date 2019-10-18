@@ -93,10 +93,12 @@ public:
 
 	void Prepare(bool thumb, int i)
     {
+        FetchedInstr instr = Instrs[i];
+
         if (LoadedRegs & (1 << 15))
             UnloadRegister(15);
 
-        BitSet16 invalidedLiterals(LiteralsLoaded & Instrs[i].Info.DstRegs);
+        BitSet16 invalidedLiterals(LiteralsLoaded & instr.Info.DstRegs);
         for (int reg : invalidedLiterals)
             UnloadLiteral(reg);
 
@@ -108,6 +110,7 @@ public:
         {
             BitSet16 regsNeeded((Instrs[j].Info.SrcRegs & ~(1 << 15)) | Instrs[j].Info.DstRegs);
             futureNeeded |= regsNeeded.m_val;
+            regsNeeded &= BitSet16(~Instrs[j].Info.NotStrictlyNeeded);
             for (int reg : regsNeeded)
                 ranking[reg]++;
         }
@@ -117,8 +120,8 @@ public:
         for (int reg : neverNeededAgain)
             UnloadRegister(reg);
 
-        FetchedInstr Instr = Instrs[i];
-        u16 necessaryRegs = (Instr.Info.SrcRegs & ~(1 << 15)) | Instr.Info.DstRegs;
+        u16 necessaryRegs = ((instr.Info.SrcRegs & ~(1 << 15)) | instr.Info.DstRegs) & ~instr.Info.NotStrictlyNeeded;
+        u16 writeRegs = instr.Info.DstRegs & ~instr.Info.NotStrictlyNeeded;
         BitSet16 needToBeLoaded(necessaryRegs & ~LoadedRegs);
         if (needToBeLoaded != BitSet16(0))
         {
@@ -143,13 +146,31 @@ public:
                 loadedSet.m_val = LoadedRegs;
             }
 
+            // we don't need to load a value which is always going to be overwritten
             BitSet16 needValueLoaded(needToBeLoaded);
-            if (thumb || Instr.Cond() >= 0xE)
-                needValueLoaded = BitSet16(Instr.Info.SrcRegs);
+            if (thumb || instr.Cond() >= 0xE)
+                needValueLoaded = BitSet16(instr.Info.SrcRegs);
             for (int reg : needToBeLoaded)
                 LoadRegister(reg, needValueLoaded[reg]);
+        } 
+        {
+            BitSet16 loadedSet(LoadedRegs);
+            BitSet16 loadRegs(instr.Info.NotStrictlyNeeded & futureNeeded & ~LoadedRegs);
+            if (loadRegs && loadedSet.Count() < NativeRegsAvailable)
+            {
+                int left = NativeRegsAvailable - loadedSet.Count();
+                for (int reg : loadRegs)
+                {
+                    if (left-- == 0)
+                        break;
+
+                    writeRegs |= (1 << reg) & instr.Info.DstRegs;
+                    LoadRegister(reg, !(thumb || instr.Cond() >= 0xE) || (1 << reg) & instr.Info.SrcRegs);
+                }
+            }
         }
-        DirtyRegs |= Instr.Info.DstRegs & ~(1 << 15);
+
+        DirtyRegs |= writeRegs & ~(1 << 15);
     }
 
 	static const Reg NativeRegAllocOrder[];

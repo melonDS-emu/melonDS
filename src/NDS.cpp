@@ -1142,7 +1142,7 @@ void UpdateIRQ(u32 cpu)
 
     if (IME[cpu] & 0x1)
     {
-        arm->IRQ = IE[cpu] & IF[cpu];
+        arm->IRQ = !!(IE[cpu] & IF[cpu]);
     }
     else
     {

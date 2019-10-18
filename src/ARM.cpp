@@ -113,7 +113,7 @@ void ARM::DoSavestate(Savestate* file)
 
     file->Var32((u32*)&Cycles);
     //file->Var32((u32*)&CyclesToRun);
-    file->Var32(&Halted);
+    file->Var32(&StopExecution);
 
     file->VarArray(R, 16*sizeof(u32));
     file->Var32(&CPSR);
@@ -589,16 +589,21 @@ void ARMv5::ExecuteJIT()
         NDS::ARM9Timestamp += Cycles;
         Cycles = 0;
 
-        if (IRQ) TriggerIRQ();
-        if (Halted)
+        if (StopExecution)
         {
-            bool idleLoop = Halted & 0x20;
-            Halted &= ~0x20;
-            if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
+            if (IRQ)
+                TriggerIRQ();
+
+            if (Halted || IdleLoop)
             {
-                NDS::ARM9Timestamp = NDS::ARM9Target;
+                bool idleLoop = IdleLoop;
+                IdleLoop = 0;
+                if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
+                {
+                    NDS::ARM9Timestamp = NDS::ARM9Target;
+                }
+                break;
             }
-            break;
         }
     }
 
@@ -726,16 +731,21 @@ void ARMv4::ExecuteJIT()
         Cycles = 0;
 
         // TODO optimize this shit!!!
-        if (IRQ) TriggerIRQ();
-        if (Halted)
+        if (StopExecution)
         {
-            bool idleLoop = Halted & 0x20;
-            Halted &= ~0x20;
-            if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
+            if (IRQ)
+                TriggerIRQ();
+
+            if (Halted || IdleLoop)
             {
-                NDS::ARM7Timestamp = NDS::ARM7Target;
+                bool idleLoop = IdleLoop;
+                IdleLoop = 0;
+                if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
+                {
+                    NDS::ARM7Timestamp = NDS::ARM7Target;
+                }
+                break;
             }
-            break;
         }
     }
 

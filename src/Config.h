@@ -50,6 +50,7 @@ extern int GL_Antialias;
 extern bool JIT_Enable;
 extern int JIT_MaxBlockSize;
 extern bool JIT_BrancheOptimisations;
+extern bool JIT_LiteralOptimisations;
 #endif
 
 }
