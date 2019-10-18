@@ -86,6 +86,10 @@ DLL bool Init()
 
 	ResetCounters();
 
+    // rdireect console output so BizHawk can see it
+    freopen("CONOUT$", "w", stdout);
+	freopen("CONOUT$", "w", stderr);
+
     inited = true;
     return true;
 }
