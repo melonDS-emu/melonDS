@@ -53,27 +53,6 @@ DLL bool Init()
 		return false;
 	}
 
-	{ // TODO: Would probably be nice to include the romlist in the DLL, rather than use a separate file.
-        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
-        if (f)
-        {
-            u32 data;
-            fread(&data, 4, 1, f);
-            fclose(f);
-
-            if ((data >> 24) == 0) // old CRC-based list
-            {
-                printf("Your version of romlist.bin is outdated.\nSave memory type detection will not work correctly.\n\n"
-                              "You should use the latest version of romlist.bin (provided in melonDS release packages)\n.");
-            }
-        }
-        else
-        {
-        	printf("romlist.bin not found.\nSave memory type detection will not work correctly.\n\n"
-				         "You should use the latest version of romlist.bin (provided in melonDS release packages)\n.");
-        }
-    }
-
 	LidStatus = false;
     if (!NDS::Init())
     {
