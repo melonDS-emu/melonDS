@@ -24,6 +24,8 @@
 #include "CRC32.h"
 #include "Platform.h"
 
+extern char _binary_romlist_bin_start[];
+extern char _binary_romlist_bin_end[];
 
 namespace NDSCart_SRAM
 {
@@ -818,11 +820,7 @@ bool ReadROMParams(u32 gamecode, u32* params)
     // [gamecode] [ROM size] [save type] [reserved]
     // list must be sorted by gamecode
 
-    FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
-    if (!f) return false;
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
+    u32 len = _binary_romlist_bin_end - _binary_romlist_bin_start;
     u32 maxlen = len;
     len >>= 4; // 16 bytes per entry
 
@@ -830,16 +828,13 @@ bool ReadROMParams(u32 gamecode, u32* params)
     u32 chk_size = len >> 1;
     for (;;)
     {
-        u32 key = 0;
-        fseek(f, offset + (chk_size << 4), SEEK_SET);
-        fread(&key, 4, 1, f);
+        u32 key = *(u32*)&_binary_romlist_bin_start[offset + (chk_size << 4)];
 
         printf("chk_size=%d, key=%08X, wanted=%08X, offset=%08X\n", chk_size, key, gamecode, offset);
 
         if (key == gamecode)
         {
-            fread(params, 4, 3, f);
-            fclose(f);
+            memcpy(params, &_binary_romlist_bin_start[offset + (chk_size << 4) + 4], 12);
             return true;
         }
         else
@@ -853,7 +848,6 @@ bool ReadROMParams(u32 gamecode, u32* params)
             }
             else if (chk_size == 0)
             {
-                fclose(f);
                 return false;
             }
 
@@ -862,7 +856,6 @@ bool ReadROMParams(u32 gamecode, u32* params)
 
         if (offset >= maxlen)
         {
-            fclose(f);
             return false;
         }
     }

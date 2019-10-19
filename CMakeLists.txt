@@ -43,3 +43,23 @@ add_subdirectory(src/libui_sdl)
 configure_file(
 	${CMAKE_SOURCE_DIR}/romlist.bin
 	${CMAKE_BINARY_DIR}/romlist.bin COPYONLY)
+
+# resource embedding - https://stackoverflow.com/a/56006001/4926282
+set(RC_DEPENDS "")
+function(add_resource input)
+    string(MAKE_C_IDENTIFIER ${input} input_identifier)
+    set(output "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/${input_identifier}.o")
+    target_link_libraries(${PROJECT_NAME} ${output})
+
+    add_custom_command(
+        OUTPUT ${output}
+        COMMAND ${CMAKE_LINKER} --relocatable --format binary --output ${output} ${input}
+        DEPENDS ${input}
+    )
+
+    set(RC_DEPENDS ${RC_DEPENDS} ${output} PARENT_SCOPE)
+endfunction()
+
+# Resource file list
+add_resource("romlist.bin")
+add_custom_target(rc ALL DEPENDS ${RC_DEPENDS})
