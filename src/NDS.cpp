@@ -1371,6 +1371,29 @@ void RunTimers(u32 cpu)
 
 
 
+// matching NDMA modes for DSi
+const u32 NDMAModes[] =
+{
+    // ARM9
+
+    0x10, // immediate
+    0x06, // VBlank
+    0x07, // HBlank
+    0x08, // scanline start
+    0x09, // mainmem FIFO
+    0x04, // DS cart slot
+    0xFF, // GBA cart slot
+    0x0A, // GX FIFO
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+
+    // ARM7
+
+    0x30, // immediate
+    0x26, // VBlank
+    0x24, // DS cart slot
+    0xFF, // wifi / GBA cart slot (TODO)
+};
+
 bool DMAsInMode(u32 cpu, u32 mode)
 {
     cpu <<= 2;
@@ -1378,6 +1401,13 @@ bool DMAsInMode(u32 cpu, u32 mode)
     if (DMAs[cpu+1]->IsInMode(mode)) return true;
     if (DMAs[cpu+2]->IsInMode(mode)) return true;
     if (DMAs[cpu+3]->IsInMode(mode)) return true;
+
+    if (true)
+    {
+        cpu >>= 2;
+        return DSi::NDMAsInMode(cpu, NDMAModes[mode]);
+    }
+
     return false;
 }
 
@@ -1399,6 +1429,12 @@ void CheckDMAs(u32 cpu, u32 mode)
     DMAs[cpu+1]->StartIfNeeded(mode);
     DMAs[cpu+2]->StartIfNeeded(mode);
     DMAs[cpu+3]->StartIfNeeded(mode);
+
+    if (true)
+    {
+        cpu >>= 2;
+        DSi::CheckNDMAs(cpu, NDMAModes[mode]);
+    }
 }
 
 void StopDMAs(u32 cpu, u32 mode)
@@ -1408,6 +1444,12 @@ void StopDMAs(u32 cpu, u32 mode)
     DMAs[cpu+1]->StopIfNeeded(mode);
     DMAs[cpu+2]->StopIfNeeded(mode);
     DMAs[cpu+3]->StopIfNeeded(mode);
+
+    if (true)
+    {
+        cpu >>= 2;
+        DSi::StopNDMAs(cpu, NDMAModes[mode]);
+    }
 }
 
 

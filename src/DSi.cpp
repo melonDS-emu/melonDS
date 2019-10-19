@@ -411,6 +411,16 @@ void StallNDMAs()
     // TODO
 }
 
+bool NDMAsInMode(u32 cpu, u32 mode)
+{
+    cpu <<= 2;
+    if (NDMAs[cpu+0]->IsInMode(mode)) return true;
+    if (NDMAs[cpu+1]->IsInMode(mode)) return true;
+    if (NDMAs[cpu+2]->IsInMode(mode)) return true;
+    if (NDMAs[cpu+3]->IsInMode(mode)) return true;
+    return false;
+}
+
 bool NDMAsRunning(u32 cpu)
 {
     cpu <<= 2;
@@ -1156,7 +1166,7 @@ u8 ARM9IORead8(u32 addr)
 
     return NDS::ARM9IORead8(addr);
 }
-
+//u16 dicks = 0;
 u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
@@ -1174,6 +1184,8 @@ u16 ARM9IORead16(u32 addr)
     CASE_READ16_32BIT(0x04004058, MBK[0][6])
     CASE_READ16_32BIT(0x0400405C, MBK[0][7])
     CASE_READ16_32BIT(0x04004060, MBK[0][8])
+
+    //case 0x04004202: return dicks & 0xEF1F;
     }
 
     return NDS::ARM9IORead16(addr);
@@ -1318,6 +1330,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
         MapNWRAM_C(6, val & 0xFF);
         MapNWRAM_C(7, val >> 8);
         return;
+
+    //case 0x04004202: dicks = val & 0xEF3F; return;
     }
 
     return NDS::ARM9IOWrite16(addr, val);

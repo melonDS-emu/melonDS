@@ -1227,11 +1227,11 @@ void WriteROMCnt(u32 val)
         *(u32*)&cmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            cmd[0], cmd[1], cmd[2], cmd[3],
            cmd[4], cmd[5], cmd[6], cmd[7],
-           datasize);
+           datasize);*/
 
     switch (cmd[0])
     {

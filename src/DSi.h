@@ -47,6 +47,7 @@ bool LoadNAND();
 
 void RunNDMAs(u32 cpu);
 void StallNDMAs();
+bool NDMAsInMode(u32 cpu, u32 mode);
 bool NDMAsRunning(u32 cpu);
 void CheckNDMAs(u32 cpu, u32 mode);
 void StopNDMAs(u32 cpu, u32 mode);

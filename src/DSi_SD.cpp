@@ -91,10 +91,16 @@ void DSi_SDHost::Reset()
 
     if (Num == 0)
     {
+        // TODO: eventually pull from host filesystem
+        /*DSi_MMCStorage* sd = new DSi_MMCStorage(this, false, "sd.bin");
+        u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
+        sd->SetCID(sd_cid);*/
+        DSi_MMCStorage* sd = NULL;
+
         DSi_MMCStorage* mmc = new DSi_MMCStorage(this, true, "nand.bin");
         mmc->SetCID(DSi::eMMC_CID);
 
-        // TODO: port 0 (SD)
+        Ports[0] = sd;
         Ports[1] = mmc;
     }
     else
@@ -196,6 +202,14 @@ void DSi_SDHost::FinishSend(u32 param)
     host->ClearIRQ(25);
     host->SetIRQ(24);
     //if (param & 0x2) host->SetIRQ(2);
+
+    // TODO: this is an assumption and should eventually be confirmed
+    // Flipnote sets DMA blocklen to 128 words and totallen to 1024 words
+    // so, presumably, DMA should trigger when the FIFO is full
+    // 'full' being when it reaches whatever BlockLen16 is set to, or the
+    // other blocklen register, or when it is actually full (but that makes
+    // less sense)
+    DSi::CheckNDMAs(1, host->Num ? 0x29 : 0x28);
 }
 
 u32 DSi_SDHost::SendData(u8* data, u32 len)
@@ -286,7 +300,7 @@ u32 DSi_SDHost::GetTransferrableLen(u32 len)
 
 u16 DSi_SDHost::Read(u32 addr)
 {
-    //if(Num)printf("SDIO READ %08X %08X\n", addr, NDS::GetPC(1));
+    if(!Num)printf("SDMMC READ %08X %08X\n", addr, NDS::GetPC(1));
 
     switch (addr & 0x1FF)
     {
@@ -307,7 +321,24 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x018: return ResponseBuffer[6];
     case 0x01A: return ResponseBuffer[7];
 
-    case 0x01C: return (IRQStatus & 0x031D) | 0x0030; // TODO: adjust insert flags for SD card
+    case 0x01C:
+        {
+            u16 ret = (IRQStatus & 0x031D);
+
+            if (!Num)
+            {
+                if (Ports[0]) // basic check of whether the SD card is inserted
+                    ret |= 0x0030;
+                else
+                    ret |= 0x0008;
+            }
+            else
+            {
+                // SDIO wifi is always inserted, I guess
+                ret |= 0x0030;
+            }
+            return ret;
+        }
     case 0x01E: return ((IRQStatus >> 16) & 0x8B7F);
     case 0x020: return IRQMask & 0x031D;
     case 0x022: return (IRQMask >> 16) & 0x8B7F;
@@ -436,7 +467,7 @@ u32 DSi_SDHost::ReadFIFO32()
 
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
-    //if(Num)printf("SDIO WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
+    if(!Num)printf("SDMMC WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
 
     switch (addr & 0x1FF)
     {
@@ -464,7 +495,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         }
         return;
 
-    case 0x002: PortSelect = val; printf("%s: PORT SELECT %04X\n", SD_DESC, val); return;
+    case 0x002: PortSelect = (val & 0x040F) | (PortSelect & 0x0300); printf("%s: PORT SELECT %04X (%04X)\n", SD_DESC, val, PortSelect); return;
     case 0x004: Param = (Param & 0xFFFF0000) | val; return;
     case 0x006: Param = (Param & 0x0000FFFF) | (val << 16); return;
 
@@ -504,7 +535,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
             if (DataFIFO[f]->IsFull())
             {
                 // TODO
-                printf("!!!! %s FIFO FULL\n", SD_DESC);
+                printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
                 return;
             }
 
@@ -582,12 +613,14 @@ void DSi_SDHost::WriteFIFO32(u32 val)
 {
     if (DataMode != 1) return;
 
+    printf("%s: WRITE FIFO32: LEVEL=%d/%d\n", SD_DESC, DataFIFO[CurFIFO]->Level(), (BlockLen16>>1));
+
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
     if (DataFIFO[f]->IsFull())
     {
         // TODO
-        printf("!!!! %s FIFO FULL\n", SD_DESC);
+        printf("!!!! %s FIFO (32) FULL\n", SD_DESC);
         return;
     }
 
@@ -608,12 +641,26 @@ void DSi_SDHost::WriteFIFO32(u32 val)
 }
 
 
+#define MMC_DESC  (Internal?"NAND":"SDcard")
+
 DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path) : DSi_SDDevice(host)
 {
     Internal = internal;
     strncpy(FilePath, path, 1023); FilePath[1023] = '\0';
 
     File = Platform::OpenLocalFile(path, "r+b");
+    if (!File)
+    {
+        if (internal)
+        {
+            // TODO: proper failure
+            printf("!! MMC file %s does not exist\n", path);
+        }
+        else
+        {
+            File = Platform::OpenLocalFile(path, "w+b");
+        }
+    }
 
     CSR = 0x00000100; // checkme
 
@@ -674,6 +721,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         {
             // TODO
             printf("CMD3 on SD card: TODO\n");
+            Host->SendResponse((CSR & 0x1FFF) | ((CSR >> 6) & 0x2000) | ((CSR >> 8) & 0xC000) | (1 << 16), true);
         }
         return;
 

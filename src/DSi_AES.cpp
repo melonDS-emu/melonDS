@@ -129,28 +129,8 @@ void Reset()
     memset(CurKey, 0, sizeof(CurKey));
     memset(CurMAC, 0, sizeof(CurMAC));
 
-    // initialize keys, as per GBAtek
+    // initialize keys
 
-#if 0
-    // slot 0: modcrypt
-    *(u32*)&KeyX[0][0] = 0x746E694E;
-    *(u32*)&KeyX[0][4] = 0x6F646E65;
-
-    // slot 1: 'Tad'/dev.kp
-    *(u32*)&KeyX[1][0] = 0x4E00004A;
-    *(u32*)&KeyX[1][4] = 0x4A00004E;
-    *(u32*)&KeyX[1][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xC80C4B72;
-    *(u32*)&KeyX[1][12] = (u32)DSi::ConsoleID;
-
-    // slot 3: console-unique eMMC crypto
-    *(u32*)&KeyX[3][0] = (u32)DSi::ConsoleID;
-    *(u32*)&KeyX[3][4] = (u32)DSi::ConsoleID ^ 0x24EE6906;
-    *(u32*)&KeyX[3][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xE65B601D;
-    *(u32*)&KeyX[3][12] = (u32)(DSi::ConsoleID >> 32);
-    *(u32*)&KeyY[3][0] = 0x0AB9DC76;
-    *(u32*)&KeyY[3][4] = 0xBD4DC4D3;
-    *(u32*)&KeyY[3][8] = 0x202DDD1D;
-#endif
     FILE* f = Platform::OpenLocalFile("aeskeys.bin", "rb");
     if (f)
     {
@@ -233,12 +213,12 @@ u32 ReadCnt()
 
     ret |= InputFIFO->Level();
     ret |= (OutputFIFO->Level() << 5);
-
+//printf("READ AES CNT: %08X, LEVELS: IN=%d OUT=%d\n", ret, InputFIFO->Level(), OutputFIFO->Level());
     return ret;
 }
 
 void WriteCnt(u32 val)
-{
+{printf("AES CNT = %08X\n", val);
     u32 oldcnt = Cnt;
     Cnt = val & 0xFC1FF000;
 
@@ -267,41 +247,51 @@ void WriteCnt(u32 val)
         // transfer start (checkme)
         RemBlocks = BlkCnt >> 16;
 
-        u8 key[16];
-        u8 iv[16];
-
-        Swap16(key, CurKey);
-        Swap16(iv, IV);
-
-        if (AESMode < 2)
+        if (RemBlocks > 0)
         {
-            if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
+            u8 key[16];
+            u8 iv[16];
 
-            u32 maclen = (val >> 16) & 0x7;
-            if (maclen < 1) maclen = 1;
+            Swap16(key, CurKey);
+            Swap16(iv, IV);
 
-            iv[0] = 0x02;
-            for (int i = 0; i < 12; i++) iv[1+i] = iv[4+i];
-            iv[13] = 0x00;
-            iv[14] = 0x00;
-            iv[15] = 0x01;
+            if (AESMode < 2)
+            {
+                if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
 
-            AES_init_ctx_iv(&Ctx, key, iv);
+                u32 maclen = (val >> 16) & 0x7;
+                if (maclen < 1) maclen = 1;
 
-            iv[0] |= (maclen << 3) | ((BlkCnt & 0xFFFF) ? (1<<6) : 0);
-            iv[13] = RemBlocks >> 12;
-            iv[14] = RemBlocks >> 4;
-            iv[15] = RemBlocks << 4;
+                iv[0] = 0x02;
+                for (int i = 0; i < 12; i++) iv[1+i] = iv[4+i];
+                iv[13] = 0x00;
+                iv[14] = 0x00;
+                iv[15] = 0x01;
 
-            memcpy(CurMAC, iv, 16);
-            AES_ECB_encrypt(&Ctx, CurMAC);
+                AES_init_ctx_iv(&Ctx, key, iv);
+
+                iv[0] |= (maclen << 3) | ((BlkCnt & 0xFFFF) ? (1<<6) : 0);
+                iv[13] = RemBlocks >> 12;
+                iv[14] = RemBlocks >> 4;
+                iv[15] = RemBlocks << 4;
+
+                memcpy(CurMAC, iv, 16);
+                AES_ECB_encrypt(&Ctx, CurMAC);
+            }
+            else
+            {
+                AES_init_ctx_iv(&Ctx, key, iv);
+            }
+
+            DSi::CheckNDMAs(1, 0x2A);
         }
         else
         {
-            AES_init_ctx_iv(&Ctx, key, iv);
-        }
+            // no blocks to process? oh well. mark it finished
+            // CHECKME: does this trigger any IRQ or shit?
 
-        DSi::CheckNDMAs(1, 0x2A);
+            Cnt &= ~(1<<31);
+        }
     }
 
     printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
@@ -309,7 +299,7 @@ void WriteCnt(u32 val)
 }
 
 void WriteBlkCnt(u32 val)
-{
+{printf("AES BLOCK CNT %08X / %d\n", val, val>>16);
     BlkCnt = val;
 }
 
@@ -415,7 +405,7 @@ void Update()
             // CHECKME
             Cnt &= ~(1<<21);
         }
-
+printf("AES: FINISHED\n");
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
         DSi::StopNDMAs(1, 0x2A);
