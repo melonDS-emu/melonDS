@@ -361,12 +361,25 @@ bool LoadNAND()
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-        fseek(f, 0xF000010, SEEK_SET);
+        // read the nocash footer
+
+        fseek(f, -0x40, SEEK_END);
+
+        char nand_footer[16];
+        const char* nand_footer_ref = "DSi eMMC CID/CPU";
+        fread(nand_footer, 1, 16, f);
+        if (memcmp(nand_footer, nand_footer_ref, 16))
+        {
+            printf("ERROR: NAND missing nocash footer\n");
+            fclose(f);
+            return false;
+        }
+
         fread(eMMC_CID, 1, 16, f);
         fread(&ConsoleID, 1, 8, f);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %llx\n", ConsoleID);
+        printf("Console ID: %016llX\n", ConsoleID);
 
         fclose(f);
     }
