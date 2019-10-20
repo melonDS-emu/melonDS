@@ -42,6 +42,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SoftReset();
+
 bool LoadBIOS();
 bool LoadNAND();
 

@@ -103,6 +103,13 @@ void Write(u8 val, bool last)
         return;
     }
 
+    if (CurPos == 0x11 && val == 0x01)
+    {
+        printf("BPTWL: soft-reset\n");
+        val = 0; // checkme
+        DSi::SoftReset();
+    }
+
     if (CurPos == 0x11 || CurPos == 0x12 ||
         CurPos == 0x21 ||
         CurPos == 0x30 || CurPos == 0x31 ||
