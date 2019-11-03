@@ -78,6 +78,7 @@ private:
     u8 WindowMask[256] __attribute__((aligned (8)));
     u32 OBJLine[256] __attribute__((aligned (8)));
     u8 OBJWindow[256] __attribute__((aligned (8)));
+    u8 OBJIndex[256] __attribute__((aligned (8)));
 
     u32 NumSprites;
 
@@ -156,8 +157,8 @@ private:
 
     void ApplySpriteMosaicX();
     void InterleaveSprites(u32 prio);
-    template<bool window> void DrawSprite_Rotscale(u16* attrib, u16* rotparams, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
-    template<bool window> void DrawSprite_Normal(u16* attrib, u32 width, s32 xpos, s32 ypos);
+    template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
+    template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 
     void DoCapture(u32 line, u32 width);
 
