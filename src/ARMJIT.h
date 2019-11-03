@@ -61,7 +61,7 @@ inline JitBlockEntry LookUpBlock(u32 addr)
 void Init();
 void DeInit();
 
-void InvalidateByAddr(u32 pseudoPhysical);
+void InvalidateByAddr(u32 pseudoPhysical, bool mayRestore = true);
 void InvalidateAll();
 
 void InvalidateITCM(u32 addr);

@@ -161,6 +161,27 @@ void FloodFillSetFlags(FetchedInstr instrs[], int start, u8 flags)
 	}
 }
 
+bool DecodeLiteral(const FetchedInstr& instr, u32& addr)
+{
+	switch (instr.Info.Kind)
+	{
+	case ARMInstrInfo::ak_STR_IMM:
+	case ARMInstrInfo::ak_STRB_IMM:
+		addr = (instr.Addr + 8) + ((instr.Instr & 0xFFF) * (instr.Instr & (1 << 23) ? 1 : -1));
+		return true;
+	case ARMInstrInfo::ak_STRD_IMM:
+	case ARMInstrInfo::ak_STRH_IMM:
+		addr = (instr.Addr + 8) + (((instr.Instr & 0xF00) >> 4 | (instr.Instr & 0xF)) * (instr.Instr & (1 << 23) ? 1 : -1));
+		return true;
+	case ARMInstrInfo::ak_STM: // I honestly hope noone was ever crazy enough to do stm pc, {whatever}
+		addr = instr.Addr + 8;
+		return true;
+	default:
+		JIT_DEBUGPRINT("Literal %08x %x not recognised\n", instr.Instr, instr.Addr);
+		return false;
+	}
+}
+
 bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link, 
 	u32& linkAddr, u32& targetAddr)
 {
@@ -463,6 +484,23 @@ void CompileBlock(ARM* cpu)
 		instrs[i].DataCycles = cpu->DataCycles;
 		instrs[i].DataRegion = cpu->DataRegion;
 
+		if (instrs[i].Info.SpecialKind == ARMInstrInfo::special_WriteMem 
+			&& instrs[i].Info.SrcRegs == (1 << 15)
+			&& instrs[i].Info.DstRegs == 0)
+		{
+			assert (!thumb);
+
+			u32 addr;
+			if (DecodeLiteral(instrs[i], addr))
+			{
+				JIT_DEBUGPRINT("pc relative write detected\n");
+				u32 translatedAddr = cpu->Num == 0 ? TranslateAddr<0>(addr) : TranslateAddr<1>(addr);
+
+				ARMJIT::InvalidateByAddr(translatedAddr, false);
+				CodeRanges[translatedAddr / 512].InvalidLiterals |= (1 << ((translatedAddr & 0x1FF) / 16));
+			}
+		}
+
 		if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
 			&& instrs[i - 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_1)
 		{
@@ -631,7 +669,7 @@ void CompileBlock(ARM* cpu)
 	JitBlocks.Add(block);
 }
 
-void InvalidateByAddr(u32 pseudoPhysical)
+void InvalidateByAddr(u32 pseudoPhysical, bool mayRestore)
 {
 	JIT_DEBUGPRINT("invalidating by addr %x\n", pseudoPhysical);
 	AddressRange* range = &CodeRanges[pseudoPhysical / 512];
@@ -657,11 +695,14 @@ void InvalidateByAddr(u32 pseudoPhysical)
 
 		FastBlockAccess[block->PseudoPhysicalAddr / 2] = NULL;
 
-		u32 slot = HashRestoreCandidate(block->PseudoPhysicalAddr);
-		if (RestoreCandidates[slot] && RestoreCandidates[slot] != block)
-			delete RestoreCandidates[slot];
+		if (mayRestore)
+		{
+			u32 slot = HashRestoreCandidate(block->PseudoPhysicalAddr);
+			if (RestoreCandidates[slot] && RestoreCandidates[slot] != block)
+				delete RestoreCandidates[slot];
 
-		RestoreCandidates[slot] = block;
+			RestoreCandidates[slot] = block;
+		}
 	}
 	if ((range->TimesInvalidated + 1) > range->TimesInvalidated)
 		range->TimesInvalidated++;
@@ -732,6 +773,7 @@ void ResetBlockCache()
 			u32 addr = block->AddressRanges()[j];
 			CodeRanges[addr / 512].Blocks.Clear();
 			CodeRanges[addr / 512].TimesInvalidated = 0;
+			CodeRanges[addr / 512].InvalidLiterals = 0;
 		}
 		delete block;
 	}
