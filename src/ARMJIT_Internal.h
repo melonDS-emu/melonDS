@@ -63,7 +63,7 @@ struct __attribute__((packed)) TinyVector
 {
 	T* Data = NULL;
 	u16 Capacity = 0;
-	u32 Length = 0; // make it 32 bit so we don't need movzx
+	u16 Length = 0;
 
 	~TinyVector()
 	{
@@ -181,6 +181,7 @@ private:
 struct __attribute__((packed)) AddressRange
 {
 	TinyVector<JitBlock*> Blocks;
+	u16 InvalidLiterals;
 	u16 TimesInvalidated;
 };
 

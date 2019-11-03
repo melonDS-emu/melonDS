@@ -108,7 +108,7 @@ void* Compiler::Gen_MemoryRoutine9(bool store, int size)
         MOV(32, R(RSCRATCH), R(ABI_PARAM1));
         SHR(32, R(RSCRATCH), Imm8(9));
         SHL(32, R(RSCRATCH), Imm8(4));
-        CMP(32, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
+        CMP(16, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
         FixupBranch noCode = J_CC(CC_Z);
         JMP((u8*)InvalidateByAddr, true);
         SetJumpTarget(noCode);
@@ -206,7 +206,7 @@ void* Compiler::Gen_MemoryRoutineSeq9(bool store, bool preinc)
         MOV(32, R(ABI_PARAM4), R(RSCRATCH));
         SHR(32, R(RSCRATCH), Imm8(9));
         SHL(32, R(RSCRATCH), Imm8(4));
-        CMP(32, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
+        CMP(16, MDisp(RSCRATCH, squeezePointer(CodeRanges) + offsetof(AddressRange, Blocks.Length)), Imm8(0));
         FixupBranch noCode = J_CC(CC_Z);
         ABI_PushRegistersAndAdjustStack({ABI_PARAM1, ABI_PARAM2, ABI_PARAM3}, 8);
         MOV(32, R(ABI_PARAM1), R(ABI_PARAM4));
@@ -278,10 +278,10 @@ void Compiler::Comp_MemLoadLiteral(int size, int rd, u32 addr)
     Comp_AddCycles_CDI();
 }
 
-void fault(u32 a, u32 b)
+/*void fault(u32 a, u32 b, u32 c, u32 d)
 {
-    printf("actually not static! %x %x\n", a, b);
-}
+    printf("actually not static! %x %x %x %x\n", a, b, c, d);
+}*/
 
 void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags)
 {
@@ -291,11 +291,17 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
     if (size == 16)
         addressMask = ~1;
 
+    //bool check = false;
     if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_SignExtend|memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
-        Comp_MemLoadLiteral(size, rd, addr);
-        return;
+        u32 translatedAddr = Num == 0 ? TranslateAddr<0>(addr) : TranslateAddr<1>(addr);
+
+        if (!(CodeRanges[translatedAddr / 512].InvalidLiterals & (1 << ((translatedAddr & 0x1FF) / 16))))
+        {
+            Comp_MemLoadLiteral(size, rd, addr);
+            return;
+        }
     }
 
     {
@@ -437,6 +443,20 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
             AND(32, R(ABI_PARAM1), Imm8(addressMask));
 
         CALL(memoryFunc);
+
+        /*if (Num == 0 && check)
+        {
+            CMP(32, R(EAX), rdMapped);
+            FixupBranch notEqual = J_CC(CC_E);
+            ABI_PushRegistersAndAdjustStack({RSCRATCH}, 0);
+            MOV(32, R(ABI_PARAM1), Imm32(R15 - (Thumb ? 4 : 8)));
+            MOV(32, R(ABI_PARAM2), R(EAX));
+            MOV(32, R(ABI_PARAM3), rdMapped);
+            MOV(32, R(ABI_PARAM4), Imm32(CurInstr.Instr));
+            CALL((u8*)fault);
+            ABI_PopRegistersAndAdjustStack({RSCRATCH}, 0);
+            SetJumpTarget(notEqual);
+        }*/
 
         if (!(flags & memop_Store))
         {
