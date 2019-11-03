@@ -943,8 +943,8 @@ void GPU2D::VBlankEnd()
     BGMosaicYMax = BGMosaicSize[1];
     //OBJMosaicY = 0;
     //OBJMosaicYMax = OBJMosaicSize[1];
-    OBJMosaicY = 0;
-    OBJMosaicYCount = 0;
+    //OBJMosaicY = 0;
+    //OBJMosaicYCount = 0;
 
     if (Accelerated)
     {
@@ -2329,6 +2329,18 @@ void GPU2D::InterleaveSprites(u32 prio)
 
 void GPU2D::DrawSprites(u32 line)
 {
+    if (line == 0)
+    {
+        // reset those counters here
+        // TODO: find out when those are supposed to be reset
+        // it would make sense to reset them at the end of VBlank
+        // however, sprites are rendered one scanline in advance
+        // so they need to be reset a bit earlier
+
+        OBJMosaicY = 0;
+        OBJMosaicYCount = 0;
+    }
+
     NumSprites = 0;
     memset(OBJLine, 0, 256*4);
     memset(OBJWindow, 0, 256);
@@ -2364,6 +2376,15 @@ void GPU2D::DrawSprites(u32 line)
 
             bool iswin = (((attrib[0] >> 10) & 0x3) == 2);
 
+            u32 sprline;
+            if ((attrib[0] & 0x1000) && !iswin)
+            {
+                // apply Y mosaic
+                sprline = OBJMosaicY;
+            }
+            else
+                sprline = line;
+
             if (attrib[0] & 0x0100)
             {
                 u32 sizeparam = (attrib[0] >> 14) | ((attrib[1] & 0xC000) >> 12);
@@ -2379,7 +2400,7 @@ void GPU2D::DrawSprites(u32 line)
                 }
 
                 u32 ypos = attrib[0] & 0xFF;
-                ypos = (line - ypos) & 0xFF;
+                ypos = (sprline - ypos) & 0xFF;
                 if (ypos >= (u32)boundheight)
                     continue;
 
@@ -2403,17 +2424,13 @@ void GPU2D::DrawSprites(u32 line)
                 s32 height = spriteheight[sizeparam];
 
                 u32 ypos = attrib[0] & 0xFF;
-                ypos = (line - ypos) & 0xFF;
+                ypos = (sprline - ypos) & 0xFF;
                 if (ypos >= (u32)height)
                     continue;
 
                 s32 xpos = (s32)(attrib[1] << 23) >> 23;
                 if (xpos <= -width)
                     continue;
-
-                // yflip
-                //if (attrib[1] & 0x2000)
-                //    ypos = height-1 - ypos;
 
                 DoDrawSprite(Normal, sprnum, width, height, xpos, ypos);
 
@@ -2442,9 +2459,6 @@ void GPU2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 wi
     if ((attrib[0] & 0x1000) && !window)
     {
         // apply Y mosaic
-        ypos = OBJMosaicY - (attrib[0] & 0xFF);
-        if (ypos < 0) ypos = 0;
-
         pixelattr |= 0x100000;
     }
 
@@ -2659,9 +2673,6 @@ void GPU2D::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos
     if ((attrib[0] & 0x1000) && !window)
     {
         // apply Y mosaic
-        ypos = OBJMosaicY - (attrib[0] & 0xFF);
-        if (ypos < 0) ypos = 0;
-
         pixelattr |= 0x100000;
     }
 
