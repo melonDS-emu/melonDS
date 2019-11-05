@@ -113,7 +113,11 @@ void ARM::DoSavestate(Savestate* file)
 
     file->Var32((u32*)&Cycles);
     //file->Var32((u32*)&CyclesToRun);
-    file->Var32(&StopExecution);
+
+    // hack to make save states compatible
+    u32 halted = Halted;
+    file->Var32(&halted);
+    Halted = halted;
 
     file->VarArray(R, 16*sizeof(u32));
     file->Var32(&CPSR);
