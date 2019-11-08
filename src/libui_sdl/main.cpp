@@ -2664,6 +2664,45 @@ int main(int argc, char** argv)
         SDL_Quit();
         return 0;
     }
+    if (!Platform::LocalFileExists("firmware.bin.bak"))
+    {
+        // verify the firmware
+        //
+        // there are dumps of an old hacked firmware floating around on the internet
+        // and those are problematic
+        // the hack predates WFC, and, due to this, any game that alters the WFC
+        // access point data will brick that firmware due to it having critical
+        // data in the same area. it has the same problem on hardware.
+        //
+        // but this should help stop users from reporting that issue over and over
+        // again, when the issue is not from melonDS but from their firmware dump.
+        //
+        // I don't know about all the firmware hacks in existence, but the one I
+        // looked at has 0x180 bytes from the header repeated at 0x3FC80, but
+        // bytes 0x0C-0x14 are different.
+
+        FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
+        u8 chk1[0x180], chk2[0x180];
+
+        fseek(f, 0, SEEK_SET);
+        fread(chk1, 1, 0x180, f);
+        fseek(f, -0x380, SEEK_END);
+        fread(chk2, 1, 0x180, f);
+
+        memset(&chk1[0x0C], 0, 8);
+        memset(&chk2[0x0C], 0, 8);
+
+        fclose(f);
+
+        if (!memcmp(chk1, chk2, 0x180))
+        {
+            uiMsgBoxError(NULL,
+                          "Problematic firmware dump",
+                          "You are using an old hacked firmware dump.\n"
+                          "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
+                          "Note that the issue is not from melonDS, it would also happen on an actual DS.");
+        }
+    }
     {
         FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
         if (f)
