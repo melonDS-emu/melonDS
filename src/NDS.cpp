@@ -32,7 +32,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
-
+#include "HLE_bios.h"
 
 namespace NDS
 {
@@ -420,12 +420,16 @@ void Reset()
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
+        ARM9->useHLE_bios = true;
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        s32 len = _binary_fakeBios9_bin_end - _binary_fakeBios9_bin_start;
+        if (len > sizeof(ARM9BIOS)) len = sizeof(ARM9BIOS);
+        memset(ARM9BIOS, 0, sizeof(ARM9BIOS));
+        memcpy(ARM9BIOS, _binary_fakeBios9_bin_start, len);
     }
     else
     {
+        ARM9->useHLE_bios = false;
         fseek(f, 0, SEEK_SET);
         fread(ARM9BIOS, 0x1000, 1, f);
 
@@ -437,12 +441,16 @@ void Reset()
     if (!f)
     {
         printf("ARM7 BIOS not found\n");
+        ARM7->useHLE_bios = true;
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+        s32 len = _binary_fakeBios7_bin_end - _binary_fakeBios7_bin_start;
+        if (len > sizeof(ARM7BIOS)) len = sizeof(ARM7BIOS);
+        memset(ARM7BIOS, 0, sizeof(ARM7BIOS));
+        memcpy(ARM7BIOS, _binary_fakeBios7_bin_start, len);
     }
     else
     {
+        ARM7->useHLE_bios = false;
         fseek(f, 0, SEEK_SET);
         fread(ARM7BIOS, 0x4000, 1, f);
 
@@ -754,6 +762,11 @@ bool LoadROM(const u8* file, s32 fileSize, bool direct)
 {
     if (NDSCart::LoadROM(file, fileSize, direct))
     {
+        if (ARM9->useHLE_bios)
+        {
+            memcpy(ARM9BIOS + 0x20, NDSCart::CartROM + 0xC0, 160);
+            printf("copied logo\n");
+        }
         Running = true;
         return true;
     }

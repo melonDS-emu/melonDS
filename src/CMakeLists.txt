@@ -18,6 +18,8 @@ add_library(core STATIC
 	GPU3D.cpp
 	GPU3D_OpenGL.cpp
 	GPU3D_Soft.cpp
+	HLE_bios.cpp
+	MemoryStream.cpp
 	NDS.cpp
 	NDSCart.cpp
 	OpenGLSupport.cpp

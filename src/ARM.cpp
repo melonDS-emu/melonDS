@@ -97,6 +97,8 @@ void ARM::Reset()
 
     // zorp
     JumpTo(ExceptionBase);
+
+    intrWaitARM_state = 0;
 }
 
 void ARMv5::Reset()

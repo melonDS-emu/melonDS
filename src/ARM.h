@@ -132,6 +132,9 @@ public:
     NDS::MemRegion CodeMem;
 
     static u32 ConditionTable[16];
+
+    bool useHLE_bios;
+    u8 intrWaitARM_state;
 };
 
 class ARMv5 : public ARM

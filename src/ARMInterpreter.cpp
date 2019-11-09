@@ -22,6 +22,7 @@
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_Branch.h"
 #include "ARMInterpreter_LoadStore.h"
+#include "HLE_bios.h"
 
 
 namespace ARMInterpreter
@@ -220,26 +221,46 @@ void A_MRC(ARM* cpu)
 
 void A_SVC(ARM* cpu)
 {
-    u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xBF;
-    cpu->CPSR |= 0x93;
-    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+    // Check if BIOS is loaded.
+    if (cpu->useHLE_bios)
+    {
+        u32 swinum = (cpu->CurInstr >> 16) & 0x1F;
+        s32 cycles = ARM_swi_tab[cpu->Num][swinum](cpu);
+        cpu->Cycles += cycles + 3;
+    }
+    else
+    {
+        u32 oldcpsr = cpu->CPSR;
+        cpu->CPSR &= ~0xBF;
+        cpu->CPSR |= 0x93;
+        cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
-    cpu->R_SVC[2] = oldcpsr;
-    cpu->R[14] = cpu->R[15] - 4;
-    cpu->JumpTo(cpu->ExceptionBase + 0x08);
+        cpu->R_SVC[2] = oldcpsr;
+        cpu->R[14] = cpu->R[15] - 4;
+        cpu->JumpTo(cpu->ExceptionBase + 0x08);
+    }
 }
 
 void T_SVC(ARM* cpu)
 {
-    u32 oldcpsr = cpu->CPSR;
-    cpu->CPSR &= ~0xBF;
-    cpu->CPSR |= 0x93;
-    cpu->UpdateMode(oldcpsr, cpu->CPSR);
+    // Check if BIOS is loaded.
+    if (cpu->useHLE_bios)
+    {
+        u32 swinum = cpu->CurInstr & 0x1F;
+        s32 cycles = ARM_swi_tab[cpu->Num][swinum](cpu);
+        cpu->Cycles += cycles + 3;
+    }
+    else
+    {
+        u32 oldcpsr = cpu->CPSR;
+        cpu->CPSR &= ~0xBF;
+        cpu->CPSR |= 0x93;
+        cpu->UpdateMode(oldcpsr, cpu->CPSR);
 
-    cpu->R_SVC[2] = oldcpsr;
-    cpu->R[14] = cpu->R[15] - 2;
-    cpu->JumpTo(cpu->ExceptionBase + 0x08);
+        cpu->R_SVC[2] = oldcpsr;
+        cpu->R[14] = cpu->R[15] - 2;
+        cpu->JumpTo(cpu->ExceptionBase + 0x08);
+    }
 }
 
 
