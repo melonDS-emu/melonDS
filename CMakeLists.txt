@@ -40,16 +40,14 @@ if (BUILD_LIBUI)
 	add_subdirectory(src/libui_sdl)
 endif()
 
-configure_file(
-	${CMAKE_SOURCE_DIR}/romlist.bin
-	${CMAKE_BINARY_DIR}/romlist.bin COPYONLY)
-
 # resource embedding - https://stackoverflow.com/a/56006001/4926282
 set(RC_DEPENDS "")
 function(add_resource input)
     string(MAKE_C_IDENTIFIER ${input} input_identifier)
-    set(output "${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/${input_identifier}.o")
-    target_link_libraries(${PROJECT_NAME} ${output})
+    set(output "${input_identifier}.o")
+    target_link_libraries(${PROJECT_NAME} ${CMAKE_BINARY_DIR}/${output})
+
+	configure_file(${CMAKE_SOURCE_DIR}/${input} ${input} COPYONLY)
 
     add_custom_command(
         OUTPUT ${output}
@@ -62,4 +60,6 @@ endfunction()
 
 # Resource file list
 add_resource("romlist.bin")
+add_resource("fakeBios7.bin")
+add_resource("fakeBios9.bin")
 add_custom_target(rc ALL DEPENDS ${RC_DEPENDS})
