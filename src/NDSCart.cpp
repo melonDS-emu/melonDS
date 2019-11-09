@@ -997,7 +997,8 @@ bool LoadROM(const u8* file, s32 fileSize, bool direct)
     memset(CartROM + fileSize, 0, CartROMSize - fileSize);
 
     u32 sramType = InitROM(CartROMSize, direct);
-    NDSCart_SRAM::LoadSave(new char[1024], sramType);
+    NDSCart_SRAM::SRAMPath[0] = '\0';
+    NDSCart_SRAM::LoadSave(NDSCart_SRAM::SRAMPath, sramType);
     return true;
 }
 
