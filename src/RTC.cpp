@@ -20,6 +20,7 @@
 #include <string.h>
 #include <time.h>
 #include "RTC.h"
+#include "Config.h"
 
 
 namespace RTC
@@ -129,6 +130,7 @@ void ByteIn(u8 val)
                     time_t timestamp;
                     struct tm* timedata;
                     time(&timestamp);
+                    timestamp += Config::RTCOffset;
                     timedata = localtime(&timestamp);
 
                     Output[0] = BCD(timedata->tm_year - 100);
@@ -146,6 +148,7 @@ void ByteIn(u8 val)
                     time_t timestamp;
                     struct tm* timedata;
                     time(&timestamp);
+	                timestamp += Config::RTCOffset;
                     timedata = localtime(&timestamp);
 
                     Output[0] = BCD(timedata->tm_hour);

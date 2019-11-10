@@ -46,6 +46,8 @@ extern int Threaded3D;
 extern int GL_ScaleFactor;
 extern int GL_Antialias;
 
+extern int RTCOffset;
+
 }
 
 #endif // CONFIG_H
