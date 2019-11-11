@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 
 #include "libui/ui.h"
 
@@ -37,7 +38,7 @@ bool opened;
 uiWindow* win;
 
 uiCheckbox* cbDirectBoot;
-
+uiEntry* eRTCOffset;
 
 int OnCloseWindow(uiWindow* window, void* blarg)
 {
@@ -54,11 +55,20 @@ void OnCancel(uiButton* btn, void* blarg)
 void OnOk(uiButton* btn, void* blarg)
 {
     Config::DirectBoot = uiCheckboxChecked(cbDirectBoot);
-
+    
+    int offset = std::stoi(uiEntryText(eRTCOffset));
+    Config::RTCOffset = offset;
+    
     Config::Save();
 
     uiControlDestroy(uiControl(win));
     opened = false;
+}
+
+void OnRtcEntryChanged(uiEntry* entry, void* blarg)
+{
+	int offset = std::stoi(uiEntryText(eRTCOffset));
+	Config::RTCOffset = offset;
 }
 
 void Open()
@@ -83,6 +93,22 @@ void Open()
 
         cbDirectBoot = uiNewCheckbox("Boot game directly");
         uiBoxAppend(in_ctrl, uiControl(cbDirectBoot), 0);
+        
+        {
+	        uiBox* rtc_box = uiNewHorizontalBox();
+	        uiBoxSetPadded(rtc_box, 1);
+	        uiBoxAppend(in_ctrl, uiControl(rtc_box), 1);
+	
+	        uiLabel* lRTC = uiNewLabel("RTC Offset: ");
+	        uiBoxAppend(rtc_box, uiControl(lRTC), 0);
+	        
+	        eRTCOffset = uiNewEntry();
+	        std::string str = std::to_string(Config::RTCOffset);
+	        uiEntrySetText(eRTCOffset, str.c_str());
+	        uiEntryOnChanged(eRTCOffset, OnRtcEntryChanged, NULL);
+	        uiBoxAppend(rtc_box, uiControl(eRTCOffset), 0);
+	        
+        }
     }
 
     {
