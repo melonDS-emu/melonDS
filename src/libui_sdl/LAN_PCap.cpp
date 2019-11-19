@@ -257,12 +257,11 @@ bool Init(bool open_adapter)
         struct ifaddrs* curaddr = addrs;
         while (curaddr)
         {
-            if (strcmp(curaddr->ifa_name, adata->DeviceName))
+            if (strcmp(curaddr->ifa_name, adata->DeviceName) || !curaddr->ifa_addr)
             {
                 curaddr = curaddr->ifa_next;
                 continue;
             }
-            if (!curaddr->ifa_addr) continue;
             
             u16 af = curaddr->ifa_addr->sa_family;
             if (af == AF_INET)
