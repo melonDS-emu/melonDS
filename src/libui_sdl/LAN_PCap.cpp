@@ -257,7 +257,7 @@ bool Init(bool open_adapter)
         struct ifaddrs* curaddr = addrs;
         while (curaddr)
         {
-            if (strcmp(curaddr->ifa_name, adata->DeviceName)
+            if (strcmp(curaddr->ifa_name, adata->DeviceName))
             {
                 curaddr = curaddr->ifa_next;
                 continue;
