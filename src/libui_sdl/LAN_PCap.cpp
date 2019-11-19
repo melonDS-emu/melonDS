@@ -264,7 +264,7 @@ bool Init(bool open_adapter)
             }
             
 	    if (!curaddr->ifa_addr){
-		printf("Device does not have an address :/");    
+		printf("Device does not have an address :/\n");    
 		curaddr = curaddr->ifa_next;
                 continue;
 	    }
