@@ -2724,6 +2724,17 @@ int main(int argc, char** argv)
         }
     }
     {
+        const char* romlist_missing = "Save memory type detection will not work correctly.\n\n"
+            "You should use the latest version of romlist.bin (provided in melonDS release packages).";
+#if !defined(UNIX_PORTABLE) && !defined(__WIN32__)
+        std::string missingstr = std::string(romlist_missing) +
+            "\n\nThe ROM list should be placed in " + g_get_user_data_dir() + "/melonds/, otherwise "
+            "melonDS will search for it in the current working directory.";
+        const char* romlist_missing_text = missingstr.c_str();
+#else
+        const char* romlist_missing_text = romlist_missing;
+#endif
+
         FILE* f = Platform::OpenDataFile("romlist.bin");
         if (f)
         {
@@ -2733,18 +2744,12 @@ int main(int argc, char** argv)
 
             if ((data >> 24) == 0) // old CRC-based list
             {
-                uiMsgBoxError(NULL,
-                              "Your version of romlist.bin is outdated.",
-                              "Save memory type detection will not work correctly.\n\n"
-                              "You should use the latest version of romlist.bin (provided in melonDS release packages).");
+                uiMsgBoxError(NULL, "Your version of romlist.bin is outdated.", romlist_missing_text);
             }
         }
         else
         {
-        	uiMsgBoxError(NULL,
-        			     "romlist.bin not found.",
-        			     "Save memory type detection will not work correctly.\n\n"
-				         "You should use the latest version of romlist.bin (provided in melonDS release packages).");
+        	uiMsgBoxError(NULL, "romlist.bin not found.", romlist_missing_text);
         }
     }
 
