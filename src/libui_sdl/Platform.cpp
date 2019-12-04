@@ -186,6 +186,9 @@ FILE* OpenDataFile(const char* path)
         }
         free(fullpath);
     }
+
+	FILE* f = fopen(path, "rb");
+	if (f) return f;
     
     return NULL;
 }
