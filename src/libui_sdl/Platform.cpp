@@ -316,7 +316,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 
 FILE* OpenDataFile(const char* path)
 {
-	return OpenLocalFile(path, "r");
+	return OpenLocalFile(path, "rb");
 }
 
 #endif
