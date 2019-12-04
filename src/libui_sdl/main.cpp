@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef __WIN32__
+#include <glib.h>
+#endif
+
 #include <SDL2/SDL.h>
 #include "libui/ui.h"
 
@@ -2589,6 +2593,7 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+#if defined(__WIN32__) || defined(UNIX_PORTABLE)
     if (argc > 0 && strlen(argv[0]) > 0)
     {
         int len = strlen(argv[0]);
@@ -2615,6 +2620,13 @@ int main(int argc, char** argv)
         EmuDirectory = new char[2];
         strcpy(EmuDirectory, ".");
     }
+#else
+	const char* confdir = g_get_user_config_dir();
+	const char* confname = "/melonds";
+	EmuDirectory = new char[strlen(confdir) + strlen(confname) + 1];
+	strcat(EmuDirectory, confdir);
+	strcat(EmuDirectory, confname);
+#endif
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -2650,15 +2662,23 @@ int main(int argc, char** argv)
         !Platform::LocalFileExists("bios9.bin") ||
         !Platform::LocalFileExists("firmware.bin"))
     {
-        uiMsgBoxError(
-            NULL,
-            "BIOS/Firmware not found",
+#if defined(__WIN32__) || defined(UNIX_PORTABLE)
+		const char* locationName = "the directory you run melonDS from";
+#else
+		char* locationName = EmuDirectory;
+#endif
+		char msgboxtext[512];
+		sprintf(msgboxtext, 
             "One or more of the following required files don't exist or couldn't be accessed:\n\n"
             "bios7.bin -- ARM7 BIOS\n"
             "bios9.bin -- ARM9 BIOS\n"
             "firmware.bin -- firmware image\n\n"
-            "Dump the files from your DS and place them in the directory you run melonDS from.\n"
-            "Make sure that the files can be accessed.");
+            "Dump the files from your DS and place them in %s.\n"
+            "Make sure that the files can be accessed.",
+			locationName
+		);
+
+        uiMsgBoxError(NULL, "BIOS/Firmware not found", msgboxtext);
 
         uiUninit();
         SDL_Quit();
@@ -2704,7 +2724,7 @@ int main(int argc, char** argv)
         }
     }
     {
-        FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+        FILE* f = Platform::OpenDataFile("romlist.bin");
         if (f)
         {
             u32 data;

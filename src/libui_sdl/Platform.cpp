@@ -135,6 +135,63 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     return ret;
 }
 
+#if !defined(UNIX_PORTABLE) && !defined(__WIN32__)
+
+FILE* OpenLocalFile(const char* path, const char* mode)
+{
+    std::string fullpath;
+    if (path[0] == '/')
+    {
+        // If it's an absolute path, just open that.
+        fullpath = std::string(path);
+    }
+    else
+    {
+        // Check user configuration directory
+        std::string confpath = std::string(g_get_user_config_dir()) + "/melonds/";
+        g_mkdir_with_parents(confpath.c_str(), 0755);
+        fullpath = confpath + path;
+    }
+
+    return OpenFile(fullpath.c_str(), mode, mode[0] != 'w');
+}
+
+FILE* OpenDataFile(const char* path)
+{
+    const char* melondir = "melonds";
+    const char* const* sys_dirs = g_get_system_data_dirs();
+    const char* user_dir = g_get_user_data_dir();
+
+    // First check the user's data directory
+    char* fullpath = g_build_path("/", user_dir, melondir, path, NULL);
+    if (access(fullpath, R_OK) == 0)
+    {
+        FILE* f = fopen(fullpath, "r");
+        g_free(fullpath);
+        return f;
+    }
+    free(fullpath);
+
+    // Then check the system data directories
+    for (size_t i = 0; sys_dirs[i] != NULL; i++)
+    {
+        const char* dir = sys_dirs[i];
+        char* fullpath = g_build_path("/", dir, melondir, path, NULL);
+
+        if (access(fullpath, R_OK) == 0)
+        {
+            FILE* f = fopen(fullpath, "r");
+            g_free(fullpath);
+            return f;
+        }
+        free(fullpath);
+    }
+    
+    return NULL;
+}
+
+#else
+
 FILE* OpenLocalFile(const char* path, const char* mode)
 {
     bool relpath = false;
@@ -256,6 +313,13 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     delete[] emudirpath;
     return NULL;
 }
+
+FILE* OpenDataFile(const char* path)
+{
+	return OpenLocalFile(path, "r");
+}
+
+#endif
 
 
 void* Thread_Create(void (*func)())

@@ -815,7 +815,7 @@ bool ReadROMParams(u32 gamecode, u32* params)
     // [gamecode] [ROM size] [save type] [reserved]
     // list must be sorted by gamecode
 
-    FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+    FILE* f = Platform::OpenDataFile("romlist.bin");
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);
