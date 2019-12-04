@@ -31,7 +31,7 @@ target_link_libraries(melonDS
 	core ${SDL2_LIBRARIES} libui)
 
 if (UNIX)
-	option(UNIX_PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+	option(UNIX_PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
 	if (UNIX_PORTABLE)
 		add_definitions(-DUNIX_PORTABLE)
 	endif()
