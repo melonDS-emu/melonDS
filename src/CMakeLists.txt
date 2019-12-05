@@ -11,6 +11,7 @@ add_library(core STATIC
 	CRC32.cpp
 	DMA.cpp
 	GPU.cpp
+	GPU_OpenGL.cpp
 	GPU2D.cpp
 	GPU3D.cpp
 	GPU3D_OpenGL.cpp

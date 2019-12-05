@@ -128,6 +128,8 @@
 		<Unit filename="src/GPU3D_OpenGL.cpp" />
 		<Unit filename="src/GPU3D_OpenGL_shaders.h" />
 		<Unit filename="src/GPU3D_Soft.cpp" />
+		<Unit filename="src/GPU_OpenGL.cpp" />
+		<Unit filename="src/GPU_OpenGL_shaders.h" />
 		<Unit filename="src/NDS.cpp" />
 		<Unit filename="src/NDS.h" />
 		<Unit filename="src/NDSCart.cpp" />

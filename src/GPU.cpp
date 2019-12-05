@@ -20,7 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-u64 vbltime;
+
 
 namespace GPU
 {
