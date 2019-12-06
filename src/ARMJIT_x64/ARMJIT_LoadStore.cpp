@@ -347,8 +347,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                 // stupid dtcm...
                 if (addr >= cpu5->DTCMBase && addr < (cpu5->DTCMBase + cpu5->DTCMSize))
                 {
-                    region.Mem = cpu5->DTCM;
-                    region.Mask = 0x3FFF;
+                    // disable this for now as DTCM is located in heap
+                    // which might excced the RIP-addressable range
+                    //region.Mem = cpu5->DTCM;
+                    //region.Mask = 0x3FFF;
                 }
                 else
                 {
