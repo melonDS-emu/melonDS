@@ -51,6 +51,8 @@ bool Init()
 
     for (int i = 0; i < 1; i++)
     {
+        GLint uni_id;
+
         glBindAttribLocation(CompShader[i][2], 0, "vPosition");
         glBindFragDataLocation(CompShader[i][2], 0, "oColor");
 
@@ -58,6 +60,12 @@ bool Init()
             return false;
 
         CompScaleLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DScale");
+
+        glUseProgram(CompShader[i][2]);
+        uni_id = glGetUniformLocation(CompShader[i][2], "ScreenTex");
+        glUniform1i(uni_id, 0);
+        uni_id = glGetUniformLocation(CompShader[i][2], "_3DTex");
+        glUniform1i(uni_id, 1);
     }
 
 #define SETVERTEX(i, x, y) \

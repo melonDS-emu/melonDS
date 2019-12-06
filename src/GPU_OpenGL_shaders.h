@@ -33,7 +33,7 @@ void main()
     fpos.w = 1.0;
 
     gl_Position = fpos;
-    fTexcoord = (vPosition + vec2(1.0, -1.0)) * (vec2(256.0, -384.0) / 2.0);
+    fTexcoord = (vPosition + vec2(1.0, 1.0)) * (vec2(256.0, 384.0) / 2.0);
 }
 )";
 

@@ -63,11 +63,11 @@ out vec4 oColor;
 
 void main()
 {
-    ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
+    //ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
 
     // TODO: filters
 
-    oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
+    //oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
     oColor = texelFetch(ScreenTex, ivec2(fTexcoord), 0);
 }
 )";

@@ -410,31 +410,31 @@ void GLScreen_DrawScreen()
         switch (ScreenRotation)
         {
         case 0:
-            s0 = 0; t0 = 192;
-            s1 = scwidth; t1 = 192;
-            s2 = 0; t2 = 192+scheight;
-            s3 = scwidth; t3 = 192+scheight;
+            s0 = 0; t0 = scheight;
+            s1 = scwidth; t1 = scheight;
+            s2 = 0; t2 = scheight+scheight;
+            s3 = scwidth; t3 = scheight+scheight;
             break;
 
         case 1:
-            s0 = 0; t0 = 192+scheight;
-            s1 = 0; t1 = 192;
-            s2 = scwidth; t2 = 192+scheight;
-            s3 = scwidth; t3 = 192;
+            s0 = 0; t0 = scheight+scheight;
+            s1 = 0; t1 = scheight;
+            s2 = scwidth; t2 = scheight+scheight;
+            s3 = scwidth; t3 = scheight;
             break;
 
         case 2:
-            s0 = scwidth; t0 = 192+scheight;
-            s1 = 0; t1 = 192+scheight;
-            s2 = scwidth; t2 = 192;
-            s3 = 0; t3 = 192;
+            s0 = scwidth; t0 = scheight+scheight;
+            s1 = 0; t1 = scheight+scheight;
+            s2 = scwidth; t2 = scheight;
+            s3 = 0; t3 = scheight;
             break;
 
         case 3:
-            s0 = scwidth; t0 = 192;
-            s1 = scwidth; t1 = 192+scheight;
-            s2 = 0; t2 = 192;
-            s3 = 0; t3 = 192+scheight;
+            s0 = scwidth; t0 = scheight;
+            s1 = scwidth; t1 = scheight+scheight;
+            s2 = 0; t2 = scheight;
+            s3 = 0; t3 = scheight+scheight;
             break;
         }
 
