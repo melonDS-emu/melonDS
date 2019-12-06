@@ -422,6 +422,20 @@ void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
 
+namespace GLCompositor
+{
+
+bool Init();
+void DeInit();
+void Reset();
+
+void UpdateDisplaySettings();
+
+void RenderFrame();
+void BindOutputTexture();
+
+}
+
 }
 
 #endif

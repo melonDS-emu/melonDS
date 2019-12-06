@@ -55,7 +55,7 @@ layout(std140) uniform uConfig
     uint uFilterMode;
 };
 
-uniform usampler2D ScreenTex;
+uniform sampler2D ScreenTex;
 
 smooth in vec2 fTexcoord;
 
@@ -68,6 +68,7 @@ void main()
     // TODO: filters
 
     oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
+    oColor = texelFetch(ScreenTex, ivec2(fTexcoord), 0);
 }
 )";
 
