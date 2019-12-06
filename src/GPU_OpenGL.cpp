@@ -157,26 +157,26 @@ void UpdateDisplaySettings()
 
 
 void RenderFrame()
-{printf("0: error %04X\n", glGetError());
+{
     glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);
-printf("1: error %04X\n", glGetError());
+
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
     glDisable(GL_BLEND);
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glViewport(0, 0, ScreenW, ScreenH);
-printf("2: error %04X\n", glGetError());
+
     // TODO: select more shaders (filtering, etc)
     OpenGL_UseShaderProgram(CompShader[0]);
     glUniform1ui(CompScaleLoc[0], Scale);
-printf("3: error %04X\n", glGetError());
+
     //if (RunningSomething)
     {
         int frontbuf = GPU::FrontBuffer;
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
-printf("4: error %04X\n", glGetError());
+
         if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
@@ -184,14 +184,13 @@ printf("4: error %04X\n", glGetError());
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
         }
-printf("5: error %04X\n", glGetError());
+
         glActiveTexture(GL_TEXTURE1);
         GPU3D::GLRenderer::SetupAccelFrame();
-printf("6: error %04X\n", glGetError());
+
         glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
         glBindVertexArray(CompVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 4*3);
-        printf("7: error %04X\n", glGetError());
     }
 }
 

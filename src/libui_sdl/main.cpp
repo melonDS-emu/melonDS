@@ -261,8 +261,8 @@ bool GLScreen_Init()
 
     if (!GLScreen_InitShader(GL_ScreenShader, kScreenFS))
         return false;
-    if (!GLScreen_InitShader(GL_ScreenShaderAccel, kScreenFS_Accel))
-        return false;
+    //if (!GLScreen_InitShader(GL_ScreenShaderAccel, kScreenFS_Accel))
+    //    return false;
     if (!GLScreen_InitOSDShader(GL_ScreenShaderOSD))
         return false;
 
@@ -358,8 +358,8 @@ void GLScreen_DrawScreen()
         x1 = TopScreenRect.X + TopScreenRect.Width;
         y1 = TopScreenRect.Y + TopScreenRect.Height;
 
-        scwidth = 256 * GL_3DScale;
-        scheight = 192 * GL_3DScale;
+        scwidth = 1.0;//256 * GL_3DScale;
+        scheight = 0.5;//192 * GL_3DScale;
 
         switch (ScreenRotation)
         {
@@ -404,8 +404,8 @@ void GLScreen_DrawScreen()
         x1 = BottomScreenRect.X + BottomScreenRect.Width;
         y1 = BottomScreenRect.Y + BottomScreenRect.Height;
 
-        scwidth = 256 * GL_3DScale;
-        scheight = 192 * GL_3DScale;
+        scwidth = 1.0;//256 * GL_3DScale;
+        scheight = 0.5;//192 * GL_3DScale;
 
         switch (ScreenRotation)
         {
@@ -488,6 +488,18 @@ void GLScreen_DrawScreen()
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);*/
+            }
+
+            // filtering
+            if (Config::ScreenFilter == 1)
+            {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            }
+            else
+            {
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             }
         }
 
