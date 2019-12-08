@@ -156,6 +156,11 @@ bool LoadROM(const char* path, const char* sram)
         return false;
     }
 
+    if (CartInserted)
+    {
+        Reset();
+    }
+
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
 
