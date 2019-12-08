@@ -29,6 +29,10 @@ namespace GBACart_SRAM
 extern u8* SRAM;
 extern u32 SRAMLength;
 
+void Write8(u32 addr, u8 val);
+void Write16(u32 addr, u16 val);
+void Write32(u32 addr, u32 val);
+
 }
 
 

@@ -104,6 +104,60 @@ void RelocateSave(const char* path, bool write)
     fclose(f);
 }
 
+void Write8(u32 addr, u8 val)
+{
+    u8 prev = *(u8*)&SRAM[addr];
+
+    if (prev != val)
+    {
+        *(u8*)&SRAM[addr] = val;/*
+
+        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+        if (f)
+        {
+            fseek(f, addr, SEEK_SET);
+            fwrite((u8*)&SRAM[addr], 1, 1, f);
+            fclose(f);
+        }*/
+    }
+}
+
+void Write16(u32 addr, u16 val)
+{
+    u16 prev = *(u16*)&SRAM[addr];
+
+    if (prev != val)
+    {
+        *(u16*)&SRAM[addr] = val;/*
+
+        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+        if (f)
+        {
+            fseek(f, addr, SEEK_SET);
+            fwrite((u8*)&SRAM[addr], 2, 1, f);
+            fclose(f);
+        }*/
+    }
+}
+
+void Write32(u32 addr, u32 val)
+{
+    u32 prev = *(u32*)&SRAM[addr];
+
+    if (prev != val)
+    {
+        *(u32*)&SRAM[addr] = val;/*
+
+        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+        if (f)
+        {
+            fseek(f, addr, SEEK_SET);
+            fwrite((u8*)&SRAM[addr], 3, 1, f);
+            fclose(f);
+        }*/
+    }
+}
+
 }
 
 
