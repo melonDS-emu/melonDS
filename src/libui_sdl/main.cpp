@@ -2065,6 +2065,12 @@ void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
     {
         ROMPath[0][0] = '\0';
         NDS::LoadBIOS();
+
+        if (ROMPath[1][0] != '\0')
+        {
+            SetupSRAMPath(1);
+            NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
+        }
     }
 
     Run();
