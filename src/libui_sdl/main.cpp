@@ -105,9 +105,9 @@ int EmuRunning;
 volatile int EmuStatus;
 
 bool RunningSomething;
-char ROMPath[1024];
-char SRAMPath[1024];
-char PrevSRAMPath[1024]; // for savestate 'undo load'
+char ROMPath[2][1024];
+char SRAMPath[2][1024];
+char PrevSRAMPath[2][1024]; // for savestate 'undo load'
 
 bool SavestateLoaded;
 
@@ -184,7 +184,7 @@ void SetupScreenRects(int width, int height);
 void TogglePause(void* blarg);
 void Reset(void* blarg);
 
-void SetupSRAMPath();
+void SetupSRAMPath(int slot);
 
 void SaveState(int slot);
 void LoadState(int slot);
@@ -1648,12 +1648,18 @@ void Reset(void* blarg)
     SavestateLoaded = false;
     uiMenuItemDisable(MenuItem_UndoStateLoad);
 
-    if (ROMPath[0] == '\0')
+    if (ROMPath[0][0] == '\0')
         NDS::LoadBIOS();
     else
     {
-        SetupSRAMPath();
-        NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot);
+        SetupSRAMPath(0);
+        NDS::LoadROM(ROMPath[0], SRAMPath[0], Config::DirectBoot);
+    }
+
+    if (ROMPath[1][0] != '\0')
+    {
+        SetupSRAMPath(1);
+        NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
     }
 
     Run();
@@ -1688,32 +1694,44 @@ void Stop(bool internal)
     OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
-void SetupSRAMPath()
+void SetupSRAMPath(int slot)
 {
-    strncpy(SRAMPath, ROMPath, 1023);
-    SRAMPath[1023] = '\0';
-    strncpy(SRAMPath + strlen(ROMPath) - 3, "sav", 3);
+    strncpy(SRAMPath[slot], ROMPath[slot], 1023);
+    SRAMPath[slot][1023] = '\0';
+    strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
 }
 
-void TryLoadROM(char* file, int prevstatus)
+void TryLoadROM(char* file, int slot, int prevstatus)
 {
     char oldpath[1024];
     char oldsram[1024];
-    strncpy(oldpath, ROMPath, 1024);
-    strncpy(oldsram, SRAMPath, 1024);
+    strncpy(oldpath, ROMPath[slot], 1024);
+    strncpy(oldsram, SRAMPath[slot], 1024);
 
-    strncpy(ROMPath, file, 1023);
-    ROMPath[1023] = '\0';
+    strncpy(ROMPath[slot], file, 1023);
+    ROMPath[slot][1023] = '\0';
 
-    SetupSRAMPath();
+    SetupSRAMPath(0);
+    SetupSRAMPath(1);
 
-    if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
+    if (slot == 0 && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], Config::DirectBoot))
     {
         SavestateLoaded = false;
         uiMenuItemDisable(MenuItem_UndoStateLoad);
 
-        strncpy(PrevSRAMPath, SRAMPath, 1024); // safety
+        // Reload the inserted GBA cartridge (if any)
+        if (ROMPath[1][0] != '\0') NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
+
+        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
         Run();
+    }
+    else if (slot == 1 && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
+    {
+        SavestateLoaded = false;
+        uiMenuItemDisable(MenuItem_UndoStateLoad);
+
+        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        if (RunningSomething) Run(); // do not start just from a GBA cart
     }
     else
     {
@@ -1721,8 +1739,8 @@ void TryLoadROM(char* file, int prevstatus)
                       "Failed to load the ROM",
                       "Make sure the file can be accessed and isn't opened in another application.");
 
-        strncpy(ROMPath, oldpath, 1024);
-        strncpy(SRAMPath, oldsram, 1024);
+        strncpy(ROMPath[slot], oldpath, 1024);
+        strncpy(SRAMPath[slot], oldsram, 1024);
         EmuRunning = prevstatus;
     }
 }
@@ -1735,22 +1753,22 @@ void GetSavestateName(int slot, char* filename, int len)
 {
     int pos;
 
-    if (ROMPath[0] == '\0') // running firmware, no ROM
+    if (ROMPath[0][0] == '\0') // running firmware, no ROM
     {
         strcpy(filename, "firmware");
         pos = 8;
     }
     else
     {
-        int l = strlen(ROMPath);
+        int l = strlen(ROMPath[0]);
         pos = l;
-        while (ROMPath[pos] != '.' && pos > 0) pos--;
+        while (ROMPath[0][pos] != '.' && pos > 0) pos--;
         if (pos == 0) pos = l;
 
         // avoid buffer overflow. shoddy
         if (pos > len-5) pos = len-5;
 
-        strncpy(&filename[0], ROMPath, pos);
+        strncpy(&filename[0], ROMPath[0], pos);
     }
     strcpy(&filename[pos], ".ml");
     filename[pos+3] = '0'+slot;
@@ -1818,16 +1836,16 @@ void LoadState(int slot)
 
     if (!failed)
     {
-        if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+        if (Config::SavestateRelocSRAM && ROMPath[0][0]!='\0')
         {
-            strncpy(PrevSRAMPath, SRAMPath, 1024);
+            strncpy(PrevSRAMPath[0], SRAMPath[0], 1024);
 
-            strncpy(SRAMPath, filename, 1019);
-            int len = strlen(SRAMPath);
-            strcpy(&SRAMPath[len], ".sav");
-            SRAMPath[len+4] = '\0';
+            strncpy(SRAMPath[0], filename, 1019);
+            int len = strlen(SRAMPath[0]);
+            strcpy(&SRAMPath[0][len], ".sav");
+            SRAMPath[0][len+4] = '\0';
 
-            NDS::RelocateSave(SRAMPath, false);
+            NDS::RelocateSave(SRAMPath[0], false);
         }
 
         char msg[64];
@@ -1883,14 +1901,14 @@ void SaveState(int slot)
         if (slot > 0)
             uiMenuItemEnable(MenuItem_LoadStateSlot[slot-1]);
 
-        if (Config::SavestateRelocSRAM && ROMPath[0]!='\0')
+        if (Config::SavestateRelocSRAM && ROMPath[0][0]!='\0')
         {
-            strncpy(SRAMPath, filename, 1019);
-            int len = strlen(SRAMPath);
-            strcpy(&SRAMPath[len], ".sav");
-            SRAMPath[len+4] = '\0';
+            strncpy(SRAMPath[0], filename, 1019);
+            int len = strlen(SRAMPath[0]);
+            strcpy(&SRAMPath[0][len], ".sav");
+            SRAMPath[0][len+4] = '\0';
 
-            NDS::RelocateSave(SRAMPath, true);
+            NDS::RelocateSave(SRAMPath[0], true);
         }
     }
 
@@ -1917,10 +1935,10 @@ void UndoStateLoad()
     NDS::DoSavestate(backup);
     delete backup;
 
-    if (ROMPath[0]!='\0')
+    if (ROMPath[0][0]!='\0')
     {
-        strncpy(SRAMPath, PrevSRAMPath, 1024);
-        NDS::RelocateSave(SRAMPath, false);
+        strncpy(SRAMPath[0], PrevSRAMPath[0], 1024);
+        NDS::RelocateSave(SRAMPath[0], false);
     }
 
     OSD::AddMessage(0, "State load undone");
@@ -1964,7 +1982,11 @@ void OnDropFile(uiWindow* window, char* file, void* blarg)
             while (EmuStatus != 2);
         }
 
-        TryLoadROM(file, prevstatus);
+        TryLoadROM(file, 0, prevstatus);
+    }
+    else if (!strcasecmp(ext, "gba"))
+    {
+        TryLoadROM(file, 1, prevstatus);
     }
 }
 
@@ -1995,7 +2017,7 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|Any file|*.*", Config::LastROMFolder);
+    char* file = uiOpenFile(window, "DS ROM (*.nds)|*.nds;*.srl|GBA ROM (*.gba)|*.gba|Any file|*.*", Config::LastROMFolder);
     if (!file)
     {
         EmuRunning = prevstatus;
@@ -2006,8 +2028,17 @@ void OnOpenFile(uiMenuItem* item, uiWindow* window, void* blarg)
     while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
     strncpy(Config::LastROMFolder, file, pos);
     Config::LastROMFolder[pos] = '\0';
+    char* ext = &file[strlen(file)-3];
 
-    TryLoadROM(file, prevstatus);
+    if (!strcasecmp(ext, "gba"))
+    {
+        TryLoadROM(file, 1, prevstatus);
+    }
+    else
+    {
+        TryLoadROM(file, 0, prevstatus);
+    }
+
     uiFreeText(file);
 }
 
@@ -2032,7 +2063,7 @@ void OnRun(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     if (!RunningSomething)
     {
-        ROMPath[0] = '\0';
+        ROMPath[0][0] = '\0';
         NDS::LoadBIOS();
     }
 
@@ -2852,13 +2883,29 @@ int main(int argc, char** argv)
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
         {
-            strncpy(ROMPath, file, 1023);
-            ROMPath[1023] = '\0';
+            strncpy(ROMPath[0], file, 1023);
+            ROMPath[0][1023] = '\0';
 
-            SetupSRAMPath();
+            SetupSRAMPath(0);
 
-            if (NDS::LoadROM(ROMPath, SRAMPath, Config::DirectBoot))
+            if (NDS::LoadROM(ROMPath[0], SRAMPath[0], Config::DirectBoot))
                 Run();
+        }
+
+        if (argc > 2)
+        {
+            file = argv[2];
+            ext = &file[strlen(file)-3];
+
+            if (!strcasecmp(ext, "gba"))
+            {
+                strncpy(ROMPath[1], file, 1023);
+                ROMPath[1][1023] = '\0';
+
+                SetupSRAMPath(1);
+
+                NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
+            }
         }
     }
 
