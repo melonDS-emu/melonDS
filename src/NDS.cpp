@@ -22,6 +22,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "NDSCart.h"
+#include "GBACart.h"
 #include "DMA.h"
 #include "FIFO.h"
 #include "GPU.h"
@@ -1611,14 +1612,18 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u8*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFF; // TODO: proper open bus
     }
 
@@ -1672,14 +1677,18 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFFFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u16*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFFFF; // TODO: proper open bus
     }
 
@@ -1733,14 +1742,18 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u32*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFFFFFFFF; // TODO: proper open bus
     }
 
@@ -1936,14 +1949,18 @@ u8 ARM7Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u8*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFF; // TODO: proper open bus
     }
 
@@ -1999,14 +2016,18 @@ u16 ARM7Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFFFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u16*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFFFF; // TODO: proper open bus
     }
 
@@ -2062,14 +2083,18 @@ u32 ARM7Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        //return *(u8*)&NDSCart::CartROM[addr & (NDSCart::CartROMSize-1)];
-        //printf("GBA read8 %08X\n", addr);
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
+        }
         return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        // TODO!!!
+        if (GBACart::CartInserted)
+        {
+            return *(u32*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+        }
         return 0xFFFFFFFF; // TODO: proper open bus
     }
 
