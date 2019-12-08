@@ -170,6 +170,7 @@ bool Init()
     IPCFIFO7 = new FIFO<u32>(16);
 
     if (!NDSCart::Init()) return false;
+    if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
     if (!SPU::Init()) return false;
     if (!SPI::Init()) return false;
@@ -191,6 +192,7 @@ void DeInit()
     delete IPCFIFO7;
 
     NDSCart::DeInit();
+    GBACart::DeInit();
     GPU::DeInit();
     SPU::DeInit();
     SPI::DeInit();
@@ -492,6 +494,7 @@ void Reset()
     RCnt = 0;
 
     NDSCart::Reset();
+    GBACart::Reset();
     GPU::Reset();
     SPU::Reset();
     SPI::Reset();
@@ -693,6 +696,7 @@ bool DoSavestate(Savestate* file)
     ARM7->DoSavestate(file);
 
     NDSCart::DoSavestate(file);
+    GBACart::DoSavestate(file);
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
     SPI::DoSavestate(file);
@@ -712,6 +716,19 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     if (NDSCart::LoadROM(path, sram, direct))
     {
         Running = true;
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM %s\n", path);
+        return false;
+    }
+}
+
+bool LoadGBAROM(const char* path, const char* sram)
+{
+    if (GBACart::LoadROM(path, sram))
+    {
         return true;
     }
     else

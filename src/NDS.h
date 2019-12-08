@@ -135,6 +135,7 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 
 bool LoadROM(const char* path, const char* sram, bool direct);
+bool LoadGBAROM(const char* path, const char* sram);
 void LoadBIOS();
 void SetupDirectBoot();
 void RelocateSave(const char* path, bool write);
