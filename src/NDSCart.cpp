@@ -398,7 +398,7 @@ void Write(u8 val, u32 hold)
     switch (CurCmd)
     {
     case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
+        // PokÃ©mon carts have an IR transceiver thing, and send this
         // to bypass it and access SRAM.
         // TODO: design better
         CurCmd = val;
