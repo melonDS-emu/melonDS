@@ -1674,6 +1674,9 @@ void Stop(bool internal)
         while (EmuStatus != 2);
     RunningSomething = false;
 
+    // eject any inserted GBA cartridge
+    ROMPath[1][0] = '\0';
+
     uiWindowSetTitle(MainWindow, "melonDS " MELONDS_VERSION);
 
     for (int i = 0; i < 9; i++) uiMenuItemDisable(MenuItem_SaveStateSlot[i]);

@@ -145,9 +145,9 @@ void LoadSave(const char* path)
     }
     else if (SRAMType == S_FLASH1M)
     {
-        // Macronix 128K chip
-        SRAMFlash.device = 0x09;
-        SRAMFlash.manufacturer = 0xC2;
+        // Sanyo 128K chip
+        SRAMFlash.device = 0x13;
+        SRAMFlash.manufacturer = 0x62;
     }
 }
 
@@ -175,7 +175,30 @@ void RelocateSave(const char* path, bool write)
 
 u8 Read_Flash(u32 addr)
 {
-    // TODO: pokemen
+    if (SRAMFlash.cmd == 0) // no cmd
+    {
+        return *(u8*)&SRAM[addr + 0x10000 * SRAMFlash.bank];
+    }
+
+    // TODO properly keep track of command sequences,
+    // and deny unauthorized writes
+    switch (SRAMFlash.cmd)
+    {
+        case 0x90: // chip ID
+            if (addr == 0x0A000000) return SRAMFlash.manufacturer;
+            if (addr == 0x0A000001) return SRAMFlash.device;
+            break;
+        case 0xF0: // terminate command (TODO: break if non-Macronix chip and not at the end of an ID call?)
+            SRAMFlash.state = 0;
+            SRAMFlash.cmd = 0;
+            break;
+        case 0xB0: // bank switching (128K only)
+            break; // we don't track the request for now
+        default:
+            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%08X\n", SRAMFlash.cmd, addr);
+            break;
+    }
+
     return 0xFF;
 }
 
