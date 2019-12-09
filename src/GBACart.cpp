@@ -180,22 +180,20 @@ u8 Read_Flash(u32 addr)
         return *(u8*)&SRAM[addr + 0x10000 * SRAMFlash.bank];
     }
 
-    // TODO properly keep track of command sequences,
-    // and deny unauthorized writes
     switch (SRAMFlash.cmd)
     {
         case 0x90: // chip ID
-            if (addr == 0x0A000000) return SRAMFlash.manufacturer;
-            if (addr == 0x0A000001) return SRAMFlash.device;
+            if (addr == 0x0000) return SRAMFlash.manufacturer;
+            if (addr == 0x0001) return SRAMFlash.device;
             break;
         case 0xF0: // terminate command (TODO: break if non-Macronix chip and not at the end of an ID call?)
             SRAMFlash.state = 0;
             SRAMFlash.cmd = 0;
             break;
         case 0xB0: // bank switching (128K only)
-            break; // we don't track the request for now
+            break; // ignore here, handled during writes
         default:
-            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%08X\n", SRAMFlash.cmd, addr);
+            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlash.cmd, addr);
             break;
     }
 
@@ -211,7 +209,136 @@ void Write_EEPROM(u32 addr, u8 val)
 
 void Write_Flash(u32 addr, u8 val)
 {
-    // TODO: pokemen
+    switch (SRAMFlash.state)
+    {
+        case 0x00:
+            if (addr == 0x5555)
+            {
+                if (val == 0xF0)
+                {
+                    // reset
+                    SRAMFlash.state = 0;
+                    SRAMFlash.cmd = 0;
+                    return;
+                }
+                else if (val == 0xAA)
+                {
+                    SRAMFlash.state = 1;
+                    return;
+                }
+            }
+            if (addr == 0x0000)
+            {
+                if (SRAMFlash.cmd == 0xB0)
+                {
+                    // bank switching
+                    SRAMFlash.bank = val;
+                    SRAMFlash.cmd = 0;
+                    return;
+                }
+            }
+            break;
+        case 0x01:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlash.state = 2;
+                return;
+            }
+            SRAMFlash.state = 0;
+            break;
+        case 0x02:
+            if (addr == 0x5555)
+            {
+                // send command
+                switch (val)
+                {
+                    case 0x80: // erase
+                        SRAMFlash.state = 0x80;
+                        break;
+                    case 0x90: // chip ID
+                        SRAMFlash.state = 0x90;
+                        break;
+                    case 0xA0: // write
+                        SRAMFlash.state = 0;
+                        break;
+                    default:
+                        SRAMFlash.state = 0;
+                        break;
+                }
+
+                SRAMFlash.cmd = val;
+                return;
+            }
+            break;
+        // erase
+        case 0x80:
+            if (addr == 0x5555 && val == 0xAA)
+            {
+                SRAMFlash.state = 0x81;
+                return;
+            }
+            SRAMFlash.state = 0;
+            break;
+        case 0x81:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlash.state = 0x82;
+                return;
+            }
+            SRAMFlash.state = 0;
+            break;
+        case 0x82:
+            if (val == 0x30)
+            {
+                u32 start_addr = addr + 0x10000 * SRAMFlash.bank;
+                memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
+
+                FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+                if (f)
+                {
+                    fseek(f, start_addr, SEEK_SET);
+                    fwrite((u8*)&SRAM[start_addr], 1, 0x1000, f);
+                    fclose(f);
+                }
+            }
+            SRAMFlash.state = 0;
+            SRAMFlash.cmd = 0;
+            return;
+        // chip ID
+        case 0x90:
+            if (addr == 0x5555 && val == 0xAA)
+            {
+                SRAMFlash.state = 0x91;
+                return;
+            }
+            SRAMFlash.state = 0;
+            break;
+        case 0x91:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlash.state = 0x92;
+                return;
+            }
+            SRAMFlash.state = 0;
+            break;
+        case 0x92:
+            SRAMFlash.state = 0;
+            SRAMFlash.cmd = 0;
+            return;
+        default:
+            break;
+    }
+
+    if (SRAMFlash.cmd == 0xA0) // write
+    {
+        Write_SRAM(addr + 0x10000 * SRAMFlash.bank, val);
+        SRAMFlash.state = 0;
+        SRAMFlash.cmd = 0;
+        return;
+    }
+
+    printf("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+        val, addr, SRAMFlash.state);
 }
 
 void Write_SRAM(u32 addr, u8 val)
