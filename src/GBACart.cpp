@@ -46,6 +46,7 @@ struct FlashProperties
 };
 
 u8* SRAM;
+FILE* SRAMFile;
 u32 SRAMLength;
 SaveType SRAMType;
 FlashProperties SRAMFlash;
@@ -64,18 +65,23 @@ void Write_Flash(u32 addr, u8 val);
 bool Init()
 {
     SRAM = NULL;
+    SRAMFile = NULL;
     return true;
 }
 
 void DeInit()
 {
+    if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
 }
 
 void Reset()
 {
+    if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
+
     SRAM = NULL;
+    SRAMFile = NULL;
     SRAMLength = 0;
     SRAMType = S_NULL;
     SRAMFlash = {};
@@ -94,7 +100,7 @@ void LoadSave(const char* path)
     SRAMPath[1023] = '\0';
     SRAMLength = 0;
 
-    FILE* f = Platform::OpenFile(path, "rb");
+    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
     if (f)
     {
         fseek(f, 0, SEEK_END);
@@ -104,7 +110,7 @@ void LoadSave(const char* path)
         fseek(f, 0, SEEK_SET);
         fread(SRAM, SRAMLength, 1, f);
 
-        fclose(f);
+        SRAMFile = f;
     }
 
     switch (SRAMLength)
@@ -162,15 +168,15 @@ void RelocateSave(const char* path, bool write)
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
-    FILE* f = Platform::OpenFile(path, "wb");
+    FILE *f = Platform::OpenFile(path, "r+b");
     if (!f)
     {
         printf("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
         return;
     }
 
-    fwrite(SRAM, SRAMLength, 1, f);
-    fclose(f);
+    SRAMFile = f;
+    fwrite(SRAM, SRAMLength, 1, SRAMFile);
 }
 
 u8 Read_Flash(u32 addr)
@@ -190,6 +196,8 @@ u8 Read_Flash(u32 addr)
             SRAMFlash.state = 0;
             SRAMFlash.cmd = 0;
             break;
+        case 0xA0: // erase command
+            break; // ignore here, handled during writes
         case 0xB0: // bank switching (128K only)
             break; // ignore here, handled during writes
         default:
@@ -269,6 +277,7 @@ void Write_Flash(u32 addr, u8 val)
                 SRAMFlash.cmd = val;
                 return;
             }
+            SRAMFlash.state = 0;
             break;
         // erase
         case 0x80:
@@ -293,12 +302,10 @@ void Write_Flash(u32 addr, u8 val)
                 u32 start_addr = addr + 0x10000 * SRAMFlash.bank;
                 memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
 
-                FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-                if (f)
+                if (SRAMFile)
                 {
-                    fseek(f, start_addr, SEEK_SET);
-                    fwrite((u8*)&SRAM[start_addr], 1, 0x1000, f);
-                    fclose(f);
+                    fseek(SRAMFile, start_addr, SEEK_SET);
+                    fwrite((u8*)&SRAM[start_addr], 1, 0x1000, SRAMFile);
                 }
             }
             SRAMFlash.state = 0;
@@ -343,15 +350,18 @@ void Write_Flash(u32 addr, u8 val)
 
 void Write_SRAM(u32 addr, u8 val)
 {
-    *(u8*)&SRAM[addr] = val;
+    u8 prev = *(u8*)&SRAM[addr];
 
-    // bit wasteful to do this for every written byte
-    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-    if (f)
+    // TODO: try not to do this for every byte
+    if (prev != val)
     {
-        fseek(f, addr, SEEK_SET);
-        fwrite((u8*)&SRAM[addr], 1, 1, f);
-        fclose(f);
+        *(u8*)&SRAM[addr] = val;
+
+        if (SRAMFile)
+        {
+            fseek(SRAMFile, addr, SEEK_SET);
+            fwrite((u8*)&SRAM[addr], 1, 1, SRAMFile);
+        }
     }
 }
 
@@ -379,7 +389,9 @@ u16 Read16(u32 addr)
 
     if (SRAMType == S_FLASH512K || SRAMType == S_FLASH1M)
     {
-        return Read_Flash(addr) & (Read_Flash(addr + 1) << 8);
+        u16 val = Read_Flash(addr + 0) |
+            (Read_Flash(addr + 1) << 8);
+        return val;
     }
 
     return *(u16*)&SRAM[addr];
@@ -394,10 +406,11 @@ u32 Read32(u32 addr)
 
     if (SRAMType == S_FLASH512K || SRAMType == S_FLASH1M)
     {
-        return Read_Flash(addr) &
-            (Read_Flash(addr + 1) << 8) &
-            (Read_Flash(addr + 2) << 16) &
+        u32 val = Read_Flash(addr + 0) |
+            (Read_Flash(addr + 1) << 8) |
+            (Read_Flash(addr + 2) << 16) |
             (Read_Flash(addr + 3) << 24);
+        return val;
     }
 
     return *(u32*)&SRAM[addr];
@@ -407,34 +420,25 @@ void Write8(u32 addr, u8 val)
 {
     u8 prev = *(u8*)&SRAM[addr];
 
-    if (prev != val)
-    {
-        WriteFunc(addr, val);
-    }
+    WriteFunc(addr, val);
 }
 
 void Write16(u32 addr, u16 val)
 {
     u16 prev = *(u16*)&SRAM[addr];
 
-    if (prev != val)
-    {
-        WriteFunc(addr, val & 0xFF);
-        WriteFunc(addr + 1, val >> 8 & 0xFF);
-    }
+    WriteFunc(addr + 0, val & 0xFF);
+    WriteFunc(addr + 1, val >> 8 & 0xFF);
 }
 
 void Write32(u32 addr, u32 val)
 {
     u32 prev = *(u32*)&SRAM[addr];
 
-    if (prev != val)
-    {
-        WriteFunc(addr, val & 0xFF);
-        WriteFunc(addr + 1, val >> 8 & 0xFF);
-        WriteFunc(addr + 2, val >> 16 & 0xFF);
-        WriteFunc(addr + 3, val >> 24 & 0xFF);
-    }
+    WriteFunc(addr + 0, val & 0xFF);
+    WriteFunc(addr + 1, val >> 8 & 0xFF);
+    WriteFunc(addr + 2, val >> 16 & 0xFF);
+    WriteFunc(addr + 3, val >> 24 & 0xFF);
 }
 
 }
@@ -512,7 +516,6 @@ bool LoadROM(const char* path, const char* sram)
     fread(CartROM, 1, len, f);
 
     fclose(f);
-    //CartROM = f;
 
     CartCRC = CRC32(CartROM, CartROMSize);
     printf("ROM CRC32: %08X\n", CartCRC);
