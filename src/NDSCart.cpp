@@ -48,7 +48,6 @@ void Write_Null(u8 val, bool islast);
 void Write_EEPROMTiny(u8 val, bool islast);
 void Write_EEPROM(u8 val, bool islast);
 void Write_Flash(u8 val, bool islast);
-void Write_Discover(u8 val, bool islast);
 
 
 bool Init()
