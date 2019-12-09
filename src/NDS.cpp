@@ -1639,7 +1639,7 @@ u8 ARM9Read8(u32 addr)
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u8*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFF; // TODO: proper open bus
     }
@@ -1704,7 +1704,7 @@ u16 ARM9Read16(u32 addr)
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u16*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFFFF; // TODO: proper open bus
     }
@@ -1769,7 +1769,7 @@ u32 ARM9Read32(u32 addr)
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u32*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFFFFFFFF; // TODO: proper open bus
     }
@@ -2000,7 +2000,7 @@ u8 ARM7Read8(u32 addr)
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u8*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFF; // TODO: proper open bus
     }
@@ -2067,7 +2067,7 @@ u16 ARM7Read16(u32 addr)
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u16*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFFFF; // TODO: proper open bus
     }
@@ -2134,7 +2134,7 @@ u32 ARM7Read32(u32 addr)
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
-            return *(u32*)&GBACart_SRAM::SRAM[addr & (GBACart_SRAM::SRAMLength-1)];
+            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
         return 0xFFFFFFFF; // TODO: proper open bus
     }

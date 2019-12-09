@@ -26,10 +26,39 @@
 namespace GBACart_SRAM
 {
 
+
+enum SaveType {
+    S_NULL,
+    S_EEPROM4K,
+    S_EEPROM64K,
+    S_SRAM256K,
+    S_FLASH512K,
+    S_FLASH1M
+};
+
+struct FlashProperties
+{
+    u8 state;
+    u8 cmd;
+    u8 device;
+    u8 manufacturer;
+    u8 bank;
+};
+
 u8* SRAM;
 u32 SRAMLength;
+SaveType SRAMType;
+FlashProperties SRAMFlash;
 
 char SRAMPath[1024];
+
+void (*WriteFunc)(u32 addr, u8 val);
+
+
+void Write_Null(u32 addr, u8 val);
+void Write_EEPROM(u32 addr, u8 val);
+void Write_SRAM(u32 addr, u8 val);
+void Write_Flash(u32 addr, u8 val);
 
 
 bool Init()
@@ -47,6 +76,9 @@ void Reset()
 {
     if (SRAM) delete[] SRAM;
     SRAM = NULL;
+    SRAMLength = 0;
+    SRAMType = S_NULL;
+    SRAMFlash = {};
 }
 
 void DoSavestate(Savestate* file)
@@ -60,6 +92,7 @@ void LoadSave(const char* path)
 
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
+    SRAMLength = 0;
 
     FILE* f = Platform::OpenFile(path, "rb");
     if (f)
@@ -73,12 +106,48 @@ void LoadSave(const char* path)
 
         fclose(f);
     }
-    else
-    {
-        int SRAMLength = 65536; // max GBA SRAM size
 
-        SRAM = new u8[SRAMLength];
-        memset(SRAM, 0xFF, SRAMLength);
+    switch (SRAMLength)
+    {
+    case 512:
+        SRAMType = S_EEPROM4K;
+        WriteFunc = Write_EEPROM;
+        break;
+    case 8192:
+        SRAMType = S_EEPROM64K;
+        WriteFunc = Write_EEPROM;
+        break;
+    case 32768:
+        SRAMType = S_SRAM256K;
+        WriteFunc = Write_SRAM;
+        break;
+    case 65536:
+        SRAMType = S_FLASH512K;
+        WriteFunc = Write_Flash;
+        break;
+    case 128*1024:
+        SRAMType = S_FLASH1M;
+        WriteFunc = Write_Flash;
+        break;
+    default:
+        printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
+    case 0:
+        SRAMType = S_NULL;
+        WriteFunc = Write_Null;
+        break;
+    }
+
+    if (SRAMType == S_FLASH512K)
+    {
+        // Panasonic 64K chip
+        SRAMFlash.device = 0x1B;
+        SRAMFlash.manufacturer = 0x32;
+    }
+    else if (SRAMType == S_FLASH1M)
+    {
+        // Macronix 128K chip
+        SRAMFlash.device = 0x09;
+        SRAMFlash.manufacturer = 0xC2;
     }
 }
 
@@ -104,21 +173,93 @@ void RelocateSave(const char* path, bool write)
     fclose(f);
 }
 
+u8 Read_Flash(u32 addr)
+{
+    // TODO: pokemen
+    return 0xFF;
+}
+
+void Write_Null(u32 addr, u8 val) {}
+
+void Write_EEPROM(u32 addr, u8 val)
+{
+    // TODO: could be used in homebrew?
+}
+
+void Write_Flash(u32 addr, u8 val)
+{
+    // TODO: pokemen
+}
+
+void Write_SRAM(u32 addr, u8 val)
+{
+    *(u8*)&SRAM[addr] = val;
+
+    // bit wasteful to do this for every written byte
+    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+    if (f)
+    {
+        fseek(f, addr, SEEK_SET);
+        fwrite((u8*)&SRAM[addr], 1, 1, f);
+        fclose(f);
+    }
+}
+
+u8 Read8(u32 addr)
+{
+    if (SRAMType == S_NULL)
+    {
+        return 0xFF;
+    }
+
+    if (SRAMType == S_FLASH512K || SRAMType == S_FLASH1M)
+    {
+        return Read_Flash(addr);
+    }
+
+    return *(u8*)&SRAM[addr];
+}
+
+u16 Read16(u32 addr)
+{
+    if (SRAMType == S_NULL)
+    {
+        return 0xFFFF;
+    }
+
+    if (SRAMType == S_FLASH512K || SRAMType == S_FLASH1M)
+    {
+        return Read_Flash(addr) & (Read_Flash(addr + 1) << 8);
+    }
+
+    return *(u16*)&SRAM[addr];
+}
+
+u32 Read32(u32 addr)
+{
+    if (SRAMType == S_NULL)
+    {
+        return 0xFFFFFFFF;
+    }
+
+    if (SRAMType == S_FLASH512K || SRAMType == S_FLASH1M)
+    {
+        return Read_Flash(addr) &
+            (Read_Flash(addr + 1) << 8) &
+            (Read_Flash(addr + 2) << 16) &
+            (Read_Flash(addr + 3) << 24);
+    }
+
+    return *(u32*)&SRAM[addr];
+}
+
 void Write8(u32 addr, u8 val)
 {
     u8 prev = *(u8*)&SRAM[addr];
 
     if (prev != val)
     {
-        *(u8*)&SRAM[addr] = val;/*
-
-        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-        if (f)
-        {
-            fseek(f, addr, SEEK_SET);
-            fwrite((u8*)&SRAM[addr], 1, 1, f);
-            fclose(f);
-        }*/
+        WriteFunc(addr, val);
     }
 }
 
@@ -128,15 +269,8 @@ void Write16(u32 addr, u16 val)
 
     if (prev != val)
     {
-        *(u16*)&SRAM[addr] = val;/*
-
-        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-        if (f)
-        {
-            fseek(f, addr, SEEK_SET);
-            fwrite((u8*)&SRAM[addr], 2, 1, f);
-            fclose(f);
-        }*/
+        WriteFunc(addr, val & 0xFF);
+        WriteFunc(addr + 1, val >> 8 & 0xFF);
     }
 }
 
@@ -146,15 +280,10 @@ void Write32(u32 addr, u32 val)
 
     if (prev != val)
     {
-        *(u32*)&SRAM[addr] = val;/*
-
-        FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-        if (f)
-        {
-            fseek(f, addr, SEEK_SET);
-            fwrite((u8*)&SRAM[addr], 3, 1, f);
-            fclose(f);
-        }*/
+        WriteFunc(addr, val & 0xFF);
+        WriteFunc(addr + 1, val >> 8 & 0xFF);
+        WriteFunc(addr + 2, val >> 16 & 0xFF);
+        WriteFunc(addr + 3, val >> 24 & 0xFF);
     }
 }
 
