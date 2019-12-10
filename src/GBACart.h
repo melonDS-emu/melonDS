@@ -55,6 +55,8 @@ void DoSavestate(Savestate* file);
 bool LoadROM(const char* path, const char* sram);
 void RelocateSave(const char* path, bool write);
 
+void WriteGPIO(u32 addr, u16 val);
+
 }
 
 #endif // GBACART_H

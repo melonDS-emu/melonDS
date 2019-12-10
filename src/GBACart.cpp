@@ -448,11 +448,34 @@ void Write32(u32 addr, u32 val)
 namespace GBACart
 {
 
+const char SOLAR_SENSOR_GAMECODES[10][5] =
+{
+    "U3IJ", // Bokura no Taiyou - Taiyou Action RPG (Japan)
+    "U3IE", // Boktai - The Sun Is in Your Hand (USA)
+    "U3IP", // Boktai - The Sun Is in Your Hand (Europe)
+    "U32J", // Zoku Bokura no Taiyou - Taiyou Shounen Django (Japan)
+    "U32E", // Boktai 2 - Solar Boy Django (USA)
+    "U32P", // Boktai 2 - Solar Boy Django (Europe)
+    "U33J", // Shin Bokura no Taiyou - Gyakushuu no Sabata (Japan)
+    "A3IJ"  // Boktai - The Sun Is in Your Hand (USA) (Sample)
+};
+
+
+struct GPIO
+{
+    bool has_solar_sensor;
+    u16 data;
+    u16 direction;
+    u16 control;
+};
+
+
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartCRC;
 u32 CartID;
+GPIO CartGPIO; // overridden GPIO parameters
 
 
 bool Init()
@@ -477,6 +500,7 @@ void Reset()
     if (CartROM) delete[] CartROM;
     CartROM = NULL;
     CartROMSize = 0;
+    CartGPIO = {};
 
     GBACart_SRAM::Reset();
 }
@@ -506,10 +530,20 @@ bool LoadROM(const char* path, const char* sram)
     while (CartROMSize < len)
         CartROMSize <<= 1;
 
-    u32 gamecode;
+    char gamecode[5] = { '\0' };
     fseek(f, 0xAC, SEEK_SET);
-    fread(&gamecode, 4, 1, f);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
+    fread(&gamecode, 1, 4, f);
+    printf("Game code: %s\n", gamecode);
+
+    for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
+    {
+        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) CartGPIO.has_solar_sensor = true;
+    }
+
+    if (CartGPIO.has_solar_sensor)
+    {
+        printf("GBA solar sensor support detected!\n");
+    }
 
     CartROM = new u8[CartROMSize];
     memset(CartROM, 0, CartROMSize);
@@ -534,6 +568,43 @@ void RelocateSave(const char* path, bool write)
 {
     // derp herp
     GBACart_SRAM::RelocateSave(path, write);
+}
+
+// referenced from mGBA
+void WriteGPIO(u32 addr, u16 val)
+{
+    switch (addr)
+    {
+        case 0xC4:
+            CartGPIO.data &= ~CartGPIO.direction;
+            CartGPIO.data |= val & CartGPIO.direction;
+            // TODO: process pins
+            break;
+        case 0xC6:
+            CartGPIO.direction = val;
+            break;
+        case 0xC8:
+            CartGPIO.control = val;
+            break;
+        default:
+            printf("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
+    }
+
+    // write the GPIO values in the ROM (if writable)
+    if (CartGPIO.control & 1)
+    {
+        *(u16*)&CartROM[addr] = CartGPIO.data;
+        *(u16*)&CartROM[addr + 2] = CartGPIO.direction;
+        *(u16*)&CartROM[addr + 4] = CartGPIO.control;
+    }
+    else
+    {
+        // GBATEK: "in write-only mode, reads return 00h (or [possibly] other data (...))"
+        // ambiguous, but mGBA sets ROM to 00h when switching to write-only, so do the same
+        *(u16*)&CartROM[addr] = 0;
+        *(u16*)&CartROM[addr + 2] = 0;
+        *(u16*)&CartROM[addr + 4] = 0;
+    }
 }
 
 }
