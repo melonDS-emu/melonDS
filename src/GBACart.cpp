@@ -630,8 +630,10 @@ void Process(GBACart::GPIO* gpio)
     if (gpio->data & 4) return; // Boktai chip select
     if (gpio->data & 2) // Reset
     {
+        u8 prev = LightSample;
         LightCounter = 0;
         LightSample = LIGHT_VALUE;
+        printf("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
     }
     if (gpio->data & 1 && LightEdge) LightCounter++;
 

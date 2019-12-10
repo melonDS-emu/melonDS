@@ -1803,6 +1803,19 @@ void ARM9Write8(u32 addr, u8 val)
         // checkme
         return;
 
+    case 0x08000000:
+    case 0x09000000:
+        if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
+                return;
+            }
+        }
+        break;
+
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
@@ -1854,6 +1867,21 @@ void ARM9Write16(u32 addr, u16 val)
         *(u16*)&GPU::OAM[addr & 0x7FF] = val;
         return;
 
+    case 0x08000000:
+    case 0x09000000:
+        if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            // Note: the lower bound is adjusted such that a write starting
+            // there will hit the first byte of the GPIO region.
+            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
+                return;
+            }
+        }
+        break;
+
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
@@ -1904,6 +1932,22 @@ void ARM9Write32(u32 addr, u32 val)
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
         *(u32*)&GPU::OAM[addr & 0x7FF] = val;
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+        if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            // Note: the lower bound is adjusted such that a write starting
+            // there will hit the first byte of the GPIO region.
+            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
+                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
+                return;
+            }
+        }
+        break;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
@@ -2177,6 +2221,19 @@ void ARM7Write8(u32 addr, u8 val)
         GPU::WriteVRAM_ARM7<u8>(addr, val);
         return;
 
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
+                return;
+            }
+        }
+        break;
+
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
@@ -2230,6 +2287,21 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u16>(addr, val);
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            // Note: the lower bound is adjusted such that a write starting
+            // there will hit the first byte of the GPIO region.
+            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
+                return;
+            }
+        }
+        break;
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
@@ -2285,6 +2357,22 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x06800000:
         GPU::WriteVRAM_ARM7<u32>(addr, val);
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+        if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
+        if (GBACart::CartInserted)
+        {
+            // Note: the lower bound is adjusted such that a write starting
+            // there will hit the first byte of the GPIO region.
+            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
+            {
+                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
+                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
+                return;
+            }
+        }
+        break;
 
     case 0x0A000000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
