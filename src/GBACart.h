@@ -43,6 +43,14 @@ void Write32(u32 addr, u32 val);
 namespace GBACart
 {
 
+struct GPIO
+{
+    bool has_solar_sensor;
+    u16 data;
+    u16 direction;
+    u16 control;
+};
+
 extern bool CartInserted;
 extern u8* CartROM;
 extern u32 CartROMSize;
@@ -56,6 +64,17 @@ bool LoadROM(const char* path, const char* sram);
 void RelocateSave(const char* path, bool write);
 
 void WriteGPIO(u32 addr, u16 val);
+
+}
+
+
+namespace GBACart_SolarSensor
+{
+
+extern u8 LightLevel;
+
+void Reset();
+void Process(GBACart::GPIO* gpio);
 
 }
 

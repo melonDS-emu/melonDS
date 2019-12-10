@@ -461,15 +461,6 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 };
 
 
-struct GPIO
-{
-    bool has_solar_sensor;
-    u16 data;
-    u16 direction;
-    u16 control;
-};
-
-
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
@@ -503,6 +494,7 @@ void Reset()
     CartGPIO = {};
 
     GBACart_SRAM::Reset();
+    GBACart_SolarSensor::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -578,7 +570,7 @@ void WriteGPIO(u32 addr, u16 val)
         case 0xC4:
             CartGPIO.data &= ~CartGPIO.direction;
             CartGPIO.data |= val & CartGPIO.direction;
-            // TODO: process pins
+            if (CartGPIO.has_solar_sensor) GBACart_SolarSensor::Process(&CartGPIO);
             break;
         case 0xC6:
             CartGPIO.direction = val;
@@ -593,17 +585,60 @@ void WriteGPIO(u32 addr, u16 val)
     // write the GPIO values in the ROM (if writable)
     if (CartGPIO.control & 1)
     {
-        *(u16*)&CartROM[addr] = CartGPIO.data;
-        *(u16*)&CartROM[addr + 2] = CartGPIO.direction;
-        *(u16*)&CartROM[addr + 4] = CartGPIO.control;
+        *(u16*)&CartROM[0xC4] = CartGPIO.data;
+        *(u16*)&CartROM[0xC6] = CartGPIO.direction;
+        *(u16*)&CartROM[0xC8] = CartGPIO.control;
     }
     else
     {
         // GBATEK: "in write-only mode, reads return 00h (or [possibly] other data (...))"
         // ambiguous, but mGBA sets ROM to 00h when switching to write-only, so do the same
-        *(u16*)&CartROM[addr] = 0;
-        *(u16*)&CartROM[addr + 2] = 0;
-        *(u16*)&CartROM[addr + 4] = 0;
+        *(u16*)&CartROM[0xC4] = 0;
+        *(u16*)&CartROM[0xC6] = 0;
+        *(u16*)&CartROM[0xC8] = 0;
+    }
+}
+
+}
+
+
+namespace GBACart_SolarSensor
+{
+
+bool LightEdge;
+u8 LightCounter;
+u8 LightSample;
+u8 LightLevel; // 0-10 range
+
+// levels from mGBA
+const int GBA_LUX_LEVELS[11] = { 0, 5, 11, 18, 27, 42, 62, 84, 109, 139, 183 };
+#define LIGHT_VALUE (0xFF - (0x16 + GBA_LUX_LEVELS[LightLevel]))
+
+
+void Reset()
+{
+    LightEdge = false;
+    LightCounter = 0;
+    LightSample = 0xFF;
+    LightLevel = 0;
+}
+
+void Process(GBACart::GPIO* gpio)
+{
+    if (gpio->data & 4) return; // Boktai chip select
+    if (gpio->data & 2) // Reset
+    {
+        LightCounter = 0;
+        LightSample = LIGHT_VALUE;
+    }
+    if (gpio->data & 1 && LightEdge) LightCounter++;
+
+    LightEdge = !(gpio->data & 1);
+
+    bool sendBit = LightCounter >= LightSample;
+    if (gpio->control & 1)
+    {
+        gpio->data = (gpio->data & gpio->direction) | ((sendBit << 3) & ~gpio->direction & 0xF);
     }
 }
 
