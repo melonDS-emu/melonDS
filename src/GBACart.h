@@ -45,13 +45,13 @@ namespace GBACart
 
 struct GPIO
 {
-    bool has_solar_sensor;
     u16 data;
     u16 direction;
     u16 control;
 };
 
 extern bool CartInserted;
+extern bool HasSolarSensor;
 extern u8* CartROM;
 extern u32 CartROMSize;
 

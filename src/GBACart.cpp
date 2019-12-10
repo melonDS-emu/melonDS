@@ -462,6 +462,7 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 
 
 bool CartInserted;
+bool HasSolarSensor;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartCRC;
@@ -488,6 +489,7 @@ void DeInit()
 void Reset()
 {
     CartInserted = false;
+    HasSolarSensor = false;
     if (CartROM) delete[] CartROM;
     CartROM = NULL;
     CartROMSize = 0;
@@ -529,10 +531,10 @@ bool LoadROM(const char* path, const char* sram)
 
     for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
     {
-        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) CartGPIO.has_solar_sensor = true;
+        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) HasSolarSensor = true;
     }
 
-    if (CartGPIO.has_solar_sensor)
+    if (HasSolarSensor)
     {
         printf("GBA solar sensor support detected!\n");
     }
@@ -570,7 +572,7 @@ void WriteGPIO(u32 addr, u16 val)
         case 0xC4:
             CartGPIO.data &= ~CartGPIO.direction;
             CartGPIO.data |= val & CartGPIO.direction;
-            if (CartGPIO.has_solar_sensor) GBACart_SolarSensor::Process(&CartGPIO);
+            if (HasSolarSensor) GBACart_SolarSensor::Process(&CartGPIO);
             break;
         case 0xC6:
             CartGPIO.direction = val;

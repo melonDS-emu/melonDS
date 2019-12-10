@@ -38,6 +38,7 @@
 #include "DlgWifiSettings.h"
 
 #include "../NDS.h"
+#include "../GBACart.h"
 #include "../GPU.h"
 #include "../SPU.h"
 #include "../Wifi.h"
@@ -1290,6 +1291,20 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         else if (evt->Scancode == 0x58) // F12, undo savestate
         {
             if (evt->Modifiers == 0x0) UndoStateLoad();
+        }
+        else if (evt->Scancode == 0x4B) // Keypad left
+        {
+            if (GBACart::CartInserted && GBACart::HasSolarSensor)
+            {
+                if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
+            }
+        }
+        else if (evt->Scancode == 0x4D) // Keypad right
+        {
+            if (GBACart::CartInserted && GBACart::HasSolarSensor)
+            {
+                if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
+            }
         }
 
         for (int i = 0; i < 12; i++)
