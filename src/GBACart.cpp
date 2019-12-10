@@ -36,6 +36,7 @@ enum SaveType {
     S_FLASH1M
 };
 
+// from DeSmuME
 struct FlashProperties
 {
     u8 state;
@@ -179,6 +180,7 @@ void RelocateSave(const char* path, bool write)
     fwrite(SRAM, SRAMLength, 1, SRAMFile);
 }
 
+// mostly ported from DeSmuME
 u8 Read_Flash(u32 addr)
 {
     if (SRAMFlash.cmd == 0) // no cmd
@@ -196,10 +198,10 @@ u8 Read_Flash(u32 addr)
             SRAMFlash.state = 0;
             SRAMFlash.cmd = 0;
             break;
-        case 0xA0: // erase command
-            break; // ignore here, handled during writes
+        case 0xA0: // write command
+            break; // ignore here, handled in Write_Flash()
         case 0xB0: // bank switching (128K only)
-            break; // ignore here, handled during writes
+            break; // ignore here, handled in Write_Flash()
         default:
             printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlash.cmd, addr);
             break;
@@ -215,6 +217,7 @@ void Write_EEPROM(u32 addr, u8 val)
     // TODO: could be used in homebrew?
 }
 
+// mostly ported from DeSmuME
 void Write_Flash(u32 addr, u8 val)
 {
     switch (SRAMFlash.state)
@@ -352,7 +355,6 @@ void Write_SRAM(u32 addr, u8 val)
 {
     u8 prev = *(u8*)&SRAM[addr];
 
-    // TODO: try not to do this for every byte
     if (prev != val)
     {
         *(u8*)&SRAM[addr] = val;
