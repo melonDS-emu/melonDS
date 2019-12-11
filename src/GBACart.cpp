@@ -502,6 +502,8 @@ void Reset()
 void DoSavestate(Savestate* file)
 {
     // TODO?
+    GBACart_SRAM::DoSavestate(file);
+    GBACart_SolarSensor::DoSavestate(file);
 }
 
 bool LoadROM(const char* path, const char* sram)
@@ -623,6 +625,11 @@ void Reset()
     LightCounter = 0;
     LightSample = 0xFF;
     LightLevel = 0;
+}
+
+void DoSavestate(Savestate* file)
+{
+    // TODO?
 }
 
 void Process(GBACart::GPIO* gpio)

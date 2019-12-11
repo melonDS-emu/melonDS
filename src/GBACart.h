@@ -29,6 +29,9 @@ namespace GBACart_SRAM
 extern u8* SRAM;
 extern u32 SRAMLength;
 
+void Reset();
+void DoSavestate(Savestate* file);
+
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);
 u32 Read32(u32 addr);
@@ -74,6 +77,7 @@ namespace GBACart_SolarSensor
 extern u8 LightLevel;
 
 void Reset();
+void DoSavestate(Savestate* file);
 void Process(GBACart::GPIO* gpio);
 
 }
