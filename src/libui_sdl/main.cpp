@@ -1297,7 +1297,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (GBACart::CartInserted && GBACart::HasSolarSensor)
             {
                 if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
-                printf("Solar sensor level set to %d\n", GBACart_SolarSensor::LightLevel);
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
             }
         }
         else if (evt->Scancode == 0x4D) // Keypad right
@@ -1305,7 +1307,9 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
             if (GBACart::CartInserted && GBACart::HasSolarSensor)
             {
                 if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
-                printf("Solar sensor level set to %d\n", GBACart_SolarSensor::LightLevel);
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
             }
         }
 
