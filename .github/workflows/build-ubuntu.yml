@@ -1,6 +1,6 @@
-name: C/C++ CI with CMake
+name: CMake Build (Ubuntu x86-64)
 
-on: [push]
+on: [push, pull_request]
 
 env:
   BUILD_TYPE: Release
@@ -8,9 +8,9 @@ env:
 
 jobs:
   build:
-  
+
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v1
     - name: Install dependencies
