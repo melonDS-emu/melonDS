@@ -85,6 +85,23 @@ void DeInit()
     if (Firmware) delete[] Firmware;
 }
 
+void FakeFirmware()
+{
+    FirmwareLength = 0x20000;
+    Firmware = new u8[FirmwareLength];
+    memset(Firmware, 0xFF, FirmwareLength);
+
+    const int usr = 0x1FE00;
+    *(u16*)&Firmware[0x20] = 0x3FC0; // user settings offset
+    memset(Firmware + usr, 0, 0x74);
+    Firmware[usr + 0x00] = 5; // version
+    Firmware[usr + 0x1A] = 7; // name length
+    Firmware[usr + 0x64] = 1; // english
+	// name
+	Firmware[usr + 0x06] = 'M'; Firmware[usr + 0x08] = 'e'; Firmware[usr + 0x0A] = 'l';	Firmware[usr + 0x0C] = 'o';
+	Firmware[usr + 0x0E] = 'n'; Firmware[usr + 0x10] = 'D';	Firmware[usr + 0x12] = 'S';
+}
+
 void Reset()
 {
     if (Firmware) delete[] Firmware;
@@ -94,49 +111,49 @@ void Reset()
     if (!f)
     {
         printf("firmware.bin not found\n");
-
-        // TODO: generate default firmware
-        return;
+        FakeFirmware();
     }
-
-    fseek(f, 0, SEEK_END);
-
-    FirmwareLength = (u32)ftell(f);
-    if (FirmwareLength != 0x20000 && FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
-    {
-        printf("Bad firmware size %d, ", FirmwareLength);
-
-        // pick the nearest power-of-two length
-        FirmwareLength |= (FirmwareLength >> 1);
-        FirmwareLength |= (FirmwareLength >> 2);
-        FirmwareLength |= (FirmwareLength >> 4);
-        FirmwareLength |= (FirmwareLength >> 8);
-        FirmwareLength |= (FirmwareLength >> 16);
-        FirmwareLength++;
-
-        // ensure it's a sane length
-        if (FirmwareLength > 0x80000) FirmwareLength = 0x80000;
-        else if (FirmwareLength < 0x20000) FirmwareLength = 0x20000;
-
-        printf("assuming %d\n", FirmwareLength);
-    }
-
-    Firmware = new u8[FirmwareLength];
-
-    fseek(f, 0, SEEK_SET);
-    fread(Firmware, 1, FirmwareLength, f);
-
-    fclose(f);
-
-    // take a backup
-    const char* firmbkp = "firmware.bin.bak";
-    f = Platform::OpenLocalFile(firmbkp, "rb");
-    if (f) fclose(f);
     else
     {
-        f = Platform::OpenLocalFile(firmbkp, "wb");
-        fwrite(Firmware, 1, FirmwareLength, f);
+        fseek(f, 0, SEEK_END);
+
+        FirmwareLength = (u32)ftell(f);
+        if (FirmwareLength != 0x20000 && FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
+        {
+            printf("Bad firmware size %d, ", FirmwareLength);
+
+            // pick the nearest power-of-two length
+            FirmwareLength |= (FirmwareLength >> 1);
+            FirmwareLength |= (FirmwareLength >> 2);
+            FirmwareLength |= (FirmwareLength >> 4);
+            FirmwareLength |= (FirmwareLength >> 8);
+            FirmwareLength |= (FirmwareLength >> 16);
+            FirmwareLength++;
+
+            // ensure it's a sane length
+            if (FirmwareLength > 0x80000) FirmwareLength = 0x80000;
+            else if (FirmwareLength < 0x20000) FirmwareLength = 0x20000;
+
+            printf("assuming %d\n", FirmwareLength);
+        }
+
+        Firmware = new u8[FirmwareLength];
+
+        fseek(f, 0, SEEK_SET);
+        fread(Firmware, 1, FirmwareLength, f);
+
         fclose(f);
+
+        // take a backup
+        const char* firmbkp = "firmware.bin.bak";
+        f = Platform::OpenLocalFile(firmbkp, "rb");
+        if (f) fclose(f);
+        else
+        {
+            f = Platform::OpenLocalFile(firmbkp, "wb");
+            fwrite(Firmware, 1, FirmwareLength, f);
+            fclose(f);
+        }
     }
 
     FirmwareMask = FirmwareLength - 1;
