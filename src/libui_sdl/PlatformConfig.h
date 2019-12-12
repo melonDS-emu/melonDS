@@ -29,6 +29,8 @@ enum
     HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_SolarSensorDecrease,
+    HK_SolarSensorIncrease,
     HK_MAX
 };
 

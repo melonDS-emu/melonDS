@@ -949,6 +949,24 @@ int EmuThreadFunc(void* burp)
         if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
         if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
 
+        if (GBACart::CartInserted && GBACart::HasSolarSensor)
+        {
+            if (HotkeyPressed(HK_SolarSensorDecrease))
+            {
+                if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
+            }
+            if (HotkeyPressed(HK_SolarSensorIncrease))
+            {
+                if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
+            }
+        }
+
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
@@ -1291,26 +1309,6 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         else if (evt->Scancode == 0x58) // F12, undo savestate
         {
             if (evt->Modifiers == 0x0) UndoStateLoad();
-        }
-        else if (evt->Scancode == 0x4B) // Keypad left
-        {
-            if (GBACart::CartInserted && GBACart::HasSolarSensor)
-            {
-                if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
-            }
-        }
-        else if (evt->Scancode == 0x4D) // Keypad right
-        {
-            if (GBACart::CartInserted && GBACart::HasSolarSensor)
-            {
-                if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
-            }
         }
 
         for (int i = 0; i < 12; i++)
