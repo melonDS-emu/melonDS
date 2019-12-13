@@ -31,3 +31,7 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}/build
       run: make -j$(nproc --all)
+    - uses: actions/upload-artifact@v1
+      with:
+        name: melonDS
+        path: ${{runner.workspace}}/build/melonDS
