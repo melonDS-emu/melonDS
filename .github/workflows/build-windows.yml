@@ -31,8 +31,9 @@ jobs:
     - name: Make
       run: |
         C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
-        && cd melonDS/build && make -j$(nproc --all)"
+        && cd melonDS/build && make -j$(nproc --all) \
+        && ../msys-dist.sh"
     - uses: actions/upload-artifact@v1
       with:
-        name: melonDS.exe
-        path: C:\tools\msys64\home\runneradmin\melonDS\build\melonDS.exe
+        name: melonDS
+        path: C:\tools\msys64\home\runneradmin\melonDS\build\dist
