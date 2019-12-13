@@ -17,11 +17,11 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: | # Fetch a new version of CMake, because the default is too old.
-           wget -nv https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
-           && tar -zxf cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
-           && sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
-           && sudo apt-get update \
-           && sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
+        wget -nv https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
+        && tar -zxf cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
+        && sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
+        && sudo apt-get update \
+        && sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
@@ -31,8 +31,11 @@ jobs:
     - name: Make
       shell: bash
       working-directory: ${{runner.workspace}}/build
-      run: make -j$(nproc --all)
+      run: |
+        make -j$(nproc --all) \
+        && mkdir dist \
+        && cp {melonDS,romlist.bin} dist
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS
-        path: ${{runner.workspace}}/build/melonDS
+        path: ${{runner.workspace}}/build/dist
