@@ -33,6 +33,7 @@ u32 FirmwareLength;
 u32 FirmwareMask;
 
 u32 UserSettings;
+u8* userSettingsToLoad = NULL;
 
 u32 Hold;
 u8 CurCmd;
@@ -85,21 +86,37 @@ void DeInit()
     if (Firmware) delete[] Firmware;
 }
 
+void GenerateDefaultUserSettings()
+{
+    if (userSettingsToLoad) delete userSettingsToLoad;
+    userSettingsToLoad = new u8[userSettingsLength];
+    memset(userSettingsToLoad, 0, userSettingsLength);
+
+    userSettingsToLoad[0x00] = 5; // version
+    userSettingsToLoad[0x1A] = 7; // name length
+    userSettingsToLoad[0x64] = 1; // english
+    // name
+    userSettingsToLoad[0x06] = 'M'; userSettingsToLoad[0x08] = 'e'; userSettingsToLoad[0x0A] = 'l';	userSettingsToLoad[0x0C] = 'o';
+    userSettingsToLoad[0x0E] = 'n'; userSettingsToLoad[0x10] = 'D';	userSettingsToLoad[0x12] = 'S';
+}
+u8* GetUserSettings()
+{
+    if (Firmware) return Firmware + UserSettings;
+    else if (userSettingsToLoad == NULL) GenerateDefaultUserSettings();
+    return userSettingsToLoad;
+}
 void FakeFirmware()
 {
     FirmwareLength = 0x20000;
     Firmware = new u8[FirmwareLength];
     memset(Firmware, 0xFF, FirmwareLength);
 
+    if (userSettingsToLoad == NULL)
+        GenerateDefaultUserSettings();
+
     const int usr = 0x1FE00;
-    *(u16*)&Firmware[0x20] = 0x3FC0; // user settings offset
-    memset(Firmware + usr, 0, 0x74);
-    Firmware[usr + 0x00] = 5; // version
-    Firmware[usr + 0x1A] = 7; // name length
-    Firmware[usr + 0x64] = 1; // english
-	// name
-	Firmware[usr + 0x06] = 'M'; Firmware[usr + 0x08] = 'e'; Firmware[usr + 0x0A] = 'l';	Firmware[usr + 0x0C] = 'o';
-	Firmware[usr + 0x0E] = 'n'; Firmware[usr + 0x10] = 'D';	Firmware[usr + 0x12] = 'S';
+    *(u16*)&Firmware[0x20] = usr >> 3; // user settings offset
+    memcpy(Firmware + usr, userSettingsToLoad, userSettingsLength);
 }
 
 void Reset()
