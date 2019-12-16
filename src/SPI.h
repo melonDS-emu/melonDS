@@ -25,6 +25,8 @@ namespace SPI_Firmware
 {
 
 const s32 userSettingsLength = 0x74;
+extern u8* userSettingsToLoad;
+u8* GetUserSettings();
 
 void SetupDirectBoot();
 

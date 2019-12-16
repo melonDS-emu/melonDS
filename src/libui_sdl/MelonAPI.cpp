@@ -10,6 +10,7 @@
 #include "../Savestate.h"
 #include "../SPU.h"
 #include "../NDSCart.h"
+#include "../SPI.h"
 
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
@@ -214,4 +215,15 @@ DLL void SetSRAM(u8* src, s32 size)
 DLL bool IsSRAMModified()
 {
     return NDSCart_SRAM::SRAMModified;
+}
+
+const s32 userSettingsLength = SPI_Firmware::userSettingsLength;
+DLL s32 getUserSettingsLength() { return userSettingsLength; }
+DLL void GetUserSettings(u8* dst)
+{
+    memcpy(dst, SPI_Firmware::GetUserSettings(), userSettingsLength);
+}
+DLL void SetUserSettings(u8* src)
+{
+    memcpy(SPI_Firmware::userSettingsToLoad, src, userSettingsLength);
 }
