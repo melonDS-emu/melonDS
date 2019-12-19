@@ -89,7 +89,34 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
-    // TODO?
+    file->Section("GBCS"); // Game Boy [Advance] Cart Save
+
+    // logic mostly copied from NDSCart_SRAM
+
+    u32 oldlen = SRAMLength;
+
+    file->Var32(&SRAMLength);
+    if (SRAMLength != oldlen)
+    {
+        printf("savestate (GBA): VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        printf("oh well. loading it anyway. iojkjkojo\n");
+
+        if (oldlen) delete[] SRAM;
+        if (SRAMLength) SRAM = new u8[SRAMLength];
+    }
+    if (SRAMLength)
+    {
+        file->VarArray(SRAM, SRAMLength);
+    }
+
+    // persist some extra state info
+    file->Var8(&SRAMFlashState.bank);
+    file->Var8(&SRAMFlashState.cmd);
+    file->Var8(&SRAMFlashState.device);
+    file->Var8(&SRAMFlashState.manufacturer);
+    file->Var8(&SRAMFlashState.state);
+
+    file->Var8((u8*)&SRAMType);
 }
 
 void LoadSave(const char* path)
@@ -501,9 +528,43 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
-    // TODO?
+    file->Section("GBAC"); // Game Boy Advance Cartridge
+
+    // logic mostly copied from NDSCart
+
+    // first we need to reload the cart itself,
+    // since unlike with DS, it's not loaded in advance
+
+    u32 oldlen = CartROMSize;
+
+    file->Var32(&CartROMSize);
+    if (!CartROMSize) return; // no GBA cartridge state? nothing to do here.
+
+    if (CartROMSize != oldlen) // loading a differently-sized cartridge
+    {
+        if (oldlen) delete[] CartROM;
+        CartROM = new u8[CartROMSize];
+    }
+
+    // why yes, let's save the whole GBA cart in the state
+    // TODO: let's maybe not?
+
+    file->VarArray(CartROM, CartROMSize);
+
+    CartInserted = true; // known, because CartROMSize > 0
+    file->Var32(&CartCRC);
+    file->Var32(&CartID);
+
+    file->Var8((u8*)&HasSolarSensor);
+
+    file->Var16(&CartGPIO.control);
+    file->Var16(&CartGPIO.data);
+    file->Var16(&CartGPIO.direction);
+
+    // now do the rest
+
     GBACart_SRAM::DoSavestate(file);
-    GBACart_SolarSensor::DoSavestate(file);
+    if (HasSolarSensor) GBACart_SolarSensor::DoSavestate(file);
 }
 
 bool LoadROM(const char* path, const char* sram)
@@ -629,7 +690,10 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
-    // TODO?
+    file->Var8((u8*)&LightEdge);
+    file->Var8(&LightCounter);
+    file->Var8(&LightSample);
+    file->Var8(&LightLevel);
 }
 
 void Process(GBACart::GPIO* gpio)
