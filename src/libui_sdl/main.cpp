@@ -587,7 +587,7 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     float f_len_in = (len * 32823.6328125) / (float)AudioFreq;
     f_len_in += AudioSampleFrac;
-    int len_in = (int)floor(f_len_in);
+    int len_in = (int)float(f_len_in);
     AudioSampleFrac = f_len_in - len_in;
 
     s16 buf_in[1024*2];
