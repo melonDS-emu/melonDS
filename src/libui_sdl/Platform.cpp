@@ -148,7 +148,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     else
     {
         // Check user configuration directory
-        std::string confpath = std::string(g_get_user_config_dir()) + "/melonds/";
+        std::string confpath = std::string(g_get_user_config_dir()) + "/melonDS/";
         g_mkdir_with_parents(confpath.c_str(), 0755);
         fullpath = confpath + path;
     }
@@ -158,7 +158,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 
 FILE* OpenDataFile(const char* path)
 {
-    const char* melondir = "melonds";
+    const char* melondir = "melonDS";
     const char* const* sys_dirs = g_get_system_data_dirs();
     const char* user_dir = g_get_user_data_dir();
 
@@ -238,7 +238,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         emudirpath[pathlen] = '\0';
     }
 
-    // Locations are application directory, and AppData/melonDS on Windows or XDG_CONFIG_HOME/melonds on Linux
+    // Locations are application directory, and AppData/melonDS on Windows or XDG_CONFIG_HOME/melonDS on Linux
 
     FILE* f;
 
@@ -300,7 +300,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     {
         // Now check XDG_CONFIG_HOME
         // TODO: check for memory leak there
-        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonds/" + path;
+        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonDS/" + path;
         f = OpenFile(fullpath.c_str(), mode, true);
         if (f) { delete[] emudirpath; return f; }
     }

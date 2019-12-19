@@ -68,5 +68,5 @@ endif ()
 
 install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
 install(FILES ../../icon/melon_256x256.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/pixmaps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../romlist.bin DESTINATION ${CMAKE_INSTALL_PREFIX}/share/melonds)
+install(FILES ../../romlist.bin DESTINATION ${CMAKE_INSTALL_PREFIX}/share/melonDS)
 install(TARGETS melonDS RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
