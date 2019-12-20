@@ -121,6 +121,8 @@ extern u8 ARM9BIOS[0x1000];
 extern u8 ARM7BIOS[0x4000];
 
 #define MAIN_RAM_SIZE 0x400000
+#define BIOS7_SIZE 0x4000
+#define BIOS9_SIZE 0x1000
 
 extern u8 MainRAM[MAIN_RAM_SIZE];
 

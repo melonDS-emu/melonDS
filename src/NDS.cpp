@@ -85,8 +85,8 @@ u32 SchedListMask;
 
 u32 CPUStop;
 
-u8 ARM9BIOS[0x1000];
-u8 ARM7BIOS[0x4000];
+u8 ARM9BIOS[BIOS9_SIZE];
+u8 ARM7BIOS[BIOS7_SIZE];
 
 u8 MainRAM[MAIN_RAM_SIZE];
 
@@ -431,7 +431,7 @@ void Reset()
     {
         ARM9->useHLE_bios = false;
         fseek(f, 0, SEEK_SET);
-        fread(ARM9BIOS, 0x1000, 1, f);
+        fread(ARM9BIOS, BIOS9_SIZE, 1, f);
 
         printf("ARM9 BIOS loaded\n");
         fclose(f);
@@ -452,7 +452,7 @@ void Reset()
     {
         ARM7->useHLE_bios = false;
         fseek(f, 0, SEEK_SET);
-        fread(ARM7BIOS, 0x4000, 1, f);
+        fread(ARM7BIOS, BIOS7_SIZE, 1, f);
 
         printf("ARM7 BIOS loaded\n");
         fclose(f);
@@ -2063,9 +2063,9 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
 
 u8 ARM7Read8(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < BIOS7_SIZE)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= BIOS7_SIZE)
             return 0xFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
@@ -2123,9 +2123,9 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < BIOS7_SIZE)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= BIOS7_SIZE)
             return 0xFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
@@ -2190,9 +2190,9 @@ u16 ARM7Read16(u32 addr)
 
 u32 ARM7Read32(u32 addr)
 {
-    if (addr < 0x00004000)
+    if (addr < BIOS7_SIZE)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= BIOS7_SIZE)
             return 0xFFFFFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
@@ -2485,9 +2485,9 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     }
 
     // BIOS. ARM7 PC has to be within range.
-    if (addr < 0x00004000 && !write)
+    if (addr < BIOS7_SIZE && !write)
     {
-        if (ARM7->R[15] < 0x4000 && (addr >= ARM7BIOSProt || ARM7->R[15] < ARM7BIOSProt))
+        if (ARM7->R[15] < BIOS7_SIZE && (addr >= ARM7BIOSProt || ARM7->R[15] < ARM7BIOSProt))
         {
             region->Mem = ARM7BIOS;
             region->Mask = 0x3FFF;
@@ -3482,7 +3482,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
 
     case 0x04000300:
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= BIOS7_SIZE)
             return;
         if (!(PostFlag7 & 0x01))
             PostFlag7 = val & 0x01;
@@ -3607,7 +3607,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
     // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= BIOS7_SIZE)
             return;
         if (!(PostFlag7 & 0x01))
             PostFlag7 = val & 0x01;
