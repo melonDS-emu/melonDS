@@ -110,8 +110,11 @@ void DoSavestate(Savestate* file)
     }
     else
     {
-        // no save data, nothing left to do
+        // no save data, clear the current state
         SRAMType = SaveType::S_NULL;
+        if (SRAMFile) fclose(SRAMFile);
+        SRAM = NULL;
+        SRAMFile = NULL;
         return;
     }
 
@@ -541,21 +544,40 @@ void DoSavestate(Savestate* file)
     // first we need to reload the cart itself,
     // since unlike with DS, it's not loaded in advance
 
-    u32 oldlen = CartROMSize;
-
     file->Var32(&CartROMSize);
     if (!CartROMSize) return; // no GBA cartridge state? nothing to do here.
 
-    if (CartROMSize != oldlen) // loading a differently-sized cartridge
+    u32 oldCRC = CartCRC;
+    file->Var32(&CartCRC);
+    if (CartCRC != oldCRC)
     {
-        if (oldlen) delete[] CartROM;
+        // delete and reallocate ROM so that it is zero-padded to its full length
+        if (CartROM) delete[] CartROM;
         CartROM = new u8[CartROMSize];
+
+        // clear the SRAM file handle; writes will not be committed
+        if (GBACart_SRAM::SRAMFile)
+        {
+            fclose(GBACart_SRAM::SRAMFile);
+            GBACart_SRAM::SRAMFile = NULL;
+        }
     }
 
-    // why yes, let's save the whole GBA cart in the state
-    // TODO: let's maybe not?
-
-    file->VarArray(CartROM, CartROMSize);
+    // only save/load the cartridge header
+    //
+    // GBA connectivity on DS mainly involves identifying the title currently
+    // inserted, reading save data, and issuing commands intercepted here
+    // (e.g. solar sensor signals). we don't know of any case where GBA ROM is
+    // read directly from DS software. therefore, it is more practical, both
+    // from the development and user experience perspectives, to avoid dealing
+    // with file dependencies, and store a small portion of ROM data that should
+    // satisfy the needs of all known software that reads from the GBA slot.
+    //
+    // note: in case of a state load, only the cartridge header is restored, but
+    // the rest of the ROM data is only cleared (zero-initialized) if the CRC
+    // differs. Therefore, loading the GBA cartridge associated with the save state
+    // in advance will maintain access to the full ROM contents.
+    file->VarArray(CartROM, 192);
 
     CartInserted = true; // known, because CartROMSize > 0
     file->Var32(&CartCRC);
