@@ -77,9 +77,13 @@ void DeInit()
 
 void Reset()
 {
+    // do nothing, we don't want to clear GBA SRAM on reset
+}
+
+void Eject()
+{
     if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
-
     SRAM = NULL;
     SRAMFile = NULL;
     SRAMLength = 0;
@@ -524,15 +528,30 @@ void DeInit()
 
 void Reset()
 {
-    CartInserted = false;
-    HasSolarSensor = false;
-    if (CartROM) delete[] CartROM;
-    CartROM = NULL;
-    CartROMSize = 0;
-    CartGPIO = {};
+    // Do not reset cartridge ROM.
+    // Prefer keeping the inserted cartridge on reset.
+    // This allows resetting a DS game without losing GBA state,
+    // and resetting to firmware without the slot being emptied.
+    // The Stop function will clear the cartridge state via Eject().
 
     GBACart_SRAM::Reset();
     GBACart_SolarSensor::Reset();
+}
+
+void Eject()
+{
+    if (CartROM) delete[] CartROM;
+
+    CartInserted = false;
+    HasSolarSensor = false;
+    CartROM = NULL;
+    CartROMSize = 0;
+    CartCRC = NULL;
+    CartID = NULL;
+    CartGPIO = {};
+
+    GBACart_SRAM::Eject();
+    Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -545,10 +564,16 @@ void DoSavestate(Savestate* file)
     // since unlike with DS, it's not loaded in advance
 
     file->Var32(&CartROMSize);
-    if (!CartROMSize) return; // no GBA cartridge state? nothing to do here.
+    if (!CartROMSize) // no GBA cartridge state? nothing to do here
+    {
+        // do eject the cartridge if something is inserted
+        Eject();
+        return;
+    }
 
     u32 oldCRC = CartCRC;
     file->Var32(&CartCRC);
+
     if (CartCRC != oldCRC)
     {
         // delete and reallocate ROM so that it is zero-padded to its full length

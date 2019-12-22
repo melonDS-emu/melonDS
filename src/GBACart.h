@@ -57,10 +57,12 @@ extern bool CartInserted;
 extern bool HasSolarSensor;
 extern u8* CartROM;
 extern u32 CartROMSize;
+extern u32 CartCRC;
 
 bool Init();
 void DeInit();
 void Reset();
+void Eject();
 
 void DoSavestate(Savestate* file);
 bool LoadROM(const char* path, const char* sram);

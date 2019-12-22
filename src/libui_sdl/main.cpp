@@ -1694,6 +1694,7 @@ void Stop(bool internal)
     RunningSomething = false;
 
     // eject any inserted GBA cartridge
+    GBACart::Eject();
     ROMPath[1][0] = '\0';
 
     uiWindowSetTitle(MainWindow, "melonDS " MELONDS_VERSION);
@@ -1834,6 +1835,8 @@ void LoadState(int slot)
         return;
     }
 
+    u32 oldGBACartCRC = GBACart::CartCRC;
+
     // backup
     Savestate* backup = new Savestate("timewarp.mln", true);
     NDS::DoSavestate(backup);
@@ -1870,9 +1873,24 @@ void LoadState(int slot)
             NDS::RelocateSave(SRAMPath[0], false);
         }
 
+        bool loadedPartialGBAROM = false;
+
+        // in case we have a GBA cart inserted, and the GBA ROM changes
+        // due to having loaded a save state, we do not want to reload
+        // the previous cartridge on reset, or commit writes to any
+        // loaded save file. therefore, their paths are "nulled".
+        if (GBACart::CartInserted && GBACart::CartCRC != oldGBACartCRC)
+        {
+            ROMPath[1][0] = '\0';
+            SRAMPath[1][0] = '\0';
+            loadedPartialGBAROM = true;
+        }
+
         char msg[64];
-        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
-        else          sprintf(msg, "State loaded from file");
+        if (slot > 0) sprintf(msg, "State loaded from slot %d%s",
+                        slot, loadedPartialGBAROM ? " (GBA ROM header only)" : "");
+        else          sprintf(msg, "State loaded from file%s",
+                        loadedPartialGBAROM ? " (GBA ROM header only)" : "");
         OSD::AddMessage(0, msg);
 
         SavestateLoaded = true;
