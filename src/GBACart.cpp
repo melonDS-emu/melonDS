@@ -96,17 +96,23 @@ void DoSavestate(Savestate* file)
     u32 oldlen = SRAMLength;
 
     file->Var32(&SRAMLength);
+
     if (SRAMLength != oldlen)
     {
-        printf("savestate (GBA): VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
-        printf("oh well. loading it anyway. iojkjkojo\n");
-
+        // reallocate save memory
         if (oldlen) delete[] SRAM;
         if (SRAMLength) SRAM = new u8[SRAMLength];
     }
     if (SRAMLength)
     {
+        // fill save memory if data is present
         file->VarArray(SRAM, SRAMLength);
+    }
+    else
+    {
+        // no save data, nothing left to do
+        SRAMType = SaveType::S_NULL;
+        return;
     }
 
     // persist some extra state info
