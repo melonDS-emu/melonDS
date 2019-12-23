@@ -223,7 +223,3 @@ DLL void GetUserSettings(u8* dst)
 {
     memcpy(dst, SPI_Firmware::GetUserSettings(), userSettingsLength);
 }
-DLL void SetUserSettings(u8* src)
-{
-    memcpy(SPI_Firmware::userSettingsToLoad, src, userSettingsLength);
-}
