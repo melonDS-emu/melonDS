@@ -1645,7 +1645,9 @@ void NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    printf("%s", output);
+    printf("%s\n", output); // no$gba and desmume seem to include the newline,
+                            // so let's do that as well (to play nice with
+                            // stdio flushing behavior)
 }
 
 
