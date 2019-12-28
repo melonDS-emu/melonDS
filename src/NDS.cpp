@@ -420,7 +420,7 @@ void Reset()
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
-        ARM9->useHLE_bios = true;
+        ARM9->UseHLEBios = true;
 
         s32 len = _binary_fakeBios9_bin_end - _binary_fakeBios9_bin_start;
         if (len > sizeof(ARM9BIOS)) len = sizeof(ARM9BIOS);
@@ -429,7 +429,7 @@ void Reset()
     }
     else
     {
-        ARM9->useHLE_bios = false;
+        ARM9->UseHLEBios = false;
         fseek(f, 0, SEEK_SET);
         fread(ARM9BIOS, BIOS9_SIZE, 1, f);
 
@@ -441,7 +441,7 @@ void Reset()
     if (!f)
     {
         printf("ARM7 BIOS not found\n");
-        ARM7->useHLE_bios = true;
+        ARM7->UseHLEBios = true;
 
         s32 len = _binary_fakeBios7_bin_end - _binary_fakeBios7_bin_start;
         if (len > sizeof(ARM7BIOS)) len = sizeof(ARM7BIOS);
@@ -450,7 +450,7 @@ void Reset()
     }
     else
     {
-        ARM7->useHLE_bios = false;
+        ARM7->UseHLEBios = false;
         fseek(f, 0, SEEK_SET);
         fread(ARM7BIOS, BIOS7_SIZE, 1, f);
 
@@ -762,7 +762,7 @@ bool LoadROM(const u8* file, s32 fileSize, bool direct)
 {
     if (NDSCart::LoadROM(file, fileSize, direct))
     {
-        if (ARM9->useHLE_bios)
+        if (ARM9->UseHLEBios)
         {
             memcpy(ARM9BIOS + 0x20, NDSCart::CartROM + 0xC0, 160);
             printf("copied logo\n");

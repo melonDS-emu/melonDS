@@ -222,10 +222,10 @@ void A_MRC(ARM* cpu)
 void A_SVC(ARM* cpu)
 {
     // Check if BIOS is loaded.
-    if (cpu->useHLE_bios)
+    if (cpu->UseHLEBios)
     {
-        u32 swinum = (cpu->CurInstr >> 16) & 0x1F;
-        s32 cycles = ARM_swi_tab[cpu->Num][swinum](cpu);
+        u32 svcnum = (cpu->CurInstr >> 16) & 0x1F;
+        s32 cycles = ARMSVCTable[cpu->Num][svcnum](cpu);
         cpu->Cycles += cycles + 3;
     }
     else
@@ -244,10 +244,10 @@ void A_SVC(ARM* cpu)
 void T_SVC(ARM* cpu)
 {
     // Check if BIOS is loaded.
-    if (cpu->useHLE_bios)
+    if (cpu->UseHLEBios)
     {
-        u32 swinum = cpu->CurInstr & 0x1F;
-        s32 cycles = ARM_swi_tab[cpu->Num][swinum](cpu);
+        u32 svcnum = cpu->CurInstr & 0x1F;
+        s32 cycles = ARMSVCTable[cpu->Num][svcnum](cpu);
         cpu->Cycles += cycles + 3;
     }
     else
