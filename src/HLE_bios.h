@@ -27,6 +27,6 @@ extern char _binary_fakeBios7_bin_end[];
 extern char _binary_fakeBios9_bin_start[];
 extern char _binary_fakeBios9_bin_end[];
 
-extern u32 (*ARM_swi_tab[2][32])(ARM *cpu);
+extern u32 (*ARMSVCTable[2][32])(ARM *cpu);
 
 #endif // HLE_BIOS_H

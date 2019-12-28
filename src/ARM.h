@@ -133,8 +133,8 @@ public:
 
     static u32 ConditionTable[16];
 
-    bool useHLE_bios;
-    u8 intrWaitARM_state;
+    bool UseHLEBios;
+    u8 IntWaitARMState;
 };
 
 class ARMv5 : public ARM

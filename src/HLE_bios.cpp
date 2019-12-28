@@ -20,7 +20,7 @@
 /* This file was taken from DeSmuME. The following modifications were made:
 	#includes were removed/added as needed
 	#defines were taken from other DeSmuME files and placed here
-	All swi table methods were given a parameter (ARM* cpu); DeSmuME had a #define for cpu, which was removed
+	All svc table methods were given a parameter (ARM* cpu); DeSmuME had a #define for cpu, which was removed
 	cpu->frozen				-> cpu->Halted
 	_MMU_read/write			-> cpu->DataRead/Write
 	cp15.ctrl				-> (ARMv5*)cpu->CP15Control
@@ -30,12 +30,12 @@
 	isDebugger is always false; I don't see an equivalent feature in MelonDS, but I'm not familiar enough to know it isn't somewhere.
 
 	Elsewhere in MelonDS:
-	the ARM class was given new fields, u8 intrWaitARM_state and bool useHLE_bios
+	the ARM class was given new fields, u8 IntWaitARMState and bool UseHLEBios
 	NDS::Reset loads fake bios content, taken from DeSmuME's NDSSystem.cpp PrepareBiosARM7/9
 	ARMInterpreter::A_SVC and T_SVC modified to conditionally use this HLE bios.
 */
 
-//this file contains HLE for the arm9 and arm7 bios SWI routines.
+//this file contains HLE for the arm9 and arm7 bios SVC routines.
 //it renders the use of bios files generally unnecessary.
 //it turns out that they're not too complex, although of course the timings will be all wrong here.
 
@@ -278,7 +278,7 @@ TEMPLATE static u32 intrWaitARM(ARM *cpu)
 
 	//if the user requested us to discard flags, then clear the flag(s) we're going to be waiting on.
 	//(be sure to only do this only on the first run through. use a little state machine to control that)
-	if (cpu->intrWaitARM_state == 0 && cpu->R[0] == 1)
+	if (cpu->IntWaitARMState == 0 && cpu->R[0] == 1)
 	{
 		intr ^= intrFlag;
 		cpu->DataWrite32(intrFlagAdr, intr);
@@ -287,7 +287,7 @@ TEMPLATE static u32 intrWaitARM(ARM *cpu)
 		intrFlag = 0;
 	}
 
-	cpu->intrWaitARM_state = 1;
+	cpu->IntWaitARMState = 1;
 
 	//now, if the condition is satisfied (and it won't be the first time through, no matter what, due to cares taken above)
 	if (intrFlag)
@@ -296,7 +296,7 @@ TEMPLATE static u32 intrWaitARM(ARM *cpu)
 		intr ^= intrFlag;
 		cpu->DataWrite32(intrFlagAdr, intr);
 
-		cpu->intrWaitARM_state = 0;
+		cpu->IntWaitARMState = 0;
 		return 1;
 	}
 
@@ -346,7 +346,7 @@ TEMPLATE static u32 divide(ARM *cpu)
 	cpu->R[1] = (u32)(num % dnum);
 	cpu->R[3] = (u32)abs(res);
 
-	//INFO("ARM%c: SWI 0x09 (divide): in num %i, dnum %i, out R0:%i, R1:%i, R3:%i\n", PROCNUM?'7':'9', num, dnum, cpu->R[0], cpu->R[1], cpu->R[3]);
+	//INFO("ARM%c: SVC 0x09 (divide): in num %i, dnum %i, out R0:%i, R1:%i, R3:%i\n", PROCNUM?'7':'9', num, dnum, cpu->R[0], cpu->R[1], cpu->R[3]);
 
 	return 6;
 }
@@ -357,7 +357,7 @@ TEMPLATE static u32 copy(ARM *cpu)
 	u32 dst = cpu->R[1];
 	u32 cnt = cpu->R[2];
 
-	//INFO("swi copy from %08X to %08X, cnt=%08X\n", src, dst, cnt);
+	//INFO("svc copy from %08X to %08X, cnt=%08X\n", src, dst, cnt);
 
 	switch (cnt & (1<<26))
 	{
@@ -433,7 +433,7 @@ TEMPLATE static u32 fastCopy(ARM *cpu)
 	u32 dst = cpu->R[1] & 0xFFFFFFFC;
 	u32 cnt = cpu->R[2];
 
-	//INFO("swi fastcopy from %08X to %08X, cnt=%08X\n", src, dst, cnt);
+	//INFO("svc fastcopy from %08X to %08X, cnt=%08X\n", src, dst, cnt);
 
 	switch (cnt & (1 << 24))
 	{
@@ -478,7 +478,7 @@ TEMPLATE static u32 LZ77UnCompVram(ARM *cpu)
 	cpu->DataRead32(source, &header);
 	source += 4;
 
-	//INFO("swi lz77uncompvram\n");
+	//INFO(svc lz77uncompvram\n");
 
 	if (((source & 0xe000000) == 0) ||
 		((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
@@ -588,7 +588,7 @@ TEMPLATE static u32 LZ77UnCompWram(ARM *cpu)
 	cpu->DataRead32(source, &header);
 	source += 4;
 
-	//INFO("swi lz77uncompwram\n");
+	//INFO("svc lz77uncompwram\n");
 
 	if (((source & 0xe000000) == 0) ||
 		((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
@@ -666,7 +666,7 @@ TEMPLATE static u32 RLUnCompVram(ARM *cpu)
 	cpu->DataRead32(source, &header);
 	source += 4;
 
-	//INFO("swi rluncompvram\n");
+	//INFO("svc rluncompvram\n");
 
 	if (((source & 0xe000000) == 0) ||
 		((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
@@ -747,7 +747,7 @@ TEMPLATE static u32 RLUnCompWram(ARM *cpu)
 	cpu->DataRead32(source, &header);
 	source += 4;
 
-	//INFO("swi rluncompwram\n");
+	//INFO("svc rluncompwram\n");
 
 	if (((source & 0xe000000) == 0) ||
 		((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
@@ -805,7 +805,7 @@ TEMPLATE static u32 UnCompHuffman(ARM *cpu)
 	cpu->DataRead32(source, &header);
 	source += 4;
 
-	//INFO("swi uncomphuffman\n");
+	//INFO("svc uncomphuffman\n");
 
 	if (((source & 0xe000000) == 0) ||
 		((source + ((header >> 8) & 0x1fffff)) & 0xe000000) == 0)
@@ -1001,7 +1001,7 @@ TEMPLATE static u32 BitUnPack(ARM *cpu)
 	addBase = (base & 0x80000000) ? 1 : 0;
 	base &= 0x7fffffff;
 
-	//INFO("SWI10: bitunpack src 0x%08X dst 0x%08X hdr 0x%08X (src len %05i src bits %02i dst bits %02i)\n\n", source, dest, header, len, bits, dataSize);
+	//INFO("SVC10: bitunpack src 0x%08X dst 0x%08X hdr 0x%08X (src len %05i src bits %02i dst bits %02i)\n\n", source, dest, header, len, bits, dataSize);
 
 	data = 0;
 	bitwritecount = 0;
@@ -1048,7 +1048,7 @@ TEMPLATE static u32 BitUnPack(ARM *cpu)
 
 TEMPLATE static u32 Diff8bitUnFilterWram(ARM *cpu) //this one might be different on arm7 and needs checking
 {
-	//INFO("swi Diff8bitUnFilterWram\n");
+	//INFO("svc Diff8bitUnFilterWram\n");
 
 	u32 source = cpu->R[0];
 	u32 dest = cpu->R[1];
@@ -1081,7 +1081,7 @@ TEMPLATE static u32 Diff8bitUnFilterWram(ARM *cpu) //this one might be different
 
 TEMPLATE static u32 Diff16bitUnFilter(ARM *cpu)
 {
-	//INFO("swi Diff16bitUnFilter\n");
+	//INFO("svc Diff16bitUnFilter\n");
 
 	u32 source = cpu->R[0];
 	u32 dest = cpu->R[1];
@@ -1136,7 +1136,7 @@ TEMPLATE static u32 getSineTab(ARM *cpu)
 	//ds returns garbage according to gbatek, but we must protect ourselves
 	if (cpu->R[0] >= ARRAY_SIZE(getsinetbl))
 	{
-		printf("Invalid SWI getSineTab: %08X\n", cpu->R[0]);
+		printf("Invalid SVC getSineTab: %08X\n", cpu->R[0]);
 		return 1;
 	}
 
@@ -1150,7 +1150,7 @@ TEMPLATE static u32 getPitchTab(ARM *cpu)
 	//ds returns garbage according to gbatek, but we must protect ourselves
 	if (cpu->R[0] >= ARRAY_SIZE(getpitchtbl))
 	{
-		printf("Invalid SWI getPitchTab: %08X\n", cpu->R[0]);
+		printf("Invalid SVC getPitchTab: %08X\n", cpu->R[0]);
 		return 1;
 	}
 
@@ -1164,7 +1164,7 @@ TEMPLATE static u32 getVolumeTab(ARM *cpu)
 	//ds returns garbage according to gbatek, but we must protect ourselves
 	if (cpu->R[0] >= ARRAY_SIZE(getvoltbl))
 	{
-		printf("Invalid SWI getVolumeTab: %08X\n", cpu->R[0]);
+		printf("Invalid SVC getVolumeTab: %08X\n", cpu->R[0]);
 		return 1;
 	}
 	cpu->R[0] = getvoltbl[cpu->R[0]];
@@ -1252,7 +1252,7 @@ TEMPLATE static u32 SoftReset(ARM *cpu)
 	return 1;
 }
 
-u32 (*ARM_swi_tab[2][32])(ARM *cpu) = {
+u32 (*ARMSVCTable[2][32])(ARM *cpu) = {
 	{
 		SoftReset<ARMCPU_ARM9>,			   // 0x00
 		bios_nop<ARMCPU_ARM9>,			   // 0x01
@@ -1323,7 +1323,7 @@ u32 (*ARM_swi_tab[2][32])(ARM *cpu) = {
 	}};
 
 #define BIOS_NOP "bios_nop"
-const char *ARM_swi_names[2][32] = {
+const char *ARMSVCNames[2][32] = {
 	{
 		"SoftReset",			// 0x00
 		BIOS_NOP,				// 0x01
