@@ -317,7 +317,7 @@ void Savestate::Seek(s32 pos, s32 origin)
 s32 Savestate::Tell()
 {
     if (mStream)
-        mStream->Tell();
+        return mStream->Tell();
     else
-        ftell(file);
+        return ftell(file);
 }
