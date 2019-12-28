@@ -21,6 +21,8 @@ char* EmuDirectory;
 bool inited = false;
 bool LidStatus;
 
+bool directBoot = true;
+
 DLL void Deinit()
 {
 	NDS::DeInit();
@@ -79,7 +81,7 @@ DLL bool Init()
 
 DLL void LoadROM(u8* file, s32 fileSize)
 {
-    NDS::LoadROM(file, fileSize, true);
+    NDS::LoadROM(file, fileSize, directBoot);
 }
 
 DLL void ResetCounters()
@@ -223,3 +225,6 @@ DLL void GetUserSettings(u8* dst)
 {
     memcpy(dst, SPI_Firmware::GetUserSettings(), userSettingsLength);
 }
+
+DLL bool GetDirectBoot() { return directBoot; }
+DLL void SetDirectBoot(bool value) { directBoot = value; }
