@@ -28,6 +28,8 @@ const s32 userSettingsLength = 0x74;
 extern u8* userSettingsToLoad;
 u8* GetUserSettings();
 
+extern bool usingFakeFirmware;
+
 void SetupDirectBoot();
 
 u8 GetConsoleType();
