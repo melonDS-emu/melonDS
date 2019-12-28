@@ -953,7 +953,7 @@ u32 InitROM(u32 expectedLen, bool direct)
         }
     }
 
-    if (direct)
+    if (direct || !NDS::CanBootToFirmware())
     {
         // TODO: in the case of an already-encrypted secure area, direct boot
         // needs it decrypted

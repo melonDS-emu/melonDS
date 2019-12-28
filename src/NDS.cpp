@@ -306,6 +306,10 @@ void InitTimings()
     // handled later: GBA slot, wifi
 }
 
+bool CanBootToFirmware()
+{
+    return !SPI_Firmware::usingFakeFirmware && !ARM7->UseHLEBios && !ARM9->UseHLEBios;
+}
 void SetupDirectBoot()
 {
     u32 bootparams[8];

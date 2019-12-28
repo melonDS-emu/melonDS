@@ -140,6 +140,7 @@ bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadROM(const u8* file, s32 fileSize, bool direct);
 bool LoadGBAROM(const char* path, const char* sram);
 void LoadBIOS();
+bool CanBootToFirmware();
 void SetupDirectBoot();
 void RelocateSave(const char* path, bool write);
 

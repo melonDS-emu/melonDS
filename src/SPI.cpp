@@ -34,6 +34,7 @@ u32 FirmwareMask;
 
 u32 UserSettings;
 u8* userSettingsToLoad = NULL;
+bool usingFakeFirmware;
 
 u32 Hold;
 u8 CurCmd;
@@ -127,11 +128,13 @@ void Reset()
     FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
     if (!f)
     {
+        usingFakeFirmware = true;
         printf("firmware.bin not found\n");
         FakeFirmware();
     }
     else
     {
+        usingFakeFirmware = false;
         fseek(f, 0, SEEK_END);
 
         FirmwareLength = (u32)ftell(f);

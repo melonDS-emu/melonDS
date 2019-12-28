@@ -26,6 +26,8 @@ namespace SPI_Firmware
 
 const s32 userSettingsLength = 0x74;
 
+extern bool usingFakeFirmware;
+
 void SetupDirectBoot();
 
 u8 GetConsoleType();
