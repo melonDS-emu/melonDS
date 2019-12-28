@@ -85,6 +85,7 @@ bool Init()
 void DeInit()
 {
     if (Firmware) delete[] Firmware;
+    Firmware = NULL;
 }
 
 void GenerateDefaultUserSettings()
