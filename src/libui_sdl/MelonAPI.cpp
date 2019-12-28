@@ -232,3 +232,6 @@ DLL void SetUserSettings(u8* src)
 
 DLL bool GetDirectBoot() { return directBoot; }
 DLL void SetDirectBoot(bool value) { directBoot = value; }
+
+DLL u8* GetMainMemory() { return NDS::MainRAM; }
+DLL s32 GetMainMemorySize() { return MAIN_RAM_SIZE; }
