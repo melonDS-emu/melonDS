@@ -225,6 +225,10 @@ DLL void GetUserSettings(u8* dst)
 {
     memcpy(dst, SPI_Firmware::GetUserSettings(), userSettingsLength);
 }
+DLL void SetUserSettings(u8* src)
+{
+    memcpy(SPI_Firmware::GetUserSettings(), src, userSettingsLength);
+}
 
 DLL bool GetDirectBoot() { return directBoot; }
 DLL void SetDirectBoot(bool value) { directBoot = value; }
