@@ -45,19 +45,6 @@ DLL bool Init()
 	EmuDirectory = new char[6];
     strcpy(EmuDirectory, "melon");
 
-	// TODO: Load settings
-
-    // TODO: Should MelonDS still at least recommend getting actual bios files?
-    // The HLE bios is incomplete and the timings are inaccurate.
-    // if (!Platform::LocalFileExists("bios7.bin") ||
-    //     !Platform::LocalFileExists("bios9.bin") ||
-    //     !Platform::LocalFileExists("firmware.bin"))
-	// {
-	// 	printf("MelonDS could not find bios7.bin, bios9.bin, and/or firmware.bin.\n");
-	// 	SDL_Quit();
-	// 	return false;
-	// }
-
 	LidStatus = false;
     if (!NDS::Init())
     {
@@ -71,7 +58,7 @@ DLL bool Init()
 
 	ResetCounters();
 
-    // rdireect console output so BizHawk can see it
+    // redirect console output so BizHawk can see it
     freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
 
