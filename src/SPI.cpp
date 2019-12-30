@@ -90,7 +90,7 @@ void DeInit()
 
 void GenerateDefaultUserSettings()
 {
-    if (userSettingsToLoad) delete userSettingsToLoad;
+    if (userSettingsToLoad) delete[] userSettingsToLoad;
     userSettingsToLoad = new u8[userSettingsLength];
     memset(userSettingsToLoad, 0, userSettingsLength);
 
@@ -104,8 +104,26 @@ void GenerateDefaultUserSettings()
 u8* GetUserSettings()
 {
     if (Firmware) return Firmware + UserSettings;
-    else if (userSettingsToLoad == NULL) GenerateDefaultUserSettings();
-    return userSettingsToLoad;
+    else return NULL; // not inited yet
+}
+// Overwrites the currently loaded user settings. If none are loaded, the settings are put in a buffer to load during the next boot.
+// If src is NULL, default settings are used.
+void SetUserSettings(u8* src)
+{
+    if (!src)
+    {
+        GenerateDefaultUserSettings();
+        src = userSettingsToLoad;
+    }
+
+    if (Firmware)
+        memcpy(Firmware + UserSettings, src, userSettingsLength);
+    else if (src != userSettingsToLoad)
+    {
+        if (!userSettingsToLoad)
+            userSettingsToLoad = new u8[userSettingsLength];
+        memcpy(userSettingsToLoad, src, userSettingsLength);
+    }
 }
 void FakeFirmware()
 {
@@ -116,9 +134,7 @@ void FakeFirmware()
     if (userSettingsToLoad == NULL)
         GenerateDefaultUserSettings();
 
-    const int usr = 0x1FE00;
-    *(u16*)&Firmware[0x20] = usr >> 3; // user settings offset
-    memcpy(Firmware + usr, userSettingsToLoad, userSettingsLength);
+    *(u16*)&Firmware[0x20] = (FirmwareLength - 0x200) >> 3; // user settings offset
 }
 
 void Reset()
@@ -187,6 +203,14 @@ void Reset()
     }
 
     UserSettings = userdata;
+    if (userSettingsToLoad)
+    {
+        memcpy(Firmware + UserSettings, userSettingsToLoad, userSettingsLength);
+        // deleting userSettingsToLoad ensures that modified settings will persist after reboot or power cycle
+        // this should happen even if using fake firmware; MelonDS will save the contents of Firmware
+        delete[] userSettingsToLoad;
+        userSettingsToLoad = NULL;
+    }
 
     // fix touchscreen coords
     *(u16*)&Firmware[userdata+0x58] = 0;
