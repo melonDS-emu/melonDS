@@ -208,14 +208,17 @@ DLL bool IsSRAMModified()
 
 const s32 userSettingsLength = SPI_Firmware::userSettingsLength;
 DLL s32 getUserSettingsLength() { return userSettingsLength; }
-DLL void GetUserSettings(u8* dst)
+// Gets the currently loaded user settings. Returns false if no settings are loaded.
+DLL bool GetUserSettings(u8* dst)
 {
-    memcpy(dst, SPI_Firmware::GetUserSettings(), userSettingsLength);
+    u8* src = SPI_Firmware::GetUserSettings();
+    if (src)
+        memcpy(dst, src, userSettingsLength);
+    return src != NULL;
 }
-DLL void SetUserSettings(u8* src)
-{
-    memcpy(SPI_Firmware::GetUserSettings(), src, userSettingsLength);
-}
+// Overwrites the currently loaded user settings. If none are loaded, the settings are put in a buffer to load during the next boot.
+// If src is NULL, default settings are used.
+DLL void SetUserSettings(u8* src) { SPI_Firmware::SetUserSettings(src); }
 
 DLL bool GetDirectBoot() { return directBoot; }
 DLL void SetDirectBoot(bool value) { directBoot = value; }
