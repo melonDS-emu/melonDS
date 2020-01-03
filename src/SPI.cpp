@@ -101,9 +101,22 @@ void GenerateDefaultUserSettings()
     userSettingsToLoad[0x06] = 'M'; userSettingsToLoad[0x08] = 'e'; userSettingsToLoad[0x0A] = 'l';	userSettingsToLoad[0x0C] = 'o';
     userSettingsToLoad[0x0E] = 'n'; userSettingsToLoad[0x10] = 'D';	userSettingsToLoad[0x12] = 'S';
 }
+
 u8* GetUserSettings()
 {
-    if (Firmware) return Firmware + UserSettings;
+    if (Firmware) 
+    {
+        u32 userdata = 0x7FE00 & FirmwareMask;
+        if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
+        {
+            if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
+                userdata += 0x100;
+        }
+
+        UserSettings = userdata;
+
+        return Firmware + UserSettings;
+    }
     else return NULL; // not inited yet
 }
 // Overwrites the currently loaded user settings. If none are loaded, the settings are put in a buffer to load during the next boot.
@@ -195,14 +208,7 @@ void Reset()
 
     FirmwareMask = FirmwareLength - 1;
 
-    u32 userdata = 0x7FE00 & FirmwareMask;
-    if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
-    {
-        if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
-            userdata += 0x100;
-    }
-
-    UserSettings = userdata;
+    GetUserSettings();
     if (userSettingsToLoad)
     {
         memcpy(Firmware + UserSettings, userSettingsToLoad, userSettingsLength);
@@ -213,19 +219,19 @@ void Reset()
     }
 
     // fix touchscreen coords
-    *(u16*)&Firmware[userdata+0x58] = 0;
-    *(u16*)&Firmware[userdata+0x5A] = 0;
-    Firmware[userdata+0x5C] = 0;
-    Firmware[userdata+0x5D] = 0;
-    *(u16*)&Firmware[userdata+0x5E] = 255<<4;
-    *(u16*)&Firmware[userdata+0x60] = 191<<4;
-    Firmware[userdata+0x62] = 255;
-    Firmware[userdata+0x63] = 191;
+    *(u16*)&Firmware[UserSettings+0x58] = 0;
+    *(u16*)&Firmware[UserSettings+0x5A] = 0;
+    Firmware[UserSettings+0x5C] = 0;
+    Firmware[UserSettings+0x5D] = 0;
+    *(u16*)&Firmware[UserSettings+0x5E] = 255<<4;
+    *(u16*)&Firmware[UserSettings+0x60] = 191<<4;
+    Firmware[UserSettings+0x62] = 255;
+    Firmware[UserSettings+0x63] = 191;
 
     // disable autoboot
-    //Firmware[userdata+0x64] &= 0xBF;
+    //Firmware[UserSettings+0x64] &= 0xBF;
 
-    *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
+    *(u16*)&Firmware[UserSettings+0x72] = CRC16(&Firmware[UserSettings], 0x70, 0xFFFF);
 
     // replace MAC address with random address
     // TODO: make optional?
