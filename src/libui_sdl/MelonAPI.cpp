@@ -11,6 +11,7 @@
 #include "../SPU.h"
 #include "../NDSCart.h"
 #include "../SPI.h"
+#include "../Config.h"
 
 // Because Platform.cpp calls main.cpp's Stop method. I doubt we will ever need to do anything here.
 void Stop(bool internal) {};
@@ -52,9 +53,12 @@ DLL bool Init()
         return false;
     }
 
-    if (!OpenGL_Init())
+    Config::Load();
+
+    bool hasGL = OpenGL_Init();
+    if (!hasGL)
         printf("failed to init OpenGL\n");
-    GPU3D::InitRenderer(true);
+    GPU3D::InitRenderer(hasGL);
 
 	ResetCounters();
 
@@ -222,6 +226,9 @@ DLL void SetUserSettings(u8* src) { SPI_Firmware::SetUserSettings(src); }
 
 DLL bool GetDirectBoot() { return directBoot; }
 DLL void SetDirectBoot(bool value) { directBoot = value; }
+
+DLL bool GetUseRealTime() { return Config::UseRealTime != 0; }
+DLL void SetUseRealTime(bool value) { Config::UseRealTime = value ? 1 : 0; }
 
 DLL u8* GetMainMemory() { return NDS::MainRAM; }
 DLL s32 GetMainMemorySize() { return MAIN_RAM_SIZE; }
