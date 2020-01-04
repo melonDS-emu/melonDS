@@ -20,7 +20,9 @@
 #include <string.h>
 #include <time.h>
 #include "RTC.h"
-
+#include "NDS.h"
+#include "Config.h"
+#include "SPI.h"
 
 namespace RTC
 {
@@ -103,6 +105,26 @@ u8 BCD(u8 val)
     return (val % 10) | ((val / 10) << 4);
 }
 
+tm* GetTime()
+{
+    // firmware user settings contain an rtc offset at 0x68
+    u8* userSettings = SPI_Firmware::GetUserSettings();
+    if (!userSettings || Config::UseRealTime)
+    {
+        time_t timestamp;
+        time(&timestamp);
+        return localtime(&timestamp);
+    }
+    else
+    {
+        // 560190 cycles per frame
+        // 59.8261 frames per second (number taken from DeSmuME)
+        int time0 = 946684800; // 2000-01-01 00:00:00 (earliest date possible on a DS)
+        time_t timestamp = time0 + (time_t)(NDS::GetSysClockCycles(0) / 560190.0 / 59.8261);
+        timestamp += *(u32*)(userSettings + 0x68);
+        return localtime(&timestamp);
+    }
+}
 
 void ByteIn(u8 val)
 {
@@ -126,10 +148,8 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp;
                     struct tm* timedata;
-                    time(&timestamp);
-                    timedata = localtime(&timestamp);
+                    timedata = GetTime();
 
                     Output[0] = BCD(timedata->tm_year - 100);
                     Output[1] = BCD(timedata->tm_mon + 1);
@@ -143,10 +163,8 @@ void ByteIn(u8 val)
 
             case 0x60:
                 {
-                    time_t timestamp;
                     struct tm* timedata;
-                    time(&timestamp);
-                    timedata = localtime(&timestamp);
+                    timedata = GetTime();
 
                     Output[0] = BCD(timedata->tm_hour);
                     Output[1] = BCD(timedata->tm_min);
