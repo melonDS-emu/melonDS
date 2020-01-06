@@ -57,7 +57,6 @@ void Write_Discover(u8 val, bool islast);
 bool Init()
 {
     SRAM = NULL;
-    SRAMModified = false;
     return true;
 }
 
@@ -70,6 +69,7 @@ void Reset()
 {
     if (SRAM) delete[] SRAM;
     SRAM = NULL;
+    SRAMModified = false;
 }
 
 void DoSavestate(Savestate* file)
@@ -101,6 +101,8 @@ void DoSavestate(Savestate* file)
 
         file->VarArray(SRAM, SRAMLength);
     }
+    if (file->VersionMinor >= 3)
+        file->Var8((u8*)&SRAMModified);
 
     // SPI status shito
 

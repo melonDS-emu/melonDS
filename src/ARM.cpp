@@ -127,6 +127,24 @@ void ARM::DoSavestate(Savestate* file)
 
     file->Var32(&ExceptionBase);
 
+    if (file->VersionMinor >= 3)
+    {
+        if (file->Saving)
+            file->Var8((u8*)&UseHLEBios);
+        else
+        {
+            // I'm going to assume all BIOS files are identical for now, and not include a checksum.
+            u8 fileHLE;
+            file->Var8(&fileHLE);
+            if (UseHLEBios ^ fileHLE)
+            {
+                printf("savestate: ARM%s BIOS doesn't match\n", Num ? "7" : "9");
+                file->Error = true;
+            }
+        }
+        file->Var8(&IntWaitARMState);
+    }
+
     if (!file->Saving)
     {
         if (!Num)

@@ -33,6 +33,7 @@ u32 FirmwareLength;
 u32 FirmwareMask;
 
 u32 UserSettings;
+#define USER_SETTINGS 0x7FE00
 u8* userSettingsToLoad = NULL;
 bool usingFakeFirmware;
 
@@ -106,7 +107,7 @@ u8* GetUserSettings()
 {
     if (Firmware) 
     {
-        u32 userdata = 0x7FE00 & FirmwareMask;
+        u32 userdata = USER_SETTINGS & FirmwareMask;
         if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
         {
             if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
@@ -266,8 +267,6 @@ void DoSavestate(Savestate* file)
 {
     file->Section("SPFW");
 
-    // CHECKME/TODO: trust the firmware to stay the same?????
-    // embedding the whole firmware in the savestate would be derpo tho??
 
     file->Var32(&Hold);
     file->Var8(&CurCmd);
@@ -276,6 +275,33 @@ void DoSavestate(Savestate* file)
 
     file->Var8(&StatusReg);
     file->Var32(&Addr);
+
+    // CHECKME/TODO: trust the firmware to stay the same?????
+    // embedding the whole firmware in the savestate would be derpo tho??
+	// SuuperW: We can at least save the two user settings regions, and a crc
+	// Other things can change as well, e.g. the region immediately before the first user settings
+	if (file->VersionMinor >= 3)
+    {
+        file->VarArray(Firmware + (USER_SETTINGS & FirmwareMask), userSettingsLength);
+        file->VarArray(Firmware + 0x100 + (USER_SETTINGS & FirmwareMask), userSettingsLength);
+        u16 crc = CRC16(Firmware, FirmwareLength, 0);
+        if (file->Saving)
+        {
+            file->Var32(&FirmwareLength);
+            file->Var16(&crc);
+        }
+        else
+        {
+            u32 fileFirmwareLength;
+            u16 fileCRC;
+            file->Var32(&fileFirmwareLength);
+            file->Var16(&fileCRC);
+            if (fileCRC != crc || fileFirmwareLength != FirmwareLength)
+            {
+                printf("savestate: firmware checksum doesn't match. oh well.\n");
+            }
+        }
+    }
 }
 
 void SetupDirectBoot()
