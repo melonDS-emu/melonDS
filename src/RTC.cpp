@@ -32,6 +32,7 @@ u16 IO;
 u8 Input;
 u32 InputBit;
 u32 InputPos;
+u8 ClockInput[7];
 
 u8 Output[8];
 u32 OutputBit;
@@ -46,6 +47,7 @@ u8 Alarm2[3];
 u8 ClockAdjust;
 u8 FreeReg;
 
+u32 TimeAtBoot;
 
 bool Init()
 {
@@ -73,6 +75,8 @@ void Reset()
     memset(Alarm2, 0, sizeof(Alarm2));
     ClockAdjust = 0;
     FreeReg = 0;
+
+    TimeAtBoot = Config::TimeAtBoot;
 }
 
 void DoSavestate(Savestate* file)
@@ -104,12 +108,20 @@ u8 BCD(u8 val)
 {
     return (val % 10) | ((val / 10) << 4);
 }
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
+}
 
+time_t SecondsSinceBoot()
+{
+    // 560190 cycles per frame
+    // 59.8261 frames per second (number taken from DeSmuME)
+    return (time_t)(NDS::GetSysClockCycles(0) / 560190.0 / 59.8261);
+}
 tm* GetTime()
 {
-    // firmware user settings contain an rtc offset at 0x68
-    u8* userSettings = SPI_Firmware::GetUserSettings();
-    if (!userSettings || Config::UseRealTime)
+    if (TimeAtBoot == 0)
     {
         time_t timestamp;
         time(&timestamp);
@@ -117,12 +129,8 @@ tm* GetTime()
     }
     else
     {
-        // 560190 cycles per frame
-        // 59.8261 frames per second (number taken from DeSmuME)
-        int time0 = 946684800; // 2000-01-01 00:00:00 (earliest date possible on a DS)
-        time_t timestamp = time0 + (time_t)(NDS::GetSysClockCycles(0) / 560190.0 / 59.8261);
-        timestamp += *(u32*)(userSettings + 0x68);
-        return localtime(&timestamp);
+        time_t timestamp = TimeAtBoot + SecondsSinceBoot();
+        return gmtime(&timestamp);
     }
 }
 
@@ -209,7 +217,25 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        // TODO: set time somehow??
+        ClockInput[InputPos / 2 - 1] = FromBCD(val);
+        if (InputPos == 14)
+        {
+            tm newTime;
+            memset(&newTime, 0, sizeof(newTime));
+            newTime.tm_year = ClockInput[0] + 100;
+            newTime.tm_mon = ClockInput[1] - 1;
+            newTime.tm_mday = ClockInput[2];
+            newTime.tm_wday = ClockInput[3];
+            newTime.tm_hour = ClockInput[4];
+            newTime.tm_min = ClockInput[5];
+            newTime.tm_sec = ClockInput[6];
+            time_t timestamp = mktime(&newTime);
+            // mktime uses local time zone; get back to utc
+            tm* utc = gmtime(&timestamp);
+            time_t t2 = mktime(utc);
+            timestamp += timestamp - t2;
+            TimeAtBoot = timestamp - SecondsSinceBoot();
+        }
         break;
 
     case 0x60:
