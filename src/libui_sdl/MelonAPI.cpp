@@ -131,11 +131,14 @@ DLL void VideoBuffer32bit(s32* dst)
     memcpy(dst, src, 4 * 256 * 192);
 }
 
-DLL void UseSavestate(u8* data, s32 len)
+DLL bool UseSavestate(u8* data, s32 len)
 {
 	Savestate* state = new Savestate(data, len);
-	NDS::DoSavestate(state);
+    if (!state->Error)
+    	NDS::DoSavestate(state);
+    bool error = state->Error;
 	delete state;
+    return !error;
 }
 Savestate* _loadedState;
 u8* stateData;
