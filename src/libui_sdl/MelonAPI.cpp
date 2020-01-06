@@ -227,8 +227,8 @@ DLL void SetUserSettings(u8* src) { SPI_Firmware::SetUserSettings(src); }
 DLL bool GetDirectBoot() { return directBoot; }
 DLL void SetDirectBoot(bool value) { directBoot = value; }
 
-DLL bool GetUseRealTime() { return Config::UseRealTime != 0; }
-DLL void SetUseRealTime(bool value) { Config::UseRealTime = value ? 1 : 0; }
+DLL u32 GetTimeAtBoot() { return Config::TimeAtBoot; }
+DLL void SetTimeAtBoot(u32 value) { Config::TimeAtBoot = value; }
 
 DLL u8* GetMainMemory() { return NDS::MainRAM; }
 DLL s32 GetMainMemorySize() { return MAIN_RAM_SIZE; }
