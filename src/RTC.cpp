@@ -101,6 +101,12 @@ void DoSavestate(Savestate* file)
     file->VarArray(Alarm2, sizeof(Alarm2));
     file->Var8(&ClockAdjust);
     file->Var8(&FreeReg);
+
+    if (file->IsAtleastVersion(6, 1))
+    {
+        file->VarArray(ClockInput, sizeof(ClockInput));
+        file->Var32(&TimeAtBoot);
+    }
 }
 
 
