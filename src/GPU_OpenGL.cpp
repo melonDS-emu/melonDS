@@ -46,7 +46,9 @@ GLuint CompScreenOutputFB;
 
 bool Init()
 {
-    if (!OpenGL_BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, CompShader[0], "CompositorShader"))
+    //if (!OpenGL_BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, CompShader[0], "CompositorShader"))
+    //if (!OpenGL_BuildShaderProgram(kCompositorVS, kCompositorFS_Linear, CompShader[0], "CompositorShader"))
+    if (!OpenGL_BuildShaderProgram(kCompositorVS_xBRZ, kCompositorFS_xBRZ, CompShader[0], "CompositorShader"))
         return false;
 
     for (int i = 0; i < 1; i++)

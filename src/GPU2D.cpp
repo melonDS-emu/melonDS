@@ -1496,6 +1496,8 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     {
         if (Num == 0)
         {
+            u16 xoff3d = BGXPos[0];
+
             for (int i = 0; i < 256; i++)
             {
                 u32 val1 = BGOBJLine[i];
@@ -1523,7 +1525,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = 0x04000000 | (val1 & 0xFF);
+                    BGOBJLine[512+i] = 0x04000000;
                 }
                 else if ((flag1 & 0xC0) == 0x40)
                 {
@@ -1535,7 +1537,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8) | (val1 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8);
                 }
                 else if (((flag2 & 0xC0) == 0x40) && ((BlendCnt & 0x01C0) == 0x0140))
                 {
@@ -1558,7 +1560,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val1;
                     BGOBJLine[256+i] = ColorComposite(i, val1, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val2 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8);
                 }
                 else
                 {
@@ -1568,6 +1570,9 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
                     BGOBJLine[256+i] = 0;
                     BGOBJLine[512+i] = 0x07000000;
                 }
+
+                if (!(xoff3d & 0x100)) BGOBJLine[512+i] |= (xoff3d & 0xFF);
+                xoff3d++;
             }
         }
         else
