@@ -31,6 +31,11 @@ target_link_libraries(melonDS
 	core ${SDL2_LIBRARIES} libui)
 
 if (UNIX)
+	option(UNIX_PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
+	if (UNIX_PORTABLE)
+		add_definitions(-DUNIX_PORTABLE)
+	endif()
+
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 	pkg_check_modules(SDL2 REQUIRED sdl2)
@@ -61,4 +66,7 @@ elseif (WIN32)
 	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi)
 endif ()
 
+install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
+install(FILES ../../icon/melon_256x256.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/pixmaps RENAME net.kuribo64.melonDS.png)
+install(FILES ../../romlist.bin DESTINATION ${CMAKE_INSTALL_PREFIX}/share/melonDS)
 install(TARGETS melonDS RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

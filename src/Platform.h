@@ -32,15 +32,21 @@ void StopEmu();
 //     can be optionally restricted to only opening a file that already exists.
 // * OpenLocalFile():
 //     opens files local to the emulator (melonDS.ini, BIOS, firmware, ...)
-//     checks, by order of priority:
+//     For Windows builds, or portable UNIX builds it checks, by order of priority:
 //     * current working directory
 //     * emulator directory (essentially where the melonDS executable is) if supported
 //     * any platform-specific application data directories
 //     in create mode, if the file doesn't exist, it will be created in the emulator
 //     directory if supported, or in the current directory otherwise
+//     For regular UNIX builds, the user's configuration directory is always used.
+// * OpenDataFile():
+//     Opens a file that was installed alongside melonDS on UNIX systems in /usr/share, etc.
+//     Looks in the user's data directory first, then the system's.
+//     If on Windows or a portable UNIX build, this simply calls OpenLocalFile().
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);
+FILE* OpenDataFile(const char* path);
 
 inline bool FileExists(const char* name)
 {
