@@ -71,7 +71,9 @@ char hotkeylabels[HK_MAX][32] =
     "Pause/resume:",
     "Reset:",
     "Fast forward:",
-    "Fast forward (toggle):"
+    "Fast forward (toggle):",
+    "Decrease sunlight (Boktai):",
+    "Increase sunlight (Boktai):"
 };
 
 int openedmask;
@@ -514,7 +516,7 @@ void Open(int type)
         memcpy(dlg->keymap, Config::HKKeyMapping, sizeof(int)*HK_MAX);
         memcpy(dlg->joymap, Config::HKJoyMapping, sizeof(int)*HK_MAX);
 
-        dlg->win = uiNewWindow("Hotkey config - melonDS", 600, 100, 0, 0, 0);
+        dlg->win = uiNewWindow("Hotkey config - melonDS", 700, 100, 0, 0, 0);
     }
 
     uiControl(dlg->win)->UserData = dlg;
