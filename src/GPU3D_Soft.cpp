@@ -2107,9 +2107,9 @@ void RenderThreadFunc()
     }
 }
 
-u32* GetLine(int line)
+u32* GetLine(int line, bool waitSema)
 {
-    if (RenderThreadRunning)
+    if (RenderThreadRunning && waitSema)
     {
         if (line < 192)
             Platform::Semaphore_Wait(Sema_ScanlineCount);

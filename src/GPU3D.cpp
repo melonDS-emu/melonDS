@@ -567,6 +567,12 @@ void DoSavestate(Savestate* file)
         }
     }
 
+    if (file->IsAtleastVersion(4, 4))
+    {
+        for (int i = 0; i < 192; i++)
+            file->VarArray(GetLine(i, false), 256 * 4);
+   }
+
     // probably not worth storing the vblank-latched Renderxxxxxx variables
 
     if (file->IsAtleastVersion(2, 1))
@@ -2505,9 +2511,9 @@ void VCount215()
     else               GLRenderer::RenderFrame();
 }
 
-u32* GetLine(int line)
+u32* GetLine(int line, bool waitSema)
 {
-    if (Renderer == 0) return SoftRenderer::GetLine(line);
+    if (Renderer == 0) return SoftRenderer::GetLine(line, waitSema);
     else               return GLRenderer::GetLine(line);
 }
 
