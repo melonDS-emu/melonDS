@@ -31,6 +31,16 @@ DLL void Deinit()
 }
 DLL bool Init()
 {
+    // redirect console output so BizHawk can see it
+    FILE* conout = fopen("CONOUT$", "w");
+    if (conout)
+    {
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+    }
+
+    printf("Testing Melon print.");
+
 	if (inited)
 	{
 		printf("MelonDS is already inited. De-initing before init.\n");
@@ -61,10 +71,6 @@ DLL bool Init()
     GPU3D::InitRenderer(hasGL);
 
 	ResetCounters();
-
-    // redirect console output so BizHawk can see it
-    freopen("CONOUT$", "w", stdout);
-	freopen("CONOUT$", "w", stderr);
 
     inited = true;
     return true;
