@@ -241,3 +241,10 @@ DLL void SetTimeAtBoot(u32 value) { Config::TimeAtBoot = value; }
 
 DLL u8* GetMainMemory() { return NDS::MainRAM; }
 DLL s32 GetMainMemorySize() { return MAIN_RAM_SIZE; }
+
+DLL u8 ARM9Read8(u32 addr) { return NDS::ARM9Read8(addr); }
+DLL void ARM9Write8(u32 addr, u8 value) { NDS::ARM9Write8(addr, value); }
+DLL u16 ARM9Read16(u32 addr) { return NDS::ARM9Read16(addr); }
+DLL void ARM9Write16(u32 addr, u16 value) { NDS::ARM9Write16(addr, value); }
+DLL u32 ARM9Read32(u32 addr) { return NDS::ARM9Read32(addr); }
+DLL void ARM9Write32(u32 addr, u32 value) { NDS::ARM9Write32(addr, value); }
