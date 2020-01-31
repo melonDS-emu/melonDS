@@ -674,7 +674,7 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
-    if (file->VersionMinor > 1)
+    if (file->IsAtleastVersion(4, 1))
         file->Var32(&NumLagFrames);
 
     // TODO: save KeyInput????

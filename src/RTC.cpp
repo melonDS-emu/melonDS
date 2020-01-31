@@ -102,7 +102,7 @@ void DoSavestate(Savestate* file)
     file->Var8(&ClockAdjust);
     file->Var8(&FreeReg);
 
-    if (file->VersionMinor >= 3)
+    if (file->IsAtleastVersion(4, 3))
     {
         file->VarArray(ClockInput, sizeof(ClockInput));
         file->Var32(&TimeAtBoot);
