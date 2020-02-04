@@ -8,9 +8,9 @@
 #include <cstring>
 #include <vector>
 
+#include "Compat.h"
 #include "Align.h"
 #include "Arm64Emitter.h"
-#include "Assert.h"
 #include "BitUtils.h"
 #include "../types.h"
 #include "MathUtil.h"
