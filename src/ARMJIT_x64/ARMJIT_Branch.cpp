@@ -134,7 +134,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
     IrregularCycles = true;
 
-    BitSet16 hiRegsLoaded(RegCache.DirtyRegs & 0xFF00);
+    BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
     bool previouslyDirty = CPSRDirty;
     SaveCPSR();
 
@@ -156,12 +156,12 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     if (!restoreCPSR)
         XOR(32, R(ABI_PARAM3), R(ABI_PARAM3));
     else
-        MOV(32, R(ABI_PARAM3), Imm32(restoreCPSR));
+        MOV(32, R(ABI_PARAM3), Imm32(true)); // what a waste
     if (Num == 0)
         CALL((void*)&ARMv5::JumpTo);
     else
         CALL((void*)&ARMv4::JumpTo);
-    
+
     if (!Thumb && restoreCPSR && CurInstr.Cond() < 0xE)
     {
         for (int reg : hiRegsLoaded)

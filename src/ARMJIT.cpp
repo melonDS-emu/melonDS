@@ -273,6 +273,8 @@ bool IsIdleLoop(FetchedInstr* instrs, int instrsCount)
 
 typedef void (*InterpreterFunc)(ARM* cpu);
 
+void NOP(ARM* cpu) {}
+
 #define F(x) &ARMInterpreter::A_##x
 #define F_ALU(name, s) \
 	F(name##_REG_LSL_IMM##s), F(name##_REG_LSR_IMM##s), F(name##_REG_ASR_IMM##s), F(name##_REG_ROR_IMM##s), \
@@ -320,7 +322,8 @@ InterpreterFunc InterpretARM[ARMInstrInfo::ak_Count] =
 	F(LDM), F(STM),
 
 	F(B), F(BL), F(BLX_IMM), F(BX), F(BLX_REG),
-	F(UNK), F(MSR_IMM), F(MSR_REG), F(MRS), F(MCR), F(MRC), F(SVC)
+	F(UNK), F(MSR_IMM), F(MSR_REG), F(MRS), F(MCR), F(MRC), F(SVC),
+	NOP
 };
 #undef F_ALU
 #undef F_MEM_WB
@@ -387,8 +390,8 @@ void CompileBlock(ARM* cpu)
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
 	u32 nextInstrAddr[2] = {blockAddr, r15};
 
-	JIT_DEBUGPRINT("start block %x (%x) %p %p (region invalidates %dx)\n", 
-		blockAddr, pseudoPhysicalAddr, FastBlockAccess[pseudoPhysicalAddr / 2], 
+	JIT_DEBUGPRINT("start block %x %08x (%x) %p %p (region invalidates %dx)\n",
+		blockAddr, cpu->CPSR, pseudoPhysicalAddr, FastBlockAccess[pseudoPhysicalAddr / 2], 
 		cpu->Num == 0 ? LookUpBlock<0>(blockAddr) : LookUpBlock<1>(blockAddr),
 		CodeRanges[pseudoPhysicalAddr / 512].TimesInvalidated);
 
@@ -473,7 +476,9 @@ void CompileBlock(ARM* cpu)
 			else
 			{
                 u32 icode = ((instrs[i].Instr >> 4) & 0xF) | ((instrs[i].Instr >> 16) & 0xFF0);
-				assert(InterpretARM[instrs[i].Info.Kind] == ARMInterpreter::ARMInstrTable[icode] || instrs[i].Info.Kind == ARMInstrInfo::ak_MOV_REG_LSL_IMM);
+				assert(InterpretARM[instrs[i].Info.Kind] == ARMInterpreter::ARMInstrTable[icode]
+					|| instrs[i].Info.Kind == ARMInstrInfo::ak_MOV_REG_LSL_IMM
+					|| instrs[i].Info.Kind == ARMInstrInfo::ak_Nop);
 				if (cpu->CheckCondition(instrs[i].Cond()))
 					InterpretARM[instrs[i].Info.Kind](cpu);
 				else
