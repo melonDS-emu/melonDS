@@ -639,7 +639,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
             int reg = *it;
 
-            if (usermode && reg >= 8 && reg < 15)
+            if (usermode && !regs[15] && reg >= 8 && reg < 15)
             {
                 if (RegCache.Mapping[reg] != INVALID_REG)
                     MOV(W3, MapReg(reg));

@@ -103,6 +103,8 @@ public:
     void LoadCPSR();
     void SaveCPSR(bool markClean = true);
 
+    void Nop() {}
+
     void A_Comp_ALUTriOp();
     void A_Comp_ALUMovOp();
     void A_Comp_ALUCmpOp();
