@@ -139,6 +139,8 @@ enum
     ak_MRC,
     ak_SVC,
 
+    ak_Nop,
+
     ak_Count,
 
     tk_LSL_IMM = 0,

@@ -531,7 +531,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         {
             if (regs[reg])
             {
-                if (usermode && reg >= 8 && reg < 15)
+                if (usermode && !regs[15] && reg >= 8 && reg < 15)
                 {
                     if (firstUserMode)
                     {
@@ -545,7 +545,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     FixupBranch sucessfulWritten = J_CC(CC_NC);
                     if (RegCache.Mapping[reg] != INVALID_REG)
                         MOV(32, R(RegCache.Mapping[reg]), R(ABI_PARAM3));
-                    SaveReg(reg, ABI_PARAM3);
+                    else
+                        SaveReg(reg, ABI_PARAM3);
                     SetJumpTarget(sucessfulWritten);
                 }
                 else if (RegCache.Mapping[reg] == INVALID_REG)
