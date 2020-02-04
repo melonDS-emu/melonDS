@@ -8,7 +8,6 @@
 #include <functional>
 
 #include "ArmCommon.h"
-#include "Assert.h"
 #include "BitSet.h"
 #include "Compat.h"
 
