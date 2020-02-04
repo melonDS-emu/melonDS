@@ -725,6 +725,8 @@ void ARMv4::ExecuteJIT()
             return;
         }
 
+        //printf("executing armv4 at %08x\n", instrAddr);
+
         ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock<1>(instrAddr);
         if (block)
             Cycles += block();

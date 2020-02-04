@@ -308,6 +308,7 @@ const Compiler::CompileFunc A_Comp[ARMInstrInfo::ak_Count] =
     F(A_Comp_BranchImm), F(A_Comp_BranchImm), F(A_Comp_BranchImm), F(A_Comp_BranchXchangeReg), F(A_Comp_BranchXchangeReg),
     // system stuff
     NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    F(Nop)
 };
 
 const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {

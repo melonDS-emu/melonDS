@@ -79,6 +79,8 @@ public:
         opInvertOp2 = 1 << 5,
     };
 
+    void Nop() {}
+
     void A_Comp_Arith();
     void A_Comp_MovOp();
     void A_Comp_CmpOp();

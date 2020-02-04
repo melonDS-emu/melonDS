@@ -152,7 +152,7 @@ public:
                 needValueLoaded = BitSet16(instr.Info.SrcRegs);
             for (int reg : needToBeLoaded)
                 LoadRegister(reg, needValueLoaded[reg]);
-        } 
+        }
         {
             BitSet16 loadedSet(LoadedRegs);
             BitSet16 loadRegs(instr.Info.NotStrictlyNeeded & futureNeeded & ~LoadedRegs);
