@@ -61,3 +61,15 @@
     { \
         printf(fmt "\n", ## __VA_ARGS__); \
     } while (false)
+
+#if __cplusplus < 201703L
+// cheat
+namespace std
+{
+template <typename T>
+T clamp(const T& v, const T& lo, const T& hi)
+{
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+}
+#endif
