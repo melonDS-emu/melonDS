@@ -8,6 +8,9 @@
 #include "../switch/compat_switch.h"
 
 extern char __start__;
+#else
+#include <sys/mman.h>
+#include <unistd.h>
 #endif
 
 #include <malloc.h>
@@ -34,6 +37,9 @@ template <>
 const int RegisterCache<Compiler, ARM64Reg>::NativeRegsAvailable = 8;
 
 const int JitMemSize = 16 * 1024 * 1024;
+#ifndef __SWITCH__
+u8 JitMem[JitMemSize];
+#endif
 
 void Compiler::MovePC()
 {
@@ -75,6 +81,16 @@ Compiler::Compiler()
 
     SetCodeBase((u8*)JitRWStart, (u8*)JitRXStart);
     JitMemUseableSize = JitMemSize;
+    Reset();
+#else
+    #else
+    u64 pageSize = sysconf(_SC_PAGE_SIZE);
+    u8* pageAligned = (u8*)(((u64)JitMem & ~(pageSize - 1)) + pageSize);
+    u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;
+    mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+
+    SetCodeBase(pageAligned, pageAligned);
+    JitMemUseableSize = alignedSize;
     Reset();
 #endif
 
