@@ -41,10 +41,31 @@ if (ENABLE_JIT)
 		ARMJIT_x64/ARMJIT_Branch.cpp
 
 		dolphin/CommonFuncs.cpp
-		dolphin/x64ABI.cpp
-		dolphin/x64CPUDetect.cpp
-		dolphin/x64Emitter.cpp
 	)
+
+	if (ARCHITECTURE STREQUAL x86_64)
+		target_sources(core PRIVATE
+			dolphin/x64ABI.cpp
+			dolphin/x64CPUDetect.cpp
+			dolphin/x64Emitter.cpp
+
+			ARMJIT_x64/ARMJIT_Compiler.cpp
+			ARMJIT_x64/ARMJIT_ALU.cpp
+			ARMJIT_x64/ARMJIT_LoadStore.cpp
+			ARMJIT_x64/ARMJIT_Branch.cpp
+		)
+	endif()
+	if (ARCHITECTURE STREQUAL ARM64)
+		target_sources(core PRIVATE
+			dolphin/Arm64Emitter.cpp
+			dolphin/MathUtil.cpp
+
+			ARMJIT_A64/ARMJIT_Compiler.cpp
+			ARMJIT_A64/ARMJIT_ALU.cpp
+			ARMJIT_A64/ARMJIT_LoadStore.cpp
+			ARMJIT_A64/ARMJIT_Branch.cpp
+		)
+	endif()
 endif()
 
 if (WIN32)

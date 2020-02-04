@@ -6,7 +6,11 @@
 #include "Config.h"
 
 #include "ARMJIT_Internal.h"
+#if defined(__x86_64__)
 #include "ARMJIT_x64/ARMJIT_Compiler.h"
+#else
+#include "ARMJIT_A64/ARMJIT_Compiler.h"
+#endif
 
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_LoadStore.h"

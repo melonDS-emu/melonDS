@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "Config.h"
+
 namespace ARMInstrInfo
 {
 
@@ -363,7 +365,11 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.SpecialKind = special_WriteMem;
         
         if (res.Kind == ARMInstrInfo::tk_LDR_PCREL)
+        {
+            if (!Config::JIT_LiteralOptimisations)
+                res.SrcRegs |= 1 << 15;
             res.SpecialKind = special_LoadLiteral;
+        }
 
         if (res.Kind == tk_LDMIA || res.Kind == tk_POP)
         {
@@ -417,7 +423,6 @@ Info Decode(bool thumb, u32 num, u32 instr)
             u32 cp = ((instr >> 8) & 0xF);
             if ((num == 0 && cp != 15) || (num == 1 && cp != 14))
             {
-                printf("happens\n");
                 data = A_UNK;
                 res.Kind = ak_UNK;
             }
