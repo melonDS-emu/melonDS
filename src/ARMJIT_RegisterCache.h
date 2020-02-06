@@ -95,6 +95,20 @@ public:
         LiteralsLoaded = 0;
     }
 
+    BitSet32 GetPushRegs()
+    {
+        BitSet16 used;
+        for (int i = 0; i < InstrsCount; i++)
+            used |= BitSet16(Instrs[i].Info.SrcRegs | Instrs[i].Info.DstRegs);
+
+        BitSet32 res;
+        u32 registersMax = std::min((int)used.Count(), NativeRegsAvailable);
+        for (int i = 0; i < registersMax; i++)
+            res |= BitSet32(1 << (int)NativeRegAllocOrder[i]);
+
+        return res;
+    }
+
 	void Prepare(bool thumb, int i)
     {
         FetchedInstr instr = Instrs[i];
@@ -111,7 +125,7 @@ public:
         for (int j = 0; j < 16; j++)
             ranking[j] = 0;
         for (int j = i; j < InstrsCount; j++)
-        {
+        {s
             BitSet16 regsNeeded((Instrs[j].Info.SrcRegs & ~(1 << 15)) | Instrs[j].Info.DstRegs);
             futureNeeded |= regsNeeded.m_val;
             regsNeeded &= BitSet16(~Instrs[j].Info.NotStrictlyNeeded);
