@@ -125,7 +125,7 @@ public:
         for (int j = 0; j < 16; j++)
             ranking[j] = 0;
         for (int j = i; j < InstrsCount; j++)
-        {s
+        {
             BitSet16 regsNeeded((Instrs[j].Info.SrcRegs & ~(1 << 15)) | Instrs[j].Info.DstRegs);
             futureNeeded |= regsNeeded.m_val;
             regsNeeded &= BitSet16(~Instrs[j].Info.NotStrictlyNeeded);
