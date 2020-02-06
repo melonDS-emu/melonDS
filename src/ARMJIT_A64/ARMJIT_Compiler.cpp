@@ -83,7 +83,6 @@ Compiler::Compiler()
     JitMemUseableSize = JitMemSize;
     Reset();
 #else
-    #else
     u64 pageSize = sysconf(_SC_PAGE_SIZE);
     u8* pageAligned = (u8*)(((u64)JitMem & ~(pageSize - 1)) + pageSize);
     u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;

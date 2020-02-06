@@ -18,11 +18,15 @@ public:
     RegisterCache()
     {}
 
-	RegisterCache(T* compiler, FetchedInstr instrs[], int instrsCount)
+	RegisterCache(T* compiler, FetchedInstr instrs[], int instrsCount, bool pcAllocatableAsSrc = false)
 		: Compiler(compiler), Instrs(instrs), InstrsCount(instrsCount)
     {
         for (int i = 0; i < 16; i++)
             Mapping[i] = (Reg)-1;
+        
+        PCAllocatableAsSrc = ~(pcAllocatableAsSrc
+            ? 0
+            : (1 << 15));
     }
 
     void UnloadRegister(int reg)
@@ -120,7 +124,7 @@ public:
         for (int reg : neverNeededAgain)
             UnloadRegister(reg);
 
-        u16 necessaryRegs = ((instr.Info.SrcRegs & ~(1 << 15)) | instr.Info.DstRegs) & ~instr.Info.NotStrictlyNeeded;
+        u16 necessaryRegs = ((instr.Info.SrcRegs & PCAllocatableAsSrc) | instr.Info.DstRegs) & ~instr.Info.NotStrictlyNeeded;
         u16 writeRegs = instr.Info.DstRegs & ~instr.Info.NotStrictlyNeeded;
         BitSet16 needToBeLoaded(necessaryRegs & ~LoadedRegs);
         if (needToBeLoaded != BitSet16(0))
@@ -183,6 +187,8 @@ public:
 	u32 NativeRegsUsed = 0;
 	u16 LoadedRegs = 0;
 	u16 DirtyRegs = 0;
+
+    u16 PCAllocatableAsSrc = 0;
 
 	T* Compiler;
 
