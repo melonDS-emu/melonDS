@@ -1,6 +1,7 @@
 project(core)
 
 add_library(core STATIC
+	AREngine.cpp
 	ARM.cpp
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp

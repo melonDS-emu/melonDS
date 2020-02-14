@@ -30,6 +30,7 @@
 #include "SPI.h"
 #include "RTC.h"
 #include "Wifi.h"
+#include "AREngine.h"
 #include "Platform.h"
 
 
@@ -177,6 +178,8 @@ bool Init()
     if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
 
+    if (!AREngine::Init()) return false;
+
     return true;
 }
 
@@ -198,6 +201,8 @@ void DeInit()
     SPI::DeInit();
     RTC::DeInit();
     Wifi::DeInit();
+
+    AREngine::DeInit();
 }
 
 
@@ -500,6 +505,8 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
+
+    AREngine::Reset();
 }
 
 void Stop()

@@ -100,6 +100,8 @@
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="src/AREngine.cpp" />
+		<Unit filename="src/AREngine.h" />
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
 		<Unit filename="src/ARMInterpreter.cpp" />
@@ -279,6 +281,10 @@
 		<Unit filename="src/types.h" />
 		<Unit filename="src/version.h" />
 		<Unit filename="xp.manifest" />
-		<Extensions />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
 	</Project>
 </CodeBlocks_project_file>

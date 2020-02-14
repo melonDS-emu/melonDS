@@ -20,7 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-u64 vbltime;
+#include "AREngine.h"
 
 namespace GPU
 {
@@ -986,6 +986,9 @@ void StartScanline(u32 line)
             GPU2D_A->VBlank();
             GPU2D_B->VBlank();
             GPU3D::VBlank();
+
+            // TODO: verify when AR cheats actually run!
+            AREngine::RunCheats();
         }
         else if (VCount == 144)
         {
