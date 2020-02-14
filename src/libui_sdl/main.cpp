@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -2760,7 +2760,7 @@ int main(int argc, char** argv)
 		char* locationName = EmuDirectory;
 #endif
 		char msgboxtext[512];
-		sprintf(msgboxtext, 
+		sprintf(msgboxtext,
             "One or more of the following required files don't exist or couldn't be accessed:\n\n"
             "bios7.bin -- ARM7 BIOS\n"
             "bios9.bin -- ARM9 BIOS\n"

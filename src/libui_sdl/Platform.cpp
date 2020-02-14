@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -189,7 +189,7 @@ FILE* OpenDataFile(const char* path)
 
 	FILE* f = fopen(path, "rb");
 	if (f) return f;
-    
+
     return NULL;
 }
 
