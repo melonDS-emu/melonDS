@@ -262,8 +262,14 @@ bool Init(bool open_adapter)
                 curaddr = curaddr->ifa_next;
                 continue;
             }
-            if (!curaddr->ifa_addr) continue;
             
+            if (!curaddr->ifa_addr)
+            {
+                printf("Device (%s) does not have an address :/\n", curaddr->ifa_name);      
+                curaddr = curaddr->ifa_next;
+                continue;
+            }
+		
             u16 af = curaddr->ifa_addr->sa_family;
             if (af == AF_INET)
             {
