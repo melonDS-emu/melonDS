@@ -53,15 +53,53 @@ void Reset()
     NumCheatCodes = 0;
 
     // TODO: acquire codes from a sensible source!
+#define TEMP_PUTCODE(a, b) *ptr++ = a; *ptr++ = b;
     CheatEntry* entry = &CheatCodes[0];
     u32* ptr = &entry->Code[0];
-#define TEMP_PUTCODE(a, b) *ptr++ = a; *ptr++ = b;
-    // NSMBDS EUR - giant fucking Mario
+    /*// NSMBDS EUR - giant fucking Mario
     TEMP_PUTCODE(0x1209DBD0, 0x0000027C);
     TEMP_PUTCODE(0x2209DBC0, 0x00000003);
     TEMP_PUTCODE(0x94000130, 0xFFFD0000);
     TEMP_PUTCODE(0x1209DBD0, 0x00000000);
     TEMP_PUTCODE(0x2209DBC0, 0x00000003);
+    entry->Enabled = true;
+    NumCheatCodes++;
+
+    entry = &CheatCodes[1];
+    ptr = &entry->Code[0];*/
+    // NSMBDS EUR - jump to the sky
+    /*TEMP_PUTCODE(0x9209DC90, 0xFFFD0002);
+    TEMP_PUTCODE(0x920DC910, 0x00000000);
+    TEMP_PUTCODE(0x021C1944, 0x00004000);
+    TEMP_PUTCODE(0xD2000000, 0x00000000);
+    TEMP_PUTCODE(0x9209DC90, 0xFFFE0001);
+    TEMP_PUTCODE(0x920DC910, 0x00000000);
+    TEMP_PUTCODE(0x021C1944, 0x00004000);
+    TEMP_PUTCODE(0xD2000000, 0x00000000);*/
+    // SM64DS EUR redcoin
+    /*TEMP_PUTCODE(0x0210CC3E, 0x00000121);
+    TEMP_PUTCODE(0x5209F30C, 0x00000008);
+    TEMP_PUTCODE(0x0209F30C, 0x00000000);
+    TEMP_PUTCODE(0xD2000000, 0x00000000);*/
+    // SM64DS EUR shroom-o-matic
+    /*TEMP_PUTCODE(0x9209D09A , 0x00000000);
+    TEMP_PUTCODE(0x6209B468 , 0x00000000);
+    TEMP_PUTCODE(0xB209B468 , 0x00000000);
+    TEMP_PUTCODE(0x10000672 , 0x000003FF);
+    TEMP_PUTCODE(0xD2000000 , 0x00000000);
+    TEMP_PUTCODE(0x9209D09A , 0x00000000);
+    TEMP_PUTCODE(0x94000130 , 0xFCBF0000);
+    TEMP_PUTCODE(0x6209B468 , 0x00000000);
+    TEMP_PUTCODE(0xB209B468 , 0x00000000);
+    TEMP_PUTCODE(0x200006B3 , 0x00000001);
+    TEMP_PUTCODE(0x200006B4 , 0x00000001);
+    TEMP_PUTCODE(0xD2000000 , 0x00000000);
+    TEMP_PUTCODE(0x9209D09A , 0x00000000);
+    TEMP_PUTCODE(0x94000130 , 0xFC7F0000);
+    TEMP_PUTCODE(0x6209B468 , 0x00000000);
+    TEMP_PUTCODE(0xB209B468 , 0x00000000);
+    TEMP_PUTCODE(0x10000672 , 0x00000000);
+    TEMP_PUTCODE(0xD2000000 , 0x00000000);*/
     entry->Enabled = true;
     NumCheatCodes++;
 }
@@ -77,6 +115,8 @@ void RunCheat(CheatEntry* entry)
 {
     u32* code = &entry->Code[0];
 
+    u32 offset = 0;
+    u32 datareg = 0;
     u32 cond = 1;
     u32 condstack = 0;
 
@@ -100,18 +140,88 @@ void RunCheat(CheatEntry* entry)
         switch (op)
         {
         case16(0x00): // 32-bit write
-            NDS::ARM7Write32(a & 0x0FFFFFFF, b);
+            NDS::ARM7Write32((a & 0x0FFFFFFF) + offset, b);
             break;
 
         case16(0x10): // 16-bit write
-            NDS::ARM7Write16(a & 0x0FFFFFFF, b & 0xFFFF);
+            NDS::ARM7Write16((a & 0x0FFFFFFF) + offset, b & 0xFFFF);
             break;
 
         case16(0x20): // 8-bit write
-            NDS::ARM7Write8(a & 0x0FFFFFFF, b & 0xFF);
+            NDS::ARM7Write8((a & 0x0FFFFFFF) + offset, b & 0xFF);
             break;
 
-        case16(0x90): // IF b.l = ((~b.h) & u16[a])
+        case16(0x30): // IF b > u32[a]
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+
+                cond = (b > chk) ? 1:0;
+            }
+            break;
+
+        case16(0x40): // IF b < u32[a]
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+
+                cond = (b < chk) ? 1:0;
+            }
+            break;
+
+        case16(0x50): // IF b == u32[a]
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+
+                cond = (b == chk) ? 1:0;
+            }
+            break;
+
+        case16(0x60): // IF b != u32[a]
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+
+                cond = (b != chk) ? 1:0;
+            }
+            break;
+
+        case16(0x70): // IF b.l > ((~b.h) & u16[a])
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 chk = ~(b >> 16);
+                chk &= val;
+
+                cond = ((b & 0xFFFF) > chk) ? 1:0;
+            }
+            break;
+
+        case16(0x80): // IF b.l < ((~b.h) & u16[a])
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 chk = ~(b >> 16);
+                chk &= val;
+
+                cond = ((b & 0xFFFF) < chk) ? 1:0;
+            }
+            break;
+
+        case16(0x90): // IF b.l == ((~b.h) & u16[a])
             {
                 condstack <<= 1;
                 condstack |= cond;
@@ -122,6 +232,36 @@ void RunCheat(CheatEntry* entry)
 
                 cond = ((b & 0xFFFF) == chk) ? 1:0;
             }
+            break;
+
+        case16(0xA0): // IF b.l != ((~b.h) & u16[a])
+            {
+                condstack <<= 1;
+                condstack |= cond;
+
+                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 chk = ~(b >> 16);
+                chk &= val;
+
+                cond = ((b & 0xFFFF) != chk) ? 1:0;
+            }
+            break;
+
+        case16(0xB0): // offset = u32[a + offset]
+            offset = NDS::ARM7Read32((a & 0x0FFFFFFF) + offset);
+            break;
+
+        case 0xD0: // ENDIF
+            cond = condstack & 0x1;
+            condstack >>= 1;
+            break;
+
+        case 0xD2: // NEXT+FLUSH
+            // TODO: loop shenanigans!
+            offset = 0;
+            datareg = 0;
+            condstack = 0;
+            cond = 1;
             break;
 
         default:
