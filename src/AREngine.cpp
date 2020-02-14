@@ -101,7 +101,7 @@ void Reset()
     TEMP_PUTCODE(0x10000672 , 0x00000000);
     TEMP_PUTCODE(0xD2000000 , 0x00000000);*/
     // SM64DS EUR swim through floor
-    TEMP_PUTCODE(0x927FFFA8 , 0xFBFF0000); // IF 0000 = ((~FBFF) & u16[027FFFA8])
+    /*TEMP_PUTCODE(0x927FFFA8 , 0xFBFF0000); // IF 0000 = ((~FBFF) & u16[027FFFA8])
     TEMP_PUTCODE(0x823FDFF8 , 0xFBFF0000); // IF 0000 < ((~FBFF) & u16[023FDFF8])
     TEMP_PUTCODE(0xDA000000 , 0x023FDFFA); // datareg = u16[023FDFFA + offset]
     TEMP_PUTCODE(0xD4000000 , 0x00000001); // datareg += 1
@@ -118,9 +118,21 @@ void Reset()
     TEMP_PUTCODE(0xD0000000 , 0x00000000); // ENDIF
     TEMP_PUTCODE(0x927FFFA8 , 0xFBFF0000); // IF 0000 = ((~FBFF) & u16[027FFFA8])
     TEMP_PUTCODE(0x02037E7C , 0xE3A000FF); // u32[02037E7C] = E3A000FF
-    TEMP_PUTCODE(0xD2000000 , 0x00000000); // NEXT/FLUSH
+    TEMP_PUTCODE(0xD2000000 , 0x00000000); // NEXT/FLUSH*/
+    // MKDS EUR shitty CPU-stalker code
+    /*TEMP_PUTCODE(0x94000130 , 0xFEBB0000);
+    TEMP_PUTCODE(0x023CDD4C , 0x00000001);
+    TEMP_PUTCODE(0xD2000000 , 0x00000000);
+    TEMP_PUTCODE(0x923CDD4C , 0x00000001);
+    TEMP_PUTCODE(0x6217AD18 , 0x00000000);
+    TEMP_PUTCODE(0xB217AD18 , 0x00000000);
+    TEMP_PUTCODE(0xC0000000 , 0x00000002);
+    TEMP_PUTCODE(0xD9000000 , 0x00000628);
+    TEMP_PUTCODE(0xD6000000 , 0x00000080);
+    TEMP_PUTCODE(0xDC000000 , 0x00000000);
+    TEMP_PUTCODE(0xD2000000 , 0x00000000);
     entry->Enabled = true;
-    NumCheatCodes++;
+    NumCheatCodes++;*/
 }
 
 
@@ -138,6 +150,14 @@ void RunCheat(CheatEntry* entry)
     u32 datareg = 0;
     u32 cond = 1;
     u32 condstack = 0;
+
+    u32* loopstart = code;
+    u32 loopcount = 0;
+    u32 loopcond = 1;
+    u32 loopcondstack = 0;
+
+    // TODO: does anything reset this??
+    u32 c5count = 0;
 
     for (;;)
     {
@@ -275,17 +295,74 @@ void RunCheat(CheatEntry* entry)
             offset = NDS::ARM7Read32((a & 0x0FFFFFFF) + offset);
             break;
 
+        case 0xC0: // FOR 0..b
+            loopstart = code; // points to the first opcode after the FOR
+            loopcount = b;
+            loopcond = cond;           // checkme
+            loopcondstack = condstack; // (GBAtek is not very clear there)
+            break;
+
+        case 0xC4: // offset = pointer to C4000000 opcode
+            // theoretically used for safe storage, by accessing [offset+4]
+            // in practice could be used for a self-modifying AR code
+            // could be implemented with some hackery, but, does anything even
+            // use it??
+            printf("AR: !! THE FUCKING C4000000 OPCODE. TELL ARISOTURA.\n");
+            return;
+
+        case 0xC5: // count++ / IF (count & b.l) == b.h
+            {
+                // with weird condition checking, apparently
+                // oh well
+
+                c5count++;
+                if (!cond) break;
+
+                condstack <<= 1;
+                condstack |= cond;
+
+                u16 mask = b & 0xFFFF;
+                u16 chk = b >> 16;
+
+                cond = ((c5count & mask) == chk) ? 1:0;
+            }
+            break;
+
+        case 0xC6: // u32[b] = offset
+            NDS::ARM7Write32(b, offset);
+            break;
+
         case 0xD0: // ENDIF
             cond = condstack & 0x1;
             condstack >>= 1;
             break;
 
+        case 0xD1: // NEXT
+            if (loopcount > 0)
+            {
+                loopcount--;
+                code = loopstart;
+            }
+            else
+            {
+                cond = loopcond;
+                condstack = loopcondstack;
+            }
+            break;
+
         case 0xD2: // NEXT+FLUSH
-            // TODO: loop shenanigans!
-            offset = 0;
-            datareg = 0;
-            condstack = 0;
-            cond = 1;
+            if (loopcount > 0)
+            {
+                loopcount--;
+                code = loopstart;
+            }
+            else
+            {
+                offset = 0;
+                datareg = 0;
+                condstack = 0;
+                cond = 1;
+            }
             break;
 
         case 0xD3: // offset = b
