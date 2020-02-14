@@ -100,6 +100,25 @@ void Reset()
     TEMP_PUTCODE(0xB209B468 , 0x00000000);
     TEMP_PUTCODE(0x10000672 , 0x00000000);
     TEMP_PUTCODE(0xD2000000 , 0x00000000);*/
+    // SM64DS EUR swim through floor
+    TEMP_PUTCODE(0x927FFFA8 , 0xFBFF0000); // IF 0000 = ((~FBFF) & u16[027FFFA8])
+    TEMP_PUTCODE(0x823FDFF8 , 0xFBFF0000); // IF 0000 < ((~FBFF) & u16[023FDFF8])
+    TEMP_PUTCODE(0xDA000000 , 0x023FDFFA); // datareg = u16[023FDFFA + offset]
+    TEMP_PUTCODE(0xD4000000 , 0x00000001); // datareg += 1
+    TEMP_PUTCODE(0xD7000000 , 0x023FDFFA); // u16[023FDFFA + offset] = datareg; offset += 2
+    TEMP_PUTCODE(0xD2000000 , 0x00000000); // NEXT/FLUSH
+    TEMP_PUTCODE(0xD3000000 , 0x027FFFA8); // offset = 027FFFA8
+    TEMP_PUTCODE(0xF23FDFF8 , 0x00000002); // copy offset->023FDFF8, 2
+    TEMP_PUTCODE(0xD2000000 , 0x00000000); // NEXT/FLUSH
+    TEMP_PUTCODE(0x923FDFFA , 0xFFFE0000); // IF 0000 = ((~FFFE) & u16[023FDFFA])
+    TEMP_PUTCODE(0x02037E7C , 0xE2000020); // u32[02037E7C] = E2000020
+    TEMP_PUTCODE(0xD0000000 , 0x00000000); // ENDIF
+    TEMP_PUTCODE(0x923FDFFA , 0xFFFE0001); // IF 0001 = ((~FFFE) & u16[023FDFFA])
+    TEMP_PUTCODE(0x02037E7C , 0xE2000000); // u32[02037E7C] = E2000000
+    TEMP_PUTCODE(0xD0000000 , 0x00000000); // ENDIF
+    TEMP_PUTCODE(0x927FFFA8 , 0xFBFF0000); // IF 0000 = ((~FBFF) & u16[027FFFA8])
+    TEMP_PUTCODE(0x02037E7C , 0xE3A000FF); // u32[02037E7C] = E3A000FF
+    TEMP_PUTCODE(0xD2000000 , 0x00000000); // NEXT/FLUSH
     entry->Enabled = true;
     NumCheatCodes++;
 }
@@ -132,7 +151,12 @@ void RunCheat(CheatEntry* entry)
         {
             if (!cond)
             {
-                // TODO: skip parameters for opcode Ex
+                if ((op & 0xF0) == 0xE0)
+                {
+                    for (u32 i = 0; i < b; i += 8)
+                        *code += 2;
+                }
+
                 continue;
             }
         }
@@ -262,6 +286,104 @@ void RunCheat(CheatEntry* entry)
             datareg = 0;
             condstack = 0;
             cond = 1;
+            break;
+
+        case 0xD3: // offset = b
+            offset = b;
+            break;
+
+        case 0xD4: // datareg += b
+            datareg += b;
+            break;
+
+        case 0xD5: // datareg = b
+            datareg = b;
+            break;
+
+        case 0xD6: // u32[b+offset] = datareg / offset += 4
+            NDS::ARM7Write32(b + offset, datareg);
+            offset += 4;
+            break;
+
+        case 0xD7: // u16[b+offset] = datareg / offset += 2
+            NDS::ARM7Write16(b + offset, datareg & 0xFFFF);
+            offset += 2;
+            break;
+
+        case 0xD8: // u8[b+offset] = datareg / offset += 1
+            NDS::ARM7Write8(b + offset, datareg & 0xFF);
+            offset += 1;
+            break;
+
+        case 0xD9: // datareg = u32[b+offset]
+            datareg = NDS::ARM7Read32(b + offset);
+            break;
+
+        case 0xDA: // datareg = u16[b+offset]
+            datareg = NDS::ARM7Read16(b + offset);
+            break;
+
+        case 0xDB: // datareg = u8[b+offset]
+            datareg = NDS::ARM7Read8(b + offset);
+            break;
+
+        case 0xDC: // offset += b
+            offset += b;
+            break;
+
+        case16(0xE0): // copy b param bytes to address a+offset
+            {
+                // TODO: check for bad alignment of dstaddr
+
+                u32 dstaddr = (a & 0x0FFFFFFF) + offset;
+                u32 bytesleft = b;
+                while (bytesleft >= 8)
+                {
+                    NDS::ARM7Write32(dstaddr, *code++); dstaddr += 4;
+                    NDS::ARM7Write32(dstaddr, *code++); dstaddr += 4;
+                    bytesleft -= 8;
+                }
+                if (bytesleft > 0)
+                {
+                    u8* leftover = (u8*)code;
+                    *code += 2;
+                    if (bytesleft >= 4)
+                    {
+                        NDS::ARM7Write32(dstaddr, *(u32*)leftover); dstaddr += 4;
+                        leftover += 4;
+                        bytesleft -= 4;
+                    }
+                    while (bytesleft > 0)
+                    {
+                        NDS::ARM7Write8(dstaddr, *leftover++); dstaddr++;
+                        bytesleft--;
+                    }
+                }
+            }
+            break;
+
+        case16(0xF0): // copy b bytes from address offset to address a
+            {
+                // TODO: check for bad alignment of srcaddr/dstaddr
+
+                u32 srcaddr = offset;
+                u32 dstaddr = (a & 0x0FFFFFFF);
+                u32 bytesleft = b;
+                while (bytesleft >= 4)
+                {
+                    NDS::ARM7Write32(dstaddr, NDS::ARM7Read32(srcaddr));
+                    srcaddr += 4;
+                    dstaddr += 4;
+                    bytesleft -= 4;
+                }
+                while (bytesleft > 0)
+                {
+                    NDS::ARM7Write8(dstaddr, NDS::ARM7Read8(srcaddr));
+                    srcaddr++;
+                    dstaddr++;
+                    bytesleft--;
+                }
+            }
             break;
 
         default:

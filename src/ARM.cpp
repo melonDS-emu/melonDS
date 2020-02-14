@@ -20,6 +20,7 @@
 #include "NDS.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "AREngine.h"
 
 
 // instruction timing notes
@@ -408,6 +409,14 @@ void ARM::TriggerIRQ()
     R_IRQ[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x18);
+
+    // ARDS cheat support
+    // normally, those work by hijacking the ARM7 VBlank handler
+    if (Num == 1)
+    {
+        if ((NDS::IF[1] & NDS::IE[1]) & (1<<NDS::IRQ_VBlank))
+            AREngine::RunCheats();
+    }
 }
 
 void ARMv5::PrefetchAbort()
