@@ -95,6 +95,12 @@ void ParseTextCode(char* text, u32* code, int len) // or whatever this should be
     if (nout & 1)
     {
         printf("AR: code was missing one word??\n");
+        if (nout >= len)
+        {
+            // OH SHIT SHIT SHIT SHIT
+            printf("AR: code too long!\n");
+            return;
+        }
         *code++ = 0;
     }
 }
