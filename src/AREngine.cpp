@@ -37,6 +37,69 @@ CheatEntry CheatCodes[64];
 u32 NumCheatCodes;
 
 
+void ParseTextCode(char* text, u32* code, int len) // or whatever this should be named?
+{
+    // TODO: they should atleast ensure they parsed all the crap before the actual code. we ain't taking care of that.
+    // this is melonDS not kindergarten. seriously.
+
+    u32 cur_word = 0;
+    u32 ndigits = 0;
+    u32 nout = 0;
+
+    char c;
+    while ((c = *text++) != '\0')
+    {
+        // hope they didn't forget the terminator, either
+        // otherwise
+        // they will be the ones getting terminated
+        // blarg.
+
+        // so, what do we do here.
+        u32 val;
+        if (c >= '0' && c <= '9')
+            val = c - '0';
+        else if (c >= 'a' && c <= 'f')
+            val = c - 'a' + 0xA;
+        else if (c >= 'A' && c <= 'F')
+            val = c - 'A' + 0xA;
+        else
+            continue;
+
+        // okay, there's atleast that.
+
+        cur_word <<= 4;
+        cur_word |= val;
+
+        // now I figure we can't keep doing that forever? can we?
+        // maybe we can, after all
+        // but it's not a good idea.
+
+        ndigits++;
+        if (ndigits >= 8)
+        {
+            if (nout >= len)
+            {
+                // OH SHIT SHIT SHIT SHIT
+                printf("AR: code too long!\n");
+                return;
+            }
+
+            *code++ = cur_word;
+            nout++;
+
+            ndigits = 0;
+            cur_word = 0;
+        }
+    }
+
+    if (nout & 1)
+    {
+        printf("AR: code was missing one word??\n");
+        *code++ = 0;
+    }
+}
+
+
 bool Init()
 {
     return true;
@@ -70,6 +133,32 @@ void Reset()
     // or the video card.
     // well.
     //
+
+
+    char* test = R"(9209D09A 00000000
+6209B468 00000000
+B209B468 00000000
+10000672 000003FF
+D2000000 00000000
+9209D09A 00000000
+94000130 FCBF0000
+6209B468 00000000
+B209B468 00000000
+200006B3 00000001
+200006B4 00000001
+D2000000 00000000
+9209D09A 00000000
+94000130 FC7F0000
+6209B468 00000000
+B209B468 00000000
+10000672 00000000
+D2000000 00000000)";
+    ParseTextCode(test, entry->Code, 2*64);
+    printf("PARSED CODE:\n");
+    for (int i = 0; i < 2*64; i+=2)
+    {
+        printf("%08X %08X\n", entry->Code[i], entry->Code[i+1]);
+    }
     entry->Enabled = true;
     NumCheatCodes++;
 }
