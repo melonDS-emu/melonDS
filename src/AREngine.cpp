@@ -37,24 +37,16 @@ CheatEntry CheatCodes[64];
 u32 NumCheatCodes;
 
 
-void ParseTextCode(char* text, u32* code, int len) // or whatever this should be named?
+void ParseTextCode(char* text, int tlen, u32* code, int clen) // or whatever this should be named?
 {
-    // TODO: they should atleast ensure they parsed all the crap before the actual code. we ain't taking care of that.
-    // this is melonDS not kindergarten. seriously.
-
     u32 cur_word = 0;
     u32 ndigits = 0;
+    u32 nin = 0;
     u32 nout = 0;
 
     char c;
     while ((c = *text++) != '\0')
     {
-        // hope they didn't forget the terminator, either
-        // otherwise
-        // they will be the ones getting terminated
-        // blarg.
-
-        // so, what do we do here.
         u32 val;
         if (c >= '0' && c <= '9')
             val = c - '0';
@@ -65,21 +57,14 @@ void ParseTextCode(char* text, u32* code, int len) // or whatever this should be
         else
             continue;
 
-        // okay, there's atleast that.
-
         cur_word <<= 4;
         cur_word |= val;
-
-        // now I figure we can't keep doing that forever? can we?
-        // maybe we can, after all
-        // but it's not a good idea.
 
         ndigits++;
         if (ndigits >= 8)
         {
-            if (nout >= len)
+            if (nout >= clen)
             {
-                // OH SHIT SHIT SHIT SHIT
                 printf("AR: code too long!\n");
                 return;
             }
@@ -90,14 +75,16 @@ void ParseTextCode(char* text, u32* code, int len) // or whatever this should be
             ndigits = 0;
             cur_word = 0;
         }
+
+        nin++;
+        if (nin >= tlen) break;
     }
 
     if (nout & 1)
     {
-        printf("AR: code was missing one word??\n");
-        if (nout >= len)
+        printf("AR: code was missing one word\n");
+        if (nout >= clen)
         {
-            // OH SHIT SHIT SHIT SHIT
             printf("AR: code too long!\n");
             return;
         }
@@ -122,26 +109,10 @@ void Reset()
     NumCheatCodes = 0;
 
     // TODO: acquire codes from a sensible source!
-#define TEMP_PUTCODE(a, b) *ptr++ = a; *ptr++ = b;
     CheatEntry* entry = &CheatCodes[0];
     u32* ptr = &entry->Code[0];
-    // what do we put in here?
-    // heh. noone knows. the world is full of mysteries
-    // like
-    // WHAT IS MY FUCKING GENDER
-    // probably I am nonbinary, like Mario
-    // oh
-    // noone told you?
-    // well...
-    // also why won't my video save. maybe there is too much crap in this computer.
-    // shrug.
-    // or why is this text warping weirdly. I should check the video driver.
-    // or the video card.
-    // well.
-    //
 
-
-    char* test = R"(9209D09A 00000000
+    /*char* test = R"(9209D09A 00000000
 6209B468 00000000
 B209B468 00000000
 10000672 000003FF
@@ -166,7 +137,7 @@ D2000000 00000000)";
         printf("%08X %08X\n", entry->Code[i], entry->Code[i+1]);
     }
     entry->Enabled = true;
-    NumCheatCodes++;
+    NumCheatCodes++;*/
 }
 
 
