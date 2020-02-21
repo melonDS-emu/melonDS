@@ -34,6 +34,8 @@ int Threaded3D;
 int GL_ScaleFactor;
 int GL_Antialias;
 
+int RandomizeMAC;
+
 ConfigEntry ConfigFile[] =
 {
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
@@ -41,6 +43,8 @@ ConfigEntry ConfigFile[] =
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

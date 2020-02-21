@@ -49,6 +49,7 @@ uiWindow* win;
 bool haspcap;
 
 uiCheckbox* cbBindAnyAddr;
+uiCheckbox* cbRandomizeMAC;
 
 uiLabel* lbAdapterList;
 uiCombobox* cmAdapterList;
@@ -137,6 +138,7 @@ void OnCancel(uiButton* btn, void* blarg)
 void OnOk(uiButton* btn, void* blarg)
 {
     Config::SocketBindAnyAddr = uiCheckboxChecked(cbBindAnyAddr);
+    Config::RandomizeMAC = uiCheckboxChecked(cbRandomizeMAC);
     Config::DirectLAN = uiCheckboxChecked(cbDirectLAN);
 
     int sel = uiComboboxSelected(cmAdapterList);
@@ -189,6 +191,9 @@ void Open()
 
         cbBindAnyAddr = uiNewCheckbox("Bind socket to any address");
         uiBoxAppend(in_ctrl, uiControl(cbBindAnyAddr), 0);
+
+        cbRandomizeMAC = uiNewCheckbox("Randomize MAC address");
+        uiBoxAppend(in_ctrl, uiControl(cbRandomizeMAC), 0);
     }
 
     {
@@ -240,6 +245,7 @@ void Open()
     }
 
     uiCheckboxSetChecked(cbBindAnyAddr, Config::SocketBindAnyAddr);
+    uiCheckboxSetChecked(cbRandomizeMAC, Config::RandomizeMAC);
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)

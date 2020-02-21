@@ -165,14 +165,22 @@ void Reset()
 
     *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
-    // replace MAC address with random address
-    // TODO: make optional?
+    // set MAC address
     Firmware[0x36] = 0x00;
     Firmware[0x37] = 0x09;
     Firmware[0x38] = 0xBF;
-    Firmware[0x39] = rand()&0xFF;
-    Firmware[0x3A] = rand()&0xFF;
-    Firmware[0x3B] = rand()&0xFF;
+    if (Config::RandomizeMAC)
+    {
+        Firmware[0x39] = rand()&0xFF;
+        Firmware[0x3A] = rand()&0xFF;
+        Firmware[0x3B] = rand()&0xFF;
+    }
+    else
+    {
+        Firmware[0x39] = 0xDC;
+        Firmware[0x3A] = 0xE4;
+        Firmware[0x3B] = 0x13;
+    }
 
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
