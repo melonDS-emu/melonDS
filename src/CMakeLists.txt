@@ -1,6 +1,7 @@
 project(core)
 
 add_library(core STATIC
+	ARCodeList.cpp
 	AREngine.cpp
 	ARM.cpp
 	ARMInterpreter.cpp
