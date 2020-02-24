@@ -101,6 +101,7 @@ u8 ARM7WRAM[0x10000];
 
 u16 ExMemCnt[2];
 
+// TODO: these belong in NDSCart!
 u8 ROMSeed0[2*8];
 u8 ROMSeed1[2*8];
 
@@ -144,6 +145,8 @@ u16 KeyCnt;
 u16 RCnt;
 
 bool Running;
+
+bool RunningGame;
 
 
 void DivDone(u32 param);
@@ -393,6 +396,7 @@ void Reset()
     FILE* f;
     u32 i;
 
+    RunningGame = false;
     LastSysClockCycles = 0;
 
     f = Platform::OpenLocalFile("bios9.bin", "rb");
@@ -676,21 +680,16 @@ bool DoSavestate(Savestate* file)
     file->Var16(&KeyCnt);
     file->Var16(&RCnt);
 
-
-    for (int i = 0; i < 8; i++)
-        DMAs[i]->DoSavestate(file);
-
     file->Var8(&WRAMCnt);
+
+    file->Var32((u32*)&RunningGame);
 
     if (!file->Saving)
     {
         // 'dept of redundancy dept'
         // but we do need to update the mappings
         MapSharedWRAM(WRAMCnt);
-    }
 
-    if (!file->Saving)
-    {
         InitTimings();
         SetGBASlotTimings();
 
@@ -698,6 +697,9 @@ bool DoSavestate(Savestate* file)
         WifiWaitCnt = 0xFFFF;
         SetWifiWaitCnt(tmp); // force timing table update
     }
+
+    for (int i = 0; i < 8; i++)
+        DMAs[i]->DoSavestate(file);
 
     ARM9->DoSavestate(file);
     ARM7->DoSavestate(file);
@@ -1272,6 +1274,22 @@ void NocashPrint(u32 ncpu, u32 addr)
 
     output[ptr] = '\0';
     printf("%s", output);
+}
+
+
+
+void MonitorARM9Jump(u32 addr)
+{
+    // checkme: can the entrypoint addr be THUMB?
+
+    if ((!RunningGame) && NDSCart::CartROM)
+    {
+        if (addr == *(u32*)&NDSCart::CartROM[0x24])
+        {
+            printf("Game is now booting\n");
+            RunningGame = true;
+        }
+    }
 }
 
 

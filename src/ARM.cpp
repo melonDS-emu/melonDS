@@ -231,6 +231,8 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         PrefetchAbort();
         return;
     }*/
+
+    NDS::MonitorARM9Jump(addr);
 }
 
 void ARMv4::JumpTo(u32 addr, bool restorecpsr)
