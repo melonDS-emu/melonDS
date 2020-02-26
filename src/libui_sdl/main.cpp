@@ -2714,7 +2714,7 @@ int main(int argc, char** argv)
     }
 #else
 	const char* confdir = g_get_user_config_dir();
-	const char* confname = "/melonds";
+	const char* confname = "/melonDS";
 	EmuDirectory = new char[strlen(confdir) + strlen(confname) + 1];
 	strcat(EmuDirectory, confdir);
 	strcat(EmuDirectory, confname);
