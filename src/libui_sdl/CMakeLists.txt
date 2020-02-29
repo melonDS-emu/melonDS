@@ -22,7 +22,7 @@ option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(libui)
 
-add_executable(melonDS ${SOURCES_LIBUI})
+add_executable(melonDS WIN32 ${SOURCES_LIBUI})
 target_link_libraries(melonDS core libui)
 
 if (UNIX)
