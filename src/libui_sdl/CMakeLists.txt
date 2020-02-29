@@ -14,10 +14,6 @@ SET(SOURCES_LIBUI
 	OSD.cpp
 )
 
-if (WIN32)
-	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
-endif()
-
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(libui)
@@ -59,6 +55,7 @@ elseif (WIN32)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(SDL2 REQUIRED sdl2)
+
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/.." ${SDL2_INCLUDE_DIRS})
 	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi ${SDL2_STATIC_LIBRARIES})
