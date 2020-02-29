@@ -22,13 +22,8 @@ option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(libui)
 
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIR})
-#string(STRIP ${SDL2_LIBRARIES} SDL2_LIBRARIES)
-
 add_executable(melonDS ${SOURCES_LIBUI})
-target_link_libraries(melonDS
-	core ${SDL2_LIBRARIES} libui)
+target_link_libraries(melonDS core libui)
 
 if (UNIX)
 	option(UNIX_PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
@@ -61,9 +56,11 @@ if (UNIX)
 
 	target_sources(melonDS PUBLIC melon_grc.c)
 elseif (WIN32)
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static -static-libgcc -static-libstdc++")
+	find_package(SDL2 REQUIRED)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
-	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi)
+	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/.." ${SDL2_INCLUDE_DIR})
+	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi ${SDL2_STATIC_LIBRARIES})
 endif ()
 
 install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
