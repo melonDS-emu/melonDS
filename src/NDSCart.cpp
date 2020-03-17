@@ -100,7 +100,7 @@ void DoSavestate(Savestate* file)
 
         file->VarArray(SRAM, SRAMLength);
     }
-    if (file->IsAtleastVersion(4, 3))
+    if (file->IsAtleastVersion(6, 0))
         file->Var8((u8*)&SRAMModified);
 
     // SPI status shito

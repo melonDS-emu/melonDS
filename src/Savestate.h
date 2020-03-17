@@ -23,7 +23,7 @@
 #include "types.h"
 #include "MemoryStream.h"
 
-#define SAVESTATE_MAJOR 5
+#define SAVESTATE_MAJOR 6
 #define SAVESTATE_MINOR 0
 
 class Savestate

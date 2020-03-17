@@ -567,7 +567,7 @@ void DoSavestate(Savestate* file)
         }
     }
 
-    if (file->IsAtleastVersion(4, 4))
+    if (file->IsAtleastVersion(6, 0))
     {
         for (int i = 0; i < 192; i++)
             file->VarArray(GetLine(i, false), 256 * 4);

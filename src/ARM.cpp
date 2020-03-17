@@ -128,7 +128,7 @@ void ARM::DoSavestate(Savestate* file)
 
     file->Var32(&ExceptionBase);
 
-    if (file->IsAtleastVersion(4, 3))
+    if (file->IsAtleastVersion(6, 0))
     {
         if (file->Saving)
             file->Var8((u8*)&UseHLEBios);

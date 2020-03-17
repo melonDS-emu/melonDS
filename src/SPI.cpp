@@ -280,7 +280,7 @@ void DoSavestate(Savestate* file)
     // embedding the whole firmware in the savestate would be derpo tho??
 	// SuuperW: We can at least save the two user settings regions, and a crc
 	// Other things can change as well, e.g. the region immediately before the first user settings
-	if (file->IsAtleastVersion(4, 3))
+	if (file->IsAtleastVersion(6, 0))
     {
         file->VarArray(Firmware + (USER_SETTINGS & FirmwareMask), userSettingsLength);
         file->VarArray(Firmware + 0x100 + (USER_SETTINGS & FirmwareMask), userSettingsLength);
