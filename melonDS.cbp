@@ -100,6 +100,10 @@
 		<Unit filename="melon.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="src/ARCodeList.cpp" />
+		<Unit filename="src/ARCodeList.h" />
+		<Unit filename="src/AREngine.cpp" />
+		<Unit filename="src/AREngine.h" />
 		<Unit filename="src/ARM.cpp" />
 		<Unit filename="src/ARM.h" />
 		<Unit filename="src/ARMInterpreter.cpp" />
@@ -119,6 +123,8 @@
 		<Unit filename="src/DMA.cpp" />
 		<Unit filename="src/DMA.h" />
 		<Unit filename="src/FIFO.h" />
+		<Unit filename="src/GBACart.cpp" />
+		<Unit filename="src/GBACart.h" />
 		<Unit filename="src/GPU.cpp" />
 		<Unit filename="src/GPU.h" />
 		<Unit filename="src/GPU2D.cpp" />

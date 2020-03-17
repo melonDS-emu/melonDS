@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -29,6 +29,8 @@ enum
     HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_SolarSensorDecrease,
+    HK_SolarSensorIncrease,
     HK_MAX
 };
 

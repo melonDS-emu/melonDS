@@ -16,23 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#ifndef ARENGINE_H
+#define ARENGINE_H
 
-#include "types.h"
-#include "Savestate.h"
-
-namespace RTC
+namespace AREngine
 {
 
 bool Init();
 void DeInit();
 void Reset();
-void DoSavestate(Savestate* file);
 
-u16 Read();
-void Write(u16 val, bool byte);
+void RunCheats();
 
 }
 
-#endif
+#endif // ARENGINE_H

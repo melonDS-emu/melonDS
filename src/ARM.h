@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -211,7 +211,8 @@ public:
     void UpdateDTCMSetting();
     void UpdateITCMSetting();
 
-    void UpdatePURegions();
+    void UpdatePURegion(u32 n);
+    void UpdatePURegions(bool update_all);
 
     u32 RandomLineIndex();
 

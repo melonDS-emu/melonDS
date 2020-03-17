@@ -48,7 +48,6 @@ void Write_Null(u8 val, bool islast);
 void Write_EEPROMTiny(u8 val, bool islast);
 void Write_EEPROM(u8 val, bool islast);
 void Write_Flash(u8 val, bool islast);
-void Write_Discover(u8 val, bool islast);
 
 
 bool Init()
@@ -399,7 +398,7 @@ void Write(u8 val, u32 hold)
     switch (CurCmd)
     {
     case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
+        // PokÃ©mon carts have an IR transceiver thing, and send this
         // to bypass it and access SRAM.
         // TODO: design better
         CurCmd = val;
@@ -815,7 +814,7 @@ bool ReadROMParams(u32 gamecode, u32* params)
     // [gamecode] [ROM size] [save type] [reserved]
     // list must be sorted by gamecode
 
-    FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+    FILE* f = Platform::OpenDataFile("romlist.bin");
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);
