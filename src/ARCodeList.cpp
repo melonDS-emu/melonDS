@@ -16,23 +16,23 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#include <stdio.h>
+#include "ARCodeList.h"
 
-#include "types.h"
-#include "Savestate.h"
+/*
+    Action Replay code list format
 
-namespace RTC
-{
+    header:
+    00 - magic MLAR
+    04 - version major
+    06 - version minor
+    08 - length
+    0C - number of codes
 
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
-
-u16 Read();
-void Write(u16 val, bool byte);
-
-}
-
-#endif
+    code header:
+    00 - magic MLCD
+    04 - name length
+    08 - code length
+    0C - enable flag
+    10 - code data (UTF8 name then actual code)
+*/

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -133,7 +133,7 @@ bool Init(bool open_adapter)
             return false;
         }
     }
-    
+
     PCapAdapter = NULL;
     PacketLen = 0;
     RXNum = 0;
@@ -172,7 +172,7 @@ bool Init(bool open_adapter)
 #else
         strncpy(adata->DeviceName, dev->name, 127);
         adata->DeviceName[127] = '\0';
-        
+
         strncpy(adata->FriendlyName, adata->DeviceName, 127);
         adata->FriendlyName[127] = '\0';
 #endif // __WIN32__
@@ -250,7 +250,7 @@ bool Init(bool open_adapter)
         printf("getifaddrs() shat itself :(\n");
         return false;
     }
-    
+
     for (int i = 0; i < NumAdapters; i++)
     {
         adata = &Adapters[i];
@@ -262,8 +262,14 @@ bool Init(bool open_adapter)
                 curaddr = curaddr->ifa_next;
                 continue;
             }
-            if (!curaddr->ifa_addr) continue;
-            
+
+            if (!curaddr->ifa_addr)
+            {
+                printf("Device (%s) does not have an address :/\n", curaddr->ifa_name);
+                curaddr = curaddr->ifa_next;
+                continue;
+            }
+
             u16 af = curaddr->ifa_addr->sa_family;
             if (af == AF_INET)
             {
@@ -273,23 +279,23 @@ bool Init(bool open_adapter)
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
-                if (sa->sll_halen != 6) 
+                if (sa->sll_halen != 6)
                     printf("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
-            
+
             curaddr = curaddr->ifa_next;
         }
     }
-    
+
     freeifaddrs(addrs);
 
 #endif // __WIN32__
 
     if (!open_adapter) return true;
     if (PCapAdapter) pcap_close(PCapAdapter);
-    
+
     // open pcap device
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)

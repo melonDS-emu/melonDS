@@ -1,6 +1,8 @@
 project(core)
 
 add_library(core STATIC
+	ARCodeList.cpp
+	AREngine.cpp
 	ARM.cpp
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp
@@ -10,6 +12,7 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
+	GBACart.cpp
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp

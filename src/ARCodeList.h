@@ -16,23 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#ifndef ARCODELIST_H
+#define ARCODELIST_H
 
 #include "types.h"
-#include "Savestate.h"
 
-namespace RTC
+#define ARCL_MAJOR 1
+#define ARCL_MINOR 1
+
+class ARCodeList
 {
+public:
+    //
+};
 
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
-
-u16 Read();
-void Write(u16 val, bool byte);
-
-}
-
-#endif
+#endif // ARCODELIST_H
