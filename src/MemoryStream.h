@@ -46,6 +46,7 @@ public:
 private:
 	u8** chunks;
 	s32 firstNonsequentialChunk;
+	bool ownsFirstChunk;
 	
 	s32 size;
 	s32 pos;

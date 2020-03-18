@@ -27,19 +27,22 @@ MemoryStream::MemoryStream()
 	
 	pos = 0;
 	size = 0;
-	firstNonsequentialChunk = 0;
+	firstNonsequentialChunk = 1;
+	ownsFirstChunk = true;
 }
+// This does not necessarily copy all the data. If the original data will not out-live the MemoryStream, call GetData afterward
 MemoryStream::MemoryStream(u8* data, s32 len)
 {
 	chunks = NULL;
 	Init(data, len);
+	ownsFirstChunk = false;
 }
 MemoryStream::~MemoryStream()
 {
 	DeInit();
 }
 
-// Make chunks point to data; does not copy data.
+// Make chunks point to data; does not copy all data.
 void MemoryStream::Init(u8* data, s32 len)
 {
 	if (chunks) DeInit();
@@ -49,20 +52,27 @@ void MemoryStream::Init(u8* data, s32 len)
 
 	chunks = new u8*[MAX_CHUNKS];
 	memset(chunks, 0, MAX_CHUNKS * sizeof(u8*));
-	for (int i = 0; i * CHUNK_SIZE < len; i++)
+	s32 numFullChunks = len / CHUNK_SIZE;
+	s32 lenFull = numFullChunks * CHUNK_SIZE;
+	for (int i = 0; i < numFullChunks; i++)
 		chunks[i] = data + i * CHUNK_SIZE;
+	chunks[numFullChunks] = new u8[CHUNK_SIZE];
+	memcpy(chunks[numFullChunks], data + lenFull, len - lenFull);
 
 	pos = 0;
 	size = len;
-	firstNonsequentialChunk = size / CHUNK_SIZE + 1;
+	firstNonsequentialChunk = numFullChunks;
 }
 void MemoryStream::DeInit()
 {
+	if (ownsFirstChunk)
+		delete chunks[0];
 	for (int i = firstNonsequentialChunk; i < MAX_CHUNKS && chunks[i]; i++)
 		delete chunks[i];
 	delete chunks;
 }
 
+// Puts all of the stream's data into a single array and returns that array.
 u8* MemoryStream::GetData()
 {
 	// Create a new array, and copy chunks to new array.
@@ -72,8 +82,9 @@ u8* MemoryStream::GetData()
 		memcpy(data + i * CHUNK_SIZE, chunks[i], CHUNK_SIZE);
 	memcpy(data + i * CHUNK_SIZE, chunks[i], size % CHUNK_SIZE);
 	// Re-init with new array; this deletes old arrays.
-	// Also means the new array will be deleted upon destruction of the MemoryStream.
 	Init(data, size);
+	// the new array will be deleted upon destruction of the MemoryStream.
+	ownsFirstChunk = true;
 	return data;
 }
 s32 MemoryStream::GetLength()
@@ -100,10 +111,7 @@ void MemoryStream::Write(const void* src, s32 len)
 		
 		pos += len;
 		if (chunk < pos / CHUNK_SIZE)
-		{
 			chunks[chunk+1] = new u8[CHUNK_SIZE];
-			memset(chunks[chunk+1], 0, CHUNK_SIZE);
-		}
 		if (pos > size)
 			size = pos;
 	}
