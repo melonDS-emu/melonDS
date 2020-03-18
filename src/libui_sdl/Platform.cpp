@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <iostream>
 #include <SDL2/SDL.h>
 #include "../Platform.h"
 #include "PlatformConfig.h"
