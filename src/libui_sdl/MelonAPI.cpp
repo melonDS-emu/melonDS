@@ -1,4 +1,8 @@
+#ifdef __WIN32__
 #define DLL extern "C" __declspec(dllexport)
+#else
+#define DLL extern "C"
+#endif
 
 #include <stdio.h>
 #include <SDL2/SDL.h>
