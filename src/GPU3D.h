@@ -127,6 +127,39 @@ void Write8(u32 addr, u8 val);
 void Write16(u32 addr, u16 val);
 void Write32(u32 addr, u32 val);
 
+namespace TexCache
+{
+
+typedef u64 ExternalTexHandle;
+
+typedef u32* (*AllocTextureFunc)(ExternalTexHandle* handle, u32 width, u32 height);
+typedef void (*FreeTextureFunc)(ExternalTexHandle handle, u32 width, u32 height);
+typedef void (*FinaliseTextureFunc)(ExternalTexHandle handle, u32 width, u32 height);
+
+enum
+{
+    outputFmt_RGB6A5,
+    outputFmt_RGBA8,
+    outputFmt_BGRA8
+};
+
+void Init();
+void DeInit();
+
+void Reset();
+
+void UpdateTextures();
+
+void SaveTextures();
+
+template <int format>
+ExternalTexHandle GetTexture(u32 texParam, u32 palBase);
+
+void InvalidateTexSlot(u32 base);
+void InvalidatePalSlot(u32 base);
+
+}
+
 namespace SoftRenderer
 {
 
@@ -139,6 +172,10 @@ void SetupRenderThread();
 void VCount144();
 void RenderFrame();
 u32* GetLine(int line);
+
+u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height);
+void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height);
+void FinaliseTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height);
 
 }
 

@@ -389,6 +389,7 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[oldofs] &= ~bankmask;
+            GPU3D::TexCache::InvalidateTexSlot(oldofs);
             break;
         }
     }
@@ -412,6 +413,7 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[ofs] |= bankmask;
+            GPU3D::TexCache::InvalidateTexSlot(ofs);
             break;
         }
     }
@@ -449,6 +451,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[oldofs] &= ~bankmask;
+            GPU3D::TexCache::InvalidateTexSlot(oldofs);
             break;
 
         case 4: // BBG/BOBJ
@@ -484,6 +487,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[ofs] |= bankmask;
+            GPU3D::TexCache::InvalidateTexSlot(ofs);
             break;
 
         case 4: // BBG/BOBJ
@@ -527,6 +531,8 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 3: // texture palette
             UNMAP_RANGE(TexPal, 0, 4);
+            for (int i = 0; i < 4; i++)
+                GPU3D::TexCache::InvalidatePalSlot(i);
             break;
 
         case 4: // ABG ext palette
@@ -555,6 +561,8 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 3: // texture palette
             MAP_RANGE(TexPal, 0, 4);
+            for (int i = 0; i < 4; i++)
+                GPU3D::TexCache::InvalidatePalSlot(i);
             break;
 
         case 4: // ABG ext palette
@@ -607,6 +615,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
         case 3: // texture palette
             VRAMMap_TexPal[(oldofs & 0x1) + ((oldofs & 0x2) << 1)] &= ~bankmask;
+            GPU3D::TexCache::InvalidatePalSlot((oldofs & 0x1) + ((oldofs & 0x2) << 1));
             break;
 
         case 4: // ABG ext palette
@@ -652,6 +661,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
         case 3: // texture palette
             VRAMMap_TexPal[(ofs & 0x1) + ((ofs & 0x2) << 1)] |= bankmask;
+            GPU3D::TexCache::InvalidatePalSlot((ofs & 0x1) + ((ofs & 0x2) << 1));
             break;
 
         case 4: // ABG ext palette

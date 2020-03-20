@@ -23,6 +23,7 @@
 #include "Config.h"
 #include "Platform.h"
 
+#include <SDL2/SDL.h>
 
 namespace GPU3D
 {
@@ -57,6 +58,83 @@ u8 StencilBuffer[256*2];
 bool PrevIsShadowMask;
 
 bool Enabled;
+
+// texture cache implementation
+
+/*
+    all texture (data) sizes are a power of two
+    we can exploit to have everything more compact and
+    have super fast alloc/dealloc times by grouping all the 
+    textures with the same pixel count together
+
+    we use the count trailing zeroes function (aka log2)
+    to linearise the indices
+*/
+struct TextureAllocator
+{
+    u32 Length = 0;
+    u32* Pixels;
+    u64 FreeEntries[8];
+    u32 FreeEntriesLeft = 0;
+};
+// all sizes below 8*8 (log2(64)=6) can be ignored
+TextureAllocator TextureMem[14];
+
+TextureAllocator& GetTextureAllocator(u32 width, u32 height)
+{
+    return TextureMem[__builtin_ctz(width * height) - 6];
+}
+
+u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
+{
+    TextureAllocator& allocator = GetTextureAllocator(width, height);
+
+    if (allocator.FreeEntriesLeft == 0)
+    {
+        u32 newLength = (20 - (__builtin_ctz(width * height) - 6) + 4) + (allocator.Length * 2) / 3;
+
+        // while it's theoretically possible to hit this limit
+        // other things will probably break before it
+        if (newLength >= 64*8)
+            abort();
+
+        u32* newPixels = new u32[width * height * newLength];
+        if (allocator.Length)
+        {
+            memcpy(newPixels, allocator.Pixels, allocator.Length * width * height * 4);
+            delete[] allocator.Pixels;
+        }
+        allocator.Pixels = newPixels;
+
+        allocator.FreeEntriesLeft = newLength - allocator.Length;
+        allocator.Length = newLength;
+    }
+
+    for (int i = 0; i < (allocator.Length + 0x3F & ~0x3F) >> 6; i++)
+    {
+        if (allocator.FreeEntries[i] != 0xFFFFFFFFFFFFFFFF)
+        {
+            allocator.FreeEntriesLeft--;
+            u64 freeIdx = __builtin_ctzll(~allocator.FreeEntries[i]);
+            allocator.FreeEntries[i] |= 1ULL << freeIdx;
+            *handle = (i * 64 + freeIdx) * width * height;
+
+            return &allocator.Pixels[*handle];
+        }
+    }
+
+    // should never happen, hopefully...
+    abort();
+}
+
+void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
+{
+    TextureAllocator& allocator = GetTextureAllocator(width, height);
+
+    handle /= width * height;
+    allocator.FreeEntriesLeft++;
+    allocator.FreeEntries[handle >> 6] &= ~(1 << (handle & 0x3F));
+}
 
 // threading
 
@@ -129,6 +207,12 @@ void DeInit()
 
 void Reset()
 {
+    for (int i = 0; i < 14; i++)
+    {
+        memset(TextureMem[i].FreeEntries, 0, sizeof(TextureMem[i].FreeEntries));
+        TextureMem[i].FreeEntriesLeft = TextureMem[i].Length * 64;
+    }
+
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
     memset(AttrBuffer, 0, BufferSize * 2 * 4);
@@ -532,6 +616,8 @@ typedef struct
 {
     Polygon* PolyData;
 
+    u32* VertexData;
+    u32* TextureData;
     Slope<0> SlopeL;
     Slope<1> SlopeR;
     s32 XL, XR;
@@ -543,7 +629,7 @@ typedef struct
 RendererPolygon PolygonList[2048];
 
 
-void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
+u32 TextureLookup(u32* texture, u32 texparam, u32 texpal, s16 s, s16 t)
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -589,6 +675,8 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
         else if (t >= height) t = height-1;
     }
 
+    return texture[s + t * width];
+/*
     u8 alpha0;
     if (texparam & (1<<29)) alpha0 = 0;
     else                    alpha0 = 31;
@@ -766,7 +854,7 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
             *alpha = (*color & 0x8000) ? 31 : 0;
         }
         break;
-    }
+    }*/
 }
 
 // depth test is 'less or equal' instead of 'less than' under the following conditions:
@@ -849,7 +937,7 @@ u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha)
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t, u32* texture)
 {
     u8 r, g, b, a;
 
@@ -883,14 +971,12 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 
     if ((RenderDispCnt & (1<<0)) && (((polygon->TexParam >> 26) & 0x7) != 0))
     {
-        u8 tr, tg, tb;
+        u32 tcolor = TextureLookup(texture, polygon->TexParam, polygon->TexPalette, s, t);
 
-        u16 tcolor; u8 talpha;
-        TextureLookup(polygon->TexParam, polygon->TexPalette, s, t, &tcolor, &talpha);
-
-        tr = (tcolor << 1) & 0x3E; if (tr) tr++;
-        tg = (tcolor >> 4) & 0x3E; if (tg) tg++;
-        tb = (tcolor >> 9) & 0x3E; if (tb) tb++;
+        u8 tr = tcolor & 0x3E; if (tr) tr++;
+        u8 tg = (tcolor >> 8) & 0x3E; if (tg) tg++;
+        u8 tb = (tcolor >> 16) & 0x3E; if (tb) tb++;
+        u8 talpha = tcolor >> 24;
 
         if (blendmode & 0x1)
         {
@@ -1052,6 +1138,14 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 
 void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
 {
+    if (polygon->TexParam & 0x1C000000)
+    {
+        TexCache::ExternalTexHandle handle = TexCache::GetTexture<TexCache::outputFmt_RGB6A5>(polygon->TexParam, polygon->TexPalette);
+        u32 width = 8 << ((polygon->TexParam >> 20) & 0x7);
+        u32 height = 8 << ((polygon->TexParam >> 23) & 0x7);
+        rp->TextureData = &GetTextureAllocator(width, height).Pixels[handle];
+    }
+
     u32 nverts = polygon->NumVertices;
 
     u32 vtop = polygon->VTop, vbot = polygon->VBottom;
@@ -1508,7 +1602,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t, rp->TextureData);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1604,7 +1698,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t, rp->TextureData);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -1679,7 +1773,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
         s16 s = interpX.Interpolate(sl, sr);
         s16 t = interpX.Interpolate(tl, tr);
 
-        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t);
+        u32 color = RenderPixel(polygon, vr>>3, vg>>3, vb>>3, s, t, rp->TextureData);
         u8 alpha = color >> 24;
 
         // alpha test
@@ -2048,12 +2142,18 @@ void ClearBuffers()
 
 void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
+    u64 ticksStart = SDL_GetPerformanceCounter();
+    TexCache::UpdateTextures();
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
         if (polygons[i]->Degenerate) continue;
         SetupPolygon(&PolygonList[j++], polygons[i]);
     }
+    u64 tickesEnd = SDL_GetPerformanceCounter();
+    printf("time %fms\n", (tickesEnd-ticksStart)/(float)SDL_GetPerformanceFrequency()*1000.f);
+
+    TexCache::SaveTextures();
 
     RenderScanline(0, j);
 

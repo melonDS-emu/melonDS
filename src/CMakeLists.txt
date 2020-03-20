@@ -15,6 +15,7 @@ add_library(core STATIC
 	GPU3D.cpp
 	GPU3D_OpenGL.cpp
 	GPU3D_Soft.cpp
+	GPU3D_TexCache.cpp
 	NDS.cpp
 	NDSCart.cpp
 	OpenGLSupport.cpp
@@ -24,6 +25,9 @@ add_library(core STATIC
 	SPU.cpp
 	Wifi.cpp
 	WifiAP.cpp
+
+	xxhash/xxhash.c
+	stb/stb.cpp
 )
 
 if (WIN32)

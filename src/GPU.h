@@ -47,6 +47,7 @@ extern u8 VRAM_H[ 32*1024];
 extern u8 VRAM_I[ 16*1024];
 
 extern u8* VRAM[9];
+extern u32 VRAMMask[9];
 
 extern u32 VRAMMap_LCDC;
 extern u32 VRAMMap_ABG[0x20];

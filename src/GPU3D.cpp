@@ -281,6 +281,8 @@ bool Init()
     Renderer = -1;
     // SetRenderer() will be called to set it up later
 
+    TexCache::Init();
+
     return true;
 }
 
@@ -288,6 +290,8 @@ void DeInit()
 {
     if (Renderer == 0) SoftRenderer::DeInit();
     else               GLRenderer::DeInit();
+
+    TexCache::DeInit();
 
     delete CmdFIFO;
     delete CmdPIPE;
@@ -385,6 +389,8 @@ void Reset()
 
     FlushRequest = 0;
     FlushAttributes = 0;
+
+    TexCache::Reset();
 
     ResetRenderingState();
     if (Renderer == 0) SoftRenderer::Reset();
