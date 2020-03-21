@@ -155,9 +155,6 @@ void SaveTextures();
 template <int format>
 ExternalTexHandle GetTexture(u32 texParam, u32 palBase);
 
-void InvalidateTexSlot(u32 base);
-void InvalidatePalSlot(u32 base);
-
 }
 
 namespace SoftRenderer

@@ -52,6 +52,8 @@ u8 VRAM_I[ 16*1024];
 u8* VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
 u32 VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
 
+u64 LCDCDirty[9][2];
+
 u8 VRAMCNT[9];
 u8 VRAMSTAT;
 
@@ -380,16 +382,17 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
         case 1: // ABG
             UNMAP_RANGE_PTR(ABG, oldofs<<3, 8);
+            LCDCDirty[bank][0] = LCDCDirty[bank][1] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 2: // AOBJ
             oldofs &= 0x1;
             UNMAP_RANGE_PTR(AOBJ, oldofs<<3, 8);
+            LCDCDirty[bank][0] = LCDCDirty[bank][1] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 3: // texture
             VRAMMap_Texture[oldofs] &= ~bankmask;
-            GPU3D::TexCache::InvalidateTexSlot(oldofs);
             break;
         }
     }
@@ -413,7 +416,6 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[ofs] |= bankmask;
-            GPU3D::TexCache::InvalidateTexSlot(ofs);
             break;
         }
     }
@@ -442,16 +444,17 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
         case 1: // ABG
             UNMAP_RANGE_PTR(ABG, oldofs<<3, 8);
+            LCDCDirty[bank][0] = LCDCDirty[bank][1] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 2: // ARM7 VRAM
             oldofs &= 0x1;
             VRAMMap_ARM7[oldofs] &= ~bankmask;
+            LCDCDirty[bank][0] = LCDCDirty[bank][1] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 3: // texture
             VRAMMap_Texture[oldofs] &= ~bankmask;
-            GPU3D::TexCache::InvalidateTexSlot(oldofs);
             break;
 
         case 4: // BBG/BOBJ
@@ -463,6 +466,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
             {
                 UNMAP_RANGE_PTR(BOBJ, 0, 8);
             }
+            LCDCDirty[bank][0] = LCDCDirty[bank][1] = 0xFFFFFFFFFFFFFFFF;
             break;
         }
     }
@@ -487,7 +491,6 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
         case 3: // texture
             VRAMMap_Texture[ofs] |= bankmask;
-            GPU3D::TexCache::InvalidateTexSlot(ofs);
             break;
 
         case 4: // BBG/BOBJ
@@ -523,16 +526,16 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 1: // ABG
             UNMAP_RANGE_PTR(ABG, 0, 4);
+            LCDCDirty[bank][0] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 2: // AOBJ
             UNMAP_RANGE_PTR(AOBJ, 0, 4);
+            LCDCDirty[bank][0] = 0xFFFFFFFFFFFFFFFF;
             break;
 
         case 3: // texture palette
             UNMAP_RANGE(TexPal, 0, 4);
-            for (int i = 0; i < 4; i++)
-                GPU3D::TexCache::InvalidatePalSlot(i);
             break;
 
         case 4: // ABG ext palette
@@ -561,8 +564,6 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 3: // texture palette
             MAP_RANGE(TexPal, 0, 4);
-            for (int i = 0; i < 4; i++)
-                GPU3D::TexCache::InvalidatePalSlot(i);
             break;
 
         case 4: // ABG ext palette
@@ -601,6 +602,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
                 VRAMPtr_ABG[base] = GetUniqueBankPtr(VRAMMap_ABG[base], base << 14);
                 VRAMPtr_ABG[base + 2] = GetUniqueBankPtr(VRAMMap_ABG[base + 2], (base + 2) << 14);
             }
+            LCDCDirty[bank][0] = 0xFFFFFFFF;
             break;
 
         case 2: // AOBJ
@@ -611,11 +613,11 @@ void MapVRAM_FG(u32 bank, u8 cnt)
                 VRAMPtr_AOBJ[base] = GetUniqueBankPtr(VRAMMap_AOBJ[base], base << 14);
                 VRAMPtr_AOBJ[base + 2] = GetUniqueBankPtr(VRAMMap_AOBJ[base + 2], (base + 2) << 14);
             }
+            LCDCDirty[bank][0] = 0xFFFFFFFF;
             break;
 
         case 3: // texture palette
             VRAMMap_TexPal[(oldofs & 0x1) + ((oldofs & 0x2) << 1)] &= ~bankmask;
-            GPU3D::TexCache::InvalidatePalSlot((oldofs & 0x1) + ((oldofs & 0x2) << 1));
             break;
 
         case 4: // ABG ext palette
@@ -661,7 +663,6 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
         case 3: // texture palette
             VRAMMap_TexPal[(ofs & 0x1) + ((ofs & 0x2) << 1)] |= bankmask;
-            GPU3D::TexCache::InvalidatePalSlot((ofs & 0x1) + ((ofs & 0x2) << 1));
             break;
 
         case 4: // ABG ext palette

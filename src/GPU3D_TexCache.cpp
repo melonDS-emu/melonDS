@@ -165,7 +165,7 @@ void ConvertDirectColorTexture(u32 width, u32 height, u32* output, u8* texData)
 }
 
 template <int outputFmt, int X, int Y>
-void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData, bool color0Transparent)
+void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* palData)
 {
     for (int y = 0; y < height; y++)
     {
@@ -176,11 +176,9 @@ void ConvertAXIYTexture(u32 width, u32 height, u32* output, u8* texData, u16* pa
             u32 idx = val & ((1 << Y) - 1);
 
             u16 color = palData[idx];
-            u32 alpha = (val >> X) & ((1 << X) - 1);
+            u32 alpha = (val >> Y) & ((1 << X) - 1);
             if (X != 5)
                 alpha = alpha * 4 + alpha / 2;
-            if (color0Transparent && idx == 0)
-                alpha = 0;
 
             u32 res;
             switch (outputFmt)
@@ -236,11 +234,11 @@ struct Texture
     ExternalTexHandle Handle;
 };
 
-u64 PaletteCacheStatus;
+u64 PaletteCacheStatus[2];
 u8 PaletteCache[128*1024];
 
-u64 PaletteDirty[2];
-u64 TexturesDirty[8];
+u32 TextureMap[4];
+u32 PaletteMap[8];
 
 std::unordered_map<u64, Texture> TextureCache;
 
@@ -260,11 +258,12 @@ void DeInit()
 
 void Reset()
 {
-    PaletteCacheStatus = 0;
+    memset(PaletteCacheStatus, 0, 2*8);
 
-    memset(PaletteDirty, 0, 8*2);
-    memset(TexturesDirty, 0, 8*8);
     TextureCache.clear();
+
+    memset(TextureMap, 0, 2*4);
+    memset(PaletteMap, 0, 8*4);
 }
 
 u8* GetTexturePtr(u32 addr, u32 size, u8** unpackBuffer)
@@ -289,29 +288,32 @@ u8* GetTexturePtr(u32 addr, u32 size, u8** unpackBuffer)
     }
 }
 
-void EnsurePaletteCoherent(u64 mask)
+void EnsurePaletteCoherent(u64* mask)
 {
-    if ((PaletteCacheStatus & mask) != mask)
+    for (int i = 0; i < 2; i++)
     {
-        u32 updateField = ~PaletteCacheStatus & mask;
-        PaletteCacheStatus |= mask;
-        while (updateField != 0)
+        if ((PaletteCacheStatus[i] & mask[i]) != mask[i])
         {
-            updatePalette = true;
-            int idx = __builtin_ctz(updateField);
-            u32 map = GPU::VRAMMap_TexPal[idx >> 3];
-            if (map && (map & (map - 1)) == 0)
+            u64 updateField = ~PaletteCacheStatus[i] & mask[i];
+            PaletteCacheStatus[i] |= mask[i];
+            while (updateField != 0)
             {
-                u32 bank = __builtin_ctz(map);
-                memcpy(
-                    PaletteCache + idx * 0x800, 
-                    GPU::VRAM[bank] + ((idx * 0x800) & GPU::VRAMMask[bank]), 
-                    0x800);
+                updatePalette = true;
+                int idx = __builtin_ctzll(updateField);
+                u32 map = GPU::VRAMMap_TexPal[idx >> 4 + i * 4];
+                if (map && (map & (map - 1)) == 0)
+                {
+                    u32 bank = __builtin_ctz(map);
+                    memcpy(
+                        PaletteCache + i * 0x10000 + idx * 0x400,
+                        GPU::VRAM[bank] + ((idx * 0x400) & GPU::VRAMMask[bank]), 
+                        0x400);
+                }
+                else
+                    for (int j = 0; j < 0x400; j += 8)
+                        *(u64*)&PaletteCache[i * 0x10000 + idx * 0x400 + j] = GPU::ReadVRAM_TexPal<u64>(i * 0x10000 + idx * 0x400 + j);
+                updateField &= ~(1ULL << idx);
             }
-            else
-                for (int i = 0; i < 0x800; i += 8)
-                    *(u64*)&PaletteCache[idx * 0x800 + i] = GPU::ReadVRAM_TexPal<u64>(idx * 0x800 + i);
-            updateField &= ~(1 << idx);
         }
     }
 }
@@ -323,6 +325,62 @@ void UpdateTextures()
     updatePalette = false;
     copyTexture = false;
     textureUpdated = false;
+
+    u64 PaletteDirty[2] = {0};
+    u64 TexturesDirty[8] = {0};
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (GPU::VRAMMap_Texture[i] != TextureMap[i])
+        {
+            TexturesDirty[(i << 1)] = 0xFFFFFFFFFFFFFFFF;
+            TexturesDirty[(i << 1) + 1] = 0xFFFFFFFFFFFFFFFF;
+
+            TextureMap[i] = GPU::VRAMMap_Texture[i];
+        }
+        else
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                if (TextureMap[i] & (1<<j))
+                {
+                    TexturesDirty[(i << 1)] |= GPU::LCDCDirty[j][0];
+                    TexturesDirty[(i << 1) + 1] |= GPU::LCDCDirty[j][1];
+                    GPU::LCDCDirty[j][0] = 0;
+                    GPU::LCDCDirty[j][1] = 0;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < 8; i++)
+    {
+        if (GPU::VRAMMap_TexPal[i] != PaletteMap[i])
+        {
+            PaletteDirty[i >> 2] |= 0xFFFF << (i & 0x3) * 16;
+            PaletteCacheStatus[i >> 2] &= ~(0xFFFF << (i & 0x3) * 16);
+            PaletteMap[i] = GPU::VRAMMap_TexPal[i];
+        }
+        else
+        {
+            // E
+            if (PaletteMap[i] & (1<<3))
+            {
+                PaletteDirty[i >> 2] |= GPU::LCDCDirty[3][0];
+                PaletteCacheStatus[i >> 2] &= ~GPU::LCDCDirty[3][0];
+                GPU::LCDCDirty[3][0] = 0;
+            }
+            // FG
+            for (int j = 0; j < 2; j++)
+            {
+                if (PaletteMap[i] & (1<<(4+j)))
+                {
+                    PaletteDirty[i >> 2] |= GPU::LCDCDirty[4+j][0] << (i & 0x3) * 16;
+                    PaletteCacheStatus[i >> 2] &= ~(GPU::LCDCDirty[4+j][0] << (i & 0x3) * 16);
+                    GPU::LCDCDirty[4+j][0] = 0;
+                }
+            }
+        }
+    }
 
     bool paletteDirty = PaletteDirty[0] | PaletteDirty[1];
     bool textureDirty = false;
@@ -358,23 +416,25 @@ void UpdateTextures()
     }
 }
 
-inline u64 MakePaletteMask(u32 addr, u32 size)
-{
-    return ((1ULL << (((addr + size + 0x7FF & ~0x7FF) >> 11) - (addr >> 11))) - 1) << (addr >> 11);
-}
-
 inline void MakeDirtyMask(u64* out, u32 addr, u32 size)
 {
-    u32 start = addr >> 10;
-    u32 count = (((addr + size + 0x3FF) & ~0x3FF) >> 10) - start;
+    u32 startBit = addr >> 10;
+    u32 bitsCount = ((addr + size + 0x3FF & ~0x3FF) >> 10) - startBit;
 
-    u32 firstIdx = start >> 6;
-    u32 indicesCount = (((count + 0x3F) & ~0x3F) >> 6) - firstIdx;
+    u32 startEntry = startBit >> 6;
+    u64 entriesCount = ((startBit + bitsCount + 0x3F & ~0x3F) >> 6) - startEntry;
 
-    out[firstIdx] = (1ULL << (63 - (start & 0x3F))) - 1 << (start & 0x3F);
-    out[firstIdx + indicesCount - 1] = (1ULL << (start & 0x3F)) - 1;
-    for (int i = firstIdx + 1; i < firstIdx + indicesCount - 1; i++)
-        out[i] |= 0xFFFFFFFFFFFFFFFF;
+    if (entriesCount > 1)
+    {
+        out[startEntry] |= 0xFFFFFFFFFFFFFFFF << (startBit & 0x3F);
+        out[startEntry + entriesCount - 1] |= (1ULL << (startBit & 0x3F)) - 1;
+        for (int i = startEntry + 1; i < startEntry + entriesCount - 1; i++)
+            out[i] = 0xFFFFFFFFFFFFFFFF;
+    }
+    else
+    {
+        out[startEntry] |= ((1ULL << bitsCount) - 1) << (startBit & 0x3F);
+    }
 }
 
 template <int format>
@@ -427,8 +487,7 @@ ExternalTexHandle GetTexture(u32 texParam, u32 palBase)
             MakeDirtyMask(texture.TextureMask, slot1addr, width*height/16*2);
             MakeDirtyMask(texture.PaletteMask, palBase*16, 0x10000);
 
-            u64 paletteMask = MakePaletteMask(palBase*16, 0x10000);
-            EnsurePaletteCoherent(MakePaletteMask(palBase*16, 0x10000));
+            EnsurePaletteCoherent(texture.PaletteMask);
             u16* palData = (u16*)(PaletteCache + palBase*16);
 
             ConvertCompressedTexture<format>(width, height, data, texData, texAuxData, palData);
@@ -445,19 +504,20 @@ ExternalTexHandle GetTexture(u32 texParam, u32 palBase)
             case 4: texSize = width*height; palSize = 256; break;
             }
 
-            u8* texData = GetTexturePtr(addr, texSize, &unpackBuffer);
-            EnsurePaletteCoherent(MakePaletteMask(palAddr, palSize*2));
-            u16* palData = (u16*)(PaletteCache + palAddr);
-
             MakeDirtyMask(texture.TextureMask, addr, texSize);
             MakeDirtyMask(texture.PaletteMask, palAddr, palSize);
+
+            EnsurePaletteCoherent(texture.PaletteMask);
+
+            u8* texData = GetTexturePtr(addr, texSize, &unpackBuffer);
+            u16* palData = (u16*)(PaletteCache + palAddr);
 
             bool color0Transparent = texParam & (1 << 29);
 
             switch (fmt)
             {
-            case 1: ConvertAXIYTexture<format, 3, 5>(width, height, data, texData, palData, color0Transparent); break;
-            case 6: ConvertAXIYTexture<format, 5, 3>(width, height, data, texData, palData, color0Transparent); break;
+            case 1: ConvertAXIYTexture<format, 3, 5>(width, height, data, texData, palData); break;
+            case 6: ConvertAXIYTexture<format, 5, 3>(width, height, data, texData, palData); break;
             case 2: ConvertNColorsTexture<format, 2>(width, height, data, texData, palData, color0Transparent); break;
             case 3: ConvertNColorsTexture<format, 4>(width, height, data, texData, palData, color0Transparent); break;
             case 4: ConvertNColorsTexture<format, 8>(width, height, data, texData, palData, color0Transparent); break;
@@ -493,19 +553,8 @@ void SaveTextures()
     //printf("%d %d textures converted %d pixels %d %d %d\n", converted, TextureCache.size(), pixelsConverted, updatePalette, copyTexture, textureUpdated);
 }
 
-void InvalidateTexSlot(u32 base)
-{
-    TexturesDirty[(base << 1)] = 0xFFFFFFFFFFFFFFFF;
-    TexturesDirty[(base << 1) + 1] = 0xFFFFFFFFFFFFFFFF;
 }
 
-void InvalidatePalSlot(u32 base)
-{
-    PaletteDirty[base >> 2] |= 0xFFFF << (base & 0x3) * 16;
-    PaletteCacheStatus &= ~(0xFF << base * 8);
-}
-
-}
 }
 
 template GPU3D::TexCache::ExternalTexHandle

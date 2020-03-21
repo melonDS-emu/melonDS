@@ -49,6 +49,8 @@ extern u8 VRAM_I[ 16*1024];
 extern u8* VRAM[9];
 extern u32 VRAMMask[9];
 
+extern u64 LCDCDirty[9][2];
+
 extern u32 VRAMMap_LCDC;
 extern u32 VRAMMap_ABG[0x20];
 extern u32 VRAMMap_AOBJ[0x10];
@@ -219,7 +221,11 @@ void WriteVRAM_LCDC(u32 addr, T val)
     default: return;
     }
 
-    if (VRAMMap_LCDC & (1<<bank)) *(T*)&VRAM[bank][addr] = val;
+    if (VRAMMap_LCDC & (1<<bank))
+    {
+        *(T*)&VRAM[bank][addr] = val;
+        LCDCDirty[bank][addr >> 16] |= 1 << ((addr >> 10) & 0x3F);
+    }
 }
 
 

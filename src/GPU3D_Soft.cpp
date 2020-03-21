@@ -80,7 +80,7 @@ struct TextureAllocator
 // all sizes below 8*8 (log2(64)=6) can be ignored
 TextureAllocator TextureMem[14];
 
-TextureAllocator& GetTextureAllocator(u32 width, u32 height)
+inline TextureAllocator& GetTextureAllocator(u32 width, u32 height)
 {
     return TextureMem[__builtin_ctz(width * height) - 6];
 }
@@ -1136,14 +1136,23 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
-void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
+void SetupPolygon(RendererPolygon* rp, Polygon* polygon, RendererPolygon* lastRp)
 {
     if (polygon->TexParam & 0x1C000000)
     {
-        TexCache::ExternalTexHandle handle = TexCache::GetTexture<TexCache::outputFmt_RGB6A5>(polygon->TexParam, polygon->TexPalette);
-        u32 width = 8 << ((polygon->TexParam >> 20) & 0x7);
-        u32 height = 8 << ((polygon->TexParam >> 23) & 0x7);
-        rp->TextureData = &GetTextureAllocator(width, height).Pixels[handle];
+        if (lastRp && lastRp->PolyData->TexParam == polygon->TexParam
+            && lastRp->PolyData->TexPalette == polygon->TexPalette)
+        {
+            rp->TextureData = lastRp->TextureData;
+        }
+        else
+        {
+            TexCache::ExternalTexHandle handle =
+                TexCache::GetTexture<TexCache::outputFmt_RGB6A5>(polygon->TexParam, polygon->TexPalette);
+            u32 width = 8 << ((polygon->TexParam >> 20) & 0x7);
+            u32 height = 8 << ((polygon->TexParam >> 23) & 0x7);
+            rp->TextureData = &GetTextureAllocator(width, height).Pixels[handle];
+        }
     }
 
     u32 nverts = polygon->NumVertices;
@@ -2142,17 +2151,15 @@ void ClearBuffers()
 
 void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
-    u64 ticksStart = SDL_GetPerformanceCounter();
     TexCache::UpdateTextures();
     int j = 0;
     for (int i = 0; i < npolys; i++)
     {
         if (polygons[i]->Degenerate) continue;
-        SetupPolygon(&PolygonList[j++], polygons[i]);
-    }
-    u64 tickesEnd = SDL_GetPerformanceCounter();
-    printf("time %fms\n", (tickesEnd-ticksStart)/(float)SDL_GetPerformanceFrequency()*1000.f);
+        SetupPolygon(&PolygonList[j], polygons[i], j > 0 ? &PolygonList[j - 1] : NULL);
 
+        j++;
+    }
     TexCache::SaveTextures();
 
     RenderScanline(0, j);
