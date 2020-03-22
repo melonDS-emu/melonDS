@@ -131,15 +131,10 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
     NDS::RunFrame();
 }
 
-DLL void VideoBuffer32bit(s32* dst)
-{
-    // 2D
-    u32* src = GPU::Framebuffer[GPU::FrontBuffer][0];
-    memcpy(dst, src, 4 * 256 * 192);
-    dst += 256 * 192;
-    src = GPU::Framebuffer[GPU::FrontBuffer][1];
-    memcpy(dst, src, 4 * 256 * 192);
-}
+DLL s32* GetTopScreenBuffer() { return (s32*)GPU::Framebuffer[GPU::FrontBuffer][0]; }
+DLL s32* GetBottomScreenBuffer() { return (s32*)GPU::Framebuffer[GPU::FrontBuffer][1]; }
+// Length in pixels.
+DLL s32 GetScreenBufferSize() { return 256 * 192; }
 
 DLL bool UseSavestate(u8* data, s32 len)
 {
@@ -224,7 +219,7 @@ DLL bool IsSRAMModified()
 }
 
 const s32 userSettingsLength = SPI_Firmware::userSettingsLength;
-DLL s32 getUserSettingsLength() { return userSettingsLength; }
+DLL s32 GetUserSettingsLength() { return userSettingsLength; }
 // Gets the currently loaded user settings. Returns false if no settings are loaded.
 DLL bool GetUserSettings(u8* dst)
 {
