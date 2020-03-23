@@ -28,6 +28,7 @@ add_library(core STATIC
 
 	xxhash/xxhash.c
 	stb/stb.cpp
+	xbrz/xbrz.cpp
 )
 
 if (WIN32)

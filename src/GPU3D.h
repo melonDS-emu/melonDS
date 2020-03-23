@@ -132,10 +132,6 @@ namespace TexCache
 
 typedef u64 ExternalTexHandle;
 
-typedef u32* (*AllocTextureFunc)(ExternalTexHandle* handle, u32 width, u32 height);
-typedef void (*FreeTextureFunc)(ExternalTexHandle handle, u32 width, u32 height);
-typedef void (*FinaliseTextureFunc)(ExternalTexHandle handle, u32 width, u32 height);
-
 enum
 {
     outputFmt_RGB6A5,
@@ -182,6 +178,10 @@ namespace GLRenderer
 bool Init();
 void DeInit();
 void Reset();
+
+u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height);
+void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height);
+void FinaliseTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height);
 
 void UpdateDisplaySettings();
 

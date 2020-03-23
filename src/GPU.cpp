@@ -602,7 +602,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
                 VRAMPtr_ABG[base] = GetUniqueBankPtr(VRAMMap_ABG[base], base << 14);
                 VRAMPtr_ABG[base + 2] = GetUniqueBankPtr(VRAMMap_ABG[base + 2], (base + 2) << 14);
             }
-            LCDCDirty[bank][0] = 0xFFFFFFFF;
+            LCDCDirty[bank][0] = 0xFFFF;
             break;
 
         case 2: // AOBJ
@@ -613,7 +613,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
                 VRAMPtr_AOBJ[base] = GetUniqueBankPtr(VRAMMap_AOBJ[base], base << 14);
                 VRAMPtr_AOBJ[base + 2] = GetUniqueBankPtr(VRAMMap_AOBJ[base + 2], (base + 2) << 14);
             }
-            LCDCDirty[bank][0] = 0xFFFFFFFF;
+            LCDCDirty[bank][0] = 0xFFFF;
             break;
 
         case 3: // texture palette

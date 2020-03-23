@@ -1138,7 +1138,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 
 void SetupPolygon(RendererPolygon* rp, Polygon* polygon, RendererPolygon* lastRp)
 {
-    if (polygon->TexParam & 0x1C000000)
+    if (polygon->TexParam & 0x1C000000 && !polygon->IsShadowMask)
     {
         if (lastRp && lastRp->PolyData->TexParam == polygon->TexParam
             && lastRp->PolyData->TexPalette == polygon->TexPalette)

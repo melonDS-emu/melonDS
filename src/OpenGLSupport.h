@@ -63,6 +63,9 @@
 #define DO_PROCLIST(func) \
     DO_PROCLIST_1_3(func) \
     \
+    func(GLTEXIMAGE3D, glTexImage3D); \
+    func(GLTEXSUBIMAGE3D, glTexSubImage3D); \
+    \
     func(GLGENFRAMEBUFFERS, glGenFramebuffers); \
     func(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers); \
     func(GLBINDFRAMEBUFFER, glBindFramebuffer); \

@@ -24,6 +24,10 @@
 #include "OpenGLSupport.h"
 #include "GPU3D_OpenGL_shaders.h"
 
+#include "xbrz/xbrz.h"
+
+#include <assert.h>
+
 namespace GPU3D
 {
 namespace GLRenderer
@@ -80,6 +84,8 @@ typedef struct
 
     u32 RenderKey;
 
+    GLuint TextureID;
+
 } RendererPolygon;
 
 RendererPolygon PolygonList[2048];
@@ -107,9 +113,6 @@ u32 NumVertices;
 GLuint VertexArrayID;
 u16 IndexBuffer[2048 * 40];
 
-GLuint TexMemID;
-GLuint TexPalMemID;
-
 int ScaleFactor;
 bool Antialias;
 int ScreenW, ScreenH;
@@ -119,7 +122,108 @@ int FrontBuffer;
 GLuint FramebufferID[4], PixelbufferID;
 u32 Framebuffer[256*192];
 
+struct TextureAllocator
+{
+    u32 Length = 0;
+    GLuint TextureID;
+    u32 FreeEntriesLeft = 0;
+    u64 FreeEntries[8];
+    u32* Pixels;
+};
+TextureAllocator TextureMem[8][8];
 
+inline TextureAllocator& GetTextureAllocator(u32 width, u32 height)
+{
+    return TextureMem[__builtin_ctz(width) - 3][__builtin_ctz(height) - 3];
+}
+
+u32 ConversionBuffer[1024*1024];
+
+u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
+{
+    TextureAllocator& allocator = GetTextureAllocator(width, height);
+    //printf("allocating texture %d %d\n", width, height);
+
+    u32 scaledWidth = width * 2;
+    u32 scaledHeight = height * 2;
+
+    if (allocator.FreeEntriesLeft == 0)
+    {
+        u32 newLength = (allocator.Length * 3) / 2 + 8;
+
+        if (newLength >= 64*8)
+            abort();
+
+        if (allocator.Length == 0)
+        {
+            printf("created new texture\n");
+            glGenTextures(1, &allocator.TextureID);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, allocator.TextureID);
+
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+        }
+        else
+            glBindTexture(GL_TEXTURE_2D_ARRAY, allocator.TextureID);
+
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, scaledWidth, scaledHeight, newLength, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+        u32* newPixels = new u32[scaledWidth * scaledHeight * newLength];
+        if (allocator.Length)
+        {
+            // copy old data
+            glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 0, scaledWidth, scaledHeight, allocator.Length, GL_RGBA, GL_UNSIGNED_BYTE, allocator.Pixels);
+
+            memcpy(newPixels, allocator.Pixels, allocator.Length * scaledWidth * scaledHeight * 4);
+            delete[] allocator.Pixels;
+        }
+        allocator.Pixels = newPixels;
+
+        allocator.FreeEntriesLeft = newLength - allocator.Length;
+        allocator.Length = newLength;
+    }
+
+    for (int i = 0; i < (allocator.Length + 0x3F & ~0x3F) >> 6; i++)
+    {
+        if (allocator.FreeEntries[i] != 0xFFFFFFFFFFFFFFFF)
+        {
+            allocator.FreeEntriesLeft--;
+            u64 freeIdx = __builtin_ctzll(~allocator.FreeEntries[i]);
+            allocator.FreeEntries[i] |= 1ULL << freeIdx;
+            *handle = i * 64 + freeIdx;
+
+            //return &allocator.Pixels[*handle * scaledWidth * scaledHeight];
+            return ConversionBuffer;
+        }
+    }
+
+    // should never happen, hopefully...
+    abort();
+}
+
+void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
+{
+    TextureAllocator& allocator = GetTextureAllocator(width, height);
+
+    allocator.FreeEntriesLeft++;
+    allocator.FreeEntries[handle >> 6] &= ~(1 << (handle & 0x3F));
+}
+
+void FinaliseTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
+{
+    TextureAllocator& allocator = GetTextureAllocator(width, height);
+
+    u32 scaledWidth = width * 2;
+    u32 scaledHeight = height * 2;
+
+    xbrz::scale(2, ConversionBuffer, &allocator.Pixels[handle * scaledWidth * scaledHeight], width, height, xbrz::ColorFormat::ARGB);
+
+    // could still be improved
+    glBindTexture(GL_TEXTURE_2D_ARRAY, allocator.TextureID);
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, handle, scaledWidth, scaledHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE, &allocator.Pixels[handle * scaledWidth * scaledHeight]);
+}
 
 bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 {
@@ -166,10 +270,8 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
 
     glUseProgram(prog);
 
-    uni_id = glGetUniformLocation(prog, "TexMem");
+    uni_id = glGetUniformLocation(prog, "Textures");
     glUniform1i(uni_id, 0);
-    uni_id = glGetUniformLocation(prog, "TexPalMem");
-    glUniform1i(uni_id, 1);
 
     return true;
 }
@@ -200,7 +302,6 @@ bool Init()
 
     glDepthRange(0, 1);
     glClearDepth(1.0);
-
 
     if (!OpenGL_BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
@@ -353,32 +454,11 @@ bool Init()
 
     glGenBuffers(1, &PixelbufferID);
 
-    glActiveTexture(GL_TEXTURE0);
-    glGenTextures(1, &TexMemID);
-    glBindTexture(GL_TEXTURE_2D, TexMemID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8UI, 1024, 512, 0, GL_RED_INTEGER, GL_UNSIGNED_BYTE, NULL);
-
-    glActiveTexture(GL_TEXTURE1);
-    glGenTextures(1, &TexPalMemID);
-    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
-
     return true;
 }
 
 void DeInit()
 {
-    glDeleteTextures(1, &TexMemID);
-    glDeleteTextures(1, &TexPalMemID);
-
     glDeleteFramebuffers(4, &FramebufferID[0]);
     glDeleteTextures(8, &FramebufferTex[0]);
 
@@ -539,6 +619,17 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         RendererPolygon* rp = &polygons[i];
         Polygon* poly = rp->PolyData;
 
+        TexCache::ExternalTexHandle texture = UINT64_MAX;
+        if (poly->TexParam & 0x1C000000 && !poly->IsShadowMask)
+        {
+            texture = TexCache::GetTexture<TexCache::outputFmt_RGBA8>(poly->TexParam, poly->TexPalette);
+
+            u32 width = (poly->TexParam >> 20) & 0x7;
+            u32 height = (poly->TexParam >> 23) & 0x7;
+
+            rp->TextureID = TextureMem[width][height].TextureID;
+        }
+
         rp->Indices = iptr;
         rp->NumIndices = 0;
 
@@ -599,7 +690,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
                 *vptr++ = vtxattr | (zshift << 16);
                 *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                *vptr++ = texture;
 
                 *iptr++ = vidx;
                 rp->NumIndices++;
@@ -648,7 +739,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
                 *vptr++ = vtxattr | (zshift << 16);
                 *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                *vptr++ = texture;
 
                 if (j >= 2)
                 {
@@ -686,6 +777,8 @@ void RenderSinglePolygon(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
 
+    glBindTexture(GL_TEXTURE_2D_ARRAY, rp->TextureID);
+
     glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, rp->Indices);
 }
 
@@ -697,17 +790,38 @@ int RenderPolygonBatch(int i)
     int numpolys = 0;
     u32 numindices = 0;
 
-    for (int iend = i; iend < NumFinalPolys; iend++)
+    GLuint texture;
+    bool textureChange;
+
+    do
     {
-        RendererPolygon* cur_rp = &PolygonList[iend];
-        if (cur_rp->PrimType != primtype) break;
-        if (cur_rp->RenderKey != key) break;
+        textureChange = false;
 
-        numpolys++;
-        numindices += cur_rp->NumIndices;
-    }
+        rp = &PolygonList[i];
+        texture = rp->TextureID;
 
-    glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+        for (; i < NumFinalPolys; i++)
+        {
+            RendererPolygon* cur_rp = &PolygonList[i];
+            if (cur_rp->PrimType != primtype) break;
+            if (cur_rp->RenderKey != key) break;
+            if (cur_rp->TextureID != texture)
+            {
+                textureChange = true;
+                break;
+            }
+
+            numpolys++;
+            numindices += cur_rp->NumIndices;
+        }
+
+        glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
+
+        glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+
+        numindices = 0;
+    } while (textureChange);
+
     return numpolys;
 }
 
@@ -1111,38 +1225,7 @@ void RenderFrame()
     if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 
-    // SUCKY!!!!!!!!!!!!!!!!!!
-    // TODO: detect when VRAM blocks are modified!
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TexMemID);
-    for (int i = 0; i < 4; i++)
-    {
-        u32 mask = GPU::VRAMMap_Texture[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<0)) vram = GPU::VRAM_A;
-        else if (mask & (1<<1)) vram = GPU::VRAM_B;
-        else if (mask & (1<<2)) vram = GPU::VRAM_C;
-        else if (mask & (1<<3)) vram = GPU::VRAM_D;
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*128, 1024, 128, GL_RED_INTEGER, GL_UNSIGNED_BYTE, vram);
-    }
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, TexPalMemID);
-    for (int i = 0; i < 6; i++)
-    {
-        // 6 x 16K chunks
-        u32 mask = GPU::VRAMMap_TexPal[i];
-        u8* vram;
-        if (!mask) continue;
-        else if (mask & (1<<4)) vram = &GPU::VRAM_E[(i&3)*0x4000];
-        else if (mask & (1<<5)) vram = GPU::VRAM_F;
-        else if (mask & (1<<6)) vram = GPU::VRAM_G;
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
-    }
-
     glDisable(GL_SCISSOR_TEST);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
@@ -1187,6 +1270,8 @@ void RenderFrame()
         glBindVertexArray(ClearVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 2*3);
     }
+
+    TexCache::UpdateTextures();
 
     if (RenderNumPolygons)
     {

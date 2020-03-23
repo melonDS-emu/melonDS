@@ -300,13 +300,13 @@ void EnsurePaletteCoherent(u64* mask)
             {
                 updatePalette = true;
                 int idx = __builtin_ctzll(updateField);
-                u32 map = GPU::VRAMMap_TexPal[idx >> 4 + i * 4];
+                u32 map = GPU::VRAMMap_TexPal[(idx >> 4) + i * 4];
                 if (map && (map & (map - 1)) == 0)
                 {
                     u32 bank = __builtin_ctz(map);
                     memcpy(
                         PaletteCache + i * 0x10000 + idx * 0x400,
-                        GPU::VRAM[bank] + ((idx * 0x400) & GPU::VRAMMask[bank]), 
+                        GPU::VRAM[bank] + ((idx * 0x400) & GPU::VRAMMask[bank]),
                         0x400);
                 }
                 else
@@ -363,20 +363,20 @@ void UpdateTextures()
         else
         {
             // E
-            if (PaletteMap[i] & (1<<3))
+            if (PaletteMap[i] & (1<<4))
             {
-                PaletteDirty[i >> 2] |= GPU::LCDCDirty[3][0];
-                PaletteCacheStatus[i >> 2] &= ~GPU::LCDCDirty[3][0];
-                GPU::LCDCDirty[3][0] = 0;
+                PaletteDirty[i >> 2] |= GPU::LCDCDirty[4][0];
+                PaletteCacheStatus[i >> 2] &= ~GPU::LCDCDirty[4][0];
+                GPU::LCDCDirty[4][0] = 0;
             }
             // FG
             for (int j = 0; j < 2; j++)
             {
-                if (PaletteMap[i] & (1<<(4+j)))
+                if (PaletteMap[i] & (1<<(5+j)))
                 {
-                    PaletteDirty[i >> 2] |= GPU::LCDCDirty[4+j][0] << (i & 0x3) * 16;
-                    PaletteCacheStatus[i >> 2] &= ~(GPU::LCDCDirty[4+j][0] << (i & 0x3) * 16);
-                    GPU::LCDCDirty[4+j][0] = 0;
+                    PaletteDirty[i >> 2] |= GPU::LCDCDirty[5+j][0] << (i & 0x3) * 16;
+                    PaletteCacheStatus[i >> 2] &= ~((GPU::LCDCDirty[5+j][0] & 0xFFFF) << (i & 0x3) * 16);
+                    GPU::LCDCDirty[5+j][0] = 0;
                 }
             }
         }
@@ -405,6 +405,8 @@ void UpdateTextures()
 
                 if (GPU3D::Renderer == 0)
                     SoftRenderer::FreeTexture(it->second.Handle, width, height);
+                else
+                    GLRenderer::FreeTexture(it->second.Handle, width, height);
 
                 it = TextureCache.erase(it);
             }
@@ -462,7 +464,7 @@ ExternalTexHandle GetTexture(u32 texParam, u32 palBase)
 
         u32* data = GPU3D::Renderer == 0
             ? SoftRenderer::AllocateTexture(&texture.Handle, width, height)
-            : NULL;
+            : GLRenderer::AllocateTexture(&texture.Handle, width, height);
 
         memset(texture.TextureMask, 0, 8*8);
         memset(texture.PaletteMask, 0, 8*2);
@@ -525,7 +527,7 @@ ExternalTexHandle GetTexture(u32 texParam, u32 palBase)
         }
 
         if (GPU3D::Renderer == 1)
-        {}
+            GLRenderer::FinaliseTexture(texture.Handle, width, height);
     }
 
     return texture.Handle;

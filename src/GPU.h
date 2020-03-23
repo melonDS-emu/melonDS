@@ -224,7 +224,7 @@ void WriteVRAM_LCDC(u32 addr, T val)
     if (VRAMMap_LCDC & (1<<bank))
     {
         *(T*)&VRAM[bank][addr] = val;
-        LCDCDirty[bank][addr >> 16] |= 1 << ((addr >> 10) & 0x3F);
+        LCDCDirty[bank][addr >> 16] |= 1ULL << ((addr >> 10) & 0x3F);
     }
 }
 
