@@ -2098,18 +2098,28 @@ void RenderThreadFunc()
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
 
+        // The old method of waiting for each scanline failed in at least two places:
+        // 1) Savestates attempting to get the 3D buffer (previously fixed by having them just not wait for it)
+        // 2) Sleep mode interrupting a frame, then loading a savestate, so that rendering of the last frame never happened.
+
+        // Now, we only wait for Sema_ScanlineCount if currently rendering. So, not every post is matched by a wait.
+        Platform::Semaphore_Reset(Sema_ScanlineCount);
+
         RenderThreadRendering = true;
         ClearBuffers();
         RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
+
+        // Post again, on the off chance that we've gotten to an infinite wait
+        Platform::Semaphore_Post(Sema_ScanlineCount);
     }
 }
 
-u32* GetLine(int line, bool waitSema)
+u32* GetLine(int line)
 {
-    if (RenderThreadRunning && waitSema)
+    if (RenderThreadRendering)
     {
         if (line < 192)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
