@@ -123,7 +123,7 @@ time_t SecondsSinceBoot()
 {
     // 560190 cycles per frame
     // 59.8261 frames per second (number taken from DeSmuME)
-    return (time_t)(NDS::GetSysClockCycles(0) / 560190.0 / 59.8261);
+    return (time_t)((NDS::GetSysClockCycles(2) / 560190.0 + NDS::FramesSinceBoot) / 59.8261);
 }
 tm* GetTime()
 {

@@ -66,6 +66,7 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 FramesSinceBoot;
 u64 LastSysClockCycles;
 u64 FrameStartTimestamp;
 
@@ -456,6 +457,7 @@ void Reset()
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     SysTimestamp = 0;
+    FramesSinceBoot = 0;
 
     InitTimings();
 
@@ -901,6 +903,7 @@ u32 RunFrame()
 #endif
 
     NumFrames++;
+    FramesSinceBoot++;
 
     if (didAnything)
         return GPU::TotalScanlines;
