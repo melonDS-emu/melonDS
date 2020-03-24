@@ -24,7 +24,6 @@ DLL void ResetCounters();
 
 char* EmuDirectory;
 bool inited = false;
-bool LidStatus;
 
 bool directBoot = true;
 
@@ -60,7 +59,6 @@ DLL bool Init()
 	EmuDirectory = new char[6];
     strcpy(EmuDirectory, "melon");
 
-	LidStatus = false;
     if (!NDS::Init())
     {
         printf("failed to init NDS\n");
@@ -121,10 +119,9 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
         
     NDS::SetKeyMask(~buttons & 0xFFF); // 12 buttons
     if (buttons & 0x4000)
-    {
-        LidStatus = !LidStatus;
-        NDS::SetLidClosed(LidStatus);
-    }
+        NDS::SetLidClosed(false);
+    else if (buttons & 0x8000)
+        NDS::SetLidClosed(true);
 
     NDS::MicInputFrame(NULL, 0);
 
