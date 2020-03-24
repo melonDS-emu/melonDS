@@ -66,6 +66,7 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 FramesSinceBoot;
 u32 NumLagFrames;
 bool LagFrameFlag;
 u64 LastSysClockCycles;
@@ -453,6 +454,7 @@ void Reset()
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     SysTimestamp = 0;
+    FramesSinceBoot = 0;
 
     InitTimings();
 
@@ -693,7 +695,11 @@ bool DoSavestate(Savestate* file)
         file->Var32(&NumLagFrames);
 
     if (file->IsAtleastVersion(6, 2))
+    {
+        file->Var32(&FramesSinceBoot);
         file->Var32(&KeyInput);
+    }
+
     file->Var16(&KeyCnt);
     file->Var16(&RCnt);
 
@@ -920,6 +926,7 @@ u32 RunFrame()
 #endif
 
     NumFrames++;
+    FramesSinceBoot++;
     if (LagFrameFlag)
         NumLagFrames++;
 
