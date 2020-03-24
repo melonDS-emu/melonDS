@@ -841,71 +841,73 @@ u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
-    if (!Running) return 263; // dorp
-    if (CPUStop & 0x40000000) return 263;
-
     LagFrameFlag = true;
-    GPU::StartFrame();
-
-    while (Running && GPU::TotalScanlines==0)
+    bool didAnything = false;
+    if (Running && !(CPUStop & 0x40000000))
     {
-        // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
-        u64 target = NextTarget();
-        ARM9Target = target << ARM9ClockShift;
-        CurCPU = 0;
+        didAnything = true;
+        GPU::StartFrame();
 
-        if (CPUStop & 0x80000000)
+        while (Running && GPU::TotalScanlines==0)
         {
-            // GXFIFO stall
-            s32 cycles = GPU3D::CyclesToRunFor();
+            // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
+            u64 target = NextTarget();
+            ARM9Target = target << ARM9ClockShift;
+            CurCPU = 0;
 
-            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-        }
-        else if (CPUStop & 0x0FFF)
-        {
-            DMAs[0]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
-        }
-        else
-        {
-            ARM9->Execute();
-        }
-
-        RunTimers(0);
-        GPU3D::Run();
-
-        target = ARM9Timestamp >> ARM9ClockShift;
-        CurCPU = 1;
-
-        while (ARM7Timestamp < target)
-        {
-            ARM7Target = target; // might be changed by a reschedule
-
-            if (CPUStop & 0x0FFF0000)
+            if (CPUStop & 0x80000000)
             {
-                DMAs[4]->Run();
-                DMAs[5]->Run();
-                DMAs[6]->Run();
-                DMAs[7]->Run();
+                // GXFIFO stall
+                s32 cycles = GPU3D::CyclesToRunFor();
+
+                ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+            }
+            else if (CPUStop & 0x0FFF)
+            {
+                DMAs[0]->Run();
+                if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
+                if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
+                if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
             }
             else
             {
-                ARM7->Execute();
+                ARM9->Execute();
             }
 
-            RunTimers(1);
-        }
+            RunTimers(0);
+            GPU3D::Run();
 
-        RunSystem(target);
+            target = ARM9Timestamp >> ARM9ClockShift;
+            CurCPU = 1;
 
-        if (CPUStop & 0x40000000)
-        {
-            // checkme: when is sleep mode effective?
-            //CancelEvent(Event_LCD);
-            //GPU::TotalScanlines = 263;
-            break;
+            while (ARM7Timestamp < target)
+            {
+                ARM7Target = target; // might be changed by a reschedule
+
+                if (CPUStop & 0x0FFF0000)
+                {
+                    DMAs[4]->Run();
+                    DMAs[5]->Run();
+                    DMAs[6]->Run();
+                    DMAs[7]->Run();
+                }
+                else
+                {
+                    ARM7->Execute();
+                }
+
+                RunTimers(1);
+            }
+
+            RunSystem(target);
+
+            if (CPUStop & 0x40000000)
+            {
+                // checkme: when is sleep mode effective?
+                //CancelEvent(Event_LCD);
+                //GPU::TotalScanlines = 263;
+                break;
+            }
         }
     }
 
@@ -921,7 +923,10 @@ u32 RunFrame()
     if (LagFrameFlag)
         NumLagFrames++;
 
-    return GPU::TotalScanlines;
+    if (didAnything)
+        return GPU::TotalScanlines;
+    else
+        return 263;
 }
 
 void Reschedule(u64 target)
