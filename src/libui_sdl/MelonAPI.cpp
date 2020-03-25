@@ -123,8 +123,6 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
     else if (buttons & 0x8000)
         NDS::SetLidClosed(true);
 
-    NDS::MicInputFrame(NULL, 0);
-
     NDS::RunFrame();
 }
 
@@ -186,6 +184,12 @@ DLL void GetSamples(s16* data, s32 count)
 DLL void DiscardSamples()
 {
     SPU::DrainOutput();
+}
+
+// null samples is the same as giving 0 sample count
+DLL void SetMicSamples(s16* samples, s32 count)
+{
+    NDS::MicInputFrame(samples, count);
 }
 
 DLL s32 GetSRAMLength()
