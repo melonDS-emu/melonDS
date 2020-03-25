@@ -173,8 +173,7 @@ DLL void GetSavestateData(u8* data, s32 size)
 s32 sampleCount = -1;
 DLL int GetSampleCount()
 {
-    // OutputSize is double sample count, because stereo sound
-    return sampleCount = SPU::GetOutputSize() / 2;
+    return sampleCount = SPU::GetOutputSize();
 }
 DLL void GetSamples(s16* data, s32 count)
 {
