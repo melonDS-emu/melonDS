@@ -120,12 +120,13 @@ void createEntry(int idx, const char* labelTxt, uiGrid* grid, uiEntry** entry, v
     
     uiBox* box = uiNewHorizontalBox();
     *entry = uiNewEntry();
+    uiControlSetMinSize(uiControl(*entry), 300, 0);
     uiBoxAppend(box, uiControl(*entry), 1);
     uiButton* browse = uiNewButton("...");
     uiButtonOnClicked(browse, callback, NULL);
     uiBoxAppend(box, uiControl(browse), 0);
-    uiGridAppend(grid, uiControl(box), 1, idx, 5, 1, 1, uiAlignFill, 1, uiAlignCenter);
-    uiControlSetMinSize(uiControl(box), 240, 1);
+    
+    uiGridAppend(grid, uiControl(box), 1, idx, 1, 1, 1, uiAlignFill, 1, uiAlignCenter);
 }
 
 void Open()
@@ -137,7 +138,7 @@ void Open()
     }
 
     opened = true;
-    win = uiNewWindow("Firmware files - melonDS", 800, 100, 0, 0, 1);
+    win = uiNewWindow("Firmware dumps - melonDS", 800, 100, 0, 0, 0);
     uiWindowSetMargined(win, 1);
     uiWindowOnClosing(win, OnCloseWindow, NULL);
 
@@ -152,12 +153,12 @@ void Open()
 
         uiGroup* ds = uiNewGroup("DS/DS Lite");
         uiBoxAppend(in_ctrl, uiControl(ds), 1);
-        
+
         uiGrid* ds_grid = uiNewGrid();
         uiGroupSetChild(ds, uiControl(ds_grid));
         createEntry(0, "ARM7 BIOS ROM (bios7.bin)", ds_grid, &txBios7Path, OnBrowseBios7);
         createEntry(1, "ARM9 BIOS ROM (bios9.bin)", ds_grid, &txBios9Path, OnBrowseBios9);
-        createEntry(2, "SPI Flash (firmware.bin from a DS/DS Lite)\nDSi firmware won't work.", ds_grid, &txFirmwarePath, OnBrowseFirmware);
+        createEntry(2, "SPI Flash (firmware.bin from a DS but not from a DSi)", ds_grid, &txFirmwarePath, OnBrowseFirmware);
 
 
         char helptext[512];
