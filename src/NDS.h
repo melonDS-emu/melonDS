@@ -131,6 +131,9 @@ void Stop();
 
 bool DoSavestate(Savestate* file);
 
+void SetFilePaths(char* bios7, char* bios9, char* firmware);
+char* GetFirmwarePath();
+
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 

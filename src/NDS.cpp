@@ -149,6 +149,21 @@ bool Running;
 bool RunningGame;
 
 
+char* Bios7Path;
+char* Bios9Path;
+char* FirmwarePath;
+
+void SetFilePaths(char* bios7, char* bios9, char* firmware) {
+    Bios7Path = bios7;
+    Bios9Path = bios9;
+    FirmwarePath = firmware;
+}
+
+char* GetFirmwarePath() {
+    return FirmwarePath;
+}
+
+
 void DivDone(u32 param);
 void SqrtDone(u32 param);
 void RunTimer(u32 tid, s32 cycles);
@@ -399,7 +414,7 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    f = Platform::OpenLocalFile("bios9.bin", "rb");
+    f = Platform::OpenLocalFile(Bios9Path, "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -416,7 +431,7 @@ void Reset()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile("bios7.bin", "rb");
+    f = Platform::OpenLocalFile(Bios7Path, "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");

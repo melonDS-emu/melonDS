@@ -7,6 +7,7 @@ SET(SOURCES_LIBUI
 	LAN_Socket.cpp
 	LAN_PCap.cpp
 	DlgAudioSettings.cpp
+	DlgFirmwareDumps.cpp
 	DlgEmuSettings.cpp
 	DlgInputConfig.cpp
 	DlgVideoSettings.cpp

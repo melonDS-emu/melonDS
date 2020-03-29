@@ -35,6 +35,7 @@
 #include "../version.h"
 #include "PlatformConfig.h"
 
+#include "DlgFirmwareDumps.h"
 #include "DlgEmuSettings.h"
 #include "DlgInputConfig.h"
 #include "DlgVideoSettings.h"
@@ -2008,6 +2009,7 @@ void UndoStateLoad()
 
 void CloseAllDialogs()
 {
+    DlgFirmwareDumps::Close();
     DlgAudioSettings::Close();
     DlgEmuSettings::Close();
     DlgInputConfig::Close(0);
@@ -2175,6 +2177,11 @@ void OnOpenVideoSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 void OnOpenAudioSettings(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     DlgAudioSettings::Open();
+}
+
+void OnOpenFirmwareDumps(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    DlgFirmwareDumps::Open();
 }
 
 void OnOpenWifiSettings(uiMenuItem* item, uiWindow* window, void* blarg)
@@ -2508,6 +2515,8 @@ void CreateMainWindowMenu()
         uiMenuItemOnClicked(menuitem, OnOpenAudioSettings, NULL);
         menuitem = uiMenuAppendItem(menu, "Wifi settings");
         uiMenuItemOnClicked(menuitem, OnOpenWifiSettings, NULL);
+	menuitem = uiMenuAppendItem(menu, "Firmware dumps");
+        uiMenuItemOnClicked(menuitem, OnOpenFirmwareDumps, NULL);
     }
     uiMenuAppendSeparator(menu);
     {
@@ -2750,9 +2759,9 @@ int main(int argc, char** argv)
     if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
     else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
 
-    if (!Platform::LocalFileExists("bios7.bin") ||
-        !Platform::LocalFileExists("bios9.bin") ||
-        !Platform::LocalFileExists("firmware.bin"))
+    if (!Platform::LocalFileExists(Config::Bios7Path) ||
+        !Platform::LocalFileExists(Config::Bios9Path) ||
+        !Platform::LocalFileExists(Config::FirmwarePath))
     {
 #if defined(__WIN32__) || defined(UNIX_PORTABLE)
 		const char* locationName = "the directory you run melonDS from";
@@ -2762,12 +2771,12 @@ int main(int argc, char** argv)
 		char msgboxtext[512];
 		sprintf(msgboxtext,
             "One or more of the following required files don't exist or couldn't be accessed:\n\n"
-            "bios7.bin -- ARM7 BIOS\n"
-            "bios9.bin -- ARM9 BIOS\n"
-            "firmware.bin -- firmware image\n\n"
-            "Dump the files from your DS and place them in %s.\n"
-            "Make sure that the files can be accessed.",
-			locationName
+            "%s -- ARM7 BIOS\n"
+            "%s -- ARM9 BIOS\n"
+            "%s -- firmware image\n\n"
+            "Dump the files from your DS and place them in the appropriate folders.\n"
+            "Make sure that the files can be accessed (if they are relative paths check that the base is %s).",
+			Config::Bios7Path, Config::Bios9Path, Config::FirmwarePath, locationName
 		);
 
         uiMsgBoxError(NULL, "BIOS/Firmware not found", msgboxtext);
@@ -2793,7 +2802,7 @@ int main(int argc, char** argv)
         // looked at has 0x180 bytes from the header repeated at 0x3FC80, but
         // bytes 0x0C-0x14 are different.
 
-        FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
+        FILE* f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
         u8 chk1[0x180], chk2[0x180];
 
         fseek(f, 0, SEEK_SET);
@@ -2960,6 +2969,7 @@ int main(int argc, char** argv)
 
     EmuRunning = 2;
     RunningSomething = false;
+    NDS::SetFilePaths(Config::Bios7Path, Config::Bios9Path, Config::FirmwarePath);
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);
 
     if (argc > 1)

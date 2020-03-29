@@ -64,6 +64,9 @@ char MicWavPath[512];
 
 char LastROMFolder[512];
 
+char Bios7Path[512];
+char Bios9Path[512];
+char FirmwarePath[512];
 
 ConfigEntry PlatformConfigFile[] =
 {
@@ -144,6 +147,10 @@ ConfigEntry PlatformConfigFile[] =
     {"MicWavPath", 1, MicWavPath, 0, "", 511},
 
     {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
+
+    {"Bios7Path", 1, Bios7Path, 0, "bios7.bin", 511},
+    {"BiosPath", 1, Bios9Path, 0, "bios9.bin", 511},
+    {"FirmwarePath", 1, FirmwarePath, 0, "firmware.bin", 511},
 
     {"", -1, NULL, 0, NULL, 0}
 };

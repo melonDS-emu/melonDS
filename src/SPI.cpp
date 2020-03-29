@@ -90,10 +90,10 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
+    FILE* f = Platform::OpenLocalFile(NDS::GetFirmwarePath(), "rb");
     if (!f)
     {
-        printf("firmware.bin not found\n");
+        printf("SPI Flash firmware not found\n");
 
         // TODO: generate default firmware
         return;
@@ -325,7 +325,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Platform::OpenLocalFile("firmware.bin", "r+b");
+        FILE* f = Platform::OpenLocalFile(NDS::GetFirmwarePath(), "r+b");
         if (f)
         {
             u32 cutoff = 0x7FA00 & FirmwareMask;
