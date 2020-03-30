@@ -879,7 +879,7 @@ void DecryptSecureArea(u8* out)
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
-    if (!strncasecmp((const char*)out, "encryObj", 8))
+    if (!strncmp((const char*)out, "encryObj", 8))
     {
         printf("Secure area decryption OK\n");
         *(u32*)&out[0] = 0xE7FFDEFF;
