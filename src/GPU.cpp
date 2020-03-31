@@ -83,6 +83,8 @@ bool Accelerated;
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
+u32 BufferWidth, BufferHeight;
+u32 ResMultiplier;
 
 bool Init()
 {
@@ -94,7 +96,7 @@ bool Init()
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
     Accelerated = false;
-    SetDisplaySettings(false);
+    SetDisplaySettings(false, 2);
 
     return true;
 }
@@ -199,6 +201,12 @@ void DoSavestate(Savestate* file)
 {
     file->Section("GPUG");
 
+    int old = ResMultiplier;
+    if (file->IsAtleastVersion(6, 3))
+        file->Var32(&ResMultiplier);
+    if (ResMultiplier != old)
+        SetDisplaySettings(Accelerated, ResMultiplier);
+
     file->Var16(&VCount);
     file->Var32(&NextVCount);
     file->Var16(&TotalScanlines);
@@ -274,8 +282,13 @@ void AssignFramebuffers()
     }
 }
 
-void SetDisplaySettings(bool accel)
+void SetDisplaySettings(bool accel, u32 resMultiplier)
 {
+    ResMultiplier = resMultiplier;
+    BufferWidth = NATIVE_WIDTH * resMultiplier;
+    BufferHeight = NATIVE_HEIGHT * resMultiplier;
+    GPU3D::SetDisplaySettings(ResMultiplier);
+
     int fbsize;
     if (accel) fbsize = (256*3 + 1) * 192;
     else       fbsize = 256 * 192;

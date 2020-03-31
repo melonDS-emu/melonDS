@@ -105,6 +105,7 @@ void SetEnabled(bool geometry, bool rendering);
 int InitRenderer(bool hasGL);
 void DeInitRenderer();
 void UpdateRendererConfig();
+void SetDisplaySettings(u32 resMultiplier);
 
 void ExecuteCommand();
 
@@ -135,6 +136,7 @@ void DeInit();
 void Reset();
 
 void SetupRenderThread();
+void SetDisplaySettings(u32 resMultiplier);
 
 void VCount144();
 void RenderFrame();

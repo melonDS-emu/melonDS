@@ -138,7 +138,10 @@ void Reset()
     SetupRenderThread();
 }
 
-
+void SetDisplaySettings(u32 resMultiplier)
+{
+    
+}
 
 // Notes on the interpolator:
 //
