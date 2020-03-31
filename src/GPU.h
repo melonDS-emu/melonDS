@@ -22,6 +22,9 @@
 #include "GPU2D.h"
 #include "GPU3D.h"
 
+#define NATIVE_WIDTH 256
+#define NATIVE_HEIGHT 192
+
 namespace GPU
 {
 
@@ -72,6 +75,8 @@ extern u32* Framebuffer[2][2];
 extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;
 
+extern u32 BufferWidth, BufferHeight;
+extern u32 ResMultiplier;
 
 bool Init();
 void DeInit();
@@ -80,7 +85,7 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
-void SetDisplaySettings(bool accel);
+void SetDisplaySettings(bool accel, u32 resMultiplier);
 
 
 u8* GetUniqueBankPtr(u32 mask, u32 offset);

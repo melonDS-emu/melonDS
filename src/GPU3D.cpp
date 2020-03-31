@@ -269,6 +269,7 @@ u32 RenderNumPolygons;
 u32 FlushRequest;
 u32 FlushAttributes;
 
+u32 ResMultiplier;
 
 
 bool Init()
@@ -394,6 +395,12 @@ void Reset()
 void DoSavestate(Savestate* file)
 {
     file->Section("GP3D");
+
+    int old = ResMultiplier;
+    if (file->IsAtleastVersion(6, 3))
+        file->Var32(&ResMultiplier);
+    if (ResMultiplier != old)
+        SetDisplaySettings(ResMultiplier);
 
     CmdFIFO->DoSavestate(file);
     CmdPIPE->DoSavestate(file);
@@ -668,6 +675,10 @@ void UpdateRendererConfig()
     }
 }
 
+void SetDisplaySettings(u32 resMultiplier)
+{
+    if (Renderer == 0) SoftRenderer::SetDisplaySettings(resMultiplier);
+}
 
 
 void MatrixLoadIdentity(s32* m)
