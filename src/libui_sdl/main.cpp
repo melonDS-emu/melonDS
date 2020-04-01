@@ -2580,7 +2580,7 @@ void CreateMainWindowMenu()
         uiMenuItemOnClicked(MenuItem_ScreenSizing[1], OnSetScreenSizing, (void*)&kScreenSizing[1]);
         MenuItem_ScreenSizing[2] = uiMenuAppendCheckItem(submenu, "Emphasize bottom");
         uiMenuItemOnClicked(MenuItem_ScreenSizing[2], OnSetScreenSizing, (void*)&kScreenSizing[2]);
-        MenuItem_ScreenSizing[3] = uiMenuAppendCheckItem(submenu, "Auto");
+        MenuItem_ScreenSizing[3] = uiMenuAppendCheckItem(submenu, "Emphasize 3D engine");
         uiMenuItemOnClicked(MenuItem_ScreenSizing[3], OnSetScreenSizing, (void*)&kScreenSizing[3]);
 
         uiMenuAppendSubmenu(menu, submenu);
