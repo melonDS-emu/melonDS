@@ -628,7 +628,7 @@ int InitRenderer(bool hasGL)
 
     Renderer = renderer;
     UpdateRendererConfig();
-    GPU::SetDisplaySettings(Renderer != 0);
+    GPU::SetDisplaySettings(Renderer != 0, 0);
     return renderer;
 }
 
