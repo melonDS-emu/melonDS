@@ -284,6 +284,8 @@ void AssignFramebuffers()
 
 void SetDisplaySettings(bool accel, u32 resMultiplier)
 {
+    if (resMultiplier == 0)
+        resMultiplier = ResMultiplier == 0 ? 1 : ResMultiplier;
     ResMultiplier = resMultiplier;
     BufferWidth = NATIVE_WIDTH * resMultiplier;
     BufferHeight = NATIVE_HEIGHT * resMultiplier;

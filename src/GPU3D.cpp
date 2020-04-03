@@ -587,7 +587,7 @@ void DoSavestate(Savestate* file)
     if (file->IsAtleastVersion(6, 0))
     {
         for (int i = 0; i < 192; i++)
-            file->VarArray(GetLine(i), 256 * 4);
+            file->VarArray(GetLine(i), GPU::BufferWidth * sizeof(u32));
    }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
@@ -653,7 +653,7 @@ int InitRenderer(bool hasGL)
 
     Renderer = renderer;
     UpdateRendererConfig();
-    GPU::SetDisplaySettings(Renderer != 0);
+    GPU::SetDisplaySettings(Renderer != 0, 0);
     return renderer;
 }
 
