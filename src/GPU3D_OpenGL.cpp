@@ -571,16 +571,8 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 while (z > 0xFFFF) { z >>= 1; zshift++; }
 
                 u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
+                x = (vtx->HiresPosition[0] * ScaleFactor) >> HD_SHIFT;
+                y = (vtx->HiresPosition[1] * ScaleFactor) >> HD_SHIFT;
 
                 if (j > 0)
                 {
@@ -625,16 +617,8 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 while (z > 0xFFFF) { z >>= 1; zshift++; }
 
                 u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
+                x = (vtx->HiresPosition[0] * ScaleFactor) >> HD_SHIFT;
+                y = (vtx->HiresPosition[1] * ScaleFactor) >> HD_SHIFT;
 
                 *vptr++ = x | (y << 16);
                 *vptr++ = z | (w << 16);
