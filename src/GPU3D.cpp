@@ -464,7 +464,7 @@ void DoSavestate(Savestate* file)
 
         file->Var32((u32*)&vtx->Clipped);
 
-        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
+        file->VarArray(vtx->HiresPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
     }
 
@@ -504,7 +504,7 @@ void DoSavestate(Savestate* file)
 
         file->Var32((u32*)&vtx->Clipped);
 
-        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
+        file->VarArray(vtx->HiresPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
     }
 
@@ -576,7 +576,7 @@ void DoSavestate(Savestate* file)
                     poly->Degenerate = true;
             }
 
-            if (poly->YBottom > GPU::BufferHeight) poly->Degenerate = true;
+            if (poly->YBottom > NATIVE_HEIGHT << HD_SHIFT) poly->Degenerate = true;
         }
     }
 
@@ -1216,23 +1216,16 @@ void SubmitPolygon()
             }
 
             den <<= 1;
-            posX = ((posX * Viewport[4]) / den) + Viewport[0];
-            posY = ((posY * Viewport[5]) / den) + Viewport[3];
+            posX = (((u64)(posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
+            posY = (((u64)(posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
         }
 
-        vtx->FinalPosition[0] = posX & 0x1FF;
-        vtx->FinalPosition[1] = posY & 0xFF;
 
-        // hi-res positions
-        // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
-        if (w != 0)
-        {
-            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << HD_SHIFT) / (((s64)w) << 1)) + (Viewport[0] << HD_SHIFT);
-            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << HD_SHIFT) / (((s64)w) << 1)) + (Viewport[3] << HD_SHIFT);
 
-            vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;;
-            vtx->HiresPosition[1] = posY & (0x200 << HD_SHIFT) - 1;;
-        }
+
+        vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;;
+        vtx->HiresPosition[1] = posY & (0x200 << HD_SHIFT) - 1;;
+
     }
 
     // zero-dot W check:
@@ -1341,6 +1334,7 @@ void SubmitPolygon()
         NumVertices++;
         poly->NumVertices++;
 
+
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
         vtx->FinalColor[1] = vtx->Color[1] >> 12;
@@ -1355,24 +1349,24 @@ void SubmitPolygon()
     // (ie two W's that span 12 bits or less will be brought to 16 bits)
 
     u32 vtop = 0, vbot = 0;
-    s32 ytop = GPU::BufferHeight, ybot = 0;
-    s32 xtop = GPU::BufferWidth, xbot = 0;
+    s32 ytop = NATIVE_HEIGHT << HD_SHIFT, ybot = 0;
+    s32 xtop = NATIVE_WIDTH << HD_SHIFT, xbot = 0;
     u32 wsize = 0;
 
     for (int i = 0; i < nverts; i++)
     {
         Vertex* vtx = poly->Vertices[i];
 
-        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
+        if (vtx->HiresPosition[1] < ytop || (vtx->HiresPosition[1] == ytop && vtx->HiresPosition[0] < xtop))
         {
-            xtop = vtx->FinalPosition[0];
-            ytop = vtx->FinalPosition[1];
+            xtop = vtx->HiresPosition[0];
+            ytop = vtx->HiresPosition[1];
             vtop = i;
         }
-        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
+        if (vtx->HiresPosition[1] > ybot || (vtx->HiresPosition[1] == ybot && vtx->HiresPosition[0] > xbot))
         {
-            xbot = vtx->FinalPosition[0];
-            ybot = vtx->FinalPosition[1];
+            xbot = vtx->HiresPosition[0];
+            ybot = vtx->HiresPosition[1];
             vbot = i;
         }
 
@@ -1387,10 +1381,10 @@ void SubmitPolygon()
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
 
-    if (ybot > GPU::BufferHeight) poly->Degenerate = true;
+    if (ybot > NATIVE_HEIGHT << HD_SHIFT) poly->Degenerate = true;
 
-    poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000;
+    poly->SortKey = (ybot << 8 << HD_SHIFT) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000 << (HD_SHIFT * 2);
 
     poly->WBuffer = (FlushAttributes & 0x2);
 

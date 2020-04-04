@@ -19,7 +19,9 @@
 #ifndef GPU3D_H
 #define GPU3D_H
 
-#define HD_SHIFT 4
+// should be able to be as high as 7
+// limiting factor: SortKey must contain ytop and ybottom and translucent
+#define HD_SHIFT 7
 
 #include <array>
 #include "Savestate.h"
@@ -38,12 +40,10 @@ typedef struct
     // final vertex attributes.
     // allows them to be reused in polygon strips.
 
-    s32 FinalPosition[2];
-    s32 FinalColor[3];
-
     // hi-res position (HD_SHIFT-bit fractional part)
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
+    s32 FinalColor[3];
 
 } Vertex;
 
