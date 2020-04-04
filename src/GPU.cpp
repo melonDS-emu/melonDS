@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "Config.h"
 
 namespace GPU
 {
@@ -84,7 +85,7 @@ GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
 u32 BufferWidth, BufferHeight;
-u32 ResMultiplier;
+u32 ResMultiplier = -1;
 
 bool Init()
 {
@@ -95,8 +96,7 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    Accelerated = false;
-    SetDisplaySettings(false, 2);
+    Accelerated = Config::_3DRenderer;
 
     return true;
 }
@@ -201,12 +201,6 @@ void DoSavestate(Savestate* file)
 {
     file->Section("GPUG");
 
-    int old = ResMultiplier;
-    if (file->IsAtleastVersion(6, 3))
-        file->Var32(&ResMultiplier);
-    if (ResMultiplier != old)
-        SetDisplaySettings(Accelerated, ResMultiplier);
-
     file->Var16(&VCount);
     file->Var32(&NextVCount);
     file->Var16(&TotalScanlines);
@@ -282,11 +276,15 @@ void AssignFramebuffers()
     }
 }
 
-void SetDisplaySettings(bool accel, u32 resMultiplier)
+void UpdateRenderSettings(bool accel)
 {
-    if (accel) resMultiplier = 1; // TODO: ues config HD setting
-    if (resMultiplier == 0)
-        resMultiplier = ResMultiplier == 0 ? 1 : ResMultiplier;
+    u32 resMultiplier = Config::ScaleFactor;
+    if (accel) resMultiplier = 1; // GL renderer will handle this elsewhere
+    if (resMultiplier <= 0)
+        resMultiplier = ResMultiplier <= 0 ? 1 : ResMultiplier;
+    if (accel == Accelerated && resMultiplier == ResMultiplier)
+        return;
+
     ResMultiplier = resMultiplier;
     BufferWidth = NATIVE_WIDTH * resMultiplier;
     BufferHeight = NATIVE_HEIGHT * resMultiplier;

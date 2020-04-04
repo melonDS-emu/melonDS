@@ -476,9 +476,9 @@ void GLScreen_DrawScreen()
         {
             if (GPU3D::Renderer == 0)
             {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA_INTEGER,
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, GPU::BufferWidth, GPU::BufferHeight, GL_RGBA_INTEGER,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA_INTEGER,
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, GPU::BufferHeight, GPU::BufferWidth, GPU::BufferHeight, GL_RGBA_INTEGER,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
             }
             else
@@ -905,6 +905,7 @@ void UpdateFPSLimit(void* data)
 int EmuThreadFunc(void* burp)
 {
     NDS::Init();
+    ScreenDrawInited = false; // must re-init whenever NDS buffer size changes
 
     MainScreenPos[0] = 0;
     MainScreenPos[1] = 0;
@@ -1180,16 +1181,16 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
         if (ScreenBitmap[1]) uiDrawFreeBitmap(ScreenBitmap[1]);
 
         ScreenDrawInited = true;
-        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, 256, 192, 0);
-        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, 256, 192, 0);
+        ScreenBitmap[0] = uiDrawNewBitmap(params->Context, GPU::BufferWidth, GPU::BufferHeight, 0);
+        ScreenBitmap[1] = uiDrawNewBitmap(params->Context, GPU::BufferWidth, GPU::BufferHeight, 0);
     }
 
     int frontbuf = GPU::FrontBuffer;
     if (!ScreenBitmap[0] || !ScreenBitmap[1]) return;
     if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
 
-    uiRect top = {0, 0, 256, 192};
-    uiRect bot = {0, 0, 256, 192};
+    uiRect top = {0, 0, GPU::BufferWidth, GPU::BufferHeight};
+    uiRect bot = {0, 0, GPU::BufferWidth, GPU::BufferHeight};
 
     uiDrawBitmapUpdate(ScreenBitmap[0], GPU::Framebuffer[frontbuf][0]);
     uiDrawBitmapUpdate(ScreenBitmap[1], GPU::Framebuffer[frontbuf][1]);
@@ -2369,7 +2370,7 @@ void ApplyNewSettings(int type)
         GPU3D::UpdateRendererConfig();
         if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
-        GL_3DScale = Config::GL_ScaleFactor; // dorp
+        GL_3DScale = Config::ScaleFactor; // dorp
         GL_ScreenSizeDirty = true;
     }
     else if (type == 1) // wifi settings
@@ -2830,7 +2831,7 @@ int main(int argc, char** argv)
 
     Screen_UseGL = Config::ScreenUseGL || (Config::_3DRenderer != 0);
 
-    GL_3DScale = Config::GL_ScaleFactor;
+    GL_3DScale = Config::ScaleFactor;
     if      (GL_3DScale < 1) GL_3DScale = 1;
     else if (GL_3DScale > 8) GL_3DScale = 8;
 

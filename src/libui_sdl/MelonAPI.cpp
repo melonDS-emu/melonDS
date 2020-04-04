@@ -64,12 +64,6 @@ DLL bool Init()
         printf("failed to init NDS\n");
         return false;
     }
-
-    Config::Load();
-
-    bool hasGL = OpenGL_Init();
-    if (!hasGL)
-        printf("failed to init OpenGL\n");
     GPU3D::InitRenderer(hasGL);
 
 	ResetCounters();

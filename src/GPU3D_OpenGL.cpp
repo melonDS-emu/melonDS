@@ -402,7 +402,7 @@ void Reset()
 
 void UpdateDisplaySettings()
 {
-    int scale = Config::GL_ScaleFactor;
+    int scale = Config::ScaleFactor;
     bool antialias = false; //Config::GL_Antialias;
 
     if (antialias) scale *= 2;

@@ -85,7 +85,7 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
-void SetDisplaySettings(bool accel, u32 resMultiplier);
+void UpdateRenderSettings(bool accel);
 
 
 u8* GetUniqueBankPtr(u32 mask, u32 offset);
