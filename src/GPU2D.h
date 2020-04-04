@@ -31,7 +31,7 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
-    void SetDisplaySettings(bool accel);
+    void SetDisplaySettings(bool accel, u32 resMultiplier);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -72,7 +72,7 @@ private:
 
     bool Accelerated;
 
-    u32 BGOBJLine[256*3] __attribute__((aligned (8)));
+    u32* BGOBJLine;
     u32* _3DLine;
 
     u8 WindowMask[256] __attribute__((aligned (8)));

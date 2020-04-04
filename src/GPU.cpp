@@ -165,7 +165,7 @@ void Reset()
 
     int fbsize;
     if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    else             fbsize = BufferWidth * BufferHeight;
     for (int i = 0; i < fbsize; i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
@@ -190,7 +190,7 @@ void Stop()
 {
     int fbsize;
     if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    else             fbsize = BufferWidth * BufferHeight;
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
     memset(Framebuffer[1][0], 0, fbsize*4);
@@ -284,6 +284,7 @@ void AssignFramebuffers()
 
 void SetDisplaySettings(bool accel, u32 resMultiplier)
 {
+    if (accel) resMultiplier = 1; // TODO: ues config HD setting
     if (resMultiplier == 0)
         resMultiplier = ResMultiplier == 0 ? 1 : ResMultiplier;
     ResMultiplier = resMultiplier;
@@ -293,7 +294,7 @@ void SetDisplaySettings(bool accel, u32 resMultiplier)
 
     int fbsize;
     if (accel) fbsize = (256*3 + 1) * 192;
-    else       fbsize = 256 * 192;
+    else       fbsize = BufferWidth * BufferHeight;
     if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
@@ -311,8 +312,8 @@ void SetDisplaySettings(bool accel, u32 resMultiplier)
 
     AssignFramebuffers();
 
-    GPU2D_A->SetDisplaySettings(accel);
-    GPU2D_B->SetDisplaySettings(accel);
+    GPU2D_A->SetDisplaySettings(accel, ResMultiplier);
+    GPU2D_B->SetDisplaySettings(accel, ResMultiplier);
 
     Accelerated = accel;
 }
