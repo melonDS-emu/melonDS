@@ -789,7 +789,7 @@ void GPU2D::DrawScanline(u32 line)
     if (Num == 0)
     {
         if (!Accelerated)
-            _3DLine = GPU3D::GetLine(n3dline);
+            _3DLine = GPU3D::GetLine(n3dline * GPU::ResMultiplier);
         else if ((CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
         {
             _3DLine = GPU3D::GetLine(n3dline);
@@ -1691,7 +1691,7 @@ void GPU2D::DrawBG_3D()
                 xoff++;
 
                 if ((c >> 24) == 0) continue;
-                if (!(WindowMask[i / GPU::ResMultiplier] & 0x01)) continue;
+                if (!(WindowMask[(i % GPU::BufferWidth) / GPU::ResMultiplier] & 0x01)) continue;
 
                 BGOBJLine[i+lineLength] = BGOBJLine[i];
                 BGOBJLine[i] = c | 0x40000000;
