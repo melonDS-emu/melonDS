@@ -60,14 +60,14 @@ void UpdateControls()
     {
         uiControlEnable(uiControl(cbGLDisplay));
         uiControlEnable(uiControl(cbThreaded3D));
-        uiControlDisable(uiControl(cbResolution));
+        //uiControlDisable(uiControl(cbResolution));
         //uiControlDisable(uiControl(cbAntialias));
     }
     else
     {
         uiControlDisable(uiControl(cbGLDisplay));
         uiControlDisable(uiControl(cbThreaded3D));
-        uiControlEnable(uiControl(cbResolution));
+        //uiControlEnable(uiControl(cbResolution));
         //uiControlEnable(uiControl(cbAntialias));
     }
 }
@@ -107,10 +107,10 @@ void RevertSettings()
         apply0 = true;
     }
 
-    if (old_resolution != Config::GL_ScaleFactor ||
+    if (old_resolution != Config::ScaleFactor ||
         old_antialias != Config::GL_Antialias)
     {
-        Config::GL_ScaleFactor = old_resolution;
+        Config::ScaleFactor = old_resolution;
         Config::GL_Antialias = old_antialias;
         apply0 = true;
     }
@@ -174,7 +174,7 @@ void OnResolutionChanged(uiCombobox* cb, void* blarg)
 {
     int id = uiComboboxSelected(cb);
 
-    Config::GL_ScaleFactor = id+1;
+    Config::ScaleFactor = id+1;
     ApplyNewSettings(0);
 }
 
@@ -318,20 +318,20 @@ void Open()
 
     Config::_3DRenderer = Config::_3DRenderer ? 1 : 0;
 
-    if      (Config::GL_ScaleFactor < 1) Config::GL_ScaleFactor = 1;
-    else if (Config::GL_ScaleFactor > 8) Config::GL_ScaleFactor = 8;
+    if      (Config::ScaleFactor < 1) Config::ScaleFactor = 1;
+    else if (Config::ScaleFactor > 8) Config::ScaleFactor = 8;
 
     old_renderer = Config::_3DRenderer;
     old_gldisplay = Config::ScreenUseGL;
     old_vsync = Config::ScreenVSync;
     old_threaded3D = Config::Threaded3D;
-    old_resolution = Config::GL_ScaleFactor;
+    old_resolution = Config::ScaleFactor;
     old_antialias = Config::GL_Antialias;
 
     uiCheckboxSetChecked(cbGLDisplay, Config::ScreenUseGL);
     uiCheckboxSetChecked(cbVSync, Config::ScreenVSync);
     uiCheckboxSetChecked(cbThreaded3D, Config::Threaded3D);
-    uiComboboxSetSelected(cbResolution, Config::GL_ScaleFactor-1);
+    uiComboboxSetSelected(cbResolution, Config::ScaleFactor-1);
     //uiCheckboxSetChecked(cbAntialias, Config::GL_Antialias);
     uiRadioButtonsSetSelected(rbRenderer, Config::_3DRenderer);
     UpdateControls();

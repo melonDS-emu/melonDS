@@ -31,7 +31,7 @@ const char* kConfigFile = "melonDS.ini";
 int _3DRenderer;
 int Threaded3D;
 
-int GL_ScaleFactor;
+int ScaleFactor;
 int GL_Antialias;
 
 ConfigEntry ConfigFile[] =
@@ -39,7 +39,7 @@ ConfigEntry ConfigFile[] =
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
-    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
+    {"ScaleFactor", 0, &ScaleFactor, 1, NULL, 0},
     {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}

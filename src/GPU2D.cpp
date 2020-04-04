@@ -240,6 +240,7 @@ void GPU2D::SetDisplaySettings(bool accel, u32 resMultiplier)
     else             DrawPixel = DrawPixel_Normal;
 
     u32 lineLength = GPU::BufferWidth * (accel ? 3 : (2 * resMultiplier));
+    if (BGOBJLine) delete[] BGOBJLine;
     BGOBJLine = new u32[lineLength];
 }
 
