@@ -576,7 +576,7 @@ void DoSavestate(Savestate* file)
                     poly->Degenerate = true;
             }
 
-            if (poly->YBottom > 192) poly->Degenerate = true;
+            if (poly->YBottom > GPU::BufferHeight) poly->Degenerate = true;
         }
     }
 
@@ -1355,8 +1355,8 @@ void SubmitPolygon()
     // (ie two W's that span 12 bits or less will be brought to 16 bits)
 
     u32 vtop = 0, vbot = 0;
-    s32 ytop = 192, ybot = 0;
-    s32 xtop = 256, xbot = 0;
+    s32 ytop = GPU::BufferHeight, ybot = 0;
+    s32 xtop = GPU::BufferWidth, xbot = 0;
     u32 wsize = 0;
 
     for (int i = 0; i < nverts; i++)
@@ -1387,7 +1387,7 @@ void SubmitPolygon()
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
 
-    if (ybot > 192) poly->Degenerate = true;
+    if (ybot > GPU::BufferHeight) poly->Degenerate = true;
 
     poly->SortKey = (ybot << 8) | ytop;
     if (poly->Translucent) poly->SortKey |= 0x10000;
