@@ -1026,7 +1026,7 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] * 1
+    while (y >= (polygon->Vertices[rp->NextVL]->HiresPosition[1] * 1) >> HD_SHIFT
         && rp->CurVL != polygon->VBottom)
     {
         rp->CurVL = rp->NextVL;
@@ -1045,10 +1045,10 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
         }
     }
 
-    s32 cx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> 4;
-    s32 nx = (polygon->Vertices[rp->NextVL]->HiresPosition[0] * ResMultiplier) >> 4;
-    s32 cy = polygon->Vertices[rp->CurVL]->FinalPosition[1] * 1;
-    s32 ny = polygon->Vertices[rp->NextVL]->FinalPosition[1] * 1;
+    s32 cx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+    s32 nx = (polygon->Vertices[rp->NextVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+    s32 cy = (polygon->Vertices[rp->CurVL]->HiresPosition[1] * 1) >> HD_SHIFT;
+    s32 ny = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * 1) >> HD_SHIFT;
     rp->XL = rp->SlopeL.Setup(cx, nx, cy, ny,
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
@@ -1057,7 +1057,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] * 1
+    while (y >= (polygon->Vertices[rp->NextVR]->HiresPosition[1] * 1) >> HD_SHIFT
         && rp->CurVR != polygon->VBottom)
     {
         rp->CurVR = rp->NextVR;
@@ -1076,10 +1076,10 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
         }
     }
 
-    s32 cx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> 4;
-    s32 nx = (polygon->Vertices[rp->NextVR]->HiresPosition[0] * ResMultiplier) >> 4;
-    s32 cy = polygon->Vertices[rp->CurVR]->FinalPosition[1] * 1;
-    s32 ny = polygon->Vertices[rp->NextVR]->FinalPosition[1] * 1;
+    s32 cx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+    s32 nx = (polygon->Vertices[rp->NextVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+    s32 cy = (polygon->Vertices[rp->CurVR]->HiresPosition[1] * 1) >> HD_SHIFT;
+    s32 ny = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * 1) >> HD_SHIFT;
     rp->XR = rp->SlopeR.Setup(cx, nx, cy, ny,
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
@@ -1117,9 +1117,9 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
         int i;
 
         i = 1;
-        s32 vx = (polygon->Vertices[i]->HiresPosition[0] * ResMultiplier) >> 4;
-        s32 vtopx = (polygon->Vertices[vtop]->HiresPosition[0] * ResMultiplier) >> 4;
-        s32 vbotx = (polygon->Vertices[vbot]->HiresPosition[0] * ResMultiplier) >> 4;
+        s32 vx = (polygon->Vertices[i]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+        s32 vtopx = (polygon->Vertices[vtop]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+        s32 vbotx = (polygon->Vertices[vbot]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
         if (vx < vtopx) vtop = i;
         if (vx > vbotx) vbot = i;
 
@@ -1130,8 +1130,8 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
         rp->CurVL = vtop; rp->NextVL = vtop;
         rp->CurVR = vbot; rp->NextVR = vbot;
 
-        s32 lx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> 4;
-        s32 rx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> 4;
+        s32 lx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
+        s32 rx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
         rp->XL = rp->SlopeL.SetupDummy(lx);
         rp->XR = rp->SlopeR.SetupDummy(rx);
     }
@@ -1167,20 +1167,19 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     if (polygon->YTop != polygon->YBottom)
     {
-        s32 vy = polygon->Vertices[rp->NextVL]->FinalPosition[1] * 1;
+        s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * 1) >> HD_SHIFT;
         if (y >= vy && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        vy = polygon->Vertices[rp->NextVR]->FinalPosition[1] * 1;
+        vy = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * 1) >> HD_SHIFT;
         if (y >= vy && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
         }
     }
 
-    Vertex *vlcur, *vlnext, *vrcur, *vrnext;
     s32 xstart, xend;
     bool l_filledge, r_filledge;
     s32 l_edgelen, r_edgelen;
@@ -1213,11 +1212,6 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     // if the left and right edges are swapped, render backwards.
     if (xstart > xend)
     {
-        vlcur = polygon->Vertices[rp->CurVR];
-        vlnext = polygon->Vertices[rp->NextVR];
-        vrcur = polygon->Vertices[rp->CurVL];
-        vrnext = polygon->Vertices[rp->NextVL];
-
         interp_start = &rp->SlopeR.Interp;
         interp_end = &rp->SlopeL.Interp;
 
@@ -1232,11 +1226,6 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     }
     else
     {
-        vlcur = polygon->Vertices[rp->CurVL];
-        vlnext = polygon->Vertices[rp->NextVL];
-        vrcur = polygon->Vertices[rp->CurVR];
-        vrnext = polygon->Vertices[rp->NextVR];
-
         interp_start = &rp->SlopeL.Interp;
         interp_end = &rp->SlopeR.Interp;
 
@@ -1379,13 +1368,13 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     if (polygon->YTop != polygon->YBottom)
     {
-        s32 vy = polygon->Vertices[rp->NextVL]->FinalPosition[1] * 1;
+        s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * 1) >> HD_SHIFT;
         if (y >= vy && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        vy = polygon->Vertices[rp->NextVR]->FinalPosition[1] * 1;
+        vy = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * 1) >> HD_SHIFT;
         if (y >= vy && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
