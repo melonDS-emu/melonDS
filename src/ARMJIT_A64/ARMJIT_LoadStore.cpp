@@ -109,12 +109,12 @@ void* Compiler::Gen_MemoryRoutine9(int size, bool store)
     ANDI2R(W3, W0, 0x7FFF & addressMask);
     if (store)
     {
-        LSR(W0, W3, 8);
-        ADDI2R(W0, W0, ExeMemRegionOffsets[exeMem_ITCM], W4);
+        ADDI2R(W0, W3, ExeMemRegionOffsets[exeMem_ITCM], W4);
+        LSR(W5, W0, 9);
         MOVP2R(X4, CodeRanges);
-        ADD(X4, X4, X0, ArithOption(X0, ST_LSL, 4));
+        ADD(X4, X4, X5, ArithOption(X5, ST_LSL, 4));
         static_assert(sizeof(AddressRange) == 16);
-        LDR(INDEX_UNSIGNED, W4, X4, offsetof(AddressRange, Blocks.Length));
+        LDRH(INDEX_UNSIGNED, W4, X4, offsetof(AddressRange, Blocks.Length));
         FixupBranch null = CBZ(W4);
         ABI_PushRegisters({1, 3, 30});
         QuickCallFunction(X4, InvalidateByAddr);
@@ -211,32 +211,32 @@ void* Compiler::Gen_MemoryRoutine9Seq(bool store, bool preinc)
 
     ANDI2R(W4, W0, ~3 & 0x7FFF);
 
-    if (store)
-    {
-        LSR(W6, W4, 8);
-        ADDI2R(W6, W6, ExeMemRegionOffsets[exeMem_ITCM], W5);
-        MOVP2R(X5, CodeRanges);
-        ADD(X5, X5, X6, ArithOption(X6, ST_LSL, 4));
-        static_assert(sizeof(AddressRange) == 16);
-        LDR(INDEX_UNSIGNED, W5, X5, offsetof(AddressRange, Blocks.Length));
-        FixupBranch null = CBZ(W5);
-        ABI_PushRegisters({0, 1, 2, 4, 30});
-        MOV(W0, W6);
-        QuickCallFunction(X5, InvalidateByAddr);
-        ABI_PopRegisters({0, 1, 2, 4, 30});
-        SetJumpTarget(null);
-    }
-
-    ADDI2R(W4, W4, offsetof(ARMv5, ITCM), W5);
+    ADDI2R(W6, W4, offsetof(ARMv5, ITCM), W5);
     if (store)
     {
         LDR(X5, X1, ArithOption(X2, true));
-        STR(W5, RCPU, X4);
+        STR(W5, RCPU, X6);
     }
     else
     {
-        LDR(W5, RCPU, X4);
+        LDR(W5, RCPU, X6);
         STR(X5, X1, ArithOption(X2, true));
+    }
+
+    if (store)
+    {
+        ADDI2R(W4, W4, ExeMemRegionOffsets[exeMem_ITCM], W5);
+        LSR(W6, W4, 9);
+        MOVP2R(X5, CodeRanges);
+        ADD(X5, X5, X6, ArithOption(X6, ST_LSL, 4));
+        static_assert(sizeof(AddressRange) == 16);
+        LDRH(INDEX_UNSIGNED, W5, X5, offsetof(AddressRange, Blocks.Length));
+        FixupBranch null = CBZ(W5);
+        ABI_PushRegisters({0, 1, 2, 4, 30});
+        MOV(W0, W4);
+        QuickCallFunction(X5, InvalidateByAddr);
+        ABI_PopRegisters({0, 1, 2, 4, 30});
+        SetJumpTarget(null);
     }
 
     if (!preinc)
@@ -639,7 +639,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
             int reg = *it;
 
-            if (usermode && !regs[15] && reg >= 8 && reg < 15)
+            if (usermode && reg >= 8 && reg < 15)
             {
                 if (RegCache.Mapping[reg] != INVALID_REG)
                     MOV(W3, MapReg(reg));
@@ -663,7 +663,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     second = MapReg(*nextReg);
                 else
                     LoadReg(*nextReg, W4);
-                
+
                 STP(INDEX_SIGNED, EncodeRegTo64(second), EncodeRegTo64(first), SP, i * 8 - 8);
 
                 i--;
@@ -696,7 +696,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     {
         Comp_AddCycles_CDI();
 
-        if (usermode && (regs & BitSet16(0x7f00)))
+        if (usermode && !regs[15] && (regs & BitSet16(0x7f00)))
             UBFX(W0, RCPSR, 0, 5);
 
         int i = regsCount - 1;
@@ -708,7 +708,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
             int reg = *it;
 
-            if (usermode && reg >= 8 && reg < 15)
+            if (usermode && !regs[15] && reg >= 8 && reg < 15)
             {
                 LDR(INDEX_UNSIGNED, W3, SP, i * 8);
                 MOVI2R(W1, reg - 8);
@@ -739,7 +739,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     if (*nextReg != 15)
                         RegCache.DirtyRegs |= 1 << *nextReg;
                 }
-                
+
                 LDP(INDEX_SIGNED, EncodeRegTo64(second), EncodeRegTo64(first), SP, i * 8 - 8);
 
                 if (first == W3)
