@@ -86,6 +86,14 @@ struct __attribute__((packed)) TinyVector
 		Capacity = capacity;
 	}
 
+	void SetLength(u16 length)
+	{
+		if (Capacity < length)
+			MakeCapacity(length);
+		
+		Length = length;
+	}
+
 	void Clear()
 	{
 		Length = 0;
@@ -147,12 +155,7 @@ public:
 	{
 		NumInstrs = numInstrs;
 		NumAddresses = numAddresses;
-		Data = new u32[numInstrs + numAddresses];
-	}
-
-	~JitBlock()
-	{
-		delete[] Data;
+		Data.SetLength(numInstrs + numAddresses);
 	}
 
 	u32 StartAddr;
@@ -160,13 +163,14 @@ public:
 	
 	u32 NumInstrs;
 	u32 NumAddresses;
+	u32 NumLinks;
 
 	JitBlockEntry EntryPoint;
 
 	u32* Instrs()
-	{ return Data; }
+	{ return &Data[0]; }
 	u32* AddressRanges()
-	{ return Data + NumInstrs; }
+	{ return &Data[NumInstrs]; }
 
 private:
 	/*
@@ -174,7 +178,7 @@ private:
 		NumInstrs..<(NumLinks + NumInstrs) - pseudo physical addresses where the block is located
 			(atleast one, the pseudo physical address of the block)
 	*/
-	u32* Data;
+	TinyVector<u32> Data;
 };
 
 // size should be 16 bytes because I'm to lazy to use mul and whatnot
