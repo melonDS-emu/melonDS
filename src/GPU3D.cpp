@@ -640,9 +640,13 @@ void UpdateRendererConfig()
 {
     if (Renderer == 0)
     {
+        SoftRenderer::PauseRenderThread();
+        
         GPU::UpdateRenderSettings(false);
         SoftRenderer::SetupRenderThread();
         SoftRenderer::SetDisplaySettings(Config::ScaleFactor);
+
+        SoftRenderer::ResumeRenderThread();
     }
     else
     {

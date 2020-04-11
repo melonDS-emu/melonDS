@@ -63,11 +63,11 @@ bool Enabled;
 
 void* RenderThread;
 bool RenderThreadRunning;
-bool RenderThreadRendering;
+volatile bool RenderThreadRendering;
 void* Sema_RenderStart;
 void* Sema_RenderDone;
 void* Sema_ScanlineCount;
-bool CanStartRendering = true;
+volatile bool CanStartRendering = true;
 void* Sema_CanRender;
 
 void RenderThreadFunc();
@@ -82,6 +82,19 @@ void StopRenderThread()
         Platform::Thread_Wait(RenderThread);
         Platform::Thread_Free(RenderThread);
     }
+}
+
+void PauseRenderThread()
+{
+    Platform::Semaphore_Reset(Sema_CanRender);
+    CanStartRendering = false;
+    if (RenderThreadRendering)
+        Platform::Semaphore_Wait(Sema_RenderDone);
+}
+void ResumeRenderThread()
+{
+    CanStartRendering = true;
+    Platform::Semaphore_Post(Sema_CanRender);
 }
 
 void SetupRenderThread()
@@ -99,6 +112,7 @@ void SetupRenderThread()
 
         Platform::Semaphore_Reset(Sema_RenderStart);
         Platform::Semaphore_Reset(Sema_ScanlineCount);
+        Platform::Semaphore_Reset(Sema_RenderDone);
 
         Platform::Semaphore_Post(Sema_RenderStart);
     }
@@ -155,10 +169,6 @@ void SetDisplaySettings(u32 resMultiplier)
     if (resMultiplier == ResMultiplier)
         return;
 
-    CanStartRendering = false;
-    if (RenderThreadRendering)
-        Platform::Semaphore_Wait(Sema_RenderDone);
-
     ResMultiplier = resMultiplier;
 
     ScanlineWidth = NATIVE_WIDTH * ResMultiplier + 2;
@@ -174,9 +184,6 @@ void SetDisplaySettings(u32 resMultiplier)
     AttrBuffer = new u32[BufferSize * 2];
     if (StencilBuffer) delete[] StencilBuffer;
     StencilBuffer = new u8[BufferSize * 2];
-
-    CanStartRendering = true;
-    Platform::Semaphore_Post(Sema_CanRender);
 }
 
 // Notes on the interpolator:
@@ -2147,11 +2154,10 @@ void RenderThreadFunc()
     {
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
+        RenderThreadRendering = true;
         if (!CanStartRendering)
             Platform::Semaphore_Wait(Sema_CanRender);
-        Platform::Semaphore_Reset(Sema_CanRender);
         
-        RenderThreadRendering = true;
         ClearBuffers();
         RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
 

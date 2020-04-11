@@ -136,6 +136,9 @@ bool Init();
 void DeInit();
 void Reset();
 
+void PauseRenderThread();
+void ResumeRenderThread();
+
 void SetupRenderThread();
 void SetDisplaySettings(u32 resMultiplier);
 
