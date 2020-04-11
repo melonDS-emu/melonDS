@@ -888,7 +888,7 @@ void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
 
 
 template<int comp, s32 plane, bool attribs>
-void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
+void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 {
     s64 factor_num = vin->Position[3] - (plane*vin->Position[comp]);
     s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
