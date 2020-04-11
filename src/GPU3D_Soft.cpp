@@ -67,6 +67,8 @@ bool RenderThreadRendering;
 void* Sema_RenderStart;
 void* Sema_RenderDone;
 void* Sema_ScanlineCount;
+bool CanStartRendering = true;
+void* Sema_CanRender;
 
 void RenderThreadFunc();
 
@@ -112,6 +114,7 @@ bool Init()
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
+    Sema_CanRender = Platform::Semaphore_Create();
 
     RenderThreadRunning = false;
     RenderThreadRendering = false;
@@ -131,7 +134,10 @@ void DeInit()
 void Reset()
 {
     if (!ColorBuffer)
-        SetDisplaySettings(1);
+        SetDisplaySettings(Config::ScaleFactor);
+
+    if (!CanStartRendering)
+        Platform::Semaphore_Wait(Sema_CanRender);
 
     memset(ColorBuffer, 0, BufferSize * 2 * sizeof(u32));
     memset(DepthBuffer, 0, BufferSize * 2 * sizeof(u32));
@@ -149,6 +155,10 @@ void SetDisplaySettings(u32 resMultiplier)
     if (resMultiplier == ResMultiplier)
         return;
 
+    CanStartRendering = false;
+    if (RenderThreadRendering)
+        Platform::Semaphore_Wait(Sema_RenderDone);
+
     ResMultiplier = resMultiplier;
 
     ScanlineWidth = NATIVE_WIDTH * ResMultiplier + 2;
@@ -164,6 +174,9 @@ void SetDisplaySettings(u32 resMultiplier)
     AttrBuffer = new u32[BufferSize * 2];
     if (StencilBuffer) delete[] StencilBuffer;
     StencilBuffer = new u8[BufferSize * 2];
+
+    CanStartRendering = true;
+    Platform::Semaphore_Post(Sema_CanRender);
 }
 
 // Notes on the interpolator:
@@ -2134,7 +2147,10 @@ void RenderThreadFunc()
     {
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
-
+        if (!CanStartRendering)
+            Platform::Semaphore_Wait(Sema_CanRender);
+        Platform::Semaphore_Reset(Sema_CanRender);
+        
         // The old method of waiting for each scanline failed in at least two places:
         // 1) Savestates attempting to get the 3D buffer (previously fixed by having them just not wait for it)
         // 2) Sleep mode interrupting a frame, then loading a savestate, so that rendering of the last frame never happened.

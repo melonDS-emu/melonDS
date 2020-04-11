@@ -399,8 +399,8 @@ void DoSavestate(Savestate* file)
     int old = ResMultiplier;
     if (file->IsAtleastVersion(6, 3))
         file->Var32(&ResMultiplier);
-    if (ResMultiplier != old)
-        SetDisplaySettings(ResMultiplier);
+    //if (ResMultiplier != old)
+    //    SetDisplaySettings(ResMultiplier);
 
     CmdFIFO->DoSavestate(file);
     CmdPIPE->DoSavestate(file);
@@ -641,20 +641,18 @@ void SetEnabled(bool geometry, bool rendering)
 
 int InitRenderer(bool hasGL)
 {
-    int renderer = hasGL ? Config::_3DRenderer : 0;
+    Renderer = hasGL ? Config::_3DRenderer : 0;
 
-    if (renderer == 1)
+    if (Renderer == 1)
     {
         if (!GLRenderer::Init())
-            renderer = 0;
+            Renderer = 0;
     }
 
-    if (renderer == 0) SoftRenderer::Init();
+    if (Renderer == 0) SoftRenderer::Init();
 
-    Renderer = renderer;
-    GPU::UpdateRenderSettings(Renderer != 0);
     UpdateRendererConfig();
-    return renderer;
+    return Renderer;
 }
 
 void DeInitRenderer()
@@ -667,19 +665,16 @@ void UpdateRendererConfig()
 {
     if (Renderer == 0)
     {
+        GPU::UpdateRenderSettings(false);
         SoftRenderer::SetupRenderThread();
+        SoftRenderer::SetDisplaySettings(Config::ScaleFactor);
     }
     else
     {
+        GPU::UpdateRenderSettings(true);
         GLRenderer::UpdateDisplaySettings();
     }
 }
-
-void SetDisplaySettings(u32 resMultiplier)
-{
-    if (Renderer == 0) SoftRenderer::SetDisplaySettings(resMultiplier);
-}
-
 
 void MatrixLoadIdentity(s32* m)
 {
