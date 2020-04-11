@@ -271,7 +271,7 @@ void Open()
     }
 
     {
-        uiGroup* grp = uiNewGroup("OpenGL renderer");
+        uiGroup* grp = uiNewGroup("3D renderer");
         uiBoxAppend(right, uiControl(grp), 0);
         uiGroupSetMargined(grp, 1);
 
