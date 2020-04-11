@@ -2376,6 +2376,7 @@ void ApplyNewSettings(int type)
 
         GL_3DScale = Config::ScaleFactor; // dorp
         GL_ScreenSizeDirty = true;
+        ScreenDrawInited = false;
     }
     else if (type == 1) // wifi settings
     {
