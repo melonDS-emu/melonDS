@@ -96,7 +96,6 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
-    Accelerated = Config::_3DRenderer;
 
     return true;
 }
@@ -288,7 +287,6 @@ void UpdateRenderSettings(bool accel)
     ResMultiplier = resMultiplier;
     BufferWidth = NATIVE_WIDTH * resMultiplier;
     BufferHeight = NATIVE_HEIGHT * resMultiplier;
-    GPU3D::SetDisplaySettings(ResMultiplier);
 
     int fbsize;
     if (accel) fbsize = (256*3 + 1) * 192;

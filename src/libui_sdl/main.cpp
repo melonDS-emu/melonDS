@@ -358,8 +358,8 @@ void GLScreen_DrawScreen()
         x1 = TopScreenRect.X + TopScreenRect.Width;
         y1 = TopScreenRect.Y + TopScreenRect.Height;
 
-        scwidth = 256;
-        scheight = 192;
+        scwidth = GPU::BufferWidth;
+        scheight = GPU::BufferHeight;
 
         switch (ScreenRotation)
         {
@@ -404,37 +404,34 @@ void GLScreen_DrawScreen()
         x1 = BottomScreenRect.X + BottomScreenRect.Width;
         y1 = BottomScreenRect.Y + BottomScreenRect.Height;
 
-        scwidth = 256;
-        scheight = 192;
-
         switch (ScreenRotation)
         {
         case 0:
-            s0 = 0; t0 = 192;
-            s1 = scwidth; t1 = 192;
-            s2 = 0; t2 = 192+scheight;
-            s3 = scwidth; t3 = 192+scheight;
+            s0 = 0; t0 = scheight;
+            s1 = scwidth; t1 = scheight;
+            s2 = 0; t2 = scheight*2;
+            s3 = scwidth; t3 = scheight*2;
             break;
 
         case 1:
-            s0 = 0; t0 = 192+scheight;
-            s1 = 0; t1 = 192;
-            s2 = scwidth; t2 = 192+scheight;
-            s3 = scwidth; t3 = 192;
+            s0 = 0; t0 = scheight*2;
+            s1 = 0; t1 = scheight;
+            s2 = scwidth; t2 = scheight*2;
+            s3 = scwidth; t3 = scheight;
             break;
 
         case 2:
-            s0 = scwidth; t0 = 192+scheight;
-            s1 = 0; t1 = 192+scheight;
-            s2 = scwidth; t2 = 192;
-            s3 = 0; t3 = 192;
+            s0 = scwidth; t0 = scheight*2;
+            s1 = 0; t1 = scheight*2;
+            s2 = scwidth; t2 = scheight;
+            s3 = 0; t3 = scheight;
             break;
 
         case 3:
-            s0 = scwidth; t0 = 192;
-            s1 = scwidth; t1 = 192+scheight;
-            s2 = 0; t2 = 192;
-            s3 = 0; t3 = 192+scheight;
+            s0 = scwidth; t0 = scheight;
+            s1 = scwidth; t1 = scheight*2;
+            s2 = 0; t2 = scheight;
+            s3 = 0; t3 = scheight*2;
             break;
         }
 
@@ -449,6 +446,13 @@ void GLScreen_DrawScreen()
 
         glBindBuffer(GL_ARRAY_BUFFER, GL_ScreenVertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GL_ScreenVertices), GL_ScreenVertices);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, GL_ScreenTexture);
+        if (GPU3D::Renderer == 0)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, GPU::BufferWidth + 1, GPU::BufferHeight*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
+        else
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, NATIVE_WIDTH*3 + 1, NATIVE_HEIGHT*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
     }
 
     glDisable(GL_DEPTH_TEST);
@@ -1371,13 +1375,13 @@ void SetupScreenRects(int width, int height)
     int screenW, screenH, gap;
     if (sideways)
     {
-        screenW = 192;
-        screenH = 256;
+        screenW = NATIVE_HEIGHT;
+        screenH = NATIVE_WIDTH;
     }
     else
     {
-        screenW = 256;
-        screenH = 192;
+        screenW = NATIVE_WIDTH;
+        screenH = NATIVE_HEIGHT;
     }
 
     gap = ScreenGap;
@@ -2399,6 +2403,8 @@ void ApplyNewSettings(int type)
 
             if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
             GPU3D::InitRenderer(Screen_UseGL);
+            ScreenDrawInited = false;
+            GL_ScreenSizeDirty = true;
             if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
         }
     }
@@ -2408,6 +2414,7 @@ void ApplyNewSettings(int type)
         GPU3D::DeInitRenderer();
         GPU3D::InitRenderer(Screen_UseGL);
         if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+        GL_ScreenSizeDirty = true;
     }
     /*else if (type == 4) // vsync
     {
