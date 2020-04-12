@@ -1181,8 +1181,11 @@ void SubmitPolygon()
         vtx->Position[3] &= 0x00FFFFFF;
 
         // viewport transform
-        s32 posX, posY;
-        s32 w = vtx->Position[3];
+        // note: the DS performs these divisions using a 32-bit divider
+        // thus, if W is greater than 0xFFFF, some precision is sacrificed
+        // to make the numbers fit into the divider
+        u32 posX, posY;
+        u32 w = vtx->Position[3];
         if (w == 0)
         {
             posX = 0;
@@ -1190,14 +1193,27 @@ void SubmitPolygon()
         }
         else
         {
-            posX = (((s64)(vtx->Position[0] + w) * Viewport[4]) / (((s64)w) << 1)) + Viewport[0];
-            posY = (((s64)(-vtx->Position[1] + w) * Viewport[5]) / (((s64)w) << 1)) + Viewport[3];
+            posX = vtx->Position[0] + w;
+            posY = -vtx->Position[1] + w;
+            u32 den = w;
+
+            if (w > 0xFFFF)
+            {
+                posX >>= 1;
+                posY >>= 1;
+                den  >>= 1;
+            }
+
+            den <<= 1;
+            posX = ((posX * Viewport[4]) / den) + Viewport[0];
+            posY = ((posY * Viewport[5]) / den) + Viewport[3];
         }
 
         vtx->FinalPosition[0] = posX & 0x1FF;
         vtx->FinalPosition[1] = posY & 0xFF;
 
         // hi-res positions
+        // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
         if (w != 0)
         {
             posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
@@ -1229,8 +1245,7 @@ void SubmitPolygon()
                 break;
             }
 
-            s32 w = vtx->Position[3];
-            if (w <= ZeroDotWLimit)
+            if (vtx->Position[3] <= ZeroDotWLimit)
             {
                 allbehind = false;
                 break;
