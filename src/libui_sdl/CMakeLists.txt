@@ -59,7 +59,7 @@ if (UNIX)
 elseif (WIN32)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi)
+	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
 endif ()
 
 install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
