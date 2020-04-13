@@ -131,6 +131,8 @@ extern u32 FramesSinceBoot;
 extern u32 NumLagFrames;
 extern bool LagFrameFlag;
 
+extern bool Running;
+
 bool Init();
 void DeInit();
 void Reset();

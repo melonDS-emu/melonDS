@@ -27,6 +27,8 @@ bool inited = false;
 
 bool directBoot = true;
 
+u32 lastFrameButtons = 0;
+
 DLL void Deinit()
 {
 	NDS::DeInit();
@@ -90,7 +92,7 @@ DLL void SetFrameCount(u32 count) { NDS::NumFrames = count; }
 DLL void SetIsLagFrame(bool isLag) { NDS::LagFrameFlag = isLag; }
 DLL void SetLagFrameCount(u32 count) { NDS::NumLagFrames = count; }
 
-DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
+DLL void FrameAdvance(u32 buttons, u8 touchX, u8 touchY)
 {
     if (!inited) return;
 
@@ -112,7 +114,25 @@ DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
     else if (buttons & 0x8000)
         NDS::SetLidClosed(true);
 
+    if (buttons & 0x10000 && !(lastFrameButtons & 0x10000))
+    {
+        if (NDS::Running)
+            NDS::Stop();
+        else
+        {
+            if (NDSCart::CartROM)
+            {
+                // NDS will reset, clearing CartROM
+                u8* temp = new u8[NDSCart::CartROMSize];
+                memcpy(temp, NDSCart::CartROM, NDSCart::CartROMSize);
+                NDS::LoadROM(temp, NDSCart::CartROMSize, directBoot);
+                delete[] temp;
+            }
+        }
+    }
+
     NDS::RunFrame();
+    lastFrameButtons = buttons;
 }
 
 DLL s32* GetTopScreenBuffer() { return (s32*)GPU::Framebuffer[GPU::FrontBuffer][0]; }
