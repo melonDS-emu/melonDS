@@ -318,7 +318,24 @@ void SetupDirectBoot()
 
     MapSharedWRAM(3);
 
-    for (u32 i = 0; i < bootparams[3]; i+=4)
+    u32 arm9start = 0;
+
+    // load the ARM9 secure area
+    if (bootparams[0] >= 0x4000 && bootparams[0] < 0x8000)
+    {
+        u8 securearea[0x800];
+        NDSCart::DecryptSecureArea(securearea);
+
+        for (u32 i = 0; i < 0x800; i+=4)
+        {
+            ARM9Write32(bootparams[2]+i, *(u32*)&securearea[i]);
+            arm9start += 4;
+        }
+    }
+
+    // CHECKME: firmware seems to load this in 0x200 byte chunks
+
+    for (u32 i = arm9start; i < bootparams[3]; i+=4)
     {
         u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[0]+i];
         ARM9Write32(bootparams[2]+i, tmp);

@@ -865,6 +865,35 @@ bool ReadROMParams(u32 gamecode, u32* params)
 }
 
 
+void DecryptSecureArea(u8* out)
+{
+    u32 gamecode = *(u32*)&CartROM[0x0C];
+    u32 arm9base = *(u32*)&CartROM[0x20];
+
+    memcpy(out, &CartROM[arm9base], 0x800);
+
+    Key1_InitKeycode(gamecode, 2, 2);
+    Key1_Decrypt((u32*)&out[0]);
+
+    Key1_InitKeycode(gamecode, 3, 2);
+    for (u32 i = 0; i < 0x800; i += 8)
+        Key1_Decrypt((u32*)&out[i]);
+
+    if (!strncmp((const char*)out, "encryObj", 8))
+    {
+        printf("Secure area decryption OK\n");
+        *(u32*)&out[0] = 0xE7FFDEFF;
+        *(u32*)&out[4] = 0xE7FFDEFF;
+    }
+    else
+    {
+        printf("Secure area decryption failed\n");
+        for (u32 i = 0; i < 0x800; i += 4)
+            *(u32*)&out[i] = 0xE7FFDEFF;
+    }
+}
+
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
@@ -933,28 +962,8 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     printf("Cart ID: %08X\n", CartID);
 
-    if (*(u32*)&CartROM[0x20] < 0x4000)
-    {
-        //ApplyDLDIPatch();
-    }
-
-    if (direct)
-    {
-        // TODO: in the case of an already-encrypted secure area, direct boot
-        // needs it decrypted
-        NDS::SetupDirectBoot();
-        CmdEncMode = 2;
-    }
-
-    CartInserted = true;
-
-    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
-    if (CartID & 0x08000000)
-        ROMCommandHandler = ROMCommand_RetailNAND;
-    else
-        ROMCommandHandler = ROMCommand_Retail;
-
     u32 arm9base = *(u32*)&CartROM[0x20];
+
     if (arm9base < 0x8000)
     {
         if (arm9base >= 0x4000)
@@ -975,8 +984,27 @@ bool LoadROM(const char* path, const char* sram, bool direct)
             }
         }
         else
+        {
             CartIsHomebrew = true;
+            //ApplyDLDIPatch();
+        }
     }
+
+    if (direct)
+    {
+        // TODO: in the case of an already-encrypted secure area, direct boot
+        // needs it decrypted
+        NDS::SetupDirectBoot();
+        CmdEncMode = 2;
+    }
+
+    CartInserted = true;
+
+    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
+    if (CartID & 0x08000000)
+        ROMCommandHandler = ROMCommand_RetailNAND;
+    else
+        ROMCommandHandler = ROMCommand_Retail;
 
     // encryption
     Key1_InitKeycode(gamecode, 2, 2);
