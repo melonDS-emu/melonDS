@@ -82,18 +82,13 @@ DLL void ResetCounters()
 	NDS::NumFrames = 0;
 	NDS::NumLagFrames = 0;
 }
-DLL int GetFrameCount()
-{
-	return NDS::NumFrames;
-}
-DLL bool IsLagFrame()
-{
-	return NDS::LagFrameFlag;
-}
-DLL int GetLagFrameCount()
-{
-	return NDS::NumLagFrames;
-}
+DLL int GetFrameCount() { return NDS::NumFrames; }
+DLL bool IsLagFrame() { return NDS::LagFrameFlag; }
+DLL int GetLagFrameCount() { return NDS::NumLagFrames; }
+
+DLL void SetFrameCount(u32 count) { NDS::NumFrames = count; }
+DLL void SetIsLagFrame(bool isLag) { NDS::LagFrameFlag = isLag; }
+DLL void SetLagFrameCount(u32 count) { NDS::NumLagFrames = count; }
 
 DLL void FrameAdvance(u16 buttons, u8 touchX, u8 touchY)
 {
