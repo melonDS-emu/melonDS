@@ -110,6 +110,8 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+    // This must happen so that UpdateRenderSettings will create new buffers
+    ResMultiplier = 0;
 }
 
 void Reset()
