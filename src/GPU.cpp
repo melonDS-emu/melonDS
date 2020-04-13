@@ -277,7 +277,7 @@ void AssignFramebuffers()
 
 void UpdateRenderSettings(bool accel)
 {
-    u32 resMultiplier = Config::ScaleFactor;
+    int resMultiplier = Config::ScaleFactor;
     if (accel) resMultiplier = 1; // GL renderer will handle this elsewhere
     if (resMultiplier <= 0)
         resMultiplier = ResMultiplier <= 0 ? 1 : ResMultiplier;

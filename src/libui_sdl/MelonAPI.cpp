@@ -64,7 +64,7 @@ DLL bool Init()
         printf("failed to init NDS\n");
         return false;
     }
-    GPU3D::InitRenderer(hasGL);
+    GPU3D::InitRenderer(false);
 
 	ResetCounters();
 
@@ -231,6 +231,13 @@ DLL void SetDirectBoot(bool value) { directBoot = value; }
 
 DLL u32 GetTimeAtBoot() { return Config::TimeAtBoot; }
 DLL void SetTimeAtBoot(u32 value) { Config::TimeAtBoot = value; }
+
+DLL u32 GetScaleFactor() { return Config::ScaleFactor; }
+DLL void SetScaleFactor(u32 value)
+{
+    Config::ScaleFactor = value;
+    GPU3D::UpdateRendererConfig();
+}
 
 DLL u8* GetMainMemory() { return NDS::MainRAM; }
 DLL s32 GetMainMemorySize() { return MAIN_RAM_SIZE; }
