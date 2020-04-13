@@ -132,6 +132,8 @@ void Write32(u32 addr, u32 val);
 namespace SoftRenderer
 {
 
+extern u32 ResMultiplier;
+
 bool Init();
 void DeInit();
 void Reset();

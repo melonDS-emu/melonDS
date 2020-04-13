@@ -269,8 +269,6 @@ u32 RenderNumPolygons;
 u32 FlushRequest;
 u32 FlushAttributes;
 
-u32 ResMultiplier;
-
 
 bool Init()
 {
@@ -395,12 +393,6 @@ void Reset()
 void DoSavestate(Savestate* file)
 {
     file->Section("GP3D");
-
-    int old = ResMultiplier;
-    if (file->IsAtleastVersion(6, 3))
-        file->Var32(&ResMultiplier);
-    //if (ResMultiplier != old)
-    //    SetDisplaySettings(ResMultiplier);
 
     CmdFIFO->DoSavestate(file);
     CmdPIPE->DoSavestate(file);
@@ -586,8 +578,41 @@ void DoSavestate(Savestate* file)
 
     if (file->IsAtleastVersion(6, 0))
     {
-        for (int i = 0; i < GPU::BufferHeight; i++)
-            file->VarArray(GetLine(i), GPU::BufferWidth * sizeof(u32));
+        u32 currRes = Renderer == 0 ? GPU3D::SoftRenderer::ResMultiplier : 1;
+        u32 savedRes = currRes;
+        if (file->IsAtleastVersion(6, 3))
+            file->Var32(&savedRes);
+        else
+            savedRes = 1;
+
+        if (file->Saving)
+        {
+            for (int i = 0; i < GPU::BufferHeight; i++)
+                file->VarArray(GetLine(i), NATIVE_WIDTH * savedRes * sizeof(u32));
+        }
+        else
+        { // For performance, let's not re-scale the buffer. Just place the lines in a reasonable place.
+            u32 writeSize = savedRes < currRes ? savedRes : currRes;
+            u32 tossSize = savedRes > writeSize ? savedRes - writeSize : 0;
+            u32 clearSize = currRes > writeSize ? currRes - writeSize : 0;
+            u32 tossBuffer[NATIVE_WIDTH];
+            for (int y = 0; y < NATIVE_HEIGHT; y++)
+            {
+                // clear or toss extra lines
+                for (int i = 0; i < clearSize; i++)
+                    memset(GetLine(y * currRes + writeSize + i), 0, NATIVE_WIDTH * currRes * sizeof(u32));
+                for (int i = 0; i < tossSize * savedRes; i++)
+                    file->VarArray(tossBuffer, NATIVE_WIDTH * sizeof(u32));
+                // read in lines to keep
+                for (int i = 0; i < writeSize; i++)
+                {
+                    memset(GetLine(y * currRes + i) + NATIVE_WIDTH * writeSize, 0, NATIVE_WIDTH * clearSize * sizeof(u32));
+                    file->VarArray(GetLine(y * currRes + i), NATIVE_WIDTH * writeSize * sizeof(u32));
+                    for (int j = 0; j < tossSize; j++)
+                        file->VarArray(tossBuffer, NATIVE_WIDTH * sizeof(u32));
+                }
+            }
+        }
    }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
