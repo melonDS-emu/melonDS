@@ -176,6 +176,8 @@ bool Init()
     IPCFIFO9 = new FIFO<u32>(16);
     IPCFIFO7 = new FIFO<u32>(16);
 
+    FramesSinceBoot = 0;
+
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -454,7 +456,6 @@ void Reset()
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
     SysTimestamp = 0;
-    FramesSinceBoot = 0;
 
     InitTimings();
 
