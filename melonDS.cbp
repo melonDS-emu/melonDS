@@ -153,8 +153,8 @@
 		<Unit filename="src/Wifi.h" />
 		<Unit filename="src/WifiAP.cpp" />
 		<Unit filename="src/WifiAP.h" />
-		<Unit filename="src/frontend/qt/main.cpp" />
-		<Unit filename="src/frontend/qt/main.h" />
+		<Unit filename="src/frontend/qt_sdl/main.cpp" />
+		<Unit filename="src/frontend/qt_sdl/main.h" />
 		<Unit filename="src/libui_sdl/DlgAudioSettings.cpp" />
 		<Unit filename="src/libui_sdl/DlgAudioSettings.h" />
 		<Unit filename="src/libui_sdl/DlgEmuSettings.cpp" />
