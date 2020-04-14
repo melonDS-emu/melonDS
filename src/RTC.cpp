@@ -51,6 +51,7 @@ u32 TimeAtBoot;
 
 bool Init()
 {
+    TimeAtBoot = Config::TimeAtBoot;
     return true;
 }
 
@@ -75,8 +76,6 @@ void Reset()
     memset(Alarm2, 0, sizeof(Alarm2));
     ClockAdjust = 0;
     FreeReg = 0;
-
-    TimeAtBoot = Config::TimeAtBoot;
 }
 
 void DoSavestate(Savestate* file)
