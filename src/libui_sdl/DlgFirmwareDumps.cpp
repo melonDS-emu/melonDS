@@ -61,7 +61,7 @@ int OnCloseWindow(uiWindow* window, void* blarg)
 void BrowsePath(uiEntry* path, uiButton* btn, void* blarg)
 {
     const char* allowed = 
-        "Any allowed file|*.bin;*.BIN;*.rom;*.ROM|"
+        "Supported files|*.bin;*.BIN;*.rom;*.ROM|"
         "BIN file (*.bin)|*.bin;*.BIN|"
         "ROM file (*.rom)|.*rom;.*ROM|"
         "Any file|*.*";
