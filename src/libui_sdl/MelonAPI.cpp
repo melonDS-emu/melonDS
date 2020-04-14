@@ -251,7 +251,8 @@ DLL u32 GetScaleFactor() { return Config::ScaleFactor; }
 DLL void SetScaleFactor(u32 value)
 {
     Config::ScaleFactor = value;
-    GPU3D::UpdateRendererConfig();
+    if (inited)
+        GPU3D::UpdateRendererConfig();
 }
 
 DLL u8* GetMainMemory() { return NDS::MainRAM; }
