@@ -729,6 +729,8 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 void ARMv5::DataRead8(u32 addr, u32* val)
 {
+    DataRegion = addr >> 12;
+
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -748,6 +750,8 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 
 void ARMv5::DataRead16(u32 addr, u32* val)
 {
+    DataRegion = addr >> 12;
+
     addr &= ~1;
 
     if (addr < ITCMSize)
@@ -769,6 +773,8 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 
 void ARMv5::DataRead32(u32 addr, u32* val)
 {
+    DataRegion = addr >> 12;
+
     addr &= ~3;
 
     if (addr < ITCMSize)
@@ -811,6 +817,8 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 
 void ARMv5::DataWrite8(u32 addr, u8 val)
 {
+    DataRegion = addr >> 12;
+
     if (addr < ITCMSize)
     {
         DataCycles = 1;
@@ -833,6 +841,8 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 
 void ARMv5::DataWrite16(u32 addr, u16 val)
 {
+    DataRegion = addr >> 12;
+
     addr &= ~1;
 
     if (addr < ITCMSize)
@@ -857,6 +867,8 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 
 void ARMv5::DataWrite32(u32 addr, u32 val)
 {
+    DataRegion = addr >> 12;
+
     addr &= ~3;
 
     if (addr < ITCMSize)

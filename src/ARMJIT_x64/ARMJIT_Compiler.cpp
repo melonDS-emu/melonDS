@@ -578,7 +578,7 @@ void Compiler::Comp_AddCycles_CDI()
         s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
-        if (CurInstr.DataRegion == 0x02) // mainRAM
+        if ((CurInstr.DataRegion >> 4) == 0x02) // mainRAM
         {
             if (CodeRegion == 0x02)
                 cycles = numC + numD;
@@ -623,7 +623,7 @@ void Compiler::Comp_AddCycles_CD()
         s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
-        if (CurInstr.DataRegion == 0x02)
+        if ((CurInstr.DataRegion >> 4) == 0x02)
         {
             if (CodeRegion == 0x02)
                 cycles += numC + numD;

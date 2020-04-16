@@ -40,9 +40,9 @@ struct FetchedInstr
     u32 Instr;
 	u32 Addr;
 
-    u8 CodeCycles;
 	u8 DataCycles;
-	u8 DataRegion;
+    u16 CodeCycles;
+	u32 DataRegion;
 
     ARMInstrInfo::Info Info;
 };
@@ -194,6 +194,9 @@ extern AddressRange CodeRanges[ExeMemSpaceSize / 512];
 typedef void (*InterpreterFunc)(ARM* cpu);
 extern InterpreterFunc InterpretARM[];
 extern InterpreterFunc InterpretTHUMB[];
+
+extern u8 MemRegion9[0x80000];
+extern u8 MemRegion7[0x80000];
 
 void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size);
 
