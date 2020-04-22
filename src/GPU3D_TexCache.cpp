@@ -35,9 +35,13 @@ inline u32 ConvertRGB5ToBGR8(u16 val)
 }
 inline u32 ConvertRGB5ToRGB6(u16 val)
 {
-    return (((u32)val & 0x1F) << 1)
-        | (((u32)val & 0x3E0) << 4)
-        | (((u32)val & 0x7C00) << 7);
+    u8 r = (val & 0x1F) << 1;
+    u8 g = (val & 0x3E0) >> 4;
+    u8 b = (val & 0x7C00) >> 9;
+    if (r) r++;
+    if (g) g++;
+    if (b) b++;
+    return (u32)r | ((u32)g << 8) | ((u32)b << 16);
 }
 
 template <int outputFmt>
@@ -356,8 +360,8 @@ void UpdateTextures()
     {
         if (GPU::VRAMMap_TexPal[i] != PaletteMap[i])
         {
-            PaletteDirty[i >> 2] |= 0xFFFF << (i & 0x3) * 16;
-            PaletteCacheStatus[i >> 2] &= ~(0xFFFF << (i & 0x3) * 16);
+            PaletteDirty[i >> 2] |= 0xFFFFULL << (i & 0x3) * 16;
+            PaletteCacheStatus[i >> 2] &= ~(0xFFFFULL << (i & 0x3) * 16);
             PaletteMap[i] = GPU::VRAMMap_TexPal[i];
         }
         else

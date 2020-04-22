@@ -122,6 +122,8 @@ int FrontBuffer;
 GLuint FramebufferID[4], PixelbufferID;
 u32 Framebuffer[256*192];
 
+u32 ConversionBuffer[1024*1024];
+
 struct TextureAllocator
 {
     u32 Length = 0;
@@ -137,31 +139,31 @@ inline TextureAllocator& GetTextureAllocator(u32 width, u32 height)
     return TextureMem[__builtin_ctz(width) - 3][__builtin_ctz(height) - 3];
 }
 
-u32 ConversionBuffer[1024*1024];
-
 u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
 {
     TextureAllocator& allocator = GetTextureAllocator(width, height);
-    //printf("allocating texture %d %d\n", width, height);
 
-    u32 scaledWidth = width * 2;
-    u32 scaledHeight = height * 2;
+    u32 scaledWidth = width * Config::GL_TextureUpscaleFactor;
+    u32 scaledHeight = height * Config::GL_TextureUpscaleFactor;
 
     if (allocator.FreeEntriesLeft == 0)
     {
-        u32 newLength = (allocator.Length * 3) / 2 + 8;
+        u32 newLength = (26 - __builtin_ctz(width * height)) + (allocator.Length * 3) / 2;
 
-        if (newLength >= 64*8)
+        if (newLength > 64*8)
+            newLength = 64*8;
+
+        if (newLength == allocator.Length)
             abort();
 
         if (allocator.Length == 0)
         {
-            printf("created new texture\n");
             glGenTextures(1, &allocator.TextureID);
             glBindTexture(GL_TEXTURE_2D_ARRAY, allocator.TextureID);
 
-            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            GLenum filter = Config::GL_TextureFiltering ? GL_LINEAR : GL_NEAREST;
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, filter);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, filter);
             glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
             glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
         }
@@ -194,8 +196,10 @@ u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
             allocator.FreeEntries[i] |= 1ULL << freeIdx;
             *handle = i * 64 + freeIdx;
 
-            //return &allocator.Pixels[*handle * scaledWidth * scaledHeight];
-            return ConversionBuffer;
+            if (Config::GL_TextureUpscaleFactor > 1)
+                return ConversionBuffer;
+            else
+                return &allocator.Pixels[*handle * scaledWidth * scaledHeight];
         }
     }
 
@@ -208,17 +212,18 @@ void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
     TextureAllocator& allocator = GetTextureAllocator(width, height);
 
     allocator.FreeEntriesLeft++;
-    allocator.FreeEntries[handle >> 6] &= ~(1 << (handle & 0x3F));
+    allocator.FreeEntries[handle >> 6] &= ~(1ULL << (handle & 0x3F));
 }
 
 void FinaliseTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
 {
     TextureAllocator& allocator = GetTextureAllocator(width, height);
 
-    u32 scaledWidth = width * 2;
-    u32 scaledHeight = height * 2;
+    u32 scaledWidth = width * Config::GL_TextureUpscaleFactor;
+    u32 scaledHeight = height * Config::GL_TextureUpscaleFactor;
 
-    xbrz::scale(2, ConversionBuffer, &allocator.Pixels[handle * scaledWidth * scaledHeight], width, height, xbrz::ColorFormat::ARGB);
+    if (Config::GL_TextureUpscaleFactor > 1)
+        xbrz::scale(Config::GL_TextureUpscaleFactor, ConversionBuffer, &allocator.Pixels[handle * scaledWidth * scaledHeight], width, height, xbrz::ColorFormat::ARGB);
 
     // could still be improved
     glBindTexture(GL_TEXTURE_2D_ARRAY, allocator.TextureID);
@@ -459,6 +464,18 @@ bool Init()
 
 void DeInit()
 {
+    for (int j = 0; j < 8; j++)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (TextureMem[j][i].TextureID)
+            {
+                glDeleteTextures(1, &TextureMem[j][i].TextureID);
+                delete[] TextureMem[j][i].Pixels;
+            }
+        }
+    }
+
     glDeleteFramebuffers(4, &FramebufferID[0]);
     glDeleteTextures(8, &FramebufferTex[0]);
 
@@ -478,6 +495,14 @@ void DeInit()
 
 void Reset()
 {
+    for (int j = 0; j < 8; j++)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            memset(TextureMem[j][i].FreeEntries, 0, sizeof(TextureMem[j][i].FreeEntries));
+            TextureMem[j][i].FreeEntriesLeft = TextureMem[j][i].Length;
+        }
+    }
 }
 
 void UpdateDisplaySettings()
@@ -557,6 +582,20 @@ void UpdateDisplaySettings()
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
+    for (int j = 0; j < 8; j++)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (TextureMem[j][i].TextureID != 0)
+            {
+                glBindTexture(GL_TEXTURE_2D, TextureMem[j][i].TextureID);
+                GLenum filter = Config::GL_TextureFiltering ? GL_LINEAR : GL_NEAREST;
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+            }
+        }   
+    }
 
     //glLineWidth(scale);
     //glLineWidth(1.5);

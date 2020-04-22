@@ -33,6 +33,8 @@ int Threaded3D;
 
 int GL_ScaleFactor;
 int GL_Antialias;
+int GL_TextureFiltering;
+int GL_TextureUpscaleFactor;
 
 ConfigEntry ConfigFile[] =
 {
@@ -41,6 +43,8 @@ ConfigEntry ConfigFile[] =
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+    {"GL_TextureFiltering", 0, &GL_TextureFiltering, 0, NULL, 0},
+    {"GL_TextureUpscaleFactor", 0, &GL_TextureUpscaleFactor, 1, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

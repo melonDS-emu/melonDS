@@ -25,6 +25,8 @@
 
 #include <SDL2/SDL.h>
 
+#include <assert.h>
+
 namespace GPU3D
 {
 namespace SoftRenderer
@@ -77,6 +79,7 @@ struct TextureAllocator
     u64 FreeEntries[8];
     u32 FreeEntriesLeft = 0;
 };
+bool TextureRealloc;
 // all sizes below 8*8 (log2(64)=6) can be ignored
 TextureAllocator TextureMem[14];
 
@@ -91,7 +94,7 @@ u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
 
     if (allocator.FreeEntriesLeft == 0)
     {
-        u32 newLength = (20 - (__builtin_ctz(width * height) - 6) + 4) + (allocator.Length * 2) / 3;
+        u32 newLength = 20 - (__builtin_ctz(width * height) - 6) + (allocator.Length * 3) / 2;
 
         // while it's theoretically possible to hit this limit
         // other things will probably break before it
@@ -101,6 +104,7 @@ u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
         u32* newPixels = new u32[width * height * newLength];
         if (allocator.Length)
         {
+            TextureRealloc = true;
             memcpy(newPixels, allocator.Pixels, allocator.Length * width * height * 4);
             delete[] allocator.Pixels;
         }
@@ -119,6 +123,8 @@ u32* AllocateTexture(TexCache::ExternalTexHandle* handle, u32 width, u32 height)
             allocator.FreeEntries[i] |= 1ULL << freeIdx;
             *handle = (i * 64 + freeIdx) * width * height;
 
+            assert(i * 64 + freeIdx < allocator.Length);
+
             return &allocator.Pixels[*handle];
         }
     }
@@ -132,8 +138,9 @@ void FreeTexture(TexCache::ExternalTexHandle handle, u32 width, u32 height)
     TextureAllocator& allocator = GetTextureAllocator(width, height);
 
     handle /= width * height;
+    assert(allocator.FreeEntries[handle >> 6] & (1ULL << (handle & 0x3F)));
     allocator.FreeEntriesLeft++;
-    allocator.FreeEntries[handle >> 6] &= ~(1 << (handle & 0x3F));
+    allocator.FreeEntries[handle >> 6] &= ~(1ULL << (handle & 0x3F));
 }
 
 // threading
@@ -198,6 +205,12 @@ bool Init()
 
 void DeInit()
 {
+    for (int i = 0; i < 14; i++)
+    {
+        if (TextureMem[i].Pixels)
+            delete[] TextureMem[i].Pixels;
+    }
+
     StopRenderThread();
 
     Platform::Semaphore_Free(Sema_RenderStart);
@@ -209,8 +222,13 @@ void Reset()
 {
     for (int i = 0; i < 14; i++)
     {
+        if (TextureMem[i].Pixels)
+        {
+            delete[] TextureMem[i].Pixels;
+            TextureMem[i].Pixels = NULL;
+        }
         memset(TextureMem[i].FreeEntries, 0, sizeof(TextureMem[i].FreeEntries));
-        TextureMem[i].FreeEntriesLeft = TextureMem[i].Length * 64;
+        TextureMem[i].FreeEntriesLeft = 0;
     }
 
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
@@ -676,185 +694,6 @@ u32 TextureLookup(u32* texture, u32 texparam, u32 texpal, s16 s, s16 t)
     }
 
     return texture[s + t * width];
-/*
-    u8 alpha0;
-    if (texparam & (1<<29)) alpha0 = 0;
-    else                    alpha0 = 31;
-
-    switch ((texparam >> 26) & 0x7)
-    {
-    case 1: // A3I5
-        {
-            vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
-
-            texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
-            *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
-        }
-        break;
-
-    case 2: // 4-color
-        {
-            vramaddr += (((t * width) + s) >> 2);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
-            pixel >>= ((s & 0x3) << 1);
-            pixel &= 0x3;
-
-            texpal <<= 3;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
-            *alpha = (pixel==0) ? alpha0 : 31;
-        }
-        break;
-
-    case 3: // 16-color
-        {
-            vramaddr += (((t * width) + s) >> 1);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
-            if (s & 0x1) pixel >>= 4;
-            else         pixel &= 0xF;
-
-            texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
-            *alpha = (pixel==0) ? alpha0 : 31;
-        }
-        break;
-
-    case 4: // 256-color
-        {
-            vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
-
-            texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
-            *alpha = (pixel==0) ? alpha0 : 31;
-        }
-        break;
-
-    case 5: // compressed
-        {
-            vramaddr += ((t & 0x3FC) * (width>>2)) + (s & 0x3FC);
-            vramaddr += (t & 0x3);
-
-            u32 slot1addr = 0x20000 + ((vramaddr & 0x1FFFC) >> 1);
-            if (vramaddr >= 0x40000)
-                slot1addr += 0x10000;
-
-            u8 val = GPU::ReadVRAM_Texture<u8>(vramaddr);
-            val >>= (2 * (s & 0x3));
-
-            u16 palinfo = GPU::ReadVRAM_Texture<u16>(slot1addr);
-            u32 paloffset = (palinfo & 0x3FFF) << 2;
-            texpal <<= 4;
-
-            switch (val & 0x3)
-            {
-            case 0:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                *alpha = 31;
-                break;
-
-            case 1:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
-                *alpha = 31;
-                break;
-
-            case 2:
-                if ((palinfo >> 14) == 1)
-                {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
-
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0 + r1) >> 1;
-                    u32 g = ((g0 + g1) >> 1) & 0x03E0;
-                    u32 b = ((b0 + b1) >> 1) & 0x7C00;
-
-                    *color = r | g | b;
-                }
-                else if ((palinfo >> 14) == 3)
-                {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
-
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0*5 + r1*3) >> 3;
-                    u32 g = ((g0*5 + g1*3) >> 3) & 0x03E0;
-                    u32 b = ((b0*5 + b1*3) >> 3) & 0x7C00;
-
-                    *color = r | g | b;
-                }
-                else
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
-                *alpha = 31;
-                break;
-
-            case 3:
-                if ((palinfo >> 14) == 2)
-                {
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
-                    *alpha = 31;
-                }
-                else if ((palinfo >> 14) == 3)
-                {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
-
-                    u32 r0 = color0 & 0x001F;
-                    u32 g0 = color0 & 0x03E0;
-                    u32 b0 = color0 & 0x7C00;
-                    u32 r1 = color1 & 0x001F;
-                    u32 g1 = color1 & 0x03E0;
-                    u32 b1 = color1 & 0x7C00;
-
-                    u32 r = (r0*3 + r1*5) >> 3;
-                    u32 g = ((g0*3 + g1*5) >> 3) & 0x03E0;
-                    u32 b = ((b0*3 + b1*5) >> 3) & 0x7C00;
-
-                    *color = r | g | b;
-                    *alpha = 31;
-                }
-                else
-                {
-                    *color = 0;
-                    *alpha = 0;
-                }
-                break;
-            }
-        }
-        break;
-
-    case 6: // A5I3
-        {
-            vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
-
-            texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
-            *alpha = (pixel >> 3);
-        }
-        break;
-
-    case 7: // direct color
-        {
-            vramaddr += (((t * width) + s) << 1);
-            *color = GPU::ReadVRAM_Texture<u16>(vramaddr);
-            *alpha = (*color & 0x8000) ? 31 : 0;
-        }
-        break;
-    }*/
 }
 
 // depth test is 'less or equal' instead of 'less than' under the following conditions:
@@ -973,9 +812,9 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t, u32* textur
     {
         u32 tcolor = TextureLookup(texture, polygon->TexParam, polygon->TexPalette, s, t);
 
-        u8 tr = tcolor & 0x3E; if (tr) tr++;
-        u8 tg = (tcolor >> 8) & 0x3E; if (tg) tg++;
-        u8 tb = (tcolor >> 16) & 0x3E; if (tb) tb++;
+        u8 tr = tcolor & 0x3E;
+        u8 tg = (tcolor >> 8) & 0x3E;
+        u8 tb = (tcolor >> 16) & 0x3E;
         u8 talpha = tcolor >> 24;
 
         if (blendmode & 0x1)
@@ -1136,25 +975,8 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
-void SetupPolygon(RendererPolygon* rp, Polygon* polygon, RendererPolygon* lastRp)
+void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
 {
-    if (polygon->TexParam & 0x1C000000 && !polygon->IsShadowMask)
-    {
-        if (lastRp && lastRp->PolyData->TexParam == polygon->TexParam
-            && lastRp->PolyData->TexPalette == polygon->TexPalette)
-        {
-            rp->TextureData = lastRp->TextureData;
-        }
-        else
-        {
-            TexCache::ExternalTexHandle handle =
-                TexCache::GetTexture<TexCache::outputFmt_RGB6A5>(polygon->TexParam, polygon->TexPalette);
-            u32 width = 8 << ((polygon->TexParam >> 20) & 0x7);
-            u32 height = 8 << ((polygon->TexParam >> 23) & 0x7);
-            rp->TextureData = &GetTextureAllocator(width, height).Pixels[handle];
-        }
-    }
-
     u32 nverts = polygon->NumVertices;
 
     u32 vtop = polygon->VTop, vbot = polygon->VBottom;
@@ -2149,16 +1971,54 @@ void ClearBuffers()
     }
 }
 
+void SetupTexture(RendererPolygon* rp, RendererPolygon* lastRp)
+{
+    Polygon* polygon = rp->PolyData;
+    Polygon* lastPolygon = lastRp ? lastRp->PolyData : NULL;
+    if (lastRp
+        && !lastPolygon->IsShadowMask
+        && polygon->TexParam == lastPolygon->TexParam
+        && polygon->TexPalette == lastPolygon->TexPalette)
+    {
+        rp->TextureData = lastRp->TextureData;
+    }
+    else if (polygon->TexParam & 0x1C000000 && !polygon->IsShadowMask)
+    {
+        TexCache::ExternalTexHandle handle =
+            TexCache::GetTexture<TexCache::outputFmt_RGB6A5>(polygon->TexParam, polygon->TexPalette);
+        u32 width = 8 << ((polygon->TexParam >> 20) & 0x7);
+        u32 height = 8 << ((polygon->TexParam >> 23) & 0x7);
+        rp->TextureData = &GetTextureAllocator(width, height).Pixels[handle];
+    }
+    else
+    {
+        rp->TextureData = NULL;
+    }
+}
+
 void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
     TexCache::UpdateTextures();
     int j = 0;
-    for (int i = 0; i < npolys; i++)
     {
-        if (polygons[i]->Degenerate) continue;
-        SetupPolygon(&PolygonList[j], polygons[i], j > 0 ? &PolygonList[j - 1] : NULL);
+        RendererPolygon* lastRp = NULL;
+        for (int i = 0; i < npolys; i++)
+        {
+            if (polygons[i]->Degenerate) continue;
+            SetupPolygon(&PolygonList[j], polygons[i]);
+            SetupTexture(&PolygonList[j], j ? &PolygonList[j - 1] : NULL);
 
-        j++;
+            j++;
+        }
+    }
+    if (TextureRealloc)
+    {
+        // realloating the buffer invalidated all pointers to the previous buffer
+        for (int i = 0; i < j; i++)
+        {
+            SetupTexture(&PolygonList[i], i ? &PolygonList[i - 1] : NULL);
+        }
+        TextureRealloc = 0;
     }
     TexCache::SaveTextures();
 
