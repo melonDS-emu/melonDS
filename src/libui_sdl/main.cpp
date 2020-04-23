@@ -65,7 +65,7 @@ const int kSavestateNum[9] = {1, 2, 3, 4, 5, 6, 7, 8, 0};
 
 const int kScreenSize[4] = {1, 2, 3, 4};
 const int kScreenRot[4] = {0, 1, 2, 3};
-const int kScreenGap[6] = {0, 1, 8, 64, 90, 128};
+const int kScreenGap[7] = {0, 1, 8, 64, 90, 128, 240};
 const int kScreenLayout[3] = {0, 1, 2};
 const int kScreenSizing[4] = {0, 1, 2, 3};
 
@@ -96,7 +96,7 @@ uiMenuItem* MenuItem_Stop;
 uiMenuItem* MenuItem_SavestateSRAMReloc;
 
 uiMenuItem* MenuItem_ScreenRot[4];
-uiMenuItem* MenuItem_ScreenGap[6];
+uiMenuItem* MenuItem_ScreenGap[7];
 uiMenuItem* MenuItem_ScreenLayout[3];
 uiMenuItem* MenuItem_ScreenSizing[4];
 
@@ -2297,7 +2297,7 @@ void OnSetScreenGap(uiMenuItem* item, uiWindow* window, void* param)
     EnsureProperMinSize();
     SetupScreenRects(WindowWidth, WindowHeight);
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 7; i++)
         uiMenuItemSetChecked(MenuItem_ScreenGap[i], kScreenGap[i]==ScreenGap);
 }
 
@@ -2549,7 +2549,7 @@ void CreateMainWindowMenu()
         uiMenu* submenu = uiNewMenu("Mid-screen gap");
 
         //for (int i = 0; kScreenGap[i] != -1; i++)
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
         {
             char name[32];
             sprintf(name, "%d pixels", kScreenGap[i]);
@@ -2890,7 +2890,7 @@ int main(int argc, char** argv)
     uiMenuItemSetChecked(MenuItem_ScreenLayout[ScreenLayout], 1);
     uiMenuItemSetChecked(MenuItem_ScreenSizing[ScreenSizing], 1);
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 7; i++)
     {
         if (ScreenGap == kScreenGap[i])
             uiMenuItemSetChecked(MenuItem_ScreenGap[i], 1);
