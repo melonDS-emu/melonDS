@@ -31,7 +31,8 @@ u32 lastFrameButtons = 0;
 
 DLL void Deinit()
 {
-	NDS::DeInit();
+    SDL_Quit();
+    NDS::DeInit();
     inited = false;
 }
 DLL bool Init()
@@ -46,19 +47,19 @@ DLL bool Init()
 
     printf("Testing Melon print.");
 
-	if (inited)
-	{
-		printf("MelonDS is already inited. De-initing before init.\n");
-		Deinit();
-	}
+    if (inited)
+    {
+        printf("MelonDS is already inited. De-initing before init.\n");
+        Deinit();
+    }
 
-	if (SDL_Init(0) < 0)
-	{
-		printf("MelonDS failed to init SDL.\n");
-		return false;
-	}
+    if (SDL_Init(0) < 0)
+    {
+        printf("MelonDS failed to init SDL.\n");
+        return false;
+    }
     
-	EmuDirectory = new char[6];
+    EmuDirectory = new char[6];
     strcpy(EmuDirectory, "melon");
 
     if (!NDS::Init())
@@ -68,7 +69,7 @@ DLL bool Init()
     }
     GPU3D::InitRenderer(false);
 
-	ResetCounters();
+    ResetCounters();
 
     inited = true;
     return true;
@@ -81,8 +82,8 @@ DLL void LoadROM(u8* file, s32 fileSize)
 
 DLL void ResetCounters()
 {
-	NDS::NumFrames = 0;
-	NDS::NumLagFrames = 0;
+    NDS::NumFrames = 0;
+    NDS::NumLagFrames = 0;
 }
 DLL int GetFrameCount() { return NDS::NumFrames; }
 DLL bool IsLagFrame() { return NDS::LagFrameFlag; }
@@ -142,11 +143,11 @@ DLL s32 GetScreenBufferSize() { return GPU::BufferWidth * GPU::BufferHeight; }
 
 DLL bool UseSavestate(u8* data, s32 len)
 {
-	Savestate* state = new Savestate(data, len);
+    Savestate* state = new Savestate(data, len);
     if (!state->Error)
-    	NDS::DoSavestate(state);
+        NDS::DoSavestate(state);
     bool error = state->Error;
-	delete state;
+    delete state;
     return !error;
 }
 Savestate* _loadedState;
@@ -154,27 +155,27 @@ u8* stateData;
 s32 stateLength = -1;
 DLL int GetSavestateSize()
 {
-	if (_loadedState) delete _loadedState;
+    if (_loadedState) delete _loadedState;
 
-	_loadedState = new Savestate("", true);
-	NDS::DoSavestate(_loadedState);
-	stateData = _loadedState->GetData();
-	stateLength = _loadedState->GetDataLength();
+    _loadedState = new Savestate("", true);
+    NDS::DoSavestate(_loadedState);
+    stateData = _loadedState->GetData();
+    stateLength = _loadedState->GetDataLength();
 
-	return stateLength;
+    return stateLength;
 }
 DLL void GetSavestateData(u8* data, s32 size)
 {
-	if (size != stateLength)
-		throw "size mismatch; call GetSavestateSize first";
-	if (stateData)
-	{
-		memcpy(data, stateData, stateLength);
-		delete _loadedState;
-		_loadedState = NULL;
-		stateData = NULL;
-		stateLength = -1;
-	}
+    if (size != stateLength)
+        throw "size mismatch; call GetSavestateSize first";
+    if (stateData)
+    {
+        memcpy(data, stateData, stateLength);
+        delete _loadedState;
+        _loadedState = NULL;
+        stateData = NULL;
+        stateLength = -1;
+    }
 }
 
 s32 sampleCount = -1;
