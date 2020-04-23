@@ -443,6 +443,11 @@ void uiWindowSetFullscreen(uiWindow *w, int fullscreen)
 	w->fullscreen = fullscreen;
 	w->changingSize = TRUE;
 	if (w->fullscreen) {
+		if(w->menubar) { // HACK
+			w->hasMenubar = FALSE;
+			SetMenu(w->hwnd, NULL);
+		}
+		
 		ZeroMemory(&(w->fsPrevPlacement), sizeof (WINDOWPLACEMENT));
 		w->fsPrevPlacement.length = sizeof (WINDOWPLACEMENT);
 		if (GetWindowPlacement(w->hwnd, &(w->fsPrevPlacement)) == 0)
@@ -455,6 +460,11 @@ void uiWindowSetFullscreen(uiWindow *w, int fullscreen)
 			SWP_FRAMECHANGED | SWP_NOOWNERZORDER) == 0)
 			logLastError(L"error making window fullscreen");
 	} else {
+		if(w->menubar) { // HACK
+			w->hasMenubar = TRUE;
+			SetMenu(w->hwnd, w->menubar);
+		}
+		
 		if (!w->borderless)		// keep borderless until that is turned off
 			setStyle(w->hwnd, getStyle(w->hwnd) | WS_OVERLAPPEDWINDOW);
 		if (SetWindowPlacement(w->hwnd, &(w->fsPrevPlacement)) == 0)

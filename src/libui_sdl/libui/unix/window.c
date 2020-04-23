@@ -265,10 +265,17 @@ int uiWindowFullscreen(uiWindow *w)
 void uiWindowSetFullscreen(uiWindow *w, int fullscreen)
 {
 	w->fullscreen = fullscreen;
-	if (w->fullscreen)
+	if (w->fullscreen) {
+		if(w->menubar) {
+			gtk_widget_hide(w->menubar);
+		}
 		gtk_window_fullscreen(w->window);
-	else
+	} else {
+		if(w->menubar) {
+			gtk_widget_show(w->menubar);
+		}
 		gtk_window_unfullscreen(w->window);
+	}
 }
 
 void uiWindowOnContentSizeChanged(uiWindow *w, void (*f)(uiWindow *, void *), void *data)

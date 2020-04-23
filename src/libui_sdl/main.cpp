@@ -200,7 +200,10 @@ void CreateMainWindow(bool opengl);
 void DestroyMainWindow();
 void RecreateMainWindow(bool opengl);
 
-
+void ToggleFullscreen()
+{
+	uiWindowSetFullscreen(MainWindow, !uiWindowFullscreen(MainWindow));
+}
 
 bool GLScreen_InitShader(GLuint* shader, const char* fs)
 {
@@ -1329,6 +1332,10 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         {
             if (evt->Modifiers == 0x0) UndoStateLoad();
         }
+		else if (evt->Scancode == 0x57) // F11
+		{
+			ToggleFullscreen();
+		}
 
         for (int i = 0; i < 12; i++)
             if (EventMatchesKey(evt, Config::KeyMapping[i], false))
