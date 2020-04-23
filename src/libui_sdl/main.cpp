@@ -1398,6 +1398,7 @@ void SetupScreenRects(int width, int height)
         // side-by-side
 
         int heightreq;
+        int emph_smaller_width;
         int startX = 0;
 
         width -= gap;
@@ -1416,23 +1417,26 @@ void SetupScreenRects(int width, int height)
         else // emph. top/bottom
         {
             heightreq = ((width - screenW) * screenH) / screenW;
+            emph_smaller_width = screenW;
             if (heightreq > height)
             {
-                int newwidth = ((height * (width - screenW)) / heightreq) + screenW;
-                startX = (width - newwidth) / 2;
+                int maximal_width = 2 * (height * screenW / screenH);
+                maximal_width = maximal_width > width ? width : maximal_width;
+                emph_smaller_width = maximal_width - (height * screenW / screenH);
+                startX = (width - maximal_width) / 2;
                 heightreq = height;
-                width = newwidth;
+                width = maximal_width;
             }
         }
 
         if (sizemode == 2)
         {
-            topscreen->Width = screenW;
-            topscreen->Height = screenH;
+            topscreen->Width = emph_smaller_width;
+            topscreen->Height = emph_smaller_width * screenH / screenW;
         }
         else
         {
-            topscreen->Width = (sizemode==0) ? (width / 2) : (width - screenW);
+            topscreen->Width = (sizemode==0) ? (width / 2) : (width - emph_smaller_width);
             topscreen->Height = heightreq;
         }
         topscreen->X = startX;
@@ -1442,8 +1446,8 @@ void SetupScreenRects(int width, int height)
 
         if (sizemode == 1)
         {
-            bottomscreen->Width = screenW;
-            bottomscreen->Height = screenH;
+            bottomscreen->Width = emph_smaller_width;
+            bottomscreen->Height = emph_smaller_width * screenH / screenW;
         }
         else
         {
@@ -1457,6 +1461,7 @@ void SetupScreenRects(int width, int height)
         // top then bottom
 
         int widthreq;
+        int emph_smaller_height;
         int startY = 0;
 
         height -= gap;
@@ -1475,24 +1480,27 @@ void SetupScreenRects(int width, int height)
         else // emph. top/bottom
         {
             widthreq = ((height - screenH) * screenW) / screenH;
+            emph_smaller_height = screenH;
             if (widthreq > width)
             {
-                int newheight = ((width * (height - screenH)) / widthreq) + screenH;
-                startY = (height - newheight) / 2;
+                int maximal_height = 2 * (width * screenH / screenW);
+                maximal_height = maximal_height > height ? height : maximal_height;
+                emph_smaller_height = maximal_height - (width * screenH / screenW);
+                startY = (height - maximal_height) / 2;
                 widthreq = width;
-                height = newheight;
+                height = maximal_height;
             }
         }
 
         if (sizemode == 2)
         {
-            topscreen->Width = screenW;
-            topscreen->Height = screenH;
+            topscreen->Width = emph_smaller_height * screenW / screenH;
+            topscreen->Height = emph_smaller_height;
         }
         else
         {
             topscreen->Width = widthreq;
-            topscreen->Height = (sizemode==0) ? (height / 2) : (height - screenH);
+            topscreen->Height = (sizemode==0) ? (height / 2) : (height - emph_smaller_height);
         }
         topscreen->Y = startY;
         topscreen->X = (width - topscreen->Width) / 2;
@@ -1501,8 +1509,8 @@ void SetupScreenRects(int width, int height)
 
         if (sizemode == 1)
         {
-            bottomscreen->Width = screenW;
-            bottomscreen->Height = screenH;
+            bottomscreen->Width = emph_smaller_height * screenW / screenH;
+            bottomscreen->Height = emph_smaller_height;
         }
         else
         {
