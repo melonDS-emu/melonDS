@@ -253,6 +253,21 @@ void uiWindowSetMaximized(uiWindow *w, int maximized)
         gtk_window_unmaximize(w->window);
 }
 
+void uiWindowSetMouseCursorVisibility(uiWindow *w, int visible)
+{
+	static int mouse_cursor_is_visible = 1;
+	if (mouse_cursor_is_visible == visible)
+		return;
+
+	mouse_cursor_is_visible = visible;
+	GdkCursor *cursor = NULL;
+	if (!visible) {
+		GdkDisplay *display = gtk_widget_get_display (w->widget);
+		cursor = gdk_cursor_new_from_name (display, "none");
+	}
+	GdkWindow *window = gtk_widget_get_window (w->widget);
+	gdk_window_set_cursor (window, cursor);
+}
 
 int uiWindowFullscreen(uiWindow *w)
 {

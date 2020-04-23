@@ -426,6 +426,10 @@ void uiWindowSetMaximized(uiWindow *w, int maximized)
         ShowWindow(w->hwnd, SW_RESTORE);
 }
 
+void uiWindowSetMouseCursorVisibility(uiWindow *w, int visible)
+{
+	// TODO
+}
 
 int uiWindowFullscreen(uiWindow *w)
 {

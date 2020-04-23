@@ -271,6 +271,11 @@ void uiWindowSetContentSize(uiWindow *w, int width, int height)
 	w->suppressSizeChanged = NO;
 }
 
+void uiWindowSetMouseCursorVisibility(uiWindow *w, int visible)
+{
+	// TODO
+}
+
 int uiWindowFullscreen(uiWindow *w)
 {
 	return w->fullscreen;

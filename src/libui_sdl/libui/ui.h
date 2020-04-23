@@ -117,6 +117,7 @@ _UI_EXTERN void uiWindowSetMinimized(uiWindow *w, int minimized);
 _UI_EXTERN int uiWindowMaximized(uiWindow *w);
 _UI_EXTERN void uiWindowSetMaximized(uiWindow *w, int maximized);
 _UI_EXTERN int uiWindowFullscreen(uiWindow *w);
+_UI_EXTERN void uiWindowSetMouseCursorVisibility(uiWindow *w, int visible);
 _UI_EXTERN void uiWindowSetFullscreen(uiWindow *w, int fullscreen);
 _UI_EXTERN int uiWindowBorderless(uiWindow *w);
 _UI_EXTERN void uiWindowSetBorderless(uiWindow *w, int borderless);

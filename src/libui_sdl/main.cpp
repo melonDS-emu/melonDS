@@ -814,6 +814,11 @@ bool JoystickButtonDown(int val)
     return false;
 }
 
+void SetMouseCursorVisibility(int visible)
+{
+    uiWindowSetMouseCursorVisibility(MainWindow, visible);
+}
+
 void ProcessInput()
 {
     SDL_JoystickUpdate();
@@ -948,6 +953,9 @@ int EmuThreadFunc(void* burp)
     while (EmuRunning != 0)
     {
         ProcessInput();
+        if ((KeyInputMask & JoyInputMask) != 0xFFF) {
+            SetMouseCursorVisibility(0);
+        }
 
         if (HotkeyPressed(HK_FastForwardToggle))
         {
@@ -1209,6 +1217,8 @@ void OnAreaDraw(uiAreaHandler* handler, uiArea* area, uiAreaDrawParams* params)
 
 void OnAreaMouseEvent(uiAreaHandler* handler, uiArea* area, uiAreaMouseEvent* evt)
 {
+    SetMouseCursorVisibility(1);
+
     int x = (int)evt->X;
     int y = (int)evt->Y;
 
