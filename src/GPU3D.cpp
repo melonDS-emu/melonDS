@@ -285,8 +285,7 @@ bool Init()
 
 void DeInit()
 {
-    if (Renderer == 0) SoftRenderer::DeInit();
-    else               GLRenderer::DeInit();
+    DeInitRenderer();
 
     delete CmdFIFO;
     delete CmdPIPE;
