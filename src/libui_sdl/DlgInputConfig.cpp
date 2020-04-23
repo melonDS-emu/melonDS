@@ -73,7 +73,8 @@ char hotkeylabels[HK_MAX][32] =
     "Fast forward:",
     "Fast forward (toggle):",
     "Decrease sunlight (Boktai):",
-    "Increase sunlight (Boktai):"
+    "Increase sunlight (Boktai):",
+    "Switch Screen Emphasis"
 };
 
 int openedmask;
