@@ -89,7 +89,7 @@ public:
     void A_Comp_CmpOp();
 
     void A_Comp_MUL_MLA();
-    void A_Comp_SMULL_SMLAL();
+    void A_Comp_Mul_Long();
 
     void A_Comp_CLZ();
     

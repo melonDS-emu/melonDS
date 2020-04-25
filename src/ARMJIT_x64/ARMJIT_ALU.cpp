@@ -301,10 +301,11 @@ void Compiler::A_Comp_MUL_MLA()
     Comp_MulOp(S, add, rd, rm, rs, rn);
 }
 
-void Compiler::A_Comp_SMULL_SMLAL()
+void Compiler::A_Comp_Mul_Long()
 {
     bool S = CurInstr.Instr & (1 << 20);
     bool add = CurInstr.Instr & (1 << 21);
+    bool sign = CurInstr.Instr & (1 << 22);
     OpArg rd = MapReg(CurInstr.A_Reg(16));
     OpArg rm = MapReg(CurInstr.A_Reg(0));
     OpArg rs = MapReg(CurInstr.A_Reg(8));
@@ -318,18 +319,34 @@ void Compiler::A_Comp_SMULL_SMLAL()
         MOV(32, R(RSCRATCH3), rs);
         TEST(32, R(RSCRATCH3), R(RSCRATCH3));
         FixupBranch zeroBSR = J_CC(CC_Z);
-        BSR(32, RSCRATCH2, R(RSCRATCH3));
-        NOT(32, R(RSCRATCH3));
-        BSR(32, RSCRATCH, R(RSCRATCH3));
-        CMP(32, R(RSCRATCH2), R(RSCRATCH));
-        CMOVcc(32, RSCRATCH, R(RSCRATCH2), CC_L);
+        if (sign)
+        {
+            BSR(32, RSCRATCH2, R(RSCRATCH3));
+            NOT(32, R(RSCRATCH3));
+            BSR(32, RSCRATCH, R(RSCRATCH3));
+            CMP(32, R(RSCRATCH2), R(RSCRATCH));
+            CMOVcc(32, RSCRATCH, R(RSCRATCH2), CC_L);
+        }
+        else
+        {
+            BSR(32, RSCRATCH, R(RSCRATCH3));
+        }
+        
         SHR(32, R(RSCRATCH), Imm8(3));
         SetJumpTarget(zeroBSR); // fortunately that's even right
         Comp_AddCycles_CI(RSCRATCH, 2);
     }
 
-    MOVSX(64, 32, RSCRATCH2, rm);
-    MOVSX(64, 32, RSCRATCH3, rs);
+    if (sign)
+    {
+        MOVSX(64, 32, RSCRATCH2, rm);
+        MOVSX(64, 32, RSCRATCH3, rs);
+    }
+    else
+    {
+        MOV(32, R(RSCRATCH2), rm);
+        MOV(32, R(RSCRATCH3), rs);
+    }
     if (add)
     {
         MOV(32, R(RSCRATCH), rd);
