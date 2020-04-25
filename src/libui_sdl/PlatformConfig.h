@@ -32,6 +32,7 @@ enum
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_SwitchEmphasis,
+    HK_SwitchEven,
     HK_MAX
 };
 

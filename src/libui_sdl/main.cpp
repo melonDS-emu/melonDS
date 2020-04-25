@@ -965,6 +965,15 @@ int EmuThreadFunc(void* burp)
             OnSetScreenSizing(NULL, NULL, &ScreenSizing);
         }
 
+        if (HotkeyPressed(HK_SwitchEven)) {
+            static int SwitchEvenToggle = 0;
+            if (ScreenSizing != 0) {
+                SwitchEvenToggle = ScreenSizing;
+            }
+            ScreenSizing = ScreenSizing == 0 ? SwitchEvenToggle : 0;
+            OnSetScreenSizing(NULL, NULL, &ScreenSizing);
+        }
+
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
             if (HotkeyPressed(HK_SolarSensorDecrease))
