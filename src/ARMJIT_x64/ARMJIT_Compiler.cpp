@@ -1,6 +1,7 @@
 #include "ARMJIT_Compiler.h"
 
 #include "../ARMInterpreter.h"
+#include "../Config.h"
 
 #include <assert.h>
 
@@ -14,6 +15,8 @@
 #endif
 
 using namespace Gen;
+
+extern "C" void ARM_Ret();
 
 namespace ARMJIT
 {
@@ -168,6 +171,24 @@ Compiler::Compiler()
         MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)), R(ABI_PARAM3));
         CLC();
         RET();
+    }
+
+    {
+        CPSRDirty = true;
+        BranchStub[0] = GetWritableCodePtr();
+        SaveCPSR();
+        MOV(64, R(ABI_PARAM1), R(RCPU));
+        CALL((u8*)ARMJIT::LinkBlock<0>);
+        LoadCPSR();
+        JMP((u8*)ARM_Ret, true);
+
+        CPSRDirty = true;
+        BranchStub[1] = GetWritableCodePtr();
+        SaveCPSR();
+        MOV(64, R(ABI_PARAM1), R(RCPU));
+        CALL((u8*)ARMJIT::LinkBlock<1>);
+        LoadCPSR();
+        JMP((u8*)ARM_Ret, true);
     }
 
     // move the region forward to prevent overwriting the generated functions
@@ -362,23 +383,43 @@ void Compiler::Reset()
     SetCodePtr(ResetStart);
 }
 
-void Compiler::Comp_SpecialBranchBehaviour()
+void Compiler::Comp_SpecialBranchBehaviour(bool taken)
 {
-    if (CurInstr.BranchFlags & branch_IdleBranch)
-        OR(32, MDisp(RCPU, offsetof(ARM, IdleLoop)), Imm8(0x1));
+    if (taken && CurInstr.BranchFlags & branch_IdleBranch)
+        OR(8, MDisp(RCPU, offsetof(ARM, IdleLoop)), Imm8(0x1));
 
-    if (CurInstr.BranchFlags & branch_FollowCondNotTaken)
+    if ((CurInstr.BranchFlags & branch_FollowCondNotTaken && taken)
+        || (CurInstr.BranchFlags & branch_FollowCondTaken && !taken))
     {
         RegCache.PrepareExit();
-        SaveCPSR(false);
-        
-        MOV(32, R(RAX), Imm32(ConstantCycles));
-        ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
-        RET();
+
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
+
+        if (Config::JIT_BrancheOptimisations == 2 && !(CurInstr.BranchFlags & branch_IdleBranch)
+            && (!taken || (CurInstr.BranchFlags & branch_StaticTarget)))
+        {
+            FixupBranch ret = J_CC(CC_S);
+            CMP(32, MDisp(RCPU, offsetof(ARM, StopExecution)), Imm8(0));
+            FixupBranch ret2 = J_CC(CC_NZ);
+
+            u8* rewritePart = GetWritableCodePtr();
+            NOP(5);
+
+            MOV(32, R(ABI_PARAM2), Imm32(rewritePart - ResetStart));
+            JMP((u8*)BranchStub[Num], true);
+
+            SetJumpTarget(ret);
+            SetJumpTarget(ret2);
+            JMP((u8*)ARM_Ret, true);
+        }
+        else
+        {
+            JMP((u8*)&ARM_Ret, true);
+        }
     }
 }
 
-JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
+JitBlockEntry Compiler::CompileBlock(u32 translatedAddr, ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
 {
     if (CodeMemSize - (GetWritableCodePtr() - ResetStart) < 1024 * 32) // guess...
         ResetBlockCache();
@@ -388,14 +429,10 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     Num = cpu->Num;
     CodeRegion = instrs[0].Addr >> 24;
     CurCPU = cpu;
+    // CPSR might have been modified in a previous block
+    CPSRDirty = Config::JIT_BrancheOptimisations == 2;
 
     JitBlockEntry res = (JitBlockEntry)GetWritableCodePtr();
-
-    ABI_PushRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
-
-    MOV(64, R(RCPU), ImmPtr(cpu));
-
-    LoadCPSR();
 
     RegCache = RegisterCache<Compiler, X64Reg>(this, instrs, instrsCount);
 
@@ -474,7 +511,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                 else
                     (this->*comp)();
 
-                Comp_SpecialBranchBehaviour();
+                Comp_SpecialBranchBehaviour(true);
 
                 if (CurInstr.Cond() < 0xE)
                 {
@@ -485,15 +522,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
                         Comp_AddCycles_C(true);
 
-                        if (CurInstr.BranchFlags & branch_FollowCondTaken)
-                        {
-                            RegCache.PrepareExit();
-                            SaveCPSR(false);
-                            
-                            MOV(32, R(RAX), Imm32(ConstantCycles));
-                            ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
-                            RET();
-                        }
+                        Comp_SpecialBranchBehaviour(false);
 
                         SetJumpTarget(skipFailed);
                     }
@@ -504,17 +533,38 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
             }
         }
 
-        if (comp == NULL && i != instrsCount - 1)
+        if (comp == NULL)
             LoadCPSR();
     }
 
     RegCache.Flush();
-    SaveCPSR();
 
-    MOV(32, R(RAX), Imm32(ConstantCycles));
+    SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
 
-    ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
-    RET();
+    if (Config::JIT_BrancheOptimisations == 2
+        && !(instrs[instrsCount - 1].BranchFlags & branch_IdleBranch)
+        && (!instrs[instrsCount - 1].Info.Branches()
+        || instrs[instrsCount - 1].BranchFlags & branch_FollowCondNotTaken
+        || (instrs[instrsCount - 1].BranchFlags & branch_FollowCondTaken && instrs[instrsCount - 1].BranchFlags & branch_StaticTarget)))
+    {
+        FixupBranch ret = J_CC(CC_S);
+        CMP(32, MDisp(RCPU, offsetof(ARM, StopExecution)), Imm8(0));
+        FixupBranch ret2 = J_CC(CC_NZ);
+
+        u8* rewritePart = GetWritableCodePtr();
+        NOP(5);
+
+        MOV(32, R(ABI_PARAM2), Imm32(rewritePart - ResetStart));
+        JMP((u8*)BranchStub[Num], true);
+
+        SetJumpTarget(ret);
+        SetJumpTarget(ret2);
+        JMP((u8*)ARM_Ret, true);
+    }
+    else
+    {
+        JMP((u8*)ARM_Ret, true);
+    }
 
     /*FILE* codeout = fopen("codeout", "a");
     fprintf(codeout, "beginning block argargarg__ %x!!!", instrs[0].Addr);
@@ -525,6 +575,22 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
     return res;
 }
 
+void Compiler::LinkBlock(u32 offset, JitBlockEntry entry)
+{
+    u8* curPtr = GetWritableCodePtr();
+    SetCodePtr(ResetStart + offset);
+    JMP((u8*)entry, true);
+    SetCodePtr(curPtr);
+}
+
+void Compiler::UnlinkBlock(u32 offset)
+{
+    u8* curPtr = GetWritableCodePtr();
+    SetCodePtr(ResetStart + offset);
+    NOP(5);
+    SetCodePtr(curPtr);
+}
+
 void Compiler::Comp_AddCycles_C(bool forceNonConstant)
 {
     s32 cycles = Num ?
@@ -532,7 +598,7 @@ void Compiler::Comp_AddCycles_C(bool forceNonConstant)
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if ((!Thumb && CurInstr.Cond() < 0xE) || forceNonConstant)
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
@@ -544,7 +610,7 @@ void Compiler::Comp_AddCycles_CI(u32 i)
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
 
     if (!Thumb && CurInstr.Cond() < 0xE)
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
@@ -558,12 +624,12 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
     if (!Thumb && CurInstr.Cond() < 0xE)
     {
         LEA(32, RSCRATCH, MDisp(i, add + cycles));
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
     }
     else
     {
         ConstantCycles += i + cycles;
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
     }
 }
 
@@ -599,7 +665,7 @@ void Compiler::Comp_AddCycles_CDI()
         }
         
         if (!Thumb && CurInstr.Cond() < 0xE)
-            ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+            SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
         else
             ConstantCycles += cycles;
     }
@@ -643,7 +709,7 @@ void Compiler::Comp_AddCycles_CD()
     }
 
     if (IrregularCycles && !Thumb && CurInstr.Cond() < 0xE)
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }

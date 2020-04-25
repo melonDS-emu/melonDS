@@ -15,7 +15,8 @@ enum
 {
 	branch_IdleBranch = 1 << 0,
 	branch_FollowCondTaken = 1 << 1,
-	branch_FollowCondNotTaken = 1 << 2
+	branch_FollowCondNotTaken = 1 << 2,
+	branch_StaticTarget = 1 << 3,
 };
 
 struct FetchedInstr
@@ -76,7 +77,7 @@ struct __attribute__((packed)) TinyVector
 		assert(capacity > Capacity);
 		T* newMem = new T[capacity];
 		if (Data != NULL)
-			memcpy(newMem, Data, sizeof(Data) * Length);
+			memcpy(newMem, Data, sizeof(T) * Length);
 
 		T* oldData = Data;
 		Data = newMem;
@@ -163,7 +164,6 @@ public:
 	
 	u32 NumInstrs;
 	u32 NumAddresses;
-	u32 NumLinks;
 
 	JitBlockEntry EntryPoint;
 
@@ -171,6 +171,21 @@ public:
 	{ return &Data[0]; }
 	u32* AddressRanges()
 	{ return &Data[NumInstrs]; }
+	u32* Links()
+	{ return &Data[NumInstrs + NumAddresses]; }
+
+	u32 NumLinks()
+	{ return Data.Length - NumInstrs - NumAddresses; }
+
+	void AddLink(u32 link)
+	{
+		Data.Add(link);
+	}
+
+	void ResetLinks()
+	{
+		Data.SetLength(NumInstrs + NumAddresses);
+	}
 
 private:
 	/*
@@ -199,6 +214,9 @@ extern u8 MemRegion9[0x80000];
 extern u8 MemRegion7[0x80000];
 
 void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size);
+
+template <u32 Num>
+void LinkBlock(ARM* cpu, u32 codeOffset);
 
 }
 

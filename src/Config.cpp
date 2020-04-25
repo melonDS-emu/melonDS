@@ -35,10 +35,10 @@ int GL_ScaleFactor;
 int GL_Antialias;
 
 #ifdef JIT_ENABLED
-bool JIT_Enable = false;
+int JIT_Enable = false;
 int JIT_MaxBlockSize = 12;
-bool JIT_BrancheOptimisations = true;
-bool JIT_LiteralOptimisations = true;
+int JIT_BrancheOptimisations = 2;
+int JIT_LiteralOptimisations = true;
 #endif
 
 ConfigEntry ConfigFile[] =
@@ -52,7 +52,7 @@ ConfigEntry ConfigFile[] =
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 10, NULL, 0},
-    {"JIT_BrancheOptimisations", 0, &JIT_BrancheOptimisations, 1, NULL, 0},
+    {"JIT_BranchOptimisations", 0, &JIT_BrancheOptimisations, 2, NULL, 0},
     {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
 #endif
 
