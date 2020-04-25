@@ -21,15 +21,26 @@
 #include <stdio.h>
 #include <string.h>
 
-// Qt includes and shit here, I guess
-#include <QtCore/QBitArray>
+#include <QApplication>
+#include <QMainWindow>
 
 #include "main.h"
 
 #include "../../version.h"
 
 
-//
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
+{
+    setWindowTitle("melonDS - assfucking Qt version");
+
+    // burp
+    QWidget *centralWidget = new QWidget(this);
+    setCentralWidget(centralWidget);
+}
+
+MainWindow::~MainWindow()
+{
+}
 
 
 int main(int argc, char** argv)
@@ -39,10 +50,12 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
-    printf("Arisotura hereby admits defeat\n");
-    printf("NI DIEU NI MAITRE\n");
+    QApplication melon(argc, argv);
 
-    return 0;
+    MainWindow win;
+    win.show();
+
+    return melon.exec();
 }
 
 #ifdef __WIN32__
@@ -59,7 +72,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     for (int i = 0; i < argc; i++)
     {
         int len = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, NULL, 0, NULL, NULL);
-        if (len < 1) return NULL;
+        if (len < 1) { argv[i] = nullarg; continue; }
         argv[i] = new char[len];
         int res = WideCharToMultiByte(CP_UTF8, 0, argv_w[i], -1, argv[i], len, NULL, NULL);
         if (res != len) { delete[] argv[i]; argv[i] = nullarg; }

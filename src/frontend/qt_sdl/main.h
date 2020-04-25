@@ -19,6 +19,18 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-// put the class shit here
+#include <QMainWindow>
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow();
+
+private:
+    // private shit goes here
+};
 
 #endif // MAIN_H
