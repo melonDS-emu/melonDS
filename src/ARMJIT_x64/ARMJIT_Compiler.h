@@ -51,7 +51,10 @@ public:
 
     void Reset();
 
-    JitBlockEntry CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
+    void LinkBlock(u32 offset, JitBlockEntry entry);
+    void UnlinkBlock(u32 offset);
+
+    JitBlockEntry CompileBlock(u32 translatedAddr, ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
@@ -145,7 +148,7 @@ public:
 
     void Comp_RetriveFlags(bool sign, bool retriveCV, bool carryUsed);
 
-    void Comp_SpecialBranchBehaviour();
+    void Comp_SpecialBranchBehaviour(bool taken);
 
     void* Gen_MemoryRoutine9(bool store, int size);
 
@@ -176,11 +179,23 @@ public:
         return Gen::R(RegCache.Mapping[reg]);
     }
 
+    JitBlockEntry AddEntryOffset(u32 offset)
+    {
+        return (JitBlockEntry)(ResetStart + offset);
+    }
+
+    u32 SubEntryOffset(JitBlockEntry entry)
+    {
+        return (u8*)entry - ResetStart;
+    }
+
     u8* ResetStart;
     u32 CodeMemSize;
 
     bool Exit;
     bool IrregularCycles;
+
+    void* BranchStub[2];
 
     void* MemoryFuncs9[3][2];
     void* MemoryFuncs7[3][2];

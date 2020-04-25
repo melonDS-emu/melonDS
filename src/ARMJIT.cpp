@@ -2,6 +2,10 @@
 
 #include <string.h>
 #include <assert.h>
+#include <unordered_map>
+
+#define XXH_STATIC_LINKING_ONLY
+#include "xxhash/xxhash.h"
 
 #include "Config.h"
 
@@ -113,16 +117,101 @@ const static ExeMemKind JIT_MEM[2][32] = {
 u32 AddrTranslate9[0x2000];
 u32 AddrTranslate7[0x4000];
 
-JitBlockEntry FastBlockAccess[ExeMemSpaceSize / 2];
 AddressRange CodeRanges[ExeMemSpaceSize / 512];
 
-TinyVector<JitBlock*> JitBlocks;
-JitBlock* RestoreCandidates[0x1000] = {NULL};
+std::unordered_map<u32, JitBlock*> JitBlocks;
 
-u32 HashRestoreCandidate(u32 pseudoPhysicalAddr)
+template <typename K, typename V, int Size, V InvalidValue>
+struct UnreliableHashTable
 {
-	return (u32)(((u64)pseudoPhysicalAddr * 11400714819323198485llu) >> 53);
-}
+	struct Bucket
+	{
+		K KeyA, KeyB;
+		V ValA, ValB;
+	};
+
+	Bucket Table[Size];
+
+	void Reset()
+	{
+		for (int i = 0; i < Size; i++)
+		{
+			Table[i].ValA = Table[i].ValB = InvalidValue;
+		}
+	}
+
+	UnreliableHashTable()
+	{
+		Reset();
+	}
+
+	V Insert(K key, V value)
+	{
+		u32 slot = XXH3_64bits(&key, sizeof(K)) & (Size - 1);
+		Bucket* bucket = &Table[slot];
+
+		if (bucket->ValA == value || bucket->ValB == value)
+		{
+			return InvalidValue;
+		}
+		else if (bucket->ValA == InvalidValue)
+		{
+			bucket->KeyA = key;
+			bucket->ValA = value;
+		}
+		else if (bucket->ValB == InvalidValue)
+		{
+			bucket->KeyB = key;
+			bucket->ValB = value;
+		}
+		else
+		{
+			V prevVal = bucket->ValB;
+			bucket->KeyB = bucket->KeyA;
+			bucket->ValB = bucket->ValA;
+			bucket->KeyA = key;
+			bucket->ValA = value;
+			return prevVal;
+		}
+
+		return InvalidValue;
+	}
+
+	void Remove(K key)
+	{
+		u32 slot = XXH3_64bits(&key, sizeof(K)) & (Size - 1);
+		Bucket* bucket = &Table[slot];
+
+		if (bucket->KeyA == key && bucket->ValA != InvalidValue)
+		{
+			bucket->ValA = InvalidValue;
+			if (bucket->ValB != InvalidValue)
+			{
+				bucket->KeyA = bucket->KeyB;
+				bucket->ValA = bucket->ValB;
+				bucket->ValB = InvalidValue;
+			}
+		}
+		if (bucket->KeyB == key && bucket->ValB != InvalidValue)
+			bucket->ValB = InvalidValue;
+	}
+
+	V LookUp(K addr)
+	{
+		u32 slot = XXH3_64bits(&addr, 4) & (Size - 1);
+		Bucket* bucket = &Table[slot];
+
+		if (bucket->ValA != InvalidValue && bucket->KeyA == addr)
+			return bucket->ValA;
+		if (bucket->ValB != InvalidValue && bucket->KeyB == addr)
+			return bucket->ValB;
+
+		return InvalidValue;
+	}
+};
+
+UnreliableHashTable<u32, JitBlock*, 0x800, nullptr> RestoreCandidates;
+UnreliableHashTable<u32, u32, 0x1000, UINT32_MAX> FastBlockLookUp;
 
 void Init()
 {
@@ -396,9 +485,8 @@ void CompileBlock(ARM* cpu)
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
 	u32 nextInstrAddr[2] = {blockAddr, r15};
 
-	JIT_DEBUGPRINT("start block %x %08x (%x) %p %p (region invalidates %dx)\n",
-		blockAddr, cpu->CPSR, pseudoPhysicalAddr, FastBlockAccess[pseudoPhysicalAddr / 2], 
-		cpu->Num == 0 ? LookUpBlock<0>(blockAddr) : LookUpBlock<1>(blockAddr),
+	JIT_DEBUGPRINT("start block %x %08x (%x) (region invalidates %dx)\n",
+		blockAddr, cpu->CPSR, pseudoPhysicalAddr,
 		CodeRanges[pseudoPhysicalAddr / 512].TimesInvalidated);
 
 	u32 lastSegmentStart = blockAddr;
@@ -534,6 +622,8 @@ void CompileBlock(ARM* cpu)
 
 			if (staticBranch)
 			{
+				instrs[i].BranchFlags |= branch_StaticTarget;
+
 				bool isBackJump = false;
 				if (hasBranched)
 				{
@@ -604,12 +694,11 @@ void CompileBlock(ARM* cpu)
 			FloodFillSetFlags(instrs, i - 2, !secondaryFlagReadCond ? instrs[i - 1].Info.ReadFlags : 0xF);
     } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
 
-	u32 restoreSlot = HashRestoreCandidate(pseudoPhysicalAddr);
-	JitBlock* prevBlock = RestoreCandidates[restoreSlot];
+	JitBlock* prevBlock = RestoreCandidates.LookUp(pseudoPhysicalAddr);
 	bool mayRestore = true;
-	if (prevBlock && prevBlock->PseudoPhysicalAddr == pseudoPhysicalAddr)
+	if (prevBlock)
 	{
-		RestoreCandidates[restoreSlot] = NULL;	
+		RestoreCandidates.Remove(pseudoPhysicalAddr);
 		if (prevBlock->NumInstrs == i)
 		{
 			for (int j = 0; j < i; j++)
@@ -661,7 +750,7 @@ void CompileBlock(ARM* cpu)
 
 		FloodFillSetFlags(instrs, i - 1, 0xF);
 
-		block->EntryPoint = compiler->CompileBlock(cpu, thumb, instrs, i);
+		block->EntryPoint = compiler->CompileBlock(pseudoPhysicalAddr, cpu, thumb, instrs, i);
 	}
 	else
 	{
@@ -675,9 +764,8 @@ void CompileBlock(ARM* cpu)
 		CodeRanges[addresseRanges[j] / 512].Blocks.Add(block);
 	}
 
-	FastBlockAccess[block->PseudoPhysicalAddr / 2] = block->EntryPoint;
-
-	JitBlocks.Add(block);
+	JitBlocks[pseudoPhysicalAddr] = block;
+	FastBlockLookUp.Insert(pseudoPhysicalAddr, compiler->SubEntryOffset(block->EntryPoint));
 }
 
 void InvalidateByAddr(u32 pseudoPhysical, bool mayRestore)
@@ -701,18 +789,17 @@ void InvalidateByAddr(u32 pseudoPhysical, bool mayRestore)
 			}
 		}
 
-		bool removed = JitBlocks.RemoveByValue(block);
-		assert(removed);
+		for (int j = 0; j < block->NumLinks(); j++)
+			compiler->UnlinkBlock(block->Links()[j]);
 
-		FastBlockAccess[block->PseudoPhysicalAddr / 2] = NULL;
+		JitBlocks.erase(block->PseudoPhysicalAddr);
+		FastBlockLookUp.Remove(block->PseudoPhysicalAddr);
 
 		if (mayRestore)
 		{
-			u32 slot = HashRestoreCandidate(block->PseudoPhysicalAddr);
-			if (RestoreCandidates[slot] && RestoreCandidates[slot] != block)
-				delete RestoreCandidates[slot];
-
-			RestoreCandidates[slot] = block;
+			JitBlock* prevBlock = RestoreCandidates.Insert(block->PseudoPhysicalAddr, block);
+			if (prevBlock)
+				delete prevBlock;
 		}
 	}
 	if ((range->TimesInvalidated + 1) > range->TimesInvalidated)
@@ -738,47 +825,54 @@ void InvalidateITCM(u32 addr)
 void InvalidateAll()
 {
 	JIT_DEBUGPRINT("invalidating all %x\n", JitBlocks.Length);
-	for (int i = 0; i < JitBlocks.Length; i++)
+	for (auto it : JitBlocks)
 	{
-		JitBlock* block = JitBlocks[i];
+		JitBlock* block = it.second;
 
-		FastBlockAccess[block->PseudoPhysicalAddr / 2] = NULL;
-		
-		for (int j = 0; j < block->NumAddresses; j++)
+		FastBlockLookUp.Remove(block->PseudoPhysicalAddr);
+
+		for (int i = 0; i < block->NumAddresses; i++)
 		{
-			u32 addr = block->AddressRanges()[j];
+			u32 addr = block->AddressRanges()[i];
 			AddressRange* range = &CodeRanges[addr / 512];
 			range->Blocks.Clear();
 			if (range->TimesInvalidated + 1 > range->TimesInvalidated)
 				range->TimesInvalidated++;
 		}
+		for (int i = 0; i < block->NumLinks(); i++)
+			compiler->UnlinkBlock(block->Links()[i]);
+		block->ResetLinks();
 
-		u32 slot = HashRestoreCandidate(block->PseudoPhysicalAddr);
-		if (RestoreCandidates[slot] && RestoreCandidates[slot] != block)
-			delete RestoreCandidates[slot];
-		
-		RestoreCandidates[slot] = block;
+		JitBlock* prevBlock = RestoreCandidates.Insert(block->PseudoPhysicalAddr, block);
+		if (prevBlock)
+			delete prevBlock;
 	}
 
-	JitBlocks.Clear();
+	JitBlocks.clear();
 }
 
 void ResetBlockCache()
 {
 	printf("Resetting JIT block cache...\n");
-	
-	memset(FastBlockAccess, 0, sizeof(FastBlockAccess));
-	for (int i = 0; i < sizeof(RestoreCandidates)/sizeof(RestoreCandidates[0]); i++)
+
+	FastBlockLookUp.Reset();
+	RestoreCandidates.Reset();
+	for (int i = 0; i < sizeof(RestoreCandidates.Table)/sizeof(RestoreCandidates.Table[0]); i++)
 	{
-		if (RestoreCandidates[i])
+		if (RestoreCandidates.Table[i].ValA)
 		{
-			delete RestoreCandidates[i];
-			RestoreCandidates[i] = NULL;
+			delete RestoreCandidates.Table[i].ValA;
+			RestoreCandidates.Table[i].ValA = NULL;
+		}
+		if (RestoreCandidates.Table[i].ValA)
+		{
+			delete RestoreCandidates.Table[i].ValB;
+			RestoreCandidates.Table[i].ValB = NULL;
 		}
 	}
-	for (int i = 0; i < JitBlocks.Length; i++)
+	for (auto it : JitBlocks)
 	{
-		JitBlock* block = JitBlocks[i];
+		JitBlock* block = it.second;
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
@@ -788,9 +882,41 @@ void ResetBlockCache()
 		}
 		delete block;
 	}
-	JitBlocks.Clear();
+	JitBlocks.clear();
 
 	compiler->Reset();
+}
+
+JitBlockEntry LookUpBlockEntry(u32 addr)
+{
+	u32 entryOffset = FastBlockLookUp.LookUp(addr);
+	if (entryOffset != UINT32_MAX)
+		return compiler->AddEntryOffset(entryOffset);
+
+	auto block = JitBlocks.find(addr);
+	if (block != JitBlocks.end())
+	{
+		FastBlockLookUp.Insert(addr, compiler->SubEntryOffset(block->second->EntryPoint));
+		return block->second->EntryPoint;
+	}
+	return NULL;
+}
+
+template <u32 Num>
+void LinkBlock(ARM* cpu, u32 codeOffset)
+{
+	u32 targetPseudoPhys = TranslateAddr<Num>(cpu->R[15] - ((cpu->CPSR&0x20)?2:4));
+	auto block = JitBlocks.find(targetPseudoPhys);
+	if (block == JitBlocks.end())
+	{
+		CompileBlock(cpu);
+		block = JitBlocks.find(targetPseudoPhys);
+	}
+
+	JIT_DEBUGPRINT("linking to block %08x\n", targetPseudoPhys);
+
+	block->second->AddLink(codeOffset);
+	compiler->LinkBlock(codeOffset, block->second->EntryPoint);
 }
 
 void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
@@ -875,3 +1001,6 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
 }
 
 }
+
+template void ARMJIT::LinkBlock<0>(ARM*, u32);
+template void ARMJIT::LinkBlock<1>(ARM*, u32);

@@ -32,7 +32,6 @@ extern u32 AddrTranslate9[0x2000];
 extern u32 AddrTranslate7[0x4000];
 
 const u32 ExeMemSpaceSize = 0x518000; // I hate you C++, sometimes I really hate you...
-extern JitBlockEntry FastBlockAccess[ExeMemSpaceSize / 2];
 
 template <u32 num>
 inline bool IsMapped(u32 addr)
@@ -52,11 +51,8 @@ inline u32 TranslateAddr(u32 addr)
 		return AddrTranslate7[(addr & 0xFFFFFFF) >> 14] + (addr & 0x3FFF);
 }
 
-template <u32 num>
-inline JitBlockEntry LookUpBlock(u32 addr)
-{
-	return FastBlockAccess[TranslateAddr<num>(addr) / 2];
-}
+JitBlockEntry LookUpBlockEntry(u32 addr);
+
 
 void Init();
 void DeInit();
@@ -72,5 +68,7 @@ void CompileBlock(ARM* cpu);
 void ResetBlockCache();
 
 }
+
+extern "C" void ARM_Dispatch(ARM* cpu, ARMJIT::JitBlockEntry entry);
 
 #endif

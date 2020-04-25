@@ -127,7 +127,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     if ((Thumb || CurInstr.Cond() >= 0xE) && !forceNonConstantCycles)
         ConstantCycles += cycles;
     else
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
 }
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
@@ -135,7 +135,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     IrregularCycles = true;
 
     BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
-    bool previouslyDirty = CPSRDirty;
+    bool cpsrDirty = CPSRDirty;
     SaveCPSR();
 
     if (restoreCPSR)
@@ -168,9 +168,10 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
             LoadReg(reg, RegCache.Mapping[reg]);
     }
 
-    if (previouslyDirty)
-        LoadCPSR();
-    CPSRDirty = previouslyDirty;
+    LoadCPSR();
+    // in case this instruction is skipped
+    if (CurInstr.Cond() < 0xE)
+        CPSRDirty = cpsrDirty;
 }
 
 void Compiler::A_Comp_BranchImm()
@@ -209,20 +210,12 @@ void Compiler::T_Comp_BCOND()
     s32 offset = (s32)(CurInstr.Instr << 24) >> 23;
     Comp_JumpTo(R15 + offset + 1, true);
 
-    Comp_SpecialBranchBehaviour();
+    Comp_SpecialBranchBehaviour(true);
 
     FixupBranch skipFailed = J();
     SetJumpTarget(skipExecute);
 
-    if (CurInstr.BranchFlags & branch_FollowCondTaken)
-    {
-        RegCache.PrepareExit();
-        SaveCPSR(false);
-        
-        MOV(32, R(RAX), Imm32(ConstantCycles));
-        ABI_PopRegistersAndAdjustStack(BitSet32(ABI_ALL_CALLEE_SAVED & ABI_ALL_GPRS & ~BitSet32({RSP})), 8);
-        RET();
-    }
+    Comp_SpecialBranchBehaviour(false);
 
     Comp_AddCycles_C(true);
     SetJumpTarget(skipFailed);

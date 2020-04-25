@@ -52,10 +52,10 @@ extern char DSiFirmwarePath[1024];
 extern char DSiNANDPath[1024];
 
 #ifdef JIT_ENABLED
-extern bool JIT_Enable;
+extern int JIT_Enable;
 extern int JIT_MaxBlockSize;
-extern bool JIT_BrancheOptimisations;
-extern bool JIT_LiteralOptimisations;
+extern int JIT_BrancheOptimisations;
+extern int JIT_LiteralOptimisations;
 #endif
 
 }
