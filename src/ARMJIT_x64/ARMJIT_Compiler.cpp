@@ -300,7 +300,7 @@ const Compiler::CompileFunc A_Comp[ARMInstrInfo::ak_Count] =
     // CMN
     F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp), F(A_Comp_CmpOp),
     // Mul
-    F(A_Comp_MUL_MLA), F(A_Comp_MUL_MLA), NULL, NULL, NULL, F(A_Comp_SMULL_SMLAL), NULL, NULL, NULL, NULL, NULL,
+    F(A_Comp_MUL_MLA), F(A_Comp_MUL_MLA), F(A_Comp_Mul_Long), F(A_Comp_Mul_Long), F(A_Comp_Mul_Long), F(A_Comp_Mul_Long), NULL, NULL, NULL, NULL, NULL,
     // ARMv5 stuff
     F(A_Comp_CLZ), NULL, NULL, NULL, NULL,
     // STR
@@ -628,7 +628,7 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
     }
     else
     {
-        ConstantCycles += i + cycles;
+        ConstantCycles += cycles;
         SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
     }
 }

@@ -423,7 +423,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                 
                 if (flags & memop_SubtractOffset)
                 {
-                    MOV(32, R(finalAddr), rnMapped);
+                    if (R(finalAddr) != rnMapped)
+                        MOV(32, R(finalAddr), rnMapped);
                     if (!offset.IsZero())
                         SUB(32, R(finalAddr), offset);
                 }
