@@ -100,6 +100,9 @@ public:
     void A_Comp_BranchImm();
     void A_Comp_BranchXchangeReg();
 
+    void A_Comp_MRS();
+    void A_Comp_MSR();
+
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
     void T_Comp_ALU_Imm8();

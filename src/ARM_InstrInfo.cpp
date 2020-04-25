@@ -427,6 +427,10 @@ Info Decode(bool thumb, u32 num, u32 instr)
                 res.Kind = ak_UNK;
             }
         }
+        if (res.Kind == ak_MRS && !(instr & (1 << 22)))
+            res.ReadFlags |= flag_N | flag_Z | flag_C | flag_V;
+        if ((res.Kind == ak_MSR_IMM || res.Kind == ak_MSR_REG) && instr & (1 << 19))
+            res.WriteFlags |= flag_N | flag_Z | flag_C | flag_V;
 
         if (data & A_Read0)
             res.SrcRegs |= 1 << (instr & 0xF);
