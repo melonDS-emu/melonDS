@@ -824,7 +824,7 @@ void InvalidateITCM(u32 addr)
 
 void InvalidateAll()
 {
-	JIT_DEBUGPRINT("invalidating all %x\n", JitBlocks.Length);
+	JIT_DEBUGPRINT("invalidating all %x\n", JitBlocks.size());
 	for (auto it : JitBlocks)
 	{
 		JitBlock* block = it.second;
