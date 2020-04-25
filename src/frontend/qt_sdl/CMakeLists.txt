@@ -1,33 +1,22 @@
 project(qt_sdl)
 
-SET(SOURCES_LIBUI
+SET(SOURCES_QT_SDL
 	main.cpp
-	Platform.cpp
-	PlatformConfig.cpp
-	LAN_Socket.cpp
-	LAN_PCap.cpp
-	DlgAudioSettings.cpp
-	DlgEmuSettings.cpp
-	DlgInputConfig.cpp
-	DlgVideoSettings.cpp
-	DlgWifiSettings.cpp
-	OSD.cpp
 )
 
 if (WIN32)
 	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
 
-option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(libui)
+find_package(Qt5 COMPONENTS Core REQUIRED)
+find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
-add_executable(melonDS ${SOURCES_LIBUI})
+add_executable(melonDS ${SOURCES_QT_SDL})
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(melonDS core libui ${SDL2_LIBRARIES})
+target_link_libraries(melonDS core ${SDL2_LIBRARIES})
 
 if (UNIX)
 	option(UNIX_PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
@@ -52,14 +41,14 @@ if (UNIX)
 				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-		target_link_libraries(melonDS dl)
+		target_link_libraries(melonDS dl Qt5::Core Qt5::Widgets)
 	endif ()
 
 	target_sources(melonDS PUBLIC melon_grc.c)
 elseif (WIN32)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
-	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
+	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32 Qt5::Core Qt5::Widgets)
 endif ()
 
 install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)

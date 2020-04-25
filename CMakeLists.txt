@@ -32,7 +32,13 @@ endif()
 add_compile_options(-fno-pic)
 add_link_options(-no-pie)
 
+option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
+
 add_subdirectory(src)
+
+if (BUILD_QT_SDL)
+	add_subdirectory(src/frontend/qt_sdl)
+endif()
 
 configure_file(
 	${CMAKE_SOURCE_DIR}/romlist.bin
