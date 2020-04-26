@@ -16,6 +16,7 @@ const Gen::X64Reg RCPSR = Gen::R15;
 const Gen::X64Reg RSCRATCH = Gen::EAX;
 const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
+const Gen::X64Reg RSCRATCH4 = Gen::R8;
 
 struct ComplexOperand
 {
