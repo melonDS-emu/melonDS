@@ -44,6 +44,8 @@ ARM_Dispatch:
 
 #ifdef WIN64
     sub rsp, 0x28
+#else
+    sub rsp, 0x8
 #endif
     mov RCPU, ARG1_REG64
     mov RCPSR, [RCPU + ARM_CPSR_offset]
@@ -58,6 +60,8 @@ ARM_Ret:
 
 #ifdef WIN64
     add rsp, 0x28
+#else
+    add rsp, 0x8
 #endif
 
     pop rbp
