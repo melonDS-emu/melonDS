@@ -105,7 +105,7 @@ void Compiler::A_Comp_MSR()
         if ((mask & 0xFF) == 0)
         {
             AND(32, R(RCPSR), Imm32(~mask));
-            if (val.IsImm())
+            if (!val.IsImm())
             {
                 MOV(32, R(RSCRATCH), val);
                 AND(32, R(RSCRATCH), Imm32(mask));
