@@ -502,14 +502,6 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     int regsCount = regs.Count();
 
-    if (decrement)
-    {
-        MOV_sum(32, ABI_PARAM1, MapReg(rn), Imm32(-regsCount * 4));
-        preinc ^= true;
-    }
-    else
-        MOV(32, R(ABI_PARAM1), MapReg(rn));
-
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
     // we need to make sure that the stack stays aligned to 16 bytes
@@ -518,6 +510,14 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (!store)
     {
         Comp_AddCycles_CDI();
+
+        if (decrement)
+        {
+            MOV_sum(32, ABI_PARAM1, MapReg(rn), Imm32(-regsCount * 4));
+            preinc ^= true;
+        }
+        else
+            MOV(32, R(ABI_PARAM1), MapReg(rn));
 
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
         SUB(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
@@ -617,6 +617,14 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 PUSH(MapReg(reg).GetSimpleReg());
             }
         }
+
+        if (decrement)
+        {
+            MOV_sum(32, ABI_PARAM1, MapReg(rn), Imm32(-regsCount * 4));
+            preinc ^= true;
+        }
+        else
+            MOV(32, R(ABI_PARAM1), MapReg(rn));
 
         MOV(64, R(ABI_PARAM2), R(RSP));
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
