@@ -48,10 +48,10 @@ void Compiler::A_Comp_MRS()
     {
         MOV(32, R(RSCRATCH), R(RCPSR));
         AND(32, R(RSCRATCH), Imm8(0x1F));
-        XOR(32, R(ABI_PARAM3), R(ABI_PARAM3));
-        MOV(32, R(ABI_PARAM2), Imm32(15 - 8));
+        XOR(32, R(RSCRATCH3), R(RSCRATCH3));
+        MOV(32, R(RSCRATCH2), Imm32(15 - 8));
         CALL(ReadBanked);
-        MOV(32, rd, R(ABI_PARAM3));
+        MOV(32, rd, R(RSCRATCH3));
     }
     else
         MOV(32, rd, R(RCPSR));
@@ -75,28 +75,26 @@ void Compiler::A_Comp_MSR()
     {
         MOV(32, R(RSCRATCH), R(RCPSR));
         AND(32, R(RSCRATCH), Imm8(0x1F));
-        XOR(32, R(ABI_PARAM3), R(ABI_PARAM3));
-        MOV(32, R(ABI_PARAM2), Imm32(15 - 8));
+        XOR(32, R(RSCRATCH3), R(RSCRATCH3));
+        MOV(32, R(RSCRATCH2), Imm32(15 - 8));
         CALL(ReadBanked);
 
-        MOV(32, R(RSCRATCH2), Imm32(0xFFFFFF00));
-        MOV(32, R(RSCRATCH3), Imm32(0xFFFFFFFF));
+        MOV(32, R(RSCRATCH2), Imm32(mask));
+        MOV(32, R(RSCRATCH4), R(RSCRATCH2));
+        AND(32, R(RSCRATCH4), Imm32(0xFFFFFF00));
         MOV(32, R(RSCRATCH), R(RCPSR));
         AND(32, R(RSCRATCH), Imm8(0x1F));
         CMP(32, R(RSCRATCH), Imm8(0x10));
-        CMOVcc(32, RSCRATCH2, R(RSCRATCH3), CC_NE);
-        AND(32, R(RSCRATCH2), Imm32(mask));
+        CMOVcc(32, RSCRATCH2, R(RSCRATCH4), CC_E);
 
-        MOV(32, R(RSCRATCH), R(RSCRATCH2));
-        NOT(32, R(RSCRATCH));
-        AND(32, R(ABI_PARAM3), R(RSCRATCH));
+        MOV(32, R(RSCRATCH4), R(RSCRATCH2));
+        NOT(32, R(RSCRATCH4));
+        AND(32, R(RSCRATCH3), R(RSCRATCH4));
 
         AND(32, R(RSCRATCH2), val);
-        OR(32, R(ABI_PARAM3), R(RSCRATCH2));
+        OR(32, R(RSCRATCH3), R(RSCRATCH2));
 
-        MOV(32, R(RSCRATCH), R(RCPSR));
-        AND(32, R(RSCRATCH), Imm8(0x1F));
-        MOV(32, R(ABI_PARAM2), Imm32(15 - 8));
+        MOV(32, R(RSCRATCH2), Imm32(15 - 8));
         CALL(WriteBanked);
     }
     else
@@ -219,13 +217,13 @@ Compiler::Compiler()
 
     {
         // RSCRATCH mode
-        // ABI_PARAM2 reg number
-        // ABI_PARAM3 value in current mode
-        // ret - ABI_PARAM3
+        // RSCRATCH2 reg number
+        // RSCRATCH3 value in current mode
+        // ret - RSCRATCH3
         ReadBanked = (void*)GetWritableCodePtr();
         CMP(32, R(RSCRATCH), Imm8(0x11));
         FixupBranch fiq = J_CC(CC_E);
-        SUB(32, R(ABI_PARAM2), Imm8(13 - 8));
+        SUB(32, R(RSCRATCH2), Imm8(13 - 8));
         FixupBranch notEverything = J_CC(CC_L);
         CMP(32, R(RSCRATCH), Imm8(0x12));
         FixupBranch irq = J_CC(CC_E);
@@ -239,30 +237,30 @@ Compiler::Compiler()
         RET();
 
         SetJumpTarget(fiq);
-        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_FIQ)));
+        MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_FIQ)));
         RET();
         SetJumpTarget(irq);
-        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_IRQ)));
+        MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_IRQ)));
         RET();
         SetJumpTarget(svc);
-        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_SVC)));
+        MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_SVC)));
         RET();
         SetJumpTarget(abt);
-        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_ABT)));
+        MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_ABT)));
         RET();
         SetJumpTarget(und);
-        MOV(32, R(ABI_PARAM3), MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)));
+        MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_UND)));
         RET();
     }
     {
         // RSCRATCH  mode
-        // ABI_PARAM2 reg n
-        // ABI_PARAM3 value
+        // RSCRATCH2 reg n
+        // RSCRATCH3 value
         // carry flag set if the register isn't banked
         WriteBanked = (void*)GetWritableCodePtr();
         CMP(32, R(RSCRATCH), Imm8(0x11));
         FixupBranch fiq = J_CC(CC_E);
-        SUB(32, R(ABI_PARAM2), Imm8(13 - 8));
+        SUB(32, R(RSCRATCH2), Imm8(13 - 8));
         FixupBranch notEverything = J_CC(CC_L);
         CMP(32, R(RSCRATCH), Imm8(0x12));
         FixupBranch irq = J_CC(CC_E);
@@ -277,23 +275,23 @@ Compiler::Compiler()
         RET();
 
         SetJumpTarget(fiq);
-        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_FIQ)), R(ABI_PARAM3));
+        MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_FIQ)), R(RSCRATCH3));
         CLC();
         RET();
         SetJumpTarget(irq);
-        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_IRQ)), R(ABI_PARAM3));
+        MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_IRQ)), R(RSCRATCH3));
         CLC();
         RET();
         SetJumpTarget(svc);
-        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_SVC)), R(ABI_PARAM3));
+        MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_SVC)), R(RSCRATCH3));
         CLC();
         RET();
         SetJumpTarget(abt);
-        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_ABT)), R(ABI_PARAM3));
+        MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_ABT)), R(RSCRATCH3));
         CLC();
         RET();
         SetJumpTarget(und);
-        MOV(32, MComplex(RCPU, ABI_PARAM2, SCALE_4, offsetof(ARM, R_UND)), R(ABI_PARAM3));
+        MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_UND)), R(RSCRATCH3));
         CLC();
         RET();
     }

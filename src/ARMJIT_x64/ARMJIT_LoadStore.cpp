@@ -540,14 +540,14 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                         AND(32, R(RSCRATCH), Imm8(0x1F));
                         firstUserMode = false;
                     }
-                    MOV(32, R(ABI_PARAM2), Imm32(reg - 8));
-                    POP(ABI_PARAM3);
+                    MOV(32, R(RSCRATCH2), Imm32(reg - 8));
+                    POP(RSCRATCH3);
                     CALL(WriteBanked);
                     FixupBranch sucessfulWritten = J_CC(CC_NC);
                     if (RegCache.Mapping[reg] != INVALID_REG)
-                        MOV(32, R(RegCache.Mapping[reg]), R(ABI_PARAM3));
+                        MOV(32, R(RegCache.Mapping[reg]), R(RSCRATCH3));
                     else
-                        SaveReg(reg, ABI_PARAM3);
+                        SaveReg(reg, RSCRATCH3);
                     SetJumpTarget(sucessfulWritten);
                 }
                 else if (RegCache.Mapping[reg] == INVALID_REG)
@@ -600,12 +600,12 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     firstUserMode = false;
                 }
                 if (RegCache.Mapping[reg] == INVALID_REG)
-                    LoadReg(reg, ABI_PARAM3);
+                    LoadReg(reg, RSCRATCH3);
                 else
-                    MOV(32, R(ABI_PARAM3), R(RegCache.Mapping[reg]));
-                MOV(32, R(ABI_PARAM2), Imm32(reg - 8));
+                    MOV(32, R(RSCRATCH3), R(RegCache.Mapping[reg]));
+                MOV(32, R(RSCRATCH2), Imm32(reg - 8));
                 CALL(ReadBanked);
-                PUSH(ABI_PARAM3);
+                PUSH(RSCRATCH3);
             }
             else if (RegCache.Mapping[reg] == INVALID_REG)
             {
