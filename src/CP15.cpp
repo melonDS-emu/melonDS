@@ -561,11 +561,15 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x750:
+#ifdef JIT_ENABLED
         ARMJIT::InvalidateAll();
+#endif
         ICacheInvalidateAll();
         return;
     case 0x751:
+#ifdef JIT_ENABLED
         ARMJIT::InvalidateByAddr(ARMJIT::TranslateAddr<0>(val));
+#endif
         ICacheInvalidateByAddr(val);
         return;
     case 0x752:

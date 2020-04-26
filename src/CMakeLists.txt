@@ -10,7 +10,6 @@ add_library(core STATIC
 	ARMInterpreter_ALU.cpp
 	ARMInterpreter_Branch.cpp
 	ARMInterpreter_LoadStore.cpp
-	ARM_InstrInfo.cpp
 	Config.cpp
 	CP15.cpp
 	CRC32.cpp
@@ -39,6 +38,7 @@ if (ENABLE_JIT)
 
 	target_sources(core PRIVATE
 		ARMJIT.cpp
+		ARM_InstrInfo.cpp
 
 		dolphin/CommonFuncs.cpp
 	)

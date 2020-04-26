@@ -127,6 +127,7 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_IRQ, 3*sizeof(u32));
     file->VarArray(R_UND, 3*sizeof(u32));
     file->Var32(&CurInstr);
+#ifdef JIT_ENABLED
     if (!file->Saving && Config::JIT_Enable)
     {
         // hack, the JIT doesn't really pipeline
@@ -134,6 +135,7 @@ void ARM::DoSavestate(Savestate* file)
         // loaded while running the interpreter
         FillPipeline();
     }
+#endif
     file->VarArray(NextInstr, 2*sizeof(u32));
 
     file->Var32(&ExceptionBase);
