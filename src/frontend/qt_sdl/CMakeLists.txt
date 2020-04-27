@@ -4,6 +4,9 @@ SET(SOURCES_QT_SDL
 	main.cpp
 	Platform.cpp
 	PlatformConfig.cpp
+	
+	../Util_ROM.cpp
+	../FrontendUtil.h
 )
 
 if (WIN32)
@@ -21,6 +24,7 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core ${SDL2_LIBRARIES})
 
