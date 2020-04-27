@@ -49,11 +49,6 @@
 char* EmuDirectory;
 
 bool RunningSomething;
-char ROMPath[2][1024];
-char SRAMPath[2][1024];
-char PrevSRAMPath[2][1024]; // for savestate 'undo load'
-
-bool SavestateLoaded;
 
 MainWindow* mainWindow;
 EmuThread* emuThread;
@@ -334,8 +329,8 @@ void EmuThread::emuPause(bool refresh)
 {
     int status = refresh ? 2:3;
     PrevEmuStatus = EmuRunning;
-    EmuRunning = status;printf("emuPause %d -> %d %d\n", PrevEmuStatus, EmuRunning, EmuStatus);
-    while (EmuStatus != status);printf("wait done\n");
+    EmuRunning = status;
+    while (EmuStatus != status);
 }
 
 void EmuThread::emuUnpause()
@@ -370,7 +365,7 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
-    setWindowTitle("melonDS - assfucking Qt version");
+    setWindowTitle("melonDS " MELONDS_VERSION);
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -569,6 +564,7 @@ int main(int argc, char** argv)
     emuThread->start();
     emuThread->emuPause(true);
 
+    #if 0
     if (argc > 1)
     {
         char* file = argv[1];
@@ -601,11 +597,12 @@ int main(int argc, char** argv)
             }
         }
     }
+    #endif
 
     int ret = melon.exec();
-printf("melon over\n");
-    emuThread->emuStop();printf("STOP\n");
-    emuThread->wait();printf("farked\n");
+
+    emuThread->emuStop();
+    emuThread->wait();
 
     Config::Save();
 
