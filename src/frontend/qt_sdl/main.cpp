@@ -35,13 +35,15 @@
 #include "types.h"
 #include "version.h"
 
+#include "FrontendUtil.h"
+
 #include "NDS.h"
-#include "GBACart.h"
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
 #include "Platform.h"
 #include "Config.h"
+#include "PlatformConfig.h"
 
 #include "Savestate.h"
 
@@ -102,7 +104,7 @@ void EmuThread::run()
     char melontitle[100];
     SDL_mutex* titlemutex = SDL_CreateMutex();
     void* titledata[2] = {melontitle, titlemutex};
-printf("emu thread start: %d\n", EmuRunning);
+
     while (EmuRunning != 0)
     {
         /*ProcessInput();
@@ -389,8 +391,56 @@ MainWindow::~MainWindow()
 
 void MainWindow::onOpenFile()
 {
-    QString filename = QFileDialog::getOpenFileName(this, "Open ROM", "", "DS ROMs (*.nds *.srl);;Any file (*.*)");
-    printf("fark: %p %d %s\n", filename, filename.isEmpty(), filename.toStdString().c_str());
+    emuThread->emuPause(true);
+
+    QString filename = QFileDialog::getOpenFileName(this,
+                                                    "Open ROM",
+                                                    Config::LastROMFolder,
+                                                    "DS ROMs (*.nds *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+    if (filename.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    // this shit is stupid
+    char file[1024];
+    strncpy(file, filename.toStdString().c_str(), 1023); file[1023] = '\0';
+
+    int pos = strlen(file)-1;
+    while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
+    strncpy(Config::LastROMFolder, file, pos);
+    Config::LastROMFolder[pos] = '\0';
+    char* ext = &file[strlen(file)-3];
+
+    int slot; bool res;
+    if (!strcasecmp(ext, "gba"))
+    {
+        slot = 1;
+        res = Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+    }
+    else
+    {
+        slot = 0;
+        res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+    }
+
+    if (!res)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              "Failed to load the ROM.\n\nMake sure the file is accessible and isn't used by another application.");
+        emuThread->emuUnpause();
+    }
+    else if (slot == 1)
+    {
+        // checkme
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        emuThread->emuRun();
+    }
 }
 
 
@@ -556,6 +606,8 @@ int main(int argc, char** argv)
         }
     }
 #endif
+
+    RunningSomething = false;
 
     mainWindow = new MainWindow();
     mainWindow->show();

@@ -57,7 +57,7 @@ void SetupSRAMPath(int slot)
     strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
 }
 
-bool LoadROM(char* file, int slot)
+bool LoadROM(const char* file, int slot)
 {
     char oldpath[1024];
     char oldsram[1024];

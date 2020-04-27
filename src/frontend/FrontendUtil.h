@@ -42,7 +42,7 @@ void Init_ROM();
 
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
-bool LoadROM(char* file, int slot);
+bool LoadROM(const char* file, int slot);
 
 // get the filename associated with the given savestate slot
 void GetSavestateName(int slot, char* filename, int len);
