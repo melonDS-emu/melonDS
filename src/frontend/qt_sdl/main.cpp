@@ -60,6 +60,9 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
     EmuStatus = 0;
     EmuRunning = 2;
+    RunningSomething = false;
+
+    connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
 }
 
 void EmuThread::run()
@@ -102,8 +105,6 @@ void EmuThread::run()
     u32 nsamples = 0;
 
     char melontitle[100];
-    SDL_mutex* titlemutex = SDL_CreateMutex();
-    void* titledata[2] = {melontitle, titlemutex};
 
     while (EmuRunning != 0)
     {
@@ -207,6 +208,7 @@ void EmuThread::run()
             uiAreaQueueRedrawAll(MainDrawArea);*/
             mainWindow->update();
 
+            bool fastforward = false;
             /*bool fastforward = HotkeyDown(HK_FastForward);
 
             if (Config::AudioSync && !fastforward)
@@ -218,7 +220,7 @@ void EmuThread::run()
                     if (ret == SDL_MUTEX_TIMEDOUT) break;
                 }
                 SDL_UnlockMutex(AudioSyncLock);
-            }
+            }*/
 
             float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
@@ -265,11 +267,9 @@ void EmuThread::run()
                 if (framerate < 1) fpstarget = 999;
                 else fpstarget = 1000.0f/framerate;
 
-                SDL_LockMutex(titlemutex);
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
-                SDL_UnlockMutex(titlemutex);
-                uiQueueMain(UpdateWindowTitle, titledata);
-            }*/
+                changeWindowTitle(melontitle);
+            }
         }
         else
         {
@@ -297,13 +297,14 @@ void EmuThread::run()
 
             EmuStatus = EmuRunning;
 
+            sprintf(melontitle, "melonDS " MELONDS_VERSION);
+            changeWindowTitle(melontitle);
+
             SDL_Delay(100);
         }
     }
 
     EmuStatus = 0;
-
-    SDL_DestroyMutex(titlemutex);
 
     //if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
 
@@ -319,6 +320,11 @@ void EmuThread::run()
         OSD::DeInit(false);*/
 
     //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+}
+
+void EmuThread::changeWindowTitle(char* title)
+{
+    emit windowTitleChange(QString(title));
 }
 
 void EmuThread::emuRun()
@@ -457,6 +463,12 @@ void MainWindow::onOpenFile()
     {
         emuThread->emuRun();
     }
+}
+
+
+void MainWindow::onTitleUpdate(QString title)
+{
+    setWindowTitle(title);
 }
 
 
@@ -622,8 +634,6 @@ int main(int argc, char** argv)
         }
     }
 #endif
-
-    RunningSomething = false;
 
     mainWindow = new MainWindow();
     mainWindow->show();

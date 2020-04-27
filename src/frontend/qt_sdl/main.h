@@ -33,11 +33,16 @@ class EmuThread : public QThread
 public:
     explicit EmuThread(QObject* parent = nullptr);
 
+    void changeWindowTitle(char* title);
+
     // to be called from the UI thread
     void emuRun();
     void emuPause(bool refresh);
     void emuUnpause();
     void emuStop();
+
+signals:
+    void windowTitleChange(QString title);
 
 private:
     volatile int EmuStatus;
@@ -72,6 +77,8 @@ public:
 
 private slots:
     void onOpenFile();
+
+    void onTitleUpdate(QString title);
 
 private:
     MainWindowPanel* panel;
