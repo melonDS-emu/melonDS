@@ -21,8 +21,9 @@
 MemoryStream::MemoryStream()
 {
 	// Create new array of chunks, and an initial chunk.
-	chunks = new u8*[MAX_CHUNKS];
-	memset(chunks, 0, MAX_CHUNKS * sizeof(u8*));
+	numChunks = 16;
+	chunks = new u8*[numChunks];
+	memset(chunks, 0, numChunks * sizeof(u8*));
 	chunks[0] = new u8[CHUNK_SIZE];
 	
 	pos = 0;
@@ -47,11 +48,12 @@ void MemoryStream::Init(u8* data, s32 len)
 {
 	if (chunks) DeInit();
 
-	if (len > CHUNK_SIZE * MAX_CHUNKS)
-		throw "data array too big";
+	numChunks = 16;
+	while (len > CHUNK_SIZE * numChunks)
+		numChunks = numChunks << 1;
 
-	chunks = new u8*[MAX_CHUNKS];
-	memset(chunks, 0, MAX_CHUNKS * sizeof(u8*));
+	chunks = new u8*[numChunks];
+	memset(chunks, 0, numChunks * sizeof(u8*));
 	s32 numFullChunks = len / CHUNK_SIZE;
 	s32 lenFull = numFullChunks * CHUNK_SIZE;
 	for (int i = 0; i < numFullChunks; i++)
@@ -67,7 +69,7 @@ void MemoryStream::DeInit()
 {
 	if (ownsFirstChunk)
 		delete chunks[0];
-	for (int i = firstNonsequentialChunk; i < MAX_CHUNKS && chunks[i]; i++)
+	for (int i = firstNonsequentialChunk; i < numChunks && chunks[i]; i++)
 		delete chunks[i];
 	delete chunks;
 }
@@ -94,8 +96,8 @@ s32 MemoryStream::GetLength()
 
 void MemoryStream::Write(const void* src, s32 len)
 {
-	if (pos + len + 1 > CHUNK_SIZE * MAX_CHUNKS)
-		throw "exceeded maximum stream size";
+	while (pos + len + 1 > CHUNK_SIZE * numChunks)
+		ExpandCapacity();
 
 	if ((pos + len - 1) / CHUNK_SIZE > pos / CHUNK_SIZE)
 	{
@@ -116,6 +118,20 @@ void MemoryStream::Write(const void* src, s32 len)
 			size = pos;
 	}
 }
+void MemoryStream::ExpandCapacity()
+{
+	if (!chunks)
+		return;
+
+	u8** newChunks = new u8*[numChunks << 1];
+	memcpy(newChunks, chunks, numChunks * sizeof(u8*));
+	memset(&newChunks[numChunks], 0, numChunks * sizeof(u8*));
+	numChunks = numChunks << 1;
+
+	delete[] chunks;
+	chunks = newChunks;
+}
+
 void MemoryStream::Read(void* dst, s32 len)
 {
 	if (pos + len > size)
@@ -140,7 +156,7 @@ void MemoryStream::Seek(s32 pos, s32 origin)
 {
 	if (origin == SEEK_SET)
 	{
-		if (pos < 0 || pos > CHUNK_SIZE * MAX_CHUNKS)
+		if (pos < 0 || pos > CHUNK_SIZE * numChunks)
 			throw "Invalid seek operation.";
 		if (pos > size)
 		{

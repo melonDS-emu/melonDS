@@ -24,7 +24,6 @@
 #include "types.h"
 
 #define CHUNK_SIZE (1024 * 1024)
-#define MAX_CHUNKS 32 // 32 MB should be enough, right?
 
 class MemoryStream
 {
@@ -50,10 +49,13 @@ private:
 	
 	s32 size;
 	s32 pos;
+	s32 numChunks;
 
 	// Make chunks point to data; does not copy data.
 	void Init(u8* data, s32 len);
 	void DeInit();
+
+	void ExpandCapacity();
 };
 
 #endif // MEMORYSTREAM_H
