@@ -25,6 +25,8 @@ DLL void ResetCounters();
 char* EmuDirectory;
 bool inited = false;
 
+u8* loadedROM;
+s32 loadedROMSize;
 bool directBoot = true;
 
 u32 lastFrameButtons = 0;
@@ -77,6 +79,11 @@ DLL bool Init()
 
 DLL void LoadROM(u8* file, s32 fileSize)
 {
+    if (loadedROM) delete[] loadedROM;
+    loadedROM = new u8[fileSize];
+    loadedROMSize = fileSize;
+    memcpy(loadedROM, file, fileSize);
+
     NDS::LoadROM(file, fileSize, directBoot);
 }
 
@@ -119,17 +126,8 @@ DLL void FrameAdvance(u32 buttons, u8 touchX, u8 touchY)
     {
         if (NDS::Running)
             NDS::Stop();
-        else
-        {
-            if (NDSCart::CartROM)
-            {
-                // NDS will reset, clearing CartROM
-                u8* temp = new u8[NDSCart::CartROMSize];
-                memcpy(temp, NDSCart::CartROM, NDSCart::CartROMSize);
-                NDS::LoadROM(temp, NDSCart::CartROMSize, directBoot);
-                delete[] temp;
-            }
-        }
+        else if (loadedROM)
+            NDS::LoadROM(loadedROM, loadedROMSize, directBoot);
     }
 
     NDS::RunFrame();
