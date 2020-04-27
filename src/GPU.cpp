@@ -85,7 +85,7 @@ GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
 u32 BufferWidth, BufferHeight;
-u32 ResMultiplier = -1;
+s32 ResMultiplier = -1;
 
 bool Init()
 {
