@@ -208,6 +208,7 @@ printf("emu thread start: %d\n", EmuRunning);
                 uiGLEnd(GLContext);
             }
             uiAreaQueueRedrawAll(MainDrawArea);*/
+            mainWindow->update();
 
             /*bool fastforward = HotkeyDown(HK_FastForward);
 
@@ -292,6 +293,7 @@ printf("emu thread start: %d\n", EmuRunning);
                     uiGLEnd(GLContext);
                 }
                 uiAreaQueueRedrawAll(MainDrawArea);*/
+                mainWindow->update();
             }
 
             //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
@@ -359,7 +361,10 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
 
-    //painter.
+    // fill background
+    painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
+
+    painter.fillRect(0, 0, 256, 192, QColor::fromRgb(0, 255, 255));
 }
 
 
