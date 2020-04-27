@@ -21,6 +21,7 @@ add_library(core STATIC
 	NDS.cpp
 	NDSCart.cpp
 	OpenGLSupport.cpp
+	Platform.h
 	RTC.cpp
 	Savestate.cpp
 	SPI.cpp

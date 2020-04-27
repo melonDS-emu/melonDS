@@ -2,6 +2,8 @@ project(qt_sdl)
 
 SET(SOURCES_QT_SDL
 	main.cpp
+	Platform.cpp
+	PlatformConfig.cpp
 )
 
 if (WIN32)

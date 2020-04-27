@@ -19,7 +19,44 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <QThread>
+#include <QWidget>
 #include <QMainWindow>
+
+
+class EmuThread : public QThread
+{
+    Q_OBJECT
+    void run() override;
+
+public:
+    explicit EmuThread(QObject* parent = nullptr);
+
+    // to be called from the UI thread
+    void emuRun();
+    void emuPause(bool refresh);
+    void emuUnpause();
+    void emuStop();
+
+private:
+    volatile int EmuStatus;
+    int PrevEmuStatus;
+    int EmuRunning;
+};
+
+
+class MainWindowPanel : public QWidget
+{
+    Q_OBJECT
+
+public:
+    explicit MainWindowPanel(QWidget* parent);
+    ~MainWindowPanel();
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+};
+
 
 class MainWindow : public QMainWindow
 {
@@ -29,8 +66,11 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
+private slots:
+    void onOpenFile();
+
 private:
-    // private shit goes here
+    MainWindowPanel* panel;
 };
 
 #endif // MAIN_H
