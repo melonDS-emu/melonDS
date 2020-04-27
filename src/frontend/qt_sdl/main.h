@@ -22,6 +22,7 @@
 #include <QThread>
 #include <QWidget>
 #include <QMainWindow>
+#include <QImage>
 
 
 class EmuThread : public QThread
@@ -55,6 +56,9 @@ public:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+
+private:
+    QImage* screen[2];
 };
 
 

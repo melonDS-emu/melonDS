@@ -299,7 +299,6 @@ void EmuThread::run()
 
             SDL_Delay(100);
         }
-        printf("ran iteration: status=%d run=%d\n", EmuStatus, EmuRunning);
     }
 
     EmuStatus = 0;
@@ -325,6 +324,7 @@ void EmuThread::run()
 void EmuThread::emuRun()
 {
     EmuRunning = 1;
+    RunningSomething = true;
 }
 
 void EmuThread::emuPause(bool refresh)
@@ -348,10 +348,14 @@ void EmuThread::emuStop()
 
 MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
 {
+    screen[0] = new QImage(256, 192, QImage::Format_RGB32);
+    screen[1] = new QImage(256, 192, QImage::Format_RGB32);
 }
 
 MainWindowPanel::~MainWindowPanel()
 {
+    delete screen[0];
+    delete screen[1];
 }
 
 void MainWindowPanel::paintEvent(QPaintEvent* event)
@@ -361,7 +365,19 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
-    painter.fillRect(0, 0, 256, 192, QColor::fromRgb(0, 255, 255));
+    int frontbuf = GPU::FrontBuffer;
+    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
+
+    memcpy(screen[0]->scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
+    memcpy(screen[1]->scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
+
+    QRect src = QRect(0, 0, 256, 192);
+
+    QRect dstTop = QRect(0, 0, 256, 192); // TODO
+    QRect dstBot = QRect(0, 192, 256, 192); // TODO
+
+    painter.drawImage(dstTop, *screen[0]);
+    painter.drawImage(dstBot, *screen[1]);
 }
 
 
