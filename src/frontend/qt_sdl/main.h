@@ -81,6 +81,9 @@ protected:
 private slots:
     void onOpenFile();
     void onBootFirmware();
+    void onSaveState();
+    void onLoadState();
+    void onUndoStateLoad();
     void onQuit();
 
     void onTitleUpdate(QString title);
@@ -90,6 +93,9 @@ private:
 
     QAction* actOpenROM;
     QAction* actBootFirmware;
+    QAction* actSaveState[9];
+    QAction* actLoadState[9];
+    QAction* actUndoStateLoad;
     QAction* actQuit;
 };
 

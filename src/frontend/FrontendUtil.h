@@ -47,7 +47,7 @@ bool LoadBIOS();
 // note: loading a ROM to the NDS slot resets emulation
 bool LoadROM(const char* file, int slot);
 
-// get the filename associated with the given savestate slot
+// get the filename associated with the given savestate slot (1-8)
 void GetSavestateName(int slot, char* filename, int len);
 
 // determine whether the given savestate slot does contain a savestate

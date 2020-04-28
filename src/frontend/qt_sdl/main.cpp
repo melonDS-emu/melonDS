@@ -395,12 +395,55 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     {
         QMenu* menu = menubar->addMenu("File");
 
-        actOpenROM = menu->addAction("Open file...");
+        actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
 
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
+
+        menu->addSeparator();
+
+        {
+            QMenu* submenu = menu->addMenu("Save state");
+
+            for (int i = 1; i < 9; i++)
+            {
+                char title[16];
+                sprintf(title, "%d", i);
+                actSaveState[i] = submenu->addAction(title);
+                actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+i-1)));
+                actSaveState[i]->setData(QVariant(i));
+                connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
+            }
+
+            actSaveState[0] = submenu->addAction("File...");
+            actSaveState[0]->setShortcut(QKeySequence(Qt::ShiftModifier | Qt::Key_F9));
+            actSaveState[0]->setData(QVariant(0));
+            connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Load state");
+
+            for (int i = 1; i < 9; i++)
+            {
+                char title[16];
+                sprintf(title, "%d", i);
+                actLoadState[i] = submenu->addAction(title);
+                actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1+i-1));
+                actLoadState[i]->setData(QVariant(i));
+                connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
+            }
+
+            actLoadState[0] = submenu->addAction("File...");
+            actLoadState[0]->setShortcut(QKeySequence(Qt::Key_F9));
+            actLoadState[0]->setData(QVariant(0));
+            connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
+        }
+
+        actUndoStateLoad = menu->addAction("Undo state load");
+        actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
+        connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
         menu->addSeparator();
 
@@ -497,6 +540,102 @@ void MainWindow::onBootFirmware()
     {
         emuThread->emuRun();
     }
+}
+
+void MainWindow::onSaveState()
+{
+    int slot = ((QAction*)sender())->data().toInt();
+
+    emuThread->emuPause(true);
+
+    char filename[1024];
+    if (slot > 0)
+    {
+        Frontend::GetSavestateName(slot, filename, 1024);
+    }
+    else
+    {
+        // TODO: specific 'last directory' for savestate files?
+        QString qfilename = QFileDialog::getSaveFileName(this,
+                                                         "Save state",
+                                                         Config::LastROMFolder,
+                                                         "melonDS savestates (*.mln);;Any file (*.*)");
+        if (qfilename.isEmpty())
+        {
+            emuThread->emuUnpause();
+            return;
+        }
+
+        strncpy(filename, qfilename.toStdString().c_str(), 1023); filename[1023] = '\0';
+    }
+
+    if (Frontend::SaveState(filename))
+    {
+        // TODO: OSD message
+    }
+    else
+    {
+        // TODO: OSD error message?
+    }
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onLoadState()
+{
+    int slot = ((QAction*)sender())->data().toInt();
+
+    emuThread->emuPause(true);
+
+    char filename[1024];
+    if (slot > 0)
+    {
+        Frontend::GetSavestateName(slot, filename, 1024);
+    }
+    else
+    {
+        // TODO: specific 'last directory' for savestate files?
+        QString qfilename = QFileDialog::getOpenFileName(this,
+                                                         "Load state",
+                                                         Config::LastROMFolder,
+                                                         "melonDS savestates (*.ml*);;Any file (*.*)");
+        if (qfilename.isEmpty())
+        {
+            emuThread->emuUnpause();
+            return;
+        }
+
+        strncpy(filename, qfilename.toStdString().c_str(), 1023); filename[1023] = '\0';
+    }
+
+    if (!Platform::FileExists(filename))
+    {
+        /*char msg[64];
+        if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
+        else          sprintf(msg, "State file does not exist");
+        OSD::AddMessage(0xFFA0A0, msg);*/
+
+        emuThread->emuUnpause();
+        return;
+    }
+
+    if (Frontend::LoadState(filename))
+    {
+        // TODO: OSD message
+    }
+    else
+    {
+        // TODO: OSD error message?
+    }
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onUndoStateLoad()
+{
+    emuThread->emuPause(true);
+    Frontend::UndoStateLoad();
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onQuit()

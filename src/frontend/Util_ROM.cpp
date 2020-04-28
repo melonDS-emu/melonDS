@@ -69,6 +69,8 @@ bool LoadBIOS()
 
     NDS::LoadBIOS();
 
+    SavestateLoaded = false;
+
     // TODO: error reporting?
     return true;
 }
