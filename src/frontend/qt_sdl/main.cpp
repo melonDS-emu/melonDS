@@ -398,7 +398,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actOpenROM = menu->addAction("Open file...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
 
-        actBootFirmware = menu->addAction("Launch DS menu");
+        //actBootFirmware = menu->addAction("Launch DS menu");
+        actBootFirmware = menu->addAction("Boot firmware");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
 
         menu->addSeparator();
