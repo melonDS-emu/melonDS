@@ -75,13 +75,22 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
 private slots:
     void onOpenFile();
+    void onBootFirmware();
+    void onQuit();
 
     void onTitleUpdate(QString title);
 
 private:
     MainWindowPanel* panel;
+
+    QAction* actOpenROM;
+    QAction* actBootFirmware;
+    QAction* actQuit;
 };
 
 #endif // MAIN_H

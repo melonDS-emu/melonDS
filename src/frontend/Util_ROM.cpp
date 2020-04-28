@@ -57,6 +57,22 @@ void SetupSRAMPath(int slot)
     strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
 }
 
+bool LoadBIOS()
+{
+    // TODO:
+    // original code in the libui frontend called NDS::LoadGBAROM() if needed
+    // should this be carried over here?
+    // is that behavior consistent with that of LoadROM() below?
+
+    ROMPath[ROMSlot_NDS][0] = '\0';
+    SRAMPath[ROMSlot_NDS][0] = '\0';
+
+    NDS::LoadBIOS();
+
+    // TODO: error reporting?
+    return true;
+}
+
 bool LoadROM(const char* file, int slot)
 {
     char oldpath[1024];

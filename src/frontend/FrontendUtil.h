@@ -40,6 +40,9 @@ extern bool SavestateLoaded;
 // initialize the ROM handling utility
 void Init_ROM();
 
+// load the BIOS/firmware and boot from it
+bool LoadBIOS();
+
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
 bool LoadROM(const char* file, int slot);

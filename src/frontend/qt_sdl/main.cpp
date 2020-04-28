@@ -394,10 +394,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     QMenuBar* menubar = new QMenuBar();
     {
         QMenu* menu = menubar->addMenu("File");
-        QAction* act;
 
-        act = menu->addAction("Open file...");
-        connect(act, &QAction::triggered, this, &MainWindow::onOpenFile);
+        actOpenROM = menu->addAction("Open file...");
+        connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
+
+        actBootFirmware = menu->addAction("Launch DS menu");
+        connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
+
+        menu->addSeparator();
+
+        actQuit = menu->addAction("Quit");
+        connect(actQuit, &QAction::triggered, this, &MainWindow::onQuit);
     }
     setMenuBar(menubar);
 
@@ -408,6 +415,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+
+void MainWindow::keyPressEvent(QKeyEvent* event)
+{
+    printf("key press. %d %d %08X %08X\n", event->key(), event->nativeScanCode(), event->modifiers(), event->nativeModifiers());
 }
 
 
@@ -463,6 +476,31 @@ void MainWindow::onOpenFile()
     {
         emuThread->emuRun();
     }
+}
+
+void MainWindow::onBootFirmware()
+{
+    // TODO: ensure the firmware is actually bootable!!
+    // TODO: check the whole GBA cart shito
+
+    emuThread->emuPause(true);
+
+    bool res = Frontend::LoadBIOS();
+    if (!res)
+    {
+        // TODO!
+
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        emuThread->emuRun();
+    }
+}
+
+void MainWindow::onQuit()
+{
+    QApplication::quit();
 }
 
 
