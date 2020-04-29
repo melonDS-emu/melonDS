@@ -41,8 +41,14 @@ public:
     void emuUnpause();
     void emuStop();
 
+    bool emuIsRunning();
+
 signals:
     void windowTitleChange(QString title);
+
+    void windowEmuStart();
+    void windowEmuStop();
+    void windowPauseToggle();
 
 private:
     volatile int EmuStatus;
@@ -86,7 +92,16 @@ private slots:
     void onUndoStateLoad();
     void onQuit();
 
+    void onPause(bool checked);
+    void onReset();
+    void onStop();
+
     void onTitleUpdate(QString title);
+
+    void onEmuStart();
+    void onEmuStop();
+    void onEmuPause();
+    void onEmuUnpause();
 
 private:
     MainWindowPanel* panel;
@@ -97,6 +112,10 @@ private:
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
     QAction* actQuit;
+
+    QAction* actPause;
+    QAction* actReset;
+    QAction* actStop;
 };
 
 #endif // MAIN_H

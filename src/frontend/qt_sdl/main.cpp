@@ -63,6 +63,10 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     RunningSomething = false;
 
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
+    connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
+    connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
+
+    emit windowEmuStop();
 }
 
 void EmuThread::run()
@@ -331,6 +335,9 @@ void EmuThread::emuRun()
 {
     EmuRunning = 1;
     RunningSomething = true;
+
+    // checkme
+    emit windowEmuStart();
 }
 
 void EmuThread::emuPause(bool refresh)
@@ -339,16 +346,25 @@ void EmuThread::emuPause(bool refresh)
     PrevEmuStatus = EmuRunning;
     EmuRunning = status;
     while (EmuStatus != status);
+
+    //emit windowEmuPause();
 }
 
 void EmuThread::emuUnpause()
 {
     EmuRunning = PrevEmuStatus;
+
+    //emit windowEmuUnpause();
 }
 
 void EmuThread::emuStop()
 {
     EmuRunning = 0;
+}
+
+bool EmuThread::emuIsRunning()
+{
+    return (EmuRunning == 1);
 }
 
 
@@ -449,6 +465,19 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actQuit = menu->addAction("Quit");
         connect(actQuit, &QAction::triggered, this, &MainWindow::onQuit);
+    }
+    {
+        QMenu* menu = menubar->addMenu("System");
+
+        actPause = menu->addAction("Pause");
+        actPause->setCheckable(true);
+        connect(actPause, &QAction::triggered, this, &MainWindow::onPause);
+
+        actReset = menu->addAction("Reset");
+        connect(actReset, &QAction::triggered, this, &MainWindow::onReset);
+
+        actStop = menu->addAction("Stop");
+        connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
     }
     setMenuBar(menubar);
 
@@ -644,9 +673,73 @@ void MainWindow::onQuit()
 }
 
 
+void MainWindow::onPause(bool checked)
+{
+    if (emuThread->emuIsRunning())
+    {
+        emuThread->emuPause(true);
+    }
+    else
+    {
+        emuThread->emuUnpause();
+    }
+}
+
+void MainWindow::onReset()
+{
+    //
+}
+
+void MainWindow::onStop()
+{
+    //
+}
+
+
 void MainWindow::onTitleUpdate(QString title)
 {
     setWindowTitle(title);
+}
+
+void MainWindow::onEmuStart()
+{
+    for (int i = 1; i < 9; i++)
+    {
+        actSaveState[i]->setEnabled(true);
+        actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+    }
+    actSaveState[0]->setEnabled(true);
+    actLoadState[0]->setEnabled(true);
+    actUndoStateLoad->setEnabled(true);
+
+    actPause->setEnabled(true);
+    actPause->setChecked(false);
+    actReset->setEnabled(true);
+    actStop->setEnabled(true);
+}
+
+void MainWindow::onEmuStop()
+{
+    for (int i = 0; i < 9; i++)
+    {
+        actSaveState[i]->setEnabled(false);
+        actLoadState[i]->setEnabled(false);
+    }
+    actUndoStateLoad->setEnabled(false);
+
+    actPause->setEnabled(false);
+    actReset->setEnabled(false);
+    actStop->setEnabled(false);
+}
+
+void MainWindow::onEmuPause()
+{
+    //
+}
+
+void MainWindow::onEmuUnpause()
+{
+    //
 }
 
 
