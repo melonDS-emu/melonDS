@@ -34,27 +34,9 @@ if (UNIX)
 		add_definitions(-DUNIX_PORTABLE)
 	endif()
 
-	find_package(PkgConfig REQUIRED)
-	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-
-	target_include_directories(melonDS PRIVATE ${GTK3_INCLUDE_DIRS})
-	target_link_libraries(melonDS ${GTK3_LIBRARIES})
-
-	ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
-
-	add_custom_command(OUTPUT melon_grc.c
-		COMMAND glib-compile-resources --sourcedir=${CMAKE_SOURCE_DIR}
-				--target=${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c
-				--generate-source "${CMAKE_SOURCE_DIR}/melon_grc.xml"
-		COMMAND glib-compile-resources --sourcedir=${CMAKE_SOURCE_DIR}
-				--target=${CMAKE_CURRENT_BINARY_DIR}/melon_grc.h
-				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
-
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 		target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
 	endif ()
-
-	target_sources(melonDS PUBLIC melon_grc.c)
 elseif (WIN32)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32 Qt5::Core Qt5::Gui Qt5::Widgets)

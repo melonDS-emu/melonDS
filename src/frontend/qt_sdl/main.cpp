@@ -27,6 +27,7 @@
 #include <QFileDialog>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QStandardPaths>
 
 #include <SDL2/SDL.h>
 
@@ -778,11 +779,9 @@ int main(int argc, char** argv)
         strcpy(EmuDirectory, ".");
     }
 #else
-	const char* confdir = g_get_user_config_dir();
-	const char* confname = "/melonDS";
-	EmuDirectory = new char[strlen(confdir) + strlen(confname) + 1];
-	strcat(EmuDirectory, confdir);
-	strcat(EmuDirectory, confname);
+	QString confdir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/melonDS";
+	EmuDirectory = new char[confdir.length() + 1];
+	strcat(EmuDirectory, confdir.toStdString().c_str());
 #endif
 
     QApplication melon(argc, argv);

@@ -37,7 +37,8 @@
 	#define socket_t    SOCKET
 	#define sockaddr_t  SOCKADDR
 #else
-    #include <glib.h>
+    #include <QStandardPaths>
+	#include <QDir>
 	#include <unistd.h>
 	#include <arpa/inet.h>
 	#include <netinet/in.h>
@@ -139,6 +140,7 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 FILE* OpenLocalFile(const char* path, const char* mode)
 {
     std::string fullpath;
+
     if (path[0] == '/')
     {
         // If it's an absolute path, just open that.
@@ -147,9 +149,10 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     else
     {
         // Check user configuration directory
-        std::string confpath = std::string(g_get_user_config_dir()) + "/melonDS/";
-        g_mkdir_with_parents(confpath.c_str(), 0755);
-        fullpath = confpath + path;
+        QString confpath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/melonDS/";
+		confpath.append(path);
+
+		fullpath = confpath.toStdString();
     }
 
     return OpenFile(fullpath.c_str(), mode, mode[0] != 'w');
@@ -157,37 +160,27 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 
 FILE* OpenDataFile(const char* path)
 {
-    const char* melondir = "melonDS";
-    const char* const* sys_dirs = g_get_system_data_dirs();
-    const char* user_dir = g_get_user_data_dir();
+    QString melondir = "melonDS";
+    QStringList sys_dirs = QStandardPaths::standardLocations(QStandardPaths::DataLocation);
+    QString sep = QDir::separator();
 
-    // First check the user's data directory
-    char* fullpath = g_build_path("/", user_dir, melondir, path, NULL);
-    if (access(fullpath, R_OK) == 0)
-    {
-        FILE* f = fopen(fullpath, "r");
-        g_free(fullpath);
-        return f;
-    }
-    free(fullpath);
+    const char* found = NULL;
 
-    // Then check the system data directories
-    for (size_t i = 0; sys_dirs[i] != NULL; i++)
-    {
-        const char* dir = sys_dirs[i];
-        char* fullpath = g_build_path("/", dir, melondir, path, NULL);
+    for (int i = 0; i < sys_dirs.size(); i++) {
+        QString f = sys_dirs.at(i) + sep + melondir + sep + QString(path);
 
-        if (access(fullpath, R_OK) == 0)
-        {
-            FILE* f = fopen(fullpath, "r");
-            g_free(fullpath);
-            return f;
+        if (QFile::exists(f)) {
+            found = f.toStdString().c_str();
+            break;
         }
-        free(fullpath);
     }
 
-	FILE* f = fopen(path, "rb");
-	if (f) return f;
+    if (found == NULL)
+        return NULL;
+
+    FILE* f = fopen(found, "rb");
+    if (f)
+        return f;
 
     return NULL;
 }
@@ -299,7 +292,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     {
         // Now check XDG_CONFIG_HOME
         // TODO: check for memory leak there
-        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonDS/" + path;
+        std::string fullpath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation).toStdString() + "/melonDS/" + path;
         f = OpenFile(fullpath.c_str(), mode, true);
         if (f) { delete[] emudirpath; return f; }
     }
