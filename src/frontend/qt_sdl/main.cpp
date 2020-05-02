@@ -601,6 +601,8 @@ void MainWindow::onSaveState()
     if (Frontend::SaveState(filename))
     {
         // TODO: OSD message
+
+        actLoadState[slot]->setEnabled(true);
     }
     else
     {
