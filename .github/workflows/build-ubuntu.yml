@@ -1,6 +1,12 @@
 name: CMake Build (Ubuntu x86-64)
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 
 env:
   BUILD_TYPE: Release

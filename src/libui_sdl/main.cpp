@@ -2938,6 +2938,8 @@ int main(int argc, char** argv)
     Joystick = NULL;
     OpenJoystick();
 
+    NDS::Init();
+
     EmuRunning = 2;
     RunningSomething = false;
     EmuThread = SDL_CreateThread(EmuThreadFunc, "melonDS magic", NULL);

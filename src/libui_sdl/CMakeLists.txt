@@ -7,9 +7,8 @@ if (WIN32)
 	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
 
-find_package(SDL2 REQUIRED)
-include_directories(${SDL2_INCLUDE_DIR})
-#string(STRIP ${SDL2_LIBRARIES} SDL2_LIBRARIES)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED sdl2)
 
 SET(SOURCES_LIBUI
 	Platform.cpp
@@ -31,13 +30,13 @@ if (BUILD_FRONTEND)
 	)
 
 	add_executable(melonDS ${SOURCES_LIBUI})
-	target_link_libraries(melonDS
-		core ${SDL2_LIBRARIES} libui)
+	target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(melonDS core libui ${SDL2_LIBRARIES})
 else()
 	list(APPEND SOURCES_LIBUI MelonAPI.cpp)
 	add_library(melonDS SHARED ${SOURCES_LIBUI})
-	target_link_libraries(melonDS
-		core ${SDL2_LIBRARIES})
+	target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(melonDS core ${SDL2_LIBRARIES})
 endif()
 
 if (UNIX)
@@ -48,12 +47,9 @@ if (UNIX)
 
 	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-	pkg_check_modules(SDL2 REQUIRED sdl2)
 
-	target_include_directories(melonDS
-		PRIVATE ${GTK3_INCLUDE_DIRS} ${SDL2_INCLUDE_DIRS}
-	)
-	target_link_libraries(melonDS ${GTK3_LIBRARIES} ${SDL2_LIBRARIES})
+	target_include_directories(melonDS PRIVATE ${GTK3_INCLUDE_DIRS})
+	target_link_libraries(melonDS ${GTK3_LIBRARIES})
 
 	ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
 
@@ -73,7 +69,7 @@ if (UNIX)
 elseif (WIN32)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 	target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi)
+	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
 endif ()
 
 install(FILES ../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)

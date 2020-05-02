@@ -181,6 +181,8 @@ u8 RenderFogDensityTable[34];
 
 u32 RenderClearAttr1, RenderClearAttr2;
 
+u32 ZeroDotWLimit;
+
 u32 GXStat;
 
 u32 ExecParams[32];
@@ -330,6 +332,8 @@ void Reset()
     DispCnt = 0;
     AlphaRef = 0;
 
+    ZeroDotWLimit = 0; // CHECKME
+
     GXStat = 0;
 
     memset(ExecParams, 0, 32*4);
@@ -406,6 +410,8 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&DispCnt);
     file->Var8(&AlphaRef);
+
+    file->Var32(&ZeroDotWLimit);
 
     file->Var32(&GXStat);
 
@@ -616,27 +622,12 @@ void DoSavestate(Savestate* file)
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
 
-    if (file->IsAtleastVersion(2, 1))
-    {
-        // command stall queue, only in version 2.1 and up
-        CmdStallQueue->DoSavestate(file);
-        file->Var32((u32*)&VertexPipeline);
-        file->Var32((u32*)&NormalPipeline);
-        file->Var32((u32*)&PolygonPipeline);
-        file->Var32((u32*)&VertexSlotCounter);
-        file->Var32(&VertexSlotsFree);
-    }
-    else
-    {
-        // for version 2.0, just clear it. not having it doesn't matter
-        // if this comes from older melonDS revisions.
-        CmdStallQueue->Clear();
-        VertexPipeline = 0;
-        NormalPipeline = 0;
-        PolygonPipeline = 0;
-        VertexSlotCounter = 0;
-        VertexSlotsFree = 1;
-    }
+    CmdStallQueue->DoSavestate(file);
+    file->Var32((u32*)&VertexPipeline);
+    file->Var32((u32*)&NormalPipeline);
+    file->Var32((u32*)&PolygonPipeline);
+    file->Var32((u32*)&VertexSlotCounter);
+    file->Var32(&VertexSlotsFree);
 
     if (!file->Saving)
     {
@@ -938,7 +929,7 @@ void StallPolygonPipeline(s32 delay, s32 nonstalldelay)
 
 
 template<int comp, s32 plane, bool attribs>
-void ClipSegment(Vertex* outbuf, Vertex* vout, Vertex* vin)
+void ClipSegment(Vertex* outbuf, Vertex* vin, Vertex* vout)
 {
     s64 factor_num = vin->Position[3] - (plane*vin->Position[comp]);
     s32 factor_den = factor_num - (vout->Position[3] - (plane*vout->Position[comp]));
@@ -1220,6 +1211,93 @@ void SubmitPolygon()
         return;
     }
 
+    // reject the polygon if it's not going to fit in polygon/vertex RAM
+
+    if (NumPolygons >= 2048 || NumVertices+nverts > 6144)
+    {
+        LastStripPolygon = NULL;
+        DispCnt |= (1<<13);
+        return;
+    }
+
+    // compute screen coordinates
+
+    for (int i = clipstart; i < nverts; i++)
+    {
+        Vertex* vtx = &clippedvertices[i];
+
+        // W is truncated to 24 bits at this point
+        // if this W is zero, the polygon isn't rendered
+        vtx->Position[3] &= 0x00FFFFFF;
+
+        // viewport transform
+        // note: the DS performs these divisions using a 32-bit divider
+        // thus, if W is greater than 0xFFFF, some precision is sacrificed
+        // to make the numbers fit into the divider
+        u32 posX, posY;
+        u32 w = vtx->Position[3];
+        if (w == 0)
+        {
+            posX = 0;
+            posY = 0;
+        }
+        else
+        {
+            posX = vtx->Position[0] + w;
+            posY = -vtx->Position[1] + w;
+            u32 den = w;
+
+            if (w > 0xFFFF)
+            {
+                posX >>= 1;
+                posY >>= 1;
+                den  >>= 1;
+            }
+
+            den <<= 1;
+            posX = (((posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
+            posY = (((posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
+        }
+
+        vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;
+        vtx->HiresPosition[1] = posY & (0x100 << HD_SHIFT) - 1;
+    }
+
+    // zero-dot W check:
+    // * if the polygon's vertices all have the same screen coordinates, it is considered to be zero-dot
+    // * if all the vertices have a W greater than the threshold defined in register 0x04000610,
+    //   the polygon is rejected, unless bit13 in the polygon attributes is set
+
+    if (!(CurPolygonAttr & (1<<13)))
+    {
+        bool zerodot = true;
+        bool allbehind = true;
+
+        for (int i = 0; i < nverts; i++)
+        {
+            Vertex* vtx = &clippedvertices[i];
+
+            if (vtx->HiresPosition[0] != clippedvertices[0].HiresPosition[0] ||
+                vtx->HiresPosition[1] != clippedvertices[0].HiresPosition[1])
+            {
+                zerodot = false;
+                break;
+            }
+
+            if (vtx->Position[3] <= ZeroDotWLimit)
+            {
+                allbehind = false;
+                break;
+            }
+        }
+
+        if (zerodot && allbehind)
+        {
+            LastStripPolygon = NULL;
+            return;
+        }
+    }
+
     // build the actual polygon
 
     if (nverts == 4)
@@ -1235,13 +1313,6 @@ void SubmitPolygon()
         VertexSlotCounter = 1;
         if (PolygonMode & 0x2) VertexSlotsFree = 0b1000;
         else                   VertexSlotsFree = 0b1110;
-    }
-
-    if (NumPolygons >= 2048 || NumVertices+nverts > 6144)
-    {
-        LastStripPolygon = NULL;
-        DispCnt |= (1<<13);
-        return;
     }
 
     Polygon* poly = &CurPolygonRAM[NumPolygons++];
@@ -1297,27 +1368,6 @@ void SubmitPolygon()
 
         NumVertices++;
         poly->NumVertices++;
-
-        // W is truncated to 24 bits at this point
-        // if this W is zero, the polygon isn't rendered
-        vtx->Position[3] &= 0x00FFFFFF;
-
-        // viewport transform
-        s32 posX, posY;
-        s32 w = vtx->Position[3];
-        if (w == 0)
-        {
-            posX = 0;
-            posY = 0;
-        }
-        else
-        {
-            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << HD_SHIFT) / (((s64)w) << 1)) + (Viewport[0] << HD_SHIFT);
-            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << HD_SHIFT) / (((s64)w) << 1)) + (Viewport[3] << HD_SHIFT);
-        }
-
-        vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;;
-        vtx->HiresPosition[1] = posY & (0x100 << HD_SHIFT) - 1;;
 
         vtx->FinalColor[0] = vtx->Color[0] >> 12;
         if (vtx->FinalColor[0]) vtx->FinalColor[0] = ((vtx->FinalColor[0] << 4) + 0xF);
@@ -2756,9 +2806,21 @@ void Write8(u32 addr, u8 val)
         return;
     }
 
+    if (addr >= 0x04000330 && addr < 0x04000340)
+    {
+        ((u8*)EdgeTable)[addr - 0x04000330] = val;
+        return;
+    }
+
     if (addr >= 0x04000360 && addr < 0x04000380)
     {
         FogDensityTable[addr - 0x04000360] = val & 0x7F;
+        return;
+    }
+
+    if (addr >= 0x04000380 && addr < 0x040003C0)
+    {
+        ((u8*)ToonTable)[addr - 0x04000380] = val;
         return;
     }
 
@@ -2821,6 +2883,11 @@ void Write16(u32 addr, u16 val)
         GXStat &= 0x3FFFFFFF;
         GXStat |= (val << 16);
         CheckFIFOIRQ();
+        return;
+
+    case 0x04000610:
+        val &= 0x7FFF;
+        ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
     }
 
@@ -2892,6 +2959,11 @@ void Write32(u32 addr, u32 val)
         GXStat &= 0x3FFFFFFF;
         GXStat |= val;
         CheckFIFOIRQ();
+        return;
+
+    case 0x04000610:
+        val &= 0x7FFF;
+        ZeroDotWLimit = (val * 0x200) + 0x1FF;
         return;
     }
 

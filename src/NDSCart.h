@@ -52,6 +52,7 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+void DecryptSecureArea(u8* out);
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadROM(const u8* file, s32 fileSize, bool direct);
 void RelocateSave(const char* path, bool write);
