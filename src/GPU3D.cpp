@@ -1256,8 +1256,8 @@ void SubmitPolygon()
             }
 
             den <<= 1;
-            posX = (((posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
-            posY = (((posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
+            posX = (((u64)(posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
+            posY = (((u64)(posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
         }
 
         vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;

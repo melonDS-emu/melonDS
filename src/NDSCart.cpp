@@ -930,8 +930,6 @@ u32 InitROM(u32 expectedLen, bool direct)
 
     printf("Cart ID: %08X\n", CartID);
 
-    u32 arm9base = *(u32*)&CartROM[0x20];
-
     if (direct || !NDS::CanBootToFirmware())
     {
         // TODO: in the case of an already-encrypted secure area, direct boot
