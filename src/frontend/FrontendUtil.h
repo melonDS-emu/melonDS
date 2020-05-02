@@ -63,6 +63,19 @@ bool SaveState(const char* filename);
 // undo the latest savestate load
 void UndoStateLoad();
 
+
+// initialize the audio utility
+void Init_Audio(int outputfreq);
+
+// get how many samples to read from the core audio output
+// based on how many are needed by the frontend (outlen in samples)
+int AudioOut_GetNumSamples(int outlen);
+
+// resample audio from the core audio output to match the frontend's
+// output frequency, and apply user-specified volume
+// note: this assumes the output buffer is interleaved stereo
+void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen);
+
 }
 
 #endif // FRONTENDUTIL_H

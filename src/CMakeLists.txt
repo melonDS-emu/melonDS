@@ -4,6 +4,7 @@ add_library(core STATIC
 	ARCodeList.cpp
 	AREngine.cpp
 	ARM.cpp
+	ARM_InstrTable.h
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp
 	ARMInterpreter_Branch.cpp
@@ -12,11 +13,13 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
+	FIFO.h
 	GBACart.cpp
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp
 	GPU3D_OpenGL.cpp
+	GPU3D_OpenGL_shaders.h
 	GPU3D_Soft.cpp
 	NDS.cpp
 	NDSCart.cpp

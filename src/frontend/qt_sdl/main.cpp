@@ -48,12 +48,56 @@
 #include "Savestate.h"
 
 
+// TODO: uniform variable spelling
+
 char* EmuDirectory;
 
 bool RunningSomething;
 
 MainWindow* mainWindow;
 EmuThread* emuThread;
+
+SDL_AudioDeviceID audioDevice;
+int audioFreq;
+SDL_cond* audioSync;
+SDL_mutex* audioSyncLock;
+
+
+void audioCallback(void* data, Uint8* stream, int len)
+{
+    len /= (sizeof(s16) * 2);
+
+    // resample incoming audio to match the output sample rate
+
+    int len_in = Frontend::AudioOut_GetNumSamples(len);
+    s16 buf_in[1024*2];
+    int num_in;
+
+    SDL_LockMutex(audioSyncLock);
+    num_in = SPU::ReadOutput(buf_in, len_in);
+    SDL_CondSignal(audioSync);
+    SDL_UnlockMutex(audioSyncLock);
+
+    if (num_in < 1)
+    {
+        memset(stream, 0, len*sizeof(s16)*2);
+        return;
+    }
+
+    int margin = 6;
+    if (num_in < len_in-margin)
+    {
+        int last = num_in-1;
+        if (last < 0) last = 0;
+
+        for (int i = num_in; i < len_in-margin; i++)
+            ((u32*)buf_in)[i] = ((u32*)buf_in)[last];
+
+        num_in = len_in-margin;
+    }
+
+    Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len);
+}
 
 
 EmuThread::EmuThread(QObject* parent) : QThread(parent)
@@ -213,18 +257,18 @@ void EmuThread::run()
             mainWindow->update();
 
             bool fastforward = false;
-            /*bool fastforward = HotkeyDown(HK_FastForward);
+            //bool fastforward = HotkeyDown(HK_FastForward);
 
-            if (Config::AudioSync && !fastforward)
+            if (Config::AudioSync && (!fastforward) && audioDevice)
             {
-                SDL_LockMutex(AudioSyncLock);
+                SDL_LockMutex(audioSyncLock);
                 while (SPU::GetOutputSize() > 1024)
                 {
-                    int ret = SDL_CondWaitTimeout(AudioSync, AudioSyncLock, 500);
+                    int ret = SDL_CondWaitTimeout(audioSync, audioSyncLock, 500);
                     if (ret == SDL_MUTEX_TIMEDOUT) break;
                 }
-                SDL_UnlockMutex(AudioSyncLock);
-            }*/
+                SDL_UnlockMutex(audioSyncLock);
+            }
 
             float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
 
@@ -338,6 +382,7 @@ void EmuThread::emuRun()
 
     // checkme
     emit windowEmuStart();
+    if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
 }
 
 void EmuThread::emuPause(bool refresh)
@@ -348,6 +393,7 @@ void EmuThread::emuPause(bool refresh)
     while (EmuStatus != status);
 
     //emit windowEmuPause();
+    if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
 }
 
 void EmuThread::emuUnpause()
@@ -355,11 +401,14 @@ void EmuThread::emuUnpause()
     EmuRunning = PrevEmuStatus;
 
     //emit windowEmuUnpause();
+    if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
 }
 
 void EmuThread::emuStop()
 {
     EmuRunning = 0;
+
+    if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
 }
 
 bool EmuThread::emuIsRunning()
@@ -908,6 +957,32 @@ int main(int argc, char** argv)
     }
 #endif
 
+    audioSync = SDL_CreateCond();
+    audioSyncLock = SDL_CreateMutex();
+
+    audioFreq = 48000; // TODO: make configurable?
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = audioFreq;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 2;
+    whatIwant.samples = 1024;
+    whatIwant.callback = audioCallback;
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+    if (!audioDevice)
+    {
+        printf("Audio init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        audioFreq = whatIget.freq;
+        printf("Audio output frequency: %d Hz\n", audioFreq);
+        SDL_PauseAudioDevice(audioDevice, 1);
+    }
+
+    Frontend::Init_ROM();
+    Frontend::Init_Audio(audioFreq);
+
     mainWindow = new MainWindow();
     mainWindow->show();
 
@@ -954,6 +1029,15 @@ int main(int argc, char** argv)
 
     emuThread->emuStop();
     emuThread->wait();
+
+    //if (Joystick) SDL_JoystickClose(Joystick);
+    if (audioDevice) SDL_CloseAudioDevice(audioDevice);
+    //if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
+
+    SDL_DestroyCond(audioSync);
+    SDL_DestroyMutex(audioSyncLock);
+
+    //if (MicWavBuffer) delete[] MicWavBuffer;
 
     Config::Save();
 
