@@ -411,7 +411,8 @@ void DoSavestate(Savestate* file)
     file->Var32(&DispCnt);
     file->Var8(&AlphaRef);
 
-    file->Var32(&ZeroDotWLimit);
+    if (file->IsAtleastVersion(6, 4))
+        file->Var32(&ZeroDotWLimit);
 
     file->Var32(&GXStat);
 
