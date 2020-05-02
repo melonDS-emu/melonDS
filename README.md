@@ -94,6 +94,7 @@ If everything went well, melonDS and the libraries it needs should now be in the
 
  * Martin for GBAtek, a good piece of documentation
  * Cydrak for the extra 3D GPU research
+ * limittox for the icon
  * All of you comrades who have been testing melonDS, reporting issues, suggesting shit, etc
 
 ## License
