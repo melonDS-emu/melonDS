@@ -147,10 +147,6 @@ void EmuThread::run()
     u32 lasttick = starttick;
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
-    u64 perfcount = SDL_GetPerformanceCounter();
-    u64 perffreq = SDL_GetPerformanceFrequency();
-    float samplesleft = 0;
-    u32 nsamples = 0;
 
     char melontitle[100];
 
@@ -288,7 +284,6 @@ void EmuThread::run()
                     if ((abs(wantedtickF - (float)wantedtick) < 0.001312) || (fpslimitcount > 60))
                     {
                         fpslimitcount = 0;
-                        nsamples = 0;
                         starttick = lasttick;
                     }
                 }
