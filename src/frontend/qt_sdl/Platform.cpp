@@ -85,7 +85,9 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 		return nullptr;
 	}
 
-	f.open(QIODevice::ReadWrite);
+	QIODevice::OpenMode qmode = mode[0] == 'w' ? QIODevice::ReadWrite : QIODevice::ReadOnly;
+
+	f.open(qmode);
 	FILE* file = fdopen(dup(f.handle()), mode);
 	f.close();
 
