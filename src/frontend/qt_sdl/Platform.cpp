@@ -80,10 +80,12 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
 	QFile f(path);
 
-	if (!mustexist && !f.exists())
+	if (mustexist && !f.exists())
+	{
 		return nullptr;
+	}
 
-	f.open(QIODevice::ReadOnly);
+	f.open(QIODevice::ReadWrite);
 	FILE* file = fdopen(dup(f.handle()), mode);
 	f.close();
 
@@ -105,7 +107,9 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 		fullpath = QString("./") + path;
 #else
 		// Check user configuration directory
-		fullpath = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/melonDS/";
+		QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+		config.mkdir("melonDS");
+		fullpath = config.absolutePath() + "/melonDS/";
 		fullpath.append(path);
 #endif
 	}
