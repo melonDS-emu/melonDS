@@ -289,8 +289,7 @@ bool Init()
 
 void DeInit()
 {
-    if (Renderer == 0) SoftRenderer::DeInit();
-    else               GLRenderer::DeInit();
+    DeInitRenderer();
 
     delete CmdFIFO;
     delete CmdPIPE;
@@ -1219,12 +1218,8 @@ void SubmitPolygon()
             posY = (((u64)(posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
         }
 
-
-
-
         vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;;
         vtx->HiresPosition[1] = posY & (0x200 << HD_SHIFT) - 1;;
-
     }
 
     // zero-dot W check:
@@ -1241,8 +1236,8 @@ void SubmitPolygon()
         {
             Vertex* vtx = &clippedvertices[i];
 
-            if (vtx->FinalPosition[0] != clippedvertices[0].FinalPosition[0] ||
-                vtx->FinalPosition[1] != clippedvertices[0].FinalPosition[1])
+            if (vtx->HiresPosition[0] != clippedvertices[0].HiresPosition[0] ||
+                vtx->HiresPosition[1] != clippedvertices[0].HiresPosition[1])
             {
                 zerodot = false;
                 break;

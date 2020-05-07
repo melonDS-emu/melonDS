@@ -85,7 +85,7 @@ GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
 u32 BufferWidth, BufferHeight;
-u32 ResMultiplier = -1;
+s32 ResMultiplier = -1;
 
 bool Init()
 {
@@ -110,6 +110,8 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+    // This must happen so that UpdateRenderSettings will create new buffers
+    ResMultiplier = 0;
 }
 
 void Reset()
@@ -277,7 +279,7 @@ void AssignFramebuffers()
 
 void UpdateRenderSettings(bool accel)
 {
-    u32 resMultiplier = Config::ScaleFactor;
+    int resMultiplier = Config::ScaleFactor;
     if (accel) resMultiplier = 1; // GL renderer will handle this elsewhere
     if (resMultiplier <= 0)
         resMultiplier = ResMultiplier <= 0 ? 1 : ResMultiplier;

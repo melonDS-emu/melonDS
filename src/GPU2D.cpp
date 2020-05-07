@@ -94,10 +94,16 @@ GPU2D::GPU2D(u32 num)
             MosaicTable[m][x] = offset;
         }
     }
+
+    Framebuffer = NULL;
+    BGOBJLine = NULL;
+    _3DLine = NULL;
 }
 
 GPU2D::~GPU2D()
 {
+    if (BGOBJLine) delete[] BGOBJLine;
+    BGOBJLine = NULL;
 }
 
 void GPU2D::Reset()

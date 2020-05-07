@@ -76,7 +76,7 @@ extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;
 
 extern u32 BufferWidth, BufferHeight;
-extern u32 ResMultiplier;
+extern s32 ResMultiplier;
 
 bool Init();
 void DeInit();
