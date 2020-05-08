@@ -97,6 +97,10 @@ void ARMv5::CP15DoSavestate(Savestate* file)
 
 void ARMv5::UpdateDTCMSetting()
 {
+#ifdef JIT_ENABLED
+    u32 oldDTCMBase = DTCMBase;
+    u32 oldDTCMSize = DTCMSize;
+#endif
     if (CP15Control & (1<<16))
     {
         DTCMBase = DTCMSetting & 0xFFFFF000;
@@ -109,10 +113,20 @@ void ARMv5::UpdateDTCMSetting()
         DTCMSize = 0;
         //printf("DTCM disabled\n");
     }
+#ifdef JIT_ENABLED
+    if (oldDTCMBase != DTCMBase || oldDTCMSize != DTCMSize)
+    {
+        ARMJIT::UpdateMemoryStatus9(oldDTCMBase, oldDTCMBase + oldDTCMSize);
+        ARMJIT::UpdateMemoryStatus9(DTCMBase, DTCMBase + DTCMSize);
+    }
+#endif
 }
 
 void ARMv5::UpdateITCMSetting()
 {
+#ifdef JIT_ENABLED
+    u32 oldITCMSize = ITCMSize;
+#endif
     if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
@@ -123,6 +137,10 @@ void ARMv5::UpdateITCMSetting()
         ITCMSize = 0;
         //printf("ITCM disabled\n");
     }
+#ifdef JIT_ENABLED
+    if (oldITCMSize != ITCMSize)
+        ARMJIT::UpdateMemoryStatus9(0, std::max(oldITCMSize, ITCMSize));
+#endif
 }
 
 
@@ -561,15 +579,9 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x750:
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateAll();
-#endif
         ICacheInvalidateAll();
         return;
     case 0x751:
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateByAddr(ARMJIT::TranslateAddr<0>(val));
-#endif
         ICacheInvalidateByAddr(val);
         return;
     case 0x752:
@@ -732,7 +744,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 void ARMv5::DataRead8(u32 addr, u32* val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     if (addr < ITCMSize)
     {
@@ -753,7 +765,7 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 
 void ARMv5::DataRead16(u32 addr, u32* val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     addr &= ~1;
 
@@ -776,7 +788,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 
 void ARMv5::DataRead32(u32 addr, u32* val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     addr &= ~3;
 
@@ -820,14 +832,14 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 
 void ARMv5::DataWrite8(u32 addr, u8 val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     if (addr < ITCMSize)
     {
         DataCycles = 1;
         *(u8*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::InvalidateITCM(addr & 0x7FFF);
+        ARMJIT::InvalidateITCMIfNecessary(addr);
 #endif
         return;
     }
@@ -844,7 +856,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 
 void ARMv5::DataWrite16(u32 addr, u16 val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     addr &= ~1;
 
@@ -853,7 +865,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
         DataCycles = 1;
         *(u16*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::InvalidateITCM(addr & 0x7FFF);
+        ARMJIT::InvalidateITCMIfNecessary(addr);
 #endif
         return;
     }
@@ -870,7 +882,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 
 void ARMv5::DataWrite32(u32 addr, u32 val)
 {
-    DataRegion = addr >> 12;
+    DataRegion = addr;
 
     addr &= ~3;
 
@@ -879,7 +891,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
         DataCycles = 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::InvalidateITCM(addr & 0x7FFF);
+        ARMJIT::InvalidateITCMIfNecessary(addr);
 #endif
         return;
     }
@@ -903,7 +915,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
         DataCycles += 1;
         *(u32*)&ITCM[addr & 0x7FFF] = val;
 #ifdef JIT_ENABLED
-        ARMJIT::InvalidateITCM(addr & 0x7FFF);
+        ARMJIT::InvalidateITCMIfNecessary(addr);
 #endif
         return;
     }

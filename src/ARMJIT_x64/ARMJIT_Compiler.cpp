@@ -195,26 +195,6 @@ Compiler::Compiler()
 
     Reset();
 
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 2; j++)
-            MemoryFuncs9[i][j] = Gen_MemoryRoutine9(j, 8 << i);
-    }
-    MemoryFuncs7[0][0] = (void*)NDS::ARM7Read8;
-    MemoryFuncs7[0][1] = (void*)NDS::ARM7Write8;
-    MemoryFuncs7[1][0] = (void*)NDS::ARM7Read16;
-    MemoryFuncs7[1][1] = (void*)NDS::ARM7Write16;
-    MemoryFuncs7[2][0] = (void*)NDS::ARM7Read32;
-    MemoryFuncs7[2][1] = (void*)NDS::ARM7Write32;
-
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++)
-        {
-            MemoryFuncsSeq9[i][j] = Gen_MemoryRoutineSeq9(i, j);
-            MemoryFuncsSeq7[i][j][0] = Gen_MemoryRoutineSeq7(i, j, false);
-            MemoryFuncsSeq7[i][j][1] = Gen_MemoryRoutineSeq7(i, j, true);
-        }
-
     {
         // RSCRATCH mode
         // RSCRATCH2 reg number
@@ -317,6 +297,12 @@ Compiler::Compiler()
     // move the region forward to prevent overwriting the generated functions
     CodeMemSize -= GetWritableCodePtr() - ResetStart;
     ResetStart = GetWritableCodePtr();
+
+    NearStart = ResetStart;
+    FarStart = ResetStart + 1024*1024*24;
+
+    NearSize = FarStart - ResetStart;
+    FarSize = (ResetStart + CodeMemSize) - FarStart;
 }
 
 void Compiler::LoadCPSR()
@@ -504,6 +490,9 @@ void Compiler::Reset()
 {
     memset(ResetStart, 0xcc, CodeMemSize);
     SetCodePtr(ResetStart);
+
+    NearCode = NearStart;
+    FarCode = FarStart;
 }
 
 void Compiler::Comp_SpecialBranchBehaviour(bool taken)
@@ -544,8 +533,16 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
 
 JitBlockEntry Compiler::CompileBlock(u32 translatedAddr, ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
 {
-    if (CodeMemSize - (GetWritableCodePtr() - ResetStart) < 1024 * 32) // guess...
+    if (NearSize - (NearCode - NearStart) < 1024 * 32) // guess...
+    {
+        printf("near reset\n");
         ResetBlockCache();
+    }
+    if (FarSize - (FarCode - FarStart) < 1024 * 32) // guess...
+    {
+        printf("far reset\n");
+        ResetBlockCache();
+    }
 
     ConstantCycles = 0;
     Thumb = thumb;
@@ -762,12 +759,14 @@ void Compiler::Comp_AddCycles_CDI()
         Comp_AddCycles_CD();
     else
     {
+        IrregularCycles = true;
+
         s32 cycles;
 
         s32 numC = NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2];
         s32 numD = CurInstr.DataCycles;
 
-        if ((CurInstr.DataRegion >> 4) == 0x02) // mainRAM
+        if ((CurInstr.DataRegion >> 24) == 0x02) // mainRAM
         {
             if (CodeRegion == 0x02)
                 cycles = numC + numD;
