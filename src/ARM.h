@@ -320,7 +320,7 @@ public:
     void DataRead8(u32 addr, u32* val)
     {
         *val = BusRead8(addr);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
@@ -329,7 +329,7 @@ public:
         addr &= ~1;
 
         *val = BusRead16(addr);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
@@ -338,7 +338,7 @@ public:
         addr &= ~3;
 
         *val = BusRead32(addr);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
@@ -353,7 +353,7 @@ public:
     void DataWrite8(u32 addr, u8 val)
     {
         BusWrite8(addr, val);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
@@ -362,7 +362,7 @@ public:
         addr &= ~1;
 
         BusWrite16(addr, val);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
@@ -371,7 +371,7 @@ public:
         addr &= ~3;
 
         BusWrite32(addr, val);
-        DataRegion = addr >> 20;
+        DataRegion = addr;
         DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
@@ -402,7 +402,7 @@ public:
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
         s32 numD = DataCycles;
 
-        if ((DataRegion >> 4) == 0x02) // mainRAM
+        if ((DataRegion >> 24) == 0x02) // mainRAM
         {
             if (CodeRegion == 0x02)
                 Cycles -= numC + numD;
@@ -429,7 +429,7 @@ public:
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
         s32 numD = DataCycles;
 
-        if ((DataRegion >> 4) == 0x02)
+        if ((DataRegion >> 24) == 0x02)
         {
             if (CodeRegion == 0x02)
                 Cycles -= numC + numD;
@@ -452,6 +452,14 @@ namespace ARMInterpreter
 
 void A_UNK(ARM* cpu);
 void T_UNK(ARM* cpu);
+
+}
+
+namespace NDS
+{
+
+extern ARMv5* ARM9;
+extern ARMv4* ARM7;
 
 }
 

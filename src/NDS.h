@@ -80,7 +80,7 @@ enum
     IRQ_IPCSendDone,
     IRQ_IPCRecv,
     IRQ_CartSendDone, // TODO: less misleading name
-    IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokémon Typing Adventure, BT controller)
+    IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokï¿½mon Typing Adventure, BT controller)
     IRQ_GXFIFO,
     IRQ_LidOpen,
     IRQ_SPI,
@@ -163,6 +163,13 @@ extern u16 ARM7BIOSProt;
 
 extern u8 MainRAM[0x1000000];
 extern u32 MainRAMMask;
+extern u8 SharedWRAM[0x8000];
+extern u8* SWRAM_ARM9;
+extern u8* SWRAM_ARM7;
+extern u32 SWRAM_ARM9Mask;
+extern u32 SWRAM_ARM7Mask;
+
+extern u8 ARM7WRAM[0x10000];
 
 extern u32 KeyInput;
 

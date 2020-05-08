@@ -140,7 +140,7 @@ public:
     };
     void Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags);
     s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
-    void Comp_MemLoadLiteral(int size, int rd, u32 addr);
+    bool Comp_MemLoadLiteral(int size, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
@@ -154,12 +154,6 @@ public:
 
     void Comp_SpecialBranchBehaviour(bool taken);
 
-    void* Gen_MemoryRoutine9(bool store, int size);
-
-    void* Gen_MemoryRoutineSeq9(bool store, bool preinc);
-    void* Gen_MemoryRoutineSeq7(bool store, bool preinc, bool codeMainRAM);
-
-    void* Gen_ChangeCPSRRoutine();
 
     Gen::OpArg Comp_RegShiftImm(int op, int amount, Gen::OpArg rm, bool S, bool& carryUsed);
     Gen::OpArg Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, bool& carryUsed);
@@ -193,6 +187,26 @@ public:
         return (u8*)entry - ResetStart;
     }
 
+    void SwitchToNearCode()
+    {
+        FarCode = GetWritableCodePtr();
+        SetCodePtr(NearCode);
+    }
+
+    void SwitchToFarCode()
+    {
+        NearCode = GetWritableCodePtr();
+        SetCodePtr(FarCode);
+    }
+
+    u8* FarCode;
+    u8* NearCode;
+    u32 FarSize;
+    u32 NearSize;
+
+    u8* NearStart;
+    u8* FarStart;
+
     u8* ResetStart;
     u32 CodeMemSize;
 
@@ -200,12 +214,6 @@ public:
     bool IrregularCycles;
 
     void* BranchStub[2];
-
-    void* MemoryFuncs9[3][2];
-    void* MemoryFuncs7[3][2];
-
-    void* MemoryFuncsSeq9[2][2];
-    void* MemoryFuncsSeq7[2][2][2];
 
     void* ReadBanked;
     void* WriteBanked;
