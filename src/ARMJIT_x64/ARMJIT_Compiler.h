@@ -168,6 +168,9 @@ public:
 
     Gen::FixupBranch CheckCondition(u32 cond);
 
+    void PushRegs(bool saveHiRegs);
+    void PopRegs(bool saveHiRegs);
+
     Gen::OpArg MapReg(int reg)
     {
         if (reg == 15 && RegCache.Mapping[reg] == Gen::INVALID_REG)

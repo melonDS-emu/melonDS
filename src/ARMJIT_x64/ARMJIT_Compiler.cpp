@@ -26,7 +26,8 @@ const X64Reg RegisterCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 #ifdef _WIN32
     RBX, RSI, RDI, R12, R13, R14
 #else
-    RBX, R12, R13, R14 // this is sad
+    RBX, R12, R13, R14, // callee saved, this is sad
+    R9, R10, R11, // caller saved
 #endif
 };
 template <>
@@ -34,9 +35,45 @@ const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #ifdef _WIN32
     6
 #else
-    4
+    7
 #endif
 ;
+
+void Compiler::PushRegs(bool saveHiRegs)
+{
+    BitSet32 loadedRegs(RegCache.LoadedRegs);
+
+    if (saveHiRegs)
+    {
+        BitSet32 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
+        for (int reg : hiRegsLoaded)
+        {
+            if (Thumb || CurInstr.Cond() == 0xE)
+                RegCache.UnloadRegister(reg);
+            else
+                SaveReg(reg, RegCache.Mapping[reg]);
+            // prevent saving the register twice
+            loadedRegs[reg] = false;
+        }
+    }
+
+    for (int reg : loadedRegs)
+        if (BitSet32(1 << RegCache.Mapping[reg]) & ABI_ALL_CALLER_SAVED)
+            SaveReg(reg, RegCache.Mapping[reg]);
+}
+
+void Compiler::PopRegs(bool saveHiRegs)
+{
+    BitSet32 loadedRegs(RegCache.LoadedRegs);
+    for (int reg : loadedRegs)
+    {
+        if ((saveHiRegs && reg >= 8 && reg < 15)
+            || BitSet32(1 << RegCache.Mapping[reg]) & ABI_ALL_CALLER_SAVED)
+        {
+            LoadReg(reg, RegCache.Mapping[reg]);
+        }
+    }
+}
 
 void Compiler::A_Comp_MRS()
 {
@@ -136,27 +173,14 @@ void Compiler::A_Comp_MSR()
             AND(32, R(RSCRATCH2), val);
             OR(32, R(RCPSR), R(RSCRATCH2));
 
-            BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
-            if (Thumb || CurInstr.Cond() >= 0xE)
-                RegCache.Flush();
-            else
-            {
-                // the ugly way...
-                // we only save them, to load and save them again
-                for (int reg : hiRegsLoaded)
-                    SaveReg(reg, RegCache.Mapping[reg]);
-            }
+            PushRegs(true);
 
             MOV(32, R(ABI_PARAM3), R(RCPSR));
             MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
             MOV(64, R(ABI_PARAM1), R(RCPU));
             CALL((void*)&ARM::UpdateMode);
 
-            if (!Thumb && CurInstr.Cond() < 0xE)
-            {
-                for (int reg : hiRegsLoaded)
-                    LoadReg(reg, RegCache.Mapping[reg]);
-            }
+            PopRegs(true);
         }
     }
 }
