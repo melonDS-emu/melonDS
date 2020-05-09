@@ -24,7 +24,8 @@ template <>
 const X64Reg RegisterCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 {
 #ifdef _WIN32
-    RBX, RSI, RDI, R12, R13, R14
+    RBX, RSI, RDI, R12, R13, R14, // callee saved
+    R10, R11, // caller saved
 #else
     RBX, R12, R13, R14, // callee saved, this is sad
     R9, R10, R11, // caller saved
@@ -33,7 +34,7 @@ const X64Reg RegisterCache<Compiler, X64Reg>::NativeRegAllocOrder[] =
 template <>
 const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #ifdef _WIN32
-    6
+    8
 #else
     7
 #endif
