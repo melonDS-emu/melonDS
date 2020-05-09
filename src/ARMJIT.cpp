@@ -1042,13 +1042,13 @@ void CompileBlock(ARM* cpu)
 	u32 literalHash = (u32)XXH3_64bits(literalValues, numLiterals * 4);
 	u32 instrHash = (u32)XXH3_64bits(instrValues, i * 4);
 
-	JitBlock* prevBlock = RestoreCandidates.LookUp(pseudoPhysicalAddr);
+	JitBlock* prevBlock = RestoreCandidates.LookUp(instrHash);
 	bool mayRestore = true;
 	if (prevBlock)
 	{
-		RestoreCandidates.Remove(pseudoPhysicalAddr);
+		RestoreCandidates.Remove(instrHash);
 
-		mayRestore = prevBlock->LiteralHash == literalHash && prevBlock->InstrHash == instrHash;
+		mayRestore = prevBlock->PseudoPhysicalAddr == pseudoPhysicalAddr && prevBlock->LiteralHash == literalHash;
 
 		if (mayRestore && prevBlock->NumAddresses == numAddressRanges)
 		{
@@ -1125,6 +1125,7 @@ void CompileBlock(ARM* cpu)
 void InvalidateByAddr(u32 pseudoPhysical)
 {
 	JIT_DEBUGPRINT("invalidating by addr %x\n", pseudoPhysical);
+
 	AddressRange* range = &CodeRanges[pseudoPhysical / 512];
 	u32 mask = 1 << ((pseudoPhysical & 0x1FF) / 16);
 
@@ -1203,7 +1204,7 @@ void InvalidateByAddr(u32 pseudoPhysical)
 
 		if (!literalInvalidation)
 		{
-			JitBlock* prevBlock = RestoreCandidates.Insert(block->PseudoPhysicalAddr, block);
+			JitBlock* prevBlock = RestoreCandidates.Insert(block->InstrHash, block);
 			if (prevBlock)
 				delete prevBlock;
 		}
