@@ -138,18 +138,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     bool cpsrDirty = CPSRDirty;
     SaveCPSR();
 
-    if (restoreCPSR)
-    {
-        if (Thumb || CurInstr.Cond() >= 0xE)
-            RegCache.Flush();
-        else
-        {
-            // the ugly way...
-            // we only save them, to load and save them again
-            for (int reg : hiRegsLoaded)
-                SaveReg(reg, RegCache.Mapping[reg]);
-        }
-    }
+    PushRegs(restoreCPSR);
 
     MOV(64, R(ABI_PARAM1), R(RCPU));
     MOV(32, R(ABI_PARAM2), R(addr));
@@ -162,11 +151,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     else
         CALL((void*)&ARMv4::JumpTo);
 
-    if (!Thumb && restoreCPSR && CurInstr.Cond() < 0xE)
-    {
-        for (int reg : hiRegsLoaded)
-            LoadReg(reg, RegCache.Mapping[reg]);
-    }
+    PopRegs(restoreCPSR);
 
     LoadCPSR();
     // in case this instruction is skipped

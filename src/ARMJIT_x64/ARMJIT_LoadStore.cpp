@@ -283,6 +283,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
             }
             else
             {
+                PushRegs(false);
+
                 u32 maskedDataRegion;
 
                 if (addrIsStatic)
@@ -310,6 +312,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                     MOV(32, R(ABI_PARAM2), rdMapped);
 
                     ABI_CallFunction((void(*)())func);
+
+                    PopRegs(false);
                 }
                 else
                 {
@@ -317,6 +321,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                         MOV(32, rdMapped, R(RSCRATCH3));
 
                     ABI_CallFunction((void(*)())func);
+
+                    PopRegs(false);
 
                     if (!addrIsStatic)
                         MOV(32, R(RSCRATCH3), rdMapped);
@@ -352,6 +358,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
 
         if (compileSlowPath)
         {
+            PushRegs(false);
+
             if (Num == 0)
             {
                 MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
@@ -402,6 +410,9 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                     }
                 }
             }
+
+            PopRegs(false);
+
             if (!(flags & memop_Store))
             {
                 if (flags & memop_SignExtend)
@@ -561,6 +572,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     if (!store)
     {
+        PushRegs(false);
+
         MOV(32, R(ABI_PARAM1), R(RSCRATCH4));
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
         SUB(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
@@ -579,6 +592,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         case 2: CALL((void*)&SlowBlockTransfer7<false, false>); break;
         case 3: CALL((void*)&SlowBlockTransfer7<true, false>); break;
         }
+
+        PopRegs(false);
 
         if (allocOffset)
             ADD(64, R(RSP), Imm8(allocOffset));
@@ -655,6 +670,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (allocOffset)
             SUB(64, R(RSP), Imm8(allocOffset));
 
+        PushRegs(false);
+
         MOV(32, R(ABI_PARAM1), R(RSCRATCH4));
         if (allocOffset)
             LEA(64, ABI_PARAM2, MDisp(RSP, allocOffset));
@@ -674,6 +691,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         }
 
         ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
+    
+        PopRegs(false);
     }
 
     if (compileFastPath)
