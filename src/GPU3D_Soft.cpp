@@ -1186,7 +1186,7 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     PrevIsShadowMask = true;
 
-    if (polygon->YTop != polygon->YBottom)
+    if ((polygon->YTop * ResMultiplier) >> HD_SHIFT != (polygon->YBottom * ResMultiplier) >> HD_SHIFT)
     {
         s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
         if (y >= vy && rp->CurVL != polygon->VBottom)
@@ -1387,7 +1387,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     PrevIsShadowMask = false;
 
-    if (polygon->YTop != polygon->YBottom)
+    if ((polygon->YTop * ResMultiplier) >> HD_SHIFT != (polygon->YBottom * ResMultiplier) >> HD_SHIFT)
     {
         s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
         if (y >= vy && rp->CurVL != polygon->VBottom)
