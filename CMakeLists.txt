@@ -20,6 +20,10 @@ else()
 	option(ENABLE_LTO "Enable link-time optimization" OFF)
 endif()
 
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
+	add_compile_options(-Og)
+endif()
+
 if(ENABLE_LTO)
 	add_compile_options(-O3 -flto)
 	add_link_options(-flto)
