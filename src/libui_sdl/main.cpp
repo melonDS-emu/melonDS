@@ -20,6 +20,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 
 #ifndef __WIN32__
 #include <glib.h>

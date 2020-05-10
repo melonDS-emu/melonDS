@@ -65,7 +65,7 @@ macro(_handle_static)
 		OUTPUT ${_oname}
 		DEPENDS ${_LIBUINAME}
 		COMMAND
-			ld -r --whole-archive ${_aname} -o ${_oname}
+			${CMAKE_LINKER} -r --whole-archive ${_aname} -o ${_oname}
 		COMMAND
 			objcopy --localize-hidden ${_oname}
 		COMMENT "Removing hidden symbols")

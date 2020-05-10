@@ -22,6 +22,7 @@ endif()
 
 if(ENABLE_LTO)
 	add_compile_options(-O3 -flto)
+	add_link_options(-flto)
 	set(CMAKE_AR "gcc-ar")
 	set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
 	set(CMAKE_C_ARCHIVE_FINISH   true)
