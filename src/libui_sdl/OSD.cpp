@@ -419,8 +419,8 @@ void Update(bool opengl, uiAreaDrawParams* params)
                 item.DrawBitmapLoaded = true;
             }
 
-            uiRect rc_src = {0, 0, item.Width, item.Height};
-            uiRect rc_dst = {kOSDMargin, y, item.Width, item.Height};
+            uiRect rc_src = {0, 0, (int) item.Width, (int) item.Height};
+            uiRect rc_dst = {kOSDMargin, (int) y, (int) item.Width, (int) item.Height};
 
             uiDrawBitmapDraw(params->Context, item.DrawBitmap, &rc_src, &rc_dst, 0);
         }
