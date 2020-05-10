@@ -1278,8 +1278,9 @@ void SubmitPolygon()
         {
             Vertex* vtx = &clippedvertices[i];
 
-            if (vtx->HiresPosition[0] != clippedvertices[0].HiresPosition[0] ||
-                vtx->HiresPosition[1] != clippedvertices[0].HiresPosition[1])
+            // check with native resolution, since this is happening before the render process
+            if (vtx->HiresPosition[0] >> HD_SHIFT != clippedvertices[0].HiresPosition[0] >> HD_SHIFT ||
+                vtx->HiresPosition[1] >> HD_SHIFT != clippedvertices[0].HiresPosition[1] >> HD_SHIFT)
             {
                 zerodot = false;
                 break;
@@ -2523,7 +2524,7 @@ bool YSort(Polygon* a, Polygon* b)
     // * upon equal bottom AND top Y, original ordering is used
     // the SortKey is calculated as to implement these rules
 
-    return a->SortKey < b->SortKey;
+    return (a->SortKey * ResMultiplier) >> HD_SHIFT < (b->SortKey * ResMultiplier) >> HD_SHIFT;
 }
 
 void VBlank()
