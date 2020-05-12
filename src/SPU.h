@@ -142,6 +142,9 @@ public:
     }
 
     void PanOutput(s32* inbuf, u32 samples, s32* leftbuf, s32* rightbuf);
+
+private:
+    u32 (*BusRead32)(u32 addr);
 };
 
 class CaptureUnit
@@ -196,6 +199,9 @@ public:
     }
 
     void Run(s32 sample);
+
+private:
+    void (*BusWrite32)(u32 addr, u32 val);
 };
 
 }

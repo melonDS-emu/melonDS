@@ -19,6 +19,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdio.h>
+
 #include "types.h"
 
 namespace Config
@@ -40,11 +42,21 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
-extern int _3DRenderer;
-extern int Threaded3D;
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
 
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+extern char DSiBIOS9Path[1024];
+extern char DSiBIOS7Path[1024];
+extern char DSiFirmwarePath[1024];
+extern char DSiNANDPath[1024];
+
+#ifdef JIT_ENABLED
+extern int JIT_Enable;
+extern int JIT_MaxBlockSize;
+extern int JIT_BrancheOptimisations;
+extern int JIT_LiteralOptimisations;
+#endif
 
 #ifdef JIT_ENABLED
 extern int JIT_Enable;

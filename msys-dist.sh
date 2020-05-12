@@ -11,4 +11,4 @@ for lib in $(ldd melonDS.exe | grep mingw | sed "s/.*=> //" | sed "s/(.*)//"); d
 	cp "${lib}" dist
 done
 
-cp melonDS.exe romlist.bin dist
+cp melonDS.exe dist

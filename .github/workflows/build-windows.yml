@@ -25,7 +25,7 @@ jobs:
         7z x -y msys64.7z "-oC:\tools\"
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syuq --noconfirm"
     - name: Install dependencies
-      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}"
+      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,toolchain}"
     - name: Create build environment
       run: |
         New-Item -ItemType directory -Path ${{runner.workspace}}\melonDS\build
@@ -33,7 +33,7 @@ jobs:
     - name: Configure
       run: |
         C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
-        && cd melonDS/build && cmake .. -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}"
+        && cd melonDS/build && cmake .. -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DQT5_STATIC_DIR=C:/tools/msys64/mingw64/qt5-static"
     - name: Make
       run: |
         C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \

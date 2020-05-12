@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "SPU.h"
 
 
@@ -116,6 +117,9 @@ void Reset()
 void Stop()
 {
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+
+    OutputReadOffset = 0;
+    OutputWriteOffset = 0;
 }
 
 void DoSavestate(Savestate* file)
@@ -151,6 +155,11 @@ Channel::~Channel()
 
 void Channel::Reset()
 {
+    if (NDS::ConsoleType == 1)
+        BusRead32 = DSi::ARM7Read32;
+    else
+        BusRead32 = NDS::ARM7Read32;
+
     SetCnt(0);
     SrcAddr = 0;
     TimerReload = 0;
@@ -213,7 +222,7 @@ void Channel::FIFO_BufferData()
 
     for (u32 i = 0; i < burstlen; i += 4)
     {
-        FIFO[FIFOWritePos] = NDS::ARM7Read32(SrcAddr + FIFOReadOffset);
+        FIFO[FIFOWritePos] = BusRead32(SrcAddr + FIFOReadOffset);
         FIFOReadOffset += 4;
         FIFOWritePos++;
         FIFOWritePos &= 0x7;
@@ -461,6 +470,11 @@ CaptureUnit::~CaptureUnit()
 
 void CaptureUnit::Reset()
 {
+    if (NDS::ConsoleType == 1)
+        BusWrite32 = DSi::ARM7Write32;
+    else
+        BusWrite32 = NDS::ARM7Write32;
+
     SetCnt(0);
     DstAddr = 0;
     TimerReload = 0;
@@ -496,7 +510,7 @@ void CaptureUnit::FIFO_FlushData()
 {
     for (u32 i = 0; i < 4; i++)
     {
-        NDS::ARM7Write32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
+        BusWrite32(DstAddr + FIFOWriteOffset, FIFO[FIFOReadPos]);
 
         FIFOReadPos++;
         FIFOReadPos &= 0x3;

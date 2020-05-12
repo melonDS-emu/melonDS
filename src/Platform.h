@@ -24,6 +24,9 @@
 namespace Platform
 {
 
+void Init(int argc, char** argv);
+void DeInit();
+
 void StopEmu();
 
 // fopen() wrappers

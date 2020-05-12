@@ -86,6 +86,11 @@ private:
     bool Stall;
 
     bool IsGXFIFODMA;
+
+    u16 (*BusRead16)(u32 addr);
+    u32 (*BusRead32)(u32 addr);
+    void (*BusWrite16)(u32 addr, u16 val);
+    void (*BusWrite32)(u32 addr, u32 val);
 };
 
 #endif
