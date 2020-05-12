@@ -283,8 +283,6 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
             }
             else
             {
-                PushRegs(false);
-
                 u32 maskedDataRegion;
 
                 if (addrIsStatic)
@@ -309,6 +307,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
 
                 if (flags & memop_Store)
                 {
+                    PushRegs(false);
+
                     MOV(32, R(ABI_PARAM2), rdMapped);
 
                     ABI_CallFunction((void(*)())func);
@@ -319,6 +319,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                 {
                     if (!addrIsStatic)
                         MOV(32, rdMapped, R(RSCRATCH3));
+
+                    PushRegs(false);
 
                     ABI_CallFunction((void(*)())func);
 

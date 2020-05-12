@@ -134,7 +134,6 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
     IrregularCycles = true;
 
-    BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
     bool cpsrDirty = CPSRDirty;
     SaveCPSR();
 
