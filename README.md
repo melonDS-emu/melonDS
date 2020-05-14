@@ -52,10 +52,6 @@ make -j$(nproc --all)
 
 ### Windows:
 
- * use CodeBlocks
-
-#### MSYS2 and CMake
-
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
