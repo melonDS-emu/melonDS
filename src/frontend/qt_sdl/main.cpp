@@ -447,6 +447,28 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
 }
 
 
+void MainWindowPanel::mousePressEvent(QMouseEvent* event)
+{
+    event->accept();
+
+    printf("mouse press %d,%d\n", event->pos().x(), event->pos().y());
+}
+
+void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
+{
+    event->accept();
+
+    printf("mouse release %d,%d\n", event->pos().x(), event->pos().y());
+}
+
+void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
+{
+    event->accept();
+
+    printf("mouse move %d,%d  %08X\n", event->pos().x(), event->pos().y(), event->buttons());
+}
+
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     setWindowTitle("melonDS " MELONDS_VERSION);
