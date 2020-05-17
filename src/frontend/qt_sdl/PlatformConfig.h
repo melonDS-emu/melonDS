@@ -77,10 +77,6 @@ extern char MicWavPath[1024];
 
 extern char LastROMFolder[1024];
 
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
-
 }
 
 #endif // PLATFORMCONFIG_H

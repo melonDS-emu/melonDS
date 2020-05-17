@@ -58,6 +58,8 @@ private slots:
     void on_btnFirmwareBrowse_clicked();
 
 private:
+    void verifyFirmware();
+
     Ui::EmuSettingsDialog* ui;
 };
 

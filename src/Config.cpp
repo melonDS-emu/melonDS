@@ -28,6 +28,10 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
+char BIOS9Path[1024];
+char BIOS7Path[1024];
+char FirmwarePath[1024];
+
 int _3DRenderer;
 int Threaded3D;
 
@@ -36,6 +40,10 @@ int GL_Antialias;
 
 ConfigEntry ConfigFile[] =
 {
+    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
+    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
+    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 

@@ -42,6 +42,10 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
+
 extern int _3DRenderer;
 extern int Threaded3D;
 

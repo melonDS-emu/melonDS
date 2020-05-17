@@ -416,7 +416,7 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    f = Platform::OpenLocalFile("bios9.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -433,7 +433,7 @@ void Reset()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile("bios7.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");
