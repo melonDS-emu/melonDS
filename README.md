@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
+sudo apt-get install libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
 ```
 
 * Compile:
