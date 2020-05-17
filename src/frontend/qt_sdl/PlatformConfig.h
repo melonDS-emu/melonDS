@@ -73,9 +73,13 @@ extern int SavestateRelocSRAM;
 
 extern int AudioVolume;
 extern int MicInputType;
-extern char MicWavPath[512];
+extern char MicWavPath[1024];
 
-extern char LastROMFolder[512];
+extern char LastROMFolder[1024];
+
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
 
 }
 

@@ -60,9 +60,13 @@ int SavestateRelocSRAM;
 
 int AudioVolume;
 int MicInputType;
-char MicWavPath[512];
+char MicWavPath[1024];
 
-char LastROMFolder[512];
+char LastROMFolder[1024];
+
+char BIOS9Path[1024];
+char BIOS7Path[1024];
+char FirmwarePath[1024];
 
 
 ConfigEntry PlatformConfigFile[] =
@@ -141,9 +145,13 @@ ConfigEntry PlatformConfigFile[] =
 
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
-    {"MicWavPath", 1, MicWavPath, 0, "", 511},
+    {"MicWavPath", 1, MicWavPath, 0, "", 1023},
 
-    {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
+    {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
+
+    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
+    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
+    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
 
     {"", -1, NULL, 0, NULL, 0}
 };
