@@ -3,6 +3,7 @@ project(qt_sdl)
 SET(SOURCES_QT_SDL
 	main.cpp
 	EmuSettingsDialog.cpp
+	InputConfigDialog.cpp
 	Platform.cpp
 	PlatformConfig.cpp
 	

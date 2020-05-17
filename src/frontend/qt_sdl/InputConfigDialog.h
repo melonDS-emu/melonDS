@@ -16,24 +16,24 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef EMUSETTINGSDIALOG_H
-#define EMUSETTINGSDIALOG_H
+#ifndef INPUTCONFIGDIALOG_H
+#define INPUTCONFIGDIALOG_H
 
 #include <QDialog>
 
-namespace Ui { class EmuSettingsDialog; }
-class EmuSettingsDialog;
+namespace Ui { class InputConfigDialog; }
+class InputConfigDialog;
 
-class EmuSettingsDialog : public QDialog
+class InputConfigDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit EmuSettingsDialog(QWidget* parent);
-    ~EmuSettingsDialog();
+    explicit InputConfigDialog(QWidget* parent);
+    ~InputConfigDialog();
 
-    static EmuSettingsDialog* currentDlg;
-    static EmuSettingsDialog* openDlg(QWidget* parent)
+    static InputConfigDialog* currentDlg;
+    static InputConfigDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -41,8 +41,8 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new EmuSettingsDialog(parent);
-        currentDlg->show();
+        currentDlg = new InputConfigDialog(parent);
+        currentDlg->open();
         return currentDlg;
     }
     static void closeDlg()
@@ -51,17 +51,13 @@ public:
     }
 
 private slots:
-    void on_EmuSettingsDialog_accepted();
-    void on_EmuSettingsDialog_rejected();
+    void on_InputConfigDialog_accepted();
+    void on_InputConfigDialog_rejected();
 
-    void on_btnBIOS9Browse_clicked();
-    void on_btnBIOS7Browse_clicked();
-    void on_btnFirmwareBrowse_clicked();
+    //
 
 private:
-    void verifyFirmware();
-
-    Ui::EmuSettingsDialog* ui;
+    Ui::InputConfigDialog* ui;
 };
 
-#endif // EMUSETTINGSDIALOG_H
+#endif // INPUTCONFIGDIALOG_H

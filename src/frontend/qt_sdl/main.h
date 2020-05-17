@@ -108,6 +108,8 @@ private slots:
     void onEmuUnpause();
 
     void onOpenEmuSettings();
+    void onOpenInputConfig();
+    void onInputConfigFinished();
 
 private:
     QString loadErrorStr(int error);
@@ -126,6 +128,7 @@ private:
     QAction* actStop;
 
     QAction* actEmuSettings;
+    QAction* actInputConfig;
 };
 
 #endif // MAIN_H

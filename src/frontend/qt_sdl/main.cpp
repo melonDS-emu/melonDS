@@ -32,6 +32,7 @@
 
 #include "main.h"
 #include "EmuSettingsDialog.h"
+#include "InputConfigDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -551,6 +552,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actEmuSettings = menu->addAction("Emu settings");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+
+        actInputConfig = menu->addAction("Input and hotkeys");
+        connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
     }
     setMenuBar(menubar);
 
@@ -850,6 +854,19 @@ void MainWindow::onOpenEmuSettings()
     EmuSettingsDialog::openDlg(this);
 }
 
+void MainWindow::onOpenInputConfig()
+{
+    emuThread->emuPause(true);
+
+    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
+    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
+}
+
+void MainWindow::onInputConfigFinished()
+{printf("FARTO\n");
+    emuThread->emuUnpause();
+}
+
 
 int main(int argc, char** argv)
 {
@@ -915,8 +932,8 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    //if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    //else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
+    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
 
     // TODO: this should be checked before running anything
 #if 0
