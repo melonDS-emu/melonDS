@@ -820,9 +820,7 @@ void MainWindow::onEmuUnpause()
 
 void MainWindow::onOpenEmuSettings()
 {
-    // TODO keep track of this pointer!!
-    EmuSettingsDialog* dlg = new EmuSettingsDialog(this);
-    dlg->show();
+    EmuSettingsDialog::openDlg(this);
 }
 
 

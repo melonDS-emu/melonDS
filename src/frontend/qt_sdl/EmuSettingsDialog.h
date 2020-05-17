@@ -22,6 +22,7 @@
 #include <QDialog>
 
 namespace Ui { class EmuSettingsDialog; }
+class EmuSettingsDialog;
 
 class EmuSettingsDialog : public QDialog
 {
@@ -30,6 +31,31 @@ class EmuSettingsDialog : public QDialog
 public:
     explicit EmuSettingsDialog(QWidget* parent);
     ~EmuSettingsDialog();
+
+    static EmuSettingsDialog* currentDlg;
+    static void openDlg(QWidget* parent)
+    {
+        if (currentDlg)
+        {
+            currentDlg->activateWindow();
+            return;
+        }
+
+        currentDlg = new EmuSettingsDialog(parent);
+        currentDlg->show();
+    }
+    static void closeDlg()
+    {
+        currentDlg = nullptr;
+    }
+
+private slots:
+    void on_EmuSettingsDialog_accepted();
+    void on_EmuSettingsDialog_rejected();
+
+    void on_btnBIOS9Browse_clicked();
+    void on_btnBIOS7Browse_clicked();
+    void on_btnFirmwareBrowse_clicked();
 
 private:
     Ui::EmuSettingsDialog* ui;
