@@ -84,7 +84,7 @@ void EmuSettingsDialog::verifyFirmware()
 
     if (!memcmp(chk1, chk2, 0x180))
     {
-        QMessageBox::warning(this,
+        QMessageBox::warning((QWidget*)this->parent(),
                       "Problematic firmware dump",
                       "You are using an old hacked firmware dump.\n"
                       "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
