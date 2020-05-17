@@ -107,6 +107,8 @@ private slots:
     void onEmuPause();
     void onEmuUnpause();
 
+    void onOpenEmuSettings();
+
 private:
     MainWindowPanel* panel;
 
@@ -120,6 +122,8 @@ private:
     QAction* actPause;
     QAction* actReset;
     QAction* actStop;
+
+    QAction* actEmuSettings;
 };
 
 #endif // MAIN_H

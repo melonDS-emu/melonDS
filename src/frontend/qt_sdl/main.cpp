@@ -31,6 +31,7 @@
 #include <SDL2/SDL.h>
 
 #include "main.h"
+#include "EmuSettingsDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -545,6 +546,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
     }
+    {
+        QMenu* menu = menubar->addMenu("Config");
+
+        actEmuSettings = menu->addAction("Emu settings");
+        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+    }
     setMenuBar(menubar);
 
     panel = new MainWindowPanel(this);
@@ -808,6 +815,14 @@ void MainWindow::onEmuPause()
 void MainWindow::onEmuUnpause()
 {
     //
+}
+
+
+void MainWindow::onOpenEmuSettings()
+{
+    // TODO keep track of this pointer!!
+    EmuSettingsDialog* dlg = new EmuSettingsDialog(this);
+    dlg->show();
 }
 
 

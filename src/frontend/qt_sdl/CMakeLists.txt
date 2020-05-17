@@ -2,6 +2,7 @@ project(qt_sdl)
 
 SET(SOURCES_QT_SDL
 	main.cpp
+	EmuSettingsDialog.cpp
 	Platform.cpp
 	PlatformConfig.cpp
 	
@@ -19,6 +20,8 @@ find_package(Qt5 COMPONENTS Gui REQUIRED)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
