@@ -888,9 +888,12 @@ int main(int argc, char** argv)
 #else
 	const char* confdir = g_get_user_config_dir();
 	const char* confname = "/melonDS";
-	EmuDirectory = new char[strlen(confdir) + strlen(confname) + 1];
-	strcat(EmuDirectory, confdir);
-	strcat(EmuDirectory, confname);
+	int cdlen = strlen(confdir);
+	int cnlen = strlen(confname);
+	EmuDirectory = new char[cdlen + cnlen + 1];
+	strncpy(&EmuDirectory[0], confdir, cdlen);
+	strncpy(&EmuDirectory[cdlen], confname, cnlen);
+	EmuDirectory[cdlen+cnlen] = '\0';
 #endif
 
     QApplication melon(argc, argv);
