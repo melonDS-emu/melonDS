@@ -202,7 +202,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 #ifdef __WIN32__
     if (pathlen > 3)
     {
-        if (path[1] == ':' && path[2] == '\\')
+        if (path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
             return OpenFile(path, mode);
     }
 #else
