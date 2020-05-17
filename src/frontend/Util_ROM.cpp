@@ -57,8 +57,77 @@ void SetupSRAMPath(int slot)
     strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
 }
 
-bool LoadBIOS()
+int VerifyDSBIOS()
 {
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+    if (!f) return Load_BIOS9Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x1000)
+    {
+        fclose(f);
+        return Load_BIOS9Bad;
+    }
+
+    fclose(f);
+
+    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+    if (!f) return Load_BIOS7Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x4000)
+    {
+        fclose(f);
+        return Load_BIOS7Bad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSFirmware()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
+    if (!f) return Load_FirmwareMissing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len == 0x20000)
+    {
+        // 128KB firmware, not bootable
+        fclose(f);
+        return Load_FirmwareNotBootable;
+    }
+    else if (len != 0x40000 && len != 0x80000)
+    {
+        fclose(f);
+        return Load_FirmwareBad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int LoadBIOS()
+{
+    int res;
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    res = VerifyDSFirmware();
+    if (res != Load_OK) return res;
+
     // TODO:
     // original code in the libui frontend called NDS::LoadGBAROM() if needed
     // should this be carried over here?
@@ -71,12 +140,26 @@ bool LoadBIOS()
 
     SavestateLoaded = false;
 
-    // TODO: error reporting?
-    return true;
+    return Load_OK;
 }
 
-bool LoadROM(const char* file, int slot)
+int LoadROM(const char* file, int slot)
 {
+    int res;
+    bool directboot = Config::DirectBoot != 0;
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    res = VerifyDSFirmware();
+    if (res != Load_OK)
+    {
+        if (res == Load_FirmwareNotBootable)
+            directboot = true;
+        else
+            return res;
+    }
+
     char oldpath[1024];
     char oldsram[1024];
     strncpy(oldpath, ROMPath[slot], 1024);
@@ -88,28 +171,29 @@ bool LoadROM(const char* file, int slot)
     SetupSRAMPath(0);
     SetupSRAMPath(1);
 
-    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], Config::DirectBoot))
+    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
     {
         SavestateLoaded = false;
 
         // Reload the inserted GBA cartridge (if any)
+        // TODO: report failure there??
         if (ROMPath[ROMSlot_GBA][0] != '\0') NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
-        return true;
+        return Load_OK;
     }
     else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
     {
         SavestateLoaded = false;
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
-        return true;
+        return Load_OK;
     }
     else
     {
         strncpy(ROMPath[slot], oldpath, 1024);
         strncpy(SRAMPath[slot], oldsram, 1024);
-        return false;
+        return Load_ROMLoadError;
     }
 }
 

@@ -110,6 +110,8 @@ private slots:
     void onOpenEmuSettings();
 
 private:
+    QString loadErrorStr(int error);
+
     MainWindowPanel* panel;
 
     QAction* actOpenROM;

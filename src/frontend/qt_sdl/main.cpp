@@ -570,6 +570,27 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 }
 
 
+QString MainWindow::loadErrorStr(int error)
+{
+    switch (error)
+    {
+    case Frontend::Load_BIOS9Missing: return "DS ARM9 BIOS was not found or could not be accessed.";
+    case Frontend::Load_BIOS9Bad:     return "DS ARM9 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_BIOS7Missing: return "DS ARM7 BIOS was not found or could not be accessed.";
+    case Frontend::Load_BIOS7Bad:     return "DS ARM7 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_FirmwareMissing:     return "DS firmware was not found or could not be accessed.";
+    case Frontend::Load_FirmwareBad:         return "DS firmware is not a valid firmware dump.";
+    case Frontend::Load_FirmwareNotBootable: return "DS firmware is not bootable.";
+
+    case Frontend::Load_ROMLoadError: return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
+
+    default: return "Unknown error during launch; smack Arisotura.";
+    }
+}
+
+
 void MainWindow::onOpenFile()
 {
     emuThread->emuPause(true);
@@ -584,6 +605,11 @@ void MainWindow::onOpenFile()
         return;
     }
 
+    // TODO: validate the input file!!
+    // * check that it is a proper ROM
+    // * ensure the binary offsets are sane
+    // * etc
+
     // this shit is stupid
     char file[1024];
     strncpy(file, filename.toStdString().c_str(), 1023); file[1023] = '\0';
@@ -594,7 +620,7 @@ void MainWindow::onOpenFile()
     Config::LastROMFolder[pos] = '\0';
     char* ext = &file[strlen(file)-3];
 
-    int slot; bool res;
+    int slot; int res;
     if (!strcasecmp(ext, "gba"))
     {
         slot = 1;
@@ -606,11 +632,11 @@ void MainWindow::onOpenFile()
         res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
     }
 
-    if (!res)
+    if (res != Frontend::Load_OK)
     {
         QMessageBox::critical(this,
                               "melonDS",
-                              "Failed to load the ROM.\n\nMake sure the file is accessible and isn't used by another application.");
+                              loadErrorStr(res));
         emuThread->emuUnpause();
     }
     else if (slot == 1)
@@ -631,11 +657,12 @@ void MainWindow::onBootFirmware()
 
     emuThread->emuPause(true);
 
-    bool res = Frontend::LoadBIOS();
-    if (!res)
+    int res = Frontend::LoadBIOS();
+    if (res != Frontend::Load_OK)
     {
-        // TODO!
-
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
         emuThread->emuUnpause();
     }
     else

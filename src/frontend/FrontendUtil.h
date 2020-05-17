@@ -32,6 +32,24 @@ enum
     ROMSlot_MAX
 };
 
+enum
+{
+    Load_OK = 0,
+
+    Load_BIOS9Missing,
+    Load_BIOS9Bad,
+
+    Load_BIOS7Missing,
+    Load_BIOS7Bad,
+
+    Load_FirmwareMissing,
+    Load_FirmwareBad,
+    Load_FirmwareNotBootable,
+
+    // TODO: more precise errors for ROM loading
+    Load_ROMLoadError,
+};
+
 extern char ROMPath [ROMSlot_MAX][1024];
 extern char SRAMPath[ROMSlot_MAX][1024];
 extern bool SavestateLoaded;
@@ -41,11 +59,11 @@ extern bool SavestateLoaded;
 void Init_ROM();
 
 // load the BIOS/firmware and boot from it
-bool LoadBIOS();
+int LoadBIOS();
 
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
-bool LoadROM(const char* file, int slot);
+int LoadROM(const char* file, int slot);
 
 // get the filename associated with the given savestate slot (1-8)
 void GetSavestateName(int slot, char* filename, int len);
