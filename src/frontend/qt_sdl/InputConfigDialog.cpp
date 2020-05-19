@@ -236,11 +236,18 @@ void KeyMapButton::keyPressEvent(QKeyEvent* event)
     printf("KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
 
     int key = event->key();
+    int mod = event->modifiers();
     bool ismod = (key == Qt::Key_Control ||
                   key == Qt::Key_Alt ||
                   key == Qt::Key_AltGr ||
                   key == Qt::Key_Shift ||
                   key == Qt::Key_Meta);
+
+    if (!mod)
+    {
+        if (key == Qt::Key_Escape) { click(); return; }
+        if (key == Qt::Key_Backspace) { *mapping = -1; click(); return; }
+    }
 
     if (isHotkey)
     {
@@ -249,7 +256,7 @@ void KeyMapButton::keyPressEvent(QKeyEvent* event)
     }
 
     if (!ismod)
-        key |= event->modifiers();
+        key |= mod;
     else if (IsRightModKey(event))
         key |= (1<<31);
 
