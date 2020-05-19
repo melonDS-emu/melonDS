@@ -1045,6 +1045,7 @@ int main(int argc, char** argv)
 
     emuThread->emuStop();
     emuThread->wait();
+    delete emuThread;
 
     //if (Joystick) SDL_JoystickClose(Joystick);
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
