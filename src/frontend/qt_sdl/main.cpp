@@ -868,6 +868,11 @@ void MainWindow::onInputConfigFinished(int res)
 }
 
 
+// FIXME!!!!
+#if (!defined(__WIN32__) && !defined(UNIX_PORTABLE))
+#include <glib.h>
+#endif
+
 int main(int argc, char** argv)
 {
     srand(time(NULL));
