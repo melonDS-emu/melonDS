@@ -27,9 +27,16 @@ namespace Input
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
 
+extern u32 InputMask;
+
+void Init();
+
 // set joystickID before calling openJoystick()
 void OpenJoystick();
 void CloseJoystick();
+
+void KeyPress(QKeyEvent* event);
+void KeyRelease(QKeyEvent* event);
 
 void Process();
 

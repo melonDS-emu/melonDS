@@ -135,6 +135,7 @@ void EmuThread::run()
         GPU3D::InitRenderer(false);
     }
 
+    Input::Init();
     /*Touching = false;
     LidStatus = false;*/
 
@@ -184,7 +185,7 @@ void EmuThread::run()
             EmuStatus = 1;
 
             // process input and hotkeys
-            NDS::SetKeyMask(0xFFF);
+            NDS::SetKeyMask(Input::InputMask);
             /*NDS::SetKeyMask(KeyInputMask & JoyInputMask);
 
             if (HotkeyPressed(HK_Lid))
@@ -565,7 +566,16 @@ MainWindow::~MainWindow()
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
-    printf("key press. %d %d %08X %08X\n", event->key(), event->nativeScanCode(), event->modifiers(), event->nativeModifiers());
+    if (event->isAutoRepeat()) return;
+
+    Input::KeyPress(event);
+}
+
+void MainWindow::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->isAutoRepeat()) return;
+
+    Input::KeyRelease(event);
 }
 
 

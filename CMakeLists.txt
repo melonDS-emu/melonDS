@@ -14,6 +14,14 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
+	add_compile_options(-Og)
+endif()
+
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+	add_compile_options(-O3)
+endif()
+
 add_compile_options(-fno-pic)
 add_link_options(-no-pie)
 

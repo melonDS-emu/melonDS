@@ -34,6 +34,21 @@ u32 KeyHotkeyMask, JoyHotkeyMask;
 u32 HotkeyMask, LastHotkeyMask;
 u32 HotkeyPress, HotkeyRelease;
 
+u32 InputMask;
+
+
+void Init()
+{
+    KeyInputMask = 0xFFF;
+    JoyInputMask = 0xFFF;
+    InputMask = 0xFFF;
+
+    KeyHotkeyMask = 0;
+    JoyHotkeyMask = 0;
+    HotkeyMask = 0;
+    LastHotkeyMask = 0;
+}
+
 
 void OpenJoystick()
 {
@@ -62,6 +77,109 @@ void CloseJoystick()
 }
 
 
+int GetEventKeyVal(QKeyEvent* event)
+{
+    int key = event->key();
+    int mod = event->modifiers();
+    bool ismod = (key == Qt::Key_Control ||
+                  key == Qt::Key_Alt ||
+                  key == Qt::Key_AltGr ||
+                  key == Qt::Key_Shift ||
+                  key == Qt::Key_Meta);
+
+    if (!ismod)
+        key |= mod;
+    else if (Input::IsRightModKey(event))
+        key |= (1<<31);
+
+    return key;
+}
+
+void KeyPress(QKeyEvent* event)
+{
+    int keyHK = GetEventKeyVal(event);
+    int keyKP = keyHK & ~event->modifiers();
+
+    for (int i = 0; i < 12; i++)
+        if (keyKP == Config::KeyMapping[i])
+            KeyInputMask &= ~(1<<i);
+
+    for (int i = 0; i < HK_MAX; i++)
+        if (keyHK == Config::HKKeyMapping[i])
+            KeyHotkeyMask |= (1<<i);
+}
+
+void KeyRelease(QKeyEvent* event)
+{
+    int keyHK = GetEventKeyVal(event);
+    int keyKP = keyHK & ~event->modifiers();
+
+    for (int i = 0; i < 12; i++)
+        if (keyKP == Config::KeyMapping[i])
+            KeyInputMask |= (1<<i);
+
+    for (int i = 0; i < HK_MAX; i++)
+        if (keyHK == Config::HKKeyMapping[i])
+            KeyHotkeyMask &= ~(1<<i);
+}
+
+
+bool JoystickButtonDown(int val)
+{
+    if (val == -1) return false;
+
+    bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
+
+    if (hasbtn)
+    {
+        if (val & 0x100)
+        {
+            int hatnum = (val >> 4) & 0xF;
+            int hatdir = val & 0xF;
+            Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
+
+            bool pressed = false;
+            if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
+            else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
+            else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
+            else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
+
+            if (pressed) return true;
+        }
+        else
+        {
+            int btnnum = val & 0xFFFF;
+            Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
+
+            if (btnval) return true;
+        }
+    }
+
+    if (val & 0x10000)
+    {
+        int axisnum = (val >> 24) & 0xF;
+        int axisdir = (val >> 20) & 0xF;
+        Sint16 axisval = SDL_JoystickGetAxis(Joystick, axisnum);
+
+        switch (axisdir)
+        {
+        case 0: // positive
+            if (axisval > 16384) return true;
+            break;
+
+        case 1: // negative
+            if (axisval < -16384) return true;
+            break;
+
+        case 2: // trigger
+            if (axisval > 0) return true;
+            break;
+        }
+    }
+
+    return false;
+}
+
 void Process()
 {
     SDL_JoystickUpdate();
@@ -80,10 +198,12 @@ void Process()
         OpenJoystick();
     }
 
-    /*JoyInputMask = 0xFFF;
+    JoyInputMask = 0xFFF;
     for (int i = 0; i < 12; i++)
         if (JoystickButtonDown(Config::JoyMapping[i]))
             JoyInputMask &= ~(1<<i);
+
+    InputMask = KeyInputMask & JoyInputMask;
 
     JoyHotkeyMask = 0;
     for (int i = 0; i < HK_MAX; i++)
@@ -93,7 +213,7 @@ void Process()
     HotkeyMask = KeyHotkeyMask | JoyHotkeyMask;
     HotkeyPress = HotkeyMask & ~LastHotkeyMask;
     HotkeyRelease = LastHotkeyMask & ~HotkeyMask;
-    LastHotkeyMask = HotkeyMask;*/
+    LastHotkeyMask = HotkeyMask;
 }
 
 
