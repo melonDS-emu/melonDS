@@ -74,6 +74,9 @@ protected:
 
 private:
     QImage* screen[2];
+    bool touching;
+
+    void transformTSCoords(int& x, int& y);
 };
 
 

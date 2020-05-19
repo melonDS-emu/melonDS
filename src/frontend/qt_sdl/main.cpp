@@ -410,6 +410,8 @@ MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
 {
     screen[0] = new QImage(256, 192, QImage::Format_RGB32);
     screen[1] = new QImage(256, 192, QImage::Format_RGB32);
+
+    touching = false;
 }
 
 MainWindowPanel::~MainWindowPanel()
@@ -441,25 +443,59 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
 }
 
 
+void MainWindowPanel::transformTSCoords(int& x, int& y)
+{
+    // TODO: actual screen de-transform taking screen layout/rotation/etc into account
+
+    y -= 192;
+
+    // clamp to screen range
+    if (x < 0) x = 0;
+    else if (x > 255) x = 255;
+    if (y < 0) y = 0;
+    else if (y > 191) y = 191;
+}
+
 void MainWindowPanel::mousePressEvent(QMouseEvent* event)
 {
     event->accept();
+    if (event->button() != Qt::LeftButton) return;
 
-    printf("mouse press %d,%d\n", event->pos().x(), event->pos().y());
+    int x = event->pos().x();
+    int y = event->pos().y();
+
+    if (x >= 0 && x < 256 && y >= 192 && y < 384)
+    {
+        touching = true;
+
+        transformTSCoords(x, y);
+        NDS::TouchScreen(x, y);
+    }
 }
 
 void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
 {
     event->accept();
+    if (event->button() != Qt::LeftButton) return;
 
-    printf("mouse release %d,%d\n", event->pos().x(), event->pos().y());
+    if (touching)
+    {
+        touching = false;
+        NDS::ReleaseScreen();
+    }
 }
 
 void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
 {
     event->accept();
+    if (!(event->buttons() & Qt::LeftButton)) return;
+    if (!touching) return;
 
-    printf("mouse move %d,%d  %08X\n", event->pos().x(), event->pos().y(), event->buttons());
+    int x = event->pos().x();
+    int y = event->pos().y();
+
+    transformTSCoords(x, y);
+    NDS::TouchScreen(x, y);
 }
 
 
