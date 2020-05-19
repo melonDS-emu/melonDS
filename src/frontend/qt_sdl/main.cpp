@@ -862,8 +862,8 @@ void MainWindow::onOpenInputConfig()
     connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
 }
 
-void MainWindow::onInputConfigFinished()
-{printf("FARTO\n");
+void MainWindow::onInputConfigFinished(int res)
+{
     emuThread->emuUnpause();
 }
 

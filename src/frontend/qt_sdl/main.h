@@ -109,7 +109,7 @@ private slots:
 
     void onOpenEmuSettings();
     void onOpenInputConfig();
-    void onInputConfigFinished();
+    void onInputConfigFinished(int res);
 
 private:
     QString loadErrorStr(int error);

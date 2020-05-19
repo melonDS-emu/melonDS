@@ -20,6 +20,7 @@
 #define INPUTCONFIGDIALOG_H
 
 #include <QDialog>
+#include <QPushButton>
 
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
@@ -57,7 +58,38 @@ private slots:
     //
 
 private:
+    void populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap);
+
+    QString joyMappingName(int id);
+
     Ui::InputConfigDialog* ui;
+
+    int keypadKeyMap[12],   keypadJoyMap[12];
+    int addonsKeyMap[2],    addonsJoyMap[2];
+    int hkGeneralKeyMap[6], hkGeneralJoyMap[6];
+};
+
+
+class KeyMapButton : public QPushButton
+{
+    Q_OBJECT
+
+public:
+    explicit KeyMapButton(QWidget* parent, int* mapping, bool hotkey);
+    ~KeyMapButton();
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+
+private slots:
+    void onClick();
+
+private:
+    QString mappingText();
+
+    int* mapping;
+    bool isHotkey;
 };
 
 #endif // INPUTCONFIGDIALOG_H
