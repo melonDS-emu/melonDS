@@ -235,6 +235,7 @@ printf("KEY PRESSED = %08X %08X | %08X %08X %08X | %08X\n", event->key(), event-
     int key = event->key();
     bool ismod = (key == Qt::Key_Control ||
                   key == Qt::Key_Alt ||
+                  key == Qt::Key_AltGr ||
                   key == Qt::Key_Shift ||
                   key == Qt::Key_Meta);
 
@@ -284,11 +285,17 @@ QString KeyMapButton::mappingText()
 
     case Qt::Key_Control: return "Ctrl";
     case Qt::Key_Alt:     return "Alt";
+    case Qt::Key_AltGr:   return "AltGr";
     case Qt::Key_Shift:   return "Shift";
     case Qt::Key_Meta:    return "Meta";
     }
 
     QKeySequence seq(key);
     QString ret = seq.toString();
+    
+    // weak attempt at detecting garbage key names
+    if (ret.length() == 2 && ret[0].unicode() > 0xFF)
+        return QString("[%1]").arg(key, 8, 16);
+    
     return ret.replace("&", "&&");
 }
