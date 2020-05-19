@@ -502,6 +502,7 @@ void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     setWindowTitle("melonDS " MELONDS_VERSION);
+    setAttribute(Qt::WA_DeleteOnClose);
 
     QMenuBar* menubar = new QMenuBar();
     {
