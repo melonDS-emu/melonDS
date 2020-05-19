@@ -24,6 +24,7 @@
 #include "Config.h"
 #include "PlatformConfig.h"
 
+#include "main.h"
 #include "InputConfigDialog.h"
 #include "ui_InputConfigDialog.h"
 
@@ -231,7 +232,9 @@ KeyMapButton::~KeyMapButton()
 void KeyMapButton::keyPressEvent(QKeyEvent* event)
 {
     if (!isChecked()) return QPushButton::keyPressEvent(event);
-printf("KEY PRESSED = %08X %08X | %08X %08X %08X | %08X\n", event->key(), event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode(), Qt::SHIFT);
+
+    printf("KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
+
     int key = event->key();
     bool ismod = (key == Qt::Key_Control ||
                   key == Qt::Key_Alt ||
@@ -247,6 +250,8 @@ printf("KEY PRESSED = %08X %08X | %08X %08X %08X | %08X\n", event->key(), event-
 
     if (!ismod)
         key |= event->modifiers();
+    else if (IsRightModKey(event))
+        key |= (1<<31);
 
     *mapping = key;
     click();
@@ -279,23 +284,26 @@ QString KeyMapButton::mappingText()
 {
     int key = *mapping;
 
+    if (key == -1) return "None";
+
+    QString isright = (key & (1<<31)) ? "Right " : "Left ";
+    key &= ~(1<<31);
+
     switch (key)
     {
-    case -1: return "None";
-
-    case Qt::Key_Control: return "Ctrl";
+    case Qt::Key_Control: return isright + "Ctrl";
     case Qt::Key_Alt:     return "Alt";
     case Qt::Key_AltGr:   return "AltGr";
-    case Qt::Key_Shift:   return "Shift";
+    case Qt::Key_Shift:   return isright + "Shift";
     case Qt::Key_Meta:    return "Meta";
     }
 
     QKeySequence seq(key);
     QString ret = seq.toString();
-    
+
     // weak attempt at detecting garbage key names
     if (ret.length() == 2 && ret[0].unicode() > 0xFF)
         return QString("[%1]").arg(key, 8, 16);
-    
+
     return ret.replace("&", "&&");
 }

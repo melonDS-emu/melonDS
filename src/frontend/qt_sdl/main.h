@@ -23,6 +23,7 @@
 #include <QWidget>
 #include <QMainWindow>
 #include <QImage>
+#include <QKeyEvent>
 
 
 class EmuThread : public QThread
@@ -130,5 +131,25 @@ private:
     QAction* actEmuSettings;
     QAction* actInputConfig;
 };
+
+
+// TODO: MacOS version of this!
+// distinguish between left and right modifier keys (Ctrl, Alt, Shift)
+// Qt provides no real cross-platform way to do this, so here we go
+// for Windows and Linux we can distinguish via scancodes (but both
+// provide different scancodes)
+#ifdef __WIN32__
+inline bool IsRightModKey(QKeyEvent* event)
+{
+    quint32 scan = event->nativeScanCode();
+    return (scan == 0x11D || scan == 0x138 || scan == 0x36);
+}
+#else
+inline bool IsRightModKey(QKeyEvent* event)
+{
+    quint32 scan = event->nativeScanCode();
+    return (scan == 0x69 || scan == 0x6C || scan == 0x3E);
+}
+#endif
 
 #endif // MAIN_H
