@@ -217,6 +217,11 @@ void Process()
 }
 
 
+bool HotkeyDown(int id)     { return HotkeyMask    & (1<<id); }
+bool HotkeyPressed(int id)  { return HotkeyPress   & (1<<id); }
+bool HotkeyReleased(int id) { return HotkeyRelease & (1<<id); }
+
+
 // TODO: MacOS version of this!
 // distinguish between left and right modifier keys (Ctrl, Alt, Shift)
 // Qt provides no real cross-platform way to do this, so here we go

@@ -951,23 +951,15 @@ void CancelEvent(u32 id)
 }
 
 
-void PressKey(u32 key)
-{
-    KeyInput &= ~(1 << key);
-}
-
-void ReleaseKey(u32 key)
-{
-    KeyInput |= (1 << key);
-}
-
 void TouchScreen(u16 x, u16 y)
 {
+    KeyInput &= ~(1<<22);
     SPI_TSC::SetTouchCoords(x, y);
 }
 
 void ReleaseScreen()
 {
+    KeyInput |= (1<<22);
     SPI_TSC::SetTouchCoords(0x000, 0xFFF);
 }
 
@@ -979,6 +971,12 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+bool IsLidClosed()
+{
+    if (KeyInput & (1<<23)) return true;
+    return false;
 }
 
 void SetLidClosed(bool closed)

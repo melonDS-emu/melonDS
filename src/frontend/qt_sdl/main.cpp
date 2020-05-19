@@ -42,6 +42,7 @@
 #include "FrontendUtil.h"
 
 #include "NDS.h"
+#include "GBACart.h"
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -136,8 +137,7 @@ void EmuThread::run()
     }
 
     Input::Init();
-    /*Touching = false;
-    LidStatus = false;*/
+    /*Touching = false;*/
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -150,35 +150,33 @@ void EmuThread::run()
     while (EmuRunning != 0)
     {
         Input::Process();
-        /*ProcessInput();
 
-        if (HotkeyPressed(HK_FastForwardToggle))
+        /*if (Input::HotkeyPressed(HK_FastForwardToggle))
         {
             Config::LimitFPS = !Config::LimitFPS;
-            uiQueueMain(UpdateFPSLimit, NULL);
-        }
-        // TODO: similar hotkeys for video/audio sync?
+            // TODO: reflect in UI!
+        }*/
 
-        if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
-        if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
+        //if (Input::HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
+        //if (Input::HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
-            if (HotkeyPressed(HK_SolarSensorDecrease))
+            if (Input::HotkeyPressed(HK_SolarSensorDecrease))
             {
                 if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
+                //char msg[64];
+                //sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                //OSD::AddMessage(0, msg);
             }
-            if (HotkeyPressed(HK_SolarSensorIncrease))
+            if (Input::HotkeyPressed(HK_SolarSensorIncrease))
             {
                 if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
+                //char msg[64];
+                //sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                //OSD::AddMessage(0, msg);
             }
-        }*/
+        }
 
         if (EmuRunning == 1)
         {
@@ -186,14 +184,13 @@ void EmuThread::run()
 
             // process input and hotkeys
             NDS::SetKeyMask(Input::InputMask);
-            /*NDS::SetKeyMask(KeyInputMask & JoyInputMask);
 
-            if (HotkeyPressed(HK_Lid))
+            if (Input::HotkeyPressed(HK_Lid))
             {
-                LidStatus = !LidStatus;
-                NDS::SetLidClosed(LidStatus);
-                OSD::AddMessage(0, LidStatus ? "Lid closed" : "Lid opened");
-            }*/
+                bool lid = !NDS::IsLidClosed();
+                NDS::SetLidClosed(lid);
+                //OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
+            }
 
             // microphone input
             /*FeedMicInput();
@@ -250,8 +247,7 @@ void EmuThread::run()
             uiAreaQueueRedrawAll(MainDrawArea);*/
             mainWindow->update();
 
-            bool fastforward = false;
-            //bool fastforward = HotkeyDown(HK_FastForward);
+            bool fastforward = Input::HotkeyDown(HK_FastForward);
 
             if (Config::AudioSync && (!fastforward) && audioDevice)
             {

@@ -40,6 +40,10 @@ void KeyRelease(QKeyEvent* event);
 
 void Process();
 
+bool HotkeyDown(int id);
+bool HotkeyPressed(int id);
+bool HotkeyReleased(int id);
+
 bool IsRightModKey(QKeyEvent* event);
 
 }
