@@ -903,6 +903,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
+    // also TODO: validate what we're loading!!
 
     FILE* f = Platform::OpenFile(path, "rb");
     if (!f)

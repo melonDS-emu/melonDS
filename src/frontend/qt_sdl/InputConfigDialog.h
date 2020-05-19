@@ -80,6 +80,8 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
 
+    bool focusNextPrevChild(bool next) override { return false; }
+
 private slots:
     void onClick();
 
@@ -102,6 +104,8 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
+
+    bool focusNextPrevChild(bool next) override { return false; }
 
 private slots:
     void onClick();
