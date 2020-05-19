@@ -90,7 +90,8 @@ void Load()
     while (!feof(f))
     {
         fgets(linebuf, 1024, f);
-        int ret = sscanf(linebuf, "%32[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        entryname[31] = '\0';
         if (ret < 2) continue;
 
         ConfigEntry* entry = &ConfigFile[0];
