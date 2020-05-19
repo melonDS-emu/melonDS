@@ -27,10 +27,12 @@
 #include <QFileDialog>
 #include <QPaintEvent>
 #include <QPainter>
+#include <QKeyEvent>
 
 #include <SDL2/SDL.h>
 
 #include "main.h"
+#include "Input.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfigDialog.h"
 
@@ -136,12 +138,6 @@ void EmuThread::run()
     }
 
     /*Touching = false;
-    KeyInputMask = 0xFFF;
-    JoyInputMask = 0xFFF;
-    KeyHotkeyMask = 0;
-    JoyHotkeyMask = 0;
-    HotkeyMask = 0;
-    LastHotkeyMask = 0;
     LidStatus = false;*/
 
     u32 nframes = 0;
@@ -154,6 +150,7 @@ void EmuThread::run()
 
     while (EmuRunning != 0)
     {
+        Input::Process();
         /*ProcessInput();
 
         if (HotkeyPressed(HK_FastForwardToggle))
@@ -999,6 +996,9 @@ int main(int argc, char** argv)
     Frontend::Init_ROM();
     Frontend::Init_Audio(audioFreq);
 
+    Input::JoystickID = Config::JoystickID;
+    Input::OpenJoystick();
+
     mainWindow = new MainWindow();
     mainWindow->show();
 
@@ -1047,7 +1047,8 @@ int main(int argc, char** argv)
     emuThread->wait();
     delete emuThread;
 
-    //if (Joystick) SDL_JoystickClose(Joystick);
+    Input::CloseJoystick();
+
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
     //if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
 

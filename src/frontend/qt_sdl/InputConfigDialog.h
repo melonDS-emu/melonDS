@@ -55,12 +55,10 @@ private slots:
     void on_InputConfigDialog_accepted();
     void on_InputConfigDialog_rejected();
 
-    //
+    void on_cbxJoystick_currentIndexChanged(int id);
 
 private:
     void populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap);
-
-    QString joyMappingName(int id);
 
     Ui::InputConfigDialog* ui;
 
@@ -75,7 +73,7 @@ class KeyMapButton : public QPushButton
     Q_OBJECT
 
 public:
-    explicit KeyMapButton(QWidget* parent, int* mapping, bool hotkey);
+    explicit KeyMapButton(int* mapping, bool hotkey);
     ~KeyMapButton();
 
 protected:
@@ -90,6 +88,32 @@ private:
 
     int* mapping;
     bool isHotkey;
+};
+
+class JoyMapButton : public QPushButton
+{
+    Q_OBJECT
+
+public:
+    explicit JoyMapButton(int* mapping, bool hotkey);
+    ~JoyMapButton();
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
+    void timerEvent(QTimerEvent* event) override;
+
+private slots:
+    void onClick();
+
+private:
+    QString mappingText();
+
+    int* mapping;
+    bool isHotkey;
+
+    int timerID;
+    int axesRest[16];
 };
 
 #endif // INPUTCONFIGDIALOG_H
