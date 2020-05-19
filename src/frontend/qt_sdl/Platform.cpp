@@ -53,7 +53,7 @@
 #endif
 
 
-extern char* EmuDirectory;
+char* EmuDirectory;
 
 void Stop(bool internal);
 
@@ -82,6 +82,53 @@ sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
 
 #define NIFI_VER 1
+
+
+void Init(int argc, char** argv)
+{
+#if defined(__WIN32__) || defined(UNIX_PORTABLE)
+    if (argc > 0 && strlen(argv[0]) > 0)
+    {
+        int len = strlen(argv[0]);
+        while (len > 0)
+        {
+            if (argv[0][len] == '/') break;
+            if (argv[0][len] == '\\') break;
+            len--;
+        }
+        if (len > 0)
+        {
+            EmuDirectory = new char[len+1];
+            strncpy(EmuDirectory, argv[0], len);
+            EmuDirectory[len] = '\0';
+        }
+        else
+        {
+            EmuDirectory = new char[2];
+            strcpy(EmuDirectory, ".");
+        }
+    }
+    else
+    {
+        EmuDirectory = new char[2];
+        strcpy(EmuDirectory, ".");
+    }
+#else
+	const char* confdir = g_get_user_config_dir();
+	const char* confname = "/melonDS";
+	int cdlen = strlen(confdir);
+	int cnlen = strlen(confname);
+	EmuDirectory = new char[cdlen + cnlen + 1];
+	strncpy(&EmuDirectory[0], confdir, cdlen);
+	strncpy(&EmuDirectory[cdlen], confname, cnlen);
+	EmuDirectory[cdlen+cnlen] = '\0';
+#endif
+}
+
+void DeInit()
+{
+    delete[] EmuDirectory;
+}
 
 
 void StopEmu()
