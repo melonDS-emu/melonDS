@@ -1006,7 +1006,6 @@ int main(int argc, char** argv)
     emuThread->start();
     emuThread->emuPause(true);
 
-    #if 0
     if (argc > 1)
     {
         char* file = argv[1];
@@ -1014,32 +1013,25 @@ int main(int argc, char** argv)
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
         {
-            strncpy(ROMPath[0], file, 1023);
-            ROMPath[0][1023] = '\0';
+            int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
 
-            //SetupSRAMPath(0);
-
-            //if (NDS::LoadROM(ROMPath[0], SRAMPath[0], Config::DirectBoot))
-            //    Run();
-        }
-
-        if (argc > 2)
-        {
-            file = argv[2];
-            ext = &file[strlen(file)-3];
-
-            if (!strcasecmp(ext, "gba"))
+            if (res == Frontend::Load_OK)
             {
-                strncpy(ROMPath[1], file, 1023);
-                ROMPath[1][1023] = '\0';
+                if (argc > 2)
+                {
+                    file = argv[2];
+                    ext = &file[strlen(file)-3];
 
-                //SetupSRAMPath(1);
+                    if (!strcasecmp(ext, "gba"))
+                    {
+                        Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+                    }
+                }
 
-                //NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
+                emuThread->emuRun();
             }
         }
     }
-    #endif
 
     int ret = melon.exec();
 
