@@ -40,11 +40,11 @@ int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
 int ScreenSizing;
+int IntegerScaling;
 int ScreenFilter;
 
 int ScreenUseGL;
 int ScreenVSync;
-int ScreenRatio;
 
 int LimitFPS;
 int AudioSync;
@@ -121,11 +121,11 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
+    {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
     {"ScreenUseGL",     0, &ScreenUseGL,     1, NULL, 0},
     {"ScreenVSync",     0, &ScreenVSync,     0, NULL, 0},
-    {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
     {"AudioSync", 0, &AudioSync, 1, NULL, 0},

@@ -53,11 +53,11 @@ extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
 extern int ScreenSizing;
+extern int IntegerScaling;
 extern int ScreenFilter;
 
 extern int ScreenUseGL;
 extern int ScreenVSync;
-extern int ScreenRatio;
 
 extern int LimitFPS;
 extern int AudioSync;

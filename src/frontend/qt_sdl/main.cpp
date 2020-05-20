@@ -707,6 +707,30 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     panel = new MainWindowPanel(this);
     setCentralWidget(panel);
     panel->setMinimumSize(256, 384);
+
+
+    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
+
+    actScreenRotation[Config::ScreenRotation]->setChecked(true);
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (actScreenGap[i]->data().toInt() == Config::ScreenGap)
+        {
+            actScreenGap[i]->setChecked(true);
+            break;
+        }
+    }
+
+    actScreenLayout[Config::ScreenLayout]->setChecked(true);
+    actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    actIntegerScaling->setChecked(Config::IntegerScaling != 0);
+
+    actScreenFiltering->setChecked(Config::ScreenFilter != 0);
+    actShowOSD->setChecked(Config::ShowOSD != 0);
+
+    actLimitFramerate->setChecked(Config::LimitFPS != 0);
+    actAudioSync->setChecked(Config::AudioSync != 0);
 }
 
 MainWindow::~MainWindow()
@@ -1183,8 +1207,13 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+#define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+    SANITIZE(Config::AudioVolume, 0, 256);
+    SANITIZE(Config::ScreenRotation, 0, 3);
+    SANITIZE(Config::ScreenGap, 0, 500);
+    SANITIZE(Config::ScreenLayout, 0, 2);
+    SANITIZE(Config::ScreenSizing, 0, 3);
+#undef SANITIZE
 
     // TODO: this should be checked before running anything
 #if 0
