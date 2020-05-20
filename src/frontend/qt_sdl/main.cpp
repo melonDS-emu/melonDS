@@ -524,9 +524,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             for (int i = 1; i < 9; i++)
             {
-                char title[16];
-                sprintf(title, "%d", i);
-                actSaveState[i] = submenu->addAction(title);
+                actSaveState[i] = submenu->addAction(QString("%1").arg(i));
                 actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+i-1)));
                 actSaveState[i]->setData(QVariant(i));
                 connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
@@ -542,9 +540,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             for (int i = 1; i < 9; i++)
             {
-                char title[16];
-                sprintf(title, "%d", i);
-                actLoadState[i] = submenu->addAction(title);
+                actLoadState[i] = submenu->addAction(QString("%1").arg(i));
                 actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1+i-1));
                 actLoadState[i]->setData(QVariant(i));
                 connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
@@ -586,6 +582,125 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
+
+        actVideoSettings = menu->addAction("Video settings");
+        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
+
+        actAudioSettings = menu->addAction("Audio settings");
+        connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
+
+        actWifiSettings = menu->addAction("Wifi settings");
+        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+
+        {
+            QMenu* submenu = menu->addMenu("Savestate settings");
+
+            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
+            actSavestateSRAMReloc->setCheckable(true);
+            connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
+        }
+
+        menu->addSeparator();
+
+        {
+            QMenu* submenu = menu->addMenu("Screen size");
+
+            for (int i = 0; i < 4; i++)
+            {
+                int data = i+1;
+                actScreenSize[i] = submenu->addAction(QString("%1x").arg(data));
+                actScreenSize[i]->setData(QVariant(data));
+                connect(actScreenSize[i], &QAction::triggered, this, &MainWindow::onChangeScreenSize);
+            }
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen rotation");
+            grpScreenRotation = new QActionGroup(submenu);
+
+            for (int i = 0; i < 4; i++)
+            {
+                int data = i*90;
+                actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
+                actScreenRotation[i]->setActionGroup(grpScreenRotation);
+                actScreenRotation[i]->setData(QVariant(data));
+                actScreenRotation[i]->setCheckable(true);
+            }
+
+            connect(grpScreenRotation, &QActionGroup::triggered, this, &MainWindow::onChangeScreenRotation);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen gap");
+            grpScreenGap = new QActionGroup(submenu);
+
+            const int screengap[] = {0, 1, 8, 64, 90, 128};
+
+            for (int i = 0; i < 6; i++)
+            {
+                int data = screengap[i];
+                actScreenGap[i] = submenu->addAction(QString("%1 px").arg(data));
+                actScreenGap[i]->setActionGroup(grpScreenGap);
+                actScreenGap[i]->setData(QVariant(data));
+                actScreenGap[i]->setCheckable(true);
+            }
+
+            connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen layout");
+            grpScreenLayout = new QActionGroup(submenu);
+
+            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal"};
+
+            for (int i = 0; i < 3; i++)
+            {
+                actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
+                actScreenLayout[i]->setActionGroup(grpScreenLayout);
+                actScreenLayout[i]->setData(QVariant(i));
+                actScreenLayout[i]->setCheckable(true);
+            }
+
+            connect(grpScreenLayout, &QActionGroup::triggered, this, &MainWindow::onChangeScreenLayout);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen sizing");
+            grpScreenSizing = new QActionGroup(submenu);
+
+            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto"};
+
+            for (int i = 0; i < 4; i++)
+            {
+                actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
+                actScreenSizing[i]->setActionGroup(grpScreenSizing);
+                actScreenSizing[i]->setData(QVariant(i));
+                actScreenSizing[i]->setCheckable(true);
+            }
+
+            connect(grpScreenSizing, &QActionGroup::triggered, this, &MainWindow::onChangeScreenSizing);
+
+            submenu->addSeparator();
+
+            actIntegerScaling = submenu->addAction("Force integer scaling");
+            actIntegerScaling->setCheckable(true);
+            connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
+        }
+
+        actScreenFiltering = menu->addAction("Screen filtering");
+        actScreenFiltering->setCheckable(true);
+        connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
+
+        actShowOSD = menu->addAction("Show OSD");
+        actShowOSD->setCheckable(true);
+        connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+
+        menu->addSeparator();
+
+        actLimitFramerate = menu->addAction("Limit framerate");
+        actLimitFramerate->setCheckable(true);
+        connect(actLimitFramerate, &QAction::triggered, this, &MainWindow::onChangeLimitFramerate);
+
+        actAudioSync = menu->addAction("Audio sync");
+        actAudioSync->setCheckable(true);
+        connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
     setMenuBar(menubar);
 
@@ -756,7 +871,6 @@ void MainWindow::onOpenFile()
 
 void MainWindow::onBootFirmware()
 {
-    // TODO: ensure the firmware is actually bootable!!
     // TODO: check the whole GBA cart shito
 
     emuThread->emuPause(true);
@@ -902,6 +1016,106 @@ void MainWindow::onStop()
 }
 
 
+void MainWindow::onEmuPause()
+{
+    //
+}
+
+void MainWindow::onEmuUnpause()
+{
+    //
+}
+
+
+void MainWindow::onOpenEmuSettings()
+{
+    EmuSettingsDialog::openDlg(this);
+}
+
+void MainWindow::onOpenInputConfig()
+{
+    emuThread->emuPause(true);
+
+    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
+    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
+}
+
+void MainWindow::onInputConfigFinished(int res)
+{
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onOpenVideoSettings()
+{
+    //
+}
+
+void MainWindow::onOpenAudioSettings()
+{
+    //
+}
+
+void MainWindow::onOpenWifiSettings()
+{
+    //
+}
+
+void MainWindow::onChangeSavestateSRAMReloc(bool checked)
+{
+    //
+}
+
+void MainWindow::onChangeScreenSize()
+{
+    //
+}
+
+void MainWindow::onChangeScreenRotation(QAction* act)
+{
+    printf("DATABOTTE %p\n", act);
+}
+
+void MainWindow::onChangeScreenGap(QAction* act)
+{
+    //
+}
+
+void MainWindow::onChangeScreenLayout(QAction* act)
+{
+    //
+}
+
+void MainWindow::onChangeScreenSizing(QAction* act)
+{
+    //
+}
+
+void MainWindow::onChangeIntegerScaling(bool checked)
+{
+    //
+}
+
+void MainWindow::onChangeScreenFiltering(bool checked)
+{
+    //
+}
+
+void MainWindow::onChangeShowOSD(bool checked)
+{
+    //
+}
+
+void MainWindow::onChangeLimitFramerate(bool checked)
+{
+    //
+}
+
+void MainWindow::onChangeAudioSync(bool checked)
+{
+    //
+}
+
+
 void MainWindow::onTitleUpdate(QString title)
 {
     setWindowTitle(title);
@@ -938,34 +1152,6 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
 }
 
-void MainWindow::onEmuPause()
-{
-    //
-}
-
-void MainWindow::onEmuUnpause()
-{
-    //
-}
-
-
-void MainWindow::onOpenEmuSettings()
-{
-    EmuSettingsDialog::openDlg(this);
-}
-
-void MainWindow::onOpenInputConfig()
-{
-    emuThread->emuPause(true);
-
-    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
-    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
-}
-
-void MainWindow::onInputConfigFinished(int res)
-{
-    emuThread->emuUnpause();
-}
 
 
 int main(int argc, char** argv)

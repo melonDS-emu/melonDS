@@ -23,6 +23,7 @@
 #include <QWidget>
 #include <QMainWindow>
 #include <QImage>
+#include <QActionGroup>
 
 
 class EmuThread : public QThread
@@ -107,16 +108,30 @@ private slots:
     void onReset();
     void onStop();
 
+    void onOpenEmuSettings();
+    void onOpenInputConfig();
+    void onInputConfigFinished(int res);
+    void onOpenVideoSettings();
+    void onOpenAudioSettings();
+    void onOpenWifiSettings();
+    void onChangeSavestateSRAMReloc(bool checked);
+    void onChangeScreenSize();
+    void onChangeScreenRotation(QAction* act);
+    void onChangeScreenGap(QAction* act);
+    void onChangeScreenLayout(QAction* act);
+    void onChangeScreenSizing(QAction* act);
+    void onChangeIntegerScaling(bool checked);
+    void onChangeScreenFiltering(bool checked);
+    void onChangeShowOSD(bool checked);
+    void onChangeLimitFramerate(bool checked);
+    void onChangeAudioSync(bool checked);
+
     void onTitleUpdate(QString title);
 
     void onEmuStart();
     void onEmuStop();
     void onEmuPause();
     void onEmuUnpause();
-
-    void onOpenEmuSettings();
-    void onOpenInputConfig();
-    void onInputConfigFinished(int res);
 
 private:
     QString loadErrorStr(int error);
@@ -136,6 +151,24 @@ private:
 
     QAction* actEmuSettings;
     QAction* actInputConfig;
+    QAction* actVideoSettings;
+    QAction* actAudioSettings;
+    QAction* actWifiSettings;
+    QAction* actSavestateSRAMReloc;
+    QAction* actScreenSize[4];
+    QActionGroup* grpScreenRotation;
+    QAction* actScreenRotation[4];
+    QActionGroup* grpScreenGap;
+    QAction* actScreenGap[6];
+    QActionGroup* grpScreenLayout;
+    QAction* actScreenLayout[3];
+    QActionGroup* grpScreenSizing;
+    QAction* actScreenSizing[4];
+    QAction* actIntegerScaling;
+    QAction* actScreenFiltering;
+    QAction* actShowOSD;
+    QAction* actLimitFramerate;
+    QAction* actAudioSync;
 };
 
 #endif // MAIN_H
