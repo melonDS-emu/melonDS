@@ -101,6 +101,17 @@ int AudioOut_GetNumSamples(int outlen);
 // note: this assumes the output buffer is interleaved stereo
 void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen);
 
+// feed silence to the microphone input
+void Mic_FeedSilence();
+
+// feed random noise to the microphone input
+void Mic_FeedNoise();
+
+// feed an external buffer to the microphone input
+// buffer should be mono
+void Mic_FeedExternalBuffer();
+void Mic_SetExternalBuffer(s16* buffer, u32 len);
+
 }
 
 #endif // FRONTENDUTIL_H
