@@ -343,6 +343,11 @@ void Thread_Wait(void* thread)
     SDL_WaitThread((SDL_Thread*)((ThreadData*)thread)->ID, NULL);
 }
 
+void Thread_Sleep(u32 ms)
+{
+    SDL_Delay(ms);
+}
+
 
 void* Semaphore_Create()
 {
@@ -367,6 +372,17 @@ void Semaphore_Wait(void* sema)
 void Semaphore_Post(void* sema)
 {
     SDL_SemPost((SDL_sem*)sema);
+}
+
+
+u64 Perf_GetFrequency()
+{
+    return SDL_GetPerformanceFrequency();
+}
+
+u64 Perf_GetCounter()
+{
+    return SDL_GetPerformanceCounter();
 }
 
 

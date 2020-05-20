@@ -84,6 +84,12 @@ int MPNumReplies;
 bool MPInited;
 bool LANInited;
 
+// TEST ZONE
+void* WifiThread;
+bool WifiThreadRunning;
+void WifiThreadFunc();
+bool WifiOn;
+
 
 
 // multiplayer host TX sequence:
@@ -129,6 +135,11 @@ bool Init()
 
     WifiAP::Init();
 
+    // HAX!!!!!
+    WifiThreadRunning = true;
+    WifiOn = false;
+    WifiThread = Platform::Thread_Create(WifiThreadFunc);
+
     return true;
 }
 
@@ -140,10 +151,16 @@ void DeInit()
         Platform::LAN_DeInit();
 
     WifiAP::DeInit();
+
+    WifiThreadRunning = false;
+    Platform::Thread_Wait(WifiThread);
+    Platform::Thread_Free(WifiThread);
 }
 
 void Reset()
 {
+    WifiOn = false;
+
     memset(RAM, 0, 0x2000);
     memset(IO, 0, 0x1000);
 
@@ -1103,7 +1120,43 @@ void USTimer(u32 param)
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
-    NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+    //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+}
+extern "C" int SDL_SetThreadPriority(int prio);
+void WifiThreadFunc()
+{
+    SDL_SetThreadPriority(2);
+
+    u64 perffreq = Platform::Perf_GetFrequency();
+    float ustime = perffreq / 1000000.0f;
+    u64 perflast = Platform::Perf_GetCounter();
+    printf("wifi: perf=%lld ustime=%f\n", perffreq, ustime);
+
+    float error = 0;
+
+    while (WifiThreadRunning)
+    {
+        if (!WifiOn)
+        {
+            Platform::Thread_Sleep(17);
+            continue;
+        }
+
+        USTimer(0);
+
+        // TODO better timing control!!
+        for (;;)
+        {
+            u64 perfcur = Platform::Perf_GetCounter();
+            u64 time = perfcur - perflast;
+            u64 target = (u64)ustime;
+            if (time >= target)
+            {
+                perflast = perfcur;
+                break;
+            }
+        }
+    }
 }
 
 
@@ -1350,7 +1403,8 @@ void Write(u32 addr, u16 val)
         if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
         {
             printf("WIFI ON\n");
-            NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 0);
+            //NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 0);
+            WifiOn = true;
             if (!MPInited)
             {
                 Platform::MP_Init();
@@ -1365,7 +1419,8 @@ void Write(u32 addr, u16 val)
         else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
         {
             printf("WIFI OFF\n");
-            NDS::CancelEvent(NDS::Event_Wifi);
+            //NDS::CancelEvent(NDS::Event_Wifi);
+            WifiOn = false;
         }
         break;
 

@@ -67,12 +67,16 @@ inline bool LocalFileExists(const char* name)
 void* Thread_Create(void (*func)());
 void Thread_Free(void* thread);
 void Thread_Wait(void* thread);
+void Thread_Sleep(u32 ms);
 
 void* Semaphore_Create();
 void Semaphore_Free(void* sema);
 void Semaphore_Reset(void* sema);
 void Semaphore_Wait(void* sema);
 void Semaphore_Post(void* sema);
+
+u64 Perf_GetFrequency();
+u64 Perf_GetCounter();
 
 void* GL_GetProcAddress(const char* proc);
 
