@@ -115,8 +115,6 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
-
-    emit windowEmuStop();
 }
 
 void EmuThread::run()
@@ -140,7 +138,6 @@ void EmuThread::run()
     }
 
     Input::Init();
-    /*Touching = false;*/
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -376,7 +373,6 @@ void EmuThread::emuPause()
     EmuRunning = 2;
     while (EmuStatus != 2);
 
-    //emit windowEmuPause();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
 }
 
@@ -384,7 +380,6 @@ void EmuThread::emuUnpause()
 {
     EmuRunning = PrevEmuStatus;
 
-    //emit windowEmuUnpause();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
 }
 
@@ -701,6 +696,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     panel = new MainWindowPanel(this);
     setCentralWidget(panel);
     panel->setMinimumSize(256, 384);
+
+
+    for (int i = 0; i < 9; i++)
+    {
+        actSaveState[i]->setEnabled(false);
+        actLoadState[i]->setEnabled(false);
+    }
+    actUndoStateLoad->setEnabled(false);
+
+    actPause->setEnabled(false);
+    actReset->setEnabled(false);
+    actStop->setEnabled(false);
 
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
@@ -1051,7 +1058,10 @@ void MainWindow::onReset()
 
 void MainWindow::onStop()
 {
-    //
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+    NDS::Stop();
 }
 
 
@@ -1168,6 +1178,8 @@ void MainWindow::onEmuStart()
 
 void MainWindow::onEmuStop()
 {
+    emuThread->emuPause();
+
     for (int i = 0; i < 9; i++)
     {
         actSaveState[i]->setEnabled(false);
@@ -1178,6 +1190,19 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+}
+
+
+void emuStop()
+{
+    RunningSomething = false;
+
+    Frontend::UnloadROM(Frontend::ROMSlot_NDS);
+    Frontend::UnloadROM(Frontend::ROMSlot_GBA);
+
+    emit emuThread->windowEmuStop();
+
+    //OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
 

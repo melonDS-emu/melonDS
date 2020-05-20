@@ -202,6 +202,20 @@ int LoadROM(const char* file, int slot)
     }
 }
 
+void UnloadROM(int slot)
+{
+    if (slot == ROMSlot_NDS)
+    {
+        // TODO!
+    }
+    else if (slot == ROMSlot_GBA)
+    {
+        GBACart::Eject();
+    }
+
+    ROMPath[slot][0] = '\0';
+}
+
 int Reset()
 {
     int res;

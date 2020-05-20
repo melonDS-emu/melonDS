@@ -116,6 +116,9 @@ void Reset()
 void Stop()
 {
     memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+
+    OutputReadOffset = 0;
+    OutputWriteOffset = 0;
 }
 
 void DoSavestate(Savestate* file)

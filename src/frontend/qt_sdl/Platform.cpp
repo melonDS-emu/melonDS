@@ -55,7 +55,7 @@
 
 char* EmuDirectory;
 
-void Stop(bool internal);
+void emuStop();
 
 
 namespace Platform
@@ -133,7 +133,7 @@ void DeInit()
 
 void StopEmu()
 {
-    //Stop(true);
+    emuStop();
 }
 
 
