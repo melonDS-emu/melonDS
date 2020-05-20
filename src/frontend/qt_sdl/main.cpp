@@ -978,6 +978,7 @@ int main(int argc, char** argv)
     Platform::Init(argc, argv);
 
     QApplication melon(argc, argv);
+    melon.setWindowIcon(QIcon(":/melon-icon"));
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
