@@ -1040,17 +1040,6 @@ void MainWindow::onStop()
 }
 
 
-void MainWindow::onEmuPause()
-{
-    //
-}
-
-void MainWindow::onEmuUnpause()
-{
-    //
-}
-
-
 void MainWindow::onOpenEmuSettings()
 {
     EmuSettingsDialog::openDlg(this);
@@ -1086,7 +1075,7 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 {
-    //
+    Config::SavestateRelocSRAM = checked?1:0;
 }
 
 void MainWindow::onChangeScreenSize()
@@ -1096,7 +1085,7 @@ void MainWindow::onChangeScreenSize()
 
 void MainWindow::onChangeScreenRotation(QAction* act)
 {
-    printf("DATABOTTE %p\n", act);
+    //
 }
 
 void MainWindow::onChangeScreenGap(QAction* act)
@@ -1121,22 +1110,22 @@ void MainWindow::onChangeIntegerScaling(bool checked)
 
 void MainWindow::onChangeScreenFiltering(bool checked)
 {
-    //
+    Config::ScreenFilter = checked?1:0;
 }
 
 void MainWindow::onChangeShowOSD(bool checked)
 {
-    //
+    Config::ShowOSD = checked?1:0;
 }
 
 void MainWindow::onChangeLimitFramerate(bool checked)
 {
-    //
+    Config::LimitFPS = checked?1:0;
 }
 
 void MainWindow::onChangeAudioSync(bool checked)
 {
-    //
+    Config::AudioSync = checked?1:0;
 }
 
 
@@ -1174,6 +1163,16 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+}
+
+void MainWindow::onEmuPause()
+{
+    //
+}
+
+void MainWindow::onEmuUnpause()
+{
+    //
 }
 
 
