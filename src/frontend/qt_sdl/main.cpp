@@ -28,6 +28,7 @@
 #include <QPaintEvent>
 #include <QPainter>
 #include <QKeyEvent>
+#include <QMimeData>
 
 #include <SDL2/SDL.h>
 
@@ -503,6 +504,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
+    setAcceptDrops(true);
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -609,6 +611,66 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     Input::KeyRelease(event);
+}
+
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event)
+{
+    if (!event->mimeData()->hasUrls()) return;
+
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.count() > 1) return; // not handling more than one file at once
+
+    QString filename = urls.at(0).toLocalFile();
+    QString ext = filename.right(3);
+
+    if (ext == "nds" || ext == "srl" || (ext == "gba" && RunningSomething))
+        event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent* event)
+{
+    if (!event->mimeData()->hasUrls()) return;
+
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.count() > 1) return; // not handling more than one file at once
+
+    emuThread->emuPause(true);
+
+    QString filename = urls.at(0).toLocalFile();
+    QString ext = filename.right(3);
+
+    char _filename[1024];
+    strncpy(_filename, filename.toStdString().c_str(), 1023); _filename[1023] = '\0';
+
+    int slot; int res;
+    if (ext == "gba")
+    {
+        slot = 1;
+        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
+    }
+    else
+    {
+        slot = 0;
+        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+    }
+
+    if (res != Frontend::Load_OK)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
+        emuThread->emuUnpause();
+    }
+    else if (slot == 1)
+    {
+        // checkme
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        emuThread->emuRun();
+    }
 }
 
 
