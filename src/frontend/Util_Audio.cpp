@@ -93,14 +93,16 @@ void Mic_FeedSilence()
 void Mic_FeedNoise()
 {
     // note: DS games seem to expect very saturated 'blowing into mic' noise
+    s16 noisesample[8] = {-0x8000, -0x8000, 0x7FFF, -0x8000, 0x7FFF, 0x7FFF, -0x8000, 0x7FFF};
+    int j = 0;
 
     s16 tmp[735];
 
     for (int i = 0; i < 735; i++)
     {
-        int val = rand() >> 8;
-        if      (val < -0x8000) val = -0x8000;
-        else if (val > 0x7FFF)  val = 0x7FFF;
+        int val = noisesample[j];
+        j++;
+        if (j >= 8) j = rand() & 7;
 
         tmp[i] = val;
     }

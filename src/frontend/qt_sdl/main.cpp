@@ -36,6 +36,7 @@
 #include "Input.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfigDialog.h"
+#include "AudioSettingsDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -1228,7 +1229,27 @@ void MainWindow::onOpenVideoSettings()
 
 void MainWindow::onOpenAudioSettings()
 {
-    //
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
+    connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
+}
+
+void MainWindow::onAudioSettingsFinished(int res)
+{
+    if (Config::MicInputType == 3)
+    {
+        micLoadWav(Config::MicWavPath);
+        Frontend::Mic_SetExternalBuffer(micWavBuffer, micWavLength);
+    }
+    else
+    {
+        delete[] micWavBuffer;
+        micWavBuffer = nullptr;
+
+        if (Config::MicInputType == 1)
+            Frontend::Mic_SetExternalBuffer(micExtBuffer, sizeof(micExtBuffer)/sizeof(s16));
+        else
+            Frontend::Mic_SetExternalBuffer(NULL, 0);
+    }
 }
 
 void MainWindow::onOpenWifiSettings()
@@ -1376,6 +1397,7 @@ int main(int argc, char** argv)
 
 #define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
     SANITIZE(Config::AudioVolume, 0, 256);
+    SANITIZE(Config::MicInputType, 0, 3);
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, 2);

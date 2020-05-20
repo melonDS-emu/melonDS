@@ -100,6 +100,7 @@ void EmuSettingsDialog::on_EmuSettingsDialog_accepted()
     strncpy(Config::BIOS7Path, ui->txtBIOS7Path->text().toStdString().c_str(), 1023); Config::BIOS7Path[1023] = '\0';
     strncpy(Config::FirmwarePath, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); Config::FirmwarePath[1023] = '\0';
     Config::DirectBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+    Config::Save();
 
     closeDlg();
 }

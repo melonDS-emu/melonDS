@@ -116,6 +116,7 @@ private slots:
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
     void onOpenAudioSettings();
+    void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();

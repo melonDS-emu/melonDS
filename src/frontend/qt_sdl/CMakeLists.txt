@@ -4,6 +4,7 @@ SET(SOURCES_QT_SDL
 	main.cpp
 	EmuSettingsDialog.cpp
 	InputConfigDialog.cpp
+	AudioSettingsDialog.cpp
 	Input.cpp
 	Platform.cpp
 	PlatformConfig.cpp
