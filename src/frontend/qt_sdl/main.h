@@ -38,7 +38,7 @@ public:
 
     // to be called from the UI thread
     void emuRun();
-    void emuPause(bool refresh);
+    void emuPause();
     void emuUnpause();
     void emuStop();
 
@@ -49,7 +49,10 @@ signals:
 
     void windowEmuStart();
     void windowEmuStop();
-    void windowPauseToggle();
+    void windowEmuPause();
+    void windowEmuReset();
+
+    void windowLimitFPSChange();
 
 private:
     volatile int EmuStatus;
@@ -130,14 +133,13 @@ private slots:
 
     void onEmuStart();
     void onEmuStop();
-    void onEmuPause();
-    void onEmuUnpause();
 
 private:
     QString loadErrorStr(int error);
 
     MainWindowPanel* panel;
 
+public:
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actSaveState[9];

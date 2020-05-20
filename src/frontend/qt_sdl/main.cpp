@@ -113,6 +113,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
+    connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
 
     emit windowEmuStop();
 }
@@ -152,14 +154,10 @@ void EmuThread::run()
     {
         Input::Process();
 
-        /*if (Input::HotkeyPressed(HK_FastForwardToggle))
-        {
-            Config::LimitFPS = !Config::LimitFPS;
-            // TODO: reflect in UI!
-        }*/
+        if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
-        //if (Input::HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
-        //if (Input::HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
+        if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
+        if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
@@ -318,18 +316,15 @@ void EmuThread::run()
             lastmeasuretick = lasttick;
             fpslimitcount = 0;
 
-            if (EmuRunning == 2)
+            /*if (Screen_UseGL)
             {
-                /*if (Screen_UseGL)
-                {
-                    uiGLBegin(GLContext);
-                    uiGLMakeContextCurrent(GLContext);
-                    GLScreen_DrawScreen();
-                    uiGLEnd(GLContext);
-                }
-                uiAreaQueueRedrawAll(MainDrawArea);*/
-                mainWindow->update();
+                uiGLBegin(GLContext);
+                uiGLMakeContextCurrent(GLContext);
+                GLScreen_DrawScreen();
+                uiGLEnd(GLContext);
             }
+            uiAreaQueueRedrawAll(MainDrawArea);*/
+            mainWindow->update();
 
             //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
@@ -338,7 +333,7 @@ void EmuThread::run()
             sprintf(melontitle, "melonDS " MELONDS_VERSION);
             changeWindowTitle(melontitle);
 
-            SDL_Delay(100);
+            SDL_Delay(75);
         }
     }
 
@@ -375,12 +370,11 @@ void EmuThread::emuRun()
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
 }
 
-void EmuThread::emuPause(bool refresh)
+void EmuThread::emuPause()
 {
-    int status = refresh ? 2:3;
     PrevEmuStatus = EmuRunning;
-    EmuRunning = status;
-    while (EmuStatus != status);
+    EmuRunning = 2;
+    while (EmuStatus != 2);
 
     //emit windowEmuPause();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
@@ -774,7 +768,7 @@ void MainWindow::dropEvent(QDropEvent* event)
     QList<QUrl> urls = event->mimeData()->urls();
     if (urls.count() > 1) return; // not handling more than one file at once
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
@@ -836,7 +830,7 @@ QString MainWindow::loadErrorStr(int error)
 
 void MainWindow::onOpenFile()
 {
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
@@ -897,7 +891,7 @@ void MainWindow::onBootFirmware()
 {
     // TODO: check the whole GBA cart shito
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     int res = Frontend::LoadBIOS();
     if (res != Frontend::Load_OK)
@@ -917,7 +911,7 @@ void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     char filename[1024];
     if (slot > 0)
@@ -958,7 +952,7 @@ void MainWindow::onLoadState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     char filename[1024];
     if (slot > 0)
@@ -1006,7 +1000,7 @@ void MainWindow::onLoadState()
 
 void MainWindow::onUndoStateLoad()
 {
-    emuThread->emuPause(true);
+    emuThread->emuPause();
     Frontend::UndoStateLoad();
     emuThread->emuUnpause();
 }
@@ -1019,9 +1013,11 @@ void MainWindow::onQuit()
 
 void MainWindow::onPause(bool checked)
 {
-    if (emuThread->emuIsRunning())
+    if (!RunningSomething) return;
+
+    if (checked)
     {
-        emuThread->emuPause(true);
+        emuThread->emuPause();
     }
     else
     {
@@ -1031,7 +1027,26 @@ void MainWindow::onPause(bool checked)
 
 void MainWindow::onReset()
 {
-    //
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+
+    actUndoStateLoad->setEnabled(false);
+
+    int res = Frontend::Reset();
+    if (res != Frontend::Load_OK)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        // OSD::AddMessage(0, "Reset");
+
+        emuThread->emuRun();
+    }
 }
 
 void MainWindow::onStop()
@@ -1047,7 +1062,7 @@ void MainWindow::onOpenEmuSettings()
 
 void MainWindow::onOpenInputConfig()
 {
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
     connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
@@ -1143,7 +1158,7 @@ void MainWindow::onEmuStart()
     }
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(true);
+    actUndoStateLoad->setEnabled(false);
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
@@ -1163,16 +1178,6 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
-}
-
-void MainWindow::onEmuPause()
-{
-    //
-}
-
-void MainWindow::onEmuUnpause()
-{
-    //
 }
 
 
@@ -1281,7 +1286,7 @@ int main(int argc, char** argv)
 
     emuThread = new EmuThread();
     emuThread->start();
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     if (argc > 1)
     {

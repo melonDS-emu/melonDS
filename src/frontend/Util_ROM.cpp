@@ -50,6 +50,11 @@ void Init_ROM()
     memset(PrevSRAMPath[ROMSlot_GBA], 0, 1024);
 }
 
+// TODO: currently, when failing to load a ROM for whatever reason, we attempt
+// to revert to the previous state and resume execution; this may not be a very
+// good thing, depending on what state the core was left in.
+// should we do a better state revert (via the savestate system)? completely stop?
+
 void SetupSRAMPath(int slot)
 {
     strncpy(SRAMPath[slot], ROMPath[slot], 1023);
@@ -184,7 +189,7 @@ int LoadROM(const char* file, int slot)
     }
     else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
     {
-        SavestateLoaded = false;
+        SavestateLoaded = false; // checkme??
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
         return Load_OK;
@@ -195,6 +200,46 @@ int LoadROM(const char* file, int slot)
         strncpy(SRAMPath[slot], oldsram, 1024);
         return Load_ROMLoadError;
     }
+}
+
+int Reset()
+{
+    int res;
+    bool directboot = Config::DirectBoot != 0;
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    res = VerifyDSFirmware();
+    if (res != Load_OK)
+    {
+        if (res == Load_FirmwareNotBootable)
+            directboot = true;
+        else
+            return res;
+    }
+
+    SavestateLoaded = false;
+
+    if (ROMPath[ROMSlot_NDS][0] == '\0')
+    {
+        NDS::LoadBIOS();
+    }
+    else
+    {
+        SetupSRAMPath(0);
+        if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
+            return Load_ROMLoadError;
+    }
+
+    if (ROMPath[ROMSlot_GBA][0] != '\0')
+    {
+        SetupSRAMPath(1);
+        if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
+            return Load_ROMLoadError;
+    }
+
+    return Load_OK;
 }
 
 

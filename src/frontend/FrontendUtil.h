@@ -65,6 +65,9 @@ int LoadBIOS();
 // note: loading a ROM to the NDS slot resets emulation
 int LoadROM(const char* file, int slot);
 
+// reset execution of the current ROM
+int Reset();
+
 // get the filename associated with the given savestate slot (1-8)
 void GetSavestateName(int slot, char* filename, int len);
 
