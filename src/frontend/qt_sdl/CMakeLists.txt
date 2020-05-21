@@ -10,6 +10,7 @@ SET(SOURCES_QT_SDL
 	PlatformConfig.cpp
 	
 	../Util_ROM.cpp
+	../Util_Video.cpp
 	../Util_Audio.cpp
 	../FrontendUtil.h
 	../mic_blow.h

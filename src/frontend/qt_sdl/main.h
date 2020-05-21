@@ -54,6 +54,8 @@ signals:
 
     void windowLimitFPSChange();
 
+    void screenLayoutChange();
+
 private:
     volatile int EmuStatus;
     int PrevEmuStatus;
@@ -69,18 +71,25 @@ public:
     explicit MainWindowPanel(QWidget* parent);
     ~MainWindowPanel();
 
+    void ensureProperMinSize();
+    void setupScreenLayout();
+
 protected:
     void paintEvent(QPaintEvent* event) override;
+
+    void resizeEvent(QResizeEvent* event) override;
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+private slots:
+    void onScreenLayoutChanged();
+
 private:
     QImage* screen[2];
+    QTransform screenTrans[2];
     bool touching;
-
-    void transformTSCoords(int& x, int& y);
 };
 
 
@@ -93,6 +102,8 @@ public:
     ~MainWindow();
 
 protected:
+    void resizeEvent(QResizeEvent* event) override;
+
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
 
@@ -138,9 +149,9 @@ private slots:
 private:
     QString loadErrorStr(int error);
 
+public:
     MainWindowPanel* panel;
 
-public:
     QAction* actOpenROM;
     QAction* actBootFirmware;
     QAction* actSaveState[9];

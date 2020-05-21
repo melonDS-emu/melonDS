@@ -62,6 +62,8 @@ bool RunningSomething;
 MainWindow* mainWindow;
 EmuThread* emuThread;
 
+int autoScreenSizing = 0;
+
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
 SDL_cond* audioSync;
@@ -250,16 +252,19 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
 }
 
 void EmuThread::run()
 {
+    u32 mainScreenPos[3];
+
     NDS::Init();
 
-    /*MainScreenPos[0] = 0;
-    MainScreenPos[1] = 0;
-    MainScreenPos[2] = 0;
-    AutoScreenSizing = 0;*/
+    mainScreenPos[0] = 0;
+    mainScreenPos[1] = 0;
+    mainScreenPos[2] = 0;
+    autoScreenSizing = 0;
 
     /*if (Screen_UseGL)
     {
@@ -333,14 +338,14 @@ void EmuThread::run()
             }*/
 
             // auto screen layout
-            /*{
-                MainScreenPos[2] = MainScreenPos[1];
-                MainScreenPos[1] = MainScreenPos[0];
-                MainScreenPos[0] = NDS::PowerControl9 >> 15;
+            {
+                mainScreenPos[2] = mainScreenPos[1];
+                mainScreenPos[1] = mainScreenPos[0];
+                mainScreenPos[0] = NDS::PowerControl9 >> 15;
 
                 int guess;
-                if (MainScreenPos[0] == MainScreenPos[2] &&
-                    MainScreenPos[0] != MainScreenPos[1])
+                if (mainScreenPos[0] == mainScreenPos[2] &&
+                    mainScreenPos[0] != mainScreenPos[1])
                 {
                     // constant flickering, likely displaying 3D on both screens
                     // TODO: when both screens are used for 2D only...???
@@ -348,18 +353,18 @@ void EmuThread::run()
                 }
                 else
                 {
-                    if (MainScreenPos[0] == 1)
+                    if (mainScreenPos[0] == 1)
                         guess = 1;
                     else
                         guess = 2;
                 }
 
-                if (guess != AutoScreenSizing)
+                if (guess != autoScreenSizing)
                 {
-                    AutoScreenSizing = guess;
-                    SetupScreenRects(WindowWidth, WindowHeight);
+                    autoScreenSizing = guess;
+                    emit screenLayoutChange();
                 }
-            }*/
+            }
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -540,6 +545,9 @@ MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
     screen[0] = new QImage(256, 192, QImage::Format_RGB32);
     screen[1] = new QImage(256, 192, QImage::Format_RGB32);
 
+    screenTrans[0].reset();
+    screenTrans[1].reset();
+
     touching = false;
 }
 
@@ -547,6 +555,64 @@ MainWindowPanel::~MainWindowPanel()
 {
     delete screen[0];
     delete screen[1];
+}
+
+void MainWindowPanel::ensureProperMinSize()
+{
+    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    int gap = Config::ScreenGap;
+
+    int w = 256;
+    int h = 192;
+
+    if (Config::ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            setMinimumSize(h+gap+h, w);
+        else
+            setMinimumSize(w, h+gap+h);
+    }
+    else if (Config::ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            setMinimumSize(h, w+gap+w);
+        else
+            setMinimumSize(w, h+gap+h);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            setMinimumSize(h+gap+h, w);
+        else
+            setMinimumSize(w+gap+w, h);
+    }
+}
+
+void MainWindowPanel::setupScreenLayout()
+{
+    int w = width();
+    int h = height();
+    float* mtx;
+
+    int sizing = Config::ScreenSizing;
+    if (sizing == 3) sizing = autoScreenSizing;
+
+    Frontend::SetupScreenLayout(w, h,
+                                Config::ScreenLayout,
+                                Config::ScreenRotation,
+                                sizing,
+                                Config::ScreenGap,
+                                Config::IntegerScaling != 0);
+
+    mtx = Frontend::GetScreenTransform(0);
+    screenTrans[0].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
+
+    mtx = Frontend::GetScreenTransform(1);
+    screenTrans[1].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
 }
 
 void MainWindowPanel::paintEvent(QPaintEvent* event)
@@ -562,27 +628,18 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
     memcpy(screen[0]->scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
     memcpy(screen[1]->scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
 
-    QRect src = QRect(0, 0, 256, 192);
+    QRect screenrc = QRect(0, 0, 256, 192);
 
-    QRect dstTop = QRect(0, 0, 256, 192); // TODO
-    QRect dstBot = QRect(0, 192, 256, 192); // TODO
+    painter.setTransform(screenTrans[0]);
+    painter.drawImage(screenrc, *screen[0]);
 
-    painter.drawImage(dstTop, *screen[0]);
-    painter.drawImage(dstBot, *screen[1]);
+    painter.setTransform(screenTrans[1]);
+    painter.drawImage(screenrc, *screen[1]);
 }
 
-
-void MainWindowPanel::transformTSCoords(int& x, int& y)
+void MainWindowPanel::resizeEvent(QResizeEvent* event)
 {
-    // TODO: actual screen de-transform taking screen layout/rotation/etc into account
-
-    y -= 192;
-
-    // clamp to screen range
-    if (x < 0) x = 0;
-    else if (x > 255) x = 255;
-    if (y < 0) y = 0;
-    else if (y > 191) y = 191;
+    setupScreenLayout();
 }
 
 void MainWindowPanel::mousePressEvent(QMouseEvent* event)
@@ -593,11 +650,11 @@ void MainWindowPanel::mousePressEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (x >= 0 && x < 256 && y >= 192 && y < 384)
+    Frontend::GetTouchCoords(x, y);
+
+    if (x >= 0 && x < 256 && y >= 0 && y < 192)
     {
         touching = true;
-
-        transformTSCoords(x, y);
         NDS::TouchScreen(x, y);
     }
 }
@@ -623,8 +680,20 @@ void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    transformTSCoords(x, y);
+    Frontend::GetTouchCoords(x, y);
+
+    // clamp to screen range
+    if (x < 0) x = 0;
+    else if (x > 255) x = 255;
+    if (y < 0) y = 0;
+    else if (y > 191) y = 191;
+
     NDS::TouchScreen(x, y);
+}
+
+void MainWindowPanel::onScreenLayoutChanged()
+{
+    setupScreenLayout();
 }
 
 
@@ -750,7 +819,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
                 int data = i*90;
                 actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
                 actScreenRotation[i]->setActionGroup(grpScreenRotation);
-                actScreenRotation[i]->setData(QVariant(data));
+                actScreenRotation[i]->setData(QVariant(i));
                 actScreenRotation[i]->setCheckable(true);
             }
 
@@ -834,8 +903,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     panel = new MainWindowPanel(this);
     setCentralWidget(panel);
-    panel->setMinimumSize(256, 384);
+    panel->ensureProperMinSize();
 
+    resize(Config::WindowWidth, Config::WindowHeight);
 
     for (int i = 0; i < 9; i++)
     {
@@ -877,6 +947,16 @@ MainWindow::~MainWindow()
 {
 }
 
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    int w = event->size().width();
+    int h = event->size().height();
+
+    Config::WindowWidth = w;
+    Config::WindowHeight = h;
+
+    // TODO: detect when the window gets maximized!
+}
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
@@ -1264,32 +1344,79 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 
 void MainWindow::onChangeScreenSize()
 {
-    //
+    int factor = ((QAction*)sender())->data().toInt();
+
+    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    int gap = Config::ScreenGap;
+
+    int w = 256*factor;
+    int h = 192*factor;
+
+    QSize diff = size() - panel->size();
+
+    if (Config::ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            resize(QSize(h+gap+h, w) + diff);
+        else
+            resize(QSize(w, h+gap+h) + diff);
+    }
+    else if (Config::ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            resize(QSize(h, w+gap+w) + diff);
+        else
+            resize(QSize(w, h+gap+h) + diff);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            resize(QSize(h+gap+h, w) + diff);
+        else
+            resize(QSize(w+gap+w, h) + diff);
+    }
 }
 
 void MainWindow::onChangeScreenRotation(QAction* act)
 {
-    //
+    int rot = act->data().toInt();
+    Config::ScreenRotation = rot;
+
+    panel->ensureProperMinSize();
+    panel->setupScreenLayout();
 }
 
 void MainWindow::onChangeScreenGap(QAction* act)
 {
-    //
+    int gap = act->data().toInt();
+    Config::ScreenGap = gap;
+
+    panel->ensureProperMinSize();
+    panel->setupScreenLayout();
 }
 
 void MainWindow::onChangeScreenLayout(QAction* act)
 {
-    //
+    int layout = act->data().toInt();
+    Config::ScreenLayout = layout;
+
+    panel->ensureProperMinSize();
+    panel->setupScreenLayout();
 }
 
 void MainWindow::onChangeScreenSizing(QAction* act)
 {
-    //
+    int sizing = act->data().toInt();
+    Config::ScreenSizing = sizing;
+
+    panel->setupScreenLayout();
 }
 
 void MainWindow::onChangeIntegerScaling(bool checked)
 {
-    //
+    Config::IntegerScaling = checked?1:0;
+
+    panel->setupScreenLayout();
 }
 
 void MainWindow::onChangeScreenFiltering(bool checked)

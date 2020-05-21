@@ -89,6 +89,32 @@ bool SaveState(const char* filename);
 void UndoStateLoad();
 
 
+// setup the display layout based on the provided display size and parameters
+// * screenWidth/screenHeight: size of the host display
+// * screenLayout: how the DS screens are laid out
+//     0 = natural (top screen above bottom screen always)
+//     1 = vertical
+//     2 = horizontal
+// * rotation: angle at which the DS screens are presented: 0/1/2/3 = 0/90/180/270
+// * sizing: how the display size is shared between the two screens
+//     0 = even (both screens get same size)
+//     1 = emphasize top screen (make top screen as big as possible, fit bottom screen in remaining space)
+//     2 = emphasize bottom screen
+// * screenGap: size of the gap between the two screens
+// * integerScale: force screens to be scaled up at integer scaling factors
+void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale);
+
+// get a 2x3 transform matrix for the given screen (0=top, 1=bottom)
+// note: the transform assumes an origin point at the top left of the display,
+// X going left and Y going down
+// for each screen the source coordinates should be (0,0) and (256,192)
+float* GetScreenTransform(int screen);
+
+// de-transform the provided host display coordinates to get coordinates
+// on the bottom screen
+void GetTouchCoords(int& x, int& y);
+
+
 // initialize the audio utility
 void Init_Audio(int outputfreq);
 
