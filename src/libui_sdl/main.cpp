@@ -185,6 +185,7 @@ u32 MicBufferReadPos, MicBufferWritePos;
 u32 MicWavLength;
 s16* MicWavBuffer;
 
+void OnSetScreenSizing(uiMenuItem* item, uiWindow* window, void* param);
 void SetupScreenRects(int width, int height);
 
 void TogglePause(void* blarg);
@@ -957,6 +958,20 @@ int EmuThreadFunc(void* burp)
 
         if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
         if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
+
+        if (HotkeyPressed(HK_SwitchEmphasis)) {
+            ScreenSizing = ScreenSizing == 1 ? 2 : 1;
+            OnSetScreenSizing(NULL, NULL, &ScreenSizing);
+        }
+
+        if (HotkeyPressed(HK_SwitchEven)) {
+            static int SwitchEvenToggle = 0;
+            if (ScreenSizing != 0) {
+                SwitchEvenToggle = ScreenSizing;
+            }
+            ScreenSizing = ScreenSizing == 0 ? SwitchEvenToggle : 0;
+            OnSetScreenSizing(NULL, NULL, &ScreenSizing);
+        }
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
