@@ -28,6 +28,8 @@
 
 #include "NDS.h"
 
+#include "mic_blow.h"
+
 
 namespace Frontend
 {
@@ -92,19 +94,16 @@ void Mic_FeedSilence()
 
 void Mic_FeedNoise()
 {
-    // note: DS games seem to expect very saturated 'blowing into mic' noise
-    s16 noisesample[8] = {-0x8000, -0x8000, 0x7FFF, -0x8000, 0x7FFF, 0x7FFF, -0x8000, 0x7FFF};
-    int j = 0;
+    int sample_len = sizeof(mic_blow) / sizeof(u16);
+    static int sample_pos = 0;
 
     s16 tmp[735];
 
     for (int i = 0; i < 735; i++)
     {
-        int val = noisesample[j];
-        j++;
-        if (j >= 8) j = rand() & 7;
-
-        tmp[i] = val;
+        tmp[i] = mic_blow[sample_pos];
+        sample_pos++;
+        if (sample_pos >= sample_len) sample_pos = 0;
     }
 
     NDS::MicInputFrame(tmp, 735);

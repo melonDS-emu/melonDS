@@ -95,7 +95,7 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Noise will be forwarded to the emulated microphone, simulating blowing into the microphone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>White noise</string>
+         <string>Blow noise</string>
         </property>
        </widget>
       </item>

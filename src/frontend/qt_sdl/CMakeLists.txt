@@ -12,6 +12,7 @@ SET(SOURCES_QT_SDL
 	../Util_ROM.cpp
 	../Util_Audio.cpp
 	../FrontendUtil.h
+	../mic_blow.h
 	
 	../../../melon.qrc
 )
