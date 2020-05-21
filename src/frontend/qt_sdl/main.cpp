@@ -628,6 +628,8 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
     memcpy(screen[0]->scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
     memcpy(screen[1]->scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
 
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
+
     QRect screenrc = QRect(0, 0, 256, 192);
 
     painter.setTransform(screenTrans[0]);
