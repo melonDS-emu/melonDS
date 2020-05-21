@@ -235,14 +235,14 @@ void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int 
             if (layout == 0)
             {
                 if (screenHeight - primVSize * primScale < secVSize)
-                    primScale = std::min((screenWidth - secHSize) / primHSize, (screenHeight - secVSize) / primVSize);
+                    primScale = std::min(screenWidth / primHSize, (screenHeight - secVSize) / primVSize);
                 else
                     secScale = std::min((screenHeight - primVSize * primScale) / secVSize, screenWidth / secHSize);
             }
             else
             {
                 if (screenWidth - primHSize * primScale < secHSize)
-                    primScale = std::min((screenWidth - secHSize) / primHSize, (screenHeight - secVSize) / primVSize);
+                    primScale = std::min((screenWidth - secHSize) / primHSize, screenHeight / primVSize);
                 else
                     secScale = std::min((screenWidth - primHSize * primScale) / secHSize, screenHeight / secVSize);
             }
