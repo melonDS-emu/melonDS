@@ -247,6 +247,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuRunning = 2;
     RunningSomething = false;
 
+    connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(update()));
+    //connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -338,6 +340,7 @@ void EmuThread::run()
             }*/
 
             // auto screen layout
+            if (Config::ScreenSizing == 3)
             {
                 mainScreenPos[2] = mainScreenPos[1];
                 mainScreenPos[1] = mainScreenPos[0];
@@ -381,7 +384,7 @@ void EmuThread::run()
                 uiGLEnd(GLContext);
             }
             uiAreaQueueRedrawAll(MainDrawArea);*/
-            mainWindow->update();
+            emit windowUpdate();
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
 
@@ -461,7 +464,7 @@ void EmuThread::run()
                 uiGLEnd(GLContext);
             }
             uiAreaQueueRedrawAll(MainDrawArea);*/
-            mainWindow->update();
+            emit windowUpdate();
 
             //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
@@ -630,7 +633,7 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
 
     painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
 
-    QRect screenrc = QRect(0, 0, 256, 192);
+    QRect screenrc(0, 0, 256, 192);
 
     painter.setTransform(screenTrans[0]);
     painter.drawImage(screenrc, *screen[0]);

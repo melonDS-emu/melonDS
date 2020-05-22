@@ -45,6 +45,7 @@ public:
     bool emuIsRunning();
 
 signals:
+    void windowUpdate();
     void windowTitleChange(QString title);
 
     void windowEmuStart();
