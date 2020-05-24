@@ -543,60 +543,8 @@ bool EmuThread::emuIsRunning()
 }
 
 
-MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
+void ScreenHandler::screenSetupLayout(int w, int h)
 {
-    screen[0] = new QImage(256, 192, QImage::Format_RGB32);
-    screen[1] = new QImage(256, 192, QImage::Format_RGB32);
-
-    screenTrans[0].reset();
-    screenTrans[1].reset();
-
-    touching = false;
-}
-
-MainWindowPanel::~MainWindowPanel()
-{
-    delete screen[0];
-    delete screen[1];
-}
-
-void MainWindowPanel::ensureProperMinSize()
-{
-    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
-    int gap = Config::ScreenGap;
-
-    int w = 256;
-    int h = 192;
-
-    if (Config::ScreenLayout == 0) // natural
-    {
-        if (isHori)
-            setMinimumSize(h+gap+h, w);
-        else
-            setMinimumSize(w, h+gap+h);
-    }
-    else if (Config::ScreenLayout == 1) // vertical
-    {
-        if (isHori)
-            setMinimumSize(h, w+gap+w);
-        else
-            setMinimumSize(w, h+gap+h);
-    }
-    else // horizontal
-    {
-        if (isHori)
-            setMinimumSize(h+gap+h, w);
-        else
-            setMinimumSize(w+gap+w, h);
-    }
-}
-
-void MainWindowPanel::setupScreenLayout()
-{
-    int w = width();
-    int h = height();
-    float* mtx;
-
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
@@ -607,47 +555,41 @@ void MainWindowPanel::setupScreenLayout()
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0);
 
-    mtx = Frontend::GetScreenTransform(0);
-    screenTrans[0].setMatrix(mtx[0], mtx[1], 0.f,
-                             mtx[2], mtx[3], 0.f,
-                             mtx[4], mtx[5], 1.f);
-
-    mtx = Frontend::GetScreenTransform(1);
-    screenTrans[1].setMatrix(mtx[0], mtx[1], 0.f,
-                             mtx[2], mtx[3], 0.f,
-                             mtx[4], mtx[5], 1.f);
+    Frontend::GetScreenTransforms(screenMatrix[0], screenMatrix[1]);
 }
 
-void MainWindowPanel::paintEvent(QPaintEvent* event)
+QSize ScreenHandler::screenGetMinSize()
 {
-    QPainter painter(this);
+    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    int gap = Config::ScreenGap;
 
-    // fill background
-    painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
+    int w = 256;
+    int h = 192;
 
-    int frontbuf = GPU::FrontBuffer;
-    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
-
-    memcpy(screen[0]->scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
-    memcpy(screen[1]->scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
-
-    painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
-
-    QRect screenrc(0, 0, 256, 192);
-
-    painter.setTransform(screenTrans[0]);
-    painter.drawImage(screenrc, *screen[0]);
-
-    painter.setTransform(screenTrans[1]);
-    painter.drawImage(screenrc, *screen[1]);
+    if (Config::ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            return QSize(h+gap+h, w);
+        else
+            return QSize(w, h+gap+h);
+    }
+    else if (Config::ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            return QSize(h, w+gap+w);
+        else
+            return QSize(w, h+gap+h);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            return QSize(h+gap+h, w);
+        else
+            return QSize(w+gap+w, h);
+    }
 }
 
-void MainWindowPanel::resizeEvent(QResizeEvent* event)
-{
-    setupScreenLayout();
-}
-
-void MainWindowPanel::mousePressEvent(QMouseEvent* event)
+void ScreenHandler::screenOnMousePress(QMouseEvent* event)
 {
     event->accept();
     if (event->button() != Qt::LeftButton) return;
@@ -664,7 +606,7 @@ void MainWindowPanel::mousePressEvent(QMouseEvent* event)
     }
 }
 
-void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
+void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
 {
     event->accept();
     if (event->button() != Qt::LeftButton) return;
@@ -676,7 +618,7 @@ void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
     }
 }
 
-void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
+void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
 {
     event->accept();
     if (!(event->buttons() & Qt::LeftButton)) return;
@@ -694,6 +636,90 @@ void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
     else if (y > 191) y = 191;
 
     NDS::TouchScreen(x, y);
+}
+
+
+MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
+{
+    screen[0] = QImage(256, 192, QImage::Format_RGB32);
+    screen[1] = QImage(256, 192, QImage::Format_RGB32);
+
+    screenTrans[0].reset();
+    screenTrans[1].reset();
+
+    touching = false;
+}
+
+MainWindowPanel::~MainWindowPanel()
+{
+}
+
+void MainWindowPanel::ensureProperMinSize()
+{
+    setMinimumSize(screenGetMinSize());
+}
+
+void MainWindowPanel::setupScreenLayout()
+{
+    int w = width();
+    int h = height();
+    float* mtx;
+
+    screenSetupLayout(w, h);
+
+    mtx = screenMatrix[0];
+    screenTrans[0].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
+
+    mtx = screenMatrix[1];
+    screenTrans[1].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
+}
+
+void MainWindowPanel::paintEvent(QPaintEvent* event)
+{
+    QPainter painter(this);
+
+    // fill background
+    painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
+
+    int frontbuf = GPU::FrontBuffer;
+    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
+
+    memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
+    memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
+
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
+
+    QRect screenrc(0, 0, 256, 192);
+
+    painter.setTransform(screenTrans[0]);
+    painter.drawImage(screenrc, screen[0]);
+
+    painter.setTransform(screenTrans[1]);
+    painter.drawImage(screenrc, screen[1]);
+}
+
+void MainWindowPanel::resizeEvent(QResizeEvent* event)
+{
+    setupScreenLayout();
+}
+
+void MainWindowPanel::mousePressEvent(QMouseEvent* event)
+{
+    screenOnMousePress(event);
+}
+
+void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
+{
+    screenOnMouseRelease(event);
+}
+
+void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
+{
+    screenOnMouseMove(event);
 }
 
 void MainWindowPanel::onScreenLayoutChanged()

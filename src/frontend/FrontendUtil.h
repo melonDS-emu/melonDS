@@ -104,11 +104,12 @@ void UndoStateLoad();
 // * integerScale: force screens to be scaled up at integer scaling factors
 void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale);
 
-// get a 2x3 transform matrix for the given screen (0=top, 1=bottom)
+// get a 2x3 transform matrix for each screen
 // note: the transform assumes an origin point at the top left of the display,
 // X going left and Y going down
 // for each screen the source coordinates should be (0,0) and (256,192)
-float* GetScreenTransform(int screen);
+// 'top' and 'bot' should point each to an array of 6 floats
+void GetScreenTransforms(float* top, float* bot);
 
 // de-transform the provided host display coordinates to get coordinates
 // on the bottom screen

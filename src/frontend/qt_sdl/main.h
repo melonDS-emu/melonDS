@@ -64,7 +64,24 @@ private:
 };
 
 
-class MainWindowPanel : public QWidget
+class ScreenHandler
+{
+protected:
+    void screenSetupLayout(int w, int h);
+
+    QSize screenGetMinSize();
+
+    void screenOnMousePress(QMouseEvent* event);
+    void screenOnMouseRelease(QMouseEvent* event);
+    void screenOnMouseMove(QMouseEvent* event);
+
+    float screenMatrix[2][6];
+
+    bool touching;
+};
+
+
+class MainWindowPanel : public QWidget, public ScreenHandler
 {
     Q_OBJECT
 
@@ -88,9 +105,8 @@ private slots:
     void onScreenLayoutChanged();
 
 private:
-    QImage* screen[2];
+    QImage screen[2];
     QTransform screenTrans[2];
-    bool touching;
 };
 
 

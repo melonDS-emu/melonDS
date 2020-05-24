@@ -313,10 +313,10 @@ void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int 
     }
 }
 
-float* GetScreenTransform(int screen)
+void GetScreenTransforms(float* top, float* bot)
 {
-    if (screen == 0) return TopScreenMtx;
-    else             return BotScreenMtx;
+    memcpy(top, TopScreenMtx, 6*sizeof(float));
+    memcpy(bot, BotScreenMtx, 6*sizeof(float));
 }
 
 void GetTouchCoords(int& x, int& y)
