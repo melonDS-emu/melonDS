@@ -110,7 +110,7 @@ void audioCallback(void* data, Uint8* stream, int len)
         num_in = len_in-margin;
     }
 
-    Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len);
+    Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
 }
 
 

@@ -124,9 +124,9 @@ void Init_Audio(int outputfreq);
 int AudioOut_GetNumSamples(int outlen);
 
 // resample audio from the core audio output to match the frontend's
-// output frequency, and apply user-specified volume
+// output frequency, and apply specified volume
 // note: this assumes the output buffer is interleaved stereo
-void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen);
+void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volume);
 
 // feed silence to the microphone input
 void Mic_FeedSilence();

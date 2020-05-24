@@ -22,9 +22,6 @@
 #include <math.h>
 
 #include "FrontendUtil.h"
-#include "Config.h"
-#include "qt_sdl/PlatformConfig.h" // FIXME!!!
-#include "Platform.h"
 
 #include "NDS.h"
 
@@ -63,13 +60,11 @@ int AudioOut_GetNumSamples(int outlen)
     return len_in;
 }
 
-void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen)
+void AudioOut_Resample(s16* inbuf, int inlen, s16* outbuf, int outlen, int volume)
 {
     float res_incr = inlen / (float)outlen;
     float res_timer = 0;
     int res_pos = 0;
-
-    int volume = Config::AudioVolume;
 
     for (int i = 0; i < outlen; i++)
     {
