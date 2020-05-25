@@ -54,6 +54,8 @@
 
 #include "Savestate.h"
 
+#include "main_shaders.h"
+
 
 // TODO: uniform variable spelling
 
@@ -247,7 +249,8 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuRunning = 2;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(update()));
+    //connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(update()));
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
     //connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
@@ -726,11 +729,18 @@ void ScreenPanelNative::onScreenLayoutChanged()
 
 ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 {
-    //
+    QSurfaceFormat format;
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    format.setVersion(3, 2);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    setFormat(format);
 }
 
 ScreenPanelGL::~ScreenPanelGL()
 {
+    // CHECKME!!!!
+    delete screenShader;
 }
 
 void ScreenPanelGL::setupScreenLayout()
@@ -741,14 +751,120 @@ void ScreenPanelGL::setupScreenLayout()
     screenSetupLayout(w, h);
 }
 
-void ScreenPanelGL::paintEvent(QPaintEvent* event)
+void ScreenPanelGL::initializeGL()
 {
-    // TODO?
+    initializeOpenGLFunctions();
+
+    glClearColor(0, 0, 0, 1);
+
+    screenShader = new QOpenGLShaderProgram(this);
+    screenShader->addShaderFromSourceCode(QOpenGLShader::Vertex, kScreenVS);
+    screenShader->addShaderFromSourceCode(QOpenGLShader::Fragment, kScreenFS);
+
+    GLuint pid = screenShader->programId();
+    printf("program: %d\n", pid);
+    glBindAttribLocation(pid, 0, "vPosition");
+    glBindAttribLocation(pid, 1, "vTexcoord");
+    glBindFragDataLocation(pid, 0, "oColor");
+
+    screenShader->link();
+
+    screenShader->bind();
+    screenShader->setUniformValue("ScreenTex", (GLint)0);
+    screenShader->release();
+
+
+    float vertices[] =
+    {
+        0,   0,    0, 0,
+        0,   192,  0, 0.5,
+        256, 192,  1, 0.5,
+        0,   0,    0, 0,
+        256, 192,  1, 0.5,
+        256, 0,    1, 0,
+
+        0,   0,    0, 0.5,
+        0,   192,  0, 1,
+        256, 192,  1, 1,
+        0,   0,    0, 0.5,
+        256, 192,  1, 1,
+        256, 0,    1, 0.5
+    };
+
+    glGenBuffers(1, &screenVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &screenVertexArray);
+    glBindVertexArray(screenVertexArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &screenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+}
+
+void ScreenPanelGL::paintGL()
+{
+    int w = width();
+    int h = height();
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // TODO: check hiDPI compliance of this
+    glViewport(0, 0, w, h);
+
+    screenShader->bind();
+
+    screenShader->setUniformValue("uScreenSize", (float)w, (float)h);
+
+    int frontbuf = GPU::FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+    }
+
+    GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBindVertexArray(screenVertexArray);
+
+    GLint transloc = screenShader->uniformLocation("uTransform");
+
+    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[0]);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[1]);
+    glDrawArrays(GL_TRIANGLES, 2*3, 2*3);
+
+    screenShader->release();
 }
 
 void ScreenPanelGL::resizeEvent(QResizeEvent* event)
 {
     setupScreenLayout();
+
+    QOpenGLWidget::resizeEvent(event);
+}
+
+void ScreenPanelGL::resizeGL(int w, int h)
+{
 }
 
 void ScreenPanelGL::mousePressEvent(QMouseEvent* event)
@@ -977,7 +1093,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
-    panel = new ScreenPanelNative(this);
+    //panel = new ScreenPanelNative(this);
+    panel = new ScreenPanelGL(this);
     setCentralWidget(panel);
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();

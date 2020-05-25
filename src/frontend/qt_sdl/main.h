@@ -24,7 +24,12 @@
 #include <QMainWindow>
 #include <QImage>
 #include <QActionGroup>
+
 #include <QOpenGLWidget>
+#include <QOpenGLContext>
+#include <QOpenGLFunctions>
+#include <QOpenGLFunctions_3_2_Core>
+#include <QOpenGLShaderProgram>
 
 
 class EmuThread : public QThread
@@ -115,7 +120,7 @@ private:
 };
 
 
-class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler
+class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler, protected QOpenGLFunctions_3_2_Core
 {
     Q_OBJECT
 
@@ -124,9 +129,12 @@ public:
     ~ScreenPanelGL();
 
 protected:
-    void paintEvent(QPaintEvent* event) override;
+    void initializeGL() override;
+
+    void paintGL() override;
 
     void resizeEvent(QResizeEvent* event) override;
+    void resizeGL(int w, int h) override;
 
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -138,7 +146,10 @@ private slots:
 private:
     void setupScreenLayout();
 
-    //
+    QOpenGLShaderProgram* screenShader;
+    GLuint screenVertexBuffer;
+    GLuint screenVertexArray;
+    GLuint screenTexture;
 };
 
 
