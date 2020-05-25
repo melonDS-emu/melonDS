@@ -155,7 +155,7 @@ void main()
 
     // TODO: filters
 
-    oColor = vec4(vec3(pixel.rgb) / 255.0, 1.0);
+    oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
 }
 )";
 
@@ -310,7 +310,7 @@ void main()
 
     // TODO: filters
 
-    oColor = vec4(vec3(pixel.rgb) / 255.0, 1.0);
+    oColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
 }
 )";
 
@@ -855,7 +855,7 @@ void main()
     pixel.rgb <<= 2;
     pixel.rgb |= (pixel.rgb >> 6);
 
-    FragColor = vec4(vec3(pixel.rgb) / 255.0, 1.0);
+    FragColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
 }
 )";
 
