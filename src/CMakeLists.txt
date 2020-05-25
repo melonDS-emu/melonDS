@@ -16,6 +16,8 @@ add_library(core STATIC
 	FIFO.h
 	GBACart.cpp
 	GPU.cpp
+	GPU_OpenGL.cpp
+	GPU_OpenGL_shaders.h
 	GPU2D.cpp
 	GPU3D.cpp
 	GPU3D_OpenGL.cpp

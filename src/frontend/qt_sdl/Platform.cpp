@@ -56,6 +56,7 @@
 char* EmuDirectory;
 
 void emuStop();
+void* oglGetProcAddress(const char* proc);
 
 
 namespace Platform
@@ -418,7 +419,7 @@ void Semaphore_Post(void* sema)
 
 void* GL_GetProcAddress(const char* proc)
 {
-    return NULL;//uiGLGetProcAddress(proc);
+    return oglGetProcAddress(proc);
 }
 
 

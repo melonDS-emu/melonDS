@@ -25,6 +25,7 @@
 #include <QImage>
 #include <QActionGroup>
 
+#include <QOffscreenSurface>
 #include <QOpenGLWidget>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
@@ -39,6 +40,11 @@ class EmuThread : public QThread
 
 public:
     explicit EmuThread(QObject* parent = nullptr);
+
+    void initOpenGL();
+    void deinitOpenGL();
+
+    void* oglGetProcAddress(const char* proc);
 
     void changeWindowTitle(char* title);
 
@@ -67,6 +73,9 @@ private:
     volatile int EmuStatus;
     int PrevEmuStatus;
     int EmuRunning;
+
+    QOffscreenSurface* oglSurface;
+    QOpenGLContext* oglContext;
 };
 
 
@@ -160,6 +169,8 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
+
+    QOpenGLContext* getOGLContext();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

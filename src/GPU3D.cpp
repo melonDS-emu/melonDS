@@ -616,7 +616,7 @@ int InitRenderer(bool hasGL)
         if (!GLRenderer::Init())
             renderer = 0;
     }
-
+printf("renderer: %d\n", renderer);
     if (renderer == 0) SoftRenderer::Init();
 
     Renderer = renderer;

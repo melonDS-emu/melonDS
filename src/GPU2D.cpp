@@ -728,6 +728,8 @@ u32 GPU2D::ColorComposite(int i, u32 val1, u32 val2)
     case 3: return ColorBrightnessDown(val1, EVY);
     case 4: return ColorBlend5(val1, val2);
     }
+
+    return val1;
 }
 
 

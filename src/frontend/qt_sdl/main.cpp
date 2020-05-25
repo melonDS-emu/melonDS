@@ -45,6 +45,7 @@
 
 #include "NDS.h"
 #include "GBACart.h"
+#include "OpenGLSupport.h"
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -258,6 +259,54 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+
+    initOpenGL();
+}
+
+void EmuThread::initOpenGL()
+{
+    QOpenGLContext* windowctx = mainWindow->getOGLContext();
+    QSurfaceFormat format = windowctx->format();
+
+    oglSurface = new QOffscreenSurface();
+    oglSurface->setFormat(format);
+    oglSurface->create();
+    if (!oglSurface->isValid())
+    {
+        // TODO handle this!
+        printf("oglSurface shat itself :(\n");
+        delete oglSurface;
+        return;
+    }
+
+    oglContext = new QOpenGLContext();//oglSurface);
+    oglContext->setFormat(oglSurface->format());
+    oglContext->setShareContext(windowctx);
+    if (!oglContext->create())
+    {
+        // TODO handle this!
+        printf("oglContext shat itself :(\n");
+        delete oglContext;
+        delete oglSurface;
+        return;
+    }
+
+    oglContext->moveToThread(this);
+}
+
+void deinitOpenGL()
+{
+    // TODO!!
+}
+
+void* oglGetProcAddress(const char* proc)
+{
+    return emuThread->oglGetProcAddress(proc);
+}
+
+void* EmuThread::oglGetProcAddress(const char* proc)
+{
+    return (void*)oglContext->getProcAddress(proc);
 }
 
 void EmuThread::run()
@@ -279,7 +328,11 @@ void EmuThread::run()
     }
     else*/
     {
-        GPU3D::InitRenderer(false);
+        //GPU3D::InitRenderer(false);
+        bool res = oglContext->makeCurrent(oglSurface);
+        printf("good? %d\n", res);
+        OpenGL::Init();
+        GPU3D::InitRenderer(res);
     }
 
     Input::Init();
@@ -755,6 +808,11 @@ void ScreenPanelGL::initializeGL()
 {
     initializeOpenGLFunctions();
 
+    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
+    const GLubyte* version = glGetString(GL_VERSION); // version as a string
+    printf("OpenGL: renderer: %s\n", renderer);
+    printf("OpenGL: version: %s\n", version);
+
     glClearColor(0, 0, 0, 1);
 
     screenShader = new QOpenGLShaderProgram(this);
@@ -828,14 +886,24 @@ void ScreenPanelGL::paintGL()
 
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, screenTexture);
 
-    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+    if (true)
     {
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
-                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        // hardware-accelerated render
+        GPU::GLCompositor::BindOutputTexture();
+    }
+    else
+    {
+        // regular render
+        glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
     }
 
     GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
@@ -1139,6 +1207,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+QOpenGLContext* MainWindow::getOGLContext()
+{
+    // TODO: check whether we can actually pull this!
+    QOpenGLWidget* glpanel = (QOpenGLWidget*)panel;
+    return glpanel->context();
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
@@ -1754,6 +1829,13 @@ int main(int argc, char** argv)
         }
     }
 #endif
+
+    QSurfaceFormat format;
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    format.setVersion(3, 2);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    QSurfaceFormat::setDefaultFormat(format);
 
     audioSync = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
