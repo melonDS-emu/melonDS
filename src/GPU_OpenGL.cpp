@@ -196,6 +196,8 @@ void RenderFrame()
         glBindVertexArray(CompVertexArrayID);
         glDrawArrays(GL_TRIANGLES, 0, 4*3);
     }
+
+    glFlush();
 }
 
 void BindOutputTexture()
