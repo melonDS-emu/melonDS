@@ -2,6 +2,7 @@ project(qt_sdl)
 
 SET(SOURCES_QT_SDL
 	main.cpp
+	main_shaders.h
 	EmuSettingsDialog.cpp
 	InputConfigDialog.cpp
 	AudioSettingsDialog.cpp

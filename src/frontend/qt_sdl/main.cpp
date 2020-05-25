@@ -639,7 +639,7 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
 }
 
 
-MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
+ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
 {
     screen[0] = QImage(256, 192, QImage::Format_RGB32);
     screen[1] = QImage(256, 192, QImage::Format_RGB32);
@@ -650,16 +650,11 @@ MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
     touching = false;
 }
 
-MainWindowPanel::~MainWindowPanel()
+ScreenPanelNative::~ScreenPanelNative()
 {
 }
 
-void MainWindowPanel::ensureProperMinSize()
-{
-    setMinimumSize(screenGetMinSize());
-}
-
-void MainWindowPanel::setupScreenLayout()
+void ScreenPanelNative::setupScreenLayout()
 {
     int w = width();
     int h = height();
@@ -678,7 +673,7 @@ void MainWindowPanel::setupScreenLayout()
                              mtx[4], mtx[5], 1.f);
 }
 
-void MainWindowPanel::paintEvent(QPaintEvent* event)
+void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
 
@@ -702,28 +697,78 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
     painter.drawImage(screenrc, screen[1]);
 }
 
-void MainWindowPanel::resizeEvent(QResizeEvent* event)
+void ScreenPanelNative::resizeEvent(QResizeEvent* event)
 {
     setupScreenLayout();
 }
 
-void MainWindowPanel::mousePressEvent(QMouseEvent* event)
+void ScreenPanelNative::mousePressEvent(QMouseEvent* event)
 {
     screenOnMousePress(event);
 }
 
-void MainWindowPanel::mouseReleaseEvent(QMouseEvent* event)
+void ScreenPanelNative::mouseReleaseEvent(QMouseEvent* event)
 {
     screenOnMouseRelease(event);
 }
 
-void MainWindowPanel::mouseMoveEvent(QMouseEvent* event)
+void ScreenPanelNative::mouseMoveEvent(QMouseEvent* event)
 {
     screenOnMouseMove(event);
 }
 
-void MainWindowPanel::onScreenLayoutChanged()
+void ScreenPanelNative::onScreenLayoutChanged()
 {
+    setMinimumSize(screenGetMinSize());
+    setupScreenLayout();
+}
+
+
+ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
+{
+    //
+}
+
+ScreenPanelGL::~ScreenPanelGL()
+{
+}
+
+void ScreenPanelGL::setupScreenLayout()
+{
+    int w = width();
+    int h = height();
+
+    screenSetupLayout(w, h);
+}
+
+void ScreenPanelGL::paintEvent(QPaintEvent* event)
+{
+    // TODO?
+}
+
+void ScreenPanelGL::resizeEvent(QResizeEvent* event)
+{
+    setupScreenLayout();
+}
+
+void ScreenPanelGL::mousePressEvent(QMouseEvent* event)
+{
+    screenOnMousePress(event);
+}
+
+void ScreenPanelGL::mouseReleaseEvent(QMouseEvent* event)
+{
+    screenOnMouseRelease(event);
+}
+
+void ScreenPanelGL::mouseMoveEvent(QMouseEvent* event)
+{
+    screenOnMouseMove(event);
+}
+
+void ScreenPanelGL::onScreenLayoutChanged()
+{
+    setMinimumSize(screenGetMinSize());
     setupScreenLayout();
 }
 
@@ -932,9 +977,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
-    panel = new MainWindowPanel(this);
+    panel = new ScreenPanelNative(this);
     setCentralWidget(panel);
-    panel->ensureProperMinSize();
+    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
+    emit screenLayoutChange();
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
@@ -1413,8 +1459,7 @@ void MainWindow::onChangeScreenRotation(QAction* act)
     int rot = act->data().toInt();
     Config::ScreenRotation = rot;
 
-    panel->ensureProperMinSize();
-    panel->setupScreenLayout();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenGap(QAction* act)
@@ -1422,8 +1467,7 @@ void MainWindow::onChangeScreenGap(QAction* act)
     int gap = act->data().toInt();
     Config::ScreenGap = gap;
 
-    panel->ensureProperMinSize();
-    panel->setupScreenLayout();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenLayout(QAction* act)
@@ -1431,8 +1475,7 @@ void MainWindow::onChangeScreenLayout(QAction* act)
     int layout = act->data().toInt();
     Config::ScreenLayout = layout;
 
-    panel->ensureProperMinSize();
-    panel->setupScreenLayout();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenSizing(QAction* act)
@@ -1440,14 +1483,14 @@ void MainWindow::onChangeScreenSizing(QAction* act)
     int sizing = act->data().toInt();
     Config::ScreenSizing = sizing;
 
-    panel->setupScreenLayout();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeIntegerScaling(bool checked)
 {
     Config::IntegerScaling = checked?1:0;
 
-    panel->setupScreenLayout();
+    emit screenLayoutChange();
 }
 
 void MainWindow::onChangeScreenFiltering(bool checked)

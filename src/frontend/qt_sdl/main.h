@@ -24,6 +24,7 @@
 #include <QMainWindow>
 #include <QImage>
 #include <QActionGroup>
+#include <QOpenGLWidget>
 
 
 class EmuThread : public QThread
@@ -66,6 +67,11 @@ private:
 
 class ScreenHandler
 {
+    Q_GADGET
+
+public:
+    virtual ~ScreenHandler() {}
+
 protected:
     void screenSetupLayout(int w, int h);
 
@@ -81,16 +87,13 @@ protected:
 };
 
 
-class MainWindowPanel : public QWidget, public ScreenHandler
+class ScreenPanelNative : public QWidget, public ScreenHandler
 {
     Q_OBJECT
 
 public:
-    explicit MainWindowPanel(QWidget* parent);
-    ~MainWindowPanel();
-
-    void ensureProperMinSize();
-    void setupScreenLayout();
+    explicit ScreenPanelNative(QWidget* parent);
+    ~ScreenPanelNative();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -105,8 +108,37 @@ private slots:
     void onScreenLayoutChanged();
 
 private:
+    void setupScreenLayout();
+
     QImage screen[2];
     QTransform screenTrans[2];
+};
+
+
+class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler
+{
+    Q_OBJECT
+
+public:
+    explicit ScreenPanelGL(QWidget* parent);
+    ~ScreenPanelGL();
+
+protected:
+    void paintEvent(QPaintEvent* event) override;
+
+    void resizeEvent(QResizeEvent* event) override;
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+private slots:
+    void onScreenLayoutChanged();
+
+private:
+    void setupScreenLayout();
+
+    //
 };
 
 
@@ -126,6 +158,9 @@ protected:
 
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
+
+signals:
+    void screenLayoutChange();
 
 private slots:
     void onOpenFile();
@@ -167,7 +202,7 @@ private:
     QString loadErrorStr(int error);
 
 public:
-    MainWindowPanel* panel;
+    QWidget* panel;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;
