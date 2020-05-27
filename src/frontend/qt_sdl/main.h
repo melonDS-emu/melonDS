@@ -21,6 +21,7 @@
 
 #include <QThread>
 #include <QWidget>
+#include <QWindow>
 #include <QMainWindow>
 #include <QImage>
 #include <QActionGroup>
@@ -74,7 +75,7 @@ private:
     int PrevEmuStatus;
     int EmuRunning;
 
-    QOffscreenSurface* oglSurface;
+    QSurface* oglSurface;
     QOpenGLContext* oglContext;
 };
 
@@ -159,6 +160,16 @@ private:
     GLuint screenVertexBuffer;
     GLuint screenVertexArray;
     GLuint screenTexture;
+};
+
+
+class GLShim : public QWindow
+{
+    Q_OBJECT
+
+public:
+    explicit GLShim(QSurfaceFormat& format);
+    ~GLShim();
 };
 
 

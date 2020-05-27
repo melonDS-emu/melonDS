@@ -268,7 +268,7 @@ void EmuThread::initOpenGL()
     QOpenGLContext* windowctx = mainWindow->getOGLContext();
     QSurfaceFormat format = windowctx->format();
 
-    oglSurface = new QOffscreenSurface();
+    /*oglSurface = new QOffscreenSurface();
     oglSurface->setFormat(format);
     oglSurface->create();
     if (!oglSurface->isValid())
@@ -277,7 +277,8 @@ void EmuThread::initOpenGL()
         printf("oglSurface shat itself :(\n");
         delete oglSurface;
         return;
-    }
+    }*/
+    oglSurface = new GLShim(format);
 
     oglContext = new QOpenGLContext();//oglSurface);
     oglContext->setFormat(oglSurface->format());
@@ -954,6 +955,19 @@ void ScreenPanelGL::onScreenLayoutChanged()
 {
     setMinimumSize(screenGetMinSize());
     setupScreenLayout();
+}
+
+
+GLShim::GLShim(QSurfaceFormat& format) : QWindow()
+{
+    setSurfaceType(QSurface::OpenGLSurface);
+    setFormat(format);
+    create();
+    hide();
+}
+
+GLShim::~GLShim()
+{
 }
 
 
@@ -1835,6 +1849,7 @@ int main(int argc, char** argv)
     format.setStencilBufferSize(8);
     format.setVersion(3, 2);
     format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setSwapInterval(0);
     QSurfaceFormat::setDefaultFormat(format);
 
     audioSync = SDL_CreateCond();
