@@ -199,7 +199,6 @@ bool Init()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
-
     glDepthRange(0, 1);
     glClearDepth(1.0);
 

@@ -75,7 +75,7 @@ private:
     int PrevEmuStatus;
     int EmuRunning;
 
-    QSurface* oglSurface;
+    QOffscreenSurface* oglSurface;
     QOpenGLContext* oglContext;
 };
 
@@ -160,16 +160,6 @@ private:
     GLuint screenVertexBuffer;
     GLuint screenVertexArray;
     GLuint screenTexture;
-};
-
-
-class GLShim : public QWindow
-{
-    Q_OBJECT
-
-public:
-    explicit GLShim(QSurfaceFormat& format);
-    ~GLShim();
 };
 
 
