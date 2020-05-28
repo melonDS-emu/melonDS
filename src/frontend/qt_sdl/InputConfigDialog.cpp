@@ -199,6 +199,9 @@ void InputConfigDialog::on_InputConfigDialog_rejected()
 
 void InputConfigDialog::on_cbxJoystick_currentIndexChanged(int id)
 {
+    // prevent a spurious change
+    if (ui->cbxJoystick->count() < 2) return;
+
     Input::JoystickID = id;
     Input::OpenJoystick();
 }
