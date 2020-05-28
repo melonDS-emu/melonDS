@@ -1167,10 +1167,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
+    resize(Config::WindowWidth, Config::WindowHeight);
+
     show();
     createScreenPanel();
-
-    resize(Config::WindowWidth, Config::WindowHeight);
 
     for (int i = 0; i < 9; i++)
     {
