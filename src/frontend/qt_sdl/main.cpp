@@ -43,6 +43,7 @@
 #include "version.h"
 
 #include "FrontendUtil.h"
+#include "OSD.h"
 
 #include "NDS.h"
 #include "GBACart.h"
@@ -263,7 +264,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
 
-    initOpenGL();
+    if (mainWindow->hasOGL) initOpenGL();
 }
 
 void EmuThread::initOpenGL()
@@ -709,10 +710,13 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
     screenTrans[1].reset();
 
     touching = false;
+
+    OSD::Init(nullptr);
 }
 
 ScreenPanelNative::~ScreenPanelNative()
 {
+    OSD::DeInit(nullptr);
 }
 
 void ScreenPanelNative::setupScreenLayout()
@@ -756,6 +760,9 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     painter.setTransform(screenTrans[1]);
     painter.drawImage(screenrc, screen[1]);
+
+    OSD::Update(nullptr);
+    OSD::DrawNative(painter);
 }
 
 void ScreenPanelNative::resizeEvent(QResizeEvent* event)
@@ -793,11 +800,15 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
     format.setVersion(3, 2);
     format.setProfile(QSurfaceFormat::CoreProfile);
     setFormat(format);
+
+    touching = false;
 }
 
 ScreenPanelGL::~ScreenPanelGL()
 {
     makeCurrent();
+
+    OSD::DeInit(this);
 
     glDeleteTextures(1, &screenTexture);
 
@@ -881,6 +892,8 @@ void ScreenPanelGL::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    OSD::Init(this);
 }
 
 void ScreenPanelGL::paintGL()
@@ -935,6 +948,9 @@ void ScreenPanelGL::paintGL()
     glDrawArrays(GL_TRIANGLES, 2*3, 2*3);
 
     screenShader->release();
+
+    OSD::Update(this);
+    OSD::DrawGL(this, w*factor, h*factor);
 }
 
 void ScreenPanelGL::resizeEvent(QResizeEvent* event)

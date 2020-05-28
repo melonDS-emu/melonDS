@@ -8,6 +8,9 @@ SET(SOURCES_QT_SDL
 	VideoSettingsDialog.cpp
 	AudioSettingsDialog.cpp
 	Input.cpp
+	OSD.cpp
+	OSD_shaders.h
+	font.h
 	Platform.cpp
 	PlatformConfig.cpp
 	

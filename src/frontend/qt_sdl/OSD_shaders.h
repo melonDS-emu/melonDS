@@ -16,16 +16,17 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef MAIN_SHADERS_H
-#define MAIN_SHADERS_H
+#ifndef OSD_SHADERS_H
+#define OSD_SHADERS_H
 
-const char* kScreenVS = R"(#version 140
+const char* kScreenVS_OSD = R"(#version 140
 
 uniform vec2 uScreenSize;
-uniform mat2x3 uTransform;
+
+uniform ivec2 uOSDPos;
+uniform ivec2 uOSDSize;
 
 in vec2 vPosition;
-in vec2 vTexcoord;
 
 smooth out vec2 fTexcoord;
 
@@ -33,21 +34,22 @@ void main()
 {
     vec4 fpos;
 
-    fpos.xy = vec3(vPosition, 1.0) * uTransform;
+    vec2 osdpos = (vPosition * vec2(uOSDSize));
+    fTexcoord = osdpos;
+    osdpos += uOSDPos;
 
-    fpos.xy = ((fpos.xy * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = ((osdpos * 2.0) / uScreenSize) - 1.0;
     fpos.y *= -1;
     fpos.z = 0.0;
     fpos.w = 1.0;
 
     gl_Position = fpos;
-    fTexcoord = vTexcoord;
 }
 )";
 
-const char* kScreenFS = R"(#version 140
+const char* kScreenFS_OSD = R"(#version 140
 
-uniform sampler2D ScreenTex;
+uniform sampler2D OSDTex;
 
 smooth in vec2 fTexcoord;
 
@@ -55,10 +57,9 @@ out vec4 oColor;
 
 void main()
 {
-    vec4 pixel = texture(ScreenTex, fTexcoord);
-
-    oColor = vec4(pixel.bgr, 1.0);
+    vec4 pixel = texelFetch(OSDTex, ivec2(fTexcoord), 0);
+    oColor = pixel.bgra;
 }
 )";
 
-#endif // MAIN_SHADERS_H
+#endif // OSD_SHADERS_H
