@@ -36,6 +36,7 @@
 #include "Input.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfigDialog.h"
+#include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 
 #include "types.h"
@@ -1573,7 +1574,7 @@ void MainWindow::onInputConfigFinished(int res)
 
 void MainWindow::onOpenVideoSettings()
 {
-    //
+    VideoSettingsDialog* dlg = VideoSettingsDialog::openDlg(this);
 }
 
 void MainWindow::onOpenAudioSettings()

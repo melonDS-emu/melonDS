@@ -5,6 +5,7 @@ SET(SOURCES_QT_SDL
 	main_shaders.h
 	EmuSettingsDialog.cpp
 	InputConfigDialog.cpp
+	VideoSettingsDialog.cpp
 	AudioSettingsDialog.cpp
 	Input.cpp
 	Platform.cpp
