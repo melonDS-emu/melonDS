@@ -16,11 +16,23 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+
 #ifndef OSD_H
 #define OSD_H
 
+#include <QVector>
+#include <QOpenGLFunctions_3_2_Core>
+
 namespace OSD
 {
+
+struct ColorScheme
+{
+    const char* name;
+    const QVector<u32> colors;
+};
+
+extern const QList<ColorScheme> colorSchemes;
 
 bool Init(QOpenGLFunctions_3_2_Core* f);
 void DeInit(QOpenGLFunctions_3_2_Core* f);

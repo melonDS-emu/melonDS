@@ -24,6 +24,7 @@
 
 #include "main.h"
 #include <QPainter>
+#include <QVector>
 
 #include "OSD.h"
 #include "OSD_shaders.h"
@@ -53,6 +54,23 @@ struct Item
     bool GLTextureLoaded;
     GLuint GLTexture;
 
+};
+
+const QList<ColorScheme> colorSchemes = {
+	{"Rainbow", {} },
+	{ "Agender", {0xBABABA, 0xffffff, 0xb9f484, 0xffffff, 0xbababa, 0x000000 } },
+	{ "Aromantic", {0x3aa740, 0xa8d47a, 0xffffff, 0xababab, 0x000000 } },
+	{ "Asexual", { 0x000000, 0xa5a5a5, 0xffffff, 0x810081 } },
+	{ "Bisexual", { 0xd70071, 0x9c4e97, 0x0035aa } },
+	{ "Demisexual", { 0xffffff, 0x6f0071, 0xd3d3d3} },
+	{ "Genderfluid", { 0xff76a4, 0xffffff, 0xbf11d7, 0x000000, 0x303cbe } },
+	{ "Genderqueer", { 0xb77fdd, 0xffffff, 0x49821e } },
+	{ "Intersex", { 0xffd900, 0x7a00ac, 0xffd900 } },
+	{ "Lesbian", { 0xd62900, 0xff9b55, 0xffffff, 0xd462a6, 0xa50062 } },
+	{ "Non-binary", { 0xfcf431, 0xfcfcfc, 0x9d5cd5, 0x282828 } },
+	{ "Pansexual", { 0xff1b8d, 0xffd900, 0x1bb3ff } },
+	{ "Polysexual", { 0xf616ba, 0x00d669, 0x1593f6 } },
+    { "Transgender", { 0x5BCFFA, 0xF5ABB9, 0xFFFFFF, 0xF5ABB9, 0x5BCFFA } },
 };
 
 std::deque<Item> ItemQueue;
@@ -220,8 +238,12 @@ void RenderText(u32 color, const char* text, Item* item)
     u32 w, h;
     int breaks[64];
 
-    bool rainbow = (color == 0);
+	if (Config::OSD_ColorScheme >= colorSchemes.size())
+		Config::OSD_ColorScheme = 0;
+
+	bool rainbow = (Config::OSD_ColorScheme == 0);
     u32 rainbowinc = ((text[0] * 17) + (SDL_GetTicks() * 13)) % 600;
+	const QVector<u32>* scheme = &(colorSchemes[Config::OSD_ColorScheme].colors);
 
     color |= 0xFF000000;
     const u32 shadow = 0xE0000000;
@@ -270,8 +292,10 @@ void RenderText(u32 color, const char* text, Item* item)
 
                     for (int cx = 0; cx < glyphsize; cx++)
                     {
-                        if (val & (1<<cx))
-                            item->Bitmap[((y+cy) * w) + x+cx] = color;
+                        if (val & (1<<cx)) {
+							u32 col = rainbow ? color : scheme->at((((x + cx) + cy) >> 2) % scheme->size());
+							item->Bitmap[((y + cy) * w) + x + cx] = col;
+						}
                     }
                 }
 

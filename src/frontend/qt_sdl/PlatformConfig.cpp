@@ -50,6 +50,7 @@ int ScreenVSyncInterval;
 int LimitFPS;
 int AudioSync;
 int ShowOSD;
+int OSD_ColorScheme;
 
 int DirectBoot;
 
@@ -132,8 +133,9 @@ ConfigEntry PlatformConfigFile[] =
     {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
     {"AudioSync", 0, &AudioSync, 1, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
+	{"OSD_ColorScheme", 0, &OSD_ColorScheme, 0, NULL, 0},
 
-    {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+	{"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},

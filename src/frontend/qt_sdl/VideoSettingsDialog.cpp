@@ -24,6 +24,7 @@
 #include "Config.h"
 #include "PlatformConfig.h"
 
+#include "OSD.h"
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"
 
@@ -42,6 +43,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldVSyncInterval = Config::ScreenVSyncInterval;
     oldSoftThreaded = Config::Threaded3D;
     oldGLScale = Config::GL_ScaleFactor;
+    oldOSDScheme = Config::OSD_ColorScheme;
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, 0);
@@ -72,6 +74,11 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
         ui->cbSoftwareThreaded->setEnabled(false);
         ui->cbxGLResolution->setEnabled(true);
     }
+
+    for (int i = 0; i < OSD::colorSchemes.size(); i++) {
+    	ui->cbxOSDScheme->addItem(QString(OSD::colorSchemes[i].name));
+    }
+    ui->cbxOSDScheme->setCurrentIndex(Config::OSD_ColorScheme);
 }
 
 VideoSettingsDialog::~VideoSettingsDialog()
@@ -96,6 +103,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     Config::ScreenVSyncInterval = oldVSyncInterval;
     Config::Threaded3D = oldSoftThreaded;
     Config::GL_ScaleFactor = oldGLScale;
+    Config::OSD_ColorScheme = oldOSDScheme;
 
     bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
     emit updateVideoSettings(old_gl != new_gl);
@@ -151,4 +159,10 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
     Config::GL_ScaleFactor = idx+1;
 
     emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbxOSDScheme_currentIndexChanged(int idx)
+{
+	if (ui->cbxOSDScheme->count() < OSD::colorSchemes.size()) return;
+	Config::OSD_ColorScheme = idx;
 }

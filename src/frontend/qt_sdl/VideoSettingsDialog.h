@@ -61,8 +61,9 @@ private slots:
     void onChange3DRenderer(int renderer);
     void on_cbGLDisplay_stateChanged(int state);
     void on_cbxGLResolution_currentIndexChanged(int idx);
+	void on_cbxOSDScheme_currentIndexChanged(int idx);
 
-    void on_cbSoftwareThreaded_stateChanged(int state);
+	void on_cbSoftwareThreaded_stateChanged(int state);
 
 private:
     Ui::VideoSettingsDialog* ui;
@@ -75,6 +76,7 @@ private:
     int oldVSyncInterval;
     int oldSoftThreaded;
     int oldGLScale;
+    int oldOSDScheme;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

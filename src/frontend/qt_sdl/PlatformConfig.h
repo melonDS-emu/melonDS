@@ -63,6 +63,7 @@ extern int ScreenVSyncInterval;
 extern int LimitFPS;
 extern int AudioSync;
 extern int ShowOSD;
+extern int OSD_ColorScheme;
 
 extern int DirectBoot;
 
