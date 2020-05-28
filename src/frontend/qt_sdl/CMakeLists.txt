@@ -7,7 +7,10 @@ SET(SOURCES_QT_SDL
 	InputConfigDialog.cpp
 	VideoSettingsDialog.cpp
 	AudioSettingsDialog.cpp
+	WifiSettingsDialog.cpp
 	Input.cpp
+	LAN_PCap.cpp
+	LAN_Socket.cpp
 	OSD.cpp
 	OSD_shaders.h
 	font.h
@@ -40,6 +43,7 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 
 add_executable(melonDS ${SOURCES_QT_SDL})
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core ${SDL2_LIBRARIES})

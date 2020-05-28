@@ -38,6 +38,7 @@
 #include "InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
+#include "WifiSettingsDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -298,9 +299,10 @@ void EmuThread::initOpenGL()
     oglContext->moveToThread(this);
 }
 
-void deinitOpenGL()
+void EmuThread::deinitOpenGL()
 {
-    // TODO!!
+    delete oglContext;
+    delete oglSurface;
 }
 
 void* oglGetProcAddress(const char* proc)
@@ -545,16 +547,11 @@ void EmuThread::run()
     NDS::DeInit();
     //Platform::LAN_DeInit();
 
-    /*if (Screen_UseGL)
-    {
-        OSD::DeInit(true);
-        GLScreen_DeInit();
-    }
-    else
-        OSD::DeInit(false);*/
-
     if (hasOGL)
+    {
         oglContext->doneCurrent();
+        deinitOpenGL();
+    }
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -844,7 +841,6 @@ void ScreenPanelGL::initializeGL()
     screenShader->addShaderFromSourceCode(QOpenGLShader::Fragment, kScreenFS);
 
     GLuint pid = screenShader->programId();
-    printf("program: %d\n", pid);
     glBindAttribLocation(pid, 0, "vPosition");
     glBindAttribLocation(pid, 1, "vTexcoord");
     glBindFragDataLocation(pid, 0, "oColor");
@@ -1675,7 +1671,7 @@ void MainWindow::onAudioSettingsFinished(int res)
 
 void MainWindow::onOpenWifiSettings()
 {
-    //
+    WifiSettingsDialog::openDlg(this);
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
@@ -1822,6 +1818,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         emuThread->emuPause();
 
+        if (hasOGL) emuThread->deinitOpenGL();
         delete panel;
         createScreenPanel();
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
