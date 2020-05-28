@@ -102,6 +102,11 @@
     func(GLGETUNIFORMLOCATION, glGetUniformLocation); \
     func(GLGETUNIFORMBLOCKINDEX, glGetUniformBlockIndex); \
      \
+    func(GLFENCESYNC, glFenceSync); \
+    func(GLDELETESYNC, glDeleteSync); \
+    func(GLWAITSYNC, glWaitSync); \
+    func(GLCLIENTWAITSYNC, glClientWaitSync); \
+     \
     func(GLDRAWBUFFERS, glDrawBuffers); \
      \
     func(GLBLENDFUNCSEPARATE, glBlendFuncSeparate); \

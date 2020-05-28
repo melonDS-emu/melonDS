@@ -60,12 +60,15 @@
           <height>0</height>
          </size>
         </property>
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Forward a WAV file to the emulated microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
        </widget>
       </item>
       <item row="3" column="0">
        <widget class="QRadioButton" name="rbMicWav">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Forward a WAV file to the emulated microphone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Forward a WAV file to the emulated microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>WAV file:</string>
@@ -92,7 +95,7 @@
       <item row="2" column="0" colspan="3">
        <widget class="QRadioButton" name="rbMicNoise">
         <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Noise will be forwarded to the emulated microphone, simulating blowing into the microphone.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Noise will be forwarded to the emulated microphone, simulating blowing into the microphone.&lt;/p&gt;&lt;p&gt;This input mode is activated by holding the microphone hotkey (see Input and Hotkeys).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
          <string>Blow noise</string>

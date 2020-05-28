@@ -874,15 +874,15 @@ void ScreenPanelGL::paintGL()
 {
     int w = width();
     int h = height();
+    float factor = devicePixelRatioF();
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // TODO: check hiDPI compliance of this
-    glViewport(0, 0, w, h);
+    glViewport(0, 0, w*factor, h*factor);
 
     screenShader->bind();
 
-    screenShader->setUniformValue("uScreenSize", (float)w, (float)h);
+    screenShader->setUniformValue("uScreenSize", (float)w*factor, (float)h*factor);
 
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);

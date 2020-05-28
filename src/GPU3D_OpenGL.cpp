@@ -1236,7 +1236,7 @@ void RenderFrame()
         glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
