@@ -61,6 +61,13 @@ private:
     Ui::VideoSettingsDialog* ui;
 
     QButtonGroup* grp3DRenderer;
+
+    int oldRenderer;
+    int oldGLDisplay;
+    int oldVSync;
+    int oldVSyncInterval;
+    int oldSoftThreaded;
+    int oldGLScale;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

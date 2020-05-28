@@ -36,12 +36,29 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    //
+    oldRenderer = Config::_3DRenderer;
+    oldGLDisplay = Config::ScreenUseGL;
+    oldVSync = Config::ScreenVSync;
+    oldVSyncInterval = Config::ScreenVSyncInterval;
+    oldSoftThreaded = Config::Threaded3D;
+    oldGLScale = Config::GL_ScaleFactor;
 
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, 0);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   1);
     //connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
+    grp3DRenderer->button(Config::_3DRenderer)->setChecked(true);
+
+    ui->cbGLDisplay->setChecked(Config::ScreenUseGL != 0);
+
+    ui->cbVSync->setChecked(Config::ScreenVSync != 0);
+    ui->sbVSyncInterval->setValue(Config::ScreenVSyncInterval);
+
+    ui->cbSoftwareThreaded->setChecked(Config::Threaded3D != 0);
+
+    for (int i = 1; i <= 16; i++)
+        ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i), QVariant(i));
+    ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor);
 }
 
 VideoSettingsDialog::~VideoSettingsDialog()

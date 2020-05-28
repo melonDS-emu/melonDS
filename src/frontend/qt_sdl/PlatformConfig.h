@@ -58,6 +58,7 @@ extern int ScreenFilter;
 
 extern int ScreenUseGL;
 extern int ScreenVSync;
+extern int ScreenVSyncInterval;
 
 extern int LimitFPS;
 extern int AudioSync;
