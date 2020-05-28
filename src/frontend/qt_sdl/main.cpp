@@ -364,16 +364,16 @@ void EmuThread::run()
             if (Input::HotkeyPressed(HK_SolarSensorDecrease))
             {
                 if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
-                //char msg[64];
-                //sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                //OSD::AddMessage(0, msg);
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
             }
             if (Input::HotkeyPressed(HK_SolarSensorIncrease))
             {
                 if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
-                //char msg[64];
-                //sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                //OSD::AddMessage(0, msg);
+                char msg[64];
+                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
             }
         }
 
@@ -411,7 +411,7 @@ void EmuThread::run()
             {
                 bool lid = !NDS::IsLidClosed();
                 NDS::SetLidClosed(lid);
-                //OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
+                OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
 
             // microphone input
@@ -1493,13 +1493,16 @@ void MainWindow::onSaveState()
 
     if (Frontend::SaveState(filename))
     {
-        // TODO: OSD message
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
+        else          sprintf(msg, "State saved to file");
+        OSD::AddMessage(0, msg);
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        // TODO: OSD error message?
+        OSD::AddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -1534,10 +1537,10 @@ void MainWindow::onLoadState()
 
     if (!Platform::FileExists(filename))
     {
-        /*char msg[64];
+        char msg[64];
         if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
         else          sprintf(msg, "State file does not exist");
-        OSD::AddMessage(0xFFA0A0, msg);*/
+        OSD::AddMessage(0xFFA0A0, msg);
 
         emuThread->emuUnpause();
         return;
@@ -1545,11 +1548,14 @@ void MainWindow::onLoadState()
 
     if (Frontend::LoadState(filename))
     {
-        // TODO: OSD message
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
+        else          sprintf(msg, "State loaded from file");
+        OSD::AddMessage(0, msg);
     }
     else
     {
-        // TODO: OSD error message?
+        OSD::AddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
@@ -1560,6 +1566,8 @@ void MainWindow::onUndoStateLoad()
     emuThread->emuPause();
     Frontend::UndoStateLoad();
     emuThread->emuUnpause();
+
+    OSD::AddMessage(0, "State load undone");
 }
 
 void MainWindow::onQuit()
@@ -1575,10 +1583,12 @@ void MainWindow::onPause(bool checked)
     if (checked)
     {
         emuThread->emuPause();
+        OSD::AddMessage(0, "Paused");
     }
     else
     {
         emuThread->emuUnpause();
+        OSD::AddMessage(0, "Resumed");
     }
 }
 
@@ -1600,8 +1610,7 @@ void MainWindow::onReset()
     }
     else
     {
-        // OSD::AddMessage(0, "Reset");
-
+        OSD::AddMessage(0, "Reset");
         emuThread->emuRun();
     }
 }
@@ -1835,7 +1844,7 @@ void emuStop()
 
     emit emuThread->windowEmuStop();
 
-    //OSD::AddMessage(0xFFC040, "Shutdown");
+    OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
 

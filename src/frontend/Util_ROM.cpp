@@ -384,10 +384,6 @@ bool SaveState(const char* filename)
         }
     }
 
-    /*char msg[64];
-    if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
-    else          sprintf(msg, "State saved to file");
-    OSD::AddMessage(0, msg);*/
     return true;
 }
 
@@ -407,8 +403,6 @@ void UndoStateLoad()
         strncpy(SRAMPath[ROMSlot_NDS], PrevSRAMPath[ROMSlot_NDS], 1024);
         NDS::RelocateSave(SRAMPath[ROMSlot_NDS], false);
     }
-
-    //OSD::AddMessage(0, "State load undone");
 }
 
 }
