@@ -78,6 +78,7 @@ u8* VRAMPtr_BOBJ[0x8];
 
 int FrontBuffer;
 u32* Framebuffer[2][2];
+int Renderer;
 bool Accelerated;
 
 GPU2D* GPU2D_A;
@@ -93,8 +94,8 @@ bool Init()
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
+    Renderer = 0;
     Accelerated = false;
-    SetDisplaySettings(false);
 
     return true;
 }
@@ -182,6 +183,8 @@ void Reset()
     int backbuf = FrontBuffer ? 0 : 1;
     GPU2D_A->SetFramebuffer(Framebuffer[backbuf][1]);
     GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
+
+    ResetRenderer();
 }
 
 void Stop()
@@ -274,8 +277,65 @@ void AssignFramebuffers()
     }
 }
 
-void SetDisplaySettings(bool accel)
+void InitRenderer(int renderer)
 {
+    if (renderer == 1)
+    {
+        if (!GLCompositor::Init())
+        {
+            renderer = 0;
+        }
+        else if (!GPU3D::GLRenderer::Init())
+        {
+            GLCompositor::DeInit();
+            renderer = 0;
+        }
+    }
+
+    if (renderer == 0)
+    {
+        GPU3D::SoftRenderer::Init();
+    }
+
+    Renderer = renderer;
+    Accelerated = renderer != 0;
+}
+
+void DeInitRenderer()
+{
+    if (Renderer == 0)
+    {
+        GPU3D::SoftRenderer::DeInit();
+    }
+    else
+    {
+        GPU3D::GLRenderer::DeInit();
+        GLCompositor::DeInit();
+    }
+}
+
+void ResetRenderer()
+{
+    if (Renderer == 0)
+    {
+        GPU3D::SoftRenderer::Reset();
+    }
+    else
+    {
+        GLCompositor::Reset();
+        GPU3D::GLRenderer::Reset();
+    }
+}
+
+void SetRenderSettings(int renderer, RenderSettings& settings)
+{
+    if (renderer != Renderer)
+    {
+        DeInitRenderer();
+        InitRenderer(renderer);
+    }
+
+    bool accel = Accelerated;
     int fbsize;
     if (accel) fbsize = (256*3 + 1) * 192;
     else       fbsize = 256 * 192;
@@ -296,10 +356,18 @@ void SetDisplaySettings(bool accel)
 
     AssignFramebuffers();
 
-    GPU2D_A->SetDisplaySettings(accel);
-    GPU2D_B->SetDisplaySettings(accel);
+    GPU2D_A->SetRenderSettings(accel);
+    GPU2D_B->SetRenderSettings(accel);
 
-    Accelerated = accel;
+    if (Renderer == 0)
+    {
+        GPU3D::SoftRenderer::SetRenderSettings(settings);
+    }
+    else
+    {
+        GLCompositor::SetRenderSettings(settings);
+        GPU3D::GLRenderer::SetRenderSettings(settings);
+    }
 }
 
 

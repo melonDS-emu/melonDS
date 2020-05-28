@@ -372,19 +372,11 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
 
-    if (!GPU::GLCompositor::Init())
-    {
-        // TODO: clean up things? fail more gracefully??
-        return false;
-    }
-
     return true;
 }
 
 void DeInit()
 {
-    GPU::GLCompositor::DeInit();
-
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);
 
@@ -407,13 +399,12 @@ void DeInit()
 
 void Reset()
 {
-    GPU::GLCompositor::Reset();
 }
 
-void UpdateDisplaySettings()
+void SetRenderSettings(GPU::RenderSettings& settings)
 {
-    int scale = Config::GL_ScaleFactor;
-    bool antialias = false; //Config::GL_Antialias;
+    int scale = settings.GL_ScaleFactor;
+    bool antialias = false; // REMOVE ME!
 
     if (antialias) scale *= 2;
 
@@ -490,8 +481,6 @@ void UpdateDisplaySettings()
 
     //glLineWidth(scale);
     //glLineWidth(1.5);
-
-    GPU::GLCompositor::UpdateDisplaySettings();
 }
 
 

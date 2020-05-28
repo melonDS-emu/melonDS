@@ -68,6 +68,10 @@ EmuThread* emuThread;
 
 int autoScreenSizing = 0;
 
+int videoRenderer;
+GPU::RenderSettings videoSettings;
+bool videoSettingsDirty;
+
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
 SDL_cond* audioSync;
@@ -251,9 +255,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuRunning = 2;
     RunningSomething = false;
 
-    //connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(update()));
     connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
-    //connect(this, SIGNAL(windowUpdate()), mainWindow, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -312,6 +314,7 @@ void* EmuThread::oglGetProcAddress(const char* proc)
 
 void EmuThread::run()
 {
+    bool hasOGL = mainWindow->hasOGL;
     u32 mainScreenPos[3];
 
     NDS::Init();
@@ -321,20 +324,20 @@ void EmuThread::run()
     mainScreenPos[2] = 0;
     autoScreenSizing = 0;
 
-    /*if (Screen_UseGL)
+    videoSettingsDirty = false;
+    videoSettings.Soft_Threaded = Config::Threaded3D != 0;
+    videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+
+    if (hasOGL)
     {
-        uiGLMakeContextCurrent(GLContext);
-        GPU3D::InitRenderer(true);
-        uiGLMakeContextCurrent(NULL);
+        oglContext->makeCurrent(oglSurface);
+        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
     }
-    else*/
-    {
-        //GPU3D::InitRenderer(false);
-        bool res = oglContext->makeCurrent(oglSurface);
-        printf("good? %d\n", res);
-        OpenGL::Init();
-        GPU3D::InitRenderer(res);
-    }
+    else
+        videoRenderer = 0;
+
+    GPU::InitRenderer(videoRenderer);
+    GPU::SetRenderSettings(videoRenderer, videoSettings);
 
     Input::Init();
 
@@ -377,6 +380,29 @@ void EmuThread::run()
         {
             EmuStatus = 1;
 
+            // update render settings if needed
+            if (videoSettingsDirty)
+            {
+                if (hasOGL != mainWindow->hasOGL)
+                {
+                    hasOGL = mainWindow->hasOGL;
+                    if (hasOGL)
+                    {
+                        oglContext->makeCurrent(oglSurface);
+                        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
+                    }
+                    else
+                        videoRenderer = 0;
+                }
+                else
+                    videoRenderer = hasOGL ? Config::_3DRenderer : 0;
+
+                videoSettingsDirty = false;
+                videoSettings.Soft_Threaded = Config::Threaded3D != 0;
+                videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+                GPU::SetRenderSettings(videoRenderer, videoSettings);
+            }
+
             // process input and hotkeys
             NDS::SetKeyMask(Input::InputMask);
 
@@ -389,12 +415,6 @@ void EmuThread::run()
 
             // microphone input
             micProcess();
-
-            /*if (Screen_UseGL)
-            {
-                uiGLBegin(GLContext);
-                uiGLMakeContextCurrent(GLContext);
-            }*/
 
             // auto screen layout
             if (Config::ScreenSizing == 3)
@@ -435,12 +455,6 @@ void EmuThread::run()
 
             if (EmuRunning == 0) break;
 
-            /*if (Screen_UseGL)
-            {
-                GLScreen_DrawScreen();
-                uiGLEnd(GLContext);
-            }
-            uiAreaQueueRedrawAll(MainDrawArea);*/
             emit windowUpdate();
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
@@ -513,17 +527,7 @@ void EmuThread::run()
             lastmeasuretick = lasttick;
             fpslimitcount = 0;
 
-            /*if (Screen_UseGL)
-            {
-                uiGLBegin(GLContext);
-                uiGLMakeContextCurrent(GLContext);
-                GLScreen_DrawScreen();
-                uiGLEnd(GLContext);
-            }
-            uiAreaQueueRedrawAll(MainDrawArea);*/
             emit windowUpdate();
-
-            //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
             EmuStatus = EmuRunning;
 
@@ -536,8 +540,7 @@ void EmuThread::run()
 
     EmuStatus = 0;
 
-    //if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
-
+    GPU::DeInitRenderer();
     NDS::DeInit();
     //Platform::LAN_DeInit();
 
@@ -549,7 +552,8 @@ void EmuThread::run()
     else
         OSD::DeInit(false);*/
 
-    //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+    if (hasOGL)
+        oglContext->doneCurrent();
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -794,6 +798,7 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 ScreenPanelGL::~ScreenPanelGL()
 {
     // CHECKME!!!!
+    // ALSO TODO: CLEANUP
     delete screenShader;
 }
 
@@ -888,7 +893,7 @@ void ScreenPanelGL::paintGL()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
 
-    if (true)
+    if (GPU::Renderer != 0)
     {
         // hardware-accelerated render
         GPU::GLCompositor::BindOutputTexture();
@@ -1162,11 +1167,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
-    //panel = new ScreenPanelNative(this);
-    panel = new ScreenPanelGL(this);
-    setCentralWidget(panel);
-    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
-    emit screenLayoutChange();
+    show();
+    createScreenPanel();
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
@@ -1210,9 +1212,45 @@ MainWindow::~MainWindow()
 {
 }
 
+void MainWindow::createScreenPanel()
+{
+    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
+    if (hasOGL)
+    {
+        ScreenPanelGL* panelGL = new ScreenPanelGL(this);
+        panelGL->show();
+
+        if (!panelGL->isValid())
+            hasOGL = false;
+        else
+        {
+            QSurfaceFormat fmt = panelGL->format();
+            if (fmt.majorVersion() < 3 || (fmt.majorVersion() == 3 && fmt.minorVersion() < 2))
+                hasOGL = false;
+        }
+
+        if (!hasOGL)
+            delete panelGL;
+        else
+            panel = panelGL;
+    }
+
+    if (!hasOGL)
+    {
+        panel = new ScreenPanelNative(this);
+        panel->show();
+    }
+
+    setCentralWidget(panel);
+    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
+    emit screenLayoutChange();
+}
+
 QOpenGLContext* MainWindow::getOGLContext()
 {
-    // TODO: check whether we can actually pull this!
+    if (!hasOGL) return nullptr;
+
     QOpenGLWidget* glpanel = (QOpenGLWidget*)panel;
     return glpanel->context();
 }
@@ -1575,6 +1613,7 @@ void MainWindow::onInputConfigFinished(int res)
 void MainWindow::onOpenVideoSettings()
 {
     VideoSettingsDialog* dlg = VideoSettingsDialog::openDlg(this);
+    connect(dlg, &VideoSettingsDialog::updateVideoSettings, this, &MainWindow::onUpdateVideoSettings);
 }
 
 void MainWindow::onOpenAudioSettings()
@@ -1745,6 +1784,23 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
 }
 
+void MainWindow::onUpdateVideoSettings(bool glchange)
+{
+    if (glchange)
+    {
+        emuThread->emuPause();
+
+        delete panel;
+        createScreenPanel();
+        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
+    }
+
+    videoSettingsDirty = true;
+
+    if (glchange)
+        emuThread->emuUnpause();
+}
+
 
 void emuStop()
 {
@@ -1790,6 +1846,9 @@ int main(int argc, char** argv)
     Config::Load();
 
 #define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+    SANITIZE(Config::_3DRenderer, 0, 1);
+    SANITIZE(Config::ScreenVSyncInterval, 1, 20);
+    SANITIZE(Config::GL_ScaleFactor, 1, 16);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, 3);
     SANITIZE(Config::ScreenRotation, 0, 3);
@@ -1900,7 +1959,6 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
-    mainWindow->show();
 
     emuThread = new EmuThread();
     emuThread->start();

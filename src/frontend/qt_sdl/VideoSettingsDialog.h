@@ -51,11 +51,18 @@ public:
         currentDlg = nullptr;
     }
 
+signals:
+    void updateVideoSettings(bool glchange);
+
 private slots:
     void on_VideoSettingsDialog_accepted();
     void on_VideoSettingsDialog_rejected();
 
-    //
+    void onChange3DRenderer(int renderer);
+    void on_cbGLDisplay_stateChanged(int state);
+    void on_cbxGLResolution_currentIndexChanged(int idx);
+
+    void on_cbSoftwareThreaded_stateChanged(int state);
 
 private:
     Ui::VideoSettingsDialog* ui;

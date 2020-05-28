@@ -20,7 +20,6 @@
 #define GPU_H
 
 #include "GPU2D.h"
-#include "GPU3D.h"
 
 namespace GPU
 {
@@ -72,6 +71,17 @@ extern u32* Framebuffer[2][2];
 extern GPU2D* GPU2D_A;
 extern GPU2D* GPU2D_B;
 
+extern int Renderer;
+
+
+typedef struct
+{
+    bool Soft_Threaded;
+
+    int GL_ScaleFactor;
+
+} RenderSettings;
+
 
 bool Init();
 void DeInit();
@@ -80,7 +90,11 @@ void Stop();
 
 void DoSavestate(Savestate* file);
 
-void SetDisplaySettings(bool accel);
+void InitRenderer(int renderer);
+void DeInitRenderer();
+void ResetRenderer();
+
+void SetRenderSettings(int renderer, RenderSettings& settings);
 
 
 u8* GetUniqueBankPtr(u32 mask, u32 offset);
@@ -429,7 +443,7 @@ bool Init();
 void DeInit();
 void Reset();
 
-void UpdateDisplaySettings();
+void SetRenderSettings(RenderSettings& settings);
 
 void RenderFrame();
 void BindOutputTexture();
@@ -437,5 +451,7 @@ void BindOutputTexture();
 }
 
 }
+
+#include "GPU3D.h"
 
 #endif

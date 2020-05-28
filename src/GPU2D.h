@@ -31,7 +31,7 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
-    void SetDisplaySettings(bool accel);
+    void SetRenderSettings(bool accel);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);

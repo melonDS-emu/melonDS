@@ -142,9 +142,9 @@ void Reset()
 }
 
 
-void UpdateDisplaySettings()
+void SetRenderSettings(RenderSettings& settings)
 {
-    int scale = Config::GL_ScaleFactor;
+    int scale = settings.GL_ScaleFactor;
 
     Scale = scale;
     ScreenW = 256 * scale;
@@ -175,27 +175,24 @@ void RenderFrame()
     OpenGL::UseShaderProgram(CompShader[0]);
     glUniform1ui(CompScaleLoc[0], Scale);
 
-    //if (RunningSomething)
+    int frontbuf = GPU::FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
+
+    if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
     {
-        int frontbuf = GPU::FrontBuffer;
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
-
-        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
-        {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
-        }
-
-        glActiveTexture(GL_TEXTURE1);
-        GPU3D::GLRenderer::SetupAccelFrame();
-
-        glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
-        glBindVertexArray(CompVertexArrayID);
-        glDrawArrays(GL_TRIANGLES, 0, 4*3);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256*3 + 1, 192, GL_RGBA_INTEGER,
+                        GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
     }
+
+    glActiveTexture(GL_TEXTURE1);
+    GPU3D::GLRenderer::SetupAccelFrame();
+
+    glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
+    glBindVertexArray(CompVertexArrayID);
+    glDrawArrays(GL_TRIANGLES, 0, 4*3);
 
     glFlush();
 }

@@ -46,7 +46,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, 0);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   1);
-    //connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
+    connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
     grp3DRenderer->button(Config::_3DRenderer)->setChecked(true);
 
     ui->cbGLDisplay->setChecked(Config::ScreenUseGL != 0);
@@ -57,8 +57,21 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbSoftwareThreaded->setChecked(Config::Threaded3D != 0);
 
     for (int i = 1; i <= 16; i++)
-        ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i), QVariant(i));
-    ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor);
+        ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
+    ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
+
+    if (Config::_3DRenderer == 0)
+    {
+        ui->cbGLDisplay->setEnabled(true);
+        ui->cbSoftwareThreaded->setEnabled(true);
+        ui->cbxGLResolution->setEnabled(false);
+    }
+    else
+    {
+        ui->cbGLDisplay->setEnabled(false);
+        ui->cbSoftwareThreaded->setEnabled(false);
+        ui->cbxGLResolution->setEnabled(true);
+    }
 }
 
 VideoSettingsDialog::~VideoSettingsDialog()
@@ -68,7 +81,6 @@ VideoSettingsDialog::~VideoSettingsDialog()
 
 void VideoSettingsDialog::on_VideoSettingsDialog_accepted()
 {
-    //
     Config::Save();
 
     closeDlg();
@@ -76,9 +88,64 @@ void VideoSettingsDialog::on_VideoSettingsDialog_accepted()
 
 void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 {
-    //
+    bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
+    Config::_3DRenderer = oldRenderer;
+    Config::ScreenUseGL = oldGLDisplay;
+    Config::ScreenVSync = oldVSync;
+    Config::ScreenVSyncInterval = oldVSyncInterval;
+    Config::Threaded3D = oldSoftThreaded;
+    Config::GL_ScaleFactor = oldGLScale;
+
+    bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    emit updateVideoSettings(old_gl != new_gl);
 
     closeDlg();
 }
 
-//
+void VideoSettingsDialog::onChange3DRenderer(int renderer)
+{
+    bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
+    Config::_3DRenderer = renderer;
+
+    if (renderer == 0)
+    {
+        ui->cbGLDisplay->setEnabled(true);
+        ui->cbSoftwareThreaded->setEnabled(true);
+        ui->cbxGLResolution->setEnabled(false);
+    }
+    else
+    {
+        ui->cbGLDisplay->setEnabled(false);
+        ui->cbSoftwareThreaded->setEnabled(false);
+        ui->cbxGLResolution->setEnabled(true);
+    }
+
+    bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    emit updateVideoSettings(old_gl != new_gl);
+}
+
+void VideoSettingsDialog::on_cbGLDisplay_stateChanged(int state)
+{
+    bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
+    Config::ScreenUseGL = (state != 0);
+
+    bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    emit updateVideoSettings(old_gl != new_gl);
+}
+
+void VideoSettingsDialog::on_cbSoftwareThreaded_stateChanged(int state)
+{
+    Config::Threaded3D = (state != 0);
+
+    emit updateVideoSettings(false);
+}
+
+void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
+{
+    Config::GL_ScaleFactor = idx+1;
+
+    emit updateVideoSettings(false);
+}

@@ -171,6 +171,7 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow();
 
+    bool hasOGL;
     QOpenGLContext* getOGLContext();
 
 protected:
@@ -221,7 +222,11 @@ private slots:
     void onEmuStart();
     void onEmuStop();
 
+    void onUpdateVideoSettings(bool glchange);
+
 private:
+    void createScreenPanel();
+
     QString loadErrorStr(int error);
 
 public:

@@ -60,6 +60,7 @@ bool Enabled;
 
 // threading
 
+bool Threaded;
 void* RenderThread;
 bool RenderThreadRunning;
 bool RenderThreadRendering;
@@ -83,7 +84,7 @@ void StopRenderThread()
 
 void SetupRenderThread()
 {
-    if (Config::Threaded3D)
+    if (Threaded)
     {
         if (!RenderThreadRunning)
         {
@@ -112,6 +113,7 @@ bool Init()
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
 
+    Threaded = false;
     RenderThreadRunning = false;
     RenderThreadRendering = false;
 
@@ -135,6 +137,12 @@ void Reset()
 
     PrevIsShadowMask = false;
 
+    SetupRenderThread();
+}
+
+void SetRenderSettings(GPU::RenderSettings& settings)
+{
+    Threaded = settings.Soft_Threaded;
     SetupRenderThread();
 }
 
