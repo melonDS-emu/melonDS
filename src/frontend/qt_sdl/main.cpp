@@ -1671,7 +1671,24 @@ void MainWindow::onAudioSettingsFinished(int res)
 
 void MainWindow::onOpenWifiSettings()
 {
-    WifiSettingsDialog::openDlg(this);
+    WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
+    connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
+}
+
+void MainWindow::onWifiSettingsFinished(int res)
+{
+    emuThread->emuPause();
+
+    if (Wifi::MPInited)
+    {
+        Platform::MP_DeInit();
+        Platform::MP_Init();
+    }
+
+    Platform::LAN_DeInit();
+    Platform::LAN_Init();
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)

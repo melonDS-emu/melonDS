@@ -22,8 +22,8 @@
 #include <SDL2/SDL.h>
 #include "Platform.h"
 #include "PlatformConfig.h"
-//#include "LAN_Socket.h"
-//#include "LAN_PCap.h"
+#include "LAN_Socket.h"
+#include "LAN_PCap.h"
 #include <string>
 
 #ifdef __WIN32__
@@ -559,7 +559,7 @@ int MP_RecvPacket(u8* data, bool block)
 
 bool LAN_Init()
 {
-    /*if (Config::DirectLAN)
+    if (Config::DirectLAN)
     {
         if (!LAN_PCap::Init(true))
             return false;
@@ -568,7 +568,7 @@ bool LAN_Init()
     {
         if (!LAN_Socket::Init())
             return false;
-    }*/
+    }
 
     return true;
 }
@@ -580,26 +580,24 @@ void LAN_DeInit()
     //    LAN_PCap::DeInit();
     //else
     //    LAN_Socket::DeInit();
-    /*LAN_PCap::DeInit();
-    LAN_Socket::DeInit();*/
+    LAN_PCap::DeInit();
+    LAN_Socket::DeInit();
 }
 
 int LAN_SendPacket(u8* data, int len)
 {
-    /*if (Config::DirectLAN)
+    if (Config::DirectLAN)
         return LAN_PCap::SendPacket(data, len);
     else
-        return LAN_Socket::SendPacket(data, len);*/
-        return 0;
+        return LAN_Socket::SendPacket(data, len);
 }
 
 int LAN_RecvPacket(u8* data)
 {
-    /*if (Config::DirectLAN)
+    if (Config::DirectLAN)
         return LAN_PCap::RecvPacket(data);
     else
-        return LAN_Socket::RecvPacket(data);*/
-        return 0;
+        return LAN_Socket::RecvPacket(data);
 }
 
 
