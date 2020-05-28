@@ -59,7 +59,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     for (int i = 1; i <= 16; i++)
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
     ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
-printf("GL scale = %d\n", Config::GL_ScaleFactor);
+
     if (Config::_3DRenderer == 0)
     {
         ui->cbGLDisplay->setEnabled(true);

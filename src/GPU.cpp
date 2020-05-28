@@ -339,10 +339,10 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     int fbsize;
     if (accel) fbsize = (256*3 + 1) * 192;
     else       fbsize = 256 * 192;
-    if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
-    if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
-    if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
-    if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+    if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
+    if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
+    if (Framebuffer[0][1]) { delete[] Framebuffer[0][1]; Framebuffer[0][1] = nullptr; }
+    if (Framebuffer[1][1]) { delete[] Framebuffer[1][1]; Framebuffer[1][1] = nullptr; }
 
     Framebuffer[0][0] = new u32[fbsize];
     Framebuffer[1][0] = new u32[fbsize];

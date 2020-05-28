@@ -282,7 +282,7 @@ void EmuThread::initOpenGL()
         return;
     }
 
-    oglContext = new QOpenGLContext();//oglSurface);
+    oglContext = new QOpenGLContext();
     oglContext->setFormat(oglSurface->format());
     oglContext->setShareContext(windowctx);
     if (!oglContext->create())
@@ -797,9 +797,16 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 
 ScreenPanelGL::~ScreenPanelGL()
 {
-    // CHECKME!!!!
-    // ALSO TODO: CLEANUP
+    makeCurrent();
+
+    glDeleteTextures(1, &screenTexture);
+
+    glDeleteVertexArrays(1, &screenVertexArray);
+    glDeleteBuffers(1, &screenVertexBuffer);
+
     delete screenShader;
+
+    doneCurrent();
 }
 
 void ScreenPanelGL::setupScreenLayout()
@@ -1793,6 +1800,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         delete panel;
         createScreenPanel();
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
+        if (hasOGL) emuThread->initOpenGL();
     }
 
     videoSettingsDirty = true;
