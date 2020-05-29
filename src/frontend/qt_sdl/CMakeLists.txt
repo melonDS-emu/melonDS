@@ -47,7 +47,12 @@ set(CMAKE_AUTORCC ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
-add_executable(melonDS ${SOURCES_QT_SDL})
+if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
+	add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
+else()
+	add_executable(melonDS ${SOURCES_QT_SDL})
+endif()
+
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
