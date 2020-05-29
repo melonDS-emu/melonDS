@@ -40,7 +40,7 @@ jobs:
       run: |
         make -j$(nproc --all) \
         && mkdir dist \
-        && cp {melonDS,romlist.bin} dist
+        && cp {melonDS} dist
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS
