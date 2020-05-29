@@ -27,6 +27,7 @@ add_library(core STATIC
 	NDSCart.cpp
 	OpenGLSupport.cpp
 	Platform.h
+	ROMList.h
 	RTC.cpp
 	Savestate.cpp
 	SPI.cpp

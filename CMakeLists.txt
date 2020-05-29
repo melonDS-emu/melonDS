@@ -37,7 +37,3 @@ add_subdirectory(src)
 if (BUILD_QT_SDL)
 	add_subdirectory(src/frontend/qt_sdl)
 endif()
-
-configure_file(
-	${CMAKE_SOURCE_DIR}/romlist.bin
-	${CMAKE_BINARY_DIR}/romlist.bin COPYONLY)
