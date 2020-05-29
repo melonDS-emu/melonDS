@@ -1360,13 +1360,13 @@ QString MainWindow::loadErrorStr(int error)
 {
     switch (error)
     {
-    case Frontend::Load_BIOS9Missing: return "DS ARM9 BIOS was not found or could not be accessed.";
+    case Frontend::Load_BIOS9Missing: return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
     case Frontend::Load_BIOS9Bad:     return "DS ARM9 BIOS is not a valid BIOS dump.";
 
-    case Frontend::Load_BIOS7Missing: return "DS ARM7 BIOS was not found or could not be accessed.";
+    case Frontend::Load_BIOS7Missing: return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
     case Frontend::Load_BIOS7Bad:     return "DS ARM7 BIOS is not a valid BIOS dump.";
 
-    case Frontend::Load_FirmwareMissing:     return "DS firmware was not found or could not be accessed.";
+    case Frontend::Load_FirmwareMissing:     return "DS firmware was not found or could not be accessed. Check your emu settings.";
     case Frontend::Load_FirmwareBad:         return "DS firmware is not a valid firmware dump.";
     case Frontend::Load_FirmwareNotBootable: return "DS firmware is not bootable.";
 

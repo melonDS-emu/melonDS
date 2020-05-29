@@ -49,9 +49,21 @@
 // if you need more OpenGL functions, add them to the macronator here
 
 
-#define DO_PROCLIST(func) \
+#ifdef __WIN32__
+
+#define DO_PROCLIST_1_3(func) \
     func(GLACTIVETEXTURE, glActiveTexture); \
     func(GLBLENDCOLOR, glBlendColor); \
+
+#else
+
+#define DO_PROCLIST_1_3(func)
+
+#endif
+
+
+#define DO_PROCLIST(func) \
+    DO_PROCLIST_1_3(func) \
     \
     func(GLGENFRAMEBUFFERS, glGenFramebuffers); \
     func(GLDELETEFRAMEBUFFERS, glDeleteFramebuffers); \
