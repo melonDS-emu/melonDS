@@ -273,6 +273,8 @@ void EmuThread::initOpenGL()
     QOpenGLContext* windowctx = mainWindow->getOGLContext();
     QSurfaceFormat format = windowctx->format();
 
+    format.setSwapInterval(0);
+
     oglSurface = new QOffscreenSurface();
     oglSurface->setFormat(format);
     oglSurface->create();
@@ -791,14 +793,9 @@ void ScreenPanelNative::onScreenLayoutChanged()
 
 ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 {
-    QSurfaceFormat format;
-    format.setDepthBufferSize(24);
-    format.setStencilBufferSize(8);
-    format.setVersion(3, 2);
-    format.setProfile(QSurfaceFormat::CoreProfile);
-    setFormat(format);
-
     touching = false;
+
+    curVSync = -1;
 }
 
 ScreenPanelGL::~ScreenPanelGL()
