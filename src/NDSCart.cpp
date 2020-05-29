@@ -867,6 +867,11 @@ bool ReadROMParams(u32 gamecode, u32* params)
 
 void DecryptSecureArea(u8* out)
 {
+    // TODO: source decryption data from different possible sources
+    // * original DS-mode ARM7 BIOS has the key data at 0x30
+    // * .srl ROMs (VC dumps) have encrypted secure areas but have precomputed
+    //   decryption data at 0x1000 (and at the beginning of the DSi region if any)
+
     u32 gamecode = *(u32*)&CartROM[0x0C];
     u32 arm9base = *(u32*)&CartROM[0x20];
 
@@ -898,6 +903,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
+    // also TODO: validate what we're loading!!
 
     FILE* f = Platform::OpenFile(path, "rb");
     if (!f)

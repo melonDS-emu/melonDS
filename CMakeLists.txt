@@ -10,50 +10,32 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 project(melonDS)
 
-if(NOT CMAKE_BUILD_TYPE)
+if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
-endif()
-
-if (CMAKE_BUILD_TYPE STREQUAL Release)
-	option(ENABLE_LTO "Enable link-time optimization" ON)
-else()
-	option(ENABLE_LTO "Enable link-time optimization" OFF)
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
 	add_compile_options(-Og)
 endif()
 
-if(ENABLE_LTO)
-	add_compile_options(-O3 -flto)
-	add_link_options(-flto)
-
-	if (${CMAKE_CXX_COMPILER_ID} STREQUAL Clang)
-		find_program(LLD ld.lld)
-		if (LLD)
-			add_link_options(-fuse-ld=lld)
-		else()
-			add_link_options(-fuse-linker-plugin)
-		endif()
-		set(CMAKE_AR "llvm-ar")
-	else()
-		set(CMAKE_AR "gcc-ar")
-	endif()
-	set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_C_ARCHIVE_FINISH   true)
-	set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_CXX_ARCHIVE_FINISH   true)
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+	add_compile_options(-O3)
+	add_link_options(-s)
 endif()
 
 add_compile_options(-fno-pic)
 add_link_options(-no-pie)
 
-option(BUILD_LIBUI "Build libui frontend" ON)
+option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
+
+if (WIN32)
+	option(BUILD_STATIC "Statically link dependencies" OFF)
+endif()
 
 add_subdirectory(src)
 
-if (BUILD_LIBUI)
-	add_subdirectory(src/libui_sdl)
+if (BUILD_QT_SDL)
+	add_subdirectory(src/frontend/qt_sdl)
 endif()
 
 configure_file(

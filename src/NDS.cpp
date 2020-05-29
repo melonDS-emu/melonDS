@@ -416,7 +416,7 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    f = Platform::OpenLocalFile("bios9.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -433,7 +433,7 @@ void Reset()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile("bios7.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");
@@ -587,7 +587,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 }
                 if (funcid == -1)
                 {
-                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK STAPLEBUTTER.\n", i);
+                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
                 }
             }
@@ -951,23 +951,15 @@ void CancelEvent(u32 id)
 }
 
 
-void PressKey(u32 key)
-{
-    KeyInput &= ~(1 << key);
-}
-
-void ReleaseKey(u32 key)
-{
-    KeyInput |= (1 << key);
-}
-
 void TouchScreen(u16 x, u16 y)
 {
+    KeyInput &= ~(1<<22);
     SPI_TSC::SetTouchCoords(x, y);
 }
 
 void ReleaseScreen()
 {
+    KeyInput |= (1<<22);
     SPI_TSC::SetTouchCoords(0x000, 0xFFF);
 }
 
@@ -979,6 +971,12 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+bool IsLidClosed()
+{
+    if (KeyInput & (1<<23)) return true;
+    return false;
 }
 
 void SetLidClosed(bool closed)

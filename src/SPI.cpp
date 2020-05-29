@@ -28,6 +28,7 @@
 namespace SPI_Firmware
 {
 
+char FirmwarePath[1024];
 u8* Firmware;
 u32 FirmwareLength;
 u32 FirmwareMask;
@@ -76,6 +77,7 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 
 bool Init()
 {
+    memset(FirmwarePath, 0, sizeof(FirmwarePath));
     Firmware = NULL;
     return true;
 }
@@ -90,10 +92,12 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
+    strncpy(FirmwarePath, Config::FirmwarePath, 1023);
+
+    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
     {
-        printf("firmware.bin not found\n");
+        printf("Firmware not found\n");
 
         // TODO: generate default firmware
         return;
@@ -129,7 +133,11 @@ void Reset()
     fclose(f);
 
     // take a backup
-    const char* firmbkp = "firmware.bin.bak";
+    char firmbkp[1028];
+    int fplen = strlen(FirmwarePath);
+    strncpy(&firmbkp[0], FirmwarePath, fplen);
+    strncpy(&firmbkp[fplen], ".bak", 1028-fplen);
+    firmbkp[fplen+4] = '\0';
     f = Platform::OpenLocalFile(firmbkp, "rb");
     if (f) fclose(f);
     else
@@ -325,7 +333,7 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Platform::OpenLocalFile("firmware.bin", "r+b");
+        FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
         if (f)
         {
             u32 cutoff = 0x7FA00 & FirmwareMask;

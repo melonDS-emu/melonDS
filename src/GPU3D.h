@@ -102,10 +102,6 @@ void DoSavestate(Savestate* file);
 
 void SetEnabled(bool geometry, bool rendering);
 
-int InitRenderer(bool hasGL);
-void DeInitRenderer();
-void UpdateRendererConfig();
-
 void ExecuteCommand();
 
 s32 CyclesToRunFor();
@@ -134,6 +130,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetRenderSettings(GPU::RenderSettings& settings);
 void SetupRenderThread();
 
 void VCount144();
@@ -149,7 +146,7 @@ bool Init();
 void DeInit();
 void Reset();
 
-void UpdateDisplaySettings();
+void SetRenderSettings(GPU::RenderSettings& settings);
 
 void RenderFrame();
 void PrepareCaptureFrame();
