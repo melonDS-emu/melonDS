@@ -795,7 +795,6 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 {
     touching = false;
 
-    curVSync = -1;
 }
 
 ScreenPanelGL::~ScreenPanelGL()
