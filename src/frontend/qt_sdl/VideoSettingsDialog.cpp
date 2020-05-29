@@ -60,6 +60,9 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
     ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
 
+    if (!Config::ScreenVSync)
+        ui->sbVSyncInterval->setEnabled(false);
+
     if (Config::_3DRenderer == 0)
     {
         ui->cbGLDisplay->setEnabled(true);
@@ -134,6 +137,18 @@ void VideoSettingsDialog::on_cbGLDisplay_stateChanged(int state)
 
     bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
     emit updateVideoSettings(old_gl != new_gl);
+}
+
+void VideoSettingsDialog::on_cbVSync_stateChanged(int state)
+{
+    bool vsync = (state != 0);
+    ui->sbVSyncInterval->setEnabled(vsync);
+    Config::ScreenVSync = vsync;
+}
+
+void VideoSettingsDialog::on_sbVSyncInterval_valueChanged(int val)
+{
+    Config::ScreenVSyncInterval = val;
 }
 
 void VideoSettingsDialog::on_cbSoftwareThreaded_stateChanged(int state)

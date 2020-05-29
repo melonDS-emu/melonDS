@@ -60,6 +60,9 @@ private slots:
 
     void onChange3DRenderer(int renderer);
     void on_cbGLDisplay_stateChanged(int state);
+    void on_cbVSync_stateChanged(int state);
+    void on_sbVSyncInterval_valueChanged(int val);
+
     void on_cbxGLResolution_currentIndexChanged(int idx);
 
     void on_cbSoftwareThreaded_stateChanged(int state);
