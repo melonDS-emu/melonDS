@@ -110,6 +110,7 @@ int VerifyDSFirmware()
     {
         // 128KB firmware, not bootable
         fclose(f);
+        return Load_OK; // FIXME!!!!
         return Load_FirmwareNotBootable;
     }
     else if (len != 0x40000 && len != 0x80000)
