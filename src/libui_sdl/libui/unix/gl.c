@@ -193,6 +193,11 @@ void uiGLSwapBuffers(uiGLContext* ctx)
     ctx->backbuffer = ctx->backbuffer ? 0 : 1;
 }
 
+void uiGLSetVSync(int sync)
+{
+	// TODO
+}
+
 void uiGLMakeContextCurrent(uiGLContext* ctx)
 {
 	if (!ctx)

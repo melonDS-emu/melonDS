@@ -54,9 +54,11 @@ extern int ScreenSizing;
 extern int ScreenFilter;
 
 extern int ScreenUseGL;
+extern int ScreenVSync;
 extern int ScreenRatio;
 
 extern int LimitFPS;
+extern int AudioSync;
 extern int ShowOSD;
 
 extern int DirectBoot;

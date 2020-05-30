@@ -28,7 +28,6 @@
 // * channel hold
 // * 'length less than 4' glitch
 
-
 namespace SPU
 {
 
@@ -66,8 +65,8 @@ const u32 kSamplesPerRun = 1;
 
 const u32 OutputBufferSize = 2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
-u32 OutputReadOffset;
-u32 OutputWriteOffset;
+volatile u32 OutputReadOffset;
+volatile u32 OutputWriteOffset;
 
 
 u16 Cnt;
@@ -100,9 +99,7 @@ void DeInit()
 
 void Reset()
 {
-    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
-    OutputReadOffset = 0;
-    OutputWriteOffset = OutputBufferSize;
+    InitOutput();
 
     Cnt = 0;
     MasterVolume = 0;
@@ -632,7 +629,7 @@ void Mix(u32 samples)
                 else if (val > 0x7FFF)  val = 0x7FFF;
 
                 Capture[0]->Run(val);
-                if (!((Capture[0]->Cnt & (1<<7)))) break;
+                if (!(Capture[0]->Cnt & (1<<7))) break;
             }
         }
 
@@ -647,7 +644,7 @@ void Mix(u32 samples)
                 else if (val > 0x7FFF)  val = 0x7FFF;
 
                 Capture[1]->Run(val);
-                if (!((Capture[1]->Cnt & (1<<7)))) break;
+                if (!(Capture[1]->Cnt & (1<<7))) break;
             }
         }
 
@@ -737,11 +734,75 @@ void Mix(u32 samples)
         OutputBuffer[OutputWriteOffset + 1] = r >> 1;
         OutputWriteOffset += 2;
         OutputWriteOffset &= ((2*OutputBufferSize)-1);
+        if (OutputWriteOffset == OutputReadOffset)
+        {
+            //printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
+            // advance the read position too, to avoid losing the entire FIFO
+            OutputReadOffset += 2;
+            OutputReadOffset &= ((2*OutputBufferSize)-1);
+        }
     }
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
 }
 
+
+void TrimOutput()
+{
+    const int halflimit = (OutputBufferSize / 2);
+
+    int readpos = OutputWriteOffset - (halflimit*2);
+    if (readpos < 0) readpos += (OutputBufferSize*2);
+
+    OutputReadOffset = readpos;
+}
+
+void DrainOutput()
+{
+    OutputReadOffset = 0;
+    OutputWriteOffset = 0;
+}
+
+void InitOutput()
+{
+    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    OutputReadOffset = 0;
+    OutputWriteOffset = OutputBufferSize;
+}
+
+int GetOutputSize()
+{
+    int ret;
+    if (OutputWriteOffset >= OutputReadOffset)
+        ret = OutputWriteOffset - OutputReadOffset;
+    else
+        ret = (OutputBufferSize*2) - OutputReadOffset + OutputWriteOffset;
+
+    ret >>= 1;
+    return ret;
+}
+
+void Sync(bool wait)
+{
+    // sync to audio output in case the core is running too fast
+    // * wait=true: wait until enough audio data has been played
+    // * wait=false: merely skip some audio data to avoid a FIFO overflow
+
+    const int halflimit = (OutputBufferSize / 2);
+
+    if (wait)
+    {
+        // TODO: less CPU-intensive wait?
+        while (GetOutputSize() > halflimit);
+    }
+    else if (GetOutputSize() > halflimit)
+    {
+        int readpos = OutputWriteOffset - (halflimit*2);
+        if (readpos < 0) readpos += (OutputBufferSize*2);
+
+        OutputReadOffset = readpos;
+    }
+}
 
 int ReadOutput(s16* data, int samples)
 {
@@ -910,8 +971,8 @@ void Write16(u32 addr, u16 val)
             return;
         case 0xA: chan->SetLoopPos(val); return;
 
-        case 0xC: chan->SetLength((chan->Length & 0xFFFF0000) | val); return;
-        case 0xE: chan->SetLength((chan->Length & 0x0000FFFF) | (val << 16)); return;
+        case 0xC: chan->SetLength(((chan->Length >> 2) & 0xFFFF0000) | val); return;
+        case 0xE: chan->SetLength(((chan->Length >> 2) & 0x0000FFFF) | (val << 16)); return;
         }
     }
     else

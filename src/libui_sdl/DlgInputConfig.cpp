@@ -125,21 +125,30 @@ void JoyMappingName(int id, char* str)
         return;
     }
 
-    if (id & 0x100)
-    {
-        int hatnum = ((id >> 4) & 0xF) + 1;
+    bool hasbtn = ((id & 0xFFFF) != 0xFFFF);
 
-        switch (id & 0xF)
+    if (hasbtn)
+    {
+        if (id & 0x100)
         {
-        case 0x1: sprintf(str, "Hat %d up", hatnum); break;
-        case 0x2: sprintf(str, "Hat %d right", hatnum); break;
-        case 0x4: sprintf(str, "Hat %d down", hatnum); break;
-        case 0x8: sprintf(str, "Hat %d left", hatnum); break;
+            int hatnum = ((id >> 4) & 0xF) + 1;
+
+            switch (id & 0xF)
+            {
+            case 0x1: sprintf(str, "Hat %d up", hatnum); break;
+            case 0x2: sprintf(str, "Hat %d right", hatnum); break;
+            case 0x4: sprintf(str, "Hat %d down", hatnum); break;
+            case 0x8: sprintf(str, "Hat %d left", hatnum); break;
+            }
+        }
+        else
+        {
+            sprintf(str, "Button %d", (id & 0xFFFF) + 1);
         }
     }
     else
     {
-        sprintf(str, "Button %d", (id & 0xFFFF) + 1);
+        strcpy(str, "");
     }
 
     if (id & 0x10000)
@@ -151,9 +160,9 @@ void JoyMappingName(int id, char* str)
 
         switch ((id >> 20) & 0xF)
         {
-        case 0: sprintf(str, "%s / Axis %d +", tmp, axisnum); break;
-        case 1: sprintf(str, "%s / Axis %d -", tmp, axisnum); break;
-        case 2: sprintf(str, "%s / Trigger %d", tmp, axisnum); break;
+        case 0: sprintf(str, "%s%sAxis %d +", tmp, hasbtn?" / ":"", axisnum); break;
+        case 1: sprintf(str, "%s%sAxis %d -", tmp, hasbtn?" / ":"", axisnum); break;
+        case 2: sprintf(str, "%s%sTrigger %d", tmp, hasbtn?" / ":"", axisnum); break;
         }
     }
 }
@@ -223,10 +232,12 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         // set key.
         if (evt->Scancode != 0x1 || evt->Modifiers != 0) // ESC
         {
+            int mod = (dlg->type == 0) ? 0 : evt->Modifiers;
+
             if (evt->Scancode == 0xE && evt->Modifiers == 0) // backspace
                 dlg->keymap[dlg->pollid] = -1;
             else
-                dlg->keymap[dlg->pollid] = evt->Scancode | (evt->Modifiers << 16);
+                dlg->keymap[dlg->pollid] = evt->Scancode | (mod << 16);
         }
 
         char keyname[64];
@@ -287,7 +298,7 @@ Uint32 JoyPoll(Uint32 interval, void* param)
     }
 
     int oldmap;
-    if (dlg->joymap[id] == -1) oldmap = 0;
+    if (dlg->joymap[id] == -1) oldmap = 0xFFFF;
     else                       oldmap = dlg->joymap[id];
 
     int nbuttons = SDL_JoystickNumButtons(joy);

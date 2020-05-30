@@ -72,7 +72,7 @@ u64 FrameStartTimestamp;
 
 int CurCPU;
 
-const s32 kMaxIterationCycles = 16;
+const s32 kMaxIterationCycles = 64;
 
 u32 ARM9ClockShift;
 
@@ -1516,7 +1516,7 @@ void DivDone(u32 param)
             if (den == 0)
             {
                 DivQuotient[0] = (num<0) ? 1:-1;
-                DivQuotient[1] = (num<0) ? -1:1;
+                DivQuotient[1] = (num<0) ? -1:0;
                 *(s64*)&DivRemainder[0] = num;
             }
             else if (num == -0x80000000 && den == -1)
@@ -1648,7 +1648,8 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     /*FILE*
-    shit = fopen("debug/card.bin", "wb");
+    shit = fopen("debug/party.bin", "wb");
+    fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
         u32 val = ARM7Read32(i);
@@ -2936,6 +2937,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04000004:
+        GPU::SetDispStat(0, val & 0xFFFF);
+        GPU::SetVCount(val >> 16);
+        return;
+
     case 0x04000060: GPU3D::Write32(addr, val); return;
     case 0x04000064:
     case 0x04000068: GPU::GPU2D_A->Write32(addr, val); return;
@@ -3500,6 +3506,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04000004:
+        GPU::SetDispStat(1, val & 0xFFFF);
+        GPU::SetVCount(val >> 16);
+        return;
+
     case 0x040000B0: DMAs[4]->SrcAddr = val; return;
     case 0x040000B4: DMAs[4]->DstAddr = val; return;
     case 0x040000B8: DMAs[4]->WriteCnt(val); return;
@@ -3582,6 +3593,8 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
     case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
+
+    case 0x04000304: PowerControl7 = val & 0xFFFF; return;
 
     case 0x04000308:
         if (ARM7BIOSProt == 0)

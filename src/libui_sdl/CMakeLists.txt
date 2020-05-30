@@ -14,6 +14,10 @@ SET(SOURCES_LIBUI
 	OSD.cpp
 )
 
+if (WIN32)
+	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
+endif()
+
 option(BUILD_SHARED_LIBS "Whether to build libui as a shared library or a static library" ON)
 set(BUILD_SHARED_LIBS OFF)
 add_subdirectory(libui)
@@ -39,11 +43,11 @@ if (UNIX)
 	ADD_DEFINITIONS(${GTK3_CFLAGS_OTHER})
 
 	add_custom_command(OUTPUT melon_grc.c
-		COMMAND glib-compile-resources --sourcedir="${CMAKE_SOURCE_DIR}"
-				--target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c"
+		COMMAND glib-compile-resources --sourcedir=${CMAKE_SOURCE_DIR}
+				--target=${CMAKE_CURRENT_BINARY_DIR}/melon_grc.c
 				--generate-source "${CMAKE_SOURCE_DIR}/melon_grc.xml"
-		COMMAND glib-compile-resources --sourcedir="${CMAKE_SOURCE_DIR}"
-				--target="${CMAKE_CURRENT_BINARY_DIR}/melon_grc.h"
+		COMMAND glib-compile-resources --sourcedir=${CMAKE_SOURCE_DIR}
+				--target=${CMAKE_CURRENT_BINARY_DIR}/melon_grc.h
 				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")

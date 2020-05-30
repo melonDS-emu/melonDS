@@ -656,7 +656,7 @@ void main()
     int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.xy = (((vec2(vPosition.xy) + 0.5) * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = (((vec2(vPosition.xy) ) * 2.0) / uScreenSize) - 1.0;
     fpos.z = (float(vPosition.z << zshift) / 8388608.0) - 1.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xyz *= fpos.w;
@@ -679,7 +679,7 @@ void main()
     int zshift = (attr >> 16) & 0x1F;
 
     vec4 fpos;
-    fpos.xy = (((vec2(vPosition.xy) + 0.5) * 2.0) / uScreenSize) - 1.0;
+    fpos.xy = (((vec2(vPosition.xy) ) * 2.0) / uScreenSize) - 1.0;
     fZ = float(vPosition.z << zshift) / 16777216.0;
     fpos.w = float(vPosition.w) / 65536.0f;
     fpos.xy *= fpos.w;

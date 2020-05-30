@@ -620,6 +620,7 @@ _UI_EXTERN void *uiGLGetProcAddress(const char* proc);
 _UI_EXTERN int uiGLGetFramebuffer(uiGLContext* ctx);
 _UI_EXTERN float uiGLGetFramebufferScale(uiGLContext* ctx);
 _UI_EXTERN void uiGLSwapBuffers(uiGLContext* ctx);
+_UI_EXTERN void uiGLSetVSync(int sync);
 
 
 _UI_ENUM(uiModifiers) {

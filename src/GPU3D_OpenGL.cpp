@@ -342,36 +342,11 @@ bool Init()
     SetupDefaultTexParams(FramebufferTex[7]);
 
     // downscale framebuffer for antialiased mode
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
     SetupDefaultTexParams(FramebufferTex[2]);
 
     // downscale framebuffer for display capture (always 256x192)
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
     SetupDefaultTexParams(FramebufferTex[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
-
-    GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
@@ -475,11 +450,36 @@ void UpdateDisplaySettings()
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
     }
 
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
+
+    GLenum fbassign[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[0], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
+    glDrawBuffers(2, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
+
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
 
     //glLineWidth(scale);
-    glLineWidth(1.5);
+    //glLineWidth(1.5);
 }
 
 
@@ -743,6 +743,7 @@ void RenderSceneChunk(int y, int h)
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
+    glLineWidth(1.0);
 
     glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
 
@@ -774,6 +775,7 @@ void RenderSceneChunk(int y, int h)
     if (RenderDispCnt & (1<<5))
     {
         UseRenderShader(flags | RenderFlag_Edge);
+        glLineWidth(1.5);
 
         glColorMaski(0, GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glColorMaski(1, GL_FALSE, GL_TRUE, GL_FALSE, GL_FALSE);
@@ -806,6 +808,7 @@ void RenderSceneChunk(int y, int h)
         glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
 
     UseRenderShader(flags | RenderFlag_Trans);
+    glLineWidth(1.0);
 
     if (NumOpaqueFinalPolys > -1)
     {

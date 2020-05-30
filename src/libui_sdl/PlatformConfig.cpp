@@ -43,9 +43,11 @@ int ScreenSizing;
 int ScreenFilter;
 
 int ScreenUseGL;
+int ScreenVSync;
 int ScreenRatio;
 
 int LimitFPS;
+int AudioSync;
 int ShowOSD;
 
 int DirectBoot;
@@ -118,9 +120,11 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
     {"ScreenUseGL",     0, &ScreenUseGL,     1, NULL, 0},
+    {"ScreenVSync",     0, &ScreenVSync,     0, NULL, 0},
     {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
 
-    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
+    {"AudioSync", 0, &AudioSync, 1, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},

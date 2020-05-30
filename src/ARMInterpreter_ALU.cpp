@@ -106,12 +106,12 @@ namespace ARMInterpreter
     x = ROR(x, (s&0x1F));
 
 #define LSL_REG_S(x, s) \
-    if (s > 31)     { cpu->SetC(x & (1<<0));      x = 0; } \
-    else if (s > 0) { cpu->SetC(x & (1<<(32-s))); x <<= s; }
+    if (s > 31)     { cpu->SetC((s>32) ? 0 : (x & (1<<0))); x = 0; } \
+    else if (s > 0) { cpu->SetC(x & (1<<(32-s)));           x <<= s; }
 
 #define LSR_REG_S(x, s) \
-    if (s > 31)     { cpu->SetC(x & (1<<31));    x = 0; } \
-    else if (s > 0) { cpu->SetC(x & (1<<(s-1))); x >>= s; }
+    if (s > 31)     { cpu->SetC((s>32) ? 0 : (x & (1<<31))); x = 0; } \
+    else if (s > 0) { cpu->SetC(x & (1<<(s-1)));             x >>= s; }
 
 #define ASR_REG_S(x, s) \
     if (s > 31)     { cpu->SetC(x & (1<<31));    x = ((s32)x) >> 31; } \
@@ -134,7 +134,7 @@ namespace ARMInterpreter
 #define A_CALC_OP2_REG_SHIFT_REG(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     if ((cpu->CurInstr&0xF)==15) b += 4; \
-    shiftop(b, cpu->R[(cpu->CurInstr>>8)&0xF]);
+    shiftop(b, (cpu->R[(cpu->CurInstr>>8)&0xF] & 0xFF));
 
 
 #define A_IMPLEMENT_ALU_OP(x,s) \

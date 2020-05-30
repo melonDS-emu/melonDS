@@ -93,6 +93,7 @@ uiMenuItem* MenuItem_ScreenSizing[4];
 
 uiMenuItem* MenuItem_ScreenFilter;
 uiMenuItem* MenuItem_LimitFPS;
+uiMenuItem* MenuItem_AudioSync;
 uiMenuItem* MenuItem_ShowOSD;
 
 SDL_Thread* EmuThread;
@@ -129,6 +130,8 @@ bool GL_ScreenSizeDirty;
 
 int GL_3DScale;
 
+bool GL_VSyncStatus;
+
 int ScreenGap = 0;
 int ScreenLayout = 0;
 int ScreenSizing = 0;
@@ -158,7 +161,12 @@ bool LidStatus;
 int JoystickID;
 SDL_Joystick* Joystick;
 
+int AudioFreq;
+float AudioSampleFrac;
 SDL_AudioDeviceID AudioDevice, MicDevice;
+
+SDL_cond* AudioSync;
+SDL_mutex* AudioSyncLock;
 
 u32 MicBufferLength = 2048;
 s16 MicBuffer[2048];
@@ -236,6 +244,8 @@ bool GLScreen_InitOSDShader(GLuint* shader)
 
 bool GLScreen_Init()
 {
+    GL_VSyncStatus = Config::ScreenVSync;
+
     // TODO: consider using epoxy?
     if (!OpenGL_Init())
         return false;
@@ -298,6 +308,13 @@ void GLScreen_DeInit()
 
 void GLScreen_DrawScreen()
 {
+    bool vsync = Config::ScreenVSync && !HotkeyDown(HK_FastForward);
+    if (vsync != GL_VSyncStatus)
+    {
+        GL_VSyncStatus = vsync;
+        uiGLSetVSync(vsync);
+    }
+
     float scale = uiGLGetFramebufferScale(GLContext);
 
     glBindFramebuffer(GL_FRAMEBUFFER, uiGLGetFramebuffer(GLContext));
@@ -560,26 +577,42 @@ void MicLoadWav(char* name)
 
 void AudioCallback(void* data, Uint8* stream, int len)
 {
-    // resampling:
-    // buffer length is 1024 samples
-    // which is 710 samples at the original sample rate
+    len /= (sizeof(s16) * 2);
 
-    s16 buf_in[710*2];
+    // resample incoming audio to match the output sample rate
+
+    float f_len_in = (len * 32823.6328125) / (float)AudioFreq;
+    f_len_in += AudioSampleFrac;
+    int len_in = (int)floor(f_len_in);
+    AudioSampleFrac = f_len_in - len_in;
+
+    s16 buf_in[1024*2];
     s16* buf_out = (s16*)stream;
 
-    int num_in = SPU::ReadOutput(buf_in, 710);
-    int num_out = 1024;
+    int num_in;
+    int num_out = len;
+
+    SDL_LockMutex(AudioSyncLock);
+    num_in = SPU::ReadOutput(buf_in, len_in);
+    SDL_CondSignal(AudioSync);
+    SDL_UnlockMutex(AudioSyncLock);
+
+    if (num_in < 1)
+    {
+        memset(stream, 0, len*sizeof(s16)*2);
+        return;
+    }
 
     int margin = 6;
-    if (num_in < 710-margin)
+    if (num_in < len_in-margin)
     {
         int last = num_in-1;
         if (last < 0) last = 0;
 
-        for (int i = num_in; i < 710-margin; i++)
+        for (int i = num_in; i < len_in-margin; i++)
             ((u32*)buf_in)[i] = ((u32*)buf_in)[last];
 
-        num_in = 710-margin;
+        num_in = len_in-margin;
     }
 
     float res_incr = num_in / (float)num_out;
@@ -588,11 +621,21 @@ void AudioCallback(void* data, Uint8* stream, int len)
 
     int volume = Config::AudioVolume;
 
-    for (int i = 0; i < 1024; i++)
+    for (int i = 0; i < len; i++)
     {
-        // TODO: interp!!
         buf_out[i*2  ] = (buf_in[res_pos*2  ] * volume) >> 8;
         buf_out[i*2+1] = (buf_in[res_pos*2+1] * volume) >> 8;
+
+        /*s16 s_l = buf_in[res_pos*2  ];
+        s16 s_r = buf_in[res_pos*2+1];
+
+        float a = res_timer;
+        float b = 1.0 - a;
+        s_l = (s_l * a) + (buf_in[(res_pos-1)*2  ] * b);
+        s_r = (s_r * a) + (buf_in[(res_pos-1)*2+1] * b);
+
+        buf_out[i*2  ] = (s_l * volume) >> 8;
+        buf_out[i*2+1] = (s_r * volume) >> 8;*/
 
         res_timer += res_incr;
         while (res_timer >= 1.0)
@@ -710,26 +753,31 @@ bool JoystickButtonDown(int val)
 {
     if (val == -1) return false;
 
-    if (val & 0x100)
+    bool hasbtn = ((val & 0xFFFF) != 0xFFFF);
+
+    if (hasbtn)
     {
-        int hatnum = (val >> 4) & 0xF;
-        int hatdir = val & 0xF;
-        Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
+        if (val & 0x100)
+        {
+            int hatnum = (val >> 4) & 0xF;
+            int hatdir = val & 0xF;
+            Uint8 hatval = SDL_JoystickGetHat(Joystick, hatnum);
 
-        bool pressed = false;
-        if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
-        else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
-        else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
-        else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
+            bool pressed = false;
+            if      (hatdir == 0x1) pressed = (hatval & SDL_HAT_UP);
+            else if (hatdir == 0x4) pressed = (hatval & SDL_HAT_DOWN);
+            else if (hatdir == 0x2) pressed = (hatval & SDL_HAT_RIGHT);
+            else if (hatdir == 0x8) pressed = (hatval & SDL_HAT_LEFT);
 
-        if (pressed) return true;
-    }
-    else
-    {
-        int btnnum = val & 0xFFFF;
-        Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
+            if (pressed) return true;
+        }
+        else
+        {
+            int btnnum = val & 0xFFFF;
+            Uint8 btnval = SDL_JoystickGetButton(Joystick, btnnum);
 
-        if (btnval) return true;
+            if (btnval) return true;
+        }
     }
 
     if (val & 0x10000)
@@ -833,6 +881,7 @@ bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 
 void UpdateWindowTitle(void* data)
 {
+    if (EmuStatus == 0) return;
     uiWindowSetTitle(MainWindow, (const char*)data);
 }
 
@@ -875,6 +924,10 @@ int EmuThreadFunc(void* burp)
     u32 lasttick = starttick;
     u32 lastmeasuretick = lasttick;
     u32 fpslimitcount = 0;
+    u64 perfcount = SDL_GetPerformanceCounter();
+    u64 perffreq = SDL_GetPerformanceFrequency();
+    float samplesleft = 0;
+    u32 nsamples = 0;
     char melontitle[100];
 
     while (EmuRunning != 0)
@@ -886,6 +939,7 @@ int EmuThreadFunc(void* burp)
             Config::LimitFPS = !Config::LimitFPS;
             uiQueueMain(UpdateFPSLimit, NULL);
         }
+        // TODO: similar hotkeys for video/audio sync?
 
         if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
         if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
@@ -954,25 +1008,46 @@ int EmuThreadFunc(void* burp)
             }
             uiAreaQueueRedrawAll(MainDrawArea);
 
-            // framerate limiter based off SDL2_gfx
-            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
+            bool fastforward = HotkeyDown(HK_FastForward);
 
-            fpslimitcount++;
-            u32 curtick = SDL_GetTicks();
-            u32 delay = curtick - lasttick;
-            lasttick = curtick;
-
-            bool limitfps = Config::LimitFPS && !HotkeyDown(HK_FastForward);
-
-            u32 wantedtick = starttick + (u32)((float)fpslimitcount * framerate);
-            if (curtick < wantedtick && limitfps)
+            if (Config::AudioSync && !fastforward)
             {
-                SDL_Delay(wantedtick - curtick);
+                SDL_LockMutex(AudioSyncLock);
+                while (SPU::GetOutputSize() > 1024)
+                {
+                    int ret = SDL_CondWaitTimeout(AudioSync, AudioSyncLock, 500);
+                    if (ret == SDL_MUTEX_TIMEDOUT) break;
+                }
+                SDL_UnlockMutex(AudioSyncLock);
             }
             else
             {
-                fpslimitcount = 0;
-                starttick = curtick;
+                // ensure the audio FIFO doesn't overflow
+                //SPU::TrimOutput();
+            }
+
+            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
+
+            {
+                u32 curtick = SDL_GetTicks();
+                u32 delay = curtick - lasttick;
+
+                bool limitfps = Config::LimitFPS && !fastforward;
+                if (limitfps)
+                {
+                    float wantedtickF = starttick + (framerate * (fpslimitcount+1));
+                    u32 wantedtick = (u32)ceil(wantedtickF);
+                    if (curtick < wantedtick) SDL_Delay(wantedtick - curtick);
+
+                    lasttick = SDL_GetTicks();
+                    fpslimitcount++;
+                    if ((abs(wantedtickF - (float)wantedtick) < 0.001312) || (fpslimitcount > 60))
+                    {
+                        fpslimitcount = 0;
+                        nsamples = 0;
+                        starttick = lasttick;
+                    }
+                }
             }
 
             nframes++;
@@ -1042,6 +1117,12 @@ int EmuThreadFunc(void* burp)
     if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 
     return 44203;
+}
+
+void StopEmuThread()
+{
+    EmuRunning = 0;
+    SDL_WaitThread(EmuThread, NULL);
 }
 
 
@@ -1155,13 +1236,13 @@ void OnAreaDragBroken(uiAreaHandler* handler, uiArea* area)
 {
 }
 
-bool EventMatchesKey(uiAreaKeyEvent* evt, int val)
+bool EventMatchesKey(uiAreaKeyEvent* evt, int val, bool checkmod)
 {
     if (val == -1) return false;
 
     int key = val & 0xFFFF;
     int mod = val >> 16;
-    return evt->Scancode == key && evt->Modifiers == mod;
+    return evt->Scancode == key && (!checkmod || evt->Modifiers == mod);
 }
 
 int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
@@ -1175,11 +1256,11 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
     if (evt->Up)
     {
         for (int i = 0; i < 12; i++)
-            if (EventMatchesKey(evt, Config::KeyMapping[i]))
+            if (EventMatchesKey(evt, Config::KeyMapping[i], false))
                 KeyInputMask |= (1<<i);
 
         for (int i = 0; i < HK_MAX; i++)
-            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i], true))
                 KeyHotkeyMask &= ~(1<<i);
     }
     else if (!evt->Repeat)
@@ -1202,16 +1283,16 @@ int OnAreaKeyEvent(uiAreaHandler* handler, uiArea* area, uiAreaKeyEvent* evt)
         }
 
         for (int i = 0; i < 12; i++)
-            if (EventMatchesKey(evt, Config::KeyMapping[i]))
+            if (EventMatchesKey(evt, Config::KeyMapping[i], false))
                 KeyInputMask &= ~(1<<i);
 
         for (int i = 0; i < HK_MAX; i++)
-            if (EventMatchesKey(evt, Config::HKKeyMapping[i]))
+            if (EventMatchesKey(evt, Config::HKKeyMapping[i], true))
                 KeyHotkeyMask |= (1<<i);
 
         // REMOVE ME
-        if (evt->Scancode == 0x57) // F11
-            NDS::debug(0);
+        //if (evt->Scancode == 0x57) // F11
+        //    NDS::debug(0);
     }
 
     return 1;
@@ -1486,6 +1567,8 @@ void Run()
     EmuRunning = 1;
     RunningSomething = true;
 
+    SPU::InitOutput();
+    AudioSampleFrac = 0;
     SDL_PauseAudioDevice(AudioDevice, 0);
     SDL_PauseAudioDevice(MicDevice, 0);
 
@@ -1524,6 +1607,7 @@ void TogglePause(void* blarg)
         EmuRunning = 2;
         uiMenuItemSetChecked(MenuItem_Pause, 1);
 
+        SPU::DrainOutput();
         SDL_PauseAudioDevice(AudioDevice, 1);
         SDL_PauseAudioDevice(MicDevice, 1);
 
@@ -1535,6 +1619,8 @@ void TogglePause(void* blarg)
         EmuRunning = 1;
         uiMenuItemSetChecked(MenuItem_Pause, 0);
 
+        SPU::InitOutput();
+        AudioSampleFrac = 0;
         SDL_PauseAudioDevice(AudioDevice, 0);
         SDL_PauseAudioDevice(MicDevice, 0);
 
@@ -1585,6 +1671,7 @@ void Stop(bool internal)
 
     uiAreaQueueRedrawAll(MainDrawArea);
 
+    SPU::DrainOutput();
     SDL_PauseAudioDevice(AudioDevice, 1);
     SDL_PauseAudioDevice(MicDevice, 1);
 
@@ -1849,6 +1936,7 @@ int OnCloseWindow(uiWindow* window, void* blarg)
     while (EmuStatus != 3);
 
     CloseAllDialogs();
+    StopEmuThread();
     uiQuit();
     return 1;
 }
@@ -1886,6 +1974,7 @@ void OnCloseByMenu(uiMenuItem* item, uiWindow* window, void* blarg)
     while (EmuStatus != 3);
 
     CloseAllDialogs();
+    StopEmuThread();
     DestroyMainWindow();
     uiQuit();
 }
@@ -2143,6 +2232,13 @@ void OnSetLimitFPS(uiMenuItem* item, uiWindow* window, void* blarg)
     else          Config::LimitFPS = false;
 }
 
+void OnSetAudioSync(uiMenuItem* item, uiWindow* window, void* blarg)
+{
+    int chk = uiMenuItemChecked(item);
+    if (chk != 0) Config::AudioSync = true;
+    else          Config::AudioSync = false;
+}
+
 void OnSetShowOSD(uiMenuItem* item, uiWindow* window, void* blarg)
 {
     int chk = uiMenuItemChecked(item);
@@ -2206,6 +2302,19 @@ void ApplyNewSettings(int type)
         GPU3D::InitRenderer(Screen_UseGL);
         if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
     }
+    /*else if (type == 4) // vsync
+    {
+        if (Screen_UseGL)
+        {
+            uiGLMakeContextCurrent(GLContext);
+            uiGLSetVSync(Config::ScreenVSync);
+            uiGLMakeContextCurrent(NULL);
+        }
+        else
+        {
+            // TODO eventually: VSync for non-GL screen?
+        }
+    }*/
 
     EmuRunning = prevstatus;
 }
@@ -2374,11 +2483,16 @@ void CreateMainWindowMenu()
     MenuItem_ScreenFilter = uiMenuAppendCheckItem(menu, "Screen filtering");
     uiMenuItemOnClicked(MenuItem_ScreenFilter, OnSetScreenFiltering, NULL);
 
+    MenuItem_ShowOSD = uiMenuAppendCheckItem(menu, "Show OSD");
+    uiMenuItemOnClicked(MenuItem_ShowOSD, OnSetShowOSD, NULL);
+
+    uiMenuAppendSeparator(menu);
+
     MenuItem_LimitFPS = uiMenuAppendCheckItem(menu, "Limit framerate");
     uiMenuItemOnClicked(MenuItem_LimitFPS, OnSetLimitFPS, NULL);
 
-    MenuItem_ShowOSD = uiMenuAppendCheckItem(menu, "Show OSD");
-    uiMenuItemOnClicked(MenuItem_ShowOSD, OnSetShowOSD, NULL);
+    MenuItem_AudioSync = uiMenuAppendCheckItem(menu, "Audio sync");
+    uiMenuItemOnClicked(MenuItem_AudioSync, OnSetAudioSync, NULL);
 }
 
 void CreateMainWindow(bool opengl)
@@ -2415,6 +2529,7 @@ void CreateMainWindow(bool opengl)
     if (opengl_good)
     {
         uiGLMakeContextCurrent(GLContext);
+        uiGLSetVSync(Config::ScreenVSync);
         if (!GLScreen_Init()) opengl_good = false;
         if (opengl_good)
         {
@@ -2539,7 +2654,6 @@ int main(int argc, char** argv)
         SDL_Quit();
         return 0;
     }
-
     {
         FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
         if (f)
@@ -2555,6 +2669,13 @@ int main(int argc, char** argv)
                               "Save memory type detection will not work correctly.\n\n"
                               "You should use the latest version of romlist.bin (provided in melonDS release packages).");
             }
+        }
+        else
+        {
+        	uiMsgBoxError(NULL,
+        			     "romlist.bin not found.",
+        			     "Save memory type detection will not work correctly.\n\n"
+				         "You should use the latest version of romlist.bin (provided in melonDS release packages).");
         }
     }
 
@@ -2613,22 +2734,29 @@ int main(int argc, char** argv)
 
     uiMenuItemSetChecked(MenuItem_ScreenFilter, Config::ScreenFilter==1);
     uiMenuItemSetChecked(MenuItem_LimitFPS, Config::LimitFPS==1);
+    uiMenuItemSetChecked(MenuItem_AudioSync, Config::AudioSync==1);
     uiMenuItemSetChecked(MenuItem_ShowOSD, Config::ShowOSD==1);
 
+    AudioSync = SDL_CreateCond();
+    AudioSyncLock = SDL_CreateMutex();
+
+    AudioFreq = 48000; // TODO: make configurable?
     SDL_AudioSpec whatIwant, whatIget;
     memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 47340;
+    whatIwant.freq = AudioFreq;
     whatIwant.format = AUDIO_S16LSB;
     whatIwant.channels = 2;
     whatIwant.samples = 1024;
     whatIwant.callback = AudioCallback;
-    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, 0);
+    AudioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!AudioDevice)
     {
         printf("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
+        AudioFreq = whatIget.freq;
+        printf("Audio output frequency: %d Hz\n", AudioFreq);
         SDL_PauseAudioDevice(AudioDevice, 1);
     }
 
@@ -2683,12 +2811,12 @@ int main(int argc, char** argv)
 
     uiMain();
 
-    EmuRunning = 0;
-    SDL_WaitThread(EmuThread, NULL);
-
     if (Joystick) SDL_JoystickClose(Joystick);
     if (AudioDevice) SDL_CloseAudioDevice(AudioDevice);
     if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
+
+    SDL_DestroyCond(AudioSync);
+    SDL_DestroyMutex(AudioSyncLock);
 
     if (MicWavBuffer) delete[] MicWavBuffer;
 
