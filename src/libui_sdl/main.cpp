@@ -886,7 +886,10 @@ bool JoyButtonHeld(int btnid, int njoybuttons, Uint8* joybuttons, Uint32 hat)
 void UpdateWindowTitle(void* data)
 {
     if (EmuStatus == 0) return;
-    uiWindowSetTitle(MainWindow, (const char*)data);
+    void** dataarray = (void**)data;
+    SDL_LockMutex((SDL_mutex*)dataarray[1]);
+    uiWindowSetTitle(MainWindow, (const char*)dataarray[0]);
+    SDL_UnlockMutex((SDL_mutex*)dataarray[1]);
 }
 
 void UpdateFPSLimit(void* data)
@@ -932,7 +935,10 @@ int EmuThreadFunc(void* burp)
     u64 perffreq = SDL_GetPerformanceFrequency();
     float samplesleft = 0;
     u32 nsamples = 0;
+
     char melontitle[100];
+    SDL_mutex* titlemutex = SDL_CreateMutex();
+    void* titledata[2] = {melontitle, titlemutex};
 
     while (EmuRunning != 0)
     {
@@ -1056,6 +1062,11 @@ int EmuThreadFunc(void* burp)
                         starttick = lasttick;
                     }
                 }
+                else
+                {
+                    if (delay < 1) SDL_Delay(1);
+                    lasttick = SDL_GetTicks();
+                }
             }
 
             nframes++;
@@ -1074,8 +1085,10 @@ int EmuThreadFunc(void* burp)
                 if (framerate < 1) fpstarget = 999;
                 else fpstarget = 1000.0f/framerate;
 
+                SDL_LockMutex(titlemutex);
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
-                uiQueueMain(UpdateWindowTitle, melontitle);
+                SDL_UnlockMutex(titlemutex);
+                uiQueueMain(UpdateWindowTitle, titledata);
             }
         }
         else
@@ -1108,6 +1121,8 @@ int EmuThreadFunc(void* burp)
     }
 
     EmuStatus = 0;
+
+    SDL_DestroyMutex(titlemutex);
 
     if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
 
