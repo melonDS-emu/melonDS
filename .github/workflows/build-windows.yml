@@ -1,0 +1,39 @@
+name: CMake Build (Windows x86-64)
+
+on: [push, pull_request]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install MSYS2
+      working-directory: ${{runner.workspace}}
+      run: | # Fetch MSYS2 build from XQEmu. Official distribution causes a CI failure due to permission errors.
+        Invoke-WebRequest -Uri "https://github.com/xqemu/ci-environment-msys2/releases/latest/download/msys64.7z" -OutFile "msys64.7z"
+        7z x -y msys64.7z "-oC:\tools\"
+        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syuq --noconfirm"
+    - name: Install dependencies
+      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}"
+    - name: Create build environment
+      run: |
+        New-Item -ItemType directory -Path ${{runner.workspace}}\melonDS\build
+        Copy-Item -Path ${{runner.workspace}}\melonDS -Destination C:\tools\msys64\home\runneradmin -Recurse
+    - name: Configure
+      run: |
+        C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
+        && cd melonDS/build && cmake .. -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}"
+    - name: Make
+      run: |
+        C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
+        && cd melonDS/build && make -j$(nproc --all) \
+        && ../msys-dist.sh"
+    - uses: actions/upload-artifact@v1
+      with:
+        name: melonDS
+        path: C:\tools\msys64\home\runneradmin\melonDS\build\dist

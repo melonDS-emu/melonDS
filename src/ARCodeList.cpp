@@ -16,12 +16,23 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#include <stdio.h>
+#include "ARCodeList.h"
 
-#define MELONDS_VERSION    "0.8.3-DSi"
+/*
+    Action Replay code list format
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+    header:
+    00 - magic MLAR
+    04 - version major
+    06 - version minor
+    08 - length
+    0C - number of codes
 
-#endif // VERSION_H
-
+    code header:
+    00 - magic MLCD
+    04 - name length
+    08 - code length
+    0C - enable flag
+    10 - code data (UTF8 name then actual code)
+*/

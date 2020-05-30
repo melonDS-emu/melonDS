@@ -16,12 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef ARCODELIST_H
+#define ARCODELIST_H
 
-#define MELONDS_VERSION    "0.8.3-DSi"
+#include "types.h"
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+#define ARCL_MAJOR 1
+#define ARCL_MINOR 1
 
-#endif // VERSION_H
+class ARCodeList
+{
+public:
+    //
+};
 
+#endif // ARCODELIST_H

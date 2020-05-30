@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -44,6 +44,7 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+void DecryptSecureArea(u8* out);
 bool LoadROM(const char* path, const char* sram, bool direct);
 void RelocateSave(const char* path, bool write);
 

@@ -50,7 +50,6 @@ void Write_Null(u8 val, bool islast);
 void Write_EEPROMTiny(u8 val, bool islast);
 void Write_EEPROM(u8 val, bool islast);
 void Write_Flash(u8 val, bool islast);
-void Write_Discover(u8 val, bool islast);
 
 
 bool Init()
@@ -401,7 +400,7 @@ void Write(u8 val, u32 hold)
     switch (CurCmd)
     {
     case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
+        // PokÃ©mon carts have an IR transceiver thing, and send this
         // to bypass it and access SRAM.
         // TODO: design better
         CurCmd = val;
@@ -818,7 +817,7 @@ bool ReadROMParams(u32 gamecode, u32* params)
     // [gamecode] [ROM size] [save type] [reserved]
     // list must be sorted by gamecode
 
-    FILE* f = Platform::OpenLocalFile("romlist.bin", "rb");
+    FILE* f = Platform::OpenDataFile("romlist.bin");
     if (!f) return false;
 
     fseek(f, 0, SEEK_END);
@@ -865,6 +864,35 @@ bool ReadROMParams(u32 gamecode, u32* params)
             fclose(f);
             return false;
         }
+    }
+}
+
+
+void DecryptSecureArea(u8* out)
+{
+    u32 gamecode = *(u32*)&CartROM[0x0C];
+    u32 arm9base = *(u32*)&CartROM[0x20];
+
+    memcpy(out, &CartROM[arm9base], 0x800);
+
+    Key1_InitKeycode(gamecode, 2, 2);
+    Key1_Decrypt((u32*)&out[0]);
+
+    Key1_InitKeycode(gamecode, 3, 2);
+    for (u32 i = 0; i < 0x800; i += 8)
+        Key1_Decrypt((u32*)&out[i]);
+
+    if (!strncmp((const char*)out, "encryObj", 8))
+    {
+        printf("Secure area decryption OK\n");
+        *(u32*)&out[0] = 0xE7FFDEFF;
+        *(u32*)&out[4] = 0xE7FFDEFF;
+    }
+    else
+    {
+        printf("Secure area decryption failed\n");
+        for (u32 i = 0; i < 0x800; i += 4)
+            *(u32*)&out[i] = 0xE7FFDEFF;
     }
 }
 
@@ -945,28 +973,8 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     printf("Cart ID: %08X\n", CartID);
 
-    if (*(u32*)&CartROM[0x20] < 0x4000)
-    {
-        //ApplyDLDIPatch();
-    }
-
-    if (direct)
-    {
-        // TODO: in the case of an already-encrypted secure area, direct boot
-        // needs it decrypted
-        NDS::SetupDirectBoot();
-        CmdEncMode = 2;
-    }
-
-    CartInserted = true;
-
-    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
-    if (CartID & 0x08000000)
-        ROMCommandHandler = ROMCommand_RetailNAND;
-    else
-        ROMCommandHandler = ROMCommand_Retail;
-
     u32 arm9base = *(u32*)&CartROM[0x20];
+
     if (arm9base < 0x8000)
     {
         if (arm9base >= 0x4000)
@@ -987,22 +995,30 @@ bool LoadROM(const char* path, const char* sram, bool direct)
             }
         }
         else
+        {
             CartIsHomebrew = true;
+            //ApplyDLDIPatch();
+        }
     }
 
-    // re-encrypt modcrypt areas if needed
-    // TODO: somehow detect whether those are already encrypted
-    if (true)
+    if (direct)
     {
-        u32 mod1 = *(u32*)&CartROM[0x220];
-        u32 mod2 = *(u32*)&CartROM[0x228];
-
-        printf("Re-encrypting modcrypt areas: %08X, %08X\n", mod1, mod2);
-
-        if (mod1) ApplyModcrypt(mod1, *(u32*)&CartROM[0x224], &CartROM[0x300]);
-        if (mod2) ApplyModcrypt(mod2, *(u32*)&CartROM[0x22C], &CartROM[0x314]);
+        // TODO: in the case of an already-encrypted secure area, direct boot
+        // needs it decrypted
+        NDS::SetupDirectBoot();
+        CmdEncMode = 2;
     }
 
+    CartInserted = true;
+
+    // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
+    if (CartID & 0x08000000)
+        ROMCommandHandler = ROMCommand_RetailNAND;
+    else
+        ROMCommandHandler = ROMCommand_Retail;
+
+    // encryption
+    Key1_InitKeycode(gamecode, 2, 2);
 
     // save
     printf("Save file: %s\n", sram);

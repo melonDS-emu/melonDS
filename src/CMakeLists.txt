@@ -1,6 +1,8 @@
 project(core)
 
 add_library(core STATIC
+	ARCodeList.cpp
+	AREngine.cpp
 	ARM.cpp
 	ARMInterpreter.cpp
 	ARMInterpreter_ALU.cpp
@@ -18,6 +20,7 @@ add_library(core STATIC
 	DSi_NWifi.cpp
 	DSi_SD.cpp
 	DSi_SPI_TSC.cpp
+	GBACart.cpp
 	GPU.cpp
 	GPU2D.cpp
 	GPU3D.cpp

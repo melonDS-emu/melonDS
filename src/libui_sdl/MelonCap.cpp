@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -336,8 +336,8 @@ void Update()
             colA &= mask;
             colB &= mask;
 
-            if (colA == colB) WinBitmapData[(y*768) + x + 512] = 0xFF00FF00;
-            else              WinBitmapData[(y*768) + x + 512] = 0xFFFF0000;
+            if (colA == colB) WinBitmapData[(y*768) + x + 512] = 0xFF000000;//0xFF00FF00;
+            else              WinBitmapData[(y*768) + x + 512] = 0xFFFFFFFF;//0xFFFF0000;
         }
     }
 

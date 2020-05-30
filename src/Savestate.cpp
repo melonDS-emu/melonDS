@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -28,11 +28,7 @@
     04 - version major
     06 - version minor
     08 - length
-    0C - game serial
-    10 - ARM9 binary checksum
-    14 - ARM7 binary checksum
-    18 - reserved
-    1C - reserved
+    0C - reserved (should be game serial later!)
 
     section header:
     00 - section magic

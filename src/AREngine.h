@@ -16,12 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#ifndef ARENGINE_H
+#define ARENGINE_H
 
-#define MELONDS_VERSION    "0.8.3-DSi"
+namespace AREngine
+{
 
-#define MELONDS_URL        "http://melonds.kuribo64.net/"
+bool Init();
+void DeInit();
+void Reset();
 
-#endif // VERSION_H
+void RunCheats();
 
+}
+
+#endif // ARENGINE_H
