@@ -875,10 +875,10 @@ void DecryptSecureArea(u8* out)
 
     memcpy(out, &CartROM[arm9base], 0x800);
 
-    Key1_InitKeycode(gamecode, 2, 2);
+    Key1_InitKeycode(false, gamecode, 2, 2);
     Key1_Decrypt((u32*)&out[0]);
 
-    Key1_InitKeycode(gamecode, 3, 2);
+    Key1_InitKeycode(false, gamecode, 3, 2);
     for (u32 i = 0; i < 0x800; i += 8)
         Key1_Decrypt((u32*)&out[i]);
 
@@ -1018,7 +1018,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
         ROMCommandHandler = ROMCommand_Retail;
 
     // encryption
-    Key1_InitKeycode(gamecode, 2, 2);
+    Key1_InitKeycode(false, gamecode, 2, 2);
 
     // save
     printf("Save file: %s\n", sram);
