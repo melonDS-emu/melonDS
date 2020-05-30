@@ -84,7 +84,7 @@ u8 Read(bool last)
         return 0;
     }
 
-    //printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
+    printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
     return Registers[CurPos++];
 }
 
@@ -107,7 +107,10 @@ void Write(u8 val, bool last)
     {
         printf("BPTWL: soft-reset\n");
         val = 0; // checkme
+        // TODO: soft-reset might need to be scheduled later!
         DSi::SoftReset();
+        CurPos = -1;
+        return;
     }
 
     if (CurPos == 0x11 || CurPos == 0x12 ||
@@ -121,7 +124,7 @@ void Write(u8 val, bool last)
         Registers[CurPos] = val;
     }
 
-    //printf("BPTWL: write %02X -> %02X\n", CurPos, val);
+    printf("BPTWL: write %02X -> %02X\n", CurPos, val);
     CurPos++; // CHECKME
 }
 
@@ -163,7 +166,7 @@ void Reset()
 
 void WriteCnt(u8 val)
 {
-    //printf("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
+    printf("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
 
     // TODO: check ACK flag
     // TODO: transfer delay
@@ -190,7 +193,7 @@ void WriteCnt(u8 val)
                 break;
             }
 
-            //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+            printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
@@ -201,7 +204,7 @@ void WriteCnt(u8 val)
             if (val & (1<<1))
             {
                 Device = Data & 0xFE;
-                //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
+                printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
@@ -216,7 +219,7 @@ void WriteCnt(u8 val)
             }
             else
             {
-                //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
                 switch (Device)
                 {
@@ -240,12 +243,12 @@ void WriteCnt(u8 val)
 }
 
 u8 ReadData()
-{
+{printf("I2C: read data: %02X\n", Data);
     return Data;
 }
 
 void WriteData(u8 val)
-{
+{printf("I2C: write data: %02X\n", val);
     Data = val;
 }
 
