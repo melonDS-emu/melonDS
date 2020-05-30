@@ -212,7 +212,8 @@ public:
     void UpdateDTCMSetting();
     void UpdateITCMSetting();
 
-    void UpdatePURegions();
+    void UpdatePURegion(u32 n);
+    void UpdatePURegions(bool update_all);
 
     u32 RandomLineIndex();
 

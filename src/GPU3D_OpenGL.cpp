@@ -807,7 +807,6 @@ void RenderSceneChunk(int y, int h)
     else
         glBlendFuncSeparate(GL_ONE, GL_ZERO, GL_ONE, GL_ONE);
 
-    UseRenderShader(flags | RenderFlag_Trans);
     glLineWidth(1.0);
 
     if (NumOpaqueFinalPolys > -1)
@@ -843,6 +842,8 @@ void RenderSceneChunk(int y, int h)
                 }
                 else if (rp->PolyData->Translucent)
                 {
+                    UseRenderShader(flags | RenderFlag_Trans);
+
                     // zorp
                     glDepthFunc(GL_LESS);
 

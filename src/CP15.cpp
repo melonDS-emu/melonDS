@@ -60,7 +60,7 @@ void ARMv5::CP15Reset()
     PU_DataRW = 0;
 
     memset(PU_Region, 0, 8*sizeof(u32));
-    UpdatePURegions();
+    UpdatePURegions(true);
 
     CurICacheLine = NULL;
 }
@@ -90,7 +90,7 @@ void ARMv5::CP15DoSavestate(Savestate* file)
     {
         UpdateDTCMSetting();
         UpdateITCMSetting();
-        UpdatePURegions();
+        UpdatePURegions(true);
     }
 }
 
@@ -126,7 +126,103 @@ void ARMv5::UpdateITCMSetting()
 }
 
 
-void ARMv5::UpdatePURegions()
+// covers updates to a specific PU region's cache/etc settings
+// (not to the region range/enabled status)
+void ARMv5::UpdatePURegion(u32 n)
+{
+    u32 coderw = (PU_CodeRW >> (4*n)) & 0xF;
+    u32 datarw = (PU_DataRW >> (4*n)) & 0xF;
+
+    u32 codecache, datacache, datawrite;
+
+    // datacache/datawrite
+    // 0/0: goes to memory
+    // 0/1: goes to memory
+    // 1/0: goes to memory and cache
+    // 1/1: goes to cache
+
+    if (CP15Control & (1<<12))
+        codecache = (PU_CodeCacheable >> n) & 0x1;
+    else
+        codecache = 0;
+
+    if (CP15Control & (1<<2))
+    {
+        datacache = (PU_DataCacheable >> n) & 0x1;
+        datawrite = (PU_DataCacheWrite >> n) & 0x1;
+    }
+    else
+    {
+        datacache = 0;
+        datawrite = 0;
+    }
+
+    u32 rgn = PU_Region[n];
+    if (!(rgn & (1<<0)))
+    {
+        return;
+    }
+
+    u32 start = rgn >> 12;
+    u32 sz = 2 << ((rgn >> 1) & 0x1F);
+    u32 end = start + (sz >> 12);
+    // TODO: check alignment of start
+
+    u8 usermask = 0;
+    u8 privmask = 0;
+
+    switch (datarw)
+    {
+    case 0: break;
+    case 1: privmask |= 0x03; break;
+    case 2: privmask |= 0x03; usermask |= 0x01; break;
+    case 3: privmask |= 0x03; usermask |= 0x03; break;
+    case 5: privmask |= 0x01; break;
+    case 6: privmask |= 0x01; usermask |= 0x01; break;
+    default: printf("!! BAD DATARW VALUE %d\n", datarw&0xF);
+    }
+
+    switch (coderw)
+    {
+    case 0: break;
+    case 1: privmask |= 0x04; break;
+    case 2: privmask |= 0x04; usermask |= 0x04; break;
+    case 3: privmask |= 0x04; usermask |= 0x04; break;
+    case 5: privmask |= 0x04; break;
+    case 6: privmask |= 0x04; usermask |= 0x04; break;
+    default: printf("!! BAD CODERW VALUE %d\n", datarw&0xF);
+    }
+
+    if (datacache & 0x1)
+    {
+        privmask |= 0x10;
+        usermask |= 0x10;
+
+        if (datawrite & 0x1)
+        {
+            privmask |= 0x20;
+            usermask |= 0x20;
+        }
+    }
+
+    if (codecache & 0x1)
+    {
+        privmask |= 0x40;
+        usermask |= 0x40;
+    }
+
+    //printf("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
+
+    for (u32 i = start; i < end; i++)
+    {
+        PU_UserMap[i] = usermask;
+        PU_PrivMap[i] = privmask;
+    }
+
+    UpdateRegionTimings(start<<12, end<<12);
+}
+
+void ARMv5::UpdatePURegions(bool update_all)
 {
     if (!(CP15Control & (1<<0)))
     {
@@ -139,121 +235,24 @@ void ARMv5::UpdatePURegions()
         memset(PU_UserMap, mask, 0x100000);
         memset(PU_PrivMap, mask, 0x100000);
 
+        UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
         return;
     }
 
-    memset(PU_UserMap, 0, 0x100000);
-    memset(PU_PrivMap, 0, 0x100000);
-
-    u32 coderw = PU_CodeRW;
-    u32 datarw = PU_DataRW;
-
-    u32 codecache, datacache, datawrite;
-
-    // datacache/datawrite
-    // 0/0: goes to memory
-    // 0/1: goes to memory
-    // 1/0: goes to memory and cache
-    // 1/1: goes to cache
-
-    if (CP15Control & (1<<12))
-        codecache = PU_CodeCacheable;
-    else
-        codecache = 0;
-
-    if (CP15Control & (1<<2))
+    if (update_all)
     {
-        datacache = PU_DataCacheable;
-        datawrite = PU_DataCacheWrite;
-    }
-    else
-    {
-        datacache = 0;
-        datawrite = 0;
+        memset(PU_UserMap, 0, 0x100000);
+        memset(PU_PrivMap, 0, 0x100000);
     }
 
     for (int n = 0; n < 8; n++)
     {
-        u32 rgn = PU_Region[n];
-        if (!(rgn & (1<<0)))
-        {
-            coderw >>= 4;
-            datarw >>= 4;
-            codecache >>= 1;
-            datacache >>= 1;
-            datawrite >>= 1;
-            continue;
-        }
-
-        u32 start = rgn >> 12;
-        u32 sz = 2 << ((rgn >> 1) & 0x1F);
-        u32 end = start + (sz >> 12);
-        // TODO: check alignment of start
-
-        u8 usermask = 0;
-        u8 privmask = 0;
-
-        switch (datarw & 0xF)
-        {
-        case 0: break;
-        case 1: privmask |= 0x03; break;
-        case 2: privmask |= 0x03; usermask |= 0x01; break;
-        case 3: privmask |= 0x03; usermask |= 0x03; break;
-        case 5: privmask |= 0x01; break;
-        case 6: privmask |= 0x01; usermask |= 0x01; break;
-        default: printf("!! BAD DATARW VALUE %d\n", datarw&0xF);
-        }
-
-        switch (coderw & 0xF)
-        {
-        case 0: break;
-        case 1: privmask |= 0x04; break;
-        case 2: privmask |= 0x04; usermask |= 0x04; break;
-        case 3: privmask |= 0x04; usermask |= 0x04; break;
-        case 5: privmask |= 0x04; break;
-        case 6: privmask |= 0x04; usermask |= 0x04; break;
-        default: printf("!! BAD CODERW VALUE %d\n", datarw&0xF);
-        }
-
-        if (datacache & 0x1)
-        {
-            privmask |= 0x10;
-            usermask |= 0x10;
-
-            if (datawrite & 0x1)
-            {
-                privmask |= 0x20;
-                usermask |= 0x20;
-            }
-        }
-
-        if (codecache & 0x1)
-        {
-            privmask |= 0x40;
-            usermask |= 0x40;
-        }
-
-        printf("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
-
-        for (u32 i = start; i < end; i++)
-        {
-            PU_UserMap[i] = usermask;
-            PU_PrivMap[i] = privmask;
-        }
-
-        coderw >>= 4;
-        datarw >>= 4;
-        codecache >>= 1;
-        datacache >>= 1;
-        datawrite >>= 1;
-
-        // TODO: this will not be enough if they change their PU regions after the intial setup
-        //UpdateRegionTimings(start<<12, end<<12);
+        UpdatePURegion(n);
     }
 
     // TODO: this is way unoptimized
     // should be okay unless the game keeps changing shit, tho
-    UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+    if (update_all) UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
 }
 
 void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
@@ -303,7 +302,6 @@ u32 ARMv5::RandomLineIndex()
     return (RNGSeed >> 17) & 0x3;
 }
 
-int zog=1;
 void ARMv5::ICacheLookup(u32 addr)
 {
     u32 tag = addr & 0xFFFFF800;
@@ -312,25 +310,25 @@ void ARMv5::ICacheLookup(u32 addr)
     id <<= 2;
     if (ICacheTags[id+0] == tag)
     {
-        CodeCycles = 1;zog=1;
+        CodeCycles = 1;
         CurICacheLine = &ICache[(id+0) << 5];
         return;
     }
     if (ICacheTags[id+1] == tag)
     {
-        CodeCycles = 1;zog=2;
+        CodeCycles = 1;
         CurICacheLine = &ICache[(id+1) << 5];
         return;
     }
     if (ICacheTags[id+2] == tag)
     {
-        CodeCycles = 1;zog=3;
+        CodeCycles = 1;
         CurICacheLine = &ICache[(id+2) << 5];
         return;
     }
     if (ICacheTags[id+3] == tag)
     {
-        CodeCycles = 1;zog=4;
+        CodeCycles = 1;
         CurICacheLine = &ICache[(id+3) << 5];
         return;
     }
@@ -418,10 +416,13 @@ void ARMv5::CP15Write(u32 id, u32 val)
             val &= 0x000FF085;
             CP15Control &= ~0x000FF085;
             CP15Control |= val;
-            printf("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
+            //printf("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
-            if ((old & 0x1005) != (val & 0x1005)) UpdatePURegions();
+            if ((old & 0x1005) != (val & 0x1005))
+            {
+                UpdatePURegions((old & 0x1) != (val & 0x1));
+            }
             if (val & (1<<7)) printf("!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
             if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
             else               ExceptionBase = 0x00000000;
@@ -430,63 +431,100 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x200: // data cacheable
-        PU_DataCacheable = val;
-        printf("PU: DataCacheable=%08X\n", val);
-        UpdatePURegions();
+        {
+            u32 diff = PU_DataCacheable ^ val;
+            PU_DataCacheable = val;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (1<<i)) UpdatePURegion(i);
+            }
+        }
         return;
 
     case 0x201: // code cacheable
-        PU_CodeCacheable = val;
-        printf("PU: CodeCacheable=%08X\n", val);
-        UpdatePURegions();
+        {
+            u32 diff = PU_CodeCacheable ^ val;
+            PU_CodeCacheable = val;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (1<<i)) UpdatePURegion(i);
+            }
+        }
         return;
 
 
     case 0x300: // data cache write-buffer
-        PU_DataCacheWrite = val;
-        printf("PU: DataCacheWrite=%08X\n", val);
-        UpdatePURegions();
+        {
+            u32 diff = PU_DataCacheWrite ^ val;
+            PU_DataCacheWrite = val;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (1<<i)) UpdatePURegion(i);
+            }
+        }
         return;
 
 
     case 0x500: // legacy data permissions
-        PU_DataRW = 0;
-        PU_DataRW |= (val & 0x0003);
-        PU_DataRW |= ((val & 0x000C) << 2);
-        PU_DataRW |= ((val & 0x0030) << 4);
-        PU_DataRW |= ((val & 0x00C0) << 6);
-        PU_DataRW |= ((val & 0x0300) << 8);
-        PU_DataRW |= ((val & 0x0C00) << 10);
-        PU_DataRW |= ((val & 0x3000) << 12);
-        PU_DataRW |= ((val & 0xC000) << 14);
-        printf("PU: DataRW=%08X (legacy %08X)\n", PU_DataRW, val);
-        UpdatePURegions();
+        {
+            u32 old = PU_DataRW;
+            PU_DataRW = 0;
+            PU_DataRW |= (val & 0x0003);
+            PU_DataRW |= ((val & 0x000C) << 2);
+            PU_DataRW |= ((val & 0x0030) << 4);
+            PU_DataRW |= ((val & 0x00C0) << 6);
+            PU_DataRW |= ((val & 0x0300) << 8);
+            PU_DataRW |= ((val & 0x0C00) << 10);
+            PU_DataRW |= ((val & 0x3000) << 12);
+            PU_DataRW |= ((val & 0xC000) << 14);
+            u32 diff = old ^ PU_DataRW;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+            }
+        }
         return;
 
     case 0x501: // legacy code permissions
-        PU_CodeRW = 0;
-        PU_CodeRW |= (val & 0x0003);
-        PU_CodeRW |= ((val & 0x000C) << 2);
-        PU_CodeRW |= ((val & 0x0030) << 4);
-        PU_CodeRW |= ((val & 0x00C0) << 6);
-        PU_CodeRW |= ((val & 0x0300) << 8);
-        PU_CodeRW |= ((val & 0x0C00) << 10);
-        PU_CodeRW |= ((val & 0x3000) << 12);
-        PU_CodeRW |= ((val & 0xC000) << 14);
-        printf("PU: CodeRW=%08X (legacy %08X)\n", PU_CodeRW, val);
-        UpdatePURegions();
+        {
+            u32 old = PU_CodeRW;
+            PU_CodeRW = 0;
+            PU_CodeRW |= (val & 0x0003);
+            PU_CodeRW |= ((val & 0x000C) << 2);
+            PU_CodeRW |= ((val & 0x0030) << 4);
+            PU_CodeRW |= ((val & 0x00C0) << 6);
+            PU_CodeRW |= ((val & 0x0300) << 8);
+            PU_CodeRW |= ((val & 0x0C00) << 10);
+            PU_CodeRW |= ((val & 0x3000) << 12);
+            PU_CodeRW |= ((val & 0xC000) << 14);
+            u32 diff = old ^ PU_CodeRW;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+            }
+        }
         return;
 
     case 0x502: // data permissions
-        PU_DataRW = val;
-        printf("PU: DataRW=%08X\n", PU_DataRW);
-        UpdatePURegions();
+        {
+            u32 diff = PU_DataRW ^ val;
+            PU_DataRW = val;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+            }
+        }
         return;
 
     case 0x503: // code permissions
-        PU_CodeRW = val;
-        printf("PU: CodeRW=%08X\n", PU_CodeRW);
-        UpdatePURegions();
+        {
+            u32 diff = PU_CodeRW ^ val;
+            PU_CodeRW = val;
+            for (u32 i = 0; i < 8; i++)
+            {
+                if (diff & (0xF<<(i*4))) UpdatePURegion(i);
+            }
+        }
         return;
 
 
@@ -511,7 +549,8 @@ void ARMv5::CP15Write(u32 id, u32 val)
         printf("%s, ", val&1 ? "enabled":"disabled");
         printf("%08X-", val&0xFFFFF000);
         printf("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
-        UpdatePURegions();
+        // TODO: smarter region update for this?
+        UpdatePURegions(true);
         return;
 
 
