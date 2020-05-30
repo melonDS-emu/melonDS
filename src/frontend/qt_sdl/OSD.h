@@ -16,42 +16,21 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef OSD_H
+#define OSD_H
 
-#include <stdio.h>
-
-#include "types.h"
-
-namespace Config
+namespace OSD
 {
 
-typedef struct
-{
-    char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
+bool Init(QOpenGLFunctions_3_2_Core* f);
+void DeInit(QOpenGLFunctions_3_2_Core* f);
 
-} ConfigEntry;
+void AddMessage(u32 color, const char* text);
 
-FILE* GetConfigFile(const char* fileName, const char* permissions);
-bool HasConfigFile(const char* fileName);
-void Load();
-void Save();
-
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
-
-extern int _3DRenderer;
-extern int Threaded3D;
-
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+void Update(QOpenGLFunctions_3_2_Core* f);
+void DrawNative(QPainter& painter);
+void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h);
 
 }
 
-#endif // CONFIG_H
+#endif // OSD_H

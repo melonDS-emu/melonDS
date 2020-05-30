@@ -16,42 +16,50 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef OSD_SHADERS_H
+#define OSD_SHADERS_H
 
-#include <stdio.h>
+const char* kScreenVS_OSD = R"(#version 140
 
-#include "types.h"
+uniform vec2 uScreenSize;
 
-namespace Config
+uniform ivec2 uOSDPos;
+uniform ivec2 uOSDSize;
+
+in vec2 vPosition;
+
+smooth out vec2 fTexcoord;
+
+void main()
 {
+    vec4 fpos;
 
-typedef struct
-{
-    char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
+    vec2 osdpos = (vPosition * vec2(uOSDSize));
+    fTexcoord = osdpos;
+    osdpos += uOSDPos;
 
-} ConfigEntry;
+    fpos.xy = ((osdpos * 2.0) / uScreenSize) - 1.0;
+    fpos.y *= -1;
+    fpos.z = 0.0;
+    fpos.w = 1.0;
 
-FILE* GetConfigFile(const char* fileName, const char* permissions);
-bool HasConfigFile(const char* fileName);
-void Load();
-void Save();
-
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
-
-extern int _3DRenderer;
-extern int Threaded3D;
-
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
-
+    gl_Position = fpos;
 }
+)";
 
-#endif // CONFIG_H
+const char* kScreenFS_OSD = R"(#version 140
+
+uniform sampler2D OSDTex;
+
+smooth in vec2 fTexcoord;
+
+out vec4 oColor;
+
+void main()
+{
+    vec4 pixel = texelFetch(OSDTex, ivec2(fTexcoord), 0);
+    oColor = pixel.bgra;
+}
+)";
+
+#endif // OSD_SHADERS_H

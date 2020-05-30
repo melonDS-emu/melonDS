@@ -187,6 +187,7 @@ void ReleaseScreen();
 
 void SetKeyMask(u32 mask);
 
+bool IsLidClosed();
 void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);

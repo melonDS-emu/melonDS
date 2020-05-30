@@ -16,42 +16,36 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
-
-#include <stdio.h>
+#ifndef INPUT_H
+#define INPUT_H
 
 #include "types.h"
 
-namespace Config
+namespace Input
 {
 
-typedef struct
-{
-    char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
+extern int JoystickID;
+extern SDL_Joystick* Joystick;
 
-} ConfigEntry;
+extern u32 InputMask;
 
-FILE* GetConfigFile(const char* fileName, const char* permissions);
-bool HasConfigFile(const char* fileName);
-void Load();
-void Save();
+void Init();
 
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
+// set joystickID before calling openJoystick()
+void OpenJoystick();
+void CloseJoystick();
 
-extern int _3DRenderer;
-extern int Threaded3D;
+void KeyPress(QKeyEvent* event);
+void KeyRelease(QKeyEvent* event);
 
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+void Process();
+
+bool HotkeyDown(int id);
+bool HotkeyPressed(int id);
+bool HotkeyReleased(int id);
+
+bool IsRightModKey(QKeyEvent* event);
 
 }
 
-#endif // CONFIG_H
+#endif // INPUT_H

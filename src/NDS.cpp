@@ -435,7 +435,7 @@ void Reset()
     // DS BIOSes are always loaded, even in DSi mode
     // we need them for DS-compatible mode
 
-    f = Platform::OpenLocalFile("bios9.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
         printf("ARM9 BIOS not found\n");
@@ -452,7 +452,7 @@ void Reset()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile("bios7.bin", "rb");
+    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
         printf("ARM7 BIOS not found\n");
@@ -1022,6 +1022,12 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
+}
+
+bool IsLidClosed()
+{
+    if (KeyInput & (1<<23)) return true;
+    return false;
 }
 
 void SetLidClosed(bool closed)

@@ -28,6 +28,10 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
+char BIOS9Path[1024];
+char BIOS7Path[1024];
+char FirmwarePath[1024];
+
 int _3DRenderer;
 int Threaded3D;
 
@@ -36,6 +40,10 @@ int GL_Antialias;
 
 ConfigEntry ConfigFile[] =
 {
+    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
+    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
+    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+
     {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
@@ -82,7 +90,8 @@ void Load()
     while (!feof(f))
     {
         fgets(linebuf, 1024, f);
-        int ret = sscanf(linebuf, "%32[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        entryname[31] = '\0';
         if (ret < 2) continue;
 
         ConfigEntry* entry = &ConfigFile[0];

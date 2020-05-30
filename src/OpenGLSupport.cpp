@@ -19,18 +19,20 @@
 #include "OpenGLSupport.h"
 
 
+namespace OpenGL
+{
 
 DO_PROCLIST(DECLPROC);
 
 
-bool OpenGL_Init()
+bool Init()
 {
     DO_PROCLIST(LOADPROC);
 
     return true;
 }
 
-bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
+bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
 {
     int len;
     int res;
@@ -89,7 +91,7 @@ bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, cons
     return true;
 }
 
-bool OpenGL_LinkShaderProgram(GLuint* ids)
+bool LinkShaderProgram(GLuint* ids)
 {
     int res;
 
@@ -115,14 +117,16 @@ bool OpenGL_LinkShaderProgram(GLuint* ids)
     return true;
 }
 
-void OpenGL_DeleteShaderProgram(GLuint* ids)
+void DeleteShaderProgram(GLuint* ids)
 {
     glDeleteShader(ids[0]);
     glDeleteShader(ids[1]);
     glDeleteProgram(ids[2]);
 }
 
-void OpenGL_UseShaderProgram(GLuint* ids)
+void UseShaderProgram(GLuint* ids)
 {
     glUseProgram(ids[2]);
+}
+
 }

@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
+sudo apt-get install libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
 ```
 
 * Compile:
@@ -51,10 +51,6 @@ make -j$(nproc --all)
 ```
 
 ### Windows:
-
- * use CodeBlocks
-
-#### MSYS2 and CMake
 
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
@@ -94,6 +90,7 @@ If everything went well, melonDS and the libraries it needs should now be in the
 
  * Martin for GBAtek, a good piece of documentation
  * Cydrak for the extra 3D GPU research
+ * limittox for the icon
  * All of you comrades who have been testing melonDS, reporting issues, suggesting shit, etc
 
 ## License

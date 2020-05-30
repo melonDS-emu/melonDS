@@ -25,6 +25,7 @@
 #include "CRC32.h"
 #include "DSi_AES.h"
 #include "Platform.h"
+#include "ROMList.h"
 
 
 namespace NDSCart_SRAM
@@ -811,34 +812,21 @@ void ApplyDLDIPatch()
 }
 
 
-bool ReadROMParams(u32 gamecode, u32* params)
+bool ReadROMParams(u32 gamecode, ROMListEntry* params)
 {
-    // format for romlist.bin:
-    // [gamecode] [ROM size] [save type] [reserved]
-    // list must be sorted by gamecode
-
-    FILE* f = Platform::OpenDataFile("romlist.bin");
-    if (!f) return false;
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-    u32 maxlen = len;
-    len >>= 4; // 16 bytes per entry
+    u32 len = sizeof(ROMList) / sizeof(ROMListEntry);
 
     u32 offset = 0;
     u32 chk_size = len >> 1;
     for (;;)
     {
         u32 key = 0;
-        fseek(f, offset + (chk_size << 4), SEEK_SET);
-        fread(&key, 4, 1, f);
-
-        printf("chk_size=%d, key=%08X, wanted=%08X, offset=%08X\n", chk_size, key, gamecode, offset);
+        ROMListEntry* curentry = &ROMList[offset + chk_size];
+        key = curentry->GameCode;
 
         if (key == gamecode)
         {
-            fread(params, 4, 3, f);
-            fclose(f);
+            memcpy(params, curentry, sizeof(ROMListEntry));
             return true;
         }
         else
@@ -846,22 +834,20 @@ bool ReadROMParams(u32 gamecode, u32* params)
             if (key < gamecode)
             {
                 if (chk_size == 0)
-                    offset += 0x10;
+                    offset++;
                 else
-                    offset += (chk_size << 4);
+                    offset += chk_size;
             }
             else if (chk_size == 0)
             {
-                fclose(f);
                 return false;
             }
 
             chk_size >>= 1;
         }
 
-        if (offset >= maxlen)
+        if (offset >= len)
         {
-            fclose(f);
             return false;
         }
     }
@@ -870,6 +856,11 @@ bool ReadROMParams(u32 gamecode, u32* params)
 
 void DecryptSecureArea(u8* out)
 {
+    // TODO: source decryption data from different possible sources
+    // * original DS-mode ARM7 BIOS has the key data at 0x30
+    // * .srl ROMs (VC dumps) have encrypted secure areas but have precomputed
+    //   decryption data at 0x1000 (and at the beginning of the DSi region if any)
+
     u32 gamecode = *(u32*)&CartROM[0x0C];
     u32 arm9base = *(u32*)&CartROM[0x20];
 
@@ -901,6 +892,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
+    // also TODO: validate what we're loading!!
 
     FILE* f = Platform::OpenFile(path, "rb");
     if (!f)
@@ -938,22 +930,23 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     CartCRC = CRC32(CartROM, CartROMSize);
     printf("ROM CRC32: %08X\n", CartCRC);
 
-    u32 romparams[3];
-    if (!ReadROMParams(gamecode, romparams))
+    ROMListEntry romparams;
+    if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
         printf("ROM entry not found\n");
 
-        romparams[0] = CartROMSize;
+        romparams.GameCode = gamecode;
+        romparams.ROMSize = CartROMSize;
         if (*(u32*)&CartROM[0x20] < 0x4000)
-            romparams[1] = 0; // no saveRAM for homebrew
+            romparams.SaveMemType = 0; // no saveRAM for homebrew
         else
-            romparams[1] = 2; // assume EEPROM 64k (TODO FIXME)
+            romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
     }
     else
-        printf("ROM entry: %08X %08X %08X\n", romparams[0], romparams[1], romparams[2]);
+        printf("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams[0] != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams[0], CartROMSize);
+    if (romparams.ROMSize != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -965,7 +958,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     else
         CartID |= (0x100 - (CartROMSize >> 28)) << 8;
 
-    if (romparams[1] == 8)
+    if (romparams.SaveMemType == 8)
         CartID |= 0x08000000; // NAND flag
 
     if (CartIsDSi)
@@ -1022,7 +1015,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     // save
     printf("Save file: %s\n", sram);
-    NDSCart_SRAM::LoadSave(sram, romparams[1]);
+    NDSCart_SRAM::LoadSave(sram, romparams.SaveMemType);
 
     return true;
 }
