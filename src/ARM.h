@@ -223,6 +223,11 @@ public:
     void CP15Write(u32 id, u32 val);
     u32 CP15Read(u32 id);
 
+    void CalcDCacheCycles(u32 addr);
+
+    u32 DCacheCurIndex = 0;
+    u32 DCacheHistory[32] = {0};
+    u64 DCacheHistorySum = 0;
     u32 CP15Control;
 
     u32 RNGSeed;
