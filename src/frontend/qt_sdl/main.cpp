@@ -1407,7 +1407,7 @@ void MainWindow::onOpenFile()
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
