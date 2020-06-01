@@ -129,9 +129,6 @@ void Reset()
 
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
-    for (u32 i = 0; i < 0x3C00; i+=4)
-        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
-
     DSi_I2C::Reset();
     DSi_AES::Reset();
 
@@ -150,6 +147,9 @@ void Reset()
     GPU::DispStat[1] |= (1<<6);
 
     NDS::MapSharedWRAM(3);
+
+    for (u32 i = 0; i < 0x3C00; i+=4)
+        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
 
     u32 eaddr = 0x03FFE6E4;
     ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
@@ -178,9 +178,6 @@ void SoftReset()
 
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
-    for (u32 i = 0; i < 0x3C00; i+=4)
-        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
-
     DSi_AES::Reset();
 
     LoadNAND();
@@ -203,6 +200,9 @@ void SoftReset()
     GPU::DispStat[1] |= (1<<6);
 
     NDS::MapSharedWRAM(3);
+
+    for (u32 i = 0; i < 0x3C00; i+=4)
+        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
 
     u32 eaddr = 0x03FFE6E4;
     ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
@@ -433,32 +433,16 @@ bool LoadNAND()
     }
 
     memset(ITCMInit, 0, 0x8000);
+    memcpy(&ITCMInit[0x4400], &ARM9iBIOS[0x87F4], 0x400);
+    memcpy(&ITCMInit[0x4800], &ARM9iBIOS[0x9920], 0x80);
+    memcpy(&ITCMInit[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
+    memcpy(&ITCMInit[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+
     memset(ARM7Init, 0, 0x3C00);
-
-    f = fopen("initmem9.bin", "rb");
-    if (f)
-    {
-        // first 0x2524 bytes are loaded to 0x01FFC400
-
-        u32 dstaddr = 0x01FFC400;
-        fread(&ITCMInit[dstaddr & 0x7FFF], /*0x2524*/0x3C00, 1, f);
-        fclose(f);
-    }
-    else
-    {
-        printf("DSi ARM9 meminit not found\n");
-    }
-
-    f = fopen("initmem7.bin", "rb");
-    if (f)
-    {
-        fread(ARM7Init, 0x3C00, 1, f);
-        fclose(f);
-    }
-    else
-    {
-        printf("DSi ARM7 meminit not found\n");
-    }
+    memcpy(&ARM7Init[0x0000], &ARM7iBIOS[0x8188], 0x200);
+    memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
+    memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
+    memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
     return true;
 }

@@ -562,17 +562,10 @@ void Key1_ApplyKeycode(u32* keycode, u32 mod)
 void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod)
 {
     // TODO: source the key data from different possible places
-    if (NDS::ConsoleType == 1)
-    {
-        if (dsi)
-            memcpy(Key1_KeyBuf, &DSi::ARM7Init[0x254], 0x1048); // hax
-        else
-            memcpy(Key1_KeyBuf, &DSi::ITCMInit[0x4894], 0x1048); // hax
-    }
+    if (dsi && NDS::ConsoleType==1)
+        memcpy(Key1_KeyBuf, &DSi::ARM7iBIOS[0xC6D0], 0x1048); // hax
     else
-    {
         memcpy(Key1_KeyBuf, &NDS::ARM7BIOS[0x30], 0x1048); // hax
-    }
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);
