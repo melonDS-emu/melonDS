@@ -131,26 +131,24 @@ void Reset()
 
     // initialize keys
 
-    FILE* f = Platform::OpenLocalFile("aeskeys.bin", "rb");
-    if (f)
-    {
-        fread(KeyNormal[0], 16, 1, f);
-        fread(KeyX[0], 16, 1, f);
-        fread(KeyY[0], 16, 1, f);
-        fread(KeyNormal[1], 16, 1, f);
-        fread(KeyX[1], 16, 1, f);
-        fread(KeyY[1], 16, 1, f);
-        fread(KeyNormal[2], 16, 1, f);
-        fread(KeyX[2], 16, 1, f);
-        fread(KeyY[2], 16, 1, f);
-        fread(KeyNormal[3], 16, 1, f);
-        fread(KeyX[3], 16, 1, f);
-        fread(KeyY[3], 16, 1, f);
+    // slot 0: modcrypt
+    *(u32*)&KeyX[0][0] = 0x746E694E;
+    *(u32*)&KeyX[0][4] = 0x6F646E65;
 
-        fclose(f);
-    }
-    else
-        printf("AES: aeskeys.bin not found\n");
+    // slot 1: 'Tad'/dev.kp
+    *(u32*)&KeyX[1][0] = 0x4E00004A;
+    *(u32*)&KeyX[1][4] = 0x4A00004E;
+    *(u32*)&KeyX[1][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xC80C4B72;
+    *(u32*)&KeyX[1][12] = (u32)DSi::ConsoleID;
+
+    // slot 3: console-unique eMMC crypto
+    *(u32*)&KeyX[3][0] = (u32)DSi::ConsoleID;
+    *(u32*)&KeyX[3][4] = (u32)DSi::ConsoleID ^ 0x24EE6906;
+    *(u32*)&KeyX[3][8] = (u32)(DSi::ConsoleID >> 32) ^ 0xE65B601D;
+    *(u32*)&KeyX[3][12] = (u32)(DSi::ConsoleID >> 32);
+    *(u32*)&KeyY[3][0] = 0x0AB9DC76;
+    *(u32*)&KeyY[3][4] = 0xBD4DC4D3;
+    *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
 

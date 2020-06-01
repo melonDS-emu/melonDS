@@ -31,6 +31,8 @@
 #include "DSi_SD.h"
 #include "DSi_AES.h"
 
+#include "tiny-AES-c/aes.hpp"
+
 
 namespace NDS
 {
@@ -341,52 +343,65 @@ bool LoadNAND()
         MBK[0][8] = mbk[11];
         MBK[1][8] = mbk[11];
 
-        // load binaries
-        // TODO: optionally support loading from actual NAND?
-        // currently decrypted binaries have to be provided
-        // they can be decrypted with twltool
+        // load boot2 binaries
 
-        FILE* bin;
+        AES_ctx ctx;
+        const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+        u8 boot2iv[16];
+        u8 tmp[16];
+        u32 dstaddr;
 
-        bin = Platform::OpenLocalFile("boot2_9.bin", "rb");
-        if (bin)
+        *(u32*)&tmp[0] = bootparams[3];
+        *(u32*)&tmp[4] = -bootparams[3];
+        *(u32*)&tmp[8] = ~bootparams[3];
+        *(u32*)&tmp[12] = 0;
+        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+        fseek(f, bootparams[0], SEEK_SET);
+        dstaddr = bootparams[2];
+        for (u32 i = 0; i < bootparams[3]; i += 16)
         {
-            u32 dstaddr = bootparams[2];
-            for (u32 i = 0; i < bootparams[1]; i += 4)
-            {
-                u32 _tmp;
-                fread(&_tmp, 4, 1, bin);
-                ARM9Write32(dstaddr, _tmp);
-                dstaddr += 4;
-            }
+            u8 data[16];
+            fread(data, 16, 1, f);
 
-            fclose(bin);
-        }
-        else
-        {
-            printf("ARM9 boot2 not found\n");
-        }
+            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
 
-        bin = Platform::OpenLocalFile("boot2_7.bin", "rb");
-        if (bin)
-        {
-            u32 dstaddr = bootparams[6];
-            for (u32 i = 0; i < bootparams[5]; i += 4)
-            {
-                u32 _tmp;
-                fread(&_tmp, 4, 1, bin);
-                ARM7Write32(dstaddr, _tmp);
-                dstaddr += 4;
-            }
-
-            fclose(bin);
-        }
-        else
-        {
-            printf("ARM7 boot2 not found\n");
+            ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+            ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
         }
 
-        // repoint CPUs to the boot2 binaries
+        *(u32*)&tmp[0] = bootparams[7];
+        *(u32*)&tmp[4] = -bootparams[7];
+        *(u32*)&tmp[8] = ~bootparams[7];
+        *(u32*)&tmp[12] = 0;
+        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+        fseek(f, bootparams[4], SEEK_SET);
+        dstaddr = bootparams[6];
+        for (u32 i = 0; i < bootparams[7]; i += 16)
+        {
+            u8 data[16];
+            fread(data, 16, 1, f);
+
+            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
+
+            ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+            ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+        }
+
+        // repoint the CPUs to the boot2 binaries
 
         BootAddr[0] = bootparams[2];
         BootAddr[1] = bootparams[6];
