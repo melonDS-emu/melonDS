@@ -702,8 +702,7 @@ void Set_SCFG_MC(u32 val)
 
 
 u8 ARM9Read8(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM9 READ8 ROM REGION %08X\n", NDS::GetPC(0));
-if(addr==0x02FFFD70) printf("ARM9 READ8 CONSOLE REGION %08X\n", NDS::GetPC(0));
+{
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
@@ -740,7 +739,7 @@ if(addr==0x02FFFD70) printf("ARM9 READ8 CONSOLE REGION %08X\n", NDS::GetPC(0));
 }
 
 u16 ARM9Read16(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM9 READ16 ROM REGION %08X\n", NDS::GetPC(0));
+{
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
@@ -777,8 +776,7 @@ u16 ARM9Read16(u32 addr)
 }
 
 u32 ARM9Read32(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM9 READ32 ROM REGION %08X\n", NDS::GetPC(0));
-if(addr==0x2FE71B0) return 0xFFFFFFFF; // hax: bypass region lock
+{
     if ((addr >= 0xFFFF0000) && (!(SCFG_BIOS & (1<<1))))
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
@@ -789,6 +787,12 @@ if(addr==0x2FE71B0) return 0xFFFFFFFF; // hax: bypass region lock
 
     switch (addr & 0xFF000000)
     {
+    case 0x02000000:
+        // HACK to bypass region locking
+        // TODO: make optional
+        if (addr == 0x02FE71B0) return 0xFFFFFFFF;
+        break;
+
     case 0x03000000:
         if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
         {
@@ -951,8 +955,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, NDS::MemRegion* region)
 
 
 u8 ARM7Read8(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM7 READ8 ROM REGION %08X\n", NDS::GetPC(1));
-if(addr==0x02FFFD70) printf("ARM7 READ8 CONSOLE REGION %08X\n", NDS::GetPC(1));
+{
     if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
@@ -993,7 +996,7 @@ if(addr==0x02FFFD70) printf("ARM7 READ8 CONSOLE REGION %08X\n", NDS::GetPC(1));
 }
 
 u16 ARM7Read16(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM7 READ16 ROM REGION %08X\n", NDS::GetPC(1));
+{
     if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
@@ -1034,7 +1037,7 @@ u16 ARM7Read16(u32 addr)
 }
 
 u32 ARM7Read32(u32 addr)
-{if(addr==0x02FFC1B0) printf("ARM7 READ32 ROM REGION %08X\n", NDS::GetPC(1));
+{
     if ((addr < 0x00010000) && (!(SCFG_BIOS & (1<<9))))
     {
         if ((addr >= 0x00008000) && (SCFG_BIOS & (1<<8)))
@@ -1235,7 +1238,7 @@ u8 ARM9IORead8(u32 addr)
 
     return NDS::ARM9IORead8(addr);
 }
-//u16 dicks = 0;
+
 u16 ARM9IORead16(u32 addr)
 {
     switch (addr)
@@ -1253,8 +1256,6 @@ u16 ARM9IORead16(u32 addr)
     CASE_READ16_32BIT(0x04004058, MBK[0][6])
     CASE_READ16_32BIT(0x0400405C, MBK[0][7])
     CASE_READ16_32BIT(0x04004060, MBK[0][8])
-
-    //case 0x04004202: return dicks & 0xEF1F;
     }
 
     return NDS::ARM9IORead16(addr);
@@ -1399,8 +1400,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
         MapNWRAM_C(6, val & 0xFF);
         MapNWRAM_C(7, val >> 8);
         return;
-
-    //case 0x04004202: dicks = val & 0xEF3F; return;
     }
 
     return NDS::ARM9IOWrite16(addr, val);
