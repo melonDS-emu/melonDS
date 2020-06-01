@@ -1889,6 +1889,7 @@ int main(int argc, char** argv)
     Config::Load();
 
 #define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+    SANITIZE(Config::ConsoleType, 0, 1);
     SANITIZE(Config::_3DRenderer, 0, 1);
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);

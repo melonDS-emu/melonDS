@@ -46,11 +46,10 @@ extern char BIOS9Path[1024];
 extern char BIOS7Path[1024];
 extern char FirmwarePath[1024];
 
-extern int _3DRenderer;
-extern int Threaded3D;
-
-extern int GL_ScaleFactor;
-extern int GL_Antialias;
+extern char DSiBIOS9Path[1024];
+extern char DSiBIOS7Path[1024];
+extern char DSiFirmwarePath[1024];
+extern char DSiNANDPath[1024];
 
 }
 

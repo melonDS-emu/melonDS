@@ -58,6 +58,11 @@ private slots:
     void on_btnBIOS7Browse_clicked();
     void on_btnFirmwareBrowse_clicked();
 
+    void on_btnDSiBIOS9Browse_clicked();
+    void on_btnDSiBIOS7Browse_clicked();
+    void on_btnDSiFirmwareBrowse_clicked();
+    void on_btnDSiNANDBrowse_clicked();
+
 private:
     void verifyFirmware();
 
