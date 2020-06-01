@@ -444,6 +444,8 @@ u16 DSi_SDHost::Read(u32 addr)
 
     case 0x0E0: return SoftReset;
 
+    case 0x0F6: return 0; // MMC write protect (always 0)
+
     case 0x100: return Data32IRQ;
     case 0x104: return BlockLen32;
     case 0x108: return BlockCount32;
