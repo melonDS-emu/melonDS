@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,51 +16,39 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SPI_H
-#define SPI_H
+#ifndef DSI_AES_H
+#define DSI_AES_H
 
-#include "Savestate.h"
+#include "types.h"
 
-namespace SPI_Firmware
+namespace DSi_AES
 {
 
-void SetupDirectBoot();
-
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
-
-}
-
-namespace SPI_TSC
-{
-
-void SetTouchCoords(u16 x, u16 y);
-void MicInputFrame(s16* data, int samples);
-
-u8 Read();
-void Write(u8 val, u32 hold);
-
-}
-
-namespace SPI
-{
-
-extern u16 Cnt;
+extern u32 Cnt;
 
 bool Init();
 void DeInit();
 void Reset();
-void DoSavestate(Savestate* file);
 
-void WriteCnt(u16 val);
+u32 ReadCnt();
+void WriteCnt(u32 val);
+void WriteBlkCnt(u32 val);
 
-u8 ReadData();
-void WriteData(u8 val);
+u32 ReadOutputFIFO();
+void WriteInputFIFO(u32 val);
+void CheckInputDMA();
+void CheckOutputDMA();
+void Update();
 
-void TransferDone(u32 param);
+void WriteIV(u32 offset, u32 val, u32 mask);
+void WriteMAC(u32 offset, u32 val, u32 mask);
+void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask);
+void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask);
+void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask);
+
+void GetModcryptKey(u8* romheader, u8* key);
+void ApplyModcrypt(u8* data, u32 len, u8* key, u8* iv);
 
 }
 
-#endif
+#endif // DSI_AES_H

@@ -22,6 +22,7 @@
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
+#include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
 
@@ -92,7 +93,10 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = NULL;
 
-    strncpy(FirmwarePath, Config::FirmwarePath, 1023);
+    if (NDS::ConsoleType == 1)
+        strncpy(FirmwarePath, Config::DSiFirmwarePath, 1023);
+    else
+        strncpy(FirmwarePath, Config::FirmwarePath, 1023);
 
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
@@ -159,6 +163,7 @@ void Reset()
     UserSettings = userdata;
 
     // fix touchscreen coords
+    #if 0
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;
     Firmware[userdata+0x5C] = 0;
@@ -181,12 +186,12 @@ void Reset()
     Firmware[0x39] = rand()&0xFF;
     Firmware[0x3A] = rand()&0xFF;
     Firmware[0x3B] = rand()&0xFF;
-
+#endif
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
            Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
 
-    *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+    //*(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
 
     // verify shit
     printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
@@ -233,6 +238,7 @@ void SetupDirectBoot()
 u8 GetConsoleType() { return Firmware[0x1D]; }
 u8 GetWifiVersion() { return Firmware[0x2F]; }
 u8 GetRFVersion() { return Firmware[0x40]; }
+u8* GetWifiMAC() { return &Firmware[0x36]; }
 
 u8 Read()
 {
@@ -589,7 +595,7 @@ namespace SPI
 
 u16 Cnt;
 
-u32 CurDevice;
+u32 CurDevice; // remove me
 
 
 bool Init()
@@ -597,6 +603,7 @@ bool Init()
     if (!SPI_Firmware::Init()) return false;
     if (!SPI_Powerman::Init()) return false;
     if (!SPI_TSC::Init()) return false;
+    if (!DSi_SPI_TSC::Init()) return false;
 
     return true;
 }
@@ -606,6 +613,7 @@ void DeInit()
     SPI_Firmware::DeInit();
     SPI_Powerman::DeInit();
     SPI_TSC::DeInit();
+    DSi_SPI_TSC::DeInit();
 }
 
 void Reset()
@@ -615,6 +623,7 @@ void Reset()
     SPI_Firmware::Reset();
     SPI_Powerman::Reset();
     SPI_TSC::Reset();
+    if (NDS::ConsoleType == 1) DSi_SPI_TSC::Reset();
 }
 
 void DoSavestate(Savestate* file)
@@ -627,6 +636,7 @@ void DoSavestate(Savestate* file)
     SPI_Firmware::DoSavestate(file);
     SPI_Powerman::DoSavestate(file);
     SPI_TSC::DoSavestate(file);
+    if (NDS::ConsoleType == 1) DSi_SPI_TSC::DoSavestate(file);
 }
 
 
@@ -640,7 +650,12 @@ void WriteCnt(u16 val)
         {
         case 0x0000: SPI_Powerman::Hold = 0; break;
         case 0x0100: SPI_Firmware::Hold = 0; break;
-        case 0x0200: SPI_TSC::DataPos = 0; break;
+        case 0x0200:
+            if (NDS::ConsoleType == 1)
+                DSi_SPI_TSC::DataPos = 0;
+            else
+                SPI_TSC::DataPos = 0;
+            break;
         }
     }
 
@@ -666,7 +681,11 @@ u8 ReadData()
     {
     case 0x0000: return SPI_Powerman::Read();
     case 0x0100: return SPI_Firmware::Read();
-    case 0x0200: return SPI_TSC::Read();
+    case 0x0200:
+        if (NDS::ConsoleType == 1)
+            return DSi_SPI_TSC::Read();
+        else
+            return SPI_TSC::Read();
     default: return 0;
     }
 }
@@ -682,7 +701,12 @@ void WriteData(u8 val)
     {
     case 0x0000: SPI_Powerman::Write(val, Cnt&(1<<11)); break;
     case 0x0100: SPI_Firmware::Write(val, Cnt&(1<<11)); break;
-    case 0x0200: SPI_TSC::Write(val, Cnt&(1<<11)); break;
+    case 0x0200:
+        if (NDS::ConsoleType == 1)
+            DSi_SPI_TSC::Write(val, Cnt&(1<<11));
+        else
+            SPI_TSC::Write(val, Cnt&(1<<11));
+        break;
     default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 

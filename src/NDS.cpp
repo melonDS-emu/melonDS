@@ -33,6 +33,9 @@
 #include "AREngine.h"
 #include "Platform.h"
 
+#include "DSi.h"
+#include "DSi_SPI_TSC.h"
+
 
 namespace NDS
 {
@@ -58,6 +61,8 @@ namespace NDS
 // ARM7 only gets nonseq penalty when accessing mainRAM (7c as for ARM9)
 //
 // timings for GBA slot and wifi are set up at runtime
+
+int ConsoleType;
 
 u8 ARM9MemTimings[0x40000][4];
 u8 ARM7MemTimings[0x20000][4];
@@ -88,7 +93,8 @@ u32 CPUStop;
 u8 ARM9BIOS[0x1000];
 u8 ARM7BIOS[0x4000];
 
-u8 MainRAM[MAIN_RAM_SIZE];
+u8 MainRAM[0x1000000];
+u32 MainRAMMask;
 
 u8 SharedWRAM[0x8000];
 u8 WRAMCnt;
@@ -108,6 +114,7 @@ u8 ROMSeed1[2*8];
 // IO shit
 u32 IME[2];
 u32 IE[2], IF[2];
+u32 IE2, IF2;
 
 u8 PostFlag9;
 u8 PostFlag7;
@@ -181,6 +188,8 @@ bool Init()
     if (!RTC::Init()) return false;
     if (!Wifi::Init()) return false;
 
+    if (!DSi::Init()) return false;
+
     if (!AREngine::Init()) return false;
 
     return true;
@@ -204,6 +213,8 @@ void DeInit()
     SPI::DeInit();
     RTC::DeInit();
     Wifi::DeInit();
+
+    DSi::DeInit();
 
     AREngine::DeInit();
 }
@@ -238,7 +249,11 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][3] = S32;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend<<14);
+    addrstart <<= 14;
+    addrend <<= 14;
+    if (!addrend) addrend = 0xFFFFFFFF;
+
+    ARM9->UpdateRegionTimings(addrstart, addrend);
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
@@ -283,6 +298,8 @@ void InitTimings()
     // TODO: +3c nonseq waitstate doesn't apply to DMA!
     // but of course mainRAM always gets 8c nonseq waitstate
 
+    // TODO: DSi-specific timings!!
+
     SetARM9RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1 + 3, 1); // void
 
     SetARM9RegionTimings(0xFFFF0000, 0xFFFFFFFF, 32, 1 + 3, 1); // BIOS
@@ -308,6 +325,12 @@ void InitTimings()
 
 void SetupDirectBoot()
 {
+    if (ConsoleType == 1)
+    {
+        printf("!! DIRECT BOOT NOT SUPPORTED IN DSI MODE\n");
+        return;
+    }
+
     u32 bootparams[8];
     memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
 
@@ -416,6 +439,12 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
+    memset(ARM9BIOS, 0, 0x1000);
+    memset(ARM7BIOS, 0, 0x4000);
+
+    // DS BIOSes are always loaded, even in DSi mode
+    // we need them for DS-compatible mode
+
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
@@ -450,8 +479,19 @@ void Reset()
         fclose(f);
     }
 
-    // TODO for later: configure this when emulating a DSi
-    ARM9ClockShift = 1;
+    if (ConsoleType == 1)
+    {
+        DSi::LoadBIOS();
+        DSi::LoadNAND();
+
+        ARM9ClockShift = 2;
+        MainRAMMask = 0xFFFFFF;
+    }
+    else
+    {
+        ARM9ClockShift = 1;
+        MainRAMMask = 0x3FFFFF;
+    }
 
     ARM9Timestamp = 0; ARM9Target = 0;
     ARM7Timestamp = 0; ARM7Target = 0;
@@ -459,14 +499,14 @@ void Reset()
 
     InitTimings();
 
-    memset(MainRAM, 0, MAIN_RAM_SIZE);
+    memset(MainRAM, 0, 0x1000000);
     memset(SharedWRAM, 0, 0x8000);
     memset(ARM7WRAM, 0, 0x10000);
 
     MapSharedWRAM(0);
 
-    ExMemCnt[0] = 0;
-    ExMemCnt[1] = 0;
+    ExMemCnt[0] = 0x4000;
+    ExMemCnt[1] = 0x4000;
     memset(ROMSeed0, 0, 2*8);
     memset(ROMSeed1, 0, 2*8);
     SetGBASlotTimings();
@@ -477,6 +517,8 @@ void Reset()
     IME[1] = 0;
     IE[1] = 0;
     IF[1] = 0;
+    IE2 = 0;
+    IF2 = 0;
 
     PostFlag9 = 0x00;
     PostFlag7 = 0x00;
@@ -526,6 +568,12 @@ void Reset()
     SPI::Reset();
     RTC::Reset();
     Wifi::Reset();
+
+    if (ConsoleType == 1)
+    {
+        DSi::Reset();
+        KeyInput &= ~(1 << (16+6));
+    }
 
     AREngine::Reset();
 }
@@ -635,6 +683,11 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    // TODO:
+    // * do something for bool's (sizeof=1)
+    // * do something for 'loading DSi-mode savestate in DS mode' and vice-versa
+    // * add IE2/IF2 there
+
     file->VarArray(MainRAM, 0x400000);
     file->VarArray(SharedWRAM, 0x8000);
     file->VarArray(ARM7WRAM, 0x10000);
@@ -735,6 +788,11 @@ bool DoSavestate(Savestate* file)
     }
 
     return true;
+}
+
+void SetConsoleType(int type)
+{
+    ConsoleType = type;
 }
 
 bool LoadROM(const char* path, const char* sram, bool direct)
@@ -848,6 +906,7 @@ u32 RunFrame()
             if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
+            if (ConsoleType == 1) DSi::RunNDMAs(0);
         }
         else
         {
@@ -870,6 +929,7 @@ u32 RunFrame()
                 DMAs[5]->Run();
                 DMAs[6]->Run();
                 DMAs[7]->Run();
+                if (ConsoleType == 1) DSi::RunNDMAs(1);
             }
             else
             {
@@ -953,14 +1013,28 @@ void CancelEvent(u32 id)
 
 void TouchScreen(u16 x, u16 y)
 {
-    KeyInput &= ~(1<<22);
-    SPI_TSC::SetTouchCoords(x, y);
+    if (ConsoleType == 1)
+    {
+        DSi_SPI_TSC::SetTouchCoords(x, y);
+    }
+    else
+    {
+        SPI_TSC::SetTouchCoords(x, y);
+        KeyInput &= ~(1 << (16+6));
+    }
 }
 
 void ReleaseScreen()
 {
-    KeyInput |= (1<<22);
-    SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+    if (ConsoleType == 1)
+    {
+        DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+    }
+    else
+    {
+        SPI_TSC::SetTouchCoords(0x000, 0xFFF);
+        KeyInput |= (1 << (16+6));
+    }
 }
 
 
@@ -1093,6 +1167,8 @@ void UpdateIRQ(u32 cpu)
     if (IME[cpu] & 0x1)
     {
         arm->IRQ = IE[cpu] & IF[cpu];
+        if ((ConsoleType == 1) && cpu)
+            arm->IRQ |= (IE2 & IF2);
     }
     else
     {
@@ -1110,6 +1186,18 @@ void ClearIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] &= ~(1 << irq);
     UpdateIRQ(cpu);
+}
+
+void SetIRQ2(u32 irq)
+{
+    IF2 |= (1 << irq);
+    UpdateIRQ(1);
+}
+
+void ClearIRQ2(u32 irq)
+{
+    IF2 &= ~(1 << irq);
+    UpdateIRQ(1);
 }
 
 bool HaltInterrupted(u32 cpu)
@@ -1159,6 +1247,7 @@ void GXFIFOStall()
         DMAs[1]->StallIfRunning();
         DMAs[2]->StallIfRunning();
         DMAs[3]->StallIfRunning();
+        if (ConsoleType == 1) DSi::StallNDMAs();
     }
 }
 
@@ -1296,6 +1385,7 @@ void NocashPrint(u32 ncpu, u32 addr)
 void MonitorARM9Jump(u32 addr)
 {
     // checkme: can the entrypoint addr be THUMB?
+    // also TODO: make it work in DSi mode
 
     if ((!RunningGame) && NDSCart::CartROM)
     {
@@ -1372,6 +1462,29 @@ void RunTimers(u32 cpu)
 
 
 
+// matching NDMA modes for DSi
+const u32 NDMAModes[] =
+{
+    // ARM9
+
+    0x10, // immediate
+    0x06, // VBlank
+    0x07, // HBlank
+    0x08, // scanline start
+    0x09, // mainmem FIFO
+    0x04, // DS cart slot
+    0xFF, // GBA cart slot
+    0x0A, // GX FIFO
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+
+    // ARM7
+
+    0x30, // immediate
+    0x26, // VBlank
+    0x24, // DS cart slot
+    0xFF, // wifi / GBA cart slot (TODO)
+};
+
 bool DMAsInMode(u32 cpu, u32 mode)
 {
     cpu <<= 2;
@@ -1379,6 +1492,13 @@ bool DMAsInMode(u32 cpu, u32 mode)
     if (DMAs[cpu+1]->IsInMode(mode)) return true;
     if (DMAs[cpu+2]->IsInMode(mode)) return true;
     if (DMAs[cpu+3]->IsInMode(mode)) return true;
+
+    if (ConsoleType == 1)
+    {
+        cpu >>= 2;
+        return DSi::NDMAsInMode(cpu, NDMAModes[mode]);
+    }
+
     return false;
 }
 
@@ -1389,6 +1509,10 @@ bool DMAsRunning(u32 cpu)
     if (DMAs[cpu+1]->IsRunning()) return true;
     if (DMAs[cpu+2]->IsRunning()) return true;
     if (DMAs[cpu+3]->IsRunning()) return true;
+    if (ConsoleType == 1)
+    {
+        if (DSi::NDMAsRunning(cpu>>2)) return true;
+    }
     return false;
 }
 
@@ -1399,6 +1523,12 @@ void CheckDMAs(u32 cpu, u32 mode)
     DMAs[cpu+1]->StartIfNeeded(mode);
     DMAs[cpu+2]->StartIfNeeded(mode);
     DMAs[cpu+3]->StartIfNeeded(mode);
+
+    if (ConsoleType == 1)
+    {
+        cpu >>= 2;
+        DSi::CheckNDMAs(cpu, NDMAModes[mode]);
+    }
 }
 
 void StopDMAs(u32 cpu, u32 mode)
@@ -1408,6 +1538,12 @@ void StopDMAs(u32 cpu, u32 mode)
     DMAs[cpu+1]->StopIfNeeded(mode);
     DMAs[cpu+2]->StopIfNeeded(mode);
     DMAs[cpu+3]->StopIfNeeded(mode);
+
+    if (ConsoleType == 1)
+    {
+        cpu >>= 2;
+        DSi::StopNDMAs(cpu, NDMAModes[mode]);
+    }
 }
 
 
@@ -1600,12 +1736,12 @@ void debug(u32 param)
     printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
     printf("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
-    printf("ARM7 IME=%08X IE=%08X IF=%08X\n", IME[1], IE[1], IF[1]);
+    printf("ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
 
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/party.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
@@ -1616,6 +1752,21 @@ void debug(u32 param)
     for (u32 i = 0x037F0000; i < 0x03810000; i+=4)
     {
         u32 val = ARM7Read32(i);
+        fwrite(&val, 4, 1, shit);
+    }
+    fclose(shit);*/
+    FILE*
+    /*shit = fopen("debug/dump9.bin", "wb");
+    for (u32 i = 0x02000000; i < 0x04000000; i+=4)
+    {
+        u32 val = DSi::ARM9Read32(i);
+        fwrite(&val, 4, 1, shit);
+    }
+    fclose(shit);*/
+    shit = fopen("debug/dump7_2.bin", "wb");
+    for (u32 i = 0x02000000; i < 0x04000000; i+=4)
+    {
+        u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
@@ -1633,7 +1784,7 @@ u8 ARM9Read8(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1698,7 +1849,7 @@ u16 ARM9Read16(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1763,7 +1914,7 @@ u32 ARM9Read32(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9)
@@ -1823,7 +1974,7 @@ void ARM9Write8(u32 addr, u8 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -1873,7 +2024,7 @@ void ARM9Write16(u32 addr, u16 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -1939,7 +2090,7 @@ void ARM9Write32(u32 addr, u32 val)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return ;
 
     case 0x03000000:
@@ -2007,7 +2158,7 @@ bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
     {
     case 0x02000000:
         region->Mem = MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = MainRAMMask;
         return true;
 
     case 0x03000000:
@@ -2037,7 +2188,8 @@ u8 ARM7Read8(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        // TODO: check the boundary? is it 4000 or higher on regular DS?
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFF;
@@ -2049,7 +2201,7 @@ u8 ARM7Read8(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2097,7 +2249,7 @@ u16 ARM7Read16(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFF;
@@ -2109,7 +2261,7 @@ u16 ARM7Read16(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2164,7 +2316,7 @@ u32 ARM7Read32(u32 addr)
 {
     if (addr < 0x00004000)
     {
-        if (ARM7->R[15] >= 0x4000)
+        if (ARM7->R[15] >= 0x00004000)
             return 0xFFFFFFFF;
         if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
             return 0xFFFFFFFF;
@@ -2176,7 +2328,7 @@ u32 ARM7Read32(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
-        return *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)];
+        return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM7)
@@ -2233,7 +2385,7 @@ void ARM7Write8(u32 addr, u8 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u8*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2292,7 +2444,7 @@ void ARM7Write16(u32 addr, u16 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u16*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2361,7 +2513,7 @@ void ARM7Write32(u32 addr, u32 val)
     {
     case 0x02000000:
     case 0x02800000:
-        *(u32*)&MainRAM[addr & (MAIN_RAM_SIZE - 1)] = val;
+        *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
     case 0x03000000:
@@ -2433,7 +2585,7 @@ bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
     case 0x02000000:
     case 0x02800000:
         region->Mem = MainRAM;
-        region->Mask = MAIN_RAM_SIZE-1;
+        region->Mask = MainRAMMask;
         return true;
 
     case 0x03000000:

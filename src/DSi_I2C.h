@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,51 +16,26 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SPI_H
-#define SPI_H
+#ifndef DSI_I2C_H
+#define DSI_I2C_H
 
-#include "Savestate.h"
-
-namespace SPI_Firmware
+namespace DSi_I2C
 {
 
-void SetupDirectBoot();
-
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
-
-}
-
-namespace SPI_TSC
-{
-
-void SetTouchCoords(u16 x, u16 y);
-void MicInputFrame(s16* data, int samples);
-
-u8 Read();
-void Write(u8 val, u32 hold);
-
-}
-
-namespace SPI
-{
-
-extern u16 Cnt;
+extern u8 Cnt;
 
 bool Init();
 void DeInit();
 void Reset();
-void DoSavestate(Savestate* file);
+//void DoSavestate(Savestate* file);
 
-void WriteCnt(u16 val);
+void WriteCnt(u8 val);
 
 u8 ReadData();
 void WriteData(u8 val);
 
-void TransferDone(u32 param);
+//void TransferDone(u32 param);
 
 }
 
-#endif
+#endif // DSI_I2C_H

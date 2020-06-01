@@ -60,10 +60,17 @@ extern int ScreenUseGL;
 extern int ScreenVSync;
 extern int ScreenVSyncInterval;
 
+extern int _3DRenderer;
+extern int Threaded3D;
+
+extern int GL_ScaleFactor;
+extern int GL_Antialias;
+
 extern int LimitFPS;
 extern int AudioSync;
 extern int ShowOSD;
 
+extern int ConsoleType;
 extern int DirectBoot;
 
 extern int SocketBindAnyAddr;

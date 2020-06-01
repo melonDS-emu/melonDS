@@ -1360,17 +1360,40 @@ QString MainWindow::loadErrorStr(int error)
 {
     switch (error)
     {
-    case Frontend::Load_BIOS9Missing: return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_BIOS9Bad:     return "DS ARM9 BIOS is not a valid BIOS dump.";
+    case Frontend::Load_BIOS9Missing:
+        return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_BIOS9Bad:
+        return "DS ARM9 BIOS is not a valid BIOS dump.";
 
-    case Frontend::Load_BIOS7Missing: return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_BIOS7Bad:     return "DS ARM7 BIOS is not a valid BIOS dump.";
+    case Frontend::Load_BIOS7Missing:
+        return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_BIOS7Bad:
+        return "DS ARM7 BIOS is not a valid BIOS dump.";
 
-    case Frontend::Load_FirmwareMissing:     return "DS firmware was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_FirmwareBad:         return "DS firmware is not a valid firmware dump.";
-    case Frontend::Load_FirmwareNotBootable: return "DS firmware is not bootable.";
+    case Frontend::Load_FirmwareMissing:
+        return "DS firmware was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_FirmwareBad:
+        return "DS firmware is not a valid firmware dump.";
+    case Frontend::Load_FirmwareNotBootable:
+        return "DS firmware is not bootable.";
 
-    case Frontend::Load_ROMLoadError: return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
+    case Frontend::Load_DSiBIOS9Missing:
+        return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiBIOS9Bad:
+        return "DSi ARM9 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_DSiBIOS7Missing:
+        return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiBIOS7Bad:
+        return "DSi ARM7 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_DSiNANDMissing:
+        return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiNANDBad:
+        return "DSi NAND is not a valid NAND dump.";
+
+    case Frontend::Load_ROMLoadError:
+        return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
 
     default: return "Unknown error during launch; smack Arisotura.";
     }
@@ -1384,7 +1407,7 @@ void MainWindow::onOpenFile()
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
@@ -1889,6 +1912,7 @@ int main(int argc, char** argv)
     Config::Load();
 
 #define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+    SANITIZE(Config::ConsoleType, 0, 1);
     SANITIZE(Config::_3DRenderer, 0, 1);
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);

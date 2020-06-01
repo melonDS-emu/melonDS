@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,16 +16,16 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DMA_H
-#define DMA_H
+#ifndef DSI_NDMA_H
+#define DSI_NDMA_H
 
 #include "types.h"
 
-class DMA
+class DSi_NDMA
 {
 public:
-    DMA(u32 cpu, u32 num);
-    ~DMA();
+    DSi_NDMA(u32 cpu, u32 num);
+    ~DSi_NDMA();
 
     void Reset();
 
@@ -65,6 +65,10 @@ public:
 
     u32 SrcAddr;
     u32 DstAddr;
+    u32 TotalLength; // total length, when transferring multiple blocks
+    u32 BlockLength; // length of one transfer
+    u32 SubblockTimer; // optional delay between subblocks (only in round-robin mode)
+    u32 FillData;
     u32 Cnt;
 
 private:
@@ -73,11 +77,12 @@ private:
     u32 StartMode;
     u32 CurSrcAddr;
     u32 CurDstAddr;
+    u32 SubblockLength; // length transferred per run when delay is used
     u32 RemCount;
     u32 IterCount;
+    u32 TotalRemCount;
     u32 SrcAddrInc;
     u32 DstAddrInc;
-    u32 CountMask;
 
     u32 Running;
     bool InProgress;
@@ -86,11 +91,6 @@ private:
     bool Stall;
 
     bool IsGXFIFODMA;
-
-    u16 (*BusRead16)(u32 addr);
-    u32 (*BusRead32)(u32 addr);
-    void (*BusWrite16)(u32 addr, u16 val);
-    void (*BusWrite32)(u32 addr, u32 val);
 };
 
-#endif
+#endif // DSI_NDMA_H

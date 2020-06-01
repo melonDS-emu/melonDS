@@ -42,6 +42,16 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtBIOS9Path->setText(Config::BIOS9Path);
     ui->txtBIOS7Path->setText(Config::BIOS7Path);
     ui->txtFirmwarePath->setText(Config::FirmwarePath);
+
+    ui->txtDSiBIOS9Path->setText(Config::DSiBIOS9Path);
+    ui->txtDSiBIOS7Path->setText(Config::DSiBIOS7Path);
+    ui->txtDSiFirmwarePath->setText(Config::DSiFirmwarePath);
+    ui->txtDSiNANDPath->setText(Config::DSiNANDPath);
+
+    ui->cbxConsoleType->addItem("DS");
+    ui->cbxConsoleType->addItem("DSi (experimental)");
+    ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
+
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
 }
 
@@ -99,7 +109,15 @@ void EmuSettingsDialog::on_EmuSettingsDialog_accepted()
     strncpy(Config::BIOS9Path, ui->txtBIOS9Path->text().toStdString().c_str(), 1023); Config::BIOS9Path[1023] = '\0';
     strncpy(Config::BIOS7Path, ui->txtBIOS7Path->text().toStdString().c_str(), 1023); Config::BIOS7Path[1023] = '\0';
     strncpy(Config::FirmwarePath, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); Config::FirmwarePath[1023] = '\0';
+
+    strncpy(Config::DSiBIOS9Path, ui->txtDSiBIOS9Path->text().toStdString().c_str(), 1023); Config::DSiBIOS9Path[1023] = '\0';
+    strncpy(Config::DSiBIOS7Path, ui->txtDSiBIOS7Path->text().toStdString().c_str(), 1023); Config::DSiBIOS7Path[1023] = '\0';
+    strncpy(Config::DSiFirmwarePath, ui->txtDSiFirmwarePath->text().toStdString().c_str(), 1023); Config::DSiFirmwarePath[1023] = '\0';
+    strncpy(Config::DSiNANDPath, ui->txtDSiNANDPath->text().toStdString().c_str(), 1023); Config::DSiNANDPath[1023] = '\0';
+
+    Config::ConsoleType = ui->cbxConsoleType->currentIndex();
     Config::DirectBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+
     Config::Save();
 
     closeDlg();
@@ -144,4 +162,52 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
     if (file.isEmpty()) return;
 
     ui->txtFirmwarePath->setText(file);
+}
+
+void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select DSi-mode ARM9 BIOS...",
+                                                EmuDirectory,
+                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtDSiBIOS9Path->setText(file);
+}
+
+void EmuSettingsDialog::on_btnDSiBIOS7Browse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select DSi-mode ARM7 BIOS...",
+                                                EmuDirectory,
+                                                "BIOS files (*.bin *.rom);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtDSiBIOS7Path->setText(file);
+}
+
+void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select DSi DS-mode firmware...",
+                                                EmuDirectory,
+                                                "Firmware files (*.bin *.rom);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtDSiFirmwarePath->setText(file);
+}
+
+void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select DSi NAND...",
+                                                EmuDirectory,
+                                                "NAND files (*.bin *.rom);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtDSiNANDPath->setText(file);
 }

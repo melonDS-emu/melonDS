@@ -18,15 +18,10 @@
 
 #include <stdio.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "DMA.h"
-#include "NDSCart.h"
 #include "GPU.h"
 
-
-// NOTES ON DMA SHIT
-//
-// * could use optimized code paths for common types of DMA transfers. for example, VRAM
-//   have to profile it to see if it's actually worth doing
 
 
 // DMA TIMINGS
@@ -58,8 +53,6 @@ DMA::DMA(u32 cpu, u32 num)
         CountMask = 0x001FFFFF;
     else
         CountMask = (num==3 ? 0x0000FFFF : 0x00003FFF);
-
-    Reset();
 }
 
 DMA::~DMA()
@@ -82,6 +75,21 @@ void DMA::Reset()
 
     Running = false;
     InProgress = false;
+
+    if (NDS::ConsoleType == 1)
+    {
+        BusRead16 = (CPU==0) ? DSi::ARM9Read16 : DSi::ARM7Read16;
+        BusRead32 = (CPU==0) ? DSi::ARM9Read32 : DSi::ARM7Read32;
+        BusWrite16 = (CPU==0) ? DSi::ARM9Write16 : DSi::ARM7Write16;
+        BusWrite32 = (CPU==0) ? DSi::ARM9Write32 : DSi::ARM7Write32;
+    }
+    else
+    {
+        BusRead16 = (CPU==0) ? NDS::ARM9Read16 : NDS::ARM7Read16;
+        BusRead32 = (CPU==0) ? NDS::ARM9Read32 : NDS::ARM7Read32;
+        BusWrite16 = (CPU==0) ? NDS::ARM9Write16 : NDS::ARM7Write16;
+        BusWrite32 = (CPU==0) ? NDS::ARM9Write32 : NDS::ARM7Write32;
+    }
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -232,7 +240,7 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
+            BusWrite16(CurDstAddr, BusRead16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -268,7 +276,7 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
+            BusWrite32(CurDstAddr, BusRead32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -344,7 +352,7 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
+            BusWrite16(CurDstAddr, BusRead16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -380,7 +388,7 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
+            BusWrite32(CurDstAddr, BusRead32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;

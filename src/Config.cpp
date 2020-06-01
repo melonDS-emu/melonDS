@@ -32,11 +32,10 @@ char BIOS9Path[1024];
 char BIOS7Path[1024];
 char FirmwarePath[1024];
 
-int _3DRenderer;
-int Threaded3D;
-
-int GL_ScaleFactor;
-int GL_Antialias;
+char DSiBIOS9Path[1024];
+char DSiBIOS7Path[1024];
+char DSiFirmwarePath[1024];
+char DSiNANDPath[1024];
 
 ConfigEntry ConfigFile[] =
 {
@@ -44,11 +43,10 @@ ConfigEntry ConfigFile[] =
     {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
 
-    {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
-    {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
-
-    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
-    {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
+    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
+    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
+    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
 
     {"", -1, NULL, 0, NULL, 0}
 };

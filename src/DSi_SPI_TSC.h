@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2019 Arisotura
 
     This file is part of melonDS.
 
@@ -16,25 +16,18 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SPI_H
-#define SPI_H
+#ifndef DSI_SPI_TSC
+#define DSI_SPI_TSC
 
-#include "Savestate.h"
-
-namespace SPI_Firmware
+namespace DSi_SPI_TSC
 {
 
-void SetupDirectBoot();
+extern u32 DataPos;
 
-u8 GetConsoleType();
-u8 GetWifiVersion();
-u8 GetRFVersion();
-u8* GetWifiMAC();
-
-}
-
-namespace SPI_TSC
-{
+bool Init();
+void DeInit();
+void Reset();
+void DoSavestate(Savestate* file);
 
 void SetTouchCoords(u16 x, u16 y);
 void MicInputFrame(s16* data, int samples);
@@ -44,23 +37,4 @@ void Write(u8 val, u32 hold);
 
 }
 
-namespace SPI
-{
-
-extern u16 Cnt;
-
-bool Init();
-void DeInit();
-void Reset();
-void DoSavestate(Savestate* file);
-
-void WriteCnt(u16 val);
-
-u8 ReadData();
-void WriteData(u8 val);
-
-void TransferDone(u32 param);
-
-}
-
-#endif
+#endif // DSI_SPI_TSC
