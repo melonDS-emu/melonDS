@@ -515,6 +515,12 @@ void DSi_NWifi::SendCMD(u8 cmd, u32 param)
 {
     switch (cmd)
     {
+    case 12:
+        // stop command
+        // CHECKME: does the SDIO controller actually send those??
+        // DSi firmware sets it to send them
+        return;
+
     case 52: // IO_RW_DIRECT
         {
             u32 func = (param >> 28) & 0x7;
@@ -608,7 +614,7 @@ void DSi_NWifi::ReadBlock()
             TransferAddr &= 0x1FFFF; // checkme
         }
     }
-    len = Host->SendData(data, len);
+    len = Host->DataRX(data, len);
 
     if (RemSize > 0)
     {
@@ -628,7 +634,7 @@ void DSi_NWifi::WriteBlock()
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (len = Host->ReceiveData(data, len))
+    if (len = Host->DataTX(data, len))
     {
         for (u32 i = 0; i < len; i++)
         {

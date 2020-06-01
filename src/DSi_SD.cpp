@@ -24,7 +24,27 @@
 #include "Platform.h"
 
 
-#define SD_DESC  (Num?"SDIO":"SD/MMC")
+// observed IRQ behavior during transfers
+//
+// during reads:
+// * bit23 is cleared during the first block, always set otherwise. weird
+// * bit24 (RXRDY) gets set when the FIFO is full
+//
+// during reads with FIFO32:
+// * FIFO16 drains directly into FIFO32
+// * when bit24 is set, FIFO32 is already full (with contents from the other FIFO)
+// * reading from an empty FIFO just wraps around (and sets bit21)
+// * FIFO32 starts filling when bit24 would be set?
+//
+//
+// TX:
+// * when sending command, if current FIFO full
+// * upon ContinueTransfer(), if current FIFO full
+// * -> upon DataTX() if current FIFO full
+// * when filling FIFO
+
+
+#define SD_DESC  Num?"SDIO":"SD/MMC"
 
 
 DSi_SDHost::DSi_SDHost(u32 num)
@@ -33,6 +53,7 @@ DSi_SDHost::DSi_SDHost(u32 num)
 
     DataFIFO[0] = new FIFO<u16>(0x100);
     DataFIFO[1] = new FIFO<u16>(0x100);
+    DataFIFO32  = new FIFO<u32>(0x80);
 
     Ports[0] = NULL;
     Ports[1] = NULL;
@@ -42,6 +63,7 @@ DSi_SDHost::~DSi_SDHost()
 {
     delete DataFIFO[0];
     delete DataFIFO[1];
+    delete DataFIFO32;
 
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
@@ -69,6 +91,7 @@ void DSi_SDHost::Reset()
     DataFIFO[0]->Clear();
     DataFIFO[1]->Clear();
     CurFIFO = 0;
+    DataFIFO32->Clear();
 
     IRQStatus = 0;
     IRQMask = 0x8B7F031D;
@@ -83,6 +106,8 @@ void DSi_SDHost::Reset()
     BlockCount16 = 0; BlockCount32 = 0; BlockCountInternal = 0;
     BlockLen16 = 0;   BlockLen32 = 0;
     StopAction = 0;
+
+    TXReq = false;
 
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
@@ -125,8 +150,8 @@ void DSi_SDHost::UpdateData32IRQ()
     oldflags &= (Data32IRQ >> 11);
 
     Data32IRQ &= ~0x0300;
-    if (IRQStatus & (1<<24)) Data32IRQ |= (1<<8);
-    if (!(IRQStatus & (1<<25))) Data32IRQ |= (1<<9);
+    if (DataFIFO32->Level() >= (BlockLen32>>2)) Data32IRQ |= (1<<8);
+    if (!DataFIFO32->IsEmpty())                 Data32IRQ |= (1<<9);
 
     u32 newflags = ((Data32IRQ >> 8) & 0x1) | (((~Data32IRQ) >> 8) & 0x2);
     newflags &= (Data32IRQ >> 11);
@@ -138,8 +163,6 @@ void DSi_SDHost::UpdateData32IRQ()
 void DSi_SDHost::ClearIRQ(u32 irq)
 {
     IRQStatus &= ~(1<<irq);
-
-    if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
 void DSi_SDHost::SetIRQ(u32 irq)
@@ -151,8 +174,6 @@ void DSi_SDHost::SetIRQ(u32 irq)
 
     if ((oldflags == 0) && (newflags != 0))
         NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
-
-    if (irq == 24 || irq == 25) UpdateData32IRQ();
 }
 
 void DSi_SDHost::UpdateIRQ(u32 oldmask)
@@ -193,28 +214,20 @@ void DSi_SDHost::SendResponse(u32 val, bool last)
     if (last) SetIRQ(0);
 }
 
-void DSi_SDHost::FinishSend(u32 param)
+void DSi_SDHost::FinishRX(u32 param)
 {
     DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
 
-    host->CurFIFO ^= 1;
+    host->CheckSwapFIFO();
 
-    host->ClearIRQ(25);
-    host->SetIRQ(24);
-    //if (param & 0x2) host->SetIRQ(2);
-
-    // TODO: this is an assumption and should eventually be confirmed
-    // Flipnote sets DMA blocklen to 128 words and totallen to 1024 words
-    // so, presumably, DMA should trigger when the FIFO is full
-    // 'full' being when it reaches whatever BlockLen16 is set to, or the
-    // other blocklen register, or when it is actually full (but that makes
-    // less sense)
-    DSi::CheckNDMAs(1, host->Num ? 0x29 : 0x28);
+    if (host->DataMode == 1)
+        host->UpdateFIFO32();
+    else
+        host->SetIRQ(24);
 }
 
-u32 DSi_SDHost::SendData(u8* data, u32 len)
+u32 DSi_SDHost::DataRX(u8* data, u32 len)
 {
-    //printf("%s: data RX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
     if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
 
     bool last = (BlockCountInternal == 0);
@@ -232,61 +245,89 @@ u32 DSi_SDHost::SendData(u8* data, u32 len)
     // send-command function starts polling IRQ status
     u32 param = Num | (last << 1);
     NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 512, FinishSend, param);
+                       false, 512, FinishRX, param);
 
     return len;
 }
 
-void DSi_SDHost::FinishReceive(u32 param)
+void DSi_SDHost::FinishTX(u32 param)
 {
     DSi_SDHost* host = (param & 0x1) ? DSi::SDIO : DSi::SDMMC;
     DSi_SDDevice* dev = host->Ports[host->PortSelect & 0x1];
 
-    host->ClearIRQ(24);
-    host->SetIRQ(25);
-
-    if (dev) dev->ContinueTransfer();
-}
-
-u32 DSi_SDHost::ReceiveData(u8* data, u32 len)
-{
-    printf("%s: data TX, len=%d, blkcnt=%d (%d) blklen=%d, irq=%08X\n", SD_DESC, len, BlockCount16, BlockCountInternal, BlockLen16, IRQMask);
-    if (len != BlockLen16) { printf("!! BAD BLOCKLEN\n"); len = BlockLen16; }
-
-    u32 f = CurFIFO;
-    if ((DataFIFO[f]->Level() << 1) < len)
+    if (host->BlockCountInternal == 0)
     {
-        printf("%s: FIFO not full enough for a transfer (%d / %d)\n", SD_DESC, DataFIFO[f]->Level()<<1, len);
-        return 0;
-    }
-
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-    for (u32 i = 0; i < len; i += 2)
-        *(u16*)&data[i] = DataFIFO[f]->Read();
-
-    CurFIFO ^= 1;
-
-    if (BlockCountInternal <= 1)
-    {
-        printf("%s: data TX complete", SD_DESC);
-
-        if (StopAction & (1<<8))
+        if (host->StopAction & (1<<8))
         {
-            printf(", sending CMD12");
             if (dev) dev->SendCMD(12, 0);
         }
-
-        printf("\n");
 
         // CHECKME: presumably IRQ2 should not trigger here, but rather
         // when the data transfer is done
         //SetIRQ(0);
-        SetIRQ(2);
+        host->SetIRQ(2);
+        host->TXReq = false;
     }
     else
     {
-        BlockCountInternal--;
+        if (dev) dev->ContinueTransfer();
     }
+}
+
+u32 DSi_SDHost::DataTX(u8* data, u32 len)
+{
+    TXReq = true;
+
+    u32 f = CurFIFO;
+
+    if (DataMode == 1)
+    {
+        if ((DataFIFO32->Level() << 2) < len)
+        {
+            if (DataFIFO32->IsEmpty())
+            {
+                SetIRQ(25);
+                DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+            }
+            return 0;
+        }
+
+        // drain FIFO32 into FIFO16
+
+        if (!DataFIFO[f]->IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
+        for (;;)
+        {
+            u32 f = CurFIFO;
+            if ((DataFIFO[f]->Level() << 1) >= BlockLen16) break;
+            if (DataFIFO32->IsEmpty()) break;
+
+            u32 val = DataFIFO32->Read();
+            DataFIFO[f]->Write(val & 0xFFFF);
+            DataFIFO[f]->Write(val >> 16);
+        }
+
+        UpdateData32IRQ();
+
+        if (BlockCount32 > 1)
+            BlockCount32--;
+    }
+    else
+    {
+        if ((DataFIFO[f]->Level() << 1) < len)
+        {
+            if (DataFIFO[f]->IsEmpty()) SetIRQ(25);
+            return 0;
+        }
+    }
+
+    for (u32 i = 0; i < len; i += 2)
+        *(u16*)&data[i] = DataFIFO[f]->Read();
+
+    CurFIFO ^= 1;
+    BlockCountInternal--;
+
+    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
+                       false, 512, FinishTX, Num);
 
     return len;
 }
@@ -297,11 +338,55 @@ u32 DSi_SDHost::GetTransferrableLen(u32 len)
     return len;
 }
 
+void DSi_SDHost::CheckRX()
+{
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+
+    CheckSwapFIFO();
+
+    if (BlockCountInternal <= 1)
+    {
+        if (StopAction & (1<<8))
+        {
+            if (dev) dev->SendCMD(12, 0);
+        }
+
+        // CHECKME: presumably IRQ2 should not trigger here, but rather
+        // when the data transfer is done
+        //SetIRQ(0);
+        SetIRQ(2);
+    }
+    else
+    {
+        BlockCountInternal--;
+
+        if (dev) dev->ContinueTransfer();
+    }
+}
+
+void DSi_SDHost::CheckTX()
+{
+    if (!TXReq) return;
+
+    if (DataMode == 1)
+    {
+        if ((DataFIFO32->Level() << 2) < BlockLen32)
+            return;
+    }
+    else
+    {
+        u32 f = CurFIFO;
+        if ((DataFIFO[f]->Level() << 1) < BlockLen16)
+            return;
+    }
+
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    if (dev) dev->ContinueTransfer();
+}
+
 
 u16 DSi_SDHost::Read(u32 addr)
 {
-    if(!Num)printf("SDMMC READ %08X %08X\n", addr, NDS::GetPC(1));
-
     switch (addr & 0x1FF)
     {
     case 0x000: return Command;
@@ -353,53 +438,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x036: return CardIRQStatus;
     case 0x038: return CardIRQMask;
 
-    case 0x030: // FIFO16
-        {
-            // TODO: decrement BlockLen????
-
-            u32 f = CurFIFO;
-            if (DataFIFO[f]->IsEmpty())
-            {
-                // TODO
-                return 0;
-            }
-
-            DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-            u16 ret = DataFIFO[f]->Read();
-
-            if (DataFIFO[f]->IsEmpty())
-            {
-                ClearIRQ(24);
-
-                if (BlockCountInternal <= 1)
-                {
-                    printf("%s: data RX complete", SD_DESC);
-
-                    if (StopAction & (1<<8))
-                    {
-                        printf(", sending CMD12");
-                        if (dev) dev->SendCMD(12, 0);
-                    }
-
-                    printf("\n");
-
-                    // CHECKME: presumably IRQ2 should not trigger here, but rather
-                    // when the data transfer is done
-                    //SetIRQ(0);
-                    SetIRQ(2);
-                }
-                else
-                {
-                    BlockCountInternal--;
-
-                    if (dev) dev->ContinueTransfer();
-                }
-
-                SetIRQ(25);
-            }
-
-            return ret;
-        }
+    case 0x030: return ReadFIFO16();
 
     case 0x0D8: return DataCtl;
 
@@ -414,61 +453,52 @@ u16 DSi_SDHost::Read(u32 addr)
     return 0;
 }
 
+u16 DSi_SDHost::ReadFIFO16()
+{
+    u32 f = CurFIFO;
+    if (DataFIFO[f]->IsEmpty())
+    {
+        // TODO
+        // on hardware it seems to wrap around. underflow bit is set upon the first 'empty' read.
+        return 0;
+    }
+
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    u16 ret = DataFIFO[f]->Read();
+
+    if (DataFIFO[f]->IsEmpty())
+    {
+        CheckRX();
+    }
+
+    return ret;
+}
+
 u32 DSi_SDHost::ReadFIFO32()
 {
     if (DataMode != 1) return 0;
 
-    // TODO: decrement BlockLen????
-
-    u32 f = CurFIFO;
-    if (DataFIFO[f]->IsEmpty())
+    if (DataFIFO32->IsEmpty())
     {
         // TODO
         return 0;
     }
 
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-    u32 ret = DataFIFO[f]->Read();
-    ret |= (DataFIFO[f]->Read() << 16);
+    u32 ret = DataFIFO32->Read();
 
-    if (DataFIFO[f]->IsEmpty())
+    if (DataFIFO32->IsEmpty())
     {
-        ClearIRQ(24);
-
-        if (BlockCountInternal <= 1)
-        {
-            printf("%s: data32 RX complete", SD_DESC);
-
-            if (StopAction & (1<<8))
-            {
-                printf(", sending CMD12");
-                if (dev) dev->SendCMD(12, 0);
-            }
-
-            printf("\n");
-
-            // CHECKME: presumably IRQ2 should not trigger here, but rather
-            // when the data transfer is done
-            //SetIRQ(0);
-            SetIRQ(2);
-        }
-        else
-        {
-            BlockCountInternal--;
-
-            if (dev) dev->ContinueTransfer();
-        }
-
-        SetIRQ(25);
+        CheckRX();
     }
+
+    UpdateData32IRQ();
 
     return ret;
 }
 
 void DSi_SDHost::Write(u32 addr, u16 val)
 {
-    if(!Num)printf("SDMMC WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(1));
-
     switch (addr & 0x1FF)
     {
     case 0x000:
@@ -528,36 +558,10 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         return;
     case 0x028: SDOption = val & 0xC1FF; return;
 
-    case 0x030: // FIFO16
-        {
-            DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-            u32 f = CurFIFO;
-            if (DataFIFO[f]->IsFull())
-            {
-                // TODO
-                printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
-                return;
-            }
-
-            DataFIFO[f]->Write(val);
-
-            if (DataFIFO[f]->Level() < (BlockLen16>>1))
-            {
-                ClearIRQ(25);
-                SetIRQ(24);
-                return;
-            }
-
-            // we completed one block, send it to the SD card
-            // TODO measure the actual delay!!
-            NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                               false, 2048, FinishReceive, Num);
-        }
-        return;
+    case 0x030: WriteFIFO16(val); return;
 
     case 0x034:
         CardIRQCtl = val & 0x0305;
-        printf("[%d] CardIRQCtl = %04X\n", Num, val);
         SetCardIRQ();
         return;
     case 0x036:
@@ -565,7 +569,6 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         return;
     case 0x038:
         CardIRQMask = val & 0xC007;
-        printf("[%d] CardIRQMask = %04X\n", Num, val);
         SetCardIRQ();
         return;
 
@@ -593,12 +596,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
     case 0x100:
         Data32IRQ = (val & 0x1802) | (Data32IRQ & 0x0300);
-        if (val & (1<<10))
-        {
-            // kind of hacky
-            u32 f = CurFIFO;
-            DataFIFO[f]->Clear();
-        }
+        if (val & (1<<10)) DataFIFO32->Clear();
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
         printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
         return;
@@ -609,35 +607,76 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
 }
 
+void DSi_SDHost::WriteFIFO16(u16 val)
+{
+    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
+    u32 f = CurFIFO;
+    if (DataFIFO[f]->IsFull())
+    {
+        // TODO
+        printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
+        return;
+    }
+
+    DataFIFO[f]->Write(val);
+
+    CheckTX();
+}
+
 void DSi_SDHost::WriteFIFO32(u32 val)
 {
     if (DataMode != 1) return;
 
-    printf("%s: WRITE FIFO32: LEVEL=%d/%d\n", SD_DESC, DataFIFO[CurFIFO]->Level(), (BlockLen16>>1));
-
-    DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-    u32 f = CurFIFO;
-    if (DataFIFO[f]->IsFull())
+    if (DataFIFO32->IsFull())
     {
         // TODO
         printf("!!!! %s FIFO (32) FULL\n", SD_DESC);
         return;
     }
 
-    DataFIFO[f]->Write(val & 0xFFFF);
-    DataFIFO[f]->Write(val >> 16);
+    DataFIFO32->Write(val);
 
-    if (DataFIFO[f]->Level() < (BlockLen16>>1))
+    CheckTX();
+
+    UpdateData32IRQ();
+}
+
+void DSi_SDHost::UpdateFIFO32()
+{
+    // check whether we can drain FIFO32 into FIFO16, or vice versa
+
+    if (DataMode != 1) return;
+
+    if (!DataFIFO32->IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
+    for (;;)
     {
-        ClearIRQ(25);
-        SetIRQ(24);
-        return;
+        u32 f = CurFIFO;
+        if ((DataFIFO32->Level() << 2) >= BlockLen32) break;
+        if (DataFIFO[f]->IsEmpty()) break;
+
+        u32 val = DataFIFO[f]->Read();
+        val |= (DataFIFO[f]->Read() << 16);
+        DataFIFO32->Write(val);
     }
 
-    // we completed one block, send it to the SD card
-    // TODO measure the actual delay!!
-    NDS::ScheduleEvent(Num ? NDS::Event_DSi_SDIOTransfer : NDS::Event_DSi_SDMMCTransfer,
-                       false, 2048, FinishReceive, Num);
+    UpdateData32IRQ();
+
+    if ((DataFIFO32->Level() << 2) >= BlockLen32)
+    {
+        DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
+    }
+}
+
+void DSi_SDHost::CheckSwapFIFO()
+{
+    // check whether we can swap the FIFOs
+
+    u32 f = CurFIFO;
+    bool cur_empty = (DataMode == 1) ? DataFIFO32->IsEmpty() : DataFIFO[f]->IsEmpty();
+    if (cur_empty && ((DataFIFO[f^1]->Level() << 1) >= BlockLen16))
+    {
+        CurFIFO ^= 1;
+    }
 }
 
 
@@ -813,7 +852,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
     case 13: // get SSR
         Host->SendResponse(CSR, true);
-        Host->SendData(SSR, 64);
+        Host->DataRX(SSR, 64);
         return;
 
     case 41: // set operating conditions
@@ -834,7 +873,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
 
     case 51: // get SCR
         Host->SendResponse(CSR, true);
-        Host->SendData(SCR, 8);
+        Host->DataRX(SCR, 8);
         return;
     }
 
@@ -863,8 +902,6 @@ void DSi_MMCStorage::ContinueTransfer()
 
 u32 DSi_MMCStorage::ReadBlock(u64 addr)
 {
-    //printf("SD/MMC: reading block @ %08X, len=%08X\n", addr, BlockSize);
-
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 
@@ -874,18 +911,17 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
         fseek(File, addr, SEEK_SET);
         fread(data, 1, len, File);
     }
-    return Host->SendData(data, len);
+
+    return Host->DataRX(data, len);
 }
 
 u32 DSi_MMCStorage::WriteBlock(u64 addr)
 {
-    printf("SD/MMC: write block @ %08X, len=%08X\n", addr, BlockSize);
-
     u32 len = BlockSize;
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (len = Host->ReceiveData(data, len))
+    if (len = Host->DataTX(data, len))
     {
         if (File)
         {

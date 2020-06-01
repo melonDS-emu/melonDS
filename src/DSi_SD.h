@@ -36,19 +36,28 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    static void FinishSend(u32 param);
-    static void FinishReceive(u32 param);
+    static void FinishRX(u32 param);
+    static void FinishTX(u32 param);
     void SendResponse(u32 val, bool last);
-    u32 SendData(u8* data, u32 len);
-    u32 ReceiveData(u8* data, u32 len);
+    u32 DataRX(u8* data, u32 len);
+    u32 DataTX(u8* data, u32 len);
     u32 GetTransferrableLen(u32 len);
+
+    void CheckRX();
+    void CheckTX();
+    bool TXReq;
 
     void SetCardIRQ();
 
     u16 Read(u32 addr);
     void Write(u32 addr, u16 val);
+    u16 ReadFIFO16();
+    void WriteFIFO16(u16 val);
     u32 ReadFIFO32();
     void WriteFIFO32(u32 val);
+
+    void UpdateFIFO32();
+    void CheckSwapFIFO();
 
 private:
     u32 Num;
@@ -78,6 +87,7 @@ private:
 
     FIFO<u16>* DataFIFO[2];
     u32 CurFIFO; // FIFO accessible for read/write
+    FIFO<u32>* DataFIFO32;
 
     DSi_SDDevice* Ports[2];
 

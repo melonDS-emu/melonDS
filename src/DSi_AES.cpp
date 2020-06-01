@@ -213,12 +213,12 @@ u32 ReadCnt()
 
     ret |= InputFIFO->Level();
     ret |= (OutputFIFO->Level() << 5);
-//printf("READ AES CNT: %08X, LEVELS: IN=%d OUT=%d\n", ret, InputFIFO->Level(), OutputFIFO->Level());
+
     return ret;
 }
 
 void WriteCnt(u32 val)
-{printf("AES CNT = %08X\n", val);
+{
     u32 oldcnt = Cnt;
     Cnt = val & 0xFC1FF000;
 
@@ -294,12 +294,12 @@ void WriteCnt(u32 val)
         }
     }
 
-    printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
-           val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
+    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
+    //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
 }
 
 void WriteBlkCnt(u32 val)
-{printf("AES BLOCK CNT %08X / %d\n", val, val>>16);
+{
     BlkCnt = val;
 }
 
@@ -405,7 +405,7 @@ void Update()
             // CHECKME
             Cnt &= ~(1<<21);
         }
-printf("AES: FINISHED\n");
+
         Cnt &= ~(1<<31);
         if (Cnt & (1<<30)) NDS::SetIRQ2(NDS::IRQ2_DSi_AES);
         DSi::StopNDMAs(1, 0x2A);
