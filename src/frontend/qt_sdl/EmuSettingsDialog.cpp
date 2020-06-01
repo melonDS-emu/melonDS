@@ -49,7 +49,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDSiNANDPath->setText(Config::DSiNANDPath);
 
     ui->cbxConsoleType->addItem("DS");
-    ui->cbxConsoleType->addItem("DSi");
+    ui->cbxConsoleType->addItem("DSi (experimental)");
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);

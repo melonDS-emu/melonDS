@@ -96,6 +96,42 @@ int VerifyDSBIOS()
     return Load_OK;
 }
 
+int VerifyDSiBIOS()
+{
+    FILE* f;
+    long len;
+
+    // TODO: check the first 32 bytes
+
+    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
+    if (!f) return Load_DSiBIOS9Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x10000)
+    {
+        fclose(f);
+        return Load_DSiBIOS9Bad;
+    }
+
+    fclose(f);
+
+    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    if (!f) return Load_DSiBIOS7Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x10000)
+    {
+        fclose(f);
+        return Load_DSiBIOS7Bad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
 int VerifyDSFirmware()
 {
     FILE* f;
@@ -110,7 +146,6 @@ int VerifyDSFirmware()
     {
         // 128KB firmware, not bootable
         fclose(f);
-        return Load_OK; // FIXME!!!!
         return Load_FirmwareNotBootable;
     }
     else if (len != 0x40000 && len != 0x80000)
@@ -124,6 +159,45 @@ int VerifyDSFirmware()
     return Load_OK;
 }
 
+int VerifyDSiFirmware()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb");
+    if (!f) return Load_FirmwareMissing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x20000)
+    {
+        // not 128KB
+        // TODO: check whether those work
+        fclose(f);
+        return Load_FirmwareBad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSiNAND()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
+    if (!f) return Load_DSiNANDMissing;
+
+    // TODO: some basic checks
+    // check that it has the nocash footer, and all
+
+    fclose(f);
+
+    return Load_OK;
+}
+
 int LoadBIOS()
 {
     int res;
@@ -131,8 +205,22 @@ int LoadBIOS()
     res = VerifyDSBIOS();
     if (res != Load_OK) return res;
 
-    res = VerifyDSFirmware();
-    if (res != Load_OK) return res;
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK) return res;
+    }
 
     // TODO:
     // original code in the libui frontend called NDS::LoadGBAROM() if needed
@@ -142,6 +230,7 @@ int LoadBIOS()
     ROMPath[ROMSlot_NDS][0] = '\0';
     SRAMPath[ROMSlot_NDS][0] = '\0';
 
+    NDS::SetConsoleType(Config::ConsoleType);
     NDS::LoadBIOS();
 
     SavestateLoaded = false;
@@ -154,16 +243,39 @@ int LoadROM(const char* file, int slot)
     int res;
     bool directboot = Config::DirectBoot != 0;
 
+    if (Config::ConsoleType == 1 && slot == 1)
+    {
+        // cannot load a GBA ROM into a DSi
+        return Load_ROMLoadError;
+    }
+
     res = VerifyDSBIOS();
     if (res != Load_OK) return res;
 
-    res = VerifyDSFirmware();
-    if (res != Load_OK)
+    if (Config::ConsoleType == 1)
     {
-        if (res == Load_FirmwareNotBootable)
-            directboot = true;
-        else
-            return res;
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+
+        GBACart::Eject();
+        ROMPath[ROMSlot_GBA][0] = '\0';
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK)
+        {
+            if (res == Load_FirmwareNotBootable)
+                directboot = true;
+            else
+                return res;
+        }
     }
 
     char oldpath[1024];
@@ -176,6 +288,8 @@ int LoadROM(const char* file, int slot)
 
     SetupSRAMPath(0);
     SetupSRAMPath(1);
+
+    NDS::SetConsoleType(Config::ConsoleType);
 
     if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
     {
@@ -225,16 +339,35 @@ int Reset()
     res = VerifyDSBIOS();
     if (res != Load_OK) return res;
 
-    res = VerifyDSFirmware();
-    if (res != Load_OK)
+    if (Config::ConsoleType == 1)
     {
-        if (res == Load_FirmwareNotBootable)
-            directboot = true;
-        else
-            return res;
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+
+        GBACart::Eject();
+        ROMPath[ROMSlot_GBA][0] = '\0';
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK)
+        {
+            if (res == Load_FirmwareNotBootable)
+                directboot = true;
+            else
+                return res;
+        }
     }
 
     SavestateLoaded = false;
+
+    NDS::SetConsoleType(Config::ConsoleType);
 
     if (ROMPath[ROMSlot_NDS][0] == '\0')
     {

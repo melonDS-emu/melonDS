@@ -133,6 +133,8 @@ typedef struct
 
 } MemRegion;
 
+extern int ConsoleType;
+
 extern u8 ARM9MemTimings[0x40000][4];
 extern u8 ARM7MemTimings[0x20000][4];
 
@@ -173,6 +175,9 @@ bool DoSavestate(Savestate* file);
 
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
+
+// 0=DS  1=DSi
+void SetConsoleType(int type);
 
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadGBAROM(const char* path, const char* sram);

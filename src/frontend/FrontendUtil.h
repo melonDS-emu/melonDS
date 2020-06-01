@@ -46,6 +46,15 @@ enum
     Load_FirmwareBad,
     Load_FirmwareNotBootable,
 
+    Load_DSiBIOS9Missing,
+    Load_DSiBIOS9Bad,
+
+    Load_DSiBIOS7Missing,
+    Load_DSiBIOS7Bad,
+
+    Load_DSiNANDMissing,
+    Load_DSiNANDBad,
+
     // TODO: more precise errors for ROM loading
     Load_ROMLoadError,
 };

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
 #include "AREngine.h"
@@ -101,7 +102,52 @@ void ARM::Reset()
 
 void ARMv5::Reset()
 {
+    if (NDS::ConsoleType == 1)
+    {
+        BusRead8 = DSi::ARM9Read8;
+        BusRead16 = DSi::ARM9Read16;
+        BusRead32 = DSi::ARM9Read32;
+        BusWrite8 = DSi::ARM9Write8;
+        BusWrite16 = DSi::ARM9Write16;
+        BusWrite32 = DSi::ARM9Write32;
+        GetMemRegion = DSi::ARM9GetMemRegion;
+    }
+    else
+    {
+        BusRead8 = NDS::ARM9Read8;
+        BusRead16 = NDS::ARM9Read16;
+        BusRead32 = NDS::ARM9Read32;
+        BusWrite8 = NDS::ARM9Write8;
+        BusWrite16 = NDS::ARM9Write16;
+        BusWrite32 = NDS::ARM9Write32;
+        GetMemRegion = NDS::ARM9GetMemRegion;
+    }
+
     CP15Reset();
+    ARM::Reset();
+}
+
+void ARMv4::Reset()
+{
+    if (NDS::ConsoleType)
+    {
+        BusRead8 = DSi::ARM7Read8;
+        BusRead16 = DSi::ARM7Read16;
+        BusRead32 = DSi::ARM7Read32;
+        BusWrite8 = DSi::ARM7Write8;
+        BusWrite16 = DSi::ARM7Write16;
+        BusWrite32 = DSi::ARM7Write32;
+    }
+    else
+    {
+        BusRead8 = NDS::ARM7Read8;
+        BusRead16 = NDS::ARM7Read16;
+        BusRead32 = NDS::ARM7Read32;
+        BusWrite8 = NDS::ARM7Write8;
+        BusWrite16 = NDS::ARM7Write16;
+        BusWrite32 = NDS::ARM7Write32;
+    }
+
     ARM::Reset();
 }
 

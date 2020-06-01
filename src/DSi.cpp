@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -221,7 +222,7 @@ bool LoadBIOS()
     memset(ARM9iBIOS, 0, 0x10000);
     memset(ARM7iBIOS, 0, 0x10000);
 
-    f = Platform::OpenLocalFile("bios9i.bin", "rb");
+    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
     if (!f)
     {
         printf("ARM9i BIOS not found\n");
@@ -238,7 +239,7 @@ bool LoadBIOS()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile("bios7i.bin", "rb");
+    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
     if (!f)
     {
         printf("ARM7i BIOS not found\n");
@@ -283,7 +284,7 @@ bool LoadNAND()
     memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
-    FILE* f = Platform::OpenLocalFile("nand.bin", "rb");
+    FILE* f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
     if (f)
     {
         u32 bootparams[8];

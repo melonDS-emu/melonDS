@@ -62,6 +62,8 @@ namespace NDS
 //
 // timings for GBA slot and wifi are set up at runtime
 
+int ConsoleType;
+
 u8 ARM9MemTimings[0x40000][4];
 u8 ARM7MemTimings[0x20000][4];
 
@@ -296,6 +298,8 @@ void InitTimings()
     // TODO: +3c nonseq waitstate doesn't apply to DMA!
     // but of course mainRAM always gets 8c nonseq waitstate
 
+    // TODO: DSi-specific timings!!
+
     SetARM9RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1 + 3, 1); // void
 
     SetARM9RegionTimings(0xFFFF0000, 0xFFFFFFFF, 32, 1 + 3, 1); // BIOS
@@ -321,6 +325,12 @@ void InitTimings()
 
 void SetupDirectBoot()
 {
+    if (ConsoleType == 1)
+    {
+        printf("!! DIRECT BOOT NOT SUPPORTED IN DSI MODE\n");
+        return;
+    }
+
     u32 bootparams[8];
     memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
 
@@ -469,7 +479,7 @@ void Reset()
         fclose(f);
     }
 
-    if (true)
+    if (ConsoleType == 1)
     {
         DSi::LoadBIOS();
         DSi::LoadNAND();
@@ -559,8 +569,11 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
-    DSi::Reset();
-    KeyInput &= ~(1 << (16+6)); // TODO
+    if (ConsoleType == 1)
+    {
+        DSi::Reset();
+        KeyInput &= ~(1 << (16+6));
+    }
 
     AREngine::Reset();
 }
@@ -670,6 +683,11 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    // TODO:
+    // * do something for bool's (sizeof=1)
+    // * do something for 'loading DSi-mode savestate in DS mode' and vice-versa
+    // * add IE2/IF2 there
+
     file->VarArray(MainRAM, 0x400000);
     file->VarArray(SharedWRAM, 0x8000);
     file->VarArray(ARM7WRAM, 0x10000);
@@ -770,6 +788,11 @@ bool DoSavestate(Savestate* file)
     }
 
     return true;
+}
+
+void SetConsoleType(int type)
+{
+    ConsoleType = type;
 }
 
 bool LoadROM(const char* path, const char* sram, bool direct)
@@ -883,7 +906,7 @@ u32 RunFrame()
             if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
             if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
-            DSi::RunNDMAs(0);
+            if (ConsoleType == 1) DSi::RunNDMAs(0);
         }
         else
         {
@@ -906,7 +929,7 @@ u32 RunFrame()
                 DMAs[5]->Run();
                 DMAs[6]->Run();
                 DMAs[7]->Run();
-                DSi::RunNDMAs(1);
+                if (ConsoleType == 1) DSi::RunNDMAs(1);
             }
             else
             {
@@ -990,7 +1013,7 @@ void CancelEvent(u32 id)
 
 void TouchScreen(u16 x, u16 y)
 {
-    if (true) // TODO!!
+    if (ConsoleType == 1)
     {
         DSi_SPI_TSC::SetTouchCoords(x, y);
     }
@@ -1003,7 +1026,7 @@ void TouchScreen(u16 x, u16 y)
 
 void ReleaseScreen()
 {
-    if (true) // TODO!!
+    if (ConsoleType == 1)
     {
         DSi_SPI_TSC::SetTouchCoords(0x000, 0xFFF);
     }
@@ -1144,7 +1167,8 @@ void UpdateIRQ(u32 cpu)
     if (IME[cpu] & 0x1)
     {
         arm->IRQ = IE[cpu] & IF[cpu];
-        if (cpu) arm->IRQ |= (IE2 & IF2);
+        if ((ConsoleType == 1) && cpu)
+            arm->IRQ |= (IE2 & IF2);
     }
     else
     {
@@ -1223,7 +1247,7 @@ void GXFIFOStall()
         DMAs[1]->StallIfRunning();
         DMAs[2]->StallIfRunning();
         DMAs[3]->StallIfRunning();
-        DSi::StallNDMAs();
+        if (ConsoleType == 1) DSi::StallNDMAs();
     }
 }
 
@@ -1361,6 +1385,7 @@ void NocashPrint(u32 ncpu, u32 addr)
 void MonitorARM9Jump(u32 addr)
 {
     // checkme: can the entrypoint addr be THUMB?
+    // also TODO: make it work in DSi mode
 
     if ((!RunningGame) && NDSCart::CartROM)
     {
@@ -1468,7 +1493,7 @@ bool DMAsInMode(u32 cpu, u32 mode)
     if (DMAs[cpu+2]->IsInMode(mode)) return true;
     if (DMAs[cpu+3]->IsInMode(mode)) return true;
 
-    if (true)
+    if (ConsoleType == 1)
     {
         cpu >>= 2;
         return DSi::NDMAsInMode(cpu, NDMAModes[mode]);
@@ -1484,7 +1509,10 @@ bool DMAsRunning(u32 cpu)
     if (DMAs[cpu+1]->IsRunning()) return true;
     if (DMAs[cpu+2]->IsRunning()) return true;
     if (DMAs[cpu+3]->IsRunning()) return true;
-    if (DSi::NDMAsRunning(cpu>>2)) return true;
+    if (ConsoleType == 1)
+    {
+        if (DSi::NDMAsRunning(cpu>>2)) return true;
+    }
     return false;
 }
 
@@ -1496,7 +1524,7 @@ void CheckDMAs(u32 cpu, u32 mode)
     DMAs[cpu+2]->StartIfNeeded(mode);
     DMAs[cpu+3]->StartIfNeeded(mode);
 
-    if (true)
+    if (ConsoleType == 1)
     {
         cpu >>= 2;
         DSi::CheckNDMAs(cpu, NDMAModes[mode]);
@@ -1511,7 +1539,7 @@ void StopDMAs(u32 cpu, u32 mode)
     DMAs[cpu+2]->StopIfNeeded(mode);
     DMAs[cpu+3]->StopIfNeeded(mode);
 
-    if (true)
+    if (ConsoleType == 1)
     {
         cpu >>= 2;
         DSi::StopNDMAs(cpu, NDMAModes[mode]);
