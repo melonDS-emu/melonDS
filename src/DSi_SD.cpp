@@ -525,12 +525,12 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         }
         return;
 
-    case 0x002: PortSelect = (val & 0x040F) | (PortSelect & 0x0300); printf("%s: PORT SELECT %04X (%04X)\n", SD_DESC, val, PortSelect); return;
+    case 0x002: PortSelect = (val & 0x040F) | (PortSelect & 0x0300); return;
     case 0x004: Param = (Param & 0xFFFF0000) | val; return;
     case 0x006: Param = (Param & 0x0000FFFF) | (val << 16); return;
 
     case 0x008: StopAction = val & 0x0101; return;
-    case 0x00A: BlockCount16 = val; BlockCountInternal = val; printf("%s: BLOCK COUNT %d\n", SD_DESC, val); return;
+    case 0x00A: BlockCount16 = val; BlockCountInternal = val; return;
 
     case 0x01C: IRQStatus &= (val | 0xFFFF0000); return;
     case 0x01E: IRQStatus &= ((val << 16) | 0xFFFF); return;
@@ -575,7 +575,6 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x0D8:
         DataCtl = (val & 0x0022);
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
-        printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
         return;
 
     case 0x0E0:
@@ -598,7 +597,6 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         Data32IRQ = (val & 0x1802) | (Data32IRQ & 0x0300);
         if (val & (1<<10)) DataFIFO32->Clear();
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
-        printf("%s: data mode %d-bit\n", SD_DESC, DataMode?32:16);
         return;
     case 0x104: BlockLen32 = val & 0x03FF; return;
     case 0x108: BlockCount32 = val; return;
@@ -803,7 +801,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
 
     case 18: // read multiple blocks
-        printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
+        //printf("READ_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
         if (OCR & (1<<30))
         {
@@ -818,7 +816,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         return;
 
     case 25: // write multiple blocks
-        printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
+        //printf("WRITE_MULTIPLE_BLOCKS addr=%08X size=%08X\n", param, BlockSize);
         RWAddress = param;
         if (OCR & (1<<30))
         {
@@ -846,7 +844,7 @@ void DSi_MMCStorage::SendACMD(u8 cmd, u32 param)
     switch (cmd)
     {
     case 6: // set bus width (TODO?)
-        printf("SET BUS WIDTH %08X\n", param);
+        //printf("SET BUS WIDTH %08X\n", param);
         Host->SendResponse(CSR, true);
         return;
 

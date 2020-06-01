@@ -182,6 +182,9 @@ void SoftReset()
 
     LoadNAND();
 
+    SDMMC->Reset();
+    SDIO->Reset();
+
     NDS::ARM9->JumpTo(BootAddr[0]);
     NDS::ARM7->JumpTo(BootAddr[1]);
 

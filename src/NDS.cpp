@@ -2834,7 +2834,7 @@ u32 ARM9IORead32(u32 addr)
 
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
-    case 0x04000180: /*printf("ARM9 read IPCSYNC: %04X\n", IPCSync9);*/ return IPCSync9;
+    case 0x04000180: return IPCSync9;
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3043,7 +3043,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000180:
-        printf("ARM9 IPCSYNC = %04X\n", val);
         IPCSync7 &= 0xFFF0;
         IPCSync7 |= ((val & 0x0F00) >> 8);
         IPCSync9 &= 0xB0FF;
@@ -3633,7 +3632,6 @@ void ARM7IOWrite16(u32 addr, u16 val)
     case 0x04000138: RTC::Write(val, false); return;
 
     case 0x04000180:
-        printf("ARM7 IPCSYNC = %04X\n", val);
         IPCSync9 &= 0xFFF0;
         IPCSync9 |= ((val & 0x0F00) >> 8);
         IPCSync7 &= 0xB0FF;
