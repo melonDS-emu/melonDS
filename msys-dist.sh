@@ -10,3 +10,5 @@ mkdir -p dist
 for lib in $(ldd melonDS.exe | grep mingw | sed "s/.*=> //" | sed "s/(.*)//"); do
 	cp "${lib}" dist
 done
+
+cp melonDS.exe dist
