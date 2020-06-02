@@ -22,6 +22,7 @@
 #include "DSi_SD.h"
 #include "DSi_NWifi.h"
 #include "Platform.h"
+#include "Config.h"
 
 
 // observed IRQ behavior during transfers
@@ -122,7 +123,7 @@ void DSi_SDHost::Reset()
         sd->SetCID(sd_cid);*/
         DSi_MMCStorage* sd = NULL;
 
-        DSi_MMCStorage* mmc = new DSi_MMCStorage(this, true, "nand.bin");
+        DSi_MMCStorage* mmc = new DSi_MMCStorage(this, true, Config::DSiNANDPath);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
