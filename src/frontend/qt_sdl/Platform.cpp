@@ -32,7 +32,7 @@
 #include <string>
 
 #ifdef __WIN32__
-#define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
+#define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
 #include <windows.h>
 //#include <knownfolders.h> // FUCK THAT SHIT
 #include <shlobj.h>
@@ -104,11 +104,11 @@ void Init(int argc, char** argv)
     }
 #else
     QString confdir;
-	QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-	config.mkdir("melonDS");
-	confdir = config.absolutePath() + "/melonDS/";
-	EmuDirectory = new char[confdir.length() + 1];
-	memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
+    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+    config.mkdir("melonDS");
+    confdir = config.absolutePath() + "/melonDS/";
+    EmuDirectory = new char[confdir.length() + 1];
+    memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
 #endif
 }
 
@@ -126,99 +126,99 @@ void StopEmu()
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
-	QFile f(path);
+    QFile f(path);
 
-	if (mustexist && !f.exists())
-	{
-		return nullptr;
-	}
+    if (mustexist && !f.exists())
+    {
+        return nullptr;
+    }
 
-	QIODevice::OpenMode qmode;
-	if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
-		qmode = QIODevice::OpenModeFlag::ReadWrite;
-	} else if (mode[0] == 'w') {
-		qmode = QIODevice::OpenModeFlag::Truncate;
-	} else {
-		qmode = QIODevice::OpenModeFlag::ReadOnly;
-	}
+    QIODevice::OpenMode qmode;
+    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
+        qmode = QIODevice::OpenModeFlag::ReadWrite;
+    } else if (mode[0] == 'w') {
+        qmode = QIODevice::OpenModeFlag::Truncate;
+    } else {
+        qmode = QIODevice::OpenModeFlag::ReadOnly;
+    }
 
-	f.open(qmode);
-	FILE* file = fdopen(dup(f.handle()), mode);
-	f.close();
+    f.open(qmode);
+    FILE* file = fdopen(dup(f.handle()), mode);
+    f.close();
 
-	return file;
+    return file;
 }
 
 FILE* OpenLocalFile(const char* path, const char* mode)
 {
-	QString fullpath;
+    QString fullpath;
 
-	if (path[0] == '/')
-	{
-		// If it's an absolute path, just open that.
-		fullpath = path;
-	}
-	else
-	{
+    if (path[0] == '/')
+    {
+        // If it's an absolute path, just open that.
+        fullpath = path;
+    }
+    else
+    {
 #ifdef PORTABLE
-		fullpath = QString("./") + path;
+        fullpath = QString("./") + path;
 #else
-		// Check user configuration directory
-		QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
-		config.mkdir("melonDS");
-		fullpath = config.absolutePath() + "/melonDS/";
-		fullpath.append(path);
+        // Check user configuration directory
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        config.mkdir("melonDS");
+        fullpath = config.absolutePath() + "/melonDS/";
+        fullpath.append(path);
 #endif
-	}
+    }
 
-	return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
+    return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
 }
 
 void* Thread_Create(void (* func)())
 {
-	QThread* t = QThread::create(func);
-	t->start();
-	return (void*) t;
+    QThread* t = QThread::create(func);
+    t->start();
+    return (void*) t;
 }
 
 void Thread_Free(void* thread)
 {
-	QThread* t = (QThread*) thread;
-	t->terminate();
-	delete t;
+    QThread* t = (QThread*) thread;
+    t->terminate();
+    delete t;
 }
 
 void Thread_Wait(void* thread)
 {
-	((QThread*) thread)->wait();
+    ((QThread*) thread)->wait();
 }
 
 
 void* Semaphore_Create()
 {
-	return new QSemaphore();
+    return new QSemaphore();
 }
 
 void Semaphore_Free(void* sema)
 {
-	delete (QSemaphore*) sema;
+    delete (QSemaphore*) sema;
 }
 
 void Semaphore_Reset(void* sema)
 {
-	QSemaphore* s = (QSemaphore*) sema;
+    QSemaphore* s = (QSemaphore*) sema;
 
-	s->acquire(s->available());
+    s->acquire(s->available());
 }
 
 void Semaphore_Wait(void* sema)
 {
-	((QSemaphore*) sema)->acquire();
+    ((QSemaphore*) sema)->acquire();
 }
 
 void Semaphore_Post(void* sema)
 {
-	((QSemaphore*) sema)->release();
+    ((QSemaphore*) sema)->release();
 }
 
 
@@ -242,44 +242,44 @@ bool MP_Init()
 #endif // __WIN32__
 
     MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
-	if (MPSocket < 0)
-	{
-		return false;
-	}
+    if (MPSocket < 0)
+    {
+        return false;
+    }
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	sockaddr_t saddr;
-	saddr.sa_family = AF_INET;
-	*(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
-	*(u16*)&saddr.sa_data[0] = htons(7064);
-	res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    sockaddr_t saddr;
+    saddr.sa_family = AF_INET;
+    *(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
+    *(u16*)&saddr.sa_data[0] = htons(7064);
+    res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	MPSendAddr.sa_family = AF_INET;
-	*(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
-	*(u16*)&MPSendAddr.sa_data[0] = htons(7064);
+    MPSendAddr.sa_family = AF_INET;
+    *(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
+    *(u16*)&MPSendAddr.sa_data[0] = htons(7064);
 
-	return true;
+    return true;
 }
 
 void MP_DeInit()
@@ -320,14 +320,14 @@ int MP_RecvPacket(u8* data, bool block)
         return 0;
 
     fd_set fd;
-	struct timeval tv;
+    struct timeval tv;
 
-	FD_ZERO(&fd);
-	FD_SET(MPSocket, &fd);
-	tv.tv_sec = 0;
-	tv.tv_usec = block ? 5000 : 0;
+    FD_ZERO(&fd);
+    FD_SET(MPSocket, &fd);
+    tv.tv_sec = 0;
+    tv.tv_usec = block ? 5000 : 0;
 
-	if (!select(MPSocket+1, &fd, 0, 0, &tv))
+    if (!select(MPSocket+1, &fd, 0, 0, &tv))
     {
         return 0;
     }
