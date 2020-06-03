@@ -38,6 +38,8 @@
 #include <shlobj.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <io.h>
+#define dup _dup
 #define socket_t    SOCKET
 #define sockaddr_t  SOCKADDR
 #else
