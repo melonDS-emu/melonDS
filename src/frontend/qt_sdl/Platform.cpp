@@ -169,7 +169,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
         fullpath = path;
 #else
         // Check user configuration directory
-        QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
         config.mkdir("melonDS");
         fullpath = config.absolutePath() + "/melonDS/";
         fullpath.append(path);
