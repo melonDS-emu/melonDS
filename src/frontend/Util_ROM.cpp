@@ -50,6 +50,11 @@ void Init_ROM()
     memset(PrevSRAMPath[ROMSlot_GBA], 0, 1024);
 }
 
+// TODO: currently, when failing to load a ROM for whatever reason, we attempt
+// to revert to the previous state and resume execution; this may not be a very
+// good thing, depending on what state the core was left in.
+// should we do a better state revert (via the savestate system)? completely stop?
+
 void SetupSRAMPath(int slot)
 {
     strncpy(SRAMPath[slot], ROMPath[slot], 1023);
@@ -57,8 +62,166 @@ void SetupSRAMPath(int slot)
     strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
 }
 
-bool LoadBIOS()
+int VerifyDSBIOS()
 {
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+    if (!f) return Load_BIOS9Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x1000)
+    {
+        fclose(f);
+        return Load_BIOS9Bad;
+    }
+
+    fclose(f);
+
+    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+    if (!f) return Load_BIOS7Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x4000)
+    {
+        fclose(f);
+        return Load_BIOS7Bad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSiBIOS()
+{
+    FILE* f;
+    long len;
+
+    // TODO: check the first 32 bytes
+
+    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
+    if (!f) return Load_DSiBIOS9Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x10000)
+    {
+        fclose(f);
+        return Load_DSiBIOS9Bad;
+    }
+
+    fclose(f);
+
+    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    if (!f) return Load_DSiBIOS7Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x10000)
+    {
+        fclose(f);
+        return Load_DSiBIOS7Bad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSFirmware()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
+    if (!f) return Load_FirmwareMissing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len == 0x20000)
+    {
+        // 128KB firmware, not bootable
+        fclose(f);
+        return Load_FirmwareNotBootable;
+    }
+    else if (len != 0x40000 && len != 0x80000)
+    {
+        fclose(f);
+        return Load_FirmwareBad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSiFirmware()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb");
+    if (!f) return Load_FirmwareMissing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x20000)
+    {
+        // not 128KB
+        // TODO: check whether those work
+        fclose(f);
+        return Load_FirmwareBad;
+    }
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int VerifyDSiNAND()
+{
+    FILE* f;
+    long len;
+
+    f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
+    if (!f) return Load_DSiNANDMissing;
+
+    // TODO: some basic checks
+    // check that it has the nocash footer, and all
+
+    fclose(f);
+
+    return Load_OK;
+}
+
+int LoadBIOS()
+{
+    int res;
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK) return res;
+    }
+
     // TODO:
     // original code in the libui frontend called NDS::LoadGBAROM() if needed
     // should this be carried over here?
@@ -67,16 +230,54 @@ bool LoadBIOS()
     ROMPath[ROMSlot_NDS][0] = '\0';
     SRAMPath[ROMSlot_NDS][0] = '\0';
 
+    NDS::SetConsoleType(Config::ConsoleType);
     NDS::LoadBIOS();
 
     SavestateLoaded = false;
 
-    // TODO: error reporting?
-    return true;
+    return Load_OK;
 }
 
-bool LoadROM(const char* file, int slot)
+int LoadROM(const char* file, int slot)
 {
+    int res;
+    bool directboot = Config::DirectBoot != 0;
+
+    if (Config::ConsoleType == 1 && slot == 1)
+    {
+        // cannot load a GBA ROM into a DSi
+        return Load_ROMLoadError;
+    }
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+
+        GBACart::Eject();
+        ROMPath[ROMSlot_GBA][0] = '\0';
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK)
+        {
+            if (res == Load_FirmwareNotBootable)
+                directboot = true;
+            else
+                return res;
+        }
+    }
+
     char oldpath[1024];
     char oldsram[1024];
     strncpy(oldpath, ROMPath[slot], 1024);
@@ -88,29 +289,105 @@ bool LoadROM(const char* file, int slot)
     SetupSRAMPath(0);
     SetupSRAMPath(1);
 
-    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], Config::DirectBoot))
+    NDS::SetConsoleType(Config::ConsoleType);
+
+    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
     {
         SavestateLoaded = false;
 
         // Reload the inserted GBA cartridge (if any)
+        // TODO: report failure there??
         if (ROMPath[ROMSlot_GBA][0] != '\0') NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
-        return true;
+        return Load_OK;
     }
     else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
     {
-        SavestateLoaded = false;
+        SavestateLoaded = false; // checkme??
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
-        return true;
+        return Load_OK;
     }
     else
     {
         strncpy(ROMPath[slot], oldpath, 1024);
         strncpy(SRAMPath[slot], oldsram, 1024);
-        return false;
+        return Load_ROMLoadError;
     }
+}
+
+void UnloadROM(int slot)
+{
+    if (slot == ROMSlot_NDS)
+    {
+        // TODO!
+    }
+    else if (slot == ROMSlot_GBA)
+    {
+        GBACart::Eject();
+    }
+
+    ROMPath[slot][0] = '\0';
+}
+
+int Reset()
+{
+    int res;
+    bool directboot = Config::DirectBoot != 0;
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+
+        GBACart::Eject();
+        ROMPath[ROMSlot_GBA][0] = '\0';
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK)
+        {
+            if (res == Load_FirmwareNotBootable)
+                directboot = true;
+            else
+                return res;
+        }
+    }
+
+    SavestateLoaded = false;
+
+    NDS::SetConsoleType(Config::ConsoleType);
+
+    if (ROMPath[ROMSlot_NDS][0] == '\0')
+    {
+        NDS::LoadBIOS();
+    }
+    else
+    {
+        SetupSRAMPath(0);
+        if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
+            return Load_ROMLoadError;
+    }
+
+    if (ROMPath[ROMSlot_GBA][0] != '\0')
+    {
+        SetupSRAMPath(1);
+        if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
+            return Load_ROMLoadError;
+    }
+
+    return Load_OK;
 }
 
 
@@ -241,10 +518,6 @@ bool SaveState(const char* filename)
         }
     }
 
-    /*char msg[64];
-    if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
-    else          sprintf(msg, "State saved to file");
-    OSD::AddMessage(0, msg);*/
     return true;
 }
 
@@ -264,8 +537,6 @@ void UndoStateLoad()
         strncpy(SRAMPath[ROMSlot_NDS], PrevSRAMPath[ROMSlot_NDS], 1024);
         NDS::RelocateSave(SRAMPath[ROMSlot_NDS], false);
     }
-
-    //OSD::AddMessage(0, "State load undone");
 }
 
 }

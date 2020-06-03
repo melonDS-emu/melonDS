@@ -40,16 +40,24 @@ int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
 int ScreenSizing;
+int IntegerScaling;
 int ScreenFilter;
 
 int ScreenUseGL;
 int ScreenVSync;
-int ScreenRatio;
+int ScreenVSyncInterval;
+
+int _3DRenderer;
+int Threaded3D;
+
+int GL_ScaleFactor;
+int GL_Antialias;
 
 int LimitFPS;
 int AudioSync;
 int ShowOSD;
 
+int ConsoleType;
 int DirectBoot;
 
 int SocketBindAnyAddr;
@@ -60,25 +68,25 @@ int SavestateRelocSRAM;
 
 int AudioVolume;
 int MicInputType;
-char MicWavPath[512];
+char MicWavPath[1024];
 
-char LastROMFolder[512];
+char LastROMFolder[1024];
 
 
 ConfigEntry PlatformConfigFile[] =
 {
-    {"Key_A",      0, &KeyMapping[0],   32, NULL, 0},
-    {"Key_B",      0, &KeyMapping[1],   31, NULL, 0},
-    {"Key_Select", 0, &KeyMapping[2],   57, NULL, 0},
-    {"Key_Start",  0, &KeyMapping[3],   28, NULL, 0},
-    {"Key_Right",  0, &KeyMapping[4],  333, NULL, 0},
-    {"Key_Left",   0, &KeyMapping[5],  331, NULL, 0},
-    {"Key_Up",     0, &KeyMapping[6],  328, NULL, 0},
-    {"Key_Down",   0, &KeyMapping[7],  336, NULL, 0},
-    {"Key_R",      0, &KeyMapping[8],   54, NULL, 0},
-    {"Key_L",      0, &KeyMapping[9],   86, NULL, 0},
-    {"Key_X",      0, &KeyMapping[10],  17, NULL, 0},
-    {"Key_Y",      0, &KeyMapping[11],  30, NULL, 0},
+    {"Key_A",      0, &KeyMapping[0],  -1, NULL, 0},
+    {"Key_B",      0, &KeyMapping[1],  -1, NULL, 0},
+    {"Key_Select", 0, &KeyMapping[2],  -1, NULL, 0},
+    {"Key_Start",  0, &KeyMapping[3],  -1, NULL, 0},
+    {"Key_Right",  0, &KeyMapping[4],  -1, NULL, 0},
+    {"Key_Left",   0, &KeyMapping[5],  -1, NULL, 0},
+    {"Key_Up",     0, &KeyMapping[6],  -1, NULL, 0},
+    {"Key_Down",   0, &KeyMapping[7],  -1, NULL, 0},
+    {"Key_R",      0, &KeyMapping[8],  -1, NULL, 0},
+    {"Key_L",      0, &KeyMapping[9],  -1, NULL, 0},
+    {"Key_X",      0, &KeyMapping[10], -1, NULL, 0},
+    {"Key_Y",      0, &KeyMapping[11], -1, NULL, 0},
 
     {"Joy_A",      0, &JoyMapping[0],  -1, NULL, 0},
     {"Joy_B",      0, &JoyMapping[1],  -1, NULL, 0},
@@ -93,14 +101,14 @@ ConfigEntry PlatformConfigFile[] =
     {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
     {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
 
-    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 0x0D, NULL, 0},
-    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 0x35, NULL, 0},
-    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],                 -1, NULL, 0},
-    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],                 -1, NULL, 0},
-    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         0x0F, NULL, 0},
-    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],     -1, NULL, 0},
-    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], 0x4B, NULL, 0},
-    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], 0x4D, NULL, 0},
+    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1, NULL, 0},
+    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1, NULL, 0},
+    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],               -1, NULL, 0},
+    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1, NULL, 0},
+    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, NULL, 0},
+    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
+    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
+    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, NULL, 0},
@@ -121,16 +129,24 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
+    {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
-    {"ScreenUseGL",     0, &ScreenUseGL,     1, NULL, 0},
-    {"ScreenVSync",     0, &ScreenVSync,     0, NULL, 0},
-    {"ScreenRatio",     0, &ScreenRatio,     0, NULL, 0},
+    {"ScreenUseGL",         0, &ScreenUseGL,         1, NULL, 0},
+    {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
+    {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
+
+    {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
+    {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
+
+    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
+    {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
     {"AudioSync", 0, &AudioSync, 1, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
+    {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
@@ -141,9 +157,9 @@ ConfigEntry PlatformConfigFile[] =
 
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
-    {"MicWavPath", 1, MicWavPath, 0, "", 511},
+    {"MicWavPath", 1, MicWavPath, 0, "", 1023},
 
-    {"LastROMFolder", 1, LastROMFolder, 0, "", 511},
+    {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
 
     {"", -1, NULL, 0, NULL, 0}
 };

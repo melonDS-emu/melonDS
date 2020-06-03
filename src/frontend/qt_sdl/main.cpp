@@ -27,18 +27,28 @@
 #include <QFileDialog>
 #include <QPaintEvent>
 #include <QPainter>
-#include <QStandardPaths>
+#include <QKeyEvent>
+#include <QMimeData>
 
 #include <SDL2/SDL.h>
 
 #include "main.h"
+#include "Input.h"
+#include "EmuSettingsDialog.h"
+#include "InputConfigDialog.h"
+#include "VideoSettingsDialog.h"
+#include "AudioSettingsDialog.h"
+#include "WifiSettingsDialog.h"
 
 #include "types.h"
 #include "version.h"
 
 #include "FrontendUtil.h"
+#include "OSD.h"
 
 #include "NDS.h"
+#include "GBACart.h"
+#include "OpenGLSupport.h"
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -48,20 +58,33 @@
 
 #include "Savestate.h"
 
+#include "main_shaders.h"
+
 
 // TODO: uniform variable spelling
-
-char* EmuDirectory;
 
 bool RunningSomething;
 
 MainWindow* mainWindow;
 EmuThread* emuThread;
 
+int autoScreenSizing = 0;
+
+int videoRenderer;
+GPU::RenderSettings videoSettings;
+bool videoSettingsDirty;
+
 SDL_AudioDeviceID audioDevice;
 int audioFreq;
 SDL_cond* audioSync;
 SDL_mutex* audioSyncLock;
+
+SDL_AudioDeviceID micDevice;
+s16 micExtBuffer[2048];
+u32 micExtBufferWritePos;
+
+u32 micWavLength;
+s16* micWavBuffer;
 
 
 void audioCallback(void* data, Uint8* stream, int len)
@@ -97,7 +120,134 @@ void audioCallback(void* data, Uint8* stream, int len)
         num_in = len_in-margin;
     }
 
-    Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len);
+    Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
+}
+
+
+void micLoadWav(const char* name)
+{
+    SDL_AudioSpec format;
+    memset(&format, 0, sizeof(SDL_AudioSpec));
+
+    if (micWavBuffer) delete[] micWavBuffer;
+    micWavBuffer = nullptr;
+    micWavLength = 0;
+
+    u8* buf;
+    u32 len;
+    if (!SDL_LoadWAV(name, &format, &buf, &len))
+        return;
+
+    const u64 dstfreq = 44100;
+
+    if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
+    {
+        int srcinc = format.channels;
+        len /= (2 * srcinc);
+
+        micWavLength = (len * dstfreq) / format.freq;
+        if (micWavLength < 735) micWavLength = 735;
+        micWavBuffer = new s16[micWavLength];
+
+        float res_incr = len / (float)micWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < micWavLength; i++)
+        {
+            u16 val = ((u16*)buf)[res_pos];
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            micWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
+    {
+        int srcinc = format.channels;
+        len /= srcinc;
+
+        micWavLength = (len * dstfreq) / format.freq;
+        if (micWavLength < 735) micWavLength = 735;
+        micWavBuffer = new s16[micWavLength];
+
+        float res_incr = len / (float)micWavLength;
+        float res_timer = 0;
+        int res_pos = 0;
+
+        for (int i = 0; i < micWavLength; i++)
+        {
+            u16 val = buf[res_pos] << 8;
+            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+
+            micWavBuffer[i] = val;
+
+            res_timer += res_incr;
+            while (res_timer >= 1.0)
+            {
+                res_timer -= 1.0;
+                res_pos += srcinc;
+            }
+        }
+    }
+    else
+        printf("bad WAV format %08X\n", format.format);
+
+    SDL_FreeWAV(buf);
+}
+
+void micCallback(void* data, Uint8* stream, int len)
+{
+    s16* input = (s16*)stream;
+    len /= sizeof(s16);
+
+    int maxlen = sizeof(micExtBuffer) / sizeof(s16);
+
+    if ((micExtBufferWritePos + len) > maxlen)
+    {
+        u32 len1 = maxlen - micExtBufferWritePos;
+        memcpy(&micExtBuffer[micExtBufferWritePos], &input[0], len1*sizeof(s16));
+        memcpy(&micExtBuffer[0], &input[len1], (len - len1)*sizeof(s16));
+        micExtBufferWritePos = len - len1;
+    }
+    else
+    {
+        memcpy(&micExtBuffer[micExtBufferWritePos], input, len*sizeof(s16));
+        micExtBufferWritePos += len;
+    }
+}
+
+void micProcess()
+{
+    int type = Config::MicInputType;
+    bool cmd = Input::HotkeyDown(HK_Mic);
+
+    if (type != 1 && !cmd)
+    {
+        type = 0;
+    }
+
+    switch (type)
+    {
+    case 0: // no mic
+        Frontend::Mic_FeedSilence();
+        break;
+
+    case 1: // host mic
+    case 3: // WAV
+        Frontend::Mic_FeedExternalBuffer();
+        break;
+
+    case 2: // white noise
+        Frontend::Mic_FeedNoise();
+        break;
+    }
 }
 
 
@@ -107,41 +257,94 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuRunning = 2;
     RunningSomething = false;
 
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
+    connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
 
-    emit windowEmuStop();
+    if (mainWindow->hasOGL) initOpenGL();
+}
+
+void EmuThread::initOpenGL()
+{
+    QOpenGLContext* windowctx = mainWindow->getOGLContext();
+    QSurfaceFormat format = windowctx->format();
+
+    format.setSwapInterval(0);
+
+    oglSurface = new QOffscreenSurface();
+    oglSurface->setFormat(format);
+    oglSurface->create();
+    if (!oglSurface->isValid())
+    {
+        // TODO handle this!
+        printf("oglSurface shat itself :(\n");
+        delete oglSurface;
+        return;
+    }
+
+    oglContext = new QOpenGLContext();
+    oglContext->setFormat(oglSurface->format());
+    oglContext->setShareContext(windowctx);
+    if (!oglContext->create())
+    {
+        // TODO handle this!
+        printf("oglContext shat itself :(\n");
+        delete oglContext;
+        delete oglSurface;
+        return;
+    }
+
+    oglContext->moveToThread(this);
+}
+
+void EmuThread::deinitOpenGL()
+{
+    delete oglContext;
+    delete oglSurface;
+}
+
+void* oglGetProcAddress(const char* proc)
+{
+    return emuThread->oglGetProcAddress(proc);
+}
+
+void* EmuThread::oglGetProcAddress(const char* proc)
+{
+    return (void*)oglContext->getProcAddress(proc);
 }
 
 void EmuThread::run()
 {
+    bool hasOGL = mainWindow->hasOGL;
+    u32 mainScreenPos[3];
+
     NDS::Init();
 
-    /*MainScreenPos[0] = 0;
-    MainScreenPos[1] = 0;
-    MainScreenPos[2] = 0;
-    AutoScreenSizing = 0;*/
+    mainScreenPos[0] = 0;
+    mainScreenPos[1] = 0;
+    mainScreenPos[2] = 0;
+    autoScreenSizing = 0;
 
-    /*if (Screen_UseGL)
-    {
-        uiGLMakeContextCurrent(GLContext);
-        GPU3D::InitRenderer(true);
-        uiGLMakeContextCurrent(NULL);
-    }
-    else*/
-    {
-        GPU3D::InitRenderer(false);
-    }
+    videoSettingsDirty = false;
+    videoSettings.Soft_Threaded = Config::Threaded3D != 0;
+    videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
 
-    /*Touching = false;
-    KeyInputMask = 0xFFF;
-    JoyInputMask = 0xFFF;
-    KeyHotkeyMask = 0;
-    JoyHotkeyMask = 0;
-    HotkeyMask = 0;
-    LastHotkeyMask = 0;
-    LidStatus = false;*/
+    if (hasOGL)
+    {
+        oglContext->makeCurrent(oglSurface);
+        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
+    }
+    else
+        videoRenderer = 0;
+
+    GPU::InitRenderer(videoRenderer);
+    GPU::SetRenderSettings(videoRenderer, videoSettings);
+
+    Input::Init();
 
     u32 nframes = 0;
     u32 starttick = SDL_GetTicks();
@@ -153,69 +356,81 @@ void EmuThread::run()
 
     while (EmuRunning != 0)
     {
-        /*ProcessInput();
+        Input::Process();
 
-        if (HotkeyPressed(HK_FastForwardToggle))
-        {
-            Config::LimitFPS = !Config::LimitFPS;
-            uiQueueMain(UpdateFPSLimit, NULL);
-        }
-        // TODO: similar hotkeys for video/audio sync?
+        if (Input::HotkeyPressed(HK_FastForwardToggle)) emit windowLimitFPSChange();
 
-        if (HotkeyPressed(HK_Pause)) uiQueueMain(TogglePause, NULL);
-        if (HotkeyPressed(HK_Reset)) uiQueueMain(Reset, NULL);
+        if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
+        if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
-            if (HotkeyPressed(HK_SolarSensorDecrease))
+            if (Input::HotkeyPressed(HK_SolarSensorDecrease))
             {
                 if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
                 char msg[64];
                 sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
                 OSD::AddMessage(0, msg);
             }
-            if (HotkeyPressed(HK_SolarSensorIncrease))
+            if (Input::HotkeyPressed(HK_SolarSensorIncrease))
             {
                 if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
                 char msg[64];
                 sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
                 OSD::AddMessage(0, msg);
             }
-        }*/
+        }
 
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
 
-            // process input and hotkeys
-            NDS::SetKeyMask(0xFFF);
-            /*NDS::SetKeyMask(KeyInputMask & JoyInputMask);
-
-            if (HotkeyPressed(HK_Lid))
+            // update render settings if needed
+            if (videoSettingsDirty)
             {
-                LidStatus = !LidStatus;
-                NDS::SetLidClosed(LidStatus);
-                OSD::AddMessage(0, LidStatus ? "Lid closed" : "Lid opened");
-            }*/
+                if (hasOGL != mainWindow->hasOGL)
+                {
+                    hasOGL = mainWindow->hasOGL;
+                    if (hasOGL)
+                    {
+                        oglContext->makeCurrent(oglSurface);
+                        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
+                    }
+                    else
+                        videoRenderer = 0;
+                }
+                else
+                    videoRenderer = hasOGL ? Config::_3DRenderer : 0;
+
+                videoSettingsDirty = false;
+                videoSettings.Soft_Threaded = Config::Threaded3D != 0;
+                videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+                GPU::SetRenderSettings(videoRenderer, videoSettings);
+            }
+
+            // process input and hotkeys
+            NDS::SetKeyMask(Input::InputMask);
+
+            if (Input::HotkeyPressed(HK_Lid))
+            {
+                bool lid = !NDS::IsLidClosed();
+                NDS::SetLidClosed(lid);
+                OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
+            }
 
             // microphone input
-            /*FeedMicInput();
-
-            if (Screen_UseGL)
-            {
-                uiGLBegin(GLContext);
-                uiGLMakeContextCurrent(GLContext);
-            }*/
+            micProcess();
 
             // auto screen layout
-            /*{
-                MainScreenPos[2] = MainScreenPos[1];
-                MainScreenPos[1] = MainScreenPos[0];
-                MainScreenPos[0] = NDS::PowerControl9 >> 15;
+            if (Config::ScreenSizing == 3)
+            {
+                mainScreenPos[2] = mainScreenPos[1];
+                mainScreenPos[1] = mainScreenPos[0];
+                mainScreenPos[0] = NDS::PowerControl9 >> 15;
 
                 int guess;
-                if (MainScreenPos[0] == MainScreenPos[2] &&
-                    MainScreenPos[0] != MainScreenPos[1])
+                if (mainScreenPos[0] == mainScreenPos[2] &&
+                    mainScreenPos[0] != mainScreenPos[1])
                 {
                     // constant flickering, likely displaying 3D on both screens
                     // TODO: when both screens are used for 2D only...???
@@ -223,18 +438,18 @@ void EmuThread::run()
                 }
                 else
                 {
-                    if (MainScreenPos[0] == 1)
+                    if (mainScreenPos[0] == 1)
                         guess = 1;
                     else
                         guess = 2;
                 }
 
-                if (guess != AutoScreenSizing)
+                if (guess != autoScreenSizing)
                 {
-                    AutoScreenSizing = guess;
-                    SetupScreenRects(WindowWidth, WindowHeight);
+                    autoScreenSizing = guess;
+                    emit screenLayoutChange();
                 }
-            }*/
+            }
 
             // emulate
             u32 nlines = NDS::RunFrame();
@@ -245,16 +460,9 @@ void EmuThread::run()
 
             if (EmuRunning == 0) break;
 
-            /*if (Screen_UseGL)
-            {
-                GLScreen_DrawScreen();
-                uiGLEnd(GLContext);
-            }
-            uiAreaQueueRedrawAll(MainDrawArea);*/
-            mainWindow->update();
+            emit windowUpdate();
 
-            bool fastforward = false;
-            //bool fastforward = HotkeyDown(HK_FastForward);
+            bool fastforward = Input::HotkeyDown(HK_FastForward);
 
             if (Config::AudioSync && (!fastforward) && audioDevice)
             {
@@ -324,46 +532,28 @@ void EmuThread::run()
             lastmeasuretick = lasttick;
             fpslimitcount = 0;
 
-            if (EmuRunning == 2)
-            {
-                /*if (Screen_UseGL)
-                {
-                    uiGLBegin(GLContext);
-                    uiGLMakeContextCurrent(GLContext);
-                    GLScreen_DrawScreen();
-                    uiGLEnd(GLContext);
-                }
-                uiAreaQueueRedrawAll(MainDrawArea);*/
-                mainWindow->update();
-            }
-
-            //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
+            emit windowUpdate();
 
             EmuStatus = EmuRunning;
 
             sprintf(melontitle, "melonDS " MELONDS_VERSION);
             changeWindowTitle(melontitle);
 
-            SDL_Delay(100);
+            SDL_Delay(75);
         }
     }
 
     EmuStatus = 0;
 
-    //if (Screen_UseGL) uiGLMakeContextCurrent(GLContext);
-
+    GPU::DeInitRenderer();
     NDS::DeInit();
     //Platform::LAN_DeInit();
 
-    /*if (Screen_UseGL)
+    if (hasOGL)
     {
-        OSD::DeInit(true);
-        GLScreen_DeInit();
+        oglContext->doneCurrent();
+        deinitOpenGL();
     }
-    else
-        OSD::DeInit(false);*/
-
-    //if (Screen_UseGL) uiGLMakeContextCurrent(NULL);
 }
 
 void EmuThread::changeWindowTitle(char* title)
@@ -379,25 +569,25 @@ void EmuThread::emuRun()
     // checkme
     emit windowEmuStart();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
+    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
 }
 
-void EmuThread::emuPause(bool refresh)
+void EmuThread::emuPause()
 {
-    int status = refresh ? 2:3;
     PrevEmuStatus = EmuRunning;
-    EmuRunning = status;
-    while (EmuStatus != status);
+    EmuRunning = 2;
+    while (EmuStatus != 2);
 
-    //emit windowEmuPause();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
+    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
 }
 
 void EmuThread::emuUnpause()
 {
     EmuRunning = PrevEmuStatus;
 
-    //emit windowEmuUnpause();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
+    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
 }
 
 void EmuThread::emuStop()
@@ -405,6 +595,7 @@ void EmuThread::emuStop()
     EmuRunning = 0;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
+    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
 }
 
 bool EmuThread::emuIsRunning()
@@ -413,19 +604,140 @@ bool EmuThread::emuIsRunning()
 }
 
 
-MainWindowPanel::MainWindowPanel(QWidget* parent) : QWidget(parent)
+void ScreenHandler::screenSetupLayout(int w, int h)
 {
-    screen[0] = new QImage(256, 192, QImage::Format_RGB32);
-    screen[1] = new QImage(256, 192, QImage::Format_RGB32);
+    int sizing = Config::ScreenSizing;
+    if (sizing == 3) sizing = autoScreenSizing;
+
+    Frontend::SetupScreenLayout(w, h,
+                                Config::ScreenLayout,
+                                Config::ScreenRotation,
+                                sizing,
+                                Config::ScreenGap,
+                                Config::IntegerScaling != 0);
+
+    Frontend::GetScreenTransforms(screenMatrix[0], screenMatrix[1]);
 }
 
-MainWindowPanel::~MainWindowPanel()
+QSize ScreenHandler::screenGetMinSize()
 {
-    delete screen[0];
-    delete screen[1];
+    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    int gap = Config::ScreenGap;
+
+    int w = 256;
+    int h = 192;
+
+    if (Config::ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            return QSize(h+gap+h, w);
+        else
+            return QSize(w, h+gap+h);
+    }
+    else if (Config::ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            return QSize(h, w+gap+w);
+        else
+            return QSize(w, h+gap+h);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            return QSize(h+gap+h, w);
+        else
+            return QSize(w+gap+w, h);
+    }
 }
 
-void MainWindowPanel::paintEvent(QPaintEvent* event)
+void ScreenHandler::screenOnMousePress(QMouseEvent* event)
+{
+    event->accept();
+    if (event->button() != Qt::LeftButton) return;
+
+    int x = event->pos().x();
+    int y = event->pos().y();
+
+    Frontend::GetTouchCoords(x, y);
+
+    if (x >= 0 && x < 256 && y >= 0 && y < 192)
+    {
+        touching = true;
+        NDS::TouchScreen(x, y);
+    }
+}
+
+void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
+{
+    event->accept();
+    if (event->button() != Qt::LeftButton) return;
+
+    if (touching)
+    {
+        touching = false;
+        NDS::ReleaseScreen();
+    }
+}
+
+void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
+{
+    event->accept();
+    if (!(event->buttons() & Qt::LeftButton)) return;
+    if (!touching) return;
+
+    int x = event->pos().x();
+    int y = event->pos().y();
+
+    Frontend::GetTouchCoords(x, y);
+
+    // clamp to screen range
+    if (x < 0) x = 0;
+    else if (x > 255) x = 255;
+    if (y < 0) y = 0;
+    else if (y > 191) y = 191;
+
+    NDS::TouchScreen(x, y);
+}
+
+
+ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
+{
+    screen[0] = QImage(256, 192, QImage::Format_RGB32);
+    screen[1] = QImage(256, 192, QImage::Format_RGB32);
+
+    screenTrans[0].reset();
+    screenTrans[1].reset();
+
+    touching = false;
+
+    OSD::Init(nullptr);
+}
+
+ScreenPanelNative::~ScreenPanelNative()
+{
+    OSD::DeInit(nullptr);
+}
+
+void ScreenPanelNative::setupScreenLayout()
+{
+    int w = width();
+    int h = height();
+    float* mtx;
+
+    screenSetupLayout(w, h);
+
+    mtx = screenMatrix[0];
+    screenTrans[0].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
+
+    mtx = screenMatrix[1];
+    screenTrans[1].setMatrix(mtx[0], mtx[1], 0.f,
+                             mtx[2], mtx[3], 0.f,
+                             mtx[4], mtx[5], 1.f);
+}
+
+void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
 
@@ -435,22 +747,242 @@ void MainWindowPanel::paintEvent(QPaintEvent* event)
     int frontbuf = GPU::FrontBuffer;
     if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
 
-    memcpy(screen[0]->scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
-    memcpy(screen[1]->scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
+    memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
+    memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
 
-    QRect src = QRect(0, 0, 256, 192);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
 
-    QRect dstTop = QRect(0, 0, 256, 192); // TODO
-    QRect dstBot = QRect(0, 192, 256, 192); // TODO
+    QRect screenrc(0, 0, 256, 192);
 
-    painter.drawImage(dstTop, *screen[0]);
-    painter.drawImage(dstBot, *screen[1]);
+    painter.setTransform(screenTrans[0]);
+    painter.drawImage(screenrc, screen[0]);
+
+    painter.setTransform(screenTrans[1]);
+    painter.drawImage(screenrc, screen[1]);
+
+    OSD::Update(nullptr);
+    OSD::DrawNative(painter);
+}
+
+void ScreenPanelNative::resizeEvent(QResizeEvent* event)
+{
+    setupScreenLayout();
+}
+
+void ScreenPanelNative::mousePressEvent(QMouseEvent* event)
+{
+    screenOnMousePress(event);
+}
+
+void ScreenPanelNative::mouseReleaseEvent(QMouseEvent* event)
+{
+    screenOnMouseRelease(event);
+}
+
+void ScreenPanelNative::mouseMoveEvent(QMouseEvent* event)
+{
+    screenOnMouseMove(event);
+}
+
+void ScreenPanelNative::onScreenLayoutChanged()
+{
+    setMinimumSize(screenGetMinSize());
+    setupScreenLayout();
+}
+
+
+ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
+{
+    touching = false;
+
+}
+
+ScreenPanelGL::~ScreenPanelGL()
+{
+    makeCurrent();
+
+    OSD::DeInit(this);
+
+    glDeleteTextures(1, &screenTexture);
+
+    glDeleteVertexArrays(1, &screenVertexArray);
+    glDeleteBuffers(1, &screenVertexBuffer);
+
+    delete screenShader;
+
+    doneCurrent();
+}
+
+void ScreenPanelGL::setupScreenLayout()
+{
+    int w = width();
+    int h = height();
+
+    screenSetupLayout(w, h);
+}
+
+void ScreenPanelGL::initializeGL()
+{
+    initializeOpenGLFunctions();
+
+    const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
+    const GLubyte* version = glGetString(GL_VERSION); // version as a string
+    printf("OpenGL: renderer: %s\n", renderer);
+    printf("OpenGL: version: %s\n", version);
+
+    glClearColor(0, 0, 0, 1);
+
+    screenShader = new QOpenGLShaderProgram(this);
+    screenShader->addShaderFromSourceCode(QOpenGLShader::Vertex, kScreenVS);
+    screenShader->addShaderFromSourceCode(QOpenGLShader::Fragment, kScreenFS);
+
+    GLuint pid = screenShader->programId();
+    glBindAttribLocation(pid, 0, "vPosition");
+    glBindAttribLocation(pid, 1, "vTexcoord");
+    glBindFragDataLocation(pid, 0, "oColor");
+
+    screenShader->link();
+
+    screenShader->bind();
+    screenShader->setUniformValue("ScreenTex", (GLint)0);
+    screenShader->release();
+
+
+    float vertices[] =
+    {
+        0,   0,    0, 0,
+        0,   192,  0, 0.5,
+        256, 192,  1, 0.5,
+        0,   0,    0, 0,
+        256, 192,  1, 0.5,
+        256, 0,    1, 0,
+
+        0,   0,    0, 0.5,
+        0,   192,  0, 1,
+        256, 192,  1, 1,
+        0,   0,    0, 0.5,
+        256, 192,  1, 1,
+        256, 0,    1, 0.5
+    };
+
+    glGenBuffers(1, &screenVertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &screenVertexArray);
+    glBindVertexArray(screenVertexArray);
+    glEnableVertexAttribArray(0); // position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(0));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4*4, (void*)(2*4));
+
+    glGenTextures(1, &screenTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, screenTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    OSD::Init(this);
+}
+
+void ScreenPanelGL::paintGL()
+{
+    int w = width();
+    int h = height();
+    float factor = devicePixelRatioF();
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(0, 0, w*factor, h*factor);
+
+    screenShader->bind();
+
+    screenShader->setUniformValue("uScreenSize", (float)w*factor, (float)h*factor);
+
+    int frontbuf = GPU::FrontBuffer;
+    glActiveTexture(GL_TEXTURE0);
+
+    if (GPU::Renderer != 0)
+    {
+        // hardware-accelerated render
+        GPU::GLCompositor::BindOutputTexture();
+    }
+    else
+    {
+        // regular render
+        glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
+                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+        }
+    }
+
+    GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+    glBindVertexArray(screenVertexArray);
+
+    GLint transloc = screenShader->uniformLocation("uTransform");
+
+    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[0]);
+    glDrawArrays(GL_TRIANGLES, 0, 2*3);
+
+    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[1]);
+    glDrawArrays(GL_TRIANGLES, 2*3, 2*3);
+
+    screenShader->release();
+
+    OSD::Update(this);
+    OSD::DrawGL(this, w*factor, h*factor);
+}
+
+void ScreenPanelGL::resizeEvent(QResizeEvent* event)
+{
+    setupScreenLayout();
+
+    QOpenGLWidget::resizeEvent(event);
+}
+
+void ScreenPanelGL::resizeGL(int w, int h)
+{
+}
+
+void ScreenPanelGL::mousePressEvent(QMouseEvent* event)
+{
+    screenOnMousePress(event);
+}
+
+void ScreenPanelGL::mouseReleaseEvent(QMouseEvent* event)
+{
+    screenOnMouseRelease(event);
+}
+
+void ScreenPanelGL::mouseMoveEvent(QMouseEvent* event)
+{
+    screenOnMouseMove(event);
+}
+
+void ScreenPanelGL::onScreenLayoutChanged()
+{
+    setMinimumSize(screenGetMinSize());
+    setupScreenLayout();
 }
 
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
     setWindowTitle("melonDS " MELONDS_VERSION);
+    setAttribute(Qt::WA_DeleteOnClose);
+    setAcceptDrops(true);
 
     QMenuBar* menubar = new QMenuBar();
     {
@@ -470,9 +1002,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             for (int i = 1; i < 9; i++)
             {
-                char title[16];
-                sprintf(title, "%d", i);
-                actSaveState[i] = submenu->addAction(title);
+                actSaveState[i] = submenu->addAction(QString("%1").arg(i));
                 actSaveState[i]->setShortcut(QKeySequence(Qt::ShiftModifier | (Qt::Key_F1+i-1)));
                 actSaveState[i]->setData(QVariant(i));
                 connect(actSaveState[i], &QAction::triggered, this, &MainWindow::onSaveState);
@@ -488,9 +1018,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             for (int i = 1; i < 9; i++)
             {
-                char title[16];
-                sprintf(title, "%d", i);
-                actLoadState[i] = submenu->addAction(title);
+                actLoadState[i] = submenu->addAction(QString("%1").arg(i));
                 actLoadState[i]->setShortcut(QKeySequence(Qt::Key_F1+i-1));
                 actLoadState[i]->setData(QVariant(i));
                 connect(actLoadState[i], &QAction::triggered, this, &MainWindow::onLoadState);
@@ -524,37 +1052,372 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
     }
+    {
+        QMenu* menu = menubar->addMenu("Config");
+
+        actEmuSettings = menu->addAction("Emu settings");
+        connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+
+        actInputConfig = menu->addAction("Input and hotkeys");
+        connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
+
+        actVideoSettings = menu->addAction("Video settings");
+        connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
+
+        actAudioSettings = menu->addAction("Audio settings");
+        connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
+
+        actWifiSettings = menu->addAction("Wifi settings");
+        connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+
+        {
+            QMenu* submenu = menu->addMenu("Savestate settings");
+
+            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
+            actSavestateSRAMReloc->setCheckable(true);
+            connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
+        }
+
+        menu->addSeparator();
+
+        {
+            QMenu* submenu = menu->addMenu("Screen size");
+
+            for (int i = 0; i < 4; i++)
+            {
+                int data = i+1;
+                actScreenSize[i] = submenu->addAction(QString("%1x").arg(data));
+                actScreenSize[i]->setData(QVariant(data));
+                connect(actScreenSize[i], &QAction::triggered, this, &MainWindow::onChangeScreenSize);
+            }
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen rotation");
+            grpScreenRotation = new QActionGroup(submenu);
+
+            for (int i = 0; i < 4; i++)
+            {
+                int data = i*90;
+                actScreenRotation[i] = submenu->addAction(QString("%1°").arg(data));
+                actScreenRotation[i]->setActionGroup(grpScreenRotation);
+                actScreenRotation[i]->setData(QVariant(i));
+                actScreenRotation[i]->setCheckable(true);
+            }
+
+            connect(grpScreenRotation, &QActionGroup::triggered, this, &MainWindow::onChangeScreenRotation);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen gap");
+            grpScreenGap = new QActionGroup(submenu);
+
+            const int screengap[] = {0, 1, 8, 64, 90, 128};
+
+            for (int i = 0; i < 6; i++)
+            {
+                int data = screengap[i];
+                actScreenGap[i] = submenu->addAction(QString("%1 px").arg(data));
+                actScreenGap[i]->setActionGroup(grpScreenGap);
+                actScreenGap[i]->setData(QVariant(data));
+                actScreenGap[i]->setCheckable(true);
+            }
+
+            connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen layout");
+            grpScreenLayout = new QActionGroup(submenu);
+
+            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal"};
+
+            for (int i = 0; i < 3; i++)
+            {
+                actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
+                actScreenLayout[i]->setActionGroup(grpScreenLayout);
+                actScreenLayout[i]->setData(QVariant(i));
+                actScreenLayout[i]->setCheckable(true);
+            }
+
+            connect(grpScreenLayout, &QActionGroup::triggered, this, &MainWindow::onChangeScreenLayout);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Screen sizing");
+            grpScreenSizing = new QActionGroup(submenu);
+
+            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto"};
+
+            for (int i = 0; i < 4; i++)
+            {
+                actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
+                actScreenSizing[i]->setActionGroup(grpScreenSizing);
+                actScreenSizing[i]->setData(QVariant(i));
+                actScreenSizing[i]->setCheckable(true);
+            }
+
+            connect(grpScreenSizing, &QActionGroup::triggered, this, &MainWindow::onChangeScreenSizing);
+
+            submenu->addSeparator();
+
+            actIntegerScaling = submenu->addAction("Force integer scaling");
+            actIntegerScaling->setCheckable(true);
+            connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
+        }
+
+        actScreenFiltering = menu->addAction("Screen filtering");
+        actScreenFiltering->setCheckable(true);
+        connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
+
+        actShowOSD = menu->addAction("Show OSD");
+        actShowOSD->setCheckable(true);
+        connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
+
+        menu->addSeparator();
+
+        actLimitFramerate = menu->addAction("Limit framerate");
+        actLimitFramerate->setCheckable(true);
+        connect(actLimitFramerate, &QAction::triggered, this, &MainWindow::onChangeLimitFramerate);
+
+        actAudioSync = menu->addAction("Audio sync");
+        actAudioSync->setCheckable(true);
+        connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
+    }
     setMenuBar(menubar);
 
-    panel = new MainWindowPanel(this);
-    setCentralWidget(panel);
-    panel->setMinimumSize(256, 384);
+    resize(Config::WindowWidth, Config::WindowHeight);
+
+    show();
+    createScreenPanel();
+
+    for (int i = 0; i < 9; i++)
+    {
+        actSaveState[i]->setEnabled(false);
+        actLoadState[i]->setEnabled(false);
+    }
+    actUndoStateLoad->setEnabled(false);
+
+    actPause->setEnabled(false);
+    actReset->setEnabled(false);
+    actStop->setEnabled(false);
+
+
+    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
+
+    actScreenRotation[Config::ScreenRotation]->setChecked(true);
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (actScreenGap[i]->data().toInt() == Config::ScreenGap)
+        {
+            actScreenGap[i]->setChecked(true);
+            break;
+        }
+    }
+
+    actScreenLayout[Config::ScreenLayout]->setChecked(true);
+    actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    actIntegerScaling->setChecked(Config::IntegerScaling != 0);
+
+    actScreenFiltering->setChecked(Config::ScreenFilter != 0);
+    actShowOSD->setChecked(Config::ShowOSD != 0);
+
+    actLimitFramerate->setChecked(Config::LimitFPS != 0);
+    actAudioSync->setChecked(Config::AudioSync != 0);
 }
 
 MainWindow::~MainWindow()
 {
 }
 
+void MainWindow::createScreenPanel()
+{
+    hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+
+    if (hasOGL)
+    {
+        ScreenPanelGL* panelGL = new ScreenPanelGL(this);
+        panelGL->show();
+
+        if (!panelGL->isValid())
+            hasOGL = false;
+        else
+        {
+            QSurfaceFormat fmt = panelGL->format();
+            if (fmt.majorVersion() < 3 || (fmt.majorVersion() == 3 && fmt.minorVersion() < 2))
+                hasOGL = false;
+        }
+
+        if (!hasOGL)
+            delete panelGL;
+        else
+            panel = panelGL;
+    }
+
+    if (!hasOGL)
+    {
+        panel = new ScreenPanelNative(this);
+        panel->show();
+    }
+
+    setCentralWidget(panel);
+    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
+    emit screenLayoutChange();
+}
+
+QOpenGLContext* MainWindow::getOGLContext()
+{
+    if (!hasOGL) return nullptr;
+
+    QOpenGLWidget* glpanel = (QOpenGLWidget*)panel;
+    return glpanel->context();
+}
+
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    int w = event->size().width();
+    int h = event->size().height();
+
+    Config::WindowWidth = w;
+    Config::WindowHeight = h;
+
+    // TODO: detect when the window gets maximized!
+}
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
 {
-    printf("key press. %d %d %08X %08X\n", event->key(), event->nativeScanCode(), event->modifiers(), event->nativeModifiers());
+    if (event->isAutoRepeat()) return;
+
+    Input::KeyPress(event);
+}
+
+void MainWindow::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->isAutoRepeat()) return;
+
+    Input::KeyRelease(event);
+}
+
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event)
+{
+    if (!event->mimeData()->hasUrls()) return;
+
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.count() > 1) return; // not handling more than one file at once
+
+    QString filename = urls.at(0).toLocalFile();
+    QString ext = filename.right(3);
+
+    if (ext == "nds" || ext == "srl" || (ext == "gba" && RunningSomething))
+        event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent* event)
+{
+    if (!event->mimeData()->hasUrls()) return;
+
+    QList<QUrl> urls = event->mimeData()->urls();
+    if (urls.count() > 1) return; // not handling more than one file at once
+
+    emuThread->emuPause();
+
+    QString filename = urls.at(0).toLocalFile();
+    QString ext = filename.right(3);
+
+    char _filename[1024];
+    strncpy(_filename, filename.toStdString().c_str(), 1023); _filename[1023] = '\0';
+
+    int slot; int res;
+    if (ext == "gba")
+    {
+        slot = 1;
+        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
+    }
+    else
+    {
+        slot = 0;
+        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+    }
+
+    if (res != Frontend::Load_OK)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
+        emuThread->emuUnpause();
+    }
+    else if (slot == 1)
+    {
+        // checkme
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        emuThread->emuRun();
+    }
+}
+
+
+QString MainWindow::loadErrorStr(int error)
+{
+    switch (error)
+    {
+    case Frontend::Load_BIOS9Missing:
+        return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_BIOS9Bad:
+        return "DS ARM9 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_BIOS7Missing:
+        return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_BIOS7Bad:
+        return "DS ARM7 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_FirmwareMissing:
+        return "DS firmware was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_FirmwareBad:
+        return "DS firmware is not a valid firmware dump.";
+    case Frontend::Load_FirmwareNotBootable:
+        return "DS firmware is not bootable.";
+
+    case Frontend::Load_DSiBIOS9Missing:
+        return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiBIOS9Bad:
+        return "DSi ARM9 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_DSiBIOS7Missing:
+        return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiBIOS7Bad:
+        return "DSi ARM7 BIOS is not a valid BIOS dump.";
+
+    case Frontend::Load_DSiNANDMissing:
+        return "DSi NAND was not found or could not be accessed. Check your emu settings.";
+    case Frontend::Load_DSiNANDBad:
+        return "DSi NAND is not a valid NAND dump.";
+
+    case Frontend::Load_ROMLoadError:
+        return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
+
+    default: return "Unknown error during launch; smack Arisotura.";
+    }
 }
 
 
 void MainWindow::onOpenFile()
 {
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
         return;
     }
+
+    // TODO: validate the input file!!
+    // * check that it is a proper ROM
+    // * ensure the binary offsets are sane
+    // * etc
 
     // this shit is stupid
     char file[1024];
@@ -566,7 +1429,7 @@ void MainWindow::onOpenFile()
     Config::LastROMFolder[pos] = '\0';
     char* ext = &file[strlen(file)-3];
 
-    int slot; bool res;
+    int slot; int res;
     if (!strcasecmp(ext, "gba"))
     {
         slot = 1;
@@ -578,11 +1441,11 @@ void MainWindow::onOpenFile()
         res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
     }
 
-    if (!res)
+    if (res != Frontend::Load_OK)
     {
         QMessageBox::critical(this,
                               "melonDS",
-                              "Failed to load the ROM.\n\nMake sure the file is accessible and isn't used by another application.");
+                              loadErrorStr(res));
         emuThread->emuUnpause();
     }
     else if (slot == 1)
@@ -598,16 +1461,16 @@ void MainWindow::onOpenFile()
 
 void MainWindow::onBootFirmware()
 {
-    // TODO: ensure the firmware is actually bootable!!
     // TODO: check the whole GBA cart shito
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
-    bool res = Frontend::LoadBIOS();
-    if (!res)
+    int res = Frontend::LoadBIOS();
+    if (res != Frontend::Load_OK)
     {
-        // TODO!
-
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
         emuThread->emuUnpause();
     }
     else
@@ -620,7 +1483,7 @@ void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     char filename[1024];
     if (slot > 0)
@@ -645,13 +1508,16 @@ void MainWindow::onSaveState()
 
     if (Frontend::SaveState(filename))
     {
-        // TODO: OSD message
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
+        else          sprintf(msg, "State saved to file");
+        OSD::AddMessage(0, msg);
 
         actLoadState[slot]->setEnabled(true);
     }
     else
     {
-        // TODO: OSD error message?
+        OSD::AddMessage(0xFFA0A0, "State save failed");
     }
 
     emuThread->emuUnpause();
@@ -661,7 +1527,7 @@ void MainWindow::onLoadState()
 {
     int slot = ((QAction*)sender())->data().toInt();
 
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
     char filename[1024];
     if (slot > 0)
@@ -686,10 +1552,10 @@ void MainWindow::onLoadState()
 
     if (!Platform::FileExists(filename))
     {
-        /*char msg[64];
+        char msg[64];
         if (slot > 0) sprintf(msg, "State slot %d is empty", slot);
         else          sprintf(msg, "State file does not exist");
-        OSD::AddMessage(0xFFA0A0, msg);*/
+        OSD::AddMessage(0xFFA0A0, msg);
 
         emuThread->emuUnpause();
         return;
@@ -697,11 +1563,14 @@ void MainWindow::onLoadState()
 
     if (Frontend::LoadState(filename))
     {
-        // TODO: OSD message
+        char msg[64];
+        if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
+        else          sprintf(msg, "State loaded from file");
+        OSD::AddMessage(0, msg);
     }
     else
     {
-        // TODO: OSD error message?
+        OSD::AddMessage(0xFFA0A0, "State load failed");
     }
 
     emuThread->emuUnpause();
@@ -709,9 +1578,11 @@ void MainWindow::onLoadState()
 
 void MainWindow::onUndoStateLoad()
 {
-    emuThread->emuPause(true);
+    emuThread->emuPause();
     Frontend::UndoStateLoad();
     emuThread->emuUnpause();
+
+    OSD::AddMessage(0, "State load undone");
 }
 
 void MainWindow::onQuit()
@@ -722,24 +1593,220 @@ void MainWindow::onQuit()
 
 void MainWindow::onPause(bool checked)
 {
-    if (emuThread->emuIsRunning())
+    if (!RunningSomething) return;
+
+    if (checked)
     {
-        emuThread->emuPause(true);
+        emuThread->emuPause();
+        OSD::AddMessage(0, "Paused");
     }
     else
     {
         emuThread->emuUnpause();
+        OSD::AddMessage(0, "Resumed");
     }
 }
 
 void MainWindow::onReset()
 {
-    //
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+
+    actUndoStateLoad->setEnabled(false);
+
+    int res = Frontend::Reset();
+    if (res != Frontend::Load_OK)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        OSD::AddMessage(0, "Reset");
+        emuThread->emuRun();
+    }
 }
 
 void MainWindow::onStop()
 {
-    //
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+    NDS::Stop();
+}
+
+
+void MainWindow::onOpenEmuSettings()
+{
+    EmuSettingsDialog::openDlg(this);
+}
+
+void MainWindow::onOpenInputConfig()
+{
+    emuThread->emuPause();
+
+    InputConfigDialog* dlg = InputConfigDialog::openDlg(this);
+    connect(dlg, &InputConfigDialog::finished, this, &MainWindow::onInputConfigFinished);
+}
+
+void MainWindow::onInputConfigFinished(int res)
+{
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onOpenVideoSettings()
+{
+    VideoSettingsDialog* dlg = VideoSettingsDialog::openDlg(this);
+    connect(dlg, &VideoSettingsDialog::updateVideoSettings, this, &MainWindow::onUpdateVideoSettings);
+}
+
+void MainWindow::onOpenAudioSettings()
+{
+    AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
+    connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
+}
+
+void MainWindow::onAudioSettingsFinished(int res)
+{
+    if (Config::MicInputType == 3)
+    {
+        micLoadWav(Config::MicWavPath);
+        Frontend::Mic_SetExternalBuffer(micWavBuffer, micWavLength);
+    }
+    else
+    {
+        delete[] micWavBuffer;
+        micWavBuffer = nullptr;
+
+        if (Config::MicInputType == 1)
+            Frontend::Mic_SetExternalBuffer(micExtBuffer, sizeof(micExtBuffer)/sizeof(s16));
+        else
+            Frontend::Mic_SetExternalBuffer(NULL, 0);
+    }
+}
+
+void MainWindow::onOpenWifiSettings()
+{
+    WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
+    connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
+}
+
+void MainWindow::onWifiSettingsFinished(int res)
+{
+    emuThread->emuPause();
+
+    if (Wifi::MPInited)
+    {
+        Platform::MP_DeInit();
+        Platform::MP_Init();
+    }
+
+    Platform::LAN_DeInit();
+    Platform::LAN_Init();
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onChangeSavestateSRAMReloc(bool checked)
+{
+    Config::SavestateRelocSRAM = checked?1:0;
+}
+
+void MainWindow::onChangeScreenSize()
+{
+    int factor = ((QAction*)sender())->data().toInt();
+
+    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
+    int gap = Config::ScreenGap;
+
+    int w = 256*factor;
+    int h = 192*factor;
+
+    QSize diff = size() - panel->size();
+
+    if (Config::ScreenLayout == 0) // natural
+    {
+        if (isHori)
+            resize(QSize(h+gap+h, w) + diff);
+        else
+            resize(QSize(w, h+gap+h) + diff);
+    }
+    else if (Config::ScreenLayout == 1) // vertical
+    {
+        if (isHori)
+            resize(QSize(h, w+gap+w) + diff);
+        else
+            resize(QSize(w, h+gap+h) + diff);
+    }
+    else // horizontal
+    {
+        if (isHori)
+            resize(QSize(h+gap+h, w) + diff);
+        else
+            resize(QSize(w+gap+w, h) + diff);
+    }
+}
+
+void MainWindow::onChangeScreenRotation(QAction* act)
+{
+    int rot = act->data().toInt();
+    Config::ScreenRotation = rot;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenGap(QAction* act)
+{
+    int gap = act->data().toInt();
+    Config::ScreenGap = gap;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenLayout(QAction* act)
+{
+    int layout = act->data().toInt();
+    Config::ScreenLayout = layout;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenSizing(QAction* act)
+{
+    int sizing = act->data().toInt();
+    Config::ScreenSizing = sizing;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeIntegerScaling(bool checked)
+{
+    Config::IntegerScaling = checked?1:0;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenFiltering(bool checked)
+{
+    Config::ScreenFilter = checked?1:0;
+}
+
+void MainWindow::onChangeShowOSD(bool checked)
+{
+    Config::ShowOSD = checked?1:0;
+}
+
+void MainWindow::onChangeLimitFramerate(bool checked)
+{
+    Config::LimitFPS = checked?1:0;
+}
+
+void MainWindow::onChangeAudioSync(bool checked)
+{
+    Config::AudioSync = checked?1:0;
 }
 
 
@@ -757,7 +1824,7 @@ void MainWindow::onEmuStart()
     }
     actSaveState[0]->setEnabled(true);
     actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(true);
+    actUndoStateLoad->setEnabled(false);
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
@@ -767,6 +1834,8 @@ void MainWindow::onEmuStart()
 
 void MainWindow::onEmuStop()
 {
+    emuThread->emuPause();
+
     for (int i = 0; i < 9; i++)
     {
         actSaveState[i]->setEnabled(false);
@@ -779,15 +1848,38 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
 }
 
-void MainWindow::onEmuPause()
+void MainWindow::onUpdateVideoSettings(bool glchange)
 {
-    //
+    if (glchange)
+    {
+        emuThread->emuPause();
+
+        if (hasOGL) emuThread->deinitOpenGL();
+        delete panel;
+        createScreenPanel();
+        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
+        if (hasOGL) emuThread->initOpenGL();
+    }
+
+    videoSettingsDirty = true;
+
+    if (glchange)
+        emuThread->emuUnpause();
 }
 
-void MainWindow::onEmuUnpause()
+
+void emuStop()
 {
-    //
+    RunningSomething = false;
+
+    Frontend::UnloadROM(Frontend::ROMSlot_NDS);
+    Frontend::UnloadROM(Frontend::ROMSlot_GBA);
+
+    emit emuThread->windowEmuStop();
+
+    OSD::AddMessage(0xFFC040, "Shutdown");
 }
+
 
 
 int main(int argc, char** argv)
@@ -797,40 +1889,10 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
-#if defined(__WIN32__) || defined(UNIX_PORTABLE)
-    if (argc > 0 && strlen(argv[0]) > 0)
-    {
-        int len = strlen(argv[0]);
-        while (len > 0)
-        {
-            if (argv[0][len] == '/') break;
-            if (argv[0][len] == '\\') break;
-            len--;
-        }
-        if (len > 0)
-        {
-            EmuDirectory = new char[len+1];
-            strncpy(EmuDirectory, argv[0], len);
-            EmuDirectory[len] = '\0';
-        }
-        else
-        {
-            EmuDirectory = new char[2];
-            strcpy(EmuDirectory, ".");
-        }
-    }
-    else
-    {
-        EmuDirectory = new char[2];
-        strcpy(EmuDirectory, ".");
-    }
-#else
-	QString confdir = QStandardPaths::writableLocation(QStandardPaths::ConfigLocation) + "/melonDS";
-	EmuDirectory = new char[confdir.length() + 1];
-	strcat(EmuDirectory, confdir.toStdString().c_str());
-#endif
+    Platform::Init(argc, argv);
 
     QApplication melon(argc, argv);
+    melon.setWindowIcon(QIcon(":/melon-icon"));
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -849,107 +1911,26 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-    //if      (Config::AudioVolume < 0)   Config::AudioVolume = 0;
-    //else if (Config::AudioVolume > 256) Config::AudioVolume = 256;
+#define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+    SANITIZE(Config::ConsoleType, 0, 1);
+    SANITIZE(Config::_3DRenderer, 0, 1);
+    SANITIZE(Config::ScreenVSyncInterval, 1, 20);
+    SANITIZE(Config::GL_ScaleFactor, 1, 16);
+    SANITIZE(Config::AudioVolume, 0, 256);
+    SANITIZE(Config::MicInputType, 0, 3);
+    SANITIZE(Config::ScreenRotation, 0, 3);
+    SANITIZE(Config::ScreenGap, 0, 500);
+    SANITIZE(Config::ScreenLayout, 0, 2);
+    SANITIZE(Config::ScreenSizing, 0, 3);
+#undef SANITIZE
 
-    // TODO: those should be checked before running anything
-    // (as to let the user specify their own BIOS/firmware path etc)
-#if 0
-    if (!Platform::LocalFileExists("bios7.bin") ||
-        !Platform::LocalFileExists("bios9.bin") ||
-        !Platform::LocalFileExists("firmware.bin"))
-    {
-#if defined(__WIN32__) || defined(UNIX_PORTABLE)
-		const char* locationName = "the directory you run melonDS from";
-#else
-		char* locationName = EmuDirectory;
-#endif
-		char msgboxtext[512];
-		sprintf(msgboxtext,
-            "One or more of the following required files don't exist or couldn't be accessed:\n\n"
-            "bios7.bin -- ARM7 BIOS\n"
-            "bios9.bin -- ARM9 BIOS\n"
-            "firmware.bin -- firmware image\n\n"
-            "Dump the files from your DS and place them in %s.\n"
-            "Make sure that the files can be accessed.",
-			locationName
-		);
-
-        uiMsgBoxError(NULL, "BIOS/Firmware not found", msgboxtext);
-
-        uiUninit();
-        SDL_Quit();
-        return 0;
-    }
-    if (!Platform::LocalFileExists("firmware.bin.bak"))
-    {
-        // verify the firmware
-        //
-        // there are dumps of an old hacked firmware floating around on the internet
-        // and those are problematic
-        // the hack predates WFC, and, due to this, any game that alters the WFC
-        // access point data will brick that firmware due to it having critical
-        // data in the same area. it has the same problem on hardware.
-        //
-        // but this should help stop users from reporting that issue over and over
-        // again, when the issue is not from melonDS but from their firmware dump.
-        //
-        // I don't know about all the firmware hacks in existence, but the one I
-        // looked at has 0x180 bytes from the header repeated at 0x3FC80, but
-        // bytes 0x0C-0x14 are different.
-
-        FILE* f = Platform::OpenLocalFile("firmware.bin", "rb");
-        u8 chk1[0x180], chk2[0x180];
-
-        fseek(f, 0, SEEK_SET);
-        fread(chk1, 1, 0x180, f);
-        fseek(f, -0x380, SEEK_END);
-        fread(chk2, 1, 0x180, f);
-
-        memset(&chk1[0x0C], 0, 8);
-        memset(&chk2[0x0C], 0, 8);
-
-        fclose(f);
-
-        if (!memcmp(chk1, chk2, 0x180))
-        {
-            uiMsgBoxError(NULL,
-                          "Problematic firmware dump",
-                          "You are using an old hacked firmware dump.\n"
-                          "Firmware boot will stop working if you run any game that alters WFC settings.\n\n"
-                          "Note that the issue is not from melonDS, it would also happen on an actual DS.");
-        }
-    }
-    {
-        const char* romlist_missing = "Save memory type detection will not work correctly.\n\n"
-            "You should use the latest version of romlist.bin (provided in melonDS release packages).";
-#if !defined(UNIX_PORTABLE) && !defined(__WIN32__)
-        std::string missingstr = std::string(romlist_missing) +
-            "\n\nThe ROM list should be placed in " + g_get_user_data_dir() + "/melonds/, otherwise "
-            "melonDS will search for it in the current working directory.";
-        const char* romlist_missing_text = missingstr.c_str();
-#else
-        const char* romlist_missing_text = romlist_missing;
-#endif
-
-        FILE* f = Platform::OpenDataFile("romlist.bin");
-        if (f)
-        {
-            u32 data;
-            fread(&data, 4, 1, f);
-            fclose(f);
-
-            if ((data >> 24) == 0) // old CRC-based list
-            {
-                uiMsgBoxError(NULL, "Your version of romlist.bin is outdated.", romlist_missing_text);
-            }
-        }
-        else
-        {
-        	uiMsgBoxError(NULL, "romlist.bin not found.", romlist_missing_text);
-        }
-    }
-#endif
+    QSurfaceFormat format;
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    format.setVersion(3, 2);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    format.setSwapInterval(0);
+    QSurfaceFormat::setDefaultFormat(format);
 
     audioSync = SDL_CreateCond();
     audioSyncLock = SDL_CreateMutex();
@@ -974,17 +1955,49 @@ int main(int argc, char** argv)
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 44100;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 1;
+    whatIwant.samples = 1024;
+    whatIwant.callback = micCallback;
+    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!micDevice)
+    {
+        printf("Mic init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(micDevice, 1);
+    }
+
+
+    memset(micExtBuffer, 0, sizeof(micExtBuffer));
+    micExtBufferWritePos = 0;
+    micWavBuffer = nullptr;
+
     Frontend::Init_ROM();
     Frontend::Init_Audio(audioFreq);
 
+    if (Config::MicInputType == 1)
+    {
+        Frontend::Mic_SetExternalBuffer(micExtBuffer, sizeof(micExtBuffer)/sizeof(s16));
+    }
+    else if (Config::MicInputType == 3)
+    {
+        micLoadWav(Config::MicWavPath);
+        Frontend::Mic_SetExternalBuffer(micWavBuffer, micWavLength);
+    }
+
+    Input::JoystickID = Config::JoystickID;
+    Input::OpenJoystick();
+
     mainWindow = new MainWindow();
-    mainWindow->show();
 
     emuThread = new EmuThread();
     emuThread->start();
-    emuThread->emuPause(true);
+    emuThread->emuPause();
 
-    #if 0
     if (argc > 1)
     {
         char* file = argv[1];
@@ -992,51 +2005,46 @@ int main(int argc, char** argv)
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
         {
-            strncpy(ROMPath[0], file, 1023);
-            ROMPath[0][1023] = '\0';
+            int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
 
-            //SetupSRAMPath(0);
-
-            //if (NDS::LoadROM(ROMPath[0], SRAMPath[0], Config::DirectBoot))
-            //    Run();
-        }
-
-        if (argc > 2)
-        {
-            file = argv[2];
-            ext = &file[strlen(file)-3];
-
-            if (!strcasecmp(ext, "gba"))
+            if (res == Frontend::Load_OK)
             {
-                strncpy(ROMPath[1], file, 1023);
-                ROMPath[1][1023] = '\0';
+                if (argc > 2)
+                {
+                    file = argv[2];
+                    ext = &file[strlen(file)-3];
 
-                //SetupSRAMPath(1);
+                    if (!strcasecmp(ext, "gba"))
+                    {
+                        Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+                    }
+                }
 
-                //NDS::LoadGBAROM(ROMPath[1], SRAMPath[1]);
+                emuThread->emuRun();
             }
         }
     }
-    #endif
 
     int ret = melon.exec();
 
     emuThread->emuStop();
     emuThread->wait();
+    delete emuThread;
 
-    //if (Joystick) SDL_JoystickClose(Joystick);
+    Input::CloseJoystick();
+
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
-    //if (MicDevice)   SDL_CloseAudioDevice(MicDevice);
+    if (micDevice)   SDL_CloseAudioDevice(micDevice);
 
     SDL_DestroyCond(audioSync);
     SDL_DestroyMutex(audioSyncLock);
 
-    //if (MicWavBuffer) delete[] MicWavBuffer;
+    if (micWavBuffer) delete[] micWavBuffer;
 
     Config::Save();
 
     SDL_Quit();
-    delete[] EmuDirectory;
+    Platform::DeInit();
     return ret;
 }
 

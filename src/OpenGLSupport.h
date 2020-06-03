@@ -21,6 +21,8 @@
 
 #include <stdio.h>
 #include <string.h>
+
+// TODO: different includes for each platform
 #include <GL/gl.h>
 #include <GL/glext.h>
 
@@ -45,17 +47,17 @@
 
 
 // if you need more OpenGL functions, add them to the macronator here
-// TODO: handle conditionally loading certain functions for different GL versions
 
-#ifndef __WIN32__
 
-#define DO_PROCLIST_1_3(func)
-
-#else
+#ifdef __WIN32__
 
 #define DO_PROCLIST_1_3(func) \
     func(GLACTIVETEXTURE, glActiveTexture); \
     func(GLBLENDCOLOR, glBlendColor); \
+
+#else
+
+#define DO_PROCLIST_1_3(func)
 
 #endif
 
@@ -112,6 +114,11 @@
     func(GLGETUNIFORMLOCATION, glGetUniformLocation); \
     func(GLGETUNIFORMBLOCKINDEX, glGetUniformBlockIndex); \
      \
+    func(GLFENCESYNC, glFenceSync); \
+    func(GLDELETESYNC, glDeleteSync); \
+    func(GLWAITSYNC, glWaitSync); \
+    func(GLCLIENTWAITSYNC, glClientWaitSync); \
+     \
     func(GLDRAWBUFFERS, glDrawBuffers); \
      \
     func(GLBLENDFUNCSEPARATE, glBlendFuncSeparate); \
@@ -122,14 +129,18 @@
     func(GLGETSTRINGI, glGetStringi); \
 
 
+namespace OpenGL
+{
+
 DO_PROCLIST(DECLPROC_EXT);
 
+bool Init();
 
-bool OpenGL_Init();
+bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name);
+bool LinkShaderProgram(GLuint* ids);
+void DeleteShaderProgram(GLuint* ids);
+void UseShaderProgram(GLuint* ids);
 
-bool OpenGL_BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name);
-bool OpenGL_LinkShaderProgram(GLuint* ids);
-void OpenGL_DeleteShaderProgram(GLuint* ids);
-void OpenGL_UseShaderProgram(GLuint* ids);
+}
 
 #endif // OPENGLSUPPORT_H

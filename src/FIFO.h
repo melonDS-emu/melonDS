@@ -89,6 +89,15 @@ public:
         return Entries[ReadPos];
     }
 
+    T Peek(u32 offset)
+    {
+        u32 pos = ReadPos + offset;
+        if (pos >= NumEntries)
+            pos -= NumEntries;
+
+        return Entries[pos];
+    }
+
     u32 Level() { return NumOccupied; }
     bool IsEmpty() { return NumOccupied == 0; }
     bool IsFull() { return NumOccupied >= NumEntries; }

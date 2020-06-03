@@ -10,23 +10,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 project(melonDS)
 
-if(NOT CMAKE_BUILD_TYPE)
+if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if (CMAKE_BUILD_TYPE STREQUAL Release)
-	option(ENABLE_LTO "Enable link-time optimization" ON)
-else()
-	option(ENABLE_LTO "Enable link-time optimization" OFF)
+if (CMAKE_BUILD_TYPE STREQUAL Debug)
+	add_compile_options(-Og)
 endif()
 
-if(ENABLE_LTO)
-	add_compile_options(-O3 -flto)
-	set(CMAKE_AR "gcc-ar")
-	set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_C_ARCHIVE_FINISH   true)
-	set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_CXX_ARCHIVE_FINISH   true)
+if (CMAKE_BUILD_TYPE STREQUAL Release)
+	add_compile_options(-O3)
+	add_link_options(-s)
 endif()
 
 add_compile_options(-fno-pic)
@@ -34,12 +28,12 @@ add_link_options(-no-pie)
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
+if (WIN32)
+	option(BUILD_STATIC "Statically link dependencies" OFF)
+endif()
+
 add_subdirectory(src)
 
 if (BUILD_QT_SDL)
 	add_subdirectory(src/frontend/qt_sdl)
 endif()
-
-configure_file(
-	${CMAKE_SOURCE_DIR}/romlist.bin
-	${CMAKE_BINARY_DIR}/romlist.bin COPYONLY)

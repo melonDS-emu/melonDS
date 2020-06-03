@@ -29,6 +29,8 @@ namespace GPU3D
 namespace GLRenderer
 {
 
+using namespace OpenGL;
+
 // GL version requirements
 // * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
 // * UBO: 3.1
@@ -142,7 +144,7 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
     strcpy(&fsbuf[headerlen], kRenderFSCommon);
     strcpy(&fsbuf[headerlen + fsclen], fs);
 
-    bool ret = OpenGL_BuildShaderProgram(vsbuf, fsbuf, RenderShader[flags], shadername);
+    bool ret = OpenGL::BuildShaderProgram(vsbuf, fsbuf, RenderShader[flags], shadername);
 
     delete[] vsbuf;
     delete[] fsbuf;
@@ -158,7 +160,7 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
     glBindFragDataLocation(prog, 0, "oColor");
     glBindFragDataLocation(prog, 1, "oAttr");
 
-    if (!OpenGL_LinkShaderProgram(RenderShader[flags]))
+    if (!OpenGL::LinkShaderProgram(RenderShader[flags]))
         return false;
 
     GLint uni_id = glGetUniformBlockIndex(prog, "uConfig");
@@ -197,19 +199,18 @@ bool Init()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
-
     glDepthRange(0, 1);
     glClearDepth(1.0);
 
 
-    if (!OpenGL_BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
+    if (!OpenGL::BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
 
     glBindAttribLocation(ClearShaderPlain[2], 0, "vPosition");
     glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
     glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
 
-    if (!OpenGL_LinkShaderProgram(ClearShaderPlain))
+    if (!OpenGL::LinkShaderProgram(ClearShaderPlain))
         return false;
 
     ClearUniformLoc[0] = glGetUniformLocation(ClearShaderPlain[2], "uColor");
@@ -237,15 +238,15 @@ bool Init()
                            kRenderVS_W, kRenderFS_WSM)) return false;
 
 
-    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassEdgeFS, FinalPassEdgeShader, "FinalPassEdgeShader"))
+    if (!OpenGL::BuildShaderProgram(kFinalPassVS, kFinalPassEdgeFS, FinalPassEdgeShader, "FinalPassEdgeShader"))
         return false;
-    if (!OpenGL_BuildShaderProgram(kFinalPassVS, kFinalPassFogFS, FinalPassFogShader, "FinalPassFogShader"))
+    if (!OpenGL::BuildShaderProgram(kFinalPassVS, kFinalPassFogFS, FinalPassFogShader, "FinalPassFogShader"))
         return false;
 
     glBindAttribLocation(FinalPassEdgeShader[2], 0, "vPosition");
     glBindFragDataLocation(FinalPassEdgeShader[2], 0, "oColor");
 
-    if (!OpenGL_LinkShaderProgram(FinalPassEdgeShader))
+    if (!OpenGL::LinkShaderProgram(FinalPassEdgeShader))
         return false;
 
     uni_id = glGetUniformBlockIndex(FinalPassEdgeShader[2], "uConfig");
@@ -261,7 +262,7 @@ bool Init()
     glBindAttribLocation(FinalPassFogShader[2], 0, "vPosition");
     glBindFragDataLocation(FinalPassFogShader[2], 0, "oColor");
 
-    if (!OpenGL_LinkShaderProgram(FinalPassFogShader))
+    if (!OpenGL::LinkShaderProgram(FinalPassFogShader))
         return false;
 
     uni_id = glGetUniformBlockIndex(FinalPassFogShader[2], "uConfig");
@@ -392,7 +393,7 @@ void DeInit()
     for (int i = 0; i < 16; i++)
     {
         if (!RenderShader[i][2]) continue;
-        OpenGL_DeleteShaderProgram(RenderShader[i]);
+        OpenGL::DeleteShaderProgram(RenderShader[i]);
     }
 }
 
@@ -400,10 +401,10 @@ void Reset()
 {
 }
 
-void UpdateDisplaySettings()
+void SetRenderSettings(GPU::RenderSettings& settings)
 {
-    int scale = Config::GL_ScaleFactor;
-    bool antialias = false; //Config::GL_Antialias;
+    int scale = settings.GL_ScaleFactor;
+    bool antialias = false; // REMOVE ME!
 
     if (antialias) scale *= 2;
 
@@ -1224,7 +1225,7 @@ void RenderFrame()
         glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 

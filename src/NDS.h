@@ -42,6 +42,11 @@ enum
     Event_Div,
     Event_Sqrt,
 
+    // DSi
+    Event_DSi_SDMMCTransfer,
+    Event_DSi_SDIOTransfer,
+    Event_DSi_NWifi,
+
     Event_MAX
 };
 
@@ -74,12 +79,42 @@ enum
     IRQ_IPCSync,
     IRQ_IPCSendDone,
     IRQ_IPCRecv,
-    IRQ_CartSendDone,
-    IRQ_CartIREQMC,
+    IRQ_CartSendDone, // TODO: less misleading name
+    IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokémon Typing Adventure, BT controller)
     IRQ_GXFIFO,
     IRQ_LidOpen,
     IRQ_SPI,
-    IRQ_Wifi
+    IRQ_Wifi,
+
+    // DSi IRQs
+    IRQ_DSi_DSP = 24,
+    IRQ_DSi_Camera,
+    IRQ_DSi_Unk26,
+    IRQ_DSi_Unk27,
+    IRQ_DSi_NDMA0,
+    IRQ_DSi_NDMA1,
+    IRQ_DSi_NDMA2,
+    IRQ_DSi_NDMA3,
+};
+
+enum
+{
+    // DSi ARM7-side IE2/IF2
+    IRQ2_DSi_GPIO18_0 = 0,
+    IRQ2_DSi_GPIO18_1,
+    IRQ2_DSi_GPIO18_2,
+    IRQ2_DSi_Unused3,
+    IRQ2_DSi_GPIO33_0,
+    IRQ2_DSi_Headphone,
+    IRQ2_DSi_PowerButton,
+    IRQ2_DSi_GPIO33_3, // "sound enable input"
+    IRQ2_DSi_SDMMC,
+    IRQ2_DSi_SD_Data1,
+    IRQ2_DSi_SDIO,
+    IRQ2_DSi_SDIO_Data1,
+    IRQ2_DSi_AES,
+    IRQ2_DSi_I2C,
+    IRQ2_DSi_MicExt
 };
 
 typedef struct
@@ -98,6 +133,8 @@ typedef struct
 
 } MemRegion;
 
+extern int ConsoleType;
+
 extern u8 ARM9MemTimings[0x40000][4];
 extern u8 ARM7MemTimings[0x20000][4];
 
@@ -105,11 +142,14 @@ extern u64 ARM9Timestamp, ARM9Target;
 extern u64 ARM7Timestamp, ARM7Target;
 extern u32 ARM9ClockShift;
 
-// hax
 extern u32 IME[2];
 extern u32 IE[2];
 extern u32 IF[2];
+extern u32 IE2;
+extern u32 IF2;
 extern Timer Timers[8];
+
+extern u32 CPUStop;
 
 extern u16 PowerControl9;
 
@@ -119,10 +159,12 @@ extern u8 ROMSeed1[2*8];
 
 extern u8 ARM9BIOS[0x1000];
 extern u8 ARM7BIOS[0x4000];
+extern u16 ARM7BIOSProt;
 
-#define MAIN_RAM_SIZE 0x400000
+extern u8 MainRAM[0x1000000];
+extern u32 MainRAMMask;
 
-extern u8 MainRAM[MAIN_RAM_SIZE];
+extern u32 KeyInput;
 
 bool Init();
 void DeInit();
@@ -134,6 +176,9 @@ bool DoSavestate(Savestate* file);
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
 
+// 0=DS  1=DSi
+void SetConsoleType(int type);
+
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadGBAROM(const char* path, const char* sram);
 void LoadBIOS();
@@ -142,13 +187,12 @@ void RelocateSave(const char* path, bool write);
 
 u32 RunFrame();
 
-void PressKey(u32 key);
-void ReleaseKey(u32 key);
 void TouchScreen(u16 x, u16 y);
 void ReleaseScreen();
 
 void SetKeyMask(u32 mask);
 
+bool IsLidClosed();
 void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);
@@ -162,8 +206,11 @@ void Halt();
 
 void MapSharedWRAM(u8 val);
 
+void UpdateIRQ(u32 cpu);
 void SetIRQ(u32 cpu, u32 irq);
 void ClearIRQ(u32 cpu, u32 irq);
+void SetIRQ2(u32 irq);
+void ClearIRQ2(u32 irq);
 bool HaltInterrupted(u32 cpu);
 void StopCPU(u32 cpu, u32 mask);
 void ResumeCPU(u32 cpu, u32 mask);

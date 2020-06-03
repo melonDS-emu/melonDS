@@ -53,16 +53,24 @@ extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
 extern int ScreenSizing;
+extern int IntegerScaling;
 extern int ScreenFilter;
 
 extern int ScreenUseGL;
 extern int ScreenVSync;
-extern int ScreenRatio;
+extern int ScreenVSyncInterval;
+
+extern int _3DRenderer;
+extern int Threaded3D;
+
+extern int GL_ScaleFactor;
+extern int GL_Antialias;
 
 extern int LimitFPS;
 extern int AudioSync;
 extern int ShowOSD;
 
+extern int ConsoleType;
 extern int DirectBoot;
 
 extern int SocketBindAnyAddr;
@@ -73,9 +81,9 @@ extern int SavestateRelocSRAM;
 
 extern int AudioVolume;
 extern int MicInputType;
-extern char MicWavPath[512];
+extern char MicWavPath[1024];
 
-extern char LastROMFolder[512];
+extern char LastROMFolder[1024];
 
 }
 

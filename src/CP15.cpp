@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "ARM.h"
 
 
@@ -719,7 +720,7 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
     if (CodeMem.Mem) return *(u32*)&CodeMem.Mem[addr & CodeMem.Mask];
 
-    return NDS::ARM9Read32(addr);
+    return BusRead32(addr);
 }
 
 
@@ -738,7 +739,7 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         return;
     }
 
-    *val = NDS::ARM9Read8(addr);
+    *val = BusRead8(addr);
     DataCycles = MemTimings[addr >> 12][1];
 }
 
@@ -759,7 +760,7 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         return;
     }
 
-    *val = NDS::ARM9Read16(addr);
+    *val = BusRead16(addr);
     DataCycles = MemTimings[addr >> 12][1];
 }
 
@@ -780,7 +781,7 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         return;
     }
 
-    *val = NDS::ARM9Read32(addr);
+    *val = BusRead32(addr);
     DataCycles = MemTimings[addr >> 12][2];
 }
 
@@ -801,7 +802,7 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
         return;
     }
 
-    *val = NDS::ARM9Read32(addr);
+    *val = BusRead32(addr);
     DataCycles += MemTimings[addr >> 12][3];
 }
 
@@ -820,7 +821,7 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
         return;
     }
 
-    NDS::ARM9Write8(addr, val);
+    BusWrite8(addr, val);
     DataCycles = MemTimings[addr >> 12][1];
 }
 
@@ -841,7 +842,7 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
         return;
     }
 
-    NDS::ARM9Write16(addr, val);
+    BusWrite16(addr, val);
     DataCycles = MemTimings[addr >> 12][1];
 }
 
@@ -862,7 +863,7 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
         return;
     }
 
-    NDS::ARM9Write32(addr, val);
+    BusWrite32(addr, val);
     DataCycles = MemTimings[addr >> 12][2];
 }
 
@@ -883,7 +884,7 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
         return;
     }
 
-    NDS::ARM9Write32(addr, val);
+    BusWrite32(addr, val);
     DataCycles += MemTimings[addr >> 12][3];
 }
 
@@ -896,6 +897,6 @@ void ARMv5::GetCodeMemRegion(u32 addr, NDS::MemRegion* region)
         return;
     }*/
 
-    NDS::ARM9GetMemRegion(addr, false, &CodeMem);
+    GetMemRegion(addr, false, &CodeMem);
 }
 

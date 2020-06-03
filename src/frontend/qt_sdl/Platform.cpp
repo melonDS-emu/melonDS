@@ -27,8 +27,9 @@
 
 #include "Platform.h"
 #include "PlatformConfig.h"
-//#include "LAN_Socket.h"
-//#include "LAN_PCap.h"
+#include "LAN_Socket.h"
+#include "LAN_PCap.h"
+#include <string>
 
 #ifdef __WIN32__
 #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
@@ -56,9 +57,10 @@
 #endif
 
 
-extern char* EmuDirectory;
+char* EmuDirectory;
 
-void Stop(bool internal);
+void emuStop();
+void* oglGetProcAddress(const char* proc);
 
 
 namespace Platform
@@ -71,10 +73,56 @@ u8 PacketBuffer[2048];
 #define NIFI_VER 1
 
 
+void Init(int argc, char** argv)
+{
+#if defined(__WIN32__) || defined(UNIX_PORTABLE)
+    if (argc > 0 && strlen(argv[0]) > 0)
+    {
+        int len = strlen(argv[0]);
+        while (len > 0)
+        {
+            if (argv[0][len] == '/') break;
+            if (argv[0][len] == '\\') break;
+            len--;
+        }
+        if (len > 0)
+        {
+            EmuDirectory = new char[len+1];
+            strncpy(EmuDirectory, argv[0], len);
+            EmuDirectory[len] = '\0';
+        }
+        else
+        {
+            EmuDirectory = new char[2];
+            strcpy(EmuDirectory, ".");
+        }
+    }
+    else
+    {
+        EmuDirectory = new char[2];
+        strcpy(EmuDirectory, ".");
+    }
+#else
+    QString confdir;
+	QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+	config.mkdir("melonDS");
+	confdir = config.absolutePath() + "/melonDS/";
+	EmuDirectory = new char[confdir.length() + 1];
+	memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
+#endif
+}
+
+void DeInit()
+{
+    delete[] EmuDirectory;
+}
+
+
 void StopEmu()
 {
-	//Stop(true);
+    emuStop();
 }
+
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
@@ -200,30 +248,30 @@ void Semaphore_Post(void* sema)
 
 void* GL_GetProcAddress(const char* proc)
 {
-	return (void*) QOpenGLContext::globalShareContext()->getProcAddress(proc);
+    return oglGetProcAddress(proc);
 }
 
 
 bool MP_Init()
 {
-	int opt_true = 1;
-	int res;
+    int opt_true = 1;
+    int res;
 
 #ifdef __WIN32__
-	WSADATA wsadata;
-	if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
-	{
-		return false;
-	}
+    WSADATA wsadata;
+    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
+    {
+        return false;
+    }
 #endif // __WIN32__
 
-	MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (MPSocket < 0)
 	{
 		return false;
 	}
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*) &opt_true, sizeof(int));
+	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
 	if (res < 0)
 	{
 		closesocket(MPSocket);
@@ -233,8 +281,8 @@ bool MP_Init()
 
 	sockaddr_t saddr;
 	saddr.sa_family = AF_INET;
-	*(u32*) &saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
-	*(u16*) &saddr.sa_data[0] = htons(7064);
+	*(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
+	*(u16*)&saddr.sa_data[0] = htons(7064);
 	res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
 	if (res < 0)
 	{
@@ -243,7 +291,7 @@ bool MP_Init()
 		return false;
 	}
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*) &opt_true, sizeof(int));
+	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
 	if (res < 0)
 	{
 		closesocket(MPSocket);
@@ -252,50 +300,50 @@ bool MP_Init()
 	}
 
 	MPSendAddr.sa_family = AF_INET;
-	*(u32*) &MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
-	*(u16*) &MPSendAddr.sa_data[0] = htons(7064);
+	*(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
+	*(u16*)&MPSendAddr.sa_data[0] = htons(7064);
 
 	return true;
 }
 
 void MP_DeInit()
 {
-	if (MPSocket >= 0)
-		closesocket(MPSocket);
+    if (MPSocket >= 0)
+        closesocket(MPSocket);
 
 #ifdef __WIN32__
-	WSACleanup();
+    WSACleanup();
 #endif // __WIN32__
 }
 
 int MP_SendPacket(u8* data, int len)
 {
-	if (MPSocket < 0)
-		return 0;
+    if (MPSocket < 0)
+        return 0;
 
-	if (len > 2048 - 8)
-	{
-		printf("MP_SendPacket: error: packet too long (%d)\n", len);
-		return 0;
-	}
+    if (len > 2048-8)
+    {
+        printf("MP_SendPacket: error: packet too long (%d)\n", len);
+        return 0;
+    }
 
-	*(u32*) &PacketBuffer[0] = htonl(0x4946494E); // NIFI
-	PacketBuffer[4] = NIFI_VER;
-	PacketBuffer[5] = 0;
-	*(u16*) &PacketBuffer[6] = htons(len);
-	memcpy(&PacketBuffer[8], data, len);
+    *(u32*)&PacketBuffer[0] = htonl(0x4946494E); // NIFI
+    PacketBuffer[4] = NIFI_VER;
+    PacketBuffer[5] = 0;
+    *(u16*)&PacketBuffer[6] = htons(len);
+    memcpy(&PacketBuffer[8], data, len);
 
-	int slen = sendto(MPSocket, (const char*) PacketBuffer, len + 8, 0, &MPSendAddr, sizeof(sockaddr_t));
-	if (slen < 8) return 0;
-	return slen - 8;
+    int slen = sendto(MPSocket, (const char*)PacketBuffer, len+8, 0, &MPSendAddr, sizeof(sockaddr_t));
+    if (slen < 8) return 0;
+    return slen - 8;
 }
 
 int MP_RecvPacket(u8* data, bool block)
 {
-	if (MPSocket < 0)
-		return 0;
+    if (MPSocket < 0)
+        return 0;
 
-	fd_set fd;
+    fd_set fd;
 	struct timeval tv;
 
 	FD_ZERO(&fd);
@@ -303,83 +351,82 @@ int MP_RecvPacket(u8* data, bool block)
 	tv.tv_sec = 0;
 	tv.tv_usec = block ? 5000 : 0;
 
-	if (!select(MPSocket + 1, &fd, 0, 0, &tv))
-	{
-		return 0;
-	}
+	if (!select(MPSocket+1, &fd, 0, 0, &tv))
+    {
+        return 0;
+    }
 
-	sockaddr_t fromAddr;
-	socklen_t fromLen = sizeof(sockaddr_t);
-	int rlen = recvfrom(MPSocket, (char*) PacketBuffer, 2048, 0, &fromAddr, &fromLen);
-	if (rlen < 8 + 24)
-	{
-		return 0;
-	}
-	rlen -= 8;
+    sockaddr_t fromAddr;
+    socklen_t fromLen = sizeof(sockaddr_t);
+    int rlen = recvfrom(MPSocket, (char*)PacketBuffer, 2048, 0, &fromAddr, &fromLen);
+    if (rlen < 8+24)
+    {
+        return 0;
+    }
+    rlen -= 8;
 
-	if (ntohl(*(u32*) &PacketBuffer[0]) != 0x4946494E)
-	{
-		return 0;
-	}
+    if (ntohl(*(u32*)&PacketBuffer[0]) != 0x4946494E)
+    {
+        return 0;
+    }
 
-	if (PacketBuffer[4] != NIFI_VER)
-	{
-		return 0;
-	}
+    if (PacketBuffer[4] != NIFI_VER)
+    {
+        return 0;
+    }
 
-	if (ntohs(*(u16*) &PacketBuffer[6]) != rlen)
-	{
-		return 0;
-	}
+    if (ntohs(*(u16*)&PacketBuffer[6]) != rlen)
+    {
+        return 0;
+    }
 
-	memcpy(data, &PacketBuffer[8], rlen);
-	return rlen;
+    memcpy(data, &PacketBuffer[8], rlen);
+    return rlen;
 }
+
 
 
 bool LAN_Init()
 {
-	/*if (Config::DirectLAN)
-	{
-		if (!LAN_PCap::Init(true))
-			return false;
-	}
-	else
-	{
-		if (!LAN_Socket::Init())
-			return false;
-	}*/
+    if (Config::DirectLAN)
+    {
+        if (!LAN_PCap::Init(true))
+            return false;
+    }
+    else
+    {
+        if (!LAN_Socket::Init())
+            return false;
+    }
 
-	return true;
+    return true;
 }
 
 void LAN_DeInit()
 {
-	// checkme. blarg
-	//if (Config::DirectLAN)
-	//    LAN_PCap::DeInit();
-	//else
-	//    LAN_Socket::DeInit();
-	/*LAN_PCap::DeInit();
-	LAN_Socket::DeInit();*/
+    // checkme. blarg
+    //if (Config::DirectLAN)
+    //    LAN_PCap::DeInit();
+    //else
+    //    LAN_Socket::DeInit();
+    LAN_PCap::DeInit();
+    LAN_Socket::DeInit();
 }
 
 int LAN_SendPacket(u8* data, int len)
 {
-	/*if (Config::DirectLAN)
-		return LAN_PCap::SendPacket(data, len);
-	else
-		return LAN_Socket::SendPacket(data, len);*/
-	return 0;
+    if (Config::DirectLAN)
+        return LAN_PCap::SendPacket(data, len);
+    else
+        return LAN_Socket::SendPacket(data, len);
 }
 
 int LAN_RecvPacket(u8* data)
 {
-	/*if (Config::DirectLAN)
-		return LAN_PCap::RecvPacket(data);
-	else
-		return LAN_Socket::RecvPacket(data);*/
-	return 0;
+    if (Config::DirectLAN)
+        return LAN_PCap::RecvPacket(data);
+    else
+        return LAN_Socket::RecvPacket(data);
 }
 
 
