@@ -44,6 +44,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
@@ -52,6 +53,8 @@ if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
 else()
 	add_executable(melonDS ${SOURCES_QT_SDL})
 endif()
+
+target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
