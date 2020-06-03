@@ -133,7 +133,14 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 		return nullptr;
 	}
 
-	QIODevice::OpenMode qmode = mode[0] == 'w' ? QIODevice::ReadWrite : QIODevice::ReadOnly;
+	QIODevice::OpenMode qmode;
+	if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
+		qmode = QIODevice::OpenModeFlag::ReadWrite;
+	} else if (mode[0] == 'w') {
+		qmode = QIODevice::OpenModeFlag::Truncate;
+	} else {
+		qmode = QIODevice::OpenModeFlag::ReadOnly;
+	}
 
 	f.open(qmode);
 	FILE* file = fdopen(dup(f.handle()), mode);
@@ -165,37 +172,6 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 	}
 
 	return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
-}
-
-FILE* OpenDataFile(const char* path)
-{
-#ifdef PORTABLE
-	return OpenLocalFile(path);
-#else
-	QString melondir = "/melonDS/";
-	QStringList sys_dirs = QStandardPaths::standardLocations(QStandardPaths::DataLocation);
-	QString found = nullptr;
-
-	for (int i = 0; i < sys_dirs.size(); i++)
-	{
-		QString f = sys_dirs.at(i) + melondir + path;
-
-		if (QFile::exists(f))
-		{
-			found = f;
-			break;
-		}
-	}
-
-	if (found == nullptr)
-		return nullptr;
-
-	FILE* f = OpenFile(found.toUtf8(), "rb", false);
-	if (f)
-		return f;
-
-	return nullptr;
-#endif
 }
 
 void* Thread_Create(void (* func)())
