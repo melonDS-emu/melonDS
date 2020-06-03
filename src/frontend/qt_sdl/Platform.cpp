@@ -155,9 +155,10 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 
 FILE* OpenLocalFile(const char* path, const char* mode)
 {
+	QDir dir(path);
     QString fullpath;
 
-    if (path[0] == '/')
+    if (dir.isAbsolute())
     {
         // If it's an absolute path, just open that.
         fullpath = path;
@@ -165,7 +166,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     else
     {
 #ifdef PORTABLE
-        fullpath = QString("./") + path;
+        fullpath = path;
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
