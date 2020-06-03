@@ -137,9 +137,11 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 
     QIODevice::OpenMode qmode;
     if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
-        qmode = QIODevice::OpenModeFlag::ReadWrite;
-    } else if (mode[0] == 'w') {
-        qmode = QIODevice::OpenModeFlag::Truncate;
+		qmode = QIODevice::OpenModeFlag::ReadWrite;
+	} else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+') {
+    	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
+	} else if (mode[0] == 'w') {
+        qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::WriteOnly;
     } else {
         qmode = QIODevice::OpenModeFlag::ReadOnly;
     }
