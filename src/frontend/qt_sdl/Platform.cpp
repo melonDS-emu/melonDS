@@ -19,7 +19,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <SDL2/SDL.h>
+#include <QStandardPaths>
+#include <QDir>
+#include <QThread>
+#include <QSemaphore>
+#include <QOpenGLContext>
+
 #include "Platform.h"
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
@@ -27,25 +32,26 @@
 #include <string>
 
 #ifdef __WIN32__
-    #define NTDDI_VERSION		0x06000000 // GROSS FUCKING HACK
-    #include <windows.h>
-    //#include <knownfolders.h> // FUCK THAT SHIT
-    extern "C" const GUID DECLSPEC_SELECTANY FOLDERID_RoamingAppData = {0x3eb685db, 0x65f9, 0x4cf6, {0xa0, 0x3a, 0xe3, 0xef, 0x65, 0x72, 0x9f, 0x3d}};
-    #include <shlobj.h>
-	#include <winsock2.h>
-	#include <ws2tcpip.h>
-	#define socket_t    SOCKET
-	#define sockaddr_t  SOCKADDR
+#define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
+#include <windows.h>
+//#include <knownfolders.h> // FUCK THAT SHIT
+#include <shlobj.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <io.h>
+#define dup _dup
+#define socket_t    SOCKET
+#define sockaddr_t  SOCKADDR
 #else
-    #include <glib.h>
-	#include <unistd.h>
-	#include <arpa/inet.h>
-	#include <netinet/in.h>
-	#include <sys/select.h>
-	#include <sys/socket.h>
-	#define socket_t    int
-	#define sockaddr_t  struct sockaddr
-	#define closesocket close
+
+#include <unistd.h>
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+
+#define socket_t    int
+#define sockaddr_t  struct sockaddr
+#define closesocket close
 #endif
 
 #ifndef INVALID_SOCKET
@@ -61,22 +67,6 @@ void* oglGetProcAddress(const char* proc);
 
 namespace Platform
 {
-
-
-typedef struct
-{
-    SDL_Thread* ID;
-    void (*Func)();
-
-} ThreadData;
-
-int ThreadEntry(void* data)
-{
-    ThreadData* thread = (ThreadData*)data;
-    thread->Func();
-    return 0;
-}
-
 
 socket_t MPSocket;
 sockaddr_t MPSendAddr;
@@ -115,14 +105,12 @@ void Init(int argc, char** argv)
         strcpy(EmuDirectory, ".");
     }
 #else
-	const char* confdir = g_get_user_config_dir();
-	const char* confname = "/melonDS";
-	int cdlen = strlen(confdir);
-	int cnlen = strlen(confname);
-	EmuDirectory = new char[cdlen + cnlen + 1];
-	strncpy(&EmuDirectory[0], confdir, cdlen);
-	strncpy(&EmuDirectory[cdlen], confname, cnlen);
-	EmuDirectory[cdlen+cnlen] = '\0';
+    QString confdir;
+    QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
+    config.mkdir("melonDS");
+    confdir = config.absolutePath() + "/melonDS/";
+    EmuDirectory = new char[confdir.length() + 1];
+    memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
 #endif
 }
 
@@ -140,280 +128,102 @@ void StopEmu()
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
-    FILE* ret;
+    QFile f(path);
 
-#ifdef __WIN32__
-
-    int len = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-    if (len < 1) return NULL;
-    WCHAR* fatpath = new WCHAR[len];
-    int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, fatpath, len);
-    if (res != len) { delete[] fatpath; return NULL; } // checkme?
-
-    // this will be more than enough
-    WCHAR fatmode[4];
-    fatmode[0] = mode[0];
-    fatmode[1] = mode[1];
-    fatmode[2] = mode[2];
-    fatmode[3] = 0;
-
-    if (mustexist)
+    if (mustexist && !f.exists())
     {
-        ret = _wfopen(fatpath, L"rb");
-        if (ret) ret = _wfreopen(fatpath, fatmode, ret);
+        return nullptr;
     }
-    else
-        ret = _wfopen(fatpath, fatmode);
 
-    delete[] fatpath;
-
-#else
-
-    if (mustexist)
-    {
-        ret = fopen(path, "rb");
-        if (ret) ret = freopen(path, mode, ret);
+    QIODevice::OpenMode qmode;
+    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
+		qmode = QIODevice::OpenModeFlag::ReadWrite;
+	} else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+') {
+    	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
+	} else if (mode[0] == 'w') {
+        qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::WriteOnly;
+    } else {
+        qmode = QIODevice::OpenModeFlag::ReadOnly;
     }
-    else
-        ret = fopen(path, mode);
 
-#endif
+    f.open(qmode);
+    FILE* file = fdopen(dup(f.handle()), mode);
+    f.close();
 
-    return ret;
+    return file;
 }
-
-#if !defined(UNIX_PORTABLE) && !defined(__WIN32__)
 
 FILE* OpenLocalFile(const char* path, const char* mode)
 {
-    std::string fullpath;
-    if (path[0] == '/')
+	QDir dir(path);
+    QString fullpath;
+
+    if (dir.isAbsolute())
     {
         // If it's an absolute path, just open that.
-        fullpath = std::string(path);
+        fullpath = path;
     }
     else
     {
+#ifdef PORTABLE
+        fullpath = path;
+#else
         // Check user configuration directory
-        std::string confpath = std::string(g_get_user_config_dir()) + "/melonDS/";
-        g_mkdir_with_parents(confpath.c_str(), 0755);
-        fullpath = confpath + path;
-    }
-
-    return OpenFile(fullpath.c_str(), mode, mode[0] != 'w');
-}
-
-FILE* OpenDataFile(const char* path)
-{
-    const char* melondir = "melonDS";
-    const char* const* sys_dirs = g_get_system_data_dirs();
-    const char* user_dir = g_get_user_data_dir();
-
-    // First check the user's data directory
-    char* fullpath = g_build_path("/", user_dir, melondir, path, NULL);
-    if (access(fullpath, R_OK) == 0)
-    {
-        FILE* f = fopen(fullpath, "r");
-        g_free(fullpath);
-        return f;
-    }
-    free(fullpath);
-
-    // Then check the system data directories
-    for (size_t i = 0; sys_dirs[i] != NULL; i++)
-    {
-        const char* dir = sys_dirs[i];
-        char* fullpath = g_build_path("/", dir, melondir, path, NULL);
-
-        if (access(fullpath, R_OK) == 0)
-        {
-            FILE* f = fopen(fullpath, "r");
-            g_free(fullpath);
-            return f;
-        }
-        free(fullpath);
-    }
-
-	FILE* f = fopen(path, "rb");
-	if (f) return f;
-
-    return NULL;
-}
-
-#else
-
-FILE* OpenLocalFile(const char* path, const char* mode)
-{
-    bool relpath = false;
-    int pathlen = strlen(path);
-
-#ifdef __WIN32__
-    if (pathlen > 3)
-    {
-        if (path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
-            return OpenFile(path, mode);
-    }
-#else
-    if (pathlen > 1)
-    {
-        if (path[0] == '/')
-            return OpenFile(path, mode);
-    }
+        QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
+        config.mkdir("melonDS");
+        fullpath = config.absolutePath() + "/melonDS/";
+        fullpath.append(path);
 #endif
-
-    if (pathlen >= 3)
-    {
-        if (path[0] == '.' && path[1] == '.' && (path[2] == '/' || path[2] == '\\'))
-            relpath = true;
     }
 
-    int emudirlen = strlen(EmuDirectory);
-    char* emudirpath;
-    if (emudirlen)
-    {
-        int len = emudirlen + 1 + pathlen + 1;
-        emudirpath = new char[len];
-        strncpy(&emudirpath[0], EmuDirectory, emudirlen);
-        emudirpath[emudirlen] = '/';
-        strncpy(&emudirpath[emudirlen+1], path, pathlen);
-        emudirpath[emudirlen+1+pathlen] = '\0';
-    }
-    else
-    {
-        emudirpath = new char[pathlen+1];
-        strncpy(&emudirpath[0], path, pathlen);
-        emudirpath[pathlen] = '\0';
-    }
-
-    // Locations are application directory, and AppData/melonDS on Windows or XDG_CONFIG_HOME/melonDS on Linux
-
-    FILE* f;
-
-    // First check current working directory
-    f = OpenFile(path, mode, true);
-    if (f) { delete[] emudirpath; return f; }
-
-    // then emu directory
-    f = OpenFile(emudirpath, mode, true);
-    if (f) { delete[] emudirpath; return f; }
-
-#ifdef __WIN32__
-
-    // a path relative to AppData wouldn't make much sense
-    if (!relpath)
-    {
-        // Now check AppData
-        PWSTR appDataPath = NULL;
-        SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, NULL, &appDataPath);
-        if (!appDataPath)
-        {
-            delete[] emudirpath;
-            return NULL;
-        }
-
-        // this will be more than enough
-        WCHAR fatperm[4];
-        fatperm[0] = mode[0];
-        fatperm[1] = mode[1];
-        fatperm[2] = mode[2];
-        fatperm[3] = 0;
-
-        int fnlen = MultiByteToWideChar(CP_UTF8, 0, path, -1, NULL, 0);
-        if (fnlen < 1) { delete[] emudirpath; return NULL; }
-        WCHAR* wfileName = new WCHAR[fnlen];
-        int res = MultiByteToWideChar(CP_UTF8, 0, path, -1, wfileName, fnlen);
-        if (res != fnlen) { delete[] wfileName; delete[] emudirpath; return NULL; } // checkme?
-
-        const WCHAR* appdir = L"\\melonDS\\";
-
-        int pos = wcslen(appDataPath);
-        void* ptr = CoTaskMemRealloc(appDataPath, (pos+wcslen(appdir)+fnlen+1)*sizeof(WCHAR));
-        if (!ptr) { delete[] wfileName; delete[] emudirpath; return NULL; } // oh well
-        appDataPath = (PWSTR)ptr;
-
-        wcscpy(&appDataPath[pos], appdir); pos += wcslen(appdir);
-        wcscpy(&appDataPath[pos], wfileName);
-
-        f = _wfopen(appDataPath, L"rb");
-        if (f) f = _wfreopen(appDataPath, fatperm, f);
-        CoTaskMemFree(appDataPath);
-        delete[] wfileName;
-        if (f) { delete[] emudirpath; return f; }
-    }
-
-#else
-
-    if (!relpath)
-    {
-        // Now check XDG_CONFIG_HOME
-        // TODO: check for memory leak there
-        std::string fullpath = std::string(g_get_user_config_dir()) + "/melonDS/" + path;
-        f = OpenFile(fullpath.c_str(), mode, true);
-        if (f) { delete[] emudirpath; return f; }
-    }
-
-#endif
-
-    if (mode[0] != 'r')
-    {
-        f = OpenFile(emudirpath, mode);
-        if (f) { delete[] emudirpath; return f; }
-    }
-
-    delete[] emudirpath;
-    return NULL;
+    return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
 }
 
-FILE* OpenDataFile(const char* path)
+void* Thread_Create(void (* func)())
 {
-	return OpenLocalFile(path, "rb");
-}
-
-#endif
-
-
-void* Thread_Create(void (*func)())
-{
-    ThreadData* data = new ThreadData;
-    data->Func = func;
-    data->ID = SDL_CreateThread(ThreadEntry, "melonDS core thread", data);
-    return data;
+    QThread* t = QThread::create(func);
+    t->start();
+    return (void*) t;
 }
 
 void Thread_Free(void* thread)
 {
-    delete (ThreadData*)thread;
+    QThread* t = (QThread*) thread;
+    t->terminate();
+    delete t;
 }
 
 void Thread_Wait(void* thread)
 {
-    SDL_WaitThread((SDL_Thread*)((ThreadData*)thread)->ID, NULL);
+    ((QThread*) thread)->wait();
 }
 
 
 void* Semaphore_Create()
 {
-    return SDL_CreateSemaphore(0);
+    return new QSemaphore();
 }
 
 void Semaphore_Free(void* sema)
 {
-    SDL_DestroySemaphore((SDL_sem*)sema);
+    delete (QSemaphore*) sema;
 }
 
 void Semaphore_Reset(void* sema)
 {
-    while (SDL_SemTryWait((SDL_sem*)sema) == 0);
+    QSemaphore* s = (QSemaphore*) sema;
+
+    s->acquire(s->available());
 }
 
 void Semaphore_Wait(void* sema)
 {
-    SDL_SemWait((SDL_sem*)sema);
+    ((QSemaphore*) sema)->acquire();
 }
 
 void Semaphore_Post(void* sema)
 {
-    SDL_SemPost((SDL_sem*)sema);
+    ((QSemaphore*) sema)->release();
 }
 
 
@@ -437,44 +247,44 @@ bool MP_Init()
 #endif // __WIN32__
 
     MPSocket = socket(AF_INET, SOCK_DGRAM, 0);
-	if (MPSocket < 0)
-	{
-		return false;
-	}
+    if (MPSocket < 0)
+    {
+        return false;
+    }
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	sockaddr_t saddr;
-	saddr.sa_family = AF_INET;
-	*(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
-	*(u16*)&saddr.sa_data[0] = htons(7064);
-	res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    sockaddr_t saddr;
+    saddr.sa_family = AF_INET;
+    *(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
+    *(u16*)&saddr.sa_data[0] = htons(7064);
+    res = bind(MPSocket, &saddr, sizeof(sockaddr_t));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-	if (res < 0)
-	{
-		closesocket(MPSocket);
-		MPSocket = INVALID_SOCKET;
-		return false;
-	}
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
 
-	MPSendAddr.sa_family = AF_INET;
-	*(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
-	*(u16*)&MPSendAddr.sa_data[0] = htons(7064);
+    MPSendAddr.sa_family = AF_INET;
+    *(u32*)&MPSendAddr.sa_data[2] = htonl(INADDR_BROADCAST);
+    *(u16*)&MPSendAddr.sa_data[0] = htons(7064);
 
-	return true;
+    return true;
 }
 
 void MP_DeInit()
@@ -515,14 +325,14 @@ int MP_RecvPacket(u8* data, bool block)
         return 0;
 
     fd_set fd;
-	struct timeval tv;
+    struct timeval tv;
 
-	FD_ZERO(&fd);
-	FD_SET(MPSocket, &fd);
-	tv.tv_sec = 0;
-	tv.tv_usec = block ? 5000 : 0;
+    FD_ZERO(&fd);
+    FD_SET(MPSocket, &fd);
+    tv.tv_sec = 0;
+    tv.tv_usec = block ? 5000 : 0;
 
-	if (!select(MPSocket+1, &fd, 0, 0, &tv))
+    if (!select(MPSocket+1, &fd, 0, 0, &tv))
     {
         return 0;
     }
