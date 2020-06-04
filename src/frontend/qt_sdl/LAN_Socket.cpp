@@ -25,6 +25,8 @@
 #include "LAN_Socket.h"
 #include "../Config.h"
 
+#include <slirp/libslirp.h>
+
 #ifdef __WIN32__
 	#include <winsock2.h>
 	#include <ws2tcpip.h>
@@ -105,13 +107,58 @@ UDPSocket UDPSocketList[4];
 int UDPSocketID = 0;
 
 
+Slirp* Ctx;
+
+
+struct timespec { long tv_sec; long tv_nsec; };    //header part
+#define CLOCK_MONOTONIC 1312
+int clock_gettime(int, struct timespec *spec)      //C-file part
+{  __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
+   wintime      -=116444736000000000LL;  //1jan1601 to 1jan1970
+   spec->tv_sec  =wintime / 10000000LL;           //seconds
+   spec->tv_nsec =wintime % 10000000LL *100;      //nano-seconds
+   return 0;
+}
+
+
+ssize_t fart(const void *buf, size_t len, void *opaque)
+{
+    printf("slirp fart %d\n", len);
+}
+
+void fart_guest_error(const char *msg, void *opaque){printf("guesterror %s\n", msg);}
+/* Return the virtual clock value in nanoseconds */
+int64_t fart_clock_get_ns(void *opaque)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+/* Create a new timer with the given callback and opaque data */
+void *fart_timer_new(SlirpTimerCb cb, void *cb_opaque, void *opaque)
+{
+    printf("TIMER SHITO!!\n");return nullptr;
+}
+/* Remove and free a timer */
+void fart_timer_free(void *timer, void *opaque){printf("timerfree\n");}
+/* Modify a timer to expire at @expire_time */
+void fart_timer_mod(void *timer, int64_t expire_time, void *opaque){printf("timermod\n");}
+/* Register a fd for future polling */
+void fart_register_poll_fd(int fd, void *opaque){printf("registerpoll\n");}
+/* Unregister a fd */
+void fart_unregister_poll_fd(int fd, void *opaque){printf("unregisterpoll\n");}
+/* Kick the io-thread, to signal that new events may be processed */
+void fart_notify(void *opaque){printf("nofiy\n");}
+
+SlirpCb cb;
+
 bool Init()
 {
     // TODO: how to deal with cases where an adapter is unplugged or changes config??
     //if (PCapLib) return true;
 
     //Lib = NULL;
-    PacketLen = 0;
+    /*PacketLen = 0;
     RXNum = 0;
 
     IPv4ID = 1;
@@ -121,12 +168,40 @@ bool Init()
 
     UDPSocketID = 0;
 
+    return true;*/
+
+    SlirpConfig cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.version = 1;
+
+    cfg.in_enabled = true;
+    *(u32*)&cfg.vnetwork = kClientIP;
+    *(u32*)&cfg.vnetmask = 0xFFFFFF00;
+    *(u32*)&cfg.vhost = kServerIP;
+    cfg.vhostname = "melon";
+    //cfg.vdhcp_start.S_addr = kServerIP;
+
+
+    memset(&cb, 0, sizeof(cb));
+
+    cb.send_packet = fart;
+    cb.guest_error = fart_guest_error;
+    cb.clock_get_ns = fart_clock_get_ns;
+    cb.timer_new = fart_timer_new;
+    cb.timer_free = fart_timer_free;
+    cb.timer_mod = fart_timer_mod;
+    cb.register_poll_fd = fart_register_poll_fd;
+    cb.unregister_poll_fd = fart_unregister_poll_fd;
+    cb.notify = fart_notify;
+
+    Ctx = slirp_new(&cfg, &cb, nullptr);
+
     return true;
 }
 
 void DeInit()
 {
-    for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+    /*for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
     {
         TCPSocket* sock = &TCPSocketList[i];
         if (sock->Backend) closesocket(sock->Backend);
@@ -136,7 +211,9 @@ void DeInit()
     {
         UDPSocket* sock = &UDPSocketList[i];
         if (sock->Backend) closesocket(sock->Backend);
-    }
+    }*/
+
+    slirp_cleanup(Ctx);
 }
 
 
@@ -1041,13 +1118,17 @@ int SendPacket(u8* data, int len)
         return 0;
     }
 
-    HandlePacket(data, len);
+    u16 ethertype = ntohs(*(u16*)&data[0xC]);
+    printf("packet of type %04X\n", ethertype);
+
+    //HandlePacket(data, len);
+    slirp_input(Ctx, data, len);
     return len;
 }
 
 int RecvPacket(u8* data)
 {
-    int ret = 0;
+    /*int ret = 0;
     if (RXNum > 0)
     {
         memcpy(data, PacketBuffer, PacketLen);
@@ -1100,7 +1181,7 @@ int RecvPacket(u8* data)
                 printf("%02X ", recvbuf[k+j]);
             }
             printf("\n");
-        }*/
+        }*-/
 
         //recvlen = recv(sock->Backend, (char*)recvbuf, 1024, 0);
         //if (recvlen == 0) printf("it closed immediately after\n");
@@ -1137,8 +1218,9 @@ int RecvPacket(u8* data)
 
         printf("UDP: socket %d receiving %d bytes\n", i, recvlen);
         UDP_BuildIncomingFrame(sock, recvbuf, recvlen);
-    }
+    }*/
 
+    int ret = 0;
     return ret;
 }
 

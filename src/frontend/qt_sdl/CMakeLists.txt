@@ -88,14 +88,14 @@ if (UNIX)
 				--generate-header "${CMAKE_SOURCE_DIR}/melon_grc.xml")
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-		target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
+		target_link_libraries(melonDS dl slirp Qt5::Core Qt5::Gui Qt5::Widgets)
 	endif ()
 
 	target_sources(melonDS PUBLIC melon_grc.c)
 elseif (WIN32)
 	target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 	
-	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
+	target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32 slirp.dll)
 	if (BUILD_STATIC)
 		target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd)
 	else()
