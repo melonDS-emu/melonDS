@@ -25,6 +25,8 @@
 #include "LAN_Socket.h"
 #include "../Config.h"
 
+#include <list>
+
 #include <slirp/libslirp.h>
 
 #ifdef __WIN32__
@@ -109,48 +111,131 @@ int UDPSocketID = 0;
 
 Slirp* Ctx;
 
+const int FDListMax = 64;
+struct pollfd FDList[FDListMax];
+int FDListSize;
 
-struct timespec { long tv_sec; long tv_nsec; };    //header part
+
+#ifdef __WIN32__
+
+#define poll WSAPoll
+
+// https://stackoverflow.com/questions/5404277/porting-clock-gettime-to-windows
+
+struct timespec { long tv_sec; long tv_nsec; };
 #define CLOCK_MONOTONIC 1312
-int clock_gettime(int, struct timespec *spec)      //C-file part
-{  __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
-   wintime      -=116444736000000000LL;  //1jan1601 to 1jan1970
-   spec->tv_sec  =wintime / 10000000LL;           //seconds
-   spec->tv_nsec =wintime % 10000000LL *100;      //nano-seconds
-   return 0;
-}
 
-
-ssize_t fart(const void *buf, size_t len, void *opaque)
+int clock_gettime(int, struct timespec *spec)
 {
-    printf("slirp fart %d\n", len);
+    __int64 wintime;
+    GetSystemTimeAsFileTime((FILETIME*)&wintime);
+    wintime -=116444736000000000LL;                 //1jan1601 to 1jan1970
+    spec->tv_sec  = wintime / 10000000LL;           //seconds
+    spec->tv_nsec = wintime % 10000000LL * 100;     //nano-seconds
+    return 0;
 }
 
-void fart_guest_error(const char *msg, void *opaque){printf("guesterror %s\n", msg);}
-/* Return the virtual clock value in nanoseconds */
-int64_t fart_clock_get_ns(void *opaque)
+#endif // __WIN32__
+
+
+ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
+{
+    if (len > 2048)
+    {
+        printf("slirp: packet too big (%d)\n", len);
+        return 0;
+    }
+
+    printf("slirp: response packet of %d bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
+
+    PacketLen = len;
+    memcpy(PacketBuffer, buf, PacketLen);
+    RXNum = 1;
+
+    return len;
+}
+
+void SlirpCbGuestError(const char* msg, void* opaque)
+{
+    printf("SLIRP: error: %s\n", msg);
+}
+
+int64_t SlirpCbClockGetNS(void* opaque)
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
-/* Create a new timer with the given callback and opaque data */
-void *fart_timer_new(SlirpTimerCb cb, void *cb_opaque, void *opaque)
-{
-    printf("TIMER SHITO!!\n");return nullptr;
-}
-/* Remove and free a timer */
-void fart_timer_free(void *timer, void *opaque){printf("timerfree\n");}
-/* Modify a timer to expire at @expire_time */
-void fart_timer_mod(void *timer, int64_t expire_time, void *opaque){printf("timermod\n");}
-/* Register a fd for future polling */
-void fart_register_poll_fd(int fd, void *opaque){printf("registerpoll\n");}
-/* Unregister a fd */
-void fart_unregister_poll_fd(int fd, void *opaque){printf("unregisterpoll\n");}
-/* Kick the io-thread, to signal that new events may be processed */
-void fart_notify(void *opaque){printf("nofiy\n");}
 
-SlirpCb cb;
+void* SlirpCbTimerNew(SlirpTimerCb cb, void* cb_opaque, void* opaque)
+{
+    return nullptr;
+}
+
+void SlirpCbTimerFree(void* timer, void* opaque)
+{
+}
+
+void SlirpCbTimerMod(void* timer, int64_t expire_time, void* opaque)
+{
+}
+
+void SlirpCbRegisterPollFD(int fd, void* opaque)
+{
+    printf("Slirp: register poll FD %d\n", fd);
+
+    if (FDListSize >= FDListMax)
+    {
+        printf("!! SLIRP FD LIST FULL\n");
+        return;
+    }
+
+    for (int i = 0; i < FDListSize; i++)
+    {
+        if (FDList[i].fd == fd) return;
+    }
+
+    FDList[FDListSize].fd = fd;
+    FDListSize++;
+}
+
+void SlirpCbUnregisterPollFD(int fd, void* opaque)
+{
+    printf("Slirp: unregister poll FD %d\n", fd);
+
+    if (FDListSize < 1)
+    {
+        printf("!! SLIRP FD LIST EMPTY\n");
+        return;
+    }
+
+    for (int i = 0; i < FDListSize; i++)
+    {
+        if (FDList[i].fd == fd)
+        {
+            FDListSize--;
+            FDList[i] = FDList[FDListSize];
+        }
+    }
+}
+
+void SlirpCbNotify(void* opaque)
+{
+    //
+}
+
+SlirpCb cb =
+{
+    .send_packet = SlirpCbSendPacket,
+    .guest_error = SlirpCbGuestError,
+    .clock_get_ns = SlirpCbClockGetNS,
+    .timer_new = SlirpCbTimerNew,
+    .timer_free = SlirpCbTimerFree,
+    .timer_mod = SlirpCbTimerMod,
+    .register_poll_fd = SlirpCbRegisterPollFD,
+    .unregister_poll_fd = SlirpCbUnregisterPollFD,
+    .notify = SlirpCbNotify
+};
 
 bool Init()
 {
@@ -170,29 +255,21 @@ bool Init()
 
     return true;*/
 
+    FDListSize = 0;
+    memset(FDList, 0, sizeof(FDList));
+
     SlirpConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.version = 1;
 
     cfg.in_enabled = true;
-    *(u32*)&cfg.vnetwork = kClientIP;
-    *(u32*)&cfg.vnetmask = 0xFFFFFF00;
-    *(u32*)&cfg.vhost = kServerIP;
-    cfg.vhostname = "melon";
+    *(u32*)&cfg.vnetwork = htonl(kSubnet);
+    *(u32*)&cfg.vnetmask = htonl(0xFFFFFF00);
+    *(u32*)&cfg.vhost = htonl(kServerIP);
+    cfg.vhostname = "melonServer";
+    *(u32*)&cfg.vdhcp_start = htonl(kClientIP);
+    *(u32*)&cfg.vnameserver = htonl(kDNSIP);
     //cfg.vdhcp_start.S_addr = kServerIP;
-
-
-    memset(&cb, 0, sizeof(cb));
-
-    cb.send_packet = fart;
-    cb.guest_error = fart_guest_error;
-    cb.clock_get_ns = fart_clock_get_ns;
-    cb.timer_new = fart_timer_new;
-    cb.timer_free = fart_timer_free;
-    cb.timer_mod = fart_timer_mod;
-    cb.register_poll_fd = fart_register_poll_fd;
-    cb.unregister_poll_fd = fart_unregister_poll_fd;
-    cb.notify = fart_notify;
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
 
@@ -1121,14 +1198,130 @@ int SendPacket(u8* data, int len)
     u16 ethertype = ntohs(*(u16*)&data[0xC]);
     printf("packet of type %04X\n", ethertype);
 
+    if (ethertype == 0x0806)
+    {
+        u16 protocol = ntohs(*(u16*)&data[0x10]);
+        u16 op = ntohs(*(u16*)&data[0x14]);
+        u32 sourceip = ntohl(*(u32*)&data[0x26-4-6]);
+        u32 targetip = ntohl(*(u32*)&data[0x26]);
+        printf("ARP: protocol=%04X, op=%04X, source=%08X, target=%08X\n", protocol, op, sourceip, targetip);
+    }
+    else if (ethertype == 0x800)
+    {
+        u8 protocol = data[0x17];
+        if (protocol == 0x11) // UDP
+        {
+            u16 srcport = ntohs(*(u16*)&data[0x22]);
+            u16 dstport = ntohs(*(u16*)&data[0x24]);
+            if (srcport == 68 && dstport == 67) // DHCP
+            {
+                printf("LANMAGIC: DHCP packet\n");
+            }
+            else if (dstport == 53 && htonl(*(u32*)&data[0x1E]) == kDNSIP) // DNS
+            {
+                printf("LANMAGIC: DNS packet\n");
+                HandleDNSFrame(data, len);
+                return len;
+            }
+
+            printf("LANMAGIC: UDP packet %08X->%08X %d->%d\n", htonl(*(u32*)&data[0x1A]), htonl(*(u32*)&data[0x1E]), srcport, dstport);
+        }
+        else if (protocol == 0x06) // TCP
+        {
+            printf("LANMAGIC: TCP packet\n");
+
+            for (int i = 0; i < len; i++)
+            {
+                printf("%02X ", data[i]);
+                if ((i&0xF)==0xF) printf("\n");
+            }
+            printf("\n");
+        }
+        else
+            printf("LANMAGIC: unsupported IP protocol %02X\n", protocol);
+    }
+
     //HandlePacket(data, len);
     slirp_input(Ctx, data, len);
     return len;
 }
 
+int SlirpCbAddPoll(int fd, int events, void* opaque)
+{
+    int idx = -1;
+    for (int i = 0; i < FDListSize; i++)
+    {
+        if (FDList[i].fd == fd)
+        {
+            idx = i;
+            break;
+        }
+    }
+
+    if (idx == -1)
+    {
+        printf("SLIRP: ERROR! FD %d NOT REGISTERED\n", fd);
+        return -1;
+    }
+
+    //printf("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
+
+    u16 evt = 0;
+
+    if (events & SLIRP_POLL_IN) evt |= POLLIN;
+    if (events & SLIRP_POLL_OUT) evt |= POLLWRNORM;
+
+#ifndef __WIN32__
+    if (events & SLIRP_POLL_PRI) evt |= POLLPRI;
+    if (events & SLIRP_POLL_ERR) evt |= POLLERR;
+    if (events & SLIRP_POLL_HUP) evt |= POLLHUP;
+#endif // !__WIN32__
+
+    FDList[idx].events = evt;
+    return idx;
+}
+
+int SlirpCbGetREvents(int idx, void* opaque)
+{
+    if (idx < 0 || idx >= FDListSize)
+    {
+        printf("SLIRP: !! BAD FD INDEX %d (MAX %d)\n", idx, FDListSize);
+        return 0;
+    }
+
+    //printf("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
+
+    u16 evt = FDList[idx].revents;
+    int ret = 0;
+
+    if (evt & POLLIN) ret |= SLIRP_POLL_IN;
+    if (evt & POLLWRNORM) ret |= SLIRP_POLL_OUT;
+    if (evt & POLLPRI) ret |= SLIRP_POLL_PRI;
+    if (evt & POLLERR) ret |= SLIRP_POLL_ERR;
+    if (evt & POLLHUP) ret |= SLIRP_POLL_HUP;
+
+    return ret;
+}
+
 int RecvPacket(u8* data)
 {
-    /*int ret = 0;
+    int ret = 0;
+
+    if (FDListSize > 0)
+    {
+        u32 timeout = 0;
+        slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, nullptr);
+        int res = poll(FDList, FDListSize, timeout);
+        slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
+
+        /*struct pollfd derp = {0};;
+        derp.fd = FDList[0];
+        derp.events = POLLIN | POLLWRNORM;//POLLPRI | POLLIN | POLLWRNORM;
+        int res = poll(&derp, 1, 0);
+        if (res==SOCKET_ERROR) printf("fart: %d / %d\n", WSAGetLastError(), FDList[0]);
+        if(derp.revents) printf("derp: %04X\n", derp.revents);*/
+    }
+
     if (RXNum > 0)
     {
         memcpy(data, PacketBuffer, PacketLen);
@@ -1136,7 +1329,7 @@ int RecvPacket(u8* data)
         RXNum = 0;
     }
 
-    for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
+    /*for (int i = 0; i < (sizeof(TCPSocketList)/sizeof(TCPSocket)); i++)
     {
         TCPSocket* sock = &TCPSocketList[i];
         if (sock->Status != 1) continue;
@@ -1220,7 +1413,6 @@ int RecvPacket(u8* data)
         UDP_BuildIncomingFrame(sock, recvbuf, recvlen);
     }*/
 
-    int ret = 0;
     return ret;
 }
 
