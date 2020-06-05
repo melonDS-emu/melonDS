@@ -368,12 +368,12 @@ void HandleDNSFrame(u8* data, int len)
             while (p)
             {
                 struct sockaddr_in* addr = (struct sockaddr_in*)p->ai_addr;
-                /*printf(" -> %d.%d.%d.%d",
-                       addr->sin_addr.S_un.S_un_b.s_b1, addr->sin_addr.S_un.S_un_b.s_b2,
-                       addr->sin_addr.S_un.S_un_b.s_b3, addr->sin_addr.S_un.S_un_b.s_b4);*/
-
-                //addr_res = addr->sin_addr.S_un.S_addr;
                 addr_res = *(u32*)&addr->sin_addr;
+
+                printf(" -> %d.%d.%d.%d",
+                       addr_res & 0xFF, (addr_res >> 8) & 0xFF,
+                       (addr_res >> 16) & 0xFF, addr_res >> 24);
+
                 p = p->ai_next;
             }
         }
