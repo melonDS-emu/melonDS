@@ -1,4 +1,4 @@
-name: CMake Build (Ubuntu x86-64)
+name: CMake Build (Ubuntu aarch64)
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
       working-directory: ${{runner.workspace}}
       run: |
         sudo dpkg --add-architecture arm64 \
-        sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new" \
+        && sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new" \
         && sudo rm /etc/apt/sources.list \
         && sudo mv /etc/apt/sources.list{.new,} \
         && sudo apt-get update \
