@@ -242,12 +242,18 @@ void GPU2D::SetDisplaySettings(bool accel, u32 resMultiplier)
 {
     Accelerated = accel;
 
-    if (Accelerated) DrawPixel = DrawPixel_Accel;
-    else             DrawPixel = DrawPixel_Normal;
+    if (Accelerated)             DrawPixel = DrawPixel_Accel;
+    else if (resMultiplier == 1) DrawPixel = DrawPixel_Normal;
+    else                         DrawPixel = DrawPixel_Hires;
 
     u32 lineLength = GPU::BufferWidth * (accel ? 3 : (2 * resMultiplier));
     if (BGOBJLine) delete[] BGOBJLine;
     BGOBJLine = new u32[lineLength];
+
+    if (PixelIndexToNative) delete[] PixelIndexToNative;
+    PixelIndexToNative = new s32[lineLength];
+    for (int i = 0; i < lineLength; i++)
+        PixelIndexToNative[i] = (i % GPU::BufferWidth) / resMultiplier;
 }
 
 
@@ -758,11 +764,31 @@ void GPU2D::UpdateMosaicCounters(u32 line)
     }
 }
 
+template<bool hires>
+void GPU2D::Convert16BitLineTo32BitLine(u16* src, u32* dst)
+{
+    for (int i = 0; i < NATIVE_WIDTH; i++)
+    {
+        u16 color = src[i];
+        u8 r = (color & 0x001F) << 1;
+        u8 g = (color & 0x03E0) >> 4;
+        u8 b = (color & 0x7C00) >> 9;
+
+        for (int j = 0; j < GPU::ResMultiplier; j++)
+            dst[i*GPU::ResMultiplier+j] = r | (g << 8) | (b << 16);
+    }
+
+    if (hires)
+    {
+        for (int i = 1; i < GPU::ResMultiplier; i++)
+            memcpy(&dst[i * GPU::BufferWidth], dst, GPU::BufferWidth * sizeof(u32));
+    }
+}
 
 void GPU2D::DrawScanline(u32 line)
 {
-    int lineLength = GPU::BufferWidth * GPU::ResMultiplier;
-    int stride = Accelerated ? (256*3 + 1) : lineLength;
+    const int lineLength = GPU::BufferWidth * GPU::ResMultiplier;
+    const int stride = Accelerated ? (256*3 + 1) : lineLength;
     u32* dst = &Framebuffer[stride * line];
 
     int n3dline = line;
@@ -834,18 +860,10 @@ void GPU2D::DrawScanline(u32 line)
                 u16* vram = (u16*)GPU::VRAM[vrambank];
                 vram = &vram[line * NATIVE_WIDTH];
 
-                for (int i = 0; i < NATIVE_WIDTH; i++)
-                {
-                    u16 color = vram[i];
-                    u8 r = (color & 0x001F) << 1;
-                    u8 g = (color & 0x03E0) >> 4;
-                    u8 b = (color & 0x7C00) >> 9;
-
-                    for (int j = 0; j < GPU::ResMultiplier; j++)
-                        dst[i*GPU::ResMultiplier+j] = r | (g << 8) | (b << 16);
-                }
-                for (int i = 1; i < GPU::ResMultiplier; i++)
-                    memcpy(&dst[i * GPU::BufferWidth * sizeof(u32)], dst, GPU::BufferWidth * sizeof(u32));
+                if (GPU::ResMultiplier > 1)
+                    Convert16BitLineTo32BitLine<true>(vram, dst);
+                else
+                    Convert16BitLineTo32BitLine<false>(vram, dst);
             }
             else
             {
@@ -859,18 +877,10 @@ void GPU2D::DrawScanline(u32 line)
 
     case 3: // FIFO display
         {
-            for (int i = 0; i < NATIVE_WIDTH; i++)
-            {
-                u16 color = DispFIFOBuffer[i];
-                u8 r = (color & 0x001F) << 1;
-                u8 g = (color & 0x03E0) >> 4;
-                u8 b = (color & 0x7C00) >> 9;
-
-                for (int j = 0; j < GPU::ResMultiplier; j++)
-                    dst[i*GPU::ResMultiplier+j] = r | (g << 8) | (b << 16);
-            }
-            for (int i = 1; i < GPU::ResMultiplier; i++)
-                memcpy(&dst[i * GPU::BufferWidth * sizeof(u32)], dst, GPU::BufferWidth * sizeof(u32));
+            if (GPU::ResMultiplier > 1)
+                Convert16BitLineTo32BitLine<true>(DispFIFOBuffer, dst);
+            else
+                Convert16BitLineTo32BitLine<false>(DispFIFOBuffer, dst);
         }
         break;
     }
@@ -1509,7 +1519,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
             u32 val1 = BGOBJLine[i];
             u32 val2 = BGOBJLine[lineLength+i];
 
-            BGOBJLine[i] = ColorComposite((i % GPU::BufferWidth) / GPU::ResMultiplier, val1, val2);
+            BGOBJLine[i] = ColorComposite(PixelIndexToNative[i], val1, val2);
         }
     }
     else
@@ -1624,19 +1634,23 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
 void GPU2D::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
 {
-    u8 r = (color & 0x001F) << 1;
-    u8 g = (color & 0x03E0) >> 4;
-    u8 b = (color & 0x7C00) >> 9;
-    //g |= ((color & 0x8000) >> 15);
+    u32 color32 = ((color & 0x001F) << 1) | ((color & 0x03E0) << 4) | ((color & 0x7C00) << 7) | flag;
 
-    // This method is only ever called with dst pointing to BJOBJLine
-    int lineLength = GPU::BufferWidth * GPU::ResMultiplier;
+    *(dst+NATIVE_WIDTH) = *dst;
+    *dst = color32;
+}
+void GPU2D::DrawPixel_Hires(u32* dst, u16 color, u32 flag)
+{
+    u32 color32 = ((color & 0x001F) << 1) | ((color & 0x03E0) << 4) | ((color & 0x7C00) << 7) | flag;
+
+    // This method is only ever called with dst pointing to BGOBJLine
+    const int lineLength = GPU::BufferWidth * GPU::ResMultiplier;
     for (int y = 0; y < GPU::ResMultiplier; y++)
     {
         for (int x = 0; x < GPU::ResMultiplier; x++)
         {
             *(dst+lineLength) = *dst;
-            *dst = r | (g << 8) | (b << 16) | flag;
+            *dst = color32;
             dst++;
         }
         dst += GPU::BufferWidth - GPU::ResMultiplier;
@@ -1698,7 +1712,7 @@ void GPU2D::DrawBG_3D()
                 xoff++;
 
                 if ((c >> 24) == 0) continue;
-                if (!(WindowMask[(i % GPU::BufferWidth) / GPU::ResMultiplier] & 0x01)) continue;
+                if (!(WindowMask[PixelIndexToNative[i]] & 0x01)) continue;
 
                 BGOBJLine[i+lineLength] = BGOBJLine[i];
                 BGOBJLine[i] = c | 0x40000000;
