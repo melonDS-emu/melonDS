@@ -74,6 +74,7 @@ private:
 
     u32* BGOBJLine;
     u32* _3DLine;
+    s32* PixelIndexToNative;
 
     u8 WindowMask[256] __attribute__((aligned (8)));
     u32 OBJLine[256] __attribute__((aligned (8)));
@@ -140,12 +141,16 @@ private:
 
     void UpdateMosaicCounters(u32 line);
 
+    template<bool hires>
+    void Convert16BitLineTo32BitLine(u16* src, u32* dst);
+
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
     void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_Hires(u32* dst, u16 color, u32 flag);
     static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
     void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
