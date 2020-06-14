@@ -2030,9 +2030,9 @@ void ClearBuffers()
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
-        for (int y = 0; y < ScanlineWidth*GPU::BufferHeight; y+=ScanlineWidth)
+        for (int y = 0; y < ScanlineWidth*GPU::BufferHeight; y+=ScanlineWidth*GPU::ResMultiplier)
         {
-            for (int x = 0; x < GPU::BufferWidth; x++)
+            for (int x = 0; x < GPU::BufferWidth; x += GPU::ResMultiplier)
             {
                 u16 val2 = GPU::ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
                 u16 val3 = GPU::ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
@@ -2047,16 +2047,25 @@ void ClearBuffers()
                 u32 z = ((val3 & 0x7FFF) * 0x200) + 0x1FF;
 
                 u32 pixeladdr = FirstPixelOffset + y + x;
-                ColorBuffer[pixeladdr] = color;
-                DepthBuffer[pixeladdr] = z;
-                AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
+                for (int i = 0; i < GPU::ResMultiplier; i++)
+                {
+                    ColorBuffer[pixeladdr + i] = color;
+                    DepthBuffer[pixeladdr + i] = z;
+                    AttrBuffer[pixeladdr + i] = polyid | (val3 & 0x8000);
+                }
 
-                if ((x + 1) % ResMultiplier == 0)
-                    xoff++;
+                xoff++;
             }
 
-            if ((y + 1) % ResMultiplier == 0)
-                yoff++;
+            u32 pixeladdr = FirstPixelOffset + y;
+            for (int i = 1; i < GPU::ResMultiplier; i++)
+            {
+                memcpy(&ColorBuffer[pixeladdr + ScanlineWidth*i], &ColorBuffer[pixeladdr], GPU::BufferWidth * sizeof(u32));
+                memcpy(&DepthBuffer[pixeladdr + ScanlineWidth*i], &DepthBuffer[pixeladdr], GPU::BufferWidth * sizeof(u32));
+                memcpy(&AttrBuffer[pixeladdr + ScanlineWidth*i], &AttrBuffer[pixeladdr], GPU::BufferWidth * sizeof(u32));
+            }
+            
+            yoff++;
         }
     }
     else
@@ -2072,12 +2081,13 @@ void ClearBuffers()
 
         for (int y = 0; y < ScanlineWidth*GPU::BufferHeight; y+=ScanlineWidth)
         {
+            u32 pixeladdr = FirstPixelOffset + y;
             for (int x = 0; x < GPU::BufferWidth; x++)
             {
-                u32 pixeladdr = FirstPixelOffset + y + x;
                 ColorBuffer[pixeladdr] = color;
                 DepthBuffer[pixeladdr] = clearz;
                 AttrBuffer[pixeladdr] = polyid;
+                pixeladdr++;
             }
         }
     }
