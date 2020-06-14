@@ -271,6 +271,7 @@ u32 RenderNumPolygons;
 u32 FlushRequest;
 u32 FlushAttributes;
 
+void CalculatePolygonMetadata(Polygon* poly);
 
 bool Init()
 {
@@ -508,6 +509,9 @@ void DoSavestate(Savestate* file)
 
         file->VarArray(vtx->HiresPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
+
+        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ResMultiplier) >> HD_SHIFT;
+        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ResMultiplier) >> HD_SHIFT;
     }
 
     for(int i = 0; i < 2048*2; i++)
@@ -540,8 +544,11 @@ void DoSavestate(Savestate* file)
 
         file->Var32(&poly->NumVertices);
 
-        file->VarArray(poly->FinalZ, sizeof(s32)*10);
-        file->VarArray(poly->FinalW, sizeof(s32)*10);
+        if (!file->IsAtleastVersion(6, 1))
+        {
+            file->VarArray(poly->FinalZ, sizeof(s32)*10);
+            file->VarArray(poly->FinalW, sizeof(s32)*10);
+        }
         file->Var32((u32*)&poly->WBuffer);
 
         file->Var32(&poly->Attr);
@@ -559,27 +566,20 @@ void DoSavestate(Savestate* file)
         else
             poly->Type = 0;
 
-        file->Var32(&poly->VTop);
-        file->Var32(&poly->VBottom);
-        file->Var32((u32*)&poly->YTop);
-        file->Var32((u32*)&poly->YBottom);
-        file->Var32((u32*)&poly->XTop);
-        file->Var32((u32*)&poly->XBottom);
+        if (!file->IsAtleastVersion(6, 1))
+        {
+            file->Var32(&poly->VTop);
+            file->Var32(&poly->VBottom);
+            file->Var32((u32*)&poly->YTop);
+            file->Var32((u32*)&poly->YBottom);
+            file->Var32((u32*)&poly->XTop);
+            file->Var32((u32*)&poly->XBottom);
 
-        file->Var32(&poly->SortKey);
+            file->Var32(&poly->SortKey);
+        }
 
         if (!file->Saving)
-        {
-            poly->Degenerate = false;
-
-            for (int j = 0; j < poly->NumVertices; j++)
-            {
-                if (poly->Vertices[j]->Position[3] == 0)
-                    poly->Degenerate = true;
-            }
-
-            if (poly->YBottom > NATIVE_HEIGHT << HD_SHIFT) poly->Degenerate = true;
-        }
+            CalculatePolygonMetadata(poly);
     }
 
     if (file->IsAtleastVersion(6, 0))
@@ -1262,6 +1262,9 @@ void SubmitPolygon()
 
         vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;
         vtx->HiresPosition[1] = posY & (0x100 << HD_SHIFT) - 1;
+
+        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ResMultiplier) >> HD_SHIFT;
+        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ResMultiplier) >> HD_SHIFT;
     }
 
     // zero-dot W check:
@@ -1379,6 +1382,17 @@ void SubmitPolygon()
         if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
     }
 
+    poly->WBuffer = (FlushAttributes & 0x2);
+    CalculatePolygonMetadata(poly);
+
+    if (PolygonMode >= 2)
+        LastStripPolygon = poly;
+    else
+        LastStripPolygon = NULL;
+}
+
+void CalculatePolygonMetadata(Polygon* poly)
+{
     // determine bounds of the polygon
     // also determine the W shift and normalize W
     // normalization works both ways
@@ -1389,7 +1403,7 @@ void SubmitPolygon()
     s32 xtop = NATIVE_WIDTH << HD_SHIFT, xbot = 0;
     u32 wsize = 0;
 
-    for (int i = 0; i < nverts; i++)
+    for (int i = 0; i < poly->NumVertices; i++)
     {
         Vertex* vtx = poly->Vertices[i];
 
@@ -1414,17 +1428,16 @@ void SubmitPolygon()
     }
 
     poly->VTop = vtop; poly->VBottom = vbot;
-    poly->YTop = ytop; poly->YBottom = ybot;
-    poly->XTop = xtop; poly->XBottom = xbot;
+    poly->YTop = (ytop * GPU::ResMultiplier) >> HD_SHIFT; poly->YBottom = (ybot * GPU::ResMultiplier) >> HD_SHIFT;
+    poly->XTop = (xtop * GPU::ResMultiplier) >> HD_SHIFT; poly->XBottom = (xbot * GPU::ResMultiplier) >> HD_SHIFT;
 
     if (ybot > NATIVE_HEIGHT << HD_SHIFT) poly->Degenerate = true;
 
-    poly->SortKey = (ybot << 8 << HD_SHIFT) | ytop;
+    poly->SortKey = (poly->YBottom << 8 << HD_SHIFT) | poly->YTop;
     if (poly->Translucent) poly->SortKey |= 0x10000 << (HD_SHIFT * 2);
 
-    poly->WBuffer = (FlushAttributes & 0x2);
 
-    for (int i = 0; i < nverts; i++)
+    for (int i = 0; i < poly->NumVertices; i++)
     {
         Vertex* vtx = poly->Vertices[i];
         s32 w, wshifted;
@@ -1446,7 +1459,7 @@ void SubmitPolygon()
         }
 
         s32 z;
-        if (FlushAttributes & 0x2)
+        if (poly->WBuffer)
             z = wshifted;
         else if (vtx->Position[3])
             z = ((((s64)vtx->Position[2] * 0x4000) / vtx->Position[3]) + 0x3FFF) * 0x200;
@@ -1460,11 +1473,6 @@ void SubmitPolygon()
         poly->FinalZ[i] = z;
         poly->FinalW[i] = w;
     }
-
-    if (PolygonMode >= 2)
-        LastStripPolygon = poly;
-    else
-        LastStripPolygon = NULL;
 }
 
 void SubmitVertex()
@@ -2524,7 +2532,7 @@ bool YSort(Polygon* a, Polygon* b)
     // * upon equal bottom AND top Y, original ordering is used
     // the SortKey is calculated as to implement these rules
 
-    return (a->SortKey * ResMultiplier) >> HD_SHIFT < (b->SortKey * ResMultiplier) >> HD_SHIFT;
+    return a->SortKey < b->SortKey;
 }
 
 void VBlank()
