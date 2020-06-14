@@ -1046,8 +1046,7 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT
-        && rp->CurVL != polygon->VBottom)
+    while (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
     {
         rp->CurVL = rp->NextVL;
 
@@ -1065,11 +1064,8 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
         }
     }
 
-    s32 cx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-    s32 nx = (polygon->Vertices[rp->NextVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-    s32 cy = (polygon->Vertices[rp->CurVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-    s32 ny = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-    rp->XL = rp->SlopeL.Setup(cx, nx, cy, ny,
+    rp->XL = rp->SlopeL.Setup(polygon->Vertices[rp->CurVL]->FinalPosition[0], polygon->Vertices[rp->NextVL]->FinalPosition[0],
+                              polygon->Vertices[rp->CurVL]->FinalPosition[1], polygon->Vertices[rp->NextVL]->FinalPosition[1],
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
@@ -1077,8 +1073,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
-    while (y >= (polygon->Vertices[rp->NextVR]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT
-        && rp->CurVR != polygon->VBottom)
+    while (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
     {
         rp->CurVR = rp->NextVR;
 
@@ -1096,11 +1091,8 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
         }
     }
 
-    s32 cx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-    s32 nx = (polygon->Vertices[rp->NextVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-    s32 cy = (polygon->Vertices[rp->CurVR]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-    s32 ny = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-    rp->XR = rp->SlopeR.Setup(cx, nx, cy, ny,
+    rp->XR = rp->SlopeR.Setup(polygon->Vertices[rp->CurVR]->FinalPosition[0], polygon->Vertices[rp->NextVR]->FinalPosition[0],
+                              polygon->Vertices[rp->CurVR]->FinalPosition[1], polygon->Vertices[rp->NextVR]->FinalPosition[1],
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
@@ -1109,8 +1101,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     u32 nverts = polygon->NumVertices;
 
     u32 vtop = polygon->VTop, vbot = polygon->VBottom;
-    s32 ytop = (polygon->YTop * ResMultiplier) >> HD_SHIFT;
-    s32 ybot = (polygon->YBottom * ResMultiplier) >> HD_SHIFT;
+    s32 ytop = polygon->YTop, ybot = polygon->YBottom;
 
     rp->PolyData = polygon;
 
@@ -1138,23 +1129,18 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
         int i;
 
         i = 1;
-        s32 vx = (polygon->Vertices[i]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-        s32 vtopx = (polygon->Vertices[vtop]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-        s32 vbotx = (polygon->Vertices[vbot]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-        if (vx < vtopx) vtop = i;
-        if (vx > vbotx) vbot = i;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
 
         i = nverts - 1;
-        if (vx < vtopx) vtop = i;
-        if (vx > vbotx) vbot = i;
+        if (polygon->Vertices[i]->FinalPosition[0] < polygon->Vertices[vtop]->FinalPosition[0]) vtop = i;
+        if (polygon->Vertices[i]->FinalPosition[0] > polygon->Vertices[vbot]->FinalPosition[0]) vbot = i;
 
         rp->CurVL = vtop; rp->NextVL = vtop;
         rp->CurVR = vbot; rp->NextVR = vbot;
 
-        s32 lx = (polygon->Vertices[rp->CurVL]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-        s32 rx = (polygon->Vertices[rp->CurVR]->HiresPosition[0] * ResMultiplier) >> HD_SHIFT;
-        rp->XL = rp->SlopeL.SetupDummy(lx);
-        rp->XR = rp->SlopeR.SetupDummy(rx);
+        rp->XL = rp->SlopeL.SetupDummy(polygon->Vertices[rp->CurVL]->FinalPosition[0]);
+        rp->XR = rp->SlopeR.SetupDummy(polygon->Vertices[rp->CurVR]->FinalPosition[0]);
     }
     else
     {
@@ -1186,16 +1172,14 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 
     PrevIsShadowMask = true;
 
-    if ((polygon->YTop * ResMultiplier) >> HD_SHIFT != (polygon->YBottom * ResMultiplier) >> HD_SHIFT)
+    if (polygon->YTop != polygon->YBottom)
     {
-        s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-        if (y >= vy && rp->CurVL != polygon->VBottom)
+        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        vy = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-        if (y >= vy && rp->CurVR != polygon->VBottom)
+        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
         }
@@ -1265,8 +1249,8 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     // in wireframe mode, there are special rules for equal Z (TODO)
 
     int yedge = 0;
-    if (y == (polygon->YTop * ResMultiplier) >> HD_SHIFT)             yedge = 0x4;
-    else if (y == ((polygon->YBottom * ResMultiplier) >> HD_SHIFT) - 1) yedge = 0x8;
+    if (y == polygon->YTop)           yedge = 0x4;
+    else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
 
     s32 x = xstart;
@@ -1387,16 +1371,14 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
 
     PrevIsShadowMask = false;
 
-    if ((polygon->YTop * ResMultiplier) >> HD_SHIFT != (polygon->YBottom * ResMultiplier) >> HD_SHIFT)
+    if (polygon->YTop != polygon->YBottom)
     {
-        s32 vy = (polygon->Vertices[rp->NextVL]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-        if (y >= vy && rp->CurVL != polygon->VBottom)
+        if (y >= polygon->Vertices[rp->NextVL]->FinalPosition[1] && rp->CurVL != polygon->VBottom)
         {
             SetupPolygonLeftEdge(rp, y);
         }
 
-        vy = (polygon->Vertices[rp->NextVR]->HiresPosition[1] * ResMultiplier) >> HD_SHIFT;
-        if (y >= vy && rp->CurVR != polygon->VBottom)
+        if (y >= polygon->Vertices[rp->NextVR]->FinalPosition[1] && rp->CurVR != polygon->VBottom)
         {
             SetupPolygonRightEdge(rp, y);
         }
@@ -1496,8 +1478,8 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // in wireframe mode, there are special rules for equal Z (TODO)
 
     int yedge = 0;
-    if (y == (polygon->YTop * ResMultiplier) >> HD_SHIFT)               yedge = 0x4;
-    else if (y == ((polygon->YBottom * ResMultiplier) >> HD_SHIFT) - 1) yedge = 0x8;
+    if (y == polygon->YTop)           yedge = 0x4;
+    else if (y == polygon->YBottom-1) yedge = 0x8;
     int edge;
 
     s32 x = xstart;
@@ -1790,10 +1772,8 @@ void RenderScanline(s32 y, int npolys)
     {
         RendererPolygon* rp = &PolygonList[i];
         Polygon* polygon = rp->PolyData;
-        s32 ytop = (polygon->YTop * ResMultiplier) >> HD_SHIFT;
-        s32 ybot = (polygon->YBottom * ResMultiplier) >> HD_SHIFT;
 
-        if (y >= ytop && (y < ybot || (y == ytop && ybot == ytop)))
+        if (y >= polygon->YTop && (y < polygon->YBottom || (y == polygon->YTop && polygon->YBottom == polygon->YTop)))
         {
             if (polygon->IsShadowMask)
                 RenderShadowMaskScanline(rp, y);
@@ -2031,9 +2011,9 @@ void ClearBuffers()
         ColorBuffer[x] = 0;
         DepthBuffer[x] = clearz;
         AttrBuffer[x] = polyid;
-        ColorBuffer[x+(ScanlineWidth-1)] = 0;
-        DepthBuffer[x+(ScanlineWidth-1)] = clearz;
-        AttrBuffer[x+(ScanlineWidth-1)] = polyid;
+        ColorBuffer[x + ScanlineWidth - 1] = 0;
+        DepthBuffer[x + ScanlineWidth - 1] = clearz;
+        AttrBuffer[x + ScanlineWidth - 1] = polyid;
     }
 
     for (int x = ScanlineWidth*(NumScanlines-1); x < BufferSize; x++)
@@ -2154,10 +2134,11 @@ void RenderThreadFunc()
     {
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
+
         RenderThreadRendering = true;
         if (!CanStartRendering)
             Platform::Semaphore_Wait(Sema_CanRender);
-        
+
         ClearBuffers();
         RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
 

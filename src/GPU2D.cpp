@@ -774,8 +774,13 @@ void GPU2D::Convert16BitLineTo32BitLine(u16* src, u32* dst)
         u8 g = (color & 0x03E0) >> 4;
         u8 b = (color & 0x7C00) >> 9;
 
-        for (int j = 0; j < GPU::ResMultiplier; j++)
-            dst[i*GPU::ResMultiplier+j] = r | (g << 8) | (b << 16);
+        if (hires)
+        {
+            for (int j = 0; j < GPU::ResMultiplier; j++)
+                dst[i*GPU::ResMultiplier+j] = r | (g << 8) | (b << 16);
+        }
+        else
+            dst[i] = r | (g << 8) | (b << 16);
     }
 
     if (hires)

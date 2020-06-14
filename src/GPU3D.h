@@ -40,11 +40,13 @@ typedef struct
     // final vertex attributes.
     // allows them to be reused in polygon strips.
 
+    s32 FinalPosition[2];
+    s32 FinalColor[3];
+
     // hi-res position (HD_SHIFT-bit fractional part)
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
-    s32 FinalColor[3];
-
+    
 } Vertex;
 
 typedef struct
