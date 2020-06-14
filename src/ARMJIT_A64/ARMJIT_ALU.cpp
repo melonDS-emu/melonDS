@@ -243,7 +243,7 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
     if (S && !CurInstr.SetFlags)
         S = false;
 
-    bool CVInGP = false;
+    bool CVInGPR = false;
     switch (op)
     {
     case 0x2: // SUB
@@ -306,7 +306,7 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
         UBFX(W2, RCPSR, 29, 1);
         if (S)
         {
-            CVInGP = true;
+            CVInGPR = true;
             ADDS(W1, rn, W2);
             CSET(W2, CC_CS);
             CSET(W3, CC_VS);
@@ -335,7 +335,7 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
             ORN(W1, WZR, op2.Reg.Rm, op2.ToArithOption());
         if (S)
         {
-            CVInGP = true;
+            CVInGPR = true;
             ADDS(W1, W2, W1);
             CSET(W2, CC_CS);
             CSET(W3, CC_VS);
@@ -355,7 +355,7 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
         MVN(W1, rn);
         if (S)
         {
-            CVInGP = true;
+            CVInGPR = true;
             ADDS(W1, W2, W1);
             CSET(W2, CC_CS);
             CSET(W3, CC_VS);
@@ -379,12 +379,12 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
 
     if (S)
     {
-        if (CVInGP)
+        if (CVInGPR)
         {
             BFI(RCPSR, W2, 29, 1);
             BFI(RCPSR, W3, 28, 1);
         }
-        Comp_RetriveFlags(!CVInGP);
+        Comp_RetriveFlags(!CVInGPR);
     }
 }
 
@@ -501,7 +501,23 @@ void Compiler::A_Comp_ALUMovOp()
             MOVI2R(rd, op2.Imm);
         }
         else
-            MOV(rd, op2.Reg.Rm, op2.ToArithOption());
+        {
+            // ORR with shifted operand has cycles latency
+            if (op2.Reg.ShiftAmount > 0)
+            {
+                switch (op2.Reg.ShiftType)
+                {
+                case ST_LSL: LSL(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
+                case ST_LSR: LSR(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
+                case ST_ASR: ASR(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
+                case ST_ROR: ROR_(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
+                }
+            }
+            else
+            {
+                MOV(rd, op2.Reg.Rm, op2.ToArithOption());
+            }
+        }
     }
 
     if (S)
@@ -558,10 +574,7 @@ void Compiler::Comp_Mul_Mla(bool S, bool mla, ARM64Reg rd, ARM64Reg rm, ARM64Reg
     }
     else
     {
-        CLZ(W0, rs);
-        CLS(W1, rs);
-        CMP(W0, W1);
-        CSEL(W0, W0, W1, CC_GT);
+        CLS(W0, rs);
         Comp_AddCycles_CI(mla ? 1 : 0, W0, ArithOption(W0, ST_LSR, 3));
     }
 
@@ -594,10 +607,10 @@ void Compiler::A_Comp_Mul_Long()
     }
     else
     {
-        CLZ(W0, rs);
-        CLS(W1, rs);
-        CMP(W0, W1);
-        CSEL(W0, W0, W1, CC_GT);
+        if (sign)
+            CLS(W0, rs);
+        else
+            CLZ(W0, rs);
         Comp_AddCycles_CI(0, W0, ArithOption(W0, ST_LSR, 3));
     }
 
@@ -626,6 +639,86 @@ void Compiler::A_Comp_Mul_Long()
     
     if (S)
         Comp_RetriveFlags(false);
+}
+
+void Compiler::A_Comp_Mul_Short()
+{
+    ARM64Reg rd = MapReg(CurInstr.A_Reg(16));
+    ARM64Reg rm = MapReg(CurInstr.A_Reg(0));
+    ARM64Reg rs = MapReg(CurInstr.A_Reg(8));
+    u32 op = (CurInstr.Instr >> 21) & 0xF;
+
+    bool x = CurInstr.Instr & (1 << 5);
+    bool y = CurInstr.Instr & (1 << 6);
+
+    SBFX(W1, rs, y ? 16 : 0, 16);
+
+    if (op == 0b1000)
+    {
+        // SMLAxy
+
+        SBFX(W0, rm, x ? 16 : 0, 16);
+
+        MUL(W0, W0, W1);
+
+        ORRI2R(W1, RCPSR, 0x08000000);
+
+        ARM64Reg rn = MapReg(CurInstr.A_Reg(12));
+        ADDS(rd, W0, rn);
+
+        CSEL(RCPSR, W1, RCPSR, CC_VS);
+
+        CPSRDirty = true;
+
+        Comp_AddCycles_C();
+    }
+    else if (op == 0b1011)
+    {
+        // SMULxy
+
+        SBFX(W0, rm, x ? 16 : 0, 16);
+
+        MUL(rd, W0, W1);
+
+        Comp_AddCycles_C();
+    }
+    else if (op == 0b1010)
+    {
+        // SMLALxy
+
+        ARM64Reg rn = MapReg(CurInstr.A_Reg(12));
+
+        MOV(W2, rn);
+        BFI(X2, rd, 32, 32);
+
+        SBFX(W0, rm, x ? 16 : 0, 16);
+
+        SMADDL(EncodeRegTo64(rn), W0, W1, X2);
+
+        UBFX(EncodeRegTo64(rd), EncodeRegTo64(rn), 32, 32);
+
+        Comp_AddCycles_CI(1);
+    }
+    else if (op == 0b1001)
+    {
+        // SMLAWy/SMULWy
+        SMULL(X0, rm, W1);
+        ASR(x ? EncodeRegTo64(rd) : X0, X0, 16);
+
+        if (!x)
+        {
+            ORRI2R(W1, RCPSR, 0x08000000);
+
+            ARM64Reg rn = MapReg(CurInstr.A_Reg(12));
+            ADDS(rd, W0, rn);
+
+            CSEL(RCPSR, W1, RCPSR, CC_VS);
+
+            CPSRDirty = true;
+        }
+
+        Comp_AddCycles_C();
+    }
 }
 
 void Compiler::A_Comp_Mul()

@@ -21,6 +21,8 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "ARMJIT.h"
+#include "Config.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
 #include "Config.h"
@@ -74,12 +76,21 @@ ARM::~ARM()
 
 ARMv5::ARMv5() : ARM(0)
 {
-    //
+#ifndef JIT_ENABLED
+    DTCM = new u8[DTCMSize];
+#endif
 }
 
 ARMv4::ARMv4() : ARM(1)
 {
     //
+}
+
+ARMv5::~ARMv5()
+{
+#ifndef JIT_ENABLED
+    delete[] DTCM;
+#endif
 }
 
 void ARM::Reset()
@@ -622,24 +633,26 @@ void ARMv5::ExecuteJIT()
     while (NDS::ARM9Timestamp < NDS::ARM9Target)
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-        u32 translatedAddr = ARMJIT::TranslateAddr9(instrAddr);
-        if (!translatedAddr)
+
+        // hack so Cycles <= 0 becomes Cycles < 0
+        Cycles = NDS::ARM9Target - NDS::ARM9Timestamp - 1;
+
+        if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
+            && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM9Timestamp = NDS::ARM9Target;
             printf("ARMv5 PC in non executable region %08X\n", R[15]);
             return;
         }
 
-        // hack so Cycles <= 0 becomes Cycles < 0
-        Cycles = NDS::ARM9Target - NDS::ARM9Timestamp - 1;
-
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlockEntry<0>(translatedAddr);
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup, 
+            instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
         else
             ARMJIT::CompileBlock(this);
 
-        NDS::ARM9Timestamp = NDS::ARM9Target - (Cycles + 1);
+        NDS::ARM9Timestamp = NDS::ARM9Target - Cycles - 1;
 
         if (StopExecution)
         {
@@ -766,23 +779,25 @@ void ARMv4::ExecuteJIT()
     while (NDS::ARM7Timestamp < NDS::ARM7Target)
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
-        u32 translatedAddr = ARMJIT::TranslateAddr7(instrAddr);
-        if (!translatedAddr)
+
+        Cycles = NDS::ARM7Target - NDS::ARM7Timestamp - 1;
+
+        if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
+            && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM7Timestamp = NDS::ARM7Target;
             printf("ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
 
-        Cycles = NDS::ARM7Target - NDS::ARM7Timestamp - 1;
-
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlockEntry<1>(translatedAddr);
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup, 
+            instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
         else
             ARMJIT::CompileBlock(this);
 
-        NDS::ARM7Timestamp = NDS::ARM7Target - (Cycles + 1);
+        NDS::ARM7Timestamp = NDS::ARM7Target - Cycles - 1;
 
         // TODO optimize this shit!!!
         if (StopExecution)

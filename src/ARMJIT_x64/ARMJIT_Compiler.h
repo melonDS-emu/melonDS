@@ -52,10 +52,7 @@ public:
 
     void Reset();
 
-    void LinkBlock(u32 offset, JitBlockEntry entry);
-    void UnlinkBlock(u32 offset);
-
-    JitBlockEntry CompileBlock(u32 translatedAddr, ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
+    JitBlockEntry CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
@@ -202,6 +199,10 @@ public:
         SetCodePtr(FarCode);
     }
 
+    bool IsJITFault(u64 addr);
+
+    s32 RewriteMemAccess(u64 pc);
+
     u8* FarCode;
     u8* NearCode;
     u32 FarSize;
@@ -215,8 +216,6 @@ public:
 
     bool Exit;
     bool IrregularCycles;
-
-    void* BranchStub[2];
 
     void* ReadBanked;
     void* WriteBanked;

@@ -15,6 +15,11 @@ int squeezePointer(T* ptr)
     return truncated;
 }
 
+s32 Compiler::RewriteMemAccess(u64 pc)
+{
+    return 0;
+}
+
 /*
     According to DeSmuME and my own research, approx. 99% (seriously, that's an empirical number)
     of all memory load and store instructions always access addresses in the same region as
@@ -27,14 +32,15 @@ int squeezePointer(T* ptr)
 
 bool Compiler::Comp_MemLoadLiteral(int size, int rd, u32 addr)
 {
-    u32 translatedAddr = Num == 0 ? TranslateAddr9(addr) : TranslateAddr7(addr);
+    return false;
+    //u32 translatedAddr = Num == 0 ? TranslateAddr9(addr) : TranslateAddr7(addr);
 
-    int invalidLiteralIdx = InvalidLiterals.Find(translatedAddr);
+    /*int invalidLiteralIdx = InvalidLiterals.Find(translatedAddr);
     if (invalidLiteralIdx != -1)
     {
         InvalidLiterals.Remove(invalidLiteralIdx);
         return false;
-    }
+    }*/
 
     u32 val;
     // make sure arm7 bios is accessible
@@ -95,7 +101,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
             staticAddress = RegCache.LiteralValues[rn] + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         OpArg rdMapped = MapReg(rd);
 
-        if (!addrIsStatic)
+        if (true)
         {
             OpArg rnMapped = MapReg(rn);
             if (Thumb && rn == 15)
@@ -145,7 +151,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                 MOV(32, rnMapped, R(finalAddr));
         }
 
-        int expectedTarget = Num == 0
+        /*int expectedTarget = Num == 0
             ? ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion) 
             : ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
         if (CurInstr.Cond() < 0xE)
@@ -184,8 +190,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
 
         if (addrIsStatic && compileSlowPath)
             MOV(32, R(RSCRATCH3), Imm32(staticAddress));
-
-        if (compileFastPath)
+*/
+        /*if (compileFastPath)
         {
             FixupBranch slowPath;
             if (compileSlowPath)
@@ -357,15 +363,16 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                 SetJumpTarget(slowPath);
             }
         }
-
-        if (compileSlowPath)
+*/
+        if (true)
         {
             PushRegs(false);
 
             if (Num == 0)
             {
-                MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
-                MOV(64, R(ABI_PARAM1), R(RCPU));
+                MOV(64, R(ABI_PARAM2), R(RCPU));
+                if (ABI_PARAM1 != RSCRATCH3)
+                    MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
                 if (flags & memop_Store)
                 {
                     MOV(32, R(ABI_PARAM3), rdMapped);
@@ -423,13 +430,13 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
                     MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
             }
         }
-
+/*
         if (compileFastPath && compileSlowPath)
         {
             FixupBranch ret = J(true);
             SwitchToNearCode();
             SetJumpTarget(ret);
-        }
+        }*/
 
         if (!(flags & memop_Store) && rd == 15)
         {
@@ -458,7 +465,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     u32 stackAlloc = ((regsCount + 1) & ~1) * 8;
 #endif
     u32 allocOffset = stackAlloc - regsCount * 8;
-
+/*
     int expectedTarget = Num == 0
         ? ClassifyAddress9(CurInstr.DataRegion)
         : ClassifyAddress7(CurInstr.DataRegion);
@@ -479,7 +486,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     default:
         break;
     }
-
+*/
     if (!store)
         Comp_AddCycles_CDI();
     else
@@ -492,7 +499,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     }
     else
         MOV(32, R(RSCRATCH4), MapReg(rn));
-
+/*
     if (compileFastPath)
     {
         assert(!usermode);
@@ -570,7 +577,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
         SwitchToFarCode();
         SetJumpTarget(slowPath);
-    }
+    }*/
 
     if (!store)
     {
@@ -696,13 +703,13 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     
         PopRegs(false);
     }
-
+/*
     if (compileFastPath)
     {
         FixupBranch ret = J(true);
         SwitchToNearCode();
         SetJumpTarget(ret);
-    }
+    }*/
 
     if (!store && regs[15])
     {

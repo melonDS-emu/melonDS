@@ -232,6 +232,7 @@ enum
 {
     special_NotSpecialAtAll = 0,
     special_WriteMem,
+    special_LoadMem,
     special_WaitForInterrupt,
     special_LoadLiteral
 };

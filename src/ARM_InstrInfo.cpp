@@ -206,15 +206,14 @@ enum {
     T_ReadR14       = 1 << 13,
     T_WriteR14      = 1 << 14,
 
-    T_PopPC         = 1 << 15,
-
-    T_SetNZ         = 1 << 16,
-    T_SetCV         = 1 << 17,
-    T_SetMaybeC     = 1 << 18,
-    T_ReadC         = 1 << 19,
-    T_SetC          = 1 << 20,
+    T_SetNZ         = 1 << 15,
+    T_SetCV         = 1 << 16,
+    T_SetMaybeC     = 1 << 17,
+    T_ReadC         = 1 << 18,
+    T_SetC          = 1 << 19,
     
-    T_WriteMem      = 1 << 21,
+    T_WriteMem      = 1 << 20,
+    T_LoadMem       = 1 << 21,
 };
 
 const u32 T_LSL_IMM = T_SetNZ | T_SetMaybeC | T_Write0 | T_Read3 | tk(tk_LSL_IMM);
@@ -256,31 +255,31 @@ const u32 T_ADD_PCREL = T_Write8 | tk(tk_ADD_PCREL);
 const u32 T_ADD_SPREL = T_Write8 | T_ReadR13 | tk(tk_ADD_SPREL);
 const u32 T_ADD_SP = T_WriteR13 | T_ReadR13 | tk(tk_ADD_SP);
 
-const u32 T_LDR_PCREL = T_Write8 | tk(tk_LDR_PCREL);
+const u32 T_LDR_PCREL = T_Write8 | T_LoadMem | tk(tk_LDR_PCREL);
 
 const u32 T_STR_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STR_REG);
 const u32 T_STRB_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STRB_REG);
-const u32 T_LDR_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDR_REG);
-const u32 T_LDRB_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRB_REG);
+const u32 T_LDR_REG = T_Write0 | T_Read3 | T_Read6 | T_LoadMem | tk(tk_LDR_REG);
+const u32 T_LDRB_REG = T_Write0 | T_Read3 | T_Read6 | T_LoadMem | tk(tk_LDRB_REG);
 const u32 T_STRH_REG = T_Read0 | T_Read3 | T_Read6 | T_WriteMem | tk(tk_STRH_REG);
-const u32 T_LDRSB_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRSB_REG);
-const u32 T_LDRH_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRH_REG);
-const u32 T_LDRSH_REG = T_Write0 | T_Read3 | T_Read6 | tk(tk_LDRSH_REG);
+const u32 T_LDRSB_REG = T_Write0 | T_Read3 | T_Read6 | T_LoadMem | tk(tk_LDRSB_REG);
+const u32 T_LDRH_REG = T_Write0 | T_Read3 | T_Read6 | T_LoadMem | tk(tk_LDRH_REG);
+const u32 T_LDRSH_REG = T_Write0 | T_Read3 | T_Read6 | T_LoadMem | tk(tk_LDRSH_REG);
 
 const u32 T_STR_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STR_IMM);
-const u32 T_LDR_IMM = T_Write0 | T_Read3 | tk(tk_LDR_IMM);
+const u32 T_LDR_IMM = T_Write0 | T_Read3 | T_LoadMem | tk(tk_LDR_IMM);
 const u32 T_STRB_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STRB_IMM);
-const u32 T_LDRB_IMM = T_Write0 | T_Read3 | tk(tk_LDRB_IMM);
+const u32 T_LDRB_IMM = T_Write0 | T_Read3 | T_LoadMem | tk(tk_LDRB_IMM);
 const u32 T_STRH_IMM = T_Read0 | T_Read3 | T_WriteMem | tk(tk_STRH_IMM);
-const u32 T_LDRH_IMM = T_Write0 | T_Read3 | tk(tk_LDRH_IMM);
+const u32 T_LDRH_IMM = T_Write0 | T_Read3 | T_LoadMem | tk(tk_LDRH_IMM);
 
 const u32 T_STR_SPREL = T_Read8 | T_ReadR13 | T_WriteMem | tk(tk_STR_SPREL);
-const u32 T_LDR_SPREL = T_Write8 | T_ReadR13 | tk(tk_LDR_SPREL);
+const u32 T_LDR_SPREL = T_Write8 | T_ReadR13 | T_LoadMem | tk(tk_LDR_SPREL);
 
 const u32 T_PUSH = T_ReadR13 | T_WriteR13 | T_WriteMem | tk(tk_PUSH);
-const u32 T_POP = T_PopPC | T_ReadR13 | T_WriteR13 | tk(tk_POP);
+const u32 T_POP = T_ReadR13 | T_WriteR13 | T_LoadMem | tk(tk_POP);
 
-const u32 T_LDMIA = T_Read8 | T_Write8 | tk(tk_LDMIA);
+const u32 T_LDMIA = T_Read8 | T_Write8 | T_LoadMem | tk(tk_LDMIA);
 const u32 T_STMIA = T_Read8 | T_Write8 | T_WriteMem | tk(tk_STMIA);
 
 const u32 T_BCOND = T_BranchAlways | tk(tk_BCOND);
@@ -347,7 +346,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & T_BranchAlways)
             res.DstRegs |= (1 << 15);
 
-        if (data & T_PopPC && instr & (1 << 8))
+        if (res.Kind == tk_POP && instr & (1 << 8))
             res.DstRegs |= 1 << 15;
 
         if (data & T_SetNZ)
@@ -364,11 +363,18 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & T_WriteMem)
             res.SpecialKind = special_WriteMem;
         
-        if (res.Kind == ARMInstrInfo::tk_LDR_PCREL)
+        if (data & T_LoadMem)
         {
-            if (!Config::JIT_LiteralOptimisations)
-                res.SrcRegs |= 1 << 15;
-            res.SpecialKind = special_LoadLiteral;
+            if (res.Kind == tk_LDR_PCREL)
+            {
+                if (!Config::JIT_LiteralOptimisations)
+                    res.SrcRegs |= 1 << 15;
+                res.SpecialKind = special_LoadLiteral;
+            }
+            else
+            {
+                res.SpecialKind = special_LoadMem;
+            }
         }
 
         if (res.Kind == tk_LDMIA || res.Kind == tk_POP)
@@ -401,10 +407,16 @@ Info Decode(bool thumb, u32 num, u32 instr)
         else if ((instr >> 28) == 0xF)
             data = ak(ak_Nop);
 
-        if (data & A_UnkOnARM7 && num != 0)
+        if (data & A_UnkOnARM7 && num == 1)
             data = A_UNK;
 
         res.Kind = (data >> 22) & 0x1FF;
+
+        if (res.Kind >= ak_SMLAxy && res.Kind <= ak_SMULxy && num == 1)
+        {
+            data = ak(ak_Nop);
+            res.Kind = ak_Nop;
+        }
 
         if (res.Kind == ak_MCR)
         {
@@ -490,8 +502,13 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_WriteMem)
             res.SpecialKind = special_WriteMem;
 
-        if ((data & A_LoadMem) && res.SrcRegs == (1 << 15))
-            res.SpecialKind = special_LoadLiteral;
+        if (data & A_LoadMem)
+        {
+            if (res.SrcRegs == (1 << 15))
+               res.SpecialKind = special_LoadLiteral;
+            else
+                res.SpecialKind = special_LoadMem;
+        }
         
         if (res.Kind == ak_LDM)
         {

@@ -10,13 +10,8 @@
 #include "Config.h"
 
 #include "ARMJIT_Internal.h"
-#if defined(__x86_64__)
-#include "ARMJIT_x64/ARMJIT_Compiler.h"
-#elif defined(__aarch64__)
-#include "ARMJIT_A64/ARMJIT_Compiler.h"
-#else
-#error "The current target platform doesn't have a JIT backend"
-#endif
+#include "ARMJIT_Memory.h"
+#include "ARMJIT_Compiler.h"
 
 #include "ARMInterpreter_ALU.h"
 #include "ARMInterpreter_LoadStore.h"
@@ -29,6 +24,11 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 
+#include "ARMJIT_x64/ARMJIT_Offsets.h"
+static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset);
+static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset);
+static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset);
+
 namespace ARMJIT
 {
 
@@ -37,281 +37,100 @@ namespace ARMJIT
 
 Compiler* JITCompiler;
 
-const u32 ExeMemRegionSizes[] =
-{
-	0x8000,			// Unmapped Region (dummy)
-	0x8000, 		// ITCM
-	4*1024*1024, 	// Main RAM
-	0x8000, 		// SWRAM
-	0xA4000, 		// LCDC
-	0x8000, 		// ARM9 BIOS
-	0x4000, 		// ARM7 BIOS
-	0x10000,		// ARM7 WRAM
-	0x40000			// ARM7 WVRAM
-};
-
-const u32 ExeMemRegionOffsets[] =
-{
-	0,
-	0x8000,
-	0x10000,
-	0x410000,
-	0x418000,
-	0x4BC000,
-	0x4C4000,
-	0x4C8000,
-	0x4D8000,
-	0x518000,
-};
-
-/*
-	translates address to pseudo physical address
-		- more compact, eliminates mirroring, everything comes in a row
-		- we only need one translation table
-*/
-
-u32 TranslateAddr9(u32 addr)
-{
-	switch (ClassifyAddress9(addr))
-	{
-	case memregion_MainRAM: return ExeMemRegionOffsets[exeMem_MainRAM] + (addr & (MAIN_RAM_SIZE - 1));
-	case memregion_SWRAM9:
-		if (NDS::SWRAM_ARM9)
-			return ExeMemRegionOffsets[exeMem_SWRAM] + (NDS::SWRAM_ARM9 - NDS::SharedWRAM) + (addr & NDS::SWRAM_ARM9Mask);
-		else
-			return 0;
-	case memregion_ITCM: return ExeMemRegionOffsets[exeMem_ITCM] + (addr & 0x7FFF);
-	case memregion_VRAM: return (addr >= 0x6800000 && addr < 0x68A4000) ? ExeMemRegionOffsets[exeMem_LCDC] + (addr - 0x6800000) : 0;
-	case memregion_BIOS9: return ExeMemRegionOffsets[exeMem_ARM9_BIOS] + (addr & 0xFFF);
-	default: return 0;
-	}
-}
-
-u32 TranslateAddr7(u32 addr)
-{
-	switch (ClassifyAddress7(addr))
-	{
-	case memregion_MainRAM: return ExeMemRegionOffsets[exeMem_MainRAM] + (addr & (MAIN_RAM_SIZE - 1));
-	case memregion_SWRAM7:
-		if (NDS::SWRAM_ARM7)
-			return ExeMemRegionOffsets[exeMem_SWRAM] + (NDS::SWRAM_ARM7 - NDS::SharedWRAM) + (addr & NDS::SWRAM_ARM7Mask);
-		else
-			return 0;
-	case memregion_BIOS7: return ExeMemRegionOffsets[exeMem_ARM7_BIOS] + addr;
-	case memregion_WRAM7: return ExeMemRegionOffsets[exeMem_ARM7_WRAM] + (addr & 0xFFFF);
-	case memregion_VWRAM: return ExeMemRegionOffsets[exeMem_ARM7_WVRAM] + (addr & 0x1FFFF);
-	default: return 0;
-	}
-}
-
-AddressRange CodeRanges[ExeMemSpaceSize / 512];
-
-TinyVector<u32> InvalidLiterals;
+AddressRange CodeIndexITCM[ITCMPhysicalSize / 512];
+AddressRange CodeIndexMainRAM[NDS::MainRAMSize / 512];
+AddressRange CodeIndexSWRAM[NDS::SharedWRAMSize / 512];
+AddressRange CodeIndexVRAM[0x100000 / 512];
+AddressRange CodeIndexARM9BIOS[sizeof(NDS::ARM9BIOS) / 512];
+AddressRange CodeIndexARM7BIOS[sizeof(NDS::ARM7BIOS) / 512];
+AddressRange CodeIndexARM7WRAM[NDS::ARM7WRAMSize / 512];
+AddressRange CodeIndexARM7WVRAM[0x40000 / 512];
 
 std::unordered_map<u32, JitBlock*> JitBlocks9;
 std::unordered_map<u32, JitBlock*> JitBlocks7;
 
-u8 MemoryStatus9[0x800000];
-u8 MemoryStatus7[0x800000];
+u64 FastBlockLookupITCM[ITCMPhysicalSize / 2];
+u64 FastBlockLookupMainRAM[NDS::MainRAMSize / 2];
+u64 FastBlockLookupSWRAM[NDS::SharedWRAMSize / 2];
+u64 FastBlockLookupVRAM[0x100000 / 2];
+u64 FastBlockLookupARM9BIOS[sizeof(NDS::ARM9BIOS) / 2];
+u64 FastBlockLookupARM7BIOS[sizeof(NDS::ARM7BIOS) / 2];
+u64 FastBlockLookupARM7WRAM[NDS::ARM7WRAMSize / 2];
+u64 FastBlockLookupARM7WVRAM[0x40000 / 2];
 
-int ClassifyAddress9(u32 addr)
+const u32 CodeRegionSizes[ARMJIT_Memory::memregions_Count] =
 {
-	if (addr < NDS::ARM9->ITCMSize)
-		return memregion_ITCM;
-	else if (addr >= NDS::ARM9->DTCMBase && addr < (NDS::ARM9->DTCMBase + NDS::ARM9->DTCMSize))
-		return memregion_DTCM;
-	else if ((addr & 0xFFFFF000) == 0xFFFF0000)
-		return memregion_BIOS9;
-	else
+	0,
+	ITCMPhysicalSize,
+	0,
+	sizeof(NDS::ARM9BIOS),
+	NDS::MainRAMSize,
+	NDS::SharedWRAMSize,
+	0,
+	0x100000,
+	sizeof(NDS::ARM7BIOS),
+	NDS::ARM7WRAMSize,
+	0,
+	0,
+	0x40000,
+};
+
+AddressRange* const CodeMemRegions[ARMJIT_Memory::memregions_Count] =
+{
+	NULL,
+	CodeIndexITCM,
+	NULL,
+	CodeIndexARM9BIOS,
+	CodeIndexMainRAM,
+	CodeIndexSWRAM,
+	NULL,
+	CodeIndexVRAM,
+	CodeIndexARM7BIOS,
+	CodeIndexARM7WRAM,
+	NULL,
+	NULL,
+	CodeIndexARM7WVRAM,
+};
+
+u64* const FastBlockLookupRegions[ARMJIT_Memory::memregions_Count] =
+{
+	NULL,
+	FastBlockLookupITCM,
+	NULL,
+	FastBlockLookupARM9BIOS,
+	FastBlockLookupMainRAM,
+	FastBlockLookupSWRAM,
+	NULL,
+	FastBlockLookupVRAM,
+	FastBlockLookupARM7BIOS,
+	FastBlockLookupARM7WRAM,
+	NULL,
+	NULL,
+	FastBlockLookupARM7WVRAM
+};
+
+u32 LocaliseCodeAddress(u32 num, u32 addr)
+{
+	int region = num == 0
+		? ARMJIT_Memory::ClassifyAddress9(addr)
+		: ARMJIT_Memory::ClassifyAddress7(addr);
+
+	u32 mappingStart, mappingSize, memoryOffset, memorySize;
+	if (ARMJIT_Memory::GetRegionMapping(region, num, mappingStart,
+		mappingSize, memoryOffset, memorySize)
+		&& CodeMemRegions[region])
 	{
-		switch (addr & 0xFF000000)
-		{
-		case 0x02000000:
-			return memregion_MainRAM;
-		case 0x03000000:
-			return memregion_SWRAM9;
-		case 0x04000000:
-			return memregion_IO9;
-		case 0x06000000:
-			return memregion_VRAM;
-		}
+		addr = ((addr - mappingStart) & (memorySize - 1)) + memoryOffset;
+		addr |= (u32)region << 28;
+		return addr;
 	}
-	return memregion_Other;
+	return 0;
 }
 
-int ClassifyAddress7(u32 addr)
-{
-	if (addr < 0x00004000)
-		return memregion_BIOS7;
-	else
-	{
-		switch (addr & 0xFF800000)
-		{
-		case 0x02000000:
-		case 0x02800000:
-			return memregion_MainRAM;
-		case 0x03000000:
-			if (NDS::SWRAM_ARM7)
-				return memregion_SWRAM7;
-			else
-				return memregion_WRAM7;
-		case 0x03800000:
-			return memregion_WRAM7;
-		case 0x04000000:
-			return memregion_IO7;
-		case 0x04800000:
-			return memregion_Wifi;
-		case 0x06000000:
-		case 0x06800000:
-			return memregion_VWRAM;
-		}
-	}
-	return memregion_Other;
-}
-
-void UpdateMemoryStatus9(u32 start, u32 end)
-{
-	start >>= 12;
-	end >>= 12;
-
-	if (end == 0xFFFFF)
-		end++;
-
-	for (u32 i = start; i < end; i++)
-	{
-		u32 addr = i << 12;
-
-		int region = ClassifyAddress9(addr);
-		u32 pseudoPhyisical = TranslateAddr9(addr);
-
-		for (u32 j = 0; j < 8; j++)
-		{
-			u8 val = region;
-			if (CodeRanges[(pseudoPhyisical + (j << 12)) / 512].Blocks.Length)
-				val |= 0x80;
-			MemoryStatus9[i * 8 + j] = val;
-		}
-	}
-}
-
-void UpdateMemoryStatus7(u32 start, u32 end)
-{
-	start >>= 12;
-	end >>= 12;
-
-	if (end == 0xFFFFF)
-		end++;
-
-	for (u32 i = start; i < end; i++)
-	{
-		u32 addr = i << 12;
-
-		int region = ClassifyAddress7(addr);
-		u32 pseudoPhyisical = TranslateAddr7(addr);
-
-		for (u32 j = 0; j < 8; j++)
-		{
-			u8 val = region;
-			if (CodeRanges[(pseudoPhyisical + (j << 12)) / 512].Blocks.Length)
-				val |= 0x80;
-			MemoryStatus7[i * 8 + j] = val;
-		}
-	}
-}
-
-void UpdateRegionByPseudoPhyiscal(u32 addr, bool invalidate)
-{
-	for (u32 i = 1; i < exeMem_Count; i++)
-	{
-		if (addr >= ExeMemRegionOffsets[i] && addr < ExeMemRegionOffsets[i] + ExeMemRegionSizes[i])
-		{
-			for (u32 num = 0; num < 2; num++)
-			{
-				u32 physSize = ExeMemRegionSizes[i];
-				u32 mapSize = 0;
-				u32 mapStart = 0;
-				switch (i)
-				{
-				case exeMem_ITCM:
-					if (num == 0)
-						mapStart = 0; mapSize = NDS::ARM9->ITCMSize;
-					break;
-				case exeMem_MainRAM: mapStart = 0x2000000; mapSize = 0x1000000; break;
-				case exeMem_SWRAM:
-					if (num == 0)
-					{
-						if (NDS::SWRAM_ARM9)
-							mapStart = 0x3000000, mapSize = 0x1000000;
-						else
-							mapStart = mapSize = 0;
-					}
-					else
-					{
-						if (NDS::SWRAM_ARM7)
-							mapStart = 0x3000000, mapSize = 0x800000;
-						else
-							mapStart = mapSize = 0;
-					}
-					break;
-				case exeMem_LCDC:
-					if (num == 0)
-						mapStart = 0x6800000, mapSize = 0xA4000;
-					break;
-				case exeMem_ARM9_BIOS:
-					if (num == 0)
-						mapStart = 0xFFFF0000, mapSize = 0x10000;
-					break;
-				case exeMem_ARM7_BIOS:
-					if (num == 1)
-						mapStart = 0; mapSize = 0x4000;
-					break;
-				case exeMem_ARM7_WRAM:
-					if (num == 1)
-					{
-						if (NDS::SWRAM_ARM7)
-							mapStart = 0x3800000, mapSize = 0x800000;
-						else
-							mapStart = 0x3000000, mapSize = 0x1000000;
-					}
-					break;
-				case exeMem_ARM7_WVRAM:
-					if (num == 1)
-						mapStart = 0x6000000, mapSize = 0x1000000;
-					break;
-				}
-
-				for (u32 j = 0; j < mapSize / physSize; j++)
-				{
-					u32 virtAddr = mapStart + physSize * j + (addr - ExeMemRegionOffsets[i]);
-					if (num == 0
-						&& virtAddr >= NDS::ARM9->DTCMBase && virtAddr < (NDS::ARM9->DTCMBase + NDS::ARM9->DTCMSize))
-						continue;
-					if (invalidate)
-					{
-						if (num == 0)
-							MemoryStatus9[virtAddr / 512] |= 0x80;
-						else
-							MemoryStatus7[virtAddr / 512] |= 0x80;
-					}
-					else
-					{
-						if (num == 0)
-							MemoryStatus9[virtAddr / 512] &= ~0x80;
-						else
-							MemoryStatus7[virtAddr / 512] &= ~0x80;
-					}
-				}
-				
-			}
-			return;
-		}
-	}
-
-	assert(false);
-}
+TinyVector<u32> InvalidLiterals;
 
 template <typename T>
-T SlowRead9(ARMv5* cpu, u32 addr)
+T SlowRead9(u32 addr, ARMv5* cpu)
 {
 	u32 offset = addr & 0x3;
 	addr &= ~(sizeof(T) - 1);
@@ -335,13 +154,13 @@ T SlowRead9(ARMv5* cpu, u32 addr)
 }
 
 template <typename T>
-void SlowWrite9(ARMv5* cpu, u32 addr, T val)
+void SlowWrite9(u32 addr, ARMv5* cpu, T val)
 {
 	addr &= ~(sizeof(T) - 1);
 
     if (addr < cpu->ITCMSize)
 	{
-		InvalidateITCMIfNecessary(addr);
+        CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
 		*(T*)&cpu->ITCM[addr & 0x7FFF] = val;
 	}
 	else if (addr >= cpu->DTCMBase && addr < (cpu->DTCMBase + cpu->DTCMSize))
@@ -362,13 +181,13 @@ void SlowWrite9(ARMv5* cpu, u32 addr, T val)
 	}
 }
 
-template void SlowWrite9<u32>(ARMv5*, u32, u32);
-template void SlowWrite9<u16>(ARMv5*, u32, u16);
-template void SlowWrite9<u8>(ARMv5*, u32, u8);
+template void SlowWrite9<u32>(u32, ARMv5*, u32);
+template void SlowWrite9<u16>(u32, ARMv5*, u16);
+template void SlowWrite9<u8>(u32, ARMv5*, u8);
 
-template u32 SlowRead9<u32>(ARMv5*, u32);
-template u16 SlowRead9<u16>(ARMv5*, u32);
-template u8 SlowRead9<u8>(ARMv5*, u32);
+template u32 SlowRead9<u32>(u32, ARMv5*);
+template u16 SlowRead9<u16>(u32, ARMv5*);
+template u8 SlowRead9<u8>(u32, ARMv5*);
 
 template <typename T>
 T SlowRead7(u32 addr)
@@ -407,14 +226,15 @@ template <bool PreInc, bool Write>
 void SlowBlockTransfer9(u32 addr, u64* data, u32 num, ARMv5* cpu)
 {
 	addr &= ~0x3;
+	if (PreInc)
+		addr += 4;
 	for (int i = 0; i < num; i++)
 	{
-		addr += PreInc * 4;
 		if (Write)
-			SlowWrite9<u32>(cpu, addr, data[i]);
+			SlowWrite9<u32>(addr, cpu, data[i]);
 		else
-			data[i] = SlowRead9<u32>(cpu, addr);
-		addr += !PreInc * 4;
+			data[i] = SlowRead9<u32>(addr, cpu);
+		addr += 4;
 	}
 }
 
@@ -422,14 +242,15 @@ template <bool PreInc, bool Write>
 void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 {
 	addr &= ~0x3;
+	if (PreInc)
+		addr += 4;
 	for (int i = 0; i < num; i++)
 	{
-		addr += PreInc * 4;
 		if (Write)
 			SlowWrite7<u32>(addr, data[i]);
 		else
 			data[i] = SlowRead7<u32>(addr);
-		addr += !PreInc * 4;
+		addr += 4;
 	}
 }
 
@@ -540,16 +361,18 @@ struct UnreliableHashTable
 };
 
 UnreliableHashTable<u32, JitBlock*, 0x800, nullptr> RestoreCandidates;
-UnreliableHashTable<u32, u32, 0x800, UINT32_MAX> FastBlockLookUp9;
-UnreliableHashTable<u32, u32, 0x800, UINT32_MAX> FastBlockLookUp7;
 
 void Init()
 {
 	JITCompiler = new Compiler();
+
+	ARMJIT_Memory::Init();
 }
 
 void DeInit()
 {
+	ARMJIT_Memory::DeInit();
+
 	delete JITCompiler;
 }
 
@@ -557,8 +380,7 @@ void Reset()
 {
 	ResetBlockCache();
 
-	UpdateMemoryStatus9(0, 0xFFFFFFFF);
-	UpdateMemoryStatus7(0, 0xFFFFFFFF);
+	ARMJIT_Memory::Reset();
 }
 
 void FloodFillSetFlags(FetchedInstr instrs[], int start, u8 flags)
@@ -673,11 +495,12 @@ bool IsIdleLoop(FetchedInstr* instrs, int instrsCount)
 	// it basically checks if one iteration of a loop depends on another
 	// the rules are quite simple
 
+	JIT_DEBUGPRINT("checking potential idle loop\n");
 	u16 regsWrittenTo = 0;
 	u16 regsDisallowedToWrite = 0;
 	for (int i = 0; i < instrsCount; i++)
 	{
-		//printf("instr %d %x regs(%x %x) %x %x\n", i, instrs[i].Instr, instrs[i].Info.DstRegs, instrs[i].Info.SrcRegs, regsWrittenTo, regsDisallowedToWrite);
+		JIT_DEBUGPRINT("instr %d %x regs(%x %x) %x %x\n", i, instrs[i].Instr, instrs[i].Info.DstRegs, instrs[i].Info.SrcRegs, regsWrittenTo, regsDisallowedToWrite);
 		if (instrs[i].Info.SpecialKind == ARMInstrInfo::special_WriteMem)
 			return false;
 		if (i < instrsCount - 1 && instrs[i].Info.Branches())
@@ -782,8 +605,6 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
 };
 #undef F
 
-
-extern u32 literalsPerBlock;
 void CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
@@ -794,14 +615,28 @@ void CompileBlock(ARM* cpu)
 		Config::JIT_MaxBlockSize = 32;
 
 	u32 blockAddr = cpu->R[15] - (thumb ? 2 : 4);
-	u32 pseudoPhysicalAddr = cpu->Num == 0
-			? TranslateAddr9(blockAddr)
-			: TranslateAddr7(blockAddr);
-    if (pseudoPhysicalAddr < ExeMemRegionSizes[exeMem_Unmapped])
-    {
-        printf("Trying to compile a block in unmapped memory: %x\n", blockAddr);
-    }
-	
+
+	auto& map = cpu->Num == 0 ? JitBlocks9 : JitBlocks7;
+	auto existingBlockIt = map.find(blockAddr);
+	if (existingBlockIt != map.end())
+	{
+		// there's already a block, though it's not inside the fast map
+		// could be that there are two blocks at the same physical addr
+		// but different mirrors
+		u32 localAddr = existingBlockIt->second->StartAddrLocal;
+
+		u64* entry = &FastBlockLookupRegions[localAddr >> 28][localAddr & 0xFFFFFFF];
+		*entry = ((u64)blockAddr | cpu->Num) << 32;
+		*entry |= JITCompiler->SubEntryOffset(existingBlockIt->second->EntryPoint);
+		return;
+	}
+
+	u32 localAddr = LocaliseCodeAddress(cpu->Num, blockAddr);
+	if (!localAddr)
+	{
+		printf("trying to compile non executable code? %x\n", blockAddr);
+	}
+
     FetchedInstr instrs[Config::JIT_MaxBlockSize];
     int i = 0;
     u32 r15 = cpu->R[15];
@@ -842,9 +677,8 @@ void CompileBlock(ARM* cpu)
 
 		instrValues[i] = instrs[i].Instr;
 
-		u32 translatedAddr = cpu->Num == 0
-			? TranslateAddr9(instrs[i].Addr)
-			: TranslateAddr7(instrs[i].Addr);
+		u32 translatedAddr = LocaliseCodeAddress(cpu->Num, instrs[i].Addr);
+		assert(translatedAddr);
 		u32 translatedAddrRounded = translatedAddr & ~0x1FF;
 		if (i == 0 || translatedAddrRounded != addressRanges[numAddressRanges - 1])
 		{
@@ -928,9 +762,11 @@ void CompileBlock(ARM* cpu)
 			&& instrs[i].Info.SpecialKind == ARMInstrInfo::special_LoadLiteral
 			&& DecodeLiteral(thumb, instrs[i], literalAddr))
 		{
-			u32 translatedAddr = cpu->Num == 0
-				? TranslateAddr9(literalAddr)
-				: TranslateAddr7(literalAddr);
+			u32 translatedAddr = LocaliseCodeAddress(cpu->Num, literalAddr);
+			if (!translatedAddr)
+			{
+				printf("literal in non executable memory?\n");
+			}
 			u32 translatedAddrRounded = translatedAddr & ~0x1FF;
 
 			u32 j = 0;
@@ -994,9 +830,7 @@ void CompileBlock(ARM* cpu)
 				}
 				else if (hasBranched && !isBackJump && i + 1 < Config::JIT_MaxBlockSize)
 				{
-					u32 targetPseudoPhysical = cpu->Num == 0
-						? TranslateAddr9(target)
-						: TranslateAddr7(target);
+					u32 targetLocalised = LocaliseCodeAddress(cpu->Num, target);
 
 					if (link)
 					{
@@ -1048,7 +882,7 @@ void CompileBlock(ARM* cpu)
 	{
 		RestoreCandidates.Remove(instrHash);
 
-		mayRestore = prevBlock->PseudoPhysicalAddr == pseudoPhysicalAddr && prevBlock->LiteralHash == literalHash;
+		mayRestore = prevBlock->StartAddr == blockAddr && prevBlock->LiteralHash == literalHash;
 
 		if (mayRestore && prevBlock->NumAddresses == numAddressRanges)
 		{
@@ -1087,11 +921,12 @@ void CompileBlock(ARM* cpu)
 		for (int j = 0; j < numLiterals; j++)
 			block->Literals()[j] = literalLoadAddrs[j];
 
-		block->PseudoPhysicalAddr = pseudoPhysicalAddr;
+		block->StartAddr = blockAddr;
+		block->StartAddrLocal = localAddr;
 
 		FloodFillSetFlags(instrs, i - 1, 0xF);
 
-		block->EntryPoint = JITCompiler->CompileBlock(pseudoPhysicalAddr, cpu, thumb, instrs, i);
+		block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i);
 	}
 	else
 	{
@@ -1104,30 +939,34 @@ void CompileBlock(ARM* cpu)
 		assert(addressRanges[j] == block->AddressRanges()[j]);
 		assert(addressMasks[j] == block->AddressMasks()[j]);
 		assert(addressMasks[j] != 0);
-		CodeRanges[addressRanges[j] / 512].Code |= addressMasks[j];
-		CodeRanges[addressRanges[j] / 512].Blocks.Add(block);
 
-		UpdateRegionByPseudoPhyiscal(addressRanges[j], true);
+		AddressRange* region = CodeMemRegions[addressRanges[j] >> 28];
+
+		if (!PageContainsCode(&region[(addressRanges[j] & 0xFFFF000) / 512]))
+			ARMJIT_Memory::SetCodeProtection(addressRanges[j] >> 28, addressRanges[j] & 0xFFFFFFF, true);
+
+		AddressRange* range = &region[(addressRanges[j] & 0xFFFFFFF) / 512];
+		range->Code |= addressMasks[j];
+		range->Blocks.Add(block);
 	}
 
 	if (cpu->Num == 0)
-	{
-		JitBlocks9[pseudoPhysicalAddr] = block;
-		FastBlockLookUp9.Insert(pseudoPhysicalAddr, JITCompiler->SubEntryOffset(block->EntryPoint));
-	}
+		JitBlocks9[blockAddr] = block;
 	else
-	{
-		JitBlocks7[pseudoPhysicalAddr] = block;
-		FastBlockLookUp7.Insert(pseudoPhysicalAddr, JITCompiler->SubEntryOffset(block->EntryPoint));
-	}
+		JitBlocks7[blockAddr] = block;
+
+	u64* entry = &FastBlockLookupRegions[(localAddr >> 28)][(localAddr & 0xFFFFFFF) / 2];
+	*entry = ((u64)blockAddr | cpu->Num) << 32;
+	*entry |= JITCompiler->SubEntryOffset(block->EntryPoint);
 }
 
-void InvalidateByAddr(u32 pseudoPhysical)
+void InvalidateByAddr(u32 localAddr)
 {
-	JIT_DEBUGPRINT("invalidating by addr %x\n", pseudoPhysical);
+	JIT_DEBUGPRINT("invalidating by addr %x\n", localAddr);
 
-	AddressRange* range = &CodeRanges[pseudoPhysical / 512];
-	u32 mask = 1 << ((pseudoPhysical & 0x1FF) / 16);
+	AddressRange* region = CodeMemRegions[localAddr >> 28];
+	AddressRange* range = &region[(localAddr & 0xFFFFFFF) / 512];
+	u32 mask = 1 << ((localAddr & 0x1FF) / 16);
 
 	range->Code = 0;
 	for (int i = 0; i < range->Blocks.Length;)
@@ -1138,7 +977,7 @@ void InvalidateByAddr(u32 pseudoPhysical)
 		u32 mask = 0;
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
-			if (block->AddressRanges()[j] == (pseudoPhysical & ~0x1FF))
+			if (block->AddressRanges()[j] == (localAddr & ~0x1FF))
 			{
 				mask = block->AddressMasks()[j];
 				invalidated = block->AddressMasks()[j] & mask;
@@ -1154,15 +993,21 @@ void InvalidateByAddr(u32 pseudoPhysical)
 		}
 		range->Blocks.Remove(i);
 
+		if (range->Blocks.Length == 0
+			&& !PageContainsCode(&region[(localAddr & 0xFFFF000) / 512]))
+		{
+			ARMJIT_Memory::SetCodeProtection(localAddr >> 28, localAddr & 0xFFFFFFF, false);
+		}
+
 		bool literalInvalidation = false;
 		for (int j = 0; j < block->NumLiterals; j++)
 		{
 			u32 addr = block->Literals()[j];
-			if (addr == pseudoPhysical)
+			if (addr == localAddr)
 			{
-				if (InvalidLiterals.Find(pseudoPhysical) != -1)
+				if (InvalidLiterals.Find(localAddr) != -1)
 				{
-					InvalidLiterals.Add(pseudoPhysical);
+					InvalidLiterals.Add(localAddr);
 					JIT_DEBUGPRINT("found invalid literal %d\n", InvalidLiterals.Length);
 				}
 				literalInvalidation = true;
@@ -1172,35 +1017,30 @@ void InvalidateByAddr(u32 pseudoPhysical)
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			if ((addr / 512) != (pseudoPhysical / 512))
+			if ((addr / 512) != (localAddr / 512))
 			{
-				AddressRange* otherRange = &CodeRanges[addr / 512];
+				AddressRange* otherRegion = CodeMemRegions[addr >> 28];
+				AddressRange* otherRange = &otherRegion[(addr & 0xFFFFFFF) / 512];
 				assert(otherRange != range);
+
 				bool removed = otherRange->Blocks.RemoveByValue(block);
 				assert(removed);
 
 				if (otherRange->Blocks.Length == 0)
 				{
+					if (!PageContainsCode(&otherRegion[(addr & 0xFFFF000) / 512]))
+						ARMJIT_Memory::SetCodeProtection(addr >> 28, addr & 0xFFFFFFF, false);
+
 					otherRange->Code = 0;
-					UpdateRegionByPseudoPhyiscal(addr, false);
 				}
 			}
 		}
 
-		for (int j = 0; j < block->NumLinks(); j++)
-			JITCompiler->UnlinkBlock(block->Links()[j]);
-		block->ResetLinks();
-
+		FastBlockLookupRegions[block->StartAddrLocal >> 28][(block->StartAddrLocal & 0xFFFFFFF) / 2] = (u64)UINT32_MAX << 32;
 		if (block->Num == 0)
-		{
-			JitBlocks9.erase(block->PseudoPhysicalAddr);
-			FastBlockLookUp9.Remove(block->PseudoPhysicalAddr);
-		}
+			JitBlocks9.erase(block->StartAddr);
 		else
-		{
-			JitBlocks7.erase(block->PseudoPhysicalAddr);
-			FastBlockLookUp7.Remove(block->PseudoPhysicalAddr);
-		}
+			JitBlocks7.erase(block->StartAddr);
 
 		if (!literalInvalidation)
 		{
@@ -1213,24 +1053,66 @@ void InvalidateByAddr(u32 pseudoPhysical)
 			delete block;
 		}
 	}
-
-	if (range->Blocks.Length == 0)
-		UpdateRegionByPseudoPhyiscal(pseudoPhysical, false);
 }
 
-void InvalidateRegionIfNecessary(u32 pseudoPhyisical)
+template <u32 num, int region>
+void CheckAndInvalidate(u32 addr)
 {
-	if (CodeRanges[pseudoPhyisical / 512].Code & (1 << ((pseudoPhyisical & 0x1FF) / 16)))
-		InvalidateByAddr(pseudoPhyisical);
+	// let's hope this gets all properly inlined
+	u32 mappingStart, mappingSize, memoryOffset, memorySize;
+	if (ARMJIT_Memory::GetRegionMapping(region, num, mappingStart, mappingSize, memoryOffset, memorySize))
+	{
+		u32 localAddr = ((addr - mappingStart) & (memorySize - 1)) + memoryOffset;
+		if (CodeMemRegions[region][localAddr / 512].Code & (1 << ((localAddr & 0x1FF) / 16)))
+			InvalidateByAddr(localAddr | (region << 28));
+	}
 }
+
+JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr)
+{
+	u64* entry = &entries[offset / 2];
+	if (*entry >> 32 == (addr | num))
+		return JITCompiler->AddEntryOffset((u32)*entry);
+	return NULL;
+}
+
+bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size)
+{
+	int region = num == 0
+		? ARMJIT_Memory::ClassifyAddress9(blockAddr)
+		: ARMJIT_Memory::ClassifyAddress7(blockAddr);
+
+	u32 mappingStart, mappingSize, memoryOffset, memorySize;
+	if (CodeMemRegions[region]
+		&& ARMJIT_Memory::GetRegionMapping(region, num, mappingStart,
+			mappingSize, memoryOffset, memorySize))
+	{
+		entry = FastBlockLookupRegions[region] + memoryOffset / 2;
+		// evil, though it should work for everything except DTCM which is not relevant here
+		start = blockAddr & ~(memorySize - 1);
+		size = memorySize;
+		return true;
+	}
+	else
+		return false;
+}
+
+template void CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(u32);
+template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(u32);
+template void CheckAndInvalidate<0, ARMJIT_Memory::memregion_SWRAM>(u32);
+template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_SWRAM>(u32);
+template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_WRAM7>(u32);
+template void CheckAndInvalidate<1, ARMJIT_Memory::memregion_VWRAM>(u32);
+template void CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(u32);
+template void CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(u32);
 
 void ResetBlockCache()
 {
 	printf("Resetting JIT block cache...\n");
 
 	InvalidLiterals.Clear();
-	FastBlockLookUp9.Reset();
-	FastBlockLookUp7.Reset();
+	for (int i = 0; i < ARMJIT_Memory::memregions_Count; i++)
+		memset(FastBlockLookupRegions[i], 0xFF, CodeRegionSizes[i] * sizeof(u64) / 2);
 	RestoreCandidates.Reset();
 	for (int i = 0; i < sizeof(RestoreCandidates.Table)/sizeof(RestoreCandidates.Table[0]); i++)
 	{
@@ -1251,8 +1133,9 @@ void ResetBlockCache()
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			CodeRanges[addr / 512].Blocks.Clear();
-			CodeRanges[addr / 512].Code = 0;
+			AddressRange* range = &CodeMemRegions[addr >> 28][(addr & 0xFFFFFFF) / 512];
+			range->Blocks.Clear();
+			range->Code = 0;
 		}
 		delete block;
 	}
@@ -1262,201 +1145,15 @@ void ResetBlockCache()
 		for (int j = 0; j < block->NumAddresses; j++)
 		{
 			u32 addr = block->AddressRanges()[j];
-			CodeRanges[addr / 512].Blocks.Clear();
-			CodeRanges[addr / 512].Code = 0;
+			AddressRange* range = &CodeMemRegions[addr >> 28][(addr & 0xFFFFFFF) / 512];
+			range->Blocks.Clear();
+			range->Code = 0;
 		}
 	}
 	JitBlocks9.clear();
 	JitBlocks7.clear();
 
 	JITCompiler->Reset();
-}
-
-template <u32 Num>
-JitBlockEntry LookUpBlockEntry(u32 addr)
-{
-	auto& fastMap = Num == 0 ? FastBlockLookUp9 : FastBlockLookUp7;
-	u32 entryOffset = fastMap.LookUp(addr);
-	if (entryOffset != UINT32_MAX)
-		return JITCompiler->AddEntryOffset(entryOffset);
-
-	auto& slowMap = Num == 0 ? JitBlocks9 : JitBlocks7;
-	auto block = slowMap.find(addr);
-	if (block != slowMap.end())
-	{
-		fastMap.Insert(addr, JITCompiler->SubEntryOffset(block->second->EntryPoint));
-		return block->second->EntryPoint;
-	}
-	return NULL;
-}
-
-template JitBlockEntry LookUpBlockEntry<0>(u32);
-template JitBlockEntry LookUpBlockEntry<1>(u32);
-
-template <u32 Num>
-void LinkBlock(ARM* cpu, u32 codeOffset)
-{
-	auto& blockMap = Num == 0 ? JitBlocks9 : JitBlocks7;
-	u32 instrAddr = cpu->R[15] - ((cpu->CPSR&0x20)?2:4);
-	u32 targetPseudoPhys = Num == 0 ? TranslateAddr9(instrAddr) : TranslateAddr7(instrAddr);
-	auto block = blockMap.find(targetPseudoPhys);
-	if (block == blockMap.end())
-	{
-		CompileBlock(cpu);
-		block = blockMap.find(targetPseudoPhys);
-	}
-
-	JIT_DEBUGPRINT("linking to block %08x\n", targetPseudoPhys);
-
-	block->second->AddLink(codeOffset);
-	JITCompiler->LinkBlock(codeOffset, block->second->EntryPoint);
-}
-
-template void LinkBlock<0>(ARM*, u32);
-template void LinkBlock<1>(ARM*, u32);
-
-void WifiWrite32(u32 addr, u32 val)
-{
-	Wifi::Write(addr, val & 0xFFFF);
-	Wifi::Write(addr + 2, val >> 16);
-}
-
-u32 WifiRead32(u32 addr)
-{
-	return Wifi::Read(addr) | (Wifi::Read(addr + 2) << 16);
-}
-
-template <typename T>
-void VRAMWrite(u32 addr, T val)
-{
-	switch (addr & 0x00E00000)
-	{
-	case 0x00000000: GPU::WriteVRAM_ABG<T>(addr, val); return;
-	case 0x00200000: GPU::WriteVRAM_BBG<T>(addr, val); return;
-	case 0x00400000: GPU::WriteVRAM_AOBJ<T>(addr, val); return;
-	case 0x00600000: GPU::WriteVRAM_BOBJ<T>(addr, val); return;
-	default: GPU::WriteVRAM_LCDC<T>(addr, val); return;
-	}
-}
-template <typename T>
-T VRAMRead(u32 addr)
-{
-	switch (addr & 0x00E00000)
-	{
-	case 0x00000000: return GPU::ReadVRAM_ABG<T>(addr);
-	case 0x00200000: return GPU::ReadVRAM_BBG<T>(addr);
-	case 0x00400000: return GPU::ReadVRAM_AOBJ<T>(addr);
-	case 0x00600000: return GPU::ReadVRAM_BOBJ<T>(addr);
-	default: return GPU::ReadVRAM_LCDC<T>(addr);
-	}
-}
-
-void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
-{
-	if (cpu->Num == 0)
-	{
-		switch (addr & 0xFF000000)
-		{
-		case 0x04000000:
-			if (!store && size == 32 && addr == 0x04100010 && NDS::ExMemCnt[0] & (1<<11))
-				return (void*)NDSCart::ReadROMData;
-
-			/*
-				unfortunately we can't map GPU2D this way
-				since it's hidden inside an object
-
-				though GPU3D registers are accessed much more intensive
-			*/
-			if (addr >= 0x04000320 && addr < 0x040006A4)
-			{
-				switch (size | store)
-				{
-				case 8: return (void*)GPU3D::Read8;		
-				case 9: return (void*)GPU3D::Write8;		
-				case 16: return (void*)GPU3D::Read16;
-				case 17: return (void*)GPU3D::Write16;
-				case 32: return (void*)GPU3D::Read32;
-				case 33: return (void*)GPU3D::Write32;
-				}
-			}
-
-			switch (size | store)
-			{
-			case 8: return (void*)NDS::ARM9IORead8;
-			case 9: return (void*)NDS::ARM9IOWrite8;
-			case 16: return (void*)NDS::ARM9IORead16;
-			case 17: return (void*)NDS::ARM9IOWrite16;
-			case 32: return (void*)NDS::ARM9IORead32;
-			case 33: return (void*)NDS::ARM9IOWrite32;
-			}
-			break;
-		case 0x06000000:
-			switch (size | store)
-			{
-			case 8: return (void*)VRAMRead<u8>;		
-			case 9: return NULL;
-			case 16: return (void*)VRAMRead<u16>;
-			case 17: return (void*)VRAMWrite<u16>;
-			case 32: return (void*)VRAMRead<u32>;
-			case 33: return (void*)VRAMWrite<u32>;
-			}
-			break;
-		}
-	}
-	else
-	{
-		switch (addr & 0xFF800000)
-		{
-		case 0x04000000:
-			if (addr >= 0x04000400 && addr < 0x04000520)
-			{
-				switch (size | store)
-				{
-				case 8: return (void*)SPU::Read8;		
-				case 9: return (void*)SPU::Write8;		
-				case 16: return (void*)SPU::Read16;
-				case 17: return (void*)SPU::Write16;
-				case 32: return (void*)SPU::Read32;
-				case 33: return (void*)SPU::Write32;
-				}
-			}
-
-			switch (size | store)
-			{
-			case 8: return (void*)NDS::ARM7IORead8;
-			case 9: return (void*)NDS::ARM7IOWrite8;		
-			case 16: return (void*)NDS::ARM7IORead16;
-			case 17: return (void*)NDS::ARM7IOWrite16;
-			case 32: return (void*)NDS::ARM7IORead32;
-			case 33: return (void*)NDS::ARM7IOWrite32;
-			}
-			break;
-		case 0x04800000:
-			if (addr < 0x04810000 && size >= 16)
-			{
-				switch (size | store)
-				{
-				case 16: return (void*)Wifi::Read;
-				case 17: return (void*)Wifi::Write;
-				case 32: return (void*)WifiRead32;
-				case 33: return (void*)WifiWrite32;
-				}
-			}
-			break;
-		case 0x06000000:
-		case 0x06800000:
-			switch (size | store)
-			{
-			case 8: return (void*)GPU::ReadVRAM_ARM7<u8>;
-			case 9: return (void*)GPU::WriteVRAM_ARM7<u8>;
-			case 16: return (void*)GPU::ReadVRAM_ARM7<u16>;
-			case 17: return (void*)GPU::WriteVRAM_ARM7<u16>;
-			case 32: return (void*)GPU::ReadVRAM_ARM7<u32>;
-			case 33: return (void*)GPU::WriteVRAM_ARM7<u32>;
-			}
-		}
-	}
-	return NULL;
 }
 
 }

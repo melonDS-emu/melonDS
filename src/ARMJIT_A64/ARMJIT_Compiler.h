@@ -9,6 +9,8 @@
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
+#include <unordered_map>
+
 namespace ARMJIT
 {
 
@@ -64,13 +66,23 @@ struct Op2
     };
 };
 
-class Compiler : Arm64Gen::ARM64XEmitter
+struct LoadStorePatch
+{
+    void* PatchFunc;
+    s32 PatchOffset;
+    u32 PatchSize;
+};
+
+class Compiler : public Arm64Gen::ARM64XEmitter
 {
 public:
     typedef void (Compiler::*CompileFunc)();
 
     Compiler();
     ~Compiler();
+
+    void PushRegs(bool saveHiRegs);
+    void PopRegs(bool saveHiRegs);
 
     Arm64Gen::ARM64Reg MapReg(int reg)
     {
@@ -89,7 +101,7 @@ public:
 
     void Reset();
 
-    void Comp_AddCycles_C(bool forceNonConst = false);
+    void Comp_AddCycles_C(bool forceNonConstant = false);
     void Comp_AddCycles_CI(u32 numI);
     void Comp_AddCycles_CI(u32 c, Arm64Gen::ARM64Reg numI, Arm64Gen::ArithOption shift);
     void Comp_AddCycles_CD();
@@ -103,6 +115,9 @@ public:
     void LoadCPSR();
     void SaveCPSR(bool markClean = true);
 
+    void LoadCycles();
+    void SaveCycles();
+
     void Nop() {}
 
     void A_Comp_ALUTriOp();
@@ -111,6 +126,7 @@ public:
 
     void A_Comp_Mul();
     void A_Comp_Mul_Long();
+    void A_Comp_Mul_Short();
 
     void A_Comp_Clz();
 
@@ -122,6 +138,8 @@ public:
     void A_Comp_BranchImm();
     void A_Comp_BranchXchangeReg();
 
+    void A_Comp_MRS();
+    void A_Comp_MSR();
 
     void T_Comp_ShiftImm();
     void T_Comp_AddSub_();
@@ -168,7 +186,7 @@ public:
     void Comp_RegShiftImm(int op, int amount, bool S, Op2& op2, Arm64Gen::ARM64Reg tmp = Arm64Gen::W0);
     void Comp_RegShiftReg(int op, bool S, Op2& op2, Arm64Gen::ARM64Reg rs);
 
-    void Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
+    bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
     enum
     {
         memop_Writeback = 1 << 0,
@@ -179,16 +197,33 @@ public:
     };
     void Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags);
 
-    void* Gen_MemoryRoutine9(int size, bool store);
-
-    void* Gen_MemoryRoutine9Seq(bool store, bool preinc);
-    void* Gen_MemoryRoutine7Seq(bool store, bool preinc);
-
     // 0 = switch mode, 1 = stay arm, 2 = stay thumb
     void* Gen_JumpTo9(int kind);
     void* Gen_JumpTo7(int kind);
 
-    void Comp_BranchSpecialBehaviour();
+    void Comp_BranchSpecialBehaviour(bool taken);
+
+    JitBlockEntry AddEntryOffset(u32 offset)
+    {
+        return (JitBlockEntry)(GetRXBase() + offset);
+    }
+
+    u32 SubEntryOffset(JitBlockEntry entry)
+    {
+        return (u8*)entry - GetRXBase();
+    }
+
+    bool IsJITFault(u64 pc);
+    s64 RewriteMemAccess(u64 pc);
+
+    void SwapCodeRegion()
+    {
+        ptrdiff_t offset = GetCodeOffset();
+        SetCodePtrUnsafe(OtherCodeRegion);
+        OtherCodeRegion = offset;
+    }
+
+    ptrdiff_t OtherCodeRegion;
 
     bool Exit;
 
@@ -202,21 +237,19 @@ public:
 
     BitSet32 SavedRegs;
 
-    u32 JitMemUseableSize;
+    u32 JitMemSecondarySize;
+    u32 JitMemMainSize;
 
     void* ReadBanked, *WriteBanked;
 
-    // [size][store]
-    void* MemFunc9[3][2];
-    void* MemFunc7[3][2];
-
-    // [store][pre increment]
-    void* MemFuncsSeq9[2][2];
-    // "[code in main ram]
-    void* MemFuncsSeq7[2][2];
-
     void* JumpToFuncs9[3];
     void* JumpToFuncs7[3];
+
+    std::unordered_map<ptrdiff_t, LoadStorePatch> LoadStorePatches; 
+
+    // [Num][Size][Sign Extend][Output register]
+    void* PatchedLoadFuncs[2][3][2][8];
+    void* PatchedStoreFuncs[2][3][8];
 
     RegisterCache<Compiler, Arm64Gen::ARM64Reg> RegCache;
 

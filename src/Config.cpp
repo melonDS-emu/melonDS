@@ -47,8 +47,9 @@ int JIT_LiteralOptimisations = true;
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
 int JIT_MaxBlockSize = 32;
-int JIT_BrancheOptimisations = 2;
+int JIT_BrancheOptimisations = true;
 int JIT_LiteralOptimisations = true;
+int JIT_FastMemory = true;
 #endif
 
 ConfigEntry ConfigFile[] =
@@ -72,8 +73,9 @@ ConfigEntry ConfigFile[] =
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},
-    {"JIT_BranchOptimisations", 0, &JIT_BrancheOptimisations, 2, NULL, 0},
+    {"JIT_BranchOptimisations", 0, &JIT_BrancheOptimisations, 1, NULL, 0},
     {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
+    {"JIT_FastMem", 0, &JIT_FastMemory, 1, NULL, 0},
 #endif
 
     {"", -1, NULL, 0, NULL, 0}

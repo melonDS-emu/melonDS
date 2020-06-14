@@ -55,8 +55,10 @@ if (ENABLE_JIT)
 	enable_language(ASM)
 
 	target_sources(core PRIVATE
-		ARMJIT.cpp
 		ARM_InstrInfo.cpp
+
+		ARMJIT.cpp
+		ARMJIT_Memory.cpp
 
 		dolphin/CommonFuncs.cpp
 	)
@@ -85,6 +87,8 @@ if (ENABLE_JIT)
 			ARMJIT_A64/ARMJIT_ALU.cpp
 			ARMJIT_A64/ARMJIT_LoadStore.cpp
 			ARMJIT_A64/ARMJIT_Branch.cpp
+
+			ARMJIT_A64/ARMJIT_Linkage.s
 		)
 	endif()
 endif()
