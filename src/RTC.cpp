@@ -174,7 +174,6 @@ void ByteIn(u8 val)
             case 0x70: Output[0] = FreeReg; break;
             }
         }
-        InputPos++;
         return;
     }
 
@@ -220,8 +219,6 @@ void ByteIn(u8 val)
         if (InputPos == 1) FreeReg = val;
         break;
     }
-
-    InputPos++;
 }
 
 
