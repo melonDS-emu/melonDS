@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DSi_NWifi.h"
 #include "SPI.h"
+#include "WifiAP.h"
 
 
 const u8 CIS0[256] =
@@ -178,6 +179,9 @@ void DSi_NWifi::Reset()
 
     ErrorMask = 0;
     ScanTimer = 0;
+
+    BeaconTimer = 0x10A2220ULL;
+    ConnectionStatus = 0;
 
     NDS::CancelEvent(NDS::Event_DSi_NWifi);
 }
@@ -676,7 +680,8 @@ void DSi_NWifi::HandleCommand()
     switch (BootPhase)
     {
     case 0: return BMI_Command();
-    case 1: return WMI_Command();
+    case 1: return HTC_Command();
+    case 2: return WMI_Command();
     }
 }
 
@@ -684,7 +689,6 @@ void DSi_NWifi::BMI_Command()
 {
     // HLE command handling stub
     u32 cmd = MB_Read32(0);
-    printf("BMI: cmd %08X\n", cmd);
 
     switch (cmd)
     {
@@ -776,7 +780,7 @@ void DSi_NWifi::BMI_Command()
     }
 }
 
-void DSi_NWifi::WMI_Command()
+void DSi_NWifi::HTC_Command()
 {
     // HLE command handling stub
     u16 h0 = MB_Read16(0);
@@ -822,7 +826,58 @@ void DSi_NWifi::WMI_Command()
             *(u32*)&regdomain_evt[0] = 0x80000000 | (*(u16*)&EEPROM[0x008] & 0x0FFF);
             SendWMIEvent(1, 0x1006, regdomain_evt, 4);
 
+            BootPhase = 2;
             NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
+        }
+        break;
+
+    default:
+        printf("unknown HTC command %04X\n", cmd);
+        for (int i = 0; i < len; i++)
+        {
+            printf("%02X ", Mailbox[0]->Read());
+            if ((i&0xF)==0xF) printf("\n");
+        }
+        printf("\n");
+        break;
+    }
+
+    MB_Drain(0);
+}
+
+void DSi_NWifi::WMI_Command()
+{
+    // HLE command handling stub
+    u16 h0 = MB_Read16(0);
+    u16 len = MB_Read16(0);
+    u16 h2 = MB_Read16(0);
+
+    u16 cmd = MB_Read16(0);
+
+    switch (cmd)
+    {
+    case 0x0001: // connect to network
+        {
+            WMI_ConnectToNetwork();
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0004: // synchronize
+        {
+            Mailbox[0]->Read();
+            // TODO??
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0005: // create priority stream
+        {
+            // TODO???
+            // there's a lot of crap in there.
+
+            SendWMIAck();
         }
         break;
 
@@ -843,7 +898,8 @@ void DSi_NWifi::WMI_Command()
                 printf("!! CHECKME: START SCAN BUT WAS ALREADY SCANNING (%d)\n", ScanTimer);
             }
 
-            ScanTimer = scantime;
+            // checkme
+            ScanTimer = scantime*5;
 
             SendWMIAck();
         }
@@ -878,13 +934,21 @@ void DSi_NWifi::WMI_Command()
             u8 flags = Mailbox[0]->Read();
             u8 len = Mailbox[0]->Read();
 
-            char ssid[33];
+            char ssid[33] = {0};
             for (int i = 0; i < len && i < 32; i++)
                 ssid[i] = Mailbox[0]->Read();
-            ssid[32]= '\0';
 
             // TODO: store it somewhere
             printf("WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x000D: // set disconnect timeout
+        {
+            Mailbox[0]->Read();
+            // TODO??
 
             SendWMIAck();
         }
@@ -928,6 +992,20 @@ void DSi_NWifi::WMI_Command()
         }
         break;
 
+    case 0x0012: // set power mode
+        {
+            Mailbox[0]->Read();
+            // TODO??
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0017: // dummy?
+        Mailbox[0]->Read();
+        SendWMIAck();
+        break;
+
     case 0x0022: // set error bitmask
         {
             ErrorMask = MB_Read32(0);
@@ -963,9 +1041,49 @@ void DSi_NWifi::WMI_Command()
         }
         break;
 
+    case 0x003D: // set keepalive interval
+        {
+            Mailbox[0]->Read();
+            // TODO??
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0041: // 'WMI_SET_WSC_STATUS_CMD'
+        {
+            Mailbox[0]->Read();
+            // TODO??
+
+            SendWMIAck();
+        }
+        break;
+
     case 0x0047: // cmd47 -- timer shenanigans??
         {
             //
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0048: // not supported by DSi??
+        {
+            MB_Read32(0);
+            MB_Read32(0);
+            Mailbox[0]->Read();
+            Mailbox[0]->Read();
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0xF000: // set bitrate
+        {
+            // TODO!
+            Mailbox[0]->Read();
+            Mailbox[0]->Read();
+            Mailbox[0]->Read();
 
             SendWMIAck();
         }
@@ -983,6 +1101,64 @@ void DSi_NWifi::WMI_Command()
     }
 
     MB_Drain(0);
+}
+
+void DSi_NWifi::WMI_ConnectToNetwork()
+{
+    u8 type = Mailbox[0]->Read();
+    u8 auth11 = Mailbox[0]->Read();
+    u8 auth = Mailbox[0]->Read();
+    u8 pCryptoType = Mailbox[0]->Read();
+    u8 pCryptoLen = Mailbox[0]->Read();
+    u8 gCryptoType = Mailbox[0]->Read();
+    u8 gCryptoLen = Mailbox[0]->Read();
+    u8 ssidLen = Mailbox[0]->Read();
+
+    char ssid[33] = {0};
+    for (int i = 0; i < 32; i++)
+        ssid[i] = Mailbox[0]->Read();
+    if (ssidLen <= 32)
+        ssid[ssidLen] = '\0';
+
+    u16 channel = MB_Read16(0);
+
+    u8 bssid[6];
+    *(u32*)&bssid[0] = MB_Read32(0);
+    *(u16*)&bssid[4] = MB_Read16(0);
+
+    u32 flags = MB_Read32(0);
+
+    if ((type != 0x01) ||
+        (auth11 != 0x01) ||
+        (auth != 0x01) ||
+        (pCryptoType != 0x01) ||
+        (gCryptoType != 0x01) ||
+        (memcmp(bssid, WifiAP::APMac, 6)))
+    {
+        printf("WMI_Connect: bad parameters\n");
+        // TODO: send disconnect??
+        return;
+    }
+
+    printf("WMI: connecting to network %s\n", ssid);
+
+    u8 reply[20];
+
+    // hope this is right!
+    *(u16*)&reply[0] = 2437; // channel
+    memcpy(&reply[2], WifiAP::APMac, 6); // BSSID
+    *(u16*)&reply[8] = 128; // listen interval
+    *(u16*)&reply[10] = 128; // beacon interval
+    *(u32*)&reply[12] = 0x01; // network type
+
+    reply[16] = 0x16; // beaconIeLen ???
+    reply[17] = 0x2F; // assocReqLen
+    reply[18] = 0x16; // assocRespLen
+    reply[19] = 0; // ?????
+
+    SendWMIEvent(1, 0x1002, reply, 20);
+
+    ConnectionStatus = 1;
 }
 
 //void DSi_NWifi::SendWMIFrame(u8* data, u32 len, u8 ep, u8 flags, u16 ctrl)
@@ -1055,6 +1231,44 @@ void DSi_NWifi::SendWMIAck()
         Mailbox[4]->Write(0);
 }
 
+void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
+{
+    u32 wlen = 0;
+
+    // TODO: what is the trailer about?????
+    // on hardware I observed one frame with trailer and another without
+    // plus it's different from other frames
+
+    // TODO: check when version>=2 frame type is used?
+    // I observed the version<2 variant on my DSi
+
+    Mailbox[4]->Write(1);     // eid
+    Mailbox[4]->Write(0x00);  // flags
+    MB_Write16(4, len+2+16);  // data length (plus event ID and trailer)
+    Mailbox[4]->Write(0xFF);  // trailer length
+    Mailbox[4]->Write(0xFF);  //
+    MB_Write16(4, 0x1004);    // event ID
+    wlen += 8;
+
+    MB_Write16(4, 2437); // channel (6) (checkme!)
+    Mailbox[4]->Write(type);
+    Mailbox[4]->Write(0x1B); // 'snr'
+    MB_Write16(4, 0xFFBC);   // RSSI
+    MB_Write32(4, *(u32*)&WifiAP::APMac[0]);
+    MB_Write16(4, *(u16*)&WifiAP::APMac[4]);
+    MB_Write32(4, 0); // ieMask
+    wlen += 16;
+
+    for (int i = 0; i < len; i++)
+    {
+        Mailbox[4]->Write(data[i]);
+        wlen++;
+    }
+
+    for (; wlen & 0x7F; wlen++)
+        Mailbox[4]->Write(0);
+}
+
 
 u32 DSi_NWifi::WindowRead(u32 addr)
 {
@@ -1105,9 +1319,29 @@ void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 
 void DSi_NWifi::_MSTimer()
 {
+    BeaconTimer++;
+
     if (ScanTimer > 0)
     {
         ScanTimer--;
+
+        // send a beacon
+        if (!(BeaconTimer & 0x7F))
+        {
+            u8 beacon[] =
+            {
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,             // timestamp
+                0x80, 0x00,                                                 // beacon interval
+                0x21, 0x00,                                                 // capability,
+                0x01, 0x08, 0x82, 0x84, 0x8B, 0x96, 0x0C, 0x12, 0x18, 0x24, // rates
+                0x03, 0x01, 0x06,                                           // channel
+                0x05, 0x04, 0x00, 0x00, 0x00, 0x00,                         // TIM
+                0x00, 0x07, 'm', 'e', 'l', 'o', 'n', 'A', 'P',              // SSID
+            };
+
+            SendWMIBSSInfo(0x01, beacon, sizeof(beacon));
+            printf("send beacon\n");
+        }
 
         if (ScanTimer == 0)
         {
@@ -1115,42 +1349,6 @@ void DSi_NWifi::_MSTimer()
             SendWMIEvent(1, 0x100A, (u8*)&status, 4);
         }
     }
-
-    /*for (;;)
-    {
-        int rxlen = WifiAP::RecvPacket(RXBuffer);
-        if (rxlen == 0) return;
-        if (rxlen < 12+24) continue;
-
-        framelen = *(u16*)&RXBuffer[10];
-        if (framelen != rxlen-12)
-        {
-            printf("bad frame length\n");
-            continue;
-        }
-        framelen -= 4;
-
-        framectl = *(u16*)&RXBuffer[12+0];
-        if ((framectl & 0x00FC) == 0x0080) // beacon
-        {
-            printf("NWifi: got beacon\n");
-
-            u32 bodylen = framelen - 24;
-            if (bodylen > 256-16) bodylen = 256-16;
-
-            u8 beacon_evt[256];
-            memset(beacon_evt, 0, 256);
-            *(u16*)&beacon_evt[0] = 0x1004; // WMI_BSSINFO_EVENT
-            *(u16*)&beacon_evt[2] = 2442; // channel (in MHz???? welp)
-            beacon_evt[2] = 0x01; // frame type
-            beacon_evt[3] = 0x33; // 'snr' (???????)
-            *(u16*)&beacon_evt[4] = 0xFFD4; // 'rssi', 'snr'-95 (?????)
-            memcpy(&beacon_evt[6], &RXBuffer[12+16], 6); // BSSID
-            *(u32*)&beacon_evt[12] = 0; // ieMask (???????)
-            memcpy(&beacon_evt[16], &RXBuffer[12+24], bodylen); // frame body
-            //SendWMIFrame(beacon_evt, 16+bodylen, 1, 0, 0);
-        }
-    }*/
 }
 
 void DSi_NWifi::MSTimer(u32 param)

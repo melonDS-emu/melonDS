@@ -66,10 +66,14 @@ private:
 
     void HandleCommand();
     void BMI_Command();
+    void HTC_Command();
     void WMI_Command();
+
+    void WMI_ConnectToNetwork();
 
     void SendWMIEvent(u8 ep, u16 id, u8* data, u32 len);
     void SendWMIAck();
+    void SendWMIBSSInfo(u8 type, u8* data, u32 len);
 
     u32 WindowRead(u32 addr);
     void WindowWrite(u32 addr, u32 val);
@@ -126,6 +130,9 @@ private:
 
     u32 ErrorMask;
     u32 ScanTimer;
+
+    u64 BeaconTimer;
+    u32 ConnectionStatus;
 
     u8 RXBuffer[2048];
 };

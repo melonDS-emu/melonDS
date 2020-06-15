@@ -30,9 +30,6 @@
 namespace WifiAP
 {
 
-#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
-#define AP_NAME "melonAP"
-
 const u8 APMac[6] = {AP_MAC};
 
 #define PWRITE_8(p, v)      *p++ = v;
