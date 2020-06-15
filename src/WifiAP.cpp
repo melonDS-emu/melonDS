@@ -130,6 +130,18 @@ void USTimer()
     }
 }
 
+void MSTimer()
+{
+    USCounter += 0x400;
+
+    u32 chk = (u32)USCounter;
+    if (!(chk & 0x1FC00))
+    {
+        // send beacon every 128ms
+        BeaconDue = true;
+    }
+}
+
 
 int HandleManagementFrame(u8* data, int len)
 {

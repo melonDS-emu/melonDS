@@ -1285,6 +1285,8 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
+    if (event->key() == Qt::Key_F11) NDS::debug(0);
+
     Input::KeyPress(event);
 }
 

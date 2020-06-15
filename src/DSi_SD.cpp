@@ -112,8 +112,8 @@ void DSi_SDHost::Reset()
 
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
-    Ports[0] = NULL;
-    Ports[1] = NULL;
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
 
     if (Num == 0)
     {
@@ -135,6 +135,9 @@ void DSi_SDHost::Reset()
 
         Ports[0] = nwifi;
     }
+
+    if (Ports[0]) Ports[0]->Reset();
+    if (Ports[1]) Ports[1]->Reset();
 }
 
 void DSi_SDHost::DoSavestate(Savestate* file)
@@ -196,6 +199,18 @@ void DSi_SDHost::SetCardIRQ()
     if (dev->IRQ) CardIRQStatus |=  (1<<0);
     else          CardIRQStatus &= ~(1<<0);
 
+    u16 newflags = CardIRQStatus & ~CardIRQMask;
+
+    if ((oldflags == 0) && (newflags != 0)) // checkme
+    {
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO : NDS::IRQ2_DSi_SDMMC);
+        NDS::SetIRQ2(Num ? NDS::IRQ2_DSi_SDIO_Data1 : NDS::IRQ2_DSi_SD_Data1);
+    }
+}
+
+void DSi_SDHost::UpdateCardIRQ(u16 oldmask)
+{
+    u16 oldflags = CardIRQStatus & ~oldmask;
     u16 newflags = CardIRQStatus & ~CardIRQMask;
 
     if ((oldflags == 0) && (newflags != 0)) // checkme
@@ -448,6 +463,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x0F6: return 0; // MMC write protect (always 0)
 
     case 0x100: return Data32IRQ;
+    case 0x102: return 0;
     case 0x104: return BlockLen32;
     case 0x108: return BlockCount32;
     }
@@ -549,8 +565,8 @@ void DSi_SDHost::Write(u32 addr, u16 val)
             u32 oldmask = IRQMask;
             IRQMask = (IRQMask & 0x0000031D) | ((val & 0x8B7F) << 16);
             UpdateIRQ(oldmask);
-            if (!DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(24); // checkme
-            if (DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(25); // checkme
+            //if (!DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(24); // checkme
+            //if (DataFIFO[CurFIFO]->IsEmpty()) SetIRQ(25); // checkme
         }
         return;
 
@@ -571,8 +587,13 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         CardIRQStatus &= val;
         return;
     case 0x038:
-        CardIRQMask = val & 0xC007;
-        SetCardIRQ();
+        {
+            u16 oldmask = CardIRQMask;
+            CardIRQMask = val & 0xC007;
+            UpdateCardIRQ(oldmask);
+        }
+        //CardIRQMask = val & 0xC007;
+        //SetCardIRQ();
         return;
 
     case 0x0D8:
@@ -592,6 +613,9 @@ void DSi_SDHost::Write(u32 addr, u16 val)
             SDOption = 0x40EE;
             // TODO: CARD_IRQ_STAT
             // TODO: FIFO16 shit
+
+            if (Ports[0]) Ports[0]->Reset();
+            if (Ports[1]) Ports[1]->Reset();
         }
         SoftReset = 0x0006 | (val & 0x0001);
         return;
@@ -601,6 +625,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
         if (val & (1<<10)) DataFIFO32->Clear();
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
         return;
+    case 0x102: return;
     case 0x104: BlockLen32 = val & 0x03FF; return;
     case 0x108: BlockCount32 = val; return;
     }
@@ -701,6 +726,16 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path
             File = Platform::OpenLocalFile(path, "w+b");
         }
     }
+}
+
+DSi_MMCStorage::~DSi_MMCStorage()
+{
+    if (File) fclose(File);
+}
+
+void DSi_MMCStorage::Reset()
+{
+    // TODO: reset file access????
 
     CSR = 0x00000100; // checkme
 
@@ -721,11 +756,6 @@ DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path
     BlockSize = 0;
     RWAddress = 0;
     RWCommand = 0;
-}
-
-DSi_MMCStorage::~DSi_MMCStorage()
-{
-    if (File) fclose(File);
 }
 
 void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)

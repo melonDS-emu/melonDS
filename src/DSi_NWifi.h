@@ -28,12 +28,18 @@ public:
     DSi_NWifi(DSi_SDHost* host);
     ~DSi_NWifi();
 
+    void Reset();
+
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
 
     void ContinueTransfer();
 
     void SetIRQ_F1_Counter(u32 n);
+
+    void CheckRX();
+
+    static void MSTimer(u32 param);
 
 private:
     u32 TransferCmd;
@@ -62,7 +68,8 @@ private:
     void BMI_Command();
     void WMI_Command();
 
-    void SendWMIFrame(u8* data, u32 len, u8 ep, u8 flags, u16 ctrl);
+    void SendWMIEvent(u8 ep, u16 id, u8* data, u32 len);
+    void SendWMIAck();
 
     u32 WindowRead(u32 addr);
     void WindowWrite(u32 addr, u32 val);
@@ -116,6 +123,10 @@ private:
     u32 EEPROMReady;
 
     u32 BootPhase;
+
+    u32 ErrorMask;
+
+    u8 RXBuffer[2048];
 };
 
 #endif // DSI_NWIFI_H

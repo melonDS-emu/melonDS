@@ -597,7 +597,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
     }
 
-    if ((id&0xF00)!=0x700)
+    if ((id & 0xF00) == 0xF00) // test/debug shit?
+        return;
+
+    if ((id & 0xF00) != 0x700)
         printf("unknown CP15 write op %03X %08X\n", id, val);
 }
 
@@ -690,6 +693,9 @@ u32 ARMv5::CP15Read(u32 id)
     case 0x911:
         return ITCMSetting;
     }
+
+    if ((id & 0xF00) == 0xF00) // test/debug shit?
+        return 0;
 
     printf("unknown CP15 read op %03X\n", id);
     return 0;
