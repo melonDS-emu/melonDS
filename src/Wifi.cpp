@@ -966,8 +966,7 @@ void MSTimer()
 
 void USTimer(u32 param)
 {
-    // FIXME!!!
-    //WifiAP::USTimer();
+    WifiAP::USTimer();
 
     if (IOPORT(W_USCountCnt))
     {

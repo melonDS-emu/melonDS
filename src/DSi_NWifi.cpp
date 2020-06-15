@@ -21,7 +21,6 @@
 #include "DSi.h"
 #include "DSi_NWifi.h"
 #include "SPI.h"
-#include "WifiAP.h"
 
 
 const u8 CIS0[256] =
@@ -178,6 +177,7 @@ void DSi_NWifi::Reset()
     BootPhase = 0;
 
     ErrorMask = 0;
+    ScanTimer = 0;
 
     NDS::CancelEvent(NDS::Event_DSi_NWifi);
 }
@@ -826,6 +826,29 @@ void DSi_NWifi::WMI_Command()
         }
         break;
 
+    case 0x0007: // start scan
+        {
+            u32 forcefg = MB_Read32(0);
+            u32 legacy = MB_Read32(0);
+            u32 scantime = MB_Read32(0);
+            u32 forceinterval = MB_Read32(0);
+            u8 scantype = Mailbox[0]->Read();
+            u8 nchannels = Mailbox[0]->Read();
+
+            printf("WMI: start scan, forceFG=%d, legacy=%d, scanTime=%d, interval=%d, scanType=%d, chan=%d\n",
+                   forcefg, legacy, scantime, forceinterval, scantype, nchannels);
+
+            if (ScanTimer > 0)
+            {
+                printf("!! CHECKME: START SCAN BUT WAS ALREADY SCANNING (%d)\n", ScanTimer);
+            }
+
+            ScanTimer = scantime;
+
+            SendWMIAck();
+        }
+        break;
+
     case 0x0008: // set scan params
         {
             // TODO: do something with the params!!
@@ -908,6 +931,33 @@ void DSi_NWifi::WMI_Command()
     case 0x0022: // set error bitmask
         {
             ErrorMask = MB_Read32(0);
+
+            SendWMIAck();
+        }
+        break;
+
+    case 0x002E: // extension shit
+        {
+            u16 extcmd = MB_Read16(0);
+            switch (extcmd)
+            {
+            case 0x2008: // 'heartbeat'??
+                {
+                    u32 cookie = MB_Read32(0);
+                    u32 source = MB_Read32(0);
+
+                    u8 reply[10];
+                    *(u16*)&reply[0] = 0x3007;
+                    *(u32*)&reply[2] = cookie;
+                    *(u32*)&reply[6] = source;
+                    SendWMIEvent(1, 0x1010, reply, 10);
+                }
+                break;
+
+            default:
+                printf("WMI: unknown ext cmd 002E:%04X\n", extcmd);
+                break;
+            }
 
             SendWMIAck();
         }
@@ -1053,12 +1103,20 @@ void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 }
 
 
-void DSi_NWifi::CheckRX()
-{return;
-    u16 framelen;
-    u16 framectl;
+void DSi_NWifi::_MSTimer()
+{
+    if (ScanTimer > 0)
+    {
+        ScanTimer--;
 
-    for (;;)
+        if (ScanTimer == 0)
+        {
+            u32 status = 0;
+            SendWMIEvent(1, 0x100A, (u8*)&status, 4);
+        }
+    }
+
+    /*for (;;)
     {
         int rxlen = WifiAP::RecvPacket(RXBuffer);
         if (rxlen == 0) return;
@@ -1092,14 +1150,11 @@ void DSi_NWifi::CheckRX()
             memcpy(&beacon_evt[16], &RXBuffer[12+24], bodylen); // frame body
             //SendWMIFrame(beacon_evt, 16+bodylen, 1, 0, 0);
         }
-    }
+    }*/
 }
 
 void DSi_NWifi::MSTimer(u32 param)
 {
-    WifiAP::MSTimer();
-
-    Ctx->CheckRX();
-
+    Ctx->_MSTimer();
     NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
 }
