@@ -18,15 +18,15 @@ const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
 const Gen::X64Reg RSCRATCH4 = Gen::R8;
 
-struct ComplexOperand
+struct Op2
 {
-    ComplexOperand()
+    Op2()
     {}
 
-    ComplexOperand(u32 imm)
+    Op2(u32 imm)
         : IsImm(true), Imm(imm)
     {}
-    ComplexOperand(int reg, int op, int amount)
+    Op2(int reg, int op, int amount)
         : IsImm(false)
     {
         Reg.Reg = reg;
@@ -135,9 +135,9 @@ public:
         memop_Store = 1 << 3,
         memop_SubtractOffset = 1 << 4
     };
-    void Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags);
+    void Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags);
     s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
-    bool Comp_MemLoadLiteral(int size, int rd, u32 addr);
+    bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);

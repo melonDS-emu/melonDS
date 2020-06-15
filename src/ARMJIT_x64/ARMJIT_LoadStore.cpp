@@ -30,17 +30,18 @@ s32 Compiler::RewriteMemAccess(u64 pc)
     improvement.
 */
 
-bool Compiler::Comp_MemLoadLiteral(int size, int rd, u32 addr)
+bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
 {
-    return false;
-    //u32 translatedAddr = Num == 0 ? TranslateAddr9(addr) : TranslateAddr7(addr);
+    u32 localAddr = LocaliseCodeAddress(Num, addr);
 
-    /*int invalidLiteralIdx = InvalidLiterals.Find(translatedAddr);
+    int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
         InvalidLiterals.Remove(invalidLiteralIdx);
         return false;
-    }*/
+    }
+
+    Comp_AddCycles_CDI();
 
     u32 val;
     // make sure arm7 bios is accessible
@@ -52,23 +53,29 @@ bool Compiler::Comp_MemLoadLiteral(int size, int rd, u32 addr)
         val = ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
+    {
         CurCPU->DataRead16(addr & ~0x1, &val);
+        if (signExtend)
+            val = ((s32)val << 16) >> 16;
+    }
     else
+    {
         CurCPU->DataRead8(addr, &val);
+        if (signExtend)
+            val = ((s32)val << 24) >> 24;
+    }
     CurCPU->R[15] = tmpR15;
 
     MOV(32, MapReg(rd), Imm32(val));
 
     if (Thumb || CurInstr.Cond() == 0xE)
         RegCache.PutLiteral(rd, val);
-
-    Comp_AddCycles_CDI();
-
+    
     return true;
 }
 
 
-void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int size, int flags)
+void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags)
 {
     u32 addressMask = ~0;
     if (size == 32)
@@ -76,11 +83,11 @@ void Compiler::Comp_MemAccess(int rd, int rn, const ComplexOperand& op2, int siz
     if (size == 16)
         addressMask = ~1;
 
-    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_SignExtend|memop_Post|memop_Store|memop_Writeback)))
+    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         
-        if (Comp_MemLoadLiteral(size, rd, addr))
+        if (Comp_MemLoadLiteral(size, flags & memop_SignExtend, rd, addr))
             return;
     }
 
@@ -455,6 +462,23 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 {
     int regsCount = regs.Count();
 
+    if (regsCount == 0)
+        return 0; // actually not the right behaviour TODO: fix me
+
+    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << *regs.begin()))
+    {
+        int flags = 0;
+        if (store)
+            flags |= memop_Store;
+        if (decrement)
+            flags |= memop_SubtractOffset;
+        Op2 offset = preinc ? Op2(4) : Op2(0);
+
+        Comp_MemAccess(*regs.begin(), rn, offset, 32, flags);
+
+        return decrement ? -4 : 4;
+    }
+
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
     // we need to make sure that the stack stays aligned to 16 bytes
@@ -743,10 +767,10 @@ void Compiler::A_Comp_MemWB()
     if (!(CurInstr.Instr & (1 << 23)))
         flags |= memop_SubtractOffset;
 
-    ComplexOperand offset;
+    Op2 offset;
     if (!(CurInstr.Instr & (1 << 25)))
     {
-        offset = ComplexOperand(CurInstr.Instr & 0xFFF);
+        offset = Op2(CurInstr.Instr & 0xFFF);
     }
     else
     {
@@ -754,7 +778,7 @@ void Compiler::A_Comp_MemWB()
         int amount = (CurInstr.Instr >> 7) & 0x1F;
         int rm = CurInstr.A_Reg(0);
 
-        offset = ComplexOperand(rm, op, amount);
+        offset = Op2(rm, op, amount);
     }
 
     Comp_MemAccess(CurInstr.A_Reg(12), CurInstr.A_Reg(16), offset, size, flags);
@@ -762,9 +786,9 @@ void Compiler::A_Comp_MemWB()
 
 void Compiler::A_Comp_MemHalf()
 {
-    ComplexOperand offset = CurInstr.Instr & (1 << 22)
-        ? ComplexOperand(CurInstr.Instr & 0xF | ((CurInstr.Instr >> 4) & 0xF0))
-        : ComplexOperand(CurInstr.A_Reg(0), 0, 0);
+    Op2 offset = CurInstr.Instr & (1 << 22)
+        ? Op2(CurInstr.Instr & 0xF | ((CurInstr.Instr >> 4) & 0xF0))
+        : Op2(CurInstr.A_Reg(0), 0, 0);
 
     int op = (CurInstr.Instr >> 5) & 0x3;
     bool load = CurInstr.Instr & (1 << 20);
@@ -806,7 +830,7 @@ void Compiler::T_Comp_MemReg()
     bool load = op & 0x2;
     bool byte = op & 0x1;
 
-    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), ComplexOperand(CurInstr.T_Reg(6), 0, 0), 
+    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(CurInstr.T_Reg(6), 0, 0), 
         byte ? 8 : 32, load ? 0 : memop_Store);
 }
 
@@ -839,7 +863,7 @@ void Compiler::T_Comp_MemImm()
     bool byte = op & 0x2;
     u32 offset = ((CurInstr.Instr >> 6) & 0x1F) * (byte ? 1 : 4);
 
-    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), ComplexOperand(offset),
+    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(offset),
         byte ? 8 : 32, load ? 0 : memop_Store);
 }
 
@@ -856,7 +880,7 @@ void Compiler::T_Comp_MemRegHalf()
     if (!load)
         flags |= memop_Store;
 
-    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), ComplexOperand(CurInstr.T_Reg(6), 0, 0),
+    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(CurInstr.T_Reg(6), 0, 0),
         size, flags);
 }
 
@@ -865,7 +889,7 @@ void Compiler::T_Comp_MemImmHalf()
     u32 offset = (CurInstr.Instr >> 5) & 0x3E;
     bool load = CurInstr.Instr & (1 << 11);
 
-    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), ComplexOperand(offset), 16,
+    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(offset), 16,
         load ? 0 : memop_Store);
 }
 
@@ -873,8 +897,8 @@ void Compiler::T_Comp_LoadPCRel()
 {
     u32 offset = (CurInstr.Instr & 0xFF) << 2;
     u32 addr = (R15 & ~0x2) + offset;
-    if (!Config::JIT_LiteralOptimisations || !Comp_MemLoadLiteral(32, CurInstr.T_Reg(8), addr))
-        Comp_MemAccess(CurInstr.T_Reg(8), 15, ComplexOperand(offset), 32, 0);
+    if (!Config::JIT_LiteralOptimisations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+        Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 
 void Compiler::T_Comp_MemSPRel()
@@ -882,7 +906,7 @@ void Compiler::T_Comp_MemSPRel()
     u32 offset = (CurInstr.Instr & 0xFF) * 4;
     bool load = CurInstr.Instr & (1 << 11);
 
-    Comp_MemAccess(CurInstr.T_Reg(8), 13, ComplexOperand(offset), 32,
+    Comp_MemAccess(CurInstr.T_Reg(8), 13, Op2(offset), 32,
         load ? 0 : memop_Store);
 }
 
