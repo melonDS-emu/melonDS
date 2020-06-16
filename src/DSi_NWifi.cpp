@@ -1211,9 +1211,16 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     }
 
     u16 hdr = MB_Read16(0);
-    if (hdr != 0x0000)
+    hdr = ((hdr & 0xFF00) >> 8) | ((hdr & 0x00FF) << 8);
+    if (hdr & 0x0003)
     {
-        printf("WMI: special frame %04X\n", hdr);
+        printf("WMI: special frame %04X len=%d\n", hdr, len);
+        for (int i = 0; i < len-2; i++)
+        {
+            printf("%02X ", Mailbox[0]->Read());
+            if ((i&0xF)==0xF) printf("\n");
+        }
+        printf("\n");
         return;
     }
 
@@ -1252,10 +1259,17 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     memcpy(&LANBuffer[0], dstmac, 6); // destination MAC
     memcpy(&LANBuffer[6], srcmac, 6); // source MAC
     *(u16*)&LANBuffer[12] = ethertype; // type
-    for (int i = 0; i < lan_len; i++)
+    for (int i = 0; i < lan_len-14; i++)
     {
         LANBuffer[14+i] = Mailbox[0]->Read();
     }
+
+    for (int i = 0; i < lan_len; i++)
+    {
+        printf("%02X ", LANBuffer[i]);
+        if ((i&0xF)==0xF) printf("\n");
+    }
+    printf("\n");
 
     Platform::LAN_SendPacket(LANBuffer, lan_len);
 }
@@ -1373,12 +1387,17 @@ void DSi_NWifi::CheckRX()
     int rxlen = Platform::LAN_RecvPacket(LANBuffer);
     if (rxlen > 0)
     {
+        printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
             if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
                 return;
         }
+
+        // check source MAC, in case we get a packet we just sent out
+        if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
+            return;
 
         // packet is good
 

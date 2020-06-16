@@ -52,7 +52,7 @@ volatile int RXNum;
 
 u32 IPv4ID;
 
-Slirp* Ctx;
+Slirp* Ctx = nullptr;
 
 const int FDListMax = 64;
 struct pollfd FDList[FDListMax];
@@ -164,6 +164,7 @@ void SlirpCbUnregisterPollFD(int fd, void* opaque)
 
 void SlirpCbNotify(void* opaque)
 {
+    printf("Slirp: notify???\n");
 }
 
 SlirpCb cb =
@@ -205,7 +206,11 @@ bool Init()
 
 void DeInit()
 {
-    slirp_cleanup(Ctx);
+    if (Ctx)
+    {
+        slirp_cleanup(Ctx);
+        Ctx = nullptr;
+    }
 }
 
 
@@ -411,6 +416,8 @@ void HandleDNSFrame(u8* data, int len)
 
 int SendPacket(u8* data, int len)
 {
+    if (!Ctx) return 0;
+
     if (len > 2048)
     {
         printf("LAN_SendPacket: error: packet too long (%d)\n", len);
@@ -496,6 +503,8 @@ int SlirpCbGetREvents(int idx, void* opaque)
 
 int RecvPacket(u8* data)
 {
+    if (!Ctx) return 0;
+
     int ret = 0;
 
     if (FDListSize > 0)
