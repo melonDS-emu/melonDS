@@ -22,6 +22,7 @@
 #include "DSi_NWifi.h"
 #include "SPI.h"
 #include "WifiAP.h"
+#include "Platform.h"
 
 
 const u8 CIS0[256] =
@@ -117,9 +118,17 @@ DSi_NWifi* Ctx = nullptr;
 
 DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
 {
-    // TODO: check the actual mailbox size (presumably 0x200)
+    // HACK
+    // the mailboxes are supposed to be 0x80 bytes
+    // however, as we do things instantly, emulating this is meaningless
+    // and only adds complication
     for (int i = 0; i < 8; i++)
-        Mailbox[i] = new FIFO<u8>(0x200);
+        Mailbox[i] = new FIFO<u8>(0x600);//0x80);
+
+    // extra FIFOs acting as bigger TX/RX buffers, to work on frames
+    // bigger than 0x80
+    //Mailbox[8] = new FIFO<u8>(0x608);
+    //Mailbox[9] = new FIFO<u8>(0x608);
 
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
@@ -151,7 +160,6 @@ void DSi_NWifi::Reset()
     WindowReadAddr = 0;
     WindowWriteAddr = 0;
 
-    // TODO: check the actual mailbox size (presumably 0x200)
     for (int i = 0; i < 8; i++)
         Mailbox[i]->Clear();
 
@@ -687,7 +695,6 @@ void DSi_NWifi::HandleCommand()
 
 void DSi_NWifi::BMI_Command()
 {
-    // HLE command handling stub
     u32 cmd = MB_Read32(0);
 
     switch (cmd)
@@ -782,7 +789,6 @@ void DSi_NWifi::BMI_Command()
 
 void DSi_NWifi::HTC_Command()
 {
-    // HLE command handling stub
     u16 h0 = MB_Read16(0);
     u16 len = MB_Read16(0);
     u16 h2 = MB_Read16(0);
@@ -847,10 +853,17 @@ void DSi_NWifi::HTC_Command()
 
 void DSi_NWifi::WMI_Command()
 {
-    // HLE command handling stub
     u16 h0 = MB_Read16(0);
     u16 len = MB_Read16(0);
     u16 h2 = MB_Read16(0);
+
+    u8 ep = h0 & 0xFF;
+    if (ep > 0x01) // data endpoints
+    {
+        WMI_SendPacket(len);
+        MB_Drain(0);
+        return;
+    }
 
     u16 cmd = MB_Read16(0);
 
@@ -859,6 +872,25 @@ void DSi_NWifi::WMI_Command()
     case 0x0001: // connect to network
         {
             WMI_ConnectToNetwork();
+            SendWMIAck();
+        }
+        break;
+
+    case 0x0003: // disconnect
+        {
+            if (ConnectionStatus != 1)
+                printf("WMI: ?? trying to disconnect while not connected\n");
+
+            printf("WMI: disconnect\n");
+            ConnectionStatus = 0;
+
+            u8 reply[10];
+            *(u16*)&reply[0] = 3; // checkme
+            memcpy(&reply[2], WifiAP::APMac, 6);
+            reply[8] = 3; // disconnect reason (via cmd)
+            reply[9] = 0; // assoc-response length (?????)
+            SendWMIEvent(1, 0x1003, reply, 10);
+
             SendWMIAck();
         }
         break;
@@ -1078,6 +1110,14 @@ void DSi_NWifi::WMI_Command()
         }
         break;
 
+    case 0x0049: // 'host exit notify'
+        {
+            //
+
+            SendWMIAck();
+        }
+        break;
+
     case 0xF000: // set bitrate
         {
             // TODO!
@@ -1090,8 +1130,8 @@ void DSi_NWifi::WMI_Command()
         break;
 
     default:
-        printf("unknown WMI command %04X\n", cmd);
-        for (int i = 0; i < len; i++)
+        printf("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
+        for (int i = 0; i < len-2; i++)
         {
             printf("%02X ", Mailbox[0]->Read());
             if ((i&0xF)==0xF) printf("\n");
@@ -1159,6 +1199,65 @@ void DSi_NWifi::WMI_ConnectToNetwork()
     SendWMIEvent(1, 0x1002, reply, 20);
 
     ConnectionStatus = 1;
+}
+
+void DSi_NWifi::WMI_SendPacket(u16 len)
+{
+    if (ConnectionStatus != 1)
+    {
+        printf("WMI: !! trying to send shit while not connected\n");
+        // TODO: report error??
+        return;
+    }
+
+    u16 hdr = MB_Read16(0);
+    if (hdr != 0x0000)
+    {
+        printf("WMI: special frame %04X\n", hdr);
+        return;
+    }
+
+    printf("WMI: send packet, len=%d\n", len);
+
+    u8 dstmac[6];
+    u8 srcmac[6];
+    u16 plen;
+
+    *(u32*)&dstmac[0] = MB_Read32(0);
+    *(u16*)&dstmac[4] = MB_Read16(0);
+    *(u32*)&srcmac[0] = MB_Read32(0);
+    *(u16*)&srcmac[4] = MB_Read16(0);
+    plen = MB_Read16(0);
+    plen = ((plen & 0xFF00) >> 8) | ((plen & 0x00FF) << 8);
+
+    if (plen > len-16)
+    {
+        printf("WMI: bad packet length %d > %d\n", plen, len-16);
+        return;
+    }
+
+    u32 h0 = MB_Read32(0);
+    u16 h1 = MB_Read16(0);
+
+    if (h0 != 0x0003AAAA || h1 != 0x0000)
+    {
+        printf("WMI: bad LLC/SLIP header\n");
+        return;
+    }
+
+    u16 ethertype = MB_Read16(0);
+
+    int lan_len = (plen - 8) + 14;
+
+    memcpy(&LANBuffer[0], dstmac, 6); // destination MAC
+    memcpy(&LANBuffer[6], srcmac, 6); // source MAC
+    *(u16*)&LANBuffer[12] = ethertype; // type
+    for (int i = 0; i < lan_len; i++)
+    {
+        LANBuffer[14+i] = Mailbox[0]->Read();
+    }
+
+    Platform::LAN_SendPacket(LANBuffer, lan_len);
 }
 
 //void DSi_NWifi::SendWMIFrame(u8* data, u32 len, u8 ep, u8 flags, u16 ctrl)
@@ -1269,6 +1368,58 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
         Mailbox[4]->Write(0);
 }
 
+void DSi_NWifi::CheckRX()
+{
+    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
+    if (rxlen > 0)
+    {
+        // check destination MAC
+        if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
+        {
+            if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
+                return;
+        }
+
+        // packet is good
+
+        printf("WMI: receive packet %04X, len=%d\n", *(u16*)&LANBuffer[12], rxlen);
+
+        int datalen = rxlen - 14; // length of packet body
+
+        int wlen = 0;
+        MB_Write16(4, 0x0002);
+        MB_Write16(4, 16 + 8 + datalen);
+        MB_Write16(4, 0x0000);
+        wlen += 6;
+
+        MB_Write16(4, 0x0000);
+        MB_Write32(4, *(u32*)&LANBuffer[0]);
+        MB_Write16(4, *(u16*)&LANBuffer[4]);
+        MB_Write32(4, *(u32*)&LANBuffer[6]);
+        MB_Write16(4, *(u16*)&LANBuffer[10]);
+        u16 plen = datalen + 8;
+        plen = ((plen & 0xFF00) >> 8) | ((plen & 0x00FF) << 8);
+        MB_Write16(4, plen);
+        wlen += 16;
+
+        MB_Write16(4, 0xAAAA);
+        MB_Write16(4, 0x0003);
+        MB_Write16(4, 0x0000);
+        MB_Write16(4, *(u16*)&LANBuffer[12]);
+        wlen += 8;
+
+        for (int i = 0; i < datalen; i++)
+            Mailbox[4]->Write(LANBuffer[14+i]);
+
+        wlen += datalen;
+
+        for (; wlen & 0x7F; wlen++)
+            Mailbox[4]->Write(0);
+
+        UpdateIRQ_F1();
+    }
+}
+
 
 u32 DSi_NWifi::WindowRead(u32 addr)
 {
@@ -1340,6 +1491,7 @@ void DSi_NWifi::_MSTimer()
             };
 
             SendWMIBSSInfo(0x01, beacon, sizeof(beacon));
+            UpdateIRQ_F1();
             printf("send beacon\n");
         }
 
@@ -1347,7 +1499,13 @@ void DSi_NWifi::_MSTimer()
         {
             u32 status = 0;
             SendWMIEvent(1, 0x100A, (u8*)&status, 4);
+            UpdateIRQ_F1();
         }
+    }
+
+    if (ConnectionStatus == 1)
+    {
+        CheckRX();
     }
 }
 
