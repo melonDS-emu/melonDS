@@ -22,9 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <list>
-#include "../Wifi.h"
+#include "Wifi.h"
 #include "LAN_Socket.h"
-#include "../Config.h"
+#include "Config.h"
+#include "FIFO.h"
 
 #include <slirp/libslirp.h>
 
@@ -46,9 +47,7 @@ const u32 kClientIP = kSubnet | 0x10;
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
 const u8 kDNSMAC[6]    = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x55};
 
-u8 PacketBuffer[2048];
-int PacketLen;
-volatile int RXNum;
+FIFO<u32>* RXBuffer = nullptr;
 
 u32 IPv4ID;
 
@@ -81,6 +80,23 @@ int clock_gettime(int, struct timespec *spec)
 #endif // __WIN32__
 
 
+void RXEnqueue(const void* buf, int len)
+{
+    int alignedlen = (len + 3) & ~3;
+    int totallen = alignedlen + 4;
+
+    if (!RXBuffer->CanFit(totallen >> 2))
+    {
+        printf("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
+        return;
+    }
+
+    u32 header = (alignedlen & 0xFFFF) | (len << 16);
+    RXBuffer->Write(header);
+    for (int i = 0; i < alignedlen; i += 4)
+        RXBuffer->Write(((u32*)buf)[i>>2]);
+}
+
 ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 {
     if (len > 2048)
@@ -91,9 +107,7 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
     printf("slirp: response packet of %d bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
-    PacketLen = len;
-    memcpy(PacketBuffer, buf, PacketLen);
-    RXNum = 1;
+    RXEnqueue(buf, len);
 
     return len;
 }
@@ -127,7 +141,7 @@ void SlirpCbRegisterPollFD(int fd, void* opaque)
 {
     printf("Slirp: register poll FD %d\n", fd);
 
-    if (FDListSize >= FDListMax)
+    /*if (FDListSize >= FDListMax)
     {
         printf("!! SLIRP FD LIST FULL\n");
         return;
@@ -139,14 +153,14 @@ void SlirpCbRegisterPollFD(int fd, void* opaque)
     }
 
     FDList[FDListSize].fd = fd;
-    FDListSize++;
+    FDListSize++;*/
 }
 
 void SlirpCbUnregisterPollFD(int fd, void* opaque)
 {
     printf("Slirp: unregister poll FD %d\n", fd);
 
-    if (FDListSize < 1)
+    /*if (FDListSize < 1)
     {
         printf("!! SLIRP FD LIST EMPTY\n");
         return;
@@ -159,7 +173,7 @@ void SlirpCbUnregisterPollFD(int fd, void* opaque)
             FDListSize--;
             FDList[i] = FDList[FDListSize];
         }
-    }
+    }*/
 }
 
 void SlirpCbNotify(void* opaque)
@@ -187,6 +201,8 @@ bool Init()
     FDListSize = 0;
     memset(FDList, 0, sizeof(FDList));
 
+    RXBuffer = new FIFO<u32>(0x8000 >> 2);
+
     SlirpConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.version = 1;
@@ -210,6 +226,12 @@ void DeInit()
     {
         slirp_cleanup(Ctx);
         Ctx = nullptr;
+    }
+
+    if (RXBuffer)
+    {
+        delete RXBuffer;
+        RXBuffer = nullptr;
     }
 }
 
@@ -379,6 +401,7 @@ void HandleDNSFrame(u8* data, int len)
                        addr_res & 0xFF, (addr_res >> 8) & 0xFF,
                        (addr_res >> 16) & 0xFF, addr_res >> 24);
 
+                break;
                 p = p->ai_next;
             }
         }
@@ -405,13 +428,7 @@ void HandleDNSFrame(u8* data, int len)
     if (framelen & 1) { *out++ = 0; framelen++; }
     FinishUDPFrame(resp, framelen);
 
-    // TODO: if there is already a packet queued, this will overwrite it
-    // that being said, this will only happen during DHCP setup, so probably
-    // not a big deal
-
-    PacketLen = framelen;
-    memcpy(PacketBuffer, resp, PacketLen);
-    RXNum = 1;
+    RXEnqueue(resp, framelen);
 }
 
 int SendPacket(u8* data, int len)
@@ -444,23 +461,19 @@ int SendPacket(u8* data, int len)
     return len;
 }
 
+const int PollListMax = 64;
+struct pollfd PollList[PollListMax];
+int PollListSize;
+
 int SlirpCbAddPoll(int fd, int events, void* opaque)
 {
-    int idx = -1;
-    for (int i = 0; i < FDListSize; i++)
+    if (PollListSize >= PollListMax)
     {
-        if (FDList[i].fd == fd)
-        {
-            idx = i;
-            break;
-        }
-    }
-
-    if (idx == -1)
-    {
-        printf("SLIRP: ERROR! FD %d NOT REGISTERED\n", fd);
+        printf("slirp: POLL LIST FULL\n");
         return -1;
     }
+
+    int idx = PollListSize++;
 
     //printf("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
 
@@ -470,26 +483,26 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
     if (events & SLIRP_POLL_OUT) evt |= POLLWRNORM;
 
 #ifndef __WIN32__
+    // CHECKME
     if (events & SLIRP_POLL_PRI) evt |= POLLPRI;
     if (events & SLIRP_POLL_ERR) evt |= POLLERR;
     if (events & SLIRP_POLL_HUP) evt |= POLLHUP;
 #endif // !__WIN32__
 
-    FDList[idx].events = evt;
+    PollList[idx].fd = fd;
+    PollList[idx].events = evt;
+
     return idx;
 }
 
 int SlirpCbGetREvents(int idx, void* opaque)
 {
-    if (idx < 0 || idx >= FDListSize)
-    {
-        printf("SLIRP: !! BAD FD INDEX %d (MAX %d)\n", idx, FDListSize);
+    if (idx < 0 || idx >= PollListSize)
         return 0;
-    }
 
     //printf("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
 
-    u16 evt = FDList[idx].revents;
+    u16 evt = PollList[idx].revents;
     int ret = 0;
 
     if (evt & POLLIN) ret |= SLIRP_POLL_IN;
@@ -507,19 +520,24 @@ int RecvPacket(u8* data)
 
     int ret = 0;
 
-    if (FDListSize > 0)
+    //if (PollListSize > 0)
     {
         u32 timeout = 0;
+        PollListSize = 0;
         slirp_pollfds_fill(Ctx, &timeout, SlirpCbAddPoll, nullptr);
-        int res = poll(FDList, FDListSize, timeout);
+        int res = poll(PollList, PollListSize, timeout);
         slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
     }
 
-    if (RXNum > 0)
+    if (!RXBuffer->IsEmpty())
     {
-        memcpy(data, PacketBuffer, PacketLen);
-        ret = PacketLen;
-        RXNum = 0;
+        u32 header = RXBuffer->Read();
+        u32 len = header & 0xFFFF;
+
+        for (int i = 0; i < len; i += 4)
+            ((u32*)data)[i>>2] = RXBuffer->Read();
+
+        ret = header >> 16;
     }
 
     return ret;

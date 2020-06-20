@@ -73,10 +73,11 @@ private:
     void WMI_SendPacket(u16 len);
 
     void SendWMIEvent(u8 ep, u16 id, u8* data, u32 len);
-    void SendWMIAck();
+    void SendWMIAck(u8 ep);
     void SendWMIBSSInfo(u8 type, u8* data, u32 len);
 
     void CheckRX();
+    void DrainRXBuffer();
 
     u32 WindowRead(u32 addr);
     void WindowWrite(u32 addr, u32 val);
@@ -116,7 +117,7 @@ private:
         while (!Mailbox[n]->IsEmpty()) Mailbox[n]->Read();
     }
 
-    FIFO<u8>* Mailbox[10];
+    FIFO<u8>* Mailbox[9];
 
     u8 F0_IRQEnable;
     u8 F0_IRQStatus;
