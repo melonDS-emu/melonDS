@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <list>
 #include "Wifi.h"
 #include "LAN_Socket.h"
 #include "Config.h"
@@ -33,6 +32,9 @@
 	#include <ws2tcpip.h>
 #else
 	#include <sys/socket.h>
+	#include <netdb.h>
+	#include <poll.h>
+	#include <time.h>
 #endif
 
 
@@ -45,7 +47,6 @@ const u32 kDNSIP    = kSubnet | 0x02;
 const u32 kClientIP = kSubnet | 0x10;
 
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
-const u8 kDNSMAC[6]    = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x55};
 
 FIFO<u32>* RXBuffer = nullptr;
 
@@ -53,9 +54,9 @@ u32 IPv4ID;
 
 Slirp* Ctx = nullptr;
 
-const int FDListMax = 64;
+/*const int FDListMax = 64;
 struct pollfd FDList[FDListMax];
-int FDListSize;
+int FDListSize;*/
 
 
 #ifdef __WIN32__
@@ -198,8 +199,8 @@ bool Init()
 {
     IPv4ID = 0;
 
-    FDListSize = 0;
-    memset(FDList, 0, sizeof(FDList));
+    //FDListSize = 0;
+    //memset(FDList, 0, sizeof(FDList));
 
     RXBuffer = new FIFO<u32>(0x8000 >> 2);
 
