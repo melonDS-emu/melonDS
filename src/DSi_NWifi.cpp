@@ -862,19 +862,13 @@ void DSi_NWifi::WMI_Command()
 
     u8 ep = h0 & 0xFF;
     if (ep > 0x01) // data endpoints
-    {printf("WMI PACKET %04X:%04X:%04X\n", h0, len, h2);
+    {
         WMI_SendPacket(len);
     }
     else
     {
         u16 cmd = MB_Read16(0);
-    printf("WMI CMD: %04X:%04X:%04X %04X\n", h0, len, h2, cmd);
-            for (int i = 0; i < len-2; i++)
-            {
-                printf("%02X ", Mailbox[0]->Peek(i));
-                if ((i&0xF)==0xF) printf("\n");
-            }
-            printf("\n");
+
         switch (cmd)
         {
         case 0x0001: // connect to network
@@ -891,12 +885,13 @@ void DSi_NWifi::WMI_Command()
                 printf("WMI: disconnect\n");
                 ConnectionStatus = 0;
 
-                u8 reply[10];
+                u8 reply[11];
                 *(u16*)&reply[0] = 3; // checkme
                 memcpy(&reply[2], WifiAP::APMac, 6);
                 reply[8] = 3; // disconnect reason (via cmd)
-                reply[9] = 0; // assoc-response length (?????)
-                SendWMIEvent(1, 0x1003, reply, 10);
+                reply[9] = 0; // assoc-response length (none here)
+                reply[10] = 0; // we need atleast one byte here, even if there is no assoc-response
+                SendWMIEvent(1, 0x1003, reply, 11);
             }
             break;
 
@@ -1043,7 +1038,7 @@ void DSi_NWifi::WMI_Command()
                         *(u32*)&reply[4] = cookie;
                         *(u32*)&reply[8] = source;
 
-                        if(ConnectionStatus==1)SendWMIEvent(1, 0x1010, reply, 12);
+                        SendWMIEvent(1, 0x1010, reply, 12);
                     }
                     break;
 
