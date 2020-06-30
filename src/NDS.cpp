@@ -32,8 +32,11 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
+
+#ifdef JIT_ENABLED
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
+#endif
 
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
@@ -173,7 +176,7 @@ bool Init()
 #ifdef JIT_ENABLED
     ARMJIT::Init();
 #else
-    MainRAM = new u8[MainRAMSize];
+    MainRAM = new u8[0x1000000];
     ARM7WRAM = new u8[ARM7WRAMSize];
     SharedWRAM = new u8[SharedWRAMSize];
 #endif
@@ -1837,7 +1840,7 @@ u8 ARM9Read8(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u8*)&MainRAM[addr & (MainRAMSize - 1)];
+        return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9.Mem)
@@ -1902,7 +1905,7 @@ u16 ARM9Read16(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
-        return *(u16*)&MainRAM[addr & (MainRAMSize - 1)];
+        return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
         if (SWRAM_ARM9.Mem)
@@ -2031,16 +2034,13 @@ void ARM9Write8(u32 addr, u8 val)
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u8*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return;
 
     case 0x03000000:
         if (SWRAM_ARM9.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
@@ -2090,16 +2090,13 @@ void ARM9Write16(u32 addr, u16 val)
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u16*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return;
 
     case 0x03000000:
         if (SWRAM_ARM9.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u16*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
@@ -2168,16 +2165,13 @@ void ARM9Write32(u32 addr, u32 val)
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u32*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return ;
 
     case 0x03000000:
         if (SWRAM_ARM9.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u32*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask] = val;
         }
@@ -2235,7 +2229,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2475,16 +2469,13 @@ void ARM7Write8(u32 addr, u8 val)
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u8*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return;
 
     case 0x03000000:
         if (SWRAM_ARM7.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u8*)&SWRAM_ARM7.Mem[addr & SWRAM_ARM7.Mask] = val;
             return;
@@ -2552,16 +2543,13 @@ void ARM7Write16(u32 addr, u16 val)
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u16*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return;
 
     case 0x03000000:
         if (SWRAM_ARM7.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u16*)&SWRAM_ARM7.Mem[addr & SWRAM_ARM7.Mask] = val;
             return;
@@ -2639,16 +2627,13 @@ void ARM7Write32(u32 addr, u32 val)
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
         *(u32*)&MainRAM[addr & MainRAMMask] = val;
-#ifdef JIT_ENABLED
-        ARMJIT::InvalidateMainRAMIfNecessary(addr);
-#endif
         return;
 
     case 0x03000000:
         if (SWRAM_ARM7.Mem)
         {
 #ifdef JIT_ENABLED
-            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SWRAM>(addr);
+            ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_SharedWRAM>(addr);
 #endif
             *(u32*)&SWRAM_ARM7.Mem[addr & SWRAM_ARM7.Mask] = val;
             return;

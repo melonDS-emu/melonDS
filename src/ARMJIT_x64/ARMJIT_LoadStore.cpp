@@ -17,7 +17,30 @@ int squeezePointer(T* ptr)
 
 s32 Compiler::RewriteMemAccess(u64 pc)
 {
-    return 0;
+    auto it = LoadStorePatches.find((u8*)pc);
+    if (it != LoadStorePatches.end())
+    {
+        LoadStorePatch patch = it->second;
+        LoadStorePatches.erase(it);
+
+        u8* curCodePtr = GetWritableCodePtr();
+        u8* rewritePtr = (u8*)pc + (ptrdiff_t)patch.Offset;
+        SetCodePtr(rewritePtr);
+
+        CALL(patch.PatchFunc);
+        u32 remainingSize = patch.Size - (GetWritableCodePtr() - rewritePtr);
+        if (remainingSize > 0)
+            NOP(remainingSize);
+
+        //printf("rewriting memory access %p %d %d\n", patch.PatchFunc, patch.Offset, patch.Size);
+
+        SetCodePtr(curCodePtr);
+
+        return patch.Offset;
+    }
+
+    printf("this is a JIT bug %x\n", pc);
+    abort();
 }
 
 /*
@@ -91,369 +114,213 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
             return;
     }
 
+    if (flags & memop_Store)
     {
-        if (flags & memop_Store)
+        Comp_AddCycles_CD();
+    }
+    else
+    {
+        Comp_AddCycles_CDI();
+    }
+
+    bool addrIsStatic = Config::JIT_LiteralOptimisations
+        && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
+    u32 staticAddress;
+    if (addrIsStatic)
+        staticAddress = RegCache.LiteralValues[rn] + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
+    OpArg rdMapped = MapReg(rd);
+
+    OpArg rnMapped = MapReg(rn);
+    if (Thumb && rn == 15)
+        rnMapped = Imm32(R15 & ~0x2);
+
+    X64Reg finalAddr = RSCRATCH3;
+    if (flags & memop_Post)
+    {
+        MOV(32, R(RSCRATCH3), rnMapped);
+
+        finalAddr = rnMapped.GetSimpleReg();
+    }
+
+    if (op2.IsImm)
+    {
+        MOV_sum(32, finalAddr, rnMapped, Imm32(op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1)));
+    }
+    else
+    {
+        OpArg rm = MapReg(op2.Reg.Reg);
+
+        if (!(flags & memop_SubtractOffset) && rm.IsSimpleReg() && rnMapped.IsSimpleReg()
+            && op2.Reg.Op == 0 && op2.Reg.Amount > 0 && op2.Reg.Amount <= 3)
         {
-            Comp_AddCycles_CD();
+            LEA(32, finalAddr, 
+                MComplex(rnMapped.GetSimpleReg(), rm.GetSimpleReg(), 1 << op2.Reg.Amount, 0));
         }
         else
         {
-            Comp_AddCycles_CDI();
-        }
+            bool throwAway;
+            OpArg offset =
+                Comp_RegShiftImm(op2.Reg.Op, op2.Reg.Amount, rm, false, throwAway);
 
-        bool addrIsStatic = Config::JIT_LiteralOptimisations
-            && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
-        u32 staticAddress;
-        if (addrIsStatic)
-            staticAddress = RegCache.LiteralValues[rn] + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
-        OpArg rdMapped = MapReg(rd);
-
-        if (true)
-        {
-            OpArg rnMapped = MapReg(rn);
-            if (Thumb && rn == 15)
-                rnMapped = Imm32(R15 & ~0x2);
-
-            X64Reg finalAddr = RSCRATCH3;
-            if (flags & memop_Post)
+            if (flags & memop_SubtractOffset)
             {
-                MOV(32, R(RSCRATCH3), rnMapped);
-
-                finalAddr = rnMapped.GetSimpleReg();
-            }
-
-            if (op2.IsImm)
-            {
-                MOV_sum(32, finalAddr, rnMapped, Imm32(op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1)));
+                if (R(finalAddr) != rnMapped)
+                    MOV(32, R(finalAddr), rnMapped);
+                if (!offset.IsZero())
+                    SUB(32, R(finalAddr), offset);
             }
             else
-            {
-                OpArg rm = MapReg(op2.Reg.Reg);
+                MOV_sum(32, finalAddr, rnMapped, offset);
+        }
+    }
 
-                if (!(flags & memop_SubtractOffset) && rm.IsSimpleReg() && rnMapped.IsSimpleReg()
-                    && op2.Reg.Op == 0 && op2.Reg.Amount > 0 && op2.Reg.Amount <= 3)
-                {
-                    LEA(32, finalAddr, 
-                        MComplex(rnMapped.GetSimpleReg(), rm.GetSimpleReg(), 1 << op2.Reg.Amount, 0));
-                }
-                else
-                {
-                    bool throwAway;
-                    OpArg offset =
-                        Comp_RegShiftImm(op2.Reg.Op, op2.Reg.Amount, rm, false, throwAway);
+    if ((flags & memop_Writeback) && !(flags & memop_Post))
+        MOV(32, rnMapped, R(finalAddr));
 
-                    if (flags & memop_SubtractOffset)
-                    {
-                        if (R(finalAddr) != rnMapped)
-                            MOV(32, R(finalAddr), rnMapped);
-                        if (!offset.IsZero())
-                            SUB(32, R(finalAddr), offset);
-                    }
-                    else
-                        MOV_sum(32, finalAddr, rnMapped, offset);
-                }
-            }
+    u32 expectedTarget = Num == 0
+        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
+        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
 
-            if ((flags & memop_Writeback) && !(flags & memop_Post))
-                MOV(32, rnMapped, R(finalAddr));
+    if (Config::JIT_FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    {
+        u8* memopStart = GetWritableCodePtr();
+        LoadStorePatch patch;
+
+        patch.PatchFunc = flags & memop_Store
+            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped.GetSimpleReg()]
+            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped.GetSimpleReg()];
+
+        assert(patch.PatchFunc != NULL);
+
+        MOV(64, R(RSCRATCH), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+
+        X64Reg maskedAddr = RSCRATCH3;
+        if (size > 8)
+        {
+            maskedAddr = RSCRATCH2;
+            MOV(32, R(RSCRATCH2), R(RSCRATCH3));
+            AND(32, R(RSCRATCH2), Imm8(addressMask));
         }
 
-        /*int expectedTarget = Num == 0
-            ? ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion) 
-            : ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
-        if (CurInstr.Cond() < 0xE)
-            expectedTarget = memregion_Other;
-
-        bool compileFastPath = false, compileSlowPath = !addrIsStatic || (flags & memop_Store);
-
-        switch (expectedTarget)
+        u8* memopLoadStoreLocation = GetWritableCodePtr();
+        if (flags & memop_Store)
         {
-        case memregion_MainRAM:
-        case memregion_DTCM:
-        case memregion_WRAM7:
-        case memregion_SWRAM9:
-        case memregion_SWRAM7:
-        case memregion_IO9:
-        case memregion_IO7:
-        case memregion_VWRAM:
-            compileFastPath = true;
-            break;
-        case memregion_Wifi:
-            compileFastPath = size >= 16;
-            break;
-        case memregion_VRAM:
-            compileFastPath = !(flags & memop_Store) || size >= 16;
-        case memregion_BIOS9:
-            compileFastPath = !(flags & memop_Store);
-            break;
-        default: break;
+            MOV(size, MRegSum(RSCRATCH, maskedAddr), rdMapped);
         }
-
-        if (addrIsStatic && !compileFastPath)
+        else
         {
-            compileFastPath = false;
-            compileSlowPath = true;
-        }
-
-        if (addrIsStatic && compileSlowPath)
-            MOV(32, R(RSCRATCH3), Imm32(staticAddress));
-*/
-        /*if (compileFastPath)
-        {
-            FixupBranch slowPath;
-            if (compileSlowPath)
-            {
-                MOV(32, R(RSCRATCH), R(RSCRATCH3));
-                SHR(32, R(RSCRATCH), Imm8(9));
-                if (flags & memop_Store)
-                {
-                    CMP(8, MDisp(RSCRATCH, squeezePointer(Num == 0 ? MemoryStatus9 : MemoryStatus7)), Imm8(expectedTarget));
-                }
-                else
-                {
-                    MOVZX(32, 8, RSCRATCH, MDisp(RSCRATCH, squeezePointer(Num == 0 ? MemoryStatus9 : MemoryStatus7)));
-                    AND(32, R(RSCRATCH), Imm8(~0x80));
-                    CMP(32, R(RSCRATCH), Imm8(expectedTarget));
-                }
-
-                slowPath = J_CC(CC_NE, true);
-            }
-
-            if (expectedTarget == memregion_MainRAM || expectedTarget == memregion_WRAM7
-                || expectedTarget == memregion_BIOS9)
-            {
-                u8* data;
-                u32 mask;
-                if (expectedTarget == memregion_MainRAM)
-                {
-                    data = NDS::MainRAM;
-                    mask = MAIN_RAM_SIZE - 1;
-                }
-                else if (expectedTarget == memregion_BIOS9)
-                {
-                    data = NDS::ARM9BIOS;
-                    mask = 0xFFF;
-                }
-                else
-                {
-                    data = NDS::ARM7WRAM;
-                    mask = 0xFFFF;
-                }
-                OpArg memLoc;
-                if (addrIsStatic)
-                {
-                    memLoc = M(data + ((staticAddress & mask & addressMask)));
-                }
-                else
-                {
-                    MOV(32, R(RSCRATCH), R(RSCRATCH3));
-                    AND(32, R(RSCRATCH), Imm32(mask & addressMask));
-                    memLoc = MDisp(RSCRATCH, squeezePointer(data));
-                }
-                if (flags & memop_Store)
-                    MOV(size, memLoc, rdMapped);
-                else if (flags & memop_SignExtend)
-                    MOVSX(32, size, rdMapped.GetSimpleReg(), memLoc);
-                else
-                    MOVZX(32, size, rdMapped.GetSimpleReg(), memLoc);
-            }
-            else if (expectedTarget == memregion_DTCM)
-            {
-                if (addrIsStatic)
-                    MOV(32, R(RSCRATCH), Imm32(staticAddress));
-                else
-                    MOV(32, R(RSCRATCH), R(RSCRATCH3));
-                SUB(32, R(RSCRATCH), MDisp(RCPU, offsetof(ARMv5, DTCMBase)));
-                AND(32, R(RSCRATCH), Imm32(0x3FFF & addressMask));
-                OpArg memLoc = MComplex(RCPU, RSCRATCH, SCALE_1, offsetof(ARMv5, DTCM));
-                if (flags & memop_Store)
-                    MOV(size, memLoc, rdMapped);
-                else if (flags & memop_SignExtend)
-                    MOVSX(32, size, rdMapped.GetSimpleReg(), memLoc);
-                else
-                    MOVZX(32, size, rdMapped.GetSimpleReg(), memLoc);
-            }
-            else if (expectedTarget == memregion_SWRAM9 || expectedTarget == memregion_SWRAM7)
-            {
-                MOV(64, R(RSCRATCH2), M(expectedTarget == memregion_SWRAM9 ? &NDS::SWRAM_ARM9 : &NDS::SWRAM_ARM7));
-                if (addrIsStatic)
-                {
-                    MOV(32, R(RSCRATCH), Imm32(staticAddress & addressMask));
-                }
-                else
-                {
-                    MOV(32, R(RSCRATCH), R(RSCRATCH3));
-                    AND(32, R(RSCRATCH), Imm8(addressMask));
-                }
-                AND(32, R(RSCRATCH), M(expectedTarget == memregion_SWRAM9 ? &NDS::SWRAM_ARM9Mask : &NDS::SWRAM_ARM7Mask));
-                OpArg memLoc = MRegSum(RSCRATCH, RSCRATCH2);
-                if (flags & memop_Store)
-                    MOV(size, memLoc, rdMapped);
-                else if (flags & memop_SignExtend)
-                    MOVSX(32, size, rdMapped.GetSimpleReg(), memLoc);
-                else
-                    MOVZX(32, size, rdMapped.GetSimpleReg(), memLoc);
-            }
+            if (flags & memop_SignExtend)
+                MOVSX(32, size, rdMapped.GetSimpleReg(), MRegSum(RSCRATCH, maskedAddr));
             else
+                MOVZX(32, size, rdMapped.GetSimpleReg(), MRegSum(RSCRATCH, maskedAddr));
+
+            if (size == 32)
             {
-                u32 maskedDataRegion;
-
-                if (addrIsStatic)
-                {
-                    maskedDataRegion = staticAddress;
-                    MOV(32, R(ABI_PARAM1), Imm32(staticAddress));
-                }
-                else
-                {
-                    if (ABI_PARAM1 != RSCRATCH3)
-                        MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
-                    AND(32, R(ABI_PARAM1), Imm8(addressMask));
-
-                    maskedDataRegion = CurInstr.DataRegion;
-                    if (Num == 0)
-                        maskedDataRegion &= ~0xFFFFFF;
-                    else
-                        maskedDataRegion &= ~0x7FFFFF;
-                }
-
-                void* func = GetFuncForAddr(CurCPU, maskedDataRegion, flags & memop_Store, size);
-
-                if (flags & memop_Store)
-                {
-                    PushRegs(false);
-
-                    MOV(32, R(ABI_PARAM2), rdMapped);
-
-                    ABI_CallFunction((void(*)())func);
-
-                    PopRegs(false);
-                }
-                else
-                {
-                    if (!addrIsStatic)
-                        MOV(32, rdMapped, R(RSCRATCH3));
-
-                    PushRegs(false);
-
-                    ABI_CallFunction((void(*)())func);
-
-                    PopRegs(false);
-
-                    if (!addrIsStatic)
-                        MOV(32, R(RSCRATCH3), rdMapped);
-
-                    if (flags & memop_SignExtend)
-                        MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
-                    else
-                        MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
-                }
-            }
-
-            if ((size == 32 && !(flags & memop_Store)))
-            {
-                if (addrIsStatic)
-                {
-                    if (staticAddress & 0x3)
-                        ROR_(32, rdMapped, Imm8((staticAddress & 0x3) * 8));
-                }
-                else
-                {
-                    AND(32, R(RSCRATCH3), Imm8(0x3));
-                    SHL(32, R(RSCRATCH3), Imm8(3));
-                    ROR_(32, rdMapped, R(RSCRATCH3));
-                }
-            }
-
-            if (compileSlowPath)
-            {
-                SwitchToFarCode();
-                SetJumpTarget(slowPath);
+                AND(32, R(RSCRATCH3), Imm8(0x3));
+                SHL(32, R(RSCRATCH3), Imm8(3));
+                ROR_(32, rdMapped, R(RSCRATCH3));
             }
         }
-*/
-        if (true)
+
+        patch.Offset = memopStart - memopLoadStoreLocation;
+        patch.Size = GetWritableCodePtr() - memopStart;
+
+        assert(patch.Size >= 5);
+
+        LoadStorePatches[memopLoadStoreLocation] = patch;
+    }
+    else
+    {
+        PushRegs(false);
+
+        if (Num == 0)
         {
-            PushRegs(false);
-
-            if (Num == 0)
+            MOV(64, R(ABI_PARAM2), R(RCPU));
+            if (ABI_PARAM1 != RSCRATCH3)
+                MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+            if (flags & memop_Store)
             {
-                MOV(64, R(ABI_PARAM2), R(RCPU));
-                if (ABI_PARAM1 != RSCRATCH3)
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
-                if (flags & memop_Store)
-                {
-                    MOV(32, R(ABI_PARAM3), rdMapped);
+                MOV(32, R(ABI_PARAM3), rdMapped);
 
-                    switch (size)
-                    {
-                    case 32: CALL((void*)&SlowWrite9<u32>); break;
-                    case 16: CALL((void*)&SlowWrite9<u16>); break;
-                    case 8: CALL((void*)&SlowWrite9<u8>); break;
-                    }
-                }
-                else
+                switch (size | NDS::ConsoleType)
                 {
-                    switch (size)
-                    {
-                    case 32: CALL((void*)&SlowRead9<u32>); break;
-                    case 16: CALL((void*)&SlowRead9<u16>); break;
-                    case 8: CALL((void*)&SlowRead9<u8>); break;
-                    }
+                case 32: CALL((void*)&SlowWrite9<u32, 0>); break;
+                case 16: CALL((void*)&SlowWrite9<u16, 0>); break;
+                case 8: CALL((void*)&SlowWrite9<u8, 0>); break;
+                case 33: CALL((void*)&SlowWrite9<u32, 1>); break;
+                case 17: CALL((void*)&SlowWrite9<u16, 1>); break;
+                case 9: CALL((void*)&SlowWrite9<u8, 1>); break;
                 }
             }
             else
             {
-                if (ABI_PARAM1 != RSCRATCH3)
-                    MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
-                if (flags & memop_Store)
+                switch (size | NDS::ConsoleType)
                 {
-                    MOV(32, R(ABI_PARAM2), rdMapped);
-
-                    switch (size)
-                    {
-                    case 32: CALL((void*)&SlowWrite7<u32>); break;
-                    case 16: CALL((void*)&SlowWrite7<u16>); break;
-                    case 8: CALL((void*)&SlowWrite7<u8>); break;
-                    }
+                case 32: CALL((void*)&SlowRead9<u32, 0>); break;
+                case 16: CALL((void*)&SlowRead9<u16, 0>); break;
+                case 8: CALL((void*)&SlowRead9<u8, 0>); break;
+                case 33: CALL((void*)&SlowRead9<u32, 1>); break;
+                case 17: CALL((void*)&SlowRead9<u16, 1>); break;
+                case 9: CALL((void*)&SlowRead9<u8, 1>); break;
                 }
-                else
-                {
-                    switch (size)
-                    {
-                    case 32: CALL((void*)&SlowRead7<u32>); break;
-                    case 16: CALL((void*)&SlowRead7<u16>); break;
-                    case 8: CALL((void*)&SlowRead7<u8>); break;
-                    }
-                }
-            }
-
-            PopRegs(false);
-
-            if (!(flags & memop_Store))
-            {
-                if (flags & memop_SignExtend)
-                    MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
-                else
-                    MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
             }
         }
-/*
-        if (compileFastPath && compileSlowPath)
+        else
         {
-            FixupBranch ret = J(true);
-            SwitchToNearCode();
-            SetJumpTarget(ret);
-        }*/
-
-        if (!(flags & memop_Store) && rd == 15)
-        {
-            if (size < 32)
-                printf("!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
+            if (ABI_PARAM1 != RSCRATCH3)
+                MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+            if (flags & memop_Store)
             {
-                if (Num == 1)
-                    AND(32, rdMapped, Imm8(0xFE)); // immediate is sign extended
-                Comp_JumpTo(rdMapped.GetSimpleReg());
+                MOV(32, R(ABI_PARAM2), rdMapped);
+
+                switch (size | NDS::ConsoleType)
+                {
+                case 32: CALL((void*)&SlowWrite7<u32, 0>); break;
+                case 16: CALL((void*)&SlowWrite7<u16, 0>); break;
+                case 8: CALL((void*)&SlowWrite7<u8, 0>); break;
+                case 33: CALL((void*)&SlowWrite7<u32, 1>); break;
+                case 17: CALL((void*)&SlowWrite7<u16, 1>); break;
+                case 9: CALL((void*)&SlowWrite7<u8, 1>); break;
+                }
             }
+            else
+            {
+                switch (size | NDS::ConsoleType)
+                {
+                case 32: CALL((void*)&SlowRead7<u32, 0>); break;
+                case 16: CALL((void*)&SlowRead7<u16, 0>); break;
+                case 8: CALL((void*)&SlowRead7<u8, 0>); break;
+                case 33: CALL((void*)&SlowRead7<u32, 1>); break;
+                case 17: CALL((void*)&SlowRead7<u16, 1>); break;
+                case 9: CALL((void*)&SlowRead7<u8, 1>); break;
+                }
+            }
+        }
+
+        PopRegs(false);
+
+        if (!(flags & memop_Store))
+        {
+            if (flags & memop_SignExtend)
+                MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+            else
+                MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+        }
+    }
+
+    if (!(flags & memop_Store) && rd == 15)
+    {
+        if (size < 32)
+            printf("!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
+        {
+            if (Num == 1)
+            {
+                if (Thumb)
+                    OR(32, rdMapped, Imm8(0x1));
+                else
+                    AND(32, rdMapped, Imm8(0xFE));
+            }
+            Comp_JumpTo(rdMapped.GetSimpleReg());
         }
     }
 }
@@ -470,7 +337,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         int flags = 0;
         if (store)
             flags |= memop_Store;
-        if (decrement)
+        if (decrement && preinc)
             flags |= memop_SubtractOffset;
         Op2 offset = preinc ? Op2(4) : Op2(0);
 
@@ -481,96 +348,52 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     s32 offset = (regsCount * 4) * (decrement ? -1 : 1);
 
-    // we need to make sure that the stack stays aligned to 16 bytes
-#ifdef _WIN32
-    // include shadow
-    u32 stackAlloc = ((regsCount + 4 + 1) & ~1) * 8;
-#else
-    u32 stackAlloc = ((regsCount + 1) & ~1) * 8;
-#endif
-    u32 allocOffset = stackAlloc - regsCount * 8;
-/*
     int expectedTarget = Num == 0
-        ? ClassifyAddress9(CurInstr.DataRegion)
-        : ClassifyAddress7(CurInstr.DataRegion);
-    if (usermode || CurInstr.Cond() < 0xE)
-        expectedTarget = memregion_Other;
+        ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
+        : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
 
-    bool compileFastPath = false;
-
-    switch (expectedTarget)
-    {
-    case memregion_DTCM:
-    case memregion_MainRAM:
-    case memregion_SWRAM9:
-    case memregion_SWRAM7:
-    case memregion_WRAM7:
-        compileFastPath = true;
-        break;
-    default:
-        break;
-    }
-*/
     if (!store)
         Comp_AddCycles_CDI();
     else
         Comp_AddCycles_CD();
 
+    bool compileFastPath = Config::JIT_FastMemory
+        && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
+
+    // we need to make sure that the stack stays aligned to 16 bytes
+#ifdef _WIN32
+    // include shadow
+    u32 stackAlloc = (((regsCount + 4 + 1) & ~1) + (compileFastPath ? 1 : 0)) * 8;
+#else
+    u32 stackAlloc = (((regsCount + 1) & ~1) + (compileFastPath ? 1 : 0)) * 8;
+#endif
+    u32 allocOffset = stackAlloc - regsCount * 8;
+
     if (decrement)
-    {
-        MOV_sum(32, RSCRATCH4, MapReg(rn), Imm32(-regsCount * 4));
-        preinc ^= true;
-    }
+        MOV_sum(32, RSCRATCH4, MapReg(rn), Imm32(-regsCount * 4 + (preinc ? 0 : 4)));
     else
-        MOV(32, R(RSCRATCH4), MapReg(rn));
-/*
+        MOV_sum(32, RSCRATCH4, MapReg(rn), Imm32(preinc ? 4 : 0));
+
     if (compileFastPath)
     {
-        assert(!usermode);
+        AND(32, R(RSCRATCH4), Imm8(~3));
 
-        MOV(32, R(RSCRATCH), R(RSCRATCH4));
-        SHR(32, R(RSCRATCH), Imm8(9));
+        u8* fastPathStart = GetWritableCodePtr();
+        u8* firstLoadStoreAddr;
 
-        if (store)
-        {
-            CMP(8, MDisp(RSCRATCH, squeezePointer(Num == 0 ? MemoryStatus9 : MemoryStatus7)), Imm8(expectedTarget));
-        }
-        else
-        {
-            MOVZX(32, 8, RSCRATCH, MDisp(RSCRATCH, squeezePointer(Num == 0 ? MemoryStatus9 : MemoryStatus7)));
-            AND(32, R(RSCRATCH), Imm8(~0x80));
-            CMP(32, R(RSCRATCH), Imm8(expectedTarget));
-        }
-        FixupBranch slowPath = J_CC(CC_NE, true);
+        bool firstLoadStore = true;
 
-        if (expectedTarget == memregion_DTCM)
-        {
-            SUB(32, R(RSCRATCH4), MDisp(RCPU, offsetof(ARMv5, DTCMBase)));
-            AND(32, R(RSCRATCH4), Imm32(0x3FFF & ~3));
-            LEA(64, RSCRATCH4, MComplex(RCPU, RSCRATCH4, 1, offsetof(ARMv5, DTCM)));
-        }
-        else if (expectedTarget == memregion_MainRAM)
-        {
-            AND(32, R(RSCRATCH4), Imm32((MAIN_RAM_SIZE - 1) & ~3));
-            ADD(64, R(RSCRATCH4), Imm32(squeezePointer(NDS::MainRAM)));
-        }
-        else if (expectedTarget == memregion_WRAM7)
-        {
-            AND(32, R(RSCRATCH4), Imm32(0xFFFF & ~3));
-            ADD(64, R(RSCRATCH4), Imm32(squeezePointer(NDS::ARM7WRAM)));
-        }
-        else // SWRAM
-        {
-            AND(32, R(RSCRATCH4), Imm8(~3));
-            AND(32, R(RSCRATCH4), M(expectedTarget == memregion_SWRAM9 ? &NDS::SWRAM_ARM9Mask : &NDS::SWRAM_ARM7Mask));
-            ADD(64, R(RSCRATCH4), M(expectedTarget == memregion_SWRAM9 ? &NDS::SWRAM_ARM9 : &NDS::SWRAM_ARM7));
-        }
+        MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
+        ADD(64, R(RSCRATCH2), R(RSCRATCH4));
+        MOV(32, R(RSCRATCH3), R(RSCRATCH4));
+
         u32 offset = 0;
         for (int reg : regs)
         {
-            if (preinc)
-                offset += 4;
-            OpArg mem = MDisp(RSCRATCH4, offset);
+            if (firstLoadStore)
+                firstLoadStoreAddr = GetWritableCodePtr();
+
+            OpArg mem = MDisp(RSCRATCH2, offset);
             if (store)
             {
                 if (RegCache.LoadedRegs & (1 << reg))
@@ -580,6 +403,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 else
                 {
                     LoadReg(reg, RSCRATCH);
+                    if (firstLoadStore)
+                        firstLoadStoreAddr = GetWritableCodePtr();
                     MOV(32, mem, R(RSCRATCH));
                 }
             }
@@ -595,13 +420,19 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                     SaveReg(reg, RSCRATCH);
                 }
             }
-            if (!preinc)
-                offset += 4;
+            offset += 4;
+
+            firstLoadStore = false;
         }
 
+        LoadStorePatch patch;
+        patch.Size = GetWritableCodePtr() - fastPathStart;
+        patch.Offset = fastPathStart - firstLoadStoreAddr;
         SwitchToFarCode();
-        SetJumpTarget(slowPath);
-    }*/
+        patch.PatchFunc = GetWritableCodePtr();
+
+        LoadStorePatches[firstLoadStoreAddr] = patch;
+    }
 
     if (!store)
     {
@@ -618,12 +449,12 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (Num == 0)
             MOV(64, R(ABI_PARAM4), R(RCPU));
 
-        switch (Num * 2 | preinc)
+        switch (Num * 2 | NDS::ConsoleType)
         {
-        case 0: CALL((void*)&SlowBlockTransfer9<false, false>); break;
-        case 1: CALL((void*)&SlowBlockTransfer9<true, false>); break;
-        case 2: CALL((void*)&SlowBlockTransfer7<false, false>); break;
-        case 3: CALL((void*)&SlowBlockTransfer7<true, false>); break;
+        case 0: CALL((void*)&SlowBlockTransfer9<false, 0>); break;
+        case 1: CALL((void*)&SlowBlockTransfer9<false, 1>); break;
+        case 2: CALL((void*)&SlowBlockTransfer7<false, 0>); break;
+        case 3: CALL((void*)&SlowBlockTransfer7<false, 1>); break;
         }
 
         PopRegs(false);
@@ -715,25 +546,24 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (Num == 0)
             MOV(64, R(ABI_PARAM4), R(RCPU));
 
-        switch (Num * 2 | preinc)
+        switch (Num * 2 | NDS::ConsoleType)
         {
-        case 0: CALL((void*)&SlowBlockTransfer9<false, true>); break;
-        case 1: CALL((void*)&SlowBlockTransfer9<true, true>); break;
-        case 2: CALL((void*)&SlowBlockTransfer7<false, true>); break;
-        case 3: CALL((void*)&SlowBlockTransfer7<true, true>); break;
+        case 0: CALL((void*)&SlowBlockTransfer9<true, 0>); break;
+        case 1: CALL((void*)&SlowBlockTransfer9<true, 1>); break;
+        case 2: CALL((void*)&SlowBlockTransfer7<true, 0>); break;
+        case 3: CALL((void*)&SlowBlockTransfer7<true, 1>); break;
         }
 
         ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
     
         PopRegs(false);
     }
-/*
+
     if (compileFastPath)
     {
-        FixupBranch ret = J(true);
+        RET();
         SwitchToNearCode();
-        SetJumpTarget(ret);
-    }*/
+    }
 
     if (!store && regs[15])
     {

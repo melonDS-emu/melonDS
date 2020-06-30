@@ -7,6 +7,8 @@
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
+#include <unordered_map>
+
 namespace ARMJIT
 {
 
@@ -17,6 +19,13 @@ const Gen::X64Reg RSCRATCH = Gen::EAX;
 const Gen::X64Reg RSCRATCH2 = Gen::EDX;
 const Gen::X64Reg RSCRATCH3 = Gen::ECX;
 const Gen::X64Reg RSCRATCH4 = Gen::R8;
+
+struct LoadStorePatch
+{
+    void* PatchFunc;
+    s16 Offset;
+    u16 Size;
+};
 
 struct Op2
 {
@@ -210,6 +219,11 @@ public:
 
     u8* NearStart;
     u8* FarStart;
+
+    void* PatchedStoreFuncs[2][2][3][16];
+    void* PatchedLoadFuncs[2][2][3][2][16];
+
+    std::unordered_map<u8*, LoadStorePatch> LoadStorePatches;
 
     u8* ResetStart;
     u32 CodeMemSize;

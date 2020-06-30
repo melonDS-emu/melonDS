@@ -147,7 +147,7 @@ public:
     NDS::MemRegion CodeMem;
 
 #ifdef JIT_ENABLED
-    u32 FastBlockLookupStart = 0, FastBlockLookupSize = 0;
+    u32 FastBlockLookupStart, FastBlockLookupSize;
     u64* FastBlockLookup;
 #endif
 

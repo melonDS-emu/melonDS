@@ -165,6 +165,8 @@ extern u16 ARM7BIOSProt;
 extern u8* MainRAM;
 extern u32 MainRAMMask;
 
+const u32 MainRAMMaxSize = 0x1000000;
+
 const u32 SharedWRAMSize = 0x8000;
 extern u8* SharedWRAM;
 

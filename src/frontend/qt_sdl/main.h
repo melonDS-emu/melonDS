@@ -199,6 +199,7 @@ private slots:
     void onStop();
 
     void onOpenEmuSettings();
+    void onEmuSettingsDialogFinished(int res);
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();

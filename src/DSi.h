@@ -25,6 +25,8 @@
 namespace DSi
 {
 
+extern u16 SCFG_BIOS;
+
 extern u8 ARM9iBIOS[0x10000];
 extern u8 ARM7iBIOS[0x10000];
 
@@ -34,6 +36,19 @@ extern u64 ConsoleID;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
+const u32 NWRAMSize = 0x40000;
+
+extern u8* NWRAM_A;
+extern u8* NWRAM_B;
+extern u8* NWRAM_C;
+
+extern u8* NWRAMMap_A[2][4];
+extern u8* NWRAMMap_B[3][8];
+extern u8* NWRAMMap_C[3][8];
+
+extern u32 NWRAMStart[2][3];
+extern u32 NWRAMEnd[2][3];
+extern u32 NWRAMMask[2][3];
 
 bool Init();
 void DeInit();

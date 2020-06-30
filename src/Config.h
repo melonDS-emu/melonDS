@@ -54,14 +54,7 @@ extern char DSiNANDPath[1024];
 #ifdef JIT_ENABLED
 extern int JIT_Enable;
 extern int JIT_MaxBlockSize;
-extern int JIT_BrancheOptimisations;
-extern int JIT_LiteralOptimisations;
-#endif
-
-#ifdef JIT_ENABLED
-extern int JIT_Enable;
-extern int JIT_MaxBlockSize;
-extern int JIT_BrancheOptimisations;
+extern int JIT_BranchOptimisations;
 extern int JIT_LiteralOptimisations;
 extern int JIT_FastMemory;
 #endif

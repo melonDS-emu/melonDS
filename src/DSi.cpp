@@ -26,21 +26,17 @@
 #include "NDSCart.h"
 #include "Platform.h"
 
+#ifdef JIT_ENABLED
+#include "ARMJIT.h"
+#include "ARMJIT_Memory.h"
+#endif
+
 #include "DSi_NDMA.h"
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
 
 #include "tiny-AES-c/aes.hpp"
-
-
-namespace NDS
-{
-
-extern ARMv5* ARM9;
-extern ARMv4* ARM7;
-
-}
 
 
 namespace DSi
@@ -59,9 +55,9 @@ u8 ARM7iBIOS[0x10000];
 
 u32 MBK[2][9];
 
-u8 NWRAM_A[0x40000];
-u8 NWRAM_B[0x40000];
-u8 NWRAM_C[0x40000];
+u8* NWRAM_A;
+u8* NWRAM_B;
+u8* NWRAM_C;
 
 u8* NWRAMMap_A[2][4];
 u8* NWRAMMap_B[3][8];
@@ -86,6 +82,12 @@ u8 ARM7Init[0x3C00];
 
 bool Init()
 {
+#ifndef JIT_ENABLED
+    NWRAM_A = new u8[NWRAMSize];
+    NWRAM_B = new u8[NWRAMSize];
+    NWRAM_C = new u8[NWRAMSize];
+#endif
+
     if (!DSi_I2C::Init()) return false;
     if (!DSi_AES::Init()) return false;
 
@@ -106,6 +108,12 @@ bool Init()
 
 void DeInit()
 {
+#ifndef JIT_ENABLED
+    delete[] NWRAM_A;
+    delete[] NWRAM_B;
+    delete[] NWRAM_C;
+#endif
+
     DSi_I2C::DeInit();
     DSi_AES::DeInit();
 
@@ -176,7 +184,12 @@ void SoftReset()
     NDS::ARM9->Reset();
     NDS::ARM7->Reset();
 
+    NDS::ARM9->CP15Reset();
+
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
+#ifdef JIT_ENABLED
+    ARMJIT::CheckAndInvalidateITCM();
+#endif
 
     DSi_AES::Reset();
 
@@ -274,9 +287,9 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
-    memset(NWRAM_A, 0, 0x40000);
-    memset(NWRAM_B, 0, 0x40000);
-    memset(NWRAM_C, 0, 0x40000);
+    memset(NWRAM_A, 0, NWRAMSize);
+    memset(NWRAM_B, 0, NWRAMSize);
+    memset(NWRAM_C, 0, NWRAMSize);
 
     memset(MBK, 0, sizeof(MBK));
     memset(NWRAMMap_A, 0, sizeof(NWRAMMap_A));
@@ -527,6 +540,8 @@ void MapNWRAM_A(u32 num, u8 val)
         return;
     }
 
+    ARMJIT_Memory::RemapNWRAM(0);
+
     int mbkn = 0, mbks = 8*num;
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
@@ -557,6 +572,8 @@ void MapNWRAM_B(u32 num, u8 val)
         printf("trying to map NWRAM_B %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
         return;
     }
+
+    ARMJIT_Memory::RemapNWRAM(1);
 
     int mbkn = 1+(num>>2), mbks = 8*(num&3);
 
@@ -593,6 +610,8 @@ void MapNWRAM_C(u32 num, u8 val)
         return;
     }
 
+    ARMJIT_Memory::RemapNWRAM(2);
+
     int mbkn = 3+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
@@ -624,6 +643,8 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 {
     u32 oldval = MBK[cpu][5+num];
     if (oldval == val) return;
+
+    ARMJIT_Memory::RemapNWRAM(num);
 
     MBK[cpu][5+num] = val;
 
@@ -826,19 +847,31 @@ void ARM9Write8(u32 addr, u8 val)
         if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
-            if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0xFFFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
-            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
-            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+            }
             return;
         }
         return NDS::ARM9Write8(addr, val);
@@ -859,19 +892,31 @@ void ARM9Write16(u32 addr, u16 val)
         if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
-            if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0xFFFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
-            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
-            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+            }
             return;
         }
         return NDS::ARM9Write16(addr, val);
@@ -892,19 +937,31 @@ void ARM9Write32(u32 addr, u32 val)
         if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
-            if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0xFFFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
-            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
-            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+            }
             return;
         }
         return NDS::ARM9Write32(addr, val);
@@ -1085,19 +1142,37 @@ void ARM7Write8(u32 addr, u8 val)
         if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
-            if (ptr) *(u8*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
+            }
             return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
-            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
+            }
             return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
-            if (ptr) *(u8*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u8*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
+            }
             return;
         }
         return NDS::ARM7Write8(addr, val);
@@ -1118,19 +1193,31 @@ void ARM7Write16(u32 addr, u16 val)
         if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
-            if (ptr) *(u16*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0xFFFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
-            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
-            if (ptr) *(u16*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u16*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+            }
             return;
         }
         return NDS::ARM7Write16(addr, val);
@@ -1151,19 +1238,31 @@ void ARM7Write32(u32 addr, u32 val)
         if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
-            if (ptr) *(u32*)&ptr[addr & 0xFFFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0xFFFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
-            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+            }
             return;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
-            if (ptr) *(u32*)&ptr[addr & 0x7FFF] = val;
+            if (ptr)
+            {
+                *(u32*)&ptr[addr & 0x7FFF] = val;
+                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+            }
             return;
         }
         return NDS::ARM7Write32(addr, val);
@@ -1521,7 +1620,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004501: return DSi_I2C::Cnt;
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFF;
-    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
+    case 0x04004fD01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
     case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFF;
     case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 24) & 0xFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFF;

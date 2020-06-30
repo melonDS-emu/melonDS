@@ -16,6 +16,8 @@ void DeInit();
 
 void Reset();
 
+void CheckAndInvalidateITCM();
+
 void InvalidateByAddr(u32 pseudoPhysical);
 
 template <u32 num, int region>

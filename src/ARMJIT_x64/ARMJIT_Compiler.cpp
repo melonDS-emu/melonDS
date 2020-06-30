@@ -40,6 +40,12 @@ const int RegisterCache<Compiler, X64Reg>::NativeRegsAvailable =
 #endif
 ;
 
+#ifdef _WIN32
+const BitSet32 CallerSavedPushRegs({R10, R11});
+#else
+const BitSet32 CallerSavedPushRegs({R9, R10, R11});
+#endif
+
 void Compiler::PushRegs(bool saveHiRegs)
 {
     BitSet32 loadedRegs(RegCache.LoadedRegs);
@@ -301,6 +307,107 @@ Compiler::Compiler()
         RET();
     }
 
+    for (int consoleType = 0; consoleType < 2; consoleType++)
+    {
+        for (int num = 0; num < 2; num++)
+        {
+            for (int size = 0; size < 3; size++)
+            {
+                for (int reg = 0; reg < 16; reg++)
+                {
+                    if (reg == RSCRATCH || reg == ABI_PARAM1 || reg == ABI_PARAM2 || reg == ABI_PARAM3)
+                    {
+                        PatchedStoreFuncs[consoleType][num][size][reg] = NULL;
+                        PatchedLoadFuncs[consoleType][num][size][0][reg] = NULL;
+                        PatchedLoadFuncs[consoleType][num][size][1][reg] = NULL;
+                        continue;
+                    }
+
+                    X64Reg rdMapped = (X64Reg)reg;
+                    PatchedStoreFuncs[consoleType][num][size][reg] = GetWritableCodePtr();
+                    if (RSCRATCH3 != ABI_PARAM1)
+                        MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+                    if (num == 0)
+                    {
+                        MOV(64, R(ABI_PARAM2), R(RCPU));
+                        MOV(32, R(ABI_PARAM3), R(rdMapped));
+                    }
+                    else
+                    {
+                        MOV(32, R(ABI_PARAM2), R(rdMapped));
+                    }
+                    ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
+                    if (consoleType == 0)
+                    {
+                        switch ((8 << size) |  num)
+                        {
+                        case 32: ABI_CallFunction(SlowWrite9<u32, 0>); break;
+                        case 33: ABI_CallFunction(SlowWrite7<u32, 0>); break;
+                        case 16: ABI_CallFunction(SlowWrite9<u16, 0>); break;
+                        case 17: ABI_CallFunction(SlowWrite7<u16, 0>); break;
+                        case 8: ABI_CallFunction(SlowWrite9<u8, 0>); break;
+                        case 9: ABI_CallFunction(SlowWrite7<u8, 0>); break;
+                        }
+                    }
+                    else
+                    {
+                        switch ((8 << size) |  num)
+                        {
+                        case 32: ABI_CallFunction(SlowWrite9<u32, 1>); break;
+                        case 33: ABI_CallFunction(SlowWrite7<u32, 1>); break;
+                        case 16: ABI_CallFunction(SlowWrite9<u16, 1>); break;
+                        case 17: ABI_CallFunction(SlowWrite7<u16, 1>); break;
+                        case 8: ABI_CallFunction(SlowWrite9<u8, 1>); break;
+                        case 9: ABI_CallFunction(SlowWrite7<u8, 1>); break;
+                        }
+                    }
+                    ABI_PopRegistersAndAdjustStack(CallerSavedPushRegs, 8);
+                    RET();
+
+                    for (int signextend = 0; signextend < 2; signextend++)
+                    {
+                        PatchedLoadFuncs[consoleType][num][size][signextend][reg] = GetWritableCodePtr();
+                        if (RSCRATCH3 != ABI_PARAM1)
+                            MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+                        if (num == 0)
+                            MOV(64, R(ABI_PARAM2), R(RCPU));
+                        ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
+                        if (consoleType == 0)
+                        {
+                            switch ((8 << size) |  num)
+                            {
+                            case 32: ABI_CallFunction(SlowRead9<u32, 0>); break;
+                            case 33: ABI_CallFunction(SlowRead7<u32, 0>); break;
+                            case 16: ABI_CallFunction(SlowRead9<u16, 0>); break;
+                            case 17: ABI_CallFunction(SlowRead7<u16, 0>); break;
+                            case 8: ABI_CallFunction(SlowRead9<u8, 0>); break;
+                            case 9: ABI_CallFunction(SlowRead7<u8, 0>); break;
+                            }
+                        }
+                        else
+                        {
+                            switch ((8 << size) |  num)
+                            {
+                            case 32: ABI_CallFunction(SlowRead9<u32, 1>); break;
+                            case 33: ABI_CallFunction(SlowRead7<u32, 1>); break;
+                            case 16: ABI_CallFunction(SlowRead9<u16, 1>); break;
+                            case 17: ABI_CallFunction(SlowRead7<u16, 1>); break;
+                            case 8: ABI_CallFunction(SlowRead9<u8, 1>); break;
+                            case 9: ABI_CallFunction(SlowRead7<u8, 1>); break;
+                            }
+                        }
+                        ABI_PopRegistersAndAdjustStack(CallerSavedPushRegs, 8);
+                        if (signextend)
+                            MOVSX(32, 8 << size, rdMapped, R(RSCRATCH));
+                        else
+                            MOVZX(32, 8 << size, rdMapped, R(RSCRATCH));
+                        RET();
+                    }
+                }
+            }
+        }
+    }
+
     // move the region forward to prevent overwriting the generated functions
     CodeMemSize -= GetWritableCodePtr() - ResetStart;
     ResetStart = GetWritableCodePtr();
@@ -500,6 +607,8 @@ void Compiler::Reset()
 
     NearCode = NearStart;
     FarCode = FarStart;
+
+    LoadStorePatches.clear();
 }
 
 bool Compiler::IsJITFault(u64 addr)

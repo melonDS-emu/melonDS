@@ -21,12 +21,15 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
-#include "ARMJIT.h"
 #include "Config.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
 #include "Config.h"
 
+#ifdef JIT_ENABLED
+#include "ARMJIT.h"
+#include "ARMJIT_Memory.h"
+#endif
 
 // instruction timing notes
 //
@@ -108,6 +111,12 @@ void ARM::Reset()
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
     CodeMem.Mem = NULL;
+
+#ifdef JIT_ENABLED
+    FastBlockLookup = NULL;
+    FastBlockLookupStart = 0;
+    FastBlockLookupSize = 0;
+#endif
 
     // zorp
     JumpTo(ExceptionBase);
@@ -752,6 +761,12 @@ void ARMv4::Execute()
 
     if (Halted == 2)
         Halted = 0;
+
+    if (Halted == 4)
+    {
+        DSi::SoftReset();
+        Halted = 2;
+    }
 }
 
 #ifdef JIT_ENABLED
@@ -820,6 +835,12 @@ void ARMv4::ExecuteJIT()
 
     if (Halted == 2)
         Halted = 0;
+
+    if (Halted == 4)
+    {
+        DSi::SoftReset();
+        Halted = 2;
+    }
 }
 #endif
 

@@ -1641,7 +1641,14 @@ void MainWindow::onStop()
 
 void MainWindow::onOpenEmuSettings()
 {
-    EmuSettingsDialog::openDlg(this);
+    EmuSettingsDialog* dlg = EmuSettingsDialog::openDlg(this);
+    connect(dlg, &EmuSettingsDialog::finished, this, &MainWindow::onEmuSettingsDialogFinished);
+}
+
+void MainWindow::onEmuSettingsDialogFinished(int res)
+{
+    if (RunningSomething)
+        onReset();
 }
 
 void MainWindow::onOpenInputConfig()

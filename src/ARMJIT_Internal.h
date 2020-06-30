@@ -214,13 +214,13 @@ u32 LocaliseCodeAddress(u32 num, u32 addr);
 template <u32 Num>
 void LinkBlock(ARM* cpu, u32 codeOffset);
 
-template <typename T> T SlowRead9(u32 addr, ARMv5* cpu);
-template <typename T> void SlowWrite9(u32 addr, ARMv5* cpu, T val);
-template <typename T> T SlowRead7(u32 addr);
-template <typename T> void SlowWrite7(u32 addr, T val);
+template <typename T, int ConsoleType> T SlowRead9(u32 addr, ARMv5* cpu);
+template <typename T, int ConsoleType> void SlowWrite9(u32 addr, ARMv5* cpu, T val);
+template <typename T, int ConsoleType> T SlowRead7(u32 addr);
+template <typename T, int ConsoleType> void SlowWrite7(u32 addr, T val);
 
-template <bool PreInc, bool Write> void SlowBlockTransfer9(u32 addr, u64* data, u32 num, ARMv5* cpu);
-template <bool PreInc, bool Write> void SlowBlockTransfer7(u32 addr, u64* data, u32 num);
+template <bool Write, int ConsoleType> void SlowBlockTransfer9(u32 addr, u64* data, u32 num, ARMv5* cpu);
+template <bool Write, int ConsoleType> void SlowBlockTransfer7(u32 addr, u64* data, u32 num);
 
 }
 
