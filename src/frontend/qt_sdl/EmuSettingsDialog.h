@@ -51,8 +51,7 @@ public:
     }
 
 private slots:
-    void on_EmuSettingsDialog_accepted();
-    void on_EmuSettingsDialog_rejected();
+    void done(int r);
 
     void on_btnBIOS9Browse_clicked();
     void on_btnBIOS7Browse_clicked();
@@ -62,6 +61,8 @@ private slots:
     void on_btnDSiBIOS7Browse_clicked();
     void on_btnDSiFirmwareBrowse_clicked();
     void on_btnDSiNANDBrowse_clicked();
+
+    void on_chkEnableJIT_toggled();
 
 private:
     void verifyFirmware();

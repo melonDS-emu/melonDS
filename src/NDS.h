@@ -80,7 +80,7 @@ enum
     IRQ_IPCSendDone,
     IRQ_IPCRecv,
     IRQ_CartSendDone, // TODO: less misleading name
-    IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokémon Typing Adventure, BT controller)
+    IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokï¿½mon Typing Adventure, BT controller)
     IRQ_GXFIFO,
     IRQ_LidOpen,
     IRQ_SPI,
@@ -134,6 +134,7 @@ typedef struct
 } MemRegion;
 
 extern int ConsoleType;
+extern int CurCPU;
 
 extern u8 ARM9MemTimings[0x40000][4];
 extern u8 ARM7MemTimings[0x20000][4];
@@ -161,10 +162,21 @@ extern u8 ARM9BIOS[0x1000];
 extern u8 ARM7BIOS[0x4000];
 extern u16 ARM7BIOSProt;
 
-extern u8 MainRAM[0x1000000];
+extern u8* MainRAM;
 extern u32 MainRAMMask;
 
+const u32 MainRAMMaxSize = 0x1000000;
+
+const u32 SharedWRAMSize = 0x8000;
+extern u8* SharedWRAM;
+
+extern MemRegion SWRAM_ARM9;
+extern MemRegion SWRAM_ARM7;
+
 extern u32 KeyInput;
+
+const u32 ARM7WRAMSize = 0x10000;
+extern u8* ARM7WRAM;
 
 bool Init();
 void DeInit();

@@ -72,6 +72,7 @@ char MicWavPath[1024];
 
 char LastROMFolder[1024];
 
+bool EnableJIT;
 
 ConfigEntry PlatformConfigFile[] =
 {

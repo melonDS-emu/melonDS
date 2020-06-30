@@ -1,5 +1,7 @@
 project(core)
 
+set (CMAKE_CXX_STANDARD 14)
+
 add_library(core STATIC
 	ARCodeList.cpp
 	AREngine.cpp
@@ -44,9 +46,52 @@ add_library(core STATIC
 	version.h
 	Wifi.cpp
 	WifiAP.cpp
-	
+
 	tiny-AES-c/aes.c
+	xxhash/xxhash.c
 )
+
+if (ENABLE_JIT)
+	enable_language(ASM)
+
+	target_sources(core PRIVATE
+		ARM_InstrInfo.cpp
+
+		ARMJIT.cpp
+		ARMJIT_Memory.cpp
+
+		dolphin/CommonFuncs.cpp
+	)
+
+	if (ARCHITECTURE STREQUAL x86_64)
+		target_sources(core PRIVATE
+			dolphin/x64ABI.cpp
+			dolphin/x64CPUDetect.cpp
+			dolphin/x64Emitter.cpp
+
+			ARMJIT_x64/ARMJIT_Compiler.cpp
+			ARMJIT_x64/ARMJIT_ALU.cpp
+			ARMJIT_x64/ARMJIT_LoadStore.cpp
+			ARMJIT_x64/ARMJIT_Branch.cpp
+
+			ARMJIT_x64/ARMJIT_Linkage.s
+		)
+		set_source_files_properties(ARMJIT_x64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
+	endif()
+	if (ARCHITECTURE STREQUAL ARM64)
+		target_sources(core PRIVATE
+			dolphin/Arm64Emitter.cpp
+			dolphin/MathUtil.cpp
+
+			ARMJIT_A64/ARMJIT_Compiler.cpp
+			ARMJIT_A64/ARMJIT_ALU.cpp
+			ARMJIT_A64/ARMJIT_LoadStore.cpp
+			ARMJIT_A64/ARMJIT_Branch.cpp
+
+			ARMJIT_A64/ARMJIT_Linkage.s
+		)
+	endif()
+endif()
 
 if (WIN32)
 	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)

@@ -32,15 +32,20 @@ enum
     RWFlags_ForceUser = (1<<21),
 };
 
+const u32 ITCMPhysicalSize = 0x8000;
+const u32 DTCMPhysicalSize = 0x4000;
+
 class ARM
 {
 public:
     ARM(u32 num);
-    ~ARM(); // destroy shit
+    virtual ~ARM(); // destroy shit
 
     virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
+
+    virtual void FillPipeline() = 0;
 
     virtual void JumpTo(u32 addr, bool restorecpsr = false) = 0;
     void RestoreCPSR();
@@ -52,6 +57,9 @@ public:
     }
 
     virtual void Execute() = 0;
+#ifdef ENABLE_JIT
+    virtual void ExecuteJIT() = 0;
+#endif
 
     bool CheckCondition(u32 code)
     {
@@ -107,9 +115,16 @@ public:
     u32 Num;
 
     s32 Cycles;
-    u32 Halted;
-
-    u32 IRQ; // nonzero to trigger IRQ
+    union
+    {
+        struct
+        {
+            u8 Halted;
+            u8 IRQ; // nonzero to trigger IRQ
+            u8 IdleLoop;
+        };
+        u32 StopExecution;
+    };
 
     u32 CodeRegion;
     s32 CodeCycles;
@@ -131,6 +146,11 @@ public:
 
     NDS::MemRegion CodeMem;
 
+#ifdef JIT_ENABLED
+    u32 FastBlockLookupStart, FastBlockLookupSize;
+    u64* FastBlockLookup;
+#endif
+
     static u32 ConditionTable[16];
 
 protected:
@@ -146,6 +166,7 @@ class ARMv5 : public ARM
 {
 public:
     ARMv5();
+    ~ARMv5();
 
     void Reset();
 
@@ -153,12 +174,17 @@ public:
 
     void UpdateRegionTimings(u32 addrstart, u32 addrend);
 
+    void FillPipeline();
+
     void JumpTo(u32 addr, bool restorecpsr = false);
 
     void PrefetchAbort();
     void DataAbort();
 
     void Execute();
+#ifdef JIT_ENABLED
+    void ExecuteJIT();
+#endif
 
     // all code accesses are forced nonseq 32bit
     u32 CodeRead32(u32 addr, bool branch);
@@ -176,14 +202,14 @@ public:
     {
         // code only. always nonseq 32-bit for ARM9.
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC;
+        Cycles -= numC;
     }
 
     void AddCycles_CI(s32 numI)
     {
         // code+internal
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles += numC + numI;
+        Cycles -= numC + numI;
     }
 
     void AddCycles_CDI()
@@ -194,9 +220,9 @@ public:
         s32 numD = DataCycles;
 
         //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+            Cycles -= std::max(numC + numD - 6, std::max(numC, numD));
         //else
-        //    Cycles += numC + numD;
+        //    Cycles -= numC + numD;
     }
 
     void AddCycles_CD()
@@ -206,9 +232,9 @@ public:
         s32 numD = DataCycles;
 
         //if (DataRegion != CodeRegion)
-            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
+            Cycles -= std::max(numC + numD - 6, std::max(numC, numD));
         //else
-        //    Cycles += numC + numD;
+        //    Cycles -= numC + numD;
     }
 
     void GetCodeMemRegion(u32 addr, NDS::MemRegion* region);
@@ -237,10 +263,14 @@ public:
 
     u32 DTCMSetting, ITCMSetting;
 
-    u8 ITCM[0x8000];
+    // for aarch64 JIT they need to go up here
+    // to be addressable by a 12-bit immediate
     u32 ITCMSize;
-    u8 DTCM[0x4000];
     u32 DTCMBase, DTCMSize;
+    s32 RegionCodeCycles;
+
+    u8 ITCM[ITCMPhysicalSize];
+    u8* DTCM;
 
     u8 ICache[0x2000];
     u32 ICacheTags[64*4];
@@ -265,7 +295,6 @@ public:
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];
 
-    s32 RegionCodeCycles;
     u8* CurICacheLine;
 
     bool (*GetMemRegion)(u32 addr, bool write, NDS::MemRegion* region);
@@ -278,9 +307,14 @@ public:
 
     void Reset();
 
+    void FillPipeline();
+
     void JumpTo(u32 addr, bool restorecpsr = false);
 
     void Execute();
+#ifdef JIT_ENABLED
+    void ExecuteJIT();
+#endif
 
     u16 CodeRead16(u32 addr)
     {
@@ -295,8 +329,8 @@ public:
     void DataRead8(u32 addr, u32* val)
     {
         *val = BusRead8(addr);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataRead16(u32 addr, u32* val)
@@ -304,8 +338,8 @@ public:
         addr &= ~1;
 
         *val = BusRead16(addr);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataRead32(u32 addr, u32* val)
@@ -313,8 +347,8 @@ public:
         addr &= ~3;
 
         *val = BusRead32(addr);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][2];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
     void DataRead32S(u32 addr, u32* val)
@@ -322,14 +356,14 @@ public:
         addr &= ~3;
 
         *val = BusRead32(addr);
-        DataCycles += NDS::ARM7MemTimings[DataRegion][3];
+        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
     }
 
     void DataWrite8(u32 addr, u8 val)
     {
         BusWrite8(addr, val);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataWrite16(u32 addr, u16 val)
@@ -337,8 +371,8 @@ public:
         addr &= ~1;
 
         BusWrite16(addr, val);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][0];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][0];
     }
 
     void DataWrite32(u32 addr, u32 val)
@@ -346,8 +380,8 @@ public:
         addr &= ~3;
 
         BusWrite32(addr, val);
-        DataRegion = addr >> 24;
-        DataCycles = NDS::ARM7MemTimings[DataRegion][2];
+        DataRegion = addr;
+        DataCycles = NDS::ARM7MemTimings[addr >> 15][2];
     }
 
     void DataWrite32S(u32 addr, u32 val)
@@ -355,20 +389,20 @@ public:
         addr &= ~3;
 
         BusWrite32(addr, val);
-        DataCycles += NDS::ARM7MemTimings[DataRegion][3];
+        DataCycles += NDS::ARM7MemTimings[addr >> 15][3];
     }
 
 
     void AddCycles_C()
     {
         // code only. this code fetch is sequential.
-        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
+        Cycles -= NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
     }
 
     void AddCycles_CI(s32 num)
     {
         // code+internal. results in a nonseq code fetch.
-        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
+        Cycles -= NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
     }
 
     void AddCycles_CDI()
@@ -377,24 +411,24 @@ public:
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
         s32 numD = DataCycles;
 
-        if (DataRegion == 0x02) // mainRAM
+        if ((DataRegion >> 24) == 0x02) // mainRAM
         {
             if (CodeRegion == 0x02)
-                Cycles += numC + numD;
+                Cycles -= numC + numD;
             else
             {
                 numC++;
-                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
+                Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
             }
         }
         else if (CodeRegion == 0x02)
         {
             numD++;
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
+            Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
         }
         else
         {
-            Cycles += numC + numD + 1;
+            Cycles -= numC + numD + 1;
         }
     }
 
@@ -404,20 +438,20 @@ public:
         s32 numC = NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2];
         s32 numD = DataCycles;
 
-        if (DataRegion == 0x02)
+        if ((DataRegion >> 24) == 0x02)
         {
             if (CodeRegion == 0x02)
-                Cycles += numC + numD;
+                Cycles -= numC + numD;
             else
-                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
+                Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
         }
         else if (CodeRegion == 0x02)
         {
-            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
+            Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
         }
         else
         {
-            Cycles += numC + numD;
+            Cycles -= numC + numD;
         }
     }
 };
@@ -427,6 +461,14 @@ namespace ARMInterpreter
 
 void A_UNK(ARM* cpu);
 void T_UNK(ARM* cpu);
+
+}
+
+namespace NDS
+{
+
+extern ARMv5* ARM9;
+extern ARMv4* ARM7;
 
 }
 

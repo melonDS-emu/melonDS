@@ -21,8 +21,15 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
+#include "Config.h"
 #include "AREngine.h"
+#include "ARMJIT.h"
+#include "Config.h"
 
+#ifdef JIT_ENABLED
+#include "ARMJIT.h"
+#include "ARMJIT_Memory.h"
+#endif
 
 // instruction timing notes
 //
@@ -72,12 +79,21 @@ ARM::~ARM()
 
 ARMv5::ARMv5() : ARM(0)
 {
-    //
+#ifndef JIT_ENABLED
+    DTCM = new u8[DTCMSize];
+#endif
 }
 
 ARMv4::ARMv4() : ARM(1)
 {
     //
+}
+
+ARMv5::~ARMv5()
+{
+#ifndef JIT_ENABLED
+    delete[] DTCM;
+#endif
 }
 
 void ARM::Reset()
@@ -95,6 +111,12 @@ void ARM::Reset()
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
     CodeMem.Mem = NULL;
+
+#ifdef JIT_ENABLED
+    FastBlockLookup = NULL;
+    FastBlockLookupStart = 0;
+    FastBlockLookupSize = 0;
+#endif
 
     // zorp
     JumpTo(ExceptionBase);
@@ -123,7 +145,6 @@ void ARMv5::Reset()
         GetMemRegion = NDS::ARM9GetMemRegion;
     }
 
-    CP15Reset();
     ARM::Reset();
 }
 
@@ -158,7 +179,11 @@ void ARM::DoSavestate(Savestate* file)
 
     file->Var32((u32*)&Cycles);
     //file->Var32((u32*)&CyclesToRun);
-    file->Var32(&Halted);
+
+    // hack to make save states compatible
+    u32 halted = Halted;
+    file->Var32(&halted);
+    Halted = halted;
 
     file->VarArray(R, 16*sizeof(u32));
     file->Var32(&CPSR);
@@ -168,6 +193,15 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_IRQ, 3*sizeof(u32));
     file->VarArray(R_UND, 3*sizeof(u32));
     file->Var32(&CurInstr);
+#ifdef JIT_ENABLED
+    if (!file->Saving && Config::JIT_Enable)
+    {
+        // hack, the JIT doesn't really pipeline
+        // but we still want JIT save states to be
+        // loaded while running the interpreter
+        FillPipeline();
+    }
+#endif
     file->VarArray(NextInstr, 2*sizeof(u32));
 
     file->Var32(&ExceptionBase);
@@ -240,15 +274,15 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles += CodeCycles;
+            Cycles -= CodeCycles;
             NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles += CodeCycles;
+            Cycles -= CodeCycles;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles += CodeCycles;
+            Cycles -= CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -261,9 +295,9 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
-        Cycles += CodeCycles;
+        Cycles -= CodeCycles;
         NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles += CodeCycles;
+        Cycles -= CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -303,7 +337,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead16(addr);
         NextInstr[1] = CodeRead16(addr+2);
-        Cycles += NDS::ARM7MemTimings[CodeCycles][0] + NDS::ARM7MemTimings[CodeCycles][1];
+        Cycles -= NDS::ARM7MemTimings[CodeCycles][0] + NDS::ARM7MemTimings[CodeCycles][1];
 
         CPSR |= 0x20;
     }
@@ -316,7 +350,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
-        Cycles += NDS::ARM7MemTimings[CodeCycles][2] + NDS::ARM7MemTimings[CodeCycles][3];
+        Cycles -= NDS::ARM7MemTimings[CodeCycles][2] + NDS::ARM7MemTimings[CodeCycles][3];
 
         CPSR &= ~0x20;
     }
@@ -558,7 +592,7 @@ void ARMv5::Execute()
             else
                 AddCycles_C();
         }
-
+ 
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -575,13 +609,82 @@ void ARMv5::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        NDS::ARM9Timestamp += Cycles;
+        NDS::ARM9Timestamp -= Cycles;
         Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
 }
+
+#ifdef JIT_ENABLED
+void ARMv5::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(0))
+        {
+            Halted = 0;
+            if (NDS::IME[0] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM9Timestamp < NDS::ARM9Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+
+        // hack so Cycles <= 0 becomes Cycles < 0
+        Cycles = NDS::ARM9Target - NDS::ARM9Timestamp - 1;
+
+        if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
+            && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
+        {
+            NDS::ARM9Timestamp = NDS::ARM9Target;
+            printf("ARMv5 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup, 
+            instrAddr - FastBlockLookupStart, instrAddr);
+        if (block)
+            ARM_Dispatch(this, block);
+        else
+            ARMJIT::CompileBlock(this);
+
+        NDS::ARM9Timestamp = NDS::ARM9Target - Cycles - 1;
+
+        if (StopExecution)
+        {
+            if (IRQ)
+                TriggerIRQ();
+
+            if (Halted || IdleLoop)
+            {
+                bool idleLoop = IdleLoop;
+                IdleLoop = 0;
+                if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
+                {
+                    NDS::ARM9Timestamp = NDS::ARM9Target;
+                }
+                break;
+            }
+        }
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+}
+#endif
 
 void ARMv4::Execute()
 {
@@ -652,10 +755,131 @@ void ARMv4::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        NDS::ARM7Timestamp += Cycles;
+        NDS::ARM7Timestamp -= Cycles;
         Cycles = 0;
     }
 
     if (Halted == 2)
         Halted = 0;
+
+    if (Halted == 4)
+    {
+        DSi::SoftReset();
+        Halted = 2;
+    }
+}
+
+#ifdef JIT_ENABLED
+void ARMv4::ExecuteJIT()
+{
+    if (Halted)
+    {
+        if (Halted == 2)
+        {
+            Halted = 0;
+        }
+        else if (NDS::HaltInterrupted(1))
+        {
+            Halted = 0;
+            if (NDS::IME[1] & 0x1)
+                TriggerIRQ();
+        }
+        else
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            return;
+        }
+    }
+
+    while (NDS::ARM7Timestamp < NDS::ARM7Target)
+    {
+        u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
+
+        Cycles = NDS::ARM7Target - NDS::ARM7Timestamp - 1;
+
+        if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
+            && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
+        {
+            NDS::ARM7Timestamp = NDS::ARM7Target;
+            printf("ARMv4 PC in non executable region %08X\n", R[15]);
+            return;
+        }
+
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup, 
+            instrAddr - FastBlockLookupStart, instrAddr);
+        if (block)
+            ARM_Dispatch(this, block);
+        else
+            ARMJIT::CompileBlock(this);
+
+        NDS::ARM7Timestamp = NDS::ARM7Target - Cycles - 1;
+
+        // TODO optimize this shit!!!
+        if (StopExecution)
+        {
+            if (IRQ)
+                TriggerIRQ();
+
+            if (Halted || IdleLoop)
+            {
+                bool idleLoop = IdleLoop;
+                IdleLoop = 0;
+                if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
+                {
+                    NDS::ARM7Timestamp = NDS::ARM7Target;
+                }
+                break;
+            }
+        }
+    }
+
+    if (Halted == 2)
+        Halted = 0;
+
+    if (Halted == 4)
+    {
+        DSi::SoftReset();
+        Halted = 2;
+    }
+}
+#endif
+
+void ARMv5::FillPipeline()
+{
+    SetupCodeMem(R[15]);
+
+    if (CPSR & 0x20)
+    {
+        if ((R[15] - 2) & 0x2)
+        {
+            NextInstr[0] = CodeRead32(R[15] - 4, false) >> 16;
+            NextInstr[1] = CodeRead32(R[15], false);
+        }
+        else
+        {
+            NextInstr[0] = CodeRead32(R[15] - 2, false);
+            NextInstr[1] = NextInstr[0] >> 16;
+        }
+    }
+    else
+    {
+        NextInstr[0] = CodeRead32(R[15] - 4, false);
+        NextInstr[1] = CodeRead32(R[15], false);
+    }
+}
+
+void ARMv4::FillPipeline()
+{
+    SetupCodeMem(R[15]);
+
+    if (CPSR & 0x20)
+    {
+        NextInstr[0] = CodeRead16(R[15] - 2);
+        NextInstr[1] = CodeRead16(R[15]);
+    }
+    else
+    {
+        NextInstr[0] = CodeRead32(R[15] - 4);
+        NextInstr[1] = CodeRead32(R[15]);
+    }
 }

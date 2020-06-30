@@ -32,6 +32,7 @@
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
 extern char* EmuDirectory;
+extern bool RunningSomething;
 
 
 EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::EmuSettingsDialog)
@@ -53,6 +54,22 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
+
+#ifdef JIT_ENABLED
+    ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
+    ui->chkJITBranchOptimisations->setChecked(Config::JIT_BranchOptimisations != 0);
+    ui->chkJITLiteralOptimisations->setChecked(Config::JIT_LiteralOptimisations != 0);
+    ui->chkJITFastMemory->setChecked(Config::JIT_FastMemory != 0);
+    ui->spnJITMaximumBlockSize->setValue(Config::JIT_MaxBlockSize);
+#else
+    ui->chkEnableJIT->setDisabled(true);
+    ui->chkJITBranchOptimisations->setDisabled(true);
+    ui->chkJITLiteralOptimisations->setDisabled(true);
+    ui->chkJITFastMemory->setDisabled(true);
+    ui->spnJITMaximumBlockSize->setDisabled(true);
+#endif
+
+    on_chkEnableJIT_toggled();
 }
 
 EmuSettingsDialog::~EmuSettingsDialog()
@@ -102,29 +119,78 @@ void EmuSettingsDialog::verifyFirmware()
     }
 }
 
-void EmuSettingsDialog::on_EmuSettingsDialog_accepted()
+void EmuSettingsDialog::done(int r)
 {
-    verifyFirmware();
+    if (r == QDialog::Accepted)
+    {
+        verifyFirmware();
 
-    strncpy(Config::BIOS9Path, ui->txtBIOS9Path->text().toStdString().c_str(), 1023); Config::BIOS9Path[1023] = '\0';
-    strncpy(Config::BIOS7Path, ui->txtBIOS7Path->text().toStdString().c_str(), 1023); Config::BIOS7Path[1023] = '\0';
-    strncpy(Config::FirmwarePath, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); Config::FirmwarePath[1023] = '\0';
+        int consoleType = ui->cbxConsoleType->currentIndex();
+        int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
 
-    strncpy(Config::DSiBIOS9Path, ui->txtDSiBIOS9Path->text().toStdString().c_str(), 1023); Config::DSiBIOS9Path[1023] = '\0';
-    strncpy(Config::DSiBIOS7Path, ui->txtDSiBIOS7Path->text().toStdString().c_str(), 1023); Config::DSiBIOS7Path[1023] = '\0';
-    strncpy(Config::DSiFirmwarePath, ui->txtDSiFirmwarePath->text().toStdString().c_str(), 1023); Config::DSiFirmwarePath[1023] = '\0';
-    strncpy(Config::DSiNANDPath, ui->txtDSiNANDPath->text().toStdString().c_str(), 1023); Config::DSiNANDPath[1023] = '\0';
+        int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
+        int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
+        int jitBranchOptimisations = ui->chkJITBranchOptimisations->isChecked() ? 1:0;
+        int jitLiteralOptimisations = ui->chkJITLiteralOptimisations->isChecked() ? 1:0;
+        int jitFastMemory = ui->chkJITFastMemory->isChecked() ? 1:0;
 
-    Config::ConsoleType = ui->cbxConsoleType->currentIndex();
-    Config::DirectBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+        std::string bios9Path = ui->txtBIOS9Path->text().toStdString();
+        std::string bios7Path = ui->txtBIOS7Path->text().toStdString();
+        std::string firmwarePath = ui->txtFirmwarePath->text().toStdString();
+        std::string dsiBios9Path = ui->txtDSiBIOS9Path->text().toStdString();
+        std::string dsiBios7Path = ui->txtDSiBIOS7Path->text().toStdString();
+        std::string dsiFirmwarePath = ui->txtDSiFirmwarePath->text().toStdString();
+        std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
 
-    Config::Save();
+        if (consoleType != Config::ConsoleType
+            || directBoot != Config::DirectBoot
+#ifdef JIT_ENABLED
+            || jitEnable != Config::JIT_Enable
+            || jitMaxBlockSize != Config::JIT_MaxBlockSize
+            || jitBranchOptimisations != Config::JIT_BranchOptimisations
+            || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
+            || jitFastMemory != Config::JIT_FastMemory
+#endif
+            || strcmp(Config::BIOS9Path, bios9Path.c_str()) != 0
+            || strcmp(Config::BIOS7Path, bios7Path.c_str()) != 0
+            || strcmp(Config::FirmwarePath, firmwarePath.c_str()) != 0
+            || strcmp(Config::DSiBIOS9Path, dsiBios9Path.c_str()) != 0
+            || strcmp(Config::DSiBIOS7Path, dsiBios7Path.c_str()) != 0
+            || strcmp(Config::DSiFirmwarePath, dsiFirmwarePath.c_str()) != 0
+            || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0)
+        {
+            if (RunningSomething
+                && QMessageBox::warning(this, "Reset necessary to apply changes", 
+                    "The emulation will be reset for the changes to take place", 
+                    QMessageBox::Yes, QMessageBox::Cancel) != QMessageBox::Yes)
+                return;
 
-    closeDlg();
-}
+            strncpy(Config::BIOS9Path, bios9Path.c_str(), 1023); Config::BIOS9Path[1023] = '\0';
+            strncpy(Config::BIOS7Path, bios7Path.c_str(), 1023); Config::BIOS7Path[1023] = '\0';
+            strncpy(Config::FirmwarePath, firmwarePath.c_str(), 1023); Config::FirmwarePath[1023] = '\0';
 
-void EmuSettingsDialog::on_EmuSettingsDialog_rejected()
-{
+            strncpy(Config::DSiBIOS9Path, dsiBios9Path.c_str(), 1023); Config::DSiBIOS9Path[1023] = '\0';
+            strncpy(Config::DSiBIOS7Path, dsiBios7Path.c_str(), 1023); Config::DSiBIOS7Path[1023] = '\0';
+            strncpy(Config::DSiFirmwarePath, dsiFirmwarePath.c_str(), 1023); Config::DSiFirmwarePath[1023] = '\0';
+            strncpy(Config::DSiNANDPath, dsiNANDPath.c_str(), 1023); Config::DSiNANDPath[1023] = '\0';
+
+    #ifdef JIT_ENABLED
+            Config::JIT_Enable = jitEnable;
+            Config::JIT_MaxBlockSize = jitMaxBlockSize;
+            Config::JIT_BranchOptimisations = jitBranchOptimisations;
+            Config::JIT_LiteralOptimisations = jitLiteralOptimisations;
+            Config::JIT_FastMemory = jitFastMemory;
+    #endif
+
+            Config::ConsoleType = consoleType;
+            Config::DirectBoot = directBoot;
+
+            Config::Save();
+        }
+    }
+
+    QDialog::done(r);
+
     closeDlg();
 }
 
@@ -210,4 +276,13 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
     if (file.isEmpty()) return;
 
     ui->txtDSiNANDPath->setText(file);
+}
+
+void EmuSettingsDialog::on_chkEnableJIT_toggled()
+{
+    bool disabled = !ui->chkEnableJIT->isChecked();
+    ui->chkJITBranchOptimisations->setDisabled(disabled);
+    ui->chkJITLiteralOptimisations->setDisabled(disabled);
+    ui->chkJITFastMemory->setDisabled(disabled);
+    ui->spnJITMaximumBlockSize->setDisabled(disabled);
 }
