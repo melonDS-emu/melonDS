@@ -34,6 +34,7 @@ EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 extern char* EmuDirectory;
 extern bool RunningSomething;
 
+bool EmuSettingsDialog::needsReset = false;
 
 EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::EmuSettingsDialog)
 {
@@ -121,6 +122,8 @@ void EmuSettingsDialog::verifyFirmware()
 
 void EmuSettingsDialog::done(int r)
 {
+    needsReset = false;
+
     if (r == QDialog::Accepted)
     {
         verifyFirmware();
@@ -186,6 +189,8 @@ void EmuSettingsDialog::done(int r)
             Config::DirectBoot = directBoot;
 
             Config::Save();
+
+            needsReset = true;
         }
     }
 

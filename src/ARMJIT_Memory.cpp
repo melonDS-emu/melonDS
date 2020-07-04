@@ -2,6 +2,12 @@
 #include "switch/compat_switch.h"
 #elif defined(_WIN32)
 #include <windows.h>
+#else
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <signal.h>
 #endif
 
 #include "ARMJIT_Memory.h"
@@ -119,6 +125,45 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+#else
+
+struct sigaction NewSa;
+struct sigaction OldSa;
+
+static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
+{
+	ucontext_t* context = (ucontext_t*)rawContext;
+	
+	ARMJIT_Memory::FaultDescription desc;
+	u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+	desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
+	desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
+
+	s32 offset = 0;
+	if (ARMJIT_Memory::FaultHandler(&desc, offset))
+	{
+		context->uc_mcontext.gregs[REG_RIP] += offset;
+		return;
+	}
+
+    if (OldSa.sa_flags & SA_SIGINFO)
+    {
+      OldSa.sa_sigaction(sig, info, rawContext);
+      return;
+    }
+    if (OldSa.sa_handler == SIG_DFL)
+    {
+      signal(sig, SIG_DFL);
+      return;
+    }
+    if (OldSa.sa_handler == SIG_IGN)
+    {
+      // Ignore signal
+      return;
+    }
+    OldSa.sa_handler(sig);
+}
+
 #endif
 
 namespace ARMJIT_Memory
@@ -187,6 +232,9 @@ u8* MemoryBaseCodeMem;
 u8* MemoryBase;
 HANDLE MemoryFile;
 LPVOID ExceptionHandlerHandle;
+#else
+u8* MemoryBase;
+int MemoryFile;
 #endif
 
 bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
@@ -199,6 +247,8 @@ bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
 #elif defined(_WIN32)
 	bool r = MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, offset, size, dst) == dst;
 	return r;
+#else
+	return mmap(dst, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, MemoryFile, offset) != MAP_FAILED;
 #endif
 }
 
@@ -209,8 +259,10 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
 	Result r = svcUnmapProcessMemory(dst, envGetOwnProcessHandle(),
 		(u64)(MemoryBaseCodeMem + offset), size);
 	return R_SUCCEEDED(r);
-#else
+#elif defined(_WIN32)
 	return UnmapViewOfFile(dst);
+#else
+	return munmap(dst, size) == 0;
 #endif
 }
 
@@ -226,6 +278,15 @@ void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
 	else
 		winProtection = PAGE_READWRITE;
 	VirtualProtect(dst, size, winProtection, &oldProtection);
+#else
+	int posixProt;
+	if (protection == 0)
+		posixProt = PROT_NONE;
+	else if (protection == 1)
+		posixProt = PROT_READ;
+	else
+		posixProt = PROT_READ | PROT_WRITE;
+	mprotect(dst, size, posixProt);
 #endif
 }
 
@@ -270,8 +331,9 @@ struct Mapping
 #endif
 			}
 		}
-#if defined(_WIN32)
-		UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
+#ifndef __SWITCH__
+		bool succeded = UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
+		assert(succeded);
 #endif
 	}
 };
@@ -308,7 +370,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 		else
 			success = MapIntoRange(effectiveAddr, mapping.Num, OffsetsPerRegion[region] + offset, 0x1000);
 		assert(success);
-#elif defined(_WIN32)
+#else
 		SetCodeProtectionRange(effectiveAddr, 0x1000, mapping.Num, protect ? 1 : 2);
 #endif
 	}
@@ -418,18 +480,16 @@ bool MapAtAddress(u32 addr)
 	if (!IsFastmemCompatible(region))
 		return false;
 
-	return false;
-
 	u32 mirrorStart, mirrorSize, memoryOffset;
 	bool isMapped = GetMirrorLocation(region, num, addr, memoryOffset, mirrorStart, mirrorSize);
 	if (!isMapped)
 		return false;
 
 	u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
-	printf("trying to create mapping %x, %x %d %d\n", mirrorStart, mirrorSize, region, num);
+	printf("trying to create mapping %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
 	bool isExecutable = ARMJIT::CodeMemRegions[region];
 
-#if defined(_WIN32)
+#ifndef __SWITCH__
 	bool succeded = MapIntoRange(mirrorStart, num, OffsetsPerRegion[region] + memoryOffset, mirrorSize);
 	assert(succeded);
 #endif
@@ -469,10 +529,10 @@ bool MapAtAddress(u32 addr)
 				bool succeded = MapIntoRange(mirrorStart + sectionOffset, num, sectionOffset + memoryOffset + OffsetsPerRegion[region], sectionSize);
 				assert(succeded);
 			}
-#elif defined(_WIN32)
+#else
 			if (hasCode)
 			{
-				SetCodeProtectionRange(mirrorStart + offset, sectionSize, num, 1);
+				SetCodeProtectionRange(mirrorStart + sectionOffset, sectionSize, num, 1);
 			}
 #endif
 		}
@@ -509,6 +569,8 @@ bool FaultHandler(FaultDescription* faultDesc, s32& offset)
 
 void Init()
 {
+	const u64 AddrSpaceSize = 0x100000000;
+
 #if defined(__SWITCH__)
     MemoryBase = (u8*)memalign(0x1000, MemoryTotalSize);
 	MemoryBaseCodeMem = (u8*)virtmemReserve(MemoryTotalSize);
@@ -521,9 +583,9 @@ void Init()
 	assert(succeded);
 
 	// 8 GB of address space, just don't ask...
-	FastMem9Start = virtmemReserve(0x100000000);
+	FastMem9Start = virtmemReserve(AddrSpaceSize);
 	assert(FastMem9Start);
-	FastMem7Start = virtmemReserve(0x100000000);
+	FastMem7Start = virtmemReserve(AddrSpaceSize);
 	assert(FastMem7Start);
 
 	u8* basePtr = MemoryBaseCodeMem;
@@ -534,8 +596,8 @@ void Init()
 
 	MemoryBase = (u8*)VirtualAlloc(NULL, MemoryTotalSize, MEM_RESERVE, PAGE_READWRITE);
 
-	FastMem9Start = VirtualAlloc(NULL, 0x100000000, MEM_RESERVE, PAGE_READWRITE);
-	FastMem7Start = VirtualAlloc(NULL, 0x100000000, MEM_RESERVE, PAGE_READWRITE);
+	FastMem9Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
+	FastMem7Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
 
 	// only free them after they have all been reserved
 	// so they can't overlap
@@ -544,6 +606,27 @@ void Init()
 	VirtualFree(FastMem7Start, 0, MEM_RELEASE);
 
 	MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, MemoryTotalSize, MemoryBase);
+
+	u8* basePtr = MemoryBase;
+#else
+	FastMem9Start = mmap(NULL, AddrSpaceSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	FastMem7Start = mmap(NULL, AddrSpaceSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+
+	MemoryBase = (u8*)mmap(NULL, MemoryTotalSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+
+	MemoryFile = memfd_create("melondsfastmem", 0);
+	ftruncate(MemoryFile, MemoryTotalSize);
+
+	NewSa.sa_flags = SA_SIGINFO;
+	sigemptyset(&NewSa.sa_mask);
+	NewSa.sa_sigaction = SigsegvHandler;
+	sigaction(SIGSEGV, &NewSa, &OldSa);
+
+	munmap(MemoryBase, MemoryTotalSize);
+	munmap(FastMem9Start, AddrSpaceSize);
+	munmap(FastMem7Start, AddrSpaceSize);
+
+	mmap(MemoryBase, MemoryTotalSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, MemoryFile, 0);
 
 	u8* basePtr = MemoryBase;
 #endif
@@ -604,6 +687,8 @@ bool IsFastmemCompatible(int region)
 		|| region == memregion_NewSharedWRAM_C)
 		return false;
 #endif
+	if (region == memregion_DTCM)
+		return false;
 	return OffsetsPerRegion[region] != UINT32_MAX;
 }
 
@@ -617,6 +702,14 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
 		{
 			mirrorStart = addr & ~(ITCMPhysicalSize - 1);
 			mirrorSize = ITCMPhysicalSize;
+			return true;
+		}
+		return false;
+	case memregion_DTCM:
+		if (num == 0)
+		{
+			mirrorStart = addr & ~(DTCMPhysicalSize - 1);
+			mirrorSize = DTCMPhysicalSize;
 			return true;
 		}
 		return false;

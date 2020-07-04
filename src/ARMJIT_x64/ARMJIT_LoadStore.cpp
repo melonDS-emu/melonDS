@@ -379,19 +379,16 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         AND(32, R(RSCRATCH4), Imm8(~3));
 
         u8* fastPathStart = GetWritableCodePtr();
-        u8* firstLoadStoreAddr;
-
-        bool firstLoadStore = true;
+        u8* loadStoreAddr[16];
 
         MOV(64, R(RSCRATCH2), ImmPtr(Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start));
         ADD(64, R(RSCRATCH2), R(RSCRATCH4));
-        MOV(32, R(RSCRATCH3), R(RSCRATCH4));
 
         u32 offset = 0;
+        int i = 0;
         for (int reg : regs)
         {
-            if (firstLoadStore)
-                firstLoadStoreAddr = GetWritableCodePtr();
+            loadStoreAddr[i] = GetWritableCodePtr();
 
             OpArg mem = MDisp(RSCRATCH2, offset);
             if (store)
@@ -403,8 +400,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 else
                 {
                     LoadReg(reg, RSCRATCH);
-                    if (firstLoadStore)
-                        firstLoadStoreAddr = GetWritableCodePtr();
+                    loadStoreAddr[i] = GetWritableCodePtr();
                     MOV(32, mem, R(RSCRATCH));
                 }
             }
@@ -421,17 +417,19 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 }
             }
             offset += 4;
-
-            firstLoadStore = false;
+            i++;
         }
 
         LoadStorePatch patch;
         patch.Size = GetWritableCodePtr() - fastPathStart;
-        patch.Offset = fastPathStart - firstLoadStoreAddr;
         SwitchToFarCode();
         patch.PatchFunc = GetWritableCodePtr();
 
-        LoadStorePatches[firstLoadStoreAddr] = patch;
+        for (i = 0; i < regsCount; i++)
+        {
+            patch.Offset = fastPathStart - loadStoreAddr[i];
+            LoadStorePatches[loadStoreAddr[i]] = patch;
+        }
     }
 
     if (!store)

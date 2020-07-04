@@ -814,6 +814,7 @@ bool DoSavestate(Savestate* file)
     if (!file->Saving)
     {
         ARMJIT::ResetBlockCache();
+        ARMJIT_Memory::Reset();
     }
 #endif
 

@@ -1641,14 +1641,19 @@ void MainWindow::onStop()
 
 void MainWindow::onOpenEmuSettings()
 {
+    emuThread->emuPause();
+
     EmuSettingsDialog* dlg = EmuSettingsDialog::openDlg(this);
     connect(dlg, &EmuSettingsDialog::finished, this, &MainWindow::onEmuSettingsDialogFinished);
 }
 
 void MainWindow::onEmuSettingsDialogFinished(int res)
 {
-    if (RunningSomething)
+    if (EmuSettingsDialog::needsReset)
+    {
+        emuThread->emuUnpause();
         onReset();
+    }
 }
 
 void MainWindow::onOpenInputConfig()

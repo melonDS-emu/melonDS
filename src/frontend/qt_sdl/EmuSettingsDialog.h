@@ -50,6 +50,8 @@ public:
         currentDlg = nullptr;
     }
 
+    static bool needsReset;
+
 private slots:
     void done(int r);
 

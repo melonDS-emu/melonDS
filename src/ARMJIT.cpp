@@ -86,9 +86,9 @@ const u32 CodeRegionSizes[ARMJIT_Memory::memregions_Count] =
 	0x40000,
 	0x10000,
 	0x10000,
-	sizeof(DSi::NWRAM_A),
-	sizeof(DSi::NWRAM_B),
-	sizeof(DSi::NWRAM_C),
+	DSi::NWRAMSize,
+	DSi::NWRAMSize,
+	DSi::NWRAMSize,
 };
 
 AddressRange* const CodeMemRegions[ARMJIT_Memory::memregions_Count] =
@@ -964,6 +964,7 @@ void CompileBlock(ARM* cpu)
 		block = prevBlock;
 	}
 
+	assert((localAddr & 1) == 0);
 	for (int j = 0; j < numAddressRanges; j++)
 	{
 		assert(addressRanges[j] == block->AddressRanges()[j]);
@@ -1011,6 +1012,7 @@ void InvalidateByAddr(u32 localAddr)
 			{
 				mask = block->AddressMasks()[j];
 				invalidated = block->AddressMasks()[j] & mask;
+				assert(mask);
 				break;
 			}
 		}
