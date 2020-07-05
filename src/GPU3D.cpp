@@ -544,7 +544,7 @@ void DoSavestate(Savestate* file)
 
         file->Var32(&poly->NumVertices);
 
-        if (!file->IsAtleastVersion(6, 1))
+        if (!file->IsAtleastVersion(6, 5))
         {
             file->VarArray(poly->FinalZ, sizeof(s32)*10);
             file->VarArray(poly->FinalW, sizeof(s32)*10);
@@ -566,7 +566,7 @@ void DoSavestate(Savestate* file)
         else
             poly->Type = 0;
 
-        if (!file->IsAtleastVersion(6, 1))
+        if (!file->IsAtleastVersion(6, 5))
         {
             file->Var32(&poly->VTop);
             file->Var32(&poly->VBottom);
