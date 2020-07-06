@@ -98,12 +98,15 @@ GPU2D::GPU2D(u32 num)
     Framebuffer = NULL;
     BGOBJLine = NULL;
     _3DLine = NULL;
+    PixelIndexToNative = NULL;
 }
 
 GPU2D::~GPU2D()
 {
     if (BGOBJLine) delete[] BGOBJLine;
     BGOBJLine = NULL;
+    if (PixelIndexToNative) delete[] PixelIndexToNative;
+    PixelIndexToNative = NULL;
 }
 
 void GPU2D::Reset()
