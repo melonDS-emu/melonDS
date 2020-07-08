@@ -145,7 +145,7 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 	desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
 	desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
 #else
-	desc.EmulatedFaultAddr = (u8*)info->fault_address - curArea;
+	desc.EmulatedFaultAddr = (u8*)context->uc_mcontext.fault_address - curArea;
 	desc.FaultPC = context->uc_mcontext.pc;
 #endif
 
