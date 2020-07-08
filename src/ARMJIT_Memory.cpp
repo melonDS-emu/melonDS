@@ -127,7 +127,6 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 
-	printf("miauz\n");
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -142,13 +141,22 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 	
 	ARMJIT_Memory::FaultDescription desc;
 	u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+#ifdef __x86_64__
 	desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
 	desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
+#else
+	desc.EmulatedFaultAddr = (u8*)info->fault_address - curArea;
+	desc.FaultPC = context->uc_mcontext.pc;
+#endif
 
 	s32 offset = 0;
 	if (ARMJIT_Memory::FaultHandler(&desc, offset))
 	{
+#ifdef __x86_64__
 		context->uc_mcontext.gregs[REG_RIP] += offset;
+#else
+		context->uc_mcontext.pc += offset;
+#endif
 		return;
 	}
 
@@ -355,8 +363,8 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 	{
 		Mapping& mapping = Mappings[region][i];
 
-//		if (offset < mapping.LocalOffset || offset >= mapping.LocalOffset + mapping.Size)
-//			continue;
+		if (offset < mapping.LocalOffset || offset >= mapping.LocalOffset + mapping.Size)
+			continue;
 
 		u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
 		if (mapping.Num == 0

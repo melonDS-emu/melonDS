@@ -183,6 +183,12 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
     if (Config::JIT_FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
     {
+        if (rdMapped.IsImm())
+        {
+            MOV(32, R(RSCRATCH4), rdMapped);
+            rdMapped = R(RSCRATCH4);
+        }
+
         u8* memopStart = GetWritableCodePtr();
         LoadStorePatch patch;
 

@@ -179,7 +179,7 @@ public:
 
     Gen::OpArg MapReg(int reg)
     {
-        if (reg == 15 && RegCache.Mapping[reg] == Gen::INVALID_REG)
+        if (reg == 15 && !(RegCache.LoadedRegs & (1 << 15)))
             return Gen::Imm32(R15);
 
         assert(RegCache.Mapping[reg] != Gen::INVALID_REG);
