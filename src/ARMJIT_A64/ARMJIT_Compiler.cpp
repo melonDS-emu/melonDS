@@ -218,7 +218,7 @@ Compiler::Compiler()
     mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
 
     SetCodeBase(pageAligned, pageAligned);
-    JitMemUseableSize = alignedSize;
+    JitMemMainSize = alignedSize;
 #endif
     SetCodePtr(0);
 
