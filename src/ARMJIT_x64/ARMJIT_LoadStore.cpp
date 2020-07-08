@@ -216,9 +216,17 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
             if (size == 32)
             {
-                AND(32, R(RSCRATCH3), Imm8(0x3));
-                SHL(32, R(RSCRATCH3), Imm8(3));
-                ROR_(32, rdMapped, R(RSCRATCH3));
+                if (addrIsStatic)
+                {
+                    if (staticAddress & 0x3)
+                        ROR_(32, rdMapped, Imm8((staticAddress & 0x3) * 8));
+                }
+                else
+                {
+                    AND(32, R(RSCRATCH3), Imm8(0x3));
+                    SHL(32, R(RSCRATCH3), Imm8(3));
+                    ROR_(32, rdMapped, R(RSCRATCH3));
+                }
             }
         }
 
@@ -233,78 +241,115 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     {
         PushRegs(false);
 
-        if (Num == 0)
+        void* func = NULL;
+        if (addrIsStatic)
+            func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
+
+        if (func)
         {
-            MOV(64, R(ABI_PARAM2), R(RCPU));
+            AND(32, R(RSCRATCH3), Imm8(addressMask));
+
             if (ABI_PARAM1 != RSCRATCH3)
                 MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
             if (flags & memop_Store)
-            {
-                MOV(32, R(ABI_PARAM3), rdMapped);
+                MOV(32, R(ABI_PARAM2), rdMapped);
 
-                switch (size | NDS::ConsoleType)
-                {
-                case 32: CALL((void*)&SlowWrite9<u32, 0>); break;
-                case 16: CALL((void*)&SlowWrite9<u16, 0>); break;
-                case 8: CALL((void*)&SlowWrite9<u8, 0>); break;
-                case 33: CALL((void*)&SlowWrite9<u32, 1>); break;
-                case 17: CALL((void*)&SlowWrite9<u16, 1>); break;
-                case 9: CALL((void*)&SlowWrite9<u8, 1>); break;
-                }
-            }
-            else
+            ABI_CallFunction((void (*)())func);
+
+            PopRegs(false);
+
+            if (!(flags & memop_Store))
             {
-                switch (size | NDS::ConsoleType)
+                if (size == 32)
                 {
-                case 32: CALL((void*)&SlowRead9<u32, 0>); break;
-                case 16: CALL((void*)&SlowRead9<u16, 0>); break;
-                case 8: CALL((void*)&SlowRead9<u8, 0>); break;
-                case 33: CALL((void*)&SlowRead9<u32, 1>); break;
-                case 17: CALL((void*)&SlowRead9<u16, 1>); break;
-                case 9: CALL((void*)&SlowRead9<u8, 1>); break;
+                    MOV(32, rdMapped, R(RSCRATCH));
+                    if (staticAddress & 0x3)
+                        ROR_(32, rdMapped, Imm8((staticAddress & 0x3) * 8));
+                }
+                else
+                {
+                    if (flags & memop_SignExtend)
+                        MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+                    else
+                        MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
                 }
             }
         }
         else
         {
-            if (ABI_PARAM1 != RSCRATCH3)
-                MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
-            if (flags & memop_Store)
+            if (Num == 0)
             {
-                MOV(32, R(ABI_PARAM2), rdMapped);
-
-                switch (size | NDS::ConsoleType)
+                MOV(64, R(ABI_PARAM2), R(RCPU));
+                if (ABI_PARAM1 != RSCRATCH3)
+                    MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+                if (flags & memop_Store)
                 {
-                case 32: CALL((void*)&SlowWrite7<u32, 0>); break;
-                case 16: CALL((void*)&SlowWrite7<u16, 0>); break;
-                case 8: CALL((void*)&SlowWrite7<u8, 0>); break;
-                case 33: CALL((void*)&SlowWrite7<u32, 1>); break;
-                case 17: CALL((void*)&SlowWrite7<u16, 1>); break;
-                case 9: CALL((void*)&SlowWrite7<u8, 1>); break;
+                    MOV(32, R(ABI_PARAM3), rdMapped);
+
+                    switch (size | NDS::ConsoleType)
+                    {
+                    case 32: CALL((void*)&SlowWrite9<u32, 0>); break;
+                    case 16: CALL((void*)&SlowWrite9<u16, 0>); break;
+                    case 8: CALL((void*)&SlowWrite9<u8, 0>); break;
+                    case 33: CALL((void*)&SlowWrite9<u32, 1>); break;
+                    case 17: CALL((void*)&SlowWrite9<u16, 1>); break;
+                    case 9: CALL((void*)&SlowWrite9<u8, 1>); break;
+                    }
+                }
+                else
+                {
+                    switch (size | NDS::ConsoleType)
+                    {
+                    case 32: CALL((void*)&SlowRead9<u32, 0>); break;
+                    case 16: CALL((void*)&SlowRead9<u16, 0>); break;
+                    case 8: CALL((void*)&SlowRead9<u8, 0>); break;
+                    case 33: CALL((void*)&SlowRead9<u32, 1>); break;
+                    case 17: CALL((void*)&SlowRead9<u16, 1>); break;
+                    case 9: CALL((void*)&SlowRead9<u8, 1>); break;
+                    }
                 }
             }
             else
             {
-                switch (size | NDS::ConsoleType)
+                if (ABI_PARAM1 != RSCRATCH3)
+                    MOV(32, R(ABI_PARAM1), R(RSCRATCH3));
+                if (flags & memop_Store)
                 {
-                case 32: CALL((void*)&SlowRead7<u32, 0>); break;
-                case 16: CALL((void*)&SlowRead7<u16, 0>); break;
-                case 8: CALL((void*)&SlowRead7<u8, 0>); break;
-                case 33: CALL((void*)&SlowRead7<u32, 1>); break;
-                case 17: CALL((void*)&SlowRead7<u16, 1>); break;
-                case 9: CALL((void*)&SlowRead7<u8, 1>); break;
+                    MOV(32, R(ABI_PARAM2), rdMapped);
+
+                    switch (size | NDS::ConsoleType)
+                    {
+                    case 32: CALL((void*)&SlowWrite7<u32, 0>); break;
+                    case 16: CALL((void*)&SlowWrite7<u16, 0>); break;
+                    case 8: CALL((void*)&SlowWrite7<u8, 0>); break;
+                    case 33: CALL((void*)&SlowWrite7<u32, 1>); break;
+                    case 17: CALL((void*)&SlowWrite7<u16, 1>); break;
+                    case 9: CALL((void*)&SlowWrite7<u8, 1>); break;
+                    }
+                }
+                else
+                {
+                    switch (size | NDS::ConsoleType)
+                    {
+                    case 32: CALL((void*)&SlowRead7<u32, 0>); break;
+                    case 16: CALL((void*)&SlowRead7<u16, 0>); break;
+                    case 8: CALL((void*)&SlowRead7<u8, 0>); break;
+                    case 33: CALL((void*)&SlowRead7<u32, 1>); break;
+                    case 17: CALL((void*)&SlowRead7<u16, 1>); break;
+                    case 9: CALL((void*)&SlowRead7<u8, 1>); break;
+                    }
                 }
             }
-        }
 
-        PopRegs(false);
-
-        if (!(flags & memop_Store))
-        {
-            if (flags & memop_SignExtend)
-                MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
-            else
-                MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+            PopRegs(false);
+            
+            if (!(flags & memop_Store))
+            {
+                if (flags & memop_SignExtend)
+                    MOVSX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+                else
+                    MOVZX(32, size, rdMapped.GetSimpleReg(), R(RSCRATCH));
+            }
         }
     }
 

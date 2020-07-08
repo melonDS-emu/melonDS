@@ -474,19 +474,17 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ANDI2R(W0, MapReg(rn), ~3);
     }
 
-    LoadStorePatch patch;
     if (compileFastPath)
     {
         ptrdiff_t fastPathStart = GetCodeOffset();
-        ptrdiff_t firstLoadStoreOffset;
-
-        bool firstLoadStore = true;
+        ptrdiff_t loadStoreOffsets[16];
 
         MOVP2R(X1, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
         ADD(X1, X1, X0);
 
         u32 offset = preinc ? 4 : 0;
         BitSet16::Iterator it = regs.begin();
+        u32 i = 0;
 
         if (regsCount & 1)
         {
@@ -499,11 +497,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             else if (store)
                 LoadReg(reg, first);
 
-            if (firstLoadStore)
-            {
-                firstLoadStoreOffset = GetCodeOffset();
-                firstLoadStore = false;
-            }
+            loadStoreOffsets[i++] = GetCodeOffset();
 
             if (store)
                 STR(INDEX_UNSIGNED, first, X1, offset);
@@ -533,11 +527,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             else if (store)
                 LoadReg(nextReg, second);
 
-            if (firstLoadStore)
-            {
-                firstLoadStoreOffset = GetCodeOffset();
-                firstLoadStore = false;
-            }
+            loadStoreOffsets[i++] = GetCodeOffset();
 
             if (store)
                 STP(INDEX_SIGNED, first, second, X1, offset);
@@ -552,12 +542,15 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             offset += 8;
         }
 
+        LoadStorePatch patch;
         patch.PatchSize = GetCodeOffset() - fastPathStart;
-        patch.PatchOffset = fastPathStart - firstLoadStoreOffset;
         SwapCodeRegion();
         patch.PatchFunc = GetRXPtr();
-
-        LoadStorePatches[firstLoadStoreOffset] = patch;
+        for (i = 0; i < regsCount; i++)
+        {
+            patch.PatchOffset = fastPathStart - loadStoreOffsets[i];
+            LoadStorePatches[loadStoreOffsets[i]] = patch;
+        }
 
         ABI_PushRegisters({30});
     }

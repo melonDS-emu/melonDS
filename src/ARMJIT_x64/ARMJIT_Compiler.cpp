@@ -633,7 +633,7 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
 
 JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
 {
-    if (NearSize - (NearCode - NearStart) < 1024 * 32) // guess...
+    if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
         printf("near reset\n");
         ResetBlockCache();

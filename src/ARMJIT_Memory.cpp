@@ -73,7 +73,8 @@ u64 __nx_exception_stack_size = 0x8000;
 void __libnx_exception_handler(ThreadExceptionDump* ctx)
 {
 	ARMJIT_Memory::FaultDescription desc;
-	desc.EmulatedFaultAddr = ctx->cpu_gprs[0].w;
+	u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+	desc.EmulatedFaultAddr = (u8*)ctx->far.x - curArea;
 	desc.FaultPC = ctx->pc.x;
 
 	u64 integerRegisters[33];
@@ -109,10 +110,14 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
 static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 {
 	if (exceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
+	{
+		printf("narg\n");
 		return EXCEPTION_CONTINUE_SEARCH;
+	}
 
 	ARMJIT_Memory::FaultDescription desc;
-	desc.EmulatedFaultAddr = exceptionInfo->ContextRecord->Rcx;
+	u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
+	desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
 	desc.FaultPC = exceptionInfo->ContextRecord->Rip;
 
 	s32 offset = 0;
@@ -122,6 +127,7 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 
+	printf("miauz\n");
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -277,7 +283,8 @@ void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
 		winProtection = PAGE_READONLY;
 	else
 		winProtection = PAGE_READWRITE;
-	VirtualProtect(dst, size, winProtection, &oldProtection);
+	bool success = VirtualProtect(dst, size, winProtection, &oldProtection);
+	assert(success);
 #else
 	int posixProt;
 	if (protection == 0)
@@ -348,9 +355,10 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 	{
 		Mapping& mapping = Mappings[region][i];
 
+//		if (offset < mapping.LocalOffset || offset >= mapping.LocalOffset + mapping.Size)
+//			continue;
+
 		u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
-		if (offset < mapping.LocalOffset || offset >= mapping.LocalOffset + mapping.Size)
-			continue;
 		if (mapping.Num == 0
 			&& region != memregion_DTCM 
 			&& effectiveAddr >= NDS::ARM9->DTCMBase
@@ -401,8 +409,8 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
 			printf("mapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
-			bool oldOverlap = NDS::ARM9->DTCMSize > 0 && !(oldDTCMBase >= end || oldDTCBEnd < start);
-			bool newOverlap = newSize > 0 && !(newBase >= end || newEnd < start);
+			bool oldOverlap = NDS::ARM9->DTCMSize > 0 && !(oldDTCMBase >= end || oldDTCBEnd <= start);
+			bool newOverlap = newSize > 0 && !(newBase >= end || newEnd <= start);
 
 			if (mapping.Num == 0 && (oldOverlap || newOverlap))
 			{
@@ -449,24 +457,22 @@ void RemapNWRAM(int num)
 void RemapSWRAM()
 {
 	printf("remapping SWRAM\n");
+	for (int i = 0; i < Mappings[memregion_WRAM7].Length;)
+	{
+		Mapping& mapping = Mappings[memregion_WRAM7][i];
+		if (mapping.Addr + mapping.Size < 0x03800000)
+		{
+			mapping.Unmap(memregion_WRAM7);
+			Mappings[memregion_WRAM7].Remove(i);
+		}
+		else
+			i++;
+	}
 	for (int i = 0; i < Mappings[memregion_SharedWRAM].Length; i++)
 	{
 		Mappings[memregion_SharedWRAM][i].Unmap(memregion_SharedWRAM);
 	}
 	Mappings[memregion_SharedWRAM].Clear();
-	for (int i = 0; i < Mappings[memregion_WRAM7].Length; i++)
-	{
-		Mappings[memregion_WRAM7][i].Unmap(memregion_WRAM7);
-	}
-	Mappings[memregion_WRAM7].Clear();
-	for (int j = 0; j < 3; j++)
-	{
-		for (int i = 0; i < Mappings[memregion_NewSharedWRAM_A + j].Length; i++)
-		{
-			Mappings[memregion_NewSharedWRAM_A + j][i].Unmap(memregion_NewSharedWRAM_A + j);	
-		}
-		Mappings[memregion_NewSharedWRAM_A + j].Clear();
-	}
 }
 
 bool MapAtAddress(u32 addr)
@@ -687,8 +693,6 @@ bool IsFastmemCompatible(int region)
 		|| region == memregion_NewSharedWRAM_C)
 		return false;
 #endif
-	if (region == memregion_DTCM)
-		return false;
 	return OffsetsPerRegion[region] != UINT32_MAX;
 }
 

@@ -556,6 +556,7 @@ public:
   const u8* GetRWPtr();
   u8* GetWriteableRWPtr();
   void* GetRXPtr();
+  u8* GetRXBase();
   void FlushIcache();
   void FlushIcacheSection(u8* start, u8* end);
 

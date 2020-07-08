@@ -340,6 +340,11 @@ void* ARM64XEmitter::GetRXPtr()
   return m_rxbase + m_code;
 }
 
+u8* ARM64XEmitter::GetRXBase()
+{
+  return m_rxbase;
+}
+
 void ARM64XEmitter::ReserveCodeSpace(u32 bytes)
 {
   for (u32 i = 0; i < bytes / 4; i++)
