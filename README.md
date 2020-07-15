@@ -55,7 +55,7 @@ make -j$(nproc --all)
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}`
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,toolchain}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
