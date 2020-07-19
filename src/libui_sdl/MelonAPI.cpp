@@ -263,3 +263,10 @@ DLL u16 ARM9Read16(u32 addr) { return NDS::ARM9Read16(addr); }
 DLL void ARM9Write16(u32 addr, u16 value) { NDS::ARM9Write16(addr, value); }
 DLL u32 ARM9Read32(u32 addr) { return NDS::ARM9Read32(addr); }
 DLL void ARM9Write32(u32 addr, u32 value) { NDS::ARM9Write32(addr, value); }
+
+DLL u8 ARM7Read8(u32 addr) { return NDS::ARM7Read8(addr); }
+DLL void ARM7Write8(u32 addr, u8 value) { NDS::ARM7Write8(addr, value); }
+DLL u16 ARM7Read16(u32 addr) { return NDS::ARM7Read16(addr); }
+DLL void ARM7Write16(u32 addr, u16 value) { NDS::ARM7Write16(addr, value); }
+DLL u32 ARM7Read32(u32 addr) { return NDS::ARM7Read32(addr); }
+DLL void ARM7Write32(u32 addr, u32 value) { NDS::ARM7Write32(addr, value); }
