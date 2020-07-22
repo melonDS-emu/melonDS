@@ -1413,7 +1413,7 @@ std::string extractROM(char* zipName, std::string zipDir){
     zip_stat_index(z, 0, 0, &st); //Get information about the file at index 0
 	
     //Allocate memory for its uncompressed contents
-    char *contents = new char[st.size];
+    u8 *contents = new u8[st.size];
 	
     //Read the compressed file
     zip_file *f = zip_fopen_index(z, 0, 0); //Open file at index 0
@@ -1423,7 +1423,7 @@ std::string extractROM(char* zipName, std::string zipDir){
     zip_close(z);
 
     //Write the file (binary mode)
-    std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write(contents, st.size);
+    std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write((char*) contents, st.size);
     delete[] contents;
     return zipDir + "/" + st.name;
 }
