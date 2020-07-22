@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <zip.h>
+#include <fstream>
+#include <iostream>
+
 #include <QApplication>
 #include <QMessageBox>
 #include <QMenuBar>
@@ -1399,6 +1403,41 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
+std::string getFileExt(const std::string& s) {
+
+   size_t i = s.rfind('.', s.length());
+   if (i != std::string::npos) {
+      return(s.substr(i+1, s.length() - i));
+   }
+
+   return("");
+}
+std::string extractROM(char* zipName, std::string zipDir){
+    //Open the ZIP archive
+    int err = 0;
+    zip *z = zip_open(zipName, 0, &err);
+    
+	struct zip_stat st;
+    zip_stat_init(&st);
+    zip_stat_index(z, 0, 0, &st); //Get information about the file at index 0
+	
+    //Allocate memory for its uncompressed contents
+    char *contents = new char[st.size];
+	
+    //Read the compressed file
+    zip_file *f = zip_fopen_index(z, 0, 0); //Open file at index 0
+	zip_fread(f, contents, st.size);
+    zip_fclose(f);
+
+    zip_close(z);
+	
+	//Write the file (binary mode)
+    if(!std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write(contents, st.size)) 
+    {
+        std::cerr << "Error writing file" << '\n';
+    }
+	return zipDir + "/" + st.name;
+}
 
 void MainWindow::onOpenFile()
 {
