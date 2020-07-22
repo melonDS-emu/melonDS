@@ -993,7 +993,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         QMenu* menu = menubar->addMenu("File");
 
         actOpenROM = menu->addAction("Open ROM...");
-        connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
+        connect(actOpenROM, &QAction::triggered, this, &MainWindow::
+	       );
 
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
@@ -1408,7 +1409,7 @@ std::string extractROM(char* zipName, std::string zipDir){
     int err = 0;
     zip *z = zip_open(zipName, 0, &err);
     
-	struct zip_stat st;
+    struct zip_stat st;
     zip_stat_init(&st);
     zip_stat_index(z, 0, 0, &st); //Get information about the file at index 0
 	
@@ -1417,38 +1418,38 @@ std::string extractROM(char* zipName, std::string zipDir){
 	
     //Read the compressed file
     zip_file *f = zip_fopen_index(z, 0, 0); //Open file at index 0
-	zip_fread(f, contents, st.size);
+    zip_fread(f, contents, st.size);
     zip_fclose(f);
 
     zip_close(z);
-	
-	//Write the file (binary mode)
+
+    //Write the file (binary mode)
     std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write(contents, st.size);
-  
-	return zipDir + "/" + st.name;
+    delete[] contents;
+    return zipDir + "/" + st.name;
 }
 
 void MainWindow::onOpenFile()
 {
     emuThread->emuPause();
 
-	bool romExtracted = false; //No use yet but may be useful later
+    bool romExtracted = false; //No use yet but may be useful later
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
                                                     "DS ROMs (*.nds *.dsi *.srl *.zip);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
     QFileInfo filenameExtLoc = filename;
 
-	if (filenameExtLoc.completeSuffix().toUtf8() == "zip")
-	{
-		printf("Extracting ROM from ZIP...\n");
-		std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
-		printf("Done.\n");
-		filename = QString::fromUtf8(extractRomLoc.c_str());
-		romExtracted = true;
-	}
+    if (filenameExtLoc.completeSuffix().toUtf8() == "zip")
+    {
+	    printf("Extracting ROM from ZIP...\n");
+	    std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
+	    printf("Done.\n");
+	    filename = QString::fromUtf8(extractRomLoc.c_str());
+	    romExtracted = true;
+    }
 	
-	if (filename.isEmpty())
+    if (filename.isEmpty())
     {
         emuThread->emuUnpause();
         return;
