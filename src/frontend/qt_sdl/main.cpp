@@ -1403,15 +1403,6 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
-std::string getFileExt(const std::string& s) {
-
-   size_t i = s.rfind('.', s.length());
-   if (i != std::string::npos) {
-      return(s.substr(i+1, s.length() - i));
-   }
-
-   return("");
-}
 std::string extractROM(char* zipName, std::string zipDir){
     //Open the ZIP archive
     int err = 0;
@@ -1432,10 +1423,8 @@ std::string extractROM(char* zipName, std::string zipDir){
     zip_close(z);
 	
 	//Write the file (binary mode)
-    if(!std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write(contents, st.size)) 
-    {
-        std::cerr << "Error writing file" << '\n';
-    }
+    std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write(contents, st.size);
+  
 	return zipDir + "/" + st.name;
 }
 
@@ -1443,11 +1432,23 @@ void MainWindow::onOpenFile()
 {
     emuThread->emuPause();
 
+	bool romExtracted = false; //No use yet but may be useful later
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
-    if (filename.isEmpty())
+                                                    "DS ROMs (*.nds *.dsi *.srl *.zip);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
+    QFileInfo filenameExtLoc = filename;
+
+	if (filenameExtLoc.completeSuffix().toUtf8() == "zip")
+	{
+		printf("Extracting ROM from ZIP...\n");
+		std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
+		printf("Done.\n");
+		filename = QString::fromUtf8(extractRomLoc.c_str());
+		romExtracted = true;
+	}
+	
+	if (filename.isEmpty())
     {
         emuThread->emuUnpause();
         return;
