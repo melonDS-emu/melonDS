@@ -993,8 +993,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         QMenu* menu = menubar->addMenu("File");
 
         actOpenROM = menu->addAction("Open ROM...");
-        connect(actOpenROM, &QAction::triggered, this, &MainWindow::
-	       );
+        connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
 
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
