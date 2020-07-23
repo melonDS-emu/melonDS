@@ -643,22 +643,22 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (Num == 0)
     {
         MOV(X3, RCPU);
-        switch (preinc * 2 | store)
+        switch (store * 2 | NDS::ConsoleType)
         {
-        case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, false>); break;
-        case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, true>); break;
-        case 2: QuickCallFunction(X4, SlowBlockTransfer9<true, false>); break;
-        case 3: QuickCallFunction(X4, SlowBlockTransfer9<true, true>); break;
+        case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, 0>); break;
+        case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, 1>); break;
+        case 2: QuickCallFunction(X4, SlowBlockTransfer9<true, 0>); break;
+        case 3: QuickCallFunction(X4, SlowBlockTransfer9<true, 1>); break;
         }
     }
     else
     {
-        switch (preinc * 2 | store)
+        switch (store * 2 | NDS::ConsoleType)
         {
-        case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, false>); break;
-        case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, true>); break;
-        case 2: QuickCallFunction(X4, SlowBlockTransfer7<true, false>); break;
-        case 3: QuickCallFunction(X4, SlowBlockTransfer7<true, true>); break;
+        case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, 0>); break;
+        case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, 1>); break;
+        case 2: QuickCallFunction(X4, SlowBlockTransfer7<true, 0>); break;
+        case 3: QuickCallFunction(X4, SlowBlockTransfer7<true, 1>); break;
         }
     }
 
