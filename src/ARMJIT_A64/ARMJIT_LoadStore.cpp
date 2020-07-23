@@ -258,7 +258,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                     case 32: QuickCallFunction(X3, SlowRead9<u32, 0>); break;
                     case 33: QuickCallFunction(X3, SlowRead9<u32, 1>); break;
                     case 16: QuickCallFunction(X3, SlowRead9<u16, 0>); break;
-                    case 17: QuickCallFunction(X3, SlowRead9<u16, 0>); break;
+                    case 17: QuickCallFunction(X3, SlowRead9<u16, 1>); break;
                     case 8: QuickCallFunction(X3, SlowRead9<u8, 0>); break;
                     case 9: QuickCallFunction(X3, SlowRead9<u8, 1>); break;
                     }
@@ -643,7 +643,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (Num == 0)
     {
         MOV(X3, RCPU);
-        switch (store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS::ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, 1>); break;
@@ -653,7 +653,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     }
     else
     {
-        switch (store * 2 | NDS::ConsoleType)
+        switch ((u32)store * 2 | NDS::ConsoleType)
         {
         case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, 0>); break;
         case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, 1>); break;
