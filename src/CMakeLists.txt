@@ -90,6 +90,7 @@ if (ENABLE_JIT)
 
 			ARMJIT_A64/ARMJIT_Linkage.s
 		)
+		set_source_files_properties(ARMJIT_A64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 	endif()
 endif()
 

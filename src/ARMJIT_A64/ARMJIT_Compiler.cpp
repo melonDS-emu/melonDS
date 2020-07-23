@@ -312,59 +312,93 @@ Compiler::Compiler()
         RET();
     }
 
-    for (int num = 0; num < 2; num++)
+    for (int consoleType = 0; consoleType < 2; consoleType++)
     {
-        for (int size = 0; size < 3; size++)
+        for (int num = 0; num < 2; num++)
         {
-            for (int reg = 0; reg < 8; reg++)
+            for (int size = 0; size < 3; size++)
             {
-                ARM64Reg rdMapped = (ARM64Reg)(W19 + reg);
-                PatchedStoreFuncs[num][size][reg] = GetRXPtr();
-                if (num == 0)
+                for (int reg = 0; reg < 8; reg++)
                 {
-                    MOV(X1, RCPU);
-                    MOV(W2, rdMapped);
-                }
-                else
-                {
-                    MOV(W1, rdMapped);
-                }
-                ABI_PushRegisters({30});
-                switch ((8 << size) |  num)
-                {
-                case 32: QuickCallFunction(X3, SlowWrite9<u32>); break;
-                case 33: QuickCallFunction(X3, SlowWrite7<u32>); break;
-                case 16: QuickCallFunction(X3, SlowWrite9<u16>); break;
-                case 17: QuickCallFunction(X3, SlowWrite7<u16>); break;
-                case 8: QuickCallFunction(X3, SlowWrite9<u8>); break;
-                case 9: QuickCallFunction(X3, SlowWrite7<u8>); break;
-                }
-                ABI_PopRegisters({30});
-                RET();
-
-                for (int signextend = 0; signextend < 2; signextend++)
-                {
-                    PatchedLoadFuncs[num][size][signextend][reg] = GetRXPtr();
+                    ARM64Reg rdMapped = (ARM64Reg)(W19 + reg);
+                    PatchedStoreFuncs[consoleType][num][size][reg] = GetRXPtr();
                     if (num == 0)
-                        MOV(X1, RCPU);
-                    ABI_PushRegisters({30});
-                    switch ((8 << size) |  num)
                     {
-                    case 32: QuickCallFunction(X3, SlowRead9<u32>); break;
-                    case 33: QuickCallFunction(X3, SlowRead7<u32>); break;
-                    case 16: QuickCallFunction(X3, SlowRead9<u16>); break;
-                    case 17: QuickCallFunction(X3, SlowRead7<u16>); break;
-                    case 8: QuickCallFunction(X3, SlowRead9<u8>); break;
-                    case 9: QuickCallFunction(X3, SlowRead7<u8>); break;
+                        MOV(X1, RCPU);
+                        MOV(W2, rdMapped);
                     }
-                    ABI_PopRegisters({30});
-                    if (size == 32)
-                        MOV(rdMapped, W0);
-                    else if (signextend)
-                        SBFX(rdMapped, W0, 0, 8 << size);
                     else
-                        UBFX(rdMapped, W0, 0, 8 << size);
+                    {
+                        MOV(W1, rdMapped);
+                    }
+                    ABI_PushRegisters({30});
+                    if (consoleType == 0)
+                    {
+                        switch ((8 << size) |  num)
+                        {
+                        case 32: QuickCallFunction(X3, SlowWrite9<u32, 0>); break;
+                        case 33: QuickCallFunction(X3, SlowWrite7<u32, 0>); break;
+                        case 16: QuickCallFunction(X3, SlowWrite9<u16, 0>); break;
+                        case 17: QuickCallFunction(X3, SlowWrite7<u16, 0>); break;
+                        case 8: QuickCallFunction(X3, SlowWrite9<u8, 0>); break;
+                        case 9: QuickCallFunction(X3, SlowWrite7<u8, 0>); break;
+                        }
+                    }
+                    else
+                    {
+                        switch ((8 << size) |  num)
+                        {
+                        case 32: QuickCallFunction(X3, SlowWrite9<u32, 1>); break;
+                        case 33: QuickCallFunction(X3, SlowWrite7<u32, 1>); break;
+                        case 16: QuickCallFunction(X3, SlowWrite9<u16, 1>); break;
+                        case 17: QuickCallFunction(X3, SlowWrite7<u16, 1>); break;
+                        case 8: QuickCallFunction(X3, SlowWrite9<u8, 1>); break;
+                        case 9: QuickCallFunction(X3, SlowWrite7<u8, 1>); break;
+                        }
+                    }
+                    
+                    ABI_PopRegisters({30});
                     RET();
+
+                    for (int signextend = 0; signextend < 2; signextend++)
+                    {
+                        PatchedLoadFuncs[consoleType][num][size][signextend][reg] = GetRXPtr();
+                        if (num == 0)
+                            MOV(X1, RCPU);
+                        ABI_PushRegisters({30});
+                        if (consoleType == 0)
+                        {
+                            switch ((8 << size) |  num)
+                            {
+                            case 32: QuickCallFunction(X3, SlowRead9<u32, 0>); break;
+                            case 33: QuickCallFunction(X3, SlowRead7<u32, 0>); break;
+                            case 16: QuickCallFunction(X3, SlowRead9<u16, 0>); break;
+                            case 17: QuickCallFunction(X3, SlowRead7<u16, 0>); break;
+                            case 8: QuickCallFunction(X3, SlowRead9<u8, 0>); break;
+                            case 9: QuickCallFunction(X3, SlowRead7<u8, 0>); break;
+                            }
+                        }
+                        else
+                        {
+                            switch ((8 << size) |  num)
+                            {
+                            case 32: QuickCallFunction(X3, SlowRead9<u32, 1>); break;
+                            case 33: QuickCallFunction(X3, SlowRead7<u32, 1>); break;
+                            case 16: QuickCallFunction(X3, SlowRead9<u16, 1>); break;
+                            case 17: QuickCallFunction(X3, SlowRead7<u16, 1>); break;
+                            case 8: QuickCallFunction(X3, SlowRead9<u8, 1>); break;
+                            case 9: QuickCallFunction(X3, SlowRead7<u8, 1>); break;
+                            }
+                        }
+                        ABI_PopRegisters({30});
+                        if (size == 32)
+                            MOV(rdMapped, W0);
+                        else if (signextend)
+                            SBFX(rdMapped, W0, 0, 8 << size);
+                        else
+                            UBFX(rdMapped, W0, 0, 8 << size);
+                        RET();
+                    }
                 }
             }
         }
