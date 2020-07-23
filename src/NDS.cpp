@@ -493,7 +493,7 @@ void Reset()
         printf("ARM7 BIOS loaded\n");
         fclose(f);
     }
-    
+
 #ifdef JIT_ENABLED
     ARMJIT::Reset();
 #endif

@@ -160,6 +160,8 @@ void Channel::Reset()
     else
         BusRead32 = NDS::ARM7Read32;
 
+    KeyOn = false;
+
     SetCnt(0);
     SrcAddr = 0;
     TimerReload = 0;
@@ -187,6 +189,7 @@ void Channel::DoSavestate(Savestate* file)
     file->Var8(&VolumeShift);
     file->Var8(&Pan);
 
+    file->Var8((u8*)&KeyOn);
     file->Var32(&Timer);
     file->Var32((u32*)&Pos);
     file->Var16((u16*)&CurSample);
@@ -416,6 +419,12 @@ template<u32 type>
 void Channel::Run(s32* buf, u32 samples)
 {
     if (!(Cnt & (1<<31))) return;
+
+    if (KeyOn)
+    {
+        Start();
+        KeyOn = false;
+    }
 
     for (u32 s = 0; s < samples; s++)
     {
