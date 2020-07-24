@@ -1411,7 +1411,8 @@ std::string extractROM(char* zipName, std::string zipDir){
     struct zip_stat st;
     zip_stat_init(&st);
     zip_stat_index(z, 0, 0, &st); //Get information about the file at index 0
-	
+    char newName[255];
+    strcpy(newName, st.name); //fix for Linux invalid encoding filename	
     //Allocate memory for its uncompressed contents
     u8 *contents = new u8[st.size];
 	
@@ -1423,7 +1424,7 @@ std::string extractROM(char* zipName, std::string zipDir){
     zip_close(z);
 
     //Write the file (binary mode)
-    std::ofstream(zipDir + "/" + st.name, std::ofstream::binary).write((char*) contents, st.size);
+    std::ofstream(zipDir + "/" + newName, std::ofstream::binary).write((char*) contents, st.size);
     delete[] contents;
     return zipDir + "/" + st.name;
 }
@@ -1441,11 +1442,15 @@ void MainWindow::onOpenFile()
 
     if (filenameExtLoc.completeSuffix().toUtf8() == "zip")
     {
-	    printf("Extracting ROM from ZIP...\n");
-	    std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
-	    printf("Done.\n");
-	    filename = QString::fromUtf8(extractRomLoc.c_str());
-	    romExtracted = true;
+        printf("Extracting ROM from ZIP...\n");
+	std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
+	printf("Done.\n");
+	filename = QString::fromUtf8(extractRomLoc.c_str());
+	romExtracted = true;
+    } else if (filenameExtLoc.completeSuffix().toUtf8() == "") {
+        //do nothing
+    } else {
+	romExtracted = false;    
     }
 	
     if (filename.isEmpty())
