@@ -1426,7 +1426,7 @@ std::string extractROM(char* zipName, std::string zipDir){
     //Write the file (binary mode)
     std::ofstream(zipDir + "/" + newName, std::ofstream::binary).write((char*) contents, st.size);
     delete[] contents;
-    return zipDir + "/" + st.name;
+    return zipDir + "/" + newName;
 }
 
 void MainWindow::onOpenFile()
