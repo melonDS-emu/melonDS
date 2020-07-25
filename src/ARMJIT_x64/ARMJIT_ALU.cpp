@@ -103,16 +103,30 @@ void Compiler::Comp_CmpOp(int op, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed)
 // also calculates cycles
 OpArg Compiler::A_Comp_GetALUOp2(bool S, bool& carryUsed)
 {
+    S = S && (CurInstr.SetFlags & 0x2);
+
     if (CurInstr.Instr & (1 << 25))
     {
         Comp_AddCycles_C();
+
+        u32 shift = (CurInstr.Instr >> 7) & 0x1E;
+        u32 imm = ROR(CurInstr.Instr & 0xFF, shift);
+
         carryUsed = false;
-        return Imm32(ROR(CurInstr.Instr & 0xFF, (CurInstr.Instr >> 7) & 0x1E));
+        if (S && shift)
+        {
+            CPSRDirty = true;
+            carryUsed = true;
+            if (imm & 0x80000000)
+                MOV(32, R(RSCRATCH2), Imm32(1));
+            else
+                XOR(32, R(RSCRATCH2), R(RSCRATCH2));
+        }
+
+        return Imm32(imm);
     }
     else
     {
-        S = S && (CurInstr.SetFlags & 0x2);
-
         int op = (CurInstr.Instr >> 5) & 0x3;
         if (CurInstr.Instr & (1 << 4))
         {
