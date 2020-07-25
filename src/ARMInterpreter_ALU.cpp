@@ -1078,7 +1078,7 @@ void A_QDADD(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (rn & 0x40000000)
+    if (OVERFLOW_ADD(rn, rn, rn<<1))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME
@@ -1104,7 +1104,7 @@ void A_QDSUB(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (rn & 0x40000000)
+    if (OVERFLOW_ADD(rn, rn, rn<<1))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME
