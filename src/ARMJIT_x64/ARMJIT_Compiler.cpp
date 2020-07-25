@@ -315,7 +315,7 @@ Compiler::Compiler()
             {
                 for (int reg = 0; reg < 16; reg++)
                 {
-                    if (reg == RSCRATCH || reg == ABI_PARAM1 || reg == ABI_PARAM2 || reg == ABI_PARAM3)
+                    if (reg == RSCRATCH || reg == ABI_PARAM1 || reg == ABI_PARAM2)
                     {
                         PatchedStoreFuncs[consoleType][num][size][reg] = NULL;
                         PatchedLoadFuncs[consoleType][num][size][0][reg] = NULL;
