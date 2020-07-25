@@ -21,9 +21,11 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
+
+#ifdef JIT_ENABLED
 #include "ARMJIT.h"
 #include "ARMJIT_Memory.h"
-
+#endif
 
 // access timing for cached regions
 // this would be an average between cache hits and cache misses
@@ -105,7 +107,7 @@ void ARMv5::UpdateDTCMSetting()
     {
         newDTCMBase = DTCMSetting & 0xFFFFF000;
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        //printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, DTCMBase, DTCMSize);
+        //printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, newDTCMBase, newDTCMSize);
     }
     else
     {
@@ -115,7 +117,9 @@ void ARMv5::UpdateDTCMSetting()
     }
     if (newDTCMBase != DTCMBase || newDTCMSize != DTCMSize)
     {
+#ifdef JIT_ENABLED
         ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
+#endif
         DTCMBase = newDTCMBase;
         DTCMSize = newDTCMSize;
     }

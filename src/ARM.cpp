@@ -80,7 +80,7 @@ ARM::~ARM()
 ARMv5::ARMv5() : ARM(0)
 {
 #ifndef JIT_ENABLED
-    DTCM = new u8[DTCMSize];
+    DTCM = new u8[DTCMPhysicalSize];
 #endif
 }
 

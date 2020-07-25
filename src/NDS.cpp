@@ -1137,7 +1137,9 @@ void MapSharedWRAM(u8 val)
     if (val == WRAMCnt)
         return;
 
+#ifdef JIT_ENABLED
     ARMJIT_Memory::RemapSWRAM();
+#endif
 
     WRAMCnt = val;
 

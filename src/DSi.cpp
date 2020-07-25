@@ -540,7 +540,9 @@ void MapNWRAM_A(u32 num, u8 val)
         return;
     }
 
+#ifdef JIT_ENABLED
     ARMJIT_Memory::RemapNWRAM(0);
+#endif
 
     int mbkn = 0, mbks = 8*num;
 
@@ -573,7 +575,9 @@ void MapNWRAM_B(u32 num, u8 val)
         return;
     }
 
+#ifdef JIT_ENABLED
     ARMJIT_Memory::RemapNWRAM(1);
+#endif
 
     int mbkn = 1+(num>>2), mbks = 8*(num&3);
 
@@ -610,7 +614,9 @@ void MapNWRAM_C(u32 num, u8 val)
         return;
     }
 
+#ifdef JIT_ENABLED
     ARMJIT_Memory::RemapNWRAM(2);
+#endif
 
     int mbkn = 3+(num>>2), mbks = 8*(num&3);
 
@@ -644,7 +650,9 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
     u32 oldval = MBK[cpu][5+num];
     if (oldval == val) return;
 
+#ifdef JIT_ENABLED
     ARMJIT_Memory::RemapNWRAM(num);
+#endif
 
     MBK[cpu][5+num] = val;
 
@@ -850,7 +858,9 @@ void ARM9Write8(u32 addr, u8 val)
             if (ptr)
             {
                 *(u8*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
             }
             return;
         }
@@ -860,7 +870,9 @@ void ARM9Write8(u32 addr, u8 val)
             if (ptr)
             {
                 *(u8*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
             }
             return;
         }
@@ -870,7 +882,9 @@ void ARM9Write8(u32 addr, u8 val)
             if (ptr)
             {
                 *(u8*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
             }
             return;
         }
@@ -895,7 +909,9 @@ void ARM9Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
             }
             return;
         }
@@ -905,7 +921,9 @@ void ARM9Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
             }
             return;
         }
@@ -915,7 +933,9 @@ void ARM9Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
             }
             return;
         }
@@ -940,7 +960,9 @@ void ARM9Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
             }
             return;
         }
@@ -950,7 +972,9 @@ void ARM9Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
             }
             return;
         }
@@ -960,7 +984,9 @@ void ARM9Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
             }
             return;
         }
@@ -1196,7 +1222,9 @@ void ARM7Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
             }
             return;
         }
@@ -1206,7 +1234,9 @@ void ARM7Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
             }
             return;
         }
@@ -1216,7 +1246,9 @@ void ARM7Write16(u32 addr, u16 val)
             if (ptr)
             {
                 *(u16*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
             }
             return;
         }
@@ -1241,7 +1273,9 @@ void ARM7Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0xFFFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+#endif
             }
             return;
         }
@@ -1251,7 +1285,9 @@ void ARM7Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+#endif
             }
             return;
         }
@@ -1261,7 +1297,9 @@ void ARM7Write32(u32 addr, u32 val)
             if (ptr)
             {
                 *(u32*)&ptr[addr & 0x7FFF] = val;
+#ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+#endif
             }
             return;
         }

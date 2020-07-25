@@ -57,7 +57,7 @@ public:
     }
 
     virtual void Execute() = 0;
-#ifdef ENABLE_JIT
+#ifdef JIT_ENABLED
     virtual void ExecuteJIT() = 0;
 #endif
 
