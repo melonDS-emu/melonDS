@@ -21,8 +21,7 @@ jobs:
     - name: Install MSYS2
       working-directory: ${{runner.workspace}}
       run: | # Fetch MSYS2 build from XQEmu. Official distribution causes a CI failure due to permission errors.
-        Invoke-WebRequest -Uri "https://github.com/xqemu/ci-environment-msys2/releases/latest/download/msys64.7z" -OutFile "msys64.7z"
-        7z x -y msys64.7z "-oC:\tools\"
+        choco install msys2
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syuq --noconfirm"
     - name: Install dependencies
       run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,toolchain}"
