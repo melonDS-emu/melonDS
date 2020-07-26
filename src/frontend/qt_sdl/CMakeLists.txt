@@ -1,41 +1,41 @@
 project(qt_sdl)
 
 SET(SOURCES_QT_SDL
-	main.cpp
-	main_shaders.h
-	EmuSettingsDialog.cpp
-	InputConfigDialog.cpp
-	VideoSettingsDialog.cpp
-	AudioSettingsDialog.cpp
-	WifiSettingsDialog.cpp
-	Input.cpp
-	LAN_PCap.cpp
-	LAN_Socket.cpp
-	OSD.cpp
-	OSD_shaders.h
-	font.h
-	Platform.cpp
-	PlatformConfig.cpp
-	
-	../Util_ROM.cpp
-	../Util_Video.cpp
-	../Util_Audio.cpp
-	../FrontendUtil.h
-	../mic_blow.h
-	
-	../../../melon.qrc
+    main.cpp
+    main_shaders.h
+    EmuSettingsDialog.cpp
+    InputConfigDialog.cpp
+    VideoSettingsDialog.cpp
+    AudioSettingsDialog.cpp
+    WifiSettingsDialog.cpp
+    Input.cpp
+    LAN_PCap.cpp
+    LAN_Socket.cpp
+    OSD.cpp
+    OSD_shaders.h
+    font.h
+    Platform.cpp
+    PlatformConfig.cpp
+
+    ../Util_ROM.cpp
+    ../Util_Video.cpp
+    ../Util_Audio.cpp
+    ../FrontendUtil.h
+    ../mic_blow.h
+
+    ../../../melon.qrc
 )
 
 if (WIN32)
-	set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
+    set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
 
 if (BUILD_STATIC AND QT5_STATIC_DIR)
-	set(QT5_STATIC_BASE ${QT5_STATIC_DIR}/lib/cmake/Qt5)
-	set(Qt5_DIR ${QT5_STATIC_BASE})
-	set(Qt5Core_DIR ${QT5_STATIC_BASE}Core)
-	set(Qt5Gui_DIR ${QT5_STATIC_BASE}Gui)
-	set(Qt5Widgets_DIR ${QT5_STATIC_BASE}Widgets)
+    set(QT5_STATIC_BASE ${QT5_STATIC_DIR}/lib/cmake/Qt5)
+    set(Qt5_DIR ${QT5_STATIC_BASE})
+    set(Qt5Core_DIR ${QT5_STATIC_BASE}Core)
+    set(Qt5Gui_DIR ${QT5_STATIC_BASE}Gui)
+    set(Qt5Widgets_DIR ${QT5_STATIC_BASE}Widgets)
 endif()
 
 find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
@@ -44,14 +44,19 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+find_package(Threads REQUIRED)
+find_package(Iconv REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(SLIRP REQUIRED slirp)
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
-	add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
+    add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
 else()
-	add_executable(melonDS ${SOURCES_QT_SDL})
+    add_executable(melonDS ${SOURCES_QT_SDL})
 endif()
+
+target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -60,9 +65,9 @@ target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
-	target_link_libraries(melonDS -static ${SDL2_LIBRARIES})
+    target_link_libraries(melonDS -static ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES})
 else()
-	target_link_libraries(melonDS ${SDL2_LIBRARIES})
+    target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES})
 endif()
 
 if (UNIX)
