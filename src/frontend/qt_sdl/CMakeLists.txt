@@ -72,7 +72,7 @@ else()
 endif()
 
 if (NOT Iconv_IS_BUILT_IN)
-	target_link_libraries(melonDS ${Iconv_LIBRARIES})
+	target_link_libraries(melonDS iconv)
 endif()
 
 if (UNIX)
