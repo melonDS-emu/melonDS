@@ -79,7 +79,7 @@ elseif (WIN32)
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd)
+        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd iconv)
     else()
         target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets)
     endif()
