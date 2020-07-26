@@ -46,6 +46,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Iconv REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SLIRP REQUIRED slirp)
 
@@ -70,6 +71,10 @@ else()
 	target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES})
 endif()
 
+if (NOT Iconv_IS_BUILT_IN)
+	target_link_libraries(melonDS ${Iconv_LIBRARIES})
+endif()
+
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
     target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
@@ -79,7 +84,7 @@ elseif (WIN32)
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd iconv)
+        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd)
     else()
         target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets)
     endif()
