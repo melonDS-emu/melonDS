@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -28,12 +28,18 @@ public:
     DSi_NWifi(DSi_SDHost* host);
     ~DSi_NWifi();
 
+    void Reset();
+
     void SendCMD(u8 cmd, u32 param);
     void SendACMD(u8 cmd, u32 param);
 
     void ContinueTransfer();
 
     void SetIRQ_F1_Counter(u32 n);
+
+    void _MSTimer();
+
+    static void MSTimer(u32 param);
 
 private:
     u32 TransferCmd;
@@ -60,9 +66,18 @@ private:
 
     void HandleCommand();
     void BMI_Command();
+    void HTC_Command();
     void WMI_Command();
 
-    void SendWMIFrame(u8* data, u32 len, u8 ep, u8 flags, u16 ctrl);
+    void WMI_ConnectToNetwork();
+    void WMI_SendPacket(u16 len);
+
+    void SendWMIEvent(u8 ep, u16 id, u8* data, u32 len);
+    void SendWMIAck(u8 ep);
+    void SendWMIBSSInfo(u8 type, u8* data, u32 len);
+
+    void CheckRX();
+    void DrainRXBuffer();
 
     u32 WindowRead(u32 addr);
     void WindowWrite(u32 addr, u32 val);
@@ -102,7 +117,7 @@ private:
         while (!Mailbox[n]->IsEmpty()) Mailbox[n]->Read();
     }
 
-    FIFO<u8>* Mailbox[8];
+    FIFO<u8>* Mailbox[9];
 
     u8 F0_IRQEnable;
     u8 F0_IRQStatus;
@@ -116,6 +131,14 @@ private:
     u32 EEPROMReady;
 
     u32 BootPhase;
+
+    u32 ErrorMask;
+    u32 ScanTimer;
+
+    u64 BeaconTimer;
+    u32 ConnectionStatus;
+
+    u8 LANBuffer[2048];
 };
 
 #endif // DSI_NWIFI_H

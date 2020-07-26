@@ -162,22 +162,26 @@ void Reset()
 
     UserSettings = userdata;
 
-    // fix touchscreen coords
-    #if 0
-    *(u16*)&Firmware[userdata+0x58] = 0;
-    *(u16*)&Firmware[userdata+0x5A] = 0;
-    Firmware[userdata+0x5C] = 0;
-    Firmware[userdata+0x5D] = 0;
-    *(u16*)&Firmware[userdata+0x5E] = 255<<4;
-    *(u16*)&Firmware[userdata+0x60] = 191<<4;
-    Firmware[userdata+0x62] = 255;
-    Firmware[userdata+0x63] = 191;
+    // TODO evetually: do this in DSi mode
+    if (NDS::ConsoleType == 0)
+    {
+        // fix touchscreen coords
+        *(u16*)&Firmware[userdata+0x58] = 0;
+        *(u16*)&Firmware[userdata+0x5A] = 0;
+        Firmware[userdata+0x5C] = 0;
+        Firmware[userdata+0x5D] = 0;
+        *(u16*)&Firmware[userdata+0x5E] = 255<<4;
+        *(u16*)&Firmware[userdata+0x60] = 191<<4;
+        Firmware[userdata+0x62] = 255;
+        Firmware[userdata+0x63] = 191;
 
-    // disable autoboot
-    //Firmware[userdata+0x64] &= 0xBF;
+        // disable autoboot
+        //Firmware[userdata+0x64] &= 0xBF;
 
-    *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
+        *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
+    }
 
+#if 0
     // replace MAC address with random address
     // TODO: make optional?
     Firmware[0x36] = 0x00;
