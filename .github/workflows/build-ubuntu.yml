@@ -27,7 +27,7 @@ jobs:
         && tar -zxf cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
         && sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
         && sudo apt-get update \
-        && sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev
+        && sudo apt-get install libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
