@@ -22,11 +22,17 @@
 namespace WifiAP
 {
 
+#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
+#define AP_NAME "melonAP"
+
+extern const u8 APMac[6];
+
 bool Init();
 void DeInit();
 void Reset();
 
 void USTimer();
+void MSTimer();
 
 // packet format: 12-byte TX header + original 802.11 frame
 int SendPacket(u8* data, int len);

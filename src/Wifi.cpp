@@ -188,6 +188,8 @@ void Reset()
         IOPORT(0x000) = 0x1440;
     else if (console == 0x20)
         IOPORT(0x000) = 0xC340;
+    else if (NDS::ConsoleType == 1 && console == 0x57)
+        IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
         printf("wifi: unknown console type %02X\n", console);

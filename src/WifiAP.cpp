@@ -30,9 +30,6 @@
 namespace WifiAP
 {
 
-#define AP_MAC  0x00, 0xF0, 0x77, 0x77, 0x77, 0x77
-#define AP_NAME "melonAP"
-
 const u8 APMac[6] = {AP_MAC};
 
 #define PWRITE_8(p, v)      *p++ = v;
@@ -124,6 +121,18 @@ void USTimer()
 
     u32 chk = (u32)USCounter;
     if (!(chk & 0x1FFFF))
+    {
+        // send beacon every 128ms
+        BeaconDue = true;
+    }
+}
+
+void MSTimer()
+{
+    USCounter += 0x400;
+
+    u32 chk = (u32)USCounter;
+    if (!(chk & 0x1FC00))
     {
         // send beacon every 128ms
         BeaconDue = true;

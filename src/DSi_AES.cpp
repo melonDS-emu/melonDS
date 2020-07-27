@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -165,9 +165,37 @@ void ProcessBlock_CCM_Decrypt()
     //printf("AES-CCM: "); _printhex2(data, 16);
 
     Swap16(data_rev, data);
+
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
+    for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
+    AES_ECB_encrypt(&Ctx, CurMAC);
+
+    Swap16(data, data_rev);
+
+    //printf(" -> "); _printhex2(data, 16);
+
+    OutputFIFO->Write(*(u32*)&data[0]);
+    OutputFIFO->Write(*(u32*)&data[4]);
+    OutputFIFO->Write(*(u32*)&data[8]);
+    OutputFIFO->Write(*(u32*)&data[12]);
+}
+
+void ProcessBlock_CCM_Encrypt()
+{
+    u8 data[16];
+    u8 data_rev[16];
+
+    *(u32*)&data[0] = InputFIFO->Read();
+    *(u32*)&data[4] = InputFIFO->Read();
+    *(u32*)&data[8] = InputFIFO->Read();
+    *(u32*)&data[12] = InputFIFO->Read();
+
+    //printf("AES-CCM: "); _printhex2(data, 16);
+
+    Swap16(data_rev, data);
 
     for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
+    AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
     AES_ECB_encrypt(&Ctx, CurMAC);
 
     Swap16(data, data_rev);
@@ -232,7 +260,6 @@ void WriteCnt(u32 val)
     OutputDMASize = dmasize_out[(val >> 14) & 0x3];
 
     AESMode = (val >> 28) & 0x3;
-    if (AESMode == 1) printf("AES-CCM TODO\n");
 
     if (val & (1<<24))
     {
@@ -244,6 +271,8 @@ void WriteCnt(u32 val)
     {
         // transfer start (checkme)
         RemBlocks = BlkCnt >> 16;
+
+        if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
         if (RemBlocks > 0)
         {
@@ -365,14 +394,9 @@ void Update()
         switch (AESMode)
         {
         case 0: ProcessBlock_CCM_Decrypt(); break;
+        case 1: ProcessBlock_CCM_Encrypt(); break;
         case 2:
         case 3: ProcessBlock_CTR(); break;
-        default:
-            // dorp
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
-            OutputFIFO->Write(InputFIFO->Read());
         }
 
         RemBlocks--;
@@ -397,6 +421,24 @@ void Update()
             {
                 if (CurMAC[15-i] != MAC[i]) Cnt &= ~(1<<21);
             }
+        }
+        else if (AESMode == 1)
+        {
+            Ctx.Iv[13] = 0x00;
+            Ctx.Iv[14] = 0x00;
+            Ctx.Iv[15] = 0x00;
+            AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
+
+            u8 finalmac[16];
+            Swap16(finalmac, CurMAC);
+
+            OutputFIFO->Write(*(u32*)&finalmac[0]);
+            OutputFIFO->Write(*(u32*)&finalmac[4]);
+            OutputFIFO->Write(*(u32*)&finalmac[8]);
+            OutputFIFO->Write(*(u32*)&finalmac[12]);
+
+            // CHECKME
+            Cnt &= ~(1<<21);
         }
         else
         {

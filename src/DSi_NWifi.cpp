@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -21,6 +21,8 @@
 #include "DSi.h"
 #include "DSi_NWifi.h"
 #include "SPI.h"
+#include "WifiAP.h"
+#include "Platform.h"
 
 
 const u8 CIS0[256] =
@@ -111,15 +113,37 @@ const u8 CIS1[256] =
 };
 
 
-// hax
-DSi_NWifi* hax_wifi;
-void triggerirq(u32 param)
-{
-    hax_wifi->SetIRQ_F1_Counter(0);
-}
+DSi_NWifi* Ctx = nullptr;
 
 
 DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
+{
+    // HACK
+    // the mailboxes are supposed to be 0x80 bytes
+    // however, as we do things instantly, emulating this is meaningless
+    // and only adds complication
+    for (int i = 0; i < 8; i++)
+        Mailbox[i] = new FIFO<u8>(0x600);//0x80);
+
+    // extra mailbox acting as a bigger RX buffer
+    Mailbox[8] = new FIFO<u8>(0x8000);
+
+    // this seems to control whether the firmware upload is done
+    EEPROMReady = 0;
+
+    Ctx = this;
+}
+
+DSi_NWifi::~DSi_NWifi()
+{
+    for (int i = 0; i < 9; i++)
+        delete Mailbox[i];
+
+    NDS::CancelEvent(NDS::Event_DSi_NWifi);
+    Ctx = nullptr;
+}
+
+void DSi_NWifi::Reset()
 {
     TransferCmd = 0xFFFFFFFF;
     RemSize = 0;
@@ -134,9 +158,8 @@ DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
     WindowReadAddr = 0;
     WindowWriteAddr = 0;
 
-    // TODO: check the actual mailbox size (presumably 0x200)
-    for (int i = 0; i < 8; i++)
-        Mailbox[i] = new FIFO<u8>(0x200);
+    for (int i = 0; i < 9; i++)
+        Mailbox[i]->Clear();
 
     u8* mac = SPI_Firmware::GetWifiMAC();
     printf("NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -158,15 +181,17 @@ DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
 
     *(u16*)&EEPROM[0x004] = chk;
 
-    EEPROMReady = 0;
-
+    // TODO: SDIO reset shouldn't reset this
+    // this is reset by the internal reset register, and that also resets EEPROM init
     BootPhase = 0;
-}
 
-DSi_NWifi::~DSi_NWifi()
-{
-    for (int i = 0; i < 8; i++)
-        delete Mailbox[i];
+    ErrorMask = 0;
+    ScanTimer = 0;
+
+    BeaconTimer = 0x10A2220ULL;
+    ConnectionStatus = 0;
+
+    NDS::CancelEvent(NDS::Event_DSi_NWifi);
 }
 
 
@@ -283,6 +308,7 @@ u8 DSi_NWifi::F1_Read(u32 addr)
     if (addr < 0x100)
     {
         u8 ret = Mailbox[4]->Read();
+        if (addr == 0xFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
     }
@@ -348,6 +374,7 @@ u8 DSi_NWifi::F1_Read(u32 addr)
     else if (addr < 0x1000)
     {
         u8 ret = Mailbox[4]->Read();
+        if (addr == 0xFFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
     }
@@ -372,11 +399,12 @@ u8 DSi_NWifi::F1_Read(u32 addr)
     else
     {
         u8 ret = Mailbox[4]->Read();
+        if (addr == 0x3FFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
     }
 
-    printf("NWIFI: unknown func1 read %05X\n", addr);
+    //printf("NWIFI: unknown func1 read %05X\n", addr);
     return 0;
 }
 
@@ -663,13 +691,13 @@ void DSi_NWifi::HandleCommand()
     switch (BootPhase)
     {
     case 0: return BMI_Command();
-    case 1: return WMI_Command();
+    case 1: return HTC_Command();
+    case 2: return WMI_Command();
     }
 }
 
 void DSi_NWifi::BMI_Command()
 {
-    // HLE command handling stub
     u32 cmd = MB_Read32(0);
 
     switch (cmd)
@@ -678,8 +706,8 @@ void DSi_NWifi::BMI_Command()
         {
             printf("BMI_DONE\n");
             EEPROMReady = 1; // GROSS FUCKING HACK
-            u8 ready_msg[8] = {0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00};
-            SendWMIFrame(ready_msg, 8, 0, 0x00, 0x0000);
+            u8 ready_msg[6] = {0x0A, 0x00, 0x08, 0x06, 0x16, 0x00};
+            SendWMIEvent(0, 0x0001, ready_msg, 6);
             BootPhase = 1;
         }
         return;
@@ -743,7 +771,7 @@ void DSi_NWifi::BMI_Command()
         {
             u32 len = MB_Read32(0);
             printf("BMI LZ write %08X\n", len);
-            //FILE* f = fopen("wififirm.bin", "ab");
+            //FILE* f = fopen("debug/wififirm.bin", "ab");
 
             for (int i = 0; i < len; i++)
             {
@@ -762,15 +790,13 @@ void DSi_NWifi::BMI_Command()
     }
 }
 
-void DSi_NWifi::WMI_Command()
+void DSi_NWifi::HTC_Command()
 {
-    // HLE command handling stub
     u16 h0 = MB_Read16(0);
     u16 len = MB_Read16(0);
     u16 h2 = MB_Read16(0);
 
     u16 cmd = MB_Read16(0);
-    printf("WMI: cmd %04X\n", cmd);
 
     switch (cmd)
     {
@@ -778,59 +804,631 @@ void DSi_NWifi::WMI_Command()
         {
             u16 svc_id = MB_Read16(0);
             u16 conn_flags = MB_Read16(0);
+            printf("service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
 
-            u8 svc_resp[10];
-            *(u16*)&svc_resp[0] = 0x0003;
-            *(u16*)&svc_resp[2] = svc_id;
-            svc_resp[4] = 0;
-            svc_resp[5] = (svc_id & 0xFF) + 1;
-            *(u16*)&svc_resp[6] = 0x0001;
-            *(u16*)&svc_resp[8] = 0x0001;
-            SendWMIFrame(svc_resp, 10, 0, 0x00, 0x0000);
+            u8 svc_resp[8];
+            // responses from hardware:
+            // 0003 0100 00 01 0602 00 00
+            // 0003 0101 00 02 0600 00 00
+            // 0003 0102 00 03 0600 00 00
+            // 0003 0103 00 04 0600 00 00
+            // 0003 0104 00 05 0600 00 00
+            *(u16*)&svc_resp[0] = svc_id;
+            svc_resp[2] = 0;
+            svc_resp[3] = (svc_id & 0xFF) + 1;
+            *(u16*)&svc_resp[4] = (svc_id==0x0100) ? 0x0602 : 0x0600; // max message size
+            *(u16*)&svc_resp[6] = 0x0000;
+            SendWMIEvent(0, 0x0003, svc_resp, 8);
         }
         break;
 
     case 0x0004: // setup complete
         {
-            u8 ready_evt[14];
-            memset(ready_evt, 0, 14);
-            *(u16*)&ready_evt[0] = 0x1001;
-            memcpy(&ready_evt[2], SPI_Firmware::GetWifiMAC(), 6);
-            ready_evt[8] = 0x02;
-            *(u32*)&ready_evt[10] = 0x23000024;
-            // ctrl[0] = trailer size
-            // trailer[1] = trailer extra size
-            // trailer[0] = trailer type???
-            SendWMIFrame(ready_evt, 14, 1, 0x00, 0x0000);
+            u8 ready_evt[12];
+            memcpy(&ready_evt[0], SPI_Firmware::GetWifiMAC(), 6);
+            ready_evt[6] = 0x02;
+            ready_evt[7] = 0;
+            *(u32*)&ready_evt[8] = 0x2300006C;
+            SendWMIEvent(1, 0x1001, ready_evt, 12);
+
+            u8 regdomain_evt[4];
+            *(u32*)&regdomain_evt[0] = 0x80000000 | (*(u16*)&EEPROM[0x008] & 0x0FFF);
+            SendWMIEvent(1, 0x1006, regdomain_evt, 4);
+
+            BootPhase = 2;
+            NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
         }
         break;
 
     default:
-        printf("unknown WMI command %04X\n", cmd);
+        printf("unknown HTC command %04X\n", cmd);
+        for (int i = 0; i < len; i++)
+        {
+            printf("%02X ", Mailbox[0]->Read());
+            if ((i&0xF)==0xF) printf("\n");
+        }
+        printf("\n");
         break;
     }
 
     MB_Drain(0);
 }
 
-void DSi_NWifi::SendWMIFrame(u8* data, u32 len, u8 ep, u8 flags, u16 ctrl)
+void DSi_NWifi::WMI_Command()
 {
-    u32 wlen = 0;
+    u16 h0 = MB_Read16(0);
+    u16 len = MB_Read16(0);
+    u16 h2 = MB_Read16(0);
 
-    Mailbox[4]->Write(ep); // eid
-    Mailbox[4]->Write(flags); // flags
-    MB_Write16(4, len); // payload length
-    MB_Write16(4, ctrl); // ctrl
-    wlen += 6;
+    u8 ep = h0 & 0xFF;
+    if (ep > 0x01) // data endpoints
+    {
+        WMI_SendPacket(len);
+    }
+    else
+    {
+        u16 cmd = MB_Read16(0);
+
+        switch (cmd)
+        {
+        case 0x0001: // connect to network
+            {
+                WMI_ConnectToNetwork();
+            }
+            break;
+
+        case 0x0003: // disconnect
+            {
+                if (ConnectionStatus != 1)
+                    printf("WMI: ?? trying to disconnect while not connected\n");
+
+                printf("WMI: disconnect\n");
+                ConnectionStatus = 0;
+
+                u8 reply[11];
+                *(u16*)&reply[0] = 3; // checkme
+                memcpy(&reply[2], WifiAP::APMac, 6);
+                reply[8] = 3; // disconnect reason (via cmd)
+                reply[9] = 0; // assoc-response length (none here)
+                reply[10] = 0; // we need atleast one byte here, even if there is no assoc-response
+                SendWMIEvent(1, 0x1003, reply, 11);
+            }
+            break;
+
+        case 0x0004: // synchronize
+            {
+                Mailbox[0]->Read();
+                // TODO??
+            }
+            break;
+
+        case 0x0005: // create priority stream
+            {
+                // TODO???
+                // there's a lot of crap in there.
+            }
+            break;
+
+        case 0x0007: // start scan
+            {
+                u32 forcefg = MB_Read32(0);
+                u32 legacy = MB_Read32(0);
+                u32 scantime = MB_Read32(0);
+                u32 forceinterval = MB_Read32(0);
+                u8 scantype = Mailbox[0]->Read();
+                u8 nchannels = Mailbox[0]->Read();
+
+                printf("WMI: start scan, forceFG=%d, legacy=%d, scanTime=%d, interval=%d, scanType=%d, chan=%d\n",
+                       forcefg, legacy, scantime, forceinterval, scantype, nchannels);
+
+                if (ScanTimer > 0)
+                {
+                    printf("!! CHECKME: START SCAN BUT WAS ALREADY SCANNING (%d)\n", ScanTimer);
+                }
+
+                // checkme
+                ScanTimer = scantime*5;
+            }
+            break;
+
+        case 0x0008: // set scan params
+            {
+                // TODO: do something with the params!!
+            }
+            break;
+
+        case 0x0009: // set BSS filter
+            {
+                // TODO: do something with the params!!
+                u8 bssfilter = Mailbox[0]->Read();
+                Mailbox[0]->Read();
+                Mailbox[0]->Read();
+                Mailbox[0]->Read();
+                u32 iemask = MB_Read32(0);
+
+                printf("WMI: set BSS filter, filter=%02X, iemask=%08X\n", bssfilter, iemask);
+            }
+            break;
+
+        case 0x000A: // set probed BSSID
+            {
+                u8 id = Mailbox[0]->Read();
+                u8 flags = Mailbox[0]->Read();
+                u8 len = Mailbox[0]->Read();
+
+                char ssid[33] = {0};
+                for (int i = 0; i < len && i < 32; i++)
+                    ssid[i] = Mailbox[0]->Read();
+
+                // TODO: store it somewhere
+                printf("WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
+            }
+            break;
+
+        case 0x000D: // set disconnect timeout
+            {
+                Mailbox[0]->Read();
+                // TODO??
+            }
+            break;
+
+        case 0x000E: // get channel list
+            {
+                int nchan = 11; // TODO: customize??
+                u8 reply[2 + (nchan*2) + 2];
+
+                reply[0] = 0;
+                reply[1] = nchan;
+                for (int i = 0; i < nchan; i++)
+                    *(u16*)&reply[2 + (i*2)] = 2412 + (i*5);
+                *(u16*)&reply[2 + (nchan*2)] = 0;
+
+                SendWMIEvent(1, 0x000E, reply, 4+(nchan*2));
+            }
+            break;
+
+        case 0x0011: // set channel params
+            {
+                Mailbox[0]->Read();
+                u8 scan = Mailbox[0]->Read();
+                u8 phymode = Mailbox[0]->Read();
+                u8 len = Mailbox[0]->Read();
+
+                u16 channels[32];
+                for (int i = 0; i < len && i < 32; i++)
+                    channels[i] = MB_Read16(0);
+
+                // TODO: store it somewhere
+                printf("WMI: set channel params: scan=%d, phymode=%d, len=%d, channels=", scan, phymode, len);
+                for (int i = 0; i < len && i < 32; i++)
+                    printf("%d,", channels[i]);
+                printf("\n");
+            }
+            break;
+
+        case 0x0012: // set power mode
+            {
+                Mailbox[0]->Read();
+                // TODO??
+            }
+            break;
+
+        case 0x0017: // dummy?
+            Mailbox[0]->Read();
+            break;
+
+        case 0x0022: // set error bitmask
+            {
+                ErrorMask = MB_Read32(0);
+            }
+            break;
+
+        case 0x002E: // extension shit
+            {
+                u32 extcmd = MB_Read32(0);
+                switch (extcmd)
+                {
+                case 0x2008: // 'heartbeat'??
+                    {
+                        u32 cookie = MB_Read32(0);
+                        u32 source = MB_Read32(0);
+
+                        u8 reply[12];
+                        *(u32*)&reply[0] = 0x3007;
+                        *(u32*)&reply[4] = cookie;
+                        *(u32*)&reply[8] = source;
+
+                        SendWMIEvent(1, 0x1010, reply, 12);
+                    }
+                    break;
+
+                default:
+                    printf("WMI: unknown ext cmd 002E:%04X\n", extcmd);
+                    break;
+                }
+            }
+            break;
+
+        case 0x003D: // set keepalive interval
+            {
+                Mailbox[0]->Read();
+                // TODO??
+            }
+            break;
+
+        case 0x0041: // 'WMI_SET_WSC_STATUS_CMD'
+            {
+                Mailbox[0]->Read();
+                // TODO??
+            }
+            break;
+
+        case 0x0047: // cmd47 -- timer shenanigans??
+            {
+                //
+            }
+            break;
+
+        case 0x0048: // not supported by DSi??
+            {
+                MB_Read32(0);
+                MB_Read32(0);
+                Mailbox[0]->Read();
+                Mailbox[0]->Read();
+            }
+            break;
+
+        case 0x0049: // 'host exit notify'
+            {
+                //
+            }
+            break;
+
+        case 0xF000: // set bitrate
+            {
+                // TODO!
+                Mailbox[0]->Read();
+                Mailbox[0]->Read();
+                Mailbox[0]->Read();
+            }
+            break;
+
+        default:
+            printf("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
+            for (int i = 0; i < len-2; i++)
+            {
+                printf("%02X ", Mailbox[0]->Read());
+                if ((i&0xF)==0xF) printf("\n");
+            }
+            printf("\n");
+            break;
+        }
+    }
+
+    if (h0 & (1<<8))
+        SendWMIAck(ep);
+
+    MB_Drain(0);
+}
+
+void DSi_NWifi::WMI_ConnectToNetwork()
+{
+    u8 type = Mailbox[0]->Read();
+    u8 auth11 = Mailbox[0]->Read();
+    u8 auth = Mailbox[0]->Read();
+    u8 pCryptoType = Mailbox[0]->Read();
+    u8 pCryptoLen = Mailbox[0]->Read();
+    u8 gCryptoType = Mailbox[0]->Read();
+    u8 gCryptoLen = Mailbox[0]->Read();
+    u8 ssidLen = Mailbox[0]->Read();
+
+    char ssid[33] = {0};
+    for (int i = 0; i < 32; i++)
+        ssid[i] = Mailbox[0]->Read();
+    if (ssidLen <= 32)
+        ssid[ssidLen] = '\0';
+
+    u16 channel = MB_Read16(0);
+
+    u8 bssid[6];
+    *(u32*)&bssid[0] = MB_Read32(0);
+    *(u16*)&bssid[4] = MB_Read16(0);
+
+    u32 flags = MB_Read32(0);
+
+    if ((type != 0x01) ||
+        (auth11 != 0x01) ||
+        (auth != 0x01) ||
+        (pCryptoType != 0x01) ||
+        (gCryptoType != 0x01) ||
+        (memcmp(bssid, WifiAP::APMac, 6)))
+    {
+        printf("WMI_Connect: bad parameters\n");
+        // TODO: send disconnect??
+        return;
+    }
+
+    printf("WMI: connecting to network %s\n", ssid);
+
+    u8 reply[20];
+
+    // hope this is right!
+    *(u16*)&reply[0] = 2437; // channel
+    memcpy(&reply[2], WifiAP::APMac, 6); // BSSID
+    *(u16*)&reply[8] = 128; // listen interval
+    *(u16*)&reply[10] = 128; // beacon interval
+    *(u32*)&reply[12] = 0x01; // network type
+
+    reply[16] = 0x16; // beaconIeLen ???
+    reply[17] = 0x2F; // assocReqLen
+    reply[18] = 0x16; // assocRespLen
+    reply[19] = 0; // ?????
+
+    SendWMIEvent(1, 0x1002, reply, 20);
+
+    ConnectionStatus = 1;
+}
+
+void DSi_NWifi::WMI_SendPacket(u16 len)
+{
+    if (ConnectionStatus != 1)
+    {
+        printf("WMI: !! trying to send shit while not connected\n");
+        // TODO: report error??
+        return;
+    }
+
+    // header???
+    // packets with bit1=1 are something special (sync??)
+    // otherwise, ????
+    // header is 001C on ARP frames, 0000 otherwise
+    u16 hdr = MB_Read16(0);
+    hdr = ((hdr & 0xFF00) >> 8) | ((hdr & 0x00FF) << 8);
+    u16 type = hdr & 0x0003;
+
+    if (type == 2) // data sync
+    {
+        printf("WMI: data sync\n");
+
+        /*Mailbox[8]->Write(2);    // eid
+        Mailbox[8]->Write(0x00);  // flags
+        MB_Write16(8, 2);         // data length
+        Mailbox[8]->Write(0);     //
+        Mailbox[8]->Write(0);     //
+        MB_Write16(8, 0x0200);    //
+
+        DrainRXBuffer();*/
+        return;
+    }
+
+    if (type)
+    {
+        printf("WMI: special frame %04X len=%d\n", hdr, len);
+        for (int i = 0; i < len-2; i++)
+        {
+            printf("%02X ", Mailbox[0]->Read());
+            if ((i&0xF)==0xF) printf("\n");
+        }
+        printf("\n");
+        return;
+    }
+
+    printf("WMI: send packet, hdr=%04X, len=%d\n", hdr, len);
+
+    u8 dstmac[6];
+    u8 srcmac[6];
+    u16 plen;
+
+    *(u32*)&dstmac[0] = MB_Read32(0);
+    *(u16*)&dstmac[4] = MB_Read16(0);
+    *(u32*)&srcmac[0] = MB_Read32(0);
+    *(u16*)&srcmac[4] = MB_Read16(0);
+    plen = MB_Read16(0);
+    plen = ((plen & 0xFF00) >> 8) | ((plen & 0x00FF) << 8);
+
+    if (plen > len-16)
+    {
+        printf("WMI: bad packet length %d > %d\n", plen, len-16);
+        return;
+    }
+
+    u32 h0 = MB_Read32(0);
+    u16 h1 = MB_Read16(0);
+
+    if (h0 != 0x0003AAAA || h1 != 0x0000)
+    {
+        printf("WMI: bad LLC/SLIP header\n");
+        return;
+    }
+
+    u16 ethertype = MB_Read16(0);
+
+    int lan_len = (plen - 8) + 14;
+
+    memcpy(&LANBuffer[0], dstmac, 6); // destination MAC
+    memcpy(&LANBuffer[6], srcmac, 6); // source MAC
+    *(u16*)&LANBuffer[12] = ethertype; // type
+    for (int i = 0; i < lan_len-14; i++)
+    {
+        LANBuffer[14+i] = Mailbox[0]->Read();
+    }
+
+    /*for (int i = 0; i < lan_len; i++)
+    {
+        printf("%02X ", LANBuffer[i]);
+        if ((i&0xF)==0xF) printf("\n");
+    }
+    printf("\n");*/
+
+    Platform::LAN_SendPacket(LANBuffer, lan_len);
+}
+
+void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
+{
+    if (!Mailbox[8]->CanFit(6+len+2+8))
+    {
+        printf("NWifi: !! not enough space in RX buffer for WMI event %04X\n", id);
+        return;
+    }
+
+    Mailbox[8]->Write(ep);    // eid
+    Mailbox[8]->Write(0x02);  // flags (trailer)
+    MB_Write16(8, len+2+8);   // data length (plus event ID and trailer)
+    Mailbox[8]->Write(8);     // trailer length
+    Mailbox[8]->Write(0);     //
+    MB_Write16(8, id);        // event ID
 
     for (int i = 0; i < len; i++)
     {
-        Mailbox[4]->Write(data[i]);
-        wlen++;
+        Mailbox[8]->Write(data[i]);
     }
 
-    for (; wlen & 0x7F; wlen++)
-        Mailbox[4]->Write(0);
+    // trailer
+    Mailbox[8]->Write(0x02);
+    Mailbox[8]->Write(0x06);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+
+    DrainRXBuffer();
+}
+
+void DSi_NWifi::SendWMIAck(u8 ep)
+{
+    if (!Mailbox[8]->CanFit(6+12))
+    {
+        printf("NWifi: !! not enough space in RX buffer for WMI ack (ep #%d)\n", ep);
+        return;
+    }
+
+    Mailbox[8]->Write(0);     // eid
+    Mailbox[8]->Write(0x02);  // flags (trailer)
+    MB_Write16(8, 0xC);       // data length (plus trailer)
+    Mailbox[8]->Write(0xC);   // trailer length
+    Mailbox[8]->Write(0);     //
+
+    // credit report
+    Mailbox[8]->Write(0x01);
+    Mailbox[8]->Write(0x02);
+    Mailbox[8]->Write(ep);
+    Mailbox[8]->Write(0x01);
+
+    // lookahead
+    Mailbox[8]->Write(0x02);
+    Mailbox[8]->Write(0x06);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+    Mailbox[8]->Write(0x00);
+
+    DrainRXBuffer();
+}
+
+void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
+{
+    if (!Mailbox[8]->CanFit(6+len+2+16))
+    {
+        printf("NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
+        return;
+    }
+
+    // TODO: check when version>=2 frame type is used?
+    // I observed the version<2 variant on my DSi
+
+    Mailbox[8]->Write(1);     // eid
+    Mailbox[8]->Write(0x00);  // flags
+    MB_Write16(8, len+2+16);  // data length (plus event ID and trailer)
+    Mailbox[8]->Write(0xFF);  // trailer length
+    Mailbox[8]->Write(0xFF);  //
+    MB_Write16(8, 0x1004);    // event ID
+
+    MB_Write16(8, 2437); // channel (6) (checkme!)
+    Mailbox[8]->Write(type);
+    Mailbox[8]->Write(0x1B); // 'snr'
+    MB_Write16(8, 0xFFBC);   // RSSI
+    MB_Write32(8, *(u32*)&WifiAP::APMac[0]);
+    MB_Write16(8, *(u16*)&WifiAP::APMac[4]);
+    MB_Write32(8, 0); // ieMask
+
+    for (int i = 0; i < len; i++)
+    {
+        Mailbox[8]->Write(data[i]);
+    }
+
+    DrainRXBuffer();
+}
+
+void DSi_NWifi::CheckRX()
+{
+    if (!Mailbox[8]->CanFit(2048))
+        return;
+
+    int rxlen = Platform::LAN_RecvPacket(LANBuffer);
+    if (rxlen > 0)
+    {
+        //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
+        // check destination MAC
+        if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
+        {
+            if (memcmp(&LANBuffer[0], &EEPROM[0x00A], 6))
+                return;
+        }
+
+        // check source MAC, in case we get a packet we just sent out
+        if (!memcmp(&LANBuffer[6], &EEPROM[0x00A], 6))
+            return;
+
+        // packet is good
+
+        printf("WMI: receive packet %04X, len=%d\n", *(u16*)&LANBuffer[12], rxlen);
+
+        /*for (int i = 0; i < rxlen; i++)
+        {
+            printf("%02X ", LANBuffer[i]);
+            if ((i&0xF)==0xF) printf("\n");
+        }
+        printf("\n");*/
+
+        int datalen = rxlen - 14; // length of packet body
+
+        u16 hdr = 0x0000;
+        //if (*(u16*)&LANBuffer[12] == 0x0608) // HAX!!!
+        //    hdr = 0x1C00;
+        hdr = 0x80;
+
+        // TODO: not hardcode the endpoint ID!!
+        u8 ep = 2;
+
+        Mailbox[8]->Write(ep);
+        Mailbox[8]->Write(0x00);
+        MB_Write16(8, 16 + 8 + datalen);
+        Mailbox[8]->Write(0);
+        Mailbox[8]->Write(0);
+
+        MB_Write16(8, hdr);
+        MB_Write32(8, *(u32*)&LANBuffer[0]);
+        MB_Write16(8, *(u16*)&LANBuffer[4]);
+        MB_Write32(8, *(u32*)&LANBuffer[6]);
+        MB_Write16(8, *(u16*)&LANBuffer[10]);
+        u16 plen = datalen + 8;
+        plen = ((plen & 0xFF00) >> 8) | ((plen & 0x00FF) << 8);
+        MB_Write16(8, plen);
+
+        MB_Write16(8, 0xAAAA);
+        MB_Write16(8, 0x0003);
+        MB_Write16(8, 0x0000);
+        MB_Write16(8, *(u16*)&LANBuffer[12]);
+
+        for (int i = 0; i < datalen; i++)
+            Mailbox[8]->Write(LANBuffer[14+i]);
+
+        DrainRXBuffer();
+    }
 }
 
 
@@ -849,7 +1447,7 @@ u32 DSi_NWifi::WindowRead(u32 addr)
             // base address of EEPROM data
             // TODO find what the actual address is!
             return 0x1FFC00;
-        case 0x58: return EEPROMReady; // hax
+        case 0x58: return EEPROMReady;
         }
 
         return 0;
@@ -878,4 +1476,70 @@ u32 DSi_NWifi::WindowRead(u32 addr)
 void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 {
     printf("NWifi: window write %08X %08X\n", addr, val);
+}
+
+
+void DSi_NWifi::_MSTimer()
+{
+    BeaconTimer++;
+
+    if (ScanTimer > 0)
+    {
+        ScanTimer--;
+
+        // send a beacon
+        if (!(BeaconTimer & 0x7F))
+        {
+            u8 beacon[] =
+            {
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,             // timestamp
+                0x80, 0x00,                                                 // beacon interval
+                0x21, 0x00,                                                 // capability,
+                0x01, 0x08, 0x82, 0x84, 0x8B, 0x96, 0x0C, 0x12, 0x18, 0x24, // rates
+                0x03, 0x01, 0x06,                                           // channel
+                0x05, 0x04, 0x00, 0x00, 0x00, 0x00,                         // TIM
+                0x00, 0x07, 'm', 'e', 'l', 'o', 'n', 'A', 'P',              // SSID
+            };
+
+            SendWMIBSSInfo(0x01, beacon, sizeof(beacon));
+            printf("send beacon\n");
+        }
+
+        if (ScanTimer == 0)
+        {
+            u32 status = 0;
+            SendWMIEvent(1, 0x100A, (u8*)&status, 4);
+        }
+    }
+
+    if (ConnectionStatus == 1)
+    {
+        //if (Mailbox[4]->IsEmpty())
+            CheckRX();
+    }
+}
+
+void DSi_NWifi::DrainRXBuffer()
+{
+    while (Mailbox[8]->Level() >= 6)
+    {
+        u16 len = Mailbox[8]->Peek(2) | (Mailbox[8]->Peek(3) << 8);
+        u32 totallen = len + 6;
+        u32 required = (totallen + 0x7F) & ~0x7F;
+
+        if (!Mailbox[4]->CanFit(required))
+            break;
+
+        u32 i = 0;
+        for (; i < totallen; i++) Mailbox[4]->Write(Mailbox[8]->Read());
+        for (; i < required; i++) Mailbox[4]->Write(0);
+    }
+
+    UpdateIRQ_F1();
+}
+
+void DSi_NWifi::MSTimer(u32 param)
+{
+    Ctx->_MSTimer();
+    NDS::ScheduleEvent(NDS::Event_DSi_NWifi, true, 33611, MSTimer, 0);
 }

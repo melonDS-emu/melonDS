@@ -102,6 +102,8 @@ public:
     bool IsEmpty() { return NumOccupied == 0; }
     bool IsFull() { return NumOccupied >= NumEntries; }
 
+    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+
 private:
     u32 NumEntries;
     T* Entries;
