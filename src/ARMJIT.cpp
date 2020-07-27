@@ -504,7 +504,7 @@ bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink
     return false;
 }
 
-bool IsIdleLoop(FetchedInstr* instrs, int instrsCount)
+bool IsIdleLoop(bool thumb, FetchedInstr* instrs, int instrsCount)
 {
     // see https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/PowerPC/PPCAnalyst.cpp#L678
     // it basically checks if one iteration of a loop depends on another
@@ -515,8 +515,10 @@ bool IsIdleLoop(FetchedInstr* instrs, int instrsCount)
     u16 regsDisallowedToWrite = 0;
     for (int i = 0; i < instrsCount; i++)
     {
-        JIT_DEBUGPRINT("instr %d %x regs(%x %x) %x %x\n", i, instrs[i].Instr, instrs[i].Info.DstRegs, instrs[i].Info.SrcRegs, regsWrittenTo, regsDisallowedToWrite);
+        JIT_DEBUGPRINT("instr %d %08x regs(%x %x) %x %x\n", i, instrs[i].Instr, instrs[i].Info.DstRegs, instrs[i].Info.SrcRegs, regsWrittenTo, regsDisallowedToWrite);
         if (instrs[i].Info.SpecialKind == ARMInstrInfo::special_WriteMem)
+            return false;
+        if (!thumb && instrs[i].Info.Kind >= ARMInstrInfo::ak_MSR_IMM && instrs[i].Info.Kind <= ARMInstrInfo::ak_MRC)
             return false;
         if (i < instrsCount - 1 && instrs[i].Info.Branches())
             return false;
@@ -852,10 +854,10 @@ void CompileBlock(ARM* cpu)
                 {
                     // we might have an idle loop
                     u32 backwardsOffset = (instrs[i].Addr - target) / (thumb ? 2 : 4);
-                    if (IsIdleLoop(&instrs[i - backwardsOffset], backwardsOffset + 1))
+                    if (IsIdleLoop(thumb, &instrs[i - backwardsOffset], backwardsOffset + 1))
                     {
                         instrs[i].BranchFlags |= branch_IdleBranch;
-                        JIT_DEBUGPRINT("found %s idle loop %d in block %x\n", thumb ? "thumb" : "arm", cpu->Num, blockAddr);
+                        JIT_DEBUGPRINT("found %s idle loop %d in block %08x\n", thumb ? "thumb" : "arm", cpu->Num, blockAddr);
                     }
                 }
                 else if (hasBranched && !isBackJump && i + 1 < Config::JIT_MaxBlockSize)

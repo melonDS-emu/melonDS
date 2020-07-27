@@ -660,19 +660,20 @@ void ARMv5::ExecuteJIT()
 
         if (StopExecution)
         {
-            if (Halted || IdleLoop)
-            {
-                bool idleLoop = IdleLoop;
-                IdleLoop = 0;
-                if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
-                {
-                    NDS::ARM9Timestamp = NDS::ARM9Target;
-                }
-                break;
-            }
-
+            // this order is crucial otherwise idle loops waiting for an IRQ won't function
             if (IRQ)
                 TriggerIRQ();
+
+            if (Halted || IdleLoop)
+            {
+                if ((Halted == 1 || IdleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
+                {
+                    Cycles = 0;
+                    NDS::ARM9Timestamp = NDS::ARM9Target;
+                }
+                IdleLoop = 0;
+                break;
+            }
         }
 
         NDS::ARM9Timestamp += Cycles;
@@ -808,22 +809,21 @@ void ARMv4::ExecuteJIT()
         else
             ARMJIT::CompileBlock(this);
 
-        // TODO optimize this shit!!!
         if (StopExecution)
         {
-            if (Halted || IdleLoop)
-            {
-                bool idleLoop = IdleLoop;
-                IdleLoop = 0;
-                if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
-                {
-                    NDS::ARM7Timestamp = NDS::ARM7Target;
-                }
-                break;
-            }
-
             if (IRQ)
                 TriggerIRQ();
+
+            if (Halted || IdleLoop)
+            {
+                if ((Halted == 1 || IdleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
+                {
+                    Cycles = 0;
+                    NDS::ARM7Timestamp = NDS::ARM7Target;
+                }
+                IdleLoop = 0;
+                break;
+            }
         }
 
         NDS::ARM7Timestamp += Cycles;
