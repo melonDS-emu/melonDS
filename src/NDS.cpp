@@ -1270,6 +1270,9 @@ bool HaltInterrupted(u32 cpu)
     if (IF[cpu] & IE[cpu])
         return true;
 
+    if ((ConsoleType == 1) && cpu && (IF2 & IE2))
+        return true;
+
     return false;
 }
 
