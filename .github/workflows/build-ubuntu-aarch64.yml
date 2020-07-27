@@ -26,7 +26,7 @@ jobs:
         && sudo rm /etc/apt/sources.list \
         && sudo mv /etc/apt/sources.list{.new,} \
         && sudo apt update \
-        && sudo apt install {binutils,gcc,g++,pkg-config}-aarch64-linux-gnu
+        && sudo apt install {binutils,gcc,g++,pkg-config}-aarch64-linux-gnu \
         && sudo apt install libsdl2-dev:arm64 qtbase5-dev:arm64
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
