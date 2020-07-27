@@ -21,13 +21,13 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: |
-        sudo apt update
-        sudo apt install {binutils,gcc,g++,pkg-config}-aarch64-linux-gnu
-        sudo dpkg --add-architecture arm64
-        sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
-        sudo rm /etc/apt/sources.list
-        sudo mv /etc/apt/sources.list{.new,}
-        sudo apt install libsdl2-dev:arm64 qtbase5-dev:arm64
+        apt install {binutils,gcc,g++,pkg-config}-aarch64-linux-gnu
+        dpkg --add-architecture arm64
+        sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
+        rm /etc/apt/sources.list
+        mv /etc/apt/sources.list{.new,}
+        apt update
+        apt install libsdl2-dev:arm64 qtbase5-dev:arm64
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
