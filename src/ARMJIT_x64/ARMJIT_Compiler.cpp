@@ -330,7 +330,8 @@ Compiler::Compiler()
                     if (num == 0)
                     {
                         MOV(64, R(ABI_PARAM2), R(RCPU));
-                        MOV(32, R(ABI_PARAM3), R(rdMapped));
+                        if (rdMapped != ABI_PARAM3)
+                            MOV(32, R(ABI_PARAM3), R(rdMapped));
                     }
                     else
                     {
