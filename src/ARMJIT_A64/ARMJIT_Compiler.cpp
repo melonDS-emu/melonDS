@@ -629,7 +629,7 @@ void Compiler::Comp_BranchSpecialBehaviour(bool taken)
     {
         RegCache.PrepareExit();
 
-        SUB(RCycles, RCycles, ConstantCycles);
+        ADD(RCycles, RCycles, ConstantCycles);
         QuickTailCall(X0, ARM_Ret);
     }
 }
@@ -770,7 +770,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     RegCache.Flush();
 
-    SUB(RCycles, RCycles, ConstantCycles);
+    ADD(RCycles, RCycles, ConstantCycles);
     QuickTailCall(X0, ARM_Ret);
 
     FlushIcache();
@@ -800,7 +800,7 @@ void Compiler::Comp_AddCycles_C(bool forceNonConstant)
     if (forceNonConstant)
         ConstantCycles += cycles;
     else
-        SUB(RCycles, RCycles, cycles);
+        ADD(RCycles, RCycles, cycles);
 }
 
 void Compiler::Comp_AddCycles_CI(u32 numI)
@@ -814,7 +814,7 @@ void Compiler::Comp_AddCycles_CI(u32 numI)
     if (Thumb || CurInstr.Cond() == 0xE)
         ConstantCycles += cycles;
     else
-        SUB(RCycles, RCycles, cycles);
+        ADD(RCycles, RCycles, cycles);
 }
 
 void Compiler::Comp_AddCycles_CI(u32 c, ARM64Reg numI, ArithOption shift)
@@ -825,11 +825,11 @@ void Compiler::Comp_AddCycles_CI(u32 c, ARM64Reg numI, ArithOption shift)
         NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + c;
 
-    SUB(RCycles, RCycles, cycles);
+    ADD(RCycles, RCycles, cycles);
     if (Thumb || CurInstr.Cond() >= 0xE)
         ConstantCycles += cycles;
     else
-        SUB(RCycles, RCycles, cycles);
+        ADD(RCycles, RCycles, cycles);
 }
 
 void Compiler::Comp_AddCycles_CDI()
@@ -866,7 +866,7 @@ void Compiler::Comp_AddCycles_CDI()
         }
         
         if (!Thumb && CurInstr.Cond() < 0xE)
-            SUB(RCycles, RCycles, cycles);
+            ADD(RCycles, RCycles, cycles);
         else
             ConstantCycles += cycles;
     }
@@ -910,7 +910,7 @@ void Compiler::Comp_AddCycles_CD()
     }
 
     if ((!Thumb && CurInstr.Cond() < 0xE) && IrregularCycles)
-        SUB(RCycles, RCycles, cycles);
+        ADD(RCycles, RCycles, cycles);
     else
         ConstantCycles += cycles;
 }
