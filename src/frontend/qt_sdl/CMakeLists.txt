@@ -46,7 +46,9 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Iconv REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(SLIRP REQUIRED slirp)
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
     add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
@@ -57,15 +59,20 @@ endif()
 target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(melonDS PRIVATE ${SLIRP_INCLUDE_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
-    target_link_libraries(melonDS -static ${SDL2_LIBRARIES})
+	target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES})
 else()
-    target_link_libraries(melonDS ${SDL2_LIBRARIES})
+	target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES})
+endif()
+
+if (NOT Iconv_IS_BUILT_IN)
+	target_link_libraries(melonDS iconv)
 endif()
 
 if (UNIX)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Arisotura
+    Copyright 2016-2020 Arisotura
 
     This file is part of melonDS.
 
@@ -95,6 +95,7 @@ private:
     void ClearIRQ(u32 irq);
     void SetIRQ(u32 irq);
     void UpdateIRQ(u32 oldmask);
+    void UpdateCardIRQ(u16 oldmask);
 };
 
 
@@ -103,6 +104,8 @@ class DSi_SDDevice
 public:
     DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; }
     ~DSi_SDDevice() {}
+
+    virtual void Reset() = 0;
 
     virtual void SendCMD(u8 cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
@@ -119,6 +122,8 @@ class DSi_MMCStorage : public DSi_SDDevice
 public:
     DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path);
     ~DSi_MMCStorage();
+
+    void Reset();
 
     void SetCID(u8* cid) { memcpy(CID, cid, 16); }
 

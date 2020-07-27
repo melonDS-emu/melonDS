@@ -23,17 +23,15 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: | # Fetch a new version of CMake, because the default is too old.
-        wget -nv https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
-        && tar -zxf cmake-$CMAKE_VERSION-Linux-x86_64.tar.gz \
-        && sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
+        sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
         && sudo apt-get update \
-        && sudo apt-get install gtk+-3.0 libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default
+        && sudo apt-get install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
       shell: bash
       working-directory: ${{runner.workspace}}/build
-      run: ${{runner.workspace}}/cmake-$CMAKE_VERSION-Linux-x86_64/bin/cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
     - name: Make
       shell: bash
       working-directory: ${{runner.workspace}}/build
