@@ -25,15 +25,16 @@ jobs:
         && sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new" \
         && sudo rm /etc/apt/sources.list \
         && sudo mv /etc/apt/sources.list{.new,} \
-        && sudo apt-get update \
-        && sudo apt-get install {gcc,g++,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64
+        && sudo apt update \
+        && sudo apt install {binutils,gcc,g++,pkg-config}-aarch64-linux-gnu
+        && sudo apt install libsdl2-dev:arm64 qtbase5-dev:arm64
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
       shell: bash
       working-directory: ${{runner.workspace}}/build
       run: |
-          CC=aarch64-linux-gnu-gcc-10 CXX=aarch64-linux-gnu-g++-10 cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+          CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
     - name: Make
       shell: bash
       working-directory: ${{runner.workspace}}/build
