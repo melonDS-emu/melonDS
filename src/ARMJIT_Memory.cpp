@@ -111,7 +111,6 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 {
     if (exceptionInfo->ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
     {
-        printf("narg\n");
         return EXCEPTION_CONTINUE_SEARCH;
     }
 
@@ -357,7 +356,7 @@ ARMJIT::TinyVector<Mapping> Mappings[memregions_Count];
 void SetCodeProtection(int region, u32 offset, bool protect)
 {
     offset &= ~0xFFF;
-    printf("set code protection %d %x %d\n", region, offset, protect);
+    //printf("set code protection %d %x %d\n", region, offset, protect);
 
     for (int i = 0; i < Mappings[region].Length; i++)
     {
@@ -375,7 +374,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
 
-        printf("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> 12]);
+        //printf("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> 12]);
         assert(states[effectiveAddr >> 12] == (protect ? memstate_MappedRW : memstate_MappedProtected));
         states[effectiveAddr >> 12] = protect ? memstate_MappedProtected : memstate_MappedRW;
 
