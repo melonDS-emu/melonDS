@@ -414,7 +414,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
             u32 start = mapping.Addr;
             u32 end = mapping.Addr + mapping.Size;
 
-            printf("mapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
+            printf("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
             bool oldOverlap = NDS::ARM9->DTCMSize > 0 && !(oldDTCMBase >= end || oldDTCBEnd <= start);
             bool newOverlap = newSize > 0 && !(newBase >= end || newEnd <= start);

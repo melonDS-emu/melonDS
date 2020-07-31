@@ -181,15 +181,17 @@ void SoftReset()
 
     // also, BPTWL[0x70] could be abused to quickly boot specific titles
 
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::Reset();
+    ARMJIT::CheckAndInvalidateITCM();
+#endif
+
     NDS::ARM9->Reset();
     NDS::ARM7->Reset();
 
     NDS::ARM9->CP15Reset();
 
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
-#ifdef JIT_ENABLED
-    ARMJIT::CheckAndInvalidateITCM();
-#endif
 
     DSi_AES::Reset();
 

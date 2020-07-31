@@ -114,6 +114,7 @@ struct __attribute__((packed)) TinyVector
 
     void Remove(int index)
     {
+        assert(Length > 0);
         assert(index >= 0 && index < Length);
 
         Length--;
