@@ -1159,6 +1159,10 @@ void ResetBlockCache()
 {
     printf("Resetting JIT block cache...\n");
 
+    // could be replace through a function which only resets
+    // the permissions but we're too lazy
+    ARMJIT_Memory::Reset();
+
     InvalidLiterals.Clear();
     for (int i = 0; i < ARMJIT_Memory::memregions_Count; i++)
         memset(FastBlockLookupRegions[i], 0xFF, CodeRegionSizes[i] * sizeof(u64) / 2);
