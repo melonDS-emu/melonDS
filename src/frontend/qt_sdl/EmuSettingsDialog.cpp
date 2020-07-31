@@ -165,8 +165,8 @@ void EmuSettingsDialog::done(int r)
         {
             if (RunningSomething
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
-                    "The emulation will be reset for the changes to take place",
-                    QMessageBox::Yes, QMessageBox::Cancel) != QMessageBox::Yes)
+                    "The emulation will be reset for the changes to take place.",
+                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
             strncpy(Config::BIOS9Path, bios9Path.c_str(), 1023); Config::BIOS9Path[1023] = '\0';

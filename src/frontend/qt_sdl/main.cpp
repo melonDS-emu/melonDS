@@ -1662,11 +1662,10 @@ void MainWindow::onOpenEmuSettings()
 
 void MainWindow::onEmuSettingsDialogFinished(int res)
 {
+    emuThread->emuUnpause();
+
     if (EmuSettingsDialog::needsReset)
-    {
-        emuThread->emuUnpause();
         onReset();
-    }
 }
 
 void MainWindow::onOpenInputConfig()
