@@ -255,6 +255,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
     EmuStatus = 0;
     EmuRunning = 2;
+    EmuPause = 0;
     RunningSomething = false;
 
     connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
@@ -564,6 +565,7 @@ void EmuThread::changeWindowTitle(char* title)
 void EmuThread::emuRun()
 {
     EmuRunning = 1;
+    EmuPause = 0;
     RunningSomething = true;
 
     // checkme
@@ -574,6 +576,9 @@ void EmuThread::emuRun()
 
 void EmuThread::emuPause()
 {
+    EmuPause++;
+    if (EmuPause > 1) return;
+
     PrevEmuStatus = EmuRunning;
     EmuRunning = 2;
     while (EmuStatus != 2);
@@ -584,6 +589,11 @@ void EmuThread::emuPause()
 
 void EmuThread::emuUnpause()
 {
+    if (EmuPause < 1) return;
+
+    EmuPause--;
+    if (EmuPause > 0) return;
+
     EmuRunning = PrevEmuStatus;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
@@ -593,6 +603,7 @@ void EmuThread::emuUnpause()
 void EmuThread::emuStop()
 {
     EmuRunning = 0;
+    EmuPause = 0;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
     if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);

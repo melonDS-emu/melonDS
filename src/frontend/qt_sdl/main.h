@@ -74,6 +74,7 @@ private:
     volatile int EmuStatus;
     int PrevEmuStatus;
     int EmuRunning;
+    int EmuPause;
 
     QOffscreenSurface* oglSurface;
     QOpenGLContext* oglContext;
