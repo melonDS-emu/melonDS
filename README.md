@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev
+sudo apt-get install libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtdeclarative5-dev libslirp-dev
 ```
 
 * Compile:
@@ -55,7 +55,7 @@ make -j$(nproc --all)
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain}`
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
