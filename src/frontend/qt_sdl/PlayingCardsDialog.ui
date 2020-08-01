@@ -117,8 +117,59 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>drawPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_draw()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>215</x>
+     <y>570</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>516</x>
+     <y>514</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>flipPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_flip()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>278</x>
+     <y>614</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>526</x>
+     <y>590</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>shufflePushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_shuffle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>229</x>
+     <y>655</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>496</x>
+     <y>676</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>on_browse()</slot>
+  <slot>on_draw()</slot>
+  <slot>on_flip()</slot>
+  <slot>on_shuffle()</slot>
  </slots>
 </ui>

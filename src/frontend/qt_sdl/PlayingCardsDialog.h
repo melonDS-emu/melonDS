@@ -72,6 +72,7 @@ public:
 
 private slots:
     bool processCardDirectory(QDir directory);
+    void paintCard();
     void on_browse();
 
     void on_draw();

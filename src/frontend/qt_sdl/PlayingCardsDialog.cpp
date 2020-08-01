@@ -17,8 +17,11 @@
 */
 
 #include <stdio.h>
+#include <algorithm>
+#include <ctime>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QPixmap>
 
 #include "types.h"
 #include "Platform.h"
@@ -31,7 +34,9 @@
 
 PlayingCardsDialog *PlayingCardsDialog::currentDlg = nullptr;
 
-QList<QString> CardDeck = QList<QString>();
+QList<QString> CardDeck;
+QList<QString> DrawnCards;
+bool CardIsFlipped;
 
 
 PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PlayingCardsDialog)
@@ -41,6 +46,7 @@ PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     QDir directory = QDir(QString(Config::PlayingCardsPath));
     ui->controlGroup->setEnabled((this->processCardDirectory(QDir(directory))));
+    this->paintCard();
 }
 
 PlayingCardsDialog::~PlayingCardsDialog()
@@ -51,9 +57,11 @@ PlayingCardsDialog::~PlayingCardsDialog()
 
 bool PlayingCardsDialog::processCardDirectory(QDir directory)
 {
-    CardDeck.clear();
+    CardDeck = QList<QString>();;
+    DrawnCards = QList<QString>();
+    CardIsFlipped = false;
     QStringList image_filter;
-    image_filter << "*.png" << "*.jpg" << "*.jpeg" << "*.gif" << "*.bmp";
+    image_filter << "*.png" << "*.bmp";
 
     // Check that:
     // - the "front" and "back" directories exist
@@ -76,8 +84,8 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Invalid playing cards directory",
-                "The \"front\" folder in the configured card directory must contain 54 images\n"
-                "of a supported format (JPEG, PNG, GIF, or BMP).");
+                "The \"front\" folder in the configured card directory must contain 54 images "
+                "of a supported format (PNG or BMP).");
             res = false;
         }
 
@@ -87,8 +95,8 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     {
         QMessageBox::critical((QWidget*)this->parent(),
             "Invalid playing cards directory",
-            "The card directory must contain folders named \"front\" and \"back\",\n"
-            "each containing 54 playing card images in JPEG, PNG, GIF, or BMP format.");
+            "The card directory must contain folders named \"front\" and \"back\", "
+            "each containing 54 playing card images in PNG or BMP format.");
         res = false;
     }
 
@@ -102,7 +110,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
                 {
                     QMessageBox::critical((QWidget*)this->parent(),
                         "Invalid playing cards directory",
-                        "The \"back\" folder in the configured card directory is missing an image\n"
+                        "The \"back\" folder in the configured card directory is missing an image "
                         "to match those found in the \"front\" folder (" + imageFile + ").");
                     res = false;
                 }
@@ -114,13 +122,51 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Invalid playing cards directory",
-                "The card directory must contain folders named \"front\" and \"back\",\n"
-                "each containing 54 playing card images in JPEG, PNG, GIF, or BMP format.");
+                "The card directory must contain folders named \"front\" and \"back\", "
+                "each containing 54 playing card images in PNG or BMP format.");
             res = false;
         }
     }
 
+    printf("PlayingCardsDialog: processed %d cards\n", CardDeck.length());
     return res;
+}
+
+void PlayingCardsDialog::paintCard()
+{
+    QImage new_image = QImage();
+
+    if (!CardDeck.isEmpty())
+    {
+        QDir directory = QDir(QString(Config::PlayingCardsPath));
+        QString current_card = CardDeck.first();
+        if (CardIsFlipped)
+        {
+            directory.cd("front");
+        }
+        else
+        {
+            directory.cd("back");
+        }
+
+        QString file_path = directory.absoluteFilePath(current_card);
+        if (!new_image.load(file_path))
+        {
+            QMessageBox::critical((QWidget*)this->parent(),
+                "Failed to read an image",
+                "The card image at " + file_path + "could not be read.\n"
+                "It may be missing, access-restricted, or stored in an"
+                "unsupported format.");
+            return;
+        }
+        else
+        {
+            printf("PlayingCardsDialog: painting %s\n", file_path.toStdString().c_str());
+        }
+    }
+
+    QPixmap pixmap = QPixmap::fromImage(new_image);
+    ui->playingCardLabel->setPixmap(pixmap);
 }
 
 void PlayingCardsDialog::on_browse()
@@ -130,31 +176,47 @@ void PlayingCardsDialog::on_browse()
                                                             "Select playing cards root directory...",
                                                             current_directory);
 
-    if (new_directory != current_directory)
+    if (!new_directory.isEmpty() && QFileInfo(new_directory) != QFileInfo(current_directory))
     {
         bool valid = this->processCardDirectory(QDir(new_directory));
-        ui->controlGroup->setEnabled(valid);
 
         if (valid)
         {
             strncpy(Config::PlayingCardsPath, new_directory.toStdString().c_str(), 1023);
             Config::PlayingCardsPath[1023] = '\0';
             Config::Save();
+            ui->controlGroup->setEnabled(true);
         }
+
+        // Note: if the new directory is invalid, do not disable controls, as we might be
+        // reverting the configured directory to a valid one.
+
+        this->paintCard();
     }
 }
 
 void PlayingCardsDialog::on_draw()
 {
-    // TODO
+    if (!CardDeck.isEmpty())
+    {
+        DrawnCards.append(CardDeck.takeFirst());
+        CardIsFlipped = false;
+        this->paintCard();
+    }
 }
 
 void PlayingCardsDialog::on_flip()
 {
-    // TODO
+    CardIsFlipped = !CardIsFlipped;
+    this->paintCard();
 }
 
 void PlayingCardsDialog::on_shuffle()
 {
-    // TODO
+    CardDeck.append(DrawnCards); // Add any drawn cards back to the main deck
+    DrawnCards.clear(); // Clear duplicate drawn cards
+    srand(time(0)); // Generate a new "random" seed
+    std::random_shuffle(CardDeck.begin(), CardDeck.end()); // Shuffle the deck
+    CardIsFlipped = false;
+    this->paintCard();
 }
