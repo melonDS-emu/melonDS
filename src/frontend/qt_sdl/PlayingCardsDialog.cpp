@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <ctime>
 #include <QFileDialog>
+#include <QImageReader>
 #include <QMessageBox>
 #include <QPixmap>
 
@@ -60,8 +61,6 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     CardDeck = QList<QString>();;
     DrawnCards = QList<QString>();
     CardIsFlipped = false;
-    QStringList image_filter;
-    image_filter << "*.png" << "*.bmp";
 
     // Check that:
     // - the "front" and "back" directories exist
@@ -71,21 +70,20 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     bool res = true;
     if (directory.cd("front"))
     {
-        QFileInfoList fileInfoList = directory.entryInfoList(image_filter, QDir::Files | QDir::NoDotAndDotDot);
-        if (fileInfoList.length() >= 54)
+        QFileInfoList fileInfoList = directory.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+        while (!fileInfoList.isEmpty())
         {
-            // Take the first 54 image files in the directory and build card info based on them.
-            for (int i = 0; i < 54; i++)
-            {
-                CardDeck.append(fileInfoList.takeFirst().fileName());
-            }
+            QFileInfo fileInfo = fileInfoList.takeFirst();
+            if (QImageReader(fileInfo.absoluteFilePath()).canRead()) CardDeck.append(fileInfo.fileName());
+            if (CardDeck.length() == 54) break;
         }
-        else
+
+        if (CardDeck.length() < 54)
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Invalid playing cards directory",
                 "The \"front\" folder in the configured card directory must contain 54 images "
-                "of a supported format (PNG or BMP).");
+                "of a supported format.");
             res = false;
         }
 
@@ -96,7 +94,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         QMessageBox::critical((QWidget*)this->parent(),
             "Invalid playing cards directory",
             "The card directory must contain folders named \"front\" and \"back\", "
-            "each containing 54 playing card images in PNG or BMP format.");
+            "each containing 54 playing card images in a supported format.");
         res = false;
     }
 
@@ -123,7 +121,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
             QMessageBox::critical((QWidget*)this->parent(),
                 "Invalid playing cards directory",
                 "The card directory must contain folders named \"front\" and \"back\", "
-                "each containing 54 playing card images in PNG or BMP format.");
+                "each containing 54 playing card images in a supported format.");
             res = false;
         }
     }
