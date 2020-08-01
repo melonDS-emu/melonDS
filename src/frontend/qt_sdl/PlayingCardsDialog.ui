@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PlayingCardsDialog</class>
+ <widget class="QDialog" name="PlayingCardsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>460</width>
+    <height>691</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Playing cards - melonDS</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetFixedSize</enum>
+   </property>
+   <item row="2" column="0" alignment="Qt::AlignHCenter|Qt::AlignTop">
+    <widget class="QLabel" name="playingCardLabel">
+     <property name="minimumSize">
+      <size>
+       <width>308</width>
+       <height>480</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>4500</width>
+       <height>7000</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Playing Card</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QPushButton" name="setCardDirPushButton">
+     <property name="whatsThis">
+      <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
+     </property>
+     <property name="text">
+      <string>Set playing cards directory...</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QGroupBox" name="controlGroup">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="title">
+      <string>Controls</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QPushButton" name="drawPushButton">
+        <property name="whatsThis">
+         <string>Draws a card, removing it from the deck until next shuffled.</string>
+        </property>
+        <property name="text">
+         <string>Draw</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="flipPushButton">
+        <property name="whatsThis">
+         <string>Flips a card, revealing or concealing it.</string>
+        </property>
+        <property name="text">
+         <string>Flip</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="shufflePushButton">
+        <property name="whatsThis">
+         <string>Shuffles the deck, returning any drawn cards to it.</string>
+        </property>
+        <property name="text">
+         <string>Shuffle</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>setCardDirPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_browse()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>229</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>535</x>
+     <y>87</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>on_browse()</slot>
+ </slots>
+</ui>

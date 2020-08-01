@@ -43,6 +43,8 @@ char DSiSDPath[1024];
 
 int RandomizeMAC;
 
+char PlayingCardsPath[1024];
+
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
 int JIT_MaxBlockSize = 32;
@@ -70,6 +72,8 @@ ConfigEntry ConfigFile[] =
     PATH_CONFIG_ENTRY(DSiSDPath),
 
     BOOLEAN_CONFIG_ENTRY(RandomizeMAC),
+
+    PATH_CONFIG_ENTRY(PlayingCardsPath),
 
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},

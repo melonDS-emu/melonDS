@@ -56,6 +56,8 @@ extern char DSiSDPath[1024];
 
 extern int RandomizeMAC;
 
+extern char PlayingCardsPath[1024];
+
 #ifdef JIT_ENABLED
 extern int JIT_Enable;
 extern int JIT_MaxBlockSize;

@@ -54,6 +54,7 @@ u8 TransferCmd[8];
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
+char CartGameCode[5];
 u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
@@ -1075,7 +1076,6 @@ void CartRetailNAND::BuildSRAMID()
     }
 }
 
-
 CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion) : CartRetail(rom, len, chipid)
 {
     IRVersion = irversion;
@@ -1523,14 +1523,15 @@ void DecryptSecureArea(u8* out)
 
 bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 {
-    u32 gamecode;
-    memcpy(&gamecode, CartROM + 0x0C, 4);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
+    CartGameCode[4] = '\0';
+    memcpy(&CartGameCode, CartROM + 0x0C, 4);
+    printf("Game code: %s\n", CartGameCode);
 
     u8 unitcode = CartROM[0x12];
     CartIsDSi = (unitcode & 0x02) != 0;
 
     ROMListEntry romparams;
+    u32 gamecode = CartGameCode[0] | CartGameCode[1] << 8 | CartGameCode[2] << 16 | CartGameCode[3] << 24;
     if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
