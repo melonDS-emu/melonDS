@@ -164,11 +164,20 @@ void PlayingCardsDialog::paintCard()
     }
 
     QPixmap pixmap = QPixmap::fromImage(new_image);
-    ui->playingCardLabel->setPixmap(pixmap);
+    ui->playingCardLabel->setPixmap(pixmap.scaled(ui->playingCardLabel->width(),
+                                ui->playingCardLabel->height(), Qt::KeepAspectRatio));
 }
 
 void PlayingCardsDialog::on_browse()
 {
+    QList<QString> deckBackup;
+
+    if (!CardDeck.isEmpty() || !DrawnCards.isEmpty())
+    {
+        deckBackup.append(CardDeck);
+        deckBackup.append(DrawnCards);
+    }
+
     QString current_directory = QString(Config::PlayingCardsPath);
     QString new_directory = QFileDialog::getExistingDirectory(this,
                                                             "Select playing cards root directory...",
@@ -185,9 +194,11 @@ void PlayingCardsDialog::on_browse()
             Config::Save();
             ui->controlGroup->setEnabled(true);
         }
-
-        // Note: if the new directory is invalid, do not disable controls, as we might be
-        // reverting the configured directory to a valid one.
+        else if (!deckBackup.isEmpty())
+        {
+            // Restore the previously-loaded deck.
+            CardDeck.append(deckBackup);
+        }
 
         this->paintCard();
     }
