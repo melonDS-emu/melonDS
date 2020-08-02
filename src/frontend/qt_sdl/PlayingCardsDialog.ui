@@ -68,6 +68,9 @@
         <property name="text">
          <string>Draw</string>
         </property>
+        <property name="autoDefault">
+         <bool>false</bool>
+        </property>
        </widget>
       </item>
       <item>
@@ -78,6 +81,9 @@
         <property name="text">
          <string>Flip</string>
         </property>
+        <property name="autoDefault">
+         <bool>false</bool>
+        </property>
        </widget>
       </item>
       <item>
@@ -87,6 +93,9 @@
         </property>
         <property name="text">
          <string>Shuffle</string>
+        </property>
+        <property name="autoDefault">
+         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -106,6 +115,9 @@
      </property>
      <property name="text">
       <string>Set playing cards directory...</string>
+     </property>
+     <property name="autoDefault">
+      <bool>false</bool>
      </property>
     </widget>
    </item>
