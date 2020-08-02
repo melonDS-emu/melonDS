@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>348</width>
-    <height>679</height>
+    <width>686</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,85 +23,6 @@
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
    </property>
-   <item row="2" column="0" alignment="Qt::AlignHCenter|Qt::AlignTop">
-    <widget class="QLabel" name="playingCardLabel">
-     <property name="minimumSize">
-      <size>
-       <width>330</width>
-       <height>512</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>330</width>
-       <height>512</height>
-      </size>
-     </property>
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-     </property>
-     <property name="lineWidth">
-      <number>1</number>
-     </property>
-     <property name="text">
-      <string>Playing Card</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0">
-    <widget class="QGroupBox" name="controlGroup">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="title">
-      <string>Controls</string>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QPushButton" name="drawPushButton">
-        <property name="whatsThis">
-         <string>Draws a card, removing it from the deck until next shuffled.</string>
-        </property>
-        <property name="text">
-         <string>Draw</string>
-        </property>
-        <property name="autoDefault">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="flipPushButton">
-        <property name="whatsThis">
-         <string>Flips a card, revealing or concealing it.</string>
-        </property>
-        <property name="text">
-         <string>Flip</string>
-        </property>
-        <property name="autoDefault">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="shufflePushButton">
-        <property name="whatsThis">
-         <string>Shuffles the deck, returning any drawn cards to it.</string>
-        </property>
-        <property name="text">
-         <string>Shuffle</string>
-        </property>
-        <property name="autoDefault">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
    <item row="0" column="0">
     <widget class="QPushButton" name="setCardDirPushButton">
      <property name="sizePolicy">
@@ -120,6 +41,208 @@
       <bool>false</bool>
      </property>
     </widget>
+   </item>
+   <item row="3" column="0">
+    <layout class="QGridLayout" name="gridLayout_2">
+     <item row="1" column="1">
+      <widget class="QLabel" name="drawnDeckImageLabel">
+       <property name="minimumSize">
+        <size>
+         <width>330</width>
+         <height>512</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>330</width>
+         <height>512</height>
+        </size>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="text">
+        <string>Drawn Deck</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="mainDeckImageLabel">
+       <property name="minimumSize">
+        <size>
+         <width>330</width>
+         <height>512</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>330</width>
+         <height>512</height>
+        </size>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
+       </property>
+       <property name="text">
+        <string>Main Deck</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QGroupBox" name="drawnDeckControlsGroupBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="title">
+        <string>Drawn Deck Controls</string>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_3">
+        <item row="3" column="0">
+         <widget class="QPushButton" name="drawnDeckShufflePushButton">
+          <property name="whatsThis">
+           <string>Shuffles drawn cards only.</string>
+          </property>
+          <property name="text">
+           <string>Shuffle</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="drawnDeckDiscardPushButton">
+          <property name="whatsThis">
+           <string>Discards the topmost card entirely, until the deck is next shuffled.</string>
+          </property>
+          <property name="text">
+           <string>Discard</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QPushButton" name="drawnDeckRotatePushButton">
+          <property name="whatsThis">
+           <string>Rotates the topmost drawn card to the bottom of the hand.</string>
+          </property>
+          <property name="text">
+           <string>Rotate</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0" colspan="2">
+         <widget class="QPushButton" name="drawnDeckFlipPushButton">
+          <property name="whatsThis">
+           <string>Flips a card, revealing or concealing it.</string>
+          </property>
+          <property name="text">
+           <string>Flip</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="drawnDeckReturnPushButton">
+          <property name="whatsThis">
+           <string>Returns the topmost drawn card to the bottom of the deck.</string>
+          </property>
+          <property name="text">
+           <string>Return to Deck</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QGroupBox" name="mainDeckControlsGroupBox">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="title">
+        <string>Main Deck Controls</string>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_4">
+        <item row="0" column="0">
+         <widget class="QPushButton" name="mainDeckDrawPushButton">
+          <property name="whatsThis">
+           <string>Draws a card, moving it to the hand pile.</string>
+          </property>
+          <property name="text">
+           <string>Draw</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="mainDeckFlipPushButton">
+          <property name="whatsThis">
+           <string>Flips a card, revealing or concealing it.</string>
+          </property>
+          <property name="text">
+           <string>Flip</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QPushButton" name="mainDeckShufflePushButton">
+          <property name="whatsThis">
+           <string>Shuffles the deck, returning any drawn cards to it.</string>
+          </property>
+          <property name="text">
+           <string>Shuffle</string>
+          </property>
+          <property name="autoDefault">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="mainDeckCardsLabel">
+       <property name="text">
+        <string>0 Cards</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLabel" name="drawnDeckCardsLabel">
+       <property name="text">
+        <string>0 Cards</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
@@ -142,7 +265,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>drawPushButton</sender>
+   <sender>mainDeckDrawPushButton</sender>
    <signal>clicked()</signal>
    <receiver>PlayingCardsDialog</receiver>
    <slot>on_draw()</slot>
@@ -158,7 +281,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>flipPushButton</sender>
+   <sender>mainDeckFlipPushButton</sender>
    <signal>clicked()</signal>
    <receiver>PlayingCardsDialog</receiver>
    <slot>on_flip()</slot>
@@ -174,7 +297,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>shufflePushButton</sender>
+   <sender>mainDeckShufflePushButton</sender>
    <signal>clicked()</signal>
    <receiver>PlayingCardsDialog</receiver>
    <slot>on_shuffle()</slot>
@@ -189,11 +312,94 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>drawnDeckFlipPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_flip()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>518</x>
+     <y>610</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>724</x>
+     <y>592</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>drawnDeckDiscardPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_discard()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>619</x>
+     <y>639</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>767</x>
+     <y>637</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>drawnDeckReturnPushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_return()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>440</x>
+     <y>637</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>740</x>
+     <y>623</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>drawnDeckShufflePushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_shuffle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>467</x>
+     <y>672</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>499</x>
+     <y>739</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>drawnDeckRotatePushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>PlayingCardsDialog</receiver>
+   <slot>on_rotate()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>599</x>
+     <y>668</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>651</x>
+     <y>718</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>on_browse()</slot>
   <slot>on_draw()</slot>
   <slot>on_flip()</slot>
   <slot>on_shuffle()</slot>
+  <slot>on_discard()</slot>
+  <slot>on_return()</slot>
+  <slot>on_rotate()</slot>
  </slots>
 </ui>

@@ -21,11 +21,19 @@
 
 #include <QDialog>
 #include <QDir>
+#include <QLabel>
 
 #include "types.h"
 
 namespace Ui { class PlayingCardsDialog; }
 class PlayingCardsDialog;
+
+typedef struct
+{
+    QList<QString> Cards;
+    bool Flipped;
+    QLabel *Label;
+} CardPile;
 
 class PlayingCardsDialog : public QDialog
 {
@@ -72,15 +80,22 @@ public:
 
 private slots:
     bool processCardDirectory(QDir directory);
-    void paintCard();
+    void paintCard(CardPile pile);
+    void paintAllCards();
+    void recountCards();
+
     void on_browse();
 
     void on_draw();
     void on_shuffle();
     void on_flip();
 
+    void on_return();
+    void on_discard();
+    void on_rotate();
+
 private:
-    Ui::PlayingCardsDialog* ui;
+    Ui::PlayingCardsDialog *ui;
 };
 
 #endif // PLAYINGCARDSDIALOG_H

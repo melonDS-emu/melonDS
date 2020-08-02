@@ -35,9 +35,10 @@
 
 PlayingCardsDialog *PlayingCardsDialog::currentDlg = nullptr;
 
-QList<QString> CardDeck;
-QList<QString> DrawnCards;
-bool CardIsFlipped;
+
+CardPile Deck;
+CardPile Hand;
+CardPile Discard;
 
 
 PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PlayingCardsDialog)
@@ -46,8 +47,11 @@ PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(ne
     setAttribute(Qt::WA_DeleteOnClose);
 
     QDir directory = QDir(QString(Config::PlayingCardsPath));
-    ui->controlGroup->setEnabled((this->processCardDirectory(QDir(directory))));
-    this->paintCard();
+    bool enableDeckControls = this->processCardDirectory(QDir(directory));
+    ui->mainDeckControlsGroupBox->setEnabled(enableDeckControls);
+    ui->drawnDeckControlsGroupBox->setEnabled(enableDeckControls);
+    this->recountCards();
+    this->paintAllCards();
 }
 
 PlayingCardsDialog::~PlayingCardsDialog()
@@ -58,9 +62,9 @@ PlayingCardsDialog::~PlayingCardsDialog()
 
 bool PlayingCardsDialog::processCardDirectory(QDir directory)
 {
-    CardDeck = QList<QString>();;
-    DrawnCards = QList<QString>();
-    CardIsFlipped = false;
+    Deck = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = ui->mainDeckImageLabel };
+    Hand = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = ui->drawnDeckImageLabel };
+    Discard = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = nullptr };
 
     // Check that:
     // - the "front" and "back" directories exist
@@ -74,11 +78,11 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         while (!fileInfoList.isEmpty())
         {
             QFileInfo fileInfo = fileInfoList.takeFirst();
-            if (QImageReader(fileInfo.absoluteFilePath()).canRead()) CardDeck.append(fileInfo.fileName());
-            if (CardDeck.length() == 54) break;
+            if (QImageReader(fileInfo.absoluteFilePath()).canRead()) Deck.Cards.append(fileInfo.fileName());
+            if (Deck.Cards.length() == 54) break;
         }
 
-        if (CardDeck.length() < 54)
+        if (Deck.Cards.length() < 54)
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Invalid playing cards directory",
@@ -102,7 +106,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     {
         if (directory.cd("back"))
         {
-            foreach (QString imageFile, CardDeck)
+            foreach (QString imageFile, Deck.Cards)
             {
                 if (!directory.exists(imageFile))
                 {
@@ -126,19 +130,21 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         }
     }
 
-    printf("PlayingCardsDialog: processed %d cards\n", CardDeck.length());
+    printf("PlayingCardsDialog: processed %d cards\n", Deck.Cards.length());
     return res;
 }
 
-void PlayingCardsDialog::paintCard()
+void PlayingCardsDialog::paintCard(CardPile pile)
 {
+    if (pile.Label == nullptr) return;
+
     QPixmap pixmap = QPixmap();
 
-    if (!CardDeck.isEmpty())
+    if (!pile.Cards.isEmpty())
     {
         QDir directory = QDir(QString(Config::PlayingCardsPath));
-        QString current_card = CardDeck.first();
-        if (CardIsFlipped)
+        QString current_card = pile.Cards.first();
+        if (pile.Flipped)
         {
             directory.cd("front");
         }
@@ -163,19 +169,33 @@ void PlayingCardsDialog::paintCard()
         }
     }
 
-    ui->playingCardLabel->setPixmap(pixmap.scaled(ui->playingCardLabel->width(),
-                                ui->playingCardLabel->height(), Qt::KeepAspectRatio));
+    pile.Label->setPixmap(pixmap.scaled(pile.Label->width(), pile.Label->height(), Qt::KeepAspectRatio));
+}
+
+void PlayingCardsDialog::paintAllCards()
+{
+    this->paintCard(Deck);
+    this->paintCard(Hand);
+}
+
+void PlayingCardsDialog::recountCards()
+{
+    bool enableDeckControls = !Deck.Cards.isEmpty();
+    ui->mainDeckDrawPushButton->setEnabled(enableDeckControls);
+    ui->mainDeckFlipPushButton->setEnabled(enableDeckControls);
+
+    bool enableHandControls = !Hand.Cards.isEmpty();
+    ui->drawnDeckControlsGroupBox->setEnabled(enableHandControls);
+
+    ui->mainDeckCardsLabel->setText(QString::number(Deck.Cards.length()) + " Cards");
+    ui->drawnDeckCardsLabel->setText(QString::number(Hand.Cards.length()) + " Cards");
 }
 
 void PlayingCardsDialog::on_browse()
 {
-    QList<QString> deckBackup;
-
-    if (!CardDeck.isEmpty() || !DrawnCards.isEmpty())
-    {
-        deckBackup.append(CardDeck);
-        deckBackup.append(DrawnCards);
-    }
+    CardPile deckBackup = Deck;
+    CardPile handBackup = Hand;
+    CardPile discardBackup = Discard;
 
     QString current_directory = QString(Config::PlayingCardsPath);
     QString new_directory = QFileDialog::getExistingDirectory(this,
@@ -191,40 +211,84 @@ void PlayingCardsDialog::on_browse()
             strncpy(Config::PlayingCardsPath, new_directory.toStdString().c_str(), 1023);
             Config::PlayingCardsPath[1023] = '\0';
             Config::Save();
-            ui->controlGroup->setEnabled(true);
+            ui->mainDeckControlsGroupBox->setEnabled(true);
+            this->recountCards();
         }
-        else if (!deckBackup.isEmpty())
+        else
         {
-            // Restore the previously-loaded deck.
-            CardDeck.append(deckBackup);
+            // Restore the previously-loaded deck, if any.
+            Deck = deckBackup;
+            Hand = handBackup;
+            Discard = discardBackup;
+            this->recountCards();
         }
 
-        this->paintCard();
+        this->paintAllCards();
     }
 }
 
 void PlayingCardsDialog::on_draw()
 {
-    if (!CardDeck.isEmpty())
-    {
-        DrawnCards.append(CardDeck.takeFirst());
-        CardIsFlipped = false;
-        this->paintCard();
-    }
+    Hand.Cards.prepend(Deck.Cards.takeFirst());
+    this->recountCards();
+    Hand.Flipped = Deck.Flipped;
+    Deck.Flipped = false;
+    this->paintAllCards();
 }
 
 void PlayingCardsDialog::on_flip()
 {
-    CardIsFlipped = !CardIsFlipped;
-    this->paintCard();
+    QObject* obj = sender();
+    if (obj->parent() == ui->drawnDeckControlsGroupBox) Hand.Flipped = !Hand.Flipped;
+    else if (obj->parent() == ui->mainDeckControlsGroupBox) Deck.Flipped = !Deck.Flipped;
+
+    this->paintAllCards();
 }
 
 void PlayingCardsDialog::on_shuffle()
 {
-    CardDeck.append(DrawnCards); // Add any drawn cards back to the main deck
-    DrawnCards.clear(); // Clear duplicate drawn cards
     srand(time(0)); // Generate a new "random" seed
-    std::random_shuffle(CardDeck.begin(), CardDeck.end()); // Shuffle the deck
-    CardIsFlipped = false;
-    this->paintCard();
+
+    QObject* obj = sender();
+    if (obj->parent() == ui->drawnDeckControlsGroupBox)
+    {
+        std::random_shuffle(Hand.Cards.begin(), Hand.Cards.end());
+    }
+    else if (obj->parent() == ui->mainDeckControlsGroupBox)
+    {
+        // Add all cards back to the main deck, clear other piles, and shuffle
+        Deck.Cards.append(Hand.Cards);
+        Deck.Cards.append(Discard.Cards);
+        Hand.Cards.clear();
+        Discard.Cards.clear();
+        std::random_shuffle(Deck.Cards.begin(), Deck.Cards.end());
+        this->recountCards();
+    }
+
+    Deck.Flipped = false;
+    Hand.Flipped = false;
+    this->paintAllCards();
+}
+
+void PlayingCardsDialog::on_return()
+{
+    Deck.Cards.append(Hand.Cards.takeFirst());
+    this->recountCards();
+    Hand.Flipped = false;
+    this->paintAllCards();
+}
+
+void PlayingCardsDialog::on_discard()
+{
+    Discard.Cards.append(Hand.Cards.takeFirst());
+    this->recountCards();
+    Hand.Flipped = false;
+    this->paintAllCards();
+}
+
+void PlayingCardsDialog::on_rotate()
+{
+    Hand.Cards.append(Hand.Cards.takeFirst());
+    Hand.Flipped = false;
+    this->paintAllCards();
 }
