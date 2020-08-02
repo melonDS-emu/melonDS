@@ -132,7 +132,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
 
 void PlayingCardsDialog::paintCard()
 {
-    QImage new_image = QImage();
+    QPixmap pixmap = QPixmap();
 
     if (!CardDeck.isEmpty())
     {
@@ -148,7 +148,7 @@ void PlayingCardsDialog::paintCard()
         }
 
         QString file_path = directory.absoluteFilePath(current_card);
-        if (!new_image.load(file_path))
+        if (!pixmap.load(file_path))
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Failed to read an image",
@@ -163,7 +163,6 @@ void PlayingCardsDialog::paintCard()
         }
     }
 
-    QPixmap pixmap = QPixmap::fromImage(new_image);
     ui->playingCardLabel->setPixmap(pixmap.scaled(ui->playingCardLabel->width(),
                                 ui->playingCardLabel->height(), Qt::KeepAspectRatio));
 }
