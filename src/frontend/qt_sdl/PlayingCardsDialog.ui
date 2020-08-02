@@ -25,12 +25,6 @@
    </property>
    <item row="2" column="0" alignment="Qt::AlignHCenter|Qt::AlignTop">
     <widget class="QLabel" name="playingCardLabel">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
      <property name="minimumSize">
       <size>
        <width>330</width>
@@ -39,8 +33,8 @@
      </property>
      <property name="maximumSize">
       <size>
-       <width>4500</width>
-       <height>7000</height>
+       <width>330</width>
+       <height>512</height>
       </size>
      </property>
      <property name="frameShape">
@@ -62,36 +56,12 @@
      <property name="enabled">
       <bool>false</bool>
      </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>330</width>
-       <height>0</height>
-      </size>
-     </property>
      <property name="title">
       <string>Controls</string>
      </property>
-     <property name="alignment">
-      <set>Qt::AlignCenter</set>
-     </property>
      <layout class="QVBoxLayout" name="verticalLayout">
-      <property name="sizeConstraint">
-       <enum>QLayout::SetFixedSize</enum>
-      </property>
       <item>
        <widget class="QPushButton" name="drawPushButton">
-        <property name="minimumSize">
-         <size>
-          <width>310</width>
-          <height>0</height>
-         </size>
-        </property>
         <property name="whatsThis">
          <string>Draws a card, removing it from the deck until next shuffled.</string>
         </property>
@@ -130,12 +100,6 @@
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>300</width>
-       <height>0</height>
-      </size>
      </property>
      <property name="whatsThis">
       <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
