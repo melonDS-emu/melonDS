@@ -98,6 +98,7 @@ void EmuSettingsDialog::verifyFirmware()
     char filename[1024];
     strncpy(filename, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); filename[1023] = '\0';
     FILE* f = Platform::OpenLocalFile(filename, "rb");
+    if (!f) return;
     u8 chk1[0x180], chk2[0x180];
 
     fseek(f, 0, SEEK_SET);
@@ -163,9 +164,9 @@ void EmuSettingsDialog::done(int r)
             || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0)
         {
             if (RunningSomething
-                && QMessageBox::warning(this, "Reset necessary to apply changes", 
-                    "The emulation will be reset for the changes to take place", 
-                    QMessageBox::Yes, QMessageBox::Cancel) != QMessageBox::Yes)
+                && QMessageBox::warning(this, "Reset necessary to apply changes",
+                    "The emulation will be reset for the changes to take place.",
+                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
             strncpy(Config::BIOS9Path, bios9Path.c_str(), 1023); Config::BIOS9Path[1023] = '\0';

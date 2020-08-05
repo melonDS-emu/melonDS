@@ -7,7 +7,7 @@
 namespace ARMInstrInfo
 {
 
-#define ak(x) ((x) << 22)
+#define ak(x) ((x) << 23)
 
 enum {
     A_Read0             = 1 << 0,
@@ -37,9 +37,10 @@ enum {
     A_RRXReadC          = 1 << 17,
     A_StaticShiftSetC   = 1 << 18,
     A_SetC              = 1 << 19,
+    A_SetCImm           = 1 << 20,
 
-    A_WriteMem          = 1 << 20,
-    A_LoadMem           = 1 << 21
+    A_WriteMem          = 1 << 21,
+    A_LoadMem           = 1 << 22
 };
 
 #define A_BIOP A_Read16
@@ -52,7 +53,7 @@ enum {
 #define A_ARITH_SHIFT_REG A_SetCV
 #define A_LOGIC_SHIFT_REG A_SetMaybeC
 #define A_ARITH_IMM A_SetCV
-#define A_LOGIC_IMM 0
+#define A_LOGIC_IMM A_SetCImm
 
 #define A_IMPLEMENT_ALU_OP(x,k,a,c) \
     const u32 A_##x##_IMM = A_Write12 | c | A_##k | ak(ak_##x##_IMM); \
@@ -410,7 +411,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_UnkOnARM7 && num == 1)
             data = A_UNK;
 
-        res.Kind = (data >> 22) & 0x1FF;
+        res.Kind = (data >> 23) & 0x1FF;
 
         if (res.Kind >= ak_SMLAxy && res.Kind <= ak_SMULxy && num == 1)
         {
@@ -496,7 +497,9 @@ Info Decode(bool thumb, u32 num, u32 instr)
             res.ReadFlags |= flag_C;
         if ((data & A_RRXReadC) && !((instr >> 7) & 0x1F))
             res.ReadFlags |= flag_C;
-        if ((data & A_SetC) || ((data & A_StaticShiftSetC) && ((instr >> 7) & 0x1F)))
+        if ((data & A_SetC)
+            || ((data & A_StaticShiftSetC) && ((instr >> 7) & 0x1F))
+            || ((data & A_SetCImm) && ((instr >> 7) & 0x1E)))
             res.WriteFlags |= flag_C;
 
         if (data & A_WriteMem)

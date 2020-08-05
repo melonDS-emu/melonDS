@@ -315,7 +315,7 @@ Compiler::Compiler()
             {
                 for (int reg = 0; reg < 16; reg++)
                 {
-                    if (reg == RSCRATCH || reg == ABI_PARAM1 || reg == ABI_PARAM2 || reg == ABI_PARAM3)
+                    if (reg == RSCRATCH || reg == ABI_PARAM1 || reg == ABI_PARAM2)
                     {
                         PatchedStoreFuncs[consoleType][num][size][reg] = NULL;
                         PatchedLoadFuncs[consoleType][num][size][0][reg] = NULL;
@@ -330,7 +330,8 @@ Compiler::Compiler()
                     if (num == 0)
                     {
                         MOV(64, R(ABI_PARAM2), R(RCPU));
-                        MOV(32, R(ABI_PARAM3), R(rdMapped));
+                        if (rdMapped != ABI_PARAM3)
+                            MOV(32, R(ABI_PARAM3), R(rdMapped));
                     }
                     else
                     {
@@ -626,7 +627,7 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
     {
         RegCache.PrepareExit();
 
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
         JMP((u8*)&ARM_Ret, true);
     }
 }
@@ -759,7 +760,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     RegCache.Flush();
 
-    SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
+    ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
     JMP((u8*)ARM_Ret, true);
 
     /*FILE* codeout = fopen("codeout", "a");
@@ -778,7 +779,7 @@ void Compiler::Comp_AddCycles_C(bool forceNonConstant)
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
 
     if ((!Thumb && CurInstr.Cond() < 0xE) || forceNonConstant)
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
@@ -790,7 +791,7 @@ void Compiler::Comp_AddCycles_CI(u32 i)
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles)) + i;
 
     if (!Thumb && CurInstr.Cond() < 0xE)
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }
@@ -804,12 +805,12 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
     if (!Thumb && CurInstr.Cond() < 0xE)
     {
         LEA(32, RSCRATCH, MDisp(i, add + cycles));
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(RSCRATCH));
     }
     else
     {
         ConstantCycles += cycles;
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), R(i));
     }
 }
 
@@ -847,7 +848,7 @@ void Compiler::Comp_AddCycles_CDI()
         }
         
         if (!Thumb && CurInstr.Cond() < 0xE)
-            SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+            ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
         else
             ConstantCycles += cycles;
     }
@@ -891,7 +892,7 @@ void Compiler::Comp_AddCycles_CD()
     }
 
     if (IrregularCycles && !Thumb && CurInstr.Cond() < 0xE)
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
 }

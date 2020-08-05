@@ -111,6 +111,7 @@ void Init(int argc, char** argv)
     confdir = config.absolutePath() + "/melonDS/";
     EmuDirectory = new char[confdir.length() + 1];
     memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
+    EmuDirectory[confdir.length()] = '\0';
 #endif
 }
 

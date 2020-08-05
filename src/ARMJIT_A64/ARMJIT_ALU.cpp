@@ -434,6 +434,19 @@ void Compiler::A_Comp_GetOp2(bool S, Op2& op2)
     if (CurInstr.Instr & (1 << 25))
     {
         Comp_AddCycles_C();
+
+        u32 shift = (CurInstr.Instr >> 7) & 0x1E;
+        u32 imm = ROR(CurInstr.Instr & 0xFF, shift);
+
+        if (S && shift && (CurInstr.SetFlags & 0x2))
+        {
+            CPSRDirty = true;
+            if (imm & 0x80000000)
+                ORRI2R(RCPSR, RCPSR, 1 << 29);
+            else
+                ANDI2R(RCPSR, RCPSR, ~(1 << 29));
+        }
+
         op2 = Op2(ROR(CurInstr.Instr & 0xFF, (CurInstr.Instr >> 7) & 0x1E));    
     }
     else

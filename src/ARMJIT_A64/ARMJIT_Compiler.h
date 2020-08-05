@@ -247,9 +247,9 @@ public:
 
     std::unordered_map<ptrdiff_t, LoadStorePatch> LoadStorePatches; 
 
-    // [Num][Size][Sign Extend][Output register]
-    void* PatchedLoadFuncs[2][3][2][8];
-    void* PatchedStoreFuncs[2][3][8];
+    // [Console Type][Num][Size][Sign Extend][Output register]
+    void* PatchedLoadFuncs[2][2][3][2][8];
+    void* PatchedStoreFuncs[2][2][3][8];
 
     RegisterCache<Compiler, Arm64Gen::ARM64Reg> RegCache;
 

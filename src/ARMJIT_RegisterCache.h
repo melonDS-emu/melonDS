@@ -18,8 +18,8 @@ public:
     RegisterCache()
     {}
 
-	RegisterCache(T* compiler, FetchedInstr instrs[], int instrsCount, bool pcAllocatableAsSrc = false)
-		: Compiler(compiler), Instrs(instrs), InstrsCount(instrsCount)
+    RegisterCache(T* compiler, FetchedInstr instrs[], int instrsCount, bool pcAllocatableAsSrc = false)
+        : Compiler(compiler), Instrs(instrs), InstrsCount(instrsCount)
     {
         for (int i = 0; i < 16; i++)
             Mapping[i] = (Reg)-1;
@@ -95,7 +95,7 @@ public:
         LiteralsLoaded = 0;
     }
 
-	void Prepare(bool thumb, int i)
+    void Prepare(bool thumb, int i)
     {
         FetchedInstr instr = Instrs[i];
 
@@ -175,23 +175,23 @@ public:
         DirtyRegs |= (LoadedRegs & instr.Info.DstRegs) & ~(1 << 15);
     }
 
-	static const Reg NativeRegAllocOrder[];
-	static const int NativeRegsAvailable;
+    static const Reg NativeRegAllocOrder[];
+    static const int NativeRegsAvailable;
 
-	Reg Mapping[16];
+    Reg Mapping[16];
     u32 LiteralValues[16];
 
     u16 LiteralsLoaded = 0;
-	u32 NativeRegsUsed = 0;
-	u16 LoadedRegs = 0;
-	u16 DirtyRegs = 0;
+    u32 NativeRegsUsed = 0;
+    u16 LoadedRegs = 0;
+    u16 DirtyRegs = 0;
 
     u16 PCAllocatableAsSrc = 0;
 
-	T* Compiler;
+    T* Compiler;
 
-	FetchedInstr* Instrs;
-	int InstrsCount;
+    FetchedInstr* Instrs;
+    int InstrsCount;
 };
 
 }

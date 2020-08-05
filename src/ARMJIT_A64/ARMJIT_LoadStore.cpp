@@ -174,8 +174,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         LoadStorePatch patch;
 
         patch.PatchFunc = flags & memop_Store
-            ? PatchedStoreFuncs[Num][__builtin_ctz(size) - 3][rdMapped - W19]
-            : PatchedLoadFuncs[Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped - W19];
+            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped - W19]
+            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped - W19];
         assert(rdMapped - W19 >= 0 && rdMapped - W19 < 8);
 
         MOVP2R(X7, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
@@ -241,20 +241,26 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W2, rdMapped);
-                    switch (size)
+                    switch (size | NDS::ConsoleType)
                     {
-                    case 32: QuickCallFunction(X3, SlowWrite9<u32>); break;
-                    case 16: QuickCallFunction(X3, SlowWrite9<u16>); break;
-                    case 8: QuickCallFunction(X3, SlowWrite9<u8>); break;
+                    case 32: QuickCallFunction(X3, SlowWrite9<u32, 0>); break;
+                    case 33: QuickCallFunction(X3, SlowWrite9<u32, 1>); break;
+                    case 16: QuickCallFunction(X3, SlowWrite9<u16, 0>); break;
+                    case 17: QuickCallFunction(X3, SlowWrite9<u16, 1>); break;
+                    case 8: QuickCallFunction(X3, SlowWrite9<u8, 0>); break;
+                    case 9: QuickCallFunction(X3, SlowWrite9<u8, 1>); break;
                     }
                 }
                 else
                 {
-                    switch (size)
+                    switch (size | NDS::ConsoleType)
                     {
-                    case 32: QuickCallFunction(X3, SlowRead9<u32>); break;
-                    case 16: QuickCallFunction(X3, SlowRead9<u16>); break;
-                    case 8: QuickCallFunction(X3, SlowRead9<u8>); break;
+                    case 32: QuickCallFunction(X3, SlowRead9<u32, 0>); break;
+                    case 33: QuickCallFunction(X3, SlowRead9<u32, 1>); break;
+                    case 16: QuickCallFunction(X3, SlowRead9<u16, 0>); break;
+                    case 17: QuickCallFunction(X3, SlowRead9<u16, 1>); break;
+                    case 8: QuickCallFunction(X3, SlowRead9<u8, 0>); break;
+                    case 9: QuickCallFunction(X3, SlowRead9<u8, 1>); break;
                     }
                 }
             }
@@ -263,20 +269,26 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (flags & memop_Store)
                 {
                     MOV(W1, rdMapped);
-                    switch (size)
+                    switch (size | NDS::ConsoleType)
                     {
-                    case 32: QuickCallFunction(X3, SlowWrite7<u32>); break;
-                    case 16: QuickCallFunction(X3, SlowWrite7<u16>); break;
-                    case 8: QuickCallFunction(X3, SlowWrite7<u8>); break;
+                    case 32: QuickCallFunction(X3, SlowWrite7<u32, 0>); break;
+                    case 33: QuickCallFunction(X3, SlowWrite7<u32, 1>); break;
+                    case 16: QuickCallFunction(X3, SlowWrite7<u16, 0>); break;
+                    case 17: QuickCallFunction(X3, SlowWrite7<u16, 1>); break;
+                    case 8: QuickCallFunction(X3, SlowWrite7<u8, 0>); break;
+                    case 9: QuickCallFunction(X3, SlowWrite7<u8, 1>); break;
                     }
                 }
                 else
                 {
-                    switch (size)
+                    switch (size | NDS::ConsoleType)
                     {
-                    case 32: QuickCallFunction(X3, SlowRead7<u32>); break;
-                    case 16: QuickCallFunction(X3, SlowRead7<u16>); break;
-                    case 8: QuickCallFunction(X3, SlowRead7<u8>); break;
+                    case 32: QuickCallFunction(X3, SlowRead7<u32, 0>); break;
+                    case 33: QuickCallFunction(X3, SlowRead7<u32, 1>); break;
+                    case 16: QuickCallFunction(X3, SlowRead7<u16, 0>); break;
+                    case 17: QuickCallFunction(X3, SlowRead7<u16, 1>); break;
+                    case 8: QuickCallFunction(X3, SlowRead7<u8, 0>); break;
+                    case 9: QuickCallFunction(X3, SlowRead7<u8, 1>); break;
                     }
                 }
             }
@@ -465,15 +477,25 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     if (decrement)
     {
-        SUB(W0, MapReg(rn), regsCount * 4);
-        ANDI2R(W0, W0, ~3);
-        preinc ^= true;
+        s32 offset = -regsCount * 4 + (preinc ? 0 : 4);
+        if (offset)
+        {
+            ADDI2R(W0, MapReg(rn), offset);
+            ANDI2R(W0, W0, ~3);
+        }
+        else
+        {
+            ANDI2R(W0, MapReg(rn), ~3);
+        }
     }
     else
     {
         ANDI2R(W0, MapReg(rn), ~3);
+        if (preinc)
+            ADD(W0, W0, 4);
     }
 
+    u8* patchFunc;
     if (compileFastPath)
     {
         ptrdiff_t fastPathStart = GetCodeOffset();
@@ -482,7 +504,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         MOVP2R(X1, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
         ADD(X1, X1, X0);
 
-        u32 offset = preinc ? 4 : 0;
+        u32 offset = 0;
         BitSet16::Iterator it = regs.begin();
         u32 i = 0;
 
@@ -545,7 +567,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         LoadStorePatch patch;
         patch.PatchSize = GetCodeOffset() - fastPathStart;
         SwapCodeRegion();
-        patch.PatchFunc = GetRXPtr();
+        patchFunc = (u8*)GetRXPtr();
+        patch.PatchFunc = patchFunc;
         for (i = 0; i < regsCount; i++)
         {
             patch.PatchOffset = fastPathStart - loadStoreOffsets[i];
@@ -620,22 +643,22 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (Num == 0)
     {
         MOV(X3, RCPU);
-        switch (preinc * 2 | store)
+        switch ((u32)store * 2 | NDS::ConsoleType)
         {
-        case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, false>); break;
-        case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, true>); break;
-        case 2: QuickCallFunction(X4, SlowBlockTransfer9<true, false>); break;
-        case 3: QuickCallFunction(X4, SlowBlockTransfer9<true, true>); break;
+        case 0: QuickCallFunction(X4, SlowBlockTransfer9<false, 0>); break;
+        case 1: QuickCallFunction(X4, SlowBlockTransfer9<false, 1>); break;
+        case 2: QuickCallFunction(X4, SlowBlockTransfer9<true, 0>); break;
+        case 3: QuickCallFunction(X4, SlowBlockTransfer9<true, 1>); break;
         }
     }
     else
     {
-        switch (preinc * 2 | store)
+        switch ((u32)store * 2 | NDS::ConsoleType)
         {
-        case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, false>); break;
-        case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, true>); break;
-        case 2: QuickCallFunction(X4, SlowBlockTransfer7<true, false>); break;
-        case 3: QuickCallFunction(X4, SlowBlockTransfer7<true, true>); break;
+        case 0: QuickCallFunction(X4, SlowBlockTransfer7<false, 0>); break;
+        case 1: QuickCallFunction(X4, SlowBlockTransfer7<false, 1>); break;
+        case 2: QuickCallFunction(X4, SlowBlockTransfer7<true, 0>); break;
+        case 3: QuickCallFunction(X4, SlowBlockTransfer7<true, 1>); break;
         }
     }
 
@@ -705,7 +728,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ABI_PopRegisters({30});
         RET();
 
-        FlushIcacheSection((u8*)patch.PatchFunc, (u8*)GetRXPtr());
+        FlushIcacheSection(patchFunc, (u8*)GetRXPtr());
         SwapCodeRegion();
     }
 

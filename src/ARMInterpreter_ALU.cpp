@@ -126,6 +126,11 @@ namespace ARMInterpreter
 #define A_CALC_OP2_IMM \
     u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E);
 
+#define A_CALC_OP2_IMM_S \
+    u32 b = ROR(cpu->CurInstr&0xFF, (cpu->CurInstr>>7)&0x1E); \
+    if ((cpu->CurInstr>>7)&0x1E) \
+        cpu->SetC(b & 0x80000000);
+
 #define A_CALC_OP2_REG_SHIFT_IMM(shiftop) \
     u32 b = cpu->R[cpu->CurInstr&0xF]; \
     u32 s = (cpu->CurInstr>>7)&0x1F; \
@@ -186,7 +191,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
 } \
 void A_##x##_IMM_S(ARM* cpu) \
 { \
-    A_CALC_OP2_IMM \
+    A_CALC_OP2_IMM##s \
     A_##x##_S(0) \
 } \
 void A_##x##_REG_LSL_IMM_S(ARM* cpu) \
@@ -234,7 +239,7 @@ void A_##x##_REG_ROR_REG_S(ARM* cpu) \
 \
 void A_##x##_IMM(ARM* cpu) \
 { \
-    A_CALC_OP2_IMM \
+    A_CALC_OP2_IMM##s \
     A_##x(0) \
 } \
 void A_##x##_REG_LSL_IMM(ARM* cpu) \
@@ -1078,7 +1083,7 @@ void A_QDADD(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (rn & 0x40000000)
+    if (OVERFLOW_ADD(rn, rn, rn<<1))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME
@@ -1104,7 +1109,7 @@ void A_QDSUB(ARM* cpu)
     u32 rm = cpu->R[cpu->CurInstr & 0xF];
     u32 rn = cpu->R[(cpu->CurInstr >> 16) & 0xF];
 
-    if (rn & 0x40000000)
+    if (OVERFLOW_ADD(rn, rn, rn<<1))
     {
         rn = (rn & 0x80000000) ? 0x80000000 : 0x7FFFFFFF;
         cpu->CPSR |= 0x08000000; // CHECKME

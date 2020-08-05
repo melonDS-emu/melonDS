@@ -80,7 +80,7 @@ ARM::~ARM()
 ARMv5::ARMv5() : ARM(0)
 {
 #ifndef JIT_ENABLED
-    DTCM = new u8[DTCMSize];
+    DTCM = new u8[DTCMPhysicalSize];
 #endif
 }
 
@@ -274,15 +274,15 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (addr & 0x2)
         {
             NextInstr[0] = CodeRead32(addr-2, true) >> 16;
-            Cycles -= CodeCycles;
+            Cycles += CodeCycles;
             NextInstr[1] = CodeRead32(addr+2, false);
-            Cycles -= CodeCycles;
+            Cycles += CodeCycles;
         }
         else
         {
             NextInstr[0] = CodeRead32(addr, true);
             NextInstr[1] = NextInstr[0] >> 16;
-            Cycles -= CodeCycles;
+            Cycles += CodeCycles;
         }
 
         CPSR |= 0x20;
@@ -295,9 +295,9 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         if (newregion != oldregion) SetupCodeMem(addr);
 
         NextInstr[0] = CodeRead32(addr, true);
-        Cycles -= CodeCycles;
+        Cycles += CodeCycles;
         NextInstr[1] = CodeRead32(addr+4, false);
-        Cycles -= CodeCycles;
+        Cycles += CodeCycles;
 
         CPSR &= ~0x20;
     }
@@ -337,7 +337,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead16(addr);
         NextInstr[1] = CodeRead16(addr+2);
-        Cycles -= NDS::ARM7MemTimings[CodeCycles][0] + NDS::ARM7MemTimings[CodeCycles][1];
+        Cycles += NDS::ARM7MemTimings[CodeCycles][0] + NDS::ARM7MemTimings[CodeCycles][1];
 
         CPSR |= 0x20;
     }
@@ -350,7 +350,7 @@ void ARMv4::JumpTo(u32 addr, bool restorecpsr)
 
         NextInstr[0] = CodeRead32(addr);
         NextInstr[1] = CodeRead32(addr+4);
-        Cycles -= NDS::ARM7MemTimings[CodeCycles][2] + NDS::ARM7MemTimings[CodeCycles][3];
+        Cycles += NDS::ARM7MemTimings[CodeCycles][2] + NDS::ARM7MemTimings[CodeCycles][3];
 
         CPSR &= ~0x20;
     }
@@ -609,7 +609,7 @@ void ARMv5::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        NDS::ARM9Timestamp -= Cycles;
+        NDS::ARM9Timestamp += Cycles;
         Cycles = 0;
     }
 
@@ -643,9 +643,6 @@ void ARMv5::ExecuteJIT()
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
 
-        // hack so Cycles <= 0 becomes Cycles < 0
-        Cycles = NDS::ARM9Target - NDS::ARM9Timestamp - 1;
-
         if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
             && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
@@ -661,24 +658,26 @@ void ARMv5::ExecuteJIT()
         else
             ARMJIT::CompileBlock(this);
 
-        NDS::ARM9Timestamp = NDS::ARM9Target - Cycles - 1;
-
         if (StopExecution)
         {
+            // this order is crucial otherwise idle loops waiting for an IRQ won't function
             if (IRQ)
                 TriggerIRQ();
 
             if (Halted || IdleLoop)
             {
-                bool idleLoop = IdleLoop;
-                IdleLoop = 0;
-                if ((Halted == 1 || idleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
+                if ((Halted == 1 || IdleLoop) && NDS::ARM9Timestamp < NDS::ARM9Target)
                 {
+                    Cycles = 0;
                     NDS::ARM9Timestamp = NDS::ARM9Target;
                 }
+                IdleLoop = 0;
                 break;
             }
         }
+
+        NDS::ARM9Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)
@@ -755,7 +754,7 @@ void ARMv4::Execute()
         }*/
         if (IRQ) TriggerIRQ();
 
-        NDS::ARM7Timestamp -= Cycles;
+        NDS::ARM7Timestamp += Cycles;
         Cycles = 0;
     }
 
@@ -795,8 +794,6 @@ void ARMv4::ExecuteJIT()
     {
         u32 instrAddr = R[15] - ((CPSR&0x20)?2:4);
 
-        Cycles = NDS::ARM7Target - NDS::ARM7Timestamp - 1;
-
         if ((instrAddr < FastBlockLookupStart || instrAddr >= (FastBlockLookupStart + FastBlockLookupSize))
             && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
@@ -812,9 +809,6 @@ void ARMv4::ExecuteJIT()
         else
             ARMJIT::CompileBlock(this);
 
-        NDS::ARM7Timestamp = NDS::ARM7Target - Cycles - 1;
-
-        // TODO optimize this shit!!!
         if (StopExecution)
         {
             if (IRQ)
@@ -822,15 +816,18 @@ void ARMv4::ExecuteJIT()
 
             if (Halted || IdleLoop)
             {
-                bool idleLoop = IdleLoop;
-                IdleLoop = 0;
-                if ((Halted == 1 || idleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
+                if ((Halted == 1 || IdleLoop) && NDS::ARM7Timestamp < NDS::ARM7Target)
                 {
+                    Cycles = 0;
                     NDS::ARM7Timestamp = NDS::ARM7Target;
                 }
+                IdleLoop = 0;
                 break;
             }
         }
+
+        NDS::ARM7Timestamp += Cycles;
+        Cycles = 0;
     }
 
     if (Halted == 2)

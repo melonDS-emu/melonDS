@@ -127,7 +127,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     if ((Thumb || CurInstr.Cond() >= 0xE) && !forceNonConstantCycles)
         ConstantCycles += cycles;
     else
-        SUB(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
 }
 
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)

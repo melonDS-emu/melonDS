@@ -259,6 +259,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
     EmuStatus = 0;
     EmuRunning = 2;
+    EmuPause = 0;
     RunningSomething = false;
 
     connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
@@ -568,6 +569,7 @@ void EmuThread::changeWindowTitle(char* title)
 void EmuThread::emuRun()
 {
     EmuRunning = 1;
+    EmuPause = 0;
     RunningSomething = true;
 
     // checkme
@@ -578,6 +580,9 @@ void EmuThread::emuRun()
 
 void EmuThread::emuPause()
 {
+    EmuPause++;
+    if (EmuPause > 1) return;
+
     PrevEmuStatus = EmuRunning;
     EmuRunning = 2;
     while (EmuStatus != 2);
@@ -588,6 +593,11 @@ void EmuThread::emuPause()
 
 void EmuThread::emuUnpause()
 {
+    if (EmuPause < 1) return;
+
+    EmuPause--;
+    if (EmuPause > 0) return;
+
     EmuRunning = PrevEmuStatus;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
@@ -597,6 +607,7 @@ void EmuThread::emuUnpause()
 void EmuThread::emuStop()
 {
     EmuRunning = 0;
+    EmuPause = 0;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
     if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
@@ -1289,6 +1300,8 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
+    if (event->key() == Qt::Key_F11) NDS::debug(0);
+
     Input::KeyPress(event);
 }
 
@@ -1694,11 +1707,10 @@ void MainWindow::onOpenEmuSettings()
 
 void MainWindow::onEmuSettingsDialogFinished(int res)
 {
+    emuThread->emuUnpause();
+
     if (EmuSettingsDialog::needsReset)
-    {
-        emuThread->emuUnpause();
         onReset();
-    }
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2128,12 +2140,12 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 
     if (argv_w) LocalFree(argv_w);
 
-    if (AttachConsole(ATTACH_PARENT_PROCESS))
+    /*if (AttachConsole(ATTACH_PARENT_PROCESS))
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
         printf("\n");
-    }
+    }*/
 
     int ret = main(argc, argv);
 

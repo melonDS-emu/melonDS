@@ -57,7 +57,7 @@ public:
     }
 
     virtual void Execute() = 0;
-#ifdef ENABLE_JIT
+#ifdef JIT_ENABLED
     virtual void ExecuteJIT() = 0;
 #endif
 
@@ -202,14 +202,14 @@ public:
     {
         // code only. always nonseq 32-bit for ARM9.
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles -= numC;
+        Cycles += numC;
     }
 
     void AddCycles_CI(s32 numI)
     {
         // code+internal
         s32 numC = (R[15] & 0x2) ? 0 : CodeCycles;
-        Cycles -= numC + numI;
+        Cycles += numC + numI;
     }
 
     void AddCycles_CDI()
@@ -220,9 +220,9 @@ public:
         s32 numD = DataCycles;
 
         //if (DataRegion != CodeRegion)
-            Cycles -= std::max(numC + numD - 6, std::max(numC, numD));
+            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
         //else
-        //    Cycles -= numC + numD;
+        //    Cycles += numC + numD;
     }
 
     void AddCycles_CD()
@@ -232,9 +232,9 @@ public:
         s32 numD = DataCycles;
 
         //if (DataRegion != CodeRegion)
-            Cycles -= std::max(numC + numD - 6, std::max(numC, numD));
+            Cycles += std::max(numC + numD - 6, std::max(numC, numD));
         //else
-        //    Cycles -= numC + numD;
+        //    Cycles += numC + numD;
     }
 
     void GetCodeMemRegion(u32 addr, NDS::MemRegion* region);
@@ -396,13 +396,13 @@ public:
     void AddCycles_C()
     {
         // code only. this code fetch is sequential.
-        Cycles -= NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
+        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?1:3];
     }
 
     void AddCycles_CI(s32 num)
     {
         // code+internal. results in a nonseq code fetch.
-        Cycles -= NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
+        Cycles += NDS::ARM7MemTimings[CodeCycles][(CPSR&0x20)?0:2] + num;
     }
 
     void AddCycles_CDI()
@@ -414,21 +414,21 @@ public:
         if ((DataRegion >> 24) == 0x02) // mainRAM
         {
             if (CodeRegion == 0x02)
-                Cycles -= numC + numD;
+                Cycles += numC + numD;
             else
             {
                 numC++;
-                Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
+                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
             }
         }
         else if (CodeRegion == 0x02)
         {
             numD++;
-            Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
+            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
         }
         else
         {
-            Cycles -= numC + numD + 1;
+            Cycles += numC + numD + 1;
         }
     }
 
@@ -441,17 +441,17 @@ public:
         if ((DataRegion >> 24) == 0x02)
         {
             if (CodeRegion == 0x02)
-                Cycles -= numC + numD;
+                Cycles += numC + numD;
             else
-                Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
+                Cycles += std::max(numC + numD - 3, std::max(numC, numD));
         }
         else if (CodeRegion == 0x02)
         {
-            Cycles -= std::max(numC + numD - 3, std::max(numC, numD));
+            Cycles += std::max(numC + numD - 3, std::max(numC, numD));
         }
         else
         {
-            Cycles -= numC + numD;
+            Cycles += numC + numD;
         }
     }
 };

@@ -2,9 +2,9 @@
 
 .text
 
-#define RCPSR W27
-#define RCycles W28
-#define RCPU X29
+#define RCPSR w27
+#define RCycles w28
+#define RCPU x29
 
 .p2align 4,,15
 

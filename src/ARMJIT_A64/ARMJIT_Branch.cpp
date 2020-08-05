@@ -143,7 +143,7 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
     if ((Thumb || CurInstr.Cond() >= 0xE) && !forceNonConstantCycles)
         ConstantCycles += cycles;
     else
-        SUB(RCycles, RCycles, cycles);
+        ADD(RCycles, RCycles, cycles);
 }
 
 
@@ -181,7 +181,7 @@ void* Compiler::Gen_JumpTo9(int kind)
         STR(INDEX_UNSIGNED, W0, RCPU, offsetof(ARMv5, R[15]));
 
         ADD(W1, W1, W1);
-        SUB(RCycles, RCycles, W1);
+        ADD(RCycles, RCycles, W1);
         RET();
     }
 
@@ -201,7 +201,7 @@ void* Compiler::Gen_JumpTo9(int kind)
         ADD(W2, W1, W1);
         TSTI2R(W0, 0x2);
         CSEL(W1, W1, W2, CC_EQ);
-        SUB(RCycles, RCycles, W1);
+        ADD(RCycles, RCycles, W1);
         RET();
     }
 
@@ -229,7 +229,7 @@ void* Compiler::Gen_JumpTo7(int kind)
         UBFX(W2, W3, 0, 8);
         UBFX(W3, W3, 8, 8);
         ADD(W2, W3, W2);
-        SUB(RCycles, RCycles, W2);
+        ADD(RCycles, RCycles, W2);
 
         ANDI2R(W0, W0, ~3);
 
@@ -253,7 +253,7 @@ void* Compiler::Gen_JumpTo7(int kind)
         UBFX(W2, W3, 16, 8);
         UBFX(W3, W3, 24, 8);
         ADD(W2, W3, W2);
-        SUB(RCycles, RCycles, W2);
+        ADD(RCycles, RCycles, W2);
 
         ANDI2R(W0, W0, ~1);
 
