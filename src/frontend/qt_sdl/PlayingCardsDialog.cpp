@@ -207,6 +207,53 @@ void PlayingCardsDialog::updateUI()
     }
 }
 
+void PlayingCardsDialog::createStack(CardPile *stack)
+{
+    int row = Stacks.length() / 5 * 3;
+    int col = Stacks.length() % 5;
+
+    QLabel *textLabel = new QLabel();
+    textLabel->setAlignment(Qt::AlignHCenter);
+    ui->stacksLayout->addWidget(textLabel, row, col);
+
+    QLabel *imageLabel = new QLabel();
+    imageLabel->setAlignment(Qt::AlignHCenter);
+    imageLabel->setFixedSize(ui->mainDeckImageLabel->size() * 0.75);
+    imageLabel->setFrameStyle(QFrame::StyledPanel);
+    ui->stacksLayout->addWidget(imageLabel, row + 1, col);
+
+    QGroupBox *controlsGroupBox = new QGroupBox("Stack Controls");
+    QGridLayout *controlsGroupBoxGridLayout = new QGridLayout();
+    QPushButton *stackFlipButton = new QPushButton("Flip", controlsGroupBox);
+    QObject::connect(stackFlipButton, SIGNAL(clicked()), this, SLOT(on_flip()));
+    controlsGroupBoxGridLayout->addWidget(stackFlipButton, 0, 0, 1, 2);
+    QPushButton *stackDrawButton = new QPushButton("Draw from Hand", controlsGroupBox);
+    QObject::connect(stackDrawButton, SIGNAL(clicked()), this, SLOT(on_draw()));
+    controlsGroupBoxGridLayout->addWidget(stackDrawButton, 1, 1);
+    QPushButton *stackReturnButton = new QPushButton("Return to Hand", controlsGroupBox);
+    QObject::connect(stackReturnButton, SIGNAL(clicked()), this, SLOT(on_return()));
+    controlsGroupBoxGridLayout->addWidget(stackReturnButton, 1, 0);
+    QPushButton *stackShuffleButton = new QPushButton("Shuffle", controlsGroupBox);
+    QObject::connect(stackShuffleButton, SIGNAL(clicked()), this, SLOT(on_shuffle()));
+    controlsGroupBoxGridLayout->addWidget(stackShuffleButton, 2, 0);
+    QPushButton *stackRotateButton = new QPushButton("Rotate", controlsGroupBox);
+    QObject::connect(stackRotateButton, SIGNAL(clicked()), this, SLOT(on_rotate()));
+    controlsGroupBoxGridLayout->addWidget(stackRotateButton, 2, 1);
+    controlsGroupBox->setLayout(controlsGroupBoxGridLayout);
+    ui->stacksLayout->addWidget(controlsGroupBox, row + 2, col);
+
+    stack->TextLabel = textLabel;
+    stack->ImageLabel = imageLabel;
+    stack->ControlsGroupBox = controlsGroupBox;
+}
+
+void PlayingCardsDialog::deleteStack(CardPile *stack)
+{
+    delete stack->TextLabel;
+    delete stack->ImageLabel;
+    delete stack->ControlsGroupBox;
+}
+
 void PlayingCardsDialog::on_browse()
 {
     CardPile deckBackup = Deck;
@@ -250,43 +297,9 @@ void PlayingCardsDialog::on_draw()
     QObject* obj = sender()->parent();
     if (obj == Hand.ControlsGroupBox) // draw from the hand to a new stack
     {
-        int row = Stacks.length() / 5 * 3;
-        int col = Stacks.length() % 5;
-
-        QLabel *textLabel = new QLabel();
-        textLabel->setAlignment(Qt::AlignHCenter);
-        ui->stacksLayout->addWidget(textLabel, row, col);
-
-        QLabel *imageLabel = new QLabel();
-        imageLabel->setAlignment(Qt::AlignHCenter);
-        imageLabel->setFixedSize(ui->mainDeckImageLabel->size() * 0.75);
-        imageLabel->setFrameStyle(QFrame::StyledPanel);
-        ui->stacksLayout->addWidget(imageLabel, row + 1, col);
-
-        QGroupBox *controlsGroupBox = new QGroupBox("Stack Controls");
-        QGridLayout *controlsGroupBoxGridLayout = new QGridLayout();
-        QPushButton *stackFlipButton = new QPushButton("Flip", controlsGroupBox);
-        QObject::connect(stackFlipButton, SIGNAL(clicked()), this, SLOT(on_flip()));
-        controlsGroupBoxGridLayout->addWidget(stackFlipButton, 0, 0, 1, 2);
-        QPushButton *stackDrawButton = new QPushButton("Draw from Hand", controlsGroupBox);
-        QObject::connect(stackDrawButton, SIGNAL(clicked()), this, SLOT(on_draw()));
-        controlsGroupBoxGridLayout->addWidget(stackDrawButton, 1, 1);
-        QPushButton *stackReturnButton = new QPushButton("Return to Hand", controlsGroupBox);
-        QObject::connect(stackReturnButton, SIGNAL(clicked()), this, SLOT(on_return()));
-        controlsGroupBoxGridLayout->addWidget(stackReturnButton, 1, 0);
-        QPushButton *stackShuffleButton = new QPushButton("Shuffle", controlsGroupBox);
-        QObject::connect(stackShuffleButton, SIGNAL(clicked()), this, SLOT(on_shuffle()));
-        controlsGroupBoxGridLayout->addWidget(stackShuffleButton, 2, 0);
-        QPushButton *stackRotateButton = new QPushButton("Rotate", controlsGroupBox);
-        QObject::connect(stackRotateButton, SIGNAL(clicked()), this, SLOT(on_rotate()));
-        controlsGroupBoxGridLayout->addWidget(stackRotateButton, 2, 1);
-        controlsGroupBox->setLayout(controlsGroupBoxGridLayout);
-        ui->stacksLayout->addWidget(controlsGroupBox, row + 2, col);
-
-        CardPile newStack =
-            CardPile { .Cards = QList<QString>(), .Flipped = Hand.Flipped, .TextLabel = textLabel,
-            .ImageLabel = imageLabel, .ControlsGroupBox = controlsGroupBox };
+        CardPile newStack = CardPile { .Cards = QList<QString>(), .Flipped = Hand.Flipped };
         newStack.Cards.append(Hand.Cards.takeFirst());
+        this->createStack(&newStack);
         Stacks.append(newStack);
         this->updateUI();
         Hand.Flipped = false;
@@ -357,11 +370,7 @@ void PlayingCardsDialog::on_shuffle()
         while (Stacks.length() > 0)
         {
             Deck.Cards.append(Stacks[0].Cards);
-            Stacks[0].Cards.clear();
-            Stacks[0].Flipped = false;
-            delete Stacks[0].TextLabel;
-            delete Stacks[0].ImageLabel;
-            delete Stacks[0].ControlsGroupBox;
+            this->deleteStack(&Stacks[0]);
             Stacks.removeAt(0);
         }
 

@@ -86,6 +86,8 @@ private slots:
     void paintCard(CardPile pile); // Redraws a card for a single pile
     void paintAllCards(); // Redraws all cards displayed
     void updateUI(); // Refreshes non-image UI elements
+    void createStack(CardPile *stack); // Generates new card stack UI elements
+    void deleteStack(CardPile *stack); // Deletes card stack UI elements
 
     void on_browse();
 
