@@ -146,7 +146,7 @@ void PlayingCardsDialog::paintCard(CardPile pile)
     if (!pile.Cards.isEmpty())
     {
         QDir directory = QDir(QString(Config::PlayingCardsPath));
-        QString current_card = pile.Cards.first();
+        QString currentCard = pile.Cards.first();
         if (pile.Flipped)
         {
             directory.cd("front");
@@ -156,19 +156,19 @@ void PlayingCardsDialog::paintCard(CardPile pile)
             directory.cd("back");
         }
 
-        QString file_path = directory.absoluteFilePath(current_card);
-        if (!pixmap.load(file_path))
+        QString filePath = directory.absoluteFilePath(currentCard);
+        if (!pixmap.load(filePath))
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Failed to read an image",
-                "The card image at " + file_path + "could not be read.\n"
+                "The card image at " + filePath + "could not be read.\n"
                 "It may be missing, access-restricted, or stored in an"
                 "unsupported format.");
             return;
         }
         else
         {
-            printf("PlayingCardsDialog: painting %s\n", file_path.toStdString().c_str());
+            printf("PlayingCardsDialog: painting %s\n", filePath.toStdString().c_str());
         }
     }
 
@@ -258,18 +258,18 @@ void PlayingCardsDialog::on_browse()
     CardPile handBackup = Hand;
     QList<CardPile> stacksBackup = Stacks;
 
-    QString current_directory = QString(Config::PlayingCardsPath);
-    QString new_directory = QFileDialog::getExistingDirectory(this,
+    QString currentDirectory = QString(Config::PlayingCardsPath);
+    QString newDirectory = QFileDialog::getExistingDirectory(this,
                                                             "Select playing cards root directory...",
-                                                            current_directory);
+                                                            currentDirectory);
 
-    if (!new_directory.isEmpty() && QFileInfo(new_directory) != QFileInfo(current_directory))
+    if (!newDirectory.isEmpty() && QFileInfo(newDirectory) != QFileInfo(currentDirectory))
     {
-        bool valid = this->processCardDirectory(QDir(new_directory));
+        bool valid = this->processCardDirectory(QDir(newDirectory));
 
         if (valid)
         {
-            strncpy(Config::PlayingCardsPath, new_directory.toStdString().c_str(), 1023);
+            strncpy(Config::PlayingCardsPath, newDirectory.toStdString().c_str(), 1023);
             Config::PlayingCardsPath[1023] = '\0';
             Config::Save();
             Deck.ControlsGroupBox->setEnabled(true);
