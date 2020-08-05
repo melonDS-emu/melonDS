@@ -38,7 +38,6 @@ PlayingCardsDialog *PlayingCardsDialog::currentDlg = nullptr;
 
 CardPile Deck;
 CardPile Hand;
-CardPile Discard;
 QList<CardPile> Stacks;
 const int MAX_STACKS = 15;
 
@@ -68,7 +67,6 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         .ImageLabel = ui->mainDeckImageLabel, .ControlsGroupBox = ui->mainDeckControlsGroupBox };
     Hand = CardPile { .Cards = QList<QString>(), .Flipped = false, .TextLabel = ui->drawnDeckCardsLabel,
         .ImageLabel = ui->drawnDeckImageLabel, .ControlsGroupBox = ui->drawnDeckControlsGroupBox };
-    Discard = CardPile { .Cards = QList<QString>() };
     Stacks = QList<CardPile>();
 
     // Check that:
@@ -258,7 +256,6 @@ void PlayingCardsDialog::on_browse()
 {
     CardPile deckBackup = Deck;
     CardPile handBackup = Hand;
-    CardPile discardBackup = Discard;
     QList<CardPile> stacksBackup = Stacks;
 
     QString current_directory = QString(Config::PlayingCardsPath);
@@ -283,7 +280,6 @@ void PlayingCardsDialog::on_browse()
             // Restore the previously-loaded deck, if any.
             Deck = deckBackup;
             Hand = handBackup;
-            Discard = discardBackup;
             Stacks = stacksBackup;
             this->updateUI();
         }
@@ -362,9 +358,7 @@ void PlayingCardsDialog::on_shuffle()
     {
         // Add all cards back to the main deck, clear other piles, and shuffle
         Deck.Cards.append(Hand.Cards);
-        Deck.Cards.append(Discard.Cards);
         Hand.Cards.clear();
-        Discard.Cards.clear();
         Hand.Flipped = false;
         Deck.Flipped = false;
         while (Stacks.length() > 0)
