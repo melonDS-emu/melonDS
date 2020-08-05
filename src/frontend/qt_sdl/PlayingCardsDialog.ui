@@ -23,27 +23,8 @@
    <property name="sizeConstraint">
     <enum>QLayout::SetFixedSize</enum>
    </property>
-   <item row="0" column="0">
-    <widget class="QPushButton" name="setCardDirPushButton">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="whatsThis">
-      <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
-     </property>
-     <property name="text">
-      <string>Set playing cards directory...</string>
-     </property>
-     <property name="autoDefault">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
    <item row="3" column="0">
-    <layout class="QGridLayout" name="gridLayout_2">
+    <layout class="QGridLayout" name="deckLayout">
      <item row="1" column="1">
       <widget class="QLabel" name="drawnDeckImageLabel">
        <property name="minimumSize">
@@ -117,12 +98,12 @@
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QPushButton" name="drawnDeckDiscardPushButton">
+         <widget class="QPushButton" name="drawnDeckAddStackPushButton">
           <property name="whatsThis">
-           <string>Discards the topmost card entirely, until the deck is next shuffled.</string>
+           <string>Moves the topmost card to a new stack.</string>
           </property>
           <property name="text">
-           <string>Discard</string>
+           <string>Add to Stack</string>
           </property>
           <property name="autoDefault">
            <bool>false</bool>
@@ -244,6 +225,28 @@
      </item>
     </layout>
    </item>
+   <item row="0" column="0">
+    <widget class="QPushButton" name="setCardDirPushButton">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="whatsThis">
+      <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
+     </property>
+     <property name="text">
+      <string>Set playing cards directory...</string>
+     </property>
+     <property name="autoDefault">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <layout class="QGridLayout" name="stacksLayout"/>
+   </item>
   </layout>
  </widget>
  <resources/>
@@ -329,10 +332,10 @@
    </hints>
   </connection>
   <connection>
-   <sender>drawnDeckDiscardPushButton</sender>
+   <sender>drawnDeckAddStackPushButton</sender>
    <signal>clicked()</signal>
    <receiver>PlayingCardsDialog</receiver>
-   <slot>on_discard()</slot>
+   <slot>on_draw()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>619</x>
@@ -398,7 +401,6 @@
   <slot>on_draw()</slot>
   <slot>on_flip()</slot>
   <slot>on_shuffle()</slot>
-  <slot>on_discard()</slot>
   <slot>on_return()</slot>
   <slot>on_rotate()</slot>
  </slots>

@@ -39,6 +39,8 @@ PlayingCardsDialog *PlayingCardsDialog::currentDlg = nullptr;
 CardPile Deck;
 CardPile Hand;
 CardPile Discard;
+QList<CardPile> Stacks;
+const int MAX_STACKS = 15;
 
 
 PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PlayingCardsDialog)
@@ -48,9 +50,9 @@ PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     QDir directory = QDir(QString(Config::PlayingCardsPath));
     bool enableDeckControls = this->processCardDirectory(QDir(directory));
-    ui->mainDeckControlsGroupBox->setEnabled(enableDeckControls);
-    ui->drawnDeckControlsGroupBox->setEnabled(enableDeckControls);
-    this->recountCards();
+    Deck.ControlsGroupBox->setEnabled(enableDeckControls);
+    Hand.ControlsGroupBox->setEnabled(enableDeckControls);
+    this->updateUI();
     this->paintAllCards();
 }
 
@@ -62,9 +64,12 @@ PlayingCardsDialog::~PlayingCardsDialog()
 
 bool PlayingCardsDialog::processCardDirectory(QDir directory)
 {
-    Deck = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = ui->mainDeckImageLabel };
-    Hand = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = ui->drawnDeckImageLabel };
-    Discard = CardPile { .Cards = QList<QString>(), .Flipped = false, .Label = nullptr };
+    Deck = CardPile { .Cards = QList<QString>(), .Flipped = false, .TextLabel = ui->mainDeckCardsLabel,
+        .ImageLabel = ui->mainDeckImageLabel, .ControlsGroupBox = ui->mainDeckControlsGroupBox };
+    Hand = CardPile { .Cards = QList<QString>(), .Flipped = false, .TextLabel = ui->drawnDeckCardsLabel,
+        .ImageLabel = ui->drawnDeckImageLabel, .ControlsGroupBox = ui->drawnDeckControlsGroupBox };
+    Discard = CardPile { .Cards = QList<QString>() };
+    Stacks = QList<CardPile>();
 
     // Check that:
     // - the "front" and "back" directories exist
@@ -136,7 +141,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
 
 void PlayingCardsDialog::paintCard(CardPile pile)
 {
-    if (pile.Label == nullptr) return;
+    if (pile.ImageLabel == nullptr) return;
 
     QPixmap pixmap = QPixmap();
 
@@ -169,26 +174,37 @@ void PlayingCardsDialog::paintCard(CardPile pile)
         }
     }
 
-    pile.Label->setPixmap(pixmap.scaled(pile.Label->width(), pile.Label->height(), Qt::KeepAspectRatio));
+    pile.ImageLabel->setPixmap(pixmap.scaled(pile.ImageLabel->width(), pile.ImageLabel->height(),
+        Qt::KeepAspectRatio));
 }
 
 void PlayingCardsDialog::paintAllCards()
 {
     this->paintCard(Deck);
     this->paintCard(Hand);
+
+    foreach(CardPile pile, Stacks)
+    {
+        this->paintCard(pile);
+    }
 }
 
-void PlayingCardsDialog::recountCards()
+void PlayingCardsDialog::updateUI()
 {
     bool enableDeckControls = !Deck.Cards.isEmpty();
     ui->mainDeckDrawPushButton->setEnabled(enableDeckControls);
     ui->mainDeckFlipPushButton->setEnabled(enableDeckControls);
+    Deck.TextLabel->setText(QString::number(Deck.Cards.length()) + (Deck.Cards.length() > 1 ? " Cards" : " Card"));
 
-    bool enableHandControls = !Hand.Cards.isEmpty();
-    ui->drawnDeckControlsGroupBox->setEnabled(enableHandControls);
+    Hand.ControlsGroupBox->setEnabled(!Hand.Cards.isEmpty());
+    ui->drawnDeckAddStackPushButton->setEnabled(Stacks.length() < MAX_STACKS);
+    Hand.TextLabel->setText(QString::number(Hand.Cards.length()) + (Hand.Cards.length() > 1 ? " Cards" : " Card"));
 
-    ui->mainDeckCardsLabel->setText(QString::number(Deck.Cards.length()) + " Cards");
-    ui->drawnDeckCardsLabel->setText(QString::number(Hand.Cards.length()) + " Cards");
+    foreach (CardPile stack, Stacks)
+    {
+        if (stack.ControlsGroupBox != nullptr) stack.ControlsGroupBox->setEnabled(!stack.Cards.isEmpty());
+        if (stack.TextLabel != nullptr) stack.TextLabel->setText(QString::number(stack.Cards.length()) + (stack.Cards.length() > 1 ? " Cards" : " Card"));
+    }
 }
 
 void PlayingCardsDialog::on_browse()
@@ -196,6 +212,7 @@ void PlayingCardsDialog::on_browse()
     CardPile deckBackup = Deck;
     CardPile handBackup = Hand;
     CardPile discardBackup = Discard;
+    QList<CardPile> stacksBackup = Stacks;
 
     QString current_directory = QString(Config::PlayingCardsPath);
     QString new_directory = QFileDialog::getExistingDirectory(this,
@@ -211,8 +228,8 @@ void PlayingCardsDialog::on_browse()
             strncpy(Config::PlayingCardsPath, new_directory.toStdString().c_str(), 1023);
             Config::PlayingCardsPath[1023] = '\0';
             Config::Save();
-            ui->mainDeckControlsGroupBox->setEnabled(true);
-            this->recountCards();
+            Deck.ControlsGroupBox->setEnabled(true);
+            this->updateUI();
         }
         else
         {
@@ -220,7 +237,8 @@ void PlayingCardsDialog::on_browse()
             Deck = deckBackup;
             Hand = handBackup;
             Discard = discardBackup;
-            this->recountCards();
+            Stacks = stacksBackup;
+            this->updateUI();
         }
 
         this->paintAllCards();
@@ -229,18 +247,90 @@ void PlayingCardsDialog::on_browse()
 
 void PlayingCardsDialog::on_draw()
 {
-    Hand.Cards.prepend(Deck.Cards.takeFirst());
-    this->recountCards();
-    Hand.Flipped = Deck.Flipped;
-    Deck.Flipped = false;
+    QObject* obj = sender()->parent();
+    if (obj == Hand.ControlsGroupBox) // draw from the hand to a new stack
+    {
+        int row = Stacks.length() / 5 * 3;
+        int col = Stacks.length() % 5;
+
+        QLabel *textLabel = new QLabel();
+        textLabel->setAlignment(Qt::AlignHCenter);
+        ui->stacksLayout->addWidget(textLabel, row, col);
+
+        QLabel *imageLabel = new QLabel();
+        imageLabel->setAlignment(Qt::AlignHCenter);
+        imageLabel->setFixedSize(ui->mainDeckImageLabel->size() * 0.75);
+        imageLabel->setFrameStyle(QFrame::StyledPanel);
+        ui->stacksLayout->addWidget(imageLabel, row + 1, col);
+
+        QGroupBox *controlsGroupBox = new QGroupBox("Stack Controls");
+        QGridLayout *controlsGroupBoxGridLayout = new QGridLayout();
+        QPushButton *stackFlipButton = new QPushButton("Flip", controlsGroupBox);
+        QObject::connect(stackFlipButton, SIGNAL(clicked()), this, SLOT(on_flip()));
+        controlsGroupBoxGridLayout->addWidget(stackFlipButton, 0, 0, 1, 2);
+        QPushButton *stackDrawButton = new QPushButton("Draw from Hand", controlsGroupBox);
+        QObject::connect(stackDrawButton, SIGNAL(clicked()), this, SLOT(on_draw()));
+        controlsGroupBoxGridLayout->addWidget(stackDrawButton, 1, 1);
+        QPushButton *stackReturnButton = new QPushButton("Return to Hand", controlsGroupBox);
+        QObject::connect(stackReturnButton, SIGNAL(clicked()), this, SLOT(on_return()));
+        controlsGroupBoxGridLayout->addWidget(stackReturnButton, 1, 0);
+        QPushButton *stackShuffleButton = new QPushButton("Shuffle", controlsGroupBox);
+        QObject::connect(stackShuffleButton, SIGNAL(clicked()), this, SLOT(on_shuffle()));
+        controlsGroupBoxGridLayout->addWidget(stackShuffleButton, 2, 0);
+        QPushButton *stackRotateButton = new QPushButton("Rotate", controlsGroupBox);
+        QObject::connect(stackRotateButton, SIGNAL(clicked()), this, SLOT(on_rotate()));
+        controlsGroupBoxGridLayout->addWidget(stackRotateButton, 2, 1);
+        controlsGroupBox->setLayout(controlsGroupBoxGridLayout);
+        ui->stacksLayout->addWidget(controlsGroupBox, row + 2, col);
+
+        CardPile newStack =
+            CardPile { .Cards = QList<QString>(), .Flipped = Hand.Flipped, .TextLabel = textLabel,
+            .ImageLabel = imageLabel, .ControlsGroupBox = controlsGroupBox };
+        newStack.Cards.append(Hand.Cards.takeFirst());
+        Stacks.append(newStack);
+        this->updateUI();
+        Hand.Flipped = false;
+    }
+    else if (obj == Deck.ControlsGroupBox) // draw from the deck to the hand
+    {
+        Hand.Cards.prepend(Deck.Cards.takeFirst());
+        this->updateUI();
+        Hand.Flipped = Deck.Flipped;
+        Deck.Flipped = false;
+    }
+    else if (!Hand.Cards.isEmpty()) // draw from the hand to the specified stack
+    {
+        for (int i = 0; i < Stacks.length(); i++)
+        {
+            if (obj == Stacks[i].ControlsGroupBox)
+            {
+                Stacks[i].Cards.prepend(Hand.Cards.takeFirst());
+                this->updateUI();
+                Stacks[i].Flipped = Hand.Flipped;
+                Hand.Flipped = false;
+            }
+        }
+    }
+
     this->paintAllCards();
 }
 
 void PlayingCardsDialog::on_flip()
 {
-    QObject* obj = sender();
-    if (obj->parent() == ui->drawnDeckControlsGroupBox) Hand.Flipped = !Hand.Flipped;
-    else if (obj->parent() == ui->mainDeckControlsGroupBox) Deck.Flipped = !Deck.Flipped;
+    QObject* obj = sender()->parent();
+    if (obj == Hand.ControlsGroupBox) Hand.Flipped = !Hand.Flipped;
+    else if (obj == Deck.ControlsGroupBox) Deck.Flipped = !Deck.Flipped;
+    else
+    {
+        for (int i = 0; i < Stacks.length(); i++)
+        {
+            if (obj == Stacks[i].ControlsGroupBox)
+            {
+                Stacks[i].Flipped = !Stacks[i].Flipped;
+                break;
+            }
+        }
+    }
 
     this->paintAllCards();
 }
@@ -249,46 +339,103 @@ void PlayingCardsDialog::on_shuffle()
 {
     srand(time(0)); // Generate a new "random" seed
 
-    QObject* obj = sender();
-    if (obj->parent() == ui->drawnDeckControlsGroupBox)
+    QObject* obj = sender()->parent();
+    if (obj == Hand.ControlsGroupBox) // shuffle the hand only
     {
         std::random_shuffle(Hand.Cards.begin(), Hand.Cards.end());
+        Hand.Flipped = false;
     }
-    else if (obj->parent() == ui->mainDeckControlsGroupBox)
+    else if (obj == Deck.ControlsGroupBox) // reset the entire deck state
     {
         // Add all cards back to the main deck, clear other piles, and shuffle
         Deck.Cards.append(Hand.Cards);
         Deck.Cards.append(Discard.Cards);
         Hand.Cards.clear();
         Discard.Cards.clear();
+        Hand.Flipped = false;
+        Deck.Flipped = false;
+        while (Stacks.length() > 0)
+        {
+            Deck.Cards.append(Stacks[0].Cards);
+            Stacks[0].Cards.clear();
+            Stacks[0].Flipped = false;
+            delete Stacks[0].TextLabel;
+            delete Stacks[0].ImageLabel;
+            delete Stacks[0].ControlsGroupBox;
+            Stacks.removeAt(0);
+        }
+
         std::random_shuffle(Deck.Cards.begin(), Deck.Cards.end());
-        this->recountCards();
+        this->updateUI();
+    }
+    else // shuffle one stack only
+    {
+        for (int i = 0; i < Stacks.length(); i++)
+        {
+            if (obj == Stacks[i].ControlsGroupBox)
+            {
+                std::random_shuffle(Stacks[i].Cards.begin(), Stacks[i].Cards.end());
+                Stacks[i].Flipped = false;
+                break;
+            }
+        }
     }
 
-    Deck.Flipped = false;
-    Hand.Flipped = false;
     this->paintAllCards();
 }
 
 void PlayingCardsDialog::on_return()
 {
-    Deck.Cards.append(Hand.Cards.takeFirst());
-    this->recountCards();
-    Hand.Flipped = false;
-    this->paintAllCards();
-}
+    QObject* obj = sender()->parent();
+    if (obj == Hand.ControlsGroupBox) // return a card from the hand to the deck
+    {
+        Deck.Cards.append(Hand.Cards.takeFirst());
+        this->updateUI();
+        Hand.Flipped = false;
+    }
+    else // return a card from a stack to the hand
+    {
+        for (int i = 0; i < Stacks.length(); i++)
+        {
+            if (obj == Stacks[i].ControlsGroupBox)
+            {
+                Hand.Cards.append(Stacks[i].Cards.takeFirst()); // return the card to the hand
+                if (Stacks[i].Cards.isEmpty()) // delete the stack if the last card was returned
+                {
+                    delete Stacks[i].TextLabel;
+                    delete Stacks[i].ImageLabel;
+                    delete Stacks[i].ControlsGroupBox;
+                    Stacks.removeAt(i);
+                }
+                this->updateUI();
+                Stacks[i].Flipped = false;
+                break;
+            }
+        }
+    }
 
-void PlayingCardsDialog::on_discard()
-{
-    Discard.Cards.append(Hand.Cards.takeFirst());
-    this->recountCards();
-    Hand.Flipped = false;
     this->paintAllCards();
 }
 
 void PlayingCardsDialog::on_rotate()
 {
-    Hand.Cards.append(Hand.Cards.takeFirst());
-    Hand.Flipped = false;
+    QObject* obj = sender()->parent();
+    if (obj == Hand.ControlsGroupBox) // rotate the hand
+    {
+        Hand.Cards.append(Hand.Cards.takeFirst());
+        Hand.Flipped = false;
+    }
+    else // rotate a stack
+    {
+        for (int i = 0; i < Stacks.length(); i++)
+        {
+            if (obj == Stacks[i].ControlsGroupBox)
+            {
+                Stacks[i].Cards.append(Stacks[i].Cards.takeFirst());
+                Stacks[i].Flipped = false;
+            }
+        }
+    }
+
     this->paintAllCards();
 }

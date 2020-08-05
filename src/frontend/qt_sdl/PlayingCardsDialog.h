@@ -21,6 +21,7 @@
 
 #include <QDialog>
 #include <QDir>
+#include <QGroupBox>
 #include <QLabel>
 
 #include "types.h"
@@ -32,7 +33,9 @@ typedef struct
 {
     QList<QString> Cards;
     bool Flipped;
-    QLabel *Label;
+    QLabel *TextLabel;
+    QLabel *ImageLabel;
+    QGroupBox *ControlsGroupBox;
 } CardPile;
 
 class PlayingCardsDialog : public QDialog
@@ -79,10 +82,10 @@ public:
     }
 
 private slots:
-    bool processCardDirectory(QDir directory);
-    void paintCard(CardPile pile);
-    void paintAllCards();
-    void recountCards();
+    bool processCardDirectory(QDir directory); // Parses a card image directory and loads the deck
+    void paintCard(CardPile pile); // Redraws a card for a single pile
+    void paintAllCards(); // Redraws all cards displayed
+    void updateUI(); // Refreshes non-image UI elements
 
     void on_browse();
 
@@ -91,7 +94,6 @@ private slots:
     void on_flip();
 
     void on_return();
-    void on_discard();
     void on_rotate();
 
 private:
