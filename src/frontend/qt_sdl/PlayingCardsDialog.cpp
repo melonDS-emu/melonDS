@@ -389,8 +389,9 @@ void PlayingCardsDialog::on_return()
     QObject* obj = sender()->parent();
     if (obj == Hand.ControlsGroupBox) // return a card from the hand to the deck
     {
-        Deck.Cards.append(Hand.Cards.takeFirst());
+        Deck.Cards.prepend(Hand.Cards.takeFirst());
         this->updateUI();
+        Deck.Flipped = Hand.Flipped;
         Hand.Flipped = false;
     }
     else // return a card from a stack to the hand
@@ -399,7 +400,7 @@ void PlayingCardsDialog::on_return()
         {
             if (obj == Stacks[i].ControlsGroupBox)
             {
-                Hand.Cards.append(Stacks[i].Cards.takeFirst()); // return the card to the hand
+                Hand.Cards.prepend(Stacks[i].Cards.takeFirst()); // return the card to the hand
                 if (Stacks[i].Cards.isEmpty()) // delete the stack if the last card was returned
                 {
                     delete Stacks[i].TextLabel;
@@ -408,6 +409,7 @@ void PlayingCardsDialog::on_return()
                     Stacks.removeAt(i);
                 }
                 this->updateUI();
+                Hand.Flipped = Stacks[i].Flipped;
                 Stacks[i].Flipped = false;
                 break;
             }

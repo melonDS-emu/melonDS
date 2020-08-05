@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>686</width>
-    <height>700</height>
+    <height>708</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -139,7 +139,7 @@
         <item row="1" column="0">
          <widget class="QPushButton" name="drawnDeckReturnPushButton">
           <property name="whatsThis">
-           <string>Returns the topmost drawn card to the bottom of the deck.</string>
+           <string>Returns the topmost drawn card to the top of the deck.</string>
           </property>
           <property name="text">
            <string>Return to Deck</string>
@@ -371,7 +371,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>467</x>
-     <y>672</y>
+     <y>664</y>
     </hint>
     <hint type="destinationlabel">
      <x>499</x>
