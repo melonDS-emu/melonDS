@@ -93,9 +93,9 @@ if (ENABLE_JIT)
 	endif()
 endif()
 
-find_library(LIBZIP_LIB zip)
+
 if (WIN32)
-	target_link_libraries(core ole32 comctl32 ws2_32 opengl32 ${LIBZIP_LIB})
+	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
 else()
-	target_link_libraries(core GL EGL ${LIBZIP_LIB})
+	target_link_libraries(core GL EGL)
 endif()
