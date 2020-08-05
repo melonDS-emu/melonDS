@@ -381,15 +381,14 @@ void PlayingCardsDialog::on_return()
             if (obj == Stacks[i].ControlsGroupBox)
             {
                 Hand.Cards.prepend(Stacks[i].Cards.takeFirst()); // return the card to the hand
-                if (Stacks[i].Cards.isEmpty()) // delete the stack if the last card was returned
-                {
-                    delete Stacks[i].TextLabel;
-                    delete Stacks[i].ImageLabel;
-                    delete Stacks[i].ControlsGroupBox;
-                    Stacks.removeAt(i);
-                }
                 Hand.Flipped = Stacks[i].Flipped;
                 Stacks[i].Flipped = false;
+                if (Stacks[i].Cards.isEmpty()) // delete the stack if the last card was returned
+                {
+                    this->deleteStack(&Stacks[i]);
+                    Stacks.removeAt(i);
+                }
+
                 break;
             }
         }
