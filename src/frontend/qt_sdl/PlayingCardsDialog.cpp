@@ -36,12 +36,6 @@
 PlayingCardsDialog *PlayingCardsDialog::currentDlg = nullptr;
 
 
-CardPile Deck;
-CardPile Hand;
-QList<CardPile> Stacks;
-const int MAX_STACKS = 15;
-
-
 PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PlayingCardsDialog)
 {
     ui->setupUi(this);

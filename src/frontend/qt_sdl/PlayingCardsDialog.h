@@ -99,6 +99,11 @@ private slots:
 
 private:
     Ui::PlayingCardsDialog *ui;
+
+    CardPile Deck;
+    CardPile Hand;
+    QList<CardPile> Stacks;
+    const int MAX_STACKS = 15;
 };
 
 #endif // PLAYINGCARDSDIALOG_H
