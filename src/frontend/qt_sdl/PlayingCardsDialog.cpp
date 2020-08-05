@@ -52,7 +52,6 @@ PlayingCardsDialog::PlayingCardsDialog(QWidget* parent) : QDialog(parent), ui(ne
     Deck.ControlsGroupBox->setEnabled(enableDeckControls);
     Hand.ControlsGroupBox->setEnabled(enableDeckControls);
     this->updateUI();
-    this->paintAllCards();
 }
 
 PlayingCardsDialog::~PlayingCardsDialog()
@@ -137,24 +136,17 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     return res;
 }
 
-void PlayingCardsDialog::paintCard(CardPile pile)
+void PlayingCardsDialog::paintCard(CardPile *stack)
 {
-    if (pile.ImageLabel == nullptr) return;
+    if (stack->ImageLabel == nullptr) return;
 
     QPixmap pixmap = QPixmap();
 
-    if (!pile.Cards.isEmpty())
+    if (!stack->Cards.isEmpty())
     {
         QDir directory = QDir(QString(Config::PlayingCardsPath));
-        QString currentCard = pile.Cards.first();
-        if (pile.Flipped)
-        {
-            directory.cd("front");
-        }
-        else
-        {
-            directory.cd("back");
-        }
+        QString currentCard = stack->Cards.first();
+        stack->Flipped ? directory.cd("front") : directory.cd("back");
 
         QString filePath = directory.absoluteFilePath(currentCard);
         if (!pixmap.load(filePath))
@@ -172,19 +164,8 @@ void PlayingCardsDialog::paintCard(CardPile pile)
         }
     }
 
-    pile.ImageLabel->setPixmap(pixmap.scaled(pile.ImageLabel->width(), pile.ImageLabel->height(),
+    stack->ImageLabel->setPixmap(pixmap.scaled(stack->ImageLabel->width(), stack->ImageLabel->height(),
         Qt::KeepAspectRatio));
-}
-
-void PlayingCardsDialog::paintAllCards()
-{
-    this->paintCard(Deck);
-    this->paintCard(Hand);
-
-    foreach(CardPile pile, Stacks)
-    {
-        this->paintCard(pile);
-    }
 }
 
 void PlayingCardsDialog::updateUI()
@@ -193,15 +174,18 @@ void PlayingCardsDialog::updateUI()
     ui->mainDeckDrawPushButton->setEnabled(enableDeckControls);
     ui->mainDeckFlipPushButton->setEnabled(enableDeckControls);
     Deck.TextLabel->setText(QString::number(Deck.Cards.length()) + (Deck.Cards.length() > 1 ? " Cards" : " Card"));
+    this->paintCard(&Deck);
 
     Hand.ControlsGroupBox->setEnabled(!Hand.Cards.isEmpty());
     ui->drawnDeckAddStackPushButton->setEnabled(Stacks.length() < MAX_STACKS);
     Hand.TextLabel->setText(QString::number(Hand.Cards.length()) + (Hand.Cards.length() > 1 ? " Cards" : " Card"));
+    this->paintCard(&Hand);
 
     foreach (CardPile stack, Stacks)
     {
         if (stack.ControlsGroupBox != nullptr) stack.ControlsGroupBox->setEnabled(!stack.Cards.isEmpty());
         if (stack.TextLabel != nullptr) stack.TextLabel->setText(QString::number(stack.Cards.length()) + (stack.Cards.length() > 1 ? " Cards" : " Card"));
+        this->paintCard(&stack);
     }
 }
 
@@ -273,7 +257,6 @@ void PlayingCardsDialog::on_browse()
             Config::PlayingCardsPath[1023] = '\0';
             Config::Save();
             Deck.ControlsGroupBox->setEnabled(true);
-            this->updateUI();
         }
         else
         {
@@ -281,10 +264,9 @@ void PlayingCardsDialog::on_browse()
             Deck = deckBackup;
             Hand = handBackup;
             Stacks = stacksBackup;
-            this->updateUI();
         }
 
-        this->paintAllCards();
+        this->updateUI();
     }
 }
 
@@ -297,13 +279,11 @@ void PlayingCardsDialog::on_draw()
         newStack.Cards.append(Hand.Cards.takeFirst());
         this->createStack(&newStack);
         Stacks.append(newStack);
-        this->updateUI();
         Hand.Flipped = false;
     }
     else if (obj == Deck.ControlsGroupBox) // draw from the deck to the hand
     {
         Hand.Cards.prepend(Deck.Cards.takeFirst());
-        this->updateUI();
         Hand.Flipped = Deck.Flipped;
         Deck.Flipped = false;
     }
@@ -314,14 +294,13 @@ void PlayingCardsDialog::on_draw()
             if (obj == Stacks[i].ControlsGroupBox)
             {
                 Stacks[i].Cards.prepend(Hand.Cards.takeFirst());
-                this->updateUI();
                 Stacks[i].Flipped = Hand.Flipped;
                 Hand.Flipped = false;
             }
         }
     }
 
-    this->paintAllCards();
+    this->updateUI();
 }
 
 void PlayingCardsDialog::on_flip()
@@ -341,7 +320,7 @@ void PlayingCardsDialog::on_flip()
         }
     }
 
-    this->paintAllCards();
+    this->updateUI();
 }
 
 void PlayingCardsDialog::on_shuffle()
@@ -369,7 +348,6 @@ void PlayingCardsDialog::on_shuffle()
         }
 
         std::random_shuffle(Deck.Cards.begin(), Deck.Cards.end());
-        this->updateUI();
     }
     else // shuffle one stack only
     {
@@ -384,7 +362,7 @@ void PlayingCardsDialog::on_shuffle()
         }
     }
 
-    this->paintAllCards();
+    this->updateUI();
 }
 
 void PlayingCardsDialog::on_return()
@@ -393,7 +371,6 @@ void PlayingCardsDialog::on_return()
     if (obj == Hand.ControlsGroupBox) // return a card from the hand to the deck
     {
         Deck.Cards.prepend(Hand.Cards.takeFirst());
-        this->updateUI();
         Deck.Flipped = Hand.Flipped;
         Hand.Flipped = false;
     }
@@ -411,7 +388,6 @@ void PlayingCardsDialog::on_return()
                     delete Stacks[i].ControlsGroupBox;
                     Stacks.removeAt(i);
                 }
-                this->updateUI();
                 Hand.Flipped = Stacks[i].Flipped;
                 Stacks[i].Flipped = false;
                 break;
@@ -419,7 +395,7 @@ void PlayingCardsDialog::on_return()
         }
     }
 
-    this->paintAllCards();
+    this->updateUI();
 }
 
 void PlayingCardsDialog::on_rotate()
@@ -442,5 +418,5 @@ void PlayingCardsDialog::on_rotate()
         }
     }
 
-    this->paintAllCards();
+    this->updateUI();
 }
