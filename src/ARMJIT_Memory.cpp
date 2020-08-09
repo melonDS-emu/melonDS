@@ -773,6 +773,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
         {
             mirrorStart = addr & ~0xFFFFF;
             mirrorSize = 0x100000;
+            return true;
         }
         return false;
     case memregion_VWRAM:
