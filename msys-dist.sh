@@ -12,3 +12,4 @@ for lib in $(ldd melonDS.exe | grep mingw | sed "s/.*=> //" | sed "s/(.*)//"); d
 done
 
 cp melonDS.exe dist
+windeployqt dist
