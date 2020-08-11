@@ -1337,13 +1337,28 @@ void Write(u32 addr, u16 val)
     case W_PowerForce:
         if ((val&0x8001)==0x8000) printf("WIFI: forcing power %04X\n", val);
         val &= 0x8001;
-        if (val == 0x8001)
+        IOPORT(W_PowerForce) = val;
+
+        if (val & 0x8000)
         {
-            IOPORT(0x034) = 0x0002;
-            IOPORT(W_PowerState) = 0x0200;
-            IOPORT(W_TXReqRead) = 0;
-            IOPORT(W_RFPins) = 0x0046;
-            IOPORT(W_RFStatus) = 9;
+            if (val & 0x0001 && !(IOPORT(W_PowerState) & 0x0200))
+            {
+                IOPORT(0x034) = 0x0002;
+                IOPORT(W_PowerState) = 0x0200;
+                IOPORT(W_TXReqRead) = 0;
+                IOPORT(W_RFPins) = 0x0046;
+                IOPORT(W_RFStatus) = 9;
+            }
+            else if (!(val & 0x0001) && IOPORT(W_PowerState) & 0x0200)
+            {
+                IOPORT(W_PowerState) |= 0x0100;
+            }
+
+            if (IOPORT(W_PowerState) & 0x0100)
+            {
+                IOPORT(W_PowerState) &= ~0x0200;
+                IOPORT(W_PowerState) |= (val & 0x1) << 9;
+            }
         }
         break;
     case W_PowerUS:
