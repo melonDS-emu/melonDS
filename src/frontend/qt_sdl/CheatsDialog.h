@@ -16,24 +16,24 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef EMUSETTINGSDIALOG_H
-#define EMUSETTINGSDIALOG_H
+#ifndef CHEATSDIALOG_H
+#define CHEATSDIALOG_H
 
 #include <QDialog>
 
-namespace Ui { class EmuSettingsDialog; }
-class EmuSettingsDialog;
+namespace Ui { class CheatsDialog; }
+class CheatsDialog;
 
-class EmuSettingsDialog : public QDialog
+class CheatsDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit EmuSettingsDialog(QWidget* parent);
-    ~EmuSettingsDialog();
+    explicit CheatsDialog(QWidget* parent);
+    ~CheatsDialog();
 
-    static EmuSettingsDialog* currentDlg;
-    static EmuSettingsDialog* openDlg(QWidget* parent)
+    static CheatsDialog* currentDlg;
+    static CheatsDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -41,7 +41,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new EmuSettingsDialog(parent);
+        currentDlg = new CheatsDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -50,26 +50,16 @@ public:
         currentDlg = nullptr;
     }
 
-    static bool needsReset;
-
 private slots:
-    void done(int r);
+    void on_CheatsDialog_accepted();
+    void on_CheatsDialog_rejected();
 
-    void on_btnBIOS9Browse_clicked();
-    void on_btnBIOS7Browse_clicked();
-    void on_btnFirmwareBrowse_clicked();
-
-    void on_btnDSiBIOS9Browse_clicked();
-    void on_btnDSiBIOS7Browse_clicked();
-    void on_btnDSiFirmwareBrowse_clicked();
-    void on_btnDSiNANDBrowse_clicked();
-
-    void on_chkEnableJIT_toggled();
+    //
 
 private:
-    void verifyFirmware();
+    Ui::CheatsDialog* ui;
 
-    Ui::EmuSettingsDialog* ui;
+    //
 };
 
-#endif // EMUSETTINGSDIALOG_H
+#endif // CHEATSDIALOG_H

@@ -34,6 +34,7 @@
 
 #include "main.h"
 #include "Input.h"
+#include "CheatsDialog.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
@@ -1062,6 +1063,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
+
+        menu->addSeparator();
+
+        actEnableCheats = menu->addAction("Enable cheats");
+        connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
+
+        actSetupCheats = menu->addAction("Setup cheat codes");
+        connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1649,6 +1658,24 @@ void MainWindow::onStop()
 
     emuThread->emuPause();
     NDS::Stop();
+}
+
+void MainWindow::onEnableCheats(bool checked)
+{
+    //
+}
+
+void MainWindow::onSetupCheats()
+{
+    emuThread->emuPause();
+
+    CheatsDialog* dlg = CheatsDialog::openDlg(this);
+    connect(dlg, &CheatsDialog::finished, this, &MainWindow::onCheatsDialogFinished);
+}
+
+void MainWindow::onCheatsDialogFinished(int res)
+{
+    emuThread->emuUnpause();
 }
 
 

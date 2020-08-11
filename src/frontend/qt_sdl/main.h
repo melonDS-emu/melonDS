@@ -198,6 +198,9 @@ private slots:
     void onPause(bool checked);
     void onReset();
     void onStop();
+    void onEnableCheats(bool checked);
+    void onSetupCheats();
+    void onCheatsDialogFinished(int res);
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -245,6 +248,8 @@ public:
     QAction* actPause;
     QAction* actReset;
     QAction* actStop;
+    QAction* actEnableCheats;
+    QAction* actSetupCheats;
 
     QAction* actEmuSettings;
     QAction* actInputConfig;
