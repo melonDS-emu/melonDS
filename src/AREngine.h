@@ -19,12 +19,16 @@
 #ifndef ARENGINE_H
 #define ARENGINE_H
 
+#include "ARCodeFile.h"
+
 namespace AREngine
 {
 
 bool Init();
 void DeInit();
 void Reset();
+
+void SetCodeFile(ARCodeFile* file);
 
 void RunCheats();
 

@@ -3,7 +3,7 @@ project(core)
 set (CMAKE_CXX_STANDARD 14)
 
 add_library(core STATIC
-	ARCodeList.cpp
+	ARCodeFile.cpp
 	AREngine.cpp
 	ARM.cpp
 	ARM_InstrTable.h

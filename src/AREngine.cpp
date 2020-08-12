@@ -25,119 +25,30 @@
 namespace AREngine
 {
 
-typedef struct
-{
-    u32 Code[2 * 64]; // TODO: more sensible size for this? allocate on demand?
-    bool Enabled;
-
-} CheatEntry;
-
-// TODO: more sensible size for this? allocate on demand?
-CheatEntry CheatCodes[64];
-u32 NumCheatCodes;
-
-
-void ParseTextCode(char* text, int tlen, u32* code, int clen) // or whatever this should be named?
-{
-    u32 cur_word = 0;
-    u32 ndigits = 0;
-    u32 nin = 0;
-    u32 nout = 0;
-
-    char c;
-    while ((c = *text++) != '\0')
-    {
-        u32 val;
-        if (c >= '0' && c <= '9')
-            val = c - '0';
-        else if (c >= 'a' && c <= 'f')
-            val = c - 'a' + 0xA;
-        else if (c >= 'A' && c <= 'F')
-            val = c - 'A' + 0xA;
-        else
-            continue;
-
-        cur_word <<= 4;
-        cur_word |= val;
-
-        ndigits++;
-        if (ndigits >= 8)
-        {
-            if (nout >= clen)
-            {
-                printf("AR: code too long!\n");
-                return;
-            }
-
-            *code++ = cur_word;
-            nout++;
-
-            ndigits = 0;
-            cur_word = 0;
-        }
-
-        nin++;
-        if (nin >= tlen) break;
-    }
-
-    if (nout & 1)
-    {
-        printf("AR: code was missing one word\n");
-        if (nout >= clen)
-        {
-            printf("AR: code too long!\n");
-            return;
-        }
-        *code++ = 0;
-    }
-}
+// AR code file - frontend is responsible for managing this
+ARCodeFile* CodeFile;
 
 
 bool Init()
 {
+    CodeFile = nullptr;
+
     return true;
 }
 
 void DeInit()
 {
-    //
 }
 
 void Reset()
 {
-    memset(CheatCodes, 0, sizeof(CheatCodes));
-    NumCheatCodes = 0;
+    CodeFile = nullptr;
+}
 
-    // TODO: acquire codes from a sensible source!
-    CheatEntry* entry = &CheatCodes[0];
-    u32* ptr = &entry->Code[0];
 
-    /*char* test = R"(9209D09A 00000000
-6209B468 00000000
-B209B468 00000000
-10000672 000003FF
-D2000000 00000000
-9209D09A 00000000
-94000130 FCBF0000
-6209B468 00000000
-B209B468 00000000
-200006B3 00000001
-200006B4 00000001
-D2000000 00000000
-9209D09A 00000000
-94000130 FC7F0000
-6209B468 00000000
-B209B468 00000000
-10000672 00000000
-D2000000 00000000)";
-    ParseTextCode(test, entry->Code, 2*64);
-    printf("PARSED CODE:\n");
-    for (int i = 0; i < 2*64; i+=2)
-    {
-        printf("%08X %08X\n", entry->Code[i], entry->Code[i+1]);
-    }
-    entry->Enabled = true;
-    NumCheatCodes++;*/
+void SetCodeFile(ARCodeFile* file)
+{
+    CodeFile = file;
 }
 
 
@@ -147,9 +58,9 @@ D2000000 00000000)";
     case ((x)+0x08): case ((x)+0x09): case ((x)+0x0A): case ((x)+0x0B): \
     case ((x)+0x0C): case ((x)+0x0D): case ((x)+0x0E): case ((x)+0x0F)
 
-void RunCheat(CheatEntry* entry)
+void RunCheat(ARCode& arcode)
 {
-    u32* code = &entry->Code[0];
+    u32* code = &arcode.Code[0];
 
     u32 offset = 0;
     u32 datareg = 0;
@@ -166,9 +77,11 @@ void RunCheat(CheatEntry* entry)
 
     for (;;)
     {
+        if (code >= &arcode.Code[arcode.CodeLen])
+            break;
+
         u32 a = *code++;
         u32 b = *code++;
-        if ((a|b) == 0) break;
 
         u8 op = a >> 24;
 
@@ -179,7 +92,7 @@ void RunCheat(CheatEntry* entry)
                 if ((op & 0xF0) == 0xE0)
                 {
                     for (u32 i = 0; i < b; i += 8)
-                        *code += 2;
+                        code += 2;
                 }
 
                 continue;
@@ -428,7 +341,7 @@ void RunCheat(CheatEntry* entry)
                 if (bytesleft > 0)
                 {
                     u8* leftover = (u8*)code;
-                    *code += 2;
+                    code += 2;
                     if (bytesleft >= 4)
                     {
                         NDS::ARM7Write32(dstaddr, *(u32*)leftover); dstaddr += 4;
@@ -477,13 +390,19 @@ void RunCheat(CheatEntry* entry)
 
 void RunCheats()
 {
-    // TODO: make it disableable in general
+    if (!CodeFile) return;
 
-    for (u32 i = 0; i < NumCheatCodes; i++)
+    for (ARCodeCatList::iterator i = CodeFile->Categories.begin(); i != CodeFile->Categories.end(); i++)
     {
-        CheatEntry* entry = &CheatCodes[i];
-        if (entry->Enabled)
-            RunCheat(entry);
+        ARCodeCat& cat = *i;
+
+        for (ARCodeList::iterator j = cat.Codes.begin(); j != cat.Codes.end(); j++)
+        {
+            ARCode& code = *j;
+
+            if (code.Enabled)
+                RunCheat(code);
+        }
     }
 }
 
