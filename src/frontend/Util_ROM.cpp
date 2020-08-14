@@ -224,9 +224,16 @@ void LoadCheats()
     }
 
     char filename[1024];
-    strncpy(filename, ROMPath[ROMSlot_NDS], 1023);
-    filename[1023] = '\0';
-    strncpy(filename + strlen(ROMPath[ROMSlot_NDS]) - 3, "mch", 3);
+    if (ROMPath[ROMSlot_NDS][0] != '\0')
+    {
+        strncpy(filename, ROMPath[ROMSlot_NDS], 1023);
+        filename[1023] = '\0';
+        strncpy(filename + strlen(ROMPath[ROMSlot_NDS]) - 3, "mch", 3);
+    }
+    else
+    {
+        strncpy(filename, "firmware.mch", 1023);
+    }
 
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
