@@ -38,6 +38,14 @@ namespace ARMJIT
 
 Compiler* JITCompiler;
 
+
+std::unordered_map<u32, JitBlock*> JitBlocks9;
+std::unordered_map<u32, JitBlock*> JitBlocks7;
+
+std::unordered_map<u32, JitBlock*> RestoreCandidates;
+
+TinyVector<u32> InvalidLiterals;
+
 AddressRange CodeIndexITCM[ITCMPhysicalSize / 512];
 AddressRange CodeIndexMainRAM[NDS::MainRAMMaxSize / 512];
 AddressRange CodeIndexSWRAM[NDS::SharedWRAMSize / 512];
@@ -51,9 +59,6 @@ AddressRange CodeIndexBIOS7DSi[0x10000 / 512];
 AddressRange CodeIndexNWRAM_A[DSi::NWRAMSize / 512];
 AddressRange CodeIndexNWRAM_B[DSi::NWRAMSize / 512];
 AddressRange CodeIndexNWRAM_C[DSi::NWRAMSize / 512];
-
-std::unordered_map<u32, JitBlock*> JitBlocks9;
-std::unordered_map<u32, JitBlock*> JitBlocks7;
 
 u64 FastBlockLookupITCM[ITCMPhysicalSize / 2];
 u64 FastBlockLookupMainRAM[NDS::MainRAMMaxSize / 2];
@@ -145,8 +150,6 @@ u32 LocaliseCodeAddress(u32 num, u32 addr)
         return ARMJIT_Memory::LocaliseAddress(region, num, addr);
     return 0;
 }
-
-TinyVector<u32> InvalidLiterals;
 
 template <typename T, int ConsoleType>
 T SlowRead9(u32 addr, ARMv5* cpu)
@@ -285,97 +288,6 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 
 INSTANTIATE_SLOWMEM(0)
 INSTANTIATE_SLOWMEM(1)
-
-template <typename K, typename V, int Size, V InvalidValue>
-struct UnreliableHashTable
-{
-    struct Bucket
-    {
-        K KeyA, KeyB;
-        V ValA, ValB;
-    };
-
-    Bucket Table[Size];
-
-    void Reset()
-    {
-        for (int i = 0; i < Size; i++)
-        {
-            Table[i].ValA = Table[i].ValB = InvalidValue;
-        }
-    }
-
-    UnreliableHashTable()
-    {
-        Reset();
-    }
-
-    V Insert(K key, V value)
-    {
-        u32 slot = XXH3_64bits(&key, sizeof(K)) & (Size - 1);
-        Bucket* bucket = &Table[slot];
-
-        if (bucket->ValA == value || bucket->ValB == value)
-        {
-            return InvalidValue;
-        }
-        else if (bucket->ValA == InvalidValue)
-        {
-            bucket->KeyA = key;
-            bucket->ValA = value;
-        }
-        else if (bucket->ValB == InvalidValue)
-        {
-            bucket->KeyB = key;
-            bucket->ValB = value;
-        }
-        else
-        {
-            V prevVal = bucket->ValB;
-            bucket->KeyB = bucket->KeyA;
-            bucket->ValB = bucket->ValA;
-            bucket->KeyA = key;
-            bucket->ValA = value;
-            return prevVal;
-        }
-
-        return InvalidValue;
-    }
-
-    void Remove(K key)
-    {
-        u32 slot = XXH3_64bits(&key, sizeof(K)) & (Size - 1);
-        Bucket* bucket = &Table[slot];
-
-        if (bucket->KeyA == key && bucket->ValA != InvalidValue)
-        {
-            bucket->ValA = InvalidValue;
-            if (bucket->ValB != InvalidValue)
-            {
-                bucket->KeyA = bucket->KeyB;
-                bucket->ValA = bucket->ValB;
-                bucket->ValB = InvalidValue;
-            }
-        }
-        if (bucket->KeyB == key && bucket->ValB != InvalidValue)
-            bucket->ValB = InvalidValue;
-    }
-
-    V LookUp(K addr)
-    {
-        u32 slot = XXH3_64bits(&addr, 4) & (Size - 1);
-        Bucket* bucket = &Table[slot];
-
-        if (bucket->ValA != InvalidValue && bucket->KeyA == addr)
-            return bucket->ValA;
-        if (bucket->ValB != InvalidValue && bucket->KeyB == addr)
-            return bucket->ValB;
-
-        return InvalidValue;
-    }
-};
-
-UnreliableHashTable<u32, JitBlock*, 0x800, nullptr> RestoreCandidates;
 
 void Init()
 {
@@ -622,6 +534,20 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
 };
 #undef F
 
+void RetireJitBlock(JitBlock* block)
+{
+    auto it = RestoreCandidates.find(block->InstrHash);
+    if (it != RestoreCandidates.end())
+    {
+        delete it->second;
+        it->second = block;
+    }
+    else
+    {
+        RestoreCandidates[block->InstrHash] = block;
+    }
+}
+
 void CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
@@ -659,10 +585,7 @@ void CompileBlock(ARM* cpu)
         }
 
         // some memory has been remapped
-        JitBlock* prevBlock = RestoreCandidates.Insert(existingBlockIt->second->InstrHash, existingBlockIt->second);
-        if (prevBlock)
-            delete prevBlock;
-        
+        RetireJitBlock(existingBlockIt->second);        
         map.erase(existingBlockIt);
     }
 
@@ -906,11 +829,13 @@ void CompileBlock(ARM* cpu)
     u32 literalHash = (u32)XXH3_64bits(literalValues, numLiterals * 4);
     u32 instrHash = (u32)XXH3_64bits(instrValues, i * 4);
 
-    JitBlock* prevBlock = RestoreCandidates.LookUp(instrHash);
+    auto prevBlockIt = RestoreCandidates.find(instrHash);
+    JitBlock* prevBlock = NULL;
     bool mayRestore = true;
-    if (prevBlock)
+    if (prevBlockIt != RestoreCandidates.end())
     {
-        RestoreCandidates.Remove(instrHash);
+        prevBlock = prevBlockIt->second;
+        RestoreCandidates.erase(prevBlockIt);
 
         mayRestore = prevBlock->StartAddr == blockAddr && prevBlock->LiteralHash == literalHash;
 
@@ -932,7 +857,6 @@ void CompileBlock(ARM* cpu)
     else
     {
         mayRestore = false;
-        prevBlock = NULL;
     }
 
     JitBlock* block;
@@ -1078,9 +1002,7 @@ void InvalidateByAddr(u32 localAddr)
 
         if (!literalInvalidation)
         {
-            JitBlock* prevBlock = RestoreCandidates.Insert(block->InstrHash, block);
-            if (prevBlock)
-                delete prevBlock;
+            RetireJitBlock(block);
         }
         else
         {
@@ -1166,20 +1088,9 @@ void ResetBlockCache()
     InvalidLiterals.Clear();
     for (int i = 0; i < ARMJIT_Memory::memregions_Count; i++)
         memset(FastBlockLookupRegions[i], 0xFF, CodeRegionSizes[i] * sizeof(u64) / 2);
-    RestoreCandidates.Reset();
-    for (int i = 0; i < sizeof(RestoreCandidates.Table)/sizeof(RestoreCandidates.Table[0]); i++)
-    {
-        if (RestoreCandidates.Table[i].ValA)
-        {
-            delete RestoreCandidates.Table[i].ValA;
-            RestoreCandidates.Table[i].ValA = NULL;
-        }
-        if (RestoreCandidates.Table[i].ValA)
-        {
-            delete RestoreCandidates.Table[i].ValB;
-            RestoreCandidates.Table[i].ValB = NULL;
-        }
-    }
+    for (auto it = RestoreCandidates.begin(); it != RestoreCandidates.end(); it++)
+        delete it->second;
+    RestoreCandidates.clear();
     for (auto it : JitBlocks9)
     {
         JitBlock* block = it.second;

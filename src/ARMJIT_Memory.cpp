@@ -1008,7 +1008,7 @@ void WifiWrite32(u32 addr, u32 val)
 
 u32 WifiRead32(u32 addr)
 {
-    return Wifi::Read(addr) | (Wifi::Read(addr + 2) << 16);
+    return (u32)Wifi::Read(addr) | ((u32)Wifi::Read(addr + 2) << 16);
 }
 
 template <typename T>
