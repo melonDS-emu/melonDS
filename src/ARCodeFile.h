@@ -19,7 +19,7 @@
 #ifndef ARCODEFILE_H
 #define ARCODEFILE_H
 
-#include <vector>
+#include <list>
 
 #include "types.h"
 
@@ -32,7 +32,7 @@ typedef struct
 
 } ARCode;
 
-typedef std::vector<ARCode> ARCodeList;
+typedef std::list<ARCode> ARCodeList;
 
 typedef struct
 {
@@ -41,7 +41,7 @@ typedef struct
 
 } ARCodeCat;
 
-typedef std::vector<ARCodeCat> ARCodeCatList;
+typedef std::list<ARCodeCat> ARCodeCatList;
 
 
 class ARCodeFile
@@ -52,6 +52,7 @@ public:
 
     bool Error;
 
+    bool Load();
     bool Save();
 
     ARCodeCatList Categories;

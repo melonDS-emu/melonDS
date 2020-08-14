@@ -20,9 +20,30 @@
 #define CHEATSDIALOG_H
 
 #include <QDialog>
+#include <QAbstractItemModel>
+#include <QStandardItemModel>
+#include <QItemSelection>
+#include <QSyntaxHighlighter>
+
+#include "ARCodeFile.h"
+
+Q_DECLARE_METATYPE(ARCodeList::iterator)
+Q_DECLARE_METATYPE(ARCodeCatList::iterator)
 
 namespace Ui { class CheatsDialog; }
 class CheatsDialog;
+
+class ARCodeChecker : public QSyntaxHighlighter
+{
+    Q_OBJECT
+
+public:
+    ARCodeChecker(QTextDocument* parent) : QSyntaxHighlighter(parent) {}
+    ~ARCodeChecker() {}
+
+protected:
+    void highlightBlock(const QString& text) override;
+};
 
 class CheatsDialog : public QDialog
 {
@@ -54,12 +75,20 @@ private slots:
     void on_CheatsDialog_accepted();
     void on_CheatsDialog_rejected();
 
-    //
+    void on_btnNewCat_clicked();
+    void on_btnNewARCode_clicked();
+    void on_btnDeleteCode_clicked();
+
+    void onCheatSelectionChanged(const QItemSelection& sel, const QItemSelection& desel);
+    void onCheatEntryModified(QStandardItem* item);
+
+    void on_txtCode_textChanged();
 
 private:
     Ui::CheatsDialog* ui;
 
-    //
+    ARCodeFile* codeFile;
+    ARCodeChecker* codeChecker;
 };
 
 #endif // CHEATSDIALOG_H

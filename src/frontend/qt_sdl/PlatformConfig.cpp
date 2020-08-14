@@ -72,6 +72,8 @@ char MicWavPath[1024];
 
 char LastROMFolder[1024];
 
+int EnableCheats;
+
 bool EnableJIT;
 
 ConfigEntry PlatformConfigFile[] =
@@ -161,6 +163,8 @@ ConfigEntry PlatformConfigFile[] =
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
 
     {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
+
+    {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

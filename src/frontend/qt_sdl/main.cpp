@@ -1067,6 +1067,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         menu->addSeparator();
 
         actEnableCheats = menu->addAction("Enable cheats");
+        actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
         actSetupCheats = menu->addAction("Setup cheat codes");
@@ -1218,6 +1219,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actReset->setEnabled(false);
     actStop->setEnabled(false);
 
+    actSetupCheats->setEnabled(false);
+
+
+    actEnableCheats->setChecked(Config::EnableCheats != 0);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
 
@@ -1662,7 +1667,8 @@ void MainWindow::onStop()
 
 void MainWindow::onEnableCheats(bool checked)
 {
-    //
+    Config::EnableCheats = checked?1:0;
+    Frontend::EnableCheats(Config::EnableCheats != 0);
 }
 
 void MainWindow::onSetupCheats()
@@ -1881,6 +1887,8 @@ void MainWindow::onEmuStart()
     actPause->setChecked(false);
     actReset->setEnabled(true);
     actStop->setEnabled(true);
+
+    actSetupCheats->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -1897,6 +1905,8 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+
+    actSetupCheats->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -2028,6 +2038,8 @@ int main(int argc, char** argv)
     micWavBuffer = nullptr;
 
     Frontend::Init_ROM();
+    Frontend::EnableCheats(Config::EnableCheats != 0);
+
     Frontend::Init_Audio(audioFreq);
 
     if (Config::MicInputType == 1)
@@ -2083,6 +2095,8 @@ int main(int argc, char** argv)
     delete emuThread;
 
     Input::CloseJoystick();
+
+    Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
     if (micDevice)   SDL_CloseAudioDevice(micDevice);

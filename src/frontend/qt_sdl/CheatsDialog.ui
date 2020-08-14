@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>AR cheat code editor - melonDS</string>
+   <string>Cheat code editor - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
@@ -36,7 +36,7 @@
      <item>
       <widget class="QPushButton" name="btnDeleteCode">
        <property name="text">
-        <string>Delete code</string>
+        <string>Delete</string>
        </property>
       </widget>
      </item>

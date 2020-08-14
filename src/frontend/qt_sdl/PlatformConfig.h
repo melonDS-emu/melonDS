@@ -85,6 +85,8 @@ extern char MicWavPath[1024];
 
 extern char LastROMFolder[1024];
 
+extern int EnableCheats;
+
 }
 
 #endif // PLATFORMCONFIG_H

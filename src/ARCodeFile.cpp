@@ -35,8 +35,21 @@ ARCodeFile::ARCodeFile(const char* filename)
 
     Categories.clear();
 
+    if (!Load())
+        Error = true;
+}
+
+ARCodeFile::~ARCodeFile()
+{
+    Categories.clear();
+}
+
+bool ARCodeFile::Load()
+{
     FILE* f = Platform::OpenFile(Filename, "r");
-    if (!f) return;
+    if (!f) return true;
+
+    Categories.clear();
 
     bool isincat = false;
     ARCodeCat curcat;
@@ -60,15 +73,14 @@ ARCodeFile::ARCodeFile(const char* filename)
         if (!strncasecmp(start, "CAT", 3))
         {
             char catname[128];
-            int ret = sscanf(start, "CAT %127[^\n]", catname);
+            int ret = sscanf(start, "CAT %127[^\r\n]", catname);
             catname[127] = '\0';
 
             if (ret < 1)
             {
                 printf("AR: malformed CAT line: %s\n", start);
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             if (isincode) curcat.Codes.push_back(curcode);
@@ -84,23 +96,21 @@ ARCodeFile::ARCodeFile(const char* filename)
         {
             int enable;
             char codename[128];
-            int ret = sscanf(start, "CODE %d %127[^\n]", &enable, codename);
+            int ret = sscanf(start, "CODE %d %127[^\r\n]", &enable, codename);
             codename[127] = '\0';
 
             if (ret < 2)
             {
                 printf("AR: malformed CODE line: %s\n", start);
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             if (!isincat)
             {
                 printf("AR: encountered CODE line with no category started\n");
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             if (isincode) curcat.Codes.push_back(curcode);
@@ -119,24 +129,21 @@ ARCodeFile::ARCodeFile(const char* filename)
             {
                 printf("AR: malformed data line: %s\n", start);
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             if (!isincode)
             {
                 printf("AR: encountered data line with no code started\n");
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             if (curcode.CodeLen >= 2*64)
             {
                 printf("AR: code too long!\n");
                 fclose(f);
-                Error = true;
-                return;
+                return false;
             }
 
             u32 idx = curcode.CodeLen;
@@ -150,27 +157,35 @@ ARCodeFile::ARCodeFile(const char* filename)
     if (isincat) Categories.push_back(curcat);
 
     fclose(f);
+    return true;
+}
 
-    printf("PARSED OUTPUT\n");
+bool ARCodeFile::Save()
+{
+    FILE* f = Platform::OpenFile(Filename, "w");
+    if (!f) return false;
+
     for (ARCodeCatList::iterator it = Categories.begin(); it != Categories.end(); it++)
     {
         ARCodeCat& cat = *it;
-        printf("CAT %s\n", cat.Name);
+
+        if (it != Categories.begin()) fprintf(f, "\n");
+        fprintf(f, "CAT %s\n\n", cat.Name);
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
-            printf("CODE %d %s\n", code.Enabled, code.Name);
+            fprintf(f, "CODE %d %s\n", code.Enabled, code.Name);
 
             for (u32 i = 0; i < code.CodeLen; i+=2)
             {
-                printf("%08X %08X\n", code.Code[i], code.Code[i+1]);
+                fprintf(f, "%08X %08X\n", code.Code[i], code.Code[i+1]);
             }
+
+            fprintf(f, "\n");
         }
     }
-}
 
-ARCodeFile::~ARCodeFile()
-{
-    //
+    fclose(f);
+    return true;
 }

@@ -27,6 +27,8 @@
 #include "NDS.h"
 #include "GBACart.h"
 
+#include "AREngine.h"
+
 
 namespace Frontend
 {
@@ -36,6 +38,9 @@ char SRAMPath    [ROMSlot_MAX][1024];
 char PrevSRAMPath[ROMSlot_MAX][1024]; // for savestate 'undo load'
 
 bool SavestateLoaded;
+
+ARCodeFile* CheatFile;
+bool CheatsOn;
 
 
 void Init_ROM()
@@ -48,6 +53,18 @@ void Init_ROM()
     memset(SRAMPath[ROMSlot_GBA], 0, 1024);
     memset(PrevSRAMPath[ROMSlot_NDS], 0, 1024);
     memset(PrevSRAMPath[ROMSlot_GBA], 0, 1024);
+
+    CheatFile = nullptr;
+    CheatsOn = false;
+}
+
+void DeInit_ROM()
+{
+    if (CheatFile)
+    {
+        delete CheatFile;
+        CheatFile = nullptr;
+    }
 }
 
 // TODO: currently, when failing to load a ROM for whatever reason, we attempt
@@ -198,6 +215,25 @@ int VerifyDSiNAND()
     return Load_OK;
 }
 
+void LoadCheats()
+{
+    if (CheatFile)
+    {
+        delete CheatFile;
+        CheatFile = nullptr;
+    }
+
+    char filename[1024];
+    strncpy(filename, ROMPath[ROMSlot_NDS], 1023);
+    filename[1023] = '\0';
+    strncpy(filename + strlen(ROMPath[ROMSlot_NDS]) - 3, "mch", 3);
+
+    // TODO: check for error (malformed cheat file, ...)
+    CheatFile = new ARCodeFile(filename);
+
+    AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+}
+
 int LoadBIOS()
 {
     int res;
@@ -234,6 +270,8 @@ int LoadBIOS()
     NDS::LoadBIOS();
 
     SavestateLoaded = false;
+
+    LoadCheats();
 
     return Load_OK;
 }
@@ -294,6 +332,8 @@ int LoadROM(const char* file, int slot)
     if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
     {
         SavestateLoaded = false;
+
+        LoadCheats();
 
         // Reload the inserted GBA cartridge (if any)
         // TODO: report failure there??
@@ -386,6 +426,8 @@ int Reset()
         if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
             return Load_ROMLoadError;
     }
+
+    LoadCheats();
 
     return Load_OK;
 }
@@ -537,6 +579,13 @@ void UndoStateLoad()
         strncpy(SRAMPath[ROMSlot_NDS], PrevSRAMPath[ROMSlot_NDS], 1024);
         NDS::RelocateSave(SRAMPath[ROMSlot_NDS], false);
     }
+}
+
+void EnableCheats(bool enable)
+{
+    CheatsOn = enable;
+    if (CheatFile)
+        AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
 }
