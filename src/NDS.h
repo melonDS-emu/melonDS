@@ -47,6 +47,8 @@ enum
     Event_DSi_SDIOTransfer,
     Event_DSi_NWifi,
 
+    Event_DSi_RAMSizeChange,
+
     Event_MAX
 };
 
