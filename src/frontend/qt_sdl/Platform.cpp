@@ -416,12 +416,12 @@ int LAN_RecvPacket(u8* data)
 
 void StartRumble(int ms)
 {
-		Input::StartRumble(ms);
+    Input::StartRumble(ms);
 }
 
 void StopRumble()
 {
-		Input::StopRumble();
+    Input::StopRumble();
 }
 
 }

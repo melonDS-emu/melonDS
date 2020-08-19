@@ -780,22 +780,21 @@ u16 RumbleState = 0;
 
 u16 ReadRumble(u32 addr)
 {
-	// GBATEK: For detection, AD1 seems to be pulled low when reading from it... (while) the other AD lines are open bus (containing the halfword address)...
-	// Since open-bus behavior isn't currently implemented in melonDS, we simply set all the AD lines (except for AD1) to high (at least, for now...)
+    // GBATEK: For detection, AD1 seems to be pulled low when reading from it... (while) the other AD lines are open bus (containing the halfword address)...
+    // Since open-bus behavior isn't currently implemented in melonDS, we simply set all the AD lines (except for AD1) to high (at least, for now...)
 
-	return 0xFFFD;
+    return 0xFFFD;
 }
 
 void WriteRumble(u32 addr, u16 val)
 {
-	// Ported from GBE+...
-	
-	if (((addr == 0x8000000) || (addr == 0x8001000)) && (RumbleState != val))
-	{
-			Platform::StopRumble();
-			RumbleState = val;
-			Platform::StartRumble(16);
-	}
+    // Ported from GBE+...
+    if (((addr == 0x8000000) || (addr == 0x8001000)) && (RumbleState != val))
+    {
+        Platform::StopRumble();
+        RumbleState = val;
+        Platform::StartRumble(16);
+    }
 }
 
 }
@@ -808,29 +807,29 @@ u8 GuitarKeyStatus = 0x00;
 
 u8 ReadGrip8(u32 addr)
 {
-		if (addr == 0xA000000)
-		{
-				return ~GuitarKeyStatus;
-		}
+    if (addr == 0xA000000)
+    {
+        return ~GuitarKeyStatus;
+    }
 
-		return ((addr & 1) ? 0xF9 : 0xFF);
+    return ((addr & 1) ? 0xF9 : 0xFF);
 }
 
 u16 ReadGrip16(u32 addr)
 {
-		return 0xF9FF;
+    return 0xF9FF;
 }
 
 void SetGripKey(GuitarKeys key, bool val)
 {
-		if (val == true)
-		{
-				GuitarKeyStatus |= key;
-		}
-		else
-		{
-				GuitarKeyStatus &= ~key;
-		}
+    if (val == true)
+    {
+        GuitarKeyStatus |= key;
+    }
+    else
+    {
+        GuitarKeyStatus &= ~key;
+    }
 }
 
 };

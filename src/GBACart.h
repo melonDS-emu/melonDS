@@ -98,10 +98,10 @@ void WriteRumble(u32 addr, u16 val);
 
 enum GuitarKeys : int
 {
-		Green = 0x40,
-		Red = 0x20,
-		Yellow = 0x10,
-		Blue = 0x08,
+    Green = 0x40,
+    Red = 0x20,
+    Yellow = 0x10,
+    Blue = 0x08,
 };
 
 namespace GBACart_GuitarGrip

@@ -50,10 +50,10 @@ const char* hk_addons_labels[] =
 {
     "[Boktai] Sunlight + ",
     "[Boktai] Sunlight - ",
-	  "[Guitar Grip] Green",
-	  "[Guitar Grip] Red",
-	  "[Guitar Grip] Yellow",
-	  "[Guitar Grip] Blue",
+    "[Guitar Grip] Green",
+    "[Guitar Grip] Red",
+    "[Guitar Grip] Yellow",
+    "[Guitar Grip] Blue",
 };
 
 const int hk_general[] =

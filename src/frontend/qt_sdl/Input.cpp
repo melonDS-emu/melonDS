@@ -69,12 +69,12 @@ void OpenJoystick()
     
     if (SDL_JoystickIsHaptic(Joystick))
     {
-    		Haptic = SDL_HapticOpenFromJoystick(Joystick);
+        Haptic = SDL_HapticOpenFromJoystick(Joystick);
     		
-    		if (SDL_HapticRumbleSupported(Haptic))
-    		{
-    				SDL_HapticRumbleInit(Haptic);
-    		}
+        if (SDL_HapticRumbleSupported(Haptic))
+        {
+            SDL_HapticRumbleInit(Haptic);
+        }
     }
 }
 
@@ -82,11 +82,11 @@ void CloseJoystick()
 {
     if (Joystick)
     {
-    		if (Haptic != nullptr)
-    		{
-    				SDL_HapticClose(Haptic);
-    				Haptic = nullptr;
-    		}
+        if (Haptic != nullptr)
+        {
+            SDL_HapticClose(Haptic);
+            Haptic = nullptr;
+        }
     
         SDL_JoystickClose(Joystick);
         Joystick = nullptr;
@@ -95,22 +95,22 @@ void CloseJoystick()
 
 void StartRumble(int ms)
 {
-		if (Haptic == nullptr)
-		{
-				return;
-		}
+    if (Haptic == nullptr)
+    {
+        return;
+    }
 		
-		SDL_HapticRumblePlay(Haptic, 1.0, ms);
+    SDL_HapticRumblePlay(Haptic, 1.0, ms);
 }
 
 void StopRumble()
 {
-		if (Haptic == nullptr)
-		{
-				return;
-		}
+    if (Haptic == nullptr)
+    {
+        return;
+    }
 		
-		SDL_HapticRumbleStop(Haptic);
+    SDL_HapticRumbleStop(Haptic);
 }
 
 
