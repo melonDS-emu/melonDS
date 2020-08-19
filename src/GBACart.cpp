@@ -792,9 +792,9 @@ void WriteRumble(u32 addr, u16 val)
 	
 	if (((addr == 0x8000000) || (addr == 0x8001000)) && (RumbleState != val))
 	{
-			printf("Stopping rumble...\n");
+			Platform::StopRumble();
 			RumbleState = val;
-			printf("Starting rumble for 16ms...\n");
+			Platform::StartRumble(16);
 	}
 }
 
@@ -829,7 +829,6 @@ void SetGripKey(GuitarKeys key, bool val)
 		}
 		else
 		{
-				// printf("Grip key of %d released\n", key);
 				GuitarKeyStatus &= ~key;
 		}
 }

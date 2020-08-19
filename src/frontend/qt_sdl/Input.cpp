@@ -93,6 +93,26 @@ void CloseJoystick()
     }
 }
 
+void StartRumble(int ms)
+{
+		if (Haptic == nullptr)
+		{
+				return;
+		}
+		
+		SDL_HapticRumblePlay(Haptic, 1.0, ms);
+}
+
+void StopRumble()
+{
+		if (Haptic == nullptr)
+		{
+				return;
+		}
+		
+		SDL_HapticRumbleStop(Haptic);
+}
+
 
 int GetEventKeyVal(QKeyEvent* event)
 {

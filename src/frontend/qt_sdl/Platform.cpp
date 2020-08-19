@@ -24,11 +24,14 @@
 #include <QThread>
 #include <QSemaphore>
 #include <QOpenGLContext>
+#include <QKeyEvent>
+#include <SDL2/SDL.h>
 
 #include "Platform.h"
 #include "PlatformConfig.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
+#include "Input.h"
 #include <string>
 
 #ifdef __WIN32__
@@ -411,5 +414,14 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
+void StartRumble(int ms)
+{
+		Input::StartRumble(ms);
+}
+
+void StopRumble()
+{
+		Input::StopRumble();
+}
 
 }
