@@ -420,6 +420,8 @@ void Channel::Run(s32* buf, u32 samples)
 {
     if (!(Cnt & (1<<31))) return;
 
+    if ((type < 3) && ((Length+LoopPos) < 16)) return;
+
     if (KeyOn)
     {
         Start();
