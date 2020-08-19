@@ -372,6 +372,8 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     return true;
 }
 
@@ -478,6 +480,8 @@ void SetRenderSettings(GPU::RenderSettings& settings)
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //glLineWidth(scale);
     //glLineWidth(1.5);
