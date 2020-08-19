@@ -641,26 +641,130 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             *iptr++ = vidx - 1;
             rp->NumIndices += 3;
         }
-        else
+        else // quad, pentagon, etc
         {
             rp->PrimType = GL_TRIANGLES;
 
-            for (int j = 0; j < poly->NumVertices; j++)
+            if (false)
             {
-                Vertex* vtx = poly->Vertices[j];
+                // regular triangle-splitting
 
-                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
-
-                if (j >= 2)
+                for (int j = 0; j < poly->NumVertices; j++)
                 {
-                    // build a triangle
-                    *iptr++ = vidx_first;
-                    *iptr++ = vidx - 1;
-                    *iptr++ = vidx;
-                    rp->NumIndices += 3;
+                    Vertex* vtx = poly->Vertices[j];
+
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+
+                    if (j >= 2)
+                    {
+                        // build a triangle
+                        *iptr++ = vidx_first;
+                        *iptr++ = vidx - 1;
+                        *iptr++ = vidx;
+                        rp->NumIndices += 3;
+                    }
+
+                    vidx++;
+                }
+            }
+            else
+            {
+                // attempt at 'better' splitting
+                // this doesn't get rid of the error while splitting a bigger polygon into triangles
+                // but we can attempt to reduce it
+
+                u32 cX = 0, cY = 0;
+                float cZ = 0;
+                float cW = 0;
+
+                float cR = 0, cG = 0, cB = 0;
+                float cS = 0, cT = 0;
+
+                for (int j = 0; j < poly->NumVertices; j++)
+                {
+                    Vertex* vtx = poly->Vertices[j];
+
+                    cX += vtx->HiresPosition[0];
+                    cY += vtx->HiresPosition[1];
+
+                    float fw = (float)poly->FinalW[j] * poly->NumVertices;
+                    cW += 1.0f / fw;
+
+                    if (poly->WBuffer) cZ += poly->FinalZ[j] / fw;
+                    else               cZ += poly->FinalZ[j];
+
+                    cR += (vtx->FinalColor[0] >> 1) / fw;
+                    cG += (vtx->FinalColor[1] >> 1) / fw;
+                    cB += (vtx->FinalColor[2] >> 1) / fw;
+
+                    cS += vtx->TexCoords[0] / fw;
+                    cT += vtx->TexCoords[1] / fw;
                 }
 
+                cX /= poly->NumVertices;
+                cY /= poly->NumVertices;
+
+                cW = 1.0f / cW;
+
+                if (poly->WBuffer) cZ *= cW;
+                else               cZ /= poly->NumVertices;
+
+                cR *= cW;
+                cG *= cW;
+                cB *= cW;
+
+                cS *= cW;
+                cT *= cW;
+
+                cX = (cX * ScaleFactor) >> 4;
+                cY = (cY * ScaleFactor) >> 4;
+
+                u32 w = (u32)cW;
+
+                u32 z = (u32)cZ;
+                u32 zshift = 0;
+                while (z > 0xFFFF) { z >>= 1; zshift++; }
+
+                // build center vertex
+                *vptr++ = cX | (cY << 16);
+                *vptr++ = z | (w << 16);
+
+                *vptr++ =  (u32)cR |
+                          ((u32)cG << 8) |
+                          ((u32)cB << 16) |
+                          (alpha << 24);
+
+                *vptr++ = (u16)cS | ((u16)cT << 16);
+
+                *vptr++ = vtxattr | (zshift << 16);
+                *vptr++ = poly->TexParam;
+                *vptr++ = poly->TexPalette;
+
                 vidx++;
+
+                // build the final polygon
+                for (int j = 0; j < poly->NumVertices; j++)
+                {
+                    Vertex* vtx = poly->Vertices[j];
+
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+
+                    if (j >= 1)
+                    {
+                        // build a triangle
+                        *iptr++ = vidx_first;
+                        *iptr++ = vidx - 1;
+                        *iptr++ = vidx;
+                        rp->NumIndices += 3;
+                    }
+
+                    vidx++;
+                }
+
+                *iptr++ = vidx_first;
+                *iptr++ = vidx - 1;
+                *iptr++ = vidx_first + 1;
+                rp->NumIndices += 3;
             }
         }
 
