@@ -40,12 +40,20 @@ const int hk_addons[] =
 {
     HK_SolarSensorIncrease,
     HK_SolarSensorDecrease,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
 };
 
 const char* hk_addons_labels[] =
 {
     "[Boktai] Sunlight + ",
     "[Boktai] Sunlight - ",
+	  "[Guitar Grip] Green",
+	  "[Guitar Grip] Red",
+	  "[Guitar Grip] Yellow",
+	  "[Guitar Grip] Blue",
 };
 
 const int hk_general[] =
@@ -80,7 +88,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         keypadJoyMap[i] = Config::JoyMapping[dskeyorder[i]];
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 6; i++)
     {
         addonsKeyMap[i] = Config::HKKeyMapping[hk_addons[i]];
         addonsJoyMap[i] = Config::HKJoyMapping[hk_addons[i]];
@@ -93,7 +101,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
 
     populatePage(ui->tabInput, 12, dskeylabels, keypadKeyMap, keypadJoyMap);
-    populatePage(ui->tabAddons, 2, hk_addons_labels, addonsKeyMap, addonsJoyMap);
+    populatePage(ui->tabAddons, 6, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, 6, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     int njoy = SDL_NumJoysticks();
@@ -171,7 +179,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         Config::JoyMapping[dskeyorder[i]] = keypadJoyMap[i];
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 6; i++)
     {
         Config::HKKeyMapping[hk_addons[i]] = addonsKeyMap[i];
         Config::HKJoyMapping[hk_addons[i]] = addonsJoyMap[i];

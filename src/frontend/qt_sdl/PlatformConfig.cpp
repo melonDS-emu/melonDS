@@ -58,6 +58,7 @@ int AudioSync;
 int ShowOSD;
 
 int ConsoleType;
+int Slot2Addon;
 int DirectBoot;
 
 int SocketBindAnyAddr;
@@ -112,6 +113,11 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
+    {"HKKey_GuitarGripGreen", 0, &HKKeyMapping[HK_GuitarGripGreen], -1, NULL, 0},
+    {"HKKey_GuitarGripRed", 0, &HKKeyMapping[HK_GuitarGripRed], -1, NULL, 0},
+    {"HKKey_GuitarGripYellow", 0, &HKKeyMapping[HK_GuitarGripYellow], -1, NULL, 0},
+    {"HKKey_GuitarGripBlue", 0, &HKKeyMapping[HK_GuitarGripBlue], -1, NULL, 0},
+
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, NULL, 0},
@@ -121,6 +127,10 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
+    {"HKJoy_GuitarGripGreen", 0, &HKJoyMapping[HK_GuitarGripGreen], -1, NULL, 0},
+    {"HKJoy_GuitarGripRed", 0, &HKJoyMapping[HK_GuitarGripRed], -1, NULL, 0},
+    {"HKJoy_GuitarGripYellow", 0, &HKJoyMapping[HK_GuitarGripYellow], -1, NULL, 0},
+    {"HKJoy_GuitarGripBlue", 0, &HKJoyMapping[HK_GuitarGripBlue], -1, NULL, 0},
 
     {"JoystickID", 0, &JoystickID, 0, NULL, 0},
 
@@ -150,6 +160,7 @@ ConfigEntry PlatformConfigFile[] =
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
+    {"Slot2Addon", 0, &Slot2Addon, 0, NULL, 0},
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},

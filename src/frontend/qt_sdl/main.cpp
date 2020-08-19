@@ -382,6 +382,13 @@ void EmuThread::run()
                 OSD::AddMessage(0, msg);
             }
         }
+        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        {
+        		GBACart_GuitarGrip::SetGripKey(GuitarKeys::Green, Input::HotkeyDown(HK_GuitarGripGreen));
+        		GBACart_GuitarGrip::SetGripKey(GuitarKeys::Red, Input::HotkeyDown(HK_GuitarGripRed));
+        		GBACart_GuitarGrip::SetGripKey(GuitarKeys::Yellow, Input::HotkeyDown(HK_GuitarGripYellow));
+        		GBACart_GuitarGrip::SetGripKey(GuitarKeys::Blue, Input::HotkeyDown(HK_GuitarGripBlue));
+        }
 
         if (EmuRunning == 1)
         {

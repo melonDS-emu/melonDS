@@ -771,3 +771,67 @@ void Process(GBACart::GPIO* gpio)
 }
 
 }
+
+namespace GBACart_RumblePak
+{
+
+bool RumblePakEnabled = false;
+u16 RumbleState = 0;
+
+u16 ReadRumble(u32 addr)
+{
+	// GBATEK: For detection, AD1 seems to be pulled low when reading from it... (while) the other AD lines are open bus (containing the halfword address)...
+	// Since open-bus behavior isn't currently implemented in melonDS, we simply set all the AD lines (except for AD1) to high (at least, for now...)
+
+	return 0xFFFD;
+}
+
+void WriteRumble(u32 addr, u16 val)
+{
+	// Ported from GBE+...
+	
+	if (((addr == 0x8000000) || (addr == 0x8001000)) && (RumbleState != val))
+	{
+			printf("Stopping rumble...\n");
+			RumbleState = val;
+			printf("Starting rumble for 16ms...\n");
+	}
+}
+
+}
+
+namespace GBACart_GuitarGrip
+{
+
+bool GuitarGripEnabled = false;
+u8 GuitarKeyStatus = 0x00;
+
+u8 ReadGrip8(u32 addr)
+{
+		if (addr == 0xA000000)
+		{
+				return ~GuitarKeyStatus;
+		}
+
+		return ((addr & 1) ? 0xF9 : 0xFF);
+}
+
+u16 ReadGrip16(u32 addr)
+{
+		return 0xF9FF;
+}
+
+void SetGripKey(GuitarKeys key, bool val)
+{
+		if (val == true)
+		{
+				GuitarKeyStatus |= key;
+		}
+		else
+		{
+				// printf("Grip key of %d released\n", key);
+				GuitarKeyStatus &= ~key;
+		}
+}
+
+};

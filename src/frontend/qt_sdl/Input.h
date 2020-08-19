@@ -26,6 +26,7 @@ namespace Input
 
 extern int JoystickID;
 extern SDL_Joystick* Joystick;
+extern SDL_Haptic* Haptic;
 
 extern u32 InputMask;
 

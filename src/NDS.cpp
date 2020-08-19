@@ -826,6 +826,12 @@ void SetConsoleType(int type)
     ConsoleType = type;
 }
 
+void SetSlot2Addon(int type)
+{
+		GBACart_RumblePak::RumblePakEnabled = (type == 1);
+		GBACart_GuitarGrip::GuitarGripEnabled = (type == 2);
+}
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     if (NDSCart::LoadROM(path, sram, direct))
@@ -1886,6 +1892,11 @@ u8 ARM9Read8(u32 addr)
         {
             return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+				else if (GBACart_GuitarGrip::GuitarGripEnabled)
+				{
+						return GBACart_GuitarGrip::ReadGrip8(addr);
+				}
+
         return 0xFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -1894,6 +1905,11 @@ u8 ARM9Read8(u32 addr)
         {
             return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
+				else if (GBACart_GuitarGrip::GuitarGripEnabled)
+				{
+						return GBACart_GuitarGrip::ReadGrip8(addr);
+				}
+
         return 0xFF; // TODO: proper open bus
     }
 
@@ -1951,6 +1967,15 @@ u16 ARM9Read16(u32 addr)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+        else if (GBACart_RumblePak::RumblePakEnabled)
+        {
+        		return GBACart_RumblePak::ReadRumble(addr);
+        }
+				else if (GBACart_GuitarGrip::GuitarGripEnabled)
+				{
+						return GBACart_GuitarGrip::ReadGrip16(addr);
+				}
+        
         return 0xFFFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -1959,6 +1984,7 @@ u16 ARM9Read16(u32 addr)
         {
             return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
+
         return 0xFFFF; // TODO: proper open bus
     }
 
@@ -2081,6 +2107,7 @@ void ARM9Write8(u32 addr, u8 val)
         {
             GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+
         return;
     }
 
@@ -2148,6 +2175,11 @@ void ARM9Write16(u32 addr, u16 val)
                 return;
             }
         }
+        else if (GBACart_RumblePak::RumblePakEnabled)
+        {
+        		GBACart_RumblePak::WriteRumble(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:
@@ -2316,6 +2348,11 @@ u8 ARM7Read8(u32 addr)
         {
             return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+				else if (GBACart_GuitarGrip::GuitarGripEnabled)
+				{
+						return GBACart_GuitarGrip::ReadGrip8(addr);
+				}
+
         return 0xFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -2383,6 +2420,15 @@ u16 ARM7Read16(u32 addr)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+        else if (GBACart_RumblePak::RumblePakEnabled)
+        {
+        		return GBACart_RumblePak::ReadRumble(addr);
+        }
+				else if (GBACart_GuitarGrip::GuitarGripEnabled)
+				{
+						return GBACart_GuitarGrip::ReadGrip16(addr);
+				}
+        
         return 0xFFFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -2609,6 +2655,11 @@ void ARM7Write16(u32 addr, u16 val)
                 return;
             }
         }
+        else if (GBACart_RumblePak::RumblePakEnabled)
+        {
+        		GBACart_RumblePak::WriteRumble(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:

@@ -191,6 +191,9 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
 // 0=DS  1=DSi
 void SetConsoleType(int type);
 
+// 0=None 1=Rumble Pak 2=Guitar Grip
+void SetSlot2Addon(int type);
+
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadGBAROM(const char* path, const char* sram);
 void LoadBIOS();

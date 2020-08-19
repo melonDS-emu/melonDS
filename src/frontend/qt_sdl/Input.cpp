@@ -28,6 +28,7 @@ namespace Input
 
 int JoystickID;
 SDL_Joystick* Joystick = nullptr;
+SDL_Haptic* Haptic = nullptr;
 
 u32 KeyInputMask, JoyInputMask;
 u32 KeyHotkeyMask, JoyHotkeyMask;
@@ -65,12 +66,28 @@ void OpenJoystick()
         JoystickID = 0;
 
     Joystick = SDL_JoystickOpen(JoystickID);
+    
+    if (SDL_JoystickIsHaptic(Joystick))
+    {
+    		Haptic = SDL_HapticOpenFromJoystick(Joystick);
+    		
+    		if (SDL_HapticRumbleSupported(Haptic))
+    		{
+    				SDL_HapticRumbleInit(Haptic);
+    		}
+    }
 }
 
 void CloseJoystick()
 {
     if (Joystick)
     {
+    		if (Haptic != nullptr)
+    		{
+    				SDL_HapticClose(Haptic);
+    				Haptic = nullptr;
+    		}
+    
         SDL_JoystickClose(Joystick);
         Joystick = nullptr;
     }

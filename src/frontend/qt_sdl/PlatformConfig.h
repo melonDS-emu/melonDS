@@ -31,6 +31,10 @@ enum
     HK_FastForwardToggle,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
+    HK_GuitarGripGreen,
+    HK_GuitarGripRed,
+    HK_GuitarGripYellow,
+    HK_GuitarGripBlue,
     HK_MAX
 };
 
@@ -71,6 +75,7 @@ extern int AudioSync;
 extern int ShowOSD;
 
 extern int ConsoleType;
+extern int Slot2Addon;
 extern int DirectBoot;
 
 extern int SocketBindAnyAddr;

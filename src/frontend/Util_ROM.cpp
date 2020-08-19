@@ -335,6 +335,7 @@ int LoadROM(const char* file, int slot)
     SetupSRAMPath(1);
 
     NDS::SetConsoleType(Config::ConsoleType);
+    NDS::SetSlot2Addon(Config::Slot2Addon);
 
     if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
     {
