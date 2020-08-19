@@ -1159,8 +1159,9 @@ void RenderFrame()
 {
     CurShaderID = -1;
 
-    if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    if (Antialias) glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[2]);
+    else           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;

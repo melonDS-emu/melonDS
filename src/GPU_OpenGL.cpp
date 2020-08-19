@@ -162,7 +162,8 @@ void SetRenderSettings(RenderSettings& settings)
 
 void RenderFrame()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
