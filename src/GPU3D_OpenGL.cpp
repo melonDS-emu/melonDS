@@ -527,6 +527,46 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     }
 }
 
+u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
+{
+    u32 z = poly->FinalZ[vid];
+    u32 w = poly->FinalW[vid];
+
+    u32 alpha = (poly->Attr >> 16) & 0x1F;
+
+    // Z should always fit within 16 bits, so it's okay to do this
+    u32 zshift = 0;
+    while (z > 0xFFFF) { z >>= 1; zshift++; }
+
+    u32 x, y;
+    if (ScaleFactor > 1)
+    {
+        x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
+        y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
+    }
+    else
+    {
+        x = vtx->FinalPosition[0];
+        y = vtx->FinalPosition[1];
+    }
+
+    *vptr++ = x | (y << 16);
+    *vptr++ = z | (w << 16);
+
+    *vptr++ =  (vtx->FinalColor[0] >> 1) |
+              ((vtx->FinalColor[1] >> 1) << 8) |
+              ((vtx->FinalColor[2] >> 1) << 16) |
+              (alpha << 24);
+
+    *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+
+    *vptr++ = vtxattr | (zshift << 16);
+    *vptr++ = poly->TexParam;
+    *vptr++ = poly->TexPalette;
+
+    return vptr;
+}
+
 void BuildPolygons(RendererPolygon* polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
@@ -564,43 +604,16 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                u32 z = poly->FinalZ[j];
-                u32 w = poly->FinalW[j];
-
-                // Z should always fit within 16 bits, so it's okay to do this
-                u32 zshift = 0;
-                while (z > 0xFFFF) { z >>= 1; zshift++; }
-
-                u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
-
                 if (j > 0)
                 {
-                    if (lastx == x && lasty == y) continue;
+                    if (lastx == vtx->FinalPosition[0] &&
+                        lasty == vtx->FinalPosition[1]) continue;
                 }
 
-                *vptr++ = x | (y << 16);
-                *vptr++ = z | (w << 16);
+                lastx = vtx->FinalPosition[0];
+                lasty = vtx->FinalPosition[1];
 
-                *vptr++ =  (vtx->FinalColor[0] >> 1) |
-                          ((vtx->FinalColor[1] >> 1) << 8) |
-                          ((vtx->FinalColor[2] >> 1) << 16) |
-                          (alpha << 24);
-
-                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
-
-                *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
 
                 *iptr++ = vidx;
                 rp->NumIndices++;
@@ -610,6 +623,24 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 if (nout >= 2) break;
             }
         }
+        else if (poly->NumVertices == 3) // regular triangle
+        {
+            rp->PrimType = GL_TRIANGLES;
+
+            for (int j = 0; j < 3; j++)
+            {
+                Vertex* vtx = poly->Vertices[j];
+
+                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vidx++;
+            }
+
+            // build a triangle
+            *iptr++ = vidx_first;
+            *iptr++ = vidx - 2;
+            *iptr++ = vidx - 1;
+            rp->NumIndices += 3;
+        }
         else
         {
             rp->PrimType = GL_TRIANGLES;
@@ -618,38 +649,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                u32 z = poly->FinalZ[j];
-                u32 w = poly->FinalW[j];
-
-                // Z should always fit within 16 bits, so it's okay to do this
-                u32 zshift = 0;
-                while (z > 0xFFFF) { z >>= 1; zshift++; }
-
-                u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
-
-                *vptr++ = x | (y << 16);
-                *vptr++ = z | (w << 16);
-
-                *vptr++ =  (vtx->FinalColor[0] >> 1) |
-                          ((vtx->FinalColor[1] >> 1) << 8) |
-                          ((vtx->FinalColor[2] >> 1) << 16) |
-                          (alpha << 24);
-
-                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
-
-                *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
 
                 if (j >= 2)
                 {
