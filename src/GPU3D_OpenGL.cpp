@@ -342,9 +342,6 @@ bool Init()
     SetupDefaultTexParams(FramebufferTex[5]);
     SetupDefaultTexParams(FramebufferTex[7]);
 
-    // downscale framebuffer for antialiased mode
-    SetupDefaultTexParams(FramebufferTex[2]);
-
     // downscale framebuffer for display capture (always 256x192)
     SetupDefaultTexParams(FramebufferTex[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -406,52 +403,26 @@ void Reset()
 void SetRenderSettings(GPU::RenderSettings& settings)
 {
     int scale = settings.GL_ScaleFactor;
-    bool antialias = false; // REMOVE ME!
-
-    if (antialias) scale *= 2;
 
     ScaleFactor = scale;
-    Antialias = antialias;
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
 
-    if (!antialias)
-    {
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH32F_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, 1, 1, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    }
-    else
-    {
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW/2, ScreenH/2, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW/2, ScreenH/2, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    }
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
@@ -466,12 +437,6 @@ void SetRenderSettings(GPU::RenderSettings& settings)
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
     glDrawBuffers(2, fbassign);
@@ -1164,8 +1129,7 @@ void RenderFrame()
     CurShaderID = -1;
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    if (Antialias) glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[2]);
-    else           glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
@@ -1327,14 +1291,6 @@ void RenderFrame()
         RenderSceneChunk(0, 192);
     }
 
-    if (Antialias)
-    {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[2]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
-        glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    }
-
-    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
