@@ -804,6 +804,11 @@ bool DoSavestate(Savestate* file)
     SPI::DoSavestate(file);
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
+    
+    if (GBACart_MemExpansionPak::MemPakEnabled)
+    {
+        GBACart_MemExpansionPak::DoSavestate(file);
+    }
 
     if (!file->Saving)
     {
@@ -830,6 +835,7 @@ void SetSlot2Addon(int type)
 {
     GBACart_RumblePak::RumblePakEnabled = (type == 1);
     GBACart_GuitarGrip::GuitarGripEnabled = (type == 2);
+    GBACart_MemExpansionPak::MemPakEnabled = (type == 3);
 }
 
 bool LoadROM(const char* path, const char* sram, bool direct)
@@ -1896,6 +1902,10 @@ u8 ARM9Read8(u32 addr)
         {
             return GBACart_GuitarGrip::ReadGrip8(addr);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+        }
 
         return 0xFF; // TODO: proper open bus
 
@@ -1909,7 +1919,11 @@ u8 ARM9Read8(u32 addr)
         {
             return GBACart_GuitarGrip::ReadGrip8(addr);
         }
-
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+        }
+        
         return 0xFF; // TODO: proper open bus
     }
 
@@ -1975,6 +1989,10 @@ u16 ARM9Read16(u32 addr)
         {
             return GBACart_GuitarGrip::ReadGrip16(addr);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+        }
         
         return 0xFFFF; // TODO: proper open bus
 
@@ -1983,6 +2001,10 @@ u16 ARM9Read16(u32 addr)
         if (GBACart::CartInserted)
         {
             return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
+        }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak16(addr);
         }
 
         return 0xFFFF; // TODO: proper open bus
@@ -2042,6 +2064,11 @@ u32 ARM9Read32(u32 addr)
         {
             return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+        }
+        
         return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -2050,6 +2077,11 @@ u32 ARM9Read32(u32 addr)
         {
             return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+        }
+        
         return 0xFFFFFFFF; // TODO: proper open bus
     }
 
@@ -2099,6 +2131,11 @@ void ARM9Write8(u32 addr, u8 val)
                 return;
             }
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:
@@ -2106,6 +2143,10 @@ void ARM9Write8(u32 addr, u8 val)
         if (GBACart::CartInserted)
         {
             GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
+        }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
         }
 
         return;
@@ -2179,6 +2220,10 @@ void ARM9Write16(u32 addr, u16 val)
         {
             GBACart_RumblePak::WriteRumble(addr, val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+        }
         
         break;
 
@@ -2188,6 +2233,11 @@ void ARM9Write16(u32 addr, u16 val)
         {
             GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+        }
+        
         return;
     }
 
@@ -2256,6 +2306,11 @@ void ARM9Write32(u32 addr, u32 val)
                 return;
             }
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:
@@ -2264,6 +2319,11 @@ void ARM9Write32(u32 addr, u32 val)
         {
             GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+        }
+        
         return;
     }
 
@@ -2352,6 +2412,10 @@ u8 ARM7Read8(u32 addr)
         {
             return GBACart_GuitarGrip::ReadGrip8(addr);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+        }
 
         return 0xFF; // TODO: proper open bus
 
@@ -2361,7 +2425,13 @@ u8 ARM7Read8(u32 addr)
         {
             return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+        }
+        
         return 0xFF; // TODO: proper open bus
+        
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -2428,6 +2498,10 @@ u16 ARM7Read16(u32 addr)
         {
             return GBACart_GuitarGrip::ReadGrip16(addr);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+        }
         
         return 0xFFFF; // TODO: proper open bus
 
@@ -2437,6 +2511,11 @@ u16 ARM7Read16(u32 addr)
         {
             return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+        }
+        
         return 0xFFFF; // TODO: proper open bus
     }
 
@@ -2496,6 +2575,11 @@ u32 ARM7Read32(u32 addr)
         {
             return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+        }
+        
         return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:
@@ -2504,6 +2588,11 @@ u32 ARM7Read32(u32 addr)
         {
             return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+        }
+        
         return 0xFFFFFFFF; // TODO: proper open bus
     }
 
@@ -2571,6 +2660,11 @@ void ARM7Write8(u32 addr, u8 val)
                 return;
             }
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:
@@ -2579,6 +2673,11 @@ void ARM7Write8(u32 addr, u8 val)
         {
             GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+        }
+        
         return;
     }
 
@@ -2659,6 +2758,10 @@ void ARM7Write16(u32 addr, u16 val)
         {
             GBACart_RumblePak::WriteRumble(addr, val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+        }
         
         break;
 
@@ -2668,6 +2771,11 @@ void ARM7Write16(u32 addr, u16 val)
         {
             GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+        }
+        
         return;
     }
 
@@ -2746,6 +2854,11 @@ void ARM7Write32(u32 addr, u32 val)
                 return;
             }
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+        }
+        
         break;
 
     case 0x0A000000:
@@ -2754,6 +2867,11 @@ void ARM7Write32(u32 addr, u32 val)
         {
             GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
+        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        {
+            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+        }
+        
         return;
     }
 

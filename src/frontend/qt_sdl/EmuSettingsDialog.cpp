@@ -62,7 +62,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     
     ui->cbxSlot2Addon->addItem("None");
     ui->cbxSlot2Addon->addItem("Rumble Pak");
-		ui->cbxSlot2Addon->addItem("Guitar Grip");
+    ui->cbxSlot2Addon->addItem("Guitar Grip");
+    ui->cbxSlot2Addon->addItem("Memory Expansion Pak");
     ui->cbxSlot2Addon->setCurrentIndex(Config::Slot2Addon);
 
 #ifdef JIT_ENABLED
