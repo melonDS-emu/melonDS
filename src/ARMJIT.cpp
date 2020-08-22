@@ -480,7 +480,7 @@ InterpreterFunc InterpretARM[ARMInstrInfo::ak_Count] =
     F_ALU(CMN,),
 
     F(MUL), F(MLA), F(UMULL), F(UMLAL), F(SMULL), F(SMLAL), F(SMLAxy), F(SMLAWy), F(SMULWy), F(SMLALxy), F(SMULxy),
-    F(CLZ), F(QADD), F(QDADD), F(QSUB), F(QDSUB),
+    F(CLZ), F(QADD), F(QSUB), F(QDADD), F(QDSUB),
 
     F_MEM_WB(STR),
     F_MEM_WB(STRB),
