@@ -2073,11 +2073,6 @@ u32 ARM9Read32(u32 addr)
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
         
-        if (addr == 0x80000AC)
-        {
-        		printf("ARM9 Read16: 0x%08x\n", ARM9->R[15]);
-        }
-        
         return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:

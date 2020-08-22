@@ -37,7 +37,7 @@ u16 ReadRumble(u32 addr)
     // Credit to rzumer for coming up with this algorithm...
     
     u8 lodata = ((addr | 0x40) & 0xFFFD);
-		return (addr & 1) ? addr : lodata;
+    return (addr & 1) ? addr : lodata;
 }
 
 void WriteRumble(u32 addr, u16 val)
