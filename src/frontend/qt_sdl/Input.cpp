@@ -93,24 +93,20 @@ void CloseJoystick()
     }
 }
 
-void StartRumble(int ms)
+void StartRumble()
 {
-    if (Haptic == nullptr)
+    if (Haptic != nullptr)
     {
-        return;
-    }
-		
-    SDL_HapticRumblePlay(Haptic, 1.0, ms);
+    		SDL_HapticRumblePlay(Haptic, 1.0, 48);
+    }    
 }
 
 void StopRumble()
 {
-    if (Haptic == nullptr)
+    if (Haptic != nullptr)
     {
-        return;
+        SDL_HapticRumbleStop(Haptic);
     }
-		
-    SDL_HapticRumbleStop(Haptic);
 }
 
 

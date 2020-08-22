@@ -32,6 +32,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
+#include "Slot2Cart.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -805,9 +806,9 @@ bool DoSavestate(Savestate* file)
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
     
-    if (GBACart_MemExpansionPak::MemPakEnabled)
+    if (Slot2Cart_MemExpansionPak::MemPakEnabled)
     {
-        GBACart_MemExpansionPak::DoSavestate(file);
+        Slot2Cart_MemExpansionPak::DoSavestate(file);
     }
 
     if (!file->Saving)
@@ -833,9 +834,9 @@ void SetConsoleType(int type)
 
 void SetSlot2Addon(int type)
 {
-    GBACart_RumblePak::RumblePakEnabled = (type == 1);
-    GBACart_GuitarGrip::GuitarGripEnabled = (type == 2);
-    GBACart_MemExpansionPak::MemPakEnabled = (type == 3);
+    Slot2Cart_RumblePak::RumblePakEnabled = (type == 1);
+    Slot2Cart_GuitarGrip::GuitarGripEnabled = (type == 2);
+    Slot2Cart_MemExpansionPak::MemPakEnabled = (type == 3);
 }
 
 bool LoadROM(const char* path, const char* sram, bool direct)
@@ -1898,13 +1899,13 @@ u8 ARM9Read8(u32 addr)
         {
             return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            return GBACart_GuitarGrip::ReadGrip8(addr);
+            return Slot2Cart_GuitarGrip::ReadGrip8(addr);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
 
         return 0xFF; // TODO: proper open bus
@@ -1915,13 +1916,13 @@ u8 ARM9Read8(u32 addr)
         {
             return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            return GBACart_GuitarGrip::ReadGrip8(addr);
+            return Slot2Cart_GuitarGrip::ReadGrip8(addr);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
         
         return 0xFF; // TODO: proper open bus
@@ -1981,17 +1982,17 @@ u16 ARM9Read16(u32 addr)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_RumblePak::RumblePakEnabled)
+        else if (Slot2Cart_RumblePak::RumblePakEnabled)
         {
-            return GBACart_RumblePak::ReadRumble(addr);
+            return Slot2Cart_RumblePak::ReadRumble(addr);
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            return GBACart_GuitarGrip::ReadGrip16(addr);
+            return Slot2Cart_GuitarGrip::ReadGrip16(addr);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
         
         return 0xFFFF; // TODO: proper open bus
@@ -2002,9 +2003,9 @@ u16 ARM9Read16(u32 addr)
         {
             return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
 
         return 0xFFFF; // TODO: proper open bus
@@ -2064,9 +2065,9 @@ u32 ARM9Read32(u32 addr)
         {
             return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
         
         return 0xFFFFFFFF; // TODO: proper open bus
@@ -2077,9 +2078,9 @@ u32 ARM9Read32(u32 addr)
         {
             return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
         
         return 0xFFFFFFFF; // TODO: proper open bus
@@ -2131,9 +2132,9 @@ void ARM9Write8(u32 addr, u8 val)
                 return;
             }
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak8(addr, val);
         }
         
         break;
@@ -2144,9 +2145,9 @@ void ARM9Write8(u32 addr, u8 val)
         {
             GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak8(addr, val);
         }
 
         return;
@@ -2216,13 +2217,13 @@ void ARM9Write16(u32 addr, u16 val)
                 return;
             }
         }
-        else if (GBACart_RumblePak::RumblePakEnabled)
+        else if (Slot2Cart_RumblePak::RumblePakEnabled)
         {
-            GBACart_RumblePak::WriteRumble(addr, val);
+            Slot2Cart_RumblePak::WriteRumble(addr, val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak16(addr, val);
         }
         
         break;
@@ -2233,9 +2234,9 @@ void ARM9Write16(u32 addr, u16 val)
         {
             GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak16(addr, val);
         }
         
         return;
@@ -2306,9 +2307,9 @@ void ARM9Write32(u32 addr, u32 val)
                 return;
             }
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak32(addr, val);
         }
         
         break;
@@ -2319,9 +2320,9 @@ void ARM9Write32(u32 addr, u32 val)
         {
             GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak32(addr, val);
         }
         
         return;
@@ -2408,13 +2409,13 @@ u8 ARM7Read8(u32 addr)
         {
             return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            return GBACart_GuitarGrip::ReadGrip8(addr);
+            return Slot2Cart_GuitarGrip::ReadGrip8(addr);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
 
         return 0xFF; // TODO: proper open bus
@@ -2425,9 +2426,9 @@ u8 ARM7Read8(u32 addr)
         {
             return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak8(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
         
         return 0xFF; // TODO: proper open bus
@@ -2490,17 +2491,17 @@ u16 ARM7Read16(u32 addr)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_RumblePak::RumblePakEnabled)
+        else if (Slot2Cart_RumblePak::RumblePakEnabled)
         {
-            return GBACart_RumblePak::ReadRumble(addr);
+            return Slot2Cart_RumblePak::ReadRumble(addr);
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            return GBACart_GuitarGrip::ReadGrip16(addr);
+            return Slot2Cart_GuitarGrip::ReadGrip16(addr);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
         
         return 0xFFFF; // TODO: proper open bus
@@ -2511,9 +2512,9 @@ u16 ARM7Read16(u32 addr)
         {
             return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak16(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
         
         return 0xFFFF; // TODO: proper open bus
@@ -2575,9 +2576,9 @@ u32 ARM7Read32(u32 addr)
         {
             return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
         
         return 0xFFFFFFFF; // TODO: proper open bus
@@ -2588,9 +2589,9 @@ u32 ARM7Read32(u32 addr)
         {
             return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            return GBACart_MemExpansionPak::ReadMemPak32(addr);
+            return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
         
         return 0xFFFFFFFF; // TODO: proper open bus
@@ -2660,9 +2661,9 @@ void ARM7Write8(u32 addr, u8 val)
                 return;
             }
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak8(addr, val);
         }
         
         break;
@@ -2673,9 +2674,9 @@ void ARM7Write8(u32 addr, u8 val)
         {
             GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak8(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak8(addr, val);
         }
         
         return;
@@ -2754,13 +2755,13 @@ void ARM7Write16(u32 addr, u16 val)
                 return;
             }
         }
-        else if (GBACart_RumblePak::RumblePakEnabled)
+        else if (Slot2Cart_RumblePak::RumblePakEnabled)
         {
-            GBACart_RumblePak::WriteRumble(addr, val);
+            Slot2Cart_RumblePak::WriteRumble(addr, val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak16(addr, val);
         }
         
         break;
@@ -2771,9 +2772,9 @@ void ARM7Write16(u32 addr, u16 val)
         {
             GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak16(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak16(addr, val);
         }
         
         return;
@@ -2854,9 +2855,9 @@ void ARM7Write32(u32 addr, u32 val)
                 return;
             }
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak32(addr, val);
         }
         
         break;
@@ -2867,9 +2868,9 @@ void ARM7Write32(u32 addr, u32 val)
         {
             GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
         }
-        else if (GBACart_MemExpansionPak::MemPakEnabled)
+        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
-            GBACart_MemExpansionPak::WriteMemPak32(addr, val);
+            Slot2Cart_MemExpansionPak::WriteMemPak32(addr, val);
         }
         
         return;

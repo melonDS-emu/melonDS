@@ -47,7 +47,7 @@ bool HotkeyReleased(int id);
 
 bool IsRightModKey(QKeyEvent* event);
 
-void StartRumble(int ms);
+void StartRumble();
 void StopRumble();
 
 }

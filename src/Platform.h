@@ -94,7 +94,7 @@ int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
 void StopRumble();
-void StartRumble(int ms);
+void StartRumble();
 
 }
 

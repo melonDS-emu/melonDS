@@ -39,6 +39,7 @@ add_library(core STATIC
 	Platform.h
 	ROMList.h
 	RTC.cpp
+	Slot2Cart.cpp
 	Savestate.cpp
 	SPI.cpp
 	SPU.cpp

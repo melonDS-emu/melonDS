@@ -414,9 +414,9 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
-void StartRumble(int ms)
+void StartRumble()
 {
-    Input::StartRumble(ms);
+    Input::StartRumble();
 }
 
 void StopRumble()

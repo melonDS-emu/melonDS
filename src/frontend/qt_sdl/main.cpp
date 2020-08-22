@@ -49,6 +49,7 @@
 
 #include "NDS.h"
 #include "GBACart.h"
+#include "Slot2Cart.h"
 #include "OpenGLSupport.h"
 #include "GPU.h"
 #include "SPU.h"
@@ -382,12 +383,13 @@ void EmuThread::run()
                 OSD::AddMessage(0, msg);
             }
         }
-        else if (GBACart_GuitarGrip::GuitarGripEnabled)
+        
+        if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
-            GBACart_GuitarGrip::SetGripKey(GuitarKeys::Green, Input::HotkeyDown(HK_GuitarGripGreen));
-            GBACart_GuitarGrip::SetGripKey(GuitarKeys::Red, Input::HotkeyDown(HK_GuitarGripRed));
-            GBACart_GuitarGrip::SetGripKey(GuitarKeys::Yellow, Input::HotkeyDown(HK_GuitarGripYellow));
-            GBACart_GuitarGrip::SetGripKey(GuitarKeys::Blue, Input::HotkeyDown(HK_GuitarGripBlue));
+            Slot2Cart_GuitarGrip::SetGripKey(GuitarKeys::Green, Input::HotkeyDown(HK_GuitarGripGreen));
+            Slot2Cart_GuitarGrip::SetGripKey(GuitarKeys::Red, Input::HotkeyDown(HK_GuitarGripRed));
+            Slot2Cart_GuitarGrip::SetGripKey(GuitarKeys::Yellow, Input::HotkeyDown(HK_GuitarGripYellow));
+            Slot2Cart_GuitarGrip::SetGripKey(GuitarKeys::Blue, Input::HotkeyDown(HK_GuitarGripBlue));
         }
 
         if (EmuRunning == 1)
