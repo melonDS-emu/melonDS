@@ -113,10 +113,10 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
-    {"HKKey_GuitarGripGreen", 0, &HKKeyMapping[HK_GuitarGripGreen], -1, NULL, 0},
-    {"HKKey_GuitarGripRed", 0, &HKKeyMapping[HK_GuitarGripRed], -1, NULL, 0},
-    {"HKKey_GuitarGripYellow", 0, &HKKeyMapping[HK_GuitarGripYellow], -1, NULL, 0},
-    {"HKKey_GuitarGripBlue", 0, &HKKeyMapping[HK_GuitarGripBlue], -1, NULL, 0},
+    {"HKKey_GuitarGripGreen",     0, &HKKeyMapping[HK_GuitarGripGreen],     -1, NULL, 0},
+    {"HKKey_GuitarGripRed",       0, &HKKeyMapping[HK_GuitarGripRed],       -1, NULL, 0},
+    {"HKKey_GuitarGripYellow",    0, &HKKeyMapping[HK_GuitarGripYellow],    -1, NULL, 0},
+    {"HKKey_GuitarGripBlue",      0, &HKKeyMapping[HK_GuitarGripBlue],      -1, NULL, 0},
 
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
@@ -127,10 +127,10 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
-    {"HKJoy_GuitarGripGreen", 0, &HKJoyMapping[HK_GuitarGripGreen], -1, NULL, 0},
-    {"HKJoy_GuitarGripRed", 0, &HKJoyMapping[HK_GuitarGripRed], -1, NULL, 0},
-    {"HKJoy_GuitarGripYellow", 0, &HKJoyMapping[HK_GuitarGripYellow], -1, NULL, 0},
-    {"HKJoy_GuitarGripBlue", 0, &HKJoyMapping[HK_GuitarGripBlue], -1, NULL, 0},
+    {"HKJoy_GuitarGripGreen",     0, &HKJoyMapping[HK_GuitarGripGreen],     -1, NULL, 0},
+    {"HKJoy_GuitarGripRed",       0, &HKJoyMapping[HK_GuitarGripRed],       -1, NULL, 0},
+    {"HKJoy_GuitarGripYellow",    0, &HKJoyMapping[HK_GuitarGripYellow],    -1, NULL, 0},
+    {"HKJoy_GuitarGripBlue",      0, &HKJoyMapping[HK_GuitarGripBlue],      -1, NULL, 0},
 
     {"JoystickID", 0, &JoystickID, 0, NULL, 0},
 

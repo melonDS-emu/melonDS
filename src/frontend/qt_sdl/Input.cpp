@@ -37,6 +37,8 @@ u32 HotkeyPress, HotkeyRelease;
 
 u32 InputMask;
 
+bool isFrameDone = false;
+
 
 void Init()
 {
@@ -97,7 +99,8 @@ void StartRumble()
 {
     if (Haptic != nullptr)
     {
-    		SDL_HapticRumblePlay(Haptic, 1.0, 48);
+    		isFrameDone = true;
+    		SDL_HapticRumblePlay(Haptic, 1.0, -1);
     }    
 }
 
@@ -105,6 +108,7 @@ void StopRumble()
 {
     if (Haptic != nullptr)
     {
+    		isFrameDone = false;
         SDL_HapticRumbleStop(Haptic);
     }
 }

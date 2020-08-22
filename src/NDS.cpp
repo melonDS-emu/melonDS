@@ -1941,7 +1941,7 @@ u16 ARM9Read16(u32 addr)
 
     switch (addr & 0xFF000000)
     {
-    case 0x02000000:
+    case 0x02000000:        
         return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -1982,15 +1982,18 @@ u16 ARM9Read16(u32 addr)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        else if (Slot2Cart_RumblePak::RumblePakEnabled)
+        
+        if (Slot2Cart_RumblePak::RumblePakEnabled)
         {
             return Slot2Cart_RumblePak::ReadRumble(addr);
         }
-        else if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
+        
+        if (Slot2Cart_GuitarGrip::GuitarGripEnabled)
         {
             return Slot2Cart_GuitarGrip::ReadGrip16(addr);
         }
-        else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
+        
+        if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
@@ -2068,6 +2071,11 @@ u32 ARM9Read32(u32 addr)
         else if (Slot2Cart_MemExpansionPak::MemPakEnabled)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
+        }
+        
+        if (addr == 0x80000AC)
+        {
+        		printf("ARM9 Read16: 0x%08x\n", ARM9->R[15]);
         }
         
         return 0xFFFFFFFF; // TODO: proper open bus

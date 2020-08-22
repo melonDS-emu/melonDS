@@ -31,8 +31,13 @@ u16 RumbleState = 0;
 
 u16 ReadRumble(u32 addr)
 {
-    // Detection value taken from Desmume
-		return 0xFFFD;
+    // GBATEK: For detection, AD1 seems to be pulled low when reading from it... (while) the other AD lines are open bus (containing the halfword address)...
+    // GBATEK with bit 6 set is based on empirical data...
+    // This should allow commercial games to properly detect the Rumble Pak.
+    // Credit to rzumer for coming up with this algorithm...
+    
+    u8 lodata = ((addr | 0x40) & 0xFFFD);
+		return (addr & 1) ? addr : lodata;
 }
 
 void WriteRumble(u32 addr, u16 val)
@@ -50,6 +55,8 @@ void WriteRumble(u32 addr, u16 val)
 
 namespace Slot2Cart_GuitarGrip
 {
+
+// Code ported from Desmume
 
 bool GuitarGripEnabled = false;
 u8 GuitarKeyStatus = 0x00;
@@ -126,8 +133,6 @@ void WriteMemPak8(u32 addr, u8 val)
     {
         *(u8*)&MemPakMemory[(addr - 0x9000000)] = val;
     }
-    
-    return;
 }
 
 u16 ReadMemPak16(u32 addr)
@@ -169,8 +174,6 @@ void WriteMemPak16(u32 addr, u16 val)
     {
         *(u16*)&MemPakMemory[(addr - 0x9000000)] = val;
     }
-    
-    return;
 }
 
 u32 ReadMemPak32(u32 addr)
@@ -198,8 +201,6 @@ void WriteMemPak32(u32 addr, u32 val)
     {
         *(u32*)&MemPakMemory[(addr - 0x9000000)] = val;
     }
-    
-    return;
 }
 
 void DoSavestate(Savestate* file)

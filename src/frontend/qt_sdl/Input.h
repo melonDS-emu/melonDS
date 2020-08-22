@@ -30,6 +30,8 @@ extern SDL_Haptic* Haptic;
 
 extern u32 InputMask;
 
+extern bool isFrameDone;
+
 void Init();
 
 // set joystickID before calling openJoystick()
