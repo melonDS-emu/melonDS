@@ -77,7 +77,7 @@ u8 PacketBuffer[2048];
 
 void Init(int argc, char** argv)
 {
-#if defined(__WIN32__) || defined(UNIX_PORTABLE)
+#if defined(__WIN32__) || defined(PORTABLE)
     if (argc > 0 && strlen(argv[0]) > 0)
     {
         int len = strlen(argv[0]);
@@ -167,7 +167,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     else
     {
 #ifdef PORTABLE
-        fullpath = path;
+        fullpath = QString(EmuDirectory) + QDir::separator() + path;
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
