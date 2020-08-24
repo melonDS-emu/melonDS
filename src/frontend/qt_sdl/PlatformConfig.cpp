@@ -135,7 +135,7 @@ ConfigEntry PlatformConfigFile[] =
     {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
-    {"ScreenUseGL",         0, &ScreenUseGL,         1, NULL, 0},
+    {"ScreenUseGL",         0, &ScreenUseGL,         0, NULL, 0},
     {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
 
