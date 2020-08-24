@@ -519,6 +519,27 @@ u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
         y = vtx->FinalPosition[1];
     }
 
+    // correct nearly-vertical edges that would look vertical on the DS
+    /*{
+        int vtopid = vid - 1;
+        if (vtopid < 0) vtopid = poly->NumVertices-1;
+        Vertex* vtop = poly->Vertices[vtopid];
+        if (vtop->FinalPosition[1] >= vtx->FinalPosition[1])
+        {
+            vtopid = vid + 1;
+            if (vtopid >= poly->NumVertices) vtopid = 0;
+            vtop = poly->Vertices[vtopid];
+        }
+        if ((vtop->FinalPosition[1] < vtx->FinalPosition[1]) &&
+            (vtx->FinalPosition[0] == vtop->FinalPosition[0]-1))
+        {
+            if (ScaleFactor > 1)
+                x = (vtop->HiresPosition[0] * ScaleFactor) >> 4;
+            else
+                x = vtop->FinalPosition[0];
+        }
+    }*/
+
     *vptr++ = x | (y << 16);
     *vptr++ = z | (w << 16);
 
@@ -1076,9 +1097,9 @@ void RenderSceneChunk(int y, int h)
         glStencilMask(0);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 6 : 4]);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 7 : 5]);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
