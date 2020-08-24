@@ -1880,14 +1880,27 @@ void MainWindow::onTitleUpdate(QString title)
 
 void MainWindow::onEmuStart()
 {
-    for (int i = 1; i < 9; i++)
+    // TODO: make savestates work in DSi mode!!
+    if (Config::ConsoleType == 1)
     {
-        actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        for (int i = 0; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(false);
+            actLoadState[i]->setEnabled(false);
+        }
+        actUndoStateLoad->setEnabled(false);
     }
-    actSaveState[0]->setEnabled(true);
-    actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(false);
+    else
+    {
+        for (int i = 1; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(true);
+            actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        }
+        actSaveState[0]->setEnabled(true);
+        actLoadState[0]->setEnabled(true);
+        actUndoStateLoad->setEnabled(false);
+    }
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
