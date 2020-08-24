@@ -50,6 +50,8 @@ extern char DSiBIOS9Path[1024];
 extern char DSiBIOS7Path[1024];
 extern char DSiFirmwarePath[1024];
 extern char DSiNANDPath[1024];
+extern int DSiSDEnable;
+extern char DSiSDPath[1024];
 
 extern int RandomizeMAC;
 
