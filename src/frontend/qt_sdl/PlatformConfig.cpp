@@ -139,7 +139,7 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
 
-    {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
+    {"3DRenderer", 0, &_3DRenderer, 0, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
