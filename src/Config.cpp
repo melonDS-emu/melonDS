@@ -56,6 +56,8 @@ ConfigEntry ConfigFile[] =
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
 
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
+
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},

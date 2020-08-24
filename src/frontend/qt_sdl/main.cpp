@@ -1747,14 +1747,14 @@ void MainWindow::onAudioSettingsFinished(int res)
 
 void MainWindow::onOpenWifiSettings()
 {
+    emuThread->emuPause();
+
     WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
     connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
 }
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    emuThread->emuPause();
-
     if (Wifi::MPInited)
     {
         Platform::MP_DeInit();
@@ -1763,6 +1763,9 @@ void MainWindow::onWifiSettingsFinished(int res)
 
     Platform::LAN_DeInit();
     Platform::LAN_Init();
+
+    if (WifiSettingsDialog::needsReset)
+        onReset();
 
     emuThread->emuUnpause();
 }
