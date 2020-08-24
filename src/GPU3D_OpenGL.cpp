@@ -113,7 +113,7 @@ GLuint TexMemID;
 GLuint TexPalMemID;
 
 int ScaleFactor;
-bool Antialias;
+bool BetterPolygons;
 int ScreenW, ScreenH;
 
 GLuint FramebufferTex[8];
@@ -405,6 +405,7 @@ void SetRenderSettings(GPU::RenderSettings& settings)
     int scale = settings.GL_ScaleFactor;
 
     ScaleFactor = scale;
+    BetterPolygons = settings.GL_BetterPolygons;
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
@@ -635,7 +636,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         {
             rp->PrimType = GL_TRIANGLES;
 
-            if (false)
+            if (!BetterPolygons)
             {
                 // regular triangle-splitting
 
@@ -835,6 +836,10 @@ void RenderSceneChunk(int y, int h)
 
     GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
+    // TODO: proper 'equal' depth test!
+    // (has margin of +-0x200 in Z-buffer mode, +-0xFF in W-buffer mode)
+    // for now we're using GL_LEQUAL to make it work to some extent
+
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
@@ -853,8 +858,10 @@ void RenderSceneChunk(int y, int h)
 
         if (rp->PolyData->IsShadowMask) { i++; continue; }
 
-        // zorp
-        glDepthFunc(GL_LESS);
+        if (rp->PolyData->Attr & (1<<14))
+            glDepthFunc(GL_LEQUAL);
+        else
+            glDepthFunc(GL_LESS);
 
         u32 polyattr = rp->PolyData->Attr;
         u32 polyid = (polyattr >> 24) & 0x3F;
@@ -939,8 +946,10 @@ void RenderSceneChunk(int y, int h)
                 {
                     UseRenderShader(flags | RenderFlag_Trans);
 
-                    // zorp
-                    glDepthFunc(GL_LESS);
+                    if (rp->PolyData->Attr & (1<<14))
+                        glDepthFunc(GL_LEQUAL);
+                    else
+                        glDepthFunc(GL_LESS);
 
                     u32 polyattr = rp->PolyData->Attr;
                     u32 polyid = (polyattr >> 24) & 0x3F;
@@ -1030,8 +1039,10 @@ void RenderSceneChunk(int y, int h)
                 if (!(polyattr & (1<<15))) transfog = fogenable;
                 else                       transfog = GL_FALSE;
 
-                // zorp
-                glDepthFunc(GL_LESS);
+                if (rp->PolyData->Attr & (1<<14))
+                    glDepthFunc(GL_LEQUAL);
+                else
+                    glDepthFunc(GL_LESS);
 
                 if (rp->PolyData->IsShadow)
                 {

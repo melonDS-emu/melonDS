@@ -79,6 +79,7 @@ typedef struct
     bool Soft_Threaded;
 
     int GL_ScaleFactor;
+    bool GL_BetterPolygons;
 
 } RenderSettings;
 

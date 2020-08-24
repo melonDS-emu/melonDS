@@ -405,8 +405,11 @@ void EmuThread::run()
                     videoRenderer = hasOGL ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
+
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
 
