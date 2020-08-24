@@ -1336,7 +1336,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || (ext == "gba" && RunningSomething))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
         event->acceptProposedAction();
 }
 
@@ -2085,7 +2085,7 @@ int main(int argc, char** argv)
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
             int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
 
