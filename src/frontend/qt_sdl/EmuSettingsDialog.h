@@ -63,6 +63,7 @@ private slots:
     void on_btnDSiBIOS7Browse_clicked();
     void on_btnDSiFirmwareBrowse_clicked();
     void on_btnDSiNANDBrowse_clicked();
+    void on_btnDSiSDBrowse_clicked();
 
     void on_chkEnableJIT_toggled();
 
