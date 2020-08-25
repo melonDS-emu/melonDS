@@ -264,6 +264,11 @@ private slots:
     void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
 
+#ifdef UPDATER_ENABLED
+    void onCheckForUpdates();
+    void onChangeUpdateChannel(QAction* act);
+#endif
+
     void onTitleUpdate(QString title);
 
     void onEmuStart();
@@ -319,6 +324,7 @@ public:
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actInterfaceSettings;
+
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;
@@ -339,6 +345,12 @@ public:
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
+
+#ifdef UPDATER_ENABLED
+    QAction* actCheckForUpdates;
+    QActionGroup* grpUpdateChannel;
+    QAction* actUpdateChannel[2];
+#endif
 };
 
 #endif // MAIN_H

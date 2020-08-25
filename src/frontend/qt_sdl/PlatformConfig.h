@@ -99,6 +99,7 @@ extern int MouseHide;
 extern int MouseHideSeconds;
 extern int PauseLostFocus;
 
+extern int UpdateChannel;
 }
 
 #endif // PLATFORMCONFIG_H
