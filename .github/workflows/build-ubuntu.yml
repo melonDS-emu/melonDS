@@ -24,8 +24,8 @@ jobs:
       working-directory: ${{runner.workspace}}
       run: | # Fetch a new version of CMake, because the default is too old.
         sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
-        && sudo apt-get update \
-        && sudo apt-get install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev
+        && sudo apt update \
+        && sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp0=4.1.0-2ubuntu2.1 libslirp-dev --allow-downgrades
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
