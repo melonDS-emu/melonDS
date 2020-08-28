@@ -167,3 +167,10 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 
     emit updateVideoSettings(false);
 }
+
+void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
+{
+    Config::GL_BetterPolygons = (state != 0);
+
+    emit updateVideoSettings(false);
+}

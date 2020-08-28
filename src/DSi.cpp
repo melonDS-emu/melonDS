@@ -699,20 +699,37 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
     }
 }
 
+void ApplyNewRAMSize(u32 size)
+{
+    switch (size)
+    {
+    case 0:
+    case 1:
+        NDS::MainRAMMask = 0x3FFFFF;
+        printf("RAM: 4MB\n");
+        break;
+    case 2:
+    case 3: // TODO: debug console w/ 32MB?
+        NDS::MainRAMMask = 0xFFFFFF;
+        printf("RAM: 16MB\n");
+        break;
+    }
+}
+
 
 void Set_SCFG_Clock9(u16 val)
 {
-    SCFG_Clock9 = val & 0x0187;
-    return;
-
     NDS::ARM9Timestamp >>= NDS::ARM9ClockShift;
+    NDS::ARM9Target    >>= NDS::ARM9ClockShift;
 
     printf("CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
 
     if (SCFG_Clock9 & (1<<0)) NDS::ARM9ClockShift = 2;
     else                      NDS::ARM9ClockShift = 1;
+
     NDS::ARM9Timestamp <<= NDS::ARM9ClockShift;
+    NDS::ARM9Target    <<= NDS::ARM9ClockShift;
     NDS::ARM9->UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
 }
 
@@ -1549,25 +1566,37 @@ void ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04004008:
-        SCFG_EXT[0] &= ~0x8007F19F;
-        SCFG_EXT[0] |= (val & 0x8007F19F);
-        SCFG_EXT[1] &= ~0x0000F080;
-        SCFG_EXT[1] |= (val & 0x0000F080);
-        printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
-        /*switch ((SCFG_EXT[0] >> 14) & 0x3)
         {
-        case 0:
-        case 1:
-            NDS::MainRAMMask = 0x3FFFFF;
-            printf("RAM: 4MB\n");
-            break;
-        case 2:
-        case 3: // TODO: debug console w/ 32MB?
-            NDS::MainRAMMask = 0xFFFFFF;
-            printf("RAM: 16MB\n");
-            break;
-        }*/
-        printf("from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
+            u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
+            u32 newram = (val >> 14) & 0x3;
+
+            SCFG_EXT[0] &= ~0x8007F19F;
+            SCFG_EXT[0] |= (val & 0x8007F19F);
+            SCFG_EXT[1] &= ~0x0000F080;
+            SCFG_EXT[1] |= (val & 0x0000F080);
+            printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+            /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+            {
+            case 0:
+            case 1:
+                NDS::MainRAMMask = 0x3FFFFF;
+                printf("RAM: 4MB\n");
+                //baziderp=true;
+                break;
+            case 2:
+            case 3: // TODO: debug console w/ 32MB?
+                NDS::MainRAMMask = 0xFFFFFF;
+                printf("RAM: 16MB\n");
+                break;
+            }*/
+            // HAX!!
+            // a change to the RAM size setting is supposed to apply immediately (it does so on hardware)
+            // however, doing so will cause DS-mode app startup to break, because the change happens while the ARM7
+            // is still busy clearing/relocating shit
+            //if (newram != oldram)
+            //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
+            printf("from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
+        }
         return;
 
     case 0x04004040:

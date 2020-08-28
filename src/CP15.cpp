@@ -616,11 +616,11 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0xF00:
         //printf("cache debug index register %08X\n", val);
         return;
-    
+
     case 0xF10:
         //printf("cache debug instruction tag %08X\n", val);
         return;
-    
+
     case 0xF20:
         //printf("cache debug data tag %08X\n", val);
         return;
@@ -632,7 +632,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0xF40:
         //printf("cache debug data cache %08X\n", val);
         return;
-    
+
     }
 
     if ((id & 0xF00) == 0xF00) // test/debug shit?

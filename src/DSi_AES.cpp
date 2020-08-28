@@ -52,6 +52,10 @@ u8 KeyY[4][16];
 u8 CurKey[16];
 u8 CurMAC[16];
 
+// output MAC for CCM encrypt
+u8 OutputMAC[16];
+bool OutputMACDue;
+
 AES_ctx Ctx;
 
 
@@ -128,6 +132,9 @@ void Reset()
 
     memset(CurKey, 0, sizeof(CurKey));
     memset(CurMAC, 0, sizeof(CurMAC));
+
+    memset(OutputMAC, 0, sizeof(OutputMAC));
+    OutputMACDue = false;
 
     // initialize keys
 
@@ -272,6 +279,8 @@ void WriteCnt(u32 val)
         // transfer start (checkme)
         RemBlocks = BlkCnt >> 16;
 
+        OutputMACDue = false;
+
         if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
         if (RemBlocks > 0)
@@ -347,6 +356,15 @@ u32 ReadOutputFIFO()
             DSi::CheckNDMAs(1, 0x2B);
         else
             DSi::StopNDMAs(1, 0x2B);
+
+        if (OutputMACDue && OutputFIFO->Level() <= 12)
+        {
+            OutputFIFO->Write(*(u32*)&OutputMAC[0]);
+            OutputFIFO->Write(*(u32*)&OutputMAC[4]);
+            OutputFIFO->Write(*(u32*)&OutputMAC[8]);
+            OutputFIFO->Write(*(u32*)&OutputMAC[12]);
+            OutputMACDue = false;
+        }
     }
 
     return ret;
@@ -429,13 +447,8 @@ void Update()
             Ctx.Iv[15] = 0x00;
             AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
 
-            u8 finalmac[16];
-            Swap16(finalmac, CurMAC);
-
-            OutputFIFO->Write(*(u32*)&finalmac[0]);
-            OutputFIFO->Write(*(u32*)&finalmac[4]);
-            OutputFIFO->Write(*(u32*)&finalmac[8]);
-            OutputFIFO->Write(*(u32*)&finalmac[12]);
+            Swap16(OutputMAC, CurMAC);
+            OutputMACDue = true;
 
             // CHECKME
             Cnt &= ~(1<<21);

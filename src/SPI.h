@@ -28,6 +28,7 @@ void SetupDirectBoot();
 
 u8 GetConsoleType();
 u8 GetWifiVersion();
+u8 GetNWifiVersion();
 u8 GetRFVersion();
 u8* GetWifiMAC();
 

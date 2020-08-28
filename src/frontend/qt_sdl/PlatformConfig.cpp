@@ -51,7 +51,7 @@ int _3DRenderer;
 int Threaded3D;
 
 int GL_ScaleFactor;
-int GL_Antialias;
+int GL_BetterPolygons;
 
 int LimitFPS;
 int AudioSync;
@@ -145,15 +145,15 @@ ConfigEntry PlatformConfigFile[] =
     {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
-    {"ScreenUseGL",         0, &ScreenUseGL,         1, NULL, 0},
+    {"ScreenUseGL",         0, &ScreenUseGL,         0, NULL, 0},
     {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
 
-    {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
+    {"3DRenderer", 0, &_3DRenderer, 0, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
-    {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+    {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
     {"AudioSync", 0, &AudioSync, 1, NULL, 0},

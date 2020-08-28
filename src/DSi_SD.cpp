@@ -117,13 +117,19 @@ void DSi_SDHost::Reset()
 
     if (Num == 0)
     {
-        // TODO: eventually pull from host filesystem
-        /*DSi_MMCStorage* sd = new DSi_MMCStorage(this, false, "sd.bin");
-        u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
-        sd->SetCID(sd_cid);*/
-        DSi_MMCStorage* sd = NULL;
+        DSi_MMCStorage* sd;
+        DSi_MMCStorage* mmc;
 
-        DSi_MMCStorage* mmc = new DSi_MMCStorage(this, true, Config::DSiNANDPath);
+        if (Config::DSiSDEnable)
+        {
+            sd = new DSi_MMCStorage(this, false, Config::DSiSDPath);
+            u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
+            sd->SetCID(sd_cid);
+        }
+        else
+            sd = nullptr;
+
+        mmc = new DSi_MMCStorage(this, true, Config::DSiNANDPath);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -429,14 +435,14 @@ u16 DSi_SDHost::Read(u32 addr)
             if (!Num)
             {
                 if (Ports[0]) // basic check of whether the SD card is inserted
-                    ret |= 0x0030;
+                    ret |= 0x00B0;
                 else
                     ret |= 0x0008;
             }
             else
             {
                 // SDIO wifi is always inserted, I guess
-                ret |= 0x0030;
+                ret |= 0x00B0;
             }
             return ret;
         }

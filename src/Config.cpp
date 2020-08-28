@@ -36,6 +36,10 @@ char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
 char DSiNANDPath[1024];
+int DSiSDEnable;
+char DSiSDPath[1024];
+
+int RandomizeMAC;
 
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
@@ -55,6 +59,10 @@ ConfigEntry ConfigFile[] =
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
+    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
+    {"DSiSDPath", 1, DSiSDPath, 0, "", 1023},
+
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
 
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},

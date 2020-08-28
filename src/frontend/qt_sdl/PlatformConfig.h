@@ -68,7 +68,7 @@ extern int _3DRenderer;
 extern int Threaded3D;
 
 extern int GL_ScaleFactor;
-extern int GL_Antialias;
+extern int GL_BetterPolygons;
 
 extern int LimitFPS;
 extern int AudioSync;
