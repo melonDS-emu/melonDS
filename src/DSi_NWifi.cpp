@@ -165,6 +165,36 @@ void DSi_NWifi::Reset()
     printf("NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
+    u8 type = SPI_Firmware::GetNWifiVersion();
+    switch (type)
+    {
+    case 1: // AR6002
+        ROMID = 0x20000188;
+        ChipID = 0x02000001;
+        HostIntAddr = 0x00500400;
+        break;
+
+    case 2: // AR6013
+        ROMID = 0x23000024;
+        ChipID = 0x0D000000;
+        HostIntAddr = 0x00520000;
+        break;
+
+    case 3: // AR6014 (3DS)
+        ROMID = 0x2300006F;
+        ChipID = 0x0D000001;
+        HostIntAddr = 0x00520000;
+        printf("NWifi: hardware is 3DS type, unchecked\n");
+        break;
+
+    default:
+        printf("NWifi: unknown hardware type %02X, assuming AR6002\n");
+        ROMID = 0x20000188;
+        ChipID = 0x02000001;
+        HostIntAddr = 0x00500400;
+        break;
+    }
+
     memset(EEPROM, 0, 0x400);
 
     *(u32*)&EEPROM[0x000] = 0x300;
@@ -755,8 +785,7 @@ void DSi_NWifi::BMI_Command()
     case 0x08: // BMI_GET_TARGET_ID
         MB_Write32(4, 0xFFFFFFFF);
         MB_Write32(4, 0x0000000C);
-        //MB_Write32(4, 0x20000118);
-        MB_Write32(4, 0x23000024); // ROM version (TODO: how to determine correct one?)
+        MB_Write32(4, ROMID);
         MB_Write32(4, 0x00000002);
         return;
 
@@ -1436,7 +1465,7 @@ u32 DSi_NWifi::WindowRead(u32 addr)
 {
     printf("NWifi: window read %08X\n", addr);
 
-    if ((addr & 0xFFFF00) == 0x520000)
+    if ((addr & 0xFFFF00) == HostIntAddr)
     {
         // RAM host interest area
         // TODO: different base based on hardware version
@@ -1462,9 +1491,7 @@ u32 DSi_NWifi::WindowRead(u32 addr)
     switch (addr)
     {
     case 0x40EC: // chip ID
-        // 0D000000 / 0D000001 == AR6013
-        // TODO: check firmware.bin to determine the correct value
-        return 0x0D000001;
+        return ChipID;
 
     // SOC_RESET_CAUSE
     case 0x40C0: return 2;

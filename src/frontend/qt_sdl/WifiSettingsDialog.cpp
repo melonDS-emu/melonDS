@@ -17,7 +17,7 @@
 */
 
 #include <stdio.h>
-#include <QFileDialog>
+#include <QMessageBox>
 
 #include "types.h"
 #include "Platform.h"
@@ -41,6 +41,10 @@
 
 WifiSettingsDialog* WifiSettingsDialog::currentDlg = nullptr;
 
+bool WifiSettingsDialog::needsReset = false;
+
+extern bool RunningSomething;
+
 
 WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::WifiSettingsDialog)
 {
@@ -53,6 +57,7 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->cbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
     ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr != 0);
+    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC != 0);
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)
@@ -77,30 +82,46 @@ WifiSettingsDialog::~WifiSettingsDialog()
     delete ui;
 }
 
-void WifiSettingsDialog::on_WifiSettingsDialog_accepted()
+void WifiSettingsDialog::done(int r)
 {
-    Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked() ? 1:0;
-    Config::DirectLAN = ui->cbDirectMode->isChecked() ? 1:0;
+    needsReset = false;
 
-    int sel = ui->cbxDirectAdapter->currentIndex();
-    if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
-    if (LAN_PCap::NumAdapters < 1)
+    if (r == QDialog::Accepted)
     {
-        Config::LANDevice[0] = '\0';
+        int randommac = ui->cbRandomizeMAC->isChecked() ? 1:0;
+
+        if (randommac != Config::RandomizeMAC)
+        {
+            if (RunningSomething
+                && QMessageBox::warning(this, "Reset necessary to apply changes",
+                    "The emulation will be reset for the changes to take place.",
+                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
+                return;
+        }
+
+        Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked() ? 1:0;
+        Config::RandomizeMAC = randommac;
+        Config::DirectLAN = ui->cbDirectMode->isChecked() ? 1:0;
+
+        int sel = ui->cbxDirectAdapter->currentIndex();
+        if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
+        if (LAN_PCap::NumAdapters < 1)
+        {
+            Config::LANDevice[0] = '\0';
+        }
+        else
+        {
+            strncpy(Config::LANDevice, LAN_PCap::Adapters[sel].DeviceName, 127);
+            Config::LANDevice[127] = '\0';
+        }
+
+        Config::Save();
+
+        needsReset = true;
     }
-    else
-    {
-        strncpy(Config::LANDevice, LAN_PCap::Adapters[sel].DeviceName, 127);
-        Config::LANDevice[127] = '\0';
-    }
 
-    Config::Save();
+    QDialog::done(r);
 
-    closeDlg();
-}
-
-void WifiSettingsDialog::on_WifiSettingsDialog_rejected()
-{
     closeDlg();
 }
 

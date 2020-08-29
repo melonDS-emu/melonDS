@@ -113,7 +113,7 @@ GLuint TexMemID;
 GLuint TexPalMemID;
 
 int ScaleFactor;
-bool Antialias;
+bool BetterPolygons;
 int ScreenW, ScreenH;
 
 GLuint FramebufferTex[8];
@@ -342,9 +342,6 @@ bool Init()
     SetupDefaultTexParams(FramebufferTex[5]);
     SetupDefaultTexParams(FramebufferTex[7]);
 
-    // downscale framebuffer for antialiased mode
-    SetupDefaultTexParams(FramebufferTex[2]);
-
     // downscale framebuffer for display capture (always 256x192)
     SetupDefaultTexParams(FramebufferTex[3]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -371,6 +368,8 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return true;
 }
@@ -404,52 +403,27 @@ void Reset()
 void SetRenderSettings(GPU::RenderSettings& settings)
 {
     int scale = settings.GL_ScaleFactor;
-    bool antialias = false; // REMOVE ME!
-
-    if (antialias) scale *= 2;
 
     ScaleFactor = scale;
-    Antialias = antialias;
+    BetterPolygons = settings.GL_BetterPolygons;
 
     ScreenW = 256 * scale;
     ScreenH = 192 * scale;
 
-    if (!antialias)
-    {
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH32F_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-        //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1, 1, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, 1, 1, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    }
-    else
-    {
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW/2, ScreenH/2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[2]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW/2, ScreenH/2, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW/2, ScreenH/2, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8UI, ScreenW, ScreenH, 0, GL_RGB_INTEGER, GL_UNSIGNED_BYTE, NULL);
-    }
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[6]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, ScreenW, ScreenH, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+    glBindTexture(GL_TEXTURE_2D, FramebufferTex[7]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, ScreenW, ScreenH, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[3]);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[3], 0);
@@ -464,12 +438,6 @@ void SetRenderSettings(GPU::RenderSettings& settings)
 
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[1]);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[1], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[4], 0);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[5], 0);
-    glDrawBuffers(2, fbassign);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, FramebufferTex[2], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, FramebufferTex[6], 0);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, FramebufferTex[7], 0);
     glDrawBuffers(2, fbassign);
@@ -478,6 +446,8 @@ void SetRenderSettings(GPU::RenderSettings& settings)
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
     glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //glLineWidth(scale);
     //glLineWidth(1.5);
@@ -527,6 +497,67 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     }
 }
 
+u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
+{
+    u32 z = poly->FinalZ[vid];
+    u32 w = poly->FinalW[vid];
+
+    u32 alpha = (poly->Attr >> 16) & 0x1F;
+
+    // Z should always fit within 16 bits, so it's okay to do this
+    u32 zshift = 0;
+    while (z > 0xFFFF) { z >>= 1; zshift++; }
+
+    u32 x, y;
+    if (ScaleFactor > 1)
+    {
+        x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
+        y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
+    }
+    else
+    {
+        x = vtx->FinalPosition[0];
+        y = vtx->FinalPosition[1];
+    }
+
+    // correct nearly-vertical edges that would look vertical on the DS
+    /*{
+        int vtopid = vid - 1;
+        if (vtopid < 0) vtopid = poly->NumVertices-1;
+        Vertex* vtop = poly->Vertices[vtopid];
+        if (vtop->FinalPosition[1] >= vtx->FinalPosition[1])
+        {
+            vtopid = vid + 1;
+            if (vtopid >= poly->NumVertices) vtopid = 0;
+            vtop = poly->Vertices[vtopid];
+        }
+        if ((vtop->FinalPosition[1] < vtx->FinalPosition[1]) &&
+            (vtx->FinalPosition[0] == vtop->FinalPosition[0]-1))
+        {
+            if (ScaleFactor > 1)
+                x = (vtop->HiresPosition[0] * ScaleFactor) >> 4;
+            else
+                x = vtop->FinalPosition[0];
+        }
+    }*/
+
+    *vptr++ = x | (y << 16);
+    *vptr++ = z | (w << 16);
+
+    *vptr++ =  (vtx->FinalColor[0] >> 1) |
+              ((vtx->FinalColor[1] >> 1) << 8) |
+              ((vtx->FinalColor[2] >> 1) << 16) |
+              (alpha << 24);
+
+    *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+
+    *vptr++ = vtxattr | (zshift << 16);
+    *vptr++ = poly->TexParam;
+    *vptr++ = poly->TexPalette;
+
+    return vptr;
+}
+
 void BuildPolygons(RendererPolygon* polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
@@ -564,43 +595,16 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                u32 z = poly->FinalZ[j];
-                u32 w = poly->FinalW[j];
-
-                // Z should always fit within 16 bits, so it's okay to do this
-                u32 zshift = 0;
-                while (z > 0xFFFF) { z >>= 1; zshift++; }
-
-                u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
-
                 if (j > 0)
                 {
-                    if (lastx == x && lasty == y) continue;
+                    if (lastx == vtx->FinalPosition[0] &&
+                        lasty == vtx->FinalPosition[1]) continue;
                 }
 
-                *vptr++ = x | (y << 16);
-                *vptr++ = z | (w << 16);
+                lastx = vtx->FinalPosition[0];
+                lasty = vtx->FinalPosition[1];
 
-                *vptr++ =  (vtx->FinalColor[0] >> 1) |
-                          ((vtx->FinalColor[1] >> 1) << 8) |
-                          ((vtx->FinalColor[2] >> 1) << 16) |
-                          (alpha << 24);
-
-                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
-
-                *vptr++ = vtxattr | (zshift << 16);
-                *vptr++ = poly->TexParam;
-                *vptr++ = poly->TexPalette;
+                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
 
                 *iptr++ = vidx;
                 rp->NumIndices++;
@@ -610,57 +614,148 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 if (nout >= 2) break;
             }
         }
-        else
+        else if (poly->NumVertices == 3) // regular triangle
         {
             rp->PrimType = GL_TRIANGLES;
 
-            for (int j = 0; j < poly->NumVertices; j++)
+            for (int j = 0; j < 3; j++)
             {
                 Vertex* vtx = poly->Vertices[j];
 
-                u32 z = poly->FinalZ[j];
-                u32 w = poly->FinalW[j];
+                vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+                vidx++;
+            }
 
-                // Z should always fit within 16 bits, so it's okay to do this
+            // build a triangle
+            *iptr++ = vidx_first;
+            *iptr++ = vidx - 2;
+            *iptr++ = vidx - 1;
+            rp->NumIndices += 3;
+        }
+        else // quad, pentagon, etc
+        {
+            rp->PrimType = GL_TRIANGLES;
+
+            if (!BetterPolygons)
+            {
+                // regular triangle-splitting
+
+                for (int j = 0; j < poly->NumVertices; j++)
+                {
+                    Vertex* vtx = poly->Vertices[j];
+
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+
+                    if (j >= 2)
+                    {
+                        // build a triangle
+                        *iptr++ = vidx_first;
+                        *iptr++ = vidx - 1;
+                        *iptr++ = vidx;
+                        rp->NumIndices += 3;
+                    }
+
+                    vidx++;
+                }
+            }
+            else
+            {
+                // attempt at 'better' splitting
+                // this doesn't get rid of the error while splitting a bigger polygon into triangles
+                // but we can attempt to reduce it
+
+                u32 cX = 0, cY = 0;
+                float cZ = 0;
+                float cW = 0;
+
+                float cR = 0, cG = 0, cB = 0;
+                float cS = 0, cT = 0;
+
+                for (int j = 0; j < poly->NumVertices; j++)
+                {
+                    Vertex* vtx = poly->Vertices[j];
+
+                    cX += vtx->HiresPosition[0];
+                    cY += vtx->HiresPosition[1];
+
+                    float fw = (float)poly->FinalW[j] * poly->NumVertices;
+                    cW += 1.0f / fw;
+
+                    if (poly->WBuffer) cZ += poly->FinalZ[j] / fw;
+                    else               cZ += poly->FinalZ[j];
+
+                    cR += (vtx->FinalColor[0] >> 1) / fw;
+                    cG += (vtx->FinalColor[1] >> 1) / fw;
+                    cB += (vtx->FinalColor[2] >> 1) / fw;
+
+                    cS += vtx->TexCoords[0] / fw;
+                    cT += vtx->TexCoords[1] / fw;
+                }
+
+                cX /= poly->NumVertices;
+                cY /= poly->NumVertices;
+
+                cW = 1.0f / cW;
+
+                if (poly->WBuffer) cZ *= cW;
+                else               cZ /= poly->NumVertices;
+
+                cR *= cW;
+                cG *= cW;
+                cB *= cW;
+
+                cS *= cW;
+                cT *= cW;
+
+                cX = (cX * ScaleFactor) >> 4;
+                cY = (cY * ScaleFactor) >> 4;
+
+                u32 w = (u32)cW;
+
+                u32 z = (u32)cZ;
                 u32 zshift = 0;
                 while (z > 0xFFFF) { z >>= 1; zshift++; }
 
-                u32 x, y;
-                if (ScaleFactor > 1)
-                {
-                    x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-                    y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
-                }
-                else
-                {
-                    x = vtx->FinalPosition[0];
-                    y = vtx->FinalPosition[1];
-                }
-
-                *vptr++ = x | (y << 16);
+                // build center vertex
+                *vptr++ = cX | (cY << 16);
                 *vptr++ = z | (w << 16);
 
-                *vptr++ =  (vtx->FinalColor[0] >> 1) |
-                          ((vtx->FinalColor[1] >> 1) << 8) |
-                          ((vtx->FinalColor[2] >> 1) << 16) |
+                *vptr++ =  (u32)cR |
+                          ((u32)cG << 8) |
+                          ((u32)cB << 16) |
                           (alpha << 24);
 
-                *vptr++ = (u16)vtx->TexCoords[0] | ((u16)vtx->TexCoords[1] << 16);
+                *vptr++ = (u16)cS | ((u16)cT << 16);
 
                 *vptr++ = vtxattr | (zshift << 16);
                 *vptr++ = poly->TexParam;
                 *vptr++ = poly->TexPalette;
 
-                if (j >= 2)
+                vidx++;
+
+                // build the final polygon
+                for (int j = 0; j < poly->NumVertices; j++)
                 {
-                    // build a triangle
-                    *iptr++ = vidx_first;
-                    *iptr++ = vidx - 1;
-                    *iptr++ = vidx;
-                    rp->NumIndices += 3;
+                    Vertex* vtx = poly->Vertices[j];
+
+                    vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
+
+                    if (j >= 1)
+                    {
+                        // build a triangle
+                        *iptr++ = vidx_first;
+                        *iptr++ = vidx - 1;
+                        *iptr++ = vidx;
+                        rp->NumIndices += 3;
+                    }
+
+                    vidx++;
                 }
 
-                vidx++;
+                *iptr++ = vidx_first;
+                *iptr++ = vidx - 1;
+                *iptr++ = vidx_first + 1;
+                rp->NumIndices += 3;
             }
         }
 
@@ -741,6 +836,10 @@ void RenderSceneChunk(int y, int h)
 
     GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
+    // TODO: proper 'equal' depth test!
+    // (has margin of +-0x200 in Z-buffer mode, +-0xFF in W-buffer mode)
+    // for now we're using GL_LEQUAL to make it work to some extent
+
     // pass 1: opaque pixels
 
     UseRenderShader(flags);
@@ -759,8 +858,10 @@ void RenderSceneChunk(int y, int h)
 
         if (rp->PolyData->IsShadowMask) { i++; continue; }
 
-        // zorp
-        glDepthFunc(GL_LESS);
+        if (rp->PolyData->Attr & (1<<14))
+            glDepthFunc(GL_LEQUAL);
+        else
+            glDepthFunc(GL_LESS);
 
         u32 polyattr = rp->PolyData->Attr;
         u32 polyid = (polyattr >> 24) & 0x3F;
@@ -845,8 +946,10 @@ void RenderSceneChunk(int y, int h)
                 {
                     UseRenderShader(flags | RenderFlag_Trans);
 
-                    // zorp
-                    glDepthFunc(GL_LESS);
+                    if (rp->PolyData->Attr & (1<<14))
+                        glDepthFunc(GL_LEQUAL);
+                    else
+                        glDepthFunc(GL_LESS);
 
                     u32 polyattr = rp->PolyData->Attr;
                     u32 polyid = (polyattr >> 24) & 0x3F;
@@ -936,8 +1039,10 @@ void RenderSceneChunk(int y, int h)
                 if (!(polyattr & (1<<15))) transfog = fogenable;
                 else                       transfog = GL_FALSE;
 
-                // zorp
-                glDepthFunc(GL_LESS);
+                if (rp->PolyData->Attr & (1<<14))
+                    glDepthFunc(GL_LEQUAL);
+                else
+                    glDepthFunc(GL_LESS);
 
                 if (rp->PolyData->IsShadow)
                 {
@@ -1003,9 +1108,9 @@ void RenderSceneChunk(int y, int h)
         glStencilMask(0);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[4]);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 6 : 4]);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, FramebufferTex[5]);
+        glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer ? 7 : 5]);
 
         glBindBuffer(GL_ARRAY_BUFFER, ClearVertexBufferID);
         glBindVertexArray(ClearVertexArrayID);
@@ -1055,8 +1160,8 @@ void RenderFrame()
 {
     CurShaderID = -1;
 
-    if (Antialias) glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[2]);
-    else           glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
 
     ShaderConfig.uScreenSize[0] = ScreenW;
     ShaderConfig.uScreenSize[1] = ScreenH;
@@ -1218,14 +1323,6 @@ void RenderFrame()
         RenderSceneChunk(0, 192);
     }
 
-    if (Antialias)
-    {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[2]);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[FrontBuffer]);
-        glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, ScreenW/2, ScreenH/2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    }
-
-    //glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[FrontBuffer]);
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 

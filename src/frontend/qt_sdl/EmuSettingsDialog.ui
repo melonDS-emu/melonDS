@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>538</width>
-    <height>448</height>
+    <width>514</width>
+    <height>407</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -88,7 +88,7 @@
           <bool>true</bool>
          </property>
          <property name="text">
-          <string>Slot-2 acessory:</string>
+          <string>Slot-2 accessory:</string>
          </property>
         </widget>
        </item>
@@ -211,59 +211,10 @@
           <string>DSi mode</string>
          </property>
          <layout class="QGridLayout" name="gridLayout_3">
-          <item row="0" column="2">
-           <widget class="QPushButton" name="btnDSiBIOS9Browse">
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_8">
             <property name="text">
-             <string>Browse...</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>DSi ARM9 BIOS:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="2">
-           <widget class="QPushButton" name="btnDSiFirmwareBrowse">
-            <property name="text">
-             <string>Browse...</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <widget class="QLineEdit" name="txtDSiBIOS7Path">
-            <property name="whatsThis">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QLineEdit" name="txtDSiFirmwarePath">
-            <property name="whatsThis">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode firmware (used for DS-mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="0">
-           <widget class="QLabel" name="label_6">
-            <property name="text">
-             <string>DSi ARM7 BIOS:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="label_7">
-            <property name="text">
-             <string>DSi firmware:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="2">
-           <widget class="QPushButton" name="btnDSiBIOS7Browse">
-            <property name="text">
-             <string>Browse...</string>
+             <string>DSi NAND:</string>
             </property>
            </widget>
           </item>
@@ -280,10 +231,38 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="label_8">
+          <item row="3" column="2">
+           <widget class="QPushButton" name="btnDSiNANDBrowse">
             <property name="text">
-             <string>DSi NAND:</string>
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLineEdit" name="txtDSiFirmwarePath">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode firmware (used for DS-mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLineEdit" name="txtDSiBIOS7Path">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_5">
+            <property name="text">
+             <string>DSi ARM9 BIOS:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QPushButton" name="btnDSiBIOS9Browse">
+            <property name="text">
+             <string>Browse...</string>
             </property>
            </widget>
           </item>
@@ -294,8 +273,60 @@
             </property>
            </widget>
           </item>
-          <item row="3" column="2">
-           <widget class="QPushButton" name="btnDSiNANDBrowse">
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_10">
+            <property name="text">
+             <string>DSi SD card:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>DSi ARM7 BIOS:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="2">
+           <widget class="QPushButton" name="btnDSiBIOS7Browse">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="2">
+           <widget class="QPushButton" name="btnDSiFirmwareBrowse">
+            <property name="text">
+             <string>Browse...</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="text">
+             <string>DSi firmware:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="3">
+           <widget class="QCheckBox" name="cbDSiSDEnable">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Simulate a SD card being inserted in the DSi's SD slot. Requires a SD card image.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Enable DSi SD card</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QLineEdit" name="txtDSiSDPath">
+            <property name="whatsThis">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD image file for emulating the DSi's SD card&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+           </widget>
+          </item>
+          <item row="5" column="2">
+           <widget class="QPushButton" name="btnDSiSDBrowse">
             <property name="text">
              <string>Browse...</string>
             </property>

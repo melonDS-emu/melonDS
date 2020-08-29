@@ -121,6 +121,8 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     return true;
 }
 
@@ -157,12 +159,15 @@ void SetRenderSettings(RenderSettings& settings)
     glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CompScreenOutputTex, 0);
     glDrawBuffers(1, fbassign);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 
 void RenderFrame()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);

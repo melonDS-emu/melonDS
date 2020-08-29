@@ -53,6 +53,8 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->txtDSiBIOS7Path->setText(Config::DSiBIOS7Path);
     ui->txtDSiFirmwarePath->setText(Config::DSiFirmwarePath);
     ui->txtDSiNANDPath->setText(Config::DSiNANDPath);
+    ui->cbDSiSDEnable->setChecked(Config::DSiSDEnable != 0);
+    ui->txtDSiSDPath->setText(Config::DSiSDPath);
 
     ui->cbxConsoleType->addItem("DS");
     ui->cbxConsoleType->addItem("DSi (experimental)");
@@ -156,6 +158,8 @@ void EmuSettingsDialog::done(int r)
         std::string dsiBios7Path = ui->txtDSiBIOS7Path->text().toStdString();
         std::string dsiFirmwarePath = ui->txtDSiFirmwarePath->text().toStdString();
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
+        int dsiSDEnable = ui->cbDSiSDEnable->isChecked() ? 1:0;
+        std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
 
         if (consoleType != Config::ConsoleType
             || chosenAddon != Config::Slot2Addon
@@ -173,7 +177,9 @@ void EmuSettingsDialog::done(int r)
             || strcmp(Config::DSiBIOS9Path, dsiBios9Path.c_str()) != 0
             || strcmp(Config::DSiBIOS7Path, dsiBios7Path.c_str()) != 0
             || strcmp(Config::DSiFirmwarePath, dsiFirmwarePath.c_str()) != 0
-            || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0)
+            || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0
+            || dsiSDEnable != Config::DSiSDEnable
+            || strcmp(Config::DSiSDPath, dsiSDPath.c_str()) != 0)
         {
             if (RunningSomething
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
@@ -189,6 +195,8 @@ void EmuSettingsDialog::done(int r)
             strncpy(Config::DSiBIOS7Path, dsiBios7Path.c_str(), 1023); Config::DSiBIOS7Path[1023] = '\0';
             strncpy(Config::DSiFirmwarePath, dsiFirmwarePath.c_str(), 1023); Config::DSiFirmwarePath[1023] = '\0';
             strncpy(Config::DSiNANDPath, dsiNANDPath.c_str(), 1023); Config::DSiNANDPath[1023] = '\0';
+            Config::DSiSDEnable = dsiSDEnable;
+            strncpy(Config::DSiSDPath, dsiSDPath.c_str(), 1023); Config::DSiSDPath[1023] = '\0';
 
     #ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
@@ -297,6 +305,18 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
     if (file.isEmpty()) return;
 
     ui->txtDSiNANDPath->setText(file);
+}
+
+void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select DSi SD image...",
+                                                EmuDirectory,
+                                                "Image files (*.bin *.rom *.img);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtDSiSDPath->setText(file);
 }
 
 void EmuSettingsDialog::on_chkEnableJIT_toggled()

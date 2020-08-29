@@ -524,8 +524,8 @@ bool MapAtAddress(u32 addr)
         {
             u32 sectionOffset = offset;
             bool hasCode = isExecutable && ARMJIT::PageContainsCode(&range[offset / 512]);
-            while ((!isExecutable || ARMJIT::PageContainsCode(&range[offset / 512]) == hasCode)
-                && offset < mirrorSize
+            while (offset < mirrorSize
+                && (!isExecutable || ARMJIT::PageContainsCode(&range[offset / 512]) == hasCode)
                 && (!skipDTCM || mirrorStart + offset != NDS::ARM9->DTCMBase))
             {
                 assert(states[(mirrorStart + offset) >> 12] == memstate_Unmapped);

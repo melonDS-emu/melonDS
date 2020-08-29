@@ -42,7 +42,7 @@ public:
         }
 
         currentDlg = new WifiSettingsDialog(parent);
-        currentDlg->show();
+        currentDlg->open();
         return currentDlg;
     }
     static void closeDlg()
@@ -50,9 +50,10 @@ public:
         currentDlg = nullptr;
     }
 
+    static bool needsReset;
+
 private slots:
-    void on_WifiSettingsDialog_accepted();
-    void on_WifiSettingsDialog_rejected();
+    void done(int r);
 
     void on_cbDirectMode_stateChanged(int state);
     void on_cbxDirectAdapter_currentIndexChanged(int sel);

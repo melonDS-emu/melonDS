@@ -414,8 +414,11 @@ void EmuThread::run()
                     videoRenderer = hasOGL ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
+
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
 
@@ -1342,7 +1345,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || (ext == "gba" && RunningSomething))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
         event->acceptProposedAction();
 }
 
@@ -1756,14 +1759,14 @@ void MainWindow::onAudioSettingsFinished(int res)
 
 void MainWindow::onOpenWifiSettings()
 {
+    emuThread->emuPause();
+
     WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
     connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
 }
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    emuThread->emuPause();
-
     if (Wifi::MPInited)
     {
         Platform::MP_DeInit();
@@ -1772,6 +1775,9 @@ void MainWindow::onWifiSettingsFinished(int res)
 
     Platform::LAN_DeInit();
     Platform::LAN_Init();
+
+    if (WifiSettingsDialog::needsReset)
+        onReset();
 
     emuThread->emuUnpause();
 }
@@ -1883,14 +1889,27 @@ void MainWindow::onTitleUpdate(QString title)
 
 void MainWindow::onEmuStart()
 {
-    for (int i = 1; i < 9; i++)
+    // TODO: make savestates work in DSi mode!!
+    if (Config::ConsoleType == 1)
     {
-        actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        for (int i = 0; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(false);
+            actLoadState[i]->setEnabled(false);
+        }
+        actUndoStateLoad->setEnabled(false);
     }
-    actSaveState[0]->setEnabled(true);
-    actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(false);
+    else
+    {
+        for (int i = 1; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(true);
+            actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        }
+        actSaveState[0]->setEnabled(true);
+        actLoadState[0]->setEnabled(true);
+        actUndoStateLoad->setEnabled(false);
+    }
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
@@ -2075,7 +2094,7 @@ int main(int argc, char** argv)
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
             int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
 

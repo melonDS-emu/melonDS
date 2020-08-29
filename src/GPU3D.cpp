@@ -401,7 +401,32 @@ void DoSavestate(Savestate* file)
     file->Var32(&NumTestCommands);
 
     file->Var32(&DispCnt);
+    file->Var8(&AlphaRefVal);
     file->Var8(&AlphaRef);
+
+    file->VarArray(ToonTable, 32*2);
+    file->VarArray(EdgeTable, 8*2);
+
+    file->Var32(&FogColor);
+    file->Var32(&FogOffset);
+    file->VarArray(FogDensityTable, 32);
+
+    file->Var32(&ClearAttr1);
+    file->Var32(&ClearAttr2);
+
+    file->Var32(&RenderDispCnt);
+    file->Var8(&RenderAlphaRef);
+
+    file->VarArray(RenderToonTable, 32*2);
+    file->VarArray(RenderEdgeTable, 8*2);
+
+    file->Var32(&RenderFogColor);
+    file->Var32(&RenderFogOffset);
+    file->Var32(&RenderFogShift);
+    file->VarArray(RenderFogDensityTable, 34);
+
+    file->Var32(&RenderClearAttr1);
+    file->Var32(&RenderClearAttr2);
 
     file->Var32(&ZeroDotWLimit);
 
@@ -470,9 +495,6 @@ void DoSavestate(Savestate* file)
     file->Var32(&NumVertices);
     file->Var32(&NumPolygons);
     file->Var32(&NumOpaquePolygons);
-
-    file->Var32(&ClearAttr1);
-    file->Var32(&ClearAttr2);
 
     file->Var32(&FlushRequest);
     file->Var32(&FlushAttributes);

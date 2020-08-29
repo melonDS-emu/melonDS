@@ -55,6 +55,8 @@ make -j$(nproc --all)
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
+
+#### Dynamic builds (with DLLs)
 4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp}`
 5. Run the following commands
    ```bash
@@ -66,8 +68,21 @@ make -j$(nproc --all)
    make -j$(nproc --all)
    ../msys-dist.sh
    ```
-
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
+
+#### Static builds (without DLLs, standalone executable)
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp}`
+5. Run the following commands
+   ```bash
+   git clone https://github.com/Arisotura/melonDS.git
+   cd melonDS
+   mkdir build
+   cd build
+   cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DQT5_STATIC_DIR=/mingw64/qt5-static
+   make -j$(nproc --all)
+   mkdir dist && cp melonDS.exe dist
+   ```
+If everything went well, melonDS should now be in the `dist` folder.
 
 ## TODO LIST
 
