@@ -30,8 +30,6 @@ extern SDL_Haptic* Haptic;
 
 extern u32 InputMask;
 
-extern bool isFrameDone;
-
 void Init();
 
 // set joystickID before calling openJoystick()
@@ -48,9 +46,6 @@ bool HotkeyPressed(int id);
 bool HotkeyReleased(int id);
 
 bool IsRightModKey(QKeyEvent* event);
-
-void StartRumble();
-void StopRumble();
 
 }
 

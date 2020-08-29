@@ -118,7 +118,6 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_GuitarGripYellow",    0, &HKKeyMapping[HK_GuitarGripYellow],    -1, NULL, 0},
     {"HKKey_GuitarGripBlue",      0, &HKKeyMapping[HK_GuitarGripBlue],      -1, NULL, 0},
 
-
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, NULL, 0},
     {"HKJoy_Pause",               0, &HKJoyMapping[HK_Pause],               -1, NULL, 0},

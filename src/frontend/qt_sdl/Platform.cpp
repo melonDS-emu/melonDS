@@ -416,12 +416,21 @@ int LAN_RecvPacket(u8* data)
 
 void StartRumble()
 {
-    Input::StartRumble();
+    if (Input::Haptic != nullptr)
+    {
+    		// TODO: Testing needed as to how long each "vibration"
+    		// of the Rumble Pak motor lasts
+    		// For now, we just run it for 48 ms
+        SDL_HapticRumblePlay(Input::Haptic, 1.0, 48);
+    }
 }
 
 void StopRumble()
 {
-    Input::StopRumble();
+    if (Input::Haptic != nullptr)
+    {
+        SDL_HapticRumbleStop(Input::Haptic);
+    }
 }
 
 }

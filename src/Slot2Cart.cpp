@@ -36,7 +36,7 @@ u16 ReadRumble(u32 addr)
     // This should allow commercial games to properly detect the Rumble Pak.
     // Credit to rzumer for coming up with this algorithm...
     
-    u8 lodata = ((addr | 0x40) & 0xFFFD);
+    u16 lodata = ((addr | 0x40) & 0xFD);
     return (addr & 1) ? addr : lodata;
 }
 
@@ -80,11 +80,11 @@ void SetGripKey(GuitarKeys key, bool val)
 {
     if (val == true)
     {
-        GuitarKeyStatus |= key;
+        GuitarKeyStatus |= static_cast<int>(key);
     }
     else
     {
-        GuitarKeyStatus &= ~key;
+        GuitarKeyStatus &= ~static_cast<int>(key);
     }
 }
 

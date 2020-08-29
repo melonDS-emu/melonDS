@@ -35,7 +35,7 @@ void WriteRumble(u32 addr, u16 val);
 }
 
 
-enum GuitarKeys : int
+enum class GuitarKeys : int
 {
     Green = 0x40,
     Red = 0x20,
@@ -53,6 +53,7 @@ u8 ReadGrip8(u32 addr);
 u16 ReadGrip16(u32 addr);
 
 void SetGripKey(GuitarKeys key, bool val);
+
 }
 
 namespace Slot2Cart_MemExpansionPak
@@ -73,6 +74,7 @@ u32 ReadMemPak32(u32 addr);
 void WriteMemPak32(u32 addr, u32 val);
 
 void DoSavestate(Savestate* file);
+
 }
 
 #endif // SLOT2CART_H

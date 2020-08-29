@@ -513,14 +513,6 @@ void EmuThread::run()
                     lasttick = SDL_GetTicks();
                 }
             }
-            
-            // This piece of code is used in order for the Rumble Pak
-            // implementation to take into account variable framerates...
-            if (Input::isFrameDone)
-            {
-            		Platform::StopRumble();
-            		Input::isFrameDone = false;
-            }
 
             nframes++;
             if (nframes >= 30)

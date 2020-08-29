@@ -1,5 +1,5 @@
 /*
-    Copyright 2019 Arisotura, Buenia0
+    Copyright 2019 Arisotura, Raphaël Zumer
 
     This file is part of melonDS.
 

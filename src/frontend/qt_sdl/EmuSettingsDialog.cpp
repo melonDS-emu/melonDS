@@ -141,7 +141,7 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
-        int chosenaddon = ui->cbxSlot2Addon->currentIndex();
+        int chosenAddon = ui->cbxSlot2Addon->currentIndex();
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
@@ -158,7 +158,7 @@ void EmuSettingsDialog::done(int r)
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
 
         if (consoleType != Config::ConsoleType
-        		|| chosenaddon != Config::Slot2Addon
+            || chosenAddon != Config::Slot2Addon
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
             || jitEnable != Config::JIT_Enable
@@ -201,8 +201,8 @@ void EmuSettingsDialog::done(int r)
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
             
-            Config::Slot2Addon = chosenaddon;
-    				NDS::SetSlot2Addon(Config::Slot2Addon);
+            Config::Slot2Addon = chosenAddon;
+            NDS::SetSlot2Addon(Config::Slot2Addon);
 
             Config::Save();
 
