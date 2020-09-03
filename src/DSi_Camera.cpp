@@ -140,7 +140,7 @@ u16 DSi_Camera::ReadReg(u16 addr)
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
-    printf("DSi_Camera%d: unknown read %04X\n", Num, addr);
+    //printf("DSi_Camera%d: unknown read %04X\n", Num, addr);
     return 0;
 }
 
@@ -162,5 +162,5 @@ void DSi_Camera::WriteReg(u16 addr, u16 val)
         return;
     }
 
-    printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
+    //printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }
