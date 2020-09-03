@@ -42,7 +42,7 @@ s64 Compiler::RewriteMemAccess(u64 pc)
         return patch.PatchOffset;
     }
     printf("this is a JIT bug! %08x\n", __builtin_bswap32(*(u32*)pc));
-    assert(false);
+    abort();
 }
 
 bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)

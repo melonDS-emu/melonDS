@@ -209,7 +209,8 @@ void Compiler::A_Comp_Arith()
         Comp_ArithTriOp(&Compiler::AND, rd, rn, op2, carryUsed, sFlag|opSymmetric|opInvertOp2);
         break;
     default:
-        assert("unimplemented");
+        printf("this is a JIT bug! %04x\n", op);
+        abort();
     }
 
     if (CurInstr.A_Reg(12) == 15)
@@ -566,7 +567,7 @@ OpArg Compiler::Comp_RegShiftImm(int op, int amount, OpArg rm, bool S, bool& car
         return R(RSCRATCH);
     }
 
-    assert(false);
+    abort();
 }
 
 void Compiler::T_Comp_ShiftImm()
