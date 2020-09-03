@@ -39,7 +39,7 @@ s32 Compiler::RewriteMemAccess(u64 pc)
         return patch.Offset;
     }
 
-    printf("this is a JIT bug %x\n", pc);
+    printf("this is a JIT bug %llx\n", pc);
     abort();
 }
 
