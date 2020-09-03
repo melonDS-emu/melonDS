@@ -2537,7 +2537,8 @@ void ARM7Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
+    if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+        printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -3454,6 +3455,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000304:
         PowerControl9 = val & 0x820F;
         GPU::SetPowerCnt(PowerControl9);
+        return;
+
+    case 0x04100010:
+        NDSCart::WriteROMData(val);
         return;
     }
 

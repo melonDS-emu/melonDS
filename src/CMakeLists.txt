@@ -33,6 +33,7 @@ add_library(core STATIC
 	GPU3D_OpenGL.cpp
 	GPU3D_OpenGL_shaders.h
 	GPU3D_Soft.cpp
+	melonDLDI.h
 	NDS.cpp
 	NDSCart.cpp
 	OpenGLSupport.cpp

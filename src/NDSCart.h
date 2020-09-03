@@ -52,6 +52,7 @@ void ResetCart();
 
 void WriteROMCnt(u32 val);
 u32 ReadROMData();
+void WriteROMData(u32 val);
 
 void WriteSPICnt(u16 val);
 u8 ReadSPIData();
