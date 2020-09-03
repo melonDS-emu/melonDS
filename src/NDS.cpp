@@ -3745,7 +3745,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000301:
-        val & 0xC0;
+        val &= 0xC0;
         if      (val == 0x40) printf("!! GBA MODE NOT SUPPORTED\n");
         else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();
