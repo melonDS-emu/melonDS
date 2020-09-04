@@ -775,7 +775,7 @@ bool DoSavestate(Savestate* file)
 
     file->Var8(&WRAMCnt);
 
-    file->Var32((u32*)&RunningGame);
+    file->Bool32(&RunningGame);
 
     if (!file->Saving)
     {

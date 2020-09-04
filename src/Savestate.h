@@ -46,6 +46,8 @@ public:
     void Var32(u32* var);
     void Var64(u64* var);
 
+    void Bool32(bool* var);
+
     void VarArray(void* data, u32 len);
 
     bool IsAtleastVersion(u32 major, u32 minor)

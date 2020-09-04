@@ -1087,7 +1087,10 @@ void ResetBlockCache()
 
     InvalidLiterals.Clear();
     for (int i = 0; i < ARMJIT_Memory::memregions_Count; i++)
-        memset(FastBlockLookupRegions[i], 0xFF, CodeRegionSizes[i] * sizeof(u64) / 2);
+    {
+        if (FastBlockLookupRegions[i])
+            memset(FastBlockLookupRegions[i], 0xFF, CodeRegionSizes[i] * sizeof(u64) / 2);
+    }
     for (auto it = RestoreCandidates.begin(); it != RestoreCandidates.end(); it++)
         delete it->second;
     RestoreCandidates.clear();

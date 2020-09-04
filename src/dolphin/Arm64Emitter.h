@@ -727,7 +727,7 @@ public:
   void LSR(ARM64Reg Rd, ARM64Reg Rm, int shift);
   void LSL(ARM64Reg Rd, ARM64Reg Rm, int shift);
   void ASR(ARM64Reg Rd, ARM64Reg Rm, int shift);
-  void ROR_(ARM64Reg Rd, ARM64Reg Rm, int shift);
+  void ROR(ARM64Reg Rd, ARM64Reg Rm, int shift);
 
   // Logical (immediate)
   void AND(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, bool invert = false);

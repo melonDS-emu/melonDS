@@ -73,6 +73,8 @@ void DMA::Reset()
     SrcAddrInc = 0;
     DstAddrInc = 0;
 
+    Stall = false;
+
     Running = false;
     InProgress = false;
 
@@ -111,8 +113,8 @@ void DMA::DoSavestate(Savestate* file)
     file->Var32(&DstAddrInc);
 
     file->Var32(&Running);
-    file->Var32((u32*)&InProgress);
-    file->Var32((u32*)&IsGXFIFODMA);
+    file->Bool32(&InProgress);
+    file->Bool32(&IsGXFIFODMA);
 }
 
 void DMA::WriteCnt(u32 val)
