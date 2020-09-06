@@ -339,36 +339,36 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
-inline s32 MakeTracingSym(const char* name, unsigned int arrlen, int bits, int type) {
+inline s32 MakeTracingSym(const char* name, int bits, int type) {
 #ifdef DEBUG_FEATURES_ENABLED
-    return DebugStuff.AddTraceSym(name, arrlen, bits, type);
+    return DebugStuff.AddTraceSym(name, bits, type);
 #else
     return -1;
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, int value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, int value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value, categ);
+    DebugStuff.TraceValue(sym, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, unsigned int value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, unsigned int value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value, categ);
+    DebugStuff.TraceValue(sym, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, double value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, double value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value, categ);
+    DebugStuff.TraceValue(sym, value, categ);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int ind, char* value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, char* value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, ind, value, categ);
+    DebugStuff.TraceValue(sym, value, categ);
 #endif
 }
-inline void TraceString(s32 sym, unsigned int ind, char* value, enum debug::SystemSignal categ) {
+inline void TraceString(s32 sym, char* value, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceString(sym, ind, value, categ);
+    DebugStuff.TraceString(sym, value, categ);
 #endif
 }
 

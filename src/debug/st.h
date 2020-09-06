@@ -58,13 +58,13 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    int32_t AddTraceSym(const char* name, unsigned int arrlen, int bits, int typ);
+    int32_t AddTraceSym(const char* name, int bits, int typ);
     int32_t GetTraceSym(const char* name);
-    void TraceValue(int32_t sym, unsigned int ind, int value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, unsigned int ind, unsigned int value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, unsigned int ind, double value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ); // bitstring
-    void TraceString(int32_t sym, unsigned int ind, char* value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, int value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, unsigned int value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, double value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, char* value, enum SystemSignal categ); // bitstring
+    void TraceString(int32_t sym, char* value, enum SystemSignal categ);
 
     void BeginTracing();
     void PauseTracing();

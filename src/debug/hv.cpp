@@ -100,14 +100,13 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
 
     case 0x88: /* add trace signal (const char* name, int arrlen, int bits, int typ) */
         {
-            uint32_t namaddr = cpu->R[0], arrlen = cpu->R[1],
-                    bits = cpu->R[2], typ = cpu->R[3];
+            uint32_t namaddr = cpu->R[0], bits = cpu->R[1], typ = cpu->R[2];
 
-            if (arrlen > 256 || bits > 64 || bits == 0) cpu->R[0] = -1;
+            if (bits > 64 || bits == 0) cpu->R[0] = -1;
             else
             {
                 char* buf = read_sz(cpu, namaddr);
-                cpu->R[0] = NDS::DebugStuff.AddTraceSym(buf, arrlen, bits, (int)typ);
+                cpu->R[0] = NDS::DebugStuff.AddTraceSym(buf, bits, (int)typ);
                 free(buf);
             }
         }
@@ -123,41 +122,37 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
     case 0x8a: /* trace int value (int sig, int ind, int val) */
         {
             int32_t sig = cpu->R[0],
-                    val = cpu->R[2];
-            uint32_t ind = cpu->R[1];
+                    val = cpu->R[1];
 
-            NDS::DebugStuff.TraceValue(sig, ind, val, SystemSignal::Custom);
+            NDS::DebugStuff.TraceValue(sig, val, SystemSignal::Custom);
         }
         break;
     case 0x8b: /* trace float value (int sig, int ind, float val) */
         {
             int32_t sig = cpu->R[0];
-            uint32_t ind = cpu->R[1];
             union { uint32_t u; float f; } uf;
-            uf.u = cpu->R[2];
+            uf.u = cpu->R[1];
 
-            NDS::DebugStuff.TraceValue(sig, ind, (double)uf.f, SystemSignal::Custom);
+            NDS::DebugStuff.TraceValue(sig, (double)uf.f, SystemSignal::Custom);
         }
         break;
     case 0x8c: /* trace bit string (int sig, int ind, const char* val) */
         {
             int32_t sig = cpu->R[0];
-            uint32_t ind = cpu->R[1];
-            uint32_t bufaddr = cpu->R[2];
+            uint32_t bufaddr = cpu->R[1];
 
             char* buf = read_sz(cpu, bufaddr);
-            NDS::DebugStuff.TraceValue(sig, ind, buf, SystemSignal::Custom);
+            NDS::DebugStuff.TraceValue(sig, buf, SystemSignal::Custom);
             free(buf);
         }
         break;
     case 0x8d: /* trace string (int sig, int ind, const char* val) */
         {
             int32_t sig = cpu->R[0];
-            uint32_t ind = cpu->R[1];
-            uint32_t bufaddr = cpu->R[2];
+            uint32_t bufaddr = cpu->R[1];
 
             char* buf = read_sz(cpu, bufaddr);
-            NDS::DebugStuff.TraceString(sig, ind, buf, SystemSignal::Custom);
+            NDS::DebugStuff.TraceString(sig, buf, SystemSignal::Custom);
             free(buf);
         }
         break;
@@ -177,6 +172,8 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             uint32_t mask = cpu->R[0], add = cpu->R[1];
             cpu->R[0] = (uint32_t)NDS::DebugStuff.EnabledSignals;
             NDS::DebugStuff.EnabledSignals = (SystemSignal)((cpu->R[0] & mask) | add);
+            printf("set tracing mask 0x%08x -> 0x%08x\n", cpu->R[0],
+                    (uint32_t)NDS::DebugStuff.EnabledSignals);
         }
         break;
     }
