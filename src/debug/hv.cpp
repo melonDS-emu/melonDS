@@ -133,6 +133,7 @@ void swi(ARM* cpu, bool thumb, uint32_t scnum)
             union { uint32_t u; float f; } uf;
             uf.u = cpu->R[1];
 
+            //printf("trace sym %d value %f\n", sig, uf.f);
             NDS::DebugStuff.TraceValue(sig, (double)uf.f, SystemSignal::Custom);
         }
         break;

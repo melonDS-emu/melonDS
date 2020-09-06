@@ -190,7 +190,6 @@ extern bool LagFrameFlag;
 extern u64 ARM9Timestamp, ARM9Target;
 extern u64 ARM7Timestamp, ARM7Target;
 extern u32 ARM9ClockShift;
-extern u64 SysTimestamp;
 
 extern u32 IME[2];
 extern u32 IE[2];

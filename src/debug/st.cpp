@@ -51,31 +51,46 @@ DebugStorageNDS::~DebugStorageNDS()
     Reset();
 }
 
+
+// 33554432 Hz?
+// 33513982 Hz?
+#define SYS_BUSCLOCK_RATE (33513982)
+// A7 clock = busclock
+// A9 clock = busclock*2
+// dotclock = busclock / 6
+// scanlines = dotclock / 355 (256 visible, 99 blank)
+// frames = scanlines / 263 (192 visible, 71 blank)
+//
+// // pre clockdiv settings
+// audio masterclock = busclock/2 (SOUNDxTMR = audio masterclock/freq as freq.div)
+// timer masterclock = busclock
+// SPI masterclock = "4 MHz"
+// AUXSPI masterclock = "4 MHz"
+// cart/rom xfer masterclock = busclock/2 (/5 or /8 in ROMCTRL)
+//
+// DSi9 clock = busclock*4
+// NDMA masterclock = busclock
+// DSP clock = busclock*4 ? busclock*4/1.25 ? what's the memory bandwidth???
+// I2C masterclock = ??? (BPTWL: ???, camera: busclock/2?)
+// I2S (mic/nitro+dsp mixer) masterclock = "32.73kHz" or "47.61kHz" (freqdiv in mic_cnt, opt in sndexcnt)
+// SDMMC, SDIO masterclock = busclock/2
+// Wifi Xtensa masterclock = "26 MHz"? "40 MHz"?
+//
+//
+// GBA:
+//  ARM Mode     16.78MHz <---- 16777216 Hz? busclock/2?
+//  THUMB Mode   16.78MHz
+//  CGB Mode     4.2MHz or 8.4MHz <--- 2<<22 Hz? busclock/4?
+//  DMG Mode     4.2MHz <--- 2<<21 Hz? busclock/8?
+#define TRACE_TIMESCALE (-12)
+// we have to use int128 here because otherwise we'd run out of clocks too quickly. welp.
+#define TRACE_SYSCLOCK_TO_TIMESTAMP(c) ((uint64_t)((c*((unsigned __int128)(1e12)))/SYS_BUSCLOCK_RATE))
+
 void DebugStorageNDS::Reset()
 {
-    /*struct lt_trace* t2 = lt_init("test.lxt");
-    lt_set_timescale(t2, 0);
-    lt_set_dumpon(t2);
-    lt_set_initial_value(t2, '0');
-
-    struct lt_symbol* s2 = lt_symbol_add(t2, "testtest", 0, 0, 0, LT_SYM_F_BITS);//INTEGER);
-    struct lt_symbol* s3 = lt_symbol_add(t2, "testtes3", 0, 0, 1, LT_SYM_F_INTEGER);
-
-    for (int i = 0; i < 10; ++i){
-        if (i==4)lt_set_dumpoff(t2);
-        else if (i==6)lt_set_dumpon(t2);
-        lt_set_time64(t2, i);
-        lt_emit_value_bit_string(t2, s2, 0, (1^(i&1)) ? (char*)"1" : (char*)"0");
-        lt_emit_value_int(t2, s3, 0, i&3);
-    }
-
-    lt_close(t2);*/
-
     curtime = 0;
 
-    //printf("reset\n");
     if (tracer) {
-        //printf("end tracer\n");
         lt_close(tracer);
     }
     tracer = NULL;
@@ -91,10 +106,15 @@ void DebugStorageNDS::AllocNew()
 {
     if (!tracer)
     {
-        //printf("alloc tracer\n");
         tracer = lt_init(TRACE_OUT_FILE);
-        lt_set_timescale(tracer, -6); // TODO
-        lt_set_time64(tracer, NDS::SysTimestamp);
+        lt_set_timescale(tracer, TRACE_TIMESCALE);
+        // for a correct timescale, ^ could be set to 0, and then v needs to be
+        // divided by the system bus clockrate. however, we're working with ints,
+        // so it has to be amended a little bit: we use 1e-12 timings, and then
+        // prescale with 1e12 and divide by the system clock
+        // secondly, currently, we only allow for system clock resolution, but
+        // this will probably have to be amended in the future
+        lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(curtime = NDS::GetSysClockCycles(0, true)));
         lt_set_dumpoff(tracer);
         lt_set_initial_value(tracer, '0');
     }
@@ -199,7 +219,7 @@ void DebugStorageNDS::TraceValue(int32_t sym, double value, enum SystemSignal ca
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
     if (!(categ & EnabledSignals)) return;
 
-    //printf("trace %s(%d) to %f @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
+    //printf("trace %s(%d, typ %d) to %f @ time %llu <-> %llu\n", TSyms[sym].name, sym, TSyms[sym].typ, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
 
     //SetTime(NDS::GetSysClockCycles(0, true));
@@ -249,7 +269,7 @@ void DebugStorageNDS::SetTime(uint64_t t, bool force)
     if (!tracer) AllocNew();
 
     if (force || t > curtime)
-        lt_set_time64(tracer, t);
+        lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(t));
 
     if (force)
         curtime = t;
