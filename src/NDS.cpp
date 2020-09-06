@@ -181,7 +181,7 @@ debug::DebugStorageNDS DebugStuff;
 #endif
 
 s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
-s32 dsym_timer_cnt[8];
+s32 dsym_timer_cnt[8], dsym_ime[2], dsym_ie[2], dsym_if[2];
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -716,6 +716,14 @@ void Reset()
         snprintf(name, sizeof(name), "TM%cCNT_A%c", '0'+(i&3), (i&4)?'7':'9');
         dsym_timer_cnt[i] = MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::TimerCtl);
     }
+
+    dsym_ime[0] = MakeTracingSym("IME_A9", 1, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_ime[1] = MakeTracingSym("IME_A7", 1, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+
+    dsym_ie[0] = MakeTracingSym("IE_A9", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_ie[1] = MakeTracingSym("IE_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if[0] = MakeTracingSym("IF_A9", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if[1] = MakeTracingSym("IF_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
 }
 
 void Start()
@@ -1492,24 +1500,28 @@ void UpdateIRQ(u32 cpu)
 void SetIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] |= (1 << irq);
+    TraceValue(dsym_if[cpu], IF[cpu]);
     UpdateIRQ(cpu);
 }
 
 void ClearIRQ(u32 cpu, u32 irq)
 {
     IF[cpu] &= ~(1 << irq);
+    TraceValue(dsym_if[cpu], IF[cpu]);
     UpdateIRQ(cpu);
 }
 
 void SetIRQ2(u32 irq)
 {
     IF2 |= (1 << irq);
+    TraceValue(DSi::dsym_if2, IF2);
     UpdateIRQ(1);
 }
 
 void ClearIRQ2(u32 irq)
 {
     IF2 &= ~(1 << irq);
+    TraceValue(DSi::dsym_if2, IF2);
     UpdateIRQ(1);
 }
 
@@ -3416,7 +3428,9 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[6] = val; return;
     case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[7] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
 
     case 0x04000240: GPU::MapVRAM_AB(0, val); return;
     case 0x04000241: GPU::MapVRAM_AB(1, val); return;
@@ -3588,9 +3602,15 @@ void ARM9IOWrite16(u32 addr, u16 val)
             return;
         }
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
-    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
-    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
+    case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
+    case 0x04000212: IE[0] = (IE[0] & 0x0000FFFF) | (val << 16); UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000240:
@@ -3762,9 +3782,15 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[0] = val; return;
 
-    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
-    case 0x04000210: IE[0] = val; UpdateIRQ(0); return;
-    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0); return;
+    case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0);
+        TraceValue(dsym_ime[0], val&1);
+        return;
+    case 0x04000210: IE[0] = val; UpdateIRQ(0);
+        TraceValue(dsym_ie[0], IE[0]);
+        return;
+    case 0x04000214: IF[0] &= ~val; GPU3D::CheckFIFOIRQ(); UpdateIRQ(0);
+        TraceValue(dsym_if[0], IF[0]);
+        return;
 
     case 0x04000240:
         GPU::MapVRAM_AB(0, val & 0xFF);
@@ -4188,7 +4214,9 @@ void ARM7IOWrite8(u32 addr, u8 val)
         SPI::WriteData(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
 
     case 0x04000300:
         if (ARM7->R[15] >= 0x4000)
@@ -4341,9 +4369,15 @@ void ARM7IOWrite16(u32 addr, u16 val)
         SetWifiWaitCnt(val);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
-    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; UpdateIRQ(1); return;
-    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
+    case 0x04000210: IE[1] = (IE[1] & 0xFFFF0000) | val; UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
+    case 0x04000212: IE[1] = (IE[1] & 0x0000FFFF) | (val << 16); UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
     // TODO: what happens when writing to IF this way??
 
     case 0x04000300:
@@ -4485,9 +4519,15 @@ void ARM7IOWrite32(u32 addr, u32 val)
         SPI::WriteData((val >> 16) & 0xFF);
         return;
 
-    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
-    case 0x04000210: IE[1] = val; UpdateIRQ(1); return;
-    case 0x04000214: IF[1] &= ~val; UpdateIRQ(1); return;
+    case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1);
+        TraceValue(dsym_ime[1], val&1);
+        return;
+    case 0x04000210: IE[1] = val; UpdateIRQ(1);
+        TraceValue(dsym_ie[1], IE[1]);
+        return;
+    case 0x04000214: IF[1] &= ~val; UpdateIRQ(1);
+        TraceValue(dsym_if[1], IF[1]);
+        return;
 
     case 0x04000304:
         {

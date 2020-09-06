@@ -53,6 +53,8 @@ extern u32 NWRAMStart[2][3];
 extern u32 NWRAMEnd[2][3];
 extern u32 NWRAMMask[2][3];
 
+extern s32 dsym_ie2, dsym_if2;
+
 bool Init();
 void DeInit();
 void Reset();

@@ -88,6 +88,7 @@ s32 dsym_mbk_15[5];
 s32 dsym_mbk_68[2][3];
 s32 dsym_mbk_9;
 s32 dsym_ndmagcnt[2];
+s32 dsym_ie2, dsym_if2;
 
 
 bool Init()
@@ -204,6 +205,9 @@ void Reset()
         snprintf(name, sizeof(name), "NDMAGCNT_A%c", (j==0)?'9':'7');
         dsym_ndmagcnt[j] = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
     }
+
+    dsym_ie2   = NDS::MakeTracingSym("IE2", 16, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+    dsym_if2   = NDS::MakeTracingSym("IF2", 16, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
 }
 
 void Stop()
@@ -2943,8 +2947,14 @@ void ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-        case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-        case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+        case 0x04000218:
+            NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1);
+            NDS::TraceValue(dsym_ie2, NDS::IE2);
+            return;
+        case 0x0400021C:
+            NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1);
+            NDS::TraceValue(dsym_if2, NDS::IF2);
+            return;
 
         case 0x04004000:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
@@ -3030,8 +3040,14 @@ void ARM7IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
-    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+    case 0x04000218:
+        NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1);
+        NDS::TraceValue(dsym_ie2, NDS::IE2);
+        return;
+    case 0x0400021C:
+        NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1);
+        NDS::TraceValue(dsym_if2, NDS::IF2);
+       return;
 
     case 0x04004000:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
