@@ -178,6 +178,8 @@ bool RunningGame;
 
 #ifdef DEBUG_FEATURES_ENABLED
 debug::DebugStorageNDS DebugStuff;
+
+s32 dsym_exmemcnt[2], dsym_wramcnt;
 #endif
 
 void DivDone(u32 param);
@@ -698,6 +700,10 @@ void Reset()
     SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
+
+    dsym_exmemcnt[0] = MakeTracingSym("EXMEMCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    dsym_exmemcnt[1] = MakeTracingSym("EXMEMCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    dsym_wramcnt = MakeTracingSym("WRAMCNT", 8, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
 }
 
 void Start()
@@ -1356,6 +1362,7 @@ void MapSharedWRAM(u8 val)
 #endif
 
     WRAMCnt = val;
+    TraceValue(dsym_wramcnt, WRAMCnt);
 
     switch (WRAMCnt & 0x3)
     {
@@ -3540,6 +3547,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
             ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
             if ((oldVal ^ ExMemCnt[0]) & 0xFF)
                 SetGBASlotTimings();
+            TraceValue(dsym_exmemcnt[0], ExMemCnt[0]);
+            TraceValue(dsym_exmemcnt[1], ExMemCnt[1]);
             return;
         }
 
@@ -4259,6 +4268,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
             if ((ExMemCnt[1] ^ oldVal) & 0xFF)
                 SetGBASlotTimings();
+            TraceValue(dsym_exmemcnt[1], ExMemCnt[1]);
             return;
         }
     case 0x04000206:

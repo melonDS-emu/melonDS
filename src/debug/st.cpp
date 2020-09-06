@@ -127,9 +127,15 @@ void DebugStorageNDS::AllocNew()
     }
 }
 
-int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ)
+int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ,
+        enum SystemSignal categ)
 {
+    uint32_t catu = (uint32_t)categ;
     if (bits < 0 || bits > 64) return -1;
+    if (!catu || (catu & (catu - 1))) return -1; // definitely a bad categ value
+
+    uint16_t l2categ = __builtin_ctz(catu);
+    if (catu != (1u<<l2categ)) return -1; // more than one bit set
 
     if (!TSyms || !tracer) AllocNew();
 
@@ -139,7 +145,8 @@ int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ)
     if (sym > -1)
     {
         uint32_t h = str_hash_djb2(name);
-        if (str_hash_djb2(TSyms[sym].name) == h && TSyms[sym].bits == bits && TSyms[sym].typ == typ)
+        if (str_hash_djb2(TSyms[sym].name) == h && TSyms[sym].bits == bits
+                && TSyms[sym].typ == typ && TSyms[sym].l2categ == l2categ)
             return sym;
 
         return -1;
@@ -163,6 +170,7 @@ int32_t DebugStorageNDS::AddTraceSym(const char* name, int bits, int typ)
     //printf("sym %s type %d -> #%d %p\n", name, typ, sym, ssym);
     TSyms[NTSyms].sym      = ssym;
     TSyms[NTSyms].name     = nn;
+    TSyms[NTSyms].l2categ  = l2categ;
     TSyms[NTSyms].bits     = bits;
     TSyms[NTSyms].typ      = typ;
     ++NTSyms;
@@ -180,10 +188,10 @@ int32_t DebugStorageNDS::GetTraceSym(const char* name)
 
     return -1;
 }
-void DebugStorageNDS::TraceValue(int32_t sym, int value, enum SystemSignal categ)
+void DebugStorageNDS::TraceValue(int32_t sym, int value)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %d @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -197,10 +205,10 @@ void DebugStorageNDS::TraceValue(int32_t sym, int value, enum SystemSignal categ
     else
         lt_emit_value_int(tracer, TSyms[sym].sym, 0, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value, enum SystemSignal categ)
+void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %u @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -214,10 +222,10 @@ void DebugStorageNDS::TraceValue(int32_t sym, unsigned int value, enum SystemSig
     else
         lt_emit_value_int(tracer, TSyms[sym].sym, 0, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, double value, enum SystemSignal categ)
+void DebugStorageNDS::TraceValue(int32_t sym, double value)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d, typ %d) to %f @ time %llu <-> %llu\n", TSyms[sym].name, sym, TSyms[sym].typ, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -225,10 +233,10 @@ void DebugStorageNDS::TraceValue(int32_t sym, double value, enum SystemSignal ca
     //SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_double(tracer, TSyms[sym].sym, 0, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, char* value, enum SystemSignal categ)
+void DebugStorageNDS::TraceValue(int32_t sym, char* value)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %s @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -236,10 +244,10 @@ void DebugStorageNDS::TraceValue(int32_t sym, char* value, enum SystemSignal cat
     //SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_bit_string(tracer, TSyms[sym].sym, 0, value);
 }
-void DebugStorageNDS::TraceString(int32_t sym, char* value, enum SystemSignal categ)
+void DebugStorageNDS::TraceString(int32_t sym, char* value)
 {
     if (!tracer || !TSyms || sym < 0 || sym >= NTSyms || !tracing) return;
-    if (!(categ & EnabledSignals)) return;
+    if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
 
     //printf("trace %s(%d) to %s @ time %llu <-> %llu\n", TSyms[sym].name, sym, value,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
@@ -289,6 +297,7 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
         {
             uint32_t l = strlen(TSyms[i].name);
             file->Var32(&l);
+            file->Var16(&TSyms[i].l2categ);
             file->Var8(&TSyms[i].bits);
             file->Var8(&TSyms[i].typ);
             file->VarArray(TSyms[i].name, l+1);
@@ -306,16 +315,17 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
         for (size_t i = 0; i < ns; ++i)
         {
             uint32_t l = 0;
-            uint16_t arrlen = 0;
+            uint16_t l2categ = 0;
             uint8_t bits = 0, typ = 0;
 
             file->Var32(&l);
+            file->Var16(&l2categ);
             file->Var8(&bits);
             file->Var8(&typ);
 
             char* nam = (char*)calloc(1,l+1);
             file->VarArray(nam, l+1);
-            AddTraceSym(nam, bits, typ);
+            AddTraceSym(nam, bits, typ, (enum SystemSignal)(1u<<l2categ));
             free(nam);
         }
     }

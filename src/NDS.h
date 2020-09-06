@@ -338,36 +338,36 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
-inline s32 MakeTracingSym(const char* name, int bits, int type) {
+inline s32 MakeTracingSym(const char* name, int bits, int type, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
-    return DebugStuff.AddTraceSym(name, bits, type);
+    return DebugStuff.AddTraceSym(name, bits, type, categ);
 #else
     return -1;
 #endif
 }
-inline void TraceValue(s32 sym, int value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, int value) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value, categ);
+    DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, unsigned int value) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value, categ);
+    DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, double value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, double value) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value, categ);
+    DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, char* value, enum debug::SystemSignal categ) {
+inline void TraceValue(s32 sym, char* value) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value, categ);
+    DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceString(s32 sym, char* value, enum debug::SystemSignal categ) {
+inline void TraceString(s32 sym, char* value) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceString(sym, value, categ);
+    DebugStuff.TraceString(sym, value);
 #endif
 }
 

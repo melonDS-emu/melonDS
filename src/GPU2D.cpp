@@ -92,6 +92,7 @@ void Unit::Reset()
 {
     Enabled = false;
     DispCnt = 0;
+    dsym_capcnt = -1;
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);
     memset(BGYPos, 0, 4*2);
@@ -136,6 +137,17 @@ void Unit::Reset()
     CaptureLatch = false;
 
     MasterBrightness = 0;
+
+    dsym_cnt = NDS::MakeTracingSym(Num==1?"DISPCNT_SUB":"DISPCNT", 32,
+            LT_SYM_F_INTEGER, debug::SystemSignal::DispCtl);
+
+    if (Num == 0)
+    {
+        dsym_capcnt = NDS::MakeTracingSym("DISPCAPCNT", 32, LT_SYM_F_INTEGER,
+            debug::SystemSignal::DispCtl);
+        dsym_capline = NDS::MakeTracingSym("dispcap_line", 8, LT_SYM_F_INTEGER,
+            debug::SystemSignal::DispCtl);
+    }
 }
 
 void Unit::DoSavestate(Savestate* file)
@@ -270,18 +282,22 @@ void Unit::Write8(u32 addr, u8 val)
     case 0x000:
         DispCnt = (DispCnt & 0xFFFFFF00) | val;
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
     case 0x001:
         DispCnt = (DispCnt & 0xFFFF00FF) | (val << 8);
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
     case 0x002:
         DispCnt = (DispCnt & 0xFF00FFFF) | (val << 16);
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
     case 0x003:
         DispCnt = (DispCnt & 0x00FFFFFF) | (val << 24);
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
 
     case 0x10:
@@ -374,10 +390,12 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x000:
         DispCnt = (DispCnt & 0xFFFF0000) | val;
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
     case 0x002:
         DispCnt = (DispCnt & 0x0000FFFF) | (val << 16);
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
 
     case 0x010:
@@ -518,10 +536,12 @@ void Unit::Write32(u32 addr, u32 val)
     case 0x000:
         DispCnt = val;
         if (Num) DispCnt &= 0xC0B1FFF7;
+        NDS::TraceValue(dsym_cnt, DispCnt);
         return;
 
     case 0x064:
         CaptureCnt = val & 0xEF3F1F1F;
+        NDS::TraceValue(dsym_capcnt, CaptureCnt);
         return;
 
     case 0x068:
@@ -587,6 +607,8 @@ void Unit::VBlank()
     {
         CaptureCnt &= ~(1<<31);
         CaptureLatch = false;
+
+        NDS::TraceValue(dsym_capcnt, CaptureCnt);
     }
 
     DispFIFOReadPtr = 0;

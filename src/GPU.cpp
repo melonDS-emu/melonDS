@@ -148,7 +148,7 @@ u32 PaletteDirty;
 std::unique_ptr<GLCompositor> CurGLCompositor = {};
 #endif
 
-s32 dsym_scanline, dsym_hblank, dsym_vblank;
+s32 dsym_scanline, dsym_hblank, dsym_vblank, dsym_dispstat[2], dsym_vramcnt[9];
 
 bool Init()
 {
@@ -283,9 +283,17 @@ void Reset()
     OAMDirty = 0x3;
     PaletteDirty = 0xF;
 
-    dsym_scanline = NDS::MakeTracingSym("scanline", 9, LT_SYM_F_BITS);//LT_SYM_F_INTEGER);
-    dsym_hblank   = NDS::MakeTracingSym("hblank"  , 1, LT_SYM_F_BITS);
-    dsym_vblank   = NDS::MakeTracingSym("vblank"  , 1, LT_SYM_F_BITS);
+    dsym_scanline = NDS::MakeTracingSym("VCOUNT", 9, LT_SYM_F_INTEGER, debug::SystemSignal::DispCtl);
+    dsym_hblank   = NDS::MakeTracingSym("hblank", 1, LT_SYM_F_BITS, debug::SystemSignal::DispCtl);
+    dsym_vblank   = NDS::MakeTracingSym("vblank", 1, LT_SYM_F_BITS, debug::SystemSignal::DispCtl);
+    dsym_dispstat[0] = NDS::MakeTracingSym("DISPSTAT", 16, LT_SYM_F_BITS, debug::SystemSignal::DispCtl);
+    dsym_dispstat[1] = NDS::MakeTracingSym("DISPSTAT_SUB", 16, LT_SYM_F_BITS, debug::SystemSignal::DispCtl);
+
+    for (int i = 0; i < 9; ++i) {
+        char name[strlen("VRAMCNT_A")+1];
+        snprintf(name, sizeof(name), "VRAMCNT_%c", 'A'+i);
+        dsym_vramcnt[i] = NDS::MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    }
 }
 
 void Stop()
@@ -544,6 +552,7 @@ void MapVRAM_AB(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     if (oldcnt == cnt) return;
 
@@ -604,6 +613,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     VRAMSTAT &= ~(1 << (bank-2));
 
@@ -693,6 +703,7 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     if (oldcnt == cnt) return;
 
@@ -757,6 +768,7 @@ void MapVRAM_FG(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     if (oldcnt == cnt) return;
 
@@ -857,6 +869,7 @@ void MapVRAM_H(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     if (oldcnt == cnt) return;
 
@@ -919,6 +932,7 @@ void MapVRAM_I(u32 bank, u8 cnt)
 
     u8 oldcnt = VRAMCNT[bank];
     VRAMCNT[bank] = cnt;
+    NDS::TraceValue(dsym_vramcnt[bank], cnt);
 
     if (oldcnt == cnt) return;
 
@@ -1029,7 +1043,7 @@ void DisplayFIFO(u32 x)
 
 void StartFrame()
 {
-    NDS::TraceValue(dsym_vblank, (char*)"0", debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_vblank, (char*)"0");
 
     // only run the display FIFO if needed:
     // * if it is used for display or capture
@@ -1042,12 +1056,15 @@ void StartFrame()
 
 void StartHBlank(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, (char*)"1", debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, (char*)"1");
     if (VCount == 192)
-        NDS::TraceValue(dsym_vblank, (char*)"1", debug::SystemSignal::DispCtl);
+        NDS::TraceValue(dsym_vblank, (char*)"1");
 
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
+
+    NDS::TraceValue(dsym_dispstat[0], DispStat[0]);
+    NDS::TraceValue(dsym_dispstat[1], DispStat[1]);
 
     if (VCount < 192)
     {
@@ -1089,8 +1106,8 @@ void StartHBlank(u32 line)
 
 void FinishFrame(u32 lines)
 {
-    NDS::TraceValue(dsym_hblank, (char*)"0", debug::SystemSignal::DispCtl);
-    NDS::TraceValue(dsym_vblank, (char*)"1", debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, (char*)"0");
+    NDS::TraceValue(dsym_vblank, (char*)"1");
 
     FrontBuffer = FrontBuffer ? 0 : 1;
     AssignFramebuffers();
@@ -1106,7 +1123,7 @@ void FinishFrame(u32 lines)
 
 void StartScanline(u32 line)
 {
-    NDS::TraceValue(dsym_hblank, (char*)"0", debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_hblank, (char*)"0");
 
     if (line == 0)
         VCount = 0;
@@ -1117,7 +1134,7 @@ void StartScanline(u32 line)
 
     //printf("trace scanline(%d) to %u @ time %llu <-> %llu\n", dsym_scanline, VCount,
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
-    NDS::TraceValue(dsym_scanline, VCount, debug::SystemSignal::DispCtl);
+    NDS::TraceValue(dsym_scanline, VCount);
 
     NextVCount = -1;
 
@@ -1206,6 +1223,9 @@ void StartScanline(u32 line)
         }
     }
 
+    NDS::TraceValue(dsym_dispstat[0], DispStat[0]);
+    NDS::TraceValue(dsym_dispstat[1], DispStat[1]);
+
     NDS::ScheduleEvent(NDS::Event_LCD, true, HBLANK_CYCLES, StartHBlank, line);
 }
 
@@ -1215,6 +1235,9 @@ void SetDispStat(u32 cpu, u16 val)
     val &= 0xFFB8;
     DispStat[cpu] &= 0x0047;
     DispStat[cpu] |= val;
+
+    NDS::TraceValue(dsym_dispstat[0], DispStat[0]);
+    NDS::TraceValue(dsym_dispstat[1], DispStat[1]);
 
     VMatch[cpu] = (val >> 8) | ((val & 0x80) << 1);
 }

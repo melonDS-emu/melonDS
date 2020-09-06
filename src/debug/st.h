@@ -15,14 +15,14 @@ enum SystemSignal
     ARM7_stat = 1<< 0, // pc, cpsr
     ARM9_stat = 1<< 1, // pc, cpsr, cp15
     MemCtl    = 1<< 2, // exmemcnt, wramcnt, vramcnt a-i, mbk1-9(dsi)
-    DispCtl   = 1<< 3, // dispcnt, hbl, vbl, vcount
+    DispCtl   = 1<< 3, // dispcnt, capcnt, hbl, vbl, vcount, capture to VRAM DMA?
     Disp3DCtl = 1<< 4, // disp3dcnt, rdlines_count, gxstat, ram_count
     DmaCtl    = 1<< 5, // DMAxCNT, NDMAxCNT(dsi), NDMAGCNT(dsi)
     IpcFifo   = 1<< 6, // ipcsync, ipcfifocnt
     SoundCtl  = 1<< 7, // SOUNDxCNT, soundcnt, soundbias, sndexcnt(dsi7)
-    TimerCtl  = 1<< 8, // TMxCNT
+    TimerCtl  = 1<< 8, // TMxCNT, overflow events
     Interrupt = 1<< 9, // ime, ie,if, ie2,if2(dsi7)
-    MathsCtl  = 1<<10, // divcnt, sqrtcnt
+    MathsCtl  = 1<<10, // divcnt, sqrtcnt (+start/finish events)
     PowerCtl  = 1<<11, // powcnt1, powcnt2, wifiwaitcnt, haltcnt(?), pwman spi dev reg0?, bptwl(dsi7)
     SConfig   = 1<<12, // SCFG_* (dsi)
     DspCtl    = 1<<13, // dsp_pcfg, psts, psem, pmask, cmd0-2, rep0-2
@@ -58,13 +58,13 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    int32_t AddTraceSym(const char* name, int bits, int typ);
+    int32_t AddTraceSym(const char* name, int bits, int typ, enum SystemSignal categ);
     int32_t GetTraceSym(const char* name);
-    void TraceValue(int32_t sym, int value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, unsigned int value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, double value, enum SystemSignal categ);
-    void TraceValue(int32_t sym, char* value, enum SystemSignal categ); // bitstring
-    void TraceString(int32_t sym, char* value, enum SystemSignal categ);
+    void TraceValue(int32_t sym, int value);
+    void TraceValue(int32_t sym, unsigned int value);
+    void TraceValue(int32_t sym, double value);
+    void TraceValue(int32_t sym, char* value); // bitstring
+    void TraceString(int32_t sym, char* value);
 
     void BeginTracing();
     void PauseTracing();
@@ -80,7 +80,7 @@ private:
     {
         struct lt_symbol* sym;
         char* name;
-        uint16_t arrlen;
+        uint16_t l2categ;
         uint8_t bits;
         uint8_t typ;
     };

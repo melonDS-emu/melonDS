@@ -84,6 +84,10 @@ u8 eMMC_CID[16];
 void Set_SCFG_Clock9(u16 val);
 void Set_SCFG_MC(u32 val);
 
+s32 dsym_mbk_15[5];
+s32 dsym_mbk_68[2][3];
+s32 dsym_mbk_9;
+
 
 bool Init()
 {
@@ -138,6 +142,15 @@ void Reset()
     //NDS::ARM9->CP15Write(0x911, 0x00000020);
     //NDS::ARM9->CP15Write(0x100, NDS::ARM9->CP15Read(0x100) | 0x00050000);
 
+    for (int i = 0; i < 5; ++i) {
+        dsym_mbk_15[i] = -1;
+    }
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 3; ++i) {
+            dsym_mbk_68[j][i] = -1;
+        }
+    }
+    dsym_mbk_9 = -1;
     NDS::MapSharedWRAM(3);
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
@@ -170,6 +183,20 @@ void Reset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
+
+    for (int i = 0; i < 5; ++i) {
+        char name[strlen("MBK1")+1];
+        snprintf(name, sizeof(name), "MBK%c", '1'+i);
+        dsym_mbk_15[i] = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    }
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 3; ++i) {
+            char name[strlen("MBK6_A7")+1];
+            snprintf(name, sizeof(name), "MBK%c_A%c", '6'+i, (j==0)?'9':'7');
+            dsym_mbk_68[j][i] = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+        }
+    }
+    dsym_mbk_9 = NDS::MakeTracingSym("MBK9", 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
 }
 
 void Stop()
@@ -1019,6 +1046,7 @@ void MapNWRAM_A(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1066,6 +1094,7 @@ void MapNWRAM_B(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1115,6 +1144,7 @@ void MapNWRAM_C(u32 num, u8 val)
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
     MBK[1][mbkn] = MBK[0][mbkn];
+    NDS::TraceValue(dsym_mbk_15[mbkn], MBK[0][mbkn]);
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last written MBK over the others
@@ -1164,6 +1194,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 #endif
 
     MBK[cpu][5+num] = val;
+    NDS::TraceValue(dsym_mbk_68[cpu][num], val);
 
     // Was TODO: What happens when the ranges are 'out of range'????
     // Answer: The actual range is limited to 0x03000000 to 0x03ffffff
@@ -3034,6 +3065,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         val &= 0x00FFFF0F;
         MBK[0][8] = val;
         MBK[1][8] = val;
+        NDS::TraceValue(dsym_mbk_9, val);
         return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
