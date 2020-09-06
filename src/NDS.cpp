@@ -182,6 +182,7 @@ debug::DebugStorageNDS DebugStuff;
 
 s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
 s32 dsym_timer_cnt[8], dsym_ime[2], dsym_ie[2], dsym_if[2];
+s32 dsym_div, dsym_sqrt;
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -724,6 +725,9 @@ void Reset()
     dsym_ie[1] = MakeTracingSym("IE_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
     dsym_if[0] = MakeTracingSym("IF_A9", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
     dsym_if[1] = MakeTracingSym("IF_A7", 32, LT_SYM_F_BITS, debug::SystemSignal::Interrupt);
+
+    dsym_div = MakeTracingSym( "DIVCNT", 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+    dsym_sqrt= MakeTracingSym("SQRTCNT", 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
 }
 
 void Start()
@@ -1986,12 +1990,15 @@ void DivDone(u32 param)
 
     if ((DivDenominator[0] | DivDenominator[1]) == 0)
         DivCnt |= 0x4000;
+
+    TraceValue(dsym_div, DivCnt);
 }
 
 void StartDiv()
 {
     NDS::CancelEvent(NDS::Event_Div);
     DivCnt |= 0x8000;
+    TraceValue(dsym_div, DivCnt);
     NDS::ScheduleEvent(NDS::Event_Div, false, ((DivCnt&0x3)==0) ? 18:34, DivDone, 0);
 }
 
@@ -2034,12 +2041,15 @@ void SqrtDone(u32 param)
     }
 
     SqrtRes = res;
+
+    TraceValue(dsym_sqrt, SqrtCnt);
 }
 
 void StartSqrt()
 {
     NDS::CancelEvent(NDS::Event_Sqrt);
     SqrtCnt |= 0x8000;
+    TraceValue(dsym_sqrt, SqrtCnt);
     NDS::ScheduleEvent(NDS::Event_Sqrt, false, 13, SqrtDone, 0);
 }
 
