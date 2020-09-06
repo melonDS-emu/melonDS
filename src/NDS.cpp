@@ -178,9 +178,9 @@ bool RunningGame;
 
 #ifdef DEBUG_FEATURES_ENABLED
 debug::DebugStorageNDS DebugStuff;
-
-s32 dsym_exmemcnt[2], dsym_wramcnt;
 #endif
+
+s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -704,6 +704,11 @@ void Reset()
     dsym_exmemcnt[0] = MakeTracingSym("EXMEMCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
     dsym_exmemcnt[1] = MakeTracingSym("EXMEMCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
     dsym_wramcnt = MakeTracingSym("WRAMCNT", 8, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+
+    dsym_ipcsync[0] = MakeTracingSym("IPCSYNC_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcsync[1] = MakeTracingSym("IPCSYNC_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifo[0] = MakeTracingSym("IPCFIFOCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+    dsym_ipcfifo[1] = MakeTracingSym("IPCFIFOCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
 }
 
 void Start()
@@ -3307,10 +3312,25 @@ u32 ARM9IORead32(u32 addr)
                 if (IPCFIFO7.IsEmpty() && (IPCFIFOCnt7 & 0x0004))
                     SetIRQ(1, IRQ_IPCSendDone);
             }
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
             return ret;
         }
         else
-            return IPCFIFO7.Peek();
+        {
+            u32 ret = IPCFIFO7.Peek();
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+            return ret;
+        }
 
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
@@ -3477,6 +3497,8 @@ void ARM9IOWrite16(u32 addr, u16 val)
         IPCSync7 |= ((val & 0x0F00) >> 8);
         IPCSync9 &= 0xB0FF;
         IPCSync9 |= (val & 0x4F00);
+        TraceValue(dsym_ipcsync[0], IPCSync9);
+        TraceValue(dsym_ipcsync[1], IPCSync7);
         if ((val & 0x2000) && (IPCSync7 & 0x4000))
         {
             SetIRQ(1, IRQ_IPCSync);
@@ -3493,6 +3515,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
+        TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+            |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+        TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+            |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
 
     case 0x04000188:
@@ -3683,6 +3711,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
         return;
 
@@ -4060,10 +4094,25 @@ u32 ARM7IORead32(u32 addr)
                 if (IPCFIFO9.IsEmpty() && (IPCFIFOCnt9 & 0x0004))
                     SetIRQ(0, IRQ_IPCSendDone);
             }
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
             return ret;
         }
         else
-            return IPCFIFO9.Peek();
+        {
+            u32 ret = IPCFIFO9.Peek();
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
+            return ret;
+        }
 
     case 0x04100010:
         if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
@@ -4192,6 +4241,8 @@ void ARM7IOWrite16(u32 addr, u16 val)
         IPCSync9 |= ((val & 0x0F00) >> 8);
         IPCSync7 &= 0xB0FF;
         IPCSync7 |= (val & 0x4F00);
+        TraceValue(dsym_ipcsync[0], IPCSync9);
+        TraceValue(dsym_ipcsync[1], IPCSync7);
         if ((val & 0x2000) && (IPCSync9 & 0x4000))
         {
             SetIRQ(0, IRQ_IPCSync);
@@ -4208,6 +4259,12 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
+        TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+            |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+            |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+        TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+            |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+            |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         return;
 
     case 0x04000188:
@@ -4372,6 +4429,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     SetIRQ(0, IRQ_IPCRecv);
             }
+            TraceValue(dsym_ipcsync[0], IPCFIFOCnt9
+                |(IPCFIFO9.IsEmpty()?0x001:0)|(IPCFIFO9.IsFull()?0x002:0)
+                |(IPCFIFO7.IsEmpty()?0x100:0)|(IPCFIFO7.IsFull()?0x200:0));
+            TraceValue(dsym_ipcsync[1], IPCFIFOCnt7
+                |(IPCFIFO9.IsEmpty()?0x100:0)|(IPCFIFO9.IsFull()?0x200:0)
+                |(IPCFIFO7.IsEmpty()?0x001:0)|(IPCFIFO7.IsFull()?0x002:0));
         }
         return;
 
