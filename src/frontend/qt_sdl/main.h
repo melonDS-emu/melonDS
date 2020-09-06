@@ -69,6 +69,8 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
+    
+    void windowFullscreenToggle();
 
 private:
     volatile int EmuStatus;
@@ -229,6 +231,8 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
+    
+    void onFullscreenToggled();
 
 private:
     void createScreenPanel();

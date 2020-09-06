@@ -54,6 +54,7 @@ const int hk_general[] =
     HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_FullscreenToggle,
     HK_Lid,
     HK_Mic,
 };
@@ -64,6 +65,7 @@ const char* hk_general_labels[] =
     "Reset",
     "Fast forward",
     "Toggle FPS limit",
+    "Toggle Fullscreen",
     "Close/open lid",
     "Microphone",
 };
@@ -86,7 +88,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         addonsJoyMap[i] = Config::HKJoyMapping[hk_addons[i]];
     }
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 7; i++)
     {
         hkGeneralKeyMap[i] = Config::HKKeyMapping[hk_general[i]];
         hkGeneralJoyMap[i] = Config::HKJoyMapping[hk_general[i]];
@@ -94,7 +96,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     populatePage(ui->tabInput, 12, dskeylabels, keypadKeyMap, keypadJoyMap);
     populatePage(ui->tabAddons, 2, hk_addons_labels, addonsKeyMap, addonsJoyMap);
-    populatePage(ui->tabHotkeysGeneral, 6, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
+    populatePage(ui->tabHotkeysGeneral, 7, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
