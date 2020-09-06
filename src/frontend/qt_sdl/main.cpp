@@ -266,6 +266,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
 
     if (mainWindow->hasOGL) initOpenGL();
 }
@@ -364,6 +365,8 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
+        
+        if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
@@ -1876,6 +1879,20 @@ void MainWindow::onChangeAudioSync(bool checked)
 void MainWindow::onTitleUpdate(QString title)
 {
     setWindowTitle(title);
+}
+
+void MainWindow::onFullscreenToggled()
+{
+    if (!mainWindow->isFullScreen()) 
+    {
+        mainWindow->showFullScreen(); 
+        mainWindow->menuBar()->hide();
+    }
+    else
+    {
+        mainWindow->showNormal();
+        mainWindow->menuBar()->show();
+    }
 }
 
 void MainWindow::onEmuStart()

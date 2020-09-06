@@ -64,7 +64,7 @@ private:
 
     int keypadKeyMap[12],   keypadJoyMap[12];
     int addonsKeyMap[2],    addonsJoyMap[2];
-    int hkGeneralKeyMap[6], hkGeneralJoyMap[6];
+    int hkGeneralKeyMap[7], hkGeneralJoyMap[7];
 };
 
 
