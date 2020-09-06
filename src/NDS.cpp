@@ -181,6 +181,7 @@ debug::DebugStorageNDS DebugStuff;
 #endif
 
 s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
+s32 dsym_timer_cnt[8];
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -709,6 +710,12 @@ void Reset()
     dsym_ipcsync[1] = MakeTracingSym("IPCSYNC_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
     dsym_ipcfifo[0] = MakeTracingSym("IPCFIFOCNT_A9", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
     dsym_ipcfifo[1] = MakeTracingSym("IPCFIFOCNT_A7", 16, LT_SYM_F_BITS, debug::SystemSignal::IpcFifo);
+
+    for (int i = 0; i < 8; ++i) {
+        char name[strlen("TMxCNT_Ax")+1];
+        snprintf(name, sizeof(name), "TM%cCNT_A%c", '0'+(i&3), (i&4)?'7':'9');
+        dsym_timer_cnt[i] = MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::TimerCtl);
+    }
 }
 
 void Start()
@@ -1790,6 +1797,7 @@ void TimerStart(u32 id, u16 cnt)
 
     timer->Cnt = cnt;
     timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
+    TraceValue(dsym_timer_cnt[id], cnt&0xFF);
 
     if ((!curstart) && newstart)
     {
