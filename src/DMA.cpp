@@ -79,6 +79,12 @@ void DMA::Reset()
     Running = false;
     InProgress = false;
     MRAMBurstCount = 0;
+
+    char name[strlen("DMA0_A7_running")+1];
+    snprintf(name, sizeof(name), "DMA%cCNT_A%c", '0'+Num, (CPU==0)?'9':'7');
+    dsym_cnt = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+    snprintf(name, sizeof(name), "DMA%c_A%c_running", '0'+Num, (CPU==0)?'9':'7');
+    dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -109,6 +115,7 @@ void DMA::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
     Cnt = val;
+    NDS::TraceValue(dsym_cnt, val);
 
     if ((!(oldcnt & 0x80000000)) && (val & 0x80000000))
     {
@@ -550,6 +557,8 @@ void DMA::Run9()
 
     Executing = true;
 
+    NDS::TraceValue(dsym_running, 1);
+
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
     Running = 1;
@@ -618,6 +627,8 @@ void DMA::Run9()
     if (Cnt & (1<<30))
         NDS::SetIRQ(0, NDS::IRQ_DMA0 + Num);
 
+    NDS::TraceValue(dsym_running, 0);
+
     Running = 0;
     InProgress = false;
     NDS::ResumeCPU(0, 1<<Num);
@@ -674,6 +685,8 @@ void DMA::Run7()
             if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
         }
     }
+
+    NDS::TraceValue(dsym_running, 0);
 
     Executing = false;
     Stall = false;

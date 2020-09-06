@@ -87,6 +87,7 @@ void Set_SCFG_MC(u32 val);
 s32 dsym_mbk_15[5];
 s32 dsym_mbk_68[2][3];
 s32 dsym_mbk_9;
+s32 dsym_ndmagcnt[2];
 
 
 bool Init()
@@ -197,6 +198,12 @@ void Reset()
         }
     }
     dsym_mbk_9 = NDS::MakeTracingSym("MBK9", 32, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+
+    for (int j = 0; j < 2; ++j) {
+        char name[strlen("NDMAGCNT_A7")+1];
+        snprintf(name, sizeof(name), "NDMAGCNT_A%c", (j==0)?'9':'7');
+        dsym_ndmagcnt[j] = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::MemCtl);
+    }
 }
 
 void Stop()
@@ -2649,7 +2656,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
         MapNWRAMRange(0, 2, val);
         return;
 
-    case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
+    case 0x04004100: NDMACnt[0] = val & 0x800F0000;
+        NDS::TraceValue(dsym_ndmagcnt[0], NDMACnt[0] >> 16);
+        return;
     case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
     case 0x04004108: NDMAs[0]->DstAddr = val & 0xFFFFFFFC; return;
     case 0x0400410C: NDMAs[0]->TotalLength = val & 0x0FFFFFFF; return;
@@ -3068,7 +3077,9 @@ void ARM7IOWrite32(u32 addr, u32 val)
         NDS::TraceValue(dsym_mbk_9, val);
         return;
 
-    case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
+    case 0x04004100: NDMACnt[1] = val & 0x800F0000;
+        NDS::TraceValue(dsym_ndmagcnt[1], NDMACnt[1] >> 16);
+        return;
     case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
     case 0x04004108: NDMAs[4]->DstAddr = val & 0xFFFFFFFC; return;
     case 0x0400410C: NDMAs[4]->TotalLength = val & 0x0FFFFFFF; return;
