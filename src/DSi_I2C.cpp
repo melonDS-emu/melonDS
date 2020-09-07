@@ -31,6 +31,8 @@ namespace DSi_BPTWL
 u8 Registers[0x100];
 u32 CurPos;
 
+s32 dsym_reg10, dsym_reg11, dsym_reg30, dsym_reg33, dsym_reg70;
+
 bool Init()
 {
     return true;
@@ -71,6 +73,12 @@ void Reset()
     Registers[0x77] = 0x00;
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
+
+    dsym_reg10 = NDS::MakeTracingSym("BPTWL reg10", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg11 = NDS::MakeTracingSym("BPTWL reg11", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg30 = NDS::MakeTracingSym("BPTWL reg30", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg33 = NDS::MakeTracingSym("BPTWL reg33", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_reg70 = NDS::MakeTracingSym("BPTWL reg70", 8, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -116,6 +124,15 @@ u8 Read(bool last)
 
 void Write(u8 val, bool last)
 {
+    switch (CurPos)
+    {
+    case 0x10: NDS::TraceValue(dsym_reg10, val); break;
+    case 0x11: NDS::TraceValue(dsym_reg11, val); break;
+    case 0x30: NDS::TraceValue(dsym_reg30, val); break;
+    case 0x33: NDS::TraceValue(dsym_reg33, val); break;
+    case 0x70: NDS::TraceValue(dsym_reg70, val); break;
+    }
+
     if (last)
     {
         CurPos = -1;

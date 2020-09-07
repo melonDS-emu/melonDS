@@ -183,6 +183,7 @@ debug::DebugStorageNDS DebugStuff;
 s32 dsym_exmemcnt[2], dsym_wramcnt, dsym_ipcsync[2], dsym_ipcfifo[2];
 s32 dsym_timer_cnt[8], dsym_ime[2], dsym_ie[2], dsym_if[2];
 s32 dsym_div, dsym_sqrt, dsym_keyin, dsym_keycnt;
+s32 dsym_powcnt[2];
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -731,6 +732,9 @@ void Reset()
 
     dsym_keyin  = MakeTracingSym("KEYINPUT", 32, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
     dsym_keycnt = MakeTracingSym("KEYCNT"  , 16, LT_SYM_F_BITS, debug::SystemSignal::MathsCtl);
+
+    dsym_powcnt[0] = MakeTracingSym("POWCNT1", 16, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
+    dsym_powcnt[1] = MakeTracingSym("POWCNT2",  2, LT_SYM_F_BITS, debug::SystemSignal::PowerCtl);
 }
 
 void Start()
@@ -3665,6 +3669,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000304:
         PowerControl9 = val & 0x820F;
+        TraceValue(dsym_powcnt[0], PowerControl9);
         GPU::SetPowerCnt(PowerControl9);
         return;
     }
@@ -3844,6 +3849,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000304:
         PowerControl9 = val & 0x820F;
+        TraceValue(dsym_powcnt[0], PowerControl9);
         GPU::SetPowerCnt(PowerControl9);
         return;
 
@@ -4420,6 +4426,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             SPU::SetPowerCnt(val & 0x0001);
             Wifi::SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
+            TraceValue(dsym_powcnt[1], PowerControl7);
         }
         return;
 
@@ -4565,6 +4572,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
             SPU::SetPowerCnt(val & 0x0001);
             Wifi::SetPowerCnt(val & 0x0002);
             if (change & 0x0002) UpdateWifiTimings();
+            TraceValue(dsym_powcnt[1], PowerControl7);
         }
         return;
 
