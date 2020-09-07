@@ -1299,9 +1299,7 @@ void TouchScreen(u16 x, u16 y)
     {
         SPI_TSC::SetTouchCoords(x, y);
         KeyInput &= ~(1 << (16+6));
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keyin, KeyInput);
-#endif
     }
 }
 
@@ -1315,9 +1313,7 @@ void ReleaseScreen()
     {
         SPI_TSC::SetTouchCoords(0x000, 0xFFF);
         KeyInput |= (1 << (16+6));
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keyin, KeyInput);
-#endif
     }
 }
 
@@ -1329,9 +1325,7 @@ void SetKeyMask(u32 mask)
 
     KeyInput &= 0xFFFCFC00;
     KeyInput |= key_lo | (key_hi << 16);
-#ifdef ENABLE_DEBUG_FEATURES
     TraceValue(dsym_keyin, KeyInput);
-#endif
 }
 
 bool IsLidClosed()
@@ -1368,9 +1362,7 @@ void CamInputFrame(int cam, u32* data, int width, int height, bool rgb)
         case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height, rgb);
         }
     }
-#ifdef ENABLE_DEBUG_FEATURES
     TraceValue(dsym_keyin, KeyInput);
-#endif
 }
 
 void MicInputFrame(s16* data, int samples)
@@ -3422,15 +3414,11 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
     case 0x04000133:
         KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
 
     case 0x04000188:
@@ -3543,9 +3531,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000132:
         KeyCnt = val;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
 
     case 0x04000180:
@@ -3755,9 +3741,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000130:
         KeyCnt = val >> 16;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
 
     case 0x04000180:
@@ -4206,15 +4190,11 @@ void ARM7IOWrite8(u32 addr, u8 val)
     {
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
     case 0x04000133:
         KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
     case 0x04000134:
         RCnt = (RCnt & 0xFF00) | val;
@@ -4312,9 +4292,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000132:
         KeyCnt = val;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
     case 0x04000134: RCnt = val; return;
 
@@ -4501,9 +4479,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x04000130:
         KeyCnt = val >> 16;
-#ifdef ENABLE_DEBUG_FEATURES
         TraceValue(dsym_keycnt, KeyCnt);
-#endif
         return;
     case 0x04000134: RCnt = val & 0xFFFF; return;
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;

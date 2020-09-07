@@ -289,9 +289,7 @@ void DSi_NDMA::Run9()
         }
     }
 
-#ifdef ENABLE_DEBUG_FEATURES
     NDS::TraceValue(dsym_cnt, Cnt);
-#endif
 
     Running = 0;
     InProgress = false;
@@ -386,9 +384,7 @@ void DSi_NDMA::Run7()
         }
     }
 
-#ifdef ENABLE_DEBUG_FEATURES
     NDS::TraceValue(dsym_cnt, Cnt);
-#endif
 
     Running = 0;
     InProgress = false;

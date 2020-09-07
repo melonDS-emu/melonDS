@@ -166,6 +166,8 @@ u8 Data;
 
 u32 Device;
 
+s32 dsym_cnt;
+
 bool Init()
 {
     if (!DSi_BPTWL::Init()) return false;
@@ -186,6 +188,7 @@ void Reset()
     Device = -1;
 
     DSi_BPTWL::Reset();
+    dsym_cnt = NDS::MakeTracingSym("I2C_CNT", 8, LT_SYM_F_BITS, debug::SystemSignal::I2CCtl);
 }
 
 void DoSavestate(Savestate* file)
@@ -202,6 +205,7 @@ void DoSavestate(Savestate* file)
 void WriteCnt(u8 val)
 {
     //printf("I2C: write CNT %02X, %02X, %08X\n", val, Data, NDS::GetPC(1));
+    NDS::TraceValue(dsym_cnt, val);
 
     // TODO: check ACK flag
     // TODO: transfer delay
