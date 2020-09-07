@@ -101,6 +101,7 @@ void DebugStorageNDS::Reset()
 
     EnabledSignals = (SystemSignal)(SystemSignal::DispCtl
             | SystemSignal::Interrupt | SystemSignal::Custom);
+    //EnabledSignals = (SystemSignal)~(uint32_t)0;
 }
 void DebugStorageNDS::AllocNew()
 {
@@ -182,7 +183,7 @@ int32_t DebugStorageNDS::GetTraceSym(const char* name)
     if (!TSyms || !tracer) return -1;
 
     uint32_t h = str_hash_djb2(name);
-    for (size_t i = 0; i < NTSyms; ++i)
+    for (size_t i = 1; i < NTSyms; ++i)
         if (str_hash_djb2(TSyms[i].name) == h)
             return i;
 
@@ -293,7 +294,7 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
         file->Var8(&en);
         uint32_t ns = NTSyms;
         file->Var32(&ns);
-        for (size_t i = 0; i < ns; ++i)
+        for (size_t i = 1; i < ns; ++i)
         {
             uint32_t l = strlen(TSyms[i].name);
             file->Var32(&l);
@@ -312,7 +313,7 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
         uint32_t ns = 0;
         file->Var32(&ns);
 
-        for (size_t i = 0; i < ns; ++i)
+        for (size_t i = 1; i < ns; ++i)
         {
             uint32_t l = 0;
             uint16_t l2categ = 0;

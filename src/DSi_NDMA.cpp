@@ -289,6 +289,10 @@ void DSi_NDMA::Run9()
         }
     }
 
+#ifdef ENABLE_DEBUG_FEATURES
+    NDS::TraceValue(dsym_cnt, Cnt);
+#endif
+
     Running = 0;
     InProgress = false;
     NDS::ResumeCPU(0, 1<<(Num+4));
@@ -381,6 +385,10 @@ void DSi_NDMA::Run7()
             if (Cnt & (1<<30)) NDS::SetIRQ(1, NDS::IRQ_DSi_NDMA0 + Num);
         }
     }
+
+#ifdef ENABLE_DEBUG_FEATURES
+    NDS::TraceValue(dsym_cnt, Cnt);
+#endif
 
     Running = 0;
     InProgress = false;

@@ -83,7 +83,7 @@ void DMA::Reset()
     char name[strlen("DMA0_A7_running")+1];
     snprintf(name, sizeof(name), "DMA%cCNT_A%c", '0'+Num, (CPU==0)?'9':'7');
     dsym_cnt = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
-    snprintf(name, sizeof(name), "DMA%c_A%c_running", '0'+Num, (CPU==0)?'9':'7');
+    snprintf(name, sizeof(name), "DMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
     dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
 }
 
@@ -607,6 +607,8 @@ void DMA::Run9()
     Executing = false;
     Stall = false;
 
+    NDS::TraceValue(dsym_running, 0);
+
     if (RemCount)
     {
         if (IterCount == 0)
@@ -624,10 +626,10 @@ void DMA::Run9()
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
 
+    NDS::TraceValue(dsym_cnt, Cnt);
+
     if (Cnt & (1<<30))
         NDS::SetIRQ(0, NDS::IRQ_DMA0 + Num);
-
-    NDS::TraceValue(dsym_running, 0);
 
     Running = 0;
     InProgress = false;
@@ -704,6 +706,8 @@ void DMA::Run7()
 
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
+
+    NDS::TraceValue(dsym_cnt, Cnt);
 
     if (Cnt & (1<<30))
         NDS::SetIRQ(1, NDS::IRQ_DMA0 + Num);

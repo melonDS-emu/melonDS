@@ -251,13 +251,13 @@ void Channel::Reset()
     FIFOLevel = 0;
 
     char name[strlen("SOUNDx_play")+1];
-    snprintf(name, sizeof(name), "SOUND%xCNT", Num);
+    snprintf(name, sizeof(name), "SND%xCNT", Num);
     dsym_cnt = NDS::MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
 
-    snprintf(name, sizeof(name), "SOUND%x_dma", Num);
-    dsym_dma = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+    //snprintf(name, sizeof(name), "SND%x_dma", Num);
+    //dsym_dma = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
 
-    snprintf(name, sizeof(name), "SOUND%x_play", Num);
+    snprintf(name, sizeof(name), "SND%x_play", Num);
     dsym_play= NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
 }
 
@@ -308,7 +308,7 @@ void Channel::FIFO_BufferData()
     if ((FIFOReadOffset + 16) > totallen)
         burstlen = totallen - FIFOReadOffset;
 
-    NDS::TraceValue(dsym_dma, 1);
+    //NDS::TraceValue(dsym_dma, 1);
 
     // sound DMA can't read from the ARM7 BIOS
     if ((SrcAddr + FIFOReadOffset) >= 0x00004000)
@@ -332,7 +332,7 @@ void Channel::FIFO_BufferData()
         }
     }
 
-    NDS::TraceValue(dsym_dma, 0);
+    //NDS::TraceValue(dsym_dma, 0);
 
     FIFOLevel += burstlen;
 }
