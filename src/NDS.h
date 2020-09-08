@@ -360,12 +360,12 @@ inline void TraceValue(s32 sym, double value) {
     DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, char* value) {
+inline void TraceValue(s32 sym, const char* value) {
 #ifdef DEBUG_FEATURES_ENABLED
     DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceString(s32 sym, char* value) {
+inline void TraceString(s32 sym, const char* value) {
 #ifdef DEBUG_FEATURES_ENABLED
     DebugStuff.TraceString(sym, value);
 #endif

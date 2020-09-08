@@ -70,7 +70,7 @@ DebugStorageNDS::~DebugStorageNDS()
 //
 // DSi9 clock = busclock*4
 // NDMA masterclock = busclock
-// DSP clock = busclock*4 ? busclock*4/1.25 ? what's the memory bandwidth???
+// DSP clock = busclock*4 ? busclock*4/1.25 ? 134,060,000 Hz ?? what's the memory bandwidth???
 // I2C masterclock = ??? (BPTWL: ???, camera: busclock/2?)
 // I2S (mic/nitro+dsp mixer) masterclock = "32.73kHz" or "47.61kHz" (freqdiv in mic_cnt, opt in sndexcnt)
 // SDMMC, SDIO masterclock = busclock/2
@@ -234,7 +234,7 @@ void DebugStorageNDS::TraceValue(int32_t sym, double value)
     //SetTime(NDS::GetSysClockCycles(0, true));
     lt_emit_value_double(tracer, TSyms[sym].sym, 0, value);
 }
-void DebugStorageNDS::TraceValue(int32_t sym, char* value)
+void DebugStorageNDS::TraceValue(int32_t sym, const char* value)
 {
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
     if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
@@ -243,9 +243,9 @@ void DebugStorageNDS::TraceValue(int32_t sym, char* value)
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
 
     //SetTime(NDS::GetSysClockCycles(0, true));
-    lt_emit_value_bit_string(tracer, TSyms[sym].sym, 0, value);
+    lt_emit_value_bit_string(tracer, TSyms[sym].sym, 0, (char*)value);
 }
-void DebugStorageNDS::TraceString(int32_t sym, char* value)
+void DebugStorageNDS::TraceString(int32_t sym, const char* value)
 {
     if (!tracer || !TSyms || sym < 1 || sym >= NTSyms || !tracing) return;
     if (!((enum SystemSignal)(1u << TSyms[sym].l2categ) & EnabledSignals)) return;
@@ -254,7 +254,7 @@ void DebugStorageNDS::TraceString(int32_t sym, char* value)
     //        NDS::SysTimestamp, NDS::GetSysClockCycles(0, true));
 
     //SetTime(NDS::GetSysClockCycles(0, true));
-    lt_emit_value_string(tracer, TSyms[sym].sym, 0, value);
+    lt_emit_value_string(tracer, TSyms[sym].sym, 0, (char*)value);
 }
 
 void DebugStorageNDS::BeginTracing()

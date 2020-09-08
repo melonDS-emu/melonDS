@@ -63,8 +63,8 @@ public:
     void TraceValue(int32_t sym, int value);
     void TraceValue(int32_t sym, unsigned int value);
     void TraceValue(int32_t sym, double value);
-    void TraceValue(int32_t sym, char* value); // bitstring
-    void TraceString(int32_t sym, char* value);
+    void TraceValue(int32_t sym, const char* value); // bitstring
+    void TraceString(int32_t sym, const char* value);
 
     void BeginTracing();
     void PauseTracing();
