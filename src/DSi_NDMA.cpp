@@ -101,7 +101,7 @@ void DSi_NDMA::WriteCnt(u32 val)
             Start();
 
         if (StartMode != 0x10 && StartMode != 0x30 &&
-            StartMode != 0x04 && StartMode != 0x06 && StartMode != 0x07 && StartMode != 0x08 && StartMode != 0x09 &&
+            StartMode != 0x04 && StartMode != 0x06 && StartMode != 0x07 && StartMode != 0x08 && StartMode != 0x09 && StartMode != 0x0B &&
             StartMode != 0x24 && StartMode != 0x26 && StartMode != 0x28 && StartMode != 0x29 && StartMode != 0x2A && StartMode != 0x2B)
             printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
                    CPU?7:9, Num, StartMode, SrcAddr, DstAddr, TotalLength, BlockLength, Cnt);
