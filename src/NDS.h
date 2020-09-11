@@ -211,6 +211,8 @@ void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);
 
+int ImportSRAM(u8* data, u32 length);
+
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);
 

@@ -195,6 +195,7 @@ private slots:
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();
+    void onImportSavefile();
     void onQuit();
 
     void onPause(bool checked);
@@ -247,6 +248,7 @@ public:
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actImportSavefile;
     QAction* actQuit;
 
     QAction* actPause;

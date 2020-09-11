@@ -1034,6 +1034,12 @@ void RelocateSave(const char* path, bool write)
     NDSCart_SRAM::RelocateSave(path, write);
 }
 
+int ImportSRAM(const u8* data, u32 length)
+{
+    memcpy(NDSCart_SRAM::SRAM, data, std::min(length, NDSCart_SRAM::SRAMLength));
+    return length - NDSCart_SRAM::SRAMLength;
+}
+
 void ResetCart()
 {
     // CHECKME: what if there is a transfer in progress?

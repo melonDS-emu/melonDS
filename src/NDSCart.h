@@ -48,6 +48,8 @@ void DecryptSecureArea(u8* out);
 bool LoadROM(const char* path, const char* sram, bool direct);
 void RelocateSave(const char* path, bool write);
 
+int ImportSRAM(const u8* data, u32 length);
+
 void ResetCart();
 
 void WriteROMCnt(u32 val);

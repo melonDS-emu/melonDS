@@ -1124,6 +1124,11 @@ void MicInputFrame(s16* data, int samples)
     return SPI_TSC::MicInputFrame(data, samples);
 }
 
+int ImportSRAM(u8* data, u32 length)
+{
+    return NDSCart::ImportSRAM(data, length);
+}
+
 
 void Halt()
 {
