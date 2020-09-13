@@ -643,6 +643,8 @@ void DMA::Run7()
 
     Executing = true;
 
+    NDS::TraceValue(dsym_running, 1);
+
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
     Running = 1;

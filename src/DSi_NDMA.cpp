@@ -63,7 +63,7 @@ void DSi_NDMA::Reset()
     char name[strlen("NDMA0_A7_running")+1];
     snprintf(name, sizeof(name), "NDMA%cCNT_A%c", '0'+Num, (CPU==0)?'9':'7');
     dsym_cnt = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
-    snprintf(name, sizeof(name), "NDMA%c_A%c_running", '0'+Num, (CPU==0)?'9':'7');
+    snprintf(name, sizeof(name), "NDMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
     dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
 }
 
@@ -256,16 +256,12 @@ void DSi_NDMA::Run9()
         if (NDS::ARM9Timestamp >= NDS::ARM9Target) break;
     }
 
-    NDS::TraceValue(dsym_running, 0);
-
-    Executing = false;
-    Stall = false;
-
     if (RemCount)
     {
         if (IterCount == 0)
         {
             Running = 0;
+            NDS::TraceValue(dsym_running, 0);
             NDS::ResumeCPU(0, 1<<(Num+4));
 
             if (StartMode == 0x0A)
@@ -293,6 +289,7 @@ void DSi_NDMA::Run9()
 
     Running = 0;
     InProgress = false;
+    NDS::TraceValue(dsym_running, 0);
     NDS::ResumeCPU(0, 1<<(Num+4));
 }
 

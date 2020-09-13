@@ -13,6 +13,8 @@
 
 #define TRACE_OUT_FILE "melonds-trace.lxt"
 
+#define TRACE_BY_DEFAULT_ON
+
 static uint32_t str_hash_djb2(const char* s)
 {
     uint32_t r = 5381;
@@ -94,13 +96,18 @@ void DebugStorageNDS::Reset()
         lt_close(tracer);
     }
     tracer = NULL;
+#ifdef TRACE_BY_DEFAULT_ON
+    tracing = true;
+#else
     tracing = false;
+#endif
 
     CapTSyms = NTSyms = 0;
     TSyms = NULL;
 
     EnabledSignals = (SystemSignal)(SystemSignal::DispCtl
             | SystemSignal::Interrupt | SystemSignal::Custom);
+    //EnabledSignals = (SystemSignal)((u32)EnabledSignals | (u32)SystemSignal::DspCtl);
     //EnabledSignals = (SystemSignal)~(uint32_t)0;
 }
 void DebugStorageNDS::AllocNew()
@@ -116,7 +123,11 @@ void DebugStorageNDS::AllocNew()
         // secondly, currently, we only allow for system clock resolution, but
         // this will probably have to be amended in the future
         lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(curtime = NDS::GetSysClockCycles(0, true)));
+#ifdef TRACE_BY_DEFAULT_ON
+        lt_set_dumpon(tracer);
+#else
         lt_set_dumpoff(tracer);
+#endif
         lt_set_initial_value(tracer, '0');
     }
 
