@@ -267,6 +267,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
 
     if (mainWindow->hasOGL) initOpenGL();
 }
@@ -365,6 +366,8 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
+        
+        if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
@@ -1058,6 +1061,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
+        actImportSavefile = menu->addAction("Import savefile");
+        connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
+
         menu->addSeparator();
 
         actQuit = menu->addAction("Quit");
@@ -1226,6 +1232,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
+    actImportSavefile->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);
@@ -1624,6 +1631,41 @@ void MainWindow::onUndoStateLoad()
     OSD::AddMessage(0, "State load undone");
 }
 
+void MainWindow::onImportSavefile()
+{
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+    QString path = QFileDialog::getOpenFileName(this,
+                                            "Select savefile",
+                                            Config::LastROMFolder,
+                                            "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
+
+    if (!path.isEmpty())
+    {
+        if (QMessageBox::warning(this,
+                        "Emulation will be reset and data overwritten",
+                        "The emulation will be reset and the current savefile overwritten.",
+                        QMessageBox::Ok, QMessageBox::Cancel) == QMessageBox::Ok)
+        {
+            int res = Frontend::Reset();
+            if (res != Frontend::Load_OK)
+            {
+                QMessageBox::critical(this, "melonDS", "Reset failed\n" + loadErrorStr(res));
+            }
+            else
+            {
+                int diff = Frontend::ImportSRAM(path.toStdString().c_str());
+                if (diff > 0)
+                    OSD::AddMessage(0, "Trimmed savefile");
+                else if (diff < 0)
+                    OSD::AddMessage(0, "Savefile shorter than SRAM");
+            }
+        }
+    }
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onQuit()
 {
     QApplication::quit();
@@ -1887,6 +1929,20 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
+void MainWindow::onFullscreenToggled()
+{
+    if (!mainWindow->isFullScreen()) 
+    {
+        mainWindow->showFullScreen(); 
+        mainWindow->menuBar()->hide();
+    }
+    else
+    {
+        mainWindow->showNormal();
+        mainWindow->menuBar()->show();
+    }
+}
+
 void MainWindow::onEmuStart()
 {
     // TODO: make savestates work in DSi mode!!
@@ -1915,6 +1971,7 @@ void MainWindow::onEmuStart()
     actPause->setChecked(false);
     actReset->setEnabled(true);
     actStop->setEnabled(true);
+    actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
 }
@@ -1929,6 +1986,7 @@ void MainWindow::onEmuStop()
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
+    actImportSavefile->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);

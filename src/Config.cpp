@@ -31,6 +31,8 @@ const char* kConfigFile = "melonDS.ini";
 char BIOS9Path[1024];
 char BIOS7Path[1024];
 char FirmwarePath[1024];
+int DLDIEnable;
+char DLDISDPath[1024];
 
 char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
@@ -54,6 +56,8 @@ ConfigEntry ConfigFile[] =
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
     {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
+    {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
 
     {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},

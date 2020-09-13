@@ -912,6 +912,20 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x04000000:
         ARM9IOWrite8(addr, val);
         return;
+
+    case 0x06000000:
+        if (!(SCFG_EXT[0] & (1<<13))) return;
+#ifdef JIT_ENABLED
+        ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_VRAM>(addr);
+#endif
+        switch (addr & 0x00E00000)
+        {
+        case 0x00000000: GPU::WriteVRAM_ABG<u8>(addr, val); return;
+        case 0x00200000: GPU::WriteVRAM_BBG<u8>(addr, val); return;
+        case 0x00400000: GPU::WriteVRAM_AOBJ<u8>(addr, val); return;
+        case 0x00600000: GPU::WriteVRAM_BOBJ<u8>(addr, val); return;
+        default: GPU::WriteVRAM_LCDC<u8>(addr, val); return;
+        }
     }
 
     return NDS::ARM9Write8(addr, val);
@@ -1689,7 +1703,7 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004501: return DSi_I2C::Cnt;
 
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFF;
-    case 0x04004fD01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
+    case 0x04004D01: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 8) & 0xFF;
     case 0x04004D02: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 16) & 0xFF;
     case 0x04004D03: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 24) & 0xFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFF;

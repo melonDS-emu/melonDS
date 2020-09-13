@@ -102,6 +102,7 @@ GPU2D::~GPU2D()
 
 void GPU2D::Reset()
 {
+    Enabled = false;
     DispCnt = 0;
     memset(BGCnt, 0, 4*2);
     memset(BGXPos, 0, 4*2);

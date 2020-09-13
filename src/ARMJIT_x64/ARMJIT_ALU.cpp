@@ -110,7 +110,7 @@ OpArg Compiler::A_Comp_GetALUOp2(bool S, bool& carryUsed)
         Comp_AddCycles_C();
 
         u32 shift = (CurInstr.Instr >> 7) & 0x1E;
-        u32 imm = ROR(CurInstr.Instr & 0xFF, shift);
+        u32 imm = ::ROR(CurInstr.Instr & 0xFF, shift);
 
         carryUsed = false;
         if (S && shift)
@@ -493,7 +493,7 @@ OpArg Compiler::Comp_RegShiftReg(int op, Gen::OpArg rs, Gen::OpArg rm, bool S, b
     {
         if (S)
             BT(32, R(RSCRATCH), Imm8(31));
-        ROR_(32, R(RSCRATCH), R(ECX));
+        ROR(32, R(RSCRATCH), R(ECX));
         if (S)
             SETcc(CC_C, R(RSCRATCH2));
     }
@@ -555,7 +555,7 @@ OpArg Compiler::Comp_RegShiftImm(int op, int amount, OpArg rm, bool S, bool& car
     case 3: // ROR
         MOV(32, R(RSCRATCH), rm);
         if (amount > 0)
-            ROR_(32, R(RSCRATCH), Imm8(amount));
+            ROR(32, R(RSCRATCH), Imm8(amount));
         else
         {
             BT(32, R(RCPSR), Imm8(29));

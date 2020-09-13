@@ -79,6 +79,7 @@ private:
     int oldVSyncInterval;
     int oldSoftThreaded;
     int oldGLScale;
+    int oldGLBetterPolygons;
 };
 
 #endif // VIDEOSETTINGSDIALOG_H

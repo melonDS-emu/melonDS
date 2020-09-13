@@ -100,6 +100,9 @@ bool SaveState(const char* filename);
 // undo the latest savestate load
 void UndoStateLoad();
 
+// imports savedata from an external file. Returns the difference between the filesize and the SRAM size
+int ImportSRAM(const char* filename);
+
 // enable or disable cheats
 void EnableCheats(bool enable);
 

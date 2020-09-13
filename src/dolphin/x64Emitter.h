@@ -489,7 +489,7 @@ public:
 
   // Shift
   void ROL(int bits, const OpArg& dest, const OpArg& shift);
-  void ROR_(int bits, const OpArg& dest, const OpArg& shift);
+  void ROR(int bits, const OpArg& dest, const OpArg& shift);
   void RCL(int bits, const OpArg& dest, const OpArg& shift);
   void RCR(int bits, const OpArg& dest, const OpArg& shift);
   void SHL(int bits, const OpArg& dest, const OpArg& shift);

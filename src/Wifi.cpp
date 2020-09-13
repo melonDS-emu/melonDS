@@ -237,7 +237,7 @@ void DoSavestate(Savestate* file)
 
     file->Var64(&USCounter);
     file->Var64(&USCompare);
-    file->Var32((u32*)&BlockBeaconIRQ14);
+    file->Bool32(&BlockBeaconIRQ14);
 
     file->Var32(&ComStatus);
     file->Var32(&TXCurSlot);

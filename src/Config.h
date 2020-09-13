@@ -45,6 +45,8 @@ void Save();
 extern char BIOS9Path[1024];
 extern char BIOS7Path[1024];
 extern char FirmwarePath[1024];
+extern int DLDIEnable;
+extern char DLDISDPath[1024];
 
 extern char DSiBIOS9Path[1024];
 extern char DSiBIOS7Path[1024];
