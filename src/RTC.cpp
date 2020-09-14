@@ -16,6 +16,9 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+// Required by MinGW to enable localtime_r in time.h
+#define _POSIX_THREAD_SAFE_FUNCTIONS
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
