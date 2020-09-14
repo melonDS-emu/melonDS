@@ -107,8 +107,10 @@ void DebugStorageNDS::Reset()
 
     EnabledSignals = (SystemSignal)(SystemSignal::DispCtl
             | SystemSignal::Interrupt | SystemSignal::Custom);
+#ifdef TRACE_BY_DEFAULT_ON
     //EnabledSignals = (SystemSignal)((u32)EnabledSignals | (u32)SystemSignal::DspCtl);
-    //EnabledSignals = (SystemSignal)~(uint32_t)0;
+    EnabledSignals = (SystemSignal)~(uint32_t)0;
+#endif
 }
 void DebugStorageNDS::AllocNew()
 {
