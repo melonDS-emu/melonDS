@@ -301,6 +301,8 @@ void DebugStorageNDS::DoSavestate(Savestate* file)
 {
     if (!TSyms) AllocNew();
 
+    file->Section("DEBN");
+
     if (file->Saving)
     {
         uint8_t en = tracing ? 1 : 0;
