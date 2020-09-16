@@ -13,7 +13,7 @@
 
 #define TRACE_OUT_FILE "melonds-trace.lxt"
 
-#define TRACE_BY_DEFAULT_ON
+/*#define TRACE_BY_DEFAULT_ON*/
 
 static uint32_t str_hash_djb2(const char* s)
 {
@@ -43,7 +43,7 @@ namespace debug
 {
 
 DebugStorageNDS::DebugStorageNDS()
-    : tracer(NULL)
+    : tracer(NULL), NTSyms(0), CapTSyms(0), TSyms(NULL)
 {
     Reset();
     AllocNew();
@@ -90,6 +90,13 @@ DebugStorageNDS::~DebugStorageNDS()
 
 void DebugStorageNDS::Reset()
 {
+    if (TSyms && NTSyms) {
+        for (size_t i = 0; i < NTSyms; ++i)
+            free((void*)TSyms[i].name);
+
+        free(TSyms);
+    }
+
     curtime = 0;
 
     if (tracer) {
