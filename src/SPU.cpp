@@ -236,6 +236,17 @@ void Channel::Reset()
 
     KeyOn = false;
 
+    // do this BEFORE the SetCnt
+    char name[strlen("SOUNDx_play")+1];
+    snprintf(name, sizeof(name), "SND%xCNT", Num);
+    dsym_cnt = NDS::MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+
+    //snprintf(name, sizeof(name), "SND%x_dma", Num);
+    //dsym_dma = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+
+    snprintf(name, sizeof(name), "SND%x_play", Num);
+    dsym_play= NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
+
     SetCnt(0);
     SrcAddr = 0;
     TimerReload = 0;
@@ -249,16 +260,6 @@ void Channel::Reset()
     FIFOWritePos = 0;
     FIFOReadOffset = 0;
     FIFOLevel = 0;
-
-    char name[strlen("SOUNDx_play")+1];
-    snprintf(name, sizeof(name), "SND%xCNT", Num);
-    dsym_cnt = NDS::MakeTracingSym(name, 8, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
-
-    //snprintf(name, sizeof(name), "SND%x_dma", Num);
-    //dsym_dma = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
-
-    snprintf(name, sizeof(name), "SND%x_play", Num);
-    dsym_play= NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::SoundCtl);
 }
 
 void Channel::DoSavestate(Savestate* file)
