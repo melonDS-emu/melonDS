@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <functional>
+
 #include "lxt_write.h"
 
 namespace debug
@@ -68,7 +70,10 @@ public:
 
     void BeginTracing();
     void PauseTracing();
-    void SetTime(uint64_t tim, bool force);
+    void SetTime(uint64_t tim, bool force=false);
+    void WithTime(uint64_t tim, size_t clkshift, std::function<void()> cb);
+    void WithTimeARM7(std::function<void()> cb);
+    void WithTimeARM9(std::function<void()> cb);
 
 private:
     bool tracing;

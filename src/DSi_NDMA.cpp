@@ -65,6 +65,8 @@ void DSi_NDMA::Reset()
     dsym_cnt = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
     snprintf(name, sizeof(name), "NDMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
     dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+
+#define CURRENT_CLK (CPU ? NDS::Clock::ARM7 : NDS::Clock::ARM9)
 }
 
 void DSi_NDMA::DoSavestate(Savestate* file)
@@ -100,7 +102,7 @@ void DSi_NDMA::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
     Cnt = val;
-    NDS::TraceValue(dsym_cnt, val);
+    NDS::TraceValue(dsym_cnt, val, CURRENT_CLK);
 
     if ((!(oldcnt & 0x80000000)) && (val & 0x80000000)) // checkme
     {
@@ -207,7 +209,7 @@ void DSi_NDMA::Run9()
 
     Executing = true;
 
-    NDS::TraceValue(dsym_running, 1);
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
 
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
@@ -261,7 +263,7 @@ void DSi_NDMA::Run9()
         if (IterCount == 0)
         {
             Running = 0;
-            NDS::TraceValue(dsym_running, 0);
+            NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
             NDS::ResumeCPU(0, 1<<(Num+4));
 
             if (StartMode == 0x0A)
@@ -285,7 +287,7 @@ void DSi_NDMA::Run9()
         }
     }
 
-    NDS::TraceValue(dsym_cnt, Cnt);
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
 
     Running = 0;
     InProgress = false;
@@ -299,7 +301,7 @@ void DSi_NDMA::Run7()
 
     Executing = true;
 
-    NDS::TraceValue(dsym_running, 1);
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
 
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
@@ -348,7 +350,7 @@ void DSi_NDMA::Run7()
         if (NDS::ARM7Timestamp >= NDS::ARM7Target) break;
     }
 
-    NDS::TraceValue(dsym_running, 0);
+    NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
 
     Executing = false;
     Stall = false;
@@ -381,7 +383,7 @@ void DSi_NDMA::Run7()
         }
     }
 
-    NDS::TraceValue(dsym_cnt, Cnt);
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
 
     Running = 0;
     InProgress = false;

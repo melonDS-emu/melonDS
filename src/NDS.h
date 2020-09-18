@@ -338,6 +338,13 @@ void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
+enum class Clock {
+    Bus  = 0,
+    ARM7 = 1,
+    ARM9 = 2,
+    // TODO: others?
+};
+
 inline s32 MakeTracingSym(const char* name, int bits, int type, enum debug::SystemSignal categ) {
 #ifdef DEBUG_FEATURES_ENABLED
     return DebugStuff.AddTraceSym(name, bits, type, categ);
@@ -345,29 +352,54 @@ inline s32 MakeTracingSym(const char* name, int bits, int type, enum debug::Syst
     return -1;
 #endif
 }
-inline void TraceValue(s32 sym, int value) {
+inline void TraceValue(s32 sym, int value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value);
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, unsigned int value) {
+inline void TraceValue(s32 sym, unsigned int value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value);
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, double value) {
+inline void TraceValue(s32 sym, double value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value);
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceValue(s32 sym, const char* value) {
+inline void TraceValue(s32 sym, const char* value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceValue(sym, value);
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
 #endif
 }
-inline void TraceString(s32 sym, const char* value) {
+inline void TraceString(s32 sym, const char* value, enum Clock clk = Clock::Bus) {
 #ifdef DEBUG_FEATURES_ENABLED
-    DebugStuff.TraceString(sym, value);
+    if (clk == Clock::ARM7)
+        DebugStuff.WithTimeARM7([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else if (clk == Clock::ARM9)
+        DebugStuff.WithTimeARM9([sym, value](){ DebugStuff.TraceValue(sym, value); });
+    else /*if (clk == Clock::Bus)*/
+        DebugStuff.TraceValue(sym, value);
 #endif
 }
 

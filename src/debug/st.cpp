@@ -13,7 +13,7 @@
 
 #define TRACE_OUT_FILE "melonds-trace.lxt"
 
-/*#define TRACE_BY_DEFAULT_ON*/
+#define TRACE_BY_DEFAULT_ON
 
 static uint32_t str_hash_djb2(const char* s)
 {
@@ -302,6 +302,19 @@ void DebugStorageNDS::SetTime(uint64_t t, bool force)
 
     if (force)
         curtime = t;
+}
+void DebugStorageNDS::WithTime(uint64_t t, size_t clkshift, std::function<void()> cb) {
+    if (cb == nullptr || !tracer) return;
+
+    lt_set_time64(tracer, TRACE_SYSCLOCK_TO_TIMESTAMP(t) >> clkshift);
+    cb();
+    lt_set_time64(tracer, curtime);
+}
+void DebugStorageNDS::WithTimeARM7(std::function<void()> cb) {
+    WithTime(NDS::ARM7Timestamp, 0, cb);
+}
+void DebugStorageNDS::WithTimeARM9(std::function<void()> cb) {
+    WithTime(NDS::ARM9Timestamp, NDS::ARM9ClockShift, cb);
 }
 
 void DebugStorageNDS::DoSavestate(Savestate* file)

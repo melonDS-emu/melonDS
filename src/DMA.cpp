@@ -85,6 +85,8 @@ void DMA::Reset()
     dsym_cnt = NDS::MakeTracingSym(name, 16, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
     snprintf(name, sizeof(name), "DMA%c_A%c_en", '0'+Num, (CPU==0)?'9':'7');
     dsym_running = NDS::MakeTracingSym(name, 1, LT_SYM_F_BITS, debug::SystemSignal::DmaCtl);
+
+#define CURRENT_CLK (CPU ? NDS::Clock::ARM7 : NDS::Clock::ARM9)
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -115,7 +117,7 @@ void DMA::WriteCnt(u32 val)
 {
     u32 oldcnt = Cnt;
     Cnt = val;
-    NDS::TraceValue(dsym_cnt, val);
+    NDS::TraceValue(dsym_cnt, val, CURRENT_CLK);
 
     if ((!(oldcnt & 0x80000000)) && (val & 0x80000000))
     {
@@ -557,7 +559,7 @@ void DMA::Run9()
 
     Executing = true;
 
-    NDS::TraceValue(dsym_running, 1);
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
 
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
@@ -607,7 +609,7 @@ void DMA::Run9()
     Executing = false;
     Stall = false;
 
-    NDS::TraceValue(dsym_running, 0);
+    NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
 
     if (RemCount)
     {
@@ -626,7 +628,7 @@ void DMA::Run9()
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
 
-    NDS::TraceValue(dsym_cnt, Cnt);
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
 
     if (Cnt & (1<<30))
         NDS::SetIRQ(0, NDS::IRQ_DMA0 + Num);
@@ -643,7 +645,7 @@ void DMA::Run7()
 
     Executing = true;
 
-    NDS::TraceValue(dsym_running, 1);
+    NDS::TraceValue(dsym_running, 1, CURRENT_CLK);
 
     // add NS penalty for first accesses in burst
     bool burststart = (Running == 2);
@@ -690,7 +692,7 @@ void DMA::Run7()
         }
     }
 
-    NDS::TraceValue(dsym_running, 0);
+    NDS::TraceValue(dsym_running, 0, CURRENT_CLK);
 
     Executing = false;
     Stall = false;
@@ -709,7 +711,7 @@ void DMA::Run7()
     if (!(Cnt & (1<<25)))
         Cnt &= ~(1<<31);
 
-    NDS::TraceValue(dsym_cnt, Cnt);
+    NDS::TraceValue(dsym_cnt, Cnt, CURRENT_CLK);
 
     if (Cnt & (1<<30))
         NDS::SetIRQ(1, NDS::IRQ_DMA0 + Num);
