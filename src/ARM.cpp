@@ -139,6 +139,15 @@ void ARM::Reset()
 
     // zorp
     JumpTo(ExceptionBase);
+
+    char name[strlen("CPSR7")+1];
+    snprintf(name, sizeof(name), "CPSR%c", Num?'7':'9');
+    dsym_cpsr = NDS::MakeTracingSym(name, 32, LT_SYM_F_BITS,
+        Num ? debug::SystemSignal::ARM7_stat : debug::SystemSignal::ARM9_stat);
+
+#define CURRENT_CLK (Num ? NDS::Clock::ARM7 : NDS::Clock::ARM9)
+
+    NDS::TraceValue(dsym_cpsr, CPSR, CURRENT_CLK);
 }
 
 void ARMv5::Reset()
@@ -278,9 +287,12 @@ void ARM::SetupCodeMem(u32 addr)
 
 void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 {
+    bool updatecpsr = false;
+
     if (restorecpsr)
     {
         RestoreCPSR();
+        updatecpsr = true;
 
         if (CPSR & 0x20)    addr |= 0x1;
         else                addr &= ~0x1;
@@ -319,6 +331,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         }
 
         CPSR |= 0x20;
+        updatecpsr = true;
     }
     else
     {
@@ -333,6 +346,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         Cycles += CodeCycles;
 
         CPSR &= ~0x20;
+        updatecpsr = true;
     }
 
     if (!(PU_Map[addr>>12] & 0x04))
@@ -340,6 +354,8 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         PrefetchAbort();
         return;
     }
+
+    if (updatecpsr) NDS::TraceValue(dsym_cpsr, CPSR, CURRENT_CLK);
 
     NDS::MonitorARM9Jump(addr);
 }
@@ -519,6 +535,8 @@ void ARM::TriggerIRQ()
     CPSR |= 0xD2;
     UpdateMode(oldcpsr, CPSR);
 
+    NDS::TraceValue(dsym_cpsr, CPSR, CURRENT_CLK);
+
     R_IRQ[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 2 : 0);
     JumpTo(ExceptionBase + 0x18);
@@ -540,6 +558,8 @@ void ARMv5::PrefetchAbort()
     CPSR &= ~0xBF;
     CPSR |= 0x97;
     UpdateMode(oldcpsr, CPSR);
+
+    NDS::TraceValue(dsym_cpsr, CPSR, CURRENT_CLK);
 
     // this shouldn't happen, but if it does, we're stuck in some nasty endless loop
     // so better take care of it
@@ -563,6 +583,8 @@ void ARMv5::DataAbort()
     CPSR &= ~0xBF;
     CPSR |= 0x97;
     UpdateMode(oldcpsr, CPSR);
+
+    NDS::TraceValue(dsym_cpsr, CPSR, CURRENT_CLK);
 
     R_ABT[2] = oldcpsr;
     R[14] = R[15] + (oldcpsr & 0x20 ? 4 : 0);
