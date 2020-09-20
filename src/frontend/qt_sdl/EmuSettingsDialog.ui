@@ -582,8 +582,32 @@
  <tabstops>
   <tabstop>cbxConsoleType</tabstop>
   <tabstop>chkDirectBoot</tabstop>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>txtBIOS9Path</tabstop>
+  <tabstop>btnBIOS9Browse</tabstop>
+  <tabstop>txtBIOS7Path</tabstop>
+  <tabstop>btnBIOS7Browse</tabstop>
+  <tabstop>txtFirmwarePath</tabstop>
+  <tabstop>btnFirmwareBrowse</tabstop>
+  <tabstop>txtDSiBIOS9Path</tabstop>
+  <tabstop>btnDSiBIOS9Browse</tabstop>
+  <tabstop>txtDSiBIOS7Path</tabstop>
+  <tabstop>btnDSiBIOS7Browse</tabstop>
+  <tabstop>txtDSiFirmwarePath</tabstop>
+  <tabstop>btnDSiFirmwareBrowse</tabstop>
+  <tabstop>txtDSiNANDPath</tabstop>
+  <tabstop>btnDSiNANDBrowse</tabstop>
+  <tabstop>cbDSiSDEnable</tabstop>
+  <tabstop>txtDSiSDPath</tabstop>
+  <tabstop>btnDSiSDBrowse</tabstop>
   <tabstop>chkEnableJIT</tabstop>
   <tabstop>spnJITMaximumBlockSize</tabstop>
+  <tabstop>chkJITBranchOptimisations</tabstop>
+  <tabstop>chkJITLiteralOptimisations</tabstop>
+  <tabstop>chkJITFastMemory</tabstop>
+  <tabstop>cbDLDIEnable</tabstop>
+  <tabstop>txtDLDISDPath</tabstop>
+  <tabstop>btnDLDISDBrowse</tabstop>
  </tabstops>
  <resources/>
  <connections>
