@@ -21,6 +21,7 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: | #Fix grub installation error - https://github.com/actions/virtual-environments/issues/1605
+        sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
         sudo apt update
         sudo apt-get install grub-efi  
         sudo update-grub
