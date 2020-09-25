@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU2D_H
-#define GPU2D_H
+#pragma once
 
 class GPU2D
 {
@@ -164,5 +163,3 @@ private:
 
     void CalculateWindowMask(u32 line);
 };
-
-#endif

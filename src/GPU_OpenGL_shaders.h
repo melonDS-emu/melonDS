@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU_OPENGL_SHADERS_H
-#define GPU_OPENGL_SHADERS_H
+#pragma once
 
 const char* kCompositorVS = R"(#version 140
 
@@ -858,10 +857,3 @@ void main()
     FragColor = vec4(vec3(pixel.bgr) / 255.0, 1.0);
 }
 )";
-
-
-
-
-
-
-#endif // GPU_OPENGL_SHADERS_H

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef OPENGLSUPPORT_H
-#define OPENGLSUPPORT_H
+#pragma once
 
 #include <stdio.h>
 #include <string.h>
@@ -142,5 +141,3 @@ void DeleteShaderProgram(GLuint* ids);
 void UseShaderProgram(GLuint* ids);
 
 }
-
-#endif // OPENGLSUPPORT_H

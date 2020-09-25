@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU_H
-#define GPU_H
+#pragma once
 
 #include "GPU2D.h"
 
@@ -454,5 +453,3 @@ void BindOutputTexture();
 }
 
 #include "GPU3D.h"
-
-#endif

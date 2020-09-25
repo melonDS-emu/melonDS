@@ -16,12 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VERSION_H
-#define VERSION_H
+#pragma once
 
 #define MELONDS_VERSION    "0.9"
 
 #define MELONDS_URL        "http://melonds.kuribo64.net/"
-
-#endif // VERSION_H
-

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GBACART_H
-#define GBACART_H
+#pragma once
 
 #include "types.h"
 #include "Savestate.h"
@@ -83,5 +82,3 @@ void DoSavestate(Savestate* file);
 void Process(GBACart::GPIO* gpio);
 
 }
-
-#endif // GBACART_H

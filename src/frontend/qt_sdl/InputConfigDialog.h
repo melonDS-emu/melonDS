@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef INPUTCONFIGDIALOG_H
-#define INPUTCONFIGDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QPushButton>
@@ -119,5 +118,3 @@ private:
     int timerID;
     int axesRest[16];
 };
-
-#endif // INPUTCONFIGDIALOG_H

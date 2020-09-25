@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef TYPES_H
-#define TYPES_H
+#pragma once
 
 typedef unsigned char       u8;
 typedef unsigned short      u16;
@@ -27,5 +26,3 @@ typedef signed char         s8;
 typedef signed short        s16;
 typedef signed int          s32;
 typedef signed long long int     s64;
-
-#endif // TYPES_H

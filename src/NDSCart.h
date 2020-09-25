@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef NDSCART_H
-#define NDSCART_H
+#pragma once
 
 #include "types.h"
 
@@ -65,5 +64,3 @@ void ROMEndTransfer(u32 param);
 void SPITransferDone(u32 param);
 
 }
-
-#endif

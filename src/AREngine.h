@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARENGINE_H
-#define ARENGINE_H
+#pragma once
 
 #include "ARCodeFile.h"
 
@@ -33,5 +32,3 @@ void SetCodeFile(ARCodeFile* file);
 void RunCheats();
 
 }
-
-#endif // ARENGINE_H

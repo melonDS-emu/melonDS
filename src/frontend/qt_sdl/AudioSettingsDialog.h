@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef AUDIOSETTINGSDIALOG_H
-#define AUDIOSETTINGSDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QButtonGroup>
@@ -65,5 +64,3 @@ private:
     int oldVolume;
     QButtonGroup* grpMicMode;
 };
-
-#endif // AUDIOSETTINGSDIALOG_H

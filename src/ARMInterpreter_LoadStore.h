@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARMINTERPRETER_LOADSTORE_H
-#define ARMINTERPRETER_LOADSTORE_H
+#pragma once
 
 namespace ARMInterpreter
 {
@@ -90,6 +89,3 @@ void T_STMIA(ARM* cpu);
 void T_LDMIA(ARM* cpu);
 
 }
-
-#endif
-

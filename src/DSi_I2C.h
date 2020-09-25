@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_I2C_H
-#define DSI_I2C_H
+#pragma once
 
 namespace DSi_I2C
 {
@@ -37,5 +36,3 @@ void WriteData(u8 val);
 //void TransferDone(u32 param);
 
 }
-
-#endif // DSI_I2C_H

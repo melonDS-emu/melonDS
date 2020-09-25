@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef OSD_H
-#define OSD_H
+#pragma once
 
 namespace OSD
 {
@@ -32,5 +31,3 @@ void DrawNative(QPainter& painter);
 void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h);
 
 }
-
-#endif // OSD_H

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef EMUSETTINGSDIALOG_H
-#define EMUSETTINGSDIALOG_H
+#pragma once
 
 #include <QDialog>
 
@@ -73,5 +72,3 @@ private:
 
     Ui::EmuSettingsDialog* ui;
 };
-
-#endif // EMUSETTINGSDIALOG_H

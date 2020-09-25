@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#pragma once
 
 #include "types.h"
 
@@ -94,5 +93,3 @@ int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
 }
-
-#endif // PLATFORM_H

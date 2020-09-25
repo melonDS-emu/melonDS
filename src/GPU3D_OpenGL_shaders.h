@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU3D_OPENGL_SHADERS_H
-#define GPU3D_OPENGL_SHADERS_H
+#pragma once
 
 #define kShaderHeader "#version 140"
 
@@ -802,5 +801,3 @@ void main()
     gl_FragDepth = fZ;
 }
 )";
-
-#endif // GPU3D_OPENGL_SHADERS_H

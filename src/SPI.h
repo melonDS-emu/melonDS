@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SPI_H
-#define SPI_H
+#pragma once
 
 #include "Savestate.h"
 
@@ -63,5 +62,3 @@ void WriteData(u8 val);
 void TransferDone(u32 param);
 
 }
-
-#endif

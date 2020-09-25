@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARMINTERPRETER_BRANCH_H
-#define ARMINTERPRETER_BRANCH_H
+#pragma once
 
 namespace ARMInterpreter
 {
@@ -35,5 +34,3 @@ void T_BL_LONG_1(ARM* cpu);
 void T_BL_LONG_2(ARM* cpu);
 
 }
-
-#endif

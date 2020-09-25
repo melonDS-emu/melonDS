@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_H
-#define DSI_H
+#pragma once
 
 #include "NDS.h"
 #include "DSi_SD.h"
@@ -104,5 +103,3 @@ void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
 }
-
-#endif // DSI_H

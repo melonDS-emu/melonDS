@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ROMLIST_H
-#define ROMLIST_H
+#pragma once
 
 typedef struct
 {
@@ -6805,5 +6804,3 @@ ROMListEntry ROMList[] =
 	{0x5A5A4341, 0x01000000, 0x00000001},
 	{0x5A5A5242, 0x04000000, 0x00000003},
 };
-
-#endif // ROMLIST_H

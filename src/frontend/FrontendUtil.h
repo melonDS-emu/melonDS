@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef FRONTENDUTIL_H
-#define FRONTENDUTIL_H
+#pragma once
 
 #include "types.h"
 
@@ -158,5 +157,3 @@ void Mic_FeedExternalBuffer();
 void Mic_SetExternalBuffer(s16* buffer, u32 len);
 
 }
-
-#endif // FRONTENDUTIL_H

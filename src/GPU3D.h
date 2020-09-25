@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef GPU3D_H
-#define GPU3D_H
+#pragma once
 
 #include <array>
 #include "Savestate.h"
@@ -156,5 +155,3 @@ void SetupAccelFrame();
 }
 
 }
-
-#endif
