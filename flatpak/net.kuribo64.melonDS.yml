@@ -1,8 +1,8 @@
 ---
 app-id: net.kuribo64.melonDS
-runtime: org.freedesktop.Platform
-runtime-version: '18.08'
-sdk: org.freedesktop.Sdk
+runtime: org.kde.Platform
+runtime-version: "5.15"
+sdk: org.kde.Sdk
 command: melonDS
 finish-args:
   - "--share=ipc"
@@ -11,12 +11,24 @@ finish-args:
   - "--share=network"
   - "--device=all"
   - "--filesystem=home"
+cleanup:
+  - "/include"
+  - "/share/man"
+  - "/bin/pcap-config"
+  - "/lib/pkg-config"
 modules:
   - name: libpcap
     sources:
       - type: archive
         url: http://www.tcpdump.org/release/libpcap-1.9.0.tar.gz
         sha256: 2edb88808e5913fdaa8e9c1fcaf272e19b2485338742b5074b9fe44d68f37019
+  
+  - name: libslirp
+    buildsystem: meson
+    sources:
+      - type: archive
+        url: https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.2.0/libslirp-v4.2.0.tar.gz
+        sha256: 8c088bb60952d18e615962a83bcd4f03fa0988d913bce9457fea9377e72ab9f3
 
   - name: melonds
     buildsystem: cmake-ninja
