@@ -23,8 +23,13 @@
 #include <string.h>
 
 // TODO: different includes for each platform
-#include <GL/gl.h>
-#include <GL/glext.h>
+#ifdef __APPLE__
+    #include <OpenGL/gl3.h>
+    #include <OpenGL/gl3ext.h>
+#else
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+#endif
 
 #include "Platform.h"
 
@@ -61,6 +66,11 @@
 
 #endif
 
+#ifdef __APPLE__
+
+#define DO_PROCLIST(func)
+
+#else
 
 #define DO_PROCLIST(func) \
     DO_PROCLIST_1_3(func) \
@@ -128,6 +138,7 @@
      \
     func(GLGETSTRINGI, glGetStringi); \
 
+#endif
 
 namespace OpenGL
 {
