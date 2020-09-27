@@ -144,7 +144,13 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 #ifdef __x86_64__
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
+
+    #ifdef __APPLE__
+        desc.FaultPC = context->uc_mcontext->__ss.__rip;
+    #else
+        desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
+    #endif
+   
 #else
     desc.EmulatedFaultAddr = (u8*)context->uc_mcontext.fault_address - curArea;
     desc.FaultPC = context->uc_mcontext.pc;
@@ -154,7 +160,11 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     if (ARMJIT_Memory::FaultHandler(&desc, offset))
     {
 #ifdef __x86_64__
-        context->uc_mcontext.gregs[REG_RIP] += offset;
+        #ifdef __APPLE__
+            context->uc_mcontext->__ss.__rip += offset;
+        #else
+            context->uc_mcontext.gregs[REG_RIP] += offset;
+        #endif
 #else
         context->uc_mcontext.pc += offset;
 #endif
