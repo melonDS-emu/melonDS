@@ -22,7 +22,9 @@
 #include "NDSCart.h"
 #include "SPU.h"
 
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 
 /*
     We're handling fastmem here.
@@ -628,8 +630,12 @@ void Init()
     FastMem7Start = mmap(NULL, AddrSpaceSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
 
     MemoryBase = (u8*)mmap(NULL, MemoryTotalSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    #ifdef __APPLE__
+        MemoryFile = shm_open("melondsfastmem", O_RDWR|O_CREAT, 0600);
+    #else    
+        MemoryFile = memfd_create("melondsfastmem", 0);
+    #endif
 
-    MemoryFile = memfd_create("melondsfastmem", 0);
     ftruncate(MemoryFile, MemoryTotalSize);
 
     NewSa.sa_flags = SA_SIGINFO;
@@ -663,6 +669,8 @@ void DeInit()
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     virtmemFree(MemoryBaseCodeMem, MemoryTotalSize);
     free(MemoryBase);
+#elif defined(__APPLE__)
+    shm_unlink("melondsfastmem");
 #elif defined(_WIN32)
     assert(UnmapViewOfFile(MemoryBase));
     CloseHandle(MemoryFile);
