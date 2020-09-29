@@ -1,0 +1,46 @@
+name: CMake Build (macOS x86-64)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      working-directory: ${{runner.workspace}}
+      run: |
+        brew install gcc git cmake make meson ninja sdl2 qt5
+        curl -O https://elmarco.fedorapeople.org/libslirp-4.3.1.tar.xz
+        tar xf libslirp-4.3.1.tar.xz
+        cd libslirp-4.3.1
+        sed -i -e 's/,--version-script//g' meson.build
+        meson build
+        ninja -C build install
+        cd ..
+    - name: Create build environment
+      run: mkdir ${{runner.workspace}}/build
+    - name: Configure
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_C_COMPILER=/usr/local/bin/gcc-10 -DCMAKE_CXX_COMPILER=/usr/local/bin/g++-10 -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+    - name: Make
+      working-directory: ${{runner.workspace}}/build
+      run: |
+        gmake -j$(sysctl -n hw.ncpu)
+        mkdir dist
+        cp melonDS dist
+    - uses: actions/upload-artifact@v1
+      with:
+        name: melonDS
+        path: ${{runner.workspace}}/build/dist
