@@ -21,8 +21,10 @@ modules:
     buildsystem: meson
     sources:
       - type: archive
-        url: https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.2.0/libslirp-v4.2.0.tar.gz
-        sha256: 8c088bb60952d18e615962a83bcd4f03fa0988d913bce9457fea9377e72ab9f3
+        url: https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.3.1/libslirp-v4.3.1.tar.gz
+        sha256: 500473e4f957f302cd3a9737b6c9f7512ee17d394f646f4223cf103df249cedc
+      - type: patch
+        path: libslirp-meson.patch
 
   - name: melonds
     buildsystem: cmake-ninja
