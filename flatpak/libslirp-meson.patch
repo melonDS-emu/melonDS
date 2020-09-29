@@ -1,0 +1,9 @@
+--- a/meson.build	2020-09-29 10:24:33.300703901 +0300
++++ b/meson.build	2020-09-29 10:24:54.287269829 +0300
+@@ -1,5 +1,5 @@
+ project('libslirp', 'c',
+-  version : run_command('build-aux/git-version-gen', '@0@/.tarball-version'.format(meson.source_root()), check : true).stdout().strip(),
++  version : '4.3.1',
+   license : 'BSD-3-Clause',
+   default_options : ['warning_level=1', 'c_std=gnu99'],
+   meson_version : '>= 0.49',
