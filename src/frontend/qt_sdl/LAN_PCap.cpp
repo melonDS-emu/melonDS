@@ -33,7 +33,9 @@
 	#include <sys/types.h>
 	#include <ifaddrs.h>
 	#include <netinet/in.h>
-	#include <linux/if_packet.h>
+        #ifndef __APPLE__
+	    #include <linux/if_packet.h>
+        #endif
 #endif
 
 
@@ -276,6 +278,7 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
+            #ifndef __APPLE__
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
@@ -284,7 +287,7 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
-
+            #endif
             curaddr = curaddr->ifa_next;
         }
     }
