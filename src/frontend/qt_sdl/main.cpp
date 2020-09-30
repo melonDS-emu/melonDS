@@ -49,7 +49,9 @@
 
 #include "NDS.h"
 #include "GBACart.h"
+#ifdef OGLRENDERER_ENABLED
 #include "OpenGLSupport.h"
+#endif
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -336,13 +338,17 @@ void EmuThread::run()
     videoSettings.Soft_Threaded = Config::Threaded3D != 0;
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
 
+#ifdef OGLRENDERER_ENABLED
     if (hasOGL)
     {
         oglContext->makeCurrent(oglSurface);
         videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
     }
     else
+#endif
+    {
         videoRenderer = 0;
+    }
 
     GPU::InitRenderer(videoRenderer);
     GPU::SetRenderSettings(videoRenderer, videoSettings);
@@ -396,13 +402,17 @@ void EmuThread::run()
                 if (hasOGL != mainWindow->hasOGL)
                 {
                     hasOGL = mainWindow->hasOGL;
+#ifdef OGLRENDERER_ENABLED
                     if (hasOGL)
                     {
                         oglContext->makeCurrent(oglSurface);
                         videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
                     }
                     else
+#endif
+                    {
                         videoRenderer = 0;
+                    }
                 }
                 else
                     videoRenderer = hasOGL ? Config::_3DRenderer : 0;
@@ -923,12 +933,14 @@ void ScreenPanelGL::paintGL()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
 
+#ifdef OGLRENDERER_ENABLED
     if (GPU::Renderer != 0)
     {
         // hardware-accelerated render
         GPU::GLCompositor::BindOutputTexture();
     }
     else
+#endif
     {
         // regular render
         glBindTexture(GL_TEXTURE_2D, screenTexture);

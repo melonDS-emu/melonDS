@@ -949,6 +949,7 @@ void GPU2D::VBlankEnd()
     //OBJMosaicY = 0;
     //OBJMosaicYCount = 0;
 
+#ifdef OGLRENDERER_ENABLED
     if (Accelerated)
     {
         if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
@@ -956,6 +957,7 @@ void GPU2D::VBlankEnd()
             GPU3D::GLRenderer::PrepareCaptureFrame();
         }
     }
+#endif
 }
 
 
