@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_SD_H
-#define DSI_SD_H
+#pragma once
 
 #include <string.h>
 #include "FIFO.h"
@@ -155,5 +154,3 @@ private:
     u32 ReadBlock(u64 addr);
     u32 WriteBlock(u64 addr);
 };
-
-#endif // DSI_SD_H

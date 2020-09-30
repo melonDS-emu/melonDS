@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_NDMA_H
-#define DSI_NDMA_H
+#pragma once
 
 #include "types.h"
 
@@ -92,5 +91,3 @@ private:
 
     bool IsGXFIFODMA;
 };
-
-#endif // DSI_NDMA_H

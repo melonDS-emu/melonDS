@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef NDS_H
-#define NDS_H
+#pragma once
 
 #include "Savestate.h"
 #include "types.h"
@@ -279,5 +278,3 @@ void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
 
 }
-
-#endif // NDS_H

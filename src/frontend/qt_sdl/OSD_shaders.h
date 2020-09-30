@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef OSD_SHADERS_H
-#define OSD_SHADERS_H
+#pragma once
 
 const char* kScreenVS_OSD = R"(#version 140
 
@@ -61,5 +60,3 @@ void main()
     oColor = pixel.bgra;
 }
 )";
-
-#endif // OSD_SHADERS_H

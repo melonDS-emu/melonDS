@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SAVESTATE_H
-#define SAVESTATE_H
+#pragma once
 
 #include <stdio.h>
 #include "types.h"
@@ -60,5 +59,3 @@ public:
 private:
     FILE* file;
 };
-
-#endif // SAVESTATE_H

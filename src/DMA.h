@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DMA_H
-#define DMA_H
+#pragma once
 
 #include "types.h"
 
@@ -92,5 +91,3 @@ private:
     void (*BusWrite16)(u32 addr, u16 val);
     void (*BusWrite32)(u32 addr, u32 val);
 };
-
-#endif

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_SPI_TSC
-#define DSI_SPI_TSC
+#pragma once
 
 namespace DSi_SPI_TSC
 {
@@ -36,5 +35,3 @@ u8 Read();
 void Write(u8 val, u32 hold);
 
 }
-
-#endif // DSI_SPI_TSC

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_CAMERA_H
-#define DSI_CAMERA_H
+#pragma once
 
 #include "types.h"
 
@@ -54,5 +53,3 @@ private:
 
 extern DSi_Camera* DSi_Camera0;
 extern DSi_Camera* DSi_Camera1;
-
-#endif // DSI_CAMERA_H

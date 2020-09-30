@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARM_H
-#define ARM_H
+#pragma once
 
 #include <algorithm>
 
@@ -474,5 +473,3 @@ extern ARMv5* ARM9;
 extern ARMv4* ARM7;
 
 }
-
-#endif // ARM_H

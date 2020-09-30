@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARCODEFILE_H
-#define ARCODEFILE_H
+#pragma once
 
 #include <list>
 
@@ -60,5 +59,3 @@ public:
 private:
     char Filename[1024];
 };
-
-#endif // ARCODEFILE_H

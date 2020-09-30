@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARMINTERPRETER_ALU_H
-#define ARMINTERPRETER_ALU_H
+#pragma once
 
 namespace ARMInterpreter
 {
@@ -133,5 +132,3 @@ void T_ADD_SPREL(ARM* cpu);
 void T_ADD_SP(ARM* cpu);
 
 }
-
-#endif

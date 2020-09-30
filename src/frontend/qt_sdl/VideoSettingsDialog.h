@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef VIDEOSETTINGSDIALOG_H
-#define VIDEOSETTINGSDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QButtonGroup>
@@ -81,6 +80,3 @@ private:
     int oldGLScale;
     int oldGLBetterPolygons;
 };
-
-#endif // VIDEOSETTINGSDIALOG_H
-

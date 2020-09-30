@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef MAIN_H
-#define MAIN_H
+#pragma once
 
 #include <QThread>
 #include <QWidget>
@@ -278,5 +277,3 @@ public:
     QAction* actLimitFramerate;
     QAction* actAudioSync;
 };
-
-#endif // MAIN_H

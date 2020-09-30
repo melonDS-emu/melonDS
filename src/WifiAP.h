@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef WIFIAP_H
-#define WIFIAP_H
+#pragma once
 
 namespace WifiAP
 {
@@ -39,5 +38,3 @@ int SendPacket(u8* data, int len);
 int RecvPacket(u8* data);
 
 }
-
-#endif

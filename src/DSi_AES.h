@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_AES_H
-#define DSI_AES_H
+#pragma once
 
 #include "types.h"
 
@@ -50,5 +49,3 @@ void GetModcryptKey(u8* romheader, u8* key);
 void ApplyModcrypt(u8* data, u32 len, u8* key, u8* iv);
 
 }
-
-#endif // DSI_AES_H

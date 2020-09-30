@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef INPUT_H
-#define INPUT_H
+#pragma once
 
 #include "types.h"
 
@@ -47,5 +46,3 @@ bool HotkeyReleased(int id);
 bool IsRightModKey(QKeyEvent* event);
 
 }
-
-#endif // INPUT_H

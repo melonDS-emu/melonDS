@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef WIFISETTINGSDIALOG_H
-#define WIFISETTINGSDIALOG_H
+#pragma once
 
 #include <QDialog>
 
@@ -65,5 +64,3 @@ private:
 
     void updateAdapterControls();
 };
-
-#endif // WIFISETTINGSDIALOG_H

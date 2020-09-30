@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef DSI_NWIFI_H
-#define DSI_NWIFI_H
+#pragma once
 
 #include "DSi_SD.h"
 #include "FIFO.h"
@@ -144,5 +143,3 @@ private:
 
     u8 LANBuffer[2048];
 };
-
-#endif // DSI_NWIFI_H

@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RTC_H
-#define RTC_H
+#pragma once
 
 #include "types.h"
 #include "Savestate.h"
@@ -34,5 +33,3 @@ u16 Read();
 void Write(u16 val, bool byte);
 
 }
-
-#endif

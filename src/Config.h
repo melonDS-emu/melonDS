@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #include <stdio.h>
 
@@ -66,5 +65,3 @@ extern int JIT_FastMemory;
 #endif
 
 }
-
-#endif // CONFIG_H

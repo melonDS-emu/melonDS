@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef LAN_SOCKET_H
-#define LAN_SOCKET_H
+#pragma once
 
 #include "../types.h"
 
@@ -34,5 +33,3 @@ int SendPacket(u8* data, int len);
 int RecvPacket(u8* data);
 
 }
-
-#endif // LAN_SOCKET_H

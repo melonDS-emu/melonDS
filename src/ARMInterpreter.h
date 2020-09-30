@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ARMINTERPRETER_H
-#define ARMINTERPRETER_H
+#pragma once
 
 #include "types.h"
 #include "ARM.h"
@@ -40,5 +39,3 @@ void T_SVC(ARM* cpu);
 void A_BLX_IMM(ARM* cpu); // I'm a special one look at me
 
 }
-
-#endif // ARMINTERPRETER_H

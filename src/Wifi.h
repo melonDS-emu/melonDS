@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef WIFI_H
-#define WIFI_H
+#pragma once
 
 #include "Savestate.h"
 
@@ -161,5 +160,3 @@ u8* GetMAC();
 u8* GetBSSID();
 
 }
-
-#endif

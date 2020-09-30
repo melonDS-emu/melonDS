@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef SPU_H
-#define SPU_H
+#pragma once
 
 #include "Savestate.h"
 
@@ -206,5 +205,3 @@ private:
 };
 
 }
-
-#endif // SPU_H

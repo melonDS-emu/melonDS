@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CHEATSDIALOG_H
-#define CHEATSDIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QAbstractItemModel>
@@ -90,5 +89,3 @@ private:
     ARCodeFile* codeFile;
     ARCodeChecker* codeChecker;
 };
-
-#endif // CHEATSDIALOG_H

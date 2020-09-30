@@ -16,11 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CRC32_H
-#define CRC32_H
+#pragma once
 
 #include "types.h"
 
 u32 CRC32(u8* data, int len);
-
-#endif // CRC32_H

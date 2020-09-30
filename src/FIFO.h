@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef FIFO_H
-#define FIFO_H
+#pragma once
 
 #include "types.h"
 
@@ -110,5 +109,3 @@ private:
     u32 NumOccupied;
     u32 ReadPos, WritePos;
 };
-
-#endif

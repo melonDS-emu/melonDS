@@ -16,8 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef PLATFORMCONFIG_H
-#define PLATFORMCONFIG_H
+#pragma once
 
 #include "Config.h"
 
@@ -89,5 +88,3 @@ extern char LastROMFolder[1024];
 extern int EnableCheats;
 
 }
-
-#endif // PLATFORMCONFIG_H
