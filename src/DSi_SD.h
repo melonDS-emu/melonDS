@@ -103,7 +103,7 @@ class DSi_SDDevice
 {
 public:
     DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; }
-    ~DSi_SDDevice() {}
+    virtual ~DSi_SDDevice() {}
 
     virtual void Reset() = 0;
 

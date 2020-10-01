@@ -169,7 +169,7 @@ void Save()
         if (entry->Type == 0)
             fprintf(f, "%s=%d\n", entry->Name, *(int*)entry->Value);
         else
-            fprintf(f, "%s=%s\n", entry->Name, entry->Value);
+            fprintf(f, "%s=%s\n", entry->Name, (char*)entry->Value);
 
         entry++;
     }

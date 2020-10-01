@@ -115,7 +115,6 @@ void audioCallback(void* data, Uint8* stream, int len)
     if (num_in < len_in-margin)
     {
         int last = num_in-1;
-        if (last < 0) last = 0;
 
         for (int i = num_in; i < len_in-margin; i++)
             ((u32*)buf_in)[i] = ((u32*)buf_in)[last];
