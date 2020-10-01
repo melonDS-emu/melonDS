@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string>
 #include <string.h>
 #include "Slot2Cart.h"
 #include "CRC32.h"
@@ -208,6 +209,51 @@ void DoSavestate(Savestate* file)
     file->Section("MemExpansionPack");
     file->Var8((u8*)&MemPakRAMLock);
     file->VarArray(MemPakMemory, 0x800000);
+}
+
+}
+
+namespace Slot2Cart_SegaCardReader
+{
+    
+// Code ported from shonumi
+    
+bool Enabled = false;
+
+u8 HCVControl = 0;
+std::string HCVData = "________________";
+
+u8 Read8(u32 addr)
+{
+    if (addr < 0x8020000)
+    {
+        if (addr & 1) return 0xFD;
+        else return (0xF0 | ((addr & 0x1F) >> 1));
+    }
+    else if (addr == 0xA000000) return HCVControl;
+    else if ((addr >= 0xA000010) && (addr <= 0xA00001F)) return HCVData[addr & 0xF];
+    else return 0xFF;
+}
+
+void Write8(u32 addr, u8 val)
+{
+    if (addr == 0xA000000) HCVControl = val;
+}
+
+u16 Read16(u32 addr)
+{
+    return (((u16)Read8(addr+1) << 8) | (u16) Read8(addr));
+}
+    
+u32 Read32(u32 addr)
+{
+    return (((u32)Read8(addr+3) << 24) | ((u32)Read8(addr+2) << 16) | ((u32)Read8(addr+1) << 8) | (u32) Read8(addr));
+}
+
+void Load(std::string barcode)
+{
+    HCVData = std::string(barcode, 0, 15) + std::string((16 - barcode.length()), '_');
+    HCVControl = 0;
 }
 
 }
