@@ -437,6 +437,7 @@ void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
 
+#ifdef OGLRENDERER_ENABLED
 namespace GLCompositor
 {
 
@@ -450,6 +451,7 @@ void RenderFrame();
 void BindOutputTexture();
 
 }
+#endif
 
 }
 

@@ -815,7 +815,6 @@ void GPU2D::DrawScanline(u32 line)
             int i = 0;
             for (; i < (stride & ~1); i+=2)
                 *(u64*)&dst[i] = *(u64*)&BGOBJLine[i];
-            if (stride & 1) dst[i] = BGOBJLine[i];
         }
         break;
 
@@ -950,6 +949,7 @@ void GPU2D::VBlankEnd()
     //OBJMosaicY = 0;
     //OBJMosaicYCount = 0;
 
+#ifdef OGLRENDERER_ENABLED
     if (Accelerated)
     {
         if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
@@ -957,6 +957,7 @@ void GPU2D::VBlankEnd()
             GPU3D::GLRenderer::PrepareCaptureFrame();
         }
     }
+#endif
 }
 
 

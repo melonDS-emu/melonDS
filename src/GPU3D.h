@@ -139,6 +139,7 @@ u32* GetLine(int line);
 
 }
 
+#ifdef OGLRENDERER_ENABLED
 namespace GLRenderer
 {
 
@@ -154,6 +155,7 @@ u32* GetLine(int line);
 void SetupAccelFrame();
 
 }
+#endif
 
 }
 

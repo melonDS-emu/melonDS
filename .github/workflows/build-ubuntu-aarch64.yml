@@ -20,8 +20,10 @@ jobs:
     - name: Upgrade system
       shell: bash
       working-directory: ${{runner.workspace}}
-      run: |
+      run: | #Fix grub installation error - https://github.com/actions/virtual-environments/issues/1605
         sudo apt update
+        sudo apt-get install grub-efi  
+        sudo update-grub
         sudo apt full-upgrade
     - name: Install dependencies
       shell: bash
@@ -32,7 +34,8 @@ jobs:
         sudo rm /etc/apt/sources.list
         sudo mv /etc/apt/sources.list{.new,}
         sudo apt update
-        sudo apt install {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64
+        sudo apt install aptitude
+        sudo aptitude install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
