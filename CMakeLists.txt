@@ -50,6 +50,12 @@ else()
 	option(ENABLE_LTO "Enable link-time optimization" OFF)
 endif()
 
+option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
+
+if (ENABLE_OGLRENDERER)
+    add_definitions(-DOGLRENDERER_ENABLED)
+endif()
+
 if (CMAKE_BUILD_TYPE STREQUAL Debug)
 	add_compile_options(-Og)
 endif()

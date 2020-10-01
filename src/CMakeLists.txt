@@ -26,17 +26,12 @@ add_library(core STATIC
 	FIFO.h
 	GBACart.cpp
 	GPU.cpp
-	GPU_OpenGL.cpp
-	GPU_OpenGL_shaders.h
 	GPU2D.cpp
 	GPU3D.cpp
-	GPU3D_OpenGL.cpp
-	GPU3D_OpenGL_shaders.h
 	GPU3D_Soft.cpp
 	melonDLDI.h
 	NDS.cpp
 	NDSCart.cpp
-	OpenGLSupport.cpp
 	Platform.h
 	ROMList.h
 	RTC.cpp
@@ -51,6 +46,16 @@ add_library(core STATIC
 	tiny-AES-c/aes.c
 	xxhash/xxhash.c
 )
+
+if (ENABLE_OGLRENDERER)
+	target_sources(core PRIVATE
+		GPU_OpenGL.cpp
+		GPU_OpenGL_shaders.h
+		GPU3D_OpenGL.cpp
+		GPU3D_OpenGL_shaders.h
+		OpenGLSupport.cpp
+	)
+endif()
 
 if (ENABLE_JIT)
 	enable_language(ASM)
@@ -100,10 +105,18 @@ if (APPLE)
         target_link_directories(core PUBLIC /usr/local/lib)
 endif()
 
-if (WIN32)
-	target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
-elseif (APPLE)
-	target_link_libraries(core "-framework OpenGL")
+if (ENABLE_OGLRENDERER)
+	if (WIN32)
+		target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
+  elseif (APPLE)
+    target_link_libraries(core "-framework OpenGL")
+  else()
+		target_link_libraries(core GL EGL)
+	endif()
 else()
-	target_link_libraries(core GL EGL)
+	if (WIN32)
+		target_link_libraries(core ole32 comctl32 ws2_32)
+	else()
+		target_link_libraries(core)
+	endif()
 endif()

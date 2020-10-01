@@ -61,7 +61,8 @@ public:
             }
         }
 
-        assert("Welp!");
+        printf("this is a JIT bug! LoadRegister failed\n");
+        abort();
     }
 
     void PutLiteral(int reg, u32 val)
