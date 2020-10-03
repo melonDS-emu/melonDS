@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QList>
 
 #include "types.h"
 #include "Platform.h"
@@ -250,6 +251,35 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
     if (file.isEmpty()) return;
 
     ui->txtFirmwarePath->setText(file);
+}
+
+void EmuSettingsDialog::on_btnFirmwareEdit_clicked()
+{
+    QDialog dialog(this);
+    QFormLayout form(&dialog);
+
+    QLineEdit* nameEdit = new QLineEdit(&dialog);
+    nameEdit->setText(Config::FirmwareUserName);
+    form.addRow("Username", nameEdit);
+
+    QStringList languages { "Auto", "Japanese", "English", "French", "German", "Italian", "Spanish" };
+
+    QComboBox* languagesBox = new QComboBox(&dialog);
+    languagesBox->addItems(languages);
+    languagesBox->setCurrentIndex(Config::FirmwareLanguage + 1);
+    form.addRow("Language", languagesBox);
+
+    QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+    form.addRow(&buttonBox);
+
+    QObject::connect(&buttonBox, SIGNAL(accepted()), &dialog, SLOT(accept()));
+    QObject::connect(&buttonBox, SIGNAL(rejected()), &dialog, SLOT(reject()));
+
+    if (dialog.exec() == QDialog::Accepted) {
+        const char* newName = nameEdit->text().toStdString().c_str();
+        strcpy(Config::FirmwareUserName, newName);
+        Config::FirmwareLanguage = languages.indexOf(languagesBox->currentText()) - 1;
+    }
 }
 
 void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()

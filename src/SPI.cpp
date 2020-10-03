@@ -103,12 +103,6 @@ void LoadDefaultFirmware()
     *(u16*)&Firmware[0x20] = (FirmwareLength - 0x200) >> 3;
 
     Firmware[userdata+0x00] = 5; // version
-    Firmware[userdata+0x1A] = 7; // name length
-    Firmware[userdata+0x64] = 1; // english
-
-    // set user name
-    u8 name[] = "M\0e\0l\0o\0n\0D\0S";
-    memcpy(Firmware + userdata + 0x06, name, 13);
 }
 
 void LoadFirmwareFromFile(FILE* f)
@@ -189,6 +183,17 @@ void Reset()
     }
 
     UserSettings = userdata;
+
+    // setting up username
+    int usernameSize = strlen(Config::FirmwareUserName);
+    Firmware[UserSettings+0x1A] = usernameSize;
+    for (int i = 0; i < usernameSize; ++i) {
+        Firmware[UserSettings + 0x06 + i * 2] = Config::FirmwareUserName[i];
+        Firmware[UserSettings + 0x06 + i * 2 + 1] = '\0';
+    }
+
+    // setting language
+    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
 
     // TODO evetually: do this in DSi mode
     if (NDS::ConsoleType == 0)
