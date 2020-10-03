@@ -155,7 +155,7 @@ int VerifyDSFirmware()
     long len;
 
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
-    if (!f) return Load_FirmwareMissing;
+    if (!f) return Load_FirmwareNotBootable;
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
