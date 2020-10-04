@@ -179,7 +179,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         Config::HKJoyMapping[hk_addons[i]] = addonsJoyMap[i];
     }
 
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 7; i++)
     {
         Config::HKKeyMapping[hk_general[i]] = hkGeneralKeyMap[i];
         Config::HKJoyMapping[hk_general[i]] = hkGeneralJoyMap[i];
