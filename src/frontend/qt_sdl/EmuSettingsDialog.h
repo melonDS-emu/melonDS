@@ -70,6 +70,8 @@ private slots:
 
 private:
     void verifyFirmware();
+    void readFirmware();
+    void writeFirmware();
 
     Ui::EmuSettingsDialog* ui;
 };

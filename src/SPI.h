@@ -24,6 +24,7 @@
 namespace SPI_Firmware
 {
 
+u16 CRC16(u8* data, u32 len, u32 start);
 void SetupDirectBoot();
 
 u8 GetConsoleType();

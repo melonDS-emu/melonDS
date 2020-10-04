@@ -24,6 +24,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "SPI.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -75,6 +76,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
     on_chkEnableJIT_toggled();
+    readFirmware();
 }
 
 EmuSettingsDialog::~EmuSettingsDialog()
@@ -125,6 +127,97 @@ void EmuSettingsDialog::verifyFirmware()
     }
 }
 
+void EmuSettingsDialog::readFirmware()
+{
+    u8 Color;
+    u8 Birthday[2];
+    ushort UserName[20];
+    ushort Message[52];
+    u8 Language;
+
+    char filename[1024];
+    strncpy(filename, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); filename[1023] = '\0';
+    FILE* f = Platform::OpenLocalFile(filename, "rb");
+    if (!f) return;
+    
+    fseek(f, 0x3FF02, SEEK_SET);
+    fread(&Color, 1, 1, f);
+    fseek(f, 0x3FF03, SEEK_SET);
+    fread(Birthday, 2, 1, f);
+    fseek(f, 0x3FF06, SEEK_SET);
+    fread(UserName, 20, 1, f);
+    fseek(f, 0x3FF1C, SEEK_SET);
+    fread(Message, 52, 1, f);
+    fseek(f, 0x3FF64, SEEK_SET);
+    fread(&Language, 1, 1, f);
+    
+    fclose(f);
+    
+    ui->cbxColor->setCurrentIndex(Color);
+    ui->deBirthday->setDate(QDate(2004, Birthday[0], Birthday[1]));
+    ui->txtUserName->setText(QString::fromUtf16(UserName));
+    ui->txtMessage->setText(QString::fromUtf16(Message));
+    ui->cbxLanguage->setCurrentIndex(Language);
+}
+
+void EmuSettingsDialog::writeFirmware()
+{    
+    char filename[1024];
+    strncpy(filename, ui->txtFirmwarePath->text().toStdString().c_str(), 1023); filename[1023] = '\0';
+    FILE* input = Platform::OpenLocalFile(filename, "rb");
+    if (!input) return;
+    
+    fseek(input, 0, SEEK_END);
+    u32 size = ftell(input);
+    fseek(input, 0, SEEK_SET);
+    u8 Firmware[size];
+    fread(Firmware, size, 1, input);
+    
+    fclose(input);
+
+    u8 UserSettings [256];                                                                          // based on GBATEK
+    *(u16*)&UserSettings[0x00] = 5;                                                                 // 0x00 - 0x01  version
+    UserSettings[0x02] = ui->cbxColor->currentIndex();                                              // 0x02         color
+    UserSettings[0x03] = (u8)ui->deBirthday->date().month();                                        // 0x03         birthmonth
+    UserSettings[0x04] = (u8)ui->deBirthday->date().day();                                          // 0x04         birthday
+                                                                                                    // 0x05         not used
+    memcpy(&UserSettings[0x06], ui->txtUserName->text().leftJustified(10, 0x00, true).utf16(), 20); // 0x06 - 0x19  username
+    *(u16*)&UserSettings[0x1A] = ui->txtUserName->text().length();                                  // 0x1A - 0x1B  username length
+    memcpy(&UserSettings[0x1C], ui->txtMessage->text().leftJustified(26, 0x00, true).utf16(), 52);  // 0x1C - 0x49  message
+    *(u16*)&UserSettings[0x50] = ui->txtMessage->text().length();                                   // 0x50 - 0x51  message length
+                                                                                                    // 0x52         alarm hour
+                                                                                                    // 0x53         alarm minute
+                                                                                                    // 0x54 - 0x55  not used?
+                                                                                                    // 0x56         alarm enabled
+                                                                                                    // 0x57         not used?
+    *(u16*)&UserSettings[0x58] = 0;                                                                 // 0x58 - 0x63  touchscreen calibration
+    *(u16*)&UserSettings[0x5A] = 0;                                                                 //
+    UserSettings[0x5C] = 0;                                                                         //
+    UserSettings[0x5D] = 0;                                                                         //
+    *(u16*)&UserSettings[0x5E] = 255<<4;                                                            //
+    *(u16*)&UserSettings[0x60] = 191<<4;                                                            //
+    UserSettings[0x62] = 255;                                                                       //
+    UserSettings[0x63] = 191;                                                                       //
+    UserSettings[0x64] = ui->cbxLanguage->currentIndex();                                           // 0x64         language
+    memcpy(&UserSettings[0x65], &Firmware[0x3FF65], 7);                                             /* 0x65         flags
+                                                                                                       0x66         year
+                                                                                                       0x67         unknown
+                                                                                                       0x68 - 0x6B  RTC offset */
+                                                                                                    // 0x6C - 0x6F  not used (0x00 filled)
+                                                                                                    // 0x70 - 0x71  update counter
+    *(u16*)&UserSettings[0x72] = SPI_Firmware::CRC16(&UserSettings[0], 0x70, 0xFFFF);               // 0x72 - 0x73  CRC32 checksum of 0x00 - 0x6F
+    memset(&UserSettings[0x74], 0xFF, 140);                                                         // 0x74 - 0xFF  not used (0xFF filled)
+
+    FILE* output = Platform::OpenLocalFile(filename, "wb");
+    if (!output) return;
+    
+    fwrite(&Firmware[0], 0x3FE00, 1, output);
+    fwrite(&UserSettings, 256, 1, output);
+    fwrite(&UserSettings, 256, 1, output);
+    
+    fclose(output);
+}
+
 void EmuSettingsDialog::done(int r)
 {
     needsReset = false;
@@ -132,6 +225,7 @@ void EmuSettingsDialog::done(int r)
     if (r == QDialog::Accepted)
     {
         verifyFirmware();
+        writeFirmware();
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
