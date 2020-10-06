@@ -160,7 +160,7 @@ void LoadUserSettingsFromConfig() {
     std::u16string u16Username(username.begin(), username.end());
     size_t usernameLength = std::min(u16Username.length(), (size_t) 10);
     memcpy(Firmware + UserSettings + 0x06, u16Username.data(), usernameLength * sizeof(char16_t));
-    Firmware[UserSettings+0x1A] = u16Username.length();
+    Firmware[UserSettings+0x1A] = usernameLength;
 
     // setting language
     Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
