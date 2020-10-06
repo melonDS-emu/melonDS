@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <string>
+#include <algorithm>
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
@@ -152,6 +154,32 @@ void LoadFirmwareFromFile(FILE* f)
     }
 }
 
+void LoadUserSettingsFromConfig() {
+    // setting up username
+    std::string username(Config::FirmwareUsername);
+    std::u16string u16Username(username.begin(), username.end());
+    size_t usernameLength = std::min(u16Username.length(), (size_t) 10);
+    memcpy(Firmware + UserSettings + 0x06, u16Username.data(), usernameLength * sizeof(char16_t));
+    Firmware[UserSettings+0x1A] = u16Username.length();
+
+    // setting language
+    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
+
+    // setting up color
+    Firmware[UserSettings+0x02] = Config::FirmwareFavouriteColour;
+
+    // setting up birthday
+    Firmware[UserSettings+0x03] = Config::FirmwareBirthdayMonth;
+    Firmware[UserSettings+0x04] = Config::FirmwareBirthdayDay;
+
+    // setup message
+    std::string message(Config::FirmwareMessage);
+    std::u16string u16message(message.begin(), message.end());
+    size_t messageLength = std::min(u16message.length(), (size_t) 26);
+    memcpy(Firmware + UserSettings + 0x1C, u16message.data(), messageLength * sizeof(char16_t));
+    Firmware[UserSettings+0x50] = messageLength;
+}
+
 void Reset()
 {
     if (Firmware) delete[] Firmware;
@@ -184,20 +212,12 @@ void Reset()
 
     UserSettings = userdata;
 
-    // setting up username
-    int usernameSize = strlen(Config::FirmwareUserName);
-    Firmware[UserSettings+0x1A] = usernameSize;
-    for (int i = 0; i < usernameSize; ++i) {
-        Firmware[UserSettings + 0x06 + i * 2] = Config::FirmwareUserName[i];
-        Firmware[UserSettings + 0x06 + i * 2 + 1] = '\0';
-    }
-
-    // setting language
-    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
-
     // TODO evetually: do this in DSi mode
     if (NDS::ConsoleType == 0)
     {
+        if (!f || Config::FirmwareOverrideSettings)
+            LoadUserSettingsFromConfig();
+
         // fix touchscreen coords
         *(u16*)&Firmware[userdata+0x58] = 0;
         *(u16*)&Firmware[userdata+0x5A] = 0;

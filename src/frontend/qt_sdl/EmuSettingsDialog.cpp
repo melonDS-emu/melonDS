@@ -20,6 +20,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QList>
+#include <QDateEdit>
 
 #include "types.h"
 #include "Platform.h"
@@ -259,15 +260,51 @@ void EmuSettingsDialog::on_btnFirmwareEdit_clicked()
     QFormLayout form(&dialog);
 
     QLineEdit* nameEdit = new QLineEdit(&dialog);
-    nameEdit->setText(Config::FirmwareUserName);
+    nameEdit->setText(Config::FirmwareUsername);
     form.addRow("Username", nameEdit);
 
-    QStringList languages { "Auto", "Japanese", "English", "French", "German", "Italian", "Spanish" };
-
+    QStringList languages { "Japanese", "English", "French", "German", "Italian", "Spanish" };
     QComboBox* languagesBox = new QComboBox(&dialog);
     languagesBox->addItems(languages);
-    languagesBox->setCurrentIndex(Config::FirmwareLanguage + 1);
+    languagesBox->setCurrentIndex(Config::FirmwareLanguage);
     form.addRow("Language", languagesBox);
+
+    QDateEdit* dateEdit = new QDateEdit(&dialog);
+    QDate birthDate = QDate(QDate::currentDate().year(), Config::FirmwareBirthdayMonth, Config::FirmwareBirthdayDay);
+    dateEdit->setDate(birthDate);
+    form.addRow("Birthday", dateEdit);
+
+    QStringList colours {
+        "Greyish Blue",
+        "Brown",
+        "Red",
+        "Light Pink",
+        "Orange",
+        "Yellow",
+        "Lime",
+        "Light Green",
+        "Dark Green",
+        "Turqoise",
+        "Light Blue",
+        "Blue",
+        "Dark Blue",
+        "Dark Purple",
+        "Light Purple",
+        "Dark Pink"
+    };
+    QComboBox* coloursBox = new QComboBox(&dialog);
+    coloursBox->addItems(colours);
+    coloursBox->setCurrentIndex(Config::FirmwareFavouriteColour);
+    form.addRow("Color", coloursBox);
+
+    QLineEdit* messageEdit = new QLineEdit(&dialog);
+    messageEdit->setText(Config::FirmwareMessage);
+    form.addRow("Message", messageEdit);
+
+    QCheckBox* overrideSettingsBox = new QCheckBox(&dialog);
+    overrideSettingsBox->setText("Override firmware settings");
+    overrideSettingsBox->setChecked(Config::FirmwareOverrideSettings);
+    form.addRow(overrideSettingsBox);
 
     QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
     form.addRow(&buttonBox);
@@ -276,9 +313,17 @@ void EmuSettingsDialog::on_btnFirmwareEdit_clicked()
     QObject::connect(&buttonBox, SIGNAL(rejected()), &dialog, SLOT(reject()));
 
     if (dialog.exec() == QDialog::Accepted) {
-        const char* newName = nameEdit->text().toStdString().c_str();
-        strcpy(Config::FirmwareUserName, newName);
-        Config::FirmwareLanguage = languages.indexOf(languagesBox->currentText()) - 1;
+        std::string newName = nameEdit->text().toStdString();
+        strncpy(Config::FirmwareUsername, newName.c_str(), 63); Config::FirmwareUsername[63] = '\0';
+
+        Config::FirmwareLanguage = languages.indexOf(languagesBox->currentText());
+        Config::FirmwareFavouriteColour = colours.indexOf(coloursBox->currentText());
+        Config::FirmwareBirthdayDay = dateEdit->date().day();
+        Config::FirmwareBirthdayMonth = dateEdit->date().month();
+        Config::FirmwareOverrideSettings = overrideSettingsBox->isChecked();
+
+        std::string newMessage = messageEdit->text().toStdString();
+        strncpy(Config::FirmwareMessage, newMessage.c_str(), 1023); Config::FirmwareMessage[1023] = '\0';
     }
 }
 
