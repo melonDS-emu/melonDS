@@ -30,7 +30,8 @@ class FirmwareSettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    const QStringList colours {
+    const QStringList colours
+    {
         "Greyish Blue",
         "Brown",
         "Red",
@@ -49,7 +50,8 @@ public:
         "Dark Pink"
     };
 
-    const QStringList languages {
+    const QStringList languages
+    {
         "Japanese",
         "English",
         "French",
