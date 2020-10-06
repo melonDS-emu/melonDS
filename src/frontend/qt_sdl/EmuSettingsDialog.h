@@ -58,7 +58,6 @@ private slots:
     void on_btnBIOS9Browse_clicked();
     void on_btnBIOS7Browse_clicked();
     void on_btnFirmwareBrowse_clicked();
-    void on_btnFirmwareEdit_clicked();
     void on_btnDLDISDBrowse_clicked();
 
     void on_btnDSiBIOS9Browse_clicked();

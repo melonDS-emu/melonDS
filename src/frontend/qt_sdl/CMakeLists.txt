@@ -8,6 +8,7 @@ SET(SOURCES_QT_SDL
     InputConfigDialog.cpp
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
+    FirmwareSettingsDialog.cpp
     WifiSettingsDialog.cpp
     Input.cpp
     LAN_PCap.cpp
