@@ -32,6 +32,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
+#include "FreeBIOS.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -463,10 +464,8 @@ void Reset()
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
-        printf("ARM9 BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        printf("ARM9 BIOS not found. Loading FreeBIOS.\n");
+        memcpy(ARM9BIOS, bios_arm9_bin, bios_arm9_bin_len);
     }
     else
     {
@@ -480,10 +479,8 @@ void Reset()
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
-        printf("ARM7 BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+        printf("ARM7 BIOS not found. Loading FreeBIOS.\n");
+        memcpy(ARM7BIOS, bios_arm7_bin, bios_arm7_bin_len);
     }
     else
     {
