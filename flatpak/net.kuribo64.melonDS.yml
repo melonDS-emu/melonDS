@@ -10,7 +10,7 @@ finish-args:
   - "--socket=pulseaudio"
   - "--share=network"
   - "--device=all"
-  - "--filesystem=home"
+  - "--filesystem=host:rw"
 cleanup:
   - "/include"
   - "/share/man"
@@ -21,8 +21,8 @@ modules:
     buildsystem: meson
     sources:
       - type: git
-        url: https://gitlab.freedesktop.org/slirp/libslirp
-        tag: "v4.3.1"
+        url: https://gitlab.freedesktop.org/slirp/libslirp.git
+        tag: v4.3.1
 
   - name: melonds
     buildsystem: cmake-ninja
