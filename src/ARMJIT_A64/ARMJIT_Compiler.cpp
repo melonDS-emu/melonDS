@@ -139,7 +139,7 @@ void Compiler::A_Comp_MSR()
 
             PushRegs(true);
 
-            QuickCallFunction(X3, (void*)&ARM::UpdateMode);
+            QuickCallFunction(X3, (void*)&Compiler::UpdateMode);
         
             PopRegs(true);
         }
@@ -913,6 +913,11 @@ void Compiler::Comp_AddCycles_CD()
         ADD(RCycles, RCycles, cycles);
     else
         ConstantCycles += cycles;
+}
+
+void Compiler::UpdateMode(ARM* arm, u32 oldmode, u32 newmode)
+{
+    arm->UpdateMode(oldmode, newmode);
 }
 
 }

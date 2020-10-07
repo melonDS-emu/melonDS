@@ -185,7 +185,7 @@ void Compiler::A_Comp_MSR()
             MOV(32, R(ABI_PARAM3), R(RCPSR));
             MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
             MOV(64, R(ABI_PARAM1), R(RCPU));
-            CALL((void*)&ARM::UpdateMode);
+            CALL((void*)&Compiler::UpdateMode);
 
             PopRegs(true);
         }
@@ -895,6 +895,11 @@ void Compiler::Comp_AddCycles_CD()
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
     else
         ConstantCycles += cycles;
+}
+
+void Compiler::UpdateMode(ARM* arm, u32 oldmode, u32 newmode)
+{
+    arm->UpdateMode(oldmode, newmode);
 }
 
 }
