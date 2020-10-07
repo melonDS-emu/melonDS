@@ -188,8 +188,6 @@ public:
 
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
-    static void UpdateMode(ARM* arm, u32 oldmode, u32 newmode);
-
     enum
     {
         memop_Writeback = 1 << 0,

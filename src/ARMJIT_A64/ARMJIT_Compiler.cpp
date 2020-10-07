@@ -68,6 +68,11 @@ void Compiler::A_Comp_MRS()
         MOV(rd, RCPSR);
 }
 
+void UpdateModeTrampoline(ARM* arm, u32 oldmode, u32 newmode)
+{
+    arm->UpdateMode(oldmode, newmode);
+}
+
 void Compiler::A_Comp_MSR()
 {
     Comp_AddCycles_C();
@@ -139,7 +144,7 @@ void Compiler::A_Comp_MSR()
 
             PushRegs(true);
 
-            QuickCallFunction(X3, (void*)&Compiler::UpdateMode);
+            QuickCallFunction(X3, (void*)&UpdateModeTrampoline);
         
             PopRegs(true);
         }
@@ -913,11 +918,6 @@ void Compiler::Comp_AddCycles_CD()
         ADD(RCycles, RCycles, cycles);
     else
         ConstantCycles += cycles;
-}
-
-void Compiler::UpdateMode(ARM* arm, u32 oldmode, u32 newmode)
-{
-    arm->UpdateMode(oldmode, newmode);
 }
 
 }

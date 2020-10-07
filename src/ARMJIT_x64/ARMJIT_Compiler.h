@@ -136,8 +136,6 @@ public:
     void T_Comp_BL_LONG_2();
     void T_Comp_BL_Merged();
 
-    static void UpdateMode(ARM* arm, u32 oldmode, u32 newmode);
-
     enum
     {
         memop_Writeback = 1 << 0,
