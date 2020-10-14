@@ -2033,8 +2033,7 @@ void MainWindow::onCheckForUpdates()
 
     QObject *signalSource = QObject::sender();
     connect(reply, &QNetworkReply::finished, [=]() {
-
-        if(reply->error() != QNetworkReply::NoError) {
+        if (reply->error() != QNetworkReply::NoError) {
             printf("Failed to check for updates: %s\n", reply->errorString().toStdString().c_str());
             QMessageBox::critical(this, "Error Fetching Updates", reply->errorString());
             return;
@@ -2050,13 +2049,13 @@ void MainWindow::onCheckForUpdates()
             msgBoxText += latestVersion + "\n";
             int ret = QMessageBox::information(this, "Update Available", msgBoxText + "Current Verion: " + MELONDS_VERSION
                                                , QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
-            if(ret == QMessageBox::Yes)
+            if (ret == QMessageBox::Yes)
                 QDesktopServices::openUrl(QUrl(MELONDS_URL "downloads.php"));
 
         }
         else
         {
-            if(signalSource != nullptr) // Show msgbox only when user explicitly checks for updates
+            if (signalSource != nullptr) // Show msgbox only when user explicitly checks for updates
                 QMessageBox::information(this, "No Update Found", "You are already running the latest version");
         }
 
