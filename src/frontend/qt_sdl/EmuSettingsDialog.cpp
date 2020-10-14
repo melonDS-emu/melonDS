@@ -59,6 +59,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
+    ui->chkCheckUpdateOnStart->setChecked(Config::CheckUpdateOnStart != 0);
 
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
@@ -135,6 +136,7 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+        int checkUpdateOnStart = ui->chkCheckUpdateOnStart->isChecked() ? 1:0;
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
@@ -156,6 +158,7 @@ void EmuSettingsDialog::done(int r)
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
+            || checkUpdateOnStart != Config::CheckUpdateOnStart
 #ifdef JIT_ENABLED
             || jitEnable != Config::JIT_Enable
             || jitMaxBlockSize != Config::JIT_MaxBlockSize
@@ -204,6 +207,7 @@ void EmuSettingsDialog::done(int r)
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
+            Config::CheckUpdateOnStart = checkUpdateOnStart;
 
             Config::Save();
 

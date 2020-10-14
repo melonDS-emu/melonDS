@@ -59,6 +59,7 @@ int ShowOSD;
 
 int ConsoleType;
 int DirectBoot;
+int CheckUpdateOnStart;
 
 int SocketBindAnyAddr;
 char LANDevice[128];
@@ -153,6 +154,7 @@ ConfigEntry PlatformConfigFile[] =
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+    {"CheckUpdateOnStart", 0, &CheckUpdateOnStart, 1, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},

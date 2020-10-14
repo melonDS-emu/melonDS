@@ -73,6 +73,7 @@ extern int ShowOSD;
 
 extern int ConsoleType;
 extern int DirectBoot;
+extern int CheckUpdateOnStart;
 
 extern int SocketBindAnyAddr;
 extern char LANDevice[128];

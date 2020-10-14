@@ -1277,6 +1277,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actLimitFramerate->setChecked(Config::LimitFPS != 0);
     actAudioSync->setChecked(Config::AudioSync != 0);
+
+    if (Config::CheckUpdateOnStart)
+        onCheckForUpdates();
 }
 
 MainWindow::~MainWindow()
