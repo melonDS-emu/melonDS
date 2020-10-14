@@ -22,6 +22,8 @@
 #include <string.h>
 
 #include <QApplication>
+#include <QDesktopServices>
+#include <QJsonDocument>
 #include <QMessageBox>
 #include <QMenuBar>
 #include <QFileDialog>
@@ -29,6 +31,8 @@
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 #include <SDL2/SDL.h>
 
@@ -1221,6 +1225,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
+    {
+        QMenu *menu = menubar->addMenu("About");
+
+        actCheckForUpdates = menu->addAction("Updates");
+        connect(actCheckForUpdates, &QAction::triggered, this, &MainWindow::onCheckForUpdates);
+    }
     setMenuBar(menubar);
 
     resize(Config::WindowWidth, Config::WindowHeight);
@@ -2016,6 +2026,44 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         emuThread->emuUnpause();
 }
 
+void MainWindow::onCheckForUpdates()
+{
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkReply *reply = manager->get(QNetworkRequest(QUrl(MELONDS_API_URL)));
+
+    QObject *signalSource = QObject::sender();
+    connect(reply, &QNetworkReply::finished, [=]() {
+
+        if(reply->error() != QNetworkReply::NoError) {
+            printf("Failed to check for updates: %s\n", reply->errorString().toStdString().c_str());
+            QMessageBox::critical(this, "Error Fetching Updates", reply->errorString());
+            return;
+        }
+
+        QByteArray jsonSrc = reply->readAll();
+        QJsonDocument jSonDoc = QJsonDocument::fromJson(jsonSrc);
+        QString latestVersion = jSonDoc["name"].toString();
+
+        if (latestVersion != QStringLiteral(MELONDS_VERSION))
+        {
+            QString msgBoxText = QStringLiteral("Do you want to download it?\nNew Version: ");
+            msgBoxText += latestVersion + "\n";
+            int ret = QMessageBox::information(this, "Update Available", msgBoxText + "Current Verion: " + MELONDS_VERSION
+                                               , QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+            if(ret == QMessageBox::Yes)
+                QDesktopServices::openUrl(QUrl(MELONDS_URL "downloads.php"));
+
+        }
+        else
+        {
+            if(signalSource != nullptr) // Show msgbox only when user explicitly checks for updates
+                QMessageBox::information(this, "No Update Found", "You are already running the latest version");
+        }
+
+        reply->deleteLater();
+    });
+
+}
 
 void emuStop()
 {

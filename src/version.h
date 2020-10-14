@@ -23,5 +23,7 @@
 
 #define MELONDS_URL        "http://melonds.kuribo64.net/"
 
+#define MELONDS_API_URL    "https://api.github.com/repos/Arisotura/melonDS/releases/latest"
+
 #endif // VERSION_H
 

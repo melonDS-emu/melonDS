@@ -226,6 +226,8 @@ private slots:
     void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
 
+    void onCheckForUpdates();
+
     void onTitleUpdate(QString title);
 
     void onEmuStart();
@@ -277,6 +279,8 @@ public:
     QAction* actShowOSD;
     QAction* actLimitFramerate;
     QAction* actAudioSync;
+
+    QAction *actCheckForUpdates;
 };
 
 #endif // MAIN_H

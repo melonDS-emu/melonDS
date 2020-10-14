@@ -39,7 +39,7 @@ if (BUILD_STATIC AND QT5_STATIC_DIR)
     set(Qt5Widgets_DIR ${QT5_STATIC_BASE}Widgets)
 endif()
 
-find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
+find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -78,16 +78,16 @@ endif()
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
-    target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
+    target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd)
+        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network z zstd)
     else()
-        target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets)
+        target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
     endif()
 endif()
 
