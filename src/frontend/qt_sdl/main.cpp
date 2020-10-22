@@ -21,18 +21,21 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <zip.h>
-#include <fstream>
-#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
 
 #include <QApplication>
 #include <QMessageBox>
 #include <QMenuBar>
 #include <QFileDialog>
+#include <QInputDialog>
 #include <QPaintEvent>
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
+#include <QSet>
+#include <QVector>
 
 #include <SDL2/SDL.h>
 
@@ -64,6 +67,7 @@
 
 #include "main_shaders.h"
 
+#include "ArchiveUtil.h"
 
 // TODO: uniform variable spelling
 
@@ -1416,54 +1420,58 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
-std::string extractROM(char* zipName, std::string zipDir){
-    //Open the ZIP archive
-    int err = 0;
-    zip *z = zip_open(zipName, 0, &err);
-    
-    struct zip_stat st;
-    zip_stat_init(&st);
-    zip_stat_index(z, 0, 0, &st); //Get information about the file at index 0
-    char newName[255];
-    strcpy(newName, st.name); //fix for Linux invalid encoding filename	
-    //Allocate memory for its uncompressed contents
-    u8 *contents = new u8[st.size];
-	
-    //Read the compressed file
-    zip_file *f = zip_fopen_index(z, 0, 0); //Open file at index 0
-    zip_fread(f, contents, st.size);
-    zip_fclose(f);
-
-    zip_close(z);
-
-    //Write the file (binary mode)
-    std::ofstream(zipDir + "/" + newName, std::ofstream::binary).write((char*) contents, st.size);
-    delete[] contents;
-    return zipDir + "/" + newName;
-}
-
 void MainWindow::onOpenFile()
 {
     emuThread->emuPause();
 
-    bool romExtracted = false; //No use yet but may be useful later
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl *.zip);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
-    QFileInfo filenameExtLoc = filename;
+                                                    "DS ROMs (*.nds *.dsi *.srl *.zip *.7z);;GBA ROMs (*.gba *.zip *.7z);;Other Compressed ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *tar.bz2);;Any file (*.*)");
 
-    if (filenameExtLoc.completeSuffix().toUtf8() == "zip")
+    static const QSet<QString> compressedExts = {"zip", "7z", "rar", "tar", "tar.gz", "tar.xz", "tar.bz2"};
+    if (compressedExts.contains(QFileInfo(filename).completeSuffix()))
     {
-        printf("Extracting ROM from ZIP...\n");
-	std::string extractRomLoc = extractROM(filename.toUtf8().data(), filenameExtLoc.absolutePath().toUtf8().data());
-	printf("Done.\n");
-	filename = QString::fromUtf8(extractRomLoc.c_str());
-	romExtracted = true;
-    } else if (filenameExtLoc.completeSuffix().toUtf8() == "") {
-        //do nothing
-    } else {
-	romExtracted = false;    
+        printf("Finding list of ROMs...\n");
+        QVector<QString> archiveROMList = Archive::ListArchive(filename.toUtf8().constData());
+        if (archiveROMList.size() > 2)
+        {
+            archiveROMList.removeFirst();
+            QString toLoad = QInputDialog::getItem(this, "melonDS",
+                                      "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false);
+            printf("Extracting '%s'\n", toLoad.toUtf8().constData());
+            QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), toLoad.toUtf8().constData());
+            if (extractResult[0] != QString("Err"))
+            {
+                filename = extractResult[0];
+            }
+            else 
+            {
+                QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
+            }
+        } 
+        else if (archiveROMList.size() == 2)
+        {   
+            printf("Extracting the only ROM in archive\n");
+            QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), nullptr);
+            if (extractResult[0] != QString("Err"))
+            {
+                filename = extractResult[0];
+            }
+            else 
+            {
+                QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
+            }
+        }
+        else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
+        {
+            QMessageBox::warning(this, "melonDS", "The archive is intact, but there are no files inside.");
+        }
+        else
+        {
+            QMessageBox::critical(this, "melonDS", "The archive could not be read. It may be corrupt or you don't have the permissions.");
+        }
+
     }
 	
     if (filename.isEmpty())
