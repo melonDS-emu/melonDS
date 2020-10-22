@@ -1,5 +1,5 @@
-#ifndef ARMJIT_COMPILER_H
-#define ARMJIT_COMPILER_H
+#ifndef ARMJIT_X64_COMPILER_H
+#define ARMJIT_X64_COMPILER_H
 
 #include "../dolphin/x64Emitter.h"
 

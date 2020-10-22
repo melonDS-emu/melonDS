@@ -42,7 +42,7 @@ public:
         }
 
         currentDlg = new EmuSettingsDialog(parent);
-        currentDlg->show();
+        currentDlg->open();
         return currentDlg;
     }
     static void closeDlg()
@@ -58,11 +58,13 @@ private slots:
     void on_btnBIOS9Browse_clicked();
     void on_btnBIOS7Browse_clicked();
     void on_btnFirmwareBrowse_clicked();
+    void on_btnDLDISDBrowse_clicked();
 
     void on_btnDSiBIOS9Browse_clicked();
     void on_btnDSiBIOS7Browse_clicked();
     void on_btnDSiFirmwareBrowse_clicked();
     void on_btnDSiNANDBrowse_clicked();
+    void on_btnDSiSDBrowse_clicked();
 
     void on_chkEnableJIT_toggled();
 

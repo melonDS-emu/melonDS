@@ -127,6 +127,10 @@ private:
 
     u32 WindowData, WindowReadAddr, WindowWriteAddr;
 
+    u32 ROMID;
+    u32 ChipID;
+    u32 HostIntAddr;
+
     u8 EEPROM[0x400];
     u32 EEPROMReady;
 

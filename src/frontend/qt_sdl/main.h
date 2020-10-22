@@ -69,6 +69,8 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
+    
+    void windowFullscreenToggle();
 
 private:
     volatile int EmuStatus;
@@ -193,11 +195,15 @@ private slots:
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();
+    void onImportSavefile();
     void onQuit();
 
     void onPause(bool checked);
     void onReset();
     void onStop();
+    void onEnableCheats(bool checked);
+    void onSetupCheats();
+    void onCheatsDialogFinished(int res);
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -226,6 +232,8 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
+    
+    void onFullscreenToggled();
 
 private:
     void createScreenPanel();
@@ -240,11 +248,14 @@ public:
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actImportSavefile;
     QAction* actQuit;
 
     QAction* actPause;
     QAction* actReset;
     QAction* actStop;
+    QAction* actEnableCheats;
+    QAction* actSetupCheats;
 
     QAction* actEmuSettings;
     QAction* actInputConfig;

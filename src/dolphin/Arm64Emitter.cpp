@@ -1631,7 +1631,7 @@ void ARM64XEmitter::ASR(ARM64Reg Rd, ARM64Reg Rm, int shift)
   int bits = Is64Bit(Rd) ? 64 : 32;
   SBFM(Rd, Rm, shift, bits - 1);
 }
-void ARM64XEmitter::ROR_(ARM64Reg Rd, ARM64Reg Rm, int shift)
+void ARM64XEmitter::ROR(ARM64Reg Rd, ARM64Reg Rm, int shift)
 {
   EXTR(Rd, Rm, Rm, shift);
 }

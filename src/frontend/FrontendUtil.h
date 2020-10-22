@@ -67,6 +67,9 @@ extern bool SavestateLoaded;
 // initialize the ROM handling utility
 void Init_ROM();
 
+// deinitialize the ROM handling utility
+void DeInit_ROM();
+
 // load the BIOS/firmware and boot from it
 int LoadBIOS();
 
@@ -96,6 +99,12 @@ bool SaveState(const char* filename);
 
 // undo the latest savestate load
 void UndoStateLoad();
+
+// imports savedata from an external file. Returns the difference between the filesize and the SRAM size
+int ImportSRAM(const char* filename);
+
+// enable or disable cheats
+void EnableCheats(bool enable);
 
 
 // setup the display layout based on the provided display size and parameters

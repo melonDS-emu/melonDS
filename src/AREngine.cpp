@@ -19,125 +19,63 @@
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
+#include "DSi.h"
 #include "AREngine.h"
 
 
 namespace AREngine
 {
 
-typedef struct
-{
-    u32 Code[2 * 64]; // TODO: more sensible size for this? allocate on demand?
-    bool Enabled;
+// AR code file - frontend is responsible for managing this
+ARCodeFile* CodeFile;
 
-} CheatEntry;
-
-// TODO: more sensible size for this? allocate on demand?
-CheatEntry CheatCodes[64];
-u32 NumCheatCodes;
-
-
-void ParseTextCode(char* text, int tlen, u32* code, int clen) // or whatever this should be named?
-{
-    u32 cur_word = 0;
-    u32 ndigits = 0;
-    u32 nin = 0;
-    u32 nout = 0;
-
-    char c;
-    while ((c = *text++) != '\0')
-    {
-        u32 val;
-        if (c >= '0' && c <= '9')
-            val = c - '0';
-        else if (c >= 'a' && c <= 'f')
-            val = c - 'a' + 0xA;
-        else if (c >= 'A' && c <= 'F')
-            val = c - 'A' + 0xA;
-        else
-            continue;
-
-        cur_word <<= 4;
-        cur_word |= val;
-
-        ndigits++;
-        if (ndigits >= 8)
-        {
-            if (nout >= clen)
-            {
-                printf("AR: code too long!\n");
-                return;
-            }
-
-            *code++ = cur_word;
-            nout++;
-
-            ndigits = 0;
-            cur_word = 0;
-        }
-
-        nin++;
-        if (nin >= tlen) break;
-    }
-
-    if (nout & 1)
-    {
-        printf("AR: code was missing one word\n");
-        if (nout >= clen)
-        {
-            printf("AR: code too long!\n");
-            return;
-        }
-        *code++ = 0;
-    }
-}
+u8 (*BusRead8)(u32 addr);
+u16 (*BusRead16)(u32 addr);
+u32 (*BusRead32)(u32 addr);
+void (*BusWrite8)(u32 addr, u8 val);
+void (*BusWrite16)(u32 addr, u16 val);
+void (*BusWrite32)(u32 addr, u32 val);
 
 
 bool Init()
 {
+    CodeFile = nullptr;
+
     return true;
 }
 
 void DeInit()
 {
-    //
 }
 
 void Reset()
 {
-    memset(CheatCodes, 0, sizeof(CheatCodes));
-    NumCheatCodes = 0;
+    CodeFile = nullptr;
 
-    // TODO: acquire codes from a sensible source!
-    CheatEntry* entry = &CheatCodes[0];
-    u32* ptr = &entry->Code[0];
-
-    /*char* test = R"(9209D09A 00000000
-6209B468 00000000
-B209B468 00000000
-10000672 000003FF
-D2000000 00000000
-9209D09A 00000000
-94000130 FCBF0000
-6209B468 00000000
-B209B468 00000000
-200006B3 00000001
-200006B4 00000001
-D2000000 00000000
-9209D09A 00000000
-94000130 FC7F0000
-6209B468 00000000
-B209B468 00000000
-10000672 00000000
-D2000000 00000000)";
-    ParseTextCode(test, entry->Code, 2*64);
-    printf("PARSED CODE:\n");
-    for (int i = 0; i < 2*64; i+=2)
+    if (NDS::ConsoleType == 1)
     {
-        printf("%08X %08X\n", entry->Code[i], entry->Code[i+1]);
+        BusRead8 = DSi::ARM7Read8;
+        BusRead16 = DSi::ARM7Read16;
+        BusRead32 = DSi::ARM7Read32;
+        BusWrite8 = DSi::ARM7Write8;
+        BusWrite16 = DSi::ARM7Write16;
+        BusWrite32 = DSi::ARM7Write32;
     }
-    entry->Enabled = true;
-    NumCheatCodes++;*/
+    else
+    {
+        BusRead8 = NDS::ARM7Read8;
+        BusRead16 = NDS::ARM7Read16;
+        BusRead32 = NDS::ARM7Read32;
+        BusWrite8 = NDS::ARM7Write8;
+        BusWrite16 = NDS::ARM7Write16;
+        BusWrite32 = NDS::ARM7Write32;
+    }
+}
+
+
+void SetCodeFile(ARCodeFile* file)
+{
+    CodeFile = file;
 }
 
 
@@ -147,9 +85,9 @@ D2000000 00000000)";
     case ((x)+0x08): case ((x)+0x09): case ((x)+0x0A): case ((x)+0x0B): \
     case ((x)+0x0C): case ((x)+0x0D): case ((x)+0x0E): case ((x)+0x0F)
 
-void RunCheat(CheatEntry* entry)
+void RunCheat(ARCode& arcode)
 {
-    u32* code = &entry->Code[0];
+    u32* code = &arcode.Code[0];
 
     u32 offset = 0;
     u32 datareg = 0;
@@ -166,9 +104,11 @@ void RunCheat(CheatEntry* entry)
 
     for (;;)
     {
+        if (code >= &arcode.Code[arcode.CodeLen])
+            break;
+
         u32 a = *code++;
         u32 b = *code++;
-        if ((a|b) == 0) break;
 
         u8 op = a >> 24;
 
@@ -179,7 +119,7 @@ void RunCheat(CheatEntry* entry)
                 if ((op & 0xF0) == 0xE0)
                 {
                     for (u32 i = 0; i < b; i += 8)
-                        *code += 2;
+                        code += 2;
                 }
 
                 continue;
@@ -189,15 +129,15 @@ void RunCheat(CheatEntry* entry)
         switch (op)
         {
         case16(0x00): // 32-bit write
-            NDS::ARM7Write32((a & 0x0FFFFFFF) + offset, b);
+            BusWrite32((a & 0x0FFFFFFF) + offset, b);
             break;
 
         case16(0x10): // 16-bit write
-            NDS::ARM7Write16((a & 0x0FFFFFFF) + offset, b & 0xFFFF);
+            BusWrite16((a & 0x0FFFFFFF) + offset, b & 0xFFFF);
             break;
 
         case16(0x20): // 8-bit write
-            NDS::ARM7Write8((a & 0x0FFFFFFF) + offset, b & 0xFF);
+            BusWrite8((a & 0x0FFFFFFF) + offset, b & 0xFF);
             break;
 
         case16(0x30): // IF b > u32[a]
@@ -205,7 +145,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+                u32 chk = BusRead32(a & 0x0FFFFFFF);
 
                 cond = (b > chk) ? 1:0;
             }
@@ -216,7 +156,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+                u32 chk = BusRead32(a & 0x0FFFFFFF);
 
                 cond = (b < chk) ? 1:0;
             }
@@ -227,7 +167,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+                u32 chk = BusRead32(a & 0x0FFFFFFF);
 
                 cond = (b == chk) ? 1:0;
             }
@@ -238,7 +178,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = NDS::ARM7Read32(a & 0x0FFFFFFF);
+                u32 chk = BusRead32(a & 0x0FFFFFFF);
 
                 cond = (b != chk) ? 1:0;
             }
@@ -249,7 +189,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 val = BusRead16(a & 0x0FFFFFFF);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -262,7 +202,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 val = BusRead16(a & 0x0FFFFFFF);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -275,7 +215,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 val = BusRead16(a & 0x0FFFFFFF);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -288,7 +228,7 @@ void RunCheat(CheatEntry* entry)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = NDS::ARM7Read16(a & 0x0FFFFFFF);
+                u16 val = BusRead16(a & 0x0FFFFFFF);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -297,7 +237,7 @@ void RunCheat(CheatEntry* entry)
             break;
 
         case16(0xB0): // offset = u32[a + offset]
-            offset = NDS::ARM7Read32((a & 0x0FFFFFFF) + offset);
+            offset = BusRead32((a & 0x0FFFFFFF) + offset);
             break;
 
         case 0xC0: // FOR 0..b
@@ -334,7 +274,7 @@ void RunCheat(CheatEntry* entry)
             break;
 
         case 0xC6: // u32[b] = offset
-            NDS::ARM7Write32(b, offset);
+            BusWrite32(b, offset);
             break;
 
         case 0xD0: // ENDIF
@@ -383,30 +323,30 @@ void RunCheat(CheatEntry* entry)
             break;
 
         case 0xD6: // u32[b+offset] = datareg / offset += 4
-            NDS::ARM7Write32(b + offset, datareg);
+            BusWrite32(b + offset, datareg);
             offset += 4;
             break;
 
         case 0xD7: // u16[b+offset] = datareg / offset += 2
-            NDS::ARM7Write16(b + offset, datareg & 0xFFFF);
+            BusWrite16(b + offset, datareg & 0xFFFF);
             offset += 2;
             break;
 
         case 0xD8: // u8[b+offset] = datareg / offset += 1
-            NDS::ARM7Write8(b + offset, datareg & 0xFF);
+            BusWrite8(b + offset, datareg & 0xFF);
             offset += 1;
             break;
 
         case 0xD9: // datareg = u32[b+offset]
-            datareg = NDS::ARM7Read32(b + offset);
+            datareg = BusRead32(b + offset);
             break;
 
         case 0xDA: // datareg = u16[b+offset]
-            datareg = NDS::ARM7Read16(b + offset);
+            datareg = BusRead16(b + offset);
             break;
 
         case 0xDB: // datareg = u8[b+offset]
-            datareg = NDS::ARM7Read8(b + offset);
+            datareg = BusRead8(b + offset);
             break;
 
         case 0xDC: // offset += b
@@ -421,23 +361,23 @@ void RunCheat(CheatEntry* entry)
                 u32 bytesleft = b;
                 while (bytesleft >= 8)
                 {
-                    NDS::ARM7Write32(dstaddr, *code++); dstaddr += 4;
-                    NDS::ARM7Write32(dstaddr, *code++); dstaddr += 4;
+                    BusWrite32(dstaddr, *code++); dstaddr += 4;
+                    BusWrite32(dstaddr, *code++); dstaddr += 4;
                     bytesleft -= 8;
                 }
                 if (bytesleft > 0)
                 {
                     u8* leftover = (u8*)code;
-                    *code += 2;
+                    code += 2;
                     if (bytesleft >= 4)
                     {
-                        NDS::ARM7Write32(dstaddr, *(u32*)leftover); dstaddr += 4;
+                        BusWrite32(dstaddr, *(u32*)leftover); dstaddr += 4;
                         leftover += 4;
                         bytesleft -= 4;
                     }
                     while (bytesleft > 0)
                     {
-                        NDS::ARM7Write8(dstaddr, *leftover++); dstaddr++;
+                        BusWrite8(dstaddr, *leftover++); dstaddr++;
                         bytesleft--;
                     }
                 }
@@ -453,14 +393,14 @@ void RunCheat(CheatEntry* entry)
                 u32 bytesleft = b;
                 while (bytesleft >= 4)
                 {
-                    NDS::ARM7Write32(dstaddr, NDS::ARM7Read32(srcaddr));
+                    BusWrite32(dstaddr, BusRead32(srcaddr));
                     srcaddr += 4;
                     dstaddr += 4;
                     bytesleft -= 4;
                 }
                 while (bytesleft > 0)
                 {
-                    NDS::ARM7Write8(dstaddr, NDS::ARM7Read8(srcaddr));
+                    BusWrite8(dstaddr, BusRead8(srcaddr));
                     srcaddr++;
                     dstaddr++;
                     bytesleft--;
@@ -477,13 +417,19 @@ void RunCheat(CheatEntry* entry)
 
 void RunCheats()
 {
-    // TODO: make it disableable in general
+    if (!CodeFile) return;
 
-    for (u32 i = 0; i < NumCheatCodes; i++)
+    for (ARCodeCatList::iterator i = CodeFile->Categories.begin(); i != CodeFile->Categories.end(); i++)
     {
-        CheatEntry* entry = &CheatCodes[i];
-        if (entry->Enabled)
-            RunCheat(entry);
+        ARCodeCat& cat = *i;
+
+        for (ARCodeList::iterator j = cat.Codes.begin(); j != cat.Codes.end(); j++)
+        {
+            ARCode& code = *j;
+
+            if (code.Enabled)
+                RunCheat(code);
+        }
     }
 }
 

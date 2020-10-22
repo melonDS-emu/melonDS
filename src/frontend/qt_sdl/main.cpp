@@ -41,6 +41,7 @@
 
 #include "main.h"
 #include "Input.h"
+#include "CheatsDialog.h"
 #include "EmuSettingsDialog.h"
 #include "InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
@@ -55,7 +56,9 @@
 
 #include "NDS.h"
 #include "GBACart.h"
+#ifdef OGLRENDERER_ENABLED
 #include "OpenGLSupport.h"
+#endif
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -120,7 +123,6 @@ void audioCallback(void* data, Uint8* stream, int len)
     if (num_in < len_in-margin)
     {
         int last = num_in-1;
-        if (last < 0) last = 0;
 
         for (int i = num_in; i < len_in-margin; i++)
             ((u32*)buf_in)[i] = ((u32*)buf_in)[last];
@@ -273,6 +275,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
 
     if (mainWindow->hasOGL) initOpenGL();
 }
@@ -342,13 +345,17 @@ void EmuThread::run()
     videoSettings.Soft_Threaded = Config::Threaded3D != 0;
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
 
+#ifdef OGLRENDERER_ENABLED
     if (hasOGL)
     {
         oglContext->makeCurrent(oglSurface);
         videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
     }
     else
+#endif
+    {
         videoRenderer = 0;
+    }
 
     GPU::InitRenderer(videoRenderer);
     GPU::SetRenderSettings(videoRenderer, videoSettings);
@@ -371,6 +378,8 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
+        
+        if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
@@ -400,20 +409,27 @@ void EmuThread::run()
                 if (hasOGL != mainWindow->hasOGL)
                 {
                     hasOGL = mainWindow->hasOGL;
+#ifdef OGLRENDERER_ENABLED
                     if (hasOGL)
                     {
                         oglContext->makeCurrent(oglSurface);
                         videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
                     }
                     else
+#endif
+                    {
                         videoRenderer = 0;
+                    }
                 }
                 else
                     videoRenderer = hasOGL ? Config::_3DRenderer : 0;
 
                 videoSettingsDirty = false;
+
                 videoSettings.Soft_Threaded = Config::Threaded3D != 0;
                 videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
             }
 
@@ -924,12 +940,14 @@ void ScreenPanelGL::paintGL()
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
 
+#ifdef OGLRENDERER_ENABLED
     if (GPU::Renderer != 0)
     {
         // hardware-accelerated render
         GPU::GLCompositor::BindOutputTexture();
     }
     else
+#endif
     {
         // regular render
         glBindTexture(GL_TEXTURE_2D, screenTexture);
@@ -1053,6 +1071,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
+        actImportSavefile = menu->addAction("Import savefile");
+        connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
+
         menu->addSeparator();
 
         actQuit = menu->addAction("Quit");
@@ -1070,6 +1091,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
+
+        menu->addSeparator();
+
+        actEnableCheats = menu->addAction("Enable cheats");
+        actEnableCheats->setCheckable(true);
+        connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
+
+        actSetupCheats = menu->addAction("Setup cheat codes");
+        connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1212,11 +1242,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
+    actImportSavefile->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
 
+    actSetupCheats->setEnabled(false);
+
+
+    actEnableCheats->setChecked(Config::EnableCheats != 0);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
 
@@ -1327,7 +1362,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || (ext == "gba" && RunningSomething))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
         event->acceptProposedAction();
 }
 
@@ -1651,6 +1686,41 @@ void MainWindow::onUndoStateLoad()
     OSD::AddMessage(0, "State load undone");
 }
 
+void MainWindow::onImportSavefile()
+{
+    if (!RunningSomething) return;
+
+    emuThread->emuPause();
+    QString path = QFileDialog::getOpenFileName(this,
+                                            "Select savefile",
+                                            Config::LastROMFolder,
+                                            "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
+
+    if (!path.isEmpty())
+    {
+        if (QMessageBox::warning(this,
+                        "Emulation will be reset and data overwritten",
+                        "The emulation will be reset and the current savefile overwritten.",
+                        QMessageBox::Ok, QMessageBox::Cancel) == QMessageBox::Ok)
+        {
+            int res = Frontend::Reset();
+            if (res != Frontend::Load_OK)
+            {
+                QMessageBox::critical(this, "melonDS", "Reset failed\n" + loadErrorStr(res));
+            }
+            else
+            {
+                int diff = Frontend::ImportSRAM(path.toStdString().c_str());
+                if (diff > 0)
+                    OSD::AddMessage(0, "Trimmed savefile");
+                else if (diff < 0)
+                    OSD::AddMessage(0, "Savefile shorter than SRAM");
+            }
+        }
+    }
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onQuit()
 {
     QApplication::quit();
@@ -1702,6 +1772,25 @@ void MainWindow::onStop()
 
     emuThread->emuPause();
     NDS::Stop();
+}
+
+void MainWindow::onEnableCheats(bool checked)
+{
+    Config::EnableCheats = checked?1:0;
+    Frontend::EnableCheats(Config::EnableCheats != 0);
+}
+
+void MainWindow::onSetupCheats()
+{
+    emuThread->emuPause();
+
+    CheatsDialog* dlg = CheatsDialog::openDlg(this);
+    connect(dlg, &CheatsDialog::finished, this, &MainWindow::onCheatsDialogFinished);
+}
+
+void MainWindow::onCheatsDialogFinished(int res)
+{
+    emuThread->emuUnpause();
 }
 
 
@@ -1767,14 +1856,14 @@ void MainWindow::onAudioSettingsFinished(int res)
 
 void MainWindow::onOpenWifiSettings()
 {
+    emuThread->emuPause();
+
     WifiSettingsDialog* dlg = WifiSettingsDialog::openDlg(this);
     connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
 }
 
 void MainWindow::onWifiSettingsFinished(int res)
 {
-    emuThread->emuPause();
-
     if (Wifi::MPInited)
     {
         Platform::MP_DeInit();
@@ -1783,6 +1872,9 @@ void MainWindow::onWifiSettingsFinished(int res)
 
     Platform::LAN_DeInit();
     Platform::LAN_Init();
+
+    if (WifiSettingsDialog::needsReset)
+        onReset();
 
     emuThread->emuUnpause();
 }
@@ -1892,21 +1984,51 @@ void MainWindow::onTitleUpdate(QString title)
     setWindowTitle(title);
 }
 
+void MainWindow::onFullscreenToggled()
+{
+    if (!mainWindow->isFullScreen()) 
+    {
+        mainWindow->showFullScreen(); 
+        mainWindow->menuBar()->hide();
+    }
+    else
+    {
+        mainWindow->showNormal();
+        mainWindow->menuBar()->show();
+    }
+}
+
 void MainWindow::onEmuStart()
 {
-    for (int i = 1; i < 9; i++)
+    // TODO: make savestates work in DSi mode!!
+    if (Config::ConsoleType == 1)
     {
-        actSaveState[i]->setEnabled(true);
-        actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        for (int i = 0; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(false);
+            actLoadState[i]->setEnabled(false);
+        }
+        actUndoStateLoad->setEnabled(false);
     }
-    actSaveState[0]->setEnabled(true);
-    actLoadState[0]->setEnabled(true);
-    actUndoStateLoad->setEnabled(false);
+    else
+    {
+        for (int i = 1; i < 9; i++)
+        {
+            actSaveState[i]->setEnabled(true);
+            actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+        }
+        actSaveState[0]->setEnabled(true);
+        actLoadState[0]->setEnabled(true);
+        actUndoStateLoad->setEnabled(false);
+    }
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
     actReset->setEnabled(true);
     actStop->setEnabled(true);
+    actImportSavefile->setEnabled(true);
+
+    actSetupCheats->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -1919,10 +2041,13 @@ void MainWindow::onEmuStop()
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
+    actImportSavefile->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+
+    actSetupCheats->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -2054,6 +2179,8 @@ int main(int argc, char** argv)
     micWavBuffer = nullptr;
 
     Frontend::Init_ROM();
+    Frontend::EnableCheats(Config::EnableCheats != 0);
+
     Frontend::Init_Audio(audioFreq);
 
     if (Config::MicInputType == 1)
@@ -2080,7 +2207,7 @@ int main(int argc, char** argv)
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl"))
+        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
             int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
 
@@ -2109,6 +2236,8 @@ int main(int argc, char** argv)
     delete emuThread;
 
     Input::CloseJoystick();
+
+    Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
     if (micDevice)   SDL_CloseAudioDevice(micDevice);

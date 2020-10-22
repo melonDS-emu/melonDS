@@ -16,23 +16,49 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
-#include "ARCodeList.h"
+#ifndef ARCODEFILE_H
+#define ARCODEFILE_H
 
-/*
-    Action Replay code list format
+#include <list>
 
-    header:
-    00 - magic MLAR
-    04 - version major
-    06 - version minor
-    08 - length
-    0C - number of codes
+#include "types.h"
 
-    code header:
-    00 - magic MLCD
-    04 - name length
-    08 - code length
-    0C - enable flag
-    10 - code data (UTF8 name then actual code)
-*/
+typedef struct
+{
+    char Name[128];
+    bool Enabled;
+    u32 CodeLen;
+    u32 Code[2*64];
+
+} ARCode;
+
+typedef std::list<ARCode> ARCodeList;
+
+typedef struct
+{
+    char Name[128];
+    ARCodeList Codes;
+
+} ARCodeCat;
+
+typedef std::list<ARCodeCat> ARCodeCatList;
+
+
+class ARCodeFile
+{
+public:
+    ARCodeFile(const char* filename);
+    ~ARCodeFile();
+
+    bool Error;
+
+    bool Load();
+    bool Save();
+
+    ARCodeCatList Categories;
+
+private:
+    char Filename[1024];
+};
+
+#endif // ARCODEFILE_H

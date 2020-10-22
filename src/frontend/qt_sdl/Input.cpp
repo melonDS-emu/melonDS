@@ -98,7 +98,9 @@ int GetEventKeyVal(QKeyEvent* event)
 void KeyPress(QKeyEvent* event)
 {
     int keyHK = GetEventKeyVal(event);
-    int keyKP = keyHK & ~event->modifiers();
+    int keyKP = keyHK;
+    if (event->modifiers() != Qt::KeypadModifier)
+        keyKP &= ~event->modifiers();
 
     for (int i = 0; i < 12; i++)
         if (keyKP == Config::KeyMapping[i])
@@ -112,7 +114,9 @@ void KeyPress(QKeyEvent* event)
 void KeyRelease(QKeyEvent* event)
 {
     int keyHK = GetEventKeyVal(event);
-    int keyKP = keyHK & ~event->modifiers();
+    int keyKP = keyHK;
+    if (event->modifiers() != Qt::KeypadModifier)
+        keyKP &= ~event->modifiers();
 
     for (int i = 0; i < 12; i++)
         if (keyKP == Config::KeyMapping[i])

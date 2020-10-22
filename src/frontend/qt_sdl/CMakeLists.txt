@@ -3,6 +3,7 @@ project(qt_sdl)
 SET(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
+	CheatsDialog.cpp
     EmuSettingsDialog.cpp
     InputConfigDialog.cpp
     VideoSettingsDialog.cpp

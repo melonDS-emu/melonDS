@@ -51,7 +51,7 @@ int _3DRenderer;
 int Threaded3D;
 
 int GL_ScaleFactor;
-int GL_Antialias;
+int GL_BetterPolygons;
 
 int LimitFPS;
 int AudioSync;
@@ -71,6 +71,8 @@ int MicInputType;
 char MicWavPath[1024];
 
 char LastROMFolder[1024];
+
+int EnableCheats;
 
 bool EnableJIT;
 
@@ -108,6 +110,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1, NULL, 0},
     {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, NULL, 0},
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
+    {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, NULL, 0},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
@@ -117,6 +120,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_Reset",               0, &HKJoyMapping[HK_Reset],               -1, NULL, 0},
     {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1, NULL, 0},
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
+    {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FullscreenToggle],    -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
@@ -133,15 +137,15 @@ ConfigEntry PlatformConfigFile[] =
     {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
-    {"ScreenUseGL",         0, &ScreenUseGL,         1, NULL, 0},
+    {"ScreenUseGL",         0, &ScreenUseGL,         0, NULL, 0},
     {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
     {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
 
-    {"3DRenderer", 0, &_3DRenderer, 1, NULL, 0},
+    {"3DRenderer", 0, &_3DRenderer, 0, NULL, 0},
     {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
 
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
-    {"GL_Antialias", 0, &GL_Antialias, 0, NULL, 0},
+    {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
     {"AudioSync", 0, &AudioSync, 1, NULL, 0},
@@ -161,6 +165,8 @@ ConfigEntry PlatformConfigFile[] =
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
 
     {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
+
+    {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

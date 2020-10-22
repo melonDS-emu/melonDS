@@ -775,7 +775,7 @@ bool DoSavestate(Savestate* file)
 
     file->Var8(&WRAMCnt);
 
-    file->Var32((u32*)&RunningGame);
+    file->Bool32(&RunningGame);
 
     if (!file->Saving)
     {
@@ -1122,6 +1122,11 @@ void SetLidClosed(bool closed)
 void MicInputFrame(s16* data, int samples)
 {
     return SPI_TSC::MicInputFrame(data, samples);
+}
+
+int ImportSRAM(u8* data, u32 length)
+{
+    return NDSCart::ImportSRAM(data, length);
 }
 
 
@@ -1817,15 +1822,16 @@ void debug(u32 param)
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);*/
+
     FILE*
-    shit = fopen("debug/dump9.bin", "wb");
+    shit = fopen("debug/picto9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/dump7.bin", "wb");
+    shit = fopen("debug/picto7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
@@ -2536,7 +2542,8 @@ void ARM7Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
+    if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+        printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -3454,6 +3461,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
         PowerControl9 = val & 0x820F;
         GPU::SetPowerCnt(PowerControl9);
         return;
+
+    case 0x04100010:
+        NDSCart::WriteROMData(val);
+        return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3744,7 +3755,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000301:
-        val & 0xC0;
+        val &= 0xC0;
         if      (val == 0x40) printf("!! GBA MODE NOT SUPPORTED\n");
         else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();

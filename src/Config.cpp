@@ -31,16 +31,22 @@ const char* kConfigFile = "melonDS.ini";
 char BIOS9Path[1024];
 char BIOS7Path[1024];
 char FirmwarePath[1024];
+int DLDIEnable;
+char DLDISDPath[1024];
 
 char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
 char DSiNANDPath[1024];
+int DSiSDEnable;
+char DSiSDPath[1024];
+
+int RandomizeMAC;
 
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
 int JIT_MaxBlockSize = 32;
-int JIT_BranchOptimisations = 2;
+int JIT_BranchOptimisations = true;
 int JIT_LiteralOptimisations = true;
 int JIT_FastMemory = true;
 #endif
@@ -50,16 +56,22 @@ ConfigEntry ConfigFile[] =
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
     {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
+    {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
 
     {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
+    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
+    {"DSiSDPath", 1, DSiSDPath, 0, "", 1023},
+
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
 
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},
-    {"JIT_BranchOptimisations", 0, &JIT_BranchOptimisations, 2, NULL, 0},
+    {"JIT_BranchOptimisations", 0, &JIT_BranchOptimisations, 1, NULL, 0},
     {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
     {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
 #endif
@@ -104,7 +116,7 @@ void Load()
     while (!feof(f))
     {
         fgets(linebuf, 1024, f);
-        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\n]", entryname, entryval);
+        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
         entryname[31] = '\0';
         if (ret < 2) continue;
 
@@ -157,7 +169,7 @@ void Save()
         if (entry->Type == 0)
             fprintf(f, "%s=%d\n", entry->Name, *(int*)entry->Value);
         else
-            fprintf(f, "%s=%s\n", entry->Name, entry->Value);
+            fprintf(f, "%s=%s\n", entry->Name, (char*)entry->Value);
 
         entry++;
     }

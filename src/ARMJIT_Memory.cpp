@@ -279,6 +279,7 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
 #endif
 }
 
+#ifndef __SWITCH__
 void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
@@ -303,6 +304,7 @@ void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
     mprotect(dst, size, posixProt);
 #endif
 }
+#endif
 
 struct Mapping
 {
@@ -524,8 +526,8 @@ bool MapAtAddress(u32 addr)
         {
             u32 sectionOffset = offset;
             bool hasCode = isExecutable && ARMJIT::PageContainsCode(&range[offset / 512]);
-            while ((!isExecutable || ARMJIT::PageContainsCode(&range[offset / 512]) == hasCode)
-                && offset < mirrorSize
+            while (offset < mirrorSize
+                && (!isExecutable || ARMJIT::PageContainsCode(&range[offset / 512]) == hasCode)
                 && (!skipDTCM || mirrorStart + offset != NDS::ARM9->DTCMBase))
             {
                 assert(states[(mirrorStart + offset) >> 12] == memstate_Unmapped);
@@ -773,6 +775,7 @@ bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mi
         {
             mirrorStart = addr & ~0xFFFFF;
             mirrorSize = 0x100000;
+            return true;
         }
         return false;
     case memregion_VWRAM:
@@ -1007,7 +1010,7 @@ void WifiWrite32(u32 addr, u32 val)
 
 u32 WifiRead32(u32 addr)
 {
-    return Wifi::Read(addr) | (Wifi::Read(addr + 2) << 16);
+    return (u32)Wifi::Read(addr) | ((u32)Wifi::Read(addr + 2) << 16);
 }
 
 template <typename T>

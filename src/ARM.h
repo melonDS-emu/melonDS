@@ -24,7 +24,10 @@
 #include "types.h"
 #include "NDS.h"
 
-#define ROR(x, n) (((x) >> (n)) | ((x) << (32-(n))))
+inline u32 ROR(u32 x, u32 n)
+{
+    return (x >> (n&0x1F)) | (x << ((32-n)&0x1F));
+}
 
 enum
 {

@@ -2,7 +2,7 @@
 <h2 align="center"><b>melonDS</b></h2>
 <p align="center">
 <a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
-<a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 0.8.3"><img src="https://img.shields.io/badge/release-0.8.3-%235c913b.svg"></a>
+<a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 0.9"><img src="https://img.shields.io/badge/release-0.9-%235c913b.svg"></a>
 <a href="https://www.gnu.org/licenses/gpl-3.0" alt="License: GPLv3"><img src="https://img.shields.io/badge/License-GPL%20v3-%23ff554d.svg"></a>
 <a href="https://kiwiirc.com/client/irc.badnik.net/?nick=IRC-Source_?#melonds" alt="IRC channel: #melonds"><img src="https://img.shields.io/badge/IRC%20chat-%23melonds-%23dd2e44.svg"></a>
 </p>
@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev libslirp-dev libzip-dev
+sudo apt-get install cmake libgtk-3-dev libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtdeclarative5-dev libslirp-dev libarchive-dev
 ```
 
 * Compile:
@@ -55,7 +55,23 @@ make -j$(nproc --all)
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,libslirp,libzip,toolchain}`
+
+#### Dynamic builds (with DLLs)
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive}`
+5. Run the following commands
+   ```bash
+   git clone https://github.com/Arisotura/melonDS.git
+   cd melonDS
+   mkdir build
+   cd build
+   cmake .. -G "MSYS Makefiles"
+   make -j$(nproc --all)
+   ../msys-dist.sh
+   ```
+If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
+
+#### Static builds (without DLLs, standalone executable)
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
@@ -64,10 +80,9 @@ make -j$(nproc --all)
    cd build
    cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DQT5_STATIC_DIR=/mingw64/qt5-static
    make -j$(nproc --all)
-   ../msys-dist.sh
+   mkdir dist && cp melonDS.exe dist
    ```
-
-If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
+If everything went well, melonDS should now be in the `dist` folder.
 
 ## TODO LIST
 

@@ -79,6 +79,7 @@ typedef struct
     bool Soft_Threaded;
 
     int GL_ScaleFactor;
+    bool GL_BetterPolygons;
 
 } RenderSettings;
 
@@ -436,6 +437,7 @@ void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
 
+#ifdef OGLRENDERER_ENABLED
 namespace GLCompositor
 {
 
@@ -449,6 +451,7 @@ void RenderFrame();
 void BindOutputTexture();
 
 }
+#endif
 
 }
 

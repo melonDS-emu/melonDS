@@ -29,6 +29,7 @@ enum
     HK_Reset,
     HK_FastForward,
     HK_FastForwardToggle,
+    HK_FullscreenToggle,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_MAX
@@ -64,7 +65,7 @@ extern int _3DRenderer;
 extern int Threaded3D;
 
 extern int GL_ScaleFactor;
-extern int GL_Antialias;
+extern int GL_BetterPolygons;
 
 extern int LimitFPS;
 extern int AudioSync;
@@ -84,6 +85,8 @@ extern int MicInputType;
 extern char MicWavPath[1024];
 
 extern char LastROMFolder[1024];
+
+extern int EnableCheats;
 
 }
 

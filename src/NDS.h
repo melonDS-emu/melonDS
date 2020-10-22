@@ -47,6 +47,8 @@ enum
     Event_DSi_SDIOTransfer,
     Event_DSi_NWifi,
 
+    Event_DSi_RAMSizeChange,
+
     Event_MAX
 };
 
@@ -208,6 +210,8 @@ bool IsLidClosed();
 void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);
+
+int ImportSRAM(u8* data, u32 length);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);

@@ -106,7 +106,7 @@ void Compiler::A_Comp_MSR()
     Comp_AddCycles_C();
 
     OpArg val = CurInstr.Instr & (1 << 25)
-        ? Imm32(ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)))
+        ? Imm32(::ROR((CurInstr.Instr & 0xFF), ((CurInstr.Instr >> 7) & 0x1E)))
         : MapReg(CurInstr.A_Reg(0));
 
     u32 mask = 0;

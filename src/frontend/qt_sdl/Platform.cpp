@@ -77,7 +77,7 @@ u8 PacketBuffer[2048];
 
 void Init(int argc, char** argv)
 {
-#if defined(__WIN32__) || defined(UNIX_PORTABLE)
+#if defined(__WIN32__) || defined(PORTABLE)
     if (argc > 0 && strlen(argv[0]) > 0)
     {
         int len = strlen(argv[0]);
@@ -137,13 +137,20 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     }
 
     QIODevice::OpenMode qmode;
-    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+') {
+    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+')
+    {
 		qmode = QIODevice::OpenModeFlag::ReadWrite;
-	} else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+') {
+	}
+	else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+')
+    {
     	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
-	} else if (mode[0] == 'w') {
+	}
+	else if (mode[0] == 'w')
+    {
         qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::WriteOnly;
-    } else {
+    }
+    else
+    {
         qmode = QIODevice::OpenModeFlag::ReadOnly;
     }
 
@@ -167,7 +174,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     else
     {
 #ifdef PORTABLE
-        fullpath = path;
+        fullpath = QString(EmuDirectory) + QDir::separator() + path;
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
