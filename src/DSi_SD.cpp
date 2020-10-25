@@ -778,6 +778,23 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         return;
 
+    case 1: // SEND_OP_COND
+        // CHECKME!!
+        // also TODO: it's different for the SD card
+        if (Internal)
+        {
+            param &= ~(1<<30);
+            OCR &= 0xBF000000;
+            OCR |= (param & 0x40FFFFFF);
+            Host->SendResponse(OCR, true);
+            SetState(0x01);
+        }
+        else
+        {
+            printf("CMD1 on SD card!!\n");
+        }
+        return;
+
     case 2:
     case 10: // get CID
         Host->SendResponse(*(u32*)&CID[12], false);
@@ -799,6 +816,11 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             printf("CMD3 on SD card: TODO\n");
             Host->SendResponse((CSR & 0x1FFF) | ((CSR >> 6) & 0x2000) | ((CSR >> 8) & 0xC000) | (1 << 16), true);
         }
+        return;
+
+    case 6: // MMC: 'SWITCH'
+        // TODO!
+        Host->SendResponse(CSR, true);
         return;
 
     case 7: // select card (by RCA)
