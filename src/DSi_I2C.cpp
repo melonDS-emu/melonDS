@@ -50,7 +50,7 @@ void Reset()
     Registers[0x10] = 0x00; // power btn
     Registers[0x11] = 0x00; // reset
     Registers[0x12] = 0x00; // power btn tap
-    Registers[0x20] = 0x83; // battery
+    Registers[0x20] = 0x8F; // battery
     Registers[0x21] = 0x07;
     Registers[0x30] = 0x13;
     Registers[0x31] = 0x00; // camera power
