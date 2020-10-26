@@ -189,6 +189,8 @@ void WriteCnt(u8 val)
             case 0x4A: Data = DSi_BPTWL::Read(islast); break;
             case 0x78: Data = DSi_Camera0->Read(islast); break;
             case 0x7A: Data = DSi_Camera1->Read(islast); break;
+            case 0xA0:
+            case 0xE0: Data = 0xFF; break;
             default:
                 printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
                 Data = 0xFF;
@@ -213,6 +215,8 @@ void WriteCnt(u8 val)
                 case 0x4A: DSi_BPTWL::Start(); break;
                 case 0x78: DSi_Camera0->Start(); break;
                 case 0x7A: DSi_Camera1->Start(); break;
+                case 0xA0:
+                case 0xE0: ack = false; break;
                 default:
                     printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
                     ack = false;
@@ -228,6 +232,8 @@ void WriteCnt(u8 val)
                 case 0x4A: DSi_BPTWL::Write(Data, islast); break;
                 case 0x78: DSi_Camera0->Write(Data, islast); break;
                 case 0x7A: DSi_Camera1->Write(Data, islast); break;
+                case 0xA0:
+                case 0xE0: ack = false; break;
                 default:
                     printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
                     ack = false;
