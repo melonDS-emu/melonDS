@@ -129,7 +129,9 @@ void DSi_Camera::ResetCam()
     RegAddr = 0;
     RegData = 0;
 
-    PLLCnt = 0;
+    PLLDiv = 0x0366;
+    PLLPDiv = 0x00F5;
+    PLLCnt = 0x21F9;
     ClocksCnt = 0;
     StandbyCnt = 0x4029; // checkme
     MiscCnt = 0;
@@ -211,6 +213,8 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     switch (addr)
     {
     case 0x0000: return 0x2280; // chip ID
+    case 0x0010: return PLLDiv;
+    case 0x0012: return PLLPDiv;
     case 0x0014: return PLLCnt;
     case 0x0016: return ClocksCnt;
     case 0x0018: return StandbyCnt;
@@ -227,6 +231,12 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 {
     switch (addr)
     {
+    case 0x0010:
+        PLLDiv = val & 0x3FFF;
+        return;
+    case 0x0012:
+        PLLPDiv = val & 0xBFFF;
+        return;
     case 0x0014:
         // shouldn't be instant either?
         val &= 0x7FFF;

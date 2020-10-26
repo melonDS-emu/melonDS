@@ -58,6 +58,8 @@ private:
     u16 I2C_ReadReg(u16 addr);
     void I2C_WriteReg(u16 addr, u16 val);
 
+    u16 PLLDiv;
+    u16 PLLPDiv;
     u16 PLLCnt;
     u16 ClocksCnt;
     u16 StandbyCnt;
