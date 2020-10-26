@@ -28,8 +28,10 @@ public:
     static void DeInit();
     static void Reset();
 
-    static void Process(u32 param);
+    static void IRQ(u32 param);
     static void RequestFrame(u32 cam);
+
+    static void Transfer(u32 pos);
 
     DSi_Camera(u32 num);
     ~DSi_Camera();

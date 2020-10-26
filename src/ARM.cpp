@@ -256,18 +256,6 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     // aging cart debug crap
     //if (addr == 0x0201764C) printf("capture test %d: R1=%08X\n", R[6], R[1]);
     //if (addr == 0x020175D8) printf("capture test %d: res=%08X\n", R[6], R[0]);
-    if(addr==0x0219BA2D) printf("CAM RESET FROM %08X\n", R[15]);
-    if(addr==0x0219BB69) printf("CAM SHITO FROM %08X\n", R[15]);
-    if(addr==0x0200BA45) printf("CAM SHITO2 FROM %08X\n", R[15]);
-    if(addr==0x0200B9ED) printf("CAM SHITO3 FROM %08X\n", R[15]);
-    if(addr==0x0200B9BD) printf("CAM SETUP START FROM %08X\n", R[15]);
-    if(R[15]==0x0200B9E6) printf("CAM SETUP END FROM %08X\n", addr);
-    if(addr==0x0219AA5B) printf("CAM LOOP BACK FROM %08X\n", R[15]);
-    if(addr==0x0200BD0D) printf("GUILLOTINE FIVE MILLION %08X\n", R[15]);
-    if(addr==0x0200512D) printf("GUILLOTINE SIX MILLION %08X\n", R[15]);
-    if(addr==0x0219A585) printf("GUILLOTINE SEVEN MILLION %08X\n", R[15]);
-    if(addr==0x0219BAF1) printf("CAM GET DRQ BIT %08X\n", R[15]);
-    if(addr==0x0219BA91) printf("CAM STOP TRANSFER %08X\n", R[15]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;

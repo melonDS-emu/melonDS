@@ -32,7 +32,13 @@ u8 DSi_Camera::FrameBuffer[640*480*4];
 u32 DSi_Camera::FrameLength;
 u32 DSi_Camera::TransferPos;
 
-const u32 kCameraInterval = 1024*16; // interval between camera data blocks
+// note on camera data/etc intervals
+// on hardware those are likely affected by several factors
+// namely, how long cameras take to process frames
+// camera IRQ is fired at roughly 15FPS with default config
+
+const u32 kIRQInterval = 1120000; // ~30 FPS
+const u32 kTransferStart = 60000;
 
 
 bool DSi_Camera::Init()
@@ -61,34 +67,32 @@ void DSi_Camera::Reset()
     TransferPos = 0;
     FrameLength = 256*192*2; // TODO: make it check frame size, data type, etc
 
-    NDS::ScheduleEvent(NDS::Event_DSi_Camera, true, kCameraInterval, Process, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
 
-void DSi_Camera::Process(u32 param)
+void DSi_Camera::IRQ(u32 param)
 {
     DSi_Camera* activecam = nullptr;
 
     // TODO: check which camera has priority if both are activated
+    // (or does it just jumble both data sources together, like it
+    // does for, say, overlapping VRAM?)
     if      (DSi_Camera0->IsActivated()) activecam = DSi_Camera0;
     else if (DSi_Camera1->IsActivated()) activecam = DSi_Camera1;
 
     if (activecam)
     {
-        if (TransferPos == 0)
-            RequestFrame(activecam->Num);
+        RequestFrame(activecam->Num);
 
-        Cnt |= (1<<4);
-        if (Cnt & (1<<11)) NDS::SetIRQ(0, NDS::IRQ_DSi_Camera);
-    }
-    else
-    {
-        TransferPos = 0;
+        if (Cnt & (1<<11))
+            NDS::SetIRQ(0, NDS::IRQ_DSi_Camera);
+
+        if (Cnt & (1<<15))
+            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, Transfer, 0);
     }
 
-    // TODO: check the interval for this?
-    // on hardware the delay is likely determined by how long the camera takes to process raw data
-    NDS::ScheduleEvent(NDS::Event_DSi_Camera, true, kCameraInterval, Process, 0);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
 void DSi_Camera::RequestFrame(u32 cam)
@@ -109,6 +113,32 @@ void DSi_Camera::RequestFrame(u32 cam)
             else
                 *px = 0xFC00 | ((y >> 3) << 5);
         }
+    }
+}
+
+void DSi_Camera::Transfer(u32 pos)
+{
+    u32 numscan = (Cnt & 0x000F) + 1;
+    u32 numpix = numscan * 256; // CHECKME
+
+    // TODO: present data
+    //printf("CAM TRANSFER POS=%d/%d\n", pos, 0x6000*2);
+
+    DSi::CheckNDMAs(0, 0x0B);
+
+    pos += numpix;
+    if (pos >= 0x6000*2) // HACK
+    {
+        // transfer done
+    }
+    else
+    {
+        // keep going
+
+        // TODO: must be tweaked such that each block has enough time to transfer
+        u32 delay = numpix*2 + 16;
+
+        NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, Transfer, pos);
     }
 }
 
@@ -290,6 +320,7 @@ u32 DSi_Camera::Read32(u32 addr)
     {
     case 0x04004204:
         {
+            return 0;
             if (!(Cnt & (1<<15))) return 0; // CHECKME
             u32 ret = *(u32*)&FrameBuffer[TransferPos];
             TransferPos += 4;
@@ -346,22 +377,22 @@ void DSi_Camera::Write16(u32 addr, u16 val)
             u16 oldmask;
             if (Cnt & 0x8000)
             {
-                val &= 0x8F00;
+                val &= 0x8F20;
                 oldmask = 0x601F;
             }
             else
             {
-                val &= 0xEF0F;
+                val &= 0xEF2F;
                 oldmask = 0x0010;
             }
 
-            Cnt = (Cnt & oldmask) | val;
+            Cnt = (Cnt & oldmask) | (val & ~0x0020);
             if (val & (1<<5)) Cnt &= ~(1<<4);
 
             if ((val & (1<<15)) && !(Cnt & (1<<15)))
             {
                 // start transfer
-                DSi::CheckNDMAs(0, 0x0B);
+                //DSi::CheckNDMAs(0, 0x0B);
             }
         }
         return;

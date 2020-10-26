@@ -46,7 +46,8 @@ enum
     Event_DSi_SDMMCTransfer,
     Event_DSi_SDIOTransfer,
     Event_DSi_NWifi,
-    Event_DSi_Camera,
+    Event_DSi_CamIRQ,
+    Event_DSi_CamTransfer,
 
     Event_DSi_RAMSizeChange,
 
