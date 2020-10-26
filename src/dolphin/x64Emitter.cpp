@@ -1214,7 +1214,7 @@ void XEmitter::ROL(int bits, const OpArg& dest, const OpArg& shift)
 {
   WriteShift(bits, dest, shift, 0);
 }
-void XEmitter::ROR_(int bits, const OpArg& dest, const OpArg& shift)
+void XEmitter::ROR(int bits, const OpArg& dest, const OpArg& shift)
 {
   WriteShift(bits, dest, shift, 1);
 }

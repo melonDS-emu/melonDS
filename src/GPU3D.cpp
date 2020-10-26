@@ -470,7 +470,7 @@ void DoSavestate(Savestate* file)
         file->VarArray(vtx->Color, sizeof(s32)*3);
         file->VarArray(vtx->TexCoords, sizeof(s16)*2);
 
-        file->Var32((u32*)&vtx->Clipped);
+        file->Bool32(&vtx->Clipped);
 
         file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
@@ -507,7 +507,7 @@ void DoSavestate(Savestate* file)
         file->VarArray(vtx->Color, sizeof(s32)*3);
         file->VarArray(vtx->TexCoords, sizeof(s16)*2);
 
-        file->Var32((u32*)&vtx->Clipped);
+        file->Bool32(&vtx->Clipped);
 
         file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
@@ -545,17 +545,17 @@ void DoSavestate(Savestate* file)
 
         file->VarArray(poly->FinalZ, sizeof(s32)*10);
         file->VarArray(poly->FinalW, sizeof(s32)*10);
-        file->Var32((u32*)&poly->WBuffer);
+        file->Bool32(&poly->WBuffer);
 
         file->Var32(&poly->Attr);
         file->Var32(&poly->TexParam);
         file->Var32(&poly->TexPalette);
 
-        file->Var32((u32*)&poly->FacingView);
-        file->Var32((u32*)&poly->Translucent);
+        file->Bool32(&poly->FacingView);
+        file->Bool32(&poly->Translucent);
 
-        file->Var32((u32*)&poly->IsShadowMask);
-        file->Var32((u32*)&poly->IsShadow);
+        file->Bool32(&poly->IsShadowMask);
+        file->Bool32(&poly->IsShadow);
 
         if (file->IsAtleastVersion(4, 1))
             file->Var32((u32*)&poly->Type);
@@ -2528,13 +2528,19 @@ void VBlank()
 void VCount215()
 {
     if (GPU::Renderer == 0) SoftRenderer::RenderFrame();
+#ifdef OGLRENDERER_ENABLED
     else                    GLRenderer::RenderFrame();
+#endif
 }
 
 u32* GetLine(int line)
 {
     if (GPU::Renderer == 0) return SoftRenderer::GetLine(line);
+#ifdef OGLRENDERER_ENABLED
     else                    return GLRenderer::GetLine(line);
+#else
+    return NULL;
+#endif
 }
 
 

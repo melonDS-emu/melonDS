@@ -279,6 +279,7 @@ bool UnmapFromRange(u32 addr, u32 num, u32 offset, u32 size)
 #endif
 }
 
+#ifndef __SWITCH__
 void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
@@ -303,6 +304,7 @@ void SetCodeProtectionRange(u32 addr, u32 size, u32 num, int protection)
     mprotect(dst, size, posixProt);
 #endif
 }
+#endif
 
 struct Mapping
 {

@@ -69,6 +69,8 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
+    
+    void windowFullscreenToggle();
 
 private:
     volatile int EmuStatus;
@@ -193,6 +195,7 @@ private slots:
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();
+    void onImportSavefile();
     void onQuit();
 
     void onPause(bool checked);
@@ -229,6 +232,8 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
+    
+    void onFullscreenToggled();
 
 private:
     void createScreenPanel();
@@ -243,6 +248,7 @@ public:
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
+    QAction* actImportSavefile;
     QAction* actQuit;
 
     QAction* actPause;

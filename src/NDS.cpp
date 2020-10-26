@@ -775,7 +775,7 @@ bool DoSavestate(Savestate* file)
 
     file->Var8(&WRAMCnt);
 
-    file->Var32((u32*)&RunningGame);
+    file->Bool32(&RunningGame);
 
     if (!file->Saving)
     {
@@ -1122,6 +1122,11 @@ void SetLidClosed(bool closed)
 void MicInputFrame(s16* data, int samples)
 {
     return SPI_TSC::MicInputFrame(data, samples);
+}
+
+int ImportSRAM(u8* data, u32 length)
+{
+    return NDSCart::ImportSRAM(data, length);
 }
 
 
@@ -2996,6 +3001,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
+    case 0x04000184: return ARM9IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3373,10 +3379,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000130:
         KeyCnt = val >> 16;
         return;
+
     case 0x04000180:
+    case 0x04000184:
         ARM9IOWrite16(addr, val);
         return;
-
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
         {
@@ -3635,6 +3642,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
+    case 0x04000184: return ARM7IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3935,6 +3943,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
+    case 0x04000184:
         ARM7IOWrite16(addr, val);
         return;
     case 0x04000188:
@@ -3978,6 +3987,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
+
+    case 0x040001C0:
+        SPI::WriteCnt(val & 0xFFFF);
+        SPI::WriteData((val >> 16) & 0xFF);
+        return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;

@@ -1,5 +1,5 @@
-#ifndef ARMJIT_COMPILER_H
-#define ARMJIT_COMPILER_H
+#ifndef ARMJIT_A64_COMPILER_H
+#define ARMJIT_A64_COMPILER_H
 
 #include "../ARM.h"
 #include "../ARMJIT.h"

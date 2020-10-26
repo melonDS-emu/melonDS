@@ -588,6 +588,21 @@ void UndoStateLoad()
     }
 }
 
+int ImportSRAM(const char* filename)
+{
+    FILE* file = fopen(filename, "rb");
+    fseek(file, 0, SEEK_END);
+    u32 size = ftell(file);
+    u8* importData = new u8[size];
+    rewind(file);
+    fread(importData, size, 1, file);
+    fclose(file);
+
+    int diff = NDS::ImportSRAM(importData, size);
+    delete[] importData;
+    return diff;
+}
+
 void EnableCheats(bool enable)
 {
     CheatsOn = enable;

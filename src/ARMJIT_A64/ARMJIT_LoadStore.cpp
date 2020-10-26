@@ -42,7 +42,7 @@ s64 Compiler::RewriteMemAccess(u64 pc)
         return patch.PatchOffset;
     }
     printf("this is a JIT bug! %08x\n", __builtin_bswap32(*(u32*)pc));
-    assert(false);
+    abort();
 }
 
 bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
@@ -65,7 +65,7 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     if (size == 32)
     {
         CurCPU->DataRead32(addr & ~0x3, &val);
-        val = ROR(val, (addr & 0x3) << 3);
+        val = ::ROR(val, (addr & 0x3) << 3);
     }
     else if (size == 16)
     {
@@ -151,7 +151,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     {
         if (offset.Reg.ShiftType == ST_ROR)
         {
-            ROR_(W0, offset.Reg.Rm, offset.Reg.ShiftAmount);
+            ROR(W0, offset.Reg.Rm, offset.Reg.ShiftAmount);
             offset = Op2(W0);
         }
 
@@ -220,7 +220,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                 if (size == 32)
                 {
                     if (staticAddress & 0x3)
-                        ROR_(rdMapped, W0, (staticAddress & 0x3) << 3);
+                        ROR(rdMapped, W0, (staticAddress & 0x3) << 3);
                     else
                         MOV(rdMapped, W0);
                 }
