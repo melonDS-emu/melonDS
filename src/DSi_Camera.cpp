@@ -320,7 +320,7 @@ u32 DSi_Camera::Read32(u32 addr)
     {
     case 0x04004204:
         {
-            return 0;
+            return 0xFC00801F;
             if (!(Cnt & (1<<15))) return 0; // CHECKME
             u32 ret = *(u32*)&FrameBuffer[TransferPos];
             TransferPos += 4;

@@ -1470,7 +1470,7 @@ void HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
 
-    timer->Counter += timer->Reload << 16;
+    timer->Counter += (timer->Reload << 10);
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1486,11 +1486,11 @@ void HandleTimerOverflow(u32 tid)
         if ((timer->Cnt & 0x84) != 0x84)
             break;
 
-        timer->Counter += 0x10000;
-        if (timer->Counter >> 16)
+        timer->Counter += (1 << 10);
+        if (!(timer->Counter >> 26))
             break;
 
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
         if (timer->Cnt & (1<<6))
             SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1505,8 +1505,13 @@ void RunTimer(u32 tid, s32 cycles)
 
     u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
-    if (timer->Counter < oldcount)
+    //if (timer->Counter < oldcount)
+    //    HandleTimerOverflow(tid);
+    while (timer->Counter >> 26)
+    {
+        timer->Counter -= (1 << 26);
         HandleTimerOverflow(tid);
+    }
 }
 
 void RunTimers(u32 cpu)
@@ -1623,7 +1628,7 @@ u16 TimerGetCounter(u32 timer)
     RunTimers(timer>>2);
     u32 ret = Timers[timer].Counter;
 
-    return ret >> 16;
+    return ret >> 10;
 }
 
 void TimerStart(u32 id, u16 cnt)
@@ -1633,11 +1638,11 @@ void TimerStart(u32 id, u16 cnt)
     u16 newstart = cnt & (1<<7);
 
     timer->Cnt = cnt;
-    timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
+    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
 
     if ((!curstart) && newstart)
     {
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
 
         /*if ((cnt & 0x84) == 0x80)
         {
@@ -1799,6 +1804,15 @@ void StartSqrt()
 
 void debug(u32 param)
 {
+    if (param==1312)
+    {
+        u32 timer = 0x10000 - (Timers[3].Counter >> 16);
+        timer *= 16;
+        timer += (0x10000 - (Timers[2].Counter >> 16));
+        printf("TIMER=%d (%04X/%04X)\n", timer, (Timers[2].Counter >> 16), (Timers[3].Counter >> 16));
+        return;
+    }
+
     printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
     printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
