@@ -3116,6 +3116,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
         NDSCart::WriteSPIData(val);
         return;
 
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
+
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
     case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
     case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
@@ -3230,6 +3234,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = val & 0x8404;
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 16)); 
         return;
 
     case 0x040001A0:
@@ -3719,6 +3727,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000138: RTC::Write(val, true); return;
 
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
+
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
@@ -3825,6 +3837,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = val & 0x8404;
+        return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
