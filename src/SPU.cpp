@@ -61,8 +61,6 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
-const u32 kSamplesPerRun = 1;
-
 const u32 OutputBufferSize = 2*1024;
 s16 OutputBuffer[2 * OutputBufferSize];
 volatile u32 OutputReadOffset;
@@ -111,7 +109,7 @@ void Reset()
     Capture[0]->Reset();
     Capture[1]->Reset();
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
 }
 
 void Stop()
@@ -416,11 +414,11 @@ void Channel::NextSample_Noise()
 }
 
 template<u32 type>
-void Channel::Run(s32* buf, u32 samples)
+s32 Channel::Run()
 {
-    if (!(Cnt & (1<<31))) return;
+    if (!(Cnt & (1<<31))) return 0;
 
-    if ((type < 3) && ((Length+LoopPos) < 16)) return;
+    if ((type < 3) && ((Length+LoopPos) < 16)) return 0;
 
     if (KeyOn)
     {
@@ -428,45 +426,32 @@ void Channel::Run(s32* buf, u32 samples)
         KeyOn = false;
     }
 
-    for (u32 s = 0; s < samples; s++)
+    Timer += 512; // 1 sample = 512 cycles at 16MHz
+
+    while (Timer >> 16)
     {
-        Timer += 512; // 1 sample = 512 cycles at 16MHz
+        Timer = TimerReload + (Timer - 0x10000);
 
-        while (Timer >> 16)
+        switch (type)
         {
-            Timer = TimerReload + (Timer - 0x10000);
-
-            switch (type)
-            {
-            case 0: NextSample_PCM8(); break;
-            case 1: NextSample_PCM16(); break;
-            case 2: NextSample_ADPCM(); break;
-            case 3: NextSample_PSG(); break;
-            case 4: NextSample_Noise(); break;
-            }
+        case 0: NextSample_PCM8(); break;
+        case 1: NextSample_PCM16(); break;
+        case 2: NextSample_ADPCM(); break;
+        case 3: NextSample_PSG(); break;
+        case 4: NextSample_Noise(); break;
         }
-
-        s32 val = (s32)CurSample;
-        val <<= VolumeShift;
-        val *= Volume;
-        buf[s] = val;
-
-        if (!(Cnt & (1<<31))) break;
     }
+
+    s32 val = (s32)CurSample;
+    val <<= VolumeShift;
+    val *= Volume;
+    return val;
 }
 
-void Channel::PanOutput(s32* inbuf, u32 samples, s32* leftbuf, s32* rightbuf)
+void Channel::PanOutput(s32 in, s32& left, s32& right)
 {
-    for (u32 s = 0; s < samples; s++)
-    {
-        s32 val = (s32)inbuf[s];
-
-        s32 l = ((s64)val * (128-Pan)) >> 10;
-        s32 r = ((s64)val * Pan) >> 10;
-
-        leftbuf[s] += l;
-        rightbuf[s] += r;
-    }
+    left += ((s64)in * (128-Pan)) >> 10;
+    right += ((s64)in * Pan) >> 10;
 }
 
 
@@ -602,39 +587,31 @@ void CaptureUnit::Run(s32 sample)
 }
 
 
-void Mix(u32 samples)
+void Mix(u32 dummy)
 {
-    s32 channelbuf[32];
-    s32 leftbuf[32], rightbuf[32];
-    s32 ch0buf[32], ch1buf[32], ch2buf[32], ch3buf[32];
-    s32 leftoutput[32], rightoutput[32];
-
-    for (u32 s = 0; s < samples; s++)
-    {
-        leftbuf[s] = 0; rightbuf[s] = 0;
-        leftoutput[s] = 0; rightoutput[s] = 0;
-    }
+    s32 left = 0, right = 0;
+    s32 leftoutput = 0, rightoutput = 0;
 
     if (Cnt & (1<<15))
     {
-        Channels[0]->DoRun(ch0buf, samples);
-        Channels[1]->DoRun(ch1buf, samples);
-        Channels[2]->DoRun(ch2buf, samples);
-        Channels[3]->DoRun(ch3buf, samples);
+        s32 ch0 = Channels[0]->DoRun();
+        s32 ch1 = Channels[1]->DoRun();
+        s32 ch2 = Channels[2]->DoRun();
+        s32 ch3 = Channels[3]->DoRun();
 
         // TODO: addition from capture registers
-        Channels[0]->PanOutput(ch0buf, samples, leftbuf, rightbuf);
-        Channels[2]->PanOutput(ch2buf, samples, leftbuf, rightbuf);
+        Channels[0]->PanOutput(ch0, left, right);
+        Channels[2]->PanOutput(ch2, left, right);
 
-        if (!(Cnt & (1<<12))) Channels[1]->PanOutput(ch1buf, samples, leftbuf, rightbuf);
-        if (!(Cnt & (1<<13))) Channels[3]->PanOutput(ch3buf, samples, leftbuf, rightbuf);
+        if (!(Cnt & (1<<12))) Channels[1]->PanOutput(ch1, left, right);
+        if (!(Cnt & (1<<13))) Channels[3]->PanOutput(ch3, left, right);
 
         for (int i = 4; i < 16; i++)
         {
             Channel* chan = Channels[i];
 
-            chan->DoRun(channelbuf, samples);
-            chan->PanOutput(channelbuf, samples, leftbuf, rightbuf);
+            s32 channel = chan->DoRun();
+            chan->PanOutput(channel, left, right);
         }
 
         // sound capture
@@ -642,32 +619,24 @@ void Mix(u32 samples)
 
         if (Capture[0]->Cnt & (1<<7))
         {
-            for (u32 s = 0; s < samples; s++)
-            {
-                s32 val = leftbuf[s];
+            s32 val = left;
 
-                val >>= 8;
-                if      (val < -0x8000) val = -0x8000;
-                else if (val > 0x7FFF)  val = 0x7FFF;
+            val >>= 8;
+            if      (val < -0x8000) val = -0x8000;
+            else if (val > 0x7FFF)  val = 0x7FFF;
 
-                Capture[0]->Run(val);
-                if (!(Capture[0]->Cnt & (1<<7))) break;
-            }
+            Capture[0]->Run(val);
         }
 
         if (Capture[1]->Cnt & (1<<7))
         {
-            for (u32 s = 0; s < samples; s++)
-            {
-                s32 val = rightbuf[s];
+            s32 val = right;
 
-                val >>= 8;
-                if      (val < -0x8000) val = -0x8000;
-                else if (val > 0x7FFF)  val = 0x7FFF;
+            val >>= 8;
+            if      (val < -0x8000) val = -0x8000;
+            else if (val > 0x7FFF)  val = 0x7FFF;
 
-                Capture[1]->Run(val);
-                if (!(Capture[1]->Cnt & (1<<7))) break;
-            }
+            Capture[1]->Run(val);
         }
 
         // final output
@@ -675,31 +644,25 @@ void Mix(u32 samples)
         switch (Cnt & 0x0300)
         {
         case 0x0000: // left mixer
-            {
-                for (u32 s = 0; s < samples; s++)
-                    leftoutput[s] = leftbuf[s];
-            }
+            leftoutput = left;
             break;
         case 0x0100: // channel 1
             {
                 s32 pan = 128 - Channels[1]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    leftoutput[s] = ((s64)ch1buf[s] * pan) >> 10;
+                leftoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0200: // channel 3
             {
                 s32 pan = 128 - Channels[3]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    leftoutput[s] = ((s64)ch3buf[s] * pan) >> 10;
+                leftoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0300: // channel 1+3
             {
                 s32 pan1 = 128 - Channels[1]->Pan;
                 s32 pan3 = 128 - Channels[3]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    leftoutput[s] = (((s64)ch1buf[s] * pan1) >> 10) + (((s64)ch3buf[s] * pan3) >> 10);
+                leftoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
         }
@@ -707,65 +670,53 @@ void Mix(u32 samples)
         switch (Cnt & 0x0C00)
         {
         case 0x0000: // right mixer
-            {
-                for (u32 s = 0; s < samples; s++)
-                    rightoutput[s] = rightbuf[s];
-            }
+            rightoutput = right;
             break;
         case 0x0400: // channel 1
             {
                 s32 pan = Channels[1]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    rightoutput[s] = ((s64)ch1buf[s] * pan) >> 10;
+                rightoutput = ((s64)ch1 * pan) >> 10;
             }
             break;
         case 0x0800: // channel 3
             {
                 s32 pan = Channels[3]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    rightoutput[s] = ((s64)ch3buf[s] * pan) >> 10;
+                rightoutput = ((s64)ch3 * pan) >> 10;
             }
             break;
         case 0x0C00: // channel 1+3
             {
                 s32 pan1 = Channels[1]->Pan;
                 s32 pan3 = Channels[3]->Pan;
-                for (u32 s = 0; s < samples; s++)
-                    rightoutput[s] = (((s64)ch1buf[s] * pan1) >> 10) + (((s64)ch3buf[s] * pan3) >> 10);
+                rightoutput = (((s64)ch1 * pan1) >> 10) + (((s64)ch3 * pan3) >> 10);
             }
             break;
         }
     }
 
-    for (u32 s = 0; s < samples; s++)
+    leftoutput = ((s64)leftoutput * MasterVolume) >> 7;
+    rightoutput = ((s64)rightoutput * MasterVolume) >> 7;
+
+    leftoutput >>= 8;
+    if      (leftoutput < -0x8000) leftoutput = -0x8000;
+    else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
+    rightoutput >>= 8;
+    if      (rightoutput < -0x8000) rightoutput = -0x8000;
+    else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
+
+    OutputBuffer[OutputWriteOffset    ] = leftoutput >> 1;
+    OutputBuffer[OutputWriteOffset + 1] = rightoutput >> 1;
+    OutputWriteOffset += 2;
+    OutputWriteOffset &= ((2*OutputBufferSize)-1);
+    if (OutputWriteOffset == OutputReadOffset)
     {
-        s32 l = leftoutput[s];
-        s32 r = rightoutput[s];
-
-        l = ((s64)l * MasterVolume) >> 7;
-        r = ((s64)r * MasterVolume) >> 7;
-
-        l >>= 8;
-        if      (l < -0x8000) l = -0x8000;
-        else if (l > 0x7FFF)  l = 0x7FFF;
-        r >>= 8;
-        if      (r < -0x8000) r = -0x8000;
-        else if (r > 0x7FFF)  r = 0x7FFF;
-
-        OutputBuffer[OutputWriteOffset    ] = l >> 1;
-        OutputBuffer[OutputWriteOffset + 1] = r >> 1;
-        OutputWriteOffset += 2;
-        OutputWriteOffset &= ((2*OutputBufferSize)-1);
-        if (OutputWriteOffset == OutputReadOffset)
-        {
-            //printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
-            // advance the read position too, to avoid losing the entire FIFO
-            OutputReadOffset += 2;
-            OutputReadOffset &= ((2*OutputBufferSize)-1);
-        }
+        //printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
+        // advance the read position too, to avoid losing the entire FIFO
+        OutputReadOffset += 2;
+        OutputReadOffset &= ((2*OutputBufferSize)-1);
     }
 
-    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024*kSamplesPerRun, Mix, kSamplesPerRun);
+    NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
 }
 
 

@@ -33,7 +33,7 @@ void DoSavestate(Savestate* file);
 
 void SetBias(u16 bias);
 
-void Mix(u32 samples);
+void Mix(u32 dummy);
 
 void TrimOutput();
 void DrainOutput();
@@ -123,26 +123,24 @@ public:
     void NextSample_PSG();
     void NextSample_Noise();
 
-    template<u32 type> void Run(s32* buf, u32 samples);
+    template<u32 type> s32 Run();
 
-    void DoRun(s32* buf, u32 samples)
+    s32 DoRun()
     {
-        for (u32 s = 0; s < samples; s++)
-            buf[s] = 0;
-
         switch ((Cnt >> 29) & 0x3)
         {
-        case 0: Run<0>(buf, samples); break;
-        case 1: Run<1>(buf, samples); break;
-        case 2: Run<2>(buf, samples); break;
+        case 0: return Run<0>(); break;
+        case 1: return Run<1>(); break;
+        case 2: return Run<2>(); break;
         case 3:
-            if      (Num >= 14) Run<4>(buf, samples);
-            else if (Num >= 8)  Run<3>(buf, samples);
-            break;
+            if      (Num >= 14) return Run<4>();
+            else if (Num >= 8)  return Run<3>();
+        default:
+            return 0;
         }
     }
 
-    void PanOutput(s32* inbuf, u32 samples, s32* leftbuf, s32* rightbuf);
+    void PanOutput(s32 in, s32& left, s32& right);
 
 private:
     u32 (*BusRead32)(u32 addr);
