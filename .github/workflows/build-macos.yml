@@ -21,14 +21,7 @@ jobs:
     - name: Install dependencies
       working-directory: ${{runner.workspace}}
       run: |
-        brew install gcc git cmake make meson ninja sdl2 qt5
-        curl -O https://elmarco.fedorapeople.org/libslirp-4.3.1.tar.xz
-        tar xf libslirp-4.3.1.tar.xz
-        cd libslirp-4.3.1
-        sed -i -e 's/,--version-script//g' meson.build
-        meson build
-        ninja -C build install
-        cd ..
+        brew install gcc git cmake make meson ninja sdl2 qt5 libslirp
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
