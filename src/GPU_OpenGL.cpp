@@ -45,6 +45,9 @@ GLuint CompScreenInputTex;
 GLuint CompScreenOutputTex;
 GLuint CompScreenOutputFB;
 
+GLuint CaptureTex[2][4];
+GLuint CaptureFB[2][4];
+
 
 bool Init()
 {
@@ -121,6 +124,17 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+    glGenFramebuffers(8, &CaptureFB[0][0]);
+    glGenTextures(8, &CaptureTex[0][0]);
+    for (int i = 0; i < 8; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>2][i&0x3]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     return true;
@@ -128,6 +142,9 @@ bool Init()
 
 void DeInit()
 {
+    glDeleteFramebuffers(8, &CaptureFB[0][0]);
+    glDeleteTextures(8, &CaptureTex[0][0]);
+
     glDeleteFramebuffers(1, &CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);
     glDeleteTextures(1, &CompScreenOutputTex);
@@ -160,9 +177,35 @@ void SetRenderSettings(RenderSettings& settings)
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CompScreenOutputTex, 0);
     glDrawBuffers(1, fbassign);
 
+    for (int i = 0; i < 8; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>2][i&0x3]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenW, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureFB[i>>2][i&0x3]);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureTex[i>>2][i&0x3], 0);
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+
+void DoCapture(u32 capcnt)
+{
+    u32 dstvram = (capcnt >> 16) & 0x3;
+
+    // TODO: blank out destination buffer?
+    if (!(GPU::VRAMMap_LCDC & (1<<dstvram)))
+        return;
+
+    if ((capcnt & 0xEF000000) != 0x80000000)
+    {
+        printf("GLCompositor: capture type %08X no good, can't accelerate\n", capcnt);
+        return;
+    }
+
+    // COMPLETE ME!
+}
 
 void RenderFrame()
 {

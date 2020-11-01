@@ -928,6 +928,16 @@ void GPU2D::DrawScanline(u32 line)
 
 void GPU2D::VBlank()
 {
+#ifdef OGLRENDERER_ENABLED
+    if (Accelerated)
+    {
+        if ((Num == 0) && (CaptureCnt & (1<<31)))
+        {
+            GPU::GLCompositor::DoCapture(CaptureCnt);
+        }
+    }
+#endif
+
     CaptureCnt &= ~(1<<31);
 
     DispFIFOReadPtr = 0;
@@ -950,13 +960,13 @@ void GPU2D::VBlankEnd()
     //OBJMosaicYCount = 0;
 
 #ifdef OGLRENDERER_ENABLED
-    if (Accelerated)
+    /*if (Accelerated)
     {
         if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
         {
             GPU3D::GLRenderer::PrepareCaptureFrame();
         }
-    }
+    }*/
 #endif
 }
 

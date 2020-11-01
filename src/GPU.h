@@ -447,6 +447,7 @@ void Reset();
 
 void SetRenderSettings(RenderSettings& settings);
 
+void DoCapture(u32 capcnt);
 void RenderFrame();
 void BindOutputTexture();
 
