@@ -84,6 +84,21 @@ If everything went well, melonDS and the libraries it needs should now be in the
    ```
 If everything went well, melonDS should now be in the `dist` folder.
 
+### macOS:
+1. Install the [Homebrew Package Manager](https://brew.sh)
+2. Install dependencies: `brew install git pkg-config cmake sdl2 qt5 libslirp`
+3. Compile:
+   ```zsh
+   git clone https://github.com/Arisotura/melonDS.git
+   cd melonDS
+   mkdir build && cd build
+   cmake .. -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+   make -j$(sysctl -n hw.ncpu)
+   mkdir dist && cp melonDS dist
+   ```
+If everything went well, melonDS should now be in the `dist` folder.
+
+   
 ## TODO LIST
 
  * DSi emulation
