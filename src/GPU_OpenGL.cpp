@@ -45,8 +45,10 @@ GLuint CompScreenInputTex;
 GLuint CompScreenOutputTex;
 GLuint CompScreenOutputFB;
 
-GLuint CaptureTex[2][4];
-GLuint CaptureFB[2][4];
+GLuint CaptureTex[4][2];
+GLuint CaptureFB[4][2];
+int CaptureSet[4];
+u32 CaptureCnt;
 
 
 bool Init()
@@ -73,6 +75,8 @@ bool Init()
         glUniform1i(uni_id, 0);
         uni_id = glGetUniformLocation(CompShader[i][2], "_3DTex");
         glUniform1i(uni_id, 1);
+        uni_id = glGetUniformLocation(CompShader[i][2], "CaptureTex");
+        glUniform1i(uni_id, 2);
     }
 
 #define SETVERTEX(i, x, y) \
@@ -128,7 +132,7 @@ bool Init()
     glGenTextures(8, &CaptureTex[0][0]);
     for (int i = 0; i < 8; i++)
     {
-        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>2][i&0x3]);
+        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>1][i&0x1]);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -158,6 +162,10 @@ void DeInit()
 
 void Reset()
 {
+    for (int i = 0; i < 4; i++)
+        CaptureSet[i] = 0;
+
+    CaptureCnt = 0;
 }
 
 
@@ -179,11 +187,11 @@ void SetRenderSettings(RenderSettings& settings)
 
     for (int i = 0; i < 8; i++)
     {
-        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>2][i&0x3]);
+        glBindTexture(GL_TEXTURE_2D, CaptureTex[i>>1][i&0x1]);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenW, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, CaptureFB[i>>2][i&0x3]);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureTex[i>>2][i&0x3], 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, CaptureFB[i>>1][i&0x1]);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CaptureTex[i>>1][i&0x1], 0);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -204,7 +212,7 @@ void DoCapture(u32 capcnt)
         return;
     }
 
-    // COMPLETE ME!
+    CaptureCnt = capcnt;
 }
 
 void RenderFrame()
@@ -238,9 +246,47 @@ void RenderFrame()
     glActiveTexture(GL_TEXTURE1);
     GPU3D::GLRenderer::SetupAccelFrame();
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, CaptureTex[3][CaptureSet[3]]);
+
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
+
+    // take care of capture as needed
+    if (CaptureCnt & (1<<31))
+    {
+        u32 dstvram = (CaptureCnt >> 16) & 0x3;
+
+        CaptureSet[dstvram] ^= 1;
+        int cset = CaptureSet[dstvram];
+
+        u32 capwidth, capheight;
+        switch ((CaptureCnt >> 20) & 0x3)
+        {
+        case 0: capwidth = 128; capheight = 128; break;
+        case 1: capwidth = 256; capheight = 64;  break;
+        case 2: capwidth = 256; capheight = 128; break;
+        case 3: capwidth = 256; capheight = 192; break;
+        }
+
+        u32 yoffset = ((CaptureCnt >> 18) & 0x3) * 64;
+
+        capwidth *= Scale;
+        capheight *= Scale;
+        yoffset *= Scale;
+
+        // TODO: other sources!!
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, CompScreenOutputFB);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CaptureFB[dstvram][cset]);
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+        // TODO: offset and shit!
+        glBlitFramebuffer(0, 192*Scale, capwidth, 192*Scale+capheight, 0, 0, capwidth, capheight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        CaptureCnt = 0;
+    }
 
     glFlush();
 }

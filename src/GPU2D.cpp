@@ -1509,7 +1509,8 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
     }
     else
     {
-        if (Num == 0)
+        //if (Num == 0)
+        if (true)
         {
             for (int i = 0; i < 256; i++)
             {
@@ -1538,7 +1539,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = 0x04000000 | (val1 & 0xFF);
+                    BGOBJLine[512+i] = 0x04000000 | (val1 & 0xFF) | ((val1 & 0xFF0000) << 8);
                 }
                 else if ((flag1 & 0xC0) == 0x40)
                 {
@@ -1550,7 +1551,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8) | (val1 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8) | (val1 & 0xFF) | ((val1 & 0xFF0000) << 8);
                 }
                 else if (((flag2 & 0xC0) == 0x40) && ((BlendCnt & 0x01C0) == 0x0140))
                 {
@@ -1573,7 +1574,7 @@ void GPU2D::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val1;
                     BGOBJLine[256+i] = ColorComposite(i, val1, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val2 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val2 & 0xFF) | ((val2 & 0xFF0000) << 8);
                 }
                 else
                 {
@@ -2000,6 +2001,44 @@ void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
         if (bgcnt & 0x0004)
         {
             // direct color bitmap
+
+            if (Accelerated && yshift<=8)
+            {
+                if (true) // TODO insert condition here!!
+                {
+                    for (int i = 0; i < 256; i++)
+                    {
+                        if (WindowMask[i] & (1<<bgnum))
+                        {
+                            /*s32 finalX, finalY;
+                            if (mosaic)
+                            {
+                                int im = CurBGXMosaicTable[i];
+                                finalX = rotX - (im * rotA);
+                                finalY = rotY - (im * rotC);
+                            }
+                            else
+                            {
+                                finalX = rotX;
+                                finalY = rotY;
+                            }
+
+                            if (!(finalX & ofxmask) && !(finalY & ofymask))*/
+                            {
+                                BGOBJLine[i+512] = BGOBJLine[i+256];
+                                BGOBJLine[i+256] = BGOBJLine[i];
+                                BGOBJLine[i] = 0x40800000 | i; // placeholder
+                                //BGOBJLine[i] = 0x40100000 | ((finalX >> 8) & 0xFF) | (finalY & 0xFF00); // placeholder
+                            }
+                        }
+                    }
+
+                    BGXRefInternal[bgnum-2] += rotB;
+                    BGYRefInternal[bgnum-2] += rotD;
+
+                    return;
+                }
+            }
 
             u16 color;
 

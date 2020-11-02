@@ -43,6 +43,7 @@ uniform uint u3DScale;
 
 uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
+uniform sampler2D CaptureTex;
 
 smooth in vec2 fTexcoord;
 
@@ -70,7 +71,12 @@ void main()
 
             float xpos = val3.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 192);
-            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+            ivec4 _3dpix;
+            if ((val3.a & 0x80) == 0x80)
+                _3dpix = ivec4(texelFetch(CaptureTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+                         * vec4(63,63,63,31));
+            else
+                _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0)
@@ -91,7 +97,12 @@ void main()
 
             float xpos = val3.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 192);
-            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+            ivec4 _3dpix;
+            if ((val3.a & 0x80) == 0x80)
+                _3dpix = ivec4(texelFetch(CaptureTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+                         * vec4(63,63,63,31));
+            else
+                _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0)
@@ -111,7 +122,12 @@ void main()
 
             float xpos = val3.r + fract(fTexcoord.x);
             float ypos = mod(fTexcoord.y, 192);
-            ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+            ivec4 _3dpix;
+            if ((val3.a & 0x80) == 0x80)
+                _3dpix = ivec4(texelFetch(CaptureTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
+                         * vec4(63,63,63,31));
+            else
+                _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
 
             if (_3dpix.a > 0)
