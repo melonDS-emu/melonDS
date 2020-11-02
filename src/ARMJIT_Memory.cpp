@@ -641,7 +641,7 @@ void Init()
 
     MemoryBase = (u8*)mmap(NULL, MemoryTotalSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
     #ifdef __APPLE__
-        char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid())];
+        char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
         sprintf(fastmem_pid_name, "melondsfastmem%d", getpid());
         MemoryFile = shm_open(fastmem_pid_name, O_RDWR|O_CREAT, 0600);
     #else    
@@ -682,7 +682,7 @@ void DeInit()
     virtmemFree(MemoryBaseCodeMem, MemoryTotalSize);
     free(MemoryBase);
 #elif defined(__APPLE__)
-    char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid())];
+    char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
     sprintf(fastmem_pid_name, "melondsfastmem%d", getpid());
     shm_unlink(fastmem_pid_name);
 #elif defined(_WIN32)
