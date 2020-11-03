@@ -23,6 +23,7 @@
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
+#include <QMutex>
 #include <QOpenGLContext>
 
 #include "Platform.h"
@@ -187,53 +188,77 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
 }
 
-void* Thread_Create(void (* func)())
+Thread* Thread_Create(void (* func)())
 {
     QThread* t = QThread::create(func);
     t->start();
-    return (void*) t;
+    return (Thread*) t;
 }
 
-void Thread_Free(void* thread)
+void Thread_Free(Thread* thread)
 {
     QThread* t = (QThread*) thread;
     t->terminate();
     delete t;
 }
 
-void Thread_Wait(void* thread)
+void Thread_Wait(Thread* thread)
 {
     ((QThread*) thread)->wait();
 }
 
 
-void* Semaphore_Create()
+Semaphore* Semaphore_Create()
 {
-    return new QSemaphore();
+    return (Semaphore*)new QSemaphore();
 }
 
-void Semaphore_Free(void* sema)
+void Semaphore_Free(Semaphore* sema)
 {
     delete (QSemaphore*) sema;
 }
 
-void Semaphore_Reset(void* sema)
+void Semaphore_Reset(Semaphore* sema)
 {
     QSemaphore* s = (QSemaphore*) sema;
 
     s->acquire(s->available());
 }
 
-void Semaphore_Wait(void* sema)
+void Semaphore_Wait(Semaphore* sema)
 {
     ((QSemaphore*) sema)->acquire();
 }
 
-void Semaphore_Post(void* sema)
+void Semaphore_Post(Semaphore* sema)
 {
     ((QSemaphore*) sema)->release();
 }
 
+Mutex* Mutex_Create()
+{
+    return (Mutex*)new QMutex();
+}
+
+void Mutex_Free(Mutex* mutex)
+{
+    delete (QMutex*) mutex;
+}
+
+void Mutex_Lock(Mutex* mutex)
+{
+    ((QMutex*) mutex)->lock();
+}
+
+void Mutex_Unlock(Mutex* mutex)
+{
+    ((QMutex*) mutex)->unlock();
+}
+
+bool Mutex_TryLock(Mutex* mutex)
+{
+    return ((QMutex*) mutex)->try_lock();
+}
 
 void* GL_GetProcAddress(const char* proc)
 {
