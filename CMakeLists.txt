@@ -65,6 +65,8 @@ if (CMAKE_BUILD_TYPE STREQUAL Release)
 	add_link_options(-s)
 endif()
 
+add_link_options(-no-pie)
+
 if (ENABLE_LTO)
 	add_compile_options(-flto)
 	add_link_options(-flto)
