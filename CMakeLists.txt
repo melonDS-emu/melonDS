@@ -65,8 +65,20 @@ if (CMAKE_BUILD_TYPE STREQUAL Release)
 	add_link_options(-s)
 endif()
 
-add_compile_options(-fno-pic)
 add_link_options(-no-pie)
+
+if (ENABLE_LTO)
+	add_compile_options(-flto)
+	add_link_options(-flto)
+
+	if (CMAKE_C_COMPILER_ID STREQUAL "GCC")
+		set(CMAKE_AR "gcc-ar")
+		set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
+		set(CMAKE_C_ARCHIVE_FINISH   true)
+		set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
+		set(CMAKE_CXX_ARCHIVE_FINISH   true)
+	endif()
+endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 

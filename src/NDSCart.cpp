@@ -1037,6 +1037,13 @@ void RelocateSave(const char* path, bool write)
 int ImportSRAM(const u8* data, u32 length)
 {
     memcpy(NDSCart_SRAM::SRAM, data, std::min(length, NDSCart_SRAM::SRAMLength));
+    FILE* f = Platform::OpenFile(NDSCart_SRAM::SRAMPath, "wb");
+    if (f)
+    {
+        fwrite(NDSCart_SRAM::SRAM, NDSCart_SRAM::SRAMLength, 1, f);
+        fclose(f);
+    }
+
     return length - NDSCart_SRAM::SRAMLength;
 }
 

@@ -355,10 +355,10 @@ void EmuThread::run()
     Input::Init();
 
     u32 nframes = 0;
-    u32 starttick = SDL_GetTicks();
-    u32 lasttick = starttick;
-    u32 lastmeasuretick = lasttick;
-    u32 fpslimitcount = 0;
+    double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
+    double lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
+    double frameLimitError = 0.0;
+    double lastMeasureTime = lastTime;
 
     char melontitle[100];
 
@@ -492,49 +492,43 @@ void EmuThread::run()
                 SDL_UnlockMutex(audioSyncLock);
             }
 
-            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
+            double frametimeStep = nlines / (60.0 * 263.0);
 
             {
-                u32 curtick = SDL_GetTicks();
-                u32 delay = curtick - lasttick;
+                double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
                 bool limitfps = Config::LimitFPS && !fastforward;
                 if (limitfps)
                 {
-                    float wantedtickF = starttick + (framerate * (fpslimitcount+1));
-                    u32 wantedtick = (u32)ceil(wantedtickF);
-                    if (curtick < wantedtick) SDL_Delay(wantedtick - curtick);
-
-                    lasttick = SDL_GetTicks();
-                    fpslimitcount++;
-                    if ((abs(wantedtickF - (float)wantedtick) < 0.001312) || (fpslimitcount > 60))
+                    frameLimitError += frametimeStep - (curtime - lastTime);
+                    if (frameLimitError < -frametimeStep)
+                        frameLimitError = -frametimeStep;
+                    if (frameLimitError > frametimeStep)
+                        frameLimitError = frametimeStep;
+                    
+                    if (round(frameLimitError * 1000.0) > 0.0)
                     {
-                        fpslimitcount = 0;
-                        starttick = lasttick;
+                        SDL_Delay(round(frameLimitError * 1000.0));
+                        double timeBeforeSleep = curtime;
+                        curtime = SDL_GetPerformanceCounter() * perfCountsSec;
+                        frameLimitError -= curtime - timeBeforeSleep;
                     }
                 }
-                else
-                {
-                    if (delay < 1) SDL_Delay(1);
-                    lasttick = SDL_GetTicks();
-                }
+
+                lastTime = curtime;
             }
 
             nframes++;
             if (nframes >= 30)
             {
-                u32 tick = SDL_GetTicks();
-                u32 diff = tick - lastmeasuretick;
-                lastmeasuretick = tick;
+                double time = SDL_GetPerformanceCounter() * perfCountsSec;
+                double dt = time - lastMeasureTime;
+                lastMeasureTime = time;
 
-                u32 fps;
-                if (diff < 1) fps = 77777;
-                else fps = (nframes * 1000) / diff;
+                u32 fps = round(nframes / dt);
                 nframes = 0;
 
-                float fpstarget;
-                if (framerate < 1) fpstarget = 999;
-                else fpstarget = 1000.0f/framerate;
+                float fpstarget = 1.0/frametimeStep;
 
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
                 changeWindowTitle(melontitle);
@@ -544,10 +538,8 @@ void EmuThread::run()
         {
             // paused
             nframes = 0;
-            lasttick = SDL_GetTicks();
-            starttick = lasttick;
-            lastmeasuretick = lasttick;
-            fpslimitcount = 0;
+            lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
+            lastMeasureTime = lastTime;
 
             emit windowUpdate();
 
