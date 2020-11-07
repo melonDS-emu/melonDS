@@ -216,6 +216,8 @@ Compiler::Compiler()
     #ifdef _WIN32
         DWORD dummy;
         VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
+    #elif defined(__APPLE__)
+        pageAligned = (u8*)mmap(NULL, 1024*1024*32, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS ,-1, 0);
     #else
         mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
     #endif
