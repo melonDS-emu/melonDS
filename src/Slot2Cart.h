@@ -19,7 +19,6 @@
 #ifndef SLOT2CART_H
 #define SLOT2CART_H
 
-#include <string>
 #include "types.h"
 #include "Savestate.h"
 
@@ -75,23 +74,6 @@ u32 ReadMemPak32(u32 addr);
 void WriteMemPak32(u32 addr, u32 val);
 
 void DoSavestate(Savestate* file);
-
-}
-
-namespace Slot2Cart_SegaCardReader
-{
-
-extern bool Enabled;
-extern u8 HCVControl;
-
-u8 Read8(u32 addr);
-void Write8(u32 addr, u8 val);
-
-u16 Read16(u32 addr);
-
-u32 Read32(u32 addr);
-
-void Load(std::string path);
 
 }
 

@@ -29,7 +29,6 @@
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
-#include <QMimeDatabase>
 
 #include <SDL2/SDL.h>
 
@@ -1354,8 +1353,6 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
 }
 
 
-
-
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 {
     if (!event->mimeData()->hasUrls()) return;
@@ -1365,9 +1362,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
-    const auto mime = QMimeDatabase().mimeTypeForUrl(urls.at(0)).name();
 
-    if (ext == "nds" || ext == "srl" || ext == "dsi" || RunningSomething && (ext == "gba" || (Slot2Cart_SegaCardReader::Enabled && mime == "text/plain")))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
         event->acceptProposedAction();
 }
 
@@ -1382,7 +1378,6 @@ void MainWindow::dropEvent(QDropEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
-    const auto mime = QMimeDatabase().mimeTypeForUrl(urls.at(0)).name();
 
     char _filename[1024];
     strncpy(_filename, filename.toStdString().c_str(), 1023); _filename[1023] = '\0';
@@ -1392,16 +1387,6 @@ void MainWindow::dropEvent(QDropEvent* event)
     {
         slot = 1;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
-    }
-    else if (mime == "text/plain")
-    {
-        if(!filename.isEmpty())
-        {
-            QFile hcvfile(filename);
-            if(!hcvfile.open(QIODevice::ReadOnly))return;
-            QTextStream hcvstream(&hcvfile);
-            Slot2Cart_SegaCardReader::Load(hcvstream.read(16).toStdString());
-        }
     }
     else
     {

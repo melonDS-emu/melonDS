@@ -837,7 +837,6 @@ void SetSlot2Addon(int type)
     Slot2Cart_RumblePak::RumblePakEnabled = (type == 1);
     Slot2Cart_GuitarGrip::GuitarGripEnabled = (type == 2);
     Slot2Cart_MemExpansionPak::MemPakEnabled = (type == 3);
-    Slot2Cart_SegaCardReader::Enabled = (type == 4);
 }
 
 bool LoadROM(const char* path, const char* sram, bool direct)
@@ -1914,7 +1913,6 @@ u8 ARM9Read8(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read8(addr);
 
         return 0xFF; // TODO: proper open bus
 
@@ -1932,7 +1930,6 @@ u8 ARM9Read8(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read8(addr);
         
         return 0xFF; // TODO: proper open bus
     }
@@ -2006,7 +2003,6 @@ u16 ARM9Read16(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read16(addr);
         
         return 0xFFFF; // TODO: proper open bus
 
@@ -2020,7 +2016,6 @@ u16 ARM9Read16(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read16(addr);
 
         return 0xFFFF; // TODO: proper open bus
     }
@@ -2083,7 +2078,6 @@ u32 ARM9Read32(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read32(addr);
         
         return 0xFFFFFFFF; // TODO: proper open bus
 
@@ -2097,7 +2091,6 @@ u32 ARM9Read32(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read32(addr);
         
         return 0xFFFFFFFF; // TODO: proper open bus
     }
@@ -2165,7 +2158,6 @@ void ARM9Write8(u32 addr, u8 val)
         {
             Slot2Cart_MemExpansionPak::WriteMemPak8(addr, val);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Write8(addr, val);
 
         return;
     }
@@ -2434,7 +2426,6 @@ u8 ARM7Read8(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read8(addr);
 
         return 0xFF; // TODO: proper open bus
 
@@ -2448,7 +2439,6 @@ u8 ARM7Read8(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak8(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read8(addr);
         
         return 0xFF; // TODO: proper open bus
         
@@ -2522,7 +2512,6 @@ u16 ARM7Read16(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read16(addr);
         
         return 0xFFFF; // TODO: proper open bus
 
@@ -2536,7 +2525,6 @@ u16 ARM7Read16(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak16(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read16(addr);
         
         return 0xFFFF; // TODO: proper open bus
     }
@@ -2601,7 +2589,6 @@ u32 ARM7Read32(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read32(addr);
         
         return 0xFFFFFFFF; // TODO: proper open bus
 
@@ -2615,7 +2602,6 @@ u32 ARM7Read32(u32 addr)
         {
             return Slot2Cart_MemExpansionPak::ReadMemPak32(addr);
         }
-        else if (Slot2Cart_SegaCardReader::Enabled) return Slot2Cart_SegaCardReader::Read32(addr);
         
         return 0xFFFFFFFF; // TODO: proper open bus
     }
