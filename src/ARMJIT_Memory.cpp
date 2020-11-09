@@ -121,7 +121,7 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 
     if (ARMJIT_Memory::FaultHandler(desc))
     {
-        exceptionInfo->ContextRecord->Rip = (u8*)desc.FaultPC;
+        exceptionInfo->ContextRecord->Rip = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
