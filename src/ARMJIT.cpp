@@ -176,7 +176,7 @@ T SlowRead9(u32 addr, ARMv5* cpu)
 }
 
 template <typename T, int ConsoleType>
-void SlowWrite9(u32 addr, ARMv5* cpu, T val)
+void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
 {
     addr &= ~(sizeof(T) - 1);
 
@@ -224,7 +224,7 @@ T SlowRead7(u32 addr)
 }
 
 template <typename T, int ConsoleType>
-void SlowWrite7(u32 addr, T val)
+void SlowWrite7(u32 addr, u32 val)
 {
     addr &= ~(sizeof(T) - 1);
 
@@ -266,16 +266,16 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 
 #define INSTANTIATE_SLOWMEM(consoleType) \
     template void SlowWrite9<u32, consoleType>(u32, ARMv5*, u32); \
-    template void SlowWrite9<u16, consoleType>(u32, ARMv5*, u16); \
-    template void SlowWrite9<u8, consoleType>(u32, ARMv5*, u8); \
+    template void SlowWrite9<u16, consoleType>(u32, ARMv5*, u32); \
+    template void SlowWrite9<u8, consoleType>(u32, ARMv5*, u32); \
     \
     template u32 SlowRead9<u32, consoleType>(u32, ARMv5*); \
     template u16 SlowRead9<u16, consoleType>(u32, ARMv5*); \
     template u8 SlowRead9<u8, consoleType>(u32, ARMv5*); \
     \
     template void SlowWrite7<u32, consoleType>(u32, u32); \
-    template void SlowWrite7<u16, consoleType>(u32, u16); \
-    template void SlowWrite7<u8, consoleType>(u32, u8); \
+    template void SlowWrite7<u16, consoleType>(u32, u32); \
+    template void SlowWrite7<u8, consoleType>(u32, u32); \
     \
     template u32 SlowRead7<u32, consoleType>(u32); \
     template u16 SlowRead7<u16, consoleType>(u32); \
@@ -298,6 +298,7 @@ void Init()
 
 void DeInit()
 {
+    ResetBlockCache();
     ARMJIT_Memory::DeInit();
 
     delete JITCompiler;
@@ -1117,6 +1118,7 @@ void ResetBlockCache()
             range->Blocks.Clear();
             range->Code = 0;
         }
+        delete block;
     }
     JitBlocks9.clear();
     JitBlocks7.clear();

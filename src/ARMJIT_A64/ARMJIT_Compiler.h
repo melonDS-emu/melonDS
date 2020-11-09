@@ -214,8 +214,8 @@ public:
         return (u8*)entry - GetRXBase();
     }
 
-    bool IsJITFault(u64 pc);
-    s64 RewriteMemAccess(u64 pc);
+    bool IsJITFault(u8* pc);
+    u8* RewriteMemAccess(u8* pc);
 
     void SwapCodeRegion()
     {
