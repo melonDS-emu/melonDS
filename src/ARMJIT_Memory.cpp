@@ -42,7 +42,8 @@
     We handle this by only mapping those regions which are actually
     used and by praying the games don't go wild.
 
-    Beware, this file is full of platform specific code.
+    Beware, this file is full of platform specific code and copied
+    from Dolphin, so enjoy the copied comments!
 
 */
 
@@ -51,10 +52,10 @@ namespace ARMJIT_Memory
 struct FaultDescription
 {
     u32 EmulatedFaultAddr;
-    u64 FaultPC;
+    u8* FaultPC;
 };
 
-bool FaultHandler(FaultDescription* faultDesc, s32& offset);
+bool FaultHandler(FaultDescription& faultDesc);
 }
 
 #if defined(__SWITCH__)
@@ -77,7 +78,7 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
     ARMJIT_Memory::FaultDescription desc;
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
     desc.EmulatedFaultAddr = (u8*)ctx->far.x - curArea;
-    desc.FaultPC = ctx->pc.x;
+    desc.FaultPC = (u8*)ctx->pc.x;
 
     u64 integerRegisters[33];
     memcpy(integerRegisters, &ctx->cpu_gprs[0].x, 8*29);
@@ -86,10 +87,9 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
     integerRegisters[31] = ctx->sp.x;
     integerRegisters[32] = ctx->pc.x;
 
-    s32 offset;
-    if (ARMJIT_Memory::FaultHandler(&desc, offset))
+    if (ARMJIT_Memory::FaultHandler(desc, offset))
     {
-        integerRegisters[32] += offset;
+        integerRegisters[32] = (u64)desc.FaultPC;
 
         ARM_RestoreContext(integerRegisters);	
     }
@@ -119,12 +119,11 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
     ARMJIT_Memory::FaultDescription desc;
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
     desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
-    desc.FaultPC = exceptionInfo->ContextRecord->Rip;
+    desc.FaultPC = (u8*)exceptionInfo->ContextRecord->Rip;
 
-    s32 offset = 0;
-    if (ARMJIT_Memory::FaultHandler(&desc, offset))
+    if (ARMJIT_Memory::FaultHandler(desc))
     {
-        exceptionInfo->ContextRecord->Rip += offset;
+        exceptionInfo->ContextRecord->Rip = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
@@ -133,60 +132,75 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
 
 #else
 
-struct sigaction NewSa;
-struct sigaction OldSa;
+static struct sigaction OldSaSegv;
+static struct sigaction OldSaBus;
 
 static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 {
+    if (sig != SIGSEGV && sig != SIGBUS)
+    {
+        // We are not interested in other signals - handle it as usual.
+        return;
+    }
+    if (info->si_code != SEGV_MAPERR && info->si_code != SEGV_ACCERR)
+    {
+        // Huh? Return.
+        return;
+    }
+
     ucontext_t* context = (ucontext_t*)rawContext;
-    
+
     ARMJIT_Memory::FaultDescription desc;
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 #ifdef __x86_64__
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-
     #ifdef __APPLE__
-        desc.FaultPC = context->uc_mcontext->__ss.__rip;
+        desc.FaultPC = (u8*)context->uc_mcontext->__ss.__rip;
     #else
-        desc.FaultPC = context->uc_mcontext.gregs[REG_RIP];
+        desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
     #endif
    
 #else
     desc.EmulatedFaultAddr = (u8*)context->uc_mcontext.fault_address - curArea;
-    desc.FaultPC = context->uc_mcontext.pc;
+    desc.FaultPC = (u8*)context->uc_mcontext.pc;
 #endif
 
-    s32 offset = 0;
-    if (ARMJIT_Memory::FaultHandler(&desc, offset))
+    if (ARMJIT_Memory::FaultHandler(desc))
     {
 #ifdef __x86_64__
         #ifdef __APPLE__
-            context->uc_mcontext->__ss.__rip += offset;
+            context->uc_mcontext->__ss.__rip = (u64)desc.FaultPC;
         #else
-            context->uc_mcontext.gregs[REG_RIP] += offset;
+            context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
         #endif
 #else
-        context->uc_mcontext.pc += offset;
+        context->uc_mcontext.pc = (u64)desc.FaultPC;
 #endif
         return;
     }
 
-    if (OldSa.sa_flags & SA_SIGINFO)
+    struct sigaction* oldSa;
+    if (sig == SIGSEGV)
+      oldSa = &OldSaSegv;
+    else
+      oldSa = &OldSaBus;
+
+    if (oldSa->sa_flags & SA_SIGINFO)
     {
-      OldSa.sa_sigaction(sig, info, rawContext);
+      oldSa->sa_sigaction(sig, info, rawContext);
       return;
     }
-    if (OldSa.sa_handler == SIG_DFL)
+    if (oldSa->sa_handler == SIG_DFL)
     {
       signal(sig, SIG_DFL);
       return;
     }
-    if (OldSa.sa_handler == SIG_IGN)
+    if (oldSa->sa_handler == SIG_IGN)
     {
       // Ignore signal
       return;
     }
-    OldSa.sa_handler(sig);
+    oldSa->sa_handler(sig);
 }
 
 #endif
@@ -243,7 +257,7 @@ enum
 {
     memstate_Unmapped,
     memstate_MappedRW,
-    // on switch this is unmapped as well
+    // on Switch this is unmapped as well
     memstate_MappedProtected,
 };
 
@@ -517,6 +531,21 @@ bool MapAtAddress(u32 addr)
     bool isExecutable = ARMJIT::CodeMemRegions[region];
 
 #ifndef __SWITCH__
+    if (num == 0)
+    {
+        // if a DTCM mapping is mapped before the mapping below it
+        // we unmap it, so it won't just be overriden
+        for (int i = 0; i < Mappings[memregion_DTCM].Length; i++)
+        {
+            Mapping& mapping = Mappings[memregion_DTCM][i];
+            if (mirrorStart < mapping.Addr + mapping.Size && mirrorStart + mirrorSize >= mapping.Addr)
+            {
+                mapping.Unmap(memregion_DTCM);
+            }
+        }
+        Mappings[memregion_DTCM].Clear();
+    }
+
     bool succeded = MapIntoRange(mirrorStart, num, OffsetsPerRegion[region] + memoryOffset, mirrorSize);
     assert(succeded);
 #endif
@@ -574,21 +603,20 @@ bool MapAtAddress(u32 addr)
     return true;
 }
 
-bool FaultHandler(FaultDescription* faultDesc, s32& offset)
+bool FaultHandler(FaultDescription& faultDesc)
 {
-    if (ARMJIT::JITCompiler->IsJITFault(faultDesc->FaultPC))
+    if (ARMJIT::JITCompiler->IsJITFault(faultDesc.FaultPC))
     {
         bool rewriteToSlowPath = true;
 
-        u32 addr = faultDesc->EmulatedFaultAddr;
+        u8* memStatus = NDS::CurCPU == 0 ? MappingStatus9 : MappingStatus7;
 
-        if ((NDS::CurCPU == 0 ? MappingStatus9 : MappingStatus7)[addr >> 12] == memstate_Unmapped)
-            rewriteToSlowPath = !MapAtAddress(faultDesc->EmulatedFaultAddr);
+        if (memStatus[faultDesc.EmulatedFaultAddr >> 12] == memstate_Unmapped)
+            rewriteToSlowPath = !MapAtAddress(faultDesc.EmulatedFaultAddr);
 
         if (rewriteToSlowPath)
-        {
-            offset = ARMJIT::JITCompiler->RewriteMemAccess(faultDesc->FaultPC);
-        }
+            faultDesc.FaultPC = ARMJIT::JITCompiler->RewriteMemAccess(faultDesc.FaultPC);
+
         return true;
     }
     return false;
@@ -636,28 +664,27 @@ void Init()
 
     u8* basePtr = MemoryBase;
 #else
-    FastMem9Start = mmap(NULL, AddrSpaceSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    FastMem7Start = mmap(NULL, AddrSpaceSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
-
-    MemoryBase = (u8*)mmap(NULL, MemoryTotalSize, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    #ifdef __APPLE__
-        char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
-        sprintf(fastmem_pid_name, "melondsfastmem%d", getpid());
-        MemoryFile = shm_open(fastmem_pid_name, O_RDWR|O_CREAT, 0600);
-    #else    
-        MemoryFile = memfd_create("melondsfastmem", 0);
-    #endif
+    // this used to be allocated with three different mmaps
+    // The idea was to give the OS more freedom where to position the buffers, 
+    // but something was bad about this so instead we take this vmem eating monster
+    // which seems to work better.
+    MemoryBase = (u8*)mmap(NULL, AddrSpaceSize*4, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    munmap(MemoryBase, AddrSpaceSize*4);
+    FastMem9Start = MemoryBase;
+    FastMem7Start = MemoryBase + AddrSpaceSize;
+    MemoryBase = MemoryBase + AddrSpaceSize*2;
 
     ftruncate(MemoryFile, MemoryTotalSize);
 
-    NewSa.sa_flags = SA_SIGINFO;
-    sigemptyset(&NewSa.sa_mask);
-    NewSa.sa_sigaction = SigsegvHandler;
-    sigaction(SIGSEGV, &NewSa, &OldSa);
-
-    munmap(MemoryBase, MemoryTotalSize);
-    munmap(FastMem9Start, AddrSpaceSize);
-    munmap(FastMem7Start, AddrSpaceSize);
+    struct sigaction sa;
+    sa.sa_handler = nullptr;
+    sa.sa_sigaction = &SigsegvHandler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGSEGV, &sa, &OldSaSegv);
+#ifdef __APPLE__
+    sigaction(SIGBUS, &sa, &OldSaBus);
+#endif
 
     mmap(MemoryBase, MemoryTotalSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, MemoryFile, 0);
 
@@ -675,8 +702,8 @@ void Init()
 void DeInit()
 {
 #if defined(__SWITCH__)
-    virtmemFree(FastMem9Start, 0x100000000);
-    virtmemFree(FastMem7Start, 0x100000000);
+    virtmemFree(FastMem9Start, AddrSpaceSize);
+    virtmemFree(FastMem7Start, AddrSpaceSize);
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     virtmemFree(MemoryBaseCodeMem, MemoryTotalSize);
@@ -690,6 +717,14 @@ void DeInit()
     CloseHandle(MemoryFile);
 
     RemoveVectoredExceptionHandler(ExceptionHandlerHandle);
+#else
+    sigaction(SIGSEGV, &OldSaSegv, nullptr);
+#ifdef __APPLE__
+    sigaction(SIGBUS, &OldSaBus, nullptr);
+#endif
+
+    munmap(MemoryBase, MemoryTotalSize);
+    close(MemoryFile);
 #endif
 }
 
@@ -724,7 +759,15 @@ bool IsFastmemCompatible(int region)
         || region == memregion_NewSharedWRAM_C)
         return false;
 #endif
-    return OffsetsPerRegion[region] != UINT32_MAX;
+    if (region == memregion_DTCM
+        || region == memregion_MainRAM
+        || region == memregion_NewSharedWRAM_A
+        || region == memregion_NewSharedWRAM_B
+        || region == memregion_NewSharedWRAM_C
+        || region == memregion_SharedWRAM)
+        return false;
+    //return OffsetsPerRegion[region] != UINT32_MAX;
+    return false;
 }
 
 bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mirrorStart, u32& mirrorSize)
@@ -1019,9 +1062,11 @@ int ClassifyAddress7(u32 addr)
         case 0x06000000:
         case 0x06800000:
             return memregion_VWRAM;
+
+        default:
+            return memregion_Other;
         }
     }
-    return memregion_Other;
 }
 
 void WifiWrite32(u32 addr, u32 val)

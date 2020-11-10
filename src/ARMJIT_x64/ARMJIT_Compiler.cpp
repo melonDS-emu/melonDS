@@ -347,7 +347,7 @@ Compiler::Compiler()
                     ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
                     if (consoleType == 0)
                     {
-                        switch ((8 << size) |  num)
+                        switch ((8 << size) | num)
                         {
                         case 32: ABI_CallFunction(SlowWrite9<u32, 0>); break;
                         case 33: ABI_CallFunction(SlowWrite7<u32, 0>); break;
@@ -359,7 +359,7 @@ Compiler::Compiler()
                     }
                     else
                     {
-                        switch ((8 << size) |  num)
+                        switch ((8 << size) | num)
                         {
                         case 32: ABI_CallFunction(SlowWrite9<u32, 1>); break;
                         case 33: ABI_CallFunction(SlowWrite7<u32, 1>); break;
@@ -382,7 +382,7 @@ Compiler::Compiler()
                         ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
                         if (consoleType == 0)
                         {
-                            switch ((8 << size) |  num)
+                            switch ((8 << size) | num)
                             {
                             case 32: ABI_CallFunction(SlowRead9<u32, 0>); break;
                             case 33: ABI_CallFunction(SlowRead7<u32, 0>); break;
@@ -394,7 +394,7 @@ Compiler::Compiler()
                         }
                         else
                         {
-                            switch ((8 << size) |  num)
+                            switch ((8 << size) | num)
                             {
                             case 32: ABI_CallFunction(SlowRead9<u32, 1>); break;
                             case 33: ABI_CallFunction(SlowRead7<u32, 1>); break;
@@ -619,9 +619,9 @@ void Compiler::Reset()
     LoadStorePatches.clear();
 }
 
-bool Compiler::IsJITFault(u64 addr)
+bool Compiler::IsJITFault(u8* addr)
 {
-    return addr >= (u64)CodeMemory && addr < (u64)CodeMemory + sizeof(CodeMemory);
+    return (u64)addr >= (u64)ResetStart && (u64)addr < (u64)ResetStart + CodeMemSize;
 }
 
 void Compiler::Comp_SpecialBranchBehaviour(bool taken)
