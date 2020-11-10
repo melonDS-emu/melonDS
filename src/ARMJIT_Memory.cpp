@@ -674,6 +674,13 @@ void Init()
     FastMem7Start = MemoryBase + AddrSpaceSize;
     MemoryBase = MemoryBase + AddrSpaceSize*2;
 
+    #ifdef __APPLE__
+        char* fastmem_pid_name = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
+        sprintf(fastmem_pid_name, "melondsfastmem%d", getpid());
+        MemoryFile = shm_open(fastmem_pid_name, O_RDWR|O_CREAT, 0600);
+    #else    
+        MemoryFile = memfd_create("melondsfastmem", 0);
+    #endif
     ftruncate(MemoryFile, MemoryTotalSize);
 
     struct sigaction sa;
