@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "SPU.h"
@@ -61,11 +62,15 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
-const u32 OutputBufferSize = 2*1024;
-s16 OutputBuffer[2 * OutputBufferSize];
-volatile u32 OutputReadOffset;
-volatile u32 OutputWriteOffset;
+const u32 OutputBufferSize = 2*2048;
+s16 OutputBackbuffer[2 * OutputBufferSize];
+u32 OutputBackbufferWritePosition;
 
+s16 OutputFrontBuffer[2 * OutputBufferSize];
+u32 OutputFrontBufferWritePosition;
+u32 OutputFrontBufferReadPosition;
+
+Platform::Mutex* AudioLock;
 
 u16 Cnt;
 u8 MasterVolume;
@@ -83,6 +88,8 @@ bool Init()
     Capture[0] = new CaptureUnit(0);
     Capture[1] = new CaptureUnit(1);
 
+    AudioLock = Platform::Mutex_Create();
+
     return true;
 }
 
@@ -93,6 +100,8 @@ void DeInit()
 
     delete Capture[0];
     delete Capture[1];
+
+    Platform::Mutex_Free(AudioLock);
 }
 
 void Reset()
@@ -114,10 +123,13 @@ void Reset()
 
 void Stop()
 {
-    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
+    Platform::Mutex_Lock(AudioLock);
+    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
 
-    OutputReadOffset = 0;
-    OutputWriteOffset = 0;
+    OutputBackbufferWritePosition = 0;
+    OutputFrontBufferReadPosition = 0;
+    OutputFrontBufferWritePosition = 0;
+    Platform::Mutex_Unlock(AudioLock);
 }
 
 void DoSavestate(Savestate* file)
@@ -704,59 +716,88 @@ void Mix(u32 dummy)
     if      (rightoutput < -0x8000) rightoutput = -0x8000;
     else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
 
-    OutputBuffer[OutputWriteOffset    ] = leftoutput >> 1;
-    OutputBuffer[OutputWriteOffset + 1] = rightoutput >> 1;
-    OutputWriteOffset += 2;
-    OutputWriteOffset &= ((2*OutputBufferSize)-1);
-    if (OutputWriteOffset == OutputReadOffset)
-    {
-        //printf("!! SOUND FIFO OVERFLOW %d\n", OutputWriteOffset>>1);
-        // advance the read position too, to avoid losing the entire FIFO
-        OutputReadOffset += 2;
-        OutputReadOffset &= ((2*OutputBufferSize)-1);
-    }
+    // OutputBufferFrame can never get full because it's
+    // transfered to OutputBuffer at the end of the frame
+    OutputBackbuffer[OutputBackbufferWritePosition    ] = leftoutput >> 1;
+    OutputBackbuffer[OutputBackbufferWritePosition + 1] = rightoutput >> 1;
+    OutputBackbufferWritePosition += 2;
 
     NDS::ScheduleEvent(NDS::Event_SPU, true, 1024, Mix, 0);
 }
 
+void TransferOutput()
+{
+    Platform::Mutex_Lock(AudioLock);
+    for (u32 i = 0; i < OutputBackbufferWritePosition; i += 2)
+    {
+        OutputFrontBuffer[OutputFrontBufferWritePosition    ] = OutputBackbuffer[i   ];
+        OutputFrontBuffer[OutputFrontBufferWritePosition + 1] = OutputBackbuffer[i + 1];
+
+        OutputFrontBufferWritePosition += 2;
+        OutputFrontBufferWritePosition &= OutputBufferSize*2-1;
+        if (OutputFrontBufferWritePosition == OutputFrontBufferReadPosition)
+        {
+            // advance the read position too, to avoid losing the entire FIFO
+            OutputFrontBufferReadPosition += 2;
+            OutputFrontBufferReadPosition &= OutputBufferSize*2-1;
+        }
+    }
+    OutputBackbufferWritePosition = 0;
+    Platform::Mutex_Unlock(AudioLock);
+}
 
 void TrimOutput()
 {
+    Platform::Mutex_Lock(AudioLock);
     const int halflimit = (OutputBufferSize / 2);
 
-    int readpos = OutputWriteOffset - (halflimit*2);
+    int readpos = OutputFrontBufferWritePosition - (halflimit*2);
     if (readpos < 0) readpos += (OutputBufferSize*2);
 
-    OutputReadOffset = readpos;
+    OutputFrontBufferReadPosition = readpos;
+    Platform::Mutex_Unlock(AudioLock);
 }
 
 void DrainOutput()
 {
-    OutputReadOffset = 0;
-    OutputWriteOffset = 0;
+    Platform::Mutex_Lock(AudioLock);
+    OutputFrontBufferWritePosition = 0;
+    OutputFrontBufferReadPosition = 0;
+    Platform::Mutex_Unlock(AudioLock);
 }
 
 void InitOutput()
 {
-    memset(OutputBuffer, 0, 2*OutputBufferSize*2);
-    OutputReadOffset = 0;
-    OutputWriteOffset = OutputBufferSize;
+    Platform::Mutex_Lock(AudioLock);
+    memset(OutputBackbuffer, 0, 2*OutputBufferSize*2);
+    memset(OutputFrontBuffer, 0, 2*OutputBufferSize*2);
+    OutputFrontBufferReadPosition = 0;
+    OutputFrontBufferWritePosition = 0;
+    Platform::Mutex_Unlock(AudioLock);
 }
 
 int GetOutputSize()
 {
+    Platform::Mutex_Lock(AudioLock);
+
     int ret;
-    if (OutputWriteOffset >= OutputReadOffset)
-        ret = OutputWriteOffset - OutputReadOffset;
+    if (OutputFrontBufferWritePosition >= OutputFrontBufferReadPosition)
+        ret = OutputFrontBufferWritePosition - OutputFrontBufferReadPosition;
     else
-        ret = (OutputBufferSize*2) - OutputReadOffset + OutputWriteOffset;
+        ret = (OutputBufferSize*2) - OutputFrontBufferReadPosition + OutputFrontBufferWritePosition;
 
     ret >>= 1;
+
+    Platform::Mutex_Unlock(AudioLock);
     return ret;
 }
 
 void Sync(bool wait)
 {
+    // this function is currently not used anywhere
+    // depending on the usage context the thread safety measures could be made
+    // a lot faster
+
     // sync to audio output in case the core is running too fast
     // * wait=true: wait until enough audio data has been played
     // * wait=false: merely skip some audio data to avoid a FIFO overflow
@@ -770,32 +811,42 @@ void Sync(bool wait)
     }
     else if (GetOutputSize() > halflimit)
     {
-        int readpos = OutputWriteOffset - (halflimit*2);
+        Platform::Mutex_Lock(AudioLock);
+
+        int readpos = OutputFrontBufferWritePosition - (halflimit*2);
         if (readpos < 0) readpos += (OutputBufferSize*2);
 
-        OutputReadOffset = readpos;
+        OutputFrontBufferReadPosition = readpos;
+
+        Platform::Mutex_Unlock(AudioLock);
     }
 }
 
 int ReadOutput(s16* data, int samples)
 {
-    if (OutputReadOffset == OutputWriteOffset)
+    Platform::Mutex_Lock(AudioLock);
+    if (OutputFrontBufferReadPosition == OutputFrontBufferWritePosition)
+    {
+        Platform::Mutex_Unlock(AudioLock);
         return 0;
+    }
 
     for (int i = 0; i < samples; i++)
     {
-        *data++ = OutputBuffer[OutputReadOffset];
-        *data++ = OutputBuffer[OutputReadOffset + 1];
+        *data++ = OutputFrontBuffer[OutputFrontBufferReadPosition];
+        *data++ = OutputFrontBuffer[OutputFrontBufferReadPosition + 1];
 
-        //if (OutputReadOffset != OutputWriteOffset)
+        OutputFrontBufferReadPosition += 2;
+        OutputFrontBufferReadPosition &= ((2*OutputBufferSize)-1);
+
+        if (OutputFrontBufferWritePosition == OutputFrontBufferReadPosition)
         {
-            OutputReadOffset += 2;
-            OutputReadOffset &= ((2*OutputBufferSize)-1);
-        }
-        if (OutputReadOffset == OutputWriteOffset)
+            Platform::Mutex_Unlock(AudioLock);
             return i+1;
+        }
     }
 
+    Platform::Mutex_Unlock(AudioLock);
     return samples;
 }
 

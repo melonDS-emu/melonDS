@@ -41,6 +41,7 @@ void InitOutput();
 int GetOutputSize();
 void Sync(bool wait);
 int ReadOutput(s16* data, int samples);
+void TransferOutput();
 
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);

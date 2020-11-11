@@ -999,6 +999,7 @@ u32 RunFrame()
            ARM7Timestamp-SysTimestamp,
            GPU3D::Timestamp-SysTimestamp);
 #endif
+    SPU::TransferOutput();
 
     NDSCart::FlushSRAMFile();
 
