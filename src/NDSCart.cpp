@@ -37,6 +37,7 @@ u8* SRAM;
 u32 SRAMLength;
 
 char SRAMPath[1024];
+bool SRAMFileDirty;
 
 void (*WriteFunc)(u8 val, bool islast);
 
@@ -445,14 +446,21 @@ void Write(u8 val, u32 hold)
         break;
     }
 
-    if (islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0))
+    SRAMFileDirty |= islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0);
+}
+
+void FlushSRAMFile()
+{
+    if (!SRAMFileDirty)
+        return;
+
+    SRAMFileDirty = false;
+
+    FILE* f = Platform::OpenFile(SRAMPath, "wb");
+    if (f)
     {
-        FILE* f = Platform::OpenFile(SRAMPath, "wb");
-        if (f)
-        {
-            fwrite(SRAM, SRAMLength, 1, f);
-            fclose(f);
-        }
+        fwrite(SRAM, SRAMLength, 1, f);
+        fclose(f);
     }
 }
 
@@ -1032,6 +1040,11 @@ void RelocateSave(const char* path, bool write)
 {
     // herp derp
     NDSCart_SRAM::RelocateSave(path, write);
+}
+
+void FlushSRAMFile()
+{
+    NDSCart_SRAM::FlushSRAMFile();
 }
 
 int ImportSRAM(const u8* data, u32 length)
