@@ -340,14 +340,16 @@ struct Mapping
 
     void Unmap(int region)
     {
+        u32 dtcmStart = NDS::ARM9->DTCMBase;
+        u32 dtcmSize = NDS::ARM9->DTCMSize;
         bool skipDTCM = Num == 0 && region != memregion_DTCM;
         u8* statuses = Num == 0 ? MappingStatus9 : MappingStatus7;
         u32 offset = 0;
         while (offset < Size)
         {
-            if (skipDTCM && Addr + offset == NDS::ARM9->DTCMBase)
+            if (skipDTCM && Addr + offset == dtcmStart)
             {
-                offset += NDS::ARM9->DTCMSize;
+                offset += dtcmSize;
             }
             else
             {
@@ -355,7 +357,7 @@ struct Mapping
                 u8 status = statuses[(Addr + offset) >> 12];
                 while (statuses[(Addr + offset) >> 12] == status
                     && offset < Size
-                    && (!skipDTCM || Addr + offset != NDS::ARM9->DTCMBase))
+                    && (!skipDTCM || Addr + offset != dtcmStart))
                 {
                     assert(statuses[(Addr + offset) >> 12] != memstate_Unmapped);
                     statuses[(Addr + offset) >> 12] = memstate_Unmapped;
@@ -373,9 +375,33 @@ struct Mapping
 #endif
             }
         }
+
 #ifndef __SWITCH__
-        bool succeded = UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
-        assert(succeded);
+#ifndef _WIN32
+        u32 dtcmEnd = dtcmStart + dtcmSize;
+        if (Num == 0
+            && dtcmEnd >= Addr
+            && dtcmStart < Addr + Size)
+        {
+            bool success;
+            if (dtcmStart > Addr)
+            {
+                success = UnmapFromRange(Addr, 0, OffsetsPerRegion[region] + LocalOffset, dtcmStart - Addr);
+                assert(success);
+            }
+            if (dtcmEnd < Addr + Size)
+            {
+                u32 offset = dtcmStart - Addr + dtcmSize;
+                success = UnmapFromRange(dtcmEnd, 0, OffsetsPerRegion[region] + LocalOffset + offset, Size - offset);
+                assert(success);
+            }
+        }
+        else
+#endif
+        {
+            bool succeded = UnmapFromRange(Addr, Num, OffsetsPerRegion[region] + LocalOffset, Size);
+            assert(succeded);
+        }
 #endif
     }
 };
@@ -444,10 +470,10 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
             printf("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
-            bool oldOverlap = NDS::ARM9->DTCMSize > 0 && !(oldDTCMBase >= end || oldDTCBEnd <= start);
-            bool newOverlap = newSize > 0 && !(newBase >= end || newEnd <= start);
+            bool overlap = (NDS::ARM9->DTCMSize > 0 && oldDTCMBase < end && oldDTCBEnd > start)
+                || (newSize > 0 && newBase < end && newEnd > start);
 
-            if (mapping.Num == 0 && (oldOverlap || newOverlap))
+            if (mapping.Num == 0 && overlap)
             {
                 mapping.Unmap(region);
                 Mappings[region].Remove(i);
@@ -471,8 +497,8 @@ void RemapNWRAM(int num)
     for (int i = 0; i < Mappings[memregion_SharedWRAM].Length;)
     {
         Mapping& mapping = Mappings[memregion_SharedWRAM][i];
-        if (!(DSi::NWRAMStart[mapping.Num][num] >= mapping.Addr + mapping.Size
-            || DSi::NWRAMEnd[mapping.Num][num] < mapping.Addr))
+        if (DSi::NWRAMStart[mapping.Num][num] < mapping.Addr + mapping.Size
+            && DSi::NWRAMEnd[mapping.Num][num] > mapping.Addr)
         {
             mapping.Unmap(memregion_SharedWRAM);
             Mappings[memregion_SharedWRAM].Remove(i);
@@ -495,7 +521,7 @@ void RemapSWRAM()
     for (int i = 0; i < Mappings[memregion_WRAM7].Length;)
     {
         Mapping& mapping = Mappings[memregion_WRAM7][i];
-        if (mapping.Addr + mapping.Size < 0x03800000)
+        if (mapping.Addr + mapping.Size <= 0x03800000)
         {
             mapping.Unmap(memregion_WRAM7);
             Mappings[memregion_WRAM7].Remove(i);
@@ -527,41 +553,53 @@ bool MapAtAddress(u32 addr)
         return false;
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
-    printf("trying to create mapping %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
+    printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
     bool isExecutable = ARMJIT::CodeMemRegions[region];
 
+    u32 dtcmStart = NDS::ARM9->DTCMBase;
+    u32 dtcmSize = NDS::ARM9->DTCMSize;
+    u32 dtcmEnd = dtcmStart + dtcmSize;
 #ifndef __SWITCH__
-    if (num == 0)
+#ifndef _WIN32
+    if (num == 0
+        && dtcmEnd >= mirrorStart
+        && dtcmStart < mirrorStart + mirrorSize)
     {
-        // if a DTCM mapping is mapped before the mapping below it
-        // we unmap it, so it won't just be overriden
-        for (int i = 0; i < Mappings[memregion_DTCM].Length; i++)
+        bool success;
+        if (dtcmStart > mirrorStart)
         {
-            Mapping& mapping = Mappings[memregion_DTCM][i];
-            if (mirrorStart < mapping.Addr + mapping.Size && mirrorStart + mirrorSize >= mapping.Addr)
-            {
-                mapping.Unmap(memregion_DTCM);
-            }
+            success = MapIntoRange(mirrorStart, 0, OffsetsPerRegion[region] + memoryOffset, dtcmStart - mirrorStart);
+            assert(success);
         }
-        Mappings[memregion_DTCM].Clear();
+        if (dtcmEnd < mirrorStart + mirrorSize)
+        {
+            u32 offset = dtcmStart - mirrorStart + dtcmSize;
+            success = MapIntoRange(dtcmEnd, 0, OffsetsPerRegion[region] + memoryOffset + offset, mirrorSize - offset);
+            assert(success);
+        }
     }
-
-    bool succeded = MapIntoRange(mirrorStart, num, OffsetsPerRegion[region] + memoryOffset, mirrorSize);
-    assert(succeded);
+    else
+#endif
+    {
+        bool succeded = MapIntoRange(mirrorStart, num, OffsetsPerRegion[region] + memoryOffset, mirrorSize);
+        assert(succeded);
+    }
 #endif
 
     ARMJIT::AddressRange* range = ARMJIT::CodeMemRegions[region] + memoryOffset / 512;
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
-    // which can be mapped
+    // which can be mapped/protected
     u32 offset = 0;	
     bool skipDTCM = num == 0 && region != memregion_DTCM;
     while (offset < mirrorSize)
     {
-        if (skipDTCM && mirrorStart + offset == NDS::ARM9->DTCMBase)
+        if (skipDTCM && mirrorStart + offset == dtcmStart)
         {
-            SetCodeProtectionRange(NDS::ARM9->DTCMBase, NDS::ARM9->DTCMSize, 0, 0);
-            offset += NDS::ARM9->DTCMSize;
+#ifdef _WIN32
+            SetCodeProtectionRange(dtcmStart, dtcmSize, 0, 0);
+#endif
+            offset += dtcmSize;
         }
         else
         {
@@ -598,7 +636,7 @@ bool MapAtAddress(u32 addr)
     Mapping mapping{mirrorStart, mirrorSize, memoryOffset, num};
     Mappings[region].Add(mapping);
 
-    printf("mapped mirror at %08x-%08x\n", mirrorStart, mirrorStart + mirrorSize - 1);
+    //printf("mapped mirror at %08x-%08x\n", mirrorStart, mirrorStart + mirrorSize - 1);
 
     return true;
 }
@@ -766,15 +804,7 @@ bool IsFastmemCompatible(int region)
         || region == memregion_NewSharedWRAM_C)
         return false;
 #endif
-    if (region == memregion_DTCM
-        || region == memregion_MainRAM
-        || region == memregion_NewSharedWRAM_A
-        || region == memregion_NewSharedWRAM_B
-        || region == memregion_NewSharedWRAM_C
-        || region == memregion_SharedWRAM)
-        return false;
-    //return OffsetsPerRegion[region] != UINT32_MAX;
-    return false;
+    return OffsetsPerRegion[region] != UINT32_MAX;
 }
 
 bool GetMirrorLocation(int region, u32 num, u32 addr, u32& memoryOffset, u32& mirrorStart, u32& mirrorSize)

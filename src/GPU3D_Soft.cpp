@@ -61,12 +61,12 @@ bool Enabled;
 // threading
 
 bool Threaded;
-void* RenderThread;
+Platform::Thread* RenderThread;
 bool RenderThreadRunning;
 bool RenderThreadRendering;
-void* Sema_RenderStart;
-void* Sema_RenderDone;
-void* Sema_ScanlineCount;
+Platform::Semaphore* Sema_RenderStart;
+Platform::Semaphore* Sema_RenderDone;
+Platform::Semaphore* Sema_ScanlineCount;
 
 void RenderThreadFunc();
 
