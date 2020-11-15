@@ -1346,7 +1346,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || ext == "gba")
         event->acceptProposedAction();
 }
 
