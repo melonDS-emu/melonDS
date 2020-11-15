@@ -713,13 +713,16 @@ void Init()
 
 #if defined(__ANDROID__)
     static void* libandroid = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
-    using type_ASharedMemory_create = int(*)(const char *name, size_t size);
-    auto symbol = dlsym(libandroid, "ASharedMemory_create");
-    static auto shared_memory_create =reinterpret_cast<type_ASharedMemory_create>(symbol);
+    using type_ASharedMemory_create = int(*)(const char* name, size_t size);
+    static void* symbol = dlsym(libandroid, "ASharedMemory_create");
+    static auto shared_memory_create = reinterpret_cast<type_ASharedMemory_create>(symbol);
 
-    if (shared_memory_create) {
+    if (shared_memory_create)
+    {
         MemoryFile = shared_memory_create("melondsfastmem", MemoryTotalSize);
-    } else {
+    }
+    else
+    {
         int fd = open(ASHMEM_DEVICE, O_RDWR);
         ioctl(fd, ASHMEM_SET_NAME, "melondsfastmem");
         ioctl(fd, ASHMEM_SET_SIZE, MemoryTotalSize);
