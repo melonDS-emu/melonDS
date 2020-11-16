@@ -228,9 +228,6 @@ void GPU2D::SetFramebuffer(u32* buf)
 void GPU2D::SetRenderSettings(bool accel)
 {
     Accelerated = accel;
-
-    if (Accelerated) DrawPixel = DrawPixel_Accel;
-    else             DrawPixel = DrawPixel_Normal;
 }
 
 
@@ -1330,10 +1327,36 @@ void GPU2D::CalculateWindowMask(u32 line)
 
 
 #define DoDrawBG(type, line, num) \
-    { if ((BGCnt[num] & 0x0040) && (BGMosaicSize[0] > 0)) DrawBG_##type<true>(line, num); else DrawBG_##type<false>(line, num); }
+    { \
+        if ((BGCnt[num] & 0x0040) && (BGMosaicSize[0] > 0)) \
+        { \
+            if (Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
+            else DrawBG_##type<true, DrawPixel_Normal>(line, num); \
+        } \
+        else \
+        { \
+            if (Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
+            else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
+        } \
+    }
 
 #define DoDrawBG_Large(line) \
-    { if ((BGCnt[2] & 0x0040) && (BGMosaicSize[0] > 0)) DrawBG_Large<true>(line); else DrawBG_Large<false>(line); }
+    do \
+    { \
+        if ((BGCnt[2] & 0x0040) && (BGMosaicSize[0] > 0)) \
+        { \
+            if (Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
+            else DrawBG_Large<true, DrawPixel_Normal>(line); \
+        } \
+        else \
+        { \
+            if (Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
+            else DrawBG_Large<false, DrawPixel_Normal>(line); \
+        } \
+    } while (false)
+
+#define DoInterleaveSprites(prio) \
+    if (Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
 
 template<u32 bgmode>
 void GPU2D::DrawScanlineBGMode(u32 line)
@@ -1382,7 +1405,7 @@ void GPU2D::DrawScanlineBGMode(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
-            InterleaveSprites(0x40000 | (i<<16));
+            DoInterleaveSprites(0x40000 | (i<<16));
     }
 }
 
@@ -1394,7 +1417,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line)
         {
             if (DispCnt & 0x0400)
             {
-                DoDrawBG_Large(line)
+                DoDrawBG_Large(line);
             }
         }
         if ((BGCnt[0] & 0x3) == i)
@@ -1406,7 +1429,7 @@ void GPU2D::DrawScanlineBGMode6(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
-            InterleaveSprites(0x40000 | (i<<16));
+            DoInterleaveSprites(0x40000 | (i<<16))
     }
 }
 
@@ -1434,7 +1457,7 @@ void GPU2D::DrawScanlineBGMode7(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
-            InterleaveSprites(0x40000 | (i<<16));
+            DoInterleaveSprites(0x40000 | (i<<16))
     }
 }
 
@@ -1674,7 +1697,7 @@ void GPU2D::DrawBG_3D()
     }
 }
 
-template<bool mosaic>
+template<bool mosaic, GPU2D::DrawPixel drawPixel>
 void GPU2D::DrawBG_Text(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
@@ -1774,7 +1797,7 @@ void GPU2D::DrawBG_Text(u32 line, u32 bgnum)
                 color = GPU::ReadVRAM_BG<u8>(pixelsaddr + tilexoff);
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1827,7 +1850,7 @@ void GPU2D::DrawBG_Text(u32 line, u32 bgnum)
                 }
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1835,7 +1858,7 @@ void GPU2D::DrawBG_Text(u32 line, u32 bgnum)
     }
 }
 
-template<bool mosaic>
+template<bool mosaic, GPU2D::DrawPixel drawPixel>
 void GPU2D::DrawBG_Affine(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
@@ -1920,7 +1943,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32 bgnum)
                 color = GPU::ReadVRAM_BG<u8>(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff);
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                    drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
             }
         }
 
@@ -1932,7 +1955,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32 bgnum)
     BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic>
+template<bool mosaic, GPU2D::DrawPixel drawPixel>
 void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
@@ -2015,7 +2038,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
                         color = GPU::ReadVRAM_BG<u16>(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1));
 
                         if (color & 0x8000)
-                            DrawPixel(&BGOBJLine[i], color, 0x01000000<<bgnum);
+                            drawPixel(&BGOBJLine[i], color, 0x01000000<<bgnum);
                     }
                 }
 
@@ -2054,7 +2077,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
                         color = GPU::ReadVRAM_BG<u8>(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8));
 
                         if (color)
-                            DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                            drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
                     }
                 }
 
@@ -2136,7 +2159,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
                     color = GPU::ReadVRAM_BG<u8>(tilesetaddr + ((curtile & 0x03FF) << 6) + (tileyoff << 3) + tilexoff);
 
                     if (color)
-                        DrawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                        drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
                 }
             }
 
@@ -2149,7 +2172,7 @@ void GPU2D::DrawBG_Extended(u32 line, u32 bgnum)
     BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic>
+template<bool mosaic, GPU2D::DrawPixel drawPixel>
 void GPU2D::DrawBG_Large(u32 line) // BG is always BG2
 {
     u16 bgcnt = BGCnt[2];
@@ -2231,7 +2254,7 @@ void GPU2D::DrawBG_Large(u32 line) // BG is always BG2
                 color = GPU::ReadVRAM_BG<u8>(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8));
 
                 if (color)
-                    DrawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
+                    drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
             }
         }
 
@@ -2274,6 +2297,7 @@ void GPU2D::ApplySpriteMosaicX()
     }
 }
 
+template <GPU2D::DrawPixel drawPixel>
 void GPU2D::InterleaveSprites(u32 prio)
 {
     u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
@@ -2297,7 +2321,7 @@ void GPU2D::InterleaveSprites(u32 prio)
             else
                 color = extpal[pixel & 0xFFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            drawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
         }
     }
     else
@@ -2317,7 +2341,7 @@ void GPU2D::InterleaveSprites(u32 prio)
             else
                 color = pal[pixel & 0xFF];
 
-            DrawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            drawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
         }
     }
 }
