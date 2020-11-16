@@ -210,12 +210,12 @@ bool Init()
 
 void DeInit()
 {
-    delete ARM9;
-    delete ARM7;
-
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
+
+    delete ARM9;
+    delete ARM7;
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
