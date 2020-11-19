@@ -784,7 +784,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
     NumVertices = vidx;
     NumIndices = iidx;
-    NumEdgeIndices = eidx;
+    NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
 void RenderSinglePolygon(int i)
