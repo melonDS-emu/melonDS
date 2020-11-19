@@ -68,6 +68,9 @@ const char* PCapLibNames[] =
 #ifdef __WIN32__
     // TODO: name for npcap in non-WinPCap mode
     "wpcap.dll",
+#elif defined(__APPLE__)
+    "libpcap.A.dylib",
+    "libpcap.dylib",
 #else
     // Linux lib names
     "libpcap.so.1",
