@@ -716,6 +716,7 @@ void Init()
         char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
         sprintf(fastmemPidName, "melondsfastmem%d", getpid());
         MemoryFile = shm_open(fastmemPidName, O_RDWR|O_CREAT, 0600);
+        delete[] fastmemPidName;
     #else    
         MemoryFile = memfd_create("melondsfastmem", 0);
     #endif
@@ -757,6 +758,7 @@ void DeInit()
     char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
     sprintf(fastmemPidName, "melondsfastmem%d", getpid());
     shm_unlink(fastmemPidName);
+    delete[] fastmemPidName;
 #elif defined(_WIN32)
     assert(UnmapViewOfFile(MemoryBase));
     CloseHandle(MemoryFile);
