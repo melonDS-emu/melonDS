@@ -120,7 +120,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_Reset",               0, &HKJoyMapping[HK_Reset],               -1, NULL, 0},
     {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1, NULL, 0},
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
-    {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FullscreenToggle],    -1, NULL, 0},
+    {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
