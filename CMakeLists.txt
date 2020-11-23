@@ -78,6 +78,18 @@ if (ENABLE_LTO)
 	add_link_options(-flto -fuse-linker-plugin)
 endif()
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	set(CMAKE_AR "gcc-ar")
+	set(CMAKE_RANLIB "gcc-ranlib")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	find_program(LLD NAMES ld.lld ld64.lld lld-link)
+	if (NOT LLD STREQUAL "LLD-NOTFOUND")
+		add_link_options(-fuse-ld=lld)
+	endif()
+	set(CMAKE_AR "llvm-ar")
+	set(CMAKE_RANLIB "llvm-ranlib")
+endif()
+
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
 if (WIN32)
