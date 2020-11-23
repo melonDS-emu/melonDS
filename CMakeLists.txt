@@ -74,8 +74,8 @@ if (CMAKE_BUILD_TYPE STREQUAL Release)
 endif()
 
 if (ENABLE_LTO)
-    add_compile_options(-flto)
-	add_link_options(-flto -fuse-linker-plugin)
+	add_compile_options(-flto -fPIC)
+	add_link_options(-flto -fuse-linker-plugin -pie)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
