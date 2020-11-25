@@ -1017,7 +1017,7 @@ u32 RunFrame()
             : RunFrame<true, 0>();
     else
 #endif
-        return NDS::ConsoleType == 0
+        return NDS::ConsoleType == 1
             ? RunFrame<false, 1>()
             : RunFrame<false, 0>();
 }
