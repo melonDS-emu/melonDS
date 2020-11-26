@@ -210,12 +210,12 @@ bool Init()
 
 void DeInit()
 {
-    delete ARM9;
-    delete ARM7;
-
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
+
+    delete ARM9;
+    delete ARM7;
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
@@ -908,7 +908,7 @@ void RunSystem(u64 timestamp)
     }
 }
 
-template <bool EnableJIT>
+template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -934,10 +934,10 @@ u32 RunFrame()
         }
         else if (CPUStop & 0x0FFF)
         {
-            DMAs[0]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
+            DMAs[0]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
             if (ConsoleType == 1) DSi::RunNDMAs(0);
         }
         else
@@ -962,10 +962,10 @@ u32 RunFrame()
 
             if (CPUStop & 0x0FFF0000)
             {
-                DMAs[4]->Run();
-                DMAs[5]->Run();
-                DMAs[6]->Run();
-                DMAs[7]->Run();
+                DMAs[4]->Run<ConsoleType>();
+                DMAs[5]->Run<ConsoleType>();
+                DMAs[6]->Run<ConsoleType>();
+                DMAs[7]->Run<ConsoleType>();
                 if (ConsoleType == 1) DSi::RunNDMAs(1);
             }
             else
@@ -999,6 +999,7 @@ u32 RunFrame()
            ARM7Timestamp-SysTimestamp,
            GPU3D::Timestamp-SysTimestamp);
 #endif
+    SPU::TransferOutput();
 
     NDSCart::FlushSRAMFile();
 
@@ -1011,10 +1012,14 @@ u32 RunFrame()
 {
 #ifdef JIT_ENABLED
     if (Config::JIT_Enable)
-        return RunFrame<true>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<true, 1>()
+            : RunFrame<true, 0>();
     else
 #endif
-        return RunFrame<false>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<false, 1>()
+            : RunFrame<false, 0>();
 }
 
 void Reschedule(u64 target)
