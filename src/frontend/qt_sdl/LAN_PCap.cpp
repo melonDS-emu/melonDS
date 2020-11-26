@@ -33,7 +33,9 @@
 	#include <sys/types.h>
 	#include <ifaddrs.h>
 	#include <netinet/in.h>
-        #ifndef __APPLE__
+        #ifdef __APPLE__
+            #include <net/if_dl.h>
+        #else
 	    #include <linux/if_packet.h>
         #endif
 #endif
@@ -281,7 +283,16 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
-            #ifndef __APPLE__
+            #ifdef __APPLE__
+            else if (af == AF_LINK)
+            {
+                struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
+                if (sa->sdl_alen != 6)
+                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                else
+                    memcpy(adata->MAC, LLADDR(sa), 6);
+            }
+            #else
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
