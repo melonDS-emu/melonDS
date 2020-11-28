@@ -65,6 +65,9 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkJITBranchOptimisations->setChecked(Config::JIT_BranchOptimisations != 0);
     ui->chkJITLiteralOptimisations->setChecked(Config::JIT_LiteralOptimisations != 0);
     ui->chkJITFastMemory->setChecked(Config::JIT_FastMemory != 0);
+    #ifdef __APPLE__
+        ui->chkJITFastMemory->setDisabled(true)
+    #endif
     ui->spnJITMaximumBlockSize->setValue(Config::JIT_MaxBlockSize);
 #else
     ui->chkEnableJIT->setDisabled(true);
