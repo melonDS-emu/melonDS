@@ -216,6 +216,7 @@ KeyMapButton::KeyMapButton(int* mapping, bool hotkey) : QPushButton()
 
     setCheckable(true);
     setText(mappingText());
+    setFocusPolicy(Qt::StrongFocus); //Fixes binding keys in macOS
 
     connect(this, &KeyMapButton::clicked, this, &KeyMapButton::onClick);
 }

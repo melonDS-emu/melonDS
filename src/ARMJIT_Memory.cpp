@@ -22,7 +22,9 @@
 #include "NDSCart.h"
 #include "SPU.h"
 
+#ifndef __APPLE__
 #include <malloc.h>
+#endif
 
 /*
     We're handling fastmem here.
@@ -152,7 +154,12 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 #ifdef __x86_64__
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
+    #ifdef __APPLE__
+        desc.FaultPC = (u8*)context->uc_mcontext->__ss.__rip;
+    #else
+        desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
+    #endif
+   
 #else
     desc.EmulatedFaultAddr = (u8*)context->uc_mcontext.fault_address - curArea;
     desc.FaultPC = (u8*)context->uc_mcontext.pc;
@@ -161,7 +168,11 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     if (ARMJIT_Memory::FaultHandler(desc))
     {
 #ifdef __x86_64__
-        context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
+        #ifdef __APPLE__
+            context->uc_mcontext->__ss.__rip = (u64)desc.FaultPC;
+        #else
+            context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
+        #endif
 #else
         context->uc_mcontext.pc = (u64)desc.FaultPC;
 #endif
@@ -701,7 +712,14 @@ void Init()
     FastMem7Start = MemoryBase + AddrSpaceSize;
     MemoryBase = MemoryBase + AddrSpaceSize*2;
 
-    MemoryFile = memfd_create("melondsfastmem", 0);
+    #ifdef __APPLE__
+        char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
+        sprintf(fastmemPidName, "melondsfastmem%d", getpid());
+        MemoryFile = shm_open(fastmemPidName, O_RDWR|O_CREAT, 0600);
+        delete[] fastmemPidName;
+    #else    
+        MemoryFile = memfd_create("melondsfastmem", 0);
+    #endif
     ftruncate(MemoryFile, MemoryTotalSize);
 
     struct sigaction sa;
@@ -736,6 +754,11 @@ void DeInit()
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     virtmemFree(MemoryBaseCodeMem, MemoryTotalSize);
     free(MemoryBase);
+#elif defined(__APPLE__)
+    char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
+    sprintf(fastmemPidName, "melondsfastmem%d", getpid());
+    shm_unlink(fastmemPidName);
+    delete[] fastmemPidName;
 #elif defined(_WIN32)
     assert(UnmapViewOfFile(MemoryBase));
     CloseHandle(MemoryFile);

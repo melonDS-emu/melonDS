@@ -95,6 +95,19 @@ if (PORTABLE)
     add_definitions(-DPORTABLE)
 endif()
 
+if (APPLE)
+    set_target_properties(melonDS PROPERTIES
+                         MACOSX_BUNDLE true
+                         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/melonDS.plist
+                         OUTPUT_NAME melonDS
+                         )
+
+    # Copy icon into the bundle
+    target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melonDS.icns")
+    set_source_files_properties("${CMAKE_SOURCE_DIR}/melonDS.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
+endif()
+
 install(FILES ../../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
 install(FILES ../../../icon/melon_16x16.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/16x16/apps RENAME net.kuribo64.melonDS.png)
 install(FILES ../../../icon/melon_32x32.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/32x32/apps RENAME net.kuribo64.melonDS.png)
@@ -102,4 +115,4 @@ install(FILES ../../../icon/melon_48x48.png DESTINATION ${CMAKE_INSTALL_PREFIX}/
 install(FILES ../../../icon/melon_64x64.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/64x64/apps RENAME net.kuribo64.melonDS.png)
 install(FILES ../../../icon/melon_128x128.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/128x128/apps RENAME net.kuribo64.melonDS.png)
 install(FILES ../../../icon/melon_256x256.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/256x256/apps RENAME net.kuribo64.melonDS.png)
-install(TARGETS melonDS RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS melonDS BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
