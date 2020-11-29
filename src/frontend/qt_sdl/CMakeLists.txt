@@ -106,14 +106,6 @@ if (APPLE)
     target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melonDS.icns")
     set_source_files_properties("${CMAKE_SOURCE_DIR}/melonDS.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-    # Copy Qt plugins into the bundle
-    get_target_property(qtcocoa_location Qt5::QCocoaIntegrationPlugin LOCATION)
-    target_sources(melonDS PRIVATE "${qtcocoa_location}")
-    set_source_files_properties("${qtcocoa_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/platforms)
-
-    get_target_property(qtmacstyle_location Qt5::QMacStylePlugin LOCATION)
-    target_sources(melonDS PRIVATE "${qtmacstyle_location}")
-    set_source_files_properties("${qtmacstyle_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/styles)
 endif()
 
 install(FILES ../../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)

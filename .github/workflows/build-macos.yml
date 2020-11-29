@@ -31,7 +31,6 @@ jobs:
       working-directory: ${{runner.workspace}}/build
       run: |
         make -j$(sysctl -n hw.ncpu)
-        $(brew --prefix qt5)/bin/macdeployqt melonDS.app -no-plugins
         mkdir dist
         cp -r melonDS.app dist
     - uses: actions/upload-artifact@v1
