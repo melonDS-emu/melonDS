@@ -94,9 +94,9 @@ If everything went well, melonDS should now be in the `dist` folder.
    mkdir build && cd build
    cmake .. -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
    make -j$(sysctl -n hw.ncpu)
-   mkdir dist && cp melonDS dist
+   mkdir dist && cp -r melonDS.app dist
    ```
-If everything went well, melonDS should now be in the `dist` folder.
+If everything went well, melonDS.app should now be in the `dist` folder.
 
    
 ## TODO LIST
