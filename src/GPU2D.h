@@ -59,9 +59,6 @@ public:
 
     void CheckWindows(u32 line);
 
-    void BGExtPalDirty(u32 base);
-    void OBJExtPalDirty();
-
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();
 
@@ -128,9 +125,6 @@ private:
     u16 MasterBrightness;
 
     u16 BGExtPalCache[4][16*256];
-    u16 OBJExtPalCache[16*256];
-    u32 BGExtPalStatus[4];
-    u32 OBJExtPalStatus;
 
     u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
     u32 ColorBlend5(u32 val1, u32 val2);

@@ -230,9 +230,9 @@ void Semaphore_Wait(Semaphore* sema)
     ((QSemaphore*) sema)->acquire();
 }
 
-void Semaphore_Post(Semaphore* sema)
+void Semaphore_Post(Semaphore* sema, int count)
 {
-    ((QSemaphore*) sema)->release();
+    ((QSemaphore*) sema)->release(count);
 }
 
 Mutex* Mutex_Create()

@@ -77,7 +77,7 @@ Semaphore* Semaphore_Create();
 void Semaphore_Free(Semaphore* sema);
 void Semaphore_Reset(Semaphore* sema);
 void Semaphore_Wait(Semaphore* sema);
-void Semaphore_Post(Semaphore* sema);
+void Semaphore_Post(Semaphore* sema, int count = 1);
 
 struct Mutex;
 Mutex* Mutex_Create();

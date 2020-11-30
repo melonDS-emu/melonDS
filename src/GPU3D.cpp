@@ -179,6 +179,8 @@ u8 RenderFogDensityTable[34];
 
 u32 RenderClearAttr1, RenderClearAttr2;
 
+bool RenderFrameIdentical;
+
 u32 ZeroDotWLimit;
 
 u32 GXStat;
@@ -2491,6 +2493,19 @@ void VBlank()
                 }
 
                 RenderNumPolygons = NumPolygons;
+                RenderFrameIdentical = false;
+            }
+            else
+            {
+                RenderFrameIdentical = RenderDispCnt == DispCnt
+                    && RenderAlphaRef == AlphaRef
+                    && RenderClearAttr1 == ClearAttr1
+                    && RenderClearAttr2 == ClearAttr2
+                    && RenderFogColor == FogColor
+                    && RenderFogOffset == FogOffset * 0x200
+                    && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
+                    && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
+                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
             }
 
             RenderDispCnt = DispCnt;
