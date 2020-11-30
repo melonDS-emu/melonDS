@@ -748,7 +748,6 @@ void Init()
     MemoryFile = memfd_create("melondsfastmem", 0);
 #endif
     ftruncate(MemoryFile, MemoryTotalSize);
-#endif
 
     struct sigaction sa;
     sa.sa_handler = nullptr;
