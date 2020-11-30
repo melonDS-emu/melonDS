@@ -73,7 +73,11 @@ ConfigEntry ConfigFile[] =
     {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},
     {"JIT_BranchOptimisations", 0, &JIT_BranchOptimisations, 1, NULL, 0},
     {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
-    {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
+    #ifdef __APPLE__
+        {"JIT_FastMemory", 0, &JIT_FastMemory, 0, NULL, 0},
+    #else
+        {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
+    #endif
 #endif
 
     {"", -1, NULL, 0, NULL, 0}

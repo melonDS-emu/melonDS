@@ -1,20 +1,30 @@
 cmake_minimum_required(VERSION 3.13)
 
+include(CheckSymbolExists)
+include(CheckLibraryExists)
+
 cmake_policy(VERSION 3.13)
 if (POLICY CMP0076)
     cmake_policy(SET CMP0076 NEW)
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.9" CACHE STRING "Minimum OS X deployment version")
+
+project(melonDS CXX)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-project(melonDS)
-
-if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+check_library_exists(m pow "" LIBM)
+if(LIBM)
+    link_libraries(m)
 endif()
 
-include(CheckSymbolExists)
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 function(detect_architecture symbol arch)
     if (NOT DEFINED ARCHITECTURE)
         set(CMAKE_REQUIRED_QUIET 1)
@@ -65,17 +75,21 @@ if (CMAKE_BUILD_TYPE STREQUAL Release)
 	add_link_options(-s)
 endif()
 
-add_link_options(-no-pie)
-
 if (ENABLE_LTO)
-	add_compile_options(-flto)
-	add_link_options(-flto)
+	add_compile_options(-flto -fPIC)
+	add_link_options(-flto -fuse-linker-plugin -pie)
+endif()
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(CMAKE_AR "gcc-ar")
-	set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_C_ARCHIVE_FINISH   true)
-	set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> qcs <TARGET> <LINK_FLAGS> <OBJECTS>")
-	set(CMAKE_CXX_ARCHIVE_FINISH   true)
+	set(CMAKE_RANLIB "gcc-ranlib")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	find_program(LLD NAMES ld.lld ld64.lld lld-link)
+	if (NOT LLD STREQUAL "LLD-NOTFOUND")
+		add_link_options(-fuse-ld=lld)
+	endif()
+	set(CMAKE_AR "llvm-ar")
+	set(CMAKE_RANLIB "llvm-ranlib")
 endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)

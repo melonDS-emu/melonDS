@@ -77,21 +77,6 @@ void DMA::Reset()
 
     Running = false;
     InProgress = false;
-
-    if (NDS::ConsoleType == 1)
-    {
-        BusRead16 = (CPU==0) ? DSi::ARM9Read16 : DSi::ARM7Read16;
-        BusRead32 = (CPU==0) ? DSi::ARM9Read32 : DSi::ARM7Read32;
-        BusWrite16 = (CPU==0) ? DSi::ARM9Write16 : DSi::ARM7Write16;
-        BusWrite32 = (CPU==0) ? DSi::ARM9Write32 : DSi::ARM7Write32;
-    }
-    else
-    {
-        BusRead16 = (CPU==0) ? NDS::ARM9Read16 : NDS::ARM7Read16;
-        BusRead32 = (CPU==0) ? NDS::ARM9Read32 : NDS::ARM7Read32;
-        BusWrite16 = (CPU==0) ? NDS::ARM9Write16 : NDS::ARM7Write16;
-        BusWrite32 = (CPU==0) ? NDS::ARM9Write32 : NDS::ARM7Write32;
-    }
 }
 
 void DMA::DoSavestate(Savestate* file)
@@ -198,13 +183,7 @@ void DMA::Start()
     NDS::StopCPU(CPU, 1<<Num);
 }
 
-void DMA::Run()
-{
-    if (!Running) return;
-    if (CPU == 0) return Run9();
-    else          return Run7();
-}
-
+template <int ConsoleType>
 void DMA::Run9()
 {
     if (NDS::ARM9Timestamp >= NDS::ARM9Target) return;
@@ -242,7 +221,10 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            BusWrite16(CurDstAddr, BusRead16(CurSrcAddr));
+            if (ConsoleType == 1)
+                DSi::ARM9Write16(CurDstAddr, DSi::ARM9Read16(CurSrcAddr));
+            else
+                NDS::ARM9Write16(CurDstAddr, NDS::ARM9Read16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -278,7 +260,10 @@ void DMA::Run9()
         {
             NDS::ARM9Timestamp += (unitcycles << NDS::ARM9ClockShift);
 
-            BusWrite32(CurDstAddr, BusRead32(CurSrcAddr));
+            if (ConsoleType == 1)
+                DSi::ARM9Write32(CurDstAddr, DSi::ARM9Read32(CurSrcAddr));
+            else
+                NDS::ARM9Write32(CurDstAddr, NDS::ARM9Read32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -317,6 +302,7 @@ void DMA::Run9()
     NDS::ResumeCPU(0, 1<<Num);
 }
 
+template <int ConsoleType>
 void DMA::Run7()
 {
     if (NDS::ARM7Timestamp >= NDS::ARM7Target) return;
@@ -354,7 +340,10 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            BusWrite16(CurDstAddr, BusRead16(CurSrcAddr));
+            if (ConsoleType == 1)
+                DSi::ARM7Write16(CurDstAddr, DSi::ARM7Read16(CurSrcAddr));
+            else
+                NDS::ARM7Write16(CurDstAddr, NDS::ARM7Read16(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<1;
             CurDstAddr += DstAddrInc<<1;
@@ -390,7 +379,10 @@ void DMA::Run7()
         {
             NDS::ARM7Timestamp += unitcycles;
 
-            BusWrite32(CurDstAddr, BusRead32(CurSrcAddr));
+            if (ConsoleType == 1)
+                DSi::ARM7Write32(CurDstAddr, DSi::ARM7Read32(CurSrcAddr));
+            else
+                NDS::ARM7Write32(CurDstAddr, NDS::ARM7Read32(CurSrcAddr));
 
             CurSrcAddr += SrcAddrInc<<2;
             CurDstAddr += DstAddrInc<<2;
@@ -425,3 +417,14 @@ void DMA::Run7()
     InProgress = false;
     NDS::ResumeCPU(1, 1<<Num);
 }
+
+template <int ConsoleType>
+void DMA::Run()
+{
+    if (!Running) return;
+    if (CPU == 0) return Run9<ConsoleType>();
+    else          return Run7<ConsoleType>();
+}
+
+template void DMA::Run<0>();
+template void DMA::Run<1>();

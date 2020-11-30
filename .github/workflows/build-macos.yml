@@ -1,0 +1,39 @@
+name: CMake Build (macOS x86-64)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      working-directory: ${{runner.workspace}}
+      run: |
+        brew install cmake sdl2 qt5 libslirp
+    - name: Create build environment
+      run: mkdir ${{runner.workspace}}/build
+    - name: Configure
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+    - name: Make
+      working-directory: ${{runner.workspace}}/build
+      run: |
+        make -j$(sysctl -n hw.ncpu)
+        mkdir dist
+        cp -r melonDS.app dist
+    - uses: actions/upload-artifact@v1
+      with:
+        name: melonDS.app
+        path: ${{runner.workspace}}/build/dist

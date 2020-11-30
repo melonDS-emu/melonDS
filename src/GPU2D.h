@@ -147,15 +147,17 @@ private:
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
     static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
-    void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+    
+    typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();
-    template<bool mosaic> void DrawBG_Text(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Affine(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Extended(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Large(u32 line);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Text(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Affine(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Extended(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Large(u32 line);
 
     void ApplySpriteMosaicX();
+    template<DrawPixel drawPixel>
     void InterleaveSprites(u32 prio);
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
