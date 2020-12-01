@@ -33,10 +33,10 @@
 	#include <sys/types.h>
 	#include <ifaddrs.h>
 	#include <netinet/in.h>
-        #ifdef __APPLE__
-            #include <net/if_dl.h>
+        #ifdef __linux__
+            #include <linux/if_packet.h>
         #else
-	    #include <linux/if_packet.h>
+	    #include <net/if_dl.h>
         #endif
 #endif
 
@@ -283,16 +283,7 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
-            #ifdef __APPLE__
-            else if (af == AF_LINK)
-            {
-                struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
-                if (sa->sdl_alen != 6)
-                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
-                else
-                    memcpy(adata->MAC, LLADDR(sa), 6);
-            }
-            #else
+            #ifdef __linux__
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
@@ -300,6 +291,15 @@ bool Init(bool open_adapter)
                     printf("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
+            }
+            #else
+            else if (af == AF_LINK)
+            {
+                struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
+                if (sa->sdl_alen != 6)
+                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                else
+                    memcpy(adata->MAC, LLADDR(sa), 6);
             }
             #endif
             curaddr = curaddr->ifa_next;
