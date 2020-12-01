@@ -80,9 +80,8 @@ if (ENABLE_JIT)
 			ARMJIT_x64/ARMJIT_LoadStore.cpp
 			ARMJIT_x64/ARMJIT_Branch.cpp
 
-			ARMJIT_x64/ARMJIT_Linkage.s
+			ARMJIT_x64/ARMJIT_Linkage.S
 		)
-		set_source_files_properties(ARMJIT_x64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 	endif()
 	if (ARCHITECTURE STREQUAL ARM64)
 		target_sources(core PRIVATE
@@ -94,9 +93,8 @@ if (ENABLE_JIT)
 			ARMJIT_A64/ARMJIT_LoadStore.cpp
 			ARMJIT_A64/ARMJIT_Branch.cpp
 
-			ARMJIT_A64/ARMJIT_Linkage.s
+			ARMJIT_A64/ARMJIT_Linkage.S
 		)
-		set_source_files_properties(ARMJIT_A64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 	endif()
 endif()
 
