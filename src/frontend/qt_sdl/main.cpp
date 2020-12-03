@@ -495,24 +495,24 @@ void EmuThread::run()
             double frametimeStep = nlines / (60.0 * 263.0);
 
             {
+                bool limitfps = Config::LimitFPS && !fastforward;
+
+                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / 1000.0;
+
                 double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
 
-                bool limitfps = Config::LimitFPS && !fastforward;
-                if (limitfps)
+                frameLimitError += practicalFramelimit - (curtime - lastTime);
+                if (frameLimitError < -practicalFramelimit)
+                    frameLimitError = -practicalFramelimit;
+                if (frameLimitError > practicalFramelimit)
+                    frameLimitError = practicalFramelimit;
+                
+                if (round(frameLimitError * 1000.0) > 0.0)
                 {
-                    frameLimitError += frametimeStep - (curtime - lastTime);
-                    if (frameLimitError < -frametimeStep)
-                        frameLimitError = -frametimeStep;
-                    if (frameLimitError > frametimeStep)
-                        frameLimitError = frametimeStep;
-                    
-                    if (round(frameLimitError * 1000.0) > 0.0)
-                    {
-                        SDL_Delay(round(frameLimitError * 1000.0));
-                        double timeBeforeSleep = curtime;
-                        curtime = SDL_GetPerformanceCounter() * perfCountsSec;
-                        frameLimitError -= curtime - timeBeforeSleep;
-                    }
+                    SDL_Delay(round(frameLimitError * 1000.0));
+                    double timeBeforeSleep = curtime;
+                    curtime = SDL_GetPerformanceCounter() * perfCountsSec;
+                    frameLimitError -= curtime - timeBeforeSleep;
                 }
 
                 lastTime = curtime;
