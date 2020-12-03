@@ -2596,11 +2596,12 @@ void GPU2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 wi
         if (spritemode == 1) pixelattr |= 0x80000000;
         else                 pixelattr |= 0x10000000;
 
+        ytilefactor <<= 5;
+        pixelsaddr <<= 5;
+
         if (attrib[0] & 0x2000)
         {
             // 256-color
-            ytilefactor <<= 5;
-            pixelsaddr <<= 5;
 
             if (!window)
             {
@@ -2640,10 +2641,6 @@ void GPU2D::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 wi
         else
         {
             // 16-color
-            tilenum <<= 5;
-            ytilefactor <<= 5;
-            u32 pixelsaddr = (Num ? 0x06600000 : 0x06400000) + tilenum;
-
             if (!window)
             {
                 pixelattr |= 0x1000;
