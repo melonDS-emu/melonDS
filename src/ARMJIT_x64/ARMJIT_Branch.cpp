@@ -130,6 +130,16 @@ void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
         ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
 }
 
+void ARMv4JumpToTrampoline(ARMv4* arm, u32 addr, bool restorecpsr)
+{
+    arm->JumpTo(addr, restorecpsr);
+}
+
+void ARMv5JumpToTrampoline(ARMv5* arm, u32 addr, bool restorecpsr)
+{
+    arm->JumpTo(addr, restorecpsr);
+}
+
 void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
 {
     IrregularCycles = true;
@@ -146,9 +156,9 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     else
         MOV(32, R(ABI_PARAM3), Imm32(true)); // what a waste
     if (Num == 0)
-        CALL((void*)&ARMv5::JumpTo);
+        CALL((void*)&ARMv5JumpToTrampoline);
     else
-        CALL((void*)&ARMv4::JumpTo);
+        CALL((void*)&ARMv4JumpToTrampoline);
 
     PopRegs(restoreCPSR);
 

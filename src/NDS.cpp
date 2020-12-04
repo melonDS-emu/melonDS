@@ -210,12 +210,12 @@ bool Init()
 
 void DeInit()
 {
-    delete ARM9;
-    delete ARM7;
-
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
+
+    delete ARM9;
+    delete ARM7;
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
@@ -908,7 +908,7 @@ void RunSystem(u64 timestamp)
     }
 }
 
-template <bool EnableJIT>
+template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -934,10 +934,10 @@ u32 RunFrame()
         }
         else if (CPUStop & 0x0FFF)
         {
-            DMAs[0]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
+            DMAs[0]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
             if (ConsoleType == 1) DSi::RunNDMAs(0);
         }
         else
@@ -962,10 +962,10 @@ u32 RunFrame()
 
             if (CPUStop & 0x0FFF0000)
             {
-                DMAs[4]->Run();
-                DMAs[5]->Run();
-                DMAs[6]->Run();
-                DMAs[7]->Run();
+                DMAs[4]->Run<ConsoleType>();
+                DMAs[5]->Run<ConsoleType>();
+                DMAs[6]->Run<ConsoleType>();
+                DMAs[7]->Run<ConsoleType>();
                 if (ConsoleType == 1) DSi::RunNDMAs(1);
             }
             else
@@ -999,6 +999,9 @@ u32 RunFrame()
            ARM7Timestamp-SysTimestamp,
            GPU3D::Timestamp-SysTimestamp);
 #endif
+    SPU::TransferOutput();
+
+    NDSCart::FlushSRAMFile();
 
     NumFrames++;
 
@@ -1009,10 +1012,14 @@ u32 RunFrame()
 {
 #ifdef JIT_ENABLED
     if (Config::JIT_Enable)
-        return RunFrame<true>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<true, 1>()
+            : RunFrame<true, 0>();
     else
 #endif
-        return RunFrame<false>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<false, 1>()
+            : RunFrame<false, 0>();
 }
 
 void Reschedule(u64 target)
@@ -3130,6 +3137,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
         NDSCart::WriteSPIData(val);
         return;
 
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
+
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
     case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
     case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
@@ -3244,6 +3255,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
         IPCFIFOCnt9 = val & 0x8404;
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 16)); 
         return;
 
     case 0x040001A0:
@@ -3733,6 +3748,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000138: RTC::Write(val, true); return;
 
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
+
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
         {
@@ -3839,6 +3858,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
         IPCFIFOCnt7 = val & 0x8404;
+        return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:

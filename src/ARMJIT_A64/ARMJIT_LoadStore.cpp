@@ -9,37 +9,34 @@ using namespace Arm64Gen;
 namespace ARMJIT
 {
 
-bool Compiler::IsJITFault(u64 pc)
+bool Compiler::IsJITFault(u8* pc)
 {
-    return pc >= (u64)GetRXBase() && pc - (u64)GetRXBase() < (JitMemMainSize + JitMemSecondarySize);
+    return (u64)pc >= (u64)GetRXBase() && (u64)pc - (u64)GetRXBase() < (JitMemMainSize + JitMemSecondarySize);
 }
 
-s64 Compiler::RewriteMemAccess(u64 pc)
+u8* Compiler::RewriteMemAccess(u8* pc)
 {
-    ptrdiff_t pcOffset = pc - (u64)GetRXBase();
+    ptrdiff_t pcOffset = pc - GetRXBase();
 
     auto it = LoadStorePatches.find(pcOffset);
 
     if (it != LoadStorePatches.end())
     {
         LoadStorePatch patch = it->second;
+        LoadStorePatches.erase(it);
 
         ptrdiff_t curCodeOffset = GetCodeOffset();
 
         SetCodePtrUnsafe(pcOffset + patch.PatchOffset);
 
         BL(patch.PatchFunc);
-
         for (int i = 0; i < patch.PatchSize / 4 - 1; i++)
             HINT(HINT_NOP);
-
         FlushIcacheSection((u8*)pc + patch.PatchOffset, (u8*)GetRXPtr());
 
         SetCodePtrUnsafe(curCodeOffset);
 
-        LoadStorePatches.erase(it);
-
-        return patch.PatchOffset;
+        return pc + (ptrdiff_t)patch.PatchOffset;
     }
     printf("this is a JIT bug! %08x\n", __builtin_bswap32(*(u32*)pc));
     abort();
@@ -192,7 +189,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         else
         {
             LDRGeneric(size, flags & memop_SignExtend, rdMapped, size > 8 ? X1 : X0, X7);
-            if (size == 32)
+            if (size == 32 && !addrIsStatic)
             {
                 UBFIZ(W0, W0, 3, 2);
                 RORV(rdMapped, rdMapped, W0);

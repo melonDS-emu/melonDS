@@ -33,7 +33,11 @@
 	#include <sys/types.h>
 	#include <ifaddrs.h>
 	#include <netinet/in.h>
-	#include <linux/if_packet.h>
+        #ifdef __linux__
+            #include <linux/if_packet.h>
+        #else
+	    #include <net/if_dl.h>
+        #endif
 #endif
 
 
@@ -66,6 +70,9 @@ const char* PCapLibNames[] =
 #ifdef __WIN32__
     // TODO: name for npcap in non-WinPCap mode
     "wpcap.dll",
+#elif defined(__APPLE__)
+    "libpcap.A.dylib",
+    "libpcap.dylib",
 #else
     // Linux lib names
     "libpcap.so.1",
@@ -276,6 +283,7 @@ bool Init(bool open_adapter)
                 struct sockaddr_in* sa = (sockaddr_in*)curaddr->ifa_addr;
                 memcpy(adata->IP_v4, &sa->sin_addr, 4);
             }
+            #ifdef __linux__
             else if (af == AF_PACKET)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
@@ -284,7 +292,16 @@ bool Init(bool open_adapter)
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
-
+            #else
+            else if (af == AF_LINK)
+            {
+                struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
+                if (sa->sdl_alen != 6)
+                    printf("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                else
+                    memcpy(adata->MAC, LLADDR(sa), 6);
+            }
+            #endif
             curaddr = curaddr->ifa_next;
         }
     }

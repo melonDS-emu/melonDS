@@ -58,15 +58,17 @@ bool PrevIsShadowMask;
 
 bool Enabled;
 
+bool FrameIdentical;
+
 // threading
 
 bool Threaded;
-void* RenderThread;
+Platform::Thread* RenderThread;
 bool RenderThreadRunning;
 bool RenderThreadRendering;
-void* Sema_RenderStart;
-void* Sema_RenderDone;
-void* Sema_ScanlineCount;
+Platform::Semaphore* Sema_RenderStart;
+Platform::Semaphore* Sema_RenderDone;
+Platform::Semaphore* Sema_ScanlineCount;
 
 void RenderThreadFunc();
 
@@ -550,6 +552,16 @@ typedef struct
 
 RendererPolygon PolygonList[2048];
 
+template <typename T>
+inline T ReadVRAM_Texture(u32 addr)
+{
+    return *(T*)&GPU::VRAMFlat_Texture[addr & 0x7FFFF];
+}
+template <typename T>
+inline T ReadVRAM_TexPal(u32 addr)
+{
+    return *(T*)&GPU::VRAMFlat_TexPal[addr & 0x1FFFF];
+}
 
 void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
 {
@@ -606,10 +618,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 1: // A3I5
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
             *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
         }
         break;
@@ -617,12 +629,12 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 2: // 4-color
         {
             vramaddr += (((t * width) + s) >> 2);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
             pixel >>= ((s & 0x3) << 1);
             pixel &= 0x3;
 
             texpal <<= 3;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -630,12 +642,12 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 3: // 16-color
         {
             vramaddr += (((t * width) + s) >> 1);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
             if (s & 0x1) pixel >>= 4;
             else         pixel &= 0xF;
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -643,10 +655,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 4: // 256-color
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -660,30 +672,30 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
             if (vramaddr >= 0x40000)
                 slot1addr += 0x10000;
 
-            u8 val = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 val = ReadVRAM_Texture<u8>(vramaddr);
             val >>= (2 * (s & 0x3));
 
-            u16 palinfo = GPU::ReadVRAM_Texture<u16>(slot1addr);
+            u16 palinfo = ReadVRAM_Texture<u16>(slot1addr);
             u32 paloffset = (palinfo & 0x3FFF) << 2;
             texpal <<= 4;
 
             switch (val & 0x3)
             {
             case 0:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
+                *color = ReadVRAM_TexPal<u16>(texpal + paloffset);
                 *alpha = 31;
                 break;
 
             case 1:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
                 *alpha = 31;
                 break;
 
             case 2:
                 if ((palinfo >> 14) == 1)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -700,8 +712,8 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -717,20 +729,20 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
                     *color = r | g | b;
                 }
                 else
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
+                    *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
                 *alpha = 31;
                 break;
 
             case 3:
                 if ((palinfo >> 14) == 2)
                 {
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
+                    *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
                     *alpha = 31;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -759,10 +771,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 6: // A5I3
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
             *alpha = (pixel >> 3);
         }
         break;
@@ -770,7 +782,7 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 7: // direct color
         {
             vramaddr += (((t * width) + s) << 1);
-            *color = GPU::ReadVRAM_Texture<u16>(vramaddr);
+            *color = ReadVRAM_Texture<u16>(vramaddr);
             *alpha = (*color & 0x8000) ? 31 : 0;
         }
         break;
@@ -2007,8 +2019,8 @@ void ClearBuffers()
         {
             for (int x = 0; x < 256; x++)
             {
-                u16 val2 = GPU::ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
-                u16 val3 = GPU::ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
+                u16 val2 = ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
+                u16 val3 = ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
 
                 // TODO: confirm color conversion
                 u32 r = (val2 << 1) & 0x3E; if (r) r++;
@@ -2088,11 +2100,19 @@ void VCount144()
 
 void RenderFrame()
 {
+    auto textureDirty = GPU::VRAMDirty_Texture.DeriveState(GPU::VRAMMap_Texture);
+    auto texPalDirty = GPU::VRAMDirty_TexPal.DeriveState(GPU::VRAMMap_TexPal);
+
+    bool textureChanged = GPU::MakeVRAMFlat_TextureCoherent(textureDirty);
+    bool texPalChanged = GPU::MakeVRAMFlat_TexPalCoherent(texPalDirty);
+
+    FrameIdentical = !(textureChanged || texPalChanged) && RenderFrameIdentical;
+
     if (RenderThreadRunning)
     {
         Platform::Semaphore_Post(Sema_RenderStart);
     }
-    else
+    else if (!FrameIdentical)
     {
         ClearBuffers();
         RenderPolygons(false, &RenderPolygonRAM[0], RenderNumPolygons);
@@ -2107,8 +2127,15 @@ void RenderThreadFunc()
         if (!RenderThreadRunning) return;
 
         RenderThreadRendering = true;
-        ClearBuffers();
-        RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        if (FrameIdentical)
+        {
+            Platform::Semaphore_Post(Sema_ScanlineCount, 192);
+        }
+        else
+        {
+            ClearBuffers();
+            RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        }
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;

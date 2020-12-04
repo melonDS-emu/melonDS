@@ -87,6 +87,8 @@ extern u8 RenderFogDensityTable[34];
 
 extern u32 RenderClearAttr1, RenderClearAttr2;
 
+extern bool RenderFrameIdentical;
+
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 

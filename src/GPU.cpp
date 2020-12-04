@@ -49,8 +49,8 @@ u8 VRAM_F[ 16*1024];
 u8 VRAM_G[ 16*1024];
 u8 VRAM_H[ 32*1024];
 u8 VRAM_I[ 16*1024];
-u8* VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
-u32 VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
+u8* const VRAM[9]     = {VRAM_A,  VRAM_B,  VRAM_C,  VRAM_D,  VRAM_E, VRAM_F, VRAM_G, VRAM_H, VRAM_I};
+u32 const VRAMMask[9] = {0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0xFFFF, 0x3FFF, 0x3FFF, 0x7FFF, 0x3FFF};
 
 u8 VRAMCNT[9];
 u8 VRAMSTAT;
@@ -85,6 +85,62 @@ bool Accelerated;
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
 
+/*
+    VRAM invalidation tracking
+
+    - we want to know when a VRAM region used for graphics changed
+    - for some regions unmapping is mandatory to modify them (Texture, TexPal and ExtPal) and
+        we don't want to completely invalidate them every time they're unmapped and remapped
+
+    For this reason we don't track the dirtyness per mapping region, but instead per VRAM bank
+    with VRAMDirty. Writes to LCDC go directly into VRAMDirty, while writes via other mapping regions
+    like BG or OBJ are first tracked in VRAMWritten_* and need to be flushed using SyncDirtyFlags.
+
+    This is more or less a description of VRAMTrackingSet::DeriveState
+        Each time before the memory is read two things could have happened
+        to each 16kb piece (16kb is the smallest unit in which mappings can
+        be made thus also the size VRAMMap_* use):
+            - this piece was remapped compared to last time we checked,
+                which means this location in memory is invalid.
+            - this piece wasn't remapped, which means we need to check whether
+                it was changed. This can be archived by checking VRAMDirty.
+                VRAMDirty need to be reset for the respective VRAM bank.
+*/
+
+VRAMTrackingSet<512*1024, 16*1024> VRAMDirty_ABG;
+VRAMTrackingSet<256*1024, 16*1024> VRAMDirty_AOBJ;
+VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BBG;
+VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BOBJ;
+
+VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_ABGExtPal;
+VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_BBGExtPal;
+VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_AOBJExtPal;
+VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_BOBJExtPal;
+
+VRAMTrackingSet<512*1024, 128*1024> VRAMDirty_Texture;
+VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_TexPal;
+
+
+NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMWritten_ABG;
+NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_AOBJ;
+NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BBG;
+NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BOBJ;
+NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_ARM7;
+
+NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9];
+
+u8 VRAMFlat_ABG[512*1024];
+u8 VRAMFlat_BBG[128*1024];
+u8 VRAMFlat_AOBJ[256*1024];
+u8 VRAMFlat_BOBJ[128*1024];
+
+u8 VRAMFlat_ABGExtPal[32*1024];
+u8 VRAMFlat_BBGExtPal[32*1024];
+u8 VRAMFlat_AOBJExtPal[8*1024];
+u8 VRAMFlat_BOBJExtPal[8*1024];
+
+u8 VRAMFlat_Texture[512*1024];
+u8 VRAMFlat_TexPal[128*1024];
 
 bool Init()
 {
@@ -111,6 +167,30 @@ void DeInit()
     if (Framebuffer[0][1]) delete[] Framebuffer[0][1];
     if (Framebuffer[1][0]) delete[] Framebuffer[1][0];
     if (Framebuffer[1][1]) delete[] Framebuffer[1][1];
+}
+
+void ResetVRAMCache()
+{
+    for (int i = 0; i < 9; i++)
+        VRAMDirty[i] = NonStupidBitField<128*1024/VRAMDirtyGranularity>();
+
+    VRAMDirty_ABG.Reset();
+    VRAMDirty_BBG.Reset();
+    VRAMDirty_AOBJ.Reset();
+    VRAMDirty_BOBJ.Reset();
+    VRAMDirty_ABGExtPal.Reset();
+    VRAMDirty_BBGExtPal.Reset();
+    VRAMDirty_AOBJExtPal.Reset();
+    VRAMDirty_BOBJExtPal.Reset();
+
+    memset(VRAMFlat_ABG, 0, sizeof(VRAMFlat_ABG));
+    memset(VRAMFlat_BBG, 0, sizeof(VRAMFlat_BBG));
+    memset(VRAMFlat_AOBJ, 0, sizeof(VRAMFlat_AOBJ));
+    memset(VRAMFlat_BOBJ, 0, sizeof(VRAMFlat_BOBJ));
+    memset(VRAMFlat_ABGExtPal, 0, sizeof(VRAMFlat_ABGExtPal));
+    memset(VRAMFlat_BBGExtPal, 0, sizeof(VRAMFlat_BBGExtPal));
+    memset(VRAMFlat_AOBJExtPal, 0, sizeof(VRAMFlat_AOBJExtPal));
+    memset(VRAMFlat_BOBJExtPal, 0, sizeof(VRAMFlat_BOBJExtPal));
 }
 
 void Reset()
@@ -186,6 +266,8 @@ void Reset()
     GPU2D_B->SetFramebuffer(Framebuffer[backbuf][0]);
 
     ResetRenderer();
+
+    ResetVRAMCache();
 }
 
 void Stop()
@@ -261,6 +343,8 @@ void DoSavestate(Savestate* file)
     GPU2D_A->DoSavestate(file);
     GPU2D_B->DoSavestate(file);
     GPU3D::DoSavestate(file);
+
+    ResetVRAMCache();
 }
 
 void AssignFramebuffers()
@@ -411,18 +495,8 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
 u8* GetUniqueBankPtr(u32 mask, u32 offset)
 {
-    if (!mask) return NULL;
-
-    int num = 0;
-    if (!(mask & 0xFF)) { mask >>= 8; num += 8; }
-    else
-    {
-        if (!(mask & 0xF)) { mask >>= 4; num += 4; }
-        if (!(mask & 0x3)) { mask >>= 2; num += 2; }
-        if (!(mask & 0x1)) { mask >>= 1; num += 1; }
-    }
-    if (mask != 1) return NULL;
-
+    if (!mask || (mask & (mask - 1)) != 0) return NULL;
+    int num = __builtin_ctz(mask);
     return &VRAM[num][offset & VRAMMask[num]];
 }
 
@@ -606,8 +680,6 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 4: // ABG ext palette
             UNMAP_RANGE(ABGExtPal, 0, 4);
-            GPU2D_A->BGExtPalDirty(0);
-            GPU2D_A->BGExtPalDirty(2);
             break;
         }
     }
@@ -634,8 +706,6 @@ void MapVRAM_E(u32 bank, u8 cnt)
 
         case 4: // ABG ext palette
             MAP_RANGE(ABGExtPal, 0, 4);
-            GPU2D_A->BGExtPalDirty(0);
-            GPU2D_A->BGExtPalDirty(2);
             break;
         }
     }
@@ -687,12 +757,10 @@ void MapVRAM_FG(u32 bank, u8 cnt)
         case 4: // ABG ext palette
             VRAMMap_ABGExtPal[((oldofs & 0x1) << 1)] &= ~bankmask;
             VRAMMap_ABGExtPal[((oldofs & 0x1) << 1) + 1] &= ~bankmask;
-            GPU2D_A->BGExtPalDirty((oldofs & 0x1) << 1);
             break;
 
         case 5: // AOBJ ext palette
             VRAMMap_AOBJExtPal &= ~bankmask;
-            GPU2D_A->OBJExtPalDirty();
             break;
         }
     }
@@ -732,12 +800,10 @@ void MapVRAM_FG(u32 bank, u8 cnt)
         case 4: // ABG ext palette
             VRAMMap_ABGExtPal[((ofs & 0x1) << 1)] |= bankmask;
             VRAMMap_ABGExtPal[((ofs & 0x1) << 1) + 1] |= bankmask;
-            GPU2D_A->BGExtPalDirty((ofs & 0x1) << 1);
             break;
 
         case 5: // AOBJ ext palette
             VRAMMap_AOBJExtPal |= bankmask;
-            GPU2D_A->OBJExtPalDirty();
             break;
         }
     }
@@ -773,8 +839,6 @@ void MapVRAM_H(u32 bank, u8 cnt)
 
         case 2: // BBG ext palette
             UNMAP_RANGE(BBGExtPal, 0, 4);
-            GPU2D_B->BGExtPalDirty(0);
-            GPU2D_B->BGExtPalDirty(2);
             break;
         }
     }
@@ -800,8 +864,6 @@ void MapVRAM_H(u32 bank, u8 cnt)
 
         case 2: // BBG ext palette
             MAP_RANGE(BBGExtPal, 0, 4);
-            GPU2D_B->BGExtPalDirty(0);
-            GPU2D_B->BGExtPalDirty(2);
             break;
         }
     }
@@ -841,7 +903,6 @@ void MapVRAM_I(u32 bank, u8 cnt)
 
         case 3: // BOBJ ext palette
             VRAMMap_BOBJExtPal &= ~bankmask;
-            GPU2D_B->OBJExtPalDirty();
             break;
         }
     }
@@ -871,7 +932,6 @@ void MapVRAM_I(u32 bank, u8 cnt)
 
         case 3: // BOBJ ext palette
             VRAMMap_BOBJExtPal |= bankmask;
-            GPU2D_B->OBJExtPalDirty();
             break;
         }
     }
@@ -936,6 +996,8 @@ void StartHBlank(u32 line)
 {
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
+
+    SyncDirtyFlags();
 
     if (VCount < 192)
     {
@@ -1094,6 +1156,226 @@ void SetVCount(u16 val)
     // TODO: also check the various DMA types that can be involved
 
     NextVCount = val;
+}
+
+template <u32 Size, u32 MappingGranularity>
+NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranularity>::DeriveState(u32* currentMappings)
+{
+    NonStupidBitField<Size/VRAMDirtyGranularity> result;
+    u16 banksToBeZeroed = 0;
+    for (u32 i = 0; i < Size / MappingGranularity; i++)
+    {
+        if (currentMappings[i] != Mapping[i])
+        {
+            result |= NonStupidBitField<Size/VRAMDirtyGranularity>(i*VRAMBitsPerMapping, VRAMBitsPerMapping);
+            banksToBeZeroed |= currentMappings[i];
+            Mapping[i] = currentMappings[i];
+        }
+        else
+        {
+            u32 mapping = Mapping[i];
+
+            banksToBeZeroed |= mapping;
+
+            while (mapping != 0)
+            {
+                u32 num = __builtin_ctz(mapping);
+                mapping &= ~(1 << num);
+
+                // hack for **speed**
+                // this could probably be done less ugly but then we would rely
+                // on the compiler for vectorisation
+                static_assert(VRAMDirtyGranularity == 512);
+                if (MappingGranularity == 16*1024)
+                {
+                    u32 dirty = ((u32*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 14)];
+                    ((u32*)result.Data)[i] |= dirty;
+                }
+                else if (MappingGranularity == 8*1024)
+                {
+                    u16 dirty = ((u16*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 13)];
+                    ((u16*)result.Data)[i] |= dirty;
+                }
+                else if (MappingGranularity == 128*1024)
+                {
+                    ((u64*)result.Data)[i * 4 + 0] |= ((u64*)VRAMDirty[num].Data)[0];
+                    ((u64*)result.Data)[i * 4 + 1] |= ((u64*)VRAMDirty[num].Data)[1];
+                    ((u64*)result.Data)[i * 4 + 2] |= ((u64*)VRAMDirty[num].Data)[2];
+                    ((u64*)result.Data)[i * 4 + 3] |= ((u64*)VRAMDirty[num].Data)[3];
+                }
+                else
+                {
+                    // welp
+                    abort();
+                }
+            }
+        }
+    }
+
+    while (banksToBeZeroed != 0)
+    {
+        u32 num = __builtin_ctz(banksToBeZeroed);
+        banksToBeZeroed &= ~(1 << num);
+        memset(VRAMDirty[num].Data, 0, sizeof(VRAMDirty[num].Data));
+    }
+
+    return result;
+}
+
+template NonStupidBitField<32*1024/VRAMDirtyGranularity> VRAMTrackingSet<32*1024, 8*1024>::DeriveState(u32*);
+template NonStupidBitField<8*1024/VRAMDirtyGranularity> VRAMTrackingSet<8*1024, 8*1024>::DeriveState(u32*);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 128*1024>::DeriveState(u32*);
+template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(u32*);
+template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(u32*);
+template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(u32*);
+
+template <u32 Size>
+void SyncDirtyFlags(u32* mappings, NonStupidBitField<Size>& writtenFlags)
+{
+    const u32 VRAMWrittenBitsPer16KB = 16*1024/VRAMDirtyGranularity;
+
+    for (typename NonStupidBitField<Size>::Iterator it = writtenFlags.Begin(); it != writtenFlags.End(); it++)
+    {
+        u32 mapping = mappings[*it / VRAMWrittenBitsPer16KB];
+        while (mapping != 0)
+        {
+            u32 num = __builtin_ctz(mapping);
+
+            VRAMDirty[num][*it & (VRAMMask[num] / VRAMDirtyGranularity)] = true;
+
+            mapping &= ~(1 << num);
+        }
+    }
+    memset(writtenFlags.Data, 0, sizeof(writtenFlags.Data));
+}
+
+void SyncDirtyFlags()
+{
+    SyncDirtyFlags(VRAMMap_ABG, VRAMWritten_ABG);
+    SyncDirtyFlags(VRAMMap_AOBJ, VRAMWritten_AOBJ);
+    SyncDirtyFlags(VRAMMap_BBG, VRAMWritten_BBG);
+    SyncDirtyFlags(VRAMMap_BOBJ, VRAMWritten_BOBJ);
+    SyncDirtyFlags(VRAMMap_ARM7, VRAMWritten_ARM7);
+}
+
+template <u32 MappingGranularity, u32 Size>
+inline bool CopyLinearVRAM(u8* flat, u32* mappings, NonStupidBitField<Size>& dirty, u64 (*slowAccess)(u32 addr))
+{
+    const u32 VRAMBitsPerMapping = MappingGranularity / VRAMDirtyGranularity;
+
+    bool change = false;
+
+    typename NonStupidBitField<Size>::Iterator it = dirty.Begin();
+    while (it != dirty.End())
+    {
+        u32 offset = *it * VRAMDirtyGranularity;
+        u8* dst = flat + offset;
+        u8* fastAccess = GetUniqueBankPtr(mappings[*it / VRAMBitsPerMapping], offset);
+        if (fastAccess)
+        {
+            memcpy(dst, fastAccess, VRAMDirtyGranularity);
+        }
+        else
+        {
+            for (u32 i = 0; i < VRAMDirtyGranularity; i += 8)
+                *(u64*)&dst[i] = slowAccess(offset + i);
+        }
+        change = true;
+        it++;
+    }
+    return change;
+}
+
+bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<128*1024>(VRAMFlat_Texture, VRAMMap_Texture, dirty, ReadVRAM_Texture<u64>);
+}
+bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_TexPal, VRAMMap_TexPal, dirty, ReadVRAM_TexPal<u64>);
+}
+
+bool MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_ABG, VRAMMap_ABG, dirty, ReadVRAM_ABG<u64>);
+}
+bool MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_BBG, VRAMMap_BBG, dirty, ReadVRAM_BBG<u64>);
+}
+
+bool MakeVRAMFlat_AOBJCoherent(NonStupidBitField<256*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_AOBJ, VRAMMap_AOBJ, dirty, ReadVRAM_AOBJ<u64>);
+}
+bool MakeVRAMFlat_BOBJCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<16*1024>(VRAMFlat_BOBJ, VRAMMap_BOBJ, dirty, ReadVRAM_BOBJ<u64>);
+}
+
+template<typename T>
+T ReadVRAM_ABGExtPal(u32 addr)
+{
+    u32 mask = VRAMMap_ABGExtPal[(addr >> 13) & 0x3];
+
+    T ret = 0;
+    if (mask & (1<<4)) ret |= *(T*)&VRAM_E[addr & 0x7FFF];
+    if (mask & (1<<5)) ret |= *(T*)&VRAM_F[addr & 0x3FFF];
+    if (mask & (1<<6)) ret |= *(T*)&VRAM_G[addr & 0x3FFF];
+
+    return ret;
+}
+
+template<typename T>
+T ReadVRAM_BBGExtPal(u32 addr)
+{
+    u32 mask = VRAMMap_BBGExtPal[(addr >> 13) & 0x3];
+
+    T ret = 0;
+    if (mask & (1<<7)) ret |= *(T*)&VRAM_H[addr & 0x7FFF];
+
+    return ret;
+}
+
+template<typename T>
+T ReadVRAM_AOBJExtPal(u32 addr)
+{
+    u32 mask = VRAMMap_AOBJExtPal;
+
+    T ret = 0;
+    if (mask & (1<<4)) ret |= *(T*)&VRAM_F[addr & 0x1FFF];
+    if (mask & (1<<5)) ret |= *(T*)&VRAM_G[addr & 0x1FFF];
+
+    return ret;
+}
+
+template<typename T>
+T ReadVRAM_BOBJExtPal(u32 addr)
+{
+    u32 mask = VRAMMap_BOBJExtPal;
+
+    T ret = 0;
+    if (mask & (1<<8)) ret |= *(T*)&VRAM_I[addr & 0x1FFF];
+
+    return ret;
+}
+
+bool MakeVRAMFlat_ABGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<8*1024>(VRAMFlat_ABGExtPal, VRAMMap_ABGExtPal, dirty, ReadVRAM_ABGExtPal<u64>);
+}
+bool MakeVRAMFlat_BBGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<8*1024>(VRAMFlat_BBGExtPal, VRAMMap_BBGExtPal, dirty, ReadVRAM_BBGExtPal<u64>);
+}
+
+bool MakeVRAMFlat_AOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<8*1024>(VRAMFlat_AOBJExtPal, &VRAMMap_AOBJExtPal, dirty, ReadVRAM_AOBJExtPal<u64>);
+}
+bool MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty)
+{
+    return CopyLinearVRAM<8*1024>(VRAMFlat_BOBJExtPal, &VRAMMap_BOBJExtPal, dirty, ReadVRAM_BOBJExtPal<u64>);
 }
 
 }

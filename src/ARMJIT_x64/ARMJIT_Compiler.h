@@ -208,9 +208,9 @@ public:
         SetCodePtr(FarCode);
     }
 
-    bool IsJITFault(u64 addr);
+    bool IsJITFault(u8* addr);
 
-    s32 RewriteMemAccess(u64 pc);
+    u8* RewriteMemAccess(u8* pc);
 
     u8* FarCode;
     u8* NearCode;

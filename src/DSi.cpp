@@ -543,14 +543,14 @@ void MapNWRAM_A(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(0);
-#endif
-
     int mbkn = 0, mbks = 8*num;
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(0);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -578,14 +578,14 @@ void MapNWRAM_B(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(1);
-#endif
-
     int mbkn = 1+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(1);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -617,14 +617,14 @@ void MapNWRAM_C(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(2);
-#endif
-
     int mbkn = 3+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(2);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);

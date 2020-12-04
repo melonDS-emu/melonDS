@@ -80,9 +80,8 @@ if (ENABLE_JIT)
 			ARMJIT_x64/ARMJIT_LoadStore.cpp
 			ARMJIT_x64/ARMJIT_Branch.cpp
 
-			ARMJIT_x64/ARMJIT_Linkage.s
+			ARMJIT_x64/ARMJIT_Linkage.S
 		)
-		set_source_files_properties(ARMJIT_x64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 	endif()
 	if (ARCHITECTURE STREQUAL ARM64)
 		target_sources(core PRIVATE
@@ -94,16 +93,22 @@ if (ENABLE_JIT)
 			ARMJIT_A64/ARMJIT_LoadStore.cpp
 			ARMJIT_A64/ARMJIT_Branch.cpp
 
-			ARMJIT_A64/ARMJIT_Linkage.s
+			ARMJIT_A64/ARMJIT_Linkage.S
 		)
-		set_source_files_properties(ARMJIT_A64/ARMJIT_Linkage.s PROPERTIES COMPILE_FLAGS "-x assembler-with-cpp")
 	endif()
+endif()
+
+if (APPLE)
+        target_include_directories(core PUBLIC /usr/local/include)
+        target_link_directories(core PUBLIC /usr/local/lib)
 endif()
 
 if (ENABLE_OGLRENDERER)
 	if (WIN32)
 		target_link_libraries(core ole32 comctl32 ws2_32 opengl32)
-	else()
+  elseif (APPLE)
+    target_link_libraries(core "-framework OpenGL")
+  else()
 		target_link_libraries(core GL EGL)
 	endif()
 else()

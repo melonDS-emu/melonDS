@@ -55,7 +55,8 @@ public:
 private slots:
     void done(int r);
 
-    void on_cbDirectMode_stateChanged(int state);
+    void on_rbDirectMode_clicked();
+    void on_rbIndirectMode_clicked();
     void on_cbxDirectAdapter_currentIndexChanged(int sel);
 
 private:

@@ -187,6 +187,7 @@ public:
     void Comp_RegShiftReg(int op, bool S, Op2& op2, Arm64Gen::ARM64Reg rs);
 
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
+
     enum
     {
         memop_Writeback = 1 << 0,
@@ -213,8 +214,8 @@ public:
         return (u8*)entry - GetRXBase();
     }
 
-    bool IsJITFault(u64 pc);
-    s64 RewriteMemAccess(u64 pc);
+    bool IsJITFault(u8* pc);
+    u8* RewriteMemAccess(u8* pc);
 
     void SwapCodeRegion()
     {
