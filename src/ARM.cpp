@@ -570,6 +570,8 @@ void ARMv5::Execute()
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
             ARMInterpreter::THUMBInstrTable[icode](this);
+
+            if (R[15]==0x0219A6B0) printf("CAM THREAD MSG: %02X %08X -> %08X\n", R[1], R[0], 0x0219A6B6+R[0]);
         }
         else
         {
@@ -592,7 +594,7 @@ void ARMv5::Execute()
             else
                 AddCycles_C();
         }
- 
+
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -651,7 +653,7 @@ void ARMv5::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup, 
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
@@ -802,7 +804,7 @@ void ARMv4::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup, 
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);

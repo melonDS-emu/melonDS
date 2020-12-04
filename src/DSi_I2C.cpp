@@ -187,8 +187,8 @@ void WriteCnt(u8 val)
             switch (Device)
             {
             case 0x4A: Data = DSi_BPTWL::Read(islast); break;
-            case 0x78: Data = DSi_Camera0->Read(islast); break;
-            case 0x7A: Data = DSi_Camera1->Read(islast); break;
+            case 0x78: Data = DSi_Camera0->I2C_Read(islast); break;
+            case 0x7A: Data = DSi_Camera1->I2C_Read(islast); break;
             case 0xA0:
             case 0xE0: Data = 0xFF; break;
             default:
@@ -213,8 +213,8 @@ void WriteCnt(u8 val)
                 switch (Device)
                 {
                 case 0x4A: DSi_BPTWL::Start(); break;
-                case 0x78: DSi_Camera0->Start(); break;
-                case 0x7A: DSi_Camera1->Start(); break;
+                case 0x78: DSi_Camera0->I2C_Start(); break;
+                case 0x7A: DSi_Camera1->I2C_Start(); break;
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
@@ -230,8 +230,8 @@ void WriteCnt(u8 val)
                 switch (Device)
                 {
                 case 0x4A: DSi_BPTWL::Write(Data, islast); break;
-                case 0x78: DSi_Camera0->Write(Data, islast); break;
-                case 0x7A: DSi_Camera1->Write(Data, islast); break;
+                case 0x78: DSi_Camera0->I2C_Write(Data, islast); break;
+                case 0x7A: DSi_Camera1->I2C_Write(Data, islast); break;
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
