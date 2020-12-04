@@ -67,6 +67,11 @@ private:
     u16 StandbyCnt;
     u16 MiscCnt;
 
+    u16 MCUAddr;
+    u16* MCUData;
+
+    u8 MCURegs[0x8000];
+
     static u16 ModuleCnt;
     static u16 Cnt;
 
