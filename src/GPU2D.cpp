@@ -1271,6 +1271,7 @@ void GPU2D::CalculateWindowMask(u32 line)
 
 
 #define DoDrawBG(type, line, num) \
+    do \
     { \
         if ((BGCnt[num] & 0x0040) && (BGMosaicSize[0] > 0)) \
         { \
@@ -1282,7 +1283,7 @@ void GPU2D::CalculateWindowMask(u32 line)
             if (Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
         } \
-    }
+    } while (false)
 
 #define DoDrawBG_Large(line) \
     do \
@@ -1312,11 +1313,11 @@ void GPU2D::DrawScanlineBGMode(u32 line)
             if (DispCnt & 0x0800)
             {
                 if (bgmode >= 3)
-                    DoDrawBG(Extended, line, 3)
+                    DoDrawBG(Extended, line, 3);
                 else if (bgmode >= 1)
-                    DoDrawBG(Affine, line, 3)
+                    DoDrawBG(Affine, line, 3);
                 else
-                    DoDrawBG(Text, line, 3)
+                    DoDrawBG(Text, line, 3);
             }
         }
         if ((BGCnt[2] & 0x3) == i)
@@ -1324,18 +1325,18 @@ void GPU2D::DrawScanlineBGMode(u32 line)
             if (DispCnt & 0x0400)
             {
                 if (bgmode == 5)
-                    DoDrawBG(Extended, line, 2)
+                    DoDrawBG(Extended, line, 2);
                 else if (bgmode == 4 || bgmode == 2)
-                    DoDrawBG(Affine, line, 2)
+                    DoDrawBG(Affine, line, 2);
                 else
-                    DoDrawBG(Text, line, 2)
+                    DoDrawBG(Text, line, 2);
             }
         }
         if ((BGCnt[1] & 0x3) == i)
         {
             if (DispCnt & 0x0200)
             {
-                DoDrawBG(Text, line, 1)
+                DoDrawBG(Text, line, 1);
             }
         }
         if ((BGCnt[0] & 0x3) == i)
@@ -1345,7 +1346,7 @@ void GPU2D::DrawScanlineBGMode(u32 line)
                 if ((!Num) && (DispCnt & 0x8))
                     DrawBG_3D();
                 else
-                    DoDrawBG(Text, line, 0)
+                    DoDrawBG(Text, line, 0);
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
@@ -1387,7 +1388,7 @@ void GPU2D::DrawScanlineBGMode7(u32 line)
         {
             if (DispCnt & 0x0200)
             {
-                DoDrawBG(Text, line, 1)
+                DoDrawBG(Text, line, 1);
             }
         }
         if ((BGCnt[0] & 0x3) == i)
@@ -1397,7 +1398,7 @@ void GPU2D::DrawScanlineBGMode7(u32 line)
                 if ((!Num) && (DispCnt & 0x8))
                     DrawBG_3D();
                 else
-                    DoDrawBG(Text, line, 0)
+                    DoDrawBG(Text, line, 0);
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
@@ -1858,6 +1859,7 @@ void GPU2D::DrawBG_Affine(u32 line, u32 bgnum)
 
     u8* bgvram;
     u32 bgvrammask;
+    GetBGVRAM(Num, bgvram, bgvrammask);
 
     if (Num)
     {
