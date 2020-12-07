@@ -27,7 +27,7 @@ add_library(core STATIC
 	GBACart.cpp
 	GPU.cpp
 	GPU2D.cpp
-	GPU2DSoft.cpp
+	GPU2D_Soft.cpp
 	GPU3D.cpp
 	GPU3D_Soft.cpp
 	melonDLDI.h
