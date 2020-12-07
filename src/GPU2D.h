@@ -123,11 +123,11 @@ protected:
     virtual void MosaicXSizeChanged() = 0;
 };
 
-class GPU2DSoft : public GPU2D
+class GPU2D_Soft : public GPU2D
 {
 public:
-    GPU2DSoft(u32 num);
-    ~GPU2DSoft() override {}
+    GPU2D_Soft(u32 num);
+    ~GPU2D_Soft() override {}
 
     void SetRenderSettings(bool accel) override;
     

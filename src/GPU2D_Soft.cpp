@@ -1,7 +1,7 @@
 #include "GPU2D.h"
 #include "GPU.h"
 
-GPU2DSoft::GPU2DSoft(u32 num)
+GPU2D_Soft::GPU2D_Soft(u32 num)
     : GPU2D(num)
 {
     // initialize mosaic table
@@ -15,12 +15,12 @@ GPU2DSoft::GPU2DSoft(u32 num)
     }
 }
 
-void GPU2DSoft::SetRenderSettings(bool accel)
+void GPU2D_Soft::SetRenderSettings(bool accel)
 {
     Accelerated = accel;
 }
 
-u32 GPU2DSoft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
+u32 GPU2D_Soft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
 {
     u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;
     u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 4) & 0x007F00;
@@ -33,7 +33,7 @@ u32 GPU2DSoft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
     return r | g | b | 0xFF000000;
 }
 
-u32 GPU2DSoft::ColorBlend5(u32 val1, u32 val2)
+u32 GPU2D_Soft::ColorBlend5(u32 val1, u32 val2)
 {
     u32 eva = ((val1 >> 24) & 0x1F) + 1;
     u32 evb = 32 - eva;
@@ -58,7 +58,7 @@ u32 GPU2DSoft::ColorBlend5(u32 val1, u32 val2)
     return r | g | b | 0xFF000000;
 }
 
-u32 GPU2DSoft::ColorBrightnessUp(u32 val, u32 factor)
+u32 GPU2D_Soft::ColorBrightnessUp(u32 val, u32 factor)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
@@ -69,7 +69,7 @@ u32 GPU2DSoft::ColorBrightnessUp(u32 val, u32 factor)
     return rb | g | 0xFF000000;
 }
 
-u32 GPU2DSoft::ColorBrightnessDown(u32 val, u32 factor)
+u32 GPU2D_Soft::ColorBrightnessDown(u32 val, u32 factor)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
@@ -80,7 +80,7 @@ u32 GPU2DSoft::ColorBrightnessDown(u32 val, u32 factor)
     return rb | g | 0xFF000000;
 }
 
-u32 GPU2DSoft::ColorComposite(int i, u32 val1, u32 val2)
+u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
 {
     u32 coloreffect = 0;
     u32 eva, evb;
@@ -150,7 +150,7 @@ u32 GPU2DSoft::ColorComposite(int i, u32 val1, u32 val2)
     return val1;
 }
 
-void GPU2DSoft::DrawScanline(u32 line)
+void GPU2D_Soft::DrawScanline(u32 line)
 {
     int stride = Accelerated ? (256*3 + 1) : 256;
     u32* dst = &Framebuffer[stride * line];
@@ -342,7 +342,7 @@ void GPU2DSoft::DrawScanline(u32 line)
     }
 }
 
-void GPU2DSoft::VBlankEnd()
+void GPU2D_Soft::VBlankEnd()
 {
     GPU2D::VBlankEnd();
 
@@ -357,7 +357,7 @@ void GPU2DSoft::VBlankEnd()
 #endif
 }
 
-void GPU2DSoft::DoCapture(u32 line, u32 width)
+void GPU2D_Soft::DoCapture(u32 line, u32 width)
 {
     u32 dstvram = (CaptureCnt >> 16) & 0x3;
 
@@ -612,7 +612,7 @@ void GPU2DSoft::DoCapture(u32 line, u32 width)
     if (Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
 
 template<u32 bgmode>
-void GPU2DSoft::DrawScanlineBGMode(u32 line)
+void GPU2D_Soft::DrawScanlineBGMode(u32 line)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -662,7 +662,7 @@ void GPU2DSoft::DrawScanlineBGMode(u32 line)
     }
 }
 
-void GPU2DSoft::DrawScanlineBGMode6(u32 line)
+void GPU2D_Soft::DrawScanlineBGMode6(u32 line)
 {
     for (int i = 3; i >= 0; i--)
     {
@@ -686,7 +686,7 @@ void GPU2DSoft::DrawScanlineBGMode6(u32 line)
     }
 }
 
-void GPU2DSoft::DrawScanlineBGMode7(u32 line)
+void GPU2D_Soft::DrawScanlineBGMode7(u32 line)
 {
     // mode 7 only has text-mode BG0 and BG1
 
@@ -714,7 +714,7 @@ void GPU2DSoft::DrawScanlineBGMode7(u32 line)
     }
 }
 
-void GPU2DSoft::DrawScanline_BGOBJ(u32 line)
+void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
 {
     // forced blank disables BG/OBJ compositing
     if (DispCnt & (1<<7))
@@ -883,7 +883,7 @@ void GPU2DSoft::DrawScanline_BGOBJ(u32 line)
 }
 
 
-void GPU2DSoft::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
+void GPU2D_Soft::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
@@ -894,7 +894,7 @@ void GPU2DSoft::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void GPU2DSoft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
+void GPU2D_Soft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
@@ -905,7 +905,7 @@ void GPU2DSoft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void GPU2DSoft::DrawBG_3D()
+void GPU2D_Soft::DrawBG_3D()
 {
     u16 xoff = BGXPos[0];
     int i = 0;
@@ -950,8 +950,8 @@ void GPU2DSoft::DrawBG_3D()
     }
 }
 
-template<bool mosaic, GPU2DSoft::DrawPixel drawPixel>
-void GPU2DSoft::DrawBG_Text(u32 line, u32 bgnum)
+template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
+void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -1114,8 +1114,8 @@ void GPU2DSoft::DrawBG_Text(u32 line, u32 bgnum)
     }
 }
 
-template<bool mosaic, GPU2DSoft::DrawPixel drawPixel>
-void GPU2DSoft::DrawBG_Affine(u32 line, u32 bgnum)
+template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
+void GPU2D_Soft::DrawBG_Affine(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -1215,8 +1215,8 @@ void GPU2DSoft::DrawBG_Affine(u32 line, u32 bgnum)
     BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic, GPU2DSoft::DrawPixel drawPixel>
-void GPU2DSoft::DrawBG_Extended(u32 line, u32 bgnum)
+template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
+void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
 {
     u16 bgcnt = BGCnt[bgnum];
 
@@ -1436,8 +1436,8 @@ void GPU2DSoft::DrawBG_Extended(u32 line, u32 bgnum)
     BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic, GPU2DSoft::DrawPixel drawPixel>
-void GPU2DSoft::DrawBG_Large(u32 line) // BG is always BG2
+template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
+void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
 {
     u16 bgcnt = BGCnt[2];
 
@@ -1538,7 +1538,7 @@ void GPU2DSoft::DrawBG_Large(u32 line) // BG is always BG2
 // * bit19: X mosaic should be applied here
 // * bit24-31: compositor flags
 
-void GPU2DSoft::ApplySpriteMosaicX()
+void GPU2D_Soft::ApplySpriteMosaicX()
 {
     // apply X mosaic if needed
     // X mosaic for sprites is applied after all sprites are rendered
@@ -1562,8 +1562,8 @@ void GPU2DSoft::ApplySpriteMosaicX()
     }
 }
 
-template <GPU2DSoft::DrawPixel drawPixel>
-void GPU2DSoft::InterleaveSprites(u32 prio)
+template <GPU2D_Soft::DrawPixel drawPixel>
+void GPU2D_Soft::InterleaveSprites(u32 prio)
 {
     u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
 
@@ -1621,7 +1621,7 @@ void GPU2DSoft::InterleaveSprites(u32 prio)
         DrawSprite_##type<false>(__VA_ARGS__); \
     }
 
-void GPU2DSoft::DrawSprites(u32 line)
+void GPU2D_Soft::DrawSprites(u32 line)
 {
     if (line == 0)
     {
@@ -1746,7 +1746,7 @@ void GPU2DSoft::DrawSprites(u32 line)
 }
 
 template<bool window>
-void GPU2DSoft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
+void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
 {
     u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
@@ -1964,7 +1964,7 @@ void GPU2DSoft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u3
 }
 
 template<bool window>
-void GPU2DSoft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
+void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
 {
     u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
@@ -2220,7 +2220,7 @@ void GPU2DSoft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 
     }
 }
 
-void GPU2DSoft::MosaicXSizeChanged()
+void GPU2D_Soft::MosaicXSizeChanged()
 {
     CurBGXMosaicTable = MosaicTable[BGMosaicSize[0]];
     CurOBJXMosaicTable = MosaicTable[OBJMosaicSize[1]];

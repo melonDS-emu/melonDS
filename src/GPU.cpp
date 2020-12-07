@@ -144,8 +144,8 @@ u8 VRAMFlat_TexPal[128*1024];
 
 bool Init()
 {
-    GPU2D_A = new GPU2DSoft(0);
-    GPU2D_B = new GPU2DSoft(1);
+    GPU2D_A = new GPU2D_Soft(0);
+    GPU2D_B = new GPU2D_Soft(1);
     if (!GPU3D::Init()) return false;
 
     FrontBuffer = 0;
