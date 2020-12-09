@@ -1,5 +1,6 @@
 #if defined(__SWITCH__)
-#include "switch/compat_switch.h"
+#include <switch.h>
+#include "frontend/switch/FaultHandler.h"
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -28,9 +29,7 @@
 #include "NDSCart.h"
 #include "SPU.h"
 
-#ifndef __APPLE__
-#include <malloc.h>
-#endif
+#include <stdlib.h>
 
 /*
     We're handling fastmem here.
@@ -97,22 +96,14 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
     integerRegisters[31] = ctx->sp.x;
     integerRegisters[32] = ctx->pc.x;
 
-    if (ARMJIT_Memory::FaultHandler(desc, offset))
+    if (ARMJIT_Memory::FaultHandler(desc))
     {
         integerRegisters[32] = (u64)desc.FaultPC;
 
         ARM_RestoreContext(integerRegisters);	
     }
 
-    if (ctx->pc.x >= (u64)&__start__ && ctx->pc.x < (u64)&__rodata_start)
-    {
-        printf("unintentional fault in .text at 0x%x (type %d) (trying to access 0x%x?)\n", 
-            ctx->pc.x - (u64)&__start__, ctx->error_desc, ctx->far.x);
-    }
-    else
-    {
-        printf("unintentional fault somewhere in deep (address) space at %x (type %d)\n", ctx->pc.x, ctx->error_desc);
-    }
+    HandleFault(ctx->pc.x, ctx->lr.x, ctx->fp.x, ctx->far.x, ctx->error_desc);
 }
 
 }
@@ -670,12 +661,12 @@ bool FaultHandler(FaultDescription& faultDesc)
     return false;
 }
 
+const u64 AddrSpaceSize = 0x100000000;
+
 void Init()
 {
-    const u64 AddrSpaceSize = 0x100000000;
-
 #if defined(__SWITCH__)
-    MemoryBase = (u8*)memalign(0x1000, MemoryTotalSize);
+    MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
     MemoryBaseCodeMem = (u8*)virtmemReserve(MemoryTotalSize);
 
     bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, 

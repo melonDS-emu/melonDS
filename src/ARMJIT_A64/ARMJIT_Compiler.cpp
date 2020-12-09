@@ -1,5 +1,11 @@
+#include "ARMJIT_Compiler.h"
+
+#include "../ARMJIT_Internal.h"
+#include "../ARMInterpreter.h"
+#include "../Config.h"
+
 #ifdef __SWITCH__
-#include "../switch/compat_switch.h"
+#include <switch.h>
 
 extern char __start__;
 #else
@@ -7,13 +13,7 @@ extern char __start__;
 #include <unistd.h>
 #endif
 
-#include "ARMJIT_Compiler.h"
-
-#include "../ARMJIT_Internal.h"
-#include "../ARMInterpreter.h"
-#include "../Config.h"
-
-#include <malloc.h>
+#include <stdlib.h>
 
 using namespace Arm64Gen;
 
@@ -184,7 +184,7 @@ void Compiler::PopRegs(bool saveHiRegs)
 Compiler::Compiler()
 {
 #ifdef __SWITCH__
-    JitRWBase = memalign(0x1000, JitMemSize);
+    JitRWBase = aligned_alloc(0x1000, JitMemSize);
 
     JitRXStart = (u8*)&__start__ - JitMemSize - 0x1000;
     JitRWStart = virtmemReserve(JitMemSize);
