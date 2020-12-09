@@ -110,6 +110,7 @@ protected:
     u8 EVA, EVB;
     u8 EVY;
 
+    bool CaptureLatch;
     u32 CaptureCnt;
 
     u16 MasterBrightness;

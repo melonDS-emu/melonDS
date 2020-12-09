@@ -581,7 +581,11 @@ void GPU2D::UpdateMosaicCounters(u32 line)
 
 void GPU2D::VBlank()
 {
-    CaptureCnt &= ~(1<<31);
+    if (CaptureLatch)
+    {
+        CaptureCnt &= ~(1<<31);
+        CaptureLatch = false;
+    }
 
     DispFIFOReadPtr = 0;
     DispFIFOWritePtr = 0;

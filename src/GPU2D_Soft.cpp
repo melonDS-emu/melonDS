@@ -213,6 +213,9 @@ void GPU2D_Soft::DrawScanline(u32 line)
         }
     }
 
+    if (line == 0 && CaptureCnt & (1 << 31))
+        CaptureLatch = true;
+
     // always render regular graphics
     DrawScanline_BGOBJ(line);
     UpdateMosaicCounters(line);
@@ -278,7 +281,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
     }
 
     // capture
-    if ((Num == 0) && (CaptureCnt & (1<<31)))
+    if ((Num == 0) && CaptureLatch)
     {
         u32 capwidth, capheight;
         switch ((CaptureCnt >> 20) & 0x3)
