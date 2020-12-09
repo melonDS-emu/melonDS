@@ -608,6 +608,22 @@ void DoSavestate(Savestate* file)
         // might cause a blank frame but atleast it won't shit itself
         RenderNumPolygons = 0;
     }
+
+    file->VarArray(CurVertex, sizeof(s16)*3);
+    file->VarArray(VertexColor, sizeof(u8)*3);
+    file->VarArray(TexCoords, sizeof(s16)*2);
+    file->VarArray(RawTexCoords, sizeof(s16)*2);
+    file->VarArray(Normal, sizeof(s16)*3);
+
+    file->VarArray(LightDirection, sizeof(s16)*4*3);
+    file->VarArray(LightColor, sizeof(u8)*4*3);
+    file->VarArray(MatDiffuse, sizeof(u8)*3);
+    file->VarArray(MatAmbient, sizeof(u8)*3);
+    file->VarArray(MatSpecular, sizeof(u8)*3);
+    file->VarArray(MatEmission, sizeof(u8)*3);
+
+    file->Bool32(&UseShininessTable);
+    file->VarArray(ShininessTable, 128*sizeof(u8));
 }
 
 
