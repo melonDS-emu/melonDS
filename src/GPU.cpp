@@ -182,6 +182,8 @@ void ResetVRAMCache()
     VRAMDirty_BBGExtPal.Reset();
     VRAMDirty_AOBJExtPal.Reset();
     VRAMDirty_BOBJExtPal.Reset();
+    VRAMDirty_Texture.Reset();
+    VRAMDirty_TexPal.Reset();
 
     memset(VRAMFlat_ABG, 0, sizeof(VRAMFlat_ABG));
     memset(VRAMFlat_BBG, 0, sizeof(VRAMFlat_BBG));
@@ -191,6 +193,8 @@ void ResetVRAMCache()
     memset(VRAMFlat_BBGExtPal, 0, sizeof(VRAMFlat_BBGExtPal));
     memset(VRAMFlat_AOBJExtPal, 0, sizeof(VRAMFlat_AOBJExtPal));
     memset(VRAMFlat_BOBJExtPal, 0, sizeof(VRAMFlat_BOBJExtPal));
+    memset(VRAMFlat_Texture, 0, sizeof(VRAMFlat_Texture));
+    memset(VRAMFlat_TexPal, 0, sizeof(VRAMFlat_TexPal));
 }
 
 void Reset()

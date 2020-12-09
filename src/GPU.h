@@ -93,7 +93,12 @@ struct VRAMTrackingSet
 
     void Reset()
     {
-        memset(Mapping, 0, sizeof(Mapping));
+        for (int i = 0; i < Size / MappingGranularity; i++)
+        {
+            // this is not a real VRAM bank
+            // so it will always be a mismatch => the bank will be completely invalidated
+            Mapping[i] = 0x8000;
+        }
     }
     NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings);
 };
