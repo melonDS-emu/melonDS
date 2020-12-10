@@ -303,8 +303,14 @@ void GPU2D::Write8(u32 addr, u8 val)
     case 0x00E: BGCnt[3] = (BGCnt[3] & 0xFF00) | val; return;
     case 0x00F: BGCnt[3] = (BGCnt[3] & 0x00FF) | (val << 8); return;
 
-    case 0x010: BGXPos[0] = (BGXPos[0] & 0xFF00) | val; return;
-    case 0x011: BGXPos[0] = (BGXPos[0] & 0x00FF) | (val << 8); return;
+    case 0x010:
+        BGXPos[0] = (BGXPos[0] & 0xFF00) | val;
+        if (Num == 0) GPU3D::SetRenderXPos(BGXPos[0]);
+        return;
+    case 0x011:
+        BGXPos[0] = (BGXPos[0] & 0x00FF) | (val << 8);
+        if (Num == 0) GPU3D::SetRenderXPos(BGXPos[0]);
+        return;
     case 0x012: BGYPos[0] = (BGYPos[0] & 0xFF00) | val; return;
     case 0x013: BGYPos[0] = (BGYPos[0] & 0x00FF) | (val << 8); return;
     case 0x014: BGXPos[1] = (BGXPos[1] & 0xFF00) | val; return;
@@ -401,7 +407,10 @@ void GPU2D::Write16(u32 addr, u16 val)
     case 0x00C: BGCnt[2] = val; return;
     case 0x00E: BGCnt[3] = val; return;
 
-    case 0x010: BGXPos[0] = val; return;
+    case 0x010:
+        BGXPos[0] = val;
+        if (Num == 0) GPU3D::SetRenderXPos(BGXPos[0]);
+        return;
     case 0x012: BGYPos[0] = val; return;
     case 0x014: BGXPos[1] = val; return;
     case 0x016: BGYPos[1] = val; return;

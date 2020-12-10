@@ -36,6 +36,7 @@ int ScreenH, ScreenW;
 
 GLuint CompShader[1][3];
 GLuint CompScaleLoc[1];
+GLuint Comp3DXPosLoc[1];
 
 GLuint CompVertexBufferID;
 GLuint CompVertexArrayID;
@@ -64,6 +65,7 @@ bool Init()
             return false;
 
         CompScaleLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DScale");
+        Comp3DXPosLoc[i] = glGetUniformLocation(CompShader[i][2], "u3DXPos");
 
         glUseProgram(CompShader[i][2]);
         uni_id = glGetUniformLocation(CompShader[i][2], "ScreenTex");
@@ -179,6 +181,9 @@ void RenderFrame()
     // TODO: select more shaders (filtering, etc)
     OpenGL::UseShaderProgram(CompShader[0]);
     glUniform1ui(CompScaleLoc[0], Scale);
+
+    // TODO: support setting this midframe, if ever needed
+    glUniform1i(Comp3DXPosLoc[0], ((int)GPU3D::RenderXPos << 23) >> 23);
 
     int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);

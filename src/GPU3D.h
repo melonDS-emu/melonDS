@@ -89,6 +89,8 @@ extern u32 RenderClearAttr1, RenderClearAttr2;
 
 extern bool RenderFrameIdentical;
 
+extern u16 RenderXPos;
+
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
@@ -114,6 +116,8 @@ void CheckFIFODMA();
 void VCount144();
 void VBlank();
 void VCount215();
+
+void SetRenderXPos(u16 xpos);
 u32* GetLine(int line);
 
 void WriteToGXFIFO(u32 val);

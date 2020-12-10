@@ -403,7 +403,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
                 {
                     // 3D on top, blending
 
-                    u32 _3dval = _3DLine[val3 & 0xFF];
+                    u32 _3dval = _3DLine[i];
                     if ((_3dval >> 24) > 0)
                         val1 = ColorBlend5(_3dval, val1);
                     else
@@ -413,7 +413,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
                 {
                     // 3D on bottom, blending
 
-                    u32 _3dval = _3DLine[val3 & 0xFF];
+                    u32 _3dval = _3DLine[i];
                     if ((_3dval >> 24) > 0)
                     {
                         u32 eva = (val3 >> 8) & 0x1F;
@@ -428,7 +428,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
                 {
                     // 3D on top, normal/fade
 
-                    u32 _3dval = _3DLine[val3 & 0xFF];
+                    u32 _3dval = _3DLine[i];
                     if ((_3dval >> 24) > 0)
                     {
                         u32 evy = (val3 >> 8) & 0x1F;
@@ -807,7 +807,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = 0x04000000 | (val1 & 0xFF);
+                    BGOBJLine[512+i] = 0x04000000;
                 }
                 else if ((flag1 & 0xC0) == 0x40)
                 {
@@ -819,7 +819,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8) | (val1 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8);
                 }
                 else if (((flag2 & 0xC0) == 0x40) && ((BlendCnt & 0x01C0) == 0x0140))
                 {
@@ -842,7 +842,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
 
                     BGOBJLine[i]     = val1;
                     BGOBJLine[256+i] = ColorComposite(i, val1, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8) | (val2 & 0xFF);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8);
                 }
                 else
                 {
@@ -910,39 +910,24 @@ void GPU2D_Soft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
 
 void GPU2D_Soft::DrawBG_3D()
 {
-    u16 xoff = BGXPos[0];
     int i = 0;
-    int iend = 256;
-
-    if (xoff & 0x100)
-    {
-        i = (0x100 - (xoff & 0xFF));
-        xoff += i;
-    }
-    if ((xoff - i + iend - 1) & 0x100)
-    {
-        iend -= (xoff & 0xFF);
-    }
 
     if (Accelerated)
     {
-        for (; i < iend; i++)
+        for (i = 0; i < 256; i++)
         {
-            int pos = xoff++;
-
             if (!(WindowMask[i] & 0x01)) continue;
 
             BGOBJLine[i+512] = BGOBJLine[i+256];
             BGOBJLine[i+256] = BGOBJLine[i];
-            BGOBJLine[i] = 0x40000000 | pos; // 3D-layer placeholder
+            BGOBJLine[i] = 0x40000000; // 3D-layer placeholder
         }
     }
     else
     {
-        for (; i < iend; i++)
+        for (i = 0; i < 256; i++)
         {
-            u32 c = _3DLine[xoff];
-            xoff++;
+            u32 c = _3DLine[i];
 
             if ((c >> 24) == 0) continue;
             if (!(WindowMask[i] & 0x01)) continue;

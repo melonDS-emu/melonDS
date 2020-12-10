@@ -181,6 +181,8 @@ u32 RenderClearAttr1, RenderClearAttr2;
 
 bool RenderFrameIdentical;
 
+u16 RenderXPos;
+
 u32 ZeroDotWLimit;
 
 u32 GXStat;
@@ -385,6 +387,8 @@ void Reset()
     FlushAttributes = 0;
 
     ResetRenderingState();
+
+    RenderXPos = 0;
 }
 
 void DoSavestate(Savestate* file)
@@ -429,6 +433,8 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
+
+    file->Var16(&RenderXPos);
 
     file->Var32(&ZeroDotWLimit);
 
@@ -586,8 +592,6 @@ void DoSavestate(Savestate* file)
             if (poly->YBottom > 192) poly->Degenerate = true;
         }
     }
-
-    // probably not worth storing the vblank-latched Renderxxxxxx variables
 
     CmdStallQueue->DoSavestate(file);
     file->Var32((u32*)&VertexPipeline);
@@ -2564,14 +2568,48 @@ void VCount215()
 #endif
 }
 
+void SetRenderXPos(u16 xpos)
+{
+    if (!RenderingEnabled) return;
+
+    RenderXPos = xpos & 0x01FF;
+}
+
+u32 ScrolledLine[256];
+
 u32* GetLine(int line)
 {
-    if (GPU::Renderer == 0) return SoftRenderer::GetLine(line);
+    u32* rawline;
+
+    if (GPU::Renderer == 0) rawline = SoftRenderer::GetLine(line);
 #ifdef OGLRENDERER_ENABLED
-    else                    return GLRenderer::GetLine(line);
+    else                    rawline = GLRenderer::GetLine(line);
 #else
     return NULL;
 #endif
+
+    if (RenderXPos == 0) return rawline;
+
+    // apply X scroll
+
+    if (RenderXPos & 0x100)
+    {
+        int i = 0, j = RenderXPos;
+        for (; j < 512; i++, j++)
+            ScrolledLine[i] = 0;
+        for (j = 0; i < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+    }
+    else
+    {
+        int i = 0, j = RenderXPos;
+        for (; j < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+        for (; i < 256; i++)
+            ScrolledLine[i] = 0;
+    }
+
+    return ScrolledLine;
 }
 
 
