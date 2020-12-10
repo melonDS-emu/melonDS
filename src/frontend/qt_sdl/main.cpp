@@ -371,7 +371,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
-        
+
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
@@ -507,7 +507,7 @@ void EmuThread::run()
                     frameLimitError = -practicalFramelimit;
                 if (frameLimitError > practicalFramelimit)
                     frameLimitError = practicalFramelimit;
-                
+
                 if (round(frameLimitError * 1000.0) > 0.0)
                 {
                     SDL_Delay(round(frameLimitError * 1000.0));
@@ -1324,6 +1324,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
+    // TODO!! REMOVE ME IN RELEASE BUILDS!!
     if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
@@ -1926,9 +1927,9 @@ void MainWindow::onTitleUpdate(QString title)
 
 void MainWindow::onFullscreenToggled()
 {
-    if (!mainWindow->isFullScreen()) 
+    if (!mainWindow->isFullScreen())
     {
-        mainWindow->showFullScreen(); 
+        mainWindow->showFullScreen();
         mainWindow->menuBar()->hide();
     }
     else

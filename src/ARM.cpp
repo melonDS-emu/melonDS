@@ -570,8 +570,6 @@ void ARMv5::Execute()
             // actually execute
             u32 icode = (CurInstr >> 6) & 0x3FF;
             ARMInterpreter::THUMBInstrTable[icode](this);
-
-            if (R[15]==0x0219A6B0) printf("CAM THREAD MSG: %02X %08X -> %08X\n", R[1], R[0], 0x0219A6B6+R[0]);
         }
         else
         {

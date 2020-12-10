@@ -1811,15 +1811,6 @@ void StartSqrt()
 
 void debug(u32 param)
 {
-    if (param==1312)
-    {
-        u32 timer = 0x10000 - (Timers[3].Counter >> 16);
-        timer *= 16;
-        timer += (0x10000 - (Timers[2].Counter >> 16));
-        printf("TIMER=%d (%04X/%04X)\n", timer, (Timers[2].Counter >> 16), (Timers[3].Counter >> 16));
-        return;
-    }
-
     printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
     printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
@@ -1845,14 +1836,14 @@ void debug(u32 param)
     fclose(shit);*/
 
     FILE*
-    shit = fopen("debug/cam9.bin", "wb");
+    shit = fopen("debug/power9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/cam7.bin", "wb");
+    shit = fopen("debug/power7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
@@ -3258,7 +3249,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000188:
-        ARM9IOWrite32(addr, val | (val << 16)); 
+        ARM9IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
