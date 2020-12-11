@@ -3245,7 +3245,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
             SetIRQ(0, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
-        IPCFIFOCnt9 = val & 0x8404;
+        IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
         return;
 
     case 0x04000188:
@@ -3848,7 +3848,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
             SetIRQ(1, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
-        IPCFIFOCnt7 = val & 0x8404;
+        IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
         return;
 
     case 0x04000188:
