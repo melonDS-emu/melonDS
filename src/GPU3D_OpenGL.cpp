@@ -53,17 +53,18 @@ GLuint CurShaderID = -1;
 GLuint FinalPassEdgeShader[3];
 GLuint FinalPassFogShader[3];
 
+// std140 compliant structure
 struct
 {
-    float uScreenSize[2];
-    u32 uDispCnt;
+    float uScreenSize[2];       // vec2       0 / 2
+    u32 uDispCnt;               // int        2 / 1
     u32 __pad0;
-    float uToonColors[32][4];
-    float uEdgeColors[8][4];
-    float uFogColor[4];
-    float uFogDensity[34][4];
-    u32 uFogOffset;
-    u32 uFogShift;
+    float uToonColors[32][4];   // vec4[32]   4 / 128
+    float uEdgeColors[8][4];    // vec4[8]    132 / 32
+    float uFogColor[4];         // vec4       164 / 4
+    float uFogDensity[34][4];   // float[34]  168 / 136
+    u32 uFogOffset;             // int        304 / 1
+    u32 uFogShift;              // int        305 / 1
 
 } ShaderConfig;
 
@@ -284,7 +285,7 @@ bool Init()
 
     glGenBuffers(1, &ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, (sizeof(ShaderConfig) + 15) & ~15, &ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
 
 
