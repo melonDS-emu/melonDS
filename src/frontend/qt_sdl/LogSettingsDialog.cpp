@@ -39,7 +39,7 @@ LogSettingsDialog::LogSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->rbLogToConsole->setChecked(Config::LogToFile == 0);
     ui->txtLogFolderPath->setText(Config::LogFileLocation);
     
-    updateAdapterControls();
+    updateControls();
 }
 
 LogSettingsDialog::~LogSettingsDialog()
@@ -64,12 +64,12 @@ void LogSettingsDialog::done(int r)
 
 void LogSettingsDialog::on_rbLogToFile_clicked()
 {
-    updateAdapterControls();
+    updateControls();
 }
 
 void LogSettingsDialog::on_rbLogToConsole_clicked()
 {
-    updateAdapterControls();
+    updateControls();
 }
 
 void LogSettingsDialog::on_btnLogFolderBrowse_clicked()
@@ -84,7 +84,7 @@ void LogSettingsDialog::on_btnLogFolderBrowse_clicked()
     ui->txtLogFolderPath->setText(file);
 }
 
-void LogSettingsDialog::updateAdapterControls()
+void LogSettingsDialog::updateControls()
 {
     bool logFileEnabled = ui->rbLogToFile->isChecked();
     ui->groupLogFile->setEnabled(logFileEnabled);

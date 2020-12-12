@@ -60,7 +60,7 @@ private slots:
 private:
     Ui::LogSettingsDialog* ui;
     
-    void updateAdapterControls();
+    void updateControls();
 
 };
 
