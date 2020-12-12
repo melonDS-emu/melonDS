@@ -144,7 +144,7 @@ void LogMessage(const char* format, ...)
     {
         vprintf(format, args);       
     }
-     va_end(args);
+    va_end(args);
 }
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist)
