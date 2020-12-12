@@ -119,6 +119,7 @@ void Init(int argc, char** argv)
 void DeInit()
 {
     delete[] EmuDirectory;
+    fclose(LogFile);
 }
 
 
