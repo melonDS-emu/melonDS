@@ -267,10 +267,10 @@ main(int argc, char **argv)
         SHA1Update(&ctx, buf, BUFSIZE);
     SHA1Final(hash, &ctx);
 
-    Platform::LogMessage("SHA1=");
+    printf("SHA1=");
     for(i=0;i<20;i++)
-        Platform::LogMessage("%02x", hash[i]);
-    Platform::LogMessage("\n");
+        printf("%02x", hash[i]);
+    printf("\n");
     return 0;
 }
 
