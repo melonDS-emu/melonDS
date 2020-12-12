@@ -238,7 +238,7 @@ Compiler::Compiler()
             break;
         if (i++ > 8)
         {
-            printf("couldn't find unmapped place for jit memory\n");
+            Platform::LogMessage("couldn't find unmapped place for jit memory\n");
             JitRXStart = NULL;
         }
     }
@@ -691,12 +691,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 {
     if (JitMemMainSize - GetCodeOffset() < 1024 * 16)
     {
-        printf("JIT near memory full, resetting...\n");
+        Platform::LogMessage("JIT near memory full, resetting...\n");
         ResetBlockCache();
     }
     if ((JitMemMainSize +  JitMemSecondarySize) - OtherCodeRegion < 1024 * 8)
     {
-        printf("JIT far memory full, resetting...\n");
+        Platform::LogMessage("JIT far memory full, resetting...\n");
         ResetBlockCache();
     }
 
@@ -724,7 +724,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
         Exit = i == (instrsCount - 1) || (CurInstr.BranchFlags & branch_FollowCondNotTaken);
 
-        //printf("%x instr %x regs: r%x w%x n%x flags: %x %x %x\n", R15, CurInstr.Instr, CurInstr.Info.SrcRegs, CurInstr.Info.DstRegs, CurInstr.Info.ReadFlags, CurInstr.Info.NotStrictlyNeeded, CurInstr.Info.WriteFlags, CurInstr.SetFlags);
+        //Platform::LogMessage("%x instr %x regs: r%x w%x n%x flags: %x %x %x\n", R15, CurInstr.Instr, CurInstr.Info.SrcRegs, CurInstr.Info.DstRegs, CurInstr.Info.ReadFlags, CurInstr.Info.NotStrictlyNeeded, CurInstr.Info.WriteFlags, CurInstr.SetFlags);
 
         bool isConditional = Thumb ? CurInstr.Info.Kind == ARMInstrInfo::tk_BCOND : CurInstr.Cond() < 0xE;
         if (comp == NULL || (CurInstr.BranchFlags & branch_FollowCondTaken) || (i == instrsCount - 1 && (!CurInstr.Info.Branches() || isConditional)))

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "Platform.h"
 #include "DSi.h"
 #include "DSi_Camera.h"
 
@@ -97,7 +98,7 @@ void DSi_Camera::IRQ(u32 param)
 
 void DSi_Camera::RequestFrame(u32 cam)
 {
-    if (!(Cnt & (1<<13))) printf("CAMERA: !! REQUESTING YUV FRAME\n");
+    if (!(Cnt & (1<<13))) Platform::LogMessage("CAMERA: !! REQUESTING YUV FRAME\n");
 
     // TODO: picture size, data type, cropping, etc
     // generate test pattern
@@ -122,7 +123,7 @@ void DSi_Camera::Transfer(u32 pos)
     u32 numpix = numscan * 256; // CHECKME
 
     // TODO: present data
-    //printf("CAM TRANSFER POS=%d/%d\n", pos, 0x6000*2);
+    //Platform::LogMessage("CAM TRANSFER POS=%d/%d\n", pos, 0x6000*2);
 
     DSi::CheckNDMAs(0, 0x0B);
 
@@ -186,7 +187,7 @@ u8 DSi_Camera::I2C_Read(bool last)
 
     if (DataPos < 2)
     {
-        printf("DSi_Camera: WHAT??\n");
+        Platform::LogMessage("DSi_Camera: WHAT??\n");
         ret = 0;
     }
     else
@@ -218,7 +219,7 @@ void DSi_Camera::I2C_Write(u8 val, bool last)
         else
             RegAddr |= val;
 
-        if (RegAddr & 0x1) printf("DSi_Camera: !! UNALIGNED REG ADDRESS %04X\n", RegAddr);
+        if (RegAddr & 0x1) Platform::LogMessage("DSi_Camera: !! UNALIGNED REG ADDRESS %04X\n", RegAddr);
     }
     else
     {
@@ -253,7 +254,7 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
-    if(Num==1)printf("DSi_Camera%d: unknown read %04X\n", Num, addr);
+    if(Num==1)Platform::LogMessage("DSi_Camera%d: unknown read %04X\n", Num, addr);
     return 0;
 }
 
@@ -275,22 +276,22 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
         return;
     case 0x0016:
         ClocksCnt = val;
-        printf("ClocksCnt=%04X\n", val);
+        Platform::LogMessage("ClocksCnt=%04X\n", val);
         return;
     case 0x0018:
         // TODO: this shouldn't be instant, but uh
         val &= 0x003F;
         val |= ((val & 0x0001) << 14);
         StandbyCnt = val;
-        printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
+        Platform::LogMessage("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
         return;
     case 0x001A:
         MiscCnt = val & 0x0B7B;
-        printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
+        Platform::LogMessage("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
         return;
     }
 
-    if(Num==1)printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
+    if(Num==1)Platform::LogMessage("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }
 
 
@@ -298,7 +299,7 @@ u8 DSi_Camera::Read8(u32 addr)
 {
     //
 
-    printf("unknown DSi cam read8 %08X\n", addr);
+    Platform::LogMessage("unknown DSi cam read8 %08X\n", addr);
     return 0;
 }
 
@@ -310,7 +311,7 @@ u16 DSi_Camera::Read16(u32 addr)
     case 0x04004202: return Cnt;
     }
 
-    printf("unknown DSi cam read16 %08X\n", addr);
+    Platform::LogMessage("unknown DSi cam read16 %08X\n", addr);
     return 0;
 }
 
@@ -337,7 +338,7 @@ u32 DSi_Camera::Read32(u32 addr)
         }
     }
 
-    printf("unknown DSi cam read32 %08X\n", addr);
+    Platform::LogMessage("unknown DSi cam read32 %08X\n", addr);
     return 0;
 }
 
@@ -345,7 +346,7 @@ void DSi_Camera::Write8(u32 addr, u8 val)
 {
     //
 
-    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
+    Platform::LogMessage("unknown DSi cam write8 %08X %02X\n", addr, val);
 }
 
 void DSi_Camera::Write16(u32 addr, u16 val)
@@ -399,12 +400,12 @@ void DSi_Camera::Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
+    Platform::LogMessage("unknown DSi cam write16 %08X %04X\n", addr, val);
 }
 
 void DSi_Camera::Write32(u32 addr, u32 val)
 {
     //
 
-    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
+    Platform::LogMessage("unknown DSi cam write32 %08X %08X\n", addr, val);
 }

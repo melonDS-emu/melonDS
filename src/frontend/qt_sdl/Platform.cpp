@@ -74,6 +74,7 @@ u8 PacketBuffer[2048];
 
 #define NIFI_VER 1
 
+FILE* LogFile;
 
 void Init(int argc, char** argv)
 {
@@ -126,6 +127,24 @@ void StopEmu()
     emuStop();
 }
 
+void LogMessage(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    if (Config::LogToFile)
+    {
+        if (!LogFile)
+        {
+            LogFile = fopen(Config::LogFileLocation, "a+");
+        }
+        vfprintf(LogFile, format, args);
+    }
+    else
+    {
+        vprintf(format, args);       
+    }
+     va_end(args);
+}
 
 FILE* OpenFile(const char* path, const char* mode, bool mustexist)
 {
@@ -330,7 +349,7 @@ int MP_SendPacket(u8* data, int len)
 
     if (len > 2048-8)
     {
-        printf("MP_SendPacket: error: packet too long (%d)\n", len);
+        Platform::LogMessage("MP_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 

@@ -161,7 +161,7 @@ void DSi_NWifi::Reset()
         Mailbox[i].Clear();
 
     u8* mac = SPI_Firmware::GetWifiMAC();
-    printf("NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    Platform::LogMessage("NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     u8 type = SPI_Firmware::GetNWifiVersion();
@@ -183,7 +183,7 @@ void DSi_NWifi::Reset()
         ROMID = 0x2300006F;
         ChipID = 0x0D000001;
         HostIntAddr = 0x00520000;
-        printf("NWifi: hardware is 3DS type, unchecked\n");
+        Platform::LogMessage("NWifi: hardware is 3DS type, unchecked\n");
         break;
 
     default:
@@ -314,7 +314,7 @@ u8 DSi_NWifi::F0_Read(u32 addr)
         return CIS1[addr & 0xFF];
     }
 
-    printf("NWIFI: unknown func0 read %05X\n", addr);
+    Platform::LogMessage("NWIFI: unknown func0 read %05X\n", addr);
     return 0;
 }
 
@@ -328,7 +328,7 @@ void DSi_NWifi::F0_Write(u32 addr, u8 val)
         return;
     }
 
-    printf("NWIFI: unknown func0 write %05X %02X\n", addr, val);
+    Platform::LogMessage("NWIFI: unknown func0 write %05X %02X\n", addr, val);
 }
 
 
@@ -433,7 +433,7 @@ u8 DSi_NWifi::F1_Read(u32 addr)
         return ret;
     }
 
-    //printf("NWIFI: unknown func1 read %05X\n", addr);
+    //Platform::LogMessage("NWIFI: unknown func1 read %05X\n", addr);
     return 0;
 }
 
@@ -540,7 +540,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
         return;
     }
 
-    printf("NWIFI: unknown func1 write %05X %02X\n", addr, val);
+    Platform::LogMessage("NWIFI: unknown func1 write %05X %02X\n", addr, val);
 }
 
 
@@ -552,7 +552,7 @@ u8 DSi_NWifi::SDIO_Read(u32 func, u32 addr)
     case 1: return F1_Read(addr);
     }
 
-    printf("NWIFI: unknown SDIO read %d %05X\n", func, addr);
+    Platform::LogMessage("NWIFI: unknown SDIO read %d %05X\n", func, addr);
     return 0;
 }
 
@@ -564,7 +564,7 @@ void DSi_NWifi::SDIO_Write(u32 func, u32 addr, u8 val)
     case 1: return F1_Write(addr, val);
     }
 
-    printf("NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
+    Platform::LogMessage("NWIFI: unknown SDIO write %d %05X %02X\n", func, addr, val);
 }
 
 
@@ -637,12 +637,12 @@ void DSi_NWifi::SendCMD(u8 cmd, u32 param)
         return;
     }
 
-    printf("NWIFI: unknown CMD %d %08X\n", cmd, param);
+    Platform::LogMessage("NWIFI: unknown CMD %d %08X\n", cmd, param);
 }
 
 void DSi_NWifi::SendACMD(u8 cmd, u32 param)
 {
-    printf("NWIFI: unknown ACMD %d %08X\n", cmd, param);
+    Platform::LogMessage("NWIFI: unknown ACMD %d %08X\n", cmd, param);
 }
 
 void DSi_NWifi::ContinueTransfer()
@@ -733,7 +733,7 @@ void DSi_NWifi::BMI_Command()
     {
     case 0x01: // BMI_DONE
         {
-            printf("BMI_DONE\n");
+            Platform::LogMessage("BMI_DONE\n");
             EEPROMReady = 1; // GROSS FUCKING HACK
             u8 ready_msg[6] = {0x0A, 0x00, 0x08, 0x06, 0x16, 0x00};
             SendWMIEvent(0, 0x0001, ready_msg, 6);
@@ -745,7 +745,7 @@ void DSi_NWifi::BMI_Command()
         {
             u32 addr = MB_Read32(0);
             u32 len = MB_Read32(0);
-            printf("BMI mem write %08X %08X\n", addr, len);
+            Platform::LogMessage("BMI mem write %08X %08X\n", addr, len);
 
             for (u32 i = 0; i < len; i++)
             {
@@ -761,7 +761,7 @@ void DSi_NWifi::BMI_Command()
             u32 entry = MB_Read32(0);
             u32 arg = MB_Read32(0);
 
-            printf("BMI_EXECUTE %08X %08X\n", entry, arg);
+            Platform::LogMessage("BMI_EXECUTE %08X %08X\n", entry, arg);
         }
         return;
 
@@ -791,14 +791,14 @@ void DSi_NWifi::BMI_Command()
     case 0x0D: // BMI_LZ_STREAM_START
         {
             u32 addr = MB_Read32(0);
-            printf("BMI_LZ_STREAM_START %08X\n", addr);
+            Platform::LogMessage("BMI_LZ_STREAM_START %08X\n", addr);
         }
         return;
 
     case 0x0E: // BMI_LZ_DATA
         {
             u32 len = MB_Read32(0);
-            printf("BMI LZ write %08X\n", len);
+            Platform::LogMessage("BMI LZ write %08X\n", len);
             //FILE* f = fopen("debug/wififirm.bin", "ab");
 
             for (u32 i = 0; i < len; i++)
@@ -813,7 +813,7 @@ void DSi_NWifi::BMI_Command()
         return;
 
     default:
-        printf("unknown BMI command %08X\n", cmd);
+        Platform::LogMessage("unknown BMI command %08X\n", cmd);
         return;
     }
 }
@@ -832,7 +832,7 @@ void DSi_NWifi::HTC_Command()
         {
             u16 svc_id = MB_Read16(0);
             u16 conn_flags = MB_Read16(0);
-            printf("service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
+            Platform::LogMessage("service connect %04X %04X %04X\n", svc_id, conn_flags, MB_Read16(0));
 
             u8 svc_resp[8];
             // responses from hardware:
@@ -869,13 +869,13 @@ void DSi_NWifi::HTC_Command()
         break;
 
     default:
-        printf("unknown HTC command %04X\n", cmd);
+        Platform::LogMessage("unknown HTC command %04X\n", cmd);
         for (int i = 0; i < len; i++)
         {
             printf("%02X ", Mailbox[0].Read());
             if ((i&0xF)==0xF) printf("\n");
         }
-        printf("\n");
+        Platform::LogMessage("\n");
         break;
     }
 
@@ -908,9 +908,9 @@ void DSi_NWifi::WMI_Command()
         case 0x0003: // disconnect
             {
                 if (ConnectionStatus != 1)
-                    printf("WMI: ?? trying to disconnect while not connected\n");
+                    Platform::LogMessage("WMI: ?? trying to disconnect while not connected\n");
 
-                printf("WMI: disconnect\n");
+                Platform::LogMessage("WMI: disconnect\n");
                 ConnectionStatus = 0;
 
                 u8 reply[11];
@@ -946,12 +946,12 @@ void DSi_NWifi::WMI_Command()
                 u8 scantype = Mailbox[0].Read();
                 u8 nchannels = Mailbox[0].Read();
 
-                printf("WMI: start scan, forceFG=%d, legacy=%d, scanTime=%d, interval=%d, scanType=%d, chan=%d\n",
+                Platform::LogMessage("WMI: start scan, forceFG=%d, legacy=%d, scanTime=%d, interval=%d, scanType=%d, chan=%d\n",
                        forcefg, legacy, scantime, forceinterval, scantype, nchannels);
 
                 if (ScanTimer > 0)
                 {
-                    printf("!! CHECKME: START SCAN BUT WAS ALREADY SCANNING (%d)\n", ScanTimer);
+                    Platform::LogMessage("!! CHECKME: START SCAN BUT WAS ALREADY SCANNING (%d)\n", ScanTimer);
                 }
 
                 // checkme
@@ -974,7 +974,7 @@ void DSi_NWifi::WMI_Command()
                 Mailbox[0].Read();
                 u32 iemask = MB_Read32(0);
 
-                printf("WMI: set BSS filter, filter=%02X, iemask=%08X\n", bssfilter, iemask);
+                Platform::LogMessage("WMI: set BSS filter, filter=%02X, iemask=%08X\n", bssfilter, iemask);
             }
             break;
 
@@ -989,7 +989,7 @@ void DSi_NWifi::WMI_Command()
                     ssid[i] = Mailbox[0].Read();
 
                 // TODO: store it somewhere
-                printf("WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
+                Platform::LogMessage("WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
             }
             break;
 
@@ -1027,10 +1027,10 @@ void DSi_NWifi::WMI_Command()
                     channels[i] = MB_Read16(0);
 
                 // TODO: store it somewhere
-                printf("WMI: set channel params: scan=%d, phymode=%d, len=%d, channels=", scan, phymode, len);
+                Platform::LogMessage("WMI: set channel params: scan=%d, phymode=%d, len=%d, channels=", scan, phymode, len);
                 for (int i = 0; i < len && i < 32; i++)
-                    printf("%d,", channels[i]);
-                printf("\n");
+                    Platform::LogMessage("%d,", channels[i]);
+                Platform::LogMessage("\n");
             }
             break;
 
@@ -1071,7 +1071,7 @@ void DSi_NWifi::WMI_Command()
                     break;
 
                 default:
-                    printf("WMI: unknown ext cmd 002E:%04X\n", extcmd);
+                    Platform::LogMessage("WMI: unknown ext cmd 002E:%04X\n", extcmd);
                     break;
                 }
             }
@@ -1122,13 +1122,13 @@ void DSi_NWifi::WMI_Command()
             break;
 
         default:
-            printf("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
+            Platform::LogMessage("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
             for (int i = 0; i < len-2; i++)
             {
                 printf("%02X ", Mailbox[0].Read());
                 if ((i&0xF)==0xF) printf("\n");
             }
-            printf("\n");
+            Platform::LogMessage("\n");
             break;
         }
     }
@@ -1171,12 +1171,12 @@ void DSi_NWifi::WMI_ConnectToNetwork()
         (gCryptoType != 0x01) ||
         (memcmp(bssid, WifiAP::APMac, 6)))
     {
-        printf("WMI_Connect: bad parameters\n");
+        Platform::LogMessage("WMI_Connect: bad parameters\n");
         // TODO: send disconnect??
         return;
     }
 
-    printf("WMI: connecting to network %s\n", ssid);
+    Platform::LogMessage("WMI: connecting to network %s\n", ssid);
 
     u8 reply[20];
 
@@ -1201,7 +1201,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 {
     if (ConnectionStatus != 1)
     {
-        printf("WMI: !! trying to send shit while not connected\n");
+        Platform::LogMessage("WMI: !! trying to send shit while not connected\n");
         // TODO: report error??
         return;
     }
@@ -1216,7 +1216,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
     if (type == 2) // data sync
     {
-        printf("WMI: data sync\n");
+        Platform::LogMessage("WMI: data sync\n");
 
         /*Mailbox[8].Write(2);    // eid
         Mailbox[8].Write(0x00);  // flags
@@ -1231,17 +1231,17 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
     if (type)
     {
-        printf("WMI: special frame %04X len=%d\n", hdr, len);
+        Platform::LogMessage("WMI: special frame %04X len=%d\n", hdr, len);
         for (int i = 0; i < len-2; i++)
         {
             printf("%02X ", Mailbox[0].Read());
             if ((i&0xF)==0xF) printf("\n");
         }
-        printf("\n");
+        Platform::LogMessage("\n");
         return;
     }
 
-    printf("WMI: send packet, hdr=%04X, len=%d\n", hdr, len);
+    Platform::LogMessage("WMI: send packet, hdr=%04X, len=%d\n", hdr, len);
 
     u8 dstmac[6];
     u8 srcmac[6];
@@ -1256,7 +1256,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
     if (plen > len-16)
     {
-        printf("WMI: bad packet length %d > %d\n", plen, len-16);
+        Platform::LogMessage("WMI: bad packet length %d > %d\n", plen, len-16);
         return;
     }
 
@@ -1265,7 +1265,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
     if (h0 != 0x0003AAAA || h1 != 0x0000)
     {
-        printf("WMI: bad LLC/SLIP header\n");
+        Platform::LogMessage("WMI: bad LLC/SLIP header\n");
         return;
     }
 
@@ -1283,10 +1283,10 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
     /*for (int i = 0; i < lan_len; i++)
     {
-        printf("%02X ", LANBuffer[i]);
-        if ((i&0xF)==0xF) printf("\n");
+        Platform::LogMessage("%02X ", LANBuffer[i]);
+        if ((i&0xF)==0xF) Platform::LogMessage("\n");
     }
-    printf("\n");*/
+    Platform::LogMessage("\n");*/
 
     Platform::LAN_SendPacket(LANBuffer, lan_len);
 }
@@ -1295,7 +1295,7 @@ void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
 {
     if (!Mailbox[8].CanFit(6+len+2+8))
     {
-        printf("NWifi: !! not enough space in RX buffer for WMI event %04X\n", id);
+        Platform::LogMessage("NWifi: !! not enough space in RX buffer for WMI event %04X\n", id);
         return;
     }
 
@@ -1328,7 +1328,7 @@ void DSi_NWifi::SendWMIAck(u8 ep)
 {
     if (!Mailbox[8].CanFit(6+12))
     {
-        printf("NWifi: !! not enough space in RX buffer for WMI ack (ep #%d)\n", ep);
+        Platform::LogMessage("NWifi: !! not enough space in RX buffer for WMI ack (ep #%d)\n", ep);
         return;
     }
 
@@ -1361,7 +1361,7 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 {
     if (!Mailbox[8].CanFit(6+len+2+16))
     {
-        printf("NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
+        Platform::LogMessage("NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
         return;
     }
 
@@ -1399,7 +1399,7 @@ void DSi_NWifi::CheckRX()
     int rxlen = Platform::LAN_RecvPacket(LANBuffer);
     if (rxlen > 0)
     {
-        //printf("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
+        //Platform::LogMessage("WMI packet recv %04X %04X %04X\n", *(u16*)&LANBuffer[0], *(u16*)&LANBuffer[2], *(u16*)&LANBuffer[4]);
         // check destination MAC
         if (*(u32*)&LANBuffer[0] != 0xFFFFFFFF || *(u16*)&LANBuffer[4] != 0xFFFF)
         {
@@ -1413,14 +1413,14 @@ void DSi_NWifi::CheckRX()
 
         // packet is good
 
-        printf("WMI: receive packet %04X, len=%d\n", *(u16*)&LANBuffer[12], rxlen);
+        Platform::LogMessage("WMI: receive packet %04X, len=%d\n", *(u16*)&LANBuffer[12], rxlen);
 
         /*for (int i = 0; i < rxlen; i++)
         {
-            printf("%02X ", LANBuffer[i]);
-            if ((i&0xF)==0xF) printf("\n");
+            Platform::LogMessage("%02X ", LANBuffer[i]);
+            if ((i&0xF)==0xF) Platform::LogMessage("\n");
         }
-        printf("\n");*/
+        Platform::LogMessage("\n");*/
 
         int datalen = rxlen - 14; // length of packet body
 
@@ -1462,7 +1462,7 @@ void DSi_NWifi::CheckRX()
 
 u32 DSi_NWifi::WindowRead(u32 addr)
 {
-    printf("NWifi: window read %08X\n", addr);
+    Platform::LogMessage("NWifi: window read %08X\n", addr);
 
     if ((addr & 0xFFFF00) == HostIntAddr)
     {
@@ -1501,7 +1501,7 @@ u32 DSi_NWifi::WindowRead(u32 addr)
 
 void DSi_NWifi::WindowWrite(u32 addr, u32 val)
 {
-    printf("NWifi: window write %08X %08X\n", addr, val);
+    Platform::LogMessage("NWifi: window write %08X %08X\n", addr, val);
 }
 
 
@@ -1528,7 +1528,7 @@ void DSi_NWifi::_MSTimer()
             };
 
             SendWMIBSSInfo(0x01, beacon, sizeof(beacon));
-            printf("send beacon\n");
+            Platform::LogMessage("send beacon\n");
         }
 
         if (ScanTimer == 0)

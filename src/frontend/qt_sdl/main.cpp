@@ -252,7 +252,7 @@ void micLoadWav(const char* name)
         }
     }
     else
-        printf("bad WAV format %08X\n", format.format);
+        Platform::LogMessage("bad WAV format %08X\n", format.format);
 
     SDL_FreeWAV(buf);
 }
@@ -341,7 +341,7 @@ void EmuThread::initOpenGL()
     if (!oglSurface->isValid())
     {
         // TODO handle this!
-        printf("oglSurface shat itself :(\n");
+        Platform::LogMessage("oglSurface shat itself :(\n");
         delete oglSurface;
         return;
     }
@@ -352,7 +352,7 @@ void EmuThread::initOpenGL()
     if (!oglContext->create())
     {
         // TODO handle this!
-        printf("oglContext shat itself :(\n");
+        Platform::LogMessage("oglContext shat itself :(\n");
         delete oglContext;
         delete oglSurface;
         return;
@@ -1045,8 +1045,8 @@ void ScreenPanelGL::initializeGL()
 
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
-    printf("OpenGL: renderer: %s\n", renderer);
-    printf("OpenGL: version: %s\n", version);
+    Platform::LogMessage("OpenGL: renderer: %s\n", renderer);
+    Platform::LogMessage("OpenGL: version: %s\n", version);
 
     glClearColor(0, 0, 0, 1);
 
@@ -1398,6 +1398,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+        
+        actLogSettings = menu->addAction("Log settings");
+        connect(actLogSettings, &QAction::triggered, this, &MainWindow::onOpenLogSettings);
 
         actInterfaceSettings = menu->addAction("Interface settings");
         connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
@@ -2458,6 +2461,19 @@ void MainWindow::onOpenWifiSettings()
     connect(dlg, &WifiSettingsDialog::finished, this, &MainWindow::onWifiSettingsFinished);
 }
 
+void MainWindow::onOpenLogSettings()
+{
+    emuThread->emuPause();
+
+    LogSettingsDialog* dlg = LogSettingsDialog::openDlg(this);
+    connect(dlg, &LogSettingsDialog::finished, this, &MainWindow::onLogSettingsFinished);
+}
+
+void MainWindow::onLogSettingsFinished(int res)
+{
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onWifiSettingsFinished(int res)
 {
     if (Wifi::MPInited)
@@ -2714,8 +2730,8 @@ int main(int argc, char** argv)
 {
     srand(time(NULL));
 
-    printf("melonDS " MELONDS_VERSION "\n");
-    printf(MELONDS_URL "\n");
+    Platform::LogMessage("melonDS " MELONDS_VERSION "\n");
+    Platform::LogMessage(MELONDS_URL "\n");
 
     Platform::Init(argc, argv);
 
@@ -2727,7 +2743,7 @@ int main(int argc, char** argv)
 
     if (SDL_Init(SDL_INIT_HAPTIC) < 0)
     {
-        printf("SDL couldn't init rumble\n");
+        Platform::LogMessage("SDL couldn't init rumble\n");
     }
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
     {
@@ -2782,12 +2798,12 @@ int main(int argc, char** argv)
     audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!audioDevice)
     {
-        printf("Audio init failed: %s\n", SDL_GetError());
+        Platform::LogMessage("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
         audioFreq = whatIget.freq;
-        printf("Audio output frequency: %d Hz\n", audioFreq);
+        Platform::LogMessage("Audio output frequency: %d Hz\n", audioFreq);
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
@@ -2903,12 +2919,12 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
-        printf("\n");
+        Platform::LogMessage("\n");
     }*/
 
     int ret = main(argc, argv);
 
-    printf("\n\n>");
+    Platform::LogMessage("\n\n>");
 
     for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
     delete[] argv;

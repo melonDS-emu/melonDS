@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "DSi_NDMA.h"
@@ -82,7 +83,7 @@ void DSi_NDMA::WriteCnt(u32 val)
         case 0: DstAddrInc = 1; break;
         case 1: DstAddrInc = -1; break;
         case 2: DstAddrInc = 0; break;
-        case 3: DstAddrInc = 1; printf("BAD NDMA DST INC MODE 3\n"); break;
+        case 3: DstAddrInc = 1; Platform::LogMessage("BAD NDMA DST INC MODE 3\n"); break;
         }
 
         switch ((Cnt >> 13) & 0x3)
@@ -103,7 +104,7 @@ void DSi_NDMA::WriteCnt(u32 val)
         if (StartMode != 0x10 && StartMode != 0x30 &&
             StartMode != 0x04 && StartMode != 0x06 && StartMode != 0x07 && StartMode != 0x08 && StartMode != 0x09 && StartMode != 0x0B &&
             StartMode != 0x24 && StartMode != 0x26 && StartMode != 0x28 && StartMode != 0x29 && StartMode != 0x2A && StartMode != 0x2B)
-            printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
+            Platform::LogMessage("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
                    CPU?7:9, Num, StartMode, SrcAddr, DstAddr, TotalLength, BlockLength, Cnt);
     }
 }
@@ -134,14 +135,14 @@ void DSi_NDMA::Start()
     if (Cnt & (1<<12)) CurDstAddr = DstAddr;
     if (Cnt & (1<<15)) CurSrcAddr = SrcAddr;
 
-    //printf("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes, total=%d\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4, TotalRemCount*4);
+    //Platform::LogMessage("ARM%d NDMA%d %08X %02X %08X->%08X %d bytes, total=%d\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*4, TotalRemCount*4);
 
     //IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 
     // TODO eventually: not stop if we're running code in ITCM
 
     //if (SubblockTimer & 0xFFFF)
-    //    printf("TODO! NDMA SUBBLOCK TIMER: %08X\n", SubblockTimer);
+    //    Platform::LogMessage("TODO! NDMA SUBBLOCK TIMER: %08X\n", SubblockTimer);
 
     if (NDS::DMAsRunning(CPU))
         Running = 1;

@@ -301,7 +301,7 @@ bool LoadBIOS()
     f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
     if (!f)
     {
-        printf("ARM9i BIOS not found\n");
+        Platform::LogMessage("ARM9i BIOS not found\n");
 
         for (i = 0; i < 16; i++)
             ((u32*)ARM9iBIOS)[i] = 0xE7FFDEFF;
@@ -311,14 +311,14 @@ bool LoadBIOS()
         fseek(f, 0, SEEK_SET);
         fread(ARM9iBIOS, 0x10000, 1, f);
 
-        printf("ARM9i BIOS loaded\n");
+        Platform::LogMessage("ARM9i BIOS loaded\n");
         fclose(f);
     }
 
     f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
     if (!f)
     {
-        printf("ARM7i BIOS not found\n");
+        Platform::LogMessage("ARM7i BIOS not found\n");
 
         for (i = 0; i < 16; i++)
             ((u32*)ARM7iBIOS)[i] = 0xE7FFDEFF;
@@ -330,7 +330,7 @@ bool LoadBIOS()
         fseek(f, 0, SEEK_SET);
         fread(ARM7iBIOS, 0x10000, 1, f);
 
-        printf("ARM7i BIOS loaded\n");
+        Platform::LogMessage("ARM7i BIOS loaded\n");
         fclose(f);
     }
 
@@ -346,7 +346,7 @@ bool LoadBIOS()
 
 bool LoadNAND()
 {
-    printf("Loading DSi NAND\n");
+    Platform::LogMessage("Loading DSi NAND\n");
 
     memset(NWRAM_A, 0, NWRAMSize);
     memset(NWRAM_B, 0, NWRAMSize);
@@ -366,9 +366,9 @@ bool LoadNAND()
         fseek(SDMMCFile, 0x220, SEEK_SET);
         fread(bootparams, 4, 8, SDMMCFile);
 
-        printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+        Platform::LogMessage("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
                bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-        printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+        Platform::LogMessage("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
                bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
 
         // read and apply new-WRAM settings
@@ -479,8 +479,8 @@ bool LoadNAND()
         BootAddr[0] = bootparams[2];
         BootAddr[1] = bootparams[6];
 
-#define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
-#define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
+#define printhex(str, size) { for (int z = 0; z < (size); z++) Platform::LogMessage("%02X", (str)[z]); Platform::LogMessage("\n"); }
+#define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) Platform::LogMessage("%02X", (str)[z]); Platform::LogMessage("\n"); }
 
         // read the nocash footer
 
@@ -612,7 +612,7 @@ void MapNWRAM_A(u32 num, u8 val)
 
     if (MBK[0][8] & (1 << num))
     {
-        printf("trying to map NWRAM_A %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        Platform::LogMessage("trying to map NWRAM_A %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
         return;
     }
 
@@ -660,7 +660,7 @@ void MapNWRAM_B(u32 num, u8 val)
 
     if (MBK[0][8] & (1 << (8+num)))
     {
-        printf("trying to map NWRAM_B %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        Platform::LogMessage("trying to map NWRAM_B %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
         return;
     }
 
@@ -715,7 +715,7 @@ void MapNWRAM_C(u32 num, u8 val)
 
     if (MBK[0][8] & (1 << (16+num)))
     {
-        printf("trying to map NWRAM_C %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
+        Platform::LogMessage("trying to map NWRAM_C %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
         return;
     }
 
@@ -800,7 +800,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
         u32 end   = 0x03000000 + (((val >> 20) & 0x1FF) << 16);
         u32 size  = (val >> 12) & 0x3;
 
-        printf("NWRAM-A: ARM%d range %08X-%08X, size %d\n", cpu?7:9, start, end, size);
+        Platform::LogMessage("NWRAM-A: ARM%d range %08X-%08X, size %d\n", cpu?7:9, start, end, size);
 
         NWRAMStart[cpu][num] = start;
         NWRAMEnd[cpu][num] = end;
@@ -819,7 +819,7 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
         u32 end   = 0x03000000 + (((val >> 19) & 0x3FF) << 15);
         u32 size  = (val >> 12) & 0x3;
 
-        printf("NWRAM-%c: ARM%d range %08X-%08X, size %d\n", 'A'+num, cpu?7:9, start, end, size);
+        Platform::LogMessage("NWRAM-%c: ARM%d range %08X-%08X, size %d\n", 'A'+num, cpu?7:9, start, end, size);
 
         NWRAMStart[cpu][num] = start;
         NWRAMEnd[cpu][num] = end;
@@ -841,12 +841,12 @@ void ApplyNewRAMSize(u32 size)
     case 0:
     case 1:
         NDS::MainRAMMask = 0x3FFFFF;
-        printf("RAM: 4MB\n");
+        Platform::LogMessage("RAM: 4MB\n");
         break;
     case 2:
     case 3: // TODO: debug console w/ 32MB?
         NDS::MainRAMMask = 0xFFFFFF;
-        printf("RAM: 16MB\n");
+        Platform::LogMessage("RAM: 16MB\n");
         break;
     }
 }
@@ -857,7 +857,7 @@ void Set_SCFG_Clock9(u16 val)
     NDS::ARM9Timestamp >>= NDS::ARM9ClockShift;
     NDS::ARM9Target    >>= NDS::ARM9ClockShift;
 
-    printf("CLOCK9=%04X\n", val);
+    Platform::LogMessage("CLOCK9=%04X\n", val);
     SCFG_Clock9 = val & 0x0187;
 
     if (SCFG_Clock9 & (1<<0)) NDS::ARM9ClockShift = 2;
@@ -874,7 +874,7 @@ void Set_SCFG_MC(u32 val)
 
     val &= 0xFFFF800C;
     if ((val & 0xC) == 0xC) val &= ~0xC; // hax
-    if (val & 0x8000) printf("SCFG_MC: weird NDS slot swap\n");
+    if (val & 0x8000) Platform::LogMessage("SCFG_MC: weird NDS slot swap\n");
     SCFG_MC = (SCFG_MC & ~0xFFFF800C) | val;
 
     if ((oldslotstatus == 0x0) && ((SCFG_MC & 0xC) == 0x4))
@@ -2067,19 +2067,19 @@ void ARM9IOWrite32(u32 addr, u32 val)
             SCFG_EXT[0] |= (val & 0x8007F19F);
             SCFG_EXT[1] &= ~0x0000F080;
             SCFG_EXT[1] |= (val & 0x0000F080);
-            printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+            Platform::LogMessage("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
             /*switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
             case 0:
             case 1:
                 NDS::MainRAMMask = 0x3FFFFF;
-                printf("RAM: 4MB\n");
+                Platform::LogMessage("RAM: 4MB\n");
                 //baziderp=true;
                 break;
             case 2:
             case 3: // TODO: debug console w/ 32MB?
                 NDS::MainRAMMask = 0xFFFFFF;
-                printf("RAM: 16MB\n");
+                Platform::LogMessage("RAM: 16MB\n");
                 break;
             }*/
             // HAX!!
@@ -2088,7 +2088,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             // is still busy clearing/relocating shit
             //if (newram != oldram)
             //    NDS::ScheduleEvent(NDS::Event_DSi_RAMSizeChange, false, 512*512*512, ApplyNewRAMSize, newram);
-            printf("from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
+            Platform::LogMessage("from %08X, ARM7 %08X, %08X\n", NDS::GetPC(0), NDS::GetPC(1), NDS::ARM7->R[1]);
         }
         return;
 
@@ -2441,7 +2441,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
         SCFG_EXT[1] |= (val & 0x93FF0F07);
-        printf("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
+        Platform::LogMessage("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/

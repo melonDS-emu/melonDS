@@ -82,11 +82,11 @@ void ROL16(u8* val, u32 n)
     }
 }
 
-#define _printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
-#define _printhex2(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); }
+#define _printhex(str, size) { for (int z = 0; z < (size); z++) Platform::LogMessage("%02X", (str)[z]); Platform::LogMessage("\n"); }
+#define _printhex2(str, size) { for (int z = 0; z < (size); z++) Platform::LogMessage("%02X", (str)[z]); }
 
-#define _printhexR(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); printf("\n"); }
-#define _printhex2R(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[((size)-1)-z]); }
+#define _printhexR(str, size) { for (int z = 0; z < (size); z++) Platform::LogMessage("%02X", (str)[((size)-1)-z]); Platform::LogMessage("\n"); }
+#define _printhex2R(str, size) { for (int z = 0; z < (size); z++) Platform::LogMessage("%02X", (str)[((size)-1)-z]); }
 
 
 bool Init()
@@ -164,7 +164,7 @@ void ProcessBlock_CCM_Decrypt()
     *(u32*)&data[8] = InputFIFO.Read();
     *(u32*)&data[12] = InputFIFO.Read();
 
-    //printf("AES-CCM: "); _printhex2(data, 16);
+    //Platform::LogMessage("AES-CCM: "); _printhex2(data, 16);
 
     Swap16(data_rev, data);
 
@@ -174,7 +174,7 @@ void ProcessBlock_CCM_Decrypt()
 
     Swap16(data, data_rev);
 
-    //printf(" -> "); _printhex2(data, 16);
+    //Platform::LogMessage(" -> "); _printhex2(data, 16);
 
     OutputFIFO.Write(*(u32*)&data[0]);
     OutputFIFO.Write(*(u32*)&data[4]);
@@ -192,7 +192,7 @@ void ProcessBlock_CCM_Encrypt()
     *(u32*)&data[8] = InputFIFO.Read();
     *(u32*)&data[12] = InputFIFO.Read();
 
-    //printf("AES-CCM: "); _printhex2(data, 16);
+    //Platform::LogMessage("AES-CCM: "); _printhex2(data, 16);
 
     Swap16(data_rev, data);
 
@@ -202,7 +202,7 @@ void ProcessBlock_CCM_Encrypt()
 
     Swap16(data, data_rev);
 
-    //printf(" -> "); _printhex2(data, 16);
+    //Platform::LogMessage(" -> "); _printhex2(data, 16);
 
     OutputFIFO.Write(*(u32*)&data[0]);
     OutputFIFO.Write(*(u32*)&data[4]);
@@ -220,13 +220,13 @@ void ProcessBlock_CTR()
     *(u32*)&data[8] = InputFIFO.Read();
     *(u32*)&data[12] = InputFIFO.Read();
 
-    //printf("AES-CTR: "); _printhex2(data, 16);
+    //Platform::LogMessage("AES-CTR: "); _printhex2(data, 16);
 
     Swap16(data_rev, data);
     AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
     Swap16(data, data_rev);
 
-    //printf(" -> "); _printhex(data, 16);
+    //Platform::LogMessage(" -> "); _printhex(data, 16);
 
     OutputFIFO.Write(*(u32*)&data[0]);
     OutputFIFO.Write(*(u32*)&data[4]);
@@ -276,7 +276,7 @@ void WriteCnt(u32 val)
 
         OutputMACDue = false;
 
-        if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
+        if (AESMode == 0 && (!(val & (1<<20)))) Platform::LogMessage("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
         if (RemBlocks > 0)
         {
@@ -288,7 +288,7 @@ void WriteCnt(u32 val)
 
             if (AESMode < 2)
             {
-                if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
+                if (BlkCnt & 0xFFFF) Platform::LogMessage("AES: CCM EXTRA LEN TODO\n");
 
                 u32 maclen = (val >> 16) & 0x7;
                 if (maclen < 1) maclen = 1;
@@ -325,7 +325,7 @@ void WriteCnt(u32 val)
         }
     }
 
-    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
+    //Platform::LogMessage("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
     //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
 }
 
@@ -426,8 +426,8 @@ void Update()
             Ctx.Iv[15] = 0x00;
             AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
 
-            //printf("FINAL MAC: "); _printhexR(CurMAC, 16);
-            //printf("INPUT MAC: "); _printhex(MAC, 16);
+            //Platform::LogMessage("FINAL MAC: "); _printhexR(CurMAC, 16);
+            //Platform::LogMessage("INPUT MAC: "); _printhex(MAC, 16);
 
             Cnt |= (1<<21);
             for (int i = 0; i < 16; i++)
@@ -473,7 +473,7 @@ void WriteIV(u32 offset, u32 val, u32 mask)
 
     *(u32*)&IV[offset] = (old & ~mask) | (val & mask);
 
-    //printf("AES: IV: "); _printhex(IV, 16);
+    //Platform::LogMessage("AES: IV: "); _printhex(IV, 16);
 }
 
 void WriteMAC(u32 offset, u32 val, u32 mask)
@@ -482,7 +482,7 @@ void WriteMAC(u32 offset, u32 val, u32 mask)
 
     *(u32*)&MAC[offset] = (old & ~mask) | (val & mask);
 
-    //printf("AES: MAC: "); _printhex(MAC, 16);
+    //Platform::LogMessage("AES: MAC: "); _printhex(MAC, 16);
 }
 
 void DeriveNormalKey(u32 slot)
@@ -490,8 +490,8 @@ void DeriveNormalKey(u32 slot)
     const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
     u8 tmp[16];
 
-    //printf("slot%d keyX: ", slot); _printhex(KeyX[slot], 16);
-    //printf("slot%d keyY: ", slot); _printhex(KeyY[slot], 16);
+    //Platform::LogMessage("slot%d keyX: ", slot); _printhex(KeyX[slot], 16);
+    //Platform::LogMessage("slot%d keyY: ", slot); _printhex(KeyY[slot], 16);
 
     for (int i = 0; i < 16; i++)
         tmp[i] = KeyX[slot][i] ^ KeyY[slot][i];
@@ -506,7 +506,7 @@ void DeriveNormalKey(u32 slot)
 
     ROL16(tmp, 42);
 
-    //printf("derive normalkey %d\n", slot); _printhex(tmp, 16);
+    //Platform::LogMessage("derive normalkey %d\n", slot); _printhex(tmp, 16);
 
     memcpy(KeyNormal[slot], tmp, 16);
 }
@@ -517,7 +517,7 @@ void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
 
     *(u32*)&KeyNormal[slot][offset] = (old & ~mask) | (val & mask);
 
-    //printf("KeyNormal(%d): ", slot); _printhex(KeyNormal[slot], 16);
+    //Platform::LogMessage("KeyNormal(%d): ", slot); _printhex(KeyNormal[slot], 16);
 }
 
 void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
@@ -526,7 +526,7 @@ void WriteKeyX(u32 slot, u32 offset, u32 val, u32 mask)
 
     *(u32*)&KeyX[slot][offset] = (old & ~mask) | (val & mask);
 
-    //printf("KeyX(%d): ", slot); _printhex(KeyX[slot], 16);
+    //Platform::LogMessage("KeyX(%d): ", slot); _printhex(KeyX[slot], 16);
 }
 
 void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
@@ -535,7 +535,7 @@ void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
 
     *(u32*)&KeyY[slot][offset] = (old & ~mask) | (val & mask);
 
-    //printf("[%08X] KeyY(%d): ", NDS::GetPC(1), slot); _printhex(KeyY[slot], 16);
+    //Platform::LogMessage("[%08X] KeyY(%d): ", NDS::GetPC(1), slot); _printhex(KeyY[slot], 16);
 
     if (offset >= 0xC)
     {

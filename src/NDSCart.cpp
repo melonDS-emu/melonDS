@@ -412,8 +412,8 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var32(&SRAMLength);
     if (SRAMLength != oldlen)
     {
-        printf("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
-        printf("oh well. loading it anyway. adsfgdsf\n");
+        Platform::LogMessage("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        Platform::LogMessage("oh well. loading it anyway. adsfgdsf\n");
 
         if (oldlen) delete[] SRAM;
         if (SRAMLength) SRAM = new u8[SRAMLength];
@@ -506,7 +506,7 @@ void CartRetail::RelocateSave(const char* path, bool write)
     FILE* f = Platform::OpenFile(path, "wb");
     if (!f)
     {
-        printf("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        Platform::LogMessage("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
         return;
     }
 
@@ -1297,7 +1297,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         return;
     }
 
-    printf("DLDI structure found at %08X (%08X)\n", dldioffset, offset+dldioffset);
+    Platform::LogMessage("DLDI structure found at %08X (%08X)\n", dldioffset, offset+dldioffset);
 
     if (*(u32*)&patch[0] != 0xBF8DA5ED ||
         *(u32*)&patch[4] != 0x69684320 ||
@@ -1313,8 +1313,8 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         return;
     }
 
-    printf("existing driver is: %s\n", &binary[dldioffset+0x10]);
-    printf("new driver is: %s\n", &patch[0x10]);
+    Platform::LogMessage("existing driver is: %s\n", &binary[dldioffset+0x10]);
+    Platform::LogMessage("new driver is: %s\n", &patch[0x10]);
 
     u32 memaddr = *(u32*)&binary[dldioffset+0x40];
     if (memaddr == 0)
@@ -1529,13 +1529,13 @@ void DecryptSecureArea(u8* out)
 
     if (!strncmp((const char*)out, "encryObj", 8))
     {
-        printf("Secure area decryption OK\n");
+        Platform::LogMessage("Secure area decryption OK\n");
         *(u32*)&out[0] = 0xE7FFDEFF;
         *(u32*)&out[4] = 0xE7FFDEFF;
     }
     else
     {
-        printf("Secure area decryption failed\n");
+        Platform::LogMessage("Secure area decryption failed\n");
         for (u32 i = 0; i < 0x800; i += 4)
             *(u32*)&out[i] = 0xE7FFDEFF;
     }
@@ -1560,7 +1560,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
-        printf("ROM entry not found\n");
+        Platform::LogMessage("ROM entry not found\n");
 
         romparams.GameCode = gamecode;
         romparams.ROMSize = CartROMSize;
@@ -1570,7 +1570,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
             romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
     }
     else
-        printf("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
+        Platform::LogMessage("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
     if (romparams.ROMSize != filelength) printf("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
 
@@ -1607,7 +1607,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
             // reencrypt secure area if needed
             if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
             {
-                printf("Re-encrypting cart secure area\n");
+                Platform::LogMessage("Re-encrypting cart secure area\n");
 
                 strncpy((char*)&CartROM[arm9base], "encryObj", 8);
 
@@ -1812,10 +1812,10 @@ void WriteROMCnt(u32 val)
             if (seed1 & (1ULL << i)) Key2_Y |= (1ULL << (38-i));
         }
 
-        printf("seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
-        printf("seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
-        printf("key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
-        printf("key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
+        Platform::LogMessage("seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
+        Platform::LogMessage("seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
+        Platform::LogMessage("key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
+        Platform::LogMessage("key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
     }
 
     if (!(ROMCnt & (1<<31))) return;
@@ -1832,7 +1832,7 @@ void WriteROMCnt(u32 val)
     *(u32*)&TransferCmd[0] = *(u32*)&ROMCommand[0];
     *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
 
-    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*Platform::LogMessage("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            TransferCmd[0], TransferCmd[1], TransferCmd[2], TransferCmd[3],
            TransferCmd[4], TransferCmd[5], TransferCmd[6], TransferCmd[7],
@@ -1936,7 +1936,7 @@ void WriteSPICnt(u16 val)
 
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
     if (SPICnt & (1<<7))
-        printf("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
+        Platform::LogMessage("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
 void SPITransferDone(u32 param)
@@ -1958,7 +1958,7 @@ void WriteSPIData(u8 val)
     if (!(SPICnt & (1<<15))) return;
     if (!(SPICnt & (1<<13))) return;
 
-    if (SPICnt & (1<<7)) printf("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
+    if (SPICnt & (1<<7)) Platform::LogMessage("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
 
     SPICnt |= (1<<7);
 

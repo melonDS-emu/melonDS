@@ -124,7 +124,7 @@ void Reset()
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
     {
-        printf("Firmware not found\n");
+        Platform::LogMessage("Firmware not found\n");
 
         // TODO: generate default firmware
         return;
@@ -199,17 +199,17 @@ void Reset()
         }
     }
 
-    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+    Platform::LogMessage("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
            Firmware[0x36], Firmware[0x37], Firmware[0x38],
            Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
 
     // verify shit
-    printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
-    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
+    Platform::LogMessage("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
+    Platform::LogMessage("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
+    Platform::LogMessage("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
+    Platform::LogMessage("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
+    Platform::LogMessage("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
+    Platform::LogMessage("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
 
     Hold = 0;
     CurCmd = 0;
@@ -344,7 +344,7 @@ void Write(u8 val, u32 hold)
         break;
 
     default:
-        printf("unknown firmware SPI command %02X\n", CurCmd);
+        Platform::LogMessage("unknown firmware SPI command %02X\n", CurCmd);
         break;
     }
 
@@ -452,10 +452,10 @@ void Write(u8 val, u32 hold)
             {
             case 0:
                 if (val & 0x40) NDS::Stop(); // shutdown
-                //printf("power %02X\n", val);
+                //Platform::LogMessage("power %02X\n", val);
                 break;
             case 4:
-                //printf("brightness %02X\n", val);
+                //Platform::LogMessage("brightness %02X\n", val);
                 break;
             }
         }
@@ -671,8 +671,8 @@ void WriteCnt(u16 val)
     }
 
     Cnt = (Cnt & 0x0080) | (val & 0xCF03);
-    if (val & 0x0400) printf("!! CRAPOED 16BIT SPI MODE\n");
-    if (Cnt & (1<<7)) printf("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
+    if (val & 0x0400) Platform::LogMessage("!! CRAPOED 16BIT SPI MODE\n");
+    if (Cnt & (1<<7)) Platform::LogMessage("!! CHANGING SPICNT DURING TRANSFER: %04X\n", val);
 }
 
 void TransferDone(u32 param)
@@ -705,7 +705,7 @@ void WriteData(u8 val)
 {
     if (!(Cnt & (1<<15))) return;
 
-    if (Cnt & (1<<7)) printf("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
+    if (Cnt & (1<<7)) Platform::LogMessage("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
 
     Cnt |= (1<<7);
     switch (Cnt & 0x0300)
@@ -718,7 +718,7 @@ void WriteData(u8 val)
         else
             SPI_TSC::Write(val, Cnt&(1<<11));
         break;
-    default: printf("SPI to unknown device %04X %02X\n", Cnt, val); break;
+    default: Platform::LogMessage("SPI to unknown device %04X %02X\n", Cnt, val); break;
     }
 
     // SPI transfers one bit per cycle -> 8 cycles per byte

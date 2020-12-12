@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "Platform.h"
 #include "RTC.h"
 
 
@@ -186,7 +187,7 @@ void ByteIn(u8 val)
 
     case 0x40:
         if (InputPos == 1) StatusReg2 = val;
-        if (StatusReg2 & 0x4F) printf("RTC INTERRUPT ON: %02X\n", StatusReg2);
+        if (StatusReg2 & 0x4F) Platform::LogMessage("RTC INTERRUPT ON: %02X\n", StatusReg2);
         break;
 
     case 0x20:
@@ -225,7 +226,7 @@ void ByteIn(u8 val)
 
 u16 Read()
 {
-    //printf("RTC READ %04X\n", IO);
+    //Platform::LogMessage("RTC READ %04X\n", IO);
     return IO;
 }
 
@@ -233,7 +234,7 @@ void Write(u16 val, bool byte)
 {
     if (byte) val |= (IO & 0xFF00);
 
-    //printf("RTC WRITE %04X\n", val);
+    //Platform::LogMessage("RTC WRITE %04X\n", val);
     if (val & 0x0004)
     {
         if (!(IO & 0x0004))

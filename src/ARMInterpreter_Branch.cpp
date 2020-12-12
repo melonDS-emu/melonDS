@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include "Platform.h"
 #include "ARM.h"
 
 
@@ -79,7 +80,7 @@ void T_BLX_REG(ARM* cpu)
 {
     if (cpu->Num==1)
     {
-        printf("!! THUMB BLX_REG ON ARM7\n");
+        Platform::LogMessage("!! THUMB BLX_REG ON ARM7\n");
         return;
     }
 

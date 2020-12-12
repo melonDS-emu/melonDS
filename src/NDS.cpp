@@ -353,9 +353,9 @@ void SetupDirectBoot()
     u32 bootparams[8];
     memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
 
-    printf("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
+    Platform::LogMessage("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-    printf("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
+    Platform::LogMessage("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
            bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
 
     MapSharedWRAM(3);
@@ -467,7 +467,7 @@ void Reset()
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
-        printf("ARM9 BIOS not found\n");
+        Platform::LogMessage("ARM9 BIOS not found\n");
 
         for (i = 0; i < 16; i++)
             ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
@@ -477,14 +477,14 @@ void Reset()
         fseek(f, 0, SEEK_SET);
         fread(ARM9BIOS, 0x1000, 1, f);
 
-        printf("ARM9 BIOS loaded\n");
+        Platform::LogMessage("ARM9 BIOS loaded\n");
         fclose(f);
     }
 
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
-        printf("ARM7 BIOS not found\n");
+        Platform::LogMessage("ARM7 BIOS not found\n");
 
         for (i = 0; i < 16; i++)
             ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
@@ -494,7 +494,7 @@ void Reset()
         fseek(f, 0, SEEK_SET);
         fread(ARM7BIOS, 0x4000, 1, f);
 
-        printf("ARM7 BIOS loaded\n");
+        Platform::LogMessage("ARM7 BIOS loaded\n");
         fclose(f);
     }
 
@@ -607,7 +607,7 @@ void Reset()
 
 void Stop()
 {
-    printf("Stopping: shutdown\n");
+    Platform::LogMessage("Stopping: shutdown\n");
     Running = false;
     Platform::StopEmu();
     GPU::Stop();
@@ -662,7 +662,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 }
                 if (funcid == 0xFFFFFFFF)
                 {
-                    printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
+                    Platform::LogMessage("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
                 }
             }
@@ -687,7 +687,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 {
                     if (!eventfuncs[j])
                     {
-                        printf("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
+                        Platform::LogMessage("savestate: VERY BAD!!!!!! EVENT FUNCTION POINTER ID %d IS OUT OF RANGE. HAX?????\n", j);
                         return false;
                     }
                     if (j == funcid) break;
@@ -858,7 +858,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     }
     else
     {
-        printf("Failed to load ROM %s\n", path);
+        Platform::LogMessage("Failed to load ROM %s\n", path);
         return false;
     }
 }
@@ -871,7 +871,7 @@ bool LoadGBAROM(const char* path, const char* sram)
     }
     else
     {
-        printf("Failed to load ROM %s\n", path);
+        Platform::LogMessage("Failed to load ROM %s\n", path);
         return false;
     }
 }
@@ -897,7 +897,7 @@ void LoadBIOS()
 
 void RelocateSave(const char* path, bool write)
 {
-    printf("SRAM: relocating to %s (write=%s)\n", path, write?"true":"false");
+    Platform::LogMessage("SRAM: relocating to %s (write=%s)\n", path, write?"true":"false");
     NDSCart::RelocateSave(path, write);
 }
 
@@ -1085,7 +1085,7 @@ void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 para
 {
     if (SchedListMask & (1<<id))
     {
-        printf("!! EVENT %d ALREADY SCHEDULED\n", id);
+        Platform::LogMessage("!! EVENT %d ALREADY SCHEDULED\n", id);
         return;
     }
 
@@ -1185,7 +1185,7 @@ int ImportSRAM(u8* data, u32 length)
 
 void Halt()
 {
-    printf("Halt()\n");
+    Platform::LogMessage("Halt()\n");
     Running = false;
 }
 
@@ -1496,7 +1496,7 @@ void NocashPrint(u32 ncpu, u32 addr)
     }
 
     output[ptr] = '\0';
-    printf("%s", output);
+    Platform::LogMessage("%s", output);
 }
 
 
@@ -1510,7 +1510,7 @@ void MonitorARM9Jump(u32 addr)
     {
         if (addr == *(u32*)&NDSCart::CartROM[0x24])
         {
-            printf("Game is now booting\n");
+            Platform::LogMessage("Game is now booting\n");
             RunningGame = true;
         }
     }
@@ -1699,7 +1699,7 @@ void TimerStart(u32 id, u16 cnt)
         /*if ((cnt & 0x84) == 0x80)
         {
             u32 delay = (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03];
-            printf("timer%d IRQ: start   %d, reload=%04X cnt=%08X\n", id, delay, timer->Reload, timer->Counter);
+            Platform::LogMessage("timer%d IRQ: start   %d, reload=%04X cnt=%08X\n", id, delay, timer->Reload, timer->Counter);
             CancelEvent(Event_TimerIRQ_0 + id);
             ScheduleEvent(Event_TimerIRQ_0 + id, false, delay, HandleTimerOverflow, id);
         }*/
@@ -1858,14 +1858,14 @@ void StartSqrt()
 
 void debug(u32 param)
 {
-    printf("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
-    printf("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
+    Platform::LogMessage("ARM9 PC=%08X LR=%08X %08X\n", ARM9->R[15], ARM9->R[14], ARM9->R_IRQ[1]);
+    Platform::LogMessage("ARM7 PC=%08X LR=%08X %08X\n", ARM7->R[15], ARM7->R[14], ARM7->R_IRQ[1]);
 
-    printf("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
-    printf("ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
+    Platform::LogMessage("ARM9 IME=%08X IE=%08X IF=%08X\n", IME[0], IE[0], IF[0]);
+    Platform::LogMessage("ARM7 IME=%08X IE=%08X IF=%08X IE2=%04X IF2=%04X\n", IME[1], IE[1], IF[1], IE2, IF2);
 
     //for (int i = 0; i < 9; i++)
-    //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
+    //    Platform::LogMessage("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     FILE*
     shit = fopen("debug/construct.bin", "wb");
@@ -1955,7 +1955,7 @@ u8 ARM9Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm9 read8 %08X\n", addr);
+    Platform::LogMessage("unknown arm9 read8 %08X\n", addr);
     return 0;
 }
 
@@ -2074,7 +2074,7 @@ u32 ARM9Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
+    Platform::LogMessage("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
     return 0;
 }
 
@@ -2118,7 +2118,7 @@ void ARM9Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown arm9 write8 %08X %02X\n", addr, val);
+    Platform::LogMessage("unknown arm9 write8 %08X %02X\n", addr, val);
 }
 
 void ARM9Write16(u32 addr, u16 val)
@@ -2345,7 +2345,7 @@ u8 ARM7Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
+    Platform::LogMessage("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
     return 0;
 }
 
@@ -2408,7 +2408,7 @@ u16 ARM7Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
+    Platform::LogMessage("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2474,7 +2474,7 @@ u32 ARM7Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
+    Platform::LogMessage("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -2541,7 +2541,7 @@ void ARM7Write8(u32 addr, u8 val)
     }
 
     if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
-        printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
+        Platform::LogMessage("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write16(u32 addr, u16 val)
@@ -2857,7 +2857,7 @@ u8 ARM9IORead8(u32 addr)
         return (u8)(emuID[idx]);
     }
 
-    printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3003,7 +3003,7 @@ u16 ARM9IORead16(u32 addr)
         return GPU3D::Read16(addr);
     }
 
-    printf("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3146,7 +3146,7 @@ u32 ARM9IORead32(u32 addr)
         return GPU3D::Read32(addr);
     }
 
-    printf("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO read32 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -3227,7 +3227,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO write8 %08X %02X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite16(u32 addr, u16 val)
@@ -3411,7 +3411,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO write16 %08X %04X %08X\n", addr, val, ARM9->R[15]);
 }
 
 void ARM9IOWrite32(u32 addr, u32 val)
@@ -3609,7 +3609,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
+    Platform::LogMessage("unknown ARM9 IO write32 %08X %08X %08X\n", addr, val, ARM9->R[15]);
 }
 
 
@@ -3681,7 +3681,7 @@ u8 ARM7IORead8(u32 addr)
         return SPU::Read8(addr);
     }
 
-    printf("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO read8 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3772,7 +3772,7 @@ u16 ARM7IORead16(u32 addr)
         return SPU::Read16(addr);
     }
 
-    printf("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO read16 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3871,7 +3871,7 @@ u32 ARM7IORead32(u32 addr)
         return SPU::Read32(addr);
     }
 
-    printf("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO read32 %08X %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
@@ -3937,7 +3937,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04000301:
         val &= 0xC0;
-        if      (val == 0x40) printf("!! GBA MODE NOT SUPPORTED\n");
+        if      (val == 0x40) Platform::LogMessage("!! GBA MODE NOT SUPPORTED\n");
         else if (val == 0x80) ARM7->Halt(1);
         else if (val == 0xC0) EnterSleepMode();
         return;
@@ -3949,7 +3949,7 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO write8 %08X %02X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite16(u32 addr, u16 val)
@@ -4095,7 +4095,7 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO write16 %08X %04X %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7IOWrite32(u32 addr, u32 val)
@@ -4221,7 +4221,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
+    Platform::LogMessage("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
 }
 
 }

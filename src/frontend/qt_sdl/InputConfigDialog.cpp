@@ -25,6 +25,7 @@
 #include "types.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "Platform.h"
 
 #include "Input.h"
 #include "InputConfigDialog.h"
@@ -233,7 +234,7 @@ void KeyMapButton::keyPressEvent(QKeyEvent* event)
 {
     if (!isChecked()) return QPushButton::keyPressEvent(event);
 
-    printf("KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), (int)event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
+    Platform::LogMessage("KEY PRESSED = %08X %08X | %08X %08X %08X\n", event->key(), (int)event->modifiers(), event->nativeVirtualKey(), event->nativeModifiers(), event->nativeScanCode());
 
     int key = event->key();
     int mod = event->modifiers();

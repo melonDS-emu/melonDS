@@ -80,7 +80,7 @@ bool ARCodeFile::Load()
 
             if (ret < 1)
             {
-                printf("AR: malformed CAT line: %s\n", start);
+                Platform::LogMessage("AR: malformed CAT line: %s\n", start);
                 fclose(f);
                 return false;
             }
@@ -103,14 +103,14 @@ bool ARCodeFile::Load()
 
             if (ret < 2)
             {
-                printf("AR: malformed CODE line: %s\n", start);
+                Platform::LogMessage("AR: malformed CODE line: %s\n", start);
                 fclose(f);
                 return false;
             }
 
             if (!isincat)
             {
-                printf("AR: encountered CODE line with no category started\n");
+                Platform::LogMessage("AR: encountered CODE line with no category started\n");
                 fclose(f);
                 return false;
             }
@@ -129,21 +129,21 @@ bool ARCodeFile::Load()
 
             if (ret < 2)
             {
-                printf("AR: malformed data line: %s\n", start);
+                Platform::LogMessage("AR: malformed data line: %s\n", start);
                 fclose(f);
                 return false;
             }
 
             if (!isincode)
             {
-                printf("AR: encountered data line with no code started\n");
+                Platform::LogMessage("AR: encountered data line with no code started\n");
                 fclose(f);
                 return false;
             }
 
             if (curcode.CodeLen >= 2*64)
             {
-                printf("AR: code too long!\n");
+                Platform::LogMessage("AR: code too long!\n");
                 fclose(f);
                 return false;
             }

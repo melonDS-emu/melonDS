@@ -233,7 +233,7 @@ void CartGame::RelocateSave(const char* path, bool write)
     FILE *f = Platform::OpenFile(path, "r+b");
     if (!f)
     {
-        printf("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        Platform::LogMessage("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
         return;
     }
 
@@ -374,7 +374,7 @@ u8 CartGame::SRAMRead_FLASH(u32 addr)
         case 0xB0: // bank switching (128K only)
             break; // ignore here, handled in Write_Flash()
         default:
-            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
+            Platform::LogMessage("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
             break;
     }
 
@@ -511,7 +511,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
         return;
     }
 
-    printf("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+    Platform::LogMessage("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
         val, addr, SRAMFlashState.state);
 }
 

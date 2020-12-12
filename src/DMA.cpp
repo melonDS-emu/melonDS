@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "DMA.h"
@@ -125,7 +126,7 @@ void DMA::WriteCnt(u32 val)
         case 0x00000000: SrcAddrInc = 1; break;
         case 0x00800000: SrcAddrInc = -1; break;
         case 0x01000000: SrcAddrInc = 0; break;
-        case 0x01800000: SrcAddrInc = 1; printf("BAD DMA SRC INC MODE 3\n"); break;
+        case 0x01800000: SrcAddrInc = 1; Platform::LogMessage("BAD DMA SRC INC MODE 3\n"); break;
         }
 
         if (CPU == 0)
@@ -139,7 +140,7 @@ void DMA::WriteCnt(u32 val)
             GPU3D::CheckFIFODMA();
 
         if (StartMode==0x06 || StartMode==0x13)
-            printf("UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
+            Platform::LogMessage("UNIMPLEMENTED ARM%d DMA%d START MODE %02X, %08X->%08X\n", CPU?7:9, Num, StartMode, SrcAddr, DstAddr);
     }
 }
 
@@ -168,7 +169,7 @@ void DMA::Start()
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
 
-    //printf("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
+    //Platform::LogMessage("ARM%d DMA%d %08X %02X %08X->%08X %d bytes %dbit\n", CPU?7:9, Num, Cnt, StartMode, CurSrcAddr, CurDstAddr, RemCount*((Cnt&0x04000000)?4:2), (Cnt&0x04000000)?32:16);
 
     IsGXFIFODMA = (CPU == 0 && (CurSrcAddr>>24) == 0x02 && CurDstAddr == 0x04000400 && DstAddrInc == 0);
 

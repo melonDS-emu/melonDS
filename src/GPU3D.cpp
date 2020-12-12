@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include "Platform.h"
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
@@ -1827,7 +1828,7 @@ void ExecuteCommand()
 {
     CmdFIFOEntry entry = CmdFIFORead();
 
-    //printf("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
+    //Platform::LogMessage("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
 
     // each FIFO entry takes 1 cycle to be processed
     // commands (presumably) run when all the needed parameters have been read
@@ -2712,7 +2713,7 @@ u8 Read8(u32 addr)
         }
     }
 
-    printf("unknown GPU3D read8 %08X\n", addr);
+    Platform::LogMessage("unknown GPU3D read8 %08X\n", addr);
     return 0;
 }
 
@@ -2756,7 +2757,7 @@ u16 Read16(u32 addr)
     case 0x04000634: return VecTestResult[2];
     }
 
-    printf("unknown GPU3D read16 %08X\n", addr);
+    Platform::LogMessage("unknown GPU3D read16 %08X\n", addr);
     return 0;
 }
 
@@ -2809,7 +2810,7 @@ u32 Read32(u32 addr)
         return ClipMatrix[(addr & 0x3C) >> 2];
     }
 
-    //printf("unknown GPU3D read32 %08X\n", addr);
+    //Platform::LogMessage("unknown GPU3D read32 %08X\n", addr);
     return 0;
 }
 
@@ -2860,7 +2861,7 @@ void Write8(u32 addr, u8 val)
         return;
     }
 
-    printf("unknown GPU3D write8 %08X %02X\n", addr, val);
+    Platform::LogMessage("unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -2947,7 +2948,7 @@ void Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown GPU3D write16 %08X %04X\n", addr, val);
+    Platform::LogMessage("unknown GPU3D write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -3044,7 +3045,7 @@ void Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown GPU3D write32 %08X %08X\n", addr, val);
+    Platform::LogMessage("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
 Renderer3D::Renderer3D(bool Accelerated)

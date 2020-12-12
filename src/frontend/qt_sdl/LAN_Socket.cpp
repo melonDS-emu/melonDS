@@ -25,6 +25,7 @@
 #include "LAN_Socket.h"
 #include "Config.h"
 #include "FIFO.h"
+#include "Platform.h"
 
 #include <slirp/libslirp.h>
 
@@ -88,7 +89,7 @@ void RXEnqueue(const void* buf, int len)
 
     if (!RXBuffer.CanFit(totallen >> 2))
     {
-        printf("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
+        Platform::LogMessage("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
         return;
     }
 
@@ -115,7 +116,7 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 
 void SlirpCbGuestError(const char* msg, void* opaque)
 {
-    printf("SLIRP: error: %s\n", msg);
+    Platform::LogMessage("SLIRP: error: %s\n", msg);
 }
 
 int64_t SlirpCbClockGetNS(void* opaque)
@@ -140,11 +141,11 @@ void SlirpCbTimerMod(void* timer, int64_t expire_time, void* opaque)
 
 void SlirpCbRegisterPollFD(int fd, void* opaque)
 {
-    printf("Slirp: register poll FD %d\n", fd);
+    Platform::LogMessage("Slirp: register poll FD %d\n", fd);
 
     /*if (FDListSize >= FDListMax)
     {
-        printf("!! SLIRP FD LIST FULL\n");
+        Platform::LogMessage("!! SLIRP FD LIST FULL\n");
         return;
     }
 
@@ -159,11 +160,11 @@ void SlirpCbRegisterPollFD(int fd, void* opaque)
 
 void SlirpCbUnregisterPollFD(int fd, void* opaque)
 {
-    printf("Slirp: unregister poll FD %d\n", fd);
+    Platform::LogMessage("Slirp: unregister poll FD %d\n", fd);
 
     /*if (FDListSize < 1)
     {
-        printf("!! SLIRP FD LIST EMPTY\n");
+        Platform::LogMessage("!! SLIRP FD LIST EMPTY\n");
         return;
     }
 
@@ -179,7 +180,7 @@ void SlirpCbUnregisterPollFD(int fd, void* opaque)
 
 void SlirpCbNotify(void* opaque)
 {
-    printf("Slirp: notify???\n");
+    Platform::LogMessage("Slirp: notify???\n");
 }
 
 SlirpCb cb =
@@ -284,7 +285,7 @@ void HandleDNSFrame(u8* data, int len)
     u16 numauth = ntohs(*(u16*)&dnsbody[8]);
     u16 numadd = ntohs(*(u16*)&dnsbody[10]);
 
-    printf("DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
+    Platform::LogMessage("DNS: ID=%04X, flags=%04X, Q=%d, A=%d, auth=%d, add=%d\n",
            id, flags, numquestions, numanswers, numauth, numadd);
 
     // for now we only take 'simple' DNS requests
@@ -373,7 +374,7 @@ void HandleDNSFrame(u8* data, int len)
 		u16 type = ntohs(*(u16*)&dnsbody[curoffset]);
 		u16 cls = ntohs(*(u16*)&dnsbody[curoffset+2]);
 
-		printf("- q%d: %04X %04X %s", i, type, cls, domainname);
+		Platform::LogMessage("- q%d: %04X %04X %s", i, type, cls, domainname);
 
 		// get answer
 		struct addrinfo dns_hint;
@@ -390,7 +391,7 @@ void HandleDNSFrame(u8* data, int len)
                 struct sockaddr_in* addr = (struct sockaddr_in*)p->ai_addr;
                 addr_res = *(u32*)&addr->sin_addr;
 
-                printf(" -> %d.%d.%d.%d",
+                Platform::LogMessage(" -> %d.%d.%d.%d",
                        addr_res & 0xFF, (addr_res >> 8) & 0xFF,
                        (addr_res >> 16) & 0xFF, addr_res >> 24);
 
@@ -400,11 +401,11 @@ void HandleDNSFrame(u8* data, int len)
         }
         else
         {
-            printf(" shat itself :(");
+            Platform::LogMessage(" shat itself :(");
             addr_res = 0;
         }
 
-		printf("\n");
+		Platform::LogMessage("\n");
 		curoffset += 4;
 
 		// TODO: betterer support
@@ -430,7 +431,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        printf("LAN_SendPacket: error: packet too long (%d)\n", len);
+        Platform::LogMessage("LAN_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 
@@ -462,13 +463,13 @@ int SlirpCbAddPoll(int fd, int events, void* opaque)
 {
     if (PollListSize >= PollListMax)
     {
-        printf("slirp: POLL LIST FULL\n");
+        Platform::LogMessage("slirp: POLL LIST FULL\n");
         return -1;
     }
 
     int idx = PollListSize++;
 
-    //printf("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
+    //Platform::LogMessage("Slirp: add poll: fd=%d, idx=%d, events=%08X\n", fd, idx, events);
 
     u16 evt = 0;
 
@@ -493,7 +494,7 @@ int SlirpCbGetREvents(int idx, void* opaque)
     if (idx < 0 || idx >= PollListSize)
         return 0;
 
-    //printf("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
+    //Platform::LogMessage("Slirp: get revents, idx=%d, res=%04X\n", idx, FDList[idx].revents);
 
     u16 evt = PollList[idx].revents;
     int ret = 0;

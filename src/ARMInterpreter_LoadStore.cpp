@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include "Platform.h"
 #include "ARM.h"
 
 
@@ -125,7 +126,7 @@ namespace ARMInterpreter
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->AddCycles_CDI(); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRB PC %08X\n", cpu->R[15]); \
 
 // TODO: user mode
 #define A_LDRB_POST \
@@ -134,7 +135,7 @@ namespace ARMInterpreter
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->AddCycles_CDI(); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = val; \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRB PC %08X\n", cpu->R[15]); \
 
 
 
@@ -236,7 +237,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD %d\n", r+1); } \
+    if (r&1) { r--; Platform::LogMessage("!! MISALIGNED LDRD %d\n", r+1); } \
     cpu->DataRead32 (offset  , &cpu->R[r  ]); \
     cpu->DataRead32S(offset+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
@@ -246,7 +247,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED LDRD_POST %d\n", r+1); } \
+    if (r&1) { r--; Platform::LogMessage("!! MISALIGNED LDRD_POST %d\n", r+1); } \
     cpu->DataRead32 (addr  , &cpu->R[r  ]); \
     cpu->DataRead32S(addr+4, &cpu->R[r+1]); \
     cpu->AddCycles_CDI();
@@ -256,7 +257,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED STRD %d\n", r+1); } \
+    if (r&1) { r--; Platform::LogMessage("!! MISALIGNED STRD %d\n", r+1); } \
     cpu->DataWrite32 (offset  , cpu->R[r  ]); \
     cpu->DataWrite32S(offset+4, cpu->R[r+1]); \
     cpu->AddCycles_CD();
@@ -266,7 +267,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     u32 r = (cpu->CurInstr>>12) & 0xF; \
-    if (r&1) { r--; printf("!! MISALIGNED STRD_POST %d\n", r+1); } \
+    if (r&1) { r--; Platform::LogMessage("!! MISALIGNED STRD_POST %d\n", r+1); } \
     cpu->DataWrite32 (addr  , cpu->R[r  ]); \
     cpu->DataWrite32S(addr+4, cpu->R[r+1]); \
     cpu->AddCycles_CD();
@@ -276,14 +277,14 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     if (cpu->CurInstr & (1<<21)) cpu->R[(cpu->CurInstr>>16) & 0xF] = offset; \
     cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
     cpu->R[(cpu->CurInstr>>16) & 0xF] += offset; \
     cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSB \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -291,7 +292,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataRead8(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRSB PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSB_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -299,7 +300,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataRead8(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s8)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSB PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRSB PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSH \
     offset += cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -307,7 +308,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataRead16(offset, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRSH PC %08X\n", cpu->R[15]); \
 
 #define A_LDRSH_POST \
     u32 addr = cpu->R[(cpu->CurInstr>>16) & 0xF]; \
@@ -315,7 +316,7 @@ A_IMPLEMENT_WB_LDRSTR(LDRB)
     cpu->DataRead16(addr, &cpu->R[(cpu->CurInstr>>12) & 0xF]); \
     cpu->R[(cpu->CurInstr>>12) & 0xF] = (s32)(s16)cpu->R[(cpu->CurInstr>>12) & 0xF]; \
     cpu->AddCycles_CDI(); \
-    if (((cpu->CurInstr>>12) & 0xF) == 15) printf("!! LDRSH PC %08X\n", cpu->R[15]); \
+    if (((cpu->CurInstr>>12) & 0xF) == 15) Platform::LogMessage("!! LDRSH PC %08X\n", cpu->R[15]); \
 
 
 #define A_IMPLEMENT_HD_LDRSTR(x) \

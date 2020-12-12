@@ -149,7 +149,7 @@ int HandleManagementFrame(u8* data, int len)
 
     if (RXNum)
     {
-        printf("wifiAP: can't reply!!\n");
+        Platform::LogMessage("wifiAP: can't reply!!\n");
         return 0;
     }
 
@@ -167,12 +167,12 @@ int HandleManagementFrame(u8* data, int len)
 
             if (ClientStatus != 1)
             {
-                printf("wifiAP: bad assoc request, needs auth prior\n");
+                Platform::LogMessage("wifiAP: bad assoc request, needs auth prior\n");
                 return 0;
             }
 
             ClientStatus = 2;
-            printf("wifiAP: client associated\n");
+            Platform::LogMessage("wifiAP: client associated\n");
 
             PWRITE_16(p, 0x0010);
             PWRITE_16(p, 0x0000); // duration??
@@ -222,7 +222,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 1;
-            printf("wifiAP: client deassociated\n");
+            Platform::LogMessage("wifiAP: client deassociated\n");
 
             PWRITE_16(p, 0x00A0);
             PWRITE_16(p, 0x0000); // duration??
@@ -244,7 +244,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 1;
-            printf("wifiAP: client authenticated\n");
+            Platform::LogMessage("wifiAP: client authenticated\n");
 
             PWRITE_16(p, 0x00B0);
             PWRITE_16(p, 0x0000); // duration??
@@ -268,7 +268,7 @@ int HandleManagementFrame(u8* data, int len)
                 return 0;
 
             ClientStatus = 0;
-            printf("wifiAP: client deauthenticated\n");
+            Platform::LogMessage("wifiAP: client deauthenticated\n");
 
             PWRITE_16(p, 0x00C0);
             PWRITE_16(p, 0x0000); // duration??
@@ -285,7 +285,7 @@ int HandleManagementFrame(u8* data, int len)
         return len;
 
     default:
-        printf("wifiAP: unknown management frame type %X\n", (framectl>>4)&0xF);
+        Platform::LogMessage("wifiAP: unknown management frame type %X\n", (framectl>>4)&0xF);
         return 0;
     }
 }
@@ -309,7 +309,7 @@ int SendPacket(u8* data, int len)
         {
             if ((framectl & 0x0300) != 0x0100)
             {
-                printf("wifiAP: got data frame with bad fromDS/toDS bits %04X\n", framectl);
+                Platform::LogMessage("wifiAP: got data frame with bad fromDS/toDS bits %04X\n", framectl);
                 return 0;
             }
 
@@ -319,7 +319,7 @@ int SendPacket(u8* data, int len)
             {
                 if (ClientStatus != 2)
                 {
-                    printf("wifiAP: trying to send shit without being associated\n");
+                    Platform::LogMessage("wifiAP: trying to send shit without being associated\n");
                     return 0;
                 }
 
