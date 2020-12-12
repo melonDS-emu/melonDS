@@ -136,7 +136,7 @@ void LogMessage(const char* format, ...)
     {
         if (!LogFile)
         {
-            LogFile = fopen(Config::LogFileLocation, "a+");
+            LogFile = fopen(Config::LogFileLocation, "w");
         }
         vfprintf(LogFile, format, args);
     }
