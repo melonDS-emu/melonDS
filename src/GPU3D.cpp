@@ -2579,13 +2579,11 @@ u32 ScrolledLine[256];
 
 u32* GetLine(int line)
 {
-    u32* rawline;
+    u32* rawline = NULL;
 
     if (GPU::Renderer == 0) rawline = SoftRenderer::GetLine(line);
 #ifdef OGLRENDERER_ENABLED
     else                    rawline = GLRenderer::GetLine(line);
-#else
-    return NULL;
 #endif
 
     if (RenderXPos == 0) return rawline;
