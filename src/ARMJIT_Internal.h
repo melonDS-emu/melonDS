@@ -216,9 +216,9 @@ template <u32 Num>
 void LinkBlock(ARM* cpu, u32 codeOffset);
 
 template <typename T, int ConsoleType> T SlowRead9(u32 addr, ARMv5* cpu);
-template <typename T, int ConsoleType> void SlowWrite9(u32 addr, ARMv5* cpu, T val);
+template <typename T, int ConsoleType> void SlowWrite9(u32 addr, ARMv5* cpu, u32 val);
 template <typename T, int ConsoleType> T SlowRead7(u32 addr);
-template <typename T, int ConsoleType> void SlowWrite7(u32 addr, T val);
+template <typename T, int ConsoleType> void SlowWrite7(u32 addr, u32 val);
 
 template <bool Write, int ConsoleType> void SlowBlockTransfer9(u32 addr, u64* data, u32 num, ARMv5* cpu);
 template <bool Write, int ConsoleType> void SlowBlockTransfer7(u32 addr, u64* data, u32 num);

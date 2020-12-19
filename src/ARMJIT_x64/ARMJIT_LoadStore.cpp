@@ -15,28 +15,24 @@ int squeezePointer(T* ptr)
     return truncated;
 }
 
-s32 Compiler::RewriteMemAccess(u64 pc)
+u8* Compiler::RewriteMemAccess(u8* pc)
 {
-    auto it = LoadStorePatches.find((u8*)pc);
+    auto it = LoadStorePatches.find(pc);
     if (it != LoadStorePatches.end())
     {
         LoadStorePatch patch = it->second;
         LoadStorePatches.erase(it);
 
-        u8* curCodePtr = GetWritableCodePtr();
-        u8* rewritePtr = (u8*)pc + (ptrdiff_t)patch.Offset;
-        SetCodePtr(rewritePtr);
+        //printf("rewriting memory access %p %d %d\n", (u8*)pc-ResetStart, patch.Offset, patch.Size);
 
-        CALL(patch.PatchFunc);
-        u32 remainingSize = patch.Size - (GetWritableCodePtr() - rewritePtr);
+        XEmitter emitter(pc + (ptrdiff_t)patch.Offset);
+        emitter.CALL(patch.PatchFunc);
+        ptrdiff_t remainingSize = (ptrdiff_t)patch.Size - 5;
+        assert(remainingSize >= 0);
         if (remainingSize > 0)
-            NOP(remainingSize);
+            emitter.NOP(remainingSize);
 
-        //printf("rewriting memory access %p %d %d\n", patch.PatchFunc, patch.Offset, patch.Size);
-
-        SetCodePtr(curCodePtr);
-
-        return patch.Offset;
+        return pc + (ptrdiff_t)patch.Offset;
     }
 
     printf("this is a JIT bug %llx\n", pc);
@@ -192,6 +188,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         u8* memopStart = GetWritableCodePtr();
         LoadStorePatch patch;
 
+        assert(rdMapped.GetSimpleReg() >= 0 && rdMapped.GetSimpleReg() < 16);
         patch.PatchFunc = flags & memop_Store
             ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped.GetSimpleReg()]
             : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped.GetSimpleReg()];

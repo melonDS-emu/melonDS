@@ -53,17 +53,18 @@ GLuint CurShaderID = -1;
 GLuint FinalPassEdgeShader[3];
 GLuint FinalPassFogShader[3];
 
+// std140 compliant structure
 struct
 {
-    float uScreenSize[2];
-    u32 uDispCnt;
+    float uScreenSize[2];       // vec2       0 / 2
+    u32 uDispCnt;               // int        2 / 1
     u32 __pad0;
-    float uToonColors[32][4];
-    float uEdgeColors[8][4];
-    float uFogColor[4];
-    float uFogDensity[34][4];
-    u32 uFogOffset;
-    u32 uFogShift;
+    float uToonColors[32][4];   // vec4[32]   4 / 128
+    float uEdgeColors[8][4];    // vec4[8]    132 / 32
+    float uFogColor[4];         // vec4       164 / 4
+    float uFogDensity[34][4];   // float[34]  168 / 136
+    u32 uFogOffset;             // int        304 / 1
+    u32 uFogShift;              // int        305 / 1
 
 } ShaderConfig;
 
@@ -74,11 +75,11 @@ typedef struct
     Polygon* PolyData;
 
     u32 NumIndices;
-    u16* Indices;
+    u32 IndicesOffset;
     GLuint PrimType;
 
     u32 NumEdgeIndices;
-    u16* EdgeIndices;
+    u32 EdgeIndicesOffset;
 
     u32 RenderKey;
 
@@ -107,7 +108,11 @@ u32 VertexBuffer[10240 * 7];
 u32 NumVertices;
 
 GLuint VertexArrayID;
+GLuint IndexBufferID;
 u16 IndexBuffer[2048 * 40];
+u32 NumIndices, NumEdgeIndices;
+
+const u32 EdgeIndicesOffset = 2048 * 30;
 
 GLuint TexMemID;
 GLuint TexPalMemID;
@@ -280,7 +285,7 @@ bool Init()
 
     glGenBuffers(1, &ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, (sizeof(ShaderConfig) + 15) & ~15, &ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
 
 
@@ -320,6 +325,9 @@ bool Init()
     glEnableVertexAttribArray(3); // attrib
     glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, 7*4, (void*)(4*4));
 
+    glGenBuffers(1, &IndexBufferID);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferID);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBuffer), NULL, GL_DYNAMIC_DRAW);
 
     glGenFramebuffers(4, &FramebufferID[0]);
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
@@ -563,15 +571,15 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
 
-    u16* iptr = &IndexBuffer[0];
-    u16* eiptr = &IndexBuffer[2048*30];
+    u32 iidx = 0;
+    u32 eidx = EdgeIndicesOffset;
 
     for (int i = 0; i < npolys; i++)
     {
         RendererPolygon* rp = &polygons[i];
         Polygon* poly = rp->PolyData;
 
-        rp->Indices = iptr;
+        rp->IndicesOffset = iidx;
         rp->NumIndices = 0;
 
         u32 vidx_first = vidx;
@@ -606,7 +614,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
                 vptr = SetupVertex(poly, j, vtx, vtxattr, vptr);
 
-                *iptr++ = vidx;
+                IndexBuffer[iidx++] = vidx;
                 rp->NumIndices++;
 
                 vidx++;
@@ -627,9 +635,9 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             }
 
             // build a triangle
-            *iptr++ = vidx_first;
-            *iptr++ = vidx - 2;
-            *iptr++ = vidx - 1;
+            IndexBuffer[iidx++] = vidx_first;
+            IndexBuffer[iidx++] = vidx - 2;
+            IndexBuffer[iidx++] = vidx - 1;
             rp->NumIndices += 3;
         }
         else // quad, pentagon, etc
@@ -649,9 +657,9 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                     if (j >= 2)
                     {
                         // build a triangle
-                        *iptr++ = vidx_first;
-                        *iptr++ = vidx - 1;
-                        *iptr++ = vidx;
+                        IndexBuffer[iidx++] = vidx_first;
+                        IndexBuffer[iidx++] = vidx - 1;
+                        IndexBuffer[iidx++] = vidx;
                         rp->NumIndices += 3;
                     }
 
@@ -743,46 +751,50 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                     if (j >= 1)
                     {
                         // build a triangle
-                        *iptr++ = vidx_first;
-                        *iptr++ = vidx - 1;
-                        *iptr++ = vidx;
+                        IndexBuffer[iidx++] = vidx_first;
+                        IndexBuffer[iidx++] = vidx - 1;
+                        IndexBuffer[iidx++] = vidx;
                         rp->NumIndices += 3;
                     }
 
                     vidx++;
                 }
 
-                *iptr++ = vidx_first;
-                *iptr++ = vidx - 1;
-                *iptr++ = vidx_first + 1;
+                IndexBuffer[iidx++] = vidx_first;
+                IndexBuffer[iidx++] = vidx - 1;
+                IndexBuffer[iidx++] = vidx_first + 1;
                 rp->NumIndices += 3;
             }
         }
 
-        rp->EdgeIndices = eiptr;
+        rp->EdgeIndicesOffset = eidx;
         rp->NumEdgeIndices = 0;
 
         u32 vidx_cur = vidx_first;
         for (int j = 1; j < poly->NumVertices; j++)
         {
-            *eiptr++ = vidx_cur;
-            *eiptr++ = vidx_cur + 1;
+            IndexBuffer[eidx++] = vidx_cur;
+            IndexBuffer[eidx++] = vidx_cur + 1;
             vidx_cur++;
             rp->NumEdgeIndices += 2;
         }
-        *eiptr++ = vidx_cur;
-        *eiptr++ = vidx_first;
+        IndexBuffer[eidx++] = vidx_cur;
+        IndexBuffer[eidx++] = vidx_first;
         rp->NumEdgeIndices += 2;
     }
 
     NumVertices = vidx;
+    NumIndices = iidx;
+    NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
-void RenderSinglePolygon(int i)
+int RenderSinglePolygon(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
 
-    glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, rp->Indices);
+    glDrawElements(rp->PrimType, rp->NumIndices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
+
+    return 1;
 }
 
 int RenderPolygonBatch(int i)
@@ -803,7 +815,7 @@ int RenderPolygonBatch(int i)
         numindices += cur_rp->NumIndices;
     }
 
-    glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, rp->Indices);
+    glDrawElements(primtype, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->IndicesOffset * 2));
     return numpolys;
 }
 
@@ -823,7 +835,7 @@ int RenderPolygonEdgeBatch(int i)
         numindices += cur_rp->NumEdgeIndices;
     }
 
-    glDrawElements(GL_LINES, numindices, GL_UNSIGNED_SHORT, rp->EdgeIndices);
+    glDrawElements(GL_LINES, numindices, GL_UNSIGNED_SHORT, (void*)(uintptr_t)(rp->EdgeIndicesOffset * 2));
     return numpolys;
 }
 
@@ -857,6 +869,7 @@ void RenderSceneChunk(int y, int h)
         RendererPolygon* rp = &PolygonList[i];
 
         if (rp->PolyData->IsShadowMask) { i++; continue; }
+        if (rp->PolyData->Translucent) { i++; continue; }
 
         if (rp->PolyData->Attr & (1<<14))
             glDepthFunc(GL_LEQUAL);
@@ -874,7 +887,8 @@ void RenderSceneChunk(int y, int h)
     }
 
     // if edge marking is enabled, mark all opaque edges
-    if (RenderDispCnt & (1<<5))
+    // TODO BETTER EDGE MARKING!!! THIS SUCKS
+    /*if (RenderDispCnt & (1<<5))
     {
         UseRenderShader(flags | RenderFlag_Edge);
         glLineWidth(1.5);
@@ -899,7 +913,7 @@ void RenderSceneChunk(int y, int h)
         }
 
         glDepthMask(GL_TRUE);
-    }
+    }*/
 
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
@@ -944,15 +958,32 @@ void RenderSceneChunk(int y, int h)
                 }
                 else if (rp->PolyData->Translucent)
                 {
-                    UseRenderShader(flags | RenderFlag_Trans);
+                    bool needopaque = ((rp->PolyData->Attr & 0x001F0000) == 0x001F0000);
 
-                    if (rp->PolyData->Attr & (1<<14))
+                    u32 polyattr = rp->PolyData->Attr;
+                    u32 polyid = (polyattr >> 24) & 0x3F;
+
+                    if (polyattr & (1<<14))
                         glDepthFunc(GL_LEQUAL);
                     else
                         glDepthFunc(GL_LESS);
 
-                    u32 polyattr = rp->PolyData->Attr;
-                    u32 polyid = (polyattr >> 24) & 0x3F;
+                    if (needopaque)
+                    {
+                        UseRenderShader(flags);
+
+                        glDisable(GL_BLEND);
+                        glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                        glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
+
+                        glStencilFunc(GL_ALWAYS, polyid, 0xFF);
+                        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                        glStencilMask(0xFF);
+
+                        RenderSinglePolygon(i);
+                    }
+
+                    UseRenderShader(flags | RenderFlag_Trans);
 
                     GLboolean transfog;
                     if (!(polyattr & (1<<15))) transfog = fogenable;
@@ -975,7 +1006,7 @@ void RenderSceneChunk(int y, int h)
                         if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                         else                    glDepthMask(GL_FALSE);
 
-                        i += RenderPolygonBatch(i);
+                        i += needopaque ? RenderSinglePolygon(i) : RenderPolygonBatch(i);
                     }
                     else
                     {
@@ -989,7 +1020,7 @@ void RenderSceneChunk(int y, int h)
                         if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                         else                    glDepthMask(GL_FALSE);
 
-                        i += RenderPolygonBatch(i);
+                        i += needopaque ? RenderSinglePolygon(i) : RenderPolygonBatch(i);
                     }
                 }
                 else
@@ -1030,19 +1061,36 @@ void RenderSceneChunk(int y, int h)
             }
             else if (rp->PolyData->Translucent)
             {
-                UseRenderShader(flags | RenderFlag_Trans);
+                bool needopaque = ((rp->PolyData->Attr & 0x001F0000) == 0x001F0000);
 
                 u32 polyattr = rp->PolyData->Attr;
                 u32 polyid = (polyattr >> 24) & 0x3F;
 
-                GLboolean transfog;
-                if (!(polyattr & (1<<15))) transfog = fogenable;
-                else                       transfog = GL_FALSE;
-
-                if (rp->PolyData->Attr & (1<<14))
+                if (polyattr & (1<<14))
                     glDepthFunc(GL_LEQUAL);
                 else
                     glDepthFunc(GL_LESS);
+
+                if (needopaque)
+                {
+                    UseRenderShader(flags);
+
+                    glDisable(GL_BLEND);
+                    glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+                    glColorMaski(1, GL_TRUE, GL_TRUE, fogenable, GL_FALSE);
+
+                    glStencilFunc(GL_ALWAYS, polyid, 0xFF);
+                    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+                    glStencilMask(0xFF);
+
+                    RenderSinglePolygon(i);
+                }
+
+                UseRenderShader(flags | RenderFlag_Trans);
+
+                GLboolean transfog;
+                if (!(polyattr & (1<<15))) transfog = fogenable;
+                else                       transfog = GL_FALSE;
 
                 if (rp->PolyData->IsShadow)
                 {
@@ -1067,8 +1115,7 @@ void RenderSceneChunk(int y, int h)
                     if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                     else                    glDepthMask(GL_FALSE);
 
-                    RenderSinglePolygon(i);
-                    i++;
+                    i += RenderSinglePolygon(i);
                 }
                 else
                 {
@@ -1083,7 +1130,7 @@ void RenderSceneChunk(int y, int h)
                     if (polyattr & (1<<11)) glDepthMask(GL_TRUE);
                     else                    glDepthMask(GL_FALSE);
 
-                    i += RenderPolygonBatch(i);
+                    i += needopaque ? RenderSinglePolygon(i) : RenderPolygonBatch(i);
                 }
             }
             else
@@ -1319,6 +1366,11 @@ void RenderFrame()
         BuildPolygons(&PolygonList[0], npolys);
         glBindBuffer(GL_ARRAY_BUFFER, VertexBufferID);
         glBufferSubData(GL_ARRAY_BUFFER, 0, NumVertices*7*4, VertexBuffer);
+
+        // bind to access the index buffer
+        glBindVertexArray(VertexArrayID);
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, NumIndices * 2, IndexBuffer);
+        glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 2, NumEdgeIndices * 2, IndexBuffer + EdgeIndicesOffset);
 
         RenderSceneChunk(0, 192);
     }

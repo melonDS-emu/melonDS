@@ -210,12 +210,12 @@ bool Init()
 
 void DeInit()
 {
-    delete ARM9;
-    delete ARM7;
-
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
+
+    delete ARM9;
+    delete ARM7;
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
@@ -908,7 +908,7 @@ void RunSystem(u64 timestamp)
     }
 }
 
-template <bool EnableJIT>
+template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
@@ -934,10 +934,10 @@ u32 RunFrame()
         }
         else if (CPUStop & 0x0FFF)
         {
-            DMAs[0]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
+            DMAs[0]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
+            if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
             if (ConsoleType == 1) DSi::RunNDMAs(0);
         }
         else
@@ -962,10 +962,10 @@ u32 RunFrame()
 
             if (CPUStop & 0x0FFF0000)
             {
-                DMAs[4]->Run();
-                DMAs[5]->Run();
-                DMAs[6]->Run();
-                DMAs[7]->Run();
+                DMAs[4]->Run<ConsoleType>();
+                DMAs[5]->Run<ConsoleType>();
+                DMAs[6]->Run<ConsoleType>();
+                DMAs[7]->Run<ConsoleType>();
                 if (ConsoleType == 1) DSi::RunNDMAs(1);
             }
             else
@@ -999,6 +999,9 @@ u32 RunFrame()
            ARM7Timestamp-SysTimestamp,
            GPU3D::Timestamp-SysTimestamp);
 #endif
+    SPU::TransferOutput();
+
+    NDSCart::FlushSRAMFile();
 
     NumFrames++;
 
@@ -1009,10 +1012,14 @@ u32 RunFrame()
 {
 #ifdef JIT_ENABLED
     if (Config::JIT_Enable)
-        return RunFrame<true>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<true, 1>()
+            : RunFrame<true, 0>();
     else
 #endif
-        return RunFrame<false>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<false, 1>()
+            : RunFrame<false, 0>();
 }
 
 void Reschedule(u64 target)
@@ -1470,7 +1477,7 @@ void HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
 
-    timer->Counter += timer->Reload << 16;
+    timer->Counter += (timer->Reload << 10);
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1486,11 +1493,11 @@ void HandleTimerOverflow(u32 tid)
         if ((timer->Cnt & 0x84) != 0x84)
             break;
 
-        timer->Counter += 0x10000;
-        if (timer->Counter >> 16)
+        timer->Counter += (1 << 10);
+        if (!(timer->Counter >> 26))
             break;
 
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
         if (timer->Cnt & (1<<6))
             SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1505,8 +1512,13 @@ void RunTimer(u32 tid, s32 cycles)
 
     u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
-    if (timer->Counter < oldcount)
+    //if (timer->Counter < oldcount)
+    //    HandleTimerOverflow(tid);
+    while (timer->Counter >> 26)
+    {
+        timer->Counter -= (1 << 26);
         HandleTimerOverflow(tid);
+    }
 }
 
 void RunTimers(u32 cpu)
@@ -1623,7 +1635,7 @@ u16 TimerGetCounter(u32 timer)
     RunTimers(timer>>2);
     u32 ret = Timers[timer].Counter;
 
-    return ret >> 16;
+    return ret >> 10;
 }
 
 void TimerStart(u32 id, u16 cnt)
@@ -1633,11 +1645,11 @@ void TimerStart(u32 id, u16 cnt)
     u16 newstart = cnt & (1<<7);
 
     timer->Cnt = cnt;
-    timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
+    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
 
     if ((!curstart) && newstart)
     {
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
 
         /*if ((cnt & 0x84) == 0x80)
         {
@@ -1824,14 +1836,14 @@ void debug(u32 param)
     fclose(shit);*/
 
     FILE*
-    shit = fopen("debug/picto9.bin", "wb");
+    shit = fopen("debug/power9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/picto7.bin", "wb");
+    shit = fopen("debug/power7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
@@ -3001,6 +3013,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
+    case 0x04000184: return ARM9IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3113,6 +3126,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
     case 0x040001A2:
         NDSCart::WriteSPIData(val);
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
         return;
 
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
@@ -3228,7 +3245,11 @@ void ARM9IOWrite16(u32 addr, u16 val)
             SetIRQ(0, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
-        IPCFIFOCnt9 = val & 0x8404;
+        IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -3378,10 +3399,11 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000130:
         KeyCnt = val >> 16;
         return;
+
     case 0x04000180:
+    case 0x04000184:
         ARM9IOWrite16(addr, val);
         return;
-
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
         {
@@ -3640,6 +3662,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
+    case 0x04000184: return ARM7IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3715,6 +3738,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000138: RTC::Write(val, true); return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
@@ -3821,7 +3848,11 @@ void ARM7IOWrite16(u32 addr, u16 val)
             SetIRQ(1, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
-        IPCFIFOCnt7 = val & 0x8404;
+        IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
+        return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -3940,6 +3971,7 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
+    case 0x04000184:
         ARM7IOWrite16(addr, val);
         return;
     case 0x04000188:
@@ -3983,6 +4015,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
+
+    case 0x040001C0:
+        SPI::WriteCnt(val & 0xFFFF);
+        SPI::WriteData((val >> 16) & 0xFF);
+        return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;

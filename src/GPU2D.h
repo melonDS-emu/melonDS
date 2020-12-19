@@ -19,11 +19,14 @@
 #ifndef GPU2D_H
 #define GPU2D_H
 
+#include "types.h"
+#include "Savestate.h"
+
 class GPU2D
 {
 public:
     GPU2D(u32 num);
-    ~GPU2D();
+    virtual ~GPU2D() {}
 
     void Reset();
 
@@ -31,7 +34,7 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
-    void SetRenderSettings(bool accel);
+    virtual void SetRenderSettings(bool accel) = 0;
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -52,35 +55,23 @@ public:
 
     void SampleFIFO(u32 offset, u32 num);
 
-    void DrawScanline(u32 line);
-    void DrawSprites(u32 line);
+    virtual void DrawScanline(u32 line) = 0;
+    virtual void DrawSprites(u32 line) = 0;
     void VBlank();
-    void VBlankEnd();
+    virtual void VBlankEnd();
 
     void CheckWindows(u32 line);
-
-    void BGExtPalDirty(u32 base);
-    void OBJExtPalDirty();
 
     u16* GetBGExtPal(u32 slot, u32 pal);
     u16* GetOBJExtPal();
 
-private:
+    void GetBGVRAM(u8*& data, u32& mask);
+    void GetOBJVRAM(u8*& data, u32& mask);
+
+protected:
     u32 Num;
     bool Enabled;
     u32* Framebuffer;
-
-    bool Accelerated;
-
-    u32 BGOBJLine[256*3] __attribute__((aligned (8)));
-    u32* _3DLine;
-
-    u8 WindowMask[256] __attribute__((aligned (8)));
-    u32 OBJLine[256] __attribute__((aligned (8)));
-    u8 OBJWindow[256] __attribute__((aligned (8)));
-    u8 OBJIndex[256] __attribute__((aligned (8)));
-
-    u32 NumSprites;
 
     u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
@@ -114,31 +105,60 @@ private:
     u8 BGMosaicY, BGMosaicYMax;
     u8 OBJMosaicYCount, OBJMosaicY, OBJMosaicYMax;
 
-    u8 MosaicTable[16][256];
-    u8* CurBGXMosaicTable;
-    u8* CurOBJXMosaicTable;
-
     u16 BlendCnt;
     u16 BlendAlpha;
     u8 EVA, EVB;
     u8 EVY;
 
+    bool CaptureLatch;
     u32 CaptureCnt;
 
     u16 MasterBrightness;
 
-    u16 BGExtPalCache[4][16*256];
-    u16 OBJExtPalCache[16*256];
-    u32 BGExtPalStatus[4];
-    u32 OBJExtPalStatus;
+    u8 WindowMask[256] __attribute__((aligned (8)));
+    u8 OBJWindow[256] __attribute__((aligned (8)));
 
+    void UpdateMosaicCounters(u32 line);
+    void CalculateWindowMask(u32 line);
+
+    virtual void MosaicXSizeChanged() = 0;
+};
+
+class GPU2D_Soft : public GPU2D
+{
+public:
+    GPU2D_Soft(u32 num);
+    ~GPU2D_Soft() override {}
+
+    void SetRenderSettings(bool accel) override;
+    
+    void DrawScanline(u32 line) override;
+    void DrawSprites(u32 line) override;
+    void VBlankEnd() override;
+
+protected:
+    void MosaicXSizeChanged() override;
+
+private:
+    bool Accelerated;
+
+    u32 BGOBJLine[256*3] __attribute__((aligned (8)));
+    u32* _3DLine;
+
+    u32 OBJLine[256] __attribute__((aligned (8)));
+    u8 OBJIndex[256] __attribute__((aligned (8)));
+
+    u32 NumSprites;
+
+    u8 MosaicTable[16][256];
+    u8* CurBGXMosaicTable;
+    u8* CurOBJXMosaicTable;
+    
     u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
     u32 ColorBlend5(u32 val1, u32 val2);
     u32 ColorBrightnessUp(u32 val, u32 factor);
     u32 ColorBrightnessDown(u32 val, u32 factor);
     u32 ColorComposite(int i, u32 val1, u32 val2);
-
-    void UpdateMosaicCounters(u32 line);
 
     template<u32 bgmode> void DrawScanlineBGMode(u32 line);
     void DrawScanlineBGMode6(u32 line);
@@ -147,22 +167,22 @@ private:
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
     static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
-    void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+    
+    typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();
-    template<bool mosaic> void DrawBG_Text(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Affine(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Extended(u32 line, u32 bgnum);
-    template<bool mosaic> void DrawBG_Large(u32 line);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Text(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Affine(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Extended(u32 line, u32 bgnum);
+    template<bool mosaic, DrawPixel drawPixel> void DrawBG_Large(u32 line);
 
     void ApplySpriteMosaicX();
+    template<DrawPixel drawPixel>
     void InterleaveSprites(u32 prio);
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 
     void DoCapture(u32 line, u32 width);
-
-    void CalculateWindowMask(u32 line);
 };
 
 #endif

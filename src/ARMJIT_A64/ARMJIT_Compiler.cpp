@@ -1,5 +1,11 @@
+#include "ARMJIT_Compiler.h"
+
+#include "../ARMJIT_Internal.h"
+#include "../ARMInterpreter.h"
+#include "../Config.h"
+
 #ifdef __SWITCH__
-#include "../switch/compat_switch.h"
+#include <switch.h>
 
 extern char __start__;
 #else
@@ -7,13 +13,7 @@ extern char __start__;
 #include <unistd.h>
 #endif
 
-#include "ARMJIT_Compiler.h"
-
-#include "../ARMJIT_Internal.h"
-#include "../ARMInterpreter.h"
-#include "../Config.h"
-
-#include <malloc.h>
+#include <stdlib.h>
 
 using namespace Arm64Gen;
 
@@ -66,6 +66,11 @@ void Compiler::A_Comp_MRS()
     }
     else
         MOV(rd, RCPSR);
+}
+
+void UpdateModeTrampoline(ARM* arm, u32 oldmode, u32 newmode)
+{
+    arm->UpdateMode(oldmode, newmode);
 }
 
 void Compiler::A_Comp_MSR()
@@ -139,7 +144,7 @@ void Compiler::A_Comp_MSR()
 
             PushRegs(true);
 
-            QuickCallFunction(X3, (void*)&ARM::UpdateMode);
+            QuickCallFunction(X3, (void*)&UpdateModeTrampoline);
         
             PopRegs(true);
         }
@@ -179,7 +184,7 @@ void Compiler::PopRegs(bool saveHiRegs)
 Compiler::Compiler()
 {
 #ifdef __SWITCH__
-    JitRWBase = memalign(0x1000, JitMemSize);
+    JitRWBase = aligned_alloc(0x1000, JitMemSize);
 
     JitRXStart = (u8*)&__start__ - JitMemSize - 0x1000;
     JitRWStart = virtmemReserve(JitMemSize);

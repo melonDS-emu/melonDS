@@ -179,6 +179,10 @@ u8 RenderFogDensityTable[34];
 
 u32 RenderClearAttr1, RenderClearAttr2;
 
+bool RenderFrameIdentical;
+
+u16 RenderXPos;
+
 u32 ZeroDotWLimit;
 
 u32 GXStat;
@@ -383,6 +387,8 @@ void Reset()
     FlushAttributes = 0;
 
     ResetRenderingState();
+
+    RenderXPos = 0;
 }
 
 void DoSavestate(Savestate* file)
@@ -427,6 +433,8 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&RenderClearAttr1);
     file->Var32(&RenderClearAttr2);
+
+    file->Var16(&RenderXPos);
 
     file->Var32(&ZeroDotWLimit);
 
@@ -585,8 +593,6 @@ void DoSavestate(Savestate* file)
         }
     }
 
-    // probably not worth storing the vblank-latched Renderxxxxxx variables
-
     CmdStallQueue->DoSavestate(file);
     file->Var32((u32*)&VertexPipeline);
     file->Var32((u32*)&NormalPipeline);
@@ -606,6 +612,22 @@ void DoSavestate(Savestate* file)
         // might cause a blank frame but atleast it won't shit itself
         RenderNumPolygons = 0;
     }
+
+    file->VarArray(CurVertex, sizeof(s16)*3);
+    file->VarArray(VertexColor, sizeof(u8)*3);
+    file->VarArray(TexCoords, sizeof(s16)*2);
+    file->VarArray(RawTexCoords, sizeof(s16)*2);
+    file->VarArray(Normal, sizeof(s16)*3);
+
+    file->VarArray(LightDirection, sizeof(s16)*4*3);
+    file->VarArray(LightColor, sizeof(u8)*4*3);
+    file->VarArray(MatDiffuse, sizeof(u8)*3);
+    file->VarArray(MatAmbient, sizeof(u8)*3);
+    file->VarArray(MatSpecular, sizeof(u8)*3);
+    file->VarArray(MatEmission, sizeof(u8)*3);
+
+    file->Bool32(&UseShininessTable);
+    file->VarArray(ShininessTable, 128*sizeof(u8));
 }
 
 
@@ -2491,6 +2513,19 @@ void VBlank()
                 }
 
                 RenderNumPolygons = NumPolygons;
+                RenderFrameIdentical = false;
+            }
+            else
+            {
+                RenderFrameIdentical = RenderDispCnt == DispCnt
+                    && RenderAlphaRef == AlphaRef
+                    && RenderClearAttr1 == ClearAttr1
+                    && RenderClearAttr2 == ClearAttr2
+                    && RenderFogColor == FogColor
+                    && RenderFogOffset == FogOffset * 0x200
+                    && memcmp(RenderEdgeTable, EdgeTable, 8*2) == 0
+                    && memcmp(RenderFogDensityTable + 1, FogDensityTable, 32) == 0
+                    && memcmp(RenderToonTable, ToonTable, 32*2) == 0;
             }
 
             RenderDispCnt = DispCnt;
@@ -2533,14 +2568,46 @@ void VCount215()
 #endif
 }
 
+void SetRenderXPos(u16 xpos)
+{
+    if (!RenderingEnabled) return;
+
+    RenderXPos = xpos & 0x01FF;
+}
+
+u32 ScrolledLine[256];
+
 u32* GetLine(int line)
 {
-    if (GPU::Renderer == 0) return SoftRenderer::GetLine(line);
+    u32* rawline = NULL;
+
+    if (GPU::Renderer == 0) rawline = SoftRenderer::GetLine(line);
 #ifdef OGLRENDERER_ENABLED
-    else                    return GLRenderer::GetLine(line);
-#else
-    return NULL;
+    else                    rawline = GLRenderer::GetLine(line);
 #endif
+
+    if (RenderXPos == 0) return rawline;
+
+    // apply X scroll
+
+    if (RenderXPos & 0x100)
+    {
+        int i = 0, j = RenderXPos;
+        for (; j < 512; i++, j++)
+            ScrolledLine[i] = 0;
+        for (j = 0; i < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+    }
+    else
+    {
+        int i = 0, j = RenderXPos;
+        for (; j < 256; i++, j++)
+            ScrolledLine[i] = rawline[j];
+        for (; i < 256; i++)
+            ScrolledLine[i] = 0;
+    }
+
+    return ScrolledLine;
 }
 
 

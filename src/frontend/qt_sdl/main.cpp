@@ -274,6 +274,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
 
@@ -363,10 +364,10 @@ void EmuThread::run()
     Input::Init();
 
     u32 nframes = 0;
-    u32 starttick = SDL_GetTicks();
-    u32 lasttick = starttick;
-    u32 lastmeasuretick = lasttick;
-    u32 fpslimitcount = 0;
+    double perfCountsSec = 1.0 / SDL_GetPerformanceFrequency();
+    double lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
+    double frameLimitError = 0.0;
+    double lastMeasureTime = lastTime;
 
     char melontitle[100];
 
@@ -378,7 +379,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
-        
+
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
@@ -500,49 +501,43 @@ void EmuThread::run()
                 SDL_UnlockMutex(audioSyncLock);
             }
 
-            float framerate = (1000.0f * nlines) / (60.0f * 263.0f);
+            double frametimeStep = nlines / (60.0 * 263.0);
 
             {
-                u32 curtick = SDL_GetTicks();
-                u32 delay = curtick - lasttick;
-
                 bool limitfps = Config::LimitFPS && !fastforward;
-                if (limitfps)
-                {
-                    float wantedtickF = starttick + (framerate * (fpslimitcount+1));
-                    u32 wantedtick = (u32)ceil(wantedtickF);
-                    if (curtick < wantedtick) SDL_Delay(wantedtick - curtick);
 
-                    lasttick = SDL_GetTicks();
-                    fpslimitcount++;
-                    if ((abs(wantedtickF - (float)wantedtick) < 0.001312) || (fpslimitcount > 60))
-                    {
-                        fpslimitcount = 0;
-                        starttick = lasttick;
-                    }
-                }
-                else
+                double practicalFramelimit = limitfps ? frametimeStep : 1.0 / 1000.0;
+
+                double curtime = SDL_GetPerformanceCounter() * perfCountsSec;
+
+                frameLimitError += practicalFramelimit - (curtime - lastTime);
+                if (frameLimitError < -practicalFramelimit)
+                    frameLimitError = -practicalFramelimit;
+                if (frameLimitError > practicalFramelimit)
+                    frameLimitError = practicalFramelimit;
+
+                if (round(frameLimitError * 1000.0) > 0.0)
                 {
-                    if (delay < 1) SDL_Delay(1);
-                    lasttick = SDL_GetTicks();
+                    SDL_Delay(round(frameLimitError * 1000.0));
+                    double timeBeforeSleep = curtime;
+                    curtime = SDL_GetPerformanceCounter() * perfCountsSec;
+                    frameLimitError -= curtime - timeBeforeSleep;
                 }
+
+                lastTime = curtime;
             }
 
             nframes++;
             if (nframes >= 30)
             {
-                u32 tick = SDL_GetTicks();
-                u32 diff = tick - lastmeasuretick;
-                lastmeasuretick = tick;
+                double time = SDL_GetPerformanceCounter() * perfCountsSec;
+                double dt = time - lastMeasureTime;
+                lastMeasureTime = time;
 
-                u32 fps;
-                if (diff < 1) fps = 77777;
-                else fps = (nframes * 1000) / diff;
+                u32 fps = round(nframes / dt);
                 nframes = 0;
 
-                float fpstarget;
-                if (framerate < 1) fpstarget = 999;
-                else fpstarget = 1000.0f/framerate;
+                float fpstarget = 1.0/frametimeStep;
 
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
                 changeWindowTitle(melontitle);
@@ -552,10 +547,8 @@ void EmuThread::run()
         {
             // paused
             nframes = 0;
-            lasttick = SDL_GetTicks();
-            starttick = lasttick;
-            lastmeasuretick = lasttick;
-            fpslimitcount = 0;
+            lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
+            lastMeasureTime = lastTime;
 
             emit windowUpdate();
 
@@ -1339,6 +1332,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
 {
     if (event->isAutoRepeat()) return;
 
+    // TODO!! REMOVE ME IN RELEASE BUILDS!!
     if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
@@ -1362,7 +1356,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || ext == "dsi" || (ext == "gba" && RunningSomething))
+    if (ext == "nds" || ext == "srl" || ext == "dsi" || ext == "gba")
         event->acceptProposedAction();
 }
 
@@ -1986,9 +1980,9 @@ void MainWindow::onTitleUpdate(QString title)
 
 void MainWindow::onFullscreenToggled()
 {
-    if (!mainWindow->isFullScreen()) 
+    if (!mainWindow->isFullScreen())
     {
-        mainWindow->showFullScreen(); 
+        mainWindow->showFullScreen();
         mainWindow->menuBar()->hide();
     }
     else

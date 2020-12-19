@@ -21,7 +21,7 @@
 
 #include "FrontendUtil.h"
 #include "Config.h"
-#include "qt_sdl/PlatformConfig.h" // FIXME!!!
+#include "SharedConfig.h"
 #include "Platform.h"
 
 #include "NDS.h"
