@@ -87,7 +87,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
         return QVector<QString> {"Err", archive_error_string(a)};
     }
     
-    QString fileToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(dirToWrite).baseName() + "/" + archive_entry_pathname(entry);
+    QString fileToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
     
     std::ofstream(fileToWrite.toUtf8().constData(), std::ofstream::binary).write((char*)archiveBuffer.get(), bytesToWrite);
     
