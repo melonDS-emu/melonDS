@@ -53,6 +53,12 @@ find_package(PkgConfig REQUIRED)
 find_package(Iconv REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SLIRP REQUIRED slirp)
+
+if (APPLE)
+    execute_process(COMMAND brew --prefix libarchive
+                    OUTPUT_VARIABLE LIBARCHIVE_DIR)
+    set(CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}/lib/pkgconfig")
+endif()
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
