@@ -319,7 +319,7 @@ void CheatsDialog::on_txtCode_textChanged()
     u32 codelen = 0;
 
     QString text = ui->txtCode->document()->toPlainText();
-    QStringList lines = text.split('\n', QString::SkipEmptyParts);
+    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
     for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
     {
         QString line = *it;
