@@ -32,6 +32,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
+#include "NDSCart_SRAMManager.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -193,6 +194,7 @@ bool Init()
     IPCFIFO9 = new FIFO<u32>(16);
     IPCFIFO7 = new FIFO<u32>(16);
 
+    if (!NDSCart_SRAMManager::Init()) return false;
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -223,6 +225,7 @@ void DeInit()
     delete IPCFIFO9;
     delete IPCFIFO7;
 
+    NDSCart_SRAMManager::DeInit();
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();

@@ -207,7 +207,6 @@ void Thread_Wait(Thread* thread)
     ((QThread*) thread)->wait();
 }
 
-
 Semaphore* Semaphore_Create()
 {
     return (Semaphore*)new QSemaphore();
