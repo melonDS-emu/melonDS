@@ -93,7 +93,7 @@ namespace NDSCart_SRAMManager
     void RequestFlush()
     {
         Platform::Mutex_Lock(SecondaryBufferLock);
-        printf("SRAM: Flush requested");
+        printf("NDS SRAM: Flush requested\n");
         memcpy(SecondaryBuffer, Buffer, Length);
         FlushVersion = (FlushVersion + 1 % 255);
         TimeAtLastFlushRequest = time(NULL);
@@ -129,7 +129,7 @@ namespace NDSCart_SRAMManager
         FILE* f = Platform::OpenFile(Path, "wb");
         if (f)
         {
-            printf("SRAM: Written");
+            printf("NDS SRAM: Written\n");
             fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
             fclose(f);
         }
