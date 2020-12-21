@@ -266,7 +266,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
-    connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
+    connect(this, SIGNAL(windowLimitFPSChange()), mainWindow, SLOT(onFastforwardToggled()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
 
@@ -480,7 +480,7 @@ void EmuThread::run()
 
             emit windowUpdate();
 
-            bool fastforward = Input::HotkeyDown(HK_FastForward);
+            bool fastforward = Input::HotkeyDown(HK_FastForward) || mainWindow->hasFastforwardToggled;
 
             if (Config::AudioSync && (!fastforward) && audioDevice)
             {
@@ -1937,6 +1937,11 @@ void MainWindow::onFullscreenToggled()
         mainWindow->showNormal();
         mainWindow->menuBar()->show();
     }
+}
+
+void MainWindow::onFastforwardToggled()
+{
+    mainWindow->hasFastforwardToggled = !mainWindow->hasFastforwardToggled;
 }
 
 void MainWindow::onEmuStart()

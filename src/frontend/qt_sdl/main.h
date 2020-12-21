@@ -175,6 +175,7 @@ public:
     ~MainWindow();
 
     bool hasOGL;
+    bool hasFastforwardToggled;
     QOpenGLContext* getOGLContext();
 
 protected:
@@ -234,6 +235,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
     
     void onFullscreenToggled();
+    void onFastforwardToggled();
 
 private:
     void createScreenPanel();
