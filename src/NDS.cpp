@@ -1881,7 +1881,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u8>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1895,7 +1895,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u8>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -1946,7 +1946,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u16>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1960,7 +1960,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u16>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -2011,7 +2011,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u32>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -2025,7 +2025,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u32>(addr & 0x7FF);
 
     case 0x08000000:
     case 0x09000000:
@@ -2132,7 +2132,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette<u16>(addr, val);
         return;
 
     case 0x06000000:
@@ -2150,7 +2150,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u16>(addr, val);
         return;
 
     case 0x08000000:
@@ -2207,7 +2207,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette(addr, val);
         return;
 
     case 0x06000000:
@@ -2225,7 +2225,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u32>(addr, val);
         return;
 
     case 0x08000000:

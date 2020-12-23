@@ -147,6 +147,9 @@ bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity
 
 void SyncDirtyFlags();
 
+extern u32 OAMDirty;
+extern u32 PaletteDirty;
+
 typedef struct
 {
     bool Soft_Threaded;
@@ -509,6 +512,35 @@ T ReadVRAM_TexPal(u32 addr)
     return ret;
 }
 
+template<typename T>
+T ReadPalette(u32 addr)
+{
+    return *(T*)&Palette[addr & 0x7FF];
+}
+
+template<typename T>
+void WritePalette(u32 addr, T val)
+{
+    addr &= 0x7FF;
+
+    *(T*)&Palette[addr] = val;
+    PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+}
+
+template<typename T>
+T ReadOAM(u32 addr)
+{
+    return *(T*)&OAM[addr & 0x7FF];
+}
+
+template<typename T>
+void WriteOAM(u32 addr, T val)
+{
+    addr &= 0x7FF;
+
+    *(T*)&OAM[addr] = val;
+    OAMDirty |= 1 << (addr / 1024);
+}
 
 void SetPowerCnt(u32 val);
 
