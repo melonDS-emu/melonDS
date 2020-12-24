@@ -8,8 +8,13 @@
 
 .p2align 4,,15
 
+#ifdef __APPLE__
+.global _ARM_Dispatch
+_ARM_Dispatch:
+#else
 .global ARM_Dispatch
 ARM_Dispatch:
+#endif
     stp x19, x20, [sp, #-96]!
     stp x21, x22, [sp, #16]
     stp x23, x24, [sp, #32]
@@ -25,8 +30,13 @@ ARM_Dispatch:
 
 .p2align 4,,15
 
+#ifdef __APPLE__
+.global _ARM_Ret
+_ARM_Ret:
+#else
 .global ARM_Ret
 ARM_Ret:
+#endif
     str RCycles, [RCPU, ARM_Cycles_offset]
     str RCPSR, [RCPU, ARM_CPSR_offset]
 
