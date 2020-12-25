@@ -84,6 +84,14 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
         ui->cbxGLResolution->setEnabled(true);
         ui->cbBetterPolygons->setEnabled(true);
     }
+
+    // sorry
+    ui->cbVSync->hide();
+    ui->cbVSync->setEnabled(false);
+    ui->sbVSyncInterval->hide();
+    ui->sbVSyncInterval->setEnabled(false);
+    ui->label_2->hide();
+    ui->groupBox->layout()->addItem(new QSpacerItem(1, 1, QSizePolicy::Minimum, QSizePolicy::Expanding));
 }
 
 VideoSettingsDialog::~VideoSettingsDialog()
