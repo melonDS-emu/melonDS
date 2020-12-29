@@ -25,6 +25,10 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 
+#ifdef __APPLE__
+    #include <pthread.h>
+#endif
+
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
 static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset);
 static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset);
@@ -881,8 +885,13 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-
+        #ifdef __APPLE__
+            pthread_jit_write_protect_np(false);
+        #endif
         block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i);
+        #ifdef __APPLE__
+            pthread_jit_write_protect_np(true);
+        #endif
 
         JIT_DEBUGPRINT("block start %p\n", block->EntryPoint);
     }
