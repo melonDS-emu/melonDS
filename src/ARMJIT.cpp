@@ -310,6 +310,7 @@ void DeInit()
 
 void Reset()
 {
+    pthread_jit_write_protect_np(false);
     ResetBlockCache();
 
     ARMJIT_Memory::Reset();
