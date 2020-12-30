@@ -72,6 +72,8 @@ char MicWavPath[1024];
 
 char LastROMFolder[1024];
 
+char RecentROMList[10][1024];
+
 int EnableCheats;
 
 bool EnableJIT;
@@ -165,6 +167,17 @@ ConfigEntry PlatformConfigFile[] =
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
 
     {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
+
+    {"RecentROM_0", 1, RecentROMList[0], 0, "", 1023},
+    {"RecentROM_1", 1, RecentROMList[1], 0, "", 1023},
+    {"RecentROM_2", 1, RecentROMList[2], 0, "", 1023},
+    {"RecentROM_3", 1, RecentROMList[3], 0, "", 1023},
+    {"RecentROM_4", 1, RecentROMList[4], 0, "", 1023},
+    {"RecentROM_5", 1, RecentROMList[5], 0, "", 1023},
+    {"RecentROM_6", 1, RecentROMList[6], 0, "", 1023},
+    {"RecentROM_7", 1, RecentROMList[7], 0, "", 1023},
+    {"RecentROM_8", 1, RecentROMList[8], 0, "", 1023},
+    {"RecentROM_9", 1, RecentROMList[9], 0, "", 1023},
 
     {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
 

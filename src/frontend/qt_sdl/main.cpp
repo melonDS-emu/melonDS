@@ -1013,6 +1013,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
 
+        recentMenu = menu->addMenu("Open Recent");
+        for(int i = 0; i < 10; ++i)
+        {
+            if(strlen(Config::RecentROMList[i]) > 0)
+                recentFileList.push_back(Config::RecentROMList[i]);
+        }
+        updateRecentFilesMenu();
+
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
@@ -1441,20 +1449,11 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
-
-void MainWindow::onOpenFile()
+void MainWindow::loadROM(QString filename)
 {
-    emuThread->emuPause();
-
-    QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open ROM",
-                                                    Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
-    if (filename.isEmpty())
-    {
-        emuThread->emuUnpause();
-        return;
-    }
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
 
     // TODO: validate the input file!!
     // * check that it is a proper ROM
@@ -1499,6 +1498,60 @@ void MainWindow::onOpenFile()
     {
         emuThread->emuRun();
     }
+}
+
+void MainWindow::onOpenFile()
+{
+    emuThread->emuPause();
+
+    QString filename = QFileDialog::getOpenFileName(this,
+                                                    "Open ROM",
+                                                    Config::LastROMFolder,
+                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+    if (filename.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    loadROM(filename);
+}
+
+void MainWindow::onClearRecentFiles()
+{
+    recentFileList.clear();
+    memset(Config::RecentROMList, 0, 10 * 1024);
+    updateRecentFilesMenu();
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+    recentMenu->clear();
+
+    for(int i = 0; i < recentFileList.size(); ++i)
+    {
+        QAction *actRecentFile_i = recentMenu->addAction(QString("%1.  %2").arg(i+1).arg(recentFileList.at(i)));
+        actRecentFile_i->setData(recentFileList.at(i));
+        connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
+
+        if(i < 10)
+            strncpy(Config::RecentROMList[i], recentFileList.at(i).toStdString().c_str(), 1024);
+    }
+
+    QAction *actClearRecentList = recentMenu->addAction("Clear");
+    connect(actClearRecentList, &QAction::triggered, this, &MainWindow::onClearRecentFiles);
+
+    if(recentFileList.empty())
+        actClearRecentList->setEnabled(false);
+
+    Config::Save();
+}
+
+void MainWindow::onClickRecentFile()
+{
+    emuThread->emuPause();
+    QAction *act = (QAction *)sender();
+    loadROM(act->data().toString());
 }
 
 void MainWindow::onBootFirmware()
