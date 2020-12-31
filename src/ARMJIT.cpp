@@ -310,7 +310,9 @@ void DeInit()
 
 void Reset()
 {
-    pthread_jit_write_protect_np(false);
+    #ifdef __APPLE_
+        pthread_jit_write_protect_np(false);
+    #endif
     ResetBlockCache();
 
     ARMJIT_Memory::Reset();
