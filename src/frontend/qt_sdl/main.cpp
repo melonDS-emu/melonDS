@@ -909,7 +909,8 @@ void ScreenPanelGL::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     // fill the padding
-    u8 zeroData[256*4*4] = {0};
+    u8 zeroData[256*4*4];
+    memset(zeroData, 0, sizeof(zeroData));
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
 
     OSD::Init(this);
