@@ -875,18 +875,18 @@ void ScreenPanelGL::initializeGL()
     const float vertices[] =
     {
         0,   0,    0, 0,
-        0,   192,  0, 0.5 - padPixels,
-        256, 192,  1, 0.5 - padPixels,
+        0,   192,  0, static_cast<float>(0.5 - padPixels),
+        256, 192,  1, static_cast<float>(0.5 - padPixels),
         0,   0,    0, 0,
-        256, 192,  1, 0.5 - padPixels,
+        256, 192,  1, static_cast<float>(0.5 - padPixels),
         256, 0,    1, 0,
 
-        0,   0,    0, 0.5 + padPixels,
+        0,   0,    0, static_cast<float>(0.5 + padPixels),
         0,   192,  0, 1,
         256, 192,  1, 1,
-        0,   0,    0, 0.5 + padPixels,
+        0,   0,    0, static_cast<float>(0.5 + padPixels),
         256, 192,  1, 1,
-        256, 0,    1, 0.5 + padPixels
+        256, 0,    1, static_cast<float>(0.5 + padPixels)
     };
 
     glGenBuffers(1, &screenVertexBuffer);
