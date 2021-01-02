@@ -867,22 +867,26 @@ void ScreenPanelGL::initializeGL()
     screenShader->setUniformValue("ScreenTex", (GLint)0);
     screenShader->release();
 
+    // to prevent bleeding between both parts of the screen
+    // with bilinear filtering enabled
+    const int paddedHeight = 192*2+2;
+    const float padPixels = 1.f / paddedHeight;
 
-    float vertices[] =
+    const float vertices[] =
     {
         0,   0,    0, 0,
-        0,   192,  0, 0.5,
-        256, 192,  1, 0.5,
+        0,   192,  0, 0.5 - padPixels,
+        256, 192,  1, 0.5 - padPixels,
         0,   0,    0, 0,
-        256, 192,  1, 0.5,
+        256, 192,  1, 0.5 - padPixels,
         256, 0,    1, 0,
 
-        0,   0,    0, 0.5,
+        0,   0,    0, 0.5 + padPixels,
         0,   192,  0, 1,
         256, 192,  1, 1,
-        0,   0,    0, 0.5,
+        0,   0,    0, 0.5 + padPixels,
         256, 192,  1, 1,
-        256, 0,    1, 0.5
+        256, 0,    1, 0.5 + padPixels
     };
 
     glGenBuffers(1, &screenVertexBuffer);
@@ -903,7 +907,10 @@ void ScreenPanelGL::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    // fill the padding
+    u8 zeroData[256*4*4] = {0};
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
 
     OSD::Init(this);
 }
@@ -941,7 +948,7 @@ void ScreenPanelGL::paintGL()
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
         }
     }
