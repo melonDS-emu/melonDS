@@ -19,13 +19,12 @@
 #ifndef ROMLIST_H
 #define ROMLIST_H
 
-typedef struct
+struct ROMListEntry
 {
 	u32 GameCode;
 	u32 ROMSize;
 	u32 SaveMemType;
-
-} ROMListEntry;
+};
 
 
 ROMListEntry ROMList[] =

@@ -150,14 +150,13 @@ void SyncDirtyFlags();
 extern u32 OAMDirty;
 extern u32 PaletteDirty;
 
-typedef struct
+struct RenderSettings
 {
     bool Soft_Threaded;
 
     int GL_ScaleFactor;
     bool GL_BetterPolygons;
-
-} RenderSettings;
+};
 
 
 bool Init();
