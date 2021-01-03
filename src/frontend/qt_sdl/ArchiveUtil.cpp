@@ -94,7 +94,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     archiveBuffer.reset(nullptr);
     archive_read_close(a);
     archive_read_free(a);
-    return QVector<QString> {QDir::toNativeSeparators(QDir::currentPath() + "/" + fileToWrite)};
+    return QVector<QString> {fileToWrite};
 
 }
 
