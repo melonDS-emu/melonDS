@@ -139,8 +139,8 @@ u32 DMA9Fill[4];
 
 u16 IPCSync9, IPCSync7;
 u16 IPCFIFOCnt9, IPCFIFOCnt7;
-FIFO<u32>* IPCFIFO9; // FIFO in which the ARM9 writes
-FIFO<u32>* IPCFIFO7;
+FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
+FIFO<u32, 16> IPCFIFO7;
 
 u16 DivCnt;
 u32 DivNumerator[2];
@@ -190,9 +190,6 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    IPCFIFO9 = new FIFO<u32>(16);
-    IPCFIFO7 = new FIFO<u32>(16);
-
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -219,9 +216,6 @@ void DeInit()
 
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
-
-    delete IPCFIFO9;
-    delete IPCFIFO7;
 
     NDSCart::DeInit();
     GBACart::DeInit();
@@ -557,8 +551,8 @@ void Reset()
     IPCSync7 = 0;
     IPCFIFOCnt9 = 0;
     IPCFIFOCnt7 = 0;
-    IPCFIFO9->Clear();
-    IPCFIFO7->Clear();
+    IPCFIFO9.Clear();
+    IPCFIFO7.Clear();
 
     DivCnt = 0;
     SqrtCnt = 0;
@@ -736,8 +730,8 @@ bool DoSavestate(Savestate* file)
     file->Var16(&IPCSync7);
     file->Var16(&IPCFIFOCnt9);
     file->Var16(&IPCFIFOCnt7);
-    IPCFIFO9->DoSavestate(file);
-    IPCFIFO7->DoSavestate(file);
+    IPCFIFO9.DoSavestate(file);
+    IPCFIFO7.DoSavestate(file);
 
     file->Var16(&DivCnt);
     file->Var16(&SqrtCnt);
@@ -1881,7 +1875,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u8>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1895,7 +1889,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u8>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -1946,7 +1940,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u16>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1960,7 +1954,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u16>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -2011,7 +2005,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u32>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -2025,7 +2019,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u32>(addr & 0x7FF);
 
     case 0x08000000:
     case 0x09000000:
@@ -2132,7 +2126,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette<u16>(addr, val);
         return;
 
     case 0x06000000:
@@ -2150,7 +2144,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u16>(addr, val);
         return;
 
     case 0x08000000:
@@ -2207,7 +2201,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette(addr, val);
         return;
 
     case 0x06000000:
@@ -2225,7 +2219,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u32>(addr, val);
         return;
 
     case 0x08000000:
@@ -2899,10 +2893,10 @@ u16 ARM9IORead16(u32 addr)
     case 0x04000184:
         {
             u16 val = IPCFIFOCnt9;
-            if (IPCFIFO9->IsEmpty())     val |= 0x0001;
-            else if (IPCFIFO9->IsFull()) val |= 0x0002;
-            if (IPCFIFO7->IsEmpty())     val |= 0x0100;
-            else if (IPCFIFO7->IsFull()) val |= 0x0200;
+            if (IPCFIFO9.IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO9.IsFull()) val |= 0x0002;
+            if (IPCFIFO7.IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO7.IsFull()) val |= 0x0200;
             return val;
         }
 
@@ -3057,22 +3051,22 @@ u32 ARM9IORead32(u32 addr)
         if (IPCFIFOCnt9 & 0x8000)
         {
             u32 ret;
-            if (IPCFIFO7->IsEmpty())
+            if (IPCFIFO7.IsEmpty())
             {
                 IPCFIFOCnt9 |= 0x4000;
-                ret = IPCFIFO7->Peek();
+                ret = IPCFIFO7.Peek();
             }
             else
             {
-                ret = IPCFIFO7->Read();
+                ret = IPCFIFO7.Read();
 
-                if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
+                if (IPCFIFO7.IsEmpty() && (IPCFIFOCnt7 & 0x0004))
                     SetIRQ(1, IRQ_IPCSendDone);
             }
             return ret;
         }
         else
-            return IPCFIFO7->Peek();
+            return IPCFIFO7.Peek();
 
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
@@ -3238,10 +3232,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000184:
         if (val & 0x0008)
-            IPCFIFO9->Clear();
-        if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
+            IPCFIFO9.Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9.IsEmpty())
             SetIRQ(0, IRQ_IPCSendDone);
-        if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
+        if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7.IsEmpty()))
             SetIRQ(0, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
@@ -3407,12 +3401,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
         {
-            if (IPCFIFO9->IsFull())
+            if (IPCFIFO9.IsFull())
                 IPCFIFOCnt9 |= 0x4000;
             else
             {
-                bool wasempty = IPCFIFO9->IsEmpty();
-                IPCFIFO9->Write(val);
+                bool wasempty = IPCFIFO9.IsEmpty();
+                IPCFIFO9.Write(val);
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }
@@ -3590,10 +3584,10 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000184:
         {
             u16 val = IPCFIFOCnt7;
-            if (IPCFIFO7->IsEmpty())     val |= 0x0001;
-            else if (IPCFIFO7->IsFull()) val |= 0x0002;
-            if (IPCFIFO9->IsEmpty())     val |= 0x0100;
-            else if (IPCFIFO9->IsFull()) val |= 0x0200;
+            if (IPCFIFO7.IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO7.IsFull()) val |= 0x0002;
+            if (IPCFIFO9.IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO9.IsFull()) val |= 0x0200;
             return val;
         }
 
@@ -3689,22 +3683,22 @@ u32 ARM7IORead32(u32 addr)
         if (IPCFIFOCnt7 & 0x8000)
         {
             u32 ret;
-            if (IPCFIFO9->IsEmpty())
+            if (IPCFIFO9.IsEmpty())
             {
                 IPCFIFOCnt7 |= 0x4000;
-                ret = IPCFIFO9->Peek();
+                ret = IPCFIFO9.Peek();
             }
             else
             {
-                ret = IPCFIFO9->Read();
+                ret = IPCFIFO9.Read();
 
-                if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
+                if (IPCFIFO9.IsEmpty() && (IPCFIFOCnt9 & 0x0004))
                     SetIRQ(0, IRQ_IPCSendDone);
             }
             return ret;
         }
         else
-            return IPCFIFO9->Peek();
+            return IPCFIFO9.Peek();
 
     case 0x04100010:
         if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
@@ -3841,10 +3835,10 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000184:
         if (val & 0x0008)
-            IPCFIFO7->Clear();
-        if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
+            IPCFIFO7.Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7.IsEmpty())
             SetIRQ(1, IRQ_IPCSendDone);
-        if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
+        if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9.IsEmpty()))
             SetIRQ(1, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
@@ -3977,12 +3971,12 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
         {
-            if (IPCFIFO7->IsFull())
+            if (IPCFIFO7.IsFull())
                 IPCFIFOCnt7 |= 0x4000;
             else
             {
-                bool wasempty = IPCFIFO7->IsEmpty();
-                IPCFIFO7->Write(val);
+                bool wasempty = IPCFIFO7.IsEmpty();
+                IPCFIFO7.Write(val);
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     SetIRQ(0, IRQ_IPCRecv);
             }

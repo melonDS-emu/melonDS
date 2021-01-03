@@ -21,18 +21,95 @@
 
 #include "types.h"
 
-template<typename T>
+template<typename T, u32 NumEntries>
 class FIFO
 {
 public:
-    FIFO(u32 num)
+    void Clear()
+    {
+        NumOccupied = 0;
+        ReadPos = 0;
+        WritePos = 0;
+        memset(&Entries[ReadPos], 0, sizeof(T));
+    }
+
+
+    void DoSavestate(Savestate* file)
+    {
+        file->Var32(&NumOccupied);
+        file->Var32(&ReadPos);
+        file->Var32(&WritePos);
+
+        file->VarArray(Entries, sizeof(T)*NumEntries);
+    }
+
+
+    void Write(T val)
+    {
+        if (IsFull()) return;
+
+        Entries[WritePos] = val;
+
+        WritePos++;
+        if (WritePos >= NumEntries)
+            WritePos = 0;
+
+        NumOccupied++;
+    }
+
+    T Read()
+    {
+        T ret = Entries[ReadPos];
+        if (IsEmpty())
+            return ret;
+
+        ReadPos++;
+        if (ReadPos >= NumEntries)
+            ReadPos = 0;
+
+        NumOccupied--;
+        return ret;
+    }
+
+    T Peek()
+    {
+        return Entries[ReadPos];
+    }
+
+    T Peek(u32 offset)
+    {
+        u32 pos = ReadPos + offset;
+        if (pos >= NumEntries)
+            pos -= NumEntries;
+
+        return Entries[pos];
+    }
+
+    u32 Level() { return NumOccupied; }
+    bool IsEmpty() { return NumOccupied == 0; }
+    bool IsFull() { return NumOccupied >= NumEntries; }
+
+    bool CanFit(u32 num) { return ((NumOccupied + num) <= NumEntries); }
+
+private:
+    T Entries[NumEntries] = {0};
+    u32 NumOccupied = 0;
+    u32 ReadPos = 0, WritePos = 0;
+};
+
+
+template<typename T>
+class DynamicFIFO
+{
+public:
+    DynamicFIFO(u32 num)
     {
         NumEntries = num;
         Entries = new T[num];
         Clear();
     }
 
-    ~FIFO()
+    ~DynamicFIFO()
     {
         delete[] Entries;
     }

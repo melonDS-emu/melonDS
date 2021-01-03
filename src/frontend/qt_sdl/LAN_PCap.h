@@ -24,7 +24,7 @@
 namespace LAN_PCap
 {
 
-typedef struct
+struct AdapterData
 {
     char DeviceName[128];
     char FriendlyName[128];
@@ -34,8 +34,7 @@ typedef struct
     u8 IP_v4[4];
 
     void* Internal;
-
-} AdapterData;
+};
 
 
 extern AdapterData* Adapters;

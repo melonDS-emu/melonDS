@@ -142,6 +142,9 @@ u8 VRAMFlat_BOBJExtPal[8*1024];
 u8 VRAMFlat_Texture[512*1024];
 u8 VRAMFlat_TexPal[128*1024];
 
+u32 OAMDirty;
+u32 PaletteDirty;
+
 bool Init()
 {
     GPU2D_A = new GPU2D_Soft(0);
@@ -272,6 +275,9 @@ void Reset()
     ResetRenderer();
 
     ResetVRAMCache();
+
+    OAMDirty = 0x3;
+    PaletteDirty = 0xF;
 }
 
 void Stop()

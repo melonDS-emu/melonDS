@@ -86,6 +86,8 @@ extern char MicWavPath[1024];
 
 extern char LastROMFolder[1024];
 
+extern char RecentROMList[10][1024];
+
 extern int EnableCheats;
 
 }

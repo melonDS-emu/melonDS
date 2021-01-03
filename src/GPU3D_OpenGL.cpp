@@ -70,7 +70,7 @@ struct
 
 GLuint ShaderConfigUBO;
 
-typedef struct
+struct RendererPolygon
 {
     Polygon* PolyData;
 
@@ -82,8 +82,7 @@ typedef struct
     u32 EdgeIndicesOffset;
 
     u32 RenderKey;
-
-} RendererPolygon;
+};
 
 RendererPolygon PolygonList[2048];
 int NumFinalPolys, NumOpaqueFinalPolys;
