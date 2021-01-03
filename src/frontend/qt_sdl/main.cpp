@@ -1996,7 +1996,8 @@ void MainWindow::onFullscreenToggled()
     else
     {
         mainWindow->showNormal();
-        mainWindow->menuBar()->setFixedSize(mainWindow->menuBar()->sizeHint());
+        int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
+        mainWindow->menuBar()->setFixedHeight(menuBarHeight);
     }
 }
 
