@@ -1991,12 +1991,12 @@ void MainWindow::onFullscreenToggled()
     if (!mainWindow->isFullScreen())
     {
         mainWindow->showFullScreen();
-        mainWindow->menuBar()->hide();
+        mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
     }
     else
     {
         mainWindow->showNormal();
-        mainWindow->menuBar()->show();
+        mainWindow->menuBar()->setFixedSize(mainWindow->menuBar()->sizeHint());
     }
 }
 
