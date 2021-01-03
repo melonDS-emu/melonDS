@@ -1465,21 +1465,6 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
-void MainWindow::onOpenFile()
-{
-    emuThread->emuPause();
-
-    QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open ROM",
-                                                    Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl *.zip *.7z);;GBA ROMs (*.gba *.zip *.7z);;Other Compressed ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *tar.bz2);;Any file (*.*)");
-	
-    if (filename.isEmpty())
-    {
-        emuThread->emuUnpause();
-        return;
-    }
-
 void MainWindow::loadROM(QString filename)
 {
     recentFileList.removeAll(filename);
@@ -1584,7 +1569,7 @@ void MainWindow::onOpenFile()
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+                                                    "DS ROMs (*.nds *.dsi *.srl *.zip *.7z);;GBA ROMs (*.gba *.zip *.7z);;Other Compressed ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *tar.bz2);;Any file (*.*)");
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
