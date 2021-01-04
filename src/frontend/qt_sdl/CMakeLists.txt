@@ -55,8 +55,10 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SLIRP REQUIRED slirp)
 
 if (APPLE)
+    # Find libarchive on macOS, because macOS only provides the library, not the headers
     execute_process(COMMAND brew --prefix libarchive
-                    OUTPUT_VARIABLE LIBARCHIVE_DIR)
+                    OUTPUT_VARIABLE LIBARCHIVE_DIR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
     set(CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}/lib/pkgconfig")
 endif()
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
