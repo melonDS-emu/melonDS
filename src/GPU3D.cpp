@@ -1699,15 +1699,15 @@ void PosTest()
     AddCycles(5);
 }
 
-void VecTest(u32* params)
+void VecTest(u32 param)
 {
     // TODO: maybe it overwrites the normal registers, too
 
     s16 normal[3];
 
-    normal[0] = (s16)((params[0] & 0x000003FF) << 6) >> 6;
-    normal[1] = (s16)((params[0] & 0x000FFC00) >> 4) >> 6;
-    normal[2] = (s16)((params[0] & 0x3FF00000) >> 14) >> 6;
+    normal[0] = (s16)((param & 0x000003FF) << 6) >> 6;
+    normal[1] = (s16)((param & 0x000FFC00) >> 4) >> 6;
+    normal[2] = (s16)((param & 0x3FF00000) >> 14) >> 6;
 
     VecTestResult[0] = (normal[0]*VecMatrix[0] + normal[1]*VecMatrix[4] + normal[2]*VecMatrix[8]) >> 9;
     VecTestResult[1] = (normal[0]*VecMatrix[1] + normal[1]*VecMatrix[5] + normal[2]*VecMatrix[9]) >> 9;
@@ -2170,6 +2170,12 @@ void ExecuteCommand()
             Viewport[5] = (Viewport[1] - Viewport[3] + 1) & 0xFF;           // height
             break;
 
+        case 0x72: // vec test
+            VertexPipelineCmdDelayed6();
+            NumTestCommands--;
+            VecTest(entry.Param);
+            break;
+
         default:
             VertexPipelineCmdDelayed4();
             //printf("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
@@ -2193,7 +2199,6 @@ void ExecuteCommand()
                 VertexPipelineCmdDelayed8();
                 break;
             case 0x70: StallPolygonPipeline(10 + 1, 0); break;
-            case 0x72: VertexPipelineCmdDelayed6(); break;
             default: VertexPipelineCmdDelayed4(); break;
             }
         }
@@ -2406,11 +2411,6 @@ void ExecuteCommand()
                 case 0x70: // box test
                     NumTestCommands -= 3;
                     BoxTest(ExecParams);
-                    break;
-
-                case 0x72: // vec test
-                    NumTestCommands--;
-                    VecTest(ExecParams);
                     break;
 
                 default:
