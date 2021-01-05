@@ -85,11 +85,11 @@ private:
     u32 Param;
     u16 ResponseBuffer[8];
 
-    FIFO<u16>* DataFIFO[2];
-    u32 CurFIFO; // FIFO accessible for read/write
-    FIFO<u32>* DataFIFO32;
-
     DSi_SDDevice* Ports[2];
+
+    u32 CurFIFO; // FIFO accessible for read/write
+    FIFO<u16, 0x100> DataFIFO[2];
+    FIFO<u32, 0x80> DataFIFO32;
 
     void UpdateData32IRQ();
     void ClearIRQ(u32 irq);

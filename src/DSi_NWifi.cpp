@@ -116,18 +116,20 @@ const u8 CIS1[256] =
 DSi_NWifi* Ctx = nullptr;
 
 
-DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
+DSi_NWifi::DSi_NWifi(DSi_SDHost* host)
+    : DSi_SDDevice(host),
+        Mailbox
+        {
+            // HACK
+            // the mailboxes are supposed to be 0x80 bytes
+            // however, as we do things instantly, emulating this is meaningless
+            // and only adds complication
+            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+            DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600), DynamicFIFO<u8>(0x600),
+            // mailbox 8: extra mailbox acting as a bigger RX buffer
+            DynamicFIFO<u8>(0x8000)
+        }
 {
-    // HACK
-    // the mailboxes are supposed to be 0x80 bytes
-    // however, as we do things instantly, emulating this is meaningless
-    // and only adds complication
-    for (int i = 0; i < 8; i++)
-        Mailbox[i] = new FIFO<u8>(0x600);//0x80);
-
-    // extra mailbox acting as a bigger RX buffer
-    Mailbox[8] = new FIFO<u8>(0x8000);
-
     // this seems to control whether the firmware upload is done
     EEPROMReady = 0;
 
@@ -136,9 +138,6 @@ DSi_NWifi::DSi_NWifi(DSi_SDHost* host) : DSi_SDDevice(host)
 
 DSi_NWifi::~DSi_NWifi()
 {
-    for (int i = 0; i < 9; i++)
-        delete Mailbox[i];
-
     NDS::CancelEvent(NDS::Event_DSi_NWifi);
     Ctx = nullptr;
 }
@@ -159,7 +158,7 @@ void DSi_NWifi::Reset()
     WindowWriteAddr = 0;
 
     for (int i = 0; i < 9; i++)
-        Mailbox[i]->Clear();
+        Mailbox[i].Clear();
 
     u8* mac = SPI_Firmware::GetWifiMAC();
     printf("NWifi MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -250,10 +249,10 @@ void DSi_NWifi::UpdateIRQ_F1()
 {
     F1_IRQStatus = 0;
 
-    if (!Mailbox[4]->IsEmpty())                      F1_IRQStatus |= (1<<0);
-    if (!Mailbox[5]->IsEmpty())                      F1_IRQStatus |= (1<<1);
-    if (!Mailbox[6]->IsEmpty())                      F1_IRQStatus |= (1<<2);
-    if (!Mailbox[7]->IsEmpty())                      F1_IRQStatus |= (1<<3);
+    if (!Mailbox[4].IsEmpty())                       F1_IRQStatus |= (1<<0);
+    if (!Mailbox[5].IsEmpty())                       F1_IRQStatus |= (1<<1);
+    if (!Mailbox[6].IsEmpty())                       F1_IRQStatus |= (1<<2);
+    if (!Mailbox[7].IsEmpty())                       F1_IRQStatus |= (1<<3);
     if (F1_IRQStatus_Counter & F1_IRQEnable_Counter) F1_IRQStatus |= (1<<4);
     if (F1_IRQStatus_CPU & F1_IRQEnable_CPU)         F1_IRQStatus |= (1<<6);
     if (F1_IRQStatus_Error & F1_IRQEnable_Error)     F1_IRQStatus |= (1<<7);
@@ -337,26 +336,26 @@ u8 DSi_NWifi::F1_Read(u32 addr)
 {
     if (addr < 0x100)
     {
-        u8 ret = Mailbox[4]->Read();
+        u8 ret = Mailbox[4].Read();
         if (addr == 0xFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x200)
     {
-        u8 ret = Mailbox[5]->Read();
+        u8 ret = Mailbox[5].Read();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x300)
     {
-        u8 ret = Mailbox[6]->Read();
+        u8 ret = Mailbox[6].Read();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x400)
     {
-        u8 ret = Mailbox[7]->Read();
+        u8 ret = Mailbox[7].Read();
         UpdateIRQ_F1();
         return ret;
     }
@@ -373,18 +372,18 @@ u8 DSi_NWifi::F1_Read(u32 addr)
             {
                 u8 ret = 0;
 
-                if (Mailbox[4]->Level() >= 4) ret |= (1<<0);
-                if (Mailbox[5]->Level() >= 4) ret |= (1<<1);
-                if (Mailbox[6]->Level() >= 4) ret |= (1<<2);
-                if (Mailbox[7]->Level() >= 4) ret |= (1<<3);
+                if (Mailbox[4].Level() >= 4) ret |= (1<<0);
+                if (Mailbox[5].Level() >= 4) ret |= (1<<1);
+                if (Mailbox[6].Level() >= 4) ret |= (1<<2);
+                if (Mailbox[7].Level() >= 4) ret |= (1<<3);
 
                 return ret;
             }
 
-        case 0x00408: return Mailbox[4]->Peek(0);
-        case 0x00409: return Mailbox[4]->Peek(1);
-        case 0x0040A: return Mailbox[4]->Peek(2);
-        case 0x0040B: return Mailbox[4]->Peek(3);
+        case 0x00408: return Mailbox[4].Peek(0);
+        case 0x00409: return Mailbox[4].Peek(1);
+        case 0x0040A: return Mailbox[4].Peek(2);
+        case 0x0040B: return Mailbox[4].Peek(3);
 
         case 0x00418: return F1_IRQEnable;
         case 0x00419: return F1_IRQEnable_CPU;
@@ -403,32 +402,32 @@ u8 DSi_NWifi::F1_Read(u32 addr)
     }
     else if (addr < 0x1000)
     {
-        u8 ret = Mailbox[4]->Read();
+        u8 ret = Mailbox[4].Read();
         if (addr == 0xFFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x1800)
     {
-        u8 ret = Mailbox[5]->Read();
+        u8 ret = Mailbox[5].Read();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x2000)
     {
-        u8 ret = Mailbox[6]->Read();
+        u8 ret = Mailbox[6].Read();
         UpdateIRQ_F1();
         return ret;
     }
     else if (addr < 0x2800)
     {
-        u8 ret = Mailbox[7]->Read();
+        u8 ret = Mailbox[7].Read();
         UpdateIRQ_F1();
         return ret;
     }
     else
     {
-        u8 ret = Mailbox[4]->Read();
+        u8 ret = Mailbox[4].Read();
         if (addr == 0x3FFF) DrainRXBuffer();
         UpdateIRQ_F1();
         return ret;
@@ -442,30 +441,30 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
 {
     if (addr < 0x100)
     {
-        if (Mailbox[0]->IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
-        Mailbox[0]->Write(val);
+        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        Mailbox[0].Write(val);
         if (addr == 0xFF) HandleCommand();
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x200)
     {
-        if (Mailbox[1]->IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
-        Mailbox[1]->Write(val);
+        if (Mailbox[1].IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
+        Mailbox[1].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x300)
     {
-        if (Mailbox[2]->IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
-        Mailbox[2]->Write(val);
+        if (Mailbox[2].IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
+        Mailbox[2].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x400)
     {
-        if (Mailbox[3]->IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
-        Mailbox[3]->Write(val);
+        if (Mailbox[3].IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
+        Mailbox[3].Write(val);
         UpdateIRQ_F1();
         return;
     }
@@ -505,37 +504,37 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
     }
     else if (addr < 0x1000)
     {
-        if (Mailbox[0]->IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
-        Mailbox[0]->Write(val);
+        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        Mailbox[0].Write(val);
         if (addr == 0xFFF) HandleCommand();
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x1800)
     {
-        if (Mailbox[1]->IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
-        Mailbox[1]->Write(val);
+        if (Mailbox[1].IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
+        Mailbox[1].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x2000)
     {
-        if (Mailbox[2]->IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
-        Mailbox[2]->Write(val);
+        if (Mailbox[2].IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
+        Mailbox[2].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x2800)
     {
-        if (Mailbox[3]->IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
-        Mailbox[3]->Write(val);
+        if (Mailbox[3].IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
+        Mailbox[3].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else
     {
-        if (Mailbox[0]->IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
-        Mailbox[0]->Write(val);
+        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        Mailbox[0].Write(val);
         if (addr == 0x3FFF) HandleCommand(); // CHECKME
         UpdateIRQ_F1();
         return;
@@ -750,7 +749,7 @@ void DSi_NWifi::BMI_Command()
 
             for (int i = 0; i < len; i++)
             {
-                u8 val = Mailbox[0]->Read();
+                u8 val = Mailbox[0].Read();
 
                 // TODO: do something with it!!
             }
@@ -804,7 +803,7 @@ void DSi_NWifi::BMI_Command()
 
             for (int i = 0; i < len; i++)
             {
-                u8 val = Mailbox[0]->Read();
+                u8 val = Mailbox[0].Read();
 
                 // TODO: do something with it!!
                 //fwrite(&val, 1, 1, f);
@@ -873,7 +872,7 @@ void DSi_NWifi::HTC_Command()
         printf("unknown HTC command %04X\n", cmd);
         for (int i = 0; i < len; i++)
         {
-            printf("%02X ", Mailbox[0]->Read());
+            printf("%02X ", Mailbox[0].Read());
             if ((i&0xF)==0xF) printf("\n");
         }
         printf("\n");
@@ -926,7 +925,7 @@ void DSi_NWifi::WMI_Command()
 
         case 0x0004: // synchronize
             {
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
                 // TODO??
             }
             break;
@@ -944,8 +943,8 @@ void DSi_NWifi::WMI_Command()
                 u32 legacy = MB_Read32(0);
                 u32 scantime = MB_Read32(0);
                 u32 forceinterval = MB_Read32(0);
-                u8 scantype = Mailbox[0]->Read();
-                u8 nchannels = Mailbox[0]->Read();
+                u8 scantype = Mailbox[0].Read();
+                u8 nchannels = Mailbox[0].Read();
 
                 printf("WMI: start scan, forceFG=%d, legacy=%d, scanTime=%d, interval=%d, scanType=%d, chan=%d\n",
                        forcefg, legacy, scantime, forceinterval, scantype, nchannels);
@@ -969,10 +968,10 @@ void DSi_NWifi::WMI_Command()
         case 0x0009: // set BSS filter
             {
                 // TODO: do something with the params!!
-                u8 bssfilter = Mailbox[0]->Read();
-                Mailbox[0]->Read();
-                Mailbox[0]->Read();
-                Mailbox[0]->Read();
+                u8 bssfilter = Mailbox[0].Read();
+                Mailbox[0].Read();
+                Mailbox[0].Read();
+                Mailbox[0].Read();
                 u32 iemask = MB_Read32(0);
 
                 printf("WMI: set BSS filter, filter=%02X, iemask=%08X\n", bssfilter, iemask);
@@ -981,13 +980,13 @@ void DSi_NWifi::WMI_Command()
 
         case 0x000A: // set probed BSSID
             {
-                u8 id = Mailbox[0]->Read();
-                u8 flags = Mailbox[0]->Read();
-                u8 len = Mailbox[0]->Read();
+                u8 id = Mailbox[0].Read();
+                u8 flags = Mailbox[0].Read();
+                u8 len = Mailbox[0].Read();
 
                 char ssid[33] = {0};
                 for (int i = 0; i < len && i < 32; i++)
-                    ssid[i] = Mailbox[0]->Read();
+                    ssid[i] = Mailbox[0].Read();
 
                 // TODO: store it somewhere
                 printf("WMI: set probed SSID: id=%d, flags=%02X, len=%d, SSID=%s\n", id, flags, len, ssid);
@@ -996,7 +995,7 @@ void DSi_NWifi::WMI_Command()
 
         case 0x000D: // set disconnect timeout
             {
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
                 // TODO??
             }
             break;
@@ -1018,10 +1017,10 @@ void DSi_NWifi::WMI_Command()
 
         case 0x0011: // set channel params
             {
-                Mailbox[0]->Read();
-                u8 scan = Mailbox[0]->Read();
-                u8 phymode = Mailbox[0]->Read();
-                u8 len = Mailbox[0]->Read();
+                Mailbox[0].Read();
+                u8 scan = Mailbox[0].Read();
+                u8 phymode = Mailbox[0].Read();
+                u8 len = Mailbox[0].Read();
 
                 u16 channels[32];
                 for (int i = 0; i < len && i < 32; i++)
@@ -1037,13 +1036,13 @@ void DSi_NWifi::WMI_Command()
 
         case 0x0012: // set power mode
             {
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
                 // TODO??
             }
             break;
 
         case 0x0017: // dummy?
-            Mailbox[0]->Read();
+            Mailbox[0].Read();
             break;
 
         case 0x0022: // set error bitmask
@@ -1080,14 +1079,14 @@ void DSi_NWifi::WMI_Command()
 
         case 0x003D: // set keepalive interval
             {
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
                 // TODO??
             }
             break;
 
         case 0x0041: // 'WMI_SET_WSC_STATUS_CMD'
             {
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
                 // TODO??
             }
             break;
@@ -1102,8 +1101,8 @@ void DSi_NWifi::WMI_Command()
             {
                 MB_Read32(0);
                 MB_Read32(0);
-                Mailbox[0]->Read();
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
+                Mailbox[0].Read();
             }
             break;
 
@@ -1116,9 +1115,9 @@ void DSi_NWifi::WMI_Command()
         case 0xF000: // set bitrate
             {
                 // TODO!
-                Mailbox[0]->Read();
-                Mailbox[0]->Read();
-                Mailbox[0]->Read();
+                Mailbox[0].Read();
+                Mailbox[0].Read();
+                Mailbox[0].Read();
             }
             break;
 
@@ -1126,7 +1125,7 @@ void DSi_NWifi::WMI_Command()
             printf("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
             for (int i = 0; i < len-2; i++)
             {
-                printf("%02X ", Mailbox[0]->Read());
+                printf("%02X ", Mailbox[0].Read());
                 if ((i&0xF)==0xF) printf("\n");
             }
             printf("\n");
@@ -1142,18 +1141,18 @@ void DSi_NWifi::WMI_Command()
 
 void DSi_NWifi::WMI_ConnectToNetwork()
 {
-    u8 type = Mailbox[0]->Read();
-    u8 auth11 = Mailbox[0]->Read();
-    u8 auth = Mailbox[0]->Read();
-    u8 pCryptoType = Mailbox[0]->Read();
-    u8 pCryptoLen = Mailbox[0]->Read();
-    u8 gCryptoType = Mailbox[0]->Read();
-    u8 gCryptoLen = Mailbox[0]->Read();
-    u8 ssidLen = Mailbox[0]->Read();
+    u8 type = Mailbox[0].Read();
+    u8 auth11 = Mailbox[0].Read();
+    u8 auth = Mailbox[0].Read();
+    u8 pCryptoType = Mailbox[0].Read();
+    u8 pCryptoLen = Mailbox[0].Read();
+    u8 gCryptoType = Mailbox[0].Read();
+    u8 gCryptoLen = Mailbox[0].Read();
+    u8 ssidLen = Mailbox[0].Read();
 
     char ssid[33] = {0};
     for (int i = 0; i < 32; i++)
-        ssid[i] = Mailbox[0]->Read();
+        ssid[i] = Mailbox[0].Read();
     if (ssidLen <= 32)
         ssid[ssidLen] = '\0';
 
@@ -1219,11 +1218,11 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     {
         printf("WMI: data sync\n");
 
-        /*Mailbox[8]->Write(2);    // eid
-        Mailbox[8]->Write(0x00);  // flags
+        /*Mailbox[8].Write(2);    // eid
+        Mailbox[8].Write(0x00);  // flags
         MB_Write16(8, 2);         // data length
-        Mailbox[8]->Write(0);     //
-        Mailbox[8]->Write(0);     //
+        Mailbox[8].Write(0);     //
+        Mailbox[8].Write(0);     //
         MB_Write16(8, 0x0200);    //
 
         DrainRXBuffer();*/
@@ -1235,7 +1234,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
         printf("WMI: special frame %04X len=%d\n", hdr, len);
         for (int i = 0; i < len-2; i++)
         {
-            printf("%02X ", Mailbox[0]->Read());
+            printf("%02X ", Mailbox[0].Read());
             if ((i&0xF)==0xF) printf("\n");
         }
         printf("\n");
@@ -1279,7 +1278,7 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
     *(u16*)&LANBuffer[12] = ethertype; // type
     for (int i = 0; i < lan_len-14; i++)
     {
-        LANBuffer[14+i] = Mailbox[0]->Read();
+        LANBuffer[14+i] = Mailbox[0].Read();
     }
 
     /*for (int i = 0; i < lan_len; i++)
@@ -1294,73 +1293,73 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
 
 void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
 {
-    if (!Mailbox[8]->CanFit(6+len+2+8))
+    if (!Mailbox[8].CanFit(6+len+2+8))
     {
         printf("NWifi: !! not enough space in RX buffer for WMI event %04X\n", id);
         return;
     }
 
-    Mailbox[8]->Write(ep);    // eid
-    Mailbox[8]->Write(0x02);  // flags (trailer)
+    Mailbox[8].Write(ep);    // eid
+    Mailbox[8].Write(0x02);  // flags (trailer)
     MB_Write16(8, len+2+8);   // data length (plus event ID and trailer)
-    Mailbox[8]->Write(8);     // trailer length
-    Mailbox[8]->Write(0);     //
+    Mailbox[8].Write(8);     // trailer length
+    Mailbox[8].Write(0);     //
     MB_Write16(8, id);        // event ID
 
     for (int i = 0; i < len; i++)
     {
-        Mailbox[8]->Write(data[i]);
+        Mailbox[8].Write(data[i]);
     }
 
     // trailer
-    Mailbox[8]->Write(0x02);
-    Mailbox[8]->Write(0x06);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
+    Mailbox[8].Write(0x02);
+    Mailbox[8].Write(0x06);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
 
     DrainRXBuffer();
 }
 
 void DSi_NWifi::SendWMIAck(u8 ep)
 {
-    if (!Mailbox[8]->CanFit(6+12))
+    if (!Mailbox[8].CanFit(6+12))
     {
         printf("NWifi: !! not enough space in RX buffer for WMI ack (ep #%d)\n", ep);
         return;
     }
 
-    Mailbox[8]->Write(0);     // eid
-    Mailbox[8]->Write(0x02);  // flags (trailer)
+    Mailbox[8].Write(0);     // eid
+    Mailbox[8].Write(0x02);  // flags (trailer)
     MB_Write16(8, 0xC);       // data length (plus trailer)
-    Mailbox[8]->Write(0xC);   // trailer length
-    Mailbox[8]->Write(0);     //
+    Mailbox[8].Write(0xC);   // trailer length
+    Mailbox[8].Write(0);     //
 
     // credit report
-    Mailbox[8]->Write(0x01);
-    Mailbox[8]->Write(0x02);
-    Mailbox[8]->Write(ep);
-    Mailbox[8]->Write(0x01);
+    Mailbox[8].Write(0x01);
+    Mailbox[8].Write(0x02);
+    Mailbox[8].Write(ep);
+    Mailbox[8].Write(0x01);
 
     // lookahead
-    Mailbox[8]->Write(0x02);
-    Mailbox[8]->Write(0x06);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
-    Mailbox[8]->Write(0x00);
+    Mailbox[8].Write(0x02);
+    Mailbox[8].Write(0x06);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
+    Mailbox[8].Write(0x00);
 
     DrainRXBuffer();
 }
 
 void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 {
-    if (!Mailbox[8]->CanFit(6+len+2+16))
+    if (!Mailbox[8].CanFit(6+len+2+16))
     {
         printf("NWifi: !! not enough space in RX buffer for WMI BSSINFO event\n");
         return;
@@ -1369,16 +1368,16 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
     // TODO: check when version>=2 frame type is used?
     // I observed the version<2 variant on my DSi
 
-    Mailbox[8]->Write(1);     // eid
-    Mailbox[8]->Write(0x00);  // flags
+    Mailbox[8].Write(1);     // eid
+    Mailbox[8].Write(0x00);  // flags
     MB_Write16(8, len+2+16);  // data length (plus event ID and trailer)
-    Mailbox[8]->Write(0xFF);  // trailer length
-    Mailbox[8]->Write(0xFF);  //
+    Mailbox[8].Write(0xFF);  // trailer length
+    Mailbox[8].Write(0xFF);  //
     MB_Write16(8, 0x1004);    // event ID
 
     MB_Write16(8, 2437); // channel (6) (checkme!)
-    Mailbox[8]->Write(type);
-    Mailbox[8]->Write(0x1B); // 'snr'
+    Mailbox[8].Write(type);
+    Mailbox[8].Write(0x1B); // 'snr'
     MB_Write16(8, 0xFFBC);   // RSSI
     MB_Write32(8, *(u32*)&WifiAP::APMac[0]);
     MB_Write16(8, *(u16*)&WifiAP::APMac[4]);
@@ -1386,7 +1385,7 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 
     for (int i = 0; i < len; i++)
     {
-        Mailbox[8]->Write(data[i]);
+        Mailbox[8].Write(data[i]);
     }
 
     DrainRXBuffer();
@@ -1394,7 +1393,7 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
 
 void DSi_NWifi::CheckRX()
 {
-    if (!Mailbox[8]->CanFit(2048))
+    if (!Mailbox[8].CanFit(2048))
         return;
 
     int rxlen = Platform::LAN_RecvPacket(LANBuffer);
@@ -1433,11 +1432,11 @@ void DSi_NWifi::CheckRX()
         // TODO: not hardcode the endpoint ID!!
         u8 ep = 2;
 
-        Mailbox[8]->Write(ep);
-        Mailbox[8]->Write(0x00);
+        Mailbox[8].Write(ep);
+        Mailbox[8].Write(0x00);
         MB_Write16(8, 16 + 8 + datalen);
-        Mailbox[8]->Write(0);
-        Mailbox[8]->Write(0);
+        Mailbox[8].Write(0);
+        Mailbox[8].Write(0);
 
         MB_Write16(8, hdr);
         MB_Write32(8, *(u32*)&LANBuffer[0]);
@@ -1454,7 +1453,7 @@ void DSi_NWifi::CheckRX()
         MB_Write16(8, *(u16*)&LANBuffer[12]);
 
         for (int i = 0; i < datalen; i++)
-            Mailbox[8]->Write(LANBuffer[14+i]);
+            Mailbox[8].Write(LANBuffer[14+i]);
 
         DrainRXBuffer();
     }
@@ -1541,25 +1540,25 @@ void DSi_NWifi::_MSTimer()
 
     if (ConnectionStatus == 1)
     {
-        //if (Mailbox[4]->IsEmpty())
+        //if (Mailbox[4].IsEmpty())
             CheckRX();
     }
 }
 
 void DSi_NWifi::DrainRXBuffer()
 {
-    while (Mailbox[8]->Level() >= 6)
+    while (Mailbox[8].Level() >= 6)
     {
-        u16 len = Mailbox[8]->Peek(2) | (Mailbox[8]->Peek(3) << 8);
+        u16 len = Mailbox[8].Peek(2) | (Mailbox[8].Peek(3) << 8);
         u32 totallen = len + 6;
         u32 required = (totallen + 0x7F) & ~0x7F;
 
-        if (!Mailbox[4]->CanFit(required))
+        if (!Mailbox[4].CanFit(required))
             break;
 
         u32 i = 0;
-        for (; i < totallen; i++) Mailbox[4]->Write(Mailbox[8]->Read());
-        for (; i < required; i++) Mailbox[4]->Write(0);
+        for (; i < totallen; i++) Mailbox[4].Write(Mailbox[8].Read());
+        for (; i < required; i++) Mailbox[4].Write(0);
     }
 
     UpdateIRQ_F1();

@@ -55,7 +55,7 @@ u16 RFData1;
 u16 RFData2;
 u32 RFRegs[0x40];
 
-typedef struct
+struct TXSlot
 {
     u16 Addr;
     u16 Length;
@@ -63,8 +63,7 @@ typedef struct
     u8 CurPhase;
     u32 CurPhaseTime;
     u32 HalfwordTimeMask;
-
-} TXSlot;
+};
 
 TXSlot TXSlots[6];
 

@@ -40,7 +40,13 @@ GLuint Comp3DXPosLoc[1];
 
 GLuint CompVertexBufferID;
 GLuint CompVertexArrayID;
-float CompVertices[2 * 3*2 * 2]; // position
+
+struct CompVertex
+{
+    float Position[2];
+    float Texcoord[2];
+};
+CompVertex CompVertices[2 * 3*2];
 
 GLuint CompScreenInputTex;
 GLuint CompScreenOutputTex;
@@ -59,6 +65,7 @@ bool Init()
         GLint uni_id;
 
         glBindAttribLocation(CompShader[i][2], 0, "vPosition");
+        glBindAttribLocation(CompShader[i][2], 1, "vTexcoord");
         glBindFragDataLocation(CompShader[i][2], 0, "oColor");
 
         if (!OpenGL::LinkShaderProgram(CompShader[i]))
@@ -74,25 +81,29 @@ bool Init()
         glUniform1i(uni_id, 1);
     }
 
-#define SETVERTEX(i, x, y) \
-    CompVertices[2*(i) + 0] = x; \
-    CompVertices[2*(i) + 1] = y;
+    // all this mess is to prevent bleeding
+#define SETVERTEX(i, x, y, offset) \
+    CompVertices[i].Position[0] = x; \
+    CompVertices[i].Position[1] = y + offset; \
+    CompVertices[i].Texcoord[0] = (x + 1.f) * (256.f / 2.f); \
+    CompVertices[i].Texcoord[1] = (y + 1.f) * (384.f / 2.f)
 
+    const float padOffset = 1.f/(192*2.f+2.f)*2.f;
     // top screen
-    SETVERTEX(0, -1, 1);
-    SETVERTEX(1, 1, 0);
-    SETVERTEX(2, 1, 1);
-    SETVERTEX(3, -1, 1);
-    SETVERTEX(4, -1, 0);
-    SETVERTEX(5, 1, 0);
+    SETVERTEX(0, -1, 1, 0);
+    SETVERTEX(1, 1, 0, padOffset);
+    SETVERTEX(2, 1, 1, 0);
+    SETVERTEX(3, -1, 1, 0);
+    SETVERTEX(4, -1, 0, padOffset);
+    SETVERTEX(5, 1, 0, padOffset);
 
     // bottom screen
-    SETVERTEX(6, -1, 0);
-    SETVERTEX(7, 1, -1);
-    SETVERTEX(8, 1, 0);
-    SETVERTEX(9, -1, 0);
-    SETVERTEX(10, -1, -1);
-    SETVERTEX(11, 1, -1);
+    SETVERTEX(6, -1, 0, -padOffset);
+    SETVERTEX(7, 1, -1, 0);
+    SETVERTEX(8, 1, 0, -padOffset);
+    SETVERTEX(9, -1, 0, -padOffset);
+    SETVERTEX(10, -1, -1, 0);
+    SETVERTEX(11, 1, -1, 0);
 
 #undef SETVERTEX
 
@@ -103,7 +114,9 @@ bool Init()
     glGenVertexArrays(1, &CompVertexArrayID);
     glBindVertexArray(CompVertexArrayID);
     glEnableVertexAttribArray(0); // position
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2*4, (void*)(0));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(CompVertex), (void*)(offsetof(CompVertex, Position)));
+    glEnableVertexAttribArray(1); // texcoord
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(CompVertex), (void*)(offsetof(CompVertex, Texcoord)));
 
     glGenFramebuffers(1, &CompScreenOutputFB);
 
@@ -152,10 +165,14 @@ void SetRenderSettings(RenderSettings& settings)
 
     Scale = scale;
     ScreenW = 256 * scale;
-    ScreenH = 384 * scale;
+    ScreenH = (384+2) * scale;
 
     glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    // fill the padding
+    u8 zeroPixels[ScreenW*2*scale*4];
+    memset(zeroPixels, 0, sizeof(zeroPixels));
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);
 
     GLenum fbassign[] = {GL_COLOR_ATTACHMENT0};
     glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);

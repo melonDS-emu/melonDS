@@ -867,22 +867,26 @@ void ScreenPanelGL::initializeGL()
     screenShader->setUniformValue("ScreenTex", (GLint)0);
     screenShader->release();
 
+    // to prevent bleeding between both parts of the screen
+    // with bilinear filtering enabled
+    const int paddedHeight = 192*2+2;
+    const float padPixels = 1.f / paddedHeight;
 
-    float vertices[] =
+    const float vertices[] =
     {
-        0,   0,    0, 0,
-        0,   192,  0, 0.5,
-        256, 192,  1, 0.5,
-        0,   0,    0, 0,
-        256, 192,  1, 0.5,
-        256, 0,    1, 0,
+        0.f,   0.f,    0.f, 0.f,
+        0.f,   192.f,  0.f, 0.5f - padPixels,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        0.f,   0.f,    0.f, 0.f,
+        256.f, 192.f,  1.f, 0.5f - padPixels,
+        256.f, 0.f,    1.f, 0.f,
 
-        0,   0,    0, 0.5,
-        0,   192,  0, 1,
-        256, 192,  1, 1,
-        0,   0,    0, 0.5,
-        256, 192,  1, 1,
-        256, 0,    1, 0.5
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        0.f,   192.f,  0.f, 1.f,
+        256.f, 192.f,  1.f, 1.f,
+        0.f,   0.f,    0.f, 0.5f + padPixels,
+        256.f, 192.f,  1.f, 1.f,
+        256.f, 0.f,    1.f, 0.5f + padPixels
     };
 
     glGenBuffers(1, &screenVertexBuffer);
@@ -903,7 +907,11 @@ void ScreenPanelGL::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192*2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    // fill the padding
+    u8 zeroData[256*4*4];
+    memset(zeroData, 0, sizeof(zeroData));
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
 
     OSD::Init(this);
 }
@@ -941,7 +949,7 @@ void ScreenPanelGL::paintGL()
         {
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 192, GL_RGBA,
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
                             GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
         }
     }
@@ -1012,6 +1020,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
+
+        recentMenu = menu->addMenu("Open Recent");
+        for(int i = 0; i < 10; ++i)
+        {
+            if(strlen(Config::RecentROMList[i]) > 0)
+                recentFileList.push_back(Config::RecentROMList[i]);
+        }
+        updateRecentFilesMenu();
 
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
@@ -1325,7 +1341,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    if (event->key() == Qt::Key_F11) NDS::debug(0);
+    //if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
@@ -1441,20 +1457,11 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
-
-void MainWindow::onOpenFile()
+void MainWindow::loadROM(QString filename)
 {
-    emuThread->emuPause();
-
-    QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open ROM",
-                                                    Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
-    if (filename.isEmpty())
-    {
-        emuThread->emuUnpause();
-        return;
-    }
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
 
     // TODO: validate the input file!!
     // * check that it is a proper ROM
@@ -1499,6 +1506,60 @@ void MainWindow::onOpenFile()
     {
         emuThread->emuRun();
     }
+}
+
+void MainWindow::onOpenFile()
+{
+    emuThread->emuPause();
+
+    QString filename = QFileDialog::getOpenFileName(this,
+                                                    "Open ROM",
+                                                    Config::LastROMFolder,
+                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba);;Any file (*.*)");
+    if (filename.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    loadROM(filename);
+}
+
+void MainWindow::onClearRecentFiles()
+{
+    recentFileList.clear();
+    memset(Config::RecentROMList, 0, 10 * 1024);
+    updateRecentFilesMenu();
+}
+
+void MainWindow::updateRecentFilesMenu()
+{
+    recentMenu->clear();
+
+    for(int i = 0; i < recentFileList.size(); ++i)
+    {
+        QAction *actRecentFile_i = recentMenu->addAction(QString("%1.  %2").arg(i+1).arg(recentFileList.at(i)));
+        actRecentFile_i->setData(recentFileList.at(i));
+        connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
+
+        if(i < 10)
+            strncpy(Config::RecentROMList[i], recentFileList.at(i).toStdString().c_str(), 1024);
+    }
+
+    QAction *actClearRecentList = recentMenu->addAction("Clear");
+    connect(actClearRecentList, &QAction::triggered, this, &MainWindow::onClearRecentFiles);
+
+    if(recentFileList.empty())
+        actClearRecentList->setEnabled(false);
+
+    Config::Save();
+}
+
+void MainWindow::onClickRecentFile()
+{
+    emuThread->emuPause();
+    QAction *act = (QAction *)sender();
+    loadROM(act->data().toString());
 }
 
 void MainWindow::onBootFirmware()

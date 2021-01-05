@@ -538,7 +538,7 @@ private:
     s32 ycoverage, ycov_incr;
 };
 
-typedef struct
+struct RendererPolygon
 {
     Polygon* PolyData;
 
@@ -548,7 +548,7 @@ typedef struct
     u32 CurVL, CurVR;
     u32 NextVL, NextVR;
 
-} RendererPolygon;
+};
 
 RendererPolygon PolygonList[2048];
 

@@ -54,13 +54,12 @@ enum
     Event_MAX
 };
 
-typedef struct
+struct SchedEvent
 {
     void (*Func)(u32 param);
     u64 Timestamp;
     u32 Param;
-
-} SchedEvent;
+};
 
 enum
 {
@@ -121,21 +120,19 @@ enum
     IRQ2_DSi_MicExt
 };
 
-typedef struct
+struct Timer
 {
     u16 Reload;
     u16 Cnt;
     u32 Counter;
     u32 CycleShift;
+};
 
-} Timer;
-
-typedef struct
+struct MemRegion
 {
     u8* Mem;
     u32 Mask;
-
-} MemRegion;
+};
 
 extern int ConsoleType;
 extern int CurCPU;

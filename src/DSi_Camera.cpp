@@ -303,7 +303,7 @@ u8 DSi_Camera::Read8(u32 addr)
 }
 
 u16 DSi_Camera::Read16(u32 addr)
-{printf("CAM READ %08X %08X\n", addr, NDS::GetPC(0));
+{
     switch (addr)
     {
     case 0x04004200: return ModuleCnt;
@@ -313,15 +313,16 @@ u16 DSi_Camera::Read16(u32 addr)
     printf("unknown DSi cam read16 %08X\n", addr);
     return 0;
 }
-u32 dorp = 0;
+
 u32 DSi_Camera::Read32(u32 addr)
 {
     switch (addr)
     {
     case 0x04004204:
         {
+            // TODO
             return 0xFC00801F;
-            if (!(Cnt & (1<<15))) return 0; // CHECKME
+            /*if (!(Cnt & (1<<15))) return 0; // CHECKME
             u32 ret = *(u32*)&FrameBuffer[TransferPos];
             TransferPos += 4;
             if (TransferPos >= FrameLength) TransferPos = 0;
@@ -332,7 +333,7 @@ u32 DSi_Camera::Read32(u32 addr)
                 dorp = 0;
                 Cnt &= ~(1<<4);
             }
-            return ret;
+            return ret;*/
         }
     }
 
@@ -348,7 +349,7 @@ void DSi_Camera::Write8(u32 addr, u8 val)
 }
 
 void DSi_Camera::Write16(u32 addr, u16 val)
-{printf("CAM WRITE %08X %04X %08X\n", addr, val, NDS::GetPC(0));
+{
     switch (addr)
     {
     case 0x04004200:

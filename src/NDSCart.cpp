@@ -22,7 +22,6 @@
 #include "DSi.h"
 #include "NDSCart.h"
 #include "ARM.h"
-#include "CRC32.h"
 #include "DSi_AES.h"
 #include "Platform.h"
 #include "Config.h"
@@ -480,7 +479,6 @@ u8 TransferCmd[8];
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
-u32 CartCRC;
 u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
@@ -926,9 +924,6 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     fclose(f);
     //CartROM = f;
-
-    CartCRC = CRC32(CartROM, CartROMSize);
-    printf("ROM CRC32: %08X\n", CartCRC);
 
     ROMListEntry romparams;
     if (!ReadROMParams(gamecode, &romparams))

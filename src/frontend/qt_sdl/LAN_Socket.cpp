@@ -48,7 +48,7 @@ const u32 kClientIP = kSubnet | 0x10;
 
 const u8 kServerMAC[6] = {0x00, 0xAB, 0x33, 0x28, 0x99, 0x44};
 
-FIFO<u32>* RXBuffer = nullptr;
+FIFO<u32, (0x8000 >> 2)> RXBuffer;
 
 u32 IPv4ID;
 
@@ -86,16 +86,16 @@ void RXEnqueue(const void* buf, int len)
     int alignedlen = (len + 3) & ~3;
     int totallen = alignedlen + 4;
 
-    if (!RXBuffer->CanFit(totallen >> 2))
+    if (!RXBuffer.CanFit(totallen >> 2))
     {
         printf("slirp: !! NOT ENOUGH SPACE IN RX BUFFER\n");
         return;
     }
 
     u32 header = (alignedlen & 0xFFFF) | (len << 16);
-    RXBuffer->Write(header);
+    RXBuffer.Write(header);
     for (int i = 0; i < alignedlen; i += 4)
-        RXBuffer->Write(((u32*)buf)[i>>2]);
+        RXBuffer.Write(((u32*)buf)[i>>2]);
 }
 
 ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
@@ -202,8 +202,6 @@ bool Init()
     //FDListSize = 0;
     //memset(FDList, 0, sizeof(FDList));
 
-    RXBuffer = new FIFO<u32>(0x8000 >> 2);
-
     SlirpConfig cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.version = 1;
@@ -227,12 +225,6 @@ void DeInit()
     {
         slirp_cleanup(Ctx);
         Ctx = nullptr;
-    }
-
-    if (RXBuffer)
-    {
-        delete RXBuffer;
-        RXBuffer = nullptr;
     }
 }
 
@@ -530,13 +522,13 @@ int RecvPacket(u8* data)
         slirp_pollfds_poll(Ctx, res<0, SlirpCbGetREvents, nullptr);
     }
 
-    if (!RXBuffer->IsEmpty())
+    if (!RXBuffer.IsEmpty())
     {
-        u32 header = RXBuffer->Read();
+        u32 header = RXBuffer.Read();
         u32 len = header & 0xFFFF;
 
         for (int i = 0; i < len; i += 4)
-            ((u32*)data)[i>>2] = RXBuffer->Read();
+            ((u32*)data)[i>>2] = RXBuffer.Read();
 
         ret = header >> 16;
     }
