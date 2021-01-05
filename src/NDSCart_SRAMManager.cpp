@@ -67,19 +67,26 @@ namespace NDSCart_SRAMManager
             FlushSecondaryBufferToFile();
         }
 
+        delete SecondaryBuffer;
+
         Platform::Mutex_Free(SecondaryBufferLock);
     }
     
     void Setup(const char* path, u8* buffer, u32 length)
     {
+        // Flush SRAM in case there is unflushed data from previous state.
+        FlushSecondaryBufferToFile();
+
         Platform::Mutex_Lock(SecondaryBufferLock);
 
         strncpy(Path, path, 1023);
         Path[1023] = '\0';
-        
+
         Buffer = buffer;
         Length = length;
-        
+
+        delete SecondaryBuffer; // Delete secondary buffer, there might be previous state.
+
         SecondaryBuffer = new u8[length];
         SecondaryBufferLength = length;
 
@@ -95,7 +102,7 @@ namespace NDSCart_SRAMManager
         Platform::Mutex_Lock(SecondaryBufferLock);
         printf("NDS SRAM: Flush requested\n");
         memcpy(SecondaryBuffer, Buffer, Length);
-        FlushVersion = (FlushVersion + 1 % 255);
+        FlushVersion++;
         TimeAtLastFlushRequest = time(NULL);
         Platform::Mutex_Unlock(SecondaryBufferLock);
     }
@@ -104,7 +111,7 @@ namespace NDSCart_SRAMManager
     {
         for (;;)
         {
-            usleep(100 * 1000);
+            Platform::Sleep(100 * 1000); // 100ms
 
             if (!FlushThreadRunning) return;
             
