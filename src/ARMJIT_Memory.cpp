@@ -275,6 +275,7 @@ u8 MappingStatus9[1 << (32-12)];
 u8 MappingStatus7[1 << (32-12)];
 
 #if defined(__SWITCH__)
+VirtmemReservation* FastMem9Reservation, *FastMem7Reservation;
 u8* MemoryBase;
 u8* MemoryBaseCodeMem;
 #elif defined(_WIN32)
@@ -676,7 +677,8 @@ void Init()
 {
 #if defined(__SWITCH__)
     MemoryBase = (u8*)aligned_alloc(0x1000, MemoryTotalSize);
-    MemoryBaseCodeMem = (u8*)virtmemReserve(MemoryTotalSize);
+    virtmemLock();
+    MemoryBaseCodeMem = (u8*)virtmemFindCodeMemory(MemoryTotalSize, 0x1000);
 
     bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, 
         (u64)MemoryBase, MemoryTotalSize));
@@ -686,10 +688,14 @@ void Init()
     assert(succeded);
 
     // 8 GB of address space, just don't ask...
-    FastMem9Start = virtmemReserve(AddrSpaceSize);
+    FastMem9Start = virtmemFindAslr(AddrSpaceSize, 0x1000);
     assert(FastMem9Start);
-    FastMem7Start = virtmemReserve(AddrSpaceSize);
+    FastMem7Start = virtmemFindAslr(AddrSpaceSize, 0x1000);
     assert(FastMem7Start);
+
+    FastMem9Reservation = virtmemAddReservation(FastMem9Start, AddrSpaceSize);
+    FastMem7Reservation = virtmemAddReservation(FastMem7Start, AddrSpaceSize);
+    virtmemUnlock();
 
     u8* basePtr = MemoryBaseCodeMem;
 #elif defined(_WIN32)
@@ -775,11 +781,12 @@ void Init()
 void DeInit()
 {
 #if defined(__SWITCH__)
-    virtmemFree(FastMem9Start, AddrSpaceSize);
-    virtmemFree(FastMem7Start, AddrSpaceSize);
+    virtmemLock();
+    virtmemRemoveReservation(FastMem9Reservation);
+    virtmemRemoveReservation(FastMem7Reservation);
+    virtmemUnlock();
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
-    virtmemFree(MemoryBaseCodeMem, MemoryTotalSize);
     free(MemoryBase);
 #elif defined(__APPLE__)
     char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];

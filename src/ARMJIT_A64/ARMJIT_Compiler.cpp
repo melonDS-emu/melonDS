@@ -187,7 +187,8 @@ Compiler::Compiler()
     JitRWBase = aligned_alloc(0x1000, JitMemSize);
 
     JitRXStart = (u8*)&__start__ - JitMemSize - 0x1000;
-    JitRWStart = virtmemReserve(JitMemSize);
+    virtmemLock();
+    JitRWStart = virtmemFindAslr(JitMemSize, 0x1000);
     MemoryInfo info = {0};
     u32 pageInfo = {0};
     int i = 0;
@@ -213,6 +214,8 @@ Compiler::Compiler()
     assert(succeded);
     succeded = R_SUCCEEDED(svcMapProcessMemory(JitRWStart, envGetOwnProcessHandle(), (u64)JitRXStart, JitMemSize));
     assert(succeded);
+
+    virtmemUnlock();
 
     SetCodeBase((u8*)JitRWStart, (u8*)JitRXStart);
     JitMemMainSize = JitMemSize;
@@ -426,7 +429,6 @@ Compiler::~Compiler()
     {
         bool succeded = R_SUCCEEDED(svcUnmapProcessMemory(JitRWStart, envGetOwnProcessHandle(), (u64)JitRXStart, JitMemSize));
         assert(succeded);
-        virtmemFree(JitRWStart, JitMemSize);
         succeded = R_SUCCEEDED(svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)JitRXStart, (u64)JitRWBase, JitMemSize));
         assert(succeded);
         free(JitRWBase);
@@ -753,7 +755,8 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                         FixupBranch skipNop = B();
                         SetJumpTarget(skipExecute);
 
-                        Comp_AddCycles_C();
+                        if (IrregularCycles)
+                            Comp_AddCycles_C(true);
 
                         Comp_BranchSpecialBehaviour(false);
 
