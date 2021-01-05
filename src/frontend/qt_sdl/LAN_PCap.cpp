@@ -36,7 +36,8 @@
         #ifdef __linux__
             #include <linux/if_packet.h>
         #else
-	    #include <net/if_dl.h>
+            #include <net/if.h>
+            #include <net/if_dl.h>
         #endif
 #endif
 
