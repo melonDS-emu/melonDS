@@ -275,7 +275,7 @@ void Compiler::T_Comp_BL_Merged()
         target |= 1;
 
     MOV(32, MapReg(14), Imm32((R15 - 2) | 1));
-    
+
     Comp_JumpTo(target);
 }
 

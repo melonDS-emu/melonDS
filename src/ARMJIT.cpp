@@ -604,6 +604,8 @@ void CompileBlock(ARM* cpu)
     // they are going to be hashed
     u32 literalValues[Config::JIT_MaxBlockSize];
     u32 instrValues[Config::JIT_MaxBlockSize];
+    // due to instruction merging i might not reflect the amount of actual instructions
+    u32 numInstrs = 0;
 
     cpu->FillPipeline();
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
@@ -623,13 +625,13 @@ void CompileBlock(ARM* cpu)
         instrs[i].SetFlags = 0;
         instrs[i].Instr = nextInstr[0];
         nextInstr[0] = nextInstr[1];
-    
+
         instrs[i].Addr = nextInstrAddr[0];
         nextInstrAddr[0] = nextInstrAddr[1];
         nextInstrAddr[1] = r15;
         JIT_DEBUGPRINT("instr %08x %x\n", instrs[i].Instr & (thumb ? 0xFFFF : ~0), instrs[i].Addr);
 
-        instrValues[i] = instrs[i].Instr;
+        instrValues[numInstrs++] = instrs[i].Instr;
 
         u32 translatedAddr = LocaliseCodeAddress(cpu->Num, instrs[i].Addr);
         assert(translatedAddr >> 27);
@@ -741,12 +743,13 @@ void CompileBlock(ARM* cpu)
         if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
             && instrs[i - 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_1)
         {
-            instrs[i - 1].Info.Kind = ARMInstrInfo::tk_BL_LONG;
-            instrs[i - 1].Instr = (instrs[i - 1].Instr & 0xFFFF) | (instrs[i].Instr << 16);
-            instrs[i - 1].Info.DstRegs = 0xC000;
-            instrs[i - 1].Info.SrcRegs = 0;
-            instrs[i - 1].Info.EndBlock = true;
             i--;
+            instrs[i].Info.Kind = ARMInstrInfo::tk_BL_LONG;
+            instrs[i].Instr = (instrs[i].Instr & 0xFFFF) | (instrs[i + 1].Instr << 16);
+            instrs[i].Info.DstRegs = 0xC000;
+            instrs[i].Info.SrcRegs = 0;
+            instrs[i].Info.EndBlock = true;
+            JIT_DEBUGPRINT("merged BL\n");
         }
 
         if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations)
@@ -829,7 +832,7 @@ void CompileBlock(ARM* cpu)
     } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
 
     u32 literalHash = (u32)XXH3_64bits(literalValues, numLiterals * 4);
-    u32 instrHash = (u32)XXH3_64bits(instrValues, i * 4);
+    u32 instrHash = (u32)XXH3_64bits(instrValues, numInstrs * 4);
 
     auto prevBlockIt = RestoreCandidates.find(instrHash);
     JitBlock* prevBlock = NULL;
