@@ -18,6 +18,11 @@
 
 #include "ArchiveUtil.h"
 
+#ifdef _WIN32
+    #include <direct.h>
+    #define mkdir(dir, mode) _mkdir(dir)
+#endif
+
 namespace Archive
 {
 
@@ -86,15 +91,17 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
         archiveBuffer.reset(nullptr);
         return QVector<QString> {"Err", archive_error_string(a)};
     }
-    
-    QString fileToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
-    
-    std::ofstream(fileToWrite.toUtf8().constData(), std::ofstream::binary).write((char*)archiveBuffer.get(), bytesToWrite);
-    
+    QString nameToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
+
+    mkdir(QFileInfo(path).baseName().toUtf8().constData(), 600); // Create directory otherwise fopen will not open the file
+    FILE* fileToWrite = fopen(nameToWrite.toUtf8().constData(), "wb");
+    fwrite((char*)archiveBuffer.get(), bytesToWrite, 1, fileToWrite);
+    fclose(fileToWrite);
+
     archiveBuffer.reset(nullptr);
     archive_read_close(a);
     archive_read_free(a);
-    return QVector<QString> {fileToWrite};
+    return QVector<QString> {nameToWrite};
 
 }
 
