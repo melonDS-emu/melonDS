@@ -59,7 +59,7 @@ if (APPLE)
     execute_process(COMMAND brew --prefix libarchive
                     OUTPUT_VARIABLE LIBARCHIVE_DIR
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    set(CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}/lib/pkgconfig")
+    list(APPEND CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}")
 endif()
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 
