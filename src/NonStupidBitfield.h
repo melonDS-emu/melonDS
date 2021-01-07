@@ -51,9 +51,14 @@ struct NonStupidBitField
         template <typename T>
         void Next()
         {
-            while (RemainingBits == 0 && DataIdx < DataLength)
+            if (DataIdx >= DataLength)
+                return;
+
+            while (RemainingBits == 0)
             {
                 DataIdx += sizeof(T);
+                if (DataIdx >= DataLength)
+                    return;
                 RemainingBits = *(T*)&BitField.Data[DataIdx];
             }
 
