@@ -38,7 +38,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 * Install dependencies:
 
 ```sh
-sudo apt-get install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtdeclarative5-dev libslirp-dev
+sudo apt-get install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtdeclarative5-dev libslirp-dev libarchive-dev
 ```
 
 * Compile:
@@ -57,7 +57,7 @@ make -j$(nproc --all)
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
 
 #### Dynamic builds (with DLLs)
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp}`
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
@@ -71,7 +71,7 @@ make -j$(nproc --all)
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp}`
+4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive}`
 5. Run the following commands
    ```bash
    git clone https://github.com/Arisotura/melonDS.git
@@ -86,7 +86,7 @@ If everything went well, melonDS should now be in the `dist` folder.
 
 ### macOS:
 1. Install the [Homebrew Package Manager](https://brew.sh)
-2. Install dependencies: `brew install git pkg-config cmake sdl2 qt5 libslirp`
+2. Install dependencies: `brew install git pkg-config cmake sdl2 qt5 libslirp libarchive`
 3. Compile:
    ```zsh
    git clone https://github.com/Arisotura/melonDS.git

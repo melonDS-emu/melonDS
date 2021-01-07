@@ -17,6 +17,9 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     PlatformConfig.cpp
+    
+    ArchiveUtil.h
+    ArchiveUtil.cpp
 
     ../Util_ROM.cpp
     ../Util_Video.cpp
@@ -51,6 +54,15 @@ find_package(Iconv REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(SLIRP REQUIRED slirp)
 
+if (APPLE)
+    # Find libarchive on macOS, because macOS only provides the library, not the headers
+    execute_process(COMMAND brew --prefix libarchive
+                    OUTPUT_VARIABLE LIBARCHIVE_DIR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    list(APPEND CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}")
+endif()
+pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
+
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
     add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
 else()
@@ -61,15 +73,16 @@ target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(melonDS PRIVATE ${SLIRP_INCLUDE_DIRS})
+target_include_directories(melonDS PRIVATE ${LIBARCHIVE_INCLUDE_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
-	target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES})
+	target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
 else()
-	target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES})
+	target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
 endif()
 
 if (NOT Iconv_IS_BUILT_IN)
@@ -85,7 +98,7 @@ elseif (WIN32)
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets z zstd)
+        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets zstd)
     else()
         target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets)
     endif()

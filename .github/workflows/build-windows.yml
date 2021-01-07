@@ -24,7 +24,7 @@ jobs:
         choco install msys2
         C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syuq --noconfirm"
     - name: Install dependencies
-      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,toolchain}"
+      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,toolchain}"
     - name: Create build environment
       run: |
         New-Item -ItemType directory -Path ${{runner.workspace}}\melonDS\build
