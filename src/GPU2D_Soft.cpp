@@ -372,9 +372,6 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     u16* dst = (u16*)GPU::VRAM[dstvram];
     u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
 
-    static_assert(GPU::VRAMDirtyGranularity == 512);
-    GPU::VRAMDirty[dstvram][(dstaddr & 0x1FFFF) / GPU::VRAMDirtyGranularity] = true;
-
     // TODO: handle 3D in accelerated mode!!
 
     u32* srcA;
@@ -466,6 +463,9 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
 
     dstaddr &= 0xFFFF;
     srcBaddr &= 0xFFFF;
+
+    static_assert(GPU::VRAMDirtyGranularity == 512);
+    GPU::VRAMDirty[dstvram][(dstaddr * 2) / GPU::VRAMDirtyGranularity] = true;
 
     switch ((CaptureCnt >> 29) & 0x3)
     {

@@ -1178,7 +1178,6 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
     {
         if (currentMappings[i] != Mapping[i])
         {
-            printf("remapped %x %x\n", currentMappings[i], Mapping[i]);
             result |= NonStupidBitField<Size/VRAMDirtyGranularity>(i*VRAMBitsPerMapping, VRAMBitsPerMapping);
             banksToBeZeroed |= currentMappings[i];
             Mapping[i] = currentMappings[i];
