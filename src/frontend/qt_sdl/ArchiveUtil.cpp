@@ -91,9 +91,10 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
         archiveBuffer.reset(nullptr);
         return QVector<QString> {"Err", archive_error_string(a)};
     }
-    QString nameToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
+    QString extractToFolder = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName();
+    mkdir(extractToFolder.toUtf8().constData(), 600); // Create directory otherwise fopen will not open the file
 
-    mkdir(QFileInfo(path).baseName().toUtf8().constData(), 600); // Create directory otherwise fopen will not open the file
+    QString nameToWrite = extractToFolder + "/" + archive_entry_pathname(entry);
     FILE* fileToWrite = fopen(nameToWrite.toUtf8().constData(), "wb");
     fwrite((char*)archiveBuffer.get(), bytesToWrite, 1, fileToWrite);
     fclose(fileToWrite);
