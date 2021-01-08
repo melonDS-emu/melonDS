@@ -18,11 +18,6 @@
 
 #include "ArchiveUtil.h"
 
-#ifdef _WIN32
-    #include <direct.h>
-    #define mkdir(dir, mode) _mkdir(dir)
-#endif
-
 namespace Archive
 {
 
@@ -82,24 +77,26 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
             break;
         }
     }
+
     size_t bytesToWrite = archive_entry_size(entry);
-    auto archiveBuffer = std::make_unique<u8[]>(bytesToWrite);
-    ssize_t bytesRead = archive_read_data(a, archiveBuffer.get(), bytesToWrite);
+    QByteArray archiveBuffer(bytesToWrite, '\0');
+    ssize_t bytesRead = archive_read_data(a, archiveBuffer.data(), bytesToWrite);
+
     if (bytesRead < 0)
     {
         printf(archive_error_string(a));
-        archiveBuffer.reset(nullptr);
         return QVector<QString> {"Err", archive_error_string(a)};
     }
+
     QString extractToFolder = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName();
-    mkdir(extractToFolder.toUtf8().constData(), 600); // Create directory otherwise fopen will not open the file
+    QDir().mkdir(extractToFolder);
 
     QString nameToWrite = extractToFolder + "/" + archive_entry_pathname(entry);
-    FILE* fileToWrite = fopen(nameToWrite.toUtf8().constData(), "wb");
-    fwrite((char*)archiveBuffer.get(), bytesToWrite, 1, fileToWrite);
-    fclose(fileToWrite);
+    QFile fileToWrite(nameToWrite);
+    if(fileToWrite.open(QIODevice::WriteOnly))
+        fileToWrite.write(archiveBuffer);
 
-    archiveBuffer.reset(nullptr);
+    fileToWrite.close();
     archive_read_close(a);
     archive_read_free(a);
     return QVector<QString> {nameToWrite};
