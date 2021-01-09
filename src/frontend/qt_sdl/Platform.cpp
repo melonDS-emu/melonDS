@@ -207,7 +207,6 @@ void Thread_Wait(Thread* thread)
     ((QThread*) thread)->wait();
 }
 
-
 Semaphore* Semaphore_Create()
 {
     return (Semaphore*)new QSemaphore();
@@ -443,5 +442,9 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
+void Sleep(u64 usecs)
+{
+    QThread::usleep(usecs);
+}
 
 }

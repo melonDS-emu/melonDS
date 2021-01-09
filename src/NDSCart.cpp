@@ -27,7 +27,7 @@
 #include "Config.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
-
+#include "NDSCart_SRAMManager.h"
 
 namespace NDSCart_SRAM
 {
@@ -144,6 +144,8 @@ void LoadSave(const char* path, u32 type)
             memset(SRAM, 0xFF, SRAMLength);
         }
     }
+
+    NDSCart_SRAMManager::Setup(path, SRAM, SRAMLength);
 
     switch (SRAMLength)
     {
@@ -450,17 +452,10 @@ void Write(u8 val, u32 hold)
 
 void FlushSRAMFile()
 {
-    if (!SRAMFileDirty)
-        return;
+    if (!SRAMFileDirty) return;
 
     SRAMFileDirty = false;
-
-    FILE* f = Platform::OpenFile(SRAMPath, "wb");
-    if (f)
-    {
-        fwrite(SRAM, SRAMLength, 1, f);
-        fclose(f);
-    }
+    NDSCart_SRAMManager::RequestFlush();
 }
 
 }
