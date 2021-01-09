@@ -793,13 +793,12 @@ bool ProcessTX(TXSlot* slot, int num)
 
 inline void IncrementRXAddr(u16& addr, u16 inc = 2)
 {
-    addr += inc;
-    addr &= 0x1FFE;
-    if (addr >= (IOPORT(W_RXBufEnd) & 0x1FFE))
+    for (u32 i = 0; i < inc; i += 2)
     {
-        addr -= (IOPORT(W_RXBufEnd) & 0x1FFE);
-        addr += (IOPORT(W_RXBufBegin) & 0x1FFE);
+        addr += 2;
         addr &= 0x1FFE;
+        if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+            addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
     }
 }
 
