@@ -1024,7 +1024,8 @@ void ScreenPanelGL::onScreenLayoutChanged()
 static int signalFd[2];
 QSocketNotifier *signalSn;
 
-static void signalHandler(int) {
+static void signalHandler(int)
+{
     char a = 1;
     write(signalFd[0], &a, sizeof(a));
 }
@@ -1033,7 +1034,8 @@ static void signalHandler(int) {
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
 #ifndef _WIN32
-    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd)) {
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd))
+    {
        qFatal("Couldn't create socketpair");
     }
 
