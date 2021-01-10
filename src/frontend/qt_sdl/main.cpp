@@ -35,6 +35,12 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QVector>
+#ifndef _WIN32
+#include <QSocketNotifier>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <signal.h>
+#endif
 
 #include <SDL2/SDL.h>
 
@@ -1014,9 +1020,35 @@ void ScreenPanelGL::onScreenLayoutChanged()
     setupScreenLayout();
 }
 
+#ifndef _WIN32
+static int signalFd[2];
+QSocketNotifier *signalSn;
+
+static void signalHandler(int) {
+    char a = 1;
+    write(signalFd[0], &a, sizeof(a));
+}
+#endif
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 {
+#ifndef _WIN32
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, signalFd)) {
+       qFatal("Couldn't create socketpair");
+    }
+
+    signalSn = new QSocketNotifier(signalFd[1], QSocketNotifier::Read, this);
+    connect(signalSn, SIGNAL(activated(int)), this, SLOT(onQuit()));
+
+    struct sigaction sa;
+
+    sa.sa_handler = signalHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_flags |= SA_RESTART;
+    sigaction(SIGINT, &sa, 0);
+#endif
+
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -1792,6 +1824,9 @@ void MainWindow::onImportSavefile()
 
 void MainWindow::onQuit()
 {
+#ifndef _WIN32
+    signalSn->setEnabled(false);
+#endif
     QApplication::quit();
 }
 
