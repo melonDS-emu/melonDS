@@ -19,6 +19,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <QFileInfo>
+#include <QDir>
+
 #include "FrontendUtil.h"
 #include "Config.h"
 #include "SharedConfig.h"
@@ -281,6 +284,85 @@ int LoadBIOS()
     LoadCheats();
 
     return Load_OK;
+}
+
+int LoadROM(const QByteArray *romdata, QString archivefilename, QString romfilename, int slot)
+{
+    int res;
+    bool directboot = Config::DirectBoot != 0;
+
+    if (Config::ConsoleType == 1 && slot == 1)
+    {
+        // cannot load a GBA ROM into a DSi
+        return Load_ROMLoadError;
+    }
+
+    res = VerifyDSBIOS();
+    if (res != Load_OK) return res;
+
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiFirmware();
+        if (res != Load_OK) return res;
+
+        res = VerifyDSiNAND();
+        if (res != Load_OK) return res;
+
+        GBACart::Eject();
+        ROMPath[ROMSlot_GBA][0] = '\0';
+    }
+    else
+    {
+        res = VerifyDSFirmware();
+        if (res != Load_OK)
+        {
+            if (res == Load_FirmwareNotBootable)
+                directboot = true;
+            else
+                return res;
+        }
+    }
+
+    char oldpath[1024];
+    char oldsram[1024];
+    strncpy(oldpath, ROMPath[slot], 1024);
+    strncpy(oldsram, SRAMPath[slot], 1024);
+
+    QString sramFile = QFileInfo(archivefilename).absolutePath() + QDir::separator() + QFileInfo(romfilename).completeBaseName() + ".sav";
+    strncpy(SRAMPath[slot], QDir::cleanPath(sramFile).toStdString().c_str(), 1024);
+    strncpy(ROMPath[slot], archivefilename.toStdString().c_str(), 1024);
+
+    NDS::SetConsoleType(Config::ConsoleType);
+
+    if (slot == ROMSlot_NDS && NDS::LoadROM((const u8*)romdata->constData(), romdata->size(), SRAMPath[slot], directboot))
+    {
+        SavestateLoaded = false;
+
+        LoadCheats();
+
+        // Reload the inserted GBA cartridge (if any)
+        // TODO: report failure there??
+        //if (ROMPath[ROMSlot_GBA][0] != '\0') NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
+
+        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        return Load_OK;
+    }
+    /*else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
+    {
+        SavestateLoaded = false; // checkme??
+
+        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        return Load_OK;
+    }*/
+    else
+    {
+        strncpy(ROMPath[slot], oldpath, 1024);
+        strncpy(SRAMPath[slot], oldsram, 1024);
+        return Load_ROMLoadError;
+    }
 }
 
 int LoadROM(const char* file, int slot)

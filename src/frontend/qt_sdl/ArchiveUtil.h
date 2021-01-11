@@ -18,7 +18,7 @@ namespace Archive
 {
     
 QVector<QString> ListArchive(const char* path);
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile);
+QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile, QByteArray *romBuffer);
 
 }
 

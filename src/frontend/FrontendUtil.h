@@ -19,6 +19,9 @@
 #ifndef FRONTENDUTIL_H
 #define FRONTENDUTIL_H
 
+#include <QByteArray>
+#include <QString>
+
 #include "types.h"
 
 namespace Frontend
@@ -76,6 +79,7 @@ int LoadBIOS();
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
 int LoadROM(const char* file, int slot);
+int LoadROM(const QByteArray *romdata, QString archivefilename, QString romfilename, int slot);
 
 // unload the ROM loaded in the specified cart slot
 // simulating ejection of the cartridge

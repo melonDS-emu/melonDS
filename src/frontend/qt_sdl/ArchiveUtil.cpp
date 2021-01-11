@@ -53,7 +53,7 @@ QVector<QString> ListArchive(const char* path)
     return fileList;
 }
 
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile)
+QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile, QByteArray *romBuffer)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;
@@ -67,11 +67,9 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     {
         return QVector<QString> {"Err"};
     }
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        if (wantedFile == nullptr)
-        {
-            break;
-        }
+
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK)
+    {
         if (strcmp(wantedFile, archive_entry_pathname(entry)) == 0)
         {
             break;
@@ -79,8 +77,8 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     }
 
     size_t bytesToWrite = archive_entry_size(entry);
-    QByteArray archiveBuffer(bytesToWrite, '\0');
-    ssize_t bytesRead = archive_read_data(a, archiveBuffer.data(), bytesToWrite);
+    romBuffer->fill(0, bytesToWrite);
+    ssize_t bytesRead = archive_read_data(a, romBuffer->data(), bytesToWrite);
 
     if (bytesRead < 0)
     {
@@ -88,18 +86,9 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
         return QVector<QString> {"Err", archive_error_string(a)};
     }
 
-    QString extractToFolder = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName();
-    QDir().mkdir(extractToFolder);
-
-    QString nameToWrite = extractToFolder + "/" + archive_entry_pathname(entry);
-    QFile fileToWrite(nameToWrite);
-    if(fileToWrite.open(QIODevice::WriteOnly))
-        fileToWrite.write(archiveBuffer);
-
-    fileToWrite.close();
     archive_read_close(a);
     archive_read_free(a);
-    return QVector<QString> {nameToWrite};
+    return QVector<QString> {wantedFile};
 
 }
 

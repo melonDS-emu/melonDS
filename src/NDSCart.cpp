@@ -1026,6 +1026,22 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     return LoadROMCommon(len, sram, direct);
 }
 
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
+{
+    NDS::Reset();
+
+    u32 len = filelength;
+    CartROMSize = 0x200;
+    while (CartROMSize < len)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, filelength);
+
+    return LoadROMCommon(filelength, sram, direct);
+}
+
 void RelocateSave(const char* path, bool write)
 {
     // herp derp

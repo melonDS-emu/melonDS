@@ -193,6 +193,7 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
 void SetConsoleType(int type);
 
 bool LoadROM(const char* path, const char* sram, bool direct);
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
 bool LoadGBAROM(const char* path, const char* sram);
 void LoadBIOS();
 void SetupDirectBoot();

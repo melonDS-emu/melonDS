@@ -1501,6 +1501,44 @@ QString MainWindow::loadErrorStr(int error)
     }
 }
 
+void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString romFileName)
+{
+    // Strip entire archive name and get folder path
+    strncpy(Config::LastROMFolder, QFileInfo(archiveFileName).absolutePath().toStdString().c_str(), 1024);
+
+    int slot; int res;
+    /*if (!strcasecmp(ext, "gba"))
+    {
+        slot = 1;
+        res = Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+    }
+    else
+    {
+        slot = 0;
+        res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+    }*/
+
+    // TODO: GBA support here!
+    slot = 0;
+    res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_NDS);
+    if (res != Frontend::Load_OK)
+    {
+        QMessageBox::critical(this,
+                              "melonDS",
+                              loadErrorStr(res));
+        emuThread->emuUnpause();
+    }
+    else if (slot == 1)
+    {
+        // checkme
+        emuThread->emuUnpause();
+    }
+    else
+    {
+        emuThread->emuRun();
+    }
+}
+
 void MainWindow::loadROM(QString filename)
 {
     recentFileList.removeAll(filename);
@@ -1573,28 +1611,31 @@ void MainWindow::onOpenFileArchive()
 {
     emuThread->emuPause();
 
-    QString filename = QFileDialog::getOpenFileName(this,
+    QString archiveFileName = QFileDialog::getOpenFileName(this,
                                                     "Open ROM Archive",
                                                     Config::LastROMFolder,
                                                     "Archived ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *.tar.bz2);;Any file (*.*)");
-    if (filename.isEmpty())
+    if (archiveFileName.isEmpty())
     {
         emuThread->emuUnpause();
         return;
     }
 
     printf("Finding list of ROMs...\n");
-    QVector<QString> archiveROMList = Archive::ListArchive(filename.toUtf8().constData());
+    QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
+    QByteArray *romBuffer = new QByteArray();
+    QString romFileName; // file name inside archive
+
     if (archiveROMList.size() > 2)
     {
         archiveROMList.removeFirst();
         QString toLoad = QInputDialog::getItem(this, "melonDS",
                                   "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false);
         printf("Extracting '%s'\n", toLoad.toUtf8().constData());
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), toLoad.toUtf8().constData());
+        QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), toLoad.toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
-            filename = extractResult[0];
+            romFileName = extractResult[0];
         }
         else 
         {
@@ -1604,10 +1645,10 @@ void MainWindow::onOpenFileArchive()
     else if (archiveROMList.size() == 2)
     {   
         printf("Extracting the only ROM in archive\n");
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), nullptr);
+        QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), archiveROMList.at(1).toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
-            filename = extractResult[0];
+            romFileName = extractResult[0];
         }
         else 
         {
@@ -1623,7 +1664,8 @@ void MainWindow::onOpenFileArchive()
         QMessageBox::critical(this, "melonDS", "The archive could not be read. It may be corrupt or you don't have the permissions.");
     }
 
-    loadROM(filename);
+    loadROM(romBuffer, archiveFileName, romFileName);
+    delete romBuffer;
 }
 
 void MainWindow::onClearRecentFiles()

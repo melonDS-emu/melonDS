@@ -823,6 +823,20 @@ void SetConsoleType(int type)
     ConsoleType = type;
 }
 
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
+{
+    if (NDSCart::LoadROM(romdata, filelength, sram, direct))
+    {
+        Running = true;
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM from archive\n");
+        return false;
+    }
+}
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     if (NDSCart::LoadROM(path, sram, direct))
