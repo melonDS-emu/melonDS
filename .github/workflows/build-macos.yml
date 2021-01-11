@@ -21,7 +21,8 @@ jobs:
     - name: Install dependencies
       working-directory: ${{runner.workspace}}
       run: |
-        brew install cmake sdl2 qt5 libslirp libarchive
+        brew update
+        brew install cmake sdl2 qt@5 libslirp libarchive
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
