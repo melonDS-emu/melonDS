@@ -350,13 +350,13 @@ int LoadROM(const QByteArray *romdata, QString archivefilename, QString romfilen
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
         return Load_OK;
     }
-    /*else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
+    else if (slot == ROMSlot_GBA && NDS::LoadGBAROM((const u8*)romdata->constData(), romdata->size(), romfilename.toStdString().c_str(), SRAMPath[slot]))
     {
         SavestateLoaded = false; // checkme??
 
         strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
         return Load_OK;
-    }*/
+    }
     else
     {
         strncpy(ROMPath[slot], oldpath, 1024);

@@ -677,6 +677,20 @@ bool LoadROM(const char* path, const char* sram)
     return true;
 }
 
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
+{
+    CartROMSize = 0x200;
+    while (CartROMSize < filelength)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memcpy(CartROM, romdata, filelength);
+
+    LoadROMCommon(sram);
+
+    return true;
+}
+
 void RelocateSave(const char* path, bool write)
 {
     // derp herp

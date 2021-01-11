@@ -1507,20 +1507,17 @@ void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString r
     strncpy(Config::LastROMFolder, QFileInfo(archiveFileName).absolutePath().toStdString().c_str(), 1024);
 
     int slot; int res;
-    /*if (!strcasecmp(ext, "gba"))
+    if (romFileName.endsWith("gba"))
     {
         slot = 1;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+        res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_GBA);
     }
     else
     {
         slot = 0;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
-    }*/
+        res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_NDS);
+    }
 
-    // TODO: GBA support here!
-    slot = 0;
-    res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_NDS);
     if (res != Frontend::Load_OK)
     {
         QMessageBox::critical(this,

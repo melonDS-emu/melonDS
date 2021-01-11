@@ -864,6 +864,19 @@ bool LoadGBAROM(const char* path, const char* sram)
     }
 }
 
+bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram)
+{
+    if (GBACart::LoadROM(romdata, filelength, sram))
+    {
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM %s from archive\n", filename);
+        return false;
+    }
+}
+
 void LoadBIOS()
 {
     Reset();
