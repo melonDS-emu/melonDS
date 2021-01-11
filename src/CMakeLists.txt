@@ -101,8 +101,8 @@ if (ENABLE_JIT)
 endif()
 
 if (APPLE)
-        target_include_directories(core PUBLIC /usr/local/include)
-        target_link_directories(core PUBLIC /usr/local/lib)
+        target_include_directories(core PUBLIC /usr/local/include /opt/homebrew/include)
+        target_link_directories(core PUBLIC /usr/local/lib /opt/homebrew/lib)
 endif()
 
 if (ENABLE_OGLRENDERER)
