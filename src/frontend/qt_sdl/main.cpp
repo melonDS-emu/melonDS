@@ -1718,12 +1718,12 @@ void MainWindow::updateRecentFilesMenu()
 
 void MainWindow::onClickRecentFile()
 {
-    emuThread->emuPause();
     QAction *act = (QAction *)sender();
     QString fileName = act->data().toString();
 
     if(fileName.endsWith(".gba") || fileName.endsWith(".nds"))
     {
+        emuThread->emuPause();
         loadROM(fileName);
     }
     else
@@ -1734,6 +1734,7 @@ void MainWindow::onClickRecentFile()
         QString romFileName = MainWindow::pickAndExtractFileFromArchive(archiveFileName, romBuffer);
         if(!romFileName.isEmpty())
         {
+            emuThread->emuPause();
             loadROM(romBuffer, archiveFileName, romFileName);
         }
         delete romBuffer;
