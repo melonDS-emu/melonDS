@@ -177,6 +177,8 @@ public:
     bool hasOGL;
     QOpenGLContext* getOGLContext();
 
+    QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
+
 protected:
     void resizeEvent(QResizeEvent* event) override;
 
