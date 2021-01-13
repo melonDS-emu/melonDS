@@ -1,0 +1,46 @@
+name: CMake Build (FreeBSD x86-64)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install dependencies
+      uses: vmactions/freebsd-vm@main
+      with:
+        run: |
+          pkg install -y git wget pkgconf glib meson ninja cmake qt5-core qt5-gui qt5-widgets sdl2
+          wget https://gitlab.freedesktop.org/slirp/libslirp/-/archive/v4.4.0/libslirp-v4.4.0.zip
+          unzip libslirp-v4.4.0.zip
+          cd libslirp-v4.4.0
+          meson build
+          ninja -C build install
+    - name: Create build environment
+      uses: vmactions/freebsd-vm@main
+      with:
+        run: mkdir ${{runner.workspace}}/build
+    - name: Configure
+      uses: vmactions/freebsd-vm@main
+      with:
+        run: cmake $GITHUB_WORKSPACE
+    - name: Make
+      uses: vmactions/freebsd-vm@main
+      with:
+        run: make
+    - uses: actions/upload-artifact@v1
+      with:
+        name: melonDS
+        path: ${{runner.workspace}}/build/dist
