@@ -761,7 +761,7 @@ void Init()
 #endif
     if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
     {
-        printf("Failed to allocate memory using ftruncate!);
+        printf("Failed to allocate memory using ftruncate!");
     }
 
     struct sigaction sa;
