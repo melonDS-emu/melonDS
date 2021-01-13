@@ -21,7 +21,9 @@ jobs:
     - name: Install dependencies
       working-directory: ${{runner.workspace}}
       run: |
-        brew install cmake sdl2 qt5 libslirp libarchive
+        rm -rf /usr/local/bin/2to3 # Temporary workaround suggested here - https://github.com/actions/virtual-environments/issues/2322#issuecomment-749211076
+        brew update
+        brew install sdl2 qt@5 libslirp libarchive
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
