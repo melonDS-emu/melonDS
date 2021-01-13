@@ -752,10 +752,17 @@ void Init()
 #else
     char fastmemPidName[snprintf(NULL, 0, "/melondsfastmem%d", getpid()) + 1];
     sprintf(fastmemPidName, "/melondsfastmem%d", getpid());
-    MemoryFile = shm_open(fastmemPidName, O_RDWR|O_CREAT, 0600);
+    MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (MemoryFile == -1)
+    {
+        printf("Failed to open memory using shm_open!");
+    }
     shm_unlink(fastmemPidName);
 #endif
-    ftruncate(MemoryFile, MemoryTotalSize);
+    if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
+    {
+        printf("Failed to allocate memory using ftruncate!);
+    }
 
     struct sigaction sa;
     sa.sa_handler = nullptr;
