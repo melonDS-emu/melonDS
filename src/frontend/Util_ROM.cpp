@@ -570,15 +570,22 @@ void GetSavestateName(int slot, char* filename, int len)
     }
     else
     {
-        int l = strlen(ROMPath[ROMSlot_NDS]);
+        char *rompath;
+        QString _filename(ROMPath[ROMSlot_NDS]);
+        if(_filename.endsWith(".nds") || _filename.endsWith(".srl") || _filename.endsWith(".dsi"))
+            rompath = ROMPath[ROMSlot_NDS];
+        else
+            rompath = SRAMPath[ROMSlot_NDS]; // If archive, construct ssname from sram file
+
+        int l = strlen(rompath);
         pos = l;
-        while (ROMPath[ROMSlot_NDS][pos] != '.' && pos > 0) pos--;
+        while (rompath[pos] != '.' && pos > 0) pos--;
         if (pos == 0) pos = l;
 
         // avoid buffer overflow. shoddy
         if (pos > len-5) pos = len-5;
 
-        strncpy(&filename[0], ROMPath[ROMSlot_NDS], pos);
+        strncpy(&filename[0], rompath, pos);
     }
     strcpy(&filename[pos], ".ml");
     filename[pos+3] = '0'+slot;
