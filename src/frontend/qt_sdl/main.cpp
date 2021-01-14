@@ -1645,7 +1645,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         archiveROMList.removeFirst();
 
         bool ok;
-        QString toLoad = QInputDialog::getItem(this, "melonDS",
+        QString toLoad = QInputDialog::getItem(nullptr, "melonDS",
                                   "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
         if(!ok) // User clicked on cancel
             return QString();
@@ -1658,7 +1658,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         }
         else
         {
-            QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
+            QMessageBox::critical(nullptr, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
         }
     }
     else if (archiveROMList.size() == 2)
@@ -1671,16 +1671,16 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         }
         else
         {
-            QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
+            QMessageBox::critical(nullptr, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
         }
     }
     else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
     {
-        QMessageBox::warning(this, "melonDS", "The archive is intact, but there are no files inside.");
+        QMessageBox::warning(nullptr, "melonDS", "The archive is intact, but there are no files inside.");
     }
     else
     {
-        QMessageBox::critical(this, "melonDS", "The archive could not be read. It may be corrupt or you don't have the permissions.");
+        QMessageBox::critical(nullptr, "melonDS", "The archive could not be read. It may be corrupt or you don't have the permissions.");
     }
 
     return romFileName;

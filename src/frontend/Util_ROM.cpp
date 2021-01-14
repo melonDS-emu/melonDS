@@ -22,6 +22,7 @@
 #include <QFileInfo>
 #include <QDir>
 
+#include "main.h"
 #include "FrontendUtil.h"
 #include "Config.h"
 #include "SharedConfig.h"
@@ -504,16 +505,49 @@ int Reset()
     }
     else
     {
-        SetupSRAMPath(0);
-        if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
-            return Load_ROMLoadError;
+        QString fileName(ROMPath[ROMSlot_NDS]);
+        if(fileName.endsWith(".nds"))
+        {
+            SetupSRAMPath(0);
+            if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
+                return Load_ROMLoadError;
+        }
+        else
+        {
+            QByteArray romBuffer;
+            QString romFileName = MainWindow::pickAndExtractFileFromArchive(fileName, &romBuffer);
+            if(romFileName.isEmpty())
+                return Load_ROMLoadError;
+            QString sramFile = QFileInfo(fileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
+            strncpy(SRAMPath[0], QDir::cleanPath(sramFile).toStdString().c_str(), 1024);
+            if(!NDS::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(), SRAMPath[ROMSlot_NDS], directboot))
+                return Load_ROMLoadError;
+
+        }
+
     }
 
     if (ROMPath[ROMSlot_GBA][0] != '\0')
     {
-        SetupSRAMPath(1);
-        if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
-            return Load_ROMLoadError;
+        QString fileName(ROMPath[ROMSlot_GBA]);
+        if(fileName.endsWith(".gba"))
+        {
+            SetupSRAMPath(1);
+            if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
+                return Load_ROMLoadError;
+        }
+        else
+        {
+            QByteArray romBuffer;
+            QString romFileName = MainWindow::pickAndExtractFileFromArchive(fileName, &romBuffer);
+            if(romFileName.isEmpty())
+                return Load_ROMLoadError;
+            QString sramFile = QFileInfo(fileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
+            strncpy(SRAMPath[1], QDir::cleanPath(sramFile).toStdString().c_str(), 1024);
+            if(!NDS::LoadGBAROM((const u8*)romBuffer.constData(), romBuffer.size(), romFileName.toStdString().c_str(), SRAMPath[ROMSlot_GBA]))
+                return Load_ROMLoadError;
+        }
+
     }
 
     LoadCheats();
