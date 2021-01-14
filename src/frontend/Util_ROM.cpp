@@ -506,7 +506,7 @@ int Reset()
     else
     {
         QString fileName(ROMPath[ROMSlot_NDS]);
-        if(fileName.endsWith(".nds"))
+        if(fileName.endsWith(".nds") || fileName.endsWith(".srl") || fileName.endsWith(".dsi"))
         {
             SetupSRAMPath(0);
             if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))

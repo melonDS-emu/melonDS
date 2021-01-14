@@ -1742,7 +1742,7 @@ void MainWindow::onClickRecentFile()
     QAction *act = (QAction *)sender();
     QString fileName = act->data().toString();
 
-    if(fileName.endsWith(".gba") || fileName.endsWith(".nds"))
+    if(fileName.endsWith(".gba") || fileName.endsWith(".nds") || fileName.endsWith(".srl") || fileName.endsWith(".dsi"))
     {
         emuThread->emuPause();
         loadROM(fileName);
