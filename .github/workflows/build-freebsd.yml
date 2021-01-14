@@ -31,7 +31,7 @@ jobs:
           mkdir ${{runner.workspace}}/build
         run: |
           cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-          make
+          make -j`sysctl -n hw.ncpu`
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS
