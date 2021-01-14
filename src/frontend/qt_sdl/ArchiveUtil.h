@@ -6,7 +6,7 @@
 #include <string>
 #include <memory>
 
-#include <QVector>
+#include <QList>
 #include <QDir>
 
 #include <archive.h>
@@ -17,8 +17,8 @@
 namespace Archive
 {
     
-QVector<QString> ListArchive(const char* path);
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile);
+QList<QString> ListArchive(const char* path);
+QList<QString> ExtractFileFromArchive(const char* path, const char* wantedFile);
 
 }
 

@@ -34,7 +34,7 @@
 #include <QPainter>
 #include <QKeyEvent>
 #include <QMimeData>
-#include <QVector>
+#include <QList>
 #ifndef _WIN32
 #include <QSocketNotifier>
 #include <unistd.h>
@@ -1584,14 +1584,14 @@ void MainWindow::onOpenFileArchive()
     }
 
     printf("Finding list of ROMs...\n");
-    QVector<QString> archiveROMList = Archive::ListArchive(filename.toUtf8().constData());
+    QList<QString> archiveROMList = Archive::ListArchive(filename.toUtf8().constData());
     if (archiveROMList.size() > 2)
     {
         archiveROMList.removeFirst();
         QString toLoad = QInputDialog::getItem(this, "melonDS",
                                   "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false);
         printf("Extracting '%s'\n", toLoad.toUtf8().constData());
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), toLoad.toUtf8().constData());
+        QList<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), toLoad.toUtf8().constData());
         if (extractResult[0] != QString("Err"))
         {
             filename = extractResult[0];
@@ -1604,7 +1604,7 @@ void MainWindow::onOpenFileArchive()
     else if (archiveROMList.size() == 2)
     {   
         printf("Extracting the only ROM in archive\n");
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), nullptr);
+        QList<QString> extractResult = Archive::ExtractFileFromArchive(filename.toUtf8().constData(), nullptr);
         if (extractResult[0] != QString("Err"))
         {
             filename = extractResult[0];

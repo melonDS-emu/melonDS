@@ -3,7 +3,7 @@ project(qt_sdl)
 SET(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
-	CheatsDialog.cpp
+    CheatsDialog.cpp
     EmuSettingsDialog.cpp
     InputConfigDialog.cpp
     VideoSettingsDialog.cpp
@@ -34,15 +34,17 @@ if (WIN32)
     set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
 endif()
 
-if (BUILD_STATIC AND QT5_STATIC_DIR)
-    set(QT5_STATIC_BASE ${QT5_STATIC_DIR}/lib/cmake/Qt5)
-    set(Qt5_DIR ${QT5_STATIC_BASE})
-    set(Qt5Core_DIR ${QT5_STATIC_BASE}Core)
-    set(Qt5Gui_DIR ${QT5_STATIC_BASE}Gui)
-    set(Qt5Widgets_DIR ${QT5_STATIC_BASE}Widgets)
+if (BUILD_STATIC AND QT6_STATIC_DIR)
+    set(QT6_STATIC_BASE ${QT6_STATIC_DIR}/lib/cmake/Qt6)
+    set(Qt6_DIR ${QT6_STATIC_BASE})
+    set(Qt6Core_DIR ${QT6_STATIC_BASE}Core)
+    set(Qt6Gui_DIR ${QT6_STATIC_BASE}Gui)
+    set(Qt6Widgets_DIR ${QT6_STATIC_BASE}Widgets)
+    set(Qt6OpenGL_DIR ${QT6_STATIC_BASE}OpenGL)
+    set(Qt6OpenGLWidgets_DIR ${QT6_STATIC_BASE}OpenGLWidgets)
 endif()
 
-find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -91,16 +93,16 @@ endif()
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
-    target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
+    target_link_libraries(melonDS dl Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static Qt5::Core Qt5::Gui Qt5::Widgets zstd)
+	target_link_libraries(melonDS imm32 winmm version setupapi -static Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets zstd)
     else()
-        target_link_libraries(melonDS Qt5::Core Qt5::Gui Qt5::Widgets)
+	target_link_libraries(melonDS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
     endif()
 endif()
 

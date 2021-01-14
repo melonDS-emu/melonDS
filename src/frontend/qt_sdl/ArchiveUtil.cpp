@@ -26,13 +26,13 @@
 namespace Archive
 {
 
-QVector<QString> ListArchive(const char* path)
+QList<QString> ListArchive(const char* path)
 {
     struct archive *a;
     struct archive_entry *entry;
     int r;
 
-    QVector<QString> fileList = {"OK"};
+    QList<QString> fileList = {"OK"};
     
     a = archive_read_new();
     archive_read_support_filter_all(a);
@@ -40,7 +40,7 @@ QVector<QString> ListArchive(const char* path)
     r = archive_read_open_filename(a, path, 10240);
     if (r != ARCHIVE_OK)
     {
-        return QVector<QString> {"Err"};
+        return QList<QString> {"Err"};
     }
     
     while (archive_read_next_header(a, &entry) == ARCHIVE_OK) 
@@ -52,13 +52,13 @@ QVector<QString> ListArchive(const char* path)
     archive_read_free(a);  
     if (r != ARCHIVE_OK)
     {
-        return QVector<QString> {"Err"};
+        return QList<QString> {"Err"};
     }
     
     return fileList;
 }
 
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile)
+QList<QString> ExtractFileFromArchive(const char* path, const char* wantedFile)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;
@@ -70,7 +70,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     r = archive_read_open_filename(a, path, 10240);
     if (r != ARCHIVE_OK)
     {
-        return QVector<QString> {"Err"};
+        return QList<QString> {"Err"};
     }
     while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
         if (wantedFile == nullptr)
@@ -89,7 +89,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     {
         printf(archive_error_string(a));
         archiveBuffer.reset(nullptr);
-        return QVector<QString> {"Err", archive_error_string(a)};
+        return QList<QString> {"Err", archive_error_string(a)};
     }
     QString nameToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
 
@@ -101,7 +101,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     archiveBuffer.reset(nullptr);
     archive_read_close(a);
     archive_read_free(a);
-    return QVector<QString> {nameToWrite};
+    return QList<QString> {nameToWrite};
 
 }
 
