@@ -1645,14 +1645,12 @@ void MainWindow::onOpenFileArchive()
         return;
     }
 
-    QByteArray *romBuffer = new QByteArray();
-    QString romFileName = pickAndExtractFileFromArchive(archiveFileName, romBuffer);
+    QByteArray romBuffer;
+    QString romFileName = pickAndExtractFileFromArchive(archiveFileName, &romBuffer);
     if(!romFileName.isEmpty())
     {
-        loadROM(romBuffer, archiveFileName, romFileName);
+        loadROM(&romBuffer, archiveFileName, romFileName);
     }
-
-    delete romBuffer;
 }
 
 QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
@@ -1753,14 +1751,13 @@ void MainWindow::onClickRecentFile()
     {
         // Archives
         QString archiveFileName = fileName;
-        QByteArray *romBuffer = new QByteArray;
-        QString romFileName = MainWindow::pickAndExtractFileFromArchive(archiveFileName, romBuffer);
+        QByteArray romBuffer;
+        QString romFileName = MainWindow::pickAndExtractFileFromArchive(archiveFileName, &romBuffer);
         if(!romFileName.isEmpty())
         {
             emuThread->emuPause();
-            loadROM(romBuffer, archiveFileName, romFileName);
+            loadROM(&romBuffer, archiveFileName, romFileName);
         }
-        delete romBuffer;
     }
 }
 
