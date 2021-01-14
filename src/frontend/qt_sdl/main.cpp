@@ -1406,10 +1406,15 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     if (urls.count() > 1) return; // not handling more than one file at once
 
     QString filename = urls.at(0).toLocalFile();
-    QString ext = filename.right(3);
 
-    if (ext == "nds" || ext == "srl" || ext == "dsi" || ext == "gba")
-        event->acceptProposedAction();
+    QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
+                             ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
+
+    for(const QString &ext : acceptedExts)
+    {
+        if(filename.endsWith(ext))
+            event->acceptProposedAction();
+    }
 }
 
 void MainWindow::dropEvent(QDropEvent* event)
@@ -1424,6 +1429,10 @@ void MainWindow::dropEvent(QDropEvent* event)
     QString filename = urls.at(0).toLocalFile();
     QString ext = filename.right(3);
 
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
+
     char _filename[1024];
     strncpy(_filename, filename.toStdString().c_str(), 1023); _filename[1023] = '\0';
 
@@ -1433,10 +1442,24 @@ void MainWindow::dropEvent(QDropEvent* event)
         slot = 1;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
     }
-    else
+    else if(ext == "nds" || ext == "srl" || ext == "dsi")
     {
         slot = 0;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+    }
+    else
+    {
+        QByteArray romBuffer;
+        QString romFileName = pickAndExtractFileFromArchive(_filename, &romBuffer);
+        if(romFileName.isEmpty())
+        {
+           res = Frontend::Load_ROMLoadError;
+        }
+        else
+        {
+            slot = (romFileName.endsWith(".gba") ? 1 : 0);
+            res = Frontend::LoadROM(&romBuffer, _filename, romFileName, slot);
+        }
     }
 
     if (res != Frontend::Load_OK)
