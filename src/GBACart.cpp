@@ -620,7 +620,7 @@ void DoSavestate(Savestate* file)
     if (HasSolarSensor) GBACart_SolarSensor::DoSavestate(file);
 }
 
-static void LoadROMCommon(const char *sram)
+void LoadROMCommon(const char *sram)
 {
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);

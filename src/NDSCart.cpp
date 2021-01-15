@@ -885,7 +885,7 @@ void DecryptSecureArea(u8* out)
     }
 }
 
-static bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
+bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 {
     u32 gamecode;
     memcpy(&gamecode, CartROM + 0x0C, 4);
