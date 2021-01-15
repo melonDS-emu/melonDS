@@ -1458,7 +1458,14 @@ void MainWindow::dropEvent(QDropEvent* event)
         else
         {
             slot = (romFileName.endsWith(".gba") ? 1 : 0);
-            res = Frontend::LoadROM(&romBuffer, _filename, romFileName, slot);
+            QString sramFileName = QFileInfo(_filename).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
+
+            if(slot == 0)
+                strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
+
+            res = Frontend::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(),
+                                    _filename, romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
+                                    slot);
         }
     }
 
@@ -1533,16 +1540,25 @@ void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString r
     // Strip entire archive name and get folder path
     strncpy(Config::LastROMFolder, QFileInfo(archiveFileName).absolutePath().toStdString().c_str(), 1024);
 
+    QString sramFileName = QFileInfo(archiveFileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
+
     int slot; int res;
     if (romFileName.endsWith("gba"))
     {
         slot = 1;
-        res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_GBA);
+        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
+                                archiveFileName.toStdString().c_str(),
+                                romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
+                                Frontend::ROMSlot_GBA);
     }
     else
     {
+        strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
         slot = 0;
-        res = Frontend::LoadROM(romData, archiveFileName, romFileName, Frontend::ROMSlot_NDS);
+        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
+                                archiveFileName.toStdString().c_str(),
+                                romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
+                                Frontend::ROMSlot_NDS);
     }
 
     if (res != Frontend::Load_OK)

@@ -92,5 +92,21 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
 
 }
 
+u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata)
+{
+    QByteArray romBuffer;
+    QVector<QString> extractResult = ExtractFileFromArchive(path, wantedFile, &romBuffer);
+
+    if(extractResult[0] == "Err")
+    {
+        return 0;
+    }
+
+    u32 len = romBuffer.size();
+    *romdata = new u8[romBuffer.size()];
+    memcpy(*romdata, romBuffer.data(), len);
+
+    return len;
+}
 
 }

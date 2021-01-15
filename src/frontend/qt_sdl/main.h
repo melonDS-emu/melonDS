@@ -177,8 +177,6 @@ public:
     bool hasOGL;
     QOpenGLContext* getOGLContext();
 
-    static QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
-
 protected:
     void resizeEvent(QResizeEvent* event) override;
 
@@ -246,6 +244,8 @@ private:
     void updateRecentFilesMenu();
     void loadROM(QString filename);
     void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
+
+    QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
     void createScreenPanel();
 
