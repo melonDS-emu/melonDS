@@ -19,9 +19,6 @@
 #ifndef FRONTENDUTIL_H
 #define FRONTENDUTIL_H
 
-#include <QByteArray>
-#include <QString>
-
 #include "types.h"
 
 namespace Frontend
