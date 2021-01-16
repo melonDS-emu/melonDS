@@ -51,6 +51,9 @@ int JIT_LiteralOptimisations = true;
 int JIT_FastMemory = true;
 #endif
 
+char SavePath[1024];
+int SavePathEnable;
+
 ConfigEntry ConfigFile[] =
 {
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
@@ -79,6 +82,9 @@ ConfigEntry ConfigFile[] =
         {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
     #endif
 #endif
+
+    {"SavePath", 1, SavePath, 0, "", 1023},
+    {"SavePathEnable", 0, &SavePathEnable, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };

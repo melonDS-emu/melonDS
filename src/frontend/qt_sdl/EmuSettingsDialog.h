@@ -67,6 +67,9 @@ private slots:
     void on_btnDSiSDBrowse_clicked();
 
     void on_chkEnableJIT_toggled();
+    
+    void on_btnSaveBrowse_clicked();
+    void on_chkCustomSaveDir_toggled();
 
 private:
     void verifyFirmware();

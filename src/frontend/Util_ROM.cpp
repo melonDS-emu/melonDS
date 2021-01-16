@@ -29,6 +29,8 @@
 
 #include "AREngine.h"
 
+#include <QDir>
+#include <QFileInfo>
 
 namespace Frontend
 {
@@ -72,11 +74,32 @@ void DeInit_ROM()
 // good thing, depending on what state the core was left in.
 // should we do a better state revert (via the savestate system)? completely stop?
 
-void SetupSRAMPath(int slot)
+int SetupSRAMPath(int slot)
 {
+    if (Config::SavePathEnable)
+    {
+        QDir dir(Config::SavePath);
+        if (!dir.exists()) return Load_SavePathMissing;
+        
+        char spath[1024];
+        strncpy(spath, Config::SavePath, 1023);
+        
+        QFileInfo fi(ROMPath[slot]);
+        strcat(spath, "/");
+        strcat(spath, fi.fileName().toStdString().c_str());
+        
+        strncpy(SRAMPath[slot], spath, 1023);
+        SRAMPath[slot][1023] = '\0';
+        strncpy(SRAMPath[slot] + strlen(spath) - 3, "sav", 3);
+        
+        return Load_OK;
+    }
+    
     strncpy(SRAMPath[slot], ROMPath[slot], 1023);
     SRAMPath[slot][1023] = '\0';
     strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
+    
+    return Load_OK;
 }
 
 int VerifyDSBIOS()
@@ -331,8 +354,11 @@ int LoadROM(const char* file, int slot)
     strncpy(ROMPath[slot], file, 1023);
     ROMPath[slot][1023] = '\0';
 
-    SetupSRAMPath(0);
-    SetupSRAMPath(1);
+    res = SetupSRAMPath(0);
+    if (res != Load_OK) return res;
+    
+    res = SetupSRAMPath(1);
+    if (res != Load_OK) return res;
 
     NDS::SetConsoleType(Config::ConsoleType);
 
