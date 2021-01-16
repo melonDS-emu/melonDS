@@ -885,47 +885,10 @@ void DecryptSecureArea(u8* out)
     }
 }
 
-
-bool LoadROM(const char* path, const char* sram, bool direct)
+u32 InitROM(u32 expectedLen, bool direct)
 {
-    // TODO: streaming mode? for really big ROMs or systems with limited RAM
-    // for now we're lazy
-    // also TODO: validate what we're loading!!
-
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    NDS::Reset();
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    u32 gamecode;
-    fseek(f, 0x0C, SEEK_SET);
-    fread(&gamecode, 4, 1, f);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
-
-    u8 unitcode;
-    fseek(f, 0x12, SEEK_SET);
-    fread(&unitcode, 1, 1, f);
-    CartIsDSi = (unitcode & 0x02) != 0;
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    fseek(f, 0, SEEK_SET);
-    fread(CartROM, 1, len, f);
-
-    fclose(f);
-    //CartROM = f;
-
     ROMListEntry romparams;
+    u32 gamecode = *((u32*)CartROM + 3);
     if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
@@ -941,7 +904,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     else
         printf("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams.ROMSize != len) printf("!! bad ROM size %d (expected %d) rounded to %d\n", len, romparams.ROMSize, CartROMSize);
+    if (romparams.ROMSize != expectedLen) printf("!! bad ROM size %d (expected %d) rounded to %d\n", expectedLen, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1012,10 +975,6 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     // encryption
     Key1_InitKeycode(false, gamecode, 2, 2);
 
-    // save
-    printf("Save file: %s\n", sram);
-    NDSCart_SRAM::LoadSave(sram, romparams.SaveMemType);
-
     if (CartIsHomebrew && Config::DLDIEnable)
     {
         CartSD = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
@@ -1023,6 +982,71 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     else
         CartSD = NULL;
 
+    return romparams.SaveMemType;
+}
+
+bool LoadROM(const char* path, const char* sram, bool direct)
+{
+    // TODO: streaming mode? for really big ROMs or systems with limited RAM
+    // for now we're lazy
+    // also TODO: validate what we're loading!!
+
+    FILE* f = Platform::OpenFile(path, "rb");
+    if (!f)
+    {
+        return false;
+    }
+
+    NDS::Reset();
+
+    fseek(f, 0, SEEK_END);
+    u32 len = (u32)ftell(f);
+
+    CartROMSize = 0x200;
+    while (CartROMSize < len)
+        CartROMSize <<= 1;
+
+    u32 gamecode;
+    fseek(f, 0x0C, SEEK_SET);
+    fread(&gamecode, 4, 1, f);
+    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
+
+    u8 unitcode;
+    fseek(f, 0x12, SEEK_SET);
+    fread(&unitcode, 1, 1, f);
+    CartIsDSi = (unitcode & 0x02) != 0;
+
+    CartROM = new u8[CartROMSize];
+    memset(CartROM, 0, CartROMSize);
+    fseek(f, 0, SEEK_SET);
+    fread(CartROM, 1, len, f);
+
+    fclose(f);
+    //CartROM = f;
+
+    u32 saveMemType = InitROM(len, direct);
+
+    // save
+    printf("Save file: %s\n", sram);
+    NDSCart_SRAM::LoadSave(sram, saveMemType);
+
+    return true;
+}
+
+bool LoadROM(const u8* file, s32 fileSize, bool direct)
+{
+    NDS::Reset();
+    CartROMSize = 0x200;
+    while (CartROMSize < fileSize)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memcpy(CartROM, file, fileSize);
+    memset(CartROM + fileSize, 0, CartROMSize - fileSize);
+
+    u32 sramType = InitROM(CartROMSize, direct);
+    NDSCart_SRAM::SRAMPath[0] = '\0';
+    NDSCart_SRAM::LoadSave(NDSCart_SRAM::SRAMPath, sramType);
     return true;
 }
 
