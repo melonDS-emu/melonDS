@@ -466,9 +466,6 @@ int Reset()
 }
 
 
-// SAVESTATE TODO
-// * configurable paths. not everyone wants their ROM directory to be polluted, I guess.
-
 void GetSavestateName(int slot, char* filename, int len)
 {
     bool customsave;
