@@ -29,8 +29,8 @@
 
 #include "AREngine.h"
 
-#include <QDir>
-#include <QFileInfo>
+#include <filesystem>
+namespace fs = std::filesystem;
 
 namespace Frontend
 {
@@ -78,15 +78,15 @@ int SetupSRAMPath(int slot)
 {
     if (Config::SavePathEnable)
     {
-        QDir dir(Config::SavePath);
-        if (!dir.exists()) return Load_SavePathMissing;
+        fs::path dir(Config::SavePath);
+        if (!fs::exists(dir)) return Load_SavePathMissing;
         
         char spath[1024];
         strncpy(spath, Config::SavePath, 1023);
         
-        QFileInfo fi(ROMPath[slot]);
+        fs::path rom(ROMPath[slot]);
         strcat(spath, "/");
-        strcat(spath, fi.fileName().toStdString().c_str());
+        strcat(spath, rom.filename().string().c_str());
         
         strncpy(SRAMPath[slot], spath, 1023);
         SRAMPath[slot][1023] = '\0';
@@ -471,28 +471,30 @@ int Reset()
 
 void GetSavestateName(int slot, char* filename, int len)
 {
-    int pos;
-
-    if (ROMPath[ROMSlot_NDS][0] == '\0') // running firmware, no ROM
+    bool customsave;
+    char statepath[1024];
+    fs::path savepath(Config::SavePath);
+    
+    if (Config::SavePathEnable && fs::exists(savepath))
     {
-        strcpy(filename, "firmware");
-        pos = 8;
+        strcpy(statepath, savepath.string().c_str());
+        strcat(statepath, "/");
+        
+        customsave = true;
     }
+    
+    if (ROMPath[ROMSlot_NDS][0] == '\0') strcat(statepath, "firmware"); // running firmware, no ROM
     else
     {
-        int l = strlen(ROMPath[ROMSlot_NDS]);
-        pos = l;
-        while (ROMPath[ROMSlot_NDS][pos] != '.' && pos > 0) pos--;
-        if (pos == 0) pos = l;
-
-        // avoid buffer overflow. shoddy
-        if (pos > len-5) pos = len-5;
-
-        strncpy(&filename[0], ROMPath[ROMSlot_NDS], pos);
+        fs::path rom(ROMPath[ROMSlot_NDS]);
+        
+        if (customsave) strcat(statepath, rom.stem().string().c_str());
+        else strcpy(statepath, rom.replace_extension("").string().c_str());
     }
-    strcpy(&filename[pos], ".ml");
-    filename[pos+3] = '0'+slot;
-    filename[pos+4] = '\0';
+    
+    strcat(statepath, ".ml");
+    strcat(statepath, std::to_string(slot).c_str());
+    strcpy(filename, strcat(statepath, "\0"));
 }
 
 bool SavestateExists(int slot)
