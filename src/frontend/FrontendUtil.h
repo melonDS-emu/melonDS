@@ -120,7 +120,8 @@ void EnableCheats(bool enable);
 //     2 = emphasize bottom screen
 // * screenGap: size of the gap between the two screens
 // * integerScale: force screens to be scaled up at integer scaling factors
-void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale);
+// * screenSwap: whether to swap the position of both screens
+void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale, int swapScreens);
 
 // get a 2x3 transform matrix for each screen
 // note: the transform assumes an origin point at the top left of the display,

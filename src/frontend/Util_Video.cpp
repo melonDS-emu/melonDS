@@ -109,7 +109,7 @@ void M23_Transform(float* m, float& x, float& y)
 }
 
 
-void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale)
+void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale, int swapScreens)
 {
     float refpoints[4][2] =
     {
@@ -152,7 +152,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int 
             (((layout == 0 && (rotation % 2 == 0)) || (layout == 1 && (rotation % 2 == 1))
                 ? 192.f : 256.f)
             + screenGap) / 2.f;
-        if (rotation == 1 || rotation == 2)
+        if ((rotation == 1 || rotation == 2) ^ swapScreens)
             offset *= -1.f;
 
         M23_Translate(TopScreenMtx, (idx==0)?-offset:0, (idx==1)?-offset:0);
