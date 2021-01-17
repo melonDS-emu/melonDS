@@ -114,14 +114,14 @@ void DSi_SDHost::Reset()
 
         if (Config::DSiSDEnable)
         {
-            sd = new DSi_MMCStorage(this, false, Config::DSiSDPath);
+            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, Config::DSiNANDPath);
+        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -706,30 +706,14 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path) : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file) : DSi_SDDevice(host)
 {
     Internal = internal;
-    strncpy(FilePath, path, 1023); FilePath[1023] = '\0';
-
-    File = Platform::OpenLocalFile(path, "r+b");
-    if (!File)
-    {
-        if (internal)
-        {
-            // TODO: proper failure
-            printf("!! MMC file %s does not exist\n", path);
-        }
-        else
-        {
-            File = Platform::OpenLocalFile(path, "w+b");
-        }
-    }
+    File = file;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
-{
-    if (File) fclose(File);
-}
+{}
 
 void DSi_MMCStorage::Reset()
 {

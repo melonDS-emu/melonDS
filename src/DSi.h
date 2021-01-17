@@ -36,6 +36,9 @@ extern u64 ConsoleID;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
+extern FILE* SDMMCFile;
+extern FILE* SDIOFile;
+
 const u32 NWRAMSize = 0x40000;
 
 extern u8* NWRAM_A;
@@ -58,6 +61,8 @@ void SoftReset();
 
 bool LoadBIOS();
 bool LoadNAND();
+
+void CloseDSiNAND();
 
 void RunNDMAs(u32 cpu);
 void StallNDMAs();

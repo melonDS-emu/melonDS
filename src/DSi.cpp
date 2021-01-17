@@ -74,6 +74,9 @@ DSi_NDMA* NDMAs[8];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
+FILE* SDMMCFile;
+FILE* SDIOFile;
+
 u64 ConsoleID;
 u8 eMMC_CID[16];
 
@@ -122,6 +125,8 @@ void DeInit()
 
     delete SDMMC;
     delete SDIO;
+
+    CloseDSiNAND();
 }
 
 void Reset()
@@ -302,12 +307,11 @@ bool LoadNAND()
     memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
-    FILE* f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
-    if (f)
+    if (SDMMCFile)
     {
         u32 bootparams[8];
-        fseek(f, 0x220, SEEK_SET);
-        fread(bootparams, 4, 8, f);
+        fseek(SDMMCFile, 0x220, SEEK_SET);
+        fread(bootparams, 4, 8, SDMMCFile);
 
         printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
                bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -320,8 +324,8 @@ bool LoadNAND()
         MBK[1][8] = 0;
 
         u32 mbk[12];
-        fseek(f, 0x380, SEEK_SET);
-        fread(mbk, 4, 12, f);
+        fseek(SDMMCFile, 0x380, SEEK_SET);
+        fread(mbk, 4, 12, SDMMCFile);
 
         MapNWRAM_A(0, mbk[0] & 0xFF);
         MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
@@ -375,12 +379,12 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        fseek(f, bootparams[0], SEEK_SET);
+        fseek(SDMMCFile, bootparams[0], SEEK_SET);
         dstaddr = bootparams[2];
         for (u32 i = 0; i < bootparams[3]; i += 16)
         {
             u8 data[16];
-            fread(data, 16, 1, f);
+            fread(data, 16, 1, SDMMCFile);
 
             for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
             AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -400,12 +404,12 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        fseek(f, bootparams[4], SEEK_SET);
+        fseek(SDMMCFile, bootparams[4], SEEK_SET);
         dstaddr = bootparams[6];
         for (u32 i = 0; i < bootparams[7]; i += 16)
         {
             u8 data[16];
-            fread(data, 16, 1, f);
+            fread(data, 16, 1, SDMMCFile);
 
             for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
             AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -427,25 +431,22 @@ bool LoadNAND()
 
         // read the nocash footer
 
-        fseek(f, -0x40, SEEK_END);
+        fseek(SDMMCFile, -0x40, SEEK_END);
 
         char nand_footer[16];
         const char* nand_footer_ref = "DSi eMMC CID/CPU";
-        fread(nand_footer, 1, 16, f);
+        fread(nand_footer, 1, 16, SDMMCFile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             printf("ERROR: NAND missing nocash footer\n");
-            fclose(f);
             return false;
         }
 
-        fread(eMMC_CID, 1, 16, f);
-        fread(&ConsoleID, 1, 8, f);
+        fread(eMMC_CID, 1, 16, SDMMCFile);
+        fread(&ConsoleID, 1, 8, SDMMCFile);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
         printf("Console ID: %016llX\n", ConsoleID);
-
-        fclose(f);
     }
 
     memset(ITCMInit, 0, 0x8000);
@@ -463,6 +464,13 @@ bool LoadNAND()
     return true;
 }
 
+void CloseDSiNAND()
+{
+    if (DSi::SDMMCFile)
+        fclose(DSi::SDMMCFile);
+    if (DSi::SDIOFile)
+        fclose(DSi::SDIOFile);
+}
 
 void RunNDMAs(u32 cpu)
 {
