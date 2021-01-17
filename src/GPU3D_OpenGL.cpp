@@ -65,7 +65,7 @@ struct
     float uFogDensity[34][4];   // float[34]  168 / 136
     u32 uFogOffset;             // int        304 / 1
     u32 uFogShift;              // int        305 / 1
-
+    u32 _pad1[2];               // int        306 / 2
 } ShaderConfig;
 
 GLuint ShaderConfigUBO;
@@ -284,7 +284,8 @@ bool Init()
 
     glGenBuffers(1, &ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
-    glBufferData(GL_UNIFORM_BUFFER, (sizeof(ShaderConfig) + 15) & ~15, &ShaderConfig, GL_STATIC_DRAW);
+    static_assert((sizeof(ShaderConfig) & 15) == 0);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
 
 
