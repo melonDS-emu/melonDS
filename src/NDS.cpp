@@ -77,6 +77,8 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 NumLagFrames;
+bool LagFrameFlag;
 u64 LastSysClockCycles;
 u64 FrameStartTimestamp;
 
@@ -765,6 +767,11 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
+    if (file->IsAtleastVersion(7, 1))
+    {
+        file->Var32(&NumLagFrames);
+        file->Bool32(&LagFrameFlag);
+    }
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -913,6 +920,7 @@ u32 RunFrame()
     if (!Running) return 263; // dorp
     if (CPUStop & 0x40000000) return 263;
 
+    LagFrameFlag = true;
     GPU::StartFrame();
 
     while (Running && GPU::TotalScanlines==0)
@@ -1001,6 +1009,8 @@ u32 RunFrame()
     NDSCart::FlushSRAMFile();
 
     NumFrames++;
+    if (LagFrameFlag)
+        NumLagFrames++;
 
     return GPU::TotalScanlines;
 }
@@ -2787,8 +2797,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: return KeyInput & 0xFF;
-    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
+    case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
@@ -2889,7 +2899,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(3);
     case 0x0400010E: return Timers[3].Cnt;
 
-    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
     case 0x04000132: return KeyCnt;
 
     case 0x04000180: return IPCSync9;
@@ -3007,7 +3017,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
