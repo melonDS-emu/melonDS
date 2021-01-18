@@ -222,6 +222,7 @@ private slots:
     void onChangeScreenRotation(QAction* act);
     void onChangeScreenGap(QAction* act);
     void onChangeScreenLayout(QAction* act);
+    void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onChangeScreenFiltering(bool checked);
@@ -282,6 +283,7 @@ public:
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
     QAction* actScreenLayout[3];
+    QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[4];
     QAction* actIntegerScaling;

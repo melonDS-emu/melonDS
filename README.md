@@ -86,7 +86,7 @@ If everything went well, melonDS should now be in the `dist` folder.
 
 ### macOS:
 1. Install the [Homebrew Package Manager](https://brew.sh)
-2. Install dependencies: `brew install git pkg-config cmake sdl2 qt5 libslirp libarchive`
+2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@5 libslirp libarchive`
 3. Compile:
    ```zsh
    git clone https://github.com/Arisotura/melonDS.git

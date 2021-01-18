@@ -26,6 +26,7 @@
 #include "Platform.h"
 
 #include "NDS.h"
+#include "DSi.h"
 #include "GBACart.h"
 
 #include "AREngine.h"
@@ -202,18 +203,27 @@ int VerifyDSiFirmware()
     return Load_OK;
 }
 
-int VerifyDSiNAND()
+int SetupDSiNAND()
 {
     FILE* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
+    f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
     if (!f) return Load_DSiNANDMissing;
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
 
-    fclose(f);
+    DSi::SDMMCFile = f;
+
+    if (Config::DSiSDEnable)
+    {
+        f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
+        if (f)
+            DSi::SDIOFile = f;
+        else
+            DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
+    }
 
     return Load_OK;
 }
@@ -246,6 +256,8 @@ void LoadCheats()
 
 int LoadBIOS()
 {
+    DSi::CloseDSiNAND();
+
     int res;
 
     res = VerifyDSBIOS();
@@ -259,7 +271,7 @@ int LoadBIOS()
         res = VerifyDSiFirmware();
         if (res != Load_OK) return res;
 
-        res = VerifyDSiNAND();
+        res = SetupDSiNAND();
         if (res != Load_OK) return res;
     }
     else
@@ -366,6 +378,8 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 
 int LoadROM(const char* file, int slot)
 {
+    DSi::CloseDSiNAND();
+
     int res;
     bool directboot = Config::DirectBoot != 0;
 
@@ -386,7 +400,7 @@ int LoadROM(const char* file, int slot)
         res = VerifyDSiFirmware();
         if (res != Load_OK) return res;
 
-        res = VerifyDSiNAND();
+        res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
         GBACart::Eject();
@@ -457,10 +471,14 @@ void UnloadROM(int slot)
     }
 
     ROMPath[slot][0] = '\0';
+
+    DSi::CloseDSiNAND();
 }
 
 int Reset()
 {
+    DSi::CloseDSiNAND();
+
     int res;
     bool directboot = Config::DirectBoot != 0;
 
@@ -475,7 +493,7 @@ int Reset()
         res = VerifyDSiFirmware();
         if (res != Load_OK) return res;
 
-        res = VerifyDSiNAND();
+        res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
         GBACart::Eject();

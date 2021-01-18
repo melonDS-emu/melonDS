@@ -647,7 +647,8 @@ void ScreenHandler::screenSetupLayout(int w, int h)
                                 Config::ScreenRotation,
                                 sizing,
                                 Config::ScreenGap,
-                                Config::IntegerScaling != 0);
+                                Config::IntegerScaling != 0,
+                                Config::ScreenSwap != 0);
 
     Frontend::GetScreenTransforms(screenMatrix[0], screenMatrix[1]);
 }
@@ -1232,6 +1233,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
 
             connect(grpScreenLayout, &QActionGroup::triggered, this, &MainWindow::onChangeScreenLayout);
+        
+            submenu->addSeparator();
+
+            actScreenSwap = submenu->addAction("Swap screens");
+            actScreenSwap->setCheckable(true);
+            connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
         }
         {
             QMenu* submenu = menu->addMenu("Screen sizing");
@@ -1314,6 +1321,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actScreenLayout[Config::ScreenLayout]->setChecked(true);
     actScreenSizing[Config::ScreenSizing]->setChecked(true);
     actIntegerScaling->setChecked(Config::IntegerScaling != 0);
+
+    actScreenSwap->setChecked(Config::ScreenSwap != 0);
 
     actScreenFiltering->setChecked(Config::ScreenFilter != 0);
     actShowOSD->setChecked(Config::ShowOSD != 0);
@@ -2159,6 +2168,13 @@ void MainWindow::onChangeScreenLayout(QAction* act)
 {
     int layout = act->data().toInt();
     Config::ScreenLayout = layout;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenSwap(bool checked)
+{
+    Config::ScreenSwap = checked?1:0;
 
     emit screenLayoutChange();
 }

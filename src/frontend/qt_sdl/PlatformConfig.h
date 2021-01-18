@@ -53,6 +53,7 @@ extern int WindowMaximized;
 extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
+extern int ScreenSwap;
 extern int ScreenSizing;
 extern int IntegerScaling;
 extern int ScreenFilter;

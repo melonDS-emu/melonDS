@@ -39,6 +39,7 @@ int WindowMaximized;
 int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
+int ScreenSwap;
 int ScreenSizing;
 int IntegerScaling;
 int ScreenFilter;
@@ -135,6 +136,7 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenRotation", 0, &ScreenRotation, 0, NULL, 0},
     {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
     {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
+    {"ScreenSwap",     0, &ScreenSwap,     0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
