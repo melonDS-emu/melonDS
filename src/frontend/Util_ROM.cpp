@@ -320,7 +320,7 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
         res = VerifyDSiFirmware();
         if (res != Load_OK) return res;
 
-        res = VerifyDSiNAND();
+        res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
         GBACart::Eject();
