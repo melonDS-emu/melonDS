@@ -72,6 +72,8 @@ signals:
     
     void windowFullscreenToggle();
 
+    void swapScreensToggle();
+
 private:
     volatile int EmuStatus;
     int PrevEmuStatus;

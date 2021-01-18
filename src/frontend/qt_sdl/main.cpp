@@ -282,6 +282,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
+    connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
 
     if (mainWindow->hasOGL) initOpenGL();
 }
@@ -386,6 +387,8 @@ void EmuThread::run()
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
 
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
+
+        if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
 
         if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {

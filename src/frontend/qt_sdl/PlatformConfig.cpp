@@ -114,6 +114,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, NULL, 0},
     {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, NULL, 0},
+    {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, NULL, 0},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
@@ -124,6 +125,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1, NULL, 0},
     {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
     {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, NULL, 0},
+    {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
 
