@@ -94,6 +94,7 @@ if (UNIX)
     target_link_libraries(melonDS dl Qt5::Core Qt5::Gui Qt5::Widgets)
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+    configure_file("${CMAKE_SOURCE_DIR}/melon.rc.in" "${CMAKE_SOURCE_DIR}/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
@@ -111,13 +112,13 @@ endif()
 if (APPLE)
     set_target_properties(melonDS PROPERTIES
                          MACOSX_BUNDLE true
-                         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/melonDS.plist
+                         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/melon.plist.in
                          OUTPUT_NAME melonDS
                          )
 
     # Copy icon into the bundle
-    target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melonDS.icns")
-    set_source_files_properties("${CMAKE_SOURCE_DIR}/melonDS.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melon.icns")
+    set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
 endif()
 
