@@ -116,6 +116,12 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         rnMapped = W3;
     }
 
+    if (flags & memop_Store && flags & (memop_Post|memop_Writeback) && rd == rn)
+    {
+        MOV(W4, rdMapped);
+        rdMapped = W4;
+    }
+
     ARM64Reg finalAddr = W0;
     if (flags & memop_Post)
     {
@@ -170,10 +176,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
 
+        assert((rdMapped >= W19 && rdMapped <= W26) || rdMapped == W4);
         patch.PatchFunc = flags & memop_Store
-            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped - W19]
-            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped - W19];
-        assert(rdMapped - W19 >= 0 && rdMapped - W19 < 8);
+            ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
+            : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
 
         MOVP2R(X7, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 

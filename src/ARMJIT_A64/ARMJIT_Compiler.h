@@ -241,16 +241,7 @@ public:
     u32 JitMemSecondarySize;
     u32 JitMemMainSize;
 
-    void* ReadBanked, *WriteBanked;
-
-    void* JumpToFuncs9[3];
-    void* JumpToFuncs7[3];
-
     std::unordered_map<ptrdiff_t, LoadStorePatch> LoadStorePatches; 
-
-    // [Console Type][Num][Size][Sign Extend][Output register]
-    void* PatchedLoadFuncs[2][2][3][2][8];
-    void* PatchedStoreFuncs[2][2][3][8];
 
     RegisterCache<Compiler, Arm64Gen::ARM64Reg> RegCache;
 
@@ -263,6 +254,15 @@ public:
     void* JitRWStart;
     void* JitRXStart;
 #endif
+
+    void* ReadBanked, *WriteBanked;
+
+    void* JumpToFuncs9[3];
+    void* JumpToFuncs7[3];
+
+    // [Console Type][Num][Size][Sign Extend][Output register]
+    void* PatchedLoadFuncs[2][2][3][2][32];
+    void* PatchedStoreFuncs[2][2][3][32];
 };
 
 }

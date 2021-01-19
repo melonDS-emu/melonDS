@@ -98,7 +98,9 @@ void Compiler::A_Comp_MRS()
         MOV(32, rd, R(RSCRATCH3));
     }
     else
+    {
         MOV(32, rd, R(RCPSR));
+    }
 }
 
 void UpdateModeTrampoline(ARM* arm, u32 oldmode, u32 newmode)
@@ -703,7 +705,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                 ABI_CallFunction(InterpretTHUMB[CurInstr.Info.Kind]);
             }
             else
+            {
                 (this->*comp)();
+            }
         }
         else
         {
@@ -724,7 +728,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
             }
             else
             {
-                IrregularCycles = false;
+                IrregularCycles = comp == NULL;
 
                 FixupBranch skipExecute;
                 if (cond < 0xE)
@@ -737,7 +741,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                     ABI_CallFunction(InterpretARM[CurInstr.Info.Kind]);
                 }
                 else
+                {
                     (this->*comp)();
+                }
 
                 Comp_SpecialBranchBehaviour(true);
 
@@ -755,7 +761,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                         SetJumpTarget(skipFailed);
                     }
                     else
+                    {
                         SetJumpTarget(skipExecute);
+                    }
                 }
                 
             }

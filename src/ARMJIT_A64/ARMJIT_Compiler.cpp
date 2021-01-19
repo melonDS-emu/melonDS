@@ -174,10 +174,13 @@ void Compiler::PopRegs(bool saveHiRegs)
 {
     if (saveHiRegs)
     {
-        BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
+        if (!Thumb && CurInstr.Cond() != 0xE)
+        {
+            BitSet16 hiRegsLoaded(RegCache.LoadedRegs & 0x7F00);
 
-        for (int reg : hiRegsLoaded)
-            LoadReg(reg, RegCache.Mapping[reg]);
+            for (int reg : hiRegsLoaded)
+                LoadReg(reg, RegCache.Mapping[reg]);
+        }
     }
 }
 
@@ -326,9 +329,10 @@ Compiler::Compiler()
         {
             for (int size = 0; size < 3; size++)
             {
-                for (int reg = 0; reg < 8; reg++)
+                for (int reg = 0; reg < 32; reg++)
                 {
-                    ARM64Reg rdMapped = (ARM64Reg)(W19 + reg);
+                    if (!(reg == W4 || (reg >= W19 && reg <= W26)))
+                        continue;
                     PatchedStoreFuncs[consoleType][num][size][reg] = GetRXPtr();
                     if (num == 0)
                     {
@@ -711,7 +715,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                 QuickCallFunction(X1, InterpretTHUMB[CurInstr.Info.Kind]);
             }
             else
+            {
                 (this->*comp)();
+            }
         }
         else
         {
@@ -727,10 +733,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                 }
             }
             else if (cond == 0xF)
+            {
                 Comp_AddCycles_C();
+            }
             else
             {
-                IrregularCycles = false;
+                IrregularCycles = comp == NULL;
 
                 FixupBranch skipExecute;
                 if (cond < 0xE)
@@ -763,7 +771,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                         SetJumpTarget(skipNop);
                     }
                     else
+                    {
                         SetJumpTarget(skipExecute);
+                    }
                 }
 
             }
