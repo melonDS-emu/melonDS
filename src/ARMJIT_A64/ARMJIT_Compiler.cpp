@@ -333,7 +333,7 @@ Compiler::Compiler()
                 {
                     if (!(reg == W4 || (reg >= W19 && reg <= W26)))
                         continue;
-                    ARM64Reg rdMapped = W0 + reg;
+                    ARM64Reg rdMapped = (ARM64Reg)reg;
                     PatchedStoreFuncs[consoleType][num][size][reg] = GetRXPtr();
                     if (num == 0)
                     {
