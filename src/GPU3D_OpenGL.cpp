@@ -980,6 +980,8 @@ void RenderSceneChunk(int y, int h)
                         glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                         glStencilMask(0xFF);
 
+                        glDepthMask(GL_TRUE);
+
                         RenderSinglePolygon(i);
                     }
 
@@ -1082,6 +1084,8 @@ void RenderSceneChunk(int y, int h)
                     glStencilFunc(GL_ALWAYS, polyid, 0xFF);
                     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
                     glStencilMask(0xFF);
+
+                    glDepthMask(GL_TRUE);
 
                     RenderSinglePolygon(i);
                 }
