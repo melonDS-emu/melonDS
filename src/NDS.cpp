@@ -77,6 +77,8 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 NumLagFrames;
+bool LagFrameFlag;
 u64 LastSysClockCycles;
 u64 FrameStartTimestamp;
 
@@ -765,6 +767,11 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
+    if (file->IsAtleastVersion(7, 1))
+    {
+        file->Var32(&NumLagFrames);
+        file->Bool32(&LagFrameFlag);
+    }
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -910,99 +917,108 @@ u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
-    if (!Running) return 263; // dorp
-    if (CPUStop & 0x40000000) return 263;
-
-    GPU::StartFrame();
-
-    while (Running && GPU::TotalScanlines==0)
+    LagFrameFlag = true;
+    bool runFrame = Running && !(CPUStop & 0x40000000);
+    if (runFrame)
     {
-        // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
-        u64 target = NextTarget();
-        ARM9Target = target << ARM9ClockShift;
-        CurCPU = 0;
+        GPU::StartFrame();
 
-        if (CPUStop & 0x80000000)
+        while (Running && GPU::TotalScanlines==0)
         {
-            // GXFIFO stall
-            s32 cycles = GPU3D::CyclesToRunFor();
+            // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
+            u64 target = NextTarget();
+            ARM9Target = target << ARM9ClockShift;
+            CurCPU = 0;
 
-            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-        }
-        else if (CPUStop & 0x0FFF)
-        {
-            DMAs[0]->Run<ConsoleType>();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
-            if (ConsoleType == 1) DSi::RunNDMAs(0);
-        }
-        else
-        {
-#ifdef JIT_ENABLED
-            if (EnableJIT)
-                ARM9->ExecuteJIT();
-            else
-#endif
-                ARM9->Execute();
-        }
-
-        RunTimers(0);
-        GPU3D::Run();
-
-        target = ARM9Timestamp >> ARM9ClockShift;
-        CurCPU = 1;
-
-        while (ARM7Timestamp < target)
-        {
-            ARM7Target = target; // might be changed by a reschedule
-
-            if (CPUStop & 0x0FFF0000)
+            if (CPUStop & 0x80000000)
             {
-                DMAs[4]->Run<ConsoleType>();
-                DMAs[5]->Run<ConsoleType>();
-                DMAs[6]->Run<ConsoleType>();
-                DMAs[7]->Run<ConsoleType>();
-                if (ConsoleType == 1) DSi::RunNDMAs(1);
+                // GXFIFO stall
+                s32 cycles = GPU3D::CyclesToRunFor();
+
+                ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+            }
+            else if (CPUStop & 0x0FFF)
+            {
+                DMAs[0]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
+                if (ConsoleType == 1) DSi::RunNDMAs(0);
             }
             else
             {
 #ifdef JIT_ENABLED
                 if (EnableJIT)
-                    ARM7->ExecuteJIT();
+                    ARM9->ExecuteJIT();
                 else
 #endif
-                    ARM7->Execute();
+                    ARM9->Execute();
             }
 
-            RunTimers(1);
-        }
+            RunTimers(0);
+            GPU3D::Run();
 
-        RunSystem(target);
+            target = ARM9Timestamp >> ARM9ClockShift;
+            CurCPU = 1;
 
-        if (CPUStop & 0x40000000)
-        {
-            // checkme: when is sleep mode effective?
-            //CancelEvent(Event_LCD);
-            //GPU::TotalScanlines = 263;
-            break;
+            while (ARM7Timestamp < target)
+            {
+                ARM7Target = target; // might be changed by a reschedule
+
+                if (CPUStop & 0x0FFF0000)
+                {
+                    DMAs[4]->Run<ConsoleType>();
+                    DMAs[5]->Run<ConsoleType>();
+                    DMAs[6]->Run<ConsoleType>();
+                    DMAs[7]->Run<ConsoleType>();
+                    if (ConsoleType == 1) DSi::RunNDMAs(1);
+                }
+                else
+                {
+#ifdef JIT_ENABLED
+                    if (EnableJIT)
+                        ARM7->ExecuteJIT();
+                    else
+#endif
+                        ARM7->Execute();
+                }
+
+                RunTimers(1);
+            }
+
+            RunSystem(target);
+
+            if (CPUStop & 0x40000000)
+            {
+                // checkme: when is sleep mode effective?
+                //CancelEvent(Event_LCD);
+                //GPU::TotalScanlines = 263;
+                break;
+            }
         }
-    }
 
 #ifdef DEBUG_CHECK_DESYNC
-    printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
-           (u32)(SysTimestamp>>32), (u32)SysTimestamp,
-           (ARM9Timestamp>>1)-SysTimestamp,
-           ARM7Timestamp-SysTimestamp,
-           GPU3D::Timestamp-SysTimestamp);
+        printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
+            (u32)(SysTimestamp>>32), (u32)SysTimestamp,
+            (ARM9Timestamp>>1)-SysTimestamp,
+            ARM7Timestamp-SysTimestamp,
+            GPU3D::Timestamp-SysTimestamp);
 #endif
-    SPU::TransferOutput();
+        SPU::TransferOutput();
 
-    NDSCart::FlushSRAMFile();
+        NDSCart::FlushSRAMFile();
+    }
 
+    // In the context of TASes, frame count is traditionally the primary measure of emulated time,
+    // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
+    if (LagFrameFlag)
+        NumLagFrames++;
 
-    return GPU::TotalScanlines;
+    if (runFrame)
+        return GPU::TotalScanlines;
+    else
+        return 263;
 }
 
 u32 RunFrame()
@@ -2787,8 +2803,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: return KeyInput & 0xFF;
-    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
+    case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
@@ -2889,7 +2905,7 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(3);
     case 0x0400010E: return Timers[3].Cnt;
 
-    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
     case 0x04000132: return KeyCnt;
 
     case 0x04000180: return IPCSync9;
@@ -3007,7 +3023,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
