@@ -77,6 +77,9 @@ char RecentROMList[10][1024];
 
 int EnableCheats;
 
+int MouseHide;
+int MouseHideSeconds;
+
 bool EnableJIT;
 
 ConfigEntry PlatformConfigFile[] =
@@ -185,6 +188,9 @@ ConfigEntry PlatformConfigFile[] =
 
     {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
 
+    {"MouseHide", 0, &MouseHide, 0, NULL, 0},
+    {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
+    
     {"", -1, NULL, 0, NULL, 0}
 };
 

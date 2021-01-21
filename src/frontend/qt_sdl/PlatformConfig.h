@@ -92,6 +92,9 @@ extern char RecentROMList[10][1024];
 
 extern int EnableCheats;
 
+extern int MouseHide;
+extern int MouseHideSeconds;
+
 }
 
 #endif // PLATFORMCONFIG_H
