@@ -1540,6 +1540,9 @@ QString MainWindow::loadErrorStr(int error)
         return "DSi NAND was not found or could not be accessed. Check your emu settings.";
     case Frontend::Load_DSiNANDBad:
         return "DSi NAND is not a valid NAND dump.";
+		
+	case Frontend::Load_SavePathMissing:
+		return "Custom save path was not found or could not be accessed. Check your emu settings.";
 
     case Frontend::Load_ROMLoadError:
         return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
