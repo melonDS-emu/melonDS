@@ -25,6 +25,7 @@
 #include <QMainWindow>
 #include <QImage>
 #include <QActionGroup>
+#include <QTimer>
 
 #include <QOffscreenSurface>
 #include <QOpenGLWidget>
@@ -91,6 +92,9 @@ class ScreenHandler
 
 public:
     virtual ~ScreenHandler() {}
+    QTimer* setupMouseTimer();
+    void updateMouseTimer();
+    QTimer* mouseTimer;
 
 protected:
     void screenSetupLayout(int w, int h);
@@ -104,6 +108,8 @@ protected:
     float screenMatrix[2][6];
 
     bool touching;
+    
+    void showCursor();
 };
 
 
@@ -219,6 +225,9 @@ private slots:
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
+    void onOpenInterfaceSettings();
+    void onInterfaceSettingsFinished(int res);
+    void onUpdateMouseTimer();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
     void onChangeScreenRotation(QAction* act);
@@ -253,6 +262,8 @@ private:
 
 public:
     QWidget* panel;
+    ScreenPanelGL* panelGL;
+    ScreenPanelNative* panelNative;
 
     QAction* actOpenROM;
     QAction* actOpenROMArchive;
@@ -274,6 +285,7 @@ public:
     QAction* actVideoSettings;
     QAction* actAudioSettings;
     QAction* actWifiSettings;
+    QAction* actInterfaceSettings;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;

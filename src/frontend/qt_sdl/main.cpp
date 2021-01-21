@@ -52,6 +52,7 @@
 #include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
+#include "InterfaceSettingsDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -719,6 +720,9 @@ void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
 void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
 {
     event->accept();
+    
+    showCursor();
+
     if (!(event->buttons() & Qt::LeftButton)) return;
     if (!touching) return;
 
@@ -736,6 +740,21 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     NDS::TouchScreen(x, y);
 }
 
+void ScreenHandler::showCursor()
+{
+    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    mouseTimer->start();
+}
+
+QTimer* ScreenHandler::setupMouseTimer()
+{
+    mouseTimer = new QTimer();
+    mouseTimer->setSingleShot(true);
+    mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    mouseTimer->start();
+
+    return mouseTimer;
+}
 
 ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
 {
@@ -753,6 +772,7 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
 ScreenPanelNative::~ScreenPanelNative()
 {
     OSD::DeInit(nullptr);
+    mouseTimer->stop();
 }
 
 void ScreenPanelNative::setupScreenLayout()
@@ -836,6 +856,8 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 
 ScreenPanelGL::~ScreenPanelGL()
 {
+    mouseTimer->stop();
+    
     makeCurrent();
 
     OSD::DeInit(this);
@@ -1167,6 +1189,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
+        
+        actInterfaceSettings = menu->addAction("Interface settings");
+        connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
         {
             QMenu* submenu = menu->addMenu("Savestate settings");
@@ -1342,9 +1367,11 @@ void MainWindow::createScreenPanel()
 {
     hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
 
+    QTimer* mouseTimer;
+
     if (hasOGL)
     {
-        ScreenPanelGL* panelGL = new ScreenPanelGL(this);
+        panelGL = new ScreenPanelGL(this);
         panelGL->show();
 
         if (!panelGL->isValid())
@@ -1358,17 +1385,25 @@ void MainWindow::createScreenPanel()
 
         if (!hasOGL)
             delete panelGL;
-        else
-            panel = panelGL;
+ 
+        panel = panelGL;
+        panelGL->setMouseTracking(true);
+        mouseTimer = panelGL->setupMouseTimer();
+        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelGL->setCursor(Qt::BlankCursor);});
     }
 
     if (!hasOGL)
     {
-        panel = new ScreenPanelNative(this);
+        panelNative = new ScreenPanelNative(this);
+        panel = panelNative;
         panel->show();
+        
+        panelNative->setMouseTracking(true);
+        mouseTimer = panelNative->setupMouseTimer();
+        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelNative->setCursor(Qt::BlankCursor);});
     }
-
     setCentralWidget(panel);
+
     connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
@@ -1997,6 +2032,27 @@ void MainWindow::onWifiSettingsFinished(int res)
     emuThread->emuUnpause();
 }
 
+void MainWindow::onOpenInterfaceSettings()
+{
+    emuThread->emuPause();
+    InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
+    connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
+    connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
+}
+
+void MainWindow::onUpdateMouseTimer()
+{
+    if (hasOGL)
+        panelGL->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    else
+        panelNative->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+}
+
+void MainWindow::onInterfaceSettingsFinished(int res)
+{
+    emuThread->emuUnpause();
+}
+
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 {
     Config::SavestateRelocSRAM = checked?1:0;
@@ -2182,8 +2238,15 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         emuThread->emuPause();
 
-        if (hasOGL) emuThread->deinitOpenGL();
-        delete panel;
+        if (hasOGL) 
+        {
+            emuThread->deinitOpenGL();
+            delete panelGL;
+        }
+        else
+        {
+            delete panelNative;
+        }
         createScreenPanel();
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
         if (hasOGL) emuThread->initOpenGL();
