@@ -155,8 +155,10 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 #ifdef __x86_64__
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    #ifdef __APPLE__
+    #if defined(__APPLE__)
         desc.FaultPC = (u8*)context->uc_mcontext->__ss.__rip;
+    #elif defined(__FreeBSD__)
+        desc.FaultPC = (u8*)context->uc_mcontext.mc_rip;
     #else
         desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
     #endif
@@ -174,8 +176,10 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
     if (ARMJIT_Memory::FaultHandler(desc))
     {
 #ifdef __x86_64__
-        #ifdef __APPLE__
+        #if defined(__APPLE__)
             context->uc_mcontext->__ss.__rip = (u64)desc.FaultPC;
+        #elif defined(__FreeBSD__)
+            context->uc_mcontext.mc_rip = (u64)desc.FaultPC;
         #else
             context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
         #endif
@@ -745,15 +749,20 @@ void Init()
         ioctl(fd, ASHMEM_SET_SIZE, MemoryTotalSize);
         MemoryFile = fd;
     }
-#elif defined(__APPLE__)
-    char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
-    sprintf(fastmemPidName, "melondsfastmem%d", getpid());
-    MemoryFile = shm_open(fastmemPidName, O_RDWR|O_CREAT, 0600);
-    delete[] fastmemPidName;
 #else
-    MemoryFile = memfd_create("melondsfastmem", 0);
+    char fastmemPidName[snprintf(NULL, 0, "/melondsfastmem%d", getpid()) + 1];
+    sprintf(fastmemPidName, "/melondsfastmem%d", getpid());
+    MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (MemoryFile == -1)
+    {
+        printf("Failed to open memory using shm_open!");
+    }
+    shm_unlink(fastmemPidName);
 #endif
-    ftruncate(MemoryFile, MemoryTotalSize);
+    if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
+    {
+        printf("Failed to allocate memory using ftruncate!");
+    }
 
     struct sigaction sa;
     sa.sa_handler = nullptr;
@@ -788,11 +797,6 @@ void DeInit()
 
     svcUnmapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, (u64)MemoryBase, MemoryTotalSize);
     free(MemoryBase);
-#elif defined(__APPLE__)
-    char* fastmemPidName = new char[snprintf(NULL, 0, "melondsfastmem%d", getpid()) + 1];
-    sprintf(fastmemPidName, "melondsfastmem%d", getpid());
-    shm_unlink(fastmemPidName);
-    delete[] fastmemPidName;
 #elif defined(_WIN32)
     assert(UnmapViewOfFile(MemoryBase));
     CloseHandle(MemoryFile);

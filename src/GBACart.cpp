@@ -546,8 +546,8 @@ void Eject()
     HasSolarSensor = false;
     CartROM = NULL;
     CartROMSize = 0;
-    CartCRC = NULL;
-    CartID = NULL;
+    CartCRC = 0;
+    CartID = 0;
     CartGPIO = {};
 
     GBACart_SRAM::Eject();
