@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "Savestate.h"
 #include "Platform.h"
+#include "MemoryStream.h"
 
 /*
     Savestate format
@@ -48,25 +49,33 @@ Savestate::Savestate(const char* filename, bool save)
     const char* magic = "MELN";
 
     Error = false;
+    file = NULL;
+    mStream = NULL;
 
     if (save)
     {
         Saving = true;
-        file = Platform::OpenFile(filename, "wb");
-        if (!file)
+        if (filename == NULL)
+            mStream = new MemoryStream();
+        else
         {
-            printf("savestate: file %s doesn't exist\n", filename);
-            Error = true;
-            return;
+            file = Platform::OpenFile(filename, "wb");
+            if (!file)
+            {
+                printf("savestate: file %s doesn't exist\n", filename);
+                Error = true;
+                return;
+            }
         }
 
         VersionMajor = SAVESTATE_MAJOR;
         VersionMinor = SAVESTATE_MINOR;
 
-        fwrite(magic, 4, 1, file);
-        fwrite(&VersionMajor, 2, 1, file);
-        fwrite(&VersionMinor, 2, 1, file);
-        fseek(file, 8, SEEK_CUR); // length to be fixed later
+        VarArray((void*)magic, 4);
+        // major/minor versions are 2 bytes each in the file, though we keep them as u32
+        VarArray(&VersionMajor, 2);
+        VarArray(&VersionMinor, 2);
+        Seek(8, SEEK_CUR); // length to be fixed later
     }
     else
     {
@@ -79,79 +88,131 @@ Savestate::Savestate(const char* filename, bool save)
             return;
         }
 
-        u32 len;
-        fseek(file, 0, SEEK_END);
-        len = (u32)ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        u32 buf = 0;
-
-        fread(&buf, 4, 1, file);
-        if (buf != ((u32*)magic)[0])
-        {
-            printf("savestate: invalid magic %08X\n", buf);
-            Error = true;
-            return;
-        }
-
-        VersionMajor = 0;
-        VersionMinor = 0;
-
-        fread(&VersionMajor, 2, 1, file);
-        if (VersionMajor != SAVESTATE_MAJOR)
-        {
-            printf("savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
-            Error = true;
-            return;
-        }
-
-        fread(&VersionMinor, 2, 1, file);
-        if (VersionMinor > SAVESTATE_MINOR)
-        {
-            printf("savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
-            Error = true;
-            return;
-        }
-
-        buf = 0;
-        fread(&buf, 4, 1, file);
-        if (buf != len)
-        {
-            printf("savestate: bad length %d\n", buf);
-            Error = true;
-            return;
-        }
-
-        fseek(file, 4, SEEK_CUR);
+        InitRead();
     }
 
     CurSection = -1;
+}
+Savestate::Savestate(u8* data, s32 len)
+{
+    Error = false;
+    Saving = false;
+
+    file = NULL;
+    mStream = new MemoryStream(data, len);
+    InitRead();
+    if (Error)
+    {
+        delete mStream;
+        return;
+    }
+   
+    CurSection = -1;
+}
+
+void Savestate::InitRead()
+{
+    const char* magic = "MELN";
+
+    u32 len;
+    Seek(0, SEEK_END);
+    len = Tell();
+    Seek(0, SEEK_SET);
+
+    u32 buf = 0;
+
+    Var32(&buf);
+    if (buf != ((u32*)magic)[0])
+    {
+        printf("savestate: invalid magic %08X\n", buf);
+        Error = true;
+        return;
+    }
+
+    VersionMajor = 0;
+    VersionMinor = 0;
+
+    // major/minor versions are 2 bytes each in the file, though we keep them as u32
+    VarArray(&VersionMajor, 2);
+    if (VersionMajor != SAVESTATE_MAJOR)
+    {
+        printf("savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
+        Error = true;
+        return;
+    }
+
+    VarArray(&VersionMinor, 2);
+    if (VersionMinor > SAVESTATE_MINOR)
+    {
+        printf("savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
+        Error = true;
+        return;
+    }
+
+    buf = 0;
+    Var32(&buf);
+    if (buf != len)
+    {
+        printf("savestate: bad length %d\n", buf);
+        Error = true;
+        return;
+    }
+
+    Seek(4, SEEK_CUR);
 }
 
 Savestate::~Savestate()
 {
     if (Error) return;
 
-    if (Saving)
-    {
-        if (CurSection != -1)
-        {
-            u32 pos = (u32)ftell(file);
-            fseek(file, CurSection+4, SEEK_SET);
-
-            u32 len = pos - CurSection;
-            fwrite(&len, 4, 1, file);
-
-            fseek(file, pos, SEEK_SET);
-        }
-
-        fseek(file, 0, SEEK_END);
-        u32 len = (u32)ftell(file);
-        fseek(file, 8, SEEK_SET);
-        fwrite(&len, 4, 1, file);
-    }
+    if (Saving && file)
+        Finalize();
 
     if (file) fclose(file);
+    if (mStream) delete mStream;
+}
+
+void Savestate::Finalize()
+{
+    u32 pos = Tell();
+    if (CurSection != -1)
+    {
+        Seek(CurSection+4, SEEK_SET);
+
+        u32 len = pos - CurSection;
+        Var32(&len);
+    }
+
+    Seek(0, SEEK_END);
+    u32 len = Tell();
+    Seek(8, SEEK_SET);
+    Var32(&len);
+
+    Seek(pos, SEEK_SET);
+}
+
+u8* Savestate::GetData()
+{
+    if (mStream)
+    {
+        if (Saving)
+            Finalize();
+        
+        return mStream->GetData();
+    }
+    else if (Error)
+        return NULL;
+    else // file, but this should never happen
+        throw "Not supported: GetData from file-based savestate.";
+}
+s32 Savestate::GetDataLength()
+{
+    if (mStream)
+        return mStream->GetLength();
+    else if (Error)
+        return -1;
+    else // file, but this should never happen
+        throw "Not supported: GetData from file-based savestate.";
 }
 
 void Savestate::Section(const char* magic)
@@ -162,29 +223,29 @@ void Savestate::Section(const char* magic)
     {
         if (CurSection != -1)
         {
-            u32 pos = (u32)ftell(file);
-            fseek(file, CurSection+4, SEEK_SET);
+            u32 pos = Tell();
+            Seek(CurSection+4, SEEK_SET);
 
             u32 len = pos - CurSection;
-            fwrite(&len, 4, 1, file);
+            Var32(&len);
 
-            fseek(file, pos, SEEK_SET);
+            Seek(pos, SEEK_SET);
         }
 
-        CurSection = (u32)ftell(file);
+        CurSection = Tell();
 
-        fwrite(magic, 4, 1, file);
-        fseek(file, 12, SEEK_CUR);
+        VarArray((void*)magic, 4);
+        Seek(12, SEEK_CUR);
     }
     else
     {
-        fseek(file, 0x10, SEEK_SET);
+        Seek(0x10, SEEK_SET);
 
         for (;;)
         {
             u32 buf = 0;
 
-            fread(&buf, 4, 1, file);
+            Var32(&buf);
             if (buf != ((u32*)magic)[0])
             {
                 if (buf == 0)
@@ -194,12 +255,12 @@ void Savestate::Section(const char* magic)
                 }
 
                 buf = 0;
-                fread(&buf, 4, 1, file);
-                fseek(file, buf-8, SEEK_CUR);
+                Var32(&buf);
+                Seek(buf-8, SEEK_CUR);
                 continue;
             }
 
-            fseek(file, 12, SEEK_CUR);
+            Seek(12, SEEK_CUR);
             break;
         }
     }
@@ -207,58 +268,22 @@ void Savestate::Section(const char* magic)
 
 void Savestate::Var8(u8* var)
 {
-    if (Error) return;
-
-    if (Saving)
-    {
-        fwrite(var, 1, 1, file);
-    }
-    else
-    {
-        fread(var, 1, 1, file);
-    }
+    VarArray(var, 1);
 }
 
 void Savestate::Var16(u16* var)
 {
-    if (Error) return;
-
-    if (Saving)
-    {
-        fwrite(var, 2, 1, file);
-    }
-    else
-    {
-        fread(var, 2, 1, file);
-    }
+    VarArray(var, 2);
 }
 
 void Savestate::Var32(u32* var)
 {
-    if (Error) return;
-
-    if (Saving)
-    {
-        fwrite(var, 4, 1, file);
-    }
-    else
-    {
-        fread(var, 4, 1, file);
-    }
+    VarArray(var, 4);
 }
 
 void Savestate::Var64(u64* var)
 {
-    if (Error) return;
-
-    if (Saving)
-    {
-        fwrite(var, 8, 1, file);
-    }
-    else
-    {
-        fread(var, 8, 1, file);
-    }
+    VarArray(var, 8);
 }
 
 void Savestate::Bool32(bool* var)
@@ -283,10 +308,32 @@ void Savestate::VarArray(void* data, u32 len)
 
     if (Saving)
     {
-        fwrite(data, len, 1, file);
+        if (mStream)
+            mStream->Write(data, len);
+        else
+            fwrite(data, len, 1, file);
     }
     else
     {
-        fread(data, len, 1, file);
+        if (mStream)
+            mStream->Read(data, len);
+        else
+            fread(data, len, 1, file);
     }
+}
+
+void Savestate::Seek(s32 pos, s32 origin)
+{
+    if (mStream)
+        mStream->Seek(pos, origin);
+    else
+        fseek(file, pos, origin);
+}
+
+s32 Savestate::Tell()
+{
+    if (mStream)
+        return mStream->Tell();
+    else
+        return ftell(file);
 }

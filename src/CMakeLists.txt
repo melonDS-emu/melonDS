@@ -31,6 +31,7 @@ add_library(core STATIC
 	GPU3D.cpp
 	GPU3D_Soft.cpp
 	melonDLDI.h
+	MemoryStream.cpp
 	NDS.cpp
 	NDSCart.cpp
 	NDSCart_SRAMManager.cpp
