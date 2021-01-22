@@ -19,7 +19,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
+#endif
 #include "FrontendUtil.h"
 #include "Config.h"
 #include "SharedConfig.h"
@@ -530,6 +532,7 @@ int Reset()
             if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
                 return Load_ROMLoadError;
         }
+#ifdef ARCHIVE_SUPPORT_ENABLED
         else
         {
             u8 *romdata = nullptr; u32 romlen;
@@ -552,7 +555,7 @@ int Reset()
             if(!ok)
                 return Load_ROMLoadError;
         }
-
+#endif
     }
 
     if (ROMPath[ROMSlot_GBA][0] != '\0')
@@ -566,6 +569,7 @@ int Reset()
             if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
                 return Load_ROMLoadError;
         }
+#ifdef ARCHIVE_SUPPORT_ENABLED
         else
         {
             u8 *romdata = nullptr; u32 romlen;
@@ -588,7 +592,7 @@ int Reset()
             if(!ok)
                 return Load_ROMLoadError;
         }
-
+#endif
     }
 
     LoadCheats();

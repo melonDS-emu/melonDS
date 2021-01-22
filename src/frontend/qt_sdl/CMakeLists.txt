@@ -62,6 +62,7 @@ if (APPLE)
     list(APPEND CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}")
 endif()
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
+add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
     add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
