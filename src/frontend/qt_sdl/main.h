@@ -255,6 +255,9 @@ private:
     QMenu *recentMenu;
     void updateRecentFilesMenu();
     void loadROM(QString filename);
+    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
+
+    QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
     void createScreenPanel();
 

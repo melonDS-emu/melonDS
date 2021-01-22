@@ -18,11 +18,6 @@
 
 #include "ArchiveUtil.h"
 
-#ifdef _WIN32
-    #include <direct.h>
-    #define mkdir(dir, mode) _mkdir(dir)
-#endif
-
 namespace Archive
 {
 
@@ -58,7 +53,7 @@ QVector<QString> ListArchive(const char* path)
     return fileList;
 }
 
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile)
+QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile, QByteArray *romBuffer)
 {
     struct archive *a = archive_read_new();
     struct archive_entry *entry;
@@ -72,38 +67,46 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
     {
         return QVector<QString> {"Err"};
     }
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        if (wantedFile == nullptr)
-        {
-            break;
-        }
+
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK)
+    {
         if (strcmp(wantedFile, archive_entry_pathname(entry)) == 0)
         {
             break;
         }
     }
+
     size_t bytesToWrite = archive_entry_size(entry);
-    auto archiveBuffer = std::make_unique<u8[]>(bytesToWrite);
-    ssize_t bytesRead = archive_read_data(a, archiveBuffer.get(), bytesToWrite);
+    romBuffer->fill(0, bytesToWrite);
+    ssize_t bytesRead = archive_read_data(a, romBuffer->data(), bytesToWrite);
+
     if (bytesRead < 0)
     {
         printf(archive_error_string(a));
-        archiveBuffer.reset(nullptr);
         return QVector<QString> {"Err", archive_error_string(a)};
     }
-    QString nameToWrite = QFileInfo(path).absolutePath() + "/" + QFileInfo(path).baseName() + "/" + archive_entry_pathname(entry);
 
-    mkdir(QFileInfo(path).baseName().toUtf8().constData(), 600); // Create directory otherwise fopen will not open the file
-    FILE* fileToWrite = fopen(nameToWrite.toUtf8().constData(), "wb");
-    fwrite((char*)archiveBuffer.get(), bytesToWrite, 1, fileToWrite);
-    fclose(fileToWrite);
-
-    archiveBuffer.reset(nullptr);
     archive_read_close(a);
     archive_read_free(a);
-    return QVector<QString> {nameToWrite};
+    return QVector<QString> {wantedFile};
 
 }
 
+u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata)
+{
+    QByteArray romBuffer;
+    QVector<QString> extractResult = ExtractFileFromArchive(path, wantedFile, &romBuffer);
+
+    if(extractResult[0] == "Err")
+    {
+        return 0;
+    }
+
+    u32 len = romBuffer.size();
+    *romdata = new u8[romBuffer.size()];
+    memcpy(*romdata, romBuffer.data(), len);
+
+    return len;
+}
 
 }

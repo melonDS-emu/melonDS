@@ -63,6 +63,8 @@ extern char ROMPath [ROMSlot_MAX][1024];
 extern char SRAMPath[ROMSlot_MAX][1024];
 extern bool SavestateLoaded;
 
+// Stores type of nds rom i.e. nds/srl/dsi. Should be updated everytime an NDS rom is loaded from an archive
+extern char NDSROMExtension[4];
 
 // initialize the ROM handling utility
 void Init_ROM();
@@ -76,6 +78,7 @@ int LoadBIOS();
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
 int LoadROM(const char* file, int slot);
+int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const char *romfilename, const char *sramfilename, int slot);
 
 // unload the ROM loaded in the specified cart slot
 // simulating ejection of the cartridge
