@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>209</width>
-    <height>110</height>
+    <width>262</width>
+    <height>113</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -20,37 +20,44 @@
    <string>Interface settings - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="3">
-    <widget class="QCheckBox" name="cbMouseHide">
-     <property name="text">
-      <string>Hide mouse after inactivity</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0">
+   <item row="1" column="0" alignment="Qt::AlignLeft">
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Hide after</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QSpinBox" name="spinMouseHideSeconds"/>
-   </item>
-   <item row="1" column="2">
-    <widget class="QLabel" name="label_2">
+   <item row="2" column="0" colspan="4">
+    <widget class="QCheckBox" name="cbPauseLostFocus">
      <property name="text">
-      <string>seconds of inactivity</string>
+      <string>Pause emulation when window is not in focus</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="0" colspan="3">
+   <item row="0" column="0" colspan="5">
+    <widget class="QCheckBox" name="cbMouseHide">
+     <property name="text">
+      <string>Hide mouse after inactivity</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1" alignment="Qt::AlignLeft">
+    <widget class="QSpinBox" name="spinMouseHideSeconds"/>
+   </item>
+   <item row="3" column="0" colspan="5">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>seconds of inactivity</string>
      </property>
     </widget>
    </item>

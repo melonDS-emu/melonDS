@@ -1534,6 +1534,19 @@ void MainWindow::dropEvent(QDropEvent* event)
     }
 }
 
+void MainWindow::onAppStateChanged(Qt::ApplicationState state)
+{
+    if (state == Qt::ApplicationInactive)
+    {
+        if (Config::PauseLostFocus && emuThread->emuIsRunning())
+            emuThread->emuPause();
+    }
+    else if (state == Qt::ApplicationActive)
+    {
+        if (Config::PauseLostFocus && !pausedManually)
+            emuThread->emuUnpause();
+    }
+}
 
 QString MainWindow::loadErrorStr(int error)
 {
@@ -2002,11 +2015,13 @@ void MainWindow::onPause(bool checked)
     {
         emuThread->emuPause();
         OSD::AddMessage(0, "Paused");
+        pausedManually = true;
     }
     else
     {
         emuThread->emuUnpause();
         OSD::AddMessage(0, "Resumed");
+        pausedManually = false;
     }
 }
 
@@ -2152,6 +2167,7 @@ void MainWindow::onOpenInterfaceSettings()
     InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
     connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
     connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
+    connect(dlg, &InterfaceSettingsDialog::focusUnpauseEmu, emuThread, &EmuThread::emuUnpause);
 }
 
 void MainWindow::onUpdateMouseTimer()
@@ -2504,6 +2520,8 @@ int main(int argc, char** argv)
     emuThread = new EmuThread();
     emuThread->start();
     emuThread->emuPause();
+
+    QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
     if (argc > 1)
     {

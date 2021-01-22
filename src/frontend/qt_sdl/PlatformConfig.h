@@ -94,6 +94,7 @@ extern int EnableCheats;
 
 extern int MouseHide;
 extern int MouseHideSeconds;
+extern int PauseLostFocus;
 
 }
 

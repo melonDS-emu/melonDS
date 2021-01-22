@@ -184,6 +184,8 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
+    
+    void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -262,6 +264,8 @@ private:
     void createScreenPanel();
 
     QString loadErrorStr(int error);
+    
+    bool pausedManually;
 
 public:
     QWidget* panel;
