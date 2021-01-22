@@ -26,6 +26,8 @@ namespace SPI_Firmware
 
 void SetupDirectBoot();
 
+u32 FixFirmwareLength(u32 originalLength);
+
 u8 GetConsoleType();
 u8 GetWifiVersion();
 u8 GetNWifiVersion();
