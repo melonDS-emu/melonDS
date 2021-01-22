@@ -5,7 +5,7 @@
     <key>CFBundleExecutable</key>
     <string>melonDS</string>
     <key>CFBundleIconFile</key>
-    <string>melonDS.icns</string>
+    <string>melon.icns</string>
     <key>CFBundleIdentifier</key>
     <string>net.kuribo64.melonDS</string>
     <key>CFBundleDevelopmentRegion</key>
