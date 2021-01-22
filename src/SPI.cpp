@@ -88,6 +88,29 @@ void DeInit()
     if (Firmware) delete[] Firmware;
 }
 
+u32 FixFirmwareLength(u32 originalLength)
+{
+    if (originalLength != 0x20000 && originalLength != 0x40000 && originalLength != 0x80000)
+    {
+        printf("Bad firmware size %d, ", originalLength);
+
+        // pick the nearest power-of-two length
+        originalLength |= (originalLength >> 1);
+        originalLength |= (originalLength >> 2);
+        originalLength |= (originalLength >> 4);
+        originalLength |= (originalLength >> 8);
+        originalLength |= (originalLength >> 16);
+        originalLength++;
+
+        // ensure it's a sane length
+        if (originalLength > 0x80000) originalLength = 0x80000;
+        else if (originalLength < 0x20000) originalLength = 0x20000;
+
+        printf("assuming %d\n", originalLength);
+    }
+    return originalLength;
+}
+
 void Reset()
 {
     if (Firmware) delete[] Firmware;
@@ -109,25 +132,7 @@ void Reset()
 
     fseek(f, 0, SEEK_END);
 
-    FirmwareLength = (u32)ftell(f);
-    if (FirmwareLength != 0x20000 && FirmwareLength != 0x40000 && FirmwareLength != 0x80000)
-    {
-        printf("Bad firmware size %d, ", FirmwareLength);
-
-        // pick the nearest power-of-two length
-        FirmwareLength |= (FirmwareLength >> 1);
-        FirmwareLength |= (FirmwareLength >> 2);
-        FirmwareLength |= (FirmwareLength >> 4);
-        FirmwareLength |= (FirmwareLength >> 8);
-        FirmwareLength |= (FirmwareLength >> 16);
-        FirmwareLength++;
-
-        // ensure it's a sane length
-        if (FirmwareLength > 0x80000) FirmwareLength = 0x80000;
-        else if (FirmwareLength < 0x20000) FirmwareLength = 0x20000;
-
-        printf("assuming %d\n", FirmwareLength);
-    }
+    FirmwareLength = FixFirmwareLength((u32)ftell(f));
 
     Firmware = new u8[FirmwareLength];
 
