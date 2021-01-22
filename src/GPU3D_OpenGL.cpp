@@ -474,6 +474,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     // - depthfunc
     // -- depthwrite
     // --- polyID
+    // ---- need opaque
     // shadow mask polygons:
     // - depthfunc?????
     // shadow polygons:
@@ -491,6 +492,8 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
             rp->RenderKey |= (polygon->Attr >> 10) & 0x2; // bit11 - depth write
             rp->RenderKey |= (polygon->Attr >> 13) & 0x4; // bit15 - fog
             rp->RenderKey |= (polygon->Attr & 0x3F000000) >> 16; // polygon ID
+            if ((polygon->Attr & 0x001F0000) == 0x001F0000) // need opaque
+                rp->RenderKey |= 0x4000;
         }
         else
         {
