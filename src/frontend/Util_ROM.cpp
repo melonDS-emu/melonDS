@@ -536,11 +536,11 @@ int Reset()
             char romfilename[1024] = {0}, sramfilename[1024];
             strncpy(sramfilename, SRAMPath[ROMSlot_NDS], 1024); // Use existing SRAMPath
 
-            int pos = strlen(sramfilename) - 1;
-            while(pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
-                --pos;
+            char *pos = strrchr(sramfilename, '/');
+            if(!pos)
+                pos = strrchr(sramfilename, '\\');
 
-            strncpy(romfilename, &sramfilename[pos + 1], 1024);
+            strncpy(romfilename, pos + 1, 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], NDSROMExtension, 3); // extension could be nds, srl or dsi
             printf("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_NDS], romfilename, &romdata);
@@ -572,11 +572,11 @@ int Reset()
             char romfilename[1024] = {0}, sramfilename[1024];
             strncpy(sramfilename, SRAMPath[ROMSlot_GBA], 1024); // Use existing SRAMPath
 
-            int pos = strlen(sramfilename) - 1;
-            while(pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
-                --pos;
+            char *pos = strrchr(sramfilename, '/');
+            if(!pos)
+                pos = strrchr(sramfilename, '\\');
 
-            strncpy(romfilename, &sramfilename[pos + 1], 1024);
+            strncpy(romfilename, pos + 1, 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], "gba", 3);
             printf("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_GBA], romfilename, &romdata);
