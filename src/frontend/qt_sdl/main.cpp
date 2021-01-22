@@ -2167,7 +2167,6 @@ void MainWindow::onOpenInterfaceSettings()
     InterfaceSettingsDialog* dlg = InterfaceSettingsDialog::openDlg(this);
     connect(dlg, &InterfaceSettingsDialog::finished, this, &MainWindow::onInterfaceSettingsFinished);
     connect(dlg, &InterfaceSettingsDialog::updateMouseTimer, this, &MainWindow::onUpdateMouseTimer);
-    connect(dlg, &InterfaceSettingsDialog::focusUnpauseEmu, emuThread, &EmuThread::emuUnpause);
 }
 
 void MainWindow::onUpdateMouseTimer()
