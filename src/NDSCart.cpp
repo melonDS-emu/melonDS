@@ -145,6 +145,7 @@ void LoadSave(const char* path, u32 type)
         }
     }
 
+    SRAMFileDirty = false;
     NDSCart_SRAMManager::Setup(path, SRAM, SRAMLength);
 
     switch (SRAMLength)
