@@ -111,6 +111,10 @@ void DoSavestate(Savestate* file)
 
     file->Var8(&StatusReg);
     file->Var32(&Addr);
+
+    // SRAMManager might now have an old buffer (or one from the future or alternate timeline!)
+    if (!file->Saving)
+        NDSCart_SRAMManager::RequestFlush();
 }
 
 void LoadSave(const char* path, u32 type)
