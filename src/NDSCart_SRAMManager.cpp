@@ -48,9 +48,6 @@ namespace NDSCart_SRAMManager
 
     bool Init()
     {
-        FlushThread = Platform::Thread_Create(FlushThreadFunc);
-        FlushThreadRunning = true;
-
         SecondaryBufferLock = Platform::Mutex_Create();
 
         return true;
@@ -66,7 +63,8 @@ namespace NDSCart_SRAMManager
             FlushSecondaryBuffer();
         }
 
-        delete SecondaryBuffer;
+        if (SecondaryBuffer) delete SecondaryBuffer;
+        SecondaryBuffer = NULL;
 
         Platform::Mutex_Free(SecondaryBufferLock);
     }
@@ -84,7 +82,7 @@ namespace NDSCart_SRAMManager
         Buffer = buffer;
         Length = length;
 
-        delete SecondaryBuffer; // Delete secondary buffer, there might be previous state.
+        if(SecondaryBuffer) delete SecondaryBuffer; // Delete secondary buffer, there might be previous state.
 
         SecondaryBuffer = new u8[length];
         SecondaryBufferLength = length;
@@ -94,6 +92,12 @@ namespace NDSCart_SRAMManager
         TimeAtLastFlushRequest = 0;
 
         Platform::Mutex_Unlock(SecondaryBufferLock);
+
+        if (path[0] != '\0')
+        {
+            FlushThread = Platform::Thread_Create(FlushThreadFunc);
+            FlushThreadRunning = true;
+        }
     }
 
     void RequestFlush()
