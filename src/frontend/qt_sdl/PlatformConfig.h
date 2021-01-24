@@ -56,6 +56,8 @@ extern int ScreenGap;
 extern int ScreenLayout;
 extern int ScreenSwap;
 extern int ScreenSizing;
+extern int ScreenAspectTop;
+extern int ScreenAspectBot;
 extern int IntegerScaling;
 extern int ScreenFilter;
 

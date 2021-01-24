@@ -34,6 +34,7 @@
 #include <QOpenGLFunctions_3_2_Core>
 #include <QOpenGLShaderProgram>
 
+#include "FrontendUtil.h"
 
 class EmuThread : public QThread
 {
@@ -105,7 +106,9 @@ protected:
     void screenOnMouseRelease(QMouseEvent* event);
     void screenOnMouseMove(QMouseEvent* event);
 
-    float screenMatrix[2][6];
+    float screenMatrix[Frontend::MaxScreenTransforms][6];
+    int screenKind[Frontend::MaxScreenTransforms];
+    int numScreens;
 
     bool touching;
     
@@ -137,7 +140,7 @@ private:
     void setupScreenLayout();
 
     QImage screen[2];
-    QTransform screenTrans[2];
+    QTransform screenTrans[Frontend::MaxScreenTransforms];
 };
 
 
@@ -237,6 +240,8 @@ private slots:
     void onChangeScreenLayout(QAction* act);
     void onChangeScreenSwap(bool checked);
     void onChangeScreenSizing(QAction* act);
+    void onChangeScreenAspectTop(QAction* act);
+    void onChangeScreenAspectBot(QAction* act);
     void onChangeIntegerScaling(bool checked);
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
@@ -303,8 +308,12 @@ public:
     QAction* actScreenLayout[3];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
-    QAction* actScreenSizing[4];
+    QAction* actScreenSizing[6];
     QAction* actIntegerScaling;
+    QActionGroup* grpScreenAspectTop;
+    QAction* actScreenAspectTop[4];
+    QActionGroup* grpScreenAspectBot;
+    QAction* actScreenAspectBot[4];
     QAction* actScreenFiltering;
     QAction* actShowOSD;
     QAction* actLimitFramerate;

@@ -42,6 +42,8 @@ int ScreenLayout;
 int ScreenSwap;
 int ScreenSizing;
 int IntegerScaling;
+int ScreenAspectTop;
+int ScreenAspectBot;
 int ScreenFilter;
 
 int ScreenUseGL;
@@ -146,6 +148,8 @@ ConfigEntry PlatformConfigFile[] =
     {"ScreenSwap",     0, &ScreenSwap,     0, NULL, 0},
     {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
     {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
+    {"ScreenAspectTop",0, &ScreenAspectTop,0, NULL, 0},
+    {"ScreenAspectBot",0, &ScreenAspectBot,0, NULL, 0},
     {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
 
     {"ScreenUseGL",         0, &ScreenUseGL,         0, NULL, 0},

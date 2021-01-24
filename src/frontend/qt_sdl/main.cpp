@@ -646,15 +646,25 @@ void ScreenHandler::screenSetupLayout(int w, int h)
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
+    float aspectRatios[] =
+    {
+        1.f,
+        (16.f/9)/(4.f/3),
+        (21.f/9)/(4.f/3),
+        ((float)w/h)/(4.f/3)
+    };
+
     Frontend::SetupScreenLayout(w, h,
                                 Config::ScreenLayout,
                                 Config::ScreenRotation,
                                 sizing,
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0,
-                                Config::ScreenSwap != 0);
+                                Config::ScreenSwap != 0,
+                                aspectRatios[Config::ScreenAspectTop],
+                                aspectRatios[Config::ScreenAspectBot]);
 
-    Frontend::GetScreenTransforms(screenMatrix[0], screenMatrix[1]);
+    numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
 }
 
 QSize ScreenHandler::screenGetMinSize()
@@ -779,19 +789,16 @@ void ScreenPanelNative::setupScreenLayout()
 {
     int w = width();
     int h = height();
-    float* mtx;
 
     screenSetupLayout(w, h);
 
-    mtx = screenMatrix[0];
-    screenTrans[0].setMatrix(mtx[0], mtx[1], 0.f,
-                             mtx[2], mtx[3], 0.f,
-                             mtx[4], mtx[5], 1.f);
-
-    mtx = screenMatrix[1];
-    screenTrans[1].setMatrix(mtx[0], mtx[1], 0.f,
-                             mtx[2], mtx[3], 0.f,
-                             mtx[4], mtx[5], 1.f);
+    for (int i = 0; i < numScreens; i++)
+    {
+        float* mtx = screenMatrix[i];
+        screenTrans[i].setMatrix(mtx[0], mtx[1], 0.f,
+                                mtx[2], mtx[3], 0.f,
+                                mtx[4], mtx[5], 1.f);
+    }
 }
 
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
@@ -811,11 +818,11 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
 
     QRect screenrc(0, 0, 256, 192);
 
-    painter.setTransform(screenTrans[0]);
-    painter.drawImage(screenrc, screen[0]);
-
-    painter.setTransform(screenTrans[1]);
-    painter.drawImage(screenrc, screen[1]);
+    for (int i = 0; i < numScreens; i++)
+    {
+        painter.setTransform(screenTrans[i]);
+        painter.drawImage(screenrc, screen[screenKind[i]]);
+    }
 
     OSD::Update(nullptr);
     OSD::DrawNative(painter);
@@ -1002,11 +1009,11 @@ void ScreenPanelGL::paintGL()
 
     GLint transloc = screenShader->uniformLocation("uTransform");
 
-    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[0]);
-    glDrawArrays(GL_TRIANGLES, 0, 2*3);
-
-    glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[1]);
-    glDrawArrays(GL_TRIANGLES, 2*3, 2*3);
+    for (int i = 0; i < numScreens; i++)
+    {
+        glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
+        glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
+    }
 
     screenShader->release();
 
@@ -1272,9 +1279,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen sizing");
             grpScreenSizing = new QActionGroup(submenu);
 
-            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto"};
+            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 6; i++)
             {
                 actScreenSizing[i] = submenu->addAction(QString(screensizing[i]));
                 actScreenSizing[i]->setActionGroup(grpScreenSizing);
@@ -1289,6 +1296,38 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             actIntegerScaling = submenu->addAction("Force integer scaling");
             actIntegerScaling->setCheckable(true);
             connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
+        }
+        {
+            QMenu* submenu = menu->addMenu("Aspect ratio");
+            grpScreenAspectTop = new QActionGroup(submenu);
+
+            const char* aspectRatiosTop[] = {"Top 4:3 (native)", "Top 16:9", "Top 21:9", "Top window"};
+
+            for (int i = 0; i < 4; i++)
+            {
+                actScreenAspectTop[i] = submenu->addAction(QString(aspectRatiosTop[i]));
+                actScreenAspectTop[i]->setActionGroup(grpScreenAspectTop);
+                actScreenAspectTop[i]->setData(QVariant(i));
+                actScreenAspectTop[i]->setCheckable(true);
+            }
+
+            connect(grpScreenAspectTop, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectTop);
+
+            submenu->addSeparator();
+
+            grpScreenAspectBot = new QActionGroup(submenu);
+
+            const char* aspectRatiosBot[] = {"Bottom 4:3 (native)", "Bottom 16:9", "Bottom 21:9", "Bottom window"};
+
+            for (int i = 0; i < 4; i++)
+            {
+                actScreenAspectBot[i] = submenu->addAction(QString(aspectRatiosBot[i]));
+                actScreenAspectBot[i]->setActionGroup(grpScreenAspectBot);
+                actScreenAspectBot[i]->setData(QVariant(i));
+                actScreenAspectBot[i]->setCheckable(true);
+            }
+
+            connect(grpScreenAspectBot, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectBot);
         }
 
         actScreenFiltering = menu->addAction("Screen filtering");
@@ -1351,6 +1390,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actIntegerScaling->setChecked(Config::IntegerScaling != 0);
 
     actScreenSwap->setChecked(Config::ScreenSwap != 0);
+
+    actScreenAspectTop[Config::ScreenAspectTop]->setChecked(true);
+    actScreenAspectBot[Config::ScreenAspectBot]->setChecked(true);
 
     actScreenFiltering->setChecked(Config::ScreenFilter != 0);
     actShowOSD->setChecked(Config::ShowOSD != 0);
@@ -2264,6 +2306,22 @@ void MainWindow::onChangeScreenSizing(QAction* act)
     emit screenLayoutChange();
 }
 
+void MainWindow::onChangeScreenAspectTop(QAction* act)
+{
+    int aspect = act->data().toInt();
+    Config::ScreenAspectTop = aspect;
+
+    emit screenLayoutChange();
+}
+
+void MainWindow::onChangeScreenAspectBot(QAction* act)
+{
+    int aspect = act->data().toInt();
+    Config::ScreenAspectBot = aspect;
+
+    emit screenLayoutChange();
+}
+
 void MainWindow::onChangeIntegerScaling(bool checked)
 {
     Config::IntegerScaling = checked?1:0;
@@ -2444,7 +2502,9 @@ int main(int argc, char** argv)
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
     SANITIZE(Config::ScreenLayout, 0, 2);
-    SANITIZE(Config::ScreenSizing, 0, 3);
+    SANITIZE(Config::ScreenSizing, 0, 5);
+    SANITIZE(Config::ScreenAspectTop, 0, 4);
+    SANITIZE(Config::ScreenAspectBot, 0, 4);
 #undef SANITIZE
 
     QSurfaceFormat format;

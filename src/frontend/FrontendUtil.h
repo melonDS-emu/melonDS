@@ -121,21 +121,36 @@ void EnableCheats(bool enable);
 //     0 = even (both screens get same size)
 //     1 = emphasize top screen (make top screen as big as possible, fit bottom screen in remaining space)
 //     2 = emphasize bottom screen
+//     4 = top only
+//     5 = bottom only
 // * screenGap: size of the gap between the two screens
 // * integerScale: force screens to be scaled up at integer scaling factors
 // * screenSwap: whether to swap the position of both screens
-void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale, int swapScreens);
+// * topAspect/botAspect: ratio by which to scale the top and bottom screen respectively
+void SetupScreenLayout(int screenWidth, int screenHeight,
+    int screenLayout,
+    int rotation,
+    int sizing,
+    int screenGap,
+    bool integerScale,
+    bool swapScreens,
+    float topAspect, float botAspect);
 
-// get a 2x3 transform matrix for each screen
+const int MaxScreenTransforms = 3;
+
+// get a 2x3 transform matrix for each screen and whether it's a top or bottom screen
 // note: the transform assumes an origin point at the top left of the display,
 // X going left and Y going down
 // for each screen the source coordinates should be (0,0) and (256,192)
-// 'top' and 'bot' should point each to an array of 6 floats
-void GetScreenTransforms(float* top, float* bot);
+// 'out' should point to an array of 6*MaxScreenTransforms floats
+// 'kind' should point to an array of MaxScreenTransforms ints
+// (0 = indicates top screen, 1 = bottom screen)
+// returns the amount of screens
+int GetScreenTransforms(float* out, int* kind);
 
 // de-transform the provided host display coordinates to get coordinates
 // on the bottom screen
-void GetTouchCoords(int& x, int& y);
+bool GetTouchCoords(int& x, int& y);
 
 
 // initialize the audio utility
