@@ -276,7 +276,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         if (item->text().isEmpty())
         {
             QString oldname = QString(cat.Name);
-            item->setText(oldname.isEmpty() ? "(blank category name??)" : oldname);
+            item->setText(oldname.isEmpty() ? "(blank category name?)" : oldname);
         }
         else
         {
@@ -291,7 +291,7 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
         if (item->text().isEmpty())
         {
             QString oldname = QString(code.Name);
-            item->setText(oldname.isEmpty() ? "(blank code name??)" : oldname);
+            item->setText(oldname.isEmpty() ? "(blank code name?)" : oldname);
         }
         else
         {

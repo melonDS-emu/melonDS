@@ -1196,7 +1196,7 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
                 // hack for **speed**
                 // this could probably be done less ugly but then we would rely
                 // on the compiler for vectorisation
-                static_assert(VRAMDirtyGranularity == 512);
+                static_assert(VRAMDirtyGranularity == 512, "");
                 if (MappingGranularity == 16*1024)
                 {
                     u32 dirty = ((u32*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 14)];

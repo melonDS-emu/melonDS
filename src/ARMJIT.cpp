@@ -26,9 +26,9 @@
 #include "NDSCart.h"
 
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
-static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset);
-static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset);
-static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset);
+static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
+static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset, "");
+static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
 
 namespace ARMJIT
 {

@@ -187,7 +187,7 @@ void DSi_NWifi::Reset()
         break;
 
     default:
-        printf("NWifi: unknown hardware type %02X, assuming AR6002\n");
+        printf("NWifi: unknown hardware type, assuming AR6002\n");
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
@@ -691,7 +691,7 @@ void DSi_NWifi::WriteBlock()
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (len = Host->DataTX(data, len))
+    if ((len = Host->DataTX(data, len)))
     {
         for (u32 i = 0; i < len; i++)
         {

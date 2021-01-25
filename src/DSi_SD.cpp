@@ -956,7 +956,7 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (len = Host->DataTX(data, len))
+    if ((len = Host->DataTX(data, len)))
     {
         if (File)
         {

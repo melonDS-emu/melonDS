@@ -284,7 +284,7 @@ bool Init()
 
     glGenBuffers(1, &ShaderConfigUBO);
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
-    static_assert((sizeof(ShaderConfig) & 15) == 0);
+    static_assert((sizeof(ShaderConfig) & 15) == 0, "");
     glBufferData(GL_UNIFORM_BUFFER, sizeof(ShaderConfig), &ShaderConfig, GL_STATIC_DRAW);
     glBindBufferBase(GL_UNIFORM_BUFFER, 0, ShaderConfigUBO);
 

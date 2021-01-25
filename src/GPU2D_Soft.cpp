@@ -464,7 +464,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     dstaddr &= 0xFFFF;
     srcBaddr &= 0xFFFF;
 
-    static_assert(GPU::VRAMDirtyGranularity == 512);
+    static_assert(GPU::VRAMDirtyGranularity == 512, "");
     GPU::VRAMDirty[dstvram][(dstaddr * 2) / GPU::VRAMDirtyGranularity] = true;
 
     switch ((CaptureCnt >> 29) & 0x3)
@@ -661,7 +661,10 @@ void GPU2D_Soft::DrawScanlineBGMode(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
+        {
             DoInterleaveSprites(0x40000 | (i<<16));
+        }
+
     }
 }
 
@@ -685,7 +688,9 @@ void GPU2D_Soft::DrawScanlineBGMode6(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
+        {
             DoInterleaveSprites(0x40000 | (i<<16))
+        }
     }
 }
 
@@ -713,7 +718,9 @@ void GPU2D_Soft::DrawScanlineBGMode7(u32 line)
             }
         }
         if ((DispCnt & 0x1000) && NumSprites)
+        {
             DoInterleaveSprites(0x40000 | (i<<16))
+        }
     }
 }
 
@@ -2037,7 +2044,7 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
         if (attrib[1] & 0x1000) // xflip
         {
-            pixelsaddr += (width-1 << 1);
+            pixelsaddr += ((width-1) << 1);
             pixelsaddr -= (xoff << 1);
             pixelstride = -2;
         }
