@@ -305,7 +305,7 @@ public:
     QActionGroup* grpScreenGap;
     QAction* actScreenGap[6];
     QActionGroup* grpScreenLayout;
-    QAction* actScreenLayout[3];
+    QAction* actScreenLayout[4];
     QAction* actScreenSwap;
     QActionGroup* grpScreenSizing;
     QAction* actScreenSizing[6];

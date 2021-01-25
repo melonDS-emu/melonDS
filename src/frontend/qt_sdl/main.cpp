@@ -689,12 +689,19 @@ QSize ScreenHandler::screenGetMinSize()
         else
             return QSize(w, h+gap+h);
     }
-    else // horizontal
+    else if (Config::ScreenLayout == 2) // horizontal
     {
         if (isHori)
             return QSize(h+gap+h, w);
         else
             return QSize(w+gap+w, h);
+    }
+    else // hybrid
+    {
+        if (isHori)
+            return QSize(h+gap+h, 3*w +(4*gap) / 3);
+        else
+            return QSize(3*w +(4*gap) / 3, h+gap+h);
     }
 }
 
@@ -1257,9 +1264,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             QMenu* submenu = menu->addMenu("Screen layout");
             grpScreenLayout = new QActionGroup(submenu);
 
-            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal"};
+            const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
 
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
                 actScreenLayout[i] = submenu->addAction(QString(screenlayout[i]));
                 actScreenLayout[i]->setActionGroup(grpScreenLayout);
@@ -2258,12 +2265,19 @@ void MainWindow::onChangeScreenSize()
         else
             resize(QSize(w, h+gap+h) + diff);
     }
-    else // horizontal
+    else if (Config::ScreenLayout == 2) // horizontal
     {
         if (isHori)
             resize(QSize(h+gap+h, w) + diff);
         else
             resize(QSize(w+gap+w, h) + diff);
+    }
+    else // hybrid
+    {
+        if (isHori)
+            return resize(QSize(h+gap+h, 3*w +(4*gap) / 3) + diff);
+        else
+            return resize(QSize(3*w +(4*gap) / 3, h+gap+h) + diff);
     }
 }
 
@@ -2501,7 +2515,7 @@ int main(int argc, char** argv)
     SANITIZE(Config::MicInputType, 0, 3);
     SANITIZE(Config::ScreenRotation, 0, 3);
     SANITIZE(Config::ScreenGap, 0, 500);
-    SANITIZE(Config::ScreenLayout, 0, 2);
+    SANITIZE(Config::ScreenLayout, 0, 3);
     SANITIZE(Config::ScreenSizing, 0, 5);
     SANITIZE(Config::ScreenAspectTop, 0, 4);
     SANITIZE(Config::ScreenAspectBot, 0, 4);
