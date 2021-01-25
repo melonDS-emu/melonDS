@@ -116,6 +116,7 @@ void EnableCheats(bool enable);
 //     0 = natural (top screen above bottom screen always)
 //     1 = vertical
 //     2 = horizontal
+//     3 = hybrid
 // * rotation: angle at which the DS screens are presented: 0/1/2/3 = 0/90/180/270
 // * sizing: how the display size is shared between the two screens
 //     0 = even (both screens get same size)
@@ -140,7 +141,7 @@ const int MaxScreenTransforms = 3;
 
 // get a 2x3 transform matrix for each screen and whether it's a top or bottom screen
 // note: the transform assumes an origin point at the top left of the display,
-// X going left and Y going down
+// X going right and Y going down
 // for each screen the source coordinates should be (0,0) and (256,192)
 // 'out' should point to an array of 6*MaxScreenTransforms floats
 // 'kind' should point to an array of MaxScreenTransforms ints
