@@ -309,14 +309,14 @@ void Savestate::VarArray(void* data, u32 len)
     if (Saving)
     {
         if (mStream)
-            mStream->Write(data, len);
+            mStream->Write((u8*)data, len);
         else
             fwrite(data, len, 1, file);
     }
     else
     {
         if (mStream)
-            mStream->Read(data, len);
+            mStream->Read((u8*)data, len);
         else
             fread(data, len, 1, file);
     }

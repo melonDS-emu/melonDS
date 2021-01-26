@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #include "types.h"
 
 #define CHUNK_SIZE (1024 * 1024)
@@ -28,31 +29,25 @@
 class MemoryStream
 {
 public:
-	MemoryStream();
+	MemoryStream(s32 capacity = 1 << 22); // 4MB
 	MemoryStream(u8* data, s32 len);
-	~MemoryStream();
 
 	u8* GetData();
 	s32 GetLength();
 
-	void Write(const void* src, s32 len);
-	void Read(void* dst, s32 len);
+	void Write(const u8* src, s32 len);
+	void Read(u8* dst, s32 len);
 
 	void Seek(s32 pos, s32 origin);
 
 	s32 Tell();
 
 private:
-	u8** chunks;
-	s32 firstNonsequentialChunk;
-	bool ownsFirstChunk;
+	std::vector<u8> buffer;
 	
 	s32 size;
 	s32 pos;
-	s32 numChunks;
 
-	// Make chunks point to data; does not copy data.
-	void Init(u8* data, s32 len);
 	void DeInit();
 
 	void ExpandCapacity();
