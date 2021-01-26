@@ -22,16 +22,6 @@
 namespace OpenGL
 {
 
-DO_PROCLIST(DECLPROC);
-
-
-bool Init()
-{
-    DO_PROCLIST(LOADPROC);
-
-    return true;
-}
-
 bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
 {
     int len;
