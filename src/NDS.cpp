@@ -1018,8 +1018,8 @@ u32 RunFrame()
             if (CPUStop & 0x40000000)
             {
                 // checkme: when is sleep mode effective?
-                //CancelEvent(Event_LCD);
-                //GPU::TotalScanlines = 263;
+                CancelEvent(Event_LCD);
+                GPU::TotalScanlines = 263;
                 break;
             }
         }
@@ -1163,6 +1163,7 @@ void SetLidClosed(bool closed)
         KeyInput &= ~(1<<23);
         SetIRQ(1, IRQ_LidOpen);
         CPUStop &= ~0x40000000;
+        GPU3D::RestartFrame();
     }
 }
 

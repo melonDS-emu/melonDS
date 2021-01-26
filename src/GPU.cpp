@@ -289,6 +289,11 @@ void Stop()
     memset(Framebuffer[0][1], 0, fbsize*4);
     memset(Framebuffer[1][0], 0, fbsize*4);
     memset(Framebuffer[1][1], 0, fbsize*4);
+
+#ifdef OGLRENDERER_ENABLED
+    if (Accelerated)
+        GLCompositor::Stop(); 
+#endif  
 }
 
 void DoSavestate(Savestate* file)

@@ -2500,6 +2500,11 @@ void VCount144()
     if (GPU::Renderer == 0) SoftRenderer::VCount144();
 }
 
+void RestartFrame()
+{
+    if (GPU::Renderer == 0) SoftRenderer::SetupRenderThread();
+}
+
 
 bool YSort(Polygon* a, Polygon* b)
 {

@@ -187,6 +187,20 @@ void GPU2D_Soft::DrawScanline(u32 line)
     // oddly that's not the case for GPU A
     if (Num && !Enabled) forceblank = true;
 
+    if (line == 0 && CaptureCnt & (1 << 31) && !forceblank)
+        CaptureLatch = true;
+
+    if (Num == 0)
+    {
+        if (!Accelerated)
+            _3DLine = GPU3D::GetLine(n3dline);
+        else if (CaptureLatch && (((CaptureCnt >> 29) & 0x3) != 1))
+        {
+            _3DLine = GPU3D::GetLine(n3dline);
+            //GPU3D::GLRenderer::PrepareCaptureFrame();
+        }
+    }
+
     if (forceblank)
     {
         for (int i = 0; i < 256; i++)
@@ -201,20 +215,6 @@ void GPU2D_Soft::DrawScanline(u32 line)
 
     u32 dispmode = DispCnt >> 16;
     dispmode &= (Num ? 0x1 : 0x3);
-
-    if (Num == 0)
-    {
-        if (!Accelerated)
-            _3DLine = GPU3D::GetLine(n3dline);
-        else if ((CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
-        {
-            _3DLine = GPU3D::GetLine(n3dline);
-            //GPU3D::GLRenderer::PrepareCaptureFrame();
-        }
-    }
-
-    if (line == 0 && CaptureCnt & (1 << 31))
-        CaptureLatch = true;
 
     // always render regular graphics
     DrawScanline_BGOBJ(line);
