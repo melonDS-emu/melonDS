@@ -81,6 +81,7 @@
 // TODO: uniform variable spelling
 
 bool RunningSomething;
+bool isCli;
 
 MainWindow* mainWindow;
 EmuThread* emuThread;
@@ -596,6 +597,7 @@ void EmuThread::emuRun()
 
     // checkme
     emit windowEmuStart();
+    if (isCli)       emit windowFullscreenToggle();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
     if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
 }
@@ -2603,6 +2605,7 @@ int main(int argc, char** argv)
     {
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
+        isCli = true;
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
