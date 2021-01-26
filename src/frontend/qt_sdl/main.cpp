@@ -681,13 +681,13 @@ void ScreenHandler::screenSetupLayout(int w, int h)
     numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
 }
 
-QSize ScreenHandler::screenGetMinSize()
+QSize ScreenHandler::screenGetMinSize(int factor = 1)
 {
     bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
     int gap = Config::ScreenGap;
 
-    int w = 256;
-    int h = 192;
+    int w = 256 * factor;
+    int h = 192 * factor;
 
     if (Config::ScreenLayout == 0) // natural
     {
@@ -2272,43 +2272,8 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 void MainWindow::onChangeScreenSize()
 {
     int factor = ((QAction*)sender())->data().toInt();
-
-    bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
-    int gap = Config::ScreenGap;
-
-    int w = 256*factor;
-    int h = 192*factor;
-
     QSize diff = size() - panel->size();
-
-    if (Config::ScreenLayout == 0) // natural
-    {
-        if (isHori)
-            resize(QSize(h+gap+h, w) + diff);
-        else
-            resize(QSize(w, h+gap+h) + diff);
-    }
-    else if (Config::ScreenLayout == 1) // vertical
-    {
-        if (isHori)
-            resize(QSize(h, w+gap+w) + diff);
-        else
-            resize(QSize(w, h+gap+h) + diff);
-    }
-    else if (Config::ScreenLayout == 2) // horizontal
-    {
-        if (isHori)
-            resize(QSize(h+gap+h, w) + diff);
-        else
-            resize(QSize(w+gap+w, h) + diff);
-    }
-    else // hybrid
-    {
-        if (isHori)
-            return resize(QSize(h+gap+h, 3*w +(4*gap) / 3) + diff);
-        else
-            return resize(QSize(3*w +(4*gap) / 3, h+gap+h) + diff);
-    }
+    resize(dynamic_cast<ScreenHandler*>(panel)->screenGetMinSize(factor) + diff);
 }
 
 void MainWindow::onChangeScreenRotation(QAction* act)
