@@ -1474,8 +1474,11 @@ void MainWindow::resizeEvent(QResizeEvent* event)
     int w = event->size().width();
     int h = event->size().height();
 
-    Config::WindowWidth = w;
-    Config::WindowHeight = h;
+    if (mainWindow != nullptr && !mainWindow->isFullScreen())
+    {
+        Config::WindowWidth = w;
+        Config::WindowHeight = h;
+    }
 
     // TODO: detect when the window gets maximized!
 }
