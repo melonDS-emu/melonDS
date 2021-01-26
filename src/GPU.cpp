@@ -1124,6 +1124,14 @@ void StartScanline(u32 line)
     {
         if (VCount == 192)
         {
+            // in reality rendering already finishes at line 144
+            // and games might already start to modify texture memory.
+            // That doesn't matter for us because we cache the entire
+            // texture memory anyway and only update it before the start
+            //of the next frame.
+            // So we can give the rasteriser a bit more headroom
+            GPU3D::VCount144();
+
             // VBlank
             DispStat[0] |= (1<<0);
             DispStat[1] |= (1<<0);
@@ -1143,10 +1151,6 @@ void StartScanline(u32 line)
 #ifdef OGLRENDERER_ENABLED
             if (Accelerated) GLCompositor::RenderFrame();
 #endif
-        }
-        else if (VCount == 144)
-        {
-            GPU3D::VCount144();
         }
     }
 
