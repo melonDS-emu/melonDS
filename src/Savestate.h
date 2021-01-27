@@ -20,8 +20,8 @@
 #define SAVESTATE_H
 
 #include <stdio.h>
+#include <vector>
 #include "types.h"
-#include "MemoryStream.h"
 
 #define SAVESTATE_MAJOR 7
 #define SAVESTATE_MINOR 0
@@ -64,13 +64,17 @@ public:
 
 private:
     FILE* file;
-    MemoryStream* mStream;
+    std::vector<u8> buffer;
+
+    s32 size;
+    s32 pos;
+
+    void ExpandCapacity();
 
     void InitRead();
     void Finalize();
 
     void Seek(s32 pos, s32 origin);
-    s32 Tell();
 };
 
 #endif // SAVESTATE_H
