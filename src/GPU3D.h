@@ -117,6 +117,8 @@ void VCount144();
 void VBlank();
 void VCount215();
 
+void RestartFrame();
+
 void SetRenderXPos(u16 xpos);
 u32* GetLine(int line);
 

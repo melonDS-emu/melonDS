@@ -94,9 +94,13 @@ void SetupRenderThread()
             RenderThread = Platform::Thread_Create(RenderThreadFunc);
         }
 
+        // otherwise more than one frame can be queued up at once
+        Platform::Semaphore_Reset(Sema_RenderStart);
+
         if (RenderThreadRendering)
             Platform::Semaphore_Wait(Sema_RenderDone);
 
+        Platform::Semaphore_Reset(Sema_RenderDone);
         Platform::Semaphore_Reset(Sema_RenderStart);
         Platform::Semaphore_Reset(Sema_ScanlineCount);
 

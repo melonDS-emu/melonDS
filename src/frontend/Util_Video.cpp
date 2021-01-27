@@ -222,7 +222,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
             bool moveV = rotation % 2 == layout;
 
             float offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
-            float offsetTop = -offsetBot;
+            float offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
 
             if ((rotation == 1 || rotation == 2) ^ swapScreens)
             {

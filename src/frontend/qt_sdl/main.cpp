@@ -44,6 +44,10 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef OGLRENDERER_ENABLED
+#include "OpenGLSupport.h"
+#endif
+
 #include "main.h"
 #include "Input.h"
 #include "CheatsDialog.h"
@@ -62,9 +66,6 @@
 
 #include "NDS.h"
 #include "GBACart.h"
-#ifdef OGLRENDERER_ENABLED
-#include "OpenGLSupport.h"
-#endif
 #include "GPU.h"
 #include "SPU.h"
 #include "Wifi.h"
@@ -358,7 +359,7 @@ void EmuThread::run()
     if (hasOGL)
     {
         oglContext->makeCurrent(oglSurface);
-        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
+        videoRenderer = Config::_3DRenderer;
     }
     else
 #endif
@@ -424,7 +425,7 @@ void EmuThread::run()
                     if (hasOGL)
                     {
                         oglContext->makeCurrent(oglSurface);
-                        videoRenderer = OpenGL::Init() ? Config::_3DRenderer : 0;
+                        videoRenderer = Config::_3DRenderer;
                     }
                     else
 #endif
@@ -1475,8 +1476,11 @@ void MainWindow::resizeEvent(QResizeEvent* event)
     int w = event->size().width();
     int h = event->size().height();
 
-    Config::WindowWidth = w;
-    Config::WindowHeight = h;
+    if (mainWindow != nullptr && !mainWindow->isFullScreen())
+    {
+        Config::WindowWidth = w;
+        Config::WindowHeight = h;
+    }
 
     // TODO: detect when the window gets maximized!
 }

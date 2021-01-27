@@ -182,6 +182,10 @@ void SetRenderSettings(RenderSettings& settings)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void Stop()
+{
+    RenderFrame();
+}
 
 void RenderFrame()
 {
@@ -194,6 +198,8 @@ void RenderFrame()
     glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     glViewport(0, 0, ScreenW, ScreenH);
+
+    glClear(GL_COLOR_BUFFER_BIT);
 
     // TODO: select more shaders (filtering, etc)
     OpenGL::UseShaderProgram(CompShader[0]);
