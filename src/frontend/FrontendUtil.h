@@ -55,6 +55,8 @@ enum
     Load_DSiNANDMissing,
     Load_DSiNANDBad,
 
+    Load_SavePathMissing,
+
     // TODO: more precise errors for ROM loading
     Load_ROMLoadError,
 };
