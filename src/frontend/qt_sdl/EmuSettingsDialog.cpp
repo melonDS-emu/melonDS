@@ -60,6 +60,9 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
 
+    ui->txtSavePath->setText(Config::SavePath);
+    ui->chkCustomSaveDir->setChecked(Config::SavePathEnable != 0);
+
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
     ui->chkJITBranchOptimisations->setChecked(Config::JIT_BranchOptimisations != 0);
@@ -78,6 +81,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
     on_chkEnableJIT_toggled();
+    on_chkCustomSaveDir_toggled();
 }
 
 EmuSettingsDialog::~EmuSettingsDialog()
@@ -157,6 +161,9 @@ void EmuSettingsDialog::done(int r)
         int dsiSDEnable = ui->cbDSiSDEnable->isChecked() ? 1:0;
         std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
 
+        std::string savePath = ui->txtSavePath->text().toStdString();
+        int savePathEnable = ui->chkCustomSaveDir->isChecked() ? 1:0;
+
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
 #ifdef JIT_ENABLED
@@ -176,7 +183,9 @@ void EmuSettingsDialog::done(int r)
             || strcmp(Config::DSiFirmwarePath, dsiFirmwarePath.c_str()) != 0
             || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0
             || dsiSDEnable != Config::DSiSDEnable
-            || strcmp(Config::DSiSDPath, dsiSDPath.c_str()) != 0)
+            || strcmp(Config::DSiSDPath, dsiSDPath.c_str()) != 0
+            || strcmp(Config::SavePath, savePath.c_str()) != 0
+            || savePathEnable != Config::SavePathEnable)
         {
             if (RunningSomething
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
@@ -207,6 +216,9 @@ void EmuSettingsDialog::done(int r)
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
+
+            strncpy(Config::SavePath, savePath.c_str(), 1023); Config::SavePath[1023] = '\0';
+            Config::SavePathEnable = savePathEnable;
 
             Config::Save();
 
@@ -336,4 +348,20 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_btnSaveBrowse_clicked()
+{
+    QString path = QFileDialog::getExistingDirectory(this,
+                                                     "Select save directory...",
+                                                     EmuDirectory);
+
+    ui->txtSavePath->setText(path);
+}
+
+void EmuSettingsDialog::on_chkCustomSaveDir_toggled()
+{
+    bool disabled = !ui->chkCustomSaveDir->isChecked();
+    ui->txtSavePath->setDisabled(disabled);
+    ui->btnSaveBrowse->setDisabled(disabled);
 }
