@@ -371,6 +371,12 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
     strncpy(SRAMPath[slot], sramfilename, 1024);
     strncpy(ROMPath[slot], archivefilename, 1024);
 
+    res = SetupSRAMPath(0);
+    if (res != Load_OK) return res;
+
+    res = SetupSRAMPath(1);
+    if (res != Load_OK) return res;
+
     NDS::SetConsoleType(Config::ConsoleType);
 
     if (slot == ROMSlot_NDS && NDS::LoadROM(romdata, romlength, SRAMPath[slot], directboot))
