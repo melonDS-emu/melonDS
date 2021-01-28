@@ -77,6 +77,7 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 TotalFrames;
 u32 NumLagFrames;
 bool LagFrameFlag;
 u64 LastSysClockCycles;
@@ -192,6 +193,8 @@ bool Init()
     DMAs[5] = new DMA(1, 1);
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
+
+    TotalFrames = 0;
 
     if (!NDSCart_SRAMManager::Init()) return false;
     if (!NDSCart::Init()) return false;
@@ -1039,6 +1042,7 @@ u32 RunFrame()
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
     // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
+    TotalFrames++;
     if (LagFrameFlag)
         NumLagFrames++;
 

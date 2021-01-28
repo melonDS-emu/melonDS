@@ -141,6 +141,7 @@ extern u8 ARM9MemTimings[0x40000][4];
 extern u8 ARM7MemTimings[0x20000][4];
 
 extern u32 NumFrames;
+extern u32 TotalFrames;
 extern u32 NumLagFrames;
 extern bool LagFrameFlag;
 

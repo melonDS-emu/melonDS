@@ -22,6 +22,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#include "Config.h"
+#include "NDS.h"
 #include "RTC.h"
 
 
@@ -33,6 +36,7 @@ u16 IO;
 u8 Input;
 u32 InputBit;
 u32 InputPos;
+u8 ClockInput[7];
 
 u8 Output[8];
 u32 OutputBit;
@@ -47,9 +51,11 @@ u8 Alarm2[3];
 u8 ClockAdjust;
 u8 FreeReg;
 
+u32 TimeAtBoot;
 
 bool Init()
 {
+    TimeAtBoot = Config::TimeAtBoot;
     return true;
 }
 
@@ -64,6 +70,7 @@ void Reset()
     InputPos = 0;
 
     memset(Output, 0, sizeof(Output));
+    memset(ClockInput, 0, sizeof(ClockInput));
     OutputPos = 0;
 
     CurCmd = 0;
@@ -105,7 +112,32 @@ u8 BCD(u8 val)
 {
     return (val % 10) | ((val / 10) << 4);
 }
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
+}
 
+time_t SecondsSinceBoot()
+{
+    // 560190 cycles per frame
+    // 59.8261 frames per second (number taken from DeSmuME)
+    return (time_t)((NDS::GetSysClockCycles(2) / 560190.0 + NDS::TotalFrames) / 59.8261);
+}
+tm GetTime()
+{
+    struct tm timedata;
+    if (TimeAtBoot == 0)
+    {
+        time_t timestamp = time(NULL);
+        localtime_r(&timestamp, &timedata);
+    }
+    else
+    {
+        time_t timestamp = TimeAtBoot + SecondsSinceBoot();
+        gmtime_r(&timestamp, &timedata);
+    }
+    return timedata;
+}
 
 void ByteIn(u8 val)
 {
@@ -128,9 +160,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = GetTime();
 
                     Output[0] = BCD(timedata.tm_year - 100);
                     Output[1] = BCD(timedata.tm_mon + 1);
@@ -144,9 +174,7 @@ void ByteIn(u8 val)
 
             case 0x60:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = GetTime();
 
                     Output[0] = BCD(timedata.tm_hour);
                     Output[1] = BCD(timedata.tm_min);
@@ -190,7 +218,28 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        // TODO: set time somehow??
+        ClockInput[InputPos - 1] = FromBCD(val);
+        if (InputPos == 7)
+        {
+            tm newTime;
+            memset(&newTime, 0, sizeof(newTime));
+            newTime.tm_year = ClockInput[0] + 100;
+            newTime.tm_mon = ClockInput[1] - 1;
+            newTime.tm_mday = ClockInput[2];
+            newTime.tm_wday = ClockInput[3];
+            // Idk why, but whenever I set the hour to 12-23 it comes out as 52-63.
+            if (ClockInput[4] > 50) ClockInput[4] -= 40;
+            newTime.tm_hour = ClockInput[4];
+            newTime.tm_min = ClockInput[5];
+            newTime.tm_sec = ClockInput[6];
+            time_t timestamp = mktime(&newTime);
+            // mktime uses local time zone; get back to utc
+            tm* utc = gmtime(&timestamp);
+            time_t t2 = mktime(utc);
+            timestamp += timestamp - t2;
+
+            TimeAtBoot = timestamp - SecondsSinceBoot();
+        }
         break;
 
     case 0x60:
