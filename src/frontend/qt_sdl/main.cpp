@@ -740,7 +740,7 @@ void ScreenHandler::screenOnMouseRelease(QMouseEvent* event)
 void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
 {
     event->accept();
-    
+
     showCursor();
 
     if (!(event->buttons() & Qt::LeftButton)) return;
@@ -874,7 +874,7 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 ScreenPanelGL::~ScreenPanelGL()
 {
     mouseTimer->stop();
-    
+
     makeCurrent();
 
     OSD::DeInit(this);
@@ -1104,7 +1104,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
-        
+
         actOpenROMArchive = menu->addAction("Open ROM inside Archive...");
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
 
@@ -1206,7 +1206,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actWifiSettings = menu->addAction("Wifi settings");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
-        
+
         actInterfaceSettings = menu->addAction("Interface settings");
         connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
@@ -1278,7 +1278,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
 
             connect(grpScreenLayout, &QActionGroup::triggered, this, &MainWindow::onChangeScreenLayout);
-        
+
             submenu->addSeparator();
 
             actScreenSwap = submenu->addAction("Swap screens");
@@ -1437,7 +1437,7 @@ void MainWindow::createScreenPanel()
 
         if (!hasOGL)
             delete panelGL;
- 
+
         if (hasOGL)
         {
             panel = panelGL;
@@ -1452,7 +1452,7 @@ void MainWindow::createScreenPanel()
         panelNative = new ScreenPanelNative(this);
         panel = panelNative;
         panel->show();
-        
+
         panelNative->setMouseTracking(true);
         mouseTimer = panelNative->setupMouseTimer();
         connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelNative->setCursor(Qt::BlankCursor);});
@@ -1642,6 +1642,9 @@ QString MainWindow::loadErrorStr(int error)
     case Frontend::Load_DSiNANDBad:
         return "DSi NAND is not a valid NAND dump.";
 
+    case Frontend::Load_SavePathMissing:
+        return "Custom save path was not found or could not be accessed. Check your emu settings.";
+
     case Frontend::Load_ROMLoadError:
         return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
 
@@ -1702,7 +1705,7 @@ void MainWindow::loadROM(QString filename)
     recentFileList.removeAll(filename);
     recentFileList.prepend(filename);
     updateRecentFilesMenu();
-  
+
     // TODO: validate the input file!!
     // * check that it is a proper ROM
     // * ensure the binary offsets are sane
@@ -2448,7 +2451,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
     {
         emuThread->emuPause();
 
-        if (hasOGL) 
+        if (hasOGL)
         {
             emuThread->deinitOpenGL();
             delete panelGL;
