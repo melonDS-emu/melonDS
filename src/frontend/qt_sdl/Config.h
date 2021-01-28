@@ -35,6 +35,11 @@ enum
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_FrameStep,
+    HK_CursorLeft,
+    HK_CursorRight,
+    HK_CursorUp,
+    HK_CursorDown,
+    HK_CursorPress,
     HK_MAX
 };
 
@@ -157,6 +162,9 @@ extern bool EnableCheats;
 extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
+
+extern int EnableCursor;
+extern int CursorSpeed;
 
 
 void Load();

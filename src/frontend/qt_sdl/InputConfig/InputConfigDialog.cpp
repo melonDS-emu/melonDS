@@ -20,6 +20,10 @@
 #include <QLabel>
 #include <QKeyEvent>
 #include <QDebug>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
+#include <QCheckBox>
+#include <QSpinBox>
 
 #include <SDL2/SDL.h>
 
@@ -75,9 +79,28 @@ const char* hk_general_labels[] =
     "Swap screens"
 };
 
+const int hk_cursor[] =
+{
+    HK_CursorLeft,
+    HK_CursorRight,
+    HK_CursorUp,
+    HK_CursorDown,
+    HK_CursorPress
+};
+
+const char* hk_cursor_labels[] =
+{
+    "Move cursor left",
+    "Move cursor right",
+    "Move cursor up",
+    "Move cursor down",
+    "Mouse press"
+};
+
 const int keypad_num = 12;
 const int hk_addons_num = 2;
 const int hk_general_num = 9;
+const int hk_cursor_num = 5;
 
 
 InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new Ui::InputConfigDialog)
@@ -103,6 +126,12 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         hkGeneralJoyMap[i] = Config::HKJoyMapping[hk_general[i]];
     }
 
+    for (int i = 0; i < hk_cursor_num; i++)
+    {
+        hkCursorKeyMap[i] = Config::HKKeyMapping[hk_cursor[i]];
+        hkCursorJoyMap[i] = Config::HKJoyMapping[hk_cursor[i]];
+    }
+
     populatePage(ui->tabAddons, hk_addons_num, hk_addons_labels, addonsKeyMap, addonsJoyMap);
     populatePage(ui->tabHotkeysGeneral, hk_general_num, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
@@ -123,6 +152,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
     }
 
     setupKeypadPage();
+    setupCursorPage();
 }
 
 InputConfigDialog::~InputConfigDialog()
@@ -151,6 +181,29 @@ void InputConfigDialog::setupKeypadPage()
             ui->stackMapping->setCurrentIndex(1);
         }
     }
+}
+
+void InputConfigDialog::setupCursorPage()
+{
+    QVBoxLayout* main_layout = new QVBoxLayout();
+
+    QCheckBox* checkbox = new QCheckBox("Enable cursor mapping");
+    checkbox->setChecked(Config::EnableCursor);
+    main_layout->addWidget(checkbox);
+
+    QLabel* label = new QLabel("Cursor speed:");
+    main_layout->addWidget(label);
+
+    QSpinBox* spinbox = new QSpinBox();
+    spinbox->setRange(1, 25);
+    spinbox->setValue(Config::CursorSpeed);
+    main_layout->addWidget(spinbox);
+
+    QWidget* hk_widget = new QWidget();
+    populatePage(hk_widget, hk_cursor_num, hk_cursor_labels, hkCursorKeyMap, hkCursorJoyMap);
+    main_layout->addWidget(hk_widget);
+
+    ui->tabHotkeysCursor->setLayout(main_layout);
 }
 
 void InputConfigDialog::populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap)
@@ -217,6 +270,15 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         Config::HKKeyMapping[hk_general[i]] = hkGeneralKeyMap[i];
         Config::HKJoyMapping[hk_general[i]] = hkGeneralJoyMap[i];
     }
+
+    for (int i = 0; i < hk_cursor_num; i++)
+    {
+        Config::HKKeyMapping[hk_cursor[i]] = hkCursorKeyMap[i];
+        Config::HKJoyMapping[hk_cursor[i]] = hkCursorJoyMap[i];
+    }
+
+    Config::EnableCursor = qobject_cast<QCheckBox*>(ui->tabHotkeysCursor->layout()->itemAt(0)->widget())->isChecked() ? 1 : 0;
+    Config::CursorSpeed = qobject_cast<QSpinBox*>(ui->tabHotkeysCursor->layout()->itemAt(2)->widget())->value();
 
     Config::JoystickID = Input::JoystickID;
     Config::Save();
