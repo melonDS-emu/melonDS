@@ -1064,7 +1064,6 @@ void ScreenPanelGL::initializeGL()
     GLuint pid = screenShader->programId();
     glBindAttribLocation(pid, 0, "vPosition");
     glBindAttribLocation(pid, 1, "vTexcoord");
-    glBindFragDataLocation(pid, 0, "oColor");
 
     screenShader->link();
 

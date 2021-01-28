@@ -19,7 +19,7 @@
 #ifndef GPU3D_OPENGL_SHADERS_H
 #define GPU3D_OPENGL_SHADERS_H
 
-#define kShaderHeader "#version 140"
+#define kShaderHeader "#version 300 es\nprecision mediump float;"
 
 
 const char* kClearVS = kShaderHeader R"(
@@ -41,16 +41,16 @@ uniform uvec4 uColor;
 uniform uint uOpaquePolyID;
 uniform uint uFogFlag;
 
-out vec4 oColor;
-out vec4 oAttr;
+layout (location = 0) out vec4 oColor;
+layout (location = 1) out vec4 oAttr;
 
 void main()
 {
     oColor = vec4(uColor).bgra / 31.0;
     oAttr.r = float(uOpaquePolyID) / 63.0;
-    oAttr.g = 0;
+    oAttr.g = 0.0;
     oAttr.b = float(uFogFlag);
-    oAttr.a = 1;
+    oAttr.a = 1.0;
 }
 )";
 
@@ -84,7 +84,7 @@ layout(std140) uniform uConfig
     int uFogShift;
 };
 
-out vec4 oColor;
+layout (location = 0) out vec4 oColor;
 
 // make up for crapo zbuffer precision
 bool isless(float a, float b)
@@ -117,7 +117,7 @@ void main()
 
     int polyid = int(attr.r * 63.0);
 
-    if (attr.g != 0)
+    if (attr.g != 0.0)
     {
         vec4 depthU = texelFetch(DepthBuffer, coord + ivec2(0,-scale), 0);
         vec4 attrU = texelFetch(AttrBuffer, coord + ivec2(0,-scale), 0);
@@ -141,7 +141,7 @@ void main()
             if ((uDispCnt & (1<<4)) != 0)
                 ret.a = 0.5;
             else
-                ret.a = 1;
+                ret.a = 1.0;
         }
     }
 
@@ -166,7 +166,7 @@ layout(std140) uniform uConfig
     int uFogShift;
 };
 
-out vec4 oColor;
+layout (location = 0) out vec4 oColor;
 
 vec4 CalculateFog(float depth)
 {
@@ -207,7 +207,7 @@ void main()
     vec4 depth = texelFetch(DepthBuffer, coord, 0);
     vec4 attr = texelFetch(AttrBuffer, coord, 0);
 
-    if (attr.b != 0) ret = CalculateFog(depth.r);
+    if (attr.b != 0.0) ret = CalculateFog(depth.r);
 
     oColor = ret;
 }
@@ -241,7 +241,7 @@ flat out ivec3 fPolygonAttr;
 
 const char* kRenderFSCommon = R"(
 
-uniform usampler2D TexMem;
+uniform mediump usampler2D TexMem;
 uniform sampler2D TexPalMem;
 
 layout(std140) uniform uConfig
@@ -260,8 +260,8 @@ smooth in vec4 fColor;
 smooth in vec2 fTexcoord;
 flat in ivec3 fPolygonAttr;
 
-out vec4 oColor;
-out vec4 oAttr;
+layout (location = 0) out vec4 oColor;
+layout (location = 2) out vec4 oAttr;
 
 int TexcoordWrap(int c, int maxc, int mode)
 {
@@ -307,7 +307,7 @@ vec4 TextureFetch_I2(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
     addr.y = (addr.y << 2) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
+    return vec4(color.rgb, (pixel.r>0)?1.0:alpha0);
 }
 
 vec4 TextureFetch_I4(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
@@ -323,7 +323,7 @@ vec4 TextureFetch_I4(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
     addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
+    return vec4(color.rgb, (pixel.r>0)?1.0:alpha0);
 }
 
 vec4 TextureFetch_I8(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
@@ -337,7 +337,7 @@ vec4 TextureFetch_I8(ivec2 addr, ivec4 st, int wrapmode, float alpha0)
     addr.y = (addr.y << 3) + pixel.r;
     vec4 color = texelFetch(TexPalMem, ivec2(addr.y&0x3FF, addr.y>>10), 0);
 
-    return vec4(color.rgb, (pixel.r>0)?1:alpha0);
+    return vec4(color.rgb, (pixel.r>0)?1.0:alpha0);
 }
 
 vec4 TextureFetch_Compressed(ivec2 addr, ivec4 st, int wrapmode)
@@ -601,7 +601,7 @@ vec4 FinalColor()
         if ((uDispCnt & (1<<1)) == 0)
         {
             // toon
-            vec3 tooncolor = uToonColors[int(vcol.r * 31)].rgb;
+            vec3 tooncolor = uToonColors[int(vcol.r * 31.0)].rgb;
             vcol.rgb = tooncolor;
         }
         else
@@ -638,7 +638,7 @@ vec4 FinalColor()
     {
         if ((uDispCnt & (1<<1)) != 0)
         {
-            vec3 tooncolor = uToonColors[int(vcol.r * 31)].rgb;
+            vec3 tooncolor = uToonColors[int(vcol.r * 31.0)].rgb;
             col.rgb = min(col.rgb + tooncolor, 1.0);
         }
     }
@@ -698,13 +698,13 @@ const char* kRenderFS_ZO = R"(
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 30.5/31) discard;
+    if (col.a < 30.5/31.0) discard;
 
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
-    oAttr.g = 0;
+    oAttr.g = 0.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
-    oAttr.a = 1;
+    oAttr.a = 1.0;
 }
 )";
 
@@ -715,13 +715,13 @@ smooth in float fZ;
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 30.5/31) discard;
+    if (col.a < 30.5/31.0) discard;
 
     oColor = col;
     oAttr.r = float((fPolygonAttr.x >> 24) & 0x3F) / 63.0;
-    oAttr.g = 0;
+    oAttr.g = 0.0;
     oAttr.b = float((fPolygonAttr.x >> 15) & 0x1);
-    oAttr.a = 1;
+    oAttr.a = 1.0;
     gl_FragDepth = fZ;
 }
 )";
@@ -731,10 +731,10 @@ const char* kRenderFS_ZE = R"(
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 30.5/31) discard;
+    if (col.a < 30.5/31.0) discard;
 
-    oAttr.g = 1;
-    oAttr.a = 1;
+    oAttr.g = 1.0;
+    oAttr.a = 1.0;
 }
 )";
 
@@ -745,10 +745,10 @@ smooth in float fZ;
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 30.5/31) discard;
+    if (col.a < 30.5/31.0) discard;
 
-    oAttr.g = 1;
-    oAttr.a = 1;
+    oAttr.g = 1.0;
+    oAttr.a = 1.0;
     gl_FragDepth = fZ;
 }
 )";
@@ -758,12 +758,12 @@ const char* kRenderFS_ZT = R"(
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 0.5/31) discard;
-    if (col.a >= 30.5/31) discard;
+    if (col.a < 0.5/31.0) discard;
+    if (col.a >= 30.5/31.0) discard;
 
     oColor = col;
-    oAttr.b = 0;
-    oAttr.a = 1;
+    oAttr.b = 0.0;
+    oAttr.a = 1.0;
 }
 )";
 
@@ -774,12 +774,12 @@ smooth in float fZ;
 void main()
 {
     vec4 col = FinalColor();
-    if (col.a < 0.5/31) discard;
-    if (col.a >= 30.5/31) discard;
+    if (col.a < 0.5/31.0) discard;
+    if (col.a >= 30.5/31.0) discard;
 
     oColor = col;
-    oAttr.b = 0;
-    oAttr.a = 1;
+    oAttr.b = 0.0;
+    oAttr.a = 1.0;
     gl_FragDepth = fZ;
 }
 )";

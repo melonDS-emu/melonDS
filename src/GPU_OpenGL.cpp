@@ -45,7 +45,7 @@ bool GLCompositor::Init()
 
         glBindAttribLocation(CompShader[i][2], 0, "vPosition");
         glBindAttribLocation(CompShader[i][2], 1, "vTexcoord");
-        glBindFragDataLocation(CompShader[i][2], 0, "oColor");
+        //glBindFragDataLocation(CompShader[i][2], 0, "oColor");
 
         if (!OpenGL::LinkShaderProgram(CompShader[i]))
             return false;

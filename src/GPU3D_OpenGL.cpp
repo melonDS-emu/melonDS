@@ -62,8 +62,8 @@ bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
     glBindAttribLocation(prog, 1, "vColor");
     glBindAttribLocation(prog, 2, "vTexcoord");
     glBindAttribLocation(prog, 3, "vPolygonAttr");
-    glBindFragDataLocation(prog, 0, "oColor");
-    glBindFragDataLocation(prog, 1, "oAttr");
+    //glBindFragDataLocation(prog, 0, "oColor");
+    //glBindFragDataLocation(prog, 1, "oAttr");
 
     if (!OpenGL::LinkShaderProgram(RenderShader[flags]))
         return false;
@@ -109,16 +109,16 @@ bool GLRenderer::Init()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_STENCIL_TEST);
 
-    glDepthRange(0, 1);
-    glClearDepth(1.0);
+    glDepthRangef(0.0, 1.0);
+    glClearDepthf(1.0);
 
 
     if (!OpenGL::BuildShaderProgram(kClearVS, kClearFS, ClearShaderPlain, "ClearShader"))
         return false;
 
     glBindAttribLocation(ClearShaderPlain[2], 0, "vPosition");
-    glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
-    glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
+    //glBindFragDataLocation(ClearShaderPlain[2], 0, "oColor");
+    //glBindFragDataLocation(ClearShaderPlain[2], 1, "oAttr");
 
     if (!OpenGL::LinkShaderProgram(ClearShaderPlain))
         return false;
@@ -154,7 +154,7 @@ bool GLRenderer::Init()
         return false;
 
     glBindAttribLocation(FinalPassEdgeShader[2], 0, "vPosition");
-    glBindFragDataLocation(FinalPassEdgeShader[2], 0, "oColor");
+    //glBindFragDataLocation(FinalPassEdgeShader[2], 0, "oColor");
 
     if (!OpenGL::LinkShaderProgram(FinalPassEdgeShader))
         return false;
@@ -170,7 +170,7 @@ bool GLRenderer::Init()
     glUniform1i(uni_id, 1);
 
     glBindAttribLocation(FinalPassFogShader[2], 0, "vPosition");
-    glBindFragDataLocation(FinalPassFogShader[2], 0, "oColor");
+    //glBindFragDataLocation(FinalPassFogShader[2], 0, "oColor");
 
     if (!OpenGL::LinkShaderProgram(FinalPassFogShader))
         return false;
@@ -281,7 +281,7 @@ bool GLRenderer::Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB5_A1, 1024, 48, 0, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, NULL);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -1170,7 +1170,7 @@ void GLRenderer::RenderFrame()
     ShaderConfig.uFogShift = RenderFogShift;
 
     glBindBuffer(GL_UNIFORM_BUFFER, ShaderConfigUBO);
-    void* unibuf = glMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    void* unibuf = glMapBufferRange(GL_UNIFORM_BUFFER, 0, GL_BUFFER_SIZE, GL_WRITE_ONLY);
     if (unibuf) memcpy(unibuf, &ShaderConfig, sizeof(ShaderConfig));
     glUnmapBuffer(GL_UNIFORM_BUFFER);
 
@@ -1203,7 +1203,7 @@ void GLRenderer::RenderFrame()
         else if (mask & (1<<5)) vram = GPU::VRAM_F;
         else if (mask & (1<<6)) vram = GPU::VRAM_G;
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_1_5_5_5_REV, vram);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, i*8, 1024, 8, GL_RGBA, GL_UNSIGNED_SHORT_5_5_5_1, vram);
     }
 
     glDisable(GL_SCISSOR_TEST);
@@ -1295,11 +1295,12 @@ void GLRenderer::PrepareCaptureFrame()
     glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[original_fb]);
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[3]);
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    GLenum drawBuffer[] = {GL_COLOR_ATTACHMENT0};
+    glDrawBuffers(1, drawBuffer);
     glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, 256, 192, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
-    glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glReadPixels(0, 0, 256, 192, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 }
 
 u32* GLRenderer::GetLine(int line)
@@ -1308,7 +1309,7 @@ u32* GLRenderer::GetLine(int line)
 
     if (line == 0)
     {
-        u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+        u8* data = (u8*)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, GL_BUFFER_SIZE, GL_READ_ONLY);
         if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }

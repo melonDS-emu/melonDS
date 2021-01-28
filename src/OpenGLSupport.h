@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <epoxy/gl.h>
+#include <GLES3/gl32.h>
 
 
 #include "Platform.h"

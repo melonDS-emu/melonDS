@@ -19,7 +19,9 @@
 #ifndef OSD_SHADERS_H
 #define OSD_SHADERS_H
 
-const char* kScreenVS_OSD = R"(#version 140
+#define kShaderHeader "#version 300 es\nprecision mediump float;"
+
+const char* kScreenVS_OSD = kShaderHeader R"(
 
 uniform vec2 uScreenSize;
 
@@ -37,10 +39,10 @@ void main()
 
     vec2 osdpos = (vPosition * vec2(uOSDSize * uScaleFactor));
     fTexcoord = osdpos;
-    osdpos += uOSDPos;
+    osdpos += vec2(uOSDPos);
 
     fpos.xy = ((osdpos * 2.0) / uScreenSize * uScaleFactor) - 1.0;
-    fpos.y *= -1;
+    fpos.y *= -1.0;
     fpos.z = 0.0;
     fpos.w = 1.0;
 
@@ -48,13 +50,13 @@ void main()
 }
 )";
 
-const char* kScreenFS_OSD = R"(#version 140
+const char* kScreenFS_OSD = kShaderHeader R"(
 
 uniform sampler2D OSDTex;
 
 smooth in vec2 fTexcoord;
 
-out vec4 oColor;
+layout (location = 0) out vec4 oColor;
 
 void main()
 {

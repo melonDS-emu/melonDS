@@ -22,14 +22,14 @@
 namespace OSD
 {
 
-bool Init(QOpenGLFunctions_3_2_Core* f);
-void DeInit(QOpenGLFunctions_3_2_Core* f);
+bool Init(QOpenGLExtraFunctions* f);
+void DeInit(QOpenGLExtraFunctions* f);
 
 void AddMessage(u32 color, const char* text);
 
-void Update(QOpenGLFunctions_3_2_Core* f);
+void Update(QOpenGLExtraFunctions* f);
 void DrawNative(QPainter& painter);
-void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h);
+void DrawGL(QOpenGLExtraFunctions* f, float w, float h);
 
 }
 
