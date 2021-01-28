@@ -64,6 +64,9 @@ extern int JIT_LiteralOptimisations;
 extern int JIT_FastMemory;
 #endif
 
+extern char SavePath[1024];
+extern int SavePathEnable;
+
 }
 
 #endif // CONFIG_H
