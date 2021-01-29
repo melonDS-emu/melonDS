@@ -56,7 +56,7 @@ extern char DSiSDPath[1024];
 
 extern int RandomizeMAC;
 
-extern int TimeAtBoot;
+extern u32 TimeAtBoot;
 
 #ifdef JIT_ENABLED
 extern int JIT_Enable;

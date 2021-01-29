@@ -43,7 +43,7 @@ char DSiSDPath[1024];
 
 int RandomizeMAC;
 
-int TimeAtBoot;
+u32 TimeAtBoot;
 
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
