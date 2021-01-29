@@ -490,6 +490,14 @@ void EmuThread::run()
             // emulate
             u32 nlines = NDS::RunFrame();
 
+#ifdef OGLRENDERER_ENABLED
+            // this is hacky but this is the easiest way to call
+            // this function without dealling with a ton of
+            // macro mess
+            if (videoRenderer == 1)
+                epoxy_glFlush();
+#endif
+
 #ifdef MELONCAP
             MelonCap::Update();
 #endif // MELONCAP

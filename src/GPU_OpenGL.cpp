@@ -226,8 +226,6 @@ void RenderFrame()
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
-
-    glFlush();
 }
 
 void BindOutputTexture()

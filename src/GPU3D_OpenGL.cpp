@@ -1145,8 +1145,6 @@ void RenderSceneChunk(int y, int h)
         }
     }
 
-    glFlush();
-
     if (RenderDispCnt & 0x00A0) // fog/edge enabled
     {
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1204,8 +1202,6 @@ void RenderSceneChunk(int y, int h)
 
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
-
-        glFlush();
     }
 }
 
