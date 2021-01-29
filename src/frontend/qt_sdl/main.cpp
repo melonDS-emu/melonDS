@@ -1431,6 +1431,11 @@ void MainWindow::createScreenPanel()
     {
         panelGL = new ScreenPanelGL(this);
         panelGL->show();
+        
+        panel = panelGL;
+        panelGL->setMouseTracking(true);
+        mouseTimer = panelGL->setupMouseTimer();
+        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelGL->setCursor(Qt::BlankCursor);});
 
         if (!panelGL->isValid())
             hasOGL = false;
@@ -1443,14 +1448,6 @@ void MainWindow::createScreenPanel()
 
         if (!hasOGL)
             delete panelGL;
- 
-        if (hasOGL)
-        {
-            panel = panelGL;
-            panelGL->setMouseTracking(true);
-            mouseTimer = panelGL->setupMouseTimer();
-            connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelGL->setCursor(Qt::BlankCursor);});
-        }
     }
 
     if (!hasOGL)
