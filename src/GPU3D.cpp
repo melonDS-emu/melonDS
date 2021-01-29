@@ -478,7 +478,7 @@ void DoSavestate(Savestate* file)
     if (file->Saving)
     {
         u32 id;
-        if (LastStripPolygon) id = (u32)((LastStripPolygon - (&PolygonRAM[0])) / sizeof(Polygon));
+        if (LastStripPolygon) id = (u32)(LastStripPolygon - (&PolygonRAM[0]));
         else                  id = -1;
         file->Var32(&id);
     }
@@ -524,7 +524,7 @@ void DoSavestate(Savestate* file)
             {
                 Vertex* ptr = poly->Vertices[j];
                 u32 id;
-                if (ptr) id = (u32)((ptr - (&VertexRAM[0])) / sizeof(Vertex));
+                if (ptr) id = (u32)(ptr - (&VertexRAM[0]));
                 else     id = -1;
                 file->Var32(&id);
             }
