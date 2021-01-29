@@ -23,7 +23,7 @@
 #include "types.h"
 
 #define SAVESTATE_MAJOR 7
-#define SAVESTATE_MINOR 1
+#define SAVESTATE_MINOR 2
 
 class Savestate
 {
