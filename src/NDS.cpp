@@ -773,7 +773,8 @@ bool DoSavestate(Savestate* file)
         file->Bool32(&LagFrameFlag);
     }
 
-    // TODO: save KeyInput????
+    if (file->IsAtleastVersion(7, 2))
+        file->Var32(&KeyInput);
     file->Var16(&KeyCnt);
     file->Var16(&RCnt);
 
