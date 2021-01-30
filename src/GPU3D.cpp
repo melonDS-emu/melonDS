@@ -621,6 +621,14 @@ void DoSavestate(Savestate* file)
 
     file->Bool32(&UseShininessTable);
     file->VarArray(ShininessTable, 128*sizeof(u8));
+
+    if (file->IsAtleastVersion(7, 2))
+    {
+        file->Var32(&PolygonAttr);
+        file->Var32(&TexParam);
+        file->Var32(&TexPalette);
+
+    }
 }
 
 
