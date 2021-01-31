@@ -170,6 +170,7 @@ struct RenderSettings
 
 bool Init();
 void DeInit();
+void ResetVRAMCache();
 void Reset();
 void Stop();
 

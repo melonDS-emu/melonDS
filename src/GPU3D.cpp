@@ -624,10 +624,10 @@ void DoSavestate(Savestate* file)
         file->Var32(&TexParam);
         file->Var32(&TexPalette);
 
+        u32 stateRenderer = GPU::Renderer;
+        file->Var32(&stateRenderer);
         if (GPU::Renderer == 0)
         {
-            u32 stateRenderer = GPU::Renderer;
-            file->Var32(&stateRenderer);
             if (stateRenderer == 0)
             {
                 file->Var32(&RenderNumPolygons);
@@ -656,11 +656,13 @@ void DoSavestate(Savestate* file)
                     RestartFrame();
                 }
             }
-            else { } // savestate was made while using GL renderer
+            else // savestate was made while using GL renderer
+                GPU::ResetVRAMCache();
             // We can ignore the rest of the data in this section of the savestate.
             // We could try rendering with a call to VBlank, but it doesn't look like that would be reliable.
         }
-        else {} // currently using GL renderer; is it possible to render in this situation?
+        else // currently using GL renderer; is it possible to render in this situation?
+            GPU::ResetVRAMCache();
     }
 }
 
