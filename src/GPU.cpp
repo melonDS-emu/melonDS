@@ -370,7 +370,10 @@ void DoSavestate(Savestate* file)
     GPU2D_B->DoSavestate(file);
     GPU3D::DoSavestate(file);
 
-    ResetVRAMCache();
+#ifdef OGLRENDERER_ENABLED
+    if (Renderer == 1)
+        ResetVRAMCache();
+#endif
 }
 
 void AssignFramebuffers()

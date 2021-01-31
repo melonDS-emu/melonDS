@@ -500,7 +500,7 @@ private:
 
     bool Enabled;
 
-    bool FrameIdentical;
+    volatile bool FrameIdentical;
 
     // threading
 
