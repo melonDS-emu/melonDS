@@ -705,6 +705,21 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    if (file->IsAtleastVersion(7, 2))
+    {
+        // The QT frontend doesn't allow savestates while powered off, but BizHawk does.
+        bool stateRunning = Running;
+        file->Bool32(&stateRunning);
+        if (!file->Saving)
+        {
+            if (!stateRunning && Running)
+                Stop();
+            else if (stateRunning && !Running)
+                // The only thing that Stop does is clear some buffers (assuming no QT frontend), so we don't need to restart anything here.
+                Running = true;
+        }
+    }
+
     // TODO:
     // * do something for bool's (sizeof=1)
     // * do something for 'loading DSi-mode savestate in DS mode' and vice-versa
