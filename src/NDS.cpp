@@ -757,6 +757,23 @@ bool DoSavestate(Savestate* file)
     file->Var16(&SqrtCnt);
 
     file->Var32(&CPUStop);
+    if (!file->Saving && CPUStop & 0x40000000 && Running)
+    {
+        // blank display when lid is closed
+        int fbsize;
+        if (GPU::Renderer == 1) fbsize = (256*3 + 1) * 192;
+        else                    fbsize = 256 * 192;
+
+        memset(GPU::Framebuffer[GPU::FrontBuffer][0], 0xFF, fbsize * sizeof(u32));
+        memset(GPU::Framebuffer[GPU::FrontBuffer][1], 0xFF, fbsize * sizeof(u32));
+
+#ifdef OGLRENDERER_ENABLED
+        if (GPU::Renderer == 1)
+        {
+            // ???
+        }
+#endif
+    }
 
     for (int i = 0; i < 8; i++)
     {
