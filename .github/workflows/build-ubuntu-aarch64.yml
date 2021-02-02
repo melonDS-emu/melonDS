@@ -21,6 +21,7 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: |
+        sudo apt update
         sudo ACCEPT_EULA=Y apt full-upgrade
     - name: Install dependencies
       shell: bash
