@@ -10,6 +10,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  ACCEPT_EULA: Y
 
 jobs:
   build:
