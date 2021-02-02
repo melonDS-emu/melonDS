@@ -563,7 +563,7 @@ void SetRenderSettings(RenderSettings& settings);
 
 void Stop();
 void RenderFrame();
-void BindOutputTexture();
+void BindOutputTexture(int buf);
 
 }
 #endif

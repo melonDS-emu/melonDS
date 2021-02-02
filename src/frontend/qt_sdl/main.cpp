@@ -490,13 +490,18 @@ void EmuThread::run()
             // emulate
             u32 nlines = NDS::RunFrame();
 
+            FrontBufferLock.lock();
 #ifdef OGLRENDERER_ENABLED
-            // this is hacky but this is the easiest way to call
-            // this function without dealling with a ton of
-            // macro mess
             if (videoRenderer == 1)
-                epoxy_glFlush();
+            {
+                // this is hacky but this is the easiest way to call
+                // this function without dealling with a ton of
+                // macro mess
+                epoxy_glFinish();
+            }
 #endif
+            FrontBuffer = GPU::FrontBuffer;
+            FrontBufferLock.unlock();
 
 #ifdef MELONCAP
             MelonCap::Update();
@@ -824,11 +829,17 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
-    int frontbuf = GPU::FrontBuffer;
-    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1]) return;
+    emuThread->FrontBufferLock.lock();
+    int frontbuf = emuThread->FrontBuffer;
+    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1])
+    {
+        emuThread->FrontBufferLock.unlock();
+        return;
+    }
 
     memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
     memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
+    emuThread->FrontBufferLock.unlock();
 
     painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
 
@@ -988,53 +999,63 @@ void ScreenPanelGL::paintGL()
 
     glViewport(0, 0, w*factor, h*factor);
 
-    screenShader->bind();
-
-    screenShader->setUniformValue("uScreenSize", (float)w*factor, (float)h*factor);
-
-    int frontbuf = GPU::FrontBuffer;
-    glActiveTexture(GL_TEXTURE0);
-
-#ifdef OGLRENDERER_ENABLED
-    if (GPU::Renderer != 0)
+    if (emuThread)
     {
-        // hardware-accelerated render
-        GPU::GLCompositor::BindOutputTexture();
-    }
-    else
-#endif
-    {
-        // regular render
-        glBindTexture(GL_TEXTURE_2D, screenTexture);
+        screenShader->bind();
 
-        if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+        screenShader->setUniformValue("uScreenSize", (float)w*factor, (float)h*factor);
+
+        emuThread->FrontBufferLock.lock();
+        int frontbuf = emuThread->FrontBuffer;
+        glActiveTexture(GL_TEXTURE0);
+
+    #ifdef OGLRENDERER_ENABLED
+        if (GPU::Renderer != 0)
         {
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
-                            GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+            // hardware-accelerated render
+            GPU::GLCompositor::BindOutputTexture(frontbuf);
         }
+        else
+    #endif
+        {
+            // regular render
+            glBindTexture(GL_TEXTURE_2D, screenTexture);
+
+            if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
+            {
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
+                                GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
+            }
+        }
+
+        GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+        glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
+        glBindVertexArray(screenVertexArray);
+
+        GLint transloc = screenShader->uniformLocation("uTransform");
+
+        for (int i = 0; i < numScreens; i++)
+        {
+            glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
+            glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
+        }
+
+        screenShader->release();
     }
-
-    GLint filter = Config::ScreenFilter ? GL_LINEAR : GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-
-    glBindBuffer(GL_ARRAY_BUFFER, screenVertexBuffer);
-    glBindVertexArray(screenVertexArray);
-
-    GLint transloc = screenShader->uniformLocation("uTransform");
-
-    for (int i = 0; i < numScreens; i++)
-    {
-        glUniformMatrix2x3fv(transloc, 1, GL_TRUE, screenMatrix[i]);
-        glDrawArrays(GL_TRIANGLES, screenKind[i] == 0 ? 0 : 2*3, 2*3);
-    }
-
-    screenShader->release();
 
     OSD::Update(this);
     OSD::DrawGL(this, w*factor, h*factor);
+
+    if (emuThread)
+    {
+        glFinish();
+        emuThread->FrontBufferLock.unlock();
+    }
 }
 
 void ScreenPanelGL::resizeEvent(QResizeEvent* event)

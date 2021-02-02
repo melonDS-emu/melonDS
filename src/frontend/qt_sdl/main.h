@@ -26,6 +26,7 @@
 #include <QImage>
 #include <QActionGroup>
 #include <QTimer>
+#include <QMutex>
 
 #include <QOffscreenSurface>
 #include <QOpenGLWidget>
@@ -58,6 +59,9 @@ public:
     void emuStop();
 
     bool emuIsRunning();
+
+    int FrontBuffer = 0;
+    QMutex FrontBufferLock;
 
 signals:
     void windowUpdate();

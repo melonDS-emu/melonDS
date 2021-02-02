@@ -49,8 +49,8 @@ struct CompVertex
 CompVertex CompVertices[2 * 3*2];
 
 GLuint CompScreenInputTex;
-GLuint CompScreenOutputTex;
-GLuint CompScreenOutputFB;
+GLuint CompScreenOutputTex[2];
+GLuint CompScreenOutputFB[2];
 
 
 bool Init()
@@ -118,7 +118,7 @@ bool Init()
     glEnableVertexAttribArray(1); // texcoord
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(CompVertex), (void*)(offsetof(CompVertex, Texcoord)));
 
-    glGenFramebuffers(1, &CompScreenOutputFB);
+    glGenFramebuffers(2, CompScreenOutputFB);
 
     glGenTextures(1, &CompScreenInputTex);
     glActiveTexture(GL_TEXTURE0);
@@ -129,12 +129,15 @@ bool Init()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8UI, 256*3 + 1, 192*2, 0, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, NULL);
 
-    glGenTextures(1, &CompScreenOutputTex);
-    glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glGenTextures(2, CompScreenOutputTex);
+    for (int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -143,9 +146,9 @@ bool Init()
 
 void DeInit()
 {
-    glDeleteFramebuffers(1, &CompScreenOutputFB);
+    glDeleteFramebuffers(2, CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);
-    glDeleteTextures(1, &CompScreenOutputTex);
+    glDeleteTextures(2, CompScreenOutputTex);
 
     glDeleteVertexArrays(1, &CompVertexArrayID);
     glDeleteBuffers(1, &CompVertexBufferID);
@@ -167,30 +170,41 @@ void SetRenderSettings(RenderSettings& settings)
     ScreenW = 256 * scale;
     ScreenH = (384+2) * scale;
 
-    glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    // fill the padding
-    u8 zeroPixels[ScreenW*2*scale*4];
-    memset(zeroPixels, 0, sizeof(zeroPixels));
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);
+    for (int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        // fill the padding
+        u8 zeroPixels[ScreenW*2*scale*4];
+        memset(zeroPixels, 0, sizeof(zeroPixels));
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192*scale, ScreenW, 2*scale, GL_RGBA, GL_UNSIGNED_BYTE, zeroPixels);
 
-    GLenum fbassign[] = {GL_COLOR_ATTACHMENT0};
-    glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CompScreenOutputTex, 0);
-    glDrawBuffers(1, fbassign);
+        GLenum fbassign[] = {GL_COLOR_ATTACHMENT0};
+        glBindFramebuffer(GL_FRAMEBUFFER, CompScreenOutputFB[i]);
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, CompScreenOutputTex[i], 0);
+        glDrawBuffers(1, fbassign);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Stop()
 {
-    RenderFrame();
+    for (int i = 0; i < 2; i++)
+    {
+        int frontbuf = GPU::FrontBuffer;
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
+
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 }
 
 void RenderFrame()
 {
+    int frontbuf = GPU::FrontBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, CompScreenOutputFB[frontbuf]);
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_STENCIL_TEST);
@@ -208,7 +222,6 @@ void RenderFrame()
     // TODO: support setting this midframe, if ever needed
     glUniform1i(Comp3DXPosLoc[0], ((int)GPU3D::RenderXPos << 23) >> 23);
 
-    int frontbuf = GPU::FrontBuffer;
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, CompScreenInputTex);
 
@@ -228,9 +241,9 @@ void RenderFrame()
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
 }
 
-void BindOutputTexture()
+void BindOutputTexture(int buf)
 {
-    glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex);
+    glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex[buf]);
 }
 
 }
