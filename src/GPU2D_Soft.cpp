@@ -2126,7 +2126,7 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
             for (; xoff < xend;)
             {
-                color = objvram[pixelsaddr];
+                color = objvram[pixelsaddr & objvrammask];
 
                 pixelsaddr += pixelstride;
 
