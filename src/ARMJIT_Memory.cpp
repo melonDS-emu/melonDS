@@ -159,6 +159,8 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
         desc.FaultPC = (u8*)context->uc_mcontext->__ss.__rip;
     #elif defined(__FreeBSD__)
         desc.FaultPC = (u8*)context->uc_mcontext.mc_rip;
+    #elif defined(__NetBSD__)
+        desc.FaultPC = (u8*)context->uc_mcontext.__gregs[_REG_RIP];
     #else
         desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
     #endif
@@ -180,6 +182,8 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
             context->uc_mcontext->__ss.__rip = (u64)desc.FaultPC;
         #elif defined(__FreeBSD__)
             context->uc_mcontext.mc_rip = (u64)desc.FaultPC;
+        #elif defined(__NetBSD__)
+            context->uc_mcontext.__gregs[_REG_RIP] = (u64)desc.FaultPC;
         #else
             context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
         #endif
