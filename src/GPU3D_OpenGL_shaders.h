@@ -19,8 +19,7 @@
 #ifndef GPU3D_OPENGL_SHADERS_H
 #define GPU3D_OPENGL_SHADERS_H
 
-#define kShaderHeader "#version 300 es\nprecision mediump float;"
-
+#include "OpenGLSupport.h"
 
 const char* kClearVS = kShaderHeader R"(
 
@@ -241,7 +240,7 @@ flat out ivec3 fPolygonAttr;
 
 const char* kRenderFSCommon = R"(
 
-uniform mediump usampler2D TexMem;
+uniform usampler2D TexMem;
 uniform sampler2D TexPalMem;
 
 layout(std140) uniform uConfig

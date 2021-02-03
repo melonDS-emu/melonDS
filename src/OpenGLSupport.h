@@ -24,9 +24,9 @@
 
 #include <epoxy/gl.h>
 
-
 #include "Platform.h"
 
+#define kShaderHeader "#version 300 es\nprecision mediump float;\nprecision lowp usampler2D;"
 
 namespace OpenGL
 {
