@@ -1195,15 +1195,15 @@ void SubmitPolygon()
             }
 
             den <<= 1;
-            posX = (((posX * Viewport[4]) << 4) / den) + (Viewport[0] << 4);
-            posY = (((posY * Viewport[5]) << 4) / den) + (Viewport[3] << 4);
+            posX = (((posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
+            posY = (((posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
         }
 
-        vtx->HiresPosition[0] = posX & 0x1FFF;
-        vtx->HiresPosition[1] = posY & 0xFFF;
+        vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;
+        vtx->HiresPosition[1] = posY & (0x100 << HD_SHIFT) - 1;
 
-        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> 4;
-        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> 4;
+        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> HD_SHIFT;
+        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> HD_SHIFT;
     }
 
     // zero-dot W check:
@@ -1360,8 +1360,8 @@ void SubmitPolygon()
 
     if (ybot > 192 * GPU::ScaleFactor) poly->Degenerate = true;
 
-    poly->SortKey = (ybot << (8 + 4)) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000 << (4 * 2);
+    poly->SortKey = (ybot << (8 + HD_SHIFT)) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000 << (HD_SHIFT * 2);
 
     poly->WBuffer = (FlushAttributes & 0x2);
 
