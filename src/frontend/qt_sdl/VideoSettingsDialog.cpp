@@ -41,7 +41,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     oldVSync = Config::ScreenVSync;
     oldVSyncInterval = Config::ScreenVSyncInterval;
     oldSoftThreaded = Config::Threaded3D;
-    oldGLScale = Config::GL_ScaleFactor;
+    oldGLScale = Config::ScaleFactor;
     oldGLBetterPolygons = Config::GL_BetterPolygons;
 
     grp3DRenderer = new QButtonGroup(this);
@@ -63,7 +63,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
 
     for (int i = 1; i <= 16; i++)
         ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
-    ui->cbxGLResolution->setCurrentIndex(Config::GL_ScaleFactor-1);
+    ui->cbxGLResolution->setCurrentIndex(Config::ScaleFactor-1);
 
     ui->cbBetterPolygons->setChecked(Config::GL_BetterPolygons != 0);
 
@@ -115,7 +115,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     Config::ScreenVSync = oldVSync;
     Config::ScreenVSyncInterval = oldVSyncInterval;
     Config::Threaded3D = oldSoftThreaded;
-    Config::GL_ScaleFactor = oldGLScale;
+    Config::ScaleFactor = oldGLScale;
     Config::GL_BetterPolygons = oldGLBetterPolygons;
 
     bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
@@ -183,7 +183,7 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
     // prevent a spurious change
     if (ui->cbxGLResolution->count() < 16) return;
 
-    Config::GL_ScaleFactor = idx+1;
+    Config::ScaleFactor = idx+1;
 
     emit updateVideoSettings(false);
 }

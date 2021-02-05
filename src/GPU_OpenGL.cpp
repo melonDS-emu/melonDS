@@ -143,7 +143,7 @@ void GLCompositor::Reset()
 
 void GLCompositor::SetRenderSettings(RenderSettings& settings)
 {
-    int scale = settings.GL_ScaleFactor;
+    int scale = settings.ScaleFactor;
 
     Scale = scale;
     ScreenW = 256 * scale;

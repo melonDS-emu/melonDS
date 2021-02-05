@@ -81,6 +81,7 @@ u8* VRAMPtr_BOBJ[0x8];
 int FrontBuffer;
 u32* Framebuffer[2][2];
 int Renderer = 0;
+int ScaleFactor;
 
 GPU2D::Unit GPU2D_A(0);
 GPU2D::Unit GPU2D_B(1);
@@ -445,6 +446,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
         InitRenderer(renderer);
     }
 
+    ScaleFactor = settings.ScaleFactor;
     int fbsize;
     if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (256*3 + 1) * 192;

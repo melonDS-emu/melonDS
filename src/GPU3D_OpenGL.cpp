@@ -316,9 +316,8 @@ void GLRenderer::Reset()
 
 void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
-    int scale = settings.GL_ScaleFactor;
+    int scale = settings.ScaleFactor;
 
-    ScaleFactor = scale;
     BetterPolygons = settings.GL_BetterPolygons;
 
     ScreenW = 256 * scale;
@@ -426,10 +425,10 @@ u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u
     while (z > 0xFFFF) { z >>= 1; zshift++; }
 
     u32 x, y;
-    if (ScaleFactor > 1)
+    if (GPU::ScaleFactor > 1)
     {
-        x = (vtx->HiresPosition[0] * ScaleFactor) >> 4;
-        y = (vtx->HiresPosition[1] * ScaleFactor) >> 4;
+        x = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> 4;
+        y = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> 4;
     }
     else
     {
@@ -451,8 +450,8 @@ u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u
         if ((vtop->FinalPosition[1] < vtx->FinalPosition[1]) &&
             (vtx->FinalPosition[0] == vtop->FinalPosition[0]-1))
         {
-            if (ScaleFactor > 1)
-                x = (vtop->HiresPosition[0] * ScaleFactor) >> 4;
+            if (GPU::ScaleFactor > 1)
+                x = (vtop->HiresPosition[0] * GPU::ScaleFactor) >> 4;
             else
                 x = vtop->FinalPosition[0];
         }
@@ -624,8 +623,8 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 cS *= cW;
                 cT *= cW;
 
-                cX = (cX * ScaleFactor) >> 4;
-                cY = (cY * ScaleFactor) >> 4;
+                cX = (cX * GPU::ScaleFactor) >> 4;
+                cY = (cY * GPU::ScaleFactor) >> 4;
 
                 u32 w = (u32)cW;
 
@@ -753,7 +752,7 @@ void GLRenderer::RenderSceneChunk(int y, int h)
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
-    if (h != 192) glScissor(0, y<<ScaleFactor, 256<<ScaleFactor, h<<ScaleFactor);
+    if (h != 192) glScissor(0, y<<GPU::ScaleFactor, 256<<GPU::ScaleFactor, h<<GPU::ScaleFactor);
 
     GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
