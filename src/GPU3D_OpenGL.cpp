@@ -746,7 +746,7 @@ void GLRenderer::RenderSceneChunk(int y, int h)
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
-    if (h != 192) glScissor(0, y<<GPU::ScaleFactor, 256<<GPU::ScaleFactor, h<<GPU::ScaleFactor);
+    if (h != 192) glScissor(0, y * GPU::ScaleFactor, 256 * GPU::ScaleFactor, h * GPU::ScaleFactor);
 
     GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
