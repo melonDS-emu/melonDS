@@ -256,9 +256,9 @@ bool GLRenderer::Init()
     SetupDefaultTexParams(FramebufferTex[5]);
     SetupDefaultTexParams(FramebufferTex[7]);
 
-    // downscale framebuffer for display capture (always 256x192)
+    // downscale framebuffer for display capture (always native)
     SetupDefaultTexParams(FramebufferTex[3]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 192, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, NATIVE_WIDTH, NATIVE_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
     glEnable(GL_BLEND);
     glBlendEquationSeparate(GL_FUNC_ADD, GL_MAX);
@@ -320,8 +320,8 @@ void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 
     BetterPolygons = settings.GL_BetterPolygons;
 
-    ScreenW = 256 * scale;
-    ScreenH = 192 * scale;
+    ScreenW = NATIVE_WIDTH * scale;
+    ScreenH = NATIVE_HEIGHT * scale;
 
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[0]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ScreenW, ScreenH, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -358,7 +358,7 @@ void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     glBindFramebuffer(GL_FRAMEBUFFER, FramebufferID[0]);
 
     glBindBuffer(GL_PIXEL_PACK_BUFFER, PixelbufferID);
-    glBufferData(GL_PIXEL_PACK_BUFFER, 256*192*4, NULL, GL_DYNAMIC_READ);
+    glBufferData(GL_PIXEL_PACK_BUFFER, NATIVE_WIDTH*NATIVE_HEIGHT*4, NULL, GL_DYNAMIC_READ);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -746,7 +746,7 @@ void GLRenderer::RenderSceneChunk(int y, int h)
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
 
-    if (h != 192) glScissor(0, y * GPU::ScaleFactor, 256 * GPU::ScaleFactor, h * GPU::ScaleFactor);
+    if (h != NATIVE_HEIGHT) glScissor(0, y * GPU::ScaleFactor, NATIVE_WIDTH * GPU::ScaleFactor, h * GPU::ScaleFactor);
 
     GLboolean fogenable = (RenderDispCnt & (1<<7)) ? GL_TRUE : GL_FALSE;
 
@@ -1274,7 +1274,7 @@ void GLRenderer::RenderFrame()
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, NumIndices * 2, IndexBuffer);
         glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, EdgeIndicesOffset * 2, NumEdgeIndices * 2, IndexBuffer + EdgeIndicesOffset);
 
-        RenderSceneChunk(0, 192);
+        RenderSceneChunk(0, NATIVE_HEIGHT);
     }
 
     FrontBuffer = FrontBuffer ? 0 : 1;
@@ -1289,20 +1289,20 @@ void GLRenderer::PrepareCaptureFrame()
     glReadBuffer(GL_COLOR_ATTACHMENT0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, FramebufferID[3]);
     glDrawBuffer(GL_COLOR_ATTACHMENT0);
-    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, 256, 192, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBlitFramebuffer(0, 0, ScreenW, ScreenH, 0, 0, NATIVE_WIDTH, NATIVE_HEIGHT, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, FramebufferID[3]);
-    glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+    glReadPixels(0, 0, NATIVE_WIDTH, NATIVE_HEIGHT, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 u32* GLRenderer::GetLine(int line)
 {
-    int stride = 256;
+    int stride = NATIVE_WIDTH;
 
     if (line == 0)
     {
         u8* data = (u8*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-        if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*192);
+        if (data) memcpy(&Framebuffer[stride*0], data, 4*stride*NATIVE_HEIGHT);
         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
     }
 

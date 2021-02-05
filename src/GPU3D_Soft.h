@@ -477,8 +477,8 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
+    static constexpr int ScanlineWidth = NATIVE_WIDTH + 2;
+    static constexpr int NumScanlines = NATIVE_HEIGHT + 2;
     static constexpr int BufferSize = ScanlineWidth * NumScanlines;
     static constexpr int FirstPixelOffset = ScanlineWidth + 1;
 
@@ -495,7 +495,7 @@ private:
     // bit22: translucent flag
     // bit24-29: polygon ID for opaque pixels
 
-    u8 StencilBuffer[256*2];
+    u8 StencilBuffer[NATIVE_WIDTH*2];
     bool PrevIsShadowMask;
 
     bool Enabled;

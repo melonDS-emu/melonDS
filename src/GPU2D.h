@@ -19,6 +19,9 @@
 #ifndef GPU2D_H
 #define GPU2D_H
 
+#define NATIVE_WIDTH 256
+#define NATIVE_HEIGHT 192
+
 #include "types.h"
 #include "Savestate.h"
 
@@ -79,7 +82,7 @@ public:
     u32 DispFIFOReadPtr;
     u32 DispFIFOWritePtr;
 
-    u16 DispFIFOBuffer[256];
+    u16 DispFIFOBuffer[NATIVE_WIDTH];
 
     u32 DispCnt;
     u16 BGCnt[4];

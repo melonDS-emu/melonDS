@@ -695,7 +695,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         fnDepthTest = DepthTest_LessThan;
 
     if (!PrevIsShadowMask)
-        memset(&StencilBuffer[256 * (y&0x1)], 0, 256);
+        memset(&StencilBuffer[NATIVE_WIDTH * (y&0x1)], 0, NATIVE_WIDTH);
 
     PrevIsShadowMask = true;
 
@@ -804,7 +804,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
 
     for (; x < xlimit; x++)
     {
@@ -820,13 +820,13 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] |= 0x1;
+            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
         }
     }
 
@@ -834,7 +834,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
     if (wireframe && !edge) x = xlimit;
     else for (; x < xlimit; x++)
     {
@@ -846,20 +846,20 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         u32 dstattr = AttrBuffer[pixeladdr];
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] = 1;
+            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
         }
     }
 
     // part 3: right edge
     edge = yedge | 0x2;
     xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
 
     for (; x < xlimit; x++)
     {
@@ -875,13 +875,13 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] = 1;
+            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[256*(y&0x1) + x] |= 0x2;
+                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
         }
     }
 
@@ -1032,7 +1032,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
     if (l_edgecov & (1<<31))
     {
         xcov = (l_edgecov >> 12) & 0x3FF;
@@ -1049,7 +1049,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1133,7 +1133,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
 
     if (wireframe && !edge) x = xlimit;
     else
@@ -1145,7 +1145,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1204,7 +1204,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // part 3: right edge
     edge = yedge | 0x2;
     xlimit = xend+1;
-    if (xlimit > 256) xlimit = 256;
+    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
     if (r_edgecov & (1<<31))
     {
         xcov = (r_edgecov >> 12) & 0x3FF;
@@ -1220,7 +1220,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[256*(y&0x1) + x];
+            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1371,7 +1371,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         // edge marking
         // only applied to topmost pixels
 
-        for (int x = 0; x < 256; x++)
+        for (int x = 0; x < NATIVE_WIDTH; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
@@ -1419,7 +1419,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
 
-        for (int x = 0; x < 256; x++)
+        for (int x = 0; x < NATIVE_WIDTH; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
             u32 density, srccolor, srcR, srcG, srcB, srcA;
@@ -1483,7 +1483,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         // edges were flagged and their coverages calculated during rendering
         // this is where such edge pixels are blended with the pixels underneath
 
-        for (int x = 0; x < 256; x++)
+        for (int x = 0; x < NATIVE_WIDTH; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
@@ -1567,9 +1567,9 @@ void SoftRenderer::ClearBuffers()
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
-        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
+        for (int y = 0; y < ScanlineWidth*NATIVE_HEIGHT; y+=ScanlineWidth)
         {
-            for (int x = 0; x < 256; x++)
+            for (int x = 0; x < NATIVE_WIDTH; x++)
             {
                 u16 val2 = ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
                 u16 val3 = ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
@@ -1605,9 +1605,9 @@ void SoftRenderer::ClearBuffers()
 
         polyid |= (RenderClearAttr1 & 0x8000);
 
-        for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
+        for (int y = 0; y < ScanlineWidth*NATIVE_HEIGHT; y+=ScanlineWidth)
         {
-            for (int x = 0; x < 256; x++)
+            for (int x = 0; x < NATIVE_WIDTH; x++)
             {
                 u32 pixeladdr = FirstPixelOffset + y + x;
                 ColorBuffer[pixeladdr] = color;
@@ -1629,7 +1629,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
     RenderScanline(0, j);
 
-    for (s32 y = 1; y < 192; y++)
+    for (s32 y = 1; y < NATIVE_HEIGHT; y++)
     {
         RenderScanline(y, j);
         ScanlineFinalPass(y-1);
@@ -1638,7 +1638,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
             Platform::Semaphore_Post(Sema_ScanlineCount);
     }
 
-    ScanlineFinalPass(191);
+    ScanlineFinalPass(NATIVE_HEIGHT - 1);
 
     if (threaded)
         Platform::Semaphore_Post(Sema_ScanlineCount);
@@ -1686,7 +1686,7 @@ void SoftRenderer::RenderThreadFunc()
         RenderThreadRendering = true;
         if (FrameIdentical)
         {
-            Platform::Semaphore_Post(Sema_ScanlineCount, 192);
+            Platform::Semaphore_Post(Sema_ScanlineCount, NATIVE_HEIGHT);
         }
         else
         {
@@ -1703,7 +1703,7 @@ u32* SoftRenderer::GetLine(int line)
 {
     if (RenderThreadRunning)
     {
-        if (line < 192)
+        if (line < NATIVE_HEIGHT)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
     }
 

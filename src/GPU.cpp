@@ -248,9 +248,9 @@ void Reset()
 
     size_t fbsize;
     if (GPU3D::CurrentRenderer->Accelerated)
-        fbsize = (256*3 + 1) * 192;
+        fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = 256 * 192;
+        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
 
     for (int i = 0; i < fbsize; i++)
     {
@@ -282,9 +282,9 @@ void Stop()
 {
     int fbsize;
     if (GPU3D::CurrentRenderer->Accelerated)
-        fbsize = (256*3 + 1) * 192;
+        fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = 256 * 192;
+        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
 
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
@@ -449,9 +449,9 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     ScaleFactor = settings.ScaleFactor;
     int fbsize;
     if (GPU3D::CurrentRenderer->Accelerated)
-        fbsize = (256*3 + 1) * 192;
+        fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = 256 * 192;
+        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
 
     if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
     if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
@@ -993,7 +993,7 @@ void DisplayFIFO(u32 x)
             GPU2D_A.SampleFIFO(x-11, 8);
     }
 
-    if (x < 256)
+    if (x < NATIVE_WIDTH)
     {
         // transfer the next 8 pixels
         NDS::CheckDMAs(0, 0x04);
@@ -1019,18 +1019,18 @@ void StartHBlank(u32 line)
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
-    if (VCount < 192)
+    if (VCount < NATIVE_HEIGHT)
     {
         // draw
         // note: this should start 48 cycles after the scanline start
-        if (line < 192)
+        if (line < NATIVE_HEIGHT)
         {
             GPU2D_Renderer->DrawScanline(line, &GPU2D_A);
             GPU2D_Renderer->DrawScanline(line, &GPU2D_B);
         }
 
         // sprites are pre-rendered one scanline in advance
-        if (line < 191)
+        if (line < NATIVE_HEIGHT - 1)
         {
             GPU2D_Renderer->DrawSprites(line+1, &GPU2D_A);
             GPU2D_Renderer->DrawSprites(line+1, &GPU2D_B);
@@ -1105,7 +1105,7 @@ void StartScanline(u32 line)
     else if (VCount == 194)
         NDS::StopDMAs(0, 0x03);
 
-    if (line < 192)
+    if (line < NATIVE_HEIGHT)
     {
         if (line == 0)
         {
