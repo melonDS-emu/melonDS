@@ -1174,7 +1174,7 @@ void SubmitPolygon()
         // note: the DS performs these divisions using a 32-bit divider
         // thus, if W is greater than 0xFFFF, some precision is sacrificed
         // to make the numbers fit into the divider
-        u32 posX, posY;
+        u64 posX, posY;
         u32 w = vtx->Position[3];
         if (w == 0)
         {
@@ -1195,23 +1195,15 @@ void SubmitPolygon()
             }
 
             den <<= 1;
-            posX = ((posX * Viewport[4]) / den) + Viewport[0];
-            posY = ((posY * Viewport[5]) / den) + Viewport[3];
+            posX = (((posX * Viewport[4]) << 4) / den) + (Viewport[0] << 4);
+            posY = (((posY * Viewport[5]) << 4) / den) + (Viewport[3] << 4);
         }
 
-        vtx->FinalPosition[0] = posX & 0x1FF;
-        vtx->FinalPosition[1] = posY & 0xFF;
+        vtx->HiresPosition[0] = posX & 0x1FFF;
+        vtx->HiresPosition[1] = posY & 0xFFF;
 
-        // hi-res positions
-        // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
-        if (w != 0)
-        {
-            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
-            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
-
-            vtx->HiresPosition[0] = posX & 0x1FFF;
-            vtx->HiresPosition[1] = posY & 0xFFF;
-        }
+        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> 4;
+        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> 4;
     }
 
     // zero-dot W check:
@@ -1334,8 +1326,8 @@ void SubmitPolygon()
     // (ie two W's that span 12 bits or less will be brought to 16 bits)
 
     u32 vtop = 0, vbot = 0;
-    s32 ytop = 192, ybot = 0;
-    s32 xtop = 256, xbot = 0;
+    s32 ytop = 192 * GPU::ScaleFactor, ybot = 0;
+    s32 xtop = 256 * GPU::ScaleFactor, xbot = 0;
     u32 wsize = 0;
 
     for (int i = 0; i < nverts; i++)
@@ -1366,10 +1358,10 @@ void SubmitPolygon()
     poly->YTop = ytop; poly->YBottom = ybot;
     poly->XTop = xtop; poly->XBottom = xbot;
 
-    if (ybot > 192) poly->Degenerate = true;
+    if (ybot > 192 * GPU::ScaleFactor) poly->Degenerate = true;
 
-    poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000;
+    poly->SortKey = (ybot << (8 + 4)) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000 << (4 * 2);
 
     poly->WBuffer = (FlushAttributes & 0x2);
 

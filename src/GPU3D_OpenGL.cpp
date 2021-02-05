@@ -427,8 +427,8 @@ u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u
     u32 x, y;
     if (GPU::ScaleFactor > 1)
     {
-        x = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> 4;
-        y = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> 4;
+        x = vtx->FinalPosition[0];
+        y = vtx->FinalPosition[1];
     }
     else
     {
@@ -450,10 +450,7 @@ u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u
         if ((vtop->FinalPosition[1] < vtx->FinalPosition[1]) &&
             (vtx->FinalPosition[0] == vtop->FinalPosition[0]-1))
         {
-            if (GPU::ScaleFactor > 1)
-                x = (vtop->HiresPosition[0] * GPU::ScaleFactor) >> 4;
-            else
-                x = vtop->FinalPosition[0];
+            x = vtop->FinalPosition[0];
         }
     }*/
 
@@ -591,8 +588,8 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 {
                     Vertex* vtx = poly->Vertices[j];
 
-                    cX += vtx->HiresPosition[0];
-                    cY += vtx->HiresPosition[1];
+                    cX += vtx->FinalPosition[0];
+                    cY += vtx->FinalPosition[1];
 
                     float fw = (float)poly->FinalW[j] * poly->NumVertices;
                     cW += 1.0f / fw;
@@ -622,9 +619,6 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
                 cS *= cW;
                 cT *= cW;
-
-                cX = (cX * GPU::ScaleFactor) >> 4;
-                cY = (cY * GPU::ScaleFactor) >> 4;
 
                 u32 w = (u32)cW;
 
