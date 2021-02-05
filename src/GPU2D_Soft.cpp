@@ -354,7 +354,7 @@ void GPU2D_Soft::VBlankEnd()
     {
         if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
         {
-            GPU3D::GLRenderer::PrepareCaptureFrame();
+            reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->PrepareCaptureFrame();
         }
     }
 #endif

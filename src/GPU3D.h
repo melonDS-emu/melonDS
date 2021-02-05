@@ -20,6 +20,9 @@
 #define GPU3D_H
 
 #include <array>
+#include <memory>
+
+#include "GPU.h"
 #include "Savestate.h"
 
 namespace GPU3D
@@ -96,8 +99,6 @@ extern u32 RenderNumPolygons;
 
 extern u64 Timestamp;
 
-extern int Renderer;
-
 bool Init();
 void DeInit();
 void Reset();
@@ -131,40 +132,27 @@ void Write8(u32 addr, u8 val);
 void Write16(u32 addr, u16 val);
 void Write32(u32 addr, u32 val);
 
-namespace SoftRenderer
+class Renderer3D
 {
+public:
+    virtual ~Renderer3D() {};
+    virtual bool Init() = 0;
+    virtual void DeInit() = 0;
+    virtual void Reset() = 0;
 
-bool Init();
-void DeInit();
-void Reset();
+    virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
 
-void SetRenderSettings(GPU::RenderSettings& settings);
-void SetupRenderThread();
+    virtual void VCount144() {};
+    virtual void RenderFrame() = 0;
+    virtual u32* GetLine(int line) = 0;
+};
 
-void VCount144();
-void RenderFrame();
-u32* GetLine(int line);
-
-}
-
-#ifdef OGLRENDERER_ENABLED
-namespace GLRenderer
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(GPU::RenderSettings& settings);
-
-void RenderFrame();
-void PrepareCaptureFrame();
-u32* GetLine(int line);
-void SetupAccelFrame();
+extern int Renderer;
+extern std::unique_ptr<Renderer3D> CurrentRenderer;
 
 }
-#endif
 
-}
+#include "GPU3D_Soft.h"
+#include "GPU3D_OpenGL.h"
 
 #endif

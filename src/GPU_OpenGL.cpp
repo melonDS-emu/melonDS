@@ -236,7 +236,7 @@ void RenderFrame()
     }
 
     glActiveTexture(GL_TEXTURE1);
-    GPU3D::GLRenderer::SetupAccelFrame();
+    reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);

@@ -21,7 +21,6 @@
 #include "NDS.h"
 #include "GPU.h"
 
-
 namespace GPU
 {
 
@@ -79,7 +78,7 @@ u8* VRAMPtr_BOBJ[0x8];
 
 int FrontBuffer;
 u32* Framebuffer[2][2];
-int Renderer;
+int Renderer = 0;
 bool Accelerated;
 
 GPU2D* GPU2D_A;
@@ -382,20 +381,27 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
+        // To create opengl rendrerer
         if (!GLCompositor::Init())
         {
+            // Fallback on software renderer
             renderer = 0;
+            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D::CurrentRenderer->Init();
         }
-        else if (!GPU3D::GLRenderer::Init())
+        GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
+        if (!GPU3D::CurrentRenderer->Init())
         {
             GLCompositor::DeInit();
             renderer = 0;
+            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
         }
     }
     else
 #endif
     {
-        GPU3D::SoftRenderer::Init();
+        GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+        GPU3D::CurrentRenderer->Init();
     }
 
     Renderer = renderer;
@@ -404,14 +410,10 @@ void InitRenderer(int renderer)
 
 void DeInitRenderer()
 {
-    if (Renderer == 0)
-    {
-        GPU3D::SoftRenderer::DeInit();
-    }
+    GPU3D::CurrentRenderer->DeInit();
 #ifdef OGLRENDERER_ENABLED
-    else
+    if (Renderer == 1)
     {
-        GPU3D::GLRenderer::DeInit();
         GLCompositor::DeInit();
     }
 #endif
@@ -421,13 +423,13 @@ void ResetRenderer()
 {
     if (Renderer == 0)
     {
-        GPU3D::SoftRenderer::Reset();
+        GPU3D::CurrentRenderer->Reset();
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         GLCompositor::Reset();
-        GPU3D::GLRenderer::Reset();
+        GPU3D::CurrentRenderer->Reset();
     }
 #endif
 }
@@ -466,13 +468,13 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
     if (Renderer == 0)
     {
-        GPU3D::SoftRenderer::SetRenderSettings(settings);
+        GPU3D::CurrentRenderer->SetRenderSettings(settings);
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
         GLCompositor::SetRenderSettings(settings);
-        GPU3D::GLRenderer::SetRenderSettings(settings);
+        GPU3D::CurrentRenderer->SetRenderSettings(settings);
     }
 #endif
 }
