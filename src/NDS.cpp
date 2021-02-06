@@ -1564,7 +1564,7 @@ void RunTimer(u32 tid, s32 cycles)
 
 void RunTimers(u32 cpu)
 {
-    register u32 timermask = TimerCheckMask[cpu];
+    u32 timermask = TimerCheckMask[cpu];
     s32 cycles;
 
     if (cpu == 0)
