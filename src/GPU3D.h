@@ -135,7 +135,12 @@ void Write32(u32 addr, u32 val);
 class Renderer3D
 {
 public:
+    Renderer3D() = default;
     virtual ~Renderer3D() {};
+
+    Renderer3D(const Renderer3D&) = delete;
+    Renderer3D& operator=(const Renderer3D&) = delete;
+
     virtual bool Init() = 0;
     virtual void DeInit() = 0;
     virtual void Reset() = 0;

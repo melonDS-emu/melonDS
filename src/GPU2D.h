@@ -28,6 +28,9 @@ public:
     GPU2D(u32 num);
     virtual ~GPU2D() {}
 
+    GPU2D(const GPU2D&) = delete;
+    GPU2D& operator=(const GPU2D&) = delete;
+
     void Reset();
 
     void DoSavestate(Savestate* file);
