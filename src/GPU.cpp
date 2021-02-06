@@ -144,6 +144,10 @@ u8 VRAMFlat_TexPal[128*1024];
 u32 OAMDirty;
 u32 PaletteDirty;
 
+#ifdef OGLRENDERER_ENABLED
+std::unique_ptr<GLCompositor> CurGLCompositor = {};
+#endif
+
 bool Init()
 {
     GPU2D_A = new GPU2D_Soft(0);
@@ -291,7 +295,7 @@ void Stop()
 
 #ifdef OGLRENDERER_ENABLED
     if (Accelerated)
-        GLCompositor::Stop(); 
+        CurGLCompositor->Stop();
 #endif  
 }
 
@@ -381,8 +385,9 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        // To create opengl rendrerer
-        if (!GLCompositor::Init())
+        CurGLCompositor = std::make_unique<GLCompositor>();
+        // Create opengl rendrerer
+        if (!CurGLCompositor->Init())
         {
             // Fallback on software renderer
             renderer = 0;
@@ -392,7 +397,9 @@ void InitRenderer(int renderer)
         GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
         if (!GPU3D::CurrentRenderer->Init())
         {
-            GLCompositor::DeInit();
+            // Fallback on software renderer
+            CurGLCompositor->DeInit();
+            CurGLCompositor.reset();
             renderer = 0;
             GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
         }
@@ -414,7 +421,7 @@ void DeInitRenderer()
 #ifdef OGLRENDERER_ENABLED
     if (Renderer == 1)
     {
-        GLCompositor::DeInit();
+        CurGLCompositor->DeInit();
     }
 #endif
 }
@@ -428,7 +435,7 @@ void ResetRenderer()
 #ifdef OGLRENDERER_ENABLED
     else
     {
-        GLCompositor::Reset();
+        CurGLCompositor->Reset();
         GPU3D::CurrentRenderer->Reset();
     }
 #endif
@@ -473,7 +480,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 #ifdef OGLRENDERER_ENABLED
     else
     {
-        GLCompositor::SetRenderSettings(settings);
+        CurGLCompositor->SetRenderSettings(settings);
         GPU3D::CurrentRenderer->SetRenderSettings(settings);
     }
 #endif
@@ -1151,7 +1158,7 @@ void StartScanline(u32 line)
             GPU3D::VBlank();
 
 #ifdef OGLRENDERER_ENABLED
-            if (Accelerated) GLCompositor::RenderFrame();
+            if (Accelerated) CurGLCompositor->RenderFrame();
 #endif
         }
     }

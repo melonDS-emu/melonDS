@@ -19,8 +19,14 @@
 #ifndef GPU_H
 #define GPU_H
 
+#include <memory>
+
 #include "GPU2D.h"
 #include "NonStupidBitfield.h"
+
+#ifdef OGLRENDERER_ENABLED
+#include "GPU_OpenGL.h"
+#endif
 
 namespace GPU
 {
@@ -148,6 +154,10 @@ void SyncDirtyFlags();
 
 extern u32 OAMDirty;
 extern u32 PaletteDirty;
+
+#ifdef OGLRENDERER_ENABLED
+extern std::unique_ptr<GLCompositor> CurGLCompositor;
+#endif
 
 struct RenderSettings
 {
@@ -550,24 +560,6 @@ void DisplayFIFO(u32 x);
 void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
-
-#ifdef OGLRENDERER_ENABLED
-namespace GLCompositor
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(RenderSettings& settings);
-
-void Stop();
-void RenderFrame();
-void BindOutputTexture(int buf);
-
-}
-#endif
-
 }
 
 #include "GPU3D.h"
