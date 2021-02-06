@@ -107,6 +107,11 @@ void SoftRenderer::Reset()
     SetupRenderThread();
 }
 
+bool SoftRenderer::Accelerated()
+{
+    return false;
+}
+
 void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
     Threaded = settings.Soft_Threaded;

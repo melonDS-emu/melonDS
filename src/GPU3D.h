@@ -145,6 +145,11 @@ public:
     virtual void DeInit() = 0;
     virtual void Reset() = 0;
 
+    // This "Accelerated" flag currently communicates if the framebuffer should
+    // be allocated differently and other little misc handlers. Ideally there
+    // are more detailed "traits" that we can ask of the Renderer3D type 
+    virtual bool Accelerated() = 0;
+
     virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
 
     virtual void VCount144() {};

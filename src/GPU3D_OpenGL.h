@@ -33,6 +33,7 @@ public:
     virtual void DeInit() override;
     virtual void Reset() override;
 
+    virtual bool Accelerated() override;
     virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
 
     virtual void VCount144() override {};

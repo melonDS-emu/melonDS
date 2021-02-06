@@ -37,7 +37,6 @@ public:
 
     void SetEnabled(bool enable) { Enabled = enable; }
     void SetFramebuffer(u32* buf);
-    virtual void SetRenderSettings(bool accel) = 0;
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -133,8 +132,6 @@ public:
     GPU2D_Soft(u32 num);
     ~GPU2D_Soft() override {}
 
-    void SetRenderSettings(bool accel) override;
-    
     void DrawScanline(u32 line) override;
     void DrawSprites(u32 line) override;
     void VBlankEnd() override;
@@ -143,7 +140,6 @@ protected:
     void MosaicXSizeChanged() override;
 
 private:
-    bool Accelerated;
 
     u32 BGOBJLine[256*3] __attribute__((aligned (8)));
     u32* _3DLine;
@@ -156,7 +152,7 @@ private:
     u8 MosaicTable[16][256];
     u8* CurBGXMosaicTable;
     u8* CurOBJXMosaicTable;
-    
+
     u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
     u32 ColorBlend5(u32 val1, u32 val2);
     u32 ColorBrightnessUp(u32 val, u32 factor);
@@ -170,7 +166,7 @@ private:
 
     static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
     static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
-    
+
     typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
 
     void DrawBG_3D();

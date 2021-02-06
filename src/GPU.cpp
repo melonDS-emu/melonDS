@@ -470,9 +470,6 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
     AssignFramebuffers();
 
-    GPU2D_A->SetRenderSettings(accel);
-    GPU2D_B->SetRenderSettings(accel);
-
     if (Renderer == 0)
     {
         GPU3D::CurrentRenderer->SetRenderSettings(settings);

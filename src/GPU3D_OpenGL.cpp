@@ -309,6 +309,11 @@ void GLRenderer::Reset()
 {
 }
 
+bool GLRenderer::Accelerated()
+{
+    return true;
+}
+
 void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
     int scale = settings.GL_ScaleFactor;
