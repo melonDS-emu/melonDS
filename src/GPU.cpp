@@ -79,7 +79,6 @@ u8* VRAMPtr_BOBJ[0x8];
 int FrontBuffer;
 u32* Framebuffer[2][2];
 int Renderer = 0;
-bool Accelerated;
 
 GPU2D* GPU2D_A;
 GPU2D* GPU2D_B;
@@ -158,7 +157,6 @@ bool Init()
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
     Renderer = 0;
-    Accelerated = false;
 
     return true;
 }
@@ -253,9 +251,12 @@ void Reset()
     memset(VRAMPtr_BBG, 0, sizeof(VRAMPtr_BBG));
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
-    int fbsize;
-    if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    size_t fbsize;
+    if (GPU3D::CurrentRenderer->Accelerated())
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     for (int i = 0; i < fbsize; i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
@@ -286,17 +287,22 @@ void Reset()
 void Stop()
 {
     int fbsize;
-    if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    if (GPU3D::CurrentRenderer->Accelerated())
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
     memset(Framebuffer[1][0], 0, fbsize*4);
     memset(Framebuffer[1][1], 0, fbsize*4);
 
 #ifdef OGLRENDERER_ENABLED
-    if (Accelerated)
+    // This needs a better way to know that we're
+    // using the OpenGL renderer specifically
+    if (GPU3D::CurrentRenderer->Accelerated())
         CurGLCompositor->Stop();
-#endif  
+#endif
 }
 
 void DoSavestate(Savestate* file)
@@ -412,7 +418,6 @@ void InitRenderer(int renderer)
     }
 
     Renderer = renderer;
-    Accelerated = renderer != 0;
 }
 
 void DeInitRenderer()
@@ -449,10 +454,12 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
         InitRenderer(renderer);
     }
 
-    bool accel = Accelerated;
     int fbsize;
-    if (accel) fbsize = (256*3 + 1) * 192;
-    else       fbsize = 256 * 192;
+    if (GPU3D::CurrentRenderer->Accelerated())
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
     if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
     if (Framebuffer[0][1]) { delete[] Framebuffer[0][1]; Framebuffer[0][1] = nullptr; }
@@ -1155,7 +1162,9 @@ void StartScanline(u32 line)
             GPU3D::VBlank();
 
 #ifdef OGLRENDERER_ENABLED
-            if (Accelerated) CurGLCompositor->RenderFrame();
+            // Need a better way to identify the openGL renderer in particular
+            if (GPU3D::CurrentRenderer->Accelerated())
+                CurGLCompositor->RenderFrame();
 #endif
         }
     }
