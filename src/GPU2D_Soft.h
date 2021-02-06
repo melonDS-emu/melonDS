@@ -35,11 +35,11 @@ protected:
 
 private:
 
-    u32 BGOBJLine[256*3] __attribute__((aligned (8)));
+    u32 BGOBJLine[256*3] alignas(8);
     u32* _3DLine;
 
-    u32 OBJLine[256] __attribute__((aligned (8)));
-    u8 OBJIndex[256] __attribute__((aligned (8)));
+    u32 OBJLine[256] alignas(8);
+    u8 OBJIndex[256] alignas(8);
 
     u32 NumSprites;
 

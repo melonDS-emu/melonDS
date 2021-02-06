@@ -117,8 +117,8 @@ protected:
 
     u16 MasterBrightness;
 
-    u8 WindowMask[256] __attribute__((aligned (8)));
-    u8 OBJWindow[256] __attribute__((aligned (8)));
+    u8 WindowMask[256] alignas(8);
+    u8 OBJWindow[256] alignas(8);
 
     void UpdateMosaicCounters(u32 line);
     void CalculateWindowMask(u32 line);
