@@ -2502,10 +2502,7 @@ void VCount144()
 
 void RestartFrame()
 {
-    if (GPU::Renderer == 0)
-    {
-        reinterpret_cast<SoftRenderer*>(CurrentRenderer.get())->SetupRenderThread();
-    }
+    CurrentRenderer->RestartFrame();
 }
 
 

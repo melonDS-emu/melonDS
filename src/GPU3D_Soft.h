@@ -36,6 +36,7 @@ public:
 
     virtual void VCount144() override;
     virtual void RenderFrame() override;
+    virtual void RestartFrame() override;
     virtual u32* GetLine(int line) override;
 
     void SetupRenderThread();

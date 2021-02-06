@@ -1668,6 +1668,11 @@ void SoftRenderer::RenderFrame()
     }
 }
 
+void SoftRenderer::RestartFrame()
+{
+    SetupRenderThread();
+}
+
 void SoftRenderer::RenderThreadFunc()
 {
     for (;;)

@@ -148,7 +148,9 @@ public:
     virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
 
     virtual void VCount144() {};
+
     virtual void RenderFrame() = 0;
+    virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
 };
 
