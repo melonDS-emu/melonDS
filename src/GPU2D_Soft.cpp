@@ -1,4 +1,4 @@
-#include "GPU2D.h"
+#include "GPU2D_Soft.h"
 #include "GPU.h"
 
 GPU2D_Soft::GPU2D_Soft(u32 num)

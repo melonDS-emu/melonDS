@@ -21,6 +21,8 @@
 #include "NDS.h"
 #include "GPU.h"
 
+#include "GPU2D_Soft.h"
+
 namespace GPU
 {
 
@@ -80,8 +82,8 @@ int FrontBuffer;
 u32* Framebuffer[2][2];
 int Renderer = 0;
 
-GPU2D* GPU2D_A;
-GPU2D* GPU2D_B;
+std::unique_ptr<GPU2D> GPU2D_A = {};
+std::unique_ptr<GPU2D> GPU2D_B = {};
 
 /*
     VRAM invalidation tracking
@@ -149,8 +151,8 @@ std::unique_ptr<GLCompositor> CurGLCompositor = {};
 
 bool Init()
 {
-    GPU2D_A = new GPU2D_Soft(0);
-    GPU2D_B = new GPU2D_Soft(1);
+    GPU2D_A = std::make_unique<GPU2D_Soft>(0);
+    GPU2D_B = std::make_unique<GPU2D_Soft>(1);
     if (!GPU3D::Init()) return false;
 
     FrontBuffer = 0;
@@ -163,8 +165,8 @@ bool Init()
 
 void DeInit()
 {
-    delete GPU2D_A;
-    delete GPU2D_B;
+    GPU2D_A.reset();
+    GPU2D_B.reset();
     GPU3D::DeInit();
 
     if (Framebuffer[0][0]) delete[] Framebuffer[0][0];

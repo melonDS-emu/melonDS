@@ -75,8 +75,8 @@ extern u8* VRAMPtr_BOBJ[0x8];
 extern int FrontBuffer;
 extern u32* Framebuffer[2][2];
 
-extern GPU2D* GPU2D_A;
-extern GPU2D* GPU2D_B;
+extern std::unique_ptr<GPU2D> GPU2D_A;
+extern std::unique_ptr<GPU2D> GPU2D_B;
 
 extern int Renderer;
 
