@@ -97,6 +97,11 @@ void SetupDefaultTexParams(GLuint tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
+GLRenderer::GLRenderer()
+    : Renderer3D(true)
+{
+}
+
 bool GLRenderer::Init()
 {
     GLint uni_id;
@@ -307,11 +312,6 @@ void GLRenderer::DeInit()
 
 void GLRenderer::Reset()
 {
-}
-
-bool GLRenderer::Accelerated()
-{
-    return true;
 }
 
 void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)

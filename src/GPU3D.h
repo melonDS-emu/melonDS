@@ -135,7 +135,7 @@ void Write32(u32 addr, u32 val);
 class Renderer3D
 {
 public:
-    Renderer3D() = default;
+    Renderer3D(bool Accelerated);
     virtual ~Renderer3D() {};
 
     Renderer3D(const Renderer3D&) = delete;
@@ -148,7 +148,7 @@ public:
     // This "Accelerated" flag currently communicates if the framebuffer should
     // be allocated differently and other little misc handlers. Ideally there
     // are more detailed "traits" that we can ask of the Renderer3D type 
-    virtual bool Accelerated() = 0;
+    const bool Accelerated;
 
     virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
 

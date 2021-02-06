@@ -3047,5 +3047,9 @@ void Write32(u32 addr, u32 val)
     printf("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
+Renderer3D::Renderer3D(bool Accelerated)
+: Accelerated(Accelerated)
+{ }
+
 }
 

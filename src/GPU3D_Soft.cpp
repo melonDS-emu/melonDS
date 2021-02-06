@@ -74,6 +74,12 @@ void SoftRenderer::SetupRenderThread()
 }
 
 
+SoftRenderer::SoftRenderer()
+    : Renderer3D(false)
+{
+
+}
+
 bool SoftRenderer::Init()
 {
     Sema_RenderStart = Platform::Semaphore_Create();
@@ -105,11 +111,6 @@ void SoftRenderer::Reset()
     PrevIsShadowMask = false;
 
     SetupRenderThread();
-}
-
-bool SoftRenderer::Accelerated()
-{
-    return false;
 }
 
 void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)

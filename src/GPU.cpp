@@ -254,7 +254,7 @@ void Reset()
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
     size_t fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated())
+    if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -289,7 +289,7 @@ void Reset()
 void Stop()
 {
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated())
+    if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -302,7 +302,7 @@ void Stop()
 #ifdef OGLRENDERER_ENABLED
     // This needs a better way to know that we're
     // using the OpenGL renderer specifically
-    if (GPU3D::CurrentRenderer->Accelerated())
+    if (GPU3D::CurrentRenderer->Accelerated)
         CurGLCompositor->Stop();
 #endif
 }
@@ -457,7 +457,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     }
 
     int fbsize;
-    if (GPU3D::CurrentRenderer->Accelerated())
+    if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (256*3 + 1) * 192;
     else
         fbsize = 256 * 192;
@@ -1165,7 +1165,7 @@ void StartScanline(u32 line)
 
 #ifdef OGLRENDERER_ENABLED
             // Need a better way to identify the openGL renderer in particular
-            if (GPU3D::CurrentRenderer->Accelerated())
+            if (GPU3D::CurrentRenderer->Accelerated)
                 CurGLCompositor->RenderFrame();
 #endif
         }

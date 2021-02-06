@@ -27,12 +27,12 @@ namespace GPU3D
 class SoftRenderer : public Renderer3D
 {
 public:
+    SoftRenderer();
     virtual ~SoftRenderer() override {};
     virtual bool Init() override;
     virtual void DeInit() override;
     virtual void Reset() override;
 
-    virtual bool Accelerated() override;
     virtual void SetRenderSettings(GPU::RenderSettings& settings) override;
 
     virtual void VCount144() override;
