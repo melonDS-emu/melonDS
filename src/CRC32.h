@@ -16,11 +16,11 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef CRC32_H
-#define CRC32_H
+#pragma once
 
 #include "types.h"
+#include <cstddef>
 
-u32 CRC32(u8* data, int len);
+// Calculates CRC-32 checksum using the polynomial 0x04C11DB7(0xEDB88320)
 
-#endif // CRC32_H
+u32 CRC32(const u8* data, size_t len);

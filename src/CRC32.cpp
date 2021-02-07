@@ -18,52 +18,36 @@
 
 #include "CRC32.h"
 
-// http://www.codeproject.com/KB/recipes/crc32_large.aspx
+#include <array>
+#include <numeric>
 
-u32 crctable[256];
-bool tableinited = false;
-
-u32 _reflect(u32 refl, char ch)
+// Statically generates a CRC32 table at compile-time using the provided
+// polynomial
+constexpr std::array<u32, 256> CRC32Table(
+    u32 Polynomial
+) noexcept
 {
-    u32 value = 0;
-
-    for(int i = 1; i < (ch + 1); i++)
+    std::array<u32, 256> Table = {};
+    for( std::size_t i = 0; i < 256; ++i )
     {
-        if (refl & 1)
-            value |= 1 << (ch - i);
-        refl >>= 1;
+        u32 CRC = i;
+        for( std::size_t CurBit = 0; CurBit < 8; ++CurBit )
+        {
+            CRC = (CRC >> 1) ^ ( -(CRC & 0b1) & Polynomial);
+        }
+        Table[i] = CRC;
     }
-
-	return value;
+    return Table;
 }
 
-void _inittable()
+
+u32 CRC32(const u8* data, size_t len)
 {
-	u32 polynomial = 0x04C11DB7;
-
-	for (int i = 0; i < 0x100; i++)
-    {
-        crctable[i] = _reflect(i, 8) << 24;
-
-        for (int j = 0; j < 8; j++)
-            crctable[i] = (crctable[i] << 1) ^ (crctable[i] & (1 << 31) ? polynomial : 0);
-
-        crctable[i] = _reflect(crctable[i],  32);
-    }
-}
-
-u32 CRC32(u8 *data, int len)
-{
-    if (!tableinited)
-    {
-        _inittable();
-        tableinited = true;
-    }
-
-	u32 crc = 0xFFFFFFFF;
-
-	while (len--)
-        crc = (crc >> 8) ^ crctable[(crc & 0xFF) ^ *data++];
-
-	return (crc ^ 0xFFFFFFFF);
+    static constexpr auto Table = CRC32Table(0xEDB88320u);
+    return ~std::accumulate( data, data + len, ~u32(0),
+        [](u32 CRC, u8 Byte) 
+        {
+            return (CRC >> 8) ^ Table[u8(CRC) ^ Byte];
+        }
+    );
 }
