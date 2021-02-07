@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "DSi.h"
 #include "NDSCart.h"
+#include "CRC32.h"
 #include "ARM.h"
 #include "DSi_AES.h"
 #include "Platform.h"
@@ -479,6 +480,7 @@ u8 TransferCmd[8];
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
+u32 CartCRC;
 u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
@@ -929,6 +931,8 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         CartID |= 0x40000000;
 
     printf("Cart ID: %08X\n", CartID);
+    CartCRC = CRC32(CartROM, CartROMSize);
+    printf("ROM CRC32: %08X\n", CartCRC);
 
     u32 arm9base = *(u32*)&CartROM[0x20];
 
