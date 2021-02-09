@@ -14,9 +14,8 @@
 template <u32 Size>
 struct NonStupidBitField
 {
-    static_assert((Size % 8) == 0, "bitfield size must be a multiple of 8");
-    static const u32 DataLength = Size / 8;
-    u8 Data[DataLength];
+    static constexpr u32 DataLength = (Size + 0x3F) >> 6;
+    u64 Data[DataLength];
 
     struct Ref
     {
@@ -25,13 +24,13 @@ struct NonStupidBitField
 
         operator bool()
         {
-            return BitField.Data[Idx >> 3] & (1 << (Idx & 0x7));
+            return BitField.Data[Idx >> 6] & (1ULL << (Idx & 0x3F));
         }
 
         Ref& operator=(bool set)
         {
-            BitField.Data[Idx >> 3] &= ~(1 << (Idx & 0x7));
-            BitField.Data[Idx >> 3] |= ((u8)set << (Idx & 0x7));
+            BitField.Data[Idx >> 6] &= ~(1ULL << (Idx & 0x3F));
+            BitField.Data[Idx >> 6] |= ((u64)set << (Idx & 0x3F));
             return *this;
         }
     };
@@ -43,27 +42,40 @@ struct NonStupidBitField
         u32 BitIdx;
         u64 RemainingBits;
 
-        u32 operator*() { return DataIdx * 8 + BitIdx; }
+        u32 operator*() { return DataIdx * 64 + BitIdx; }
 
-        bool operator==(const Iterator& other) { return other.DataIdx == DataIdx; }
-        bool operator!=(const Iterator& other) { return other.DataIdx != DataIdx; }
+        bool operator==(const Iterator& other)
+        {
+            return other.DataIdx == DataIdx;
+        }
+        bool operator!=(const Iterator& other)
+        {
+            return other.DataIdx != DataIdx;
+        }
 
-        template <typename T>
         void Next()
         {
-            if (DataIdx >= DataLength)
-                return;
-
-            while (RemainingBits == 0)
+            if (RemainingBits == 0)
             {
-                DataIdx += sizeof(T);
-                if (DataIdx >= DataLength)
-                    return;
-                RemainingBits = *(T*)&BitField.Data[DataIdx];
+                for (u32 i = DataIdx + 1; i < DataLength; i++)
+                {
+                    if (BitField.Data[i])
+                    {
+                        DataIdx = i;
+                        RemainingBits = BitField.Data[i];
+                        goto done;
+                    }
+                }
+                DataIdx = DataLength;
+                return;
+            done:;
             }
 
             BitIdx = __builtin_ctzll(RemainingBits);
             RemainingBits &= ~(1ULL << BitIdx);
+
+            if ((Size & 0x3F) && BitIdx >= Size)
+                DataIdx = DataLength;
         }
 
         Iterator operator++(int)
@@ -75,40 +87,35 @@ struct NonStupidBitField
 
         Iterator& operator++()
         {
-            if ((DataLength % 8) == 0)
-                Next<u64>();
-            else if ((DataLength % 4) == 0)
-                Next<u32>();
-            else if ((DataLength % 2) == 0)
-                Next<u16>();
-            else
-                Next<u8>();
-
+            Next();
             return *this;
         }
     };
 
-    NonStupidBitField(u32 start, u32 size)
+    NonStupidBitField(u32 startBit, u32 bitsCount)
     {
-        memset(Data, 0, sizeof(Data));
+        Clear();
 
-        if (size == 0)
+        if (bitsCount == 0)
             return;
 
-        u32 roundedStartBit = (start + 7) & ~7;
-        u32 roundedEndBit = (start + size) & ~7;
-        if (roundedStartBit != roundedEndBit)
-            memset(Data + roundedStartBit / 8, 0xFF, (roundedEndBit - roundedStartBit) / 8);
-
-        if (start & 0x7)
-            Data[start >> 3] = 0xFF << (start & 0x7);
-        if ((start + size) & 0x7)
-            Data[(start + size) >> 3] = 0xFF >> ((start + size) & 0x7);
+        SetRange(startBit, bitsCount);
+        /*for (int i = 0; i < Size; i++)
+        {
+            bool state = (*this)[i];
+            if (state != (i >= startBit && i < startBit + bitsCount))
+            {
+                for (u32 j = 0; j < DataLength; j++)
+                    printf("data %016lx\n", Data[j]);
+                printf("blarg %d %d %d %d\n", i, startBit, bitsCount, Size);
+                abort();
+            }
+        }*/
     }
 
     NonStupidBitField()
     {
-        memset(Data, 0, sizeof(Data));
+        Clear();
     }
 
     Iterator End()
@@ -117,19 +124,46 @@ struct NonStupidBitField
     }
     Iterator Begin()
     {
-        if ((DataLength % 8) == 0)
-            return ++Iterator{*this, 0, 0, *(u64*)Data};
-        else if ((DataLength % 4) == 0)
-            return ++Iterator{*this, 0, 0, *(u32*)Data};
-        else if ((DataLength % 2) == 0)
-            return ++Iterator{*this, 0, 0, *(u16*)Data};
-        else
-            return ++Iterator{*this, 0, 0, *Data};
+        for (u32 i = 0; i < DataLength; i++)
+        {
+            u32 idx = __builtin_ctzll(Data[i]);
+            if (Data[i] && idx + i * 64 < Size)
+            {
+                return {*this, i, idx, Data[i] & ~(1ULL << idx)};
+            }
+        }
+        return End();
+    }
+
+    void Clear()
+    {
+        memset(Data, 0, sizeof(Data));
     }
 
     Ref operator[](u32 idx)
     {
         return Ref{*this, idx};
+    }
+
+    void SetRange(u32 startBit, u32 bitsCount)
+    {
+        u32 startEntry = startBit >> 6;
+        u64 entriesCount = ((startBit + bitsCount + 0x3F & ~0x3F) >> 6) - startEntry;
+
+        if (entriesCount > 1)
+        {
+            Data[startEntry] |= 0xFFFFFFFFFFFFFFFF << (startBit & 0x3F);
+            if ((startBit + bitsCount) & 0x3F)
+                Data[startEntry + entriesCount - 1] |= ~(0xFFFFFFFFFFFFFFFF << ((startBit + bitsCount) & 0x3F));
+            else
+                Data[startEntry + entriesCount - 1] = 0xFFFFFFFFFFFFFFFF;
+            for (int i = startEntry + 1; i < startEntry + entriesCount - 1; i++)
+                Data[i] = 0xFFFFFFFFFFFFFFFF;
+        }
+        else
+        {
+            Data[startEntry] |= ((1ULL << bitsCount) - 1) << (startBit & 0x3F);
+        }
     }
 
     NonStupidBitField& operator|=(const NonStupidBitField<Size>& other)

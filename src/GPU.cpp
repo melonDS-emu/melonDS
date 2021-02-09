@@ -1187,7 +1187,7 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
     {
         if (currentMappings[i] != Mapping[i])
         {
-            result |= NonStupidBitField<Size/VRAMDirtyGranularity>(i*VRAMBitsPerMapping, VRAMBitsPerMapping);
+            result.SetRange(i*VRAMBitsPerMapping, VRAMBitsPerMapping);
             banksToBeZeroed |= currentMappings[i];
             Mapping[i] = currentMappings[i];
         }
@@ -1209,19 +1209,19 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
                 if (MappingGranularity == 16*1024)
                 {
                     u32 dirty = ((u32*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 14)];
-                    ((u32*)result.Data)[i] |= dirty;
+                    result.Data[i / 2] |= (u64)dirty << ((i&1)*32);
                 }
                 else if (MappingGranularity == 8*1024)
                 {
                     u16 dirty = ((u16*)VRAMDirty[num].Data)[i & (VRAMMask[num] >> 13)];
-                    ((u16*)result.Data)[i] |= dirty;
+                    result.Data[i / 4] |= (u64)dirty << ((i&3)*16);
                 }
                 else if (MappingGranularity == 128*1024)
                 {
-                    ((u64*)result.Data)[i * 4 + 0] |= ((u64*)VRAMDirty[num].Data)[0];
-                    ((u64*)result.Data)[i * 4 + 1] |= ((u64*)VRAMDirty[num].Data)[1];
-                    ((u64*)result.Data)[i * 4 + 2] |= ((u64*)VRAMDirty[num].Data)[2];
-                    ((u64*)result.Data)[i * 4 + 3] |= ((u64*)VRAMDirty[num].Data)[3];
+                    result.Data[i * 4 + 0] |= VRAMDirty[num].Data[0];
+                    result.Data[i * 4 + 1] |= VRAMDirty[num].Data[1];
+                    result.Data[i * 4 + 2] |= VRAMDirty[num].Data[2];
+                    result.Data[i * 4 + 3] |= VRAMDirty[num].Data[3];
                 }
                 else
                 {
@@ -1236,7 +1236,7 @@ NonStupidBitField<Size/VRAMDirtyGranularity> VRAMTrackingSet<Size, MappingGranul
     {
         u32 num = __builtin_ctz(banksToBeZeroed);
         banksToBeZeroed &= ~(1 << num);
-        memset(VRAMDirty[num].Data, 0, sizeof(VRAMDirty[num].Data));
+        VRAMDirty[num].Clear();
     }
 
     return result;
@@ -1266,7 +1266,7 @@ void SyncDirtyFlags(u32* mappings, NonStupidBitField<Size>& writtenFlags)
             mapping &= ~(1 << num);
         }
     }
-    memset(writtenFlags.Data, 0, sizeof(writtenFlags.Data));
+    writtenFlags.Clear();
 }
 
 void SyncDirtyFlags()

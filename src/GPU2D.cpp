@@ -117,6 +117,7 @@ void GPU2D::Reset()
     BGMosaicYMax = 0;
     OBJMosaicY = 0;
     OBJMosaicYMax = 0;
+    OBJMosaicYCount = 0;
 
     BlendCnt = 0;
     EVA = 16;
@@ -130,6 +131,7 @@ void GPU2D::Reset()
     memset(DispFIFOBuffer, 0, 256*2);
 
     CaptureCnt = 0;
+    CaptureLatch = false;
 
     MasterBrightness = 0;
 
