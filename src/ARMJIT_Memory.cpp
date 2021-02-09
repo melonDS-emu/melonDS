@@ -711,16 +711,11 @@ void Init()
 
     MemoryFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, MemoryTotalSize, NULL);
 
-    MemoryBase = (u8*)VirtualAlloc(NULL, MemoryTotalSize, MEM_RESERVE, PAGE_READWRITE);
-
-    FastMem9Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
-    FastMem7Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
-
-    // only free them after they have all been reserved
-    // so they can't overlap
+    MemoryBase = (u8*)VirtualAlloc(NULL, AddrSpaceSize*4, MEM_RESERVE, PAGE_READWRITE);
     VirtualFree(MemoryBase, 0, MEM_RELEASE);
-    VirtualFree(FastMem9Start, 0, MEM_RELEASE);
-    VirtualFree(FastMem7Start, 0, MEM_RELEASE);
+    FastMem9Start = MemoryBase;
+    FastMem7Start = MemoryBase + AddrSpaceSize;
+    MemoryBase = MemoryBase + AddrSpaceSize*2;
 
     MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, MemoryTotalSize, MemoryBase);
 
