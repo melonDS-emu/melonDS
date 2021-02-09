@@ -20,6 +20,9 @@
 #define GPU3D_H
 
 #include <array>
+#include <memory>
+
+#include "GPU.h"
 #include "Savestate.h"
 
 namespace GPU3D
@@ -96,8 +99,6 @@ extern u32 RenderNumPolygons;
 
 extern u64 Timestamp;
 
-extern int Renderer;
-
 bool Init();
 void DeInit();
 void Reset();
@@ -131,40 +132,42 @@ void Write8(u32 addr, u8 val);
 void Write16(u32 addr, u16 val);
 void Write32(u32 addr, u32 val);
 
-namespace SoftRenderer
+class Renderer3D
 {
+public:
+    Renderer3D(bool Accelerated);
+    virtual ~Renderer3D() {};
 
-bool Init();
-void DeInit();
-void Reset();
+    Renderer3D(const Renderer3D&) = delete;
+    Renderer3D& operator=(const Renderer3D&) = delete;
 
-void SetRenderSettings(GPU::RenderSettings& settings);
-void SetupRenderThread();
+    virtual bool Init() = 0;
+    virtual void DeInit() = 0;
+    virtual void Reset() = 0;
 
-void VCount144();
-void RenderFrame();
-u32* GetLine(int line);
+    // This "Accelerated" flag currently communicates if the framebuffer should
+    // be allocated differently and other little misc handlers. Ideally there
+    // are more detailed "traits" that we can ask of the Renderer3D type 
+    const bool Accelerated;
+
+    virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
+
+    virtual void VCount144() {};
+
+    virtual void RenderFrame() = 0;
+    virtual void RestartFrame() {};
+    virtual u32* GetLine(int line) = 0;
+};
+
+extern int Renderer;
+extern std::unique_ptr<Renderer3D> CurrentRenderer;
 
 }
+
+#include "GPU3D_Soft.h"
 
 #ifdef OGLRENDERER_ENABLED
-namespace GLRenderer
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(GPU::RenderSettings& settings);
-
-void RenderFrame();
-void PrepareCaptureFrame();
-u32* GetLine(int line);
-void SetupAccelFrame();
-
-}
+#include "GPU3D_OpenGL.h"
 #endif
-
-}
 
 #endif

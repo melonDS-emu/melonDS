@@ -16,8 +16,11 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include <stdio.h>
-#include <string.h>
+#include "GPU_OpenGL.h"
+
+#include <cstdio>
+#include <cstring>
+
 #include "NDS.h"
 #include "GPU.h"
 #include "Config.h"
@@ -26,34 +29,10 @@
 
 namespace GPU
 {
-namespace GLCompositor
-{
 
 using namespace OpenGL;
 
-int Scale;
-int ScreenH, ScreenW;
-
-GLuint CompShader[1][3];
-GLuint CompScaleLoc[1];
-GLuint Comp3DXPosLoc[1];
-
-GLuint CompVertexBufferID;
-GLuint CompVertexArrayID;
-
-struct CompVertex
-{
-    float Position[2];
-    float Texcoord[2];
-};
-CompVertex CompVertices[2 * 3*2];
-
-GLuint CompScreenInputTex;
-GLuint CompScreenOutputTex[2];
-GLuint CompScreenOutputFB[2];
-
-
-bool Init()
+bool GLCompositor::Init()
 {
     if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Nearest, CompShader[0], "CompositorShader"))
     //if (!OpenGL::BuildShaderProgram(kCompositorVS, kCompositorFS_Linear, CompShader[0], "CompositorShader"))
@@ -144,7 +123,7 @@ bool Init()
     return true;
 }
 
-void DeInit()
+void GLCompositor::DeInit()
 {
     glDeleteFramebuffers(2, CompScreenOutputFB);
     glDeleteTextures(1, &CompScreenInputTex);
@@ -157,12 +136,12 @@ void DeInit()
         OpenGL::DeleteShaderProgram(CompShader[i]);
 }
 
-void Reset()
+void GLCompositor::Reset()
 {
 }
 
 
-void SetRenderSettings(RenderSettings& settings)
+void GLCompositor::SetRenderSettings(RenderSettings& settings)
 {
     int scale = settings.GL_ScaleFactor;
 
@@ -188,7 +167,7 @@ void SetRenderSettings(RenderSettings& settings)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Stop()
+void GLCompositor::Stop()
 {
     for (int i = 0; i < 2; i++)
     {
@@ -202,7 +181,7 @@ void Stop()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void RenderFrame()
+void GLCompositor::RenderFrame()
 {
     int frontbuf = GPU::FrontBuffer;
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -236,17 +215,16 @@ void RenderFrame()
     }
 
     glActiveTexture(GL_TEXTURE1);
-    GPU3D::GLRenderer::SetupAccelFrame();
+    reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->SetupAccelFrame();
 
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);
     glBindVertexArray(CompVertexArrayID);
     glDrawArrays(GL_TRIANGLES, 0, 4*3);
 }
 
-void BindOutputTexture(int buf)
+void GLCompositor::BindOutputTexture(int buf)
 {
     glBindTexture(GL_TEXTURE_2D, CompScreenOutputTex[buf]);
 }
 
-}
 }

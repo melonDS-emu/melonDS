@@ -21,6 +21,7 @@
 #include "NDS.h"
 #include "GPU.h"
 
+#include "GPU2D_Soft.h"
 
 namespace GPU
 {
@@ -79,11 +80,10 @@ u8* VRAMPtr_BOBJ[0x8];
 
 int FrontBuffer;
 u32* Framebuffer[2][2];
-int Renderer;
-bool Accelerated;
+int Renderer = 0;
 
-GPU2D* GPU2D_A;
-GPU2D* GPU2D_B;
+std::unique_ptr<GPU2D> GPU2D_A = {};
+std::unique_ptr<GPU2D> GPU2D_B = {};
 
 /*
     VRAM invalidation tracking
@@ -145,25 +145,28 @@ u8 VRAMFlat_TexPal[128*1024];
 u32 OAMDirty;
 u32 PaletteDirty;
 
+#ifdef OGLRENDERER_ENABLED
+std::unique_ptr<GLCompositor> CurGLCompositor = {};
+#endif
+
 bool Init()
 {
-    GPU2D_A = new GPU2D_Soft(0);
-    GPU2D_B = new GPU2D_Soft(1);
+    GPU2D_A = std::make_unique<GPU2D_Soft>(0);
+    GPU2D_B = std::make_unique<GPU2D_Soft>(1);
     if (!GPU3D::Init()) return false;
 
     FrontBuffer = 0;
     Framebuffer[0][0] = NULL; Framebuffer[0][1] = NULL;
     Framebuffer[1][0] = NULL; Framebuffer[1][1] = NULL;
     Renderer = 0;
-    Accelerated = false;
 
     return true;
 }
 
 void DeInit()
 {
-    delete GPU2D_A;
-    delete GPU2D_B;
+    GPU2D_A.reset();
+    GPU2D_B.reset();
     GPU3D::DeInit();
 
     if (Framebuffer[0][0]) delete[] Framebuffer[0][0];
@@ -250,9 +253,12 @@ void Reset()
     memset(VRAMPtr_BBG, 0, sizeof(VRAMPtr_BBG));
     memset(VRAMPtr_BOBJ, 0, sizeof(VRAMPtr_BOBJ));
 
-    int fbsize;
-    if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    size_t fbsize;
+    if (GPU3D::CurrentRenderer->Accelerated)
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     for (int i = 0; i < fbsize; i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
@@ -283,17 +289,22 @@ void Reset()
 void Stop()
 {
     int fbsize;
-    if (Accelerated) fbsize = (256*3 + 1) * 192;
-    else             fbsize = 256 * 192;
+    if (GPU3D::CurrentRenderer->Accelerated)
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
     memset(Framebuffer[1][0], 0, fbsize*4);
     memset(Framebuffer[1][1], 0, fbsize*4);
 
 #ifdef OGLRENDERER_ENABLED
-    if (Accelerated)
-        GLCompositor::Stop(); 
-#endif  
+    // This needs a better way to know that we're
+    // using the OpenGL renderer specifically
+    if (GPU3D::CurrentRenderer->Accelerated)
+        CurGLCompositor->Stop();
+#endif
 }
 
 void DoSavestate(Savestate* file)
@@ -382,37 +393,42 @@ void InitRenderer(int renderer)
 #ifdef OGLRENDERER_ENABLED
     if (renderer == 1)
     {
-        if (!GLCompositor::Init())
+        CurGLCompositor = std::make_unique<GLCompositor>();
+        // Create opengl rendrerer
+        if (!CurGLCompositor->Init())
         {
+            // Fallback on software renderer
             renderer = 0;
+            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+            GPU3D::CurrentRenderer->Init();
         }
-        else if (!GPU3D::GLRenderer::Init())
+        GPU3D::CurrentRenderer = std::make_unique<GPU3D::GLRenderer>();
+        if (!GPU3D::CurrentRenderer->Init())
         {
-            GLCompositor::DeInit();
+            // Fallback on software renderer
+            CurGLCompositor->DeInit();
+            CurGLCompositor.reset();
             renderer = 0;
+            GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
         }
     }
     else
 #endif
     {
-        GPU3D::SoftRenderer::Init();
+        GPU3D::CurrentRenderer = std::make_unique<GPU3D::SoftRenderer>();
+        GPU3D::CurrentRenderer->Init();
     }
 
     Renderer = renderer;
-    Accelerated = renderer != 0;
 }
 
 void DeInitRenderer()
 {
-    if (Renderer == 0)
-    {
-        GPU3D::SoftRenderer::DeInit();
-    }
+    GPU3D::CurrentRenderer->DeInit();
 #ifdef OGLRENDERER_ENABLED
-    else
+    if (Renderer == 1)
     {
-        GPU3D::GLRenderer::DeInit();
-        GLCompositor::DeInit();
+        CurGLCompositor->DeInit();
     }
 #endif
 }
@@ -421,13 +437,13 @@ void ResetRenderer()
 {
     if (Renderer == 0)
     {
-        GPU3D::SoftRenderer::Reset();
+        GPU3D::CurrentRenderer->Reset();
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
-        GLCompositor::Reset();
-        GPU3D::GLRenderer::Reset();
+        CurGLCompositor->Reset();
+        GPU3D::CurrentRenderer->Reset();
     }
 #endif
 }
@@ -440,10 +456,12 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
         InitRenderer(renderer);
     }
 
-    bool accel = Accelerated;
     int fbsize;
-    if (accel) fbsize = (256*3 + 1) * 192;
-    else       fbsize = 256 * 192;
+    if (GPU3D::CurrentRenderer->Accelerated)
+        fbsize = (256*3 + 1) * 192;
+    else
+        fbsize = 256 * 192;
+
     if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
     if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
     if (Framebuffer[0][1]) { delete[] Framebuffer[0][1]; Framebuffer[0][1] = nullptr; }
@@ -461,18 +479,15 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
 
     AssignFramebuffers();
 
-    GPU2D_A->SetRenderSettings(accel);
-    GPU2D_B->SetRenderSettings(accel);
-
     if (Renderer == 0)
     {
-        GPU3D::SoftRenderer::SetRenderSettings(settings);
+        GPU3D::CurrentRenderer->SetRenderSettings(settings);
     }
 #ifdef OGLRENDERER_ENABLED
     else
     {
-        GLCompositor::SetRenderSettings(settings);
-        GPU3D::GLRenderer::SetRenderSettings(settings);
+        CurGLCompositor->SetRenderSettings(settings);
+        GPU3D::CurrentRenderer->SetRenderSettings(settings);
     }
 #endif
 }
@@ -1149,7 +1164,9 @@ void StartScanline(u32 line)
             GPU3D::VBlank();
 
 #ifdef OGLRENDERER_ENABLED
-            if (Accelerated) GLCompositor::RenderFrame();
+            // Need a better way to identify the openGL renderer in particular
+            if (GPU3D::CurrentRenderer->Accelerated)
+                CurGLCompositor->RenderFrame();
 #endif
         }
     }

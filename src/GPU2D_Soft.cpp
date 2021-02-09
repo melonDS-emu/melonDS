@@ -1,4 +1,4 @@
-#include "GPU2D.h"
+#include "GPU2D_Soft.h"
 #include "GPU.h"
 
 GPU2D_Soft::GPU2D_Soft(u32 num)
@@ -13,11 +13,6 @@ GPU2D_Soft::GPU2D_Soft(u32 num)
             MosaicTable[m][x] = offset;
         }
     }
-}
-
-void GPU2D_Soft::SetRenderSettings(bool accel)
-{
-    Accelerated = accel;
 }
 
 u32 GPU2D_Soft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
@@ -152,7 +147,7 @@ u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
 
 void GPU2D_Soft::DrawScanline(u32 line)
 {
-    int stride = Accelerated ? (256*3 + 1) : 256;
+    int stride = GPU3D::CurrentRenderer->Accelerated ? (256*3 + 1) : 256;
     u32* dst = &Framebuffer[stride * line];
 
     int n3dline = line;
@@ -192,7 +187,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
 
     if (Num == 0)
     {
-        if (!Accelerated)
+        if (!GPU3D::CurrentRenderer->Accelerated)
             _3DLine = GPU3D::GetLine(n3dline);
         else if (CaptureLatch && (((CaptureCnt >> 29) & 0x3) != 1))
         {
@@ -206,7 +201,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
-        if (Accelerated)
+        if (GPU3D::CurrentRenderer->Accelerated)
         {
             dst[256*3] = 0;
         }
@@ -296,7 +291,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
             DoCapture(line, capwidth);
     }
 
-    if (Accelerated)
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
         dst[256*3] = MasterBrightness | (DispCnt & 0x30000);
         return;
@@ -350,11 +345,11 @@ void GPU2D_Soft::VBlankEnd()
     GPU2D::VBlankEnd();
 
 #ifdef OGLRENDERER_ENABLED
-    if (Accelerated)
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
         if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
         {
-            GPU3D::GLRenderer::PrepareCaptureFrame();
+            reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->PrepareCaptureFrame();
         }
     }
 #endif
@@ -372,7 +367,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     u16* dst = (u16*)GPU::VRAM[dstvram];
     u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
 
-    // TODO: handle 3D in accelerated mode!!
+    // TODO: handle 3D in GPU3D::CurrentRenderer->Accelerated mode!!
 
     u32* srcA;
     if (CaptureCnt & (1<<24))
@@ -382,9 +377,9 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     else
     {
         srcA = BGOBJLine;
-        if (Accelerated)
+        if (GPU3D::CurrentRenderer->Accelerated)
         {
-            // in accelerated mode, compositing is normally done on the GPU
+            // in GPU3D::CurrentRenderer->Accelerated mode, compositing is normally done on the GPU
             // but when doing display capture, we do need the composited output
             // so we do it here
 
@@ -586,12 +581,12 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     { \
         if ((BGCnt[num] & 0x0040) && (BGMosaicSize[0] > 0)) \
         { \
-            if (Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<true, DrawPixel_Normal>(line, num); \
         } \
         else \
         { \
-            if (Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
         } \
     } while (false)
@@ -601,18 +596,18 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     { \
         if ((BGCnt[2] & 0x0040) && (BGMosaicSize[0] > 0)) \
         { \
-            if (Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
             else DrawBG_Large<true, DrawPixel_Normal>(line); \
         } \
         else \
         { \
-            if (Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
             else DrawBG_Large<false, DrawPixel_Normal>(line); \
         } \
     } while (false)
 
 #define DoInterleaveSprites(prio) \
-    if (Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
+    if (GPU3D::CurrentRenderer->Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
 
 template<u32 bgmode>
 void GPU2D_Soft::DrawScanlineBGMode(u32 line)
@@ -773,7 +768,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
     // color special effects
     // can likely be optimized
 
-    if (!Accelerated)
+    if (!GPU3D::CurrentRenderer->Accelerated)
     {
         for (int i = 0; i < 256; i++)
         {
@@ -919,7 +914,7 @@ void GPU2D_Soft::DrawBG_3D()
 {
     int i = 0;
 
-    if (Accelerated)
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
         for (i = 0; i < 256; i++)
         {

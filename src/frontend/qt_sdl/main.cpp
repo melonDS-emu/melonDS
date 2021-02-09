@@ -1013,7 +1013,7 @@ void ScreenPanelGL::paintGL()
         if (GPU::Renderer != 0)
         {
             // hardware-accelerated render
-            GPU::GLCompositor::BindOutputTexture(frontbuf);
+            GPU::CurGLCompositor->BindOutputTexture(frontbuf);
         }
         else
     #endif
@@ -2536,9 +2536,15 @@ int main(int argc, char** argv)
 
     Config::Load();
 
-#define SANITIZE(var, min, max)  { if (var < min) var = min; else if (var > max) var = max; }
+#define SANITIZE(var, min, max)  { var = std::clamp(var, min, max); }
     SANITIZE(Config::ConsoleType, 0, 1);
-    SANITIZE(Config::_3DRenderer, 0, 1);
+    SANITIZE(Config::_3DRenderer,
+    0,
+    0 // Minimum, Software renderer
+    #ifdef OGLRENDERER_ENABLED
+    + 1 // OpenGL Renderer
+    #endif
+    );
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
     SANITIZE(Config::AudioVolume, 0, 256);
