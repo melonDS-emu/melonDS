@@ -100,11 +100,10 @@ public:
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
+    QSize screenGetMinSize(int factor);
 
 protected:
     void screenSetupLayout(int w, int h);
-
-    QSize screenGetMinSize();
 
     void screenOnMousePress(QMouseEvent* event);
     void screenOnMouseRelease(QMouseEvent* event);
