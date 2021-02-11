@@ -49,7 +49,7 @@ void SoftRenderer::SetupRenderThread()
         if (!RenderThreadRunning)
         {
             RenderThreadRunning = true;
-            RenderThread = Platform::Thread_Create(std::bind(&RenderThreadFunc, this));
+            RenderThread = Platform::Thread_Create(std::bind(&SoftRenderer::RenderThreadFunc, this));
         }
 
         // otherwise more than one frame can be queued up at once
