@@ -505,8 +505,7 @@ private:
     // threading
 
     bool Threaded;
-    // Platform::Thread* RenderThread;
-    std::thread RenderThread;
+    Platform::Thread* RenderThread;
     bool RenderThreadRunning;
     bool RenderThreadRendering;
     Platform::Semaphore* Sema_RenderStart;

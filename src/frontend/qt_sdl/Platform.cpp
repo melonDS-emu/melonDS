@@ -188,7 +188,7 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
 }
 
-Thread* Thread_Create(void (* func)())
+Thread* Thread_Create(std::function<void()> func)
 {
     QThread* t = QThread::create(func);
     t->start();

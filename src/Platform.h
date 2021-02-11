@@ -21,6 +21,8 @@
 
 #include "types.h"
 
+#include <functional>
+
 namespace Platform
 {
 
@@ -68,7 +70,7 @@ inline bool LocalFileExists(const char* name)
 }
 
 struct Thread;
-Thread* Thread_Create(void (*func)());
+Thread* Thread_Create(std::function<void()> func);
 void Thread_Free(Thread* thread);
 void Thread_Wait(Thread* thread);
 
