@@ -29,11 +29,13 @@ public:
     SoftRenderer();
     ~SoftRenderer() override {}
 
+    void SetRenderSettings(int scale) override;
+
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 private:
-    alignas(8) u32 BGOBJLine[NATIVE_WIDTH*3];
+    u32* BGOBJLine;
     u32* _3DLine;
 
     alignas(8) u8 WindowMask[NATIVE_WIDTH];

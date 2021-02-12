@@ -250,7 +250,7 @@ void Reset()
     if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
+        fbsize = NATIVE_WIDTH * ScaleFactor * NATIVE_HEIGHT * ScaleFactor;
 
     for (int i = 0; i < fbsize; i++)
     {
@@ -284,7 +284,7 @@ void Stop()
     if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
+        fbsize = NATIVE_WIDTH * ScaleFactor * NATIVE_HEIGHT * ScaleFactor;
 
     memset(Framebuffer[0][0], 0, fbsize*4);
     memset(Framebuffer[0][1], 0, fbsize*4);
@@ -451,7 +451,7 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     if (GPU3D::CurrentRenderer->Accelerated)
         fbsize = (NATIVE_WIDTH*3 + 1) * NATIVE_HEIGHT;
     else
-        fbsize = NATIVE_WIDTH * NATIVE_HEIGHT;
+        fbsize = NATIVE_WIDTH * ScaleFactor * NATIVE_HEIGHT * ScaleFactor;
 
     if (Framebuffer[0][0]) { delete[] Framebuffer[0][0]; Framebuffer[0][0] = nullptr; }
     if (Framebuffer[1][0]) { delete[] Framebuffer[1][0]; Framebuffer[1][0] = nullptr; }
@@ -469,6 +469,8 @@ void SetRenderSettings(int renderer, RenderSettings& settings)
     memset(Framebuffer[1][1], 0, fbsize*4);
 
     AssignFramebuffers();
+
+    GPU2D_Renderer->SetRenderSettings(ScaleFactor);
 
     if (Renderer == 0)
     {

@@ -136,6 +136,8 @@ public:
         Framebuffer[0] = unitA;
         Framebuffer[1] = unitB;
     }
+
+    virtual void SetRenderSettings(int scale) {}
 protected:
     u32* Framebuffer[2];
 

@@ -18,6 +18,13 @@ SoftRenderer::SoftRenderer()
     }
 }
 
+void SoftRenderer::SetRenderSettings(int scale)
+{
+    int len = GPU3D::CurrentRenderer->Accelerated ? NATIVE_WIDTH * 3 : NATIVE_WIDTH * scale * scale * 2;
+    if (BGOBJLine) delete[] BGOBJLine;
+    BGOBJLine = new alignas(8) u32[len];
+}
+
 u32 SoftRenderer::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
 {
     u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;

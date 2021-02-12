@@ -77,11 +77,17 @@ SoftRenderer::SoftRenderer()
 
 }
 
+SoftRenderer::~SoftRenderer()
+{
+    DeInit();
+}
+
 bool SoftRenderer::Init()
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
     Sema_ScanlineCount = Platform::Semaphore_Create();
+    Mutex_Buffer = Platform::Mutex_Create();
 
     Threaded = false;
     RenderThreadRunning = false;
@@ -94,9 +100,25 @@ void SoftRenderer::DeInit()
 {
     StopRenderThread();
 
-    Platform::Semaphore_Free(Sema_RenderStart);
-    Platform::Semaphore_Free(Sema_RenderDone);
-    Platform::Semaphore_Free(Sema_ScanlineCount);
+    if (Sema_RenderStart) Platform::Semaphore_Free(Sema_RenderStart);
+    if (Sema_RenderDone) Platform::Semaphore_Free(Sema_RenderDone);
+    if (Sema_ScanlineCount) Platform::Semaphore_Free(Sema_ScanlineCount);
+    if (Mutex_Buffer) Platform::Mutex_Free(Mutex_Buffer);
+
+    Sema_RenderStart = NULL;
+    Sema_RenderDone = NULL;
+    Sema_ScanlineCount = NULL;
+    Mutex_Buffer = NULL;
+
+    if (ColorBuffer) delete[] ColorBuffer;
+    if (DepthBuffer) delete[] DepthBuffer;
+    if (AttrBuffer) delete[] AttrBuffer;
+    if (StencilBuffer) delete[] StencilBuffer;
+
+    ColorBuffer = NULL;
+    DepthBuffer = NULL;
+    AttrBuffer = NULL;
+    StencilBuffer = NULL;
 }
 
 void SoftRenderer::Reset()
@@ -112,7 +134,27 @@ void SoftRenderer::Reset()
 
 void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
+    Platform::Mutex_Lock(Mutex_Buffer);
+
     Threaded = settings.Soft_Threaded;
+
+    int scale = settings.ScaleFactor;
+    ScanlineWidth = NATIVE_WIDTH * scale + 2;
+    NumScanlines = NATIVE_HEIGHT * scale + 2;
+    BufferSize = ScanlineWidth * NumScanlines;
+    FirstPixelOffset = ScanlineWidth + 1;
+
+    if (ColorBuffer) delete[] ColorBuffer;
+    if (DepthBuffer) delete[] DepthBuffer;
+    if (AttrBuffer) delete[] AttrBuffer;
+    ColorBuffer = new u32[BufferSize * 2];
+    DepthBuffer = new u32[BufferSize * 2];
+    AttrBuffer = new u32[BufferSize * 2];
+
+    if (StencilBuffer) delete[] StencilBuffer;
+    StencilBuffer = new u8[NATIVE_WIDTH * scale * 2];
+
+    Platform::Mutex_Unlock(Mutex_Buffer);
     SetupRenderThread();
 }
 
@@ -1683,6 +1725,7 @@ void SoftRenderer::RenderThreadFunc()
         Platform::Semaphore_Wait(Sema_RenderStart);
         if (!RenderThreadRunning) return;
 
+        Platform::Mutex_Lock(Mutex_Buffer);
         RenderThreadRendering = true;
         if (FrameIdentical)
         {
@@ -1693,6 +1736,7 @@ void SoftRenderer::RenderThreadFunc()
             ClearBuffers();
             RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
         }
+        Platform::Mutex_Unlock(Mutex_Buffer);
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
