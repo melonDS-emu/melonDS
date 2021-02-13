@@ -66,7 +66,6 @@ public:
 
     bool CheckCondition(u32 code)
     {
-        if (code == 0xE) return true;
         if (ConditionTable[code] & (1 << (CPSR>>28))) return true;
         return false;
     }
