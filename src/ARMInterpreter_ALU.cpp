@@ -740,7 +740,6 @@ void A_MUL(ARM* cpu)
     {
         cpu->SetNZ(res & 0x80000000,
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -770,7 +769,6 @@ void A_MLA(ARM* cpu)
     {
         cpu->SetNZ(res & 0x80000000,
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -800,7 +798,6 @@ void A_UMULL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -833,7 +830,6 @@ void A_UMLAL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -863,7 +859,6 @@ void A_SMULL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -896,7 +891,6 @@ void A_SMLAL(ARM* cpu)
     {
         cpu->SetNZ((u32)(res >> 63ULL),
                    !res);
-        if (cpu->Num==1) cpu->SetC(0);
     }
 
     u32 cycles;
@@ -1436,7 +1430,6 @@ void T_MUL_REG(ARM* cpu)
     }
     else
     {
-        cpu->SetC(0); // carry flag destroyed, they say. whatever that means...
         if      (a & 0xFF000000) cycles += 4;
         else if (a & 0x00FF0000) cycles += 3;
         else if (a & 0x0000FF00) cycles += 2;
