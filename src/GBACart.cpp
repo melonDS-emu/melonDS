@@ -546,8 +546,8 @@ void Eject()
     HasSolarSensor = false;
     CartROM = NULL;
     CartROMSize = 0;
-    CartCRC = NULL;
-    CartID = NULL;
+    CartCRC = 0;
+    CartID = 0;
     CartGPIO = {};
 
     GBACart_SRAM::Eject();
@@ -620,6 +620,32 @@ void DoSavestate(Savestate* file)
     if (HasSolarSensor) GBACart_SolarSensor::DoSavestate(file);
 }
 
+void LoadROMCommon(const char *sram)
+{
+    char gamecode[5] = { '\0' };
+    memcpy(&gamecode, CartROM + 0xAC, 4);
+    printf("Game code: %s\n", gamecode);
+
+    for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
+    {
+        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) HasSolarSensor = true;
+    }
+
+    if (HasSolarSensor)
+    {
+        printf("GBA solar sensor support detected!\n");
+    }
+
+    CartCRC = CRC32(CartROM, CartROMSize);
+    printf("ROM CRC32: %08X\n", CartCRC);
+
+    CartInserted = true;
+
+    // save
+    printf("Save file: %s\n", sram);
+    GBACart_SRAM::LoadSave(sram);
+}
+
 bool LoadROM(const char* path, const char* sram)
 {
     FILE* f = Platform::OpenFile(path, "rb");
@@ -640,36 +666,27 @@ bool LoadROM(const char* path, const char* sram)
     while (CartROMSize < len)
         CartROMSize <<= 1;
 
-    char gamecode[5] = { '\0' };
-    fseek(f, 0xAC, SEEK_SET);
-    fread(&gamecode, 1, 4, f);
-    printf("Game code: %s\n", gamecode);
-
-    for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
-    {
-        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) HasSolarSensor = true;
-    }
-
-    if (HasSolarSensor)
-    {
-        printf("GBA solar sensor support detected!\n");
-    }
-
     CartROM = new u8[CartROMSize];
     memset(CartROM, 0, CartROMSize);
     fseek(f, 0, SEEK_SET);
     fread(CartROM, 1, len, f);
-
     fclose(f);
 
-    CartCRC = CRC32(CartROM, CartROMSize);
-    printf("ROM CRC32: %08X\n", CartCRC);
+    LoadROMCommon(sram);
 
-    CartInserted = true;
+    return true;
+}
 
-    // save
-    printf("Save file: %s\n", sram);
-    GBACart_SRAM::LoadSave(sram);
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
+{
+    CartROMSize = 0x200;
+    while (CartROMSize < filelength)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memcpy(CartROM, romdata, filelength);
+
+    LoadROMCommon(sram);
 
     return true;
 }

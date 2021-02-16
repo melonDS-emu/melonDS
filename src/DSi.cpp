@@ -35,6 +35,7 @@
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
+#include "DSi_Camera.h"
 
 #include "tiny-AES-c/aes.hpp"
 
@@ -72,6 +73,9 @@ DSi_NDMA* NDMAs[8];
 
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
+
+FILE* SDMMCFile;
+FILE* SDIOFile;
 
 u64 ConsoleID;
 u8 eMMC_CID[16];
@@ -121,6 +125,8 @@ void DeInit()
 
     delete SDMMC;
     delete SDIO;
+
+    CloseDSiNAND();
 }
 
 void Reset()
@@ -301,12 +307,11 @@ bool LoadNAND()
     memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
-    FILE* f = Platform::OpenLocalFile(Config::DSiNANDPath, "rb");
-    if (f)
+    if (SDMMCFile)
     {
         u32 bootparams[8];
-        fseek(f, 0x220, SEEK_SET);
-        fread(bootparams, 4, 8, f);
+        fseek(SDMMCFile, 0x220, SEEK_SET);
+        fread(bootparams, 4, 8, SDMMCFile);
 
         printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
                bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -319,8 +324,8 @@ bool LoadNAND()
         MBK[1][8] = 0;
 
         u32 mbk[12];
-        fseek(f, 0x380, SEEK_SET);
-        fread(mbk, 4, 12, f);
+        fseek(SDMMCFile, 0x380, SEEK_SET);
+        fread(mbk, 4, 12, SDMMCFile);
 
         MapNWRAM_A(0, mbk[0] & 0xFF);
         MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
@@ -374,12 +379,12 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        fseek(f, bootparams[0], SEEK_SET);
+        fseek(SDMMCFile, bootparams[0], SEEK_SET);
         dstaddr = bootparams[2];
         for (u32 i = 0; i < bootparams[3]; i += 16)
         {
             u8 data[16];
-            fread(data, 16, 1, f);
+            fread(data, 16, 1, SDMMCFile);
 
             for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
             AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -399,12 +404,12 @@ bool LoadNAND()
 
         AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        fseek(f, bootparams[4], SEEK_SET);
+        fseek(SDMMCFile, bootparams[4], SEEK_SET);
         dstaddr = bootparams[6];
         for (u32 i = 0; i < bootparams[7]; i += 16)
         {
             u8 data[16];
-            fread(data, 16, 1, f);
+            fread(data, 16, 1, SDMMCFile);
 
             for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
             AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -426,25 +431,22 @@ bool LoadNAND()
 
         // read the nocash footer
 
-        fseek(f, -0x40, SEEK_END);
+        fseek(SDMMCFile, -0x40, SEEK_END);
 
         char nand_footer[16];
         const char* nand_footer_ref = "DSi eMMC CID/CPU";
-        fread(nand_footer, 1, 16, f);
+        fread(nand_footer, 1, 16, SDMMCFile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             printf("ERROR: NAND missing nocash footer\n");
-            fclose(f);
             return false;
         }
 
-        fread(eMMC_CID, 1, 16, f);
-        fread(&ConsoleID, 1, 8, f);
+        fread(eMMC_CID, 1, 16, SDMMCFile);
+        fread(&ConsoleID, 1, 8, SDMMCFile);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %016llX\n", ConsoleID);
-
-        fclose(f);
+        printf("Console ID: %016lX\n", ConsoleID);
     }
 
     memset(ITCMInit, 0, 0x8000);
@@ -462,6 +464,13 @@ bool LoadNAND()
     return true;
 }
 
+void CloseDSiNAND()
+{
+    if (DSi::SDMMCFile)
+        fclose(DSi::SDMMCFile);
+    if (DSi::SDIOFile)
+        fclose(DSi::SDIOFile);
+}
 
 void RunNDMAs(u32 cpu)
 {
@@ -542,14 +551,14 @@ void MapNWRAM_A(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(0);
-#endif
-
     int mbkn = 0, mbks = 8*num;
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(0);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -577,14 +586,14 @@ void MapNWRAM_B(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(1);
-#endif
-
     int mbkn = 1+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(1);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -616,14 +625,14 @@ void MapNWRAM_C(u32 num, u8 val)
         return;
     }
 
-#ifdef JIT_ENABLED
-    ARMJIT_Memory::RemapNWRAM(2);
-#endif
-
     int mbkn = 3+(num>>2), mbks = 8*(num&3);
 
     u8 oldval = (MBK[0][mbkn] >> mbks) & 0xFF;
     if (oldval == val) return;
+
+#ifdef JIT_ENABLED
+    ARMJIT_Memory::RemapNWRAM(2);
+#endif
 
     MBK[0][mbkn] &= ~(0xFF << mbks);
     MBK[0][mbkn] |= (val << mbks);
@@ -1406,6 +1415,12 @@ u8 ARM9IORead8(u32 addr)
     CASE_READ8_32BIT(0x04004060, MBK[0][8])
     }
 
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return 0;
+        return DSi_Camera::Read8(addr);
+    }
+
     return NDS::ARM9IORead8(addr);
 }
 
@@ -1426,6 +1441,12 @@ u16 ARM9IORead16(u32 addr)
     CASE_READ16_32BIT(0x04004058, MBK[0][6])
     CASE_READ16_32BIT(0x0400405C, MBK[0][7])
     CASE_READ16_32BIT(0x04004060, MBK[0][8])
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return 0;
+        return DSi_Camera::Read16(addr);
     }
 
     return NDS::ARM9IORead16(addr);
@@ -1480,6 +1501,12 @@ u32 ARM9IORead32(u32 addr)
     case 0x04004170: return NDMAs[3]->Cnt;
     }
 
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return 0;
+        return DSi_Camera::Read32(addr);
+    }
+
     return NDS::ARM9IORead32(addr);
 }
 
@@ -1517,6 +1544,12 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004051: MapNWRAM_C(5, val); return;
     case 0x04004052: MapNWRAM_C(6, val); return;
     case 0x04004053: MapNWRAM_C(7, val); return;
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return;
+        return DSi_Camera::Write8(addr, val);
     }
 
     return NDS::ARM9IOWrite8(addr, val);
@@ -1570,6 +1603,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
         MapNWRAM_C(6, val & 0xFF);
         MapNWRAM_C(7, val >> 8);
         return;
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return;
+        return DSi_Camera::Write16(addr, val);
     }
 
     return NDS::ARM9IOWrite16(addr, val);
@@ -1676,6 +1715,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004168: NDMAs[3]->SubblockTimer = val & 0x0003FFFF; return;
     case 0x0400416C: NDMAs[3]->FillData = val; return;
     case 0x04004170: NDMAs[3]->WriteCnt(val); return;
+    }
+
+    if ((addr & 0xFFFFFF00) == 0x04004200)
+    {
+        if (!(SCFG_EXT[0] & (1<<17))) return;
+        return DSi_Camera::Write32(addr, val);
     }
 
     return NDS::ARM9IOWrite32(addr, val);

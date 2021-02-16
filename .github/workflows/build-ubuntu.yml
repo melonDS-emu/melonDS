@@ -8,10 +8,6 @@ on:
     branches:
       - master
 
-env:
-  BUILD_TYPE: Release
-  CMAKE_VERSION: 3.15.2
-
 jobs:
   build:
 
@@ -20,25 +16,21 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install dependencies
-      shell: bash
-      working-directory: ${{runner.workspace}}
-      run: | # Fetch a new version of CMake, because the default is too old.
-        sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list \
-        && sudo apt update \
-        && sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp0=4.1.0-2ubuntu2.1 libslirp-dev --allow-downgrades
+      run: |
+        sudo rm -f /etc/apt/sources.list.d/dotnetdev.list /etc/apt/sources.list.d/microsoft-prod.list
+        sudo apt update
+        sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp0 libslirp-dev libarchive-dev libepoxy-dev --allow-downgrades
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
-      shell: bash
       working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+      run: cmake $GITHUB_WORKSPACE
     - name: Make
-      shell: bash
       working-directory: ${{runner.workspace}}/build
       run: |
-        make -j$(nproc --all) \
-        && mkdir dist \
-        && cp melonDS dist
+        make -j$(nproc --all)
+        mkdir dist
+        cp melonDS dist
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS

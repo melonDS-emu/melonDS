@@ -19,7 +19,14 @@
 #ifndef GPU_H
 #define GPU_H
 
+#include <memory>
+
 #include "GPU2D.h"
+#include "NonStupidBitfield.h"
+
+#ifdef OGLRENDERER_ENABLED
+#include "GPU_OpenGL.h"
+#endif
 
 namespace GPU
 {
@@ -45,7 +52,7 @@ extern u8 VRAM_G[ 16*1024];
 extern u8 VRAM_H[ 32*1024];
 extern u8 VRAM_I[ 16*1024];
 
-extern u8* VRAM[9];
+extern u8* const VRAM[9];
 
 extern u32 VRAMMap_LCDC;
 extern u32 VRAMMap_ABG[0x20];
@@ -68,20 +75,97 @@ extern u8* VRAMPtr_BOBJ[0x8];
 extern int FrontBuffer;
 extern u32* Framebuffer[2][2];
 
-extern GPU2D* GPU2D_A;
-extern GPU2D* GPU2D_B;
+extern std::unique_ptr<GPU2D> GPU2D_A;
+extern std::unique_ptr<GPU2D> GPU2D_B;
 
 extern int Renderer;
 
+const u32 VRAMDirtyGranularity = 512;
 
-typedef struct
+extern NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMWritten_ABG;
+extern NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_AOBJ;
+extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BBG;
+extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BOBJ;
+
+extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9];
+
+template <u32 Size, u32 MappingGranularity>
+struct VRAMTrackingSet
+{
+    u16 Mapping[Size / MappingGranularity];
+
+    const u32 VRAMBitsPerMapping = MappingGranularity / VRAMDirtyGranularity;
+
+    void Reset()
+    {
+        for (int i = 0; i < Size / MappingGranularity; i++)
+        {
+            // this is not a real VRAM bank
+            // so it will always be a mismatch => the bank will be completely invalidated
+            Mapping[i] = 0x8000;
+        }
+    }
+    NonStupidBitField<Size/VRAMDirtyGranularity> DeriveState(u32* currentMappings);
+};
+
+extern VRAMTrackingSet<512*1024, 16*1024> VRAMDirty_ABG;
+extern VRAMTrackingSet<256*1024, 16*1024> VRAMDirty_AOBJ;
+extern VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BBG;
+extern VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_BOBJ;
+
+extern VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_ABGExtPal;
+extern VRAMTrackingSet<32*1024, 8*1024> VRAMDirty_BBGExtPal;
+extern VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_AOBJExtPal;
+extern VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_BOBJExtPal;
+
+extern VRAMTrackingSet<512*1024, 128*1024> VRAMDirty_Texture;
+extern VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_TexPal;
+
+extern u8 VRAMFlat_ABG[512*1024];
+extern u8 VRAMFlat_BBG[128*1024];
+extern u8 VRAMFlat_AOBJ[256*1024];
+extern u8 VRAMFlat_BOBJ[128*1024];
+
+extern u8 VRAMFlat_ABGExtPal[32*1024];
+extern u8 VRAMFlat_BBGExtPal[32*1024];
+
+extern u8 VRAMFlat_AOBJExtPal[8*1024];
+extern u8 VRAMFlat_BOBJExtPal[8*1024];
+
+extern u8 VRAMFlat_Texture[512*1024];
+extern u8 VRAMFlat_TexPal[128*1024];
+
+bool MakeVRAMFlat_ABGCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty);
+bool MakeVRAMFlat_BBGCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty);
+
+bool MakeVRAMFlat_AOBJCoherent(NonStupidBitField<256*1024/VRAMDirtyGranularity>& dirty);
+bool MakeVRAMFlat_BOBJCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty);
+
+bool MakeVRAMFlat_ABGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty);
+bool MakeVRAMFlat_BBGExtPalCoherent(NonStupidBitField<32*1024/VRAMDirtyGranularity>& dirty);
+
+bool MakeVRAMFlat_AOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty);
+bool MakeVRAMFlat_BOBJExtPalCoherent(NonStupidBitField<8*1024/VRAMDirtyGranularity>& dirty);
+
+bool MakeVRAMFlat_TextureCoherent(NonStupidBitField<512*1024/VRAMDirtyGranularity>& dirty);
+bool MakeVRAMFlat_TexPalCoherent(NonStupidBitField<128*1024/VRAMDirtyGranularity>& dirty);
+
+void SyncDirtyFlags();
+
+extern u32 OAMDirty;
+extern u32 PaletteDirty;
+
+#ifdef OGLRENDERER_ENABLED
+extern std::unique_ptr<GLCompositor> CurGLCompositor;
+#endif
+
+struct RenderSettings
 {
     bool Soft_Threaded;
 
     int GL_ScaleFactor;
     bool GL_BetterPolygons;
-
-} RenderSettings;
+};
 
 
 bool Init();
@@ -233,7 +317,11 @@ void WriteVRAM_LCDC(u32 addr, T val)
     default: return;
     }
 
-    if (VRAMMap_LCDC & (1<<bank)) *(T*)&VRAM[bank][addr] = val;
+    if (VRAMMap_LCDC & (1<<bank))
+    {
+        *(T*)&VRAM[bank][addr] = val;
+        VRAMDirty[bank][addr / VRAMDirtyGranularity] = true;
+    }
 }
 
 
@@ -261,6 +349,8 @@ template<typename T>
 void WriteVRAM_ABG(u32 addr, T val)
 {
     u32 mask = VRAMMap_ABG[(addr >> 14) & 0x1F];
+
+    VRAMWritten_ABG[(addr & 0x7FFFF) / VRAMDirtyGranularity] = true;
 
     if (mask & (1<<0)) *(T*)&VRAM_A[addr & 0x1FFFF] = val;
     if (mask & (1<<1)) *(T*)&VRAM_B[addr & 0x1FFFF] = val;
@@ -295,6 +385,8 @@ void WriteVRAM_AOBJ(u32 addr, T val)
 {
     u32 mask = VRAMMap_AOBJ[(addr >> 14) & 0xF];
 
+    VRAMWritten_AOBJ[(addr & 0x3FFFF) / VRAMDirtyGranularity] = true;
+
     if (mask & (1<<0)) *(T*)&VRAM_A[addr & 0x1FFFF] = val;
     if (mask & (1<<1)) *(T*)&VRAM_B[addr & 0x1FFFF] = val;
     if (mask & (1<<4)) *(T*)&VRAM_E[addr & 0xFFFF] = val;
@@ -324,6 +416,8 @@ void WriteVRAM_BBG(u32 addr, T val)
 {
     u32 mask = VRAMMap_BBG[(addr >> 14) & 0x7];
 
+    VRAMWritten_BBG[(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+
     if (mask & (1<<2)) *(T*)&VRAM_C[addr & 0x1FFFF] = val;
     if (mask & (1<<7)) *(T*)&VRAM_H[addr & 0x7FFF] = val;
     if (mask & (1<<8)) *(T*)&VRAM_I[addr & 0x3FFF] = val;
@@ -350,10 +444,11 @@ void WriteVRAM_BOBJ(u32 addr, T val)
 {
     u32 mask = VRAMMap_BOBJ[(addr >> 14) & 0x7];
 
+    VRAMWritten_BOBJ[(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+
     if (mask & (1<<3)) *(T*)&VRAM_D[addr & 0x1FFFF] = val;
     if (mask & (1<<8)) *(T*)&VRAM_I[addr & 0x3FFF] = val;
 }
-
 
 template<typename T>
 T ReadVRAM_ARM7(u32 addr)
@@ -423,6 +518,35 @@ T ReadVRAM_TexPal(u32 addr)
     return ret;
 }
 
+template<typename T>
+T ReadPalette(u32 addr)
+{
+    return *(T*)&Palette[addr & 0x7FF];
+}
+
+template<typename T>
+void WritePalette(u32 addr, T val)
+{
+    addr &= 0x7FF;
+
+    *(T*)&Palette[addr] = val;
+    PaletteDirty |= 1 << (addr / VRAMDirtyGranularity);
+}
+
+template<typename T>
+T ReadOAM(u32 addr)
+{
+    return *(T*)&OAM[addr & 0x7FF];
+}
+
+template<typename T>
+void WriteOAM(u32 addr, T val)
+{
+    addr &= 0x7FF;
+
+    *(T*)&OAM[addr] = val;
+    OAMDirty |= 1 << (addr / 1024);
+}
 
 void SetPowerCnt(u32 val);
 
@@ -436,23 +560,6 @@ void DisplayFIFO(u32 x);
 void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
-
-#ifdef OGLRENDERER_ENABLED
-namespace GLCompositor
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(RenderSettings& settings);
-
-void RenderFrame();
-void BindOutputTexture();
-
-}
-#endif
-
 }
 
 #include "GPU3D.h"

@@ -34,9 +34,12 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
+    template <int ConsoleType>
     void Run();
 
+    template <int ConsoleType>
     void Run9();
+    template <int ConsoleType>
     void Run7();
 
     bool IsInMode(u32 mode)
@@ -86,11 +89,6 @@ private:
     bool Stall;
 
     bool IsGXFIFODMA;
-
-    u16 (*BusRead16)(u32 addr);
-    u32 (*BusRead32)(u32 addr);
-    void (*BusWrite16)(u32 addr, u16 val);
-    void (*BusWrite32)(u32 addr, u32 val);
 };
 
 #endif

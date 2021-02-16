@@ -26,9 +26,9 @@
 #include "NDSCart.h"
 
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
-static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset);
-static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset);
-static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset);
+static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
+static_assert(offsetof(ARM, Cycles) == ARM_Cycles_offset, "");
+static_assert(offsetof(ARM, StopExecution) == ARM_StopExecution_offset, "");
 
 namespace ARMJIT
 {
@@ -176,7 +176,7 @@ T SlowRead9(u32 addr, ARMv5* cpu)
 }
 
 template <typename T, int ConsoleType>
-void SlowWrite9(u32 addr, ARMv5* cpu, T val)
+void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
 {
     addr &= ~(sizeof(T) - 1);
 
@@ -224,7 +224,7 @@ T SlowRead7(u32 addr)
 }
 
 template <typename T, int ConsoleType>
-void SlowWrite7(u32 addr, T val)
+void SlowWrite7(u32 addr, u32 val)
 {
     addr &= ~(sizeof(T) - 1);
 
@@ -266,16 +266,16 @@ void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 
 #define INSTANTIATE_SLOWMEM(consoleType) \
     template void SlowWrite9<u32, consoleType>(u32, ARMv5*, u32); \
-    template void SlowWrite9<u16, consoleType>(u32, ARMv5*, u16); \
-    template void SlowWrite9<u8, consoleType>(u32, ARMv5*, u8); \
+    template void SlowWrite9<u16, consoleType>(u32, ARMv5*, u32); \
+    template void SlowWrite9<u8, consoleType>(u32, ARMv5*, u32); \
     \
     template u32 SlowRead9<u32, consoleType>(u32, ARMv5*); \
     template u16 SlowRead9<u16, consoleType>(u32, ARMv5*); \
     template u8 SlowRead9<u8, consoleType>(u32, ARMv5*); \
     \
     template void SlowWrite7<u32, consoleType>(u32, u32); \
-    template void SlowWrite7<u16, consoleType>(u32, u16); \
-    template void SlowWrite7<u8, consoleType>(u32, u8); \
+    template void SlowWrite7<u16, consoleType>(u32, u32); \
+    template void SlowWrite7<u8, consoleType>(u32, u32); \
     \
     template u32 SlowRead7<u32, consoleType>(u32); \
     template u16 SlowRead7<u16, consoleType>(u32); \
@@ -298,6 +298,7 @@ void Init()
 
 void DeInit()
 {
+    ResetBlockCache();
     ARMJIT_Memory::DeInit();
 
     delete JITCompiler;
@@ -594,7 +595,8 @@ void CompileBlock(ARM* cpu)
     u32 r15 = cpu->R[15];
 
     u32 addressRanges[Config::JIT_MaxBlockSize];
-    u32 addressMasks[Config::JIT_MaxBlockSize] = {0};
+    u32 addressMasks[Config::JIT_MaxBlockSize];
+    memset(addressMasks, 0, Config::JIT_MaxBlockSize * sizeof(u32));
     u32 numAddressRanges = 0;
 
     u32 numLiterals = 0;
@@ -602,6 +604,8 @@ void CompileBlock(ARM* cpu)
     // they are going to be hashed
     u32 literalValues[Config::JIT_MaxBlockSize];
     u32 instrValues[Config::JIT_MaxBlockSize];
+    // due to instruction merging i might not reflect the amount of actual instructions
+    u32 numInstrs = 0;
 
     cpu->FillPipeline();
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
@@ -621,13 +625,13 @@ void CompileBlock(ARM* cpu)
         instrs[i].SetFlags = 0;
         instrs[i].Instr = nextInstr[0];
         nextInstr[0] = nextInstr[1];
-    
+
         instrs[i].Addr = nextInstrAddr[0];
         nextInstrAddr[0] = nextInstrAddr[1];
         nextInstrAddr[1] = r15;
         JIT_DEBUGPRINT("instr %08x %x\n", instrs[i].Instr & (thumb ? 0xFFFF : ~0), instrs[i].Addr);
 
-        instrValues[i] = instrs[i].Instr;
+        instrValues[numInstrs++] = instrs[i].Instr;
 
         u32 translatedAddr = LocaliseCodeAddress(cpu->Num, instrs[i].Addr);
         assert(translatedAddr >> 27);
@@ -739,12 +743,13 @@ void CompileBlock(ARM* cpu)
         if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
             && instrs[i - 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_1)
         {
-            instrs[i - 1].Info.Kind = ARMInstrInfo::tk_BL_LONG;
-            instrs[i - 1].Instr = (instrs[i - 1].Instr & 0xFFFF) | (instrs[i].Instr << 16);
-            instrs[i - 1].Info.DstRegs = 0xC000;
-            instrs[i - 1].Info.SrcRegs = 0;
-            instrs[i - 1].Info.EndBlock = true;
             i--;
+            instrs[i].Info.Kind = ARMInstrInfo::tk_BL_LONG;
+            instrs[i].Instr = (instrs[i].Instr & 0xFFFF) | (instrs[i + 1].Instr << 16);
+            instrs[i].Info.DstRegs = 0xC000;
+            instrs[i].Info.SrcRegs = 0;
+            instrs[i].Info.EndBlock = true;
+            JIT_DEBUGPRINT("merged BL\n");
         }
 
         if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations)
@@ -827,7 +832,7 @@ void CompileBlock(ARM* cpu)
     } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
 
     u32 literalHash = (u32)XXH3_64bits(literalValues, numLiterals * 4);
-    u32 instrHash = (u32)XXH3_64bits(instrValues, i * 4);
+    u32 instrHash = (u32)XXH3_64bits(instrValues, numInstrs * 4);
 
     auto prevBlockIt = RestoreCandidates.find(instrHash);
     JitBlock* prevBlock = NULL;
@@ -1116,6 +1121,7 @@ void ResetBlockCache()
             range->Blocks.Clear();
             range->Code = 0;
         }
+        delete block;
     }
     JitBlocks9.clear();
     JitBlocks7.clear();

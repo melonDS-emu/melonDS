@@ -52,20 +52,12 @@ DSi_SDHost::DSi_SDHost(u32 num)
 {
     Num = num;
 
-    DataFIFO[0] = new FIFO<u16>(0x100);
-    DataFIFO[1] = new FIFO<u16>(0x100);
-    DataFIFO32  = new FIFO<u32>(0x80);
-
     Ports[0] = NULL;
     Ports[1] = NULL;
 }
 
 DSi_SDHost::~DSi_SDHost()
 {
-    delete DataFIFO[0];
-    delete DataFIFO[1];
-    delete DataFIFO32;
-
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
 }
@@ -89,10 +81,10 @@ void DSi_SDHost::Reset()
     Param = 0;
     memset(ResponseBuffer, 0, sizeof(ResponseBuffer));
 
-    DataFIFO[0]->Clear();
-    DataFIFO[1]->Clear();
+    DataFIFO[0].Clear();
+    DataFIFO[1].Clear();
     CurFIFO = 0;
-    DataFIFO32->Clear();
+    DataFIFO32.Clear();
 
     IRQStatus = 0;
     IRQMask = 0x8B7F031D;
@@ -122,14 +114,14 @@ void DSi_SDHost::Reset()
 
         if (Config::DSiSDEnable)
         {
-            sd = new DSi_MMCStorage(this, false, Config::DSiSDPath);
+            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, Config::DSiNANDPath);
+        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -160,8 +152,8 @@ void DSi_SDHost::UpdateData32IRQ()
     oldflags &= (Data32IRQ >> 11);
 
     Data32IRQ &= ~0x0300;
-    if (DataFIFO32->Level() >= (BlockLen32>>2)) Data32IRQ |= (1<<8);
-    if (!DataFIFO32->IsEmpty())                 Data32IRQ |= (1<<9);
+    if (DataFIFO32.Level() >= (BlockLen32>>2)) Data32IRQ |= (1<<8);
+    if (!DataFIFO32.IsEmpty())                 Data32IRQ |= (1<<9);
 
     u32 newflags = ((Data32IRQ >> 8) & 0x1) | (((~Data32IRQ) >> 8) & 0x2);
     newflags &= (Data32IRQ >> 11);
@@ -256,7 +248,7 @@ u32 DSi_SDHost::DataRX(u8* data, u32 len)
 
     u32 f = CurFIFO ^ 1;
     for (u32 i = 0; i < len; i += 2)
-        DataFIFO[f]->Write(*(u16*)&data[i]);
+        DataFIFO[f].Write(*(u16*)&data[i]);
 
     //CurFIFO = f;
     //SetIRQ(24);
@@ -304,9 +296,9 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
 
     if (DataMode == 1)
     {
-        if ((DataFIFO32->Level() << 2) < len)
+        if ((DataFIFO32.Level() << 2) < len)
         {
-            if (DataFIFO32->IsEmpty())
+            if (DataFIFO32.IsEmpty())
             {
                 SetIRQ(25);
                 DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
@@ -316,16 +308,16 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
 
         // drain FIFO32 into FIFO16
 
-        if (!DataFIFO[f]->IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
+        if (!DataFIFO[f].IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
         for (;;)
         {
             u32 f = CurFIFO;
-            if ((DataFIFO[f]->Level() << 1) >= BlockLen16) break;
-            if (DataFIFO32->IsEmpty()) break;
+            if ((DataFIFO[f].Level() << 1) >= BlockLen16) break;
+            if (DataFIFO32.IsEmpty()) break;
 
-            u32 val = DataFIFO32->Read();
-            DataFIFO[f]->Write(val & 0xFFFF);
-            DataFIFO[f]->Write(val >> 16);
+            u32 val = DataFIFO32.Read();
+            DataFIFO[f].Write(val & 0xFFFF);
+            DataFIFO[f].Write(val >> 16);
         }
 
         UpdateData32IRQ();
@@ -335,15 +327,15 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
     }
     else
     {
-        if ((DataFIFO[f]->Level() << 1) < len)
+        if ((DataFIFO[f].Level() << 1) < len)
         {
-            if (DataFIFO[f]->IsEmpty()) SetIRQ(25);
+            if (DataFIFO[f].IsEmpty()) SetIRQ(25);
             return 0;
         }
     }
 
     for (u32 i = 0; i < len; i += 2)
-        *(u16*)&data[i] = DataFIFO[f]->Read();
+        *(u16*)&data[i] = DataFIFO[f].Read();
 
     CurFIFO ^= 1;
     BlockCountInternal--;
@@ -392,13 +384,13 @@ void DSi_SDHost::CheckTX()
 
     if (DataMode == 1)
     {
-        if ((DataFIFO32->Level() << 2) < BlockLen32)
+        if ((DataFIFO32.Level() << 2) < BlockLen32)
             return;
     }
     else
     {
         u32 f = CurFIFO;
-        if ((DataFIFO[f]->Level() << 1) < BlockLen16)
+        if ((DataFIFO[f].Level() << 1) < BlockLen16)
             return;
     }
 
@@ -481,7 +473,7 @@ u16 DSi_SDHost::Read(u32 addr)
 u16 DSi_SDHost::ReadFIFO16()
 {
     u32 f = CurFIFO;
-    if (DataFIFO[f]->IsEmpty())
+    if (DataFIFO[f].IsEmpty())
     {
         // TODO
         // on hardware it seems to wrap around. underflow bit is set upon the first 'empty' read.
@@ -489,9 +481,9 @@ u16 DSi_SDHost::ReadFIFO16()
     }
 
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-    u16 ret = DataFIFO[f]->Read();
+    u16 ret = DataFIFO[f].Read();
 
-    if (DataFIFO[f]->IsEmpty())
+    if (DataFIFO[f].IsEmpty())
     {
         CheckRX();
     }
@@ -503,16 +495,16 @@ u32 DSi_SDHost::ReadFIFO32()
 {
     if (DataMode != 1) return 0;
 
-    if (DataFIFO32->IsEmpty())
+    if (DataFIFO32.IsEmpty())
     {
         // TODO
         return 0;
     }
 
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
-    u32 ret = DataFIFO32->Read();
+    u32 ret = DataFIFO32.Read();
 
-    if (DataFIFO32->IsEmpty())
+    if (DataFIFO32.IsEmpty())
     {
         CheckRX();
     }
@@ -628,7 +620,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
 
     case 0x100:
         Data32IRQ = (val & 0x1802) | (Data32IRQ & 0x0300);
-        if (val & (1<<10)) DataFIFO32->Clear();
+        if (val & (1<<10)) DataFIFO32.Clear();
         DataMode = ((DataCtl >> 1) & 0x1) & ((Data32IRQ >> 1) & 0x1);
         return;
     case 0x102: return;
@@ -643,14 +635,14 @@ void DSi_SDHost::WriteFIFO16(u16 val)
 {
     DSi_SDDevice* dev = Ports[PortSelect & 0x1];
     u32 f = CurFIFO;
-    if (DataFIFO[f]->IsFull())
+    if (DataFIFO[f].IsFull())
     {
         // TODO
         printf("!!!! %s FIFO (16) FULL\n", SD_DESC);
         return;
     }
 
-    DataFIFO[f]->Write(val);
+    DataFIFO[f].Write(val);
 
     CheckTX();
 }
@@ -659,14 +651,14 @@ void DSi_SDHost::WriteFIFO32(u32 val)
 {
     if (DataMode != 1) return;
 
-    if (DataFIFO32->IsFull())
+    if (DataFIFO32.IsFull())
     {
         // TODO
         printf("!!!! %s FIFO (32) FULL\n", SD_DESC);
         return;
     }
 
-    DataFIFO32->Write(val);
+    DataFIFO32.Write(val);
 
     CheckTX();
 
@@ -679,21 +671,21 @@ void DSi_SDHost::UpdateFIFO32()
 
     if (DataMode != 1) return;
 
-    if (!DataFIFO32->IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
+    if (!DataFIFO32.IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
     for (;;)
     {
         u32 f = CurFIFO;
-        if ((DataFIFO32->Level() << 2) >= BlockLen32) break;
-        if (DataFIFO[f]->IsEmpty()) break;
+        if ((DataFIFO32.Level() << 2) >= BlockLen32) break;
+        if (DataFIFO[f].IsEmpty()) break;
 
-        u32 val = DataFIFO[f]->Read();
-        val |= (DataFIFO[f]->Read() << 16);
-        DataFIFO32->Write(val);
+        u32 val = DataFIFO[f].Read();
+        val |= (DataFIFO[f].Read() << 16);
+        DataFIFO32.Write(val);
     }
 
     UpdateData32IRQ();
 
-    if ((DataFIFO32->Level() << 2) >= BlockLen32)
+    if ((DataFIFO32.Level() << 2) >= BlockLen32)
     {
         DSi::CheckNDMAs(1, Num ? 0x29 : 0x28);
     }
@@ -704,8 +696,8 @@ void DSi_SDHost::CheckSwapFIFO()
     // check whether we can swap the FIFOs
 
     u32 f = CurFIFO;
-    bool cur_empty = (DataMode == 1) ? DataFIFO32->IsEmpty() : DataFIFO[f]->IsEmpty();
-    if (cur_empty && ((DataFIFO[f^1]->Level() << 1) >= BlockLen16))
+    bool cur_empty = (DataMode == 1) ? DataFIFO32.IsEmpty() : DataFIFO[f].IsEmpty();
+    if (cur_empty && ((DataFIFO[f^1].Level() << 1) >= BlockLen16))
     {
         CurFIFO ^= 1;
     }
@@ -714,30 +706,14 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, const char* path) : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file) : DSi_SDDevice(host)
 {
     Internal = internal;
-    strncpy(FilePath, path, 1023); FilePath[1023] = '\0';
-
-    File = Platform::OpenLocalFile(path, "r+b");
-    if (!File)
-    {
-        if (internal)
-        {
-            // TODO: proper failure
-            printf("!! MMC file %s does not exist\n", path);
-        }
-        else
-        {
-            File = Platform::OpenLocalFile(path, "w+b");
-        }
-    }
+    File = file;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
-{
-    if (File) fclose(File);
-}
+{}
 
 void DSi_MMCStorage::Reset()
 {
@@ -778,6 +754,23 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         Host->SendResponse(CSR, true);
         return;
 
+    case 1: // SEND_OP_COND
+        // CHECKME!!
+        // also TODO: it's different for the SD card
+        if (Internal)
+        {
+            param &= ~(1<<30);
+            OCR &= 0xBF000000;
+            OCR |= (param & 0x40FFFFFF);
+            Host->SendResponse(OCR, true);
+            SetState(0x01);
+        }
+        else
+        {
+            printf("CMD1 on SD card!!\n");
+        }
+        return;
+
     case 2:
     case 10: // get CID
         Host->SendResponse(*(u32*)&CID[12], false);
@@ -799,6 +792,11 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
             printf("CMD3 on SD card: TODO\n");
             Host->SendResponse((CSR & 0x1FFF) | ((CSR >> 6) & 0x2000) | ((CSR >> 8) & 0xC000) | (1 << 16), true);
         }
+        return;
+
+    case 6: // MMC: 'SWITCH'
+        // TODO!
+        Host->SendResponse(CSR, true);
         return;
 
     case 7: // select card (by RCA)
@@ -958,7 +956,7 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (len = Host->DataTX(data, len))
+    if ((len = Host->DataTX(data, len)))
     {
         if (File)
         {

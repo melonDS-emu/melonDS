@@ -22,16 +22,6 @@
 namespace OpenGL
 {
 
-DO_PROCLIST(DECLPROC);
-
-
-bool Init()
-{
-    DO_PROCLIST(LOADPROC);
-
-    return true;
-}
-
 bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char* name)
 {
     int len;
@@ -97,6 +87,12 @@ bool LinkShaderProgram(GLuint* ids)
 
     glLinkProgram(ids[2]);
 
+    glDetachShader(ids[2], ids[0]);
+    glDetachShader(ids[2], ids[1]);
+
+    glDeleteShader(ids[0]);
+    glDeleteShader(ids[1]);
+
     glGetProgramiv(ids[2], GL_LINK_STATUS, &res);
     if (res != GL_TRUE)
     {
@@ -107,8 +103,6 @@ bool LinkShaderProgram(GLuint* ids)
         printf("OpenGL: failed to link shader program: %s\n", log);
         delete[] log;
 
-        glDeleteShader(ids[0]);
-        glDeleteShader(ids[1]);
         glDeleteProgram(ids[2]);
 
         return false;
@@ -119,8 +113,6 @@ bool LinkShaderProgram(GLuint* ids)
 
 void DeleteShaderProgram(GLuint* ids)
 {
-    glDeleteShader(ids[0]);
-    glDeleteShader(ids[1]);
     glDeleteProgram(ids[2]);
 }
 

@@ -21,6 +21,8 @@
 
 #include "types.h"
 
+#include <functional>
+
 namespace Platform
 {
 
@@ -67,15 +69,24 @@ inline bool LocalFileExists(const char* name)
     return true;
 }
 
-void* Thread_Create(void (*func)());
-void Thread_Free(void* thread);
-void Thread_Wait(void* thread);
+struct Thread;
+Thread* Thread_Create(std::function<void()> func);
+void Thread_Free(Thread* thread);
+void Thread_Wait(Thread* thread);
 
-void* Semaphore_Create();
-void Semaphore_Free(void* sema);
-void Semaphore_Reset(void* sema);
-void Semaphore_Wait(void* sema);
-void Semaphore_Post(void* sema);
+struct Semaphore;
+Semaphore* Semaphore_Create();
+void Semaphore_Free(Semaphore* sema);
+void Semaphore_Reset(Semaphore* sema);
+void Semaphore_Wait(Semaphore* sema);
+void Semaphore_Post(Semaphore* sema, int count = 1);
+
+struct Mutex;
+Mutex* Mutex_Create();
+void Mutex_Free(Mutex* mutex);
+void Mutex_Lock(Mutex* mutex);
+void Mutex_Unlock(Mutex* mutex);
+bool Mutex_TryLock(Mutex* mutex);
 
 void* GL_GetProcAddress(const char* proc);
 
@@ -92,6 +103,8 @@ bool LAN_Init();
 void LAN_DeInit();
 int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
+
+void Sleep(u64 usecs);
 
 }
 

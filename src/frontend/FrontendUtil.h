@@ -63,6 +63,8 @@ extern char ROMPath [ROMSlot_MAX][1024];
 extern char SRAMPath[ROMSlot_MAX][1024];
 extern bool SavestateLoaded;
 
+// Stores type of nds rom i.e. nds/srl/dsi. Should be updated everytime an NDS rom is loaded from an archive
+extern char NDSROMExtension[4];
 
 // initialize the ROM handling utility
 void Init_ROM();
@@ -76,6 +78,7 @@ int LoadBIOS();
 // load a ROM file to the specified cart slot
 // note: loading a ROM to the NDS slot resets emulation
 int LoadROM(const char* file, int slot);
+int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const char *romfilename, const char *sramfilename, int slot);
 
 // unload the ROM loaded in the specified cart slot
 // simulating ejection of the cartridge
@@ -113,25 +116,42 @@ void EnableCheats(bool enable);
 //     0 = natural (top screen above bottom screen always)
 //     1 = vertical
 //     2 = horizontal
+//     3 = hybrid
 // * rotation: angle at which the DS screens are presented: 0/1/2/3 = 0/90/180/270
 // * sizing: how the display size is shared between the two screens
 //     0 = even (both screens get same size)
 //     1 = emphasize top screen (make top screen as big as possible, fit bottom screen in remaining space)
 //     2 = emphasize bottom screen
+//     4 = top only
+//     5 = bottom only
 // * screenGap: size of the gap between the two screens
 // * integerScale: force screens to be scaled up at integer scaling factors
-void SetupScreenLayout(int screenWidth, int screenHeight, int screenLayout, int rotation, int sizing, int screenGap, bool integerScale);
+// * screenSwap: whether to swap the position of both screens
+// * topAspect/botAspect: ratio by which to scale the top and bottom screen respectively
+void SetupScreenLayout(int screenWidth, int screenHeight,
+    int screenLayout,
+    int rotation,
+    int sizing,
+    int screenGap,
+    bool integerScale,
+    bool swapScreens,
+    float topAspect, float botAspect);
 
-// get a 2x3 transform matrix for each screen
+const int MaxScreenTransforms = 3;
+
+// get a 2x3 transform matrix for each screen and whether it's a top or bottom screen
 // note: the transform assumes an origin point at the top left of the display,
-// X going left and Y going down
+// X going right and Y going down
 // for each screen the source coordinates should be (0,0) and (256,192)
-// 'top' and 'bot' should point each to an array of 6 floats
-void GetScreenTransforms(float* top, float* bot);
+// 'out' should point to an array of 6*MaxScreenTransforms floats
+// 'kind' should point to an array of MaxScreenTransforms ints
+// (0 = indicates top screen, 1 = bottom screen)
+// returns the amount of screens
+int GetScreenTransforms(float* out, int* kind);
 
 // de-transform the provided host display coordinates to get coordinates
 // on the bottom screen
-void GetTouchCoords(int& x, int& y);
+bool GetTouchCoords(int& x, int& y);
 
 
 // initialize the audio utility

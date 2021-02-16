@@ -32,6 +32,7 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
+#include "NDSCart_SRAMManager.h"
 #include "FreeBIOS.h"
 
 #ifdef JIT_ENABLED
@@ -77,6 +78,8 @@ ARMv5* ARM9;
 ARMv4* ARM7;
 
 u32 NumFrames;
+u32 NumLagFrames;
+bool LagFrameFlag;
 u64 LastSysClockCycles;
 u64 FrameStartTimestamp;
 
@@ -140,8 +143,8 @@ u32 DMA9Fill[4];
 
 u16 IPCSync9, IPCSync7;
 u16 IPCFIFOCnt9, IPCFIFOCnt7;
-FIFO<u32>* IPCFIFO9; // FIFO in which the ARM9 writes
-FIFO<u32>* IPCFIFO7;
+FIFO<u32, 16> IPCFIFO9; // FIFO in which the ARM9 writes
+FIFO<u32, 16> IPCFIFO7;
 
 u16 DivCnt;
 u32 DivNumerator[2];
@@ -191,9 +194,7 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    IPCFIFO9 = new FIFO<u32>(16);
-    IPCFIFO7 = new FIFO<u32>(16);
-
+    if (!NDSCart_SRAMManager::Init()) return false;
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -211,19 +212,17 @@ bool Init()
 
 void DeInit()
 {
-    delete ARM9;
-    delete ARM7;
-
 #ifdef JIT_ENABLED
     ARMJIT::DeInit();
 #endif
 
+    delete ARM9;
+    delete ARM7;
+
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
 
-    delete IPCFIFO9;
-    delete IPCFIFO7;
-
+    NDSCart_SRAMManager::DeInit();
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
@@ -554,8 +553,8 @@ void Reset()
     IPCSync7 = 0;
     IPCFIFOCnt9 = 0;
     IPCFIFOCnt7 = 0;
-    IPCFIFO9->Clear();
-    IPCFIFO7->Clear();
+    IPCFIFO9.Clear();
+    IPCFIFO7.Clear();
 
     DivCnt = 0;
     SqrtCnt = 0;
@@ -733,8 +732,8 @@ bool DoSavestate(Savestate* file)
     file->Var16(&IPCSync7);
     file->Var16(&IPCFIFOCnt9);
     file->Var16(&IPCFIFOCnt7);
-    IPCFIFO9->DoSavestate(file);
-    IPCFIFO7->DoSavestate(file);
+    IPCFIFO9.DoSavestate(file);
+    IPCFIFO7.DoSavestate(file);
 
     file->Var16(&DivCnt);
     file->Var16(&SqrtCnt);
@@ -765,6 +764,11 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
+    if (file->IsAtleastVersion(7, 1))
+    {
+        file->Var32(&NumLagFrames);
+        file->Bool32(&LagFrameFlag);
+    }
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);
@@ -823,6 +827,20 @@ void SetConsoleType(int type)
     ConsoleType = type;
 }
 
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
+{
+    if (NDSCart::LoadROM(romdata, filelength, sram, direct))
+    {
+        Running = true;
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM from archive\n");
+        return false;
+    }
+}
+
 bool LoadROM(const char* path, const char* sram, bool direct)
 {
     if (NDSCart::LoadROM(path, sram, direct))
@@ -846,6 +864,19 @@ bool LoadGBAROM(const char* path, const char* sram)
     else
     {
         printf("Failed to load ROM %s\n", path);
+        return false;
+    }
+}
+
+bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram)
+{
+    if (GBACart::LoadROM(romdata, filelength, sram))
+    {
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM %s from archive\n", filename);
         return false;
     }
 }
@@ -905,111 +936,127 @@ void RunSystem(u64 timestamp)
     }
 }
 
-template <bool EnableJIT>
+template <bool EnableJIT, int ConsoleType>
 u32 RunFrame()
 {
     FrameStartTimestamp = SysTimestamp;
 
-    if (!Running) return 263; // dorp
-    if (CPUStop & 0x40000000) return 263;
-
-    GPU::StartFrame();
-
-    while (Running && GPU::TotalScanlines==0)
+    LagFrameFlag = true;
+    bool runFrame = Running && !(CPUStop & 0x40000000);
+    if (runFrame)
     {
-        // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
-        u64 target = NextTarget();
-        ARM9Target = target << ARM9ClockShift;
-        CurCPU = 0;
+        GPU::StartFrame();
 
-        if (CPUStop & 0x80000000)
+        while (Running && GPU::TotalScanlines==0)
         {
-            // GXFIFO stall
-            s32 cycles = GPU3D::CyclesToRunFor();
+            // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
+            u64 target = NextTarget();
+            ARM9Target = target << ARM9ClockShift;
+            CurCPU = 0;
 
-            ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
-        }
-        else if (CPUStop & 0x0FFF)
-        {
-            DMAs[0]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[1]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[2]->Run();
-            if (!(CPUStop & 0x80000000)) DMAs[3]->Run();
-            if (ConsoleType == 1) DSi::RunNDMAs(0);
-        }
-        else
-        {
-#ifdef JIT_ENABLED
-            if (EnableJIT)
-                ARM9->ExecuteJIT();
-            else
-#endif
-                ARM9->Execute();
-        }
-
-        RunTimers(0);
-        GPU3D::Run();
-
-        target = ARM9Timestamp >> ARM9ClockShift;
-        CurCPU = 1;
-
-        while (ARM7Timestamp < target)
-        {
-            ARM7Target = target; // might be changed by a reschedule
-
-            if (CPUStop & 0x0FFF0000)
+            if (CPUStop & 0x80000000)
             {
-                DMAs[4]->Run();
-                DMAs[5]->Run();
-                DMAs[6]->Run();
-                DMAs[7]->Run();
-                if (ConsoleType == 1) DSi::RunNDMAs(1);
+                // GXFIFO stall
+                s32 cycles = GPU3D::CyclesToRunFor();
+
+                ARM9Timestamp = std::min(ARM9Target, ARM9Timestamp+(cycles<<ARM9ClockShift));
+            }
+            else if (CPUStop & 0x0FFF)
+            {
+                DMAs[0]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[1]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[2]->Run<ConsoleType>();
+                if (!(CPUStop & 0x80000000)) DMAs[3]->Run<ConsoleType>();
+                if (ConsoleType == 1) DSi::RunNDMAs(0);
             }
             else
             {
 #ifdef JIT_ENABLED
                 if (EnableJIT)
-                    ARM7->ExecuteJIT();
+                    ARM9->ExecuteJIT();
                 else
 #endif
-                    ARM7->Execute();
+                    ARM9->Execute();
             }
 
-            RunTimers(1);
-        }
+            RunTimers(0);
+            GPU3D::Run();
 
-        RunSystem(target);
+            target = ARM9Timestamp >> ARM9ClockShift;
+            CurCPU = 1;
 
-        if (CPUStop & 0x40000000)
-        {
-            // checkme: when is sleep mode effective?
-            //CancelEvent(Event_LCD);
-            //GPU::TotalScanlines = 263;
-            break;
+            while (ARM7Timestamp < target)
+            {
+                ARM7Target = target; // might be changed by a reschedule
+
+                if (CPUStop & 0x0FFF0000)
+                {
+                    DMAs[4]->Run<ConsoleType>();
+                    DMAs[5]->Run<ConsoleType>();
+                    DMAs[6]->Run<ConsoleType>();
+                    DMAs[7]->Run<ConsoleType>();
+                    if (ConsoleType == 1) DSi::RunNDMAs(1);
+                }
+                else
+                {
+#ifdef JIT_ENABLED
+                    if (EnableJIT)
+                        ARM7->ExecuteJIT();
+                    else
+#endif
+                        ARM7->Execute();
+                }
+
+                RunTimers(1);
+            }
+
+            RunSystem(target);
+
+            if (CPUStop & 0x40000000)
+            {
+                // checkme: when is sleep mode effective?
+                CancelEvent(Event_LCD);
+                GPU::TotalScanlines = 263;
+                break;
+            }
         }
-    }
 
 #ifdef DEBUG_CHECK_DESYNC
-    printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
-           (u32)(SysTimestamp>>32), (u32)SysTimestamp,
-           (ARM9Timestamp>>1)-SysTimestamp,
-           ARM7Timestamp-SysTimestamp,
-           GPU3D::Timestamp-SysTimestamp);
+        printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
+            (u32)(SysTimestamp>>32), (u32)SysTimestamp,
+            (ARM9Timestamp>>1)-SysTimestamp,
+            ARM7Timestamp-SysTimestamp,
+            GPU3D::Timestamp-SysTimestamp);
 #endif
+        SPU::TransferOutput();
 
+        NDSCart::FlushSRAMFile();
+    }
+
+    // In the context of TASes, frame count is traditionally the primary measure of emulated time,
+    // so it needs to be tracked even if NDS is powered off.
     NumFrames++;
+    if (LagFrameFlag)
+        NumLagFrames++;
 
-    return GPU::TotalScanlines;
+    if (runFrame)
+        return GPU::TotalScanlines;
+    else
+        return 263;
 }
 
 u32 RunFrame()
 {
 #ifdef JIT_ENABLED
     if (Config::JIT_Enable)
-        return RunFrame<true>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<true, 1>()
+            : RunFrame<true, 0>();
     else
 #endif
-        return RunFrame<false>();
+        return NDS::ConsoleType == 1
+            ? RunFrame<false, 1>()
+            : RunFrame<false, 0>();
 }
 
 void Reschedule(u64 target)
@@ -1113,6 +1160,7 @@ void SetLidClosed(bool closed)
         KeyInput &= ~(1<<23);
         SetIRQ(1, IRQ_LidOpen);
         CPUStop &= ~0x40000000;
+        GPU3D::RestartFrame();
     }
 }
 
@@ -1467,7 +1515,7 @@ void HandleTimerOverflow(u32 tid)
 {
     Timer* timer = &Timers[tid];
 
-    timer->Counter += timer->Reload << 16;
+    timer->Counter += (timer->Reload << 10);
     if (timer->Cnt & (1<<6))
         SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1483,11 +1531,11 @@ void HandleTimerOverflow(u32 tid)
         if ((timer->Cnt & 0x84) != 0x84)
             break;
 
-        timer->Counter += 0x10000;
-        if (timer->Counter >> 16)
+        timer->Counter += (1 << 10);
+        if (!(timer->Counter >> 26))
             break;
 
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
         if (timer->Cnt & (1<<6))
             SetIRQ(tid >> 2, IRQ_Timer0 + (tid & 0x3));
 
@@ -1502,13 +1550,18 @@ void RunTimer(u32 tid, s32 cycles)
 
     u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
-    if (timer->Counter < oldcount)
+    //if (timer->Counter < oldcount)
+    //    HandleTimerOverflow(tid);
+    while (timer->Counter >> 26)
+    {
+        timer->Counter -= (1 << 26);
         HandleTimerOverflow(tid);
+    }
 }
 
 void RunTimers(u32 cpu)
 {
-    register u32 timermask = TimerCheckMask[cpu];
+    u32 timermask = TimerCheckMask[cpu];
     s32 cycles;
 
     if (cpu == 0)
@@ -1620,7 +1673,7 @@ u16 TimerGetCounter(u32 timer)
     RunTimers(timer>>2);
     u32 ret = Timers[timer].Counter;
 
-    return ret >> 16;
+    return ret >> 10;
 }
 
 void TimerStart(u32 id, u16 cnt)
@@ -1630,11 +1683,11 @@ void TimerStart(u32 id, u16 cnt)
     u16 newstart = cnt & (1<<7);
 
     timer->Cnt = cnt;
-    timer->CycleShift = 16 - TimerPrescaler[cnt & 0x03];
+    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
 
     if ((!curstart) && newstart)
     {
-        timer->Counter = timer->Reload << 16;
+        timer->Counter = timer->Reload << 10;
 
         /*if ((cnt & 0x84) == 0x80)
         {
@@ -1821,14 +1874,14 @@ void debug(u32 param)
     fclose(shit);*/
 
     FILE*
-    shit = fopen("debug/picto9.bin", "wb");
+    shit = fopen("debug/power9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/picto7.bin", "wb");
+    shit = fopen("debug/power7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
@@ -1866,7 +1919,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u8>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1880,7 +1933,7 @@ u8 ARM9Read8(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u8*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u8>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -1931,7 +1984,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u16>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -1945,7 +1998,7 @@ u16 ARM9Read16(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u16*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u16>(addr);
 
     case 0x08000000:
     case 0x09000000:
@@ -1996,7 +2049,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::Palette[addr & 0x7FF];
+        return GPU::ReadPalette<u32>(addr);
 
     case 0x06000000:
         switch (addr & 0x00E00000)
@@ -2010,7 +2063,7 @@ u32 ARM9Read32(u32 addr)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
-        return *(u32*)&GPU::OAM[addr & 0x7FF];
+        return GPU::ReadOAM<u32>(addr & 0x7FF);
 
     case 0x08000000:
     case 0x09000000:
@@ -2117,7 +2170,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette<u16>(addr, val);
         return;
 
     case 0x06000000:
@@ -2135,7 +2188,7 @@ void ARM9Write16(u32 addr, u16 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u16*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u16>(addr, val);
         return;
 
     case 0x08000000:
@@ -2192,7 +2245,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x05000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::Palette[addr & 0x7FF] = val;
+        GPU::WritePalette(addr, val);
         return;
 
     case 0x06000000:
@@ -2210,7 +2263,7 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x07000000:
         if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return;
-        *(u32*)&GPU::OAM[addr & 0x7FF] = val;
+        GPU::WriteOAM<u32>(addr, val);
         return;
 
     case 0x08000000:
@@ -2775,8 +2828,8 @@ u8 ARM9IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04000130: return KeyInput & 0xFF;
-    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFF;
+    case 0x04000131: LagFrameFlag = false; return (KeyInput >> 8) & 0xFF;
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
@@ -2877,17 +2930,17 @@ u16 ARM9IORead16(u32 addr)
     case 0x0400010C: return TimerGetCounter(3);
     case 0x0400010E: return Timers[3].Cnt;
 
-    case 0x04000130: return KeyInput & 0xFFFF;
+    case 0x04000130: LagFrameFlag = false; return KeyInput & 0xFFFF;
     case 0x04000132: return KeyCnt;
 
     case 0x04000180: return IPCSync9;
     case 0x04000184:
         {
             u16 val = IPCFIFOCnt9;
-            if (IPCFIFO9->IsEmpty())     val |= 0x0001;
-            else if (IPCFIFO9->IsFull()) val |= 0x0002;
-            if (IPCFIFO7->IsEmpty())     val |= 0x0100;
-            else if (IPCFIFO7->IsFull()) val |= 0x0200;
+            if (IPCFIFO9.IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO9.IsFull()) val |= 0x0002;
+            if (IPCFIFO7.IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO7.IsFull()) val |= 0x0200;
             return val;
         }
 
@@ -2995,9 +3048,10 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000108: return TimerGetCounter(2) | (Timers[2].Cnt << 16);
     case 0x0400010C: return TimerGetCounter(3) | (Timers[3].Cnt << 16);
 
-    case 0x04000130: return (KeyInput & 0xFFFF) | (KeyCnt << 16);
+    case 0x04000130: LagFrameFlag = false; return (KeyInput & 0xFFFF) | (KeyCnt << 16);
 
     case 0x04000180: return IPCSync9;
+    case 0x04000184: return ARM9IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3041,22 +3095,22 @@ u32 ARM9IORead32(u32 addr)
         if (IPCFIFOCnt9 & 0x8000)
         {
             u32 ret;
-            if (IPCFIFO7->IsEmpty())
+            if (IPCFIFO7.IsEmpty())
             {
                 IPCFIFOCnt9 |= 0x4000;
-                ret = IPCFIFO7->Peek();
+                ret = IPCFIFO7.Peek();
             }
             else
             {
-                ret = IPCFIFO7->Read();
+                ret = IPCFIFO7.Read();
 
-                if (IPCFIFO7->IsEmpty() && (IPCFIFOCnt7 & 0x0004))
+                if (IPCFIFO7.IsEmpty() && (IPCFIFOCnt7 & 0x0004))
                     SetIRQ(1, IRQ_IPCSendDone);
             }
             return ret;
         }
         else
-            return IPCFIFO7->Peek();
+            return IPCFIFO7.Peek();
 
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
@@ -3110,6 +3164,10 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
     case 0x040001A2:
         NDSCart::WriteSPIData(val);
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
         return;
 
     case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
@@ -3218,14 +3276,18 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     case 0x04000184:
         if (val & 0x0008)
-            IPCFIFO9->Clear();
-        if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9->IsEmpty())
+            IPCFIFO9.Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt9 & 0x0004)) && IPCFIFO9.IsEmpty())
             SetIRQ(0, IRQ_IPCSendDone);
-        if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7->IsEmpty()))
+        if ((val & 0x0400) && (!(IPCFIFOCnt9 & 0x0400)) && (!IPCFIFO7.IsEmpty()))
             SetIRQ(0, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt9 &= ~0x4000;
-        IPCFIFOCnt9 = val & 0x8404;
+        IPCFIFOCnt9 = (val & 0x8404) | (IPCFIFOCnt9 & 0x4000);
+        return;
+
+    case 0x04000188:
+        ARM9IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -3375,19 +3437,20 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04000130:
         KeyCnt = val >> 16;
         return;
+
     case 0x04000180:
+    case 0x04000184:
         ARM9IOWrite16(addr, val);
         return;
-
     case 0x04000188:
         if (IPCFIFOCnt9 & 0x8000)
         {
-            if (IPCFIFO9->IsFull())
+            if (IPCFIFO9.IsFull())
                 IPCFIFOCnt9 |= 0x4000;
             else
             {
-                bool wasempty = IPCFIFO9->IsEmpty();
-                IPCFIFO9->Write(val);
+                bool wasempty = IPCFIFO9.IsEmpty();
+                IPCFIFO9.Write(val);
                 if ((IPCFIFOCnt7 & 0x0400) && wasempty)
                     SetIRQ(1, IRQ_IPCRecv);
             }
@@ -3565,10 +3628,10 @@ u16 ARM7IORead16(u32 addr)
     case 0x04000184:
         {
             u16 val = IPCFIFOCnt7;
-            if (IPCFIFO7->IsEmpty())     val |= 0x0001;
-            else if (IPCFIFO7->IsFull()) val |= 0x0002;
-            if (IPCFIFO9->IsEmpty())     val |= 0x0100;
-            else if (IPCFIFO9->IsFull()) val |= 0x0200;
+            if (IPCFIFO7.IsEmpty())     val |= 0x0001;
+            else if (IPCFIFO7.IsFull()) val |= 0x0002;
+            if (IPCFIFO9.IsEmpty())     val |= 0x0100;
+            else if (IPCFIFO9.IsFull()) val |= 0x0200;
             return val;
         }
 
@@ -3637,6 +3700,7 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000138: return RTC::Read();
 
     case 0x04000180: return IPCSync7;
+    case 0x04000184: return ARM7IORead16(addr);
 
     case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
     case 0x040001A4: return NDSCart::ROMCnt;
@@ -3663,22 +3727,22 @@ u32 ARM7IORead32(u32 addr)
         if (IPCFIFOCnt7 & 0x8000)
         {
             u32 ret;
-            if (IPCFIFO9->IsEmpty())
+            if (IPCFIFO9.IsEmpty())
             {
                 IPCFIFOCnt7 |= 0x4000;
-                ret = IPCFIFO9->Peek();
+                ret = IPCFIFO9.Peek();
             }
             else
             {
-                ret = IPCFIFO9->Read();
+                ret = IPCFIFO9.Read();
 
-                if (IPCFIFO9->IsEmpty() && (IPCFIFOCnt9 & 0x0004))
+                if (IPCFIFO9.IsEmpty() && (IPCFIFOCnt9 & 0x0004))
                     SetIRQ(0, IRQ_IPCSendDone);
             }
             return ret;
         }
         else
-            return IPCFIFO9->Peek();
+            return IPCFIFO9.Peek();
 
     case 0x04100010:
         if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadROMData();
@@ -3712,6 +3776,10 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04000138: RTC::Write(val, true); return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
+        return;
 
     case 0x040001A0:
         if (ExMemCnt[0] & (1<<11))
@@ -3811,14 +3879,18 @@ void ARM7IOWrite16(u32 addr, u16 val)
 
     case 0x04000184:
         if (val & 0x0008)
-            IPCFIFO7->Clear();
-        if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7->IsEmpty())
+            IPCFIFO7.Clear();
+        if ((val & 0x0004) && (!(IPCFIFOCnt7 & 0x0004)) && IPCFIFO7.IsEmpty())
             SetIRQ(1, IRQ_IPCSendDone);
-        if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9->IsEmpty()))
+        if ((val & 0x0400) && (!(IPCFIFOCnt7 & 0x0400)) && (!IPCFIFO9.IsEmpty()))
             SetIRQ(1, IRQ_IPCRecv);
         if (val & 0x4000)
             IPCFIFOCnt7 &= ~0x4000;
-        IPCFIFOCnt7 = val & 0x8404;
+        IPCFIFOCnt7 = (val & 0x8404) | (IPCFIFOCnt7 & 0x4000);
+        return;
+
+    case 0x04000188:
+        ARM7IOWrite32(addr, val | (val << 16));
         return;
 
     case 0x040001A0:
@@ -3937,17 +4009,18 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000138: RTC::Write(val & 0xFFFF, false); return;
 
     case 0x04000180:
+    case 0x04000184:
         ARM7IOWrite16(addr, val);
         return;
     case 0x04000188:
         if (IPCFIFOCnt7 & 0x8000)
         {
-            if (IPCFIFO7->IsFull())
+            if (IPCFIFO7.IsFull())
                 IPCFIFOCnt7 |= 0x4000;
             else
             {
-                bool wasempty = IPCFIFO7->IsEmpty();
-                IPCFIFO7->Write(val);
+                bool wasempty = IPCFIFO7.IsEmpty();
+                IPCFIFO7.Write(val);
                 if ((IPCFIFOCnt9 & 0x0400) && wasempty)
                     SetIRQ(0, IRQ_IPCRecv);
             }
@@ -3980,6 +4053,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
     case 0x040001B4: *(u32*)&ROMSeed1[8] = val; return;
+
+    case 0x040001C0:
+        SPI::WriteCnt(val & 0xFFFF);
+        SPI::WriteData((val >> 16) & 0xFF);
+        return;
 
     case 0x04000208: IME[1] = val & 0x1; UpdateIRQ(1); return;
     case 0x04000210: IE[1] = val; UpdateIRQ(1); return;

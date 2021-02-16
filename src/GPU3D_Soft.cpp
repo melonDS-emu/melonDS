@@ -16,62 +16,22 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "GPU3D_Soft.h"
+
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
 #include "Config.h"
-#include "Platform.h"
 
 
 namespace GPU3D
 {
-namespace SoftRenderer
-{
-
-// buffer dimensions are 258x194 to add a offscreen 1px border
-// which simplifies edge marking tests
-// buffer is duplicated to keep track of the two topmost pixels
-// TODO: check if the hardware can accidentally plot pixels
-// offscreen in that border
-
-const int ScanlineWidth = 258;
-const int NumScanlines = 194;
-const int BufferSize = ScanlineWidth * NumScanlines;
-const int FirstPixelOffset = ScanlineWidth + 1;
-
-u32 ColorBuffer[BufferSize * 2];
-u32 DepthBuffer[BufferSize * 2];
-u32 AttrBuffer[BufferSize * 2];
-
-// attribute buffer:
-// bit0-3: edge flags (left/right/top/bottom)
-// bit4: backfacing flag
-// bit8-12: antialiasing alpha
-// bit15: fog enable
-// bit16-21: polygon ID for translucent pixels
-// bit22: translucent flag
-// bit24-29: polygon ID for opaque pixels
-
-u8 StencilBuffer[256*2];
-bool PrevIsShadowMask;
-
-bool Enabled;
-
-// threading
-
-bool Threaded;
-void* RenderThread;
-bool RenderThreadRunning;
-bool RenderThreadRendering;
-void* Sema_RenderStart;
-void* Sema_RenderDone;
-void* Sema_ScanlineCount;
 
 void RenderThreadFunc();
 
 
-void StopRenderThread()
+void SoftRenderer::StopRenderThread()
 {
     if (RenderThreadRunning)
     {
@@ -82,19 +42,23 @@ void StopRenderThread()
     }
 }
 
-void SetupRenderThread()
+void SoftRenderer::SetupRenderThread()
 {
     if (Threaded)
     {
         if (!RenderThreadRunning)
         {
             RenderThreadRunning = true;
-            RenderThread = Platform::Thread_Create(RenderThreadFunc);
+            RenderThread = Platform::Thread_Create(std::bind(&SoftRenderer::RenderThreadFunc, this));
         }
+
+        // otherwise more than one frame can be queued up at once
+        Platform::Semaphore_Reset(Sema_RenderStart);
 
         if (RenderThreadRendering)
             Platform::Semaphore_Wait(Sema_RenderDone);
 
+        Platform::Semaphore_Reset(Sema_RenderDone);
         Platform::Semaphore_Reset(Sema_RenderStart);
         Platform::Semaphore_Reset(Sema_ScanlineCount);
 
@@ -107,7 +71,13 @@ void SetupRenderThread()
 }
 
 
-bool Init()
+SoftRenderer::SoftRenderer()
+    : Renderer3D(false)
+{
+
+}
+
+bool SoftRenderer::Init()
 {
     Sema_RenderStart = Platform::Semaphore_Create();
     Sema_RenderDone = Platform::Semaphore_Create();
@@ -120,7 +90,7 @@ bool Init()
     return true;
 }
 
-void DeInit()
+void SoftRenderer::DeInit()
 {
     StopRenderThread();
 
@@ -129,7 +99,7 @@ void DeInit()
     Platform::Semaphore_Free(Sema_ScanlineCount);
 }
 
-void Reset()
+void SoftRenderer::Reset()
 {
     memset(ColorBuffer, 0, BufferSize * 2 * 4);
     memset(DepthBuffer, 0, BufferSize * 2 * 4);
@@ -140,418 +110,13 @@ void Reset()
     SetupRenderThread();
 }
 
-void SetRenderSettings(GPU::RenderSettings& settings)
+void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
     Threaded = settings.Soft_Threaded;
     SetupRenderThread();
 }
 
-
-
-// Notes on the interpolator:
-//
-// This is a theory on how the DS hardware interpolates values. It matches hardware output
-// in the tests I did, but the hardware may be doing it differently. You never know.
-//
-// Assuming you want to perspective-correctly interpolate a variable named A across two points
-// in a typical rasterizer, you would calculate A/W and 1/W at each point, interpolate linearly,
-// then divide A/W by 1/W to recover the correct A value.
-//
-// The DS GPU approximates interpolation by calculating a perspective-correct interpolation
-// between 0 and 1, then using the result as a factor to linearly interpolate the actual
-// vertex attributes. The factor has 9 bits of precision when interpolating along Y and
-// 8 bits along X.
-//
-// There's a special path for when the two W values are equal: it directly does linear
-// interpolation, avoiding precision loss from the aforementioned approximation.
-// Which is desirable when using the GPU to draw 2D graphics.
-
-template<int dir>
-class Interpolator
-{
-public:
-    Interpolator() {}
-    Interpolator(s32 x0, s32 x1, s32 w0, s32 w1)
-    {
-        Setup(x0, x1, w0, w1);
-    }
-
-    void Setup(s32 x0, s32 x1, s32 w0, s32 w1)
-    {
-        this->x0 = x0;
-        this->x1 = x1;
-        this->xdiff = x1 - x0;
-
-        // calculate reciprocals for linear mode and Z interpolation
-        // TODO eventually: use a faster reciprocal function?
-        if (this->xdiff != 0)
-            this->xrecip = (1<<30) / this->xdiff;
-        else
-            this->xrecip = 0;
-        this->xrecip_z = this->xrecip >> 8;
-
-        // linear mode is used if both W values are equal and have
-        // low-order bits cleared (0-6 along X, 1-6 along Y)
-        u32 mask = dir ? 0x7E : 0x7F;
-        if ((w0 == w1) && !(w0 & mask) && !(w1 & mask))
-            this->linear = true;
-        else
-            this->linear = false;
-
-        if (dir)
-        {
-            // along Y
-
-            if ((w0 & 0x1) && !(w1 & 0x1))
-            {
-                this->w0n = w0 - 1;
-                this->w0d = w0 + 1;
-                this->w1d = w1;
-            }
-            else
-            {
-                this->w0n = w0 & 0xFFFE;
-                this->w0d = w0 & 0xFFFE;
-                this->w1d = w1 & 0xFFFE;
-            }
-
-            this->shift = 9;
-        }
-        else
-        {
-            // along X
-
-            this->w0n = w0;
-            this->w0d = w0;
-            this->w1d = w1;
-
-            this->shift = 8;
-        }
-    }
-
-    void SetX(s32 x)
-    {
-        x -= x0;
-        this->x = x;
-        if (xdiff != 0 && !linear)
-        {
-            s64 num = ((s64)x * w0n) << shift;
-            s32 den = (x * w0d) + ((xdiff-x) * w1d);
-
-            // this seems to be a proper division on hardware :/
-            // I haven't been able to find cases that produce imperfect output
-            if (den == 0) yfactor = 0;
-            else          yfactor = (s32)(num / den);
-        }
-    }
-
-    s32 Interpolate(s32 y0, s32 y1)
-    {
-        if (xdiff == 0 || y0 == y1) return y0;
-
-        if (!linear)
-        {
-            // perspective-correct approx. interpolation
-            if (y0 < y1)
-                return y0 + (((y1-y0) * yfactor) >> shift);
-            else
-                return y1 + (((y0-y1) * ((1<<shift)-yfactor)) >> shift);
-        }
-        else
-        {
-            // linear interpolation
-            // checkme: the rounding bias there (3<<24) is a guess
-            if (y0 < y1)
-                return y0 + ((((s64)(y1-y0) * x * xrecip) + (3<<24)) >> 30);
-            else
-                return y1 + ((((s64)(y0-y1) * (xdiff-x) * xrecip) + (3<<24)) >> 30);
-        }
-    }
-
-    s32 InterpolateZ(s32 z0, s32 z1, bool wbuffer)
-    {
-        if (xdiff == 0 || z0 == z1) return z0;
-
-        if (wbuffer)
-        {
-            // W-buffering: perspective-correct approx. interpolation
-            if (z0 < z1)
-                return z0 + (((s64)(z1-z0) * yfactor) >> shift);
-            else
-                return z1 + (((s64)(z0-z1) * ((1<<shift)-yfactor)) >> shift);
-        }
-        else
-        {
-            // Z-buffering: linear interpolation
-            // still doesn't quite match hardware...
-            s32 base, disp, factor;
-
-            if (z0 < z1)
-            {
-                base = z0;
-                disp = z1 - z0;
-                factor = x;
-            }
-            else
-            {
-                base = z1;
-                disp = z0 - z1,
-                factor = xdiff - x;
-            }
-
-            if (dir)
-            {
-                int shift = 0;
-                while (disp > 0x3FF)
-                {
-                    disp >>= 1;
-                    shift++;
-                }
-
-                return base + ((((s64)disp * factor * xrecip_z) >> 22) << shift);
-            }
-            else
-            {
-                disp >>= 9;
-                return base + (((s64)disp * factor * xrecip_z) >> 13);
-            }
-        }
-    }
-
-private:
-    s32 x0, x1, xdiff, x;
-
-    int shift;
-    bool linear;
-
-    s32 xrecip, xrecip_z;
-    s32 w0n, w0d, w1d;
-
-    u32 yfactor;
-};
-
-
-template<int side>
-class Slope
-{
-public:
-    Slope() {}
-
-    s32 SetupDummy(s32 x0)
-    {
-        if (side)
-        {
-            dx = -0x40000;
-            x0--;
-        }
-        else
-        {
-            dx = 0;
-        }
-
-        this->x0 = x0;
-        this->xmin = x0;
-        this->xmax = x0;
-
-        Increment = 0;
-        XMajor = false;
-
-        Interp.Setup(0, 0, 0, 0);
-        Interp.SetX(0);
-
-        xcov_incr = 0;
-
-        return x0;
-    }
-
-    s32 Setup(s32 x0, s32 x1, s32 y0, s32 y1, s32 w0, s32 w1, s32 y)
-    {
-        this->x0 = x0;
-        this->y = y;
-
-        if (x1 > x0)
-        {
-            this->xmin = x0;
-            this->xmax = x1-1;
-            this->Negative = false;
-        }
-        else if (x1 < x0)
-        {
-            this->xmin = x1;
-            this->xmax = x0-1;
-            this->Negative = true;
-        }
-        else
-        {
-            this->xmin = x0;
-            if (side) this->xmin--;
-            this->xmax = this->xmin;
-            this->Negative = false;
-        }
-
-        xlen = xmax+1 - xmin;
-        ylen = y1 - y0;
-
-        // slope increment has a 18-bit fractional part
-        // note: for some reason, x/y isn't calculated directly,
-        // instead, 1/y is calculated and then multiplied by x
-        // TODO: this is still not perfect (see for example x=169 y=33)
-        if (ylen == 0)
-            Increment = 0;
-        else if (ylen == xlen)
-            Increment = 0x40000;
-        else
-        {
-            s32 yrecip = (1<<18) / ylen;
-            Increment = (x1-x0) * yrecip;
-            if (Increment < 0) Increment = -Increment;
-        }
-
-        XMajor = (Increment > 0x40000);
-
-        if (side)
-        {
-            // right
-
-            if (XMajor)              dx = Negative ? (0x20000 + 0x40000) : (Increment - 0x20000);
-            else if (Increment != 0) dx = Negative ? 0x40000 : 0;
-            else                     dx = -0x40000;
-        }
-        else
-        {
-            // left
-
-            if (XMajor)              dx = Negative ? ((Increment - 0x20000) + 0x40000) : 0x20000;
-            else if (Increment != 0) dx = Negative ? 0x40000 : 0;
-            else                     dx = 0;
-        }
-
-        dx += (y - y0) * Increment;
-
-        s32 x = XVal();
-
-        if (XMajor)
-        {
-            if (side) Interp.Setup(x0-1, x1-1, w0, w1); // checkme
-            else      Interp.Setup(x0, x1, w0, w1);
-            Interp.SetX(x);
-
-            // used for calculating AA coverage
-            xcov_incr = (ylen << 10) / xlen;
-        }
-        else
-        {
-            Interp.Setup(y0, y1, w0, w1);
-            Interp.SetX(y);
-        }
-
-        return x;
-    }
-
-    s32 Step()
-    {
-        dx += Increment;
-        y++;
-
-        s32 x = XVal();
-        if (XMajor)
-        {
-            Interp.SetX(x);
-        }
-        else
-        {
-            Interp.SetX(y);
-        }
-        return x;
-    }
-
-    s32 XVal()
-    {
-        s32 ret;
-        if (Negative) ret = x0 - (dx >> 18);
-        else          ret = x0 + (dx >> 18);
-
-        if (ret < xmin) ret = xmin;
-        else if (ret > xmax) ret = xmax;
-        return ret;
-    }
-
-    void EdgeParams_XMajor(s32* length, s32* coverage)
-    {
-        if (side ^ Negative)
-            *length = (dx >> 18) - ((dx-Increment) >> 18);
-        else
-            *length = ((dx+Increment) >> 18) - (dx >> 18);
-
-        // for X-major edges, we return the coverage
-        // for the first pixel, and the increment for
-        // further pixels on the same scanline
-        s32 startx = dx >> 18;
-        if (Negative) startx = xlen - startx;
-        if (side)     startx = startx - *length + 1;
-
-        s32 startcov = (((startx << 10) + 0x1FF) * ylen) / xlen;
-        *coverage = (1<<31) | ((startcov & 0x3FF) << 12) | (xcov_incr & 0x3FF);
-    }
-
-    void EdgeParams_YMajor(s32* length, s32* coverage)
-    {
-        *length = 1;
-
-        if (Increment == 0)
-        {
-            *coverage = 31;
-        }
-        else
-        {
-            s32 cov = ((dx >> 9) + (Increment >> 10)) >> 4;
-            if ((cov >> 5) != (dx >> 18)) cov = 31;
-            cov &= 0x1F;
-            if (!(side ^ Negative)) cov = 0x1F - cov;
-
-            *coverage = cov;
-        }
-    }
-
-    void EdgeParams(s32* length, s32* coverage)
-    {
-        if (XMajor)
-            return EdgeParams_XMajor(length, coverage);
-        else
-            return EdgeParams_YMajor(length, coverage);
-    }
-
-    s32 Increment;
-    bool Negative;
-    bool XMajor;
-    Interpolator<1> Interp;
-
-private:
-    s32 x0, xmin, xmax;
-    s32 xlen, ylen;
-    s32 dx;
-    s32 y;
-
-    s32 xcov_incr;
-    s32 ycoverage, ycov_incr;
-};
-
-typedef struct
-{
-    Polygon* PolyData;
-
-    Slope<0> SlopeL;
-    Slope<1> SlopeR;
-    s32 XL, XR;
-    u32 CurVL, CurVR;
-    u32 NextVL, NextVR;
-
-} RendererPolygon;
-
-RendererPolygon PolygonList[2048];
-
-
-void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
+void SoftRenderer::TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha)
 {
     u32 vramaddr = (texparam & 0xFFFF) << 3;
 
@@ -606,10 +171,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 1: // A3I5
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x1F)<<1));
             *alpha = ((pixel >> 3) & 0x1C) + (pixel >> 6);
         }
         break;
@@ -617,12 +182,12 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 2: // 4-color
         {
             vramaddr += (((t * width) + s) >> 2);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
             pixel >>= ((s & 0x3) << 1);
             pixel &= 0x3;
 
             texpal <<= 3;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -630,12 +195,12 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 3: // 16-color
         {
             vramaddr += (((t * width) + s) >> 1);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
             if (s & 0x1) pixel >>= 4;
             else         pixel &= 0xF;
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -643,10 +208,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 4: // 256-color
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + (pixel<<1));
             *alpha = (pixel==0) ? alpha0 : 31;
         }
         break;
@@ -660,30 +225,30 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
             if (vramaddr >= 0x40000)
                 slot1addr += 0x10000;
 
-            u8 val = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 val = ReadVRAM_Texture<u8>(vramaddr);
             val >>= (2 * (s & 0x3));
 
-            u16 palinfo = GPU::ReadVRAM_Texture<u16>(slot1addr);
+            u16 palinfo = ReadVRAM_Texture<u16>(slot1addr);
             u32 paloffset = (palinfo & 0x3FFF) << 2;
             texpal <<= 4;
 
             switch (val & 0x3)
             {
             case 0:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
+                *color = ReadVRAM_TexPal<u16>(texpal + paloffset);
                 *alpha = 31;
                 break;
 
             case 1:
-                *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
                 *alpha = 31;
                 break;
 
             case 2:
                 if ((palinfo >> 14) == 1)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -700,8 +265,8 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -717,20 +282,20 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
                     *color = r | g | b;
                 }
                 else
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
+                    *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 4);
                 *alpha = 31;
                 break;
 
             case 3:
                 if ((palinfo >> 14) == 2)
                 {
-                    *color = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
+                    *color = ReadVRAM_TexPal<u16>(texpal + paloffset + 6);
                     *alpha = 31;
                 }
                 else if ((palinfo >> 14) == 3)
                 {
-                    u16 color0 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset);
-                    u16 color1 = GPU::ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
+                    u16 color0 = ReadVRAM_TexPal<u16>(texpal + paloffset);
+                    u16 color1 = ReadVRAM_TexPal<u16>(texpal + paloffset + 2);
 
                     u32 r0 = color0 & 0x001F;
                     u32 g0 = color0 & 0x03E0;
@@ -759,10 +324,10 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 6: // A5I3
         {
             vramaddr += ((t * width) + s);
-            u8 pixel = GPU::ReadVRAM_Texture<u8>(vramaddr);
+            u8 pixel = ReadVRAM_Texture<u8>(vramaddr);
 
             texpal <<= 4;
-            *color = GPU::ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
+            *color = ReadVRAM_TexPal<u16>(texpal + ((pixel&0x7)<<1));
             *alpha = (pixel >> 3);
         }
         break;
@@ -770,7 +335,7 @@ void TextureLookup(u32 texparam, u32 texpal, s16 s, s16 t, u16* color, u8* alpha
     case 7: // direct color
         {
             vramaddr += (((t * width) + s) << 1);
-            *color = GPU::ReadVRAM_Texture<u16>(vramaddr);
+            *color = ReadVRAM_Texture<u16>(vramaddr);
             *alpha = (*color & 0x8000) ? 31 : 0;
         }
         break;
@@ -857,7 +422,7 @@ u32 AlphaBlend(u32 srccolor, u32 dstcolor, u32 alpha)
     return srcR | (srcG << 8) | (srcB << 16) | (dstalpha << 24);
 }
 
-u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
+u32 SoftRenderer::RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
 {
     u8 r, g, b, a;
 
@@ -965,7 +530,7 @@ u32 RenderPixel(Polygon* polygon, u8 vr, u8 vg, u8 vb, s16 s, s16 t)
     return r | (g << 8) | (b << 16) | (a << 24);
 }
 
-void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
+void SoftRenderer::PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 shadow)
 {
     u32 dstattr = AttrBuffer[pixeladdr];
     u32 attr = (polyattr & 0xE0F0) | ((polyattr >> 8) & 0xFF0000) | (1<<22) | (dstattr & 0xFF001F0F);
@@ -1004,7 +569,7 @@ void PlotTranslucentPixel(u32 pixeladdr, u32 color, u32 z, u32 polyattr, u32 sha
     AttrBuffer[pixeladdr] = attr;
 }
 
-void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
+void SoftRenderer::SetupPolygonLeftEdge(SoftRenderer::RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -1031,7 +596,7 @@ void SetupPolygonLeftEdge(RendererPolygon* rp, s32 y)
                               polygon->FinalW[rp->CurVL], polygon->FinalW[rp->NextVL], y);
 }
 
-void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
+void SoftRenderer::SetupPolygonRightEdge(SoftRenderer::RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -1058,7 +623,7 @@ void SetupPolygonRightEdge(RendererPolygon* rp, s32 y)
                               polygon->FinalW[rp->CurVR], polygon->FinalW[rp->NextVR], y);
 }
 
-void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
+void SoftRenderer::SetupPolygon(SoftRenderer::RendererPolygon* rp, Polygon* polygon)
 {
     u32 nverts = polygon->NumVertices;
 
@@ -1111,7 +676,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     }
 }
 
-void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
+void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -1324,7 +889,7 @@ void RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
-void RenderPolygonScanline(RendererPolygon* rp, s32 y)
+void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
 {
     Polygon* polygon = rp->PolyData;
 
@@ -1739,7 +1304,7 @@ void RenderPolygonScanline(RendererPolygon* rp, s32 y)
     rp->XR = rp->SlopeR.Step();
 }
 
-void RenderScanline(s32 y, int npolys)
+void SoftRenderer::RenderScanline(s32 y, int npolys)
 {
     for (int i = 0; i < npolys; i++)
     {
@@ -1756,8 +1321,7 @@ void RenderScanline(s32 y, int npolys)
     }
 }
 
-
-u32 CalculateFogDensity(u32 pixeladdr)
+u32 SoftRenderer::CalculateFogDensity(u32 pixeladdr)
 {
     u32 z = DepthBuffer[pixeladdr];
     u32 densityid, densityfrac;
@@ -1796,7 +1360,7 @@ u32 CalculateFogDensity(u32 pixeladdr)
     return density;
 }
 
-void ScanlineFinalPass(s32 y)
+void SoftRenderer::ScanlineFinalPass(s32 y)
 {
     // to consider:
     // clearing all polygon fog flags if the master flag isn't set?
@@ -1965,7 +1529,7 @@ void ScanlineFinalPass(s32 y)
     }
 }
 
-void ClearBuffers()
+void SoftRenderer::ClearBuffers()
 {
     u32 clearz = ((RenderClearAttr2 & 0x7FFF) * 0x200) + 0x1FF;
     u32 polyid = RenderClearAttr1 & 0x3F000000; // this sets the opaque polygonID
@@ -2007,8 +1571,8 @@ void ClearBuffers()
         {
             for (int x = 0; x < 256; x++)
             {
-                u16 val2 = GPU::ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
-                u16 val3 = GPU::ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
+                u16 val2 = ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
+                u16 val3 = ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
 
                 // TODO: confirm color conversion
                 u32 r = (val2 << 1) & 0x3E; if (r) r++;
@@ -2039,7 +1603,7 @@ void ClearBuffers()
         u32 a = (RenderClearAttr1 >> 16) & 0x1F;
         u32 color = r | (g << 8) | (b << 16) | (a << 24);
 
-		polyid |= (RenderClearAttr1 & 0x8000);
+        polyid |= (RenderClearAttr1 & 0x8000);
 
         for (int y = 0; y < ScanlineWidth*192; y+=ScanlineWidth)
         {
@@ -2054,7 +1618,7 @@ void ClearBuffers()
     }
 }
 
-void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
+void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 {
     int j = 0;
     for (int i = 0; i < npolys; i++)
@@ -2080,26 +1644,39 @@ void RenderPolygons(bool threaded, Polygon** polygons, int npolys)
         Platform::Semaphore_Post(Sema_ScanlineCount);
 }
 
-void VCount144()
+void SoftRenderer::VCount144()
 {
     if (RenderThreadRunning)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
-void RenderFrame()
+void SoftRenderer::RenderFrame()
 {
+    auto textureDirty = GPU::VRAMDirty_Texture.DeriveState(GPU::VRAMMap_Texture);
+    auto texPalDirty = GPU::VRAMDirty_TexPal.DeriveState(GPU::VRAMMap_TexPal);
+
+    bool textureChanged = GPU::MakeVRAMFlat_TextureCoherent(textureDirty);
+    bool texPalChanged = GPU::MakeVRAMFlat_TexPalCoherent(texPalDirty);
+
+    FrameIdentical = !(textureChanged || texPalChanged) && RenderFrameIdentical;
+
     if (RenderThreadRunning)
     {
         Platform::Semaphore_Post(Sema_RenderStart);
     }
-    else
+    else if (!FrameIdentical)
     {
         ClearBuffers();
         RenderPolygons(false, &RenderPolygonRAM[0], RenderNumPolygons);
     }
 }
 
-void RenderThreadFunc()
+void SoftRenderer::RestartFrame()
+{
+    SetupRenderThread();
+}
+
+void SoftRenderer::RenderThreadFunc()
 {
     for (;;)
     {
@@ -2107,15 +1684,22 @@ void RenderThreadFunc()
         if (!RenderThreadRunning) return;
 
         RenderThreadRendering = true;
-        ClearBuffers();
-        RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        if (FrameIdentical)
+        {
+            Platform::Semaphore_Post(Sema_ScanlineCount, 192);
+        }
+        else
+        {
+            ClearBuffers();
+            RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
+        }
 
         Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
     }
 }
 
-u32* GetLine(int line)
+u32* SoftRenderer::GetLine(int line)
 {
     if (RenderThreadRunning)
     {
@@ -2126,5 +1710,4 @@ u32* GetLine(int line)
     return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
 }
 
-}
 }
