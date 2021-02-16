@@ -487,20 +487,33 @@ void EmuThread::run()
                 }
             }
 
+#ifdef OGLRENDERER_ENABLED
+            if (videoRenderer == 1)
+            {
+                FrontBufferLock.lock();
+                if (FrontBufferReverseSyncs[FrontBuffer ^ 1])
+                    glWaitSync(FrontBufferReverseSyncs[FrontBuffer ^ 1], 0, GL_TIMEOUT_IGNORED);
+                FrontBufferLock.unlock();
+            }
+#endif
+
             // emulate
             u32 nlines = NDS::RunFrame();
 
             FrontBufferLock.lock();
+            FrontBuffer = GPU::FrontBuffer;
 #ifdef OGLRENDERER_ENABLED
             if (videoRenderer == 1)
             {
+                if (FrontBufferSyncs[FrontBuffer])
+                    glDeleteSync(FrontBufferSyncs[FrontBuffer]);
+                FrontBufferSyncs[FrontBuffer] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
                 // this is hacky but this is the easiest way to call
                 // this function without dealling with a ton of
                 // macro mess
-                epoxy_glFinish();
+                epoxy_glFlush();
             }
 #endif
-            FrontBuffer = GPU::FrontBuffer;
             FrontBufferLock.unlock();
 
 #ifdef MELONCAP
@@ -1012,6 +1025,8 @@ void ScreenPanelGL::paintGL()
     #ifdef OGLRENDERER_ENABLED
         if (GPU::Renderer != 0)
         {
+            if (emuThread->FrontBufferSyncs[emuThread->FrontBuffer])
+                glWaitSync(emuThread->FrontBufferSyncs[emuThread->FrontBuffer], 0, GL_TIMEOUT_IGNORED);
             // hardware-accelerated render
             GPU::CurGLCompositor->BindOutputTexture(frontbuf);
         }
@@ -1046,16 +1061,15 @@ void ScreenPanelGL::paintGL()
         }
 
         screenShader->release();
+
+        if (emuThread->FrontBufferReverseSyncs[emuThread->FrontBuffer])
+            glDeleteSync(emuThread->FrontBufferReverseSyncs[emuThread->FrontBuffer]);
+        emuThread->FrontBufferReverseSyncs[emuThread->FrontBuffer] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        emuThread->FrontBufferLock.unlock();
     }
 
     OSD::Update(this);
     OSD::DrawGL(this, w*factor, h*factor);
-
-    if (emuThread)
-    {
-        glFinish();
-        emuThread->FrontBufferLock.unlock();
-    }
 }
 
 void ScreenPanelGL::resizeEvent(QResizeEvent* event)

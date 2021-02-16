@@ -63,6 +63,9 @@ public:
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
 
+    GLsync FrontBufferReverseSyncs[2] = {nullptr, nullptr};
+    GLsync FrontBufferSyncs[2] = {nullptr, nullptr};
+
 signals:
     void windowUpdate();
     void windowTitleChange(QString title);
