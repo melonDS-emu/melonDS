@@ -29,8 +29,13 @@
 
 .p2align 4,,15
 
+#ifdef __APPLE__
+.global _ARM_Dispatch
+_ARM_Dispatch:
+#else
 .global ARM_Dispatch
 ARM_Dispatch:
+#endif
 #ifdef WIN64
     push rdi
     push rsi
@@ -54,8 +59,13 @@ ARM_Dispatch:
 
 .p2align 4,,15
 
+#ifdef __APPLE__
+.global _ARM_Ret
+_ARM_Ret:
+#else
 .global ARM_Ret
 ARM_Ret:
+#endif
     mov [RCPU + ARM_CPSR_offset], RCPSR
 
 #ifdef WIN64

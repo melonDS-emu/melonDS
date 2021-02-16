@@ -22,6 +22,7 @@
 const char* kCompositorVS = R"(#version 140
 
 in vec2 vPosition;
+in vec2 vTexcoord;
 
 smooth out vec2 fTexcoord;
 
@@ -33,13 +34,14 @@ void main()
     fpos.w = 1.0;
 
     gl_Position = fpos;
-    fTexcoord = (vPosition + vec2(1.0, 1.0)) * (vec2(256.0, 384.0) / 2.0);
+    fTexcoord = vTexcoord;
 }
 )";
 
 const char* kCompositorFS_Nearest = R"(#version 140
 
 uniform uint u3DScale;
+uniform int u3DXPos;
 
 uniform usampler2D ScreenTex;
 uniform sampler2D _3DTex;
@@ -51,6 +53,8 @@ out vec4 oColor;
 void main()
 {
     ivec4 pixel = ivec4(texelFetch(ScreenTex, ivec2(fTexcoord), 0));
+
+    float _3dxpos = float(u3DXPos);
 
     ivec4 mbright = ivec4(texelFetch(ScreenTex, ivec2(256*3, int(fTexcoord.y)), 0));
     int dispmode = mbright.b & 0x3;
@@ -68,7 +72,7 @@ void main()
         {
             // 3D on top, blending
 
-            float xpos = val3.r + fract(fTexcoord.x);
+            float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
@@ -89,7 +93,7 @@ void main()
         {
             // 3D on bottom, blending
 
-            float xpos = val3.r + fract(fTexcoord.x);
+            float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));
@@ -109,7 +113,7 @@ void main()
         {
             // 3D on top, normal/fade
 
-            float xpos = val3.r + fract(fTexcoord.x);
+            float xpos = fTexcoord.x + _3dxpos;
             float ypos = mod(fTexcoord.y, 192);
             ivec4 _3dpix = ivec4(texelFetch(_3DTex, ivec2(vec2(xpos, ypos)*u3DScale), 0).bgra
                          * vec4(63,63,63,31));

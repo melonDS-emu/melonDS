@@ -592,7 +592,7 @@ void ARMv5::Execute()
             else
                 AddCycles_C();
         }
- 
+
         // TODO optimize this shit!!!
         if (Halted)
         {
@@ -651,7 +651,7 @@ void ARMv5::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup, 
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(0, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);
@@ -802,7 +802,7 @@ void ARMv4::ExecuteJIT()
             return;
         }
 
-        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup, 
+        ARMJIT::JitBlockEntry block = ARMJIT::LookUpBlock(1, FastBlockLookup,
             instrAddr - FastBlockLookupStart, instrAddr);
         if (block)
             ARM_Dispatch(this, block);

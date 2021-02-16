@@ -55,7 +55,7 @@ u16 RFData1;
 u16 RFData2;
 u32 RFRegs[0x40];
 
-typedef struct
+struct TXSlot
 {
     u16 Addr;
     u16 Length;
@@ -63,8 +63,7 @@ typedef struct
     u8 CurPhase;
     u32 CurPhaseTime;
     u32 HalfwordTimeMask;
-
-} TXSlot;
+};
 
 TXSlot TXSlots[6];
 
@@ -792,22 +791,14 @@ bool ProcessTX(TXSlot* slot, int num)
 }
 
 
-inline void IncrementRXAddr(u16& addr, u16 inc)
+inline void IncrementRXAddr(u16& addr, u16 inc = 2)
 {
-    addr += inc;
-    if (addr >= (IOPORT(W_RXBufEnd) & 0x1FFE))
+    for (u32 i = 0; i < inc; i += 2)
     {
-        addr -= (IOPORT(W_RXBufEnd) & 0x1FFE);
-        addr += (IOPORT(W_RXBufBegin) & 0x1FFE);
-    }
-}
-
-inline void IncrementRXAddr(u16& addr)
-{
-    addr += 2;
-    if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
-    {
-        addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
+        addr += 2;
+        addr &= 0x1FFE;
+        if (addr == (IOPORT(W_RXBufEnd) & 0x1FFE))
+            addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
     }
 }
 

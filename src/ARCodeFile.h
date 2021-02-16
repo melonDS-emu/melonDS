@@ -23,23 +23,21 @@
 
 #include "types.h"
 
-typedef struct
+struct ARCode
 {
     char Name[128];
     bool Enabled;
     u32 CodeLen;
     u32 Code[2*64];
-
-} ARCode;
+};
 
 typedef std::list<ARCode> ARCodeList;
 
-typedef struct
+struct ARCodeCat
 {
     char Name[128];
     ARCodeList Codes;
-
-} ARCodeCat;
+};
 
 typedef std::list<ARCodeCat> ARCodeCatList;
 

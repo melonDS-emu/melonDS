@@ -6,8 +6,11 @@ obj
 *.o
 melon_grc.c
 melon_grc.h
+melon.rc
 cmake-build
 cmake-build-debug
 .idea
 
 *.exe
+
+.DS_Store

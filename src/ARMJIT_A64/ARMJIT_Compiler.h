@@ -187,6 +187,7 @@ public:
     void Comp_RegShiftReg(int op, bool S, Op2& op2, Arm64Gen::ARM64Reg rs);
 
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
+
     enum
     {
         memop_Writeback = 1 << 0,
@@ -213,8 +214,8 @@ public:
         return (u8*)entry - GetRXBase();
     }
 
-    bool IsJITFault(u64 pc);
-    s64 RewriteMemAccess(u64 pc);
+    bool IsJITFault(u8* pc);
+    u8* RewriteMemAccess(u8* pc);
 
     void SwapCodeRegion()
     {
@@ -240,16 +241,7 @@ public:
     u32 JitMemSecondarySize;
     u32 JitMemMainSize;
 
-    void* ReadBanked, *WriteBanked;
-
-    void* JumpToFuncs9[3];
-    void* JumpToFuncs7[3];
-
     std::unordered_map<ptrdiff_t, LoadStorePatch> LoadStorePatches; 
-
-    // [Console Type][Num][Size][Sign Extend][Output register]
-    void* PatchedLoadFuncs[2][2][3][2][8];
-    void* PatchedStoreFuncs[2][2][3][8];
 
     RegisterCache<Compiler, Arm64Gen::ARM64Reg> RegCache;
 
@@ -262,6 +254,15 @@ public:
     void* JitRWStart;
     void* JitRXStart;
 #endif
+
+    void* ReadBanked, *WriteBanked;
+
+    void* JumpToFuncs9[3];
+    void* JumpToFuncs7[3];
+
+    // [Console Type][Num][Size][Sign Extend][Output register]
+    void* PatchedLoadFuncs[2][2][3][2][32];
+    void* PatchedStoreFuncs[2][2][3][32];
 };
 
 }

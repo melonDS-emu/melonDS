@@ -20,12 +20,15 @@
 #define GPU3D_H
 
 #include <array>
+#include <memory>
+
+#include "GPU.h"
 #include "Savestate.h"
 
 namespace GPU3D
 {
 
-typedef struct
+struct Vertex
 {
     s32 Position[4];
     s32 Color[3];
@@ -43,9 +46,9 @@ typedef struct
     // TODO maybe: hi-res color? (that survives clipping)
     s32 HiresPosition[2];
 
-} Vertex;
+};
 
-typedef struct
+struct Polygon
 {
     Vertex* Vertices[10];
     u32 NumVertices;
@@ -74,7 +77,7 @@ typedef struct
 
     u32 SortKey;
 
-} Polygon;
+};
 
 extern u32 RenderDispCnt;
 extern u8 RenderAlphaRef;
@@ -87,12 +90,14 @@ extern u8 RenderFogDensityTable[34];
 
 extern u32 RenderClearAttr1, RenderClearAttr2;
 
+extern bool RenderFrameIdentical;
+
+extern u16 RenderXPos;
+
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
 extern u64 Timestamp;
-
-extern int Renderer;
 
 bool Init();
 void DeInit();
@@ -112,6 +117,10 @@ void CheckFIFODMA();
 void VCount144();
 void VBlank();
 void VCount215();
+
+void RestartFrame();
+
+void SetRenderXPos(u16 xpos);
 u32* GetLine(int line);
 
 void WriteToGXFIFO(u32 val);
@@ -123,40 +132,42 @@ void Write8(u32 addr, u8 val);
 void Write16(u32 addr, u16 val);
 void Write32(u32 addr, u32 val);
 
-namespace SoftRenderer
+class Renderer3D
 {
+public:
+    Renderer3D(bool Accelerated);
+    virtual ~Renderer3D() {};
 
-bool Init();
-void DeInit();
-void Reset();
+    Renderer3D(const Renderer3D&) = delete;
+    Renderer3D& operator=(const Renderer3D&) = delete;
 
-void SetRenderSettings(GPU::RenderSettings& settings);
-void SetupRenderThread();
+    virtual bool Init() = 0;
+    virtual void DeInit() = 0;
+    virtual void Reset() = 0;
 
-void VCount144();
-void RenderFrame();
-u32* GetLine(int line);
+    // This "Accelerated" flag currently communicates if the framebuffer should
+    // be allocated differently and other little misc handlers. Ideally there
+    // are more detailed "traits" that we can ask of the Renderer3D type 
+    const bool Accelerated;
+
+    virtual void SetRenderSettings(GPU::RenderSettings& settings) = 0;
+
+    virtual void VCount144() {};
+
+    virtual void RenderFrame() = 0;
+    virtual void RestartFrame() {};
+    virtual u32* GetLine(int line) = 0;
+};
+
+extern int Renderer;
+extern std::unique_ptr<Renderer3D> CurrentRenderer;
 
 }
+
+#include "GPU3D_Soft.h"
 
 #ifdef OGLRENDERER_ENABLED
-namespace GLRenderer
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(GPU::RenderSettings& settings);
-
-void RenderFrame();
-void PrepareCaptureFrame();
-u32* GetLine(int line);
-void SetupAccelFrame();
-
-}
+#include "GPU3D_OpenGL.h"
 #endif
-
-}
 
 #endif

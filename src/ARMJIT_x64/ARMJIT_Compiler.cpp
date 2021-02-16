@@ -98,7 +98,14 @@ void Compiler::A_Comp_MRS()
         MOV(32, rd, R(RSCRATCH3));
     }
     else
+    {
         MOV(32, rd, R(RCPSR));
+    }
+}
+
+void UpdateModeTrampoline(ARM* arm, u32 oldmode, u32 newmode)
+{
+    arm->UpdateMode(oldmode, newmode);
 }
 
 void Compiler::A_Comp_MSR()
@@ -185,7 +192,7 @@ void Compiler::A_Comp_MSR()
             MOV(32, R(ABI_PARAM3), R(RCPSR));
             MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
             MOV(64, R(ABI_PARAM1), R(RCPU));
-            CALL((void*)&ARM::UpdateMode);
+            CALL((void*)&UpdateModeTrampoline);
 
             PopRegs(true);
         }
@@ -216,6 +223,8 @@ Compiler::Compiler()
     #ifdef _WIN32
         DWORD dummy;
         VirtualProtect(pageAligned, alignedSize, PAGE_EXECUTE_READWRITE, &dummy);
+    #elif defined(__APPLE__)
+        pageAligned = (u8*)mmap(NULL, 1024*1024*32, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS ,-1, 0);
     #else
         mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
     #endif
@@ -340,7 +349,7 @@ Compiler::Compiler()
                     ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
                     if (consoleType == 0)
                     {
-                        switch ((8 << size) |  num)
+                        switch ((8 << size) | num)
                         {
                         case 32: ABI_CallFunction(SlowWrite9<u32, 0>); break;
                         case 33: ABI_CallFunction(SlowWrite7<u32, 0>); break;
@@ -352,7 +361,7 @@ Compiler::Compiler()
                     }
                     else
                     {
-                        switch ((8 << size) |  num)
+                        switch ((8 << size) | num)
                         {
                         case 32: ABI_CallFunction(SlowWrite9<u32, 1>); break;
                         case 33: ABI_CallFunction(SlowWrite7<u32, 1>); break;
@@ -375,7 +384,7 @@ Compiler::Compiler()
                         ABI_PushRegistersAndAdjustStack(CallerSavedPushRegs, 8);
                         if (consoleType == 0)
                         {
-                            switch ((8 << size) |  num)
+                            switch ((8 << size) | num)
                             {
                             case 32: ABI_CallFunction(SlowRead9<u32, 0>); break;
                             case 33: ABI_CallFunction(SlowRead7<u32, 0>); break;
@@ -387,7 +396,7 @@ Compiler::Compiler()
                         }
                         else
                         {
-                            switch ((8 << size) |  num)
+                            switch ((8 << size) | num)
                             {
                             case 32: ABI_CallFunction(SlowRead9<u32, 1>); break;
                             case 33: ABI_CallFunction(SlowRead7<u32, 1>); break;
@@ -612,9 +621,9 @@ void Compiler::Reset()
     LoadStorePatches.clear();
 }
 
-bool Compiler::IsJITFault(u64 addr)
+bool Compiler::IsJITFault(u8* addr)
 {
-    return addr >= (u64)CodeMemory && addr < (u64)CodeMemory + sizeof(CodeMemory);
+    return (u64)addr >= (u64)ResetStart && (u64)addr < (u64)ResetStart + CodeMemSize;
 }
 
 void Compiler::Comp_SpecialBranchBehaviour(bool taken)
@@ -696,7 +705,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                 ABI_CallFunction(InterpretTHUMB[CurInstr.Info.Kind]);
             }
             else
+            {
                 (this->*comp)();
+            }
         }
         else
         {
@@ -717,7 +728,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
             }
             else
             {
-                IrregularCycles = false;
+                IrregularCycles = comp == NULL;
 
                 FixupBranch skipExecute;
                 if (cond < 0xE)
@@ -730,7 +741,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                     ABI_CallFunction(InterpretARM[CurInstr.Info.Kind]);
                 }
                 else
+                {
                     (this->*comp)();
+                }
 
                 Comp_SpecialBranchBehaviour(true);
 
@@ -748,7 +761,9 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                         SetJumpTarget(skipFailed);
                     }
                     else
+                    {
                         SetJumpTarget(skipExecute);
+                    }
                 }
                 
             }
@@ -896,5 +911,4 @@ void Compiler::Comp_AddCycles_CD()
     else
         ConstantCycles += cycles;
 }
-
 }
