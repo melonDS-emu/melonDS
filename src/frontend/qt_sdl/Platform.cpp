@@ -63,7 +63,6 @@
 char* EmuDirectory;
 
 void emuStop();
-void* oglGetProcAddress(const char* proc);
 
 
 namespace Platform
@@ -257,11 +256,6 @@ void Mutex_Unlock(Mutex* mutex)
 bool Mutex_TryLock(Mutex* mutex)
 {
     return ((QMutex*) mutex)->try_lock();
-}
-
-void* GL_GetProcAddress(const char* proc)
-{
-    return oglGetProcAddress(proc);
 }
 
 

@@ -88,7 +88,6 @@ void Mutex_Lock(Mutex* mutex);
 void Mutex_Unlock(Mutex* mutex);
 bool Mutex_TryLock(Mutex* mutex);
 
-void* GL_GetProcAddress(const char* proc);
 
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame

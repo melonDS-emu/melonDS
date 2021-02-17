@@ -328,16 +328,6 @@ void EmuThread::deinitOpenGL()
     delete oglSurface;
 }
 
-void* oglGetProcAddress(const char* proc)
-{
-    return emuThread->oglGetProcAddress(proc);
-}
-
-void* EmuThread::oglGetProcAddress(const char* proc)
-{
-    return (void*)oglContext->getProcAddress(proc);
-}
-
 void EmuThread::run()
 {
     bool hasOGL = mainWindow->hasOGL;
