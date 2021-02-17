@@ -40,35 +40,36 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 
 ### Linux:
 
-* Install dependencies:
-
-```sh
-sudo apt-get install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev qtdeclarative5-dev libslirp-dev libarchive-dev libepoxy-dev
-```
-
-* Compile:
-
-```sh
-mkdir -p build
-cd build
-cmake ..
-make -j$(nproc --all)
-```
+1. Install dependencies: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
+2. Download the melonDS repository and prepare:
+  ```bash
+  git clone https://github.com/Arisotura/melonDS
+  cd melonDS
+  mkdir build && cd build
+  ```
+3. Compile:
+  ```bash
+  mkdir -p build
+  cd build
+  cmake ..
+  make -j$(nproc --all)
+  ```
 
 ### Windows:
 
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-
+4. Download the melonDS repository and prepare:
+  ```bash
+  git clone https://github.com/Arisotura/melonDS
+  cd melonDS
+  mkdir build && cd build
+  ```
 #### Dynamic builds (with DLLs)
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
-5. Run the following commands
+5. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
+6. Compile:
    ```bash
-   git clone https://github.com/Arisotura/melonDS.git
-   cd melonDS
-   mkdir build
-   cd build
    cmake .. -G "MSYS Makefiles"
    make -j$(nproc --all)
    ../msys-dist.sh
@@ -76,13 +77,9 @@ make -j$(nproc --all)
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
-4. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
-5. Run the following commands
+5. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
+6. Compile:
    ```bash
-   git clone https://github.com/Arisotura/melonDS.git
-   cd melonDS
-   mkdir build
-   cd build
    cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DQT5_STATIC_DIR=/mingw64/qt5-static
    make -j$(nproc --all)
    mkdir dist && cp melonDS.exe dist
@@ -92,11 +89,14 @@ If everything went well, melonDS should now be in the `dist` folder.
 ### macOS:
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@5 libslirp libarchive libepoxy`
-3. Compile:
+3. Download the melonDS repository and prepare:
+  ```zsh
+  git clone https://github.com/Arisotura/melonDS
+  cd melonDS
+  mkdir build && cd build
+  ```
+4. Compile:
    ```zsh
-   git clone https://github.com/Arisotura/melonDS.git
-   cd melonDS
-   mkdir build && cd build
    cmake .. -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
    make -j$(sysctl -n hw.ncpu)
    mkdir dist && cp -r melonDS.app dist
