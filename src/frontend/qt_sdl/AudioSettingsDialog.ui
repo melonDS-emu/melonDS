@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>482</width>
-    <height>230</height>
+    <width>502</width>
+    <height>257</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -136,6 +136,15 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>slVolume</tabstop>
+  <tabstop>rbMicNone</tabstop>
+  <tabstop>rbMicExternal</tabstop>
+  <tabstop>rbMicNoise</tabstop>
+  <tabstop>rbMicWav</tabstop>
+  <tabstop>txtMicWavPath</tabstop>
+  <tabstop>btnMicWavBrowse</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
