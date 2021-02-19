@@ -1758,6 +1758,7 @@ void DivDone(u32 param)
             else if (num == -0x8000000000000000 && den == -1)
             {
                 *(s64*)&DivQuotient[0] = 0x8000000000000000;
+                *(s64*)&DivRemainder[0] = 0;
             }
             else
             {
@@ -1779,6 +1780,7 @@ void DivDone(u32 param)
             else if (num == -0x8000000000000000 && den == -1)
             {
                 *(s64*)&DivQuotient[0] = 0x8000000000000000;
+                *(s64*)&DivRemainder[0] = 0;
             }
             else
             {
