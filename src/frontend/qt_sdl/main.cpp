@@ -104,6 +104,9 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+int screenWidth;
+int screenHeight;
+
 
 void audioCallback(void* data, Uint8* stream, int len)
 {
@@ -431,7 +434,9 @@ void EmuThread::run()
                 videoSettings.ScaleFactor = Config::ScaleFactor;
                 videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
+                FrontBufferLock.lock();
                 GPU::SetRenderSettings(videoRenderer, videoSettings);
+                FrontBufferLock.unlock();
             }
 
             // process input and hotkeys
@@ -676,6 +681,7 @@ void ScreenHandler::screenSetupLayout(int w, int h)
                                 Config::ScreenRotation,
                                 sizing,
                                 Config::ScreenGap,
+                                Config::ScaleFactor,
                                 Config::IntegerScaling != 0,
                                 Config::ScreenSwap != 0,
                                 aspectRatios[Config::ScreenAspectTop],
@@ -689,8 +695,8 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
     bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
     int gap = Config::ScreenGap;
 
-    int w = 256 * factor;
-    int h = 192 * factor;
+    int w = NATIVE_WIDTH * factor;
+    int h = NATIVE_HEIGHT * factor;
 
     if (Config::ScreenLayout == 0) // natural
     {
@@ -790,8 +796,8 @@ QTimer* ScreenHandler::setupMouseTimer()
 
 ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
 {
-    screen[0] = QImage(256, 192, QImage::Format_RGB32);
-    screen[1] = QImage(256, 192, QImage::Format_RGB32);
+    screen[0] = QImage(screenWidth, screenHeight, QImage::Format_RGB32);
+    screen[1] = QImage(screenWidth, screenHeight, QImage::Format_RGB32);
 
     screenTrans[0].reset();
     screenTrans[1].reset();
@@ -838,13 +844,13 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         return;
     }
 
-    memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
-    memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
+    memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], screenWidth*screenHeight*4);
+    memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], screenWidth*screenHeight*4);
     emuThread->FrontBufferLock.unlock();
 
     painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
 
-    QRect screenrc(0, 0, 256, 192);
+    QRect screenrc(0, 0, screenWidth, screenHeight);
 
     for (int i = 0; i < numScreens; i++)
     {
@@ -878,7 +884,7 @@ void ScreenPanelNative::mouseMoveEvent(QMouseEvent* event)
 
 void ScreenPanelNative::onScreenLayoutChanged()
 {
-    setMinimumSize(screenGetMinSize());
+    setMinimumSize(screenGetMinSize(Config::ScaleFactor));
     setupScreenLayout();
 }
 
@@ -943,24 +949,26 @@ void ScreenPanelGL::initializeGL()
 
     // to prevent bleeding between both parts of the screen
     // with bilinear filtering enabled
-    const int paddedHeight = 192*2+2;
+    const int paddedHeight = screenHeight*2+2;
     const float padPixels = 1.f / paddedHeight;
 
-    const float vertices[] =
+    float w = screenWidth;
+    float h = screenHeight;
+    float vertices[] =
     {
-        0.f,   0.f,    0.f, 0.f,
-        0.f,   192.f,  0.f, 0.5f - padPixels,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        0.f,   0.f,    0.f, 0.f,
-        256.f, 192.f,  1.f, 0.5f - padPixels,
-        256.f, 0.f,    1.f, 0.f,
+        0.f, 0.f,  0.f, 0.f,
+        0.f, h  ,  0.f, 0.5f - padPixels,
+        w  , h  ,  1.f, 0.5f - padPixels,
+        0.f, 0.f,  0.f, 0.f,
+        w  , h  ,  1.f, 0.5f - padPixels,
+        w  , 0.f,  1.f, 0.f,
 
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        0.f,   192.f,  0.f, 1.f,
-        256.f, 192.f,  1.f, 1.f,
-        0.f,   0.f,    0.f, 0.5f + padPixels,
-        256.f, 192.f,  1.f, 1.f,
-        256.f, 0.f,    1.f, 0.5f + padPixels
+        0.f, 0.f,  0.f, 0.5f + padPixels,
+        0.f, h  ,  0.f, 1.f,
+        w  , h  ,  1.f, 1.f,
+        0.f, 0.f,  0.f, 0.5f + padPixels,
+        w  , h  ,  1.f, 1.f,
+        w  , 0.f,  1.f, 0.5f + padPixels
     };
 
     glGenBuffers(1, &screenVertexBuffer);
@@ -981,11 +989,12 @@ void ScreenPanelGL::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenWidth, paddedHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     // fill the padding
-    u8 zeroData[256*4*4];
-    memset(zeroData, 0, sizeof(zeroData));
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192, 256, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
+    u8* zeroData = new u8[screenWidth*4*4];
+    memset(zeroData, 0, screenWidth*4*4);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, screenHeight, screenWidth, 2, GL_RGBA, GL_UNSIGNED_BYTE, zeroData);
+    delete[] zeroData;
 
     OSD::Init(this);
 }
@@ -1000,6 +1009,7 @@ void ScreenPanelGL::paintGL()
 
     glViewport(0, 0, w*factor, h*factor);
 
+    bool locked = false;
     if (emuThread)
     {
         screenShader->bind();
@@ -1007,7 +1017,7 @@ void ScreenPanelGL::paintGL()
         screenShader->setUniformValue("uScreenSize", (float)w, (float)h);
         screenShader->setUniformValue("uScaleFactor", factor);
 
-        emuThread->FrontBufferLock.lock();
+        emuThread->FrontBufferLock.lock(); locked = true;
         int frontbuf = emuThread->FrontBuffer;
         glActiveTexture(GL_TEXTURE0);
 
@@ -1027,9 +1037,9 @@ void ScreenPanelGL::paintGL()
 
             if (GPU::Framebuffer[frontbuf][0] && GPU::Framebuffer[frontbuf][1])
             {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 256, 192, GL_RGBA,
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, screenWidth, screenHeight, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][0]);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 192+2, 256, 192, GL_RGBA,
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, screenHeight+2, screenWidth, screenHeight, GL_RGBA,
                                 GL_UNSIGNED_BYTE, GPU::Framebuffer[frontbuf][1]);
             }
         }
@@ -1089,7 +1099,7 @@ void ScreenPanelGL::mouseMoveEvent(QMouseEvent* event)
 
 void ScreenPanelGL::onScreenLayoutChanged()
 {
-    setMinimumSize(screenGetMinSize());
+    setMinimumSize(screenGetMinSize(Config::ScaleFactor));
     setupScreenLayout();
 }
 
@@ -1448,6 +1458,8 @@ MainWindow::~MainWindow()
 void MainWindow::createScreenPanel()
 {
     hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    screenWidth = NATIVE_WIDTH * Config::ScaleFactor;
+    screenHeight = NATIVE_HEIGHT * Config::ScaleFactor;
 
     QTimer* mouseTimer;
 
@@ -2434,9 +2446,9 @@ void MainWindow::onEmuStop()
     actSetupCheats->setEnabled(false);
 }
 
-void MainWindow::onUpdateVideoSettings(bool glchange)
+void MainWindow::onUpdateVideoSettings(bool displayChange)
 {
-    if (glchange)
+    if (displayChange)
     {
         emuThread->emuPause();
 
@@ -2456,7 +2468,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 
     videoSettingsDirty = true;
 
-    if (glchange)
+    if (displayChange)
         emuThread->emuUnpause();
 }
 

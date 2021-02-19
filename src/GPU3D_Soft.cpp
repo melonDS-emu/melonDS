@@ -1708,8 +1708,11 @@ void SoftRenderer::RenderFrame()
     }
     else if (!FrameIdentical)
     {
+        // It is possible that the UI will try to update settings mid-render.
+        Platform::Mutex_Lock(Mutex_Buffer);
         ClearBuffers();
         RenderPolygons(false, &RenderPolygonRAM[0], RenderNumPolygons);
+        Platform::Mutex_Unlock(Mutex_Buffer);
     }
 }
 

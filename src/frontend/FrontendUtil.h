@@ -133,6 +133,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int rotation,
     int sizing,
     int screenGap,
+    int scaleFactor,
     bool integerScale,
     bool swapScreens,
     float topAspect, float botAspect);

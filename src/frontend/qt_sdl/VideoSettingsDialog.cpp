@@ -109,6 +109,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_accepted()
 void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
 {
     bool old_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
+    int old_scale = Config::ScaleFactor;
 
     Config::_3DRenderer = oldRenderer;
     Config::ScreenUseGL = oldGLDisplay;
@@ -119,7 +120,7 @@ void VideoSettingsDialog::on_VideoSettingsDialog_rejected()
     Config::GL_BetterPolygons = oldGLBetterPolygons;
 
     bool new_gl = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
-    emit updateVideoSettings(old_gl != new_gl);
+    emit updateVideoSettings(old_gl != new_gl || old_scale != Config::ScaleFactor);
 
     closeDlg();
 }
@@ -185,7 +186,7 @@ void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
 
     Config::ScaleFactor = idx+1;
 
-    emit updateVideoSettings(false);
+    emit updateVideoSettings(true);
 }
 
 void VideoSettingsDialog::on_cbBetterPolygons_stateChanged(int state)
