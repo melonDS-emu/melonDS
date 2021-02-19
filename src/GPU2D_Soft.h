@@ -60,10 +60,11 @@ private:
     void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
-    static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
-    static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_Normal(u32* dst, u32 index, u16 color, u32 flag);
+    static void DrawPixel_HiRes(u32* dst, u32 index, u16 color, u32 flag);
+    static void DrawPixel_Accel(u32* dst, u32 index, u16 color, u32 flag);
 
-    typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+    typedef void (*DrawPixel)(u32* dst, u32 index, u16 color, u32 flag);
 
     void DrawBG_3D();
     template<bool mosaic, DrawPixel drawPixel> void DrawBG_Text(u32 line, u32 bgnum);
@@ -77,6 +78,7 @@ private:
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 
+    void ExpandLine(u32* line);
     void DoCapture(u32 line, u32 width);
 };
 

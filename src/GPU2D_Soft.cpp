@@ -161,10 +161,12 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 {
     CurUnit = unit;
 
-    int stride = GPU3D::CurrentRenderer->Accelerated ? (NATIVE_WIDTH*3 + 1) : NATIVE_WIDTH;
+     // multiply by ScaleFactor twice, because we want to multiply line number and width
+    int pixelCount = GPU3D::CurrentRenderer->Accelerated ? NATIVE_WIDTH : NATIVE_WIDTH * GPU::ScaleFactor * GPU::ScaleFactor;
+    int stride = GPU3D::CurrentRenderer->Accelerated ? pixelCount*3 + 1 : pixelCount;
     u32* dst = &Framebuffer[CurUnit->Num][stride * line];
 
-    int n3dline = line;
+    int n3dline = GPU3D::CurrentRenderer->Accelerated ? line : line * GPU::ScaleFactor;
     line = GPU::VCount;
 
     if (CurUnit->Num == 0)
@@ -212,7 +214,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
     if (forceblank)
     {
-        for (int i = 0; i < NATIVE_WIDTH; i++)
+        for (int i = 0; i < pixelCount; i++)
             dst[i] = 0xFFFFFFFF;
 
         if (GPU3D::CurrentRenderer->Accelerated)
@@ -233,7 +235,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
     {
     case 0: // screen off
         {
-            for (int i = 0; i < NATIVE_WIDTH; i++)
+            for (int i = 0; i < pixelCount; i++)
                 dst[i] = 0x003F3F3F;
         }
         break;
@@ -263,10 +265,11 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
                     dst[i] = r | (g << 8) | (b << 16);
                 }
+                ExpandLine(dst);
             }
             else
             {
-                for (int i = 0; i < NATIVE_WIDTH; i++)
+                for (int i = 0; i < pixelCount; i++)
                 {
                     dst[i] = 0;
                 }
@@ -285,6 +288,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
                 dst[i] = r | (g << 8) | (b << 16);
             }
+            ExpandLine(dst);
         }
         break;
     }
@@ -322,7 +326,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
             u32 factor = masterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
-            for (int i = 0; i < NATIVE_WIDTH; i++)
+            for (int i = 0; i < pixelCount; i++)
             {
                 dst[i] = ColorBrightnessUp(dst[i], factor);
             }
@@ -333,7 +337,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
             u32 factor = masterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
-            for (int i = 0; i < NATIVE_WIDTH; i++)
+            for (int i = 0; i < pixelCount; i++)
             {
                 dst[i] = ColorBrightnessDown(dst[i], factor);
             }
@@ -343,7 +347,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
     // convert to 32-bit BGRA
     // note: 32-bit RGBA would be more straightforward, but
     // BGRA seems to be more compatible (Direct2D soft, cairo...)
-    for (int i = 0; i < NATIVE_WIDTH; i+=2)
+    for (int i = 0; i < pixelCount; i+=2)
     {
         u64 c = *(u64*)&dst[i];
 
@@ -369,6 +373,29 @@ void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 #endif
 }
 
+void SoftRenderer::ExpandLine(u32* line)
+{
+    if (GPU3D::CurrentRenderer->Accelerated || GPU::ScaleFactor == 1)
+        return;
+
+    u32 lineWidth = NATIVE_WIDTH * GPU::ScaleFactor;
+
+    // write to the last line, so that we don't mess up the original line
+    u32* dst = line + (GPU::ScaleFactor - 1) * lineWidth;
+    u32* src = line;
+    for (int x = 0; x < NATIVE_WIDTH; x++)
+    {
+        for (int i = 0; i < GPU::ScaleFactor; i++)
+            *dst++ = *src;
+        src++;
+    }
+
+    // copy last line to all other lines
+    src = line + (GPU::ScaleFactor - 1) * lineWidth;
+    for (int i = 0; i < GPU::ScaleFactor - 1; i++)
+        memcpy(line + i * lineWidth, src, lineWidth * sizeof(u32));
+}
+
 void SoftRenderer::DoCapture(u32 line, u32 width)
 {
     u32 captureCnt = CurUnit->CaptureCnt;
@@ -385,6 +412,7 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
     // TODO: handle 3D in GPU3D::CurrentRenderer->Accelerated mode!!
 
     u32* srcA;
+    u32 srcAScale = GPU3D::CurrentRenderer->Accelerated ? 1 : GPU::ScaleFactor;
     if (captureCnt & (1<<24))
     {
         srcA = _3DLine;
@@ -483,7 +511,8 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
         {
             for (u32 i = 0; i < width; i++)
             {
-                u32 val = srcA[i];
+                u32 val = *srcA;
+                srcA += srcAScale;
 
                 // TODO: check what happens when alpha=0
 
@@ -534,7 +563,8 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
             {
                 for (u32 i = 0; i < width; i++)
                 {
-                    u32 val = srcA[i];
+                    u32 val = *srcA;
+                    srcA += srcAScale;
 
                     // TODO: check what happens when alpha=0
 
@@ -568,7 +598,8 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
             {
                 for (u32 i = 0; i < width; i++)
                 {
-                    u32 val = srcA[i];
+                    u32 val = *srcA;
+                    srcA += srcAScale;
 
                     // TODO: check what happens when alpha=0
 
@@ -597,12 +628,14 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
         if ((bgCnt[num] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
             if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
-            else DrawBG_##type<true, DrawPixel_Normal>(line, num); \
+            else if (GPU::ScaleFactor == 1) DrawBG_##type<true, DrawPixel_Normal>(line, num); \
+            else DrawBG_##type<true, DrawPixel_HiRes>(line, num); \
         } \
         else \
         { \
             if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
-            else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
+            else if (GPU::ScaleFactor == 1) DrawBG_##type<false, DrawPixel_Normal>(line, num); \
+            else DrawBG_##type<false, DrawPixel_HiRes>(line, num); \
         } \
     } while (false)
 
@@ -612,17 +645,21 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
         if ((bgCnt[2] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
             if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
-            else DrawBG_Large<true, DrawPixel_Normal>(line); \
+            else if (GPU::ScaleFactor == 1) DrawBG_Large<true, DrawPixel_Normal>(line); \
+            else DrawBG_Large<true, DrawPixel_HiRes>(line); \
         } \
         else \
         { \
             if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
-            else DrawBG_Large<false, DrawPixel_Normal>(line); \
+            else if (GPU::ScaleFactor == 1) DrawBG_Large<false, DrawPixel_Normal>(line); \
+            else DrawBG_Large<false, DrawPixel_HiRes>(line); \
         } \
     } while (false)
 
 #define DoInterleaveSprites(prio) \
-    if (GPU3D::CurrentRenderer->Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
+    if (GPU3D::CurrentRenderer->Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); \
+    else if (GPU::ScaleFactor == 1) InterleaveSprites<DrawPixel_Normal>(prio); \
+    else InterleaveSprites<DrawPixel_HiRes>(prio);
 
 template<u32 bgmode>
 void SoftRenderer::DrawScanlineBGMode(u32 line)
@@ -742,10 +779,11 @@ void SoftRenderer::DrawScanlineBGMode7(u32 line)
 
 void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 {
+    int pixelCount = GPU3D::CurrentRenderer->Accelerated ? NATIVE_WIDTH : NATIVE_WIDTH * GPU::ScaleFactor * GPU::ScaleFactor;
     // forced blank disables BG/OBJ compositing
     if (CurUnit->DispCnt & (1<<7))
     {
-        for (int i = 0; i < NATIVE_WIDTH; i++)
+        for (int i = 0; i < pixelCount; i++)
             BGOBJLine[i] = 0xFF3F3F3F;
 
         return;
@@ -763,7 +801,7 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
         backdrop = r | (g << 8) | (b << 16) | 0x20000000;
         backdrop |= (backdrop << 32);
 
-        for (int i = 0; i < NATIVE_WIDTH; i+=2)
+        for (int i = 0; i < pixelCount; i+=2)
             *(u64*)&BGOBJLine[i] = backdrop;
     }
 
@@ -792,12 +830,12 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 
     if (!GPU3D::CurrentRenderer->Accelerated)
     {
-        for (int i = 0; i < NATIVE_WIDTH; i++)
+        for (int i = 0; i < pixelCount; i++)
         {
             u32 val1 = BGOBJLine[i];
-            u32 val2 = BGOBJLine[NATIVE_WIDTH+i];
+            u32 val2 = BGOBJLine[pixelCount+i];
 
-            BGOBJLine[i] = ColorComposite(i, val1, val2);
+            BGOBJLine[i] = ColorComposite((i / GPU::ScaleFactor) & 0xFF, val1, val2);
         }
     }
     else
@@ -910,8 +948,10 @@ void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 }
 
 
-void SoftRenderer::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
+void SoftRenderer::DrawPixel_Normal(u32* dst, u32 index, u16 color, u32 flag)
 {
+    dst += index;
+
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
     u8 b = (color & 0x7C00) >> 9;
@@ -921,8 +961,34 @@ void SoftRenderer::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void SoftRenderer::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
+void SoftRenderer::DrawPixel_HiRes(u32* dst, u32 index, u16 color, u32 flag)
 {
+    // note: dst is always BGOBJLine
+    // The index given is as if ScaleFactor were 1.
+    dst += index * GPU::ScaleFactor;
+
+    u8 r = (color & 0x001F) << 1;
+    u8 g = (color & 0x03E0) >> 4;
+    u8 b = (color & 0x7C00) >> 9;
+    u32 value = r | (g << 8) | (b << 16) | flag;
+
+    u32 lineLength = NATIVE_WIDTH * GPU::ScaleFactor;
+    u32 pixelCount = lineLength * GPU::ScaleFactor;
+    for (int y = 0; y < GPU::ScaleFactor; y++)
+    {
+        u32* addr = dst + y * lineLength;
+        for (int x = 0; x < GPU::ScaleFactor; x++)
+        {
+            addr[x + pixelCount] = addr[x];
+            addr[x] = value;
+        }
+    }
+}
+
+void SoftRenderer::DrawPixel_Accel(u32* dst, u32 index, u16 color, u32 flag)
+{
+    dst += index;
+
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
     u8 b = (color & 0x7C00) >> 9;
@@ -934,11 +1000,9 @@ void SoftRenderer::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
 
 void SoftRenderer::DrawBG_3D()
 {
-    int i = 0;
-
     if (GPU3D::CurrentRenderer->Accelerated)
     {
-        for (i = 0; i < NATIVE_WIDTH; i++)
+        for (int i = 0; i < NATIVE_WIDTH; i++)
         {
             if (!(WindowMask[i] & 0x01)) continue;
 
@@ -949,15 +1013,27 @@ void SoftRenderer::DrawBG_3D()
     }
     else
     {
-        for (i = 0; i < NATIVE_WIDTH; i++)
+        int pixelCount = NATIVE_WIDTH * GPU::ScaleFactor * GPU::ScaleFactor;
+        // soft renderer has a 1-pixel border
+        u32 stride3D = GPU3D::CurrentRenderer->GetStride();
+        for (int x = 0; x < NATIVE_WIDTH; x++)
         {
-            u32 c = _3DLine[i];
+            if (!(WindowMask[x] & 0x01))
+                continue;
 
-            if ((c >> 24) == 0) continue;
-            if (!(WindowMask[i] & 0x01)) continue;
+            for (int y = 0; y < GPU::ScaleFactor; y++)
+            {
+                u32* src = _3DLine + y * stride3D + x * GPU::ScaleFactor;
+                u32* dst = BGOBJLine + y * NATIVE_WIDTH * GPU::ScaleFactor + x * GPU::ScaleFactor;
+                for (int i = 0; i < GPU::ScaleFactor; i++)
+                {
+                    u32 c = src[i];
+                    if ((c >> 24) == 0) continue;
 
-            BGOBJLine[i+NATIVE_WIDTH] = BGOBJLine[i];
-            BGOBJLine[i] = c | 0x40000000;
+                    dst[i+pixelCount] = dst[i];
+                    dst[i] = c | 0x40000000;
+                }
+            }
         }
     }
 }
@@ -1065,7 +1141,7 @@ void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
                 color = bgvram[(pixelsaddr + tilexoff) & bgvrammask];
 
                 if (color)
-                    drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    drawPixel(BGOBJLine, i, curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1118,7 +1194,7 @@ void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
                 }
 
                 if (color)
-                    drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                    drawPixel(BGOBJLine, i, curpal[color], 0x01000000<<bgnum);
             }
 
             xoff++;
@@ -1215,7 +1291,7 @@ void SoftRenderer::DrawBG_Affine(u32 line, u32 bgnum)
                 color = bgvram[(tilesetaddr + (curtile << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
 
                 if (color)
-                    drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                    drawPixel(BGOBJLine, i, pal[color], 0x01000000<<bgnum);
             }
         }
 
@@ -1314,7 +1390,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                         color = *(u16*)&bgvram[(tilemapaddr + (((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) << 1)) & bgvrammask];
 
                         if (color & 0x8000)
-                            drawPixel(&BGOBJLine[i], color, 0x01000000<<bgnum);
+                            drawPixel(BGOBJLine, i, color, 0x01000000<<bgnum);
                     }
                 }
 
@@ -1353,7 +1429,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                         color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                         if (color)
-                            drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<bgnum);
+                            drawPixel(BGOBJLine, i, pal[color], 0x01000000<<bgnum);
                     }
                 }
 
@@ -1435,7 +1511,7 @@ void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
                     color = bgvram[(tilesetaddr + ((curtile & 0x03FF) << 6) + (tileyoff << 3) + tilexoff) & bgvrammask];
 
                     if (color)
-                        drawPixel(&BGOBJLine[i], curpal[color], 0x01000000<<bgnum);
+                        drawPixel(BGOBJLine, i, curpal[color], 0x01000000<<bgnum);
                 }
             }
 
@@ -1531,7 +1607,7 @@ void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
                 color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                 if (color)
-                    drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
+                    drawPixel(BGOBJLine, i, pal[color], 0x01000000<<2);
             }
         }
 
@@ -1604,7 +1680,7 @@ void SoftRenderer::InterleaveSprites(u32 prio)
             else
                 color = extpal[pixel & 0xFFF];
 
-            drawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            drawPixel(BGOBJLine, i, color, pixel & 0xFF000000);
         }
     }
     else
@@ -1624,7 +1700,7 @@ void SoftRenderer::InterleaveSprites(u32 prio)
             else
                 color = pal[pixel & 0xFF];
 
-            drawPixel(&BGOBJLine[i], color, pixel & 0xFF000000);
+            drawPixel(BGOBJLine, i, color, pixel & 0xFF000000);
         }
     }
 }

@@ -39,6 +39,7 @@ public:
     virtual void RenderFrame() override;
     virtual void RestartFrame() override;
     virtual u32* GetLine(int line) override;
+    virtual u32 GetStride() override;
 
     void SetupRenderThread();
     void StopRenderThread();

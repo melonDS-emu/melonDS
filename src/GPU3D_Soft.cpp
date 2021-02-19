@@ -1749,12 +1749,14 @@ void SoftRenderer::RenderThreadFunc()
 u32* SoftRenderer::GetLine(int line)
 {
     if (RenderThreadRunning)
-    {
-        if (line < NATIVE_HEIGHT)
-            Platform::Semaphore_Wait(Sema_ScanlineCount);
-    }
+        Platform::Semaphore_Wait(Sema_ScanlineCount);
 
     return &ColorBuffer[(line * ScanlineWidth) + FirstPixelOffset];
+}
+
+u32 SoftRenderer::GetStride()
+{
+    return ScanlineWidth;
 }
 
 }
