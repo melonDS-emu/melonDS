@@ -139,8 +139,11 @@ void SoftRenderer::SetRenderSettings(GPU::RenderSettings& settings)
     Threaded = settings.Soft_Threaded;
 
     int scale = settings.ScaleFactor;
-    ScanlineWidth = NATIVE_WIDTH * scale + 2;
-    NumScanlines = NATIVE_HEIGHT * scale + 2;
+    RenderWidth = NATIVE_WIDTH * scale;
+    RenderHeight = NATIVE_HEIGHT * scale;
+
+    ScanlineWidth = RenderWidth + 2;
+    NumScanlines = RenderHeight + 2;
     BufferSize = ScanlineWidth * NumScanlines;
     FirstPixelOffset = ScanlineWidth + 1;
 
@@ -737,7 +740,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         fnDepthTest = DepthTest_LessThan;
 
     if (!PrevIsShadowMask)
-        memset(&StencilBuffer[NATIVE_WIDTH * (y&0x1)], 0, NATIVE_WIDTH);
+        memset(&StencilBuffer[RenderWidth * (y&0x1)], 0, RenderWidth);
 
     PrevIsShadowMask = true;
 
@@ -846,7 +849,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
 
     for (; x < xlimit; x++)
     {
@@ -862,13 +865,13 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x1;
+            StencilBuffer[RenderWidth*(y&0x1) + x] |= 0x1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
+                StencilBuffer[RenderWidth*(y&0x1) + x] |= 0x2;
         }
     }
 
@@ -876,7 +879,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
     edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
     if (wireframe && !edge) x = xlimit;
     else for (; x < xlimit; x++)
     {
@@ -888,20 +891,20 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         u32 dstattr = AttrBuffer[pixeladdr];
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] = 1;
+            StencilBuffer[RenderWidth*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
+                StencilBuffer[RenderWidth*(y&0x1) + x] |= 0x2;
         }
     }
 
     // part 3: right edge
     edge = yedge | 0x2;
     xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
 
     for (; x < xlimit; x++)
     {
@@ -917,13 +920,13 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] = 1;
+            StencilBuffer[RenderWidth*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
             pixeladdr += BufferSize;
             if (!fnDepthTest(DepthBuffer[pixeladdr], z, AttrBuffer[pixeladdr]))
-                StencilBuffer[NATIVE_WIDTH*(y&0x1) + x] |= 0x2;
+                StencilBuffer[RenderWidth*(y&0x1) + x] |= 0x2;
         }
     }
 
@@ -1074,7 +1077,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge | 0x1;
     xlimit = xstart+l_edgelen;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
     if (l_edgecov & (1<<31))
     {
         xcov = (l_edgecov >> 12) & 0x3FF;
@@ -1091,7 +1094,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
+            u8 stencil = StencilBuffer[RenderWidth*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1175,7 +1178,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     edge = yedge;
     xlimit = xend-r_edgelen+1;
     if (xlimit > xend+1) xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
 
     if (wireframe && !edge) x = xlimit;
     else
@@ -1187,7 +1190,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
+            u8 stencil = StencilBuffer[RenderWidth*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1246,7 +1249,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
     // part 3: right edge
     edge = yedge | 0x2;
     xlimit = xend+1;
-    if (xlimit > NATIVE_WIDTH) xlimit = NATIVE_WIDTH;
+    if (xlimit > RenderWidth) xlimit = RenderWidth;
     if (r_edgecov & (1<<31))
     {
         xcov = (r_edgecov >> 12) & 0x3FF;
@@ -1262,7 +1265,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // check stencil buffer for shadows
         if (polygon->IsShadow)
         {
-            u8 stencil = StencilBuffer[NATIVE_WIDTH*(y&0x1) + x];
+            u8 stencil = StencilBuffer[RenderWidth*(y&0x1) + x];
             if (!stencil)
                 continue;
             if (!(stencil & 0x1))
@@ -1413,7 +1416,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         // edge marking
         // only applied to topmost pixels
 
-        for (int x = 0; x < NATIVE_WIDTH; x++)
+        for (int x = 0; x < RenderWidth; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
@@ -1461,7 +1464,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         u32 fogB = (RenderFogColor >> 9) & 0x3E; if (fogB) fogB++;
         u32 fogA = (RenderFogColor >> 16) & 0x1F;
 
-        for (int x = 0; x < NATIVE_WIDTH; x++)
+        for (int x = 0; x < RenderWidth; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
             u32 density, srccolor, srcR, srcG, srcB, srcA;
@@ -1525,7 +1528,7 @@ void SoftRenderer::ScanlineFinalPass(s32 y)
         // edges were flagged and their coverages calculated during rendering
         // this is where such edge pixels are blended with the pixels underneath
 
-        for (int x = 0; x < NATIVE_WIDTH; x++)
+        for (int x = 0; x < RenderWidth; x++)
         {
             u32 pixeladdr = FirstPixelOffset + (y*ScanlineWidth) + x;
 
@@ -1609,9 +1612,9 @@ void SoftRenderer::ClearBuffers()
         u8 xoff = (RenderClearAttr2 >> 16) & 0xFF;
         u8 yoff = (RenderClearAttr2 >> 24) & 0xFF;
 
-        for (int y = 0; y < ScanlineWidth*NATIVE_HEIGHT; y+=ScanlineWidth)
+        for (int y = 0; y < ScanlineWidth * RenderHeight; y+=ScanlineWidth)
         {
-            for (int x = 0; x < NATIVE_WIDTH; x++)
+            for (int x = 0; x < RenderWidth; x++)
             {
                 u16 val2 = ReadVRAM_Texture<u16>(0x40000 + (yoff << 9) + (xoff << 1));
                 u16 val3 = ReadVRAM_Texture<u16>(0x60000 + (yoff << 9) + (xoff << 1));
@@ -1630,10 +1633,12 @@ void SoftRenderer::ClearBuffers()
                 DepthBuffer[pixeladdr] = z;
                 AttrBuffer[pixeladdr] = polyid | (val3 & 0x8000);
 
-                xoff++;
+                if (x % GPU::ScaleFactor == 0)
+                    xoff++;
             }
 
-            yoff++;
+            if (y % GPU::ScaleFactor == 0)
+                yoff++;
         }
     }
     else
@@ -1647,9 +1652,9 @@ void SoftRenderer::ClearBuffers()
 
         polyid |= (RenderClearAttr1 & 0x8000);
 
-        for (int y = 0; y < ScanlineWidth*NATIVE_HEIGHT; y+=ScanlineWidth)
+        for (int y = 0; y < ScanlineWidth * RenderHeight; y+=ScanlineWidth)
         {
-            for (int x = 0; x < NATIVE_WIDTH; x++)
+            for (int x = 0; x < RenderWidth; x++)
             {
                 u32 pixeladdr = FirstPixelOffset + y + x;
                 ColorBuffer[pixeladdr] = color;
@@ -1671,16 +1676,16 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
     RenderScanline(0, j);
 
-    for (s32 y = 1; y < NATIVE_HEIGHT; y++)
+    for (s32 y = 1; y < RenderHeight; y++)
     {
         RenderScanline(y, j);
         ScanlineFinalPass(y-1);
 
-        if (threaded)
+        if (threaded && (y % GPU::ScaleFactor == 0))
             Platform::Semaphore_Post(Sema_ScanlineCount);
     }
 
-    ScanlineFinalPass(NATIVE_HEIGHT - 1);
+    ScanlineFinalPass(RenderHeight - 1);
 
     if (threaded)
         Platform::Semaphore_Post(Sema_ScanlineCount);

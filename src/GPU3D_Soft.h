@@ -483,6 +483,9 @@ private:
     int BufferSize = ScanlineWidth * NumScanlines;
     int FirstPixelOffset = ScanlineWidth + 1;
 
+    int RenderWidth = NATIVE_WIDTH;
+    int RenderHeight = NATIVE_HEIGHT;
+
     u32* ColorBuffer;
     u32* DepthBuffer;
     u32* AttrBuffer;
