@@ -62,8 +62,8 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->cbSoftwareThreaded->setChecked(Config::Threaded3D != 0);
 
     for (int i = 1; i <= 16; i++)
-        ui->cbxGLResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
-    ui->cbxGLResolution->setCurrentIndex(Config::ScaleFactor-1);
+        ui->cbxResolution->addItem(QString("%1x native (%2x%3)").arg(i).arg(256*i).arg(192*i));
+    ui->cbxResolution->setCurrentIndex(Config::ScaleFactor-1);
 
     ui->cbBetterPolygons->setChecked(Config::GL_BetterPolygons != 0);
 
@@ -74,14 +74,12 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     {
         ui->cbGLDisplay->setEnabled(true);
         ui->cbSoftwareThreaded->setEnabled(true);
-        ui->cbxGLResolution->setEnabled(false);
         ui->cbBetterPolygons->setEnabled(false);
     }
     else
     {
         ui->cbGLDisplay->setEnabled(false);
         ui->cbSoftwareThreaded->setEnabled(false);
-        ui->cbxGLResolution->setEnabled(true);
         ui->cbBetterPolygons->setEnabled(true);
     }
 
@@ -135,14 +133,12 @@ void VideoSettingsDialog::onChange3DRenderer(int renderer)
     {
         ui->cbGLDisplay->setEnabled(true);
         ui->cbSoftwareThreaded->setEnabled(true);
-        ui->cbxGLResolution->setEnabled(false);
         ui->cbBetterPolygons->setEnabled(false);
     }
     else
     {
         ui->cbGLDisplay->setEnabled(false);
         ui->cbSoftwareThreaded->setEnabled(false);
-        ui->cbxGLResolution->setEnabled(true);
         ui->cbBetterPolygons->setEnabled(true);
     }
 
@@ -179,10 +175,10 @@ void VideoSettingsDialog::on_cbSoftwareThreaded_stateChanged(int state)
     emit updateVideoSettings(false);
 }
 
-void VideoSettingsDialog::on_cbxGLResolution_currentIndexChanged(int idx)
+void VideoSettingsDialog::on_cbxResolution_currentIndexChanged(int idx)
 {
     // prevent a spurious change
-    if (ui->cbxGLResolution->count() < 16) return;
+    if (ui->cbxResolution->count() < 16) return;
 
     Config::ScaleFactor = idx+1;
 
