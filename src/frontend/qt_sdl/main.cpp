@@ -331,9 +331,45 @@ void EmuThread::deinitOpenGL()
     delete oglSurface;
 }
 
+void EmuThread::updateDisplay(bool forceInit)
+{
+    // update render settings if needed
+    if (videoSettingsDirty || forceInit)
+    {
+        if (hasOGL != mainWindow->hasOGL || forceInit)
+        {
+            hasOGL = mainWindow->hasOGL;
+#ifdef OGLRENDERER_ENABLED
+            if (hasOGL)
+            {
+                oglContext->makeCurrent(oglSurface);
+                videoRenderer = Config::_3DRenderer;
+            }
+            else
+#endif
+            {
+                videoRenderer = 0;
+            }
+        }
+        else
+            videoRenderer = hasOGL ? Config::_3DRenderer : 0;
+
+        videoSettings.Soft_Threaded = Config::Threaded3D != 0;
+        videoSettings.ScaleFactor = Config::ScaleFactor;
+        videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
+
+        FrontBufferLock.lock();
+        GPU::SetRenderSettings(videoRenderer, videoSettings);
+        FrontBufferLock.unlock();
+
+        videoSettingsDirty = false;
+    }
+
+    emit windowUpdate();
+}
+
 void EmuThread::run()
 {
-    bool hasOGL = mainWindow->hasOGL;
     u32 mainScreenPos[3];
 
     NDS::Init();
@@ -343,24 +379,8 @@ void EmuThread::run()
     mainScreenPos[2] = 0;
     autoScreenSizing = 0;
 
-    videoSettingsDirty = false;
-    videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-    videoSettings.ScaleFactor = Config::ScaleFactor;
-
-#ifdef OGLRENDERER_ENABLED
-    if (hasOGL)
-    {
-        oglContext->makeCurrent(oglSurface);
-        videoRenderer = Config::_3DRenderer;
-    }
-    else
-#endif
-    {
-        videoRenderer = 0;
-    }
-
     GPU::InitRenderer(videoRenderer);
-    GPU::SetRenderSettings(videoRenderer, videoSettings);
+    updateDisplay(true);
 
     Input::Init();
 
@@ -406,38 +426,6 @@ void EmuThread::run()
         if (EmuRunning == 1)
         {
             EmuStatus = 1;
-
-            // update render settings if needed
-            if (videoSettingsDirty)
-            {
-                if (hasOGL != mainWindow->hasOGL)
-                {
-                    hasOGL = mainWindow->hasOGL;
-#ifdef OGLRENDERER_ENABLED
-                    if (hasOGL)
-                    {
-                        oglContext->makeCurrent(oglSurface);
-                        videoRenderer = Config::_3DRenderer;
-                    }
-                    else
-#endif
-                    {
-                        videoRenderer = 0;
-                    }
-                }
-                else
-                    videoRenderer = hasOGL ? Config::_3DRenderer : 0;
-
-                videoSettingsDirty = false;
-
-                videoSettings.Soft_Threaded = Config::Threaded3D != 0;
-                videoSettings.ScaleFactor = Config::ScaleFactor;
-                videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
-
-                FrontBufferLock.lock();
-                GPU::SetRenderSettings(videoRenderer, videoSettings);
-                FrontBufferLock.unlock();
-            }
 
             // process input and hotkeys
             NDS::SetKeyMask(Input::InputMask);
@@ -517,7 +505,7 @@ void EmuThread::run()
 
             if (EmuRunning == 0) break;
 
-            emit windowUpdate();
+            updateDisplay();
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
 
@@ -581,7 +569,7 @@ void EmuThread::run()
             lastTime = SDL_GetPerformanceCounter() * perfCountsSec;
             lastMeasureTime = lastTime;
 
-            emit windowUpdate();
+            updateDisplay();
 
             EmuStatus = EmuRunning;
 
@@ -831,6 +819,9 @@ void ScreenPanelNative::setupScreenLayout()
 
 void ScreenPanelNative::paintEvent(QPaintEvent* event)
 {
+    if (videoSettingsDirty)
+        return;
+
     QPainter painter(this);
 
     // fill background
@@ -1001,6 +992,9 @@ void ScreenPanelGL::initializeGL()
 
 void ScreenPanelGL::paintGL()
 {
+    if (videoSettingsDirty)
+        return;
+
     int w = width();
     int h = height();
     float factor = devicePixelRatioF();
@@ -2448,6 +2442,8 @@ void MainWindow::onEmuStop()
 
 void MainWindow::onUpdateVideoSettings(bool displayChange)
 {
+    videoSettingsDirty = true;
+
     if (displayChange)
     {
         emuThread->emuPause();
@@ -2465,8 +2461,6 @@ void MainWindow::onUpdateVideoSettings(bool displayChange)
         connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
         if (hasOGL) emuThread->initOpenGL();
     }
-
-    videoSettingsDirty = true;
 
     if (displayChange)
         emuThread->emuUnpause();

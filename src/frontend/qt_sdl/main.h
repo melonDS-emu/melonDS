@@ -89,6 +89,9 @@ private:
 
     QOffscreenSurface* oglSurface;
     QOpenGLContext* oglContext;
+    bool hasOGL;
+
+    void updateDisplay(bool forceInit = false);
 };
 
 
