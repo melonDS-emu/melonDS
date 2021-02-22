@@ -730,9 +730,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    Frontend::GetTouchCoords(x, y);
-
-    if (x >= 0 && x < 256 && y >= 0 && y < 192)
+    if (Frontend::GetTouchCoords(x, y))
     {
         touching = true;
         NDS::TouchScreen(x, y);
