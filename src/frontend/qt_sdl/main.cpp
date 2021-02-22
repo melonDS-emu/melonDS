@@ -1005,7 +1005,7 @@ void ScreenPanelGL::paintGL()
         screenShader->bind();
 
         screenShader->setUniformValue("uScreenSize", (float)w, (float)h);
-	screenShader->setUniformValue("uScaleFactor", factor);
+        screenShader->setUniformValue("uScaleFactor", factor);
 
         emuThread->FrontBufferLock.lock();
         int frontbuf = emuThread->FrontBuffer;
