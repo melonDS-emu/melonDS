@@ -25,7 +25,7 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__aarch64__)
     #include <pthread.h>
 #endif
 
@@ -310,7 +310,7 @@ void DeInit()
 
 void Reset()
 {
-    #ifdef __APPLE_
+    #if defined(__APPLE__) && defined(__aarch64__)
         pthread_jit_write_protect_np(false);
     #endif
     ResetBlockCache();
@@ -888,11 +888,11 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-        #ifdef __APPLE__
+        #if defined(__APPLE__) && defined(__aarch64__)
             pthread_jit_write_protect_np(false);
         #endif
         block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i);
-        #ifdef __APPLE__
+        #if defined(__APPLE__) && defined(__aarch64__)
             pthread_jit_write_protect_np(true);
         #endif
 
