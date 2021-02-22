@@ -15,6 +15,10 @@ extern char __start__;
 
 #include <stdlib.h>
 
+#ifdef __APPLE__
+    #include <pthread.h>
+#endif
+
 using namespace Arm64Gen;
 
 extern "C" void ARM_Ret();
@@ -226,7 +230,12 @@ Compiler::Compiler()
     u64 pageSize = sysconf(_SC_PAGE_SIZE);
     u8* pageAligned = (u8*)(((u64)JitMem & ~(pageSize - 1)) + pageSize);
     u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;
-    mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+    #ifdef __APPLE__
+        pageAligned = (u8*)mmap(NULL, 1024*1024*16, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
+        pthread_jit_write_protect_np(false);
+    #else
+        mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
+    #endif
 
     SetCodeBase(pageAligned, pageAligned);
     JitMemMainSize = alignedSize;
