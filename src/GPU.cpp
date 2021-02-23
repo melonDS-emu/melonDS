@@ -93,8 +93,7 @@ std::unique_ptr<GPU2D> GPU2D_B = {};
         we don't want to completely invalidate them every time they're unmapped and remapped
 
     For this reason we don't track the dirtyness per mapping region, but instead per VRAM bank
-    with VRAMDirty. Writes to LCDC go directly into VRAMDirty, while writes via other mapping regions
-    like BG or OBJ are first tracked in VRAMWritten_* and need to be flushed using SyncDirtyFlags.
+    with VRAMDirty.
 
     This is more or less a description of VRAMTrackingSet::DeriveState
         Each time before the memory is read two things could have happened
@@ -119,13 +118,6 @@ VRAMTrackingSet<8*1024, 8*1024> VRAMDirty_BOBJExtPal;
 
 VRAMTrackingSet<512*1024, 128*1024> VRAMDirty_Texture;
 VRAMTrackingSet<128*1024, 16*1024> VRAMDirty_TexPal;
-
-
-NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMWritten_ABG;
-NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_AOBJ;
-NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BBG;
-NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BOBJ;
-NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_ARM7;
 
 NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9];
 
@@ -1028,8 +1020,6 @@ void StartHBlank(u32 line)
     DispStat[0] |= (1<<1);
     DispStat[1] |= (1<<1);
 
-    SyncDirtyFlags();
-
     if (VCount < 192)
     {
         // draw
@@ -1265,34 +1255,6 @@ template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*10
 template NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMTrackingSet<128*1024, 16*1024>::DeriveState(u32*);
 template NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMTrackingSet<256*1024, 16*1024>::DeriveState(u32*);
 template NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMTrackingSet<512*1024, 16*1024>::DeriveState(u32*);
-
-template <u32 Size>
-void SyncDirtyFlags(u32* mappings, NonStupidBitField<Size>& writtenFlags)
-{
-    const u32 VRAMWrittenBitsPer16KB = 16*1024/VRAMDirtyGranularity;
-
-    for (typename NonStupidBitField<Size>::Iterator it = writtenFlags.Begin(); it != writtenFlags.End(); it++)
-    {
-        u32 mapping = mappings[*it / VRAMWrittenBitsPer16KB];
-        while (mapping != 0)
-        {
-            u32 num = __builtin_ctz(mapping);
-
-            VRAMDirty[num][*it & (VRAMMask[num] / VRAMDirtyGranularity)] = true;
-
-            mapping &= ~(1 << num);
-        }
-    }
-    writtenFlags.Clear();
-}
-
-void SyncDirtyFlags()
-{
-    SyncDirtyFlags(VRAMMap_ABG, VRAMWritten_ABG);
-    SyncDirtyFlags(VRAMMap_AOBJ, VRAMWritten_AOBJ);
-    SyncDirtyFlags(VRAMMap_BBG, VRAMWritten_BBG);
-    SyncDirtyFlags(VRAMMap_BOBJ, VRAMWritten_BOBJ);
-}
 
 template <u32 MappingGranularity, u32 Size>
 inline bool CopyLinearVRAM(u8* flat, u32* mappings, NonStupidBitField<Size>& dirty, u64 (*slowAccess)(u32 addr))
