@@ -45,13 +45,9 @@ namespace NDSCart_SRAMManager
     u32 FlushVersion;
 
     void FlushThreadFunc();
-    void FlushSecondaryBufferToFile();
 
     bool Init()
     {
-        FlushThread = Platform::Thread_Create(FlushThreadFunc);
-        FlushThreadRunning = true;
-
         SecondaryBufferLock = Platform::Mutex_Create();
 
         return true;
@@ -64,10 +60,11 @@ namespace NDSCart_SRAMManager
             FlushThreadRunning = false;
             Platform::Thread_Wait(FlushThread);
             Platform::Thread_Free(FlushThread);
-            FlushSecondaryBufferToFile();
+            FlushSecondaryBuffer();
         }
 
-        delete SecondaryBuffer;
+        if (SecondaryBuffer) delete SecondaryBuffer;
+        SecondaryBuffer = NULL;
 
         Platform::Mutex_Free(SecondaryBufferLock);
     }
@@ -75,7 +72,7 @@ namespace NDSCart_SRAMManager
     void Setup(const char* path, u8* buffer, u32 length)
     {
         // Flush SRAM in case there is unflushed data from previous state.
-        FlushSecondaryBufferToFile();
+        FlushSecondaryBuffer();
 
         Platform::Mutex_Lock(SecondaryBufferLock);
 
@@ -85,7 +82,7 @@ namespace NDSCart_SRAMManager
         Buffer = buffer;
         Length = length;
 
-        delete SecondaryBuffer; // Delete secondary buffer, there might be previous state.
+        if(SecondaryBuffer) delete SecondaryBuffer; // Delete secondary buffer, there might be previous state.
 
         SecondaryBuffer = new u8[length];
         SecondaryBufferLength = length;
@@ -95,6 +92,12 @@ namespace NDSCart_SRAMManager
         TimeAtLastFlushRequest = 0;
 
         Platform::Mutex_Unlock(SecondaryBufferLock);
+
+        if (path[0] != '\0')
+        {
+            FlushThread = Platform::Thread_Create(FlushThreadFunc);
+            FlushThreadRunning = true;
+        }
     }
 
     void RequestFlush()
@@ -121,27 +124,52 @@ namespace NDSCart_SRAMManager
                 continue;
             }
 
-            FlushSecondaryBufferToFile();
+            FlushSecondaryBuffer();
         }
     }
     
-    void FlushSecondaryBufferToFile()
+    void FlushSecondaryBuffer(u8* dst, s32 dstLength)
     {
-        if (FlushVersion == PreviousFlushVersion)
-        {
-            return;
-        }
+        // When flushing to a file, there's no point in re-writing the exact same data.
+        if (!dst && !NeedsFlush()) return;
+        // When flushing to memory, we don't know if dst already has any data so we only check that we CAN flush.
+        if (dst && dstLength < SecondaryBufferLength) return;
 
         Platform::Mutex_Lock(SecondaryBufferLock);
-        FILE* f = Platform::OpenFile(Path, "wb");
-        if (f)
+        if (dst)
         {
-            printf("NDS SRAM: Written\n");
-            fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
-            fclose(f);
+            memcpy(dst, SecondaryBuffer, SecondaryBufferLength);
+        }
+        else
+        {
+            FILE* f = Platform::OpenFile(Path, "wb");
+            if (f)
+            {
+                printf("NDS SRAM: Written\n");
+                fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
+                fclose(f);
+            }
         }
         PreviousFlushVersion = FlushVersion;
         TimeAtLastFlushRequest = 0;
         Platform::Mutex_Unlock(SecondaryBufferLock);
+    }
+
+    bool NeedsFlush()
+    {
+        return FlushVersion != PreviousFlushVersion;
+    }
+
+    void UpdateBuffer(u8* src, s32 srcLength)
+    {
+        if (!src || srcLength != Length) return;
+
+        // should we create a lock for the primary buffer? this method is not intended to be called from a secondary thread in the way Flush is
+        memcpy(Buffer, src, srcLength);
+        Platform::Mutex_Lock(SecondaryBufferLock);
+        memcpy(SecondaryBuffer, src, srcLength);
+        Platform::Mutex_Unlock(SecondaryBufferLock);
+
+        PreviousFlushVersion = FlushVersion;
     }
 }
