@@ -19,6 +19,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __WIN32__
+    #define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
+    #include <winsock2.h>
+    #include <windows.h>
+    //#include <knownfolders.h> // FUCK THAT SHIT
+    #include <shlobj.h>
+    #include <ws2tcpip.h>
+    #include <io.h>
+    #define dup _dup
+    #define socket_t    SOCKET
+    #define sockaddr_t  SOCKADDR
+#else
+    #include <unistd.h>
+    #include <netinet/in.h>
+    #include <sys/select.h>
+    #include <sys/socket.h>
+
+    #define socket_t    int
+    #define sockaddr_t  struct sockaddr
+    #define closesocket close
+#endif
+
 #include <QStandardPaths>
 #include <QDir>
 #include <QThread>
@@ -32,31 +55,8 @@
 #include "LAN_PCap.h"
 #include <string>
 
-#ifdef __WIN32__
-#define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
-#include <windows.h>
-//#include <knownfolders.h> // FUCK THAT SHIT
-#include <shlobj.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <io.h>
-#define dup _dup
-#define socket_t    SOCKET
-#define sockaddr_t  SOCKADDR
-#else
-
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-
-#define socket_t    int
-#define sockaddr_t  struct sockaddr
-#define closesocket close
-#endif
-
 #ifndef INVALID_SOCKET
-#define INVALID_SOCKET  (socket_t)-1
+    #define INVALID_SOCKET  (socket_t)-1
 #endif
 
 
