@@ -154,7 +154,10 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
-        int bootTime = (uint)(ui->dtmBootTime->dateTime().toSecsSinceEpoch());
+        // Idk why but there are seconds
+        QDateTime dtm = ui->dtmBootTime->dateTime();
+        dtm = dtm.addSecs(-dtm.time().second());
+        int bootTime = (uint)(dtm.toSecsSinceEpoch());
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
