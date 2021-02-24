@@ -65,8 +65,12 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     // NDS has no concept of time zones
     ui->dtmBootTime->setTimeSpec(Qt::UTC);
     // NDS firmware limits dates to this range
-    ui->dtmBootTime->setMinimumDateTime(QDate(2000, 1, 1).startOfDay(Qt::UTC));
-    ui->dtmBootTime->setMaximumDateTime(QDate(2099, 12, 31).endOfDay(Qt::UTC));
+    QDateTime minmax = QDateTime(QDate(2000, 1, 1)); // startOfDay (is QT v5.14 but we support 5.12)
+    minmax.setTimeSpec(Qt::UTC);
+    ui->dtmBootTime->setMinimumDateTime(minmax);
+    minmax = minmax.addYears(100).addSecs(-1); // endOfDay for 2099-12-31
+    ui->dtmBootTime->setMaximumDateTime(minmax);
+
     if (realTime)
         ui->dtmBootTime->setDateTime(QDateTime::currentDateTime());
     else
