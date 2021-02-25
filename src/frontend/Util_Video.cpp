@@ -446,6 +446,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
             M23_Translate(HybTouchMtx, -hybTrans[0], -hybTrans[1]);
             M23_Scale(HybTouchMtx, 1.f/hybScale);
             M23_Multiply(HybTouchMtx, rotmtx, HybTouchMtx);
+
+            M23_Scale(HybTouchMtx, 1.f / scaleFactor);
         }
     }
 }
