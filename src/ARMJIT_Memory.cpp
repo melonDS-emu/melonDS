@@ -66,7 +66,7 @@ bool FaultHandler(FaultDescription& faultDesc);
 // Yes I know this looks messy, but better here than somewhere else in the code
 #if defined(_WIN32)
     #define CONTEXT_PC Rip
-#elif defined(__unix__)
+#else
     #if defined(__x86_64__)
         #if defined(__linux__)
             #define CONTEXT_PC uc_mcontext.gregs[REG_RIP]
