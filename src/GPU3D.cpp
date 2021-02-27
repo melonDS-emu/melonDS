@@ -459,6 +459,16 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&VertexNum);
     file->Var32(&VertexNumInPoly);
+    if (file->IsAtleastVersion(7, 2))
+        file->Var32(&PolygonMode);
+    else
+    { // don't crash when loading a bad state
+        if (!file->Saving)
+        {
+            if ((PolygonMode == 0 || PolygonMode == 2) && VertexNumInPoly > 2)
+                VertexNumInPoly == 2;
+        }
+    }
     file->Var32(&NumConsecutivePolygons);
 
     for (int i = 0; i < 4; i++)
