@@ -22,21 +22,22 @@
 #include "types.h"
 #include "Savestate.h"
 
-class GPU2D
+namespace GPU2D
+{
+
+class Unit
 {
 public:
-    GPU2D(u32 num);
-    virtual ~GPU2D() {}
+    Unit(u32 num);
 
-    GPU2D(const GPU2D&) = delete;
-    GPU2D& operator=(const GPU2D&) = delete;
+    Unit(const Unit&) = delete;
+    Unit& operator=(const Unit&) = delete;
 
     void Reset();
 
     void DoSavestate(Savestate* file);
 
     void SetEnabled(bool enable) { Enabled = enable; }
-    void SetFramebuffer(u32* buf);
 
     u8 Read8(u32 addr);
     u16 Read16(u32 addr);
@@ -57,8 +58,6 @@ public:
 
     void SampleFIFO(u32 offset, u32 num);
 
-    virtual void DrawScanline(u32 line) = 0;
-    virtual void DrawSprites(u32 line) = 0;
     void VBlank();
     virtual void VBlankEnd();
 
@@ -70,10 +69,11 @@ public:
     void GetBGVRAM(u8*& data, u32& mask);
     void GetOBJVRAM(u8*& data, u32& mask);
 
-protected:
+    void UpdateMosaicCounters(u32 line);
+    void CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow);
+
     u32 Num;
     bool Enabled;
-    u32* Framebuffer;
 
     u16 DispFIFO[16];
     u32 DispFIFOReadPtr;
@@ -116,14 +116,29 @@ protected:
     u32 CaptureCnt;
 
     u16 MasterBrightness;
-
-    alignas(8) u8 WindowMask[256];
-    alignas(8) u8 OBJWindow[256];
-
-    void UpdateMosaicCounters(u32 line);
-    void CalculateWindowMask(u32 line);
-
-    virtual void MosaicXSizeChanged() = 0;
 };
+
+class Renderer2D
+{
+public:
+    virtual ~Renderer2D() {}
+
+    virtual void DrawScanline(u32 line, Unit* unit) = 0;
+    virtual void DrawSprites(u32 line, Unit* unit) = 0;
+
+    virtual void VBlankEnd(Unit* unitA, Unit* unitB) = 0;
+
+    void SetFramebuffer(u32* unitA, u32* unitB)
+    {
+        Framebuffer[0] = unitA;
+        Framebuffer[1] = unitB;
+    }
+protected:
+    u32* Framebuffer[2];
+
+    Unit* CurUnit;
+};
+
+}
 
 #endif

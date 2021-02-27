@@ -2882,11 +2882,11 @@ u8 ARM9IORead8(u32 addr)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        return GPU::GPU2D_A->Read8(addr);
+        return GPU::GPU2D_A.Read8(addr);
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        return GPU::GPU2D_B->Read8(addr);
+        return GPU::GPU2D_B.Read8(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -2906,7 +2906,7 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000060: return GPU3D::Read16(addr);
     case 0x04000064:
-    case 0x04000066: return GPU::GPU2D_A->Read16(addr);
+    case 0x04000066: return GPU::GPU2D_A.Read16(addr);
 
     case 0x040000B8: return DMAs[0]->Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0]->Cnt >> 16;
@@ -3004,11 +3004,11 @@ u16 ARM9IORead16(u32 addr)
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
-        return GPU::GPU2D_A->Read16(addr);
+        return GPU::GPU2D_A.Read16(addr);
     }
     if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
-        return GPU::GPU2D_B->Read16(addr);
+        return GPU::GPU2D_B.Read16(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -3026,7 +3026,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
     case 0x04000060: return GPU3D::Read32(addr);
-    case 0x04000064: return GPU::GPU2D_A->Read32(addr);
+    case 0x04000064: return GPU::GPU2D_A.Read32(addr);
 
     case 0x040000B0: return DMAs[0]->SrcAddr;
     case 0x040000B4: return DMAs[0]->DstAddr;
@@ -3124,11 +3124,11 @@ u32 ARM9IORead32(u32 addr)
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
-        return GPU::GPU2D_A->Read32(addr);
+        return GPU::GPU2D_A.Read32(addr);
     }
     if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
-        return GPU::GPU2D_B->Read32(addr);
+        return GPU::GPU2D_B.Read32(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -3144,9 +3144,9 @@ void ARM9IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x0400006C:
-    case 0x0400006D: GPU::GPU2D_A->Write8(addr, val); return;
+    case 0x0400006D: GPU::GPU2D_A.Write8(addr, val); return;
     case 0x0400106C:
-    case 0x0400106D: GPU::GPU2D_B->Write8(addr, val); return;
+    case 0x0400106D: GPU::GPU2D_B.Write8(addr, val); return;
 
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
@@ -3205,12 +3205,12 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write8(addr, val);
+        GPU::GPU2D_A.Write8(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write8(addr, val);
+        GPU::GPU2D_B.Write8(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
@@ -3232,10 +3232,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000060: GPU3D::Write16(addr, val); return;
 
     case 0x04000068:
-    case 0x0400006A: GPU::GPU2D_A->Write16(addr, val); return;
+    case 0x0400006A: GPU::GPU2D_A.Write16(addr, val); return;
 
-    case 0x0400006C: GPU::GPU2D_A->Write16(addr, val); return;
-    case 0x0400106C: GPU::GPU2D_B->Write16(addr, val); return;
+    case 0x0400006C: GPU::GPU2D_A.Write16(addr, val); return;
+    case 0x0400106C: GPU::GPU2D_B.Write16(addr, val); return;
 
     case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -3371,12 +3371,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write16(addr, val);
+        GPU::GPU2D_A.Write16(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write16(addr, val);
+        GPU::GPU2D_B.Write16(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
@@ -3399,10 +3399,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000060: GPU3D::Write32(addr, val); return;
     case 0x04000064:
-    case 0x04000068: GPU::GPU2D_A->Write32(addr, val); return;
+    case 0x04000068: GPU::GPU2D_A.Write32(addr, val); return;
 
-    case 0x0400006C: GPU::GPU2D_A->Write16(addr, val&0xFFFF); return;
-    case 0x0400106C: GPU::GPU2D_B->Write16(addr, val&0xFFFF); return;
+    case 0x0400006C: GPU::GPU2D_A.Write16(addr, val&0xFFFF); return;
+    case 0x0400106C: GPU::GPU2D_B.Write16(addr, val&0xFFFF); return;
 
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;
     case 0x040000B4: DMAs[0]->DstAddr = val; return;
@@ -3534,12 +3534,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write32(addr, val);
+        GPU::GPU2D_A.Write32(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write32(addr, val);
+        GPU::GPU2D_B.Write32(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)

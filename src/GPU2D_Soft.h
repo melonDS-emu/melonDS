@@ -20,32 +20,32 @@
 
 #include "GPU2D.h"
 
-class GPU2D_Soft : public GPU2D
+namespace GPU2D
+{
+
+class SoftRenderer : public Renderer2D
 {
 public:
-    GPU2D_Soft(u32 num);
-    ~GPU2D_Soft() override {}
+    SoftRenderer();
+    ~SoftRenderer() override {}
 
-    void DrawScanline(u32 line) override;
-    void DrawSprites(u32 line) override;
-    void VBlankEnd() override;
-
-protected:
-    void MosaicXSizeChanged() override;
-
+    void DrawScanline(u32 line, Unit* unit) override;
+    void DrawSprites(u32 line, Unit* unit) override;
+    void VBlankEnd(Unit* unitA, Unit* unitB) override;
 private:
-
     alignas(8) u32 BGOBJLine[256*3];
     u32* _3DLine;
 
-    alignas(8) u32 OBJLine[256];
-    alignas(8) u8 OBJIndex[256];
+    alignas(8) u8 WindowMask[256];
 
-    u32 NumSprites;
+    alignas(8) u32 OBJLine[2][256];
+    alignas(8) u8 OBJIndex[2][256];
+    alignas(8) u8 OBJWindow[2][256];
 
-    u8 MosaicTable[16][256];
+    u32 NumSprites[2];
+
     u8* CurBGXMosaicTable;
-    u8* CurOBJXMosaicTable;
+    u8 MosaicTable[16][256];
 
     u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
     u32 ColorBlend5(u32 val1, u32 val2);
@@ -77,3 +77,5 @@ private:
 
     void DoCapture(u32 line, u32 width);
 };
+
+}
