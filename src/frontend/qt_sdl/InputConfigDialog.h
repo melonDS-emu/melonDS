@@ -25,6 +25,8 @@
 namespace Ui { class InputConfigDialog; }
 class InputConfigDialog;
 
+constexpr int hk_general_size = 10;
+
 class InputConfigDialog : public QDialog
 {
     Q_OBJECT
@@ -64,7 +66,8 @@ private:
 
     int keypadKeyMap[12],   keypadJoyMap[12];
     int addonsKeyMap[2],    addonsJoyMap[2];
-    int hkGeneralKeyMap[8], hkGeneralJoyMap[8];
+    int hkGeneralKeyMap[hk_general_size];
+    int hkGeneralJoyMap[hk_general_size];
 };
 
 
