@@ -16,13 +16,21 @@ SoftRenderer::SoftRenderer()
             MosaicTable[m][x] = offset;
         }
     }
+
+    BGOBJLine = NULL;
+}
+
+SoftRenderer::~SoftRenderer()
+{
+    if (BGOBJLine) operator delete[](BGOBJLine, std::align_val_t(8));
+    BGOBJLine = NULL;
 }
 
 void SoftRenderer::SetRenderSettings(int scale)
 {
+    if (BGOBJLine) operator delete[](BGOBJLine, std::align_val_t(8));
     int len = GPU3D::CurrentRenderer->Accelerated ? NATIVE_WIDTH * 3 : NATIVE_WIDTH * scale * scale * 2;
-    if (BGOBJLine) delete[] BGOBJLine;
-    BGOBJLine = new alignas(8) u32[len];
+    BGOBJLine = new(std::align_val_t(8)) u32[len];
 }
 
 u32 SoftRenderer::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)

@@ -27,7 +27,7 @@ class SoftRenderer : public Renderer2D
 {
 public:
     SoftRenderer();
-    ~SoftRenderer() override {}
+    ~SoftRenderer() override;
 
     void SetRenderSettings(int scale) override;
 
