@@ -1107,6 +1107,7 @@ void StartScanline(u32 line)
     {
         if (line == 0)
         {
+            GPU2D_Renderer->VBlankEnd(&GPU2D_A, &GPU2D_B);
             GPU2D_A.VBlankEnd();
             GPU2D_B.VBlankEnd();
         }
@@ -1146,7 +1147,6 @@ void StartScanline(u32 line)
             if (DispStat[0] & (1<<3)) NDS::SetIRQ(0, NDS::IRQ_VBlank);
             if (DispStat[1] & (1<<3)) NDS::SetIRQ(1, NDS::IRQ_VBlank);
 
-            GPU2D_Renderer->VBlankEnd(&GPU2D_A, &GPU2D_B);
             GPU2D_A.VBlank();
             GPU2D_B.VBlank();
             GPU3D::VBlank();

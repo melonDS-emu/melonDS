@@ -354,7 +354,7 @@ void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 #ifdef OGLRENDERER_ENABLED
     if (GPU3D::CurrentRenderer->Accelerated)
     {
-        if ((unitA->CaptureLatch) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
+        if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
             reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->PrepareCaptureFrame();
         }
