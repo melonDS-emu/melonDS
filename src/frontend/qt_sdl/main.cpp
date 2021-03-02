@@ -1130,7 +1130,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     QMenuBar* menubar = new QMenuBar();
     {
-        QMenu* menu = menubar->addMenu("File");
+        QMenu* menu = menubar->addMenu("&File");
 
         actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
@@ -1198,7 +1198,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actQuit, &QAction::triggered, this, &MainWindow::onQuit);
     }
     {
-        QMenu* menu = menubar->addMenu("System");
+        QMenu* menu = menubar->addMenu("&System");
 
         actPause = menu->addAction("Pause");
         actPause->setCheckable(true);
@@ -1220,7 +1220,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
     }
     {
-        QMenu* menu = menubar->addMenu("Config");
+        QMenu* menu = menubar->addMenu("&Config");
 
         actEmuSettings = menu->addAction("Emu settings");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
