@@ -1,6 +1,5 @@
 #if defined(__SWITCH__)
 #include <switch.h>
-#include "frontend/switch/FaultHandler.h"
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -97,6 +96,8 @@ bool FaultHandler(FaultDescription& faultDesc);
 #if defined(__SWITCH__)
 // with LTO the symbols seem to be not properly overriden
 // if they're somewhere else
+
+void HandleFault(u64 pc, u64 lr, u64 fp, u64 faultAddr, u32 desc);
 
 extern "C"
 {
