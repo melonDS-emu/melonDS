@@ -2618,7 +2618,7 @@ void SetRenderXPos(u16 xpos)
     RenderXPos = xpos & 0x01FF;
 }
 
-u32 ScrolledLine[256];
+std::vector<u32> ScrolledLine;
 
 u32* GetLine(int line)
 {
@@ -2627,25 +2627,37 @@ u32* GetLine(int line)
     if (RenderXPos == 0) return rawline;
 
     // apply X scroll
+    int scale = GPU3D::CurrentRenderer->Accelerated ? 1 : GPU::ScaleFactor;
+    int pixelCount = GPU3D::CurrentRenderer->GetStride() * scale;
+    if (ScrolledLine.size() != pixelCount)
+        ScrolledLine.resize(pixelCount);
+    u32* dst = ScrolledLine.data();
 
     if (RenderXPos & 0x100)
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 512; i++, j++)
-            ScrolledLine[i] = 0;
-        for (j = 0; i < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
+        // IDK why this isn't working
+        for (int y = 0; y < scale; y++)
+        {
+            int blank = (NATIVE_WIDTH*2 - RenderXPos) * scale;
+            memset(dst, 0, blank * sizeof(u32));
+            memcpy(dst+blank, rawline, (NATIVE_WIDTH * scale - blank) * sizeof(u32));
+            dst += GPU3D::CurrentRenderer->GetStride();
+            rawline += GPU3D::CurrentRenderer->GetStride();
+        }
     }
     else
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
-        for (; i < 256; i++)
-            ScrolledLine[i] = 0;
+        for (int y = 0; y < scale; y++)
+        {
+            int nonBlank = (NATIVE_WIDTH - RenderXPos) * scale;
+            memcpy(dst, rawline + (RenderXPos * scale), nonBlank * sizeof(u32));
+            memset(dst+nonBlank, 0, (NATIVE_WIDTH * scale - nonBlank) * sizeof(u32));
+            dst += GPU3D::CurrentRenderer->GetStride();
+            rawline += GPU3D::CurrentRenderer->GetStride();
+        }
     }
 
-    return ScrolledLine;
+    return ScrolledLine.data();
 }
 
 
