@@ -130,7 +130,7 @@ void Unit::Reset()
     DispFIFOReadPtr = 0;
     DispFIFOWritePtr = 0;
 
-    memset(DispFIFOBuffer, 0, 256*2);
+    memset(DispFIFOBuffer, 0, sizeof(DispFIFOBuffer));
 
     CaptureCnt = 0;
     CaptureLatch = false;
@@ -180,7 +180,7 @@ void Unit::DoSavestate(Savestate* file)
         file->Var32(&DispFIFOReadPtr);
         file->Var32(&DispFIFOWritePtr);
 
-        file->VarArray(DispFIFOBuffer, 256*2);
+        file->VarArray(DispFIFOBuffer, sizeof(DispFIFOBuffer));
 
         file->Var32(&CaptureCnt);
     }
@@ -420,21 +420,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x026: BGRotD[0] = val; return;
     case 0x028:
         BGXRef[0] = (BGXRef[0] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[0] = (BGXRef[0] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02C:
         BGYRef[0] = (BGYRef[0] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[0] = BGYRef[0];
         return;
     case 0x02E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[0] = (BGYRef[0] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[0] = BGYRef[0];
         return;
 
     case 0x030: BGRotA[1] = val; return;
@@ -443,21 +443,21 @@ void Unit::Write16(u32 addr, u16 val)
     case 0x036: BGRotD[1] = val; return;
     case 0x038:
         BGXRef[1] = (BGXRef[1] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03A:
         if (val & 0x0800) val |= 0xF000;
         BGXRef[1] = (BGXRef[1] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03C:
         BGYRef[1] = (BGYRef[1] & 0xFFFF0000) | val;
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[1] = BGYRef[1];
         return;
     case 0x03E:
         if (val & 0x0800) val |= 0xF000;
         BGYRef[1] = (BGYRef[1] & 0xFFFF) | (val << 16);
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[1] = BGYRef[1];
         return;
 
     case 0x040:
@@ -541,23 +541,23 @@ void Unit::Write32(u32 addr, u32 val)
     case 0x028:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[0] = val;
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[0] = BGXRef[0];
         return;
     case 0x02C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[0] = val;
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[0] = BGYRef[0];
         return;
 
     case 0x038:
         if (val & 0x08000000) val |= 0xF0000000;
         BGXRef[1] = val;
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGXRefInternal[1] = BGXRef[1];
         return;
     case 0x03C:
         if (val & 0x08000000) val |= 0xF0000000;
         BGYRef[1] = val;
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+        if (GPU::VCount < NATIVE_HEIGHT) BGYRefInternal[1] = BGYRef[1];
         return;
     }
 
@@ -624,7 +624,7 @@ void Unit::SampleFIFO(u32 offset, u32 num)
 
 u16* Unit::GetBGExtPal(u32 slot, u32 pal)
 {
-    const u32 PaletteSize = 256 * 2;
+    const u32 PaletteSize = NATIVE_WIDTH * 2;
     const u32 SlotSize = PaletteSize * 16;
     return (u16*)&(Num == 0
          ? GPU::VRAMFlat_ABGExtPal
@@ -649,13 +649,13 @@ void Unit::CheckWindows(u32 line)
 
 void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
 {
-    for (u32 i = 0; i < 256; i++)
+    for (u32 i = 0; i < NATIVE_WIDTH; i++)
         windowMask[i] = WinCnt[2]; // window outside
 
     if (DispCnt & (1<<15))
     {
         // OBJ window
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < NATIVE_WIDTH; i++)
         {
             if (objWindow[i])
                 windowMask[i] = WinCnt[3];
@@ -668,7 +668,7 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
         u8 x1 = Win1Coords[0];
         u8 x2 = Win1Coords[1];
 
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < NATIVE_WIDTH; i++)
         {
             if (i == x2)      Win1Active &= ~0x2;
             else if (i == x1) Win1Active |=  0x2;
@@ -683,7 +683,7 @@ void Unit::CalculateWindowMask(u32 line, u8* windowMask, u8* objWindow)
         u8 x1 = Win0Coords[0];
         u8 x2 = Win0Coords[1];
 
-        for (int i = 0; i < 256; i++)
+        for (int i = 0; i < NATIVE_WIDTH; i++)
         {
             if (i == x2)      Win0Active &= ~0x2;
             else if (i == x1) Win0Active |=  0x2;

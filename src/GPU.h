@@ -79,6 +79,7 @@ extern GPU2D::Unit GPU2D_A;
 extern GPU2D::Unit GPU2D_B;
 
 extern int Renderer;
+extern int ScaleFactor;
 
 const u32 VRAMDirtyGranularity = 512;
 
@@ -158,7 +159,7 @@ struct RenderSettings
 {
     bool Soft_Threaded;
 
-    int GL_ScaleFactor;
+    int ScaleFactor;
     bool GL_BetterPolygons;
 };
 

@@ -27,25 +27,27 @@ class SoftRenderer : public Renderer2D
 {
 public:
     SoftRenderer();
-    ~SoftRenderer() override {}
+    ~SoftRenderer() override;
+
+    void SetRenderSettings(int scale) override;
 
     void DrawScanline(u32 line, Unit* unit) override;
     void DrawSprites(u32 line, Unit* unit) override;
     void VBlankEnd(Unit* unitA, Unit* unitB) override;
 private:
-    alignas(8) u32 BGOBJLine[256*3];
+    u32* BGOBJLine;
     u32* _3DLine;
 
-    alignas(8) u8 WindowMask[256];
+    alignas(8) u8 WindowMask[NATIVE_WIDTH];
 
-    alignas(8) u32 OBJLine[2][256];
-    alignas(8) u8 OBJIndex[2][256];
-    alignas(8) u8 OBJWindow[2][256];
+    alignas(8) u32 OBJLine[2][NATIVE_WIDTH];
+    alignas(8) u8 OBJIndex[2][NATIVE_WIDTH];
+    alignas(8) u8 OBJWindow[2][NATIVE_WIDTH];
 
     u32 NumSprites[2];
 
     u8* CurBGXMosaicTable;
-    u8 MosaicTable[16][256];
+    u8 MosaicTable[16][NATIVE_WIDTH];
 
     u32 ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb);
     u32 ColorBlend5(u32 val1, u32 val2);
@@ -58,10 +60,11 @@ private:
     void DrawScanlineBGMode7(u32 line);
     void DrawScanline_BGOBJ(u32 line);
 
-    static void DrawPixel_Normal(u32* dst, u16 color, u32 flag);
-    static void DrawPixel_Accel(u32* dst, u16 color, u32 flag);
+    static void DrawPixel_Normal(u32* dst, u32 index, u16 color, u32 flag);
+    static void DrawPixel_HiRes(u32* dst, u32 index, u16 color, u32 flag);
+    static void DrawPixel_Accel(u32* dst, u32 index, u16 color, u32 flag);
 
-    typedef void (*DrawPixel)(u32* dst, u16 color, u32 flag);
+    typedef void (*DrawPixel)(u32* dst, u32 index, u16 color, u32 flag);
 
     void DrawBG_3D();
     template<bool mosaic, DrawPixel drawPixel> void DrawBG_Text(u32 line, u32 bgnum);
@@ -75,6 +78,7 @@ private:
     template<bool window> void DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos);
     template<bool window> void DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos);
 
+    void ExpandLine(u32* line);
     void DoCapture(u32 line, u32 width);
 };
 

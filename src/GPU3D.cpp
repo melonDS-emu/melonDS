@@ -273,6 +273,7 @@ u32 RenderNumPolygons;
 u32 FlushRequest;
 u32 FlushAttributes;
 
+u32 CalculatePolygonMetadata(Polygon* poly);
 std::unique_ptr<GPU3D::Renderer3D> CurrentRenderer = {};
 
 bool Init()
@@ -508,7 +509,14 @@ void DoSavestate(Savestate* file)
 
         file->Bool32(&vtx->Clipped);
 
-        file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
+        if (file->IsAtleastVersion(7, 3))
+        {
+            file->VarArray(vtx->HiresPosition, sizeof(s32)*2);
+            vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> HD_SHIFT;
+            vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> HD_SHIFT;
+        }
+        else
+            file->VarArray(vtx->FinalPosition, sizeof(s32)*2);
         file->VarArray(vtx->FinalColor, sizeof(s32)*3);
     }
 
@@ -561,27 +569,33 @@ void DoSavestate(Savestate* file)
         else
             poly->Type = 0;
 
-        file->Var32(&poly->VTop);
-        file->Var32(&poly->VBottom);
-        file->Var32((u32*)&poly->YTop);
-        file->Var32((u32*)&poly->YBottom);
-        file->Var32((u32*)&poly->XTop);
-        file->Var32((u32*)&poly->XBottom);
-
-        file->Var32(&poly->SortKey);
-
-        if (!file->Saving)
+        if (!file->IsAtleastVersion(7, 3))
         {
-            poly->Degenerate = false;
+            file->Var32(&poly->VTop);
+            file->Var32(&poly->VBottom);
+            file->Var32((u32*)&poly->YTop);
+            file->Var32((u32*)&poly->YBottom);
+            file->Var32((u32*)&poly->XTop);
+            file->Var32((u32*)&poly->XBottom);
 
-            for (int j = 0; j < poly->NumVertices; j++)
+            file->Var32(&poly->SortKey);
+
+            if (!file->Saving)
             {
-                if (poly->Vertices[j]->Position[3] == 0)
-                    poly->Degenerate = true;
-            }
+                poly->Degenerate = false;
 
-            if (poly->YBottom > 192) poly->Degenerate = true;
+                for (int j = 0; j < poly->NumVertices; j++)
+                {
+                    if (poly->Vertices[j]->Position[3] == 0)
+                        poly->Degenerate = true;
+                }
+
+                if (poly->YBottom > 192) poly->Degenerate = true;
+            }
         }
+        else if (!file->Saving)
+            CalculatePolygonMetadata(poly);
+
     }
 
     // probably not worth storing the vblank-latched Renderxxxxxx variables
@@ -1174,7 +1188,7 @@ void SubmitPolygon()
         // note: the DS performs these divisions using a 32-bit divider
         // thus, if W is greater than 0xFFFF, some precision is sacrificed
         // to make the numbers fit into the divider
-        u32 posX, posY;
+        u64 posX, posY;
         u32 w = vtx->Position[3];
         if (w == 0)
         {
@@ -1195,23 +1209,15 @@ void SubmitPolygon()
             }
 
             den <<= 1;
-            posX = ((posX * Viewport[4]) / den) + Viewport[0];
-            posY = ((posY * Viewport[5]) / den) + Viewport[3];
+            posX = (((posX * Viewport[4]) << HD_SHIFT) / den) + (Viewport[0] << HD_SHIFT);
+            posY = (((posY * Viewport[5]) << HD_SHIFT) / den) + (Viewport[3] << HD_SHIFT);
         }
 
-        vtx->FinalPosition[0] = posX & 0x1FF;
-        vtx->FinalPosition[1] = posY & 0xFF;
+        vtx->HiresPosition[0] = posX & (0x200 << HD_SHIFT) - 1;
+        vtx->HiresPosition[1] = posY & (0x100 << HD_SHIFT) - 1;
 
-        // hi-res positions
-        // to consider: only do this when using the GL renderer? apply the aforementioned quirk to this?
-        if (w != 0)
-        {
-            posX = ((((s64)(vtx->Position[0] + w) * Viewport[4]) << 4) / (((s64)w) << 1)) + (Viewport[0] << 4);
-            posY = ((((s64)(-vtx->Position[1] + w) * Viewport[5]) << 4) / (((s64)w) << 1)) + (Viewport[3] << 4);
-
-            vtx->HiresPosition[0] = posX & 0x1FFF;
-            vtx->HiresPosition[1] = posY & 0xFFF;
-        }
+        vtx->FinalPosition[0] = (vtx->HiresPosition[0] * GPU::ScaleFactor) >> HD_SHIFT;
+        vtx->FinalPosition[1] = (vtx->HiresPosition[1] * GPU::ScaleFactor) >> HD_SHIFT;
     }
 
     // zero-dot W check:
@@ -1328,51 +1334,9 @@ void SubmitPolygon()
         if (vtx->FinalColor[2]) vtx->FinalColor[2] = ((vtx->FinalColor[2] << 4) + 0xF);
     }
 
-    // determine bounds of the polygon
-    // also determine the W shift and normalize W
-    // normalization works both ways
-    // (ie two W's that span 12 bits or less will be brought to 16 bits)
-
-    u32 vtop = 0, vbot = 0;
-    s32 ytop = 192, ybot = 0;
-    s32 xtop = 256, xbot = 0;
-    u32 wsize = 0;
-
-    for (int i = 0; i < nverts; i++)
-    {
-        Vertex* vtx = poly->Vertices[i];
-
-        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
-        {
-            xtop = vtx->FinalPosition[0];
-            ytop = vtx->FinalPosition[1];
-            vtop = i;
-        }
-        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
-        {
-            xbot = vtx->FinalPosition[0];
-            ybot = vtx->FinalPosition[1];
-            vbot = i;
-        }
-
-        u32 w = (u32)vtx->Position[3];
-        if (w == 0) poly->Degenerate = true;
-
-        while ((w >> wsize) && (wsize < 32))
-            wsize += 4;
-    }
-
-    poly->VTop = vtop; poly->VBottom = vbot;
-    poly->YTop = ytop; poly->YBottom = ybot;
-    poly->XTop = xtop; poly->XBottom = xbot;
-
-    if (ybot > 192) poly->Degenerate = true;
-
-    poly->SortKey = (ybot << 8) | ytop;
-    if (poly->Translucent) poly->SortKey |= 0x10000;
-
     poly->WBuffer = (FlushAttributes & 0x2);
 
+    u32 wsize = CalculatePolygonMetadata(poly);
     for (int i = 0; i < nverts; i++)
     {
         Vertex* vtx = poly->Vertices[i];
@@ -1414,6 +1378,53 @@ void SubmitPolygon()
         LastStripPolygon = poly;
     else
         LastStripPolygon = NULL;
+}
+u32 CalculatePolygonMetadata(Polygon* poly)
+{
+    // determine bounds of the polygon
+    // also determine the W shift and normalize W
+    // normalization works both ways
+    // (ie two W's that span 12 bits or less will be brought to 16 bits)
+
+    u32 vtop = 0, vbot = 0;
+    s32 ytop = 192 * GPU::ScaleFactor, ybot = 0;
+    s32 xtop = 256 * GPU::ScaleFactor, xbot = 0;
+    u32 wsize = 0;
+
+    for (int i = 0; i < poly->NumVertices; i++)
+    {
+        Vertex* vtx = poly->Vertices[i];
+
+        if (vtx->FinalPosition[1] < ytop || (vtx->FinalPosition[1] == ytop && vtx->FinalPosition[0] < xtop))
+        {
+            xtop = vtx->FinalPosition[0];
+            ytop = vtx->FinalPosition[1];
+            vtop = i;
+        }
+        if (vtx->FinalPosition[1] > ybot || (vtx->FinalPosition[1] == ybot && vtx->FinalPosition[0] > xbot))
+        {
+            xbot = vtx->FinalPosition[0];
+            ybot = vtx->FinalPosition[1];
+            vbot = i;
+        }
+
+        u32 w = (u32)vtx->Position[3];
+        if (w == 0) poly->Degenerate = true;
+
+        while ((w >> wsize) && (wsize < 32))
+            wsize += 4;
+    }
+
+    poly->VTop = vtop; poly->VBottom = vbot;
+    poly->YTop = ytop; poly->YBottom = ybot;
+    poly->XTop = xtop; poly->XBottom = xbot;
+
+    if (ybot > 192 * GPU::ScaleFactor) poly->Degenerate = true;
+
+    poly->SortKey = (ybot << (8 + HD_SHIFT)) | ytop;
+    if (poly->Translucent) poly->SortKey |= 0x10000 << (HD_SHIFT * 2);
+
+    return wsize;
 }
 
 void SubmitVertex()
@@ -2607,7 +2618,7 @@ void SetRenderXPos(u16 xpos)
     RenderXPos = xpos & 0x01FF;
 }
 
-u32 ScrolledLine[256];
+std::vector<u32> ScrolledLine;
 
 u32* GetLine(int line)
 {
@@ -2616,25 +2627,37 @@ u32* GetLine(int line)
     if (RenderXPos == 0) return rawline;
 
     // apply X scroll
+    int scale = GPU3D::CurrentRenderer->Accelerated ? 1 : GPU::ScaleFactor;
+    int pixelCount = GPU3D::CurrentRenderer->GetStride() * scale;
+    if (ScrolledLine.size() != pixelCount)
+        ScrolledLine.resize(pixelCount);
+    u32* dst = ScrolledLine.data();
 
     if (RenderXPos & 0x100)
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 512; i++, j++)
-            ScrolledLine[i] = 0;
-        for (j = 0; i < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
+        // IDK why this isn't working
+        for (int y = 0; y < scale; y++)
+        {
+            int blank = (NATIVE_WIDTH*2 - RenderXPos) * scale;
+            memset(dst, 0, blank * sizeof(u32));
+            memcpy(dst+blank, rawline, (NATIVE_WIDTH * scale - blank) * sizeof(u32));
+            dst += GPU3D::CurrentRenderer->GetStride();
+            rawline += GPU3D::CurrentRenderer->GetStride();
+        }
     }
     else
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
-        for (; i < 256; i++)
-            ScrolledLine[i] = 0;
+        for (int y = 0; y < scale; y++)
+        {
+            int nonBlank = (NATIVE_WIDTH - RenderXPos) * scale;
+            memcpy(dst, rawline + (RenderXPos * scale), nonBlank * sizeof(u32));
+            memset(dst+nonBlank, 0, (NATIVE_WIDTH * scale - nonBlank) * sizeof(u32));
+            dst += GPU3D::CurrentRenderer->GetStride();
+            rawline += GPU3D::CurrentRenderer->GetStride();
+        }
     }
 
-    return ScrolledLine;
+    return ScrolledLine.data();
 }
 
 

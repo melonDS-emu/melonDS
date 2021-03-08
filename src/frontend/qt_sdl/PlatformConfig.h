@@ -68,7 +68,7 @@ extern int ScreenVSyncInterval;
 extern int _3DRenderer;
 extern int Threaded3D;
 
-extern int GL_ScaleFactor;
+extern int ScaleFactor;
 extern int GL_BetterPolygons;
 
 extern int LimitFPS;

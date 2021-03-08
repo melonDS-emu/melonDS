@@ -89,6 +89,9 @@ private:
 
     QOffscreenSurface* oglSurface;
     QOpenGLContext* oglContext;
+    bool hasOGL;
+
+    void updateDisplay(bool forceInit = false);
 };
 
 
@@ -191,7 +194,8 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
-    
+    void createScreenPanel();
+
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
@@ -257,7 +261,7 @@ private slots:
     void onEmuStart();
     void onEmuStop();
 
-    void onUpdateVideoSettings(bool glchange);
+    void onUpdateVideoSettings(bool displayChange);
     
     void onFullscreenToggled();
 
@@ -269,8 +273,6 @@ private:
     void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
 
     QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
-
-    void createScreenPanel();
 
     QString loadErrorStr(int error);
     

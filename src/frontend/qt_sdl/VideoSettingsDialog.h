@@ -63,7 +63,7 @@ private slots:
     void on_cbVSync_stateChanged(int state);
     void on_sbVSyncInterval_valueChanged(int val);
 
-    void on_cbxGLResolution_currentIndexChanged(int idx);
+    void on_cbxResolution_currentIndexChanged(int idx);
     void on_cbBetterPolygons_stateChanged(int state);
 
     void on_cbSoftwareThreaded_stateChanged(int state);

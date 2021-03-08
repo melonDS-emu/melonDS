@@ -28,7 +28,7 @@ class SoftRenderer : public Renderer3D
 {
 public:
     SoftRenderer();
-    virtual ~SoftRenderer() override {};
+    virtual ~SoftRenderer() override;
     virtual bool Init() override;
     virtual void DeInit() override;
     virtual void Reset() override;
@@ -39,6 +39,7 @@ public:
     virtual void RenderFrame() override;
     virtual void RestartFrame() override;
     virtual u32* GetLine(int line) override;
+    virtual u32 GetStride() override;
 
     void SetupRenderThread();
     void StopRenderThread();
@@ -477,14 +478,17 @@ private:
     // TODO: check if the hardware can accidentally plot pixels
     // offscreen in that border
 
-    static constexpr int ScanlineWidth = 258;
-    static constexpr int NumScanlines = 194;
-    static constexpr int BufferSize = ScanlineWidth * NumScanlines;
-    static constexpr int FirstPixelOffset = ScanlineWidth + 1;
+    int ScanlineWidth = NATIVE_WIDTH + 2;
+    int NumScanlines = NATIVE_HEIGHT + 2;
+    int BufferSize = ScanlineWidth * NumScanlines;
+    int FirstPixelOffset = ScanlineWidth + 1;
 
-    u32 ColorBuffer[BufferSize * 2];
-    u32 DepthBuffer[BufferSize * 2];
-    u32 AttrBuffer[BufferSize * 2];
+    int RenderWidth = NATIVE_WIDTH;
+    int RenderHeight = NATIVE_HEIGHT;
+
+    u32* ColorBuffer;
+    u32* DepthBuffer;
+    u32* AttrBuffer;
 
     // attribute buffer:
     // bit0-3: edge flags (left/right/top/bottom)
@@ -495,7 +499,7 @@ private:
     // bit22: translucent flag
     // bit24-29: polygon ID for opaque pixels
 
-    u8 StencilBuffer[256*2];
+    u8* StencilBuffer;
     bool PrevIsShadowMask;
 
     bool Enabled;
@@ -511,5 +515,6 @@ private:
     Platform::Semaphore* Sema_RenderStart;
     Platform::Semaphore* Sema_RenderDone;
     Platform::Semaphore* Sema_ScanlineCount;
+    Platform::Mutex* Mutex_Buffer;
 };
 }

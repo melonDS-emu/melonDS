@@ -126,6 +126,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     int rotation,
     int sizing,
     int screenGap,
+    int scaleFactor,
     bool integerScale,
     bool swapScreens,
     float topAspect, float botAspect)
@@ -140,11 +141,14 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         topAspect = botAspect = 1;
     }
 
+    int width = 256 * scaleFactor;
+    int height = 192 * scaleFactor;
+
     float refpoints[6][2] =
     {
-        {0, 0}, {256, 192},
-        {0, 0}, {256, 192},
-        {0, 0}, {256, 192}
+        {0, 0}, {width, height},
+        {0, 0}, {width, height},
+        {0, 0}, {width, height}
     };
 
     int layout = screenLayout == 0
@@ -160,8 +164,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     M23_Identity(BotScreenMtx);
     M23_Identity(HybScreenMtx);
 
-    M23_Translate(TopScreenMtx, -256/2, -192/2);
-    M23_Translate(BotScreenMtx, -256/2, -192/2);
+    M23_Translate(TopScreenMtx, -width/2, -height/2);
+    M23_Translate(BotScreenMtx, -width/2, -height/2);
 
     M23_Scale(TopScreenMtx, topAspect, 1);
     M23_Scale(BotScreenMtx, botAspect, 1);
@@ -221,8 +225,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
             bool moveV = rotation % 2 == layout;
 
-            float offsetBot = (moveV ? 192.0 : 256.0 * botAspect) / 2.0 + screenGap / 2.0;
-            float offsetTop = -((moveV ? 192.0 : 256.0 * topAspect) / 2.0 + screenGap / 2.0);
+            float offsetBot = (moveV ? height : width * botAspect) / 2.0 + screenGap / 2.0;
+            float offsetTop = -((moveV ? height : width * topAspect) / 2.0 + screenGap / 2.0);
 
             if ((rotation == 1 || rotation == 2) ^ swapScreens)
             {
@@ -419,7 +423,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
     if (BotEnable)
     {
         M23_Identity(TouchMtx);
-
+        
         M23_Translate(TouchMtx, -botTrans[2], -botTrans[3]);
         M23_Scale(TouchMtx, 1.f / botScale);
         M23_Translate(TouchMtx, -botTrans[0], -botTrans[1]);
@@ -430,7 +434,10 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         M23_Multiply(TouchMtx, rotmtx, TouchMtx);
 
         M23_Scale(TouchMtx, 1.f/botAspect, 1);
-        M23_Translate(TouchMtx, 256/2, 192/2);
+        M23_Translate(TouchMtx, width/2, height/2);
+
+        // it should also undo the scaleFactor
+        M23_Scale(TouchMtx, 1.f / scaleFactor);
 
         if (HybEnable && HybScreen == 1)
         {
@@ -439,6 +446,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
             M23_Translate(HybTouchMtx, -hybTrans[0], -hybTrans[1]);
             M23_Scale(HybTouchMtx, 1.f/hybScale);
             M23_Multiply(HybTouchMtx, rotmtx, HybTouchMtx);
+
+            M23_Scale(HybTouchMtx, 1.f / scaleFactor);
         }
     }
 }

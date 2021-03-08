@@ -145,7 +145,7 @@ private:
     GLuint FramebufferTex[8];
     int FrontBuffer;
     GLuint FramebufferID[4], PixelbufferID;
-    u32 Framebuffer[256*192];
+    u32 Framebuffer[NATIVE_WIDTH*NATIVE_HEIGHT];
 
 
 };

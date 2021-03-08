@@ -25,6 +25,10 @@
 #include "GPU.h"
 #include "Savestate.h"
 
+// should be able to be as high as 7
+// limiting factor: SortKey must contain ytop and ybottom and translucent
+#define HD_SHIFT 7
+
 namespace GPU3D
 {
 
@@ -157,6 +161,7 @@ public:
     virtual void RenderFrame() = 0;
     virtual void RestartFrame() {};
     virtual u32* GetLine(int line) = 0;
+    virtual u32 GetStride() { return NATIVE_WIDTH; }
 };
 
 extern int Renderer;
