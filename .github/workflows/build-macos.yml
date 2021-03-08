@@ -29,9 +29,9 @@ jobs:
         echo 'macosx_deployment_target 10.13' | sudo tee -a /opt/local/etc/macports/macports.conf
         echo "/opt/local/bin" >> $GITHUB_PATH
     - name: Install dependencies
-      working-directory: ${{runner.workspace}}
+      working-directory: ./.github/workflows/scripts/macOS
       run: |
-        sudo bash .github/workflows/scripts/macOS/install-qt.sh --version 5.15.2 qtbase
+        sudo bash install-qt.sh --version 5.15.2 qtbase
         curl -LO https://libsdl.org/release/SDL2-$SDL2_VER.dmg
         sudo hdiutil attach SDL2-$SDL2_VER.dmg
         sudo cp -r /Volumes/SDL2/SDL2.framework /Library/Frameworks/
