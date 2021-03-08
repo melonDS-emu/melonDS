@@ -42,7 +42,7 @@ jobs:
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
       working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=/usr/local/Qt/5.15.2/clang_64/lib/cmake/Qt5
+      run: cmake -DUSE_SDL2_FRAMEWORK=ON $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=/usr/local/Qt/5.15.2/clang_64/lib/cmake/Qt5
     - name: Make
       working-directory: ${{runner.workspace}}/build
       run: |
