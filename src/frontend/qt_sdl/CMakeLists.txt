@@ -52,16 +52,17 @@ set(CMAKE_AUTORCC ON)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Iconv REQUIRED)
-pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(SLIRP REQUIRED slirp)
 
 if (APPLE)
-    # Find libarchive on macOS, because macOS only provides the library, not the headers
-    execute_process(COMMAND brew --prefix libarchive
-                    OUTPUT_VARIABLE LIBARCHIVE_DIR
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    list(APPEND CMAKE_PREFIX_PATH "${LIBARCHIVE_DIR}")
+    option(USE_SDL2_FRAMEWORK "Use SDL2 framework instead of dylib on macOS" OFF)
 endif()
+
+if (USE_SDL2_FRAMEWORK)
+    find_library(SDL2_LIBRARIES SDL2)
+else()
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+endif()
+pkg_check_modules(SLIRP REQUIRED slirp)
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
@@ -73,8 +74,12 @@ endif()
 
 target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
-target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
-target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS} ${SLIRP_LIBRARY_DIRS} ${LIBARCHIVE_LIBRARY_DIRS})
+if (NOT USE_SDL2_FRAMEWORK)
+    target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS})
+endif()
+target_include_directories(melonDS PRIVATE ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
+target_link_directories(melonDS PRIVATE ${SLIRP_LIBRARY_DIRS} ${LIBARCHIVE_LIBRARY_DIRS})
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
