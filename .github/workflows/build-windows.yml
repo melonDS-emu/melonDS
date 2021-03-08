@@ -15,29 +15,33 @@ jobs:
   build:
 
     runs-on: windows-latest
-
+    
+    defaults:
+      run:
+        shell: msys2 {0}
     steps:
     - uses: actions/checkout@v1
-    - name: Install MSYS2
-      working-directory: ${{runner.workspace}}
-      run: | # Fetch MSYS2 build from XQEmu. Official distribution causes a CI failure due to permission errors.
-        choco install msys2
-        C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Syuq --noconfirm"
+    - uses: msys2/setup-msys2@v2
+      with:
+          msystem: MINGW64
+          update: true
+
     - name: Install dependencies
-      run: C:\tools\msys64\usr\bin\bash.exe -lc "pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}"
+      run: pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}
+  
     - name: Create build environment
-      run: |
-        New-Item -ItemType directory -Path ${{runner.workspace}}\melonDS\build
-        Copy-Item -Path ${{runner.workspace}}\melonDS -Destination C:\tools\msys64\home\runneradmin -Recurse
+      working-directory: ${{runner.workspace}}
+      run: mkdir build
+
     - name: Configure
-      run: |
-        C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
-        && cd melonDS/build && cmake .. -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DQT5_STATIC_DIR=C:/tools/msys64/mingw64/qt5-static"
+      working-directory: ${{runner.workspace}}/build
+      run: cmake $GITHUB_WORKSPACE -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DQT5_STATIC_DIR=C:/tools/msys64/mingw64/qt5-static
+
     - name: Make
-      run: |
-        C:\tools\msys64\usr\bin\bash.exe -lc "export PATH=`"/mingw64/bin:`$PATH`" \
-        && cd melonDS/build && make -j$(nproc --all)"
+      working-directory: ${{runner.workspace}}/build
+      run: make -j$(nproc --all)
+
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS
-        path: C:\tools\msys64\home\runneradmin\melonDS\build\melonDS.exe
+        path: ${{runner.workspace}}\build\melonDS.exe
