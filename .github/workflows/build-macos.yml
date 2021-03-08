@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       working-directory: ${{runner.workspace}}
       run: |
-        sudo $GITHUB_WORKSPACE/.github/workflows/scripts/macOS/install-qt.sh --version 5.15.2 qtbase
+        sudo bash .github/workflows/scripts/macOS/install-qt.sh --version 5.15.2 qtbase
         curl -LO https://libsdl.org/release/SDL2-$SDL2_VER.dmg
         sudo hdiutil attach SDL2-$SDL2_VER.dmg
         sudo cp -r /Volumes/SDL2/SDL2.framework /Library/Frameworks/
