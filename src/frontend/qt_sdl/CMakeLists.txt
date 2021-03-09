@@ -62,6 +62,7 @@ if (USE_SDL2_FRAMEWORK)
 else()
     pkg_check_modules(SDL2 REQUIRED sdl2)
 endif()
+
 pkg_check_modules(SLIRP REQUIRED slirp)
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
@@ -92,7 +93,7 @@ else()
 endif()
 
 if (NOT Iconv_IS_BUILT_IN)
-	target_link_libraries(melonDS iconv)
+	target_link_libraries(melonDS ${Iconv_LIBRARIES})
 endif()
 
 if (UNIX)

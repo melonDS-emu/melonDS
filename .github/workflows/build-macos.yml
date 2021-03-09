@@ -31,13 +31,20 @@ jobs:
     - name: Install dependencies
       working-directory: ./.github/workflows/scripts/macOS
       run: |
-        sudo bash install-qt.sh --version 5.15.2 qtbase
+        sudo bash install-qt.sh --version 5.15.2 qtbase qttools
         curl -LO https://libsdl.org/release/SDL2-$SDL2_VER.dmg
         sudo hdiutil attach SDL2-$SDL2_VER.dmg
         sudo cp -r /Volumes/SDL2/SDL2.framework /Library/Frameworks/
         sudo hdiutil detach /Volumes/SDL2
-        sudo port -N install depof:libepoxy depof:libslirp depof:libarchive
-        sudo port -Ns install gettext glib2 libepoxy libslirp libarchive
+        sudo port -N install depof:gettext
+        sudo port -Ns install gettext
+        sudo port -N install depof:glib2
+        sudo port -Ns install glib2
+        sudo port -N install depof:libslirp
+        sudo port -Ns install libslirp
+        sudo port -N install depof:libepoxy
+        sudo port -Ns install libepoxy
+        sudo port -Ns install libarchive
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
