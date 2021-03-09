@@ -102,21 +102,6 @@ echo "archive_site_local https://packages.macports.org/:tbz2 https://packages-pr
 #echo "preferred_hosts packages.macports.org" | sudo tee -a /opt/local/etc/macports/macports.conf >/dev/null
 echo "::endgroup::"
 
-echo "::group::Generating PortIndex"
-# Update PortIndex
-curl -L "https://ftp.fau.de/macports/release/ports/PortIndex_darwin_${OS_MAJOR}_${OS_ARCH}/PortIndex" -o ports/PortIndex
-## Run portindex on recent commits if PR is newer
-git -C ports/ remote add macports https://github.com/macports/macports-ports.git
-git -C ports/ fetch macports master
-git -C ports/ checkout -qf macports/master~10
-git -C ports/ checkout -qf -
-git -C ports/ checkout -qf "$(git -C ports/ merge-base macports/master HEAD)"
-## Ignore portindex errors on common ancestor
-(cd ports/ && portindex)
-git -C ports/ checkout -qf -
-(cd ports/ && portindex -e)
-echo "::endgroup::"
-
 echo "::group::Running postflight"
 # Create macports user
 echo "Postflight..."
