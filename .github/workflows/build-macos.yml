@@ -21,9 +21,8 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install MacPorts
-      run: |
-        curl -LO https://github.com/macports/macports-base/releases/download/v$MACPORTS_VER/MacPorts-$MACPORTS_VER-10.15-Catalina.pkg
-        sudo installer -verbose -pkg MacPorts-$MACPORTS_VER-10.15-Catalina.pkg -target /
+      working-directory: ./.github/workflows/scripts/macOS
+      run: ./install-macports.sh
     - name: Configure MacPorts
       run: |
         echo 'macosx_deployment_target 10.13' | sudo tee -a /opt/local/etc/macports/macports.conf
