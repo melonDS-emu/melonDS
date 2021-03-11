@@ -33,7 +33,7 @@ void RenderThreadFunc();
 
 void SoftRenderer::StopRenderThread()
 {
-    if (RenderThreadRunning)
+    if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         RenderThreadRunning = false;
         Platform::Semaphore_Post(Sema_RenderStart);
@@ -46,7 +46,7 @@ void SoftRenderer::SetupRenderThread()
 {
     if (Threaded)
     {
-        if (!RenderThreadRunning)
+        if (!RenderThreadRunning.load(std::memory_order_relaxed))
         {
             RenderThreadRunning = true;
             RenderThread = Platform::Thread_Create(std::bind(&SoftRenderer::RenderThreadFunc, this));
@@ -1646,7 +1646,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
 void SoftRenderer::VCount144()
 {
-    if (RenderThreadRunning)
+    if (RenderThreadRunning.load(std::memory_order_relaxed))
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
@@ -1660,7 +1660,7 @@ void SoftRenderer::RenderFrame()
 
     FrameIdentical = !(textureChanged || texPalChanged) && RenderFrameIdentical;
 
-    if (RenderThreadRunning)
+    if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         Platform::Semaphore_Post(Sema_RenderStart);
     }
@@ -1701,7 +1701,7 @@ void SoftRenderer::RenderThreadFunc()
 
 u32* SoftRenderer::GetLine(int line)
 {
-    if (RenderThreadRunning)
+    if (RenderThreadRunning.load(std::memory_order_relaxed))
     {
         if (line < 192)
             Platform::Semaphore_Wait(Sema_ScanlineCount);
