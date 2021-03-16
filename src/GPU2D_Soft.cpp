@@ -1464,7 +1464,6 @@ void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
 {
     u16 bgcnt = CurUnit->BGCnt[2];
 
-    u32 tilesetaddr, tilemapaddr;
     u16* pal;
 
     // large BG sizes:
@@ -1539,7 +1538,7 @@ void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
 
             if (!(finalX & ofxmask) && !(finalY & ofymask))
             {
-                color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
+                color = bgvram[((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                 if (color)
                     drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
