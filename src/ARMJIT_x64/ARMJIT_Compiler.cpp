@@ -467,14 +467,14 @@ void Compiler::SaveCPSR(bool flagClean)
 void Compiler::LoadReg(int reg, X64Reg nativeReg)
 {
     if (reg != 15)
-        MOV(32, R(nativeReg), MDisp(RCPU, offsetof(ARM, R[reg])));
+        MOV(32, R(nativeReg), MDisp(RCPU, offsetof(ARM, R) + reg*4));
     else
         MOV(32, R(nativeReg), Imm32(R15));
 }
 
 void Compiler::SaveReg(int reg, X64Reg nativeReg)
 {
-    MOV(32, MDisp(RCPU, offsetof(ARM, R[reg])), R(nativeReg));
+    MOV(32, MDisp(RCPU, offsetof(ARM, R) + reg*4), R(nativeReg));
 }
 
 // invalidates RSCRATCH and RSCRATCH3
