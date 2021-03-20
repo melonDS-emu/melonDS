@@ -28,6 +28,7 @@ jobs:
         echo "/opt/local/bin" >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        sudo port selfupdate
         sudo port install qt5-qtbase libsdl2 libslirp libarchive libepoxy
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
