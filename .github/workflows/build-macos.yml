@@ -11,7 +11,6 @@ on:
 env:
   BUILD_TYPE: Release
   MACPORTS_VER: 2.6.4
-  SDL2_VER: 2.0.14
 
 jobs:
   build:
@@ -29,25 +28,12 @@ jobs:
         echo "/opt/local/bin" >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        sudo bash .github/workflows/scripts/macOS/install-qt.sh --version 5.15.2 qtbase qttools
-        curl -LO https://libsdl.org/release/SDL2-$SDL2_VER.dmg
-        sudo hdiutil attach SDL2-$SDL2_VER.dmg
-        sudo cp -r /Volumes/SDL2/SDL2.framework /Library/Frameworks/
-        sudo hdiutil detach /Volumes/SDL2
-        sudo port -N install depof:gettext
-        sudo port -Ns install gettext
-        sudo port -N install depof:glib2
-        sudo port -Ns install glib2
-        sudo port -N install depof:libslirp
-        sudo port -Ns install libslirp
-        sudo port -N install depof:libepoxy
-        sudo port -Ns install libepoxy
-        sudo port -Ns install libarchive
+        sudo port install qt5-qtbase libsdl2 libslirp libarchive libepoxy
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
       working-directory: ${{runner.workspace}}/build
-      run: cmake -DUSE_SDL2_FRAMEWORK=ON $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=/usr/local/Qt/5.15.2/clang_64/lib/cmake/Qt5
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=/opt/local/lib/cmake/Qt5
     - name: Make
       working-directory: ${{runner.workspace}}/build
       run: |
