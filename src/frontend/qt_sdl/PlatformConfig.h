@@ -88,6 +88,9 @@ extern char LastROMFolder[1024];
 
 extern char RecentROMList[10][1024];
 
+extern char SavePath[1024];
+extern int SavePathEnable;
+
 extern int EnableCheats;
 
 }

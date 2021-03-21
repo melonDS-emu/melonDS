@@ -480,13 +480,22 @@ void GetSavestateName(int slot, char* filename, int len)
         customsave = true;
     }
     
-    if (ROMPath[ROMSlot_NDS][0] == '\0') strcat(statepath, "firmware"); // running firmware, no ROM
+    if (ROMPath[ROMSlot_NDS][0] == '\0')
+    {
+        strcat(statepath, "firmware"); // running firmware, no ROM
+    }
     else
     {
         fs::path rom(ROMPath[ROMSlot_NDS]);
         
-        if (customsave) strcat(statepath, rom.stem().string().c_str());
-        else strcpy(statepath, rom.replace_extension("").string().c_str());
+        if (customsave) 
+        {
+            strcat(statepath, rom.stem().string().c_str());
+        }
+        else
+        {    
+            strcpy(statepath, rom.replace_extension("").string().c_str());
+        }
     }
     
     strcat(statepath, ".ml");

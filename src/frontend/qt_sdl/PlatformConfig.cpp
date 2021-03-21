@@ -74,6 +74,9 @@ char LastROMFolder[1024];
 
 char RecentROMList[10][1024];
 
+char SavePath[1024];
+int SavePathEnable;
+
 int EnableCheats;
 
 bool EnableJIT;
@@ -178,6 +181,9 @@ ConfigEntry PlatformConfigFile[] =
     {"RecentROM_7", 1, RecentROMList[7], 0, "", 1023},
     {"RecentROM_8", 1, RecentROMList[8], 0, "", 1023},
     {"RecentROM_9", 1, RecentROMList[9], 0, "", 1023},
+
+    {"SavePath", 1, SavePath, 0, "", 1023},
+    {"SavePathEnable", 0, &SavePathEnable, 0, NULL, 0},
 
     {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
 

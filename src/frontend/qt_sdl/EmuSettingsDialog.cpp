@@ -61,7 +61,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
     
     ui->txtSavePath->setText(Config::SavePath);
-	ui->chkCustomSaveDir->setChecked(Config::SavePathEnable != 0);
+    ui->chkCustomSaveDir->setChecked(Config::SavePathEnable != 0);
 
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
