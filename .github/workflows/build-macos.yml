@@ -10,7 +10,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  MACPORTS_VER: 2.6.4
 
 jobs:
   build:
@@ -19,27 +18,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Install MacPorts
-      working-directory: ./.github/workflows/scripts/macOS
-      run: ./install-macports.sh
-    - name: Configure MacPorts
-      run: |
-        echo 'macosx_deployment_target 10.13' | sudo tee -a /opt/local/etc/macports/macports.conf
-        echo "/opt/local/bin" >> $GITHUB_PATH
     - name: Install dependencies
-      run: |
-        sudo port selfupdate
-        sudo port install qt5-qtbase libsdl2 libslirp libarchive libepoxy
+      working-directory: ${{runner.workspace}}
+      run: brew install sdl2 qt@5 libslirp libarchive libepoxy
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
       working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=/opt/local/lib/cmake/Qt5
+      run: cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
     - name: Make
       working-directory: ${{runner.workspace}}/build
       run: |
         make -j$(sysctl -n hw.ncpu)
-        /usr/local/Qt/5.15.2/clang_64/bin/macdeployqt melonDS.app -no-plugins
         mkdir dist
         cp -r melonDS.app dist
     - uses: actions/upload-artifact@v1
