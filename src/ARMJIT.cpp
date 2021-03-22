@@ -320,6 +320,9 @@ void Init()
 
 void DeInit()
 {
+    #if defined(__APPLE__) && defined(__aarch64__)
+        pthread_jit_write_protect_np(false);
+    #endif
     ResetBlockCache();
     ARMJIT_Memory::DeInit();
 
