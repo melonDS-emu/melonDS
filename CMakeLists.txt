@@ -94,6 +94,10 @@ if (WIN32)
 	option(BUILD_STATIC "Statically link dependencies" OFF)
 endif()
 
+if (BUILD_STATIC AND WIN32)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+endif()
+
 if (ENABLE_LTO)
 	if (WIN32)
 		add_compile_options(-flto)
