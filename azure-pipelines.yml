@@ -7,13 +7,17 @@ trigger:
 - master
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: macos-10.14
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- script: brew install sdl2 qt@5 libslirp libarchive libepoxy
+  displayName: 'Install dependencies'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- script: mkdir ${{Agent.WorkFolder}}/build
+  displayName: 'Create build environment'
+
+- script: cmake ${{Build.Repository.LocalPath}} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+  displayName: 'Configure'
+  
+- script: make -j$(sysctl -n hw.ncpu)
+  displayName: 'Make'
