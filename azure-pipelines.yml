@@ -13,13 +13,13 @@ steps:
 - script: brew install sdl2 qt@5 libslirp libarchive libepoxy
   displayName: 'Install dependencies'
 
-- script: mkdir ${{ Pipeline.Workspace }}/build
+- script: mkdir $(Pipeline.Workspace)/build
   displayName: 'Create build environment'
 
-- script: cmake ${{ Build.SourcesDirectory }} -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
   displayName: 'Configure'
-  workingDirectory: mkdir ${{ Pipeline.Workspace }}/build
+  workingDirectory: mkdir $(Pipeline.Workspace)/build
   
 - script: make -j$(sysctl -n hw.ncpu)
   displayName: 'Make'
-  workingDirectory: mkdir ${{ Pipeline.Workspace }}/build
+  workingDirectory: mkdir $(Pipeline.Workspace)/build
