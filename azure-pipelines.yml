@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  vmImage: macos-10.14
+  vmImage: macOS-10.14
 
 steps:
 - script: brew install sdl2 qt@5 libslirp libarchive libepoxy
