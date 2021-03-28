@@ -90,14 +90,14 @@
       </attribute>
       <layout class="QGridLayout" name="gridLayout">
        <item row="1" column="1">
-        <widget class="QLineEdit" name="txtBIOS7Path">
+        <widget class="QPathInput" name="txtBIOS7Path">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;Size should be 16 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QLineEdit" name="txtFirmwarePath">
+        <widget class="QPathInput" name="txtFirmwarePath">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode firmware&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Possible firmwares:&lt;/p&gt;&lt;p&gt;* 128 KB: DS-mode firmware from a DSi or 3DS. Not bootable.&lt;/p&gt;&lt;p&gt;* 256 KB: regular DS firmware.&lt;/p&gt;&lt;p&gt;* 512 KB: iQue DS firmware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -155,7 +155,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QLineEdit" name="txtBIOS9Path">
+        <widget class="QPathInput" name="txtBIOS9Path">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -197,7 +197,7 @@
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
        <item row="1" column="1">
-        <widget class="QLineEdit" name="txtDSiBIOS7Path">
+        <widget class="QPathInput" name="txtDSiBIOS7Path">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -239,7 +239,7 @@
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QLineEdit" name="txtDSiNANDPath">
+        <widget class="QPathInput" name="txtDSiNANDPath">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi NAND dump&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Should have 'nocash footer' at the end&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -260,7 +260,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QLineEdit" name="txtDSiBIOS9Path">
+        <widget class="QPathInput" name="txtDSiBIOS9Path">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -287,14 +287,14 @@
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QLineEdit" name="txtDSiFirmwarePath">
+        <widget class="QPathInput" name="txtDSiFirmwarePath">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode firmware (used for DS-mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="5" column="1">
-        <widget class="QLineEdit" name="txtDSiSDPath">
+        <widget class="QPathInput" name="txtDSiSDPath">
          <property name="whatsThis">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD image file for emulating the DSi's SD card&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -410,7 +410,7 @@
         </widget>
        </item>
        <item row="1" column="1">
-        <widget class="QLineEdit" name="txtDLDISDPath"/>
+        <widget class="QPathInput" name="txtDLDISDPath"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_11">
@@ -448,6 +448,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QPathInput</class>
+   <extends>QLineEdit</extends>
+   <header>QPathInput.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>cbxConsoleType</tabstop>
   <tabstop>chkDirectBoot</tabstop>

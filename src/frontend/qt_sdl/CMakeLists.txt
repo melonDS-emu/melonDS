@@ -18,6 +18,7 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     PlatformConfig.cpp
+	QPathInput.h
     
     ArchiveUtil.h
     ArchiveUtil.cpp

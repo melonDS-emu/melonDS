@@ -62,7 +62,7 @@
      </property>
      <layout class="QGridLayout" name="gridLayout">
       <item row="3" column="1">
-       <widget class="QLineEdit" name="txtMicWavPath">
+       <widget class="QPathInput" name="txtMicWavPath">
         <property name="minimumSize">
          <size>
           <width>290</width>
@@ -136,6 +136,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QPathInput</class>
+   <extends>QLineEdit</extends>
+   <header>QPathInput.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
