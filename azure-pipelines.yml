@@ -23,3 +23,8 @@ steps:
 - script: make -j$(sysctl -n hw.ncpu)
   displayName: 'Make'
   workingDirectory: mkdir $(Pipeline.Workspace)/build
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: $(Pipeline.Workspace)/build
+    artifactName: melonDS.app
