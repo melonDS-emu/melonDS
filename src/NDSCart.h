@@ -21,6 +21,16 @@
 
 #include "types.h"
 
+// required class design
+// * interface bits (init/reset/writeregs) static
+// * cart-specific bits in class
+//  * responding to cart commands
+//  * forwarding response data
+//  * forwarding cart IRQ (for ie. pokémon typing cart, or when ejecting cart)
+//  * responding to SPI commands
+//  * saveRAM management (interface between emulated SRAM interface and save file)
+//  * DLDI shito (for homebrew)
+
 namespace NDSCart
 {
 
