@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Melon DS
+GenericName=Nintendo DS Emulator
+Comment=DS emulator, sorta
+Keywords=melon;nintendo;ds;game;emulator;
+Exec=melonds %f
+Icon=melon
+Terminal=false
+Type=Application
+StartupNotify=false
+DBusActivatable=false
+Categories=Game
+MimeType=application/x-nintendo-ds-rom;application/x-gba-rom;
