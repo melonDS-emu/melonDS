@@ -723,14 +723,12 @@ void ApplyDLDIPatch(const u8* patch, u32 len)
         *(u32*)&patch[8] != 0x006D6873)
     {
         printf("bad DLDI patch\n");
-        delete[] patch;
         return;
     }
 
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
         printf("DLDI driver ain't gonna fit, sorry\n");
-        delete[] patch;
         return;
     }
 
