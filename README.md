@@ -54,6 +54,21 @@ As for the rest, the interface should be pretty straightforward. If you have a q
   cmake ..
   make -j$(nproc --all)
   ```
+4. Add melonDS to system
+  ```bash
+  # add binary to bin folder
+  sudo cp melonds /usr/bin
+  # add launcher to system
+  sudo cp melon.desktop /usr/share/applications/melon.desktop
+  # add icons to system and rebuild icon cache
+  sudo cp icon/melon_16x16.png /usr/share/icons/hicolor/16x16/apps/melon.png
+  sudo cp icon/melon_32x32.png /usr/share/icons/hicolor/32x32/apps/melon.png
+  sudo cp icon/melon_48x48.png /usr/share/icons/hicolor/48x48/apps/melon.png
+  sudo cp icon/melon_64x64.png /usr/share/icons/hicolor/64x64/apps/melon.png
+  sudo cp icon/melon_128x128.png /usr/share/icons/hicolor/128x128/apps/melon.png
+  sudo cp icon/melon_256x256.png /usr/share/icons/hicolor/256x256/apps/melon.png
+  sudo gtk-update-icon-cache -f /usr/share/icons/hicolor/
+  ```
 
 ### Windows:
 
