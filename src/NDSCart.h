@@ -38,10 +38,6 @@ extern u16 SPICnt;  //
 extern u32 ROMCnt;  //
 
 extern u8 ROMCommand[8]; //
-extern u32 ROMDataOut;
-
-extern u8 EncSeed0[5];
-extern u8 EncSeed1[5];
 
 extern u8* CartROM;    // used only for header??
 extern u32 CartROMSize;
