@@ -3528,7 +3528,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        NDSCart::WriteROMData(val);
+        if (!(ExMemCnt[0] & (1<<11)))  NDSCart::WriteROMData(val);
         return;
     }
 
@@ -4073,6 +4073,10 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000308:
         if (ARM7BIOSProt == 0)
             ARM7BIOSProt = val & 0xFFFE;
+        return;
+
+    case 0x04100010:
+        if (ExMemCnt[0] & (1<<11))  NDSCart::WriteROMData(val);
         return;
     }
 

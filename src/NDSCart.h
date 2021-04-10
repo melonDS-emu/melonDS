@@ -34,49 +34,49 @@
 namespace NDSCart
 {
 
-extern u16 SPICnt;
-extern u32 ROMCnt;
+extern u16 SPICnt;  //
+extern u32 ROMCnt;  //
 
-extern u8 ROMCommand[8];
+extern u8 ROMCommand[8]; //
 extern u32 ROMDataOut;
 
 extern u8 EncSeed0[5];
 extern u8 EncSeed1[5];
 
-extern u8* CartROM;
+extern u8* CartROM;    // used only for header??
 extern u32 CartROMSize;
 
-extern u32 CartID;
+extern u32 CartID;  //
 
-bool Init();
-void DeInit();
-void Reset();
+bool Init();   //
+void DeInit(); //
+void Reset();  //
 
-void DoSavestate(Savestate* file);
+void DoSavestate(Savestate* file); //
 
-void DecryptSecureArea(u8* out);
-bool LoadROM(const char* path, const char* sram, bool direct);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
+void DecryptSecureArea(u8* out); // direct-boot shito
+bool LoadROM(const char* path, const char* sram, bool direct); //
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct); //
 
-void FlushSRAMFile();
+void FlushSRAMFile();  //
 
-void RelocateSave(const char* path, bool write);
+void RelocateSave(const char* path, bool write);  //
 
-int ImportSRAM(const u8* data, u32 length);
+int ImportSRAM(const u8* data, u32 length);  //
 
-void ResetCart();
+void ResetCart();           //
 
-void WriteROMCnt(u32 val);
-u32 ReadROMData();
-void WriteROMData(u32 val);
+void WriteROMCnt(u32 val);  //
+u32 ReadROMData();          //
+void WriteROMData(u32 val); //
 
-void WriteSPICnt(u16 val);
-u8 ReadSPIData();
-void WriteSPIData(u8 val);
+void WriteSPICnt(u16 val); //
+u8 ReadSPIData();          //
+void WriteSPIData(u8 val); //
 
-void ROMPrepareData(u32 param);
-void ROMEndTransfer(u32 param);
-void SPITransferDone(u32 param);
+void ROMPrepareData(u32 param);   // scheduler callbacks
+void ROMEndTransfer(u32 param);   //
+void SPITransferDone(u32 param);  //
 
 }
 
