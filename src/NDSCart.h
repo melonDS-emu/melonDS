@@ -31,8 +31,142 @@
 //  * saveRAM management (interface between emulated SRAM interface and save file)
 //  * DLDI shito (for homebrew)
 
+/*class NDSCart
+{
+public:
+    static bool Init();
+    static void DeInit();
+    static void Reset;
+
+    static void DoSavestate(Savestate* file);
+
+    static bool LoadROM(const char* path, const char* sram, bool direct);
+    static bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
+
+    // direct boot support
+    static void DecryptSecureArea(u8* out);
+
+    static u16 SPICnt;
+    static u32 ROMCnt;
+
+    static u8 ROMCommand[8];
+
+    static bool CartInserted;
+    static u8* CartROM;
+    static u32 CartROMSize;
+    static u32 CartID;
+
+    //
+
+private:
+    // private parts go here
+};*/
+
 namespace NDSCart
 {
+
+// CartCommon -- base code shared by all cart types
+class CartCommon
+{
+public:
+    CartCommon(u8* rom, u32 len);
+    virtual ~CartCommon();
+
+    virtual void Reset();
+
+    virtual void DoSavestate(Savestate* file) = 0;
+
+    virtual void ROMCommandStart(u8* cmd);
+    virtual void ROMCommandFinish(u8* cmd);
+
+    virtual u8 SPIRead();
+    virtual void SPIWrite(u8 val, u32 hold);
+
+protected:
+    u8* ROM;
+    u32 ROMLength;
+};
+
+// CartRetail -- regular retail cart (ROM, SPI SRAM)
+class CartRetail : public CartCommon
+{
+public:
+    CartRetail(u8* rom, u32 len);
+    virtual ~CartRetail();
+
+    virtual void Reset();
+
+    virtual void DoSavestate(Savestate* file);
+
+    virtual void ROMCommandStart(u8* cmd);
+    virtual void ROMCommandFinish(u8* cmd);
+
+    virtual u8 SPIRead();
+    virtual void SPIWrite(u8 val, u32 hold);
+};
+
+// CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
+class CartRetailNAND : public CartCommon
+{
+public:
+    CartRetailNAND(u8* rom, u32 len);
+    ~CartRetailNAND();
+
+    void Reset();
+
+    void DoSavestate(Savestate* file);
+
+    void ROMCommandStart(u8* cmd);
+    void ROMCommandFinish(u8* cmd);
+
+    u8 SPIRead();
+    void SPIWrite(u8 val, u32 hold);
+};
+
+// CartRetailPoke -- Pokémon cart (SPI IR device and SRAM)
+class CartRetailPoke : public CartCommon
+{
+public:
+    CartRetailPoke(u8* rom, u32 len);
+    ~CartRetailPoke();
+
+    void Reset();
+
+    void DoSavestate(Savestate* file);
+
+    u8 SPIRead();
+    void SPIWrite(u8 val, u32 hold);
+};
+
+// CartRetailBT - Pokémon Typing Adventure (SPI BT controller)
+class CartRetailBT : public CartCommon
+{
+public:
+    CartRetailBT(u8* rom, u32 len);
+    ~CartRetailBT();
+
+    void Reset();
+
+    void DoSavestate(Savestate* file);
+
+    u8 SPIRead();
+    void SPIWrite(u8 val, u32 hold);
+};
+
+// CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
+class CartHomebrew : public CartCommon
+{
+public:
+    CartHomebrew(u8* rom, u32 len);
+    ~CartHomebrew();
+
+    void Reset();
+
+    void DoSavestate(Savestate* file);
+
+    void ROMCommandStart(u8* cmd);
+    void ROMCommandFinish(u8* cmd);
+};
 
 extern u16 SPICnt;  //
 extern u32 ROMCnt;  //

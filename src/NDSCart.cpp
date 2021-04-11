@@ -499,6 +499,7 @@ u64 Key2_X;
 u64 Key2_Y;
 
 
+
 void ROMCommand_Retail(u8* cmd);
 void ROMCommand_RetailNAND(u8* cmd);
 void ROMCommand_Homebrew(u8* cmd);
