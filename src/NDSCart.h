@@ -74,15 +74,16 @@ public:
 
     virtual void Reset();
 
-    virtual void DoSavestate(Savestate* file) = 0;
+    virtual void DoSavestate(Savestate* file);
 
     virtual void ROMCommandStart(u8* cmd);
     virtual void ROMCommandFinish(u8* cmd);
 
-    virtual u8 SPIRead();
-    virtual void SPIWrite(u8 val, u32 hold);
+    virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
 protected:
+    void ReadROM(u32 addr, u32 len, u32 offset);
+
     u8* ROM;
     u32 ROMLength;
 };
@@ -99,14 +100,15 @@ public:
     virtual void DoSavestate(Savestate* file);
 
     virtual void ROMCommandStart(u8* cmd);
-    virtual void ROMCommandFinish(u8* cmd);
 
-    virtual u8 SPIRead();
-    virtual void SPIWrite(u8 val, u32 hold);
+    virtual u8 SPIWrite(u8 val, u32 pos, bool last);
+
+protected:
+    void ReadROM_B7(u32 addr, u32 len, u32 offset);
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
-class CartRetailNAND : public CartCommon
+class CartRetailNAND : public CartRetail
 {
 public:
     CartRetailNAND(u8* rom, u32 len);
@@ -119,12 +121,11 @@ public:
     void ROMCommandStart(u8* cmd);
     void ROMCommandFinish(u8* cmd);
 
-    u8 SPIRead();
-    void SPIWrite(u8 val, u32 hold);
+    u8 SPIWrite(u8 val, u32 pos, bool last);
 };
 
 // CartRetailPoke -- Pokémon cart (SPI IR device and SRAM)
-class CartRetailPoke : public CartCommon
+class CartRetailPoke : public CartRetail
 {
 public:
     CartRetailPoke(u8* rom, u32 len);
@@ -134,12 +135,11 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    u8 SPIRead();
-    void SPIWrite(u8 val, u32 hold);
+    u8 SPIWrite(u8 val, u32 pos, bool last);
 };
 
 // CartRetailBT - Pokémon Typing Adventure (SPI BT controller)
-class CartRetailBT : public CartCommon
+class CartRetailBT : public CartRetail
 {
 public:
     CartRetailBT(u8* rom, u32 len);
@@ -149,8 +149,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    u8 SPIRead();
-    void SPIWrite(u8 val, u32 hold);
+    u8 SPIWrite(u8 val, u32 pos, bool last);
 };
 
 // CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
@@ -166,47 +165,51 @@ public:
 
     void ROMCommandStart(u8* cmd);
     void ROMCommandFinish(u8* cmd);
+
+private:
+    void ApplyDLDIPatch(const u8* patch, u32 len);
+    void ReadROM_B7(u32 addr, u32 len, u32 offset);
 };
 
-extern u16 SPICnt;  //
-extern u32 ROMCnt;  //
+extern u16 SPICnt;
+extern u32 ROMCnt;
 
-extern u8 ROMCommand[8]; //
+extern u8 ROMCommand[8];
 
-extern u8* CartROM;    // used only for header??
+extern u8* CartROM;
 extern u32 CartROMSize;
 
-extern u32 CartID;  //
+extern u32 CartID;
 
-bool Init();   //
-void DeInit(); //
-void Reset();  //
+bool Init();
+void DeInit();
+void Reset();
 
-void DoSavestate(Savestate* file); //
+void DoSavestate(Savestate* file);
 
-void DecryptSecureArea(u8* out); // direct-boot shito
-bool LoadROM(const char* path, const char* sram, bool direct); //
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct); //
+void DecryptSecureArea(u8* out);
+bool LoadROM(const char* path, const char* sram, bool direct);
+bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
 
-void FlushSRAMFile();  //
+void FlushSRAMFile();
 
-void RelocateSave(const char* path, bool write);  //
+void RelocateSave(const char* path, bool write);
 
-int ImportSRAM(const u8* data, u32 length);  //
+int ImportSRAM(const u8* data, u32 length);
 
-void ResetCart();           //
+void ResetCart();
 
-void WriteROMCnt(u32 val);  //
-u32 ReadROMData();          //
-void WriteROMData(u32 val); //
+void WriteROMCnt(u32 val);
+u32 ReadROMData();
+void WriteROMData(u32 val);
 
-void WriteSPICnt(u16 val); //
-u8 ReadSPIData();          //
-void WriteSPIData(u8 val); //
+void WriteSPICnt(u16 val);
+u8 ReadSPIData();
+void WriteSPIData(u8 val);
 
-void ROMPrepareData(u32 param);   // scheduler callbacks
-void ROMEndTransfer(u32 param);   //
-void SPITransferDone(u32 param);  //
+void ROMPrepareData(u32 param);
+void ROMEndTransfer(u32 param);
+void SPITransferDone(u32 param);
 
 }
 
