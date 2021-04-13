@@ -76,6 +76,10 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
+    virtual void LoadSave(const char* path, u32 type);
+    virtual void RelocateSave(const char* path, bool write);
+    virtual void FlushSRAMFile();
+
     virtual void ROMCommandStart(u8* cmd);
     virtual void ROMCommandFinish(u8* cmd);
 
@@ -99,12 +103,31 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
+    virtual void LoadSave(const char* path, u32 type);
+    virtual void RelocateSave(const char* path, bool write);
+    virtual void FlushSRAMFile();
+
     virtual void ROMCommandStart(u8* cmd);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
 protected:
     void ReadROM_B7(u32 addr, u32 len, u32 offset);
+
+    u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
+    u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
+    u8 SRAMWrite_FLASH(u8 val, u32 pos, bool last);
+
+    u8* SRAM;
+    u32 SRAMLength;
+    u32 SRAMType;
+
+    char SRAMPath[1024];
+    bool SRAMFileDirty;
+
+    u8 SRAMCmd;
+    u32 SRAMAddr;
+    u8 SRAMStatus;
 };
 
 // CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
@@ -117,6 +140,9 @@ public:
     void Reset();
 
     void DoSavestate(Savestate* file);
+
+    //void LoadSave(const char* path, u32 type);
+    //void RelocateSave(const char* path, bool write);
 
     void ROMCommandStart(u8* cmd);
     void ROMCommandFinish(u8* cmd);
@@ -136,6 +162,9 @@ public:
     void DoSavestate(Savestate* file);
 
     u8 SPIWrite(u8 val, u32 pos, bool last);
+
+private:
+    u8 IRCmd;
 };
 
 // CartRetailBT - Pokémon Typing Adventure (SPI BT controller)
