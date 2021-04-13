@@ -150,12 +150,12 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last);
 };
 
-// CartRetailPoke -- Pokémon cart (SPI IR device and SRAM)
-class CartRetailPoke : public CartRetail
+// CartRetailIR -- SPI IR device and SRAM
+class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailPoke(u8* rom, u32 len);
-    ~CartRetailPoke();
+    CartRetailIR(u8* rom, u32 len);
+    ~CartRetailIR();
 
     void Reset();
 

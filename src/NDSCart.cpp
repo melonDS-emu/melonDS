@@ -1708,7 +1708,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else if (CartID & 0x08000000)
         Cart = new CartRetailNAND(CartROM, CartROMSize);
     //else if (CartID & 0x00010000)
-    //    Cart = new CartRetailPoke(CartROM, CartROMSize);
+    //    Cart = new CartRetailIR(CartROM, CartROMSize);
     else
         Cart = new CartRetail(CartROM, CartROMSize);
 
@@ -2045,6 +2045,8 @@ void WriteROMCnt(u32 val)
 
     if (!(SPICnt & (1<<15))) return;
 
+    // all this junk would only really be useful if melonDS was interfaced to
+    // a DS cart reader
     if (val & (1<<15))
     {
         u32 snum = (NDS::ExMemCnt[0]>>8)&0x8;
