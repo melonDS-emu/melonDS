@@ -782,50 +782,40 @@ void CartRetail::LoadSave(const char* path, u32 type)
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
+    if (type > 9) type = 0;
+    int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 8192*1024};
+    SRAMLength = sramlen[type];
+
+    if (SRAMLength)
+    {
+        SRAM = new u8[SRAMLength];
+        memset(SRAM, 0xFF, SRAMLength);
+    }
+
     FILE* f = Platform::OpenFile(path, "rb");
     if (f)
     {
-        fseek(f, 0, SEEK_END);
-        SRAMLength = (u32)ftell(f);
-        SRAM = new u8[SRAMLength];
-
         fseek(f, 0, SEEK_SET);
-        fread(SRAM, SRAMLength, 1, f);
+        fread(SRAM, 1, SRAMLength, f);
 
         fclose(f);
-    }
-    else
-    {
-        if (type > 9) type = 0;
-        int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
-        SRAMLength = sramlen[type];
-
-        if (SRAMLength)
-        {
-            SRAM = new u8[SRAMLength];
-            memset(SRAM, 0xFF, SRAMLength);
-        }
     }
 
     SRAMFileDirty = false;
     NDSCart_SRAMManager::Setup(path, SRAM, SRAMLength);
 
-    switch (SRAMLength)
+    switch (type)
     {
-    case 512: SRAMType = 1; break; // EEPROM, small
-    case 8192:
-    case 65536:
-    case 128*1024: SRAMType = 2; break; // EEPROM, regular
-    case 256*1024:
-    case 512*1024:
-    case 1024*1024:
-    case 8192*1024: SRAMType = 3; break; // FLASH
-    case 32768*1024: SRAMType = 4; break; // NAND
-    default:
-        printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
-    case 0:
-        SRAMType = 0;
-        break;
+    case 1: SRAMType = 1; break; // EEPROM, small
+    case 2:
+    case 3:
+    case 4: SRAMType = 2; break; // EEPROM, regular
+    case 5:
+    case 6:
+    case 7:
+    case 8: SRAMType = 3; break; // FLASH
+    case 9: SRAMType = 4; break; // NAND
+    default: SRAMType = 0; break; // ...whatever else
     }
 }
 
@@ -1178,6 +1168,29 @@ void CartRetailNAND::DoSavestate(Savestate* file)
     // TODO?
 }
 
+void CartRetailNAND::LoadSave(const char* path, u32 type)
+{
+    CartRetail::LoadSave(path, type);
+
+    // the last 128K of the SRAM are read-only.
+    // most of it is FF, except for the NAND ID at the beginning
+    // of the last 0x800 bytes.
+
+    if (SRAMLength > 0x20000)
+    {
+        memset(&SRAM[SRAMLength - 0x20000], 0xFF, 0x20000);
+
+        // TODO: check what the data is all about!
+        // this was pulled from a Jam with the Band cart. may be different on other carts.
+        // WarioWare DIY may have different data or not have this at all.
+        // the ID data is also found in the response to command 94, and JwtB checks it.
+        // WarioWare doesn't seem to care.
+        // there is also more data here, but JwtB doesn't seem to care.
+        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
+        memcpy(&SRAM[SRAMLength - 0x800], iddata, 16);
+    }
+}
+
 void CartRetailNAND::ROMCommandStart(u8* cmd)
 {
     // ROM header 94/96 = save addr start / 0x20000
@@ -1197,13 +1210,14 @@ void CartRetailNAND::ROMCommandStart(u8* cmd)
             // TODO: check what the data really is. probably the NAND chip's ID.
             // also, might be different between different games or even between different carts.
             // this was taken from a Jam with the Band cart.
-            // not that the game seems to really use this for anything.
             u8 iddata[0x30] =
             {
                 0xEC, 0xF1, 0x00, 0x95, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35,
-                0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
             };
+
+            if (SRAMLength) memcpy(&iddata[0x18], &SRAM[SRAMLength - 0x800], 16);
 
             memset(TransferData, 0, TransferLen);
             memcpy(TransferData, iddata, std::min(TransferLen, 0x30u));

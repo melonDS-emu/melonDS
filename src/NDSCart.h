@@ -141,8 +141,7 @@ public:
 
     void DoSavestate(Savestate* file);
 
-    //void LoadSave(const char* path, u32 type);
-    //void RelocateSave(const char* path, bool write);
+    void LoadSave(const char* path, u32 type);
 
     void ROMCommandStart(u8* cmd);
     void ROMCommandFinish(u8* cmd);
