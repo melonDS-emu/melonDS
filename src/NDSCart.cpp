@@ -498,9 +498,6 @@ FILE* CartSD;
 
 CartCommon* Cart;
 
-u32 CmdEncMode;
-u32 DataEncMode;
-
 u32 Key1_KeyBuf[0x412];
 
 u64 Key2_X;
@@ -639,6 +636,14 @@ CartCommon::~CartCommon()
 
 void CartCommon::Reset()
 {
+    CmdEncMode = 0;
+    DataEncMode = 0;
+}
+
+void CartCommon::SetupDirectBoot()
+{
+    CmdEncMode = 2;
+    DataEncMode = 2;
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -700,7 +705,20 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
     default:
         if (CmdEncMode == 1 || CmdEncMode == 11)
         {
-            switch (cmd[0] & 0xF0)
+            // decrypt the KEY1 command as needed
+            // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
+            // but KEY1 is not, so DS software is responsible for encrypting KEY1 commands)
+            u8 cmddec[8];
+            *(u32*)&cmddec[0] = ByteSwap(*(u32*)&cmd[4]);
+            *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmd[0]);
+            Key1_Decrypt((u32*)cmddec);
+            u32 tmp = ByteSwap(*(u32*)&cmddec[4]);
+            *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmddec[0]);
+            *(u32*)&cmddec[0] = tmp;
+
+            // TODO eventually: verify all the command parameters and shit
+
+            switch (cmddec[0] & 0xF0)
             {
             case 0x40:
                 DataEncMode = 2;
@@ -713,7 +731,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
             case 0x20:
                 {
-                    u32 addr = (cmd[2] & 0xF0) << 8;
+                    u32 addr = (cmddec[2] & 0xF0) << 8;
                     if (CmdEncMode == 11)
                     {
                         // TODO: should use entries 0x90/0x92 to determine where the DSi region starts??
@@ -1602,8 +1620,8 @@ void DoSavestate(Savestate* file)
     // (TODO: system to verify that indeed the right ROM is loaded)
     // (what to CRC? whole ROM? code binaries? latter would be more convenient for ie. romhaxing)
 
-    file->Var32(&CmdEncMode);
-    file->Var32(&DataEncMode);
+    //file->Var32(&CmdEncMode);
+    //file->Var32(&DataEncMode);
 
     // TODO: check KEY1 shit??
 
@@ -1767,12 +1785,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     }
 
     if (direct)
-    {
-        // TODO: in the case of an already-encrypted secure area, direct boot
-        // needs it decrypted
         NDS::SetupDirectBoot();
-        CmdEncMode = 2;
-    }
 
     CartInserted = true;
 
@@ -1793,7 +1806,11 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
 
-    if (Cart) Cart->Reset();
+    if (Cart)
+    {
+        Cart->Reset();
+        if (direct) Cart->SetupDirectBoot();
+    }
 
     // encryption
     Key1_InitKeycode(false, gamecode, 2, 2);
@@ -1910,8 +1927,8 @@ void ResetCart()
     memset(TransferCmd, 0, 8);
     TransferCmd[0] = 0xFF;
 
-    CmdEncMode = 0;
-    DataEncMode = 0;
+    //CmdEncMode = 0;
+    //DataEncMode = 0;
 
     if (Cart) Cart->Reset();
 }
@@ -2161,9 +2178,12 @@ void WriteROMCnt(u32 val)
     TransferPos = 0;
     TransferLen = datasize;
 
+    *(u32*)&TransferCmd[0] = *(u32*)&ROMCommand[0];
+    *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
+
     // handle KEY1 encryption as needed.
     // KEY2 encryption is implemented in hardware and doesn't need to be handled.
-    if (CmdEncMode == 1 || CmdEncMode == 11)
+    /*if (CmdEncMode == 1 || CmdEncMode == 11)
     {
         *(u32*)&TransferCmd[0] = ByteSwap(*(u32*)&ROMCommand[4]);
         *(u32*)&TransferCmd[4] = ByteSwap(*(u32*)&ROMCommand[0]);
@@ -2174,15 +2194,14 @@ void WriteROMCnt(u32 val)
     }
     else
     {
-        *(u32*)&TransferCmd[0] = *(u32*)&ROMCommand[0];
-        *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
+
     }
 
     printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            TransferCmd[0], TransferCmd[1], TransferCmd[2], TransferCmd[3],
            TransferCmd[4], TransferCmd[5], TransferCmd[6], TransferCmd[7],
-           datasize);
+           datasize);*/
 
     // default is read
     // commands that do writes will change this

@@ -73,6 +73,7 @@ public:
     virtual ~CartCommon();
 
     virtual void Reset();
+    virtual void SetupDirectBoot();
 
     virtual void DoSavestate(Savestate* file);
 
@@ -92,6 +93,9 @@ protected:
     u32 ROMLength;
     u32 ChipID;
     bool IsDSi;
+
+    int CmdEncMode;
+    int DataEncMode;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
