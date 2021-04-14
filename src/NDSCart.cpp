@@ -734,11 +734,12 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
                     u32 addr = (cmddec[2] & 0xF0) << 8;
                     if (CmdEncMode == 11)
                     {
-                        // TODO: should use entries 0x90/0x92 to determine where the DSi region starts??
-                        // DSi secure area starts with 0x3000 unreadable bytes
-                        u32 arm9i_base = *(u32*)&CartROM[0x1C0];
-                        addr -= 0x4000;
-                        addr += arm9i_base;
+                        // the DSi region starts with 0x3000 unreadable bytes
+                        // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
+                        // these contain data for KEY1 crypto
+                        u32 dsiregion = *(u16*)&ROM[0x92] << 19;
+                        addr -= 0x1000;
+                        addr += dsiregion;
                     }
                     ReadROM(addr, 0x1000, data, 0);
                 }
