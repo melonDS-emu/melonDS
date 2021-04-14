@@ -69,7 +69,7 @@ namespace NDSCart
 class CartCommon
 {
 public:
-    CartCommon(u8* rom, u32 len);
+    CartCommon(u8* rom, u32 len, u32 chipid);
     virtual ~CartCommon();
 
     virtual void Reset();
@@ -80,23 +80,25 @@ public:
     virtual void RelocateSave(const char* path, bool write);
     virtual void FlushSRAMFile();
 
-    virtual void ROMCommandStart(u8* cmd);
-    virtual void ROMCommandFinish(u8* cmd);
+    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
 protected:
-    void ReadROM(u32 addr, u32 len, u32 offset);
+    void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
 
     u8* ROM;
     u32 ROMLength;
+    u32 ChipID;
+    bool IsDSi;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
 class CartRetail : public CartCommon
 {
 public:
-    CartRetail(u8* rom, u32 len);
+    CartRetail(u8* rom, u32 len, u32 chipid);
     virtual ~CartRetail();
 
     virtual void Reset();
@@ -107,12 +109,12 @@ public:
     virtual void RelocateSave(const char* path, bool write);
     virtual void FlushSRAMFile();
 
-    virtual void ROMCommandStart(u8* cmd);
+    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
 
     virtual u8 SPIWrite(u8 val, u32 pos, bool last);
 
 protected:
-    void ReadROM_B7(u32 addr, u32 len, u32 offset);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
     u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
     u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
@@ -134,7 +136,7 @@ protected:
 class CartRetailNAND : public CartRetail
 {
 public:
-    CartRetailNAND(u8* rom, u32 len);
+    CartRetailNAND(u8* rom, u32 len, u32 chipid);
     ~CartRetailNAND();
 
     void Reset();
@@ -143,8 +145,8 @@ public:
 
     void LoadSave(const char* path, u32 type);
 
-    void ROMCommandStart(u8* cmd);
-    void ROMCommandFinish(u8* cmd);
+    int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
     u8 SPIWrite(u8 val, u32 pos, bool last);
 
@@ -156,7 +158,7 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len);
+    CartRetailIR(u8* rom, u32 len, u32 chipid);
     ~CartRetailIR();
 
     void Reset();
@@ -173,7 +175,7 @@ private:
 class CartRetailBT : public CartRetail
 {
 public:
-    CartRetailBT(u8* rom, u32 len);
+    CartRetailBT(u8* rom, u32 len, u32 chipid);
     ~CartRetailBT();
 
     void Reset();
@@ -187,19 +189,19 @@ public:
 class CartHomebrew : public CartCommon
 {
 public:
-    CartHomebrew(u8* rom, u32 len);
+    CartHomebrew(u8* rom, u32 len, u32 chipid);
     ~CartHomebrew();
 
     void Reset();
 
     void DoSavestate(Savestate* file);
 
-    void ROMCommandStart(u8* cmd);
-    void ROMCommandFinish(u8* cmd);
+    int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len);
 
 private:
     void ApplyDLDIPatch(const u8* patch, u32 len);
-    void ReadROM_B7(u32 addr, u32 len, u32 offset);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 };
 
 extern u16 SPICnt;
