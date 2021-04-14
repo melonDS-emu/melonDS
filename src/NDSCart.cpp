@@ -740,7 +740,7 @@ void CartCommon::ROMCommandFinish(u8* cmd)
 
 u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
 {
-    return val;
+    return 0xFF;
 }
 
 void CartCommon::ReadROM(u32 addr, u32 len, u32 offset)
@@ -1159,6 +1159,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 
 CartRetailNAND::CartRetailNAND(u8* rom, u32 len) : CartRetail(rom, len)
 {
+    printf("ohai I am a NAND cart\n");
 }
 
 CartRetailNAND::~CartRetailNAND()
@@ -1167,6 +1168,9 @@ CartRetailNAND::~CartRetailNAND()
 
 void CartRetailNAND::Reset()
 {
+    SRAMAddr = 0;
+    SRAMStatus = 0x20;
+    SRAMReadWindow = 0;
 }
 
 void CartRetailNAND::DoSavestate(Savestate* file)
@@ -1176,44 +1180,103 @@ void CartRetailNAND::DoSavestate(Savestate* file)
 
 void CartRetailNAND::ROMCommandStart(u8* cmd)
 {
+    // ROM header 94/96 = save addr start / 0x20000
+
     switch (cmd[0])
     {
+    case 0x85: // write enable?
+        SRAMStatus |= (1<<4);
+        break;
+
+    case 0x8B: // revert to ROM read mode
+        SRAMReadWindow = 0;
+        break;
+
+    case 0x94: // return ID data
+        {
+            // TODO: check what the data really is. probably the NAND chip's ID.
+            // also, might be different between different games or even between different carts.
+            // this was taken from a Jam with the Band cart.
+            // not that the game seems to really use this for anything.
+            u8 iddata[0x30] =
+            {
+                0xEC, 0xF1, 0x00, 0x95, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35,
+                0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            };
+
+            memset(TransferData, 0, TransferLen);
+            memcpy(TransferData, iddata, std::min(TransferLen, 0x30u));
+        }
+        break;
+
+    case 0xB2: // set window for reading SRAM
+        {
+            u32 addr = (cmd[1]<<24) | ((cmd[2]&0xFE)<<16);
+
+            // window is 0x20000 bytes, address is aligned to that boundary
+            // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
+            // TODO.
+
+            SRAMReadWindow = addr;
+        }
+        break;
+
     case 0xB7:
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            memset(TransferData, 0, TransferLen);
 
-            if (((addr + TransferLen - 1) >> 12) != (addr >> 12))
+            if (SRAMReadWindow == 0)
             {
-                u32 len1 = 0x1000 - (addr & 0xFFF);
-                ReadROM_B7(addr, len1, 0);
-                ReadROM_B7(addr+len1, TransferLen-len1, len1);
+                memset(TransferData, 0, TransferLen);
+
+                if (((addr + TransferLen - 1) >> 12) != (addr >> 12))
+                {
+                    u32 len1 = 0x1000 - (addr & 0xFFF);
+                    ReadROM_B7(addr, len1, 0);
+                    ReadROM_B7(addr+len1, TransferLen-len1, len1);
+                }
+                else
+                    ReadROM_B7(addr, TransferLen, 0);
             }
             else
-                ReadROM_B7(addr, TransferLen, 0);
-        }
-        break;
-
-    case 0xC0: // SD read
-        {
-            u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (CartSD)
             {
-                fseek(CartSD, addr, SEEK_SET);
-                fread(TransferData, TransferLen, 1, CartSD);
+                memset(TransferData, 0xFF, TransferLen);
+
+                u32 sramstart = *(u16*)&ROM[0x96] << 17;
+                u32 sramend = sramstart + 0x800000; // CHECKME
+                if (SRAMReadWindow >= sramstart && SRAMReadWindow < sramend &&
+                    addr >= SRAMReadWindow && addr < (SRAMReadWindow+0x20000))
+                {
+                    // TODO!!
+
+                    if (addr == (sramstart+0x7FF800))
+                    {
+                        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
+                        memcpy(TransferData, iddata, std::min(TransferLen, 0x10u));
+                        printf("READING ID BLOCK @ %08X\n", addr);
+                    }
+                }
             }
         }
         break;
 
-    case 0xC1: // SD write
+    case 0xD6: // read NAND status
         {
-            TransferDir = 1;
+            // status bits
+            // bit5: ready
+            // bit4: write enable
+printf("NAND STATUS %02X\n", SRAMStatus);
+            for (u32 i = 0; i < TransferLen; i+=4)
+                *(u32*)&TransferData[i] = SRAMStatus * 0x01010101;
         }
         break;
 
     default:
+        /*if (cmd[0] != 0xB8)
+        printf("shitty command %02X %02X %02X %02X %02X %02X %02X %02X - %08X\n",
+               cmd[0], cmd[1], cmd[2], cmd[3],
+               cmd[4], cmd[5], cmd[6], cmd[7], TransferLen);*/
         return CartRetail::ROMCommandStart(cmd);
     }
 }
@@ -1231,7 +1294,7 @@ void CartRetailNAND::ROMCommandFinish(u8* cmd)
 
 u8 CartRetailNAND::SPIWrite(u8 val, u32 pos, bool last)
 {
-    return val;
+    return 0xFF;
 }
 
 
@@ -1653,6 +1716,11 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     if (CartIsDSi)
         CartID |= 0x40000000;
 
+    // cart ID for Jam with the Band
+    // TODO: this kind of ID triggers different KEY1 phase
+    // (repeats commands a bunch of times)
+    //CartID = 0x88017FEC;
+
     printf("Cart ID: %08X\n", CartID);
 
     u32 arm9base = *(u32*)&CartROM[0x20];
@@ -1711,6 +1779,8 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     //    Cart = new CartRetailIR(CartROM, CartROMSize);
     else
         Cart = new CartRetail(CartROM, CartROMSize);
+
+    if (Cart) Cart->Reset();
 
     // encryption
     Key1_InitKeycode(false, gamecode, 2, 2);
@@ -1864,7 +1934,7 @@ void ROMEndTransfer(u32 param)
     ROMCnt &= ~(1<<31);
 
     if (SPICnt & (1<<14))
-        NDS::SetIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartSendDone);
+        NDS::SetIRQ((NDS::ExMemCnt[0]>>11)&0x1, NDS::IRQ_CartXferDone);
 
     /*if (TransferDir == 1)
     {
@@ -2095,11 +2165,11 @@ void WriteROMCnt(u32 val)
         *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
     }
 
-    /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            TransferCmd[0], TransferCmd[1], TransferCmd[2], TransferCmd[3],
            TransferCmd[4], TransferCmd[5], TransferCmd[6], TransferCmd[7],
-           datasize);*/
+           datasize);
 
     // default is read
     // commands that do writes will change this
@@ -2195,6 +2265,7 @@ void WriteROMCnt(u32 val)
     u32 cmddelay = 8;
 
     // delays are only applied when the WR bit is cleared
+    // CHECKME: do the delays apply at the end (instead of start) when WR is set?
     if (!(ROMCnt & (1<<30)))
     {
         cmddelay += (ROMCnt & 0x1FFF);

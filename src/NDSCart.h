@@ -148,6 +148,9 @@ public:
     void ROMCommandFinish(u8* cmd);
 
     u8 SPIWrite(u8 val, u32 pos, bool last);
+
+private:
+    u32 SRAMReadWindow;
 };
 
 // CartRetailIR -- SPI IR device and SRAM
