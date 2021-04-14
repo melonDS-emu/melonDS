@@ -494,8 +494,6 @@ u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
 
-FILE* CartSD;
-
 CartCommon* Cart;
 
 u32 Key1_KeyBuf[0x412];
@@ -1336,18 +1334,28 @@ u8 CartRetailNAND::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
-    // TODO: presumably CartSD loading should go here
-
     if (Config::DLDIEnable)
+    {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
+        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+    }
+    else
+        SDFile = nullptr;
 }
 
 CartHomebrew::~CartHomebrew()
 {
+    if (SDFile) fclose(SDFile);
 }
 
 void CartHomebrew::Reset()
 {
+    if (SDFile) fclose(SDFile);
+
+    if (Config::DLDIEnable)
+        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+    else
+        SDFile = nullptr;
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1380,10 +1388,10 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             u64 addr = sector * 0x200ULL;
 
-            if (CartSD)
+            if (SDFile)
             {
-                fseek(CartSD, addr, SEEK_SET);
-                fread(data, len, 1, CartSD);
+                fseek(SDFile, addr, SEEK_SET);
+                fread(data, len, 1, SDFile);
             }
         }
         return 0;
@@ -1398,6 +1406,8 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
 void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 {
+    // TODO: delayed SD writing? like we have for SRAM
+
     switch (cmd[0])
     {
     case 0xC1:
@@ -1405,10 +1415,10 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             u64 addr = sector * 0x200ULL;
 
-            if (CartSD)
+            if (SDFile)
             {
-                fseek(CartSD, addr, SEEK_SET);
-                fwrite(data, len, 1, CartSD);
+                fseek(SDFile, addr, SEEK_SET);
+                fwrite(data, len, 1, SDFile);
             }
         }
         break;
@@ -1418,7 +1428,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 len)
+void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
 {
     u32 offset = *(u32*)&ROM[0x20];
     u32 size = *(u32*)&ROM[0x2C];
@@ -1471,7 +1481,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 len)
     u32 patchsize = 1 << patch[0x0D];
     u32 patchend = patchbase + patchsize;
 
-    memcpy(&binary[dldioffset], patch, len);
+    memcpy(&binary[dldioffset], patch, patchlen);
 
     *(u32*)&binary[dldioffset+0x40] += delta;
     *(u32*)&binary[dldioffset+0x44] += delta;
@@ -1560,9 +1570,6 @@ bool Init()
     if (!NDSCart_SRAM::Init()) return false;
 
     CartROM = nullptr;
-
-    CartSD = nullptr;
-
     Cart = nullptr;
 
     return true;
@@ -1571,9 +1578,6 @@ bool Init()
 void DeInit()
 {
     if (CartROM) delete[] CartROM;
-
-    if (CartSD) fclose(CartSD);
-
     if (Cart) delete Cart;
 
     NDSCart_SRAM::DeInit();
@@ -1588,9 +1592,6 @@ void Reset()
     CartID = 0;
     CartIsHomebrew = false;
     CartIsDSi = false;
-
-    if (CartSD) fclose(CartSD);
-    CartSD = nullptr;
 
     if (Cart) delete Cart;
     Cart = nullptr;
@@ -1785,9 +1786,6 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         //    ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
     }
 
-    if (direct)
-        NDS::SetupDirectBoot();
-
     CartInserted = true;
 
     // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
@@ -1810,7 +1808,11 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     if (Cart)
     {
         Cart->Reset();
-        if (direct) Cart->SetupDirectBoot();
+        if (direct)
+        {
+            NDS::SetupDirectBoot();
+            Cart->SetupDirectBoot();
+        }
     }
 
     // encryption
@@ -1821,12 +1823,12 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     //NDSCart_SRAM::LoadSave(sram, romparams.SaveMemType);
     if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
 
-    if (CartIsHomebrew && Config::DLDIEnable)
+    /*if (CartIsHomebrew && Config::DLDIEnable)
     {
         CartSD = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
     }
     else
-        CartSD = NULL;
+        CartSD = NULL;*/
 
     return true;
 }
