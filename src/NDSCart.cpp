@@ -1177,7 +1177,12 @@ void CartRetailNAND::Reset()
 {
     SRAMAddr = 0;
     SRAMStatus = 0x20;
-    SRAMReadWindow = 0;
+    SRAMWindow = 0;
+
+    // ROM header 94/96 = SRAM addr start / 0x20000
+    SRAMBase = *(u16*)&ROM[0x96] << 17;
+
+    memset(SRAMWriteBuffer, 0, 0x800);
 }
 
 void CartRetailNAND::DoSavestate(Savestate* file)
@@ -1210,16 +1215,52 @@ void CartRetailNAND::LoadSave(const char* path, u32 type)
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
-    // ROM header 94/96 = save addr start / 0x20000
-
     switch (cmd[0])
     {
-    case 0x85: // write enable?
-        SRAMStatus |= (1<<4);
+    case 0x81: // write data
+        if ((SRAMStatus & (1<<4)) && SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+0x800000))
+        {
+            u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
+
+            // the command is issued 4 times, each with the same address
+            // seems they use the one from the first command (CHECKME)
+            if (!SRAMAddr)
+                SRAMAddr = addr;
+        }
+        else
+            SRAMAddr = 0;
+        return 1;
+
+    case 0x82: // commit write
+        if (SRAMAddr && SRAMWritePos)
+        {
+            if (SRAMLength && SRAMAddr < (SRAMBase+SRAMLength-0x20000))
+            {
+                memcpy(&SRAM[SRAMAddr - SRAMBase], SRAMWriteBuffer, 0x800);
+                SRAMFileDirty = true;
+            }
+
+            SRAMAddr = 0;
+            SRAMWritePos = 0;
+        }
+        SRAMStatus &= ~(1<<4);
+        return 0;
+
+    case 0x84: // discard write buffer
+        SRAMAddr = 0;
+        SRAMWritePos = 0;
+        return 0;
+
+    case 0x85: // write enable
+        if (SRAMWindow)
+        {
+            SRAMStatus |= (1<<4);
+            SRAMWritePos = 0;
+        }
         return 0;
 
     case 0x8B: // revert to ROM read mode
-        SRAMReadWindow = 0;
+        SRAMWindow = 0;
         return 0;
 
     case 0x94: // return ID data
@@ -1249,7 +1290,7 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
             // TODO.
 
-            SRAMReadWindow = addr;
+            SRAMWindow = addr;
         }
         return 0;
 
@@ -1257,8 +1298,9 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
 
-            if (SRAMReadWindow == 0)
+            if (SRAMWindow == 0)
             {
+                // regular ROM mode
                 memset(data, 0, len);
 
                 if (((addr + len - 1) >> 12) != (addr >> 12))
@@ -1272,21 +1314,13 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             }
             else
             {
+                // SRAM mode
                 memset(data, 0xFF, len);
 
-                u32 sramstart = *(u16*)&ROM[0x96] << 17;
-                u32 sramend = sramstart + 0x800000; // CHECKME
-                if (SRAMReadWindow >= sramstart && SRAMReadWindow < sramend &&
-                    addr >= SRAMReadWindow && addr < (SRAMReadWindow+0x20000))
+                if (SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+SRAMLength) &&
+                    addr >= SRAMWindow && addr < (SRAMWindow+0x20000))
                 {
-                    // TODO!!
-
-                    if (addr == (sramstart+0x7FF800))
-                    {
-                        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
-                        memcpy(data, iddata, std::min(len, 0x10u));
-                        printf("READING ID BLOCK @ %08X\n", addr);
-                    }
+                    memcpy(data, &SRAM[addr - SRAMBase], len);
                 }
             }
         }
@@ -1297,17 +1331,13 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // status bits
             // bit5: ready
             // bit4: write enable
-printf("NAND STATUS %02X\n", SRAMStatus);
+
             for (u32 i = 0; i < len; i+=4)
                 *(u32*)&data[i] = SRAMStatus * 0x01010101;
         }
         return 0;
 
     default:
-        /*if (cmd[0] != 0xB8)
-        printf("shitty command %02X %02X %02X %02X %02X %02X %02X %02X - %08X\n",
-               cmd[0], cmd[1], cmd[2], cmd[3],
-               cmd[4], cmd[5], cmd[6], cmd[7], len);*/
         return CartRetail::ROMCommandStart(cmd, data, len);
     }
 }
@@ -1316,7 +1346,16 @@ void CartRetailNAND::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 {
     switch (cmd[0])
     {
-    // TODO!
+    case 0x81: // write data
+        if (SRAMAddr)
+        {
+            if ((SRAMWritePos + len) > 0x800)
+                len = 0x800 - SRAMWritePos;
+
+            memcpy(&SRAMWriteBuffer[SRAMWritePos], data, len);
+            SRAMWritePos += len;
+        }
+        return;
 
     default:
         return CartCommon::ROMCommandFinish(cmd, data, len);

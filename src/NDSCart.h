@@ -155,7 +155,11 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last);
 
 private:
-    u32 SRAMReadWindow;
+    u32 SRAMBase;
+    u32 SRAMWindow;
+
+    u8 SRAMWriteBuffer[0x800];
+    u32 SRAMWritePos;
 };
 
 // CartRetailIR -- SPI IR device and SRAM
