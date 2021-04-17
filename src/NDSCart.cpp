@@ -1368,7 +1368,44 @@ u8 CartRetailNAND::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
-//
+CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion) : CartRetail(rom, len, chipid)
+{
+    IRVersion = irversion;
+}
+
+CartRetailIR::~CartRetailIR()
+{
+}
+
+void CartRetailIR::Reset()
+{
+    IRCmd = 0;
+}
+
+void CartRetailIR::DoSavestate(Savestate* file)
+{
+    // TODO?
+}
+
+u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
+{
+    if (pos == 0)
+    {
+        IRCmd = val;
+        return val;
+    }
+
+    // TODO: emulate actual IR comm
+
+    switch (IRCmd)
+    {
+    case 0x00: // pass-through
+        return CartRetail::SPIWrite(val, pos-1, last);
+
+    case 0x08: // ID
+        return 0xAA;
+    }
+}
 
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
@@ -1827,6 +1864,15 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 
     CartInserted = true;
 
+    u32 irversion = 0;
+    if ((gamecode & 0xFF) == 'I')
+    {
+        if (((gamecode >> 8) & 0xFF) < 'P')
+            irversion = 1; // Active Health / Walk with Me
+        else
+            irversion = 2; // Pokémon HG/SS, B/W, B2/W2
+    }
+
     // TODO: support more fancy cart types (homebrew?, flashcarts, etc)
     /*if (CartIsHomebrew)
         ROMCommandHandler = ROMCommand_Homebrew;
@@ -1839,8 +1885,8 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         Cart = new CartHomebrew(CartROM, CartROMSize, CartID);
     else if (CartID & 0x08000000)
         Cart = new CartRetailNAND(CartROM, CartROMSize, CartID);
-    //else if (CartID & 0x00010000)
-    //    Cart = new CartRetailIR(CartROM, CartROMSize, CartID);
+    else if (irversion != 0)
+        Cart = new CartRetailIR(CartROM, CartROMSize, CartID, irversion);
     else
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
 

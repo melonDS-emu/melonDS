@@ -166,7 +166,7 @@ private:
 class CartRetailIR : public CartRetail
 {
 public:
-    CartRetailIR(u8* rom, u32 len, u32 chipid);
+    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
     ~CartRetailIR();
 
     void Reset();
@@ -176,6 +176,7 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last);
 
 private:
+    u32 IRVersion;
     u8 IRCmd;
 };
 
