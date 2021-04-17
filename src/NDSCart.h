@@ -103,19 +103,19 @@ class CartRetail : public CartCommon
 {
 public:
     CartRetail(u8* rom, u32 len, u32 chipid);
-    virtual ~CartRetail();
+    virtual ~CartRetail() override;
 
-    virtual void Reset();
+    virtual void Reset() override;
 
-    virtual void DoSavestate(Savestate* file);
+    virtual void DoSavestate(Savestate* file) override;
 
-    virtual void LoadSave(const char* path, u32 type);
-    virtual void RelocateSave(const char* path, bool write);
-    virtual void FlushSRAMFile();
+    virtual void LoadSave(const char* path, u32 type) override;
+    virtual void RelocateSave(const char* path, bool write) override;
+    virtual void FlushSRAMFile() override;
 
-    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
 
-    virtual u8 SPIWrite(u8 val, u32 pos, bool last);
+    virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 protected:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
@@ -141,18 +141,18 @@ class CartRetailNAND : public CartRetail
 {
 public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid);
-    ~CartRetailNAND();
+    ~CartRetailNAND() override;
 
-    void Reset();
+    void Reset() override;
 
     void DoSavestate(Savestate* file);
 
-    void LoadSave(const char* path, u32 type);
+    void LoadSave(const char* path, u32 type) override;
 
-    int ROMCommandStart(u8* cmd, u8* data, u32 len);
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len);
+    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last);
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 private:
     u32 SRAMBase;
@@ -167,13 +167,13 @@ class CartRetailIR : public CartRetail
 {
 public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
-    ~CartRetailIR();
+    ~CartRetailIR() override;
 
-    void Reset();
+    void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last);
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 private:
     u32 IRVersion;
@@ -185,13 +185,13 @@ class CartRetailBT : public CartRetail
 {
 public:
     CartRetailBT(u8* rom, u32 len, u32 chipid);
-    ~CartRetailBT();
+    ~CartRetailBT() override;
 
-    void Reset();
+    void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    u8 SPIWrite(u8 val, u32 pos, bool last);
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
 };
 
 // CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
@@ -199,14 +199,14 @@ class CartHomebrew : public CartCommon
 {
 public:
     CartHomebrew(u8* rom, u32 len, u32 chipid);
-    ~CartHomebrew();
+    ~CartHomebrew() override;
 
-    void Reset();
+    void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
-    int ROMCommandStart(u8* cmd, u8* data, u32 len);
-    void ROMCommandFinish(u8* cmd, u8* data, u32 len);
+    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
     void ApplyDLDIPatch(const u8* patch, u32 len);
