@@ -1408,6 +1408,31 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 }
 
 
+CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
+{
+    printf("POKETYPE CART\n");
+}
+
+CartRetailBT::~CartRetailBT()
+{
+}
+
+void CartRetailBT::Reset()
+{
+}
+
+void CartRetailBT::DoSavestate(Savestate* file)
+{
+    // TODO?
+}
+
+u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
+{
+    printf("POKETYPE SPI: %02X %d %d\n", val, pos, last);
+    return val;
+}
+
+
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
     if (Config::DLDIEnable)
@@ -1887,6 +1912,8 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         Cart = new CartRetailNAND(CartROM, CartROMSize, CartID);
     else if (irversion != 0)
         Cart = new CartRetailIR(CartROM, CartROMSize, CartID, irversion);
+    else if ((gamecode & 0xFFFFFF) == 0x505A55) // UZPx
+        Cart = new CartRetailBT(CartROM, CartROMSize, CartID);
     else
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
 
