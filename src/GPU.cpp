@@ -360,8 +360,6 @@ void DoSavestate(Savestate* file)
     GPU2D_A.DoSavestate(file);
     GPU2D_B.DoSavestate(file);
     GPU3D::DoSavestate(file);
-
-    ResetVRAMCache();
 }
 
 void AssignFramebuffers()

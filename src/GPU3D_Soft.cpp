@@ -62,7 +62,7 @@ void SoftRenderer::SetupRenderThread()
         Platform::Semaphore_Reset(Sema_RenderStart);
         Platform::Semaphore_Reset(Sema_ScanlineCount);
 
-        Platform::Semaphore_Post(Sema_RenderStart);
+        RenderFrame();
     }
     else
     {

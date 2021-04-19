@@ -459,6 +459,16 @@ void DoSavestate(Savestate* file)
 
     file->Var32(&VertexNum);
     file->Var32(&VertexNumInPoly);
+    if (file->IsAtleastVersion(7, 2))
+        file->Var32(&PolygonMode);
+    else
+    { // don't crash when loading a bad state
+        if (!file->Saving)
+        {
+            if ((PolygonMode == 0 || PolygonMode == 2) && VertexNumInPoly > 2)
+                VertexNumInPoly == 2;
+        }
+    }
     file->Var32(&NumConsecutivePolygons);
 
     for (int i = 0; i < 4; i++)
@@ -478,7 +488,7 @@ void DoSavestate(Savestate* file)
     if (file->Saving)
     {
         u32 id;
-        if (LastStripPolygon) id = (u32)((LastStripPolygon - (&PolygonRAM[0])) / sizeof(Polygon));
+        if (LastStripPolygon) id = (u32)(LastStripPolygon - (&PolygonRAM[0]));
         else                  id = -1;
         file->Var32(&id);
     }
@@ -524,7 +534,7 @@ void DoSavestate(Savestate* file)
             {
                 Vertex* ptr = poly->Vertices[j];
                 u32 id;
-                if (ptr) id = (u32)((ptr - (&VertexRAM[0])) / sizeof(Vertex));
+                if (ptr) id = (u32)(ptr - (&VertexRAM[0]));
                 else     id = -1;
                 file->Var32(&id);
             }
@@ -600,10 +610,6 @@ void DoSavestate(Savestate* file)
 
         CurVertexRAM = &VertexRAM[CurRAMBank ? 6144 : 0];
         CurPolygonRAM = &PolygonRAM[CurRAMBank ? 2048 : 0];
-
-        // better safe than sorry, I guess
-        // might cause a blank frame but atleast it won't shit itself
-        RenderNumPolygons = 0;
     }
 
     file->VarArray(CurVertex, sizeof(s16)*3);
@@ -621,6 +627,53 @@ void DoSavestate(Savestate* file)
 
     file->Bool32(&UseShininessTable);
     file->VarArray(ShininessTable, 128*sizeof(u8));
+
+    if (file->IsAtleastVersion(7, 2))
+    {
+        file->Var32(&PolygonAttr);
+        file->Var32(&TexParam);
+        file->Var32(&TexPalette);
+
+        u32 stateRenderer = GPU::Renderer;
+        file->Var32(&stateRenderer);
+        if (GPU::Renderer == 0)
+        {
+            if (stateRenderer == 0)
+            {
+                file->Var32(&RenderNumPolygons);
+
+                u32 id;
+                if (file->Saving)
+                {
+                    for (int i = 0; i < RenderNumPolygons; i++)
+                    {
+                        if (RenderPolygonRAM[i]) id = (u32)(RenderPolygonRAM[i] - (&PolygonRAM[0]));
+                        else                     id = -1;
+                        file->Var32(&id);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < RenderNumPolygons; i++)
+                    {
+                        file->Var32(&id);
+                        
+                        if (id == -1) RenderPolygonRAM[i] = NULL;
+                        else          RenderPolygonRAM[i] = &PolygonRAM[id];
+                    }
+                    // for simplicity, we'll skip the check for identical frame here
+                    RenderFrameIdentical = false;
+                    RestartFrame();
+                }
+            }
+            else // savestate was made while using GL renderer
+                GPU::ResetVRAMCache();
+            // We can ignore the rest of the data in this section of the savestate.
+            // We could try rendering with a call to VBlank, but it doesn't look like that would be reliable.
+        }
+        else // currently using GL renderer; is it possible to render in this situation?
+            GPU::ResetVRAMCache();
+    }
 }
 
 

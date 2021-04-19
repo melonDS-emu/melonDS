@@ -705,6 +705,21 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
+    if (file->IsAtleastVersion(7, 2))
+    {
+        // The QT frontend doesn't allow savestates while powered off, but BizHawk does.
+        bool stateRunning = Running;
+        file->Bool32(&stateRunning);
+        if (!file->Saving)
+        {
+            if (!stateRunning && Running)
+                Stop();
+            else if (stateRunning && !Running)
+                // The only thing that Stop does is clear some buffers (assuming no QT frontend), so we don't need to restart anything here.
+                Running = true;
+        }
+    }
+
     // TODO:
     // * do something for bool's (sizeof=1)
     // * do something for 'loading DSi-mode savestate in DS mode' and vice-versa
@@ -742,6 +757,23 @@ bool DoSavestate(Savestate* file)
     file->Var16(&SqrtCnt);
 
     file->Var32(&CPUStop);
+    if (!file->Saving && CPUStop & 0x40000000 && Running)
+    {
+        // blank display when lid is closed
+        int fbsize;
+        if (GPU::Renderer == 1) fbsize = (256*3 + 1) * 192;
+        else                    fbsize = 256 * 192;
+
+        memset(GPU::Framebuffer[GPU::FrontBuffer][0], 0xFF, fbsize * sizeof(u32));
+        memset(GPU::Framebuffer[GPU::FrontBuffer][1], 0xFF, fbsize * sizeof(u32));
+
+#ifdef OGLRENDERER_ENABLED
+        if (GPU::Renderer == 1)
+        {
+            // ???
+        }
+#endif
+    }
 
     for (int i = 0; i < 8; i++)
     {
@@ -773,7 +805,8 @@ bool DoSavestate(Savestate* file)
         file->Bool32(&LagFrameFlag);
     }
 
-    // TODO: save KeyInput????
+    if (file->IsAtleastVersion(7, 2))
+        file->Var32(&KeyInput);
     file->Var16(&KeyCnt);
     file->Var16(&RCnt);
 
