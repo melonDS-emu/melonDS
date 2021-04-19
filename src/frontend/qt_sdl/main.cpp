@@ -1134,9 +1134,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actOpenROM = menu->addAction("Open ROM...");
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
+        actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
 
         actOpenROMArchive = menu->addAction("Open ROM inside Archive...");
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
+        actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));
 
         recentMenu = menu->addMenu("Open Recent");
         for (int i = 0; i < 10; ++i)
@@ -1219,12 +1221,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actSetupCheats = menu->addAction("Setup cheat codes");
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+        actSetupCheats->setMenuRole(QAction::NoRole);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
 
         actEmuSettings = menu->addAction("Emu settings");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actEmuSettings->setMenuRole(QAction::PreferencesRole);
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
