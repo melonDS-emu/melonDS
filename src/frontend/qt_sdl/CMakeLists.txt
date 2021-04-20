@@ -120,10 +120,14 @@ if (APPLE)
     set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
     option(MACOS_BUNDLE_LIBS "Bundle libraries with the app on macOS" OFF)
+    option(MACOS_BUILD_DMG "Build DMG image of the macOS application bundle" OFF)
 
     if (MACOS_BUNDLE_LIBS)
+        if (MACOS_BUILD_DMG)
+            set(DMGARG "--dmg")
+        endif()
         add_custom_command(TARGET melonDS POST_BUILD
-            COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.sh ${CMAKE_BINARY_DIR}
+            COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.sh ${DMGARG} ${CMAKE_BINARY_DIR}
             COMMENT "Bundling macOS libraries...")
     endif()
 endif()
