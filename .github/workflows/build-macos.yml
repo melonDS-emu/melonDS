@@ -26,8 +26,7 @@ jobs:
     - name: Configure
       working-directory: ${{runner.workspace}}/build
       run: |
-          export PKG_CONFIG_PATH="$(brew --prefix libarchive)/lib/pkgconfig"
-          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
+          cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON
     - name: Make
       working-directory: ${{runner.workspace}}/build
       run: |
