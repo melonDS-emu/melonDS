@@ -57,6 +57,7 @@ find "$app/Contents/Frameworks" -maxdepth 1 -name '*.dylib' | while read lib; do
 done
 
 fixup_libs "$app/Contents/MacOS/melonDS"
+codesign -s - --deep "$app"
 
 if [[ $build_dmg == 1 ]]; then
 	mkdir dmg
