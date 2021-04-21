@@ -761,6 +761,12 @@ u8 CartCommon::SPIWrite(u8 val, u32 pos, bool last)
     return 0xFF;
 }
 
+void CartCommon::SetIRQ()
+{
+    NDS::SetIRQ(0, NDS::IRQ_CartIREQMC);
+    NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
+}
+
 void CartCommon::ReadROM(u32 addr, u32 len, u8* data, u32 offset)
 {
     if (addr >= ROMLength) return;
@@ -801,7 +807,14 @@ void CartRetail::LoadSave(const char* path, u32 type)
     SRAMPath[1023] = '\0';
 
     if (type > 9) type = 0;
-    int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 8192*1024};
+    int sramlen[] =
+    {
+        0,
+        512,
+        8192, 65536, 128*1024,
+        256*1024, 512*1024, 1024*1024,
+        8192*1024, 16384*1024
+    };
     SRAMLength = sramlen[type];
 
     if (SRAMLength)
@@ -830,8 +843,8 @@ void CartRetail::LoadSave(const char* path, u32 type)
     case 4: SRAMType = 2; break; // EEPROM, regular
     case 5:
     case 6:
-    case 7:
-    case 8: SRAMType = 3; break; // FLASH
+    case 7: SRAMType = 3; break; // FLASH
+    case 8:
     case 9: SRAMType = 4; break; // NAND
     default: SRAMType = 0; break; // ...whatever else
     }
@@ -1429,7 +1442,14 @@ void CartRetailBT::DoSavestate(Savestate* file)
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
     printf("POKETYPE SPI: %02X %d %d\n", val, pos, last);
-    return val;
+
+    if (pos == 0)
+    {
+        // TODO do something with it??
+        SetIRQ();
+    }
+
+    return 0;
 }
 
 
@@ -1844,7 +1864,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else
         CartID |= (0x100 - (CartROMSize >> 28)) << 8;
 
-    if (romparams.SaveMemType == 8)
+    if (romparams.SaveMemType == 8 || romparams.SaveMemType == 9)
         CartID |= 0x08000000; // NAND flag
 
     if (CartIsDSi)
@@ -1854,6 +1874,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     // TODO: this kind of ID triggers different KEY1 phase
     // (repeats commands a bunch of times)
     //CartID = 0x88017FEC;
+    //CartID = 0x80007FC2; // pokémon typing adventure
 
     printf("Cart ID: %08X\n", CartID);
 
