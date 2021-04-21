@@ -25,10 +25,21 @@ abspath() {
 }
 
 cmake_qtdir=$(grep -E "Qt._DIR" CMakeCache.txt | cut -d= -f2)
-qtbin="$(abspath "$cmake_qtdir"/../../../bin)"
+qtdir="$(abspath "$cmake_qtdir"/../../..)"
 
 if [[ ! -d "$app/Contents/Frameworks" ]]; then
-	"${qtbin}/macdeployqt" "$app"
+	"${qtdir}/bin/macdeployqt" "$app"
+fi
+
+# We'll have to copy the Qt plugins we need on our own if macdeployqt forgets
+# Qt6 bug?
+plugindir="$app/Contents/PlugIns"
+if [[ ! -d "$plugindir" ]]; then
+    mkdir -p "$plugindir/styles" "$plugindir/platforms"
+    cp "$qtdir/share/qt/plugins/styles/libqmacstyle.dylib" "$plugindir/styles/"
+    cp "$qtdir/share/qt/plugins/platforms/libqcocoa.dylib" "$plugindir/platforms/"
+
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$app/Contents/MacOS/melonDS"
 fi
 
 # Fix library load paths that macdeployqt forgot about
