@@ -3,7 +3,7 @@ project(qt_sdl)
 SET(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
-	CheatsDialog.cpp
+    CheatsDialog.cpp
     EmuSettingsDialog.cpp
     InputConfigDialog.cpp
     VideoSettingsDialog.cpp
@@ -18,7 +18,7 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     PlatformConfig.cpp
-	QPathInput.h
+    QPathInput.h
     
     ArchiveUtil.h
     ArchiveUtil.cpp
@@ -68,9 +68,7 @@ target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
 target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
 target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS} ${SLIRP_LIBRARY_DIRS})
-if (NOT APPLE)
-    target_link_directories(melonDS PRIVATE ${LIBARCHIVE_LIBRARY_DIRS})
-endif()
+target_link_directories(melonDS PRIVATE ${LIBARCHIVE_LIBRARY_DIRS})
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
@@ -78,13 +76,13 @@ target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
-	target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
+    target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
 else()
-	target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
+    target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
 endif()
 
 if (NOT Iconv_IS_BUILT_IN)
-	target_link_libraries(melonDS ${Iconv_LIBRARIES})
+    target_link_libraries(melonDS ${Iconv_LIBRARIES})
 endif()
 
 if (UNIX)
@@ -122,16 +120,15 @@ if (APPLE)
     set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
     option(MACOS_BUNDLE_LIBS "Bundle libraries with the app on macOS" OFF)
+    option(MACOS_BUILD_DMG "Build DMG image of the macOS application bundle" OFF)
 
     if (MACOS_BUNDLE_LIBS)
-        # Copy Qt plugins into the bundle
-        get_target_property(qtcocoa_location Qt5::QCocoaIntegrationPlugin LOCATION)
-        target_sources(melonDS PRIVATE "${qtcocoa_location}")
-        set_source_files_properties("${qtcocoa_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/platforms)
-
-        get_target_property(qtmacstyle_location Qt5::QMacStylePlugin LOCATION)
-        target_sources(melonDS PRIVATE "${qtmacstyle_location}")
-        set_source_files_properties("${qtmacstyle_location}" PROPERTIES MACOSX_PACKAGE_LOCATION MacOS/styles)
+        if (MACOS_BUILD_DMG)
+            set(DMGARG "--dmg")
+        endif()
+        add_custom_command(TARGET melonDS POST_BUILD
+            COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.sh ${DMGARG} ${CMAKE_BINARY_DIR}
+            COMMENT "Bundling macOS libraries...")
     endif()
 endif()
 

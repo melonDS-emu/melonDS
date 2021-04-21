@@ -72,7 +72,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    ```bash
    cmake .. -G "MSYS Makefiles"
    make -j$(nproc --all)
-   ../msys-dist.sh
+   ../tools/msys-dist.sh
    ```
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
