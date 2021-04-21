@@ -1231,14 +1231,17 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
     switch (cmd[0])
     {
     case 0x81: // write data
-        if ((SRAMStatus & (1<<4)) && SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+0x800000))
+        if ((SRAMStatus & (1<<4)) && SRAMWindow >= SRAMBase && SRAMWindow < (SRAMBase+SRAMLength))
         {
             u32 addr = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
 
-            // the command is issued 4 times, each with the same address
-            // seems they use the one from the first command (CHECKME)
-            if (!SRAMAddr)
-                SRAMAddr = addr;
+            if (addr >= SRAMWindow && addr < (SRAMWindow+0x20000))
+            {
+                // the command is issued 4 times, each with the same address
+                // seems they use the one from the first command (CHECKME)
+                if (!SRAMAddr)
+                    SRAMAddr = addr;
+            }
         }
         else
             SRAMAddr = 0;
@@ -1302,6 +1305,8 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // window is 0x20000 bytes, address is aligned to that boundary
             // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
             // TODO.
+            if (addr < SRAMBase) printf("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
+            if (addr >= (SRAMBase+SRAMLength)) printf("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
 
             SRAMWindow = addr;
         }
