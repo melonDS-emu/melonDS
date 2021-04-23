@@ -2212,7 +2212,6 @@ void WriteSPICnt(u16 val)
     {
         // forcefully reset SPI hold
         SPIHold = false;
-        if (Cart) Cart->SPIResetHold();
     }
 
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
