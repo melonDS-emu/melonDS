@@ -21,47 +21,6 @@
 
 #include "types.h"
 
-// required class design
-// * interface bits (init/reset/writeregs) static
-// * cart-specific bits in class
-//  * responding to cart commands
-//  * forwarding response data
-//  * forwarding cart IRQ (for ie. pokémon typing cart, or when ejecting cart)
-//  * responding to SPI commands
-//  * saveRAM management (interface between emulated SRAM interface and save file)
-//  * DLDI shito (for homebrew)
-
-/*class NDSCart
-{
-public:
-    static bool Init();
-    static void DeInit();
-    static void Reset;
-
-    static void DoSavestate(Savestate* file);
-
-    static bool LoadROM(const char* path, const char* sram, bool direct);
-    static bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
-
-    // direct boot support
-    static void DecryptSecureArea(u8* out);
-
-    static u16 SPICnt;
-    static u32 ROMCnt;
-
-    static u8 ROMCommand[8];
-
-    static bool CartInserted;
-    static u8* CartROM;
-    static u32 CartROMSize;
-    static u32 CartID;
-
-    //
-
-private:
-    // private parts go here
-};*/
-
 namespace NDSCart
 {
 
@@ -79,6 +38,7 @@ public:
 
     virtual void LoadSave(const char* path, u32 type);
     virtual void RelocateSave(const char* path, bool write);
+    virtual int ImportSRAM(const u8* data, u32 length);
     virtual void FlushSRAMFile();
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
@@ -96,8 +56,8 @@ protected:
     u32 ChipID;
     bool IsDSi;
 
-    int CmdEncMode;
-    int DataEncMode;
+    u32 CmdEncMode;
+    u32 DataEncMode;
 };
 
 // CartRetail -- regular retail cart (ROM, SPI SRAM)
@@ -113,6 +73,7 @@ public:
 
     virtual void LoadSave(const char* path, u32 type) override;
     virtual void RelocateSave(const char* path, bool write) override;
+    virtual int ImportSRAM(const u8* data, u32 length) override;
     virtual void FlushSRAMFile() override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
@@ -150,6 +111,7 @@ public:
     void DoSavestate(Savestate* file);
 
     void LoadSave(const char* path, u32 type) override;
+    int ImportSRAM(const u8* data, u32 length) override;
 
     int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
@@ -157,6 +119,8 @@ public:
     u8 SPIWrite(u8 val, u32 pos, bool last) override;
 
 private:
+    void BuildSRAMID();
+
     u32 SRAMBase;
     u32 SRAMWindow;
 

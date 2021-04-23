@@ -31,443 +31,6 @@
 
 // SRAM TODO: emulate write delays???
 
-namespace NDSCart_SRAM
-{
-
-u8* SRAM;
-u32 SRAMLength;
-
-char SRAMPath[1024];
-bool SRAMFileDirty;
-
-void (*WriteFunc)(u8 val, bool islast);
-
-u32 Hold;
-u8 CurCmd;
-u32 DataPos;
-u8 Data;
-
-u8 StatusReg;
-u32 Addr;
-
-
-void Write_Null(u8 val, bool islast);
-void Write_EEPROMTiny(u8 val, bool islast);
-void Write_EEPROM(u8 val, bool islast);
-void Write_Flash(u8 val, bool islast);
-
-
-bool Init()
-{
-    SRAM = NULL;
-    return true;
-}
-
-void DeInit()
-{
-    if (SRAM) delete[] SRAM;
-}
-
-void Reset()
-{
-    if (SRAM) delete[] SRAM;
-    SRAM = NULL;
-}
-
-void DoSavestate(Savestate* file)
-{
-    file->Section("NDCS");
-
-    // we reload the SRAM contents.
-    // it should be the same file (as it should be the same ROM, duh)
-    // but the contents may change
-
-    //if (!file->Saving && SRAMLength)
-    //    delete[] SRAM;
-
-    u32 oldlen = SRAMLength;
-
-    file->Var32(&SRAMLength);
-    if (SRAMLength != oldlen)
-    {
-        printf("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
-        printf("oh well. loading it anyway. adsfgdsf\n");
-
-        if (oldlen) delete[] SRAM;
-        if (SRAMLength) SRAM = new u8[SRAMLength];
-    }
-    if (SRAMLength)
-    {
-        //if (!file->Saving)
-        //    SRAM = new u8[SRAMLength];
-
-        file->VarArray(SRAM, SRAMLength);
-    }
-
-    // SPI status shito
-
-    file->Var32(&Hold);
-    file->Var8(&CurCmd);
-    file->Var32(&DataPos);
-    file->Var8(&Data);
-
-    file->Var8(&StatusReg);
-    file->Var32(&Addr);
-
-    // SRAMManager might now have an old buffer (or one from the future or alternate timeline!)
-    if (!file->Saving)
-        NDSCart_SRAMManager::RequestFlush();
-}
-
-void LoadSave(const char* path, u32 type)
-{
-    if (SRAM) delete[] SRAM;
-
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (f)
-    {
-        fseek(f, 0, SEEK_END);
-        SRAMLength = (u32)ftell(f);
-        SRAM = new u8[SRAMLength];
-
-        fseek(f, 0, SEEK_SET);
-        fread(SRAM, SRAMLength, 1, f);
-
-        fclose(f);
-    }
-    else
-    {
-        if (type > 9) type = 0;
-        int sramlen[] = {0, 512, 8192, 65536, 128*1024, 256*1024, 512*1024, 1024*1024, 8192*1024, 32768*1024};
-        SRAMLength = sramlen[type];
-
-        if (SRAMLength)
-        {
-            SRAM = new u8[SRAMLength];
-            memset(SRAM, 0xFF, SRAMLength);
-        }
-    }
-
-    SRAMFileDirty = false;
-    NDSCart_SRAMManager::Setup(path, SRAM, SRAMLength);
-
-    switch (SRAMLength)
-    {
-    case 512: WriteFunc = Write_EEPROMTiny; break;
-    case 8192:
-    case 65536:
-    case 128*1024: WriteFunc = Write_EEPROM; break;
-    case 256*1024:
-    case 512*1024:
-    case 1024*1024:
-    case 8192*1024: WriteFunc = Write_Flash; break;
-    case 32768*1024: WriteFunc = Write_Null; break; // NAND FLASH, handled differently
-    default:
-        printf("!! BAD SAVE LENGTH %d\n", SRAMLength);
-    case 0:
-        WriteFunc = Write_Null;
-        break;
-    }
-
-    Hold = 0;
-    CurCmd = 0;
-    Data = 0;
-    StatusReg = 0x00;
-}
-
-void RelocateSave(const char* path, bool write)
-{
-    if (!write)
-    {
-        LoadSave(path, 0); // lazy
-        return;
-    }
-
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    FILE* f = Platform::OpenFile(path, "wb");
-    if (!f)
-    {
-        printf("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
-        return;
-    }
-
-    fwrite(SRAM, SRAMLength, 1, f);
-    fclose(f);
-}
-
-u8 Read()
-{
-    return Data;
-}
-
-void Write_Null(u8 val, bool islast) {}
-
-void Write_EEPROMTiny(u8 val, bool islast)
-{
-    switch (CurCmd)
-    {
-    case 0x02:
-    case 0x0A:
-        if (DataPos < 1)
-        {
-            Addr = val;
-            Data = 0;
-        }
-        else
-        {
-            SRAM[(Addr + ((CurCmd==0x0A)?0x100:0)) & 0x1FF] = val;
-            Addr++;
-        }
-        break;
-
-    case 0x03:
-    case 0x0B:
-        if (DataPos < 1)
-        {
-            Addr = val;
-            Data = 0;
-        }
-        else
-        {
-            Data = SRAM[(Addr + ((CurCmd==0x0B)?0x100:0)) & 0x1FF];
-            Addr++;
-        }
-        break;
-
-    case 0x9F:
-        Data = 0xFF;
-        break;
-
-    default:
-        if (DataPos==0)
-            printf("unknown tiny EEPROM save command %02X\n", CurCmd);
-        break;
-    }
-}
-
-void Write_EEPROM(u8 val, bool islast)
-{
-    u32 addrsize = 2;
-    if (SRAMLength > 65536) addrsize++;
-
-    switch (CurCmd)
-    {
-    case 0x02:
-        if (DataPos < addrsize)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        else
-        {
-            SRAM[Addr & (SRAMLength-1)] = val;
-            Addr++;
-        }
-        break;
-
-    case 0x03:
-        if (DataPos < addrsize)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        else
-        {
-            Data = SRAM[Addr & (SRAMLength-1)];
-            Addr++;
-        }
-        break;
-
-    case 0x9F:
-        Data = 0xFF;
-        break;
-
-    default:
-        if (DataPos==0)
-            printf("unknown EEPROM save command %02X\n", CurCmd);
-        break;
-    }
-}
-
-void Write_Flash(u8 val, bool islast)
-{
-    switch (CurCmd)
-    {
-    case 0x02:
-        if (DataPos < 3)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        else
-        {
-            SRAM[Addr & (SRAMLength-1)] = 0;
-            Addr++;
-        }
-        break;
-
-    case 0x03:
-        if (DataPos < 3)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        else
-        {
-            Data = SRAM[Addr & (SRAMLength-1)];
-            Addr++;
-        }
-        break;
-
-    case 0x0A:
-        if (DataPos < 3)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        else
-        {
-            SRAM[Addr & (SRAMLength-1)] = val;
-            Addr++;
-        }
-        break;
-
-    case 0x9F:
-        Data = 0xFF;
-        break;
-
-    case 0xD8:
-        if (DataPos < 3)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        if (DataPos == 2)
-        {
-            for (u32 i = 0; i < 0x10000; i++)
-            {
-                SRAM[Addr & (SRAMLength-1)] = 0;
-                Addr++;
-            }
-        }
-        break;
-
-    case 0xDB:
-        if (DataPos < 3)
-        {
-            Addr <<= 8;
-            Addr |= val;
-            Data = 0;
-        }
-        if (DataPos == 2)
-        {
-            for (u32 i = 0; i < 0x100; i++)
-            {
-                SRAM[Addr & (SRAMLength-1)] = 0;
-                Addr++;
-            }
-        }
-        break;
-
-    default:
-        if (DataPos==0)
-            printf("unknown Flash save command %02X\n", CurCmd);
-        break;
-    }
-}
-
-void Write(u8 val, u32 hold)
-{
-    bool islast = false;
-
-    if (!hold)
-    {
-        if (Hold) islast = true;
-        else CurCmd = val;
-        Hold = 0;
-    }
-
-    if (hold && (!Hold))
-    {
-        CurCmd = val;
-        Hold = 1;
-        Data = 0;
-        DataPos = 0;
-        Addr = 0;
-        //printf("save SPI command %02X\n", CurCmd);
-        return;
-    }
-
-    switch (CurCmd)
-    {
-    case 0x00:
-        // Pokémon carts have an IR transceiver thing, and send this
-        // to bypass it and access SRAM.
-        // TODO: design better
-        CurCmd = val;
-        break;
-    case 0x08:
-        // see above
-        // TODO: work out how the IR thing works. emulate it.
-        Data = 0xAA;
-        break;
-
-    case 0x02:
-    case 0x03:
-    case 0x0A:
-    case 0x0B:
-    case 0x9F:
-    case 0xD8:
-    case 0xDB:
-        WriteFunc(val, islast);
-        DataPos++;
-        break;
-
-    case 0x04: // write disable
-        StatusReg &= ~(1<<1);
-        Data = 0;
-        break;
-
-    case 0x05: // read status reg
-        Data = StatusReg;
-        break;
-
-    case 0x06: // write enable
-        StatusReg |= (1<<1);
-        Data = 0;
-        break;
-
-    default:
-        if (DataPos==0)
-            printf("unknown save SPI command %02X %02X %d\n", CurCmd, val, islast);
-        break;
-    }
-
-    SRAMFileDirty |= islast && (CurCmd == 0x02 || CurCmd == 0x0A) && (SRAMLength > 0);
-}
-
-void FlushSRAMFile()
-{
-    if (!SRAMFileDirty) return;
-
-    SRAMFileDirty = false;
-    NDSCart_SRAMManager::RequestFlush();
-}
-
-}
-
-
 namespace NDSCart
 {
 
@@ -646,7 +209,10 @@ void CartCommon::SetupDirectBoot()
 
 void CartCommon::DoSavestate(Savestate* file)
 {
-    // TODO?
+    file->Section("NDCS");
+
+    file->Var32(&CmdEncMode);
+    file->Var32(&DataEncMode);
 }
 
 void CartCommon::LoadSave(const char* path, u32 type)
@@ -655,6 +221,11 @@ void CartCommon::LoadSave(const char* path, u32 type)
 
 void CartCommon::RelocateSave(const char* path, bool write)
 {
+}
+
+int CartCommon::ImportSRAM(const u8* data, u32 length)
+{
+    return 0;
 }
 
 void CartCommon::FlushSRAMFile()
@@ -798,7 +369,46 @@ void CartRetail::Reset()
 
 void CartRetail::DoSavestate(Savestate* file)
 {
-    // TODO?
+    CartCommon::DoSavestate(file);
+
+    // we reload the SRAM contents.
+    // it should be the same file (as it should be the same ROM, duh)
+    // but the contents may change
+
+    //if (!file->Saving && SRAMLength)
+    //    delete[] SRAM;
+
+    u32 oldlen = SRAMLength;
+
+    file->Var32(&SRAMLength);
+    if (SRAMLength != oldlen)
+    {
+        printf("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        printf("oh well. loading it anyway. adsfgdsf\n");
+
+        if (oldlen) delete[] SRAM;
+        if (SRAMLength) SRAM = new u8[SRAMLength];
+    }
+    if (SRAMLength)
+    {
+        //if (!file->Saving)
+        //    SRAM = new u8[SRAMLength];
+
+        file->VarArray(SRAM, SRAMLength);
+    }
+
+    // SPI status shito
+
+    file->Var8(&SRAMCmd);
+    file->Var32(&SRAMAddr);
+    file->Var8(&SRAMStatus);
+
+    // SRAMManager might now have an old buffer (or one from the future or alternate timeline!)
+    if (!file->Saving)
+    {
+        SRAMFileDirty = false;
+        NDSCart_SRAMManager::RequestFlush();
+    }
 }
 
 void CartRetail::LoadSave(const char* path, u32 type)
@@ -872,6 +482,19 @@ void CartRetail::RelocateSave(const char* path, bool write)
 
     fwrite(SRAM, SRAMLength, 1, f);
     fclose(f);
+}
+
+int CartRetail::ImportSRAM(const u8* data, u32 length)
+{
+    memcpy(SRAM, data, std::min(length, SRAMLength));
+    FILE* f = Platform::OpenFile(SRAMPath, "wb");
+    if (f)
+    {
+        fwrite(SRAM, SRAMLength, 1, f);
+        fclose(f);
+    }
+
+    return length - SRAMLength;
 }
 
 void CartRetail::FlushSRAMFile()
@@ -1201,30 +824,28 @@ void CartRetailNAND::Reset()
 
 void CartRetailNAND::DoSavestate(Savestate* file)
 {
-    // TODO?
+    CartRetail::DoSavestate(file);
+
+    file->Var32(&SRAMBase);
+    file->Var32(&SRAMWindow);
+
+    file->VarArray(SRAMWriteBuffer, 0x800);
+    file->Var32(&SRAMWritePos);
+
+    if (!file->Saving)
+        BuildSRAMID();
 }
 
 void CartRetailNAND::LoadSave(const char* path, u32 type)
 {
     CartRetail::LoadSave(path, type);
+    BuildSRAMID();
+}
 
-    // the last 128K of the SRAM are read-only.
-    // most of it is FF, except for the NAND ID at the beginning
-    // of the last 0x800 bytes.
-
-    if (SRAMLength > 0x20000)
-    {
-        memset(&SRAM[SRAMLength - 0x20000], 0xFF, 0x20000);
-
-        // TODO: check what the data is all about!
-        // this was pulled from a Jam with the Band cart. may be different on other carts.
-        // WarioWare DIY may have different data or not have this at all.
-        // the ID data is also found in the response to command 94, and JwtB checks it.
-        // WarioWare doesn't seem to care.
-        // there is also more data here, but JwtB doesn't seem to care.
-        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
-        memcpy(&SRAM[SRAMLength - 0x800], iddata, 16);
-    }
+int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
+{
+    CartRetail::ImportSRAM(data, length);
+    BuildSRAMID();
 }
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
@@ -1386,6 +1007,27 @@ u8 CartRetailNAND::SPIWrite(u8 val, u32 pos, bool last)
     return 0xFF;
 }
 
+void CartRetailNAND::BuildSRAMID()
+{
+    // the last 128K of the SRAM are read-only.
+    // most of it is FF, except for the NAND ID at the beginning
+    // of the last 0x800 bytes.
+
+    if (SRAMLength > 0x20000)
+    {
+        memset(&SRAM[SRAMLength - 0x20000], 0xFF, 0x20000);
+
+        // TODO: check what the data is all about!
+        // this was pulled from a Jam with the Band cart. may be different on other carts.
+        // WarioWare DIY may have different data or not have this at all.
+        // the ID data is also found in the response to command 94, and JwtB checks it.
+        // WarioWare doesn't seem to care.
+        // there is also more data here, but JwtB doesn't seem to care.
+        u8 iddata[0x10] = {0xEC, 0x00, 0x9E, 0xA1, 0x51, 0x65, 0x34, 0x35, 0x30, 0x35, 0x30, 0x31, 0x19, 0x19, 0x02, 0x0A};
+        memcpy(&SRAM[SRAMLength - 0x800], iddata, 16);
+    }
+}
+
 
 CartRetailIR::CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion) : CartRetail(rom, len, chipid)
 {
@@ -1405,7 +1047,9 @@ void CartRetailIR::Reset()
 
 void CartRetailIR::DoSavestate(Savestate* file)
 {
-    // TODO?
+    CartRetail::DoSavestate(file);
+
+    file->Var8(&IRCmd);
 }
 
 u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
@@ -1445,7 +1089,7 @@ void CartRetailBT::Reset()
 
 void CartRetailBT::DoSavestate(Savestate* file)
 {
-    // TODO?
+    CartRetail::DoSavestate(file);
 }
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
@@ -1493,7 +1137,7 @@ void CartHomebrew::Reset()
 
 void CartHomebrew::DoSavestate(Savestate* file)
 {
-    // TODO?
+    CartCommon::DoSavestate(file);
 }
 
 int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
@@ -1728,6 +1372,10 @@ void DoSavestate(Savestate* file)
 
     file->Var16(&SPICnt);
     file->Var32(&ROMCnt);
+
+    file->Var8(&SPIData);
+    file->Var32(&SPIDataPos);
+    file->Bool32(&SPIHold);
 
     file->VarArray(ROMCommand, 8);
     file->Var32(&ROMData);
@@ -2002,16 +1650,7 @@ void FlushSRAMFile()
 
 int ImportSRAM(const u8* data, u32 length)
 {
-    /*memcpy(NDSCart_SRAM::SRAM, data, std::min(length, NDSCart_SRAM::SRAMLength));
-    FILE* f = Platform::OpenFile(NDSCart_SRAM::SRAMPath, "wb");
-    if (f)
-    {
-        fwrite(NDSCart_SRAM::SRAM, NDSCart_SRAM::SRAMLength, 1, f);
-        fclose(f);
-    }
-
-    return length - NDSCart_SRAM::SRAMLength;*/
-    // TODO!!!!
+    if (Cart) return Cart->ImportSRAM(data, length);
     return 0;
 }
 
