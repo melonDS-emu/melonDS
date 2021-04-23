@@ -19,7 +19,6 @@ steps:
   displayName: 'Make'
   workingDirectory: $(Pipeline.Workspace)/build
 
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathToPublish: $(Pipeline.Workspace)/build
-    artifactName: melonDS.app
+- publish: $(Pipeline.Workspace)/build/melonDS.dmg
+  artifact: melonDS.dmg
+
