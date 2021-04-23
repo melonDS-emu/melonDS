@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Emu settings - melonDS</string>
+   <string>Emulation Settings - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -42,7 +42,7 @@
           </sizepolicy>
          </property>
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The type of console to emulate&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The type of console to emulate.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -86,20 +86,20 @@
      </widget>
      <widget class="QWidget" name="tab_2">
       <attribute name="title">
-       <string>DS-mode</string>
+       <string>DS Mode</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout">
        <item row="1" column="1">
         <widget class="QPathInput" name="txtBIOS7Path">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;Size should be 16 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;Size should be 16 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="2" column="1">
         <widget class="QPathInput" name="txtFirmwarePath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode firmware&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Possible firmwares:&lt;/p&gt;&lt;p&gt;* 128 KB: DS-mode firmware from a DSi or 3DS. Not bootable.&lt;/p&gt;&lt;p&gt;* 256 KB: regular DS firmware.&lt;/p&gt;&lt;p&gt;* 512 KB: iQue DS firmware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS mode firmware&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Possible firmwares:&lt;/p&gt;&lt;p&gt;* 128 KB: DS mode firmware from a DSi or 3DS. Not bootable.&lt;/p&gt;&lt;p&gt;* 256 KB: regular DS firmware.&lt;/p&gt;&lt;p&gt;* 512 KB: iQue DS firmware.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -172,7 +172,7 @@
           <string/>
          </property>
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS-mode ARM9 BIOS&lt;/p&gt;&lt;p&gt;Size should be 4 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DS mode ARM9 BIOS&lt;/p&gt;&lt;p&gt;Size should be 4 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -193,13 +193,13 @@
      </widget>
      <widget class="QWidget" name="tab_4">
       <attribute name="title">
-       <string>DSi-mode</string>
+       <string>DSi Mode</string>
       </attribute>
       <layout class="QGridLayout" name="gridLayout_2">
        <item row="1" column="1">
         <widget class="QPathInput" name="txtDSiBIOS7Path">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi mode ARM7 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -241,7 +241,7 @@
        <item row="3" column="1">
         <widget class="QPathInput" name="txtDSiNANDPath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi NAND dump&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Should have 'nocash footer' at the end&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi NAND dump&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Should have 'nocash footer' at the end.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -268,7 +268,7 @@
           </sizepolicy>
          </property>
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode ARM9 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi mode ARM9 BIOS&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 64 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -289,14 +289,14 @@
        <item row="2" column="1">
         <widget class="QPathInput" name="txtDSiFirmwarePath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi-mode firmware (used for DS-mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;DSi mode firmware (used for DS mode backwards compatibility)&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Size should be 128 KB.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
        <item row="5" column="1">
         <widget class="QPathInput" name="txtDSiSDPath">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD image file for emulating the DSi's SD card&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;SD image file for emulating the DSi's SD card.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -321,7 +321,7 @@
      </widget>
      <widget class="QWidget" name="tab_3">
       <attribute name="title">
-       <string>CPU emulation</string>
+       <string>CPU Emulation</string>
       </attribute>
       <layout class="QFormLayout" name="formLayout_5">
        <item row="0" column="0">
@@ -354,21 +354,21 @@
        <item row="2" column="0">
         <widget class="QCheckBox" name="chkJITBranchOptimisations">
          <property name="text">
-          <string>Branch Optimisations</string>
+          <string>Branch optimisations</string>
          </property>
         </widget>
        </item>
        <item row="3" column="0">
         <widget class="QCheckBox" name="chkJITLiteralOptimisations">
          <property name="text">
-          <string>Literal Optimisations</string>
+          <string>Literal optimisations</string>
          </property>
         </widget>
        </item>
        <item row="4" column="0">
         <widget class="QCheckBox" name="chkJITFastMemory">
          <property name="text">
-          <string>Fast Memory</string>
+          <string>Fast memory</string>
          </property>
         </widget>
        </item>

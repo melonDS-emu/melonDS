@@ -1150,13 +1150,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         updateRecentFilesMenu();
 
         //actBootFirmware = menu->addAction("Launch DS menu");
-        actBootFirmware = menu->addAction("Boot firmware");
+        actBootFirmware = menu->addAction("Boot Firmware");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
 
         menu->addSeparator();
 
         {
-            QMenu* submenu = menu->addMenu("Save state");
+            QMenu* submenu = menu->addMenu("Save State");
 
             for (int i = 1; i < 9; i++)
             {
@@ -1172,7 +1172,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(actSaveState[0], &QAction::triggered, this, &MainWindow::onSaveState);
         }
         {
-            QMenu* submenu = menu->addMenu("Load state");
+            QMenu* submenu = menu->addMenu("Load State");
 
             for (int i = 1; i < 9; i++)
             {
@@ -1188,11 +1188,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(actLoadState[0], &QAction::triggered, this, &MainWindow::onLoadState);
         }
 
-        actUndoStateLoad = menu->addAction("Undo state load");
+        actUndoStateLoad = menu->addAction("Undo State Load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
 
-        actImportSavefile = menu->addAction("Import savefile");
+        actImportSavefile = menu->addAction("Import Save File...");
         connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
 
         menu->addSeparator();
@@ -1215,40 +1215,40 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actEnableCheats = menu->addAction("Enable cheats");
+        actEnableCheats = menu->addAction("Enable Cheats");
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
-        actSetupCheats = menu->addAction("Setup cheat codes");
+        actSetupCheats = menu->addAction("Manage Cheat Codes...");
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
         actSetupCheats->setMenuRole(QAction::NoRole);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
 
-        actEmuSettings = menu->addAction("Emu settings");
+        actEmuSettings = menu->addAction("Emulation Settings...");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
         actEmuSettings->setMenuRole(QAction::PreferencesRole);
 
-        actInputConfig = menu->addAction("Input and hotkeys");
+        actInputConfig = menu->addAction("Input and Hotkeys...");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
 
-        actVideoSettings = menu->addAction("Video settings");
+        actVideoSettings = menu->addAction("Video Settings...");
         connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
 
-        actAudioSettings = menu->addAction("Audio settings");
+        actAudioSettings = menu->addAction("Audio Settings...");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
-        actWifiSettings = menu->addAction("Wifi settings");
+        actWifiSettings = menu->addAction("Wi-Fi Settings...");
         connect(actWifiSettings, &QAction::triggered, this, &MainWindow::onOpenWifiSettings);
 
-        actInterfaceSettings = menu->addAction("Interface settings");
+        actInterfaceSettings = menu->addAction("Interface Settings...");
         connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
         {
-            QMenu* submenu = menu->addMenu("Savestate settings");
+            QMenu* submenu = menu->addMenu("Save State Settings");
 
-            actSavestateSRAMReloc = submenu->addAction("Separate savefiles");
+            actSavestateSRAMReloc = submenu->addAction("Separate Save Files");
             actSavestateSRAMReloc->setCheckable(true);
             connect(actSavestateSRAMReloc, &QAction::triggered, this, &MainWindow::onChangeSavestateSRAMReloc);
         }
@@ -1256,7 +1256,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         menu->addSeparator();
 
         {
-            QMenu* submenu = menu->addMenu("Screen size");
+            QMenu* submenu = menu->addMenu("Screen Size");
 
             for (int i = 0; i < 4; i++)
             {
@@ -1267,7 +1267,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             }
         }
         {
-            QMenu* submenu = menu->addMenu("Screen rotation");
+            QMenu* submenu = menu->addMenu("Screen Rotation");
             grpScreenRotation = new QActionGroup(submenu);
 
             for (int i = 0; i < 4; i++)
@@ -1282,7 +1282,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(grpScreenRotation, &QActionGroup::triggered, this, &MainWindow::onChangeScreenRotation);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen gap");
+            QMenu* submenu = menu->addMenu("Screen Gap");
             grpScreenGap = new QActionGroup(submenu);
 
             const int screengap[] = {0, 1, 8, 64, 90, 128};
@@ -1299,7 +1299,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(grpScreenGap, &QActionGroup::triggered, this, &MainWindow::onChangeScreenGap);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen layout");
+            QMenu* submenu = menu->addMenu("Screen Layout");
             grpScreenLayout = new QActionGroup(submenu);
 
             const char* screenlayout[] = {"Natural", "Vertical", "Horizontal", "Hybrid"};
@@ -1316,15 +1316,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             submenu->addSeparator();
 
-            actScreenSwap = submenu->addAction("Swap screens");
+            actScreenSwap = submenu->addAction("Swap Screens");
             actScreenSwap->setCheckable(true);
             connect(actScreenSwap, &QAction::triggered, this, &MainWindow::onChangeScreenSwap);
         }
         {
-            QMenu* submenu = menu->addMenu("Screen sizing");
+            QMenu* submenu = menu->addMenu("Screen Sizing");
             grpScreenSizing = new QActionGroup(submenu);
 
-            const char* screensizing[] = {"Even", "Emphasize top", "Emphasize bottom", "Auto", "Top only", "Bottom only"};
+            const char* screensizing[] = {"Even", "Emphasize Top", "Emphasize Bottom", "Auto", "Top Only", "Bottom Only"};
 
             for (int i = 0; i < 6; i++)
             {
@@ -1338,15 +1338,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             submenu->addSeparator();
 
-            actIntegerScaling = submenu->addAction("Force integer scaling");
+            actIntegerScaling = submenu->addAction("Force Integer Scaling");
             actIntegerScaling->setCheckable(true);
             connect(actIntegerScaling, &QAction::triggered, this, &MainWindow::onChangeIntegerScaling);
         }
         {
-            QMenu* submenu = menu->addMenu("Aspect ratio");
+            QMenu* submenu = menu->addMenu("Aspect Ratio");
             grpScreenAspectTop = new QActionGroup(submenu);
 
-            const char* aspectRatiosTop[] = {"Top 4:3 (native)", "Top 16:9", "Top 21:9", "Top window"};
+            const char* aspectRatiosTop[] = {"Top 4:3 (Native)", "Top 16:9", "Top 21:9", "Top Window"};
 
             for (int i = 0; i < 4; i++)
             {
@@ -1362,7 +1362,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
             grpScreenAspectBot = new QActionGroup(submenu);
 
-            const char* aspectRatiosBot[] = {"Bottom 4:3 (native)", "Bottom 16:9", "Bottom 21:9", "Bottom window"};
+            const char* aspectRatiosBot[] = {"Bottom 4:3 (Native)", "Bottom 16:9", "Bottom 21:9", "Bottom Window"};
 
             for (int i = 0; i < 4; i++)
             {
@@ -1375,7 +1375,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
             connect(grpScreenAspectBot, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectBot);
         }
 
-        actScreenFiltering = menu->addAction("Screen filtering");
+        actScreenFiltering = menu->addAction("Screen Filtering");
         actScreenFiltering->setCheckable(true);
         connect(actScreenFiltering, &QAction::triggered, this, &MainWindow::onChangeScreenFiltering);
 
@@ -1385,11 +1385,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actLimitFramerate = menu->addAction("Limit framerate");
+        actLimitFramerate = menu->addAction("Limit Frame Rate");
         actLimitFramerate->setCheckable(true);
         connect(actLimitFramerate, &QAction::triggered, this, &MainWindow::onChangeLimitFramerate);
 
-        actAudioSync = menu->addAction("Audio sync");
+        actAudioSync = menu->addAction("Audio Sync");
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }

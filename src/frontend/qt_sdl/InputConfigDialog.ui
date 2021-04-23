@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Input and hotkeys - melonDS</string>
+   <string>Input and Hotkeys - melonDS</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <property name="sizeConstraint">
@@ -24,7 +24,7 @@
      </property>
      <widget class="QWidget" name="tabInput">
       <attribute name="title">
-       <string>DS keypad</string>
+       <string>DS Keypad</string>
       </attribute>
      </widget>
      <widget class="QWidget" name="tabAddons">
@@ -34,7 +34,7 @@
      </widget>
      <widget class="QWidget" name="tabHotkeysGeneral">
       <attribute name="title">
-       <string>General hotkeys</string>
+       <string>General Hotkeys</string>
       </attribute>
      </widget>
     </widget>
