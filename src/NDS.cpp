@@ -2371,7 +2371,9 @@ u8 ARM7Read8(u32 addr)
         return GPU::ReadVRAM_ARM7<u8>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
@@ -2380,6 +2382,7 @@ u8 ARM7Read8(u32 addr)
         return 0xFF; // TODO: proper open bus
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
@@ -2438,15 +2441,18 @@ u16 ARM7Read16(u32 addr)
         return GPU::ReadVRAM_ARM7<u16>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
             return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        return 0xFFFF; // TODO: proper open bus
+    return 0xFFFF; // TODO: proper open bus
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
@@ -2505,15 +2511,18 @@ u32 ARM7Read32(u32 addr)
         return GPU::ReadVRAM_ARM7<u32>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
             return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
         }
-        return 0xFFFFFFFF; // TODO: proper open bus
+    return 0xFFFFFFFF; // TODO: proper open bus
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
         if (GBACart::CartInserted)
         {
@@ -2576,7 +2585,9 @@ void ARM7Write8(u32 addr, u8 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
@@ -2586,9 +2597,10 @@ void ARM7Write8(u32 addr, u8 val)
                 return;
             }
         }
-        break;
+    break;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
@@ -2659,7 +2671,9 @@ void ARM7Write16(u32 addr, u16 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
@@ -2674,6 +2688,7 @@ void ARM7Write16(u32 addr, u16 val)
         break;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
@@ -2744,7 +2759,9 @@ void ARM7Write32(u32 addr, u32 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
@@ -2760,6 +2777,7 @@ void ARM7Write32(u32 addr, u32 val)
         break;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
         if (GBACart::CartInserted)
         {
