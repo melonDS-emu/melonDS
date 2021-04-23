@@ -100,6 +100,6 @@ if [[ $build_dmg == 1 ]]; then
 	mkdir dmg
 	cp -r "$app" dmg/
 	ln -s /Applications dmg/Applications
-	hdiutil create -volname melonDS -srcfolder dmg -ov -format UDZO melonDS.dmg
+	hdiutil create -volname melonDS -srcfolder dmg -ov -format UDBZ melonDS.dmg
 	rm -r dmg
 fi
