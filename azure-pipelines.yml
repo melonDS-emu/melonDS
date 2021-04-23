@@ -13,7 +13,7 @@ steps:
 
 - script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON
   displayName: 'Configure'
-  workingDirectory: mkdir $(Pipeline.Workspace)/build
+  workingDirectory: $(Pipeline.Workspace)/build
   
 - script: make -j$(sysctl -n hw.ncpu)
   displayName: 'Make'
