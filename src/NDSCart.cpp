@@ -789,6 +789,8 @@ CartRetail::~CartRetail()
 
 void CartRetail::Reset()
 {
+    CartCommon::Reset();
+
     SRAMCmd = 0;
     SRAMAddr = 0;
     SRAMStatus = 0;
@@ -926,7 +928,7 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
             SRAMAddr = 0;
         }
 
-        return val;
+        return 0;
     }
 
     switch (SRAMType)
@@ -936,9 +938,6 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     case 3: return SRAMWrite_FLASH(val, pos, last);
     default: return 0;
     }
-
-    //SRAMFileDirty |= last && (SRAMCmd == 0x02 || SRAMCmd == 0x0A);
-    //return ret;
 }
 
 void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
@@ -963,7 +962,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
         // TODO: WP bits should be nonvolatile!
         if (pos == 1)
             SRAMStatus = (SRAMStatus & 0x01) | (val & 0x0C);
-        return val;
+        return 0;
 
     case 0x05: // read status register
         return SRAMStatus | 0xF0;
@@ -985,14 +984,14 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
             SRAMAddr++;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     case 0x03: // read low
     case 0x0B: // read high
         if (pos < 2)
         {
             SRAMAddr = val;
-            return val;
+            return 0;
         }
         else
         {
@@ -1007,7 +1006,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
     default:
         if (pos == 1)
             printf("unknown tiny EEPROM save command %02X\n", SRAMCmd);
-        return val;
+        return 0;
     }
 }
 
@@ -1022,7 +1021,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
         // TODO: WP bits should be nonvolatile!
         if (pos == 1)
             SRAMStatus = (SRAMStatus & 0x01) | (val & 0x0C);
-        return val;
+        return 0;
 
     case 0x05: // read status register
         return SRAMStatus;
@@ -1044,14 +1043,14 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
             SRAMAddr++;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     case 0x03: // read
         if (pos <= addrsize)
         {
             SRAMAddr <<= 8;
             SRAMAddr |= val;
-            return val;
+            return 0;
         }
         else
         {
@@ -1068,7 +1067,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
     default:
         if (pos == 1)
             printf("unknown EEPROM save command %02X\n", SRAMCmd);
-        return val;
+        return 0;
     }
 }
 
@@ -1096,14 +1095,14 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
             SRAMAddr++;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     case 0x03: // read
         if (pos <= 3)
         {
             SRAMAddr <<= 8;
             SRAMAddr |= val;
-            return val;
+            return 0;
         }
         else
         {
@@ -1128,7 +1127,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
             SRAMAddr++;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     case 0x9F: // read JEDEC IC
         // GBAtek says it should be 0xFF. verify?
@@ -1150,7 +1149,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
             SRAMFileDirty = true;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     case 0xDB: // page erase
         if (pos <= 3)
@@ -1168,12 +1167,12 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
             SRAMFileDirty = true;
         }
         if (last) SRAMStatus &= ~(1<<1);
-        return val;
+        return 0;
 
     default:
         if (pos == 1)
             printf("unknown FLASH save command %02X\n", SRAMCmd);
-        return val;
+        return 0;
     }
 }
 
@@ -1188,6 +1187,8 @@ CartRetailNAND::~CartRetailNAND()
 
 void CartRetailNAND::Reset()
 {
+    CartRetail::Reset();
+
     SRAMAddr = 0;
     SRAMStatus = 0x20;
     SRAMWindow = 0;
@@ -1397,6 +1398,8 @@ CartRetailIR::~CartRetailIR()
 
 void CartRetailIR::Reset()
 {
+    CartRetail::Reset();
+
     IRCmd = 0;
 }
 
@@ -1410,7 +1413,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
     if (pos == 0)
     {
         IRCmd = val;
-        return val;
+        return 0;
     }
 
     // TODO: emulate actual IR comm
@@ -1437,6 +1440,7 @@ CartRetailBT::~CartRetailBT()
 
 void CartRetailBT::Reset()
 {
+    CartRetail::Reset();
 }
 
 void CartRetailBT::DoSavestate(Savestate* file)
@@ -1446,13 +1450,14 @@ void CartRetailBT::DoSavestate(Savestate* file)
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
-    printf("POKETYPE SPI: %02X %d %d\n", val, pos, last);
+    printf("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
 
-    if (pos == 0)
+    /*if (pos == 0)
     {
         // TODO do something with it??
-        SetIRQ();
+        if(val==0xFF)SetIRQ();
     }
+    if(pos==7)SetIRQ();*/
 
     return 0;
 }
@@ -1476,6 +1481,8 @@ CartHomebrew::~CartHomebrew()
 
 void CartHomebrew::Reset()
 {
+    CartCommon::Reset();
+
     if (SDFile) fclose(SDFile);
 
     if (Config::DLDIEnable)
@@ -2504,7 +2511,14 @@ void WriteROMData(u32 val)
 
 
 void WriteSPICnt(u16 val)
-{
+{printf("SPICNT=%04X\n", val);
+    if ((SPICnt & 0x2040) == 0x2040 && (val & 0x2000) == 0x0000)
+    {
+        // forcefully reset SPI hold
+        SPIHold = false;
+        if (Cart) Cart->SPIResetHold();
+    }
+
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
     if (SPICnt & (1<<7))
         printf("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
@@ -2555,7 +2569,7 @@ void WriteSPIData(u8 val)
     }
 
     if (Cart) SPIData = Cart->SPIWrite(val, SPIDataPos, islast);
-    else      SPIData = val; // checkme
+    else      SPIData = 0xFF;
 
     // SPI transfers one bit per cycle -> 8 cycles per byte
     u32 delay = 8 * (8 << (SPICnt & 0x3));
