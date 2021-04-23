@@ -855,8 +855,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         RWCommand = 18;
         Host->SendResponse(CSR, true);
-        ReadBlock(RWAddress);
-        RWAddress += BlockSize;
+        RWAddress += ReadBlock(RWAddress);
         SetState(0x05);
         return;
 
@@ -870,8 +869,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         RWCommand = 25;
         Host->SendResponse(CSR, true);
-        WriteBlock(RWAddress);
-        RWAddress += BlockSize;
+        RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
         return;
 
