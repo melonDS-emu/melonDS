@@ -15,7 +15,7 @@ steps:
   displayName: 'Configure'
   workingDirectory: $(Pipeline.Workspace)/build
   
-- script: make -j$(sysctl -n hw.ncpu)
+- script: make -j$(sysctl -n hw.logicalcpu)
   displayName: 'Make'
   workingDirectory: $(Pipeline.Workspace)/build
 

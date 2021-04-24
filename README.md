@@ -97,9 +97,8 @@ If everything went well, melonDS should now be in the `dist` folder.
   ```
 4. Compile:
    ```zsh
-   export PKG_CONFIG_PATH="$(brew --prefix libarchive)/lib/pkgconfig"
-   cmake .. -DQt5_DIR=$(brew --prefix qt5)/lib/cmake/Qt5
-   make -j$(sysctl -n hw.ncpu)
+   cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON 
+   make -j$(sysctl -n hw.logicalcpu)
    mkdir dist && cp -r melonDS.app dist
    ```
 If everything went well, melonDS.app should now be in the `dist` folder.
