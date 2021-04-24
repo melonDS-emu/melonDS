@@ -1,19 +1,24 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - master
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: macOS-10.14
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- script: brew install sdl2 qt@5 libslirp libarchive libepoxy
+  displayName: 'Install dependencies'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- script: mkdir $(Pipeline.Workspace)/build
+  displayName: 'Create build environment'
+
+- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON
+  displayName: 'Configure'
+  workingDirectory: $(Pipeline.Workspace)/build
+  
+- script: make -j$(sysctl -n hw.logicalcpu)
+  displayName: 'Make'
+  workingDirectory: $(Pipeline.Workspace)/build
+
+- publish: $(Pipeline.Workspace)/build/melonDS.dmg
+  artifact: melonDS.dmg
+
