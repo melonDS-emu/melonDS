@@ -135,9 +135,11 @@ if (APPLE)
     target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melon.icns")
     set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
-    # Qt 6 requires macOS 10.15
-    if (USE_QT6)
-	    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version" FORCE)
+    # Qt 6 requires macOS 10.15 if building on 10.15 or greater
+    if(CMAKE_SYSTEM_VERSION VERSION_GREATER "10.14")
+        if (USE_QT6)
+	        set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version" FORCE)
+        endif()
     endif()
 
     option(MACOS_BUNDLE_LIBS "Bundle libraries with the app on macOS" OFF)
