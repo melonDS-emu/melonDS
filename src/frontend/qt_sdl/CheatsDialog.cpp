@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <QtGlobal>
 #include <QFileDialog>
 #include <QMessageBox>
 
@@ -319,7 +320,11 @@ void CheatsDialog::on_txtCode_textChanged()
     u32 codelen = 0;
 
     QString text = ui->txtCode->document()->toPlainText();
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+    QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+#else
     QStringList lines = text.split('\n', QString::SkipEmptyParts);
+#endif
     for (QStringList::iterator it = lines.begin(); it != lines.end(); it++)
     {
         QString line = *it;

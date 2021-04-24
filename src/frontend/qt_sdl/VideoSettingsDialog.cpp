@@ -47,7 +47,7 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, 0);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   1);
-    connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
+    connect(grp3DRenderer, SIGNAL(idClicked(int)), this, SLOT(onChange3DRenderer(int)));
     grp3DRenderer->button(Config::_3DRenderer)->setChecked(true);
 
 #ifndef OGLRENDERER_ENABLED
