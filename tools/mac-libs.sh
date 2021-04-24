@@ -24,14 +24,18 @@ abspath() {
 	perl -MCwd -le 'print Cwd::abs_path shift' "$1"
 }
 
-cmake_qtdir=$(grep -E "Qt._DIR" CMakeCache.txt | cut -d= -f2)
-qtdir="$(abspath "$cmake_qtdir"/../../..)"
+cmake_qtdir=$(grep -E "Qt._DIR" CMakeCache.txt)
+qtdir="$(abspath "$(echo "$cmake_qtdir/../../.." | cut -d= -f2)")"
 
 plugindir="$app/Contents/PlugIns"
 if [[ ! -d "$plugindir" ]]; then
 	qt_plugins="$qtdir/plugins"
 	if [[ ! -d "$qt_plugins" ]]; then
 		qt_plugins="$qtdir/share/qt/plugins"
+	fi
+	if [[ ! -d "$qt_plugins" ]]; then
+		qt_major="$(echo "$cmake_qtdir" | sed -E 's/Qt(.)_DIR.*/\1/')"
+		qt_plugins="$qtdir/libexec/qt$qt_major/plugins"
 	fi
 
     mkdir -p "$plugindir/styles" "$plugindir/platforms"
@@ -43,6 +47,10 @@ fixup_libs() {
 	local libs=($(otool -L "$1" | grep -vE "/System|/usr/lib|:$|@rpath" | sed -E 's/'$'\t''(.*) \(.*$/\1/'))
 
 	for lib in "${libs[@]}"; do
+		if [[ "$lib" != *"/"* ]]; then
+			continue
+		fi
+
 		# Dereference symlinks to get the actual .dylib as binaries' load
 		# commands can contain paths to symlinked libraries.
 		local abslib="$(abspath "$lib")"
