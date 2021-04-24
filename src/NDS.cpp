@@ -1943,19 +1943,12 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFF; // TODO: proper open bus
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
+        return GBACart::ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr);
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -2008,22 +2001,15 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    //printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2073,19 +2059,15 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr) |
+              (GBACart::ROMRead(addr+2) << 16);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8) |
+              (GBACart::SRAMRead(addr+2) << 16) |
+              (GBACart::SRAMRead(addr+3) << 24);
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
@@ -2120,28 +2102,15 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x05000000:
     case 0x06000000:
     case 0x07000000:
-        // checkme
         return;
 
     case 0x08000000:
     case 0x09000000:
-        if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val);
         return;
     }
 
@@ -2199,28 +2168,17 @@ void ARM9Write16(u32 addr, u16 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val);
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, val >> 8);
         return;
     }
 
-    //printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2274,29 +2232,20 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
-                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val & 0xFFFF);
+        GBACart::ROMWrite(addr+2, val >> 16);
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACart::SRAMWrite(addr+3, val >> 24);
         return;
     }
 
-    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2366,6 +2315,14 @@ u8 ARM7Read8(u32 addr)
     case 0x04000000:
         return ARM7IORead8(addr);
 
+    case 0x04800000:
+        if (addr < 0x04810000)
+        {
+            if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
+            return Wifi::Read(addr) & 0xFF;
+        }
+        break;
+
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u8>(addr);
@@ -2375,20 +2332,13 @@ u8 ARM7Read8(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFF; // TODO: proper open bus
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
+        return GBACart::ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr);
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -2445,20 +2395,13 @@ u16 ARM7Read16(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-    return 0xFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr);
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8);
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -2515,20 +2458,16 @@ u32 ARM7Read32(u32 addr)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-    return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr) |
+              (GBACart::ROMRead(addr+1) << 8);
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8) |
+              (GBACart::SRAMRead(addr+2) << 16) |
+              (GBACart::SRAMRead(addr+3) << 24);
     }
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -2588,24 +2527,12 @@ void ARM7Write8(u32 addr, u8 val)
     case 0x08800000:
     case 0x09000000:
     case 0x09800000:
-        if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-    break;
+        return;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val);
         return;
     }
 
@@ -2675,29 +2602,18 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val);
+        return;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, val >> 8);
         return;
     }
 
-    //printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2763,30 +2679,21 @@ void ARM7Write32(u32 addr, u32 val)
     case 0x09000000:
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
-                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val & 0xFFFF);
+        GBACart::ROMWrite(addr+2, val >> 16);
+        return;
 
     case 0x0A000000:
     case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACart::SRAMWrite(addr+3, val >> 24);
         return;
     }
 
-    //printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)

@@ -697,6 +697,32 @@ void RelocateSave(const char* path, bool write)
     GBACart_SRAM::RelocateSave(path, write);
 }
 
+
+u16 ROMRead(u32 addr)
+{
+    // TODO read from actual cart!
+
+    return (addr >> 1) & 0xFFFF;
+}
+
+void ROMWrite(u32 addr, u16 val)
+{
+    // TODO write to actual cart!
+}
+
+u8 SRAMRead(u32 addr)
+{
+    // TODO
+
+    return 0xFF;
+}
+
+void SRAMWrite(u32 addr, u8 val)
+{
+    // TODO
+}
+
+
 // referenced from mGBA
 void WriteGPIO(u32 addr, u16 val)
 {
