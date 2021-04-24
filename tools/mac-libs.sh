@@ -44,7 +44,7 @@ if [[ ! -d "$plugindir" ]]; then
 fi
 
 fixup_libs() {
-	local libs=($(otool -L "$1" | grep -vE "/System|/usr/lib|:$|@rpath" | sed -E 's/'$'\t''(.*) \(.*$/\1/'))
+	local libs=($(otool -L "$1" | grep -vE "/System|/usr/lib|:$|@rpath|@loader_path|@executable_path" | sed -E 's/'$'\t''(.*) \(.*$/\1/'))
 
 	for lib in "${libs[@]}"; do
 		if [[ "$lib" != *"/"* ]]; then
