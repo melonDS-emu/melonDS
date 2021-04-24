@@ -5,13 +5,13 @@ pool:
   vmImage: macOS-10.14
 
 steps:
-- script: brew install sdl2 qt@5 libslirp libarchive libepoxy
+- script: brew install sdl2 qt@6 libslirp libarchive libepoxy
   displayName: 'Install dependencies'
 
 - script: mkdir $(Pipeline.Workspace)/build
   displayName: 'Create build environment'
 
-- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON
+- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON
   displayName: 'Configure'
   workingDirectory: $(Pipeline.Workspace)/build
   
