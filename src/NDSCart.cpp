@@ -29,10 +29,11 @@
 #include "melonDLDI.h"
 #include "NDSCart_SRAMManager.h"
 
-// SRAM TODO: emulate write delays???
 
 namespace NDSCart
 {
+
+// SRAM TODO: emulate write delays???
 
 u16 SPICnt;
 u32 ROMCnt;

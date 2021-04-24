@@ -22,27 +22,6 @@
 #include "types.h"
 #include "Savestate.h"
 
-
-/*namespace GBACart_SRAM
-{
-
-extern u8* SRAM;
-extern u32 SRAMLength;
-
-void Reset();
-void DoSavestate(Savestate* file);
-
-u8 Read8(u32 addr);
-u16 Read16(u32 addr);
-u32 Read32(u32 addr);
-
-void Write8(u32 addr, u8 val);
-void Write16(u32 addr, u16 val);
-void Write32(u32 addr, u32 val);
-
-}*/
-
-
 namespace GBACart
 {
 
@@ -157,13 +136,6 @@ private:
     u8 LightLevel;
 };
 
-/*struct GPIO
-{
-    u16 data;
-    u16 direction;
-    u16 control;
-};*/
-
 // possible inputs for GBA carts that might accept user input
 enum
 {
@@ -172,7 +144,6 @@ enum
 };
 
 extern bool CartInserted;
-//extern bool HasSolarSensor;
 extern u8* CartROM;
 extern u32 CartROMSize;
 extern u32 CartCRC;
@@ -187,6 +158,7 @@ bool LoadROM(const char* path, const char* sram);
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
 void RelocateSave(const char* path, bool write);
 
+// TODO: make more flexible, support nonbinary inputs
 int SetInput(int num, bool pressed);
 
 u16 ROMRead(u32 addr);
@@ -195,20 +167,6 @@ void ROMWrite(u32 addr, u16 val);
 u8 SRAMRead(u32 addr);
 void SRAMWrite(u32 addr, u8 val);
 
-//void WriteGPIO(u32 addr, u16 val);
-
 }
-
-
-/*namespace GBACart_SolarSensor
-{
-
-extern u8 LightLevel;
-
-void Reset();
-void DoSavestate(Savestate* file);
-void Process(GBACart::GPIO* gpio);
-
-}*/
 
 #endif // GBACART_H
