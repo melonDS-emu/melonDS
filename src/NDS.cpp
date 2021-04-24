@@ -2009,7 +2009,7 @@ u16 ARM9Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2178,7 +2178,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)

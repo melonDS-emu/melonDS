@@ -23,7 +23,7 @@
 #include "Platform.h"
 
 
-namespace GBACart_SRAM
+/*namespace GBACart_SRAM
 {
 
 enum SaveType {
@@ -482,7 +482,7 @@ void Write32(u32 addr, u32 val)
     WriteFunc(addr + 3, val >> 24 & 0xFF);
 }
 
-}
+}*/
 
 
 namespace GBACart
@@ -502,19 +502,577 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 
 
 bool CartInserted;
-bool HasSolarSensor;
+//bool HasSolarSensor;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartCRC;
 u32 CartID;
-GPIO CartGPIO; // overridden GPIO parameters
+//GPIO CartGPIO; // overridden GPIO parameters
+
+CartCommon* Cart;
+
+
+CartCommon::CartCommon()
+{
+}
+
+CartCommon::~CartCommon()
+{
+}
+
+void CartCommon::DoSavestate(Savestate* file)
+{
+    file->Section("GBCS");
+}
+
+void CartCommon::LoadSave(const char* path, u32 type)
+{
+}
+
+void CartCommon::RelocateSave(const char* path, bool write)
+{
+}
+
+int CartCommon::SetInput(int num, bool pressed)
+{
+    return -1;
+}
+
+u16 CartCommon::ROMRead(u32 addr)
+{
+    return 0;
+}
+
+void CartCommon::ROMWrite(u32 addr, u16 val)
+{
+}
+
+u8 CartCommon::SRAMRead(u32 addr)
+{
+    return 0;
+}
+
+void CartCommon::SRAMWrite(u32 addr, u8 val)
+{
+}
+
+
+CartGame::CartGame(u8* rom, u32 len) : CartCommon()
+{
+    ROM = rom;
+    ROMLength = len;
+
+    memset(&GPIO, 0, sizeof(GPIO));
+
+    SRAM = nullptr;
+    SRAMFile = nullptr;
+    SRAMLength = 0;
+    SRAMType = S_NULL;
+    SRAMFlashState = {};
+}
+
+CartGame::~CartGame()
+{
+    if (SRAMFile) fclose(SRAMFile);
+    if (SRAM) delete[] SRAM;
+}
+
+void CartGame::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+
+    file->Var16(&GPIO.control);
+    file->Var16(&GPIO.data);
+    file->Var16(&GPIO.direction);
+
+    // logic mostly copied from NDSCart_SRAM
+
+    u32 oldlen = SRAMLength;
+
+    file->Var32(&SRAMLength);
+
+    if (SRAMLength != oldlen)
+    {
+        // reallocate save memory
+        if (oldlen) delete[] SRAM;
+        if (SRAMLength) SRAM = new u8[SRAMLength];
+    }
+    if (SRAMLength)
+    {
+        // fill save memory if data is present
+        file->VarArray(SRAM, SRAMLength);
+    }
+    else
+    {
+        // no save data, clear the current state
+        SRAMType = SaveType::S_NULL;
+        if (SRAMFile) fclose(SRAMFile);
+        SRAM = nullptr;
+        SRAMFile = nullptr;
+        return;
+    }
+
+    // persist some extra state info
+    file->Var8(&SRAMFlashState.bank);
+    file->Var8(&SRAMFlashState.cmd);
+    file->Var8(&SRAMFlashState.device);
+    file->Var8(&SRAMFlashState.manufacturer);
+    file->Var8(&SRAMFlashState.state);
+
+    file->Var8((u8*)&SRAMType);
+}
+
+void CartGame::LoadSave(const char* path, u32 type)
+{
+    if (SRAM) delete[] SRAM;
+
+    strncpy(SRAMPath, path, 1023);
+    SRAMPath[1023] = '\0';
+    SRAMLength = 0;
+
+    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
+    if (f)
+    {
+        fseek(f, 0, SEEK_END);
+        SRAMLength = (u32)ftell(f);
+        SRAM = new u8[SRAMLength];
+
+        fseek(f, 0, SEEK_SET);
+        fread(SRAM, SRAMLength, 1, f);
+
+        SRAMFile = f;
+    }
+
+    switch (SRAMLength)
+    {
+    case 512:
+        SRAMType = S_EEPROM4K;
+        break;
+    case 8192:
+        SRAMType = S_EEPROM64K;
+        break;
+    case 32768:
+        SRAMType = S_SRAM256K;
+        break;
+    case 65536:
+        SRAMType = S_FLASH512K;
+        break;
+    case 128*1024:
+        SRAMType = S_FLASH1M;
+        break;
+    default:
+        printf("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
+    case 0:
+        SRAMType = S_NULL;
+        break;
+    }
+
+    if (SRAMType == S_FLASH512K)
+    {
+        // Panasonic 64K chip
+        SRAMFlashState.device = 0x1B;
+        SRAMFlashState.manufacturer = 0x32;
+    }
+    else if (SRAMType == S_FLASH1M)
+    {
+        // Sanyo 128K chip
+        SRAMFlashState.device = 0x13;
+        SRAMFlashState.manufacturer = 0x62;
+    }
+}
+
+void CartGame::RelocateSave(const char* path, bool write)
+{
+    if (!write)
+    {
+        LoadSave(path, 0); // lazy
+        return;
+    }
+
+    strncpy(SRAMPath, path, 1023);
+    SRAMPath[1023] = '\0';
+
+    FILE *f = Platform::OpenFile(path, "r+b");
+    if (!f)
+    {
+        printf("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        return;
+    }
+
+    SRAMFile = f;
+    fwrite(SRAM, SRAMLength, 1, SRAMFile);
+}
+
+u16 CartGame::ROMRead(u32 addr)
+{
+    addr &= 0x01FFFFFF;
+
+    if (addr >= 0xC4 && addr < 0xCA)
+    {
+        if (GPIO.control & 0x1)
+        {
+            switch (addr)
+            {
+            case 0xC4: return GPIO.data;
+            case 0xC6: return GPIO.direction;
+            case 0xC8: return GPIO.control;
+            }
+        }
+        else
+            return 0;
+    }
+
+    // CHECKME: does ROM mirror?
+    if (addr < ROMLength)
+        return *(u16*)&ROM[addr];
+
+    return 0;
+}
+
+void CartGame::ROMWrite(u32 addr, u16 val)
+{
+    addr &= 0x01FFFFFF;
+
+    switch (addr)
+    {
+        case 0xC4:
+            GPIO.data &= ~GPIO.direction;
+            GPIO.data |= val & GPIO.direction;
+            ProcessGPIO();
+            break;
+
+        case 0xC6:
+            GPIO.direction = val;
+            break;
+
+        case 0xC8:
+            GPIO.control = val;
+            break;
+
+        default:
+            printf("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
+            break;
+    }
+}
+
+u8 CartGame::SRAMRead(u32 addr)
+{
+    addr &= 0xFFFF;
+
+    switch (SRAMType)
+    {
+    case S_EEPROM4K:
+    case S_EEPROM64K:
+        return SRAMRead_EEPROM(addr);
+
+    case S_FLASH512K:
+    case S_FLASH1M:
+        return SRAMRead_FLASH(addr);
+
+    case S_SRAM256K:
+        return SRAMRead_SRAM(addr);
+    }
+
+    return 0xFF;
+}
+
+void CartGame::SRAMWrite(u32 addr, u8 val)
+{
+    addr &= 0xFFFF;
+
+    switch (SRAMType)
+    {
+    case S_EEPROM4K:
+    case S_EEPROM64K:
+        return SRAMWrite_EEPROM(addr, val);
+
+    case S_FLASH512K:
+    case S_FLASH1M:
+        return SRAMWrite_FLASH(addr, val);
+
+    case S_SRAM256K:
+        return SRAMWrite_SRAM(addr, val);
+    }
+}
+
+void CartGame::ProcessGPIO()
+{
+}
+
+u8 CartGame::SRAMRead_EEPROM(u32 addr)
+{
+    return 0;
+}
+
+void CartGame::SRAMWrite_EEPROM(u32 addr, u8 val)
+{
+    // TODO: could be used in homebrew?
+}
+
+// mostly ported from DeSmuME
+u8 CartGame::SRAMRead_FLASH(u32 addr)
+{
+    if (SRAMFlashState.cmd == 0) // no cmd
+    {
+        return *(u8*)&SRAM[addr + 0x10000 * SRAMFlashState.bank];
+    }
+
+    switch (SRAMFlashState.cmd)
+    {
+        case 0x90: // chip ID
+            if (addr == 0x0000) return SRAMFlashState.manufacturer;
+            if (addr == 0x0001) return SRAMFlashState.device;
+            break;
+        case 0xF0: // terminate command (TODO: break if non-Macronix chip and not at the end of an ID call?)
+            SRAMFlashState.state = 0;
+            SRAMFlashState.cmd = 0;
+            break;
+        case 0xA0: // write command
+            break; // ignore here, handled in Write_Flash()
+        case 0xB0: // bank switching (128K only)
+            break; // ignore here, handled in Write_Flash()
+        default:
+            printf("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
+            break;
+    }
+
+    return 0xFF;
+}
+
+// mostly ported from DeSmuME
+void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
+{
+    switch (SRAMFlashState.state)
+    {
+        case 0x00:
+            if (addr == 0x5555)
+            {
+                if (val == 0xF0)
+                {
+                    // reset
+                    SRAMFlashState.state = 0;
+                    SRAMFlashState.cmd = 0;
+                    return;
+                }
+                else if (val == 0xAA)
+                {
+                    SRAMFlashState.state = 1;
+                    return;
+                }
+            }
+            if (addr == 0x0000)
+            {
+                if (SRAMFlashState.cmd == 0xB0)
+                {
+                    // bank switching
+                    SRAMFlashState.bank = val;
+                    SRAMFlashState.cmd = 0;
+                    return;
+                }
+            }
+            break;
+        case 0x01:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlashState.state = 2;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        case 0x02:
+            if (addr == 0x5555)
+            {
+                // send command
+                switch (val)
+                {
+                    case 0x80: // erase
+                        SRAMFlashState.state = 0x80;
+                        break;
+                    case 0x90: // chip ID
+                        SRAMFlashState.state = 0x90;
+                        break;
+                    case 0xA0: // write
+                        SRAMFlashState.state = 0;
+                        break;
+                    default:
+                        SRAMFlashState.state = 0;
+                        break;
+                }
+
+                SRAMFlashState.cmd = val;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        // erase
+        case 0x80:
+            if (addr == 0x5555 && val == 0xAA)
+            {
+                SRAMFlashState.state = 0x81;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        case 0x81:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlashState.state = 0x82;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        case 0x82:
+            if (val == 0x30)
+            {
+                u32 start_addr = addr + 0x10000 * SRAMFlashState.bank;
+                memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
+
+                if (SRAMFile)
+                {
+                    fseek(SRAMFile, start_addr, SEEK_SET);
+                    fwrite((u8*)&SRAM[start_addr], 1, 0x1000, SRAMFile);
+                }
+            }
+            SRAMFlashState.state = 0;
+            SRAMFlashState.cmd = 0;
+            return;
+        // chip ID
+        case 0x90:
+            if (addr == 0x5555 && val == 0xAA)
+            {
+                SRAMFlashState.state = 0x91;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        case 0x91:
+            if (addr == 0x2AAA && val == 0x55)
+            {
+                SRAMFlashState.state = 0x92;
+                return;
+            }
+            SRAMFlashState.state = 0;
+            break;
+        case 0x92:
+            SRAMFlashState.state = 0;
+            SRAMFlashState.cmd = 0;
+            return;
+        default:
+            break;
+    }
+
+    if (SRAMFlashState.cmd == 0xA0) // write
+    {
+        SRAMWrite_SRAM(addr + 0x10000 * SRAMFlashState.bank, val);
+        SRAMFlashState.state = 0;
+        SRAMFlashState.cmd = 0;
+        return;
+    }
+
+    printf("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+        val, addr, SRAMFlashState.state);
+}
+
+u8 CartGame::SRAMRead_SRAM(u32 addr)
+{
+    if (addr >= SRAMLength) return 0xFF;
+
+    return SRAM[addr];
+}
+
+void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
+{
+    if (addr >= SRAMLength) return;
+
+    u8 prev = *(u8*)&SRAM[addr];
+    if (prev != val)
+    {
+        *(u8*)&SRAM[addr] = val;
+
+        if (SRAMFile)
+        {
+            fseek(SRAMFile, addr, SEEK_SET);
+            fwrite((u8*)&SRAM[addr], 1, 1, SRAMFile);
+        }
+    }
+}
+
+
+const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 109, 139, 183};
+
+CartGameSolarSensor::CartGameSolarSensor(u8* rom, u32 len) : CartGame(rom, len)
+{
+    LightEdge = false;
+    LightCounter = 0;
+    LightSample = 0xFF;
+    LightLevel = 0;
+}
+
+CartGameSolarSensor::~CartGameSolarSensor()
+{
+}
+
+void CartGameSolarSensor::DoSavestate(Savestate* file)
+{
+    CartGame::DoSavestate(file);
+
+    file->Var8((u8*)&LightEdge);
+    file->Var8(&LightCounter);
+    file->Var8(&LightSample);
+    file->Var8(&LightLevel);
+}
+
+int CartGameSolarSensor::SetInput(int num, bool pressed)
+{
+    if (!pressed) return -1;
+
+    if (num == Input_SolarSensorDown)
+    {
+        if (LightLevel > 0)
+            LightLevel--;
+
+        return LightLevel;
+    }
+    else if (num == Input_SolarSensorUp)
+    {
+        if (LightLevel < 10)
+            LightLevel++;
+
+        return LightLevel;
+    }
+
+    return -1;
+}
+
+void CartGameSolarSensor::ProcessGPIO()
+{
+    if (GPIO.data & 4) return; // Boktai chip select
+    if (GPIO.data & 2) // Reset
+    {
+        u8 prev = LightSample;
+        LightCounter = 0;
+        LightSample = (0xFF - (0x16 + kLuxLevels[LightLevel]));
+        printf("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
+    }
+    if (GPIO.data & 1 && LightEdge) LightCounter++;
+
+    LightEdge = !(GPIO.data & 1);
+
+    bool sendBit = LightCounter >= LightSample;
+    if (GPIO.control & 1)
+    {
+        GPIO.data = (GPIO.data & GPIO.direction) | ((sendBit << 3) & ~GPIO.direction & 0xF);
+    }
+}
 
 
 bool Init()
 {
-    if (!GBACart_SRAM::Init()) return false;
+    //if (!GBACart_SRAM::Init()) return false;
 
-    CartROM = NULL;
+    CartROM = nullptr;
+
+    Cart = nullptr;
 
     return true;
 }
@@ -523,7 +1081,9 @@ void DeInit()
 {
     if (CartROM) delete[] CartROM;
 
-    GBACart_SRAM::DeInit();
+    if (Cart) delete Cart;
+
+    //GBACart_SRAM::DeInit();
 }
 
 void Reset()
@@ -534,8 +1094,8 @@ void Reset()
     // and resetting to firmware without the slot being emptied.
     // The Stop function will clear the cartridge state via Eject().
 
-    GBACart_SRAM::Reset();
-    GBACart_SolarSensor::Reset();
+    //GBACart_SRAM::Reset();
+    //GBACart_SolarSensor::Reset();
 }
 
 void Eject()
@@ -543,14 +1103,17 @@ void Eject()
     if (CartROM) delete[] CartROM;
 
     CartInserted = false;
-    HasSolarSensor = false;
+    //HasSolarSensor = false;
     CartROM = NULL;
     CartROMSize = 0;
     CartCRC = 0;
     CartID = 0;
-    CartGPIO = {};
+    //CartGPIO = {};
 
-    GBACart_SRAM::Eject();
+    if (Cart) delete Cart;
+    Cart = nullptr;
+
+    //GBACart_SRAM::Eject();
     Reset();
 }
 
@@ -581,11 +1144,11 @@ void DoSavestate(Savestate* file)
         CartROM = new u8[CartROMSize];
 
         // clear the SRAM file handle; writes will not be committed
-        if (GBACart_SRAM::SRAMFile)
+        /*if (GBACart_SRAM::SRAMFile)
         {
             fclose(GBACart_SRAM::SRAMFile);
             GBACart_SRAM::SRAMFile = NULL;
-        }
+        }*/
     }
 
     // only save/load the cartridge header
@@ -608,42 +1171,53 @@ void DoSavestate(Savestate* file)
     file->Var32(&CartCRC);
     file->Var32(&CartID);
 
-    file->Var8((u8*)&HasSolarSensor);
+    /*file->Var8((u8*)&HasSolarSensor);
 
     file->Var16(&CartGPIO.control);
     file->Var16(&CartGPIO.data);
-    file->Var16(&CartGPIO.direction);
+    file->Var16(&CartGPIO.direction);*/
 
     // now do the rest
 
-    GBACart_SRAM::DoSavestate(file);
-    if (HasSolarSensor) GBACart_SolarSensor::DoSavestate(file);
+    //GBACart_SRAM::DoSavestate(file);
+    //if (HasSolarSensor) GBACart_SolarSensor::DoSavestate(file);
+    if (Cart) Cart->DoSavestate(file);
 }
 
 void LoadROMCommon(const char *sram)
 {
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
-    printf("Game code: %s\n", gamecode);
+    printf("GBA game code: %s\n", gamecode);
 
+    bool solarsensor = false;
     for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
     {
-        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0) HasSolarSensor = true;
+        if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0)
+            solarsensor = true;
     }
 
-    if (HasSolarSensor)
+    if (solarsensor)
     {
         printf("GBA solar sensor support detected!\n");
     }
 
     CartCRC = CRC32(CartROM, CartROMSize);
-    printf("ROM CRC32: %08X\n", CartCRC);
+    printf("GBA ROM CRC32: %08X\n", CartCRC);
 
     CartInserted = true;
 
+    if (solarsensor)
+        Cart = new CartGameSolarSensor(CartROM, CartROMSize);
+    else
+        Cart = new CartGame(CartROM, CartROMSize);
+
     // save
-    printf("Save file: %s\n", sram);
-    GBACart_SRAM::LoadSave(sram);
+    printf("GBA save file: %s\n", sram);
+    //GBACart_SRAM::LoadSave(sram);
+
+    // TODO: have a list of sorts like in NDSCart? to determine the savemem type
+    if (Cart) Cart->LoadSave(sram, 0);
 }
 
 bool LoadROM(const char* path, const char* sram)
@@ -694,37 +1268,46 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
 void RelocateSave(const char* path, bool write)
 {
     // derp herp
-    GBACart_SRAM::RelocateSave(path, write);
+    //GBACart_SRAM::RelocateSave(path, write);
+    if (Cart) Cart->RelocateSave(path, write);
+}
+
+
+int SetInput(int num, bool pressed)
+{
+    if (Cart) return Cart->SetInput(num, pressed);
+
+    return -1;
 }
 
 
 u16 ROMRead(u32 addr)
 {
-    // TODO read from actual cart!
+    if (Cart) return Cart->ROMRead(addr);
 
     return (addr >> 1) & 0xFFFF;
 }
 
 void ROMWrite(u32 addr, u16 val)
 {
-    // TODO write to actual cart!
+    if (Cart) Cart->ROMWrite(addr, val);
 }
 
 u8 SRAMRead(u32 addr)
 {
-    // TODO
+    if (Cart) return Cart->SRAMRead(addr);
 
     return 0xFF;
 }
 
 void SRAMWrite(u32 addr, u8 val)
 {
-    // TODO
+    if (Cart) Cart->SRAMWrite(addr, val);
 }
 
 
 // referenced from mGBA
-void WriteGPIO(u32 addr, u16 val)
+/*void WriteGPIO(u32 addr, u16 val)
 {
     switch (addr)
     {
@@ -758,12 +1341,12 @@ void WriteGPIO(u32 addr, u16 val)
         *(u16*)&CartROM[0xC6] = 0;
         *(u16*)&CartROM[0xC8] = 0;
     }
-}
+}*/
 
 }
 
 
-namespace GBACart_SolarSensor
+/*namespace GBACart_SolarSensor
 {
 
 bool LightEdge;
@@ -813,4 +1396,4 @@ void Process(GBACart::GPIO* gpio)
     }
 }
 
-}
+}*/

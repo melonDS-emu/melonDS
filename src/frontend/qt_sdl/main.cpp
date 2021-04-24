@@ -382,7 +382,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
 
-        if (GBACart::CartInserted && GBACart::HasSolarSensor)
+        /*if (GBACart::CartInserted && GBACart::HasSolarSensor)
         {
             if (Input::HotkeyPressed(HK_SolarSensorDecrease))
             {
@@ -396,6 +396,26 @@ void EmuThread::run()
                 if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
                 char msg[64];
                 sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
+                OSD::AddMessage(0, msg);
+            }
+        }*/
+        if (Input::HotkeyPressed(HK_SolarSensorDecrease))
+        {
+            int level = GBACart::SetInput(GBACart::Input_SolarSensorDown, true);
+            if (level != -1)
+            {
+                char msg[64];
+                sprintf(msg, "Solar sensor level: %d", level);
+                OSD::AddMessage(0, msg);
+            }
+        }
+        if (Input::HotkeyPressed(HK_SolarSensorIncrease))
+        {
+            int level = GBACart::SetInput(GBACart::Input_SolarSensorUp, true);
+            if (level != -1)
+            {
+                char msg[64];
+                sprintf(msg, "Solar sensor level: %d", level);
                 OSD::AddMessage(0, msg);
             }
         }
