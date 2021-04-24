@@ -24,14 +24,167 @@
 namespace NDSCart
 {
 
+// CartCommon -- base code shared by all cart types
+class CartCommon
+{
+public:
+    CartCommon(u8* rom, u32 len, u32 chipid);
+    virtual ~CartCommon();
+
+    virtual void Reset();
+    virtual void SetupDirectBoot();
+
+    virtual void DoSavestate(Savestate* file);
+
+    virtual void LoadSave(const char* path, u32 type);
+    virtual void RelocateSave(const char* path, bool write);
+    virtual int ImportSRAM(const u8* data, u32 length);
+    virtual void FlushSRAMFile();
+
+    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
+    virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
+
+    virtual u8 SPIWrite(u8 val, u32 pos, bool last);
+
+protected:
+    void ReadROM(u32 addr, u32 len, u8* data, u32 offset);
+
+    void SetIRQ();
+
+    u8* ROM;
+    u32 ROMLength;
+    u32 ChipID;
+    bool IsDSi;
+
+    u32 CmdEncMode;
+    u32 DataEncMode;
+};
+
+// CartRetail -- regular retail cart (ROM, SPI SRAM)
+class CartRetail : public CartCommon
+{
+public:
+    CartRetail(u8* rom, u32 len, u32 chipid);
+    virtual ~CartRetail() override;
+
+    virtual void Reset() override;
+
+    virtual void DoSavestate(Savestate* file) override;
+
+    virtual void LoadSave(const char* path, u32 type) override;
+    virtual void RelocateSave(const char* path, bool write) override;
+    virtual int ImportSRAM(const u8* data, u32 length) override;
+    virtual void FlushSRAMFile() override;
+
+    virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+
+    virtual u8 SPIWrite(u8 val, u32 pos, bool last) override;
+
+protected:
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+
+    u8 SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last);
+    u8 SRAMWrite_EEPROM(u8 val, u32 pos, bool last);
+    u8 SRAMWrite_FLASH(u8 val, u32 pos, bool last);
+
+    u8* SRAM;
+    u32 SRAMLength;
+    u32 SRAMType;
+
+    char SRAMPath[1024];
+    bool SRAMFileDirty;
+
+    u8 SRAMCmd;
+    u32 SRAMAddr;
+    u8 SRAMStatus;
+};
+
+// CartRetailNAND -- retail cart with NAND SRAM (WarioWare DIY, Jam with the Band, ...)
+class CartRetailNAND : public CartRetail
+{
+public:
+    CartRetailNAND(u8* rom, u32 len, u32 chipid);
+    ~CartRetailNAND() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file);
+
+    void LoadSave(const char* path, u32 type) override;
+    int ImportSRAM(const u8* data, u32 length) override;
+
+    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+
+private:
+    void BuildSRAMID();
+
+    u32 SRAMBase;
+    u32 SRAMWindow;
+
+    u8 SRAMWriteBuffer[0x800];
+    u32 SRAMWritePos;
+};
+
+// CartRetailIR -- SPI IR device and SRAM
+class CartRetailIR : public CartRetail
+{
+public:
+    CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
+    ~CartRetailIR() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+
+private:
+    u32 IRVersion;
+    u8 IRCmd;
+};
+
+// CartRetailBT - Pokémon Typing Adventure (SPI BT controller)
+class CartRetailBT : public CartRetail
+{
+public:
+    CartRetailBT(u8* rom, u32 len, u32 chipid);
+    ~CartRetailBT() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u8 SPIWrite(u8 val, u32 pos, bool last) override;
+};
+
+// CartHomebrew -- homebrew 'cart' (no SRAM, DLDI)
+class CartHomebrew : public CartCommon
+{
+public:
+    CartHomebrew(u8* rom, u32 len, u32 chipid);
+    ~CartHomebrew() override;
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
+    void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
+
+private:
+    void ApplyDLDIPatch(const u8* patch, u32 len);
+    void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
+
+    FILE* SDFile;
+};
+
 extern u16 SPICnt;
 extern u32 ROMCnt;
 
 extern u8 ROMCommand[8];
-extern u32 ROMDataOut;
-
-extern u8 EncSeed0[5];
-extern u8 EncSeed1[5];
 
 extern u8* CartROM;
 extern u32 CartROMSize;

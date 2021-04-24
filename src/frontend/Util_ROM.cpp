@@ -561,7 +561,7 @@ int Reset()
     if (ROMPath[ROMSlot_GBA][0] != '\0')
     {
         char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_GBA]);
-        strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
+        strncpy(ext, ROMPath[ROMSlot_GBA] + _len - 4, 4);
 
         if(!strncmp(ext, ".gba", 4))
         {

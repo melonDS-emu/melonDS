@@ -464,6 +464,10 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x102: return 0;
     case 0x104: return BlockLen32;
     case 0x108: return BlockCount32;
+
+    // dunno
+    case 0x106: return 0;
+    case 0x10A: return 0;
     }
 
     printf("unknown %s read %08X @ %08X\n", SD_DESC, addr, NDS::GetPC(1));
@@ -626,6 +630,10 @@ void DSi_SDHost::Write(u32 addr, u16 val)
     case 0x102: return;
     case 0x104: BlockLen32 = val & 0x03FF; return;
     case 0x108: BlockCount32 = val; return;
+
+    // dunno
+    case 0x106: return;
+    case 0x10A: return;
     }
 
     printf("unknown %s write %08X %04X\n", SD_DESC, addr, val);
@@ -847,8 +855,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         RWCommand = 18;
         Host->SendResponse(CSR, true);
-        ReadBlock(RWAddress);
-        RWAddress += BlockSize;
+        RWAddress += ReadBlock(RWAddress);
         SetState(0x05);
         return;
 
@@ -862,8 +869,7 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
         }
         RWCommand = 25;
         Host->SendResponse(CSR, true);
-        WriteBlock(RWAddress);
-        RWAddress += BlockSize;
+        RWAddress += WriteBlock(RWAddress);
         SetState(0x04);
         return;
 

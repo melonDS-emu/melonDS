@@ -79,14 +79,15 @@ void Start()
 
 u8 Read(bool last)
 {
+    //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
+    u8 ret = Registers[CurPos++];
+
     if (last)
     {
         CurPos = -1;
-        return 0;
     }
 
-    //printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
-    return Registers[CurPos++];
+    return ret;
 }
 
 void Write(u8 val, bool last)
