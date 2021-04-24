@@ -2459,7 +2459,7 @@ u32 ARM7Read32(u32 addr)
     case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
         return GBACart::ROMRead(addr) |
-              (GBACart::ROMRead(addr+1) << 8);
+              (GBACart::ROMRead(addr+2) << 16);
 
     case 0x0A000000:
     case 0x0A800000:
