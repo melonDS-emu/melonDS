@@ -304,11 +304,11 @@ QString KeyMapButton::mappingText()
     }
 
     QKeySequence seq(key);
-    QString ret = seq.toString();
+    QString ret = seq.toString(QKeySequence::NativeText);
 
     // weak attempt at detecting garbage key names
-    if (ret.length() == 2 && ret[0].unicode() > 0xFF)
-        return QString("[%1]").arg(key, 8, 16);
+    //if (ret.length() == 2 && ret[0].unicode() > 0xFF)
+    //    return QString("[%1]").arg(key, 8, 16);
 
     return ret.replace("&", "&&");
 }
