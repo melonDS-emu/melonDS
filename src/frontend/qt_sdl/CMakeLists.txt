@@ -150,7 +150,7 @@ if (APPLE)
             set(DMGARG "--dmg")
         endif()
         add_custom_command(TARGET melonDS POST_BUILD
-            COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.sh ${DMGARG} ${CMAKE_BINARY_DIR}
+            COMMAND ${CMAKE_SOURCE_DIR}/tools/mac-libs.rb ${DMGARG} ${CMAKE_BINARY_DIR}
             COMMENT "Bundling macOS libraries...")
     endif()
 endif()
