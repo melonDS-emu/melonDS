@@ -20,6 +20,7 @@
 #define SAVESTATE_H
 
 #include <stdio.h>
+#include <vector>
 #include "types.h"
 
 #define SAVESTATE_MAJOR 8
@@ -29,6 +30,7 @@ class Savestate
 {
 public:
     Savestate(const char* filename, bool save);
+    Savestate(u8* data, s32 len);
     ~Savestate();
 
     bool Error;
@@ -57,8 +59,22 @@ public:
         return false;
     }
 
+    u8* GetData();
+    s32 GetDataLength();
+
 private:
     FILE* file;
+    std::vector<u8> buffer;
+
+    s32 size;
+    s32 pos;
+
+    void ExpandCapacity();
+
+    void InitRead();
+    void Finalize();
+
+    void Seek(s32 pos, s32 origin);
 };
 
 #endif // SAVESTATE_H
