@@ -92,10 +92,15 @@ def install_name_tool(exec, action, path1, path2 = nil)
   end
 end
 
+def strip(lib)
+  `strip -SNTx "#{lib}"`
+end
+
 def fixup_libs(prog, orig_path)
   throw "fixup_libs: #{prog} doesn't exist" unless File.exist? prog
 
   libs = get_load_libs(prog).map { |it| expand_load_path(orig_path, it) }.select { |it| not system_lib? it[0] }
+  strip prog
 
   libs.each do |lib|
     libpath, libtype = lib
