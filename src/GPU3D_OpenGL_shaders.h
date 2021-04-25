@@ -260,7 +260,7 @@ smooth in vec2 fTexcoord;
 flat in ivec3 fPolygonAttr;
 
 layout (location = 0) out vec4 oColor;
-layout (location = 2) out vec4 oAttr;
+layout (location = 1) out vec4 oAttr;
 
 int TexcoordWrap(int c, int maxc, int mode)
 {
