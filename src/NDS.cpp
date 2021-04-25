@@ -1415,10 +1415,7 @@ u64 GetSysClockCycles(int num)
 
 void NocashPrint(u32 ncpu, u32 addr)
 {
-    // addr: u16 flags (TODO: research? libnds doesn't use those)
-    // addr+2: debug string
-
-    addr += 2;
+    // addr: debug string
 
     ARM* cpu = ncpu ? (ARM*)ARM7 : (ARM*)ARM9;
     u8 (*readfn)(u32) = ncpu ? NDS::ARM7Read8 : NDS::ARM9Read8;
@@ -2846,6 +2843,13 @@ u8 ARM9IORead8(u32 addr)
     {
         return GPU3D::Read8(addr);
     }
+    // NO$GBA debug register "Emulation ID"
+    if(addr >= 0x04FFFA00 && addr < 0x04FFFA10) {
+        // FIX: GBATek says this should be padded with spaces
+        static char const emuid[16] = "melonDS " MELONDS_VERSION;
+        auto idx = addr - 0x04FFFA00;
+        return u8(emuid[idx]);
+    }
 
     printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
@@ -3104,6 +3108,11 @@ u32 ARM9IORead32(u32 addr)
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
         return 0;
+
+    // NO$GBA debug register "Clock Cycles"
+    // Since it's a 64 bit reg. the CPU will access it in two parts:
+    case 0x04FFFA20: return u32(GetSysClockCycles(0) & 0xFFFFFFFF);
+    case 0x04FFFA24: return u32(GetSysClockCycles(0) >> 32);
     }
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
@@ -3532,6 +3541,34 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11)))  NDSCart::WriteROMData(val);
         return;
+
+    // NO$GBA debug register "String Out (raw)"
+    case 0x04FFFA10:
+        {
+            char output[1024] = { 0 };
+            char ch = '.';
+            for (size_t i = 0; i < 1023 && ch != '\0'; i++)
+            {
+                ch = NDS::ARM9Read8(val + i);
+                output[i] = ch;
+            }
+            printf("%s", output);
+            return;
+        }
+
+    // NO$GBA debug registers "String Out (with parameters)" and "String Out (with parameters, plus linefeed)"
+    case 0x04FFFA14:
+    case 0x04FFFA18:
+        {
+            bool append_lf = 0x04FFFA18 == addr;
+            NocashPrint(0, val);
+            if(append_lf)
+                printf("\n");
+            return;
+        }
+
+    // NO$GBA debug register "Char Out"
+    case 0x04FFFA1C: printf("%lc", val); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)

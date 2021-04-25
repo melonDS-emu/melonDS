@@ -661,7 +661,9 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
         (cpu->NextInstr[0] & 0xFF000000) == 0xEA000000 && // branch
         (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
     {
-        u32 addr = cpu->R[15] + 2;
+        u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
+        // TODO: 'Flags' don't do anything (for the time being), so we can skip them
+        // but we should remember to implement a way to pass them to NocashPrint
         NDS::NocashPrint(cpu->Num, addr);
     }
 }
@@ -1527,7 +1529,9 @@ void T_MOV_HIREG(ARM* cpu)
         (cpu->NextInstr[0] & 0xF800) == 0xE000 && // branch
         (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
     {
-        u32 addr = cpu->R[15] + 2;
+        u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
+        // TODO: 'Flags' don't do anything (for the time being), so we can skip them
+        // but we should remember to implement a way to pass them to NocashPrint
         NDS::NocashPrint(cpu->Num, addr);
     }
 }
