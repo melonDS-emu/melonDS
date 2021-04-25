@@ -236,7 +236,7 @@ bool IsRightModKey(QKeyEvent* event)
     quint32 scan = event->nativeScanCode();
     return (scan == 0x11D || scan == 0x138 || scan == 0x36);
 }
-#elifdef __APPLE__
+#elif __APPLE__
 bool IsRightModKey(QKeyEvent* event)
 {
     quint32 scan = event->nativeVirtualKey();
