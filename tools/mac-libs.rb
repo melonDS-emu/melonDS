@@ -47,9 +47,9 @@ def expand_load_path(lib, path)
         get_rpaths(lib).each do |rpath|
           file = File.join(rpath, file_name)
           return file, :rpath if File.exist? file
-          if rpath.match? /^@executable_path(.*)/
+          if rpath.match(/^@executable_path(.*)/) != nil
             relative = rpath.sub(/^@executable_path/, "")
-            return "#{$bundle}/Contents/MacOS#{relative}", :executable_path
+            return "#{$bundle}/Contents/MacOS#{relative}/#{file_name}", :executable_path
           end
         end
         file = $fallback_rpaths
@@ -69,9 +69,6 @@ def expand_load_path(lib, path)
     return File.absolute_path(path), :absolute
   end
 
-  puts lib
-  puts path
-  exit
   return nil
 end
 
