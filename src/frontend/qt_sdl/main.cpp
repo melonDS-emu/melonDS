@@ -1569,7 +1569,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     for(const QString &ext : acceptedExts)
     {
-        if(filename.endsWith(ext))
+        if(filename.endsWith(ext, Qt::CaseInsensitive))
             event->acceptProposedAction();
     }
 }
