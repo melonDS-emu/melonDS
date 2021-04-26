@@ -1584,7 +1584,7 @@ void MainWindow::dropEvent(QDropEvent* event)
     emuThread->emuPause();
 
     QString filename = urls.at(0).toLocalFile();
-    QString ext = filename.right(3);
+    QString ext = filename.right(3).toLower();
 
     recentFileList.removeAll(filename);
     recentFileList.prepend(filename);
@@ -1614,7 +1614,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         }
         else
         {
-            slot = (romFileName.endsWith(".gba") ? 1 : 0);
+            slot = (romFileName.endsWith(".gba", Qt::CaseInsensitive) ? 1 : 0);
             QString sramFileName = QFileInfo(_filename).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
 
             if(slot == 0)
@@ -1950,7 +1950,10 @@ void MainWindow::onClickRecentFile()
     QAction *act = (QAction *)sender();
     QString fileName = act->data().toString();
 
-    if(fileName.endsWith(".gba") || fileName.endsWith(".nds") || fileName.endsWith(".srl") || fileName.endsWith(".dsi"))
+    if (fileName.endsWith(".gba", Qt::CaseInsensitive) ||
+        fileName.endsWith(".nds", Qt::CaseInsensitive) ||
+        fileName.endsWith(".srl", Qt::CaseInsensitive) ||
+        fileName.endsWith(".dsi", Qt::CaseInsensitive))
     {
         emuThread->emuPause();
         loadROM(fileName);
