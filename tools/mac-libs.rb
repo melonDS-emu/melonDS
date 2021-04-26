@@ -18,7 +18,8 @@ def executable
 end
 
 def get_rpaths(lib)
-  out = `otool -l #{lib}`.split("\n")
+  out, _ = Open3.capture2("otool", "-l", lib)
+  out = out.split("\n")
   rpaths = []
 
   out.each_with_index do |line, i|
@@ -31,8 +32,8 @@ def get_rpaths(lib)
 end
 
 def get_load_libs(lib)
-  `otool -L #{lib}`
-    .split("\n")
+  out, _ = Open3.capture2("otool", "-L", lib)
+  out.split("\n")
     .drop(1)
     .map { |it| it.strip.gsub(/ \(.*/, "") }
 end
@@ -93,7 +94,8 @@ def install_name_tool(exec, action, path1, path2 = nil)
 end
 
 def strip(lib)
-  `strip -SNTx "#{lib}"`
+  out, _ = Open3.capture2("strip", "-SNTx", lib)
+  print out
 end
 
 def fixup_libs(prog, orig_path)
@@ -217,6 +219,9 @@ exec_rpaths = get_rpaths(executable)
 Dir.glob("#{frameworks_dir}/**/Headers").each do |dir|
   FileUtils.rm_rf dir
 end
+
+out, _ = Open3.capture2("codesign", "-s", "-", "-f", "--deep", $bundle)
+print out
 
 if $build_dmg
     dmg_dir = File.join($build_dir, "dmg")
