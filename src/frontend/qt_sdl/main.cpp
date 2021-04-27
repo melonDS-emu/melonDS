@@ -1241,14 +1241,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actSetupCheats = menu->addAction("Setup cheat codes");
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
-        actSetupCheats->setMenuRole(QAction::NoRole);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
 
         actEmuSettings = menu->addAction("Emu settings");
         connect(actEmuSettings, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
-        actEmuSettings->setMenuRole(QAction::PreferencesRole);
+
+#ifdef __APPLE__
+        QAction* actPreferences = menu->addAction("Preferences...");
+        connect(actPreferences, &QAction::triggered, this, &MainWindow::onOpenEmuSettings);
+        actPreferences->setMenuRole(QAction::PreferencesRole);
+#endif
 
         actInputConfig = menu->addAction("Input and hotkeys");
         connect(actInputConfig, &QAction::triggered, this, &MainWindow::onOpenInputConfig);
