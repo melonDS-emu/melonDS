@@ -426,7 +426,7 @@ void CartRetail::LoadSave(const char* path, u32 type)
         512,
         8192, 65536, 128*1024,
         256*1024, 512*1024, 1024*1024,
-        8192*1024, 16384*1024
+        8192*1024, 16384*1024, 65536*1024
     };
     SRAMLength = sramlen[type];
 
@@ -458,7 +458,8 @@ void CartRetail::LoadSave(const char* path, u32 type)
     case 6:
     case 7: SRAMType = 3; break; // FLASH
     case 8:
-    case 9: SRAMType = 4; break; // NAND
+    case 9:
+    case 10: SRAMType = 4; break; // NAND
     default: SRAMType = 0; break; // ...whatever else
     }
 }
@@ -1508,7 +1509,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else
         CartID |= (0x100 - (CartROMSize >> 28)) << 8;
 
-    if (romparams.SaveMemType == 8 || romparams.SaveMemType == 9)
+    if (romparams.SaveMemType >= 8 && romparams.SaveMemType <= 10)
         CartID |= 0x08000000; // NAND flag
 
     if (CartIsDSi)
