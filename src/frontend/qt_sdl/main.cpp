@@ -275,7 +275,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuPause = 0;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(update()));
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -2504,7 +2504,7 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
             delete panelNative;
         }
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(update()));
+        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
         if (hasOGL) emuThread->initOpenGL();
     }
 
