@@ -240,7 +240,7 @@ bool IsRightModKey(QKeyEvent* event)
 bool IsRightModKey(QKeyEvent* event)
 {
     quint32 scan = event->nativeVirtualKey();
-    return (scan == 0x37 || scan == 0x3A || scan == 0x3C || scan == 0x3E);
+    return (scan == 0x36 || scan == 0x3C || scan == 0x3D || scan == 0x3E);
 }
 #else
 bool IsRightModKey(QKeyEvent* event)
