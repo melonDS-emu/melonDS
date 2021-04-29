@@ -7,6 +7,7 @@
 #include <cinttypes>
 #include <cstring>
 #include <vector>
+#include <limits>
 
 #include "Compat.h"
 #include "Align.h"

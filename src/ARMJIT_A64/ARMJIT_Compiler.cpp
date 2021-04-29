@@ -483,12 +483,12 @@ void Compiler::LoadReg(int reg, ARM64Reg nativeReg)
     if (reg == 15)
         MOVI2R(nativeReg, R15);
     else
-        LDR(INDEX_UNSIGNED, nativeReg, RCPU, offsetof(ARM, R[reg]));
+        LDR(INDEX_UNSIGNED, nativeReg, RCPU, offsetof(ARM, R) + reg*4);
 }
 
 void Compiler::SaveReg(int reg, ARM64Reg nativeReg)
 {
-    STR(INDEX_UNSIGNED, nativeReg, RCPU, offsetof(ARM, R[reg]));
+    STR(INDEX_UNSIGNED, nativeReg, RCPU, offsetof(ARM, R) + reg*4);
 }
 
 void Compiler::LoadCPSR()
