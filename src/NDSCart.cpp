@@ -754,6 +754,25 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
         if (last) SRAMStatus &= ~(1<<1);
         return 0;
 
+    case 0x0B: // fast read
+        if (pos <= 3)
+        {
+            SRAMAddr <<= 8;
+            SRAMAddr |= val;
+            return 0;
+        }
+        else if (pos == 4)
+        {
+            // dummy byte
+            return 0;
+        }
+        else
+        {
+            u8 ret = SRAM[SRAMAddr & (SRAMLength-1)];
+            SRAMAddr++;
+            return ret;
+        }
+
     case 0x9F: // read JEDEC IC
         // GBAtek says it should be 0xFF. verify?
         return 0xFF;
