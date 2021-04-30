@@ -322,6 +322,22 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
         case 0xA0:
             CmdEncMode = 2;
             return 0;
+
+        default:
+            return 0;
+        }
+    }
+    else if (CmdEncMode == 2)
+    {
+        switch (cmd[0])
+        {
+        case 0xB8:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        default:
+            return 0;
         }
     }
 
@@ -531,11 +547,6 @@ int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
             else
                 ReadROM_B7(addr, len, data, 0);
         }
-        return 0;
-
-    case 0xB8:
-        for (u32 pos = 0; pos < len; pos += 4)
-            *(u32*)&data[pos] = ChipID;
         return 0;
 
     default:
