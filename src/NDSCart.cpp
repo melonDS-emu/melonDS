@@ -235,93 +235,97 @@ void CartCommon::FlushSRAMFile()
 
 int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
-    switch (cmd[0])
+    if (CmdEncMode == 0)
     {
-    case 0x9F:
-        memset(data, 0xFF, len);
-        return 0;
-
-    case 0x00:
-        memset(data, 0, len);
-        if (len > 0x1000)
+        switch (cmd[0])
         {
-            ReadROM(0, 0x1000, data, 0);
-            for (u32 pos = 0x1000; pos < len; pos += 0x1000)
-                memcpy(data+pos, data, 0x1000);
-        }
-        else
-            ReadROM(0, len, data, 0);
-        return 0;
+        case 0x9F:
+            memset(data, 0xFF, len);
+            return 0;
 
-    case 0x90:
-    case 0xB8:
-        for (u32 pos = 0; pos < len; pos += 4)
-            *(u32*)&data[pos] = ChipID;
-        return 0;
-
-    case 0x3C:
-        CmdEncMode = 1;
-        Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
-        return 0;
-
-    case 0x3D:
-        if (IsDSi)
-        {
-            CmdEncMode = 11;
-            Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
-        }
-        return 0;
-
-    default:
-        if (CmdEncMode == 1 || CmdEncMode == 11)
-        {
-            // decrypt the KEY1 command as needed
-            // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
-            // but KEY1 is not, so DS software is responsible for encrypting KEY1 commands)
-            u8 cmddec[8];
-            *(u32*)&cmddec[0] = ByteSwap(*(u32*)&cmd[4]);
-            *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmd[0]);
-            Key1_Decrypt((u32*)cmddec);
-            u32 tmp = ByteSwap(*(u32*)&cmddec[4]);
-            *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmddec[0]);
-            *(u32*)&cmddec[0] = tmp;
-
-            // TODO eventually: verify all the command parameters and shit
-
-            switch (cmddec[0] & 0xF0)
+        case 0x00:
+            memset(data, 0, len);
+            if (len > 0x1000)
             {
-            case 0x40:
-                DataEncMode = 2;
-                return 0;
-
-            case 0x10:
-                for (u32 pos = 0; pos < len; pos += 4)
-                    *(u32*)&data[pos] = ChipID;
-                return 0;
-
-            case 0x20:
-                {
-                    u32 addr = (cmddec[2] & 0xF0) << 8;
-                    if (CmdEncMode == 11)
-                    {
-                        // the DSi region starts with 0x3000 unreadable bytes
-                        // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
-                        // these contain data for KEY1 crypto
-                        u32 dsiregion = *(u16*)&ROM[0x92] << 19;
-                        addr -= 0x1000;
-                        addr += dsiregion;
-                    }
-                    ReadROM(addr, 0x1000, data, 0);
-                }
-                return 0;
-
-            case 0xA0:
-                CmdEncMode = 2;
-                return 0;
+                ReadROM(0, 0x1000, data, 0);
+                for (u32 pos = 0x1000; pos < len; pos += 0x1000)
+                    memcpy(data+pos, data, 0x1000);
             }
+            else
+                ReadROM(0, len, data, 0);
+            return 0;
+
+        case 0x90:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        case 0x3C:
+            CmdEncMode = 1;
+            Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
+            return 0;
+
+        case 0x3D:
+            if (IsDSi)
+            {
+                CmdEncMode = 11;
+                Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
+            }
+            return 0;
+
+        default:
+            return 0;
         }
-        return 0;
     }
+    else if (CmdEncMode == 1 || CmdEncMode == 11)
+    {
+        // decrypt the KEY1 command as needed
+        // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
+        // but KEY1 is not, so DS software is responsible for encrypting KEY1 commands)
+        u8 cmddec[8];
+        *(u32*)&cmddec[0] = ByteSwap(*(u32*)&cmd[4]);
+        *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmd[0]);
+        Key1_Decrypt((u32*)cmddec);
+        u32 tmp = ByteSwap(*(u32*)&cmddec[4]);
+        *(u32*)&cmddec[4] = ByteSwap(*(u32*)&cmddec[0]);
+        *(u32*)&cmddec[0] = tmp;
+
+        // TODO eventually: verify all the command parameters and shit
+
+        switch (cmddec[0] & 0xF0)
+        {
+        case 0x40:
+            DataEncMode = 2;
+            return 0;
+
+        case 0x10:
+            for (u32 pos = 0; pos < len; pos += 4)
+                *(u32*)&data[pos] = ChipID;
+            return 0;
+
+        case 0x20:
+            {
+                u32 addr = (cmddec[2] & 0xF0) << 8;
+                if (CmdEncMode == 11)
+                {
+                    // the DSi region starts with 0x3000 unreadable bytes
+                    // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
+                    // these contain data for KEY1 crypto
+                    u32 dsiregion = *(u16*)&ROM[0x92] << 19;
+                    addr -= 0x1000;
+                    addr += dsiregion;
+                }
+                ReadROM(addr, 0x1000, data, 0);
+            }
+            return 0;
+
+        case 0xA0:
+            CmdEncMode = 2;
+            return 0;
+        }
+    }
+
+    return 0;
 }
 
 void CartCommon::ROMCommandFinish(u8* cmd, u8* data, u32 len)
@@ -509,6 +513,8 @@ void CartRetail::FlushSRAMFile()
 
 int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
+
     switch (cmd[0])
     {
     case 0xB7:
@@ -525,6 +531,11 @@ int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
             else
                 ReadROM_B7(addr, len, data, 0);
         }
+        return 0;
+
+    case 0xB8:
+        for (u32 pos = 0; pos < len; pos += 4)
+            *(u32*)&data[pos] = ChipID;
         return 0;
 
     default:
@@ -871,6 +882,8 @@ int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
+
     switch (cmd[0])
     {
     case 0x81: // write data
@@ -1005,6 +1018,8 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
 void CartRetailNAND::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 {
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
     switch (cmd[0])
     {
     case 0x81: // write data
@@ -1163,6 +1178,8 @@ void CartHomebrew::DoSavestate(Savestate* file)
 
 int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
+    if (CmdEncMode != 2) return CartCommon::ROMCommandStart(cmd, data, len);
+
     switch (cmd[0])
     {
     case 0xB7:
@@ -1204,6 +1221,8 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
 
 void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
 {
+    if (CmdEncMode != 2) return CartCommon::ROMCommandFinish(cmd, data, len);
+
     // TODO: delayed SD writing? like we have for SRAM
 
     switch (cmd[0])
