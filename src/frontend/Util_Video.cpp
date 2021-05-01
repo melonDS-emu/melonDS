@@ -473,14 +473,13 @@ bool GetTouchCoords(int& x, int& y)
 
         M23_Transform(TouchMtx, vx, vy);
 
+        x = (int)vx;
+        y = (int)vy;
+
         if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
-        {
-            x = (int)vx;
-            y = (int)vy;
             return true;
-        }
     }
-    if (HybEnable && HybScreen == 1)
+    else if (HybEnable && HybScreen == 1)
     {
         float vx = x;
         float vy = y;
@@ -493,6 +492,7 @@ bool GetTouchCoords(int& x, int& y)
         if (x >= 0 && x < 256 && y >= 0 && y < 192)
             return true;
     }
+
     return false;
 }
 
