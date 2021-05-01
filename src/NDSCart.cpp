@@ -439,7 +439,7 @@ void CartRetail::LoadSave(const char* path, u32 type)
     strncpy(SRAMPath, path, 1023);
     SRAMPath[1023] = '\0';
 
-    if (type > 9) type = 0;
+    if (type > 10) type = 0;
     int sramlen[] =
     {
         0,
