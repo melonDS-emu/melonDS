@@ -88,7 +88,7 @@ If everything went well, melonDS should now be in the `dist` folder.
 
 ### macOS:
 1. Install the [Homebrew Package Manager](https://brew.sh)
-2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@5 libslirp libarchive libepoxy`
+2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libslirp libarchive libepoxy`
 3. Download the melonDS repository and prepare:
   ```zsh
   git clone https://github.com/Arisotura/melonDS
@@ -97,11 +97,10 @@ If everything went well, melonDS should now be in the `dist` folder.
   ```
 4. Compile:
    ```zsh
-   cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON 
+   cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON -DMACOS_BUNDLE_LIBS=ON
    make -j$(sysctl -n hw.logicalcpu)
-   mkdir dist && cp -r melonDS.app dist
    ```
-If everything went well, melonDS.app should now be in the `dist` folder.
+If everything went well, melonDS.app should now be in the curent directory.
 
    
 ## TODO LIST

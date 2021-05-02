@@ -82,7 +82,7 @@ endif()
 
 target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
-target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
+target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_PREFIX}/include ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
 target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS} ${SLIRP_LIBRARY_DIRS})
 target_link_directories(melonDS PRIVATE ${LIBARCHIVE_LIBRARY_DIRS})
 
@@ -136,7 +136,7 @@ if (APPLE)
     set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
     # Qt 6 requires macOS 10.15 if building on 10.15 or greater
-    if(CMAKE_SYSTEM_VERSION VERSION_GREATER 18.5.0)
+	if(CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL 19.0.0)
         if (USE_QT6)
 	    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version" FORCE)
         endif()
