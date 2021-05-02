@@ -99,9 +99,8 @@ If everything went well, melonDS should now be in the `dist` folder.
    ```zsh
    cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON 
    make -j$(sysctl -n hw.logicalcpu)
-   mkdir dist && cp -r melonDS.app dist
    ```
-If everything went well, melonDS.app should now be in the `dist` folder.
+If everything went well, melonDS.app should now be in the curent directory.
 
    
 ## TODO LIST
