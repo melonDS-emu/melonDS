@@ -839,7 +839,7 @@ void Reset()
         Mappings[region].Clear();
     }
 
-    for (int i = 0; i < sizeof(MappingStatus9); i++)
+    for (size_t i = 0; i < sizeof(MappingStatus9); i++)
     {
         assert(MappingStatus9[i] == memstate_Unmapped);
         assert(MappingStatus7[i] == memstate_Unmapped);

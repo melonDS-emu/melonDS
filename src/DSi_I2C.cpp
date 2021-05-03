@@ -98,7 +98,7 @@ void Write(u8 val, bool last)
         return;
     }
 
-    if (CurPos == -1)
+    if (CurPos == 0xFFFFFFFF)
     {
         CurPos = val;
         //printf("BPTWL: reg=%02X\n", val);

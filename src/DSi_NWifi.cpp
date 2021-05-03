@@ -747,7 +747,7 @@ void DSi_NWifi::BMI_Command()
             u32 len = MB_Read32(0);
             printf("BMI mem write %08X %08X\n", addr, len);
 
-            for (int i = 0; i < len; i++)
+            for (u32 i = 0; i < len; i++)
             {
                 u8 val = Mailbox[0].Read();
 
@@ -801,7 +801,7 @@ void DSi_NWifi::BMI_Command()
             printf("BMI LZ write %08X\n", len);
             //FILE* f = fopen("debug/wififirm.bin", "ab");
 
-            for (int i = 0; i < len; i++)
+            for (u32 i = 0; i < len; i++)
             {
                 u8 val = Mailbox[0].Read();
 
@@ -1306,7 +1306,7 @@ void DSi_NWifi::SendWMIEvent(u8 ep, u16 id, u8* data, u32 len)
     Mailbox[8].Write(0);     //
     MB_Write16(8, id);        // event ID
 
-    for (int i = 0; i < len; i++)
+    for (u32 i = 0; i < len; i++)
     {
         Mailbox[8].Write(data[i]);
     }
@@ -1383,7 +1383,7 @@ void DSi_NWifi::SendWMIBSSInfo(u8 type, u8* data, u32 len)
     MB_Write16(8, *(u16*)&WifiAP::APMac[4]);
     MB_Write32(8, 0); // ieMask
 
-    for (int i = 0; i < len; i++)
+    for (u32 i = 0; i < len; i++)
     {
         Mailbox[8].Write(data[i]);
     }

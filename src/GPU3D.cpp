@@ -486,7 +486,7 @@ void DoSavestate(Savestate* file)
     {
         u32 id;
         file->Var32(&id);
-        if (id == -1) LastStripPolygon = NULL;
+        if (id == 0xFFFFFFFF) LastStripPolygon = NULL;
         else          LastStripPolygon = &PolygonRAM[id];
     }
 
@@ -535,7 +535,7 @@ void DoSavestate(Savestate* file)
             {
                 u32 id = -1;
                 file->Var32(&id);
-                if (id == -1) poly->Vertices[j] = NULL;
+                if (id == 0xFFFFFFFF) poly->Vertices[j] = NULL;
                 else          poly->Vertices[j] = &VertexRAM[id];
             }
         }
@@ -574,7 +574,7 @@ void DoSavestate(Savestate* file)
         {
             poly->Degenerate = false;
 
-            for (int j = 0; j < poly->NumVertices; j++)
+            for (u32 j = 0; j < poly->NumVertices; j++)
             {
                 if (poly->Vertices[j]->Position[3] == 0)
                     poly->Degenerate = true;

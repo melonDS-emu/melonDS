@@ -251,12 +251,12 @@ void Reset()
     else
         fbsize = 256 * 192;
 
-    for (int i = 0; i < fbsize; i++)
+    for (size_t i = 0; i < fbsize; i++)
     {
         Framebuffer[0][0][i] = 0xFFFFFFFF;
         Framebuffer[1][0][i] = 0xFFFFFFFF;
     }
-    for (int i = 0; i < fbsize; i++)
+    for (size_t i = 0; i < fbsize; i++)
     {
         Framebuffer[0][1][i] = 0xFFFFFFFF;
         Framebuffer[1][1][i] = 0xFFFFFFFF;
@@ -1067,7 +1067,7 @@ void StartScanline(u32 line)
 {
     if (line == 0)
         VCount = 0;
-    else if (NextVCount != -1)
+    else if (NextVCount != 0xFFFFFFFF)
         VCount = NextVCount;
     else
         VCount++;

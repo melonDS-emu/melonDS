@@ -655,7 +655,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                         break;
                     }
                 }
-                if (funcid == -1)
+                if (funcid == 0xFFFFFFFF)
                 {
                     printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
@@ -676,7 +676,7 @@ bool DoSavestate_Scheduler(Savestate* file)
             u32 funcid;
             file->Var32(&funcid);
 
-            if (funcid != -1)
+            if (funcid != 0xFFFFFFFF)
             {
                 for (int j = 0; ; j++)
                 {
@@ -1470,11 +1470,11 @@ void NocashPrint(u32 ncpu, u32 addr)
                 else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
                 else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NumFrames);
                 else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", GPU::VCount);
-                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%lu", GetSysClockCycles(0));
-                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%lu", GetSysClockCycles(1));
+                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(1));
                 else if (!strcmp(cmd, "zeroclks"))
                 {
-                    sprintf(subs, "");
+                    sprintf(subs, "%s", "");
                     GetSysClockCycles(1);
                 }
             }
@@ -3575,31 +3575,31 @@ u8 ARM7IORead8(u32 addr)
     case 0x040001A8:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[0];
-            return 0;
+        return 0;
     case 0x040001A9:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[1];
-            return 0;
+        return 0;
     case 0x040001AA:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[2];
-            return 0;
+        return 0;
     case 0x040001AB:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[3];
-            return 0;
+        return 0;
     case 0x040001AC:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[4];
-            return 0;
+        return 0;
     case 0x040001AD:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[5];
-            return 0;
+        return 0;
     case 0x040001AE:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[6];
-            return 0;
+        return 0;
     case 0x040001AF:
         if (ExMemCnt[0] & (1<<11))
             return NDSCart::ROMCommand[7];

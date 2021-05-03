@@ -262,7 +262,7 @@ template <bool Write, int ConsoleType>
 void SlowBlockTransfer9(u32 addr, u64* data, u32 num, ARMv5* cpu)
 {
     addr &= ~0x3;
-    for (int i = 0; i < num; i++)
+    for (u32 i = 0; i < num; i++)
     {
         if (Write)
             SlowWrite9<u32, ConsoleType>(addr, cpu, data[i]);
@@ -276,7 +276,7 @@ template <bool Write, int ConsoleType>
 void SlowBlockTransfer7(u32 addr, u64* data, u32 num)
 {
     addr &= ~0x3;
-    for (int i = 0; i < num; i++)
+    for (u32 i = 0; i < num; i++)
     {
         if (Write)
             SlowWrite7<u32, ConsoleType>(addr, data[i]);
@@ -667,7 +667,7 @@ void CompileBlock(ARM* cpu)
         if (i == 0 || translatedAddrRounded != addressRanges[numAddressRanges - 1])
         {
             bool returning = false;
-            for (int j = 0; j < numAddressRanges; j++)
+            for (u32 j = 0; j < numAddressRanges; j++)
             {
                 if (addressRanges[j] == translatedAddrRounded)
                 {
@@ -874,7 +874,7 @@ void CompileBlock(ARM* cpu)
 
         if (mayRestore && prevBlock->NumAddresses == numAddressRanges)
         {
-            for (int j = 0; j < numAddressRanges; j++)
+            for (u32 j = 0; j < numAddressRanges; j++)
             {
                 if (prevBlock->AddressRanges()[j] != addressRanges[j]
                     || prevBlock->AddressMasks()[j] != addressMasks[j])
@@ -901,9 +901,9 @@ void CompileBlock(ARM* cpu)
         block = new JitBlock(cpu->Num, i, numAddressRanges, numLiterals);
         block->LiteralHash = literalHash;
         block->InstrHash = instrHash;
-        for (int j = 0; j < numAddressRanges; j++)
+        for (u32 j = 0; j < numAddressRanges; j++)
             block->AddressRanges()[j] = addressRanges[j];
-        for (int j = 0; j < numAddressRanges; j++)
+        for (u32 j = 0; j < numAddressRanges; j++)
             block->AddressMasks()[j] = addressMasks[j];
         for (int j = 0; j < numLiterals; j++)
             block->Literals()[j] = literalLoadAddrs[j];
@@ -929,7 +929,7 @@ void CompileBlock(ARM* cpu)
     }
 
     assert((localAddr & 1) == 0);
-    for (int j = 0; j < numAddressRanges; j++)
+    for (u32 j = 0; j < numAddressRanges; j++)
     {
         assert(addressRanges[j] == block->AddressRanges()[j]);
         assert(addressMasks[j] == block->AddressMasks()[j]);

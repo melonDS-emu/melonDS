@@ -1085,7 +1085,7 @@ void USTimer(u32 param)
                 printf("wifi: RX buffer full\n");
                 RXTime = 0;
                 SetStatus(1);
-                if (TXCurSlot == -1)
+                if (TXCurSlot == 0xFFFFFFFF)
                 {
                     ComStatus &= ~0x1;
                     RXCounter = 0;

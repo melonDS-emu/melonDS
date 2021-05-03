@@ -134,8 +134,17 @@ public:
         case 1: return Run<1>(); break;
         case 2: return Run<2>(); break;
         case 3:
-            if      (Num >= 14) return Run<4>();
-            else if (Num >= 8)  return Run<3>();
+            if (Num >= 14)
+            {
+                return Run<4>();
+                break;
+            }
+            else if (Num >= 8)
+            {
+                return Run<3>();
+                break;
+            }
+            [[fallthrough]];
         default:
             return 0;
         }

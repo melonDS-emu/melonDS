@@ -134,7 +134,7 @@ Savestate::~Savestate()
 
     if (Saving)
     {
-        if (CurSection != -1)
+        if (CurSection != 0xFFFFFFFF)
         {
             u32 pos = (u32)ftell(file);
             fseek(file, CurSection+4, SEEK_SET);
@@ -160,7 +160,7 @@ void Savestate::Section(const char* magic)
 
     if (Saving)
     {
-        if (CurSection != -1)
+        if (CurSection != 0xFFFFFFFF)
         {
             u32 pos = (u32)ftell(file);
             fseek(file, CurSection+4, SEEK_SET);

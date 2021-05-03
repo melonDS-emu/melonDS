@@ -108,7 +108,7 @@ public:
 
     void Reset() override;
 
-    void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file) override;
 
     void LoadSave(const char* path, u32 type) override;
     int ImportSRAM(const u8* data, u32 length) override;

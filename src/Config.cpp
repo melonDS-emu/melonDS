@@ -119,7 +119,9 @@ void Load()
     char entryval[1024];
     while (!feof(f))
     {
-        fgets(linebuf, 1024, f);
+        if (fgets(linebuf, 1024, f) == NULL)
+            printf("Error reading string from file!");
+
         int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
         entryname[31] = '\0';
         if (ret < 2) continue;

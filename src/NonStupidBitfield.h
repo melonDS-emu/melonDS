@@ -166,7 +166,7 @@ struct NonStupidBitField
     void SetRange(u32 startBit, u32 bitsCount)
     {
         u32 startEntry = startBit >> 6;
-        u64 entriesCount = ((startBit + bitsCount + 0x3F & ~0x3F) >> 6) - startEntry;
+        u64 entriesCount = (((startBit + bitsCount + 0x3F) & ~0x3F) >> 6) - startEntry;
 
         if (entriesCount > 1)
         {
@@ -175,7 +175,7 @@ struct NonStupidBitField
                 Data[startEntry + entriesCount - 1] |= ~(0xFFFFFFFFFFFFFFFF << ((startBit + bitsCount) & 0x3F));
             else
                 Data[startEntry + entriesCount - 1] = 0xFFFFFFFFFFFFFFFF;
-            for (int i = startEntry + 1; i < startEntry + entriesCount - 1; i++)
+            for (u64 i = startEntry + 1; i < startEntry + entriesCount - 1; i++)
                 Data[i] = 0xFFFFFFFFFFFFFFFF;
         }
         else

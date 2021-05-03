@@ -508,7 +508,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
 
             u32 lastx, lasty;
             int nout = 0;
-            for (int j = 0; j < poly->NumVertices; j++)
+            for (u32 j = 0; j < poly->NumVertices; j++)
             {
                 Vertex* vtx = poly->Vertices[j];
 
@@ -557,7 +557,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
             {
                 // regular triangle-splitting
 
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -588,7 +588,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 float cR = 0, cG = 0, cB = 0;
                 float cS = 0, cT = 0;
 
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -651,7 +651,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
                 vidx++;
 
                 // build the final polygon
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -680,7 +680,7 @@ void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys
         rp->NumEdgeIndices = 0;
 
         u32 vidx_cur = vidx_first;
-        for (int j = 1; j < poly->NumVertices; j++)
+        for (u32 j = 1; j < poly->NumVertices; j++)
         {
             IndexBuffer[eidx++] = vidx_cur;
             IndexBuffer[eidx++] = vidx_cur + 1;
@@ -1259,7 +1259,7 @@ void GLRenderer::RenderFrame()
 
         int npolys = 0;
         int firsttrans = -1;
-        for (int i = 0; i < RenderNumPolygons; i++)
+        for (u32 i = 0; i < RenderNumPolygons; i++)
         {
             if (RenderPolygonRAM[i]->Degenerate) continue;
 

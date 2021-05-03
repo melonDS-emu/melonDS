@@ -198,11 +198,11 @@ void CartGame::LoadSave(const char* path, u32 type)
     case 128*1024:
         SRAMType = S_FLASH1M;
         break;
-    default:
-        printf("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
     case 0:
         SRAMType = S_NULL;
         break;
+    default:
+        printf("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
     }
 
     if (SRAMType == S_FLASH512K)
@@ -309,6 +309,8 @@ u8 CartGame::SRAMRead(u32 addr)
 
     case S_SRAM256K:
         return SRAMRead_SRAM(addr);
+    default:
+        break;
     }
 
     return 0xFF;
@@ -330,6 +332,8 @@ void CartGame::SRAMWrite(u32 addr, u8 val)
 
     case S_SRAM256K:
         return SRAMWrite_SRAM(addr, val);
+    default:
+        break;
     }
 }
 
@@ -704,7 +708,7 @@ void LoadROMCommon(const char *sram)
     printf("GBA game code: %s\n", gamecode);
 
     bool solarsensor = false;
-    for (int i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
+    for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
     {
         if (strcmp(gamecode, SOLAR_SENSOR_GAMECODES[i]) == 0)
             solarsensor = true;
