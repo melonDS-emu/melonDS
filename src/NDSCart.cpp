@@ -1816,11 +1816,11 @@ void WriteROMCnt(u32 val)
     // commands that do writes will change this
     TransferDir = 0;
 
-    // TODO: how should we detect that the transfer should be a write?
-    // you're supposed to set bit30 of ROMCNT for a write, but it's also
-    // possible to do reads just fine when that bit is set
     if (Cart)
         TransferDir = Cart->ROMCommandStart(TransferCmd, TransferData, TransferLen);
+
+    if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
+        printf("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
 
     ROMCnt &= ~(1<<23);
 
@@ -1869,6 +1869,8 @@ void AdvanceROMTransfer()
 
 u32 ReadROMData()
 {
+    if (ROMCnt & (1<<30)) return 0;
+
     if (ROMCnt & (1<<23))
     {
         AdvanceROMTransfer();
@@ -1879,6 +1881,8 @@ u32 ReadROMData()
 
 void WriteROMData(u32 val)
 {
+    if (!(ROMCnt & (1<<30))) return;
+
     ROMData = val;
 
     if (ROMCnt & (1<<23))
