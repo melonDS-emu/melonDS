@@ -1242,33 +1242,35 @@ void SetWifiWaitCnt(u16 val)
 
 void SetGBASlotTimings()
 {
-    int curcpu = (ExMemCnt[0] >> 7) & 0x1;
-
     const int ntimings[4] = {10, 8, 6, 18};
+    const u16 openbus[4] = {0xFE08, 0x0000, 0x0000, 0xFFFF};
 
-    u16 curcnt = ExMemCnt[curcpu];
-    int ramN = ntimings[curcnt & 0x3];
-    int romN = ntimings[(curcnt>>2) & 0x3];
-    int romS = (curcnt & 0x10) ? 4 : 6;
+    u16 curcnt;
+    int ramN, romN, romS;
 
-    // TODO: PHI pin thing?
+    curcnt = ExMemCnt[0];
+    ramN = ntimings[curcnt & 0x3];
+    romN = ntimings[(curcnt>>2) & 0x3];
+    romS = (curcnt & 0x10) ? 4 : 6;
 
-    if (curcpu == 0)
-    {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
+    SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
+    SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
-    }
-    else
-    {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
+    curcnt = ExMemCnt[1];
+    ramN = ntimings[curcnt & 0x3];
+    romN = ntimings[(curcnt>>2) & 0x3];
+    romS = (curcnt & 0x10) ? 4 : 6;
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
-    }
+    SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
+    SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+
+    // this open-bus implementation is a rough way of simulating the way values
+    // lingering on the bus decay after a while, which is visible at higher waitstates
+    // for example, the Cartridge Construction Kit relies on this to determine that
+    // the GBA slot is empty
+
+    curcnt = ExMemCnt[(ExMemCnt[0]>>7) & 0x1];
+    GBACart::SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
 }
 
 
@@ -1863,8 +1865,8 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE*
-    shit = fopen("debug/party.bin", "wb");
+    FILE*
+    shit = fopen("debug/construct.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1876,9 +1878,9 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/power9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1892,7 +1894,7 @@ void debug(u32 param)
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 

@@ -161,6 +161,8 @@ void RelocateSave(const char* path, bool write);
 // TODO: make more flexible, support nonbinary inputs
 int SetInput(int num, bool pressed);
 
+void SetOpenBusDecay(u16 val);
+
 u16 ROMRead(u32 addr);
 void ROMWrite(u32 addr, u16 val);
 

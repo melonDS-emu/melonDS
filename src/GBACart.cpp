@@ -40,14 +40,14 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 
 
 bool CartInserted;
-//bool HasSolarSensor;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartCRC;
 u32 CartID;
-//GPIO CartGPIO; // overridden GPIO parameters
 
 CartCommon* Cart;
+
+u16 OpenBusDecay;
 
 
 CartCommon::CartCommon()
@@ -631,6 +631,9 @@ void Reset()
     // This allows resetting a DS game without losing GBA state,
     // and resetting to firmware without the slot being emptied.
     // The Stop function will clear the cartridge state via Eject().
+
+    // OpenBusDecay doesn't need to be reset, either, as it will be set
+    // through NDS::SetGBASlotTimings().
 }
 
 void Eject()
@@ -795,11 +798,17 @@ int SetInput(int num, bool pressed)
 }
 
 
+void SetOpenBusDecay(u16 val)
+{
+    OpenBusDecay = val;
+}
+
+
 u16 ROMRead(u32 addr)
 {
     if (Cart) return Cart->ROMRead(addr);
 
-    return (addr >> 1) & 0xFFFF;
+    return ((addr >> 1) & 0xFFFF) | OpenBusDecay;
 }
 
 void ROMWrite(u32 addr, u16 val)
