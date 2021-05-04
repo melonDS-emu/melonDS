@@ -461,6 +461,37 @@ int LoadROM(const char* file, int slot)
     }
 }
 
+u32* RomIcon(u8 data[512], u16 palette[16])
+{
+    // Get the 4-bit palette indexes
+    u8 indexes[1024];
+    for (int i = 0; i < 512; i++)
+    {
+        indexes[i * 2] = data[i] & 0x0F;
+        indexes[i * 2 + 1] = data[i] >> 4;
+    }
+
+    // Get each pixel's 5-bit palette color and convert it to 8-bit
+    u32 tiles[32 * 32];
+    for (int i = 0; i < 1024; i++)
+    {
+        u8 r = ((palette[indexes[i]] >> 0)  & 0x1F) * 255 / 31;
+        u8 g = ((palette[indexes[i]] >> 5)  & 0x1F) * 255 / 31;
+        u8 b = ((palette[indexes[i]] >> 10) & 0x1F) * 255 / 31;
+        tiles[i] = (255 << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    // Rearrange the pixels from 8x8 tiles to a 32x32 texture
+    u32* tex = new u32[32 * 32];
+    
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 8; j++)
+            for (int k = 0; k < 4; k++)
+                memcpy(&tex[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
+
+    return tex;
+}
+
 void UnloadROM(int slot)
 {
     if (slot == ROMSlot_NDS)

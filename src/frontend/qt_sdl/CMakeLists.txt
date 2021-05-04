@@ -10,6 +10,7 @@ SET(SOURCES_QT_SDL
     AudioSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
+    RomInfoDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp

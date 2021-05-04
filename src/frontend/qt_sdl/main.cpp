@@ -57,6 +57,7 @@
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
+#include "RomInfoDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -65,6 +66,7 @@
 #include "OSD.h"
 
 #include "NDS.h"
+#include "NDSCart.h"
 #include "GBACart.h"
 #include "GPU.h"
 #include "SPU.h"
@@ -1241,6 +1243,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actSetupCheats = menu->addAction("Setup cheat codes");
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+
+        menu->addSeparator();
+        actRomInfo = menu->addAction("ROM Info");
+        connect(actRomInfo, &QAction::triggered, this, &MainWindow::onRomInfo);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -2214,6 +2220,10 @@ void MainWindow::onCheatsDialogFinished(int res)
     emuThread->emuUnpause();
 }
 
+void MainWindow::onRomInfo()
+{
+    RomInfoDialog* dlg = RomInfoDialog::openDlg(this);
+}
 
 void MainWindow::onOpenEmuSettings()
 {

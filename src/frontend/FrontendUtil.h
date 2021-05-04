@@ -84,6 +84,8 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 // simulating ejection of the cartridge
 void UnloadROM(int slot);
 
+u32* RomIcon(u8 data[512], u16 palette[16]);
+
 // reset execution of the current ROM
 int Reset();
 
