@@ -1929,7 +1929,7 @@ void MainWindow::updateRecentFilesMenu()
 
             item_display.truncate(cut_start+1);
             item_display += "...";
-            item_display += item_full.remove(0, cut_end);
+            item_display += QString(item_full).remove(0, cut_end);
         }
 
         QAction *actRecentFile_i = recentMenu->addAction(QString("%1.  %2").arg(i+1).arg(item_display));
@@ -1939,6 +1939,8 @@ void MainWindow::updateRecentFilesMenu()
         if(i < 10)
             strncpy(Config::RecentROMList[i], recentFileList.at(i).toStdString().c_str(), 1024);
     }
+
+    recentMenu->addSeparator();
 
     QAction *actClearRecentList = recentMenu->addAction("Clear");
     connect(actClearRecentList, &QAction::triggered, this, &MainWindow::onClearRecentFiles);
