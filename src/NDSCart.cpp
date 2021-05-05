@@ -58,8 +58,8 @@ u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
 
-struct NDSHeader Header;
-struct NDSBanner Banner;
+NDSHeader Header;
+NDSBanner Banner;
 
 CartCommon* Cart;
 

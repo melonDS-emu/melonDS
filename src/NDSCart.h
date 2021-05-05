@@ -192,8 +192,8 @@ extern u32 CartROMSize;
 
 extern u32 CartID;
 
-extern struct NDSHeader Header;
-extern struct NDSBanner Banner;
+extern NDSHeader Header;
+extern NDSBanner Banner;
 
 bool Init();
 void DeInit();

@@ -41,8 +41,8 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
     setAttribute(Qt::WA_DeleteOnClose);
 
     u16 palette[16];
-    memcpy(&palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
-    u32* iconData = Frontend::RomIcon(NDSCart::Banner.Icon, palette);
+    memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
+    u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
 
     QImage iconImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32);
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));

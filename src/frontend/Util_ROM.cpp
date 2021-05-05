@@ -461,7 +461,7 @@ int LoadROM(const char* file, int slot)
     }
 }
 
-u32* RomIcon(u8 data[512], u16 palette[16])
+u32* ROMIcon(u8* data, u16* palette)
 {
     // Get the 4-bit palette indexes
     u8 indexes[1024];
