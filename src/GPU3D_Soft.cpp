@@ -820,7 +820,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] |= 0x1;
+            StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
