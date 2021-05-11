@@ -515,9 +515,9 @@ std::vector<std::shared_ptr<u32[]>> AnimatedROMIcon(u8 data[8][512], u16 palette
             {
                 for (int y = 0; y < 32/2; y++) 
                 {
-                    int temp = frame[x * 32 + y];
-                    frame[x * 32 + y] = frame[x * 32 + (32 - 1 - y)];
-                    frame[x * 32 + (32 - 1 - y)] = temp;
+                    int temp = frame.get()[x * 32 + y];
+                    frame.get()[x * 32 + y] = frame.get()[x * 32 + (32 - 1 - y)];
+                    frame.get()[x * 32 + (32 - 1 - y)] = temp;
                 }
             }
         }
@@ -527,9 +527,9 @@ std::vector<std::shared_ptr<u32[]>> AnimatedROMIcon(u8 data[8][512], u16 palette
             {
                 for (int y = 0; y < 32; y++) 
                 {
-                    int temp = frame[x * 32 + y];
-                    frame[x * 32 + y] = frame[(32 - 1 - x) * 32 + y];
-                    frame[(32 - 1 - x) * 32 + y] = temp;
+                    int temp = frame.get()[x * 32 + y];
+                    frame.get()[x * 32 + y] = frame.get()[(32 - 1 - x) * 32 + y];
+                    frame.get()[(32 - 1 - x) * 32 + y] = temp;
                 }
             }
         }
