@@ -1245,31 +1245,36 @@ void SetGBASlotTimings()
     const int ntimings[4] = {10, 8, 6, 18};
     const u16 openbus[4] = {0xFE08, 0x0000, 0x0000, 0xFFFF};
 
-    u16 curcnt;
-    int ramN, romN, romS;
+    u16 curcpu = (ExMemCnt[0] >> 7) & 0x1;
+    u16 curcnt = ExMemCnt[curcpu];
+    int ramN = ntimings[curcnt & 0x3];
+    int romN = ntimings[(curcnt>>2) & 0x3];
+    int romS = (curcnt & 0x10) ? 4 : 6;
 
-    curcnt = ExMemCnt[0];
-    ramN = ntimings[curcnt & 0x3];
-    romN = ntimings[(curcnt>>2) & 0x3];
-    romS = (curcnt & 0x10) ? 4 : 6;
+    // GBA slot timings only apply on the selected side
 
-    SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
-    SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
+    if (curcpu == 0)
+    {
+        SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
+        SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
 
-    curcnt = ExMemCnt[1];
-    ramN = ntimings[curcnt & 0x3];
-    romN = ntimings[(curcnt>>2) & 0x3];
-    romS = (curcnt & 0x10) ? 4 : 6;
+        SetARM7RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
+        SetARM7RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
+    }
+    else
+    {
+        SetARM9RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
+        SetARM9RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
 
-    SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
-    SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+        SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
+        SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+    }
 
     // this open-bus implementation is a rough way of simulating the way values
     // lingering on the bus decay after a while, which is visible at higher waitstates
     // for example, the Cartridge Construction Kit relies on this to determine that
     // the GBA slot is empty
 
-    curcnt = ExMemCnt[(ExMemCnt[0]>>7) & 0x1];
     GBACart::SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
 }
 
