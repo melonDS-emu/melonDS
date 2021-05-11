@@ -19,7 +19,6 @@
 #include "RomInfoDialog.h"
 #include "ui_RomInfoDialog.h"
 
-#include "FrontendUtil.h"
 #include "NDS.h"
 #include "NDSCart.h"
 

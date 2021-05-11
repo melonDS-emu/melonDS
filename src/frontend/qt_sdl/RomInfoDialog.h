@@ -24,6 +24,7 @@
 #include <QPixmap>
 
 #include "types.h"
+#include "FrontendUtil.h"
 
 namespace Ui { class RomInfoDialog; }
 class RomInfoDialog;
