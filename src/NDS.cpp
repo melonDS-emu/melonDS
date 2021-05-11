@@ -1687,6 +1687,8 @@ void TimerStart(u32 id, u16 cnt)
     u16 curstart = timer->Cnt & (1<<7);
     u16 newstart = cnt & (1<<7);
 
+    RunTimers(id>>2);
+
     timer->Cnt = cnt;
     timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
 
@@ -2180,7 +2182,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    //if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2247,7 +2249,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
