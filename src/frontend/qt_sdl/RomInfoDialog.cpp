@@ -42,10 +42,33 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
 
     u16 palette[16];
     memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
-    u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
-
+    u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette).get();
     QImage iconImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32);
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
+
+    if (NDSCart::Banner.Version == 0x103)
+    {
+        u16 animatedPalette[8][16];
+        u16 sequence[64];
+        memcpy(animatedPalette, NDSCart::Banner.DSiPalette, sizeof(NDSCart::Banner.DSiPalette));
+        memcpy(sequence, NDSCart::Banner.DSiSequence, sizeof(NDSCart::Banner.DSiSequence));
+        animatedIconData = Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, animatedPalette, sequence);
+        
+        for (std::shared_ptr<u32[]> frame: animatedIconData)
+        {
+            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(frame.get()), 32, 32, QImage::Format_ARGB32)));
+        }
+        iconTimeline = new QTimeLine(animatedIconImages.size() / 60 * 1000, this);
+        iconTimeline->setFrameRange(0, animatedIconImages.size() - 1);
+        iconTimeline->setLoopCount(0);
+        iconTimeline->setEasingCurve(QEasingCurve::Linear);
+        connect(iconTimeline, &QTimeLine::frameChanged, this, &RomInfoDialog::iconSetFrame);
+        iconTimeline->start();
+    }
+    else
+    {
+        ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
+    }
     
     u16 titles[8][128];
     memcpy(&titles, NDSCart::Banner.Titles, sizeof(NDSCart::Banner.Titles));
@@ -93,6 +116,7 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
 
 RomInfoDialog::~RomInfoDialog()
 {
+    delete iconTimeline;
     delete ui;
 }
 
@@ -101,4 +125,9 @@ void RomInfoDialog::done(int r)
     QDialog::done(r);
 
     closeDlg();
+}
+
+void RomInfoDialog::iconSetFrame(int frame)
+{
+    ui->dsiIconImage->setPixmap(animatedIconImages[frame]);
 }

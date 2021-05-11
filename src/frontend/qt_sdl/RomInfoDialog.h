@@ -20,6 +20,10 @@
 #define ROMINFODIALOG_H
 
 #include <QDialog>
+#include <QTimeLine>
+#include <QPixmap>
+
+#include "types.h"
 
 namespace Ui { class RomInfoDialog; }
 class RomInfoDialog;
@@ -52,9 +56,15 @@ public:
 
 private slots:
     void done(int r);
+    
+    void iconSetFrame(int frame);
 
 private:
     Ui::RomInfoDialog* ui;
+
+    QTimeLine* iconTimeline;
+    std::vector<std::shared_ptr<u32[]>> animatedIconData;
+    std::vector<QPixmap> animatedIconImages;
 };
 
 #endif // ROMINFODIALOG_H

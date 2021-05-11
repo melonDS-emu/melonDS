@@ -461,7 +461,7 @@ int LoadROM(const char* file, int slot)
     }
 }
 
-u32* ROMIcon(u8* data, u16* palette)
+std::shared_ptr<u32[]> ROMIcon(u8* data, u16* palette)
 {
     // Get the 4-bit palette indexes
     u8 indexes[1024];
@@ -478,11 +478,12 @@ u32* ROMIcon(u8* data, u16* palette)
         u8 r = ((palette[indexes[i]] >> 0)  & 0x1F) * 255 / 31;
         u8 g = ((palette[indexes[i]] >> 5)  & 0x1F) * 255 / 31;
         u8 b = ((palette[indexes[i]] >> 10) & 0x1F) * 255 / 31;
-        tiles[i] = (255 << 24) | (r << 16) | (g << 8) | b;
+        u8 a = indexes[i] ? 255: 0;
+        tiles[i] = (a << 24) | (r << 16) | (g << 8) | b;
     }
 
     // Rearrange the pixels from 8x8 tiles to a 32x32 texture
-    u32* tex = new u32[32 * 32];
+    std::shared_ptr<u32[]> tex(new u32[32 * 32]);
     
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 8; j++)
@@ -490,6 +491,52 @@ u32* ROMIcon(u8* data, u16* palette)
                 memcpy(&tex[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
 
     return tex;
+}
+
+#define SEQ_FLIPV(i) ((i & 0b1000000000000000) >> 15)
+#define SEQ_FLIPH(i) ((i & 0b0100000000000000) >> 14)
+#define SEQ_PAL(i) ((i & 0b0011100000000000) >> 11)
+#define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
+#define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
+
+std::vector<std::shared_ptr<u32[]>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64])
+{
+    std::vector<std::shared_ptr<u32[]>> animatedTex;
+    std::shared_ptr<u32[]> frame;
+    for (int i = 0; i < 64; i++)
+    {
+        if (!sequence[i])
+            break;
+        frame = ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])]);
+
+        if (SEQ_FLIPH(sequence[i]))
+        {
+            for (int x = 0; x < 32; x++)
+            {
+                for (int y = 0; y < 32/2; y++) 
+                {
+                    int temp = frame[x * 32 + y];
+                    frame[x * 32 + y] = frame[x * 32 + (32 - 1 - y)];
+                    frame[x * 32 + (32 - 1 - y)] = temp;
+                }
+            }
+        }
+        if (SEQ_FLIPV(sequence[i]))
+        {
+            for (int x = 0; x < 32/2; x++)
+            {
+                for (int y = 0; y < 32; y++) 
+                {
+                    int temp = frame[x * 32 + y];
+                    frame[x * 32 + y] = frame[(32 - 1 - x) * 32 + y];
+                    frame[(32 - 1 - x) * 32 + y] = temp;
+                }
+            }
+        }
+        for (int j = 0; j < SEQ_DUR(sequence[i]); j++)
+            animatedTex.push_back(frame);
+    }
+    return animatedTex;
 }
 
 void UnloadROM(int slot)

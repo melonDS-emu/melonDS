@@ -21,6 +21,7 @@
 
 #include "types.h"
 
+// Consult GBATEK for info on what these are
 struct __attribute__((__packed__)) NDSHeader
 {
     char GameTitle[12];
@@ -91,11 +92,17 @@ static_assert(sizeof(NDSHeader) == 512, "NDSHeader is not 512 bytes!");
 struct __attribute__ ((__packed__)) NDSBanner
 {
     u16 Version;
-    u16 CRC16;
-    u8 Reserved[28];
+    u16 CRC16[4];
+    u8 Reserved1[22];
     u8 Icon[512];
     u16 Palette[16];
     u16 Titles[8][128];
+
+    u8 Reserved2[2048];
+
+    u8 DSiIcon[8][512];
+    u16 DSiPalette[8][16];
+    u16 DSiSequence[64];
 };
 
 #endif //NDS_HEADER_H
