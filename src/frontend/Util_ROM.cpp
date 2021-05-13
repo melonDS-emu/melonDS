@@ -488,7 +488,7 @@ std::shared_ptr<u32> ROMIcon(u8* data, u16* palette)
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 8; j++)
             for (int k = 0; k < 4; k++)
-                memcpy(&tex[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
+                memcpy(&tex.get()[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
 
     return tex;
 }
