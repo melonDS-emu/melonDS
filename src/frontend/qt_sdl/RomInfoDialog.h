@@ -64,7 +64,7 @@ private:
     Ui::RomInfoDialog* ui;
 
     QTimeLine* iconTimeline;
-    std::vector<std::shared_ptr<u32[]>> animatedIconData;
+    std::vector<std::shared_ptr<u32>> animatedIconData;
     std::vector<QPixmap> animatedIconImages;
 };
 

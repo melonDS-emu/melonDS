@@ -87,8 +87,8 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 // simulating ejection of the cartridge
 void UnloadROM(int slot);
 
-std::shared_ptr<u32[]> ROMIcon(u8* data, u16* palette);
-std::vector<std::shared_ptr<u32[]>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64]);
+std::shared_ptr<u32> ROMIcon(u8* data, u16* palette);
+std::vector<std::shared_ptr<u32>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64]);
 
 // reset execution of the current ROM
 int Reset();

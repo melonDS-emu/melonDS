@@ -461,7 +461,7 @@ int LoadROM(const char* file, int slot)
     }
 }
 
-std::shared_ptr<u32[]> ROMIcon(u8* data, u16* palette)
+std::shared_ptr<u32> ROMIcon(u8* data, u16* palette)
 {
     // Get the 4-bit palette indexes
     u8 indexes[1024];
@@ -483,7 +483,7 @@ std::shared_ptr<u32[]> ROMIcon(u8* data, u16* palette)
     }
 
     // Rearrange the pixels from 8x8 tiles to a 32x32 texture
-    std::shared_ptr<u32[]> tex(new u32[32 * 32]);
+    std::shared_ptr<u32> tex(new u32[32 * 32], std::default_delete<u32[]>()); // Apple's Clang used on macOS 10.14 doesn't seem to support shared_ptr array
     
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 8; j++)
@@ -499,10 +499,10 @@ std::shared_ptr<u32[]> ROMIcon(u8* data, u16* palette)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-std::vector<std::shared_ptr<u32[]>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64])
+std::vector<std::shared_ptr<u32>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64])
 {
-    std::vector<std::shared_ptr<u32[]>> animatedTex;
-    std::shared_ptr<u32[]> frame;
+    std::vector<std::shared_ptr<u32>> animatedTex;
+    std::shared_ptr<u32> frame;
     for (int i = 0; i < 64; i++)
     {
         if (!sequence[i])
