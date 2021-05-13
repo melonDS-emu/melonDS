@@ -96,7 +96,7 @@ struct __attribute__ ((__packed__)) NDSBanner
     u8 Reserved1[22];
     u8 Icon[512];
     u16 Palette[16];
-    u16 Titles[8][128];
+    char16_t Titles[8][128];
 
     u8 Reserved2[2048];
 

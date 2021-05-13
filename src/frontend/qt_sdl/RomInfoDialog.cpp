@@ -69,7 +69,7 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
     
-    u16 titles[8][128];
+    char16_t titles[8][128];
     memcpy(&titles, NDSCart::Banner.Titles, sizeof(NDSCart::Banner.Titles));
 
     ui->iconTitle->setText(QString::fromUtf16(titles[1]));
