@@ -446,7 +446,7 @@ bool LoadNAND()
         fread(&ConsoleID, 1, 8, SDMMCFile);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %016lX\n", ConsoleID);
+        printf("Console ID: %" PRIu64 "\n", ConsoleID);
     }
 
     memset(ITCMInit, 0, 0x8000);
