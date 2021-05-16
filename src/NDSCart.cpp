@@ -887,8 +887,9 @@ void CartRetailNAND::LoadSave(const char* path, u32 type)
 
 int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
 {
-    CartRetail::ImportSRAM(data, length);
+    int ret = CartRetail::ImportSRAM(data, length);
     BuildSRAMID();
+    return ret;
 }
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
