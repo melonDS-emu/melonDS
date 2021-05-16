@@ -54,6 +54,22 @@ PlayingCardsDialog::~PlayingCardsDialog()
     delete ui;
 }
 
+void PlayingCardsDialog::reset()
+{
+    Deck.Cards.clear();
+    Hand.Cards.clear();
+    Deck.Flipped = false;
+    Hand.Flipped = false;
+    while (Stacks.length() > 0)
+    {
+        this->deleteStack(&Stacks[0]);
+        Stacks.removeAt(0);
+    }
+
+    this->updateUI();
+    Deck.ControlsGroupBox->setEnabled(false); // updateUI() leaves the Shuffle button enabled
+}
+
 bool PlayingCardsDialog::processCardDirectory(QDir directory)
 {
     Deck = CardPile { .Cards = QList<QString>(), .Flipped = false, .TextLabel = ui->mainDeckCardsLabel,
@@ -132,9 +148,10 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
     return res;
 }
 
-void PlayingCardsDialog::paintCard(CardPile *stack)
+bool PlayingCardsDialog::paintCard(CardPile *stack)
 {
-    if (stack->ImageLabel == nullptr) return;
+    if (stack->ImageLabel == nullptr)
+        return true;
 
     QPixmap pixmap = QPixmap();
 
@@ -149,10 +166,10 @@ void PlayingCardsDialog::paintCard(CardPile *stack)
         {
             QMessageBox::critical((QWidget*)this->parent(),
                 "Failed to read an image",
-                "The card image at " + filePath + "could not be read.\n"
-                "It may be missing, access-restricted, or stored in an"
+                "The card image at " + filePath + " could not be read.\n"
+                "It may be missing, access-restricted, or stored in an "
                 "unsupported format.");
-            return;
+            return false;
         }
         else
         {
@@ -162,6 +179,7 @@ void PlayingCardsDialog::paintCard(CardPile *stack)
 
     stack->ImageLabel->setPixmap(pixmap.scaled(stack->ImageLabel->width(), stack->ImageLabel->height(),
         Qt::KeepAspectRatio));
+    return true;
 }
 
 void PlayingCardsDialog::updateUI()
@@ -170,18 +188,21 @@ void PlayingCardsDialog::updateUI()
     ui->mainDeckDrawPushButton->setEnabled(enableDeckControls);
     ui->mainDeckFlipPushButton->setEnabled(enableDeckControls);
     Deck.TextLabel->setText(QString::number(Deck.Cards.length()) + (Deck.Cards.length() > 1 ? " Cards" : " Card"));
-    this->paintCard(&Deck);
+    if (!this->paintCard(&Deck))
+        this->reset();
 
     Hand.ControlsGroupBox->setEnabled(!Hand.Cards.isEmpty());
     ui->drawnDeckAddStackPushButton->setEnabled(Stacks.length() < MAX_STACKS);
     Hand.TextLabel->setText(QString::number(Hand.Cards.length()) + (Hand.Cards.length() > 1 ? " Cards" : " Card"));
-    this->paintCard(&Hand);
+    if (!this->paintCard(&Hand))
+        this->reset();
 
     foreach (CardPile stack, Stacks)
     {
         if (stack.ControlsGroupBox != nullptr) stack.ControlsGroupBox->setEnabled(!stack.Cards.isEmpty());
         if (stack.TextLabel != nullptr) stack.TextLabel->setText(QString::number(stack.Cards.length()) + (stack.Cards.length() > 1 ? " Cards" : " Card"));
-        this->paintCard(&stack);
+        if (!this->paintCard(&stack))
+            this->reset();
     }
 }
 
