@@ -17,12 +17,12 @@
 */
 
 #include <stdio.h>
-#include <algorithm>
 #include <ctime>
 #include <QFileDialog>
 #include <QImageReader>
 #include <QMessageBox>
 #include <QPixmap>
+#include <random>
 
 #include "types.h"
 #include "Platform.h"
@@ -74,8 +74,10 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         while (!fileInfoList.isEmpty())
         {
             QFileInfo fileInfo = fileInfoList.takeFirst();
-            if (QImageReader(fileInfo.absoluteFilePath()).canRead()) Deck.Cards.append(fileInfo.fileName());
-            if (Deck.Cards.length() == 54) break;
+            if (QImageReader(fileInfo.absoluteFilePath()).canRead())
+                Deck.Cards.append(fileInfo.fileName());
+            if (Deck.Cards.length() == 54)
+                break;
         }
 
         if (Deck.Cards.length() < 54)
@@ -126,7 +128,7 @@ bool PlayingCardsDialog::processCardDirectory(QDir directory)
         }
     }
 
-    printf("PlayingCardsDialog: processed %d cards\n", Deck.Cards.length());
+    printf("PlayingCardsDialog: processed %lld cards\n", Deck.Cards.length());
     return res;
 }
 
@@ -319,12 +321,12 @@ void PlayingCardsDialog::on_flip()
 
 void PlayingCardsDialog::on_shuffle()
 {
-    srand(time(0)); // Generate a new "random" seed
+    auto&& rand = std::mt19937(std::random_device()());
 
     QObject* obj = sender()->parent();
     if (obj == Hand.ControlsGroupBox) // shuffle the hand only
     {
-        std::random_shuffle(Hand.Cards.begin(), Hand.Cards.end());
+        std::shuffle(Hand.Cards.begin(), Hand.Cards.end(), rand);
         Hand.Flipped = false;
     }
     else if (obj == Deck.ControlsGroupBox) // reset the entire deck state
@@ -341,7 +343,7 @@ void PlayingCardsDialog::on_shuffle()
             Stacks.removeAt(0);
         }
 
-        std::random_shuffle(Deck.Cards.begin(), Deck.Cards.end());
+        std::shuffle(Deck.Cards.begin(), Deck.Cards.end(), rand);
     }
     else // shuffle one stack only
     {
@@ -349,7 +351,7 @@ void PlayingCardsDialog::on_shuffle()
         {
             if (obj == Stacks[i].ControlsGroupBox)
             {
-                std::random_shuffle(Stacks[i].Cards.begin(), Stacks[i].Cards.end());
+                std::shuffle(Stacks[i].Cards.begin(), Stacks[i].Cards.end(), rand);
                 Stacks[i].Flipped = false;
                 break;
             }
