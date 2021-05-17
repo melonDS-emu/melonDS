@@ -206,10 +206,9 @@ void PlayingCardsDialog::updateUI()
     }
 }
 
-void PlayingCardsDialog::createStack(CardPile *stack)
-{
-    int row = Stacks.length() / 5 * 3;
-    int col = Stacks.length() % 5;
+void PlayingCardsDialog::createStack(CardPile *stack, int index) {
+    int row = index / 5 * 3;
+    int col = index % 5;
 
     QLabel *textLabel = new QLabel();
     textLabel->setAlignment(Qt::AlignHCenter);
@@ -294,7 +293,7 @@ void PlayingCardsDialog::on_draw()
     {
         CardPile newStack = CardPile { .Cards = QList<QString>(), .Flipped = Hand.Flipped };
         newStack.Cards.append(Hand.Cards.takeFirst());
-        this->createStack(&newStack);
+        this->createStack(&newStack, Stacks.length());
         Stacks.append(newStack);
         Hand.Flipped = false;
     }
@@ -393,6 +392,8 @@ void PlayingCardsDialog::on_return()
     }
     else // return a card from a stack to the hand
     {
+        bool returned = false;
+
         for (int i = 0; i < Stacks.length(); i++)
         {
             if (obj == Stacks[i].ControlsGroupBox)
@@ -406,7 +407,14 @@ void PlayingCardsDialog::on_return()
                     Stacks.removeAt(i);
                 }
 
-                break;
+                returned = true;
+            }
+
+            if (returned)
+            {
+                // Move the stack location to fill the hole left by the deleted stack.
+                this->deleteStack(&Stacks[i]);
+                this->createStack(&Stacks[i], i);
             }
         }
     }

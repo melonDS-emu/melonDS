@@ -86,7 +86,7 @@ private slots:
     bool processCardDirectory(QDir directory); // Parses a card image directory and loads the deck
     bool paintCard(CardPile *stack); // Redraws a card for a single stack, returning true on success and false on error
     void updateUI(); // Refreshes all UI elements
-    void createStack(CardPile *stack); // Generates new card stack UI elements
+    void createStack(CardPile *stack, int index); // Generates new card stack UI elements at the specified grid index
     void deleteStack(CardPile *stack); // Deletes card stack UI elements
 
     void on_browse();
