@@ -16,236 +16,297 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>686</width>
+    <height>708</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>Playing cards - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <property name="sizeConstraint">
-    <enum>QLayout::SetFixedSize</enum>
+   <property name="leftMargin">
+    <number>0</number>
    </property>
-   <item row="3" column="0">
-    <layout class="QGridLayout" name="deckLayout">
-     <item row="1" column="1">
-      <widget class="QLabel" name="drawnDeckImageLabel">
-       <property name="minimumSize">
-        <size>
-         <width>330</width>
-         <height>512</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>330</width>
-         <height>512</height>
-        </size>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::StyledPanel</enum>
-       </property>
-       <property name="text">
-        <string>Drawn Deck</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="mainDeckImageLabel">
-       <property name="minimumSize">
-        <size>
-         <width>330</width>
-         <height>512</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>330</width>
-         <height>512</height>
-        </size>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::StyledPanel</enum>
-       </property>
-       <property name="text">
-        <string>Main Deck</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QGroupBox" name="drawnDeckControlsGroupBox">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="title">
-        <string>Drawn Deck Controls</string>
-       </property>
-       <layout class="QGridLayout" name="gridLayout_3">
-        <item row="3" column="0">
-         <widget class="QPushButton" name="drawnDeckShufflePushButton">
-          <property name="whatsThis">
-           <string>Shuffles drawn cards only.</string>
-          </property>
-          <property name="text">
-           <string>Shuffle</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="drawnDeckAddStackPushButton">
-          <property name="whatsThis">
-           <string>Moves the topmost card to a new stack.</string>
-          </property>
-          <property name="text">
-           <string>Add to Stack</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1">
-         <widget class="QPushButton" name="drawnDeckRotatePushButton">
-          <property name="whatsThis">
-           <string>Rotates the topmost drawn card to the bottom of the hand.</string>
-          </property>
-          <property name="text">
-           <string>Rotate</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0" colspan="2">
-         <widget class="QPushButton" name="drawnDeckFlipPushButton">
-          <property name="whatsThis">
-           <string>Flips a card, revealing or concealing it.</string>
-          </property>
-          <property name="text">
-           <string>Flip</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="drawnDeckReturnPushButton">
-          <property name="whatsThis">
-           <string>Returns the topmost drawn card to the top of the deck.</string>
-          </property>
-          <property name="text">
-           <string>Return to Deck</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QGroupBox" name="mainDeckControlsGroupBox">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="title">
-        <string>Main Deck Controls</string>
-       </property>
-       <layout class="QGridLayout" name="gridLayout_4">
-        <item row="0" column="0">
-         <widget class="QPushButton" name="mainDeckDrawPushButton">
-          <property name="whatsThis">
-           <string>Draws a card, moving it to the hand pile.</string>
-          </property>
-          <property name="text">
-           <string>Draw</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="mainDeckFlipPushButton">
-          <property name="whatsThis">
-           <string>Flips a card, revealing or concealing it.</string>
-          </property>
-          <property name="text">
-           <string>Flip</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0">
-         <widget class="QPushButton" name="mainDeckShufflePushButton">
-          <property name="whatsThis">
-           <string>Shuffles the deck, returning any drawn cards to it.</string>
-          </property>
-          <property name="text">
-           <string>Shuffle</string>
-          </property>
-          <property name="autoDefault">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="mainDeckCardsLabel">
-       <property name="text">
-        <string>0 Cards</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QLabel" name="drawnDeckCardsLabel">
-       <property name="text">
-        <string>0 Cards</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>0</number>
+   </property>
    <item row="0" column="0">
-    <widget class="QPushButton" name="setCardDirPushButton">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="minimumSize">
+      <size>
+       <width>686</width>
+       <height>708</height>
+      </size>
      </property>
-     <property name="whatsThis">
-      <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
      </property>
-     <property name="text">
-      <string>Set playing cards directory...</string>
+     <property name="verticalScrollBarPolicy">
+      <enum>Qt::ScrollBarAsNeeded</enum>
      </property>
-     <property name="autoDefault">
-      <bool>false</bool>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAsNeeded</enum>
      </property>
+     <property name="sizeAdjustPolicy">
+      <enum>QAbstractScrollArea::AdjustToContentsOnFirstShow</enum>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>686</width>
+        <height>708</height>
+       </rect>
+      </property>
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <property name="sizeConstraint">
+        <enum>QLayout::SetFixedSize</enum>
+       </property>
+       <item row="0" column="0">
+        <widget class="QPushButton" name="setCardDirPushButton">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="whatsThis">
+          <string>Opens a file selection dialog to set the playing cards base directory. It must contain two folders, &quot;front&quot; and &quot;back&quot;, each containing 54 card images (52 standard cards and 2 jokers) with matching file names.</string>
+         </property>
+         <property name="text">
+          <string>Set playing cards directory...</string>
+         </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <layout class="QGridLayout" name="deckLayout">
+         <item row="1" column="1">
+          <widget class="QLabel" name="drawnDeckImageLabel">
+           <property name="minimumSize">
+            <size>
+             <width>330</width>
+             <height>512</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>330</width>
+             <height>512</height>
+            </size>
+           </property>
+           <property name="frameShape">
+            <enum>QFrame::StyledPanel</enum>
+           </property>
+           <property name="text">
+            <string>Drawn Deck</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="mainDeckImageLabel">
+           <property name="minimumSize">
+            <size>
+             <width>330</width>
+             <height>512</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>330</width>
+             <height>512</height>
+            </size>
+           </property>
+           <property name="frameShape">
+            <enum>QFrame::StyledPanel</enum>
+           </property>
+           <property name="text">
+            <string>Main Deck</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QGroupBox" name="drawnDeckControlsGroupBox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="title">
+            <string>Drawn Deck Controls</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="3" column="0">
+             <widget class="QPushButton" name="drawnDeckShufflePushButton">
+              <property name="whatsThis">
+               <string>Shuffles drawn cards only.</string>
+              </property>
+              <property name="text">
+               <string>Shuffle</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QPushButton" name="drawnDeckAddStackPushButton">
+              <property name="whatsThis">
+               <string>Moves the topmost card to a new stack.</string>
+              </property>
+              <property name="text">
+               <string>Add to Stack</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QPushButton" name="drawnDeckRotatePushButton">
+              <property name="whatsThis">
+               <string>Rotates the topmost drawn card to the bottom of the hand.</string>
+              </property>
+              <property name="text">
+               <string>Rotate</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0" colspan="2">
+             <widget class="QPushButton" name="drawnDeckFlipPushButton">
+              <property name="whatsThis">
+               <string>Flips a card, revealing or concealing it.</string>
+              </property>
+              <property name="text">
+               <string>Flip</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="drawnDeckReturnPushButton">
+              <property name="whatsThis">
+               <string>Returns the topmost drawn card to the top of the deck.</string>
+              </property>
+              <property name="text">
+               <string>Return to Deck</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QGroupBox" name="mainDeckControlsGroupBox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="title">
+            <string>Main Deck Controls</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_4">
+            <item row="0" column="0">
+             <widget class="QPushButton" name="mainDeckDrawPushButton">
+              <property name="whatsThis">
+               <string>Draws a card, moving it to the hand pile.</string>
+              </property>
+              <property name="text">
+               <string>Draw</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="mainDeckFlipPushButton">
+              <property name="whatsThis">
+               <string>Flips a card, revealing or concealing it.</string>
+              </property>
+              <property name="text">
+               <string>Flip</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QPushButton" name="mainDeckShufflePushButton">
+              <property name="whatsThis">
+               <string>Shuffles the deck, returning any drawn cards to it.</string>
+              </property>
+              <property name="text">
+               <string>Shuffle</string>
+              </property>
+              <property name="autoDefault">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="mainDeckCardsLabel">
+           <property name="text">
+            <string>0 Cards</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLabel" name="drawnDeckCardsLabel">
+           <property name="text">
+            <string>0 Cards</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="2" column="0">
+        <layout class="QGridLayout" name="stacksLayout"/>
+       </item>
+      </layout>
+     </widget>
     </widget>
-   </item>
-   <item row="4" column="0">
-    <layout class="QGridLayout" name="stacksLayout"/>
    </item>
   </layout>
  </widget>
