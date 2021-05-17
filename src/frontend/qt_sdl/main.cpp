@@ -1609,6 +1609,13 @@ void MainWindow::dropEvent(QDropEvent* event)
     {
         slot = 0;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+
+        // Open the playing cards UI if a compatible cartridge was inserted
+        if (PlayingCardsDialog::supportsCart(NDSCart::CartGameCode))
+        {
+            printf("Playing cards dialog enabled!\n");
+            PlayingCardsDialog::openDlg(this);
+        }
     }
     else
     {
@@ -2676,6 +2683,13 @@ int main(int argc, char** argv)
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
             int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+
+            // Open the playing cards UI if a compatible cartridge was inserted
+            if (PlayingCardsDialog::supportsCart(NDSCart::CartGameCode))
+            {
+                printf("Playing cards dialog enabled!\n");
+                PlayingCardsDialog::openDlg(mainWindow);
+            }
 
             if (res == Frontend::Load_OK)
             {
