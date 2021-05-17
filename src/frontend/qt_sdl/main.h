@@ -190,6 +190,7 @@ public:
     ~MainWindow();
 
     bool hasOGL;
+    bool hasFastforwardToggled;
     QOpenGLContext* getOGLContext();
     
     void onAppStateChanged(Qt::ApplicationState state);
@@ -260,6 +261,7 @@ private slots:
     void onUpdateVideoSettings(bool glchange);
     
     void onFullscreenToggled();
+    void onFastforwardToggled();
 
 private:
     QList<QString> recentFileList;
