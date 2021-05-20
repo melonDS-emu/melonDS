@@ -2844,11 +2844,12 @@ u8 ARM9IORead8(u32 addr)
         return GPU3D::Read8(addr);
     }
     // NO$GBA debug register "Emulation ID"
-    if(addr >= 0x04FFFA00 && addr < 0x04FFFA10) {
+    if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
+    {
         // FIX: GBATek says this should be padded with spaces
-        static char const emuid[16] = "melonDS " MELONDS_VERSION;
+        static char const emuID[16] = "melonDS " MELONDS_VERSION;
         auto idx = addr - 0x04FFFA00;
-        return u8(emuid[idx]);
+        return (u8)(emuID[idx]);
     }
 
     printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
@@ -3111,8 +3112,8 @@ u32 ARM9IORead32(u32 addr)
 
     // NO$GBA debug register "Clock Cycles"
     // Since it's a 64 bit reg. the CPU will access it in two parts:
-    case 0x04FFFA20: return u32(GetSysClockCycles(0) & 0xFFFFFFFF);
-    case 0x04FFFA24: return u32(GetSysClockCycles(0) >> 32);
+    case 0x04FFFA20: return (u32)(GetSysClockCycles(0) & 0xFFFFFFFF);
+    case 0x04FFFA24: return (u32)(GetSysClockCycles(0) >> 32);
     }
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
@@ -3560,9 +3561,9 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04FFFA14:
     case 0x04FFFA18:
         {
-            bool append_lf = 0x04FFFA18 == addr;
+            bool appendLF = 0x04FFFA18 == addr;
             NocashPrint(0, val);
-            if(append_lf)
+            if(appendLF)
                 printf("\n");
             return;
         }
