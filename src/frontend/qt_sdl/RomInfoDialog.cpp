@@ -115,7 +115,6 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
 
 RomInfoDialog::~RomInfoDialog()
 {
-    delete iconTimeline;
     delete ui;
 }
 
