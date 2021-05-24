@@ -41,9 +41,10 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
 
     u16 palette[16];
     memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
-    std::shared_ptr<u32> iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
-    QImage iconImage(reinterpret_cast<unsigned char*>(iconData.get()), 32, 32, QImage::Format_ARGB32);
+    u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
+    QImage iconImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32);
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
+    delete[] iconData;
 
     if (NDSCart::Banner.Version == 0x103)
     {
@@ -51,14 +52,20 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
         u16 sequence[64];
         memcpy(animatedPalette, NDSCart::Banner.DSiPalette, sizeof(NDSCart::Banner.DSiPalette));
         memcpy(sequence, NDSCart::Banner.DSiSequence, sizeof(NDSCart::Banner.DSiSequence));
-        animatedIconData = Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, animatedPalette, sequence);
         
-        for (std::shared_ptr<u32> frame: animatedIconData)
+        u32* animatedIconData[64] = {0};
+        Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, animatedPalette, sequence, animatedIconData, animatedSequence);
+
+        for (u32* frame: animatedIconData)
         {
-            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(frame.get()), 32, 32, QImage::Format_ARGB32)));
+            if (frame == 0)
+                break;
+            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(frame), 32, 32, QImage::Format_ARGB32).copy()));
+            delete[] frame;
         }
-        iconTimeline = new QTimeLine(animatedIconImages.size() / 60 * 1000, this);
-        iconTimeline->setFrameRange(0, animatedIconImages.size() - 1);
+
+        iconTimeline = new QTimeLine(animatedSequence.size() / 60 * 1000, this);
+        iconTimeline->setFrameRange(0, animatedSequence.size() - 1);
         iconTimeline->setLoopCount(0);
         iconTimeline->setEasingCurve(QEasingCurve::Linear);
         connect(iconTimeline, &QTimeLine::frameChanged, this, &RomInfoDialog::iconSetFrame);
@@ -68,7 +75,7 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
     {
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
-    
+
     char16_t titles[8][128];
     memcpy(&titles, NDSCart::Banner.Titles, sizeof(NDSCart::Banner.Titles));
 
@@ -127,5 +134,5 @@ void RomInfoDialog::done(int r)
 
 void RomInfoDialog::iconSetFrame(int frame)
 {
-    ui->dsiIconImage->setPixmap(animatedIconImages[frame]);
+    ui->dsiIconImage->setPixmap(animatedIconImages[animatedSequence[frame]]);
 }

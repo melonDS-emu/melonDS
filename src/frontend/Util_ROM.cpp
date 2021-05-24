@@ -461,7 +461,7 @@ int LoadROM(const char* file, int slot)
     }
 }
 
-std::shared_ptr<u32> ROMIcon(u8* data, u16* palette)
+u32* ROMIcon(u8* data, u16* palette)
 {
     // Get the 4-bit palette indexes
     u8 indexes[1024];
@@ -483,12 +483,12 @@ std::shared_ptr<u32> ROMIcon(u8* data, u16* palette)
     }
 
     // Rearrange the pixels from 8x8 tiles to a 32x32 texture
-    std::shared_ptr<u32> tex(new u32[32 * 32], std::default_delete<u32[]>()); // Apple's Clang used on macOS 10.14 doesn't seem to support shared_ptr array
+    u32* tex = new u32[32 * 32];
     
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 8; j++)
             for (int k = 0; k < 4; k++)
-                memcpy(&tex.get()[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
+                memcpy(&tex[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
 
     return tex;
 }
@@ -499,10 +499,9 @@ std::shared_ptr<u32> ROMIcon(u8* data, u16* palette)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-std::vector<std::shared_ptr<u32>> AnimatedROMIcon(u8 data[8][512], u16 palette[8][16], u16 sequence[64])
+void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32* (&animatedTexRef)[64], std::vector<int> &animatedSequenceRef)
 {
-    std::vector<std::shared_ptr<u32>> animatedTex;
-    std::shared_ptr<u32> frame;
+    u32* frame;
     for (int i = 0; i < 64; i++)
     {
         if (!sequence[i])
@@ -515,9 +514,9 @@ std::vector<std::shared_ptr<u32>> AnimatedROMIcon(u8 data[8][512], u16 palette[8
             {
                 for (int y = 0; y < 32/2; y++) 
                 {
-                    int temp = frame.get()[x * 32 + y];
-                    frame.get()[x * 32 + y] = frame.get()[x * 32 + (32 - 1 - y)];
-                    frame.get()[x * 32 + (32 - 1 - y)] = temp;
+                    int temp = frame[x * 32 + y];
+                    frame[x * 32 + y] = frame[x * 32 + (32 - 1 - y)];
+                    frame[x * 32 + (32 - 1 - y)] = temp;
                 }
             }
         }
@@ -527,16 +526,17 @@ std::vector<std::shared_ptr<u32>> AnimatedROMIcon(u8 data[8][512], u16 palette[8
             {
                 for (int y = 0; y < 32; y++) 
                 {
-                    int temp = frame.get()[x * 32 + y];
-                    frame.get()[x * 32 + y] = frame.get()[(32 - 1 - x) * 32 + y];
-                    frame.get()[(32 - 1 - x) * 32 + y] = temp;
+                    int temp = frame[x * 32 + y];
+                    frame[x * 32 + y] = frame[(32 - 1 - x) * 32 + y];
+                    frame[(32 - 1 - x) * 32 + y] = temp;
                 }
             }
         }
+        
+        animatedTexRef[i] = frame;
         for (int j = 0; j < SEQ_DUR(sequence[i]); j++)
-            animatedTex.push_back(frame);
+            animatedSequenceRef.push_back(i);
     }
-    return animatedTex;
 }
 
 void UnloadROM(int slot)
