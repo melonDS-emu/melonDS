@@ -348,6 +348,9 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                 float primScale = std::min(screenWidth / primHSize, screenHeight / primVSize);
                 float secScale = 1.f;
 
+                if (integerScale)
+                    primScale = floorf(primScale);
+
                 if (layout == 0)
                 {
                     if (screenHeight - primVSize * primScale < secVSize)
@@ -365,8 +368,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
                 if (integerScale)
                 {
-                    primScale = floor(primScale);
-                    secScale = floor(secScale);
+                    primScale = floorf(primScale);
+                    secScale = floorf(secScale);
                 }
 
                 M23_Scale(primMtx, primScale);
