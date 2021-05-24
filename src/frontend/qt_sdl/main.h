@@ -110,6 +110,9 @@ protected:
     void screenOnMouseRelease(QMouseEvent* event);
     void screenOnMouseMove(QMouseEvent* event);
 
+    void screenHandleTablet(QTabletEvent* event);
+    void screenHandleTouch(QTouchEvent* event);
+
     float screenMatrix[Frontend::MaxScreenTransforms][6];
     int screenKind[Frontend::MaxScreenTransforms];
     int numScreens;
@@ -137,6 +140,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 
@@ -168,6 +173,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 
