@@ -1066,7 +1066,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1162,7 +1162,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1237,7 +1237,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
