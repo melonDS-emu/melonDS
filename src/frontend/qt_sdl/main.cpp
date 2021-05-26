@@ -82,6 +82,7 @@
 // TODO: uniform variable spelling
 
 bool RunningSomething;
+bool isCli;
 
 MainWindow* mainWindow;
 EmuThread* emuThread;
@@ -616,6 +617,7 @@ void EmuThread::emuRun()
 
     // checkme
     emit windowEmuStart();
+    if (isCli)       emit windowFullscreenToggle();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
     if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
 }
@@ -1770,6 +1772,9 @@ QString MainWindow::loadErrorStr(int error)
         return "DSi NAND was not found or could not be accessed. Check your emu settings.";
     case Frontend::Load_DSiNANDBad:
         return "DSi NAND is not a valid NAND dump.";
+            
+    case Frontend::Load_SavePathMissing:
+        return "Custom save path was not found or could not be accessed. Check your emu settings.";
 
     case Frontend::Load_ROMLoadError:
         return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
@@ -2736,6 +2741,7 @@ int main(int argc, char** argv)
     {
         char* file = argv[1];
         char* ext = &file[strlen(file)-3];
+        isCli = true;
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
@@ -2756,6 +2762,18 @@ int main(int argc, char** argv)
 
                 emuThread->emuRun();
             }
+        }
+        else if (!strcasecmp(ext, "zip") || !strcasecmp(ext, "7z"))
+        {
+            QByteArray romBuffer;
+            QString archiveFileName = file;
+            QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
+            QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), archiveROMList.at(1).toUtf8().constData(), &romBuffer);
+            QString romFileName = extractResult[0];
+            QString sramFileName = QFileInfo(archiveFileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
+            Frontend::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(), archiveFileName.toStdString().c_str(),
+                              romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(), Frontend::ROMSlot_NDS);
+            emuThread->emuRun();
         }
     }
 
