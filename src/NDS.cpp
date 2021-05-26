@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -655,7 +655,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                         break;
                     }
                 }
-                if (funcid == -1)
+                if (funcid == 0xFFFFFFFF)
                 {
                     printf("savestate: VERY BAD!!!!! FUNCTION POINTER FOR EVENT %d NOT IN HACKY LIST. CANNOT SAVE. SMACK ARISOTURA.\n", i);
                     return false;
@@ -676,7 +676,7 @@ bool DoSavestate_Scheduler(Savestate* file)
             u32 funcid;
             file->Var32(&funcid);
 
-            if (funcid != -1)
+            if (funcid != 0xFFFFFFFF)
             {
                 for (int j = 0; ; j++)
                 {
@@ -1242,33 +1242,35 @@ void SetWifiWaitCnt(u16 val)
 
 void SetGBASlotTimings()
 {
-    int curcpu = (ExMemCnt[0] >> 7) & 0x1;
-
     const int ntimings[4] = {10, 8, 6, 18};
+    const u16 openbus[4] = {0xFE08, 0x0000, 0x0000, 0xFFFF};
 
-    u16 curcnt = ExMemCnt[curcpu];
-    int ramN = ntimings[curcnt & 0x3];
-    int romN = ntimings[(curcnt>>2) & 0x3];
-    int romS = (curcnt & 0x10) ? 4 : 6;
+    u16 curcnt;
+    int ramN, romN, romS;
 
-    // TODO: PHI pin thing?
+    curcnt = ExMemCnt[0];
+    ramN = ntimings[curcnt & 0x3];
+    romN = ntimings[(curcnt>>2) & 0x3];
+    romS = (curcnt & 0x10) ? 4 : 6;
 
-    if (curcpu == 0)
-    {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
+    SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
+    SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
-    }
-    else
-    {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
+    curcnt = ExMemCnt[1];
+    ramN = ntimings[curcnt & 0x3];
+    romN = ntimings[(curcnt>>2) & 0x3];
+    romS = (curcnt & 0x10) ? 4 : 6;
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
-    }
+    SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
+    SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+
+    // this open-bus implementation is a rough way of simulating the way values
+    // lingering on the bus decay after a while, which is visible at higher waitstates
+    // for example, the Cartridge Construction Kit relies on this to determine that
+    // the GBA slot is empty
+
+    curcnt = ExMemCnt[(ExMemCnt[0]>>7) & 0x1];
+    GBACart::SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
 }
 
 
@@ -1470,11 +1472,11 @@ void NocashPrint(u32 ncpu, u32 addr)
                 else if (!strcmp(cmd, "pc")) sprintf(subs, "%08X", cpu->R[15]);
                 else if (!strcmp(cmd, "frame")) sprintf(subs, "%u", NumFrames);
                 else if (!strcmp(cmd, "scanline")) sprintf(subs, "%u", GPU::VCount);
-                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%lu", GetSysClockCycles(0));
-                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%lu", GetSysClockCycles(1));
+                else if (!strcmp(cmd, "totalclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(0));
+                else if (!strcmp(cmd, "lastclks")) sprintf(subs, "%" PRIu64, GetSysClockCycles(1));
                 else if (!strcmp(cmd, "zeroclks"))
                 {
-                    sprintf(subs, "");
+                    sprintf(subs, "%s", "");
                     GetSysClockCycles(1);
                 }
             }
@@ -1564,7 +1566,7 @@ void RunTimer(u32 tid, s32 cycles)
 
 void RunTimers(u32 cpu)
 {
-    register u32 timermask = TimerCheckMask[cpu];
+    u32 timermask = TimerCheckMask[cpu];
     s32 cycles;
 
     if (cpu == 0)
@@ -1758,6 +1760,7 @@ void DivDone(u32 param)
             else if (num == -0x8000000000000000 && den == -1)
             {
                 *(s64*)&DivQuotient[0] = 0x8000000000000000;
+                *(s64*)&DivRemainder[0] = 0;
             }
             else
             {
@@ -1779,6 +1782,7 @@ void DivDone(u32 param)
             else if (num == -0x8000000000000000 && den == -1)
             {
                 *(s64*)&DivQuotient[0] = 0x8000000000000000;
+                *(s64*)&DivRemainder[0] = 0;
             }
             else
             {
@@ -1861,8 +1865,8 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE*
-    shit = fopen("debug/party.bin", "wb");
+    FILE*
+    shit = fopen("debug/construct.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1874,9 +1878,9 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/power9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1890,7 +1894,7 @@ void debug(u32 param)
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 
@@ -1941,19 +1945,12 @@ u8 ARM9Read8(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFF; // TODO: proper open bus
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
+        return GBACart::ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr);
     }
 
     printf("unknown arm9 read8 %08X\n", addr);
@@ -2006,22 +2003,15 @@ u16 ARM9Read16(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    //printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2071,19 +2061,15 @@ u32 ARM9Read32(u32 addr)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr) |
+              (GBACart::ROMRead(addr+2) << 16);
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8) |
+              (GBACart::SRAMRead(addr+2) << 16) |
+              (GBACart::SRAMRead(addr+3) << 24);
     }
 
     printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
@@ -2118,28 +2104,15 @@ void ARM9Write8(u32 addr, u8 val)
     case 0x05000000:
     case 0x06000000:
     case 0x07000000:
-        // checkme
         return;
 
     case 0x08000000:
     case 0x09000000:
-        if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val);
         return;
     }
 
@@ -2197,28 +2170,17 @@ void ARM9Write16(u32 addr, u16 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val);
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, val >> 8);
         return;
     }
 
-    //printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2272,29 +2234,20 @@ void ARM9Write32(u32 addr, u32 val)
     case 0x08000000:
     case 0x09000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
-                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val & 0xFFFF);
+        GBACart::ROMWrite(addr+2, val >> 16);
+        return;
 
     case 0x0A000000:
         if (ExMemCnt[0] & (1<<7)) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACart::SRAMWrite(addr+3, val >> 24);
         return;
     }
 
-    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2364,26 +2317,30 @@ u8 ARM7Read8(u32 addr)
     case 0x04000000:
         return ARM7IORead8(addr);
 
+    case 0x04800000:
+        if (addr < 0x04810000)
+        {
+            if (addr & 0x1) return Wifi::Read(addr-1) >> 8;
+            return Wifi::Read(addr) & 0xFF;
+        }
+        break;
+
     case 0x06000000:
     case 0x06800000:
         return GPU::ReadVRAM_ARM7<u8>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u8*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFF; // TODO: proper open bus
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8;
+        return GBACart::ROMRead(addr) & 0xFF;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read8(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr);
     }
 
     printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
@@ -2436,21 +2393,17 @@ u16 ARM7Read16(u32 addr)
         return GPU::ReadVRAM_ARM7<u16>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u16*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr);
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x0000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read16(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8);
     }
 
     printf("unknown arm7 read16 %08X %08X\n", addr, ARM7->R[15]);
@@ -2503,21 +2456,20 @@ u32 ARM7Read32(u32 addr)
         return GPU::ReadVRAM_ARM7<u32>(addr);
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return *(u32*)&GBACart::CartROM[addr & (GBACart::CartROMSize-1)];
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::ROMRead(addr) |
+              (GBACart::ROMRead(addr+2) << 16);
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return 0x00000000; // deselected CPU is 00h-filled
-        if (GBACart::CartInserted)
-        {
-            return GBACart_SRAM::Read32(addr & (GBACart_SRAM::SRAMLength-1));
-        }
-        return 0xFFFFFFFF; // TODO: proper open bus
+        return GBACart::SRAMRead(addr) |
+              (GBACart::SRAMRead(addr+1) << 8) |
+              (GBACart::SRAMRead(addr+2) << 16) |
+              (GBACart::SRAMRead(addr+3) << 24);
     }
 
     printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
@@ -2574,24 +2526,15 @@ void ARM7Write8(u32 addr, u8 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
-        if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            if ((addr & 0x00FFFFFF) >= 0xC4 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+    case 0x09800000:
+        return;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write8(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val);
         return;
     }
 
@@ -2657,30 +2600,22 @@ void ARM7Write16(u32 addr, u16 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC3 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val);
+        return;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write16(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, val >> 8);
         return;
     }
 
-    //printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2742,31 +2677,25 @@ void ARM7Write32(u32 addr, u32 val)
         return;
 
     case 0x08000000:
+    case 0x08800000:
     case 0x09000000:
+    case 0x09800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            // Note: the lower bound is adjusted such that a write starting
-            // there will hit the first byte of the GPIO region.
-            if ((addr & 0x00FFFFFF) >= 0xC1 && (addr & 0x00FFFFFF) <= 0xC9)
-            {
-                GBACart::WriteGPIO(addr & (GBACart::CartROMSize-1), val & 0xFF);
-                GBACart::WriteGPIO((addr + 2) & (GBACart::CartROMSize-1), (val >> 16) & 0xFF);
-                return;
-            }
-        }
-        break;
+        GBACart::ROMWrite(addr, val & 0xFFFF);
+        GBACart::ROMWrite(addr+2, val >> 16);
+        return;
 
     case 0x0A000000:
+    case 0x0A800000:
         if (!(ExMemCnt[0] & (1<<7))) return; // deselected CPU, skip the write
-        if (GBACart::CartInserted)
-        {
-            GBACart_SRAM::Write32(addr & (GBACart_SRAM::SRAMLength-1), val);
-        }
+        GBACart::SRAMWrite(addr, val & 0xFF);
+        GBACart::SRAMWrite(addr+1, (val >> 8) & 0xFF);
+        GBACart::SRAMWrite(addr+2, (val >> 16) & 0xFF);
+        GBACart::SRAMWrite(addr+3, val >> 24);
         return;
     }
 
-    //printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2836,16 +2765,43 @@ u8 ARM9IORead8(u32 addr)
     case 0x04000132: return KeyCnt & 0xFF;
     case 0x04000133: return KeyCnt >> 8;
 
-    case 0x040001A2: return NDSCart::ReadSPIData();
+    case 0x040001A2:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ReadSPIData();
+        return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0];
-    case 0x040001A9: return NDSCart::ROMCommand[1];
-    case 0x040001AA: return NDSCart::ROMCommand[2];
-    case 0x040001AB: return NDSCart::ROMCommand[3];
-    case 0x040001AC: return NDSCart::ROMCommand[4];
-    case 0x040001AD: return NDSCart::ROMCommand[5];
-    case 0x040001AE: return NDSCart::ROMCommand[6];
-    case 0x040001AF: return NDSCart::ROMCommand[7];
+    case 0x040001A8:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[0];
+        return 0;
+    case 0x040001A9:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[1];
+        return 0;
+    case 0x040001AA:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[2];
+        return 0;
+    case 0x040001AB:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[3];
+        return 0;
+    case 0x040001AC:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[4];
+        return 0;
+    case 0x040001AD:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[5];
+        return 0;
+    case 0x040001AE:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[6];
+        return 0;
+    case 0x040001AF:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[7];
+        return 0;
 
     case 0x04000208: return IME[0];
 
@@ -2880,11 +2836,11 @@ u8 ARM9IORead8(u32 addr)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        return GPU::GPU2D_A->Read8(addr);
+        return GPU::GPU2D_A.Read8(addr);
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        return GPU::GPU2D_B->Read8(addr);
+        return GPU::GPU2D_B.Read8(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -2904,7 +2860,7 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000060: return GPU3D::Read16(addr);
     case 0x04000064:
-    case 0x04000066: return GPU::GPU2D_A->Read16(addr);
+    case 0x04000066: return GPU::GPU2D_A.Read16(addr);
 
     case 0x040000B8: return DMAs[0]->Cnt & 0xFFFF;
     case 0x040000BA: return DMAs[0]->Cnt >> 16;
@@ -2947,17 +2903,35 @@ u16 ARM9IORead16(u32 addr)
             return val;
         }
 
-    case 0x040001A0: return NDSCart::SPICnt;
-    case 0x040001A2: return NDSCart::ReadSPIData();
+    case 0x040001A0:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::SPICnt;
+        return 0;
+    case 0x040001A2:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ReadSPIData();
+        return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0] |
-                           (NDSCart::ROMCommand[1] << 8);
-    case 0x040001AA: return NDSCart::ROMCommand[2] |
-                           (NDSCart::ROMCommand[3] << 8);
-    case 0x040001AC: return NDSCart::ROMCommand[4] |
-                           (NDSCart::ROMCommand[5] << 8);
-    case 0x040001AE: return NDSCart::ROMCommand[6] |
-                           (NDSCart::ROMCommand[7] << 8);
+    case 0x040001A8:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[0] |
+                  (NDSCart::ROMCommand[1] << 8);
+        return 0;
+    case 0x040001AA:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[2] |
+                  (NDSCart::ROMCommand[3] << 8);
+        return 0;
+    case 0x040001AC:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[4] |
+                  (NDSCart::ROMCommand[5] << 8);
+        return 0;
+    case 0x040001AE:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[6] |
+                  (NDSCart::ROMCommand[7] << 8);
+        return 0;
 
     case 0x04000204: return ExMemCnt[0];
     case 0x04000208: return IME[0];
@@ -3002,11 +2976,11 @@ u16 ARM9IORead16(u32 addr)
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
-        return GPU::GPU2D_A->Read16(addr);
+        return GPU::GPU2D_A.Read16(addr);
     }
     if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
-        return GPU::GPU2D_B->Read16(addr);
+        return GPU::GPU2D_B.Read16(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -3024,7 +2998,7 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000004: return GPU::DispStat[0] | (GPU::VCount << 16);
 
     case 0x04000060: return GPU3D::Read32(addr);
-    case 0x04000064: return GPU::GPU2D_A->Read32(addr);
+    case 0x04000064: return GPU::GPU2D_A.Read32(addr);
 
     case 0x040000B0: return DMAs[0]->SrcAddr;
     case 0x040000B4: return DMAs[0]->DstAddr;
@@ -3056,17 +3030,29 @@ u32 ARM9IORead32(u32 addr)
     case 0x04000180: return IPCSync9;
     case 0x04000184: return ARM9IORead16(addr);
 
-    case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
-    case 0x040001A4: return NDSCart::ROMCnt;
+    case 0x040001A0:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
+        return 0;
+    case 0x040001A4:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCnt;
+        return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0] |
-                           (NDSCart::ROMCommand[1] << 8) |
-                           (NDSCart::ROMCommand[2] << 16) |
-                           (NDSCart::ROMCommand[3] << 24);
-    case 0x040001AC: return NDSCart::ROMCommand[4] |
-                           (NDSCart::ROMCommand[5] << 8) |
-                           (NDSCart::ROMCommand[6] << 16) |
-                           (NDSCart::ROMCommand[7] << 24);
+    case 0x040001A8:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[0] |
+                  (NDSCart::ROMCommand[1] << 8) |
+                  (NDSCart::ROMCommand[2] << 16) |
+                  (NDSCart::ROMCommand[3] << 24);
+        return 0;
+    case 0x040001AC:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[4] |
+                  (NDSCart::ROMCommand[5] << 8) |
+                  (NDSCart::ROMCommand[6] << 16) |
+                  (NDSCart::ROMCommand[7] << 24);
+        return 0;
 
     case 0x04000208: return IME[0];
     case 0x04000210: return IE[0];
@@ -3122,11 +3108,11 @@ u32 ARM9IORead32(u32 addr)
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
     {
-        return GPU::GPU2D_A->Read32(addr);
+        return GPU::GPU2D_A.Read32(addr);
     }
     if ((addr >= 0x04001000 && addr < 0x04001060) || (addr == 0x0400106C))
     {
-        return GPU::GPU2D_B->Read32(addr);
+        return GPU::GPU2D_B.Read32(addr);
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
     {
@@ -3142,9 +3128,9 @@ void ARM9IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x0400006C:
-    case 0x0400006D: GPU::GPU2D_A->Write8(addr, val); return;
+    case 0x0400006D: GPU::GPU2D_A.Write8(addr, val); return;
     case 0x0400106C:
-    case 0x0400106D: GPU::GPU2D_B->Write8(addr, val); return;
+    case 0x0400106D: GPU::GPU2D_B.Write8(addr, val); return;
 
     case 0x04000132:
         KeyCnt = (KeyCnt & 0xFF00) | val;
@@ -3153,34 +3139,31 @@ void ARM9IOWrite8(u32 addr, u8 val)
         KeyCnt = (KeyCnt & 0x00FF) | (val << 8);
         return;
 
-    case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
-        }
-        return;
-    case 0x040001A1:
-        if (!(ExMemCnt[0] & (1<<11)))
-        {
-            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
-        }
-        return;
-    case 0x040001A2:
-        NDSCart::WriteSPIData(val);
-        return;
-
     case 0x04000188:
         ARM9IOWrite32(addr, val | (val << 8) | (val << 16) | (val << 24));
         return;
 
-    case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
-    case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
-    case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
-    case 0x040001AB: NDSCart::ROMCommand[3] = val; return;
-    case 0x040001AC: NDSCart::ROMCommand[4] = val; return;
-    case 0x040001AD: NDSCart::ROMCommand[5] = val; return;
-    case 0x040001AE: NDSCart::ROMCommand[6] = val; return;
-    case 0x040001AF: NDSCart::ROMCommand[7] = val; return;
+    case 0x040001A0:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0xFF00) | val);
+        return;
+    case 0x040001A1:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
+        return;
+    case 0x040001A2:
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteSPIData(val);
+        return;
+
+    case 0x040001A8: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[0] = val; return;
+    case 0x040001A9: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[1] = val; return;
+    case 0x040001AA: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[2] = val; return;
+    case 0x040001AB: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[3] = val; return;
+    case 0x040001AC: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[4] = val; return;
+    case 0x040001AD: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[5] = val; return;
+    case 0x040001AE: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[6] = val; return;
+    case 0x040001AF: if (!(ExMemCnt[0] & (1<<11))) NDSCart::ROMCommand[7] = val; return;
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
 
@@ -3203,12 +3186,12 @@ void ARM9IOWrite8(u32 addr, u8 val)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write8(addr, val);
+        GPU::GPU2D_A.Write8(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write8(addr, val);
+        GPU::GPU2D_B.Write8(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
@@ -3230,10 +3213,10 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04000060: GPU3D::Write16(addr, val); return;
 
     case 0x04000068:
-    case 0x0400006A: GPU::GPU2D_A->Write16(addr, val); return;
+    case 0x0400006A: GPU::GPU2D_A.Write16(addr, val); return;
 
-    case 0x0400006C: GPU::GPU2D_A->Write16(addr, val); return;
-    case 0x0400106C: GPU::GPU2D_B->Write16(addr, val); return;
+    case 0x0400006C: GPU::GPU2D_A.Write16(addr, val); return;
+    case 0x0400106C: GPU::GPU2D_B.Write16(addr, val); return;
 
     case 0x040000B8: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0xFFFF0000) | val); return;
     case 0x040000BA: DMAs[0]->WriteCnt((DMAs[0]->Cnt & 0x0000FFFF) | (val << 16)); return;
@@ -3294,27 +3277,41 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x040001A0:
-        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteSPICnt(val);
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteSPICnt(val);
         return;
     case 0x040001A2:
-        NDSCart::WriteSPIData(val & 0xFF);
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001A8:
-        NDSCart::ROMCommand[0] = val & 0xFF;
-        NDSCart::ROMCommand[1] = val >> 8;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[0] = val & 0xFF;
+            NDSCart::ROMCommand[1] = val >> 8;
+        }
         return;
     case 0x040001AA:
-        NDSCart::ROMCommand[2] = val & 0xFF;
-        NDSCart::ROMCommand[3] = val >> 8;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[2] = val & 0xFF;
+            NDSCart::ROMCommand[3] = val >> 8;
+        }
         return;
     case 0x040001AC:
-        NDSCart::ROMCommand[4] = val & 0xFF;
-        NDSCart::ROMCommand[5] = val >> 8;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[4] = val & 0xFF;
+            NDSCart::ROMCommand[5] = val >> 8;
+        }
         return;
     case 0x040001AE:
-        NDSCart::ROMCommand[6] = val & 0xFF;
-        NDSCart::ROMCommand[7] = val >> 8;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[6] = val & 0xFF;
+            NDSCart::ROMCommand[7] = val >> 8;
+        }
         return;
 
     case 0x040001B8: ROMSeed0[4] = val & 0x7F; return;
@@ -3369,12 +3366,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write16(addr, val);
+        GPU::GPU2D_A.Write16(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write16(addr, val);
+        GPU::GPU2D_B.Write16(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
@@ -3397,10 +3394,10 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04000060: GPU3D::Write32(addr, val); return;
     case 0x04000064:
-    case 0x04000068: GPU::GPU2D_A->Write32(addr, val); return;
+    case 0x04000068: GPU::GPU2D_A.Write32(addr, val); return;
 
-    case 0x0400006C: GPU::GPU2D_A->Write16(addr, val&0xFFFF); return;
-    case 0x0400106C: GPU::GPU2D_B->Write16(addr, val&0xFFFF); return;
+    case 0x0400006C: GPU::GPU2D_A.Write16(addr, val&0xFFFF); return;
+    case 0x0400106C: GPU::GPU2D_B.Write16(addr, val&0xFFFF); return;
 
     case 0x040000B0: DMAs[0]->SrcAddr = val; return;
     case 0x040000B4: DMAs[0]->DstAddr = val; return;
@@ -3468,20 +3465,27 @@ void ARM9IOWrite32(u32 addr, u32 val)
         }
         return;
     case 0x040001A4:
-        if (!(ExMemCnt[0] & (1<<11))) NDSCart::WriteROMCnt(val);
+        if (!(ExMemCnt[0] & (1<<11)))
+            NDSCart::WriteROMCnt(val);
         return;
 
     case 0x040001A8:
-        NDSCart::ROMCommand[0] = val & 0xFF;
-        NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
-        NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
-        NDSCart::ROMCommand[3] = val >> 24;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[0] = val & 0xFF;
+            NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
+            NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
+            NDSCart::ROMCommand[3] = val >> 24;
+        }
         return;
     case 0x040001AC:
-        NDSCart::ROMCommand[4] = val & 0xFF;
-        NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
-        NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
-        NDSCart::ROMCommand[7] = val >> 24;
+        if (!(ExMemCnt[0] & (1<<11)))
+        {
+            NDSCart::ROMCommand[4] = val & 0xFF;
+            NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
+            NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
+            NDSCart::ROMCommand[7] = val >> 24;
+        }
         return;
 
     case 0x040001B0: *(u32*)&ROMSeed0[0] = val; return;
@@ -3526,18 +3530,18 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04100010:
-        NDSCart::WriteROMData(val);
+        if (!(ExMemCnt[0] & (1<<11)))  NDSCart::WriteROMData(val);
         return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
     {
-        GPU::GPU2D_A->Write32(addr, val);
+        GPU::GPU2D_A.Write32(addr, val);
         return;
     }
     if (addr >= 0x04001000 && addr < 0x04001060)
     {
-        GPU::GPU2D_B->Write32(addr, val);
+        GPU::GPU2D_B.Write32(addr, val);
         return;
     }
     if (addr >= 0x04000320 && addr < 0x040006A4)
@@ -3565,16 +3569,43 @@ u8 ARM7IORead8(u32 addr)
 
     case 0x04000138: return RTC::Read() & 0xFF;
 
-    case 0x040001A2: return NDSCart::ReadSPIData();
+    case 0x040001A2:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ReadSPIData();
+        return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0];
-    case 0x040001A9: return NDSCart::ROMCommand[1];
-    case 0x040001AA: return NDSCart::ROMCommand[2];
-    case 0x040001AB: return NDSCart::ROMCommand[3];
-    case 0x040001AC: return NDSCart::ROMCommand[4];
-    case 0x040001AD: return NDSCart::ROMCommand[5];
-    case 0x040001AE: return NDSCart::ROMCommand[6];
-    case 0x040001AF: return NDSCart::ROMCommand[7];
+    case 0x040001A8:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[0];
+        return 0;
+    case 0x040001A9:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[1];
+        return 0;
+    case 0x040001AA:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[2];
+        return 0;
+    case 0x040001AB:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[3];
+        return 0;
+    case 0x040001AC:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[4];
+        return 0;
+    case 0x040001AD:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[5];
+        return 0;
+    case 0x040001AE:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[6];
+        return 0;
+    case 0x040001AF:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[7];
+        return 0;
 
     case 0x040001C2: return SPI::ReadData();
 
@@ -3638,17 +3669,29 @@ u16 ARM7IORead16(u32 addr)
             return val;
         }
 
-    case 0x040001A0: return NDSCart::SPICnt;
-    case 0x040001A2: return NDSCart::ReadSPIData();
+    case 0x040001A0: if (ExMemCnt[0] & (1<<11)) return NDSCart::SPICnt;        return 0;
+    case 0x040001A2: if (ExMemCnt[0] & (1<<11)) return NDSCart::ReadSPIData(); return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0] |
-                           (NDSCart::ROMCommand[1] << 8);
-    case 0x040001AA: return NDSCart::ROMCommand[2] |
-                           (NDSCart::ROMCommand[3] << 8);
-    case 0x040001AC: return NDSCart::ROMCommand[4] |
-                           (NDSCart::ROMCommand[5] << 8);
-    case 0x040001AE: return NDSCart::ROMCommand[6] |
-                           (NDSCart::ROMCommand[7] << 8);
+    case 0x040001A8:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[0] |
+                  (NDSCart::ROMCommand[1] << 8);
+        return 0;
+    case 0x040001AA:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[2] |
+                  (NDSCart::ROMCommand[3] << 8);
+        return 0;
+    case 0x040001AC:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[4] |
+                  (NDSCart::ROMCommand[5] << 8);
+        return 0;
+    case 0x040001AE:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[6] |
+                  (NDSCart::ROMCommand[7] << 8);
+        return 0;
 
     case 0x040001C0: return SPI::Cnt;
     case 0x040001C2: return SPI::ReadData();
@@ -3705,17 +3748,29 @@ u32 ARM7IORead32(u32 addr)
     case 0x04000180: return IPCSync7;
     case 0x04000184: return ARM7IORead16(addr);
 
-    case 0x040001A0: return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
-    case 0x040001A4: return NDSCart::ROMCnt;
+    case 0x040001A0:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::SPICnt | (NDSCart::ReadSPIData() << 16);
+        return 0;
+    case 0x040001A4:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCnt;
+        return 0;
 
-    case 0x040001A8: return NDSCart::ROMCommand[0] |
-                           (NDSCart::ROMCommand[1] << 8) |
-                           (NDSCart::ROMCommand[2] << 16) |
-                           (NDSCart::ROMCommand[3] << 24);
-    case 0x040001AC: return NDSCart::ROMCommand[4] |
-                           (NDSCart::ROMCommand[5] << 8) |
-                           (NDSCart::ROMCommand[6] << 16) |
-                           (NDSCart::ROMCommand[7] << 24);
+    case 0x040001A8:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[0] |
+                  (NDSCart::ROMCommand[1] << 8) |
+                  (NDSCart::ROMCommand[2] << 16) |
+                  (NDSCart::ROMCommand[3] << 24);
+        return 0;
+    case 0x040001AC:
+        if (ExMemCnt[0] & (1<<11))
+            return NDSCart::ROMCommand[4] |
+                  (NDSCart::ROMCommand[5] << 8) |
+                  (NDSCart::ROMCommand[6] << 16) |
+                  (NDSCart::ROMCommand[7] << 24);
+        return 0;
 
     case 0x040001C0:
         return SPI::Cnt | (SPI::ReadData() << 16);
@@ -3792,22 +3847,21 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     case 0x040001A1:
         if (ExMemCnt[0] & (1<<11))
-        {
             NDSCart::WriteSPICnt((NDSCart::SPICnt & 0x00FF) | (val << 8));
-        }
         return;
     case 0x040001A2:
-        NDSCart::WriteSPIData(val);
+        if (ExMemCnt[0] & (1<<11))
+            NDSCart::WriteSPIData(val);
         return;
 
-    case 0x040001A8: NDSCart::ROMCommand[0] = val; return;
-    case 0x040001A9: NDSCart::ROMCommand[1] = val; return;
-    case 0x040001AA: NDSCart::ROMCommand[2] = val; return;
-    case 0x040001AB: NDSCart::ROMCommand[3] = val; return;
-    case 0x040001AC: NDSCart::ROMCommand[4] = val; return;
-    case 0x040001AD: NDSCart::ROMCommand[5] = val; return;
-    case 0x040001AE: NDSCart::ROMCommand[6] = val; return;
-    case 0x040001AF: NDSCart::ROMCommand[7] = val; return;
+    case 0x040001A8: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[0] = val; return;
+    case 0x040001A9: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[1] = val; return;
+    case 0x040001AA: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[2] = val; return;
+    case 0x040001AB: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[3] = val; return;
+    case 0x040001AC: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[4] = val; return;
+    case 0x040001AD: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[5] = val; return;
+    case 0x040001AE: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[6] = val; return;
+    case 0x040001AF: if (ExMemCnt[0] & (1<<11)) NDSCart::ROMCommand[7] = val; return;
 
     case 0x040001C2:
         SPI::WriteData(val);
@@ -3901,24 +3955,37 @@ void ARM7IOWrite16(u32 addr, u16 val)
             NDSCart::WriteSPICnt(val);
         return;
     case 0x040001A2:
-        NDSCart::WriteSPIData(val & 0xFF);
+        if (ExMemCnt[0] & (1<<11))
+            NDSCart::WriteSPIData(val & 0xFF);
         return;
 
     case 0x040001A8:
-        NDSCart::ROMCommand[0] = val & 0xFF;
-        NDSCart::ROMCommand[1] = val >> 8;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[0] = val & 0xFF;
+            NDSCart::ROMCommand[1] = val >> 8;
+        }
         return;
     case 0x040001AA:
-        NDSCart::ROMCommand[2] = val & 0xFF;
-        NDSCart::ROMCommand[3] = val >> 8;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[2] = val & 0xFF;
+            NDSCart::ROMCommand[3] = val >> 8;
+        }
         return;
     case 0x040001AC:
-        NDSCart::ROMCommand[4] = val & 0xFF;
-        NDSCart::ROMCommand[5] = val >> 8;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[4] = val & 0xFF;
+            NDSCart::ROMCommand[5] = val >> 8;
+        }
         return;
     case 0x040001AE:
-        NDSCart::ROMCommand[6] = val & 0xFF;
-        NDSCart::ROMCommand[7] = val >> 8;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[6] = val & 0xFF;
+            NDSCart::ROMCommand[7] = val >> 8;
+        }
         return;
 
     case 0x040001B8: ROMSeed0[12] = val & 0x7F; return;
@@ -4038,20 +4105,27 @@ void ARM7IOWrite32(u32 addr, u32 val)
         }
         return;
     case 0x040001A4:
-        if (ExMemCnt[0] & (1<<11)) NDSCart::WriteROMCnt(val);
+        if (ExMemCnt[0] & (1<<11))
+            NDSCart::WriteROMCnt(val);
         return;
 
     case 0x040001A8:
-        NDSCart::ROMCommand[0] = val & 0xFF;
-        NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
-        NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
-        NDSCart::ROMCommand[3] = val >> 24;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[0] = val & 0xFF;
+            NDSCart::ROMCommand[1] = (val >> 8) & 0xFF;
+            NDSCart::ROMCommand[2] = (val >> 16) & 0xFF;
+            NDSCart::ROMCommand[3] = val >> 24;
+        }
         return;
     case 0x040001AC:
-        NDSCart::ROMCommand[4] = val & 0xFF;
-        NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
-        NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
-        NDSCart::ROMCommand[7] = val >> 24;
+        if (ExMemCnt[0] & (1<<11))
+        {
+            NDSCart::ROMCommand[4] = val & 0xFF;
+            NDSCart::ROMCommand[5] = (val >> 8) & 0xFF;
+            NDSCart::ROMCommand[6] = (val >> 16) & 0xFF;
+            NDSCart::ROMCommand[7] = val >> 24;
+        }
         return;
 
     case 0x040001B0: *(u32*)&ROMSeed0[8] = val; return;
@@ -4071,6 +4145,10 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04000308:
         if (ARM7BIOSProt == 0)
             ARM7BIOSProt = val & 0xFFFE;
+        return;
+
+    case 0x04100010:
+        if (ExMemCnt[0] & (1<<11))  NDSCart::WriteROMData(val);
         return;
     }
 

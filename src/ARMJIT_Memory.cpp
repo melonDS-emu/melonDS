@@ -1,6 +1,23 @@
+/*
+    Copyright 2016-2021 Arisotura, RSDuck
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #if defined(__SWITCH__)
 #include <switch.h>
-#include "frontend/switch/FaultHandler.h"
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -63,6 +80,33 @@ struct FaultDescription
 bool FaultHandler(FaultDescription& faultDesc);
 }
 
+// Yes I know this looks messy, but better here than somewhere else in the code
+#if defined(_WIN32)
+    #define CONTEXT_PC Rip
+#else
+    #if defined(__x86_64__)
+        #if defined(__linux__)
+            #define CONTEXT_PC uc_mcontext.gregs[REG_RIP]
+        #elif defined(__APPLE__)
+            #define CONTEXT_PC uc_mcontext->__ss.__rip
+        #elif defined(__FreeBSD__)
+            #define CONTEXT_PC uc_mcontext.mc_rip
+        #elif defined(__NetBSD__)
+            #define CONTEXT_PC uc_mcontext.__gregs[_REG_RIP]
+        #endif
+    #elif defined(__aarch64__)
+        #if defined(__linux__)
+            #define CONTEXT_PC uc_mcontext.pc
+        #elif defined(__APPLE__)
+            #define CONTEXT_PC uc_mcontext->__ss.__pc
+        #elif defined(__FreeBSD__)
+            #define CONTEXT_PC uc_mcontext.mc_gpregs.gp_elr
+        #elif defined(__NetBSD__)
+            #define CONTEXT_PC uc_mcontext.__gregs[_REG_PC]
+        #endif
+    #endif
+#endif
+
 #if defined(__ANDROID__)
 #define ASHMEM_DEVICE "/dev/ashmem"
 #endif
@@ -70,6 +114,8 @@ bool FaultHandler(FaultDescription& faultDesc);
 #if defined(__SWITCH__)
 // with LTO the symbols seem to be not properly overriden
 // if they're somewhere else
+
+void HandleFault(u64 pc, u64 lr, u64 fp, u64 faultAddr, u32 desc);
 
 extern "C"
 {
@@ -120,11 +166,11 @@ static LONG ExceptionHandler(EXCEPTION_POINTERS* exceptionInfo)
     ARMJIT_Memory::FaultDescription desc;
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
     desc.EmulatedFaultAddr = (u8*)exceptionInfo->ExceptionRecord->ExceptionInformation[1] - curArea;
-    desc.FaultPC = (u8*)exceptionInfo->ContextRecord->Rip;
+    desc.FaultPC = (u8*)exceptionInfo->ContextRecord->CONTEXT_PC;
 
     if (ARMJIT_Memory::FaultHandler(desc))
     {
-        exceptionInfo->ContextRecord->Rip = (u64)desc.FaultPC;
+        exceptionInfo->ContextRecord->CONTEXT_PC = (u64)desc.FaultPC;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
 
@@ -153,43 +199,13 @@ static void SigsegvHandler(int sig, siginfo_t* info, void* rawContext)
 
     ARMJIT_Memory::FaultDescription desc;
     u8* curArea = (u8*)(NDS::CurCPU == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
-#ifdef __x86_64__
+
     desc.EmulatedFaultAddr = (u8*)info->si_addr - curArea;
-    #if defined(__APPLE__)
-        desc.FaultPC = (u8*)context->uc_mcontext->__ss.__rip;
-    #elif defined(__FreeBSD__)
-        desc.FaultPC = (u8*)context->uc_mcontext.mc_rip;
-    #else
-        desc.FaultPC = (u8*)context->uc_mcontext.gregs[REG_RIP];
-    #endif
-   
-#else
-    #ifdef __APPLE__
-        desc.EmulatedFaultAddr = (u8*)context->uc_mcontext->__es.__far - curArea;
-        desc.FaultPC = (u8*)context->uc_mcontext->__ss.__pc;
-    #else
-        desc.EmulatedFaultAddr = (u8*)context->uc_mcontext.fault_address - curArea;
-        desc.FaultPC = (u8*)context->uc_mcontext.pc;
-    #endif
-#endif
+    desc.FaultPC = (u8*)context->CONTEXT_PC;
 
     if (ARMJIT_Memory::FaultHandler(desc))
     {
-#ifdef __x86_64__
-        #if defined(__APPLE__)
-            context->uc_mcontext->__ss.__rip = (u64)desc.FaultPC;
-        #elif defined(__FreeBSD__)
-            context->uc_mcontext.mc_rip = (u64)desc.FaultPC;
-        #else
-            context->uc_mcontext.gregs[REG_RIP] = (u64)desc.FaultPC;
-        #endif
-#else
-        #ifdef __APPLE__
-            context->uc_mcontext->__ss.__pc = (u64)desc.FaultPC;
-        #else
-            context->uc_mcontext.pc = (u64)desc.FaultPC;
-        #endif
-#endif
+        context->CONTEXT_PC = (u64)desc.FaultPC;
         return;
     }
 
@@ -707,16 +723,17 @@ void Init()
 
     MemoryFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, MemoryTotalSize, NULL);
 
-    MemoryBase = (u8*)VirtualAlloc(NULL, MemoryTotalSize, MEM_RESERVE, PAGE_READWRITE);
-
-    FastMem9Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
-    FastMem7Start = VirtualAlloc(NULL, AddrSpaceSize, MEM_RESERVE, PAGE_READWRITE);
-
-    // only free them after they have all been reserved
-    // so they can't overlap
+    MemoryBase = (u8*)VirtualAlloc(NULL, AddrSpaceSize*4, MEM_RESERVE, PAGE_READWRITE);
     VirtualFree(MemoryBase, 0, MEM_RELEASE);
-    VirtualFree(FastMem9Start, 0, MEM_RELEASE);
-    VirtualFree(FastMem7Start, 0, MEM_RELEASE);
+    // this is incredible hacky
+    // but someone else is trying to go into our address space!
+    // Windows will very likely give them virtual memory starting at the same address
+    // as it is giving us now.
+    // That's why we don't use this address, but instead 4gb inwards
+    // I know this is terrible
+    FastMem9Start = MemoryBase + AddrSpaceSize;
+    FastMem7Start = MemoryBase + AddrSpaceSize*2;
+    MemoryBase = MemoryBase + AddrSpaceSize*3;
 
     MapViewOfFileEx(MemoryFile, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, MemoryTotalSize, MemoryBase);
 
@@ -822,7 +839,7 @@ void Reset()
         Mappings[region].Clear();
     }
 
-    for (int i = 0; i < sizeof(MappingStatus9); i++)
+    for (size_t i = 0; i < sizeof(MappingStatus9); i++)
     {
         assert(MappingStatus9[i] == memstate_Unmapped);
         assert(MappingStatus7[i] == memstate_Unmapped);

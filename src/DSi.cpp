@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -446,7 +446,7 @@ bool LoadNAND()
         fread(&ConsoleID, 1, 8, SDMMCFile);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %016lX\n", ConsoleID);
+        printf("Console ID: %" PRIu64 "\n", ConsoleID);
     }
 
     memset(ITCMInit, 0, 0x8000);
@@ -790,6 +790,11 @@ u8 ARM9Read8(u32 addr)
 
     case 0x04000000:
         return ARM9IORead8(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFF;
     }
 
     return NDS::ARM9Read8(addr);
@@ -827,6 +832,11 @@ u16 ARM9Read16(u32 addr)
 
     case 0x04000000:
         return ARM9IORead16(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFF;
     }
 
     return NDS::ARM9Read16(addr);
@@ -870,6 +880,11 @@ u32 ARM9Read32(u32 addr)
 
     case 0x04000000:
         return ARM9IORead32(addr);
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0 : 0xFFFFFFFF;
     }
 
     return NDS::ARM9Read32(addr);
@@ -935,6 +950,11 @@ void ARM9Write8(u32 addr, u8 val)
         case 0x00600000: GPU::WriteVRAM_BOBJ<u8>(addr, val); return;
         default: GPU::WriteVRAM_LCDC<u8>(addr, val); return;
         }
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
+        return;
     }
 
     return NDS::ARM9Write8(addr, val);
@@ -986,6 +1006,11 @@ void ARM9Write16(u32 addr, u16 val)
     case 0x04000000:
         ARM9IOWrite16(addr, val);
         return;
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
+        return;
     }
 
     return NDS::ARM9Write16(addr, val);
@@ -1036,6 +1061,11 @@ void ARM9Write32(u32 addr, u32 val)
 
     case 0x04000000:
         ARM9IOWrite32(addr, val);
+        return;
+
+    case 0x08000000:
+    case 0x09000000:
+    case 0x0A000000:
         return;
     }
 
@@ -1115,6 +1145,14 @@ u8 ARM7Read8(u32 addr)
 
     case 0x04000000:
         return ARM7IORead8(addr);
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0xFF : 0;
     }
 
     return NDS::ARM7Read8(addr);
@@ -1156,6 +1194,14 @@ u16 ARM7Read16(u32 addr)
 
     case 0x04000000:
         return ARM7IORead16(addr);
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0xFFFF : 0;
     }
 
     return NDS::ARM7Read16(addr);
@@ -1197,6 +1243,14 @@ u32 ARM7Read32(u32 addr)
 
     case 0x04000000:
         return ARM7IORead32(addr);
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
+        return (NDS::ExMemCnt[0] & (1<<7)) ? 0xFFFFFFFF : 0;
     }
 
     return NDS::ARM7Read32(addr);
@@ -1247,6 +1301,14 @@ void ARM7Write8(u32 addr, u8 val)
 
     case 0x04000000:
         ARM7IOWrite8(addr, val);
+        return;
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
         return;
     }
 
@@ -1299,6 +1361,14 @@ void ARM7Write16(u32 addr, u16 val)
     case 0x04000000:
         ARM7IOWrite16(addr, val);
         return;
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
+        return;
     }
 
     return NDS::ARM7Write16(addr, val);
@@ -1349,6 +1419,14 @@ void ARM7Write32(u32 addr, u32 val)
 
     case 0x04000000:
         ARM7IOWrite32(addr, val);
+        return;
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+    case 0x0A000000:
+    case 0x0A800000:
         return;
     }
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -23,11 +23,17 @@
 
 namespace NDSCart_SRAMManager
 {
+    extern u32 SecondaryBufferLength;
+
     bool Init();
     void DeInit();
 
     void Setup(const char* path, u8* buffer, u32 length);
     void RequestFlush();
+
+    bool NeedsFlush();
+    void FlushSecondaryBuffer(u8* dst = NULL, s32 dstLength = 0);
+    void UpdateBuffer(u8* src, s32 srcLength);
 }
 
 #endif // NDSCART_SRAMMANAGER_H

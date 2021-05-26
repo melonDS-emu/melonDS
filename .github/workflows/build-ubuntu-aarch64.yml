@@ -20,11 +20,9 @@ jobs:
     - name: Upgrade system
       shell: bash
       working-directory: ${{runner.workspace}}
-      run: | #Fix grub installation error - https://github.com/actions/virtual-environments/issues/1605
+      run: |
         sudo apt update
-        sudo apt-get install grub-efi  
-        sudo update-grub
-        sudo apt full-upgrade
+        sudo ACCEPT_EULA=Y apt full-upgrade
     - name: Install dependencies
       shell: bash
       working-directory: ${{runner.workspace}}

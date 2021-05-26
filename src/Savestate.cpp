@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -52,7 +52,7 @@ Savestate::Savestate(const char* filename, bool save)
     if (save)
     {
         Saving = true;
-        file = Platform::OpenFile(filename, "wb");
+        file = Platform::OpenLocalFile(filename, "wb");
         if (!file)
         {
             printf("savestate: file %s doesn't exist\n", filename);
@@ -134,7 +134,7 @@ Savestate::~Savestate()
 
     if (Saving)
     {
-        if (CurSection != -1)
+        if (CurSection != 0xFFFFFFFF)
         {
             u32 pos = (u32)ftell(file);
             fseek(file, CurSection+4, SEEK_SET);
@@ -160,7 +160,7 @@ void Savestate::Section(const char* magic)
 
     if (Saving)
     {
-        if (CurSection != -1)
+        if (CurSection != 0xFFFFFFFF)
         {
             u32 pos = (u32)ftell(file);
             fseek(file, CurSection+4, SEEK_SET);

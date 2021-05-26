@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -294,6 +294,7 @@ QString KeyMapButton::mappingText()
     QString isright = (key & (1<<31)) ? "Right " : "Left ";
     key &= ~(1<<31);
 
+#ifndef __APPLE__
     switch (key)
     {
     case Qt::Key_Control: return isright + "Ctrl";
@@ -302,13 +303,22 @@ QString KeyMapButton::mappingText()
     case Qt::Key_Shift:   return isright + "Shift";
     case Qt::Key_Meta:    return "Meta";
     }
+#else
+    switch (key)
+    {
+    case Qt::Key_Control: return isright + "⌘";
+    case Qt::Key_Alt:     return isright + "⌥";
+    case Qt::Key_Shift:   return isright + "⇧";
+    case Qt::Key_Meta:    return isright + "⌃";
+    }
+#endif
 
     QKeySequence seq(key);
-    QString ret = seq.toString();
+    QString ret = seq.toString(QKeySequence::NativeText);
 
     // weak attempt at detecting garbage key names
-    if (ret.length() == 2 && ret[0].unicode() > 0xFF)
-        return QString("[%1]").arg(key, 8, 16);
+    //if (ret.length() == 2 && ret[0].unicode() > 0xFF)
+    //    return QString("[%1]").arg(key, 8, 16);
 
     return ret.replace("&", "&&");
 }

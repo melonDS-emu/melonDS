@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -26,6 +26,7 @@
 #include <QImage>
 #include <QActionGroup>
 #include <QTimer>
+#include <QMutex>
 
 #include <QOffscreenSurface>
 #include <QOpenGLWidget>
@@ -47,8 +48,6 @@ public:
     void initOpenGL();
     void deinitOpenGL();
 
-    void* oglGetProcAddress(const char* proc);
-
     void changeWindowTitle(char* title);
 
     // to be called from the UI thread
@@ -58,6 +57,12 @@ public:
     void emuStop();
 
     bool emuIsRunning();
+
+    int FrontBuffer = 0;
+    QMutex FrontBufferLock;
+
+    GLsync FrontBufferReverseSyncs[2] = {nullptr, nullptr};
+    GLsync FrontBufferSyncs[2] = {nullptr, nullptr};
 
 signals:
     void windowUpdate();
@@ -96,15 +101,17 @@ public:
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
+    QSize screenGetMinSize(int factor);
 
 protected:
     void screenSetupLayout(int w, int h);
 
-    QSize screenGetMinSize();
-
     void screenOnMousePress(QMouseEvent* event);
     void screenOnMouseRelease(QMouseEvent* event);
     void screenOnMouseMove(QMouseEvent* event);
+
+    void screenHandleTablet(QTabletEvent* event);
+    void screenHandleTouch(QTouchEvent* event);
 
     float screenMatrix[Frontend::MaxScreenTransforms][6];
     int screenKind[Frontend::MaxScreenTransforms];
@@ -133,6 +140,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 
@@ -164,6 +173,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 

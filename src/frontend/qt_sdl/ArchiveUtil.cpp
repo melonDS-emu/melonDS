@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura, WaluigiWare64
+    Copyright 2016-2021 Arisotura, WaluigiWare64
 
     This file is part of melonDS.
 

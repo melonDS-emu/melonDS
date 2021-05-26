@@ -1,6 +1,6 @@
 project(core)
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 
 add_library(core STATIC
 	ARCodeFile.cpp
@@ -98,11 +98,6 @@ if (ENABLE_JIT)
 			ARMJIT_A64/ARMJIT_Linkage.S
 		)
 	endif()
-endif()
-
-if (APPLE)
-        target_include_directories(core PUBLIC /usr/local/include /opt/homebrew/include)
-        target_link_directories(core PUBLIC /usr/local/lib /opt/homebrew/lib)
 endif()
 
 if (ENABLE_OGLRENDERER)

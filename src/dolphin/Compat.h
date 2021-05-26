@@ -1,3 +1,7 @@
+// Copyright 2009 Dolphin Emulator Project
+// Licensed under GPLv2+
+// Refer to the license_dolphin.txt file included.
+
 // Stubs for Assert.h and Log.h
 #pragma once
 

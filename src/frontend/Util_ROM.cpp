@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -558,7 +558,7 @@ int Reset()
         char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_NDS]);
         strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
 
-        if(!strncmp(ext, ".nds", 4) || !strncmp(ext, ".srl", 4) || !strncmp(ext, ".dsi", 4))
+        if(!strncasecmp(ext, ".nds", 4) || !strncasecmp(ext, ".srl", 4) || !strncasecmp(ext, ".dsi", 4))
         {
             SetupSRAMPath(0);
             if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
@@ -593,9 +593,9 @@ int Reset()
     if (ROMPath[ROMSlot_GBA][0] != '\0')
     {
         char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_GBA]);
-        strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
+        strncpy(ext, ROMPath[ROMSlot_GBA] + _len - 4, 4);
 
-        if(!strncmp(ext, ".gba", 4))
+        if(!strncasecmp(ext, ".gba", 4))
         {
             SetupSRAMPath(1);
             if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
@@ -654,7 +654,7 @@ void GetSavestateName(int slot, char* filename, int len)
         char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_NDS]);
         strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
 
-        if(!strncmp(ext, ".nds", 4) || !strncmp(ext, ".srl", 4) || !strncmp(ext, ".dsi", 4))
+        if(!strncasecmp(ext, ".nds", 4) || !strncasecmp(ext, ".srl", 4) || !strncasecmp(ext, ".dsi", 4))
             rompath = ROMPath[ROMSlot_NDS];
         else
             rompath = SRAMPath[ROMSlot_NDS]; // If archive, construct ssname from sram file

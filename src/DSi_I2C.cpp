@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -79,14 +79,15 @@ void Start()
 
 u8 Read(bool last)
 {
+    //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
+    u8 ret = Registers[CurPos++];
+
     if (last)
     {
         CurPos = -1;
-        return 0;
     }
 
-    //printf("BPTWL: read %02X -> %02X\n", CurPos, Registers[CurPos]);
-    return Registers[CurPos++];
+    return ret;
 }
 
 void Write(u8 val, bool last)
@@ -97,7 +98,7 @@ void Write(u8 val, bool last)
         return;
     }
 
-    if (CurPos == -1)
+    if (CurPos == 0xFFFFFFFF)
     {
         CurPos = val;
         //printf("BPTWL: reg=%02X\n", val);
