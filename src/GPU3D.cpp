@@ -2505,11 +2505,6 @@ void RestartFrame()
     CurrentRenderer->RestartFrame();
 }
 
-void RestartFrame()
-{
-    if (GPU::Renderer == 0) SoftRenderer::SetupRenderThread();
-}
-
 
 bool YSort(Polygon* a, Polygon* b)
 {
@@ -3057,4 +3052,3 @@ Renderer3D::Renderer3D(bool Accelerated)
 { }
 
 }
-
