@@ -2258,4 +2258,4 @@ void SoftRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s
     }
 }
 
-}
+}}
