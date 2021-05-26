@@ -1,8 +1,29 @@
-#include "GPU2D.h"
+/*
+    Copyright 2016-2021 Arisotura
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
+#include "GPU2D_Soft.h"
 #include "GPU.h"
 
-GPU2D_Soft::GPU2D_Soft(u32 num)
-    : GPU2D(num)
+namespace GPU2D
+{
+
+SoftRenderer::SoftRenderer()
+    : Renderer2D()
 {
     // initialize mosaic table
     for (int m = 0; m < 16; m++)
@@ -15,12 +36,7 @@ GPU2D_Soft::GPU2D_Soft(u32 num)
     }
 }
 
-void GPU2D_Soft::SetRenderSettings(bool accel)
-{
-    Accelerated = accel;
-}
-
-u32 GPU2D_Soft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
+u32 SoftRenderer::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
 {
     u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;
     u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 4) & 0x007F00;
@@ -33,7 +49,7 @@ u32 GPU2D_Soft::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
     return r | g | b | 0xFF000000;
 }
 
-u32 GPU2D_Soft::ColorBlend5(u32 val1, u32 val2)
+u32 SoftRenderer::ColorBlend5(u32 val1, u32 val2)
 {
     u32 eva = ((val1 >> 24) & 0x1F) + 1;
     u32 evb = 32 - eva;
@@ -58,7 +74,7 @@ u32 GPU2D_Soft::ColorBlend5(u32 val1, u32 val2)
     return r | g | b | 0xFF000000;
 }
 
-u32 GPU2D_Soft::ColorBrightnessUp(u32 val, u32 factor)
+u32 SoftRenderer::ColorBrightnessUp(u32 val, u32 factor)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
@@ -69,7 +85,7 @@ u32 GPU2D_Soft::ColorBrightnessUp(u32 val, u32 factor)
     return rb | g | 0xFF000000;
 }
 
-u32 GPU2D_Soft::ColorBrightnessDown(u32 val, u32 factor)
+u32 SoftRenderer::ColorBrightnessDown(u32 val, u32 factor)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
@@ -80,7 +96,7 @@ u32 GPU2D_Soft::ColorBrightnessDown(u32 val, u32 factor)
     return rb | g | 0xFF000000;
 }
 
-u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
+u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2)
 {
     u32 coloreffect = 0;
     u32 eva, evb;
@@ -88,12 +104,14 @@ u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
     u32 flag1 = val1 >> 24;
     u32 flag2 = val2 >> 24;
 
+    u32 blendCnt = CurUnit->BlendCnt;
+
     u32 target2;
     if      (flag2 & 0x80) target2 = 0x1000;
     else if (flag2 & 0x40) target2 = 0x0100;
     else                   target2 = flag2 << 8;
 
-    if ((flag1 & 0x80) && (BlendCnt & target2))
+    if ((flag1 & 0x80) && (blendCnt & target2))
     {
         // sprite blending
 
@@ -106,11 +124,11 @@ u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
         }
         else
         {
-            eva = EVA;
-            evb = EVB;
+            eva = CurUnit->EVA;
+            evb = CurUnit->EVB;
         }
     }
-    else if ((flag1 & 0x40) && (BlendCnt & target2))
+    else if ((flag1 & 0x40) && (blendCnt & target2))
     {
         // 3D layer blending
 
@@ -121,16 +139,16 @@ u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
         if      (flag1 & 0x80) flag1 = 0x10;
         else if (flag1 & 0x40) flag1 = 0x01;
 
-        if ((BlendCnt & flag1) && (WindowMask[i] & 0x20))
+        if ((blendCnt & flag1) && (WindowMask[i] & 0x20))
         {
-            coloreffect = (BlendCnt >> 6) & 0x3;
+            coloreffect = (blendCnt >> 6) & 0x3;
 
             if (coloreffect == 1)
             {
-                if (BlendCnt & target2)
+                if (blendCnt & target2)
                 {
-                    eva = EVA;
-                    evb = EVB;
+                    eva = CurUnit->EVA;
+                    evb = CurUnit->EVB;
                 }
                 else
                     coloreffect = 0;
@@ -142,23 +160,25 @@ u32 GPU2D_Soft::ColorComposite(int i, u32 val1, u32 val2)
     {
     case 0: return val1;
     case 1: return ColorBlend4(val1, val2, eva, evb);
-    case 2: return ColorBrightnessUp(val1, EVY);
-    case 3: return ColorBrightnessDown(val1, EVY);
+    case 2: return ColorBrightnessUp(val1, CurUnit->EVY);
+    case 3: return ColorBrightnessDown(val1, CurUnit->EVY);
     case 4: return ColorBlend5(val1, val2);
     }
 
     return val1;
 }
 
-void GPU2D_Soft::DrawScanline(u32 line)
+void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 {
-    int stride = Accelerated ? (256*3 + 1) : 256;
-    u32* dst = &Framebuffer[stride * line];
+    CurUnit = unit;
+
+    int stride = GPU3D::CurrentRenderer->Accelerated ? (256*3 + 1) : 256;
+    u32* dst = &Framebuffer[CurUnit->Num][stride * line];
 
     int n3dline = line;
     line = GPU::VCount;
 
-    if (Num == 0)
+    if (CurUnit->Num == 0)
     {
         auto bgDirty = GPU::VRAMDirty_ABG.DeriveState(GPU::VRAMMap_ABG);
         GPU::MakeVRAMFlat_ABGCoherent(bgDirty);
@@ -185,16 +205,16 @@ void GPU2D_Soft::DrawScanline(u32 line)
 
     // GPU B can be completely disabled by POWCNT1
     // oddly that's not the case for GPU A
-    if (Num && !Enabled) forceblank = true;
+    if (CurUnit->Num && !CurUnit->Enabled) forceblank = true;
 
-    if (line == 0 && CaptureCnt & (1 << 31) && !forceblank)
-        CaptureLatch = true;
+    if (line == 0 && CurUnit->CaptureCnt & (1 << 31) && !forceblank)
+        CurUnit->CaptureLatch = true;
 
-    if (Num == 0)
+    if (CurUnit->Num == 0)
     {
-        if (!Accelerated)
+        if (!GPU3D::CurrentRenderer->Accelerated)
             _3DLine = GPU3D::GetLine(n3dline);
-        else if (CaptureLatch && (((CaptureCnt >> 29) & 0x3) != 1))
+        else if (CurUnit->CaptureLatch && (((CurUnit->CaptureCnt >> 29) & 0x3) != 1))
         {
             _3DLine = GPU3D::GetLine(n3dline);
             //GPU3D::GLRenderer::PrepareCaptureFrame();
@@ -206,19 +226,19 @@ void GPU2D_Soft::DrawScanline(u32 line)
         for (int i = 0; i < 256; i++)
             dst[i] = 0xFFFFFFFF;
 
-        if (Accelerated)
+        if (GPU3D::CurrentRenderer->Accelerated)
         {
             dst[256*3] = 0;
         }
         return;
     }
 
-    u32 dispmode = DispCnt >> 16;
-    dispmode &= (Num ? 0x1 : 0x3);
+    u32 dispmode = CurUnit->DispCnt >> 16;
+    dispmode &= (CurUnit->Num ? 0x1 : 0x3);
 
     // always render regular graphics
     DrawScanline_BGOBJ(line);
-    UpdateMosaicCounters(line);
+    CurUnit->UpdateMosaicCounters(line);
 
     switch (dispmode)
     {
@@ -239,7 +259,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
 
     case 2: // VRAM display
         {
-            u32 vrambank = (DispCnt >> 18) & 0x3;
+            u32 vrambank = (CurUnit->DispCnt >> 18) & 0x3;
             if (GPU::VRAMMap_LCDC & (1<<vrambank))
             {
                 u16* vram = (u16*)GPU::VRAM[vrambank];
@@ -269,7 +289,7 @@ void GPU2D_Soft::DrawScanline(u32 line)
         {
             for (int i = 0; i < 256; i++)
             {
-                u16 color = DispFIFOBuffer[i];
+                u16 color = CurUnit->DispFIFOBuffer[i];
                 u8 r = (color & 0x001F) << 1;
                 u8 g = (color & 0x03E0) >> 4;
                 u8 b = (color & 0x7C00) >> 9;
@@ -281,10 +301,10 @@ void GPU2D_Soft::DrawScanline(u32 line)
     }
 
     // capture
-    if ((Num == 0) && CaptureLatch)
+    if ((CurUnit->Num == 0) && CurUnit->CaptureLatch)
     {
         u32 capwidth, capheight;
-        switch ((CaptureCnt >> 20) & 0x3)
+        switch ((CurUnit->CaptureCnt >> 20) & 0x3)
         {
         case 0: capwidth = 128; capheight = 128; break;
         case 1: capwidth = 256; capheight = 64;  break;
@@ -296,19 +316,21 @@ void GPU2D_Soft::DrawScanline(u32 line)
             DoCapture(line, capwidth);
     }
 
-    if (Accelerated)
+    u32 masterBrightness = CurUnit->MasterBrightness;
+
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
-        dst[256*3] = MasterBrightness | (DispCnt & 0x30000);
+        dst[256*3] = masterBrightness | (CurUnit->DispCnt & 0x30000);
         return;
     }
 
     // master brightness
     if (dispmode != 0)
     {
-        if ((MasterBrightness >> 14) == 1)
+        if ((masterBrightness >> 14) == 1)
         {
             // up
-            u32 factor = MasterBrightness & 0x1F;
+            u32 factor = masterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
             for (int i = 0; i < 256; i++)
@@ -316,10 +338,10 @@ void GPU2D_Soft::DrawScanline(u32 line)
                 dst[i] = ColorBrightnessUp(dst[i], factor);
             }
         }
-        else if ((MasterBrightness >> 14) == 2)
+        else if ((masterBrightness >> 14) == 2)
         {
             // down
-            u32 factor = MasterBrightness & 0x1F;
+            u32 factor = masterBrightness & 0x1F;
             if (factor > 16) factor = 16;
 
             for (int i = 0; i < 256; i++)
@@ -345,24 +367,23 @@ void GPU2D_Soft::DrawScanline(u32 line)
     }
 }
 
-void GPU2D_Soft::VBlankEnd()
+void SoftRenderer::VBlankEnd(Unit* unitA, Unit* unitB)
 {
-    GPU2D::VBlankEnd();
-
 #ifdef OGLRENDERER_ENABLED
-    if (Accelerated)
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
-        if ((Num == 0) && (CaptureCnt & (1<<31)) && (((CaptureCnt >> 29) & 0x3) != 1))
+        if ((unitA->CaptureCnt & (1<<31)) && (((unitA->CaptureCnt >> 29) & 0x3) != 1))
         {
-            GPU3D::GLRenderer::PrepareCaptureFrame();
+            reinterpret_cast<GPU3D::GLRenderer*>(GPU3D::CurrentRenderer.get())->PrepareCaptureFrame();
         }
     }
 #endif
 }
 
-void GPU2D_Soft::DoCapture(u32 line, u32 width)
+void SoftRenderer::DoCapture(u32 line, u32 width)
 {
-    u32 dstvram = (CaptureCnt >> 16) & 0x3;
+    u32 captureCnt = CurUnit->CaptureCnt;
+    u32 dstvram = (captureCnt >> 16) & 0x3;
 
     // TODO: confirm this
     // it should work like VRAM display mode, which requires VRAM to be mapped to LCDC
@@ -370,21 +391,21 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
         return;
 
     u16* dst = (u16*)GPU::VRAM[dstvram];
-    u32 dstaddr = (((CaptureCnt >> 18) & 0x3) << 14) + (line * width);
+    u32 dstaddr = (((captureCnt >> 18) & 0x3) << 14) + (line * width);
 
-    // TODO: handle 3D in accelerated mode!!
+    // TODO: handle 3D in GPU3D::CurrentRenderer->Accelerated mode!!
 
     u32* srcA;
-    if (CaptureCnt & (1<<24))
+    if (captureCnt & (1<<24))
     {
         srcA = _3DLine;
     }
     else
     {
         srcA = BGOBJLine;
-        if (Accelerated)
+        if (GPU3D::CurrentRenderer->Accelerated)
         {
-            // in accelerated mode, compositing is normally done on the GPU
+            // in GPU3D::CurrentRenderer->Accelerated mode, compositing is normally done on the GPU
             // but when doing display capture, we do need the composited output
             // so we do it here
 
@@ -446,19 +467,19 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     u16* srcB = NULL;
     u32 srcBaddr = line * 256;
 
-    if (CaptureCnt & (1<<25))
+    if (captureCnt & (1<<25))
     {
-        srcB = &DispFIFOBuffer[0];
+        srcB = &CurUnit->DispFIFOBuffer[0];
         srcBaddr = 0;
     }
     else
     {
-        u32 srcvram = (DispCnt >> 18) & 0x3;
+        u32 srcvram = (CurUnit->DispCnt >> 18) & 0x3;
         if (GPU::VRAMMap_LCDC & (1<<srcvram))
             srcB = (u16*)GPU::VRAM[srcvram];
 
-        if (((DispCnt >> 16) & 0x3) != 2)
-            srcBaddr += ((CaptureCnt >> 26) & 0x3) << 14;
+        if (((CurUnit->DispCnt >> 16) & 0x3) != 2)
+            srcBaddr += ((captureCnt >> 26) & 0x3) << 14;
     }
 
     dstaddr &= 0xFFFF;
@@ -467,7 +488,7 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     static_assert(GPU::VRAMDirtyGranularity == 512, "");
     GPU::VRAMDirty[dstvram][(dstaddr * 2) / GPU::VRAMDirtyGranularity] = true;
 
-    switch ((CaptureCnt >> 29) & 0x3)
+    switch ((captureCnt >> 29) & 0x3)
     {
     case 0: // source A
         {
@@ -513,8 +534,8 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
     case 2: // sources A+B
     case 3:
         {
-            u32 eva = CaptureCnt & 0x1F;
-            u32 evb = (CaptureCnt >> 8) & 0x1F;
+            u32 eva = captureCnt & 0x1F;
+            u32 evb = (captureCnt >> 8) & 0x1F;
 
             // checkme
             if (eva > 16) eva = 16;
@@ -584,14 +605,14 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
 #define DoDrawBG(type, line, num) \
     do \
     { \
-        if ((BGCnt[num] & 0x0040) && (BGMosaicSize[0] > 0)) \
+        if ((bgCnt[num] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
-            if (Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<true, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<true, DrawPixel_Normal>(line, num); \
         } \
         else \
         { \
-            if (Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_##type<false, DrawPixel_Accel>(line, num); \
             else DrawBG_##type<false, DrawPixel_Normal>(line, num); \
         } \
     } while (false)
@@ -599,29 +620,31 @@ void GPU2D_Soft::DoCapture(u32 line, u32 width)
 #define DoDrawBG_Large(line) \
     do \
     { \
-        if ((BGCnt[2] & 0x0040) && (BGMosaicSize[0] > 0)) \
+        if ((bgCnt[2] & 0x0040) && (CurUnit->BGMosaicSize[0] > 0)) \
         { \
-            if (Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<true, DrawPixel_Accel>(line); \
             else DrawBG_Large<true, DrawPixel_Normal>(line); \
         } \
         else \
         { \
-            if (Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
+            if (GPU3D::CurrentRenderer->Accelerated) DrawBG_Large<false, DrawPixel_Accel>(line); \
             else DrawBG_Large<false, DrawPixel_Normal>(line); \
         } \
     } while (false)
 
 #define DoInterleaveSprites(prio) \
-    if (Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
+    if (GPU3D::CurrentRenderer->Accelerated) InterleaveSprites<DrawPixel_Accel>(prio); else InterleaveSprites<DrawPixel_Normal>(prio);
 
 template<u32 bgmode>
-void GPU2D_Soft::DrawScanlineBGMode(u32 line)
+void SoftRenderer::DrawScanlineBGMode(u32 line)
 {
+    u32 dispCnt = CurUnit->DispCnt;
+    u16* bgCnt = CurUnit->BGCnt;
     for (int i = 3; i >= 0; i--)
     {
-        if ((BGCnt[3] & 0x3) == i)
+        if ((bgCnt[3] & 0x3) == i)
         {
-            if (DispCnt & 0x0800)
+            if (dispCnt & 0x0800)
             {
                 if (bgmode >= 3)
                     DoDrawBG(Extended, line, 3);
@@ -631,9 +654,9 @@ void GPU2D_Soft::DrawScanlineBGMode(u32 line)
                     DoDrawBG(Text, line, 3);
             }
         }
-        if ((BGCnt[2] & 0x3) == i)
+        if ((bgCnt[2] & 0x3) == i)
         {
-            if (DispCnt & 0x0400)
+            if (dispCnt & 0x0400)
             {
                 if (bgmode == 5)
                     DoDrawBG(Extended, line, 2);
@@ -643,24 +666,24 @@ void GPU2D_Soft::DrawScanlineBGMode(u32 line)
                     DoDrawBG(Text, line, 2);
             }
         }
-        if ((BGCnt[1] & 0x3) == i)
+        if ((bgCnt[1] & 0x3) == i)
         {
-            if (DispCnt & 0x0200)
+            if (dispCnt & 0x0200)
             {
                 DoDrawBG(Text, line, 1);
             }
         }
-        if ((BGCnt[0] & 0x3) == i)
+        if ((bgCnt[0] & 0x3) == i)
         {
-            if (DispCnt & 0x0100)
+            if (dispCnt & 0x0100)
             {
-                if ((!Num) && (DispCnt & 0x8))
+                if (!CurUnit->Num && (dispCnt & 0x8))
                     DrawBG_3D();
                 else
                     DoDrawBG(Text, line, 0);
             }
         }
-        if ((DispCnt & 0x1000) && NumSprites)
+        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
         {
             DoInterleaveSprites(0x40000 | (i<<16));
         }
@@ -668,66 +691,70 @@ void GPU2D_Soft::DrawScanlineBGMode(u32 line)
     }
 }
 
-void GPU2D_Soft::DrawScanlineBGMode6(u32 line)
+void SoftRenderer::DrawScanlineBGMode6(u32 line)
 {
+    u32 dispCnt = CurUnit->DispCnt;
+    u16* bgCnt = CurUnit->BGCnt;
     for (int i = 3; i >= 0; i--)
     {
-        if ((BGCnt[2] & 0x3) == i)
+        if ((bgCnt[2] & 0x3) == i)
         {
-            if (DispCnt & 0x0400)
+            if (dispCnt & 0x0400)
             {
                 DoDrawBG_Large(line);
             }
         }
-        if ((BGCnt[0] & 0x3) == i)
+        if ((bgCnt[0] & 0x3) == i)
         {
-            if (DispCnt & 0x0100)
+            if (dispCnt & 0x0100)
             {
-                if ((!Num) && (DispCnt & 0x8))
+                if ((!CurUnit->Num) && (dispCnt & 0x8))
                     DrawBG_3D();
             }
         }
-        if ((DispCnt & 0x1000) && NumSprites)
+        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
         {
             DoInterleaveSprites(0x40000 | (i<<16))
         }
     }
 }
 
-void GPU2D_Soft::DrawScanlineBGMode7(u32 line)
+void SoftRenderer::DrawScanlineBGMode7(u32 line)
 {
+    u32 dispCnt = CurUnit->DispCnt;
+    u16* bgCnt = CurUnit->BGCnt;
     // mode 7 only has text-mode BG0 and BG1
 
     for (int i = 3; i >= 0; i--)
     {
-        if ((BGCnt[1] & 0x3) == i)
+        if ((bgCnt[1] & 0x3) == i)
         {
-            if (DispCnt & 0x0200)
+            if (dispCnt & 0x0200)
             {
                 DoDrawBG(Text, line, 1);
             }
         }
-        if ((BGCnt[0] & 0x3) == i)
+        if ((bgCnt[0] & 0x3) == i)
         {
-            if (DispCnt & 0x0100)
+            if (dispCnt & 0x0100)
             {
-                if ((!Num) && (DispCnt & 0x8))
+                if (!CurUnit->Num && (dispCnt & 0x8))
                     DrawBG_3D();
                 else
                     DoDrawBG(Text, line, 0);
             }
         }
-        if ((DispCnt & 0x1000) && NumSprites)
+        if ((dispCnt & 0x1000) && NumSprites[CurUnit->Num])
         {
             DoInterleaveSprites(0x40000 | (i<<16))
         }
     }
 }
 
-void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
+void SoftRenderer::DrawScanline_BGOBJ(u32 line)
 {
     // forced blank disables BG/OBJ compositing
-    if (DispCnt & (1<<7))
+    if (CurUnit->DispCnt & (1<<7))
     {
         for (int i = 0; i < 256; i++)
             BGOBJLine[i] = 0xFF3F3F3F;
@@ -736,7 +763,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
     }
 
     u64 backdrop;
-    if (Num) backdrop = *(u16*)&GPU::Palette[0x400];
+    if (CurUnit->Num) backdrop = *(u16*)&GPU::Palette[0x400];
     else     backdrop = *(u16*)&GPU::Palette[0];
 
     {
@@ -751,14 +778,15 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
             *(u64*)&BGOBJLine[i] = backdrop;
     }
 
-    if (DispCnt & 0xE000)
-        CalculateWindowMask(line);
+    if (CurUnit->DispCnt & 0xE000)
+        CurUnit->CalculateWindowMask(line, WindowMask, OBJWindow[CurUnit->Num]);
     else
         memset(WindowMask, 0xFF, 256);
 
     ApplySpriteMosaicX();
+    CurBGXMosaicTable = MosaicTable[CurUnit->BGMosaicSize[0]];
 
-    switch (DispCnt & 0x7)
+    switch (CurUnit->DispCnt & 0x7)
     {
     case 0: DrawScanlineBGMode<0>(line); break;
     case 1: DrawScanlineBGMode<1>(line); break;
@@ -773,7 +801,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
     // color special effects
     // can likely be optimized
 
-    if (!Accelerated)
+    if (!GPU3D::CurrentRenderer->Accelerated)
     {
         for (int i = 0; i < 256; i++)
         {
@@ -785,7 +813,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
     }
     else
     {
-        if (Num == 0)
+        if (CurUnit->Num == 0)
         {
             for (int i = 0; i < 256; i++)
             {
@@ -796,7 +824,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
                 u32 flag1 = val1 >> 24;
                 u32 flag2 = val2 >> 24;
 
-                u32 bldcnteffect = (BlendCnt >> 6) & 0x3;
+                u32 bldcnteffect = (CurUnit->BlendCnt >> 6) & 0x3;
 
                 u32 target1;
                 if      (flag1 & 0x80) target1 = 0x0010;
@@ -808,7 +836,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
                 else if (flag2 & 0x40) target2 = 0x0100;
                 else                   target2 = flag2 << 8;
 
-                if (((flag1 & 0xC0) == 0x40) && (BlendCnt & target2))
+                if (((flag1 & 0xC0) == 0x40) && (CurUnit->BlendCnt & target2))
                 {
                     // 3D on top, blending
 
@@ -820,15 +848,15 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
                 {
                     // 3D on top, normal/fade
 
-                    if (bldcnteffect == 1)       bldcnteffect = 0;
-                    if (!(BlendCnt & 0x0001))    bldcnteffect = 0;
-                    if (!(WindowMask[i] & 0x20)) bldcnteffect = 0;
+                    if (bldcnteffect == 1)             bldcnteffect = 0;
+                    if (!(CurUnit->BlendCnt & 0x0001)) bldcnteffect = 0;
+                    if (!(WindowMask[i] & 0x20))       bldcnteffect = 0;
 
                     BGOBJLine[i]     = val2;
                     BGOBJLine[256+i] = ColorComposite(i, val2, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVY << 8);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (CurUnit->EVY << 8);
                 }
-                else if (((flag2 & 0xC0) == 0x40) && ((BlendCnt & 0x01C0) == 0x0140))
+                else if (((flag2 & 0xC0) == 0x40) && ((CurUnit->BlendCnt & 0x01C0) == 0x0140))
                 {
                     // 3D on bottom, blending
 
@@ -838,18 +866,18 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
                         eva = flag1 & 0x1F;
                         evb = 16 - eva;
                     }
-                    else if (((BlendCnt & target1) && (WindowMask[i] & 0x20)) ||
-                             ((flag1 & 0xC0) == 0x80))
+                    else if (((CurUnit->BlendCnt & target1) && (WindowMask[i] & 0x20)) ||
+                            ((flag1 & 0xC0) == 0x80))
                     {
-                        eva = EVA;
-                        evb = EVB;
+                        eva = CurUnit->EVA;
+                        evb = CurUnit->EVB;
                     }
                     else
                         bldcnteffect = 7;
 
                     BGOBJLine[i]     = val1;
                     BGOBJLine[256+i] = ColorComposite(i, val1, val3);
-                    BGOBJLine[512+i] = (bldcnteffect << 24) | (EVB << 16) | (EVA << 8);
+                    BGOBJLine[512+i] = (bldcnteffect << 24) | (CurUnit->EVB << 16) | (CurUnit->EVA << 8);
                 }
                 else
                 {
@@ -875,13 +903,13 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
         }
     }
 
-    if (BGMosaicY >= BGMosaicYMax)
+    if (CurUnit->BGMosaicY >= CurUnit->BGMosaicYMax)
     {
-        BGMosaicY = 0;
-        BGMosaicYMax = BGMosaicSize[1];
+        CurUnit->BGMosaicY = 0;
+        CurUnit->BGMosaicYMax = CurUnit->BGMosaicSize[1];
     }
     else
-        BGMosaicY++;
+        CurUnit->BGMosaicY++;
 
     /*if (OBJMosaicY >= OBJMosaicYMax)
     {
@@ -893,7 +921,7 @@ void GPU2D_Soft::DrawScanline_BGOBJ(u32 line)
 }
 
 
-void GPU2D_Soft::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
+void SoftRenderer::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
@@ -904,7 +932,7 @@ void GPU2D_Soft::DrawPixel_Normal(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void GPU2D_Soft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
+void SoftRenderer::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
 {
     u8 r = (color & 0x001F) << 1;
     u8 g = (color & 0x03E0) >> 4;
@@ -915,11 +943,11 @@ void GPU2D_Soft::DrawPixel_Accel(u32* dst, u16 color, u32 flag)
     *dst = r | (g << 8) | (b << 16) | flag;
 }
 
-void GPU2D_Soft::DrawBG_3D()
+void SoftRenderer::DrawBG_3D()
 {
     int i = 0;
 
-    if (Accelerated)
+    if (GPU3D::CurrentRenderer->Accelerated)
     {
         for (i = 0; i < 256; i++)
         {
@@ -945,33 +973,33 @@ void GPU2D_Soft::DrawBG_3D()
     }
 }
 
-template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
-void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
+template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
+void SoftRenderer::DrawBG_Text(u32 line, u32 bgnum)
 {
-    u16 bgcnt = BGCnt[bgnum];
+    u16 bgcnt = CurUnit->BGCnt[bgnum];
 
     u32 tilesetaddr, tilemapaddr;
     u16* pal;
     u32 extpal, extpalslot;
 
-    u16 xoff = BGXPos[bgnum];
-    u16 yoff = BGYPos[bgnum] + line;
+    u16 xoff = CurUnit->BGXPos[bgnum];
+    u16 yoff = CurUnit->BGYPos[bgnum] + line;
 
     if (bgcnt & 0x0040)
     {
         // vertical mosaic
-        yoff -= BGMosaicY;
+        yoff -= CurUnit->BGMosaicY;
     }
 
     u32 widexmask = (bgcnt & 0x4000) ? 0x100 : 0;
 
-    extpal = (DispCnt & 0x40000000);
+    extpal = (CurUnit->DispCnt & 0x40000000);
     if (extpal) extpalslot = ((bgnum<2) && (bgcnt&0x2000)) ? (2+bgnum) : bgnum;
 
     u8* bgvram;
     u32 bgvrammask;
-    GetBGVRAM(bgvram, bgvrammask);
-    if (Num)
+    CurUnit->GetBGVRAM(bgvram, bgvrammask);
+    if (CurUnit->Num)
     {
         tilesetaddr = ((bgcnt & 0x003C) << 12);
         tilemapaddr = ((bgcnt & 0x1F00) << 3);
@@ -980,8 +1008,8 @@ void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
     }
     else
     {
-        tilesetaddr = ((DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
+        tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
+        tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
 
         pal = (u16*)&GPU::Palette[0];
     }
@@ -1011,7 +1039,7 @@ void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
         {
             curtile = *(u16*)&bgvram[(tilemapaddr + ((xoff & 0xF8) >> 2) + ((xoff & widexmask) << 3)) & bgvrammask];
 
-            if (extpal) curpal = GetBGExtPal(extpalslot, curtile>>12);
+            if (extpal) curpal = CurUnit->GetBGExtPal(extpalslot, curtile>>12);
             else        curpal = pal;
 
             pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 6)
@@ -1032,7 +1060,7 @@ void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
                 // load a new tile
                 curtile = *(u16*)&bgvram[(tilemapaddr + ((xpos & 0xF8) >> 2) + ((xpos & widexmask) << 3)) & bgvrammask];
 
-                if (extpal) curpal = GetBGExtPal(extpalslot, curtile>>12);
+                if (extpal) curpal = CurUnit->GetBGExtPal(extpalslot, curtile>>12);
                 else        curpal = pal;
 
                 pixelsaddr = tilesetaddr + ((curtile & 0x03FF) << 6)
@@ -1109,10 +1137,10 @@ void GPU2D_Soft::DrawBG_Text(u32 line, u32 bgnum)
     }
 }
 
-template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
-void GPU2D_Soft::DrawBG_Affine(u32 line, u32 bgnum)
+template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
+void SoftRenderer::DrawBG_Affine(u32 line, u32 bgnum)
 {
-    u16 bgcnt = BGCnt[bgnum];
+    u16 bgcnt = CurUnit->BGCnt[bgnum];
 
     u32 tilesetaddr, tilemapaddr;
     u16* pal;
@@ -1131,26 +1159,26 @@ void GPU2D_Soft::DrawBG_Affine(u32 line, u32 bgnum)
     if (bgcnt & 0x2000) overflowmask = 0;
     else                overflowmask = ~(coordmask | 0x7FF);
 
-    s16 rotA = BGRotA[bgnum-2];
-    s16 rotB = BGRotB[bgnum-2];
-    s16 rotC = BGRotC[bgnum-2];
-    s16 rotD = BGRotD[bgnum-2];
+    s16 rotA = CurUnit->BGRotA[bgnum-2];
+    s16 rotB = CurUnit->BGRotB[bgnum-2];
+    s16 rotC = CurUnit->BGRotC[bgnum-2];
+    s16 rotD = CurUnit->BGRotD[bgnum-2];
 
-    s32 rotX = BGXRefInternal[bgnum-2];
-    s32 rotY = BGYRefInternal[bgnum-2];
+    s32 rotX = CurUnit->BGXRefInternal[bgnum-2];
+    s32 rotY = CurUnit->BGYRefInternal[bgnum-2];
 
     if (bgcnt & 0x0040)
     {
         // vertical mosaic
-        rotX -= (BGMosaicY * rotB);
-        rotY -= (BGMosaicY * rotD);
+        rotX -= (CurUnit->BGMosaicY * rotB);
+        rotY -= (CurUnit->BGMosaicY * rotD);
     }
 
     u8* bgvram;
     u32 bgvrammask;
-    GetBGVRAM(bgvram, bgvrammask);
+    CurUnit->GetBGVRAM(bgvram, bgvrammask);
 
-    if (Num)
+    if (CurUnit->Num)
     {
         tilesetaddr = ((bgcnt & 0x003C) << 12);
         tilemapaddr = ((bgcnt & 0x1F00) << 3);
@@ -1159,8 +1187,8 @@ void GPU2D_Soft::DrawBG_Affine(u32 line, u32 bgnum)
     }
     else
     {
-        tilesetaddr = ((DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-        tilemapaddr = ((DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
+        tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
+        tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
 
         pal = (u16*)&GPU::Palette[0];
     }
@@ -1206,14 +1234,14 @@ void GPU2D_Soft::DrawBG_Affine(u32 line, u32 bgnum)
         rotY += rotC;
     }
 
-    BGXRefInternal[bgnum-2] += rotB;
-    BGYRefInternal[bgnum-2] += rotD;
+    CurUnit->BGXRefInternal[bgnum-2] += rotB;
+    CurUnit->BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
-void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
+template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
+void SoftRenderer::DrawBG_Extended(u32 line, u32 bgnum)
 {
-    u16 bgcnt = BGCnt[bgnum];
+    u16 bgcnt = CurUnit->BGCnt[bgnum];
 
     u32 tilesetaddr, tilemapaddr;
     u16* pal;
@@ -1221,23 +1249,23 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
 
     u8* bgvram;
     u32 bgvrammask;
-    GetBGVRAM(bgvram, bgvrammask);
+    CurUnit->GetBGVRAM(bgvram, bgvrammask);
 
-    extpal = (DispCnt & 0x40000000);
+    extpal = (CurUnit->DispCnt & 0x40000000);
 
-    s16 rotA = BGRotA[bgnum-2];
-    s16 rotB = BGRotB[bgnum-2];
-    s16 rotC = BGRotC[bgnum-2];
-    s16 rotD = BGRotD[bgnum-2];
+    s16 rotA = CurUnit->BGRotA[bgnum-2];
+    s16 rotB = CurUnit->BGRotB[bgnum-2];
+    s16 rotC = CurUnit->BGRotC[bgnum-2];
+    s16 rotD = CurUnit->BGRotD[bgnum-2];
 
-    s32 rotX = BGXRefInternal[bgnum-2];
-    s32 rotY = BGYRefInternal[bgnum-2];
+    s32 rotX = CurUnit->BGXRefInternal[bgnum-2];
+    s32 rotY = CurUnit->BGYRefInternal[bgnum-2];
 
     if (bgcnt & 0x0040)
     {
         // vertical mosaic
-        rotX -= (BGMosaicY * rotB);
-        rotY -= (BGMosaicY * rotD);
+        rotX -= (CurUnit->BGMosaicY * rotB);
+        rotY -= (CurUnit->BGMosaicY * rotD);
     }
 
     if (bgcnt & 0x0080)
@@ -1266,8 +1294,8 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
             ofymask = ~ymask;
         }
 
-        if (Num) tilemapaddr = ((bgcnt & 0x1F00) << 6);
-        else     tilemapaddr = ((bgcnt & 0x1F00) << 6);
+        if (CurUnit->Num) tilemapaddr = ((bgcnt & 0x1F00) << 6);
+        else              tilemapaddr = ((bgcnt & 0x1F00) << 6);
 
         if (bgcnt & 0x0004)
         {
@@ -1309,8 +1337,8 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
         {
             // 256-color bitmap
 
-            if (Num) pal = (u16*)&GPU::Palette[0x400];
-            else     pal = (u16*)&GPU::Palette[0];
+            if (CurUnit->Num) pal = (u16*)&GPU::Palette[0x400];
+            else              pal = (u16*)&GPU::Palette[0];
 
             u8 color;
 
@@ -1363,7 +1391,7 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
         if (bgcnt & 0x2000) overflowmask = 0;
         else                overflowmask = ~(coordmask | 0x7FF);
 
-        if (Num)
+        if (CurUnit->Num)
         {
             tilesetaddr = ((bgcnt & 0x003C) << 12);
             tilemapaddr = ((bgcnt & 0x1F00) << 3);
@@ -1372,8 +1400,8 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
         }
         else
         {
-            tilesetaddr = ((DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
-            tilemapaddr = ((DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
+            tilesetaddr = ((CurUnit->DispCnt & 0x07000000) >> 8) + ((bgcnt & 0x003C) << 12);
+            tilemapaddr = ((CurUnit->DispCnt & 0x38000000) >> 11) + ((bgcnt & 0x1F00) << 3);
 
             pal = (u16*)&GPU::Palette[0];
         }
@@ -1405,7 +1433,7 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
                 {
                     curtile = *(u16*)&bgvram[(tilemapaddr + (((((finalY & coordmask) >> 11) << yshift) + ((finalX & coordmask) >> 11)) << 1)) & bgvrammask];
 
-                    if (extpal) curpal = GetBGExtPal(bgnum, curtile>>12);
+                    if (extpal) curpal = CurUnit->GetBGExtPal(bgnum, curtile>>12);
                     else        curpal = pal;
 
                     // draw pixel
@@ -1427,16 +1455,15 @@ void GPU2D_Soft::DrawBG_Extended(u32 line, u32 bgnum)
         }
     }
 
-    BGXRefInternal[bgnum-2] += rotB;
-    BGYRefInternal[bgnum-2] += rotD;
+    CurUnit->BGXRefInternal[bgnum-2] += rotB;
+    CurUnit->BGYRefInternal[bgnum-2] += rotD;
 }
 
-template<bool mosaic, GPU2D_Soft::DrawPixel drawPixel>
-void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
+template<bool mosaic, SoftRenderer::DrawPixel drawPixel>
+void SoftRenderer::DrawBG_Large(u32 line) // BG is always BG2
 {
-    u16 bgcnt = BGCnt[2];
+    u16 bgcnt = CurUnit->BGCnt[2];
 
-    u32 tilesetaddr, tilemapaddr;
     u16* pal;
 
     // large BG sizes:
@@ -1466,28 +1493,28 @@ void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
         ofymask = ~ymask;
     }
 
-    s16 rotA = BGRotA[0];
-    s16 rotB = BGRotB[0];
-    s16 rotC = BGRotC[0];
-    s16 rotD = BGRotD[0];
+    s16 rotA = CurUnit->BGRotA[0];
+    s16 rotB = CurUnit->BGRotB[0];
+    s16 rotC = CurUnit->BGRotC[0];
+    s16 rotD = CurUnit->BGRotD[0];
 
-    s32 rotX = BGXRefInternal[0];
-    s32 rotY = BGYRefInternal[0];
+    s32 rotX = CurUnit->BGXRefInternal[0];
+    s32 rotY = CurUnit->BGYRefInternal[0];
 
     if (bgcnt & 0x0040)
     {
         // vertical mosaic
-        rotX -= (BGMosaicY * rotB);
-        rotY -= (BGMosaicY * rotD);
+        rotX -= (CurUnit->BGMosaicY * rotB);
+        rotY -= (CurUnit->BGMosaicY * rotD);
     }
 
     u8* bgvram;
     u32 bgvrammask;
-    GetBGVRAM(bgvram, bgvrammask);
+    CurUnit->GetBGVRAM(bgvram, bgvrammask);
 
     // 256-color bitmap
 
-    if (Num) pal = (u16*)&GPU::Palette[0x400];
+    if (CurUnit->Num) pal = (u16*)&GPU::Palette[0x400];
     else     pal = (u16*)&GPU::Palette[0];
 
     u8 color;
@@ -1511,7 +1538,7 @@ void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
 
             if (!(finalX & ofxmask) && !(finalY & ofymask))
             {
-                color = bgvram[(tilemapaddr + (((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
+                color = bgvram[((((finalY & ymask) >> 8) << yshift) + ((finalX & xmask) >> 8)) & bgvrammask];
 
                 if (color)
                     drawPixel(&BGOBJLine[i], pal[color], 0x01000000<<2);
@@ -1522,8 +1549,8 @@ void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
         rotY += rotC;
     }
 
-    BGXRefInternal[0] += rotB;
-    BGYRefInternal[0] += rotD;
+    CurUnit->BGXRefInternal[0] += rotB;
+    CurUnit->BGYRefInternal[0] += rotD;
 }
 
 // OBJ line buffer:
@@ -1533,46 +1560,52 @@ void GPU2D_Soft::DrawBG_Large(u32 line) // BG is always BG2
 // * bit19: X mosaic should be applied here
 // * bit24-31: compositor flags
 
-void GPU2D_Soft::ApplySpriteMosaicX()
+void SoftRenderer::ApplySpriteMosaicX()
 {
     // apply X mosaic if needed
     // X mosaic for sprites is applied after all sprites are rendered
 
-    if (OBJMosaicSize[0] == 0) return;
+    if (CurUnit->OBJMosaicSize[0] == 0) return;
 
-    u32 lastcolor = OBJLine[0];
+    u32* objLine = OBJLine[CurUnit->Num];
+    u8* objIndex = OBJIndex[CurUnit->Num];
+
+    u8* curOBJXMosaicTable = MosaicTable[CurUnit->OBJMosaicSize[1]];
+
+    u32 lastcolor = objLine[0];
 
     for (u32 i = 1; i < 256; i++)
     {
-        if (!(OBJLine[i] & 0x100000))
+        if (!(objLine[i] & 0x100000))
         {
             // not a mosaic'd sprite pixel
             continue;
         }
 
-        if ((OBJIndex[i] != OBJIndex[i-1]) || (CurOBJXMosaicTable[i] == 0))
-            lastcolor = OBJLine[i];
+        if ((objIndex[i] != objIndex[i-1]) || (curOBJXMosaicTable[i] == 0))
+            lastcolor = objLine[i];
         else
-            OBJLine[i] = lastcolor;
+            objLine[i] = lastcolor;
     }
 }
 
-template <GPU2D_Soft::DrawPixel drawPixel>
-void GPU2D_Soft::InterleaveSprites(u32 prio)
+template <SoftRenderer::DrawPixel drawPixel>
+void SoftRenderer::InterleaveSprites(u32 prio)
 {
-    u16* pal = (u16*)&GPU::Palette[Num ? 0x600 : 0x200];
+    u32* objLine = OBJLine[CurUnit->Num];
+    u16* pal = (u16*)&GPU::Palette[CurUnit->Num ? 0x600 : 0x200];
 
-    if (DispCnt & 0x80000000)
+    if (CurUnit->DispCnt & 0x80000000)
     {
-        u16* extpal = GetOBJExtPal();
+        u16* extpal = CurUnit->GetOBJExtPal();
 
         for (u32 i = 0; i < 256; i++)
         {
-            if ((OBJLine[i] & 0x70000) != prio) continue;
+            if ((objLine[i] & 0x70000) != prio) continue;
             if (!(WindowMask[i] & 0x10))        continue;
 
             u16 color;
-            u32 pixel = OBJLine[i];
+            u32 pixel = objLine[i];
 
             if (pixel & 0x8000)
                 color = pixel & 0x7FFF;
@@ -1590,11 +1623,11 @@ void GPU2D_Soft::InterleaveSprites(u32 prio)
 
         for (u32 i = 0; i < 256; i++)
         {
-            if ((OBJLine[i] & 0x70000) != prio) continue;
+            if ((objLine[i] & 0x70000) != prio) continue;
             if (!(WindowMask[i] & 0x10))        continue;
 
             u16 color;
-            u32 pixel = OBJLine[i];
+            u32 pixel = objLine[i];
 
             if (pixel & 0x8000)
                 color = pixel & 0x7FFF;
@@ -1616,8 +1649,10 @@ void GPU2D_Soft::InterleaveSprites(u32 prio)
         DrawSprite_##type<false>(__VA_ARGS__); \
     }
 
-void GPU2D_Soft::DrawSprites(u32 line)
+void SoftRenderer::DrawSprites(u32 line, Unit* unit)
 {
+    CurUnit = unit;
+
     if (line == 0)
     {
         // reset those counters here
@@ -1626,11 +1661,11 @@ void GPU2D_Soft::DrawSprites(u32 line)
         // however, sprites are rendered one scanline in advance
         // so they need to be reset a bit earlier
 
-        OBJMosaicY = 0;
-        OBJMosaicYCount = 0;
+        CurUnit->OBJMosaicY = 0;
+        CurUnit->OBJMosaicYCount = 0;
     }
 
-    if (Num == 0)
+    if (CurUnit->Num == 0)
     {
         auto objDirty = GPU::VRAMDirty_AOBJ.DeriveState(GPU::VRAMMap_AOBJ);
         GPU::MakeVRAMFlat_AOBJCoherent(objDirty);
@@ -1641,14 +1676,14 @@ void GPU2D_Soft::DrawSprites(u32 line)
         GPU::MakeVRAMFlat_BOBJCoherent(objDirty);
     }
 
-    NumSprites = 0;
-    memset(OBJLine, 0, 256*4);
-    memset(OBJWindow, 0, 256);
-    if (!(DispCnt & 0x1000)) return;
+    NumSprites[CurUnit->Num] = 0;
+    memset(OBJLine[CurUnit->Num], 0, 256*4);
+    memset(OBJWindow[CurUnit->Num], 0, 256);
+    if (!(CurUnit->DispCnt & 0x1000)) return;
 
     memset(OBJIndex, 0xFF, 256);
 
-    u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
+    u16* oam = (u16*)&GPU::OAM[CurUnit->Num ? 0x400 : 0];
 
     const s32 spritewidth[16] =
     {
@@ -1680,7 +1715,7 @@ void GPU2D_Soft::DrawSprites(u32 line)
             if ((attrib[0] & 0x1000) && !iswin)
             {
                 // apply Y mosaic
-                sprline = OBJMosaicY;
+                sprline = CurUnit->OBJMosaicY;
             }
             else
                 sprline = line;
@@ -1712,7 +1747,7 @@ void GPU2D_Soft::DrawSprites(u32 line)
 
                 DoDrawSprite(Rotscale, sprnum, boundwidth, boundheight, width, height, xpos, ypos);
 
-                NumSprites++;
+                NumSprites[CurUnit->Num]++;
             }
             else
             {
@@ -1734,16 +1769,16 @@ void GPU2D_Soft::DrawSprites(u32 line)
 
                 DoDrawSprite(Normal, sprnum, width, height, xpos, ypos);
 
-                NumSprites++;
+                NumSprites[CurUnit->Num]++;
             }
         }
     }
 }
 
 template<bool window>
-void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
+void SoftRenderer::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u32 width, u32 height, s32 xpos, s32 ypos)
 {
-    u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
+    u16* oam = (u16*)&GPU::OAM[CurUnit->Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
     u16* rotparams = &oam[(((attrib[1] >> 9) & 0x1F) * 16) + 3];
 
@@ -1755,7 +1790,11 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
     u8* objvram;
     u32 objvrammask;
-    GetOBJVRAM(objvram, objvrammask);
+    CurUnit->GetOBJVRAM(objvram, objvrammask);
+
+    u32* objLine = OBJLine[CurUnit->Num];
+    u8* objIndex = OBJIndex[CurUnit->Num];
+    u8* objWindow = OBJWindow[CurUnit->Num];
 
     s32 centerX = boundwidth >> 1;
     s32 centerY = boundheight >> 1;
@@ -1801,9 +1840,9 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
         pixelattr |= (0xC0000000 | (alpha << 24));
 
         u32 pixelsaddr;
-        if (DispCnt & 0x40)
+        if (CurUnit->DispCnt & 0x40)
         {
-            if (DispCnt & 0x20)
+            if (CurUnit->DispCnt & 0x20)
             {
                 // 'reserved'
                 // draws nothing
@@ -1812,13 +1851,13 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
             }
             else
             {
-                pixelsaddr = tilenum << (7 + ((DispCnt >> 22) & 0x1));
+                pixelsaddr = tilenum << (7 + ((CurUnit->DispCnt >> 22) & 0x1));
                 ytilefactor = ((width >> 8) * 2);
             }
         }
         else
         {
-            if (DispCnt & 0x20)
+            if (CurUnit->DispCnt & 0x20)
             {
                 pixelsaddr = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
                 ytilefactor = (256 * 2);
@@ -1838,15 +1877,15 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
                 if (color & 0x8000)
                 {
-                    if (window) OBJWindow[xpos] = 1;
-                    else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                    if (window) objWindow[xpos] = 1;
+                    else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
                 }
                 else if (!window)
                 {
-                    if (OBJLine[xpos] == 0)
+                    if (objLine[xpos] == 0)
                     {
-                        OBJLine[xpos] = pixelattr & 0x180000;
-                        OBJIndex[xpos] = num;
+                        objLine[xpos] = pixelattr & 0x180000;
+                        objIndex[xpos] = num;
                     }
                 }
             }
@@ -1860,9 +1899,9 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
     else
     {
         u32 pixelsaddr = tilenum;
-        if (DispCnt & 0x10)
+        if (CurUnit->DispCnt & 0x10)
         {
-            pixelsaddr <<= ((DispCnt >> 20) & 0x3);
+            pixelsaddr <<= ((CurUnit->DispCnt >> 20) & 0x3);
             ytilefactor = (width >> 11) << ((attrib[0] & 0x2000) ? 1:0);
         }
         else
@@ -1882,7 +1921,7 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
             if (!window)
             {
-                if (!(DispCnt & 0x80000000))
+                if (!(CurUnit->DispCnt & 0x80000000))
                     pixelattr |= 0x1000;
                 else
                     pixelattr |= ((attrib[2] & 0xF000) >> 4);
@@ -1896,15 +1935,15 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
                     if (color)
                     {
-                        if (window) OBJWindow[xpos] = 1;
-                        else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                        if (window) objWindow[xpos] = 1;
+                        else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
                     }
                     else if (!window)
                     {
-                        if (OBJLine[xpos] == 0)
+                        if (objLine[xpos] == 0)
                         {
-                            OBJLine[xpos] = pixelattr & 0x180000;
-                            OBJIndex[xpos] = num;
+                            objLine[xpos] = pixelattr & 0x180000;
+                            objIndex[xpos] = num;
                         }
                     }
                 }
@@ -1936,15 +1975,15 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 
                     if (color)
                     {
-                        if (window) OBJWindow[xpos] = 1;
-                        else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                        if (window) objWindow[xpos] = 1;
+                        else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
                     }
                     else if (!window)
                     {
-                        if (OBJLine[xpos] == 0)
+                        if (objLine[xpos] == 0)
                         {
-                            OBJLine[xpos] = pixelattr & 0x180000;
-                            OBJIndex[xpos] = num;
+                            objLine[xpos] = pixelattr & 0x180000;
+                            objIndex[xpos] = num;
                         }
                     }
                 }
@@ -1959,9 +1998,9 @@ void GPU2D_Soft::DrawSprite_Rotscale(u32 num, u32 boundwidth, u32 boundheight, u
 }
 
 template<bool window>
-void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
+void SoftRenderer::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32 ypos)
 {
-    u16* oam = (u16*)&GPU::OAM[Num ? 0x400 : 0];
+    u16* oam = (u16*)&GPU::OAM[CurUnit->Num ? 0x400 : 0];
     u16* attrib = &oam[num * 4];
 
     u32 pixelattr = ((attrib[2] & 0x0C00) << 6) | 0xC0000;
@@ -1978,7 +2017,11 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
     u8* objvram;
     u32 objvrammask;
-    GetOBJVRAM(objvram, objvrammask);
+    CurUnit->GetOBJVRAM(objvram, objvrammask);
+
+    u32* objLine = OBJLine[CurUnit->Num];
+    u8* objIndex = OBJIndex[CurUnit->Num];
+    u8* objWindow = OBJWindow[CurUnit->Num];
 
     // yflip
     if (attrib[1] & 0x2000)
@@ -2011,9 +2054,9 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
         pixelattr |= (0xC0000000 | (alpha << 24));
 
         u32 pixelsaddr = tilenum;
-        if (DispCnt & 0x40)
+        if (CurUnit->DispCnt & 0x40)
         {
-            if (DispCnt & 0x20)
+            if (CurUnit->DispCnt & 0x20)
             {
                 // 'reserved'
                 // draws nothing
@@ -2022,13 +2065,13 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
             }
             else
             {
-                pixelsaddr <<= (7 + ((DispCnt >> 22) & 0x1));
+                pixelsaddr <<= (7 + ((CurUnit->DispCnt >> 22) & 0x1));
                 pixelsaddr += (ypos * width * 2);
             }
         }
         else
         {
-            if (DispCnt & 0x20)
+            if (CurUnit->DispCnt & 0x20)
             {
                 pixelsaddr = ((tilenum & 0x01F) << 4) + ((tilenum & 0x3E0) << 7);
                 pixelsaddr += (ypos * 256 * 2);
@@ -2062,15 +2105,15 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
             if (color & 0x8000)
             {
-                if (window) OBJWindow[xpos] = 1;
-                else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                if (window) objWindow[xpos] = 1;
+                else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
             }
             else if (!window)
             {
-                if (OBJLine[xpos] == 0)
+                if (objLine[xpos] == 0)
                 {
-                    OBJLine[xpos] = pixelattr & 0x180000;
-                    OBJIndex[xpos] = num;
+                    objLine[xpos] = pixelattr & 0x180000;
+                    objIndex[xpos] = num;
                 }
             }
 
@@ -2081,9 +2124,9 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
     else
     {
         u32 pixelsaddr = tilenum;
-        if (DispCnt & 0x10)
+        if (CurUnit->DispCnt & 0x10)
         {
-            pixelsaddr <<= ((DispCnt >> 20) & 0x3);
+            pixelsaddr <<= ((CurUnit->DispCnt >> 20) & 0x3);
             pixelsaddr += ((ypos >> 3) * (width >> 3)) << ((attrib[0] & 0x2000) ? 1:0);
         }
         else
@@ -2103,7 +2146,7 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
             if (!window)
             {
-                if (!(DispCnt & 0x80000000))
+                if (!(CurUnit->DispCnt & 0x80000000))
                     pixelattr |= 0x1000;
                 else
                     pixelattr |= ((attrib[2] & 0xF000) >> 4);
@@ -2126,21 +2169,21 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
             for (; xoff < xend;)
             {
-                color = objvram[pixelsaddr];
+                color = objvram[pixelsaddr & objvrammask];
 
                 pixelsaddr += pixelstride;
 
                 if (color)
                 {
-                    if (window) OBJWindow[xpos] = 1;
-                    else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                    if (window) objWindow[xpos] = 1;
+                    else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
                 }
                 else if (!window)
                 {
-                    if (OBJLine[xpos] == 0)
+                    if (objLine[xpos] == 0)
                     {
-                        OBJLine[xpos] = pixelattr & 0x180000;
-                        OBJIndex[xpos] = num;
+                        objLine[xpos] = pixelattr & 0x180000;
+                        objIndex[xpos] = num;
                     }
                 }
 
@@ -2195,15 +2238,15 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
 
                 if (color)
                 {
-                    if (window) OBJWindow[xpos] = 1;
-                    else      { OBJLine[xpos] = color | pixelattr; OBJIndex[xpos] = num; }
+                    if (window) objWindow[xpos] = 1;
+                    else      { objLine[xpos] = color | pixelattr; objIndex[xpos] = num; }
                 }
                 else if (!window)
                 {
-                    if (OBJLine[xpos] == 0)
+                    if (objLine[xpos] == 0)
                     {
-                        OBJLine[xpos] = pixelattr & 0x180000;
-                        OBJIndex[xpos] = num;
+                        objLine[xpos] = pixelattr & 0x180000;
+                        objIndex[xpos] = num;
                     }
                 }
 
@@ -2215,8 +2258,4 @@ void GPU2D_Soft::DrawSprite_Normal(u32 num, u32 width, u32 height, s32 xpos, s32
     }
 }
 
-void GPU2D_Soft::MosaicXSizeChanged()
-{
-    CurBGXMosaicTable = MosaicTable[BGMosaicSize[0]];
-    CurOBJXMosaicTable = MosaicTable[OBJMosaicSize[1]];
 }
