@@ -1,6 +1,6 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
 	<qresource>
-		<file alias="melon-icon">icon/melon_32x32.png</file>
+		<file alias="melon-icon">icon/melon_256x256.png</file>
 	</qresource>
 </RCC>
