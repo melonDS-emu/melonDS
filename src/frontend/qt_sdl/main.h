@@ -76,7 +76,7 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
-    
+
     void windowFullscreenToggle();
 
     void swapScreensToggle();
@@ -118,7 +118,7 @@ protected:
     int numScreens;
 
     bool touching;
-    
+
     void showCursor();
 };
 
@@ -198,7 +198,7 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
-    
+
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
@@ -243,6 +243,7 @@ private slots:
     void onWifiSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
+    void onAbout();
     void onUpdateMouseTimer();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
@@ -265,7 +266,7 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
-    
+
     void onFullscreenToggled();
 
 private:
@@ -280,7 +281,7 @@ private:
     void createScreenPanel();
 
     QString loadErrorStr(int error);
-    
+
     bool pausedManually;
 
 public:
@@ -309,6 +310,7 @@ public:
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actInterfaceSettings;
+    QAction* actAbout;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;

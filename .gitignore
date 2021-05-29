@@ -10,6 +10,7 @@ melon.rc
 cmake-build
 cmake-build-debug
 .idea
+scmrev.h
 
 *.exe
 
