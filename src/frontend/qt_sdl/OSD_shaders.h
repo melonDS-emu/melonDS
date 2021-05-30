@@ -26,7 +26,7 @@ const char* kScreenVS_OSD = kShaderHeader R"(
 uniform vec2 uScreenSize;
 
 uniform ivec2 uOSDPos;
-uniform ivec2 uOSDSize;
+uniform vec2 uOSDSize;
 uniform float uScaleFactor;
 
 in vec2 vPosition;

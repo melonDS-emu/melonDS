@@ -460,7 +460,7 @@ void DrawGL(QOpenGLExtraFunctions* f, float w, float h)
 
         f->glBindTexture(GL_TEXTURE_2D, item.GLTexture);
         f->glUniform2i(uOSDPos, kOSDMargin, y);
-        f->glUniform2i(uOSDSize, item.Width, item.Height);
+        f->glUniform2f(uOSDSize, item.Width, item.Height);
         f->glDrawArrays(GL_TRIANGLES, 0, 2*3);
 
         y += item.Height;

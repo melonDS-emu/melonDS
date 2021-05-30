@@ -534,7 +534,7 @@ void EmuThread::run()
             {
                 FrontBufferLock.lock();
                 if (FrontBufferReverseSyncs[FrontBuffer ^ 1])
-                    glWaitSync(FrontBufferReverseSyncs[FrontBuffer ^ 1], 0, GL_TIMEOUT_IGNORED);
+                    epoxy_glWaitSync(FrontBufferReverseSyncs[FrontBuffer ^ 1], 0, GL_TIMEOUT_IGNORED);
                 FrontBufferLock.unlock();
             }
 #endif
@@ -548,8 +548,8 @@ void EmuThread::run()
             if (videoRenderer == 1)
             {
                 if (FrontBufferSyncs[FrontBuffer])
-                    glDeleteSync(FrontBufferSyncs[FrontBuffer]);
-                FrontBufferSyncs[FrontBuffer] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+                    epoxy_glDeleteSync(FrontBufferSyncs[FrontBuffer]);
+                FrontBufferSyncs[FrontBuffer] = epoxy_glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
                 // this is hacky but this is the easiest way to call
                 // this function without dealling with a ton of
                 // macro mess
