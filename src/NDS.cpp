@@ -410,6 +410,10 @@ void SetupDirectBoot()
     ARM9->CP15Write(0x911, 0x00000020);
     ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
 
+    // hax
+    ARM9->CP15Write(0x502, 0x33333363);
+    ARM9->CP15Write(0x503, 0x33333363);
+
     ARM9->R[12] = bootparams[1];
     ARM9->R[13] = 0x03002F7C;
     ARM9->R[14] = bootparams[1];
@@ -1558,10 +1562,7 @@ void RunTimer(u32 tid, s32 cycles)
 {
     Timer* timer = &Timers[tid];
 
-    u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
-    //if (timer->Counter < oldcount)
-    //    HandleTimerOverflow(tid);
     while (timer->Counter >> 26)
     {
         timer->Counter -= (1 << 26);
@@ -1585,6 +1586,38 @@ void RunTimers(u32 cpu)
     if (timermask & 0x8) RunTimer((cpu<<2)+3, cycles);
 
     TimerTimestamp[cpu] += cycles;
+}
+
+const s32 TimerPrescaler[4] = {0, 6, 8, 10};
+
+u16 TimerGetCounter(u32 timer)
+{
+    RunTimers(timer>>2);
+    u32 ret = Timers[timer].Counter;
+
+    return ret >> 10;
+}
+
+void TimerStart(u32 id, u16 cnt)
+{
+    Timer* timer = &Timers[id];
+    u16 curstart = timer->Cnt & (1<<7);
+    u16 newstart = cnt & (1<<7);
+
+    RunTimers(id>>2);
+
+    timer->Cnt = cnt;
+    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
+
+    if ((!curstart) && newstart)
+    {
+        timer->Counter = timer->Reload << 10;
+    }
+
+    if ((cnt & 0x84) == 0x80)
+        TimerCheckMask[id>>2] |= 0x01 << (id&0x3);
+    else
+        TimerCheckMask[id>>2] &= ~(0x01 << (id&0x3));
 }
 
 
@@ -1671,57 +1704,6 @@ void StopDMAs(u32 cpu, u32 mode)
         cpu >>= 2;
         DSi::StopNDMAs(cpu, NDMAModes[mode]);
     }
-}
-
-
-
-
-const s32 TimerPrescaler[4] = {0, 6, 8, 10};
-
-u16 TimerGetCounter(u32 timer)
-{
-    RunTimers(timer>>2);
-    u32 ret = Timers[timer].Counter;
-
-    return ret >> 10;
-}
-
-void TimerStart(u32 id, u16 cnt)
-{
-    Timer* timer = &Timers[id];
-    u16 curstart = timer->Cnt & (1<<7);
-    u16 newstart = cnt & (1<<7);
-
-    RunTimers(id>>2);
-
-    timer->Cnt = cnt;
-    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
-
-    if ((!curstart) && newstart)
-    {
-        timer->Counter = timer->Reload << 10;
-
-        /*if ((cnt & 0x84) == 0x80)
-        {
-            u32 delay = (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03];
-            printf("timer%d IRQ: start   %d, reload=%04X cnt=%08X\n", id, delay, timer->Reload, timer->Counter);
-            CancelEvent(Event_TimerIRQ_0 + id);
-            ScheduleEvent(Event_TimerIRQ_0 + id, false, delay, HandleTimerOverflow, id);
-        }*/
-    }
-
-    if ((cnt & 0x84) == 0x80)
-    {
-        u32 tmask;
-        //if ((cnt & 0x03) == 0)
-            tmask = 0x01 << (id&0x3);
-        //else
-        //    tmask = 0x10 << (id&0x3);
-
-        TimerCheckMask[id>>2] |= tmask;
-    }
-    else
-        TimerCheckMask[id>>2] &= ~(0x11 << (id&0x3));
 }
 
 
