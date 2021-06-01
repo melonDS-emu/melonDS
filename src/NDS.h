@@ -128,6 +128,33 @@ struct Timer
     u32 CycleShift;
 };
 
+enum
+{
+    Mem9_ITCM       = 0x00000001,
+    Mem9_DTCM       = 0x00000002,
+    Mem9_BIOS       = 0x00000004,
+    Mem9_MainRAM    = 0x00000008,
+    Mem9_WRAM       = 0x00000010,
+    Mem9_IO         = 0x00000020,
+    Mem9_Pal        = 0x00000040,
+    Mem9_OAM        = 0x00000080,
+    Mem9_VRAM       = 0x00000100,
+    Mem9_GBAROM     = 0x00020000,
+    Mem9_GBARAM     = 0x00040000,
+
+    Mem7_BIOS       = 0x00000001,
+    Mem7_MainRAM    = 0x00000002,
+    Mem7_WRAM       = 0x00000004,
+    Mem7_IO         = 0x00000008,
+    Mem7_Wifi0      = 0x00000010,
+    Mem7_Wifi1      = 0x00000020,
+    Mem7_VRAM       = 0x00000040,
+    Mem7_GBAROM     = 0x00000100,
+    Mem7_GBARAM     = 0x00000200,
+
+    // TODO: add DSi regions!
+};
+
 struct MemRegion
 {
     u8* Mem;
