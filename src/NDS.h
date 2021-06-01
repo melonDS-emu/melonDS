@@ -164,8 +164,10 @@ struct MemRegion
 extern int ConsoleType;
 extern int CurCPU;
 
-extern u8 ARM9MemTimings[0x40000][4];
+extern u8 ARM9MemTimings[0x40000][8];
+extern u32 ARM9Regions[0x40000];
 extern u8 ARM7MemTimings[0x20000][4];
+extern u32 ARM7Regions[0x20000];
 
 extern u32 NumFrames;
 extern u32 NumLagFrames;
@@ -217,8 +219,8 @@ void Stop();
 
 bool DoSavestate(Savestate* file);
 
-void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
-void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
+void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
+void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
 // 0=DS  1=DSi
 void SetConsoleType(int type);
