@@ -238,10 +238,8 @@ void DeInit()
 
 void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 14;
-    addrend   >>= 14;
-
-    if (addrend == 0x3FFFF) addrend++;
+    addrstart >>= 2;
+    addrend   >>= 2;
 
     int N16, S16, N32, S32;
     N16 = nonseq;
@@ -265,17 +263,13 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         ARM9MemTimings[i][3] = S32;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend == 0x40000
-        ? 0xFFFFFFFF
-        : (addrend<<14));
+    ARM9->UpdateRegionTimings(addrstart<<2, addrend<<2);
 }
 
 void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 15;
-    addrend   >>= 15;
-
-    if (addrend == 0x1FFFF) addrend++;
+    addrstart >>= 3;
+    addrend   >>= 3;
 
     int N16, S16, N32, S32;
     N16 = nonseq;
@@ -314,25 +308,25 @@ void InitTimings()
 
     // TODO: DSi-specific timings!!
 
-    SetARM9RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1 + 3, 1); // void
+    SetARM9RegionTimings(0x00000, 0x100000, 32, 1 + 3, 1); // void
 
-    SetARM9RegionTimings(0xFFFF0000, 0xFFFFFFFF, 32, 1 + 3, 1); // BIOS
-    SetARM9RegionTimings(0x02000000, 0x03000000, 16, 8, 1);     // main RAM
-    SetARM9RegionTimings(0x03000000, 0x04000000, 32, 1 + 3, 1); // ARM9/shared WRAM
-    SetARM9RegionTimings(0x04000000, 0x05000000, 32, 1 + 3, 1); // IO
-    SetARM9RegionTimings(0x05000000, 0x06000000, 16, 1 + 3, 1); // palette
-    SetARM9RegionTimings(0x06000000, 0x07000000, 16, 1 + 3, 1); // VRAM
-    SetARM9RegionTimings(0x07000000, 0x08000000, 32, 1 + 3, 1); // OAM
+    SetARM9RegionTimings(0xFFFF0, 0x100000, 32, 1 + 3, 1); // BIOS
+    SetARM9RegionTimings(0x02000, 0x03000, 16, 8, 1);     // main RAM
+    SetARM9RegionTimings(0x03000, 0x04000, 32, 1 + 3, 1); // ARM9/shared WRAM
+    SetARM9RegionTimings(0x04000, 0x05000, 32, 1 + 3, 1); // IO
+    SetARM9RegionTimings(0x05000, 0x06000, 16, 1 + 3, 1); // palette
+    SetARM9RegionTimings(0x06000, 0x07000, 16, 1 + 3, 1); // VRAM
+    SetARM9RegionTimings(0x07000, 0x08000, 32, 1 + 3, 1); // OAM
 
     // ARM7
 
-    SetARM7RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1, 1); // void
+    SetARM7RegionTimings(0x00000, 0x100000, 32, 1, 1); // void
 
-    SetARM7RegionTimings(0x00000000, 0x00010000, 32, 1, 1); // BIOS
-    SetARM7RegionTimings(0x02000000, 0x03000000, 16, 8, 1); // main RAM
-    SetARM7RegionTimings(0x03000000, 0x04000000, 32, 1, 1); // ARM7/shared WRAM
-    SetARM7RegionTimings(0x04000000, 0x04800000, 32, 1, 1); // IO
-    SetARM7RegionTimings(0x06000000, 0x07000000, 16, 1, 1); // ARM7 VRAM
+    SetARM7RegionTimings(0x00000, 0x00010, 32, 1, 1); // BIOS
+    SetARM7RegionTimings(0x02000, 0x03000, 16, 8, 1); // main RAM
+    SetARM7RegionTimings(0x03000, 0x04000, 32, 1, 1); // ARM7/shared WRAM
+    SetARM7RegionTimings(0x04000, 0x04800, 32, 1, 1); // IO
+    SetARM7RegionTimings(0x06000, 0x07000, 16, 1, 1); // ARM7 VRAM
 
     // handled later: GBA slot, wifi
 }
@@ -1240,8 +1234,8 @@ void SetWifiWaitCnt(u16 val)
     WifiWaitCnt = val;
 
     const int ntimings[4] = {10, 8, 6, 18};
-    SetARM7RegionTimings(0x04800000, 0x04808000, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
-    SetARM7RegionTimings(0x04808000, 0x04810000, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    SetARM7RegionTimings(0x04800, 0x04808, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
+    SetARM7RegionTimings(0x04808, 0x04810, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
 }
 
 void SetGBASlotTimings()
@@ -1259,19 +1253,19 @@ void SetGBASlotTimings()
 
     if (curcpu == 0)
     {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
+        SetARM9RegionTimings(0x08000, 0x0A000, 16, romN + 3, romS);
+        SetARM9RegionTimings(0x0A000, 0x0B000, 8, ramN + 3, ramN);
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
+        SetARM7RegionTimings(0x08000, 0x0A000, 32, 1, 1);
+        SetARM7RegionTimings(0x0A000, 0x0B000, 32, 1, 1);
     }
     else
     {
-        SetARM9RegionTimings(0x08000000, 0x0A000000, 32, 1, 1);
-        SetARM9RegionTimings(0x0A000000, 0x0B000000, 32, 1, 1);
+        SetARM9RegionTimings(0x08000, 0x0A000, 32, 1, 1);
+        SetARM9RegionTimings(0x0A000, 0x0B000, 32, 1, 1);
 
-        SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
-        SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+        SetARM7RegionTimings(0x08000, 0x0A000, 16, romN, romS);
+        SetARM7RegionTimings(0x0A000, 0x0B000, 8, ramN, ramN);
     }
 
     // this open-bus implementation is a rough way of simulating the way values
