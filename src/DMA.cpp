@@ -125,7 +125,7 @@ void DMA::WriteCnt(u32 val)
         case 0x00000000: SrcAddrInc = 1; break;
         case 0x00800000: SrcAddrInc = -1; break;
         case 0x01000000: SrcAddrInc = 0; break;
-        case 0x01800000: SrcAddrInc = 1; printf("BAD DMA SRC INC MODE 3\n"); break;
+        case 0x01800000: SrcAddrInc = 1; break;
         }
 
         if (CPU == 0)
@@ -165,6 +165,9 @@ void DMA::Start()
     else
         IterCount = RemCount;
 
+    if ((Cnt & 0x01800000) == 0x01800000)
+        CurSrcAddr = SrcAddr;
+
     if ((Cnt & 0x00600000) == 0x00600000)
         CurDstAddr = DstAddr;
 
@@ -174,9 +177,9 @@ void DMA::Start()
 
     // TODO eventually: not stop if we're running code in ITCM
 
-    if (NDS::DMAsRunning(CPU))
+    /*if (NDS::DMAsRunning(CPU))
         Running = 1;
-    else
+    else*/
         Running = 2;
 
     InProgress = true;
@@ -199,6 +202,7 @@ void DMA::Run9()
 
     if (!(Cnt & (1<<26)))
     {
+        #if 1
         if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
         {
             unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][0] + NDS::ARM9MemTimings[CurDstAddr >> 14][0];
@@ -216,6 +220,7 @@ void DMA::Run9()
                 cycles += unitcycles;
             }*/
         }
+        #endif
 
         while (IterCount > 0 && !Stall)
         {
@@ -236,6 +241,7 @@ void DMA::Run9()
     }
     else
     {
+        #if 0
         if ((CurSrcAddr >> 24) == 0x02 && (CurDstAddr >> 24) == 0x02)
         {
             unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][2] + NDS::ARM9MemTimings[CurDstAddr >> 14][2];
@@ -255,6 +261,26 @@ void DMA::Run9()
                 cycles += unitcycles;
             }*/
         }
+        #endif
+        /*bool forcedNS = false;
+        if (((Cnt >> 21) & 0xF) != 0x0) forcedNS = true;
+        if (NDS::ARM9Regions[CurSrcAddr >> 14] & NDS::ARM9Regions[CurDstAddr >> 14]) forcedNS = true;
+        if (burststart || forcedNS)
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][6] + NDS::ARM9MemTimings[CurDstAddr >> 14][6];
+        else
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][7] + NDS::ARM9MemTimings[CurDstAddr >> 14][7];*/
+        bool sameregion = (NDS::ARM9Regions[CurSrcAddr >> 14] & NDS::ARM9Regions[CurDstAddr >> 14]) != 0;
+        if (burststart || sameregion || ((Cnt >> 23) & 0x3) != 0)
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][6];
+        else
+            unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][7];
+        if (burststart || sameregion || ((Cnt >> 21) & 0x3) != 0)
+            unitcycles += NDS::ARM9MemTimings[CurDstAddr >> 14][6];
+        else
+            unitcycles += NDS::ARM9MemTimings[CurDstAddr >> 14][7];
+        if (!sameregion) unitcycles--; // ???
+        // 6 not good?? (all 10, not 9)
+        // src-fixed is slower??
 
         while (IterCount > 0 && !Stall)
         {
@@ -271,6 +297,17 @@ void DMA::Run9()
             RemCount--;
 
             if (NDS::ARM9Timestamp >= NDS::ARM9Target) break;
+
+            //bool sameregion = (NDS::ARM9Regions[CurSrcAddr >> 14] & NDS::ARM9Regions[CurDstAddr >> 14]) != 0;
+            if (sameregion || ((Cnt >> 23) & 0x3) != 0)
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][6];
+            else
+                unitcycles = NDS::ARM9MemTimings[CurSrcAddr >> 14][7];
+            if (sameregion || ((Cnt >> 21) & 0x3) != 0)
+                unitcycles += NDS::ARM9MemTimings[CurDstAddr >> 14][6];
+            else
+                unitcycles += NDS::ARM9MemTimings[CurDstAddr >> 14][7];
+            if (!sameregion) unitcycles--; // ???
         }
     }
 
