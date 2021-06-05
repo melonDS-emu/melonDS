@@ -22,6 +22,7 @@
 #include <QDialog>
 #include <QTimeLine>
 #include <QPixmap>
+#include <QImage>
 
 #include "types.h"
 #include "FrontendUtil.h"
@@ -57,12 +58,15 @@ public:
 
 private slots:
     void done(int r);
-    
+     
+    void on_saveIconButton_clicked();
+
     void iconSetFrame(int frame);
 
 private:
     Ui::ROMInfoDialog* ui;
 
+    QImage iconImage;
     QTimeLine* iconTimeline;
     std::vector<QPixmap> animatedIconImages;
     std::vector<int> animatedSequence;

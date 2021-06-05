@@ -19,8 +19,13 @@
 #include "ROMInfoDialog.h"
 #include "ui_ROMInfoDialog.h"
 
+#include <QFileDialog>
+
 #include "NDS.h"
 #include "NDSCart.h"
+#include "Platform.h"
+#include "Config.h"
+#include "PlatformConfig.h"
 
 QString IntToHex(u64 num)
 {
@@ -42,7 +47,7 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     u16 palette[16];
     memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
     u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
-    QImage iconImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32);
+    iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
     delete[] iconData;
 
@@ -130,6 +135,18 @@ void ROMInfoDialog::done(int r)
     QDialog::done(r);
 
     closeDlg();
+}
+
+void ROMInfoDialog::on_saveIconButton_clicked()
+{
+    QString filename = QFileDialog::getSaveFileName(this,
+                                                    "Save Icon",
+                                                    Config::LastROMFolder,
+                                                    "PNG Images (*.png)");
+    if (filename.isEmpty())
+        return;
+
+    iconImage.save(filename, "PNG");
 }
 
 void ROMInfoDialog::iconSetFrame(int frame)
