@@ -281,6 +281,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
@@ -377,6 +378,7 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
+        if (Input::HotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
 
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
@@ -403,9 +405,10 @@ void EmuThread::run()
             }
         }
 
-        if (EmuRunning == 1)
+        if (EmuRunning == 1 || EmuRunning == 3)
         {
             EmuStatus = 1;
+            if (EmuRunning == 3) EmuRunning = 2;
 
             // update render settings if needed
             if (videoSettingsDirty)
@@ -653,6 +656,12 @@ void EmuThread::emuStop()
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
     if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
+}
+
+void EmuThread::emuFrameStep()
+{
+    if (EmuPause < 1) emit windowEmuPause();
+    EmuRunning = 3;
 }
 
 bool EmuThread::emuIsRunning()
@@ -1306,6 +1315,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
 
+        actFrameStep = menu->addAction("Frame step");
+        connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
+
         menu->addSeparator();
 
         actEnableCheats = menu->addAction("Enable cheats");
@@ -1508,6 +1520,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+    actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
 
@@ -2270,6 +2283,13 @@ void MainWindow::onStop()
     NDS::Stop();
 }
 
+void MainWindow::onFrameStep()
+{
+    if (!RunningSomething) return;
+
+    emuThread->emuFrameStep();
+}
+
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
@@ -2539,6 +2559,7 @@ void MainWindow::onEmuStart()
     actPause->setChecked(false);
     actReset->setEnabled(true);
     actStop->setEnabled(true);
+    actFrameStep->setEnabled(true);
     actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
@@ -2559,6 +2580,7 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+    actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
 }

@@ -33,6 +33,7 @@ enum
     HK_SwapScreens,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
+    HK_FrameStep,
     HK_MAX
 };
 

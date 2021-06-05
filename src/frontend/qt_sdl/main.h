@@ -55,6 +55,7 @@ public:
     void emuPause();
     void emuUnpause();
     void emuStop();
+    void emuFrameStep();
 
     bool emuIsRunning();
 
@@ -72,6 +73,7 @@ signals:
     void windowEmuStop();
     void windowEmuPause();
     void windowEmuReset();
+    void windowEmuFrameStep();
 
     void windowLimitFPSChange();
 
@@ -228,6 +230,7 @@ private slots:
     void onPause(bool checked);
     void onReset();
     void onStop();
+    void onFrameStep();
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
@@ -300,6 +303,7 @@ public:
     QAction* actPause;
     QAction* actReset;
     QAction* actStop;
+    QAction* actFrameStep;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
 
