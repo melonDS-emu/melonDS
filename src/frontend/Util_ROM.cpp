@@ -463,32 +463,28 @@ int LoadROM(const char* file, int slot)
 
 u32* ROMIcon(u8* data, u16* palette)
 {
-    // Get the 4-bit palette indexes
-    u8 indexes[1024];
-    for (int i = 0; i < 512; i++)
-    {
-        indexes[i * 2] = data[i] & 0x0F;
-        indexes[i * 2 + 1] = data[i] >> 4;
-    }
-
-    // Get each pixel's 5-bit palette color and convert it to 8-bit
-    u32 tiles[32 * 32];
-    for (int i = 0; i < 1024; i++)
-    {
-        u8 r = ((palette[indexes[i]] >> 0)  & 0x1F) * 255 / 31;
-        u8 g = ((palette[indexes[i]] >> 5)  & 0x1F) * 255 / 31;
-        u8 b = ((palette[indexes[i]] >> 10) & 0x1F) * 255 / 31;
-        u8 a = indexes[i] ? 255: 0;
-        tiles[i] = (a << 24) | (r << 16) | (g << 8) | b;
-    }
-
-    // Rearrange the pixels from 8x8 tiles to a 32x32 texture
+    int index = 0;
     u32* tex = new u32[32 * 32];
-    
     for (int i = 0; i < 4; i++)
-        for (int j = 0; j < 8; j++)
-            for (int k = 0; k < 4; k++)
-                memcpy(&tex[256 * i + 32 * j + 8 * k], &tiles[256 * i + 8 * j + 64 * k], 8 * sizeof(u32));
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            for (int k = 0; k < 8; k++)
+            {
+                for (int l = 0; l < 8; l++)
+                {
+                    u8 pal_index = index % 2 ?  data[index/2] >> 4 : data[index/2] & 0x0F;
+                    u8 r = ((palette[pal_index] >> 0)  & 0x1F) * 255 / 31;
+                    u8 g = ((palette[pal_index] >> 5)  & 0x1F) * 255 / 31;
+                    u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
+                    u8 a = pal_index ? 255: 0;
+                    u32* row = &tex[256 * i + 32 * k + 8 * j];
+                    row[l] = (a << 24) | (r << 16) | (g << 8) | b;
+                    index++;
+                }
+            }
+        }
+    }
 
     return tex;
 }
