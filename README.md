@@ -49,8 +49,6 @@ As for the rest, the interface should be pretty straightforward. If you have a q
   ```
 3. Compile:
   ```bash
-  mkdir -p build
-  cd build
   cmake ..
   make -j$(nproc --all)
   ```
