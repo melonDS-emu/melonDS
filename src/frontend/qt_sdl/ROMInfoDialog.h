@@ -26,19 +26,19 @@
 #include "types.h"
 #include "FrontendUtil.h"
 
-namespace Ui { class RomInfoDialog; }
-class RomInfoDialog;
+namespace Ui { class ROMInfoDialog; }
+class ROMInfoDialog;
 
-class RomInfoDialog : public QDialog
+class ROMInfoDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit RomInfoDialog(QWidget* parent);
-    ~RomInfoDialog();
+    explicit ROMInfoDialog(QWidget* parent);
+    ~ROMInfoDialog();
 
-    static RomInfoDialog* currentDlg;
-    static RomInfoDialog* openDlg(QWidget* parent)
+    static ROMInfoDialog* currentDlg;
+    static ROMInfoDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -46,7 +46,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new RomInfoDialog(parent);
+        currentDlg = new ROMInfoDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -61,7 +61,7 @@ private slots:
     void iconSetFrame(int frame);
 
 private:
-    Ui::RomInfoDialog* ui;
+    Ui::ROMInfoDialog* ui;
 
     QTimeLine* iconTimeline;
     std::vector<QPixmap> animatedIconImages;

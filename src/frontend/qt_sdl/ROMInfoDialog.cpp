@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include "RomInfoDialog.h"
-#include "ui_RomInfoDialog.h"
+#include "ROMInfoDialog.h"
+#include "ui_ROMInfoDialog.h"
 
 #include "NDS.h"
 #include "NDSCart.h"
@@ -32,9 +32,9 @@ QString QStringBytes(u64 num)
     return (QString::number(num) + " Bytes");
 }
 
-RomInfoDialog* RomInfoDialog::currentDlg = nullptr;
+ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
 
-RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomInfoDialog)
+ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMInfoDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -68,7 +68,7 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
         iconTimeline->setFrameRange(0, animatedSequence.size() - 1);
         iconTimeline->setLoopCount(0);
         iconTimeline->setEasingCurve(QEasingCurve::Linear);
-        connect(iconTimeline, &QTimeLine::frameChanged, this, &RomInfoDialog::iconSetFrame);
+        connect(iconTimeline, &QTimeLine::frameChanged, this, &ROMInfoDialog::iconSetFrame);
         iconTimeline->start();
     }
     else
@@ -120,19 +120,19 @@ RomInfoDialog::RomInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RomI
     
 }
 
-RomInfoDialog::~RomInfoDialog()
+ROMInfoDialog::~ROMInfoDialog()
 {
     delete ui;
 }
 
-void RomInfoDialog::done(int r)
+void ROMInfoDialog::done(int r)
 {
     QDialog::done(r);
 
     closeDlg();
 }
 
-void RomInfoDialog::iconSetFrame(int frame)
+void ROMInfoDialog::iconSetFrame(int frame)
 {
     ui->dsiIconImage->setPixmap(animatedIconImages[animatedSequence[frame]]);
 }

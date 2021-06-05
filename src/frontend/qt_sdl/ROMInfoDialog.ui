@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RomInfoDialog</class>
- <widget class="QDialog" name="RomInfoDialog">
+ <class>ROMInfoDialog</class>
+ <widget class="QDialog" name="ROMInfoDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>Rom Info - melonDS</string>
+   <string>ROM Info - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="1">
@@ -795,7 +795,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>RomInfoDialog</receiver>
+   <receiver>ROMInfoDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -811,7 +811,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>RomInfoDialog</receiver>
+   <receiver>ROMInfoDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

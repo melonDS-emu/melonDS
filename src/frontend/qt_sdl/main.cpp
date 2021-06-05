@@ -57,7 +57,7 @@
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
-#include "RomInfoDialog.h"
+#include "ROMInfoDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -1245,8 +1245,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
         menu->addSeparator();
-        actRomInfo = menu->addAction("ROM Info");
-        connect(actRomInfo, &QAction::triggered, this, &MainWindow::onRomInfo);
+        actROMInfo = menu->addAction("ROM Info");
+        connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1444,8 +1444,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actSetupCheats->setEnabled(false);
 
-
     actEnableCheats->setChecked(Config::EnableCheats != 0);
+
+    actROMInfo->setEnabled(false);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
 
@@ -2220,9 +2221,9 @@ void MainWindow::onCheatsDialogFinished(int res)
     emuThread->emuUnpause();
 }
 
-void MainWindow::onRomInfo()
+void MainWindow::onROMInfo()
 {
-    RomInfoDialog* dlg = RomInfoDialog::openDlg(this);
+    ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onOpenEmuSettings()
@@ -2477,6 +2478,8 @@ void MainWindow::onEmuStart()
     actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
+    
+    actROMInfo->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -2496,6 +2499,8 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
+    
+    actROMInfo->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
