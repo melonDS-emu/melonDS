@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>433</width>
+    <width>427</width>
     <height>434</height>
    </rect>
   </property>
@@ -167,7 +167,6 @@
 
 #dsiIconImage {
     background-color: white;
-    border: 1px solid #384138;
 }</string>
         </property>
         <property name="title">
