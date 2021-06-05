@@ -1313,6 +1313,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
         actSetupCheats = menu->addAction("Setup cheat codes");
+        actSetupCheats->setMenuRole(QAction::NoRole);
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
     }
     {
