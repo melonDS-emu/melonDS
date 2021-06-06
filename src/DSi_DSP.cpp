@@ -329,7 +329,7 @@ void PDataDMAFetch()
 }
 void PDataDMAStart()
 {
-    switch ((DSP_PSTS & (3<<2) >> 2))
+    switch ((DSP_PSTS & (3<<2)) >> 2)
     {
     case 0: PDataDMALen = 1; break;
     case 1: PDataDMALen = 8; break;
