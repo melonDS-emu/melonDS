@@ -23,8 +23,6 @@
 #include "FIFO.h"
 #include "NDS.h"
 
-constexpr u32 DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
-// NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
 namespace DSi_DSP
 {
@@ -46,6 +44,9 @@ u64 DSPTimestamp;
 
 FIFO<u16, 16> PDATAReadFifo/*, *PDATAWriteFifo*/;
 int PDataDMALen = 0;
+
+constexpr u32 DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
+// NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
 u16 GetPSTS()
 {
