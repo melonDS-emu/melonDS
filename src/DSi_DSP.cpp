@@ -237,7 +237,7 @@ bool DSPCatchUp()
 
     return true;
 }
-void DSPCatchUpU32(u32 _) { DSPCatchUp(); }
+void DSPCatchUpU32(u32 _ = 0) { DSPCatchUp(); }
 
 void PDataDMAWrite(u16 wrval)
 {
