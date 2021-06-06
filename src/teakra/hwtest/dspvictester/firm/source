@@ -1,0 +1,53 @@
+segment p 0000
+br 0x0000$0800 always // reset vector
+reti always
+data 0000
+reti always
+data 0000
+reti always // int0
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+reti always // int1
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+reti always // int2
+
+segment p 0800 // init
+mov 0x$f000 sp // set stack pointer
+mov 0x$0880 mod3 // enable interrupt
+load 0x0082u8 page // configure ICU
+mov 0x$1000 r0
+mov r0 [page:0x0014u8] // set IRQ0 vint address low
+mov 0x$8001 r0 // !mov 0x$0000 r0
+mov r0 [page:0x0012u8] // set IRQ0 vint address high & context
+mov 0x$0001 r0
+mov r0 [page:0x000cu8] // enable IRQ0 as vint
+load 0x00aau8 page
+cntx s
+load 0x00bbu8 page
+mov 0x$0001 r0
+mov 0x$8204 r1
+mov r0 [r1] // trigger IRQ0
+brr 0xffff always
+
+segment p 11000 // interrup handler
+mov st1 r0
+load 0x0000u8 page
+mov r0 [page:0x0000u8]
+mov 0x$1234 r0
+mov r0 [page:0x0001u8]
+brr 0xffff always
+
+
+segment d 0000 // signal area
+data 0000 
+data 0000 

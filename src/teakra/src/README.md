@@ -1,0 +1,29 @@
+## Content
+
+ - main library
+   - [processor related](processor_general.md)
+     - operand: defines basic operand types used in instructions
+     - matcher and decoder: decodes binary instructions into opcodes and operands
+     - disassembler: translate binary instructions to (pseudo-)assembly.
+     - parser: translate (pseudo-)assembly to binary instructions
+     - interpreter: executes instructions
+     - [register](register.md): defines all register states in the processor
+     - processor: wrapper of interpreter and register as a processor emulator
+     - test_generator: generates test cases information for the instruction set
+   - peripherals
+     - [AHBM](ahbm.md): interface for accessing external memory (DSi/3DS main memory)
+     - [APBP](apbp.md): interface for communication with CPU (ARM in DSi/3DS)
+     - [BTDMP](btdmp.md): audio input/output ports
+     - [DMA](dma.md): engine for transferring large data between DSP memory and external memory
+     - [ICU](icu.md): interrupt controller unit
+     - [timer](timer.md)
+     - [MMIO](mmio.md): I/O ports for all peripherals
+     - shared_memory: the DSP working memory
+     - [memory_interface](miu.md): the memory space exposed to the processor and related control
+ - Tools
+   - coff_reader: disassembles and parses symbols COFF files leaked by some DSi applications
+   - dsp1_reader: disassembles DSP1 files, DSP binary for 3DS applications
+   - makedsp1: assembles DSP1 files
+   - test_generator: generate random test cases for processor instructions.
+   - mod_test_generator & step2_test_generator: similar to test_generator, but dedicated for mod/step2 related instructions
+   - test_verifier: verify test cases on the interpreter against the result generated from 3DS

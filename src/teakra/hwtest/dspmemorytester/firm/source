@@ -1,0 +1,64 @@
+segment p 0000
+br 0x0000$0800 always// reset vector
+br 0x0000$3000 always
+br 0x0000$3000 always
+br 0x0000$3000 always // int0
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+br 0x0000$3000 always // int1
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+data 0000
+br 0x0000$3000 always // int2
+
+segment p 0800 // pre-write shutdown sequence
+load 0x0080u8 page
+clr b0 always
+mov b0l [page:0x00c8u8] // T_REPLY2
+br 0x0000$1000 always // jump to epilogue first to dump the initial register value
+
+segment p 1000 // Main loop
+load 0x0000u8 page
+mov [page:0x0000u8] b0l // get signal
+br 0x0000$1000 eq // loop back if no signal
+
+mov [page:0x0001u8] b0l // get command type
+
+cmpv 0x$0000 b0l
+br 0x0000$2000 eq
+
+cmpv 0x$0001 b0l
+br 0x0000$3000 eq
+
+br 0x0000$4000 always
+
+segment p 2000 // read
+mov [page:0x0002u8] r0
+mov [r0] r1
+mov r1 [page:0x0003u8]
+br 0x0000$4000 always
+
+segment p 3000 // write
+mov [page:0x0002u8] r0
+mov [page:0x0003u8] r1
+mov r1 [r0]
+br 0x0000$4000 always
+
+segment p 4000 // end
+clr b0 always
+mov b0l [page:0x0000u8] // clear signal
+br 0x0000$1000 always // loop back
+
+
+segment d 0000 // signal area
+data 0000 // Start signal
+data 0000 // Operation type
+data 0000 // Address
+data 0000 // Data

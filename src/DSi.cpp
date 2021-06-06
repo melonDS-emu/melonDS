@@ -36,6 +36,7 @@
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
+#include "DSi_DSP.h"
 #include "DSi_Camera.h"
 
 #include "tiny-AES-c/aes.hpp"
@@ -51,6 +52,7 @@ u16 SCFG_Clock9;
 u16 SCFG_Clock7;
 u32 SCFG_EXT[2];
 u32 SCFG_MC;
+u16 SCFG_RST;
 
 u8 ARM9iBIOS[0x10000];
 u8 ARM7iBIOS[0x10000];
@@ -95,6 +97,7 @@ bool Init()
 
     if (!DSi_I2C::Init()) return false;
     if (!DSi_AES::Init()) return false;
+    if (!DSi_DSP::Init()) return false;
 
     NDMAs[0] = new DSi_NDMA(0, 0);
     NDMAs[1] = new DSi_NDMA(0, 1);
@@ -121,6 +124,7 @@ void DeInit()
 
     DSi_I2C::DeInit();
     DSi_AES::DeInit();
+    DSi_DSP::DeInit();
 
     for (int i = 0; i < 8; i++) delete NDMAs[i];
 
@@ -146,6 +150,7 @@ void Reset()
 
     DSi_I2C::Reset();
     DSi_AES::Reset();
+    DSi_DSP::Reset();
 
     SDMMC->Reset();
     SDIO->Reset();
@@ -156,6 +161,8 @@ void Reset()
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010;//0x0011;
+    SCFG_RST = 0;
+    DSi_DSP::SetRstLine(false);
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
@@ -202,6 +209,13 @@ void SoftReset()
 
     DSi_AES::Reset();
 
+
+    DSi_AES::Reset();
+    // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
+    // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
+    // the DSP most likely gets reset
+    DSi_DSP::Reset();
+
     LoadNAND();
 
     SDMMC->Reset();
@@ -216,6 +230,10 @@ void SoftReset()
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
     SCFG_MC = 0x0010;//0x0011;
+    // TODO: is this actually reset?
+    SCFG_RST = 0;
+    DSi_DSP::SetRstLine(false);
+
 
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
@@ -602,6 +620,8 @@ void MapNWRAM_B(u32 num, u8 val)
 
     u8* ptr = &NWRAM_B[num << 15];
 
+    DSi_DSP::OnMBKCfg('B', num, oldval, val, ptr);
+
     if (oldval & 0x80)
     {
         if (oldval & 0x02) oldval &= 0xFE;
@@ -640,6 +660,8 @@ void MapNWRAM_C(u32 num, u8 val)
     MBK[1][mbkn] = MBK[0][mbkn];
 
     u8* ptr = &NWRAM_C[num << 15];
+
+    DSi_DSP::OnMBKCfg('C', num, oldval, val, ptr);
 
     if (oldval & 0x80)
     {
@@ -1482,6 +1504,7 @@ u8 ARM9IORead8(u32 addr)
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
+    case 0x04004006: return SCFG_RST  & 0xFF;
 
     CASE_READ8_32BIT(0x04004040, MBK[0][0])
     CASE_READ8_32BIT(0x04004044, MBK[0][1])
@@ -1500,6 +1523,9 @@ u8 ARM9IORead8(u32 addr)
         return DSi_Camera::Read8(addr);
     }
 
+    if (addr >= 0x04004300 && addr <= 0x04004400)
+        return DSi_DSP::Read16(addr);
+
     return NDS::ARM9IORead8(addr);
 }
 
@@ -1509,6 +1535,7 @@ u16 ARM9IORead16(u32 addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
     case 0x04004004: return SCFG_Clock9;
+    case 0x04004006: return SCFG_RST;
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
     CASE_READ16_32BIT(0x04004040, MBK[0][0])
@@ -1528,6 +1555,9 @@ u16 ARM9IORead16(u32 addr)
         return DSi_Camera::Read16(addr);
     }
 
+    if (addr >= 0x04004300 && addr <= 0x04004400)
+        return DSi_DSP::Read32(addr);
+
     return NDS::ARM9IORead16(addr);
 }
 
@@ -1536,6 +1566,7 @@ u32 ARM9IORead32(u32 addr)
     switch (addr)
     {
     case 0x04004000: return SCFG_BIOS & 0xFF;
+    case 0x04004004: return SCFG_Clock9 | ((u32)SCFG_RST << 16);
     case 0x04004008: return SCFG_EXT[0];
     case 0x04004010: return SCFG_MC & 0xFFFF;
 
@@ -1603,6 +1634,11 @@ void ARM9IOWrite8(u32 addr, u8 val)
         //if (val == 0x80 && NDS::ARM9->R[15] == 0xFFFF0268) NDS::ARM9->Halt(1);
         return;
 
+    case 0x04004006:
+        SCFG_RST = (SCFG_RST & 0xFF00) | val;
+        DSi_DSP::SetRstLine(val & 1);
+        return;
+
     case 0x04004040: MapNWRAM_A(0, val); return;
     case 0x04004041: MapNWRAM_A(1, val); return;
     case 0x04004042: MapNWRAM_A(2, val); return;
@@ -1631,6 +1667,12 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return DSi_Camera::Write8(addr, val);
     }
 
+    if (addr >= 0x04004300 && addr <= 0x04004400)
+    {
+        DSi_DSP::Write8(addr, val);
+        return;
+    }
+
     return NDS::ARM9IOWrite8(addr, val);
 }
 
@@ -1640,6 +1682,11 @@ void ARM9IOWrite16(u32 addr, u16 val)
     {
     case 0x04004004:
         Set_SCFG_Clock9(val);
+        return;
+
+    case 0x04004006:
+        SCFG_RST = val;
+        DSi_DSP::SetRstLine(val & 1);
         return;
 
     case 0x04004040:
@@ -1690,6 +1737,12 @@ void ARM9IOWrite16(u32 addr, u16 val)
         return DSi_Camera::Write16(addr, val);
     }
 
+    if (addr >= 0x04004300 && addr <= 0x04004400)
+    {
+        DSi_DSP::Write16(addr, val);
+        return;
+    }
+
     return NDS::ARM9IOWrite16(addr, val);
 }
 
@@ -1697,6 +1750,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
 {
     switch (addr)
     {
+    case 0x04004004:
+        Set_SCFG_Clock9(val & 0xFFFF);
+        SCFG_RST = val >> 16;
+        DSi_DSP::SetRstLine((val >> 16) & 1);
+        break;
+
     case 0x04004008:
         {
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
@@ -2103,6 +2162,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
         if (addr == 0x04004B0C) { SDIO->WriteFIFO32(val); return; }
         SDIO->Write(addr, val & 0xFFFF);
         SDIO->Write(addr+2, val >> 16);
+        return;
+    }
+
+
+    if (addr >= 0x04004300 && addr <= 0x04004400)
+    {
+        DSi_DSP::Write32(addr, val);
         return;
     }
 
