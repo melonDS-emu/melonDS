@@ -1,0 +1,32 @@
+# shallow clone
+clone_depth: 5
+
+environment:
+  matrix:
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      cmake_generator: "Visual Studio 15 2017 Win64"
+
+platform:
+  - x64
+
+configuration:
+  - Release
+
+install:
+  - git submodule update --init --recursive
+
+before_build:
+  - mkdir build
+  - cd build
+  - cmake .. -G "%cmake_generator%" -DTEAKRA_TEST_ASSETS_DIR="%USERPROFILE%\assets" -DTEAKRA_RUN_TESTS=ON
+  - cd ..
+
+cache:
+  - '%USERPROFILE%\assets'
+
+build:
+  project: build/teakra.sln
+  parallel: true
+
+test_script:
+- cd build && ctest -VV -C Release && cd ..
