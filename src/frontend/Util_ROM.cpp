@@ -461,10 +461,9 @@ int LoadROM(const char* file, int slot)
     }
 }
 
-u32* ROMIcon(u8* data, u16* palette)
+void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)
 {
     int index = 0;
-    u32* tex = new u32[32 * 32];
     for (int i = 0; i < 4; i++)
     {
         for (int j = 0; j < 4; j++)
@@ -478,15 +477,13 @@ u32* ROMIcon(u8* data, u16* palette)
                     u8 g = ((palette[pal_index] >> 5)  & 0x1F) * 255 / 31;
                     u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
                     u8 a = pal_index ? 255: 0;
-                    u32* row = &tex[256 * i + 32 * k + 8 * j];
+                    u32* row = &iconRef[256 * i + 32 * k + 8 * j];
                     row[l] = (a << 24) | (r << 16) | (g << 8) | b;
                     index++;
                 }
             }
         }
     }
-
-    return tex;
 }
 
 #define SEQ_FLIPV(i) ((i & 0b1000000000000000) >> 15)
@@ -495,14 +492,14 @@ u32* ROMIcon(u8* data, u16* palette)
 #define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
 #define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
 
-void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32* (&animatedTexRef)[64], std::vector<int> &animatedSequenceRef)
+void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
 {
-    u32* frame;
     for (int i = 0; i < 64; i++)
     {
         if (!sequence[i])
             break;
-        frame = ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])]);
+        u32* frame = &animatedTexRef[32 * 32 * i];
+        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], &animatedTexRef[32 * 32 * i]);
 
         if (SEQ_FLIPH(sequence[i]))
         {
@@ -528,8 +525,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
                 }
             }
         }
-        
-        animatedTexRef[i] = frame;
+
         for (int j = 0; j < SEQ_DUR(sequence[i]); j++)
             animatedSequenceRef.push_back(i);
     }

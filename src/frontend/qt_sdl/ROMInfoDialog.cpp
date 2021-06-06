@@ -46,10 +46,10 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
 
     u16 palette[16];
     memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
-    u32* iconData = Frontend::ROMIcon(NDSCart::Banner.Icon, palette);
+    u32 iconData[32 * 32];
+    Frontend::ROMIcon(NDSCart::Banner.Icon, palette, iconData);
     iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
-    delete[] iconData;
 
     if (NDSCart::Banner.Version == 0x103)
     {
@@ -58,15 +58,14 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         memcpy(animatedPalette, NDSCart::Banner.DSiPalette, sizeof(NDSCart::Banner.DSiPalette));
         memcpy(sequence, NDSCart::Banner.DSiSequence, sizeof(NDSCart::Banner.DSiSequence));
         
-        u32* animatedIconData[64] = {0};
+        u32 animatedIconData[32 * 32 * 64] = {0};
         Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, animatedPalette, sequence, animatedIconData, animatedSequence);
 
-        for (u32* frame: animatedIconData)
+        for (int i = 0; i < 64; i++)
         {
-            if (frame == 0)
+            if (animatedIconData[32 * 32 * i] == 0)
                 break;
-            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(frame), 32, 32, QImage::Format_ARGB32).copy()));
-            delete[] frame;
+            animatedIconImages.push_back(QPixmap::fromImage(QImage(reinterpret_cast<unsigned char*>(&animatedIconData[32 * 32 * i]), 32, 32, QImage::Format_ARGB32).copy()));
         }
 
         iconTimeline = new QTimeLine(animatedSequence.size() / 60 * 1000, this);
