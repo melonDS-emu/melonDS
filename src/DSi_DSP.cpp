@@ -23,7 +23,7 @@
 #include "FIFO.h"
 #include "NDS.h"
 
-static constexpr u32 DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
+constexpr u32 DataMemoryOffset = 0x20000; // from Teakra memory_interface.h
 // NOTE: ^ IS IN DSP WORDS, NOT IN BYTES!
 
 namespace DSi_DSP
@@ -47,7 +47,7 @@ u64 DSPTimestamp;
 FIFO<u16, 16> PDATAReadFifo/*, *PDATAWriteFifo*/;
 int PDataDMALen = 0;
 
-static u16 GetPSTS()
+u16 GetPSTS()
 {
     u16 r = DSP_PSTS & (1<<9); // this is the only sticky bit
     //r &= ~((1<<2)|(1<<7)); // we support instant resets and wrfifo xfers
@@ -66,26 +66,26 @@ static u16 GetPSTS()
     return r;
 }
 
-static void IrqRep0()
+void IrqRep0()
 {
     if (DSP_PCFG & (1<< 9)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 }
-static void IrqRep1()
+void IrqRep1()
 {
     if (DSP_PCFG & (1<<10)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 }
-static void IrqRep2()
+void IrqRep2()
 {
     if (DSP_PCFG & (1<<11)) NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 }
-static void IrqSem()
+void IrqSem()
 {
     DSP_PSTS |= 1<<9;
     // apparently these are always fired?
     NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 }
 
-static void AudioCb(std::array<s16, 2> frame)
+void AudioCb(std::array<s16, 2> frame)
 {
     // TODO
 }
@@ -203,12 +203,12 @@ void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking)
     memcpy(dst, src, 1<<15); // 1 full slot
 }
 
-inline static bool IsDSPCoreEnabled()
+inline bool IsDSPCoreEnabled()
 {
     return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (DSP_PCFG & (1<<0));
 }
 
-static bool DSPCatchUp()
+bool DSPCatchUp()
 {
     //asm volatile("int3");
     if (!IsDSPCoreEnabled())
@@ -236,9 +236,9 @@ static bool DSPCatchUp()
 
     return true;
 }
-static void DSPCatchUpU32(u32 _) { DSPCatchUp(); }
+void DSPCatchUpU32(u32 _) { DSPCatchUp(); }
 
-static void PDataDMAWrite(u16 wrval)
+void PDataDMAWrite(u16 wrval)
 {
     u32 addr = DSP_PADR;
 
@@ -280,7 +280,7 @@ static void PDataDMAWrite(u16 wrval)
     NDS::SetIRQ(0, NDS::IRQ_DSi_DSP); // wrfifo empty
 }
 // TODO: FIFO interrupts! (rd full, nonempty)
-static u16 PDataDMARead()
+u16 PDataDMARead()
 {
     u16 r = 0;
     u32 addr = DSP_PADR;
@@ -318,7 +318,7 @@ static u16 PDataDMARead()
 
     return r;
 }
-static void PDataDMAFetch()
+void PDataDMAFetch()
 {
     if (!PDataDMALen) return;
 
@@ -326,9 +326,9 @@ static void PDataDMAFetch()
 
     if (PDataDMALen > 0) --PDataDMALen;
 }
-static void PDataDMAStart()
+void PDataDMAStart()
 {
-    switch (DSP_PSTS & (3<<2))
+    switch ((DSP_PSTS & (3<<2) >> 2))
     {
     case 0: PDataDMALen = 1; break;
     case 1: PDataDMALen = 8; break;
@@ -345,13 +345,13 @@ static void PDataDMAStart()
     NDS::SetIRQ(0, NDS::IRQ_DSi_DSP);
 
 }
-static void PDataDMACancel()
+void PDataDMACancel()
 {
     PDataDMALen = 0;
     PDATAReadFifo.Clear();
 
 }
-static u16 PDataDMAReadMMIO()
+u16 PDataDMAReadMMIO()
 {
     u16 ret;
 
