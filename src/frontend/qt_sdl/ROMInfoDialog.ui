@@ -50,6 +50,9 @@
     background-color: #fbfbfb;
 }
 
+#iconTitle {
+    color: black;
+}
 </string>
         </property>
         <property name="title">
