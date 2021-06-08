@@ -20,263 +20,6 @@
    <string>ROM Info - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="2">
-    <widget class="QFrame" name="frame_2">
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_9">
-      <item row="0" column="1">
-       <widget class="QGroupBox" name="iconBox">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">#iconBox {
-    border: 1px solid black;
-    background-color:  qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
-    stop: 0 white,  
-    stop: 1 lightgrey);
-}
-
-#titleBox {
-    border: 0.5px solid grey;
-    background-color: #fbfbfb;
-}
-
-#iconTitle {
-    color: black;
-}
-</string>
-        </property>
-        <property name="title">
-         <string/>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
-        </property>
-        <property name="checkable">
-         <bool>false</bool>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_2">
-         <property name="topMargin">
-          <number>2</number>
-         </property>
-         <property name="bottomMargin">
-          <number>2</number>
-         </property>
-         <item row="0" column="1">
-          <widget class="QLabel" name="iconImage">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>32</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>32</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>[icon]</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="2">
-          <widget class="QGroupBox" name="titleBox">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="title">
-            <string/>
-           </property>
-           <layout class="QGridLayout" name="gridLayout_4">
-            <property name="leftMargin">
-             <number>1</number>
-            </property>
-            <property name="topMargin">
-             <number>1</number>
-            </property>
-            <property name="rightMargin">
-             <number>1</number>
-            </property>
-            <property name="bottomMargin">
-             <number>1</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QLabel" name="iconTitle">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="font">
-               <font>
-                <family>Courier New</family>
-                <pointsize>8</pointsize>
-                <weight>50</weight>
-                <italic>false</italic>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>[title]</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignCenter</set>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="0" column="3">
-       <widget class="QGroupBox" name="dsiIconBox">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">#dsiIconBox {
-    border-radius: 4px;
-    background-color: #515151;
-}
-
-#dsiIconImage {
-    background-color: white;
-}</string>
-        </property>
-        <property name="title">
-         <string/>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
-        </property>
-        <property name="checkable">
-         <bool>false</bool>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_10">
-         <property name="leftMargin">
-          <number>8</number>
-         </property>
-         <property name="topMargin">
-          <number>6</number>
-         </property>
-         <property name="rightMargin">
-          <number>8</number>
-         </property>
-         <property name="bottomMargin">
-          <number>6</number>
-         </property>
-         <item row="0" column="0">
-          <widget class="QLabel" name="dsiIconImage">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>32</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>32</width>
-             <height>32</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>[dsi icon]</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item row="0" column="0">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>55</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="0" column="4">
-       <spacer name="horizontalSpacer_3">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="0" column="2">
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="1" column="1">
-       <widget class="QPushButton" name="saveIconButton">
-        <property name="text">
-         <string>Save Icon</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
    <item row="2" column="0">
     <widget class="QGroupBox" name="titles">
      <property name="sizePolicy">
@@ -795,6 +538,257 @@
      <property name="standardButtons">
       <set>QDialogButtonBox::Ok</set>
      </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox_2">
+     <layout class="QGridLayout" name="gridLayout_9">
+      <item row="0" column="1">
+       <widget class="QGroupBox" name="iconBox">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">#iconBox {
+    border: 1px solid black;
+    background-color:  qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, 
+    stop: 0 white,  
+    stop: 1 lightgrey);
+}
+
+#titleBox {
+    border: 0.5px solid grey;
+    background-color: #fbfbfb;
+}
+
+#iconTitle {
+    color: black;
+}
+</string>
+        </property>
+        <property name="title">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+        <property name="checkable">
+         <bool>false</bool>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_2">
+         <property name="topMargin">
+          <number>2</number>
+         </property>
+         <property name="bottomMargin">
+          <number>2</number>
+         </property>
+         <item row="0" column="1">
+          <widget class="QLabel" name="iconImage">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>32</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>32</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>[icon]</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QGroupBox" name="titleBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="title">
+            <string/>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_4">
+            <property name="leftMargin">
+             <number>1</number>
+            </property>
+            <property name="topMargin">
+             <number>1</number>
+            </property>
+            <property name="rightMargin">
+             <number>1</number>
+            </property>
+            <property name="bottomMargin">
+             <number>1</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="iconTitle">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="font">
+               <font>
+                <family>Courier New</family>
+                <pointsize>8</pointsize>
+                <weight>50</weight>
+                <italic>false</italic>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>[title]</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QGroupBox" name="dsiIconBox">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">#dsiIconBox {
+    border-radius: 4px;
+    background-color: #515151;
+}
+
+#dsiIconImage {
+    background-color: white;
+}</string>
+        </property>
+        <property name="title">
+         <string/>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+        <property name="checkable">
+         <bool>false</bool>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_10">
+         <property name="leftMargin">
+          <number>8</number>
+         </property>
+         <property name="topMargin">
+          <number>6</number>
+         </property>
+         <property name="rightMargin">
+          <number>8</number>
+         </property>
+         <property name="bottomMargin">
+          <number>6</number>
+         </property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="dsiIconImage">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>32</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>32</width>
+             <height>32</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>[dsi icon]</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>55</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="4">
+       <spacer name="horizontalSpacer_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="2">
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="1" column="1">
+       <widget class="QPushButton" name="saveIconButton">
+        <property name="text">
+         <string>Save Icon</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>
