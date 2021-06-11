@@ -51,6 +51,7 @@ extern int JoystickID;
 extern int WindowWidth;
 extern int WindowHeight;
 extern int WindowMaximized;
+extern int WindowFullScreen;
 
 extern int ScreenRotation;
 extern int ScreenGap;
