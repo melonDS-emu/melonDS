@@ -35,6 +35,7 @@ int JoystickID;
 int WindowWidth;
 int WindowHeight;
 int WindowMaximized;
+int WindowFullScreen;
 
 int ScreenRotation;
 int ScreenGap;
@@ -143,6 +144,7 @@ ConfigEntry PlatformConfigFile[] =
     {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
     {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
     {"WindowMax",    0, &WindowMaximized, 0, NULL, 0},
+    {"WindowFullScreen",   0, &WindowFullScreen, 0, NULL, 0},
 
     {"ScreenRotation", 0, &ScreenRotation, 0, NULL, 0},
     {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},

@@ -1505,7 +1505,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     }
     setMenuBar(menubar);
 
+    // Even if full screen was saved, call resize to save default width and height.
+    // That way when user inits in fullscreen and un-fullscreens the window, they'll get
+    // those dimensions back.
     resize(Config::WindowWidth, Config::WindowHeight);
+    if (Config::WindowFullScreen)
+    {
+        showFullScreen();
+        menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
+    }
 
     show();
     createScreenPanel();
@@ -1619,13 +1627,17 @@ void MainWindow::resizeEvent(QResizeEvent* event)
     int w = event->size().width();
     int h = event->size().height();
 
-    if (mainWindow != nullptr && !mainWindow->isFullScreen())
+    if (mainWindow == nullptr) return;
+
+    // FIXME: macOS: if full screen is launched via the native full screen
+    // window button, QT's isFullScreen returns false.
+    Config::WindowFullScreen = mainWindow->isFullScreen();
+
+    if (!Config::WindowFullScreen)
     {
         Config::WindowWidth = w;
         Config::WindowHeight = h;
     }
-
-    // TODO: detect when the window gets maximized!
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
