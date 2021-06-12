@@ -62,6 +62,7 @@
 #include "version.h"
 
 #include "FrontendUtil.h"
+#include "ROMManager.h"
 #include "OSD.h"
 
 #include "NDS.h"
@@ -80,6 +81,8 @@
 #include "ArchiveUtil.h"
 
 // TODO: uniform variable spelling
+
+using ROMManager = Frontend::ROMManager;
 
 bool RunningSomething;
 
@@ -1688,12 +1691,12 @@ void MainWindow::dropEvent(QDropEvent* event)
     if (ext == "gba")
     {
         slot = 1;
-        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
+        res = ROMManager::Instance().LoadROM(_filename, Frontend::ROMSlot_GBA);
     }
     else if(ext == "nds" || ext == "srl" || ext == "dsi")
     {
         slot = 0;
-        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+        res = ROMManager::Instance().LoadROM(_filename, Frontend::ROMSlot_NDS);
     }
     else
     {
@@ -1709,9 +1712,9 @@ void MainWindow::dropEvent(QDropEvent* event)
             QString sramFileName = QFileInfo(_filename).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
 
             if(slot == 0)
-                strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
+                strncpy(ROMManager::Instance().NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
 
-            res = Frontend::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(),
+            res = ROMManager::Instance().LoadROM((const u8*)romBuffer.constData(), romBuffer.size(),
                                     _filename, romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
                                     slot);
         }
@@ -1807,16 +1810,16 @@ void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString r
     if (romFileName.endsWith("gba"))
     {
         slot = 1;
-        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
+        res = ROMManager::Instance().LoadROM((const u8*)romData->constData(), romData->size(),
                                 archiveFileName.toStdString().c_str(),
                                 romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
                                 Frontend::ROMSlot_GBA);
     }
     else
     {
-        strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
+        strncpy(ROMManager::Instance().NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
         slot = 0;
-        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
+        res = ROMManager::Instance().LoadROM((const u8*)romData->constData(), romData->size(),
                                 archiveFileName.toStdString().c_str(),
                                 romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
                                 Frontend::ROMSlot_NDS);
@@ -1865,12 +1868,12 @@ void MainWindow::loadROM(QString filename)
     if (!strcasecmp(ext, "gba"))
     {
         slot = 1;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+        res = ROMManager::Instance().LoadROM(file, Frontend::ROMSlot_GBA);
     }
     else
     {
         slot = 0;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+        res = ROMManager::Instance().LoadROM(file, Frontend::ROMSlot_NDS);
     }
 
     if (res != Frontend::Load_OK)
@@ -2071,7 +2074,7 @@ void MainWindow::onBootFirmware()
 
     emuThread->emuPause();
 
-    int res = Frontend::LoadBIOS();
+    int res = ROMManager::Instance().LoadBIOS();
     if (res != Frontend::Load_OK)
     {
         QMessageBox::critical(this,
@@ -2094,7 +2097,7 @@ void MainWindow::onSaveState()
     char filename[1024];
     if (slot > 0)
     {
-        Frontend::GetSavestateName(slot, filename, 1024);
+        ROMManager::Instance().GetSavestateName(slot, filename, 1024);
     }
     else
     {
@@ -2112,7 +2115,7 @@ void MainWindow::onSaveState()
         strncpy(filename, qfilename.toStdString().c_str(), 1023); filename[1023] = '\0';
     }
 
-    if (Frontend::SaveState(filename))
+    if (ROMManager::Instance().SaveState(filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
@@ -2138,7 +2141,7 @@ void MainWindow::onLoadState()
     char filename[1024];
     if (slot > 0)
     {
-        Frontend::GetSavestateName(slot, filename, 1024);
+        ROMManager::Instance().GetSavestateName(slot, filename, 1024);
     }
     else
     {
@@ -2167,7 +2170,7 @@ void MainWindow::onLoadState()
         return;
     }
 
-    if (Frontend::LoadState(filename))
+    if (ROMManager::Instance().LoadState(filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
@@ -2185,7 +2188,7 @@ void MainWindow::onLoadState()
 void MainWindow::onUndoStateLoad()
 {
     emuThread->emuPause();
-    Frontend::UndoStateLoad();
+    ROMManager::Instance().UndoStateLoad();
     emuThread->emuUnpause();
 
     OSD::AddMessage(0, "State load undone");
@@ -2208,14 +2211,14 @@ void MainWindow::onImportSavefile()
                         "The emulation will be reset and the current savefile overwritten.",
                         QMessageBox::Ok, QMessageBox::Cancel) == QMessageBox::Ok)
         {
-            int res = Frontend::Reset();
+            int res = ROMManager::Instance().Reset();
             if (res != Frontend::Load_OK)
             {
                 QMessageBox::critical(this, "melonDS", "Reset failed\n" + loadErrorStr(res));
             }
             else
             {
-                int diff = Frontend::ImportSRAM(path.toStdString().c_str());
+                int diff = ROMManager::Instance().ImportSRAM(path.toStdString().c_str());
                 if (diff > 0)
                     OSD::AddMessage(0, "Trimmed savefile");
                 else if (diff < 0)
@@ -2261,7 +2264,7 @@ void MainWindow::onReset()
 
     actUndoStateLoad->setEnabled(false);
 
-    int res = Frontend::Reset();
+    int res = ROMManager::Instance().Reset();
     if (res != Frontend::Load_OK)
     {
         QMessageBox::critical(this,
@@ -2294,7 +2297,7 @@ void MainWindow::onFrameStep()
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
-    Frontend::EnableCheats(Config::EnableCheats != 0);
+    ROMManager::Instance().EnableCheats(Config::EnableCheats != 0);
 }
 
 void MainWindow::onSetupCheats()
@@ -2549,7 +2552,7 @@ void MainWindow::onEmuStart()
         for (int i = 1; i < 9; i++)
         {
             actSaveState[i]->setEnabled(true);
-            actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+            actLoadState[i]->setEnabled(ROMManager::Instance().SavestateExists(i));
         }
         actSaveState[0]->setEnabled(true);
         actLoadState[0]->setEnabled(true);
@@ -2617,8 +2620,8 @@ void emuStop()
 {
     RunningSomething = false;
 
-    Frontend::UnloadROM(Frontend::ROMSlot_NDS);
-    Frontend::UnloadROM(Frontend::ROMSlot_GBA);
+    ROMManager::Instance().UnloadROM(Frontend::ROMSlot_NDS);
+    ROMManager::Instance().UnloadROM(Frontend::ROMSlot_GBA);
 
     emit emuThread->windowEmuStop();
 
@@ -2729,8 +2732,7 @@ int main(int argc, char** argv)
     micExtBufferWritePos = 0;
     micWavBuffer = nullptr;
 
-    Frontend::Init_ROM();
-    Frontend::EnableCheats(Config::EnableCheats != 0);
+    ROMManager::Instance().EnableCheats(Config::EnableCheats != 0);
 
     Frontend::Init_Audio(audioFreq);
 
@@ -2762,7 +2764,7 @@ int main(int argc, char** argv)
 
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
-            int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+            int res = ROMManager::Instance().LoadROM(file, Frontend::ROMSlot_NDS);
 
             if (res == Frontend::Load_OK)
             {
@@ -2773,7 +2775,7 @@ int main(int argc, char** argv)
 
                     if (!strcasecmp(ext, "gba"))
                     {
-                        Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+                        ROMManager::Instance().LoadROM(file, Frontend::ROMSlot_GBA);
                     }
                 }
 
@@ -2789,8 +2791,6 @@ int main(int argc, char** argv)
     delete emuThread;
 
     Input::CloseJoystick();
-
-    Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
     if (micDevice)   SDL_CloseAudioDevice(micDevice);

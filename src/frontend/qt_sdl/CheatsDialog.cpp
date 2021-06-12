@@ -29,6 +29,8 @@
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
 
+#include "ROMManager.h"
+
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
@@ -42,7 +44,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    codeFile = Frontend::CheatFile;
+    codeFile = Frontend::ROMManager::Instance().CheatFilePtr();
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvCodeList->setModel(model);
