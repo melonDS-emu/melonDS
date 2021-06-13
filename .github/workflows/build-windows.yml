@@ -43,5 +43,5 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: melonDS
+        name: melonDS-windows-x86_64
         path: ${{runner.workspace}}\build\melonDS.exe

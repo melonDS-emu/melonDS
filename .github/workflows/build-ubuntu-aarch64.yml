@@ -51,5 +51,5 @@ jobs:
         && cp melonDS dist
     - uses: actions/upload-artifact@v1
       with:
-        name: melonDS
+        name: melonDS-ubuntu-aarch64
         path: ${{runner.workspace}}/build/dist
