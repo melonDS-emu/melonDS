@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <utility>
+
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
@@ -499,7 +501,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
         if (!sequence[i])
             break;
         u32* frame = &animatedTexRef[32 * 32 * i];
-        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], &animatedTexRef[32 * 32 * i]);
+        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], frame);
 
         if (SEQ_FLIPH(sequence[i]))
         {
@@ -507,9 +509,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
             {
                 for (int y = 0; y < 32/2; y++) 
                 {
-                    int temp = frame[x * 32 + y];
-                    frame[x * 32 + y] = frame[x * 32 + (32 - 1 - y)];
-                    frame[x * 32 + (32 - 1 - y)] = temp;
+                    std::swap(frame[x * 32 + y], frame[x * 32 + (32 - 1 - y)]);
                 }
             }
         }
@@ -519,9 +519,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
             {
                 for (int y = 0; y < 32; y++) 
                 {
-                    int temp = frame[x * 32 + y];
-                    frame[x * 32 + y] = frame[(32 - 1 - x) * 32 + y];
-                    frame[(32 - 1 - x) * 32 + y] = temp;
+                    std::swap(frame[x * 32 + y], frame[(32 - 1 - x) * 32 + y]);
                 }
             }
         }
