@@ -22,7 +22,7 @@
 #include "types.h"
 
 // Consult GBATEK for info on what these are
-struct __attribute__((__packed__)) NDSHeader
+struct NDSHeader
 {
     char GameTitle[12];
     char GameCode[4];
@@ -30,7 +30,7 @@ struct __attribute__((__packed__)) NDSHeader
     u8 UnitCode;
     u8 EncryptionSeedSelect;
     u8 CardSize;
-    u64 Reserved1;
+    u8 Reserved1[8];
     u8 NDSRegion;
     u8 ROMVersion;
     u8 Autostart;
@@ -89,14 +89,22 @@ struct __attribute__((__packed__)) NDSHeader
 
 static_assert(sizeof(NDSHeader) == 512, "NDSHeader is not 512 bytes!");
 
-struct __attribute__ ((__packed__)) NDSBanner
+struct NDSBanner
 {
     u16 Version;
     u16 CRC16[4];
     u8 Reserved1[22];
     u8 Icon[512];
     u16 Palette[16];
-    char16_t Titles[8][128];
+
+    char16_t JapaneseTitle[128];
+    char16_t EnglishTitle[128];
+    char16_t FrenchTitle[128];
+    char16_t GermanTitle[128];
+    char16_t ItalianTitle[128];
+    char16_t SpanishTitle[128];
+    char16_t ChineseTitle[128];
+    char16_t KoreanTitle[128];
 
     u8 Reserved2[2048];
 
@@ -104,5 +112,8 @@ struct __attribute__ ((__packed__)) NDSBanner
     u16 DSiPalette[8][16];
     u16 DSiSequence[64];
 };
+
+static_assert(sizeof(NDSBanner) == 9152, "NDSBanner is not 9152 bytes!");
+
 
 #endif //NDS_HEADER_H

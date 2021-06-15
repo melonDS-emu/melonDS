@@ -44,22 +44,16 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    u16 palette[16];
-    memcpy(palette, NDSCart::Banner.Palette, sizeof(NDSCart::Banner.Palette)); // Access unaligned palette variable safely
+
     u32 iconData[32 * 32];
-    Frontend::ROMIcon(NDSCart::Banner.Icon, palette, iconData);
+    Frontend::ROMIcon(NDSCart::Banner.Icon, NDSCart::Banner.Palette, iconData);
     iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
     if (NDSCart::Banner.Version == 0x103)
-    {
-        u16 animatedPalette[8][16];
-        u16 sequence[64];
-        memcpy(animatedPalette, NDSCart::Banner.DSiPalette, sizeof(NDSCart::Banner.DSiPalette));
-        memcpy(sequence, NDSCart::Banner.DSiSequence, sizeof(NDSCart::Banner.DSiSequence));
-        
+    {        
         u32 animatedIconData[32 * 32 * 64] = {0};
-        Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, animatedPalette, sequence, animatedIconData, animatedSequence);
+        Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
 
         for (int i = 0; i < 64; i++)
         {
@@ -80,25 +74,22 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->dsiIconImage->setPixmap(QPixmap::fromImage(iconImage));
     }
 
-    char16_t titles[8][128];
-    memcpy(&titles, NDSCart::Banner.Titles, sizeof(NDSCart::Banner.Titles));
+    ui->iconTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
 
-    ui->iconTitle->setText(QString::fromUtf16(titles[1]));
-
-    ui->japaneseTitle->setText(QString::fromUtf16(titles[0]));
-    ui->englishTitle->setText(QString::fromUtf16(titles[1]));
-    ui->frenchTitle->setText(QString::fromUtf16(titles[2]));
-    ui->germanTitle->setText(QString::fromUtf16(titles[3]));
-    ui->italianTitle->setText(QString::fromUtf16(titles[4]));
-    ui->spanishTitle->setText(QString::fromUtf16(titles[5]));
+    ui->japaneseTitle->setText(QString::fromUtf16(NDSCart::Banner.JapaneseTitle));
+    ui->englishTitle->setText(QString::fromUtf16(NDSCart::Banner.EnglishTitle));
+    ui->frenchTitle->setText(QString::fromUtf16(NDSCart::Banner.FrenchTitle));
+    ui->germanTitle->setText(QString::fromUtf16(NDSCart::Banner.GermanTitle));
+    ui->italianTitle->setText(QString::fromUtf16(NDSCart::Banner.ItalianTitle));
+    ui->spanishTitle->setText(QString::fromUtf16(NDSCart::Banner.SpanishTitle));
 
     if (NDSCart::Banner.Version > 1)
-        ui->chineseTitle->setText(QString::fromUtf16(titles[6]));
+        ui->chineseTitle->setText(QString::fromUtf16(NDSCart::Banner.ChineseTitle));
     else
         ui->chineseTitle->setText("None");
     
     if (NDSCart::Banner.Version > 2)
-        ui->koreanTitle->setText(QString::fromUtf16(titles[7]));
+        ui->koreanTitle->setText(QString::fromUtf16(NDSCart::Banner.KoreanTitle));
     else
         ui->koreanTitle->setText("None");
 
