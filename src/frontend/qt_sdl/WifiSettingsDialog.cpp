@@ -51,7 +51,9 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+#ifdef HAVE_LIBSLIRP
     LAN_Socket::Init();
+#endif
     haspcap = LAN_PCap::Init(false);
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
@@ -71,8 +73,14 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     }
     ui->cbxDirectAdapter->setCurrentIndex(sel);
 
+#ifdef HAVE_LIBSLIRP
     ui->rbDirectMode->setChecked(Config::DirectLAN != 0);
     ui->rbIndirectMode->setChecked(Config::DirectLAN == 0);
+#else
+    ui->rbDirectMode->setChecked(true);
+    ui->rbIndirectMode->setEnabled(false);
+    ui->rbIndirectMode->setText("Indirect mode (unavailable, compiled without libslirp)");
+#endif
     if (!haspcap) ui->rbDirectMode->setEnabled(false);
 
     updateAdapterControls();

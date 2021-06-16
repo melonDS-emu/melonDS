@@ -51,7 +51,11 @@
 
 #include "Platform.h"
 #include "PlatformConfig.h"
+
+#ifdef HAVE_LIBSLIRP
 #include "LAN_Socket.h"
+#endif
+
 #include "LAN_PCap.h"
 #include <string>
 
@@ -393,6 +397,7 @@ int MP_RecvPacket(u8* data, bool block)
 
 
 
+#ifdef HAVE_LIBSLIRP
 bool LAN_Init()
 {
     if (Config::DirectLAN)
@@ -408,6 +413,12 @@ bool LAN_Init()
 
     return true;
 }
+#else
+bool LAN_Init()
+{
+    return LAN_PCap::Init(true);
+}
+#endif
 
 void LAN_DeInit()
 {
@@ -417,9 +428,12 @@ void LAN_DeInit()
     //else
     //    LAN_Socket::DeInit();
     LAN_PCap::DeInit();
+#ifdef HAVE_LIBSLIRP
     LAN_Socket::DeInit();
+#endif
 }
 
+#ifdef HAVE_LIBSLIRP
 int LAN_SendPacket(u8* data, int len)
 {
     if (Config::DirectLAN)
@@ -435,6 +449,17 @@ int LAN_RecvPacket(u8* data)
     else
         return LAN_Socket::RecvPacket(data);
 }
+#else
+int LAN_SendPacket(u8* data, int len)
+{
+    return LAN_PCap::SendPacket(data, len);
+}
+
+int LAN_RecvPacket(u8* data)
+{
+    return LAN_PCap::RecvPacket(data);
+}
+#endif
 
 void Sleep(u64 usecs)
 {
