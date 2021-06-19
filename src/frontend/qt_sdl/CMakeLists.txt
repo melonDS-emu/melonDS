@@ -86,7 +86,7 @@ else()
 endif()
 
 if (ENABLE_LIBSLIRP)
-	target_compile_definitions(melonDS PRIVATE -DHAVE_LIBSLIRP)
+    target_compile_definitions(melonDS PRIVATE -DHAVE_LIBSLIRP)
     target_sources(melonDS PRIVATE LAN_Socket.cpp)
 endif()
 
