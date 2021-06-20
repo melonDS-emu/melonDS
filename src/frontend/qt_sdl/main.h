@@ -78,7 +78,7 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
-    
+
     void windowFullscreenToggle();
 
     void swapScreensToggle();
@@ -120,7 +120,7 @@ protected:
     int numScreens;
 
     bool touching;
-    
+
     void showCursor();
 };
 
@@ -200,11 +200,12 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
-    
+
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -268,7 +269,7 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
-    
+
     void onFullscreenToggled();
 
 private:
@@ -283,8 +284,11 @@ private:
     void createScreenPanel();
 
     QString loadErrorStr(int error);
-    
+
     bool pausedManually;
+
+    int oldW, oldH;
+    bool oldMax;
 
 public:
     QWidget* panel;

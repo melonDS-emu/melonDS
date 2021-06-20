@@ -1226,6 +1226,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     sigaction(SIGINT, &sa, 0);
 #endif
 
+    oldW = Config::WindowWidth;
+    oldH = Config::WindowHeight;
+    oldMax = Config::WindowMaximized!=0;
+
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -1238,11 +1242,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
         actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
 
-        actOpenROMArchive = menu->addAction("Open ROM inside Archive...");
+        actOpenROMArchive = menu->addAction("Open ROM inside archive...");
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
         actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));
 
-        recentMenu = menu->addMenu("Open Recent");
+        recentMenu = menu->addMenu("Open recent");
         for (int i = 0; i < 10; ++i)
         {
             char* item = Config::RecentROMList[i];
@@ -1507,7 +1511,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
-    show();
+    if (oldMax)
+        showMaximized();
+    else
+        show();
+
     createScreenPanel();
 
     for (int i = 0; i < 9; i++)
@@ -1619,13 +1627,30 @@ void MainWindow::resizeEvent(QResizeEvent* event)
     int w = event->size().width();
     int h = event->size().height();
 
-    if (mainWindow != nullptr && !mainWindow->isFullScreen())
+    if (!isFullScreen())
     {
+        // this is ugly
+        // thing is, when maximizing the window, we first receive the resizeEvent
+        // with a new size matching the screen, then the changeEvent telling us that
+        // the maximized flag was updated
+        oldW = Config::WindowWidth;
+        oldH = Config::WindowHeight;
+        oldMax = isMaximized();
+
         Config::WindowWidth = w;
         Config::WindowHeight = h;
     }
+}
 
-    // TODO: detect when the window gets maximized!
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (isMaximized() && !oldMax)
+    {
+        Config::WindowWidth = oldW;
+        Config::WindowHeight = oldH;
+    }
+
+    Config::WindowMaximized = isMaximized() ? 1:0;
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
