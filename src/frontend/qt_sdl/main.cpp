@@ -57,6 +57,7 @@
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
+#include "PlayingCardsDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -65,6 +66,7 @@
 #include "OSD.h"
 
 #include "NDS.h"
+#include "NDSCart.h"
 #include "GBACart.h"
 #include "GPU.h"
 #include "SPU.h"
@@ -1719,6 +1721,13 @@ void MainWindow::dropEvent(QDropEvent* event)
     {
         slot = 0;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
+
+        // Open the playing cards UI if a compatible cartridge was inserted
+        if (PlayingCardsDialog::supportsCart(NDSCart::CartGameCode))
+        {
+            printf("Playing cards dialog enabled!\n");
+            PlayingCardsDialog::openDlg(this);
+        }
     }
     else
     {
@@ -1912,6 +1921,13 @@ void MainWindow::loadROM(QString filename)
     }
     else
     {
+        // Open the playing cards UI if a compatible cartridge was inserted
+        if (PlayingCardsDialog::supportsCart(NDSCart::CartGameCode))
+        {
+            printf("Playing cards dialog enabled!\n");
+            PlayingCardsDialog::openDlg(this);
+        }
+
         emuThread->emuRun();
     }
 }
@@ -2788,6 +2804,13 @@ int main(int argc, char** argv)
         if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
         {
             int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+
+            // Open the playing cards UI if a compatible cartridge was inserted
+            if (PlayingCardsDialog::supportsCart(NDSCart::CartGameCode))
+            {
+                printf("Playing cards dialog enabled!\n");
+                PlayingCardsDialog::openDlg(mainWindow);
+            }
 
             if (res == Frontend::Load_OK)
             {

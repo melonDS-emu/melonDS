@@ -10,6 +10,7 @@ SET(SOURCES_QT_SDL
     AudioSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
+    PlayingCardsDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
@@ -19,7 +20,7 @@ SET(SOURCES_QT_SDL
     Platform.cpp
     PlatformConfig.cpp
     QPathInput.h
-    
+
     ArchiveUtil.h
     ArchiveUtil.cpp
 

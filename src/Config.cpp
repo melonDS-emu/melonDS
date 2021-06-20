@@ -43,6 +43,8 @@ char DSiSDPath[1024];
 
 int RandomizeMAC;
 
+char PlayingCardsPath[1024];
+
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
 int JIT_MaxBlockSize = 32;
@@ -51,22 +53,27 @@ int JIT_LiteralOptimisations = true;
 int JIT_FastMemory = true;
 #endif
 
+#define PATH_CONFIG_ENTRY(VarName) {#VarName, 1, VarName, 0, "", 1023}
+#define BOOLEAN_CONFIG_ENTRY(VarName) {#VarName, 0, &VarName, 0, NULL, 0}
+
 ConfigEntry ConfigFile[] =
 {
-    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
-    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
-    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
-    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
-    {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
+    PATH_CONFIG_ENTRY(BIOS9Path),
+    PATH_CONFIG_ENTRY(BIOS7Path),
+    PATH_CONFIG_ENTRY(FirmwarePath),
+    BOOLEAN_CONFIG_ENTRY(DLDIEnable),
+    PATH_CONFIG_ENTRY(DLDISDPath),
 
-    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
-    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
-    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
-    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
-    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
-    {"DSiSDPath", 1, DSiSDPath, 0, "", 1023},
+    PATH_CONFIG_ENTRY(DSiBIOS9Path),
+    PATH_CONFIG_ENTRY(DSiBIOS7Path),
+    PATH_CONFIG_ENTRY(DSiFirmwarePath),
+    PATH_CONFIG_ENTRY(DSiNANDPath),
+    BOOLEAN_CONFIG_ENTRY(DSiSDEnable),
+    PATH_CONFIG_ENTRY(DSiSDPath),
 
-    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
+    BOOLEAN_CONFIG_ENTRY(RandomizeMAC),
+
+    PATH_CONFIG_ENTRY(PlayingCardsPath),
 
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
