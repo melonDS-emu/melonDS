@@ -1118,6 +1118,8 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
     case 0x08: // ID
         return 0xAA;
     }
+
+    return 0;
 }
 
 
