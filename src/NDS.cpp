@@ -3329,10 +3329,14 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x040001BA: ROMSeed1[4] = val & 0x7F; return;
 
     case 0x04000204:
-        ExMemCnt[0] = val;
-        ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
-        SetGBASlotTimings();
-        return;
+        {
+            u16 oldVal = ExMemCnt[0];
+            ExMemCnt[0] = val;
+            ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
+            if ((oldVal ^ ExMemCnt[0]) & 0xFF)
+                SetGBASlotTimings();
+            return;
+        }
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
     case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
@@ -4038,9 +4042,13 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000204:
-        ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
-        SetGBASlotTimings();
-        return;
+        {
+            u16 oldVal = ExMemCnt[1];
+            ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
+            if ((ExMemCnt[1] ^ oldVal) & 0xFF)
+                SetGBASlotTimings();
+            return;
+        }
     case 0x04000206:
         SetWifiWaitCnt(val);
         return;
