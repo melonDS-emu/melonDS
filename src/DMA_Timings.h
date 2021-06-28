@@ -30,10 +30,18 @@ namespace DMATiming
 // mode.
 // It gets more complicated when transferring from main RAM to somewhere else, or
 // vice versa: main RAM supports burst accesses, but the rules dictating how long
-// bursts can be are weird and inconsistent.
+// bursts can be are weird and inconsistent. Main RAM also supports parallel
+// memory operations, to some extent.
 // I haven't figured out the full logic behind it, let alone how to emulate it
 // efficiently, so for now we will use these tables.
 // A zero denotes the end of a burst pattern.
+//
+// Note: burst patterns only apply when the main RAM address is incrementing.
+// A fixed or decrementing address results in nonsequential accesses.
+//
+// Note about GBA slot/wifi timings: these take into account the sequential timing
+// setting. Timings are such that the nonseq setting only matters for the first
+// access, and minor edge cases (like the last of a 0x20000-byte block).
 
 u8 MRAMRead16Bursts[][] =
 {
@@ -64,7 +72,49 @@ u8 MRAMRead16Bursts[][] =
      2, 2, 2, 2, 2, 2, 2, 2, 2,
      7, 3,
      0},
-    //
+    // main RAM to GBA/wifi, seq=4
+    {8, 6, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+     5, 5, 5, 5, 5, 5,
+     0},
+    // main RAM to GBA/wifi, seq=6
+    {10, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+     7, 7, 7, 7,
+     12, 8,
+     0},
 };
 
 u8 MRAMRead32Bursts[][] =
@@ -93,7 +143,37 @@ u8 MRAMRead32Bursts[][] =
      2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
      2, 2, 2, 2, 2, 2, 2, 2,
      0},
-    // x
+    // main RAM to GBA/wifi, seq=4
+    {14, 10, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9,
+     13, 10, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9,
+     13, 10, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9,
+     13, 10, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9,
+     13, 10, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+     9, 9, 9, 9, 9, 9, 9,
+     13,
+     0},
+    // main RAM to GBA/wifi, seq=6
+    {18, 14, 13, 13, 13, 13, 13, 13, 13, 13,
+     13, 13, 13, 13, 13, 13, 13, 13, 13,
+     17, 14, 13, 13, 13, 13, 13, 13, 13, 13,
+     13, 13, 13, 13, 13, 13, 13, 13, 13,
+     17, 14, 13, 13, 13, 13, 13, 13, 13, 13,
+     13, 13, 13, 13, 13, 13, 13, 13, 13,
+     17, 14, 13, 13, 13, 13, 13, 13, 13, 13,
+     13, 13, 13, 13, 13, 13, 13, 13, 13,
+     17, 14, 13, 13, 13, 13, 13, 13, 13, 13,
+     13, 13, 13, 13, 13, 13, 13, 13, 13,
+     17,
+     0},
 };
 
 u8 MRAMWrite16Bursts[][] =
