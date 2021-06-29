@@ -43,7 +43,9 @@ namespace DMATiming
 // setting. Timings are such that the nonseq setting only matters for the first
 // access, and minor edge cases (like the last of a 0x20000-byte block).
 
-u8 MRAMRead16Bursts[][] =
+u8 MRAMDummy[1] = {0};
+
+u8 MRAMRead16Bursts[][256] =
 {
     // main RAM to regular 16bit or 32bit bus (similar)
     {7, 3, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -117,7 +119,7 @@ u8 MRAMRead16Bursts[][] =
      0},
 };
 
-u8 MRAMRead32Bursts[][] =
+u8 MRAMRead32Bursts[][256] =
 {
     // main RAM to regular 16bit bus
     {9, 4, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -176,7 +178,7 @@ u8 MRAMRead32Bursts[][] =
      0},
 };
 
-u8 MRAMWrite16Bursts[][] =
+u8 MRAMWrite16Bursts[][256] =
 {
     // regular 16bit or 32bit bus to main RAM (similar)
     {8, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -207,7 +209,7 @@ u8 MRAMWrite16Bursts[][] =
      0},
 };
 
-u8 MRAMWrite32Bursts[][] =
+u8 MRAMWrite32Bursts[][256] =
 {
     // regular 16bit bus to main RAM
     {9, 4, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -236,7 +238,7 @@ u8 MRAMWrite32Bursts[][] =
     {16, 14, 14, 14, 14, 14, 14, 14, 14, 14,
      14, 14, 14, 14, 14, 14, 14, 14,
      0},
-}
+};
 
 }
 
