@@ -79,7 +79,7 @@ public:
 
     void Reset();
 
-    JitBlockEntry CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount);
+    JitBlockEntry CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemoryInstr);
 
     void LoadReg(int reg, Gen::X64Reg nativeReg);
     void SaveReg(int reg, Gen::X64Reg nativeReg);
@@ -192,8 +192,8 @@ public:
 
     Gen::FixupBranch CheckCondition(u32 cond);
 
-    void PushRegs(bool saveHiRegs);
-    void PopRegs(bool saveHiRegs);
+    void PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload = true);
+    void PopRegs(bool saveHiRegs, bool saveRegsToBeChanged);
 
     Gen::OpArg MapReg(int reg)
     {

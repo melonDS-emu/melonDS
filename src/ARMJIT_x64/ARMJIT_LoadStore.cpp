@@ -266,7 +266,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     }
     else
     {
-        PushRegs(false);
+        PushRegs(false, false);
 
         void* func = NULL;
         if (addrIsStatic)
@@ -283,7 +283,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
 
             ABI_CallFunction((void (*)())func);
 
-            PopRegs(false);
+            PopRegs(false, false);
 
             if (!(flags & memop_Store))
             {
@@ -370,7 +370,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
                 }
             }
 
-            PopRegs(false);
+            PopRegs(false, false);
             
             if (!(flags & memop_Store))
             {
@@ -508,7 +508,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
     if (!store)
     {
-        PushRegs(false);
+        PushRegs(false, false, !compileFastPath);
 
         MOV(32, R(ABI_PARAM1), R(RSCRATCH4));
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
@@ -529,7 +529,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         case 3: CALL((void*)&SlowBlockTransfer7<false, 1>); break;
         }
 
-        PopRegs(false);
+        PopRegs(false, false);
 
         if (allocOffset)
             ADD(64, R(RSP), Imm8(allocOffset));
@@ -606,7 +606,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         if (allocOffset)
             SUB(64, R(RSP), Imm8(allocOffset));
 
-        PushRegs(false);
+        PushRegs(false, false, !compileFastPath);
 
         MOV(32, R(ABI_PARAM1), R(RSCRATCH4));
         if (allocOffset)
@@ -628,7 +628,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
         ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
     
-        PopRegs(false);
+        PopRegs(false, false);
     }
 
     if (compileFastPath)

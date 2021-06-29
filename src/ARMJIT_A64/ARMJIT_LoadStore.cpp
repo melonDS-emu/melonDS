@@ -194,12 +194,10 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
 
-        assert((rdMapped >= W19 && rdMapped <= W26) || rdMapped == W4);
+        assert((rdMapped >= W8 && rdMapped <= W15) || (rdMapped >= W19 && rdMapped <= W25) || rdMapped == W4);
         patch.PatchFunc = flags & memop_Store
             ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
             : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
-
-        MOVP2R(X7, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 
         // take a chance at fastmem
         if (size > 8)
@@ -208,11 +206,11 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ptrdiff_t loadStorePosition = GetCodeOffset();
         if (flags & memop_Store)
         {
-            STRGeneric(size, rdMapped, size > 8 ? X1 : X0, X7);
+            STRGeneric(size, rdMapped, size > 8 ? X1 : X0, RMemBase);
         }
         else
         {
-            LDRGeneric(size, flags & memop_SignExtend, rdMapped, size > 8 ? X1 : X0, X7);
+            LDRGeneric(size, flags & memop_SignExtend, rdMapped, size > 8 ? X1 : X0, RMemBase);
             if (size == 32 && !addrIsStatic)
             {
                 UBFIZ(W0, W0, 3, 2);
@@ -230,11 +228,15 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         if (addrIsStatic)
             func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
+        PushRegs(false, false);
+
         if (func)
         {
             if (flags & memop_Store)
                 MOV(W1, rdMapped);
             QuickCallFunction(X2, (void (*)())func);
+
+            PopRegs(false, false);
 
             if (!(flags & memop_Store))
             {
@@ -313,6 +315,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                     }
                 }
             }
+
+            PopRegs(false, false);
 
             if (!(flags & memop_Store))
             {
@@ -515,8 +519,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ptrdiff_t fastPathStart = GetCodeOffset();
         ptrdiff_t loadStoreOffsets[8];
 
-        MOVP2R(X1, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
-        ADD(X1, X1, X0);
+        ADD(X1, RMemBase, X0);
 
         u32 offset = 0;
         BitSet16::Iterator it = regs.begin();
@@ -655,6 +658,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         }
     }
 
+    PushRegs(false, false, !compileFastPath);
+
     ADD(X1, SP, 0);
     MOVI2R(W2, regsCount);
 
@@ -679,6 +684,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         case 3: QuickCallFunction(X4, SlowBlockTransfer7<true, 1>); break;
         }
     }
+
+    PopRegs(false, false);
 
     if (!store)
     {

@@ -64,7 +64,7 @@ const BitSet32 CallerSavedPushRegs({R10, R11});
 const BitSet32 CallerSavedPushRegs({R9, R10, R11});
 #endif
 
-void Compiler::PushRegs(bool saveHiRegs)
+void Compiler::PushRegs(bool saveHiRegs, bool saveRegsToBeChanged, bool allowUnload)
 {
     BitSet32 loadedRegs(RegCache.LoadedRegs);
 
@@ -83,17 +83,26 @@ void Compiler::PushRegs(bool saveHiRegs)
     }
 
     for (int reg : loadedRegs)
-        if (BitSet32(1 << RegCache.Mapping[reg]) & ABI_ALL_CALLER_SAVED)
-            SaveReg(reg, RegCache.Mapping[reg]);
+    {
+        if (CallerSavedPushRegs[RegCache.Mapping[reg]]
+            && (saveRegsToBeChanged || !((1<<reg) & CurInstr.Info.DstRegs && !((1<<reg) & CurInstr.Info.SrcRegs))))
+        {
+            if ((Thumb || CurInstr.Cond() == 0xE) && !((1 << reg) & (CurInstr.Info.DstRegs|CurInstr.Info.SrcRegs)) && allowUnload)
+                RegCache.UnloadRegister(reg);
+            else
+                SaveReg(reg, RegCache.Mapping[reg]);
+        }
+    }
 }
 
-void Compiler::PopRegs(bool saveHiRegs)
+void Compiler::PopRegs(bool saveHiRegs, bool saveRegsToBeChanged)
 {
     BitSet32 loadedRegs(RegCache.LoadedRegs);
     for (int reg : loadedRegs)
     {
         if ((saveHiRegs && reg >= 8 && reg < 15)
-            || BitSet32(1 << RegCache.Mapping[reg]) & ABI_ALL_CALLER_SAVED)
+            || (CallerSavedPushRegs[RegCache.Mapping[reg]]
+                && (saveRegsToBeChanged || !((1<<reg) & CurInstr.Info.DstRegs && !((1<<reg) & CurInstr.Info.SrcRegs)))))
         {
             LoadReg(reg, RegCache.Mapping[reg]);
         }
@@ -205,14 +214,14 @@ void Compiler::A_Comp_MSR()
             AND(32, R(RSCRATCH2), val);
             OR(32, R(RCPSR), R(RSCRATCH2));
 
-            PushRegs(true);
+            PushRegs(true, true);
 
             MOV(32, R(ABI_PARAM3), R(RCPSR));
             MOV(32, R(ABI_PARAM2), R(RSCRATCH3));
             MOV(64, R(ABI_PARAM1), R(RCPU));
             CALL((void*)&UpdateModeTrampoline);
 
-            PopRegs(true);
+            PopRegs(true, true);
         }
     }
 }
@@ -659,7 +668,7 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
     }
 }
 
-JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount)
+JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemoryInstr)
 {
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
