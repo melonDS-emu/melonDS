@@ -1607,7 +1607,21 @@ void ARM64XEmitter::BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shif
 
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift)
 {
-  ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, Shift);
+  if (Shift.GetType() == ArithOption::TYPE_SHIFTEDREG)
+  {
+    switch (Shift.GetShiftType())
+    {
+    case ST_LSL: LSL(Rd, Rm, Shift.GetShiftAmount()); break;
+    case ST_LSR: LSR(Rd, Rm, Shift.GetShiftAmount()); break;
+    case ST_ASR: ASR(Rd, Rm, Shift.GetShiftAmount()); break;
+    case ST_ROR: ROR(Rd, Rm, Shift.GetShiftAmount()); break;
+    default: ASSERT_MSG(DYNA_REC, false, "Invalid shift type"); break;
+    }
+  }
+  else
+  {
+    ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, Shift);
+  }
 }
 
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm)
