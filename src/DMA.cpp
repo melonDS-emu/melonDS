@@ -270,8 +270,6 @@ u32 DMA::UnitTimings9_16(bool burststart)
     dst_n = NDS::ARM9MemTimings[dst_id][4];
     dst_s = NDS::ARM9MemTimings[dst_id][5];
 
-    u32 ret = 0;
-
     if (src_rgn == NDS::Mem9_MainRAM)
     {
         if (dst_rgn == NDS::Mem9_MainRAM)
@@ -294,14 +292,13 @@ u32 DMA::UnitTimings9_16(bool burststart)
                     MRAMBurstTable = DMATiming::MRAMRead16Bursts[0];
             }
 
-            ret = MRAMBurstTable[MRAMBurstCount++];
+            u32 ret = MRAMBurstTable[MRAMBurstCount++];
             return ret;
         }
         else
         {
-            ret += ((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8;
-            ret += burststart ? dst_n : dst_s;
-            return ret;
+            return (((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8) +
+                   (burststart ? dst_n : dst_s);
         }
     }
     else if (dst_rgn == NDS::Mem9_MainRAM)
@@ -323,14 +320,12 @@ u32 DMA::UnitTimings9_16(bool burststart)
                     MRAMBurstTable = DMATiming::MRAMWrite16Bursts[0];
             }
 
-            ret = MRAMBurstTable[MRAMBurstCount++];
+            u32 ret = MRAMBurstTable[MRAMBurstCount++];
             return ret;
         }
         else
         {
-            ret += burststart ? src_n : src_s;
-            ret += 7;
-            return ret;
+            return (burststart ? src_n : src_s) + 7;
         }
     }
     else if (src_rgn & dst_rgn)
@@ -344,91 +339,6 @@ u32 DMA::UnitTimings9_16(bool burststart)
         else
             return src_s + dst_s;
     }
-
-
-
-#if 0
-    if (src_rgn == NDS::Mem9_MainRAM)
-    {
-        // for main RAM: sequential timings only work with incrementing addresses
-        // read bursts have a maximum length of 119 halfwords, then 119 halfwords, then 2 halfwords, and so on
-        // (this is probably a hardware glitch)
-
-        if (SrcAddrInc > 0)
-        {
-            if (burststart || BurstCount >= 240)
-                BurstCount = 0;
-
-            // note: one of the cycles of the first unit seems to transfer over to the next unit
-            // we approximate this by attributing all the cycles to the first unit
-
-            if (BurstCount == 0 || BurstCount == 119 || BurstCount == 238)
-                ret += src_n-1;
-            //else if (BurstCount == 1 || BurstCount == 120 || BurstCount == 239)
-            //    ret += src_s + 1;
-            else
-                ret += src_s;
-
-            BurstCount++;
-        }
-        else
-        {
-            ret += src_n;
-            if ((CurSrcAddr & 0x1F) == 0x1E) ret--;
-        }
-
-        // main RAM reads can parallelize with writes to another region
-        //ret--;
-    }
-    else if (src_rgn == NDS::Mem9_GBAROM)
-    {
-        // for GBA ROM: sequential timings always work, except for the last halfword
-        // of every 0x20000 byte block
-
-        ret += (burststart || ((CurSrcAddr & 0x1FFFF) == 0x1FFFE)) ? src_n : src_s;
-    }
-    else
-    {
-        // for other regions: nonseq/sequential timings are the same
-
-        ret += src_s;
-    }
-
-    if (dst_rgn == NDS::Mem9_MainRAM)
-    {
-        // for main RAM: sequential timings only work with incrementing addresses
-        // write bursts have a maximum length of 120 halfwords
-
-        if (DstAddrInc > 0)
-        {
-            if (burststart || BurstCount >= 120)
-                BurstCount = 0;
-
-            ret += (BurstCount == 0) ? dst_n-1 : dst_s;
-
-            BurstCount++;
-        }
-        else
-        {
-            ret += dst_n-1;
-        }
-    }
-    else if (dst_rgn == NDS::Mem9_GBAROM)
-    {
-        // for GBA ROM: sequential timings always work, except for the last halfword
-        // of every 0x20000 byte block
-
-        ret += (burststart || ((CurDstAddr & 0x1FFFF) == 0x1FFFE)) ? dst_n : dst_s;
-    }
-    else
-    {
-        // for other regions: nonseq/sequential timings are the same
-
-        ret += dst_s;
-    }
-#endif
-
-    return ret;
 }
 
 u32 DMA::UnitTimings9_32(bool burststart)
@@ -445,6 +355,81 @@ u32 DMA::UnitTimings9_32(bool burststart)
     dst_n = NDS::ARM9MemTimings[dst_id][6];
     dst_s = NDS::ARM9MemTimings[dst_id][7];
 
+    if (src_rgn == NDS::Mem9_MainRAM)
+    {
+        if (dst_rgn == NDS::Mem9_MainRAM)
+            return 18;
+
+        if (SrcAddrInc > 0)
+        {
+            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            {
+                MRAMBurstCount = 0;
+
+                if (dst_rgn == NDS::Mem9_GBAROM)
+                {
+                    if (dst_s == 8)
+                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[2];
+                    else
+                        MRAMBurstTable = DMATiming::MRAMRead32Bursts[3];
+                }
+                else if (dst_n == 2)
+                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[0];
+                else
+                    MRAMBurstTable = DMATiming::MRAMRead32Bursts[1];
+            }
+
+            u32 ret = MRAMBurstTable[MRAMBurstCount++];
+            return ret;
+        }
+        else
+        {
+            return (((CurSrcAddr & 0x1F) == 0x1C) ? 8 : 9) +
+                   (burststart ? dst_n : dst_s);
+        }
+    }
+    else if (dst_rgn == NDS::Mem9_MainRAM)
+    {
+        if (DstAddrInc > 0)
+        {
+            if (burststart || MRAMBurstTable[MRAMBurstCount] == 0)
+            {
+                MRAMBurstCount = 0;
+
+                if (src_rgn == NDS::Mem9_GBAROM)
+                {
+                    if (src_s == 8)
+                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[2];
+                    else
+                        MRAMBurstTable = DMATiming::MRAMWrite32Bursts[3];
+                }
+                else if (src_n == 2)
+                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[0];
+                else
+                    MRAMBurstTable = DMATiming::MRAMWrite32Bursts[1];
+            }
+
+            u32 ret = MRAMBurstTable[MRAMBurstCount++];
+            return ret;
+        }
+        else
+        {
+            return (burststart ? src_n : src_s) + 8;
+        }
+    }
+    else if (src_rgn & dst_rgn)
+    {
+        return src_n + dst_n + 1;
+    }
+    else
+    {
+        if (burststart)
+            return src_n + dst_n;
+        else
+            return src_s + dst_s;
+    }
+
+#if 0
     if (src_rgn & dst_rgn)
     {
         return src_n + dst_n;
@@ -452,7 +437,7 @@ u32 DMA::UnitTimings9_32(bool burststart)
 
     u32 ret = 0;
     ret=1;
-#if 0
+
     if (src_rgn == NDS::Mem9_MainRAM)
     {
         // for main RAM: sequential timings only work with incrementing addresses
@@ -523,7 +508,7 @@ u32 DMA::UnitTimings9_32(bool burststart)
         ret += dst_s;
     }
 #endif
-    return ret;
+//    return ret;
 }
 
 template <int ConsoleType>
