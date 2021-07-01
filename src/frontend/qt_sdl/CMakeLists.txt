@@ -23,10 +23,10 @@ SET(SOURCES_QT_SDL
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_ROM.cpp
+    ../ROMManager.h
+    ../ROMManager.cpp
     ../Util_Video.cpp
     ../Util_Audio.cpp
-    ../FrontendUtil.h
     ../mic_blow.h
 
     ../../../melon.qrc
