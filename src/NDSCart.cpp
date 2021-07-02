@@ -58,6 +58,9 @@ u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
 
+NDSHeader Header;
+NDSBanner Banner;
+
 CartCommon* Cart;
 
 u32 Key1_KeyBuf[0x412];
@@ -1498,8 +1501,11 @@ void DecryptSecureArea(u8* out)
     // * .srl ROMs (VC dumps) have encrypted secure areas but have precomputed
     //   decryption data at 0x1000 (and at the beginning of the DSi region if any)
 
-    u32 gamecode = *(u32*)&CartROM[0x0C];
-    u32 arm9base = *(u32*)&CartROM[0x20];
+    u32 gamecode = (u32)Header.GameCode[3] << 24 |
+                   (u32)Header.GameCode[2] << 16 |
+                   (u32)Header.GameCode[1] << 8  |
+                   (u32)Header.GameCode[0];
+    u32 arm9base = Header.ARM9ROMOffset;
 
     memcpy(out, &CartROM[arm9base], 0x800);
 
@@ -1526,11 +1532,17 @@ void DecryptSecureArea(u8* out)
 
 bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 {
-    u32 gamecode;
-    memcpy(&gamecode, CartROM + 0x0C, 4);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
+    memcpy(&Header, CartROM, sizeof(Header));
+    memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
 
-    u8 unitcode = CartROM[0x12];
+    printf("Game code: %.4s\n", Header.GameCode);
+
+    u32 gamecode = (u32)Header.GameCode[3] << 24 |
+                   (u32)Header.GameCode[2] << 16 |
+                   (u32)Header.GameCode[1] << 8  |
+                   (u32)Header.GameCode[0];
+
+    u8 unitcode = Header.UnitCode;
     CartIsDSi = (unitcode & 0x02) != 0;
 
     ROMListEntry romparams;

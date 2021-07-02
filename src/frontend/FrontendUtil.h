@@ -21,6 +21,8 @@
 
 #include "types.h"
 
+#include <vector>
+
 namespace Frontend
 {
 
@@ -83,6 +85,9 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 // unload the ROM loaded in the specified cart slot
 // simulating ejection of the cartridge
 void UnloadROM(int slot);
+
+void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef);
+void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef);
 
 // reset execution of the current ROM
 int Reset();
