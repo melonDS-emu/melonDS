@@ -342,8 +342,12 @@ void SetupDirectBoot()
 {
     if (ConsoleType == 1)
     {
-        printf("!! DIRECT BOOT NOT SUPPORTED IN DSI MODE\n");
-        return;
+        // With the BIOS select in SCFG_BIOS and the initialization od
+        // SCFG_BIOS depending on the Header->UnitType, we can now boot 
+        // directly in the roms.
+        // There are some more SCFG Settings that change depending on
+        // the unit type, so this is experimental
+        printf("!! DIRECT BOOT NOT STABLE IN DSI MODE\n");
     }
 
     u32 bootparams[8];

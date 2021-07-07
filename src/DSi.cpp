@@ -155,7 +155,18 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
-    SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+    // If loading a NDS directly, this value should be set
+    // depending on the console type in the header at offset 12h
+    switch (NDSCart::Header.UnitCode)
+    {
+        case 0x00: /* NDS Image */
+        case 0x02: /* DSi Enhanced Image */
+            SCFG_BIOS = 0x0303;
+            break;
+        default:
+            SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+            break;
+    }
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -788,7 +799,10 @@ u8 ARM9Read8(u32 addr)
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFF;
 
-        return *(u8*)&ARM9iBIOS[addr & 0xFFFF];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u8*)&ARM9iBIOS[addr & 0xFFFF];
+        else
+            return NDS::ARM9Read8(addr);
     }
 
     switch (addr & 0xFF000000)
@@ -830,7 +844,10 @@ u16 ARM9Read16(u32 addr)
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFFFF;
 
-        return *(u16*)&ARM9iBIOS[addr & 0xFFFF];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u16*)&ARM9iBIOS[addr & 0xFFFF];
+        else
+            return NDS::ARM9Read16(addr);
     }
 
     switch (addr & 0xFF000000)
@@ -871,8 +888,10 @@ u32 ARM9Read32(u32 addr)
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFFFFFFFF;
-
-        return *(u32*)&ARM9iBIOS[addr & 0xFFFF];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u32*)&ARM9iBIOS[addr & 0xFFFF];
+        else
+            return NDS::ARM9Read32(addr);
     }
 
     switch (addr & 0xFF000000)
@@ -1143,7 +1162,10 @@ u8 ARM7Read8(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFF;
 
-        return *(u8*)&ARM7iBIOS[addr];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u8*)&ARM7iBIOS[addr & 0xFFFF];
+        else
+            return NDS::ARM7Read8(addr);
     }
 
     switch (addr & 0xFF800000)
@@ -1192,7 +1214,10 @@ u16 ARM7Read16(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFFFF;
 
-        return *(u16*)&ARM7iBIOS[addr];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u16*)&ARM7iBIOS[addr & 0xFFFF];
+        else
+            return NDS::ARM7Read16(addr);
     }
 
     switch (addr & 0xFF800000)
@@ -1241,7 +1266,10 @@ u32 ARM7Read32(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFFFFFFFF;
 
-        return *(u32*)&ARM7iBIOS[addr];
+        if (!(SCFG_BIOS & (1 << 1)))
+            return *(u32*)&ARM7iBIOS[addr & 0xFFFF];
+        else
+            return  NDS::ARM7Read32(addr);
     }
 
     switch (addr & 0xFF800000)
