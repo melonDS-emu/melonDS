@@ -349,6 +349,7 @@ void SetupDirectBoot()
         // There are some more SCFG Settings that change depending on
         // the unit type, so this is experimental
         printf("!! DIRECT BOOT NOT STABLE IN DSI MODE\n");
+        DSi::SetupDirectBoot();
     }
 
     u32 bootparams[8];

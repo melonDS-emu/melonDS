@@ -155,6 +155,7 @@ void Reset()
     SDMMC->Reset();
     SDIO->Reset();
 
+    SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
@@ -162,25 +163,6 @@ void Reset()
     SCFG_MC = 0x0010;//0x0011;
     SCFG_RST = 0;
 
-    // If loading a NDS directly, this value should be set
-    // depending on the console type in the header at offset 12h
-    if (NDS::IsDirectBoot)
-    {
-        switch (NDSCart::Header.UnitCode)
-        {
-            case 0x00: /* NDS Image */
-                // on a pure NDS Image, we disable all extended features
-                // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
-                SCFG_BIOS = 0x0303;
-                break;
-            case 0x02: /* DSi Enhanced Image */
-                SCFG_BIOS = 0x0303;
-                break;
-            default:
-                SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
-                break;
-        }
-    }
     DSi_DSP::SetRstLine(false);
 
     // LCD init flag
@@ -202,6 +184,29 @@ void Reset()
     ARM7Write16(eaddr+0x3C, 0x0100);
     ARM7Write16(eaddr+0x3E, 0x40E0);
     ARM7Write16(eaddr+0x42, 0x0001);
+}
+
+void SetupDirectBoot()
+{
+    // If loading a NDS directly, this value should be set
+    // depending on the console type in the header at offset 12h
+    if (NDS::IsDirectBoot)
+    {
+        switch (NDSCart::Header.UnitCode)
+        {
+        case 0x00: /* NDS Image */
+            // on a pure NDS Image, we disable all extended features
+            // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
+            SCFG_BIOS = 0x0303;
+            break;
+        case 0x02: /* DSi Enhanced Image */
+            SCFG_BIOS = 0x0303;
+            break;
+        default:
+            SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+            break;
+        }
+    }
 }
 
 void SoftReset()
