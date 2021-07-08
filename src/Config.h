@@ -19,6 +19,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#define DSI_NWRAM_DEBUGOUT      false
+
 #include <stdio.h>
 
 #include "types.h"

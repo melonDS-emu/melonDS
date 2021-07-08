@@ -164,6 +164,7 @@ bool Running;
 
 bool RunningGame;
 
+bool IsDirectBoot = false;
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);

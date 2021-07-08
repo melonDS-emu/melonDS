@@ -393,6 +393,8 @@ int LoadROM(const char* file, int slot)
         return Load_ROMLoadError;
     }
 
+    NDS::IsDirectBoot = directboot;
+
     res = VerifyDSBIOS();
     if (res != Load_OK) return res;
 
