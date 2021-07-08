@@ -2055,30 +2055,50 @@ void ARM9IOWrite8(u32 addr, u8 val)
         return;
 
     case 0x04004006:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_RST = (SCFG_RST & 0xFF00) | val;
         DSi_DSP::SetRstLine(val & 1);
         return;
 
-    case 0x04004040: MapNWRAM_A(0, val); return;
-    case 0x04004041: MapNWRAM_A(1, val); return;
-    case 0x04004042: MapNWRAM_A(2, val); return;
-    case 0x04004043: MapNWRAM_A(3, val); return;
-    case 0x04004044: MapNWRAM_B(0, val); return;
-    case 0x04004045: MapNWRAM_B(1, val); return;
-    case 0x04004046: MapNWRAM_B(2, val); return;
-    case 0x04004047: MapNWRAM_B(3, val); return;
-    case 0x04004048: MapNWRAM_B(4, val); return;
-    case 0x04004049: MapNWRAM_B(5, val); return;
-    case 0x0400404A: MapNWRAM_B(6, val); return;
-    case 0x0400404B: MapNWRAM_B(7, val); return;
-    case 0x0400404C: MapNWRAM_C(0, val); return;
-    case 0x0400404D: MapNWRAM_C(1, val); return;
-    case 0x0400404E: MapNWRAM_C(2, val); return;
-    case 0x0400404F: MapNWRAM_C(3, val); return;
-    case 0x04004050: MapNWRAM_C(4, val); return;
-    case 0x04004051: MapNWRAM_C(5, val); return;
-    case 0x04004052: MapNWRAM_C(6, val); return;
-    case 0x04004053: MapNWRAM_C(7, val); return;
+    case 0x04004040:
+    case 0x04004041:
+    case 0x04004042:
+    case 0x04004043:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_A(addr & 3, val);
+        return;
+    case 0x04004044:
+    case 0x04004045:
+    case 0x04004046:
+    case 0x04004047:
+    case 0x04004048:
+    case 0x04004049:
+    case 0x0400404A:
+    case 0x0400404B:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_B((addr - 0x04) & 7, val);
+        return;
+    case 0x0400404C:
+    case 0x0400404D:
+    case 0x0400404E:
+    case 0x0400404F:
+    case 0x04004050:
+    case 0x04004051:
+    case 0x04004052:
+    case 0x04004053:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_C((addr-0x0C) & 7, val);
+        return;
     }
 
     if ((addr & 0xFFFFFF00) == 0x04004200)
@@ -2101,53 +2121,49 @@ void ARM9IOWrite16(u32 addr, u16 val)
     switch (addr)
     {
     case 0x04004004:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         Set_SCFG_Clock9(val);
         return;
 
     case 0x04004006:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_RST = val;
         DSi_DSP::SetRstLine(val & 1);
         return;
 
     case 0x04004040:
-        MapNWRAM_A(0, val & 0xFF);
-        MapNWRAM_A(1, val >> 8);
-        return;
     case 0x04004042:
-        MapNWRAM_A(2, val & 0xFF);
-        MapNWRAM_A(3, val >> 8);
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_A((addr & 2), val & 0xFF);
+        MapNWRAM_A((addr & 2) + 1, val >> 8);
         return;
+
     case 0x04004044:
-        MapNWRAM_B(0, val & 0xFF);
-        MapNWRAM_B(1, val >> 8);
-        return;
     case 0x04004046:
-        MapNWRAM_B(2, val & 0xFF);
-        MapNWRAM_B(3, val >> 8);
-        return;
     case 0x04004048:
-        MapNWRAM_B(4, val & 0xFF);
-        MapNWRAM_B(5, val >> 8);
-        return;
     case 0x0400404A:
-        MapNWRAM_B(6, val & 0xFF);
-        MapNWRAM_B(7, val >> 8);
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_B(((addr - 0x04) & 6), val & 0xFF);
+        MapNWRAM_B(((addr - 0x04) & 6) + 1, val >> 8);
         return;
     case 0x0400404C:
-        MapNWRAM_C(0, val & 0xFF);
-        MapNWRAM_C(1, val >> 8);
-        return;
     case 0x0400404E:
-        MapNWRAM_C(2, val & 0xFF);
-        MapNWRAM_C(3, val >> 8);
-        return;
     case 0x04004050:
-        MapNWRAM_C(4, val & 0xFF);
-        MapNWRAM_C(5, val >> 8);
-        return;
     case 0x04004052:
-        MapNWRAM_C(6, val & 0xFF);
-        MapNWRAM_C(7, val >> 8);
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAM_C(((addr - 0x0C) & 6), val & 0xFF);
+        MapNWRAM_C(((addr - 0x0C) & 6) + 1, val >> 8);
         return;
     }
 
@@ -2171,6 +2187,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
     switch (addr)
     {
     case 0x04004004:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         Set_SCFG_Clock9(val & 0xFFFF);
         SCFG_RST = val >> 16;
         DSi_DSP::SetRstLine((val >> 16) & 1);
@@ -2178,6 +2196,8 @@ void ARM9IOWrite32(u32 addr, u32 val)
 
     case 0x04004008:
         {
+            if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
             u32 oldram = (SCFG_EXT[0] >> 14) & 0x3;
             u32 newram = (val >> 14) & 0x3;
 
@@ -2211,38 +2231,76 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
 
     case 0x04004040:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, (val >> 8) & 0xFF);
         MapNWRAM_A(2, (val >> 16) & 0xFF);
         MapNWRAM_A(3, val >> 24);
         return;
     case 0x04004044:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
         MapNWRAM_B(0, val & 0xFF);
         MapNWRAM_B(1, (val >> 8) & 0xFF);
         MapNWRAM_B(2, (val >> 16) & 0xFF);
         MapNWRAM_B(3, val >> 24);
         return;
     case 0x04004048:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
         MapNWRAM_B(4, val & 0xFF);
         MapNWRAM_B(5, (val >> 8) & 0xFF);
         MapNWRAM_B(6, (val >> 16) & 0xFF);
         MapNWRAM_B(7, val >> 24);
         return;
     case 0x0400404C:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
         MapNWRAM_C(0, val & 0xFF);
         MapNWRAM_C(1, (val >> 8) & 0xFF);
         MapNWRAM_C(2, (val >> 16) & 0xFF);
         MapNWRAM_C(3, val >> 24);
         return;
     case 0x04004050:
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
         MapNWRAM_C(4, val & 0xFF);
         MapNWRAM_C(5, (val >> 8) & 0xFF);
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
-    case 0x04004054: MapNWRAMRange(0, 0, val); return;
-    case 0x04004058: MapNWRAMRange(0, 1, val); return;
-    case 0x0400405C: MapNWRAMRange(0, 2, val); return;
+    case 0x04004054: 
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(0, 0, val);
+        return;
+    case 0x04004058: 
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(0, 1, val); 
+        return;
+    case 0x0400405C: 
+        if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(0, 2, val);
+        return;
 
     case 0x04004100: NDMACnt[0] = val & 0x800F0000; return;
     case 0x04004104: NDMAs[0]->SrcAddr = val & 0xFFFFFFFC; return;
@@ -2289,7 +2347,8 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: return SCFG_BIOS & 0xFF;
+    case 0x04004000: 
+        return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
 
     CASE_READ8_32BIT(0x04004040, MBK[1][0])
@@ -2438,11 +2497,31 @@ void ARM7IOWrite8(u32 addr, u8 val)
     switch (addr)
     {
     case 0x04004000:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_BIOS |= (val & 0x03);
         return;
     case 0x04004001:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_BIOS |= ((val & 0x07) << 8);
         return;
+    case 0x04004060:
+    case 0x04004061:
+    case 0x04004062:
+    case 0x04004063:
+    {
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+            return;
+        u32 tmp = MBK[0][8];
+        tmp &= ~(0xff << ((addr % 4) * 8));
+        tmp |= (val << ((addr % 4) * 8));
+        MBK[0][8] = tmp & 0x00FFFF0F;
+        MBK[1][8] = MBK[0][8];
+        return;
+    }
 
     case 0x04004500: DSi_I2C::WriteData(val); return;
     case 0x04004501: DSi_I2C::WriteCnt(val); return;
@@ -2455,18 +2534,36 @@ void ARM7IOWrite16(u32 addr, u16 val)
 {
     switch (addr)
     {
-    case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
-    case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
+        case 0x04000218: NDS::IE2 = (val & 0x7FF7); NDS::UpdateIRQ(1); return;
+        case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
-    case 0x04004000:
-        SCFG_BIOS |= (val & 0x0703);
-        return;
-    case 0x04004004:
-        SCFG_Clock7 = val & 0x0187;
-        return;
-    case 0x04004010:
-        Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
-        return;
+        case 0x04004000:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            SCFG_BIOS |= (val & 0x0703);
+            return;
+        case 0x04004004:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            SCFG_Clock7 = val & 0x0187;
+            return;
+        case 0x04004010:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            Set_SCFG_MC((SCFG_MC & 0xFFFF0000) | val);
+            return;
+        case 0x04004060:
+        case 0x04004062:
+            if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+                return;
+            if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+                return;
+            u32 tmp = MBK[0][8];
+            tmp &= ~(0xffff << ((addr % 4) * 8));
+            tmp |= (val << ((addr % 4) * 8));
+            MBK[0][8] = tmp & 0x00FFFF0F;
+            MBK[1][8] = MBK[0][8];
+            return;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2491,9 +2588,13 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x0400021C: NDS::IF2 &= ~(val & 0x7FF7); NDS::UpdateIRQ(1); return;
 
     case 0x04004000:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_BIOS |= (val & 0x0703);
         return;
     case 0x04004008:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         SCFG_EXT[0] &= ~0x03000000;
         SCFG_EXT[0] |= (val & 0x03000000);
         SCFG_EXT[1] &= ~0x93FF0F07;
@@ -2501,13 +2602,41 @@ void ARM7IOWrite32(u32 addr, u32 val)
         printf("SCFG_EXT = %08X / %08X (val7 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
         return;
     case 0x04004010:
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
         Set_SCFG_MC(val);
         return;
 
-    case 0x04004054: MapNWRAMRange(1, 0, val); return;
-    case 0x04004058: MapNWRAMRange(1, 1, val); return;
-    case 0x0400405C: MapNWRAMRange(1, 2, val); return;
-    case 0x04004060: val &= 0x00FFFF0F; MBK[0][8] = val; MBK[1][8] = val; return;
+    case 0x04004054: 
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(1, 0, val);
+        return;
+    case 0x04004058: 
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(1, 1, val);
+        return;
+    case 0x0400405C: 
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+            return;
+        MapNWRAMRange(1, 2, val);
+        return;
+    case 0x04004060: 
+        if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
+            return;
+        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
+            return;
+        val &= 0x00FFFF0F;
+        MBK[0][8] = val; 
+        MBK[1][8] = val; 
+        return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;
     case 0x04004104: NDMAs[4]->SrcAddr = val & 0xFFFFFFFC; return;
