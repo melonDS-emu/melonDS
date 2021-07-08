@@ -864,10 +864,7 @@ u8 ARM9Read8(u32 addr)
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFF;
 
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u8*)&ARM9iBIOS[addr & 0xFFFF];
-        else
-            return NDS::ARM9Read8(addr);
+        return *(u8*)&ARM9iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -910,10 +907,7 @@ u16 ARM9Read16(u32 addr)
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFFFF;
 
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u16*)&ARM9iBIOS[addr & 0xFFFF];
-        else
-            return NDS::ARM9Read16(addr);
+        return *(u16*)&ARM9iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -955,10 +949,7 @@ u32 ARM9Read32(u32 addr)
     {
         if ((addr >= 0xFFFF8000) && (SCFG_BIOS & (1<<0)))
             return 0xFFFFFFFF;
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u32*)&ARM9iBIOS[addr & 0xFFFF];
-        else
-            return NDS::ARM9Read32(addr);
+        return *(u32*)&ARM9iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF000000)
@@ -1390,10 +1381,7 @@ u8 ARM7Read8(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFF;
 
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u8*)&ARM7iBIOS[addr & 0xFFFF];
-        else
-            return NDS::ARM7Read8(addr);
+        return *(u8*)&ARM7iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF800000)
@@ -1443,10 +1431,7 @@ u16 ARM7Read16(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFFFF;
 
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u16*)&ARM7iBIOS[addr & 0xFFFF];
-        else
-            return NDS::ARM7Read16(addr);
+        return *(u16*)&ARM7iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF800000)
@@ -1496,10 +1481,7 @@ u32 ARM7Read32(u32 addr)
         if (addr < NDS::ARM7BIOSProt && NDS::ARM7->R[15] >= NDS::ARM7BIOSProt)
             return 0xFFFFFFFF;
 
-        if (!(SCFG_BIOS & (1 << 1)))
-            return *(u32*)&ARM7iBIOS[addr & 0xFFFF];
-        else
-            return  NDS::ARM7Read32(addr);
+        return *(u32*)&ARM7iBIOS[addr & 0xFFFF];
     }
 
     switch (addr & 0xFF800000)
