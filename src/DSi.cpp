@@ -943,8 +943,6 @@ u16 ARM9Read16(u32 addr)
 
     return NDS::ARM9Read16(addr);
 }
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
 
 u32 ARM9Read32(u32 addr)
 {
@@ -1008,7 +1006,6 @@ u32 ARM9Read32(u32 addr)
 
     return NDS::ARM9Read32(addr);
 }
-#pragma GCC pop_options
 
 void ARM9Write8(u32 addr, u8 val)
 {
