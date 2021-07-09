@@ -190,22 +190,28 @@ void SetupDirectBoot()
 {
     // If loading a NDS directly, this value should be set
     // depending on the console type in the header at offset 12h
-    if (NDS::IsDirectBoot)
+    switch (NDSCart::Header.UnitCode)
     {
-        switch (NDSCart::Header.UnitCode)
-        {
-        case 0x00: /* NDS Image */
-            // on a pure NDS Image, we disable all extended features
-            // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
-            SCFG_BIOS = 0x0303;
-            break;
-        case 0x02: /* DSi Enhanced Image */
-            SCFG_BIOS = 0x0303;
-            break;
-        default:
-            SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
-            break;
-        }
+    case 0x00: /* NDS Image */
+        // on a pure NDS Image, we disable all extended features
+        // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
+        SCFG_BIOS = 0x0303;
+        break;
+    case 0x02: /* DSi Enhanced Image */
+        SCFG_BIOS = 0x0303;
+        break;
+    default:
+        SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
+        break;
+    }
+    // no NWRAM Mapping
+    for (int i = 0; i < 20; i++)
+        MapNWRAM_A(i, 0);
+    // No NWRAM Window
+    for (int i = 0; i < 3; i++)
+    {
+        MapNWRAMRange(0, i, 0);
+        MapNWRAMRange(1, i, 0);
     }
 }
 
@@ -336,21 +342,6 @@ bool LoadBIOS()
 
 bool LoadNAND()
 {
-    // Skip loading the stage2 if we started directly a ROM
-//    if (NDS::IsDirectBoot)
-    {
-        // no NWRAM Mapping
-        for (int i=0;i<20;i++)
-            MapNWRAM_A(i, 0);
-        // No NWRAM Window
-        for (int i = 0; i < 3; i++)
-        {
-            MapNWRAMRange(0, i, 0);
-            MapNWRAMRange(1, i, 0);
-        }
-        return true;
-    }
-
     printf("Loading DSi NAND\n");
 
     memset(NWRAM_A, 0, NWRAMSize);
@@ -632,9 +623,6 @@ void MapNWRAM_A(u32 num, u8 val)
         NWRAMMap_A[0][part] = NULL;
         NWRAMMap_A[1][part] = NULL;
     }
-    // can only map if NWRAM is available
-    if (!NWRAM_A)
-        NWRAM_A = new u8[NWRAMSize];
     for (s8 part = 3; part >= 0; part--)
     {
         u8* ptr = &NWRAM_A[part << 16];
@@ -680,9 +668,6 @@ void MapNWRAM_B(u32 num, u8 val)
         NWRAMMap_B[1][part] = NULL;
         NWRAMMap_B[2][part] = NULL;
     }
-    // can only map if NWRAM is available
-    if (!NWRAM_B)
-        NWRAM_B = new u8[NWRAMSize];
     for (s8 part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_B[part << 15];
@@ -734,9 +719,6 @@ void MapNWRAM_C(u32 num, u8 val)
         NWRAMMap_C[1][part] = NULL;
         NWRAMMap_C[2][part] = NULL;
     }
-    // can only map if NWRAM is available
-    if (!NWRAM_C)
-        NWRAM_C = new u8[NWRAMSize];
     for (s8 part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_C[part << 15];
@@ -1032,7 +1014,7 @@ void ARM9Write8(u32 addr, u8 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
             }
             return;
@@ -1060,7 +1042,7 @@ void ARM9Write8(u32 addr, u8 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
             }
             return;
@@ -1088,7 +1070,7 @@ void ARM9Write8(u32 addr, u8 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
             }
             return;
@@ -1152,7 +1134,7 @@ void ARM9Write16(u32 addr, u16 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
             }
             return;
@@ -1180,7 +1162,7 @@ void ARM9Write16(u32 addr, u16 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
             }
             return;
@@ -1208,7 +1190,7 @@ void ARM9Write16(u32 addr, u16 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
             }
             return;
@@ -1257,7 +1239,7 @@ void ARM9Write32(u32 addr, u32 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
             }
             return;
@@ -1285,7 +1267,7 @@ void ARM9Write32(u32 addr, u32 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
             }
             return;
@@ -1313,7 +1295,7 @@ void ARM9Write32(u32 addr, u32 val)
                 fflush(stdout);
 #endif
 #ifdef JIT_ENABLED
-                ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
+                ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
             }
             return;
