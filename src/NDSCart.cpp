@@ -1642,8 +1642,6 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         Cart->Reset();
         if (direct)
         {
-            // we need to remember that we start as directly booted
-            // so we can initialize the extended DSi features accordingly
             NDS::SetupDirectBoot();
             Cart->SetupDirectBoot();
         }
