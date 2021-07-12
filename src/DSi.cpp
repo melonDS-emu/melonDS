@@ -205,8 +205,12 @@ void SetupDirectBoot()
         break;
     }
     // no NWRAM Mapping
-    for (int i = 0; i < 20; i++)
+    for (int i = 0; i < 4; i++)
         MapNWRAM_A(i, 0);
+    for (int i = 0; i < 8; i++)
+        MapNWRAM_B(i, 0);
+    for (int i = 0; i < 8; i++)
+        MapNWRAM_C(i, 0);
     // No NWRAM Window
     for (int i = 0; i < 3; i++)
     {
@@ -594,6 +598,10 @@ void StopNDMAs(u32 cpu, u32 mode)
 
 void MapNWRAM_A(u32 num, u8 val)
 {
+    // NWRAM Bank A does not allow all bits to be set
+    // possible non working combinations are caught by later code, but these are not set-able at all
+    val &= ~0x72;
+
     if (MBK[0][8] & (1 << num))
     {
         printf("trying to map NWRAM_A %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
@@ -638,6 +646,10 @@ void MapNWRAM_A(u32 num, u8 val)
 
 void MapNWRAM_B(u32 num, u8 val)
 {
+    // NWRAM Bank B does not allow all bits to be set
+    // possible non working combinations are caught by later code, but these are not set-able at all
+    val &= ~0x60;
+
     if (MBK[0][8] & (1 << (8+num)))
     {
         printf("trying to map NWRAM_B %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
@@ -689,6 +701,10 @@ void MapNWRAM_B(u32 num, u8 val)
 
 void MapNWRAM_C(u32 num, u8 val)
 {
+    // NWRAM Bank C does not allow all bits to be set
+    // possible non working combinations are caught by later code, but these are not set-able at all
+    val &= ~0x60;
+
     if (MBK[0][8] & (1 << (16+num)))
     {
         printf("trying to map NWRAM_C %d to %02X, but it is write-protected (%08X)\n", num, val, MBK[0][8]);
@@ -739,6 +755,20 @@ void MapNWRAM_C(u32 num, u8 val)
 
 void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 {
+    // The windowing registers are not writeable in all bits
+    // We need to do this before the change test, so we do not
+    // get false "was changed" fall throughs
+    switch (num)
+    {
+        case 0:
+            val &= ~0xE00FC00F;
+            break;
+        case 1:
+        case 2:
+            val &= ~0xE007C007;
+            break;
+    }
+
     u32 oldval = MBK[cpu][5+num];
     if (oldval == val) return;
 
@@ -748,7 +778,14 @@ void MapNWRAMRange(u32 cpu, u32 num, u32 val)
 
     MBK[cpu][5+num] = val;
 
-    // TODO: what happens when the ranges are 'out of range'????
+    // Was TODO: What happens when the ranges are 'out of range'????
+    // Answer: The actual range is limited to 0x03000000 to 0x03ffffff
+    // The NWRAM can not map into the HW Register ranges and is never
+    // mapped there. However the end indizes are allowed to have a value
+    // exceeding that range, in which the accessed area is just cut
+    // at the end of the region
+    // since melonDS does this cut by the case switch in the read/write
+    // functions, we do not need to care here.
     if (num == 0)
     {
         u32 start = 0x03000000 + (((val >> 4) & 0xFF) << 16);
@@ -947,28 +984,16 @@ u32 ARM9Read32(u32 addr)
         if (addr >= NWRAMStart[0][0] && addr < NWRAMEnd[0][0])
         {
             u8* ptr = NWRAMMap_A[0][(addr >> 16) & NWRAMMask[0][0]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set A9: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0;
         }
         if (addr >= NWRAMStart[0][1] && addr < NWRAMEnd[0][1])
         {
             u8* ptr = NWRAMMap_B[0][(addr >> 15) & NWRAMMask[0][1]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set B9: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
         }
         if (addr >= NWRAMStart[0][2] && addr < NWRAMEnd[0][2])
         {
             u8* ptr = NWRAMMap_C[0][(addr >> 15) & NWRAMMask[0][2]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set C9: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
         }
         return NDS::ARM9Read32(addr);
@@ -1009,10 +1034,6 @@ void ARM9Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1037,10 +1058,6 @@ void ARM9Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1065,10 +1082,6 @@ void ARM9Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
@@ -1129,10 +1142,6 @@ void ARM9Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1157,10 +1166,6 @@ void ARM9Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1185,10 +1190,6 @@ void ARM9Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
@@ -1234,10 +1235,6 @@ void ARM9Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1262,10 +1259,6 @@ void ARM9Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1290,10 +1283,6 @@ void ARM9Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C9: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
@@ -1473,28 +1462,16 @@ u32 ARM7Read32(u32 addr)
         if (addr >= NWRAMStart[1][0] && addr < NWRAMEnd[1][0])
         {
             u8* ptr = NWRAMMap_A[1][(addr >> 16) & NWRAMMask[1][0]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set A: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0;
         }
         if (addr >= NWRAMStart[1][1] && addr < NWRAMEnd[1][1])
         {
             u8* ptr = NWRAMMap_B[1][(addr >> 15) & NWRAMMask[1][1]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set B: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
         }
         if (addr >= NWRAMStart[1][2] && addr < NWRAMEnd[1][2])
         {
             u8* ptr = NWRAMMap_C[1][(addr >> 15) & NWRAMMask[1][2]];
-#if DSI_NWRAM_DEBUGOUT
-            printf("Set C: Read %08x from NWRAM at %08x (source=%08x)\n", ptr ? *(u32*)&ptr[addr & 0xFFFF] : 0, addr, ptr);
-            fflush(stdout);
-#endif
             return ptr ? *(u32*)&ptr[addr & 0x7FFF] : 0;
         }
         return NDS::ARM7Read32(addr);
@@ -1538,10 +1515,6 @@ void ARM7Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1566,10 +1539,6 @@ void ARM7Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1594,10 +1563,6 @@ void ARM7Write8(u32 addr, u8 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u8*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
@@ -1646,10 +1611,6 @@ void ARM7Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1674,10 +1635,6 @@ void ARM7Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1702,10 +1659,6 @@ void ARM7Write16(u32 addr, u16 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u16*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
@@ -1754,10 +1707,6 @@ void ARM7Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_A[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set A7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1782,10 +1731,6 @@ void ARM7Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_B[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set B7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_B>(addr);
 #endif
@@ -1810,20 +1755,12 @@ void ARM7Write32(u32 addr, u32 val)
                     continue;
                 u8* ptr = &NWRAM_C[page * 0x8000];
                 *(u32*)&ptr[addr & 0x7FFF] = val;
-#if DSI_NWRAM_DEBUGOUT
-                printf("Set C7: Wrote %08x to NWRAM at %08x (source=%08x)\n", val, addr, ptr);
-                fflush(stdout);
-#endif
 #ifdef JIT_ENABLED
                 ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_C>(addr);
 #endif
             }
             return;
         }
-#if DSI_NWRAM_DEBUGOUT
-        printf("Fall Through: Writing %08x to WRAM at %08x\n", val, addr);
-        fflush(stdout);
-#endif
         return NDS::ARM7Write32(addr, val);
 
     case 0x04000000:
@@ -2103,8 +2040,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004042:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_A((addr & 2), val & 0xFF);
         MapNWRAM_A((addr & 2) + 1, val >> 8);
         return;
@@ -2115,8 +2050,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x0400404A:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_B(((addr - 0x04) & 6), val & 0xFF);
         MapNWRAM_B(((addr - 0x04) & 6) + 1, val >> 8);
         return;
@@ -2125,8 +2058,6 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x04004050:
     case 0x04004052:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
             return;
         MapNWRAM_C(((addr - 0x0C) & 6), val & 0xFF);
         MapNWRAM_C(((addr - 0x0C) & 6) + 1, val >> 8);
@@ -2199,8 +2130,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004040:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_A(0, val & 0xFF);
         MapNWRAM_A(1, (val >> 8) & 0xFF);
         MapNWRAM_A(2, (val >> 16) & 0xFF);
@@ -2208,8 +2137,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
     case 0x04004044:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
             return;
         MapNWRAM_B(0, val & 0xFF);
         MapNWRAM_B(1, (val >> 8) & 0xFF);
@@ -2219,8 +2146,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004048:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_B(4, val & 0xFF);
         MapNWRAM_B(5, (val >> 8) & 0xFF);
         MapNWRAM_B(6, (val >> 16) & 0xFF);
@@ -2228,8 +2153,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
         return;
     case 0x0400404C:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
             return;
         MapNWRAM_C(0, val & 0xFF);
         MapNWRAM_C(1, (val >> 8) & 0xFF);
@@ -2239,8 +2162,6 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004050:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_C(4, val & 0xFF);
         MapNWRAM_C(5, (val >> 8) & 0xFF);
         MapNWRAM_C(6, (val >> 16) & 0xFF);
@@ -2249,21 +2170,15 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04004054: 
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAMRange(0, 0, val);
         return;
     case 0x04004058: 
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAMRange(0, 1, val); 
         return;
     case 0x0400405C: 
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[0] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
             return;
         MapNWRAMRange(0, 2, val);
         return;
@@ -2522,8 +2437,6 @@ void ARM7IOWrite16(u32 addr, u16 val)
         case 0x04004062:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
-            if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
-                return;
             u32 tmp = MBK[0][8];
             tmp &= ~(0xffff << ((addr % 4) * 8));
             tmp |= (val << ((addr % 4) * 8));
@@ -2576,28 +2489,20 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004054: 
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
-            return;
         MapNWRAMRange(1, 0, val);
         return;
     case 0x04004058: 
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
             return;
         MapNWRAMRange(1, 1, val);
         return;
     case 0x0400405C: 
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
-            return;
         MapNWRAMRange(1, 2, val);
         return;
     case 0x04004060: 
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
             return;
         val &= 0x00FFFF0F;
         MBK[0][8] = val; 
