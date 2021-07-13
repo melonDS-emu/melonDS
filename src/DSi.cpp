@@ -457,15 +457,23 @@ bool LoadNAND()
         fread(nand_footer, 1, 16, SDMMCFile);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
-            printf("ERROR: NAND missing nocash footer\n");
-            return false;
+            // There is another copy of the footer at 000FF800h for the case
+            // that by external tools the image was cut off 
+            // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
+            fseek(SDMMCFile, 0x000FF800, SEEK_SET) ;
+            fread(nand_footer, 1, 16, SDMMCFile);
+            if (memcmp(nand_footer, nand_footer_ref, 16))
+            {
+              printf("ERROR: NAND missing nocash footer\n");
+              return false;
+            }
         }
 
         fread(eMMC_CID, 1, 16, SDMMCFile);
         fread(&ConsoleID, 1, 8, SDMMCFile);
 
         printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %" PRIu64 "\n", ConsoleID);
+        printf("Console ID: %" PRIx64 "\n", ConsoleID);
     }
 
     memset(ITCMInit, 0, 0x8000);
