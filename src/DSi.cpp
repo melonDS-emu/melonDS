@@ -626,7 +626,7 @@ void MapNWRAM_A(u32 num, u8 val)
     // However the hardware has a fixed order. Therefor 
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
-    for (u8 part = 0; part < 4; part++)
+    for (unsigned int part = 0; part < 4; part++)
     {
         NWRAMMap_A[0][part] = NULL;
         NWRAMMap_A[1][part] = NULL;
@@ -674,7 +674,7 @@ void MapNWRAM_B(u32 num, u8 val)
     // However the hardware has a fixed order. Therefor 
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
-    for (u8 part = 0; part < 8; part++)
+    for (unsigned int part = 0; part < 8; part++)
     {
         NWRAMMap_B[0][part] = NULL;
         NWRAMMap_B[1][part] = NULL;
@@ -729,7 +729,7 @@ void MapNWRAM_C(u32 num, u8 val)
     // However the hardware has a fixed order. Therefor 
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
-    for (u8 part = 0; part < 8; part++)
+    for (unsigned int part = 0; part < 8; part++)
     {
         NWRAMMap_C[0][part] = NULL;
         NWRAMMap_C[1][part] = NULL;
@@ -1033,15 +1033,11 @@ void ARM9Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1057,15 +1053,11 @@ void ARM9Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][1] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1081,15 +1073,11 @@ void ARM9Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][2] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1143,15 +1131,11 @@ void ARM9Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1167,15 +1151,11 @@ void ARM9Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][1] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1191,15 +1171,11 @@ void ARM9Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][2] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1239,15 +1215,11 @@ void ARM9Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
@@ -1263,15 +1235,11 @@ void ARM9Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][1] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
@@ -1287,15 +1255,11 @@ void ARM9Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[0][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][2] << 2)) | 0x80;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 0)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[0][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
@@ -1531,15 +1495,11 @@ void ARM7Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1555,15 +1515,11 @@ void ARM7Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][1] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1579,15 +1535,11 @@ void ARM7Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][2] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u8*)&ptr[addr & 0x7FFF] = val;
@@ -1630,15 +1582,11 @@ void ARM7Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1654,15 +1602,11 @@ void ARM7Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][1] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1678,15 +1622,11 @@ void ARM7Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][2] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u16*)&ptr[addr & 0x7FFF] = val;
@@ -1729,15 +1669,11 @@ void ARM7Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][0];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
-                    u8 bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 3) & 0x03) != (destPart & 0x03))
+                    unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_A[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
@@ -1753,15 +1689,11 @@ void ARM7Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][1];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][1] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][1 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_B[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
@@ -1777,15 +1709,11 @@ void ARM7Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                u32 destPart = (addr >> 15) & NWRAMMask[1][2];
+                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][2] << 2)) | 0x81;
                 for (int page = 0; page < 8; page++)
                 {
-                    u8 bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
-                    if (!(bankInfo & 0x80))
-                        continue;
-                    if ((bankInfo & 0x03) != 1)
-                        continue;
-                    if (((bankInfo >> 2) & 0x07) != (destPart & 0x07))
+                    unsigned int bankInfo = (MBK[1][3 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
+                    if (bankInfo != destPartSetting)
                         continue;
                     u8* ptr = &NWRAM_C[page * 0x8000];
                     *(u32*)&ptr[addr & 0x7FFF] = val;
