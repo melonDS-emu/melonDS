@@ -460,7 +460,7 @@ bool LoadNAND()
             // There is another copy of the footer at 000FF800h for the case
             // that by external tools the image was cut off 
             // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-            fseek(SDMMCFile, 0x000FF800, SEEK_SET) ;
+            fseek(SDMMCFile, 0x000FF800, SEEK_SET);
             fread(nand_footer, 1, 16, SDMMCFile);
             if (memcmp(nand_footer, nand_footer_ref, 16))
             {
