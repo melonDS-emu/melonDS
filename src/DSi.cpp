@@ -2005,8 +2005,6 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004043:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_A(addr & 3, val);
         return;
     case 0x04004044:
@@ -2019,8 +2017,6 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x0400404B:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
-            return;
         MapNWRAM_B((addr - 0x04) & 7, val);
         return;
     case 0x0400404C:
@@ -2032,8 +2028,6 @@ void ARM9IOWrite8(u32 addr, u8 val)
     case 0x04004052:
     case 0x04004053:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NVRAM Registers if disabled*/
             return;
         MapNWRAM_C((addr-0x0C) & 7, val);
         return;
@@ -2428,8 +2422,6 @@ void ARM7IOWrite8(u32 addr, u8 val)
     case 0x04004063:
     {
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
-            return;
-        if (!(SCFG_EXT[1] & (1 << 25))) /* no access to NWRAM Registers if disabled*/
             return;
         u32 tmp = MBK[0][8];
         tmp &= ~(0xff << ((addr % 4) * 8));
