@@ -631,7 +631,7 @@ void MapNWRAM_A(u32 num, u8 val)
         NWRAMMap_A[0][part] = NULL;
         NWRAMMap_A[1][part] = NULL;
     }
-    for (s8 part = 3; part >= 0; part--)
+    for (int part = 3; part >= 0; part--)
     {
         u8* ptr = &NWRAM_A[part << 16];
 
@@ -680,7 +680,7 @@ void MapNWRAM_B(u32 num, u8 val)
         NWRAMMap_B[1][part] = NULL;
         NWRAMMap_B[2][part] = NULL;
     }
-    for (s8 part = 7; part >= 0; part--)
+    for (int part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_B[part << 15];
 
@@ -735,7 +735,7 @@ void MapNWRAM_C(u32 num, u8 val)
         NWRAMMap_C[1][part] = NULL;
         NWRAMMap_C[2][part] = NULL;
     }
-    for (s8 part = 7; part >= 0; part--)
+    for (int part = 7; part >= 0; part--)
     {
         u8* ptr = &NWRAM_C[part << 15];
 
