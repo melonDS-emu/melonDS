@@ -2206,6 +2206,8 @@ void MainWindow::onLoadState()
         if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
         else          sprintf(msg, "State loaded from file");
         OSD::AddMessage(0, msg);
+
+        actUndoStateLoad->setEnabled(true);
     }
     else
     {
