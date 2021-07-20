@@ -346,6 +346,7 @@ void EmuThread::run()
     videoSettingsDirty = false;
     videoSettings.Soft_Threaded = Config::Threaded3D != 0;
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+    videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
 #ifdef OGLRENDERER_ENABLED
     if (hasOGL)
@@ -2600,7 +2601,7 @@ void MainWindow::onEmuStart()
     actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
-    
+
     actROMInfo->setEnabled(true);
 }
 
@@ -2622,7 +2623,7 @@ void MainWindow::onEmuStop()
     actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    
+
     actROMInfo->setEnabled(false);
 }
 
