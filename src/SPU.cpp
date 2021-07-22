@@ -445,6 +445,8 @@ s32 Channel::Run()
     {
         Timer = TimerReload + (Timer - 0x10000);
 
+        PrevSample = CurSample;
+
         switch (type)
         {
         case 0: NextSample_PCM8(); break;
@@ -456,6 +458,18 @@ s32 Channel::Run()
     }
 
     s32 val = (s32)CurSample;
+
+    // interpolation
+    // now you get to enjoy Electric Angel in high quality I guess.
+    // TODO MAKE CONDITIONAL!!!
+    if (true)
+    {
+        s32 samplepos = ((Timer - TimerReload) * 0x1000) / (0x10000 - TimerReload);
+//printf("CHANNEL %d POS=%d SAMPLEPOS=%08X (%04X/%04X)\n", Num, Pos, samplepos, Timer, TimerReload);
+        val = ((val * samplepos) + (PrevSample * (0x1000-samplepos))) >> 12;
+        //printf("ASSDERP = %08X/%08X => %08X\n", CurSample, PrevSample, val);
+    }
+
     val <<= VolumeShift;
     val *= Volume;
     return val;
