@@ -6,8 +6,11 @@ pool:
   demands:
    - agent.name -equals MacStadium-ARM64-Mac
 
+workspace:
+  clean: all
+    
 steps:
-- script: mkdir -p $(Pipeline.Workspace)/build
+- script: mkdir $(Pipeline.Workspace)/build
   displayName: 'Create build environment'
 
 - script: arch -arm64 cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON -DUSE_QT6=ON
