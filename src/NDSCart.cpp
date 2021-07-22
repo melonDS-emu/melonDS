@@ -193,6 +193,7 @@ CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
 
     u8 unitcode = ROM[0x12];
     IsDSi = (unitcode & 0x02) != 0;
+    DSiBase = *(u16*)&ROM[0x92] << 19;
 }
 
 CartCommon::~CartCommon()
@@ -203,12 +204,14 @@ void CartCommon::Reset()
 {
     CmdEncMode = 0;
     DataEncMode = 0;
+    DSiMode = false;
 }
 
 void CartCommon::SetupDirectBoot()
 {
     CmdEncMode = 2;
     DataEncMode = 2;
+    DSiMode = false; // TODO!!
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -217,6 +220,7 @@ void CartCommon::DoSavestate(Savestate* file)
 
     file->Var32(&CmdEncMode);
     file->Var32(&DataEncMode);
+    file->Bool32(&DSiMode);
 }
 
 void CartCommon::LoadSave(const char* path, u32 type)
@@ -266,13 +270,15 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
         case 0x3C:
             CmdEncMode = 1;
             Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
+            DSiMode = false;
             return 0;
 
         case 0x3D:
             if (IsDSi)
             {
-                CmdEncMode = 11;
+                CmdEncMode = 1;
                 Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
+                DSiMode = true;
             }
             return 0;
 
@@ -280,7 +286,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
             return 0;
         }
     }
-    else if (CmdEncMode == 1 || CmdEncMode == 11)
+    else if (CmdEncMode == 1)
     {
         // decrypt the KEY1 command as needed
         // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
@@ -309,14 +315,13 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
         case 0x20:
             {
                 u32 addr = (cmddec[2] & 0xF0) << 8;
-                if (CmdEncMode == 11)
+                if (DSiMode)
                 {
                     // the DSi region starts with 0x3000 unreadable bytes
                     // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
                     // these contain data for KEY1 crypto
-                    u32 dsiregion = *(u16*)&ROM[0x92] << 19;
                     addr -= 0x1000;
-                    addr += dsiregion;
+                    addr += DSiBase;
                 }
                 ReadROM(addr, 0x1000, data, 0);
             }
@@ -597,9 +602,15 @@ void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
     if (addr < 0x8000)
         addr = 0x8000 + (addr & 0x1FF);
 
-    // TODO: protect DSi secure area
-    // also protect DSi region if not unlocked
-    // and other security shenanigans
+    if (IsDSi && (addr >= DSiBase))
+    {
+        // for DSi carts:
+        // * in DSi mode: block the first 0x3000 bytes of the DSi area
+        // * in DS mode: block the entire DSi area
+
+        if ((!DSiMode) || (addr < (DSiBase+0x3000)))
+            addr = 0x8000 + (addr & 0x1FF);
+    }
 
     memcpy(data+offset, ROM+addr, len);
 }

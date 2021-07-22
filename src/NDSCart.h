@@ -56,6 +56,8 @@ protected:
     u32 ROMLength;
     u32 ChipID;
     bool IsDSi;
+    bool DSiMode;
+    u32 DSiBase;
 
     u32 CmdEncMode;
     u32 DataEncMode;
