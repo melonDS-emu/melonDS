@@ -121,6 +121,13 @@ if (ENABLE_LTO)
 	endif()
 endif()
 
+find_program(CCACHE "ccache")
+if (CCACHE)
+    message(STATUS "Using CCache to speed up compilation")
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+endif()
+
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)
 
 add_subdirectory(src)
