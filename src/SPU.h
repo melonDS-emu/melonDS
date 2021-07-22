@@ -73,6 +73,7 @@ public:
     bool KeyOn;
     u32 Timer;
     s32 Pos;
+    s16 PrevSample;
     s16 CurSample;
     u16 NoiseVal;
 

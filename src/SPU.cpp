@@ -269,6 +269,7 @@ void Channel::Start()
         Pos = -3;
 
     NoiseVal = 0x7FFF;
+    PrevSample = 0;
     CurSample = 0;
 
     FIFOReadPos = 0;
