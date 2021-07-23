@@ -43,9 +43,6 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 
-#if defined(__APPLE__) && defined(__aarch64__)
-    #include <pthread.h>
-#endif
 
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
 static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
@@ -320,9 +317,7 @@ void Init()
 
 void DeInit()
 {
-    #if defined(__APPLE__) && defined(__aarch64__)
-        pthread_jit_write_protect_np(false);
-    #endif
+    JitEnableWrite();
     ResetBlockCache();
     ARMJIT_Memory::DeInit();
 
@@ -331,9 +326,7 @@ void DeInit()
 
 void Reset()
 {
-    #if defined(__APPLE__) && defined(__aarch64__)
-        pthread_jit_write_protect_np(false);
-    #endif
+    JitEnableWrite();
     ResetBlockCache();
 
     ARMJIT_Memory::Reset();
@@ -918,13 +911,10 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-        #if defined(__APPLE__) && defined(__aarch64__)
-            pthread_jit_write_protect_np(false);
-        #endif
+        
+        JitEnableWrite();
         block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i, hasMemoryInstr);
-        #if defined(__APPLE__) && defined(__aarch64__)
-            pthread_jit_write_protect_np(true);
-        #endif
+        JitEnableExecute();
 
         JIT_DEBUGPRINT("block start %p\n", block->EntryPoint);
     }
@@ -1166,6 +1156,22 @@ void ResetBlockCache()
     JitBlocks7.clear();
 
     JITCompiler->Reset();
+}
+
+void JitEnableWrite()
+{
+    #if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *))
+            pthread_jit_write_protect_np(false);
+    #endif
+}
+
+void JitEnableExecute()
+{
+    #if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *))
+            pthread_jit_write_protect_np(true);
+    #endif
 }
 
 }
