@@ -2675,7 +2675,6 @@ int main(int argc, char** argv)
     srand(time(NULL));
 
     printf("melonDS " MELONDS_VERSION "\n");
-    
     printf(MELONDS_URL "\n");
 
     Platform::Init(argc, argv);
