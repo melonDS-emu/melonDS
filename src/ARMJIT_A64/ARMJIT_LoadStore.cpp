@@ -827,12 +827,15 @@ void Compiler::T_Comp_PUSH_POP()
     }
 
     ARM64Reg sp = MapReg(13);
-    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false);
+    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false, false);
 
-    if (offset > 0)
+    if (offset)
+    {
+        if (offset > 0)
             ADD(sp, sp, offset);
         else
             SUB(sp, sp, -offset);
+    }
 }
 
 void Compiler::T_Comp_LDMIA_STMIA()
