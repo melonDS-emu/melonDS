@@ -1955,7 +1955,7 @@ u8 ARM9Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm9 read8 %08X\n", addr);
+    // printf("unknown arm9 read8 %08X\n", addr);
     return 0;
 }
 
@@ -2345,7 +2345,7 @@ u8 ARM7Read8(u32 addr)
         return GBACart::SRAMRead(addr);
     }
 
-    printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
+    // printf("unknown arm7 read8 %08X %08X %08X/%08X\n", addr, ARM7->R[15], ARM7->R[0], ARM7->R[1]);
     return 0;
 }
 
@@ -2617,7 +2617,7 @@ void ARM7Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    // printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2697,7 +2697,7 @@ void ARM7Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    // printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)

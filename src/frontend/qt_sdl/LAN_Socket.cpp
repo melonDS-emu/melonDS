@@ -21,8 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pcap/pcap.h>
+
 #include "Wifi.h"
 #include "LAN_Socket.h"
+#include "LAN_Capture.h"
 #include "Config.h"
 #include "FIFO.h"
 
@@ -216,6 +219,8 @@ bool Init()
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
 
+    LAN_Capture::CreatePacketDump("test.pcap");
+
     return true;
 }
 
@@ -226,6 +231,8 @@ void DeInit()
         slirp_cleanup(Ctx);
         Ctx = nullptr;
     }
+
+    LAN_Capture::ClosePacketDump();
 }
 
 
@@ -426,6 +433,9 @@ void HandleDNSFrame(u8* data, int len)
 
 int SendPacket(u8* data, int len)
 {
+    // TODO: Add this in configurations
+    LAN_Capture::Write(data, len);
+
     if (!Ctx) return 0;
 
     if (len > 2048)
@@ -531,6 +541,8 @@ int RecvPacket(u8* data)
             ((u32*)data)[i>>2] = RXBuffer.Read();
 
         ret = header >> 16;
+
+        LAN_Capture::Write(data, len);
     }
 
     return ret;
