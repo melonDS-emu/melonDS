@@ -681,7 +681,8 @@ void Compiler::Comp_BranchSpecialBehaviour(bool taken)
     {
         RegCache.PrepareExit();
 
-        ADD(RCycles, RCycles, ConstantCycles);
+        if (ConstantCycles)
+            ADD(RCycles, RCycles, ConstantCycles);
         QuickTailCall(X0, ARM_Ret);
     }
 }
@@ -832,7 +833,8 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     RegCache.Flush();
 
-    ADD(RCycles, RCycles, ConstantCycles);
+    if (ConstantCycles)
+        ADD(RCycles, RCycles, ConstantCycles);
     QuickTailCall(X0, ARM_Ret);
 
     FlushIcache();

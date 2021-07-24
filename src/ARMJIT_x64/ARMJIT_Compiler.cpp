@@ -680,7 +680,8 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
     {
         RegCache.PrepareExit();
 
-        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
+        if (ConstantCycles)
+            ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
         JMP((u8*)&ARM_Ret, true);
     }
 }
@@ -841,7 +842,8 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     RegCache.Flush();
 
-    ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
+    if (ConstantCycles)
+        ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
     JMP((u8*)ARM_Ret, true);
 
 #ifdef JIT_PROFILING_ENABLED
