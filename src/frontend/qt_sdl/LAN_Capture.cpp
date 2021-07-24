@@ -3,37 +3,41 @@
 #include <string.h>
 #include <iostream>
 #include <sys/time.h>
-#include <endian.h>
+
+#ifdef __WIN32__
+	#include <ws2tcpip.h>
+#else
+	#include <sys/socket.h>
+	#include <netdb.h>
+	#include <poll.h>
+	#include <time.h>
+#endif
 
 #include "../types.h"
 #include "LAN_Capture.h"
 
 std::ofstream packetDumpOutput;
 
-int LAN_Capture::CreatePacketDump(const char* filename)
+void LAN_Capture::CreatePacketDump(const char* filename)
 {
     packetDumpOutput.open(filename);
     pcap_header fileHeader;
 
-    // i fucking hate this
-    fileHeader.magicNumber = htobe32(0xA1B2C3D4);
-    fileHeader.majorVersion = htobe16(2);
-    fileHeader.minorVersion = htobe16(4);
-    fileHeader.reserved1 = htobe32(0);
-    fileHeader.reserved2 = htobe32(0);
-    fileHeader.snapLen = htobe32(65535);
-    fileHeader.linkType = htobe32(105);             // LINKTYPE_IEEE802_11 (105)
+    fileHeader.magicNumber = htonl(0xA1B2C3D4);     // PCAP Magic number
+    fileHeader.majorVersion = htons(2);             // https://tools.ietf.org/id/draft-gharris-opsawg-pcap-00.html
+    fileHeader.minorVersion = htons(4);             // don't want to forget this
+    fileHeader.reserved1 = htonl(0);                //
+    fileHeader.reserved2 = htonl(0);                //
+    fileHeader.snapLen = htonl(65535);              // max packet len
+    fileHeader.linkType = htonl(105);               // LINKTYPE_IEEE802_11 / Wireless LAN (105)
 
+    // Write the header in
     packetDumpOutput.write((char*)&fileHeader, sizeof(fileHeader));
-
-    return 0;
 }
 
-int LAN_Capture::ClosePacketDump()
+void LAN_Capture::ClosePacketDump()
 {
     packetDumpOutput.close();
-
-    return 0;
 }
 
 int LAN_Capture::Write(u8* data, int len)
@@ -41,16 +45,24 @@ int LAN_Capture::Write(u8* data, int len)
     pcap_packet_record packetRecord;
     timeval timestamp;
 
-    gettimeofday(&timestamp, nullptr);
+    if (gettimeofday(&timestamp, nullptr) != 0)
+    {
+        printf("LAN_Capture: could not get system timestamp\n");
+        return -1;
+    }
 
-    packetRecord.timestampSeconds = htobe32(timestamp.tv_sec);
-    packetRecord.timestampMicroseconds = htobe32(timestamp.tv_usec);
-    packetRecord.capturedLen = htobe32(len);
-    packetRecord.wireLen = htobe32(len);
+    packetRecord.timestampSeconds = htonl(timestamp.tv_sec);
+    packetRecord.timestampMicroseconds = htonl(timestamp.tv_usec);
+    packetRecord.capturedLen = htonl(len);
+    packetRecord.wireLen = htonl(len);
 
     packetDumpOutput.write((char*)&packetRecord, sizeof(packetRecord));
     packetDumpOutput.write((char*)data, len);
-    printf("packet cap: wrote %#x worth of data\n", len);
 
     return 0;
+}
+
+bool LAN_Capture::IsOpen()
+{
+    return packetDumpOutput.is_open();
 }

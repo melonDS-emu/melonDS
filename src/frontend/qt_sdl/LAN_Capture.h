@@ -4,7 +4,7 @@
 
 #include "../types.h"
 
-// shit
+// Header for PCAP file
 struct pcap_header
 {
     u32 magicNumber;
@@ -16,6 +16,7 @@ struct pcap_header
     u32 linkType;
 };
 
+// Packet record for the PCAP file
 struct pcap_packet_record 
 {
     u32 timestampSeconds;
@@ -26,8 +27,9 @@ struct pcap_packet_record
 
 namespace LAN_Capture
 {
-    int CreatePacketDump(const char* filename);
-    int ClosePacketDump();
+    void CreatePacketDump(const char* filename);
+    void ClosePacketDump();
 
     int Write(u8* data, int len);
+    bool IsOpen();
 }
