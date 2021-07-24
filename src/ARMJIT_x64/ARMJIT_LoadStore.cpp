@@ -399,14 +399,15 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     }
 }
 
-s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
+s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn)
 {
     int regsCount = regs.Count();
 
     if (regsCount == 0)
         return 0; // actually not the right behaviour TODO: fix me
 
-    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << *regs.begin()))
+    int firstReg = *regs.begin();
+    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << firstReg) && !(firstReg == rn && skipLoadingRn))
     {
         int flags = 0;
         if (store)
@@ -415,7 +416,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             flags |= memop_SubtractOffset;
         Op2 offset = preinc ? Op2(4) : Op2(0);
 
-        Comp_MemAccess(*regs.begin(), rn, offset, 32, flags);
+        Comp_MemAccess(firstReg, rn, offset, 32, flags);
 
         return decrement ? -4 : 4;
     }
@@ -482,7 +483,10 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             {
                 if (RegCache.LoadedRegs & (1 << reg))
                 {
-                    MOV(32, MapReg(reg), mem);
+                    if (!(reg == rn && skipLoadingRn))
+                        MOV(32, MapReg(reg), mem);
+                    else
+                        MOV(32, R(RSCRATCH), mem); // just touch the memory
                 }
                 else
                 {
@@ -548,12 +552,15 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 MOV(32, R(RSCRATCH2), Imm32(reg - 8));
                 POP(RSCRATCH3);
                 CALL(WriteBanked);
-                FixupBranch sucessfulWritten = J_CC(CC_NC);
-                if (RegCache.LoadedRegs & (1 << reg))
-                    MOV(32, R(RegCache.Mapping[reg]), R(RSCRATCH3));
-                else
-                    SaveReg(reg, RSCRATCH3);
-                SetJumpTarget(sucessfulWritten);
+                if (!(reg == rn && skipLoadingRn))
+                {
+                    FixupBranch sucessfulWritten = J_CC(CC_NC);
+                    if (RegCache.LoadedRegs & (1 << reg))
+                            MOV(32, R(RegCache.Mapping[reg]), R(RSCRATCH3));
+                    else
+                        SaveReg(reg, RSCRATCH3);
+                    SetJumpTarget(sucessfulWritten);
+                }
             }
             else if (!(RegCache.LoadedRegs & (1 << reg)))
             {
@@ -561,6 +568,10 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
                 POP(RSCRATCH);
                 SaveReg(reg, RSCRATCH);
+            }
+            else if (reg == rn && skipLoadingRn)
+            {
+                ADD(64, R(RSP), Imm8(8));
             }
             else
             {
@@ -748,14 +759,14 @@ void Compiler::A_Comp_LDM_STM()
 
     OpArg rn = MapReg(CurInstr.A_Reg(16));
 
-    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode);
-
     if (load && writeback && regs[CurInstr.A_Reg(16)])
         writeback = Num == 0
-            ? (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1))
-            : false;
-    if (writeback)
-        ADD(32, rn, offset >= INT8_MIN && offset < INT8_MAX ? Imm8(offset) : Imm32(offset));
+            && (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1));
+
+    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode, load && writeback);
+
+    if (writeback && offset)
+        ADD(32, rn, Imm32(offset));
 }
 
 void Compiler::T_Comp_MemImm()
@@ -825,9 +836,10 @@ void Compiler::T_Comp_PUSH_POP()
     }
 
     OpArg sp = MapReg(13);
-    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false);
+    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false, false);
 
-    ADD(32, sp, Imm8(offset)); // offset will be always be in range since PUSH accesses 9 regs max
+    if (offset)
+        ADD(32, sp, Imm8(offset)); // offset will be always be in range since PUSH accesses 9 regs max
 }
 
 void Compiler::T_Comp_LDMIA_STMIA()
@@ -836,9 +848,11 @@ void Compiler::T_Comp_LDMIA_STMIA()
     OpArg rb = MapReg(CurInstr.T_Reg(8));
     bool load = CurInstr.Instr & (1 << 11);
 
-    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false);
+    bool writeback = !load || !regs[CurInstr.T_Reg(8)];
 
-    if (!load || !regs[CurInstr.T_Reg(8)])
+    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false, load && writeback);
+
+    if (writeback && offset)
         ADD(32, rb, Imm8(offset));
 }
 
