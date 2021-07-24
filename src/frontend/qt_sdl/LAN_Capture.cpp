@@ -50,7 +50,7 @@ void LAN_Capture::CreatePacketDump(const char* filename)
     fileHeader.reserved1 = htonl(0);                //
     fileHeader.reserved2 = htonl(0);                //
     fileHeader.snapLen = htonl(65535);              // max packet len
-    fileHeader.linkType = htonl(105);               // LINKTYPE_IEEE802_11 / Wireless LAN (105)
+    fileHeader.linkType = htonl(1);                 // LINKTYPE_ETHERNET (1)
 
     // Write the header in
     packetDumpOutput.write((char*)&fileHeader, sizeof(fileHeader));
