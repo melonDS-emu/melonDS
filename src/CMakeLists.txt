@@ -124,3 +124,7 @@ else()
 		target_link_libraries(core rt)
 	endif()
 endif()
+
+if (ENABLE_JIT_PROFILING)
+	target_link_libraries(core jitprofiling)
+endif()

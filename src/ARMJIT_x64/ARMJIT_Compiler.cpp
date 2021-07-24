@@ -22,6 +22,7 @@
 #include "../Config.h"
 
 #include <assert.h>
+#include <stdarg.h>
 
 #include "../dolphin/CommonFuncs.h"
 
@@ -298,6 +299,10 @@ Compiler::Compiler()
         SetJumpTarget(und);
         MOV(32, R(RSCRATCH3), MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_UND)));
         RET();
+
+#ifdef JIT_PROFILING_ENABLED
+        CreateMethod("ReadBanked", ReadBanked);
+#endif
     }
     {
         // RSCRATCH  mode
@@ -341,6 +346,10 @@ Compiler::Compiler()
         MOV(32, MComplex(RCPU, RSCRATCH2, SCALE_4, offsetof(ARM, R_UND)), R(RSCRATCH3));
         CLC();
         RET();
+
+#ifdef JIT_PROFILING_ENABLED
+        CreateMethod("WriteBanked", WriteBanked);
+#endif
     }
 
     for (int consoleType = 0; consoleType < 2; consoleType++)
@@ -401,6 +410,10 @@ Compiler::Compiler()
                     ABI_PopRegistersAndAdjustStack(CallerSavedPushRegs, 8);
                     RET();
 
+#ifdef JIT_PROFILING_ENABLED
+                    CreateMethod("FastMemStorePatch%d_%d_%d", PatchedStoreFuncs[consoleType][num][size][reg], num, size, reg);
+#endif
+
                     for (int signextend = 0; signextend < 2; signextend++)
                     {
                         PatchedLoadFuncs[consoleType][num][size][signextend][reg] = GetWritableCodePtr();
@@ -439,6 +452,10 @@ Compiler::Compiler()
                         else
                             MOVZX(32, 8 << size, rdMapped, R(RSCRATCH));
                         RET();
+
+#ifdef JIT_PROFILING_ENABLED
+                        CreateMethod("FastMemLoadPatch%d_%d_%d_%d", PatchedLoadFuncs[consoleType][num][size][signextend][reg], num, size, reg, signextend);
+#endif
                     }
                 }
             }
@@ -668,6 +685,28 @@ void Compiler::Comp_SpecialBranchBehaviour(bool taken)
     }
 }
 
+#ifdef JIT_PROFILING_ENABLED
+void Compiler::CreateMethod(const char* namefmt, void* start, ...)
+{
+    if (iJIT_IsProfilingActive())
+    {
+        va_list args;
+        va_start(args, start);
+        char name[64];
+        vsprintf(name, namefmt, args);
+        va_end(args);
+
+        iJIT_Method_Load method = {0};
+        method.method_id = iJIT_GetNewMethodID();
+        method.method_name = name;
+        method.method_load_address = start;
+        method.method_size = GetWritableCodePtr() - (u8*)start;
+
+        iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, (void*)&method);
+    }
+}
+#endif
+
 JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[], int instrsCount, bool hasMemoryInstr)
 {
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
@@ -804,6 +843,10 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm32(ConstantCycles));
     JMP((u8*)ARM_Ret, true);
+
+#ifdef JIT_PROFILING_ENABLED
+    CreateMethod("JIT_Block_%d_%d_%08X", (void*)res, Num, Thumb, instrs[0].Addr);
+#endif
 
     /*FILE* codeout = fopen("codeout", "a");
     fprintf(codeout, "beginning block argargarg__ %x!!!", instrs[0].Addr);

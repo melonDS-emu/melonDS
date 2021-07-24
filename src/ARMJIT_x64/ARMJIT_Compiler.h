@@ -25,6 +25,10 @@
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
+#ifdef JIT_PROFILING_ENABLED
+#include <jitprofiling.h>
+#endif
+
 #include <unordered_map>
 
 namespace ARMJIT
@@ -229,6 +233,10 @@ public:
     bool IsJITFault(u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
+
+#ifdef JIT_PROFILING_ENABLED
+    void CreateMethod(const char* namefmt, void* start, ...);
+#endif
 
     u8* FarCode;
     u8* NearCode;
