@@ -27,6 +27,8 @@ struct pcap_packet_record
 
 namespace LAN_Capture
 {
+    void Prepare();
+    void NewPacketDump();
     void CreatePacketDump(const char* filename);
     void ClosePacketDump();
 

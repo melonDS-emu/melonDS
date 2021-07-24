@@ -219,7 +219,11 @@ bool Init()
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
 
-    LAN_Capture::CreatePacketDump("test.pcap");
+    if (Config::EnableWifiPacketCapturing)
+    {
+        LAN_Capture::Prepare();
+        LAN_Capture::NewPacketDump();
+    }
 
     return true;
 }
@@ -433,9 +437,6 @@ void HandleDNSFrame(u8* data, int len)
 
 int SendPacket(u8* data, int len)
 {
-    // TODO: Add this in configurations
-    LAN_Capture::Write(data, len);
-
     if (!Ctx) return 0;
 
     if (len > 2048)
@@ -461,6 +462,12 @@ int SendPacket(u8* data, int len)
     }
 
     slirp_input(Ctx, data, len);
+
+    if (Config::EnableWifiPacketCapturing)
+    {
+        LAN_Capture::Write(data, len);
+    }
+
     return len;
 }
 
@@ -542,7 +549,10 @@ int RecvPacket(u8* data)
 
         ret = header >> 16;
 
-        LAN_Capture::Write(data, len);
+        if (Config::EnableWifiPacketCapturing)
+        {
+            LAN_Capture::Write(data, len);
+        }
     }
 
     return ret;

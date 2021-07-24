@@ -1,8 +1,7 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <iostream>
 #include <sys/time.h>
+#include <filesystem>
 
 #ifdef __WIN32__
 	#include <ws2tcpip.h>
@@ -15,8 +14,30 @@
 
 #include "../types.h"
 #include "LAN_Capture.h"
+#include "Config.h"
 
 std::ofstream packetDumpOutput;
+
+void LAN_Capture::Prepare()
+{
+    if (Config::EnableWifiPacketCapturing == 1)
+        std::filesystem::create_directory("packetdumps");
+}
+
+void LAN_Capture::NewPacketDump()
+{
+    if (!IsOpen())
+    {
+        time_t now = time(NULL);
+        char filename[64];
+        struct tm *temp;
+
+        temp = localtime(&now);
+
+        strftime(filename, sizeof(filename), "packetdumps/pcap_%d%m%Y_%H%M%S.pcap", temp);
+        CreatePacketDump(filename);
+    }
+}
 
 void LAN_Capture::CreatePacketDump(const char* filename)
 {
