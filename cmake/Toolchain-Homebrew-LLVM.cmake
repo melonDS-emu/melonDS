@@ -9,4 +9,4 @@ add_link_options(-L/usr/local/opt/llvm/lib)
 # LLVM in Homebrew is built with latest Xcode which has a newer linker than
 # what is bundled in the default install of Xcode Command Line Tools, so we
 # override it to prevent it passing flags not supported by the system's ld.
-add_link_options(-mlinker-version=450)
+#add_link_options(-mlinker-version=450)
