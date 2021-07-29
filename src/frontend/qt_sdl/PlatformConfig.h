@@ -31,6 +31,8 @@ enum
     HK_FastForwardToggle,
     HK_FullscreenToggle,
     HK_SwapScreens,
+    HK_CycleScreenLayout,
+    HK_CycleScreenSizing,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
     HK_FrameStep,
