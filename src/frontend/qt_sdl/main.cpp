@@ -61,6 +61,7 @@
 
 #include "types.h"
 #include "version.h"
+#include "scmrev.h"
 
 #include "FrontendUtil.h"
 #include "OSD.h"
@@ -1550,6 +1551,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
+    {
+        QMenu* menu = menubar->addMenu("Help");
+
+        actAbout = menu->addAction("About");
+        connect(actAbout, &QAction::triggered, this, &MainWindow::onAbout);
+    }
     setMenuBar(menubar);
 
     resize(Config::WindowWidth, Config::WindowHeight);
@@ -2494,6 +2501,21 @@ void MainWindow::onUpdateMouseTimer()
 void MainWindow::onInterfaceSettingsFinished(int res)
 {
     emuThread->emuUnpause();
+}
+
+void MainWindow::onAbout()
+{
+    QMessageBox::about(this, "About",
+    "<p style='font-size:18pt; font-weight:400;'>melonDS</p>"
+    "<p style='font-size:15pt;'>" MELONDS_VERSION "</p>"
+    "<p style='font-size: 10pt; font-weight:100;'>"
+    "Branch : " SOURCE_CONTROL_BRANCH_STRING "<br>"
+    "Revision : " SOURCE_CONTROL_REVISION_STRING "<br><br></p>"
+    "<a style='font-size:14pt;' href='https://github.com/Arisotura/melonDS/blob/master/LICENSE'>License</a>"
+    " | <a href='https://github.com/Arisotura/melonDS/graphs/contributors'>Authors</a>"
+    " | <a href='http://melonds.kuribo64.net/board/'>Help</a><br><br>"
+    "<p style='font-size: 10pt; font-weight:100;'>\u00A9 2021 Arisotura - \u201cDS\u201d is a "
+                 "trademark of Nintendo. melonDS is not affiliated with Nintendo in any way.</p>");
 }
 
 void MainWindow::onChangeSavestateSRAMReloc(bool checked)
