@@ -92,7 +92,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
         addonsJoyMap[i] = Config::HKJoyMapping[hk_addons[i]];
     }
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 9; i++)
     {
         hkGeneralKeyMap[i] = Config::HKKeyMapping[hk_general[i]];
         hkGeneralJoyMap[i] = Config::HKJoyMapping[hk_general[i]];
@@ -100,7 +100,7 @@ InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new 
 
     populatePage(ui->tabInput, 12, dskeylabels, keypadKeyMap, keypadJoyMap);
     populatePage(ui->tabAddons, 2, hk_addons_labels, addonsKeyMap, addonsJoyMap);
-    populatePage(ui->tabHotkeysGeneral, 8, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
+    populatePage(ui->tabHotkeysGeneral, 9, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
@@ -183,7 +183,7 @@ void InputConfigDialog::on_InputConfigDialog_accepted()
         Config::HKJoyMapping[hk_addons[i]] = addonsJoyMap[i];
     }
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 9; i++)
     {
         Config::HKKeyMapping[hk_general[i]] = hkGeneralKeyMap[i];
         Config::HKJoyMapping[hk_general[i]] = hkGeneralJoyMap[i];
