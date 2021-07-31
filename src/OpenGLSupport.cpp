@@ -39,8 +39,8 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[0], res+1, NULL, log);
-        Platform::LogMessage("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
-        Platform::LogMessage("shader source:\n--\n%s\n--\n", vs);
+        Platform::LogMsg("OpenGL: failed to compile vertex shader %s: %s\n", name, log);
+        Platform::LogMsg("shader source:\n--\n%s\n--\n", vs);
         delete[] log;
 
         glDeleteShader(ids[0]);
@@ -60,8 +60,8 @@ bool BuildShaderProgram(const char* vs, const char* fs, GLuint* ids, const char*
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetShaderInfoLog(ids[1], res+1, NULL, log);
-        Platform::LogMessage("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
-        //Platform::LogMessage("shader source:\n--\n%s\n--\n", fs);
+        Platform::LogMsg("OpenGL: failed to compile fragment shader %s: %s\n", name, log);
+        //Platform::LogMsg("shader source:\n--\n%s\n--\n", fs);
         delete[] log;
 
         FILE* logf = fopen("shaderfail.log", "w");
@@ -100,7 +100,7 @@ bool LinkShaderProgram(GLuint* ids)
         if (res < 1) res = 1024;
         char* log = new char[res+1];
         glGetProgramInfoLog(ids[2], res+1, NULL, log);
-        Platform::LogMessage("OpenGL: failed to link shader program: %s\n", log);
+        Platform::LogMsg("OpenGL: failed to link shader program: %s\n", log);
         delete[] log;
 
         glDeleteProgram(ids[2]);

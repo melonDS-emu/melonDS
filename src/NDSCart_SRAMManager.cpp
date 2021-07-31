@@ -111,7 +111,7 @@ void Setup(const char* path, u8* buffer, u32 length)
 void RequestFlush()
 {
     Platform::Mutex_Lock(SecondaryBufferLock);
-    Platform::LogMessage("NDS SRAM: Flush requested\n");
+    Platform::LogMsg("NDS SRAM: Flush requested\n");
     memcpy(SecondaryBuffer, Buffer, Length);
     FlushVersion++;
     TimeAtLastFlushRequest = time(NULL);
@@ -153,7 +153,7 @@ void FlushSecondaryBuffer(u8* dst, s32 dstLength)
         FILE* f = Platform::OpenFile(Path, "wb");
         if (f)
         {
-            Platform::LogMessage("NDS SRAM: Written\n");
+            Platform::LogMsg("NDS SRAM: Written\n");
             fwrite(SecondaryBuffer, SecondaryBufferLength, 1, f);
             fclose(f);
         }

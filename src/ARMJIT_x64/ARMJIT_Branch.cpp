@@ -247,7 +247,7 @@ void Compiler::T_Comp_BranchXchangeReg()
     {
         if (Num == 1)
         {
-            Platform::LogMessage("BLX unsupported on ARM7!!!\n");
+            Platform::LogMsg("BLX unsupported on ARM7!!!\n");
             return;
         }
         MOV(32, R(RSCRATCH), MapReg(CurInstr.A_Reg(3)));

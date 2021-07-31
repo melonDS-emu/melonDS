@@ -170,7 +170,7 @@ void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking)
 {
     if (bank != 'B' && bank != 'C')
     {
-        Platform::LogMessage("WTF?? (DSP MBK recfg, nonsense bank '%c')\n", bank);
+        Platform::LogMsg("WTF?? (DSP MBK recfg, nonsense bank '%c')\n", bank);
         return;
     }
 

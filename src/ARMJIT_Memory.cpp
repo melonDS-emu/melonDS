@@ -399,7 +399,7 @@ struct Mapping
                 if (status == memstate_MappedRW)
                 {
                     u32 segmentSize = offset - segmentOffset;
-                    Platform::LogMessage("unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
+                    Platform::LogMsg("unmapping %x %x %x %x\n", Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
                     bool success = UnmapFromRange(Addr + segmentOffset, Num, segmentOffset + LocalOffset + OffsetsPerRegion[region], segmentSize);
                     assert(success);
                 }
@@ -441,7 +441,7 @@ ARMJIT::TinyVector<Mapping> Mappings[memregions_Count];
 void SetCodeProtection(int region, u32 offset, bool protect)
 {
     offset &= ~0xFFF;
-    //Platform::LogMessage("set code protection %d %x %d\n", region, offset, protect);
+    //Platform::LogMsg("set code protection %d %x %d\n", region, offset, protect);
 
     for (int i = 0; i < Mappings[region].Length; i++)
     {
@@ -459,7 +459,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
 
-        //Platform::LogMessage("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> 12]);
+        //Platform::LogMsg("%x %d %x %x %x %d\n", effectiveAddr, mapping.Num, mapping.Addr, mapping.LocalOffset, mapping.Size, states[effectiveAddr >> 12]);
         assert(states[effectiveAddr >> 12] == (protect ? memstate_MappedRW : memstate_MappedProtected));
         states[effectiveAddr >> 12] = protect ? memstate_MappedProtected : memstate_MappedRW;
 
@@ -485,7 +485,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
     u32 newEnd = newBase + newSize;
 
-    Platform::LogMessage("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCBEnd);
+    Platform::LogMsg("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCBEnd);
     // unmap all regions containing the old or the current DTCM mapping
     for (int region = 0; region < memregions_Count; region++)
     {
@@ -499,7 +499,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
             u32 start = mapping.Addr;
             u32 end = mapping.Addr + mapping.Size;
 
-            Platform::LogMessage("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
+            Platform::LogMsg("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
             bool overlap = (NDS::ARM9->DTCMSize > 0 && oldDTCMBase < end && oldDTCBEnd > start)
                 || (newSize > 0 && newBase < end && newEnd > start);
@@ -548,7 +548,7 @@ void RemapNWRAM(int num)
 
 void RemapSWRAM()
 {
-    Platform::LogMessage("remapping SWRAM\n");
+    Platform::LogMsg("remapping SWRAM\n");
     for (int i = 0; i < Mappings[memregion_WRAM7].Length;)
     {
         Mapping& mapping = Mappings[memregion_WRAM7][i];
@@ -584,7 +584,7 @@ bool MapAtAddress(u32 addr)
         return false;
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
-    //Platform::LogMessage("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
+    //Platform::LogMsg("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
     bool isExecutable = ARMJIT::CodeMemRegions[region];
 
     u32 dtcmStart = NDS::ARM9->DTCMBase;
@@ -650,7 +650,7 @@ bool MapAtAddress(u32 addr)
 #if defined(__SWITCH__)
             if (!hasCode)
             {
-                //Platform::LogMessage("trying to map %x (size: %x) from %x\n", mirrorStart + sectionOffset, sectionSize, sectionOffset + memoryOffset + OffsetsPerRegion[region]);
+                //Platform::LogMsg("trying to map %x (size: %x) from %x\n", mirrorStart + sectionOffset, sectionSize, sectionOffset + memoryOffset + OffsetsPerRegion[region]);
                 bool succeded = MapIntoRange(mirrorStart + sectionOffset, num, sectionOffset + memoryOffset + OffsetsPerRegion[region], sectionSize);
                 assert(succeded);
             }
@@ -667,7 +667,7 @@ bool MapAtAddress(u32 addr)
     Mapping mapping{mirrorStart, mirrorSize, memoryOffset, num};
     Mappings[region].Add(mapping);
 
-    //Platform::LogMessage("mapped mirror at %08x-%08x\n", mirrorStart, mirrorStart + mirrorSize - 1);
+    //Platform::LogMsg("mapped mirror at %08x-%08x\n", mirrorStart, mirrorStart + mirrorSize - 1);
 
     return true;
 }
@@ -772,13 +772,13 @@ void Init()
     MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (MemoryFile == -1)
     {
-        Platform::LogMessage("Failed to open memory using shm_open!");
+        Platform::LogMsg("Failed to open memory using shm_open!");
     }
     shm_unlink(fastmemPidName);
 #endif
     if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
     {
-        Platform::LogMessage("Failed to allocate memory using ftruncate!");
+        Platform::LogMsg("Failed to allocate memory using ftruncate!");
     }
 
     struct sigaction sa;
@@ -845,7 +845,7 @@ void Reset()
         assert(MappingStatus7[i] == memstate_Unmapped);
     }
 
-    Platform::LogMessage("done resetting jit mem\n");
+    Platform::LogMsg("done resetting jit mem\n");
 }
 
 bool IsFastmemCompatible(int region)

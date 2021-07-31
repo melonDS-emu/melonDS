@@ -969,7 +969,7 @@ void SetPowerCnt(u32 val)
     // * bit9: disables engine B palette, OAM and rendering (screen turns white)
     // * bit15: screen swap
 
-    if (!(val & (1<<0))) Platform::LogMessage("!!! CLEARING POWCNT BIT0. DANGER\n");
+    if (!(val & (1<<0))) Platform::LogMsg("!!! CLEARING POWCNT BIT0. DANGER\n");
 
     GPU2D_A.SetEnabled(val & (1<<1));
     GPU2D_B.SetEnabled(val & (1<<9));

@@ -41,7 +41,7 @@ u8* Compiler::RewriteMemAccess(u8* pc)
         LoadStorePatch patch = it->second;
         LoadStorePatches.erase(it);
 
-        //Platform::LogMessage("rewriting memory access %p %d %d\n", (u8*)pc-ResetStart, patch.Offset, patch.Size);
+        //Platform::LogMsg("rewriting memory access %p %d %d\n", (u8*)pc-ResetStart, patch.Offset, patch.Size);
 
         XEmitter emitter(pc + (ptrdiff_t)patch.Offset);
         emitter.CALL(patch.PatchFunc);
@@ -53,7 +53,7 @@ u8* Compiler::RewriteMemAccess(u8* pc)
         return pc + (ptrdiff_t)patch.Offset;
     }
 
-    Platform::LogMessage("this is a JIT bug %sx\n", pc);
+    Platform::LogMsg("this is a JIT bug %sx\n", pc);
     abort();
 }
 
@@ -385,7 +385,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (!(flags & memop_Store) && rd == 15)
     {
         if (size < 32)
-            Platform::LogMessage("!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
+            Platform::LogMsg("!!! LDR <32 bit PC %08X %x\n", R15, CurInstr.Instr);
         {
             if (Num == 1)
             {

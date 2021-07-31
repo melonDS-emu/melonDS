@@ -202,7 +202,7 @@ void CartGame::LoadSave(const char* path, u32 type)
         SRAMType = S_NULL;
         break;
     default:
-        Platform::LogMessage("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
+        Platform::LogMsg("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
     }
 
     if (SRAMType == S_FLASH512K)
@@ -233,7 +233,7 @@ void CartGame::RelocateSave(const char* path, bool write)
     FILE *f = Platform::OpenFile(path, "r+b");
     if (!f)
     {
-        Platform::LogMessage("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        Platform::LogMsg("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
         return;
     }
 
@@ -288,7 +288,7 @@ void CartGame::ROMWrite(u32 addr, u16 val)
             break;
 
         default:
-            Platform::LogMessage("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
+            Platform::LogMsg("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
             break;
     }
 }
@@ -374,7 +374,7 @@ u8 CartGame::SRAMRead_FLASH(u32 addr)
         case 0xB0: // bank switching (128K only)
             break; // ignore here, handled in Write_Flash()
         default:
-            Platform::LogMessage("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
+            Platform::LogMsg("GBACart_SRAM::Read_Flash: unknown command 0x%02X @ 0x%04X\n", SRAMFlashState.cmd, addr);
             break;
     }
 
@@ -511,7 +511,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
         return;
     }
 
-    Platform::LogMessage("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
+    Platform::LogMsg("GBACart_SRAM::Write_Flash: unknown write 0x%02X @ 0x%04X (state: 0x%02X)\n",
         val, addr, SRAMFlashState.state);
 }
 
@@ -594,7 +594,7 @@ void CartGameSolarSensor::ProcessGPIO()
         u8 prev = LightSample;
         LightCounter = 0;
         LightSample = (0xFF - (0x16 + kLuxLevels[LightLevel]));
-        Platform::LogMessage("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
+        Platform::LogMsg("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
     }
     if (GPIO.data & 1 && LightEdge) LightCounter++;
 
@@ -708,7 +708,7 @@ void LoadROMCommon(const char *sram)
 {
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
-    Platform::LogMessage("GBA game code: %s\n", gamecode);
+    Platform::LogMsg("GBA game code: %s\n", gamecode);
 
     bool solarsensor = false;
     for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
@@ -719,11 +719,11 @@ void LoadROMCommon(const char *sram)
 
     if (solarsensor)
     {
-        Platform::LogMessage("GBA solar sensor support detected!\n");
+        Platform::LogMsg("GBA solar sensor support detected!\n");
     }
 
     CartCRC = CRC32(CartROM, CartROMSize);
-    Platform::LogMessage("GBA ROM CRC32: %08X\n", CartCRC);
+    Platform::LogMsg("GBA ROM CRC32: %08X\n", CartCRC);
 
     CartInserted = true;
 
@@ -733,7 +733,7 @@ void LoadROMCommon(const char *sram)
         Cart = new CartGame(CartROM, CartROMSize);
 
     // save
-    Platform::LogMessage("GBA save file: %s\n", sram);
+    Platform::LogMsg("GBA save file: %s\n", sram);
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
     if (Cart) Cart->LoadSave(sram, 0);

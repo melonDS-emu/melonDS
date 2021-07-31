@@ -164,7 +164,7 @@ void micOpen()
     micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
     if (!micDevice)
     {
-        Platform::LogMessage("Mic init failed: %s\n", SDL_GetError());
+        Platform::LogMsg("Mic init failed: %s\n", SDL_GetError());
     }
     else
     {
@@ -253,7 +253,7 @@ void micLoadWav(const char* name)
         }
     }
     else
-        Platform::LogMessage("bad WAV format %08X\n", format.format);
+        Platform::LogMsg("bad WAV format %08X\n", format.format);
 
     SDL_FreeWAV(buf);
 }
@@ -342,7 +342,7 @@ void EmuThread::initOpenGL()
     if (!oglSurface->isValid())
     {
         // TODO handle this!
-        Platform::LogMessage("oglSurface shat itself :(\n");
+        Platform::LogMsg("oglSurface shat itself :(\n");
         delete oglSurface;
         return;
     }
@@ -353,7 +353,7 @@ void EmuThread::initOpenGL()
     if (!oglContext->create())
     {
         // TODO handle this!
-        Platform::LogMessage("oglContext shat itself :(\n");
+        Platform::LogMsg("oglContext shat itself :(\n");
         delete oglContext;
         delete oglSurface;
         return;
@@ -1046,8 +1046,8 @@ void ScreenPanelGL::initializeGL()
 
     const GLubyte* renderer = glGetString(GL_RENDERER); // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); // version as a string
-    Platform::LogMessage("OpenGL: renderer: %s\n", renderer);
-    Platform::LogMessage("OpenGL: version: %s\n", version);
+    Platform::LogMsg("OpenGL: renderer: %s\n", renderer);
+    Platform::LogMsg("OpenGL: version: %s\n", version);
 
     glClearColor(0, 0, 0, 1);
 
@@ -2005,7 +2005,7 @@ void MainWindow::onOpenFileArchive()
 
 QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
 {
-    Platform::LogMessage("Finding list of ROMs...\n");
+    Platform::LogMsg("Finding list of ROMs...\n");
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
 
 
@@ -2021,7 +2021,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         if(!ok) // User clicked on cancel
             return QString();
 
-        Platform::LogMessage("Extracting '%s'\n", toLoad.toUtf8().constData());
+        Platform::LogMsg("Extracting '%s'\n", toLoad.toUtf8().constData());
         QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), toLoad.toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
@@ -2034,7 +2034,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
     }
     else if (archiveROMList.size() == 2)
     {
-        Platform::LogMessage("Extracting the only ROM in archive\n");
+        Platform::LogMsg("Extracting the only ROM in archive\n");
         QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), archiveROMList.at(1).toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
@@ -2723,8 +2723,8 @@ int main(int argc, char** argv)
 {
     srand(time(NULL));
 
-    Platform::LogMessage("melonDS " MELONDS_VERSION "\n");
-    Platform::LogMessage(MELONDS_URL "\n");
+    Platform::LogMsg("melonDS " MELONDS_VERSION "\n");
+    Platform::LogMsg(MELONDS_URL "\n");
 
     Platform::Init(argc, argv);
 
@@ -2736,7 +2736,7 @@ int main(int argc, char** argv)
 
     if (SDL_Init(SDL_INIT_HAPTIC) < 0)
     {
-        Platform::LogMessage("SDL couldn't init rumble\n");
+        Platform::LogMsg("SDL couldn't init rumble\n");
     }
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
     {
@@ -2791,12 +2791,12 @@ int main(int argc, char** argv)
     audioDevice = SDL_OpenAudioDevice(NULL, 0, &whatIwant, &whatIget, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (!audioDevice)
     {
-        Platform::LogMessage("Audio init failed: %s\n", SDL_GetError());
+        Platform::LogMsg("Audio init failed: %s\n", SDL_GetError());
     }
     else
     {
         audioFreq = whatIget.freq;
-        Platform::LogMessage("Audio output frequency: %d Hz\n", audioFreq);
+        Platform::LogMsg("Audio output frequency: %d Hz\n", audioFreq);
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
@@ -2912,12 +2912,12 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
-        Platform::LogMessage("\n");
+        Platform::LogMsg("\n");
     }*/
 
     int ret = main(argc, argv);
 
-    Platform::LogMessage("\n\n>");
+    Platform::LogMsg("\n\n>");
 
     for (int i = 0; i < argc; i++) if (argv[i] != nullarg) delete[] argv[i];
     delete[] argv;

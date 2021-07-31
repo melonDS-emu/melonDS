@@ -412,8 +412,8 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var32(&SRAMLength);
     if (SRAMLength != oldlen)
     {
-        Platform::LogMessage("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
-        Platform::LogMessage("oh well. loading it anyway. adsfgdsf\n");
+        Platform::LogMsg("savestate: VERY BAD!!!! SRAM LENGTH DIFFERENT. %d -> %d\n", oldlen, SRAMLength);
+        Platform::LogMsg("oh well. loading it anyway. adsfgdsf\n");
 
         if (oldlen) delete[] SRAM;
         if (SRAMLength) SRAM = new u8[SRAMLength];
@@ -506,7 +506,7 @@ void CartRetail::RelocateSave(const char* path, bool write)
     FILE* f = Platform::OpenFile(path, "wb");
     if (!f)
     {
-        Platform::LogMessage("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
+        Platform::LogMsg("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
         return;
     }
 
@@ -666,7 +666,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            Platform::LogMessage("unknown tiny EEPROM save command %02X\n", SRAMCmd);
+            Platform::LogMsg("unknown tiny EEPROM save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -727,7 +727,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            Platform::LogMessage("unknown EEPROM save command %02X\n", SRAMCmd);
+            Platform::LogMsg("unknown EEPROM save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -851,7 +851,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            Platform::LogMessage("unknown FLASH save command %02X\n", SRAMCmd);
+            Platform::LogMsg("unknown FLASH save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -987,8 +987,8 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // window is 0x20000 bytes, address is aligned to that boundary
             // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
             // TODO.
-            if (addr < SRAMBase) Platform::LogMessage("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
-            if (addr >= (SRAMBase+SRAMLength)) Platform::LogMessage("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
+            if (addr < SRAMBase) Platform::LogMsg("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
+            if (addr >= (SRAMBase+SRAMLength)) Platform::LogMsg("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
 
             SRAMWindow = addr;
         }
@@ -1139,7 +1139,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 
 CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
 {
-    Platform::LogMessage("POKETYPE CART\n");
+    Platform::LogMsg("POKETYPE CART\n");
 }
 
 CartRetailBT::~CartRetailBT()
@@ -1158,7 +1158,7 @@ void CartRetailBT::DoSavestate(Savestate* file)
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
-    Platform::LogMessage("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
+    Platform::LogMsg("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
 
     /*if (pos == 0)
     {
@@ -1297,24 +1297,24 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         return;
     }
 
-    Platform::LogMessage("DLDI structure found at %08X (%08X)\n", dldioffset, offset+dldioffset);
+    Platform::LogMsg("DLDI structure found at %08X (%08X)\n", dldioffset, offset+dldioffset);
 
     if (*(u32*)&patch[0] != 0xBF8DA5ED ||
         *(u32*)&patch[4] != 0x69684320 ||
         *(u32*)&patch[8] != 0x006D6873)
     {
-        Platform::LogMessage("bad DLDI patch\n");
+        Platform::LogMsg("bad DLDI patch\n");
         return;
     }
 
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
-        Platform::LogMessage("DLDI driver ain't gonna fit, sorry\n");
+        Platform::LogMsg("DLDI driver ain't gonna fit, sorry\n");
         return;
     }
 
-    Platform::LogMessage("existing driver is: %s\n", &binary[dldioffset+0x10]);
-    Platform::LogMessage("new driver is: %s\n", &patch[0x10]);
+    Platform::LogMsg("existing driver is: %s\n", &binary[dldioffset+0x10]);
+    Platform::LogMsg("new driver is: %s\n", &patch[0x10]);
 
     u32 memaddr = *(u32*)&binary[dldioffset+0x40];
     if (memaddr == 0)
@@ -1390,7 +1390,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
     }
 
-    Platform::LogMessage("applied DLDI patch\n");
+    Platform::LogMsg("applied DLDI patch\n");
 }
 
 void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
@@ -1529,13 +1529,13 @@ void DecryptSecureArea(u8* out)
 
     if (!strncmp((const char*)out, "encryObj", 8))
     {
-        Platform::LogMessage("Secure area decryption OK\n");
+        Platform::LogMsg("Secure area decryption OK\n");
         *(u32*)&out[0] = 0xE7FFDEFF;
         *(u32*)&out[4] = 0xE7FFDEFF;
     }
     else
     {
-        Platform::LogMessage("Secure area decryption failed\n");
+        Platform::LogMsg("Secure area decryption failed\n");
         for (u32 i = 0; i < 0x800; i += 4)
             *(u32*)&out[i] = 0xE7FFDEFF;
     }
@@ -1546,7 +1546,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     memcpy(&Header, CartROM, sizeof(Header));
     memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
 
-    Platform::LogMessage("Game code: %.4s\n", Header.GameCode);
+    Platform::LogMsg("Game code: %.4s\n", Header.GameCode);
 
     u32 gamecode = (u32)Header.GameCode[3] << 24 |
                    (u32)Header.GameCode[2] << 16 |
@@ -1560,7 +1560,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     if (!ReadROMParams(gamecode, &romparams))
     {
         // set defaults
-        Platform::LogMessage("ROM entry not found\n");
+        Platform::LogMsg("ROM entry not found\n");
 
         romparams.GameCode = gamecode;
         romparams.ROMSize = CartROMSize;
@@ -1570,9 +1570,9 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
             romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
     }
     else
-        Platform::LogMessage("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
+        Platform::LogMsg("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams.ROMSize != filelength) Platform::LogMessage("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
+    if (romparams.ROMSize != filelength) Platform::LogMsg("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1596,7 +1596,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     //CartID = 0x88017FEC;
     //CartID = 0x80007FC2; // pokémon typing adventure
 
-    Platform::LogMessage("Cart ID: %08X\n", CartID);
+    Platform::LogMsg("Cart ID: %08X\n", CartID);
 
     u32 arm9base = *(u32*)&CartROM[0x20];
 
@@ -1607,7 +1607,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
             // reencrypt secure area if needed
             if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
             {
-                Platform::LogMessage("Re-encrypting cart secure area\n");
+                Platform::LogMsg("Re-encrypting cart secure area\n");
 
                 strncpy((char*)&CartROM[arm9base], "encryObj", 8);
 
@@ -1662,7 +1662,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     Key1_InitKeycode(false, gamecode, 2, 2);
 
     // save
-    Platform::LogMessage("Save file: %s\n", sram);
+    Platform::LogMsg("Save file: %s\n", sram);
     if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
 
     return true;
@@ -1812,10 +1812,10 @@ void WriteROMCnt(u32 val)
             if (seed1 & (1ULL << i)) Key2_Y |= (1ULL << (38-i));
         }
 
-        Platform::LogMessage("seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
-        Platform::LogMessage("seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
-        Platform::LogMessage("key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
-        Platform::LogMessage("key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
+        Platform::LogMsg("seed0: %02X%08X\n", (u32)(seed0>>32), (u32)seed0);
+        Platform::LogMsg("seed1: %02X%08X\n", (u32)(seed1>>32), (u32)seed1);
+        Platform::LogMsg("key2 X: %02X%08X\n", (u32)(Key2_X>>32), (u32)Key2_X);
+        Platform::LogMsg("key2 Y: %02X%08X\n", (u32)(Key2_Y>>32), (u32)Key2_Y);
     }
 
     if (!(ROMCnt & (1<<31))) return;
@@ -1832,7 +1832,7 @@ void WriteROMCnt(u32 val)
     *(u32*)&TransferCmd[0] = *(u32*)&ROMCommand[0];
     *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
 
-    /*Platform::LogMessage("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
+    /*Platform::LogMsg("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,
            TransferCmd[0], TransferCmd[1], TransferCmd[2], TransferCmd[3],
            TransferCmd[4], TransferCmd[5], TransferCmd[6], TransferCmd[7],
@@ -1846,7 +1846,7 @@ void WriteROMCnt(u32 val)
         TransferDir = Cart->ROMCommandStart(TransferCmd, TransferData, TransferLen);
 
     if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
-        Platform::LogMessage("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
+        Platform::LogMsg("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
 
     ROMCnt &= ~(1<<23);
 
@@ -1936,7 +1936,7 @@ void WriteSPICnt(u16 val)
 
     SPICnt = (SPICnt & 0x0080) | (val & 0xE043);
     if (SPICnt & (1<<7))
-        Platform::LogMessage("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
+        Platform::LogMsg("!! CHANGING AUXSPICNT DURING TRANSFER: %04X\n", val);
 }
 
 void SPITransferDone(u32 param)
@@ -1958,7 +1958,7 @@ void WriteSPIData(u8 val)
     if (!(SPICnt & (1<<15))) return;
     if (!(SPICnt & (1<<13))) return;
 
-    if (SPICnt & (1<<7)) Platform::LogMessage("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
+    if (SPICnt & (1<<7)) Platform::LogMsg("!! WRITING AUXSPIDATA DURING PENDING TRANSFER\n");
 
     SPICnt |= (1<<7);
 

@@ -209,7 +209,7 @@ void Write(u8 val, u32 hold)
                     TSCMode = val;
                     if (TSCMode == 0x00)
                     {
-                        Platform::LogMessage("DSi_SPI_TSC: DS-compatibility mode\n");
+                        Platform::LogMsg("DSi_SPI_TSC: DS-compatibility mode\n");
                         DataPos = 0;
                         NDS::KeyInput |= (1 << (16+6));
                         return;
@@ -219,7 +219,7 @@ void Write(u8 val, u32 hold)
         }
         else
         {
-            Platform::LogMessage("DSi_SPI_TSC: unknown IO, bank=%02X, index=%02X (%02X %s)\n", Bank, Index, Index>>1, (Index&1)?"read":"write");
+            Platform::LogMsg("DSi_SPI_TSC: unknown IO, bank=%02X, index=%02X (%02X %s)\n", Bank, Index, Index>>1, (Index&1)?"read":"write");
         }
 
         Index += (1<<1); // increment index

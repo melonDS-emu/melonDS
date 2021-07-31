@@ -712,12 +712,12 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 {
     if (NearSize - (GetCodePtr() - NearStart) < 1024 * 32) // guess...
     {
-        Platform::LogMessage("near reset\n");
+        Platform::LogMsg("near reset\n");
         ResetBlockCache();
     }
     if (FarSize - (FarCode - FarStart) < 1024 * 32) // guess...
     {
-        Platform::LogMessage("far reset\n");
+        Platform::LogMsg("far reset\n");
         ResetBlockCache();
     }
 

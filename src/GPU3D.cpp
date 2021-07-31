@@ -1828,7 +1828,7 @@ void ExecuteCommand()
 {
     CmdFIFOEntry entry = CmdFIFORead();
 
-    //Platform::LogMessage("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
+    //Platform::LogMsg("FIFO: processing %02X %08X. Levels: FIFO=%d, PIPE=%d\n", entry.Command, entry.Param, CmdFIFO->Level(), CmdPIPE->Level());
 
     // each FIFO entry takes 1 cycle to be processed
     // commands (presumably) run when all the needed parameters have been read
@@ -1839,7 +1839,7 @@ void ExecuteCommand()
     {
         // fast path for command which only have a single parameter
 
-        /*Platform::LogMessage("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
+        /*Platform::LogMsg("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
         switch (entry.Command)
         {
@@ -2179,7 +2179,7 @@ void ExecuteCommand()
 
         default:
             VertexPipelineCmdDelayed4();
-            //Platform::LogMessage("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
+            //Platform::LogMsg("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
             break;
         }
     }
@@ -2209,9 +2209,9 @@ void ExecuteCommand()
 
             if (ExecParamCount >= paramsRequiredCount)
             {
-                /*Platform::LogMessage("[GXS:%08X] 0x%02X,  ", GXStat, entry.Command);
-                for (int k = 0; k < ExecParamCount; k++) Platform::LogMessage("0x%08X, ", ExecParams[k]);
-                Platform::LogMessage("\n");*/
+                /*Platform::LogMsg("[GXS:%08X] 0x%02X,  ", GXStat, entry.Command);
+                for (int k = 0; k < ExecParamCount; k++) Platform::LogMsg("0x%08X, ", ExecParams[k]);
+                Platform::LogMsg("\n");*/
 
                 ExecParamCount = 0;
 
@@ -2713,7 +2713,7 @@ u8 Read8(u32 addr)
         }
     }
 
-    Platform::LogMessage("unknown GPU3D read8 %08X\n", addr);
+    Platform::LogMsg("unknown GPU3D read8 %08X\n", addr);
     return 0;
 }
 
@@ -2757,7 +2757,7 @@ u16 Read16(u32 addr)
     case 0x04000634: return VecTestResult[2];
     }
 
-    Platform::LogMessage("unknown GPU3D read16 %08X\n", addr);
+    Platform::LogMsg("unknown GPU3D read16 %08X\n", addr);
     return 0;
 }
 
@@ -2810,7 +2810,7 @@ u32 Read32(u32 addr)
         return ClipMatrix[(addr & 0x3C) >> 2];
     }
 
-    //Platform::LogMessage("unknown GPU3D read32 %08X\n", addr);
+    //Platform::LogMsg("unknown GPU3D read32 %08X\n", addr);
     return 0;
 }
 
@@ -2861,7 +2861,7 @@ void Write8(u32 addr, u8 val)
         return;
     }
 
-    Platform::LogMessage("unknown GPU3D write8 %08X %02X\n", addr, val);
+    Platform::LogMsg("unknown GPU3D write8 %08X %02X\n", addr, val);
 }
 
 void Write16(u32 addr, u16 val)
@@ -2948,7 +2948,7 @@ void Write16(u32 addr, u16 val)
         return;
     }
 
-    Platform::LogMessage("unknown GPU3D write16 %08X %04X\n", addr, val);
+    Platform::LogMsg("unknown GPU3D write16 %08X %04X\n", addr, val);
 }
 
 void Write32(u32 addr, u32 val)
@@ -3045,7 +3045,7 @@ void Write32(u32 addr, u32 val)
         return;
     }
 
-    Platform::LogMessage("unknown GPU3D write32 %08X %08X\n", addr, val);
+    Platform::LogMsg("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
 Renderer3D::Renderer3D(bool Accelerated)

@@ -252,7 +252,7 @@ void RunCheat(ARCode& arcode)
             // in practice could be used for a self-modifying AR code
             // could be implemented with some hackery, but, does anything even
             // use it??
-            Platform::LogMessage("AR: !! THE FUCKING C4000000 OPCODE. TELL ARISOTURA.\n");
+            Platform::LogMsg("AR: !! THE FUCKING C4000000 OPCODE. TELL ARISOTURA.\n");
             return;
 
         case 0xC5: // count++ / IF (count & b.l) == b.h
@@ -409,7 +409,7 @@ void RunCheat(ARCode& arcode)
             break;
 
         default:
-            Platform::LogMessage("!! bad AR opcode %08X %08X\n", a, b);
+            Platform::LogMsg("!! bad AR opcode %08X %08X\n", a, b);
             return;
         }
     }

@@ -108,13 +108,13 @@ void ARMv5::UpdateDTCMSetting()
     {
         newDTCMBase = DTCMSetting & 0xFFFFF000;
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        //Platform::LogMessage("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, newDTCMBase, newDTCMSize);
+        //Platform::LogMsg("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, newDTCMBase, newDTCMSize);
     }
     else
     {
         newDTCMBase = 0xFFFFFFFF;
         newDTCMSize = 0;
-        //Platform::LogMessage("DTCM disabled\n");
+        //Platform::LogMsg("DTCM disabled\n");
     }
     if (newDTCMBase != DTCMBase || newDTCMSize != DTCMSize)
     {
@@ -131,12 +131,12 @@ void ARMv5::UpdateITCMSetting()
     if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
-        //Platform::LogMessage("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
+        //Platform::LogMsg("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
     }
     else
     {
         ITCMSize = 0;
-        //Platform::LogMessage("ITCM disabled\n");
+        //Platform::LogMsg("ITCM disabled\n");
     }
 }
 
@@ -194,7 +194,7 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= 0x03; usermask |= 0x03; break;
     case 5: privmask |= 0x01; break;
     case 6: privmask |= 0x01; usermask |= 0x01; break;
-    default: Platform::LogMessage("!! BAD DATARW VALUE %d\n", datarw&0xF);
+    default: Platform::LogMsg("!! BAD DATARW VALUE %d\n", datarw&0xF);
     }
 
     switch (coderw)
@@ -205,7 +205,7 @@ void ARMv5::UpdatePURegion(u32 n)
     case 3: privmask |= 0x04; usermask |= 0x04; break;
     case 5: privmask |= 0x04; break;
     case 6: privmask |= 0x04; usermask |= 0x04; break;
-    default: Platform::LogMessage("!! BAD CODERW VALUE %d\n", datarw&0xF);
+    default: Platform::LogMsg("!! BAD CODERW VALUE %d\n", datarw&0xF);
     }
 
     if (datacache & 0x1)
@@ -226,7 +226,7 @@ void ARMv5::UpdatePURegion(u32 n)
         usermask |= 0x40;
     }
 
-    //Platform::LogMessage("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
+    //Platform::LogMsg("PU region %d: %08X-%08X, user=%02X priv=%02X\n", n, start<<12, end<<12, usermask, privmask);
 
     for (u32 i = start; i < end; i++)
     {
@@ -379,7 +379,7 @@ void ARMv5::ICacheLookup(u32 addr)
     ICacheTags[line] = tag;
 
     // ouch :/
-    //Platform::LogMessage("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
+    //Platform::LogMsg("cache miss %08X: %d/%d\n", addr, NDS::ARM9MemTimings[addr >> 14][2], NDS::ARM9MemTimings[addr >> 14][3]);
     CodeCycles = (NDS::ARM9MemTimings[addr >> 14][2] + (NDS::ARM9MemTimings[addr >> 14][3] * 7)) << NDS::ARM9ClockShift;
     CurICacheLine = ptr;
 }
@@ -421,7 +421,7 @@ void ARMv5::ICacheInvalidateAll()
 
 void ARMv5::CP15Write(u32 id, u32 val)
 {
-    //Platform::LogMessage("CP15 write op %03X %08X %08X\n", id, val, R[15]);
+    //Platform::LogMsg("CP15 write op %03X %08X %08X\n", id, val, R[15]);
 
     switch (id)
     {
@@ -431,14 +431,14 @@ void ARMv5::CP15Write(u32 id, u32 val)
             val &= 0x000FF085;
             CP15Control &= ~0x000FF085;
             CP15Control |= val;
-            //Platform::LogMessage("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
+            //Platform::LogMsg("CP15Control = %08X (%08X->%08X)\n", CP15Control, old, val);
             UpdateDTCMSetting();
             UpdateITCMSetting();
             if ((old & 0x1005) != (val & 0x1005))
             {
                 UpdatePURegions((old & 0x1) != (val & 0x1));
             }
-            if (val & (1<<7)) Platform::LogMessage("!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
+            if (val & (1<<7)) Platform::LogMsg("!!!! ARM9 BIG ENDIAN MODE. VERY BAD. SHIT GONNA ASPLODE NOW\n");
             if (val & (1<<13)) ExceptionBase = 0xFFFF0000;
             else               ExceptionBase = 0x00000000;
         }
@@ -560,10 +560,10 @@ void ARMv5::CP15Write(u32 id, u32 val)
     case 0x670:
     case 0x671:
         PU_Region[(id >> 4) & 0xF] = val;
-        Platform::LogMessage("PU: region %d = %08X : ", (id>>4)&0xF, val);
-        Platform::LogMessage("%s, ", val&1 ? "enabled":"disabled");
-        Platform::LogMessage("%08X-", val&0xFFFFF000);
-        Platform::LogMessage("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
+        Platform::LogMsg("PU: region %d = %08X : ", (id>>4)&0xF, val);
+        Platform::LogMsg("%s, ", val&1 ? "enabled":"disabled");
+        Platform::LogMsg("%08X-", val&0xFFFFF000);
+        Platform::LogMsg("%08X\n", (val&0xFFFFF000)+(2<<((val&0x3E)>>1)));
         // TODO: smarter region update for this?
         UpdatePURegions(true);
         return;
@@ -584,23 +584,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         //Halt(255);
         return;
     case 0x752:
-        Platform::LogMessage("CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
+        Platform::LogMsg("CP15: ICACHE INVALIDATE WEIRD. %08X\n", val);
         //Halt(255);
         return;
 
 
     case 0x761:
-        //Platform::LogMessage("inval data cache %08X\n", val);
+        //Platform::LogMsg("inval data cache %08X\n", val);
         return;
     case 0x762:
-        //Platform::LogMessage("inval data cache SI\n");
+        //Platform::LogMsg("inval data cache SI\n");
         return;
 
     case 0x7A1:
-        //Platform::LogMessage("flush data cache %08X\n", val);
+        //Platform::LogMsg("flush data cache %08X\n", val);
         return;
     case 0x7A2:
-        //Platform::LogMessage("flush data cache SI\n");
+        //Platform::LogMsg("flush data cache SI\n");
         return;
 
 
@@ -615,23 +615,23 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     case 0xF00:
-        //Platform::LogMessage("cache debug index register %08X\n", val);
+        //Platform::LogMsg("cache debug index register %08X\n", val);
         return;
 
     case 0xF10:
-        //Platform::LogMessage("cache debug instruction tag %08X\n", val);
+        //Platform::LogMsg("cache debug instruction tag %08X\n", val);
         return;
 
     case 0xF20:
-        //Platform::LogMessage("cache debug data tag %08X\n", val);
+        //Platform::LogMsg("cache debug data tag %08X\n", val);
         return;
 
     case 0xF30:
-        //Platform::LogMessage("cache debug instruction cache %08X\n", val);
+        //Platform::LogMsg("cache debug instruction cache %08X\n", val);
         return;
 
     case 0xF40:
-        //Platform::LogMessage("cache debug data cache %08X\n", val);
+        //Platform::LogMsg("cache debug data cache %08X\n", val);
         return;
 
     }
@@ -640,12 +640,12 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     if ((id & 0xF00) != 0x700)
-        Platform::LogMessage("unknown CP15 write op %03X %08X\n", id, val);
+        Platform::LogMsg("unknown CP15 write op %03X %08X\n", id, val);
 }
 
 u32 ARMv5::CP15Read(u32 id)
 {
-    //Platform::LogMessage("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
+    //Platform::LogMsg("CP15 read op %03X %08X\n", id, NDS::ARM9->R[15]);
 
     switch (id)
     {
@@ -736,7 +736,7 @@ u32 ARMv5::CP15Read(u32 id)
     if ((id & 0xF00) == 0xF00) // test/debug shit?
         return 0;
 
-    Platform::LogMessage("unknown CP15 read op %03X\n", id);
+    Platform::LogMsg("unknown CP15 read op %03X\n", id);
     return 0;
 }
 

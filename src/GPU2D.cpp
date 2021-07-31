@@ -219,7 +219,7 @@ u8 Unit::Read8(u32 addr)
     case 0x04D: return 0;
     }
 
-    Platform::LogMessage("unknown GPU read8 %08X\n", addr);
+    Platform::LogMsg("unknown GPU read8 %08X\n", addr);
     return 0;
 }
 
@@ -248,7 +248,7 @@ u16 Unit::Read16(u32 addr)
     case 0x06C: return MasterBrightness;
     }
 
-    Platform::LogMessage("unknown GPU read16 %08X\n", addr);
+    Platform::LogMsg("unknown GPU read16 %08X\n", addr);
     return 0;
 }
 
@@ -365,7 +365,7 @@ void Unit::Write8(u32 addr, u8 val)
         return;
     }
 
-    Platform::LogMessage("unknown GPU write8 %08X %02X\n", addr, val);
+    Platform::LogMsg("unknown GPU write8 %08X %02X\n", addr, val);
 }
 
 void Unit::Write16(u32 addr, u16 val)
@@ -509,7 +509,7 @@ void Unit::Write16(u32 addr, u16 val)
         return;
     }
 
-    //Platform::LogMessage("unknown GPU write16 %08X %04X\n", addr, val);
+    //Platform::LogMsg("unknown GPU write16 %08X %04X\n", addr, val);
 }
 
 void Unit::Write32(u32 addr, u32 val)

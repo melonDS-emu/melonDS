@@ -548,7 +548,7 @@ void XEmitter::SetJumpTarget(const FixupBranch& branch)
     s64 distance = (s64)(code - branch.ptr);
     if (!(distance >= -0x80 && distance < 0x80))
     {
-      Platform::LogMessage("miauz\n");
+      Platform::LogMsg("miauz\n");
     }
     ASSERT_MSG(DYNA_REC, distance >= -0x80 && distance < 0x80,
                "Jump target too far away, needs force5Bytes = true");

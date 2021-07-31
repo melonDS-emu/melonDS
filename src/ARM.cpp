@@ -255,8 +255,8 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
     }
 
     // aging cart debug crap
-    //if (addr == 0x0201764C) Platform::LogMessage("capture test %d: R1=%08X\n", R[6], R[1]);
-    //if (addr == 0x020175D8) Platform::LogMessage("capture test %d: res=%08X\n", R[6], R[0]);
+    //if (addr == 0x0201764C) Platform::LogMsg("capture test %d: R1=%08X\n", R[6], R[1]);
+    //if (addr == 0x020175D8) Platform::LogMsg("capture test %d: res=%08X\n", R[6], R[0]);
 
     u32 oldregion = R[15] >> 24;
     u32 newregion = addr >> 24;
@@ -305,7 +305,7 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
 
     /*if (!(PU_Map[addr>>12] & 0x04))
     {
-        Platform::LogMessage("jumped to %08X. very bad\n", addr);
+        Platform::LogMsg("jumped to %08X. very bad\n", addr);
         PrefetchAbort();
         return;
     }*/
@@ -384,7 +384,7 @@ void ARM::RestoreCPSR()
         break;
 
     default:
-        Platform::LogMessage("!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
+        Platform::LogMsg("!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
         break;
     }
 
@@ -472,7 +472,7 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
         else
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
-        //if ((newmode & 0x1F) == 0x10) Platform::LogMessage("!! USER MODE\n");
+        //if ((newmode & 0x1F) == 0x10) Platform::LogMsg("!! USER MODE\n");
     }
 }
 
@@ -501,7 +501,7 @@ void ARM::TriggerIRQ()
 
 void ARMv5::PrefetchAbort()
 {
-    Platform::LogMessage("prefetch abort\n");
+    Platform::LogMsg("prefetch abort\n");
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -512,7 +512,7 @@ void ARMv5::PrefetchAbort()
     // so better take care of it
     if (!(PU_Map[ExceptionBase>>12] & 0x04))
     {
-        Platform::LogMessage("!!!!! EXCEPTION REGION NOT READABLE. THIS IS VERY BAD!!\n");
+        Platform::LogMsg("!!!!! EXCEPTION REGION NOT READABLE. THIS IS VERY BAD!!\n");
         NDS::Stop();
         return;
     }
@@ -524,7 +524,7 @@ void ARMv5::PrefetchAbort()
 
 void ARMv5::DataAbort()
 {
-    Platform::LogMessage("data abort\n");
+    Platform::LogMsg("data abort\n");
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -648,7 +648,7 @@ void ARMv5::ExecuteJIT()
             && !ARMJIT::SetupExecutableRegion(0, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM9Timestamp = NDS::ARM9Target;
-            Platform::LogMessage("ARMv5 PC in non executable region %08X\n", R[15]);
+            Platform::LogMsg("ARMv5 PC in non executable region %08X\n", R[15]);
             return;
         }
 
@@ -799,7 +799,7 @@ void ARMv4::ExecuteJIT()
             && !ARMJIT::SetupExecutableRegion(1, instrAddr, FastBlockLookup, FastBlockLookupStart, FastBlockLookupSize))
         {
             NDS::ARM7Timestamp = NDS::ARM7Target;
-            Platform::LogMessage("ARMv4 PC in non executable region %08X\n", R[15]);
+            Platform::LogMsg("ARMv4 PC in non executable region %08X\n", R[15]);
             return;
         }
 

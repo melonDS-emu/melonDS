@@ -54,7 +54,7 @@
 #define PanicAlert(fmt, ...) \
   do \
   { \
-    Platform::LogMessage(fmt "\n", ## __VA_ARGS__); \
+    Platform::LogMsg(fmt "\n", ## __VA_ARGS__); \
     abort(); \
   } while (false)
 
@@ -63,7 +63,7 @@
 #define ERROR_LOG(which, fmt, ...) \
     do \
     { \
-        Platform::LogMessage(fmt "\n", ## __VA_ARGS__); \
+        Platform::LogMsg(fmt "\n", ## __VA_ARGS__); \
     } while (false)
 
 #if __cplusplus < 201703L

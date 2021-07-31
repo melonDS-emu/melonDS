@@ -131,14 +131,14 @@ bool Init(bool open_adapter)
                 continue;
             }
 
-            Platform::LogMessage("PCap: lib %s, init successful\n", PCapLibNames[i]);
+            Platform::LogMsg("PCap: lib %s, init successful\n", PCapLibNames[i]);
             PCapLib = lib;
             break;
         }
 
         if (PCapLib == NULL)
         {
-            Platform::LogMessage("PCap: init failed\n");
+            Platform::LogMsg("PCap: init failed\n");
             return false;
         }
     }
@@ -156,7 +156,7 @@ bool Init(bool open_adapter)
     ret = pcap_findalldevs(&alldevs, errbuf);
     if (ret < 0 || alldevs == NULL)
     {
-        Platform::LogMessage("PCap: no devices available\n");
+        Platform::LogMsg("PCap: no devices available\n");
         return false;
     }
 
@@ -203,7 +203,7 @@ bool Init(bool open_adapter)
     }
     if (uret != ERROR_SUCCESS)
     {
-        Platform::LogMessage("GetAdaptersAddresses() shat itself: %08X\n", uret);
+        Platform::LogMsg("GetAdaptersAddresses() shat itself: %08X\n", uret);
         return false;
     }
 
@@ -227,7 +227,7 @@ bool Init(bool open_adapter)
 
             if (addr->PhysicalAddressLength != 6)
             {
-                Platform::LogMessage("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
+                Platform::LogMsg("weird MAC addr length %d for %s\n", addr->PhysicalAddressLength, addr->AdapterName);
             }
             else
                 memcpy(adata->MAC, addr->PhysicalAddress, 6);
@@ -256,7 +256,7 @@ bool Init(bool open_adapter)
     struct ifaddrs* addrs;
     if (getifaddrs(&addrs) != 0)
     {
-        Platform::LogMessage("getifaddrs() shat itself :(\n");
+        Platform::LogMsg("getifaddrs() shat itself :(\n");
         return false;
     }
 
@@ -274,7 +274,7 @@ bool Init(bool open_adapter)
 
             if (!curaddr->ifa_addr)
             {
-                Platform::LogMessage("Device (%s) does not have an address :/\n", curaddr->ifa_name);
+                Platform::LogMsg("Device (%s) does not have an address :/\n", curaddr->ifa_name);
                 curaddr = curaddr->ifa_next;
                 continue;
             }
@@ -290,7 +290,7 @@ bool Init(bool open_adapter)
             {
                 struct sockaddr_ll* sa = (sockaddr_ll*)curaddr->ifa_addr;
                 if (sa->sll_halen != 6)
-                    Platform::LogMessage("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
+                    Platform::LogMsg("weird MAC length %d for %s\n", sa->sll_halen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, sa->sll_addr, 6);
             }
@@ -299,7 +299,7 @@ bool Init(bool open_adapter)
             {
                 struct sockaddr_dl* sa = (sockaddr_dl*)curaddr->ifa_addr;
                 if (sa->sdl_alen != 6)
-                    Platform::LogMessage("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
+                    Platform::LogMsg("weird MAC length %d for %s\n", sa->sdl_alen, curaddr->ifa_name);
                 else
                     memcpy(adata->MAC, LLADDR(sa), 6);
             }
@@ -327,7 +327,7 @@ bool Init(bool open_adapter)
     PCapAdapter = pcap_open_live(dev->name, 2048, PCAP_OPENFLAG_PROMISCUOUS, 1, errbuf);
     if (!PCapAdapter)
     {
-        Platform::LogMessage("PCap: failed to open adapter %s\n", errbuf);
+        Platform::LogMsg("PCap: failed to open adapter %s\n", errbuf);
         return false;
     }
 
@@ -335,7 +335,7 @@ bool Init(bool open_adapter)
 
     if (pcap_setnonblock(PCapAdapter, 1, errbuf) < 0)
     {
-        Platform::LogMessage("PCap: failed to set nonblocking mode\n");
+        Platform::LogMsg("PCap: failed to set nonblocking mode\n");
         pcap_close(PCapAdapter); PCapAdapter = NULL;
         return false;
     }
@@ -377,7 +377,7 @@ int SendPacket(u8* data, int len)
 
     if (len > 2048)
     {
-        Platform::LogMessage("LAN_SendPacket: error: packet too long (%d)\n", len);
+        Platform::LogMsg("LAN_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 

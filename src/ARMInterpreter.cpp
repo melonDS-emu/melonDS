@@ -31,8 +31,8 @@ namespace ARMInterpreter
 
 void A_UNK(ARM* cpu)
 {
-    Platform::LogMessage("undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
-    //for (int i = 0; i < 16; i++) Platform::LogMessage("R%d: %08X\n", i, cpu->R[i]);
+    Platform::LogMsg("undefined ARM%d instruction %08X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-8);
+    //for (int i = 0; i < 16; i++) Platform::LogMsg("R%d: %08X\n", i, cpu->R[i]);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -46,7 +46,7 @@ void A_UNK(ARM* cpu)
 
 void T_UNK(ARM* cpu)
 {
-    Platform::LogMessage("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
+    Platform::LogMsg("undefined THUMB%d instruction %04X @ %08X\n", cpu->Num?7:9, cpu->CurInstr, cpu->R[15]-4);
     //NDS::Halt();
     u32 oldcpsr = cpu->CPSR;
     cpu->CPSR &= ~0xBF;
@@ -72,7 +72,7 @@ void A_MSR_IMM(ARM* cpu)
             case 0x13: psr = &cpu->R_SVC[2]; break;
             case 0x17: psr = &cpu->R_ABT[2]; break;
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: Platform::LogMessage("bad CPU mode %08X\n", cpu->CPSR); return;
+            default: Platform::LogMsg("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
@@ -114,7 +114,7 @@ void A_MSR_REG(ARM* cpu)
             case 0x13: psr = &cpu->R_SVC[2]; break;
             case 0x17: psr = &cpu->R_ABT[2]; break;
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: Platform::LogMessage("bad CPU mode %08X\n", cpu->CPSR); return;
+            default: Platform::LogMsg("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
@@ -156,7 +156,7 @@ void A_MRS(ARM* cpu)
             case 0x13: psr = cpu->R_SVC[2]; break;
             case 0x17: psr = cpu->R_ABT[2]; break;
             case 0x1B: psr = cpu->R_UND[2]; break;
-            default: Platform::LogMessage("bad CPU mode %08X\n", cpu->CPSR); return;
+            default: Platform::LogMsg("bad CPU mode %08X\n", cpu->CPSR); return;
         }
     }
     else
@@ -181,11 +181,11 @@ void A_MCR(ARM* cpu)
     }
     else if (cpu->Num==1 && cp==14)
     {
-        Platform::LogMessage("MCR p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
+        Platform::LogMsg("MCR p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
     }
     else
     {
-        Platform::LogMessage("bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        Platform::LogMsg("bad MCR opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 
@@ -206,11 +206,11 @@ void A_MRC(ARM* cpu)
     }
     else if (cpu->Num==1 && cp==14)
     {
-        Platform::LogMessage("MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
+        Platform::LogMsg("MRC p14,%d,%d,%d on ARM7\n", cn, cm, cpinfo);
     }
     else
     {
-        Platform::LogMessage("bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
+        Platform::LogMsg("bad MRC opcode p%d,%d,%d,%d on ARM%d\n", cp, cn, cm, cpinfo, cpu->Num?7:9);
         return A_UNK(cpu); // TODO: check what kind of exception it really is
     }
 

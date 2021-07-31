@@ -128,7 +128,7 @@ void StopEmu()
     emuStop();
 }
 
-void LogMessage(const char* format, ...)
+void LogMsg(const char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -350,7 +350,7 @@ int MP_SendPacket(u8* data, int len)
 
     if (len > 2048-8)
     {
-        Platform::LogMessage("MP_SendPacket: error: packet too long (%d)\n", len);
+        Platform::LogMsg("MP_SendPacket: error: packet too long (%d)\n", len);
         return 0;
     }
 

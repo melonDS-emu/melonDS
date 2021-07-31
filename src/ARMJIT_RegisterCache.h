@@ -80,7 +80,7 @@ public:
             }
         }
 
-        Platform::LogMessage("this is a JIT bug! LoadRegister failed\n");
+        Platform::LogMsg("this is a JIT bug! LoadRegister failed\n");
         abort();
     }
 

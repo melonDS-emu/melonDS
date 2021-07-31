@@ -55,7 +55,7 @@ Savestate::Savestate(const char* filename, bool save)
         file = Platform::OpenLocalFile(filename, "wb");
         if (!file)
         {
-            Platform::LogMessage("savestate: file %s doesn't exist\n", filename);
+            Platform::LogMsg("savestate: file %s doesn't exist\n", filename);
             Error = true;
             return;
         }
@@ -74,7 +74,7 @@ Savestate::Savestate(const char* filename, bool save)
         file = Platform::OpenFile(filename, "rb");
         if (!file)
         {
-            Platform::LogMessage("savestate: file %s doesn't exist\n", filename);
+            Platform::LogMsg("savestate: file %s doesn't exist\n", filename);
             Error = true;
             return;
         }
@@ -89,7 +89,7 @@ Savestate::Savestate(const char* filename, bool save)
         fread(&buf, 4, 1, file);
         if (buf != ((u32*)magic)[0])
         {
-            Platform::LogMessage("savestate: invalid magic %08X\n", buf);
+            Platform::LogMsg("savestate: invalid magic %08X\n", buf);
             Error = true;
             return;
         }
@@ -100,7 +100,7 @@ Savestate::Savestate(const char* filename, bool save)
         fread(&VersionMajor, 2, 1, file);
         if (VersionMajor != SAVESTATE_MAJOR)
         {
-            Platform::LogMessage("savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
+            Platform::LogMsg("savestate: bad version major %d, expecting %d\n", VersionMajor, SAVESTATE_MAJOR);
             Error = true;
             return;
         }
@@ -108,7 +108,7 @@ Savestate::Savestate(const char* filename, bool save)
         fread(&VersionMinor, 2, 1, file);
         if (VersionMinor > SAVESTATE_MINOR)
         {
-            Platform::LogMessage("savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
+            Platform::LogMsg("savestate: state from the future, %d > %d\n", VersionMinor, SAVESTATE_MINOR);
             Error = true;
             return;
         }
@@ -117,7 +117,7 @@ Savestate::Savestate(const char* filename, bool save)
         fread(&buf, 4, 1, file);
         if (buf != len)
         {
-            Platform::LogMessage("savestate: bad length %d\n", buf);
+            Platform::LogMsg("savestate: bad length %d\n", buf);
             Error = true;
             return;
         }
@@ -189,7 +189,7 @@ void Savestate::Section(const char* magic)
             {
                 if (buf == 0)
                 {
-                    Platform::LogMessage("savestate: section %s not found. blarg\n", magic);
+                    Platform::LogMsg("savestate: section %s not found. blarg\n", magic);
                     return;
                 }
 

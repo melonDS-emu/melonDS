@@ -80,7 +80,7 @@ void T_BLX_REG(ARM* cpu)
 {
     if (cpu->Num==1)
     {
-        Platform::LogMessage("!! THUMB BLX_REG ON ARM7\n");
+        Platform::LogMsg("!! THUMB BLX_REG ON ARM7\n");
         return;
     }
 

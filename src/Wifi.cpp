@@ -28,7 +28,7 @@
 namespace Wifi
 {
 
-//#define WIFI_LOG Platform::LogMessage
+//#define WIFI_LOG Platform::LogMsg
 #define WIFI_LOG(...) {}
 
 u8 RAM[0x2000];
@@ -191,7 +191,7 @@ void Reset()
         IOPORT(0x000) = 0xC340; // DSi has the modern DS-wifi variant
     else
     {
-        Platform::LogMessage("wifi: unknown console type %02X\n", console);
+        Platform::LogMsg("wifi: unknown console type %02X\n", console);
         IOPORT(0x000) = 0x1440;
     }
 
@@ -286,7 +286,7 @@ void SetIRQ14(int source) // 0=USCOMPARE 1=BEACONCOUNT 2=forced
     SetIRQ(14);
 
     if (source == 2)
-        Platform::LogMessage("wifi: weird forced IRQ14\n");
+        Platform::LogMsg("wifi: weird forced IRQ14\n");
 
     IOPORT(W_BeaconCount2) = 0xFFFF;
     IOPORT(W_TXReqRead) &= 0xFFF2;
@@ -350,7 +350,7 @@ void StartTX_LocN(int nslot, int loc)
     TXSlot* slot = &TXSlots[nslot];
 
     if (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x7000)
-        Platform::LogMessage("wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
+        Platform::LogMsg("wifi: unusual loc%d bits set %04X\n", loc, IOPORT(W_TXSlotLoc1 + (loc*4)));
 
     slot->Addr = (IOPORT(W_TXSlotLoc1 + (loc*4)) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -369,7 +369,7 @@ void StartTX_Cmd()
 
     // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
 
-    if (IOPORT(W_TXSlotCmd) & 0x7000) Platform::LogMessage("wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
+    if (IOPORT(W_TXSlotCmd) & 0x7000) Platform::LogMsg("wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
 
     slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -826,7 +826,7 @@ bool CheckRX(bool block)
         framelen = *(u16*)&RXBuffer[10];
         if (framelen != rxlen-12)
         {
-            Platform::LogMessage("bad frame length\n");
+            Platform::LogMsg("bad frame length\n");
             continue;
         }
         framelen -= 4;
@@ -847,7 +847,7 @@ bool CheckRX(bool block)
             break;
 
         case 0x0004: // control
-            Platform::LogMessage("blarg\n");
+            Platform::LogMsg("blarg\n");
             continue;
 
         case 0x0008: // data
@@ -869,7 +869,7 @@ bool CheckRX(bool block)
                 a_bss = 10;
                 break;
             case 0x0300: // DS to DS
-                Platform::LogMessage("blarg\n");
+                Platform::LogMsg("blarg\n");
                 continue;
             }
             // TODO: those also trigger on other framectl values
@@ -891,7 +891,7 @@ bool CheckRX(bool block)
         if (!MACEqual(&RXBuffer[12 + a_dst], (u8*)&IOPORT(W_MACAddr0)) &&
             !(RXBuffer[12 + a_dst] & 0x01))
         {
-            Platform::LogMessage("received packet %04X but it didn't pass the MAC check\n", framectl);
+            Platform::LogMsg("received packet %04X but it didn't pass the MAC check\n", framectl);
             continue;
         }
 
@@ -1082,7 +1082,7 @@ void USTimer(u32 param)
 
             if (addr == (IOPORT(W_RXBufReadCursor) << 1))
             {
-                Platform::LogMessage("wifi: RX buffer full\n");
+                Platform::LogMsg("wifi: RX buffer full\n");
                 RXTime = 0;
                 SetStatus(1);
                 if (TXCurSlot == 0xFFFFFFFF)
@@ -1140,12 +1140,12 @@ void RFTransfer_Type3()
 // TODO: wifi waitstates
 
 u16 Read(u32 addr)
-{//Platform::LogMessage("WIFI READ %08X\n", addr);
+{//Platform::LogMsg("WIFI READ %08X\n", addr);
     if (addr >= 0x04810000)
         return 0;
 
     addr &= 0x7FFE;
-    //Platform::LogMessage("WIFI: read %08X\n", addr);
+    //Platform::LogMsg("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
     {
         return *(u16*)&RAM[addr & 0x1FFE];
@@ -1179,7 +1179,7 @@ u16 Read(u32 addr)
     case W_BBRead:
         if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
         {
-            Platform::LogMessage("WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
+            Platform::LogMsg("WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
             return 0;
         }
         return BBRegs[IOPORT(W_BBCnt) & 0xFF];
@@ -1225,17 +1225,17 @@ u16 Read(u32 addr)
         return IOPORT(W_TXBusy) & 0x001F; // no bit for MP replies. odd
     }
 
-    //Platform::LogMessage("WIFI: read %08X\n", addr);
+    //Platform::LogMsg("WIFI: read %08X\n", addr);
     return IOPORT(addr&0xFFF);
 }
 
 void Write(u32 addr, u16 val)
-{//Platform::LogMessage("WIFI WRITE %08X %04X\n", addr, val);
+{//Platform::LogMsg("WIFI WRITE %08X %04X\n", addr, val);
     if (addr >= 0x04810000)
         return;
 
     addr &= 0x7FFE;
-    //Platform::LogMessage("WIFI: write %08X %04X\n", addr, val);
+    //Platform::LogMsg("WIFI: write %08X %04X\n", addr, val);
     if (addr >= 0x4000 && addr < 0x6000)
     {
         *(u16*)&RAM[addr & 0x1FFE] = val;
@@ -1313,7 +1313,7 @@ void Write(u32 addr, u16 val)
         return;
     case W_IFSet:
         IOPORT(W_IF) |= (val & 0xFBFF);
-        Platform::LogMessage("wifi: force-setting IF %04X\n", val);
+        Platform::LogMsg("wifi: force-setting IF %04X\n", val);
         return;
 
     case W_PowerState:
@@ -1329,7 +1329,7 @@ void Write(u32 addr, u16 val)
         }
         return;
     case W_PowerForce:
-        if ((val&0x8001)==0x8000) Platform::LogMessage("WIFI: forcing power %04X\n", val);
+        if ((val&0x8001)==0x8000) Platform::LogMsg("WIFI: forcing power %04X\n", val);
         val &= 0x8001;
         if (val == 0x8001)
         {
@@ -1345,7 +1345,7 @@ void Write(u32 addr, u16 val)
         // TODO: check whether this resets USCOUNT (and also which other events can reset it)
         if ((IOPORT(W_PowerUS) & 0x0001) && !(val & 0x0001))
         {
-            Platform::LogMessage("WIFI ON\n");
+            Platform::LogMsg("WIFI ON\n");
             NDS::ScheduleEvent(NDS::Event_Wifi, false, 33, USTimer, 0);
             if (!MPInited)
             {
@@ -1360,7 +1360,7 @@ void Write(u32 addr, u16 val)
         }
         else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
         {
-            Platform::LogMessage("WIFI OFF\n");
+            Platform::LogMsg("WIFI OFF\n");
             NDS::CancelEvent(NDS::Event_Wifi);
         }
         break;
@@ -1417,11 +1417,11 @@ void Write(u32 addr, u16 val)
             IOPORT(W_TXSlotReply1) = 0;
         }
         val &= 0xFF0E;
-        if (val & 0x7FFF) Platform::LogMessage("wifi: unknown RXCNT bits set %04X\n", val);
+        if (val & 0x7FFF) Platform::LogMsg("wifi: unknown RXCNT bits set %04X\n", val);
         break;
 
     case W_RXBufDataRead:
-        Platform::LogMessage("wifi: writing to RXBUF_DATA_READ. wat\n");
+        Platform::LogMsg("wifi: writing to RXBUF_DATA_READ. wat\n");
         if (IOPORT(W_RXBufCount) > 0)
         {
             IOPORT(W_RXBufCount)--;
@@ -1458,7 +1458,7 @@ void Write(u32 addr, u16 val)
         // checkme: any bits affecting the beacon slot?
         if (val & 0x0040) IOPORT(W_TXSlotReply2) &= 0x7FFF;
         if (val & 0x0080) IOPORT(W_TXSlotReply1) &= 0x7FFF;
-        if ((val & 0xFF30) && (val != 0xFFFF)) Platform::LogMessage("unusual TXSLOTRESET %04X\n", val);
+        if ((val & 0xFF30) && (val != 0xFFFF)) Platform::LogMsg("unusual TXSLOTRESET %04X\n", val);
         val = 0; // checkme (write-only port)
         break;
 
@@ -1506,7 +1506,7 @@ void Write(u32 addr, u16 val)
 
     case 0x228:
     case 0x244:
-        //Platform::LogMessage("wifi: write port%03X %04X\n", addr, val);
+        //Platform::LogMsg("wifi: write port%03X %04X\n", addr, val);
         break;
 
     // read-only ports
@@ -1529,7 +1529,7 @@ void Write(u32 addr, u16 val)
         return;
     }
 
-    //Platform::LogMessage("WIFI: write %08X %04X\n", addr, val);
+    //Platform::LogMsg("WIFI: write %08X %04X\n", addr, val);
     IOPORT(addr&0xFFF) = val;
 }
 
