@@ -308,7 +308,7 @@ u32 DSi_SDHost::DataTX(u8* data, u32 len)
 
         // drain FIFO32 into FIFO16
 
-        if (!DataFIFO[f].IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
+        if (!DataFIFO[f].IsEmpty()) Platform::LogMessage("VERY BAD!! TRYING TO DRAIN FIFO32 INTO FIFO16 BUT IT CONTAINS SHIT ALREADY\n");
         for (;;)
         {
             u32 f = CurFIFO;
@@ -679,7 +679,7 @@ void DSi_SDHost::UpdateFIFO32()
 
     if (DataMode != 1) return;
 
-    if (!DataFIFO32.IsEmpty()) printf("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
+    if (!DataFIFO32.IsEmpty()) Platform::LogMessage("VERY BAD!! TRYING TO DRAIN FIFO16 INTO FIFO32 BUT IT CONTAINS SHIT ALREADY\n");
     for (;;)
     {
         u32 f = CurFIFO;

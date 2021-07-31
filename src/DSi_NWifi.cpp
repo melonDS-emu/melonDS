@@ -187,7 +187,7 @@ void DSi_NWifi::Reset()
         break;
 
     default:
-        printf("NWifi: unknown hardware type, assuming AR6002\n");
+        Platform::LogMessage("NWifi: unknown hardware type, assuming AR6002\n");
         ROMID = 0x20000188;
         ChipID = 0x02000001;
         HostIntAddr = 0x00500400;
@@ -441,7 +441,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
 {
     if (addr < 0x100)
     {
-        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        if (Mailbox[0].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX0 FULL\n");
         Mailbox[0].Write(val);
         if (addr == 0xFF) HandleCommand();
         UpdateIRQ_F1();
@@ -449,21 +449,21 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
     }
     else if (addr < 0x200)
     {
-        if (Mailbox[1].IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
+        if (Mailbox[1].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX1 FULL\n");
         Mailbox[1].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x300)
     {
-        if (Mailbox[2].IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
+        if (Mailbox[2].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX2 FULL\n");
         Mailbox[2].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x400)
     {
-        if (Mailbox[3].IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
+        if (Mailbox[3].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX3 FULL\n");
         Mailbox[3].Write(val);
         UpdateIRQ_F1();
         return;
@@ -504,7 +504,7 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
     }
     else if (addr < 0x1000)
     {
-        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        if (Mailbox[0].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX0 FULL\n");
         Mailbox[0].Write(val);
         if (addr == 0xFFF) HandleCommand();
         UpdateIRQ_F1();
@@ -512,28 +512,28 @@ void DSi_NWifi::F1_Write(u32 addr, u8 val)
     }
     else if (addr < 0x1800)
     {
-        if (Mailbox[1].IsFull()) printf("!!! NWIFI: MBOX1 FULL\n");
+        if (Mailbox[1].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX1 FULL\n");
         Mailbox[1].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x2000)
     {
-        if (Mailbox[2].IsFull()) printf("!!! NWIFI: MBOX2 FULL\n");
+        if (Mailbox[2].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX2 FULL\n");
         Mailbox[2].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else if (addr < 0x2800)
     {
-        if (Mailbox[3].IsFull()) printf("!!! NWIFI: MBOX3 FULL\n");
+        if (Mailbox[3].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX3 FULL\n");
         Mailbox[3].Write(val);
         UpdateIRQ_F1();
         return;
     }
     else
     {
-        if (Mailbox[0].IsFull()) printf("!!! NWIFI: MBOX0 FULL\n");
+        if (Mailbox[0].IsFull()) Platform::LogMessage("!!! NWIFI: MBOX0 FULL\n");
         Mailbox[0].Write(val);
         if (addr == 0x3FFF) HandleCommand(); // CHECKME
         UpdateIRQ_F1();
@@ -872,8 +872,8 @@ void DSi_NWifi::HTC_Command()
         Platform::LogMessage("unknown HTC command %04X\n", cmd);
         for (int i = 0; i < len; i++)
         {
-            printf("%02X ", Mailbox[0].Read());
-            if ((i&0xF)==0xF) printf("\n");
+            Platform::LogMessage("%02X ", Mailbox[0].Read());
+            if ((i&0xF)==0xF) Platform::LogMessage("\n");
         }
         Platform::LogMessage("\n");
         break;
@@ -1125,8 +1125,8 @@ void DSi_NWifi::WMI_Command()
             Platform::LogMessage("unknown WMI command %04X (header: %04X:%04X:%04X)\n", cmd, h0, len, h2);
             for (int i = 0; i < len-2; i++)
             {
-                printf("%02X ", Mailbox[0].Read());
-                if ((i&0xF)==0xF) printf("\n");
+                Platform::LogMessage("%02X ", Mailbox[0].Read());
+                if ((i&0xF)==0xF) Platform::LogMessage("\n");
             }
             Platform::LogMessage("\n");
             break;
@@ -1234,8 +1234,8 @@ void DSi_NWifi::WMI_SendPacket(u16 len)
         Platform::LogMessage("WMI: special frame %04X len=%d\n", hdr, len);
         for (int i = 0; i < len-2; i++)
         {
-            printf("%02X ", Mailbox[0].Read());
-            if ((i&0xF)==0xF) printf("\n");
+            Platform::LogMessage("%02X ", Mailbox[0].Read());
+            if ((i&0xF)==0xF) Platform::LogMessage("\n");
         }
         Platform::LogMessage("\n");
         return;

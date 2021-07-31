@@ -18,6 +18,8 @@
 
 #include "ArchiveUtil.h"
 
+#include "Platform.h"
+
 namespace Archive
 {
 
@@ -82,7 +84,7 @@ QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile
 
     if (bytesRead < 0)
     {
-        printf("Error whilst reading archive: %s", archive_error_string(a));
+        Platform::LogMessage("Error whilst reading archive: %s", archive_error_string(a));
         return QVector<QString> {"Err", archive_error_string(a)};
     }
 

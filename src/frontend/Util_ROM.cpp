@@ -613,7 +613,7 @@ int Reset()
 
             strncpy(romfilename, &sramfilename[pos + 1], 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], NDSROMExtension, 3); // extension could be nds, srl or dsi
-            printf("RESET loading from archive : %s\n", romfilename);
+            Platform::LogMessage("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_NDS], romfilename, &romdata);
             if(!romdata)
                 return Load_ROMLoadError;
@@ -650,7 +650,7 @@ int Reset()
 
             strncpy(romfilename, &sramfilename[pos + 1], 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], "gba", 3);
-            printf("RESET loading from archive : %s\n", romfilename);
+            Platform::LogMessage("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_GBA], romfilename, &romdata);
             if(!romdata)
                 return Load_ROMLoadError;

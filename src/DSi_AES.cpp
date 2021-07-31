@@ -336,7 +336,7 @@ void WriteBlkCnt(u32 val)
 
 u32 ReadOutputFIFO()
 {
-    if (OutputFIFO.IsEmpty()) printf("!!! AES OUTPUT FIFO EMPTY\n");
+    if (OutputFIFO.IsEmpty()) Platform::LogMessage("!!! AES OUTPUT FIFO EMPTY\n");
 
     u32 ret = OutputFIFO.Read();
 
@@ -369,7 +369,7 @@ void WriteInputFIFO(u32 val)
 {
     // TODO: add some delay to processing
 
-    if (InputFIFO.IsFull()) printf("!!! AES INPUT FIFO FULL\n");
+    if (InputFIFO.IsFull()) Platform::LogMessage("!!! AES INPUT FIFO FULL\n");
 
     InputFIFO.Write(val);
 

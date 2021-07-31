@@ -23,6 +23,8 @@
 #include "FIFO.h"
 #include "NDS.h"
 
+#include "Platform.h"
+
 
 namespace DSi_DSP
 {
@@ -168,7 +170,7 @@ void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking)
 {
     if (bank != 'B' && bank != 'C')
     {
-        printf("WTF?? (DSP MBK recfg, nonsense bank '%c')\n", bank);
+        Platform::LogMessage("WTF?? (DSP MBK recfg, nonsense bank '%c')\n", bank);
         return;
     }
 

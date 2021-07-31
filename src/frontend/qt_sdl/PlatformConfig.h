@@ -99,6 +99,9 @@ extern int MouseHide;
 extern int MouseHideSeconds;
 extern int PauseLostFocus;
 
+extern int LogToFile;
+extern char LogFileLocation[1024];
+
 }
 
 #endif // PLATFORMCONFIG_H

@@ -103,11 +103,11 @@ ssize_t SlirpCbSendPacket(const void* buf, size_t len, void* opaque)
 {
     if (len > 2048)
     {
-        printf("slirp: packet too big (%zu)\n", len);
+        Platform::LogMessage("slirp: packet too big (%zu)\n", len);
         return 0;
     }
 
-    printf("slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
+    Platform::LogMessage("slirp: response packet of %zu bytes, type %04X\n", len, ntohs(((u16*)buf)[6]));
 
     RXEnqueue(buf, len);
 

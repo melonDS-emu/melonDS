@@ -1839,7 +1839,7 @@ void ExecuteCommand()
     {
         // fast path for command which only have a single parameter
 
-        /*printf("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
+        /*Platform::LogMessage("[GXS:%08X] 0x%02X,  0x%08X", GXStat, entry.Command, entry.Param);*/
 
         switch (entry.Command)
         {
@@ -2179,7 +2179,7 @@ void ExecuteCommand()
 
         default:
             VertexPipelineCmdDelayed4();
-            //printf("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
+            //Platform::LogMessage("!! UNKNOWN GX COMMAND %02X %08X\n", entry.Command, entry.Param);
             break;
         }
     }
@@ -2209,9 +2209,9 @@ void ExecuteCommand()
 
             if (ExecParamCount >= paramsRequiredCount)
             {
-                /*printf("[GXS:%08X] 0x%02X,  ", GXStat, entry.Command);
-                for (int k = 0; k < ExecParamCount; k++) printf("0x%08X, ", ExecParams[k]);
-                printf("\n");*/
+                /*Platform::LogMessage("[GXS:%08X] 0x%02X,  ", GXStat, entry.Command);
+                for (int k = 0; k < ExecParamCount; k++) Platform::LogMessage("0x%08X, ", ExecParams[k]);
+                Platform::LogMessage("\n");*/
 
                 ExecParamCount = 0;
 

@@ -57,6 +57,7 @@
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
+#include "LogSettingsDialog.h"
 #include "ROMInfoDialog.h"
 
 #include "types.h"
@@ -163,7 +164,7 @@ void micOpen()
     micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
     if (!micDevice)
     {
-        printf("Mic init failed: %s\n", SDL_GetError());
+        Platform::LogMessage("Mic init failed: %s\n", SDL_GetError());
     }
     else
     {
@@ -2004,7 +2005,7 @@ void MainWindow::onOpenFileArchive()
 
 QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
 {
-    printf("Finding list of ROMs...\n");
+    Platform::LogMessage("Finding list of ROMs...\n");
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
 
 
@@ -2020,7 +2021,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         if(!ok) // User clicked on cancel
             return QString();
 
-        printf("Extracting '%s'\n", toLoad.toUtf8().constData());
+        Platform::LogMessage("Extracting '%s'\n", toLoad.toUtf8().constData());
         QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), toLoad.toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
@@ -2033,7 +2034,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
     }
     else if (archiveROMList.size() == 2)
     {
-        printf("Extracting the only ROM in archive\n");
+        Platform::LogMessage("Extracting the only ROM in archive\n");
         QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), archiveROMList.at(1).toUtf8().constData(), romBuffer);
         if (extractResult[0] != QString("Err"))
         {
@@ -2463,15 +2464,7 @@ void MainWindow::onOpenWifiSettings()
 
 void MainWindow::onOpenLogSettings()
 {
-    emuThread->emuPause();
-
     LogSettingsDialog* dlg = LogSettingsDialog::openDlg(this);
-    connect(dlg, &LogSettingsDialog::finished, this, &MainWindow::onLogSettingsFinished);
-}
-
-void MainWindow::onLogSettingsFinished(int res)
-{
-    emuThread->emuUnpause();
 }
 
 void MainWindow::onWifiSettingsFinished(int res)

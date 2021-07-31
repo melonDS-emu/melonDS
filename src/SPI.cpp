@@ -92,7 +92,7 @@ u32 FixFirmwareLength(u32 originalLength)
 {
     if (originalLength != 0x20000 && originalLength != 0x40000 && originalLength != 0x80000)
     {
-        printf("Bad firmware size %d, ", originalLength);
+        Platform::LogMessage("Bad firmware size %d, ", originalLength);
 
         // pick the nearest power-of-two length
         originalLength |= (originalLength >> 1);
@@ -106,7 +106,7 @@ u32 FixFirmwareLength(u32 originalLength)
         if (originalLength > 0x80000) originalLength = 0x80000;
         else if (originalLength < 0x20000) originalLength = 0x20000;
 
-        printf("assuming %d\n", originalLength);
+        Platform::LogMessage("assuming %d\n", originalLength);
     }
     return originalLength;
 }

@@ -584,7 +584,7 @@ bool MapAtAddress(u32 addr)
         return false;
 
     u8* states = num == 0 ? MappingStatus9 : MappingStatus7;
-    //printf("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
+    //Platform::LogMessage("mapping mirror %x, %x %x %d %d\n", mirrorStart, mirrorSize, memoryOffset, region, num);
     bool isExecutable = ARMJIT::CodeMemRegions[region];
 
     u32 dtcmStart = NDS::ARM9->DTCMBase;
@@ -650,7 +650,7 @@ bool MapAtAddress(u32 addr)
 #if defined(__SWITCH__)
             if (!hasCode)
             {
-                //printf("trying to map %x (size: %x) from %x\n", mirrorStart + sectionOffset, sectionSize, sectionOffset + memoryOffset + OffsetsPerRegion[region]);
+                //Platform::LogMessage("trying to map %x (size: %x) from %x\n", mirrorStart + sectionOffset, sectionSize, sectionOffset + memoryOffset + OffsetsPerRegion[region]);
                 bool succeded = MapIntoRange(mirrorStart + sectionOffset, num, sectionOffset + memoryOffset + OffsetsPerRegion[region], sectionSize);
                 assert(succeded);
             }
@@ -772,13 +772,13 @@ void Init()
     MemoryFile = shm_open(fastmemPidName, O_RDWR | O_CREAT | O_EXCL, 0600);
     if (MemoryFile == -1)
     {
-        printf("Failed to open memory using shm_open!");
+        Platform::LogMessage("Failed to open memory using shm_open!");
     }
     shm_unlink(fastmemPidName);
 #endif
     if (ftruncate(MemoryFile, MemoryTotalSize) < 0)
     {
-        printf("Failed to allocate memory using ftruncate!");
+        Platform::LogMessage("Failed to allocate memory using ftruncate!");
     }
 
     struct sigaction sa;

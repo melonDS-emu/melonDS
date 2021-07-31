@@ -84,6 +84,9 @@ int MouseHideSeconds;
 
 int PauseLostFocus;
 
+int LogToFile;
+char LogFileLocation[1024];
+
 bool EnableJIT;
 
 ConfigEntry PlatformConfigFile[] =
@@ -199,6 +202,9 @@ ConfigEntry PlatformConfigFile[] =
     {"MouseHide",        0, &MouseHide,        0, NULL, 0},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
     {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
+
+    {"LogToFile", 0, &LogToFile, 0, NULL, 0},
+    {"LogFileLocation", 1, &LogFileLocation, 0, "", 1023},
     
     {"", -1, NULL, 0, NULL, 0}
 };

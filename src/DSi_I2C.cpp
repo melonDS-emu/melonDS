@@ -23,6 +23,8 @@
 #include "DSi_Camera.h"
 #include "ARM.h"
 
+#include "Platform.h"
+
 
 namespace DSi_BPTWL
 {
@@ -74,12 +76,12 @@ void Reset()
 
 void Start()
 {
-    //printf("BPTWL: start\n");
+    //Platform::LogMessage("BPTWL: start\n");
 }
 
 u8 Read(bool last)
 {
-    //printf("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
+    //Platform::LogMessage("BPTWL: read %02X -> %02X @ %08X\n", CurPos, Registers[CurPos], NDS::GetPC(1));
     u8 ret = Registers[CurPos++];
 
     if (last)
@@ -101,13 +103,13 @@ void Write(u8 val, bool last)
     if (CurPos == 0xFFFFFFFF)
     {
         CurPos = val;
-        //printf("BPTWL: reg=%02X\n", val);
+        //Platform::LogMessage("BPTWL: reg=%02X\n", val);
         return;
     }
 
     if (CurPos == 0x11 && val == 0x01)
     {
-        printf("BPTWL: soft-reset\n");
+        Platform::LogMessage("BPTWL: soft-reset\n");
         val = 0; // checkme
         // TODO: soft-reset might need to be scheduled later!
         // TODO: this has been moved for the JIT to work, nothing is confirmed here
@@ -127,7 +129,7 @@ void Write(u8 val, bool last)
         Registers[CurPos] = val;
     }
 
-    //printf("BPTWL: write %02X -> %02X\n", CurPos, val);
+    //Platform::LogMessage("BPTWL: write %02X -> %02X\n", CurPos, val);
     CurPos++; // CHECKME
 }
 
@@ -169,7 +171,7 @@ void Reset()
 
 void WriteCnt(u8 val)
 {
-    //printf("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
+    //Platform::LogMessage("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
 
     // TODO: check ACK flag
     // TODO: transfer delay
@@ -193,12 +195,12 @@ void WriteCnt(u8 val)
             case 0xA0:
             case 0xE0: Data = 0xFF; break;
             default:
-                printf("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
+                Platform::LogMessage("I2C: read on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, 0, islast);
                 Data = 0xFF;
                 break;
             }
 
-            //printf("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+            //Platform::LogMessage("I2C read, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
         }
         else
         {
@@ -209,7 +211,7 @@ void WriteCnt(u8 val)
             if (val & (1<<1))
             {
                 Device = Data & 0xFE;
-                //printf("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
+                //Platform::LogMessage("I2C: %s start, device=%02X\n", (Data&0x01)?"read":"write", Device);
 
                 switch (Device)
                 {
@@ -219,14 +221,14 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
+                    Platform::LogMessage("I2C: %s start on unknown device %02X\n", (Data&0x01)?"read":"write", Device);
                     ack = false;
                     break;
                 }
             }
             else
             {
-                //printf("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                //Platform::LogMessage("I2C write, device=%02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
 
                 switch (Device)
                 {
@@ -236,7 +238,7 @@ void WriteCnt(u8 val)
                 case 0xA0:
                 case 0xE0: ack = false; break;
                 default:
-                    printf("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
+                    Platform::LogMessage("I2C: write on unknown device %02X, cnt=%02X, data=%02X, last=%d\n", Device, val, Data, islast);
                     ack = false;
                     break;
                 }

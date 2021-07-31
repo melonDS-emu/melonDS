@@ -248,6 +248,7 @@ private slots:
     void onWifiSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
+    void onOpenLogSettings();
     void onUpdateMouseTimer();
     void onChangeSavestateSRAMReloc(bool checked);
     void onChangeScreenSize();
@@ -319,6 +320,7 @@ public:
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actInterfaceSettings;
+    QAction* actLogSettings;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];
     QActionGroup* grpScreenRotation;

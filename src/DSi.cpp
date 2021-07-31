@@ -498,7 +498,7 @@ bool LoadNAND()
             fread(nand_footer, 1, 16, SDMMCFile);
             if (memcmp(nand_footer, nand_footer_ref, 16))
             {
-              printf("ERROR: NAND missing nocash footer\n");
+              Platform::LogMessage("ERROR: NAND missing nocash footer\n");
               return false;
             }
         }
@@ -506,8 +506,8 @@ bool LoadNAND()
         fread(eMMC_CID, 1, 16, SDMMCFile);
         fread(&ConsoleID, 1, 8, SDMMCFile);
 
-        printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %" PRIx64 "\n", ConsoleID);
+        Platform::LogMessage("eMMC CID: "); printhex(eMMC_CID, 16);
+        Platform::LogMessage("Console ID: %" PRIx64 "\n", ConsoleID);
     }
 
     memset(ITCMInit, 0, 0x8000);

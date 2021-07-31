@@ -124,8 +124,8 @@ struct NonStupidBitField
             if (state != (i >= startBit && i < startBit + bitsCount))
             {
                 for (u32 j = 0; j < DataLength; j++)
-                    printf("data %016lx\n", Data[j]);
-                printf("blarg %d %d %d %d\n", i, startBit, bitsCount, Size);
+                    Platform::LogMessage("data %016lx\n", Data[j]);
+                Platform::LogMessage("blarg %d %d %d %d\n", i, startBit, bitsCount, Size);
                 abort();
             }
         }*/

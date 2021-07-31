@@ -53,7 +53,7 @@ u8* Compiler::RewriteMemAccess(u8* pc)
         return pc + (ptrdiff_t)patch.Offset;
     }
 
-    printf("this is a JIT bug %sx\n", pc);
+    Platform::LogMessage("this is a JIT bug %sx\n", pc);
     abort();
 }
 

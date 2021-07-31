@@ -666,7 +666,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown tiny EEPROM save command %02X\n", SRAMCmd);
+            Platform::LogMessage("unknown tiny EEPROM save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -727,7 +727,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown EEPROM save command %02X\n", SRAMCmd);
+            Platform::LogMessage("unknown EEPROM save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -851,7 +851,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
 
     default:
         if (pos == 1)
-            printf("unknown FLASH save command %02X\n", SRAMCmd);
+            Platform::LogMessage("unknown FLASH save command %02X\n", SRAMCmd);
         return 0;
     }
 }
@@ -987,8 +987,8 @@ int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
             // window is 0x20000 bytes, address is aligned to that boundary
             // NAND remains stuck 'busy' forever if this is less than the starting SRAM address
             // TODO.
-            if (addr < SRAMBase) printf("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
-            if (addr >= (SRAMBase+SRAMLength)) printf("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
+            if (addr < SRAMBase) Platform::LogMessage("NAND: !! BAD ADDR %08X < %08X\n", addr, SRAMBase);
+            if (addr >= (SRAMBase+SRAMLength)) Platform::LogMessage("NAND: !! BAD ADDR %08X > %08X\n", addr, SRAMBase+SRAMLength);
 
             SRAMWindow = addr;
         }
@@ -1139,7 +1139,7 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
 
 CartRetailBT::CartRetailBT(u8* rom, u32 len, u32 chipid) : CartRetail(rom, len, chipid)
 {
-    printf("POKETYPE CART\n");
+    Platform::LogMessage("POKETYPE CART\n");
 }
 
 CartRetailBT::~CartRetailBT()
@@ -1158,7 +1158,7 @@ void CartRetailBT::DoSavestate(Savestate* file)
 
 u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 {
-    printf("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
+    Platform::LogMessage("POKETYPE SPI: %02X %d %d - %08X\n", val, pos, last, NDS::GetPC(0));
 
     /*if (pos == 0)
     {
@@ -1303,13 +1303,13 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         *(u32*)&patch[4] != 0x69684320 ||
         *(u32*)&patch[8] != 0x006D6873)
     {
-        printf("bad DLDI patch\n");
+        Platform::LogMessage("bad DLDI patch\n");
         return;
     }
 
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
-        printf("DLDI driver ain't gonna fit, sorry\n");
+        Platform::LogMessage("DLDI driver ain't gonna fit, sorry\n");
         return;
     }
 
@@ -1390,7 +1390,7 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
     }
 
-    printf("applied DLDI patch\n");
+    Platform::LogMessage("applied DLDI patch\n");
 }
 
 void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
@@ -1546,7 +1546,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     memcpy(&Header, CartROM, sizeof(Header));
     memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
 
-    printf("Game code: %.4s\n", Header.GameCode);
+    Platform::LogMessage("Game code: %.4s\n", Header.GameCode);
 
     u32 gamecode = (u32)Header.GameCode[3] << 24 |
                    (u32)Header.GameCode[2] << 16 |
@@ -1572,7 +1572,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else
         Platform::LogMessage("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams.ROMSize != filelength) printf("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
+    if (romparams.ROMSize != filelength) Platform::LogMessage("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1596,7 +1596,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     //CartID = 0x88017FEC;
     //CartID = 0x80007FC2; // pokémon typing adventure
 
-    printf("Cart ID: %08X\n", CartID);
+    Platform::LogMessage("Cart ID: %08X\n", CartID);
 
     u32 arm9base = *(u32*)&CartROM[0x20];
 
@@ -1662,7 +1662,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     Key1_InitKeycode(false, gamecode, 2, 2);
 
     // save
-    printf("Save file: %s\n", sram);
+    Platform::LogMessage("Save file: %s\n", sram);
     if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
 
     return true;
@@ -1846,7 +1846,7 @@ void WriteROMCnt(u32 val)
         TransferDir = Cart->ROMCommandStart(TransferCmd, TransferData, TransferLen);
 
     if ((datasize > 0) && (((ROMCnt >> 30) & 0x1) != TransferDir))
-        printf("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
+        Platform::LogMessage("NDSCART: !! BAD TRANSFER DIRECTION FOR CMD %02X, DIR=%d, ROMCNT=%08X\n", ROMCommand[0], TransferDir, ROMCnt);
 
     ROMCnt &= ~(1<<23);
 

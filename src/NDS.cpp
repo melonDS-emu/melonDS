@@ -346,7 +346,7 @@ void SetupDirectBoot()
         // directly in the roms.
         // There are some more SCFG Settings that change depending on
         // the unit type, so this is experimental
-        printf("!! DIRECT BOOT NOT STABLE IN DSI MODE\n");
+        Platform::LogMessage("!! DIRECT BOOT NOT STABLE IN DSI MODE\n");
         DSi::SetupDirectBoot();
     }
 
@@ -844,7 +844,7 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
     }
     else
     {
-        printf("Failed to load ROM from archive\n");
+        Platform::LogMessage("Failed to load ROM from archive\n");
         return false;
     }
 }
@@ -884,7 +884,7 @@ bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const c
     }
     else
     {
-        printf("Failed to load ROM %s from archive\n", filename);
+        Platform::LogMessage("Failed to load ROM %s from archive\n", filename);
         return false;
     }
 }
@@ -1030,7 +1030,7 @@ u32 RunFrame()
         }
 
 #ifdef DEBUG_CHECK_DESYNC
-        printf("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
+        Platform::LogMessage("[%08X%08X] ARM9=%ld, ARM7=%ld, GPU=%ld\n",
             (u32)(SysTimestamp>>32), (u32)SysTimestamp,
             (ARM9Timestamp>>1)-SysTimestamp,
             ARM7Timestamp-SysTimestamp,
@@ -2013,7 +2013,7 @@ u16 ARM9Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    if (addr) Platform::LogMessage("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2182,7 +2182,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    if (addr) Platform::LogMessage("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2249,7 +2249,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    Platform::LogMessage("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -2617,7 +2617,7 @@ void ARM7Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    Platform::LogMessage("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2697,7 +2697,7 @@ void ARM7Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    Platform::LogMessage("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
@@ -3574,7 +3574,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 ch = NDS::ARM9Read8(val + i);
                 output[i] = ch;
             }
-            printf("%s", output);
+            Platform::LogMessage("%s", output);
             return;
         }
 
@@ -3585,12 +3585,12 @@ void ARM9IOWrite32(u32 addr, u32 val)
             bool appendLF = 0x04FFFA18 == addr;
             NocashPrint(0, val);
             if(appendLF)
-                printf("\n");
+                Platform::LogMessage("\n");
             return;
         }
 
     // NO$GBA debug register "Char Out"
-    case 0x04FFFA1C: printf("%" PRIu32, val); return;
+    case 0x04FFFA1C: Platform::LogMessage("%" PRIu32, val); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)

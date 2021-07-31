@@ -202,7 +202,7 @@ void CartGame::LoadSave(const char* path, u32 type)
         SRAMType = S_NULL;
         break;
     default:
-        printf("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
+        Platform::LogMessage("!! BAD GBA SAVE LENGTH %d\n", SRAMLength);
     }
 
     if (SRAMType == S_FLASH512K)
@@ -288,7 +288,7 @@ void CartGame::ROMWrite(u32 addr, u16 val)
             break;
 
         default:
-            printf("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
+            Platform::LogMessage("Unknown GBA GPIO write 0x%02X @ 0x%04X\n", val, addr);
             break;
     }
 }
@@ -594,7 +594,7 @@ void CartGameSolarSensor::ProcessGPIO()
         u8 prev = LightSample;
         LightCounter = 0;
         LightSample = (0xFF - (0x16 + kLuxLevels[LightLevel]));
-        printf("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
+        Platform::LogMessage("Solar sensor reset (sample: 0x%02X -> 0x%02X)\n", prev, LightSample);
     }
     if (GPIO.data & 1 && LightEdge) LightCounter++;
 
@@ -708,7 +708,7 @@ void LoadROMCommon(const char *sram)
 {
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
-    printf("GBA game code: %s\n", gamecode);
+    Platform::LogMessage("GBA game code: %s\n", gamecode);
 
     bool solarsensor = false;
     for (size_t i = 0; i < sizeof(SOLAR_SENSOR_GAMECODES)/sizeof(SOLAR_SENSOR_GAMECODES[0]); i++)
@@ -719,11 +719,11 @@ void LoadROMCommon(const char *sram)
 
     if (solarsensor)
     {
-        printf("GBA solar sensor support detected!\n");
+        Platform::LogMessage("GBA solar sensor support detected!\n");
     }
 
     CartCRC = CRC32(CartROM, CartROMSize);
-    printf("GBA ROM CRC32: %08X\n", CartCRC);
+    Platform::LogMessage("GBA ROM CRC32: %08X\n", CartCRC);
 
     CartInserted = true;
 
@@ -733,7 +733,7 @@ void LoadROMCommon(const char *sram)
         Cart = new CartGame(CartROM, CartROMSize);
 
     // save
-    printf("GBA save file: %s\n", sram);
+    Platform::LogMessage("GBA save file: %s\n", sram);
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
     if (Cart) Cart->LoadSave(sram, 0);
