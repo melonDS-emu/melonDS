@@ -1,3 +1,21 @@
+/*
+    Copyright 2016-2021 Arisotura, RSDuck
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #ifndef ARMJIT_H
 #define ARMJIT_H
 
@@ -5,6 +23,10 @@
 
 #include "ARM.h"
 #include "ARM_InstrInfo.h"
+
+#if defined(__APPLE__) && defined(__aarch64__)
+    #include <pthread.h>
+#endif
 
 namespace ARMJIT
 {
@@ -30,6 +52,8 @@ void ResetBlockCache();
 JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr);
 bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size);
 
+void JitEnableWrite();
+void JitEnableExecute();
 }
 
 extern "C" void ARM_Dispatch(ARM* cpu, ARMJIT::JitBlockEntry entry);

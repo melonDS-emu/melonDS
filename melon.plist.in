@@ -20,5 +20,7 @@
     <string>Licensed under GPLv3</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need microphone access so you can use the emulated DS microphone</string>
 </dict>
 </plist>

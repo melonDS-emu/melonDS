@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -64,7 +64,7 @@ private:
 
     int keypadKeyMap[12],   keypadJoyMap[12];
     int addonsKeyMap[2],    addonsJoyMap[2];
-    int hkGeneralKeyMap[8], hkGeneralJoyMap[8];
+    int hkGeneralKeyMap[9], hkGeneralJoyMap[9];
 };
 
 

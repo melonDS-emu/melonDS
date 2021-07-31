@@ -1,3 +1,21 @@
+/*
+    Copyright 2016-2021 Arisotura, RSDuck
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #include "ARM_InstrInfo.h"
 
 #include <stdio.h>
@@ -508,7 +526,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_LoadMem)
         {
             if (res.SrcRegs == (1 << 15))
-               res.SpecialKind = special_LoadLiteral;
+                res.SpecialKind = special_LoadLiteral;
             else
                 res.SpecialKind = special_LoadMem;
         }
@@ -518,6 +536,11 @@ Info Decode(bool thumb, u32 num, u32 instr)
             u16 set = (instr & 0xFFFF);
             res.NotStrictlyNeeded |= set & ~(res.SrcRegs|res.DstRegs|(1<<15));
             res.DstRegs |= set;
+            // when the instruction is executed not in usermode a banked register in memory will be written to
+            // but the unbanked register will still be allocated, so it is expected to carry the proper value
+            // thus it is a source register
+            if (instr & (1<<22))
+                res.SrcRegs |= set & 0x7F00;
         }
         if (res.Kind == ak_STM)
         {

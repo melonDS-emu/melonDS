@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -19,8 +19,14 @@
 #ifndef GPU_H
 #define GPU_H
 
+#include <memory>
+
 #include "GPU2D.h"
 #include "NonStupidBitfield.h"
+
+#ifdef OGLRENDERER_ENABLED
+#include "GPU_OpenGL.h"
+#endif
 
 namespace GPU
 {
@@ -69,17 +75,12 @@ extern u8* VRAMPtr_BOBJ[0x8];
 extern int FrontBuffer;
 extern u32* Framebuffer[2][2];
 
-extern GPU2D* GPU2D_A;
-extern GPU2D* GPU2D_B;
+extern GPU2D::Unit GPU2D_A;
+extern GPU2D::Unit GPU2D_B;
 
 extern int Renderer;
 
 const u32 VRAMDirtyGranularity = 512;
-
-extern NonStupidBitField<512*1024/VRAMDirtyGranularity> VRAMWritten_ABG;
-extern NonStupidBitField<256*1024/VRAMDirtyGranularity> VRAMWritten_AOBJ;
-extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BBG;
-extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMWritten_BOBJ;
 
 extern NonStupidBitField<128*1024/VRAMDirtyGranularity> VRAMDirty[9];
 
@@ -92,7 +93,7 @@ struct VRAMTrackingSet
 
     void Reset()
     {
-        for (int i = 0; i < Size / MappingGranularity; i++)
+        for (u32 i = 0; i < Size / MappingGranularity; i++)
         {
             // this is not a real VRAM bank
             // so it will always be a mismatch => the bank will be completely invalidated
@@ -148,6 +149,10 @@ void SyncDirtyFlags();
 
 extern u32 OAMDirty;
 extern u32 PaletteDirty;
+
+#ifdef OGLRENDERER_ENABLED
+extern std::unique_ptr<GLCompositor> CurGLCompositor;
+#endif
 
 struct RenderSettings
 {
@@ -340,15 +345,41 @@ void WriteVRAM_ABG(u32 addr, T val)
 {
     u32 mask = VRAMMap_ABG[(addr >> 14) & 0x1F];
 
-    VRAMWritten_ABG[(addr & 0x7FFFF) / VRAMDirtyGranularity] = true;
-
-    if (mask & (1<<0)) *(T*)&VRAM_A[addr & 0x1FFFF] = val;
-    if (mask & (1<<1)) *(T*)&VRAM_B[addr & 0x1FFFF] = val;
-    if (mask & (1<<2)) *(T*)&VRAM_C[addr & 0x1FFFF] = val;
-    if (mask & (1<<3)) *(T*)&VRAM_D[addr & 0x1FFFF] = val;
-    if (mask & (1<<4)) *(T*)&VRAM_E[addr & 0xFFFF] = val;
-    if (mask & (1<<5)) *(T*)&VRAM_F[addr & 0x3FFF] = val;
-    if (mask & (1<<6)) *(T*)&VRAM_G[addr & 0x3FFF] = val;
+    if (mask & (1<<0))
+    {
+        VRAMDirty[0][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_A[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<1))
+    {
+        VRAMDirty[1][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_B[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<2))
+    {
+        VRAMDirty[2][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_C[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<3))
+    {
+        VRAMDirty[3][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_D[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<4))
+    {
+        VRAMDirty[4][(addr & 0xFFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_E[addr & 0xFFFF] = val;
+    }
+    if (mask & (1<<5))
+    {
+        VRAMDirty[5][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_F[addr & 0x3FFF] = val;
+    }
+    if (mask & (1<<6))
+    {
+        VRAMDirty[6][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_G[addr & 0x3FFF] = val;
+    }
 }
 
 
@@ -375,13 +406,31 @@ void WriteVRAM_AOBJ(u32 addr, T val)
 {
     u32 mask = VRAMMap_AOBJ[(addr >> 14) & 0xF];
 
-    VRAMWritten_AOBJ[(addr & 0x3FFFF) / VRAMDirtyGranularity] = true;
-
-    if (mask & (1<<0)) *(T*)&VRAM_A[addr & 0x1FFFF] = val;
-    if (mask & (1<<1)) *(T*)&VRAM_B[addr & 0x1FFFF] = val;
-    if (mask & (1<<4)) *(T*)&VRAM_E[addr & 0xFFFF] = val;
-    if (mask & (1<<5)) *(T*)&VRAM_F[addr & 0x3FFF] = val;
-    if (mask & (1<<6)) *(T*)&VRAM_G[addr & 0x3FFF] = val;
+    if (mask & (1<<0))
+    {
+        VRAMDirty[0][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_A[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<1))
+    {
+        VRAMDirty[1][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_B[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<4))
+    {
+        VRAMDirty[4][(addr & 0xFFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_E[addr & 0xFFFF] = val;
+    }
+    if (mask & (1<<5))
+    {
+        VRAMDirty[5][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_F[addr & 0x3FFF] = val;
+    }
+    if (mask & (1<<6))
+    {
+        VRAMDirty[6][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_G[addr & 0x3FFF] = val;
+    }
 }
 
 
@@ -406,11 +455,21 @@ void WriteVRAM_BBG(u32 addr, T val)
 {
     u32 mask = VRAMMap_BBG[(addr >> 14) & 0x7];
 
-    VRAMWritten_BBG[(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
-
-    if (mask & (1<<2)) *(T*)&VRAM_C[addr & 0x1FFFF] = val;
-    if (mask & (1<<7)) *(T*)&VRAM_H[addr & 0x7FFF] = val;
-    if (mask & (1<<8)) *(T*)&VRAM_I[addr & 0x3FFF] = val;
+    if (mask & (1<<2))
+    {
+        VRAMDirty[2][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_C[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<7))
+    {
+        VRAMDirty[7][(addr & 0x7FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_H[addr & 0x7FFF] = val;
+    }
+    if (mask & (1<<8))
+    {
+        VRAMDirty[8][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_I[addr & 0x3FFF] = val;
+    }
 }
 
 
@@ -434,10 +493,16 @@ void WriteVRAM_BOBJ(u32 addr, T val)
 {
     u32 mask = VRAMMap_BOBJ[(addr >> 14) & 0x7];
 
-    VRAMWritten_BOBJ[(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
-
-    if (mask & (1<<3)) *(T*)&VRAM_D[addr & 0x1FFFF] = val;
-    if (mask & (1<<8)) *(T*)&VRAM_I[addr & 0x3FFF] = val;
+    if (mask & (1<<3))
+    {
+        VRAMDirty[3][(addr & 0x1FFFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_D[addr & 0x1FFFF] = val;
+    }
+    if (mask & (1<<8))
+    {
+        VRAMDirty[8][(addr & 0x3FFF) / VRAMDirtyGranularity] = true;
+        *(T*)&VRAM_I[addr & 0x3FFF] = val;
+    }
 }
 
 template<typename T>
@@ -550,24 +615,6 @@ void DisplayFIFO(u32 x);
 void SetDispStat(u32 cpu, u16 val);
 
 void SetVCount(u16 val);
-
-#ifdef OGLRENDERER_ENABLED
-namespace GLCompositor
-{
-
-bool Init();
-void DeInit();
-void Reset();
-
-void SetRenderSettings(RenderSettings& settings);
-
-void Stop();
-void RenderFrame();
-void BindOutputTexture();
-
-}
-#endif
-
 }
 
 #include "GPU3D.h"

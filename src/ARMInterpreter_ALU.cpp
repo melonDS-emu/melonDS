@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -290,7 +290,7 @@ void A_##x##_REG_ROR_REG(ARM* cpu) \
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -321,7 +321,7 @@ A_IMPLEMENT_ALU_OP(AND,_S)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -352,7 +352,7 @@ A_IMPLEMENT_ALU_OP(EOR,_S)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -385,7 +385,7 @@ A_IMPLEMENT_ALU_OP(SUB,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -418,7 +418,7 @@ A_IMPLEMENT_ALU_OP(RSB,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -451,7 +451,7 @@ A_IMPLEMENT_ALU_OP(ADD,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -486,7 +486,7 @@ A_IMPLEMENT_ALU_OP(ADC,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -521,7 +521,7 @@ A_IMPLEMENT_ALU_OP(SBC,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -600,7 +600,7 @@ A_IMPLEMENT_ALU_TEST(CMN,)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -629,7 +629,7 @@ A_IMPLEMENT_ALU_OP(ORR,_S)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(b); \
+        cpu->JumpTo(b & ~1); \
     } \
     else \
     { \
@@ -661,7 +661,10 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
         (cpu->NextInstr[0] & 0xFF000000) == 0xEA000000 && // branch
         (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
     {
-        u32 addr = cpu->R[15] + 2;
+        // GBATek says the two bytes after the 2nd ID are _reserved_ for flags
+        // but since they serve no purpose ATTOW, we can skip them
+        u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
+        // TODO: Pass flags to NocashPrint
         NDS::NocashPrint(cpu->Num, addr);
     }
 }
@@ -673,7 +676,7 @@ void A_MOV_REG_LSL_IMM_DBG(ARM* cpu)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(res); \
+        cpu->JumpTo(res & ~1); \
     } \
     else \
     { \
@@ -703,7 +706,7 @@ A_IMPLEMENT_ALU_OP(BIC,_S)
     if (c) cpu->AddCycles_CI(c); else cpu->AddCycles_C(); \
     if (((cpu->CurInstr>>12) & 0xF) == 15) \
     { \
-        cpu->JumpTo(b); \
+        cpu->JumpTo(b & ~1); \
     } \
     else \
     { \
@@ -1527,7 +1530,10 @@ void T_MOV_HIREG(ARM* cpu)
         (cpu->NextInstr[0] & 0xF800) == 0xE000 && // branch
         (cpu->NextInstr[1] & 0xFFFF) == 0x6464)
     {
-        u32 addr = cpu->R[15] + 2;
+        // GBATek says the two bytes after the 2nd ID are _reserved_ for flags
+        // but since they serve no purpose ATTOW, we can skip them
+        u32 addr = cpu->R[15] + 4; // Skip 2nd ID and flags
+        // TODO: Pass flags to NocashPrint
         NDS::NocashPrint(cpu->Num, addr);
     }
 }

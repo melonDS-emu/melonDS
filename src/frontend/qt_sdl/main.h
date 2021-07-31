@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -26,6 +26,7 @@
 #include <QImage>
 #include <QActionGroup>
 #include <QTimer>
+#include <QMutex>
 
 #include <QOffscreenSurface>
 #include <QOpenGLWidget>
@@ -47,8 +48,6 @@ public:
     void initOpenGL();
     void deinitOpenGL();
 
-    void* oglGetProcAddress(const char* proc);
-
     void changeWindowTitle(char* title);
 
     // to be called from the UI thread
@@ -56,8 +55,15 @@ public:
     void emuPause();
     void emuUnpause();
     void emuStop();
+    void emuFrameStep();
 
     bool emuIsRunning();
+
+    int FrontBuffer = 0;
+    QMutex FrontBufferLock;
+
+    GLsync FrontBufferReverseSyncs[2] = {nullptr, nullptr};
+    GLsync FrontBufferSyncs[2] = {nullptr, nullptr};
 
 signals:
     void windowUpdate();
@@ -67,11 +73,12 @@ signals:
     void windowEmuStop();
     void windowEmuPause();
     void windowEmuReset();
+    void windowEmuFrameStep();
 
     void windowLimitFPSChange();
 
     void screenLayoutChange();
-    
+
     void windowFullscreenToggle();
 
     void swapScreensToggle();
@@ -96,22 +103,24 @@ public:
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
+    QSize screenGetMinSize(int factor);
 
 protected:
     void screenSetupLayout(int w, int h);
 
-    QSize screenGetMinSize();
-
     void screenOnMousePress(QMouseEvent* event);
     void screenOnMouseRelease(QMouseEvent* event);
     void screenOnMouseMove(QMouseEvent* event);
+
+    void screenHandleTablet(QTabletEvent* event);
+    void screenHandleTouch(QTouchEvent* event);
 
     float screenMatrix[Frontend::MaxScreenTransforms][6];
     int screenKind[Frontend::MaxScreenTransforms];
     int numScreens;
 
     bool touching;
-    
+
     void showCursor();
 };
 
@@ -133,6 +142,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 
@@ -164,6 +175,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
 
+    void tabletEvent(QTabletEvent* event) override;
+    bool event(QEvent* event) override;
 private slots:
     void onScreenLayoutChanged();
 
@@ -187,11 +200,12 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
-    
+
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -217,9 +231,11 @@ private slots:
     void onPause(bool checked);
     void onReset();
     void onStop();
+    void onFrameStep();
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
+    void onROMInfo();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -254,7 +270,7 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
-    
+
     void onFullscreenToggled();
 
 private:
@@ -269,8 +285,11 @@ private:
     void createScreenPanel();
 
     QString loadErrorStr(int error);
-    
+
     bool pausedManually;
+
+    int oldW, oldH;
+    bool oldMax;
 
 public:
     QWidget* panel;
@@ -289,8 +308,10 @@ public:
     QAction* actPause;
     QAction* actReset;
     QAction* actStop;
+    QAction* actFrameStep;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
+    QAction* actROMInfo;
 
     QAction* actEmuSettings;
     QAction* actInputConfig;

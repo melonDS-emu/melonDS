@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -273,7 +273,7 @@ u32 RenderNumPolygons;
 u32 FlushRequest;
 u32 FlushAttributes;
 
-
+std::unique_ptr<GPU3D::Renderer3D> CurrentRenderer = {};
 
 bool Init()
 {
@@ -486,7 +486,7 @@ void DoSavestate(Savestate* file)
     {
         u32 id;
         file->Var32(&id);
-        if (id == -1) LastStripPolygon = NULL;
+        if (id == 0xFFFFFFFF) LastStripPolygon = NULL;
         else          LastStripPolygon = &PolygonRAM[id];
     }
 
@@ -535,7 +535,7 @@ void DoSavestate(Savestate* file)
             {
                 u32 id = -1;
                 file->Var32(&id);
-                if (id == -1) poly->Vertices[j] = NULL;
+                if (id == 0xFFFFFFFF) poly->Vertices[j] = NULL;
                 else          poly->Vertices[j] = &VertexRAM[id];
             }
         }
@@ -574,7 +574,7 @@ void DoSavestate(Savestate* file)
         {
             poly->Degenerate = false;
 
-            for (int j = 0; j < poly->NumVertices; j++)
+            for (u32 j = 0; j < poly->NumVertices; j++)
             {
                 if (poly->Vertices[j]->Position[3] == 0)
                     poly->Degenerate = true;
@@ -2497,12 +2497,12 @@ void CheckFIFODMA()
 
 void VCount144()
 {
-    if (GPU::Renderer == 0) SoftRenderer::VCount144();
+    CurrentRenderer->VCount144();
 }
 
 void RestartFrame()
 {
-    if (GPU::Renderer == 0) SoftRenderer::SetupRenderThread();
+    CurrentRenderer->RestartFrame();
 }
 
 
@@ -2597,10 +2597,7 @@ void VBlank()
 
 void VCount215()
 {
-    if (GPU::Renderer == 0) SoftRenderer::RenderFrame();
-#ifdef OGLRENDERER_ENABLED
-    else                    GLRenderer::RenderFrame();
-#endif
+    CurrentRenderer->RenderFrame();
 }
 
 void SetRenderXPos(u16 xpos)
@@ -2614,12 +2611,7 @@ u32 ScrolledLine[256];
 
 u32* GetLine(int line)
 {
-    u32* rawline = NULL;
-
-    if (GPU::Renderer == 0) rawline = SoftRenderer::GetLine(line);
-#ifdef OGLRENDERER_ENABLED
-    else                    rawline = GLRenderer::GetLine(line);
-#endif
+    u32* rawline = CurrentRenderer->GetLine(line);
 
     if (RenderXPos == 0) return rawline;
 
@@ -3054,6 +3046,10 @@ void Write32(u32 addr, u32 val)
 
     printf("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
+
+Renderer3D::Renderer3D(bool Accelerated)
+: Accelerated(Accelerated)
+{ }
 
 }
 

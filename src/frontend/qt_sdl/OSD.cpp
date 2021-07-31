@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -59,6 +59,7 @@ std::deque<Item> ItemQueue;
 
 QOpenGLShaderProgram* Shader;
 GLint uScreenSize, uOSDPos, uOSDSize;
+GLfloat uScaleFactor;
 GLuint OSDVertexArray;
 GLuint OSDVertexBuffer;
 
@@ -86,6 +87,7 @@ bool Init(QOpenGLFunctions_3_2_Core* f)
         uScreenSize = Shader->uniformLocation("uScreenSize");
         uOSDPos = Shader->uniformLocation("uOSDPos");
         uOSDSize = Shader->uniformLocation("uOSDSize");
+        uScaleFactor = Shader->uniformLocation("uScaleFactor");
 
         float vertices[6*2] =
         {
@@ -430,6 +432,7 @@ void DrawGL(QOpenGLFunctions_3_2_Core* f, float w, float h)
     Shader->bind();
 
     f->glUniform2f(uScreenSize, w, h);
+    f->glUniform1f(uScaleFactor, mainWindow->devicePixelRatioF());
 
     f->glBindBuffer(GL_ARRAY_BUFFER, OSDVertexBuffer);
     f->glBindVertexArray(OSDVertexArray);

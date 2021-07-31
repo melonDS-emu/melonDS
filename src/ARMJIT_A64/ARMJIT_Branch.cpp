@@ -1,3 +1,21 @@
+/*
+    Copyright 2016-2021 Arisotura, RSDuck
+
+    This file is part of melonDS.
+
+    melonDS is free software: you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.
+
+    melonDS is distributed in the hope that it will be useful, but WITHOUT ANY
+    WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with melonDS. If not, see http://www.gnu.org/licenses/.
+*/
+
 #include "ARMJIT_Compiler.h"
 
 using namespace Arm64Gen;
@@ -9,7 +27,7 @@ namespace ARMJIT
 {
 
 template <typename T>
-void jumpToTrampoline(T* cpu, u32 addr, bool changeCPSR)
+void JumpToTrampoline(T* cpu, u32 addr, bool changeCPSR)
 {
     cpu->JumpTo(addr, changeCPSR);
 }
@@ -283,7 +301,7 @@ void Compiler::Comp_JumpTo(Arm64Gen::ARM64Reg addr, bool switchThumb, bool resto
         bool cpsrDirty = CPSRDirty;
         SaveCPSR();
         SaveCycles();
-        PushRegs(restoreCPSR);
+        PushRegs(restoreCPSR, true);
 
         if (switchThumb)
             MOV(W1, addr);
@@ -297,11 +315,11 @@ void Compiler::Comp_JumpTo(Arm64Gen::ARM64Reg addr, bool switchThumb, bool resto
         MOV(X0, RCPU);
         MOVI2R(W2, restoreCPSR);
         if (Num == 0)
-            QuickCallFunction(X3, jumpToTrampoline<ARMv5>);
+            QuickCallFunction(X3, JumpToTrampoline<ARMv5>);
         else
-            QuickCallFunction(X3, jumpToTrampoline<ARMv4>);
+            QuickCallFunction(X3, JumpToTrampoline<ARMv4>);
 
-        PopRegs(restoreCPSR);
+        PopRegs(restoreCPSR, true);
         LoadCycles();
         LoadCPSR();
         if (CurInstr.Cond() < 0xE)

@@ -1,6 +1,6 @@
 project(core)
 
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 
 add_library(core STATIC
 	ARCodeFile.cpp
@@ -18,6 +18,7 @@ add_library(core STATIC
 	DSi.cpp
 	DSi_AES.cpp
 	DSi_Camera.cpp
+	DSi_DSP.cpp
 	DSi_I2C.cpp
 	DSi_NDMA.cpp
 	DSi_NWifi.cpp
@@ -100,10 +101,9 @@ if (ENABLE_JIT)
 	endif()
 endif()
 
-if (APPLE)
-        target_include_directories(core PUBLIC /usr/local/include /opt/homebrew/include)
-        target_link_directories(core PUBLIC /usr/local/lib /opt/homebrew/lib)
-endif()
+add_subdirectory(teakra EXCLUDE_FROM_ALL)
+target_link_libraries(core teakra)
+
 
 if (ENABLE_OGLRENDERER)
     find_package(PkgConfig REQUIRED)
@@ -123,4 +123,8 @@ else()
 	else()
 		target_link_libraries(core rt)
 	endif()
+endif()
+
+if (ENABLE_JIT_PROFILING)
+	target_link_libraries(core jitprofiling)
 endif()

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -16,118 +16,19 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include "GPU3D_OpenGL.h"
+
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
 #include "Config.h"
-#include "OpenGLSupport.h"
 #include "GPU3D_OpenGL_shaders.h"
 
 namespace GPU3D
 {
-namespace GLRenderer
-{
 
-using namespace OpenGL;
-
-// GL version requirements
-// * texelFetch: 3.0 (GLSL 1.30)     (3.2/1.50 for MS)
-// * UBO: 3.1
-
-
-enum
-{
-    RenderFlag_WBuffer     = 0x01,
-    RenderFlag_Trans       = 0x02,
-    RenderFlag_ShadowMask  = 0x04,
-    RenderFlag_Edge        = 0x08,
-};
-
-
-GLuint ClearShaderPlain[3];
-
-GLuint RenderShader[16][3];
-GLuint CurShaderID = -1;
-
-GLuint FinalPassEdgeShader[3];
-GLuint FinalPassFogShader[3];
-
-// std140 compliant structure
-struct
-{
-    float uScreenSize[2];       // vec2       0 / 2
-    u32 uDispCnt;               // int        2 / 1
-    u32 __pad0;
-    float uToonColors[32][4];   // vec4[32]   4 / 128
-    float uEdgeColors[8][4];    // vec4[8]    132 / 32
-    float uFogColor[4];         // vec4       164 / 4
-    float uFogDensity[34][4];   // float[34]  168 / 136
-    u32 uFogOffset;             // int        304 / 1
-    u32 uFogShift;              // int        305 / 1
-    u32 _pad1[2];               // int        306 / 2
-} ShaderConfig;
-
-GLuint ShaderConfigUBO;
-
-struct RendererPolygon
-{
-    Polygon* PolyData;
-
-    u32 NumIndices;
-    u32 IndicesOffset;
-    GLuint PrimType;
-
-    u32 NumEdgeIndices;
-    u32 EdgeIndicesOffset;
-
-    u32 RenderKey;
-};
-
-RendererPolygon PolygonList[2048];
-int NumFinalPolys, NumOpaqueFinalPolys;
-
-GLuint ClearVertexBufferID, ClearVertexArrayID;
-GLint ClearUniformLoc[4];
-
-// vertex buffer
-// * XYZW: 4x16bit
-// * RGBA: 4x8bit
-// * ST: 2x16bit
-// * polygon data: 3x32bit (polygon/texture attributes)
-//
-// polygon attributes:
-// * bit4-7, 11, 14-15, 24-29: POLYGON_ATTR
-// * bit16-20: Z shift
-// * bit8: front-facing (?)
-// * bit9: W-buffering (?)
-
-GLuint VertexBufferID;
-u32 VertexBuffer[10240 * 7];
-u32 NumVertices;
-
-GLuint VertexArrayID;
-GLuint IndexBufferID;
-u16 IndexBuffer[2048 * 40];
-u32 NumIndices, NumEdgeIndices;
-
-const u32 EdgeIndicesOffset = 2048 * 30;
-
-GLuint TexMemID;
-GLuint TexPalMemID;
-
-int ScaleFactor;
-bool BetterPolygons;
-int ScreenW, ScreenH;
-
-GLuint FramebufferTex[8];
-int FrontBuffer;
-GLuint FramebufferID[4], PixelbufferID;
-u32 Framebuffer[256*192];
-
-
-
-bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
+bool GLRenderer::BuildRenderShader(u32 flags, const char* vs, const char* fs)
 {
     char shadername[32];
     sprintf(shadername, "RenderShader%02X", flags);
@@ -180,7 +81,7 @@ bool BuildRenderShader(u32 flags, const char* vs, const char* fs)
     return true;
 }
 
-void UseRenderShader(u32 flags)
+void GLRenderer::UseRenderShader(u32 flags)
 {
     if (CurShaderID == flags) return;
     glUseProgram(RenderShader[flags][2]);
@@ -196,7 +97,12 @@ void SetupDefaultTexParams(GLuint tex)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 }
 
-bool Init()
+GLRenderer::GLRenderer()
+    : Renderer3D(true)
+{
+}
+
+bool GLRenderer::Init()
 {
     GLint uni_id;
 
@@ -382,7 +288,7 @@ bool Init()
     return true;
 }
 
-void DeInit()
+void GLRenderer::DeInit()
 {
     glDeleteTextures(1, &TexMemID);
     glDeleteTextures(1, &TexPalMemID);
@@ -404,11 +310,11 @@ void DeInit()
     }
 }
 
-void Reset()
+void GLRenderer::Reset()
 {
 }
 
-void SetRenderSettings(GPU::RenderSettings& settings)
+void GLRenderer::SetRenderSettings(GPU::RenderSettings& settings)
 {
     int scale = settings.GL_ScaleFactor;
 
@@ -462,7 +368,7 @@ void SetRenderSettings(GPU::RenderSettings& settings)
 }
 
 
-void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
+void GLRenderer::SetupPolygon(GLRenderer::RendererPolygon* rp, Polygon* polygon)
 {
     rp->PolyData = polygon;
 
@@ -508,7 +414,7 @@ void SetupPolygon(RendererPolygon* rp, Polygon* polygon)
     }
 }
 
-u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
+u32* GLRenderer::SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
 {
     u32 z = poly->FinalZ[vid];
     u32 w = poly->FinalW[vid];
@@ -569,7 +475,7 @@ u32* SetupVertex(Polygon* poly, int vid, Vertex* vtx, u32 vtxattr, u32* vptr)
     return vptr;
 }
 
-void BuildPolygons(RendererPolygon* polygons, int npolys)
+void GLRenderer::BuildPolygons(GLRenderer::RendererPolygon* polygons, int npolys)
 {
     u32* vptr = &VertexBuffer[0];
     u32 vidx = 0;
@@ -602,7 +508,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
 
             u32 lastx, lasty;
             int nout = 0;
-            for (int j = 0; j < poly->NumVertices; j++)
+            for (u32 j = 0; j < poly->NumVertices; j++)
             {
                 Vertex* vtx = poly->Vertices[j];
 
@@ -651,7 +557,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
             {
                 // regular triangle-splitting
 
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -682,7 +588,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 float cR = 0, cG = 0, cB = 0;
                 float cS = 0, cT = 0;
 
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -745,7 +651,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
                 vidx++;
 
                 // build the final polygon
-                for (int j = 0; j < poly->NumVertices; j++)
+                for (u32 j = 0; j < poly->NumVertices; j++)
                 {
                     Vertex* vtx = poly->Vertices[j];
 
@@ -774,7 +680,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
         rp->NumEdgeIndices = 0;
 
         u32 vidx_cur = vidx_first;
-        for (int j = 1; j < poly->NumVertices; j++)
+        for (u32 j = 1; j < poly->NumVertices; j++)
         {
             IndexBuffer[eidx++] = vidx_cur;
             IndexBuffer[eidx++] = vidx_cur + 1;
@@ -791,7 +697,7 @@ void BuildPolygons(RendererPolygon* polygons, int npolys)
     NumEdgeIndices = eidx - EdgeIndicesOffset;
 }
 
-int RenderSinglePolygon(int i)
+int GLRenderer::RenderSinglePolygon(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
 
@@ -800,7 +706,7 @@ int RenderSinglePolygon(int i)
     return 1;
 }
 
-int RenderPolygonBatch(int i)
+int GLRenderer::RenderPolygonBatch(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
     GLuint primtype = rp->PrimType;
@@ -822,7 +728,7 @@ int RenderPolygonBatch(int i)
     return numpolys;
 }
 
-int RenderPolygonEdgeBatch(int i)
+int GLRenderer::RenderPolygonEdgeBatch(int i)
 {
     RendererPolygon* rp = &PolygonList[i];
     u32 key = rp->RenderKey;
@@ -842,7 +748,7 @@ int RenderPolygonEdgeBatch(int i)
     return numpolys;
 }
 
-void RenderSceneChunk(int y, int h)
+void GLRenderer::RenderSceneChunk(int y, int h)
 {
     u32 flags = 0;
     if (RenderPolygonRAM[0]->WBuffer) flags |= RenderFlag_WBuffer;
@@ -1145,8 +1051,6 @@ void RenderSceneChunk(int y, int h)
         }
     }
 
-    glFlush();
-
     if (RenderDispCnt & 0x00A0) // fog/edge enabled
     {
         glColorMaski(0, GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1204,13 +1108,11 @@ void RenderSceneChunk(int y, int h)
 
             glDrawArrays(GL_TRIANGLES, 0, 2*3);
         }
-
-        glFlush();
     }
 }
 
 
-void RenderFrame()
+void GLRenderer::RenderFrame()
 {
     CurShaderID = -1;
 
@@ -1357,7 +1259,7 @@ void RenderFrame()
 
         int npolys = 0;
         int firsttrans = -1;
-        for (int i = 0; i < RenderNumPolygons; i++)
+        for (u32 i = 0; i < RenderNumPolygons; i++)
         {
             if (RenderPolygonRAM[i]->Degenerate) continue;
 
@@ -1385,7 +1287,7 @@ void RenderFrame()
     FrontBuffer = FrontBuffer ? 0 : 1;
 }
 
-void PrepareCaptureFrame()
+void GLRenderer::PrepareCaptureFrame()
 {
     // TODO: make sure this picks the right buffer when doing antialiasing
     int original_fb = FrontBuffer^1;
@@ -1400,7 +1302,7 @@ void PrepareCaptureFrame()
     glReadPixels(0, 0, 256, 192, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
-u32* GetLine(int line)
+u32* GLRenderer::GetLine(int line)
 {
     int stride = 256;
 
@@ -1423,10 +1325,9 @@ u32* GetLine(int line)
     return &Framebuffer[stride * line];
 }
 
-void SetupAccelFrame()
+void GLRenderer::SetupAccelFrame()
 {
     glBindTexture(GL_TEXTURE_2D, FramebufferTex[FrontBuffer]);
 }
 
-}
 }

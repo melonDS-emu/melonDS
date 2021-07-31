@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -33,6 +33,7 @@ enum
     HK_SwapScreens,
     HK_SolarSensorDecrease,
     HK_SolarSensorIncrease,
+    HK_FrameStep,
     HK_MAX
 };
 

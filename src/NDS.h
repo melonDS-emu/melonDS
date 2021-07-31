@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -50,6 +50,7 @@ enum
     Event_DSi_CamTransfer,
 
     Event_DSi_RAMSizeChange,
+    Event_DSi_DSP,
 
     Event_MAX
 };
@@ -82,7 +83,7 @@ enum
     IRQ_IPCSync,
     IRQ_IPCSendDone,
     IRQ_IPCRecv,
-    IRQ_CartSendDone, // TODO: less misleading name
+    IRQ_CartXferDone,
     IRQ_CartIREQMC,   // IRQ triggered by game cart (example: Pokémon Typing Adventure, BT controller)
     IRQ_GXFIFO,
     IRQ_LidOpen,

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2020 Arisotura
+    Copyright 2016-2021 Arisotura
 
     This file is part of melonDS.
 
@@ -348,6 +348,9 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
                 float primScale = std::min(screenWidth / primHSize, screenHeight / primVSize);
                 float secScale = 1.f;
 
+                if (integerScale)
+                    primScale = floorf(primScale);
+
                 if (layout == 0)
                 {
                     if (screenHeight - primVSize * primScale < secVSize)
@@ -365,8 +368,8 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
 
                 if (integerScale)
                 {
-                    primScale = floor(primScale);
-                    secScale = floor(secScale);
+                    primScale = floorf(primScale);
+                    secScale = floorf(secScale);
                 }
 
                 M23_Scale(primMtx, primScale);
@@ -473,14 +476,13 @@ bool GetTouchCoords(int& x, int& y)
 
         M23_Transform(TouchMtx, vx, vy);
 
+        x = (int)vx;
+        y = (int)vy;
+
         if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
-        {
-            x = (int)vx;
-            y = (int)vy;
             return true;
-        }
     }
-    if (HybEnable && HybScreen == 1)
+    else if (HybEnable && HybScreen == 1)
     {
         float vx = x;
         float vy = y;
@@ -493,6 +495,7 @@ bool GetTouchCoords(int& x, int& y)
         if (x >= 0 && x < 256 && y >= 0 && y < 192)
             return true;
     }
+
     return false;
 }
 
