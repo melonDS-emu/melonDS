@@ -1048,14 +1048,14 @@ void ARM9Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[0][0] << 2)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u8*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u8*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1146,14 +1146,14 @@ void ARM9Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[0][0] << 2)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u16*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u16*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1230,14 +1230,14 @@ void ARM9Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[0][0] << 3)) | 0x80;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[0][0] << 2)) | 0x80;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[0][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u32*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u32*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1510,14 +1510,14 @@ void ARM7Write8(u32 addr, u8 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[1][0] << 2)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u8*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u8*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1597,14 +1597,14 @@ void ARM7Write16(u32 addr, u16 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[1][0] << 2)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u16*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u16*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
@@ -1684,14 +1684,14 @@ void ARM7Write32(u32 addr, u32 val)
                 // parts that are mapped and not just the highest priority
                 // See http://melonds.kuribo64.net/board/thread.php?pid=3974#3974
                 // so we need to iterate through all parts and write to all mapped here
-                unsigned int destPartSetting = ((addr >> 13) & (NWRAMMask[1][0] << 3)) | 0x81;
+                unsigned int destPartSetting = ((addr >> 14) & (NWRAMMask[1][0] << 2)) | 0x81;
                 for (int page = 0; page < 4; page++)
                 {
                     unsigned int bankInfo = (MBK[1][0 + (page / 4)] >> ((page % 4) * 8)) & 0xff;
                     if (bankInfo != destPartSetting)
                         continue;
-                    u8* ptr = &NWRAM_A[page * 0x8000];
-                    *(u32*)&ptr[addr & 0x7FFF] = val;
+                    u8* ptr = &NWRAM_A[page * 0x10000];
+                    *(u32*)&ptr[addr & 0xFFFF] = val;
 #ifdef JIT_ENABLED
                     ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_NewSharedWRAM_A>(addr);
 #endif
