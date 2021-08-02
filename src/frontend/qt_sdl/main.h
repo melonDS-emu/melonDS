@@ -286,7 +286,7 @@ private:
 
     QString loadErrorStr(int error);
 
-    bool pausedManually;
+    bool pausedManually = false;
 
     int oldW, oldH;
     bool oldMax;
