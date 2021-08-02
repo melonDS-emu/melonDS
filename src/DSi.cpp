@@ -352,8 +352,8 @@ bool LoadNAND()
     // The Bits are set to the startup values in Reset() and we might
     // still have them on default (0) or some bits cleared by the previous
     // run.
-    SCFG_EXT[0] |= (1 << 25) ;
-    SCFG_EXT[1] |= (1 << 25) ;
+    SCFG_EXT[0] |= (1 << 25);
+    SCFG_EXT[1] |= (1 << 25);
 
     memset(NWRAM_A, 0, NWRAMSize);
     memset(NWRAM_B, 0, NWRAMSize);
