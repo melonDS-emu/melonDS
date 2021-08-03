@@ -1646,7 +1646,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
 void SoftRenderer::VCount144()
 {
-    if (RenderThreadRunning.load(std::memory_order_relaxed))
+    if (RenderThreadRunning.load(std::memory_order_relaxed) && RenderThreadRendering)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 
@@ -1694,8 +1694,8 @@ void SoftRenderer::RenderThreadFunc()
             RenderPolygons(true, &RenderPolygonRAM[0], RenderNumPolygons);
         }
 
-        Platform::Semaphore_Post(Sema_RenderDone);
         RenderThreadRendering = false;
+        Platform::Semaphore_Post(Sema_RenderDone);
     }
 }
 
