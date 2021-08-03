@@ -164,8 +164,8 @@ ConfigEntry PlatformConfigFile[] =
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
-    {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
-    {"AudioSync", 0, &AudioSync, 1, NULL, 0},
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"AudioSync", 0, &AudioSync, 0, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
