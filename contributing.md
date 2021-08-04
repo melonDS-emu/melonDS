@@ -2,6 +2,8 @@
 
 Please follow a style as documented here. Note that this guide was not always enforced, so some parts of the code violate it.
 
+Files should use 4 spaces for indentation.
+
 ```c++
 
 // for single line comments prefer C++ style
@@ -12,6 +14,9 @@ Please follow a style as documented here. Note that this guide was not always en
 */
 // as well as
 // C++ style comments are possible
+
+// when including headers from the C standard library use their C names (so don't use cstdio/cstring, ...)
+#include <stdio.h>
 
 // namespaces in PascalCase
 namespace Component
@@ -39,6 +44,18 @@ void Test(int someParam)
     }
 }
 
+// defines should always be in CAPITALISED_SNAKE_CASE
+#ifdef SOME_CONFIGURATION
+
+// the content of #ifdef sections should not be indented
+// the only exception being otherwise hard to read nested sections of #ifdef/#if/#defines
+// as e.g. in ARMJIT_Memory.cpp
+
+// prefer #ifdef/#ifndef, only use if defined(...) for complex expressions like this:
+#if defined(THIS) || defined(THAT)
+// ...
+#endif
+
 class MyClass // PascalCase
 {
 public: // access specfications are not indented
@@ -49,6 +66,10 @@ public: // access specfications are not indented
 private:
     int MemberVariable; // PascalCase, no prefix
 };
+
+#endif
+
+#endif
 
 enum
 {
@@ -111,6 +132,19 @@ void ColorConvert(u32* dst, u16* vram)
 * In doubt put a namespace around your part of the code.
 
 * C style strings (and the associated functions from the C standard library) are used in most places. We are thinking about changing this, as C strings are a bit of a hassle to deal with, but for the time being this is what we use.
+
 * Only the C standard IO is used (so use `printf`, `fopen`, … Do not use `std::cout`/`std::ostream`, …).
+
 * Complex C++ containers can be used (`std::vector`, `std::list`, `std::map`, …). `std::array` is usually not used, unless necessary so that the container can be used with other C++ constructs (e.g. `<algorithm>`). Only use them if a C array doesn't cut it.
+
+* File names should be in PascalCase
+
+* If a header file is called MyHeader.h it should be guarded with an ifdef like this:
+```cpp
+#ifndef MYHEADER_H
+#define MYHEADER_H
+// ...
+#endif
+```
+
 * And at last, if you have any questions, visit us on IRC (see the readme)!
