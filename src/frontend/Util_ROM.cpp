@@ -92,7 +92,7 @@ int VerifyDSBIOS()
     FILE* f;
     long len;
 
-	if (!Config::ExternalBIOSEnable) return Load_OK;
+    if (!Config::ExternalBIOSEnable) return Load_OK;
 
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f) return Load_BIOS9Missing;
