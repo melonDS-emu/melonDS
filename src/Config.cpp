@@ -34,6 +34,14 @@ char FirmwarePath[1024];
 int DLDIEnable;
 char DLDISDPath[1024];
 
+char FirmwareUsername[64];
+int FirmwareLanguage;
+bool FirmwareOverrideSettings;
+int FirmwareBirthdayMonth;
+int FirmwareBirthdayDay;
+int FirmwareFavouriteColour;
+char FirmwareMessage[1024];
+
 char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
@@ -58,6 +66,14 @@ ConfigEntry ConfigFile[] =
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
     {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
     {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
+
+    {"FirmwareUsername", 1, FirmwareUsername, 0, "MelonDS", 63},
+    {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
+    {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
+    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
+    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
+    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
+    {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
 
     {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},

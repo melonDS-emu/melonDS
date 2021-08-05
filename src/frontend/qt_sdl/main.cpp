@@ -55,6 +55,7 @@
 #include "InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
+#include "FirmwareSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
@@ -1402,6 +1403,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actInterfaceSettings = menu->addAction("Interface settings");
         connect(actInterfaceSettings, &QAction::triggered, this, &MainWindow::onOpenInterfaceSettings);
 
+        actFirmwareSettings = menu->addAction("Firmware settings");
+        connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
+
         {
             QMenu* submenu = menu->addMenu("Savestate settings");
 
@@ -2426,6 +2430,14 @@ void MainWindow::onOpenAudioSettings()
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
 }
+
+void MainWindow::onOpenFirmwareSettings()
+{
+    FirmwareSettingsDialog* dlg = FirmwareSettingsDialog::openDlg(this);
+    connect(dlg, &FirmwareSettingsDialog::finished, this, &MainWindow::onFirmwareSettingsFinished);
+}
+
+void MainWindow::onFirmwareSettingsFinished(int res) {}
 
 void MainWindow::onAudioSettingsFinished(int res)
 {

@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QList>
+#include <QDateEdit>
 
 #include "types.h"
 #include "Platform.h"
