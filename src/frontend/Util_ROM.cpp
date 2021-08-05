@@ -92,41 +92,33 @@ int VerifyDSBIOS()
     FILE* f;
     long len;
 
-    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
-    if (f)
-    {
-        fseek(f, 0, SEEK_END);
-        len = ftell(f);
-        if (len != 0x1000)
-        {
-            fclose(f);
-            return Load_BIOS9Bad;
-        }
+	if (!Config::ExternalBIOSEnable) return Load_OK;
 
-        fclose(f);
-    }
-    else
+    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+    if (!f) return Load_BIOS9Missing;
+
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x1000)
     {
-        printf("Bios ARM9 not found. Proceeding with FreeBIOS.");
+        fclose(f);
+        return Load_BIOS9Bad;
     }
+
+    fclose(f);
 
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
-    if (f)
-    {
-        fseek(f, 0, SEEK_END);
-        len = ftell(f);
-        if (len != 0x4000)
-        {
-            fclose(f);
-            return Load_BIOS7Bad;
-        }
+    if (!f) return Load_BIOS7Missing;
 
-        fclose(f);
-    }
-    else
+    fseek(f, 0, SEEK_END);
+    len = ftell(f);
+    if (len != 0x4000)
     {
-        printf("Bios ARM7 not found. Proceeding with FreeBIOS.");
+        fclose(f);
+        return Load_BIOS7Bad;
     }
+
+    fclose(f);
 
     return Load_OK;
 }
