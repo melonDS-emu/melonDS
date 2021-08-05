@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <string>
 #include <algorithm>
+#include <codecvt>
+#include <locale>
 #include "Config.h"
 #include "NDS.h"
 #include "SPI.h"
@@ -161,10 +163,9 @@ void LoadFirmwareFromFile(FILE* f)
 
 void LoadUserSettingsFromConfig() {
     // setting up username
-    std::string username(Config::FirmwareUsername);
-    std::u16string u16Username(username.begin(), username.end());
-    size_t usernameLength = std::min(u16Username.length(), (size_t) 10);
-    memcpy(Firmware + UserSettings + 0x06, u16Username.data(), usernameLength * sizeof(char16_t));
+    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareUsername);
+    size_t usernameLength = std::min(username.length(), (size_t) 10);
+    memcpy(Firmware + UserSettings + 0x06, username.data(), usernameLength * sizeof(char16_t));
     Firmware[UserSettings+0x1A] = usernameLength;
 
     // setting language
@@ -178,10 +179,9 @@ void LoadUserSettingsFromConfig() {
     Firmware[UserSettings+0x04] = Config::FirmwareBirthdayDay;
 
     // setup message
-    std::string message(Config::FirmwareMessage);
-    std::u16string u16message(message.begin(), message.end());
-    size_t messageLength = std::min(u16message.length(), (size_t) 26);
-    memcpy(Firmware + UserSettings + 0x1C, u16message.data(), messageLength * sizeof(char16_t));
+    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareMessage);
+    size_t messageLength = std::min(message.length(), (size_t) 26);
+    memcpy(Firmware + UserSettings + 0x1C, message.data(), messageLength * sizeof(char16_t));
     Firmware[UserSettings+0x50] = messageLength;
 }
 
