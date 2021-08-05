@@ -67,7 +67,7 @@ ConfigEntry ConfigFile[] =
     {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
     {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
 
-    {"FirmwareUsername", 1, FirmwareUsername, 0, "MelonDS", 63},
+    {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
     {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
     {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
     {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
