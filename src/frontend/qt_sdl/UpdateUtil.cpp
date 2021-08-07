@@ -68,6 +68,7 @@ namespace Updater
 
         if (!errString.isEmpty())
             return false;
+
         latestVersion = jsonWorkflows["workflow_runs"][0]["head_commit"]["id"].toString();
 
         QJsonDocument jsonArtifacts = QJsonDocument::fromJson(request(errString, jsonWorkflows["workflow_runs"][0]["artifacts_url"].toString(), accessToken));
@@ -76,7 +77,11 @@ namespace Updater
 
         downloadURL = jsonArtifacts["artifacts"][0]["archive_download_url"].toString();
         downloadName = "melonDS.zip";
-        return true;
+
+        if (latestVersion != MELONDS_COMMIT)
+            return true;
+        else
+            return false;
     }
 
 #elif defined(CI_PLATFORM_AZURE)
@@ -101,7 +106,11 @@ namespace Updater
 
         downloadURL = artifactInfo["value"][0]["resource"]["downloadUrl"].toString();
         downloadName = "melonDS.zip";
-        return "";
+
+        if (latestVersion != MELONDS_COMMIT)
+            return true;
+        else
+            return false;
     }
 #endif
 

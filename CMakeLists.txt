@@ -30,6 +30,15 @@ else()
     set(MELONDS_VERSION_PATCH 0)
 endif()
 
+execute_process(
+  COMMAND git rev-parse HEAD
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+add_compile_definitions(MELONDS_COMMIT="${GIT_COMMIT_HASH}")
+
+
 
 check_library_exists(m pow "" LIBM)
 if(LIBM)
