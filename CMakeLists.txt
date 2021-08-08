@@ -67,6 +67,13 @@ endif()
 
 if (ENABLE_JIT)
 	add_definitions(-DJIT_ENABLED)
+
+	option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF)
+
+	if (ENABLE_JIT_PROFILING)
+		include(cmake/FindVTune.cmake)
+		add_definitions(-DJIT_PROFILING_ENABLED)
+	endif()
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL Release)

@@ -106,6 +106,8 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+void micCallback(void* data, Uint8* stream, int len);
+
 
 void audioCallback(void* data, Uint8* stream, int len)
 {
@@ -142,6 +144,40 @@ void audioCallback(void* data, Uint8* stream, int len)
     Frontend::AudioOut_Resample(buf_in, num_in, (s16*)stream, len, Config::AudioVolume);
 }
 
+
+void micOpen()
+{
+    if (Config::MicInputType != 1)
+    {
+        micDevice = 0;
+        return;
+    }
+
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 44100;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 1;
+    whatIwant.samples = 1024;
+    whatIwant.callback = micCallback;
+    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!micDevice)
+    {
+        printf("Mic init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(micDevice, 0);
+    }
+}
+
+void micClose()
+{
+    if (micDevice)
+        SDL_CloseAudioDevice(micDevice);
+
+    micDevice = 0;
+}
 
 void micLoadWav(const char* name)
 {
@@ -625,7 +661,7 @@ void EmuThread::emuRun()
     // checkme
     emit windowEmuStart();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
+    micOpen();
 }
 
 void EmuThread::emuPause()
@@ -638,7 +674,7 @@ void EmuThread::emuPause()
     while (EmuStatus != 2);
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
+    micClose();
 }
 
 void EmuThread::emuUnpause()
@@ -651,7 +687,7 @@ void EmuThread::emuUnpause()
     EmuRunning = PrevEmuStatus;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
+    micOpen();
 }
 
 void EmuThread::emuStop()
@@ -660,7 +696,7 @@ void EmuThread::emuStop()
     EmuPause = 0;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
+    micClose();
 }
 
 void EmuThread::emuFrameStep()
@@ -2401,6 +2437,8 @@ void MainWindow::onUpdateAudioSettings()
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
+    micClose();
+
     SPU::SetInterpolation(Config::AudioInterp);
 
     if (Config::MicInputType == 3)
@@ -2418,6 +2456,8 @@ void MainWindow::onAudioSettingsFinished(int res)
         else
             Frontend::Mic_SetExternalBuffer(NULL, 0);
     }
+
+    micOpen();
 }
 
 void MainWindow::onOpenWifiSettings()
@@ -2762,21 +2802,7 @@ int main(int argc, char** argv)
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
-    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 44100;
-    whatIwant.format = AUDIO_S16LSB;
-    whatIwant.channels = 1;
-    whatIwant.samples = 1024;
-    whatIwant.callback = micCallback;
-    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
-    if (!micDevice)
-    {
-        printf("Mic init failed: %s\n", SDL_GetError());
-    }
-    else
-    {
-        SDL_PauseAudioDevice(micDevice, 1);
-    }
+    micDevice = 0;
 
 
     memset(micExtBuffer, 0, sizeof(micExtBuffer));
@@ -2847,7 +2873,7 @@ int main(int argc, char** argv)
     Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
-    if (micDevice)   SDL_CloseAudioDevice(micDevice);
+    micClose();
 
     SDL_DestroyCond(audioSync);
     SDL_DestroyMutex(audioSyncLock);

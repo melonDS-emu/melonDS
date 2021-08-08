@@ -25,6 +25,10 @@
 #include "../ARMJIT_Internal.h"
 #include "../ARMJIT_RegisterCache.h"
 
+#ifdef JIT_PROFILING_ENABLED
+#include <jitprofiling.h>
+#endif
+
 #include <unordered_map>
 
 namespace ARMJIT
@@ -163,7 +167,7 @@ public:
         memop_SubtractOffset = 1 << 4
     };
     void Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flags);
-    s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode);
+    s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
     void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
@@ -229,6 +233,10 @@ public:
     bool IsJITFault(u8* addr);
 
     u8* RewriteMemAccess(u8* pc);
+
+#ifdef JIT_PROFILING_ENABLED
+    void CreateMethod(const char* namefmt, void* start, ...);
+#endif
 
     u8* FarCode;
     u8* NearCode;

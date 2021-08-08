@@ -465,7 +465,7 @@ void Compiler::T_Comp_MemSPRel()
     Comp_MemAccess(CurInstr.T_Reg(8), 13, Op2(offset), 32, load ? 0 : memop_Store);
 }
 
-s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
+s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn)
 {
     IrregularCycles = true;
 
@@ -474,7 +474,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (regsCount == 0)
         return 0; // actually not the right behaviour TODO: fix me
 
-    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << *regs.begin()))
+    int firstReg = *regs.begin();
+    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << firstReg) && !(firstReg == rn && skipLoadingRn))
     {
         int flags = 0;
         if (store)
@@ -483,7 +484,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             flags |= memop_SubtractOffset;
         Op2 offset = preinc ? Op2(4) : Op2(0);
 
-        Comp_MemAccess(*regs.begin(), rn, offset, 32, flags);
+        Comp_MemAccess(firstReg, rn, offset, 32, flags);
 
         return decrement ? -4 : 4;
     }
@@ -539,12 +540,16 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             loadStoreOffsets[i++] = GetCodeOffset();
 
             if (store)
+            {
                 STR(INDEX_UNSIGNED, first, X1, offset);
-            else
+            }
+            else if (!(reg == rn && skipLoadingRn))
+            {
                 LDR(INDEX_UNSIGNED, first, X1, offset);
 
-            if (!(RegCache.LoadedRegs & (1 << reg)) && !store)
-                SaveReg(reg, first);
+                if (!(RegCache.LoadedRegs & (1 << reg)))
+                    SaveReg(reg, first);
+            }
 
             offset += 4;
         }
@@ -558,13 +563,23 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
             ARM64Reg first = W3, second = W4;
             if (RegCache.LoadedRegs & (1 << reg))
-                first = MapReg(reg);
+            {
+                if (!(reg == rn && skipLoadingRn))
+                    first = MapReg(reg);
+            }
             else if (store)
+            {
                 LoadReg(reg, first);
+            }
             if (RegCache.LoadedRegs & (1 << nextReg))
-                second = MapReg(nextReg);
+            {
+                if (!(nextReg == rn && skipLoadingRn))
+                    second = MapReg(nextReg);
+            }
             else if (store)
+            {
                 LoadReg(nextReg, second);
+            }
 
             loadStoreOffsets[i++] = GetCodeOffset();
             if (store)
@@ -705,20 +720,23 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 LDR(INDEX_UNSIGNED, W3, SP, i * 8);
                 MOVI2R(W1, reg - 8);
                 BL(WriteBanked);
-                FixupBranch alreadyWritten = CBNZ(W4);
-                if (RegCache.LoadedRegs & (1 << reg))
-                    MOV(MapReg(reg), W3);
-                else
-                    SaveReg(reg, W3);
-                SetJumpTarget(alreadyWritten);
+                if (!(reg == rn && skipLoadingRn))
+                {
+                    FixupBranch alreadyWritten = CBNZ(W4);
+                    if (RegCache.LoadedRegs & (1 << reg))
+                        MOV(MapReg(reg), W3);
+                    else
+                        SaveReg(reg, W3);
+                    SetJumpTarget(alreadyWritten);
+                }
             }
             else if (!usermode && nextReg != regs.end())
             {
                 ARM64Reg first = W3, second = W4;
                 
-                if (RegCache.LoadedRegs & (1 << reg))
+                if (RegCache.LoadedRegs & (1 << reg) && !(reg == rn && skipLoadingRn))
                     first = MapReg(reg);
-                if (RegCache.LoadedRegs & (1 << *nextReg))
+                if (RegCache.LoadedRegs & (1 << *nextReg) && !(*nextReg == rn && skipLoadingRn))
                     second = MapReg(*nextReg);
 
                 LDP(INDEX_SIGNED, EncodeRegTo64(first), EncodeRegTo64(second), SP, i * 8);
@@ -733,8 +751,11 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             }
             else if (RegCache.LoadedRegs & (1 << reg))
             {
-                ARM64Reg mapped = MapReg(reg);
-                LDR(INDEX_UNSIGNED, mapped, SP, i * 8);
+                if (!(reg == rn && skipLoadingRn))
+                {
+                    ARM64Reg mapped = MapReg(reg);
+                    LDR(INDEX_UNSIGNED, mapped, SP, i * 8);
+                }
             }
             else
             {
@@ -778,13 +799,13 @@ void Compiler::A_Comp_LDM_STM()
 
     ARM64Reg rn = MapReg(CurInstr.A_Reg(16));
 
-    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode);
-
     if (load && writeback && regs[CurInstr.A_Reg(16)])
         writeback = Num == 0
-            ? (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1))
-            : false;
-    if (writeback)
+            && (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1));
+
+    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode, load && writeback);
+
+    if (writeback && offset)
     {
         if (offset > 0)
             ADD(rn, rn, offset);
@@ -806,12 +827,15 @@ void Compiler::T_Comp_PUSH_POP()
     }
 
     ARM64Reg sp = MapReg(13);
-    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false);
+    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false, false);
 
-    if (offset > 0)
+    if (offset)
+    {
+        if (offset > 0)
             ADD(sp, sp, offset);
         else
             SUB(sp, sp, -offset);
+    }
 }
 
 void Compiler::T_Comp_LDMIA_STMIA()
@@ -820,10 +844,12 @@ void Compiler::T_Comp_LDMIA_STMIA()
     ARM64Reg rb = MapReg(CurInstr.T_Reg(8));
     bool load = CurInstr.Instr & (1 << 11);
     u32 regsCount = regs.Count();
-    
-    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false);
 
-    if (!load || !regs[CurInstr.T_Reg(8)])
+    bool writeback = !load || !regs[CurInstr.T_Reg(8)];
+
+    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false, load && writeback);
+
+    if (writeback && offset)
     {
         if (offset > 0)
             ADD(rb, rb, offset);

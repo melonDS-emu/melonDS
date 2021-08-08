@@ -33,10 +33,6 @@ extern char __start__;
 
 #include <stdlib.h>
 
-#ifdef __APPLE__
-    #include <pthread.h>
-#endif
-
 using namespace Arm64Gen;
 
 extern "C" void ARM_Ret();
@@ -266,7 +262,7 @@ Compiler::Compiler()
     u64 alignedSize = (((u64)JitMem + sizeof(JitMem)) & ~(pageSize - 1)) - (u64)pageAligned;
     #ifdef __APPLE__
         pageAligned = (u8*)mmap(NULL, 1024*1024*16, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT,-1, 0);
-        pthread_jit_write_protect_np(false);
+        JitEnableWrite();
     #else
         mprotect(pageAligned, alignedSize, PROT_EXEC | PROT_READ | PROT_WRITE);
     #endif
@@ -685,7 +681,8 @@ void Compiler::Comp_BranchSpecialBehaviour(bool taken)
     {
         RegCache.PrepareExit();
 
-        ADD(RCycles, RCycles, ConstantCycles);
+        if (ConstantCycles)
+            ADD(RCycles, RCycles, ConstantCycles);
         QuickTailCall(X0, ARM_Ret);
     }
 }
@@ -836,7 +833,8 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
 
     RegCache.Flush();
 
-    ADD(RCycles, RCycles, ConstantCycles);
+    if (ConstantCycles)
+        ADD(RCycles, RCycles, ConstantCycles);
     QuickTailCall(X0, ARM_Ret);
 
     FlushIcache();

@@ -60,6 +60,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetupDirectBoot();
 void SoftReset();
 
 bool LoadBIOS();
