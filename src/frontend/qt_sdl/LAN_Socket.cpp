@@ -21,8 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pcap/pcap.h>
+
 #include "Wifi.h"
 #include "LAN_Socket.h"
+#include "LAN_Capture.h"
 #include "Config.h"
 #include "FIFO.h"
 
@@ -216,6 +219,12 @@ bool Init()
 
     Ctx = slirp_new(&cfg, &cb, nullptr);
 
+    if (Config::EnableWifiPacketCapturing)
+    {
+        LAN_Capture::Prepare();
+        LAN_Capture::NewPacketDump();
+    }
+
     return true;
 }
 
@@ -226,6 +235,8 @@ void DeInit()
         slirp_cleanup(Ctx);
         Ctx = nullptr;
     }
+
+    LAN_Capture::ClosePacketDump();
 }
 
 
@@ -451,6 +462,12 @@ int SendPacket(u8* data, int len)
     }
 
     slirp_input(Ctx, data, len);
+
+    if (Config::EnableWifiPacketCapturing)
+    {
+        LAN_Capture::Write(data, len);
+    }
+
     return len;
 }
 
@@ -531,6 +548,11 @@ int RecvPacket(u8* data)
             ((u32*)data)[i>>2] = RXBuffer.Read();
 
         ret = header >> 16;
+
+        if (Config::EnableWifiPacketCapturing)
+        {
+            LAN_Capture::Write(data, len);
+        }
     }
 
     return ret;

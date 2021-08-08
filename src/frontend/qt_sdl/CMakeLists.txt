@@ -14,6 +14,7 @@ SET(SOURCES_QT_SDL
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
+    LAN_Capture.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
