@@ -38,7 +38,14 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    oldInterp = Config::AudioInterp;
     oldVolume = Config::AudioVolume;
+
+    ui->cbInterpolation->addItem("None");
+    ui->cbInterpolation->addItem("Linear");
+    ui->cbInterpolation->addItem("Cosine");
+    ui->cbInterpolation->addItem("Cubic");
+    ui->cbInterpolation->setCurrentIndex(Config::AudioInterp);
 
     ui->slVolume->setValue(Config::AudioVolume);
 
@@ -73,9 +80,20 @@ void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 
 void AudioSettingsDialog::on_AudioSettingsDialog_rejected()
 {
+    Config::AudioInterp = oldInterp;
     Config::AudioVolume = oldVolume;
 
     closeDlg();
+}
+
+void AudioSettingsDialog::on_cbInterpolation_currentIndexChanged(int idx)
+{
+    // prevent a spurious change
+    if (ui->cbInterpolation->count() < 4) return;
+
+    Config::AudioInterp = ui->cbInterpolation->currentIndex();
+
+    emit updateAudioSettings();
 }
 
 void AudioSettingsDialog::on_slVolume_valueChanged(int val)

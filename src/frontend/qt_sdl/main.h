@@ -244,6 +244,7 @@ private slots:
     void onOpenVideoSettings();
     void onOpenAudioSettings();
     void onOpenFirmwareSettings();
+    void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);

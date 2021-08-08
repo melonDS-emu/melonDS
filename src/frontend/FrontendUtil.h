@@ -156,7 +156,7 @@ int GetScreenTransforms(float* out, int* kind);
 
 // de-transform the provided host display coordinates to get coordinates
 // on the bottom screen
-bool GetTouchCoords(int& x, int& y);
+bool GetTouchCoords(int& x, int& y, bool clamp);
 
 
 // initialize the audio utility

@@ -85,6 +85,7 @@ extern int DirectLAN;
 
 extern int SavestateRelocSRAM;
 
+extern int AudioInterp;
 extern int AudioVolume;
 extern int MicInputType;
 extern char MicWavPath[1024];
