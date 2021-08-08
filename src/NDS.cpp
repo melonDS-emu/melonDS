@@ -342,7 +342,7 @@ void SetupDirectBoot()
     if (ConsoleType == 1)
     {
         // With the BIOS select in SCFG_BIOS and the initialization od
-        // SCFG_BIOS depending on the Header->UnitType, we can now boot 
+        // SCFG_BIOS depending on the Header->UnitType, we can now boot
         // directly in the roms.
         // There are some more SCFG Settings that change depending on
         // the unit type, so this is experimental

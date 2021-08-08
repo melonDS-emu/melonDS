@@ -467,31 +467,31 @@ int GetScreenTransforms(float* out, int* kind)
     return num;
 }
 
-bool GetTouchCoords(int& x, int& y)
+bool GetTouchCoords(int& x, int& y, bool clamp)
 {
+    float vx = x;
+    float vy = y;
+
     if (BotEnable)
     {
-        float vx = x;
-        float vy = y;
-
         M23_Transform(TouchMtx, vx, vy);
-
-        x = (int)vx;
-        y = (int)vy;
-
-        if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
-            return true;
     }
     else if (HybEnable && HybScreen == 1)
     {
-        float vx = x;
-        float vy = y;
-
         M23_Transform(HybTouchMtx, vx, vy);
+    }
 
-        x = (int)vx;
-        y = (int)vy;
+    x = (int)vx;
+    y = (int)vy;
 
+    if (clamp)
+    {
+        x = std::clamp(x, 0, 255);
+        y = std::clamp(y, 0, 191);
+        return true;
+    }
+    else
+    {
         if (x >= 0 && x < 256 && y >= 0 && y < 192)
             return true;
     }

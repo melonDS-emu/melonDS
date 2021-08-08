@@ -783,7 +783,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (Frontend::GetTouchCoords(x, y))
+    if (Frontend::GetTouchCoords(x, y, false))
     {
         touching = true;
         NDS::TouchScreen(x, y);
@@ -814,7 +814,7 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (Frontend::GetTouchCoords(x, y))
+    if (Frontend::GetTouchCoords(x, y, true))
         NDS::TouchScreen(x, y);
 }
 
@@ -830,7 +830,7 @@ void ScreenHandler::screenHandleTablet(QTabletEvent* event)
             int x = event->x();
             int y = event->y();
 
-            if (Frontend::GetTouchCoords(x, y))
+            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
             {
                 touching = true;
                 NDS::TouchScreen(x, y);
@@ -861,7 +861,7 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
             int x = (int)lastPosition.x();
             int y = (int)lastPosition.y();
 
-            if (Frontend::GetTouchCoords(x, y))
+            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
             {
                 touching = true;
                 NDS::TouchScreen(x, y);
