@@ -208,7 +208,7 @@ void micLoadWav(const char* name)
 
     for (int i = 0; i < micWavLength; i++)
     {
-        u16 val;
+        u16 val = 0;
 
         switch (SDL_AUDIO_BITSIZE(format.format))
         {
@@ -228,9 +228,9 @@ void micLoadWav(const char* name)
             {
                 u32 rawval;
                 if (SDL_AUDIO_ISBIGENDIAN(format.format))
-                    rawval = (buf[res_pos*4] << 24) | (buf[res_pos*4 + 1] << 16) | (buf[res_pos*4 + 2] << 8) | buf[res_pos * 4 + 3];
+                    rawval = (buf[res_pos*4] << 24) | (buf[res_pos*4 + 1] << 16) | (buf[res_pos*4 + 2] << 8) | buf[res_pos*4 + 3];
                 else
-                    rawval = (buf[res_pos*4 + 3] << 24) | (buf[res_pos*4 + 2] << 16) | (buf[res_pos*4 + 1] << 8) | buf[res_pos * 4];
+                    rawval = (buf[res_pos*4 + 3] << 24) | (buf[res_pos*4 + 2] << 16) | (buf[res_pos*4 + 1] << 8) | buf[res_pos*4];
 
                 float fval = *(float*)&rawval;
                 s32 ival = (s32)(fval * 0x8000);
