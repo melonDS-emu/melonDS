@@ -51,10 +51,14 @@ public:
         currentDlg = nullptr;
     }
 
+signals:
+    void updateAudioSettings();
+
 private slots:
     void on_AudioSettingsDialog_accepted();
     void on_AudioSettingsDialog_rejected();
 
+    void on_cbInterpolation_currentIndexChanged(int idx);
     void on_slVolume_valueChanged(int val);
     void onChangeMicMode(int mode);
     void on_btnMicWavBrowse_clicked();
@@ -62,6 +66,7 @@ private slots:
 private:
     Ui::AudioSettingsDialog* ui;
 
+    int oldInterp;
     int oldVolume;
     QButtonGroup* grpMicMode;
 };

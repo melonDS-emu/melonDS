@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <cmath>
 #include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
@@ -27,7 +28,6 @@
 // SPU TODO
 // * capture addition modes, overflow bugs
 // * channel hold
-// * 'length less than 4' glitch
 
 namespace SPU
 {
@@ -62,6 +62,12 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
+// audio interpolation is an improvement upon the original hardware
+// (which performs no interpolation)
+int InterpType;
+s16 InterpCos[0x100];
+s16 InterpCubic[0x100][4];
+
 const u32 OutputBufferSize = 2*2048;
 s16 OutputBackbuffer[2 * OutputBufferSize];
 u32 OutputBackbufferWritePosition;
@@ -89,6 +95,32 @@ bool Init()
     Capture[1] = new CaptureUnit(1);
 
     AudioLock = Platform::Mutex_Create();
+
+    InterpType = 0;
+
+    // generate interpolation tables
+    // values are 1:1:14 fixed-point
+
+    float m_pi = std::acos(-1.0f);
+    for (int i = 0; i < 0x100; i++)
+    {
+        float ratio = (i * m_pi) / 255.0f;
+        ratio = 1.0f - std::cos(ratio);
+
+        InterpCos[i] = (s16)(ratio * 0x2000);
+    }
+
+    for (int i = 0; i < 0x100; i++)
+    {
+        s32 i1 = i << 6;
+        s32 i2 = (i * i) >> 2;
+        s32 i3 = (i * i * i) >> 10;
+
+        InterpCubic[i][0] = -i3 + 2*i2 - i1;
+        InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
+        InterpCubic[i][2] = -i3 + i2 + i1;
+        InterpCubic[i][3] = i3 - i2;
+    }
 
     return true;
 }
@@ -148,6 +180,11 @@ void DoSavestate(Savestate* file)
 }
 
 
+void SetInterpolation(int type)
+{
+    InterpType = type;
+}
+
 void SetBias(u16 bias)
 {
     Bias = bias;
@@ -202,6 +239,7 @@ void Channel::DoSavestate(Savestate* file)
     file->Var8((u8*)&KeyOn);
     file->Var32(&Timer);
     file->Var32((u32*)&Pos);
+    file->VarArray(PrevSample, sizeof(PrevSample));
     file->Var16((u16*)&CurSample);
     file->Var16(&NoiseVal);
 
@@ -215,7 +253,7 @@ void Channel::DoSavestate(Savestate* file)
     file->Var32(&FIFOWritePos);
     file->Var32(&FIFOReadOffset);
     file->Var32(&FIFOLevel);
-    file->VarArray(FIFO, 8*4);
+    file->VarArray(FIFO, sizeof(FIFO));
 }
 
 void Channel::FIFO_BufferData()
@@ -269,7 +307,9 @@ void Channel::Start()
         Pos = -3;
 
     NoiseVal = 0x7FFF;
-    PrevSample = 0;
+    PrevSample[0] = 0;
+    PrevSample[1] = 0;
+    PrevSample[2] = 0;
     CurSample = 0;
 
     FIFOReadPos = 0;
@@ -445,7 +485,15 @@ s32 Channel::Run()
     {
         Timer = TimerReload + (Timer - 0x10000);
 
-        PrevSample = CurSample;
+        // for optional interpolation: save previous samples
+        // the interpolated audio will be delayed by a couple samples,
+        // but it's easier to deal with this way
+        if ((type < 3) && (InterpType != 0))
+        {
+            PrevSample[2] = PrevSample[1];
+            PrevSample[1] = PrevSample[0];
+            PrevSample[0] = CurSample;
+        }
 
         switch (type)
         {
@@ -459,15 +507,31 @@ s32 Channel::Run()
 
     s32 val = (s32)CurSample;
 
-    // interpolation
-    // now you get to enjoy Electric Angel in high quality I guess.
-    // TODO MAKE CONDITIONAL!!!
-    if (true)
+    // interpolation (emulation improvement, not a hardware feature)
+    if ((type < 3) && (InterpType != 0))
     {
-        s32 samplepos = ((Timer - TimerReload) * 0x1000) / (0x10000 - TimerReload);
-//printf("CHANNEL %d POS=%d SAMPLEPOS=%08X (%04X/%04X)\n", Num, Pos, samplepos, Timer, TimerReload);
-        val = ((val * samplepos) + (PrevSample * (0x1000-samplepos))) >> 12;
-        //printf("ASSDERP = %08X/%08X => %08X\n", CurSample, PrevSample, val);
+        s32 samplepos = ((Timer - TimerReload) * 0x100) / (0x10000 - TimerReload);
+        if (samplepos > 0xFF) samplepos = 0xFF;
+
+        switch (InterpType)
+        {
+        case 1: // linear
+            val = ((val           * samplepos) +
+                   (PrevSample[0] * (0xFF-samplepos))) >> 8;
+            break;
+
+        case 2: // cosine
+            val = ((val           * InterpCos[samplepos]) +
+                   (PrevSample[0] * InterpCos[0xFF-samplepos])) >> 14;
+            break;
+
+        case 3: // cubic
+            val = ((PrevSample[2] * InterpCubic[samplepos][0]) +
+                   (PrevSample[1] * InterpCubic[samplepos][1]) +
+                   (PrevSample[0] * InterpCubic[samplepos][2]) +
+                   (val           * InterpCubic[samplepos][3])) >> 14;
+            break;
+        }
     }
 
     val <<= VolumeShift;

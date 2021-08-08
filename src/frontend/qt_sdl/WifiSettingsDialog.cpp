@@ -144,12 +144,12 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
     LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
     char tmp[64];
 
-    sprintf(tmp, "MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+    sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",
             adapter->MAC[0], adapter->MAC[1], adapter->MAC[2],
             adapter->MAC[3], adapter->MAC[4], adapter->MAC[5]);
     ui->lblAdapterMAC->setText(QString(tmp));
 
-    sprintf(tmp, "IP: %d.%d.%d.%d",
+    sprintf(tmp, "%d.%d.%d.%d",
             adapter->IP_v4[0], adapter->IP_v4[1],
             adapter->IP_v4[2], adapter->IP_v4[3]);
     ui->lblAdapterIP->setText(QString(tmp));
