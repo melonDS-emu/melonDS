@@ -399,6 +399,8 @@ void EmuThread::run()
     GPU::InitRenderer(videoRenderer);
     GPU::SetRenderSettings(videoRenderer, videoSettings);
 
+    SPU::SetInterpolation(Config::AudioInterp);
+
     Input::Init();
 
     u32 nframes = 0;
@@ -2424,12 +2426,20 @@ void MainWindow::onOpenVideoSettings()
 void MainWindow::onOpenAudioSettings()
 {
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
+    connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
+}
+
+void MainWindow::onUpdateAudioSettings()
+{
+    SPU::SetInterpolation(Config::AudioInterp);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
     micClose();
+
+    SPU::SetInterpolation(Config::AudioInterp);
 
     if (Config::MicInputType == 3)
     {
@@ -2750,6 +2760,7 @@ int main(int argc, char** argv)
     );
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
+    SANITIZE(Config::AudioInterp, 0, 3);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, 3);
     SANITIZE(Config::ScreenRotation, 0, 3);
