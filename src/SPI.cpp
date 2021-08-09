@@ -146,17 +146,27 @@ void LoadFirmwareFromFile(FILE* f)
     fclose(f);
 
     // take a backup
-    char firmbkp[1028];
+    char fwBackupPath[sizeof(FirmwarePath) + 4];
     int fplen = strlen(FirmwarePath);
-    strncpy(&firmbkp[0], FirmwarePath, fplen);
-    strncpy(&firmbkp[fplen], ".bak", 1028-fplen);
-    firmbkp[fplen+4] = '\0';
-    f = Platform::OpenLocalFile(firmbkp, "rb");
-    if (f) fclose(f);
+    strcpy(&fwBackupPath[0], FirmwarePath);
+    strncpy(&fwBackupPath[fplen], ".bak", sizeof(fwBackupPath) - fplen);
+    fwBackupPath[fplen+4] = '\0';
+    f = Platform::OpenLocalFile(fwBackupPath, "rb");
+    if (!f)
+    {
+        f = Platform::OpenLocalFile(fwBackupPath, "wb");
+        if (f)
+        {
+            fwrite(Firmware, 1, FirmwareLength, f);
+            fclose(f);
+        }
+        else
+        {
+            printf("Could not write firmware backup!\n");
+        }
+    }
     else
     {
-        f = Platform::OpenLocalFile(firmbkp, "wb");
-        fwrite(Firmware, 1, FirmwareLength, f);
         fclose(f);
     }
 }
@@ -191,14 +201,14 @@ void Reset()
     Firmware = NULL;
 
     if (NDS::ConsoleType == 1)
-        strncpy(FirmwarePath, Config::DSiFirmwarePath, 1023);
+        strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
     else
-        strncpy(FirmwarePath, Config::FirmwarePath, 1023);
+        strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
 
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
     {
-        printf("Firmware not found generating default one.\n");
+        printf("Firmware not found! Generating default firmware.\n");
         LoadDefaultFirmware();
     }
     else
