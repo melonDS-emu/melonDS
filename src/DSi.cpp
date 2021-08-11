@@ -39,6 +39,7 @@
 #include "DSi_DSP.h"
 #include "DSi_Camera.h"
 
+#include "sha1/sha1.hpp"
 #include "tiny-AES-c/aes.hpp"
 
 
@@ -499,7 +500,7 @@ bool LoadNAND()
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             // There is another copy of the footer at 000FF800h for the case
-            // that by external tools the image was cut off 
+            // that by external tools the image was cut off
             // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
             fseek(SDMMCFile, 0x000FF800, SEEK_SET);
             fread(nand_footer, 1, 16, SDMMCFile);
@@ -528,6 +529,71 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
+
+    // TEST ZONE
+    {
+        SHA1_CTX sha;
+        u8 cidhash[20];
+        u8 iv[16];
+
+        SHA1Init(&sha);
+        SHA1Update(&sha, eMMC_CID, 16);
+        SHA1Final(cidhash, &sha);
+
+        printf("ASS HASH: ");
+        for (int i = 0; i < 20; i++) printf("%02X", cidhash[i]);
+        printf("\n");
+
+        DSi_AES::Swap16(iv, cidhash);
+
+        printf("ASS IV: ");
+        for (int i = 0; i < 16; i++) printf("%02X", iv[i]);
+        printf("\n");
+
+        u8 keyX[16];
+        *(u32*)&keyX[0] = (u32)ConsoleID;
+        *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
+        *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xE65B601D;
+        *(u32*)&keyX[12] = (u32)(ConsoleID >> 32);
+
+        u8 keyY[16];
+        *(u32*)&keyY[0] = 0x0AB9DC76;
+        *(u32*)&keyY[4] = 0xBD4DC4D3;
+        *(u32*)&keyY[8] = 0x202DDD1D;
+        *(u32*)&keyY[12] = 0xE1A00005;
+
+        u8 shittykey[16];
+        DSi_AES::DeriveNormalKey(keyX, keyY, shittykey);
+
+        u8 normalkey[16];
+        DSi_AES::Swap16(normalkey, shittykey);
+
+        u8 dorp[0x200];
+        fseek(SDMMCFile, 0, SEEK_SET);
+        fread(&dorp, 0x200, 1, SDMMCFile);
+
+        AES_ctx ctx;
+        AES_init_ctx_iv(&ctx, normalkey, iv);
+
+        //AES_CTR_xcrypt_buffer(&ctx, dorp, 0x200);
+        for (int i = 0; i < 0x200; i+=16)
+        {
+            u8 tmp[16];
+            DSi_AES::Swap16(tmp, &dorp[i]);
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            DSi_AES::Swap16(&dorp[i], tmp);
+        }
+
+        //printf("%08X %08X %08X %08X\n", *(u32*)&dorp[0], *(u32*)&dorp[4], *(u32*)&dorp[8], *(u32*)&dorp[12]);
+        for (int i = 0; i < 0x200; i+=16)
+        {
+            for (int j = 0; j < 16; j++)
+            {
+                printf("%02X ", dorp[i+j]);
+            }
+            printf("\n");
+        }
+    }
 
     return true;
 }
@@ -638,7 +704,7 @@ void MapNWRAM_A(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 4; part++)
@@ -686,7 +752,7 @@ void MapNWRAM_B(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -741,7 +807,7 @@ void MapNWRAM_C(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -2139,17 +2205,17 @@ void ARM9IOWrite32(u32 addr, u32 val)
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        MapNWRAMRange(0, 1, val); 
+        MapNWRAMRange(0, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 2, val);
@@ -2200,7 +2266,7 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: 
+    case 0x04004000:
         return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
 
@@ -2456,27 +2522,27 @@ void ARM7IOWrite32(u32 addr, u32 val)
         Set_SCFG_MC(val);
         return;
 
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 2, val);
         return;
-    case 0x04004060: 
+    case 0x04004060:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         val &= 0x00FFFF0F;
-        MBK[0][8] = val; 
-        MBK[1][8] = val; 
+        MBK[0][8] = val;
+        MBK[1][8] = val;
         return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;

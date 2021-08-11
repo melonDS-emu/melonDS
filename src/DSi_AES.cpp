@@ -485,16 +485,13 @@ void WriteMAC(u32 offset, u32 val, u32 mask)
     //printf("AES: MAC: "); _printhex(MAC, 16);
 }
 
-void DeriveNormalKey(u32 slot)
+void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
 {
     const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
     u8 tmp[16];
 
-    //printf("slot%d keyX: ", slot); _printhex(KeyX[slot], 16);
-    //printf("slot%d keyY: ", slot); _printhex(KeyY[slot], 16);
-
     for (int i = 0; i < 16; i++)
-        tmp[i] = KeyX[slot][i] ^ KeyY[slot][i];
+        tmp[i] = keyX[i] ^ keyY[i];
 
     u32 carry = 0;
     for (int i = 0; i < 16; i++)
@@ -506,9 +503,7 @@ void DeriveNormalKey(u32 slot)
 
     ROL16(tmp, 42);
 
-    //printf("derive normalkey %d\n", slot); _printhex(tmp, 16);
-
-    memcpy(KeyNormal[slot], tmp, 16);
+    memcpy(normalkey, tmp, 16);
 }
 
 void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
@@ -539,7 +534,7 @@ void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
 
     if (offset >= 0xC)
     {
-        DeriveNormalKey(slot);
+        DeriveNormalKey(KeyX[slot], KeyY[slot], KeyNormal[slot]);
     }
 }
 
@@ -555,7 +550,7 @@ void GetModcryptKey(u8* romheader, u8* key)
         return;
     }
 
-    u8 oldkeys[16*3];
+    /*u8 oldkeys[16*3];
     memcpy(&oldkeys[16*0], KeyX[0], 16);
     memcpy(&oldkeys[16*1], KeyY[0], 16);
     memcpy(&oldkeys[16*2], KeyNormal[0], 16);
@@ -576,7 +571,7 @@ void GetModcryptKey(u8* romheader, u8* key)
 
     memcpy(KeyX[0], &oldkeys[16*0], 16);
     memcpy(KeyY[0], &oldkeys[16*1], 16);
-    memcpy(KeyNormal[0], &oldkeys[16*2], 16);
+    memcpy(KeyNormal[0], &oldkeys[16*2], 16);*/
 }
 
 void ApplyModcrypt(u8* data, u32 len, u8* key, u8* iv)
