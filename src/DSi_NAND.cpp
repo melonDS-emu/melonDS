@@ -96,10 +96,6 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
 
     for (u32 i = 0; i < len; i += 16)
     {
-        //printf("BLOCK %d: IV=", i);
-        //for (int k = 0; k < 16; k++) printf("%02X:", ctx.Iv[k]);
-        //printf("\n");
-
         u8 tmp[16];
         DSi_AES::Swap16(tmp, &buf[i]);
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -109,11 +105,37 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     return len;
 }
 
+u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
+{
+    u32 ctr = (u32)(addr >> 4);
+
+    AES_ctx ctx;
+    SetupFATCrypto(&ctx, ctr);
+
+    fseek(DSi::SDMMCFile, addr, SEEK_SET);
+
+    for (u32 s = 0; s < len; s += 0x200)
+    {
+        u8 tempbuf[0x200];
+
+        for (u32 i = 0; i < 0x200; i += 16)
+        {
+            u8 tmp[16];
+            DSi_AES::Swap16(tmp, &buf[s+i]);
+            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+            DSi_AES::Swap16(&tempbuf[i], tmp);
+        }
+
+        u32 res = fwrite(tempbuf, len, 1, DSi::SDMMCFile);
+        if (!res) return 0;
+    }
+
+    return len;
+}
+
 
 UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num)
 {
-    printf("READ %08X %08X\n", sector, num);
-
     // TODO: allow selecting other partitions?
     u64 baseaddr = 0x10EE00;
 
@@ -125,49 +147,72 @@ UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num)
 
 UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num)
 {
-    // TODO!
-    printf("!! WRITE %08X %08X\n", sector, num);
-    return 0;
+    // TODO: allow selecting other partitions?
+    u64 baseaddr = 0x10EE00;
+
+    u64 blockaddr = baseaddr + (sector * 0x200ULL);
+
+    u32 res = WriteFATBlock(blockaddr, num*0x200, buf);
+    return res >> 9;
 }
 
 
 void PatchTSC()
 {
-    // TEST ZONE
-
-    u8 dorp[0x200];
-    ReadFATBlock(0, 0x200, dorp);
-
-    for (int i = 0; i < 0x200; i+=16)
-    {
-        for (int j = 0; j < 16; j++)
-        {
-            printf("%02X ", dorp[i+j]);
-        }
-        printf("\n");
-    }
-
-    ReadFATBlock(0x0010EE00, 0x200, dorp);
-    printf("FUKA\n");
-    for (int i = 0; i < 0x200; i+=16)
-    {
-        for (int j = 0; j < 16; j++)
-        {
-            printf("%02X ", dorp[i+j]);
-        }
-        printf("\n");
-    }
-
     ff_disk_open(FF_ReadNAND, FF_WriteNAND);
 
     FRESULT res;
     FATFS fs;
     res = f_mount(&fs, "0:", 0);
-    printf("mount=%d\n", res);
+    if (res != FR_OK)
+    {
+        printf("NAND mounting failed: %d\n", res);
+        goto mount_fail;
+    }
 
-    FIL file;
-    res = f_open(&file, "0:/shared1/TWLCFG0.dat", FA_READ);
-    printf("blarg=%d\n", res);
+    for (int i = 0; i < 2; i++)
+    {
+        char filename[64];
+        sprintf(filename, "0:/shared1/TWLCFG%d.dat", i);
+
+        FIL file;
+        res = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ | FA_WRITE);
+        if (res != FR_OK)
+        {
+            printf("NAND: editing file %s failed: %d\n", filename, res);
+            continue;
+        }
+
+        u8 contents[0x1B0];
+        u32 nres;
+        f_lseek(&file, 0);
+        f_read(&file, contents, 0x1B0, &nres);
+
+        // fix touchscreen coords
+        *(u16*)&contents[0xB8] = 0;
+        *(u16*)&contents[0xBA] = 0;
+        contents[0xBC] = 0;
+        contents[0xBD] = 0;
+        *(u16*)&contents[0xBE] = 255<<4;
+        *(u16*)&contents[0xC0] = 191<<4;
+        contents[0xC2] = 255;
+        contents[0xC3] = 191;
+
+        SHA1_CTX sha;
+        u8 datahash[20];
+        SHA1Init(&sha);
+        SHA1Update(&sha, &contents[0x88], 0x128);
+        SHA1Final(&contents[0], &sha);
+
+        f_lseek(&file, 0);
+        f_write(&file, contents, 0x1B0, &nres);
+
+        f_close(&file);
+    }
+
+mount_fail:
+    f_unmount("0:");
+    ff_disk_close();
 }
 
 }
