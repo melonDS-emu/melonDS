@@ -36,10 +36,10 @@
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
+#include "DSi_NAND.h"
 #include "DSi_DSP.h"
 #include "DSi_Camera.h"
 
-#include "sha1/sha1.hpp"
 #include "tiny-AES-c/aes.hpp"
 
 
@@ -530,70 +530,8 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
-    // TEST ZONE
-    {
-        SHA1_CTX sha;
-        u8 cidhash[20];
-        u8 iv[16];
-
-        SHA1Init(&sha);
-        SHA1Update(&sha, eMMC_CID, 16);
-        SHA1Final(cidhash, &sha);
-
-        printf("ASS HASH: ");
-        for (int i = 0; i < 20; i++) printf("%02X", cidhash[i]);
-        printf("\n");
-
-        DSi_AES::Swap16(iv, cidhash);
-
-        printf("ASS IV: ");
-        for (int i = 0; i < 16; i++) printf("%02X", iv[i]);
-        printf("\n");
-
-        u8 keyX[16];
-        *(u32*)&keyX[0] = (u32)ConsoleID;
-        *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
-        *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xE65B601D;
-        *(u32*)&keyX[12] = (u32)(ConsoleID >> 32);
-
-        u8 keyY[16];
-        *(u32*)&keyY[0] = 0x0AB9DC76;
-        *(u32*)&keyY[4] = 0xBD4DC4D3;
-        *(u32*)&keyY[8] = 0x202DDD1D;
-        *(u32*)&keyY[12] = 0xE1A00005;
-
-        u8 shittykey[16];
-        DSi_AES::DeriveNormalKey(keyX, keyY, shittykey);
-
-        u8 normalkey[16];
-        DSi_AES::Swap16(normalkey, shittykey);
-
-        u8 dorp[0x200];
-        fseek(SDMMCFile, 0, SEEK_SET);
-        fread(&dorp, 0x200, 1, SDMMCFile);
-
-        AES_ctx ctx;
-        AES_init_ctx_iv(&ctx, normalkey, iv);
-
-        //AES_CTR_xcrypt_buffer(&ctx, dorp, 0x200);
-        for (int i = 0; i < 0x200; i+=16)
-        {
-            u8 tmp[16];
-            DSi_AES::Swap16(tmp, &dorp[i]);
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            DSi_AES::Swap16(&dorp[i], tmp);
-        }
-
-        //printf("%08X %08X %08X %08X\n", *(u32*)&dorp[0], *(u32*)&dorp[4], *(u32*)&dorp[8], *(u32*)&dorp[12]);
-        for (int i = 0; i < 0x200; i+=16)
-        {
-            for (int j = 0; j < 16; j++)
-            {
-                printf("%02X ", dorp[i+j]);
-            }
-            printf("\n");
-        }
-    }
+    DSi_NAND::Init();
+    DSi_NAND::PatchTSC();
 
     return true;
 }

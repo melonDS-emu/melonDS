@@ -3,6 +3,8 @@
 /* (C)ChaN, 2018                                                          */
 /*------------------------------------------------------------------------*/
 
+#define _POSIX_THREAD_SAFE_FUNCTIONS
+#include <time.h>
 
 #include "ff.h"
 
@@ -54,27 +56,6 @@ int ff_cre_syncobj (	/* 1:Function succeeded, 0:Could not create the sync object
 	FF_SYNC_t* sobj		/* Pointer to return the created sync object */
 )
 {
-	/* Win32 */
-	*sobj = CreateMutex(NULL, FALSE, NULL);
-	return (int)(*sobj != INVALID_HANDLE_VALUE);
-
-	/* uITRON */
-//	T_CSEM csem = {TA_TPRI,1,1};
-//	*sobj = acre_sem(&csem);
-//	return (int)(*sobj > 0);
-
-	/* uC/OS-II */
-//	OS_ERR err;
-//	*sobj = OSMutexCreate(0, &err);
-//	return (int)(err == OS_NO_ERR);
-
-	/* FreeRTOS */
-//	*sobj = xSemaphoreCreateMutex();
-//	return (int)(*sobj != NULL);
-
-	/* CMSIS-RTOS */
-//	*sobj = osMutexCreate(&Mutex[vol]);
-//	return (int)(*sobj != NULL);
 }
 
 
@@ -90,23 +71,6 @@ int ff_del_syncobj (	/* 1:Function succeeded, 0:Could not delete due to an error
 	FF_SYNC_t sobj		/* Sync object tied to the logical drive to be deleted */
 )
 {
-	/* Win32 */
-	return (int)CloseHandle(sobj);
-
-	/* uITRON */
-//	return (int)(del_sem(sobj) == E_OK);
-
-	/* uC/OS-II */
-//	OS_ERR err;
-//	OSMutexDel(sobj, OS_DEL_ALWAYS, &err);
-//	return (int)(err == OS_NO_ERR);
-
-	/* FreeRTOS */
-//  vSemaphoreDelete(sobj);
-//	return 1;
-
-	/* CMSIS-RTOS */
-//	return (int)(osMutexDelete(sobj) == osOK);
 }
 
 
@@ -121,22 +85,6 @@ int ff_req_grant (	/* 1:Got a grant to access the volume, 0:Could not get a gran
 	FF_SYNC_t sobj	/* Sync object to wait */
 )
 {
-	/* Win32 */
-	return (int)(WaitForSingleObject(sobj, FF_FS_TIMEOUT) == WAIT_OBJECT_0);
-
-	/* uITRON */
-//	return (int)(wai_sem(sobj) == E_OK);
-
-	/* uC/OS-II */
-//	OS_ERR err;
-//	OSMutexPend(sobj, FF_FS_TIMEOUT, &err));
-//	return (int)(err == OS_NO_ERR);
-
-	/* FreeRTOS */
-//	return (int)(xSemaphoreTake(sobj, FF_FS_TIMEOUT) == pdTRUE);
-
-	/* CMSIS-RTOS */
-//	return (int)(osMutexWait(sobj, FF_FS_TIMEOUT) == osOK);
 }
 
 
@@ -150,21 +98,27 @@ void ff_rel_grant (
 	FF_SYNC_t sobj	/* Sync object to be signaled */
 )
 {
-	/* Win32 */
-	ReleaseMutex(sobj);
-
-	/* uITRON */
-//	sig_sem(sobj);
-
-	/* uC/OS-II */
-//	OSMutexPost(sobj);
-
-	/* FreeRTOS */
-//	xSemaphoreGive(sobj);
-
-	/* CMSIS-RTOS */
-//	osMutexRelease(sobj);
 }
 
 #endif
+
+
+DWORD get_fattime()
+{
+    // TODO: return melonDS time instead of RTC??
+
+    time_t timestamp = time(NULL);
+    struct tm timedata;
+    localtime_r(&timestamp, &timedata);
+
+    DWORD ret;
+    ret  = (timedata.tm_sec >> 1);
+    ret |= (timedata.tm_min << 5);
+    ret |= (timedata.tm_hour << 11);
+    ret |= (timedata.tm_mday << 16);
+    ret |= ((timedata.tm_mon + 1) << 21);
+    ret |= ((timedata.tm_year - 80) << 25);
+
+    return ret;
+}
 

@@ -167,7 +167,6 @@ void Reset()
 
     UserSettings = userdata;
 
-    // TODO evetually: do this in DSi mode
     if (NDS::ConsoleType == 0)
     {
         // fix touchscreen coords
