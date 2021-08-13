@@ -175,6 +175,93 @@ UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num)
 }
 
 
+bool ESEncrypt(u8* data, u32 len)
+{
+    AES_ctx ctx;
+    u8 iv[16];
+    u8 mac[16];
+
+    iv[0] = 0x02;
+    for (int i = 0; i < 12; i++) iv[1+i] = data[len+0x1C-i];
+    iv[13] = 0x00;
+    iv[14] = 0x00;
+    iv[15] = 0x01;
+
+    AES_init_ctx_iv(&ctx, ESKey, iv);
+
+    u32 blklen = (len + 0xF) & ~0xF;
+    mac[0] = 0x3A;
+    for (int i = 1; i < 13; i++) mac[i] = iv[i];
+    mac[13] = (blklen >> 16) & 0xFF;
+    mac[14] = (blklen >> 8) & 0xFF;
+    mac[15] = blklen & 0xFF;
+
+    AES_ECB_encrypt(&ctx, mac);
+
+    u32 coarselen = len & ~0xF;
+    for (u32 i = 0; i < coarselen; i += 16)
+    {
+        u8 tmp[16];
+
+        DSi_AES::Swap16(tmp, &data[i]);
+
+        for (int i = 0; i < 16; i++) mac[i] ^= tmp[i];
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        AES_ECB_encrypt(&ctx, mac);
+
+        DSi_AES::Swap16(&data[i], tmp);
+    }
+
+    u32 remlen = len - coarselen;
+    if (remlen)
+    {
+        u8 rem[16];
+
+        memset(rem, 0, 16);
+
+        for (int i = 0; i < remlen; i++)
+            rem[15-i] = data[coarselen+i];
+
+        for (int i = 0; i < 16; i++) mac[i] ^= rem[i];
+        AES_CTR_xcrypt_buffer(&ctx, rem, 16);
+        AES_ECB_encrypt(&ctx, mac);
+
+        for (int i = 0; i < remlen; i++)
+            data[coarselen+i] = rem[15-i];
+    }
+
+    ctx.Iv[13] = 0x00;
+    ctx.Iv[14] = 0x00;
+    ctx.Iv[15] = 0x00;
+    AES_CTR_xcrypt_buffer(&ctx, mac, 16);
+
+    for (int i = 0; i < 16; i++)
+        data[len+i] = mac[15-i];
+
+    u8 footer[16];
+
+    iv[0] = 0x00;
+    iv[1] = 0x00;
+    iv[2] = 0x00;
+    for (int i = 0; i < 12; i++) iv[3+i] = data[len+0x1C-i];
+    iv[15] = 0x00;
+
+    footer[15] = 0x3A;
+    footer[2] = (len >> 16) & 0xFF;
+    footer[1] = (len >> 8) & 0xFF;
+    footer[0] = len & 0xFF;
+
+    AES_ctx_set_iv(&ctx, iv);
+    AES_CTR_xcrypt_buffer(&ctx, footer, 16);
+
+    data[len+0x10] = footer[15];
+    data[len+0x1D] = footer[2];
+    data[len+0x1E] = footer[1];
+    data[len+0x1F] = footer[0];
+
+    return true;
+}
+
 bool ESDecrypt(u8* data, u32 len)
 {
     AES_ctx ctx;
@@ -189,7 +276,7 @@ bool ESDecrypt(u8* data, u32 len)
 
     AES_init_ctx_iv(&ctx, ESKey, iv);
 
-    u32 blklen = (len + 0xF) & ~0xF; printf("blk=%x\n", blklen);
+    u32 blklen = (len + 0xF) & ~0xF;
     mac[0] = 0x3A;
     for (int i = 1; i < 13; i++) mac[i] = iv[i];
     mac[13] = (blklen >> 16) & 0xFF;
@@ -405,31 +492,19 @@ void ImportTest()
 
         f_close(&ticketfile);
 
-        // DECRYPT!!
-        /*{
-            u8 iv[16];
+        FILE* dorp = fopen("assticket1.bin", "wb");
+        fwrite(ticket, 708, 1, dorp);
+        fclose(dorp);
 
-            iv[0] = 0x02;
-            for (int i = 0; i < 12; i++) iv[1+i] = ticket[0x2A4 + 0x1C - i];
-            iv[13] = 0x00;
-            iv[14] = 0x00;
-            iv[15] = 0x01;
-
-            AES_ctx aes;
-            AES_init_ctx_iv(&aes, ESKey, iv);
-
-            for (u32 i = 0; i < 0x290; i += 16)
-            {
-                u8 tmp[16];
-
-                DSi_AES::Swap16(tmp, &ticket[i]);
-                AES_CTR_xcrypt_buffer(&aes, tmp, 16);
-                DSi_AES::Swap16(&ticket[i], tmp);
-            }
-        }*/
         ESDecrypt(ticket, 0x2A4);
 
-        FILE* dorp = fopen("assticket.bin", "wb");
+        dorp = fopen("assticket2.bin", "wb");
+        fwrite(ticket, 708, 1, dorp);
+        fclose(dorp);
+
+        ESEncrypt(ticket, 0x2A4);
+
+        dorp = fopen("assticket3.bin", "wb");
         fwrite(ticket, 708, 1, dorp);
         fclose(dorp);
     }
