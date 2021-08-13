@@ -28,6 +28,8 @@ void Init();
 
 void PatchTSC();
 
+void ImportTest();
+
 }
 
 #endif // DSI_NAND_H

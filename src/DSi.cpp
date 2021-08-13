@@ -533,6 +533,8 @@ bool LoadNAND()
     DSi_NAND::Init();
     DSi_NAND::PatchTSC();
 
+    DSi_NAND::ImportTest();
+
     return true;
 }
 
