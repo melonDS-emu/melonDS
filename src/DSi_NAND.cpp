@@ -144,7 +144,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
             DSi_AES::Swap16(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, len, 1, DSi::SDMMCFile);
+        u32 res = fwrite(tempbuf, 0x200, 1, DSi::SDMMCFile);
         if (!res) return 0;
     }
 
@@ -427,10 +427,68 @@ mount_fail:
 }
 
 
+void debug_listfiles(char* path)
+{
+    DIR dir;
+    FILINFO info;
+    FRESULT res;
+
+    res = f_opendir(&dir, path);
+    if (res) return;
+
+    for (;;)
+    {
+        res = f_readdir(&dir, &info);
+        if (res) return;
+        if (!info.fname[0]) return;
+
+        char fullname[1024];
+        sprintf(fullname, "%s/%s", path, info.fname);
+        printf("[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
+
+        if (info.fattrib & AM_DIR)
+        {
+            debug_listfiles(fullname);
+        }
+    }
+}
+
+void debug_dumpfile(char* path, char* out)
+{
+    FIL file;
+    FILE* fout;
+    FRESULT res;
+
+    res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
+    if (res) return;
+
+    u32 len = f_size(&file);
+    printf("%s: len=%d\n", path, len);
+
+    fout = fopen(out, "wb");
+
+    u8 buf[0x200];
+    for (u32 i = 0; i < len; i += 0x200)
+    {
+        u32 blocklen;
+        if ((i + 0x200) > len)
+            blocklen = len - i;
+        else
+            blocklen = 0x200;
+
+        u32 burp;
+        f_read(&file, buf, blocklen, &burp);
+        fwrite(buf, blocklen, 1, fout);
+    }
+
+    fclose(fout);
+    f_close(&file);
+}
+
 void ImportTest()
 {
-    char* tmdfile = "cavestory.tmd";
-    char* appfile = "cavestory.nds";
+    char* tmdfile = "treasure.tmd";
+    char* appfile = "treasure.nds";
 
     ff_disk_open(FF_ReadNAND, FF_WriteNAND);
 
@@ -445,6 +503,24 @@ void ImportTest()
         return;
     }
 
+    /*debug_listfiles("0:");
+
+    debug_dumpfile("0:/sys/log/sysmenu.log", "sysmenu.log");
+    debug_dumpfile("0:/sys/log/product.log", "product.log");
+
+    f_unmount("0:");
+    ff_disk_close();
+    return;*/
+
+    //debug_dumpfile("0:/title/00030004/4b4e4448/content/00000002.app", "00000002.app");
+    //debug_dumpfile("0:/title/00030004/4b4e4448/content/title.tmd", "title.tmd");
+    //f_unlink("0:/title/00030004/4b475556/data/public.sav");
+    //f_unlink("0:/ticket/00030004/4b475556.tik");
+    //debug_dumpfile("0:/title/00030004/4b475556/content/title.tmd", "flipnote.tmd");
+    //f_unlink("0:/title/00030004/4b475556/content/title.tmd");
+    /*f_unmount("0:");
+    ff_disk_close();
+return;*/
     u8 tmd[0x208];
     {
         FILE* f = fopen(tmdfile, "rb");
@@ -454,6 +530,10 @@ void ImportTest()
 
     u8 version = tmd[0x1E7];
     printf(".app version: %08x\n", version);
+
+    u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
+    u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
+    printf("Title ID: %08x/%08x\n", titleid0, titleid1);
 
     {
         DIR ticketdir;
@@ -476,38 +556,121 @@ void ImportTest()
         }
 
         printf("- %s\n", info.fname);
-        char ticketfname[128];
-        sprintf(ticketfname, "0:/ticket/00030004/%s", info.fname);
+        char fname[128];
+        sprintf(fname, "0:/ticket/00030004/%s", info.fname);
 
         f_closedir(&ticketdir);
 
-        FIL ticketfile;
-        res = f_open(&ticketfile, ticketfname, FA_OPEN_EXISTING | FA_READ);
+        FIL file;
+        res = f_open(&file, fname, FA_OPEN_EXISTING | FA_READ);
         //
 
-        u8 ticket[708];
+        u8 ticket[0x2C4];
         u32 nread;
-        f_read(&ticketfile, ticket, 708, &nread);
+        f_read(&file, ticket, 0x2C4, &nread);
         //
 
-        f_close(&ticketfile);
-
-        FILE* dorp = fopen("assticket1.bin", "wb");
-        fwrite(ticket, 708, 1, dorp);
-        fclose(dorp);
+        f_close(&file);
 
         ESDecrypt(ticket, 0x2A4);
 
-        dorp = fopen("assticket2.bin", "wb");
-        fwrite(ticket, 708, 1, dorp);
-        fclose(dorp);
+        // change title ID
+        *(u32*)&ticket[0x1DC] = *(u32*)&tmd[0x18C];
+        *(u32*)&ticket[0x1E0] = *(u32*)&tmd[0x190];
 
         ESEncrypt(ticket, 0x2A4);
 
-        dorp = fopen("assticket3.bin", "wb");
-        fwrite(ticket, 708, 1, dorp);
-        fclose(dorp);
+        // insert shit!
+
+        // ticket
+
+        sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
+        printf("TICKET: %s\n", fname);
+        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+        printf("TICKET: %d\n", res);
+
+        f_write(&file, ticket, 0x2C4, &nread);
+        //
+
+        f_close(&file);
+
+        printf("----- POST TICKET:\n");
+    debug_listfiles("0:");
+
+        // folder
+
+        sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
+        res = f_mkdir(fname);
+        printf("DIR0 RES=%d\n", res);
+        sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
+        res = f_mkdir(fname);
+        printf("DIR1 RES=%d\n", res);
+        sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
+        res = f_mkdir(fname);
+        printf("DIR2 RES=%d\n", res);
+
+        printf("----- POST DIRS:\n");
+    debug_listfiles("0:");
+
+        // data
+
+        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
+        printf("data: %s\n", fname);
+        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+
+        u8 derp[0x4000];
+        memset(derp, 0, 0x4000);
+        f_write(&file, derp, 0x4000, &nread);
+        /*u8 zero = 0;
+        f_lseek(&file, 0x4000-1);
+        f_write(&file, &zero, 1, &nread);*/
+
+        f_close(&file);
+
+        printf("----- POST SAVE:\n");
+    debug_listfiles("0:");
+
+        // TMD
+
+        sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
+        printf("TMD: %s\n", fname);
+        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+        printf("TMD: %d\n", res);
+
+        f_write(&file, tmd, 0x208, &nread);
+        //
+
+        f_close(&file);
+
+        printf("----- POST TMD:\n");
+    debug_listfiles("0:");
+
+        // executable
+
+        sprintf(fname, "0:/title/%08x/%08x/content/000000%02x.app", titleid0, titleid1, version);
+        printf("APP: %s\n", fname);
+        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+        printf("APP: %d\n", res);
+
+        FILE* app = fopen(appfile, "rb");
+        fseek(app, 0, SEEK_END);
+        u32 applen = (u32)ftell(app);
+        fseek(app, 0, SEEK_SET);
+
+        for (u32 i = 0; i < applen; i += 0x200)
+        {
+            u8 data[0x200];
+
+            u32 lenread = fread(data, 1, 0x200, app);
+            f_write(&file, data, lenread, &nread);
+        }
+
+        fclose(app);
+        f_close(&file);
     }
+
+    printf("----- POST INSERTION:\n");
+    debug_listfiles("0:");
 
     f_unmount("0:");
     ff_disk_close();

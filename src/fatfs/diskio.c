@@ -121,6 +121,13 @@ DRESULT disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {
+    switch (cmd)
+    {
+    case 0: // sync
+        // TODO: fflush?
+        return RES_OK;
+    }
+
 	printf("disk_ioctl(%02X, %02X, %p)\n", pdrv, cmd, buff);
 	return RES_PARERR;
 }
