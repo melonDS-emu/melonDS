@@ -192,11 +192,13 @@ void SetBias(u16 bias)
     Bias = bias;
 }
 
-void SetApplyBias(bool enable) {
+void SetApplyBias(bool enable)
+{
     ApplyBias = enable;
 }
 
-void SetDegrade10Bit(bool enable) {
+void SetDegrade10Bit(bool enable)
+{
     Degrade10Bit = enable;
 }
 
@@ -803,7 +805,7 @@ void Mix(u32 dummy)
 
     // Add SOUNDBIAS value
     // The value used by all commercial games is 0x200, so we subtract that so it won't offset the final sound output.
-    if (ApplyBias == true)
+    if (ApplyBias)
     {
         leftoutput += (Bias << 6) - 0x8000;
         rightoutput += (Bias << 6) - 0x8000;
