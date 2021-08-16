@@ -31,6 +31,7 @@ namespace DSi_AES
 u32 Cnt;
 
 u32 BlkCnt;
+u32 RemExtra;
 u32 RemBlocks;
 
 bool OutputFlush;
@@ -106,6 +107,7 @@ void Reset()
     Cnt = 0;
 
     BlkCnt = 0;
+    RemExtra = 0;
     RemBlocks = 0;
 
     OutputFlush = false;
@@ -153,6 +155,22 @@ void Reset()
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
+
+void ProcessBlock_CCM_Extra()
+{
+    u8 data[16];
+    u8 data_rev[16];
+
+    *(u32*)&data[0] = InputFIFO.Read();
+    *(u32*)&data[4] = InputFIFO.Read();
+    *(u32*)&data[8] = InputFIFO.Read();
+    *(u32*)&data[12] = InputFIFO.Read();
+
+    Swap16(data_rev, data);
+
+    for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
+    AES_ECB_encrypt(&Ctx, CurMAC);
+}
 
 void ProcessBlock_CCM_Decrypt()
 {
@@ -272,13 +290,14 @@ void WriteCnt(u32 val)
     if (!(oldcnt & (1<<31)) && (val & (1<<31)))
     {
         // transfer start (checkme)
+        RemExtra = (AESMode < 2) ? (BlkCnt & 0xFFFF) : 0;
         RemBlocks = BlkCnt >> 16;
 
         OutputMACDue = false;
 
         if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
-        if (RemBlocks > 0)
+        if ((RemBlocks > 0) || (RemExtra > 0))
         {
             u8 key[16];
             u8 iv[16];
@@ -288,8 +307,6 @@ void WriteCnt(u32 val)
 
             if (AESMode < 2)
             {
-                if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
-
                 u32 maclen = (val >> 16) & 0x7;
                 if (maclen < 1) maclen = 1;
 
@@ -325,8 +342,8 @@ void WriteCnt(u32 val)
         }
     }
 
-    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
-    //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
+    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d (BLKCNT=%08X)\n",
+    //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks, BlkCnt);
 }
 
 void WriteBlkCnt(u32 val)
@@ -380,7 +397,7 @@ void WriteInputFIFO(u32 val)
 
 void CheckInputDMA()
 {
-    if (RemBlocks == 0) return;
+    if (RemBlocks == 0 && RemExtra == 0) return;
 
     if (InputFIFO.Level() <= InputDMASize)
     {
@@ -402,22 +419,34 @@ void CheckOutputDMA()
 
 void Update()
 {
-    while (InputFIFO.Level() >= 4 && OutputFIFO.Level() <= 12 && RemBlocks > 0)
+    if (RemExtra > 0)
     {
-        switch (AESMode)
+        while (InputFIFO.Level() >= 4 && RemExtra > 0)
         {
-        case 0: ProcessBlock_CCM_Decrypt(); break;
-        case 1: ProcessBlock_CCM_Encrypt(); break;
-        case 2:
-        case 3: ProcessBlock_CTR(); break;
+            ProcessBlock_CCM_Extra();
+            RemExtra--;
         }
+    }
 
-        RemBlocks--;
+    if (RemExtra == 0)
+    {
+        while (InputFIFO.Level() >= 4 && OutputFIFO.Level() <= 12 && RemBlocks > 0)
+        {
+            switch (AESMode)
+            {
+            case 0: ProcessBlock_CCM_Decrypt(); break;
+            case 1: ProcessBlock_CCM_Encrypt(); break;
+            case 2:
+            case 3: ProcessBlock_CTR(); break;
+            }
+
+            RemBlocks--;
+        }
     }
 
     CheckOutputDMA();
 
-    if (RemBlocks == 0)
+    if (RemBlocks == 0 && RemExtra == 0)
     {
         if (AESMode == 0)
         {
@@ -443,7 +472,16 @@ void Update()
             AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
 
             Swap16(OutputMAC, CurMAC);
-            OutputMACDue = true;
+
+            if (OutputFIFO.Level() <= 12)
+            {
+                OutputFIFO.Write(*(u32*)&OutputMAC[0]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[4]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[8]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[12]);
+            }
+            else
+                OutputMACDue = true;
 
             // CHECKME
             Cnt &= ~(1<<21);
