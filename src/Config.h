@@ -55,6 +55,7 @@ extern int DSiSDEnable;
 extern char DSiSDPath[1024];
 
 extern int RandomizeMAC;
+extern int AudioBitrate;
 
 #ifdef JIT_ENABLED
 extern int JIT_Enable;

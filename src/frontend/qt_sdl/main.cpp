@@ -2436,6 +2436,11 @@ void MainWindow::onOpenAudioSettings()
 void MainWindow::onUpdateAudioSettings()
 {
     SPU::SetInterpolation(Config::AudioInterp);
+
+    if (Config::AudioBitrate == 0)
+        SPU::SetDegrade10Bit(NDS::ConsoleType == 0);
+    else
+        SPU::SetDegrade10Bit(Config::AudioBitrate == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)

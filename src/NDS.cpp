@@ -596,11 +596,24 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
+    // The SOUNDBIAS register does nothing on DSi
+    SPU::SetApplyBias(ConsoleType == 0);
+
+    bool degradeAudio = true;
+
     if (ConsoleType == 1)
     {
         DSi::Reset();
         KeyInput &= ~(1 << (16+6));
+        degradeAudio = false;
     }
+
+    if (Config::AudioBitrate == 1) // Always 10-bit
+        degradeAudio = true;
+    else if (Config::AudioBitrate == 2) // Always 16-bit
+        degradeAudio = false;
+
+    SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
 }
