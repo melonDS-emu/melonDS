@@ -799,9 +799,18 @@ void Mix(u32 dummy)
     rightoutput = ((s64)rightoutput * MasterVolume) >> 7;
 
     leftoutput >>= 8;
+    rightoutput >>= 8;
+
+    // Add SOUNDBIAS value
+    // The value used by all commercial games is 0x200, so we subtract that so it won't offset the final sound output.
+    if (ApplyBias == true)
+    {
+        leftoutput += (Bias << 6) - 0x8000;
+        rightoutput += (Bias << 6) - 0x8000;
+    }
+
     if      (leftoutput < -0x8000) leftoutput = -0x8000;
     else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
-    rightoutput >>= 8;
     if      (rightoutput < -0x8000) rightoutput = -0x8000;
     else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
 
@@ -810,14 +819,6 @@ void Mix(u32 dummy)
     {
         leftoutput &= 0xFFFFFFC0;
         rightoutput &= 0xFFFFFFC0;
-    }
-
-    // Add SOUNDBIAS value
-    // The value used by all commercial games is 0x200, so we subtract that so it won't offset the final sound output.
-    if (ApplyBias == true)
-    {
-        leftoutput += (Bias << 6) - 0x8000;
-        rightoutput += (Bias << 6) - 0x8000;
     }
 
     // OutputBufferFrame can never get full because it's
