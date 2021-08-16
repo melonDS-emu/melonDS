@@ -35,6 +35,8 @@ void DoSavestate(Savestate* file);
 void SetInterpolation(int type);
 
 void SetBias(u16 bias);
+void SetDegrade10Bit(bool enable);
+void SetApplyBias(bool enable);
 
 void Mix(u32 dummy);
 
