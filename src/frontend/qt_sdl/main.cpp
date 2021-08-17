@@ -1377,7 +1377,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
         menu->addSeparator();
-        actROMInfo = menu->addAction("ROM Info");
+        actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
     }
     {

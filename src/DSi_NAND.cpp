@@ -379,7 +379,9 @@ void PatchTSC()
     if (res != FR_OK)
     {
         printf("NAND mounting failed: %d\n", res);
-        goto mount_fail;
+        f_unmount("0:");
+        ff_disk_close();
+        return;
     }
 
     for (int i = 0; i < 2; i++)
@@ -421,7 +423,6 @@ void PatchTSC()
         f_close(&file);
     }
 
-mount_fail:
     f_unmount("0:");
     ff_disk_close();
 }
@@ -485,6 +486,107 @@ void debug_dumpfile(char* path, char* out)
     f_close(&file);
 }
 
+void CreateTicket(char* path, u32 titleid0, u32 titleid1, u8 version)
+{
+    FIL file;
+    FRESULT res;
+    u32 nwrite;
+
+    res = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
+    if (res != FR_OK)
+    {
+        printf("CreateTicket: failed to create file (%d)\n", res);
+        return;
+    }
+
+    u8 ticket[0x2C4];
+    memset(ticket, 0, 0x2C4);
+
+    // signature, atleast make it look like we tried :P
+    *(u32*)&ticket[0x000] = 0x01000100;
+    strcpy((char*)&ticket[0x140], "Root-CA00000001-XS00000006");
+
+    *(u32*)&ticket[0x1DC] = titleid0;
+    *(u32*)&ticket[0x1E0] = titleid1;
+    ticket[0x1E6] = version;
+
+    memset(&ticket[0x222], 0xFF, 0x20);
+
+    ESEncrypt(ticket, 0x2A4);
+
+    f_write(&file, ticket, 0x2C4, &nwrite);
+
+    f_close(&file);
+}
+
+void CreateSaveFile(char* path, u32 len)
+{
+    if (len < 0x200) return;
+    if (len > 0x8000000) return;
+
+    u32 clustersize, maxfiles, totsec16, fatsz16;
+
+    if (len < 573440)
+    {
+        clustersize = 512;
+        maxfiles = 16;
+    }
+    else if (len < 5472256)
+    {
+        clustersize = 2048;
+        maxfiles = 256;
+    }
+    else
+    {
+        clustersize = 4096;
+        maxfiles = 256;
+    }
+
+    if (len <= 0x4000)        fatsz16 = 1;
+    else if (len <= 0x200000) fatsz16 = 3;
+    else                      fatsz16 = 6;
+
+    if (len == 0x4000) totsec16 = 27;
+    else               totsec16 = len >> 9;
+
+    FIL file;
+    FRESULT res;
+    u32 nwrite;
+
+    res = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
+    if (res != FR_OK)
+    {
+        printf("CreateSaveFile: failed to create file (%d)\n", res);
+        return;
+    }
+
+    u8* data = new u8[len];
+    memset(data, 0, len);
+
+    // create FAT header
+    data[0x000] = 0xE9;
+    memcpy(&data[0x003], "MSWIN4.1", 8);
+    *(u16*)&data[0x00B] = 512; // bytes per sector
+    data[0x00D] = clustersize >> 9;
+    *(u16*)&data[0x00E] = 1; // reserved sectors
+    data[0x010] = 2; // num FATs
+    *(u16*)&data[0x011] = maxfiles << 1;
+    *(u16*)&data[0x013] = totsec16;
+    data[0x015] = 0xF8;
+    *(u16*)&data[0x016] = fatsz16;
+    data[0x024] = 0x07;
+    data[0x026] = 0x29;
+    *(u32*)&data[0x027] = 305419896;
+    memcpy(&data[0x02B], "VOLUMELABEL", 11);
+    memcpy(&data[0x036], "FAT12   ", 8);
+    *(u16*)&data[0x1FE] = 0xAA55;
+
+    f_write(&file, data, len, &nwrite);
+
+    f_close(&file);
+    delete[] data;
+}
+
 void ImportTest()
 {
     char* tmdfile = "treasure.tmd";
@@ -528,7 +630,14 @@ return;*/
         fclose(f);
     }
 
-    u8 version = tmd[0x1E7];
+    u8 header[0x1000];
+    {
+        FILE* f = fopen(appfile, "rb");
+        fread(header, 0x1000, 1, f);
+        fclose(f);
+    }
+
+    u32 version = (tmd[0x1E4] << 24) | (tmd[0x1E5] << 16) | (tmd[0x1E6] << 8) | tmd[0x1E7];
     printf(".app version: %08x\n", version);
 
     u32 titleid0 = (tmd[0x18C] << 24) | (tmd[0x18D] << 16) | (tmd[0x18E] << 8) | tmd[0x18F];
@@ -538,9 +647,13 @@ return;*/
     {
         DIR ticketdir;
         FILINFO info;
-        FRESULT res;
 
-        res = f_opendir(&ticketdir, "0:/ticket/00030004");
+        char fname[128];
+        FIL file;
+        FRESULT res;
+        u32 nwrite;
+
+        /*res = f_opendir(&ticketdir, "0:/ticket/00030004");
         printf("dir res: %d\n", res);
 
         res = f_readdir(&ticketdir, &info);
@@ -578,7 +691,10 @@ return;*/
         *(u32*)&ticket[0x1DC] = *(u32*)&tmd[0x18C];
         *(u32*)&ticket[0x1E0] = *(u32*)&tmd[0x190];
 
-        ESEncrypt(ticket, 0x2A4);
+        printf("ass console ID: %08X\n", *(u32*)&tmd[0x1D8]);
+        *(u32*)&tmd[0x1D8] = 0;
+
+        ESEncrypt(ticket, 0x2A4);*/
 
         // insert shit!
 
@@ -586,13 +702,15 @@ return;*/
 
         sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
         printf("TICKET: %s\n", fname);
-        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+        /*res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
         printf("TICKET: %d\n", res);
 
         f_write(&file, ticket, 0x2C4, &nread);
         //
 
-        f_close(&file);
+        f_close(&file);*/
+
+        CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]);
 
         printf("----- POST TICKET:\n");
     debug_listfiles("0:");
@@ -615,17 +733,23 @@ return;*/
         // data
 
         sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
-        printf("data: %s\n", fname);
-        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+        CreateSaveFile(fname, *(u32*)&header[0x238]);
 
-        u8 derp[0x4000];
-        memset(derp, 0, 0x4000);
-        f_write(&file, derp, 0x4000, &nread);
-        /*u8 zero = 0;
-        f_lseek(&file, 0x4000-1);
-        f_write(&file, &zero, 1, &nread);*/
+        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
+        CreateSaveFile(fname, *(u32*)&header[0x23C]);
 
-        f_close(&file);
+        if (header[0x1BF] & 0x04)
+        {
+            // custom banner file
+            sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
+            res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
+
+            u8 bannersav[0x4000];
+            memset(bannersav, 0, 0x4000);
+            f_write(&file, bannersav, 0x4000, &nwrite);
+
+            f_close(&file);
+        }
 
         printf("----- POST SAVE:\n");
     debug_listfiles("0:");
@@ -637,7 +761,7 @@ return;*/
         res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
         printf("TMD: %d\n", res);
 
-        f_write(&file, tmd, 0x208, &nread);
+        f_write(&file, tmd, 0x208, &nwrite);
         //
 
         f_close(&file);
@@ -647,7 +771,7 @@ return;*/
 
         // executable
 
-        sprintf(fname, "0:/title/%08x/%08x/content/000000%02x.app", titleid0, titleid1, version);
+        sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
         printf("APP: %s\n", fname);
         res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
         printf("APP: %d\n", res);
@@ -662,7 +786,7 @@ return;*/
             u8 data[0x200];
 
             u32 lenread = fread(data, 1, 0x200, app);
-            f_write(&file, data, lenread, &nread);
+            f_write(&file, data, lenread, &nwrite);
         }
 
         fclose(app);
