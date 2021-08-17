@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <cmath>
 #include "Platform.h"
 #include "NDS.h"
 #include "DSi.h"
@@ -27,7 +28,6 @@
 // SPU TODO
 // * capture addition modes, overflow bugs
 // * channel hold
-// * 'length less than 4' glitch
 
 namespace SPU
 {
@@ -62,6 +62,12 @@ const s16 PSGTable[8][8] =
     {-0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF, -0x7FFF}
 };
 
+// audio interpolation is an improvement upon the original hardware
+// (which performs no interpolation)
+int InterpType;
+s16 InterpCos[0x100];
+s16 InterpCubic[0x100][4];
+
 const u32 OutputBufferSize = 2*2048;
 s16 OutputBackbuffer[2 * OutputBufferSize];
 u32 OutputBackbufferWritePosition;
@@ -75,6 +81,8 @@ Platform::Mutex* AudioLock;
 u16 Cnt;
 u8 MasterVolume;
 u16 Bias;
+bool ApplyBias;
+bool Degrade10Bit;
 
 Channel* Channels[16];
 CaptureUnit* Capture[2];
@@ -89,6 +97,32 @@ bool Init()
     Capture[1] = new CaptureUnit(1);
 
     AudioLock = Platform::Mutex_Create();
+
+    InterpType = 0;
+
+    // generate interpolation tables
+    // values are 1:1:14 fixed-point
+
+    float m_pi = std::acos(-1.0f);
+    for (int i = 0; i < 0x100; i++)
+    {
+        float ratio = (i * m_pi) / 255.0f;
+        ratio = 1.0f - std::cos(ratio);
+
+        InterpCos[i] = (s16)(ratio * 0x2000);
+    }
+
+    for (int i = 0; i < 0x100; i++)
+    {
+        s32 i1 = i << 6;
+        s32 i2 = (i * i) >> 2;
+        s32 i3 = (i * i * i) >> 10;
+
+        InterpCubic[i][0] = -i3 + 2*i2 - i1;
+        InterpCubic[i][1] = i3 - 2*i2 + 0x4000;
+        InterpCubic[i][2] = -i3 + i2 + i1;
+        InterpCubic[i][3] = i3 - i2;
+    }
 
     return true;
 }
@@ -148,9 +182,24 @@ void DoSavestate(Savestate* file)
 }
 
 
+void SetInterpolation(int type)
+{
+    InterpType = type;
+}
+
 void SetBias(u16 bias)
 {
     Bias = bias;
+}
+
+void SetApplyBias(bool enable)
+{
+    ApplyBias = enable;
+}
+
+void SetDegrade10Bit(bool enable)
+{
+    Degrade10Bit = enable;
 }
 
 
@@ -202,6 +251,7 @@ void Channel::DoSavestate(Savestate* file)
     file->Var8((u8*)&KeyOn);
     file->Var32(&Timer);
     file->Var32((u32*)&Pos);
+    file->VarArray(PrevSample, sizeof(PrevSample));
     file->Var16((u16*)&CurSample);
     file->Var16(&NoiseVal);
 
@@ -215,7 +265,7 @@ void Channel::DoSavestate(Savestate* file)
     file->Var32(&FIFOWritePos);
     file->Var32(&FIFOReadOffset);
     file->Var32(&FIFOLevel);
-    file->VarArray(FIFO, 8*4);
+    file->VarArray(FIFO, sizeof(FIFO));
 }
 
 void Channel::FIFO_BufferData()
@@ -269,6 +319,9 @@ void Channel::Start()
         Pos = -3;
 
     NoiseVal = 0x7FFF;
+    PrevSample[0] = 0;
+    PrevSample[1] = 0;
+    PrevSample[2] = 0;
     CurSample = 0;
 
     FIFOReadPos = 0;
@@ -444,6 +497,16 @@ s32 Channel::Run()
     {
         Timer = TimerReload + (Timer - 0x10000);
 
+        // for optional interpolation: save previous samples
+        // the interpolated audio will be delayed by a couple samples,
+        // but it's easier to deal with this way
+        if ((type < 3) && (InterpType != 0))
+        {
+            PrevSample[2] = PrevSample[1];
+            PrevSample[1] = PrevSample[0];
+            PrevSample[0] = CurSample;
+        }
+
         switch (type)
         {
         case 0: NextSample_PCM8(); break;
@@ -455,6 +518,34 @@ s32 Channel::Run()
     }
 
     s32 val = (s32)CurSample;
+
+    // interpolation (emulation improvement, not a hardware feature)
+    if ((type < 3) && (InterpType != 0))
+    {
+        s32 samplepos = ((Timer - TimerReload) * 0x100) / (0x10000 - TimerReload);
+        if (samplepos > 0xFF) samplepos = 0xFF;
+
+        switch (InterpType)
+        {
+        case 1: // linear
+            val = ((val           * samplepos) +
+                   (PrevSample[0] * (0xFF-samplepos))) >> 8;
+            break;
+
+        case 2: // cosine
+            val = ((val           * InterpCos[samplepos]) +
+                   (PrevSample[0] * InterpCos[0xFF-samplepos])) >> 14;
+            break;
+
+        case 3: // cubic
+            val = ((PrevSample[2] * InterpCubic[samplepos][0]) +
+                   (PrevSample[1] * InterpCubic[samplepos][1]) +
+                   (PrevSample[0] * InterpCubic[samplepos][2]) +
+                   (val           * InterpCubic[samplepos][3])) >> 14;
+            break;
+        }
+    }
+
     val <<= VolumeShift;
     val *= Volume;
     return val;
@@ -710,11 +801,27 @@ void Mix(u32 dummy)
     rightoutput = ((s64)rightoutput * MasterVolume) >> 7;
 
     leftoutput >>= 8;
+    rightoutput >>= 8;
+
+    // Add SOUNDBIAS value
+    // The value used by all commercial games is 0x200, so we subtract that so it won't offset the final sound output.
+    if (ApplyBias)
+    {
+        leftoutput += (Bias << 6) - 0x8000;
+        rightoutput += (Bias << 6) - 0x8000;
+    }
+
     if      (leftoutput < -0x8000) leftoutput = -0x8000;
     else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
-    rightoutput >>= 8;
     if      (rightoutput < -0x8000) rightoutput = -0x8000;
     else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
+
+    // The original DS and DS lite degrade the output from 16 to 10 bit before output
+    if (Degrade10Bit)
+    {
+        leftoutput &= 0xFFFFFFC0;
+        rightoutput &= 0xFFFFFFC0;
+    }
 
     // OutputBufferFrame can never get full because it's
     // transfered to OutputBuffer at the end of the frame

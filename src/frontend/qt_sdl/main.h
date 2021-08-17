@@ -243,6 +243,7 @@ private slots:
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
     void onOpenAudioSettings();
+    void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);

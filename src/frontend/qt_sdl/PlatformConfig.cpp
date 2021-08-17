@@ -69,6 +69,7 @@ int DirectLAN;
 
 int SavestateRelocSRAM;
 
+int AudioInterp;
 int AudioVolume;
 int MicInputType;
 char MicWavPath[1024];
@@ -178,6 +179,7 @@ ConfigEntry PlatformConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
+    {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
@@ -202,7 +204,7 @@ ConfigEntry PlatformConfigFile[] =
     {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
 
     {"UpdateChannel", 0, &UpdateChannel, 0, NULL, 0},
-    
+
     {"", -1, NULL, 0, NULL, 0}
 };
 
