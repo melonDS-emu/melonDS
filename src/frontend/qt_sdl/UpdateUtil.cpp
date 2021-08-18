@@ -65,7 +65,7 @@ bool CheckForUpdatesDevGitHub(QString& errString, QString& latestVersion, QByteA
     AccessToken = token;
 
     QJsonDocument jsonWorkflows = QJsonDocument::fromJson(request(errString,
-        "https://api.github.com/repos/" + githubRepo + "/actions/workflows/" + pipelineFile + "/runs?event=push&status=success&per_page=1", AccessToken));
+        "https://api.github.com/repos/" + GitHubRepo + "/actions/workflows/" + PipelineFile + "/runs?event=push&status=success&per_page=1", AccessToken));
 
     if (!errString.isEmpty())
         return false;
@@ -89,19 +89,19 @@ bool CheckForUpdatesDevGitHub(QString& errString, QString& latestVersion, QByteA
 bool CheckForUpdatesDevAzure(QString& errString, QString& latestVersion)
 {
     QJsonDocument pipelineDefinitions = QJsonDocument::fromJson(request(errString, QStringLiteral(
-        "https://dev.azure.com/%1/_apis/build/definitions?api-version=6.0&name=%2").arg(azureProject).arg(pipelineName)));
+        "https://dev.azure.com/%1/_apis/build/definitions?api-version=6.0&name=%2").arg(AzureProject).arg(PipelineName)));
     if (!errString.isEmpty())
         return false;
 
     QJsonDocument pipelineInfo = QJsonDocument::fromJson(request(errString, QStringLiteral(
         "https://dev.azure.com/%1/_apis/build/builds?api-version=6.0&reasonFilter=individualCI&resultFilter=succeeded&$top=1&definitions=%2")
-        .arg(azureProject).arg(pipelineDefinitions["value"][0]["id"].toInt())));
+        .arg(AzureProject).arg(pipelineDefinitions["value"][0]["id"].toInt())));
     if (!errString.isEmpty())
         return false;
     latestVersion = pipelineInfo["value"][0]["sourceVersion"].toString();
 
     QJsonDocument artifactInfo = QJsonDocument::fromJson(request(errString, QStringLiteral(
-        "https://dev.azure.com/%1/_apis/build/builds/%2/artifacts?api-version=6.0").arg(azureProject).arg(pipelineInfo["value"][0]["id"].toInt())));
+        "https://dev.azure.com/%1/_apis/build/builds/%2/artifacts?api-version=6.0").arg(AzureProject).arg(pipelineInfo["value"][0]["id"].toInt())));
     if (!errString.isEmpty())
         return false;
 
@@ -117,13 +117,13 @@ bool CheckForUpdatesDevAzure(QString& errString, QString& latestVersion)
 
 bool CheckForUpdatesStable(QString& errString, QString& latestVersion)
 {
-    QJsonDocument latestStable = QJsonDocument::fromJson(request(errString, "https://api.github.com/repos/" + githubRepo + "/releases/latest"));
+    QJsonDocument latestStable = QJsonDocument::fromJson(request(errString, "https://api.github.com/repos/" + GitHubRepo + "/releases/latest"));
     if (!errString.isEmpty())
         return false;
     latestVersion = latestStable["name"].toString();
     QVersionNumber latestVersionNumber = QVersionNumber::fromString(latestVersion);
     QVersionNumber currentVersionNumber = QVersionNumber::fromString(MELONDS_VERSION);
-    DownloadName = stableName.arg(latestVersion);
+    DownloadName = StableName.arg(latestVersion);
 
     for (const auto& releaseAsset: latestStable["assets"].toArray())
     {
