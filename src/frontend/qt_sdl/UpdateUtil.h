@@ -31,43 +31,43 @@ enum
 };
 
 
-static QString azureProject = "melonDS/melonDS";
-static QString githubRepo = "Arisotura/melonDS";
+static QString AzureProject = "melonDS/melonDS";
+static QString GitHubRepo = "Arisotura/melonDS";
 #if defined(__APPLE__)
     #define CI_PLATFORM_AZURE
     #if defined(__x86_64__)
-        static QString pipelineName = "CMake Build (macOS x86-64)";
-        static QString stableName = "melonDS_%1_mac64.dmg";
+        static QString PipelineName = "CMake Build (macOS x86-64)";
+        static QString StableName = "melonDS_%1_mac64.dmg";
     #elif defined(__aarch64__)
-        static QString pipelineName = "CMake Build (macOS ARM64)";
-        static QString stableName = "melonDS_%1_macARM.dmg";
+        static QString PipelineName = "CMake Build (macOS ARM64)";
+        static QString StableName = "melonDS_%1_macARM.dmg";
     #endif
 
 #elif defined(__linux__)
     #define CI_PLATFORM_GITHUB
     #if defined(__x86_64__)
-        static QString pipelineFile = "build-ubuntu.yml";
-        static QString stableName = "melonDS_%1_linux64.7z";
+        static QString PipelineFile = "build-ubuntu.yml";
+        static QString StableName = "melonDS_%1_linux64.7z";
     #elif defined(__aarch64__)
-        static QString pipelineFile = "build-ubuntu-aarch64.yml";
-        static QString stableName = "melonDS_%1_linuxARM.7z";
+        static QString PipelineFile = "build-ubuntu-aarch64.yml";
+        static QString StableName = "melonDS_%1_linuxARM.7z";
     #endif
 
 #elif defined(__x86_64__) && defined(_WIN32)
     #define CI_PLATFORM_GITHUB
-    static QString pipelineFile = "build-windows.yml";
-    static QString stableName = "melonDS_%1_win64.7z";
+    static QString PipelineFile = "build-windows.yml";
+    static QString StableName = "melonDS_%1_win64.7z";
 #endif
 
 #if defined(CI_PLATFORM_GITHUB)
-bool checkForUpdatesDevGitHub(QString& errString, QString& latestVersion, QByteArray token);
+bool CheckForUpdatesDevGitHub(QString& errString, QString& latestVersion, QByteArray token);
 #elif defined(CI_PLATFORM_AZURE)
-bool checkForUpdatesDevAzure(QString& errString, QString& latestVersion);
+bool CheckForUpdatesDevAzure(QString& errString, QString& latestVersion);
 #endif
 
-bool checkForUpdatesStable(QString& errString, QString& latestVersion);
+bool CheckForUpdatesStable(QString& errString, QString& latestVersion);
 
-QString downloadUpdate();
+QString DownloadUpdate();
 
 }
 

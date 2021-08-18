@@ -2648,7 +2648,7 @@ void MainWindow::onCheckForUpdates()
     bool updateCheck;
     if (Config::UpdateChannel == Updater::updateChannel_Stable)
     {
-        updateCheck = Updater::checkForUpdatesStable(errString, latestVersion);
+        updateCheck = Updater::CheckForUpdatesStable(errString, latestVersion);
     }
     else
     {
@@ -2659,9 +2659,9 @@ void MainWindow::onCheckForUpdates()
         if (!ok)
             return;
 
-        updateCheck = Updater::checkForUpdatesDevGitHub(errString, latestVersion, githubKey);
+        updateCheck = Updater::CheckForUpdatesDevGitHub(errString, latestVersion, githubKey);
 #elif defined(CI_PLATFORM_AZURE)
-        updateCheck = Updater::checkForUpdatesDevAzure(errString, latestVersion);
+        updateCheck = Updater::CheckForUpdatesDevAzure(errString, latestVersion);
 #endif
     }
 
@@ -2675,7 +2675,7 @@ void MainWindow::onCheckForUpdates()
             "An update is available. The latest version is is <br/><code>" + latestVersion + "</code><br/> Do you want to download it now?");
         if (downloadUpdate == QMessageBox::Yes)
         {
-            QString downloadErr = Updater::downloadUpdate();
+            QString downloadErr = Updater::DownloadUpdate();
             if (!downloadErr.isEmpty())
                 QMessageBox::critical(this, "melonDS", "There was an error trying to download updates.<br/><code>" + downloadErr + "</code>");
             else
