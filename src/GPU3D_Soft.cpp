@@ -1646,7 +1646,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
 void SoftRenderer::VCount144()
 {
-    if (RenderThreadRunning.load(std::memory_order_relaxed))
+    if (RenderThreadRunning.load(std::memory_order_relaxed) && !GPU3D::AbortFrame)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 

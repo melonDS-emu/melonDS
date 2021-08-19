@@ -17,7 +17,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>ROM Info - melonDS</string>
+   <string>ROM info - melonDS</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="2" column="0">
@@ -40,7 +40,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Japanese Title:</string>
+         <string>Japanese title:</string>
         </property>
        </widget>
       </item>
@@ -59,7 +59,7 @@
          </font>
         </property>
         <property name="text">
-         <string>English Title:</string>
+         <string>English title:</string>
         </property>
        </widget>
       </item>
@@ -78,7 +78,7 @@
          </font>
         </property>
         <property name="text">
-         <string>French Title:</string>
+         <string>French title:</string>
         </property>
        </widget>
       </item>
@@ -97,7 +97,7 @@
          </font>
         </property>
         <property name="text">
-         <string>German Title:</string>
+         <string>German title:</string>
         </property>
        </widget>
       </item>
@@ -116,7 +116,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Italian Title:</string>
+         <string>Italian title:</string>
         </property>
        </widget>
       </item>
@@ -135,7 +135,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Spanish Title:</string>
+         <string>Spanish title:</string>
         </property>
        </widget>
       </item>
@@ -154,7 +154,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Chinese Title:</string>
+         <string>Chinese title:</string>
         </property>
        </widget>
       </item>
@@ -173,7 +173,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Korean Title:</string>
+         <string>Korean title:</string>
         </property>
        </widget>
       </item>
@@ -201,7 +201,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 ROM Offset: </string>
+         <string>ARM9 ROM offset: </string>
         </property>
        </widget>
       </item>
@@ -220,7 +220,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 Entry Address:</string>
+         <string>ARM9 entry address:</string>
         </property>
        </widget>
       </item>
@@ -239,7 +239,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 RAM Address:</string>
+         <string>ARM9 RAM address:</string>
         </property>
        </widget>
       </item>
@@ -258,7 +258,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM9 Size:</string>
+         <string>ARM9 size:</string>
         </property>
        </widget>
       </item>
@@ -277,7 +277,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 ROM Offset: </string>
+         <string>ARM7 ROM offset: </string>
         </property>
        </widget>
       </item>
@@ -296,7 +296,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 Entry Address:</string>
+         <string>ARM7 entry address:</string>
         </property>
        </widget>
       </item>
@@ -315,7 +315,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 RAM Address:</string>
+         <string>ARM7 RAM address:</string>
         </property>
        </widget>
       </item>
@@ -334,7 +334,7 @@
          </font>
         </property>
         <property name="text">
-         <string>ARM7 Size:</string>
+         <string>ARM7 size:</string>
         </property>
        </widget>
       </item>
@@ -368,7 +368,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FNT Offset:</string>
+         <string>FNT offset:</string>
         </property>
        </widget>
       </item>
@@ -387,7 +387,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FNT Size:</string>
+         <string>FNT size:</string>
         </property>
        </widget>
       </item>
@@ -406,7 +406,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FAT Offset:</string>
+         <string>FAT offset:</string>
         </property>
        </widget>
       </item>
@@ -425,7 +425,7 @@
          </font>
         </property>
         <property name="text">
-         <string>FAT Size:</string>
+         <string>FAT size:</string>
         </property>
        </widget>
       </item>
@@ -448,7 +448,7 @@
       </sizepolicy>
      </property>
      <property name="title">
-      <string>General Info</string>
+      <string>General info</string>
      </property>
      <layout class="QFormLayout" name="formLayout_3">
       <item row="0" column="0">
@@ -459,7 +459,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Game Title:</string>
+         <string>Game title:</string>
         </property>
        </widget>
       </item>
@@ -478,7 +478,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Game Code:</string>
+         <string>Game code:</string>
         </property>
        </widget>
       </item>
@@ -497,7 +497,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Maker Code:</string>
+         <string>Maker code:</string>
         </property>
        </widget>
       </item>
@@ -516,7 +516,7 @@
          </font>
         </property>
         <property name="text">
-         <string>Card Size:</string>
+         <string>Card size:</string>
         </property>
        </widget>
       </item>
@@ -784,7 +784,7 @@
       <item row="1" column="1">
        <widget class="QPushButton" name="saveIconButton">
         <property name="text">
-         <string>Save Icon</string>
+         <string>Save icon</string>
         </property>
        </widget>
       </item>

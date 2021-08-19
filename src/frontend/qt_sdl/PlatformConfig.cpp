@@ -69,6 +69,7 @@ int DirectLAN;
 
 int SavestateRelocSRAM;
 
+int AudioInterp;
 int AudioVolume;
 int MicInputType;
 char MicWavPath[1024];
@@ -167,8 +168,8 @@ ConfigEntry PlatformConfigFile[] =
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
-    {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
-    {"AudioSync", 0, &AudioSync, 1, NULL, 0},
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"AudioSync", 0, &AudioSync, 0, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
@@ -180,6 +181,7 @@ ConfigEntry PlatformConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
+    {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
@@ -205,7 +207,7 @@ ConfigEntry PlatformConfigFile[] =
 
     {"LogToFile", 0, &LogToFile, 0, NULL, 0},
     {"LogFileLocation", 1, &LogFileLocation, 0, "", 1023},
-    
+
     {"", -1, NULL, 0, NULL, 0}
 };
 

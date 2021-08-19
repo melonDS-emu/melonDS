@@ -780,7 +780,8 @@ void CompileBlock(ARM* cpu)
             JIT_DEBUGPRINT("merged BL\n");
         }
 
-        if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations)
+        if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations
+            && instrs[i].Info.Kind != (thumb ? ARMInstrInfo::tk_SVC : ARMInstrInfo::ak_SVC))
         {
             bool hasBranched = cpu->R[15] != r15;
 
@@ -846,6 +847,7 @@ void CompileBlock(ARM* cpu)
 
             if (!hasBranched && cond < 0xE && i + 1 < Config::JIT_MaxBlockSize)
             {
+                JIT_DEBUGPRINT("block lengthened by untaken branch\n");
                 instrs[i].Info.EndBlock = false;
                 instrs[i].BranchFlags |= branch_FollowCondNotTaken;
             }

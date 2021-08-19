@@ -342,7 +342,7 @@ void SetupDirectBoot()
     if (ConsoleType == 1)
     {
         // With the BIOS select in SCFG_BIOS and the initialization od
-        // SCFG_BIOS depending on the Header->UnitType, we can now boot 
+        // SCFG_BIOS depending on the Header->UnitType, we can now boot
         // directly in the roms.
         // There are some more SCFG Settings that change depending on
         // the unit type, so this is experimental
@@ -596,11 +596,24 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
+    // The SOUNDBIAS register does nothing on DSi
+    SPU::SetApplyBias(ConsoleType == 0);
+
+    bool degradeAudio = true;
+
     if (ConsoleType == 1)
     {
         DSi::Reset();
         KeyInput &= ~(1 << (16+6));
+        degradeAudio = false;
     }
+
+    if (Config::AudioBitrate == 1) // Always 10-bit
+        degradeAudio = true;
+    else if (Config::AudioBitrate == 2) // Always 16-bit
+        degradeAudio = false;
+
+    SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
 }

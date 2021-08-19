@@ -34,7 +34,7 @@ QString IntToHex(u64 num)
 
 QString QStringBytes(u64 num)
 {
-    return (QString::number(num) + " Bytes");
+    return (QString::number(num) + " bytes");
 }
 
 ROMInfoDialog* ROMInfoDialog::currentDlg = nullptr;
@@ -51,7 +51,7 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
     if (NDSCart::Banner.Version == 0x103)
-    {        
+    {
         u32 animatedIconData[32 * 32 * 64] = {0};
         Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
 
@@ -87,7 +87,7 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
         ui->chineseTitle->setText(QString::fromUtf16(NDSCart::Banner.ChineseTitle));
     else
         ui->chineseTitle->setText("None");
-    
+
     if (NDSCart::Banner.Version > 2)
         ui->koreanTitle->setText(QString::fromUtf16(NDSCart::Banner.KoreanTitle));
     else
@@ -107,12 +107,12 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
     ui->arm7EntryAddress->setText(IntToHex(NDSCart::Header.ARM7EntryAddress));
     ui->arm7RamAddress->setText(IntToHex(NDSCart::Header.ARM7RAMAddress));
     ui->arm7Size->setText(QStringBytes(NDSCart::Header.ARM7Size));
-    
+
     ui->fntOffset->setText(IntToHex(NDSCart::Header.FNTOffset));
     ui->fntSize->setText(QStringBytes(NDSCart::Header.FNTSize));
     ui->fatOffset->setText(IntToHex(NDSCart::Header.FATOffset));
     ui->fatSize->setText(QStringBytes(NDSCart::Header.FATSize));
-    
+
 }
 
 ROMInfoDialog::~ROMInfoDialog()

@@ -1062,6 +1062,12 @@ void FinishFrame(u32 lines)
     AssignFramebuffers();
 
     TotalScanlines = lines;
+
+    if (GPU3D::AbortFrame)
+    {
+        GPU3D::RestartFrame();
+        GPU3D::AbortFrame = false;
+    }
 }
 
 void StartScanline(u32 line)
@@ -1181,6 +1187,7 @@ void SetVCount(u16 val)
     // 3D engine seems to give up on the current frame in that situation, repeating the last two scanlines
     // TODO: also check the various DMA types that can be involved
 
+    GPU3D::AbortFrame |= NextVCount != val;
     NextVCount = val;
 }
 
