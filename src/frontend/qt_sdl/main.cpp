@@ -58,6 +58,7 @@
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
+#include "TitleManagerDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -1379,6 +1380,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         menu->addSeparator();
         actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+
+        // TODO: menu item should be disabled:
+        // * if no DSi NAND is specified
+        // * if something is running (even paused)
+        actTitleManager = menu->addAction("Manage DSi titles");
+        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -2389,6 +2396,11 @@ void MainWindow::onCheatsDialogFinished(int res)
 void MainWindow::onROMInfo()
 {
     ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
+}
+
+void MainWindow::onOpenTitleManager()
+{
+    TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
 }
 
 void MainWindow::onOpenEmuSettings()

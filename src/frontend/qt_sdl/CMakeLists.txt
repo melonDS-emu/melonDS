@@ -11,6 +11,7 @@ SET(SOURCES_QT_SDL
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
+	TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
