@@ -17,17 +17,19 @@
 */
 
 #include <stdio.h>
-#include <QMessageBox>
 
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "FrontendUtil.h"
+#include "DSi_NAND.h"
 
 #include "TitleManagerDialog.h"
 #include "ui_TitleManagerDialog.h"
 
 
+FILE* TitleManagerDialog::curNAND = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
 
@@ -36,11 +38,50 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    //ui->lstTitleList->setViewMode(QListView::IconMode);
-    //ui->lstTitleList->setFlow(QListView::LeftToRight);
     ui->lstTitleList->setIconSize(QSize(32, 32));
 
+    const u32 category = 0x00030004;
+    std::vector<u32> titlelist;
+    DSi_NAND::ListTitles(category, titlelist);
+
+    for (std::vector<u32>::iterator it = titlelist.begin(); it != titlelist.end(); it++)
     {
+        u32 titleid = *it;
+
+        u32 version;
+        u8 header[0x1000];
+        u8 banner[0x2400];
+
+        DSi_NAND::GetTitleInfo(category, titleid, version, header, banner);
+
+        u8 icongfx[512];
+        u16 iconpal[16];
+        memcpy(icongfx, &banner[0x20], 512);
+        memcpy(iconpal, &banner[0x220], 16*2);
+        u32 icondata[32*32];
+        Frontend::ROMIcon(icongfx, iconpal, icondata);
+        QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_ARGB32);
+        QIcon icon(QPixmap::fromImage(iconimg.copy()));
+
+        // TODO: make it possible to select other languages?
+        u16 titleraw[129];
+        memcpy(titleraw, &banner[0x340], 128*sizeof(u16));
+        titleraw[128] = '\0';
+        QString title = QString::fromUtf16(titleraw);
+        title.replace("\n", " · ");
+
+        char gamecode[5];
+        *(u32*)&gamecode[0] = *(u32*)&header[0xC];
+        gamecode[4] = '\0';
+        char extra[128];
+        sprintf(extra, "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
+
+        QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
+        item->setIcon(icon);
+        ui->lstTitleList->addItem(item);
+    }
+
+    /*{
         QPixmap boobs(32, 32);
         boobs.fill(Qt::blue);
         QIcon piss(boobs);
@@ -75,10 +116,53 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
         QListWidgetItem* derp = new QListWidgetItem("trans\nrights");
         derp->setIcon(piss);
         ui->lstTitleList->addItem(derp);
-    }
+    }*/
 }
 
 TitleManagerDialog::~TitleManagerDialog()
 {
     delete ui;
+}
+
+bool TitleManagerDialog::openNAND()
+{
+    FILE* bios7i = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    if (!bios7i)
+        return false;
+
+    u8 es_keyY[16];
+    fseek(bios7i, 0x8308, SEEK_SET);
+    fread(es_keyY, 16, 1, bios7i);
+    fclose(bios7i);
+
+    curNAND = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
+    if (!curNAND)
+        return false;
+
+    if (!DSi_NAND::Init(curNAND, es_keyY))
+    {
+        fclose(curNAND);
+        curNAND = nullptr;
+        return false;
+    }
+
+    return true;
+}
+
+void TitleManagerDialog::closeNAND()
+{
+    if (curNAND)
+    {
+        DSi_NAND::DeInit();
+
+        fclose(curNAND);
+        curNAND = nullptr;
+    }
+}
+
+void TitleManagerDialog::done(int r)
+{
+    QDialog::done(r);
+
+    closeDlg();
 }

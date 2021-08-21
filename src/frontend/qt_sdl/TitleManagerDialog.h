@@ -20,6 +20,7 @@
 #define TITLEMANAGERDIALOG_H
 
 #include <QDialog>
+#include <QMessageBox>
 
 namespace Ui { class TitleManagerDialog; }
 class TitleManagerDialog;
@@ -32,6 +33,10 @@ public:
     explicit TitleManagerDialog(QWidget* parent);
     ~TitleManagerDialog();
 
+    static FILE* curNAND;
+    static bool openNAND();
+    static void closeNAND();
+
     static TitleManagerDialog* currentDlg;
     static TitleManagerDialog* openDlg(QWidget* parent)
     {
@@ -41,6 +46,14 @@ public:
             return currentDlg;
         }
 
+        if (!openNAND())
+        {
+            QMessageBox::critical(parent,
+                                  "DSi title manager - melonDS",
+                                  "Failed to mount the DSi NAND. Check that your NAND dump is valid.");
+            return nullptr;
+        }
+
         currentDlg = new TitleManagerDialog(parent);
         currentDlg->open();
         return currentDlg;
@@ -48,10 +61,11 @@ public:
     static void closeDlg()
     {
         currentDlg = nullptr;
+        closeNAND();
     }
 
 private slots:
-    // shit
+    void done(int r);
 
 private:
     Ui::TitleManagerDialog* ui;

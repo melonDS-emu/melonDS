@@ -20,6 +20,7 @@
 #define DSI_NAND_H
 
 #include "types.h"
+#include <vector>
 
 namespace DSi_NAND
 {
@@ -31,6 +32,8 @@ void GetIDs(u8* emmc_cid, u64& consoleid);
 
 void PatchTSC();
 
+void ListTitles(u32 category, std::vector<u32>& titlelist);
+void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner);
 void ImportTest();
 
 }

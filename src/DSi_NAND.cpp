@@ -32,6 +32,7 @@ namespace DSi_NAND
 {
 
 FILE* CurFile;
+FATFS CurFS;
 
 u8 eMMC_CID[16];
 u64 ConsoleID;
@@ -42,10 +43,26 @@ u8 FATKey[16];
 u8 ESKey[16];
 
 
+UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
+UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num);
+
+
 bool Init(FILE* nandfile, u8* es_keyY)
 {
     if (!nandfile)
         return false;
+
+    ff_disk_open(FF_ReadNAND, FF_WriteNAND);
+
+    FRESULT res;
+    res = f_mount(&CurFS, "0:", 0);
+    if (res != FR_OK)
+    {
+        printf("NAND mounting failed: %d\n", res);
+        f_unmount("0:");
+        ff_disk_close();
+        return false;
+    }
 
     // read the nocash footer
 
@@ -113,6 +130,9 @@ bool Init(FILE* nandfile, u8* es_keyY)
 
 void DeInit()
 {
+    f_unmount("0:");
+    ff_disk_close();
+
     CurFile = nullptr;
 }
 
@@ -155,8 +175,8 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(DSi::SDMMCFile, addr, SEEK_SET);
-    u32 res = fread(buf, len, 1, DSi::SDMMCFile);
+    fseek(CurFile, addr, SEEK_SET);
+    u32 res = fread(buf, len, 1, CurFile);
     if (!res) return 0;
 
     for (u32 i = 0; i < len; i += 16)
@@ -177,7 +197,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(DSi::SDMMCFile, addr, SEEK_SET);
+    fseek(CurFile, addr, SEEK_SET);
 
     for (u32 s = 0; s < len; s += 0x200)
     {
@@ -191,7 +211,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
             DSi_AES::Swap16(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, DSi::SDMMCFile);
+        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
         if (!res) return 0;
     }
 
@@ -418,18 +438,7 @@ bool ESDecrypt(u8* data, u32 len)
 
 void PatchTSC()
 {
-    ff_disk_open(FF_ReadNAND, FF_WriteNAND);
-
     FRESULT res;
-    FATFS fs;
-    res = f_mount(&fs, "0:", 0);
-    if (res != FR_OK)
-    {
-        printf("NAND mounting failed: %d\n", res);
-        f_unmount("0:");
-        ff_disk_close();
-        return;
-    }
 
     for (int i = 0; i < 2; i++)
     {
@@ -469,9 +478,6 @@ void PatchTSC()
 
         f_close(&file);
     }
-
-    f_unmount("0:");
-    ff_disk_close();
 }
 
 
@@ -532,6 +538,106 @@ void debug_dumpfile(char* path, char* out)
     fclose(fout);
     f_close(&file);
 }
+
+
+u32 GetTitleVersion(u32 category, u32 titleid)
+{
+    FRESULT res;
+    char path[256];
+    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+    FIL file;
+    res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        return 0xFFFFFFFF;
+
+    u32 version;
+    u32 nread;
+    f_lseek(&file, 0x1E4);
+    f_read(&file, &version, 4, &nread);
+    version = (version >> 24) | ((version & 0xFF0000) >> 8) | ((version & 0xFF00) << 8) | (version << 24);
+
+    f_close(&file);
+    return version;
+}
+
+void ListTitles(u32 category, std::vector<u32>& titlelist)
+{
+    FRESULT res;
+    DIR titledir;
+    char path[256];
+
+    sprintf(path, "0:/title/%08x", category);
+    res = f_opendir(&titledir, path);
+    if (res != FR_OK)
+    {
+        printf("NAND: !! no title dir (%s)\n", path);
+        return;
+    }
+
+    for (;;)
+    {
+        FILINFO info;
+        f_readdir(&titledir, &info);
+        if (!info.fname[0])
+            break;
+
+        if (strlen(info.fname) != 8)
+            continue;
+
+        u32 titleid;
+        if (sscanf(info.fname, "%08x", &titleid) < 1)
+            continue;
+
+        u32 version = GetTitleVersion(category, titleid);
+        if (version == 0xFFFFFFFF)
+            continue;
+
+        sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+        FILINFO appinfo;
+        res = f_stat(path, &appinfo);
+        if (res != FR_OK)
+            continue;
+        if (appinfo.fattrib & AM_DIR)
+            continue;
+        if (appinfo.fsize < 0x4000)
+            continue;
+
+        // title is good, add it to the list
+        titlelist.push_back(titleid);
+    }
+
+    f_closedir(&titledir);
+}
+
+void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner)
+{
+    version = GetTitleVersion(category, titleid);
+    FRESULT res;
+
+    char path[256];
+    sprintf(path, "0:/title/%08x/%08x/content/%08x.app", category, titleid, version);
+    FIL file;
+    res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        return;
+
+    u32 nread;
+    f_read(&file, header, 0x1000, &nread);
+
+    u32 banneraddr = *(u32*)&header[0x68];
+    if (!banneraddr)
+    {
+        memset(banner, 0, 0x2400);
+    }
+    else
+    {
+        f_lseek(&file, banneraddr);
+        f_read(&file, banner, 0x2400, &nread);
+    }
+
+    f_close(&file);
+}
+
 
 void CreateTicket(char* path, u32 titleid0, u32 titleid1, u8 version)
 {
@@ -639,18 +745,7 @@ void ImportTest()
     char* tmdfile = "treasure.tmd";
     char* appfile = "treasure.nds";
 
-    ff_disk_open(FF_ReadNAND, FF_WriteNAND);
-
     FRESULT res;
-    FATFS fs;
-    res = f_mount(&fs, "0:", 0);
-    if (res != FR_OK)
-    {
-        printf("NAND mounting failed: %d\n", res);
-        f_unmount("0:");
-        ff_disk_close();
-        return;
-    }
 
     /*debug_listfiles("0:");
 
@@ -842,9 +937,6 @@ return;*/
 
     printf("----- POST INSERTION:\n");
     debug_listfiles("0:");
-
-    f_unmount("0:");
-    ff_disk_close();
 }
 
 }
