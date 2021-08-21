@@ -24,7 +24,10 @@
 namespace DSi_NAND
 {
 
-void Init();
+bool Init(FILE* nand, u8* es_keyY);
+void DeInit();
+
+void GetIDs(u8* emmc_cid, u64& consoleid);
 
 void PatchTSC();
 

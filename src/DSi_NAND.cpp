@@ -31,14 +31,46 @@
 namespace DSi_NAND
 {
 
+FILE* CurFile;
+
+u8 eMMC_CID[16];
+u64 ConsoleID;
+
 u8 FATIV[16];
 u8 FATKey[16];
 
 u8 ESKey[16];
 
 
-void Init()
+bool Init(FILE* nandfile, u8* es_keyY)
 {
+    if (!nandfile)
+        return false;
+
+    // read the nocash footer
+
+    fseek(nandfile, -0x40, SEEK_END);
+
+    char nand_footer[16];
+    const char* nand_footer_ref = "DSi eMMC CID/CPU";
+    fread(nand_footer, 1, 16, nandfile);
+    if (memcmp(nand_footer, nand_footer_ref, 16))
+    {
+        // There is another copy of the footer at 000FF800h for the case
+        // that by external tools the image was cut off
+        // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
+        fseek(nandfile, 0x000FF800, SEEK_SET);
+        fread(nand_footer, 1, 16, nandfile);
+        if (memcmp(nand_footer, nand_footer_ref, 16))
+        {
+            printf("ERROR: NAND missing nocash footer\n");
+            return false;
+        }
+    }
+
+    fread(eMMC_CID, 1, 16, nandfile);
+    fread(&ConsoleID, 1, 8, nandfile);
+
     // init NAND crypto
 
     SHA1_CTX sha;
@@ -46,15 +78,15 @@ void Init()
     u8 keyX[16], keyY[16];
 
     SHA1Init(&sha);
-    SHA1Update(&sha, DSi::eMMC_CID, 16);
+    SHA1Update(&sha, eMMC_CID, 16);
     SHA1Final(tmp, &sha);
 
     DSi_AES::Swap16(FATIV, tmp);
 
-    *(u32*)&keyX[0] = (u32)DSi::ConsoleID;
-    *(u32*)&keyX[4] = (u32)DSi::ConsoleID ^ 0x24EE6906;
-    *(u32*)&keyX[8] = (u32)(DSi::ConsoleID >> 32) ^ 0xE65B601D;
-    *(u32*)&keyX[12] = (u32)(DSi::ConsoleID >> 32);
+    *(u32*)&keyX[0] = (u32)ConsoleID;
+    *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
+    *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xE65B601D;
+    *(u32*)&keyX[12] = (u32)(ConsoleID >> 32);
 
     *(u32*)&keyY[0] = 0x0AB9DC76;
     *(u32*)&keyY[4] = 0xBD4DC4D3;
@@ -67,13 +99,28 @@ void Init()
 
     *(u32*)&keyX[0] = 0x4E00004A;
     *(u32*)&keyX[4] = 0x4A00004E;
-    *(u32*)&keyX[8] = (u32)(DSi::ConsoleID >> 32) ^ 0xC80C4B72;
-    *(u32*)&keyX[12] = (u32)DSi::ConsoleID;
+    *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xC80C4B72;
+    *(u32*)&keyX[12] = (u32)ConsoleID;
 
-    memcpy(keyY, &DSi::ARM7iBIOS[0x8308], 16);
+    memcpy(keyY, es_keyY, 16);
 
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
     DSi_AES::Swap16(ESKey, tmp);
+
+    CurFile = nandfile;
+    return true;
+}
+
+void DeInit()
+{
+    CurFile = nullptr;
+}
+
+
+void GetIDs(u8* emmc_cid, u64& consoleid)
+{
+    memcpy(emmc_cid, eMMC_CID, 16);
+    consoleid = ConsoleID;
 }
 
 
