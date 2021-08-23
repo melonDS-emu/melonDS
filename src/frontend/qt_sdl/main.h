@@ -19,6 +19,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <QApplication>
 #include <QThread>
 #include <QWidget>
 #include <QWindow>
@@ -189,6 +190,14 @@ private:
     GLuint screenTexture;
 };
 
+class MelonApplication : public QApplication
+{
+    Q_OBJECT
+
+public:
+    MelonApplication(int &argc, char** argv);
+    bool event(QEvent* event) override;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -200,6 +209,9 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
+
+    void loadROM(QString filename);
+    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
 
     void onAppStateChanged(Qt::ApplicationState state);
 
@@ -278,8 +290,6 @@ private:
     QList<QString> recentFileList;
     QMenu *recentMenu;
     void updateRecentFilesMenu();
-    void loadROM(QString filename);
-    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
 
     QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
