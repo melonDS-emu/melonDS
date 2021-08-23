@@ -2737,7 +2737,8 @@ bool MelonApplication::event(QEvent *event)
     if (event->type() == QEvent::FileOpen)
     {
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
-        printf("%s\n", openEvent->file().toUtf8().constData());
+
+        emuThread->emuPause();
         mainWindow->loadROM(openEvent->file());
     }
 
