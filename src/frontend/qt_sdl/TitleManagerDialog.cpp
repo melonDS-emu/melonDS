@@ -27,6 +27,7 @@
 
 #include "TitleManagerDialog.h"
 #include "ui_TitleManagerDialog.h"
+#include "ui_TitleImportDialog.h"
 
 
 FILE* TitleManagerDialog::curNAND = nullptr;
@@ -80,43 +81,6 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
         item->setIcon(icon);
         ui->lstTitleList->addItem(item);
     }
-
-    /*{
-        QPixmap boobs(32, 32);
-        boobs.fill(Qt::blue);
-        QIcon piss(boobs);
-
-        QListWidgetItem* derp = new QListWidgetItem("完全放棄宣言\nナナヲアカリ");
-        derp->setIcon(piss);
-        ui->lstTitleList->addItem(derp);
-    }
-    {
-        QPixmap boobs(32, 32);
-        boobs.fill(Qt::red);
-        QIcon piss(boobs);
-
-        QListWidgetItem* derp = new QListWidgetItem("death to\ncapitalism");
-        derp->setIcon(piss);
-        ui->lstTitleList->addItem(derp);
-    }
-    {
-        QPixmap boobs(32, 32);
-        boobs.fill(Qt::green);
-        QIcon piss(boobs);
-
-        QListWidgetItem* derp = new QListWidgetItem("piles of\ncontent");
-        derp->setIcon(piss);
-        ui->lstTitleList->addItem(derp);
-    }
-    {
-        QPixmap boobs(32, 32);
-        boobs.fill(Qt::yellow);
-        QIcon piss(boobs);
-
-        QListWidgetItem* derp = new QListWidgetItem("trans\nrights");
-        derp->setIcon(piss);
-        ui->lstTitleList->addItem(derp);
-    }*/
 }
 
 TitleManagerDialog::~TitleManagerDialog()
@@ -165,4 +129,24 @@ void TitleManagerDialog::done(int r)
     QDialog::done(r);
 
     closeDlg();
+}
+
+void TitleManagerDialog::on_btnImportTitle_clicked()
+{
+    TitleImportDialog* importdlg = new TitleImportDialog(this);
+    importdlg->open();
+}
+
+
+TitleImportDialog::TitleImportDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TitleImportDialog)
+{
+    ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);
+
+    // shit here
+}
+
+TitleImportDialog::~TitleImportDialog()
+{
+    delete ui;
 }

@@ -22,8 +22,13 @@
 #include <QDialog>
 #include <QMessageBox>
 
-namespace Ui { class TitleManagerDialog; }
+namespace Ui
+{
+    class TitleManagerDialog;
+    class TitleImportDialog;
+}
 class TitleManagerDialog;
+class TitleImportDialog;
 
 class TitleManagerDialog : public QDialog
 {
@@ -67,8 +72,25 @@ public:
 private slots:
     void done(int r);
 
+    void on_btnImportTitle_clicked();
+
 private:
     Ui::TitleManagerDialog* ui;
+};
+
+class TitleImportDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit TitleImportDialog(QWidget* parent);
+    ~TitleImportDialog();
+
+private slots:
+    //
+
+private:
+    Ui::TitleImportDialog* ui;
 };
 
 #endif // TITLEMANAGERDIALOG_H
