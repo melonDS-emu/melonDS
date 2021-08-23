@@ -21,6 +21,7 @@
 
 #include <QDialog>
 #include <QMessageBox>
+#include <QButtonGroup>
 
 namespace Ui
 {
@@ -87,10 +88,13 @@ public:
     ~TitleImportDialog();
 
 private slots:
-    //
+    void on_btnAppBrowse_clicked();
+    void on_btnTmdBrowse_clicked();
 
 private:
     Ui::TitleImportDialog* ui;
+
+    QButtonGroup* grpTmdSource;
 };
 
 #endif // TITLEMANAGERDIALOG_H

@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <QFileDialog>
 
 #include "types.h"
 #include "Platform.h"
@@ -32,6 +33,8 @@
 
 FILE* TitleManagerDialog::curNAND = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
+
+extern char* EmuDirectory;
 
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TitleManagerDialog)
@@ -143,10 +146,36 @@ TitleImportDialog::TitleImportDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    // shit here
+    grpTmdSource = new QButtonGroup(this);
+    grpTmdSource->addButton(ui->rbTmdFromFile, 0);
+    grpTmdSource->addButton(ui->rbTmdFromNUS, 1);
 }
 
 TitleImportDialog::~TitleImportDialog()
 {
     delete ui;
+}
+
+void TitleImportDialog::on_btnAppBrowse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select title executable...",
+                                                EmuDirectory,
+                                                "DSiware executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtAppFile->setText(file);
+}
+
+void TitleImportDialog::on_btnTmdBrowse_clicked()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select title metadata...",
+                                                EmuDirectory,
+                                                "DSiware metadata (*.tmd);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    ui->txtTmdFile->setText(file);
 }
