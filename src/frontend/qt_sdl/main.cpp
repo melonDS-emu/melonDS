@@ -81,6 +81,11 @@
 
 #include "ArchiveUtil.h"
 
+#ifdef UPDATER_ENABLED
+#include "UpdateUtil.h"
+#endif
+
+
 // TODO: uniform variable spelling
 
 bool RunningSomething;
@@ -1555,6 +1560,32 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
+    {
+        QMenu* menu = menubar->addMenu("About");
+
+#ifdef UPDATER_ENABLED
+        actCheckForUpdates = menu->addAction("Check for updates");
+        connect(actCheckForUpdates, &QAction::triggered, this, &MainWindow::onCheckForUpdates);
+
+        {
+            QMenu* submenu = menu->addMenu("Update Channel");
+            grpUpdateChannel = new QActionGroup(submenu);
+
+            const char* updateChannels[] = {"Stable", "Development"};
+            for (int i = 0; i < 2; i++)
+            {
+                actUpdateChannel[i] = submenu->addAction(QString(updateChannels[i]));
+                actUpdateChannel[i]->setActionGroup(grpUpdateChannel);
+                actUpdateChannel[i]->setData(QVariant(i));
+                actUpdateChannel[i]->setCheckable(true);
+            }
+            connect(grpUpdateChannel, &QActionGroup::triggered, this, &MainWindow::onChangeUpdateChannel);
+
+        }
+
+#endif
+    }
+
     setMenuBar(menubar);
 
     resize(Config::WindowWidth, Config::WindowHeight);
@@ -1612,6 +1643,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actLimitFramerate->setChecked(Config::LimitFPS != 0);
     actAudioSync->setChecked(Config::AudioSync != 0);
+
+    actUpdateChannel[Config::UpdateChannel]->setChecked(true);
 }
 
 MainWindow::~MainWindow()
@@ -2608,6 +2641,60 @@ void MainWindow::onChangeAudioSync(bool checked)
     Config::AudioSync = checked?1:0;
 }
 
+#ifdef UPDATER_ENABLED
+void MainWindow::onCheckForUpdates()
+{
+    QString errString, latestVersion;
+    bool updateCheck;
+    if (Config::UpdateChannel == Updater::updateChannel_Stable)
+    {
+        updateCheck = Updater::CheckForUpdatesStable(errString, latestVersion);
+    }
+    else
+    {
+#if defined(CI_PLATFORM_GITHUB)
+        bool ok;
+        QByteArray githubKey = QInputDialog::getText(this, "melonDS",
+                                                     "Enter your GitHub Personal Access Token. It needs to have the <code>public_repo</code> scope.", QLineEdit::Normal, QString(), &ok).toUtf8();
+        if (!ok)
+            return;
+
+        updateCheck = Updater::CheckForUpdatesDevGitHub(errString, latestVersion, githubKey);
+#elif defined(CI_PLATFORM_AZURE)
+        updateCheck = Updater::CheckForUpdatesDevAzure(errString, latestVersion);
+#endif
+    }
+
+    if (!errString.isEmpty())
+    {
+        QMessageBox::critical(this, "melonDS", "There was an error trying to check for updates.<br/><code>" + errString + "</code>");
+    }
+    else if (updateCheck)
+    {
+        QMessageBox::StandardButton downloadUpdate = QMessageBox::question(this, "melonDS",
+            "An update is available. The latest version is is <br/><code>" + latestVersion + "</code><br/> Do you want to download it now?");
+        if (downloadUpdate == QMessageBox::Yes)
+        {
+            QString downloadErr = Updater::DownloadUpdate();
+            if (!downloadErr.isEmpty())
+                QMessageBox::critical(this, "melonDS", "There was an error trying to download updates.<br/><code>" + downloadErr + "</code>");
+            else
+                QMessageBox::information(this, "melonDS", "The latest version has been downloaded next to the application. You can extract this manually.");
+        }
+    }
+    else
+    {
+        QMessageBox::information(this, "melonDS", "You are already on the latest version");
+    }
+}
+
+void MainWindow::onChangeUpdateChannel(QAction* act)
+{
+    int channel = act->data().toInt();
+    Config::UpdateChannel = channel;
+}
+
+#endif
 
 void MainWindow::onTitleUpdate(QString title)
 {

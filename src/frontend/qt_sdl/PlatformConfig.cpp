@@ -82,8 +82,9 @@ int EnableCheats;
 
 int MouseHide;
 int MouseHideSeconds;
-
 int PauseLostFocus;
+
+int UpdateChannel;
 
 bool EnableJIT;
 
@@ -201,6 +202,8 @@ ConfigEntry PlatformConfigFile[] =
     {"MouseHide",        0, &MouseHide,        0, NULL, 0},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
     {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
+
+    {"UpdateChannel", 0, &UpdateChannel, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}
 };
