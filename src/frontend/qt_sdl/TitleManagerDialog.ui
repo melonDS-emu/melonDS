@@ -44,7 +44,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Import data (save, banner...) for the selected title.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Import title data...</string>
+        <string>Import title data</string>
        </property>
       </widget>
      </item>
@@ -54,7 +54,7 @@
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Export the data (save, banner...) associated with the selected title.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
-        <string>Export title data...</string>
+        <string>Export title data</string>
        </property>
       </widget>
      </item>

@@ -81,10 +81,10 @@ private slots:
 
     void on_btnImportTitle_clicked();
     void onImportTitleFinished(int res);
-    void on_btnImportTitleData_clicked();
-    void on_btnExportTitleData_clicked();
     void on_btnDeleteTitle_clicked();
     void on_lstTitleList_currentItemChanged(QListWidgetItem* cur, QListWidgetItem* prev);
+    void onImportTitleData();
+    void onExportTitleData();
 
 private:
     Ui::TitleManagerDialog* ui;
@@ -93,8 +93,8 @@ private:
     u8 importTmdData[0x208];
     bool importReadOnly;
 
-    QAction* importAction[3];
-    QAction* exportAction[3];
+    QAction* actImportTitleData[3];
+    QAction* actExportTitleData[3];
 
     void createTitleItem(u32 category, u32 titleid);
 };

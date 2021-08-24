@@ -26,6 +26,13 @@
 namespace DSi_NAND
 {
 
+enum
+{
+    TitleData_PublicSav,
+    TitleData_PrivateSav,
+    TitleData_BannerSav,
+};
+
 bool Init(FILE* nand, u8* es_keyY);
 void DeInit();
 
@@ -38,6 +45,10 @@ bool TitleExists(u32 category, u32 titleid);
 void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner);
 bool ImportTitle(const char* appfile, u8* tmd, bool readonly);
 void DeleteTitle(u32 category, u32 titleid);
+
+u32 GetTitleDataMask(u32 category, u32 titleid);
+bool ImportTitleData(u32 category, u32 titleid, int type, const char* file);
+bool ExportTitleData(u32 category, u32 titleid, int type, const char* file);
 
 }
 

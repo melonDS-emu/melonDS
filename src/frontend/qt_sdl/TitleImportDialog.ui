@@ -94,6 +94,9 @@
    </item>
    <item row="6" column="0" colspan="3">
     <widget class="QCheckBox" name="cbReadOnly">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes the title executable and TMD read-only. Prevents DSi system utilities from deleting them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
      <property name="text">
       <string>Make title files read-only</string>
      </property>

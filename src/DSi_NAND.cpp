@@ -509,22 +509,25 @@ void debug_listfiles(const char* path)
     f_closedir(&dir);
 }
 
-void DumpFile(const char* path, const char* out)
+bool ImportFile(const char* path, const char* in)
 {
     FIL file;
-    FILE* fout;
+    FILE* fin;
     FRESULT res;
 
-    res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
-    if (res != FR_OK) return;
+    fin = fopen(in, "rb");
+    if (!fin)
+        return false;
 
-    u32 len = f_size(&file);
+    fseek(fin, 0, SEEK_END);
+    u32 len = (u32)ftell(fin);
+    fseek(fin, 0, SEEK_SET);
 
-    fout = fopen(out, "wb");
-    if (!fout)
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
     {
-        f_close(&file);
-        return;
+        fclose(fin);
+        return false;
     }
 
     u8 buf[0x200];
@@ -536,13 +539,54 @@ void DumpFile(const char* path, const char* out)
         else
             blocklen = 0x200;
 
-        u32 burp;
-        f_read(&file, buf, blocklen, &burp);
+        u32 nwrite;
+        fread(buf, blocklen, 1, fin);
+        f_write(&file, buf, blocklen, &nwrite);
+    }
+
+    fclose(fin);
+    f_close(&file);
+
+    return true;
+}
+
+bool ExportFile(const char* path, const char* out)
+{
+    FIL file;
+    FILE* fout;
+    FRESULT res;
+
+    res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        return false;
+
+    u32 len = f_size(&file);
+
+    fout = fopen(out, "wb");
+    if (!fout)
+    {
+        f_close(&file);
+        return false;
+    }
+
+    u8 buf[0x200];
+    for (u32 i = 0; i < len; i += 0x200)
+    {
+        u32 blocklen;
+        if ((i + 0x200) > len)
+            blocklen = len - i;
+        else
+            blocklen = 0x200;
+
+        u32 nread;
+        f_read(&file, buf, blocklen, &nread);
         fwrite(buf, blocklen, 1, fout);
     }
 
     fclose(fout);
     f_close(&file);
+
+    return true;
 }
 
 void RemoveFile(const char* path)
@@ -692,6 +736,9 @@ bool TitleExists(u32 category, u32 titleid)
 void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner)
 {
     version = GetTitleVersion(category, titleid);
+    if (version == 0xFFFFFFFF)
+        return;
+
     FRESULT res;
 
     char path[256];
@@ -704,15 +751,18 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banne
     u32 nread;
     f_read(&file, header, 0x1000, &nread);
 
-    u32 banneraddr = *(u32*)&header[0x68];
-    if (!banneraddr)
+    if (banner)
     {
-        memset(banner, 0, 0x2400);
-    }
-    else
-    {
-        f_lseek(&file, banneraddr);
-        f_read(&file, banner, 0x2400, &nread);
+        u32 banneraddr = *(u32*)&header[0x68];
+        if (!banneraddr)
+        {
+            memset(banner, 0, 0x2400);
+        }
+        else
+        {
+            f_lseek(&file, banneraddr);
+            f_read(&file, banner, 0x2400, &nread);
+        }
     }
 
     f_close(&file);
@@ -916,28 +966,11 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     // executable
 
     sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
-    res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
-    if (res != FR_OK)
+    if (!ImportFile(fname, appfile))
     {
         printf("ImportTitle: failed to create executable (%d)\n", res);
         return false;
     }
-
-    FILE* app = fopen(appfile, "rb");
-    fseek(app, 0, SEEK_END);
-    u32 applen = (u32)ftell(app);
-    fseek(app, 0, SEEK_SET);
-
-    for (u32 i = 0; i < applen; i += 0x200)
-    {
-        u8 data[0x200];
-
-        u32 lenread = fread(data, 1, 0x200, app);
-        f_write(&file, data, lenread, &nwrite);
-    }
-
-    fclose(app);
-    f_close(&file);
 
     if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
 
@@ -953,6 +986,74 @@ void DeleteTitle(u32 category, u32 titleid)
 
     sprintf(fname, "0:/title/%08x/%08x", category, titleid);
     RemoveDir(fname);
+}
+
+u32 GetTitleDataMask(u32 category, u32 titleid)
+{
+    u32 version;
+    u8 header[0x1000];
+
+    GetTitleInfo(category, titleid, version, header, nullptr);
+    if (version == 0xFFFFFFFF)
+        return 0;
+
+    u32 ret = 0;
+    if (*(u32*)&header[0x238] != 0) ret |= (1 << TitleData_PublicSav);
+    if (*(u32*)&header[0x23C] != 0) ret |= (1 << TitleData_PrivateSav);
+    if (header[0x1BF] & 0x04)       ret |= (1 << TitleData_BannerSav);
+
+    return ret;
+}
+
+bool ImportTitleData(u32 category, u32 titleid, int type, const char* file)
+{
+    char fname[128];
+
+    switch (type)
+    {
+    case TitleData_PublicSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        break;
+
+    case TitleData_PrivateSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        break;
+
+    case TitleData_BannerSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        break;
+
+    default:
+        return false;
+    }
+
+    RemoveFile(fname);
+    return ImportFile(fname, file);
+}
+
+bool ExportTitleData(u32 category, u32 titleid, int type, const char* file)
+{
+    char fname[128];
+
+    switch (type)
+    {
+    case TitleData_PublicSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", category, titleid);
+        break;
+
+    case TitleData_PrivateSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", category, titleid);
+        break;
+
+    case TitleData_BannerSav:
+        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", category, titleid);
+        break;
+
+    default:
+        return false;
+    }
+
+    return ExportFile(fname, file);
 }
 
 }

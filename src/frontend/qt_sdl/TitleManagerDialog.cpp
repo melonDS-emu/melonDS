@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <QFileDialog>
+#include <QMenu>
 
 #include "types.h"
 #include "Platform.h"
@@ -59,6 +60,42 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->btnImportTitleData->setEnabled(false);
     ui->btnExportTitleData->setEnabled(false);
     ui->btnDeleteTitle->setEnabled(false);
+
+    {
+        QMenu* menu = new QMenu(ui->btnImportTitleData);
+
+        actImportTitleData[0] = menu->addAction("public.sav");
+        actImportTitleData[0]->setData(QVariant(DSi_NAND::TitleData_PublicSav));
+        connect(actImportTitleData[0], &QAction::triggered, this, &TitleManagerDialog::onImportTitleData);
+
+        actImportTitleData[1] = menu->addAction("private.sav");
+        actImportTitleData[1]->setData(QVariant(DSi_NAND::TitleData_PrivateSav));
+        connect(actImportTitleData[1], &QAction::triggered, this, &TitleManagerDialog::onImportTitleData);
+
+        actImportTitleData[2] = menu->addAction("banner.sav");
+        actImportTitleData[2]->setData(QVariant(DSi_NAND::TitleData_BannerSav));
+        connect(actImportTitleData[2], &QAction::triggered, this, &TitleManagerDialog::onImportTitleData);
+
+        ui->btnImportTitleData->setMenu(menu);
+    }
+
+    {
+        QMenu* menu = new QMenu(ui->btnExportTitleData);
+
+        actExportTitleData[0] = menu->addAction("public.sav");
+        actExportTitleData[0]->setData(QVariant(DSi_NAND::TitleData_PublicSav));
+        connect(actExportTitleData[0], &QAction::triggered, this, &TitleManagerDialog::onExportTitleData);
+
+        actExportTitleData[1] = menu->addAction("private.sav");
+        actExportTitleData[1]->setData(QVariant(DSi_NAND::TitleData_PrivateSav));
+        connect(actExportTitleData[1], &QAction::triggered, this, &TitleManagerDialog::onExportTitleData);
+
+        actExportTitleData[2] = menu->addAction("banner.sav");
+        actExportTitleData[2]->setData(QVariant(DSi_NAND::TitleData_BannerSav));
+        connect(actExportTitleData[2], &QAction::triggered, this, &TitleManagerDialog::onExportTitleData);
+
+        ui->btnExportTitleData->setMenu(menu);
+    }
 }
 
 TitleManagerDialog::~TitleManagerDialog()
@@ -99,6 +136,9 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
     item->setIcon(icon);
     item->setData(Qt::UserRole, (((u64)category<<32) | (u64)titleid));
+    item->setData(Qt::UserRole+1, *(u32*)&header[0x238]); // public.sav size
+    item->setData(Qt::UserRole+2, *(u32*)&header[0x23C]); // private.sav size
+    item->setData(Qt::UserRole+3, (u32)((header[0x1BF] & 0x04) ? 0x4000 : 0)); // banner.sav size
     ui->lstTitleList->addItem(item);
 }
 
@@ -183,16 +223,6 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     }
 }
 
-void TitleManagerDialog::on_btnImportTitleData_clicked()
-{
-    //
-}
-
-void TitleManagerDialog::on_btnExportTitleData_clicked()
-{
-    //
-}
-
 void TitleManagerDialog::on_btnDeleteTitle_clicked()
 {
     QListWidgetItem* cur = ui->lstTitleList->currentItem();
@@ -205,7 +235,7 @@ void TitleManagerDialog::on_btnDeleteTitle_clicked()
                               QMessageBox::No) != QMessageBox::Yes)
         return;
 
-    u64 titleid = cur->data(Qt::UserRole).toLongLong();
+    u64 titleid = cur->data(Qt::UserRole).toULongLong();
     DSi_NAND::DeleteTitle((u32)(titleid >> 32), (u32)titleid);
 
     delete cur;
@@ -225,7 +255,125 @@ void TitleManagerDialog::on_lstTitleList_currentItemChanged(QListWidgetItem* cur
         ui->btnExportTitleData->setEnabled(true);
         ui->btnDeleteTitle->setEnabled(true);
 
-        //
+        u32 val;
+        val = cur->data(Qt::UserRole+1).toUInt();
+        actImportTitleData[0]->setEnabled(val != 0);
+        actExportTitleData[0]->setEnabled(val != 0);
+        val = cur->data(Qt::UserRole+2).toUInt();
+        actImportTitleData[1]->setEnabled(val != 0);
+        actExportTitleData[1]->setEnabled(val != 0);
+        val = cur->data(Qt::UserRole+3).toUInt();
+        actImportTitleData[2]->setEnabled(val != 0);
+        actExportTitleData[2]->setEnabled(val != 0);
+    }
+}
+
+void TitleManagerDialog::onImportTitleData()
+{
+    int type = ((QAction*)sender())->data().toInt();
+
+    QListWidgetItem* cur = ui->lstTitleList->currentItem();
+    if (!cur)
+    {
+        printf("what??\n");
+        return;
+    }
+
+    u32 wantedsize;
+    switch (type)
+    {
+    case DSi_NAND::TitleData_PublicSav:  wantedsize = cur->data(Qt::UserRole+1).toUInt(); break;
+    case DSi_NAND::TitleData_PrivateSav: wantedsize = cur->data(Qt::UserRole+2).toUInt(); break;
+    case DSi_NAND::TitleData_BannerSav:  wantedsize = cur->data(Qt::UserRole+3).toUInt(); break;
+    default:
+        printf("what??\n");
+        return;
+    }
+
+    QString file = QFileDialog::getOpenFileName(this,
+                                                "Select file to import...",
+                                                EmuDirectory,
+                                                "Title data files (*.sav);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    FILE* f = fopen(file.toStdString().c_str(), "rb");
+    if (!f)
+    {
+        QMessageBox::critical(this,
+                              "Import title data - melonDS",
+                              "Could not open data file.\nCheck that the file is accessible.");
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    u64 len = ftell(f);
+    fclose(f);
+
+    if (len != wantedsize)
+    {
+        QMessageBox::critical(this,
+                              "Import title data - melonDS",
+                              QString("Cannot import this data file: size is incorrect (expected: %1 bytes).").arg(wantedsize));
+        return;
+    }
+
+    u64 titleid = cur->data(Qt::UserRole).toULongLong();
+    bool res = DSi_NAND::ImportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
+    if (!res)
+    {
+        QMessageBox::critical(this,
+                              "Import title data - melonDS",
+                              "Failed to import the data file. Check that your NAND is accessible and valid.");
+    }
+}
+
+void TitleManagerDialog::onExportTitleData()
+{
+    int type = ((QAction*)sender())->data().toInt();
+
+    QListWidgetItem* cur = ui->lstTitleList->currentItem();
+    if (!cur)
+    {
+        printf("what??\n");
+        return;
+    }
+
+    QString exportname;
+    u32 wantedsize;
+    switch (type)
+    {
+    case DSi_NAND::TitleData_PublicSav:
+        exportname = "/public.sav";
+        wantedsize = cur->data(Qt::UserRole+1).toUInt();
+        break;
+    case DSi_NAND::TitleData_PrivateSav:
+        exportname = "/private.sav";
+        wantedsize = cur->data(Qt::UserRole+2).toUInt();
+        break;
+    case DSi_NAND::TitleData_BannerSav:
+        exportname = "/banner.sav";
+        wantedsize = cur->data(Qt::UserRole+3).toUInt();
+        break;
+    default:
+        printf("what??\n");
+        return;
+    }
+
+    QString file = QFileDialog::getSaveFileName(this,
+                                                "Select path to export to...",
+                                                QString(EmuDirectory) + exportname,
+                                                "Title data files (*.sav);;Any file (*.*)");
+
+    if (file.isEmpty()) return;
+
+    u64 titleid = cur->data(Qt::UserRole).toULongLong();
+    bool res = DSi_NAND::ExportTitleData((u32)(titleid >> 32), (u32)titleid, type, file.toStdString().c_str());
+    if (!res)
+    {
+        QMessageBox::critical(this,
+                              "Export title data - melonDS",
+                              "Failed to Export the data file. Check that the destination directory is writable.");
     }
 }
 
