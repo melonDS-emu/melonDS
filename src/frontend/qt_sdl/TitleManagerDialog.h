@@ -62,7 +62,7 @@ public:
         {
             QMessageBox::critical(parent,
                                   "DSi title manager - melonDS",
-                                  "Failed to mount the DSi NAND. Check that your NAND dump is valid.");
+                                  "Failed to mount the DSi NAND. Check that your NAND dump is accessible and valid.");
             return nullptr;
         }
 
@@ -81,8 +81,8 @@ private slots:
 
     void on_btnImportTitle_clicked();
     void onImportTitleFinished(int res);
-
-    void on_btnExportTitle_clicked();
+    void on_btnImportTitleData_clicked();
+    void on_btnExportTitleData_clicked();
     void on_btnDeleteTitle_clicked();
     void on_lstTitleList_currentItemChanged(QListWidgetItem* cur, QListWidgetItem* prev);
 
@@ -92,6 +92,9 @@ private:
     QString importAppPath;
     u8 importTmdData[0x208];
     bool importReadOnly;
+
+    QAction* importAction[3];
+    QAction* exportAction[3];
 
     void createTitleItem(u32 category, u32 titleid);
 };
@@ -107,10 +110,6 @@ public:
 private slots:
     void accept() override;
     void tmdDownloaded();
-
-    void on_TitleImportDialog_accepted();
-    void on_TitleImportDialog_rejected();
-    void on_TitleImportDialog_reject();
 
     void on_btnAppBrowse_clicked();
     void on_btnTmdBrowse_clicked();

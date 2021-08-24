@@ -56,6 +56,8 @@ TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     ui->lstTitleList->sortItems();
 
+    ui->btnImportTitleData->setEnabled(false);
+    ui->btnExportTitleData->setEnabled(false);
     ui->btnDeleteTitle->setEnabled(false);
 }
 
@@ -160,6 +162,9 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     titleid[0] = (importTmdData[0x18C] << 24) | (importTmdData[0x18D] << 16) | (importTmdData[0x18E] << 8) | importTmdData[0x18F];
     titleid[1] = (importTmdData[0x190] << 24) | (importTmdData[0x191] << 16) | (importTmdData[0x192] << 8) | importTmdData[0x193];
 
+    // remove anything that might hinder the install
+    DSi_NAND::DeleteTitle(titleid[0], titleid[1]);
+
     bool importres = DSi_NAND::ImportTitle(importAppPath.toStdString().c_str(), importTmdData, importReadOnly);
     if (!importres)
     {
@@ -178,7 +183,12 @@ void TitleManagerDialog::onImportTitleFinished(int res)
     }
 }
 
-void TitleManagerDialog::on_btnExportTitle_clicked()
+void TitleManagerDialog::on_btnImportTitleData_clicked()
+{
+    //
+}
+
+void TitleManagerDialog::on_btnExportTitleData_clicked()
 {
     //
 }
@@ -205,11 +215,17 @@ void TitleManagerDialog::on_lstTitleList_currentItemChanged(QListWidgetItem* cur
 {
     if (!cur)
     {
+        ui->btnImportTitleData->setEnabled(false);
+        ui->btnExportTitleData->setEnabled(false);
         ui->btnDeleteTitle->setEnabled(false);
     }
     else
     {
+        ui->btnImportTitleData->setEnabled(true);
+        ui->btnExportTitleData->setEnabled(true);
         ui->btnDeleteTitle->setEnabled(true);
+
+        //
     }
 }
 
@@ -297,8 +313,6 @@ void TitleImportDialog::accept()
                                   QMessageBox::StandardButtons(QMessageBox::Yes|QMessageBox::No),
                                   QMessageBox::No) != QMessageBox::Yes)
             return;
-
-        DSi_NAND::DeleteTitle(titleid[1], titleid[0]);
     }
 
     if (!tmdfromfile)
@@ -315,6 +329,12 @@ void TitleImportDialog::accept()
         connect(netreply, &QNetworkReply::finished, this, &TitleImportDialog::tmdDownloaded);
 
         setEnabled(false);
+    }
+    else
+    {
+        appPath = ui->txtAppFile->text();
+        readOnly = ui->cbReadOnly->isChecked();
+        QDialog::accept();
     }
 }
 
@@ -361,21 +381,6 @@ void TitleImportDialog::tmdDownloaded()
         readOnly = ui->cbReadOnly->isChecked();
         QDialog::accept();
     }
-}
-
-void TitleImportDialog::on_TitleImportDialog_accepted()
-{
-    setEnabled(false);
-}
-
-void TitleImportDialog::on_TitleImportDialog_rejected()
-{
-    printf("rejected\n");
-}
-
-void TitleImportDialog::on_TitleImportDialog_reject()
-{
-    printf("reject\n");
 }
 
 void TitleImportDialog::on_btnAppBrowse_clicked()
