@@ -21,7 +21,13 @@
 
 #include <QDialog>
 #include <QMessageBox>
+#include <QListWidget>
 #include <QButtonGroup>
+
+#include <QUrl>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QNetworkAccessManager>
 
 namespace Ui
 {
@@ -74,9 +80,20 @@ private slots:
     void done(int r);
 
     void on_btnImportTitle_clicked();
+    void onImportTitleFinished(int res);
+
+    void on_btnExportTitle_clicked();
+    void on_btnDeleteTitle_clicked();
+    void on_lstTitleList_currentItemChanged(QListWidgetItem* cur, QListWidgetItem* prev);
 
 private:
     Ui::TitleManagerDialog* ui;
+
+    QString importAppPath;
+    u8 importTmdData[0x208];
+    bool importReadOnly;
+
+    void createTitleItem(u32 category, u32 titleid);
 };
 
 class TitleImportDialog : public QDialog
@@ -84,17 +101,34 @@ class TitleImportDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit TitleImportDialog(QWidget* parent);
+    explicit TitleImportDialog(QWidget* parent, QString& apppath, u8* tmd, bool& readonly);
     ~TitleImportDialog();
 
 private slots:
+    void accept() override;
+    void tmdDownloaded();
+
+    void on_TitleImportDialog_accepted();
+    void on_TitleImportDialog_rejected();
+    void on_TitleImportDialog_reject();
+
     void on_btnAppBrowse_clicked();
     void on_btnTmdBrowse_clicked();
+    void onChangeTmdSource(int id);
 
 private:
     Ui::TitleImportDialog* ui;
 
     QButtonGroup* grpTmdSource;
+
+    QNetworkAccessManager* network;
+    QNetworkReply* netreply;
+
+    QString& appPath;
+    u8* tmdData;
+    bool& readOnly;
+
+    u32 titleid[2];
 };
 
 #endif // TITLEMANAGERDIALOG_H

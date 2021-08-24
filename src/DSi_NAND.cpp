@@ -481,22 +481,22 @@ void PatchTSC()
 }
 
 
-void debug_listfiles(char* path)
+void debug_listfiles(const char* path)
 {
     DIR dir;
     FILINFO info;
     FRESULT res;
 
     res = f_opendir(&dir, path);
-    if (res) return;
+    if (res != FR_OK) return;
 
     for (;;)
     {
         res = f_readdir(&dir, &info);
-        if (res) return;
+        if (res != FR_OK) return;
         if (!info.fname[0]) return;
 
-        char fullname[1024];
+        char fullname[512];
         sprintf(fullname, "%s/%s", path, info.fname);
         printf("[%c] %s\n", (info.fattrib&AM_DIR)?'D':'F', fullname);
 
@@ -505,21 +505,27 @@ void debug_listfiles(char* path)
             debug_listfiles(fullname);
         }
     }
+
+    f_closedir(&dir);
 }
 
-void debug_dumpfile(char* path, char* out)
+void DumpFile(const char* path, const char* out)
 {
     FIL file;
     FILE* fout;
     FRESULT res;
 
     res = f_open(&file, path, FA_OPEN_EXISTING | FA_READ);
-    if (res) return;
+    if (res != FR_OK) return;
 
     u32 len = f_size(&file);
-    printf("%s: len=%d\n", path, len);
 
     fout = fopen(out, "wb");
+    if (!fout)
+    {
+        f_close(&file);
+        return;
+    }
 
     u8 buf[0x200];
     for (u32 i = 0; i < len; i += 0x200)
@@ -537,6 +543,71 @@ void debug_dumpfile(char* path, char* out)
 
     fclose(fout);
     f_close(&file);
+}
+
+void RemoveFile(const char* path)
+{
+    FILINFO info;
+    FRESULT res = f_stat(path, &info);
+    if (res != FR_OK) return;
+
+    if (info.fattrib & AM_RDO)
+        f_chmod(path, 0, AM_RDO);
+
+    f_unlink(path);
+}
+
+void RemoveDir(const char* path)
+{
+    DIR dir;
+    FILINFO info;
+    FRESULT res;
+
+    res = f_stat(path, &info);
+    if (res != FR_OK) return;
+
+    if (info.fattrib & AM_RDO)
+        f_chmod(path, 0, AM_RDO);
+
+    res = f_opendir(&dir, path);
+    if (res != FR_OK) return;
+
+    std::vector<std::string> dirlist;
+    std::vector<std::string> filelist;
+
+    for (;;)
+    {
+        res = f_readdir(&dir, &info);
+        if (res != FR_OK) break;
+        if (!info.fname[0]) break;
+
+        char fullname[512];
+        sprintf(fullname, "%s/%s", path, info.fname);
+
+        if (info.fattrib & AM_RDO)
+            f_chmod(path, 0, AM_RDO);
+
+        if (info.fattrib & AM_DIR)
+            dirlist.push_back(fullname);
+        else
+            filelist.push_back(fullname);
+    }
+
+    f_closedir(&dir);
+
+    for (std::vector<std::string>::iterator it = dirlist.begin(); it != dirlist.end(); it++)
+    {
+        const char* path = (*it).c_str();
+        RemoveDir(path);
+    }
+
+    for (std::vector<std::string>::iterator it = filelist.begin(); it != filelist.end(); it++)
+    {
+        const char* path = (*it).c_str();
+        f_unlink(path);
+    }
+
+    f_unlink(path);
 }
 
 
@@ -609,6 +680,15 @@ void ListTitles(u32 category, std::vector<u32>& titlelist)
     f_closedir(&titledir);
 }
 
+bool TitleExists(u32 category, u32 titleid)
+{
+    char path[256];
+    sprintf(path, "0:/title/%08x/%08x/content/title.tmd", category, titleid);
+
+    FRESULT res = f_stat(path, nullptr);
+    return (res == FR_OK);
+}
+
 void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner)
 {
     version = GetTitleVersion(category, titleid);
@@ -639,17 +719,17 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banne
 }
 
 
-void CreateTicket(char* path, u32 titleid0, u32 titleid1, u8 version)
+bool CreateTicket(const char* path, u32 titleid0, u32 titleid1, u8 version)
 {
     FIL file;
     FRESULT res;
     u32 nwrite;
 
-    res = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
         printf("CreateTicket: failed to create file (%d)\n", res);
-        return;
+        return false;
     }
 
     u8 ticket[0x2C4];
@@ -670,15 +750,20 @@ void CreateTicket(char* path, u32 titleid0, u32 titleid1, u8 version)
     f_write(&file, ticket, 0x2C4, &nwrite);
 
     f_close(&file);
+
+    return true;
 }
 
-void CreateSaveFile(char* path, u32 len)
+bool CreateSaveFile(const char* path, u32 len)
 {
-    if (len < 0x200) return;
-    if (len > 0x8000000) return;
+    if (len == 0) return true;
+    if (len < 0x200) return false;
+    if (len > 0x8000000) return false;
 
     u32 clustersize, maxfiles, totsec16, fatsz16;
 
+    // CHECKME!
+    // code inspired from https://github.com/JeffRuLz/TMFH/blob/master/arm9/src/sav.c
     if (len < 573440)
     {
         clustersize = 512;
@@ -706,11 +791,11 @@ void CreateSaveFile(char* path, u32 len)
     FRESULT res;
     u32 nwrite;
 
-    res = f_open(&file, path, FA_CREATE_NEW | FA_WRITE);
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
         printf("CreateSaveFile: failed to create file (%d)\n", res);
-        return;
+        return false;
     }
 
     u8* data = new u8[len];
@@ -738,43 +823,16 @@ void CreateSaveFile(char* path, u32 len)
 
     f_close(&file);
     delete[] data;
+
+    return true;
 }
 
-void ImportTest()
+bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
 {
-    char* tmdfile = "treasure.tmd";
-    char* appfile = "treasure.nds";
-
-    FRESULT res;
-
-    /*debug_listfiles("0:");
-
-    debug_dumpfile("0:/sys/log/sysmenu.log", "sysmenu.log");
-    debug_dumpfile("0:/sys/log/product.log", "product.log");
-
-    f_unmount("0:");
-    ff_disk_close();
-    return;*/
-
-    //debug_dumpfile("0:/title/00030004/4b4e4448/content/00000002.app", "00000002.app");
-    //debug_dumpfile("0:/title/00030004/4b4e4448/content/title.tmd", "title.tmd");
-    //f_unlink("0:/title/00030004/4b475556/data/public.sav");
-    //f_unlink("0:/ticket/00030004/4b475556.tik");
-    //debug_dumpfile("0:/title/00030004/4b475556/content/title.tmd", "flipnote.tmd");
-    //f_unlink("0:/title/00030004/4b475556/content/title.tmd");
-    /*f_unmount("0:");
-    ff_disk_close();
-return;*/
-    u8 tmd[0x208];
-    {
-        FILE* f = fopen(tmdfile, "rb");
-        fread(tmd, 0x208, 1, f);
-        fclose(f);
-    }
-
     u8 header[0x1000];
     {
         FILE* f = fopen(appfile, "rb");
+        if (!f) return false;
         fread(header, 0x1000, 1, f);
         fclose(f);
     }
@@ -786,157 +844,115 @@ return;*/
     u32 titleid1 = (tmd[0x190] << 24) | (tmd[0x191] << 16) | (tmd[0x192] << 8) | tmd[0x193];
     printf("Title ID: %08x/%08x\n", titleid0, titleid1);
 
+    FRESULT res;
+    DIR ticketdir;
+    FILINFO info;
+
+    char fname[128];
+    FIL file;
+    u32 nwrite;
+
+    // ticket
+
+    sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
+    if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
+        return false;
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    // folder
+
+    sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
+    f_mkdir(fname);
+    sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
+    f_mkdir(fname);
+    sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
+    f_mkdir(fname);
+
+    // data
+
+    sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
+    if (!CreateSaveFile(fname, *(u32*)&header[0x238]))
+        return false;
+
+    sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
+    if (!CreateSaveFile(fname, *(u32*)&header[0x23C]))
+        return false;
+
+    if (header[0x1BF] & 0x04)
     {
-        DIR ticketdir;
-        FILINFO info;
-
-        char fname[128];
-        FIL file;
-        FRESULT res;
-        u32 nwrite;
-
-        /*res = f_opendir(&ticketdir, "0:/ticket/00030004");
-        printf("dir res: %d\n", res);
-
-        res = f_readdir(&ticketdir, &info);
-        if (res)
+        // custom banner file
+        sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
+        res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
+        if (res != FR_OK)
         {
-            printf("bad read res: %d\n", res);
+            printf("ImportTitle: failed to create banner.sav (%d)\n", res);
+            return false;
         }
 
-        if (!info.fname[0])
-        {
-            printf("VERY BAD!! DIR IS EMPTY\n");
-            // TODO ERROR MANAGEMENT!!
-        }
+        u8 bannersav[0x4000];
+        memset(bannersav, 0, 0x4000);
+        f_write(&file, bannersav, 0x4000, &nwrite);
 
-        printf("- %s\n", info.fname);
-        char fname[128];
-        sprintf(fname, "0:/ticket/00030004/%s", info.fname);
-
-        f_closedir(&ticketdir);
-
-        FIL file;
-        res = f_open(&file, fname, FA_OPEN_EXISTING | FA_READ);
-        //
-
-        u8 ticket[0x2C4];
-        u32 nread;
-        f_read(&file, ticket, 0x2C4, &nread);
-        //
-
-        f_close(&file);
-
-        ESDecrypt(ticket, 0x2A4);
-
-        // change title ID
-        *(u32*)&ticket[0x1DC] = *(u32*)&tmd[0x18C];
-        *(u32*)&ticket[0x1E0] = *(u32*)&tmd[0x190];
-
-        printf("ass console ID: %08X\n", *(u32*)&tmd[0x1D8]);
-        *(u32*)&tmd[0x1D8] = 0;
-
-        ESEncrypt(ticket, 0x2A4);*/
-
-        // insert shit!
-
-        // ticket
-
-        sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
-        printf("TICKET: %s\n", fname);
-        /*res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
-        printf("TICKET: %d\n", res);
-
-        f_write(&file, ticket, 0x2C4, &nread);
-        //
-
-        f_close(&file);*/
-
-        CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]);
-
-        printf("----- POST TICKET:\n");
-    debug_listfiles("0:");
-
-        // folder
-
-        sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
-        res = f_mkdir(fname);
-        printf("DIR0 RES=%d\n", res);
-        sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
-        res = f_mkdir(fname);
-        printf("DIR1 RES=%d\n", res);
-        sprintf(fname, "0:/title/%08x/%08x/data", titleid0, titleid1);
-        res = f_mkdir(fname);
-        printf("DIR2 RES=%d\n", res);
-
-        printf("----- POST DIRS:\n");
-    debug_listfiles("0:");
-
-        // data
-
-        sprintf(fname, "0:/title/%08x/%08x/data/public.sav", titleid0, titleid1);
-        CreateSaveFile(fname, *(u32*)&header[0x238]);
-
-        sprintf(fname, "0:/title/%08x/%08x/data/private.sav", titleid0, titleid1);
-        CreateSaveFile(fname, *(u32*)&header[0x23C]);
-
-        if (header[0x1BF] & 0x04)
-        {
-            // custom banner file
-            sprintf(fname, "0:/title/%08x/%08x/data/banner.sav", titleid0, titleid1);
-            res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
-
-            u8 bannersav[0x4000];
-            memset(bannersav, 0, 0x4000);
-            f_write(&file, bannersav, 0x4000, &nwrite);
-
-            f_close(&file);
-        }
-
-        printf("----- POST SAVE:\n");
-    debug_listfiles("0:");
-
-        // TMD
-
-        sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
-        printf("TMD: %s\n", fname);
-        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
-        printf("TMD: %d\n", res);
-
-        f_write(&file, tmd, 0x208, &nwrite);
-        //
-
-        f_close(&file);
-
-        printf("----- POST TMD:\n");
-    debug_listfiles("0:");
-
-        // executable
-
-        sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
-        printf("APP: %s\n", fname);
-        res = f_open(&file, fname, FA_CREATE_NEW | FA_WRITE);
-        printf("APP: %d\n", res);
-
-        FILE* app = fopen(appfile, "rb");
-        fseek(app, 0, SEEK_END);
-        u32 applen = (u32)ftell(app);
-        fseek(app, 0, SEEK_SET);
-
-        for (u32 i = 0; i < applen; i += 0x200)
-        {
-            u8 data[0x200];
-
-            u32 lenread = fread(data, 1, 0x200, app);
-            f_write(&file, data, lenread, &nwrite);
-        }
-
-        fclose(app);
         f_close(&file);
     }
 
-    printf("----- POST INSERTION:\n");
-    debug_listfiles("0:");
+    // TMD
+
+    sprintf(fname, "0:/title/%08x/%08x/content/title.tmd", titleid0, titleid1);
+    res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        printf("ImportTitle: failed to create TMD (%d)\n", res);
+        return false;
+    }
+
+    f_write(&file, tmd, 0x208, &nwrite);
+
+    f_close(&file);
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    // executable
+
+    sprintf(fname, "0:/title/%08x/%08x/content/%08x.app", titleid0, titleid1, version);
+    res = f_open(&file, fname, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        printf("ImportTitle: failed to create executable (%d)\n", res);
+        return false;
+    }
+
+    FILE* app = fopen(appfile, "rb");
+    fseek(app, 0, SEEK_END);
+    u32 applen = (u32)ftell(app);
+    fseek(app, 0, SEEK_SET);
+
+    for (u32 i = 0; i < applen; i += 0x200)
+    {
+        u8 data[0x200];
+
+        u32 lenread = fread(data, 1, 0x200, app);
+        f_write(&file, data, lenread, &nwrite);
+    }
+
+    fclose(app);
+    f_close(&file);
+
+    if (readonly) f_chmod(fname, AM_RDO, AM_RDO);
+
+    return true;
+}
+
+void DeleteTitle(u32 category, u32 titleid)
+{
+    char fname[128];
+
+    sprintf(fname, "0:/ticket/%08x/%08x.tik", category, titleid);
+    RemoveFile(fname);
+
+    sprintf(fname, "0:/title/%08x/%08x", category, titleid);
+    RemoveDir(fname);
 }
 
 }

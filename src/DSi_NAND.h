@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include <vector>
+#include <string>
 
 namespace DSi_NAND
 {
@@ -33,8 +34,10 @@ void GetIDs(u8* emmc_cid, u64& consoleid);
 void PatchTSC();
 
 void ListTitles(u32 category, std::vector<u32>& titlelist);
+bool TitleExists(u32 category, u32 titleid);
 void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner);
-void ImportTest();
+bool ImportTitle(const char* appfile, u8* tmd, bool readonly);
+void DeleteTitle(u32 category, u32 titleid);
 
 }
 
