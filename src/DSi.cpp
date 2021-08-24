@@ -36,6 +36,7 @@
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
+#include "DSi_NAND.h"
 #include "DSi_DSP.h"
 #include "DSi_Camera.h"
 
@@ -348,6 +349,12 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
+    if (!DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    {
+        printf("Failed to load DSi NAND\n");
+        return false;
+    }
+
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
     // still have them on default (0) or some bits cleared by the previous
@@ -367,155 +374,130 @@ bool LoadNAND()
     memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
-    if (SDMMCFile)
+    u32 bootparams[8];
+    fseek(SDMMCFile, 0x220, SEEK_SET);
+    fread(bootparams, 4, 8, SDMMCFile);
+
+    printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
+    printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+
+    // read and apply new-WRAM settings
+
+    MBK[0][8] = 0;
+    MBK[1][8] = 0;
+
+    u32 mbk[12];
+    fseek(SDMMCFile, 0x380, SEEK_SET);
+    fread(mbk, 4, 12, SDMMCFile);
+
+    MapNWRAM_A(0, mbk[0] & 0xFF);
+    MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+    MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+    MapNWRAM_A(3, mbk[0] >> 24);
+
+    MapNWRAM_B(0, mbk[1] & 0xFF);
+    MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+    MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+    MapNWRAM_B(3, mbk[1] >> 24);
+    MapNWRAM_B(4, mbk[2] & 0xFF);
+    MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+    MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+    MapNWRAM_B(7, mbk[2] >> 24);
+
+    MapNWRAM_C(0, mbk[3] & 0xFF);
+    MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+    MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+    MapNWRAM_C(3, mbk[3] >> 24);
+    MapNWRAM_C(4, mbk[4] & 0xFF);
+    MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+    MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+    MapNWRAM_C(7, mbk[4] >> 24);
+
+    MapNWRAMRange(0, 0, mbk[5]);
+    MapNWRAMRange(0, 1, mbk[6]);
+    MapNWRAMRange(0, 2, mbk[7]);
+
+    MapNWRAMRange(1, 0, mbk[8]);
+    MapNWRAMRange(1, 1, mbk[9]);
+    MapNWRAMRange(1, 2, mbk[10]);
+
+    // TODO: find out why it is 0xFF000000
+    mbk[11] &= 0x00FFFF0F;
+    MBK[0][8] = mbk[11];
+    MBK[1][8] = mbk[11];
+
+    // load boot2 binaries
+
+    AES_ctx ctx;
+    const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+    u8 boot2iv[16];
+    u8 tmp[16];
+    u32 dstaddr;
+
+    *(u32*)&tmp[0] = bootparams[3];
+    *(u32*)&tmp[4] = -bootparams[3];
+    *(u32*)&tmp[8] = ~bootparams[3];
+    *(u32*)&tmp[12] = 0;
+    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+    fseek(SDMMCFile, bootparams[0], SEEK_SET);
+    dstaddr = bootparams[2];
+    for (u32 i = 0; i < bootparams[3]; i += 16)
     {
-        u32 bootparams[8];
-        fseek(SDMMCFile, 0x220, SEEK_SET);
-        fread(bootparams, 4, 8, SDMMCFile);
+        u8 data[16];
+        fread(data, 16, 1, SDMMCFile);
 
-        printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-               bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-        printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-               bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
 
-        // read and apply new-WRAM settings
+        ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+    }
 
-        MBK[0][8] = 0;
-        MBK[1][8] = 0;
+    *(u32*)&tmp[0] = bootparams[7];
+    *(u32*)&tmp[4] = -bootparams[7];
+    *(u32*)&tmp[8] = ~bootparams[7];
+    *(u32*)&tmp[12] = 0;
+    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
 
-        u32 mbk[12];
-        fseek(SDMMCFile, 0x380, SEEK_SET);
-        fread(mbk, 4, 12, SDMMCFile);
+    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        MapNWRAM_A(0, mbk[0] & 0xFF);
-        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
-        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
-        MapNWRAM_A(3, mbk[0] >> 24);
+    fseek(SDMMCFile, bootparams[4], SEEK_SET);
+    dstaddr = bootparams[6];
+    for (u32 i = 0; i < bootparams[7]; i += 16)
+    {
+        u8 data[16];
+        fread(data, 16, 1, SDMMCFile);
 
-        MapNWRAM_B(0, mbk[1] & 0xFF);
-        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
-        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
-        MapNWRAM_B(3, mbk[1] >> 24);
-        MapNWRAM_B(4, mbk[2] & 0xFF);
-        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
-        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
-        MapNWRAM_B(7, mbk[2] >> 24);
+        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
 
-        MapNWRAM_C(0, mbk[3] & 0xFF);
-        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
-        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
-        MapNWRAM_C(3, mbk[3] >> 24);
-        MapNWRAM_C(4, mbk[4] & 0xFF);
-        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
-        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
-        MapNWRAM_C(7, mbk[4] >> 24);
+        ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+    }
 
-        MapNWRAMRange(0, 0, mbk[5]);
-        MapNWRAMRange(0, 1, mbk[6]);
-        MapNWRAMRange(0, 2, mbk[7]);
+    // repoint the CPUs to the boot2 binaries
 
-        MapNWRAMRange(1, 0, mbk[8]);
-        MapNWRAMRange(1, 1, mbk[9]);
-        MapNWRAMRange(1, 2, mbk[10]);
-
-        // TODO: find out why it is 0xFF000000
-        mbk[11] &= 0x00FFFF0F;
-        MBK[0][8] = mbk[11];
-        MBK[1][8] = mbk[11];
-
-        // load boot2 binaries
-
-        AES_ctx ctx;
-        const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
-        u8 boot2iv[16];
-        u8 tmp[16];
-        u32 dstaddr;
-
-        *(u32*)&tmp[0] = bootparams[3];
-        *(u32*)&tmp[4] = -bootparams[3];
-        *(u32*)&tmp[8] = ~bootparams[3];
-        *(u32*)&tmp[12] = 0;
-        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-        fseek(SDMMCFile, bootparams[0], SEEK_SET);
-        dstaddr = bootparams[2];
-        for (u32 i = 0; i < bootparams[3]; i += 16)
-        {
-            u8 data[16];
-            fread(data, 16, 1, SDMMCFile);
-
-            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
-
-            ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
-        }
-
-        *(u32*)&tmp[0] = bootparams[7];
-        *(u32*)&tmp[4] = -bootparams[7];
-        *(u32*)&tmp[8] = ~bootparams[7];
-        *(u32*)&tmp[12] = 0;
-        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-        fseek(SDMMCFile, bootparams[4], SEEK_SET);
-        dstaddr = bootparams[6];
-        for (u32 i = 0; i < bootparams[7]; i += 16)
-        {
-            u8 data[16];
-            fread(data, 16, 1, SDMMCFile);
-
-            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
-
-            ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
-        }
-
-        // repoint the CPUs to the boot2 binaries
-
-        BootAddr[0] = bootparams[2];
-        BootAddr[1] = bootparams[6];
+    BootAddr[0] = bootparams[2];
+    BootAddr[1] = bootparams[6];
 
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-        // read the nocash footer
+    DSi_NAND::GetIDs(eMMC_CID, ConsoleID);
 
-        fseek(SDMMCFile, -0x40, SEEK_END);
-
-        char nand_footer[16];
-        const char* nand_footer_ref = "DSi eMMC CID/CPU";
-        fread(nand_footer, 1, 16, SDMMCFile);
-        if (memcmp(nand_footer, nand_footer_ref, 16))
-        {
-            // There is another copy of the footer at 000FF800h for the case
-            // that by external tools the image was cut off 
-            // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-            fseek(SDMMCFile, 0x000FF800, SEEK_SET);
-            fread(nand_footer, 1, 16, SDMMCFile);
-            if (memcmp(nand_footer, nand_footer_ref, 16))
-            {
-              printf("ERROR: NAND missing nocash footer\n");
-              return false;
-            }
-        }
-
-        fread(eMMC_CID, 1, 16, SDMMCFile);
-        fread(&ConsoleID, 1, 8, SDMMCFile);
-
-        printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %" PRIx64 "\n", ConsoleID);
-    }
+    printf("eMMC CID: "); printhex(eMMC_CID, 16);
+    printf("Console ID: %" PRIx64 "\n", ConsoleID);
 
     memset(ITCMInit, 0, 0x8000);
     memcpy(&ITCMInit[0x4400], &ARM9iBIOS[0x87F4], 0x400);
@@ -528,6 +510,10 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
+
+    DSi_NAND::PatchTSC();
+
+    DSi_NAND::DeInit();
 
     return true;
 }
@@ -638,7 +624,7 @@ void MapNWRAM_A(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 4; part++)
@@ -686,7 +672,7 @@ void MapNWRAM_B(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -741,7 +727,7 @@ void MapNWRAM_C(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -2139,17 +2125,17 @@ void ARM9IOWrite32(u32 addr, u32 val)
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        MapNWRAMRange(0, 1, val); 
+        MapNWRAMRange(0, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 2, val);
@@ -2200,7 +2186,7 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: 
+    case 0x04004000:
         return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
 
@@ -2456,27 +2442,27 @@ void ARM7IOWrite32(u32 addr, u32 val)
         Set_SCFG_MC(val);
         return;
 
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 2, val);
         return;
-    case 0x04004060: 
+    case 0x04004060:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         val &= 0x00FFFF0F;
-        MBK[0][8] = val; 
-        MBK[1][8] = val; 
+        MBK[0][8] = val;
+        MBK[1][8] = val;
         return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;

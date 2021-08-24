@@ -58,6 +58,7 @@
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
+#include "TitleManagerDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -1377,8 +1378,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
 
         menu->addSeparator();
-        actROMInfo = menu->addAction("ROM Info");
+        actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+
+        actTitleManager = menu->addAction("Manage DSi titles");
+        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1580,6 +1584,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
+    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 
     actEnableCheats->setChecked(Config::EnableCheats != 0);
 
@@ -2391,6 +2396,11 @@ void MainWindow::onROMInfo()
     ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
 }
 
+void MainWindow::onOpenTitleManager()
+{
+    TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
+}
+
 void MainWindow::onOpenEmuSettings()
 {
     emuThread->emuPause();
@@ -2405,6 +2415,9 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     if (EmuSettingsDialog::needsReset)
         onReset();
+
+    if (!RunningSomething)
+        actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2661,6 +2674,7 @@ void MainWindow::onEmuStart()
     actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
+    actTitleManager->setEnabled(false);
 
     actROMInfo->setEnabled(true);
 }
@@ -2683,6 +2697,7 @@ void MainWindow::onEmuStop()
     actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
+    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 
     actROMInfo->setEnabled(false);
 }
