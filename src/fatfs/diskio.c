@@ -30,8 +30,8 @@ void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb)
 
 void ff_disk_close()
 {
-    ReadCb = NULL;
-    WriteCb = NULL;
+    ReadCb = (void*)0;
+    WriteCb = (void*)0;
 
     Status &= ~STA_PROTECT;
     Status |= STA_NODISK;
