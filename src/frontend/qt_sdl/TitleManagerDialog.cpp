@@ -135,7 +135,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
     item->setIcon(icon);
-    item->setData(Qt::UserRole, QVariant(((u64)category<<32) | (u64)titleid));
+    item->setData(Qt::UserRole, QVariant((qulonglong)(((u64)category<<32) | (u64)titleid)));
     item->setData(Qt::UserRole+1, QVariant(*(u32*)&header[0x238])); // public.sav size
     item->setData(Qt::UserRole+2, QVariant(*(u32*)&header[0x23C])); // private.sav size
     item->setData(Qt::UserRole+3, QVariant((u32)((header[0x1BF] & 0x04) ? 0x4000 : 0))); // banner.sav size
