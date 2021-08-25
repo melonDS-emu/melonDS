@@ -421,7 +421,7 @@ void TitleImportDialog::accept()
     {
         QMessageBox::critical(this,
                               "Import title - melonDS",
-                              "Executable file is not a DSiware title.");
+                              "Executable file is not a DSiWare title.");
         return;
     }
 
@@ -536,7 +536,7 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title executable...",
                                                 EmuDirectory,
-                                                "DSiware executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
+                                                "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
@@ -548,7 +548,7 @@ void TitleImportDialog::on_btnTmdBrowse_clicked()
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title metadata...",
                                                 EmuDirectory,
-                                                "DSiware metadata (*.tmd);;Any file (*.*)");
+                                                "DSiWare metadata (*.tmd);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
