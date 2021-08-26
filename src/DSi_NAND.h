@@ -20,6 +20,7 @@
 #define DSI_NAND_H
 
 #include "types.h"
+#include "NDS_Header.h"
 #include <vector>
 #include <string>
 
@@ -42,7 +43,7 @@ void PatchTSC();
 
 void ListTitles(u32 category, std::vector<u32>& titlelist);
 bool TitleExists(u32 category, u32 titleid);
-void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner);
+void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner);
 bool ImportTitle(const char* appfile, u8* tmd, bool readonly);
 void DeleteTitle(u32 category, u32 titleid);
 

@@ -733,7 +733,7 @@ bool TitleExists(u32 category, u32 titleid)
     return (res == FR_OK);
 }
 
-void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banner)
+void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, NDSBanner* banner)
 {
     version = GetTitleVersion(category, titleid);
     if (version == 0xFFFFFFFF)
@@ -749,11 +749,11 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banne
         return;
 
     u32 nread;
-    f_read(&file, header, 0x1000, &nread);
+    f_read(&file, header, sizeof(NDSHeader), &nread);
 
     if (banner)
     {
-        u32 banneraddr = *(u32*)&header[0x68];
+        u32 banneraddr = header->BannerOffset;
         if (!banneraddr)
         {
             memset(banner, 0, 0x2400);
@@ -761,7 +761,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, u8* header, u8* banne
         else
         {
             f_lseek(&file, banneraddr);
-            f_read(&file, banner, 0x2400, &nread);
+            f_read(&file, banner, sizeof(NDSBanner), &nread);
         }
     }
 
@@ -991,16 +991,16 @@ void DeleteTitle(u32 category, u32 titleid)
 u32 GetTitleDataMask(u32 category, u32 titleid)
 {
     u32 version;
-    u8 header[0x1000];
+    NDSHeader header;
 
-    GetTitleInfo(category, titleid, version, header, nullptr);
+    GetTitleInfo(category, titleid, version, &header, nullptr);
     if (version == 0xFFFFFFFF)
         return 0;
 
     u32 ret = 0;
-    if (*(u32*)&header[0x238] != 0) ret |= (1 << TitleData_PublicSav);
-    if (*(u32*)&header[0x23C] != 0) ret |= (1 << TitleData_PrivateSav);
-    if (header[0x1BF] & 0x04)       ret |= (1 << TitleData_BannerSav);
+    if (header.DSiPublicSavSize != 0)  ret |= (1 << TitleData_PublicSav);
+    if (header.DSiPrivateSavSize != 0) ret |= (1 << TitleData_PrivateSav);
+    if (header.AppFlags & 0x04)        ret |= (1 << TitleData_BannerSav);
 
     return ret;
 }

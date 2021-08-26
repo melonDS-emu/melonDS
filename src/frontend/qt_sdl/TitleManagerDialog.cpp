@@ -106,29 +106,22 @@ TitleManagerDialog::~TitleManagerDialog()
 void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
 {
     u32 version;
-    u8 header[0x1000];
-    u8 banner[0x2400];
+    NDSHeader header;
+    NDSBanner banner;
 
-    DSi_NAND::GetTitleInfo(category, titleid, version, header, banner);
+    DSi_NAND::GetTitleInfo(category, titleid, version, &header, &banner);
 
-    u8 icongfx[512];
-    u16 iconpal[16];
-    memcpy(icongfx, &banner[0x20], 512);
-    memcpy(iconpal, &banner[0x220], 16*2);
     u32 icondata[32*32];
-    Frontend::ROMIcon(icongfx, iconpal, icondata);
+    Frontend::ROMIcon(banner.Icon, banner.Palette, icondata);
     QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_ARGB32);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 
     // TODO: make it possible to select other languages?
-    u16 titleraw[129];
-    memcpy(titleraw, &banner[0x340], 128*sizeof(u16));
-    titleraw[128] = '\0';
-    QString title = QString::fromUtf16(titleraw);
+    QString title = QString::fromUtf16(banner.EnglishTitle, 128);
     title.replace("\n", " · ");
 
     char gamecode[5];
-    *(u32*)&gamecode[0] = *(u32*)&header[0xC];
+    *(u32*)&gamecode[0] = *(u32*)&header.GameCode[0];
     gamecode[4] = '\0';
     char extra[128];
     sprintf(extra, "\n(title ID: %s · %08x/%08x · version %08x)", gamecode, category, titleid, version);
@@ -136,9 +129,9 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     QListWidgetItem* item = new QListWidgetItem(title + QString(extra));
     item->setIcon(icon);
     item->setData(Qt::UserRole, QVariant((qulonglong)(((u64)category<<32) | (u64)titleid)));
-    item->setData(Qt::UserRole+1, QVariant(*(u32*)&header[0x238])); // public.sav size
-    item->setData(Qt::UserRole+2, QVariant(*(u32*)&header[0x23C])); // private.sav size
-    item->setData(Qt::UserRole+3, QVariant((u32)((header[0x1BF] & 0x04) ? 0x4000 : 0))); // banner.sav size
+    item->setData(Qt::UserRole+1, QVariant(header.DSiPublicSavSize)); // public.sav size
+    item->setData(Qt::UserRole+2, QVariant(header.DSiPrivateSavSize)); // private.sav size
+    item->setData(Qt::UserRole+3, QVariant((u32)((header.AppFlags & 0x04) ? 0x4000 : 0))); // banner.sav size
     ui->lstTitleList->addItem(item);
 }
 
