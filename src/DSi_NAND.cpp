@@ -756,7 +756,7 @@ void GetTitleInfo(u32 category, u32 titleid, u32& version, NDSHeader* header, ND
         u32 banneraddr = header->BannerOffset;
         if (!banneraddr)
         {
-            memset(banner, 0, 0x2400);
+            memset(banner, 0, sizeof(NDSBanner));
         }
         else
         {
