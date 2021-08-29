@@ -99,7 +99,7 @@ If everything went well, melonDS should now be in the `dist` folder.
    cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON -DMACOS_BUNDLE_LIBS=ON
    make -j$(sysctl -n hw.logicalcpu)
    ```
-If everything went well, melonDS.app should now be in the curent directory.
+If everything went well, melonDS.app should now be in the current directory.
 
    
 ## TODO LIST
