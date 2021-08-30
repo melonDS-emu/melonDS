@@ -26,6 +26,7 @@
 #include "GPU.h"
 #include "NDSCart.h"
 #include "SPI.h"
+#include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
 #ifdef JIT_ENABLED
@@ -87,6 +88,9 @@ u8 eMMC_CID[16];
 
 u8 ITCMInit[0x8000];
 u8 ARM7Init[0x3C00];
+
+
+void Set_SCFG_Clock9(u16 val);
 
 
 bool Init()
@@ -230,13 +234,14 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     // find a matching binary area
 
     u32 binaryaddr, binarysize;
+    u32 roundedsize = (size + 0xF) & ~0xF;
 
     // CHECKME: GBAtek says the modcrypt area should be the same size, or bigger,
     // than the binary area being considered
     // but I have seen modcrypt areas smaller than the ARM9i binary
 #define BINARY_GOOD(name) \
     ((offset >= NDSCart::Header.name##ROMOffset) && \
-     (offset+size) <= (NDSCart::Header.name##ROMOffset+NDSCart::Header.name##Size))
+     (offset+roundedsize) <= (NDSCart::Header.name##ROMOffset + ((NDSCart::Header.name##Size + 0xF) & ~0xF)))
 
     if (BINARY_GOOD(ARM9))
     {
@@ -314,7 +319,8 @@ void SetupDirectBoot()
 
         NDS::MapSharedWRAM(3);
 
-        // TODO: clock speed!
+        DSi_SPI_TSC::SetMode(0x00);
+        Set_SCFG_Clock9(0x0000);
     }
     else
     {
@@ -363,6 +369,9 @@ void SetupDirectBoot()
         MBK[1][8] = mbk[11] & 0x00FFFF0F;
 
         NDS::MapSharedWRAM(mbk[11] >> 24);
+
+        if (!(NDSCart::Header.AppFlags & (1<<0)))
+            DSi_SPI_TSC::SetMode(0x00);
     }
 
     u32 arm9start = 0;
@@ -488,8 +497,6 @@ void SetupDirectBoot()
     ARM9Write8(0x02FFFDFB, 0x01);
 
     NDS::ARM7BIOSProt = 0x20;
-
-    // TODO: SCFG setup, permissions, etc
 
     SPI_Firmware::SetupDirectBoot(true);
 }
