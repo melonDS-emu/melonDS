@@ -1510,7 +1510,7 @@ void MonitorARM9Jump(u32 addr)
     if ((!RunningGame) && NDSCart::CartROM)
     {
         if (addr == *(u32*)&NDSCart::CartROM[0x24])
-        {debug(0);
+        {
             printf("Game is now booting\n");
             RunningGame = true;
         }
