@@ -105,7 +105,7 @@ struct NDSHeader
     u8 DSiWRAMCntSetting; // global WRAMCNT setting
 
     u32 DSiRegionMask;
-    u32 DSiPermissions;
+    u32 DSiPermissions[2];
     u8 Reserved6[3];
     u8 AppFlags; // flags at 1BF
 

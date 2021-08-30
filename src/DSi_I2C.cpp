@@ -72,6 +72,8 @@ void Reset()
     Registers[0x81] = 0x64;
 }
 
+u8 GetBootFlag() { return Registers[0x70]; }
+
 void Start()
 {
     //printf("BPTWL: start\n");

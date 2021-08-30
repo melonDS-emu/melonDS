@@ -384,7 +384,7 @@ u16 PDataDMAReadMMIO()
 }
 
 u8 Read8(u32 addr)
-{
+{printf("DSP READ8 %08X\n", addr);
     if (!(DSi::SCFG_EXT[0] & (1<<18)))
         return 0;
 
@@ -413,7 +413,7 @@ u8 Read8(u32 addr)
     return 0;
 }
 u16 Read16(u32 addr)
-{
+{printf("DSP READ16 %08X\n", addr);
     if (!(DSi::SCFG_EXT[0] & (1<<18)))
         return 0;
 
@@ -466,7 +466,7 @@ u32 Read32(u32 addr)
 }
 
 void Write8(u32 addr, u8 val)
-{
+{printf("DSP WRITE8 %08X %02X\n", addr, val);
     if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
 
     if (!DSPCatchUp()) return;
@@ -488,7 +488,7 @@ void Write8(u32 addr, u8 val)
     }
 }
 void Write16(u32 addr, u16 val)
-{
+{printf("DSP WRITE16 %08X %04X\n", addr, val);
     if (!(DSi::SCFG_EXT[0] & (1<<18))) return;
 
     if (!DSPCatchUp()) return;

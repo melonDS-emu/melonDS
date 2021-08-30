@@ -341,94 +341,86 @@ void SetupDirectBoot()
 {
     if (ConsoleType == 1)
     {
-        // With the BIOS select in SCFG_BIOS and the initialization od
-        // SCFG_BIOS depending on the Header->UnitType, we can now boot
-        // directly in the roms.
-        // There are some more SCFG Settings that change depending on
-        // the unit type, so this is experimental
-        printf("!! DIRECT BOOT NOT STABLE IN DSI MODE\n");
         DSi::SetupDirectBoot();
     }
-
-    u32 bootparams[8];
-    memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
-
-    printf("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
-           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-    printf("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
-           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
-
-    MapSharedWRAM(3);
-
-    u32 arm9start = 0;
-
-    // load the ARM9 secure area
-    if (bootparams[0] >= 0x4000 && bootparams[0] < 0x8000)
+    else
     {
-        u8 securearea[0x800];
-        NDSCart::DecryptSecureArea(securearea);
+        MapSharedWRAM(3);
 
-        for (u32 i = 0; i < 0x800; i+=4)
+        u32 arm9start = 0;
+
+        // load the ARM9 secure area
+        if (NDSCart::Header.ARM9ROMOffset >= 0x4000 && NDSCart::Header.ARM9ROMOffset < 0x8000)
         {
-            ARM9Write32(bootparams[2]+i, *(u32*)&securearea[i]);
-            arm9start += 4;
+            u8 securearea[0x800];
+            NDSCart::DecryptSecureArea(securearea);
+
+            for (u32 i = 0; i < 0x800; i+=4)
+            {
+                ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
+                arm9start += 4;
+            }
         }
+
+        // CHECKME: firmware seems to load this in 0x200 byte chunks
+
+        for (u32 i = arm9start; i < NDSCart::Header.ARM9Size; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM9ROMOffset+i];
+            ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < NDSCart::Header.ARM7Size; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
+            ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < 0x170; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x027FFE00+i, tmp);
+        }
+
+        ARM9Write32(0x027FF800, NDSCart::CartID);
+        ARM9Write32(0x027FF804, NDSCart::CartID);
+        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FF850, 0x5835);
+
+        ARM9Write32(0x027FFC00, NDSCart::CartID);
+        ARM9Write32(0x027FFC04, NDSCart::CartID);
+        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FFC10, 0x5835);
+        ARM9Write16(0x027FFC30, 0xFFFF);
+        ARM9Write16(0x027FFC40, 0x0001);
+
+        ARM7BIOSProt = 0x1204;
+
+        SPI_Firmware::SetupDirectBoot(false);
     }
-
-    // CHECKME: firmware seems to load this in 0x200 byte chunks
-
-    for (u32 i = arm9start; i < bootparams[3]; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[0]+i];
-        ARM9Write32(bootparams[2]+i, tmp);
-    }
-
-    for (u32 i = 0; i < bootparams[7]; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[4]+i];
-        ARM7Write32(bootparams[6]+i, tmp);
-    }
-
-    for (u32 i = 0; i < 0x170; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[i];
-        ARM9Write32(0x027FFE00+i, tmp);
-    }
-
-    ARM9Write32(0x027FF800, NDSCart::CartID);
-    ARM9Write32(0x027FF804, NDSCart::CartID);
-    ARM9Write16(0x027FF808, *(u16*)&NDSCart::CartROM[0x15E]);
-    ARM9Write16(0x027FF80A, *(u16*)&NDSCart::CartROM[0x6C]);
-
-    ARM9Write16(0x027FF850, 0x5835);
-
-    ARM9Write32(0x027FFC00, NDSCart::CartID);
-    ARM9Write32(0x027FFC04, NDSCart::CartID);
-    ARM9Write16(0x027FFC08, *(u16*)&NDSCart::CartROM[0x15E]);
-    ARM9Write16(0x027FFC0A, *(u16*)&NDSCart::CartROM[0x6C]);
-
-    ARM9Write16(0x027FFC10, 0x5835);
-    ARM9Write16(0x027FFC30, 0xFFFF);
-    ARM9Write16(0x027FFC40, 0x0001);
 
     ARM9->CP15Write(0x910, 0x0300000A);
     ARM9->CP15Write(0x911, 0x00000020);
     ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
 
-    ARM9->R[12] = bootparams[1];
+    ARM9->R[12] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;
-    ARM9->R[14] = bootparams[1];
+    ARM9->R[14] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R_IRQ[0] = 0x03003F80;
     ARM9->R_SVC[0] = 0x03003FC0;
 
-    ARM7->R[12] = bootparams[5];
+    ARM7->R[12] = NDSCart::Header.ARM7EntryAddress;
     ARM7->R[13] = 0x0380FD80;
-    ARM7->R[14] = bootparams[5];
+    ARM7->R[14] = NDSCart::Header.ARM7EntryAddress;
     ARM7->R_IRQ[0] = 0x0380FF80;
     ARM7->R_SVC[0] = 0x0380FFC0;
 
-    ARM9->JumpTo(bootparams[1]);
-    ARM7->JumpTo(bootparams[5]);
+    ARM9->JumpTo(NDSCart::Header.ARM9EntryAddress);
+    ARM7->JumpTo(NDSCart::Header.ARM7EntryAddress);
 
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
@@ -444,10 +436,6 @@ void SetupDirectBoot()
     SPU::SetBias(0x200);
 
     SetWifiWaitCnt(0x0030);
-
-    ARM7BIOSProt = 0x1204;
-
-    SPI_Firmware::SetupDirectBoot();
 }
 
 void Reset()
@@ -1522,7 +1510,7 @@ void MonitorARM9Jump(u32 addr)
     if ((!RunningGame) && NDSCart::CartROM)
     {
         if (addr == *(u32*)&NDSCart::CartROM[0x24])
-        {
+        {debug(0);
             printf("Game is now booting\n");
             RunningGame = true;
         }
@@ -1880,7 +1868,7 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/construct.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
@@ -1893,23 +1881,23 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 
-    /*FILE*
-    shit = fopen("debug/power9.bin", "wb");
+    FILE*
+    shit = fopen("debug/directboot9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/power7.bin", "wb");
+    shit = fopen("debug/directboot7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 

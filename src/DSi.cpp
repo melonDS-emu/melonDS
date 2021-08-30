@@ -25,6 +25,7 @@
 #include "ARM.h"
 #include "GPU.h"
 #include "NDSCart.h"
+#include "SPI.h"
 #include "Platform.h"
 
 #ifdef JIT_ENABLED
@@ -187,37 +188,310 @@ void Reset()
     ARM7Write16(eaddr+0x42, 0x0001);
 }
 
+void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
+{
+    AES_ctx ctx;
+    u8 key[16];
+    u8 tmp[16];
+
+    if ((offset == 0) || (size == 0))
+        return;
+
+    if ((NDSCart::Header.DSiCryptoFlags & (1<<4)) ||
+        (NDSCart::Header.AppFlags & (1<<7)))
+    {
+        // dev key
+        memcpy(key, &NDSCart::CartROM[0], 16);
+    }
+    else
+    {
+        u8 keyX[16], keyY[16];
+
+        *(u32*)&keyX[0] = 0x746E694E;
+        *(u32*)&keyX[4] = 0x6F646E65;
+        keyX[8]  = NDSCart::Header.GameCode[0];
+        keyX[9]  = NDSCart::Header.GameCode[1];
+        keyX[10] = NDSCart::Header.GameCode[2];
+        keyX[11] = NDSCart::Header.GameCode[3];
+        keyX[12] = NDSCart::Header.GameCode[3];
+        keyX[13] = NDSCart::Header.GameCode[2];
+        keyX[14] = NDSCart::Header.GameCode[1];
+        keyX[15] = NDSCart::Header.GameCode[0];
+
+        memcpy(keyY, NDSCart::Header.DSiARM9iHash, 16);
+
+        DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
+    }
+
+    DSi_AES::Swap16(key, tmp);
+    DSi_AES::Swap16(tmp, iv);
+    AES_init_ctx_iv(&ctx, key, tmp);
+
+    // find a matching binary area
+
+    u32 binaryaddr, binarysize;
+
+    // CHECKME: GBAtek says the modcrypt area should be the same size, or bigger,
+    // than the binary area being considered
+    // but I have seen modcrypt areas smaller than the ARM9i binary
+#define BINARY_GOOD(name) \
+    ((offset >= NDSCart::Header.name##ROMOffset) && \
+     (offset+size) <= (NDSCart::Header.name##ROMOffset+NDSCart::Header.name##Size))
+
+    if (BINARY_GOOD(ARM9))
+    {
+        binaryaddr = NDSCart::Header.ARM9RAMAddress;
+        binarysize = NDSCart::Header.ARM9Size;
+    }
+    else if (BINARY_GOOD(ARM7))
+    {
+        binaryaddr = NDSCart::Header.ARM7RAMAddress;
+        binarysize = NDSCart::Header.ARM7Size;
+    }
+    else if (BINARY_GOOD(DSiARM9i))
+    {
+        binaryaddr = NDSCart::Header.DSiARM9iRAMAddress;
+        binarysize = NDSCart::Header.DSiARM9iSize;
+    }
+    else if (BINARY_GOOD(DSiARM7i))
+    {
+        binaryaddr = NDSCart::Header.DSiARM7iRAMAddress;
+        binarysize = NDSCart::Header.DSiARM7iSize;
+    }
+    else
+        return;
+
+#undef BINARY_GOOD
+
+    for (u32 i = 0; i < size; i+=16)
+    {
+        u8 data[16];
+
+        *(u32*)&data[0] = ARM9Read32(binaryaddr+i);
+        *(u32*)&data[4] = ARM9Read32(binaryaddr+i+4);
+        *(u32*)&data[8] = ARM9Read32(binaryaddr+i+8);
+        *(u32*)&data[12] = ARM9Read32(binaryaddr+i+12);
+
+        DSi_AES::Swap16(tmp, data);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        DSi_AES::Swap16(data, tmp);
+
+        ARM9Write32(binaryaddr+i, *(u32*)&data[0]);
+        ARM9Write32(binaryaddr+i+4, *(u32*)&data[4]);
+        ARM9Write32(binaryaddr+i+8, *(u32*)&data[8]);
+        ARM9Write32(binaryaddr+i+12, *(u32*)&data[12]);
+    }
+}
+
 void SetupDirectBoot()
 {
-    // If loading a NDS directly, this value should be set
-    // depending on the console type in the header at offset 12h
-    switch (NDSCart::Header.UnitCode)
+    bool dsmode = false;
+
+    // TODO: add controls for forcing DS or DSi mode?
+    if (!(NDSCart::Header.UnitCode & 0x02))
+        dsmode = true;
+
+    // TODO: RAM size!!
+
+    if (dsmode)
     {
-    case 0x00: /* NDS Image */
-        // on a pure NDS Image, we disable all extended features
-        // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
         SCFG_BIOS = 0x0303;
-        break;
-    case 0x02: /* DSi Enhanced Image */
-        SCFG_BIOS = 0x0303;
-        break;
-    default:
-        SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
-        break;
+
+        // no NWRAM Mapping
+        for (int i = 0; i < 4; i++)
+            MapNWRAM_A(i, 0);
+        for (int i = 0; i < 8; i++)
+            MapNWRAM_B(i, 0);
+        for (int i = 0; i < 8; i++)
+            MapNWRAM_C(i, 0);
+
+        // No NWRAM Window
+        for (int i = 0; i < 3; i++)
+        {
+            MapNWRAMRange(0, i, 0);
+            MapNWRAMRange(1, i, 0);
+        }
+
+        NDS::MapSharedWRAM(3);
+
+        // TODO: clock speed!
     }
-    // no NWRAM Mapping
-    for (int i = 0; i < 4; i++)
-        MapNWRAM_A(i, 0);
-    for (int i = 0; i < 8; i++)
-        MapNWRAM_B(i, 0);
-    for (int i = 0; i < 8; i++)
-        MapNWRAM_C(i, 0);
-    // No NWRAM Window
-    for (int i = 0; i < 3; i++)
+    else
     {
-        MapNWRAMRange(0, i, 0);
-        MapNWRAMRange(1, i, 0);
+        SCFG_BIOS = 0x0101;
+
+        // WRAM mapping
+
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
+        u32 mbk[12];
+        memcpy(mbk, &NDSCart::CartROM[0x180], 12*4);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        MBK[0][8] = mbk[11] & 0x00FFFF0F;
+        MBK[1][8] = mbk[11] & 0x00FFFF0F;
+
+        NDS::MapSharedWRAM(mbk[11] >> 24);
     }
+
+    u32 arm9start = 0;
+
+    // load the ARM9 secure area
+    if (NDSCart::Header.ARM9ROMOffset >= 0x4000 && NDSCart::Header.ARM9ROMOffset < 0x8000)
+    {
+        u8 securearea[0x800];
+        NDSCart::DecryptSecureArea(securearea);
+
+        for (u32 i = 0; i < 0x800; i+=4)
+        {
+            ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
+            arm9start += 4;
+        }
+    }
+
+    for (u32 i = arm9start; i < NDSCart::Header.ARM9Size; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM9ROMOffset+i];
+        ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, tmp);
+    }
+
+    for (u32 i = 0; i < NDSCart::Header.ARM7Size; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
+        ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
+    }
+
+    if ((!dsmode) && (NDSCart::Header.DSiCryptoFlags & (1<<0)))
+    {
+        // load DSi-specific regions
+
+        for (u32 i = 0; i < NDSCart::Header.DSiARM9iSize; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.DSiARM9iROMOffset+i];
+            ARM9Write32(NDSCart::Header.DSiARM9iRAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < NDSCart::Header.DSiARM7iSize; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.DSiARM7iROMOffset+i];
+            ARM7Write32(NDSCart::Header.DSiARM7iRAMAddress+i, tmp);
+        }
+
+        // decrypt any modcrypt areas
+
+        if (NDSCart::Header.DSiCryptoFlags & (1<<1))
+        {
+            DecryptModcryptArea(NDSCart::Header.DSiModcrypt1Offset,
+                                NDSCart::Header.DSiModcrypt1Size,
+                                NDSCart::Header.DSiARM9Hash);
+            DecryptModcryptArea(NDSCart::Header.DSiModcrypt2Offset,
+                                NDSCart::Header.DSiModcrypt2Size,
+                                NDSCart::Header.DSiARM7Hash);
+        }
+    }
+
+    // CHECKME: some of these are 'only for NDS ROM', presumably
+    // only for when loading a cart? (as opposed to DSiWare)
+
+    for (u32 i = 0; i < 0x160; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[i];
+        ARM9Write32(0x02FFFA80+i, tmp);
+        ARM9Write32(0x02FFFE00+i, tmp);
+    }
+
+    for (u32 i = 0; i < 0x1000; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[i];
+        ARM9Write32(0x02FFC000+i, tmp);
+        ARM9Write32(0x02FFE000+i, tmp);
+    }
+
+    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    {
+        u8 userdata[0x1B0];
+        DSi_NAND::ReadUserData(userdata);
+        for (u32 i = 0; i < 0x128; i+=4)
+            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+
+        u8 hwinfoS[0xA4];
+        u8 hwinfoN[0x9C];
+        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+
+        for (u32 i = 0; i < 0x14; i+=4)
+            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+
+        for (u32 i = 0; i < 0x18; i+=4)
+            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+
+        DSi_NAND::DeInit();
+    }
+
+    u8 nwifiver = SPI_Firmware::GetNWifiVersion();
+    ARM9Write8(0x020005E0, nwifiver);
+
+    // TODO: these should be taken from the wifi firmware in NAND
+    // but, hey, this works too.
+    if (nwifiver == 1)
+    {
+        ARM9Write16(0x020005E2, 0xB57E);
+        ARM9Write32(0x020005E4, 0x00500400);
+        ARM9Write32(0x020005E8, 0x00500000);
+        ARM9Write32(0x020005EC, 0x0002E000);
+    }
+    else
+    {
+        ARM9Write16(0x020005E2, 0x5BCA);
+        ARM9Write32(0x020005E4, 0x00520000);
+        ARM9Write32(0x020005E8, 0x00520000);
+        ARM9Write32(0x020005EC, 0x00020000);
+    }
+
+    // TODO: the shit at 02FFD7B0..02FFDC00
+    // and some other extra shit?
+
+    ARM9Write32(0x02FFFC00, NDSCart::CartID);
+    ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
+
+    ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
+    ARM9Write8(0x02FFFDFB, 0x01);
+
+    NDS::ARM7BIOSProt = 0x20;
+
+    // TODO: SCFG setup, permissions, etc
+
+    SPI_Firmware::SetupDirectBoot(true);
 }
 
 void SoftReset()

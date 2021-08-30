@@ -19,6 +19,13 @@
 #ifndef DSI_I2C_H
 #define DSI_I2C_H
 
+namespace DSi_BPTWL
+{
+
+u8 GetBootFlag();
+
+}
+
 namespace DSi_I2C
 {
 

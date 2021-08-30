@@ -176,15 +176,6 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
-void ApplyModcrypt(u32 addr, u32 len, u8* iv)
-{return;
-    u8 key[16];
-
-    DSi_AES::GetModcryptKey(&CartROM[0], key);
-    DSi_AES::ApplyModcrypt(&CartROM[addr], len, key, iv);
-}
-
-
 CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
 {
     ROM = rom;

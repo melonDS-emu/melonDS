@@ -39,6 +39,9 @@ void DeInit();
 
 void GetIDs(u8* emmc_cid, u64& consoleid);
 
+void ReadHardwareInfo(u8* dataS, u8* dataN);
+
+void ReadUserData(u8* data);
 void PatchTSC();
 
 void ListTitles(u32 category, std::vector<u32>& titlelist);

@@ -436,6 +436,77 @@ bool ESDecrypt(u8* data, u32 len)
 }
 
 
+void ReadHardwareInfo(u8* dataS, u8* dataN)
+{
+    FIL file;
+    FRESULT res;
+    u32 nread;
+
+    res = f_open(&file, "0:/sys/HWINFO_S.dat", FA_OPEN_EXISTING | FA_READ);
+    if (res == FR_OK)
+    {
+        f_read(&file, dataS, 0xA4, &nread);
+        f_close(&file);
+    }
+
+    res = f_open(&file, "0:/sys/HWINFO_N.dat", FA_OPEN_EXISTING | FA_READ);
+    if (res == FR_OK)
+    {
+        f_read(&file, dataN, 0x9C, &nread);
+        f_close(&file);
+    }
+}
+
+
+void ReadUserData(u8* data)
+{
+    FIL file;
+    FRESULT res;
+    u32 nread;
+
+    FIL f1, f2;
+    int v1, v2;
+
+    res = f_open(&f1, "0:/shared1/TWLCFG0.dat", FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        v1 = -1;
+    else
+    {
+        u8 tmp;
+        f_lseek(&f1, 0x81);
+        f_read(&f1, &tmp, 1, &nread);
+        v1 = tmp;
+    }
+
+    res = f_open(&f2, "0:/shared1/TWLCFG1.dat", FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        v2 = -1;
+    else
+    {
+        u8 tmp;
+        f_lseek(&f2, 0x81);
+        f_read(&f2, &tmp, 1, &nread);
+        v2 = tmp;
+    }
+
+    if (v1 < 0 && v2 < 0) return;
+
+    if (v2 > v1)
+    {
+        file = f2;
+        f_close(&f1);
+    }
+    else
+    {
+        file = f1;
+        f_close(&f2);
+    }
+
+    f_lseek(&file, 0);
+    f_read(&file, data, 0x1B0, &nread);
+    f_close(&file);
+}
+
 void PatchTSC()
 {
     FRESULT res;
