@@ -526,7 +526,7 @@ Info Decode(bool thumb, u32 num, u32 instr)
         if (data & A_LoadMem)
         {
             if (res.SrcRegs == (1 << 15))
-               res.SpecialKind = special_LoadLiteral;
+                res.SpecialKind = special_LoadLiteral;
             else
                 res.SpecialKind = special_LoadMem;
         }
@@ -536,6 +536,11 @@ Info Decode(bool thumb, u32 num, u32 instr)
             u16 set = (instr & 0xFFFF);
             res.NotStrictlyNeeded |= set & ~(res.SrcRegs|res.DstRegs|(1<<15));
             res.DstRegs |= set;
+            // when the instruction is executed not in usermode a banked register in memory will be written to
+            // but the unbanked register will still be allocated, so it is expected to carry the proper value
+            // thus it is a source register
+            if (instr & (1<<22))
+                res.SrcRegs |= set & 0x7F00;
         }
         if (res.Kind == ak_STM)
         {

@@ -42,6 +42,7 @@ int DSiSDEnable;
 char DSiSDPath[1024];
 
 int RandomizeMAC;
+int AudioBitrate;
 
 #ifdef JIT_ENABLED
 int JIT_Enable = false;
@@ -67,6 +68,7 @@ ConfigEntry ConfigFile[] =
     {"DSiSDPath", 1, DSiSDPath, 0, "", 1023},
 
     {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
+    {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
 
 #ifdef JIT_ENABLED
     {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},

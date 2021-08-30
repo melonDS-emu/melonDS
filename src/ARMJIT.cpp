@@ -43,9 +43,6 @@
 #include "Wifi.h"
 #include "NDSCart.h"
 
-#if defined(__APPLE__) && defined(__aarch64__)
-    #include <pthread.h>
-#endif
 
 #include "ARMJIT_x64/ARMJIT_Offsets.h"
 static_assert(offsetof(ARM, CPSR) == ARM_CPSR_offset, "");
@@ -320,9 +317,7 @@ void Init()
 
 void DeInit()
 {
-    #if defined(__APPLE__) && defined(__aarch64__)
-        pthread_jit_write_protect_np(false);
-    #endif
+    JitEnableWrite();
     ResetBlockCache();
     ARMJIT_Memory::DeInit();
 
@@ -331,9 +326,7 @@ void DeInit()
 
 void Reset()
 {
-    #if defined(__APPLE__) && defined(__aarch64__)
-        pthread_jit_write_protect_np(false);
-    #endif
+    JitEnableWrite();
     ResetBlockCache();
 
     ARMJIT_Memory::Reset();
@@ -645,6 +638,8 @@ void CompileBlock(ARM* cpu)
     u32 lr;
     bool hasLink = false;
 
+    bool hasMemoryInstr = false;
+
     do
     {
         r15 += thumb ? 2 : 4;
@@ -706,6 +701,10 @@ void CompileBlock(ARM* cpu)
             instrs[i].CodeCycles = cpu->CodeCycles;
         }
         instrs[i].Info = ARMInstrInfo::Decode(thumb, cpu->Num, instrs[i].Instr);
+
+        hasMemoryInstr |= thumb
+            ? (instrs[i].Info.Kind >= ARMInstrInfo::tk_LDR_PCREL && instrs[i].Info.Kind <= ARMInstrInfo::tk_STMIA)
+            : (instrs[i].Info.Kind >= ARMInstrInfo::ak_STR_REG_LSL && instrs[i].Info.Kind <= ARMInstrInfo::ak_STM);
 
         cpu->R[15] = r15;
         cpu->CurInstr = instrs[i].Instr;
@@ -780,7 +779,8 @@ void CompileBlock(ARM* cpu)
             JIT_DEBUGPRINT("merged BL\n");
         }
 
-        if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations)
+        if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations
+            && instrs[i].Info.Kind != (thumb ? ARMInstrInfo::tk_SVC : ARMInstrInfo::ak_SVC))
         {
             bool hasBranched = cpu->R[15] != r15;
 
@@ -846,6 +846,7 @@ void CompileBlock(ARM* cpu)
 
             if (!hasBranched && cond < 0xE && i + 1 < Config::JIT_MaxBlockSize)
             {
+                JIT_DEBUGPRINT("block lengthened by untaken branch\n");
                 instrs[i].Info.EndBlock = false;
                 instrs[i].BranchFlags |= branch_FollowCondNotTaken;
             }
@@ -912,13 +913,10 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-        #if defined(__APPLE__) && defined(__aarch64__)
-            pthread_jit_write_protect_np(false);
-        #endif
-        block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i);
-        #if defined(__APPLE__) && defined(__aarch64__)
-            pthread_jit_write_protect_np(true);
-        #endif
+        
+        JitEnableWrite();
+        block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i, hasMemoryInstr);
+        JitEnableExecute();
 
         JIT_DEBUGPRINT("block start %p\n", block->EntryPoint);
     }
@@ -1160,6 +1158,22 @@ void ResetBlockCache()
     JitBlocks7.clear();
 
     JITCompiler->Reset();
+}
+
+void JitEnableWrite()
+{
+    #if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *))
+            pthread_jit_write_protect_np(false);
+    #endif
+}
+
+void JitEnableExecute()
+{
+    #if defined(__APPLE__) && defined(__aarch64__)
+        if (__builtin_available(macOS 11.0, *))
+            pthread_jit_write_protect_np(true);
+    #endif
 }
 
 }

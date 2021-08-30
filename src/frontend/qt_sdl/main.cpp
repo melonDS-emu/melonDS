@@ -57,6 +57,8 @@
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
+#include "ROMInfoDialog.h"
+#include "TitleManagerDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -65,6 +67,7 @@
 #include "OSD.h"
 
 #include "NDS.h"
+#include "NDSCart.h"
 #include "GBACart.h"
 #include "GPU.h"
 #include "SPU.h"
@@ -104,6 +107,8 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+void micCallback(void* data, Uint8* stream, int len);
+
 
 void audioCallback(void* data, Uint8* stream, int len)
 {
@@ -141,6 +146,40 @@ void audioCallback(void* data, Uint8* stream, int len)
 }
 
 
+void micOpen()
+{
+    if (Config::MicInputType != 1)
+    {
+        micDevice = 0;
+        return;
+    }
+
+    SDL_AudioSpec whatIwant, whatIget;
+    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
+    whatIwant.freq = 44100;
+    whatIwant.format = AUDIO_S16LSB;
+    whatIwant.channels = 1;
+    whatIwant.samples = 1024;
+    whatIwant.callback = micCallback;
+    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
+    if (!micDevice)
+    {
+        printf("Mic init failed: %s\n", SDL_GetError());
+    }
+    else
+    {
+        SDL_PauseAudioDevice(micDevice, 0);
+    }
+}
+
+void micClose()
+{
+    if (micDevice)
+        SDL_CloseAudioDevice(micDevice);
+
+    micDevice = 0;
+}
+
 void micLoadWav(const char* name)
 {
     SDL_AudioSpec format;
@@ -157,64 +196,67 @@ void micLoadWav(const char* name)
 
     const u64 dstfreq = 44100;
 
-    if (format.format == AUDIO_S16 || format.format == AUDIO_U16)
+    int srcinc = format.channels;
+    len /= ((SDL_AUDIO_BITSIZE(format.format) / 8) * srcinc);
+
+    micWavLength = (len * dstfreq) / format.freq;
+    if (micWavLength < 735) micWavLength = 735;
+    micWavBuffer = new s16[micWavLength];
+
+    float res_incr = len / (float)micWavLength;
+    float res_timer = 0;
+    int res_pos = 0;
+
+    for (int i = 0; i < micWavLength; i++)
     {
-        int srcinc = format.channels;
-        len /= (2 * srcinc);
+        u16 val = 0;
 
-        micWavLength = (len * dstfreq) / format.freq;
-        if (micWavLength < 735) micWavLength = 735;
-        micWavBuffer = new s16[micWavLength];
-
-        float res_incr = len / (float)micWavLength;
-        float res_timer = 0;
-        int res_pos = 0;
-
-        for (int i = 0; i < micWavLength; i++)
+        switch (SDL_AUDIO_BITSIZE(format.format))
         {
-            u16 val = ((u16*)buf)[res_pos];
-            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
+        case 8:
+            val = buf[res_pos] << 8;
+            break;
 
-            micWavBuffer[i] = val;
+        case 16:
+            if (SDL_AUDIO_ISBIGENDIAN(format.format))
+                val = (buf[res_pos*2] << 8) | buf[res_pos*2 + 1];
+            else
+                val = (buf[res_pos*2 + 1] << 8) | buf[res_pos*2];
+            break;
 
-            res_timer += res_incr;
-            while (res_timer >= 1.0)
+        case 32:
+            if (SDL_AUDIO_ISFLOAT(format.format))
             {
-                res_timer -= 1.0;
-                res_pos += srcinc;
+                u32 rawval;
+                if (SDL_AUDIO_ISBIGENDIAN(format.format))
+                    rawval = (buf[res_pos*4] << 24) | (buf[res_pos*4 + 1] << 16) | (buf[res_pos*4 + 2] << 8) | buf[res_pos*4 + 3];
+                else
+                    rawval = (buf[res_pos*4 + 3] << 24) | (buf[res_pos*4 + 2] << 16) | (buf[res_pos*4 + 1] << 8) | buf[res_pos*4];
+
+                float fval = *(float*)&rawval;
+                s32 ival = (s32)(fval * 0x8000);
+                ival = std::clamp(ival, -0x8000, 0x7FFF);
+                val = (s16)ival;
             }
+            else if (SDL_AUDIO_ISBIGENDIAN(format.format))
+                val = (buf[res_pos*4] << 8) | buf[res_pos*4 + 1];
+            else
+                val = (buf[res_pos*4 + 3] << 8) | buf[res_pos*4 + 2];
+            break;
+        }
+
+        if (SDL_AUDIO_ISUNSIGNED(format.format))
+            val ^= 0x8000;
+
+        micWavBuffer[i] = val;
+
+        res_timer += res_incr;
+        while (res_timer >= 1.0)
+        {
+            res_timer -= 1.0;
+            res_pos += srcinc;
         }
     }
-    else if (format.format == AUDIO_S8 || format.format == AUDIO_U8)
-    {
-        int srcinc = format.channels;
-        len /= srcinc;
-
-        micWavLength = (len * dstfreq) / format.freq;
-        if (micWavLength < 735) micWavLength = 735;
-        micWavBuffer = new s16[micWavLength];
-
-        float res_incr = len / (float)micWavLength;
-        float res_timer = 0;
-        int res_pos = 0;
-
-        for (int i = 0; i < micWavLength; i++)
-        {
-            u16 val = buf[res_pos] << 8;
-            if (SDL_AUDIO_ISUNSIGNED(format.format)) val ^= 0x8000;
-
-            micWavBuffer[i] = val;
-
-            res_timer += res_incr;
-            while (res_timer >= 1.0)
-            {
-                res_timer -= 1.0;
-                res_pos += srcinc;
-            }
-        }
-    }
-    else
-        printf("bad WAV format %08X\n", format.format);
 
     SDL_FreeWAV(buf);
 }
@@ -281,6 +323,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
     connect(this, SIGNAL(windowEmuPause()), mainWindow->actPause, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
+    connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
@@ -343,6 +386,7 @@ void EmuThread::run()
     videoSettingsDirty = false;
     videoSettings.Soft_Threaded = Config::Threaded3D != 0;
     videoSettings.GL_ScaleFactor = Config::GL_ScaleFactor;
+    videoSettings.GL_BetterPolygons = Config::GL_BetterPolygons;
 
 #ifdef OGLRENDERER_ENABLED
     if (hasOGL)
@@ -358,6 +402,8 @@ void EmuThread::run()
 
     GPU::InitRenderer(videoRenderer);
     GPU::SetRenderSettings(videoRenderer, videoSettings);
+
+    SPU::SetInterpolation(Config::AudioInterp);
 
     Input::Init();
 
@@ -377,28 +423,12 @@ void EmuThread::run()
 
         if (Input::HotkeyPressed(HK_Pause)) emit windowEmuPause();
         if (Input::HotkeyPressed(HK_Reset)) emit windowEmuReset();
+        if (Input::HotkeyPressed(HK_FrameStep)) emit windowEmuFrameStep();
 
         if (Input::HotkeyPressed(HK_FullscreenToggle)) emit windowFullscreenToggle();
 
         if (Input::HotkeyPressed(HK_SwapScreens)) emit swapScreensToggle();
 
-        /*if (GBACart::CartInserted && GBACart::HasSolarSensor)
-        {
-            if (Input::HotkeyPressed(HK_SolarSensorDecrease))
-            {
-                if (GBACart_SolarSensor::LightLevel > 0) GBACart_SolarSensor::LightLevel--;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
-            }
-            if (Input::HotkeyPressed(HK_SolarSensorIncrease))
-            {
-                if (GBACart_SolarSensor::LightLevel < 10) GBACart_SolarSensor::LightLevel++;
-                char msg[64];
-                sprintf(msg, "Solar sensor level set to %d", GBACart_SolarSensor::LightLevel);
-                OSD::AddMessage(0, msg);
-            }
-        }*/
         if (Input::HotkeyPressed(HK_SolarSensorDecrease))
         {
             int level = GBACart::SetInput(GBACart::Input_SolarSensorDown, true);
@@ -420,9 +450,10 @@ void EmuThread::run()
             }
         }
 
-        if (EmuRunning == 1)
+        if (EmuRunning == 1 || EmuRunning == 3)
         {
             EmuStatus = 1;
+            if (EmuRunning == 3) EmuRunning = 2;
 
             // update render settings if needed
             if (videoSettingsDirty)
@@ -634,7 +665,7 @@ void EmuThread::emuRun()
     // checkme
     emit windowEmuStart();
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
+    micOpen();
 }
 
 void EmuThread::emuPause()
@@ -647,7 +678,7 @@ void EmuThread::emuPause()
     while (EmuStatus != 2);
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
+    micClose();
 }
 
 void EmuThread::emuUnpause()
@@ -660,7 +691,7 @@ void EmuThread::emuUnpause()
     EmuRunning = PrevEmuStatus;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 0);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 0);
+    micOpen();
 }
 
 void EmuThread::emuStop()
@@ -669,7 +700,13 @@ void EmuThread::emuStop()
     EmuPause = 0;
 
     if (audioDevice) SDL_PauseAudioDevice(audioDevice, 1);
-    if (micDevice)   SDL_PauseAudioDevice(micDevice, 1);
+    micClose();
+}
+
+void EmuThread::emuFrameStep()
+{
+    if (EmuPause < 1) emit windowEmuPause();
+    EmuRunning = 3;
 }
 
 bool EmuThread::emuIsRunning()
@@ -750,7 +787,7 @@ void ScreenHandler::screenOnMousePress(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    if (Frontend::GetTouchCoords(x, y))
+    if (Frontend::GetTouchCoords(x, y, false))
     {
         touching = true;
         NDS::TouchScreen(x, y);
@@ -781,15 +818,68 @@ void ScreenHandler::screenOnMouseMove(QMouseEvent* event)
     int x = event->pos().x();
     int y = event->pos().y();
 
-    Frontend::GetTouchCoords(x, y);
+    if (Frontend::GetTouchCoords(x, y, true))
+        NDS::TouchScreen(x, y);
+}
 
-    // clamp to screen range
-    if (x < 0) x = 0;
-    else if (x > 255) x = 255;
-    if (y < 0) y = 0;
-    else if (y > 191) y = 191;
+void ScreenHandler::screenHandleTablet(QTabletEvent* event)
+{
+    event->accept();
 
-    NDS::TouchScreen(x, y);
+    switch(event->type())
+    {
+    case QEvent::TabletPress:
+    case QEvent::TabletMove:
+        {
+            int x = event->x();
+            int y = event->y();
+
+            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TabletMove))
+            {
+                touching = true;
+                NDS::TouchScreen(x, y);
+            }
+        }
+        break;
+    case QEvent::TabletRelease:
+        if (touching)
+        {
+            NDS::ReleaseScreen();
+            touching = false;
+        }
+        break;
+    }
+}
+
+void ScreenHandler::screenHandleTouch(QTouchEvent* event)
+{
+    event->accept();
+
+    switch(event->type())
+    {
+    case QEvent::TouchBegin:
+    case QEvent::TouchUpdate:
+        if (event->touchPoints().length() > 0)
+        {
+            QPointF lastPosition = event->touchPoints().first().lastPos();
+            int x = (int)lastPosition.x();
+            int y = (int)lastPosition.y();
+
+            if (Frontend::GetTouchCoords(x, y, event->type()==QEvent::TouchUpdate))
+            {
+                touching = true;
+                NDS::TouchScreen(x, y);
+            }
+        }
+        break;
+    case QEvent::TouchEnd:
+        if (touching)
+        {
+            NDS::ReleaseScreen();
+            touching = false;
+        }
+        break;
+    }
 }
 
 void ScreenHandler::showCursor()
@@ -817,6 +907,8 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
     screenTrans[1].reset();
 
     touching = false;
+
+    setAttribute(Qt::WA_AcceptTouchEvents);
 
     OSD::Init(nullptr);
 }
@@ -896,6 +988,23 @@ void ScreenPanelNative::mouseMoveEvent(QMouseEvent* event)
     screenOnMouseMove(event);
 }
 
+void ScreenPanelNative::tabletEvent(QTabletEvent* event)
+{
+    screenHandleTablet(event);
+}
+
+bool ScreenPanelNative::event(QEvent* event)
+{
+    if (event->type() == QEvent::TouchBegin
+        || event->type() == QEvent::TouchEnd
+        || event->type() == QEvent::TouchUpdate)
+    {
+        screenHandleTouch((QTouchEvent*)event);
+        return true;
+    }
+    return QWidget::event(event);
+}
+
 void ScreenPanelNative::onScreenLayoutChanged()
 {
     setMinimumSize(screenGetMinSize());
@@ -907,6 +1016,7 @@ ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 {
     touching = false;
 
+    setAttribute(Qt::WA_AcceptTouchEvents);
 }
 
 ScreenPanelGL::~ScreenPanelGL()
@@ -1107,6 +1217,23 @@ void ScreenPanelGL::mouseMoveEvent(QMouseEvent* event)
     screenOnMouseMove(event);
 }
 
+void ScreenPanelGL::tabletEvent(QTabletEvent* event)
+{
+    screenHandleTablet(event);
+}
+
+bool ScreenPanelGL::event(QEvent* event)
+{
+    if (event->type() == QEvent::TouchBegin
+        || event->type() == QEvent::TouchEnd
+        || event->type() == QEvent::TouchUpdate)
+    {
+        screenHandleTouch((QTouchEvent*)event);
+        return true;
+    }
+    return QWidget::event(event);
+}
+
 void ScreenPanelGL::onScreenLayoutChanged()
 {
     setMinimumSize(screenGetMinSize());
@@ -1144,6 +1271,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     sigaction(SIGINT, &sa, 0);
 #endif
 
+    oldW = Config::WindowWidth;
+    oldH = Config::WindowHeight;
+    oldMax = Config::WindowMaximized!=0;
+
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
     setAcceptDrops(true);
@@ -1156,11 +1287,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
         actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
 
-        actOpenROMArchive = menu->addAction("Open ROM inside Archive...");
+        actOpenROMArchive = menu->addAction("Open ROM inside archive...");
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
         actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));
 
-        recentMenu = menu->addMenu("Open Recent");
+        recentMenu = menu->addMenu("Open recent");
         for (int i = 0; i < 10; ++i)
         {
             char* item = Config::RecentROMList[i];
@@ -1233,6 +1364,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actStop = menu->addAction("Stop");
         connect(actStop, &QAction::triggered, this, &MainWindow::onStop);
 
+        actFrameStep = menu->addAction("Frame step");
+        connect(actFrameStep, &QAction::triggered, this, &MainWindow::onFrameStep);
+
         menu->addSeparator();
 
         actEnableCheats = menu->addAction("Enable cheats");
@@ -1240,7 +1374,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
 
         actSetupCheats = menu->addAction("Setup cheat codes");
+        actSetupCheats->setMenuRole(QAction::NoRole);
         connect(actSetupCheats, &QAction::triggered, this, &MainWindow::onSetupCheats);
+
+        menu->addSeparator();
+        actROMInfo = menu->addAction("ROM info");
+        connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
+
+        actTitleManager = menu->addAction("Manage DSi titles");
+        connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1421,7 +1563,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     resize(Config::WindowWidth, Config::WindowHeight);
 
-    show();
+    if (oldMax)
+        showMaximized();
+    else
+        show();
+
     createScreenPanel();
 
     for (int i = 0; i < 9; i++)
@@ -1435,11 +1581,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+    actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-
+    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 
     actEnableCheats->setChecked(Config::EnableCheats != 0);
+
+    actROMInfo->setEnabled(false);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
 
@@ -1532,13 +1681,30 @@ void MainWindow::resizeEvent(QResizeEvent* event)
     int w = event->size().width();
     int h = event->size().height();
 
-    if (mainWindow != nullptr && !mainWindow->isFullScreen())
+    if (!isFullScreen())
     {
+        // this is ugly
+        // thing is, when maximizing the window, we first receive the resizeEvent
+        // with a new size matching the screen, then the changeEvent telling us that
+        // the maximized flag was updated
+        oldW = Config::WindowWidth;
+        oldH = Config::WindowHeight;
+        oldMax = isMaximized();
+
         Config::WindowWidth = w;
         Config::WindowHeight = h;
     }
+}
 
-    // TODO: detect when the window gets maximized!
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (isMaximized() && !oldMax)
+    {
+        Config::WindowWidth = oldW;
+        Config::WindowHeight = oldH;
+    }
+
+    Config::WindowMaximized = isMaximized() ? 1:0;
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)
@@ -2086,6 +2252,8 @@ void MainWindow::onLoadState()
         if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
         else          sprintf(msg, "State loaded from file");
         OSD::AddMessage(0, msg);
+
+        actUndoStateLoad->setEnabled(true);
     }
     else
     {
@@ -2197,6 +2365,13 @@ void MainWindow::onStop()
     NDS::Stop();
 }
 
+void MainWindow::onFrameStep()
+{
+    if (!RunningSomething) return;
+
+    emuThread->emuFrameStep();
+}
+
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
@@ -2216,6 +2391,15 @@ void MainWindow::onCheatsDialogFinished(int res)
     emuThread->emuUnpause();
 }
 
+void MainWindow::onROMInfo()
+{
+    ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
+}
+
+void MainWindow::onOpenTitleManager()
+{
+    TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
+}
 
 void MainWindow::onOpenEmuSettings()
 {
@@ -2231,6 +2415,9 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 
     if (EmuSettingsDialog::needsReset)
         onReset();
+
+    if (!RunningSomething)
+        actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2255,11 +2442,26 @@ void MainWindow::onOpenVideoSettings()
 void MainWindow::onOpenAudioSettings()
 {
     AudioSettingsDialog* dlg = AudioSettingsDialog::openDlg(this);
+    connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
+}
+
+void MainWindow::onUpdateAudioSettings()
+{
+    SPU::SetInterpolation(Config::AudioInterp);
+
+    if (Config::AudioBitrate == 0)
+        SPU::SetDegrade10Bit(NDS::ConsoleType == 0);
+    else
+        SPU::SetDegrade10Bit(Config::AudioBitrate == 1);
 }
 
 void MainWindow::onAudioSettingsFinished(int res)
 {
+    micClose();
+
+    SPU::SetInterpolation(Config::AudioInterp);
+
     if (Config::MicInputType == 3)
     {
         micLoadWav(Config::MicWavPath);
@@ -2275,6 +2477,8 @@ void MainWindow::onAudioSettingsFinished(int res)
         else
             Frontend::Mic_SetExternalBuffer(NULL, 0);
     }
+
+    micOpen();
 }
 
 void MainWindow::onOpenWifiSettings()
@@ -2466,9 +2670,13 @@ void MainWindow::onEmuStart()
     actPause->setChecked(false);
     actReset->setEnabled(true);
     actStop->setEnabled(true);
+    actFrameStep->setEnabled(true);
     actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
+    actTitleManager->setEnabled(false);
+
+    actROMInfo->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -2486,8 +2694,12 @@ void MainWindow::onEmuStop()
     actPause->setEnabled(false);
     actReset->setEnabled(false);
     actStop->setEnabled(false);
+    actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
+    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
+
+    actROMInfo->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -2529,7 +2741,24 @@ void emuStop()
     OSD::AddMessage(0xFFC040, "Shutdown");
 }
 
+MelonApplication::MelonApplication(int& argc, char** argv)
+    : QApplication(argc, argv)
+{
+    setWindowIcon(QIcon(":/melon-icon"));
+}
 
+bool MelonApplication::event(QEvent *event)
+{
+    if (event->type() == QEvent::FileOpen)
+    {
+        QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
+
+        emuThread->emuPause();
+        mainWindow->loadROM(openEvent->file());
+    }
+
+    return QApplication::event(event);
+}
 
 int main(int argc, char** argv)
 {
@@ -2540,8 +2769,7 @@ int main(int argc, char** argv)
 
     Platform::Init(argc, argv);
 
-    QApplication melon(argc, argv);
-    melon.setWindowIcon(QIcon(":/melon-icon"));
+    MelonApplication melon(argc, argv);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -2571,6 +2799,7 @@ int main(int argc, char** argv)
     );
     SANITIZE(Config::ScreenVSyncInterval, 1, 20);
     SANITIZE(Config::GL_ScaleFactor, 1, 16);
+    SANITIZE(Config::AudioInterp, 0, 3);
     SANITIZE(Config::AudioVolume, 0, 256);
     SANITIZE(Config::MicInputType, 0, 3);
     SANITIZE(Config::ScreenRotation, 0, 3);
@@ -2612,21 +2841,7 @@ int main(int argc, char** argv)
         SDL_PauseAudioDevice(audioDevice, 1);
     }
 
-    memset(&whatIwant, 0, sizeof(SDL_AudioSpec));
-    whatIwant.freq = 44100;
-    whatIwant.format = AUDIO_S16LSB;
-    whatIwant.channels = 1;
-    whatIwant.samples = 1024;
-    whatIwant.callback = micCallback;
-    micDevice = SDL_OpenAudioDevice(NULL, 1, &whatIwant, &whatIget, 0);
-    if (!micDevice)
-    {
-        printf("Mic init failed: %s\n", SDL_GetError());
-    }
-    else
-    {
-        SDL_PauseAudioDevice(micDevice, 1);
-    }
+    micDevice = 0;
 
 
     memset(micExtBuffer, 0, sizeof(micExtBuffer));
@@ -2697,7 +2912,7 @@ int main(int argc, char** argv)
     Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
-    if (micDevice)   SDL_CloseAudioDevice(micDevice);
+    micClose();
 
     SDL_DestroyCond(audioSync);
     SDL_DestroyMutex(audioSyncLock);

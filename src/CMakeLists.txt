@@ -19,7 +19,9 @@ add_library(core STATIC
 	DSi.cpp
 	DSi_AES.cpp
 	DSi_Camera.cpp
+	DSi_DSP.cpp
 	DSi_I2C.cpp
+	DSi_NAND.cpp
 	DSi_NDMA.cpp
 	DSi_NWifi.cpp
 	DSi_SD.cpp
@@ -46,6 +48,13 @@ add_library(core STATIC
 	Wifi.cpp
 	WifiAP.cpp
 
+	fatfs/diskio.c
+	fatfs/ff.c
+	fatfs/ffsystem.c
+	fatfs/ffunicode.c
+	fatfs/ffconf.h
+	
+	sha1/sha1.c
 	tiny-AES-c/aes.c
 	xxhash/xxhash.c
 )
@@ -101,6 +110,10 @@ if (ENABLE_JIT)
 	endif()
 endif()
 
+add_subdirectory(teakra EXCLUDE_FROM_ALL)
+target_link_libraries(core teakra)
+
+
 if (ENABLE_OGLRENDERER)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(EPOXY REQUIRED epoxy)
@@ -119,4 +132,8 @@ else()
 	else()
 		target_link_libraries(core rt)
 	endif()
+endif()
+
+if (ENABLE_JIT_PROFILING)
+	target_link_libraries(core jitprofiling)
 endif()

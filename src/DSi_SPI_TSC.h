@@ -29,6 +29,9 @@ void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
 
+// 00=DS-mode 01=normal
+void SetMode(u8 mode);
+
 void SetTouchCoords(u16 x, u16 y);
 void MicInputFrame(s16* data, int samples);
 

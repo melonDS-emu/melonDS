@@ -69,6 +69,7 @@ int DirectLAN;
 
 int SavestateRelocSRAM;
 
+int AudioInterp;
 int AudioVolume;
 int MicInputType;
 char MicWavPath[1024];
@@ -124,6 +125,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, NULL, 0},
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
+    {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, NULL, 0},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, NULL, 0},
@@ -135,6 +137,7 @@ ConfigEntry PlatformConfigFile[] =
     {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, NULL, 0},
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
+    {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, NULL, 0},
 
     {"JoystickID", 0, &JoystickID, 0, NULL, 0},
 
@@ -162,8 +165,8 @@ ConfigEntry PlatformConfigFile[] =
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
-    {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
-    {"AudioSync", 0, &AudioSync, 1, NULL, 0},
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"AudioSync", 0, &AudioSync, 0, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
@@ -175,6 +178,7 @@ ConfigEntry PlatformConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
+    {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
@@ -197,7 +201,7 @@ ConfigEntry PlatformConfigFile[] =
     {"MouseHide",        0, &MouseHide,        0, NULL, 0},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
     {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
-    
+
     {"", -1, NULL, 0, NULL, 0}
 };
 

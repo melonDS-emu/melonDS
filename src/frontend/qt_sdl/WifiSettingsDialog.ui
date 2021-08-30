@@ -61,7 +61,7 @@
       <item row="3" column="0" rowspan="3" colspan="2">
        <widget class="QGroupBox" name="groupBox_3">
         <property name="title">
-         <string>Direct Mode Settings</string>
+         <string>Direct mode settings</string>
         </property>
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="0" column="0">
@@ -127,7 +127,7 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Indirect mode uses libslirp. It requires no extra setup and is easy to use.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Indirect Mode (uses libslirp, recommended)</string>
+         <string>Indirect mode (uses libslirp, recommended)</string>
         </property>
        </widget>
       </item>

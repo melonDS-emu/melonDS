@@ -26,6 +26,9 @@ namespace DSi
 {
 
 extern u16 SCFG_BIOS;
+extern u16 SCFG_Clock9;
+extern u32 SCFG_EXT[2];
+
 
 extern u8 ARM9iBIOS[0x10000];
 extern u8 ARM7iBIOS[0x10000];
@@ -57,6 +60,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetupDirectBoot();
 void SoftReset();
 
 bool LoadBIOS();

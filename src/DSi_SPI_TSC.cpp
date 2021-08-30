@@ -81,6 +81,11 @@ void DoSavestate(Savestate* file)
     // TODO!!
 }
 
+void SetMode(u8 mode)
+{
+    TSCMode = mode;
+}
+
 void SetTouchCoords(u16 x, u16 y)
 {
     if (TSCMode == 0x00)

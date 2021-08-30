@@ -67,6 +67,13 @@ endif()
 
 if (ENABLE_JIT)
 	add_definitions(-DJIT_ENABLED)
+
+	option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF)
+
+	if (ENABLE_JIT_PROFILING)
+		include(cmake/FindVTune.cmake)
+		add_definitions(-DJIT_PROFILING_ENABLED)
+	endif()
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL Release)
@@ -119,6 +126,13 @@ if (ENABLE_LTO)
 		set(CMAKE_AR "llvm-ar")
 		set(CMAKE_RANLIB "llvm-ranlib")
 	endif()
+endif()
+
+find_program(CCACHE "ccache")
+if (CCACHE)
+    message(STATUS "Using CCache to speed up compilation")
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
 endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)

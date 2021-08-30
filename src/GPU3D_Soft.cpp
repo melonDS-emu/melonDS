@@ -18,6 +18,7 @@
 
 #include "GPU3D_Soft.h"
 
+#include <algorithm>
 #include <stdio.h>
 #include <string.h>
 #include "NDS.h"
@@ -756,11 +757,10 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
         rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
         rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
 
-        s32 tmp;
-        tmp = xstart; xstart = xend; xend = tmp;
-        tmp = wl; wl = wr; wr = tmp;
-        tmp = zl; zl = zr; zr = tmp;
-        tmp = (s32)l_filledge; l_filledge = r_filledge; r_filledge = (bool)tmp;
+        std::swap(xstart, xend);
+        std::swap(wl, wr);
+        std::swap(zl, zr);
+        std::swap(l_filledge, r_filledge);
     }
     else
     {
@@ -820,7 +820,7 @@ void SoftRenderer::RenderShadowMaskScanline(RendererPolygon* rp, s32 y)
             continue;
 
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
-            StencilBuffer[256*(y&0x1) + x] |= 0x1;
+            StencilBuffer[256*(y&0x1) + x] = 1;
 
         if (dstattr & 0x3)
         {
@@ -977,11 +977,10 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         rp->SlopeR.EdgeParams_YMajor(&l_edgelen, &l_edgecov);
         rp->SlopeL.EdgeParams_YMajor(&r_edgelen, &r_edgecov);
 
-        s32 tmp;
-        tmp = xstart; xstart = xend; xend = tmp;
-        tmp = wl; wl = wr; wr = tmp;
-        tmp = zl; zl = zr; zr = tmp;
-        tmp = (s32)l_filledge; l_filledge = r_filledge; r_filledge = (bool)tmp;
+        std::swap(xstart, xend);
+        std::swap(wl, wr);
+        std::swap(zl, zr);
+        std::swap(l_filledge, r_filledge);
     }
     else
     {
@@ -1066,7 +1065,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1162,7 +1161,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1237,7 +1236,7 @@ void SoftRenderer::RenderPolygonScanline(RendererPolygon* rp, s32 y)
         // against the pixel underneath
         if (!fnDepthTest(DepthBuffer[pixeladdr], z, dstattr))
         {
-            if (!(dstattr & 0x3)) continue;
+            if (!(dstattr & 0x3) || pixeladdr >= BufferSize) continue;
 
             pixeladdr += BufferSize;
             dstattr = AttrBuffer[pixeladdr];
@@ -1646,7 +1645,7 @@ void SoftRenderer::RenderPolygons(bool threaded, Polygon** polygons, int npolys)
 
 void SoftRenderer::VCount144()
 {
-    if (RenderThreadRunning.load(std::memory_order_relaxed))
+    if (RenderThreadRunning.load(std::memory_order_relaxed) && !GPU3D::AbortFrame)
         Platform::Semaphore_Wait(Sema_RenderDone);
 }
 

@@ -354,21 +354,21 @@
        <item row="2" column="0">
         <widget class="QCheckBox" name="chkJITBranchOptimisations">
          <property name="text">
-          <string>Branch Optimisations</string>
+          <string>Branch optimisations</string>
          </property>
         </widget>
        </item>
        <item row="3" column="0">
         <widget class="QCheckBox" name="chkJITLiteralOptimisations">
          <property name="text">
-          <string>Literal Optimisations</string>
+          <string>Literal optimisations</string>
          </property>
         </widget>
        </item>
        <item row="4" column="0">
         <widget class="QCheckBox" name="chkJITFastMemory">
          <property name="text">
-          <string>Fast Memory</string>
+          <string>Fast memory</string>
          </property>
         </widget>
        </item>

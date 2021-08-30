@@ -22,5 +22,17 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>We need microphone access so you can use the emulated DS microphone</string>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>nds</string>
+                <string>srl</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+        </dict>
+    </array>
 </dict>
 </plist>

@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include "Config.h"
 #include "NDS.h"
 #include "ARM.h"
@@ -164,7 +165,6 @@ u16 RCnt;
 bool Running;
 
 bool RunningGame;
-
 
 void DivDone(u32 param);
 void SqrtDone(u32 param);
@@ -352,93 +352,86 @@ void SetupDirectBoot()
 {
     if (ConsoleType == 1)
     {
-        printf("!! DIRECT BOOT NOT SUPPORTED IN DSI MODE\n");
-        return;
+        DSi::SetupDirectBoot();
     }
-
-    u32 bootparams[8];
-    memcpy(bootparams, &NDSCart::CartROM[0x20], 8*4);
-
-    printf("ARM9: offset=%08X entry=%08X RAM=%08X size=%08X\n",
-           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-    printf("ARM7: offset=%08X entry=%08X RAM=%08X size=%08X\n",
-           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
-
-    MapSharedWRAM(3);
-
-    u32 arm9start = 0;
-
-    // load the ARM9 secure area
-    if (bootparams[0] >= 0x4000 && bootparams[0] < 0x8000)
+    else
     {
-        u8 securearea[0x800];
-        NDSCart::DecryptSecureArea(securearea);
+        MapSharedWRAM(3);
 
-        for (u32 i = 0; i < 0x800; i+=4)
+        u32 arm9start = 0;
+
+        // load the ARM9 secure area
+        if (NDSCart::Header.ARM9ROMOffset >= 0x4000 && NDSCart::Header.ARM9ROMOffset < 0x8000)
         {
-            ARM9Write32(bootparams[2]+i, *(u32*)&securearea[i]);
-            arm9start += 4;
+            u8 securearea[0x800];
+            NDSCart::DecryptSecureArea(securearea);
+
+            for (u32 i = 0; i < 0x800; i+=4)
+            {
+                ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
+                arm9start += 4;
+            }
         }
+
+        // CHECKME: firmware seems to load this in 0x200 byte chunks
+
+        for (u32 i = arm9start; i < NDSCart::Header.ARM9Size; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM9ROMOffset+i];
+            ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < NDSCart::Header.ARM7Size; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
+            ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < 0x170; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[i];
+            ARM9Write32(0x027FFE00+i, tmp);
+        }
+
+        ARM9Write32(0x027FF800, NDSCart::CartID);
+        ARM9Write32(0x027FF804, NDSCart::CartID);
+        ARM9Write16(0x027FF808, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FF80A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FF850, 0x5835);
+
+        ARM9Write32(0x027FFC00, NDSCart::CartID);
+        ARM9Write32(0x027FFC04, NDSCart::CartID);
+        ARM9Write16(0x027FFC08, NDSCart::Header.HeaderCRC16);
+        ARM9Write16(0x027FFC0A, NDSCart::Header.SecureAreaCRC16);
+
+        ARM9Write16(0x027FFC10, 0x5835);
+        ARM9Write16(0x027FFC30, 0xFFFF);
+        ARM9Write16(0x027FFC40, 0x0001);
+
+        ARM7BIOSProt = 0x1204;
+
+        SPI_Firmware::SetupDirectBoot(false);
     }
-
-    // CHECKME: firmware seems to load this in 0x200 byte chunks
-
-    for (u32 i = arm9start; i < bootparams[3]; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[0]+i];
-        ARM9Write32(bootparams[2]+i, tmp);
-    }
-
-    for (u32 i = 0; i < bootparams[7]; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[bootparams[4]+i];
-        ARM7Write32(bootparams[6]+i, tmp);
-    }
-
-    for (u32 i = 0; i < 0x170; i+=4)
-    {
-        u32 tmp = *(u32*)&NDSCart::CartROM[i];
-        ARM9Write32(0x027FFE00+i, tmp);
-    }
-
-    ARM9Write32(0x027FF800, NDSCart::CartID);
-    ARM9Write32(0x027FF804, NDSCart::CartID);
-    ARM9Write16(0x027FF808, *(u16*)&NDSCart::CartROM[0x15E]);
-    ARM9Write16(0x027FF80A, *(u16*)&NDSCart::CartROM[0x6C]);
-
-    ARM9Write16(0x027FF850, 0x5835);
-
-    ARM9Write32(0x027FFC00, NDSCart::CartID);
-    ARM9Write32(0x027FFC04, NDSCart::CartID);
-    ARM9Write16(0x027FFC08, *(u16*)&NDSCart::CartROM[0x15E]);
-    ARM9Write16(0x027FFC0A, *(u16*)&NDSCart::CartROM[0x6C]);
-
-    ARM9Write16(0x027FFC10, 0x5835);
-    ARM9Write16(0x027FFC30, 0xFFFF);
-    ARM9Write16(0x027FFC40, 0x0001);
 
     ARM9->CP15Write(0x910, 0x0300000A);
     ARM9->CP15Write(0x911, 0x00000020);
     ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
 
-    // hax
-    ARM9->CP15Write(0x502, 0x33333363);
-    ARM9->CP15Write(0x503, 0x33333363);
-
-    ARM9->R[12] = bootparams[1];
+    ARM9->R[12] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;
-    ARM9->R[14] = bootparams[1];
+    ARM9->R[14] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R_IRQ[0] = 0x03003F80;
     ARM9->R_SVC[0] = 0x03003FC0;
 
-    ARM7->R[12] = bootparams[5];
+    ARM7->R[12] = NDSCart::Header.ARM7EntryAddress;
     ARM7->R[13] = 0x0380FD80;
-    ARM7->R[14] = bootparams[5];
+    ARM7->R[14] = NDSCart::Header.ARM7EntryAddress;
     ARM7->R_IRQ[0] = 0x0380FF80;
     ARM7->R_SVC[0] = 0x0380FFC0;
 
-    ARM9->JumpTo(bootparams[1]);
-    ARM7->JumpTo(bootparams[5]);
+    ARM9->JumpTo(NDSCart::Header.ARM9EntryAddress);
+    ARM7->JumpTo(NDSCart::Header.ARM7EntryAddress);
 
     PostFlag9 = 0x01;
     PostFlag7 = 0x01;
@@ -454,10 +447,6 @@ void SetupDirectBoot()
     SPU::SetBias(0x200);
 
     SetWifiWaitCnt(0x0030);
-
-    ARM7BIOSProt = 0x1204;
-
-    SPI_Firmware::SetupDirectBoot();
 }
 
 void Reset()
@@ -606,11 +595,24 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
+    // The SOUNDBIAS register does nothing on DSi
+    SPU::SetApplyBias(ConsoleType == 0);
+
+    bool degradeAudio = true;
+
     if (ConsoleType == 1)
     {
         DSi::Reset();
         KeyInput &= ~(1 << (16+6));
+        degradeAudio = false;
     }
+
+    if (Config::AudioBitrate == 1) // Always 10-bit
+        degradeAudio = true;
+    else if (Config::AudioBitrate == 2) // Always 16-bit
+        degradeAudio = false;
+
+    SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
 }
@@ -1435,10 +1437,7 @@ u64 GetSysClockCycles(int num)
 
 void NocashPrint(u32 ncpu, u32 addr)
 {
-    // addr: u16 flags (TODO: research? libnds doesn't use those)
-    // addr+2: debug string
-
-    addr += 2;
+    // addr: debug string
 
     ARM* cpu = ncpu ? (ARM*)ARM7 : (ARM*)ARM9;
     u8 (*readfn)(u32) = ncpu ? NDS::ARM7Read8 : NDS::ARM9Read8;
@@ -1865,7 +1864,7 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/construct.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
@@ -1878,23 +1877,23 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 
-    /*FILE*
-    shit = fopen("debug/power9.bin", "wb");
+    FILE*
+    shit = fopen("debug/directboot9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/power7.bin", "wb");
+    shit = fopen("debug/directboot7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 }
 
 
@@ -2846,6 +2845,14 @@ u8 ARM9IORead8(u32 addr)
     {
         return GPU3D::Read8(addr);
     }
+    // NO$GBA debug register "Emulation ID"
+    if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
+    {
+        // FIX: GBATek says this should be padded with spaces
+        static char const emuID[16] = "melonDS " MELONDS_VERSION;
+        auto idx = addr - 0x04FFFA00;
+        return (u8)(emuID[idx]);
+    }
 
     printf("unknown ARM9 IO read8 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
@@ -2972,6 +2979,12 @@ u16 ARM9IORead16(u32 addr)
 
     case 0x04000300: return PostFlag9;
     case 0x04000304: return PowerControl9;
+
+    case 0x04004000:
+    case 0x04004004:
+    case 0x04004010:
+        // shut up logging for DSi registers
+        return 0;
     }
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
@@ -3104,6 +3117,17 @@ u32 ARM9IORead32(u32 addr)
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11))) return NDSCart::ReadROMData();
         return 0;
+
+    case 0x04004000:
+    case 0x04004004:
+    case 0x04004010:
+        // shut up logging for DSi registers
+        return 0;
+
+    // NO$GBA debug register "Clock Cycles"
+    // Since it's a 64 bit reg. the CPU will access it in two parts:
+    case 0x04FFFA20: return (u32)(GetSysClockCycles(0) & 0xFFFFFFFF);
+    case 0x04FFFA24: return (u32)(GetSysClockCycles(0) >> 32);
     }
 
     if ((addr >= 0x04000000 && addr < 0x04000060) || (addr == 0x0400006C))
@@ -3318,10 +3342,14 @@ void ARM9IOWrite16(u32 addr, u16 val)
     case 0x040001BA: ROMSeed1[4] = val & 0x7F; return;
 
     case 0x04000204:
-        ExMemCnt[0] = val;
-        ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
-        SetGBASlotTimings();
-        return;
+        {
+            u16 oldVal = ExMemCnt[0];
+            ExMemCnt[0] = val;
+            ExMemCnt[1] = (ExMemCnt[1] & 0x007F) | (val & 0xFF80);
+            if ((oldVal ^ ExMemCnt[0]) & 0xFF)
+                SetGBASlotTimings();
+            return;
+        }
 
     case 0x04000208: IME[0] = val & 0x1; UpdateIRQ(0); return;
     case 0x04000210: IE[0] = (IE[0] & 0xFFFF0000) | val; UpdateIRQ(0); return;
@@ -3532,6 +3560,34 @@ void ARM9IOWrite32(u32 addr, u32 val)
     case 0x04100010:
         if (!(ExMemCnt[0] & (1<<11)))  NDSCart::WriteROMData(val);
         return;
+
+    // NO$GBA debug register "String Out (raw)"
+    case 0x04FFFA10:
+        {
+            char output[1024] = { 0 };
+            char ch = '.';
+            for (size_t i = 0; i < 1023 && ch != '\0'; i++)
+            {
+                ch = NDS::ARM9Read8(val + i);
+                output[i] = ch;
+            }
+            printf("%s", output);
+            return;
+        }
+
+    // NO$GBA debug registers "String Out (with parameters)" and "String Out (with parameters, plus linefeed)"
+    case 0x04FFFA14:
+    case 0x04FFFA18:
+        {
+            bool appendLF = 0x04FFFA18 == addr;
+            NocashPrint(0, val);
+            if(appendLF)
+                printf("\n");
+            return;
+        }
+
+    // NO$GBA debug register "Char Out"
+    case 0x04FFFA1C: printf("%" PRIu32, val); return;
     }
 
     if (addr >= 0x04000000 && addr < 0x04000060)
@@ -3999,9 +4055,13 @@ void ARM7IOWrite16(u32 addr, u16 val)
         return;
 
     case 0x04000204:
-        ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
-        SetGBASlotTimings();
-        return;
+        {
+            u16 oldVal = ExMemCnt[1];
+            ExMemCnt[1] = (ExMemCnt[1] & 0xFF80) | (val & 0x007F);
+            if ((ExMemCnt[1] ^ oldVal) & 0xFF)
+                SetGBASlotTimings();
+            return;
+        }
     case 0x04000206:
         SetWifiWaitCnt(val);
         return;

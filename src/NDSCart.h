@@ -20,6 +20,7 @@
 #define NDSCART_H
 
 #include "types.h"
+#include "NDS_Header.h"
 
 namespace NDSCart
 {
@@ -55,6 +56,8 @@ protected:
     u32 ROMLength;
     u32 ChipID;
     bool IsDSi;
+    bool DSiMode;
+    u32 DSiBase;
 
     u32 CmdEncMode;
     u32 DataEncMode;
@@ -190,6 +193,9 @@ extern u8* CartROM;
 extern u32 CartROMSize;
 
 extern u32 CartID;
+
+extern NDSHeader Header;
+extern NDSBanner Banner;
 
 bool Init();
 void DeInit();
