@@ -2011,7 +2011,7 @@ u16 ARM9Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    //if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2072,7 +2072,7 @@ u32 ARM9Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
+    //printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
     return 0;
 }
 

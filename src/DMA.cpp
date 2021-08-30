@@ -297,6 +297,7 @@ u32 DMA::UnitTimings9_16(bool burststart)
         }
         else
         {
+            // TODO: not quite right for GBA slot
             return (((CurSrcAddr & 0x1F) == 0x1E) ? 7 : 8) +
                    (burststart ? dst_n : dst_s);
         }
@@ -384,7 +385,8 @@ u32 DMA::UnitTimings9_32(bool burststart)
         }
         else
         {
-            return (((CurSrcAddr & 0x1F) == 0x1C) ? 8 : 9) +
+            // TODO: not quite right for GBA slot
+            return (((CurSrcAddr & 0x1F) == 0x1C) ? (dst_n==2 ? 7:8) : 9) +
                    (burststart ? dst_n : dst_s);
         }
     }
