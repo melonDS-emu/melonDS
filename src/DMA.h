@@ -34,10 +34,10 @@ public:
     void WriteCnt(u32 val);
     void Start();
 
-    void CalculateTimings(u32& burststart, u32& unit);
-
     u32 UnitTimings9_16(bool burststart);
     u32 UnitTimings9_32(bool burststart);
+    u32 UnitTimings7_16(bool burststart);
+    u32 UnitTimings7_32(bool burststart);
 
     template <int ConsoleType>
     void Run();
