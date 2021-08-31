@@ -628,6 +628,9 @@ void CompileBlock(ARM* cpu)
     // due to instruction merging i might not reflect the amount of actual instructions
     u32 numInstrs = 0;
 
+    u32 writeAddrs[Config::JIT_MaxBlockSize];
+    u32 numWriteAddrs = 0, writeAddrsTranslated = 0;
+
     cpu->FillPipeline();
     u32 nextInstr[2] = {cpu->NextInstr[0], cpu->NextInstr[1]};
     u32 nextInstrAddr[2] = {blockAddr, r15};
@@ -753,21 +756,25 @@ void CompileBlock(ARM* cpu)
             {
                 printf("literal in non executable memory?\n");
             }
-            u32 translatedAddrRounded = translatedAddr & ~0x1FF;
+            if (InvalidLiterals.Find(translatedAddr) == -1)
+            {
+                u32 translatedAddrRounded = translatedAddr & ~0x1FF;
 
-            u32 j = 0;
-            for (; j < numAddressRanges; j++)
-                if (addressRanges[j] == translatedAddrRounded)
-                    break;
-            if (j == numAddressRanges)
-                addressRanges[numAddressRanges++] = translatedAddrRounded;
-            addressMasks[j] |= 1 << ((translatedAddr & 0x1FF) / 16);
-            JIT_DEBUGPRINT("literal loading %08x %08x %08x %08x\n", literalAddr, translatedAddr, addressMasks[j], addressRanges[j]);
-            cpu->DataRead32(literalAddr, &literalValues[numLiterals]);
-            literalLoadAddrs[numLiterals++] = translatedAddr;
+                u32 j = 0;
+                for (; j < numAddressRanges; j++)
+                    if (addressRanges[j] == translatedAddrRounded)
+                        break;
+                if (j == numAddressRanges)
+                    addressRanges[numAddressRanges++] = translatedAddrRounded;
+                addressMasks[j] |= 1 << ((translatedAddr & 0x1FF) / 16);
+                JIT_DEBUGPRINT("literal loading %08x %08x %08x %08x\n", literalAddr, translatedAddr, addressMasks[j], addressRanges[j]);
+                cpu->DataRead32(literalAddr, &literalValues[numLiterals]);
+                literalLoadAddrs[numLiterals++] = translatedAddr;
+            }
         }
-
-        if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
+        else if (instrs[i].Info.SpecialKind == ARMInstrInfo::special_WriteMem)
+            writeAddrs[numWriteAddrs++] = instrs[i].DataRegion;
+        else if (thumb && instrs[i].Info.Kind == ARMInstrInfo::tk_BL_LONG_2 && i > 0
             && instrs[i - 1].Info.Kind == ARMInstrInfo::tk_BL_LONG_1)
         {
             i--;
@@ -859,6 +866,26 @@ void CompileBlock(ARM* cpu)
         if (instrs[i - 1].Info.ReadFlags != 0 || secondaryFlagReadCond)
             FloodFillSetFlags(instrs, i - 2, !secondaryFlagReadCond ? instrs[i - 1].Info.ReadFlags : 0xF);
     } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
+
+    if (numLiterals)
+    {
+        for (u32 j = 0; j < numWriteAddrs; j++)
+        {
+            u32 translatedAddr = LocaliseCodeAddress(cpu->Num, writeAddrs[j]);
+            if (translatedAddr)
+            {
+                for (u32 k = 0; k < numLiterals; k++)
+                {
+                    if (literalLoadAddrs[k] == translatedAddr)
+                    {
+                        if (InvalidLiterals.Find(translatedAddr) == -1)
+                            InvalidLiterals.Add(translatedAddr);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     u32 literalHash = (u32)XXH3_64bits(literalValues, numLiterals * 4);
     u32 instrHash = (u32)XXH3_64bits(instrValues, numInstrs * 4);
