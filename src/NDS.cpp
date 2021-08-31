@@ -71,8 +71,10 @@ namespace NDS
 
 int ConsoleType;
 
-u8 ARM9MemTimings[0x40000][4];
+u8 ARM9MemTimings[0x40000][8];
+u32 ARM9Regions[0x40000];
 u8 ARM7MemTimings[0x20000][4];
+u32 ARM7Regions[0x20000];
 
 ARMv5* ARM9;
 ARMv4* ARM7;
@@ -236,14 +238,12 @@ void DeInit()
 }
 
 
-void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
+void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 14;
-    addrend   >>= 14;
+    addrstart >>= 2;
+    addrend   >>= 2;
 
-    if (addrend == 0x3FFFF) addrend++;
-
-    int N16, S16, N32, S32;
+    int N16, S16, N32, S32, cpuN;
     N16 = nonseq;
     S16 = seq;
     if (buswidth == 16)
@@ -257,25 +257,33 @@ void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
         S32 = S16;
     }
 
+    // nonseq accesses on the CPU get a 3-cycle penalty for all regions except main RAM
+    cpuN = (region == Mem9_MainRAM) ? 0 : 3;
+
     for (u32 i = addrstart; i < addrend; i++)
     {
-        ARM9MemTimings[i][0] = N16;
+        // CPU timings
+        ARM9MemTimings[i][0] = N16 + cpuN;
         ARM9MemTimings[i][1] = S16;
-        ARM9MemTimings[i][2] = N32;
+        ARM9MemTimings[i][2] = N32 + cpuN;
         ARM9MemTimings[i][3] = S32;
+
+        // DMA timings
+        ARM9MemTimings[i][4] = N16;
+        ARM9MemTimings[i][5] = S16;
+        ARM9MemTimings[i][6] = N32;
+        ARM9MemTimings[i][7] = S32;
+
+        ARM9Regions[i] = region;
     }
 
-    ARM9->UpdateRegionTimings(addrstart<<14, addrend == 0x40000
-        ? 0xFFFFFFFF
-        : (addrend<<14));
+    ARM9->UpdateRegionTimings(addrstart<<2, addrend<<2);
 }
 
-void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq)
+void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq)
 {
-    addrstart >>= 15;
-    addrend   >>= 15;
-
-    if (addrend == 0x1FFFF) addrend++;
+    addrstart >>= 3;
+    addrend   >>= 3;
 
     int N16, S16, N32, S32;
     N16 = nonseq;
@@ -293,10 +301,13 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, 
 
     for (u32 i = addrstart; i < addrend; i++)
     {
+        // CPU and DMA timings are the same
         ARM7MemTimings[i][0] = N16;
         ARM7MemTimings[i][1] = S16;
         ARM7MemTimings[i][2] = N32;
         ARM7MemTimings[i][3] = S32;
+
+        ARM7Regions[i] = region;
     }
 }
 
@@ -307,32 +318,32 @@ void InitTimings()
     // Similarly for any unmapped VRAM area.
     // Need to check whether supporting these timing characteristics would impact performance
     // (especially wrt VRAM mirroring and overlapping and whatnot).
+    // Also, each VRAM bank is its own memory region. This would matter when DMAing from a VRAM
+    // bank to another (if this is a thing) for example.
 
-    // ARM9
-    // TODO: +3c nonseq waitstate doesn't apply to DMA!
-    // but of course mainRAM always gets 8c nonseq waitstate
+    // TODO: check in detail how WRAM works, although it seems to be one region.
 
     // TODO: DSi-specific timings!!
 
-    SetARM9RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1 + 3, 1); // void
+    SetARM9RegionTimings(0x00000, 0x100000, 0, 32, 1, 1); // void
 
-    SetARM9RegionTimings(0xFFFF0000, 0xFFFFFFFF, 32, 1 + 3, 1); // BIOS
-    SetARM9RegionTimings(0x02000000, 0x03000000, 16, 8, 1);     // main RAM
-    SetARM9RegionTimings(0x03000000, 0x04000000, 32, 1 + 3, 1); // ARM9/shared WRAM
-    SetARM9RegionTimings(0x04000000, 0x05000000, 32, 1 + 3, 1); // IO
-    SetARM9RegionTimings(0x05000000, 0x06000000, 16, 1 + 3, 1); // palette
-    SetARM9RegionTimings(0x06000000, 0x07000000, 16, 1 + 3, 1); // VRAM
-    SetARM9RegionTimings(0x07000000, 0x08000000, 32, 1 + 3, 1); // OAM
+    SetARM9RegionTimings(0xFFFF0, 0x100000, Mem9_BIOS,    32, 1, 1); // BIOS
+    SetARM9RegionTimings(0x02000, 0x03000,  Mem9_MainRAM, 16, 8, 1);     // main RAM
+    SetARM9RegionTimings(0x03000, 0x04000,  Mem9_WRAM,    32, 1, 1); // ARM9/shared WRAM
+    SetARM9RegionTimings(0x04000, 0x05000,  Mem9_IO,      32, 1, 1); // IO
+    SetARM9RegionTimings(0x05000, 0x06000,  Mem9_Pal,     16, 1, 1); // palette
+    SetARM9RegionTimings(0x06000, 0x07000,  Mem9_VRAM,    16, 1, 1); // VRAM
+    SetARM9RegionTimings(0x07000, 0x08000,  Mem9_OAM,     32, 1, 1); // OAM
 
     // ARM7
 
-    SetARM7RegionTimings(0x00000000, 0xFFFFFFFF, 32, 1, 1); // void
+    SetARM7RegionTimings(0x00000, 0x100000, 0, 32, 1, 1); // void
 
-    SetARM7RegionTimings(0x00000000, 0x00010000, 32, 1, 1); // BIOS
-    SetARM7RegionTimings(0x02000000, 0x03000000, 16, 8, 1); // main RAM
-    SetARM7RegionTimings(0x03000000, 0x04000000, 32, 1, 1); // ARM7/shared WRAM
-    SetARM7RegionTimings(0x04000000, 0x04800000, 32, 1, 1); // IO
-    SetARM7RegionTimings(0x06000000, 0x07000000, 16, 1, 1); // ARM7 VRAM
+    SetARM7RegionTimings(0x00000, 0x00010, Mem7_BIOS,    32, 1, 1); // BIOS
+    SetARM7RegionTimings(0x02000, 0x03000, Mem7_MainRAM, 16, 8, 1); // main RAM
+    SetARM7RegionTimings(0x03000, 0x04000, Mem7_WRAM,    32, 1, 1); // ARM7/shared WRAM
+    SetARM7RegionTimings(0x04000, 0x04800, Mem7_IO,      32, 1, 1); // IO
+    SetARM7RegionTimings(0x06000, 0x07000, Mem7_VRAM,    16, 1, 1); // ARM7 VRAM
 
     // handled later: GBA slot, wifi
 }
@@ -1242,8 +1253,8 @@ void SetWifiWaitCnt(u16 val)
     WifiWaitCnt = val;
 
     const int ntimings[4] = {10, 8, 6, 18};
-    SetARM7RegionTimings(0x04800000, 0x04808000, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
-    SetARM7RegionTimings(0x04808000, 0x04810000, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
+    SetARM7RegionTimings(0x04800, 0x04808, Mem7_Wifi0, 16, ntimings[val & 0x3], (val & 0x4) ? 4 : 6);
+    SetARM7RegionTimings(0x04808, 0x04810, Mem7_Wifi1, 16, ntimings[(val>>3) & 0x3], (val & 0x20) ? 4 : 10);
 }
 
 void SetGBASlotTimings()
@@ -1251,31 +1262,36 @@ void SetGBASlotTimings()
     const int ntimings[4] = {10, 8, 6, 18};
     const u16 openbus[4] = {0xFE08, 0x0000, 0x0000, 0xFFFF};
 
-    u16 curcnt;
-    int ramN, romN, romS;
+    u16 curcpu = (ExMemCnt[0] >> 7) & 0x1;
+    u16 curcnt = ExMemCnt[curcpu];
+    int ramN = ntimings[curcnt & 0x3];
+    int romN = ntimings[(curcnt>>2) & 0x3];
+    int romS = (curcnt & 0x10) ? 4 : 6;
 
-    curcnt = ExMemCnt[0];
-    ramN = ntimings[curcnt & 0x3];
-    romN = ntimings[(curcnt>>2) & 0x3];
-    romS = (curcnt & 0x10) ? 4 : 6;
+    // GBA slot timings only apply on the selected side
 
-    SetARM9RegionTimings(0x08000000, 0x0A000000, 16, romN + 3, romS);
-    SetARM9RegionTimings(0x0A000000, 0x0B000000, 8, ramN + 3, ramN);
+    if (curcpu == 0)
+    {
+        SetARM9RegionTimings(0x08000, 0x0A000, Mem9_GBAROM, 16, romN, romS);
+        SetARM9RegionTimings(0x0A000, 0x0B000, Mem9_GBARAM, 8, ramN, ramN);
 
-    curcnt = ExMemCnt[1];
-    ramN = ntimings[curcnt & 0x3];
-    romN = ntimings[(curcnt>>2) & 0x3];
-    romS = (curcnt & 0x10) ? 4 : 6;
+        SetARM7RegionTimings(0x08000, 0x0A000, 0, 32, 1, 1);
+        SetARM7RegionTimings(0x0A000, 0x0B000, 0, 32, 1, 1);
+    }
+    else
+    {
+        SetARM9RegionTimings(0x08000, 0x0A000, 0, 32, 1, 1);
+        SetARM9RegionTimings(0x0A000, 0x0B000, 0, 32, 1, 1);
 
-    SetARM7RegionTimings(0x08000000, 0x0A000000, 16, romN, romS);
-    SetARM7RegionTimings(0x0A000000, 0x0B000000, 8, ramN, ramN);
+        SetARM7RegionTimings(0x08000, 0x0A000, Mem7_GBAROM, 16, romN, romS);
+        SetARM7RegionTimings(0x0A000, 0x0B000, Mem7_GBARAM, 8, ramN, ramN);
+    }
 
     // this open-bus implementation is a rough way of simulating the way values
     // lingering on the bus decay after a while, which is visible at higher waitstates
     // for example, the Cartridge Construction Kit relies on this to determine that
     // the GBA slot is empty
 
-    curcnt = ExMemCnt[(ExMemCnt[0]>>7) & 0x1];
     GBACart::SetOpenBusDecay(openbus[(curcnt>>2) & 0x3]);
 }
 
@@ -1556,10 +1572,7 @@ void RunTimer(u32 tid, s32 cycles)
 {
     Timer* timer = &Timers[tid];
 
-    u32 oldcount = timer->Counter;
     timer->Counter += (cycles << timer->CycleShift);
-    //if (timer->Counter < oldcount)
-    //    HandleTimerOverflow(tid);
     while (timer->Counter >> 26)
     {
         timer->Counter -= (1 << 26);
@@ -1583,6 +1596,38 @@ void RunTimers(u32 cpu)
     if (timermask & 0x8) RunTimer((cpu<<2)+3, cycles);
 
     TimerTimestamp[cpu] += cycles;
+}
+
+const s32 TimerPrescaler[4] = {0, 6, 8, 10};
+
+u16 TimerGetCounter(u32 timer)
+{
+    RunTimers(timer>>2);
+    u32 ret = Timers[timer].Counter;
+
+    return ret >> 10;
+}
+
+void TimerStart(u32 id, u16 cnt)
+{
+    Timer* timer = &Timers[id];
+    u16 curstart = timer->Cnt & (1<<7);
+    u16 newstart = cnt & (1<<7);
+
+    RunTimers(id>>2);
+
+    timer->Cnt = cnt;
+    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
+
+    if ((!curstart) && newstart)
+    {
+        timer->Counter = timer->Reload << 10;
+    }
+
+    if ((cnt & 0x84) == 0x80)
+        TimerCheckMask[id>>2] |= 0x01 << (id&0x3);
+    else
+        TimerCheckMask[id>>2] &= ~(0x01 << (id&0x3));
 }
 
 
@@ -1669,55 +1714,6 @@ void StopDMAs(u32 cpu, u32 mode)
         cpu >>= 2;
         DSi::StopNDMAs(cpu, NDMAModes[mode]);
     }
-}
-
-
-
-
-const s32 TimerPrescaler[4] = {0, 6, 8, 10};
-
-u16 TimerGetCounter(u32 timer)
-{
-    RunTimers(timer>>2);
-    u32 ret = Timers[timer].Counter;
-
-    return ret >> 10;
-}
-
-void TimerStart(u32 id, u16 cnt)
-{
-    Timer* timer = &Timers[id];
-    u16 curstart = timer->Cnt & (1<<7);
-    u16 newstart = cnt & (1<<7);
-
-    timer->Cnt = cnt;
-    timer->CycleShift = 10 - TimerPrescaler[cnt & 0x03];
-
-    if ((!curstart) && newstart)
-    {
-        timer->Counter = timer->Reload << 10;
-
-        /*if ((cnt & 0x84) == 0x80)
-        {
-            u32 delay = (0x10000 - timer->Reload) << TimerPrescaler[cnt & 0x03];
-            printf("timer%d IRQ: start   %d, reload=%04X cnt=%08X\n", id, delay, timer->Reload, timer->Counter);
-            CancelEvent(Event_TimerIRQ_0 + id);
-            ScheduleEvent(Event_TimerIRQ_0 + id, false, delay, HandleTimerOverflow, id);
-        }*/
-    }
-
-    if ((cnt & 0x84) == 0x80)
-    {
-        u32 tmask;
-        //if ((cnt & 0x03) == 0)
-            tmask = 0x01 << (id&0x3);
-        //else
-        //    tmask = 0x10 << (id&0x3);
-
-        TimerCheckMask[id>>2] |= tmask;
-    }
-    else
-        TimerCheckMask[id>>2] &= ~(0x11 << (id&0x3));
 }
 
 
@@ -2014,7 +2010,7 @@ u16 ARM9Read16(u32 addr)
               (GBACart::SRAMRead(addr+1) << 8);
     }
 
-    if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
+    //if (addr) printf("unknown arm9 read16 %08X %08X\n", addr, ARM9->R[15]);
     return 0;
 }
 
@@ -2075,7 +2071,7 @@ u32 ARM9Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
+    //printf("unknown arm9 read32 %08X | %08X %08X\n", addr, ARM9->R[15], ARM9->R[12]);
     return 0;
 }
 
@@ -2183,7 +2179,7 @@ void ARM9Write16(u32 addr, u16 val)
         return;
     }
 
-    if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
+    //if (addr) printf("unknown arm9 write16 %08X %04X\n", addr, val);
 }
 
 void ARM9Write32(u32 addr, u32 val)
@@ -2250,7 +2246,7 @@ void ARM9Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
+    //printf("unknown arm9 write32 %08X %08X | %08X\n", addr, val, ARM9->R[15]);
 }
 
 bool ARM9GetMemRegion(u32 addr, bool write, MemRegion* region)

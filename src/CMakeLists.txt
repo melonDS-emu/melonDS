@@ -15,6 +15,7 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
+	DMA_Timings.h
 	DSi.cpp
 	DSi_AES.cpp
 	DSi_Camera.cpp

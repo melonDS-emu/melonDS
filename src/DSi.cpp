@@ -1139,7 +1139,7 @@ void Set_SCFG_Clock9(u16 val)
 
     NDS::ARM9Timestamp <<= NDS::ARM9ClockShift;
     NDS::ARM9Target    <<= NDS::ARM9ClockShift;
-    NDS::ARM9->UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+    NDS::ARM9->UpdateRegionTimings(0x00000, 0x100000);
 }
 
 void Set_SCFG_MC(u32 val)
