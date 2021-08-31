@@ -999,7 +999,7 @@ void InvalidateByAddr(u32 localAddr)
             u32 addr = block->Literals()[j];
             if (addr == localAddr)
             {
-                if (InvalidLiterals.Find(localAddr) != -1)
+                if (InvalidLiterals.Find(localAddr) == -1)
                 {
                     InvalidLiterals.Add(localAddr);
                     JIT_DEBUGPRINT("found invalid literal %d\n", InvalidLiterals.Length);

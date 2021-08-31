@@ -123,7 +123,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
-        
+
         if (Comp_MemLoadLiteral(size, flags & memop_SignExtend, rd, addr))
             return;
     }
