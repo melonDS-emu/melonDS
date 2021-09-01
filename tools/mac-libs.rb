@@ -102,6 +102,8 @@ def fixup_libs(prog, orig_path)
   throw "fixup_libs: #{prog} doesn't exist" unless File.exist? prog
 
   libs = get_load_libs(prog).map { |it| expand_load_path(orig_path, it) }.select { |it| not system_lib? it[0] }
+
+  FileUtils.chmod("u+w", prog)
   strip prog
 
   libs.each do |lib|
