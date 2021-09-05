@@ -95,6 +95,20 @@ private:
         Mailbox[n].Write(val & 0xFF);
     }
 
+    u32 MB_Peek32(int n)
+    {
+        return MB_Peek32(n, 0);
+    }
+
+    u32 MB_Peek32(int n, int offs)
+    {
+        u32 ret = Mailbox[n].Peek(offs+0);
+        ret |= (Mailbox[n].Peek(offs+1) << 8);
+        ret |= (Mailbox[n].Peek(offs+2) << 16);
+        ret |= (Mailbox[n].Peek(offs+3) << 24);
+        return ret;
+    }
+
     u32 MB_Read32(int n)
     {
         u32 ret = Mailbox[n].Read();
