@@ -19,8 +19,28 @@
 #ifndef FATSTORAGE_H
 #define FATSTORAGE_H
 
-#include "types.h"
+#include <stdio.h>
 
-//
+#include "types.h"
+#include "fatfs/ff.h"
+
+
+class FATStorage
+{
+public:
+    FATStorage();
+    ~FATStorage();
+
+private:
+    FILE* file;
+    u64 filesize;
+
+    static FILE* FF_File;
+    static u64 FF_FileSize;
+    static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
+    static UINT FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num);
+
+    bool Build(const char* sourcedir, u64 size, const char* filename);
+};
 
 #endif // FATSTORAGE_H

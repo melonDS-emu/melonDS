@@ -52,7 +52,10 @@ bool Init(FILE* nandfile, u8* es_keyY)
     if (!nandfile)
         return false;
 
-    ff_disk_open(FF_ReadNAND, FF_WriteNAND);
+    fseek(nandfile, 0, SEEK_END);
+    u64 nandlen = ftell(nandfile);
+
+    ff_disk_open(FF_ReadNAND, FF_WriteNAND, (LBA_t)(nandlen>>9));
 
     FRESULT res;
     res = f_mount(&CurFS, "0:", 0);

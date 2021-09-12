@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "NDS_Header.h"
+#include "FATStorage.h"
 
 namespace NDSCart
 {
@@ -182,6 +183,7 @@ private:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
     FILE* SDFile;
+    FATStorage* test;
 };
 
 extern u16 SPICnt;

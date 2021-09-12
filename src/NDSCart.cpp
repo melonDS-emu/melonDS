@@ -1164,10 +1164,12 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
+    test = nullptr;
     if (Config::DLDIEnable)
     {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
         SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        test = new FATStorage();
     }
     else
         SDFile = nullptr;
@@ -1176,6 +1178,7 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
 CartHomebrew::~CartHomebrew()
 {
     if (SDFile) fclose(SDFile);
+    if (test) delete test;
 }
 
 void CartHomebrew::Reset()
