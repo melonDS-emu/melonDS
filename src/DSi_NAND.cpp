@@ -557,7 +557,7 @@ void PatchTSC()
 
 void debug_listfiles(const char* path)
 {
-    DIR dir;
+    fDIR dir;
     FILINFO info;
     FRESULT res;
 
@@ -677,7 +677,7 @@ void RemoveFile(const char* path)
 
 void RemoveDir(const char* path)
 {
-    DIR dir;
+    fDIR dir;
     FILINFO info;
     FRESULT res;
 
@@ -752,7 +752,7 @@ u32 GetTitleVersion(u32 category, u32 titleid)
 void ListTitles(u32 category, std::vector<u32>& titlelist)
 {
     FRESULT res;
-    DIR titledir;
+    fDIR titledir;
     char path[256];
 
     sprintf(path, "0:/title/%08x", category);
@@ -969,7 +969,7 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     printf("Title ID: %08x/%08x\n", titleid0, titleid1);
 
     FRESULT res;
-    DIR ticketdir;
+    fDIR ticketdir;
     FILINFO info;
 
     char fname[128];
