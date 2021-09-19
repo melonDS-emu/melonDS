@@ -126,10 +126,14 @@ If everything went well, melonDS.app should now be in the current directory.
  * limittox for the icon
  * All of you comrades who have been testing melonDS, reporting issues, suggesting shit, etc
 
-## License
+## Licenses
+
 [![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](http://www.gnu.org/licenses/gpl-3.0.en.html)
 
 melonDS is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
+
+### External
+* Images used in the Input Config Dialog - see `src/frontend/qt_sdl/InputConfig/resources/LICENSE.md`

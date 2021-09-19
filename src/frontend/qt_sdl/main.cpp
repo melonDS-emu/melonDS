@@ -52,7 +52,7 @@
 #include "Input.h"
 #include "CheatsDialog.h"
 #include "EmuSettingsDialog.h"
-#include "InputConfigDialog.h"
+#include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 #include "WifiSettingsDialog.h"

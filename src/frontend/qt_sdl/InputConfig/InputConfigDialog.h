@@ -55,10 +55,13 @@ private slots:
     void on_InputConfigDialog_accepted();
     void on_InputConfigDialog_rejected();
 
+    void on_btnKeyMapSwitch_clicked();
+    void on_btnJoyMapSwitch_clicked();
     void on_cbxJoystick_currentIndexChanged(int id);
 
 private:
     void populatePage(QWidget* page, int num, const char** labels, int* keymap, int* joymap);
+    void setupKeypadPage();
 
     Ui::InputConfigDialog* ui;
 
@@ -67,57 +70,5 @@ private:
     int hkGeneralKeyMap[9], hkGeneralJoyMap[9];
 };
 
-
-class KeyMapButton : public QPushButton
-{
-    Q_OBJECT
-
-public:
-    explicit KeyMapButton(int* mapping, bool hotkey);
-    ~KeyMapButton();
-
-protected:
-    void keyPressEvent(QKeyEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
-
-    bool focusNextPrevChild(bool next) override { return false; }
-
-private slots:
-    void onClick();
-
-private:
-    QString mappingText();
-
-    int* mapping;
-    bool isHotkey;
-};
-
-class JoyMapButton : public QPushButton
-{
-    Q_OBJECT
-
-public:
-    explicit JoyMapButton(int* mapping, bool hotkey);
-    ~JoyMapButton();
-
-protected:
-    void keyPressEvent(QKeyEvent* event) override;
-    void focusOutEvent(QFocusEvent* event) override;
-    void timerEvent(QTimerEvent* event) override;
-
-    bool focusNextPrevChild(bool next) override { return false; }
-
-private slots:
-    void onClick();
-
-private:
-    QString mappingText();
-
-    int* mapping;
-    bool isHotkey;
-
-    int timerID;
-    int axesRest[16];
-};
 
 #endif // INPUTCONFIGDIALOG_H
