@@ -17,7 +17,7 @@
 */
 
 #ifdef __WIN32__
-#include <shlwapi.h>
+#include <windows.h>
 #else
 #include <sys/types.h>
 #endif // __WIN32__
@@ -28,11 +28,14 @@
 #include "Platform.h"
 
 
-static int GetDirEntryType(struct dirent* entry)
+static int GetDirEntryType(const char* path, struct dirent* entry)
 {
 #ifdef __WIN32__
-    BOOL res = PathIsDirectoryA(entry->d_name);
-    return res ? 1:0;
+    DWORD res = GetFileAttributesA(path);
+    if (res == INVALID_FILE_ATTRIBUTES) return -1;
+    if (res & FILE_ATTRIBUTE_DIRECTORY) return 1;
+    if (res & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_DEVICE | FILE_ATTRIBUTE_VIRTUAL)) return -1;
+    return 0;
 #else
     if (entry->d_type == DT_DIR) return 1;
     if (entry->d_type == DT_REG) return 0;
@@ -44,7 +47,7 @@ static int GetDirEntryType(struct dirent* entry)
 FATStorage::FATStorage()
 {
     printf("FATStorage begin\n");
-    bool res = Build(".", 0x40000000, "melonDLDI.bin");
+    bool res = Build("dldi", 0x20000000, "melonDLDI.bin");
     printf("FATStorage result: %d\n", res);
 }
 
@@ -107,6 +110,47 @@ UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
 }
 
 
+bool FATStorage::ImportFile(const char* path, const char* in)
+{
+    FIL file;
+    FILE* fin;
+    FRESULT res;
+
+    fin = fopen(in, "rb");
+    if (!fin)
+        return false;
+
+    fseek(fin, 0, SEEK_END);
+    u32 len = (u32)ftell(fin);
+    fseek(fin, 0, SEEK_SET);
+
+    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        fclose(fin);
+        return false;
+    }
+
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += 0x1000)
+    {
+        u32 blocklen;
+        if ((i + 0x1000) > len)
+            blocklen = len - i;
+        else
+            blocklen = 0x1000;
+
+        u32 nwrite;
+        fread(buf, blocklen, 1, fin);
+        f_write(&file, buf, blocklen, &nwrite);
+    }
+
+    fclose(fin);
+    f_close(&file);
+
+    return true;
+}
+
 bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int level)
 {
     if (level >= 32)
@@ -116,7 +160,7 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
     }
 
     char fullpath[1024] = {0};
-    snprintf(fullpath, 1023, "%s/%s", sourcedir, path);
+    snprintf(fullpath, 1023, "%s%s", sourcedir, path);
 
     DIR* dir = opendir(fullpath);
     if (!dir) return false;
@@ -138,23 +182,30 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
             if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
         }
 
-        int entrytype = GetDirEntryType(entry);
+        snprintf(fullpath, 1023, "%s%s/%s", sourcedir, path, entry->d_name);
+
+        int entrytype = GetDirEntryType(fullpath, entry);
         if (entrytype == -1) continue;
 
         if (entrytype == 1) // directory
         {
-            snprintf(fullpath, 1023, "%s/%s", path, entry->d_name);
-
-            printf("DIR: %s/%s\n", sourcedir, fullpath);
-
-            if (!BuildSubdirectory(sourcedir, fullpath, level+1))
+            snprintf(fullpath, 1023, "0:%s/%s", path, entry->d_name);
+            FRESULT fres = f_mkdir(fullpath);
+            if (fres == FR_OK)
+            {
+                if (!BuildSubdirectory(sourcedir, &fullpath[2], level+1))
+                    res = false;
+            }
+            else
                 res = false;
         }
         else // file
         {
-            snprintf(fullpath, 1023, "%s/%s/%s", sourcedir, path, entry->d_name);
-
-            printf("FILE: %s\n", fullpath);
+            char importpath[1024] = {0};
+            snprintf(importpath, 1023, "0:%s/%s", path, entry->d_name);
+            printf("importing %s to %s\n", fullpath, importpath);
+            if (!ImportFile(importpath, fullpath))
+                res = false;
         }
     }
 
@@ -167,7 +218,7 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
 {
     filesize = size;
 
-    FF_File = Platform::OpenLocalFile(filename, "wb");
+    FF_File = Platform::OpenLocalFile(filename, "w+b");
     if (!FF_File)
         return false;
 
@@ -176,8 +227,11 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
 
     FRESULT res;
 
+    // TODO: determine proper FAT type!
+    // for example: libfat tries to determine the FAT type from the number of clusters
+    // which doesn't match the way fatfs handles autodetection
     MKFS_PARM fsopt;
-    fsopt.fmt = FM_FAT | FM_FAT32;
+    fsopt.fmt = FM_FAT;// | FM_FAT32;
     fsopt.au_size = 0;
     fsopt.align = 1;
     fsopt.n_fat = 1;
@@ -187,7 +241,13 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
     res = f_mkfs("0:", &fsopt, workbuf, sizeof(workbuf));
     printf("MKFS RES %d\n", res);
 
+    FATFS fs;
+    res = f_mount(&fs, "0:", 0);
+    printf("MOUNT RES %d\n", res);
+
     BuildSubdirectory(sourcedir, "", 0);
+
+    f_unmount("0:");
 
     ff_disk_close();
     fclose(FF_File);

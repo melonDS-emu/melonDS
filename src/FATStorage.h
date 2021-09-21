@@ -40,6 +40,7 @@ private:
     static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
     static UINT FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num);
 
+    bool ImportFile(const char* path, const char* in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
     bool Build(const char* sourcedir, u64 size, const char* filename);
 };

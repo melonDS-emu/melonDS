@@ -1168,8 +1168,8 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     if (Config::DLDIEnable)
     {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
         test = new FATStorage();
+        SDFile = Platform::OpenLocalFile(/*Config::DLDISDPath*/"melonDLDI.bin", "r+b");
     }
     else
         SDFile = nullptr;
@@ -1188,7 +1188,7 @@ void CartHomebrew::Reset()
     if (SDFile) fclose(SDFile);
 
     if (Config::DLDIEnable)
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        SDFile = Platform::OpenLocalFile(/*Config::DLDISDPath*/"melonDLDI.bin", "r+b");
     else
         SDFile = nullptr;
 }
@@ -1224,7 +1224,7 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             u64 addr = sector * 0x200ULL;
-
+//printf("SD READ: %08X, %p\n", sector, SDFile);
             if (SDFile)
             {
                 fseek(SDFile, addr, SEEK_SET);
