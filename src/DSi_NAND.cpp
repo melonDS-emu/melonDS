@@ -567,8 +567,8 @@ void debug_listfiles(const char* path)
     for (;;)
     {
         res = f_readdir(&dir, &info);
-        if (res != FR_OK) return;
-        if (!info.fname[0]) return;
+        if (res != FR_OK) break;
+        if (!info.fname[0]) break;
 
         char fullname[512];
         sprintf(fullname, "%s/%s", path, info.fname);

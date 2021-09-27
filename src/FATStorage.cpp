@@ -171,7 +171,7 @@ int FATStorage::CleanupDirectory(std::string path, int level)
     FILINFO info;
     FRESULT res;
 
-    res = f_opendir(&dir, path);
+    res = f_opendir(&dir, path.c_str());
     if (res != FR_OK) return 0;
 
     std::vector<std::string> deletelist;
@@ -181,8 +181,8 @@ int FATStorage::CleanupDirectory(std::string path, int level)
     for (;;)
     {
         res = f_readdir(&dir, &info);
-        if (res != FR_OK) return;
-        if (!info.fname[0]) return;
+        if (res != FR_OK) break;
+        if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
 
@@ -307,12 +307,30 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                 auto lastmodified = entry.last_write_time();
                 s64 lastmodified_raw = std::chrono::duration_cast<std::chrono::seconds>(lastmodified.time_since_epoch()).count();
 
-                IndexEntry derpo;
-                derpo.Path = entry.path().string();
-                derpo.Size = filesize;
-                derpo.LastModified = lastmodified_raw;
+                bool import = false;
+                if (Index.count(innerpath) < 1)
+                {
+                    import = true;
+                }
+                else
+                {
+                    IndexEntry& chk = Index[innerpath];
+                    if (chk.Size != filesize) import = true;
+                    if (chk.LastModified != lastmodified_raw) import = true;
+                }
 
-                Index[derpo.Path] = derpo;
+                if (import)
+                {
+                    IndexEntry entry;
+                    entry.Path = innerpath;
+                    entry.Size = filesize;
+                    entry.LastModified = lastmodified_raw;
+
+                    Index[entry.Path] = entry;
+
+                    innerpath = "0:/" + innerpath;
+                    // import!
+                }
             }
 
         }
