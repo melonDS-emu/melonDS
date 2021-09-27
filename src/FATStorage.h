@@ -20,6 +20,9 @@
 #define FATSTORAGE_H
 
 #include <stdio.h>
+#include <string>
+#include <map>
+#include <filesystem>
 
 #include "types.h"
 #include "fatfs/ff.h"
@@ -32,17 +35,34 @@ public:
     ~FATStorage();
 
 private:
-    FILE* file;
-    u64 filesize;
+    std::string FilePath;
+    std::string IndexPath;
+
+    FILE* File;
+    u64 FileSize;
 
     static FILE* FF_File;
     static u64 FF_FileSize;
     static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
     static UINT FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num);
 
+    void LoadIndex();
+    void SaveIndex();
+
+    int CleanupDirectory(std::string path, int level);
     bool ImportFile(const char* path, const char* in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
     bool Build(const char* sourcedir, u64 size, const char* filename);
+
+    typedef struct
+    {
+        std::string Path;
+        u64 Size;
+        s64 LastModified;
+
+    } IndexEntry;
+
+    std::map<std::string, IndexEntry> Index;
 };
 
 #endif // FATSTORAGE_H

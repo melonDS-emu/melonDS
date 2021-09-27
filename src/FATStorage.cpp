@@ -23,9 +23,12 @@
 #endif // __WIN32__
 #include <dirent.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include "FATStorage.h"
 #include "Platform.h"
+
+namespace fs = std::filesystem;
 
 
 static int GetDirEntryType(const char* path, struct dirent* entry)
@@ -110,6 +113,115 @@ UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
 }
 
 
+void FATStorage::LoadIndex()
+{
+    Index.clear();
+
+    FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "r");
+    if (!f) return;
+
+    char linebuf[1536];
+    while (!feof(f))
+    {
+        if (fgets(linebuf, 1536, f) == nullptr)
+            break;
+
+        u64 fsize;
+        s64 lastmodified;
+        char fpath[1536] = {0};
+        int ret = sscanf(linebuf, "FILE %" PRIu64 " %" PRId64 " %[^\t\r\n]", &fsize, &lastmodified, fpath);
+        if (ret < 3) continue;
+
+        for (int i = 0; i < 1536 && fpath[i] != '\0'; i++)
+        {
+            if (fpath[i] == '\\')
+                fpath[i] = '/';
+        }
+
+        IndexEntry entry;
+        entry.Path = fpath;
+        entry.Size = fsize;
+        entry.LastModified = lastmodified;
+
+        Index[entry.Path] = entry;
+    }
+
+    fclose(f);
+}
+
+void FATStorage::SaveIndex()
+{
+    FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "w");
+    if (!f) return;
+
+    for (const auto& [key, val] : Index)
+    {
+        fprintf(f, "FILE %" PRIu64 " %" PRId64 " %s\r\n", val.Size, val.LastModified, val.Path.c_str());
+    }
+
+    fclose(f);
+}
+
+
+int FATStorage::CleanupDirectory(std::string path, int level)
+{
+    if (level >= 32) return 44203;
+
+    fDIR dir;
+    FILINFO info;
+    FRESULT res;
+
+    res = f_opendir(&dir, path);
+    if (res != FR_OK) return 0;
+
+    std::vector<std::string> deletelist;
+    std::vector<std::string> subdirlist;
+    int survivors = 0;
+
+    for (;;)
+    {
+        res = f_readdir(&dir, &info);
+        if (res != FR_OK) return;
+        if (!info.fname[0]) return;
+
+        std::string fullpath = path + info.fname;
+
+        if (info.fattrib & AM_DIR)
+        {
+            subdirlist.push_back(fullpath);
+        }
+        else
+        {
+            if (Index.count(fullpath) < 1)
+                deletelist.push_back(fullpath);
+            else
+                survivors++;
+        }
+    }
+
+    f_closedir(&dir);
+
+    for (auto& entry : deletelist)
+    {
+        std::string fullpath = "0:/" + entry;
+        f_unlink(fullpath.c_str());
+    }
+
+    for (auto& entry : subdirlist)
+    {
+        int res = CleanupDirectory(entry+"/", level+1);
+        if (res < 1)
+        {
+            std::string fullpath = "0:/" + entry;
+            f_unlink(fullpath.c_str());
+        }
+        else
+            survivors++;
+    }
+
+    return survivors;
+}
+
 bool FATStorage::ImportFile(const char* path, const char* in)
 {
     FIL file;
@@ -156,6 +268,57 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
     if (level >= 32)
     {
         printf("FATStorage::BuildSubdirectory: too many subdirectory levels, skipping\n");
+        return false;
+    }
+
+    if (level == 0)
+    {
+        // remove whatever isn't in the index, as well as empty directories
+        CleanupDirectory("", 0);
+
+        int srclen = strlen(sourcedir);
+
+        for (auto& entry : fs::recursive_directory_iterator(sourcedir))
+        {
+            std::string fullpath = entry.path().string();
+            std::string innerpath = fullpath.substr(srclen);
+            if (innerpath[0] == '/' || innerpath[0] == '\\')
+                innerpath = innerpath.substr(1);
+
+            int ilen = innerpath.length();
+            for (int i = 0; i < ilen; i++)
+            {
+                if (innerpath[i] == '\\')
+                    innerpath[i] = '/';
+            }
+
+            //std::chrono::duration<s64> bourf(lastmodified_raw);
+            //printf("DORP: %016llX\n", bourf.count());
+
+            if (entry.is_directory())
+            {
+                innerpath = "0:/" + innerpath;
+                f_mkdir(innerpath.c_str());
+            }
+            else if (entry.is_regular_file())
+            {
+                u64 filesize = entry.file_size();
+
+                auto lastmodified = entry.last_write_time();
+                s64 lastmodified_raw = std::chrono::duration_cast<std::chrono::seconds>(lastmodified.time_since_epoch()).count();
+
+                IndexEntry derpo;
+                derpo.Path = entry.path().string();
+                derpo.Size = filesize;
+                derpo.LastModified = lastmodified_raw;
+
+                Index[derpo.Path] = derpo;
+            }
+
+        }
+
+        SaveIndex();
+
         return false;
     }
 
@@ -216,11 +379,15 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
 
 bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
 {
-    filesize = size;
+    FilePath = filename;
+    FileSize = size;
 
     FF_File = Platform::OpenLocalFile(filename, "w+b");
     if (!FF_File)
         return false;
+
+    IndexPath = FilePath + ".idx";
+    LoadIndex();
 
     FF_FileSize = size;
     ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(size>>9));
