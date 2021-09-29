@@ -170,7 +170,7 @@ int FATStorage::CleanupDirectory(std::string path, int level)
     fDIR dir;
     FILINFO info;
     FRESULT res;
-
+printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
     res = f_opendir(&dir, path.c_str());
     if (res != FR_OK) return 0;
 
@@ -185,7 +185,7 @@ int FATStorage::CleanupDirectory(std::string path, int level)
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
-
+printf("- FOUND: %s\n", fullpath.c_str());
         if (info.fattrib & AM_DIR)
         {
             subdirlist.push_back(fullpath);
@@ -204,6 +204,7 @@ int FATStorage::CleanupDirectory(std::string path, int level)
     for (auto& entry : deletelist)
     {
         std::string fullpath = "0:/" + entry;
+        printf("- PURGING file %s\n", fullpath.c_str());
         f_unlink(fullpath.c_str());
     }
 
@@ -213,6 +214,7 @@ int FATStorage::CleanupDirectory(std::string path, int level)
         if (res < 1)
         {
             std::string fullpath = "0:/" + entry;
+            printf("- PURGING subdir %s\n", fullpath.c_str());
             f_unlink(fullpath.c_str());
         }
         else
@@ -222,13 +224,13 @@ int FATStorage::CleanupDirectory(std::string path, int level)
     return survivors;
 }
 
-bool FATStorage::ImportFile(const char* path, const char* in)
+bool FATStorage::ImportFile(std::string path, std::string in)
 {
     FIL file;
     FILE* fin;
     FRESULT res;
 
-    fin = fopen(in, "rb");
+    fin = fopen(in.c_str(), "rb");
     if (!fin)
         return false;
 
@@ -236,7 +238,7 @@ bool FATStorage::ImportFile(const char* path, const char* in)
     u32 len = (u32)ftell(fin);
     fseek(fin, 0, SEEK_SET);
 
-    res = f_open(&file, path, FA_CREATE_ALWAYS | FA_WRITE);
+    res = f_open(&file, path.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
         fclose(fin);
@@ -329,7 +331,8 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                     Index[entry.Path] = entry;
 
                     innerpath = "0:/" + innerpath;
-                    // import!
+                    ImportFile(innerpath, fullpath);
+                    printf("IMPORTING FILE %s (FROM %s)\n", innerpath.c_str(), fullpath.c_str());
                 }
             }
 
@@ -400,9 +403,13 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
     FilePath = filename;
     FileSize = size;
 
-    FF_File = Platform::OpenLocalFile(filename, "w+b");
+    FF_File = Platform::OpenLocalFile(filename, "r+b");
     if (!FF_File)
-        return false;
+    {
+        FF_File = Platform::OpenLocalFile(filename, "w+b");
+        if (!FF_File)
+            return false;
+    }
 
     IndexPath = FilePath + ".idx";
     LoadIndex();
@@ -411,26 +418,30 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
     ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(size>>9));
 
     FRESULT res;
-
-    // TODO: determine proper FAT type!
-    // for example: libfat tries to determine the FAT type from the number of clusters
-    // which doesn't match the way fatfs handles autodetection
-    MKFS_PARM fsopt;
-    fsopt.fmt = FM_FAT;// | FM_FAT32;
-    fsopt.au_size = 0;
-    fsopt.align = 1;
-    fsopt.n_fat = 1;
-    fsopt.n_root = 512;
-
-    BYTE workbuf[FF_MAX_SS];
-    res = f_mkfs("0:", &fsopt, workbuf, sizeof(workbuf));
-    printf("MKFS RES %d\n", res);
-
     FATFS fs;
-    res = f_mount(&fs, "0:", 0);
-    printf("MOUNT RES %d\n", res);
 
-    BuildSubdirectory(sourcedir, "", 0);
+    res = f_mount(&fs, "0:", 1);
+    if (res != FR_OK)
+    {
+        // TODO: determine proper FAT type!
+        // for example: libfat tries to determine the FAT type from the number of clusters
+        // which doesn't match the way fatfs handles autodetection
+        MKFS_PARM fsopt;
+        fsopt.fmt = FM_FAT;// | FM_FAT32;
+        fsopt.au_size = 0;
+        fsopt.align = 1;
+        fsopt.n_fat = 1;
+        fsopt.n_root = 512;
+
+        BYTE workbuf[FF_MAX_SS];
+        res = f_mkfs("0:", &fsopt, workbuf, sizeof(workbuf));
+
+        if (res == FR_OK)
+            res = f_mount(&fs, "0:", 1);
+    }
+
+    if (res == FR_OK)
+        BuildSubdirectory(sourcedir, "", 0);
 
     f_unmount("0:");
 

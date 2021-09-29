@@ -50,7 +50,7 @@ private:
     void SaveIndex();
 
     int CleanupDirectory(std::string path, int level);
-    bool ImportFile(const char* path, const char* in);
+    bool ImportFile(std::string path, std::string in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
     bool Build(const char* sourcedir, u64 size, const char* filename);
 
