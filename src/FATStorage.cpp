@@ -128,9 +128,10 @@ void FATStorage::LoadIndex()
 
         u64 fsize;
         s64 lastmodified;
+        u32 lastmod_internal;
         char fpath[1536] = {0};
-        int ret = sscanf(linebuf, "FILE %" PRIu64 " %" PRId64 " %[^\t\r\n]", &fsize, &lastmodified, fpath);
-        if (ret < 3) continue;
+        int ret = sscanf(linebuf, "FILE %" PRIu64 " %" PRId64 " %u %[^\t\r\n]", &fsize, &lastmodified, &lastmod_internal, fpath);
+        if (ret < 4) continue;
 
         for (int i = 0; i < 1536 && fpath[i] != '\0'; i++)
         {
@@ -142,6 +143,7 @@ void FATStorage::LoadIndex()
         entry.Path = fpath;
         entry.Size = fsize;
         entry.LastModified = lastmodified;
+        entry.LastModifiedInternal = lastmod_internal;
 
         Index[entry.Path] = entry;
     }
@@ -156,12 +158,28 @@ void FATStorage::SaveIndex()
 
     for (const auto& [key, val] : Index)
     {
-        fprintf(f, "FILE %" PRIu64 " %" PRId64 " %s\r\n", val.Size, val.LastModified, val.Path.c_str());
+        fprintf(f, "FILE %" PRIu64 " %" PRId64 " %u %s\r\n", val.Size, val.LastModified, val.LastModifiedInternal, val.Path.c_str());
     }
 
     fclose(f);
 }
 
+
+bool FATStorage::CanFitFile(u32 len)
+{
+    FATFS* fs;
+    DWORD freeclusters;
+    FRESULT res;
+
+    res = f_getfree("0:", &freeclusters, &fs);
+    if (res != FR_OK) return false;
+
+    u32 clustersize = fs->csize * 0x200;
+    printf("CHECK IF FILE CAN FIT: len=%d, clus=%d, num=%d, free=%d\n",
+           len, clustersize, (len + clustersize - 1) / clustersize, freeclusters);
+    len = (len + clustersize - 1) / clustersize;
+    return (freeclusters >= len);
+}
 
 int FATStorage::CleanupDirectory(std::string path, int level)
 {
@@ -238,6 +256,12 @@ bool FATStorage::ImportFile(std::string path, std::string in)
     u32 len = (u32)ftell(fin);
     fseek(fin, 0, SEEK_SET);
 
+    if (!CanFitFile(len))
+    {
+        fclose(fin);
+        return false;
+    }
+
     res = f_open(&file, path.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
     if (res != FR_OK)
     {
@@ -280,6 +304,9 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
 
         int srclen = strlen(sourcedir);
 
+        // iterate through the host directory:
+        // * directories will be added as needed
+        // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
         for (auto& entry : fs::recursive_directory_iterator(sourcedir))
         {
             std::string fullpath = entry.path().string();
@@ -328,11 +355,18 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                     entry.Size = filesize;
                     entry.LastModified = lastmodified_raw;
 
-                    Index[entry.Path] = entry;
-
                     innerpath = "0:/" + innerpath;
-                    ImportFile(innerpath, fullpath);
-                    printf("IMPORTING FILE %s (FROM %s)\n", innerpath.c_str(), fullpath.c_str());
+                    if (ImportFile(innerpath, fullpath))
+                    {
+                        FILINFO finfo;
+                        f_stat(innerpath.c_str(), &finfo);
+
+                        entry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
+
+                        Index[entry.Path] = entry;
+
+                        printf("IMPORTING FILE %s (FROM %s)\n", innerpath.c_str(), fullpath.c_str());
+                    }
                 }
             }
 

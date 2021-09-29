@@ -49,6 +49,7 @@ private:
     void LoadIndex();
     void SaveIndex();
 
+    bool CanFitFile(u32 len);
     int CleanupDirectory(std::string path, int level);
     bool ImportFile(std::string path, std::string in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
@@ -59,6 +60,7 @@ private:
         std::string Path;
         u64 Size;
         s64 LastModified;
+        u32 LastModifiedInternal;
 
     } IndexEntry;
 
