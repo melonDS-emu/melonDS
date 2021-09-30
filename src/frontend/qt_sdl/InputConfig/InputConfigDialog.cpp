@@ -76,32 +76,36 @@ const char* hk_general_labels[] =
     "Swap screens"
 };
 
+const int keypad_num = 12;
+const int hk_addons_num = 2;
+const int hk_general_num = 9;
+
 
 InputConfigDialog::InputConfigDialog(QWidget* parent) : QDialog(parent), ui(new Ui::InputConfigDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < keypad_num; i++)
     {
         keypadKeyMap[i] = Config::KeyMapping[dskeyorder[i]];
         keypadJoyMap[i] = Config::JoyMapping[dskeyorder[i]];
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < hk_addons_num; i++)
     {
         addonsKeyMap[i] = Config::HKKeyMapping[hk_addons[i]];
         addonsJoyMap[i] = Config::HKJoyMapping[hk_addons[i]];
     }
 
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i < hk_general_num; i++)
     {
         hkGeneralKeyMap[i] = Config::HKKeyMapping[hk_general[i]];
         hkGeneralJoyMap[i] = Config::HKJoyMapping[hk_general[i]];
     }
 
-    populatePage(ui->tabAddons, 2, hk_addons_labels, addonsKeyMap, addonsJoyMap);
-    populatePage(ui->tabHotkeysGeneral, 9, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
+    populatePage(ui->tabAddons, hk_addons_num, hk_addons_labels, addonsKeyMap, addonsJoyMap);
+    populatePage(ui->tabHotkeysGeneral, hk_general_num, hk_general_labels, hkGeneralKeyMap, hkGeneralJoyMap);
 
     int njoy = SDL_NumJoysticks();
     if (njoy > 0)
@@ -129,7 +133,7 @@ InputConfigDialog::~InputConfigDialog()
 
 void InputConfigDialog::setupKeypadPage()
 {
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < keypad_num; i++)
     {
         QPushButton* pushButtonKey = this->findChild<QPushButton*>(QStringLiteral("btnKey") + dskeylabels[i]);
         QPushButton* pushButtonJoy = this->findChild<QPushButton*>(QStringLiteral("btnJoy") + dskeylabels[i]);
