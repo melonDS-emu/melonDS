@@ -5,7 +5,9 @@ SET(SOURCES_QT_SDL
     main_shaders.h
     CheatsDialog.cpp
     EmuSettingsDialog.cpp
-    InputConfigDialog.cpp
+    InputConfig/InputConfigDialog.cpp
+    InputConfig/MapButton.h
+    InputConfig/resources/ds.qrc
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
     WifiSettingsDialog.cpp
@@ -97,6 +99,7 @@ target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
     target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
+    qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
 else()
     target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
 endif()

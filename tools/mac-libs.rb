@@ -203,7 +203,7 @@ fixup_libs(executable, executable)
 
 bundle_plugins = File.join($bundle, "Contents", "PlugIns")
 
-want_plugins = ["styles/libqmacstyle.dylib", "platforms/libqcocoa.dylib"]
+want_plugins = ["styles/libqmacstyle.dylib", "platforms/libqcocoa.dylib", "imageformats/libqsvg.dylib"]
 want_plugins.each do |plug|
   destdir = File.join(bundle_plugins, File.dirname(plug))
   FileUtils.mkdir_p(destdir)
