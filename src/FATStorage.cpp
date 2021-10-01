@@ -115,7 +115,8 @@ UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
 
 void FATStorage::LoadIndex()
 {
-    Index.clear();
+    DirIndex.clear();
+    FileIndex.clear();
 
     FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "r");
     if (!f) return;
@@ -126,29 +127,58 @@ void FATStorage::LoadIndex()
         if (fgets(linebuf, 1536, f) == nullptr)
             break;
 
-        u64 fsize;
-        s64 lastmodified;
-        u32 lastmod_internal;
-        char fpath[1536] = {0};
-        int ret = sscanf(linebuf, "FILE %" PRIu64 " %" PRId64 " %u %[^\t\r\n]", &fsize, &lastmodified, &lastmod_internal, fpath);
-        if (ret < 4) continue;
-
-        for (int i = 0; i < 1536 && fpath[i] != '\0'; i++)
+        if (linebuf[0] == 'D')
         {
-            if (fpath[i] == '\\')
-                fpath[i] = '/';
+            u32 readonly;
+            char fpath[1536] = {0};
+            int ret = sscanf(linebuf, "DIR %u %[^\t\r\n]",
+                             &readonly, fpath);
+            if (ret < 2) continue;
+
+            for (int i = 0; i < 1536 && fpath[i] != '\0'; i++)
+            {
+                if (fpath[i] == '\\')
+                    fpath[i] = '/';
+            }
+
+            DirIndexEntry entry;
+            entry.Path = fpath;
+            entry.IsReadOnly = readonly!=0;
+
+            DirIndex[entry.Path] = entry;
         }
+        else if (linebuf[0] == 'F')
+        {
+            u32 readonly;
+            u64 fsize;
+            s64 lastmodified;
+            u32 lastmod_internal;
+            char fpath[1536] = {0};
+            int ret = sscanf(linebuf, "FILE %u %" PRIu64 " %" PRId64 " %u %[^\t\r\n]",
+                             &readonly, &fsize, &lastmodified, &lastmod_internal, fpath);
+            if (ret < 5) continue;
 
-        IndexEntry entry;
-        entry.Path = fpath;
-        entry.Size = fsize;
-        entry.LastModified = lastmodified;
-        entry.LastModifiedInternal = lastmod_internal;
+            for (int i = 0; i < 1536 && fpath[i] != '\0'; i++)
+            {
+                if (fpath[i] == '\\')
+                    fpath[i] = '/';
+            }
 
-        Index[entry.Path] = entry;
+            FileIndexEntry entry;
+            entry.Path = fpath;
+            entry.IsReadOnly = readonly!=0;
+            entry.Size = fsize;
+            entry.LastModified = lastmodified;
+            entry.LastModifiedInternal = lastmod_internal;
+
+            FileIndex[entry.Path] = entry;
+        }
     }
 
     fclose(f);
+
+    // TODO: ensure the indexes are sane
+    // ie. ensure that we don't have files existing in inexistant directories
 }
 
 void FATStorage::SaveIndex()
@@ -156,12 +186,89 @@ void FATStorage::SaveIndex()
     FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "w");
     if (!f) return;
 
-    for (const auto& [key, val] : Index)
+    for (const auto& [key, val] : DirIndex)
     {
-        fprintf(f, "FILE %" PRIu64 " %" PRId64 " %u %s\r\n", val.Size, val.LastModified, val.LastModifiedInternal, val.Path.c_str());
+        fprintf(f, "DIR %u %s\r\n",
+                val.IsReadOnly?1:0, val.Path.c_str());
+    }
+
+    for (const auto& [key, val] : FileIndex)
+    {
+        fprintf(f, "FILE %u %" PRIu64 " %" PRId64 " %u %s\r\n",
+                val.IsReadOnly?1:0, val.Size, val.LastModified, val.LastModifiedInternal, val.Path.c_str());
     }
 
     fclose(f);
+}
+
+
+bool FATStorage::ExportFile(std::string path, std::string out)
+{
+    FIL file;
+    FILE* fout;
+    FRESULT res;
+
+    res = f_open(&file, path.c_str(), FA_OPEN_EXISTING | FA_READ);
+    if (res != FR_OK)
+        return false;
+
+    u32 len = f_size(&file);
+
+    fout = fopen(out.c_str(), "wb");
+    if (!fout)
+    {
+        f_close(&file);
+        return false;
+    }
+
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += 0x1000)
+    {
+        u32 blocklen;
+        if ((i + 0x1000) > len)
+            blocklen = len - i;
+        else
+            blocklen = 0x1000;
+
+        u32 nread;
+        f_read(&file, buf, blocklen, &nread);
+        fwrite(buf, blocklen, 1, fout);
+    }
+
+    fclose(fout);
+    f_close(&file);
+
+    return true;
+}
+
+void FATStorage::ExportChanges(std::string sourcedir)
+{
+    // reflect changes in the FAT volume to the host filesystem
+    // * delete directories and files that exist in the index but not in the volume
+    // * copy files to the host FS if they exist within the index and their size or
+    //   internal last-modified time is different
+    // * index and copy directories and files that exist in the volume but not in
+    //   the index
+
+    std::vector<std::string> deletelist;
+    std::vector<std::string> exportlist;
+
+    for (const auto& [key, val] : FileIndex)
+    {
+        std::string innerpath = "0:/" + val.Path;
+        FILINFO finfo;
+        FRESULT res = f_stat(innerpath.c_str(), &finfo);
+        if (res == FR_OK)
+        {
+            u32 lastmod = (finfo.fdate << 16) | finfo.ftime;
+            if ((val.Size != finfo.fsize) || (val.LastModifiedInternal != lastmod))
+                exportlist.push_back(key);
+        }
+        else if (res == FR_NO_FILE || res == FR_NO_PATH)
+        {
+            deletelist.push_back(key);
+        }
+    }
 }
 
 
@@ -181,16 +288,19 @@ bool FATStorage::CanFitFile(u32 len)
     return (freeclusters >= len);
 }
 
-int FATStorage::CleanupDirectory(std::string path, int level)
+bool FATStorage::DeleteDirectory(std::string path, int level)
 {
-    if (level >= 32) return 44203;
+    if (level >= 32) return false;
+    if (path.length() < 1) return false;
 
     fDIR dir;
     FILINFO info;
     FRESULT res;
-printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
-    res = f_opendir(&dir, path.c_str());
-    if (res != FR_OK) return 0;
+printf("PURGING %s (level %d)\n", path.c_str(), level);
+    std::string fullpath = "0:/" + path;
+    f_chmod(fullpath.c_str(), 0, AM_RDO);
+    res = f_opendir(&dir, fullpath.c_str());
+    if (res != FR_OK) return false;
 
     std::vector<std::string> deletelist;
     std::vector<std::string> subdirlist;
@@ -203,17 +313,14 @@ printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
-printf("- FOUND: %s\n", fullpath.c_str());
+
         if (info.fattrib & AM_DIR)
         {
             subdirlist.push_back(fullpath);
         }
         else
         {
-            if (Index.count(fullpath) < 1)
-                deletelist.push_back(fullpath);
-            else
-                survivors++;
+            deletelist.push_back(fullpath);
         }
     }
 
@@ -223,23 +330,85 @@ printf("- FOUND: %s\n", fullpath.c_str());
     {
         std::string fullpath = "0:/" + entry;
         printf("- PURGING file %s\n", fullpath.c_str());
-        f_unlink(fullpath.c_str());
+        f_chmod(fullpath.c_str(), 0, AM_RDO);
+        res = f_unlink(fullpath.c_str());
+        if (res != FR_OK) return false;
     }
 
     for (auto& entry : subdirlist)
     {
-        int res = CleanupDirectory(entry+"/", level+1);
-        if (res < 1)
-        {
-            std::string fullpath = "0:/" + entry;
-            printf("- PURGING subdir %s\n", fullpath.c_str());
-            f_unlink(fullpath.c_str());
-        }
-        else
-            survivors++;
+        if (!DeleteDirectory(entry+"/", level+1)) return false;
+
+        std::string fullpath = "0:/" + entry;
+        printf("- PURGING subdir %s\n", fullpath.c_str());
+        f_chmod(fullpath.c_str(), 0, AM_RDO);
+        res = f_unlink(fullpath.c_str());
+        if (res != FR_OK) return false;
     }
 
-    return survivors;
+    res = f_unlink(fullpath.c_str());
+    if (res != FR_OK) return false;
+
+    return true;
+}
+
+void FATStorage::CleanupDirectory(std::string path, int level)
+{
+    if (level >= 32) return;
+
+    fDIR dir;
+    FILINFO info;
+    FRESULT res;
+printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
+    std::string fullpath = "0:/" + path;
+    res = f_opendir(&dir, fullpath.c_str());
+    if (res != FR_OK) return;
+
+    std::vector<std::string> filedeletelist;
+    std::vector<std::string> dirdeletelist;
+    std::vector<std::string> subdirlist;
+
+    for (;;)
+    {
+        res = f_readdir(&dir, &info);
+        if (res != FR_OK) break;
+        if (!info.fname[0]) break;
+
+        std::string fullpath = path + info.fname;
+printf("- FOUND: %s\n", fullpath.c_str());
+        if (info.fattrib & AM_DIR)
+        {
+            if (DirIndex.count(fullpath) < 1)
+                dirdeletelist.push_back(fullpath);
+            else
+                subdirlist.push_back(fullpath);
+        }
+        else
+        {
+            if (FileIndex.count(fullpath) < 1)
+                filedeletelist.push_back(fullpath);
+        }
+    }
+
+    f_closedir(&dir);
+
+    for (auto& entry : filedeletelist)
+    {
+        std::string fullpath = "0:/" + entry;
+        printf("- PURGING file %s\n", fullpath.c_str());
+        f_chmod(fullpath.c_str(), 0, AM_RDO);
+        f_unlink(fullpath.c_str());
+    }
+
+    for (auto& entry : dirdeletelist)
+    {
+        DeleteDirectory(entry+"/", level+1);
+    }
+
+    for (auto& entry : subdirlist)
+    {
+        CleanupDirectory(entry+"/", level+1);
+    }
 }
 
 bool FATStorage::ImportFile(std::string path, std::string in)
@@ -299,13 +468,13 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
 
     if (level == 0)
     {
-        // remove whatever isn't in the index, as well as empty directories
+        // remove whatever isn't in the index
         CleanupDirectory("", 0);
 
         int srclen = strlen(sourcedir);
 
         // iterate through the host directory:
-        // * directories will be added as needed
+        // * directories will be added if they aren't in the index
         // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
         for (auto& entry : fs::recursive_directory_iterator(sourcedir))
         {
@@ -321,13 +490,27 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                     innerpath[i] = '/';
             }
 
+            bool readonly = (entry.status().permissions() & fs::perms::owner_write) == fs::perms::none;
+
             //std::chrono::duration<s64> bourf(lastmodified_raw);
             //printf("DORP: %016llX\n", bourf.count());
 
             if (entry.is_directory())
             {
-                innerpath = "0:/" + innerpath;
-                f_mkdir(innerpath.c_str());
+                if (DirIndex.count(innerpath) < 1)
+                {
+                    DirIndexEntry ientry;
+                    ientry.Path = innerpath;
+                    ientry.IsReadOnly = readonly;
+
+                    innerpath = "0:/" + innerpath;
+                    if (f_mkdir(innerpath.c_str()) == FR_OK)
+                    {
+                        DirIndex[ientry.Path] = ientry;
+
+                        printf("IMPORTING DIR %s (FROM %s), %d\n", innerpath.c_str(), fullpath.c_str(), readonly);
+                    }
+                }
             }
             else if (entry.is_regular_file())
             {
@@ -337,23 +520,24 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                 s64 lastmodified_raw = std::chrono::duration_cast<std::chrono::seconds>(lastmodified.time_since_epoch()).count();
 
                 bool import = false;
-                if (Index.count(innerpath) < 1)
+                if (FileIndex.count(innerpath) < 1)
                 {
                     import = true;
                 }
                 else
                 {
-                    IndexEntry& chk = Index[innerpath];
+                    FileIndexEntry& chk = FileIndex[innerpath];
                     if (chk.Size != filesize) import = true;
                     if (chk.LastModified != lastmodified_raw) import = true;
                 }
 
                 if (import)
                 {
-                    IndexEntry entry;
-                    entry.Path = innerpath;
-                    entry.Size = filesize;
-                    entry.LastModified = lastmodified_raw;
+                    FileIndexEntry ientry;
+                    ientry.Path = innerpath;
+                    ientry.IsReadOnly = readonly;
+                    ientry.Size = filesize;
+                    ientry.LastModified = lastmodified_raw;
 
                     innerpath = "0:/" + innerpath;
                     if (ImportFile(innerpath, fullpath))
@@ -361,15 +545,16 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                         FILINFO finfo;
                         f_stat(innerpath.c_str(), &finfo);
 
-                        entry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
+                        ientry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
 
-                        Index[entry.Path] = entry;
+                        FileIndex[ientry.Path] = ientry;
 
-                        printf("IMPORTING FILE %s (FROM %s)\n", innerpath.c_str(), fullpath.c_str());
+                        printf("IMPORTING FILE %s (FROM %s), %d\n", innerpath.c_str(), fullpath.c_str(), readonly);
                     }
                 }
             }
 
+            f_chmod(innerpath.c_str(), readonly?AM_RDO:0, AM_RDO);
         }
 
         SaveIndex();

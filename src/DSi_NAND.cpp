@@ -604,14 +604,14 @@ bool ImportFile(const char* path, const char* in)
         return false;
     }
 
-    u8 buf[0x200];
-    for (u32 i = 0; i < len; i += 0x200)
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += 0x1000)
     {
         u32 blocklen;
-        if ((i + 0x200) > len)
+        if ((i + 0x1000) > len)
             blocklen = len - i;
         else
-            blocklen = 0x200;
+            blocklen = 0x1000;
 
         u32 nwrite;
         fread(buf, blocklen, 1, fin);
@@ -643,14 +643,14 @@ bool ExportFile(const char* path, const char* out)
         return false;
     }
 
-    u8 buf[0x200];
-    for (u32 i = 0; i < len; i += 0x200)
+    u8 buf[0x1000];
+    for (u32 i = 0; i < len; i += 0x1000)
     {
         u32 blocklen;
-        if ((i + 0x200) > len)
+        if ((i + 0x1000) > len)
             blocklen = len - i;
         else
-            blocklen = 0x200;
+            blocklen = 0x1000;
 
         u32 nread;
         f_read(&file, buf, blocklen, &nread);

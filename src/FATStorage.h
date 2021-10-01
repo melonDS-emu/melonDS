@@ -49,8 +49,12 @@ private:
     void LoadIndex();
     void SaveIndex();
 
+    bool ExportFile(std::string path, std::string out);
+    void ExportChanges(std::string sourcedir);
+
     bool CanFitFile(u32 len);
-    int CleanupDirectory(std::string path, int level);
+    bool DeleteDirectory(std::string path, int level);
+    void CleanupDirectory(std::string path, int level);
     bool ImportFile(std::string path, std::string in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
     bool Build(const char* sourcedir, u64 size, const char* filename);
@@ -58,13 +62,22 @@ private:
     typedef struct
     {
         std::string Path;
+        bool IsReadOnly;
+
+    } DirIndexEntry;
+
+    typedef struct
+    {
+        std::string Path;
+        bool IsReadOnly;
         u64 Size;
         s64 LastModified;
         u32 LastModifiedInternal;
 
-    } IndexEntry;
+    } FileIndexEntry;
 
-    std::map<std::string, IndexEntry> Index;
+    std::map<std::string, DirIndexEntry> DirIndex;
+    std::map<std::string, FileIndexEntry> FileIndex;
 };
 
 #endif // FATSTORAGE_H
