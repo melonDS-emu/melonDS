@@ -177,8 +177,47 @@ void FATStorage::LoadIndex()
 
     fclose(f);
 
-    // TODO: ensure the indexes are sane
-    // ie. ensure that we don't have files existing in inexistant directories
+    // ensure the indexes are sane
+
+    std::vector<std::string> removelist;
+
+    for (const auto& [key, val] : DirIndex)
+    {
+        std::string path = val.Path;
+        int sep = path.rfind('/');
+        if (sep == std::string::npos) continue;
+
+        path = path.substr(0, sep);
+        if (DirIndex.count(path) < 1)
+        {
+            removelist.push_back(key);
+        }
+    }
+
+    for (const auto& key : removelist)
+    {
+        DirIndex.erase(key);
+    }
+
+    removelist.clear();
+
+    for (const auto& [key, val] : FileIndex)
+    {
+        std::string path = val.Path;
+        int sep = path.rfind('/');
+        if (sep == std::string::npos) continue;
+
+        path = path.substr(0, sep);
+        if (DirIndex.count(path) < 1)
+        {
+            removelist.push_back(key);
+        }
+    }
+
+    for (const auto& key : removelist)
+    {
+        FileIndex.erase(key);
+    }
 }
 
 void FATStorage::SaveIndex()
@@ -504,7 +543,8 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                     ientry.IsReadOnly = readonly;
 
                     innerpath = "0:/" + innerpath;
-                    if (f_mkdir(innerpath.c_str()) == FR_OK)
+                    FRESULT res = f_mkdir(innerpath.c_str());
+                    if (res == FR_OK)
                     {
                         DirIndex[ientry.Path] = ientry;
 
