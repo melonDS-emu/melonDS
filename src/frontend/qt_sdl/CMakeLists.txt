@@ -78,7 +78,7 @@ if (SLIRP_FOUND)
     message(STATUS "libslirp found, and libslirp support is enabled")
 else()
     option(ENABLE_LIBSLIRP "Enable use of libslirp for network sockets" OFF)
-    message(WARNING libslirp not found, building without libslirp support!")
+    message(WARNING "libslirp not found, building without libslirp support!")
 endif()
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
