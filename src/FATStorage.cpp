@@ -241,7 +241,7 @@ void FATStorage::SaveIndex()
 }
 
 
-bool FATStorage::ExportFile(std::string path, std::string out)
+bool FATStorage::ExportFile(std::string path, std::string out, fs::file_time_type& modtime)
 {
     FIL file;
     FILE* fout;
@@ -252,6 +252,15 @@ bool FATStorage::ExportFile(std::string path, std::string out)
         return false;
 
     u32 len = f_size(&file);
+
+    if (fs::exists(out))
+    {
+        std::error_code err;
+        fs::permissions(out,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        fs::perm_options::add,
+                        err);
+    }
 
     fout = fopen(out.c_str(), "wb");
     if (!fout)
@@ -277,10 +286,111 @@ bool FATStorage::ExportFile(std::string path, std::string out)
     fclose(fout);
     f_close(&file);
 
+    modtime = fs::last_write_time(out);
+
     return true;
 }
 
-void FATStorage::ExportChanges(std::string sourcedir)
+void FATStorage::ExportDirectory(std::string path, std::string outbase, int level)
+{
+    if (level >= 32) return;
+
+    fDIR dir;
+    FILINFO info;
+    FRESULT res;
+
+    std::string fullpath = "0:/" + path;
+    res = f_opendir(&dir, fullpath.c_str());
+    if (res != FR_OK) return;
+
+    std::vector<std::string> subdirlist;
+
+    for (;;)
+    {
+        res = f_readdir(&dir, &info);
+        if (res != FR_OK) break;
+        if (!info.fname[0]) break;
+
+        std::string fullpath = path + info.fname;
+
+        if (info.fattrib & AM_DIR)
+        {
+            if (DirIndex.count(fullpath) < 1)
+            {
+                std::string dirpath = outbase+"/"+fullpath;
+                mkdir(dirpath.c_str());
+
+                DirIndexEntry entry;
+                entry.Path = fullpath;
+                entry.IsReadOnly = (info.fattrib & AM_RDO) != 0;
+
+                DirIndex[entry.Path] = entry;
+            }
+
+            subdirlist.push_back(fullpath);
+        }
+        else
+        {
+            bool doexport = false;
+
+            if (FileIndex.count(fullpath) < 1)
+            {
+                doexport = true;
+
+                FileIndexEntry entry;
+                entry.Path = fullpath;
+                entry.IsReadOnly = (info.fattrib & AM_RDO) != 0;
+                entry.Size = info.fsize;
+                entry.LastModifiedInternal = (info.fdate << 16) | info.ftime;
+
+                FileIndex[entry.Path] = entry;
+            }
+            else
+            {
+                u32 lastmod = (info.fdate << 16) | info.ftime;
+
+                FileIndexEntry& entry = FileIndex[fullpath];
+                if ((info.fsize != entry.Size) || (lastmod != entry.LastModifiedInternal))
+                    doexport = true;
+
+                entry.Size = info.fsize;
+                entry.LastModifiedInternal = lastmod;
+            }
+
+            if (doexport)
+            {
+                printf("EXPORTING FILE 0:/%s TO %s/%s\n", fullpath.c_str(), outbase.c_str(), fullpath.c_str());
+                fs::file_time_type modtime;
+                if (ExportFile("0:/"+fullpath, outbase+"/"+fullpath, modtime))
+                {
+                    s64 modtime_raw = std::chrono::duration_cast<std::chrono::seconds>(modtime.time_since_epoch()).count();
+
+                    FileIndexEntry& entry = FileIndex[fullpath];
+                    entry.LastModified = modtime_raw;
+                }
+                else
+                {
+                    // ??????
+                }
+            }
+        }
+
+        std::error_code err;
+        fs::permissions(outbase+"/"+fullpath,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        (info.fattrib & AM_RDO) ? fs::perm_options::remove : fs::perm_options::add,
+                        err);
+    }
+
+    f_closedir(&dir);
+
+    for (auto& entry : subdirlist)
+    {
+        ExportDirectory(entry+"/", outbase, level+1);
+    }
+}
+
+void FATStorage::ExportChanges(std::string outbase)
 {
     // reflect changes in the FAT volume to the host filesystem
     // * delete directories and files that exist in the index but not in the volume
@@ -290,7 +400,6 @@ void FATStorage::ExportChanges(std::string sourcedir)
     //   the index
 
     std::vector<std::string> deletelist;
-    std::vector<std::string> exportlist;
 
     for (const auto& [key, val] : FileIndex)
     {
@@ -299,15 +408,65 @@ void FATStorage::ExportChanges(std::string sourcedir)
         FRESULT res = f_stat(innerpath.c_str(), &finfo);
         if (res == FR_OK)
         {
-            u32 lastmod = (finfo.fdate << 16) | finfo.ftime;
-            if ((val.Size != finfo.fsize) || (val.LastModifiedInternal != lastmod))
-                exportlist.push_back(key);
+            if (finfo.fattrib & AM_DIR)
+            {
+                deletelist.push_back(key);
+            }
         }
         else if (res == FR_NO_FILE || res == FR_NO_PATH)
         {
             deletelist.push_back(key);
         }
     }
+
+    for (const auto& key : deletelist)
+    {
+        std::string fullpath = outbase + "/" + key;
+        std::error_code err;
+        fs::permissions(fullpath,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        fs::perm_options::add,
+                        err);
+        unlink(fullpath.c_str());
+
+        FileIndex.erase(key);
+    }
+
+    deletelist.clear();
+
+    for (const auto& [key, val] : DirIndex)
+    {
+        std::string innerpath = "0:/" + val.Path;
+        FILINFO finfo;
+        FRESULT res = f_stat(innerpath.c_str(), &finfo);
+        if (res == FR_OK)
+        {
+            if (!(finfo.fattrib & AM_DIR))
+            {
+                deletelist.push_back(key);
+            }
+        }
+        else if (res == FR_NO_FILE || res == FR_NO_PATH)
+        {
+            deletelist.push_back(key);
+        }
+    }
+
+    for (const auto& key : deletelist)
+    {
+        /*std::string fullpath = outbase + "/" + key;
+        std::error_code err;
+        fs::permissions(fullpath,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        fs::perm_options::add,
+                        err);
+        unlink(fullpath.c_str());*/
+        // !!!!TODO
+
+        DirIndex.erase(key);
+    }
+
+    ExportDirectory("", outbase, 0);
 }
 
 
@@ -335,7 +494,7 @@ bool FATStorage::DeleteDirectory(std::string path, int level)
     fDIR dir;
     FILINFO info;
     FRESULT res;
-printf("PURGING %s (level %d)\n", path.c_str(), level);
+
     std::string fullpath = "0:/" + path;
     f_chmod(fullpath.c_str(), 0, AM_RDO);
     res = f_opendir(&dir, fullpath.c_str());
@@ -368,7 +527,6 @@ printf("PURGING %s (level %d)\n", path.c_str(), level);
     for (auto& entry : deletelist)
     {
         std::string fullpath = "0:/" + entry;
-        printf("- PURGING file %s\n", fullpath.c_str());
         f_chmod(fullpath.c_str(), 0, AM_RDO);
         res = f_unlink(fullpath.c_str());
         if (res != FR_OK) return false;
@@ -379,7 +537,6 @@ printf("PURGING %s (level %d)\n", path.c_str(), level);
         if (!DeleteDirectory(entry+"/", level+1)) return false;
 
         std::string fullpath = "0:/" + entry;
-        printf("- PURGING subdir %s\n", fullpath.c_str());
         f_chmod(fullpath.c_str(), 0, AM_RDO);
         res = f_unlink(fullpath.c_str());
         if (res != FR_OK) return false;
@@ -398,7 +555,7 @@ void FATStorage::CleanupDirectory(std::string path, int level)
     fDIR dir;
     FILINFO info;
     FRESULT res;
-printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
+
     std::string fullpath = "0:/" + path;
     res = f_opendir(&dir, fullpath.c_str());
     if (res != FR_OK) return;
@@ -414,7 +571,7 @@ printf("CHECKING %s (level %d) FOR SHIT\n", path.c_str(), level);
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
-printf("- FOUND: %s\n", fullpath.c_str());
+
         if (info.fattrib & AM_DIR)
         {
             if (DirIndex.count(fullpath) < 1)
@@ -434,7 +591,6 @@ printf("- FOUND: %s\n", fullpath.c_str());
     for (auto& entry : filedeletelist)
     {
         std::string fullpath = "0:/" + entry;
-        printf("- PURGING file %s\n", fullpath.c_str());
         f_chmod(fullpath.c_str(), 0, AM_RDO);
         f_unlink(fullpath.c_str());
     }

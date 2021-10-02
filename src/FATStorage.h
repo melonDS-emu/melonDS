@@ -49,8 +49,9 @@ private:
     void LoadIndex();
     void SaveIndex();
 
-    bool ExportFile(std::string path, std::string out);
-    void ExportChanges(std::string sourcedir);
+    bool ExportFile(std::string path, std::string out, std::filesystem::file_time_type& modtime);
+    void ExportDirectory(std::string path, std::string outbase, int level);
+    void ExportChanges(std::string outbase);
 
     bool CanFitFile(u32 len);
     bool DeleteDirectory(std::string path, int level);
