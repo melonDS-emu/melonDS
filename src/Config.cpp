@@ -28,6 +28,7 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
+int ExternalBIOSEnable;
 char BIOS9Path[1024];
 char BIOS7Path[1024];
 char FirmwarePath[1024];
@@ -54,9 +55,11 @@ int JIT_FastMemory = true;
 
 ConfigEntry ConfigFile[] =
 {
+    {"ExternalBIOSEnable", 0, &ExternalBIOSEnable, 0, NULL, 0},
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
     {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+
     {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
     {"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
 
