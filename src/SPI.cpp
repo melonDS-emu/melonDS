@@ -171,7 +171,8 @@ void LoadFirmwareFromFile(FILE* f)
     }
 }
 
-void LoadUserSettingsFromConfig() {
+void LoadUserSettingsFromConfig()
+{
     // setting up username
     std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareUsername);
     size_t usernameLength = std::min(username.length(), (size_t) 10);
