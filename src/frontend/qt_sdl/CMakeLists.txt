@@ -75,8 +75,10 @@ add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 if (SLIRP_FOUND)
     option(ENABLE_LIBSLIRP "Enable use of libslirp for network sockets" ON)
+    message(STATUS "libslirp found, and libslirp support is enabled")
 else()
     option(ENABLE_LIBSLIRP "Enable use of libslirp for network sockets" OFF)
+    message(WARNING libslirp not found, building without libslirp support!")
 endif()
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
