@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <atomic>
 #include "NDSCart_SRAMManager.h"
 #include "Platform.h"
@@ -114,7 +113,7 @@ void RequestFlush()
     printf("NDS SRAM: Flush requested\n");
     memcpy(SecondaryBuffer, Buffer, Length);
     FlushVersion++;
-    TimeAtLastFlushRequest = time(NULL);
+    TimeAtLastFlushRequest = Platform::GetFrontendTime();
     Platform::Mutex_Unlock(SecondaryBufferLock);
 }
 
@@ -127,7 +126,7 @@ void FlushThreadFunc()
         if (!FlushThreadRunning) return;
         
         // We debounce for two seconds after last flush request to ensure that writing has finished.
-        if (TimeAtLastFlushRequest == 0 || difftime(time(NULL), TimeAtLastFlushRequest) < 2)
+        if (TimeAtLastFlushRequest == 0 || difftime(Platform::GetFrontendTime(), TimeAtLastFlushRequest) < 2)
         {
             continue;
         }

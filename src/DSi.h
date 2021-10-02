@@ -64,6 +64,7 @@ void SetupDirectBoot();
 void SoftReset();
 
 bool LoadBIOS();
+bool LoadBIOS(bool arm9i);
 bool LoadNAND();
 
 void CloseDSiNAND();

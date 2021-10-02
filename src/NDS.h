@@ -228,9 +228,12 @@ void SetConsoleType(int type);
 
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
+bool LoadROM(bool direct);
 bool LoadGBAROM(const char* path, const char* sram);
 bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram);
+bool LoadGBAROM();
 void LoadBIOS();
+bool LoadBIOS(bool arm9);
 void SetupDirectBoot();
 void RelocateSave(const char* path, bool write);
 

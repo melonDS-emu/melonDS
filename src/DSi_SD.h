@@ -120,7 +120,7 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file, void* filebuf, u32 filelen);
     ~DSi_MMCStorage();
 
     void Reset();
@@ -135,6 +135,7 @@ public:
 private:
     bool Internal;
     FILE* File;
+    u8* FileBuf;
 
     u8 CID[16];
     u8 CSD[16];

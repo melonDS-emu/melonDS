@@ -16,13 +16,10 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// Required by MinGW to enable localtime_r in time.h
-#define _POSIX_THREAD_SAFE_FUNCTIONS
-
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include "RTC.h"
+#include "Platform.h"
 
 
 namespace RTC
@@ -33,6 +30,11 @@ u16 IO;
 u8 Input;
 u32 InputBit;
 u32 InputPos;
+
+u8 ClockInput[7];
+time_t basetime;
+// FIXME: time_t's size is not guarenteed by the standard, it could be 32 bits and suffer the 2038 bug
+// in practice it will generally be 64 bits when compiling a 64 bit build, so probably not concerning
 
 u8 Output[8];
 u32 OutputBit;
@@ -50,6 +52,11 @@ u8 FreeReg;
 
 bool Init()
 {
+    basetime = 0;
+    // FIXME: gbatek says there's an rtc offset at 3FF68-3FF6B? probably should use that?
+    // doesn't make sense however, 4 bytes can't store more than 68 years of time, so ???
+    // suppose it might be possible that the offset doesn't keep track of years and only the rest
+    // as years is stored in 3FF66 for some reason?
     return true;
 }
 
@@ -85,6 +92,9 @@ void DoSavestate(Savestate* file)
     file->Var8(&Input);
     file->Var32(&InputBit);
     file->Var32(&InputPos);
+
+    file->VarArray(ClockInput, sizeof(ClockInput));
+    file->Var64(&basetime);
 
     file->VarArray(Output, sizeof(Output));
     file->Var32(&OutputBit);
@@ -128,9 +138,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = Platform::GetFrontendDate(basetime);
 
                     Output[0] = BCD(timedata.tm_year - 100);
                     Output[1] = BCD(timedata.tm_mon + 1);
@@ -144,9 +152,7 @@ void ByteIn(u8 val)
 
             case 0x60:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = Platform::GetFrontendDate(basetime);
 
                     Output[0] = BCD(timedata.tm_hour);
                     Output[1] = BCD(timedata.tm_min);
@@ -190,7 +196,21 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        // TODO: set time somehow??
+        ClockInput[InputPos / 2 - 1] = FromBCD(val);
+        if (InputPos == 14)
+        {
+            tm oldTime = Platform::GetFrontendDate(basetime);
+            tm newTime;
+            memset(&newTime, 0, sizeof(newTime));
+            newTime.tm_year = ClockInput[0] + 100;
+            newTime.tm_mon = ClockInput[1] - 1;
+            newTime.tm_mday = ClockInput[2];
+            newTime.tm_wday = ClockInput[3];
+            newTime.tm_hour = ClockInput[4];
+            newTime.tm_min = ClockInput[5];
+            newTime.tm_sec = ClockInput[6];
+            basetime = Platform::ConvertDateToTime(oldTime) - Platform::ConvertDateToTime(newTime);
+        }
         break;
 
     case 0x60:

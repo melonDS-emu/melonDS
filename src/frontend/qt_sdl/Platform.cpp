@@ -441,4 +441,25 @@ void Sleep(u64 usecs)
     QThread::usleep(usecs);
 }
 
+void SetFrontendTime(time_t newTime)
+{
+}
+
+time_t GetFrontendTime()
+{
+    return time(NULL);
+}
+
+tm GetFrontendDate(time_t basetime)
+{
+    time_t t = basetime + time(NULL);
+    return localtime_r(&t);
+}
+
+time_t ConvertDataToTime(tm newTime)
+{
+    time_t t = newTime;
+    return mktime(&t);
+}
+
 }

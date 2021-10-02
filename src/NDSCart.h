@@ -182,6 +182,7 @@ private:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
     FILE* SDFile;
+    u8* SDFileBuf;
 };
 
 extern u16 SPICnt;

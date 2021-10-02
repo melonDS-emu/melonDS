@@ -156,6 +156,7 @@ void Eject();
 void DoSavestate(Savestate* file);
 bool LoadROM(const char* path, const char* sram);
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
+bool LoadROM();
 void RelocateSave(const char* path, bool write);
 
 // TODO: make more flexible, support nonbinary inputs

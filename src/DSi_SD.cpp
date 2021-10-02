@@ -114,14 +114,14 @@ void DSi_SDHost::Reset()
 
         if (Config::DSiSDEnable)
         {
-            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
+            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile, Platform::files[DsiSd].FileData, Platform::files[DsiSd].FileLength);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
+        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile, Platform::files[DsiNand].FileData, Platform::files[DsiNand].FileLength);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -715,14 +715,23 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file) : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file, void* filebuf, u32 filelen) : DSi_SDDevice(host)
 {
     Internal = internal;
     File = file;
+    if (filebuf)
+    {
+        FileBuf = new u8[filelen];
+        memcpy(FileBuf, filebuf, filelen);
+    }
+    else
+        FileBuf = nullptr;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
-{}
+{
+    if (FileBuf) delete []FileBuf;
+}
 
 void DSi_MMCStorage::Reset()
 {
@@ -953,6 +962,8 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
         fseek(File, addr, SEEK_SET);
         fread(data, 1, len, File);
     }
+    else if (FileBuf)
+        memcpy(data, File + addr, len);
 
     return Host->DataRX(data, len);
 }
@@ -970,6 +981,8 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
             fseek(File, addr, SEEK_SET);
             fwrite(data, 1, len, File);
         }
+        else if (FileBuf)
+            memcpy(File + addr, data, len);
     }
 
     return len;

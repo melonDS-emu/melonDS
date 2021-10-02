@@ -125,36 +125,48 @@ void Reset()
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
     {
-        printf("Firmware not found\n");
+        if (!Platform::files[Firmware].FileData)
+        {
+            printf("Firmware not found\n");
 
-        // TODO: generate default firmware
-        return;
+            // TODO: generate default firmware
+            return;
+        }
+        else
+        {
+            FirmwareLength = FixFirmwareLength(Platform::files[Firmware].FileLength);
+            Firmware = new u8[FirmwareLength];
+            memset(Firmware, 0xFF, FirmwareLength);
+            memcpy(Firmware, Platform::files[Firmware].FileData, Platform::files[Firmware].FileLength);
+        }
     }
-
-    fseek(f, 0, SEEK_END);
-
-    FirmwareLength = FixFirmwareLength((u32)ftell(f));
-
-    Firmware = new u8[FirmwareLength];
-
-    fseek(f, 0, SEEK_SET);
-    fread(Firmware, 1, FirmwareLength, f);
-
-    fclose(f);
-
-    // take a backup
-    char firmbkp[1028];
-    int fplen = strlen(FirmwarePath);
-    strncpy(&firmbkp[0], FirmwarePath, fplen);
-    strncpy(&firmbkp[fplen], ".bak", 1028-fplen);
-    firmbkp[fplen+4] = '\0';
-    f = Platform::OpenLocalFile(firmbkp, "rb");
-    if (f) fclose(f);
     else
     {
-        f = Platform::OpenLocalFile(firmbkp, "wb");
-        fwrite(Firmware, 1, FirmwareLength, f);
+        fseek(f, 0, SEEK_END);
+
+        FirmwareLength = FixFirmwareLength((u32)ftell(f));
+
+        Firmware = new u8[FirmwareLength];
+
+        fseek(f, 0, SEEK_SET);
+        fread(Firmware, 1, FirmwareLength, f);
+
         fclose(f);
+
+        // take a backup
+        char firmbkp[1028];
+        int fplen = strlen(FirmwarePath);
+        strncpy(&firmbkp[0], FirmwarePath, fplen);
+        strncpy(&firmbkp[fplen], ".bak", 1028-fplen);
+        firmbkp[fplen+4] = '\0';
+        f = Platform::OpenLocalFile(firmbkp, "rb");
+        if (f) fclose(f);
+        else
+        {
+            f = Platform::OpenLocalFile(firmbkp, "wb");
+            fwrite(Firmware, 1, FirmwareLength, f);
+            fclose(f);
+        }
     }
 
     FirmwareMask = FirmwareLength - 1;

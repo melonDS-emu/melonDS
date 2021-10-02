@@ -1168,14 +1168,24 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
         SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        if (!SDFile && Platform::files[DldiSd].FileData)
+        {
+            SDFileBuf = new u8[Platform::files[DldiSd].FileLength]
+            memcpy(SDFileBuf, Platform::files[DldiSd].FileData, Platform::files[DldiSd].FileLength);
+        }
+        else SDFileBuf = nullptr;
     }
     else
+    {
         SDFile = nullptr;
+        SDFileBuf = nullptr;
+    }
 }
 
 CartHomebrew::~CartHomebrew()
 {
     if (SDFile) fclose(SDFile);
+    if (SDFileBuf) delete []SDFileBuf;
 }
 
 void CartHomebrew::Reset()
@@ -1183,11 +1193,22 @@ void CartHomebrew::Reset()
     CartCommon::Reset();
 
     if (SDFile) fclose(SDFile);
+    if (SDFileBuf) delete []SDFileBuf;
 
     if (Config::DLDIEnable)
+    {
         SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        if (!SDFile && Platform::files[DldiSd].FileData)
+        {
+            SDFileBuf = new u8[Platform::files[DldiSd].FileLength]
+            memcpy(SDFileBuf, Platform::files[DldiSd].FileData, Platform::files[DldiSd].FileLength);
+        } else SDFileBuf = nullptr;
+    }
     else
+    {
         SDFile = nullptr;
+        SDFileBuf = nullptr;
+    }
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1227,6 +1248,11 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
                 fseek(SDFile, addr, SEEK_SET);
                 fread(data, len, 1, SDFile);
             }
+            else if (SDFileBuf && len && addr < Platform::files[DldiSd].FileLength)
+            {
+                u32 lenToEnd = Platform::files[DldiSd].FileLength - addr;
+                memcpy(data, SDFileBuf + addr, std::min(lenToEnd, len));
+            }
         }
         return 0;
 
@@ -1255,6 +1281,10 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
             {
                 fseek(SDFile, addr, SEEK_SET);
                 fwrite(data, len, 1, SDFile);
+            else if (SDFileBuf && len && addr < Platform::files[DldiSd].FileLength)
+            {
+                u32 lenToEnd = Platform::files[DldiSd].FileLength - addr;
+                memcpy(SDFileBuf + addr, data, std::min(lenToEnd, len));
             }
         }
         break;
@@ -1704,6 +1734,25 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
     memcpy(CartROM, romdata, filelength);
 
     return LoadROMCommon(filelength, sram, direct);
+}
+
+bool LoadROM(bool direct)
+{
+    if (!Platform::files[Rom].FileData)
+        return false;
+
+    NDS::Reset();
+
+    u32 len = Platform::files[Rom].FileLength;
+    CartROMSize = 0x200;
+    while (CartROMSize < len)
+        CartROMSize <<= 1;
+
+    CartROM = new u8[CartROMSize];
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, Platform::files[Rom].FileLength);
+
+    return LoadROMCommon(Platform::files[Rom].FileLength, "", direct);
 }
 
 void RelocateSave(const char* path, bool write)

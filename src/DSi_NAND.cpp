@@ -32,6 +32,8 @@ namespace DSi_NAND
 {
 
 FILE* CurFile;
+u8* CurFileBuf;
+u32 CurFileLen;
 FATFS CurFS;
 
 u8 eMMC_CID[16];
@@ -125,6 +127,93 @@ bool Init(FILE* nandfile, u8* es_keyY)
     DSi_AES::Swap16(ESKey, tmp);
 
     CurFile = nandfile;
+    CurFileBuf = nullptr;
+    CurFileLen = 0;
+    return true;
+}
+
+bool Init(void* nandbuf, u32 nandlen, u8* es_keyY)
+{
+    if (!nandbuf)
+        return false;
+
+    ff_disk_open(FF_ReadNAND, FF_WriteNAND);
+
+    FRESULT res;
+    res = f_mount(&CurFS, "0:", 0);
+    if (res != FR_OK)
+    {
+        printf("NAND mounting failed: %d\n", res);
+        f_unmount("0:");
+        ff_disk_close();
+        return false;
+    }
+
+    // read the nocash footer
+
+    char nand_footer[16];
+    const char* nand_footer_ref = "DSi eMMC CID/CPU";
+    const u32 footerOffset = nandlen - 0x40;
+    const u32 altFooterOffset = 0x000FF800;
+    bool useAltFooter = false;
+    memcpy(nand_footer, nandfile + footerOffset, sizeof nand_footer);
+    if (memcmp(nand_footer, nand_footer_ref, 16))
+    {
+        // There is another copy of the footer at 000FF800h for the case
+        // that by external tools the image was cut off
+        // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
+        memcpy(nand_footer, nandfile + altFooterOffset, sizeof nand_footer);
+        if (memcmp(nand_footer, nand_footer_ref, 16))
+        {
+            printf("ERROR: NAND missing nocash footer\n");
+            return false;
+        }
+        useAltFooter = true;
+    }
+
+    const u32 footerOffsetUsed = useAltFooter ? altFooterOffset : footerOffset;
+    memcpy(eMMC_CID, nandfile + footerOffsetUsed + (sizeof nand_footer), sizeof eMMC_CID);
+    memcpy(&ConsoleID, nandfile + footerOffsetUsed + (sizeof nand_footer) + (sizeof eMMC_CID), 8);
+
+    // init NAND crypto
+
+    SHA1_CTX sha;
+    u8 tmp[20];
+    u8 keyX[16], keyY[16];
+
+    SHA1Init(&sha);
+    SHA1Update(&sha, eMMC_CID, 16);
+    SHA1Final(tmp, &sha);
+
+    DSi_AES::Swap16(FATIV, tmp);
+
+    *(u32*)&keyX[0] = (u32)ConsoleID;
+    *(u32*)&keyX[4] = (u32)ConsoleID ^ 0x24EE6906;
+    *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xE65B601D;
+    *(u32*)&keyX[12] = (u32)(ConsoleID >> 32);
+
+    *(u32*)&keyY[0] = 0x0AB9DC76;
+    *(u32*)&keyY[4] = 0xBD4DC4D3;
+    *(u32*)&keyY[8] = 0x202DDD1D;
+    *(u32*)&keyY[12] = 0xE1A00005;
+
+    DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
+    DSi_AES::Swap16(FATKey, tmp);
+
+
+    *(u32*)&keyX[0] = 0x4E00004A;
+    *(u32*)&keyX[4] = 0x4A00004E;
+    *(u32*)&keyX[8] = (u32)(ConsoleID >> 32) ^ 0xC80C4B72;
+    *(u32*)&keyX[12] = (u32)ConsoleID;
+
+    memcpy(keyY, es_keyY, 16);
+
+    DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
+    DSi_AES::Swap16(ESKey, tmp);
+
+    CurFile = nullptr;
+    CurFileBuf = nandfile;
+    CurFileLen = nandlen;
     return true;
 }
 
@@ -134,6 +223,9 @@ void DeInit()
     ff_disk_close();
 
     CurFile = nullptr;
+    if (CurFileBuf) delete []CurFileBuf;
+    CurFileBuf = nullptr;
+    CurFileLen = 0;
 }
 
 
@@ -175,9 +267,21 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
-    u32 res = fread(buf, len, 1, CurFile);
-    if (!res) return 0;
+    if (CurFile)
+    {
+        fseek(CurFile, addr, SEEK_SET);
+        u32 res = fread(buf, len, 1, CurFile);
+        if (!res) return 0;
+    }
+    else if (CurFileBuf)
+    {
+        if (!len || addr >= CurFileLen)
+        {
+            return 0;
+        }
+        u32 lenToEnd = CurFileLen - addr;
+        memcpy(buf, CurFileBuf + addr, std::min(lenToEnd, len));
+    }
 
     for (u32 i = 0; i < len; i += 16)
     {
@@ -197,7 +301,10 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
+    if (CurFile)
+        fseek(CurFile, addr, SEEK_SET);
+    else if (CurFileBuf && (!len || addr >= CurFileLen))
+        return 0;
 
     for (u32 s = 0; s < len; s += 0x200)
     {
@@ -211,8 +318,17 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
             DSi_AES::Swap16(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
-        if (!res) return 0;
+        if (CurFile)
+        {
+            u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
+            if (!res) return 0;
+        }
+        else if (CurFileBuf)
+        {
+            if ((addr + s) >= CurFileLen) return 0;
+            u32 lenToEnd = CurFileLen - addr - s;
+            memcpy(CurFileBuf + addr + s, tempbuf, std::min(lenToEnd, 0x200));
+        }
     }
 
     return len;

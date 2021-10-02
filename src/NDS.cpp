@@ -467,10 +467,13 @@ void Reset()
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f)
     {
-        printf("ARM9 BIOS not found\n");
+        if (!LoadBIOS(true))
+        {
+            printf("ARM9 BIOS not found\n");
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+		}
     }
     else
     {
@@ -484,10 +487,13 @@ void Reset()
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
     if (!f)
     {
-        printf("ARM7 BIOS not found\n");
+        if (!LoadBIOS(false))
+        {
+            printf("ARM7 BIOS not found\n");
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+		}
     }
     else
     {
@@ -876,6 +882,20 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     }
 }
 
+bool LoadROM(bool direct)
+{
+    if (NDSCart::LoadROM(direct))
+    {
+        Running = true;
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM\n");
+        return false;
+    }
+}
+
 bool LoadGBAROM(const char* path, const char* sram)
 {
     if (GBACart::LoadROM(path, sram))
@@ -902,10 +922,45 @@ bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const c
     }
 }
 
+bool LoadGBAROM()
+{
+    if (GBACart::LoadROM())
+    {
+        return true;
+    }
+    else
+    {
+        printf("Failed to load ROM\n");
+        return false;
+    }
+}
+
 void LoadBIOS()
 {
     Reset();
     Running = true;
+}
+
+bool LoadBIOS(bool arm9)
+{
+    if (arm9)
+    {
+        if (Platform::files[Arm9Bios].FileData && Platform::files[Arm9Bios].FileLength == sizeof ARM9BIOS)
+        {
+            memcpy(ARM9BIOS, Platform::files[Arm9Bios].FileData, Platform::files[Arm9Bios].FileLength);
+            return true;
+        }
+    }
+    else
+    {
+        if (Platform::files[Arm7Bios].FileData && Platform::files[Arm7Bios].FileLength == sizeof ARM7BIOS)
+        {
+            memcpy(ARM7BIOS, Platform::files[Arm7Bios].FileData, Platform::files[Arm7Bios].FileLength);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void RelocateSave(const char* path, bool write)

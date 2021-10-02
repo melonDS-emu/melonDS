@@ -19,12 +19,44 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+// Required by MinGW to enable localtime_r in time.h
+#define _POSIX_THREAD_SAFE_FUNCTIONS
+
 #include "types.h"
 
+#include <time.h>
 #include <functional>
 
 namespace Platform
 {
+
+enum
+{
+    // ds/i
+    Arm7Bios
+    Arm9Bios
+    Firmware
+    Rom
+    // ds only
+    DldiSd
+    GbaRom
+    GbaSram
+    // dsi only
+    Arm7iBios
+    Arm9iBios
+    DsiNand
+    DsiSd
+    // end
+    NUM_FILES
+}
+
+struct FileStruct
+{
+    void *FileData;
+    u32 FileLength;
+};
+
+extern FileStruct files[NUM_FILES];
 
 void Init(int argc, char** argv);
 void DeInit();
@@ -104,6 +136,11 @@ int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
 void Sleep(u64 usecs);
+
+void SetFrontendTime();
+time_t GetFrontendTime();
+tm GetFrontendDate(time_t basetime);
+time_t ConvertDateToTime(tm newTime);
 
 }
 
