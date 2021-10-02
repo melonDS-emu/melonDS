@@ -1178,7 +1178,10 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
 CartHomebrew::~CartHomebrew()
 {
     if (SDFile) fclose(SDFile);
-    if (test) delete test;
+    if (test)
+    {
+        delete test;
+    }
 }
 
 void CartHomebrew::Reset()

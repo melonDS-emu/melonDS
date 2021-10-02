@@ -56,7 +56,8 @@ FATStorage::FATStorage()
 
 FATStorage::~FATStorage()
 {
-    //
+    printf("SAVING DLDI SHIT\n");
+    Save("dldi");
 }
 
 
@@ -298,7 +299,7 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
     fDIR dir;
     FILINFO info;
     FRESULT res;
-
+printf("EXPORTING DIRECTORY %s (base %s level %d)\n", path.c_str(), outbase.c_str(), level);
     std::string fullpath = "0:/" + path;
     res = f_opendir(&dir, fullpath.c_str());
     if (res != FR_OK) return;
@@ -332,7 +333,7 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
         else
         {
             bool doexport = false;
-
+printf("- FILE %s\n", fullpath.c_str());
             if (FileIndex.count(fullpath) < 1)
             {
                 doexport = true;
@@ -857,6 +858,42 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
 
     if (res == FR_OK)
         BuildSubdirectory(sourcedir, "", 0);
+
+    f_unmount("0:");
+
+    ff_disk_close();
+    fclose(FF_File);
+    FF_File = nullptr;
+
+    return true;
+}
+
+bool FATStorage::Save(std::string sourcedir)
+{
+    FF_File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
+    if (!FF_File)
+    {
+        return false;
+    }
+
+    FF_FileSize = FileSize;
+    ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FileSize>>9));
+
+    FRESULT res;
+    FATFS fs;
+
+    res = f_mount(&fs, "0:", 1);
+    if (res != FR_OK)
+    {
+        ff_disk_close();
+        fclose(FF_File);
+        FF_File = nullptr;
+        return false;
+    }
+
+    ExportChanges("dldi");
+
+    SaveIndex();
 
     f_unmount("0:");
 

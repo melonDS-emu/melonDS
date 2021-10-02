@@ -58,7 +58,9 @@ private:
     void CleanupDirectory(std::string path, int level);
     bool ImportFile(std::string path, std::string in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
+
     bool Build(const char* sourcedir, u64 size, const char* filename);
+    bool Save(std::string sourcedir);
 
     typedef struct
     {
