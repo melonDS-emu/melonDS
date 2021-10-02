@@ -206,7 +206,7 @@ void OnMBKCfg(char bank, u32 slot, u8 oldcfg, u8 newcfg, u8* nwrambacking)
 
 inline bool IsDSPCoreEnabled()
 {
-    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (DSP_PCFG & (1<<0));
+    return (DSi::SCFG_Clock9 & (1<<1)) && SCFG_RST && (!(DSP_PCFG & (1<<0)));
 }
 
 bool DSPCatchUp()
@@ -560,6 +560,7 @@ void Run(u32 cycles)
 
     DSPTimestamp += cycles;
 
+    NDS::CancelEvent(NDS::Event_DSi_DSP);
     NDS::ScheduleEvent(NDS::Event_DSi_DSP, false,
             16384/*from citra (TeakraSlice)*/, DSPCatchUpU32, 0);
 }

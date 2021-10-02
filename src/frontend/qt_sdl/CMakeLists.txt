@@ -5,13 +5,16 @@ SET(SOURCES_QT_SDL
     main_shaders.h
     CheatsDialog.cpp
     EmuSettingsDialog.cpp
-    InputConfigDialog.cpp
+    InputConfig/InputConfigDialog.cpp
+    InputConfig/MapButton.h
+    InputConfig/resources/ds.qrc
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
+	TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
@@ -47,11 +50,12 @@ if (USE_QT6)
         set(Qt6Core_DIR ${QT6_STATIC_BASE}Core)
         set(Qt6Gui_DIR ${QT6_STATIC_BASE}Gui)
         set(Qt6Widgets_DIR ${QT6_STATIC_BASE}Widgets)
+        set(Qt6Network_DIR ${QT6_STATIC_BASE}Network)
         set(Qt6OpenGL_DIR ${QT6_STATIC_BASE}OpenGL)
         set(Qt6OpenGLWidgets_DIR ${QT6_STATIC_BASE}OpenGLWidgets)
     endif()
-    find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets REQUIRED)
-    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
+    find_package(Qt6 COMPONENTS Core Gui Widgets Network OpenGL OpenGLWidgets REQUIRED)
+    set(QT_LINK_LIBS Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::OpenGL Qt6::OpenGLWidgets)
 else()
     if (BUILD_STATIC AND QT5_STATIC_DIR)
         set(QT5_STATIC_BASE ${QT5_STATIC_DIR}/lib/cmake/Qt5)
@@ -59,9 +63,10 @@ else()
         set(Qt5Core_DIR ${QT5_STATIC_BASE}Core)
         set(Qt5Gui_DIR ${QT5_STATIC_BASE}Gui)
         set(Qt5Widgets_DIR ${QT5_STATIC_BASE}Widgets)
+        set(Qt5Network_DIR ${QT5_STATIC_BASE}Network)
     endif()
-    find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
-    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets)
+    find_package(Qt5 COMPONENTS Core Gui Widgets Network REQUIRED)
+    set(QT_LINK_LIBS Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
 endif()
 
 set(CMAKE_AUTOMOC ON)
@@ -95,6 +100,7 @@ target_link_libraries(melonDS core)
 
 if (BUILD_STATIC)
     target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
+    qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
 else()
     target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
 endif()

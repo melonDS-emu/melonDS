@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <algorithm>
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -392,74 +393,71 @@ void ARM::RestoreCPSR()
 
 void ARM::UpdateMode(u32 oldmode, u32 newmode)
 {
-    u32 temp;
-    #define SWAP(a, b)  temp = a; a = b; b = temp;
-
     if ((oldmode & 0x1F) == (newmode & 0x1F)) return;
 
     switch (oldmode & 0x1F)
     {
     case 0x11:
-        SWAP(R[8], R_FIQ[0]);
-        SWAP(R[9], R_FIQ[1]);
-        SWAP(R[10], R_FIQ[2]);
-        SWAP(R[11], R_FIQ[3]);
-        SWAP(R[12], R_FIQ[4]);
-        SWAP(R[13], R_FIQ[5]);
-        SWAP(R[14], R_FIQ[6]);
+        std::swap(R[8], R_FIQ[0]);
+        std::swap(R[9], R_FIQ[1]);
+        std::swap(R[10], R_FIQ[2]);
+        std::swap(R[11], R_FIQ[3]);
+        std::swap(R[12], R_FIQ[4]);
+        std::swap(R[13], R_FIQ[5]);
+        std::swap(R[14], R_FIQ[6]);
         break;
 
     case 0x12:
-        SWAP(R[13], R_IRQ[0]);
-        SWAP(R[14], R_IRQ[1]);
+        std::swap(R[13], R_IRQ[0]);
+        std::swap(R[14], R_IRQ[1]);
         break;
 
     case 0x13:
-        SWAP(R[13], R_SVC[0]);
-        SWAP(R[14], R_SVC[1]);
+        std::swap(R[13], R_SVC[0]);
+        std::swap(R[14], R_SVC[1]);
         break;
 
     case 0x17:
-        SWAP(R[13], R_ABT[0]);
-        SWAP(R[14], R_ABT[1]);
+        std::swap(R[13], R_ABT[0]);
+        std::swap(R[14], R_ABT[1]);
         break;
 
     case 0x1B:
-        SWAP(R[13], R_UND[0]);
-        SWAP(R[14], R_UND[1]);
+        std::swap(R[13], R_UND[0]);
+        std::swap(R[14], R_UND[1]);
         break;
     }
 
     switch (newmode & 0x1F)
     {
     case 0x11:
-        SWAP(R[8], R_FIQ[0]);
-        SWAP(R[9], R_FIQ[1]);
-        SWAP(R[10], R_FIQ[2]);
-        SWAP(R[11], R_FIQ[3]);
-        SWAP(R[12], R_FIQ[4]);
-        SWAP(R[13], R_FIQ[5]);
-        SWAP(R[14], R_FIQ[6]);
+        std::swap(R[8], R_FIQ[0]);
+        std::swap(R[9], R_FIQ[1]);
+        std::swap(R[10], R_FIQ[2]);
+        std::swap(R[11], R_FIQ[3]);
+        std::swap(R[12], R_FIQ[4]);
+        std::swap(R[13], R_FIQ[5]);
+        std::swap(R[14], R_FIQ[6]);
         break;
 
     case 0x12:
-        SWAP(R[13], R_IRQ[0]);
-        SWAP(R[14], R_IRQ[1]);
+        std::swap(R[13], R_IRQ[0]);
+        std::swap(R[14], R_IRQ[1]);
         break;
 
     case 0x13:
-        SWAP(R[13], R_SVC[0]);
-        SWAP(R[14], R_SVC[1]);
+        std::swap(R[13], R_SVC[0]);
+        std::swap(R[14], R_SVC[1]);
         break;
 
     case 0x17:
-        SWAP(R[13], R_ABT[0]);
-        SWAP(R[14], R_ABT[1]);
+        std::swap(R[13], R_ABT[0]);
+        std::swap(R[14], R_ABT[1]);
         break;
 
     case 0x1B:
-        SWAP(R[13], R_UND[0]);
-        SWAP(R[14], R_UND[1]);
+        std::swap(R[13], R_UND[0]);
+        std::swap(R[14], R_UND[1]);
         break;
     }
 

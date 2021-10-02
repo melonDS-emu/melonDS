@@ -31,6 +31,7 @@ namespace DSi_AES
 u32 Cnt;
 
 u32 BlkCnt;
+u32 RemExtra;
 u32 RemBlocks;
 
 bool OutputFlush;
@@ -106,6 +107,7 @@ void Reset()
     Cnt = 0;
 
     BlkCnt = 0;
+    RemExtra = 0;
     RemBlocks = 0;
 
     OutputFlush = false;
@@ -153,6 +155,22 @@ void Reset()
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
+
+void ProcessBlock_CCM_Extra()
+{
+    u8 data[16];
+    u8 data_rev[16];
+
+    *(u32*)&data[0] = InputFIFO.Read();
+    *(u32*)&data[4] = InputFIFO.Read();
+    *(u32*)&data[8] = InputFIFO.Read();
+    *(u32*)&data[12] = InputFIFO.Read();
+
+    Swap16(data_rev, data);
+
+    for (int i = 0; i < 16; i++) CurMAC[i] ^= data_rev[i];
+    AES_ECB_encrypt(&Ctx, CurMAC);
+}
 
 void ProcessBlock_CCM_Decrypt()
 {
@@ -272,13 +290,14 @@ void WriteCnt(u32 val)
     if (!(oldcnt & (1<<31)) && (val & (1<<31)))
     {
         // transfer start (checkme)
+        RemExtra = (AESMode < 2) ? (BlkCnt & 0xFFFF) : 0;
         RemBlocks = BlkCnt >> 16;
 
         OutputMACDue = false;
 
         if (AESMode == 0 && (!(val & (1<<20)))) printf("AES: CCM-DECRYPT MAC FROM WRFIFO, TODO\n");
 
-        if (RemBlocks > 0)
+        if ((RemBlocks > 0) || (RemExtra > 0))
         {
             u8 key[16];
             u8 iv[16];
@@ -288,8 +307,6 @@ void WriteCnt(u32 val)
 
             if (AESMode < 2)
             {
-                if (BlkCnt & 0xFFFF) printf("AES: CCM EXTRA LEN TODO\n");
-
                 u32 maclen = (val >> 16) & 0x7;
                 if (maclen < 1) maclen = 1;
 
@@ -325,8 +342,8 @@ void WriteCnt(u32 val)
         }
     }
 
-    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d\n",
-    //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks);
+    //printf("AES CNT: %08X / mode=%d key=%d inDMA=%d outDMA=%d blocks=%d (BLKCNT=%08X)\n",
+    //       val, AESMode, (val >> 26) & 0x3, InputDMASize, OutputDMASize, RemBlocks, BlkCnt);
 }
 
 void WriteBlkCnt(u32 val)
@@ -380,7 +397,7 @@ void WriteInputFIFO(u32 val)
 
 void CheckInputDMA()
 {
-    if (RemBlocks == 0) return;
+    if (RemBlocks == 0 && RemExtra == 0) return;
 
     if (InputFIFO.Level() <= InputDMASize)
     {
@@ -402,22 +419,34 @@ void CheckOutputDMA()
 
 void Update()
 {
-    while (InputFIFO.Level() >= 4 && OutputFIFO.Level() <= 12 && RemBlocks > 0)
+    if (RemExtra > 0)
     {
-        switch (AESMode)
+        while (InputFIFO.Level() >= 4 && RemExtra > 0)
         {
-        case 0: ProcessBlock_CCM_Decrypt(); break;
-        case 1: ProcessBlock_CCM_Encrypt(); break;
-        case 2:
-        case 3: ProcessBlock_CTR(); break;
+            ProcessBlock_CCM_Extra();
+            RemExtra--;
         }
+    }
 
-        RemBlocks--;
+    if (RemExtra == 0)
+    {
+        while (InputFIFO.Level() >= 4 && OutputFIFO.Level() <= 12 && RemBlocks > 0)
+        {
+            switch (AESMode)
+            {
+            case 0: ProcessBlock_CCM_Decrypt(); break;
+            case 1: ProcessBlock_CCM_Encrypt(); break;
+            case 2:
+            case 3: ProcessBlock_CTR(); break;
+            }
+
+            RemBlocks--;
+        }
     }
 
     CheckOutputDMA();
 
-    if (RemBlocks == 0)
+    if (RemBlocks == 0 && RemExtra == 0)
     {
         if (AESMode == 0)
         {
@@ -443,7 +472,16 @@ void Update()
             AES_CTR_xcrypt_buffer(&Ctx, CurMAC, 16);
 
             Swap16(OutputMAC, CurMAC);
-            OutputMACDue = true;
+
+            if (OutputFIFO.Level() <= 12)
+            {
+                OutputFIFO.Write(*(u32*)&OutputMAC[0]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[4]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[8]);
+                OutputFIFO.Write(*(u32*)&OutputMAC[12]);
+            }
+            else
+                OutputMACDue = true;
 
             // CHECKME
             Cnt &= ~(1<<21);
@@ -485,16 +523,13 @@ void WriteMAC(u32 offset, u32 val, u32 mask)
     //printf("AES: MAC: "); _printhex(MAC, 16);
 }
 
-void DeriveNormalKey(u32 slot)
+void DeriveNormalKey(u8* keyX, u8* keyY, u8* normalkey)
 {
     const u8 key_const[16] = {0xFF, 0xFE, 0xFB, 0x4E, 0x29, 0x59, 0x02, 0x58, 0x2A, 0x68, 0x0F, 0x5F, 0x1A, 0x4F, 0x3E, 0x79};
     u8 tmp[16];
 
-    //printf("slot%d keyX: ", slot); _printhex(KeyX[slot], 16);
-    //printf("slot%d keyY: ", slot); _printhex(KeyY[slot], 16);
-
     for (int i = 0; i < 16; i++)
-        tmp[i] = KeyX[slot][i] ^ KeyY[slot][i];
+        tmp[i] = keyX[i] ^ keyY[i];
 
     u32 carry = 0;
     for (int i = 0; i < 16; i++)
@@ -506,9 +541,7 @@ void DeriveNormalKey(u32 slot)
 
     ROL16(tmp, 42);
 
-    //printf("derive normalkey %d\n", slot); _printhex(tmp, 16);
-
-    memcpy(KeyNormal[slot], tmp, 16);
+    memcpy(normalkey, tmp, 16);
 }
 
 void WriteKeyNormal(u32 slot, u32 offset, u32 val, u32 mask)
@@ -539,67 +572,8 @@ void WriteKeyY(u32 slot, u32 offset, u32 val, u32 mask)
 
     if (offset >= 0xC)
     {
-        DeriveNormalKey(slot);
+        DeriveNormalKey(KeyX[slot], KeyY[slot], KeyNormal[slot]);
     }
-}
-
-
-// utility
-
-void GetModcryptKey(u8* romheader, u8* key)
-{
-    if ((romheader[0x01C] & 0x04) || (romheader[0x1BF] & 0x80))
-    {
-        // dev key
-        memcpy(key, &romheader[0x000], 16);
-        return;
-    }
-
-    u8 oldkeys[16*3];
-    memcpy(&oldkeys[16*0], KeyX[0], 16);
-    memcpy(&oldkeys[16*1], KeyY[0], 16);
-    memcpy(&oldkeys[16*2], KeyNormal[0], 16);
-
-    KeyX[0][8] = romheader[0x00C];
-    KeyX[0][9] = romheader[0x00D];
-    KeyX[0][10] = romheader[0x00E];
-    KeyX[0][11] = romheader[0x00F];
-    KeyX[0][12] = romheader[0x00F];
-    KeyX[0][13] = romheader[0x00E];
-    KeyX[0][14] = romheader[0x00D];
-    KeyX[0][15] = romheader[0x00C];
-
-    memcpy(KeyY[0], &romheader[0x350], 16);
-
-    DeriveNormalKey(0);
-    memcpy(key, KeyNormal[0], 16);
-
-    memcpy(KeyX[0], &oldkeys[16*0], 16);
-    memcpy(KeyY[0], &oldkeys[16*1], 16);
-    memcpy(KeyNormal[0], &oldkeys[16*2], 16);
-}
-
-void ApplyModcrypt(u8* data, u32 len, u8* key, u8* iv)
-{
-    u8 key_rev[16], iv_rev[16];
-    u8 data_rev[16];
-    u8 oldkeys[16*2];
-    memcpy(&oldkeys[16*0], Ctx.RoundKey, 16);
-    memcpy(&oldkeys[16*1], Ctx.Iv, 16);
-
-    Swap16(key_rev, key);
-    Swap16(iv_rev, iv);
-    AES_init_ctx_iv(&Ctx, key_rev, iv_rev);
-
-    for (u32 i = 0; i < len; i += 16)
-    {
-        Swap16(data_rev, &data[i]);
-        AES_CTR_xcrypt_buffer(&Ctx, data_rev, 16);
-        Swap16(&data[i], data_rev);
-    }
-
-    memcpy(Ctx.RoundKey, &oldkeys[16*0], 16);
-    memcpy(Ctx.Iv, &oldkeys[16*1], 16);
 }
 
 }

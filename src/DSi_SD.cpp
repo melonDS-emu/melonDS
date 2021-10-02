@@ -447,6 +447,7 @@ u16 DSi_SDHost::Read(u32 addr)
     case 0x028: return SDOption;
 
     case 0x02C: return 0; // TODO
+    case 0x02E: return 0; // TODO
 
     case 0x034: return CardIRQCtl;
     case 0x036: return CardIRQStatus;

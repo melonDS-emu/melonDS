@@ -67,7 +67,6 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
-        InvalidLiterals.Remove(invalidLiteralIdx);
         return false;
     }
 

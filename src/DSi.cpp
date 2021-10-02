@@ -25,6 +25,8 @@
 #include "ARM.h"
 #include "GPU.h"
 #include "NDSCart.h"
+#include "SPI.h"
+#include "DSi_SPI_TSC.h"
 #include "Platform.h"
 
 #ifdef JIT_ENABLED
@@ -36,6 +38,7 @@
 #include "DSi_I2C.h"
 #include "DSi_SD.h"
 #include "DSi_AES.h"
+#include "DSi_NAND.h"
 #include "DSi_DSP.h"
 #include "DSi_Camera.h"
 
@@ -85,6 +88,9 @@ u8 eMMC_CID[16];
 
 u8 ITCMInit[0x8000];
 u8 ARM7Init[0x3C00];
+
+
+void Set_SCFG_Clock9(u16 val);
 
 
 bool Init()
@@ -186,37 +192,313 @@ void Reset()
     ARM7Write16(eaddr+0x42, 0x0001);
 }
 
+void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
+{
+    AES_ctx ctx;
+    u8 key[16];
+    u8 tmp[16];
+
+    if ((offset == 0) || (size == 0))
+        return;
+
+    if ((NDSCart::Header.DSiCryptoFlags & (1<<4)) ||
+        (NDSCart::Header.AppFlags & (1<<7)))
+    {
+        // dev key
+        memcpy(key, &NDSCart::CartROM[0], 16);
+    }
+    else
+    {
+        u8 keyX[16], keyY[16];
+
+        *(u32*)&keyX[0] = 0x746E694E;
+        *(u32*)&keyX[4] = 0x6F646E65;
+        keyX[8]  = NDSCart::Header.GameCode[0];
+        keyX[9]  = NDSCart::Header.GameCode[1];
+        keyX[10] = NDSCart::Header.GameCode[2];
+        keyX[11] = NDSCart::Header.GameCode[3];
+        keyX[12] = NDSCart::Header.GameCode[3];
+        keyX[13] = NDSCart::Header.GameCode[2];
+        keyX[14] = NDSCart::Header.GameCode[1];
+        keyX[15] = NDSCart::Header.GameCode[0];
+
+        memcpy(keyY, NDSCart::Header.DSiARM9iHash, 16);
+
+        DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
+    }
+
+    DSi_AES::Swap16(key, tmp);
+    DSi_AES::Swap16(tmp, iv);
+    AES_init_ctx_iv(&ctx, key, tmp);
+
+    // find a matching binary area
+
+    u32 binaryaddr, binarysize;
+    u32 roundedsize = (size + 0xF) & ~0xF;
+
+    // CHECKME: GBAtek says the modcrypt area should be the same size, or bigger,
+    // than the binary area being considered
+    // but I have seen modcrypt areas smaller than the ARM9i binary
+#define BINARY_GOOD(name) \
+    ((offset >= NDSCart::Header.name##ROMOffset) && \
+     (offset+roundedsize) <= (NDSCart::Header.name##ROMOffset + ((NDSCart::Header.name##Size + 0xF) & ~0xF)))
+
+    if (BINARY_GOOD(ARM9))
+    {
+        binaryaddr = NDSCart::Header.ARM9RAMAddress;
+        binarysize = NDSCart::Header.ARM9Size;
+    }
+    else if (BINARY_GOOD(ARM7))
+    {
+        binaryaddr = NDSCart::Header.ARM7RAMAddress;
+        binarysize = NDSCart::Header.ARM7Size;
+    }
+    else if (BINARY_GOOD(DSiARM9i))
+    {
+        binaryaddr = NDSCart::Header.DSiARM9iRAMAddress;
+        binarysize = NDSCart::Header.DSiARM9iSize;
+    }
+    else if (BINARY_GOOD(DSiARM7i))
+    {
+        binaryaddr = NDSCart::Header.DSiARM7iRAMAddress;
+        binarysize = NDSCart::Header.DSiARM7iSize;
+    }
+    else
+        return;
+
+#undef BINARY_GOOD
+
+    for (u32 i = 0; i < size; i+=16)
+    {
+        u8 data[16];
+
+        *(u32*)&data[0] = ARM9Read32(binaryaddr+i);
+        *(u32*)&data[4] = ARM9Read32(binaryaddr+i+4);
+        *(u32*)&data[8] = ARM9Read32(binaryaddr+i+8);
+        *(u32*)&data[12] = ARM9Read32(binaryaddr+i+12);
+
+        DSi_AES::Swap16(tmp, data);
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        DSi_AES::Swap16(data, tmp);
+
+        ARM9Write32(binaryaddr+i, *(u32*)&data[0]);
+        ARM9Write32(binaryaddr+i+4, *(u32*)&data[4]);
+        ARM9Write32(binaryaddr+i+8, *(u32*)&data[8]);
+        ARM9Write32(binaryaddr+i+12, *(u32*)&data[12]);
+    }
+}
+
 void SetupDirectBoot()
 {
-    // If loading a NDS directly, this value should be set
-    // depending on the console type in the header at offset 12h
-    switch (NDSCart::Header.UnitCode)
+    bool dsmode = false;
+
+    // TODO: add controls for forcing DS or DSi mode?
+    if (!(NDSCart::Header.UnitCode & 0x02))
+        dsmode = true;
+
+    // TODO: RAM size!!
+
+    if (dsmode)
     {
-    case 0x00: /* NDS Image */
-        // on a pure NDS Image, we disable all extended features
-        // TODO: For now keep the features enabled, as you can run pure NDS in NDS Emulation anyway
         SCFG_BIOS = 0x0303;
-        break;
-    case 0x02: /* DSi Enhanced Image */
-        SCFG_BIOS = 0x0303;
-        break;
-    default:
-        SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
-        break;
+
+        // no NWRAM Mapping
+        for (int i = 0; i < 4; i++)
+            MapNWRAM_A(i, 0);
+        for (int i = 0; i < 8; i++)
+            MapNWRAM_B(i, 0);
+        for (int i = 0; i < 8; i++)
+            MapNWRAM_C(i, 0);
+
+        // No NWRAM Window
+        for (int i = 0; i < 3; i++)
+        {
+            MapNWRAMRange(0, i, 0);
+            MapNWRAMRange(1, i, 0);
+        }
+
+        NDS::MapSharedWRAM(3);
+
+        DSi_SPI_TSC::SetMode(0x00);
+        Set_SCFG_Clock9(0x0000);
     }
-    // no NWRAM Mapping
-    for (int i = 0; i < 4; i++)
-        MapNWRAM_A(i, 0);
-    for (int i = 0; i < 8; i++)
-        MapNWRAM_B(i, 0);
-    for (int i = 0; i < 8; i++)
-        MapNWRAM_C(i, 0);
-    // No NWRAM Window
-    for (int i = 0; i < 3; i++)
+    else
     {
-        MapNWRAMRange(0, i, 0);
-        MapNWRAMRange(1, i, 0);
+        SCFG_BIOS = 0x0101;
+
+        // WRAM mapping
+
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
+        u32 mbk[12];
+        memcpy(mbk, &NDSCart::CartROM[0x180], 12*4);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        MBK[0][8] = mbk[11] & 0x00FFFF0F;
+        MBK[1][8] = mbk[11] & 0x00FFFF0F;
+
+        NDS::MapSharedWRAM(mbk[11] >> 24);
+
+        if (!(NDSCart::Header.AppFlags & (1<<0)))
+            DSi_SPI_TSC::SetMode(0x00);
     }
+
+    u32 arm9start = 0;
+
+    // load the ARM9 secure area
+    if (NDSCart::Header.ARM9ROMOffset >= 0x4000 && NDSCart::Header.ARM9ROMOffset < 0x8000)
+    {
+        u8 securearea[0x800];
+        NDSCart::DecryptSecureArea(securearea);
+
+        for (u32 i = 0; i < 0x800; i+=4)
+        {
+            ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, *(u32*)&securearea[i]);
+            arm9start += 4;
+        }
+    }
+
+    for (u32 i = arm9start; i < NDSCart::Header.ARM9Size; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM9ROMOffset+i];
+        ARM9Write32(NDSCart::Header.ARM9RAMAddress+i, tmp);
+    }
+
+    for (u32 i = 0; i < NDSCart::Header.ARM7Size; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.ARM7ROMOffset+i];
+        ARM7Write32(NDSCart::Header.ARM7RAMAddress+i, tmp);
+    }
+
+    if ((!dsmode) && (NDSCart::Header.DSiCryptoFlags & (1<<0)))
+    {
+        // load DSi-specific regions
+
+        for (u32 i = 0; i < NDSCart::Header.DSiARM9iSize; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.DSiARM9iROMOffset+i];
+            ARM9Write32(NDSCart::Header.DSiARM9iRAMAddress+i, tmp);
+        }
+
+        for (u32 i = 0; i < NDSCart::Header.DSiARM7iSize; i+=4)
+        {
+            u32 tmp = *(u32*)&NDSCart::CartROM[NDSCart::Header.DSiARM7iROMOffset+i];
+            ARM7Write32(NDSCart::Header.DSiARM7iRAMAddress+i, tmp);
+        }
+
+        // decrypt any modcrypt areas
+
+        if (NDSCart::Header.DSiCryptoFlags & (1<<1))
+        {
+            DecryptModcryptArea(NDSCart::Header.DSiModcrypt1Offset,
+                                NDSCart::Header.DSiModcrypt1Size,
+                                NDSCart::Header.DSiARM9Hash);
+            DecryptModcryptArea(NDSCart::Header.DSiModcrypt2Offset,
+                                NDSCart::Header.DSiModcrypt2Size,
+                                NDSCart::Header.DSiARM7Hash);
+        }
+    }
+
+    // CHECKME: some of these are 'only for NDS ROM', presumably
+    // only for when loading a cart? (as opposed to DSiWare)
+
+    for (u32 i = 0; i < 0x160; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[i];
+        ARM9Write32(0x02FFFA80+i, tmp);
+        ARM9Write32(0x02FFFE00+i, tmp);
+    }
+
+    for (u32 i = 0; i < 0x1000; i+=4)
+    {
+        u32 tmp = *(u32*)&NDSCart::CartROM[i];
+        ARM9Write32(0x02FFC000+i, tmp);
+        ARM9Write32(0x02FFE000+i, tmp);
+    }
+
+    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    {
+        u8 userdata[0x1B0];
+        DSi_NAND::ReadUserData(userdata);
+        for (u32 i = 0; i < 0x128; i+=4)
+            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+
+        u8 hwinfoS[0xA4];
+        u8 hwinfoN[0x9C];
+        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+
+        for (u32 i = 0; i < 0x14; i+=4)
+            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+
+        for (u32 i = 0; i < 0x18; i+=4)
+            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+
+        DSi_NAND::DeInit();
+    }
+
+    u8 nwifiver = SPI_Firmware::GetNWifiVersion();
+    ARM9Write8(0x020005E0, nwifiver);
+
+    // TODO: these should be taken from the wifi firmware in NAND
+    // but, hey, this works too.
+    if (nwifiver == 1)
+    {
+        ARM9Write16(0x020005E2, 0xB57E);
+        ARM9Write32(0x020005E4, 0x00500400);
+        ARM9Write32(0x020005E8, 0x00500000);
+        ARM9Write32(0x020005EC, 0x0002E000);
+    }
+    else
+    {
+        ARM9Write16(0x020005E2, 0x5BCA);
+        ARM9Write32(0x020005E4, 0x00520000);
+        ARM9Write32(0x020005E8, 0x00520000);
+        ARM9Write32(0x020005EC, 0x00020000);
+    }
+
+    // TODO: the shit at 02FFD7B0..02FFDC00
+    // and some other extra shit?
+
+    ARM9Write32(0x02FFFC00, NDSCart::CartID);
+    ARM9Write16(0x02FFFC40, 0x0001); // boot indicator
+
+    ARM9Write8(0x02FFFDFA, DSi_BPTWL::GetBootFlag() | 0x80);
+    ARM9Write8(0x02FFFDFB, 0x01);
+
+    NDS::ARM7BIOSProt = 0x20;
+
+    SPI_Firmware::SetupDirectBoot(true);
 }
 
 void SoftReset()
@@ -348,6 +630,12 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
+    if (!DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    {
+        printf("Failed to load DSi NAND\n");
+        return false;
+    }
+
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
     // still have them on default (0) or some bits cleared by the previous
@@ -367,155 +655,130 @@ bool LoadNAND()
     memset(NWRAMEnd, 0, sizeof(NWRAMEnd));
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
-    if (SDMMCFile)
+    u32 bootparams[8];
+    fseek(SDMMCFile, 0x220, SEEK_SET);
+    fread(bootparams, 4, 8, SDMMCFile);
+
+    printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+           bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
+    printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
+           bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+
+    // read and apply new-WRAM settings
+
+    MBK[0][8] = 0;
+    MBK[1][8] = 0;
+
+    u32 mbk[12];
+    fseek(SDMMCFile, 0x380, SEEK_SET);
+    fread(mbk, 4, 12, SDMMCFile);
+
+    MapNWRAM_A(0, mbk[0] & 0xFF);
+    MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+    MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+    MapNWRAM_A(3, mbk[0] >> 24);
+
+    MapNWRAM_B(0, mbk[1] & 0xFF);
+    MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+    MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+    MapNWRAM_B(3, mbk[1] >> 24);
+    MapNWRAM_B(4, mbk[2] & 0xFF);
+    MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+    MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+    MapNWRAM_B(7, mbk[2] >> 24);
+
+    MapNWRAM_C(0, mbk[3] & 0xFF);
+    MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+    MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+    MapNWRAM_C(3, mbk[3] >> 24);
+    MapNWRAM_C(4, mbk[4] & 0xFF);
+    MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+    MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+    MapNWRAM_C(7, mbk[4] >> 24);
+
+    MapNWRAMRange(0, 0, mbk[5]);
+    MapNWRAMRange(0, 1, mbk[6]);
+    MapNWRAMRange(0, 2, mbk[7]);
+
+    MapNWRAMRange(1, 0, mbk[8]);
+    MapNWRAMRange(1, 1, mbk[9]);
+    MapNWRAMRange(1, 2, mbk[10]);
+
+    // TODO: find out why it is 0xFF000000
+    mbk[11] &= 0x00FFFF0F;
+    MBK[0][8] = mbk[11];
+    MBK[1][8] = mbk[11];
+
+    // load boot2 binaries
+
+    AES_ctx ctx;
+    const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
+    u8 boot2iv[16];
+    u8 tmp[16];
+    u32 dstaddr;
+
+    *(u32*)&tmp[0] = bootparams[3];
+    *(u32*)&tmp[4] = -bootparams[3];
+    *(u32*)&tmp[8] = ~bootparams[3];
+    *(u32*)&tmp[12] = 0;
+    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
+
+    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
+
+    fseek(SDMMCFile, bootparams[0], SEEK_SET);
+    dstaddr = bootparams[2];
+    for (u32 i = 0; i < bootparams[3]; i += 16)
     {
-        u32 bootparams[8];
-        fseek(SDMMCFile, 0x220, SEEK_SET);
-        fread(bootparams, 4, 8, SDMMCFile);
+        u8 data[16];
+        fread(data, 16, 1, SDMMCFile);
 
-        printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-               bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
-        printf("ARM7: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
-               bootparams[4], bootparams[5], bootparams[6], bootparams[7]);
+        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
 
-        // read and apply new-WRAM settings
+        ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+        ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+    }
 
-        MBK[0][8] = 0;
-        MBK[1][8] = 0;
+    *(u32*)&tmp[0] = bootparams[7];
+    *(u32*)&tmp[4] = -bootparams[7];
+    *(u32*)&tmp[8] = ~bootparams[7];
+    *(u32*)&tmp[12] = 0;
+    for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
 
-        u32 mbk[12];
-        fseek(SDMMCFile, 0x380, SEEK_SET);
-        fread(mbk, 4, 12, SDMMCFile);
+    AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-        MapNWRAM_A(0, mbk[0] & 0xFF);
-        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
-        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
-        MapNWRAM_A(3, mbk[0] >> 24);
+    fseek(SDMMCFile, bootparams[4], SEEK_SET);
+    dstaddr = bootparams[6];
+    for (u32 i = 0; i < bootparams[7]; i += 16)
+    {
+        u8 data[16];
+        fread(data, 16, 1, SDMMCFile);
 
-        MapNWRAM_B(0, mbk[1] & 0xFF);
-        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
-        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
-        MapNWRAM_B(3, mbk[1] >> 24);
-        MapNWRAM_B(4, mbk[2] & 0xFF);
-        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
-        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
-        MapNWRAM_B(7, mbk[2] >> 24);
+        for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
+        AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
+        for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
 
-        MapNWRAM_C(0, mbk[3] & 0xFF);
-        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
-        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
-        MapNWRAM_C(3, mbk[3] >> 24);
-        MapNWRAM_C(4, mbk[4] & 0xFF);
-        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
-        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
-        MapNWRAM_C(7, mbk[4] >> 24);
+        ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
+        ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
+    }
 
-        MapNWRAMRange(0, 0, mbk[5]);
-        MapNWRAMRange(0, 1, mbk[6]);
-        MapNWRAMRange(0, 2, mbk[7]);
+    // repoint the CPUs to the boot2 binaries
 
-        MapNWRAMRange(1, 0, mbk[8]);
-        MapNWRAMRange(1, 1, mbk[9]);
-        MapNWRAMRange(1, 2, mbk[10]);
-
-        // TODO: find out why it is 0xFF000000
-        mbk[11] &= 0x00FFFF0F;
-        MBK[0][8] = mbk[11];
-        MBK[1][8] = mbk[11];
-
-        // load boot2 binaries
-
-        AES_ctx ctx;
-        const u8 boot2key[16] = {0xAD, 0x34, 0xEC, 0xF9, 0x62, 0x6E, 0xC2, 0x3A, 0xF6, 0xB4, 0x6C, 0x00, 0x80, 0x80, 0xEE, 0x98};
-        u8 boot2iv[16];
-        u8 tmp[16];
-        u32 dstaddr;
-
-        *(u32*)&tmp[0] = bootparams[3];
-        *(u32*)&tmp[4] = -bootparams[3];
-        *(u32*)&tmp[8] = ~bootparams[3];
-        *(u32*)&tmp[12] = 0;
-        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-        fseek(SDMMCFile, bootparams[0], SEEK_SET);
-        dstaddr = bootparams[2];
-        for (u32 i = 0; i < bootparams[3]; i += 16)
-        {
-            u8 data[16];
-            fread(data, 16, 1, SDMMCFile);
-
-            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
-
-            ARM9Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-            ARM9Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
-        }
-
-        *(u32*)&tmp[0] = bootparams[7];
-        *(u32*)&tmp[4] = -bootparams[7];
-        *(u32*)&tmp[8] = ~bootparams[7];
-        *(u32*)&tmp[12] = 0;
-        for (int i = 0; i < 16; i++) boot2iv[i] = tmp[15-i];
-
-        AES_init_ctx_iv(&ctx, boot2key, boot2iv);
-
-        fseek(SDMMCFile, bootparams[4], SEEK_SET);
-        dstaddr = bootparams[6];
-        for (u32 i = 0; i < bootparams[7]; i += 16)
-        {
-            u8 data[16];
-            fread(data, 16, 1, SDMMCFile);
-
-            for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
-            AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
-            for (int j = 0; j < 16; j++) data[j] = tmp[15-j];
-
-            ARM7Write32(dstaddr, *(u32*)&data[0]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[4]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[8]); dstaddr += 4;
-            ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
-        }
-
-        // repoint the CPUs to the boot2 binaries
-
-        BootAddr[0] = bootparams[2];
-        BootAddr[1] = bootparams[6];
+    BootAddr[0] = bootparams[2];
+    BootAddr[1] = bootparams[6];
 
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
-        // read the nocash footer
+    DSi_NAND::GetIDs(eMMC_CID, ConsoleID);
 
-        fseek(SDMMCFile, -0x40, SEEK_END);
-
-        char nand_footer[16];
-        const char* nand_footer_ref = "DSi eMMC CID/CPU";
-        fread(nand_footer, 1, 16, SDMMCFile);
-        if (memcmp(nand_footer, nand_footer_ref, 16))
-        {
-            // There is another copy of the footer at 000FF800h for the case
-            // that by external tools the image was cut off 
-            // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-            fseek(SDMMCFile, 0x000FF800, SEEK_SET);
-            fread(nand_footer, 1, 16, SDMMCFile);
-            if (memcmp(nand_footer, nand_footer_ref, 16))
-            {
-              printf("ERROR: NAND missing nocash footer\n");
-              return false;
-            }
-        }
-
-        fread(eMMC_CID, 1, 16, SDMMCFile);
-        fread(&ConsoleID, 1, 8, SDMMCFile);
-
-        printf("eMMC CID: "); printhex(eMMC_CID, 16);
-        printf("Console ID: %" PRIx64 "\n", ConsoleID);
-    }
+    printf("eMMC CID: "); printhex(eMMC_CID, 16);
+    printf("Console ID: %" PRIx64 "\n", ConsoleID);
 
     memset(ITCMInit, 0, 0x8000);
     memcpy(&ITCMInit[0x4400], &ARM9iBIOS[0x87F4], 0x400);
@@ -528,6 +791,10 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
+
+    DSi_NAND::PatchTSC();
+
+    DSi_NAND::DeInit();
 
     return true;
 }
@@ -638,7 +905,7 @@ void MapNWRAM_A(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 4; part++)
@@ -686,7 +953,7 @@ void MapNWRAM_B(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -741,7 +1008,7 @@ void MapNWRAM_C(u32 num, u8 val)
 
     // When we only update the mapping on the written MBK, we will
     // have priority of the last witten MBK over the others
-    // However the hardware has a fixed order. Therefor 
+    // However the hardware has a fixed order. Therefor
     // we need to iterate through them all in a fixed order and update
     // the mapping, so the result is independend on the MBK write order
     for (unsigned int part = 0; part < 8; part++)
@@ -872,7 +1139,7 @@ void Set_SCFG_Clock9(u16 val)
 
     NDS::ARM9Timestamp <<= NDS::ARM9ClockShift;
     NDS::ARM9Target    <<= NDS::ARM9ClockShift;
-    NDS::ARM9->UpdateRegionTimings(0x00000000, 0xFFFFFFFF);
+    NDS::ARM9->UpdateRegionTimings(0x00000, 0x100000);
 }
 
 void Set_SCFG_MC(u32 val)
@@ -2139,17 +2406,17 @@ void ARM9IOWrite32(u32 addr, u32 val)
         MapNWRAM_C(6, (val >> 16) & 0xFF);
         MapNWRAM_C(7, val >> 24);
         return;
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
-        MapNWRAMRange(0, 1, val); 
+        MapNWRAMRange(0, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[0] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(0, 2, val);
@@ -2200,7 +2467,7 @@ u8 ARM7IORead8(u32 addr)
 {
     switch (addr)
     {
-    case 0x04004000: 
+    case 0x04004000:
         return SCFG_BIOS & 0xFF;
     case 0x04004001: return SCFG_BIOS >> 8;
 
@@ -2456,27 +2723,27 @@ void ARM7IOWrite32(u32 addr, u32 val)
         Set_SCFG_MC(val);
         return;
 
-    case 0x04004054: 
+    case 0x04004054:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 0, val);
         return;
-    case 0x04004058: 
+    case 0x04004058:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 1, val);
         return;
-    case 0x0400405C: 
+    case 0x0400405C:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         MapNWRAMRange(1, 2, val);
         return;
-    case 0x04004060: 
+    case 0x04004060:
         if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
             return;
         val &= 0x00FFFF0F;
-        MBK[0][8] = val; 
-        MBK[1][8] = val; 
+        MBK[0][8] = val;
+        MBK[1][8] = val;
         return;
 
     case 0x04004100: NDMACnt[1] = val & 0x800F0000; return;

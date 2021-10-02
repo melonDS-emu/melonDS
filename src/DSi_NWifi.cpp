@@ -572,6 +572,18 @@ void DSi_NWifi::SendCMD(u8 cmd, u32 param)
 {
     switch (cmd)
     {
+    case 3: // SEND_RELATIVE_ADDR
+        Host->SendResponse(0, true);
+        return;
+
+    case 5: // IO_SEND_OP_COND, dummy response
+        Host->SendResponse(0x80000000, true);
+        return;
+
+    case 7: // SELECT_CARD
+        Host->SendResponse(0, true);
+        return;
+
     case 12:
         // stop command
         // CHECKME: does the SDIO controller actually send those??
@@ -727,12 +739,16 @@ void DSi_NWifi::HandleCommand()
 
 void DSi_NWifi::BMI_Command()
 {
-    u32 cmd = MB_Read32(0);
+    // Need a full command written
+    if (Mailbox[0].Level() < 0x4) return;
+
+    u32 cmd = MB_Peek32(0);
 
     switch (cmd)
     {
     case 0x01: // BMI_DONE
         {
+            MB_Read32(0); // cmd pop
             printf("BMI_DONE\n");
             EEPROMReady = 1; // GROSS FUCKING HACK
             u8 ready_msg[6] = {0x0A, 0x00, 0x08, 0x06, 0x16, 0x00};
@@ -743,6 +759,12 @@ void DSi_NWifi::BMI_Command()
 
     case 0x03: // BMI_WRITE_MEMORY
         {
+            if (Mailbox[0].Level() < 0xC)
+            {
+                printf("BMI_WRITE_MEMORY wait for data...\n");
+                return;
+            }
+            MB_Read32(0); // cmd pop
             u32 addr = MB_Read32(0);
             u32 len = MB_Read32(0);
             printf("BMI mem write %08X %08X\n", addr, len);
@@ -758,6 +780,12 @@ void DSi_NWifi::BMI_Command()
 
     case 0x04: // BMI_EXECUTE
         {
+            if (Mailbox[0].Level() < 0xC)
+            {
+                printf("BMI_EXECUTE wait for data...\n");
+                return;
+            }
+
             u32 entry = MB_Read32(0);
             u32 arg = MB_Read32(0);
 
@@ -767,6 +795,12 @@ void DSi_NWifi::BMI_Command()
 
     case 0x06: // BMI_READ_SOC_REGISTER
         {
+            if (Mailbox[0].Level() < 0x8)
+            {
+                printf("BMI_READ_SOC_REGISTER wait for data...\n");
+                return;
+            }
+            MB_Read32(0); // cmd pop
             u32 addr = MB_Read32(0);
             u32 val = WindowRead(addr);
             MB_Write32(4, val);
@@ -775,6 +809,12 @@ void DSi_NWifi::BMI_Command()
 
     case 0x07: // BMI_WRITE_SOC_REGISTER
         {
+            if (Mailbox[0].Level() < 0xC)
+            {
+                printf("BMI_WRITE_SOC_REGISTER wait for data...\n");
+                return;
+            }
+            MB_Read32(0); // cmd pop
             u32 addr = MB_Read32(0);
             u32 val = MB_Read32(0);
             WindowWrite(addr, val);
@@ -782,6 +822,7 @@ void DSi_NWifi::BMI_Command()
         return;
 
     case 0x08: // BMI_GET_TARGET_ID
+        MB_Read32(0); // cmd pop
         MB_Write32(4, 0xFFFFFFFF);
         MB_Write32(4, 0x0000000C);
         MB_Write32(4, ROMID);
@@ -790,6 +831,12 @@ void DSi_NWifi::BMI_Command()
 
     case 0x0D: // BMI_LZ_STREAM_START
         {
+            if (Mailbox[0].Level() < 0x8)
+            {
+                printf("BMI_LZ_STREAM_START wait for data...\n");
+                return;
+            }
+            MB_Read32(0); // cmd pop
             u32 addr = MB_Read32(0);
             printf("BMI_LZ_STREAM_START %08X\n", addr);
         }
@@ -797,6 +844,13 @@ void DSi_NWifi::BMI_Command()
 
     case 0x0E: // BMI_LZ_DATA
         {
+            if (Mailbox[0].Level() < 0x8)
+            {
+                printf("BMI_LZ_DATA wait for data...\n");
+                return;
+            }
+
+            MB_Read32(0); // cmd pop
             u32 len = MB_Read32(0);
             printf("BMI LZ write %08X\n", len);
             //FILE* f = fopen("debug/wififirm.bin", "ab");

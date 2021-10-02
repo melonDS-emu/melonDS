@@ -15,11 +15,13 @@ add_library(core STATIC
 	CP15.cpp
 	CRC32.cpp
 	DMA.cpp
+	DMA_Timings.h
 	DSi.cpp
 	DSi_AES.cpp
 	DSi_Camera.cpp
 	DSi_DSP.cpp
 	DSi_I2C.cpp
+	DSi_NAND.cpp
 	DSi_NDMA.cpp
 	DSi_NWifi.cpp
 	DSi_SD.cpp
@@ -37,6 +39,7 @@ add_library(core STATIC
 	NDSCart_SRAMManager.cpp
 	Platform.h
 	ROMList.h
+	FreeBIOS.h
 	RTC.cpp
 	Savestate.cpp
 	SPI.cpp
@@ -46,6 +49,13 @@ add_library(core STATIC
 	Wifi.cpp
 	WifiAP.cpp
 
+	fatfs/diskio.c
+	fatfs/ff.c
+	fatfs/ffsystem.c
+	fatfs/ffunicode.c
+	fatfs/ffconf.h
+	
+	sha1/sha1.c
 	tiny-AES-c/aes.c
 	xxhash/xxhash.c
 )

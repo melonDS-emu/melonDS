@@ -81,6 +81,8 @@ Platform::Mutex* AudioLock;
 u16 Cnt;
 u8 MasterVolume;
 u16 Bias;
+bool ApplyBias;
+bool Degrade10Bit;
 
 Channel* Channels[16];
 CaptureUnit* Capture[2];
@@ -188,6 +190,16 @@ void SetInterpolation(int type)
 void SetBias(u16 bias)
 {
     Bias = bias;
+}
+
+void SetApplyBias(bool enable)
+{
+    ApplyBias = enable;
+}
+
+void SetDegrade10Bit(bool enable)
+{
+    Degrade10Bit = enable;
 }
 
 
@@ -789,11 +801,27 @@ void Mix(u32 dummy)
     rightoutput = ((s64)rightoutput * MasterVolume) >> 7;
 
     leftoutput >>= 8;
+    rightoutput >>= 8;
+
+    // Add SOUNDBIAS value
+    // The value used by all commercial games is 0x200, so we subtract that so it won't offset the final sound output.
+    if (ApplyBias)
+    {
+        leftoutput += (Bias << 6) - 0x8000;
+        rightoutput += (Bias << 6) - 0x8000;
+    }
+
     if      (leftoutput < -0x8000) leftoutput = -0x8000;
     else if (leftoutput > 0x7FFF)  leftoutput = 0x7FFF;
-    rightoutput >>= 8;
     if      (rightoutput < -0x8000) rightoutput = -0x8000;
     else if (rightoutput > 0x7FFF)  rightoutput = 0x7FFF;
+
+    // The original DS and DS lite degrade the output from 16 to 10 bit before output
+    if (Degrade10Bit)
+    {
+        leftoutput &= 0xFFFFFFC0;
+        rightoutput &= 0xFFFFFFC0;
+    }
 
     // OutputBufferFrame can never get full because it's
     // transfered to OutputBuffer at the end of the frame

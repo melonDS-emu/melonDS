@@ -41,6 +41,7 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
+extern int ExternalBIOSEnable;
 extern char BIOS9Path[1024];
 extern char BIOS7Path[1024];
 extern char FirmwarePath[1024];
@@ -63,6 +64,7 @@ extern int DSiSDEnable;
 extern char DSiSDPath[1024];
 
 extern int RandomizeMAC;
+extern int AudioBitrate;
 
 #ifdef JIT_ENABLED
 extern int JIT_Enable;
