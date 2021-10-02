@@ -10,6 +10,7 @@ SET(SOURCES_QT_SDL
     InputConfig/resources/ds.qrc
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
+    FirmwareSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
