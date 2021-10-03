@@ -54,7 +54,8 @@ FILE* OpenLocalFile(const char* path, const char* mode)
 
 Thread* Thread_Create(std::function<void()> func)
 {
-    return new (Thread*) std::thread(func);
+    std::thread* t = new std::thread(func);
+    return (Thread*) t;
 }
 
 void Thread_Free(Thread* thread)
@@ -97,7 +98,8 @@ void Semaphore_Post(Semaphore* sema, int count)
 
 Mutex* Mutex_Create()
 {
-    return new (Mutex*) std::mutex();
+    std::mutex* m = new std::mutex();
+    return (Mutex*) m;
 }
 
 void Mutex_Free(Mutex* mutex)
@@ -174,15 +176,13 @@ time_t GetFrontendTime()
 
 tm GetFrontendDate(time_t basetime)
 {
-    time_t t = basetime + FrontendTime;
-    return gmtime(&t);
+    time_t t = basetime + FrontendTime; 
+    return *gmtime(&t);
 }
 
 time_t ConvertDateToTime(tm date)
 {
-    time_t time = mktime(&date);
-    tm* utc = gmtime(&time);
-    time_t t = mktime(utc);
-    time += time - t;
-    return time;
+    return timegm(&date);
+}
+
 }

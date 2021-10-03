@@ -1,10 +1,10 @@
-CXXFLAGS := -I./src -I./src/teakra/include -I.src/teakra/src \
+CXXFLAGS := -DMELONDS_VERSION="" \
+    -I./src -I./src/teakra/include -I.src/teakra/src \
 	-Wall -Wextra -Werror=int-to-pointer-cast \
 	-Wcast-qual -Wfatal-errors -Wno-missing-braces \
 	-Wno-unused-parameter -Wno-parentheses -Wno-sign-compare \
 	-Wno-unused-variable -Wno-unused-function \
-	-pedantic -pedantic-errors \
-	-std=c++17 -flto -fPIC \
+	-pedantic -std=c++17
 
 TARGET = melonds.wbx
 
@@ -76,9 +76,9 @@ MISC_SRCS = \
 	xxhash/xxhash.c
 
 SRCS = \
-	$(addprefix melonds/src/,$(CORE_SRCS)) \
-	$(addprefix melonds/src/teakra/src/,$(TEAKRA_SRCS)) \
-	$(addprefix melonds/src/fatfs/,$(FATFS_SRCS)) \
-	$(addprefix melonds/src/,$(MISC_SRCS))
+	$(addprefix src/,$(CORE_SRCS)) \
+	$(addprefix src/teakra/src/,$(TEAKRA_SRCS)) \
+	$(addprefix src/fatfs/,$(FATFS_SRCS)) \
+	$(addprefix src/,$(MISC_SRCS))
 
 include ../common.mak
