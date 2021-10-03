@@ -49,20 +49,20 @@ CORE_SRCS = \
 	WifiAP.cpp
 
 TEAKRA_SRCS = \
-    ahbm.cpp \
-    apbp.cpp \
-    btdmp.cpp \
-    disassembler.cpp \
+	ahbm.cpp \
+	apbp.cpp \
+	btdmp.cpp \
+	disassembler.cpp \
 	disassembler_c.cpp \
-    dma.cpp \
-    timer.cpp \
-    memory_interface.cpp \
-    mmio.cpp \
-    parser.cpp \
-    processor.cpp \
-    teakra.cpp \
+	dma.cpp \
+	timer.cpp \
+	memory_interface.cpp \
+	mmio.cpp \
+	parser.cpp \
+	processor.cpp \
+	teakra.cpp \
 	teakra_c.cpp \
-    test_generator.cpp
+	test_generator.cpp
 
 FATFS_SRCS = \
 	diskio.c \
@@ -76,9 +76,9 @@ MISC_SRCS = \
 	xxhash/xxhash.c
 
 SRCS = \
-	$(addprefix melonds/src/core/,$(CORE_SRCS)) \
-	$(addprefix melonds/src/core/,$(TEAKRA_SRCS)) \
-	$(addprefix melonds/src/core/fatfs/,$(FATFS_SRCS)) \
-	$(addprefix melonds/src/core/,$(MISC_SRCS))
+	$(addprefix melonds/src/,$(CORE_SRCS)) \
+	$(addprefix melonds/src/teakra/src/,$(TEAKRA_SRCS)) \
+	$(addprefix melonds/src/fatfs/,$(FATFS_SRCS)) \
+	$(addprefix melonds/src/,$(MISC_SRCS))
 
 include ../common.mak
