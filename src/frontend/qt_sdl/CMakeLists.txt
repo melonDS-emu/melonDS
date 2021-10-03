@@ -11,7 +11,7 @@ SET(SOURCES_QT_SDL
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
-	TitleManagerDialog.cpp
+    TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
@@ -31,7 +31,7 @@ SET(SOURCES_QT_SDL
     ../FrontendUtil.h
     ../mic_blow.h
 
-	${CMAKE_SOURCE_DIR}/res/melon.qrc
+    ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )
 
 option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
