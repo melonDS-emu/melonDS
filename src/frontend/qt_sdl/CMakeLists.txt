@@ -14,7 +14,7 @@ SET(SOURCES_QT_SDL
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
-	TitleManagerDialog.cpp
+    TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
     LAN_Socket.cpp
@@ -34,7 +34,7 @@ SET(SOURCES_QT_SDL
     ../FrontendUtil.h
     ../mic_blow.h
 
-    ../../../melon.qrc
+    ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )
 
 option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
@@ -117,7 +117,7 @@ if (UNIX)
     endif()
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
-    configure_file("${CMAKE_SOURCE_DIR}/melon.rc.in" "${CMAKE_SOURCE_DIR}/melon.rc")
+    configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_SOURCE_DIR}/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
@@ -133,15 +133,16 @@ if (PORTABLE)
 endif()
 
 if (APPLE)
-    set_target_properties(melonDS PROPERTIES
-                         MACOSX_BUNDLE true
-                         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/melon.plist.in
-                         OUTPUT_NAME melonDS
-                         )
-
     # Copy icon into the bundle
-    target_sources(melonDS PRIVATE "${CMAKE_SOURCE_DIR}/melon.icns")
-    set_source_files_properties("${CMAKE_SOURCE_DIR}/melon.icns" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    set(RESOURCE_FILES "${CMAKE_SOURCE_DIR}/res/melon.icns")
+    target_sources(melonDS PUBLIC "${RESOURCE_FILES}")
+
+    set_target_properties(melonDS PROPERTIES
+        MACOSX_BUNDLE true
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/res/melon.plist.in
+        OUTPUT_NAME melonDS
+        RESOURCE "${RESOURCE_FILES}")
+	
 
     # Qt 6 requires macOS 10.15 if building on 10.15 or greater
 	if(CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL 19.0.0)
@@ -163,11 +164,13 @@ if (APPLE)
     endif()
 endif()
 
-install(FILES ../../../net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
-install(FILES ../../../icon/melon_16x16.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/16x16/apps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../../icon/melon_32x32.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/32x32/apps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../../icon/melon_48x48.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/48x48/apps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../../icon/melon_64x64.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/64x64/apps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../../icon/melon_128x128.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/128x128/apps RENAME net.kuribo64.melonDS.png)
-install(FILES ../../../icon/melon_256x256.png DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/256x256/apps RENAME net.kuribo64.melonDS.png)
-install(TARGETS melonDS BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if (UNIX AND NOT APPLE)
+    foreach(SIZE 16 32 48 64 128 256)
+        install(FILES ${CMAKE_SOURCE_DIR}/res/icon/melon_${SIZE}x${SIZE}.png
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${SIZE}x${SIZE}/apps
+                RENAME net.kuribo64.melonDS.png)
+    endforeach()
+
+    install(FILES ${CMAKE_SOURCE_DIR}/res/net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
+    install(TARGETS melonDS BUNDLE DESTINATION ${CMAKE_BINARY_DIR} RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
