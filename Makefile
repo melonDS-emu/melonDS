@@ -16,6 +16,7 @@ CORE_SRCS = \
 	ARMInterpreter_ALU.cpp \
 	ARMInterpreter_Branch.cpp \
 	ARMInterpreter_LoadStore.cpp \
+	BizInterface.cpp \
 	BizPlatform.cpp \
 	Config.cpp \
 	CP15.cpp \
@@ -78,7 +79,6 @@ SRCS = \
 	$(addprefix melonds/src/core/,$(CORE_SRCS)) \
 	$(addprefix melonds/src/core/,$(TEAKRA_SRCS)) \
 	$(addprefix melonds/src/core/fatfs/,$(FATFS_SRCS)) \
-	$(addprefix melonds/src/core/,$(MISC_SRCS)) \
-	src/BizInterface.cpp
+	$(addprefix melonds/src/core/,$(MISC_SRCS))
 
 include ../common.mak
