@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/StapleButter/melonDS/master/icon/melon_128x128.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Arisotura/melonDS/master/res/icon/melon_128x128.png"></p>
 <h2 align="center"><b>melonDS</b></h2>
 <p align="center">
 <a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
