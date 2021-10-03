@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <algorithm>
 
 #include "DSi.h"
 #include "DSi_AES.h"
@@ -132,7 +133,7 @@ bool Init(FILE* nandfile, u8* es_keyY)
     return true;
 }
 
-bool Init(void* nandbuf, u32 nandlen, u8* es_keyY)
+bool Init(u8* nandbuf, u32 nandlen, u8* es_keyY)
 {
     if (!nandbuf)
         return false;
@@ -156,13 +157,13 @@ bool Init(void* nandbuf, u32 nandlen, u8* es_keyY)
     const u32 footerOffset = nandlen - 0x40;
     const u32 altFooterOffset = 0x000FF800;
     bool useAltFooter = false;
-    memcpy(nand_footer, nandfile + footerOffset, sizeof nand_footer);
+    memcpy(nand_footer, nandbuf + footerOffset, sizeof nand_footer);
     if (memcmp(nand_footer, nand_footer_ref, 16))
     {
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-        memcpy(nand_footer, nandfile + altFooterOffset, sizeof nand_footer);
+        memcpy(nand_footer, nandbuf + altFooterOffset, sizeof nand_footer);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             printf("ERROR: NAND missing nocash footer\n");
@@ -172,8 +173,8 @@ bool Init(void* nandbuf, u32 nandlen, u8* es_keyY)
     }
 
     const u32 footerOffsetUsed = useAltFooter ? altFooterOffset : footerOffset;
-    memcpy(eMMC_CID, nandfile + footerOffsetUsed + (sizeof nand_footer), sizeof eMMC_CID);
-    memcpy(&ConsoleID, nandfile + footerOffsetUsed + (sizeof nand_footer) + (sizeof eMMC_CID), 8);
+    memcpy(eMMC_CID, nandbuf + footerOffsetUsed + (sizeof nand_footer), sizeof eMMC_CID);
+    memcpy(&ConsoleID, nandbuf + footerOffsetUsed + (sizeof nand_footer) + (sizeof eMMC_CID), 8);
 
     // init NAND crypto
 
@@ -212,7 +213,7 @@ bool Init(void* nandbuf, u32 nandlen, u8* es_keyY)
     DSi_AES::Swap16(ESKey, tmp);
 
     CurFile = nullptr;
-    CurFileBuf = nandfile;
+    CurFileBuf = nandbuf;
     CurFileLen = nandlen;
     return true;
 }
@@ -327,7 +328,7 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
         {
             if ((addr + s) >= CurFileLen) return 0;
             u32 lenToEnd = CurFileLen - addr - s;
-            memcpy(CurFileBuf + addr + s, tempbuf, std::min(lenToEnd, 0x200));
+            memcpy(CurFileBuf + addr + s, tempbuf, std::min(lenToEnd, 0x200u));
         }
     }
 

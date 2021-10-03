@@ -180,11 +180,11 @@ void CartGame::LoadSave(const char* path, u32 type)
 
         SRAMFile = f;
     }
-    else if (Platform::files[GbaSram].FileData)
+    else if (Platform::files[Platform::GbaSram].FileData)
     {
-        SRAMLength = Platform::files[GbaSram].FileLength;
+        SRAMLength = Platform::files[Platform::GbaSram].FileLength;
         SRAM = new u8[SRAMLength];
-        memcpy(SRAM, Platform::files[GbaSram].FileData, SRAMLength);
+        memcpy(SRAM, Platform::files[Platform::GbaSram].FileData, SRAMLength);
     }
 
     switch (SRAMLength)
@@ -792,15 +792,15 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
 
 bool LoadROM()
 {
-    if (!Platform::files[GbaRom].FileData)
+    if (!Platform::files[Platform::GbaRom].FileData)
         return false;
 
     CartROMSize = 0x200;
-    while (CartROMSize < Platform::files[GbaRom].FileLength)
+    while (CartROMSize < Platform::files[Platform::GbaRom].FileLength)
         CartROMSize <<= 1;
 
     CartROM = new u8[CartROMSize];
-    memcpy(CartROM, Platform::files[GbaRom].FileData, Platform::files[GbaRom].FileLength);
+    memcpy(CartROM, Platform::files[Platform::GbaRom].FileData, Platform::files[Platform::GbaRom].FileLength);
 
     LoadROMCommon("");
 

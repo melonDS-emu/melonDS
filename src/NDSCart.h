@@ -207,6 +207,7 @@ void DoSavestate(Savestate* file);
 void DecryptSecureArea(u8* out);
 bool LoadROM(const char* path, const char* sram, bool direct);
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
+bool LoadROM(bool direct);
 
 void FlushSRAMFile();
 

@@ -52,11 +52,7 @@ u8 FreeReg;
 
 bool Init()
 {
-    basetime = 0;
-    // FIXME: gbatek says there's an rtc offset at 3FF68-3FF6B? probably should use that?
-    // doesn't make sense however, 4 bytes can't store more than 68 years of time, so ???
-    // suppose it might be possible that the offset doesn't keep track of years and only the rest
-    // as years is stored in 3FF66 for some reason?
+    basetime = 0; // FIXME: gbatek says there's an rtc offset at 3FF68-3FF6B? probably should use that?
     return true;
 }
 
@@ -69,6 +65,8 @@ void Reset()
     Input = 0;
     InputBit = 0;
     InputPos = 0;
+
+    memset(ClockInput, 0, sizeof(ClockInput));
 
     memset(Output, 0, sizeof(Output));
     OutputPos = 0;
@@ -94,7 +92,7 @@ void DoSavestate(Savestate* file)
     file->Var32(&InputPos);
 
     file->VarArray(ClockInput, sizeof(ClockInput));
-    file->Var64(&basetime);
+    file->Var64((u64*)&basetime);
 
     file->VarArray(Output, sizeof(Output));
     file->Var32(&OutputBit);
@@ -114,6 +112,11 @@ void DoSavestate(Savestate* file)
 u8 BCD(u8 val)
 {
     return (val % 10) | ((val / 10) << 4);
+}
+
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
 }
 
 
@@ -196,20 +199,19 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        ClockInput[InputPos / 2 - 1] = FromBCD(val);
-        if (InputPos == 14)
-        {
-            tm oldTime = Platform::GetFrontendDate(basetime);
-            tm newTime;
-            memset(&newTime, 0, sizeof(newTime));
-            newTime.tm_year = ClockInput[0] + 100;
-            newTime.tm_mon = ClockInput[1] - 1;
-            newTime.tm_mday = ClockInput[2];
-            newTime.tm_wday = ClockInput[3];
-            newTime.tm_hour = ClockInput[4];
-            newTime.tm_min = ClockInput[5];
-            newTime.tm_sec = ClockInput[6];
-            basetime = Platform::ConvertDateToTime(oldTime) - Platform::ConvertDateToTime(newTime);
+        if (InputPos == 5) val &= ~0x40;
+        ClockInput[InputPos - 1] = FromBCD(val);
+        if (InputPos == 7)
+        { 
+            tm newDate = Platform::GetFrontendDate(basetime);
+            newDate.tm_year = ClockInput[0] + 100;
+            newDate.tm_mon = ClockInput[1] - 1;
+            newDate.tm_mday = ClockInput[2];
+            newDate.tm_wday = ClockInput[3];
+            newDate.tm_hour = ClockInput[4];
+            newDate.tm_min = ClockInput[5];
+            newDate.tm_sec = ClockInput[6];
+            basetime = Platform::ConvertDateToTime(newDate) - Platform::GetFrontendTime();
         }
         break;
 

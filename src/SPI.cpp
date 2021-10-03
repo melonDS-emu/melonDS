@@ -125,7 +125,7 @@ void Reset()
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
     {
-        if (!Platform::files[Firmware].FileData)
+        if (!Platform::files[Platform::Firmware].FileData)
         {
             printf("Firmware not found\n");
 
@@ -134,10 +134,10 @@ void Reset()
         }
         else
         {
-            FirmwareLength = FixFirmwareLength(Platform::files[Firmware].FileLength);
+            FirmwareLength = FixFirmwareLength(Platform::files[Platform::Firmware].FileLength);
             Firmware = new u8[FirmwareLength];
             memset(Firmware, 0xFF, FirmwareLength);
-            memcpy(Firmware, Platform::files[Firmware].FileData, Platform::files[Firmware].FileLength);
+            memcpy(Firmware, Platform::files[Platform::Firmware].FileData, Platform::files[Platform::Firmware].FileLength);
         }
     }
     else

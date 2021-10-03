@@ -447,7 +447,7 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFE000+i, tmp);
     }
 
-    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]) || DSi_NAND::Init(Platform::files[DsiNand].FileData, Platform::files[DsiNand].FileLength, &DSi::ARM7iBIOS[0x8308]))
+    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]) || DSi_NAND::Init((u8*)Platform::files[Platform::DsiNand].FileData, Platform::files[Platform::DsiNand].FileLength, &DSi::ARM7iBIOS[0x8308]))
     {
         u8 userdata[0x1B0];
         DSi_NAND::ReadUserData(userdata);
@@ -636,17 +636,17 @@ bool LoadBIOS(bool arm9i)
 {
     if (arm9i)
     {
-        if (Platform::files[Arm9iBios].FileData && Platform::files[Arm9iBios].FileLength == sizeof ARM9iBIOS)
+        if (Platform::files[Platform::Arm9iBios].FileData && Platform::files[Platform::Arm9iBios].FileLength == sizeof ARM9iBIOS)
         {
-            memcpy(ARM9iBIOS, Platform::files[Arm9Bios].FileData, Platform::files[Arm9Bios].FileLength);
+            memcpy(ARM9iBIOS, Platform::files[Platform::Arm9iBios].FileData, Platform::files[Platform::Arm9iBios].FileLength);
             return true;
         }
     }
     else
     {
-        if (Platform::files[Arm7iBios].FileData && Platform::files[Arm7iBios].FileLength == sizeof ARM7iBIOS)
+        if (Platform::files[Platform::Arm7iBios].FileData && Platform::files[Platform::Arm7iBios].FileLength == sizeof ARM7iBIOS)
         {
-            memcpy(ARM7iBIOS, Platform::files[Arm7Bios].FileData, Platform::files[Arm7Bios].FileLength);
+            memcpy(ARM7iBIOS, Platform::files[Platform::Arm7iBios].FileData, Platform::files[Platform::Arm7iBios].FileLength);
             return true;
         }
     }
@@ -660,7 +660,7 @@ bool LoadNAND()
 
     if (!DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
     {
-        if (!DSi_NAND::Init(Platform::files[DsiNand].FileData, Platform::files[DsiNand].FileLength, &DSi::ARM7iBIOS[0x8308]))
+        if (!DSi_NAND::Init((u8*)Platform::files[Platform::DsiNand].FileData, Platform::files[Platform::DsiNand].FileLength, &DSi::ARM7iBIOS[0x8308]))
         {
             printf("Failed to load DSi NAND\n");
             return false;
@@ -693,7 +693,7 @@ bool LoadNAND()
         fread(bootparams, 4, 8, SDMMCFile);
     }
     else
-        memcpy(bootparams, Platform::files.DsiNand.FileData + 0x220, sizeof bootparams);
+        memcpy(bootparams, (u8*)Platform::files[Platform::DsiNand].FileData + 0x220, sizeof bootparams);
 
     printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -712,7 +712,7 @@ bool LoadNAND()
         fread(mbk, 4, 12, SDMMCFile);
     }
     else
-        memcpy(mbk, Platform::files.DsiNand.FileData + 0x380, sizeof mbk);
+        memcpy(mbk, (u8*)Platform::files[Platform::DsiNand].FileData + 0x380, sizeof mbk);
 
     MapNWRAM_A(0, mbk[0] & 0xFF);
     MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
@@ -774,7 +774,7 @@ bool LoadNAND()
         if (SDMMCFile)
             fread(data, 16, 1, SDMMCFile);
         else
-            memcpy(data, Platform::files.DsiNand.FileData + bootparams[0] + i, sizeof data);
+            memcpy(data, (u8*)Platform::files[Platform::DsiNand].FileData + bootparams[0] + i, sizeof data);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -802,7 +802,7 @@ bool LoadNAND()
         if (SDMMCFile)
             fread(data, 16, 1, SDMMCFile);
         else
-            memcpy(data, Platform::files.DsiNand.FileData + bootparams[4] + i, sizeof data);
+            memcpy(data, (u8*)Platform::files[Platform::DsiNand].FileData + bootparams[4] + i, sizeof data);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);

@@ -178,8 +178,11 @@ tm GetFrontendDate(time_t basetime)
     return gmtime(&t);
 }
 
-time_t ConvertDataToTime(tm newTime)
+time_t ConvertDateToTime(tm date)
 {
-    time_t t = newTime;
-    return timegm(&t);
+    time_t time = mktime(&date);
+    tm* utc = gmtime(&time);
+    time_t t = mktime(utc);
+    time += time - t;
+    return time;
 }

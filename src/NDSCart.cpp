@@ -1168,10 +1168,10 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
         SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
-        if (!SDFile && Platform::files[DldiSd].FileData)
+        if (!SDFile && Platform::files[Platform::DldiSd].FileData)
         {
-            SDFileBuf = new u8[Platform::files[DldiSd].FileLength]
-            memcpy(SDFileBuf, Platform::files[DldiSd].FileData, Platform::files[DldiSd].FileLength);
+            SDFileBuf = new u8[Platform::files[Platform::DldiSd].FileLength];
+            memcpy(SDFileBuf, Platform::files[Platform::DldiSd].FileData, Platform::files[Platform::DldiSd].FileLength);
         }
         else SDFileBuf = nullptr;
     }
@@ -1198,11 +1198,12 @@ void CartHomebrew::Reset()
     if (Config::DLDIEnable)
     {
         SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
-        if (!SDFile && Platform::files[DldiSd].FileData)
+        if (!SDFile && Platform::files[Platform::DldiSd].FileData)
         {
-            SDFileBuf = new u8[Platform::files[DldiSd].FileLength]
-            memcpy(SDFileBuf, Platform::files[DldiSd].FileData, Platform::files[DldiSd].FileLength);
-        } else SDFileBuf = nullptr;
+            SDFileBuf = new u8[Platform::files[Platform::DldiSd].FileLength];
+            memcpy(SDFileBuf, Platform::files[Platform::DldiSd].FileData, Platform::files[Platform::DldiSd].FileLength);
+        }
+		else SDFileBuf = nullptr;
     }
     else
     {
@@ -1248,9 +1249,9 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
                 fseek(SDFile, addr, SEEK_SET);
                 fread(data, len, 1, SDFile);
             }
-            else if (SDFileBuf && len && addr < Platform::files[DldiSd].FileLength)
+            else if (SDFileBuf && len && addr < Platform::files[Platform::DldiSd].FileLength)
             {
-                u32 lenToEnd = Platform::files[DldiSd].FileLength - addr;
+                u32 lenToEnd = Platform::files[Platform::DldiSd].FileLength - addr;
                 memcpy(data, SDFileBuf + addr, std::min(lenToEnd, len));
             }
         }
@@ -1281,9 +1282,10 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
             {
                 fseek(SDFile, addr, SEEK_SET);
                 fwrite(data, len, 1, SDFile);
-            else if (SDFileBuf && len && addr < Platform::files[DldiSd].FileLength)
+            }
+            else if (SDFileBuf && len && addr < Platform::files[Platform::DldiSd].FileLength)
             {
-                u32 lenToEnd = Platform::files[DldiSd].FileLength - addr;
+                u32 lenToEnd = Platform::files[Platform::DldiSd].FileLength - addr;
                 memcpy(SDFileBuf + addr, data, std::min(lenToEnd, len));
             }
         }
@@ -1738,21 +1740,21 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
 
 bool LoadROM(bool direct)
 {
-    if (!Platform::files[Rom].FileData)
+    if (!Platform::files[Platform::Rom].FileData)
         return false;
 
     NDS::Reset();
 
-    u32 len = Platform::files[Rom].FileLength;
+    u32 len = Platform::files[Platform::Rom].FileLength;
     CartROMSize = 0x200;
     while (CartROMSize < len)
         CartROMSize <<= 1;
 
     CartROM = new u8[CartROMSize];
     memset(CartROM, 0, CartROMSize);
-    memcpy(CartROM, romdata, Platform::files[Rom].FileLength);
+    memcpy(CartROM, Platform::files[Platform::Rom].FileData, Platform::files[Platform::Rom].FileLength);
 
-    return LoadROMCommon(Platform::files[Rom].FileLength, "", direct);
+    return LoadROMCommon(Platform::files[Platform::Rom].FileLength, "", direct);
 }
 
 void RelocateSave(const char* path, bool write)

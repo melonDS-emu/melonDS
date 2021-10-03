@@ -29,10 +29,10 @@
 
 static GPU::RenderSettings biz_render_settings { false, 1, false };
 
-EXPORT bool Init(FileStruct **filesToLoad, bool dsi, bool direct, bool sd)
+EXPORT bool Init(Platform::FileStruct **filesToLoad, bool dsi, bool direct, bool sd)
 {
 	NDS::SetConsoleType(dsi);
-	for (int i = 0; i < NUM_FILES; i++)
+	for (int i = 0; i < Platform::NUM_FILES; i++)
 	{
 		if ((*filesToLoad)[i].FileData)
 		{

@@ -945,17 +945,17 @@ bool LoadBIOS(bool arm9)
 {
     if (arm9)
     {
-        if (Platform::files[Arm9Bios].FileData && Platform::files[Arm9Bios].FileLength == sizeof ARM9BIOS)
+        if (Platform::files[Platform::Arm9Bios].FileData && Platform::files[Platform::Arm9Bios].FileLength == sizeof ARM9BIOS)
         {
-            memcpy(ARM9BIOS, Platform::files[Arm9Bios].FileData, Platform::files[Arm9Bios].FileLength);
+            memcpy(ARM9BIOS, Platform::files[Platform::Arm9Bios].FileData, Platform::files[Platform::Arm9Bios].FileLength);
             return true;
         }
     }
     else
     {
-        if (Platform::files[Arm7Bios].FileData && Platform::files[Arm7Bios].FileLength == sizeof ARM7BIOS)
+        if (Platform::files[Platform::Arm7Bios].FileData && Platform::files[Platform::Arm7Bios].FileLength == sizeof ARM7BIOS)
         {
-            memcpy(ARM7BIOS, Platform::files[Arm7Bios].FileData, Platform::files[Arm7Bios].FileLength);
+            memcpy(ARM7BIOS, Platform::files[Platform::Arm7Bios].FileData, Platform::files[Platform::Arm7Bios].FileLength);
             return true;
         }
     }

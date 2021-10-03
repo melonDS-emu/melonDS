@@ -16,6 +16,9 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+// Required by MinGW to enable localtime_r in time.h
+#define _POSIX_THREAD_SAFE_FUNCTIONS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,7 +62,6 @@
     #define INVALID_SOCKET  (socket_t)-1
 #endif
 
-
 char* EmuDirectory;
 
 void emuStop();
@@ -68,6 +70,7 @@ void emuStop();
 namespace Platform
 {
 
+FileStruct files[NUM_FILES];
 socket_t MPSocket;
 sockaddr_t MPSendAddr;
 u8 PacketBuffer[2048];
@@ -453,13 +456,14 @@ time_t GetFrontendTime()
 tm GetFrontendDate(time_t basetime)
 {
     time_t t = basetime + time(NULL);
-    return localtime_r(&t);
+    tm date;
+    localtime_r(&t, &date);
+    return date;
 }
 
-time_t ConvertDataToTime(tm newTime)
+time_t ConvertDateToTime(tm date)
 {
-    time_t t = newTime;
-    return mktime(&t);
+    return mktime(&date);
 }
 
 }
