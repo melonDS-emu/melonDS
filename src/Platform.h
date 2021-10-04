@@ -53,11 +53,15 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);
 FILE* OpenDataFile(const char* path);
 
+void CloseFile(const char* path);
+void SetFileOpenCallback(void (*callback)(const char* path));
+void SetFileCloseCallback(void (*callback)(const char* path));
+
 inline bool FileExists(const char* name)
 {
     FILE* f = OpenFile(name, "rb");
     if (!f) return false;
-    fclose(f);
+    CloseFile(f, name);
     return true;
 }
 
@@ -65,7 +69,7 @@ inline bool LocalFileExists(const char* name)
 {
     FILE* f = OpenLocalFile(name, "rb");
     if (!f) return false;
-    fclose(f);
+    CloseFile(f, name);
     return true;
 }
 
@@ -103,7 +107,7 @@ void LAN_DeInit();
 int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
-void Sleep(u64 usecs);
+bool Sleep(u64 usecs);
 
 }
 

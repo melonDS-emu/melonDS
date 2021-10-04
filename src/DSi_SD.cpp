@@ -114,14 +114,14 @@ void DSi_SDHost::Reset()
 
         if (Config::DSiSDEnable)
         {
-            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
+            sd = new DSi_MMCStorage(this, false, DSi::SDIOFilePath);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
+        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFilePath);
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -714,10 +714,10 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file) : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, char* filepath) : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = file;
+    FilePath = filepath;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
@@ -824,7 +824,6 @@ void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
 
     case 12: // stop operation
         SetState(0x04);
-        if (File) fflush(File);
         RWCommand = 0;
         Host->SendResponse(CSR, true);
         return;
@@ -947,10 +946,11 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (File)
+    if (FILE* f = Platform::OpenLocalFile(FilePath, "r+b"))
     {
-        fseek(File, addr, SEEK_SET);
-        fread(data, 1, len, File);
+        fseek(f, addr, SEEK_SET);
+        fread(data, 1, len, f);
+        Platform::CloseFile(f, FilePath);
     }
 
     return Host->DataRX(data, len);
@@ -964,10 +964,11 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     u8 data[0x200];
     if ((len = Host->DataTX(data, len)))
     {
-        if (File)
+        if (FILE* f = Platform::OpenLocalFile(FilePath, "r+b"))
         {
-            fseek(File, addr, SEEK_SET);
-            fwrite(data, 1, len, File);
+            fseek(f, addr, SEEK_SET);
+            fwrite(data, 1, len, f);
+            Platform::CloseFile(f, FilePath);
         }
     }
 

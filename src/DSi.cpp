@@ -80,8 +80,8 @@ DSi_NDMA* NDMAs[8];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
-FILE* SDMMCFile;
-FILE* SDIOFile;
+char* SDMMCFilePath;
+char* SDIOFilePath;
 
 u64 ConsoleID;
 u8 eMMC_CID[16];
@@ -447,7 +447,7 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFE000+i, tmp);
     }
 
-    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    if (DSi_NAND::Init(SDMMCFilePath, &DSi::ARM7iBIOS[0x8308]))
     {
         u8 userdata[0x1B0];
         DSi_NAND::ReadUserData(userdata);
@@ -594,7 +594,7 @@ bool LoadBIOS()
         fread(ARM9iBIOS, 0x10000, 1, f);
 
         printf("ARM9i BIOS loaded\n");
-        fclose(f);
+        Platform::CloseFile(f, Config::DSiBIOS9Path);
     }
 
     f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
@@ -613,7 +613,7 @@ bool LoadBIOS()
         fread(ARM7iBIOS, 0x10000, 1, f);
 
         printf("ARM7i BIOS loaded\n");
-        fclose(f);
+        Platform::CloseFile(f, Config::DSiBIOS7Path);
     }
 
     // herp
@@ -630,11 +630,13 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
-    if (!DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    if (!DSi_NAND::Init(SDMMCFilePath, &DSi::ARM7iBIOS[0x8308]))
     {
         printf("Failed to load DSi NAND\n");
         return false;
     }
+
+    FILE* f = Platform::OpenLocalFile(SDMMCFilePath, "r+b");
 
     // Make sure NWRAM is accessible.
     // The Bits are set to the startup values in Reset() and we might
@@ -656,8 +658,8 @@ bool LoadNAND()
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    fseek(SDMMCFile, 0x220, SEEK_SET);
-    fread(bootparams, 4, 8, SDMMCFile);
+    fseek(f, 0x220, SEEK_SET);
+    fread(bootparams, 4, 8, f);
 
     printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -670,8 +672,8 @@ bool LoadNAND()
     MBK[1][8] = 0;
 
     u32 mbk[12];
-    fseek(SDMMCFile, 0x380, SEEK_SET);
-    fread(mbk, 4, 12, SDMMCFile);
+    fseek(f, 0x380, SEEK_SET);
+    fread(mbk, 4, 12, f);
 
     MapNWRAM_A(0, mbk[0] & 0xFF);
     MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
@@ -725,12 +727,12 @@ bool LoadNAND()
 
     AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-    fseek(SDMMCFile, bootparams[0], SEEK_SET);
+    fseek(f, bootparams[0], SEEK_SET);
     dstaddr = bootparams[2];
     for (u32 i = 0; i < bootparams[3]; i += 16)
     {
         u8 data[16];
-        fread(data, 16, 1, SDMMCFile);
+        fread(data, 16, 1, f);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -750,12 +752,12 @@ bool LoadNAND()
 
     AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-    fseek(SDMMCFile, bootparams[4], SEEK_SET);
+    fseek(f, bootparams[4], SEEK_SET);
     dstaddr = bootparams[6];
     for (u32 i = 0; i < bootparams[7]; i += 16)
     {
         u8 data[16];
-        fread(data, 16, 1, SDMMCFile);
+        fread(data, 16, 1, f);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -796,15 +798,13 @@ bool LoadNAND()
 
     DSi_NAND::DeInit();
 
+    Platform::CloseFile(f, SDMMCFilePath);
+
     return true;
 }
 
 void CloseDSiNAND()
 {
-    if (DSi::SDMMCFile)
-        fclose(DSi::SDMMCFile);
-    if (DSi::SDIOFile)
-        fclose(DSi::SDIOFile);
 }
 
 void RunNDMAs(u32 cpu)

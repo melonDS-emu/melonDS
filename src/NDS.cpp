@@ -481,7 +481,7 @@ void Reset()
             fread(ARM9BIOS, 0x1000, 1, f);
 
             printf("ARM9 BIOS loaded\n");
-            fclose(f);
+            Platform::CloseFile(f, Config::BIOS9Path);
         }
 
         f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
@@ -498,7 +498,7 @@ void Reset()
             fread(ARM7BIOS, 0x4000, 1, f);
 
             printf("ARM7 BIOS loaded\n");
-            fclose(f);
+            Platform::CloseFile(f, Config::BIOS7Path);
         }
     }
     else

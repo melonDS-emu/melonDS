@@ -181,7 +181,7 @@ private:
     void ApplyDLDIPatch(const u8* patch, u32 len);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
-    FILE* SDFile;
+    char* SDFilePath;
 };
 
 extern u16 SPICnt;

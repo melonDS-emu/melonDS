@@ -31,7 +31,7 @@
 namespace DSi_NAND
 {
 
-FILE* CurFile;
+char* CurFilePath;
 FATFS CurFS;
 
 u8 eMMC_CID[16];
@@ -47,9 +47,10 @@ UINT FF_ReadNAND(BYTE* buf, LBA_t sector, UINT num);
 UINT FF_WriteNAND(BYTE* buf, LBA_t sector, UINT num);
 
 
-bool Init(FILE* nandfile, u8* es_keyY)
+bool Init(char* nandfilepath, u8* es_keyY)
 {
-    if (!nandfile)
+    FILE* f = Platform::OpenLocalFile(nandfilepath, "r+b");
+    if (!f)
         return false;
 
     ff_disk_open(FF_ReadNAND, FF_WriteNAND);
@@ -66,27 +67,28 @@ bool Init(FILE* nandfile, u8* es_keyY)
 
     // read the nocash footer
 
-    fseek(nandfile, -0x40, SEEK_END);
+    fseek(f, -0x40, SEEK_END);
 
     char nand_footer[16];
     const char* nand_footer_ref = "DSi eMMC CID/CPU";
-    fread(nand_footer, 1, 16, nandfile);
+    fread(nand_footer, 1, 16, f);
     if (memcmp(nand_footer, nand_footer_ref, 16))
     {
         // There is another copy of the footer at 000FF800h for the case
         // that by external tools the image was cut off
         // See https://problemkaputt.de/gbatek.htm#dsisdmmcimages
-        fseek(nandfile, 0x000FF800, SEEK_SET);
-        fread(nand_footer, 1, 16, nandfile);
+        fseek(f, 0x000FF800, SEEK_SET);
+        fread(nand_footer, 1, 16, f);
         if (memcmp(nand_footer, nand_footer_ref, 16))
         {
             printf("ERROR: NAND missing nocash footer\n");
+            Platform::CloseFile(f, nandfilepath);
             return false;
         }
     }
 
-    fread(eMMC_CID, 1, 16, nandfile);
-    fread(&ConsoleID, 1, 8, nandfile);
+    fread(eMMC_CID, 1, 16, f);
+    fread(&ConsoleID, 1, 8, f);
 
     // init NAND crypto
 
@@ -124,7 +126,8 @@ bool Init(FILE* nandfile, u8* es_keyY)
     DSi_AES::DeriveNormalKey(keyX, keyY, tmp);
     DSi_AES::Swap16(ESKey, tmp);
 
-    CurFile = nandfile;
+    CurFilePath = nandfilepath;
+    Platform::CloseFile(f, nandfilepath);
     return true;
 }
 
@@ -133,7 +136,7 @@ void DeInit()
     f_unmount("0:");
     ff_disk_close();
 
-    CurFile = nullptr;
+    CurFilePath = "";
 }
 
 
@@ -175,8 +178,10 @@ u32 ReadFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
-    u32 res = fread(buf, len, 1, CurFile);
+    FILE* f = Platform::OpenLocalFile(CurFilePath, "r+b");
+    fseek(f, addr, SEEK_SET);
+    u32 res = fread(buf, len, 1, f);
+    Platform::CloseFile(f, CurFilePath);
     if (!res) return 0;
 
     for (u32 i = 0; i < len; i += 16)
@@ -197,7 +202,8 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
     AES_ctx ctx;
     SetupFATCrypto(&ctx, ctr);
 
-    fseek(CurFile, addr, SEEK_SET);
+    FILE* f = Platform::OpenLocalFile(CurFilePath, "r+b");
+    fseek(f, addr, SEEK_SET);
 
     for (u32 s = 0; s < len; s += 0x200)
     {
@@ -211,10 +217,15 @@ u32 WriteFATBlock(u64 addr, u32 len, u8* buf)
             DSi_AES::Swap16(&tempbuf[i], tmp);
         }
 
-        u32 res = fwrite(tempbuf, 0x200, 1, CurFile);
-        if (!res) return 0;
+        u32 res = fwrite(tempbuf, 0x200, 1, f);
+        if (!res)
+        {
+            Platform::CloseFile(f, CurFilePath);
+            return 0;
+        }
     }
 
+    Platform::CloseFile(f, CurFilePath);
     return len;
 }
 

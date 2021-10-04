@@ -461,7 +461,7 @@ void CartRetail::LoadSave(const char* path, u32 type)
         fseek(f, 0, SEEK_SET);
         fread(SRAM, 1, SRAMLength, f);
 
-        fclose(f);
+        Platform::CloseFile(f, path);
     }
 
     SRAMFileDirty = false;
@@ -502,7 +502,7 @@ void CartRetail::RelocateSave(const char* path, bool write)
     }
 
     fwrite(SRAM, SRAMLength, 1, f);
-    fclose(f);
+    Platform::CloseFile(f, path);
 }
 
 int CartRetail::ImportSRAM(const u8* data, u32 length)
@@ -1167,27 +1167,24 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     if (Config::DLDIEnable)
     {
         ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        SDFilePath = Config::DLDISDPath;
     }
     else
-        SDFile = nullptr;
+        SDFilePath = "";
 }
 
 CartHomebrew::~CartHomebrew()
 {
-    if (SDFile) fclose(SDFile);
 }
 
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
 
-    if (SDFile) fclose(SDFile);
-
     if (Config::DLDIEnable)
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        SDFilePath = Config::DLDISDPath;
     else
-        SDFile = nullptr;
+        SDFilePath = "";
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1222,10 +1219,11 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             u64 addr = sector * 0x200ULL;
 
-            if (SDFile)
+            if (FILE* f = Platform::OpenLocalFile(SDFilePath, "r+b"))
             {
-                fseek(SDFile, addr, SEEK_SET);
-                fread(data, len, 1, SDFile);
+                fseek(f, addr, SEEK_SET);
+                fread(data, len, 1, f);
+                Platform::CloseFile(f, SDFilePath);
             }
         }
         return 0;
@@ -1251,10 +1249,11 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
             u64 addr = sector * 0x200ULL;
 
-            if (SDFile)
+            if (FILE* f = Platform::OpenLocalFile(SDFilePath, "r+b"))
             {
-                fseek(SDFile, addr, SEEK_SET);
-                fwrite(data, len, 1, SDFile);
+                fseek(f, addr, SEEK_SET);
+                fwrite(data, len, 1, f);
+                Platform::CloseFile(f, SDFilePath);
             }
         }
         break;
@@ -1685,7 +1684,7 @@ bool LoadROM(const char* path, const char* sram, bool direct)
     fseek(f, 0, SEEK_SET);
     fread(CartROM, 1, len, f);
 
-    fclose(f);
+    Platform::CloseFile(f, path);
 
     return LoadROMCommon(len, sram, direct);
 }

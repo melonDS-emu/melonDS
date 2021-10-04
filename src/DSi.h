@@ -39,8 +39,8 @@ extern u64 ConsoleID;
 extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
-extern FILE* SDMMCFile;
-extern FILE* SDIOFile;
+extern char* SDMMCFilePath;
+extern char* SDIOFilePath;
 
 const u32 NWRAMSize = 0x40000;
 

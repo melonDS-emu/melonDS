@@ -34,7 +34,7 @@ enum
     TitleData_BannerSav,
 };
 
-bool Init(FILE* nand, u8* es_keyY);
+bool Init(char* nand, u8* es_keyY);
 void DeInit();
 
 void GetIDs(u8* emmc_cid, u64& consoleid);

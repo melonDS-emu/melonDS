@@ -122,10 +122,17 @@ void FlushThreadFunc()
 {
     for (;;)
     {
-        Platform::Sleep(100 * 1000); // 100ms
+        if (!Platform::Sleep(100 * 1000)) // 100ms
+        {
+            // if frontend doesn't support sleeping, abort the thread
+            // bizhawk in particular will deadlock due to its lack of real threads due to wbx
+            // along with time calls returning static values due to wbx
+            FlushThreadRunning = false;
+            return;
+        }
 
         if (!FlushThreadRunning) return;
-        
+
         // We debounce for two seconds after last flush request to ensure that writing has finished.
         if (TimeAtLastFlushRequest == 0 || difftime(time(NULL), TimeAtLastFlushRequest) < 2)
         {

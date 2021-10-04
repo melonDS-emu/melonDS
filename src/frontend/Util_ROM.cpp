@@ -216,19 +216,19 @@ int SetupDSiNAND()
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
     if (!f) return Load_DSiNANDMissing;
+    fclose(f);
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
 
-    DSi::SDMMCFile = f;
+    SDMMCFilePath = Config::DSiNANDPath;
 
     if (Config::DSiSDEnable)
     {
         f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
-        if (f)
-            DSi::SDIOFile = f;
-        else
-            DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
+        if (!f) Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
+        if (f) fclose(f);
+        SDIOFilePath = Config::DSiSDPath;
     }
 
     return Load_OK;

@@ -187,6 +187,19 @@ FILE* OpenLocalFile(const char* path, const char* mode)
     return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
 }
 
+void CloseFile(FILE* file, const char* path)
+{
+    fclose(file);
+}
+
+void SetFileOpenCallback(void (*callback)(const char* path))
+{
+}
+
+void SetFileCloseCallback(void (*callback)(const char* path))
+{
+}
+
 Thread* Thread_Create(std::function<void()> func)
 {
     QThread* t = QThread::create(func);
@@ -436,9 +449,10 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
-void Sleep(u64 usecs)
+bool Sleep(u64 usecs)
 {
     QThread::usleep(usecs);
+    return true;
 }
 
 }
