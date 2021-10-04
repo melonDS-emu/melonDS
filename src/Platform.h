@@ -53,7 +53,7 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist=false);
 FILE* OpenLocalFile(const char* path, const char* mode);
 FILE* OpenDataFile(const char* path);
 
-void CloseFile(const char* path);
+void CloseFile(FILE* file, const char* path);
 void SetFileOpenCallback(void (*callback)(const char* path));
 void SetFileCloseCallback(void (*callback)(const char* path));
 

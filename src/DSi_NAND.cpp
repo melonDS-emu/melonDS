@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DSi_AES.h"
 #include "DSi_NAND.h"
+#include "Platform.h"
 
 #include "sha1/sha1.hpp"
 #include "tiny-AES-c/aes.hpp"
