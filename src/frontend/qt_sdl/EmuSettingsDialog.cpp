@@ -68,7 +68,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->chkUseRealTime->setChecked(Config::UseRealTime != 0);
     ui->dtmBootTime->setTimeSpec(Qt::TimeZone);
     QDateTime minmax = QDateTime(QDate(2000, 1, 1));
-    minmax.setTimeSpec(Qt::UTC);
+    minmax.setTimeSpec(Qt::TimeZone);
     ui->dtmBootTime->setMinimumDateTime(minmax);
     minmax = minmax.addYears(100).addSecs(-1);
     ui->dtmBootTime->setMaximumDateTime(minmax);
