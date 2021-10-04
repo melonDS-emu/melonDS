@@ -16,13 +16,11 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-// Required by MinGW to enable localtime_r in time.h
-#define _POSIX_THREAD_SAFE_FUNCTIONS
-
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include "Config.h"
 #include "RTC.h"
+#include "Platform.h"
 
 
 namespace RTC
@@ -33,6 +31,9 @@ u16 IO;
 u8 Input;
 u32 InputBit;
 u32 InputPos;
+
+u8 ClockInput[7];
+time_t basetime;
 
 u8 Output[8];
 u32 OutputBit;
@@ -50,6 +51,7 @@ u8 FreeReg;
 
 bool Init()
 {
+    basetime = Config::UseRealTime ? 0 : (Config::TimeAtBoot - Platform::GetFrontendTime());
     return true;
 }
 
@@ -62,6 +64,8 @@ void Reset()
     Input = 0;
     InputBit = 0;
     InputPos = 0;
+
+    memset(ClockInput, 0, sizeof(ClockInput));
 
     memset(Output, 0, sizeof(Output));
     OutputPos = 0;
@@ -86,6 +90,9 @@ void DoSavestate(Savestate* file)
     file->Var32(&InputBit);
     file->Var32(&InputPos);
 
+    file->VarArray(ClockInput, sizeof(ClockInput));
+    file->Var64((u64*)&basetime);
+
     file->VarArray(Output, sizeof(Output));
     file->Var32(&OutputBit);
     file->Var32(&OutputPos);
@@ -104,6 +111,11 @@ void DoSavestate(Savestate* file)
 u8 BCD(u8 val)
 {
     return (val % 10) | ((val / 10) << 4);
+}
+
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
 }
 
 
@@ -128,9 +140,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = Platform::GetFrontendDate(basetime);
 
                     Output[0] = BCD(timedata.tm_year - 100);
                     Output[1] = BCD(timedata.tm_mon + 1);
@@ -144,9 +154,7 @@ void ByteIn(u8 val)
 
             case 0x60:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = Platform::GetFrontendDate(basetime);
 
                     Output[0] = BCD(timedata.tm_hour);
                     Output[1] = BCD(timedata.tm_min);
@@ -190,7 +198,20 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        // TODO: set time somehow??
+        if (InputPos == 5) val &= ~0x40;
+        ClockInput[InputPos - 1] = FromBCD(val);
+        if (InputPos == 7)
+        { 
+            tm newDate = Platform::GetFrontendDate(basetime);
+            newDate.tm_year = ClockInput[0] + 100;
+            newDate.tm_mon = ClockInput[1] - 1;
+            newDate.tm_mday = ClockInput[2];
+            newDate.tm_wday = ClockInput[3];
+            newDate.tm_hour = ClockInput[4];
+            newDate.tm_min = ClockInput[5];
+            newDate.tm_sec = ClockInput[6];
+            basetime = Platform::ConvertDateToTime(newDate) - Platform::GetFrontendTime();
+        }
         break;
 
     case 0x60:

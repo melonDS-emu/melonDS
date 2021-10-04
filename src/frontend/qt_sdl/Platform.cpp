@@ -16,6 +16,9 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+// Required by MinGW to enable localtime_r in time.h
+#define _POSIX_THREAD_SAFE_FUNCTIONS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -453,6 +456,28 @@ bool Sleep(u64 usecs)
 {
     QThread::usleep(usecs);
     return true;
+}
+
+void SetFrontendTime(time_t newTime)
+{
+}
+
+time_t GetFrontendTime()
+{
+    return time(NULL);
+}
+
+tm GetFrontendDate(time_t basetime)
+{
+    time_t t = basetime + time(NULL);
+    tm date;
+    localtime_r(&t, &date);
+    return date;
+}
+
+time_t ConvertDateToTime(tm date)
+{
+    return mktime(&date);
 }
 
 }

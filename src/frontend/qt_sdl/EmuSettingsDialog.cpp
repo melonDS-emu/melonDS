@@ -26,6 +26,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "RTC.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -63,6 +64,15 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
+    
+    ui->chkUseRealTime->setChecked(Config::UseRealTime != 0);
+    ui->dtmBootTime->setTimeSpec(Qt::TimeZone);
+    QDateTime minmax = QDateTime(QDate(2000, 1, 1));
+    minmax.setTimeSpec(Qt::UTC);
+    ui->dtmBootTime->setMinimumDateTime(minmax);
+    minmax = minmax.addYears(100).addSecs(-1);
+    ui->dtmBootTime->setMaximumDateTime(minmax);
+    ui->dtmBootTime->setDateTime(QDateTime::fromSecsSinceEpoch(Config::TimeAtBoot, Qt::TimeZone));
 
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
@@ -143,6 +153,10 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+        QDateTime dtm = ui->dtmBootTime->dateTime();
+        dtm = dtm.addSecs(-dtm.time().second());
+        uint bootTime = (uint)(dtm.toSecsSinceEpoch());
+        int useRealTime = ui->chkUseRealTime->isChecked() ? 1:0;
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
@@ -165,6 +179,8 @@ void EmuSettingsDialog::done(int r)
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
+            || useRealTime != Config::UseRealTime
+            || ((bootTime != Config::TimeAtBoot) && useRealTime == 0)
 #ifdef JIT_ENABLED
             || jitEnable != Config::JIT_Enable
             || jitMaxBlockSize != Config::JIT_MaxBlockSize
@@ -215,6 +231,10 @@ void EmuSettingsDialog::done(int r)
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
+            Config::UseRealTime = useRealTime;
+            Config::TimeAtBoot = bootTime;
+            RTC::DeInit();
+            RTC::Init();
 
             Config::Save();
 

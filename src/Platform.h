@@ -21,6 +21,7 @@
 
 #include "types.h"
 
+#include <time.h>
 #include <functional>
 
 namespace Platform
@@ -108,6 +109,11 @@ int LAN_SendPacket(u8* data, int len);
 int LAN_RecvPacket(u8* data);
 
 bool Sleep(u64 usecs);
+
+void SetFrontendTime();
+time_t GetFrontendTime();
+tm GetFrontendDate(time_t basetime);
+time_t ConvertDateToTime(tm date);
 
 }
 
