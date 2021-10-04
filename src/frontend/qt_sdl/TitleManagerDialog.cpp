@@ -150,7 +150,7 @@ bool TitleManagerDialog::openNAND()
     if (!curNAND)
         return false;
 
-    if (!DSi_NAND::Init(curNAND, es_keyY))
+    if (!DSi_NAND::Init(Config::DSiNANDPath, es_keyY))
     {
         fclose(curNAND);
         curNAND = nullptr;
