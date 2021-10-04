@@ -67,7 +67,7 @@ extern int RandomizeMAC;
 extern int AudioBitrate;
 
 extern int UseRealTime;
-extern u32 TimeAtBoot;
+extern int TimeAtBoot;
 
 #ifdef JIT_ENABLED
 extern int JIT_Enable;

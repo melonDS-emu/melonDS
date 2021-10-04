@@ -54,7 +54,7 @@ int RandomizeMAC;
 int AudioBitrate;
 
 int UseRealTime;
-u32 TimeAtBoot;
+int TimeAtBoot;
 
 #ifdef JIT_ENABLED
 int JIT_Enable = false;

@@ -51,7 +51,7 @@ u8 FreeReg;
 
 bool Init()
 {
-    basetime = Config::UseRealTime ? 0 : (Config::TimeAtBoot - Platform::GetFrontendTime());
+    basetime = Config::UseRealTime ? 0 : ((u32)Config::TimeAtBoot - Platform::GetFrontendTime());
     return true;
 }
 

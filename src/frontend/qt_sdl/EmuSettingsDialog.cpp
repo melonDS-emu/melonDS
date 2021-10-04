@@ -156,7 +156,7 @@ void EmuSettingsDialog::done(int r)
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
         QDateTime dtm = ui->dtmBootTime->dateTime();
         dtm = dtm.addSecs(-dtm.time().second());
-        uint bootTime = (uint)(dtm.toSecsSinceEpoch());
+        int bootTime = (uint)dtm.toSecsSinceEpoch();
         int useRealTime = ui->chkUseRealTime->isChecked() ? 1:0;
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
