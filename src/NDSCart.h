@@ -41,7 +41,7 @@ public:
     virtual void RelocateSave(const char* path, bool write);
     virtual int ImportSRAM(const u8* data, u32 length);
     virtual void FlushSRAMFile();
-	virtual bool SRAMIsDirty();
+    virtual bool SRAMIsDirty();
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
@@ -79,7 +79,7 @@ public:
     virtual void RelocateSave(const char* path, bool write) override;
     virtual int ImportSRAM(const u8* data, u32 length) override;
     virtual void FlushSRAMFile() override;
-	virtual bool SRAMIsDirty() override;
+    virtual bool SRAMIsDirty() override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
 
