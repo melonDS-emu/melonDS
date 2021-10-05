@@ -333,7 +333,7 @@ printf("EXPORTING DIRECTORY %s (base %s level %d)\n", path.c_str(), outbase.c_st
         else
         {
             bool doexport = false;
-printf("- FILE %s\n", fullpath.c_str());
+printf("- FILE %s ATTRIB %08X\n", fullpath.c_str(), info.fattrib);
             if (FileIndex.count(fullpath) < 1)
             {
                 doexport = true;
@@ -397,7 +397,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
 
     std::vector<std::string> filedeletelist;
     std::vector<std::string> dirdeletelist;
-
+printf("-- PURGING HOST DIRECTORY %s (base %s) LEVEL=%d\n", path.c_str(), outbase.c_str(), level);
     int outlen = outbase.length();
     for (auto& entry : fs::directory_iterator(outbase + "/" + path))
     {
@@ -412,7 +412,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
             if (innerpath[i] == '\\')
                 innerpath[i] = '/';
         }
-
+printf("---- ENTRY %s (%d)\n", innerpath.c_str(), entry.is_directory());
         if (entry.is_directory())
         {
             dirdeletelist.push_back(innerpath);
@@ -431,7 +431,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
                         fs::perms::owner_read | fs::perms::owner_write,
                         fs::perm_options::add,
                         err);
-        if (unlink(fullpath.c_str()) != 0)
+        if (!fs::remove(fullpath))
             return false;
 
         FileIndex.erase(key);
@@ -445,13 +445,14 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
 
     {
         std::string fullpath = outbase + "/" + path;
+        printf("DELETING DIR ITSELF: %s\n", fullpath.c_str());
         std::error_code err;
         fs::permissions(fullpath,
                         fs::perms::owner_read | fs::perms::owner_write,
                         fs::perm_options::add,
                         err);
-        if (unlink(fullpath.c_str()) != 0)
-            return false;
+        if (!fs::remove(fullpath)){printf("DICKPILE %d\n", errno);
+            return false;}
 
         DirIndex.erase(path);
     }
@@ -491,12 +492,13 @@ void FATStorage::ExportChanges(std::string outbase)
     for (const auto& key : deletelist)
     {
         std::string fullpath = outbase + "/" + key;
+        printf("DELETING FILE %s\n", fullpath.c_str());
         std::error_code err;
         fs::permissions(fullpath,
                         fs::perms::owner_read | fs::perms::owner_write,
                         fs::perm_options::add,
                         err);
-        unlink(fullpath.c_str());
+        fs::remove(fullpath);
 
         FileIndex.erase(key);
     }
@@ -523,6 +525,7 @@ void FATStorage::ExportChanges(std::string outbase)
 
     for (const auto& key : deletelist)
     {
+        printf("DELETING DIRECTORY %s\n", key.c_str());
         DeleteHostDirectory(key, outbase, 0);
     }
 
