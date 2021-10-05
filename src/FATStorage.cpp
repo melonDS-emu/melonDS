@@ -391,6 +391,74 @@ printf("- FILE %s\n", fullpath.c_str());
     }
 }
 
+bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int level)
+{
+    if (level >= 32) return false;
+
+    std::vector<std::string> filedeletelist;
+    std::vector<std::string> dirdeletelist;
+
+    int outlen = outbase.length();
+    for (auto& entry : fs::directory_iterator(outbase + "/" + path))
+    {
+        std::string fullpath = entry.path().string();
+        std::string innerpath = fullpath.substr(outlen);
+        if (innerpath[0] == '/' || innerpath[0] == '\\')
+            innerpath = innerpath.substr(1);
+
+        int ilen = innerpath.length();
+        for (int i = 0; i < ilen; i++)
+        {
+            if (innerpath[i] == '\\')
+                innerpath[i] = '/';
+        }
+
+        if (entry.is_directory())
+        {
+            dirdeletelist.push_back(innerpath);
+        }
+        else
+        {
+            filedeletelist.push_back(innerpath);
+        }
+    }
+
+    for (const auto& key : filedeletelist)
+    {
+        std::string fullpath = outbase + "/" + key;
+        std::error_code err;
+        fs::permissions(fullpath,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        fs::perm_options::add,
+                        err);
+        if (unlink(fullpath.c_str()) != 0)
+            return false;
+
+        FileIndex.erase(key);
+    }
+
+    for (const auto& key : dirdeletelist)
+    {
+        if (!DeleteHostDirectory(key, outbase, level+1))
+            return false;
+    }
+
+    {
+        std::string fullpath = outbase + "/" + path;
+        std::error_code err;
+        fs::permissions(fullpath,
+                        fs::perms::owner_read | fs::perms::owner_write,
+                        fs::perm_options::add,
+                        err);
+        if (unlink(fullpath.c_str()) != 0)
+            return false;
+
+        DirIndex.erase(path);
+    }
+
+    return true;
+}
+
 void FATStorage::ExportChanges(std::string outbase)
 {
     // reflect changes in the FAT volume to the host filesystem
@@ -455,16 +523,7 @@ void FATStorage::ExportChanges(std::string outbase)
 
     for (const auto& key : deletelist)
     {
-        /*std::string fullpath = outbase + "/" + key;
-        std::error_code err;
-        fs::permissions(fullpath,
-                        fs::perms::owner_read | fs::perms::owner_write,
-                        fs::perm_options::add,
-                        err);
-        unlink(fullpath.c_str());*/
-        // !!!!TODO
-
-        DirIndex.erase(key);
+        DeleteHostDirectory(key, outbase, 0);
     }
 
     ExportDirectory("", outbase, 0);

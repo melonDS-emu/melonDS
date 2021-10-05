@@ -51,6 +51,7 @@ private:
 
     bool ExportFile(std::string path, std::string out, std::filesystem::file_time_type& modtime);
     void ExportDirectory(std::string path, std::string outbase, int level);
+    bool DeleteHostDirectory(std::string path, std::string outbase, int level);
     void ExportChanges(std::string outbase);
 
     bool CanFitFile(u32 len);
