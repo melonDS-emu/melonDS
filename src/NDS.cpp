@@ -923,6 +923,11 @@ void RelocateSave(const char* path, bool write)
     NDSCart::RelocateSave(path, write);
 }
 
+bool SRAMIsDirty()
+{
+    return NDSCart::SRAMIsDirty();
+}
+
 
 
 u64 NextTarget()
@@ -4233,6 +4238,230 @@ void ARM7IOWrite32(u32 addr, u32 val)
     }
 
     printf("unknown ARM7 IO write32 %08X %08X %08X\n", addr, val, ARM7->R[15]);
+}
+
+// don't update any emulator state if we want to just peek at memory
+u8 ARM9Peek8(u32 addr)
+{
+    if ((addr & 0xFFFFF000) == 0xFFFF0000)
+    {
+        return *(u8*)&ARM9BIOS[addr & 0xFFF];
+    }
+
+    switch (addr & 0xFF000000)
+    {
+    case 0x02000000:
+        return *(u8*)&MainRAM[addr & MainRAMMask];
+
+    case 0x03000000:
+        if (SWRAM_ARM9.Mem)
+        {
+            return *(u8*)&SWRAM_ARM9.Mem[addr & SWRAM_ARM9.Mask];
+        }
+        else
+        {
+            return 0;
+        }
+
+    case 0x04000000:
+        return ARM9IOPeek8(addr);
+
+    case 0x05000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
+        return GPU::ReadPalette<u8>(addr); // safe for peeking
+
+    case 0x06000000:
+        switch (addr & 0x00E00000) // all safe for peeking
+        {
+        case 0x00000000: return GPU::ReadVRAM_ABG<u8>(addr);
+        case 0x00200000: return GPU::ReadVRAM_BBG<u8>(addr);
+        case 0x00400000: return GPU::ReadVRAM_AOBJ<u8>(addr);
+        case 0x00600000: return GPU::ReadVRAM_BOBJ<u8>(addr);
+        default:         return GPU::ReadVRAM_LCDC<u8>(addr);
+        }
+
+    case 0x07000000:
+        if (!(PowerControl9 & ((addr & 0x400) ? (1<<9) : (1<<1)))) return 0;
+        return GPU::ReadOAM<u8>(addr); // safe for peeking
+
+    case 0x08000000:
+    case 0x09000000:
+        if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8; // safe for peeking
+        return GBACart::ROMRead(addr) & 0xFF;
+
+    case 0x0A000000:
+        if (ExMemCnt[0] & (1<<7)) return 0x00; // deselected CPU is 00h-filled
+        return GBACart::SRAMRead(addr); // safe for peeking
+    }
+
+    return 0;
+}
+
+u8 ARM9IOPeek8(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000130: return KeyInput & 0xFF;
+    case 0x04000131: return (KeyInput >> 8) & 0xFF;
+    case 0x04000132: return KeyCnt & 0xFF;
+    case 0x04000133: return KeyCnt >> 8;
+
+    case 0x040001A2:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ReadSPIData(); // safe for peeking
+        return 0;
+
+    case 0x040001A8:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[0];
+        return 0;
+    case 0x040001A9:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[1];
+        return 0;
+    case 0x040001AA:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[2];
+        return 0;
+    case 0x040001AB:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[3];
+        return 0;
+    case 0x040001AC:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[4];
+        return 0;
+    case 0x040001AD:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[5];
+        return 0;
+    case 0x040001AE:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[6];
+        return 0;
+    case 0x040001AF:
+        if (!(ExMemCnt[0] & (1<<11)))
+            return NDSCart::ROMCommand[7];
+        return 0;
+
+    case 0x04000208: return IME[0];
+
+    case 0x04000240: return GPU::VRAMCNT[0];
+    case 0x04000241: return GPU::VRAMCNT[1];
+    case 0x04000242: return GPU::VRAMCNT[2];
+    case 0x04000243: return GPU::VRAMCNT[3];
+    case 0x04000244: return GPU::VRAMCNT[4];
+    case 0x04000245: return GPU::VRAMCNT[5];
+    case 0x04000246: return GPU::VRAMCNT[6];
+    case 0x04000247: return WRAMCnt;
+    case 0x04000248: return GPU::VRAMCNT[7];
+    case 0x04000249: return GPU::VRAMCNT[8];
+
+    CASE_READ8_16BIT(0x04000280, DivCnt)
+    CASE_READ8_32BIT(0x04000290, DivNumerator[0])
+    CASE_READ8_32BIT(0x04000294, DivNumerator[1])
+    CASE_READ8_32BIT(0x04000298, DivDenominator[0])
+    CASE_READ8_32BIT(0x0400029C, DivDenominator[1])
+    CASE_READ8_32BIT(0x040002A0, DivQuotient[0])
+    CASE_READ8_32BIT(0x040002A4, DivQuotient[1])
+    CASE_READ8_32BIT(0x040002A8, DivRemainder[0])
+    CASE_READ8_32BIT(0x040002AC, DivRemainder[1])
+
+    CASE_READ8_16BIT(0x040002B0, SqrtCnt)
+    CASE_READ8_32BIT(0x040002B4, SqrtRes)
+    CASE_READ8_32BIT(0x040002B8, SqrtVal[0])
+    CASE_READ8_32BIT(0x040002BC, SqrtVal[1])
+
+    case 0x04000300: return PostFlag9;
+    }
+
+    if (addr >= 0x04000000 && addr < 0x04000060)
+    {
+        return GPU::GPU2D_A.Read8(addr); // safe for peeking
+    }
+    if (addr >= 0x04001000 && addr < 0x04001060)
+    {
+        return GPU::GPU2D_B.Read8(addr); // safe for peeking
+    }
+    if (addr >= 0x04000320 && addr < 0x040006A4)
+    {
+        return GPU3D::Peek8(addr);
+    }
+    // NO$GBA debug register "Emulation ID"
+    if(addr >= 0x04FFFA00 && addr < 0x04FFFA10)
+    {
+        // FIX: GBATek says this should be padded with spaces
+        static char const emuID[16] = "melonDS " MELONDS_VERSION;
+        auto idx = addr - 0x04FFFA00;
+        return (u8)(emuID[idx]);
+    }
+
+    return 0;
+}
+
+u8 ARM7Peek8(u32 addr)
+{
+    if (addr < 0x00004000)
+    {
+        // TODO: check the boundary? is it 4000 or higher on regular DS?
+        if (ARM7->R[15] >= 0x00004000)
+            return 0xFF;
+        if (addr < ARM7BIOSProt && ARM7->R[15] >= ARM7BIOSProt)
+            return 0xFF;
+
+        return *(u8*)&ARM7BIOS[addr];
+    }
+
+    switch (addr & 0xFF800000)
+    {
+    case 0x02000000:
+    case 0x02800000:
+        return *(u8*)&MainRAM[addr & MainRAMMask];
+
+    case 0x03000000:
+        if (SWRAM_ARM7.Mem)
+        {
+            return *(u8*)&SWRAM_ARM7.Mem[addr & SWRAM_ARM7.Mask];
+        }
+        else
+        {
+            return *(u8*)&ARM7WRAM[addr & (ARM7WRAMSize - 1)];
+        }
+
+    case 0x03800000:
+        return *(u8*)&ARM7WRAM[addr & (ARM7WRAMSize - 1)];
+
+    case 0x04000000:
+        return ARM7IORead8(addr); // safe to peek apparently? shouldn't at least lag frame flag be set by this???
+
+    case 0x04800000:
+        if (addr < 0x04810000)
+        {
+            if (addr & 0x1) return Wifi::Peek(addr-1) >> 8;
+            return Wifi::Peek(addr) & 0xFF;
+        }
+        break;
+
+    case 0x06000000:
+    case 0x06800000:
+        return GPU::ReadVRAM_ARM7<u8>(addr); // safe to peek
+
+    case 0x08000000:
+    case 0x08800000:
+    case 0x09000000:
+    case 0x09800000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
+        if (addr & 0x1) return GBACart::ROMRead(addr-1) >> 8; // safe to peek
+        return GBACart::ROMRead(addr) & 0xFF;
+
+    case 0x0A000000:
+    case 0x0A800000:
+        if (!(ExMemCnt[0] & (1<<7))) return 0x00; // deselected CPU is 00h-filled
+        return GBACart::SRAMRead(addr); // safe to peek
+    }
+
+    return 0;
 }
 
 }

@@ -1533,6 +1533,71 @@ void Write(u32 addr, u16 val)
     IOPORT(addr&0xFFF) = val;
 }
 
+u16 Peek(u32 addr)
+{//printf("WIFI READ %08X\n", addr);
+    if (addr >= 0x04810000)
+        return 0;
+
+    addr &= 0x7FFE;
+    //printf("WIFI: read %08X\n", addr);
+    if (addr >= 0x4000 && addr < 0x6000)
+    {
+        return *(u16*)&RAM[addr & 0x1FFE];
+    }
+    if (addr >= 0x2000 && addr < 0x4000)
+        return 0xFFFF;
+
+    bool activeread = (addr < 0x1000);
+
+    switch (addr)
+    {
+    case W_Random: // random generator. not accurate
+        return Random;
+
+    case W_Preamble:
+        return IOPORT(W_Preamble) & 0x0003;
+
+    case W_USCount0: return (u16)(USCounter & 0xFFFF);
+    case W_USCount1: return (u16)((USCounter >> 16) & 0xFFFF);
+    case W_USCount2: return (u16)((USCounter >> 32) & 0xFFFF);
+    case W_USCount3: return (u16)(USCounter >> 48);
+
+    case W_USCompare0: return (u16)(USCompare & 0xFFFF);
+    case W_USCompare1: return (u16)((USCompare >> 16) & 0xFFFF);
+    case W_USCompare2: return (u16)((USCompare >> 32) & 0xFFFF);
+    case W_USCompare3: return (u16)(USCompare >> 48);
+
+    case W_CmdCount: return (CmdCounter + 9) / 10;
+
+    case W_BBRead:
+        if ((IOPORT(W_BBCnt) & 0xF000) != 0x6000)
+        {
+            printf("WIFI: bad BB read, CNT=%04X\n", IOPORT(W_BBCnt));
+            return 0;
+        }
+        return BBRegs[IOPORT(W_BBCnt) & 0xFF];
+
+    case W_BBBusy:
+        return 0; // TODO eventually (BB busy flag)
+    case W_RFBusy:
+        return 0; // TODO eventually (RF busy flag)
+
+    case W_RXBufDataRead:
+        if (activeread)
+        {
+            u32 rdaddr = IOPORT(W_RXBufReadAddr);
+            return *(u16*)&RAM[rdaddr];
+        }
+        break;
+
+    case W_TXBusy:
+        return IOPORT(W_TXBusy) & 0x001F; // no bit for MP replies. odd
+    }
+
+    //printf("WIFI: read %08X\n", addr);
+    return IOPORT(addr&0xFFF);
+}
+
 
 u8* GetMAC()
 {

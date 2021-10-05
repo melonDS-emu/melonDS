@@ -233,6 +233,7 @@ bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const c
 void LoadBIOS();
 void SetupDirectBoot();
 void RelocateSave(const char* path, bool write);
+bool SRAMIsDirty();
 
 u32 RunFrame();
 
@@ -312,6 +313,10 @@ u32 ARM7IORead32(u32 addr);
 void ARM7IOWrite8(u32 addr, u8 val);
 void ARM7IOWrite16(u32 addr, u16 val);
 void ARM7IOWrite32(u32 addr, u32 val);
+
+u8 ARM9Peek8(u32 addr);
+u8 ARM7Peek8(u32 addr);
+u8 ARM9IOPeek8(u32 addr);
 
 }
 

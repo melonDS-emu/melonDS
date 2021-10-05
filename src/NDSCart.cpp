@@ -231,6 +231,11 @@ void CartCommon::FlushSRAMFile()
 {
 }
 
+bool CartCommon::SRAMIsDirty()
+{
+    return false;
+}
+
 int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
     if (CmdEncMode == 0)
@@ -461,7 +466,7 @@ void CartRetail::LoadSave(const char* path, u32 type)
         fseek(f, 0, SEEK_SET);
         fread(SRAM, 1, SRAMLength, f);
 
-        Platform::CloseFile(f, path);
+        fclose(f);
     }
 
     SRAMFileDirty = false;
@@ -524,6 +529,11 @@ void CartRetail::FlushSRAMFile()
 
     SRAMFileDirty = false;
     NDSCart_SRAMManager::RequestFlush();
+}
+
+bool CartRetail::SRAMIsDirty()
+{
+    return SRAMFileDirty;
 }
 
 int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
@@ -1719,6 +1729,12 @@ int ImportSRAM(const u8* data, u32 length)
 {
     if (Cart) return Cart->ImportSRAM(data, length);
     return 0;
+}
+
+bool SRAMIsDirty()
+{
+    if (Cart) return Cart->SRAMIsDirty();
+    return false;
 }
 
 void ResetCart()

@@ -3060,6 +3060,38 @@ void Write32(u32 addr, u32 val)
     printf("unknown GPU3D write32 %08X %08X\n", addr, val);
 }
 
+u8 Peek8(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04000600:
+        return GXStat & 0xFF;
+    case 0x04000601:
+        {
+            return ((GXStat >> 8) & 0xFF) |
+                   (PosMatrixStackPointer & 0x1F) |
+                   ((ProjMatrixStackPointer & 0x1) << 5);
+        }
+    case 0x04000602:
+        {
+            u32 fifolevel = CmdFIFO.Level();
+
+            return fifolevel & 0xFF;
+        }
+    case 0x04000603:
+        {
+            u32 fifolevel = CmdFIFO.Level();
+
+            return ((GXStat >> 24) & 0xFF) |
+                   (fifolevel >> 8) |
+                   (fifolevel < 128 ? (1<<1) : 0) |
+                   (fifolevel == 0  ? (1<<2) : 0);
+        }
+    }
+
+    return 0;
+}
+
 Renderer3D::Renderer3D(bool Accelerated)
 : Accelerated(Accelerated)
 { }
