@@ -431,7 +431,7 @@ void Write(u8 val, u32 hold)
             u32 cutoff = 0x7FA00 & FirmwareMask;
             fseek(f, cutoff, SEEK_SET);
             fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
-			Platform::CloseFile(f, FirmwarePath);
+            Platform::CloseFile(f, FirmwarePath);
         }
     }
 }
