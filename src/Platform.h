@@ -110,7 +110,7 @@ int LAN_RecvPacket(u8* data);
 
 bool Sleep(u64 usecs);
 
-void SetFrontendTime();
+void SetFrontendTime(time_t newTime);
 time_t GetFrontendTime();
 tm GetFrontendDate(time_t basetime);
 time_t ConvertDateToTime(tm date);
