@@ -144,7 +144,7 @@ void LoadFirmwareFromFile(FILE* f)
     fseek(f, 0, SEEK_SET);
     fread(Firmware, 1, FirmwareLength, f);
 
-    fclose(f);
+    Platform::CloseFile(f, FirmwarePath);
 
     // take a backup
     char fwBackupPath[sizeof(FirmwarePath) + 4];
@@ -431,7 +431,7 @@ void Write(u8 val, u32 hold)
             u32 cutoff = 0x7FA00 & FirmwareMask;
             fseek(f, cutoff, SEEK_SET);
             fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
-            fclose(f);
+			Platform::CloseFile(f, FirmwarePath);
         }
     }
 }
