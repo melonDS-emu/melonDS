@@ -56,7 +56,7 @@ private:
 
     bool CanFitFile(u32 len);
     bool DeleteDirectory(std::string path, int level);
-    void CleanupDirectory(std::string path, int level);
+    void CleanupDirectory(std::string sourcedir, std::string path, int level);
     bool ImportFile(std::string path, std::string in);
     bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
 

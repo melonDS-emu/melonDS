@@ -611,14 +611,14 @@ bool FATStorage::DeleteDirectory(std::string path, int level)
     return true;
 }
 
-void FATStorage::CleanupDirectory(std::string path, int level)
+void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int level)
 {
     if (level >= 32) return;
 
     fDIR dir;
     FILINFO info;
     FRESULT res;
-
+printf("CLEANING UP DIRECTORY %s (level=%d)\n", path.c_str(), level);
     std::string fullpath = "0:/" + path;
     res = f_opendir(&dir, fullpath.c_str());
     if (res != FR_OK) return;
@@ -634,11 +634,18 @@ void FATStorage::CleanupDirectory(std::string path, int level)
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
-
+printf("FOUND ENTRY %s %08X (%d/%d, %d)\n",
+       fullpath.c_str(), info.fattrib, FileIndex.count(fullpath), DirIndex.count(fullpath),
+       fs::exists(sourcedir+"/"+fullpath));
         if (info.fattrib & AM_DIR)
         {
             if (DirIndex.count(fullpath) < 1)
                 dirdeletelist.push_back(fullpath);
+            else if (!fs::is_directory(sourcedir+"/"+fullpath))
+            {
+                DirIndex.erase(fullpath);
+                dirdeletelist.push_back(fullpath);
+            }
             else
                 subdirlist.push_back(fullpath);
         }
@@ -646,6 +653,11 @@ void FATStorage::CleanupDirectory(std::string path, int level)
         {
             if (FileIndex.count(fullpath) < 1)
                 filedeletelist.push_back(fullpath);
+            else if (!fs::is_regular_file(sourcedir+"/"+fullpath))
+            {
+                FileIndex.erase(fullpath);
+                filedeletelist.push_back(fullpath);
+            }
         }
     }
 
@@ -665,7 +677,7 @@ void FATStorage::CleanupDirectory(std::string path, int level)
 
     for (auto& entry : subdirlist)
     {
-        CleanupDirectory(entry+"/", level+1);
+        CleanupDirectory(sourcedir, entry+"/", level+1);
     }
 }
 
@@ -727,7 +739,7 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
     if (level == 0)
     {
         // remove whatever isn't in the index
-        CleanupDirectory("", 0);
+        CleanupDirectory(sourcedir, "", 0);
 
         int srclen = strlen(sourcedir);
 
