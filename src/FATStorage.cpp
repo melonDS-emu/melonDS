@@ -185,6 +185,16 @@ void FATStorage::LoadIndex()
     for (const auto& [key, val] : DirIndex)
     {
         std::string path = val.Path;
+
+        if ((path.find("/./") != std::string::npos) ||
+            (path.find("/../") != std::string::npos) ||
+            (path.substr(0,2) == "./") ||
+            (path.substr(0,3) == "../"))
+        {
+            removelist.push_back(key);
+            continue;
+        }
+
         int sep = path.rfind('/');
         if (sep == std::string::npos) continue;
 
@@ -205,6 +215,16 @@ void FATStorage::LoadIndex()
     for (const auto& [key, val] : FileIndex)
     {
         std::string path = val.Path;
+
+        if ((path.find("/./") != std::string::npos) ||
+            (path.find("/../") != std::string::npos) ||
+            (path.substr(0,2) == "./") ||
+            (path.substr(0,3) == "../"))
+        {
+            removelist.push_back(key);
+            continue;
+        }
+
         int sep = path.rfind('/');
         if (sep == std::string::npos) continue;
 
