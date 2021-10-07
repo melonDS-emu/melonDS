@@ -531,7 +531,7 @@ int CartRetail::ImportSRAM(const u8* data, u32 length)
 int CartRetail::ExportSRAM(u8* data)
 {
     if (data)
-        memcpy(SRAM, data, SRAMLength);
+        memcpy(data, SRAM, SRAMLength);
 
     return SRAMLength;
 }
