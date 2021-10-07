@@ -40,6 +40,8 @@ public:
     virtual void LoadSave(const char* path, u32 type);
     virtual void RelocateSave(const char* path, bool write);
     virtual int ImportSRAM(const u8* data, u32 length);
+    virtual int ExportSRAM(u8* data);
+    virtual bool SRAMIsDirty();
     virtual void FlushSRAMFile();
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
@@ -77,6 +79,8 @@ public:
     virtual void LoadSave(const char* path, u32 type) override;
     virtual void RelocateSave(const char* path, bool write) override;
     virtual int ImportSRAM(const u8* data, u32 length) override;
+    virtual int ExportSRAM(u8* data);
+    virtual bool SRAMIsDirty();
     virtual void FlushSRAMFile() override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
@@ -212,6 +216,8 @@ void FlushSRAMFile();
 void RelocateSave(const char* path, bool write);
 
 int ImportSRAM(const u8* data, u32 length);
+int ExportSRAM(u8* data);
+bool SRAMIsDirty();
 
 void ResetCart();
 

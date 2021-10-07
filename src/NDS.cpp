@@ -1208,6 +1208,16 @@ int ImportSRAM(u8* data, u32 length)
     return NDSCart::ImportSRAM(data, length);
 }
 
+int ExportSRAM(u8* data)
+{
+    return NDSCart::ExportSRAM(data);
+}
+
+bool SRAMIsDirty()
+{
+    return NDSCart::SRAMIsDirty();
+}
+
 
 void Halt()
 {

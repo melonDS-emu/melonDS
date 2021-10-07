@@ -227,6 +227,16 @@ int CartCommon::ImportSRAM(const u8* data, u32 length)
     return 0;
 }
 
+int CartCommon::ExportSRAM(u8* data)
+{
+    return 0;
+}
+
+bool CartCommon::SRAMIsDirty()
+{
+    return false;
+}
+
 void CartCommon::FlushSRAMFile()
 {
 }
@@ -516,6 +526,19 @@ int CartRetail::ImportSRAM(const u8* data, u32 length)
     }
 
     return length - SRAMLength;
+}
+
+int CartRetail::ExportSRAM(u8* data)
+{
+    if (data)
+        memcpy(SRAM, data, SRAMLength);
+
+    return SRAMLength;
+}
+
+bool CartRetail::SRAMIsDirty()
+{
+    return SRAMFileDirty;
 }
 
 void CartRetail::FlushSRAMFile()
@@ -1719,6 +1742,18 @@ void FlushSRAMFile()
 int ImportSRAM(const u8* data, u32 length)
 {
     if (Cart) return Cart->ImportSRAM(data, length);
+    return 0;
+}
+
+int ExportSRAM(u8* data)
+{
+    if (Cart) return Cart->ExportSRAM(data);
+    return 0;
+}
+
+bool SRAMIsDirty()
+{
+    if (Cart) return Cart->SRAMIsDirty();
     return 0;
 }
 
