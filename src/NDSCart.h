@@ -79,8 +79,8 @@ public:
     virtual void LoadSave(const char* path, u32 type) override;
     virtual void RelocateSave(const char* path, bool write) override;
     virtual int ImportSRAM(const u8* data, u32 length) override;
-    virtual int ExportSRAM(u8* data);
-    virtual bool SRAMIsDirty();
+    virtual int ExportSRAM(u8* data) override;
+    virtual bool SRAMIsDirty() override;
     virtual void FlushSRAMFile() override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
