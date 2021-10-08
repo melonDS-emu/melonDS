@@ -156,6 +156,7 @@ void USTimer(u32 param);
 
 u16 Read(u32 addr);
 void Write(u32 addr, u16 val);
+u16 Peek(u32 addr);
 
 u8* GetMAC();
 u8* GetBSSID();
