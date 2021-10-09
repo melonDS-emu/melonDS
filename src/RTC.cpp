@@ -58,13 +58,30 @@ time_t (*RtcCallback)() = NULL;
 bool Init()
 {
     time_t timeAtBoot = (u32)Config::TimeAtBoot;
-    if (Config::UseRealTime && Config::FixedBootTime)
+    if (Config::FixedBootTime)
     {
-        struct tm dateAtBoot;
-        gmtime_r(&timeAtBoot, &dateAtBoot);
-        timeAtBoot = mktime(&dateAtBoot);
+        if (Config::UseRealTime)
+        {
+            struct tm dateAtBoot;
+            gmtime_r(&timeAtBoot, &dateAtBoot);
+            timeAtBoot = mktime(&dateAtBoot);
+        }
+        basetime = timeAtBoot - GetTime();
     }
-    basetime = Config::FixedBootTime ? (timeAtBoot - GetTime()) : 0;
+    else
+    {
+        basetime = time(NULL) - GetTime();
+        if (!Config::UseRealTime)
+        {
+            struct tm date;
+            localtime_r(&basetime, &date);
+            struct tm tmp = date;
+            gmtime_r(&basetime, &date);
+            date.tm_isdst = tmp.tm_isdst; // dumb hack
+            time_t t = mktime(&date);
+            basetime += basetime - t;
+        }
+    }
     return true;
 }
 
@@ -159,8 +176,9 @@ time_t DateToTime(tm date)
     time_t time = mktime(&date);
     if (!Config::UseRealTime)
     {
-        struct tm* utc = gmtime(&time);
-        time_t t = mktime(utc);
+        struct tm utc;
+        gmtime_r(&time, &utc);
+        time_t t = mktime(&utc);
         time += time - t;
     }
 

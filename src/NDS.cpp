@@ -177,6 +177,9 @@ void SetGBASlotTimings();
 
 bool Init()
 {
+    NumFrames = 0;
+    NumLagFrames = 0;
+
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
