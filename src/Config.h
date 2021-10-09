@@ -66,6 +66,10 @@ extern char DSiSDPath[1024];
 extern int RandomizeMAC;
 extern int AudioBitrate;
 
+extern int UseRealTime;
+extern int FixedBootTime;
+extern int TimeAtBoot;
+
 #ifdef JIT_ENABLED
 extern int JIT_Enable;
 extern int JIT_MaxBlockSize;

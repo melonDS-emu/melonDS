@@ -26,6 +26,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "RTC.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -63,6 +64,17 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
+
+    ui->chkUseRealTime->setChecked(Config::UseRealTime != 0);
+    ui->chkFixedBootTime->setChecked(Config::FixedBootTime != 0);
+    ui->dtmBootTime->setTimeSpec(Qt::UTC);
+    QDateTime minmax = QDateTime();
+    minmax.setDate(QDate(2000, 1, 1));
+    minmax.setTimeSpec(Qt::UTC);
+    ui->dtmBootTime->setMinimumDateTime(minmax);
+    minmax = minmax.addYears(100).addSecs(-1);
+    ui->dtmBootTime->setMaximumDateTime(minmax);
+    ui->dtmBootTime->setDateTime(QDateTime::fromSecsSinceEpoch(Config::TimeAtBoot, Qt::UTC));
 
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
@@ -143,6 +155,11 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+        QDateTime dtm = ui->dtmBootTime->dateTime();
+        dtm = dtm.addSecs(-dtm.time().second());
+        int fixedBootTime = ui->chkFixedBootTime->isChecked() ? 1:0;
+        int useRealTime = ui->chkUseRealTime->isChecked() ? 1:0;
+        int bootTime = (uint)dtm.toSecsSinceEpoch();
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
@@ -165,6 +182,9 @@ void EmuSettingsDialog::done(int r)
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
+            || useRealTime != Config::UseRealTime
+            || fixedBootTime != Config::FixedBootTime
+            || bootTime != Config::TimeAtBoot
 #ifdef JIT_ENABLED
             || jitEnable != Config::JIT_Enable
             || jitMaxBlockSize != Config::JIT_MaxBlockSize
@@ -215,6 +235,10 @@ void EmuSettingsDialog::done(int r)
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
+            Config::UseRealTime = useRealTime;
+            Config::FixedBootTime = fixedBootTime;
+            Config::TimeAtBoot = bootTime;
+            RTC::Init();
 
             Config::Save();
 

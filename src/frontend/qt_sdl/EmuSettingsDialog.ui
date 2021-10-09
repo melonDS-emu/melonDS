@@ -26,13 +26,26 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
        <string>General</string>
       </attribute>
       <layout class="QFormLayout" name="formLayout_4">
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_4">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Console type:</string>
+         </property>
+        </widget>
+       </item>
        <item row="1" column="1">
         <widget class="QComboBox" name="cbxConsoleType">
          <property name="sizePolicy">
@@ -56,7 +69,43 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="0">
+       <item row="5" column="1">
+        <widget class="QCheckBox" name="chkFixedBootTime">
+         <property name="whatsThis">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If checked, time will start at a specified boot time. Otherwise, the host's current date and time will be used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="text">
+          <string>Fixed boot time</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="label_12">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Date and time:</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QDateTimeEdit" name="dtmBootTime">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="whatsThis">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The date and time to use at initial boot, if fixed boot time is checked.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -69,16 +118,13 @@
          </property>
         </spacer>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_4">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="chkUseRealTime">
+         <property name="whatsThis">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If checked, the passage of time will be based on the host's clock. Otherwise, this will be emulated.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Console type:</string>
+          <string>Real time based RTC</string>
          </property>
         </widget>
        </item>
@@ -465,6 +511,7 @@
  <tabstops>
   <tabstop>cbxConsoleType</tabstop>
   <tabstop>chkDirectBoot</tabstop>
+  <tabstop>chkFixedBootTime</tabstop>
   <tabstop>chkEnableJIT</tabstop>
   <tabstop>spnJITMaximumBlockSize</tabstop>
  </tabstops>

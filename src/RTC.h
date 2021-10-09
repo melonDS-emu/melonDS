@@ -25,10 +25,14 @@
 namespace RTC
 {
 
+extern time_t (*RtcCallback)();
+
 bool Init();
 void DeInit();
 void Reset();
 void DoSavestate(Savestate* file);
+
+time_t GetTime();
 
 u16 Read();
 void Write(u16 val, bool byte);

@@ -22,6 +22,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "Config.h"
+#include "NDS.h"
 #include "RTC.h"
 
 
@@ -33,6 +35,9 @@ u16 IO;
 u8 Input;
 u32 InputBit;
 u32 InputPos;
+
+u8 ClockInput[7];
+time_t basetime;
 
 u8 Output[8];
 u32 OutputBit;
@@ -47,14 +52,25 @@ u8 Alarm2[3];
 u8 ClockAdjust;
 u8 FreeReg;
 
+time_t (*RtcCallback)() = NULL;
+
 
 bool Init()
 {
+    time_t timeAtBoot = (u32)Config::TimeAtBoot;
+    if (Config::UseRealTime && Config::FixedBootTime)
+    {
+        struct tm dateAtBoot;
+        gmtime_r(&timeAtBoot, &dateAtBoot);
+        timeAtBoot = mktime(&dateAtBoot);
+    }
+    basetime = Config::FixedBootTime ? (timeAtBoot - GetTime()) : 0;
     return true;
 }
 
 void DeInit()
 {
+    RtcCallback = NULL;
 }
 
 void Reset()
@@ -62,6 +78,8 @@ void Reset()
     Input = 0;
     InputBit = 0;
     InputPos = 0;
+
+    memset(ClockInput, 0, sizeof(ClockInput));
 
     memset(Output, 0, sizeof(Output));
     OutputPos = 0;
@@ -106,6 +124,49 @@ u8 BCD(u8 val)
     return (val % 10) | ((val / 10) << 4);
 }
 
+u8 FromBCD(u8 val)
+{
+    return (val & 0xF) + ((val >> 4) * 10);
+}
+
+time_t GetTime()
+{
+    if (RtcCallback)
+        return RtcCallback();
+    else
+    {
+        if (Config::UseRealTime)
+            return time(NULL);
+        else
+            return (NDS::NumFrames * 560190l + NDS::GetSysClockCycles(2)) / 33513982l; // 560190 cycles per frame, 33513982 cycles per second
+    }
+}
+
+struct tm GetDate()
+{
+    struct tm date;
+    time_t time = basetime + GetTime();
+    if (Config::UseRealTime)
+        localtime_r(&time, &date);
+    else
+        gmtime_r(&time, &date);
+
+    return date;
+}
+
+time_t DateToTime(tm date)
+{
+    time_t time = mktime(&date);
+    if (!Config::UseRealTime)
+    {
+        struct tm* utc = gmtime(&time);
+        time_t t = mktime(utc);
+        time += time - t;
+    }
+
+    return time;
+}
+
 
 void ByteIn(u8 val)
 {
@@ -128,9 +189,7 @@ void ByteIn(u8 val)
 
             case 0x20:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = GetDate();
 
                     Output[0] = BCD(timedata.tm_year - 100);
                     Output[1] = BCD(timedata.tm_mon + 1);
@@ -144,9 +203,7 @@ void ByteIn(u8 val)
 
             case 0x60:
                 {
-                    time_t timestamp = time(NULL);
-                    struct tm timedata;
-                    localtime_r(&timestamp, &timedata);
+                    struct tm timedata = GetDate();
 
                     Output[0] = BCD(timedata.tm_hour);
                     Output[1] = BCD(timedata.tm_min);
@@ -190,7 +247,20 @@ void ByteIn(u8 val)
         break;
 
     case 0x20:
-        // TODO: set time somehow??
+        if (InputPos == 5) val &= ~0x40; // clear am/pm flag for hours
+        ClockInput[InputPos - 1] = FromBCD(val);
+        if (InputPos == 7)
+        {
+            struct tm newDate = GetDate();
+            newDate.tm_year = ClockInput[0] + 100;
+            newDate.tm_mon = ClockInput[1] - 1;
+            newDate.tm_mday = ClockInput[2];
+            newDate.tm_wday = ClockInput[3];
+            newDate.tm_hour = ClockInput[4];
+            newDate.tm_min = ClockInput[5];
+            newDate.tm_sec = ClockInput[6];
+            basetime = DateToTime(newDate) - GetTime();
+        }
         break;
 
     case 0x60:
