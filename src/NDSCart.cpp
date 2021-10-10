@@ -1428,6 +1428,11 @@ void Reset(bool discard)
     ResetCart();
 }
 
+void SetupDirectBoot()
+{
+    if (Cart) Cart->SetupDirectBoot();
+}
+
 void DoSavestate(Savestate* file)
 {
     file->Section("NDSC");
@@ -1648,7 +1653,6 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         if (direct)
         {
             NDS::SetupDirectBoot();
-            Cart->SetupDirectBoot();
         }
     }
 

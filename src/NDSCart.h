@@ -200,6 +200,7 @@ extern NDSBanner Banner;
 bool Init();
 void DeInit();
 void Reset(bool discard = true);
+void SetupDirectBoot();
 
 void DoSavestate(Savestate* file);
 

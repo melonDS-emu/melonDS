@@ -449,6 +449,8 @@ void SetupDirectBoot()
     SPU::SetBias(0x200);
 
     SetWifiWaitCnt(0x0030);
+
+    NDSCart::SetupDirectBoot();
 }
 
 void Reset(bool discard)
