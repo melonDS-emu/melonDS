@@ -1409,18 +1409,21 @@ void DeInit()
     if (Cart) delete Cart;
 }
 
-void Reset()
+void Reset(bool discard)
 {
-    CartInserted = false;
-    if (CartROM) delete[] CartROM;
-    CartROM = nullptr;
-    CartROMSize = 0;
-    CartID = 0;
-    CartIsHomebrew = false;
-    CartIsDSi = false;
+    if (discard)
+    {
+        CartInserted = false;
+        if (CartROM) delete[] CartROM;
+        CartROM = nullptr;
+        CartROMSize = 0;
+        CartID = 0;
+        CartIsHomebrew = false;
+        CartIsDSi = false;
 
-    if (Cart) delete Cart;
-    Cart = nullptr;
+        if (Cart) delete Cart;
+        Cart = nullptr;
+    }
 
     ResetCart();
 }

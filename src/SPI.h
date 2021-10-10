@@ -54,7 +54,7 @@ extern u16 Cnt;
 
 bool Init();
 void DeInit();
-void Reset();
+void Reset(bool discard = true);
 void DoSavestate(Savestate* file);
 
 void WriteCnt(u16 val);

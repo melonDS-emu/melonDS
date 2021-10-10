@@ -197,80 +197,83 @@ void LoadUserSettingsFromConfig()
     Firmware[UserSettings+0x50] = messageLength;
 }
 
-void Reset()
+void Reset(bool discard)
 {
-    if (Firmware) delete[] Firmware;
-    Firmware = NULL;
-
-    if (NDS::ConsoleType == 1)
-        strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
-    else
-        strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
-
-    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
-    if (!f)
+    if (discard)
     {
-        printf("Firmware not found! Generating default firmware.\n");
-        LoadDefaultFirmware();
+        if (Firmware) delete[] Firmware;
+        Firmware = NULL;
+
+        if (NDS::ConsoleType == 1)
+            strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
+        else
+            strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
+
+        FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+        if (!f)
+        {
+            printf("Firmware not found! Generating default firmware.\n");
+            LoadDefaultFirmware();
+        }
+        else
+        {
+            LoadFirmwareFromFile(f);
+        }
+
+        FirmwareMask = FirmwareLength - 1;
+
+        u32 userdata = 0x7FE00 & FirmwareMask;
+        if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
+        {
+            if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
+                userdata += 0x100;
+        }
+
+        UserSettings = userdata;
+
+        if (!f || Config::FirmwareOverrideSettings)
+            LoadUserSettingsFromConfig();
+      
+        // fix touchscreen coords
+        *(u16*)&Firmware[userdata+0x58] = 0;
+        *(u16*)&Firmware[userdata+0x5A] = 0;
+        Firmware[userdata+0x5C] = 0;
+        Firmware[userdata+0x5D] = 0;
+        *(u16*)&Firmware[userdata+0x5E] = 255<<4;
+        *(u16*)&Firmware[userdata+0x60] = 191<<4;
+        Firmware[userdata+0x62] = 255;
+        Firmware[userdata+0x63] = 191;
+
+        // disable autoboot
+        //Firmware[userdata+0x64] &= 0xBF;
+
+        *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
+
+        if (Config::RandomizeMAC)
+        {
+            // replace MAC address with random address
+            Firmware[0x36] = 0x00;
+            Firmware[0x37] = 0x09;
+            Firmware[0x38] = 0xBF;
+            Firmware[0x39] = rand()&0xFF;
+            Firmware[0x3A] = rand()&0xFF;
+            Firmware[0x3B] = rand()&0xFF;
+
+            *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+        }
+
+        printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+               Firmware[0x36], Firmware[0x37], Firmware[0x38],
+               Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
+
+        // verify shit
+        printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
+        printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
+        printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
+        printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
+        printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
+        printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
     }
-    else
-    {
-        LoadFirmwareFromFile(f);
-    }
-
-    FirmwareMask = FirmwareLength - 1;
-
-    u32 userdata = 0x7FE00 & FirmwareMask;
-    if (*(u16*)&Firmware[userdata+0x170] == ((*(u16*)&Firmware[userdata+0x70] + 1) & 0x7F))
-    {
-        if (VerifyCRC16(0xFFFF, userdata+0x100, 0x70, userdata+0x172))
-            userdata += 0x100;
-    }
-
-    UserSettings = userdata;
-
-    if (!f || Config::FirmwareOverrideSettings)
-        LoadUserSettingsFromConfig();
-  
-    // fix touchscreen coords
-    *(u16*)&Firmware[userdata+0x58] = 0;
-    *(u16*)&Firmware[userdata+0x5A] = 0;
-    Firmware[userdata+0x5C] = 0;
-    Firmware[userdata+0x5D] = 0;
-    *(u16*)&Firmware[userdata+0x5E] = 255<<4;
-    *(u16*)&Firmware[userdata+0x60] = 191<<4;
-    Firmware[userdata+0x62] = 255;
-    Firmware[userdata+0x63] = 191;
-
-    // disable autoboot
-    //Firmware[userdata+0x64] &= 0xBF;
-
-    *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
-
-    if (Config::RandomizeMAC)
-    {
-        // replace MAC address with random address
-        Firmware[0x36] = 0x00;
-        Firmware[0x37] = 0x09;
-        Firmware[0x38] = 0xBF;
-        Firmware[0x39] = rand()&0xFF;
-        Firmware[0x3A] = rand()&0xFF;
-        Firmware[0x3B] = rand()&0xFF;
-
-        *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
-    }
-
-    printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-           Firmware[0x36], Firmware[0x37], Firmware[0x38],
-           Firmware[0x39], Firmware[0x3A], Firmware[0x3B]);
-
-    // verify shit
-    printf("FW: WIFI CRC16 = %s\n", VerifyCRC16(0x0000, 0x2C, *(u16*)&Firmware[0x2C], 0x2A)?"GOOD":"BAD");
-    printf("FW: AP1 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FA00&FirmwareMask, 0xFE, 0x7FAFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP2 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FB00&FirmwareMask, 0xFE, 0x7FBFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: AP3 CRC16 = %s\n", VerifyCRC16(0x0000, 0x7FC00&FirmwareMask, 0xFE, 0x7FCFE&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER0 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FE00&FirmwareMask, 0x70, 0x7FE72&FirmwareMask)?"GOOD":"BAD");
-    printf("FW: USER1 CRC16 = %s\n", VerifyCRC16(0xFFFF, 0x7FF00&FirmwareMask, 0x70, 0x7FF72&FirmwareMask)?"GOOD":"BAD");
 
     Hold = 0;
     CurCmd = 0;
@@ -702,11 +705,11 @@ void DeInit()
     DSi_SPI_TSC::DeInit();
 }
 
-void Reset()
+void Reset(bool discard)
 {
     Cnt = 0;
 
-    SPI_Firmware::Reset();
+    SPI_Firmware::Reset(discard);
     SPI_Powerman::Reset();
     SPI_TSC::Reset();
     if (NDS::ConsoleType == 1) DSi_SPI_TSC::Reset();

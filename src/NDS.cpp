@@ -451,7 +451,7 @@ void SetupDirectBoot()
     SetWifiWaitCnt(0x0030);
 }
 
-void Reset()
+void Reset(bool discard)
 {
     FILE* f;
     u32 i;
@@ -459,52 +459,55 @@ void Reset()
     RunningGame = false;
     LastSysClockCycles = 0;
 
-    memset(ARM9BIOS, 0, 0x1000);
-    memset(ARM7BIOS, 0, 0x4000);
-
-    // DS BIOSes are always loaded, even in DSi mode
-    // we need them for DS-compatible mode
-
-    if (Config::ExternalBIOSEnable)
+    if (discard)
     {
-        f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
-        if (!f)
-        {
-            printf("ARM9 BIOS not found\n");
+        memset(ARM9BIOS, 0, 0x1000);
+        memset(ARM7BIOS, 0, 0x4000);
 
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        // DS BIOSes are always loaded, even in DSi mode
+        // we need them for DS-compatible mode
+
+        if (Config::ExternalBIOSEnable)
+        {
+            f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+            if (!f)
+            {
+                printf("ARM9 BIOS not found\n");
+
+                for (i = 0; i < 16; i++)
+                    ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+            }
+            else
+            {
+                fseek(f, 0, SEEK_SET);
+                fread(ARM9BIOS, 0x1000, 1, f);
+
+                printf("ARM9 BIOS loaded\n");
+                fclose(f);
+            }
+
+            f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+            if (!f)
+            {
+                printf("ARM7 BIOS not found\n");
+
+                for (i = 0; i < 16; i++)
+                    ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+            }
+            else
+            {
+                fseek(f, 0, SEEK_SET);
+                fread(ARM7BIOS, 0x4000, 1, f);
+
+                printf("ARM7 BIOS loaded\n");
+                fclose(f);
+            }
         }
         else
         {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM9BIOS, 0x1000, 1, f);
-
-            printf("ARM9 BIOS loaded\n");
-            fclose(f);
+            memcpy(ARM9BIOS, bios_arm9_bin, bios_arm9_bin_len);
+            memcpy(ARM7BIOS, bios_arm7_bin, bios_arm7_bin_len);
         }
-
-        f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
-        if (!f)
-        {
-            printf("ARM7 BIOS not found\n");
-
-            for (i = 0; i < 16; i++)
-                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
-        }
-        else
-        {
-            fseek(f, 0, SEEK_SET);
-            fread(ARM7BIOS, 0x4000, 1, f);
-
-            printf("ARM7 BIOS loaded\n");
-            fclose(f);
-        }
-    }
-    else
-    {
-        memcpy(ARM9BIOS, bios_arm9_bin, bios_arm9_bin_len);
-        memcpy(ARM7BIOS, bios_arm7_bin, bios_arm7_bin_len);
     }
 
 #ifdef JIT_ENABLED
@@ -513,7 +516,7 @@ void Reset()
 
     if (ConsoleType == 1)
     {
-        DSi::LoadBIOS();
+        if (discard) DSi::LoadBIOS();
         DSi::LoadNAND();
 
         ARM9ClockShift = 2;
@@ -597,11 +600,11 @@ void Reset()
     KeyCnt = 0;
     RCnt = 0;
 
-    NDSCart::Reset();
+    NDSCart::Reset(discard);
     GBACart::Reset();
     GPU::Reset();
     SPU::Reset();
-    SPI::Reset();
+    SPI::Reset(discard);
     RTC::Reset();
     Wifi::Reset();
 

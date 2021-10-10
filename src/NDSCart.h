@@ -199,7 +199,7 @@ extern NDSBanner Banner;
 
 bool Init();
 void DeInit();
-void Reset();
+void Reset(bool discard = true);
 
 void DoSavestate(Savestate* file);
 

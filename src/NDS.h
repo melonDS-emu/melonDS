@@ -215,7 +215,7 @@ extern u8* ARM7WRAM;
 
 bool Init();
 void DeInit();
-void Reset();
+void Reset(bool discord = true);
 void Stop();
 
 bool DoSavestate(Savestate* file);
