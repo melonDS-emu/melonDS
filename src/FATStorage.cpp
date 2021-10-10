@@ -264,7 +264,7 @@ void FATStorage::SaveIndex()
 
 bool FATStorage::ExportFile(std::string path, std::string out, fs::file_time_type& modtime)
 {
-    FIL file;
+    FF_FIL file;
     FILE* fout;
     FRESULT res;
 
@@ -316,8 +316,8 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
 {
     if (level >= 32) return;
 
-    fDIR dir;
-    FILINFO info;
+    FF_DIR dir;
+    FF_FILINFO info;
     FRESULT res;
 printf("EXPORTING DIRECTORY %s (base %s level %d)\n", path.c_str(), outbase.c_str(), level);
     std::string fullpath = "0:/" + path;
@@ -494,7 +494,7 @@ void FATStorage::ExportChanges(std::string outbase)
     for (const auto& [key, val] : FileIndex)
     {
         std::string innerpath = "0:/" + val.Path;
-        FILINFO finfo;
+        FF_FILINFO finfo;
         FRESULT res = f_stat(innerpath.c_str(), &finfo);
         if (res == FR_OK)
         {
@@ -528,7 +528,7 @@ void FATStorage::ExportChanges(std::string outbase)
     for (const auto& [key, val] : DirIndex)
     {
         std::string innerpath = "0:/" + val.Path;
-        FILINFO finfo;
+        FF_FILINFO finfo;
         FRESULT res = f_stat(innerpath.c_str(), &finfo);
         if (res == FR_OK)
         {
@@ -574,8 +574,8 @@ bool FATStorage::DeleteDirectory(std::string path, int level)
     if (level >= 32) return false;
     if (path.length() < 1) return false;
 
-    fDIR dir;
-    FILINFO info;
+    FF_DIR dir;
+    FF_FILINFO info;
     FRESULT res;
 
     std::string fullpath = "0:/" + path;
@@ -635,8 +635,8 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
 {
     if (level >= 32) return;
 
-    fDIR dir;
-    FILINFO info;
+    FF_DIR dir;
+    FF_FILINFO info;
     FRESULT res;
 printf("CLEANING UP DIRECTORY %s (level=%d)\n", path.c_str(), level);
     std::string fullpath = "0:/" + path;
@@ -703,7 +703,7 @@ printf("FOUND ENTRY %s %08X (%d/%d, %d)\n",
 
 bool FATStorage::ImportFile(std::string path, std::string in)
 {
-    FIL file;
+    FF_FIL file;
     FILE* fin;
     FRESULT res;
 
@@ -833,7 +833,7 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
                     innerpath = "0:/" + innerpath;
                     if (ImportFile(innerpath, fullpath))
                     {
-                        FILINFO finfo;
+                        FF_FILINFO finfo;
                         f_stat(innerpath.c_str(), &finfo);
 
                         ientry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
@@ -853,59 +853,8 @@ bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int 
         return false;
     }
 
-    char fullpath[1024] = {0};
-    snprintf(fullpath, 1023, "%s%s", sourcedir, path);
 
-    DIR* dir = opendir(fullpath);
-    if (!dir) return false;
-
-    bool res = true;
-    for (;;)
-    {
-        errno = 0;
-        struct dirent* entry = readdir(dir);
-        if (!entry)
-        {
-            if (errno != 0) res = false;
-            break;
-        }
-
-        if (entry->d_name[0] == '.')
-        {
-            if (entry->d_name[1] == '\0') continue;
-            if (entry->d_name[1] == '.' && entry->d_name[2] == '\0') continue;
-        }
-
-        snprintf(fullpath, 1023, "%s%s/%s", sourcedir, path, entry->d_name);
-
-        int entrytype = GetDirEntryType(fullpath, entry);
-        if (entrytype == -1) continue;
-
-        if (entrytype == 1) // directory
-        {
-            snprintf(fullpath, 1023, "0:%s/%s", path, entry->d_name);
-            FRESULT fres = f_mkdir(fullpath);
-            if (fres == FR_OK)
-            {
-                if (!BuildSubdirectory(sourcedir, &fullpath[2], level+1))
-                    res = false;
-            }
-            else
-                res = false;
-        }
-        else // file
-        {
-            char importpath[1024] = {0};
-            snprintf(importpath, 1023, "0:%s/%s", path, entry->d_name);
-            printf("importing %s to %s\n", fullpath, importpath);
-            if (!ImportFile(importpath, fullpath))
-                res = false;
-        }
-    }
-
-    closedir(dir);
-
-    return res;
+    return false;
 }
 
 bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
@@ -936,7 +885,13 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
         // TODO: determine proper FAT type!
         // for example: libfat tries to determine the FAT type from the number of clusters
         // which doesn't match the way fatfs handles autodetection
-        MKFS_PARM fsopt;
+        //
+        // partition->dataStart = partition->rootDirStart + (( u8array_to_u16(sectorBuffer, BPB_rootEntries) * DIR_ENTRY_DATA_SIZE) / partition->bytesPerSector);
+        // uint32_t clusterCount = (partition->numberOfSectors - (uint32_t)(partition->dataStart - startSector)) / partition->sectorsPerCluster;
+        // FAT12: max cluster count 4085
+        // FAT16; max cluster count: 65525
+        //
+        FF_MKFS_PARM fsopt;
         fsopt.fmt = FM_FAT;// | FM_FAT32;
         fsopt.au_size = 0;
         fsopt.align = 1;
