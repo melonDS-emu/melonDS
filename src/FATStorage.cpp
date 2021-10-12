@@ -16,13 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifdef __WIN32__
-#include <windows.h>
-#else
-#include <sys/types.h>
-#endif // __WIN32__
 #include <dirent.h>
-#include <errno.h>
 #include <inttypes.h>
 
 #include "FATStorage.h"
@@ -31,26 +25,11 @@
 namespace fs = std::filesystem;
 
 
-static int GetDirEntryType(const char* path, struct dirent* entry)
-{
-#ifdef __WIN32__
-    DWORD res = GetFileAttributesA(path);
-    if (res == INVALID_FILE_ATTRIBUTES) return -1;
-    if (res & FILE_ATTRIBUTE_DIRECTORY) return 1;
-    if (res & (FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_DEVICE | FILE_ATTRIBUTE_VIRTUAL)) return -1;
-    return 0;
-#else
-    if (entry->d_type == DT_DIR) return 1;
-    if (entry->d_type == DT_REG) return 0;
-    return -1;
-#endif // __WIN32__
-}
-
-
 FATStorage::FATStorage()
 {
     printf("FATStorage begin\n");
-    bool res = Build("dldi", 0x20000000, "melonDLDI.bin");
+    //bool res = Build("dldi", 0x20000000, "melonDLDI.bin");
+    bool res = Build("dldi", 0x3F000000, "melonDLDI.bin");
     printf("FATStorage result: %d\n", res);
 }
 
@@ -128,7 +107,15 @@ void FATStorage::LoadIndex()
         if (fgets(linebuf, 1536, f) == nullptr)
             break;
 
-        if (linebuf[0] == 'D')
+        if (linebuf[0] == 'S')
+        {
+            u64 fsize;
+            int ret = sscanf(linebuf, "SIZE %" PRIu64, &fsize);
+            if (ret < 1) continue;
+
+            FileSize = fsize;
+        }
+        else if (linebuf[0] == 'D')
         {
             u32 readonly;
             char fpath[1536] = {0};
@@ -245,6 +232,8 @@ void FATStorage::SaveIndex()
 {
     FILE* f = Platform::OpenLocalFile(IndexPath.c_str(), "w");
     if (!f) return;
+
+    fprintf(f, "SIZE %" PRIu64 "\r\n", FileSize);
 
     for (const auto& [key, val] : DirIndex)
     {
@@ -862,37 +851,62 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
     FilePath = filename;
     FileSize = size;
 
+    bool isnew = false;
     FF_File = Platform::OpenLocalFile(filename, "r+b");
     if (!FF_File)
     {
         FF_File = Platform::OpenLocalFile(filename, "w+b");
         if (!FF_File)
             return false;
+
+        isnew = true;
     }
 
     IndexPath = FilePath + ".idx";
-    LoadIndex();
+    if (isnew)
+    {
+        DirIndex.clear();
+        FileIndex.clear();
+        SaveIndex();
+    }
+    else
+        LoadIndex();
 
     FF_FileSize = size;
     ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(size>>9));
 
     FRESULT res;
     FATFS fs;
+    bool needformat = false;
 
     res = f_mount(&fs, "0:", 1);
     if (res != FR_OK)
     {
-        // TODO: determine proper FAT type!
-        // for example: libfat tries to determine the FAT type from the number of clusters
-        // which doesn't match the way fatfs handles autodetection
-        //
-        // partition->dataStart = partition->rootDirStart + (( u8array_to_u16(sectorBuffer, BPB_rootEntries) * DIR_ENTRY_DATA_SIZE) / partition->bytesPerSector);
-        // uint32_t clusterCount = (partition->numberOfSectors - (uint32_t)(partition->dataStart - startSector)) / partition->sectorsPerCluster;
-        // FAT12: max cluster count 4085
-        // FAT16; max cluster count: 65525
-        //
+        needformat = true;
+    }
+    else if (size != FileSize)
+    {
+        printf("VOLUME NEEDS REFORMATTING BECAUSE SIZE CHANGED (%016llX != %016llX)\n", size, FileSize);
+        needformat = true;
+    }
+
+    if (needformat)
+    {
+        FileSize = size;
+        DirIndex.clear();
+        FileIndex.clear();
+        SaveIndex();
+
         FF_MKFS_PARM fsopt;
-        fsopt.fmt = FM_FAT;// | FM_FAT32;
+
+        // FAT type: we force it to FAT32 for any volume that is 1GB or more
+        // libfat attempts to determine the FAT type from the volume size and other parameters
+        // which can lead to it trying to interpret a FAT16 volume as FAT32
+        if (size >= 0x40000000ULL)
+            fsopt.fmt = FM_FAT32;
+        else
+            fsopt.fmt = FM_FAT;
+
         fsopt.au_size = 0;
         fsopt.align = 1;
         fsopt.n_fat = 1;
