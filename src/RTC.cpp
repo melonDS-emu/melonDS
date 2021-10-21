@@ -122,7 +122,7 @@ void DoSavestate(Savestate* file)
     file->Var32(&InputPos);
     
     file->VarArray(ClockInput, sizeof(ClockInput));
-    file->Var64(&(u64)BaseTime);
+    file->Var64((u64*)&BaseTime);
 
     file->VarArray(Output, sizeof(Output));
     file->Var32(&OutputBit);
@@ -165,7 +165,7 @@ time_t GetTime()
 struct tm GetDate()
 {
     struct tm date;
-    time_t time = basetime + GetTime();
+    time_t time = BaseTime + GetTime();
     if (Config::UseRealTime)
         localtime_r(&time, &date);
     else
