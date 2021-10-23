@@ -57,6 +57,7 @@ int GL_ScaleFactor;
 int GL_BetterPolygons;
 
 int LimitFPS;
+int FPSRate;
 int AudioSync;
 int ShowOSD;
 
@@ -166,6 +167,7 @@ ConfigEntry PlatformConfigFile[] =
     {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
     {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"FPSRate", 0, &FPSRate, 60, NULL, 0},
     {"AudioSync", 0, &AudioSync, 0, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 

@@ -73,6 +73,7 @@ extern int GL_ScaleFactor;
 extern int GL_BetterPolygons;
 
 extern int LimitFPS;
+extern int FPSRate;
 extern int AudioSync;
 extern int ShowOSD;
 
