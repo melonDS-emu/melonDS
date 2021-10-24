@@ -59,6 +59,7 @@
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
+#include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 
 #include "types.h"
@@ -1382,6 +1383,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
+        actRAMInfo = menu->addAction("RAM info");
+        connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+
         actTitleManager = menu->addAction("Manage DSi titles");
         connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
     }
@@ -1593,6 +1597,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actEnableCheats->setChecked(Config::EnableCheats != 0);
 
     actROMInfo->setEnabled(false);
+    actRAMInfo->setEnabled(false);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
 
@@ -2400,6 +2405,11 @@ void MainWindow::onROMInfo()
     ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
 }
 
+void MainWindow::onRAMInfo()
+{
+    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
+}
+
 void MainWindow::onOpenTitleManager()
 {
     TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
@@ -2689,6 +2699,7 @@ void MainWindow::onEmuStart()
     actTitleManager->setEnabled(false);
 
     actROMInfo->setEnabled(true);
+    actRAMInfo->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -2712,6 +2723,7 @@ void MainWindow::onEmuStop()
     actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
 
     actROMInfo->setEnabled(false);
+    actRAMInfo->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
