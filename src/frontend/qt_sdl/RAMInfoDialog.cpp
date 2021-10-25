@@ -19,7 +19,9 @@
 #include "RAMInfoDialog.h"
 #include "ui_RAMInfoDialog.h"
 
-#include <QScrollBar>
+#include "main.h"
+
+extern EmuThread* emuThread;
 
 s32 GetMainRAMVAlue(const u32& addr, const ramInfo_ByteType& byteType)
 {
@@ -55,15 +57,18 @@ RAMInfoDialog::RAMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RAMI
     // First search (Show evenything in main ram)
     SearchThread->Start(ramInfoSTh_SearchAll);
 
-    UpdateThread = new RAMUpdateThread(this);
-    connect(UpdateThread, &RAMUpdateThread::UpdateTable, this, &RAMInfoDialog::ShowRowsInTable);
-    UpdateThread->start();
+    TableUpdater = new QTimer(this);
+    TableUpdater->setInterval(100);
+    connect(TableUpdater, &QTimer::timeout, this, &RAMInfoDialog::ShowRowsInTable);
+    TableUpdater->start();
 }
 
 RAMInfoDialog::~RAMInfoDialog()
 {
     delete SearchThread;
-    delete UpdateThread;
+    if (TableUpdater->isActive())
+        TableUpdater->stop();
+    delete TableUpdater;
     delete ui;
 }
 
@@ -137,21 +142,14 @@ void RAMInfoDialog::on_btnSearch_clicked()
     else
         SearchThread->Start(ui->txtSearch->text().toInt());
     
-    if (UpdateThread->isFinished())
-        UpdateThread->start();
+    if (!TableUpdater->isActive())
+        TableUpdater->start();
 }
 
 void RAMInfoDialog::on_btnClear_clicked()
 {
     SearchThread->Stop();
-    UpdateThread->Stop();
-
-    // If threads are finished, clear the table immediately
-    // But if not, wait
-    if (!SearchThread->isFinished())
-        SearchThread->wait();
-    if (!UpdateThread->isFinished())
-        UpdateThread->wait();
+    TableUpdater->stop();
 
     ui->radiobtn1byte->setEnabled(true);
     ui->radiobtn2bytes->setEnabled(true);
@@ -227,8 +225,10 @@ void RAMSearchThread::Stop()
 void RAMSearchThread::run()
 {
     SearchRunning = true;
-    
     u32 progress = 0;
+
+    // Pause game running
+    emuThread->emuPause();
 
     // For following search modes below, RowDataVector must be filled.
     if (SearchMode == ramInfoSTh_SearchAll || RowDataVector->size() == 0)
@@ -274,6 +274,9 @@ void RAMSearchThread::run()
         RowDataVector = newRowDataVector;
     }
 
+    // Unpause game running
+    emuThread->emuUnpause();
+
     SearchRunning = false;
 }
 
@@ -290,35 +293,4 @@ ramInfo_ByteType RAMSearchThread::GetSearchByteType() const
 std::vector<ramInfo_RowData>* RAMSearchThread::GetResults()
 {
     return RowDataVector;
-}
-
-/**
- * RAMChangeThread
- */
-
-RAMUpdateThread::RAMUpdateThread(RAMInfoDialog* dialog) : Dialog(dialog)
-{
-
-}
-
-RAMUpdateThread::~RAMUpdateThread()
-{
-    Stop();
-}
-
-void RAMUpdateThread::Stop()
-{
-    IsRunning = false;
-    quit();
-    wait();
-}
-
-void RAMUpdateThread::run()
-{
-    IsRunning = true;
-    while (IsRunning)
-    {
-        emit UpdateTable();
-        msleep(100);
-    }
 }

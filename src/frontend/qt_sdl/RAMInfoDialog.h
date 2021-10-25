@@ -20,8 +20,10 @@
 #define RAMINFODIALOG_H
 
 #include <QDialog>
-#include <QThread>
 #include <QTableWidget>
+#include <QScrollBar>
+#include <QThread>
+#include <QTimer>
 
 #include "types.h"
 #include "NDS.h"
@@ -119,7 +121,7 @@ private:
     Ui::RAMInfoDialog* ui;
     
     RAMSearchThread* SearchThread;
-    RAMUpdateThread* UpdateThread;
+    QTimer* TableUpdater;
 };
 
 class RAMSearchThread : public QThread
@@ -154,26 +156,6 @@ private:
 
 signals:
     void SetProgressbarValue(const u32& value);
-};
-
-class RAMUpdateThread : public QThread
-{
-     Q_OBJECT
-
-public:
-    explicit RAMUpdateThread(RAMInfoDialog* dialog);
-    ~RAMUpdateThread() override;
-
-    void Stop();
-
-private:
-    void run();
-    
-    RAMInfoDialog *Dialog;
-    bool IsRunning;
-
-signals:
-    void UpdateTable();
 };
 
 #endif // RAMINFODIALOG_H
