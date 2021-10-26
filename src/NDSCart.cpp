@@ -1164,23 +1164,23 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
-    test = nullptr;
-    if (Config::DLDIEnable)
+    //if (Config::DLDIEnable)
+    if (true)
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
-        test = new FATStorage();
-        SDFile = Platform::OpenLocalFile(/*Config::DLDISDPath*/"melonDLDI.bin", "r+b");
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), true);
+        SD = new FATStorage();
+        SD->Open();
     }
     else
-        SDFile = nullptr;
+        SD = nullptr;
 }
 
 CartHomebrew::~CartHomebrew()
 {
-    if (SDFile) fclose(SDFile);
-    if (test)
+    if (SD)
     {
-        delete test;
+        SD->Close();
+        delete SD;
     }
 }
 
@@ -1188,12 +1188,7 @@ void CartHomebrew::Reset()
 {
     CartCommon::Reset();
 
-    if (SDFile) fclose(SDFile);
-
-    if (Config::DLDIEnable)
-        SDFile = Platform::OpenLocalFile(/*Config::DLDISDPath*/"melonDLDI.bin", "r+b");
-    else
-        SDFile = nullptr;
+    // TODO??? something about the FATStorage thing?
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1226,13 +1221,7 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
     case 0xC0: // SD read
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-//printf("SD READ: %08X, %p\n", sector, SDFile);
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fread(data, len, 1, SDFile);
-            }
+            if (SD) SD->ReadSectors(sector, len>>9, data);
         }
         return 0;
 
@@ -1255,13 +1244,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fwrite(data, len, 1, SDFile);
-            }
+            if (SD && true) SD->WriteSectors(sector, len>>9, data);
         }
         break;
 
@@ -1270,7 +1253,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
+void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
 {
     u32 offset = *(u32*)&ROM[0x20];
     u32 size = *(u32*)&ROM[0x2C];
@@ -1385,6 +1368,19 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         u32 fixend = *(u32*)&patch[0x5C] - patchbase;
 
         memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
+    }
+
+    if (readonly)
+    {
+        // clear the can-write feature flag
+        binary[dldioffset+0x64] &= ~0x02;
+
+        // make writeSectors() return failure
+        u32 writesec_addr = *(u32*)&binary[dldioffset+0x74];
+        writesec_addr -= memaddr;
+        writesec_addr += dldioffset;
+        *(u32*)&binary[writesec_addr+0x00] = 0xE3A00000; // mov r0, #0
+        *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
     }
 
     printf("applied DLDI patch\n");

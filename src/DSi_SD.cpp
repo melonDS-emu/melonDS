@@ -112,13 +112,13 @@ void DSi_SDHost::Reset()
         DSi_MMCStorage* sd;
         DSi_MMCStorage* mmc;
 
-        if (Config::DSiSDEnable)
+        /*if (Config::DSiSDEnable)
         {
             sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
-        else
+        else*/
             sd = nullptr;
 
         mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);

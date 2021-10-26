@@ -34,6 +34,12 @@ public:
     FATStorage();
     ~FATStorage();
 
+    bool Open();
+    void Close();
+
+    u32 ReadSectors(u32 start, u32 num, u8* data);
+    u32 WriteSectors(u32 start, u32 num, u8* data);
+
 private:
     std::string FilePath;
     std::string IndexPath;
@@ -45,6 +51,9 @@ private:
     static u64 FF_FileSize;
     static UINT FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num);
     static UINT FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num);
+
+    static u32 ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data);
+    static u32 WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data);
 
     void LoadIndex();
     void SaveIndex();

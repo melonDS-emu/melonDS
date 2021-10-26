@@ -31,6 +31,8 @@ FATStorage::FATStorage()
     //bool res = Build("dldi", 0x20000000, "melonDLDI.bin");
     bool res = Build("dldi", 0x3F000000, "melonDLDI.bin");
     printf("FATStorage result: %d\n", res);
+
+    File = nullptr;
 }
 
 FATStorage::~FATStorage()
@@ -40,31 +42,70 @@ FATStorage::~FATStorage()
 }
 
 
+bool FATStorage::Open()
+{
+    File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
+    if (!File)
+    {
+        File = nullptr;
+        return false;
+    }
+}
+
+void FATStorage::Close()
+{
+    if (File) fclose(File);
+    File = nullptr;
+}
+
+
+u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data)
+{
+    return ReadSectorsInternal(File, FileSize, start, num, data);
+}
+
+u32 FATStorage::WriteSectors(u32 start, u32 num, u8* data)
+{
+    return WriteSectorsInternal(File, FileSize, start, num, data);
+}
+
+
 FILE* FATStorage::FF_File;
 u64 FATStorage::FF_FileSize;
 
 UINT FATStorage::FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num)
 {
-    if (!FF_File) return 0;
+    return ReadSectorsInternal(FF_File, FF_FileSize, sector, num, buf);
+}
 
-    u64 addr = sector * 0x200ULL;
+UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
+{
+    return WriteSectorsInternal(FF_File, FF_FileSize, sector, num, buf);
+}
+
+
+u32 FATStorage::ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data)
+{
+    if (!file) return 0;
+
+    u64 addr = start * 0x200ULL;
     u32 len = num * 0x200;
 
-    if ((addr+len) > FF_FileSize)
+    if ((addr+len) > filelen)
     {
-        if (addr >= FF_FileSize) return 0;
-        len = FF_FileSize - addr;
+        if (addr >= filelen) return 0;
+        len = filelen - addr;
         num = len >> 9;
     }
 
-    fseek(FF_File, addr, SEEK_SET);
+    fseek(file, addr, SEEK_SET);
 
-    u32 res = fread(buf, 0x200, num, FF_File);
+    u32 res = fread(data, 0x200, num, file);
     if (res < num)
     {
-        if (feof(FF_File))
+        if (feof(file))
         {
-            memset(&buf[0x200*res], 0, 0x200*(num-res));
+            memset(&data[0x200*res], 0, 0x200*(num-res));
             return num;
         }
     }
@@ -72,23 +113,23 @@ UINT FATStorage::FF_ReadStorage(BYTE* buf, LBA_t sector, UINT num)
     return res;
 }
 
-UINT FATStorage::FF_WriteStorage(BYTE* buf, LBA_t sector, UINT num)
+u32 FATStorage::WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num, u8* data)
 {
-    if (!FF_File) return 0;
+    if (!file) return 0;
 
-    u64 addr = sector * 0x200ULL;
+    u64 addr = start * 0x200ULL;
     u32 len = num * 0x200;
 
-    if ((addr+len) > FF_FileSize)
+    if ((addr+len) > filelen)
     {
-        if (addr >= FF_FileSize) return 0;
-        len = FF_FileSize - addr;
+        if (addr >= filelen) return 0;
+        len = filelen - addr;
         num = len >> 9;
     }
 
-    fseek(FF_File, addr, SEEK_SET);
+    fseek(file, addr, SEEK_SET);
 
-    u32 res = fwrite(buf, 0x200, num, FF_File);
+    u32 res = fwrite(data, 0x200, num, file);
     return res;
 }
 
