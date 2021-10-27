@@ -37,7 +37,7 @@ u32 InputBit;
 u32 InputPos;
 
 u8 ClockInput[7];
-time_t basetime;
+time_t BaseTime;
 
 u8 Output[8];
 u32 OutputBit;
@@ -66,20 +66,20 @@ bool Init()
             gmtime_r(&timeAtBoot, &dateAtBoot);
             timeAtBoot = mktime(&dateAtBoot);
         }
-        basetime = timeAtBoot - GetTime();
+        BaseTime = timeAtBoot - GetTime();
     }
     else
     {
-        basetime = time(NULL) - GetTime();
+        BaseTime = time(NULL) - GetTime();
         if (!Config::UseRealTime)
         {
             struct tm date;
-            localtime_r(&basetime, &date);
+            localtime_r(&BaseTime, &date);
             struct tm tmp = date;
-            gmtime_r(&basetime, &date);
+            gmtime_r(&BaseTime, &date);
             date.tm_isdst = tmp.tm_isdst; // dumb hack
             time_t t = mktime(&date);
-            basetime += basetime - t;
+            BaseTime += BaseTime - t;
         }
     }
     return true;
@@ -120,6 +120,9 @@ void DoSavestate(Savestate* file)
     file->Var8(&Input);
     file->Var32(&InputBit);
     file->Var32(&InputPos);
+    
+    file->VarArray(ClockInput, sizeof(ClockInput));
+    file->Var64((u64*)&BaseTime);
 
     file->VarArray(Output, sizeof(Output));
     file->Var32(&OutputBit);
@@ -162,7 +165,7 @@ time_t GetTime()
 struct tm GetDate()
 {
     struct tm date;
-    time_t time = basetime + GetTime();
+    time_t time = BaseTime + GetTime();
     if (Config::UseRealTime)
         localtime_r(&time, &date);
     else
@@ -277,7 +280,7 @@ void ByteIn(u8 val)
             newDate.tm_hour = ClockInput[4];
             newDate.tm_min = ClockInput[5];
             newDate.tm_sec = ClockInput[6];
-            basetime = DateToTime(newDate) - GetTime();
+            BaseTime = DateToTime(newDate) - GetTime();
         }
         break;
 
