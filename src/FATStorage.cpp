@@ -289,7 +289,7 @@ void FATStorage::SaveIndex()
 }
 
 
-bool FATStorage::ExportFile(std::string path, std::string out, fs::file_time_type& modtime)
+bool FATStorage::ExportFile(std::string path, std::string out)
 {
     FF_FIL file;
     FILE* fout;
@@ -333,8 +333,6 @@ bool FATStorage::ExportFile(std::string path, std::string out, fs::file_time_typ
 
     fclose(fout);
     f_close(&file);
-
-    modtime = fs::last_write_time(out);
 
     return true;
 }
@@ -407,9 +405,10 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
 
             if (doexport)
             {
-                fs::file_time_type modtime;
-                if (ExportFile("0:/"+fullpath, outbase+"/"+fullpath, modtime))
+                std::string outpath = outbase+"/"+fullpath;
+                if (ExportFile("0:/"+fullpath, outpath))
                 {
+                    fs::file_time_type modtime = fs::last_write_time(outpath);
                     s64 modtime_raw = std::chrono::duration_cast<std::chrono::seconds>(modtime.time_since_epoch()).count();
 
                     FileIndexEntry& entry = FileIndex[fullpath];

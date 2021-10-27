@@ -1167,7 +1167,7 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     //if (Config::DLDIEnable)
     if (true)
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), true);
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), false);
         SD = new FATStorage("melonDLDI.bin", 0, false, "dldi");
         SD->Open();
     }

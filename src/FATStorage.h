@@ -60,7 +60,7 @@ private:
     void LoadIndex();
     void SaveIndex();
 
-    bool ExportFile(std::string path, std::string out, std::filesystem::file_time_type& modtime);
+    bool ExportFile(std::string path, std::string out);
     void ExportDirectory(std::string path, std::string outbase, int level);
     bool DeleteHostDirectory(std::string path, std::string outbase, int level);
     void ExportChanges(std::string outbase);
