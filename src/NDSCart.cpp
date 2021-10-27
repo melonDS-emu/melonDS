@@ -52,6 +52,7 @@ u32 TransferDir;
 u8 TransferCmd[8];
 
 bool CartInserted;
+char CartName[256];
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
@@ -202,7 +203,7 @@ void CartCommon::SetupDirectBoot()
 {
     CmdEncMode = 2;
     DataEncMode = 2;
-    DSiMode = false; // TODO!!
+    DSiMode = IsDSi && NDS::ConsoleType==1;
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -1164,12 +1165,16 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
+    ReadOnly = false; // TODO
+
     //if (Config::DLDIEnable)
     if (true)
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), false);
-        SD = new FATStorage("melonDLDI.bin", 0, false, "dldi");
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
+        SD = new FATStorage("melonDLDI.bin", 0, ReadOnly, "dldi");
         SD->Open();
+
+        // fat:/rom.nds
     }
     else
         SD = nullptr;
@@ -1189,6 +1194,40 @@ void CartHomebrew::Reset()
     CartCommon::Reset();
 
     // TODO??? something about the FATStorage thing?
+}
+
+void CartHomebrew::SetupDirectBoot()
+{
+    CartCommon::SetupDirectBoot();
+
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(CartName, CartROM, CartROMSize))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, CartName, 511);
+        argvlen = strlen(argv);
+
+        void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
+
+        u32 argvbase = Header.ARM9RAMAddress + Header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            writefn(argvbase+i, *(u32*)&argv[i]);
+
+        writefn(0x02FFFE70, 0x5F617267);
+        writefn(0x02FFFE74, argvbase);
+        writefn(0x02FFFE78, argvlen+1);
+    }
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1244,7 +1283,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            if (SD && true) SD->WriteSectors(sector, len>>9, data);
+            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
         }
         break;
 
@@ -1675,6 +1714,16 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     NDS::Reset();
 
+    char* romname = strrchr(path, '/');
+    if (!romname)
+    {
+        romname = strrchr(path, '\\');
+        if (!romname)
+            romname = (char*)&path[-1];
+    }
+    romname++;
+    strncpy(CartName, romname, 255); CartName[255] = '\0';
+
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
 
@@ -1695,6 +1744,9 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
 {
     NDS::Reset();
+
+    // TODO: make it more meaningful?
+    strncpy(CartName, "rom.nds", 256);
 
     u32 len = filelength;
     CartROMSize = 0x200;

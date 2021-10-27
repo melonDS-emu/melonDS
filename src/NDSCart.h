@@ -172,6 +172,7 @@ public:
     ~CartHomebrew() override;
 
     void Reset() override;
+    void SetupDirectBoot() override;
 
     void DoSavestate(Savestate* file) override;
 
@@ -183,6 +184,7 @@ private:
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
     FATStorage* SD;
+    bool ReadOnly;
 };
 
 extern u16 SPICnt;

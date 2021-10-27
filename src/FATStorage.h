@@ -37,6 +37,8 @@ public:
     bool Open();
     void Close();
 
+    bool InjectFile(std::string path, u8* data, u32 len);
+
     u32 ReadSectors(u32 start, u32 num, u8* data);
     u32 WriteSectors(u32 start, u32 num, u8* data);
 

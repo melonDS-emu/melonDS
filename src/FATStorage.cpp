@@ -55,6 +55,49 @@ void FATStorage::Close()
 }
 
 
+bool FATStorage::InjectFile(std::string path, u8* data, u32 len)
+{
+    if (!File) return false;
+    if (FF_File) return false;
+
+    FF_File = File;
+    FF_FileSize = FileSize;
+    ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FileSize>>9));
+
+    FRESULT res;
+    FATFS fs;
+
+    res = f_mount(&fs, "0:", 1);
+    if (res != FR_OK)
+    {
+        ff_disk_close();
+        FF_File = nullptr;
+        return false;
+    }
+
+    path = "0:/" + path;
+    FF_FIL file;
+    res = f_open(&file, path.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
+    if (res != FR_OK)
+    {
+        f_unmount("0:");
+        ff_disk_close();
+        FF_File = nullptr;
+        return false;
+    }
+
+    u32 nwrite;
+    f_write(&file, data, len, &nwrite);
+    f_close(&file);
+    printf("burped hard: %d/%d\n", nwrite, len);
+
+    f_unmount("0:");
+    ff_disk_close();
+    FF_File = nullptr;
+    return nwrite==len;
+}
+
+
 u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data)
 {
     return ReadSectorsInternal(File, FileSize, start, num, data);
@@ -957,7 +1000,16 @@ printf("IMAGE FILE NEW: %d\n", isnew);
             if (hasdir)
             {
                 FileSize = GetDirectorySize(sourcedir);
-                FileSize += 0x4000000ULL; // 64MB leeway
+                FileSize += 0x8000000ULL; // 128MB leeway
+
+                // make it a power of two
+                FileSize |= (FileSize >> 1);
+                FileSize |= (FileSize >> 2);
+                FileSize |= (FileSize >> 4);
+                FileSize |= (FileSize >> 8);
+                FileSize |= (FileSize >> 16);
+                FileSize |= (FileSize >> 32);
+                FileSize++;
             }
             else
                 FileSize = 0x20000000ULL; // 512MB
