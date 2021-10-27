@@ -54,7 +54,7 @@ RAMInfoDialog::RAMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::RAMI
     SearchThread = new RAMSearchThread(this);
     connect(SearchThread, &RAMSearchThread::SetProgressbarValue, this, &RAMInfoDialog::SetProgressbarValue);
     connect(SearchThread, &RAMSearchThread::finished, this, &RAMInfoDialog::OnSearchFinished);
-    // First search (Show evenything in main ram)
+    // First search (Show everything in main ram)
     SearchThread->Start(ramInfoSTh_SearchAll);
 
     TableUpdater = new QTimer(this);
