@@ -31,7 +31,7 @@
 class FATStorage
 {
 public:
-    FATStorage();
+    FATStorage(std::string filename, u64 size, bool readonly, std::string sourcedir);
     ~FATStorage();
 
     bool Open();
@@ -43,6 +43,8 @@ public:
 private:
     std::string FilePath;
     std::string IndexPath;
+    std::string SourceDir;
+    bool ReadOnly;
 
     FILE* File;
     u64 FileSize;
@@ -67,10 +69,11 @@ private:
     bool DeleteDirectory(std::string path, int level);
     void CleanupDirectory(std::string sourcedir, std::string path, int level);
     bool ImportFile(std::string path, std::string in);
-    bool BuildSubdirectory(const char* sourcedir, const char* path, int level);
+    bool ImportDirectory(std::string sourcedir);
+    u64 GetDirectorySize(std::string sourcedir);
 
-    bool Build(const char* sourcedir, u64 size, const char* filename);
-    bool Save(std::string sourcedir);
+    bool Load(std::string filename, u64 size, std::string sourcedir);
+    bool Save();
 
     typedef struct
     {

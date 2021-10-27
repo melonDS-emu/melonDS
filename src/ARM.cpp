@@ -461,8 +461,6 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
         break;
     }
 
-    #undef SWAP
-
     if (Num == 0)
     {
         /*if ((newmode & 0x1F) == 0x10)

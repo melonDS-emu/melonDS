@@ -25,20 +25,17 @@
 namespace fs = std::filesystem;
 
 
-FATStorage::FATStorage()
+FATStorage::FATStorage(std::string filename, u64 size, bool readonly, std::string sourcedir)
 {
-    printf("FATStorage begin\n");
-    //bool res = Build("dldi", 0x20000000, "melonDLDI.bin");
-    bool res = Build("dldi", 0x3F000000, "melonDLDI.bin");
-    printf("FATStorage result: %d\n", res);
+    ReadOnly = readonly;
+    Load(filename, size, sourcedir);
 
     File = nullptr;
 }
 
 FATStorage::~FATStorage()
 {
-    printf("SAVING DLDI SHIT\n");
-    Save("dldi");
+    if (!ReadOnly) Save();
 }
 
 
@@ -47,7 +44,6 @@ bool FATStorage::Open()
     File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
     if (!File)
     {
-        File = nullptr;
         return false;
     }
 }
@@ -66,6 +62,7 @@ u32 FATStorage::ReadSectors(u32 start, u32 num, u8* data)
 
 u32 FATStorage::WriteSectors(u32 start, u32 num, u8* data)
 {
+    if (ReadOnly) return 0;
     return WriteSectorsInternal(File, FileSize, start, num, data);
 }
 
@@ -349,7 +346,7 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
     FF_DIR dir;
     FF_FILINFO info;
     FRESULT res;
-printf("EXPORTING DIRECTORY %s (base %s level %d)\n", path.c_str(), outbase.c_str(), level);
+
     std::string fullpath = "0:/" + path;
     res = f_opendir(&dir, fullpath.c_str());
     if (res != FR_OK) return;
@@ -383,7 +380,7 @@ printf("EXPORTING DIRECTORY %s (base %s level %d)\n", path.c_str(), outbase.c_st
         else
         {
             bool doexport = false;
-printf("- FILE %s ATTRIB %08X\n", fullpath.c_str(), info.fattrib);
+
             if (FileIndex.count(fullpath) < 1)
             {
                 doexport = true;
@@ -410,7 +407,6 @@ printf("- FILE %s ATTRIB %08X\n", fullpath.c_str(), info.fattrib);
 
             if (doexport)
             {
-                printf("EXPORTING FILE 0:/%s TO %s/%s\n", fullpath.c_str(), outbase.c_str(), fullpath.c_str());
                 fs::file_time_type modtime;
                 if (ExportFile("0:/"+fullpath, outbase+"/"+fullpath, modtime))
                 {
@@ -447,7 +443,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
 
     std::vector<std::string> filedeletelist;
     std::vector<std::string> dirdeletelist;
-printf("-- PURGING HOST DIRECTORY %s (base %s) LEVEL=%d\n", path.c_str(), outbase.c_str(), level);
+
     int outlen = outbase.length();
     for (auto& entry : fs::directory_iterator(outbase + "/" + path))
     {
@@ -462,7 +458,7 @@ printf("-- PURGING HOST DIRECTORY %s (base %s) LEVEL=%d\n", path.c_str(), outbas
             if (innerpath[i] == '\\')
                 innerpath[i] = '/';
         }
-printf("---- ENTRY %s (%d)\n", innerpath.c_str(), entry.is_directory());
+
         if (entry.is_directory())
         {
             dirdeletelist.push_back(innerpath);
@@ -495,14 +491,14 @@ printf("---- ENTRY %s (%d)\n", innerpath.c_str(), entry.is_directory());
 
     {
         std::string fullpath = outbase + "/" + path;
-        printf("DELETING DIR ITSELF: %s\n", fullpath.c_str());
+
         std::error_code err;
         fs::permissions(fullpath,
                         fs::perms::owner_read | fs::perms::owner_write,
                         fs::perm_options::add,
                         err);
-        if (!fs::remove(fullpath)){printf("DICKPILE %d\n", errno);
-            return false;}
+        if (!fs::remove(fullpath))
+            return false;
 
         DirIndex.erase(path);
     }
@@ -542,7 +538,7 @@ void FATStorage::ExportChanges(std::string outbase)
     for (const auto& key : deletelist)
     {
         std::string fullpath = outbase + "/" + key;
-        printf("DELETING FILE %s\n", fullpath.c_str());
+
         std::error_code err;
         fs::permissions(fullpath,
                         fs::perms::owner_read | fs::perms::owner_write,
@@ -575,7 +571,6 @@ void FATStorage::ExportChanges(std::string outbase)
 
     for (const auto& key : deletelist)
     {
-        printf("DELETING DIRECTORY %s\n", key.c_str());
         DeleteHostDirectory(key, outbase, 0);
     }
 
@@ -593,8 +588,7 @@ bool FATStorage::CanFitFile(u32 len)
     if (res != FR_OK) return false;
 
     u32 clustersize = fs->csize * 0x200;
-    printf("CHECK IF FILE CAN FIT: len=%d, clus=%d, num=%d, free=%d\n",
-           len, clustersize, (len + clustersize - 1) / clustersize, freeclusters);
+
     len = (len + clustersize - 1) / clustersize;
     return (freeclusters >= len);
 }
@@ -668,7 +662,7 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
     FF_DIR dir;
     FF_FILINFO info;
     FRESULT res;
-printf("CLEANING UP DIRECTORY %s (level=%d)\n", path.c_str(), level);
+
     std::string fullpath = "0:/" + path;
     res = f_opendir(&dir, fullpath.c_str());
     if (res != FR_OK) return;
@@ -684,9 +678,7 @@ printf("CLEANING UP DIRECTORY %s (level=%d)\n", path.c_str(), level);
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
-printf("FOUND ENTRY %s %08X (%d/%d, %d)\n",
-       fullpath.c_str(), info.fattrib, FileIndex.count(fullpath), DirIndex.count(fullpath),
-       fs::exists(sourcedir+"/"+fullpath));
+
         if (info.fattrib & AM_DIR)
         {
             if (DirIndex.count(fullpath) < 1)
@@ -778,131 +770,144 @@ bool FATStorage::ImportFile(std::string path, std::string in)
     return true;
 }
 
-bool FATStorage::BuildSubdirectory(const char* sourcedir, const char* path, int level)
+bool FATStorage::ImportDirectory(std::string sourcedir)
 {
-    if (level >= 32)
+    // remove whatever isn't in the index
+    CleanupDirectory(sourcedir, "", 0);
+
+    int srclen = sourcedir.length();
+
+    // iterate through the host directory:
+    // * directories will be added if they aren't in the index
+    // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
+    for (auto& entry : fs::recursive_directory_iterator(sourcedir))
     {
-        printf("FATStorage::BuildSubdirectory: too many subdirectory levels, skipping\n");
-        return false;
-    }
+        std::string fullpath = entry.path().string();
+        std::string innerpath = fullpath.substr(srclen);
+        if (innerpath[0] == '/' || innerpath[0] == '\\')
+            innerpath = innerpath.substr(1);
 
-    if (level == 0)
-    {
-        // remove whatever isn't in the index
-        CleanupDirectory(sourcedir, "", 0);
-
-        int srclen = strlen(sourcedir);
-
-        // iterate through the host directory:
-        // * directories will be added if they aren't in the index
-        // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
-        for (auto& entry : fs::recursive_directory_iterator(sourcedir))
+        int ilen = innerpath.length();
+        for (int i = 0; i < ilen; i++)
         {
-            std::string fullpath = entry.path().string();
-            std::string innerpath = fullpath.substr(srclen);
-            if (innerpath[0] == '/' || innerpath[0] == '\\')
-                innerpath = innerpath.substr(1);
-
-            int ilen = innerpath.length();
-            for (int i = 0; i < ilen; i++)
-            {
-                if (innerpath[i] == '\\')
-                    innerpath[i] = '/';
-            }
-
-            bool readonly = (entry.status().permissions() & fs::perms::owner_write) == fs::perms::none;
-
-            //std::chrono::duration<s64> bourf(lastmodified_raw);
-            //printf("DORP: %016llX\n", bourf.count());
-
-            if (entry.is_directory())
-            {
-                if (DirIndex.count(innerpath) < 1)
-                {
-                    DirIndexEntry ientry;
-                    ientry.Path = innerpath;
-                    ientry.IsReadOnly = readonly;
-
-                    innerpath = "0:/" + innerpath;
-                    FRESULT res = f_mkdir(innerpath.c_str());
-                    if (res == FR_OK)
-                    {
-                        DirIndex[ientry.Path] = ientry;
-
-                        printf("IMPORTING DIR %s (FROM %s), %d\n", innerpath.c_str(), fullpath.c_str(), readonly);
-                    }
-                }
-            }
-            else if (entry.is_regular_file())
-            {
-                u64 filesize = entry.file_size();
-
-                auto lastmodified = entry.last_write_time();
-                s64 lastmodified_raw = std::chrono::duration_cast<std::chrono::seconds>(lastmodified.time_since_epoch()).count();
-
-                bool import = false;
-                if (FileIndex.count(innerpath) < 1)
-                {
-                    import = true;
-                }
-                else
-                {
-                    FileIndexEntry& chk = FileIndex[innerpath];
-                    if (chk.Size != filesize) import = true;
-                    if (chk.LastModified != lastmodified_raw) import = true;
-                }
-
-                if (import)
-                {
-                    FileIndexEntry ientry;
-                    ientry.Path = innerpath;
-                    ientry.IsReadOnly = readonly;
-                    ientry.Size = filesize;
-                    ientry.LastModified = lastmodified_raw;
-
-                    innerpath = "0:/" + innerpath;
-                    if (ImportFile(innerpath, fullpath))
-                    {
-                        FF_FILINFO finfo;
-                        f_stat(innerpath.c_str(), &finfo);
-
-                        ientry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
-
-                        FileIndex[ientry.Path] = ientry;
-
-                        printf("IMPORTING FILE %s (FROM %s), %d\n", innerpath.c_str(), fullpath.c_str(), readonly);
-                    }
-                }
-            }
-
-            f_chmod(innerpath.c_str(), readonly?AM_RDO:0, AM_RDO);
+            if (innerpath[i] == '\\')
+                innerpath[i] = '/';
         }
 
-        SaveIndex();
+        bool readonly = (entry.status().permissions() & fs::perms::owner_write) == fs::perms::none;
 
-        return false;
+        if (entry.is_directory())
+        {
+            if (DirIndex.count(innerpath) < 1)
+            {
+                DirIndexEntry ientry;
+                ientry.Path = innerpath;
+                ientry.IsReadOnly = readonly;
+
+                innerpath = "0:/" + innerpath;
+                FRESULT res = f_mkdir(innerpath.c_str());
+                if (res == FR_OK)
+                {
+                    DirIndex[ientry.Path] = ientry;
+                }
+            }
+        }
+        else if (entry.is_regular_file())
+        {
+            u64 filesize = entry.file_size();
+
+            auto lastmodified = entry.last_write_time();
+            s64 lastmodified_raw = std::chrono::duration_cast<std::chrono::seconds>(lastmodified.time_since_epoch()).count();
+
+            bool import = false;
+            if (FileIndex.count(innerpath) < 1)
+            {
+                import = true;
+            }
+            else
+            {
+                FileIndexEntry& chk = FileIndex[innerpath];
+                if (chk.Size != filesize) import = true;
+                if (chk.LastModified != lastmodified_raw) import = true;
+            }
+
+            if (import)
+            {
+                FileIndexEntry ientry;
+                ientry.Path = innerpath;
+                ientry.IsReadOnly = readonly;
+                ientry.Size = filesize;
+                ientry.LastModified = lastmodified_raw;
+
+                innerpath = "0:/" + innerpath;
+                if (ImportFile(innerpath, fullpath))
+                {
+                    FF_FILINFO finfo;
+                    f_stat(innerpath.c_str(), &finfo);
+
+                    ientry.LastModifiedInternal = (finfo.fdate << 16) | finfo.ftime;
+
+                    FileIndex[ientry.Path] = ientry;
+                }
+            }
+        }
+
+        f_chmod(innerpath.c_str(), readonly?AM_RDO:0, AM_RDO);
     }
 
+    SaveIndex();
 
-    return false;
+    return true;
 }
 
-bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
+u64 FATStorage::GetDirectorySize(std::string sourcedir)
+{
+    u64 ret = 0;
+    u32 csize = 0x1000; // this is an estimate
+
+    for (auto& entry : fs::recursive_directory_iterator(sourcedir))
+    {
+        if (entry.is_directory())
+        {
+            ret += csize;
+        }
+        else if (entry.is_regular_file())
+        {
+            u64 filesize = entry.file_size();
+
+            filesize = (filesize + (csize-1)) & ~(csize-1);
+            ret += filesize;
+        }
+    }
+
+    return ret;
+}
+
+bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
 {
     FilePath = filename;
     FileSize = size;
+    SourceDir = sourcedir;
+
+    bool hasdir = !sourcedir.empty();
+
+    // 'auto' size management: (size=0)
+    // * if an index exists: the size from the index is used
+    // * if no index, and an image file exists: the file size is used
+    // * if no image: if sourcing from a directory, size is calculated from that
+    //   with a 64MB extra, otherwise size is defaulted to 512MB
 
     bool isnew = false;
-    FF_File = Platform::OpenLocalFile(filename, "r+b");
+    FF_File = Platform::OpenLocalFile(filename.c_str(), "r+b");
     if (!FF_File)
     {
-        FF_File = Platform::OpenLocalFile(filename, "w+b");
+        FF_File = Platform::OpenLocalFile(filename.c_str(), "w+b");
         if (!FF_File)
             return false;
 
         isnew = true;
     }
-
+printf("IMAGE FILE NEW: %d\n", isnew);
     IndexPath = FilePath + ".idx";
     if (isnew)
     {
@@ -911,29 +916,58 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
         SaveIndex();
     }
     else
+    {
         LoadIndex();
+        printf("INDEX SIZE %016llX\n", FileSize);
+        if (FileSize == 0)
+        {
+            fseek(FF_File, 0, SEEK_END);
+            FileSize = ftell(FF_File);
+        }
+    }
 
-    FF_FileSize = size;
-    ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(size>>9));
-
-    FRESULT res;
-    FATFS fs;
     bool needformat = false;
+    FATFS fs;
+    FRESULT res;
 
-    res = f_mount(&fs, "0:", 1);
-    if (res != FR_OK)
+    if (FileSize == 0)
     {
         needformat = true;
     }
-    else if (size != FileSize)
+    else
     {
-        printf("VOLUME NEEDS REFORMATTING BECAUSE SIZE CHANGED (%016llX != %016llX)\n", size, FileSize);
-        needformat = true;
+        FF_FileSize = FileSize;
+        ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FF_FileSize>>9));
+
+        res = f_mount(&fs, "0:", 1);
+        if (res != FR_OK)
+        {
+            needformat = true;
+        }
+        else if (size > 0 && size != FileSize)
+        {
+            needformat = true;
+        }
     }
 
     if (needformat)
     {
         FileSize = size;
+        if (FileSize == 0)
+        {
+            if (hasdir)
+            {
+                FileSize = GetDirectorySize(sourcedir);
+                FileSize += 0x4000000ULL; // 64MB leeway
+            }
+            else
+                FileSize = 0x20000000ULL; // 512MB
+        }
+printf("CREATING IMAGE FILE WITH SIZE %016llX\n", FileSize);
+        FF_FileSize = FileSize;
+        ff_disk_close();
+        ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FF_FileSize>>9));
+
         DirIndex.clear();
         FileIndex.clear();
         SaveIndex();
@@ -943,7 +977,7 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
         // FAT type: we force it to FAT32 for any volume that is 1GB or more
         // libfat attempts to determine the FAT type from the volume size and other parameters
         // which can lead to it trying to interpret a FAT16 volume as FAT32
-        if (size >= 0x40000000ULL)
+        if (FileSize >= 0x40000000ULL)
             fsopt.fmt = FM_FAT32;
         else
             fsopt.fmt = FM_FAT;
@@ -959,9 +993,12 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
         if (res == FR_OK)
             res = f_mount(&fs, "0:", 1);
     }
-
+printf("USING IMAGE FILE WITH SIZE %016llX\n", FileSize);
     if (res == FR_OK)
-        BuildSubdirectory(sourcedir, "", 0);
+    {
+        if (hasdir)
+            ImportDirectory(sourcedir);
+    }
 
     f_unmount("0:");
 
@@ -972,7 +1009,7 @@ bool FATStorage::Build(const char* sourcedir, u64 size, const char* filename)
     return true;
 }
 
-bool FATStorage::Save(std::string sourcedir)
+bool FATStorage::Save()
 {
     FF_File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
     if (!FF_File)
@@ -995,7 +1032,7 @@ bool FATStorage::Save(std::string sourcedir)
         return false;
     }
 
-    ExportChanges("dldi");
+    ExportChanges(SourceDir);
 
     SaveIndex();
 
