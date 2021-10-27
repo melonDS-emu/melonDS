@@ -99,15 +99,15 @@ void RAMInfoDialog::ShowRowsInTable()
             QTableWidgetItem* valueItem = new QTableWidgetItem(QString("%1").arg(rowData.Value));
             valueItem->setFlags(valueItem->flags() | Qt::ItemIsEditable);
             ui->ramTable->setItem(row, ramInfo_Value, valueItem);
-            ui->ramTable->setItem(row, ramInfo_Previous, new QTableWidgetItem(QString("%1").arg(rowData.Rrevious)));
+            ui->ramTable->setItem(row, ramInfo_Previous, new QTableWidgetItem(QString("%1").arg(rowData.Previous)));
         }
         else
         {
             // A row that exists
             ui->ramTable->item(row, ramInfo_Address)->setText(QString("%1").arg(rowData.Address, 8, 16));
             ui->ramTable->item(row, ramInfo_Value)->setText(QString("%1").arg(rowData.Value));
-            ui->ramTable->item(row, ramInfo_Previous)->setText(QString("%1").arg(rowData.Rrevious));
-            if (rowData.Value != rowData.Rrevious) 
+            ui->ramTable->item(row, ramInfo_Previous)->setText(QString("%1").arg(rowData.Previous));
+            if (rowData.Value != rowData.Previous) 
                 ui->ramTable->item(row, ramInfo_Previous)->setForeground(Qt::red);
         }
     }
