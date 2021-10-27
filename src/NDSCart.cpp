@@ -24,7 +24,6 @@
 #include "ARM.h"
 #include "DSi_AES.h"
 #include "Platform.h"
-#include "Config.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
 #include "NDSCart_SRAMManager.h"
@@ -1165,16 +1164,22 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
-    ReadOnly = false; // TODO
+    ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
 
-    //if (Config::DLDIEnable)
-    if (true)
+    if (Platform::GetConfigBool(Platform::DLDI_Enable))
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
-        SD = new FATStorage("melonDLDI.bin", 0, ReadOnly, "dldi");
-        SD->Open();
+        std::string folderpath;
+        if (Platform::GetConfigBool(Platform::DLDI_FolderSync))
+            folderpath = Platform::GetConfigString(Platform::DLDI_FolderPath);
+        else
+            folderpath = "";
 
-        // fat:/rom.nds
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
+        SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
+                            (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
+                            ReadOnly,
+                            folderpath);
+        SD->Open();
     }
     else
         SD = nullptr;
@@ -1192,8 +1197,6 @@ CartHomebrew::~CartHomebrew()
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
-
-    // TODO??? something about the FATStorage thing?
 }
 
 void CartHomebrew::SetupDirectBoot()

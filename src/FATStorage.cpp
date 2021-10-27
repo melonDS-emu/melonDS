@@ -937,7 +937,7 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
     // * if an index exists: the size from the index is used
     // * if no index, and an image file exists: the file size is used
     // * if no image: if sourcing from a directory, size is calculated from that
-    //   with a 64MB extra, otherwise size is defaulted to 512MB
+    //   with a minimum 128MB extra, otherwise size is defaulted to 512MB
 
     bool isnew = false;
     FF_File = Platform::OpenLocalFile(filename.c_str(), "r+b");
@@ -949,7 +949,7 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
 
         isnew = true;
     }
-printf("IMAGE FILE NEW: %d\n", isnew);
+
     IndexPath = FilePath + ".idx";
     if (isnew)
     {
@@ -960,7 +960,7 @@ printf("IMAGE FILE NEW: %d\n", isnew);
     else
     {
         LoadIndex();
-        printf("INDEX SIZE %016llX\n", FileSize);
+
         if (FileSize == 0)
         {
             fseek(FF_File, 0, SEEK_END);
@@ -1014,7 +1014,7 @@ printf("IMAGE FILE NEW: %d\n", isnew);
             else
                 FileSize = 0x20000000ULL; // 512MB
         }
-printf("CREATING IMAGE FILE WITH SIZE %016llX\n", FileSize);
+
         FF_FileSize = FileSize;
         ff_disk_close();
         ff_disk_open(FF_ReadStorage, FF_WriteStorage, (LBA_t)(FF_FileSize>>9));
@@ -1044,7 +1044,7 @@ printf("CREATING IMAGE FILE WITH SIZE %016llX\n", FileSize);
         if (res == FR_OK)
             res = f_mount(&fs, "0:", 1);
     }
-printf("USING IMAGE FILE WITH SIZE %016llX\n", FileSize);
+
     if (res == FR_OK)
     {
         if (hasdir)
