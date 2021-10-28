@@ -58,7 +58,7 @@ bool FATStorage::Open()
     {
         return false;
     }
-    
+
     return true;
 }
 
@@ -946,6 +946,11 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
     SourceDir = sourcedir;
 
     bool hasdir = !sourcedir.empty();
+    if (hasdir)
+    {
+        if (!fs::is_directory(fs::u8path(sourcedir)))
+            hasdir = false;
+    }
 
     // 'auto' size management: (size=0)
     // * if an index exists: the size from the index is used
