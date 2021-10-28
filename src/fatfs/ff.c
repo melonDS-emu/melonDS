@@ -1595,7 +1595,7 @@ static DWORD create_chain (	/* 0:No free cluster, 1:Internal error, 0xFFFFFFFF:D
 /*-----------------------------------------------------------------------*/
 
 static DWORD clmt_clust (	/* <2:Error, >=2:Cluster number */
-	FIL* fp,		/* Pointer to the file object */
+	FF_FIL* fp,		/* Pointer to the file object */
 	FSIZE_t ofs		/* File offset to be converted to cluster# */
 )
 {
@@ -1664,7 +1664,7 @@ static FRESULT dir_clear (	/* Returns FR_OK or FR_DISK_ERR */
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
-	DIR* dp,		/* Pointer to directory object */
+	FF_DIR* dp,		/* Pointer to directory object */
 	DWORD ofs		/* Offset of directory table */
 )
 {
@@ -1712,7 +1712,7 @@ static FRESULT dir_sdi (	/* FR_OK(0):succeeded, !=0:error */
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_next (	/* FR_OK(0):succeeded, FR_NO_FILE:End of table, FR_DENIED:Could not stretch */
-	DIR* dp,				/* Pointer to the directory object */
+	FF_DIR* dp,				/* Pointer to the directory object */
 	int stretch				/* 0: Do not stretch table, 1: Stretch table if needed */
 )
 {
@@ -1773,7 +1773,7 @@ static FRESULT dir_next (	/* FR_OK(0):succeeded, FR_NO_FILE:End of table, FR_DEN
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_alloc (	/* FR_OK(0):succeeded, !=0:error */
-	DIR* dp,				/* Pointer to the directory object */
+	FF_DIR* dp,				/* Pointer to the directory object */
 	UINT n_ent				/* Number of contiguous entries to allocate */
 )
 {
@@ -2273,7 +2273,7 @@ static void create_xdir (
 #define DIR_READ_LABEL(dp) dir_read(dp, 1)
 
 static FRESULT dir_read (
-	DIR* dp,		/* Pointer to the directory object */
+	FF_DIR* dp,		/* Pointer to the directory object */
 	int vol			/* Filtered by 0:file/directory or 1:volume label */
 )
 {
@@ -2351,7 +2351,7 @@ static FRESULT dir_read (
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
-	DIR* dp					/* Pointer to the directory object with the file name */
+	FF_DIR* dp					/* Pointer to the directory object with the file name */
 )
 {
 	FRESULT res;
@@ -2432,7 +2432,7 @@ static FRESULT dir_find (	/* FR_OK(0):succeeded, !=0:error */
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_register (	/* FR_OK:succeeded, FR_DENIED:no free entry or too many SFN collision, FR_DISK_ERR:disk error */
-	DIR* dp						/* Target directory with object name to be created */
+	FF_DIR* dp						/* Target directory with object name to be created */
 )
 {
 	FRESULT res;
@@ -2538,7 +2538,7 @@ static FRESULT dir_register (	/* FR_OK:succeeded, FR_DENIED:no free entry or too
 /*-----------------------------------------------------------------------*/
 
 static FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
-	DIR* dp					/* Directory object pointing the entry to be removed */
+	FF_DIR* dp					/* Directory object pointing the entry to be removed */
 )
 {
 	FRESULT res;
@@ -2584,8 +2584,8 @@ static FRESULT dir_remove (	/* FR_OK:Succeeded, FR_DISK_ERR:A disk error */
 /*-----------------------------------------------------------------------*/
 
 static void get_fileinfo (
-	DIR* dp,			/* Pointer to the directory object */
-	FILINFO* fno		/* Pointer to the file information to be filled */
+	FF_DIR* dp,			/* Pointer to the directory object */
+	FF_FILINFO* fno		/* Pointer to the file information to be filled */
 )
 {
 	UINT si, di;
@@ -2799,7 +2799,7 @@ static int pattern_match (	/* 0:mismatched, 1:matched */
 /*-----------------------------------------------------------------------*/
 
 static FRESULT create_name (	/* FR_OK: successful, FR_INVALID_NAME: could not create */
-	DIR* dp,					/* Pointer to the directory object */
+	FF_DIR* dp,					/* Pointer to the directory object */
 	const TCHAR** path			/* Pointer to pointer to the segment in the path string */
 )
 {
@@ -3001,7 +3001,7 @@ static FRESULT create_name (	/* FR_OK: successful, FR_INVALID_NAME: could not cr
 /*-----------------------------------------------------------------------*/
 
 static FRESULT follow_path (	/* FR_OK(0): successful, !=0: error code */
-	DIR* dp,					/* Directory object to return last directory and found object */
+	FF_DIR* dp,					/* Directory object to return last directory and found object */
 	const TCHAR* path			/* Full-path string to find a file or directory */
 )
 {
@@ -3651,13 +3651,13 @@ FRESULT f_mount (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_open (
-	FIL* fp,			/* Pointer to the blank file object */
+	FF_FIL* fp,			/* Pointer to the blank file object */
 	const TCHAR* path,	/* Pointer to the file name */
 	BYTE mode			/* Access mode and open mode flags */
 )
 {
 	FRESULT res;
-	DIR dj;
+	FF_DIR dj;
 	FATFS *fs;
 #if !FF_FS_READONLY
 	DWORD cl, bcs, clst, tm;
@@ -3848,7 +3848,7 @@ FRESULT f_open (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_read (
-	FIL* fp, 	/* Open file to be read */
+	FF_FIL* fp, 	/* Open file to be read */
 	void* buff,	/* Data buffer to store the read data */
 	UINT btr,	/* Number of bytes to read */
 	UINT* br	/* Number of bytes read */
@@ -3948,7 +3948,7 @@ FRESULT f_read (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_write (
-	FIL* fp,			/* Open file to be written */
+	FF_FIL* fp,			/* Open file to be written */
 	const void* buff,	/* Data to be written */
 	UINT btw,			/* Number of bytes to write */
 	UINT* bw			/* Number of bytes written */
@@ -4069,7 +4069,7 @@ FRESULT f_write (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_sync (
-	FIL* fp		/* Open file to be synced */
+	FF_FIL* fp		/* Open file to be synced */
 )
 {
 	FRESULT res;
@@ -4150,7 +4150,7 @@ FRESULT f_sync (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_close (
-	FIL* fp		/* Open file to be closed */
+	FF_FIL* fp		/* Open file to be closed */
 )
 {
 	FRESULT res;
@@ -4365,7 +4365,7 @@ FRESULT f_getcwd (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_lseek (
-	FIL* fp,		/* Pointer to the file object */
+	FF_FIL* fp,		/* Pointer to the file object */
 	FSIZE_t ofs		/* File pointer from top of file */
 )
 {
@@ -4529,7 +4529,7 @@ FRESULT f_lseek (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_opendir (
-	DIR* dp,			/* Pointer to directory object to create */
+	FF_DIR* dp,			/* Pointer to directory object to create */
 	const TCHAR* path	/* Pointer to the directory path */
 )
 {
@@ -4595,7 +4595,7 @@ FRESULT f_opendir (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_closedir (
-	DIR *dp		/* Pointer to the directory object to be closed */
+	FF_DIR *dp		/* Pointer to the directory object to be closed */
 )
 {
 	FRESULT res;
@@ -4625,8 +4625,8 @@ FRESULT f_closedir (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_readdir (
-	DIR* dp,			/* Pointer to the open directory object */
-	FILINFO* fno		/* Pointer to file information to return */
+	FF_DIR* dp,			/* Pointer to the open directory object */
+	FF_FILINFO* fno		/* Pointer to file information to return */
 )
 {
 	FRESULT res;
@@ -4661,8 +4661,8 @@ FRESULT f_readdir (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_findnext (
-	DIR* dp,		/* Pointer to the open directory object */
-	FILINFO* fno	/* Pointer to the file information structure */
+	FF_DIR* dp,		/* Pointer to the open directory object */
+	FF_FILINFO* fno	/* Pointer to the file information structure */
 )
 {
 	FRESULT res;
@@ -4686,8 +4686,8 @@ FRESULT f_findnext (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_findfirst (
-	DIR* dp,				/* Pointer to the blank directory object */
-	FILINFO* fno,			/* Pointer to the file information structure */
+	FF_DIR* dp,				/* Pointer to the blank directory object */
+	FF_FILINFO* fno,			/* Pointer to the file information structure */
 	const TCHAR* path,		/* Pointer to the directory to open */
 	const TCHAR* pattern	/* Pointer to the matching pattern */
 )
@@ -4714,11 +4714,11 @@ FRESULT f_findfirst (
 
 FRESULT f_stat (
 	const TCHAR* path,	/* Pointer to the file path */
-	FILINFO* fno		/* Pointer to file information to return */
+	FF_FILINFO* fno		/* Pointer to file information to return */
 )
 {
 	FRESULT res;
-	DIR dj;
+	FF_DIR dj;
 	DEF_NAMBUF
 
 
@@ -4840,7 +4840,7 @@ FRESULT f_getfree (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_truncate (
-	FIL* fp		/* Pointer to the file object */
+	FF_FIL* fp		/* Pointer to the file object */
 )
 {
 	FRESULT res;
@@ -4894,7 +4894,7 @@ FRESULT f_unlink (
 )
 {
 	FRESULT res;
-	DIR dj, sdj;
+	FF_DIR dj, sdj;
 	DWORD dclst = 0;
 	FATFS *fs;
 #if FF_FS_EXFAT
@@ -4988,7 +4988,7 @@ FRESULT f_mkdir (
 )
 {
 	FRESULT res;
-	DIR dj;
+	FF_DIR dj;
 	FFOBJID sobj;
 	FATFS *fs;
 	DWORD dcl, pcl, tm;
@@ -5073,7 +5073,7 @@ FRESULT f_rename (
 )
 {
 	FRESULT res;
-	DIR djo, djn;
+	FF_DIR djo, djn;
 	FATFS *fs;
 	BYTE buf[FF_FS_EXFAT ? SZDIRE * 2 : SZDIRE], *dir;
 	LBA_t sect;
@@ -5121,7 +5121,7 @@ FRESULT f_rename (
 #endif
 			{	/* At FAT/FAT32 volume */
 				memcpy(buf, djo.dir, SZDIRE);			/* Save directory entry of the object */
-				memcpy(&djn, &djo, sizeof (DIR));		/* Duplicate the directory object */
+				memcpy(&djn, &djo, sizeof (FF_DIR));		/* Duplicate the directory object */
 				res = follow_path(&djn, path_new);		/* Make sure if new object name is not in use */
 				if (res == FR_OK) {						/* Is new name already in use by any other object? */
 					res = (djn.obj.sclust == djo.obj.sclust && djn.dptr == djo.dptr) ? FR_NO_FILE : FR_EXIST;
@@ -5184,7 +5184,7 @@ FRESULT f_chmod (
 )
 {
 	FRESULT res;
-	DIR dj;
+	FF_DIR dj;
 	FATFS *fs;
 	DEF_NAMBUF
 
@@ -5226,11 +5226,11 @@ FRESULT f_chmod (
 
 FRESULT f_utime (
 	const TCHAR* path,	/* Pointer to the file/directory name */
-	const FILINFO* fno	/* Pointer to the timestamp to be set */
+	const FF_FILINFO* fno	/* Pointer to the timestamp to be set */
 )
 {
 	FRESULT res;
-	DIR dj;
+	FF_DIR dj;
 	FATFS *fs;
 	DEF_NAMBUF
 
@@ -5489,7 +5489,7 @@ FRESULT f_setlabel (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_expand (
-	FIL* fp,		/* Pointer to the file object */
+	FF_FIL* fp,		/* Pointer to the file object */
 	FSIZE_t fsz,	/* File size to be expanded to */
 	BYTE opt		/* Operation mode 0:Find and prepare or 1:Find and allocate */
 )
@@ -5579,7 +5579,7 @@ FRESULT f_expand (
 /*-----------------------------------------------------------------------*/
 
 FRESULT f_forward (
-	FIL* fp, 						/* Pointer to the file object */
+	FF_FIL* fp, 						/* Pointer to the file object */
 	UINT (*func)(const BYTE*,UINT),	/* Pointer to the streaming function */
 	UINT btf,						/* Number of bytes to forward */
 	UINT* bf						/* Pointer to number of bytes forwarded */
@@ -5801,14 +5801,14 @@ static FRESULT create_partition (
 
 FRESULT f_mkfs (
 	const TCHAR* path,		/* Logical drive number */
-	const MKFS_PARM* opt,	/* Format options */
+	const FF_MKFS_PARM* opt,	/* Format options */
 	void* work,				/* Pointer to working buffer (null: use heap memory) */
 	UINT len				/* Size of working buffer [byte] */
 )
 {
 	static const WORD cst[] = {1, 4, 16, 64, 256, 512, 0};	/* Cluster size boundary for FAT volume (4Ks unit) */
 	static const WORD cst32[] = {1, 2, 4, 8, 16, 32, 0};	/* Cluster size boundary for FAT32 volume (128Ks unit) */
-	static const MKFS_PARM defopt = {FM_ANY, 0, 0, 0, 0};	/* Default parameter */
+	static const FF_MKFS_PARM defopt = {FM_ANY, 0, 0, 0, 0};	/* Default parameter */
 	BYTE fsopt, fsty, sys, *buf, *pte, pdrv, ipart;
 	WORD ss;	/* Sector size */
 	DWORD sz_buf, sz_blk, n_clst, pau, nsect, n, vsn;
@@ -6338,7 +6338,7 @@ FRESULT f_fdisk (
 TCHAR* f_gets (
 	TCHAR* buff,	/* Pointer to the buffer to store read string */
 	int len,		/* Size of string buffer (items) */
-	FIL* fp			/* Pointer to the file object */
+	FF_FIL* fp			/* Pointer to the file object */
 )
 {
 	int nc = 0;
@@ -6629,7 +6629,7 @@ static int putc_flush (putbuff* pb)
 
 /* Initialize write buffer */
 
-static void putc_init (putbuff* pb, FIL* fp)
+static void putc_init (putbuff* pb, FF_FIL* fp)
 {
 	memset(pb, 0, sizeof (putbuff));
 	pb->fp = fp;
@@ -6639,7 +6639,7 @@ static void putc_init (putbuff* pb, FIL* fp)
 
 int f_putc (
 	TCHAR c,	/* A character to be output */
-	FIL* fp		/* Pointer to the file object */
+	FF_FIL* fp		/* Pointer to the file object */
 )
 {
 	putbuff pb;
@@ -6659,7 +6659,7 @@ int f_putc (
 
 int f_puts (
 	const TCHAR* str,	/* Pointer to the string to be output */
-	FIL* fp				/* Pointer to the file object */
+	FF_FIL* fp				/* Pointer to the file object */
 )
 {
 	putbuff pb;
@@ -6799,7 +6799,7 @@ static void ftoa (
 
 
 int f_printf (
-	FIL* fp,			/* Pointer to the file object */
+	FF_FIL* fp,			/* Pointer to the file object */
 	const TCHAR* fmt,	/* Pointer to the format string */
 	...					/* Optional arguments... */
 )

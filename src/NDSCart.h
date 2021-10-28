@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "NDS_Header.h"
+#include "FATStorage.h"
 
 namespace NDSCart
 {
@@ -171,6 +172,7 @@ public:
     ~CartHomebrew() override;
 
     void Reset() override;
+    void SetupDirectBoot() override;
 
     void DoSavestate(Savestate* file) override;
 
@@ -178,10 +180,11 @@ public:
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
 
 private:
-    void ApplyDLDIPatch(const u8* patch, u32 len);
+    void ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly);
     void ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset);
 
-    FILE* SDFile;
+    FATStorage* SD;
+    bool ReadOnly;
 };
 
 extern u16 SPICnt;

@@ -24,7 +24,6 @@
 #include "ARM.h"
 #include "DSi_AES.h"
 #include "Platform.h"
-#include "Config.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
 #include "NDSCart_SRAMManager.h"
@@ -52,6 +51,7 @@ u32 TransferDir;
 u8 TransferCmd[8];
 
 bool CartInserted;
+char CartName[256];
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
@@ -202,7 +202,7 @@ void CartCommon::SetupDirectBoot()
 {
     CmdEncMode = 2;
     DataEncMode = 2;
-    DSiMode = false; // TODO!!
+    DSiMode = IsDSi && NDS::ConsoleType==1;
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -1164,30 +1164,73 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
-    if (Config::DLDIEnable)
+    ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
+
+    if (Platform::GetConfigBool(Platform::DLDI_Enable))
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        std::string folderpath;
+        if (Platform::GetConfigBool(Platform::DLDI_FolderSync))
+            folderpath = Platform::GetConfigString(Platform::DLDI_FolderPath);
+        else
+            folderpath = "";
+
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
+        SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
+                            (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
+                            ReadOnly,
+                            folderpath);
+        SD->Open();
     }
     else
-        SDFile = nullptr;
+        SD = nullptr;
 }
 
 CartHomebrew::~CartHomebrew()
 {
-    if (SDFile) fclose(SDFile);
+    if (SD)
+    {
+        SD->Close();
+        delete SD;
+    }
 }
 
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
+}
 
-    if (SDFile) fclose(SDFile);
+void CartHomebrew::SetupDirectBoot()
+{
+    CartCommon::SetupDirectBoot();
 
-    if (Config::DLDIEnable)
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
-    else
-        SDFile = nullptr;
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(CartName, CartROM, CartROMSize))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, CartName, 511);
+        argvlen = strlen(argv);
+
+        void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
+
+        u32 argvbase = Header.ARM9RAMAddress + Header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            writefn(argvbase+i, *(u32*)&argv[i]);
+
+        writefn(0x02FFFE70, 0x5F617267);
+        writefn(0x02FFFE74, argvbase);
+        writefn(0x02FFFE78, argvlen+1);
+    }
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1220,13 +1263,7 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
     case 0xC0: // SD read
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fread(data, len, 1, SDFile);
-            }
+            if (SD) SD->ReadSectors(sector, len>>9, data);
         }
         return 0;
 
@@ -1249,13 +1286,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fwrite(data, len, 1, SDFile);
-            }
+            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
         }
         break;
 
@@ -1264,7 +1295,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
+void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
 {
     u32 offset = *(u32*)&ROM[0x20];
     u32 size = *(u32*)&ROM[0x2C];
@@ -1379,6 +1410,19 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         u32 fixend = *(u32*)&patch[0x5C] - patchbase;
 
         memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
+    }
+
+    if (readonly)
+    {
+        // clear the can-write feature flag
+        binary[dldioffset+0x64] &= ~0x02;
+
+        // make writeSectors() return failure
+        u32 writesec_addr = *(u32*)&binary[dldioffset+0x74];
+        writesec_addr -= memaddr;
+        writesec_addr += dldioffset;
+        *(u32*)&binary[writesec_addr+0x00] = 0xE3A00000; // mov r0, #0
+        *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
     }
 
     printf("applied DLDI patch\n");
@@ -1673,6 +1717,16 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     NDS::Reset();
 
+    char* romname = strrchr((char*)path, '/');
+    if (!romname)
+    {
+        romname = strrchr((char*)path, '\\');
+        if (!romname)
+            romname = (char*)&path[-1];
+    }
+    romname++;
+    strncpy(CartName, romname, 255); CartName[255] = '\0';
+
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
 
@@ -1693,6 +1747,9 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
 {
     NDS::Reset();
+
+    // TODO: make it more meaningful?
+    strncpy(CartName, "rom.nds", 256);
 
     u32 len = filelength;
     CartROMSize = 0x200;

@@ -22,6 +22,7 @@
 #include "types.h"
 
 #include <functional>
+#include <string>
 
 namespace Platform
 {
@@ -30,6 +31,29 @@ void Init(int argc, char** argv);
 void DeInit();
 
 void StopEmu();
+
+// configuration values
+
+enum ConfigEntry
+{
+    DLDI_Enable,
+    DLDI_ImagePath,
+    DLDI_ImageSize,
+    DLDI_ReadOnly,
+    DLDI_FolderSync,
+    DLDI_FolderPath,
+
+    DSiSD_Enable,
+    DSiSD_ImagePath,
+    DSiSD_ImageSize,
+    DSiSD_ReadOnly,
+    DSiSD_FolderSync,
+    DSiSD_FolderPath,
+};
+
+int GetConfigInt(ConfigEntry entry);
+bool GetConfigBool(ConfigEntry entry);
+std::string GetConfigString(ConfigEntry entry);
 
 // fopen() wrappers
 // * OpenFile():
