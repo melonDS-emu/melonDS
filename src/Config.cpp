@@ -41,14 +41,6 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 char FirmwareMessage[1024];
 
-char FirmwareUsername[64];
-int FirmwareLanguage;
-bool FirmwareOverrideSettings;
-int FirmwareBirthdayMonth;
-int FirmwareBirthdayDay;
-int FirmwareFavouriteColour;
-char FirmwareMessage[1024];
-
 char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
