@@ -72,7 +72,7 @@ private:
     void CleanupDirectory(std::string sourcedir, std::string path, int level);
     bool ImportFile(std::string path, std::filesystem::path in);
     bool ImportDirectory(std::string sourcedir);
-    u64 GetDirectorySize(std::string sourcedir);
+    u64 GetDirectorySize(std::filesystem::path sourcedir);
 
     bool Load(std::string filename, u64 size, std::string sourcedir);
     bool Save();

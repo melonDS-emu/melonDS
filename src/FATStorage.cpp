@@ -497,11 +497,15 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
 {
     if (level >= 32) return false;
 
+    fs::path dirpath = fs::u8path(outbase + "/" + path);
+    if (!fs::is_directory(dirpath))
+        return true; // already deleted? oh well
+
     std::vector<std::string> filedeletelist;
     std::vector<std::string> dirdeletelist;
 
     int outlen = outbase.length();
-    for (auto& entry : fs::directory_iterator(outbase + "/" + path))
+    for (auto& entry : fs::directory_iterator(dirpath))
     {
         std::string fullpath = entry.path().string();
         std::string innerpath = fullpath.substr(outlen);
@@ -697,12 +701,8 @@ bool FATStorage::DeleteDirectory(std::string path, int level)
 
     for (auto& entry : subdirlist)
     {
-        if (!DeleteDirectory(entry+"/", level+1)) return false;
-
-        std::string fullpath = "0:/" + entry;
-        f_chmod(fullpath.c_str(), 0, AM_RDO);
-        res = f_unlink(fullpath.c_str());
-        if (res != FR_OK) return false;
+        if (!DeleteDirectory(entry+"/", level+1))
+            return false;
     }
 
     res = f_unlink(fullpath.c_str());
@@ -916,7 +916,7 @@ bool FATStorage::ImportDirectory(std::string sourcedir)
     return true;
 }
 
-u64 FATStorage::GetDirectorySize(std::string sourcedir)
+u64 FATStorage::GetDirectorySize(fs::path sourcedir)
 {
     u64 ret = 0;
     u32 csize = 0x1000; // this is an estimate
@@ -987,7 +987,6 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
         {
             melon_fseek(FF_File, 0, SEEK_END);
             FileSize = melon_ftell(FF_File);
-            printf("FILESIZE DETERMINED TO BE %016llX (%d) (%d)\n", FileSize, sizeof(long), errno);
         }
     }
 
@@ -1022,7 +1021,7 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
         {
             if (hasdir)
             {
-                FileSize = GetDirectorySize(sourcedir);
+                FileSize = GetDirectorySize(fs::u8path(sourcedir));
                 FileSize += 0x8000000ULL; // 128MB leeway
 
                 // make it a power of two
