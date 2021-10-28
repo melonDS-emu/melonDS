@@ -25,6 +25,16 @@
 namespace fs = std::filesystem;
 
 
+// really, Windows?
+#ifdef __WIN32__
+    #define melon_fseek _fseeki64
+    #define melon_ftell _ftelli64
+#else
+    #define melon_fseek fseek
+    #define melon_ftell ftell
+#endif // __WIN32__
+
+
 FATStorage::FATStorage(std::string filename, u64 size, bool readonly, std::string sourcedir)
 {
     ReadOnly = readonly;
@@ -138,7 +148,7 @@ u32 FATStorage::ReadSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num,
         num = len >> 9;
     }
 
-    fseek(file, addr, SEEK_SET);
+    melon_fseek(file, addr, SEEK_SET);
 
     u32 res = fread(data, 0x200, num, file);
     if (res < num)
@@ -167,7 +177,7 @@ u32 FATStorage::WriteSectorsInternal(FILE* file, u64 filelen, u32 start, u32 num
         num = len >> 9;
     }
 
-    fseek(file, addr, SEEK_SET);
+    melon_fseek(file, addr, SEEK_SET);
 
     u32 res = fwrite(data, 0x200, num, file);
     return res;
@@ -332,7 +342,7 @@ void FATStorage::SaveIndex()
 }
 
 
-bool FATStorage::ExportFile(std::string path, std::string out)
+bool FATStorage::ExportFile(std::string path, fs::path out)
 {
     FF_FIL file;
     FILE* fout;
@@ -353,7 +363,7 @@ bool FATStorage::ExportFile(std::string path, std::string out)
                         err);
     }
 
-    fout = fopen(out.c_str(), "wb");
+    fout = Platform::OpenFile(out.u8string().c_str(), "wb");
     if (!fout)
     {
         f_close(&file);
@@ -401,13 +411,14 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
         if (!info.fname[0]) break;
 
         std::string fullpath = path + info.fname;
+        fs::path outpath = fs::u8path(outbase + "/" + fullpath);
 
         if (info.fattrib & AM_DIR)
         {
             if (DirIndex.count(fullpath) < 1)
             {
-                std::string dirpath = outbase+"/"+fullpath;
-                mkdir(dirpath.c_str());
+                std::error_code err;
+                fs::create_directory(outpath, err);
 
                 DirIndexEntry entry;
                 entry.Path = fullpath;
@@ -448,7 +459,6 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
 
             if (doexport)
             {
-                std::string outpath = outbase+"/"+fullpath;
                 if (ExportFile("0:/"+fullpath, outpath))
                 {
                     fs::file_time_type modtime = fs::last_write_time(outpath);
@@ -465,7 +475,7 @@ void FATStorage::ExportDirectory(std::string path, std::string outbase, int leve
         }
 
         std::error_code err;
-        fs::permissions(outbase+"/"+fullpath,
+        fs::permissions(outpath,
                         fs::perms::owner_read | fs::perms::owner_write,
                         (info.fattrib & AM_RDO) ? fs::perm_options::remove : fs::perm_options::add,
                         err);
@@ -513,7 +523,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
 
     for (const auto& key : filedeletelist)
     {
-        std::string fullpath = outbase + "/" + key;
+        fs::path fullpath = fs::u8path(outbase + "/" + key);
         std::error_code err;
         fs::permissions(fullpath,
                         fs::perms::owner_read | fs::perms::owner_write,
@@ -532,7 +542,7 @@ bool FATStorage::DeleteHostDirectory(std::string path, std::string outbase, int 
     }
 
     {
-        std::string fullpath = outbase + "/" + path;
+        fs::path fullpath = fs::u8path(outbase + "/" + path);
 
         std::error_code err;
         fs::permissions(fullpath,
@@ -579,7 +589,7 @@ void FATStorage::ExportChanges(std::string outbase)
 
     for (const auto& key : deletelist)
     {
-        std::string fullpath = outbase + "/" + key;
+        fs::path fullpath = fs::u8path(outbase + "/" + key);
 
         std::error_code err;
         fs::permissions(fullpath,
@@ -725,7 +735,7 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
         {
             if (DirIndex.count(fullpath) < 1)
                 dirdeletelist.push_back(fullpath);
-            else if (!fs::is_directory(sourcedir+"/"+fullpath))
+            else if (!fs::is_directory(fs::u8path(sourcedir+"/"+fullpath)))
             {
                 DirIndex.erase(fullpath);
                 dirdeletelist.push_back(fullpath);
@@ -737,7 +747,7 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
         {
             if (FileIndex.count(fullpath) < 1)
                 filedeletelist.push_back(fullpath);
-            else if (!fs::is_regular_file(sourcedir+"/"+fullpath))
+            else if (!fs::is_regular_file(fs::u8path(sourcedir+"/"+fullpath)))
             {
                 FileIndex.erase(fullpath);
                 filedeletelist.push_back(fullpath);
@@ -765,13 +775,13 @@ void FATStorage::CleanupDirectory(std::string sourcedir, std::string path, int l
     }
 }
 
-bool FATStorage::ImportFile(std::string path, std::string in)
+bool FATStorage::ImportFile(std::string path, fs::path in)
 {
     FF_FIL file;
     FILE* fin;
     FRESULT res;
 
-    fin = fopen(in.c_str(), "rb");
+    fin = Platform::OpenFile(in.u8string().c_str(), "rb");
     if (!fin)
         return false;
 
@@ -824,7 +834,7 @@ bool FATStorage::ImportDirectory(std::string sourcedir)
     // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
     for (auto& entry : fs::recursive_directory_iterator(sourcedir))
     {
-        std::string fullpath = entry.path().string();
+        std::string fullpath = entry.path().u8string();
         std::string innerpath = fullpath.substr(srclen);
         if (innerpath[0] == '/' || innerpath[0] == '\\')
             innerpath = innerpath.substr(1);
@@ -882,7 +892,7 @@ bool FATStorage::ImportDirectory(std::string sourcedir)
                 ientry.LastModified = lastmodified_raw;
 
                 innerpath = "0:/" + innerpath;
-                if (ImportFile(innerpath, fullpath))
+                if (ImportFile(innerpath, entry.path()))
                 {
                     FF_FILINFO finfo;
                     f_stat(innerpath.c_str(), &finfo);
@@ -963,8 +973,9 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
 
         if (FileSize == 0)
         {
-            fseek(FF_File, 0, SEEK_END);
-            FileSize = ftell(FF_File);
+            melon_fseek(FF_File, 0, SEEK_END);
+            FileSize = melon_ftell(FF_File);
+            printf("FILESIZE DETERMINED TO BE %016llX (%d) (%d)\n", FileSize, sizeof(long), errno);
         }
     }
 

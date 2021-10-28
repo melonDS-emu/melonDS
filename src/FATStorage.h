@@ -62,7 +62,7 @@ private:
     void LoadIndex();
     void SaveIndex();
 
-    bool ExportFile(std::string path, std::string out);
+    bool ExportFile(std::string path, std::filesystem::path out);
     void ExportDirectory(std::string path, std::string outbase, int level);
     bool DeleteHostDirectory(std::string path, std::string outbase, int level);
     void ExportChanges(std::string outbase);
@@ -70,7 +70,7 @@ private:
     bool CanFitFile(u32 len);
     bool DeleteDirectory(std::string path, int level);
     void CleanupDirectory(std::string sourcedir, std::string path, int level);
-    bool ImportFile(std::string path, std::string in);
+    bool ImportFile(std::string path, std::filesystem::path in);
     bool ImportDirectory(std::string sourcedir);
     u64 GetDirectorySize(std::string sourcedir);
 
