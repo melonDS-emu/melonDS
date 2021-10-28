@@ -293,8 +293,8 @@ public:
     u8 PU_UserMap[0x100000];
 
     // games operate under system mode, generally
-    #define PU_Map PU_PrivMap
-    //u8* PU_Map;
+    //#define PU_Map PU_PrivMap
+    u8* PU_Map;
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];

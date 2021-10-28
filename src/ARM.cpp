@@ -83,6 +83,8 @@ ARMv5::ARMv5() : ARM(0)
 #ifndef JIT_ENABLED
     DTCM = new u8[DTCMPhysicalSize];
 #endif
+
+    PU_Map = PU_PrivMap;
 }
 
 ARMv4::ARMv4() : ARM(1)
@@ -162,7 +164,7 @@ void ARMv5::Reset()
         GetMemRegion = NDS::ARM9GetMemRegion;
     }
 
-    //PU_Map = PU_PrivMap;
+    PU_Map = PU_PrivMap;
 
     ARM::Reset();
 }
@@ -239,10 +241,10 @@ void ARM::DoSavestate(Savestate* file)
             SetupCodeMem(R[15]); // should fix it
             ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][0];
 
-            /*if ((CPSR & 0x1F) == 0x10)
+            if ((CPSR & 0x1F) == 0x10)
                 ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
             else
-                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
+                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;
         }
         else
         {
@@ -501,10 +503,10 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
 
     if ((!phony) && (Num == 0))
     {
-        /*if ((newmode & 0x1F) == 0x10)
+        if ((newmode & 0x1F) == 0x10)
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
         else
-            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
+            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;
     }
 }
 
