@@ -32,8 +32,14 @@ int ExternalBIOSEnable;
 char BIOS9Path[1024];
 char BIOS7Path[1024];
 char FirmwarePath[1024];
-//int DLDIEnable;
-//char DLDISDPath[1024];
+
+char FirmwareUsername[64];
+int FirmwareLanguage;
+bool FirmwareOverrideSettings;
+int FirmwareBirthdayMonth;
+int FirmwareBirthdayDay;
+int FirmwareFavouriteColour;
+char FirmwareMessage[1024];
 
 char FirmwareUsername[64];
 int FirmwareLanguage;
@@ -47,8 +53,6 @@ char DSiBIOS9Path[1024];
 char DSiBIOS7Path[1024];
 char DSiFirmwarePath[1024];
 char DSiNANDPath[1024];
-//int DSiSDEnable;
-//char DSiSDPath[1024];
 
 int RandomizeMAC;
 int AudioBitrate;
