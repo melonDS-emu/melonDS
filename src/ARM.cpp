@@ -109,6 +109,22 @@ void ARM::Reset()
 
     CPSR = 0x000000D3;
 
+    for (int i = 0; i < 7; i++)
+        R_FIQ[i] = 0;
+    for (int i = 0; i < 2; i++)
+    {
+        R_SVC[i] = 0;
+        R_ABT[i] = 0;
+        R_IRQ[i] = 0;
+        R_UND[i] = 0;
+    }
+
+    R_FIQ[7] = 0x00000010;
+    R_SVC[2] = 0x00000010;
+    R_ABT[2] = 0x00000010;
+    R_IRQ[2] = 0x00000010;
+    R_UND[2] = 0x00000010;
+
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
     CodeMem.Mem = NULL;
@@ -375,10 +391,16 @@ void ARM::RestoreCPSR()
         CPSR = R_SVC[2];
         break;
 
+    case 0x14:
+    case 0x15:
+    case 0x16:
     case 0x17:
         CPSR = R_ABT[2];
         break;
 
+    case 0x18:
+    case 0x19:
+    case 0x1A:
     case 0x1B:
         CPSR = R_UND[2];
         break;
@@ -387,6 +409,8 @@ void ARM::RestoreCPSR()
         printf("!! attempt to restore CPSR under bad mode %02X, %08X\n", CPSR&0x1F, R[15]);
         break;
     }
+
+    CPSR |= 0x00000010;
 
     UpdateMode(oldcpsr, CPSR);
 }
