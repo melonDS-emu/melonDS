@@ -51,7 +51,6 @@ void ARMv5::CP15Reset()
     ITCMSize = 0;
     DTCMBase = 0xFFFFFFFF;
     DTCMMask = 0;
-    DTCMSize = 0;
 
     memset(ICache, 0, 0x2000);
     ICacheInvalidateAll();
@@ -127,7 +126,6 @@ void ARMv5::UpdateDTCMSetting()
 #endif
         DTCMBase = newDTCMBase;
         DTCMMask = newDTCMMask;
-        DTCMSize = newDTCMSize;
     }
 }
 
