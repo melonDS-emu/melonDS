@@ -147,7 +147,7 @@ DRESULT disk_ioctl (
         return RES_OK;
     }
 
-	printf("FatFS: unknown disk_ioctl(%02X, %02X, %p)\n", pdrv, cmd, buff);
+	//printf("FatFS: unknown disk_ioctl(%02X, %02X, %p)\n", pdrv, cmd, buff);
 	return RES_PARERR;
 }
 
