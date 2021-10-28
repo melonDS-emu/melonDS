@@ -836,7 +836,7 @@ bool FATStorage::ImportDirectory(std::string sourcedir)
     // iterate through the host directory:
     // * directories will be added if they aren't in the index
     // * files will be added if they aren't in the index, or if the size or last-modified-date don't match
-    for (auto& entry : fs::recursive_directory_iterator(sourcedir))
+    for (auto& entry : fs::recursive_directory_iterator(fs::u8path(sourcedir)))
     {
         std::string fullpath = entry.path().u8string();
         std::string innerpath = fullpath.substr(srclen);
