@@ -34,6 +34,7 @@
 #include "AREngine.h"
 #include "Platform.h"
 #include "NDSCart_SRAMManager.h"
+#include "FreeBIOS.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -88,6 +89,7 @@ u64 FrameStartTimestamp;
 int CurCPU;
 
 const s32 kMaxIterationCycles = 64;
+const s32 kIterationCycleMargin = 8;
 
 u32 ARM9ClockShift;
 
@@ -463,38 +465,46 @@ void Reset()
     // DS BIOSes are always loaded, even in DSi mode
     // we need them for DS-compatible mode
 
-    f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
-    if (!f)
+    if (Config::ExternalBIOSEnable)
     {
-        printf("ARM9 BIOS not found\n");
+        f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+        if (!f)
+        {
+            printf("ARM9 BIOS not found\n");
 
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM9BIOS)[i] = 0xE7FFDEFF;
+        }
+        else
+        {
+            fseek(f, 0, SEEK_SET);
+            fread(ARM9BIOS, 0x1000, 1, f);
+
+            printf("ARM9 BIOS loaded\n");
+            fclose(f);
+        }
+
+        f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+        if (!f)
+        {
+            printf("ARM7 BIOS not found\n");
+
+            for (i = 0; i < 16; i++)
+                ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
+        }
+        else
+        {
+            fseek(f, 0, SEEK_SET);
+            fread(ARM7BIOS, 0x4000, 1, f);
+
+            printf("ARM7 BIOS loaded\n");
+            fclose(f);
+        }
     }
     else
     {
-        fseek(f, 0, SEEK_SET);
-        fread(ARM9BIOS, 0x1000, 1, f);
-
-        printf("ARM9 BIOS loaded\n");
-        fclose(f);
-    }
-
-    f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
-    if (!f)
-    {
-        printf("ARM7 BIOS not found\n");
-
-        for (i = 0; i < 16; i++)
-            ((u32*)ARM7BIOS)[i] = 0xE7FFDEFF;
-    }
-    else
-    {
-        fseek(f, 0, SEEK_SET);
-        fread(ARM7BIOS, 0x4000, 1, f);
-
-        printf("ARM7 BIOS loaded\n");
-        fclose(f);
+        memcpy(ARM9BIOS, bios_arm9_bin, bios_arm9_bin_len);
+        memcpy(ARM7BIOS, bios_arm7_bin, bios_arm7_bin_len);
     }
 
 #ifdef JIT_ENABLED
@@ -917,7 +927,7 @@ void RelocateSave(const char* path, bool write)
 
 u64 NextTarget()
 {
-    u64 ret = SysTimestamp + kMaxIterationCycles;
+    u64 minEvent = UINT64_MAX;
 
     u32 mask = SchedListMask;
     for (int i = 0; i < Event_MAX; i++)
@@ -925,14 +935,19 @@ u64 NextTarget()
         if (!mask) break;
         if (mask & 0x1)
         {
-            if (SchedList[i].Timestamp < ret)
-                ret = SchedList[i].Timestamp;
+            if (SchedList[i].Timestamp < minEvent)
+                minEvent = SchedList[i].Timestamp;
         }
 
         mask >>= 1;
     }
 
-    return ret;
+    u64 max = SysTimestamp + kMaxIterationCycles;
+
+    if (minEvent < max + kIterationCycleMargin)
+        return minEvent;
+
+    return max;
 }
 
 void RunSystem(u64 timestamp)
@@ -969,7 +984,6 @@ u32 RunFrame()
 
         while (Running && GPU::TotalScanlines==0)
         {
-            // TODO: give it some margin, so it can directly do 17 cycles instead of 16 then 1
             u64 target = NextTarget();
             ARM9Target = target << ARM9ClockShift;
             CurCPU = 0;

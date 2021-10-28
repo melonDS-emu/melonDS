@@ -9,7 +9,9 @@ melon_grc.h
 melon.rc
 cmake-build
 cmake-build-debug
+compile_commands.json
 .idea
+.cache
 
 *.exe
 

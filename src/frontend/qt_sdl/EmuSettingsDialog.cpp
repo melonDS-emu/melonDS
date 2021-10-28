@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QList>
+#include <QDateEdit>
 
 #include "types.h"
 #include "Platform.h"
@@ -41,6 +43,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    ui->chkExternalBIOS->setChecked(Config::ExternalBIOSEnable != 0);
     ui->txtBIOS9Path->setText(Config::BIOS9Path);
     ui->txtBIOS7Path->setText(Config::BIOS7Path);
     ui->txtFirmwarePath->setText(Config::FirmwarePath);
@@ -74,6 +77,7 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
     on_chkEnableJIT_toggled();
+    on_chkExternalBIOS_toggled();
 
     const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
 
@@ -180,6 +184,7 @@ void EmuSettingsDialog::done(int r)
         int jitLiteralOptimisations = ui->chkJITLiteralOptimisations->isChecked() ? 1:0;
         int jitFastMemory = ui->chkJITFastMemory->isChecked() ? 1:0;
 
+        int externalBiosEnable = ui->chkExternalBIOS->isChecked() ? 1:0;
         std::string bios9Path = ui->txtBIOS9Path->text().toStdString();
         std::string bios7Path = ui->txtBIOS7Path->text().toStdString();
         std::string firmwarePath = ui->txtFirmwarePath->text().toStdString();
@@ -212,6 +217,7 @@ void EmuSettingsDialog::done(int r)
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
 #endif
+            || externalBiosEnable != Config::ExternalBIOSEnable
             || strcmp(Config::BIOS9Path, bios9Path.c_str()) != 0
             || strcmp(Config::BIOS7Path, bios7Path.c_str()) != 0
             || strcmp(Config::FirmwarePath, firmwarePath.c_str()) != 0
@@ -238,6 +244,7 @@ void EmuSettingsDialog::done(int r)
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
+            Config::ExternalBIOSEnable = externalBiosEnable;
             strncpy(Config::BIOS9Path, bios9Path.c_str(), 1023); Config::BIOS9Path[1023] = '\0';
             strncpy(Config::BIOS7Path, bios7Path.c_str(), 1023); Config::BIOS7Path[1023] = '\0';
             strncpy(Config::FirmwarePath, firmwarePath.c_str(), 1023); Config::FirmwarePath[1023] = '\0';
@@ -464,4 +471,11 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_chkExternalBIOS_toggled()
+{
+    bool disabled = !ui->chkExternalBIOS->isChecked();
+    ui->txtBIOS7Path->setDisabled(disabled);
+    ui->txtBIOS9Path->setDisabled(disabled);
 }

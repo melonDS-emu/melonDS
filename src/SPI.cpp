@@ -19,6 +19,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <string>
+#include <algorithm>
+#include <codecvt>
+#include <locale>
 #include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
@@ -112,25 +116,25 @@ u32 FixFirmwareLength(u32 originalLength)
     return originalLength;
 }
 
-void Reset()
+void LoadDefaultFirmware()
 {
-    if (Firmware) delete[] Firmware;
-    Firmware = NULL;
+    FirmwareLength = 0x20000;
+    Firmware = new u8[FirmwareLength];
+    memset(Firmware, 0xFF, FirmwareLength);
+    FirmwareMask = FirmwareLength - 1;
 
-    if (NDS::ConsoleType == 1)
-        strncpy(FirmwarePath, Config::DSiFirmwarePath, 1023);
-    else
-        strncpy(FirmwarePath, Config::FirmwarePath, 1023);
+    u32 userdata = 0x7FE00 & FirmwareMask;
 
-    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
-    if (!f)
-    {
-        printf("Firmware not found\n");
+    memset(Firmware + userdata, 0, 0x74);
 
-        // TODO: generate default firmware
-        return;
-    }
+    // user settings offset
+    *(u16*)&Firmware[0x20] = (FirmwareLength - 0x200) >> 3;
 
+    Firmware[userdata+0x00] = 5; // version
+}
+
+void LoadFirmwareFromFile(FILE* f)
+{
     fseek(f, 0, SEEK_END);
 
     FirmwareLength = FixFirmwareLength((u32)ftell(f));
@@ -143,18 +147,75 @@ void Reset()
     fclose(f);
 
     // take a backup
-    char firmbkp[1028];
+    char fwBackupPath[sizeof(FirmwarePath) + 4];
     int fplen = strlen(FirmwarePath);
-    strncpy(&firmbkp[0], FirmwarePath, fplen);
-    strncpy(&firmbkp[fplen], ".bak", 1028-fplen);
-    firmbkp[fplen+4] = '\0';
-    f = Platform::OpenLocalFile(firmbkp, "rb");
-    if (f) fclose(f);
+    strcpy(&fwBackupPath[0], FirmwarePath);
+    strncpy(&fwBackupPath[fplen], ".bak", sizeof(fwBackupPath) - fplen);
+    fwBackupPath[fplen+4] = '\0';
+    f = Platform::OpenLocalFile(fwBackupPath, "rb");
+    if (!f)
+    {
+        f = Platform::OpenLocalFile(fwBackupPath, "wb");
+        if (f)
+        {
+            fwrite(Firmware, 1, FirmwareLength, f);
+            fclose(f);
+        }
+        else
+        {
+            printf("Could not write firmware backup!\n");
+        }
+    }
     else
     {
-        f = Platform::OpenLocalFile(firmbkp, "wb");
-        fwrite(Firmware, 1, FirmwareLength, f);
         fclose(f);
+    }
+}
+
+void LoadUserSettingsFromConfig()
+{
+    // setting up username
+    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareUsername);
+    size_t usernameLength = std::min(username.length(), (size_t) 10);
+    memcpy(Firmware + UserSettings + 0x06, username.data(), usernameLength * sizeof(char16_t));
+    Firmware[UserSettings+0x1A] = usernameLength;
+
+    // setting language
+    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
+
+    // setting up color
+    Firmware[UserSettings+0x02] = Config::FirmwareFavouriteColour;
+
+    // setting up birthday
+    Firmware[UserSettings+0x03] = Config::FirmwareBirthdayMonth;
+    Firmware[UserSettings+0x04] = Config::FirmwareBirthdayDay;
+
+    // setup message
+    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareMessage);
+    size_t messageLength = std::min(message.length(), (size_t) 26);
+    memcpy(Firmware + UserSettings + 0x1C, message.data(), messageLength * sizeof(char16_t));
+    Firmware[UserSettings+0x50] = messageLength;
+}
+
+void Reset()
+{
+    if (Firmware) delete[] Firmware;
+    Firmware = NULL;
+
+    if (NDS::ConsoleType == 1)
+        strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
+    else
+        strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
+
+    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+    if (!f)
+    {
+        printf("Firmware not found! Generating default firmware.\n");
+        LoadDefaultFirmware();
+    }
+    else
+    {
+        LoadFirmwareFromFile(f);
     }
 
     FirmwareMask = FirmwareLength - 1;
@@ -168,6 +229,9 @@ void Reset()
 
     UserSettings = userdata;
 
+    if (!f || Config::FirmwareOverrideSettings)
+        LoadUserSettingsFromConfig();
+  
     // fix touchscreen coords
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;

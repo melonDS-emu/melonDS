@@ -92,6 +92,8 @@ int VerifyDSBIOS()
     FILE* f;
     long len;
 
+    if (!Config::ExternalBIOSEnable) return Load_OK;
+
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f) return Load_BIOS9Missing;
 
@@ -163,7 +165,7 @@ int VerifyDSFirmware()
     long len;
 
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
-    if (!f) return Load_FirmwareMissing;
+    if (!f) return Load_FirmwareNotBootable;
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);

@@ -56,6 +56,10 @@ def expand_load_path(lib, path)
         file = $fallback_rpaths
           .map { |it| File.join(it, file_name) }
           .find { |it| File.exist? it }
+	if file == nil
+          path = File.join(File.dirname(lib), file_name)
+          file = path if File.exist? path
+        end
         return file, :rpath if file
       when "executable_path"
         file = File.join(File.dirname(executable), file_name)
@@ -85,7 +89,6 @@ def install_name_tool(exec, action, path1, path2 = nil)
   args = ["-#{action.to_s}", path1]
   args << path2 if path2 != nil
 
-  FileUtils.chmod("u+w", exec)
   out, status = Open3.capture2e("install_name_tool", *args, exec)
   if status != 0
     puts out
@@ -129,6 +132,7 @@ def fixup_libs(prog, orig_path)
       next if File.exist? File.join(frameworks_dir, fwname)
       expath, _ = expand_load_path(orig_path, framework)
       FileUtils.cp_r(expath, frameworks_dir, preserve: true)
+      FileUtils.chmod_R("u+w", File.join(frameworks_dir, fwname))
       fixup_libs File.join(frameworks_dir, fwname, fwlib), libpath
     else
       libname = File.basename(libpath)
@@ -141,6 +145,7 @@ def fixup_libs(prog, orig_path)
       next if File.exist? dest
       expath, _ = expand_load_path(orig_path, libpath)
       FileUtils.copy expath, frameworks_dir
+      FileUtils.chmod("u+w", dest)
       fixup_libs dest, libpath
     end
   end
@@ -198,7 +203,7 @@ fixup_libs(executable, executable)
 
 bundle_plugins = File.join($bundle, "Contents", "PlugIns")
 
-want_plugins = ["styles/libqmacstyle.dylib", "platforms/libqcocoa.dylib"]
+want_plugins = ["styles/libqmacstyle.dylib", "platforms/libqcocoa.dylib", "imageformats/libqsvg.dylib"]
 want_plugins.each do |plug|
   destdir = File.join(bundle_plugins, File.dirname(plug))
   FileUtils.mkdir_p(destdir)

@@ -75,6 +75,7 @@ private slots:
     void on_btnDSiSDFolderBrowse_clicked();
 
     void on_chkEnableJIT_toggled();
+    void on_chkExternalBIOS_toggled();
 
 private:
     void verifyFirmware();
