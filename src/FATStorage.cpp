@@ -19,6 +19,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <inttypes.h>
+#include <vector>
 
 #include "FATStorage.h"
 #include "Platform.h"
