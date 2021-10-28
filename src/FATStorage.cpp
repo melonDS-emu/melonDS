@@ -16,6 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <string.h>
 #include <dirent.h>
 #include <inttypes.h>
 
@@ -56,6 +57,8 @@ bool FATStorage::Open()
     {
         return false;
     }
+    
+    return true;
 }
 
 void FATStorage::Close()
