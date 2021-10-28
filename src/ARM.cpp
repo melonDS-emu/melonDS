@@ -335,12 +335,11 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         CPSR &= ~0x20;
     }
 
-    /*if (!(PU_Map[addr>>12] & 0x04))
+    if (!(PU_Map[addr>>12] & 0x04))
     {
-        printf("jumped to %08X. very bad\n", addr);
         PrefetchAbort();
         return;
-    }*/
+    }
 
     NDS::MonitorARM9Jump(addr);
 }
@@ -535,7 +534,7 @@ void ARM::TriggerIRQ()
 
 void ARMv5::PrefetchAbort()
 {
-    printf("prefetch abort\n");
+    printf("ARM9: prefetch abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -546,7 +545,7 @@ void ARMv5::PrefetchAbort()
     // so better take care of it
     if (!(PU_Map[ExceptionBase>>12] & 0x04))
     {
-        printf("!!!!! EXCEPTION REGION NOT READABLE. THIS IS VERY BAD!!\n");
+        printf("!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
         NDS::Stop();
         return;
     }
@@ -558,7 +557,7 @@ void ARMv5::PrefetchAbort()
 
 void ARMv5::DataAbort()
 {
-    printf("data abort\n");
+    printf("ARM9: data abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -566,7 +565,7 @@ void ARMv5::DataAbort()
     UpdateMode(oldcpsr, CPSR);
 
     R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
+    R[14] = R[15] + (oldcpsr & 0x20 ? 4 : 0);
     JumpTo(ExceptionBase + 0x10);
 }
 
