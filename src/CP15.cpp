@@ -50,6 +50,7 @@ void ARMv5::CP15Reset()
 
     ITCMSize = 0;
     DTCMBase = 0xFFFFFFFF;
+    DTCMMask = 0;
     DTCMSize = 0;
 
     memset(ICache, 0, 0x2000);
@@ -102,25 +103,29 @@ void ARMv5::CP15DoSavestate(Savestate* file)
 void ARMv5::UpdateDTCMSetting()
 {
     u32 newDTCMBase;
+    u32 newDTCMMask;
     u32 newDTCMSize;
+
     if (CP15Control & (1<<16))
     {
-        newDTCMBase = DTCMSetting & 0xFFFFF000;
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        //printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, newDTCMBase, newDTCMSize);
+        newDTCMMask = 0xFFFFF000 & ~(newDTCMSize-1);
+        newDTCMBase = DTCMSetting & newDTCMMask;
     }
     else
     {
-        newDTCMBase = 0xFFFFFFFF;
         newDTCMSize = 0;
-        //printf("DTCM disabled\n");
+        newDTCMBase = 0xFFFFFFFF;
+        newDTCMMask = 0;
     }
-    if (newDTCMBase != DTCMBase || newDTCMSize != DTCMSize)
+
+    if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
 #ifdef JIT_ENABLED
-        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
+        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMMask);
 #endif
         DTCMBase = newDTCMBase;
+        DTCMMask = newDTCMMask;
         DTCMSize = newDTCMSize;
     }
 }
@@ -600,12 +605,12 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x910:
-        DTCMSetting = val;
+        DTCMSetting = val & 0xFFFFF03E;
         UpdateDTCMSetting();
         return;
 
     case 0x911:
-        ITCMSetting = val;
+        ITCMSetting = val & 0x0000003E;
         UpdateITCMSetting();
         return;
 
@@ -774,10 +779,10 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u8*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -797,10 +802,10 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u16*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -826,10 +831,10 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -847,10 +852,10 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *val = *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -871,10 +876,10 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u8*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -897,10 +902,10 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u16*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -929,10 +934,10 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -953,10 +958,10 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 

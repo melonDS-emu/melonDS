@@ -179,8 +179,8 @@ T SlowRead9(u32 addr, ARMv5* cpu)
     T val;
     if (addr < cpu->ITCMSize)
         val = *(T*)&cpu->ITCM[addr & 0x7FFF];
-    else if (addr >= cpu->DTCMBase && addr < (cpu->DTCMBase + cpu->DTCMSize))
-        val = *(T*)&cpu->DTCM[(addr - cpu->DTCMBase) & 0x3FFF];
+    else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
+        val = *(T*)&cpu->DTCM[addr & 0x3FFF];
     else if (std::is_same<T, u32>::value)
         val = (ConsoleType == 0 ? NDS::ARM9Read32 : DSi::ARM9Read32)(addr);
     else if (std::is_same<T, u16>::value)
@@ -204,9 +204,9 @@ void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
         CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         *(T*)&cpu->ITCM[addr & 0x7FFF] = val;
     }
-    else if (addr >= cpu->DTCMBase && addr < (cpu->DTCMBase + cpu->DTCMSize))
+    else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
     {
-        *(T*)&cpu->DTCM[(addr - cpu->DTCMBase) & 0x3FFF] = val;
+        *(T*)&cpu->DTCM[addr & 0x3FFF] = val;
     }
     else if (std::is_same<T, u32>::value)
     {
@@ -377,7 +377,7 @@ bool DecodeLiteral(bool thumb, const FetchedInstr& instr, u32& addr)
     return false;
 }
 
-bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link, 
+bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link,
     u32& linkAddr, u32& targetAddr)
 {
     if (thumb)
@@ -420,7 +420,7 @@ bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink
         linkAddr = instr.Addr + 4;
 
         cond = instr.Cond();
-        if (instr.Info.Kind == ARMInstrInfo::ak_BL 
+        if (instr.Info.Kind == ARMInstrInfo::ak_BL
             || instr.Info.Kind == ARMInstrInfo::ak_B)
         {
             s32 offset = (s32)(instr.Instr << 8) >> 6;
@@ -461,7 +461,7 @@ bool IsIdleLoop(bool thumb, FetchedInstr* instrs, int instrsCount)
         u16 dstRegs = instrs[i].Info.DstRegs & ~(1 << 15);
 
         regsDisallowedToWrite |= srcRegs & ~regsWrittenTo;
-        
+
         if (dstRegs & regsDisallowedToWrite)
             return false;
         regsWrittenTo |= dstRegs;
@@ -551,7 +551,7 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
     F(LDRB_IMM), F(STRH_IMM), F(LDRH_IMM), F(STR_SPREL), F(LDR_SPREL),
     F(PUSH), F(POP), F(LDMIA), F(STMIA),
     F(BCOND), F(BX), F(BLX_REG), F(B), F(BL_LONG_1), F(BL_LONG_2),
-    F(UNK), F(SVC), 
+    F(UNK), F(SVC),
     T_BL_LONG // BL_LONG psudo opcode
 };
 #undef F
@@ -607,7 +607,7 @@ void CompileBlock(ARM* cpu)
         }
 
         // some memory has been remapped
-        RetireJitBlock(existingBlockIt->second);        
+        RetireJitBlock(existingBlockIt->second);
         map.erase(existingBlockIt);
     }
 
@@ -830,7 +830,7 @@ void CompileBlock(ARM* cpu)
                         lr = linkAddr;
                         hasLink = true;
                     }
-                    
+
                     r15 = target + (thumb ? 2 : 4);
                     assert(r15 == cpu->R[15]);
 
@@ -940,7 +940,7 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-        
+
         JitEnableWrite();
         block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i, hasMemoryInstr);
         JitEnableExecute();

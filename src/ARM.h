@@ -269,7 +269,7 @@ public:
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
     u32 ITCMSize;
-    u32 DTCMBase, DTCMSize;
+    u32 DTCMBase, DTCMMask, DTCMSize;
     s32 RegionCodeCycles;
 
     u8 ITCM[ITCMPhysicalSize];
