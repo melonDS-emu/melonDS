@@ -414,11 +414,32 @@ void SetupDirectBoot()
         ARM7BIOSProt = 0x1204;
 
         SPI_Firmware::SetupDirectBoot(false);
-    }
 
-    ARM9->CP15Write(0x910, 0x0300000A);
-    ARM9->CP15Write(0x911, 0x00000020);
-    ARM9->CP15Write(0x100, ARM9->CP15Read(0x100) | 0x00050000);
+        ARM9->CP15Write(0x100, 0x00012078);
+        ARM9->CP15Write(0x200, 0x00000042);
+        ARM9->CP15Write(0x201, 0x00000042);
+        ARM9->CP15Write(0x300, 0x00000002);
+        ARM9->CP15Write(0x502, 0x15111011);
+        ARM9->CP15Write(0x503, 0x05100011);
+        ARM9->CP15Write(0x600, 0x04000033);
+        ARM9->CP15Write(0x601, 0x04000033);
+        ARM9->CP15Write(0x610, 0x0200002B);
+        ARM9->CP15Write(0x611, 0x0200002B);
+        ARM9->CP15Write(0x620, 0x00000000);
+        ARM9->CP15Write(0x621, 0x00000000);
+        ARM9->CP15Write(0x630, 0x08000035);
+        ARM9->CP15Write(0x631, 0x08000035);
+        ARM9->CP15Write(0x640, 0x0300001B);
+        ARM9->CP15Write(0x641, 0x0300001B);
+        ARM9->CP15Write(0x650, 0x00000000);
+        ARM9->CP15Write(0x651, 0x00000000);
+        ARM9->CP15Write(0x660, 0xFFFF001D);
+        ARM9->CP15Write(0x661, 0xFFFF001D);
+        ARM9->CP15Write(0x670, 0x027FF017);
+        ARM9->CP15Write(0x671, 0x027FF017);
+        ARM9->CP15Write(0x910, 0x0300000A);
+        ARM9->CP15Write(0x911, 0x00000020);
+    }
 
     ARM9->R[12] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;

@@ -162,6 +162,8 @@ void ARMv5::Reset()
         GetMemRegion = NDS::ARM9GetMemRegion;
     }
 
+    //PU_Map = PU_PrivMap;
+
     ARM::Reset();
 }
 
@@ -225,10 +227,22 @@ void ARM::DoSavestate(Savestate* file)
 
     if (!file->Saving)
     {
+        CPSR |= 0x00000010;
+        R_FIQ[7] |= 0x00000010;
+        R_SVC[2] |= 0x00000010;
+        R_ABT[2] |= 0x00000010;
+        R_IRQ[2] |= 0x00000010;
+        R_UND[2] |= 0x00000010;
+
         if (!Num)
         {
             SetupCodeMem(R[15]); // should fix it
             ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][0];
+
+            /*if ((CPSR & 0x1F) == 0x10)
+                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
+            else
+                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
         }
         else
         {
@@ -415,7 +429,7 @@ void ARM::RestoreCPSR()
     UpdateMode(oldcpsr, CPSR);
 }
 
-void ARM::UpdateMode(u32 oldmode, u32 newmode)
+void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
 {
     if ((oldmode & 0x1F) == (newmode & 0x1F)) return;
 
@@ -485,13 +499,12 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
         break;
     }
 
-    if (Num == 0)
+    if ((!phony) && (Num == 0))
     {
         /*if ((newmode & 0x1F) == 0x10)
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
         else
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
-        //if ((newmode & 0x1F) == 0x10) printf("!! USER MODE\n");
     }
 }
 

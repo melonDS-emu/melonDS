@@ -93,7 +93,7 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
-    void UpdateMode(u32 oldmode, u32 newmode);
+    void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
     void TriggerIRQ();
 
@@ -294,6 +294,7 @@ public:
 
     // games operate under system mode, generally
     #define PU_Map PU_PrivMap
+    //u8* PU_Map;
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];

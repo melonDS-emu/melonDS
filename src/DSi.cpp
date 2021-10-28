@@ -499,6 +499,31 @@ void SetupDirectBoot()
     NDS::ARM7BIOSProt = 0x20;
 
     SPI_Firmware::SetupDirectBoot(true);
+
+    ARM9->CP15Write(0x100, 0x00056078);
+    ARM9->CP15Write(0x200, 0x0000004A);
+    ARM9->CP15Write(0x201, 0x0000004A);
+    ARM9->CP15Write(0x300, 0x0000000A);
+    ARM9->CP15Write(0x502, 0x15111011);
+    ARM9->CP15Write(0x503, 0x05101011);
+    ARM9->CP15Write(0x600, 0x04000033);
+    ARM9->CP15Write(0x601, 0x04000033);
+    ARM9->CP15Write(0x610, 0x02000031);
+    ARM9->CP15Write(0x611, 0x02000031);
+    ARM9->CP15Write(0x620, 0x00000000);
+    ARM9->CP15Write(0x621, 0x00000000);
+    ARM9->CP15Write(0x630, 0x08000033);
+    ARM9->CP15Write(0x631, 0x08000033);
+    ARM9->CP15Write(0x640, 0x0E00001B);
+    ARM9->CP15Write(0x641, 0x0E00001B);
+    ARM9->CP15Write(0x650, 0x00000000);
+    ARM9->CP15Write(0x651, 0x00000000);
+    ARM9->CP15Write(0x660, 0xFFFF001D);
+    ARM9->CP15Write(0x661, 0xFFFF001D);
+    ARM9->CP15Write(0x670, 0x02FFC01B);
+    ARM9->CP15Write(0x671, 0x02FFC01B);
+    ARM9->CP15Write(0x910, 0x0E00000A);
+    ARM9->CP15Write(0x911, 0x00000020);
 }
 
 void SoftReset()
