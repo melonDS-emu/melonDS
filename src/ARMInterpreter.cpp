@@ -196,6 +196,9 @@ void A_MRS(ARM* cpu)
 
 void A_MCR(ARM* cpu)
 {
+    if ((cpu->CPSR & 0x1F) == 0x10)
+        return A_UNK(cpu);
+
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
@@ -221,6 +224,9 @@ void A_MCR(ARM* cpu)
 
 void A_MRC(ARM* cpu)
 {
+    if ((cpu->CPSR & 0x1F) == 0x10)
+        return A_UNK(cpu);
+
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
