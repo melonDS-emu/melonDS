@@ -949,7 +949,10 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
     if (hasdir)
     {
         if (!fs::is_directory(fs::u8path(sourcedir)))
+        {
             hasdir = false;
+            SourceDir = "";
+        }
     }
 
     // 'auto' size management: (size=0)
@@ -1082,6 +1085,11 @@ bool FATStorage::Load(std::string filename, u64 size, std::string sourcedir)
 
 bool FATStorage::Save()
 {
+    if (SourceDir.empty())
+    {
+        return true;
+    }
+
     FF_File = Platform::OpenLocalFile(FilePath.c_str(), "r+b");
     if (!FF_File)
     {
