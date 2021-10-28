@@ -1717,10 +1717,10 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     NDS::Reset();
 
-    char* romname = strrchr(path, '/');
+    char* romname = strrchr((char*)path, '/');
     if (!romname)
     {
-        romname = strrchr(path, '\\');
+        romname = strrchr((char*)path, '\\');
         if (!romname)
             romname = (char*)&path[-1];
     }
