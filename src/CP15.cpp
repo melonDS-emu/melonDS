@@ -109,6 +109,7 @@ void ARMv5::UpdateDTCMSetting()
     if (CP15Control & (1<<16))
     {
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
+        if (newDTCMSize < 0x1000) newDTCMSize = 0x1000;
         newDTCMMask = 0xFFFFF000 & ~(newDTCMSize-1);
         newDTCMBase = DTCMSetting & newDTCMMask;
     }
@@ -122,7 +123,7 @@ void ARMv5::UpdateDTCMSetting()
     if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
 #ifdef JIT_ENABLED
-        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMMask);
+        ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
 #endif
         DTCMBase = newDTCMBase;
         DTCMMask = newDTCMMask;
