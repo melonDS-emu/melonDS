@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include "FIFO.h"
+#include "FATStorage.h"
 
 
 class DSi_SDDevice;
@@ -102,7 +103,7 @@ private:
 class DSi_SDDevice
 {
 public:
-    DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; }
+    DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; ReadOnly = false; }
     virtual ~DSi_SDDevice() {}
 
     virtual void Reset() = 0;
@@ -111,6 +112,7 @@ public:
     virtual void ContinueTransfer() = 0;
 
     bool IRQ;
+    bool ReadOnly;
 
 protected:
     DSi_SDHost* Host;
@@ -121,6 +123,7 @@ class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
     DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir);
     ~DSi_MMCStorage();
 
     void Reset();
@@ -135,6 +138,7 @@ public:
 private:
     bool Internal;
     FILE* File;
+    FATStorage* SD;
 
     u8 CID[16];
     u8 CSD[16];

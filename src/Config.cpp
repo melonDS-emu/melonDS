@@ -57,15 +57,11 @@ ConfigEntry ConfigFile[] =
     {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
     {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
     {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
-    //{"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
-    //{"DLDISDPath", 1, DLDISDPath, 0, "", 1023},
 
     {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
     {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
     {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
     {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
-    //{"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
-    //{"DSiSDPath", 1, DSiSDPath, 0, "", 1023},
 
     {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
     {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
