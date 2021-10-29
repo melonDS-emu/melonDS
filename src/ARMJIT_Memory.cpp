@@ -481,11 +481,11 @@ void RemapDTCM(u32 newBase, u32 newSize)
     // by unmapping DTCM first and then map the holes
     u32 oldDTCMBase = NDS::ARM9->DTCMBase;
     u32 oldDTCMSize = ~NDS::ARM9->DTCMMask + 1;
-    u32 oldDTCBEnd = oldDTCMBase + NDS::ARM9->DTCMMask;
+    u32 oldDTCMEnd = oldDTCMBase + NDS::ARM9->DTCMMask;
 
     u32 newEnd = newBase + newSize;
 
-    printf("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCBEnd);
+    printf("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCMEnd);
     // unmap all regions containing the old or the current DTCM mapping
     for (int region = 0; region < memregions_Count; region++)
     {
@@ -501,7 +501,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
             printf("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
-            bool overlap = (oldDTCMSize > 0 && oldDTCMBase < end && oldDTCBEnd > start)
+            bool overlap = (oldDTCMSize > 0 && oldDTCMBase < end && oldDTCMEnd > start)
                 || (newSize > 0 && newBase < end && newEnd > start);
 
             if (mapping.Num == 0 && overlap)
