@@ -79,6 +79,20 @@ extern int ShowOSD;
 extern int ConsoleType;
 extern int DirectBoot;
 
+extern int DLDIEnable;
+extern char DLDISDPath[1024];
+extern int DLDISize;
+extern int DLDIReadOnly;
+extern int DLDIFolderSync;
+extern char DLDIFolderPath[1024];
+
+extern int DSiSDEnable;
+extern char DSiSDPath[1024];
+extern int DSiSDSize;
+extern int DSiSDReadOnly;
+extern int DSiSDFolderSync;
+extern char DSiSDFolderPath[1024];
+
 extern int SocketBindAnyAddr;
 extern char LANDevice[128];
 extern int DirectLAN;

@@ -63,6 +63,20 @@ int ShowOSD;
 int ConsoleType;
 int DirectBoot;
 
+int DLDIEnable;
+char DLDISDPath[1024];
+int DLDISize;
+int DLDIReadOnly;
+int DLDIFolderSync;
+char DLDIFolderPath[1024];
+
+int DSiSDEnable;
+char DSiSDPath[1024];
+int DSiSDSize;
+int DSiSDReadOnly;
+int DSiSDFolderSync;
+char DSiSDFolderPath[1024];
+
 int SocketBindAnyAddr;
 char LANDevice[128];
 int DirectLAN;
@@ -171,6 +185,20 @@ ConfigEntry PlatformConfigFile[] =
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+
+    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
+    {"DLDISDPath", 1, DLDISDPath, 0, "dldi.bin", 1023},
+    {"DLDISize", 0, &DLDISize, 0, NULL, 0},
+    {"DLDIReadOnly", 0, &DLDIReadOnly, 0, NULL, 0},
+    {"DLDIFolderSync", 0, &DLDIFolderSync, 0, NULL, 0},
+    {"DLDIFolderPath", 1, DLDIFolderPath, 0, "", 1023},
+
+    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
+    {"DSiSDPath", 1, DSiSDPath, 0, "dsisd.bin", 1023},
+    {"DSiSDSize", 0, &DSiSDSize, 0, NULL, 0},
+    {"DSiSDReadOnly", 0, &DSiSDReadOnly, 0, NULL, 0},
+    {"DSiSDFolderSync", 0, &DSiSDFolderSync, 0, NULL, 0},
+    {"DSiSDFolderPath", 1, DSiSDFolderPath, 0, "", 1023},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},

@@ -222,14 +222,14 @@ int SetupDSiNAND()
 
     DSi::SDMMCFile = f;
 
-    if (Config::DSiSDEnable)
+    /*if (Config::DSiSDEnable)
     {
         f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
         if (f)
             DSi::SDIOFile = f;
         else
             DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
-    }
+    }*/
 
     return Load_OK;
 }
@@ -509,7 +509,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
         {
             for (int x = 0; x < 32; x++)
             {
-                for (int y = 0; y < 32/2; y++) 
+                for (int y = 0; y < 32/2; y++)
                 {
                     std::swap(frame[x * 32 + y], frame[x * 32 + (32 - 1 - y)]);
                 }
@@ -519,7 +519,7 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
         {
             for (int x = 0; x < 32/2; x++)
             {
-                for (int y = 0; y < 32; y++) 
+                for (int y = 0; y < 32; y++)
                 {
                     std::swap(frame[x * 32 + y], frame[(32 - 1 - x) * 32 + y]);
                 }

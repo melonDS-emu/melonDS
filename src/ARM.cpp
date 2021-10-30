@@ -83,6 +83,8 @@ ARMv5::ARMv5() : ARM(0)
 #ifndef JIT_ENABLED
     DTCM = new u8[DTCMPhysicalSize];
 #endif
+
+    PU_Map = PU_PrivMap;
 }
 
 ARMv4::ARMv4() : ARM(1)
@@ -108,6 +110,22 @@ void ARM::Reset()
         R[i] = 0;
 
     CPSR = 0x000000D3;
+
+    for (int i = 0; i < 7; i++)
+        R_FIQ[i] = 0;
+    for (int i = 0; i < 2; i++)
+    {
+        R_SVC[i] = 0;
+        R_ABT[i] = 0;
+        R_IRQ[i] = 0;
+        R_UND[i] = 0;
+    }
+
+    R_FIQ[7] = 0x00000010;
+    R_SVC[2] = 0x00000010;
+    R_ABT[2] = 0x00000010;
+    R_IRQ[2] = 0x00000010;
+    R_UND[2] = 0x00000010;
 
     ExceptionBase = Num ? 0x00000000 : 0xFFFF0000;
 
@@ -145,6 +163,8 @@ void ARMv5::Reset()
         BusWrite32 = NDS::ARM9Write32;
         GetMemRegion = NDS::ARM9GetMemRegion;
     }
+
+    PU_Map = PU_PrivMap;
 
     ARM::Reset();
 }
@@ -209,10 +229,22 @@ void ARM::DoSavestate(Savestate* file)
 
     if (!file->Saving)
     {
+        CPSR |= 0x00000010;
+        R_FIQ[7] |= 0x00000010;
+        R_SVC[2] |= 0x00000010;
+        R_ABT[2] |= 0x00000010;
+        R_IRQ[2] |= 0x00000010;
+        R_UND[2] |= 0x00000010;
+
         if (!Num)
         {
             SetupCodeMem(R[15]); // should fix it
             ((ARMv5*)this)->RegionCodeCycles = ((ARMv5*)this)->MemTimings[R[15] >> 12][0];
+
+            if ((CPSR & 0x1F) == 0x10)
+                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
+            else
+                ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;
         }
         else
         {
@@ -303,12 +335,11 @@ void ARMv5::JumpTo(u32 addr, bool restorecpsr)
         CPSR &= ~0x20;
     }
 
-    /*if (!(PU_Map[addr>>12] & 0x04))
+    if (!(PU_Map[addr>>12] & 0x04))
     {
-        printf("jumped to %08X. very bad\n", addr);
         PrefetchAbort();
         return;
-    }*/
+    }
 
     NDS::MonitorARM9Jump(addr);
 }
@@ -375,10 +406,16 @@ void ARM::RestoreCPSR()
         CPSR = R_SVC[2];
         break;
 
+    case 0x14:
+    case 0x15:
+    case 0x16:
     case 0x17:
         CPSR = R_ABT[2];
         break;
 
+    case 0x18:
+    case 0x19:
+    case 0x1A:
     case 0x1B:
         CPSR = R_UND[2];
         break;
@@ -388,10 +425,12 @@ void ARM::RestoreCPSR()
         break;
     }
 
+    CPSR |= 0x00000010;
+
     UpdateMode(oldcpsr, CPSR);
 }
 
-void ARM::UpdateMode(u32 oldmode, u32 newmode)
+void ARM::UpdateMode(u32 oldmode, u32 newmode, bool phony)
 {
     if ((oldmode & 0x1F) == (newmode & 0x1F)) return;
 
@@ -461,15 +500,12 @@ void ARM::UpdateMode(u32 oldmode, u32 newmode)
         break;
     }
 
-    #undef SWAP
-
-    if (Num == 0)
+    if ((!phony) && (Num == 0))
     {
-        /*if ((newmode & 0x1F) == 0x10)
+        if ((newmode & 0x1F) == 0x10)
             ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_UserMap;
         else
-            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;*/
-        //if ((newmode & 0x1F) == 0x10) printf("!! USER MODE\n");
+            ((ARMv5*)this)->PU_Map = ((ARMv5*)this)->PU_PrivMap;
     }
 }
 
@@ -498,7 +534,7 @@ void ARM::TriggerIRQ()
 
 void ARMv5::PrefetchAbort()
 {
-    printf("prefetch abort\n");
+    printf("ARM9: prefetch abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -509,7 +545,7 @@ void ARMv5::PrefetchAbort()
     // so better take care of it
     if (!(PU_Map[ExceptionBase>>12] & 0x04))
     {
-        printf("!!!!! EXCEPTION REGION NOT READABLE. THIS IS VERY BAD!!\n");
+        printf("!!!!! EXCEPTION REGION NOT EXECUTABLE. THIS IS VERY BAD!!\n");
         NDS::Stop();
         return;
     }
@@ -521,7 +557,7 @@ void ARMv5::PrefetchAbort()
 
 void ARMv5::DataAbort()
 {
-    printf("data abort\n");
+    printf("ARM9: data abort (%08X)\n", R[15]);
 
     u32 oldcpsr = CPSR;
     CPSR &= ~0xBF;
@@ -529,7 +565,7 @@ void ARMv5::DataAbort()
     UpdateMode(oldcpsr, CPSR);
 
     R_ABT[2] = oldcpsr;
-    R[14] = R[15] + (oldcpsr & 0x20 ? 6 : 4);
+    R[14] = R[15] + (oldcpsr & 0x20 ? 4 : 0);
     JumpTo(ExceptionBase + 0x10);
 }
 

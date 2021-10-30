@@ -13,15 +13,17 @@
 
 static ff_disk_read_cb ReadCb;
 static ff_disk_write_cb WriteCb;
+static LBA_t SectorCount;
 static DSTATUS Status = STA_NOINIT | STA_NODISK;
 
 
-void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb)
+void ff_disk_open(ff_disk_read_cb readcb, ff_disk_write_cb writecb, LBA_t seccnt)
 {
     if (!readcb) return;
 
     ReadCb = readcb;
     WriteCb = writecb;
+    SectorCount = seccnt;
 
     Status &= ~STA_NODISK;
     if (!writecb) Status |= STA_PROTECT;
@@ -32,6 +34,7 @@ void ff_disk_close()
 {
     ReadCb = (void*)0;
     WriteCb = (void*)0;
+    SectorCount = 0;
 
     Status &= ~STA_PROTECT;
     Status |= STA_NODISK;
@@ -123,12 +126,28 @@ DRESULT disk_ioctl (
 {
     switch (cmd)
     {
-    case 0: // sync
+    case CTRL_SYNC:
         // TODO: fflush?
+        return RES_OK;
+
+    case GET_SECTOR_COUNT:
+        *(LBA_t*)buff = SectorCount;
+        return RES_OK;
+
+    case GET_SECTOR_SIZE:
+        *(WORD*)buff = 0x200;
+        return RES_OK;
+
+    case GET_BLOCK_SIZE:
+        *(DWORD*)buff = 1;
+        return RES_OK;
+
+    case CTRL_TRIM:
+        // TODO??
         return RES_OK;
     }
 
-	//printf("disk_ioctl(%02X, %02X, %p)\n", pdrv, cmd, buff);
+	//printf("FatFS: unknown disk_ioctl(%02X, %02X, %p)\n", pdrv, cmd, buff);
 	return RES_PARERR;
 }
 
