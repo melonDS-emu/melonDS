@@ -16,9 +16,9 @@ FILETYPE VFT_APP
 		{
 			VALUE "CompanyName", "Melon Factory of Kuribo64"
 			VALUE "FileVersion", "${MELONDS_VERSION}"
-			VALUE "FileDescription", "DS emulator, sorta. also 1st quality melon."
+			VALUE "FileDescription", "melonDS emulator"
 			VALUE "InternalName", "SDnolem"
-			VALUE "LegalCopyright", "2016-2021 Arisotura & co."
+			VALUE "LegalCopyright", "2016-2021 melonDS team"
 			VALUE "LegalTrademarks", ""
 			VALUE "OriginalFilename", "zafkflzdasd.exe"
 			VALUE "ProductName", "melonDS"
