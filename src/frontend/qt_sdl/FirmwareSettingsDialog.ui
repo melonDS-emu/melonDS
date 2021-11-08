@@ -28,14 +28,14 @@
      <item row="0" column="0">
       <widget class="QLabel" name="usernameLabel">
        <property name="text">
-        <string>Username</string>
+        <string>Username:</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1">
       <widget class="QLineEdit" name="usernameEdit">
        <property name="text">
-        <string>MelonDS</string>
+        <string>melonDS</string>
        </property>
        <property name="maxLength">
         <number>10</number>
@@ -48,7 +48,7 @@
      <item row="1" column="0">
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Language</string>
+        <string>Language:</string>
        </property>
       </widget>
      </item>
@@ -58,7 +58,7 @@
      <item row="2" column="0">
       <widget class="QLabel" name="label_4">
        <property name="text">
-        <string>Birthday</string>
+        <string>Birthday:</string>
        </property>
       </widget>
      </item>
@@ -68,7 +68,7 @@
      <item row="3" column="0">
       <widget class="QLabel" name="label_2">
        <property name="text">
-        <string>Color</string>
+        <string>Color:</string>
        </property>
       </widget>
      </item>
@@ -78,7 +78,7 @@
      <item row="4" column="0">
       <widget class="QLabel" name="label_3">
        <property name="text">
-        <string>Message</string>
+        <string>Message:</string>
        </property>
       </widget>
      </item>
