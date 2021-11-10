@@ -70,7 +70,7 @@ const char* hk_general_labels[] =
     "Frame step",
     "Fast forward",
     "Toggle FPS limit",
-    "Toggle Fullscreen",
+    "Toggle fullscreen",
     "Close/open lid",
     "Microphone",
     "Swap screens"
