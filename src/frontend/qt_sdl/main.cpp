@@ -579,7 +579,10 @@ void EmuThread::run()
                 SDL_UnlockMutex(audioSyncLock);
             }
 
-            double frametimeStep = nlines / (60.0 * 263.0);
+            double fpsrate = (double)Config::FPSRate;
+            if (fpsrate < 1) fpsrate = 60.0;
+
+            double frametimeStep = nlines / (fpsrate * 263.0);
 
             {
                 bool limitfps = Config::LimitFPS && !fastforward;
