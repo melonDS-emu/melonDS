@@ -62,6 +62,8 @@ extern char DSiNANDPath[1024];
 extern int RandomizeMAC;
 extern int AudioBitrate;
 
+extern u32 TimeAtBoot;
+
 #ifdef JIT_ENABLED
 extern int JIT_Enable;
 extern int JIT_MaxBlockSize;

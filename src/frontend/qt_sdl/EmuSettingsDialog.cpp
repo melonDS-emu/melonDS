@@ -26,6 +26,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "PlatformConfig.h"
+#include "RTC.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -58,6 +59,21 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->cbxConsoleType->setCurrentIndex(Config::ConsoleType);
 
     ui->chkDirectBoot->setChecked(Config::DirectBoot != 0);
+    bool realTime = Config::TimeAtBoot == 0;
+    ui->chkUseRealTime->setChecked(realTime);
+    // NDS has no concept of time zones
+    ui->dtmBootTime->setTimeSpec(Qt::UTC);
+    // NDS firmware limits dates to this range
+    QDateTime minmax = QDateTime(QDate(2000, 1, 1)); // startOfDay (is QT v5.14 but we support 5.12)
+    minmax.setTimeSpec(Qt::UTC);
+    ui->dtmBootTime->setMinimumDateTime(minmax);
+    minmax = minmax.addYears(100).addSecs(-1); // endOfDay for 2099-12-31
+    ui->dtmBootTime->setMaximumDateTime(minmax);
+
+    if (realTime)
+        ui->dtmBootTime->setDateTime(QDateTime::currentDateTime());
+    else
+        ui->dtmBootTime->setDateTime(QDateTime::fromSecsSinceEpoch(Config::TimeAtBoot, Qt::UTC));
 
 #ifdef JIT_ENABLED
     ui->chkEnableJIT->setChecked(Config::JIT_Enable != 0);
@@ -177,6 +193,10 @@ void EmuSettingsDialog::done(int r)
 
         int consoleType = ui->cbxConsoleType->currentIndex();
         int directBoot = ui->chkDirectBoot->isChecked() ? 1:0;
+        // Idk why but there are seconds
+        QDateTime dtm = ui->dtmBootTime->dateTime();
+        dtm = dtm.addSecs(-dtm.time().second());
+        int bootTime = (uint)(dtm.toSecsSinceEpoch());
 
         int jitEnable = ui->chkEnableJIT->isChecked() ? 1:0;
         int jitMaxBlockSize = ui->spnJITMaximumBlockSize->value();
@@ -210,6 +230,7 @@ void EmuSettingsDialog::done(int r)
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
+            || bootTime != Config::TimeAtBoot
 #ifdef JIT_ENABLED
             || jitEnable != Config::JIT_Enable
             || jitMaxBlockSize != Config::JIT_MaxBlockSize
@@ -278,6 +299,10 @@ void EmuSettingsDialog::done(int r)
 
             Config::ConsoleType = consoleType;
             Config::DirectBoot = directBoot;
+            Config::TimeAtBoot = bootTime;
+            // RTC updates its TimeAtBoot on init, instead of reset. (This is done to preserve clock changes made from within the NDS when doing a power cycle.)
+            RTC::DeInit();
+            RTC::Init();
 
             Config::Save();
 
