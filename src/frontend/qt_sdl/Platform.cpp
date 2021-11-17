@@ -43,6 +43,7 @@
 #endif
 
 #include <QStandardPaths>
+#include <QString>
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
@@ -133,7 +134,9 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
+#ifdef JIT_ENABLED
     case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
+#endif
 
     case DLDI_ImageSize: return imgsizes[Config::DLDISize];
 
@@ -147,10 +150,14 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
+#ifdef JIT_ENABLED
     case JIT_Enable: return Config::JIT_Enable != 0;
     case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
     case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
     case JIT_FastMemory: return Config::JIT_FastMemory != 0;
+#endif
+
+    case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
 
     case DLDI_Enable: return Config::DLDIEnable != 0;
     case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
@@ -168,6 +175,15 @@ std::string GetConfigString(ConfigEntry entry)
 {
     switch (entry)
     {
+    case BIOS9Path: return Config::BIOS9Path;
+    case BIOS7Path: return Config::BIOS7Path;
+    case FirmwarePath: return Config::FirmwarePath;
+
+    case DSi_BIOS9Path: return Config::DSiBIOS9Path;
+    case DSi_BIOS7Path: return Config::DSiBIOS7Path;
+    case DSi_FirmwarePath: return Config::DSiFirmwarePath;
+    case DSi_NANDPath: return Config::DSiNANDPath;
+
     case DLDI_ImagePath: return Config::DLDISDPath;
     case DLDI_FolderPath: return Config::DLDIFolderPath;
 
@@ -179,9 +195,9 @@ std::string GetConfigString(ConfigEntry entry)
 }
 
 
-FILE* OpenFile(const char* path, const char* mode, bool mustexist)
+FILE* OpenFile(std::string path, std::string mode, bool mustexist)
 {
-    QFile f(path);
+    QFile f(path.c_str());
 
     if (mustexist && !f.exists())
     {
@@ -189,11 +205,11 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     }
 
     QIODevice::OpenMode qmode;
-    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+')
+    if (mode.length() > 1 && mode[0] == 'r' && mode[1] == '+')
     {
 		qmode = QIODevice::OpenModeFlag::ReadWrite;
 	}
-	else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+')
+	else if (mode.length() > 1 && mode[0] == 'w' && mode[1] == '+')
     {
     	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
 	}
@@ -207,36 +223,36 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     }
 
     f.open(qmode);
-    FILE* file = fdopen(dup(f.handle()), mode);
+    FILE* file = fdopen(dup(f.handle()), mode.c_str());
     f.close();
 
     return file;
 }
 
-FILE* OpenLocalFile(const char* path, const char* mode)
+FILE* OpenLocalFile(std::string path, std::string mode)
 {
-	QDir dir(path);
+	QDir dir(path.c_str());
     QString fullpath;
 
     if (dir.isAbsolute())
     {
         // If it's an absolute path, just open that.
-        fullpath = path;
+        fullpath = path.c_str();
     }
     else
     {
 #ifdef PORTABLE
-        fullpath = QString(EmuDirectory) + QDir::separator() + path;
+        fullpath = QString(EmuDirectory) + QDir::separator() + path.c_str();
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
         config.mkdir("melonDS");
         fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(path);
+        fullpath.append(path.c_str());
 #endif
     }
 
-    return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
+    return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
 }
 
 Thread* Thread_Create(std::function<void()> func)

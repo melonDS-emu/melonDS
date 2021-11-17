@@ -34,7 +34,7 @@
 namespace SPI_Firmware
 {
 
-char FirmwarePath[1024];
+std::string FirmwarePath;
 u8* Firmware;
 u32 FirmwareLength;
 u32 FirmwareMask;
@@ -83,8 +83,8 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 
 bool Init()
 {
-    memset(FirmwarePath, 0, sizeof(FirmwarePath));
-    Firmware = NULL;
+    FirmwarePath = "";
+    Firmware = nullptr;
     return true;
 }
 
@@ -147,11 +147,7 @@ void LoadFirmwareFromFile(FILE* f)
     fclose(f);
 
     // take a backup
-    char fwBackupPath[sizeof(FirmwarePath) + 4];
-    int fplen = strlen(FirmwarePath);
-    strcpy(&fwBackupPath[0], FirmwarePath);
-    strncpy(&fwBackupPath[fplen], ".bak", sizeof(fwBackupPath) - fplen);
-    fwBackupPath[fplen+4] = '\0';
+    std::string fwBackupPath = FirmwarePath + ".bak";
     f = Platform::OpenLocalFile(fwBackupPath, "rb");
     if (!f)
     {
@@ -203,9 +199,9 @@ void Reset()
     Firmware = NULL;
 
     if (NDS::ConsoleType == 1)
-        strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
+        FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
     else
-        strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
+        FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
 
     FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
     if (!f)
@@ -231,7 +227,7 @@ void Reset()
 
     if (!f || Config::FirmwareOverrideSettings)
         LoadUserSettingsFromConfig();
-  
+
     // fix touchscreen coords
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;

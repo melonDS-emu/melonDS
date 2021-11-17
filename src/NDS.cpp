@@ -490,9 +490,9 @@ void Reset()
     // DS BIOSes are always loaded, even in DSi mode
     // we need them for DS-compatible mode
 
-    if (Config::ExternalBIOSEnable)
+    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), "rb");
         if (!f)
         {
             printf("ARM9 BIOS not found\n");
@@ -509,7 +509,7 @@ void Reset()
             fclose(f);
         }
 
-        f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), "rb");
         if (!f)
         {
             printf("ARM7 BIOS not found\n");

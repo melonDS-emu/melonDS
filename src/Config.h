@@ -41,11 +41,6 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
-extern int ExternalBIOSEnable;
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
-
 extern char FirmwareUsername[64];
 extern int FirmwareLanguage;
 extern bool FirmwareOverrideSettings;
@@ -53,11 +48,6 @@ extern int FirmwareBirthdayMonth;
 extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern char FirmwareMessage[1024];
-
-extern char DSiBIOS9Path[1024];
-extern char DSiBIOS7Path[1024];
-extern char DSiFirmwarePath[1024];
-extern char DSiNANDPath[1024];
 
 extern int RandomizeMAC;
 extern int AudioBitrate;

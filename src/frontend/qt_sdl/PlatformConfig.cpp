@@ -71,6 +71,17 @@ int JIT_LiteralOptimisations = true;
 int JIT_FastMemory = true;
 #endif
 
+int ExternalBIOSEnable;
+
+char BIOS9Path[1024];
+char BIOS7Path[1024];
+char FirmwarePath[1024];
+
+char DSiBIOS9Path[1024];
+char DSiBIOS7Path[1024];
+char DSiFirmwarePath[1024];
+char DSiNANDPath[1024];
+
 int DLDIEnable;
 char DLDISDPath[1024];
 int DLDISize;
@@ -205,6 +216,17 @@ ConfigEntry PlatformConfigFile[] =
         {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
     #endif
 #endif
+
+    {"ExternalBIOSEnable", 0, &ExternalBIOSEnable, 0, NULL, 0},
+
+    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
+    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
+    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+
+    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
+    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
+    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
+    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
 
     {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
     {"DLDISDPath", 1, DLDISDPath, 0, "dldi.bin", 1023},

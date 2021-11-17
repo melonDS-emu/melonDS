@@ -26,6 +26,17 @@ extern int ConsoleType;
 extern int DirectBoot;
 extern int SavestateRelocSRAM;
 
+extern int ExternalBIOSEnable;
+
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
+
+extern char DSiBIOS9Path[1024];
+extern char DSiBIOS7Path[1024];
+extern char DSiFirmwarePath[1024];
+extern char DSiNANDPath[1024];
+
 }
 
 #endif

@@ -87,6 +87,17 @@ extern int JIT_LiteralOptimisations;
 extern int JIT_FastMemory;
 #endif
 
+extern int ExternalBIOSEnable;
+
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
+
+extern char DSiBIOS9Path[1024];
+extern char DSiBIOS7Path[1024];
+extern char DSiFirmwarePath[1024];
+extern char DSiNANDPath[1024];
+
 extern int DLDIEnable;
 extern char DLDISDPath[1024];
 extern int DLDISize;

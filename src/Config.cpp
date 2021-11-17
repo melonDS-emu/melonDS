@@ -28,11 +28,6 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
-int ExternalBIOSEnable;
-char BIOS9Path[1024];
-char BIOS7Path[1024];
-char FirmwarePath[1024];
-
 char FirmwareUsername[64];
 int FirmwareLanguage;
 bool FirmwareOverrideSettings;
@@ -41,21 +36,11 @@ int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
 char FirmwareMessage[1024];
 
-char DSiBIOS9Path[1024];
-char DSiBIOS7Path[1024];
-char DSiFirmwarePath[1024];
-char DSiNANDPath[1024];
-
 int RandomizeMAC;
 int AudioBitrate;
 
 ConfigEntry ConfigFile[] =
 {
-    {"ExternalBIOSEnable", 0, &ExternalBIOSEnable, 0, NULL, 0},
-    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
-    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
-    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
-
     {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
     {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
     {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
@@ -63,11 +48,6 @@ ConfigEntry ConfigFile[] =
     {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
     {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
     {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
-
-    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
-    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
-    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
-    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
 
     {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
     {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
