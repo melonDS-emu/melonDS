@@ -35,7 +35,7 @@
 FILE* TitleManagerDialog::curNAND = nullptr;
 TitleManagerDialog* TitleManagerDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 
 TitleManagerDialog::TitleManagerDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TitleManagerDialog)
@@ -285,7 +285,7 @@ void TitleManagerDialog::onImportTitleData()
 
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select file to import...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Title data files (*.sav);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -355,7 +355,7 @@ void TitleManagerDialog::onExportTitleData()
 
     QString file = QFileDialog::getSaveFileName(this,
                                                 "Select path to export to...",
-                                                QString(EmuDirectory) + exportname,
+                                                QString::fromStdString(EmuDirectory) + exportname,
                                                 "Title data files (*.sav);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -528,7 +528,7 @@ void TitleImportDialog::on_btnAppBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title executable...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "DSiWare executables (*.app *.nds *.dsi *.srl);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -540,7 +540,7 @@ void TitleImportDialog::on_btnTmdBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select title metadata...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "DSiWare metadata (*.tmd);;Any file (*.*)");
 
     if (file.isEmpty()) return;

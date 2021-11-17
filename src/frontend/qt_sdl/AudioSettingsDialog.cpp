@@ -30,7 +30,7 @@
 
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 
 AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
@@ -129,7 +129,7 @@ void AudioSettingsDialog::on_btnMicWavBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select WAV file...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "WAV files (*.wav);;Any file (*.*)");
 
     if (file.isEmpty()) return;

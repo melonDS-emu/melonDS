@@ -32,7 +32,7 @@
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 namespace Frontend { extern ARCodeFile* CheatFile; }
 

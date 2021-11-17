@@ -61,7 +61,7 @@
 #endif
 
 
-char* EmuDirectory;
+std::string EmuDirectory;
 
 void emuStop();
 
@@ -90,35 +90,29 @@ void Init(int argc, char** argv)
         }
         if (len > 0)
         {
-            EmuDirectory = new char[len+1];
-            strncpy(EmuDirectory, argv[0], len);
-            EmuDirectory[len] = '\0';
+            std::string emudir = argv[0];
+            EmuDirectory = emudir.substr(0, len);
         }
         else
         {
-            EmuDirectory = new char[2];
-            strcpy(EmuDirectory, ".");
+            EmuDirectory = ".";
         }
     }
     else
     {
-        EmuDirectory = new char[2];
-        strcpy(EmuDirectory, ".");
+        EmuDirectory = ".";
     }
 #else
     QString confdir;
     QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
     config.mkdir("melonDS");
     confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = new char[confdir.length() + 1];
-    memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
-    EmuDirectory[confdir.length()] = '\0';
+    EmuDirectory = confdir.toStdString();
 #endif
 }
 
 void DeInit()
 {
-    delete[] EmuDirectory;
 }
 
 
@@ -197,7 +191,7 @@ std::string GetConfigString(ConfigEntry entry)
 
 FILE* OpenFile(std::string path, std::string mode, bool mustexist)
 {
-    QFile f(path.c_str());
+    QFile f(QString::fromStdString(path));
 
     if (mustexist && !f.exists())
     {
@@ -231,24 +225,25 @@ FILE* OpenFile(std::string path, std::string mode, bool mustexist)
 
 FILE* OpenLocalFile(std::string path, std::string mode)
 {
-	QDir dir(path.c_str());
+    QString qpath = QString::fromStdString(path);
+	QDir dir(qpath);
     QString fullpath;
 
     if (dir.isAbsolute())
     {
         // If it's an absolute path, just open that.
-        fullpath = path.c_str();
+        fullpath = qpath;
     }
     else
     {
 #ifdef PORTABLE
-        fullpath = QString(EmuDirectory) + QDir::separator() + path.c_str();
+        fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
         config.mkdir("melonDS");
         fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(path.c_str());
+        fullpath.append(qpath);
 #endif
     }
 
