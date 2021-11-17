@@ -133,6 +133,8 @@ int GetConfigInt(ConfigEntry entry)
 
     switch (entry)
     {
+    case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
+
     case DLDI_ImageSize: return imgsizes[Config::DLDISize];
 
     case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
@@ -145,6 +147,11 @@ bool GetConfigBool(ConfigEntry entry)
 {
     switch (entry)
     {
+    case JIT_Enable: return Config::JIT_Enable != 0;
+    case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
+    case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
+    case JIT_FastMemory: return Config::JIT_FastMemory != 0;
+
     case DLDI_Enable: return Config::DLDIEnable != 0;
     case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
     case DLDI_FolderSync: return Config::DLDIFolderSync != 0;

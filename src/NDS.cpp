@@ -80,6 +80,8 @@ u32 ARM7Regions[0x20000];
 ARMv5* ARM9;
 ARMv4* ARM7;
 
+bool EnableJIT;
+
 u32 NumFrames;
 u32 NumLagFrames;
 bool LagFrameFlag;
@@ -476,6 +478,8 @@ void Reset()
 {
     FILE* f;
     u32 i;
+
+    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
 
     RunningGame = false;
     LastSysClockCycles = 0;
@@ -1103,7 +1107,7 @@ u32 RunFrame()
 u32 RunFrame()
 {
 #ifdef JIT_ENABLED
-    if (Config::JIT_Enable)
+    if (EnableJIT)
         return NDS::ConsoleType == 1
             ? RunFrame<true, 1>()
             : RunFrame<true, 0>();

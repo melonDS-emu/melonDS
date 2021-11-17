@@ -62,14 +62,6 @@ extern char DSiNANDPath[1024];
 extern int RandomizeMAC;
 extern int AudioBitrate;
 
-#ifdef JIT_ENABLED
-extern int JIT_Enable;
-extern int JIT_MaxBlockSize;
-extern int JIT_BranchOptimisations;
-extern int JIT_LiteralOptimisations;
-extern int JIT_FastMemory;
-#endif
-
 }
 
 #endif // CONFIG_H

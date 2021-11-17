@@ -36,6 +36,12 @@ void StopEmu();
 
 enum ConfigEntry
 {
+    JIT_Enable,
+    JIT_MaxBlockSize,
+    JIT_LiteralOptimizations,
+    JIT_BranchOptimizations,
+    JIT_FastMemory,
+
     DLDI_Enable,
     DLDI_ImagePath,
     DLDI_ImageSize,

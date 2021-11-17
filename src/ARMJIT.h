@@ -33,6 +33,11 @@ namespace ARMJIT
 
 typedef void (*JitBlockEntry)();
 
+extern int MaxBlockSize;
+extern bool LiteralOptimizations;
+extern bool BranchOptimizations;
+extern bool FastMemory;
+
 void Init();
 void DeInit();
 

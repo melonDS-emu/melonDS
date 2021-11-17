@@ -79,6 +79,14 @@ extern int ShowOSD;
 extern int ConsoleType;
 extern int DirectBoot;
 
+#ifdef JIT_ENABLED
+extern int JIT_Enable;
+extern int JIT_MaxBlockSize;
+extern int JIT_BranchOptimisations;
+extern int JIT_LiteralOptimisations;
+extern int JIT_FastMemory;
+#endif
+
 extern int DLDIEnable;
 extern char DLDISDPath[1024];
 extern int DLDISize;
