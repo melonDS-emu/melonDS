@@ -127,8 +127,6 @@ int MouseHideSeconds;
 
 int PauseLostFocus;
 
-int EnableJIT;
-
 ConfigEntry PlatformConfigFile[] =
 {
     {"Key_A",      0, &KeyMapping[0],  -1, NULL, 0},
