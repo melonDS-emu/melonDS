@@ -20,6 +20,7 @@
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
 
+
 FirmwareSettingsDialog* FirmwareSettingsDialog::currentDlg = nullptr;
 
 FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::FirmwareSettingsDialog)
@@ -35,7 +36,13 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     QDate birthDate = QDate(QDate::currentDate().year(), Config::FirmwareBirthdayMonth, Config::FirmwareBirthdayDay);
     ui->birthdayEdit->setDate(birthDate);
 
-    ui->colorsEdit->addItems(colours);
+    for (int i = 0; i < 16; i++)
+    {
+        QImage image(16, 16, QImage::Format_ARGB32);
+        image.fill(colors[i]);
+        QIcon icon(QPixmap::fromImage(image.copy()));
+        ui->colorsEdit->addItem(icon, colornames[i]);
+    }
     ui->colorsEdit->setCurrentIndex(Config::FirmwareFavouriteColour);
 
     ui->messageEdit->setText(Config::FirmwareMessage);

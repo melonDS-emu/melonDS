@@ -30,24 +30,44 @@ class FirmwareSettingsDialog : public QDialog
     Q_OBJECT
 
 public:
-    const QStringList colours
+    const QStringList colornames
     {
-        "Greyish Blue",
+        "Greyish blue",
         "Brown",
         "Red",
-        "Light Pink",
+        "Light pink",
         "Orange",
         "Yellow",
         "Lime",
-        "Light Green",
-        "Dark Green",
-        "Turqoise",
-        "Light Blue",
+        "Light green",
+        "Dark green",
+        "Turquoise",
+        "Light blue",
         "Blue",
-        "Dark Blue",
-        "Dark Purple",
-        "Light Purple",
-        "Dark Pink"
+        "Dark blue",
+        "Dark purple",
+        "Light purple",
+        "Dark pink"
+    };
+
+    const QColor colors[16] =
+    {
+        QColor(97, 130, 154),
+        QColor(186, 73, 0),
+        QColor(251, 0, 24),
+        QColor(251, 138, 251),
+        QColor(251, 146, 0),
+        QColor(243, 227, 0),
+        QColor(170, 251, 0),
+        QColor(0, 251, 0),
+        QColor(0, 162, 56),
+        QColor(73, 219, 138),
+        QColor(48, 186, 243),
+        QColor(0, 89, 243),
+        QColor(0, 0, 146),
+        QColor(138, 0, 211),
+        QColor(211, 0, 235),
+        QColor(251, 0, 246)
     };
 
     const QStringList languages
