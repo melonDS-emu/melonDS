@@ -162,7 +162,9 @@ struct MemRegion
     u32 Mask;
 };
 
+#ifdef JIT_ENABLED
 extern bool EnableJIT;
+#endif
 extern int ConsoleType;
 extern int CurCPU;
 

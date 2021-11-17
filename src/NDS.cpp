@@ -80,7 +80,9 @@ u32 ARM7Regions[0x20000];
 ARMv5* ARM9;
 ARMv4* ARM7;
 
+#ifdef JIT_ENABLED
 bool EnableJIT;
+#endif
 
 u32 NumFrames;
 u32 NumLagFrames;
@@ -479,7 +481,9 @@ void Reset()
     FILE* f;
     u32 i;
 
+#ifdef JIT_ENABLED
     EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
+#endif
 
     RunningGame = false;
     LastSysClockCycles = 0;
