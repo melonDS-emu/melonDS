@@ -113,7 +113,7 @@ extern int DSiSDFolderSync;
 extern char DSiSDFolderPath[1024];
 
 extern int RandomizeMAC;
-extern bool FirmwareOverrideSettings;
+extern int FirmwareOverrideSettings;
 extern char FirmwareUsername[64];
 extern int FirmwareLanguage;
 extern int FirmwareBirthdayMonth;

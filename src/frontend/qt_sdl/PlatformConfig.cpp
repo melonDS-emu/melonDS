@@ -97,7 +97,7 @@ int DSiSDFolderSync;
 char DSiSDFolderPath[1024];
 
 int RandomizeMAC;
-bool FirmwareOverrideSettings;
+int FirmwareOverrideSettings;
 char FirmwareUsername[64];
 int FirmwareLanguage;
 int FirmwareBirthdayMonth;
@@ -127,7 +127,7 @@ int MouseHideSeconds;
 
 int PauseLostFocus;
 
-bool EnableJIT;
+int EnableJIT;
 
 ConfigEntry PlatformConfigFile[] =
 {
