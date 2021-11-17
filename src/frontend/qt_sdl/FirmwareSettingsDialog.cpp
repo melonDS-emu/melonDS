@@ -16,7 +16,7 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#include "Config.h"
+#include "PlatformConfig.h"
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
 

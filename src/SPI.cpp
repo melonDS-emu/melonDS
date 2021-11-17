@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <codecvt>
 #include <locale>
-#include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
@@ -171,23 +170,25 @@ void LoadFirmwareFromFile(FILE* f)
 void LoadUserSettingsFromConfig()
 {
     // setting up username
-    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareUsername);
+    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
     size_t usernameLength = std::min(username.length(), (size_t) 10);
     memcpy(Firmware + UserSettings + 0x06, username.data(), usernameLength * sizeof(char16_t));
     Firmware[UserSettings+0x1A] = usernameLength;
 
     // setting language
-    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
+    Firmware[UserSettings+0x64] = Platform::GetConfigInt(Platform::Firm_Language);
 
     // setting up color
-    Firmware[UserSettings+0x02] = Config::FirmwareFavouriteColour;
+    Firmware[UserSettings+0x02] = Platform::GetConfigInt(Platform::Firm_Color);
 
     // setting up birthday
-    Firmware[UserSettings+0x03] = Config::FirmwareBirthdayMonth;
-    Firmware[UserSettings+0x04] = Config::FirmwareBirthdayDay;
+    Firmware[UserSettings+0x03] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+    Firmware[UserSettings+0x04] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
 
     // setup message
-    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareMessage);
+    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
     size_t messageLength = std::min(message.length(), (size_t) 26);
     memcpy(Firmware + UserSettings + 0x1C, message.data(), messageLength * sizeof(char16_t));
     Firmware[UserSettings+0x50] = messageLength;
@@ -225,7 +226,7 @@ void Reset()
 
     UserSettings = userdata;
 
-    if (!f || Config::FirmwareOverrideSettings)
+    if (!f || Platform::GetConfigBool(Platform::Firm_OverrideSettings))
         LoadUserSettingsFromConfig();
 
     // fix touchscreen coords
@@ -243,7 +244,7 @@ void Reset()
 
     *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
-    if (Config::RandomizeMAC)
+    if (Platform::GetConfigBool(Platform::Firm_RandomizeMAC))
     {
         // replace MAC address with random address
         Firmware[0x36] = 0x00;

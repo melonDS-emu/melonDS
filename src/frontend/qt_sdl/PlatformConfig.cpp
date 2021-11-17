@@ -96,6 +96,15 @@ int DSiSDReadOnly;
 int DSiSDFolderSync;
 char DSiSDFolderPath[1024];
 
+int RandomizeMAC;
+bool FirmwareOverrideSettings;
+char FirmwareUsername[64];
+int FirmwareLanguage;
+int FirmwareBirthdayMonth;
+int FirmwareBirthdayDay;
+int FirmwareFavouriteColour;
+char FirmwareMessage[1024];
+
 int SocketBindAnyAddr;
 char LANDevice[128];
 int DirectLAN;
@@ -241,6 +250,15 @@ ConfigEntry PlatformConfigFile[] =
     {"DSiSDReadOnly", 0, &DSiSDReadOnly, 0, NULL, 0},
     {"DSiSDFolderSync", 0, &DSiSDFolderSync, 0, NULL, 0},
     {"DSiSDFolderPath", 1, DSiSDFolderPath, 0, "", 1023},
+
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
+    {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
+    {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
+    {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
+    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
+    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
+    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
+    {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},

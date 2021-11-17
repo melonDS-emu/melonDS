@@ -68,6 +68,15 @@ enum ConfigEntry
     DSiSD_ReadOnly,
     DSiSD_FolderSync,
     DSiSD_FolderPath,
+
+    Firm_RandomizeMAC,
+    Firm_OverrideSettings,
+    Firm_Username,
+    Firm_Language,
+    Firm_BirthdayMonth,
+    Firm_BirthdayDay,
+    Firm_Color,
+    Firm_Message,
 };
 
 int GetConfigInt(ConfigEntry entry);

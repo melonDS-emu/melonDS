@@ -28,28 +28,12 @@ namespace Config
 
 const char* kConfigFile = "melonDS.ini";
 
-char FirmwareUsername[64];
-int FirmwareLanguage;
-bool FirmwareOverrideSettings;
-int FirmwareBirthdayMonth;
-int FirmwareBirthdayDay;
-int FirmwareFavouriteColour;
-char FirmwareMessage[1024];
 
-int RandomizeMAC;
 int AudioBitrate;
 
 ConfigEntry ConfigFile[] =
 {
-    {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
-    {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
-    {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
-    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
-    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
-    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
-    {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
 
-    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
     {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
 
     {"", -1, NULL, 0, NULL, 0}

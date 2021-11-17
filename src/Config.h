@@ -41,15 +41,7 @@ bool HasConfigFile(const char* fileName);
 void Load();
 void Save();
 
-extern char FirmwareUsername[64];
-extern int FirmwareLanguage;
-extern bool FirmwareOverrideSettings;
-extern int FirmwareBirthdayMonth;
-extern int FirmwareBirthdayDay;
-extern int FirmwareFavouriteColour;
-extern char FirmwareMessage[1024];
 
-extern int RandomizeMAC;
 extern int AudioBitrate;
 
 }
