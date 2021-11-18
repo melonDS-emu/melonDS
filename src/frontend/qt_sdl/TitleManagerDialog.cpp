@@ -23,7 +23,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 #include "FrontendUtil.h"
 #include "DSi_NAND.h"
 

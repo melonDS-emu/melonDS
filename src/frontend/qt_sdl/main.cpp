@@ -75,7 +75,6 @@
 #include "Wifi.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "Savestate.h"
 

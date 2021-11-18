@@ -22,7 +22,6 @@
 #include "DSi_SD.h"
 #include "DSi_NWifi.h"
 #include "Platform.h"
-#include "Config.h"
 
 
 // observed IRQ behavior during transfers

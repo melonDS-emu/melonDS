@@ -24,7 +24,6 @@
 #include "ARMInterpreter.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
-#include "Config.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"

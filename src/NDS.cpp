@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "Config.h"
 #include "NDS.h"
 #include "ARM.h"
 #include "NDSCart.h"
@@ -634,6 +633,8 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
+    // TODO: move the SOUNDBIAS/degrade logic to SPU?
+
     // The SOUNDBIAS register does nothing on DSi
     SPU::SetApplyBias(ConsoleType == 0);
 
@@ -646,9 +647,10 @@ void Reset()
         degradeAudio = false;
     }
 
-    if (Config::AudioBitrate == 1) // Always 10-bit
+    int bitrate = Platform::GetConfigInt(Platform::AudioBitrate);
+    if (bitrate == 1) // Always 10-bit
         degradeAudio = true;
-    else if (Config::AudioBitrate == 2) // Always 16-bit
+    else if (bitrate == 2) // Always 16-bit
         degradeAudio = false;
 
     SPU::SetDegrade10Bit(degradeAudio);

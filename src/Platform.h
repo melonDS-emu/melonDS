@@ -77,6 +77,8 @@ enum ConfigEntry
     Firm_BirthdayDay,
     Firm_Color,
     Firm_Message,
+
+    AudioBitrate,
 };
 
 int GetConfigInt(ConfigEntry entry);

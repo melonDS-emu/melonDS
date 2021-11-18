@@ -19,7 +19,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "PlatformConfig.h"
+#include "Platform.h"
+#include "Config.h"
+
 
 namespace Config
 {
@@ -112,6 +114,7 @@ int DirectLAN;
 int SavestateRelocSRAM;
 
 int AudioInterp;
+int AudioBitrate;
 int AudioVolume;
 int MicInputType;
 char MicWavPath[1024];
@@ -127,7 +130,10 @@ int MouseHideSeconds;
 
 int PauseLostFocus;
 
-ConfigEntry PlatformConfigFile[] =
+
+const char* kConfigFile = "melonDS.ini";
+
+ConfigEntry ConfigFile[] =
 {
     {"Key_A",      0, &KeyMapping[0],  -1, NULL, 0},
     {"Key_B",      0, &KeyMapping[1],  -1, NULL, 0},
@@ -265,6 +271,7 @@ ConfigEntry PlatformConfigFile[] =
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
     {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
+    {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
@@ -290,5 +297,82 @@ ConfigEntry PlatformConfigFile[] =
 
     {"", -1, NULL, 0, NULL, 0}
 };
+
+
+void Load()
+{
+    ConfigEntry* entry = &ConfigFile[0];
+    for (;;)
+    {
+        if (!entry->Value) break;
+
+        if (entry->Type == 0)
+            *(int*)entry->Value = entry->DefaultInt;
+        else
+        {
+            strncpy((char*)entry->Value, entry->DefaultStr, entry->StrLength);
+            ((char*)entry->Value)[entry->StrLength] = '\0';
+        }
+
+        entry++;
+    }
+
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "r");
+    if (!f) return;
+
+    char linebuf[1024];
+    char entryname[32];
+    char entryval[1024];
+    while (!feof(f))
+    {
+        if (fgets(linebuf, 1024, f) == nullptr)
+            break;
+
+        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
+        entryname[31] = '\0';
+        if (ret < 2) continue;
+
+        ConfigEntry* entry = &ConfigFile[0];
+        for (;;)
+        {
+            if (!entry->Value) break;
+
+            if (!strncmp(entry->Name, entryname, 32))
+            {
+                if (entry->Type == 0)
+                    *(int*)entry->Value = strtol(entryval, NULL, 10);
+                else
+                    strncpy((char*)entry->Value, entryval, entry->StrLength);
+
+                break;
+            }
+
+            entry++;
+        }
+    }
+
+    fclose(f);
+}
+
+void Save()
+{
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "w");
+    if (!f) return;
+
+    ConfigEntry* entry = &ConfigFile[0];
+    for (;;)
+    {
+        if (!entry->Value) break;
+
+        if (entry->Type == 0)
+            fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value);
+        else
+            fprintf(f, "%s=%s\r\n", entry->Name, (char*)entry->Value);
+
+        entry++;
+    }
+
+    fclose(f);
+}
 
 }

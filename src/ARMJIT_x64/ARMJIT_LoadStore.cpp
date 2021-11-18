@@ -18,8 +18,6 @@
 
 #include "ARMJIT_Compiler.h"
 
-#include "../Config.h"
-
 using namespace Gen;
 
 namespace ARMJIT

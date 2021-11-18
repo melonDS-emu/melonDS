@@ -20,7 +20,6 @@
 
 #include "../ARMJIT_Internal.h"
 #include "../ARMInterpreter.h"
-#include "../Config.h"
 
 #ifdef __SWITCH__
 #include <switch.h>

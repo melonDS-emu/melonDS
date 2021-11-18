@@ -51,7 +51,7 @@
 #include <QOpenGLContext>
 
 #include "Platform.h"
-#include "PlatformConfig.h"
+#include "Config.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include <string>
@@ -140,6 +140,8 @@ int GetConfigInt(ConfigEntry entry)
     case Firm_BirthdayMonth: return Config::FirmwareBirthdayMonth;
     case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
     case Firm_Color: return Config::FirmwareFavouriteColour;
+
+    case AudioBitrate: return Config::AudioBitrate;
     }
 
     return 0;

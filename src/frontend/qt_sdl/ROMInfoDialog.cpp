@@ -25,7 +25,6 @@
 #include "NDSCart.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 QString IntToHex(u64 num)
 {

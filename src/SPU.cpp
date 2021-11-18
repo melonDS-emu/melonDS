@@ -99,6 +99,8 @@ bool Init()
     AudioLock = Platform::Mutex_Create();
 
     InterpType = 0;
+    ApplyBias = true;
+    Degrade10Bit = false;
 
     // generate interpolation tables
     // values are 1:1:14 fixed-point
