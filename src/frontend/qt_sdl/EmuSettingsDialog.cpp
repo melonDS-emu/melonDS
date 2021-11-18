@@ -475,6 +475,10 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()
 {
     bool disabled = !ui->chkExternalBIOS->isChecked();
-    ui->txtBIOS7Path->setDisabled(disabled);
     ui->txtBIOS9Path->setDisabled(disabled);
+    ui->btnBIOS9Browse->setDisabled(disabled);
+    ui->txtBIOS7Path->setDisabled(disabled);
+    ui->btnBIOS7Browse->setDisabled(disabled);
+    ui->txtFirmwarePath->setDisabled(disabled);
+    ui->btnFirmwareBrowse->setDisabled(disabled);
 }

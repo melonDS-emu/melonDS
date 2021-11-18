@@ -163,6 +163,8 @@ int VerifyDSFirmware()
     FILE* f;
     long len;
 
+    if (!Config::ExternalBIOSEnable) return Load_FirmwareNotBootable;
+
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
     if (!f) return Load_FirmwareNotBootable;
 

@@ -63,7 +63,14 @@
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QDateEdit" name="birthdayEdit"/>
+      <widget class="QDateEdit" name="birthdayEdit">
+       <property name="displayFormat">
+        <string>dd/MM</string>
+       </property>
+       <property name="calendarPopup">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
      <item row="3" column="0">
       <widget class="QLabel" name="label_2">
@@ -88,7 +95,7 @@
      <item row="5" column="0" colspan="2">
       <widget class="QCheckBox" name="overrideFirmwareBox">
        <property name="text">
-        <string>Override firmware settings</string>
+        <string>Override settings from external firmware</string>
        </property>
       </widget>
      </item>

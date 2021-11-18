@@ -143,18 +143,16 @@ void LoadFirmwareFromFile(FILE* f)
     fseek(f, 0, SEEK_SET);
     fread(Firmware, 1, FirmwareLength, f);
 
-    fclose(f);
-
     // take a backup
     std::string fwBackupPath = FirmwarePath + ".bak";
-    f = Platform::OpenLocalFile(fwBackupPath, "rb");
-    if (!f)
+    FILE* bf = Platform::OpenLocalFile(fwBackupPath, "rb");
+    if (!bf)
     {
-        f = Platform::OpenLocalFile(fwBackupPath, "wb");
-        if (f)
+        bf = Platform::OpenLocalFile(fwBackupPath, "wb");
+        if (bf)
         {
-            fwrite(Firmware, 1, FirmwareLength, f);
-            fclose(f);
+            fwrite(Firmware, 1, FirmwareLength, bf);
+            fclose(bf);
         }
         else
         {
@@ -163,7 +161,7 @@ void LoadFirmwareFromFile(FILE* f)
     }
     else
     {
-        fclose(f);
+        fclose(bf);
     }
 }
 
@@ -197,22 +195,32 @@ void LoadUserSettingsFromConfig()
 void Reset()
 {
     if (Firmware) delete[] Firmware;
-    Firmware = NULL;
+    Firmware = nullptr;
+    FirmwarePath = "";
 
-    if (NDS::ConsoleType == 1)
-        FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
-    else
-        FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
-
-    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
-    if (!f)
+    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        printf("Firmware not found! Generating default firmware.\n");
-        LoadDefaultFirmware();
+        if (NDS::ConsoleType == 1)
+            FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
+        else
+            FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
+
+        FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+        if (!f)
+        {
+            printf("Firmware not found! Generating default firmware.\n");
+            FirmwarePath = "";
+        }
+        else
+        {
+            LoadFirmwareFromFile(f);
+            fclose(f);
+        }
     }
-    else
+
+    if (FirmwarePath.empty())
     {
-        LoadFirmwareFromFile(f);
+        LoadDefaultFirmware();
     }
 
     FirmwareMask = FirmwareLength - 1;
@@ -226,7 +234,7 @@ void Reset()
 
     UserSettings = userdata;
 
-    if (!f || Platform::GetConfigBool(Platform::Firm_OverrideSettings))
+    if (FirmwarePath.empty() || Platform::GetConfigBool(Platform::Firm_OverrideSettings))
         LoadUserSettingsFromConfig();
 
     // fix touchscreen coords
@@ -422,13 +430,16 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
-        if (f)
+        if (!FirmwarePath.empty())
         {
-            u32 cutoff = 0x7FA00 & FirmwareMask;
-            fseek(f, cutoff, SEEK_SET);
-            fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
-            fclose(f);
+            FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
+            if (f)
+            {
+                u32 cutoff = 0x7FA00 & FirmwareMask;
+                fseek(f, cutoff, SEEK_SET);
+                fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
+                fclose(f);
+            }
         }
     }
 }
