@@ -55,7 +55,7 @@ FirmwareSettingsDialog::~FirmwareSettingsDialog()
     delete ui;
 }
 
-void FirmwareSettingsDialog::on_dialogButtons_accepted()
+void FirmwareSettingsDialog::on_FirmwareSettingsDialog_accepted()
 {
     std::string newName = ui->usernameEdit->text().toStdString();
     strncpy(Config::FirmwareUsername, newName.c_str(), 63); Config::FirmwareUsername[63] = '\0';
@@ -73,7 +73,7 @@ void FirmwareSettingsDialog::on_dialogButtons_accepted()
     closeDlg();
 }
 
-void FirmwareSettingsDialog::on_dialogButtons_rejected()
+void FirmwareSettingsDialog::on_FirmwareSettingsDialog_rejected()
 {
     closeDlg();
 }

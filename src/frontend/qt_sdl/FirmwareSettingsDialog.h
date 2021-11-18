@@ -102,8 +102,8 @@ public:
     }
 
 private slots:
-    void on_dialogButtons_accepted();
-    void on_dialogButtons_rejected();
+    void on_FirmwareSettingsDialog_accepted();
+    void on_FirmwareSettingsDialog_rejected();
 
 private:
     Ui::FirmwareSettingsDialog* ui;
