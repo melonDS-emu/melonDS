@@ -33,8 +33,15 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     ui->languageBox->addItems(languages);
     ui->languageBox->setCurrentIndex(Config::FirmwareLanguage);
 
-    QDate birthDate = QDate(QDate::currentDate().year(), Config::FirmwareBirthdayMonth, Config::FirmwareBirthdayDay);
-    ui->birthdayEdit->setDate(birthDate);
+    for (int i = 1; i <= 31; i++)
+    {
+        ui->cbxBirthdayDay->addItem(QString("%1").arg(i));
+    }
+
+    ui->cbxBirthdayMonth->addItems(months);
+    ui->cbxBirthdayMonth->setCurrentIndex(Config::FirmwareBirthdayMonth - 1);
+
+    ui->cbxBirthdayDay->setCurrentIndex(Config::FirmwareBirthdayDay - 1);
 
     for (int i = 0; i < 16; i++)
     {
@@ -62,8 +69,8 @@ void FirmwareSettingsDialog::on_FirmwareSettingsDialog_accepted()
 
     Config::FirmwareLanguage = ui->languageBox->currentIndex();
     Config::FirmwareFavouriteColour = ui->colorsEdit->currentIndex();
-    Config::FirmwareBirthdayDay = ui->birthdayEdit->date().day();
-    Config::FirmwareBirthdayMonth = ui->birthdayEdit->date().month();
+    Config::FirmwareBirthdayDay = ui->cbxBirthdayDay->currentIndex() + 1;
+    Config::FirmwareBirthdayMonth = ui->cbxBirthdayMonth->currentIndex() + 1;
     Config::FirmwareOverrideSettings = ui->overrideFirmwareBox->isChecked();
 
     std::string newMessage = ui->messageEdit->text().toStdString();
@@ -76,4 +83,29 @@ void FirmwareSettingsDialog::on_FirmwareSettingsDialog_accepted()
 void FirmwareSettingsDialog::on_FirmwareSettingsDialog_rejected()
 {
     closeDlg();
+}
+
+void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
+{
+    // the DS firmware caps the birthday day depending on the birthday month
+    // for February, the limit is 29
+    const int ndays[12] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    int nday_old = ui->cbxBirthdayDay->count();
+    int nday_cur = ndays[idx];
+
+    if (nday_cur > nday_old)
+    {
+        for (int i = nday_old+1; i <= nday_cur; i++)
+        {
+            ui->cbxBirthdayDay->insertItem(i-1, QString("%1").arg(i));
+        }
+    }
+    else if (nday_cur < nday_old)
+    {
+        for (int i = nday_old; i >= nday_cur+1; i--)
+        {
+            ui->cbxBirthdayDay->removeItem(i-1);
+        }
+    }
 }

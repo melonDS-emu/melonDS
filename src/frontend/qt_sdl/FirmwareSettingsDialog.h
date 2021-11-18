@@ -80,6 +80,22 @@ public:
         "Spanish"
     };
 
+    const QStringList months
+    {
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+    };
+
     explicit FirmwareSettingsDialog(QWidget* parent);
     ~FirmwareSettingsDialog();
 
@@ -104,6 +120,8 @@ public:
 private slots:
     void on_FirmwareSettingsDialog_accepted();
     void on_FirmwareSettingsDialog_rejected();
+
+    void on_cbxBirthdayMonth_currentIndexChanged(int idx);
 
 private:
     Ui::FirmwareSettingsDialog* ui;
