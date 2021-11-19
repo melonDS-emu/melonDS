@@ -16,12 +16,19 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
+#include <QMessageBox>
+
 #include "Config.h"
+
 #include "FirmwareSettingsDialog.h"
 #include "ui_FirmwareSettingsDialog.h"
 
 
 FirmwareSettingsDialog* FirmwareSettingsDialog::currentDlg = nullptr;
+
+extern bool RunningSomething;
+
+bool FirmwareSettingsDialog::needsReset = false;
 
 FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::FirmwareSettingsDialog)
 {
@@ -55,6 +62,10 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     ui->messageEdit->setText(Config::FirmwareMessage);
 
     ui->overrideFirmwareBox->setChecked(Config::FirmwareOverrideSettings);
+
+    ui->txtMAC->setText(Config::FirmwareMAC);
+    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC != 0);
+    on_cbRandomizeMAC_toggled();
 }
 
 FirmwareSettingsDialog::~FirmwareSettingsDialog()
@@ -62,31 +73,112 @@ FirmwareSettingsDialog::~FirmwareSettingsDialog()
     delete ui;
 }
 
-void FirmwareSettingsDialog::on_FirmwareSettingsDialog_accepted()
+bool FirmwareSettingsDialog::verifyMAC()
 {
-    std::string newName = ui->usernameEdit->text().toStdString();
-    strncpy(Config::FirmwareUsername, newName.c_str(), 63); Config::FirmwareUsername[63] = '\0';
+    QString mac = ui->txtMAC->text();
+    int maclen = mac.length();
 
-    Config::FirmwareLanguage = ui->languageBox->currentIndex();
-    Config::FirmwareFavouriteColour = ui->colorsEdit->currentIndex();
-    Config::FirmwareBirthdayDay = ui->cbxBirthdayDay->currentIndex() + 1;
-    Config::FirmwareBirthdayMonth = ui->cbxBirthdayMonth->currentIndex() + 1;
-    Config::FirmwareOverrideSettings = ui->overrideFirmwareBox->isChecked();
+    // blank MAC = no MAC override
+    if (maclen == 0)
+        return true;
 
-    std::string newMessage = ui->messageEdit->text().toStdString();
-    strncpy(Config::FirmwareMessage, newMessage.c_str(), 1023); Config::FirmwareMessage[1023] = '\0';
-    Config::Save();
+    // length should be 12 or 17 if separators are used
+    if (maclen != 12 && maclen != 17)
+        return false;
 
-    closeDlg();
+    bool hassep = maclen==17;
+    int pos = 0;
+    for (int i = 0; i < maclen;)
+    {
+        QCharRef c = mac[i];
+        bool good = false;
+        if      (c >= '0' && c <= '9') good = true;
+        else if (c >= 'a' && c <= 'f') good = true;
+        else if (c >= 'A' && c <= 'F') good = true;
+        if (!good) return false;
+
+        i++;
+        pos++;
+        if (pos >= 2)
+        {
+            pos = 0;
+            if (hassep) i++;
+        }
+    }
+
+    return true;
 }
 
-void FirmwareSettingsDialog::on_FirmwareSettingsDialog_rejected()
+void FirmwareSettingsDialog::done(int r)
 {
+    needsReset = false;
+
+    if (r == QDialog::Accepted)
+    {
+        if (!verifyMAC())
+        {
+            QMessageBox::critical(this, "Invalid MAC address",
+                                  "The MAC address you entered isn't valid. It should contain 6 pairs of hexadecimal digits, optionally separated.");
+
+            return;
+        }
+
+        int newOverride = ui->overrideFirmwareBox->isChecked();
+
+        std::string newName = ui->usernameEdit->text().toStdString();
+        int newLanguage = ui->languageBox->currentIndex();
+        int newFavColor = ui->colorsEdit->currentIndex();
+        int newBirthdayDay = ui->cbxBirthdayDay->currentIndex() + 1;
+        int newBirthdayMonth = ui->cbxBirthdayMonth->currentIndex() + 1;
+        std::string newMessage = ui->messageEdit->text().toStdString();
+
+        std::string newMAC = ui->txtMAC->text().toStdString();
+        int newRandomizeMAC = ui->cbRandomizeMAC->isChecked() ? 1:0;
+
+        if (   newOverride != Config::FirmwareOverrideSettings
+            || strcmp(newName.c_str(), Config::FirmwareUsername) != 0
+            || newLanguage != Config::FirmwareLanguage
+            || newFavColor != Config::FirmwareFavouriteColour
+            || newBirthdayDay != Config::FirmwareBirthdayDay
+            || newBirthdayMonth != Config::FirmwareBirthdayMonth
+            || strcmp(newMessage.c_str(), Config::FirmwareMessage) != 0
+            || strcmp(newMAC.c_str(), Config::FirmwareMAC) != 0
+            || newRandomizeMAC != Config::RandomizeMAC)
+        {
+            if (RunningSomething
+                && QMessageBox::warning(this, "Reset necessary to apply changes",
+                    "The emulation will be reset for the changes to take place.",
+                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
+                return;
+
+            Config::FirmwareOverrideSettings = newOverride;
+
+            strncpy(Config::FirmwareUsername, newName.c_str(), 63); Config::FirmwareUsername[63] = '\0';
+            Config::FirmwareLanguage = newLanguage;
+            Config::FirmwareFavouriteColour = newFavColor;
+            Config::FirmwareBirthdayDay = newBirthdayDay;
+            Config::FirmwareBirthdayMonth = newBirthdayMonth;
+            strncpy(Config::FirmwareMessage, newMessage.c_str(), 1023); Config::FirmwareMessage[1023] = '\0';
+
+            strncpy(Config::FirmwareMAC, newMAC.c_str(), 17); Config::FirmwareMAC[17] = '\0';
+            Config::RandomizeMAC = newRandomizeMAC;
+
+            Config::Save();
+
+            needsReset = true;
+        }
+    }
+
+    QDialog::done(r);
+
     closeDlg();
 }
 
 void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
 {
+    // prevent spurious changes
+    if (ui->cbxBirthdayMonth->count() < 12) return;
+
     // the DS firmware caps the birthday day depending on the birthday month
     // for February, the limit is 29
     const int ndays[12] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -108,4 +200,10 @@ void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
             ui->cbxBirthdayDay->removeItem(i-1);
         }
     }
+}
+
+void FirmwareSettingsDialog::on_cbRandomizeMAC_toggled()
+{
+    bool disable = ui->cbRandomizeMAC->isChecked();
+    ui->txtMAC->setDisabled(disable);
 }

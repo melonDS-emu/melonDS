@@ -117,13 +117,17 @@ public:
         currentDlg = nullptr;
     }
 
+    static bool needsReset;
+
 private slots:
-    void on_FirmwareSettingsDialog_accepted();
-    void on_FirmwareSettingsDialog_rejected();
+    void done(int r);
 
     void on_cbxBirthdayMonth_currentIndexChanged(int idx);
+    void on_cbRandomizeMAC_toggled();
 
 private:
+    bool verifyMAC();
+
     Ui::FirmwareSettingsDialog* ui;
 };
 

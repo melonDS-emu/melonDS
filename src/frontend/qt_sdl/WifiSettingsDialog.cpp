@@ -56,7 +56,6 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
     ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr != 0);
-    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC != 0);
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)
@@ -88,19 +87,7 @@ void WifiSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        int randommac = ui->cbRandomizeMAC->isChecked() ? 1:0;
-
-        if (randommac != Config::RandomizeMAC)
-        {
-            if (RunningSomething
-                && QMessageBox::warning(this, "Reset necessary to apply changes",
-                    "The emulation will be reset for the changes to take place.",
-                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
-                return;
-        }
-
         Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked() ? 1:0;
-        Config::RandomizeMAC = randommac;
         Config::DirectLAN = ui->rbDirectMode->isChecked() ? 1:0;
 
         int sel = ui->cbxDirectAdapter->currentIndex();
@@ -116,8 +103,6 @@ void WifiSettingsDialog::done(int r)
         }
 
         Config::Save();
-
-        needsReset = true;
     }
 
     QDialog::done(r);
@@ -129,10 +114,12 @@ void WifiSettingsDialog::on_rbDirectMode_clicked()
 {
     updateAdapterControls();
 }
+
 void WifiSettingsDialog::on_rbIndirectMode_clicked()
 {
     updateAdapterControls();
 }
+
 void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
     if (!haspcap) return;

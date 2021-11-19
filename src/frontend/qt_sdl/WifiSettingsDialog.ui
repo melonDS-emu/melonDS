@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>572</width>
-    <height>296</height>
+    <height>273</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -36,16 +36,6 @@
         </property>
         <property name="text">
          <string>Bind socket to any address</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="cbRandomizeMAC">
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Randomizes the console's MAC address upon reset. Required for local multiplayer if each melonDS instance uses the same firmware file.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>Randomize MAC address</string>
         </property>
        </widget>
       </item>

@@ -2451,11 +2451,19 @@ void MainWindow::onOpenAudioSettings()
 
 void MainWindow::onOpenFirmwareSettings()
 {
+    emuThread->emuPause();
+
     FirmwareSettingsDialog* dlg = FirmwareSettingsDialog::openDlg(this);
     connect(dlg, &FirmwareSettingsDialog::finished, this, &MainWindow::onFirmwareSettingsFinished);
 }
 
-void MainWindow::onFirmwareSettingsFinished(int res) {}
+void MainWindow::onFirmwareSettingsFinished(int res)
+{
+    if (FirmwareSettingsDialog::needsReset)
+        onReset();
+
+    emuThread->emuUnpause();
+}
 
 void MainWindow::onUpdateAudioSettings()
 {

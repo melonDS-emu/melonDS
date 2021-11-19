@@ -197,6 +197,7 @@ void Reset()
     if (Firmware) delete[] Firmware;
     Firmware = nullptr;
     FirmwarePath = "";
+    bool firmoverride = false;
 
     if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
@@ -221,6 +222,11 @@ void Reset()
     if (FirmwarePath.empty())
     {
         LoadDefaultFirmware();
+        firmoverride = true;
+    }
+    else
+    {
+        firmoverride = Platform::GetConfigBool(Platform::Firm_OverrideSettings);
     }
 
     FirmwareMask = FirmwareLength - 1;
@@ -234,7 +240,7 @@ void Reset()
 
     UserSettings = userdata;
 
-    if (FirmwarePath.empty() || Platform::GetConfigBool(Platform::Firm_OverrideSettings))
+    if (firmoverride)
         LoadUserSettingsFromConfig();
 
     // fix touchscreen coords
@@ -252,17 +258,32 @@ void Reset()
 
     *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
-    if (Platform::GetConfigBool(Platform::Firm_RandomizeMAC))
+    if (firmoverride)
     {
-        // replace MAC address with random address
-        Firmware[0x36] = 0x00;
-        Firmware[0x37] = 0x09;
-        Firmware[0x38] = 0xBF;
-        Firmware[0x39] = rand()&0xFF;
-        Firmware[0x3A] = rand()&0xFF;
-        Firmware[0x3B] = rand()&0xFF;
+        u8 mac[6];
+        bool rep;
 
-        *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+        if (Platform::GetConfigBool(Platform::Firm_RandomizeMAC))
+        {
+            mac[0] = 0x00;
+            mac[1] = 0x09;
+            mac[2] = 0xBF;
+            mac[3] = rand()&0xFF;
+            mac[4] = rand()&0xFF;
+            mac[5] = rand()&0xFF;
+            rep = true;
+        }
+        else
+        {
+            rep = Platform::GetConfigArray(Platform::Firm_MAC, mac);
+        }
+
+        if (rep)
+        {
+            memcpy(&Firmware[0x36], mac, 6);
+
+            *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+        }
     }
 
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",

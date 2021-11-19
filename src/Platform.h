@@ -69,7 +69,6 @@ enum ConfigEntry
     DSiSD_FolderSync,
     DSiSD_FolderPath,
 
-    Firm_RandomizeMAC,
     Firm_OverrideSettings,
     Firm_Username,
     Firm_Language,
@@ -77,6 +76,8 @@ enum ConfigEntry
     Firm_BirthdayDay,
     Firm_Color,
     Firm_Message,
+    Firm_MAC,
+    Firm_RandomizeMAC,
 
     AudioBitrate,
 };
@@ -84,6 +85,7 @@ enum ConfigEntry
 int GetConfigInt(ConfigEntry entry);
 bool GetConfigBool(ConfigEntry entry);
 std::string GetConfigString(ConfigEntry entry);
+bool GetConfigArray(ConfigEntry entry, void* data);
 
 // fopen() wrappers
 // * OpenFile():

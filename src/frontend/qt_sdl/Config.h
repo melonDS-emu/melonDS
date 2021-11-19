@@ -121,7 +121,6 @@ extern int DSiSDReadOnly;
 extern int DSiSDFolderSync;
 extern char DSiSDFolderPath[1024];
 
-extern int RandomizeMAC;
 extern int FirmwareOverrideSettings;
 extern char FirmwareUsername[64];
 extern int FirmwareLanguage;
@@ -129,6 +128,8 @@ extern int FirmwareBirthdayMonth;
 extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
 extern char FirmwareMessage[1024];
+extern char FirmwareMAC[18];
+extern int RandomizeMAC;
 
 extern int SocketBindAnyAddr;
 extern char LANDevice[128];
