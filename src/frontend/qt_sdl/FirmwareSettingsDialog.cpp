@@ -90,7 +90,7 @@ bool FirmwareSettingsDialog::verifyMAC()
     int pos = 0;
     for (int i = 0; i < maclen;)
     {
-        QCharRef c = mac[i];
+        QChar c = mac[i];
         bool good = false;
         if      (c >= '0' && c <= '9') good = true;
         else if (c >= 'a' && c <= 'f') good = true;
