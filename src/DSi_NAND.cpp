@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <codecvt>
 
 #include "DSi.h"
 #include "DSi_AES.h"
