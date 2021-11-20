@@ -816,7 +816,7 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
-    DSi_NAND::PatchTSC();
+    DSi_NAND::PatchUserData();
 
     DSi_NAND::DeInit();
 

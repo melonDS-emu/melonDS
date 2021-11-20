@@ -21,6 +21,7 @@
 #include "DSi.h"
 #include "DSi_AES.h"
 #include "DSi_NAND.h"
+#include "Platform.h"
 
 #include "sha1/sha1.hpp"
 #include "tiny-AES-c/aes.hpp"
@@ -510,7 +511,7 @@ void ReadUserData(u8* data)
     f_close(&file);
 }
 
-void PatchTSC()
+void PatchUserData()
 {
     FRESULT res;
 
@@ -531,6 +532,36 @@ void PatchTSC()
         u32 nres;
         f_lseek(&file, 0);
         f_read(&file, contents, 0x1B0, &nres);
+
+        // override user settings, if needed
+        if (Platform::GetConfigBool(Platform::Firm_OverrideSettings))
+        {
+            // setting up username
+            std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+            std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
+            size_t usernameLength = std::min(username.length(), (size_t) 10);
+            memset(contents + 0xD0, 0, 11 * sizeof(char16_t));
+            memcpy(contents + 0xD0, username.data(), usernameLength * sizeof(char16_t));
+
+            // setting language
+            contents[0x8E] = Platform::GetConfigInt(Platform::Firm_Language);
+
+            // setting up color
+            contents[0xCC] = Platform::GetConfigInt(Platform::Firm_Color);
+
+            // setting up birthday
+            contents[0xCE] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+            contents[0xCF] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
+
+            // setup message
+            std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+            std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
+            size_t messageLength = std::min(message.length(), (size_t) 26);
+            memset(contents + 0xE6, 0, 27 * sizeof(char16_t));
+            memcpy(contents + 0xE6, message.data(), messageLength * sizeof(char16_t));
+
+            // TODO: make other items configurable?
+        }
 
         // fix touchscreen coords
         *(u16*)&contents[0xB8] = 0;
