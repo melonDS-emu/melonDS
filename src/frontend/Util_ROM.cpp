@@ -223,15 +223,6 @@ int SetupDSiNAND()
 
     DSi::SDMMCFile = f;
 
-    /*if (Config::DSiSDEnable)
-    {
-        f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
-        if (f)
-            DSi::SDIOFile = f;
-        else
-            DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
-    }*/
-
     return Load_OK;
 }
 

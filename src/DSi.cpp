@@ -79,8 +79,7 @@ DSi_NDMA* NDMAs[8];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
-FILE* SDMMCFile;
-FILE* SDIOFile;
+FILE* SDMMCFile = nullptr;
 
 u64 ConsoleID;
 u8 eMMC_CID[16];
@@ -827,8 +826,6 @@ void CloseDSiNAND()
 {
     if (DSi::SDMMCFile)
         fclose(DSi::SDMMCFile);
-    if (DSi::SDIOFile)
-        fclose(DSi::SDIOFile);
 }
 
 void RunNDMAs(u32 cpu)
