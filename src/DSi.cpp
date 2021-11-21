@@ -826,6 +826,7 @@ void CloseDSiNAND()
 {
     if (DSi::SDMMCFile)
         fclose(DSi::SDMMCFile);
+    DSi::SDMMCFile = nullptr;
 }
 
 void RunNDMAs(u32 cpu)
