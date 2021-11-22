@@ -547,9 +547,6 @@ void SoftReset()
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
     DSi_AES::Reset();
-
-
-    DSi_AES::Reset();
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
