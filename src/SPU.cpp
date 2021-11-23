@@ -394,7 +394,7 @@ void Channel::NextSample_ADPCM()
         {
             // setup ADPCM
             u32 header = FIFO_ReadData<u32>();
-            ADPCMVal = header & 0xFFFF;
+            ADPCMVal = (s32)(s16)(header & 0xFFFF);
             ADPCMIndex = (header >> 16) & 0x7F;
             if (ADPCMIndex > 88) ADPCMIndex = 88;
 
