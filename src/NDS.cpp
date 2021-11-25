@@ -2516,7 +2516,7 @@ u32 ARM7Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
+    //printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 
