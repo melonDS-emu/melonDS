@@ -22,7 +22,6 @@ jobs:
       working-directory: ${{runner.workspace}}
       run: |
         sudo apt update
-        sudo apt upgrade
     - name: Install dependencies
       shell: bash
       working-directory: ${{runner.workspace}}
