@@ -22,10 +22,8 @@
 #include "DSi.h"
 #include "ARM.h"
 #include "ARMInterpreter.h"
-#include "Config.h"
 #include "AREngine.h"
 #include "ARMJIT.h"
-#include "Config.h"
 
 #ifdef JIT_ENABLED
 #include "ARMJIT.h"
@@ -215,7 +213,7 @@ void ARM::DoSavestate(Savestate* file)
     file->VarArray(R_UND, 3*sizeof(u32));
     file->Var32(&CurInstr);
 #ifdef JIT_ENABLED
-    if (!file->Saving && Config::JIT_Enable)
+    if (!file->Saving && NDS::EnableJIT)
     {
         // hack, the JIT doesn't really pipeline
         // but we still want JIT save states to be

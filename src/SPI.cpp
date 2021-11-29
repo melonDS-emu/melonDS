@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <codecvt>
 #include <locale>
-#include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "SPI.h"
@@ -34,7 +33,7 @@
 namespace SPI_Firmware
 {
 
-char FirmwarePath[1024];
+std::string FirmwarePath;
 u8* Firmware;
 u32 FirmwareLength;
 u32 FirmwareMask;
@@ -83,8 +82,8 @@ bool VerifyCRC16(u32 start, u32 offset, u32 len, u32 crcoffset)
 
 bool Init()
 {
-    memset(FirmwarePath, 0, sizeof(FirmwarePath));
-    Firmware = NULL;
+    FirmwarePath = "";
+    Firmware = nullptr;
     return true;
 }
 
@@ -123,14 +122,131 @@ void LoadDefaultFirmware()
     memset(Firmware, 0xFF, FirmwareLength);
     FirmwareMask = FirmwareLength - 1;
 
+    memset(Firmware, 0, 0x1D);
+
+    if (NDS::ConsoleType == 1)
+    {
+        Firmware[0x1D] = 0x57; // DSi
+        Firmware[0x2F] = 0x18;
+        Firmware[0x1FD] = 0x02;
+        Firmware[0x1FE] = 0x20;
+    }
+    else
+    {
+        Firmware[0x1D] = 0x20; // DS Lite (TODO: make configurable?)
+        Firmware[0x2F] = 0x06;
+    }
+
+    // wifi calibration
+
+    const u8 defaultmac[6] = {0x00, 0x09, 0xBF, 0x11, 0x22, 0x33};
+    const u8 bbinit[0x69] =
+    {
+        0x03, 0x17, 0x40, 0x00, 0x1B, 0x6C, 0x48, 0x80, 0x38, 0x00, 0x35, 0x07, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0xB0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC7, 0xBB, 0x01, 0x24, 0x7F,
+        0x5A, 0x01, 0x3F, 0x01, 0x3F, 0x36, 0x1D, 0x00, 0x78, 0x35, 0x55, 0x12, 0x34, 0x1C, 0x00, 0x01,
+        0x0E, 0x38, 0x03, 0x70, 0xC5, 0x2A, 0x0A, 0x08, 0x04, 0x01, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFE,
+        0xFE, 0xFE, 0xFE, 0xFC, 0xFC, 0xFA, 0xFA, 0xFA, 0xFA, 0xFA, 0xF8, 0xF8, 0xF6, 0x00, 0x12, 0x14,
+        0x12, 0x41, 0x23, 0x03, 0x04, 0x70, 0x35, 0x0E, 0x2C, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x0E, 0x00, 0x00, 0x12, 0x28, 0x1C
+    };
+    const u8 rfinit[0x29] =
+    {
+        0x31, 0x4C, 0x4F, 0x21, 0x00, 0x10, 0xB0, 0x08, 0xFA, 0x15, 0x26, 0xE6, 0xC1, 0x01, 0x0E, 0x50,
+        0x05, 0x00, 0x6D, 0x12, 0x00, 0x00, 0x01, 0xFF, 0x0E, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x06,
+        0x06, 0x00, 0x00, 0x00, 0x18, 0x00, 0x02, 0x00, 0x00
+    };
+    const u8 chandata[0x3C] =
+    {
+        0x1E, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x16,
+        0x26, 0x1C, 0x1C, 0x1C, 0x1D, 0x1D, 0x1D, 0x1E, 0x1E, 0x1E, 0x1E, 0x1F, 0x1E, 0x1F, 0x18,
+        0x01, 0x4B, 0x4B, 0x4B, 0x4B, 0x4C, 0x4C, 0x4C, 0x4C, 0x4C, 0x4C, 0x4C, 0x4D, 0x4D, 0x4D,
+        0x02, 0x6C, 0x71, 0x76, 0x5B, 0x40, 0x45, 0x4A, 0x2F, 0x34, 0x39, 0x3E, 0x03, 0x08, 0x14
+    };
+
+    *(u16*)&Firmware[0x2C] = 0x138;
+    Firmware[0x2E] = 0;
+    *(u32*)&Firmware[0x30] = 0xFFFFFFFF;
+    *(u16*)&Firmware[0x34] = 0x00FF;
+    memcpy(&Firmware[0x36], defaultmac, 6);
+    *(u16*)&Firmware[0x3C] = 0x3FFE;
+    *(u16*)&Firmware[0x3E] = 0xFFFF;
+    Firmware[0x40] = 0x03;
+    Firmware[0x41] = 0x94;
+    Firmware[0x42] = 0x29;
+    Firmware[0x43] = 0x02;
+    *(u16*)&Firmware[0x44] = 0x0002;
+    *(u16*)&Firmware[0x46] = 0x0017;
+    *(u16*)&Firmware[0x48] = 0x0026;
+    *(u16*)&Firmware[0x4A] = 0x1818;
+    *(u16*)&Firmware[0x4C] = 0x0048;
+    *(u16*)&Firmware[0x4E] = 0x4840;
+    *(u16*)&Firmware[0x50] = 0x0058;
+    *(u16*)&Firmware[0x52] = 0x0042;
+    *(u16*)&Firmware[0x54] = 0x0146;
+    *(u16*)&Firmware[0x56] = 0x8064;
+    *(u16*)&Firmware[0x58] = 0xE6E6;
+    *(u16*)&Firmware[0x5A] = 0x2443;
+    *(u16*)&Firmware[0x5C] = 0x000E;
+    *(u16*)&Firmware[0x5E] = 0x0001;
+    *(u16*)&Firmware[0x60] = 0x0001;
+    *(u16*)&Firmware[0x62] = 0x0402;
+    memcpy(&Firmware[0x64], bbinit, 0x69);
+    Firmware[0xCD] = 0;
+    memcpy(&Firmware[0xCE], rfinit, 0x29);
+    Firmware[0xF7] = 0x02;
+    memcpy(&Firmware[0xF8], chandata, 0x3C);
+
+    *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+
+    // user data
+
     u32 userdata = 0x7FE00 & FirmwareMask;
+    *(u16*)&Firmware[0x20] = userdata >> 3;
 
     memset(Firmware + userdata, 0, 0x74);
-
-    // user settings offset
-    *(u16*)&Firmware[0x20] = (FirmwareLength - 0x200) >> 3;
-
     Firmware[userdata+0x00] = 5; // version
+    Firmware[userdata+0x03] = 1;
+    Firmware[userdata+0x04] = 1;
+    *(u16*)&Firmware[userdata+0x64] = 0x0031;
+
+    *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
+
+    // wifi access points
+    // TODO: WFC ID??
+
+    u32 apdata = userdata - 0x400;
+    memset(&Firmware[apdata], 0, 0x300);
+
+    strcpy((char*)&Firmware[apdata+0x40], "melonAP");
+    if (NDS::ConsoleType == 1) *(u16*)&Firmware[apdata+0xEA] = 1400;
+    Firmware[apdata+0xEF] = 0x01;
+    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+    apdata += 0x100;
+    Firmware[apdata+0xE7] = 0xFF;
+    Firmware[apdata+0xEF] = 0x01;
+    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+    apdata += 0x100;
+    Firmware[apdata+0xE7] = 0xFF;
+    Firmware[apdata+0xEF] = 0x01;
+    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+    if (NDS::ConsoleType == 1)
+    {
+        apdata = userdata - 0xA00;
+        Firmware[apdata+0xE7] = 0xFF;
+        *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+        apdata += 0x200;
+        Firmware[apdata+0xE7] = 0xFF;
+        *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+        apdata += 0x200;
+        Firmware[apdata+0xE7] = 0xFF;
+        *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+    }
 }
 
 void LoadFirmwareFromFile(FILE* f)
@@ -144,22 +260,16 @@ void LoadFirmwareFromFile(FILE* f)
     fseek(f, 0, SEEK_SET);
     fread(Firmware, 1, FirmwareLength, f);
 
-    fclose(f);
-
     // take a backup
-    char fwBackupPath[sizeof(FirmwarePath) + 4];
-    int fplen = strlen(FirmwarePath);
-    strcpy(&fwBackupPath[0], FirmwarePath);
-    strncpy(&fwBackupPath[fplen], ".bak", sizeof(fwBackupPath) - fplen);
-    fwBackupPath[fplen+4] = '\0';
-    f = Platform::OpenLocalFile(fwBackupPath, "rb");
-    if (!f)
+    std::string fwBackupPath = FirmwarePath + ".bak";
+    FILE* bf = Platform::OpenLocalFile(fwBackupPath, "rb");
+    if (!bf)
     {
-        f = Platform::OpenLocalFile(fwBackupPath, "wb");
-        if (f)
+        bf = Platform::OpenLocalFile(fwBackupPath, "wb");
+        if (bf)
         {
-            fwrite(Firmware, 1, FirmwareLength, f);
-            fclose(f);
+            fwrite(Firmware, 1, FirmwareLength, bf);
+            fclose(bf);
         }
         else
         {
@@ -168,30 +278,32 @@ void LoadFirmwareFromFile(FILE* f)
     }
     else
     {
-        fclose(f);
+        fclose(bf);
     }
 }
 
 void LoadUserSettingsFromConfig()
 {
     // setting up username
-    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareUsername);
+    std::string orig_username = Platform::GetConfigString(Platform::Firm_Username);
+    std::u16string username = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_username);
     size_t usernameLength = std::min(username.length(), (size_t) 10);
     memcpy(Firmware + UserSettings + 0x06, username.data(), usernameLength * sizeof(char16_t));
     Firmware[UserSettings+0x1A] = usernameLength;
 
     // setting language
-    Firmware[UserSettings+0x64] = Config::FirmwareLanguage;
+    Firmware[UserSettings+0x64] = Platform::GetConfigInt(Platform::Firm_Language);
 
     // setting up color
-    Firmware[UserSettings+0x02] = Config::FirmwareFavouriteColour;
+    Firmware[UserSettings+0x02] = Platform::GetConfigInt(Platform::Firm_Color);
 
     // setting up birthday
-    Firmware[UserSettings+0x03] = Config::FirmwareBirthdayMonth;
-    Firmware[UserSettings+0x04] = Config::FirmwareBirthdayDay;
+    Firmware[UserSettings+0x03] = Platform::GetConfigInt(Platform::Firm_BirthdayMonth);
+    Firmware[UserSettings+0x04] = Platform::GetConfigInt(Platform::Firm_BirthdayDay);
 
     // setup message
-    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(Config::FirmwareMessage);
+    std::string orig_message = Platform::GetConfigString(Platform::Firm_Message);
+    std::u16string message = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(orig_message);
     size_t messageLength = std::min(message.length(), (size_t) 26);
     memcpy(Firmware + UserSettings + 0x1C, message.data(), messageLength * sizeof(char16_t));
     Firmware[UserSettings+0x50] = messageLength;
@@ -200,22 +312,38 @@ void LoadUserSettingsFromConfig()
 void Reset()
 {
     if (Firmware) delete[] Firmware;
-    Firmware = NULL;
+    Firmware = nullptr;
+    FirmwarePath = "";
+    bool firmoverride = false;
 
-    if (NDS::ConsoleType == 1)
-        strncpy(FirmwarePath, Config::DSiFirmwarePath, sizeof(FirmwarePath) - 1);
-    else
-        strncpy(FirmwarePath, Config::FirmwarePath, sizeof(FirmwarePath) - 1);
-
-    FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
-    if (!f)
+    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        printf("Firmware not found! Generating default firmware.\n");
+        if (NDS::ConsoleType == 1)
+            FirmwarePath = Platform::GetConfigString(Platform::DSi_FirmwarePath);
+        else
+            FirmwarePath = Platform::GetConfigString(Platform::FirmwarePath);
+
+        FILE* f = Platform::OpenLocalFile(FirmwarePath, "rb");
+        if (!f)
+        {
+            printf("Firmware not found! Generating default firmware.\n");
+            FirmwarePath = "";
+        }
+        else
+        {
+            LoadFirmwareFromFile(f);
+            fclose(f);
+        }
+    }
+
+    if (FirmwarePath.empty())
+    {
         LoadDefaultFirmware();
+        firmoverride = true;
     }
     else
     {
-        LoadFirmwareFromFile(f);
+        firmoverride = Platform::GetConfigBool(Platform::Firm_OverrideSettings);
     }
 
     FirmwareMask = FirmwareLength - 1;
@@ -229,9 +357,9 @@ void Reset()
 
     UserSettings = userdata;
 
-    if (!f || Config::FirmwareOverrideSettings)
+    if (firmoverride)
         LoadUserSettingsFromConfig();
-  
+
     // fix touchscreen coords
     *(u16*)&Firmware[userdata+0x58] = 0;
     *(u16*)&Firmware[userdata+0x5A] = 0;
@@ -247,17 +375,32 @@ void Reset()
 
     *(u16*)&Firmware[userdata+0x72] = CRC16(&Firmware[userdata], 0x70, 0xFFFF);
 
-    if (Config::RandomizeMAC)
+    if (firmoverride)
     {
-        // replace MAC address with random address
-        Firmware[0x36] = 0x00;
-        Firmware[0x37] = 0x09;
-        Firmware[0x38] = 0xBF;
-        Firmware[0x39] = rand()&0xFF;
-        Firmware[0x3A] = rand()&0xFF;
-        Firmware[0x3B] = rand()&0xFF;
+        u8 mac[6];
+        bool rep;
 
-        *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+        if (Platform::GetConfigBool(Platform::Firm_RandomizeMAC))
+        {
+            mac[0] = 0x00;
+            mac[1] = 0x09;
+            mac[2] = 0xBF;
+            mac[3] = rand()&0xFF;
+            mac[4] = rand()&0xFF;
+            mac[5] = rand()&0xFF;
+            rep = true;
+        }
+        else
+        {
+            rep = Platform::GetConfigArray(Platform::Firm_MAC, mac);
+        }
+
+        if (rep)
+        {
+            memcpy(&Firmware[0x36], mac, 6);
+
+            *(u16*)&Firmware[0x2A] = CRC16(&Firmware[0x2C], *(u16*)&Firmware[0x2C], 0x0000);
+        }
     }
 
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
@@ -425,13 +568,16 @@ void Write(u8 val, u32 hold)
 
     if (!hold && (CurCmd == 0x02 || CurCmd == 0x0A))
     {
-        FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
-        if (f)
+        if (!FirmwarePath.empty())
         {
-            u32 cutoff = 0x7FA00 & FirmwareMask;
-            fseek(f, cutoff, SEEK_SET);
-            fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
-            fclose(f);
+            FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
+            if (f)
+            {
+                u32 cutoff = 0x7FA00 & FirmwareMask;
+                fseek(f, cutoff, SEEK_SET);
+                fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
+                fclose(f);
+            }
         }
     }
 }

@@ -20,7 +20,7 @@
 #include <SDL2/SDL.h>
 
 #include "Input.h"
-#include "PlatformConfig.h"
+#include "Config.h"
 
 
 namespace Input

@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -80,8 +79,7 @@ DSi_NDMA* NDMAs[8];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
-FILE* SDMMCFile;
-FILE* SDIOFile;
+FILE* SDMMCFile = nullptr;
 
 u64 ConsoleID;
 u8 eMMC_CID[16];
@@ -549,9 +547,6 @@ void SoftReset()
     memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
 
     DSi_AES::Reset();
-
-
-    DSi_AES::Reset();
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
@@ -605,7 +600,7 @@ bool LoadBIOS()
     memset(ARM9iBIOS, 0, 0x10000);
     memset(ARM7iBIOS, 0, 0x10000);
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS9Path), "rb");
     if (!f)
     {
         printf("ARM9i BIOS not found\n");
@@ -622,7 +617,7 @@ bool LoadBIOS()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS7Path), "rb");
     if (!f)
     {
         printf("ARM7i BIOS not found\n");
@@ -817,7 +812,7 @@ bool LoadNAND()
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
-    DSi_NAND::PatchTSC();
+    DSi_NAND::PatchUserData();
 
     DSi_NAND::DeInit();
 
@@ -828,8 +823,7 @@ void CloseDSiNAND()
 {
     if (DSi::SDMMCFile)
         fclose(DSi::SDMMCFile);
-    if (DSi::SDIOFile)
-        fclose(DSi::SDIOFile);
+    DSi::SDMMCFile = nullptr;
 }
 
 void RunNDMAs(u32 cpu)

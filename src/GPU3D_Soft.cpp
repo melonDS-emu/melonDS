@@ -23,7 +23,6 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-#include "Config.h"
 
 
 namespace GPU3D

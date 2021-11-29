@@ -25,7 +25,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -33,7 +32,7 @@
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 extern bool RunningSomething;
 
 bool EmuSettingsDialog::needsReset = false;
@@ -294,7 +293,7 @@ void EmuSettingsDialog::on_btnBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode ARM9 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -306,7 +305,7 @@ void EmuSettingsDialog::on_btnBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode ARM7 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -318,7 +317,7 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode firmware...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Firmware files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -330,7 +329,7 @@ void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi-mode ARM9 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -342,7 +341,7 @@ void EmuSettingsDialog::on_btnDSiBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi-mode ARM7 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -368,7 +367,7 @@ void EmuSettingsDialog::on_btnDLDISDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DLDI SD image...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -387,7 +386,7 @@ void EmuSettingsDialog::on_btnDLDIFolderBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
                                                      "Select DLDI SD folder...",
-                                                     EmuDirectory);
+                                                     QString::fromStdString(EmuDirectory));
 
     if (dir.isEmpty()) return;
 
@@ -398,7 +397,7 @@ void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi DS-mode firmware...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Firmware files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -410,7 +409,7 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi NAND...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "NAND files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -436,7 +435,7 @@ void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi SD image...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -455,7 +454,7 @@ void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
 {
     QString dir = QFileDialog::getExistingDirectory(this,
                                                      "Select DSi SD folder...",
-                                                     EmuDirectory);
+                                                     QString::fromStdString(EmuDirectory));
 
     if (dir.isEmpty()) return;
 
@@ -476,6 +475,10 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
 void EmuSettingsDialog::on_chkExternalBIOS_toggled()
 {
     bool disabled = !ui->chkExternalBIOS->isChecked();
-    ui->txtBIOS7Path->setDisabled(disabled);
     ui->txtBIOS9Path->setDisabled(disabled);
+    ui->btnBIOS9Browse->setDisabled(disabled);
+    ui->txtBIOS7Path->setDisabled(disabled);
+    ui->btnBIOS7Browse->setDisabled(disabled);
+    ui->txtFirmwarePath->setDisabled(disabled);
+    ui->btnFirmwareBrowse->setDisabled(disabled);
 }

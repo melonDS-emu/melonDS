@@ -22,7 +22,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "AudioSettingsDialog.h"
 #include "ui_AudioSettingsDialog.h"
@@ -30,7 +29,7 @@
 
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 
 AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
@@ -129,7 +128,7 @@ void AudioSettingsDialog::on_btnMicWavBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select WAV file...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "WAV files (*.wav);;Any file (*.*)");
 
     if (file.isEmpty()) return;

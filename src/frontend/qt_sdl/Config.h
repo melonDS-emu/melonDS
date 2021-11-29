@@ -19,8 +19,6 @@
 #ifndef PLATFORMCONFIG_H
 #define PLATFORMCONFIG_H
 
-#include "Config.h"
-
 enum
 {
     HK_Lid = 0,
@@ -39,6 +37,17 @@ enum
 
 namespace Config
 {
+
+struct ConfigEntry
+{
+    char Name[32];
+    int Type;
+    void* Value;
+    int DefaultInt;
+    const char* DefaultStr;
+    int StrLength; // should be set to actual array length minus one
+};
+
 
 extern int KeyMapping[12];
 extern int JoyMapping[12];
@@ -79,6 +88,25 @@ extern int ShowOSD;
 extern int ConsoleType;
 extern int DirectBoot;
 
+#ifdef JIT_ENABLED
+extern int JIT_Enable;
+extern int JIT_MaxBlockSize;
+extern int JIT_BranchOptimisations;
+extern int JIT_LiteralOptimisations;
+extern int JIT_FastMemory;
+#endif
+
+extern int ExternalBIOSEnable;
+
+extern char BIOS9Path[1024];
+extern char BIOS7Path[1024];
+extern char FirmwarePath[1024];
+
+extern char DSiBIOS9Path[1024];
+extern char DSiBIOS7Path[1024];
+extern char DSiFirmwarePath[1024];
+extern char DSiNANDPath[1024];
+
 extern int DLDIEnable;
 extern char DLDISDPath[1024];
 extern int DLDISize;
@@ -93,6 +121,16 @@ extern int DSiSDReadOnly;
 extern int DSiSDFolderSync;
 extern char DSiSDFolderPath[1024];
 
+extern int FirmwareOverrideSettings;
+extern char FirmwareUsername[64];
+extern int FirmwareLanguage;
+extern int FirmwareBirthdayMonth;
+extern int FirmwareBirthdayDay;
+extern int FirmwareFavouriteColour;
+extern char FirmwareMessage[1024];
+extern char FirmwareMAC[18];
+extern int RandomizeMAC;
+
 extern int SocketBindAnyAddr;
 extern char LANDevice[128];
 extern int DirectLAN;
@@ -100,6 +138,7 @@ extern int DirectLAN;
 extern int SavestateRelocSRAM;
 
 extern int AudioInterp;
+extern int AudioBitrate;
 extern int AudioVolume;
 extern int MicInputType;
 extern char MicWavPath[1024];
@@ -113,6 +152,10 @@ extern int EnableCheats;
 extern int MouseHide;
 extern int MouseHideSeconds;
 extern int PauseLostFocus;
+
+
+void Load();
+void Save();
 
 }
 

@@ -25,7 +25,6 @@
 #include "ArchiveUtil.h"
 #endif
 #include "FrontendUtil.h"
-#include "Config.h"
 #include "SharedConfig.h"
 #include "Platform.h"
 
@@ -164,6 +163,8 @@ int VerifyDSFirmware()
     FILE* f;
     long len;
 
+    if (!Config::ExternalBIOSEnable) return Load_FirmwareNotBootable;
+
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
     if (!f) return Load_FirmwareNotBootable;
 
@@ -221,15 +222,6 @@ int SetupDSiNAND()
     // check that it has the nocash footer, and all
 
     DSi::SDMMCFile = f;
-
-    /*if (Config::DSiSDEnable)
-    {
-        f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
-        if (f)
-            DSi::SDIOFile = f;
-        else
-            DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
-    }*/
 
     return Load_OK;
 }

@@ -24,7 +24,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
@@ -32,7 +31,7 @@
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 namespace Frontend { extern ARCodeFile* CheatFile; }
 

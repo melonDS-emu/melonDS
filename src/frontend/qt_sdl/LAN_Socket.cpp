@@ -23,7 +23,6 @@
 #include <string.h>
 #include "Wifi.h"
 #include "LAN_Socket.h"
-#include "Config.h"
 #include "FIFO.h"
 
 #include <slirp/libslirp.h>

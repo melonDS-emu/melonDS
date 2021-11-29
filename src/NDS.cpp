@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "Config.h"
 #include "NDS.h"
 #include "ARM.h"
 #include "NDSCart.h"
@@ -79,6 +78,10 @@ u32 ARM7Regions[0x20000];
 
 ARMv5* ARM9;
 ARMv4* ARM7;
+
+#ifdef JIT_ENABLED
+bool EnableJIT;
+#endif
 
 u32 NumFrames;
 u32 NumLagFrames;
@@ -477,6 +480,10 @@ void Reset()
     FILE* f;
     u32 i;
 
+#ifdef JIT_ENABLED
+    EnableJIT = Platform::GetConfigBool(Platform::JIT_Enable);
+#endif
+
     RunningGame = false;
     LastSysClockCycles = 0;
 
@@ -486,9 +493,9 @@ void Reset()
     // DS BIOSes are always loaded, even in DSi mode
     // we need them for DS-compatible mode
 
-    if (Config::ExternalBIOSEnable)
+    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS9Path), "rb");
         if (!f)
         {
             printf("ARM9 BIOS not found\n");
@@ -505,7 +512,7 @@ void Reset()
             fclose(f);
         }
 
-        f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
+        f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::BIOS7Path), "rb");
         if (!f)
         {
             printf("ARM7 BIOS not found\n");
@@ -626,6 +633,8 @@ void Reset()
     RTC::Reset();
     Wifi::Reset();
 
+    // TODO: move the SOUNDBIAS/degrade logic to SPU?
+
     // The SOUNDBIAS register does nothing on DSi
     SPU::SetApplyBias(ConsoleType == 0);
 
@@ -638,9 +647,10 @@ void Reset()
         degradeAudio = false;
     }
 
-    if (Config::AudioBitrate == 1) // Always 10-bit
+    int bitrate = Platform::GetConfigInt(Platform::AudioBitrate);
+    if (bitrate == 1) // Always 10-bit
         degradeAudio = true;
-    else if (Config::AudioBitrate == 2) // Always 16-bit
+    else if (bitrate == 2) // Always 16-bit
         degradeAudio = false;
 
     SPU::SetDegrade10Bit(degradeAudio);
@@ -1103,7 +1113,7 @@ u32 RunFrame()
 u32 RunFrame()
 {
 #ifdef JIT_ENABLED
-    if (Config::JIT_Enable)
+    if (EnableJIT)
         return NDS::ConsoleType == 1
             ? RunFrame<true, 1>()
             : RunFrame<true, 0>();
@@ -2506,7 +2516,7 @@ u32 ARM7Read32(u32 addr)
               (GBACart::SRAMRead(addr+3) << 24);
     }
 
-    printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
+    //printf("unknown arm7 read32 %08X | %08X\n", addr, ARM7->R[15]);
     return 0;
 }
 

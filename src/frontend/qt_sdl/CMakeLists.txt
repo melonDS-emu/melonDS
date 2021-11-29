@@ -4,6 +4,7 @@ SET(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
     CheatsDialog.cpp
+	Config.cpp
     EmuSettingsDialog.cpp
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
@@ -23,7 +24,6 @@ SET(SOURCES_QT_SDL
     OSD_shaders.h
     font.h
     Platform.cpp
-    PlatformConfig.cpp
     QPathInput.h
     
     ArchiveUtil.h
@@ -34,6 +34,7 @@ SET(SOURCES_QT_SDL
     ../Util_Audio.cpp
     ../FrontendUtil.h
     ../mic_blow.h
+	../SharedConfig.h
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )

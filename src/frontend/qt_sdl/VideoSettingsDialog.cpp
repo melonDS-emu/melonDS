@@ -23,7 +23,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"

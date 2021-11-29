@@ -76,7 +76,6 @@
 #include "Wifi.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "Savestate.h"
 
@@ -2462,11 +2461,19 @@ void MainWindow::onOpenAudioSettings()
 
 void MainWindow::onOpenFirmwareSettings()
 {
+    emuThread->emuPause();
+
     FirmwareSettingsDialog* dlg = FirmwareSettingsDialog::openDlg(this);
     connect(dlg, &FirmwareSettingsDialog::finished, this, &MainWindow::onFirmwareSettingsFinished);
 }
 
-void MainWindow::onFirmwareSettingsFinished(int res) {}
+void MainWindow::onFirmwareSettingsFinished(int res)
+{
+    if (FirmwareSettingsDialog::needsReset)
+        onReset();
+
+    emuThread->emuUnpause();
+}
 
 void MainWindow::onUpdateAudioSettings()
 {
