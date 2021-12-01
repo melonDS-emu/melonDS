@@ -2797,7 +2797,11 @@ int main(int argc, char** argv)
     {
         printf("SDL couldn't init rumble\n");
     }
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
+    if (SDL_Init(SDL_INIT_JOYSTICK) < 0)
+    {
+        printf("SDL couldn't init joystick\n");
+    }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
         QMessageBox::critical(NULL, "melonDS", "SDL shat itself :(");
         return 1;
