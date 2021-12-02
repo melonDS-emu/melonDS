@@ -94,6 +94,8 @@
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 
+#include "CLI.h"
+
 // TODO: uniform variable spelling
 
 bool RunningSomething;
@@ -3229,9 +3231,9 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
-    Platform::Init(argc, argv);
+    Platform::Init(argc, argv); //TODO: check what args do here
 
-    MelonApplication melon(argc, argv);
+    MelonApplication melon(argc, argv); //TODO: check what args do here
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -3344,6 +3346,9 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
+    CLI::ManageArgs(argc, argv);
+
+    //TODO: remove once it's managed by ManageArgs
     if (argc > 1)
     {
         QString file = argv[1];
