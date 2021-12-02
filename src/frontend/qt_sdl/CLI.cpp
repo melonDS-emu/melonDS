@@ -19,40 +19,65 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../dolphin/CommonFuncs.h"
+#include "../FrontendUtil.h"
 
 #include "CLI.h"
 
 namespace CLI
 {
 
-//TODO: don't make it a function, add it into the ManageArgs function
-bool IsFlag (int arg)
+char* GetNextArg (int argc, char** argv, int argp)
 {
-    switch (arg) {
-        case cliArg_GBARomPath:
-            return false;
-        case cliArg_UseFreeBios:
-            return true;
-        case cliArg_FirmwareLanguage:
-            return false;
-        case cliArg_Renderer:
-            return false;
-    }
-    return false;
+    // returns argv[argp] if it exists, nullptr if it doesn't
+    if (argp >= argc)
+        return nullptr;
+    else
+        return argv[argp];
 }
 
-void ManageArgs (int argc, char** argv)
+bool ManageArgs (int argc, char** argv)
 {
+    // returns true if a ROM was successfully loaded
+
     // easter egg - not worth checking other cases for something so dumb
     if (strcasecmp(argv[0], "derpDS") || strcasecmp(argv[0], "./derpDS"))
+        //TODO: seems to always be doing this, research strcasecmp
         printf("did you just call me a derp???\n");
 
+    int posArgCount = 0;
+    bool romLoaded = false;
+    
     for (int i = 1; i < argc; i++)
     {
         char* arg = argv[i];
-        printf("%s\n", arg);
+        bool isFlag;
+        if (arg[0] == '-')
+        {
+            // manage options(?), so arguments like these: -h --help
+        } 
+        else
+        {
+            switch (posArgCount)
+            {
+                case 0:
+                    {
+                        int res = Frontend::LoadROM(arg, Frontend::ROMSlot_NDS);
+                        if (res == Frontend::Load_OK)
+                            romLoaded = true;
+                        break;
+                    }
+                case 1:
+                    //TODO: check if it's possible to load a GBA ROM without a DS ROM loaded
+                    Frontend::LoadROM(arg, Frontend::ROMSlot_GBA);
+                    break;
+                default:
+                    printf("Too many arguments, arg '%s' will be ignored\n", arg);
+            }
+            posArgCount++;
+        }
     }
+
+    return romLoaded;
 }
 
 }

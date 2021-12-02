@@ -3346,17 +3346,10 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    CLI::ManageArgs(argc, argv);
+    int res = CLI::ManageArgs(argc, argv);
 
-    //TODO: remove once it's managed by ManageArgs
-    if (argc > 1)
-    {
-        QString file = argv[1];
-        QString gbafile = "";
-        if (argc > 2) gbafile = argv[2];
-
-        mainWindow->preloadROMs(file, gbafile);
-    }
+    if (res)
+        emuThread->emuRun();
 
     int ret = melon.exec();
 

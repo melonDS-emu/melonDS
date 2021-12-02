@@ -10,11 +10,12 @@ enum
     cliArg_UseFreeBios,
     cliArg_FirmwareLanguage,
     cliArg_Renderer,
+    cliArg_DSiMode,
 };
 
-extern bool IsArgFlag(int arg);
+extern char* GetNextArg(int argc, char** argv, int argp);
 
-extern void ManageArgs(int argc, char** argv);
+extern bool ManageArgs(int argc, char** argv);
 
 }
 
