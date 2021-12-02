@@ -37,10 +37,8 @@ char* GetNextArg (int argc, char** argv, int argp)
 
 bool ManageArgs (int argc, char** argv)
 {
-    // returns true if a ROM was successfully loaded
-
     // easter egg - not worth checking other cases for something so dumb
-    if (strcasecmp(argv[0], "derpDS") || strcasecmp(argv[0], "./derpDS"))
+    if (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS"))
         //TODO: seems to always be doing this, research strcasecmp
         printf("did you just call me a derp???\n");
 
