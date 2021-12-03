@@ -56,6 +56,7 @@ void ManageArgs (int argc, char** argv)
         {
             if (!strcasecmp(arg, "-h") || !strcasecmp(arg, "--help"))
             {
+                //TODO: QT arguments
                 printf(
                     "usage: melonDS [options] ... [dspath] [gbapath]\n"
                     "Options:\n"
