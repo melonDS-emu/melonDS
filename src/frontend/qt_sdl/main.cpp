@@ -3231,6 +3231,8 @@ int main(int argc, char** argv)
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
+    CLI::ManageArgs(argc, argv);
+
     Platform::Init(argc, argv); //TODO: check what args do here
 
     MelonApplication melon(argc, argv); //TODO: check what args do here
@@ -3346,10 +3348,16 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    int res = CLI::ManageArgs(argc, argv);
+    if (CLI::DSRomPath != "") {
+        int res = Frontend::LoadROM(CLI::DSRomPath, Frontend::ROMSlot_NDS);
 
-    if (res)
-        emuThread->emuRun();
+        // should this be moved to *after* the GBA ROM is loaded?
+        if (res == Frontend::Load_OK)
+            emuThread->emuRun();
+    }
+
+    if (CLI::GBARomPath != "")
+        Frontend::LoadROM(CLI::GBARomPath, Frontend::ROMSlot_GBA);
 
     int ret = melon.exec();
 

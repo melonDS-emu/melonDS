@@ -17,6 +17,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../FrontendUtil.h"
@@ -25,6 +26,10 @@
 
 namespace CLI
 {
+
+char* DSRomPath = new char[128];
+
+char* GBARomPath = new char[128];
 
 char* GetNextArg (int argc, char** argv, int argp)
 {
@@ -35,15 +40,13 @@ char* GetNextArg (int argc, char** argv, int argp)
         return argv[argp];
 }
 
-bool ManageArgs (int argc, char** argv)
+void ManageArgs (int argc, char** argv)
 {
     // easter egg - not worth checking other cases for something so dumb
     if (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS"))
-        //TODO: seems to always be doing this, research strcasecmp
         printf("did you just call me a derp???\n");
 
     int posArgCount = 0;
-    bool romLoaded = false;
     
     for (int i = 1; i < argc; i++)
     {
@@ -51,7 +54,23 @@ bool ManageArgs (int argc, char** argv)
         bool isFlag;
         if (arg[0] == '-')
         {
-            // manage options(?), so arguments like these: -h --help
+            if (!strcasecmp(arg, "-h") || !strcasecmp(arg, "--help"))
+            {
+                printf(
+                    "usage: melonDS [options] ... [dspath] [gbapath]\n"
+                    "Options:\n"
+                    "  -h / --help  display this help message and quit"
+                    "Arguments:\n"
+                    "  dspath       path to a DS ROM you want to run\n"
+                    "  gbapath      path to a GBA ROM you want to load in the emulated Slot 2\n"
+                );
+                exit(0);
+            }
+            else
+            {
+                printf("Unrecognized command line option %s - aborting.\n", arg);
+                exit(1);
+            }
         } 
         else
         {
@@ -59,14 +78,11 @@ bool ManageArgs (int argc, char** argv)
             {
                 case 0:
                     {
-                        int res = Frontend::LoadROM(arg, Frontend::ROMSlot_NDS);
-                        if (res == Frontend::Load_OK)
-                            romLoaded = true;
+                        DSRomPath = arg;
                         break;
                     }
                 case 1:
-                    //TODO: check if it's possible to load a GBA ROM without a DS ROM loaded
-                    Frontend::LoadROM(arg, Frontend::ROMSlot_GBA);
+                    GBARomPath = arg;
                     break;
                 default:
                     printf("Too many arguments, arg '%s' will be ignored\n", arg);
@@ -74,8 +90,6 @@ bool ManageArgs (int argc, char** argv)
             posArgCount++;
         }
     }
-
-    return romLoaded;
 }
 
 }
