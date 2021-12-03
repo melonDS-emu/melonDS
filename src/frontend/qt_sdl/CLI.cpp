@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 patataofcourse
+    Copyright 2021 patataofcourse
 
     This file is part of melonDS.
 
@@ -28,8 +28,8 @@ namespace CLI
 {
 
 char* DSRomPath = new char[128];
-
 char* GBARomPath = new char[128];
+bool Verbosity = false;
 
 char* GetNextArg (int argc, char** argv, int argp)
 {
@@ -42,6 +42,14 @@ char* GetNextArg (int argc, char** argv, int argp)
 
 void ManageArgs (int argc, char** argv)
 {
+    //TODO: there has to be a better way to handle this, right?
+    DSRomPath = "";
+    GBARomPath = "";
+
+    // don't think this will ever happen but i don't wanna risk a random segfault
+    if (argc == 0)
+        return;
+
     // easter egg - not worth checking other cases for something so dumb
     if (!strcasecmp(argv[0], "derpDS") || !strcasecmp(argv[0], "./derpDS"))
         printf("did you just call me a derp???\n");
@@ -56,20 +64,22 @@ void ManageArgs (int argc, char** argv)
         {
             if (!strcasecmp(arg, "-h") || !strcasecmp(arg, "--help"))
             {
-                //TODO: QT arguments
+                //TODO: QT options
                 printf(
                     "usage: melonDS [options] ... [dspath] [gbapath]\n"
                     "Options:\n"
-                    "  -h / --help  display this help message and quit"
+                    "  -h / --help      display this help message and quit\n"
+                    "  -v / --verbose   toggle verbose mode\n"
+                    // "  -a / --archive   opens dspath as an archive containing the ROM\n"
                     "Arguments:\n"
-                    "  dspath       path to a DS ROM you want to run\n"
-                    "  gbapath      path to a GBA ROM you want to load in the emulated Slot 2\n"
+                    "  dspath           path to a DS ROM you want to run\n"
+                    "  gbapath          path to a GBA ROM you want to load in the emulated Slot 2\n"
                 );
                 exit(0);
             }
             else
             {
-                printf("Unrecognized command line option %s - aborting.\n", arg);
+                printf("Unrecognized option %s - run '%s --help' for more details \n", arg, argv[0]);
                 exit(1);
             }
         } 
