@@ -27,9 +27,9 @@
 namespace CLI
 {
 
-char* DSRomPath = new char[128];
-char* GBARomPath = new char[128];
-bool Verbosity = false;
+char* DSRomPath = new char[1024];
+char* GBARomPath = new char[1024];
+bool StartOnFullscreen = false;
 
 char* GetNextArg (int argc, char** argv, int argp)
 {
@@ -66,16 +66,20 @@ void ManageArgs (int argc, char** argv)
             {
                 //TODO: QT options
                 printf(
-                    "usage: melonDS [options] ... [dspath] [gbapath]\n"
-                    "Options:\n"
-                    "  -h / --help      display this help message and quit\n"
-                    "  -v / --verbose   toggle verbose mode\n"
-                    // "  -a / --archive   opens dspath as an archive containing the ROM\n"
-                    "Arguments:\n"
-                    "  dspath           path to a DS ROM you want to run\n"
-                    "  gbapath          path to a GBA ROM you want to load in the emulated Slot 2\n"
+                   "usage: melonDS [options] ... [dspath] [gbapath]\n"
+                   "Options:\n"
+                   "    -h / --help         display this help message and quit\n"
+                   "    -v / --verbose      toggle verbose mode\n"
+                   "    -f / --fullscreen   opens melonDS on fullscreen\n"
+                   "Arguments:\n"
+                   "    dspath              path to a DS ROM you want to run\n"
+                   "    gbapath             path to a GBA ROM you want to load in the emulated Slot 2\n"
                 );
                 exit(0);
+            }
+            else if (!strcasecmp(arg, "-f") || !strcasecmp(arg, "--fullscreen"))
+            {
+                StartOnFullscreen = true;
             }
             else
             {

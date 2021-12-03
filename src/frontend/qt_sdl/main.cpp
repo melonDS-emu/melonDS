@@ -3339,6 +3339,11 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
+    if (CLI::StartOnFullscreen) {
+        // onFullscreenToggled is private and I don't know if I should copy what's inside it or make it public
+        mainWindow->showFullScreen();
+        mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
+    }
 
     emuThread = new EmuThread();
     emuThread->start();

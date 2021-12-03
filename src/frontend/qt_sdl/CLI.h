@@ -5,6 +5,7 @@ namespace CLI {
 
 extern char* DSRomPath;
 extern char* GBARomPath;
+extern bool StartOnFullscreen;
 
 extern char* GetNextArg(int argc, char** argv, int argp);
 
