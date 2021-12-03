@@ -1,4 +1,3 @@
-
 /*
     Copyright 2021 patataofcourse
     This file is part of melonDS.
