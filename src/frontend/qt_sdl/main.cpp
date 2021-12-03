@@ -3339,7 +3339,8 @@ int main(int argc, char** argv)
     Input::OpenJoystick();
 
     mainWindow = new MainWindow();
-    if (CLI::StartOnFullscreen) {
+    if (CLI::StartOnFullscreen)
+    {
         // onFullscreenToggled is private and I don't know if I should copy what's inside it or make it public
         mainWindow->showFullScreen();
         mainWindow->menuBar()->setFixedHeight(0); // Don't use hide() as menubar actions stop working
@@ -3353,7 +3354,8 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (CLI::DSRomPath != "") {
+    if (CLI::DSRomPath != "")
+    {
         int res = Frontend::LoadROM(CLI::DSRomPath, Frontend::ROMSlot_NDS);
 
         // should this be moved to *after* the GBA ROM is loaded?
