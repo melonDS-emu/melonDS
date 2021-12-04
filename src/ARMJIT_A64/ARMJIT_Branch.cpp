@@ -27,7 +27,7 @@ namespace ARMJIT
 {
 
 template <typename T>
-void jumpToTrampoline(T* cpu, u32 addr, bool changeCPSR)
+void JumpToTrampoline(T* cpu, u32 addr, bool changeCPSR)
 {
     cpu->JumpTo(addr, changeCPSR);
 }
@@ -301,7 +301,7 @@ void Compiler::Comp_JumpTo(Arm64Gen::ARM64Reg addr, bool switchThumb, bool resto
         bool cpsrDirty = CPSRDirty;
         SaveCPSR();
         SaveCycles();
-        PushRegs(restoreCPSR);
+        PushRegs(restoreCPSR, true);
 
         if (switchThumb)
             MOV(W1, addr);
@@ -315,11 +315,11 @@ void Compiler::Comp_JumpTo(Arm64Gen::ARM64Reg addr, bool switchThumb, bool resto
         MOV(X0, RCPU);
         MOVI2R(W2, restoreCPSR);
         if (Num == 0)
-            QuickCallFunction(X3, jumpToTrampoline<ARMv5>);
+            QuickCallFunction(X3, JumpToTrampoline<ARMv5>);
         else
-            QuickCallFunction(X3, jumpToTrampoline<ARMv4>);
+            QuickCallFunction(X3, JumpToTrampoline<ARMv4>);
 
-        PopRegs(restoreCPSR);
+        PopRegs(restoreCPSR, true);
         LoadCycles();
         LoadCPSR();
         if (CurInstr.Cond() < 0xE)

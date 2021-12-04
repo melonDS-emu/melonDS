@@ -2,7 +2,7 @@
 Name=melonDS
 GenericName=Nintendo DS Emulator
 Comment=A fast and accurate Nintendo DS emulator.
-Exec=melonDS
+Exec=melonDS %f
 Type=Application
 Categories=Game;Emulator;
 Terminal=false

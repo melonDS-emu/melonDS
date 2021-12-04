@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="ds">
+    <file>ds_open.svg</file>
+    <file>ds_back.svg</file>
+  </qresource>
+</RCC>

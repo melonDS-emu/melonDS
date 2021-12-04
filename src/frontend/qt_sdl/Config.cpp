@@ -19,7 +19,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "PlatformConfig.h"
+#include "Platform.h"
+#include "Config.h"
+
 
 namespace Config
 {
@@ -63,12 +65,57 @@ int ShowOSD;
 int ConsoleType;
 int DirectBoot;
 
+#ifdef JIT_ENABLED
+int JIT_Enable = false;
+int JIT_MaxBlockSize = 32;
+int JIT_BranchOptimisations = true;
+int JIT_LiteralOptimisations = true;
+int JIT_FastMemory = true;
+#endif
+
+int ExternalBIOSEnable;
+
+char BIOS9Path[1024];
+char BIOS7Path[1024];
+char FirmwarePath[1024];
+
+char DSiBIOS9Path[1024];
+char DSiBIOS7Path[1024];
+char DSiFirmwarePath[1024];
+char DSiNANDPath[1024];
+
+int DLDIEnable;
+char DLDISDPath[1024];
+int DLDISize;
+int DLDIReadOnly;
+int DLDIFolderSync;
+char DLDIFolderPath[1024];
+
+int DSiSDEnable;
+char DSiSDPath[1024];
+int DSiSDSize;
+int DSiSDReadOnly;
+int DSiSDFolderSync;
+char DSiSDFolderPath[1024];
+
+int FirmwareOverrideSettings;
+char FirmwareUsername[64];
+int FirmwareLanguage;
+int FirmwareBirthdayMonth;
+int FirmwareBirthdayDay;
+int FirmwareFavouriteColour;
+char FirmwareMessage[1024];
+char FirmwareMAC[18];
+int RandomizeMAC;
+
 int SocketBindAnyAddr;
 char LANDevice[128];
 int DirectLAN;
 
 int SavestateRelocSRAM;
 
+int AudioInterp;
+int AudioBitrate;
 int AudioVolume;
 int MicInputType;
 char MicWavPath[1024];
@@ -84,9 +131,10 @@ int MouseHideSeconds;
 
 int PauseLostFocus;
 
-bool EnableJIT;
 
-ConfigEntry PlatformConfigFile[] =
+const char* kConfigFile = "melonDS.ini";
+
+ConfigEntry ConfigFile[] =
 {
     {"Key_A",      0, &KeyMapping[0],  -1, NULL, 0},
     {"Key_B",      0, &KeyMapping[1],  -1, NULL, 0},
@@ -164,12 +212,59 @@ ConfigEntry PlatformConfigFile[] =
     {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
     {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
 
-    {"LimitFPS", 0, &LimitFPS, 0, NULL, 0},
-    {"AudioSync", 0, &AudioSync, 1, NULL, 0},
+    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
+    {"AudioSync", 0, &AudioSync, 0, NULL, 0},
     {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
 
     {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
     {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+
+#ifdef JIT_ENABLED
+    {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
+    {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},
+    {"JIT_BranchOptimisations", 0, &JIT_BranchOptimisations, 1, NULL, 0},
+    {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
+    #ifdef __APPLE__
+        {"JIT_FastMemory", 0, &JIT_FastMemory, 0, NULL, 0},
+    #else
+        {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
+    #endif
+#endif
+
+    {"ExternalBIOSEnable", 0, &ExternalBIOSEnable, 0, NULL, 0},
+
+    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
+    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
+    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+
+    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
+    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
+    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
+    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
+
+    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
+    {"DLDISDPath", 1, DLDISDPath, 0, "dldi.bin", 1023},
+    {"DLDISize", 0, &DLDISize, 0, NULL, 0},
+    {"DLDIReadOnly", 0, &DLDIReadOnly, 0, NULL, 0},
+    {"DLDIFolderSync", 0, &DLDIFolderSync, 0, NULL, 0},
+    {"DLDIFolderPath", 1, DLDIFolderPath, 0, "", 1023},
+
+    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
+    {"DSiSDPath", 1, DSiSDPath, 0, "dsisd.bin", 1023},
+    {"DSiSDSize", 0, &DSiSDSize, 0, NULL, 0},
+    {"DSiSDReadOnly", 0, &DSiSDReadOnly, 0, NULL, 0},
+    {"DSiSDFolderSync", 0, &DSiSDFolderSync, 0, NULL, 0},
+    {"DSiSDFolderPath", 1, DSiSDFolderPath, 0, "", 1023},
+
+    {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
+    {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
+    {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
+    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
+    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
+    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
+    {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
+    {"FirmwareMAC", 1, FirmwareMAC, 0, "", 17},
+    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
 
     {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
     {"LANDevice", 1, LANDevice, 0, "", 127},
@@ -177,6 +272,8 @@ ConfigEntry PlatformConfigFile[] =
 
     {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
 
+    {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
+    {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
     {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
     {"MicInputType", 0, &MicInputType, 1, NULL, 0},
     {"MicWavPath", 1, MicWavPath, 0, "", 1023},
@@ -199,8 +296,85 @@ ConfigEntry PlatformConfigFile[] =
     {"MouseHide",        0, &MouseHide,        0, NULL, 0},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
     {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
-    
+
     {"", -1, NULL, 0, NULL, 0}
 };
+
+
+void Load()
+{
+    ConfigEntry* entry = &ConfigFile[0];
+    for (;;)
+    {
+        if (!entry->Value) break;
+
+        if (entry->Type == 0)
+            *(int*)entry->Value = entry->DefaultInt;
+        else
+        {
+            strncpy((char*)entry->Value, entry->DefaultStr, entry->StrLength);
+            ((char*)entry->Value)[entry->StrLength] = '\0';
+        }
+
+        entry++;
+    }
+
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "r");
+    if (!f) return;
+
+    char linebuf[1024];
+    char entryname[32];
+    char entryval[1024];
+    while (!feof(f))
+    {
+        if (fgets(linebuf, 1024, f) == nullptr)
+            break;
+
+        int ret = sscanf(linebuf, "%31[A-Za-z_0-9]=%[^\t\r\n]", entryname, entryval);
+        entryname[31] = '\0';
+        if (ret < 2) continue;
+
+        ConfigEntry* entry = &ConfigFile[0];
+        for (;;)
+        {
+            if (!entry->Value) break;
+
+            if (!strncmp(entry->Name, entryname, 32))
+            {
+                if (entry->Type == 0)
+                    *(int*)entry->Value = strtol(entryval, NULL, 10);
+                else
+                    strncpy((char*)entry->Value, entryval, entry->StrLength);
+
+                break;
+            }
+
+            entry++;
+        }
+    }
+
+    fclose(f);
+}
+
+void Save()
+{
+    FILE* f = Platform::OpenLocalFile(kConfigFile, "w");
+    if (!f) return;
+
+    ConfigEntry* entry = &ConfigFile[0];
+    for (;;)
+    {
+        if (!entry->Value) break;
+
+        if (entry->Type == 0)
+            fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value);
+        else
+            fprintf(f, "%s=%s\r\n", entry->Name, (char*)entry->Value);
+
+        entry++;
+    }
+
+    fclose(f);
+}
 
 }

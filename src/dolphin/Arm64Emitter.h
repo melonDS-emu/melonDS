@@ -469,6 +469,8 @@ public:
   }
   TypeSpecifier GetType() const { return m_type; }
   ARM64Reg GetReg() const { return m_destReg; }
+  ShiftType GetShiftType() const { return m_shifttype; }
+  u32 GetShiftAmount() const { return m_shift; }
   u32 GetData() const
   {
     switch (m_type)

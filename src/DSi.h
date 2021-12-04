@@ -40,7 +40,6 @@ extern DSi_SDHost* SDMMC;
 extern DSi_SDHost* SDIO;
 
 extern FILE* SDMMCFile;
-extern FILE* SDIOFile;
 
 const u32 NWRAMSize = 0x40000;
 
@@ -60,6 +59,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+void SetupDirectBoot();
 void SoftReset();
 
 bool LoadBIOS();

@@ -18,11 +18,11 @@
 
 #include <stdio.h>
 #include <QFileDialog>
+#include <QtGlobal>
 
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "VideoSettingsDialog.h"
 #include "ui_VideoSettingsDialog.h"
@@ -47,7 +47,11 @@ VideoSettingsDialog::VideoSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     grp3DRenderer = new QButtonGroup(this);
     grp3DRenderer->addButton(ui->rb3DSoftware, 0);
     grp3DRenderer->addButton(ui->rb3DOpenGL,   1);
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    connect(grp3DRenderer, SIGNAL(buttonClicked(int)), this, SLOT(onChange3DRenderer(int)));
+#else
     connect(grp3DRenderer, SIGNAL(idClicked(int)), this, SLOT(onChange3DRenderer(int)));
+#endif
     grp3DRenderer->button(Config::_3DRenderer)->setChecked(true);
 
 #ifndef OGLRENDERER_ENABLED

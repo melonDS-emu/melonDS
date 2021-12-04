@@ -24,10 +24,19 @@
 #include "ARM.h"
 #include "ARM_InstrInfo.h"
 
+#if defined(__APPLE__) && defined(__aarch64__)
+    #include <pthread.h>
+#endif
+
 namespace ARMJIT
 {
 
 typedef void (*JitBlockEntry)();
+
+extern int MaxBlockSize;
+extern bool LiteralOptimizations;
+extern bool BranchOptimizations;
+extern bool FastMemory;
 
 void Init();
 void DeInit();
@@ -48,6 +57,8 @@ void ResetBlockCache();
 JitBlockEntry LookUpBlock(u32 num, u64* entries, u32 offset, u32 addr);
 bool SetupExecutableRegion(u32 num, u32 blockAddr, u64*& entry, u32& start, u32& size);
 
+void JitEnableWrite();
+void JitEnableExecute();
 }
 
 extern "C" void ARM_Dispatch(ARM* cpu, ARMJIT::JitBlockEntry entry);

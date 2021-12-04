@@ -19,11 +19,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <utility>
+
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
 #include "FrontendUtil.h"
-#include "Config.h"
 #include "SharedConfig.h"
 #include "Platform.h"
 
@@ -89,6 +90,8 @@ int VerifyDSBIOS()
 {
     FILE* f;
     long len;
+
+    if (!Config::ExternalBIOSEnable) return Load_OK;
 
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
     if (!f) return Load_BIOS9Missing;
@@ -160,8 +163,10 @@ int VerifyDSFirmware()
     FILE* f;
     long len;
 
+    if (!Config::ExternalBIOSEnable) return Load_FirmwareNotBootable;
+
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
-    if (!f) return Load_FirmwareMissing;
+    if (!f) return Load_FirmwareNotBootable;
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
@@ -217,15 +222,6 @@ int SetupDSiNAND()
     // check that it has the nocash footer, and all
 
     DSi::SDMMCFile = f;
-
-    if (Config::DSiSDEnable)
-    {
-        f = Platform::OpenLocalFile(Config::DSiSDPath, "r+b");
-        if (f)
-            DSi::SDIOFile = f;
-        else
-            DSi::SDIOFile = Platform::OpenLocalFile(Config::DSiSDPath, "w+b");
-    }
 
     return Load_OK;
 }
@@ -458,6 +454,72 @@ int LoadROM(const char* file, int slot)
         strncpy(ROMPath[slot], oldpath, 1024);
         strncpy(SRAMPath[slot], oldsram, 1024);
         return Load_ROMLoadError;
+    }
+}
+
+void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)
+{
+    int index = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            for (int k = 0; k < 8; k++)
+            {
+                for (int l = 0; l < 8; l++)
+                {
+                    u8 pal_index = index % 2 ?  data[index/2] >> 4 : data[index/2] & 0x0F;
+                    u8 r = ((palette[pal_index] >> 0)  & 0x1F) * 255 / 31;
+                    u8 g = ((palette[pal_index] >> 5)  & 0x1F) * 255 / 31;
+                    u8 b = ((palette[pal_index] >> 10) & 0x1F) * 255 / 31;
+                    u8 a = pal_index ? 255: 0;
+                    u32* row = &iconRef[256 * i + 32 * k + 8 * j];
+                    row[l] = (a << 24) | (r << 16) | (g << 8) | b;
+                    index++;
+                }
+            }
+        }
+    }
+}
+
+#define SEQ_FLIPV(i) ((i & 0b1000000000000000) >> 15)
+#define SEQ_FLIPH(i) ((i & 0b0100000000000000) >> 14)
+#define SEQ_PAL(i) ((i & 0b0011100000000000) >> 11)
+#define SEQ_BMP(i) ((i & 0b0000011100000000) >> 8)
+#define SEQ_DUR(i) ((i & 0b0000000011111111) >> 0)
+
+void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef)
+{
+    for (int i = 0; i < 64; i++)
+    {
+        if (!sequence[i])
+            break;
+        u32* frame = &animatedTexRef[32 * 32 * i];
+        ROMIcon(data[SEQ_BMP(sequence[i])], palette[SEQ_PAL(sequence[i])], frame);
+
+        if (SEQ_FLIPH(sequence[i]))
+        {
+            for (int x = 0; x < 32; x++)
+            {
+                for (int y = 0; y < 32/2; y++)
+                {
+                    std::swap(frame[x * 32 + y], frame[x * 32 + (32 - 1 - y)]);
+                }
+            }
+        }
+        if (SEQ_FLIPV(sequence[i]))
+        {
+            for (int x = 0; x < 32/2; x++)
+            {
+                for (int y = 0; y < 32; y++)
+                {
+                    std::swap(frame[x * 32 + y], frame[(32 - 1 - x) * 32 + y]);
+                }
+            }
+        }
+
+        for (int j = 0; j < SEQ_DUR(sequence[i]); j++)
+            animatedSequenceRef.push_back(i);
     }
 }
 

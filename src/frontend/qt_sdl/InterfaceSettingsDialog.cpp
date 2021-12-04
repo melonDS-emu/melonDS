@@ -22,7 +22,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 InterfaceSettingsDialog* InterfaceSettingsDialog::currentDlg = nullptr;
 

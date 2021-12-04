@@ -22,7 +22,6 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
-#include "Config.h"
 
 
 // 3D engine notes
@@ -275,6 +274,8 @@ u32 FlushAttributes;
 
 std::unique_ptr<GPU3D::Renderer3D> CurrentRenderer = {};
 
+bool AbortFrame;
+
 bool Init()
 {
     return true;
@@ -380,6 +381,8 @@ void Reset()
     ResetRenderingState();
 
     RenderXPos = 0;
+
+    AbortFrame = false;
 }
 
 void DoSavestate(Savestate* file)
@@ -621,6 +624,8 @@ void DoSavestate(Savestate* file)
 
     file->Bool32(&UseShininessTable);
     file->VarArray(ShininessTable, 128*sizeof(u8));
+
+    file->Bool32(&AbortFrame);
 }
 
 
@@ -2158,7 +2163,7 @@ void ExecuteCommand()
             VertexSlotCounter = 0;
             VertexSlotsFree = 1;
             break;
-        
+
         case 0x60: // viewport x1,y1,x2,y2
             VertexPipelineCmdDelayed8();
             // note: viewport Y coordinates are upside-down
@@ -2407,7 +2412,7 @@ void ExecuteCommand()
                     CurVertex[2] = ExecParams[1] & 0xFFFF;
                     PosTest();
                     break;
-                
+
                 case 0x70: // box test
                     NumTestCommands -= 3;
                     BoxTest(ExecParams);
@@ -2611,27 +2616,34 @@ u32 ScrolledLine[256];
 
 u32* GetLine(int line)
 {
-    u32* rawline = CurrentRenderer->GetLine(line);
-
-    if (RenderXPos == 0) return rawline;
-
-    // apply X scroll
-
-    if (RenderXPos & 0x100)
+    if (!AbortFrame)
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 512; i++, j++)
-            ScrolledLine[i] = 0;
-        for (j = 0; i < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
+        u32* rawline = CurrentRenderer->GetLine(line);
+
+        if (RenderXPos == 0) return rawline;
+
+        // apply X scroll
+
+        if (RenderXPos & 0x100)
+        {
+            int i = 0, j = RenderXPos;
+            for (; j < 512; i++, j++)
+                ScrolledLine[i] = 0;
+            for (j = 0; i < 256; i++, j++)
+                ScrolledLine[i] = rawline[j];
+        }
+        else
+        {
+            int i = 0, j = RenderXPos;
+            for (; j < 256; i++, j++)
+                ScrolledLine[i] = rawline[j];
+            for (; i < 256; i++)
+                ScrolledLine[i] = 0;
+        }
     }
     else
     {
-        int i = 0, j = RenderXPos;
-        for (; j < 256; i++, j++)
-            ScrolledLine[i] = rawline[j];
-        for (; i < 256; i++)
-            ScrolledLine[i] = 0;
+        memset(ScrolledLine, 0, 256*4);
     }
 
     return ScrolledLine;

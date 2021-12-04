@@ -22,7 +22,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
@@ -59,7 +58,6 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
     ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr != 0);
-    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC != 0);
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)
@@ -97,19 +95,7 @@ void WifiSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        int randommac = ui->cbRandomizeMAC->isChecked() ? 1:0;
-
-        if (randommac != Config::RandomizeMAC)
-        {
-            if (RunningSomething
-                && QMessageBox::warning(this, "Reset necessary to apply changes",
-                    "The emulation will be reset for the changes to take place.",
-                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
-                return;
-        }
-
         Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked() ? 1:0;
-        Config::RandomizeMAC = randommac;
         Config::DirectLAN = ui->rbDirectMode->isChecked() ? 1:0;
 
         int sel = ui->cbxDirectAdapter->currentIndex();
@@ -125,8 +111,6 @@ void WifiSettingsDialog::done(int r)
         }
 
         Config::Save();
-
-        needsReset = true;
     }
 
     QDialog::done(r);
@@ -138,10 +122,12 @@ void WifiSettingsDialog::on_rbDirectMode_clicked()
 {
     updateAdapterControls();
 }
+
 void WifiSettingsDialog::on_rbIndirectMode_clicked()
 {
     updateAdapterControls();
 }
+
 void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
 {
     if (!haspcap) return;
@@ -152,12 +138,12 @@ void WifiSettingsDialog::on_cbxDirectAdapter_currentIndexChanged(int sel)
     LAN_PCap::AdapterData* adapter = &LAN_PCap::Adapters[sel];
     char tmp[64];
 
-    sprintf(tmp, "MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+    sprintf(tmp, "%02X:%02X:%02X:%02X:%02X:%02X",
             adapter->MAC[0], adapter->MAC[1], adapter->MAC[2],
             adapter->MAC[3], adapter->MAC[4], adapter->MAC[5]);
     ui->lblAdapterMAC->setText(QString(tmp));
 
-    sprintf(tmp, "IP: %d.%d.%d.%d",
+    sprintf(tmp, "%d.%d.%d.%d",
             adapter->IP_v4[0], adapter->IP_v4[1],
             adapter->IP_v4[2], adapter->IP_v4[3]);
     ui->lblAdapterIP->setText(QString(tmp));

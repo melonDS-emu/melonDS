@@ -29,7 +29,7 @@
 #include "OSD_shaders.h"
 #include "font.h"
 
-#include "PlatformConfig.h"
+#include "Config.h"
 
 extern MainWindow* mainWindow;
 

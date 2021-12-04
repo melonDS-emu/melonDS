@@ -18,7 +18,7 @@
 
 #include "ARMJIT_Compiler.h"
 
-#include "../Config.h"
+#include "../ARMJIT.h"
 
 #include "../ARMJIT_Memory.h"
 
@@ -67,7 +67,6 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
     int invalidLiteralIdx = InvalidLiterals.Find(localAddr);
     if (invalidLiteralIdx != -1)
     {
-        InvalidLiterals.Remove(invalidLiteralIdx);
         return false;
     }
 
@@ -112,7 +111,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     if (size == 16)
         addressMask = ~1;
 
-    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (ARMJIT::LiteralOptimizations && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + offset.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         
@@ -147,7 +146,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         MOV(W0, rnMapped);
     }
 
-    bool addrIsStatic = Config::JIT_LiteralOptimisations
+    bool addrIsStatic = ARMJIT::LiteralOptimizations
         && RegCache.IsLiteral(rn) && offset.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -189,17 +188,15 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ? ARMJIT_Memory::ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
         : ARMJIT_Memory::ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
 
-    if (Config::JIT_FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
     {
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
 
-        assert((rdMapped >= W19 && rdMapped <= W26) || rdMapped == W4);
+        assert((rdMapped >= W8 && rdMapped <= W15) || (rdMapped >= W19 && rdMapped <= W25) || rdMapped == W4);
         patch.PatchFunc = flags & memop_Store
             ? PatchedStoreFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][rdMapped]
             : PatchedLoadFuncs[NDS::ConsoleType][Num][__builtin_ctz(size) - 3][!!(flags & memop_SignExtend)][rdMapped];
-
-        MOVP2R(X7, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
 
         // take a chance at fastmem
         if (size > 8)
@@ -208,11 +205,11 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ptrdiff_t loadStorePosition = GetCodeOffset();
         if (flags & memop_Store)
         {
-            STRGeneric(size, rdMapped, size > 8 ? X1 : X0, X7);
+            STRGeneric(size, rdMapped, size > 8 ? X1 : X0, RMemBase);
         }
         else
         {
-            LDRGeneric(size, flags & memop_SignExtend, rdMapped, size > 8 ? X1 : X0, X7);
+            LDRGeneric(size, flags & memop_SignExtend, rdMapped, size > 8 ? X1 : X0, RMemBase);
             if (size == 32 && !addrIsStatic)
             {
                 UBFIZ(W0, W0, 3, 2);
@@ -230,11 +227,15 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         if (addrIsStatic)
             func = ARMJIT_Memory::GetFuncForAddr(CurCPU, staticAddress, flags & memop_Store, size);
 
+        PushRegs(false, false);
+
         if (func)
         {
             if (flags & memop_Store)
                 MOV(W1, rdMapped);
             QuickCallFunction(X2, (void (*)())func);
+
+            PopRegs(false, false);
 
             if (!(flags & memop_Store))
             {
@@ -313,6 +314,8 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
                     }
                 }
             }
+
+            PopRegs(false, false);
 
             if (!(flags & memop_Store))
             {
@@ -449,7 +452,7 @@ void Compiler::T_Comp_LoadPCRel()
     u32 offset = ((CurInstr.Instr & 0xFF) << 2);
     u32 addr = (R15 & ~0x2) + offset;
 
-    if (!Config::JIT_LiteralOptimisations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!ARMJIT::LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 
@@ -461,7 +464,7 @@ void Compiler::T_Comp_MemSPRel()
     Comp_MemAccess(CurInstr.T_Reg(8), 13, Op2(offset), 32, load ? 0 : memop_Store);
 }
 
-s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode)
+s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn)
 {
     IrregularCycles = true;
 
@@ -470,7 +473,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     if (regsCount == 0)
         return 0; // actually not the right behaviour TODO: fix me
 
-    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << *regs.begin()))
+    int firstReg = *regs.begin();
+    if (regsCount == 1 && !usermode && RegCache.LoadedRegs & (1 << firstReg) && !(firstReg == rn && skipLoadingRn))
     {
         int flags = 0;
         if (store)
@@ -479,7 +483,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             flags |= memop_SubtractOffset;
         Op2 offset = preinc ? Op2(4) : Op2(0);
 
-        Comp_MemAccess(*regs.begin(), rn, offset, 32, flags);
+        Comp_MemAccess(firstReg, rn, offset, 32, flags);
 
         return decrement ? -4 : 4;
     }
@@ -493,7 +497,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
         : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
 
-    bool compileFastPath = Config::JIT_FastMemory
+    bool compileFastPath = ARMJIT::FastMemory
         && store && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
 
     {
@@ -515,8 +519,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ptrdiff_t fastPathStart = GetCodeOffset();
         ptrdiff_t loadStoreOffsets[8];
 
-        MOVP2R(X1, Num == 0 ? ARMJIT_Memory::FastMem9Start : ARMJIT_Memory::FastMem7Start);
-        ADD(X1, X1, X0);
+        ADD(X1, RMemBase, X0);
 
         u32 offset = 0;
         BitSet16::Iterator it = regs.begin();
@@ -536,12 +539,16 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             loadStoreOffsets[i++] = GetCodeOffset();
 
             if (store)
+            {
                 STR(INDEX_UNSIGNED, first, X1, offset);
-            else
+            }
+            else if (!(reg == rn && skipLoadingRn))
+            {
                 LDR(INDEX_UNSIGNED, first, X1, offset);
 
-            if (!(RegCache.LoadedRegs & (1 << reg)) && !store)
-                SaveReg(reg, first);
+                if (!(RegCache.LoadedRegs & (1 << reg)))
+                    SaveReg(reg, first);
+            }
 
             offset += 4;
         }
@@ -555,13 +562,23 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
 
             ARM64Reg first = W3, second = W4;
             if (RegCache.LoadedRegs & (1 << reg))
-                first = MapReg(reg);
+            {
+                if (!(reg == rn && skipLoadingRn))
+                    first = MapReg(reg);
+            }
             else if (store)
+            {
                 LoadReg(reg, first);
+            }
             if (RegCache.LoadedRegs & (1 << nextReg))
-                second = MapReg(nextReg);
+            {
+                if (!(nextReg == rn && skipLoadingRn))
+                    second = MapReg(nextReg);
+            }
             else if (store)
+            {
                 LoadReg(nextReg, second);
+            }
 
             loadStoreOffsets[i++] = GetCodeOffset();
             if (store)
@@ -655,6 +672,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         }
     }
 
+    PushRegs(false, false, !compileFastPath);
+
     ADD(X1, SP, 0);
     MOVI2R(W2, regsCount);
 
@@ -680,6 +699,8 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         }
     }
 
+    PopRegs(false, false);
+
     if (!store)
     {
         if (usermode && !regs[15] && (regs & BitSet16(0x7f00)))
@@ -698,20 +719,23 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
                 LDR(INDEX_UNSIGNED, W3, SP, i * 8);
                 MOVI2R(W1, reg - 8);
                 BL(WriteBanked);
-                FixupBranch alreadyWritten = CBNZ(W4);
-                if (RegCache.LoadedRegs & (1 << reg))
-                    MOV(MapReg(reg), W3);
-                else
-                    SaveReg(reg, W3);
-                SetJumpTarget(alreadyWritten);
+                if (!(reg == rn && skipLoadingRn))
+                {
+                    FixupBranch alreadyWritten = CBNZ(W4);
+                    if (RegCache.LoadedRegs & (1 << reg))
+                        MOV(MapReg(reg), W3);
+                    else
+                        SaveReg(reg, W3);
+                    SetJumpTarget(alreadyWritten);
+                }
             }
             else if (!usermode && nextReg != regs.end())
             {
                 ARM64Reg first = W3, second = W4;
                 
-                if (RegCache.LoadedRegs & (1 << reg))
+                if (RegCache.LoadedRegs & (1 << reg) && !(reg == rn && skipLoadingRn))
                     first = MapReg(reg);
-                if (RegCache.LoadedRegs & (1 << *nextReg))
+                if (RegCache.LoadedRegs & (1 << *nextReg) && !(*nextReg == rn && skipLoadingRn))
                     second = MapReg(*nextReg);
 
                 LDP(INDEX_SIGNED, EncodeRegTo64(first), EncodeRegTo64(second), SP, i * 8);
@@ -726,8 +750,11 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             }
             else if (RegCache.LoadedRegs & (1 << reg))
             {
-                ARM64Reg mapped = MapReg(reg);
-                LDR(INDEX_UNSIGNED, mapped, SP, i * 8);
+                if (!(reg == rn && skipLoadingRn))
+                {
+                    ARM64Reg mapped = MapReg(reg);
+                    LDR(INDEX_UNSIGNED, mapped, SP, i * 8);
+                }
             }
             else
             {
@@ -771,13 +798,13 @@ void Compiler::A_Comp_LDM_STM()
 
     ARM64Reg rn = MapReg(CurInstr.A_Reg(16));
 
-    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode);
-
     if (load && writeback && regs[CurInstr.A_Reg(16)])
         writeback = Num == 0
-            ? (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1))
-            : false;
-    if (writeback)
+            && (!(regs & ~BitSet16(1 << CurInstr.A_Reg(16)))) || (regs & ~BitSet16((2 << CurInstr.A_Reg(16)) - 1));
+
+    s32 offset = Comp_MemAccessBlock(CurInstr.A_Reg(16), regs, !load, pre, !add, usermode, load && writeback);
+
+    if (writeback && offset)
     {
         if (offset > 0)
             ADD(rn, rn, offset);
@@ -799,12 +826,15 @@ void Compiler::T_Comp_PUSH_POP()
     }
 
     ARM64Reg sp = MapReg(13);
-    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false);
+    s32 offset = Comp_MemAccessBlock(13, regs, !load, !load, !load, false, false);
 
-    if (offset > 0)
+    if (offset)
+    {
+        if (offset > 0)
             ADD(sp, sp, offset);
         else
             SUB(sp, sp, -offset);
+    }
 }
 
 void Compiler::T_Comp_LDMIA_STMIA()
@@ -813,10 +843,12 @@ void Compiler::T_Comp_LDMIA_STMIA()
     ARM64Reg rb = MapReg(CurInstr.T_Reg(8));
     bool load = CurInstr.Instr & (1 << 11);
     u32 regsCount = regs.Count();
-    
-    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false);
 
-    if (!load || !regs[CurInstr.T_Reg(8)])
+    bool writeback = !load || !regs[CurInstr.T_Reg(8)];
+
+    s32 offset = Comp_MemAccessBlock(CurInstr.T_Reg(8), regs, !load, false, false, false, load && writeback);
+
+    if (writeback && offset)
     {
         if (offset > 0)
             ADD(rb, rb, offset);

@@ -97,6 +97,8 @@ extern u16 RenderXPos;
 extern std::array<Polygon*,2048> RenderPolygonRAM;
 extern u32 RenderNumPolygons;
 
+extern bool AbortFrame;
+
 extern u64 Timestamp;
 
 bool Init();

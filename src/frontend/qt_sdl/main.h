@@ -19,6 +19,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <QApplication>
 #include <QThread>
 #include <QWidget>
 #include <QWindow>
@@ -78,7 +79,7 @@ signals:
     void windowLimitFPSChange();
 
     void screenLayoutChange();
-    
+
     void windowFullscreenToggle();
 
     void swapScreensToggle();
@@ -120,7 +121,7 @@ protected:
     int numScreens;
 
     bool touching;
-    
+
     void showCursor();
 };
 
@@ -189,6 +190,14 @@ private:
     GLuint screenTexture;
 };
 
+class MelonApplication : public QApplication
+{
+    Q_OBJECT
+
+public:
+    MelonApplication(int &argc, char** argv);
+    bool event(QEvent* event) override;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -200,11 +209,15 @@ public:
 
     bool hasOGL;
     QOpenGLContext* getOGLContext();
-    
+
+    void loadROM(QString filename);
+    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
+
     void onAppStateChanged(Qt::ApplicationState state);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -234,6 +247,8 @@ private slots:
     void onEnableCheats(bool checked);
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
+    void onROMInfo();
+    void onOpenTitleManager();
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
@@ -241,9 +256,12 @@ private slots:
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
     void onOpenAudioSettings();
+    void onOpenFirmwareSettings();
+    void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
+    void onFirmwareSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
     void onUpdateMouseTimer();
@@ -268,23 +286,24 @@ private slots:
     void onEmuStop();
 
     void onUpdateVideoSettings(bool glchange);
-    
+
     void onFullscreenToggled();
 
 private:
     QList<QString> recentFileList;
     QMenu *recentMenu;
     void updateRecentFilesMenu();
-    void loadROM(QString filename);
-    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
 
     QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
     void createScreenPanel();
 
     QString loadErrorStr(int error);
-    
-    bool pausedManually;
+
+    bool pausedManually = false;
+
+    int oldW, oldH;
+    bool oldMax;
 
 public:
     QWidget* panel;
@@ -306,12 +325,15 @@ public:
     QAction* actFrameStep;
     QAction* actEnableCheats;
     QAction* actSetupCheats;
+    QAction* actROMInfo;
+    QAction* actTitleManager;
 
     QAction* actEmuSettings;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actAudioSettings;
     QAction* actWifiSettings;
+    QAction* actFirmwareSettings;
     QAction* actInterfaceSettings;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];

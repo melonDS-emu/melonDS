@@ -165,7 +165,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     bool cpsrDirty = CPSRDirty;
     SaveCPSR();
 
-    PushRegs(restoreCPSR);
+    PushRegs(restoreCPSR, true);
 
     MOV(64, R(ABI_PARAM1), R(RCPU));
     MOV(32, R(ABI_PARAM2), R(addr));
@@ -178,7 +178,7 @@ void Compiler::Comp_JumpTo(Gen::X64Reg addr, bool restoreCPSR)
     else
         CALL((void*)&ARMv4JumpToTrampoline);
 
-    PopRegs(restoreCPSR);
+    PopRegs(restoreCPSR, true);
 
     LoadCPSR();
     // in case this instruction is skipped

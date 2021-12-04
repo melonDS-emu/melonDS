@@ -24,7 +24,6 @@
 #include "ARM.h"
 #include "DSi_AES.h"
 #include "Platform.h"
-#include "Config.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
 #include "NDSCart_SRAMManager.h"
@@ -52,11 +51,15 @@ u32 TransferDir;
 u8 TransferCmd[8];
 
 bool CartInserted;
+char CartName[256];
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
 bool CartIsHomebrew;
 bool CartIsDSi;
+
+NDSHeader Header;
+NDSBanner Banner;
 
 CartCommon* Cart;
 
@@ -173,15 +176,6 @@ void Key2_Encrypt(u8* data, u32 len)
 }
 
 
-void ApplyModcrypt(u32 addr, u32 len, u8* iv)
-{return;
-    u8 key[16];
-
-    DSi_AES::GetModcryptKey(&CartROM[0], key);
-    DSi_AES::ApplyModcrypt(&CartROM[addr], len, key, iv);
-}
-
-
 CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
 {
     ROM = rom;
@@ -190,6 +184,7 @@ CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
 
     u8 unitcode = ROM[0x12];
     IsDSi = (unitcode & 0x02) != 0;
+    DSiBase = *(u16*)&ROM[0x92] << 19;
 }
 
 CartCommon::~CartCommon()
@@ -200,12 +195,14 @@ void CartCommon::Reset()
 {
     CmdEncMode = 0;
     DataEncMode = 0;
+    DSiMode = false;
 }
 
 void CartCommon::SetupDirectBoot()
 {
     CmdEncMode = 2;
     DataEncMode = 2;
+    DSiMode = IsDSi && NDS::ConsoleType==1;
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -214,6 +211,7 @@ void CartCommon::DoSavestate(Savestate* file)
 
     file->Var32(&CmdEncMode);
     file->Var32(&DataEncMode);
+    file->Bool32(&DSiMode);
 }
 
 void CartCommon::LoadSave(const char* path, u32 type)
@@ -263,13 +261,15 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
         case 0x3C:
             CmdEncMode = 1;
             Key1_InitKeycode(false, *(u32*)&ROM[0xC], 2, 2);
+            DSiMode = false;
             return 0;
 
         case 0x3D:
             if (IsDSi)
             {
-                CmdEncMode = 11;
+                CmdEncMode = 1;
                 Key1_InitKeycode(true, *(u32*)&ROM[0xC], 1, 2);
+                DSiMode = true;
             }
             return 0;
 
@@ -277,7 +277,7 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
             return 0;
         }
     }
-    else if (CmdEncMode == 1 || CmdEncMode == 11)
+    else if (CmdEncMode == 1)
     {
         // decrypt the KEY1 command as needed
         // (KEY2 commands do not need decrypted because KEY2 is handled entirely by hardware,
@@ -306,14 +306,13 @@ int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
         case 0x20:
             {
                 u32 addr = (cmddec[2] & 0xF0) << 8;
-                if (CmdEncMode == 11)
+                if (DSiMode)
                 {
                     // the DSi region starts with 0x3000 unreadable bytes
                     // similarly to how the DS region starts at 0x1000 with 0x3000 unreadable bytes
                     // these contain data for KEY1 crypto
-                    u32 dsiregion = *(u16*)&ROM[0x92] << 19;
                     addr -= 0x1000;
-                    addr += dsiregion;
+                    addr += DSiBase;
                 }
                 ReadROM(addr, 0x1000, data, 0);
             }
@@ -594,9 +593,15 @@ void CartRetail::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
     if (addr < 0x8000)
         addr = 0x8000 + (addr & 0x1FF);
 
-    // TODO: protect DSi secure area
-    // also protect DSi region if not unlocked
-    // and other security shenanigans
+    if (IsDSi && (addr >= DSiBase))
+    {
+        // for DSi carts:
+        // * in DSi mode: block the first 0x3000 bytes of the DSi area
+        // * in DS mode: block the entire DSi area
+
+        if ((!DSiMode) || (addr < (DSiBase+0x3000)))
+            addr = 0x8000 + (addr & 0x1FF);
+    }
 
     memcpy(data+offset, ROM+addr, len);
 }
@@ -1118,6 +1123,8 @@ u8 CartRetailIR::SPIWrite(u8 val, u32 pos, bool last)
     case 0x08: // ID
         return 0xAA;
     }
+
+    return 0;
 }
 
 
@@ -1157,30 +1164,73 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
-    if (Config::DLDIEnable)
+    ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
+
+    if (Platform::GetConfigBool(Platform::DLDI_Enable))
     {
-        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI));
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
+        std::string folderpath;
+        if (Platform::GetConfigBool(Platform::DLDI_FolderSync))
+            folderpath = Platform::GetConfigString(Platform::DLDI_FolderPath);
+        else
+            folderpath = "";
+
+        ApplyDLDIPatch(melonDLDI, sizeof(melonDLDI), ReadOnly);
+        SD = new FATStorage(Platform::GetConfigString(Platform::DLDI_ImagePath),
+                            (u64)Platform::GetConfigInt(Platform::DLDI_ImageSize) * 1024 * 1024,
+                            ReadOnly,
+                            folderpath);
+        SD->Open();
     }
     else
-        SDFile = nullptr;
+        SD = nullptr;
 }
 
 CartHomebrew::~CartHomebrew()
 {
-    if (SDFile) fclose(SDFile);
+    if (SD)
+    {
+        SD->Close();
+        delete SD;
+    }
 }
 
 void CartHomebrew::Reset()
 {
     CartCommon::Reset();
+}
 
-    if (SDFile) fclose(SDFile);
+void CartHomebrew::SetupDirectBoot()
+{
+    CartCommon::SetupDirectBoot();
 
-    if (Config::DLDIEnable)
-        SDFile = Platform::OpenLocalFile(Config::DLDISDPath, "r+b");
-    else
-        SDFile = nullptr;
+    if (SD)
+    {
+        // add the ROM to the SD volume
+
+        if (!SD->InjectFile(CartName, CartROM, CartROMSize))
+            return;
+
+        // setup argv command line
+
+        char argv[512] = {0};
+        int argvlen;
+
+        strncpy(argv, "fat:/", 511);
+        strncat(argv, CartName, 511);
+        argvlen = strlen(argv);
+
+        void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
+
+        u32 argvbase = Header.ARM9RAMAddress + Header.ARM9Size;
+        argvbase = (argvbase + 0xF) & ~0xF;
+
+        for (u32 i = 0; i <= argvlen; i+=4)
+            writefn(argvbase+i, *(u32*)&argv[i]);
+
+        writefn(0x02FFFE70, 0x5F617267);
+        writefn(0x02FFFE74, argvbase);
+        writefn(0x02FFFE78, argvlen+1);
+    }
 }
 
 void CartHomebrew::DoSavestate(Savestate* file)
@@ -1213,13 +1263,7 @@ int CartHomebrew::ROMCommandStart(u8* cmd, u8* data, u32 len)
     case 0xC0: // SD read
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fread(data, len, 1, SDFile);
-            }
+            if (SD) SD->ReadSectors(sector, len>>9, data);
         }
         return 0;
 
@@ -1242,13 +1286,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     case 0xC1:
         {
             u32 sector = (cmd[1]<<24) | (cmd[2]<<16) | (cmd[3]<<8) | cmd[4];
-            u64 addr = sector * 0x200ULL;
-
-            if (SDFile)
-            {
-                fseek(SDFile, addr, SEEK_SET);
-                fwrite(data, len, 1, SDFile);
-            }
+            if (SD && (!ReadOnly)) SD->WriteSectors(sector, len>>9, data);
         }
         break;
 
@@ -1257,7 +1295,7 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
+void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
 {
     u32 offset = *(u32*)&ROM[0x20];
     u32 size = *(u32*)&ROM[0x2C];
@@ -1372,6 +1410,19 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen)
         u32 fixend = *(u32*)&patch[0x5C] - patchbase;
 
         memset(&binary[dldioffset+fixstart], 0, fixend-fixstart);
+    }
+
+    if (readonly)
+    {
+        // clear the can-write feature flag
+        binary[dldioffset+0x64] &= ~0x02;
+
+        // make writeSectors() return failure
+        u32 writesec_addr = *(u32*)&binary[dldioffset+0x74];
+        writesec_addr -= memaddr;
+        writesec_addr += dldioffset;
+        *(u32*)&binary[writesec_addr+0x00] = 0xE3A00000; // mov r0, #0
+        *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
     }
 
     printf("applied DLDI patch\n");
@@ -1496,8 +1547,11 @@ void DecryptSecureArea(u8* out)
     // * .srl ROMs (VC dumps) have encrypted secure areas but have precomputed
     //   decryption data at 0x1000 (and at the beginning of the DSi region if any)
 
-    u32 gamecode = *(u32*)&CartROM[0x0C];
-    u32 arm9base = *(u32*)&CartROM[0x20];
+    u32 gamecode = (u32)Header.GameCode[3] << 24 |
+                   (u32)Header.GameCode[2] << 16 |
+                   (u32)Header.GameCode[1] << 8  |
+                   (u32)Header.GameCode[0];
+    u32 arm9base = Header.ARM9ROMOffset;
 
     memcpy(out, &CartROM[arm9base], 0x800);
 
@@ -1524,11 +1578,17 @@ void DecryptSecureArea(u8* out)
 
 bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 {
-    u32 gamecode;
-    memcpy(&gamecode, CartROM + 0x0C, 4);
-    printf("Game code: %c%c%c%c\n", gamecode&0xFF, (gamecode>>8)&0xFF, (gamecode>>16)&0xFF, gamecode>>24);
+    memcpy(&Header, CartROM, sizeof(Header));
+    memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
 
-    u8 unitcode = CartROM[0x12];
+    printf("Game code: %.4s\n", Header.GameCode);
+
+    u32 gamecode = (u32)Header.GameCode[3] << 24 |
+                   (u32)Header.GameCode[2] << 16 |
+                   (u32)Header.GameCode[1] << 8  |
+                   (u32)Header.GameCode[0];
+
+    u8 unitcode = Header.UnitCode;
     CartIsDSi = (unitcode & 0x02) != 0;
 
     ROMListEntry romparams;
@@ -1657,6 +1717,16 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 
     NDS::Reset();
 
+    char* romname = strrchr((char*)path, '/');
+    if (!romname)
+    {
+        romname = strrchr((char*)path, '\\');
+        if (!romname)
+            romname = (char*)&path[-1];
+    }
+    romname++;
+    strncpy(CartName, romname, 255); CartName[255] = '\0';
+
     fseek(f, 0, SEEK_END);
     u32 len = (u32)ftell(f);
 
@@ -1677,6 +1747,9 @@ bool LoadROM(const char* path, const char* sram, bool direct)
 bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
 {
     NDS::Reset();
+
+    // TODO: make it more meaningful?
+    strncpy(CartName, "rom.nds", 256);
 
     u32 len = filelength;
     CartROMSize = 0x200;

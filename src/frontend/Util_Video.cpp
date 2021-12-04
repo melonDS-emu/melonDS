@@ -37,6 +37,7 @@ bool TopEnable;
 bool BotEnable;
 bool HybEnable;
 int HybScreen;
+int HybPrevTouchScreen; // 0:unknown, 1:buttom screen, 2:hybrid screen
 
 void M23_Identity(float* m)
 {
@@ -138,6 +139,7 @@ void SetupScreenLayout(int screenWidth, int screenHeight,
         HybScreen = swapScreens ? 1 : 0;
         swapScreens = false;
         topAspect = botAspect = 1;
+        HybPrevTouchScreen = 0;
     }
 
     float refpoints[6][2] =
@@ -467,33 +469,81 @@ int GetScreenTransforms(float* out, int* kind)
     return num;
 }
 
-bool GetTouchCoords(int& x, int& y)
+bool GetTouchCoords(int& x, int& y, bool clamp)
 {
-    if (BotEnable)
+    if (HybEnable && HybScreen == 1) 
+    {
+        float vx = x;
+        float vy = y;
+        float hvx = x;
+        float hvy = y;
+
+        M23_Transform(TouchMtx, vx, vy);
+        M23_Transform(HybTouchMtx, hvx, hvy);
+
+        if (clamp)
+        {
+            if (HybPrevTouchScreen == 1)
+            {
+                x = std::clamp((int)vx, 0, 255);
+                y = std::clamp((int)vy, 0, 191);
+                
+                return true;
+            }
+            if (HybPrevTouchScreen == 2)
+            {
+                x = std::clamp((int)hvx, 0, 255);
+                y = std::clamp((int)hvy, 0, 191);
+
+                return true;
+            }
+        }
+        else
+        {
+            if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
+            {
+                HybPrevTouchScreen = 1;
+
+                x = (int)vx;
+                y = (int)vy;
+
+                return true;
+            }
+            if (hvx >= 0 && hvx < 256 && hvy >= 0 && hvy < 192)
+            {
+                HybPrevTouchScreen = 2;
+
+                x = (int)hvx;
+                y = (int)hvy;
+
+                return true;
+            }
+        }
+    }
+    else if (BotEnable)
     {
         float vx = x;
         float vy = y;
 
         M23_Transform(TouchMtx, vx, vy);
 
-        x = (int)vx;
-        y = (int)vy;
+        if (clamp)
+        {
+            x = std::clamp((int)vx, 0, 255);
+            y = std::clamp((int)vy, 0, 191);
 
-        if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
             return true;
-    }
-    else if (HybEnable && HybScreen == 1)
-    {
-        float vx = x;
-        float vy = y;
+        }
+        else
+        {
+            if (vx >= 0 && vx < 256 && vy >= 0 && vy < 192)
+            {
+                x = (int)vx;
+                y = (int)vy;
 
-        M23_Transform(HybTouchMtx, vx, vy);
-
-        x = (int)vx;
-        y = (int)vy;
-
-        if (x >= 0 && x < 256 && y >= 0 && y < 192)
-            return true;
+                return true;
+            }
+        }
     }
 
     return false;

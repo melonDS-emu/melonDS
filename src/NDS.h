@@ -129,17 +129,49 @@ struct Timer
     u32 CycleShift;
 };
 
+enum
+{
+    Mem9_ITCM       = 0x00000001,
+    Mem9_DTCM       = 0x00000002,
+    Mem9_BIOS       = 0x00000004,
+    Mem9_MainRAM    = 0x00000008,
+    Mem9_WRAM       = 0x00000010,
+    Mem9_IO         = 0x00000020,
+    Mem9_Pal        = 0x00000040,
+    Mem9_OAM        = 0x00000080,
+    Mem9_VRAM       = 0x00000100,
+    Mem9_GBAROM     = 0x00020000,
+    Mem9_GBARAM     = 0x00040000,
+
+    Mem7_BIOS       = 0x00000001,
+    Mem7_MainRAM    = 0x00000002,
+    Mem7_WRAM       = 0x00000004,
+    Mem7_IO         = 0x00000008,
+    Mem7_Wifi0      = 0x00000010,
+    Mem7_Wifi1      = 0x00000020,
+    Mem7_VRAM       = 0x00000040,
+    Mem7_GBAROM     = 0x00000100,
+    Mem7_GBARAM     = 0x00000200,
+
+    // TODO: add DSi regions!
+};
+
 struct MemRegion
 {
     u8* Mem;
     u32 Mask;
 };
 
+#ifdef JIT_ENABLED
+extern bool EnableJIT;
+#endif
 extern int ConsoleType;
 extern int CurCPU;
 
-extern u8 ARM9MemTimings[0x40000][4];
+extern u8 ARM9MemTimings[0x40000][8];
+extern u32 ARM9Regions[0x40000];
 extern u8 ARM7MemTimings[0x20000][4];
+extern u32 ARM7Regions[0x20000];
 
 extern u32 NumFrames;
 extern u32 NumLagFrames;
@@ -191,8 +223,8 @@ void Stop();
 
 bool DoSavestate(Savestate* file);
 
-void SetARM9RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
-void SetARM7RegionTimings(u32 addrstart, u32 addrend, int buswidth, int nonseq, int seq);
+void SetARM9RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
+void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, int nonseq, int seq);
 
 // 0=DS  1=DSi
 void SetConsoleType(int type);

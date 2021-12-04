@@ -22,7 +22,6 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-#include "Config.h"
 #include "GPU3D_OpenGL_shaders.h"
 
 namespace GPU3D

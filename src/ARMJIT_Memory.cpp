@@ -372,7 +372,7 @@ struct Mapping
     void Unmap(int region)
     {
         u32 dtcmStart = NDS::ARM9->DTCMBase;
-        u32 dtcmSize = NDS::ARM9->DTCMSize;
+        u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
         bool skipDTCM = Num == 0 && region != memregion_DTCM;
         u8* statuses = Num == 0 ? MappingStatus9 : MappingStatus7;
         u32 offset = 0;
@@ -453,8 +453,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
         u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
         if (mapping.Num == 0
             && region != memregion_DTCM 
-            && effectiveAddr >= NDS::ARM9->DTCMBase
-            && effectiveAddr < (NDS::ARM9->DTCMBase + NDS::ARM9->DTCMSize))
+            && (effectiveAddr & NDS::ARM9->DTCMMask) == NDS::ARM9->DTCMBase)
             continue;
 
         u8* states = (u8*)(mapping.Num == 0 ? MappingStatus9 : MappingStatus7);
@@ -481,11 +480,12 @@ void RemapDTCM(u32 newBase, u32 newSize)
     // this first part could be made more efficient
     // by unmapping DTCM first and then map the holes
     u32 oldDTCMBase = NDS::ARM9->DTCMBase;
-    u32 oldDTCBEnd = oldDTCMBase + NDS::ARM9->DTCMSize;
+    u32 oldDTCMSize = ~NDS::ARM9->DTCMMask + 1;
+    u32 oldDTCMEnd = oldDTCMBase + NDS::ARM9->DTCMMask;
 
     u32 newEnd = newBase + newSize;
 
-    printf("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCBEnd);
+    printf("remapping DTCM %x %x %x %x\n", newBase, newEnd, oldDTCMBase, oldDTCMEnd);
     // unmap all regions containing the old or the current DTCM mapping
     for (int region = 0; region < memregions_Count; region++)
     {
@@ -501,7 +501,7 @@ void RemapDTCM(u32 newBase, u32 newSize)
 
             printf("unmapping %d %x %x %x %x\n", region, mapping.Addr, mapping.Size, mapping.Num, mapping.LocalOffset);
 
-            bool overlap = (NDS::ARM9->DTCMSize > 0 && oldDTCMBase < end && oldDTCBEnd > start)
+            bool overlap = (oldDTCMSize > 0 && oldDTCMBase < end && oldDTCMEnd > start)
                 || (newSize > 0 && newBase < end && newEnd > start);
 
             if (mapping.Num == 0 && overlap)
@@ -588,7 +588,7 @@ bool MapAtAddress(u32 addr)
     bool isExecutable = ARMJIT::CodeMemRegions[region];
 
     u32 dtcmStart = NDS::ARM9->DTCMBase;
-    u32 dtcmSize = NDS::ARM9->DTCMSize;
+    u32 dtcmSize = ~NDS::ARM9->DTCMMask + 1;
     u32 dtcmEnd = dtcmStart + dtcmSize;
 #ifndef __SWITCH__
 #ifndef _WIN32
@@ -1067,7 +1067,7 @@ int ClassifyAddress9(u32 addr)
     {
         return memregion_ITCM;
     }
-    else if (addr >= NDS::ARM9->DTCMBase && addr < (NDS::ARM9->DTCMBase + NDS::ARM9->DTCMSize))
+    else if ((addr & NDS::ARM9->DTCMMask) == NDS::ARM9->DTCMBase)
     {
         return memregion_DTCM;
     }

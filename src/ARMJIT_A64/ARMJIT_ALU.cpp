@@ -324,16 +324,29 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
         UBFX(W2, RCPSR, 29, 1);
         if (S)
         {
-            CVInGPR = true;
-            ADDS(W1, rn, W2);
-            CSET(W2, CC_CS);
-            CSET(W3, CC_VS);
             if (op2.IsImm)
-                ADDSI2R(rd, W1, op2.Imm, W0);
+            {
+                CVInGPR = true;
+                ADDS(W1, rn, W2);
+                CSET(W2, CC_CS);
+                CSET(W3, CC_VS);
+                if (op2.IsImm)
+                    ADDSI2R(rd, W1, op2.Imm, W0);
+                else
+                    ADDS(rd, W1, op2.Reg.Rm, op2.ToArithOption());
+                CSINC(W2, W2, WZR, CC_CC);
+                CSINC(W3, W3, WZR, CC_VC);
+            }
             else
-                ADDS(rd, W1, op2.Reg.Rm, op2.ToArithOption());
-            CSINC(W2, W2, WZR, CC_CC);
-            CSINC(W3, W3, WZR, CC_VC);
+            {
+                if (op2.Reg.ShiftAmount > 0)
+                {
+                    MOV(W0, op2.Reg.Rm, op2.ToArithOption());
+                    op2 = Op2(W0, ST_LSL, 0);
+                }
+                CMP(W2, 1);
+                ADCS(rd, rn, op2.Reg.Rm);
+            }
         }
         else
         {
@@ -346,25 +359,38 @@ void Compiler::Comp_Arithmetic(int op, bool S, ARM64Reg rd, ARM64Reg rn, Op2 op2
         break;
     case 0x6: // SBC
         UBFX(W2, RCPSR, 29, 1);
-        // W1 = -op2 - 1
-        if (op2.IsImm)
-            MOVI2R(W1, ~op2.Imm);
-        else
-            ORN(W1, WZR, op2.Reg.Rm, op2.ToArithOption());
-        if (S)
+        if (S && !op2.IsImm)
         {
-            CVInGPR = true;
-            ADDS(W1, W2, W1);
-            CSET(W2, CC_CS);
-            CSET(W3, CC_VS);
-            ADDS(rd, rn, W1);
-            CSINC(W2, W2, WZR, CC_CC);
-            CSINC(W3, W3, WZR, CC_VC);
+            if (op2.Reg.ShiftAmount > 0)
+            {
+                MOV(W0, op2.Reg.Rm, op2.ToArithOption());
+                op2 = Op2(W0, ST_LSL, 0);
+            }
+            CMP(W2, 1);
+            SBCS(rd, rn, op2.Reg.Rm);
         }
         else
         {
-            ADD(W1, W2, W1);
-            ADD(rd, rn, W1);
+            // W1 = -op2 - 1
+            if (op2.IsImm)
+                MOVI2R(W1, ~op2.Imm);
+            else
+                ORN(W1, WZR, op2.Reg.Rm, op2.ToArithOption());
+            if (S)
+            {
+                CVInGPR = true;
+                ADDS(W1, W2, W1);
+                CSET(W2, CC_CS);
+                CSET(W3, CC_VS);
+                ADDS(rd, rn, W1);
+                CSINC(W2, W2, WZR, CC_CC);
+                CSINC(W3, W3, WZR, CC_VC);
+            }
+            else
+            {
+                ADD(W1, W2, W1);
+                ADD(rd, rn, W1);
+            }
         }
         break;
     case 0x7: // RSC
@@ -533,21 +559,7 @@ void Compiler::A_Comp_ALUMovOp()
         }
         else
         {
-            // ORR with shifted operand has cycles latency
-            if (op2.Reg.ShiftAmount > 0)
-            {
-                switch (op2.Reg.ShiftType)
-                {
-                case ST_LSL: LSL(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
-                case ST_LSR: LSR(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
-                case ST_ASR: ASR(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
-                case ST_ROR: ROR(rd, op2.Reg.Rm, op2.Reg.ShiftAmount); break;
-                }
-            }
-            else
-            {
-                MOV(rd, op2.Reg.Rm, op2.ToArithOption());
-            }
+            MOV(rd, op2.Reg.Rm, op2.ToArithOption());
         }
     }
 

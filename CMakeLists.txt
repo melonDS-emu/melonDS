@@ -16,7 +16,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-set(MELONDS_VERSION "0.9.2")
+set(MELONDS_VERSION "0.9.3")
 add_compile_definitions(MELONDS_VERSION="${MELONDS_VERSION}")
 string(REPLACE "." ";" VERSION_LIST ${MELONDS_VERSION})
 # For the melon.rc file used on Windows
@@ -67,6 +67,13 @@ endif()
 
 if (ENABLE_JIT)
 	add_definitions(-DJIT_ENABLED)
+
+	option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OFF)
+
+	if (ENABLE_JIT_PROFILING)
+		include(cmake/FindVTune.cmake)
+		add_definitions(-DJIT_PROFILING_ENABLED)
+	endif()
 endif()
 
 if (CMAKE_BUILD_TYPE STREQUAL Release)
@@ -116,9 +123,18 @@ if (ENABLE_LTO)
 		if (NOT LLD STREQUAL "LLD-NOTFOUND")
 			add_link_options(-fuse-ld=lld)
 		endif()
-		set(CMAKE_AR "llvm-ar")
-		set(CMAKE_RANLIB "llvm-ranlib")
+		if (NOT APPLE)
+			set(CMAKE_AR "llvm-ar")
+			set(CMAKE_RANLIB "llvm-ranlib")
+		endif()
 	endif()
+endif()
+
+find_program(CCACHE "ccache")
+if (CCACHE)
+    message(STATUS "Using CCache to speed up compilation")
+    set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
 endif()
 
 option(BUILD_QT_SDL "Build Qt/SDL frontend" ON)

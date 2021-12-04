@@ -24,7 +24,7 @@
 namespace SPI_Firmware
 {
 
-void SetupDirectBoot();
+void SetupDirectBoot(bool dsi);
 
 u32 FixFirmwareLength(u32 originalLength);
 

@@ -43,6 +43,7 @@
 #endif
 
 #include <QStandardPaths>
+#include <QString>
 #include <QDir>
 #include <QThread>
 #include <QSemaphore>
@@ -50,7 +51,7 @@
 #include <QOpenGLContext>
 
 #include "Platform.h"
-#include "PlatformConfig.h"
+#include "Config.h"
 
 #ifdef HAVE_LIBSLIRP
 #include "LAN_Socket.h"
@@ -64,7 +65,7 @@
 #endif
 
 
-char* EmuDirectory;
+std::string EmuDirectory;
 
 void emuStop();
 
@@ -93,35 +94,29 @@ void Init(int argc, char** argv)
         }
         if (len > 0)
         {
-            EmuDirectory = new char[len+1];
-            strncpy(EmuDirectory, argv[0], len);
-            EmuDirectory[len] = '\0';
+            std::string emudir = argv[0];
+            EmuDirectory = emudir.substr(0, len);
         }
         else
         {
-            EmuDirectory = new char[2];
-            strcpy(EmuDirectory, ".");
+            EmuDirectory = ".";
         }
     }
     else
     {
-        EmuDirectory = new char[2];
-        strcpy(EmuDirectory, ".");
+        EmuDirectory = ".";
     }
 #else
     QString confdir;
     QDir config(QStandardPaths::writableLocation(QStandardPaths::ConfigLocation));
     config.mkdir("melonDS");
     confdir = config.absolutePath() + "/melonDS/";
-    EmuDirectory = new char[confdir.length() + 1];
-    memcpy(EmuDirectory, confdir.toUtf8().data(), confdir.length());
-    EmuDirectory[confdir.length()] = '\0';
+    EmuDirectory = confdir.toStdString();
 #endif
 }
 
 void DeInit()
 {
-    delete[] EmuDirectory;
 }
 
 
@@ -131,9 +126,126 @@ void StopEmu()
 }
 
 
-FILE* OpenFile(const char* path, const char* mode, bool mustexist)
+int GetConfigInt(ConfigEntry entry)
 {
-    QFile f(path);
+    const int imgsizes[] = {0, 256, 512, 1024, 2048, 4096};
+
+    switch (entry)
+    {
+#ifdef JIT_ENABLED
+    case JIT_MaxBlockSize: return Config::JIT_MaxBlockSize;
+#endif
+
+    case DLDI_ImageSize: return imgsizes[Config::DLDISize];
+
+    case DSiSD_ImageSize: return imgsizes[Config::DSiSDSize];
+
+    case Firm_Language: return Config::FirmwareLanguage;
+    case Firm_BirthdayMonth: return Config::FirmwareBirthdayMonth;
+    case Firm_BirthdayDay: return Config::FirmwareBirthdayDay;
+    case Firm_Color: return Config::FirmwareFavouriteColour;
+
+    case AudioBitrate: return Config::AudioBitrate;
+    }
+
+    return 0;
+}
+
+bool GetConfigBool(ConfigEntry entry)
+{
+    switch (entry)
+    {
+#ifdef JIT_ENABLED
+    case JIT_Enable: return Config::JIT_Enable != 0;
+    case JIT_LiteralOptimizations: return Config::JIT_LiteralOptimisations != 0;
+    case JIT_BranchOptimizations: return Config::JIT_BranchOptimisations != 0;
+    case JIT_FastMemory: return Config::JIT_FastMemory != 0;
+#endif
+
+    case ExternalBIOSEnable: return Config::ExternalBIOSEnable != 0;
+
+    case DLDI_Enable: return Config::DLDIEnable != 0;
+    case DLDI_ReadOnly: return Config::DLDIReadOnly != 0;
+    case DLDI_FolderSync: return Config::DLDIFolderSync != 0;
+
+    case DSiSD_Enable: return Config::DSiSDEnable != 0;
+    case DSiSD_ReadOnly: return Config::DSiSDReadOnly != 0;
+    case DSiSD_FolderSync: return Config::DSiSDFolderSync != 0;
+
+    case Firm_RandomizeMAC: return Config::RandomizeMAC != 0;
+    case Firm_OverrideSettings: return Config::FirmwareOverrideSettings != 0;
+    }
+
+    return false;
+}
+
+std::string GetConfigString(ConfigEntry entry)
+{
+    switch (entry)
+    {
+    case BIOS9Path: return Config::BIOS9Path;
+    case BIOS7Path: return Config::BIOS7Path;
+    case FirmwarePath: return Config::FirmwarePath;
+
+    case DSi_BIOS9Path: return Config::DSiBIOS9Path;
+    case DSi_BIOS7Path: return Config::DSiBIOS7Path;
+    case DSi_FirmwarePath: return Config::DSiFirmwarePath;
+    case DSi_NANDPath: return Config::DSiNANDPath;
+
+    case DLDI_ImagePath: return Config::DLDISDPath;
+    case DLDI_FolderPath: return Config::DLDIFolderPath;
+
+    case DSiSD_ImagePath: return Config::DSiSDPath;
+    case DSiSD_FolderPath: return Config::DSiSDFolderPath;
+
+    case Firm_Username: return Config::FirmwareUsername;
+    case Firm_Message: return Config::FirmwareMessage;
+    }
+
+    return "";
+}
+
+bool GetConfigArray(ConfigEntry entry, void* data)
+{
+    switch (entry)
+    {
+    case Firm_MAC:
+        {
+            char* mac_in = Config::FirmwareMAC;
+            u8* mac_out = (u8*)data;
+
+            int o = 0;
+            u8 tmp = 0;
+            for (int i = 0; i < 18; i++)
+            {
+                char c = mac_in[i];
+                if (c == '\0') break;
+
+                int n;
+                if      (c >= '0' && c <= '9') n = c - '0';
+                else if (c >= 'a' && c <= 'f') n = c - 'a' + 10;
+                else if (c >= 'A' && c <= 'F') n = c - 'A' + 10;
+                else continue;
+
+                if (!(o & 1))
+                    tmp = n;
+                else
+                    mac_out[o >> 1] = n | (tmp << 4);
+
+                o++;
+                if (o >= 12) return true;
+            }
+        }
+        return false;
+    }
+
+    return false;
+}
+
+
+FILE* OpenFile(std::string path, std::string mode, bool mustexist)
+{
+    QFile f(QString::fromStdString(path));
 
     if (mustexist && !f.exists())
     {
@@ -141,11 +253,11 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     }
 
     QIODevice::OpenMode qmode;
-    if (strlen(mode) > 1 && mode[0] == 'r' && mode[1] == '+')
+    if (mode.length() > 1 && mode[0] == 'r' && mode[1] == '+')
     {
 		qmode = QIODevice::OpenModeFlag::ReadWrite;
 	}
-	else if (strlen(mode) > 1 && mode[0] == 'w' && mode[1] == '+')
+	else if (mode.length() > 1 && mode[0] == 'w' && mode[1] == '+')
     {
     	qmode = QIODevice::OpenModeFlag::Truncate | QIODevice::OpenModeFlag::ReadWrite;
 	}
@@ -159,36 +271,37 @@ FILE* OpenFile(const char* path, const char* mode, bool mustexist)
     }
 
     f.open(qmode);
-    FILE* file = fdopen(dup(f.handle()), mode);
+    FILE* file = fdopen(dup(f.handle()), mode.c_str());
     f.close();
 
     return file;
 }
 
-FILE* OpenLocalFile(const char* path, const char* mode)
+FILE* OpenLocalFile(std::string path, std::string mode)
 {
-	QDir dir(path);
+    QString qpath = QString::fromStdString(path);
+	QDir dir(qpath);
     QString fullpath;
 
     if (dir.isAbsolute())
     {
         // If it's an absolute path, just open that.
-        fullpath = path;
+        fullpath = qpath;
     }
     else
     {
 #ifdef PORTABLE
-        fullpath = QString(EmuDirectory) + QDir::separator() + path;
+        fullpath = QString::fromStdString(EmuDirectory) + QDir::separator() + qpath;
 #else
         // Check user configuration directory
         QDir config(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation));
         config.mkdir("melonDS");
         fullpath = config.absolutePath() + "/melonDS/";
-        fullpath.append(path);
+        fullpath.append(qpath);
 #endif
     }
 
-    return OpenFile(fullpath.toUtf8(), mode, mode[0] != 'w');
+    return OpenFile(fullpath.toStdString(), mode, mode[0] != 'w');
 }
 
 Thread* Thread_Create(std::function<void()> func)

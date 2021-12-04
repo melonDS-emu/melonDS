@@ -19,11 +19,12 @@
 #include <stdio.h>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QList>
+#include <QDateEdit>
 
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "EmuSettingsDialog.h"
 #include "ui_EmuSettingsDialog.h"
@@ -31,7 +32,7 @@
 
 EmuSettingsDialog* EmuSettingsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 extern bool RunningSomething;
 
 bool EmuSettingsDialog::needsReset = false;
@@ -41,18 +42,15 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
+    ui->chkExternalBIOS->setChecked(Config::ExternalBIOSEnable != 0);
     ui->txtBIOS9Path->setText(Config::BIOS9Path);
     ui->txtBIOS7Path->setText(Config::BIOS7Path);
     ui->txtFirmwarePath->setText(Config::FirmwarePath);
-    ui->cbDLDIEnable->setChecked(Config::DLDIEnable != 0);
-    ui->txtDLDISDPath->setText(Config::DLDISDPath);
 
     ui->txtDSiBIOS9Path->setText(Config::DSiBIOS9Path);
     ui->txtDSiBIOS7Path->setText(Config::DSiBIOS7Path);
     ui->txtDSiFirmwarePath->setText(Config::DSiFirmwarePath);
     ui->txtDSiNANDPath->setText(Config::DSiNANDPath);
-    ui->cbDSiSDEnable->setChecked(Config::DSiSDEnable != 0);
-    ui->txtDSiSDPath->setText(Config::DSiSDPath);
 
     ui->cbxConsoleType->addItem("DS");
     ui->cbxConsoleType->addItem("DSi (experimental)");
@@ -78,6 +76,46 @@ EmuSettingsDialog::EmuSettingsDialog(QWidget* parent) : QDialog(parent), ui(new 
 #endif
 
     on_chkEnableJIT_toggled();
+    on_chkExternalBIOS_toggled();
+
+    const int imgsizes[] = {256, 512, 1024, 2048, 4096, 0};
+
+    ui->cbxDLDISize->addItem("Auto");
+    ui->cbxDSiSDSize->addItem("Auto");
+
+    for (int i = 0; imgsizes[i] != 0; i++)
+    {
+        int sizedisp = imgsizes[i];
+        QString sizelbl;
+        if (sizedisp >= 1024)
+        {
+            sizedisp >>= 10;
+            sizelbl = QString("%1 GB").arg(sizedisp);
+        }
+        else
+        {
+            sizelbl = QString("%1 MB").arg(sizedisp);
+        }
+
+        ui->cbxDLDISize->addItem(sizelbl);
+        ui->cbxDSiSDSize->addItem(sizelbl);
+    }
+
+    ui->cbDLDIEnable->setChecked(Config::DLDIEnable != 0);
+    ui->txtDLDISDPath->setText(Config::DLDISDPath);
+    ui->cbxDLDISize->setCurrentIndex(Config::DLDISize);
+    ui->cbDLDIReadOnly->setChecked(Config::DLDIReadOnly != 0);
+    ui->cbDLDIFolder->setChecked(Config::DLDIFolderSync != 0);
+    ui->txtDLDIFolder->setText(Config::DLDIFolderPath);
+    on_cbDLDIEnable_toggled();
+
+    ui->cbDSiSDEnable->setChecked(Config::DSiSDEnable != 0);
+    ui->txtDSiSDPath->setText(Config::DSiSDPath);
+    ui->cbxDSiSDSize->setCurrentIndex(Config::DSiSDSize);
+    ui->cbDSiSDReadOnly->setChecked(Config::DSiSDReadOnly != 0);
+    ui->cbDSiSDFolder->setChecked(Config::DSiSDFolderSync != 0);
+    ui->txtDSiSDFolder->setText(Config::DSiSDFolderPath);
+    on_cbDSiSDEnable_toggled();
 }
 
 EmuSettingsDialog::~EmuSettingsDialog()
@@ -145,17 +183,29 @@ void EmuSettingsDialog::done(int r)
         int jitLiteralOptimisations = ui->chkJITLiteralOptimisations->isChecked() ? 1:0;
         int jitFastMemory = ui->chkJITFastMemory->isChecked() ? 1:0;
 
+        int externalBiosEnable = ui->chkExternalBIOS->isChecked() ? 1:0;
         std::string bios9Path = ui->txtBIOS9Path->text().toStdString();
         std::string bios7Path = ui->txtBIOS7Path->text().toStdString();
         std::string firmwarePath = ui->txtFirmwarePath->text().toStdString();
+
         int dldiEnable = ui->cbDLDIEnable->isChecked() ? 1:0;
         std::string dldiSDPath = ui->txtDLDISDPath->text().toStdString();
+        int dldiSize = ui->cbxDLDISize->currentIndex();
+        int dldiReadOnly = ui->cbDLDIReadOnly->isChecked() ? 1:0;
+        int dldiFolderSync = ui->cbDLDIFolder->isChecked() ? 1:0;
+        std::string dldiFolderPath = ui->txtDLDIFolder->text().toStdString();
+
         std::string dsiBios9Path = ui->txtDSiBIOS9Path->text().toStdString();
         std::string dsiBios7Path = ui->txtDSiBIOS7Path->text().toStdString();
         std::string dsiFirmwarePath = ui->txtDSiFirmwarePath->text().toStdString();
         std::string dsiNANDPath = ui->txtDSiNANDPath->text().toStdString();
+
         int dsiSDEnable = ui->cbDSiSDEnable->isChecked() ? 1:0;
         std::string dsiSDPath = ui->txtDSiSDPath->text().toStdString();
+        int dsiSDSize = ui->cbxDSiSDSize->currentIndex();
+        int dsiSDReadOnly = ui->cbDSiSDReadOnly->isChecked() ? 1:0;
+        int dsiSDFolderSync = ui->cbDSiSDFolder->isChecked() ? 1:0;
+        std::string dsiSDFolderPath = ui->txtDSiSDFolder->text().toStdString();
 
         if (consoleType != Config::ConsoleType
             || directBoot != Config::DirectBoot
@@ -166,17 +216,26 @@ void EmuSettingsDialog::done(int r)
             || jitLiteralOptimisations != Config::JIT_LiteralOptimisations
             || jitFastMemory != Config::JIT_FastMemory
 #endif
+            || externalBiosEnable != Config::ExternalBIOSEnable
             || strcmp(Config::BIOS9Path, bios9Path.c_str()) != 0
             || strcmp(Config::BIOS7Path, bios7Path.c_str()) != 0
             || strcmp(Config::FirmwarePath, firmwarePath.c_str()) != 0
             || dldiEnable != Config::DLDIEnable
             || strcmp(Config::DLDISDPath, dldiSDPath.c_str()) != 0
+            || dldiSize != Config::DLDISize
+            || dldiReadOnly != Config::DLDIReadOnly
+            || dldiFolderSync != Config::DLDIFolderSync
+            || strcmp(Config::DLDIFolderPath, dldiFolderPath.c_str()) != 0
             || strcmp(Config::DSiBIOS9Path, dsiBios9Path.c_str()) != 0
             || strcmp(Config::DSiBIOS7Path, dsiBios7Path.c_str()) != 0
             || strcmp(Config::DSiFirmwarePath, dsiFirmwarePath.c_str()) != 0
             || strcmp(Config::DSiNANDPath, dsiNANDPath.c_str()) != 0
             || dsiSDEnable != Config::DSiSDEnable
-            || strcmp(Config::DSiSDPath, dsiSDPath.c_str()) != 0)
+            || strcmp(Config::DSiSDPath, dsiSDPath.c_str()) != 0
+            || dsiSDSize != Config::DSiSDSize
+            || dsiSDReadOnly != Config::DSiSDReadOnly
+            || dsiSDFolderSync != Config::DSiSDFolderSync
+            || strcmp(Config::DSiSDFolderPath, dsiSDFolderPath.c_str()) != 0)
         {
             if (RunningSomething
                 && QMessageBox::warning(this, "Reset necessary to apply changes",
@@ -184,18 +243,29 @@ void EmuSettingsDialog::done(int r)
                     QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
                 return;
 
+            Config::ExternalBIOSEnable = externalBiosEnable;
             strncpy(Config::BIOS9Path, bios9Path.c_str(), 1023); Config::BIOS9Path[1023] = '\0';
             strncpy(Config::BIOS7Path, bios7Path.c_str(), 1023); Config::BIOS7Path[1023] = '\0';
             strncpy(Config::FirmwarePath, firmwarePath.c_str(), 1023); Config::FirmwarePath[1023] = '\0';
+
             Config::DLDIEnable = dldiEnable;
             strncpy(Config::DLDISDPath, dldiSDPath.c_str(), 1023); Config::DLDISDPath[1023] = '\0';
+            Config::DLDISize = dldiSize;
+            Config::DLDIReadOnly = dldiReadOnly;
+            Config::DLDIFolderSync = dldiFolderSync;
+            strncpy(Config::DLDIFolderPath, dldiFolderPath.c_str(), 1023); Config::DLDIFolderPath[1023] = '\0';
 
             strncpy(Config::DSiBIOS9Path, dsiBios9Path.c_str(), 1023); Config::DSiBIOS9Path[1023] = '\0';
             strncpy(Config::DSiBIOS7Path, dsiBios7Path.c_str(), 1023); Config::DSiBIOS7Path[1023] = '\0';
             strncpy(Config::DSiFirmwarePath, dsiFirmwarePath.c_str(), 1023); Config::DSiFirmwarePath[1023] = '\0';
             strncpy(Config::DSiNANDPath, dsiNANDPath.c_str(), 1023); Config::DSiNANDPath[1023] = '\0';
+
             Config::DSiSDEnable = dsiSDEnable;
             strncpy(Config::DSiSDPath, dsiSDPath.c_str(), 1023); Config::DSiSDPath[1023] = '\0';
+            Config::DSiSDSize = dsiSDSize;
+            Config::DSiSDReadOnly = dsiSDReadOnly;
+            Config::DSiSDFolderSync = dsiSDFolderSync;
+            strncpy(Config::DSiSDFolderPath, dsiSDFolderPath.c_str(), 1023); Config::DSiSDFolderPath[1023] = '\0';
 
     #ifdef JIT_ENABLED
             Config::JIT_Enable = jitEnable;
@@ -223,7 +293,7 @@ void EmuSettingsDialog::on_btnBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode ARM9 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -235,7 +305,7 @@ void EmuSettingsDialog::on_btnBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode ARM7 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -247,7 +317,7 @@ void EmuSettingsDialog::on_btnFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DS-mode firmware...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Firmware files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -259,7 +329,7 @@ void EmuSettingsDialog::on_btnDSiBIOS9Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi-mode ARM9 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -271,7 +341,7 @@ void EmuSettingsDialog::on_btnDSiBIOS7Browse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi-mode ARM7 BIOS...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "BIOS files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -279,23 +349,55 @@ void EmuSettingsDialog::on_btnDSiBIOS7Browse_clicked()
     ui->txtDSiBIOS7Path->setText(file);
 }
 
+void EmuSettingsDialog::on_cbDLDIEnable_toggled()
+{
+    bool disabled = !ui->cbDLDIEnable->isChecked();
+    ui->txtDLDISDPath->setDisabled(disabled);
+    ui->btnDLDISDBrowse->setDisabled(disabled);
+    ui->cbxDLDISize->setDisabled(disabled);
+    ui->cbDLDIReadOnly->setDisabled(disabled);
+    ui->cbDLDIFolder->setDisabled(disabled);
+
+    if (!disabled) disabled = !ui->cbDLDIFolder->isChecked();
+    ui->txtDLDIFolder->setDisabled(disabled);
+    ui->btnDLDIFolderBrowse->setDisabled(disabled);
+}
+
 void EmuSettingsDialog::on_btnDLDISDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DLDI SD image...",
-                                                EmuDirectory,
-                                                "Image files (*.bin *.rom *.img);;Any file (*.*)");
+                                                QString::fromStdString(EmuDirectory),
+                                                "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
     ui->txtDLDISDPath->setText(file);
 }
 
+void EmuSettingsDialog::on_cbDLDIFolder_toggled()
+{
+    bool disabled = !ui->cbDLDIFolder->isChecked();
+    ui->txtDLDIFolder->setDisabled(disabled);
+    ui->btnDLDIFolderBrowse->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_btnDLDIFolderBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select DLDI SD folder...",
+                                                     QString::fromStdString(EmuDirectory));
+
+    if (dir.isEmpty()) return;
+
+    ui->txtDLDIFolder->setText(dir);
+}
+
 void EmuSettingsDialog::on_btnDSiFirmwareBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi DS-mode firmware...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "Firmware files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -307,7 +409,7 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi NAND...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "NAND files (*.bin *.rom);;Any file (*.*)");
 
     if (file.isEmpty()) return;
@@ -315,16 +417,48 @@ void EmuSettingsDialog::on_btnDSiNANDBrowse_clicked()
     ui->txtDSiNANDPath->setText(file);
 }
 
+void EmuSettingsDialog::on_cbDSiSDEnable_toggled()
+{
+    bool disabled = !ui->cbDSiSDEnable->isChecked();
+    ui->txtDSiSDPath->setDisabled(disabled);
+    ui->btnDSiSDBrowse->setDisabled(disabled);
+    ui->cbxDSiSDSize->setDisabled(disabled);
+    ui->cbDSiSDReadOnly->setDisabled(disabled);
+    ui->cbDSiSDFolder->setDisabled(disabled);
+
+    if (!disabled) disabled = !ui->cbDSiSDFolder->isChecked();
+    ui->txtDSiSDFolder->setDisabled(disabled);
+    ui->btnDSiSDFolderBrowse->setDisabled(disabled);
+}
+
 void EmuSettingsDialog::on_btnDSiSDBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select DSi SD image...",
-                                                EmuDirectory,
-                                                "Image files (*.bin *.rom *.img);;Any file (*.*)");
+                                                QString::fromStdString(EmuDirectory),
+                                                "Image files (*.bin *.rom *.img *.dmg);;Any file (*.*)");
 
     if (file.isEmpty()) return;
 
     ui->txtDSiSDPath->setText(file);
+}
+
+void EmuSettingsDialog::on_cbDSiSDFolder_toggled()
+{
+    bool disabled = !ui->cbDSiSDFolder->isChecked();
+    ui->txtDSiSDFolder->setDisabled(disabled);
+    ui->btnDSiSDFolderBrowse->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_btnDSiSDFolderBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select DSi SD folder...",
+                                                     QString::fromStdString(EmuDirectory));
+
+    if (dir.isEmpty()) return;
+
+    ui->txtDSiSDFolder->setText(dir);
 }
 
 void EmuSettingsDialog::on_chkEnableJIT_toggled()
@@ -336,4 +470,15 @@ void EmuSettingsDialog::on_chkEnableJIT_toggled()
         ui->chkJITFastMemory->setDisabled(disabled);
     #endif
     ui->spnJITMaximumBlockSize->setDisabled(disabled);
+}
+
+void EmuSettingsDialog::on_chkExternalBIOS_toggled()
+{
+    bool disabled = !ui->chkExternalBIOS->isChecked();
+    ui->txtBIOS9Path->setDisabled(disabled);
+    ui->btnBIOS9Browse->setDisabled(disabled);
+    ui->txtBIOS7Path->setDisabled(disabled);
+    ui->btnBIOS7Browse->setDisabled(disabled);
+    ui->txtFirmwarePath->setDisabled(disabled);
+    ui->btnFirmwareBrowse->setDisabled(disabled);
 }
