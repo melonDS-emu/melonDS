@@ -749,7 +749,7 @@ void ScreenHandler::screenSetupLayout(int w, int h)
 QSize ScreenHandler::screenGetMinSize(int factor = 1)
 {
     bool isHori = (Config::ScreenRotation == 1 || Config::ScreenRotation == 3);
-    int gap = Config::ScreenGap;
+    int gap = Config::ScreenGap * factor;
 
     int w = 256 * factor;
     int h = 192 * factor;
@@ -778,9 +778,9 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
     else // hybrid
     {
         if (isHori)
-            return QSize(h+gap+h, 3*w +(4*gap) / 3);
+            return QSize(h+gap+h, 3*w + (int)ceil((4*gap) / 3.0));
         else
-            return QSize(3*w +(4*gap) / 3, h+gap+h);
+            return QSize(3*w + (int)ceil((4*gap) / 3.0), h+gap+h);
     }
 }
 
