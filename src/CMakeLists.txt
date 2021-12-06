@@ -39,6 +39,7 @@ add_library(core STATIC
 	NDSCart_SRAMManager.cpp
 	Platform.h
 	ROMList.h
+	ROMSource.h
 	FreeBIOS.h
 	RTC.cpp
 	Savestate.cpp
