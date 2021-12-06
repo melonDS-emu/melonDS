@@ -22,9 +22,9 @@
 class ROMSource
 {
 public:
-    virtual ~ROMSource();
+    virtual ~ROMSource() = 0;
 
-    //
+    //virtual
 };
 
 #endif // ROMSOURCE_H
