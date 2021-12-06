@@ -2361,7 +2361,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
             SCFG_EXT[1] &= ~0x0000F080;
             SCFG_EXT[1] |= (val & 0x0000F080);
             printf("SCFG_EXT = %08X / %08X (val9 %08X)\n", SCFG_EXT[0], SCFG_EXT[1], val);
-            /*switch ((SCFG_EXT[0] >> 14) & 0x3)
+            switch ((SCFG_EXT[0] >> 14) & 0x3)
             {
             case 0:
             case 1:
@@ -2374,7 +2374,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
                 NDS::MainRAMMask = 0xFFFFFF;
                 printf("RAM: 16MB\n");
                 break;
-            }*/
+            }
             // HAX!!
             // a change to the RAM size setting is supposed to apply immediately (it does so on hardware)
             // however, doing so will cause DS-mode app startup to break, because the change happens while the ARM7

@@ -1018,6 +1018,9 @@ u32 RunFrame()
 
         while (Running && GPU::TotalScanlines==0)
         {
+            ARM9InstrCount = 0; ARM9MainRAMCount = 0;
+            ARM7InstrCount = 0; ARM7MainRAMCount = 0;
+
             u64 target = NextTarget();
             ARM9Target = target << ARM9ClockShift;
             CurCPU = 0;
@@ -1076,6 +1079,35 @@ u32 RunFrame()
                 }
 
                 RunTimers(1);
+            }
+
+            // mainRAM concurrent-access delay
+            // GROSS
+            {
+                u32 arm9total = ARM9MainRAMCount;
+                if ((ARM9->R[15] >> 24) == 0x02)
+                    arm9total += ARM9InstrCount;
+
+                u32 arm7total = ARM7MainRAMCount;
+                if ((ARM7->R[15] >> 24) == 0x02)
+                    arm7total += ARM7InstrCount;
+
+                if (arm9total >= (ARM9InstrCount>>1) &&
+                    arm7total >= (ARM7InstrCount>>1))
+                {
+                    u32 penalty = 9; // GROSS ESTIMATION
+
+                    if (ExMemCnt[0] & (1<<15))
+                    {
+                        // penalize ARM9
+                        ARM9Timestamp += ((penalty * arm7total) << ARM9ClockShift);
+                    }
+                    else
+                    {
+                        // penalize ARM7
+                        ARM7Timestamp += (penalty * arm9total);
+                    }
+                }
             }
 
             RunSystem(target);
@@ -1956,6 +1988,7 @@ u8 ARM9Read8(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
+        ARM9MainRAMCount++;
         return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2014,6 +2047,7 @@ u16 ARM9Read16(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
+        ARM9MainRAMCount++;
         return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2072,6 +2106,7 @@ u32 ARM9Read32(u32 addr)
     switch (addr & 0xFF000000)
     {
     case 0x02000000:
+        ARM9MainRAMCount++;
         return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2131,6 +2166,7 @@ void ARM9Write8(u32 addr, u8 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM9MainRAMCount++;
         *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
@@ -2174,6 +2210,7 @@ void ARM9Write16(u32 addr, u16 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM9MainRAMCount++;
         *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
@@ -2238,6 +2275,7 @@ void ARM9Write32(u32 addr, u32 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<0, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM9MainRAMCount++;
         *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return ;
 
@@ -2346,6 +2384,7 @@ u8 ARM7Read8(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
+        ARM7MainRAMCount++;
         return *(u8*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2410,6 +2449,7 @@ u16 ARM7Read16(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
+        ARM7MainRAMCount++;
         return *(u16*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2473,6 +2513,7 @@ u32 ARM7Read32(u32 addr)
     {
     case 0x02000000:
     case 0x02800000:
+        ARM7MainRAMCount++;
         return *(u32*)&MainRAM[addr & MainRAMMask];
 
     case 0x03000000:
@@ -2532,6 +2573,7 @@ void ARM7Write8(u32 addr, u8 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM7MainRAMCount++;
         *(u8*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
@@ -2598,6 +2640,7 @@ void ARM7Write16(u32 addr, u16 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM7MainRAMCount++;
         *(u16*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
@@ -2674,6 +2717,7 @@ void ARM7Write32(u32 addr, u32 val)
 #ifdef JIT_ENABLED
         ARMJIT::CheckAndInvalidate<1, ARMJIT_Memory::memregion_MainRAM>(addr);
 #endif
+        ARM7MainRAMCount++;
         *(u32*)&MainRAM[addr & MainRAMMask] = val;
         return;
 
