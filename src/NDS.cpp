@@ -101,6 +101,9 @@ u64 ARM9Timestamp, ARM9Target;
 u64 ARM7Timestamp, ARM7Target;
 u64 SysTimestamp;
 
+u32 ARM9InstrCount, ARM9MainRAMCount;
+u32 ARM7InstrCount, ARM7MainRAMCount;
+
 SchedEvent SchedList[Event_MAX];
 u32 SchedListMask;
 

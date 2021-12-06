@@ -642,6 +642,7 @@ void ARMv5::Execute()
         if (IRQ) TriggerIRQ();
 
         NDS::ARM9Timestamp += Cycles;
+        NDS::ARM9InstrCount++;
         Cycles = 0;
     }
 
@@ -787,6 +788,7 @@ void ARMv4::Execute()
         if (IRQ) TriggerIRQ();
 
         NDS::ARM7Timestamp += Cycles;
+        NDS::ARM7InstrCount++;
         Cycles = 0;
     }
 
