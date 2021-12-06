@@ -19,12 +19,18 @@
 #ifndef ROMSOURCE_H
 #define ROMSOURCE_H
 
+#include <string>
+
 class ROMSource
 {
 public:
     virtual ~ROMSource() = 0;
 
-    //virtual
+    virtual u32 ReadROMData(u64 offset, u32 len, void* data) = 0;
+
+    virtual std::string GetSaveFilePath() = 0;
+    virtual std::string GetSavestatePath(int slot) = 0;
+    virtual std::string GetCheatFilePath() = 0;
 };
 
 #endif // ROMSOURCE_H
