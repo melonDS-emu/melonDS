@@ -59,6 +59,7 @@ public:
     void emuFrameStep();
 
     bool emuIsRunning();
+    bool emuIsActive();
 
     int FrontBuffer = 0;
     QMutex FrontBufferLock;

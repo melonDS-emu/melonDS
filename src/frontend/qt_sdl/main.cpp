@@ -714,6 +714,11 @@ bool EmuThread::emuIsRunning()
     return (EmuRunning == 1);
 }
 
+bool EmuThread::emuIsActive()
+{
+    return (RunningSomething == 1);
+}
+
 
 void ScreenHandler::screenSetupLayout(int w, int h)
 {
@@ -942,26 +947,29 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
     // fill background
     painter.fillRect(event->rect(), QColor::fromRgb(0, 0, 0));
 
-    emuThread->FrontBufferLock.lock();
-    int frontbuf = emuThread->FrontBuffer;
-    if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1])
+    if (emuThread->emuIsActive())
     {
+        emuThread->FrontBufferLock.lock();
+        int frontbuf = emuThread->FrontBuffer;
+        if (!GPU::Framebuffer[frontbuf][0] || !GPU::Framebuffer[frontbuf][1])
+        {
+            emuThread->FrontBufferLock.unlock();
+            return;
+        }
+
+        memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256 * 192 * 4);
+        memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256 * 192 * 4);
         emuThread->FrontBufferLock.unlock();
-        return;
-    }
 
-    memcpy(screen[0].scanLine(0), GPU::Framebuffer[frontbuf][0], 256*192*4);
-    memcpy(screen[1].scanLine(0), GPU::Framebuffer[frontbuf][1], 256*192*4);
-    emuThread->FrontBufferLock.unlock();
+        painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter != 0);
 
-    painter.setRenderHint(QPainter::SmoothPixmapTransform, Config::ScreenFilter!=0);
+        QRect screenrc(0, 0, 256, 192);
 
-    QRect screenrc(0, 0, 256, 192);
-
-    for (int i = 0; i < numScreens; i++)
-    {
-        painter.setTransform(screenTrans[i]);
-        painter.drawImage(screenrc, screen[screenKind[i]]);
+        for (int i = 0; i < numScreens; i++)
+        {
+            painter.setTransform(screenTrans[i]);
+            painter.drawImage(screenrc, screen[screenKind[i]]);
+        }
     }
 
     OSD::Update(nullptr);
