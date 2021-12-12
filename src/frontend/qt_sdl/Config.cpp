@@ -124,6 +124,10 @@ std::string LastROMFolder;
 
 std::string RecentROMList[10];
 
+std::string SaveFilePath;
+std::string SavestatePath;
+std::string CheatFilePath;
+
 bool EnableCheats;
 
 bool MouseHide;
@@ -291,6 +295,10 @@ ConfigEntry ConfigFile[] =
     {"RecentROM_8", 2, &RecentROMList[8], ""},
     {"RecentROM_9", 2, &RecentROMList[9], ""},
 
+    {"SaveFilePath", 2, &SaveFilePath, ""},
+    {"SavestatePath", 2, &SavestatePath, ""},
+    {"CheatFilePath", 2, &CheatFilePath, ""},
+
     {"EnableCheats", 1, &EnableCheats, false},
 
     {"MouseHide",        1, &MouseHide,        false},
@@ -302,12 +310,12 @@ ConfigEntry ConfigFile[] =
 
 
 void Load()
-{printf("LOADZORZ\n");
+{
     ConfigEntry* entry = &ConfigFile[0];
     for (;;)
     {
         if (!entry->Value) break;
-printf("GETTING ENTRY %s %d\n", entry->Name, entry->Type);
+
         switch (entry->Type)
         {
         case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;

@@ -148,6 +148,10 @@ extern std::string LastROMFolder;
 
 extern std::string RecentROMList[10];
 
+extern std::string SaveFilePath;
+extern std::string SavestatePath;
+extern std::string CheatFilePath;
+
 extern bool EnableCheats;
 
 extern bool MouseHide;

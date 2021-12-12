@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
 #include <utility>
 
 #ifdef ARCHIVE_SUPPORT_ENABLED
@@ -38,11 +39,11 @@
 namespace Frontend
 {
 
-char ROMPath     [ROMSlot_MAX][1024];
-char SRAMPath    [ROMSlot_MAX][1024];
-char PrevSRAMPath[ROMSlot_MAX][1024]; // for savestate 'undo load'
+std::string ROMPath     [ROMSlot_MAX];
+std::string SRAMPath    [ROMSlot_MAX];
+std::string PrevSRAMPath[ROMSlot_MAX]; // for savestate 'undo load'
 
-char NDSROMExtension[4];
+std::string NDSROMExtension;
 
 bool SavestateLoaded;
 
@@ -54,12 +55,12 @@ void Init_ROM()
 {
     SavestateLoaded = false;
 
-    memset(ROMPath[ROMSlot_NDS], 0, 1024);
-    memset(ROMPath[ROMSlot_GBA], 0, 1024);
-    memset(SRAMPath[ROMSlot_NDS], 0, 1024);
-    memset(SRAMPath[ROMSlot_GBA], 0, 1024);
-    memset(PrevSRAMPath[ROMSlot_NDS], 0, 1024);
-    memset(PrevSRAMPath[ROMSlot_GBA], 0, 1024);
+    ROMPath[ROMSlot_NDS] = "";
+    ROMPath[ROMSlot_GBA] = "";
+    SRAMPath[ROMSlot_NDS] = "";
+    SRAMPath[ROMSlot_GBA] = "";
+    PrevSRAMPath[ROMSlot_NDS] = "";
+    PrevSRAMPath[ROMSlot_GBA] = "";
 
     CheatFile = nullptr;
     CheatsOn = false;
@@ -81,9 +82,7 @@ void DeInit_ROM()
 
 void SetupSRAMPath(int slot)
 {
-    strncpy(SRAMPath[slot], ROMPath[slot], 1023);
-    SRAMPath[slot][1023] = '\0';
-    strncpy(SRAMPath[slot] + strlen(ROMPath[slot]) - 3, "sav", 3);
+    SRAMPath[slot] = ROMPath[slot].substr(0, ROMPath[slot].length() - 3) + "sav";
 }
 
 int VerifyDSBIOS()
@@ -234,17 +233,17 @@ void LoadCheats()
         CheatFile = nullptr;
     }
 
-    char filename[1024];
-    if (ROMPath[ROMSlot_NDS][0] != '\0')
+    std::string filename;
+    if (!ROMPath[ROMSlot_NDS].empty())
     {
-        strncpy(filename, ROMPath[ROMSlot_NDS], 1023);
-        filename[1023] = '\0';
-        strncpy(filename + strlen(ROMPath[ROMSlot_NDS]) - 3, "mch", 3);
+        filename = ROMPath[ROMSlot_NDS].substr(0, ROMPath[ROMSlot_NDS].length() - 3) + "mch";
     }
     else
     {
-        strncpy(filename, "firmware.mch", 1023);
+        filename = "firmware.mch";
     }
+
+    // TODO: add custom path here
 
     // TODO: check for error (malformed cheat file, ...)
     CheatFile = new ARCodeFile(filename);
@@ -283,8 +282,8 @@ int LoadBIOS()
     // should this be carried over here?
     // is that behavior consistent with that of LoadROM() below?
 
-    ROMPath[ROMSlot_NDS][0] = '\0';
-    SRAMPath[ROMSlot_NDS][0] = '\0';
+    ROMPath[ROMSlot_NDS] = "";
+    SRAMPath[ROMSlot_NDS] = "";
 
     NDS::SetConsoleType(Config::ConsoleType);
     NDS::LoadBIOS();
@@ -322,7 +321,7 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
         if (res != Load_OK) return res;
 
         GBACart::Eject();
-        ROMPath[ROMSlot_GBA][0] = '\0';
+        ROMPath[ROMSlot_GBA] = "";
     }
     else
     {
@@ -336,17 +335,15 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
         }
     }
 
-    char oldpath[1024];
-    char oldsram[1024];
-    strncpy(oldpath, ROMPath[slot], 1024);
-    strncpy(oldsram, SRAMPath[slot], 1024);
+    std::string oldpath = ROMPath[slot];
+    std::string oldsram = SRAMPath[slot];
 
-    strncpy(SRAMPath[slot], sramfilename, 1024);
-    strncpy(ROMPath[slot], archivefilename, 1024);
+    SRAMPath[slot] = sramfilename;
+    ROMPath[slot] = archivefilename;
 
     NDS::SetConsoleType(Config::ConsoleType);
 
-    if (slot == ROMSlot_NDS && NDS::LoadROM(romdata, romlength, SRAMPath[slot], directboot))
+    if (slot == ROMSlot_NDS && NDS::LoadROM(romdata, romlength, SRAMPath[slot].c_str(), directboot))
     {
         SavestateLoaded = false;
 
@@ -354,22 +351,22 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 
         // Reload the inserted GBA cartridge (if any)
         // TODO: report failure there??
-        //if (ROMPath[ROMSlot_GBA][0] != '\0') NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
+        //if (!ROMPath[ROMSlot_GBA].empty()) NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
 
-        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
-    else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(romdata, romlength, romfilename, SRAMPath[slot]))
+    else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(romdata, romlength, romfilename, SRAMPath[slot].c_str()))
     {
         SavestateLoaded = false; // checkme??
 
-        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
     else
     {
-        strncpy(ROMPath[slot], oldpath, 1024);
-        strncpy(SRAMPath[slot], oldsram, 1024);
+        ROMPath[slot] = oldpath;
+        SRAMPath[slot] = oldsram;
         return Load_ROMLoadError;
     }
 }
@@ -402,7 +399,7 @@ int LoadROM(const char* file, int slot)
         if (res != Load_OK) return res;
 
         GBACart::Eject();
-        ROMPath[ROMSlot_GBA][0] = '\0';
+        ROMPath[ROMSlot_GBA] = "";
     }
     else
     {
@@ -416,20 +413,17 @@ int LoadROM(const char* file, int slot)
         }
     }
 
-    char oldpath[1024];
-    char oldsram[1024];
-    strncpy(oldpath, ROMPath[slot], 1024);
-    strncpy(oldsram, SRAMPath[slot], 1024);
+    std::string oldpath = ROMPath[slot];
+    std::string oldsram = SRAMPath[slot];
 
-    strncpy(ROMPath[slot], file, 1023);
-    ROMPath[slot][1023] = '\0';
+    ROMPath[slot] = file;
 
     SetupSRAMPath(0);
     SetupSRAMPath(1);
 
     NDS::SetConsoleType(Config::ConsoleType);
 
-    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot], SRAMPath[slot], directboot))
+    if (slot == ROMSlot_NDS && NDS::LoadROM(ROMPath[slot].c_str(), SRAMPath[slot].c_str(), directboot))
     {
         SavestateLoaded = false;
 
@@ -437,22 +431,22 @@ int LoadROM(const char* file, int slot)
 
         // Reload the inserted GBA cartridge (if any)
         // TODO: report failure there??
-        if (ROMPath[ROMSlot_GBA][0] != '\0') NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]);
+        if (!ROMPath[ROMSlot_GBA].empty()) NDS::LoadGBAROM(ROMPath[ROMSlot_GBA].c_str(), SRAMPath[ROMSlot_GBA].c_str());
 
-        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
-    else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot], SRAMPath[slot]))
+    else if (slot == ROMSlot_GBA && NDS::LoadGBAROM(ROMPath[slot].c_str(), SRAMPath[slot].c_str()))
     {
         SavestateLoaded = false; // checkme??
 
-        strncpy(PrevSRAMPath[slot], SRAMPath[slot], 1024); // safety
+        PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
     else
     {
-        strncpy(ROMPath[slot], oldpath, 1024);
-        strncpy(SRAMPath[slot], oldsram, 1024);
+        ROMPath[slot] = oldpath;
+        SRAMPath[slot] = oldsram;
         return Load_ROMLoadError;
     }
 }
@@ -534,7 +528,7 @@ void UnloadROM(int slot)
         GBACart::Eject();
     }
 
-    ROMPath[slot][0] = '\0';
+    ROMPath[slot] = "";
 
     DSi::CloseDSiNAND();
 }
@@ -579,79 +573,82 @@ int Reset()
 
     NDS::SetConsoleType(Config::ConsoleType);
 
-    if (ROMPath[ROMSlot_NDS][0] == '\0')
+    if (ROMPath[ROMSlot_NDS].empty())
     {
         NDS::LoadBIOS();
     }
     else
     {
-        char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_NDS]);
-        strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
+        std::string ext = ROMPath[ROMSlot_NDS].substr(ROMPath[ROMSlot_NDS].length() - 4);
 
-        if(!strncasecmp(ext, ".nds", 4) || !strncasecmp(ext, ".srl", 4) || !strncasecmp(ext, ".dsi", 4))
+        if (ext == ".nds" || ext == ".srl" || ext == ".dsi")
         {
             SetupSRAMPath(0);
-            if (!NDS::LoadROM(ROMPath[ROMSlot_NDS], SRAMPath[ROMSlot_NDS], directboot))
+            if (!NDS::LoadROM(ROMPath[ROMSlot_NDS].c_str(), SRAMPath[ROMSlot_NDS].c_str(), directboot))
                 return Load_ROMLoadError;
         }
 #ifdef ARCHIVE_SUPPORT_ENABLED
         else
         {
-            u8 *romdata = nullptr; u32 romlen;
+            // TODO!!!
+            // THIS WILL BREAK IF CUSTOM SRAM PATHS ARE ADDED
+
+            /*u8 *romdata = nullptr; u32 romlen;
             char romfilename[1024] = {0}, sramfilename[1024];
             strncpy(sramfilename, SRAMPath[ROMSlot_NDS], 1024); // Use existing SRAMPath
 
             int pos = strlen(sramfilename) - 1;
-            while(pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
+            while (pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
                 --pos;
 
             strncpy(romfilename, &sramfilename[pos + 1], 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], NDSROMExtension, 3); // extension could be nds, srl or dsi
             printf("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_NDS], romfilename, &romdata);
-            if(!romdata)
+            if (!romdata)
                 return Load_ROMLoadError;
 
             bool ok = NDS::LoadROM(romdata, romlen, sramfilename, directboot);
             delete romdata;
-            if(!ok)
+            if (!ok)*/
                 return Load_ROMLoadError;
         }
 #endif
     }
 
-    if (ROMPath[ROMSlot_GBA][0] != '\0')
+    if (!ROMPath[ROMSlot_GBA].empty())
     {
-        char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_GBA]);
-        strncpy(ext, ROMPath[ROMSlot_GBA] + _len - 4, 4);
+        std::string ext = ROMPath[ROMSlot_GBA].substr(ROMPath[ROMSlot_GBA].length() - 4);
 
-        if(!strncasecmp(ext, ".gba", 4))
+        if (ext == ".gba")
         {
             SetupSRAMPath(1);
-            if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA], SRAMPath[ROMSlot_GBA]))
+            if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA].c_str(), SRAMPath[ROMSlot_GBA].c_str()))
                 return Load_ROMLoadError;
         }
 #ifdef ARCHIVE_SUPPORT_ENABLED
         else
         {
-            u8 *romdata = nullptr; u32 romlen;
+            // TODO!! SAME AS ABOVE
+
+            /*u8 *romdata = nullptr; u32 romlen;
             char romfilename[1024] = {0}, sramfilename[1024];
             strncpy(sramfilename, SRAMPath[ROMSlot_GBA], 1024); // Use existing SRAMPath
 
             int pos = strlen(sramfilename) - 1;
-            while(pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
+            while (pos > 0 && sramfilename[pos] != '/' && sramfilename[pos] != '\\')
                 --pos;
 
             strncpy(romfilename, &sramfilename[pos + 1], 1024);
             strncpy(&romfilename[strlen(romfilename) - 3], "gba", 3);
             printf("RESET loading from archive : %s\n", romfilename);
             romlen = Archive::ExtractFileFromArchive(ROMPath[ROMSlot_GBA], romfilename, &romdata);
-            if(!romdata)
+            if (!romdata)
                 return Load_ROMLoadError;
 
             bool ok = NDS::LoadGBAROM(romdata, romlen, romfilename, SRAMPath[ROMSlot_GBA]);
             delete romdata;
-            if(!ok)
+            if (!ok)*/
                 return Load_ROMLoadError;
         }
 #endif
@@ -668,39 +665,28 @@ int Reset()
 
 std::string GetSavestateName(int slot)
 {
-    int pos;
-    char filename[1024] = {0};
-    int len = 1024;
+    std::string filename;
 
-    if (ROMPath[ROMSlot_NDS][0] == '\0') // running firmware, no ROM
+    if (ROMPath[ROMSlot_NDS].empty()) // running firmware, no ROM
     {
-        strcpy(filename, "firmware");
-        pos = 8;
+        filename = "firmware";
     }
     else
     {
-        char *rompath;
-        char ext[5] = {0}; int _len = strlen(ROMPath[ROMSlot_NDS]);
-        strncpy(ext, ROMPath[ROMSlot_NDS] + _len - 4, 4);
+        std::string rompath;
+        std::string ext = ROMPath[ROMSlot_NDS].substr(ROMPath[ROMSlot_NDS].length() - 4);
 
-        if(!strncasecmp(ext, ".nds", 4) || !strncasecmp(ext, ".srl", 4) || !strncasecmp(ext, ".dsi", 4))
+        // TODO!!! MORE SHIT THAT IS GONNA ASPLODE
+        if (ext == ".nds" || ext == ".srl" || ext == ".dsi")
             rompath = ROMPath[ROMSlot_NDS];
         else
             rompath = SRAMPath[ROMSlot_NDS]; // If archive, construct ssname from sram file
 
-        int l = strlen(rompath);
-        pos = l;
-        while (rompath[pos] != '.' && pos > 0) pos--;
-        if (pos == 0) pos = l;
-
-        // avoid buffer overflow. shoddy
-        if (pos > len-5) pos = len-5;
-
-        strncpy(&filename[0], rompath, pos);
+        filename = rompath.substr(0, rompath.rfind('.'));
     }
-    strcpy(&filename[pos], ".ml");
-    filename[pos+3] = '0'+slot;
-    filename[pos+4] = '\0';
+
+    filename += ".ml";
+    filename += ('0'+slot);
 
     return filename;
 }
@@ -722,7 +708,7 @@ bool LoadState(std::string filename)
 
     bool failed = false;
 
-    Savestate* state = new Savestate(filename.c_str(), false);
+    Savestate* state = new Savestate(filename, false);
     if (state->Error)
     {
         delete state;
@@ -739,16 +725,14 @@ bool LoadState(std::string filename)
 
     if (!failed)
     {
-        if (Config::SavestateRelocSRAM && ROMPath[ROMSlot_NDS][0]!='\0')
+        if (Config::SavestateRelocSRAM && !ROMPath[ROMSlot_NDS].empty())
         {
-            strncpy(PrevSRAMPath[ROMSlot_NDS], SRAMPath[0], 1024);
+            PrevSRAMPath[ROMSlot_NDS] = SRAMPath[ROMSlot_NDS];
 
-            strncpy(SRAMPath[ROMSlot_NDS], filename.c_str(), 1019);
-            int len = strlen(SRAMPath[ROMSlot_NDS]);
-            strcpy(&SRAMPath[ROMSlot_NDS][len], ".sav");
-            SRAMPath[ROMSlot_NDS][len+4] = '\0';
+            // TODO: how should this interact with custom paths?
+            SRAMPath[ROMSlot_NDS] = filename + ".sav";
 
-            NDS::RelocateSave(SRAMPath[ROMSlot_NDS], false);
+            NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
         }
 
         bool loadedPartialGBAROM = false;
@@ -759,8 +743,8 @@ bool LoadState(std::string filename)
         // loaded save file. therefore, their paths are "nulled".
         if (GBACart::CartInserted && GBACart::CartCRC != oldGBACartCRC)
         {
-            ROMPath[ROMSlot_GBA][0] = '\0';
-            SRAMPath[ROMSlot_GBA][0] = '\0';
+            ROMPath[ROMSlot_GBA] = "";
+            SRAMPath[ROMSlot_GBA] = "";
             loadedPartialGBAROM = true;
         }
 
@@ -780,7 +764,7 @@ bool LoadState(std::string filename)
 
 bool SaveState(std::string filename)
 {
-    Savestate* state = new Savestate(filename.c_str(), true);
+    Savestate* state = new Savestate(filename, true);
     if (state->Error)
     {
         delete state;
@@ -791,14 +775,12 @@ bool SaveState(std::string filename)
         NDS::DoSavestate(state);
         delete state;
 
-        if (Config::SavestateRelocSRAM && ROMPath[ROMSlot_NDS][0]!='\0')
+        if (Config::SavestateRelocSRAM && !ROMPath[ROMSlot_NDS].empty())
         {
-            strncpy(SRAMPath[ROMSlot_NDS], filename.c_str(), 1019);
-            int len = strlen(SRAMPath[ROMSlot_NDS]);
-            strcpy(&SRAMPath[ROMSlot_NDS][len], ".sav");
-            SRAMPath[ROMSlot_NDS][len+4] = '\0';
+            // TODO: how should this interact with custom paths?
+            SRAMPath[ROMSlot_NDS] = filename + ".sav";
 
-            NDS::RelocateSave(SRAMPath[ROMSlot_NDS], true);
+            NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), true);
         }
     }
 
@@ -816,10 +798,10 @@ void UndoStateLoad()
     NDS::DoSavestate(backup);
     delete backup;
 
-    if (ROMPath[ROMSlot_NDS][0]!='\0')
+    if (!ROMPath[ROMSlot_NDS].empty())
     {
-        strncpy(SRAMPath[ROMSlot_NDS], PrevSRAMPath[ROMSlot_NDS], 1024);
-        NDS::RelocateSave(SRAMPath[ROMSlot_NDS], false);
+        SRAMPath[ROMSlot_NDS] = PrevSRAMPath[ROMSlot_NDS];
+        NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
     }
 }
 

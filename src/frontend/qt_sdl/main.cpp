@@ -1794,8 +1794,8 @@ void MainWindow::dropEvent(QDropEvent* event)
             slot = (romFileName.endsWith(".gba", Qt::CaseInsensitive) ? 1 : 0);
             QString sramFileName = QFileInfo(_filename).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
 
-            if(slot == 0)
-                strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
+            if (slot == 0)
+                Frontend::NDSROMExtension= QFileInfo(romFileName).suffix().toStdString();
 
             res = Frontend::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(),
                                     _filename, romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
@@ -1900,7 +1900,7 @@ void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString r
     }
     else
     {
-        strncpy(Frontend::NDSROMExtension, QFileInfo(romFileName).suffix().toStdString().c_str(), 4);
+        Frontend::NDSROMExtension = QFileInfo(romFileName).suffix().toStdString();
         slot = 0;
         res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
                                 archiveFileName.toStdString().c_str(),

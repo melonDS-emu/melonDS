@@ -62,12 +62,12 @@ enum
     Load_ROMLoadError,
 };
 
-extern char ROMPath [ROMSlot_MAX][1024];
-extern char SRAMPath[ROMSlot_MAX][1024];
+extern std::string ROMPath [ROMSlot_MAX];
+extern std::string SRAMPath[ROMSlot_MAX];
 extern bool SavestateLoaded;
 
 // Stores type of nds rom i.e. nds/srl/dsi. Should be updated everytime an NDS rom is loaded from an archive
-extern char NDSROMExtension[4];
+extern std::string NDSROMExtension;
 
 // initialize the ROM handling utility
 void Init_ROM();
