@@ -51,16 +51,17 @@ public:
         currentDlg = nullptr;
     }
 
-private slots:
-    void on_PathSettingsDialog_accepted();
-    void on_PathSettingsDialog_rejected();
+    static bool needsReset;
 
-    //
+private slots:
+    void done(int r);
+
+    void on_btnSaveFileBrowse_clicked();
+    void on_btnSavestateBrowse_clicked();
+    void on_btnCheatFileBrowse_clicked();
 
 private:
     Ui::PathSettingsDialog* ui;
-
-    //
 };
 
 #endif // PATHSETTINGSDIALOG_H

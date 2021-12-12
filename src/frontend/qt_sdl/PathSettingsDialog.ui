@@ -103,6 +103,14 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>txtSaveFilePath</tabstop>
+  <tabstop>btnSaveFileBrowse</tabstop>
+  <tabstop>txtSavestatePath</tabstop>
+  <tabstop>btnSavestateBrowse</tabstop>
+  <tabstop>txtCheatFilePath</tabstop>
+  <tabstop>btnCheatFileBrowse</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

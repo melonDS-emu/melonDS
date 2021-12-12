@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <QFileDialog>
+#include <QMessageBox>
 
 #include "types.h"
 #include "Config.h"
@@ -29,6 +30,9 @@
 PathSettingsDialog* PathSettingsDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
+extern bool RunningSomething;
+
+bool PathSettingsDialog::needsReset = false;
 
 
 PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PathSettingsDialog)
@@ -36,7 +40,9 @@ PathSettingsDialog::PathSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    //
+    ui->txtSaveFilePath->setText(QString::fromStdString(Config::SaveFilePath));
+    ui->txtSavestatePath->setText(QString::fromStdString(Config::SavestatePath));
+    ui->txtCheatFilePath->setText(QString::fromStdString(Config::CheatFilePath));
 }
 
 PathSettingsDialog::~PathSettingsDialog()
@@ -44,14 +50,70 @@ PathSettingsDialog::~PathSettingsDialog()
     delete ui;
 }
 
-void PathSettingsDialog::on_PathSettingsDialog_accepted()
+void PathSettingsDialog::done(int r)
 {
-    //
+    needsReset = false;
+
+    if (r == QDialog::Accepted)
+    {
+        std::string saveFilePath = ui->txtSaveFilePath->text().toStdString();
+        std::string savestatePath = ui->txtSavestatePath->text().toStdString();
+        std::string cheatFilePath = ui->txtCheatFilePath->text().toStdString();
+
+        if (   saveFilePath != Config::SaveFilePath
+            || savestatePath != Config::SavestatePath
+            || cheatFilePath != Config::CheatFilePath)
+        {
+            if (RunningSomething
+                && QMessageBox::warning(this, "Reset necessary to apply changes",
+                    "The emulation will be reset for the changes to take place.",
+                    QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
+                return;
+
+            Config::SaveFilePath = saveFilePath;
+            Config::SavestatePath = savestatePath;
+            Config::CheatFilePath = cheatFilePath;
+
+            Config::Save();
+
+            needsReset = true;
+        }
+    }
+
+    QDialog::done(r);
+
     closeDlg();
 }
 
-void PathSettingsDialog::on_PathSettingsDialog_rejected()
+void PathSettingsDialog::on_btnSaveFileBrowse_clicked()
 {
-    //
-    closeDlg();
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select save files path...",
+                                                     QString::fromStdString(EmuDirectory));
+
+    if (dir.isEmpty()) return;
+
+    ui->txtSaveFilePath->setText(dir);
+}
+
+void PathSettingsDialog::on_btnSavestateBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select savestates path...",
+                                                     QString::fromStdString(EmuDirectory));
+
+    if (dir.isEmpty()) return;
+
+    ui->txtSavestatePath->setText(dir);
+}
+
+void PathSettingsDialog::on_btnCheatFileBrowse_clicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this,
+                                                     "Select cheat files path...",
+                                                     QString::fromStdString(EmuDirectory));
+
+    if (dir.isEmpty()) return;
+
+    ui->txtCheatFilePath->setText(dir);
 }
