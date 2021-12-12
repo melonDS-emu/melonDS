@@ -19,23 +19,25 @@
 #ifndef SHAREDCONFIG_H
 #define SHAREDCONFIG_H
 
+#include <string>
+
 namespace Config
 {
 
 extern int ConsoleType;
-extern int DirectBoot;
-extern int SavestateRelocSRAM;
+extern bool DirectBoot;
+extern bool SavestateRelocSRAM;
 
-extern int ExternalBIOSEnable;
+extern bool ExternalBIOSEnable;
 
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
+extern std::string BIOS9Path;
+extern std::string BIOS7Path;
+extern std::string FirmwarePath;
 
-extern char DSiBIOS9Path[1024];
-extern char DSiBIOS7Path[1024];
-extern char DSiFirmwarePath[1024];
-extern char DSiNANDPath[1024];
+extern std::string DSiBIOS9Path;
+extern std::string DSiBIOS7Path;
+extern std::string DSiFirmwarePath;
+extern std::string DSiNANDPath;
 
 }
 

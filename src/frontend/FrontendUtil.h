@@ -21,6 +21,7 @@
 
 #include "types.h"
 
+#include <string>
 #include <vector>
 
 namespace Frontend
@@ -93,17 +94,17 @@ void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[
 int Reset();
 
 // get the filename associated with the given savestate slot (1-8)
-void GetSavestateName(int slot, char* filename, int len);
+std::string GetSavestateName(int slot);
 
 // determine whether the given savestate slot does contain a savestate
 bool SavestateExists(int slot);
 
 // load the given savestate file
 // if successful, emulation will continue from the savestate's point
-bool LoadState(const char* filename);
+bool LoadState(std::string filename);
 
 // save the current emulator state to the given file
-bool SaveState(const char* filename);
+bool SaveState(std::string filename);
 
 // undo the latest savestate load
 void UndoStateLoad();

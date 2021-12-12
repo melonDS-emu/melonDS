@@ -130,7 +130,7 @@ void ROMInfoDialog::on_saveIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
                                                     "Save Icon",
-                                                    Config::LastROMFolder,
+                                                    QString::fromStdString(Config::LastROMFolder),
                                                     "PNG Images (*.png)");
     if (filename.isEmpty())
         return;

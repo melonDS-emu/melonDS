@@ -666,9 +666,11 @@ int Reset()
 // SAVESTATE TODO
 // * configurable paths. not everyone wants their ROM directory to be polluted, I guess.
 
-void GetSavestateName(int slot, char* filename, int len)
+std::string GetSavestateName(int slot)
 {
     int pos;
+    char filename[1024] = {0};
+    int len = 1024;
 
     if (ROMPath[ROMSlot_NDS][0] == '\0') // running firmware, no ROM
     {
@@ -699,16 +701,17 @@ void GetSavestateName(int slot, char* filename, int len)
     strcpy(&filename[pos], ".ml");
     filename[pos+3] = '0'+slot;
     filename[pos+4] = '\0';
+
+    return filename;
 }
 
 bool SavestateExists(int slot)
 {
-    char ssfile[1024];
-    GetSavestateName(slot, ssfile, 1024);
+    std::string ssfile = GetSavestateName(slot);
     return Platform::FileExists(ssfile);
 }
 
-bool LoadState(const char* filename)
+bool LoadState(std::string filename)
 {
     u32 oldGBACartCRC = GBACart::CartCRC;
 
@@ -719,7 +722,7 @@ bool LoadState(const char* filename)
 
     bool failed = false;
 
-    Savestate* state = new Savestate(filename, false);
+    Savestate* state = new Savestate(filename.c_str(), false);
     if (state->Error)
     {
         delete state;
@@ -740,7 +743,7 @@ bool LoadState(const char* filename)
         {
             strncpy(PrevSRAMPath[ROMSlot_NDS], SRAMPath[0], 1024);
 
-            strncpy(SRAMPath[ROMSlot_NDS], filename, 1019);
+            strncpy(SRAMPath[ROMSlot_NDS], filename.c_str(), 1019);
             int len = strlen(SRAMPath[ROMSlot_NDS]);
             strcpy(&SRAMPath[ROMSlot_NDS][len], ".sav");
             SRAMPath[ROMSlot_NDS][len+4] = '\0';
@@ -775,9 +778,9 @@ bool LoadState(const char* filename)
     return !failed;
 }
 
-bool SaveState(const char* filename)
+bool SaveState(std::string filename)
 {
-    Savestate* state = new Savestate(filename, true);
+    Savestate* state = new Savestate(filename.c_str(), true);
     if (state->Error)
     {
         delete state;
@@ -790,7 +793,7 @@ bool SaveState(const char* filename)
 
         if (Config::SavestateRelocSRAM && ROMPath[ROMSlot_NDS][0]!='\0')
         {
-            strncpy(SRAMPath[ROMSlot_NDS], filename, 1019);
+            strncpy(SRAMPath[ROMSlot_NDS], filename.c_str(), 1019);
             int len = strlen(SRAMPath[ROMSlot_NDS]);
             strcpy(&SRAMPath[ROMSlot_NDS][len], ".sav");
             SRAMPath[ROMSlot_NDS][len+4] = '\0';

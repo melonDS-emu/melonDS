@@ -181,7 +181,7 @@ void micClose()
     micDevice = 0;
 }
 
-void micLoadWav(const char* name)
+void micLoadWav(std::string name)
 {
     SDL_AudioSpec format;
     memset(&format, 0, sizeof(SDL_AudioSpec));
@@ -192,7 +192,7 @@ void micLoadWav(const char* name)
 
     u8* buf;
     u32 len;
-    if (!SDL_LoadWAV(name, &format, &buf, &len))
+    if (!SDL_LoadWAV(name.c_str(), &format, &buf, &len))
         return;
 
     const u64 dstfreq = 44100;
@@ -1274,7 +1274,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     oldW = Config::WindowWidth;
     oldH = Config::WindowHeight;
-    oldMax = Config::WindowMaximized!=0;
+    oldMax = Config::WindowMaximized;
 
     setWindowTitle("melonDS " MELONDS_VERSION);
     setAttribute(Qt::WA_DeleteOnClose);
@@ -1295,9 +1295,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         recentMenu = menu->addMenu("Open recent");
         for (int i = 0; i < 10; ++i)
         {
-            char* item = Config::RecentROMList[i];
-            if (strlen(item) > 0)
-                recentFileList.push_back(item);
+            std::string item = Config::RecentROMList[i];
+            if (!item.empty())
+                recentFileList.push_back(QString::fromStdString(item));
         }
         updateRecentFilesMenu();
 
@@ -1591,13 +1591,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
+    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 
-    actEnableCheats->setChecked(Config::EnableCheats != 0);
+    actEnableCheats->setChecked(Config::EnableCheats);
 
     actROMInfo->setEnabled(false);
 
-    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM != 0);
+    actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM);
 
     actScreenRotation[Config::ScreenRotation]->setChecked(true);
 
@@ -1612,18 +1612,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actScreenLayout[Config::ScreenLayout]->setChecked(true);
     actScreenSizing[Config::ScreenSizing]->setChecked(true);
-    actIntegerScaling->setChecked(Config::IntegerScaling != 0);
+    actIntegerScaling->setChecked(Config::IntegerScaling);
 
-    actScreenSwap->setChecked(Config::ScreenSwap != 0);
+    actScreenSwap->setChecked(Config::ScreenSwap);
 
     actScreenAspectTop[Config::ScreenAspectTop]->setChecked(true);
     actScreenAspectBot[Config::ScreenAspectBot]->setChecked(true);
 
-    actScreenFiltering->setChecked(Config::ScreenFilter != 0);
-    actShowOSD->setChecked(Config::ShowOSD != 0);
+    actScreenFiltering->setChecked(Config::ScreenFilter);
+    actShowOSD->setChecked(Config::ShowOSD);
 
-    actLimitFramerate->setChecked(Config::LimitFPS != 0);
-    actAudioSync->setChecked(Config::AudioSync != 0);
+    actLimitFramerate->setChecked(Config::LimitFPS);
+    actAudioSync->setChecked(Config::AudioSync);
 }
 
 MainWindow::~MainWindow()
@@ -1885,7 +1885,7 @@ void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString r
     updateRecentFilesMenu();
 
     // Strip entire archive name and get folder path
-    strncpy(Config::LastROMFolder, QFileInfo(archiveFileName).absolutePath().toStdString().c_str(), 1024);
+    Config::LastROMFolder = QFileInfo(archiveFileName).absolutePath().toStdString();
 
     QString sramFileName = QFileInfo(archiveFileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
 
@@ -1937,26 +1937,23 @@ void MainWindow::loadROM(QString filename)
     // * ensure the binary offsets are sane
     // * etc
 
-    // this shit is stupid
-    char file[1024];
-    strncpy(file, filename.toStdString().c_str(), 1023); file[1023] = '\0';
-
-    int pos = strlen(file)-1;
+    std::string file = filename.toStdString();
+    int pos = file.length() - 1;
     while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
-    strncpy(Config::LastROMFolder, file, pos);
-    Config::LastROMFolder[pos] = '\0';
-    char* ext = &file[strlen(file)-3];
+    Config::LastROMFolder = file.substr(0, pos);
+
+    std::string ext = file.substr(file.length() - 3);
 
     int slot; int res;
-    if (!strcasecmp(ext, "gba"))
+    if (ext == "gba")
     {
         slot = 1;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
+        res = Frontend::LoadROM(file.c_str(), Frontend::ROMSlot_GBA);
     }
     else
     {
         slot = 0;
-        res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
+        res = Frontend::LoadROM(file.c_str(), Frontend::ROMSlot_NDS);
     }
 
     if (res != Frontend::Load_OK)
@@ -1983,7 +1980,7 @@ void MainWindow::onOpenFile()
 
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
-                                                    Config::LastROMFolder,
+                                                    QString::fromStdString(Config::LastROMFolder),
                                                     "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
     if (filename.isEmpty())
     {
@@ -2000,7 +1997,7 @@ void MainWindow::onOpenFileArchive()
 
     QString archiveFileName = QFileDialog::getOpenFileName(this,
                                                     "Open ROM Archive",
-                                                    Config::LastROMFolder,
+                                                    QString::fromStdString(Config::LastROMFolder),
                                                     "Archived ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *.tar.bz2);;Any file (*.*)");
     if (archiveFileName.isEmpty())
     {
@@ -2073,7 +2070,8 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
 void MainWindow::onClearRecentFiles()
 {
     recentFileList.clear();
-    memset(Config::RecentROMList, 0, 10 * 1024);
+    for (int i = 0; i < 10; i++)
+        Config::RecentROMList[i] = "";
     updateRecentFilesMenu();
 }
 
@@ -2109,8 +2107,8 @@ void MainWindow::updateRecentFilesMenu()
         actRecentFile_i->setData(item_full);
         connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
 
-        if(i < 10)
-            strncpy(Config::RecentROMList[i], recentFileList.at(i).toStdString().c_str(), 1024);
+        if (i < 10)
+            Config::RecentROMList[i] = recentFileList.at(i).toStdString();
     }
 
     recentMenu->addSeparator();
@@ -2177,17 +2175,17 @@ void MainWindow::onSaveState()
 
     emuThread->emuPause();
 
-    char filename[1024];
+    std::string filename;
     if (slot > 0)
     {
-        Frontend::GetSavestateName(slot, filename, 1024);
+        filename = Frontend::GetSavestateName(slot);
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getSaveFileName(this,
                                                          "Save state",
-                                                         Config::LastROMFolder,
+                                                         QString::fromStdString(Config::LastROMFolder),
                                                          "melonDS savestates (*.mln);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -2195,7 +2193,7 @@ void MainWindow::onSaveState()
             return;
         }
 
-        strncpy(filename, qfilename.toStdString().c_str(), 1023); filename[1023] = '\0';
+        filename = qfilename.toStdString();
     }
 
     if (Frontend::SaveState(filename))
@@ -2221,17 +2219,17 @@ void MainWindow::onLoadState()
 
     emuThread->emuPause();
 
-    char filename[1024];
+    std::string filename;
     if (slot > 0)
     {
-        Frontend::GetSavestateName(slot, filename, 1024);
+        filename = Frontend::GetSavestateName(slot);
     }
     else
     {
         // TODO: specific 'last directory' for savestate files?
         QString qfilename = QFileDialog::getOpenFileName(this,
                                                          "Load state",
-                                                         Config::LastROMFolder,
+                                                         QString::fromStdString(Config::LastROMFolder),
                                                          "melonDS savestates (*.ml*);;Any file (*.*)");
         if (qfilename.isEmpty())
         {
@@ -2239,7 +2237,7 @@ void MainWindow::onLoadState()
             return;
         }
 
-        strncpy(filename, qfilename.toStdString().c_str(), 1023); filename[1023] = '\0';
+        filename = qfilename.toStdString();
     }
 
     if (!Platform::FileExists(filename))
@@ -2286,7 +2284,7 @@ void MainWindow::onImportSavefile()
     emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
-                                            Config::LastROMFolder,
+                                            QString::fromStdString(Config::LastROMFolder),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
     if (!path.isEmpty())
@@ -2424,7 +2422,7 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
         onReset();
 
     if (!RunningSomething)
-        actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
+        actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 }
 
 void MainWindow::onOpenInputConfig()
@@ -2736,7 +2734,7 @@ void MainWindow::onEmuStop()
     actFrameStep->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
-    actTitleManager->setEnabled(strlen(Config::DSiNANDPath) > 0);
+    actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 
     actROMInfo->setEnabled(false);
 }

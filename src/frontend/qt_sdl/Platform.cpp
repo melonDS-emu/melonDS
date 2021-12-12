@@ -207,7 +207,7 @@ bool GetConfigArray(ConfigEntry entry, void* data)
     {
     case Firm_MAC:
         {
-            char* mac_in = Config::FirmwareMAC;
+            std::string& mac_in = Config::FirmwareMAC;
             u8* mac_out = (u8*)data;
 
             int o = 0;
