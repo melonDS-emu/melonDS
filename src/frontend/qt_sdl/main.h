@@ -257,11 +257,13 @@ private slots:
     void onOpenVideoSettings();
     void onOpenAudioSettings();
     void onOpenFirmwareSettings();
+    void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onFirmwareSettingsFinished(int res);
+    void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
     void onUpdateMouseTimer();
@@ -334,6 +336,7 @@ public:
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
+    QAction* actPathSettings;
     QAction* actInterfaceSettings;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];

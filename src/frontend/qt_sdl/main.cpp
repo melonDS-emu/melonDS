@@ -56,6 +56,7 @@
 #include "VideoSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
+#include "PathSettingsDialog.h"
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
@@ -1414,6 +1415,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actFirmwareSettings = menu->addAction("Firmware settings");
         connect(actFirmwareSettings, &QAction::triggered, this, &MainWindow::onOpenFirmwareSettings);
 
+        actPathSettings = menu->addAction("Path settings");
+        connect(actPathSettings, &QAction::triggered, this, &MainWindow::onOpenPathSettings);
+
         {
             QMenu* submenu = menu->addMenu("Savestate settings");
 
@@ -2461,6 +2465,22 @@ void MainWindow::onFirmwareSettingsFinished(int res)
 {
     if (FirmwareSettingsDialog::needsReset)
         onReset();
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onOpenPathSettings()
+{
+    emuThread->emuPause();
+
+    PathSettingsDialog* dlg = PathSettingsDialog::openDlg(this);
+    connect(dlg, &PathSettingsDialog::finished, this, &MainWindow::onPathSettingsFinished);
+}
+
+void MainWindow::onPathSettingsFinished(int res)
+{
+    //if (FirmwareSettingsDialog::needsReset)
+    //    onReset();
 
     emuThread->emuUnpause();
 }
