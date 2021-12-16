@@ -1009,6 +1009,8 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     u32 nwrite;
 
     // ticket
+    sprintf(fname, "0:/ticket/%08x", titleid0);
+    f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
     if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
