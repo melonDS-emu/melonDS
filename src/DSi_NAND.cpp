@@ -1020,6 +1020,8 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
 
     // folder
 
+    sprintf(fname, "0:/title/%08x", titleid0);
+    f_mkdir(fname);
     sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
     f_mkdir(fname);
     sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);
