@@ -145,6 +145,10 @@ void Mutex_Unlock(Mutex* mutex);
 bool Mutex_TryLock(Mutex* mutex);
 
 
+void WriteNDSSave(const u8* savedata, u32 savelen);
+void WriteGBASave(const u8* savedata, u32 savelen);
+
+
 // local multiplayer comm interface
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();

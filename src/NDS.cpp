@@ -200,7 +200,7 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    if (!NDSCart_SRAMManager::Init()) return false;
+    //if (!NDSCart_SRAMManager::Init()) return false;
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -228,7 +228,7 @@ void DeInit()
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
 
-    NDSCart_SRAMManager::DeInit();
+    //NDSCart_SRAMManager::DeInit();
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
@@ -353,7 +353,7 @@ void InitTimings()
     // handled later: GBA slot, wifi
 }
 
-void SetupDirectBoot()
+void SetupDirectBoot(std::string romname)
 {
     if (ConsoleType == 1)
     {
@@ -443,6 +443,8 @@ void SetupDirectBoot()
         ARM9->CP15Write(0x910, 0x0300000A);
         ARM9->CP15Write(0x911, 0x00000020);
     }
+
+    NDSCart::SetupDirectBoot(romname);
 
     ARM9->R[12] = NDSCart::Header.ARM9EntryAddress;
     ARM9->R[13] = 0x03002F7C;
@@ -656,6 +658,11 @@ void Reset()
     SPU::SetDegrade10Bit(degradeAudio);
 
     AREngine::Reset();
+}
+
+void Start()
+{
+    Running = true;
 }
 
 void Stop()
@@ -888,7 +895,39 @@ void SetConsoleType(int type)
     ConsoleType = type;
 }
 
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
+bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+{
+    if (!NDSCart::LoadROM(romdata, romlen))
+        return false;
+
+    if (savedata && savelen)
+        NDSCart::LoadSave(savedata, savelen);
+
+    //Running = true;
+}
+
+void EjectCart()
+{
+    printf("TODO!!!!\n");
+}
+
+bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
+{
+    if (!GBACart::LoadROM(romdata, romlen))
+        return false;
+
+    if (savedata && savelen)
+        GBACart::LoadSave(savedata, savelen);
+
+    //Running = true;
+}
+
+void EjectGBACart()
+{
+    printf("TODO!!!!\n");
+}
+
+/*bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
 {
     if (NDSCart::LoadROM(romdata, filelength, sram, direct))
     {
@@ -940,19 +979,19 @@ bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const c
         printf("Failed to load ROM %s from archive\n", filename);
         return false;
     }
-}
+}*/
 
 void LoadBIOS()
 {
     Reset();
-    Running = true;
+    //Running = true;
 }
 
-void RelocateSave(const char* path, bool write)
+/*void RelocateSave(const char* path, bool write)
 {
     printf("SRAM: relocating to %s (write=%s)\n", path, write?"true":"false");
     NDSCart::RelocateSave(path, write);
-}
+}*/
 
 
 

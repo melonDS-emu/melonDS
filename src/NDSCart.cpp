@@ -51,7 +51,7 @@ u32 TransferDir;
 u8 TransferCmd[8];
 
 bool CartInserted;
-char CartName[256];
+//char CartName[256];
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
@@ -198,11 +198,11 @@ void CartCommon::Reset()
     DSiMode = false;
 }
 
-void CartCommon::SetupDirectBoot()
+void CartCommon::SetupDirectBoot(std::string romname)
 {
     CmdEncMode = 2;
     DataEncMode = 2;
-    DSiMode = IsDSi && NDS::ConsoleType==1;
+    DSiMode = IsDSi && (NDS::ConsoleType==1);
 }
 
 void CartCommon::DoSavestate(Savestate* file)
@@ -214,11 +214,15 @@ void CartCommon::DoSavestate(Savestate* file)
     file->Bool32(&DSiMode);
 }
 
-void CartCommon::LoadSave(const char* path, u32 type)
+void CartCommon::SetupSave(u32 type)
 {
 }
 
-void CartCommon::RelocateSave(const char* path, bool write)
+void CartCommon::LoadSave(const u8* savedata, u32 savelen)
+{
+}
+
+/*void CartCommon::RelocateSave(const char* path, bool write)
 {
 }
 
@@ -229,7 +233,7 @@ int CartCommon::ImportSRAM(const u8* data, u32 length)
 
 void CartCommon::FlushSRAMFile()
 {
-}
+}*/
 
 int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
@@ -407,6 +411,7 @@ void CartRetail::DoSavestate(Savestate* file)
         printf("oh well. loading it anyway. adsfgdsf\n");
 
         if (oldlen) delete[] SRAM;
+        SRAM = nullptr;
         if (SRAMLength) SRAM = new u8[SRAMLength];
     }
     if (SRAMLength)
@@ -424,14 +429,59 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var8(&SRAMStatus);
 
     // SRAMManager might now have an old buffer (or one from the future or alternate timeline!)
-    if (!file->Saving)
+    /*if (!file->Saving)
     {
         SRAMFileDirty = false;
         NDSCart_SRAMManager::RequestFlush();
+    }*/
+}
+
+void CartRetail::SetupSave(u32 type)
+{
+    if (SRAM) delete[] SRAM;
+    SRAM = nullptr;
+
+    if (type > 10) type = 0;
+    int sramlen[] =
+    {
+        0,
+        512,
+        8192, 65536, 128*1024,
+        256*1024, 512*1024, 1024*1024,
+        8192*1024, 16384*1024, 65536*1024
+    };
+    SRAMLength = sramlen[type];
+
+    if (SRAMLength)
+    {
+        SRAM = new u8[SRAMLength];
+        memset(SRAM, 0xFF, SRAMLength);
+    }
+
+    switch (type)
+    {
+    case 1: SRAMType = 1; break; // EEPROM, small
+    case 2:
+    case 3:
+    case 4: SRAMType = 2; break; // EEPROM, regular
+    case 5:
+    case 6:
+    case 7: SRAMType = 3; break; // FLASH
+    case 8:
+    case 9:
+    case 10: SRAMType = 4; break; // NAND
+    default: SRAMType = 0; break; // ...whatever else
     }
 }
 
-void CartRetail::LoadSave(const char* path, u32 type)
+void CartRetail::LoadSave(const u8* savedata, u32 savelen)
+{
+    if (!SRAM) return;
+
+    memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
+}
+
+/*void CartRetail::LoadSave(const char* path, u32 type)
 {
     if (SRAM) delete[] SRAM;
 
@@ -481,9 +531,9 @@ void CartRetail::LoadSave(const char* path, u32 type)
     case 10: SRAMType = 4; break; // NAND
     default: SRAMType = 0; break; // ...whatever else
     }
-}
+}*/
 
-void CartRetail::RelocateSave(const char* path, bool write)
+/*void CartRetail::RelocateSave(const char* path, bool write)
 {
     if (!write)
     {
@@ -524,7 +574,7 @@ void CartRetail::FlushSRAMFile()
 
     SRAMFileDirty = false;
     NDSCart_SRAMManager::RequestFlush();
-}
+}*/
 
 int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
@@ -1199,15 +1249,15 @@ void CartHomebrew::Reset()
     CartCommon::Reset();
 }
 
-void CartHomebrew::SetupDirectBoot()
+void CartHomebrew::SetupDirectBoot(std::string romname)
 {
-    CartCommon::SetupDirectBoot();
+    CartCommon::SetupDirectBoot(romname);
 
     if (SD)
     {
         // add the ROM to the SD volume
 
-        if (!SD->InjectFile(CartName, CartROM, CartROMSize))
+        if (!SD->InjectFile(romname, CartROM, CartROMSize))
             return;
 
         // setup argv command line
@@ -1216,7 +1266,7 @@ void CartHomebrew::SetupDirectBoot()
         int argvlen;
 
         strncpy(argv, "fat:/", 511);
-        strncat(argv, CartName, 511);
+        strncat(argv, romname.c_str(), 511);
         argvlen = strlen(argv);
 
         void (*writefn)(u32,u32) = (NDS::ConsoleType==1) ? DSi::ARM9Write32 : NDS::ARM9Write32;
@@ -1542,11 +1592,6 @@ bool ReadROMParams(u32 gamecode, ROMListEntry* params)
 
 void DecryptSecureArea(u8* out)
 {
-    // TODO: source decryption data from different possible sources
-    // * original DS-mode ARM7 BIOS has the key data at 0x30
-    // * .srl ROMs (VC dumps) have encrypted secure areas but have precomputed
-    //   decryption data at 0x1000 (and at the beginning of the DSi region if any)
-
     u32 gamecode = (u32)Header.GameCode[3] << 24 |
                    (u32)Header.GameCode[2] << 16 |
                    (u32)Header.GameCode[1] << 8  |
@@ -1576,8 +1621,28 @@ void DecryptSecureArea(u8* out)
     }
 }
 
-bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
+//bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
+bool LoadROM(const u8* romdata, u32 romlen)
 {
+    //NDS::Reset();
+
+    CartROMSize = 0x200;
+    while (CartROMSize < romlen)
+        CartROMSize <<= 1;
+
+    try
+    {
+        CartROM = new u8[CartROMSize];
+    }
+    catch (const std::bad_alloc& e)
+    {
+        printf("NDSCart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        return false;
+    }
+
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, romlen);
+
     memcpy(&Header, CartROM, sizeof(Header));
     memcpy(&Banner, CartROM + Header.BannerOffset, sizeof(Banner));
 
@@ -1591,6 +1656,9 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     u8 unitcode = Header.UnitCode;
     CartIsDSi = (unitcode & 0x02) != 0;
 
+    u32 arm9base = Header.ARM9ROMOffset;
+    CartIsHomebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
+
     ROMListEntry romparams;
     if (!ReadROMParams(gamecode, &romparams))
     {
@@ -1599,7 +1667,7 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 
         romparams.GameCode = gamecode;
         romparams.ROMSize = CartROMSize;
-        if (*(u32*)&CartROM[0x20] < 0x4000)
+        if (CartIsHomebrew)
             romparams.SaveMemType = 0; // no saveRAM for homebrew
         else
             romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
@@ -1607,7 +1675,8 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
     else
         printf("ROM entry: %08X %08X\n", romparams.ROMSize, romparams.SaveMemType);
 
-    if (romparams.ROMSize != filelength) printf("!! bad ROM size %d (expected %d) rounded to %d\n", filelength, romparams.ROMSize, CartROMSize);
+    if (romparams.ROMSize != romlen)
+        printf("!! bad ROM size %d (expected %d) rounded to %d\n", romlen, romparams.ROMSize, CartROMSize);
 
     // generate a ROM ID
     // note: most games don't check the actual value
@@ -1633,32 +1702,22 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 
     printf("Cart ID: %08X\n", CartID);
 
-    u32 arm9base = *(u32*)&CartROM[0x20];
-
-    if (arm9base < 0x8000)
+    if (arm9base >= 0x4000 && arm9base < 0x8000)
     {
-        if (arm9base >= 0x4000)
+        // reencrypt secure area if needed
+        if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
         {
-            // reencrypt secure area if needed
-            if (*(u32*)&CartROM[arm9base] == 0xE7FFDEFF && *(u32*)&CartROM[arm9base+0x10] != 0xE7FFDEFF)
-            {
-                printf("Re-encrypting cart secure area\n");
+            printf("Re-encrypting cart secure area\n");
 
-                strncpy((char*)&CartROM[arm9base], "encryObj", 8);
+            strncpy((char*)&CartROM[arm9base], "encryObj", 8);
 
-                Key1_InitKeycode(false, gamecode, 3, 2);
-                for (u32 i = 0; i < 0x800; i += 8)
-                    Key1_Encrypt((u32*)&CartROM[arm9base + i]);
+            Key1_InitKeycode(false, gamecode, 3, 2);
+            for (u32 i = 0; i < 0x800; i += 8)
+                Key1_Encrypt((u32*)&CartROM[arm9base + i]);
 
-                Key1_InitKeycode(false, gamecode, 2, 2);
-                Key1_Encrypt((u32*)&CartROM[arm9base]);
-            }
+            Key1_InitKeycode(false, gamecode, 2, 2);
+            Key1_Encrypt((u32*)&CartROM[arm9base]);
         }
-    }
-
-    if ((arm9base < 0x4000) || (gamecode == 0x23232323))
-    {
-        CartIsHomebrew = true;
     }
 
     CartInserted = true;
@@ -1684,26 +1743,36 @@ bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
 
     if (Cart)
-    {
+        Cart->Reset();
+    /*{
         Cart->Reset();
         if (direct)
         {
             NDS::SetupDirectBoot();
             Cart->SetupDirectBoot();
         }
-    }
+    }*/
 
     // encryption
-    Key1_InitKeycode(false, gamecode, 2, 2);
+    // needed????
+    //Key1_InitKeycode(false, gamecode, 2, 2);
 
     // save
-    printf("Save file: %s\n", sram);
-    if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
+    //printf("Save file: %s\n", sram);
+    //if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
+    if (Cart && romparams.SaveMemType > 0)
+        Cart->SetupSave(romparams.SaveMemType);
 
     return true;
 }
 
-bool LoadROM(const char* path, const char* sram, bool direct)
+void LoadSave(const u8* savedata, u32 savelen)
+{
+    if (Cart)
+        Cart->LoadSave(savedata, savelen);
+}
+
+/*bool LoadROM(const char* path, const char* sram, bool direct)
 {
     // TODO: streaming mode? for really big ROMs or systems with limited RAM
     // for now we're lazy
@@ -1761,9 +1830,15 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
     memcpy(CartROM, romdata, filelength);
 
     return LoadROMCommon(filelength, sram, direct);
+}*/
+
+void SetupDirectBoot(std::string romname)
+{
+    if (Cart)
+        Cart->SetupDirectBoot(romname);
 }
 
-void RelocateSave(const char* path, bool write)
+/*void RelocateSave(const char* path, bool write)
 {
     if (Cart) Cart->RelocateSave(path, write);
 }
@@ -1777,7 +1852,7 @@ int ImportSRAM(const u8* data, u32 length)
 {
     if (Cart) return Cart->ImportSRAM(data, length);
     return 0;
-}
+}*/
 
 void ResetCart()
 {
@@ -1879,6 +1954,8 @@ void WriteROMCnt(u32 val)
 
     *(u32*)&TransferCmd[0] = *(u32*)&ROMCommand[0];
     *(u32*)&TransferCmd[4] = *(u32*)&ROMCommand[4];
+
+    memset(TransferData, 0xFF, TransferLen);
 
     /*printf("ROM COMMAND %04X %08X %02X%02X%02X%02X%02X%02X%02X%02X SIZE %04X\n",
            SPICnt, ROMCnt,

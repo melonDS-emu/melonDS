@@ -25,6 +25,7 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
+	SaveManager.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp

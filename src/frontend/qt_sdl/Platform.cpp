@@ -372,6 +372,17 @@ bool Mutex_TryLock(Mutex* mutex)
 }
 
 
+void WriteNDSSave(const u8* savedata, u32 savelen)
+{
+    //
+}
+
+void WriteGBASave(const u8* savedata, u32 savelen)
+{
+    //
+}
+
+
 bool MP_Init()
 {
     int opt_true = 1;

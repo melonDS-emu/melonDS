@@ -34,8 +34,10 @@ public:
 
     virtual void DoSavestate(Savestate* file);
 
-    virtual void LoadSave(const char* path, u32 type);
-    virtual void RelocateSave(const char* path, bool write);
+    virtual void SetupSave(u32 type);
+    virtual void LoadSave(const u8* savedata, u32 savelen);
+    //virtual void LoadSave(const char* path, u32 type);
+    //virtual void RelocateSave(const char* path, bool write);
 
     virtual int SetInput(int num, bool pressed);
 
@@ -55,8 +57,10 @@ public:
 
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void LoadSave(const char* path, u32 type) override;
-    virtual void RelocateSave(const char* path, bool write) override;
+    virtual void SetupSave(u32 type) override;
+    virtual void LoadSave(const u8* savedata, u32 savelen) override;
+    //virtual void LoadSave(const char* path, u32 type) override;
+    //virtual void RelocateSave(const char* path, bool write) override;
 
     virtual u16 ROMRead(u32 addr) override;
     virtual void ROMWrite(u32 addr, u16 val) override;
@@ -107,11 +111,11 @@ protected:
     } SRAMFlashState;
 
     u8* SRAM;
-    FILE* SRAMFile;
+    //FILE* SRAMFile;
     u32 SRAMLength;
     SaveType SRAMType;
 
-    char SRAMPath[1024];
+    //char SRAMPath[1024];
 };
 
 // CartGameSolarSensor -- Boktai game cart
@@ -154,9 +158,13 @@ void Reset();
 void Eject();
 
 void DoSavestate(Savestate* file);
-bool LoadROM(const char* path, const char* sram);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
-void RelocateSave(const char* path, bool write);
+
+bool LoadROM(const u8* romdata, u32 romlen);
+void LoadSave(const u8* savedata, u32 savelen);
+
+//bool LoadROM(const char* path, const char* sram);
+//bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
+//void RelocateSave(const char* path, bool write);
 
 // TODO: make more flexible, support nonbinary inputs
 int SetInput(int num, bool pressed);

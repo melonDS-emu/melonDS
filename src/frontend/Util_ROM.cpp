@@ -298,7 +298,7 @@ int LoadBIOS()
 int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const char *romfilename, const char *sramfilename, int slot)
 {
     int res;
-    bool directboot = Config::DirectBoot != 0;
+    bool directboot = Config::DirectBoot;
 
     if (Config::ConsoleType == 1 && slot == 1)
     {
@@ -580,6 +580,7 @@ int Reset()
     else
     {
         std::string ext = ROMPath[ROMSlot_NDS].substr(ROMPath[ROMSlot_NDS].length() - 4);
+        std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
 
         if (ext == ".nds" || ext == ".srl" || ext == ".dsi")
         {
@@ -619,6 +620,7 @@ int Reset()
     if (!ROMPath[ROMSlot_GBA].empty())
     {
         std::string ext = ROMPath[ROMSlot_GBA].substr(ROMPath[ROMSlot_GBA].length() - 4);
+        std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
 
         if (ext == ".gba")
         {
@@ -675,6 +677,7 @@ std::string GetSavestateName(int slot)
     {
         std::string rompath;
         std::string ext = ROMPath[ROMSlot_NDS].substr(ROMPath[ROMSlot_NDS].length() - 4);
+        std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
 
         // TODO!!! MORE SHIT THAT IS GONNA ASPLODE
         if (ext == ".nds" || ext == ".srl" || ext == ".dsi")

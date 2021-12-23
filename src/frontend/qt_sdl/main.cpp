@@ -2477,8 +2477,8 @@ void MainWindow::onOpenPathSettings()
 
 void MainWindow::onPathSettingsFinished(int res)
 {
-    //if (FirmwareSettingsDialog::needsReset)
-    //    onReset();
+    if (PathSettingsDialog::needsReset)
+        onReset();
 
     emuThread->emuUnpause();
 }

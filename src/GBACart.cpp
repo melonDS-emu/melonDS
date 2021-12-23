@@ -63,13 +63,21 @@ void CartCommon::DoSavestate(Savestate* file)
     file->Section("GBCS");
 }
 
-void CartCommon::LoadSave(const char* path, u32 type)
+void CartCommon::SetupSave(u32 type)
+{
+}
+
+void CartCommon::LoadSave(const u8* savedata, u32 savelen)
+{
+}
+
+/*void CartCommon::LoadSave(const char* path, u32 type)
 {
 }
 
 void CartCommon::RelocateSave(const char* path, bool write)
 {
-}
+}*/
 
 int CartCommon::SetInput(int num, bool pressed)
 {
@@ -103,7 +111,7 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
     memset(&GPIO, 0, sizeof(GPIO));
 
     SRAM = nullptr;
-    SRAMFile = nullptr;
+    //SRAMFile = nullptr;
     SRAMLength = 0;
     SRAMType = S_NULL;
     SRAMFlashState = {};
@@ -111,7 +119,7 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 
 CartGame::~CartGame()
 {
-    if (SRAMFile) fclose(SRAMFile);
+    //if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
 }
 
@@ -133,6 +141,7 @@ void CartGame::DoSavestate(Savestate* file)
     {
         // reallocate save memory
         if (oldlen) delete[] SRAM;
+        SRAM = nullptr;
         if (SRAMLength) SRAM = new u8[SRAMLength];
     }
     if (SRAMLength)
@@ -144,9 +153,9 @@ void CartGame::DoSavestate(Savestate* file)
     {
         // no save data, clear the current state
         SRAMType = SaveType::S_NULL;
-        if (SRAMFile) fclose(SRAMFile);
+        //if (SRAMFile) fclose(SRAMFile);
         SRAM = nullptr;
-        SRAMFile = nullptr;
+        //SRAMFile = nullptr;
         return;
     }
 
@@ -160,25 +169,19 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var8((u8*)&SRAMType);
 }
 
-void CartGame::LoadSave(const char* path, u32 type)
+void CartGame::SetupSave(u32 type)
 {
     if (SRAM) delete[] SRAM;
+    SRAM = nullptr;
 
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-    SRAMLength = 0;
+    // TODO: have type be determined from some list, like in NDSCart
+    // and not this gross hack!!
+    SRAMLength = type;
 
-    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-    if (f)
+    if (SRAMLength)
     {
-        fseek(f, 0, SEEK_END);
-        SRAMLength = (u32)ftell(f);
         SRAM = new u8[SRAMLength];
-
-        fseek(f, 0, SEEK_SET);
-        fread(SRAM, SRAMLength, 1, f);
-
-        SRAMFile = f;
+        memset(SRAM, 0xFF, SRAMLength);
     }
 
     switch (SRAMLength)
@@ -219,7 +222,14 @@ void CartGame::LoadSave(const char* path, u32 type)
     }
 }
 
-void CartGame::RelocateSave(const char* path, bool write)
+void CartGame::LoadSave(const u8* savedata, u32 savelen)
+{
+    if (!SRAM) return;
+
+    memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
+}
+
+/*void CartGame::RelocateSave(const char* path, bool write)
 {
     if (!write)
     {
@@ -239,7 +249,7 @@ void CartGame::RelocateSave(const char* path, bool write)
 
     SRAMFile = f;
     fwrite(SRAM, SRAMLength, 1, SRAMFile);
-}
+}*/
 
 u16 CartGame::ROMRead(u32 addr)
 {
@@ -704,8 +714,26 @@ void DoSavestate(Savestate* file)
     if (Cart) Cart->DoSavestate(file);
 }
 
-void LoadROMCommon(const char *sram)
+//void LoadROMCommon(const char *sram)
+bool LoadROM(const u8* romdata, u32 romlen)
 {
+    CartROMSize = 0x200;
+    while (CartROMSize < romlen)
+        CartROMSize <<= 1;
+
+    try
+    {
+        CartROM = new u8[CartROMSize];
+    }
+    catch (const std::bad_alloc& e)
+    {
+        printf("GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        return false;
+    }
+
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, romlen);
+
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
     printf("GBA game code: %s\n", gamecode);
@@ -733,13 +761,28 @@ void LoadROMCommon(const char *sram)
         Cart = new CartGame(CartROM, CartROMSize);
 
     // save
-    printf("GBA save file: %s\n", sram);
+    //printf("GBA save file: %s\n", sram);
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
-    if (Cart) Cart->LoadSave(sram, 0);
+    //if (Cart) Cart->LoadSave(sram, 0);
+
+    // TODO: setup cart save here! from a list or something
+
+    return true;
 }
 
-bool LoadROM(const char* path, const char* sram)
+void LoadSave(const u8* savedata, u32 savelen)
+{
+    if (Cart)
+    {
+        // gross hack
+        Cart->SetupSave(savelen);
+
+        Cart->LoadSave(savedata, savelen);
+    }
+}
+
+/*bool LoadROM(const char* path, const char* sram)
 {
     FILE* f = Platform::OpenFile(path, "rb");
     if (!f)
@@ -787,7 +830,7 @@ bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
 void RelocateSave(const char* path, bool write)
 {
     if (Cart) Cart->RelocateSave(path, write);
-}
+}*/
 
 
 int SetInput(int num, bool pressed)
