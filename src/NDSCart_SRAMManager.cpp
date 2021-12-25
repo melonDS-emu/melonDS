@@ -84,7 +84,7 @@ void Setup(const char* path, u8* buffer, u32 length)
     Buffer = buffer;
     Length = length;
 
-    if(SecondaryBuffer) delete[] SecondaryBuffer; // Delete secondary buffer, there might be previous state.
+    if (SecondaryBuffer) delete[] SecondaryBuffer; // Delete secondary buffer, there might be previous state.
 
     SecondaryBuffer = new u8[length];
     SecondaryBufferLength = length;
@@ -125,7 +125,7 @@ void FlushThreadFunc()
         Platform::Sleep(100 * 1000); // 100ms
 
         if (!FlushThreadRunning) return;
-        
+
         // We debounce for two seconds after last flush request to ensure that writing has finished.
         if (TimeAtLastFlushRequest == 0 || difftime(time(NULL), TimeAtLastFlushRequest) < 2)
         {

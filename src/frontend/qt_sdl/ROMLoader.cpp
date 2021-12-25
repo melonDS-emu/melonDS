@@ -25,7 +25,7 @@
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
-#include "FrontendUtil.h"
+#include "ROMLoader.h"
 #include "SharedConfig.h"
 #include "Platform.h"
 
@@ -36,7 +36,7 @@
 #include "AREngine.h"
 
 
-namespace Frontend
+namespace ROMLoader
 {
 
 std::string ROMPath     [ROMSlot_MAX];
@@ -577,7 +577,7 @@ int Reset()
     {
         NDS::LoadBIOS();
     }
-    /*else
+    else
     {
         std::string ext = ROMPath[ROMSlot_NDS].substr(ROMPath[ROMSlot_NDS].length() - 4);
         std::transform(ext.begin(), ext.end(), ext.begin(), tolower);
@@ -585,8 +585,8 @@ int Reset()
         if (ext == ".nds" || ext == ".srl" || ext == ".dsi")
         {
             SetupSRAMPath(0);
-            if (!NDS::LoadROM(ROMPath[ROMSlot_NDS].c_str(), SRAMPath[ROMSlot_NDS].c_str(), directboot))
-                return Load_ROMLoadError;
+            //if (!NDS::LoadROM(ROMPath[ROMSlot_NDS].c_str(), SRAMPath[ROMSlot_NDS].c_str(), directboot))
+            //    return Load_ROMLoadError;
         }
 #ifdef ARCHIVE_SUPPORT_ENABLED
         else
@@ -611,7 +611,7 @@ int Reset()
 
             bool ok = NDS::LoadROM(romdata, romlen, sramfilename, directboot);
             delete romdata;
-            if (!ok)*-/
+            if (!ok)*/
                 return Load_ROMLoadError;
         }
 #endif
@@ -625,8 +625,8 @@ int Reset()
         if (ext == ".gba")
         {
             SetupSRAMPath(1);
-            if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA].c_str(), SRAMPath[ROMSlot_GBA].c_str()))
-                return Load_ROMLoadError;
+            //if (!NDS::LoadGBAROM(ROMPath[ROMSlot_GBA].c_str(), SRAMPath[ROMSlot_GBA].c_str()))
+            //    return Load_ROMLoadError;
         }
 #ifdef ARCHIVE_SUPPORT_ENABLED
         else
@@ -650,11 +650,11 @@ int Reset()
 
             bool ok = NDS::LoadGBAROM(romdata, romlen, romfilename, SRAMPath[ROMSlot_GBA]);
             delete romdata;
-            if (!ok)*-/
+            if (!ok)*/
                 return Load_ROMLoadError;
         }
 #endif
-    }*/
+    }
 
     LoadCheats();
 
@@ -735,7 +735,7 @@ bool LoadState(std::string filename)
             // TODO: how should this interact with custom paths?
             SRAMPath[ROMSlot_NDS] = filename + ".sav";
 
-//            NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
+            //NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
         }
 
         bool loadedPartialGBAROM = false;
@@ -783,7 +783,7 @@ bool SaveState(std::string filename)
             // TODO: how should this interact with custom paths?
             SRAMPath[ROMSlot_NDS] = filename + ".sav";
 
-     //       NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), true);
+            //NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), true);
         }
     }
 
@@ -804,7 +804,7 @@ void UndoStateLoad()
     if (!ROMPath[ROMSlot_NDS].empty())
     {
         SRAMPath[ROMSlot_NDS] = PrevSRAMPath[ROMSlot_NDS];
-//        NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
+        //NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
     }
 }
 

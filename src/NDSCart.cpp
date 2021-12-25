@@ -934,18 +934,18 @@ void CartRetailNAND::DoSavestate(Savestate* file)
         BuildSRAMID();
 }
 
-void CartRetailNAND::LoadSave(const char* path, u32 type)
+void CartRetailNAND::LoadSave(const u8* savedata, u32 savelen)
 {
-    CartRetail::LoadSave(path, type);
+    CartRetail::LoadSave(savedata, savelen);
     BuildSRAMID();
 }
 
-int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
+/*int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
 {
     int ret = CartRetail::ImportSRAM(data, length);
     BuildSRAMID();
     return ret;
-}
+}*/
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {

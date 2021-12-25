@@ -1134,7 +1134,7 @@ u32 RunFrame()
 #endif
         SPU::TransferOutput();
 
-        NDSCart::FlushSRAMFile();
+        //NDSCart::FlushSRAMFile();
     }
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,
@@ -1273,10 +1273,10 @@ void MicInputFrame(s16* data, int samples)
     return SPI_TSC::MicInputFrame(data, samples);
 }
 
-int ImportSRAM(u8* data, u32 length)
+/*int ImportSRAM(u8* data, u32 length)
 {
     return NDSCart::ImportSRAM(data, length);
-}
+}*/
 
 
 void Halt()

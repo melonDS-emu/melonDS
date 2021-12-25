@@ -23,7 +23,7 @@
 #include "Platform.h"
 
 
-SaveManager()
+SaveManager::SaveManager()
 {
     SecondaryBuffer = nullptr;
     SecondaryBufferLock = new QMutex();
@@ -31,7 +31,7 @@ SaveManager()
     Running = false;
 }
 
-~SaveManager()
+SaveManager::~SaveManager()
 {
     if (Running)
     {
@@ -73,7 +73,7 @@ void SaveManager::Setup(std::string path, u8* buffer, u32 length)
         Running = true;
         start();
     }
-    else if (path.empty && Running)
+    else if (path.empty() && Running)
     {
         Running = false;
         wait();

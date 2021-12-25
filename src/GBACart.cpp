@@ -479,11 +479,11 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
                 u32 start_addr = addr + 0x10000 * SRAMFlashState.bank;
                 memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
 
-                if (SRAMFile)
+                /*if (SRAMFile)
                 {
                     fseek(SRAMFile, start_addr, SEEK_SET);
                     fwrite((u8*)&SRAM[start_addr], 1, 0x1000, SRAMFile);
-                }
+                }*/
             }
             SRAMFlashState.state = 0;
             SRAMFlashState.cmd = 0;
@@ -541,11 +541,11 @@ void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
     {
         *(u8*)&SRAM[addr] = val;
 
-        if (SRAMFile)
+        /*if (SRAMFile)
         {
             fseek(SRAMFile, addr, SEEK_SET);
             fwrite((u8*)&SRAM[addr], 1, 1, SRAMFile);
-        }
+        }*/
     }
 }
 

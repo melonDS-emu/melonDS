@@ -1288,9 +1288,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actOpenROM, &QAction::triggered, this, &MainWindow::onOpenFile);
         actOpenROM->setShortcut(QKeySequence(QKeySequence::StandardKey::Open));
 
-        actOpenROMArchive = menu->addAction("Open ROM inside archive...");
+        /*actOpenROMArchive = menu->addAction("Open ROM inside archive...");
         connect(actOpenROMArchive, &QAction::triggered, this, &MainWindow::onOpenFileArchive);
-        actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));
+        actOpenROMArchive->setShortcut(QKeySequence(Qt::Key_O | Qt::CTRL | Qt::SHIFT));*/
 
         recentMenu = menu->addMenu("Open recent");
         for (int i = 0; i < 10; ++i)
@@ -1304,6 +1304,43 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         //actBootFirmware = menu->addAction("Launch DS menu");
         actBootFirmware = menu->addAction("Boot firmware");
         connect(actBootFirmware, &QAction::triggered, this, &MainWindow::onBootFirmware);
+
+        menu->addSeparator();
+
+        actCurrentCart = menu->addAction("Slot 1: princessbourf.nds");
+        actCurrentCart->setEnabled(false);
+
+        actInsertCart = menu->addAction("Insert cart...");
+
+        actEjectCart = menu->addAction("Eject cart");
+
+        menu->addSeparator();
+
+        actCurrentGBACart = menu->addAction("Slot 2: Fartslapper Mk. II");
+        actCurrentGBACart->setEnabled(false);
+
+        actInsertGBACart = menu->addAction("Insert ROM cart...");
+
+        //actInsertGBAAddon = menu->addAction("Insert add-on cart");
+        {
+            QMenu* submenu = menu->addMenu("Insert add-on cart");
+
+            actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
+            actInsertGBAAddon[1] = submenu->addAction("Vibrator Pak");
+            actInsertGBAAddon[2] = submenu->addAction("Guitar Hero grip");
+            actInsertGBAAddon[3] = submenu->addAction("Fartslapper");
+            actInsertGBAAddon[4] = submenu->addAction("Fartslapper Mk. II");
+            actInsertGBAAddon[5] = submenu->addAction("Ghostbusters ray");
+            actInsertGBAAddon[6] = submenu->addAction("Fridge Pak");
+            actInsertGBAAddon[7] = submenu->addAction("Fazil");
+        }
+
+        actEjectGBACart = menu->addAction("Eject cart");
+
+        menu->addSeparator();
+
+        actImportSavefile = menu->addAction("Import savefile");
+        connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
 
         menu->addSeparator();
 
@@ -1343,9 +1380,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actUndoStateLoad = menu->addAction("Undo state load");
         actUndoStateLoad->setShortcut(QKeySequence(Qt::Key_F12));
         connect(actUndoStateLoad, &QAction::triggered, this, &MainWindow::onUndoStateLoad);
-
-        actImportSavefile = menu->addAction("Import savefile");
-        connect(actImportSavefile, &QAction::triggered, this, &MainWindow::onImportSavefile);
 
         menu->addSeparator();
 
@@ -1974,26 +2008,69 @@ void MainWindow::loadROM(QString filename)
     }
 }
 
-void MainWindow::onOpenFile()
+void MainWindow::pickAndLoadROM(bool gba)
 {
+    QString console;
+    QStringList romexts;
+    QStringList arcexts{"*.zip", "*.7z", "*.rar", "*.tar", "*.gz", "*.xz", "*.bz2"};
+
+    if (gba)
+    {
+        console = "GBA";
+        romexts.append("*.gba");
+    }
+    else
+    {
+        console = "DS";
+        romexts.append({"*.nds", "*.dsi", "*.srl"});
+    }
+
     emuThread->emuPause();
 
+    QString filter = romexts.join(' ') + " " + arcexts.join(' ');
+    filter = console + " ROMs (" + filter + ");;Any file (*.*)";
+
     QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open ROM",
+                                                    "Open "+console+" ROM",
                                                     QString::fromStdString(Config::LastROMFolder),
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
+                                                    filter);
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
         return;
     }
 
-    loadROM(filename);
+    int pos = filename.length() - 1;
+    while (filename[pos] != '/' && filename[pos] != '\\' && pos > 0) pos--;
+    QString path_dir = filename.left(pos);
+    QString path_file = filename.mid(pos+1);
+    QString path_ext = path_file.mid(path_file.lastIndexOf('.')).toLower();
+
+    Config::LastROMFolder = path_dir.toStdString();
+
+    printf("LOADING ROM: %s\n", filename.toStdString().c_str());
+    printf("- %s\n", path_dir.toStdString().c_str());
+    printf("- %s\n", path_file.toStdString().c_str());
+    printf("- %s\n", path_ext.toStdString().c_str());
+
+    if (arcexts.contains("*"+path_ext))
+    {
+        QByteArray romBuffer;
+        QString arcfile = pickAndExtractFileFromArchive(filename, &romBuffer);
+
+        printf("ARCHIVE: %s\n", arcfile.toStdString().c_str());
+        printf("SIZE=%d\n", romBuffer.size());
+    }
+}
+
+void MainWindow::onOpenFile()
+{
+    pickAndLoadROM(false);
 }
 
 void MainWindow::onOpenFileArchive()
 {
-    emuThread->emuPause();
+    /*emuThread->emuPause();
 
     QString archiveFileName = QFileDialog::getOpenFileName(this,
                                                     "Open ROM Archive",
@@ -2010,7 +2087,7 @@ void MainWindow::onOpenFileArchive()
     if(!romFileName.isEmpty())
     {
         loadROM(&romBuffer, archiveFileName, romFileName);
-    }
+    }*/
 }
 
 QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
@@ -2019,7 +2096,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
 
 
-    QString romFileName; // file name inside archive
+    QString romFileName = ""; // file name inside archive
 
     if (archiveROMList.size() > 2)
     {
@@ -2028,7 +2105,7 @@ QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByte
         bool ok;
         QString toLoad = QInputDialog::getItem(this, "melonDS",
                                   "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
-        if(!ok) // User clicked on cancel
+        if (!ok) // User clicked on cancel
             return QString();
 
         printf("Extracting '%s'\n", toLoad.toUtf8().constData());

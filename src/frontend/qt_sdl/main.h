@@ -298,6 +298,8 @@ private:
 
     QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
+    void pickAndLoadROM(bool gba);
+
     void createScreenPanel();
 
     QString loadErrorStr(int error);
@@ -313,12 +315,19 @@ public:
     ScreenPanelNative* panelNative;
 
     QAction* actOpenROM;
-    QAction* actOpenROMArchive;
+    //QAction* actOpenROMArchive;
     QAction* actBootFirmware;
+    QAction* actCurrentCart;
+    QAction* actInsertCart;
+    QAction* actEjectCart;
+    QAction* actCurrentGBACart;
+    QAction* actInsertGBACart;
+    QAction* actInsertGBAAddon[16];
+    QAction* actEjectGBACart;
+    QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
-    QAction* actImportSavefile;
     QAction* actQuit;
 
     QAction* actPause;
