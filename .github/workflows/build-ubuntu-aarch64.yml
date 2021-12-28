@@ -17,12 +17,14 @@ jobs:
     container: ubuntu:20.04
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Update system
+    - name: Prepare system
       shell: bash
       run: |
         apt update
         apt -y full-upgrade
+        apt -y install git
+    - name: Check out source
+      uses: actions/checkout@v1
     - name: Install dependencies
       shell: bash
       working-directory: ${{runner.workspace}}
