@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
+    - uses: docker://ubuntu:20.04
     - uses: actions/checkout@v1
     - name: Upgrade system
       shell: bash
@@ -33,7 +34,7 @@ jobs:
         sudo rm /etc/apt/sources.list
         sudo mv /etc/apt/sources.list{.new,}
         sudo apt-get update
-        sudo apt-get install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64 libarchive-dev:arm64 libepoxy-dev:arm64
+        sudo apt-get install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64 libarchive-dev:arm64 libepoxy-dev:arm64 cmake dpkg-dev
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
