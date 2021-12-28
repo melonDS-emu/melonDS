@@ -2,7 +2,7 @@ trigger:
 - master
 
 pool:
-  vmImage: macOS-10.14
+  vmImage: macOS-10.15
 
 steps:
 - script: brew install llvm sdl2 qt@6 libslirp libarchive libepoxy
@@ -11,7 +11,7 @@ steps:
 - script: mkdir $(Pipeline.Workspace)/build
   displayName: 'Create build environment'
 
-- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON -DUSE_QT6=ON -DCMAKE_TOOLCHAIN_FILE=$(Build.SourcesDirectory)/cmake/Toolchain-Homebrew-LLVM.cmake
+- script: cmake $(Build.SourcesDirectory) -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DMACOS_BUILD_DMG=ON -DUSE_QT6=ON
   displayName: 'Configure'
   workingDirectory: $(Pipeline.Workspace)/build
   
