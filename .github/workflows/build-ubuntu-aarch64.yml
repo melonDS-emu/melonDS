@@ -22,7 +22,7 @@ jobs:
       shell: bash
       run: |
         apt update
-        apt full-upgrade
+        apt -y full-upgrade
     - name: Install dependencies
       shell: bash
       working-directory: ${{runner.workspace}}
