@@ -14,9 +14,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    container: ubuntu:20.04
 
     steps:
-    - uses: docker://ubuntu:20.04
     - uses: actions/checkout@v1
     - name: Upgrade system
       shell: bash
