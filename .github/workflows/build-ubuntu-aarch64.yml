@@ -27,7 +27,6 @@ jobs:
       uses: actions/checkout@v1
     - name: Install dependencies
       shell: bash
-      working-directory: ${{github.workspace}}
       run: |
         dpkg --add-architecture arm64
         sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
@@ -39,17 +38,15 @@ jobs:
       run: mkdir ${{github.workspace}}/build
     - name: Configure
       shell: bash
-      working-directory: ${{github.workspace}}/build
       run: |
-        CC=aarch64-linux-gnu-gcc-10 CXX=aarch64-linux-gnu-g++-10 cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        CC=aarch64-linux-gnu-gcc-10 CXX=aarch64-linux-gnu-g++-10 cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B build
     - name: Make
       shell: bash
-      working-directory: ${{github.workspace}}/build
       run: |
-        make -j$(nproc --all)
+        cmake --build build -j$(nproc --all)
         mkdir dist
-        cp melonDS dist
+        cp build/melonDS dist
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS-ubuntu-aarch64
-        path: ${{github.workspace}}/build/dist
+        path: dist
