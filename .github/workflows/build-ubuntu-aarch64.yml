@@ -22,19 +22,19 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}
       run: |
-        sudo apt update
-        sudo ACCEPT_EULA=Y apt full-upgrade
+        apt update
+        ACCEPT_EULA=Y apt full-upgrade
     - name: Install dependencies
       shell: bash
       working-directory: ${{runner.workspace}}
       run: |
-        sudo rm -f /etc/apt/sources.list.d/kubernetes.list
-        sudo dpkg --add-architecture arm64
-        sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
-        sudo rm /etc/apt/sources.list
-        sudo mv /etc/apt/sources.list{.new,}
-        sudo apt-get update
-        sudo apt-get install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64 libarchive-dev:arm64 libepoxy-dev:arm64 cmake dpkg-dev
+        rm -f /etc/apt/sources.list.d/kubernetes.list
+        dpkg --add-architecture arm64
+        sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
+        rm /etc/apt/sources.list
+        mv /etc/apt/sources.list{.new,}
+        apt-get update
+        apt-get install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64 libarchive-dev:arm64 libepoxy-dev:arm64 cmake dpkg-dev
     - name: Create build environment
       run: mkdir ${{runner.workspace}}/build
     - name: Configure
