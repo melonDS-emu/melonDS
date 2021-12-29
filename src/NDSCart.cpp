@@ -55,8 +55,6 @@ bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
-bool CartIsHomebrew;
-bool CartIsDSi;
 
 NDSHeader Header;
 NDSBanner Banner;
@@ -1505,16 +1503,14 @@ void DeInit()
 
 void Reset()
 {
+    if (Cart) delete Cart;
+    Cart = nullptr;
+
     CartInserted = false;
     if (CartROM) delete[] CartROM;
     CartROM = nullptr;
     CartROMSize = 0;
     CartID = 0;
-    CartIsHomebrew = false;
-    CartIsDSi = false;
-
-    if (Cart) delete Cart;
-    Cart = nullptr;
 
     ResetCart();
 }
@@ -1624,7 +1620,8 @@ void DecryptSecureArea(u8* out)
 //bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 bool LoadROM(const u8* romdata, u32 romlen)
 {
-    //NDS::Reset();
+    if (CartInserted)
+        EjectCart();
 
     CartROMSize = 0x200;
     while (CartROMSize < romlen)
@@ -1654,10 +1651,10 @@ bool LoadROM(const u8* romdata, u32 romlen)
                    (u32)Header.GameCode[0];
 
     u8 unitcode = Header.UnitCode;
-    CartIsDSi = (unitcode & 0x02) != 0;
+    bool dsi = (unitcode & 0x02) != 0;
 
     u32 arm9base = Header.ARM9ROMOffset;
-    CartIsHomebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
+    bool homebrew = (arm9base < 0x4000) || (gamecode == 0x23232323);
 
     ROMListEntry romparams;
     if (!ReadROMParams(gamecode, &romparams))
@@ -1667,7 +1664,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
         romparams.GameCode = gamecode;
         romparams.ROMSize = CartROMSize;
-        if (CartIsHomebrew)
+        if (homebrew)
             romparams.SaveMemType = 0; // no saveRAM for homebrew
         else
             romparams.SaveMemType = 2; // assume EEPROM 64k (TODO FIXME)
@@ -1691,7 +1688,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     if (romparams.SaveMemType >= 8 && romparams.SaveMemType <= 10)
         CartID |= 0x08000000; // NAND flag
 
-    if (CartIsDSi)
+    if (dsi)
         CartID |= 0x40000000;
 
     // cart ID for Jam with the Band
@@ -1719,7 +1716,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
             Key1_Encrypt((u32*)&CartROM[arm9base]);
         }
     }
-
+printf("FAZIL");
     CartInserted = true;
 
     u32 irversion = 0;
@@ -1731,7 +1728,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
             irversion = 2; // Pokémon HG/SS, B/W, B2/W2
     }
 
-    if (CartIsHomebrew)
+    if (homebrew)
         Cart = new CartHomebrew(CartROM, CartROMSize, CartID);
     else if (CartID & 0x08000000)
         Cart = new CartRetailNAND(CartROM, CartROMSize, CartID);
@@ -1741,7 +1738,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
         Cart = new CartRetailBT(CartROM, CartROMSize, CartID);
     else
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
-
+printf("PFART\n");
     if (Cart)
         Cart->Reset();
     /*{
@@ -1762,14 +1759,14 @@ bool LoadROM(const u8* romdata, u32 romlen)
     //if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
     if (Cart && romparams.SaveMemType > 0)
         Cart->SetupSave(romparams.SaveMemType);
-
+printf("PROEUPRAOUTTE\n");
     return true;
 }
 
 void LoadSave(const u8* savedata, u32 savelen)
-{
+{printf("CARTSAVE\n");
     if (Cart)
-        Cart->LoadSave(savedata, savelen);
+        Cart->LoadSave(savedata, savelen);printf("SAVE FARTED\n");
 }
 
 /*bool LoadROM(const char* path, const char* sram, bool direct)
@@ -1853,6 +1850,26 @@ int ImportSRAM(const u8* data, u32 length)
     if (Cart) return Cart->ImportSRAM(data, length);
     return 0;
 }*/
+
+void EjectCart()
+{
+    if (!CartInserted) return;
+
+    // ejecting the cart triggers the gamecard IRQ
+    NDS::SetIRQ(0, NDS::IRQ_CartIREQMC);
+    NDS::SetIRQ(1, NDS::IRQ_CartIREQMC);
+
+    if (Cart) delete Cart;
+    Cart = nullptr;
+
+    CartInserted = false;
+    if (CartROM) delete[] CartROM;
+    CartROM = nullptr;
+    CartROMSize = 0;
+    CartID = 0;
+
+    // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
+}
 
 void ResetCart()
 {

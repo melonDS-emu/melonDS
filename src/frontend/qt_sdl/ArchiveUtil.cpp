@@ -116,7 +116,45 @@ QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteA
 
 }
 
-u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata)
+u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize)
+{
+    struct archive *a = archive_read_new();
+    struct archive_entry *entry;
+    int r;
+
+    if (!filedata) return -1;
+
+    archive_read_support_format_all(a);
+    archive_read_support_filter_all(a);
+
+    //r = archive_read_open_filename(a, path, 10240);
+    r = melon_archive_open(a, path, 10240);
+    if (r != ARCHIVE_OK)
+    {
+        return -1;
+    }
+
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK)
+    {
+        if (strcmp(wantedFile.toUtf8().constData(), archive_entry_pathname_utf8(entry)) == 0)
+        {
+            break;
+        }
+    }
+
+    size_t bytesToRead = archive_entry_size(entry);
+    if (filesize) *filesize = bytesToRead;
+    *filedata = new u8[bytesToRead];
+    ssize_t bytesRead = archive_read_data(a, *filedata, bytesToRead);
+
+    archive_read_close(a);
+    archive_read_free(a);
+
+    return (u32)bytesRead;
+
+}
+
+/*u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata)
 {
     QByteArray romBuffer;
     QVector<QString> extractResult = ExtractFileFromArchive(path, wantedFile, &romBuffer);
@@ -131,6 +169,6 @@ u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdat
     memcpy(*romdata, romBuffer.data(), len);
 
     return len;
-}
+}*/
 
 }

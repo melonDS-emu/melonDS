@@ -903,12 +903,12 @@ bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
     if (savedata && savelen)
         NDSCart::LoadSave(savedata, savelen);
 
-    //Running = true;
+    return true;
 }
 
 void EjectCart()
 {
-    printf("TODO!!!!\n");
+    NDSCart::EjectCart();
 }
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)

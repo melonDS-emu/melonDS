@@ -27,6 +27,9 @@
 namespace ROMLoader
 {
 
+QString VerifySetup();
+bool LoadROM(QStringList filepath, bool reset);
+
 enum
 {
     ROMSlot_NDS = 0,

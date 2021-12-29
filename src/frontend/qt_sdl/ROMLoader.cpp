@@ -51,7 +51,7 @@ ARCodeFile* CheatFile;
 bool CheatsOn;
 
 
-void Init_ROM()
+/*void Init_ROM()
 {
     SavestateLoaded = false;
 
@@ -73,55 +73,53 @@ void DeInit_ROM()
         delete CheatFile;
         CheatFile = nullptr;
     }
-}
+}*/
 
 // TODO: currently, when failing to load a ROM for whatever reason, we attempt
 // to revert to the previous state and resume execution; this may not be a very
 // good thing, depending on what state the core was left in.
 // should we do a better state revert (via the savestate system)? completely stop?
 
-void SetupSRAMPath(int slot)
+/*void SetupSRAMPath(int slot)
 {
     SRAMPath[slot] = ROMPath[slot].substr(0, ROMPath[slot].length() - 3) + "sav";
-}
+}*/
 
-int VerifyDSBIOS()
+QString VerifyDSBIOS()
 {
     FILE* f;
     long len;
 
-    if (!Config::ExternalBIOSEnable) return Load_OK;
-
     f = Platform::OpenLocalFile(Config::BIOS9Path, "rb");
-    if (!f) return Load_BIOS9Missing;
+    if (!f) return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x1000)
     {
         fclose(f);
-        return Load_BIOS9Bad;
+        return "DS ARM9 BIOS is not a valid BIOS dump.";
     }
 
     fclose(f);
 
     f = Platform::OpenLocalFile(Config::BIOS7Path, "rb");
-    if (!f) return Load_BIOS7Missing;
+    if (!f) return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x4000)
     {
         fclose(f);
-        return Load_BIOS7Bad;
+        return "DS ARM7 BIOS is not a valid BIOS dump.";
     }
 
     fclose(f);
 
-    return Load_OK;
+    return "";
 }
 
-int VerifyDSiBIOS()
+QString VerifyDSiBIOS()
 {
     FILE* f;
     long len;
@@ -129,43 +127,41 @@ int VerifyDSiBIOS()
     // TODO: check the first 32 bytes
 
     f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
-    if (!f) return Load_DSiBIOS9Missing;
+    if (!f) return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x10000)
     {
         fclose(f);
-        return Load_DSiBIOS9Bad;
+        return "DSi ARM9 BIOS is not a valid BIOS dump.";
     }
 
     fclose(f);
 
     f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
-    if (!f) return Load_DSiBIOS7Missing;
+    if (!f) return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
     if (len != 0x10000)
     {
         fclose(f);
-        return Load_DSiBIOS7Bad;
+        return "DSi ARM7 BIOS is not a valid BIOS dump.";
     }
 
     fclose(f);
 
-    return Load_OK;
+    return "";
 }
 
-int VerifyDSFirmware()
+QString VerifyDSFirmware()
 {
     FILE* f;
     long len;
 
-    if (!Config::ExternalBIOSEnable) return Load_FirmwareNotBootable;
-
     f = Platform::OpenLocalFile(Config::FirmwarePath, "rb");
-    if (!f) return Load_FirmwareNotBootable;
+    if (!f) return "DS firmware was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
@@ -173,26 +169,27 @@ int VerifyDSFirmware()
     {
         // 128KB firmware, not bootable
         fclose(f);
-        return Load_FirmwareNotBootable;
+        // TODO report it somehow? detect in core?
+        return "";
     }
     else if (len != 0x40000 && len != 0x80000)
     {
         fclose(f);
-        return Load_FirmwareBad;
+        return "DS firmware is not a valid firmware dump.";
     }
 
     fclose(f);
 
-    return Load_OK;
+    return "";
 }
 
-int VerifyDSiFirmware()
+QString VerifyDSiFirmware()
 {
     FILE* f;
     long len;
 
     f = Platform::OpenLocalFile(Config::DSiFirmwarePath, "rb");
-    if (!f) return Load_FirmwareMissing;
+    if (!f) return "DSi firmware was not found or could not be accessed. Check your emu settings.";
 
     fseek(f, 0, SEEK_END);
     len = ftell(f);
@@ -201,29 +198,131 @@ int VerifyDSiFirmware()
         // not 128KB
         // TODO: check whether those work
         fclose(f);
-        return Load_FirmwareBad;
+        return "DSi firmware is not a valid firmware dump.";
     }
 
     fclose(f);
 
-    return Load_OK;
+    return "";
 }
 
-int SetupDSiNAND()
+QString VerifyDSiNAND()
 {
     FILE* f;
     long len;
 
     f = Platform::OpenLocalFile(Config::DSiNANDPath, "r+b");
-    if (!f) return Load_DSiNANDMissing;
+    if (!f) return "DSi NAND was not found or could not be accessed. Check your emu settings.";
 
     // TODO: some basic checks
     // check that it has the nocash footer, and all
 
-    DSi::SDMMCFile = f;
+    fclose(f);
 
-    return Load_OK;
+    return "";
 }
+
+QString VerifySetup()
+{
+    QString res;
+
+    if (Config::ExternalBIOSEnable)
+    {
+        res = VerifyDSBIOS();
+        if (!res.isEmpty()) return res;
+    }
+
+    if (Config::ConsoleType == 1)
+    {
+        res = VerifyDSiBIOS();
+        if (!res.isEmpty()) return res;
+
+        if (Config::ExternalBIOSEnable)
+        {
+            res = VerifyDSiFirmware();
+            if (!res.isEmpty()) return res;
+        }
+
+        res = VerifyDSiNAND();
+        if (!res.isEmpty()) return res;
+    }
+    else
+    {
+        if (Config::ExternalBIOSEnable)
+        {
+            res = VerifyDSFirmware();
+            if (!res.isEmpty()) return res;
+        }
+    }
+
+    return "";
+}
+
+
+bool LoadROM(QStringList filepath, bool reset)
+{
+    if (filepath.empty()) return false;
+
+    u8* filedata;
+    u32 filelen;
+
+    int num = filepath.count();
+    if (num == 1)
+    {
+        // regular file
+
+        FILE* f = Platform::OpenFile(filepath.at(0).toStdString(), "rb", true);
+        if (!f) return false;
+
+        fseek(f, 0, SEEK_END);
+        long len = ftell(f);
+        if (len > 0x40000000)
+        {
+            fclose(f);
+            return false;
+        }
+
+        fseek(f, 0, SEEK_SET);
+        filedata = new u8[len];
+        size_t nread = fread(filedata, (size_t)len, 1, f);
+        if (nread != 1)
+        {
+            fclose(f);
+            delete[] filedata;
+            return false;
+        }
+
+        fclose(f);
+        filelen = (u32)len;
+    }
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    else if (num == 2)
+    {
+        // file inside archive
+
+        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        if (lenread < 0) return false;
+        if (!filedata) return false;
+        if (lenread != filelen)
+        {
+            delete[] filedata;
+            return false;
+        }
+    }
+#endif
+    else
+        return false;
+
+    if (reset)
+    {
+        NDS::Reset();
+    }
+
+    // TODO: SAVE
+    return NDS::LoadCart(filedata, filelen, nullptr, 0);
+}
+
+
 
 void LoadCheats()
 {
@@ -251,7 +350,7 @@ void LoadCheats()
     AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
 }
 
-int LoadBIOS()
+/*int LoadBIOS()
 {
     DSi::CloseDSiNAND();
 
@@ -363,7 +462,7 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
         PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
-    else*/
+    else*-/
     {
         ROMPath[slot] = oldpath;
         SRAMPath[slot] = oldsram;
@@ -443,13 +542,13 @@ int LoadROM(const char* file, int slot)
         PrevSRAMPath[slot] = SRAMPath[slot]; // safety
         return Load_OK;
     }
-    else*/
+    else*-/
     {
         ROMPath[slot] = oldpath;
         SRAMPath[slot] = oldsram;
         return Load_ROMLoadError;
     }
-}
+}*/
 
 void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)
 {
@@ -535,7 +634,7 @@ void UnloadROM(int slot)
 
 int Reset()
 {
-    DSi::CloseDSiNAND();
+    /*DSi::CloseDSiNAND();
 
     int res;
     bool directboot = Config::DirectBoot != 0;
@@ -611,7 +710,7 @@ int Reset()
 
             bool ok = NDS::LoadROM(romdata, romlen, sramfilename, directboot);
             delete romdata;
-            if (!ok)*/
+            if (!ok)*-/
                 return Load_ROMLoadError;
         }
 #endif
@@ -650,13 +749,13 @@ int Reset()
 
             bool ok = NDS::LoadGBAROM(romdata, romlen, romfilename, SRAMPath[ROMSlot_GBA]);
             delete romdata;
-            if (!ok)*/
+            if (!ok)*-/
                 return Load_ROMLoadError;
         }
 #endif
     }
 
-    LoadCheats();
+    LoadCheats();*/
 
     return Load_OK;
 }

@@ -292,13 +292,17 @@ private slots:
     void onFullscreenToggled();
 
 private:
+    QStringList currentROM;
+    QStringList currentGBAROM;
     QList<QString> recentFileList;
     QMenu *recentMenu;
     void updateRecentFilesMenu();
 
-    QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
+    //QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
 
-    void pickAndLoadROM(bool gba);
+    bool verifySetup();
+    QString pickFileFromArchive(QString archiveFileName);
+    QStringList pickROM(bool gba);
 
     void createScreenPanel();
 

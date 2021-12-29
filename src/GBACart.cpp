@@ -648,6 +648,9 @@ void Reset()
 
 void Eject()
 {
+    if (Cart) delete Cart;
+    Cart = nullptr;
+
     if (CartROM) delete[] CartROM;
 
     CartInserted = false;
@@ -655,9 +658,6 @@ void Eject()
     CartROMSize = 0;
     CartCRC = 0;
     CartID = 0;
-
-    if (Cart) delete Cart;
-    Cart = nullptr;
 
     Reset();
 }

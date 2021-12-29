@@ -218,6 +218,8 @@ bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 void SetupDirectBoot(std::string romname);
 
+void EjectCart();
+
 //void FlushSRAMFile();
 
 //void RelocateSave(const char* path, bool write);
