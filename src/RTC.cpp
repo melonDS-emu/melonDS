@@ -132,11 +132,15 @@ void ByteIn(u8 val)
                     struct tm timedata;
                     localtime_r(&timestamp, &timedata);
 
-                    Output[0] = BCD(timedata.tm_year - 100);
+                    Output[0] = BCD(timedata.tm_year % 100);
                     Output[1] = BCD(timedata.tm_mon + 1);
                     Output[2] = BCD(timedata.tm_mday);
-                    Output[3] = BCD(timedata.tm_wday);
-                    Output[4] = BCD(timedata.tm_hour);
+                    Output[3] = timedata.tm_wday;
+
+                    int hour = timedata.tm_hour;
+                    int pm_flag = hour < 12 ? 0x00 : 0x40;
+                    if (!(StatusReg1 & 0x2)) hour %= 12;
+                    Output[4] = BCD(hour) | pm_flag;
                     Output[5] = BCD(timedata.tm_min);
                     Output[6] = BCD(timedata.tm_sec);
                 }
@@ -148,7 +152,10 @@ void ByteIn(u8 val)
                     struct tm timedata;
                     localtime_r(&timestamp, &timedata);
 
-                    Output[0] = BCD(timedata.tm_hour);
+                    int hour = timedata.tm_hour;
+                    int pm_flag = hour < 12 ? 0x00 : 0x40;
+                    if (!(StatusReg1 & 0x2)) hour %= 12;
+                    Output[0] = BCD(hour) | pm_flag;
                     Output[1] = BCD(timedata.tm_min);
                     Output[2] = BCD(timedata.tm_sec);
                 }
