@@ -138,7 +138,7 @@ void ByteIn(u8 val)
                     Output[3] = timedata.tm_wday;
 
                     int hour = timedata.tm_hour;
-                    int pm_flag = hour < 12 ? 0x00 : 0x40;
+                    u8 pm_flag = hour < 12 ? 0x00 : 0x40;
                     if (!(StatusReg1 & 0x2)) hour %= 12;
                     Output[4] = BCD(hour) | pm_flag;
                     Output[5] = BCD(timedata.tm_min);
@@ -153,7 +153,7 @@ void ByteIn(u8 val)
                     localtime_r(&timestamp, &timedata);
 
                     int hour = timedata.tm_hour;
-                    int pm_flag = hour < 12 ? 0x00 : 0x40;
+                    u8 pm_flag = hour < 12 ? 0x00 : 0x40;
                     if (!(StatusReg1 & 0x2)) hour %= 12;
                     Output[0] = BCD(hour) | pm_flag;
                     Output[1] = BCD(timedata.tm_min);
