@@ -1752,7 +1752,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
 
-    QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
+    QStringList acceptedExts{".nds", ".ids", ".srl", ".dsi", ".gba", ".rar",
                              ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
 
     for(const QString &ext : acceptedExts)
@@ -1787,7 +1787,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         slot = 1;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
     }
-    else if(ext == "nds" || ext == "srl" || ext == "dsi")
+    else if(ext == "nds" || ext == "ids" || ext == "srl" || ext == "dsi")
     {
         slot = 0;
         res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
@@ -1995,7 +1995,7 @@ void MainWindow::onOpenFile()
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open ROM",
                                                     Config::LastROMFolder,
-                                                    "DS ROMs (*.nds *.dsi *.srl);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
+                                                    "DS ROMs (*.nds *.dsi *.srl *.ids);;GBA ROMs (*.gba *.zip);;Any file (*.*)");
     if (filename.isEmpty())
     {
         emuThread->emuUnpause();
