@@ -196,6 +196,7 @@ extern u32 ROMCnt;
 
 extern u8 ROMCommand[8];
 
+extern bool CartInserted;
 extern u8* CartROM;
 extern u32 CartROMSize;
 

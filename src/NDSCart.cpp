@@ -1489,6 +1489,7 @@ void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)
 
 bool Init()
 {
+    CartInserted = false;
     CartROM = nullptr;
     Cart = nullptr;
 
@@ -1503,14 +1504,14 @@ void DeInit()
 
 void Reset()
 {
-    if (Cart) delete Cart;
+    /*if (Cart) delete Cart;
     Cart = nullptr;
 
     CartInserted = false;
     if (CartROM) delete[] CartROM;
     CartROM = nullptr;
     CartROMSize = 0;
-    CartID = 0;
+    CartID = 0;*/
 
     ResetCart();
 }
@@ -1716,7 +1717,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
             Key1_Encrypt((u32*)&CartROM[arm9base]);
         }
     }
-printf("FAZIL");
+
     CartInserted = true;
 
     u32 irversion = 0;
@@ -1738,7 +1739,7 @@ printf("FAZIL");
         Cart = new CartRetailBT(CartROM, CartROMSize, CartID);
     else
         Cart = new CartRetail(CartROM, CartROMSize, CartID);
-printf("PFART\n");
+
     if (Cart)
         Cart->Reset();
     /*{
@@ -1759,14 +1760,14 @@ printf("PFART\n");
     //if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
     if (Cart && romparams.SaveMemType > 0)
         Cart->SetupSave(romparams.SaveMemType);
-printf("PROEUPRAOUTTE\n");
+
     return true;
 }
 
 void LoadSave(const u8* savedata, u32 savelen)
-{printf("CARTSAVE\n");
+{
     if (Cart)
-        Cart->LoadSave(savedata, savelen);printf("SAVE FARTED\n");
+        Cart->LoadSave(savedata, savelen);
 }
 
 /*bool LoadROM(const char* path, const char* sram, bool direct)

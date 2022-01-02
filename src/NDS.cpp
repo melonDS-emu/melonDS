@@ -565,7 +565,6 @@ void Reset()
     if (ConsoleType == 1)
     {
         DSi::LoadBIOS();
-        DSi::LoadNAND();
 
         ARM9ClockShift = 2;
         MainRAMMask = 0xFFFFFF;
@@ -930,6 +929,11 @@ bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 void EjectCart()
 {
     NDSCart::EjectCart();
+}
+
+bool CartInserted()
+{
+    return NDSCart::CartInserted;
 }
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)

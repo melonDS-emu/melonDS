@@ -31,6 +31,11 @@ QString VerifySetup();
 bool LoadBIOS();
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
+QString CartLabel();
+
+bool LoadGBAROM(QStringList filepath, bool reset);
+void EjectGBACart();
+QString GBACartLabel();
 
 enum
 {

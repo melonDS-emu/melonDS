@@ -220,7 +220,7 @@ int SetupDSiNAND()
     // TODO: some basic checks
     // check that it has the nocash footer, and all
 
-    DSi::SDMMCFile = f;
+    //DSi::SDMMCFile = f;
 
     return Load_OK;
 }
@@ -253,7 +253,7 @@ void LoadCheats()
 
 int LoadBIOS()
 {
-    DSi::CloseDSiNAND();
+    //DSi::CloseDSiNAND();
 
     int res;
 
@@ -373,7 +373,7 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
 
 int LoadROM(const char* file, int slot)
 {
-    DSi::CloseDSiNAND();
+    //DSi::CloseDSiNAND();
 
     int res;
     bool directboot = Config::DirectBoot != 0;
@@ -530,12 +530,12 @@ void UnloadROM(int slot)
 
     ROMPath[slot] = "";
 
-    DSi::CloseDSiNAND();
+//    DSi::CloseDSiNAND();
 }
 
 int Reset()
 {
-    DSi::CloseDSiNAND();
+//    DSi::CloseDSiNAND();
 
     int res;
     bool directboot = Config::DirectBoot != 0;

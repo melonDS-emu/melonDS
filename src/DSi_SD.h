@@ -33,6 +33,7 @@ public:
     DSi_SDHost(u32 num);
     ~DSi_SDHost();
 
+    void CloseHandles();
     void Reset();
 
     void DoSavestate(Savestate* file);
@@ -122,7 +123,7 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename);
     DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir);
     ~DSi_MMCStorage();
 

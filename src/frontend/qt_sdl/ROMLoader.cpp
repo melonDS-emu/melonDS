@@ -42,6 +42,7 @@ namespace ROMLoader
 std::string FullROMPath;
 std::string BaseROMDir;
 std::string BaseROMName;
+std::string BaseAssetName;
 
 
 int LastSep(std::string path)
@@ -75,7 +76,7 @@ std::string GetAssetPath(std::string configpath, std::string ext)
     if (!configpath.empty())
         configpath += "/";
 
-    return configpath + BaseROMName + ext;
+    return configpath + BaseAssetName + ext;
 }
 
 
@@ -257,12 +258,15 @@ QString VerifySetup()
 
 bool LoadBIOS()
 {
+    NDS::SetConsoleType(Config::ConsoleType);
+
     if (NDS::NeedsDirectBoot())
         return false;
 
     FullROMPath = "";
     BaseROMDir = "";
     BaseROMName = "";
+    BaseAssetName = "";
 
     NDS::Reset();
     return true;
@@ -343,10 +347,12 @@ bool LoadROM(QStringList filepath, bool reset)
 
     FullROMPath = fullpath;
     BaseROMDir = basepath;
-    BaseROMName = romname.substr(0, romname.rfind('.'));
+    BaseROMName = romname;
+    BaseAssetName = romname.substr(0, romname.rfind('.'));
 
     if (reset)
     {
+        NDS::SetConsoleType(Config::ConsoleType);
         NDS::Reset();
     }
 
@@ -367,7 +373,7 @@ bool LoadROM(QStringList filepath, bool reset)
     }
 
     bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
-    if (res)
+    if (res && reset)
     {
         if (Config::DirectBoot || NDS::NeedsDirectBoot())
         {
@@ -387,6 +393,30 @@ void EjectCart()
     FullROMPath = "";
     BaseROMDir = "";
     BaseROMName = "";
+    BaseAssetName = "";
+}
+
+QString CartLabel()
+{
+    if (BaseROMName.empty())
+        return "(none)";
+
+    QString ret = QString::fromStdString(BaseROMName);
+
+    int maxlen = 32;
+    if (ret.length() > maxlen)
+        ret = ret.left(maxlen-6) + "..." + ret.right(3);
+
+    return ret;
+}
+
+
+
+
+// PLACEHOLDER
+QString GBACartLabel()
+{
+    return "(none)";
 }
 
 

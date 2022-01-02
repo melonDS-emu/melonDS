@@ -61,6 +61,14 @@ DSi_SDHost::~DSi_SDHost()
     if (Ports[1]) delete Ports[1];
 }
 
+void DSi_SDHost::CloseHandles()
+{
+    if (Ports[0]) delete Ports[0];
+    if (Ports[1]) delete Ports[1];
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
+}
+
 void DSi_SDHost::Reset()
 {
     if (Num == 0)
@@ -101,10 +109,7 @@ void DSi_SDHost::Reset()
 
     TXReq = false;
 
-    if (Ports[0]) delete Ports[0];
-    if (Ports[1]) delete Ports[1];
-    Ports[0] = nullptr;
-    Ports[1] = nullptr;
+    CloseHandles();
 
     if (Num == 0)
     {
@@ -131,7 +136,7 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
+        mmc = new DSi_MMCStorage(this, true, Platform::GetConfigString(Platform::DSi_NANDPath));
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -727,12 +732,15 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename)
     : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = file;
+    File = Platform::OpenLocalFile(filename, "r+b");
+    printf("BLAGFARTED: %s -> %p\n", filename.c_str(), File);
     SD = nullptr;
+
+    ReadOnly = false;
 }
 
 DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir)
@@ -753,6 +761,10 @@ DSi_MMCStorage::~DSi_MMCStorage()
     {
         SD->Close();
         delete SD;
+    }
+    if (File)
+    {
+        fclose(File);
     }
 }
 

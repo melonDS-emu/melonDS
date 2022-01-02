@@ -1308,7 +1308,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentCart = menu->addAction("Slot 1: princessbourf.nds");
+        actCurrentCart = menu->addAction("DS slot: " + ROMLoader::CartLabel());
         actCurrentCart->setEnabled(false);
 
         actInsertCart = menu->addAction("Insert cart...");
@@ -1319,7 +1319,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentGBACart = menu->addAction("Slot 2: Fartslapper Mk. II");
+        actCurrentGBACart = menu->addAction("GBA slot: " + ROMLoader::GBACartLabel());
         actCurrentGBACart->setEnabled(false);
 
         actInsertGBACart = menu->addAction("Insert ROM cart...");
@@ -1613,6 +1613,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         show();
 
     createScreenPanel();
+
+    actEjectCart->setEnabled(false);
+    actEjectGBACart->setEnabled(false);
 
     for (int i = 0; i < 9; i++)
     {
@@ -2149,6 +2152,9 @@ void MainWindow::onOpenFile()
 
     NDS::Start();
     emuThread->emuRun();
+
+    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actEjectCart->setEnabled(true);
 }
 
 /*QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
@@ -2333,6 +2339,9 @@ void MainWindow::onInsertCart()
     }
 
     emuThread->emuUnpause();
+
+    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actEjectCart->setEnabled(true);
 }
 
 void MainWindow::onEjectCart()
@@ -2342,6 +2351,9 @@ void MainWindow::onEjectCart()
     ROMLoader::EjectCart();
 
     emuThread->emuUnpause();
+
+    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actEjectCart->setEnabled(false);
 }
 
 void MainWindow::onSaveState()
