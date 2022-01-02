@@ -230,10 +230,11 @@ signals:
 
 private slots:
     void onOpenFile();
-    void onOpenFileArchive();
     void onClickRecentFile();
     void onClearRecentFiles();
     void onBootFirmware();
+    void onInsertCart();
+    void onEjectCart();
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();

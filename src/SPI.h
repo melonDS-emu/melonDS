@@ -28,6 +28,7 @@ void SetupDirectBoot(bool dsi);
 
 u32 FixFirmwareLength(u32 originalLength);
 
+u32 GetFirmwareLength();
 u8 GetConsoleType();
 u8 GetWifiVersion();
 u8 GetNWifiVersion();

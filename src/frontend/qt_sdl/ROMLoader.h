@@ -28,7 +28,9 @@ namespace ROMLoader
 {
 
 QString VerifySetup();
+bool LoadBIOS();
 bool LoadROM(QStringList filepath, bool reset);
+void EjectCart();
 
 enum
 {
@@ -65,58 +67,7 @@ enum
     Load_ROMLoadError,
 };
 
-extern std::string ROMPath [ROMSlot_MAX];
-extern std::string SRAMPath[ROMSlot_MAX];
-extern bool SavestateLoaded;
 
-// Stores type of nds rom i.e. nds/srl/dsi. Should be updated everytime an NDS rom is loaded from an archive
-extern std::string NDSROMExtension;
-
-// initialize the ROM handling utility
-void Init_ROM();
-
-// deinitialize the ROM handling utility
-void DeInit_ROM();
-
-// load the BIOS/firmware and boot from it
-int LoadBIOS();
-
-// load a ROM file to the specified cart slot
-// note: loading a ROM to the NDS slot resets emulation
-int LoadROM(const char* file, int slot);
-int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const char *romfilename, const char *sramfilename, int slot);
-
-// unload the ROM loaded in the specified cart slot
-// simulating ejection of the cartridge
-void UnloadROM(int slot);
-
-void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef);
-void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16], u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64], std::vector<int> &animatedSequenceRef);
-
-// reset execution of the current ROM
-int Reset();
-
-// get the filename associated with the given savestate slot (1-8)
-std::string GetSavestateName(int slot);
-
-// determine whether the given savestate slot does contain a savestate
-bool SavestateExists(int slot);
-
-// load the given savestate file
-// if successful, emulation will continue from the savestate's point
-bool LoadState(std::string filename);
-
-// save the current emulator state to the given file
-bool SaveState(std::string filename);
-
-// undo the latest savestate load
-void UndoStateLoad();
-
-// imports savedata from an external file. Returns the difference between the filesize and the SRAM size
-int ImportSRAM(const char* filename);
-
-// enable or disable cheats
-void EnableCheats(bool enable);
 
 
 

@@ -255,6 +255,19 @@ QString VerifySetup()
 }
 
 
+bool LoadBIOS()
+{
+    if (NDS::NeedsDirectBoot())
+        return false;
+
+    FullROMPath = "";
+    BaseROMDir = "";
+    BaseROMName = "";
+
+    NDS::Reset();
+    return true;
+}
+
 bool LoadROM(QStringList filepath, bool reset)
 {
     if (filepath.empty()) return false;
@@ -262,6 +275,7 @@ bool LoadROM(QStringList filepath, bool reset)
     u8* filedata;
     u32 filelen;
 
+    std::string fullpath;
     std::string basepath;
     std::string romname;
 
@@ -295,6 +309,8 @@ bool LoadROM(QStringList filepath, bool reset)
         fclose(f);
         filelen = (u32)len;
 
+        fullpath = filename;
+
         int pos = LastSep(filename);
         basepath = filename.substr(0, pos);
         romname = filename.substr(pos+1);
@@ -304,9 +320,7 @@ bool LoadROM(QStringList filepath, bool reset)
     {
         // file inside archive
 
-        QString archivepath = filepath.at(0);
-
-        u32 lenread = Archive::ExtractFileFromArchive(archivepath, filepath.at(1), &filedata, &filelen);
+        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
         if (lenread < 0) return false;
         if (!filedata) return false;
         if (lenread != filelen)
@@ -315,21 +329,20 @@ bool LoadROM(QStringList filepath, bool reset)
             return false;
         }
 
-        std::string std_archivepath = archivepath.toStdString();
+        std::string std_archivepath = filepath.at(0).toStdString();
         basepath = std_archivepath.substr(0, LastSep(std_archivepath));
 
         std::string std_romname = filepath.at(1).toStdString();
         romname = std_romname.substr(LastSep(std_romname)+1);
+
+        fullpath = std_archivepath + "//" + std_romname;
     }
 #endif
     else
         return false;
 
-    //
-    printf("BASE PATH IS %s\n", basepath.c_str());
-    printf("ROM NAME IS %s\n", romname.c_str());
+    FullROMPath = fullpath;
     BaseROMDir = basepath;
-
     BaseROMName = romname.substr(0, romname.rfind('.'));
 
     if (reset)
@@ -356,7 +369,7 @@ bool LoadROM(QStringList filepath, bool reset)
     bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
     if (res)
     {
-        if (Config::DirectBoot)
+        if (Config::DirectBoot || NDS::NeedsDirectBoot())
         {
             NDS::SetupDirectBoot(romname);
         }
@@ -365,6 +378,15 @@ bool LoadROM(QStringList filepath, bool reset)
     delete[] savedata;
     delete[] filedata;
     return res;
+}
+
+void EjectCart()
+{
+    NDS::EjectCart();
+
+    FullROMPath = "";
+    BaseROMDir = "";
+    BaseROMName = "";
 }
 
 

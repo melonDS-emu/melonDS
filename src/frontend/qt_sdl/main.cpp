@@ -1312,8 +1312,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actCurrentCart->setEnabled(false);
 
         actInsertCart = menu->addAction("Insert cart...");
+        connect(actInsertCart, &QAction::triggered, this, &MainWindow::onInsertCart);
 
         actEjectCart = menu->addAction("Eject cart");
+        connect(actEjectCart, &QAction::triggered, this, &MainWindow::onEjectCart);
 
         menu->addSeparator();
 
@@ -2122,15 +2124,6 @@ void MainWindow::onOpenFile()
 {
     emuThread->emuPause();
 
-    // stock path/archivepath in this module, alongside recent ROM list
-    // update them at the same time?
-    //
-    // 1. verify BIOS/firm/etc
-    // 2. pick ROM
-    // 3. set recent ROM, last folder, etc
-    // 4. reset system (if need be)
-    // 5. load ROM/SRAM into core
-    // 6. boot
     if (!verifySetup())
     {
         emuThread->emuUnpause();
@@ -2153,31 +2146,9 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
-printf("PROEUPRAON\n");
-    NDS::Start();printf("PROOT\n");
-    emuThread->emuRun();printf("ASSFAZIL\n");
-}
 
-void MainWindow::onOpenFileArchive()
-{
-    /*emuThread->emuPause();
-
-    QString archiveFileName = QFileDialog::getOpenFileName(this,
-                                                    "Open ROM Archive",
-                                                    QString::fromStdString(Config::LastROMFolder),
-                                                    "Archived ROMs (*.zip *.7z *.rar *.tar *.tar.gz *.tar.xz *.tar.bz2);;Any file (*.*)");
-    if (archiveFileName.isEmpty())
-    {
-        emuThread->emuUnpause();
-        return;
-    }
-
-    QByteArray romBuffer;
-    QString romFileName = pickAndExtractFileFromArchive(archiveFileName, &romBuffer);
-    if(!romFileName.isEmpty())
-    {
-        loadROM(&romBuffer, archiveFileName, romFileName);
-    }*/
+    NDS::Start();
+    emuThread->emuRun();
 }
 
 /*QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
@@ -2322,18 +2293,55 @@ void MainWindow::onBootFirmware()
 
     emuThread->emuPause();
 
-    int res = Frontend::LoadBIOS();
-    if (res != Frontend::Load_OK)
+    if (!verifySetup())
     {
-        QMessageBox::critical(this,
-                              "melonDS",
-                              loadErrorStr(res));
         emuThread->emuUnpause();
+        return;
     }
-    else
+
+    if (!ROMLoader::LoadBIOS())
     {
-        emuThread->emuRun();
+        // TODO: better error reporting?
+        QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
+        emuThread->emuUnpause();
+        return;
     }
+
+    NDS::Start();
+    emuThread->emuRun();
+}
+
+void MainWindow::onInsertCart()
+{
+    emuThread->emuPause();
+
+    QStringList file = pickROM(false);
+    if (file.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    // TODO: add to recent ROM list??
+
+    if (!ROMLoader::LoadROM(file, false))
+    {
+        // TODO: better error reporting?
+        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        emuThread->emuUnpause();
+        return;
+    }
+
+    emuThread->emuUnpause();
+}
+
+void MainWindow::onEjectCart()
+{
+    emuThread->emuPause();
+
+    ROMLoader::EjectCart();
+
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onSaveState()

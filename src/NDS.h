@@ -240,6 +240,8 @@ void LoadBIOS();
 
 bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
 void EjectCart();
+
+bool NeedsDirectBoot();
 void SetupDirectBoot(std::string romname);
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);

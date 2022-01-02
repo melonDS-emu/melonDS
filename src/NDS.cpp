@@ -353,6 +353,27 @@ void InitTimings()
     // handled later: GBA slot, wifi
 }
 
+bool NeedsDirectBoot()
+{
+    if (ConsoleType == 1)
+    {
+        // for now, DSi mode requires original BIOS/NAND
+        return false;
+    }
+    else
+    {
+        // internal BIOS does not support direct boot
+        if (!Platform::GetConfigBool(Platform::ExternalBIOSEnable))
+            return true;
+
+        // DSi/3DS firmwares aren't bootable
+        if (SPI_Firmware::GetFirmwareLength() == 0x20000)
+            return true;
+
+        return false;
+    }
+}
+
 void SetupDirectBoot(std::string romname)
 {
     if (ConsoleType == 1)
