@@ -354,6 +354,13 @@ bool LoadROM(QStringList filepath, bool reset)
     }
 
     bool res = NDS::LoadCart(filedata, filelen, savedata, savelen);
+    if (res)
+    {
+        if (Config::DirectBoot)
+        {
+            NDS::SetupDirectBoot(romname);
+        }
+    }
 
     delete[] savedata;
     delete[] filedata;
