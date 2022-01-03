@@ -235,6 +235,7 @@ private slots:
     void onBootFirmware();
     void onInsertCart();
     void onEjectCart();
+    void onInsertGBAAddon();
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();

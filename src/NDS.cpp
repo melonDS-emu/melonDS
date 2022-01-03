@@ -943,13 +943,16 @@ bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 
     if (savedata && savelen)
         GBACart::LoadSave(savedata, savelen);
+}
 
-    //Running = true;
+void LoadGBAAddon(int type)
+{
+    GBACart::LoadAddon(type);
 }
 
 void EjectGBACart()
 {
-    printf("TODO!!!!\n");
+    GBACart::EjectCart();
 }
 
 /*bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)

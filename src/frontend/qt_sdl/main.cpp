@@ -1328,14 +1328,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         {
             QMenu* submenu = menu->addMenu("Insert add-on cart");
 
-            actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
+            /*actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
             actInsertGBAAddon[1] = submenu->addAction("Vibrator Pak");
             actInsertGBAAddon[2] = submenu->addAction("Guitar Hero grip");
             actInsertGBAAddon[3] = submenu->addAction("Fartslapper");
             actInsertGBAAddon[4] = submenu->addAction("Fartslapper Mk. II");
             actInsertGBAAddon[5] = submenu->addAction("Ghostbusters ray");
             actInsertGBAAddon[6] = submenu->addAction("Fridge Pak");
-            actInsertGBAAddon[7] = submenu->addAction("Fazil");
+            actInsertGBAAddon[7] = submenu->addAction("Fazil");*/
+            actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
+            actInsertGBAAddon[0]->setData(QVariant(NDS::GBAAddon_RAMExpansion));
+            connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
@@ -2356,6 +2359,23 @@ void MainWindow::onEjectCart()
     actEjectCart->setEnabled(false);
 }
 
+void MainWindow::onInsertGBAAddon()
+{
+    QAction* act = (QAction*)sender();
+    int type = act->data().toInt();
+
+    printf("INSERT: %d\n", type);
+
+    emuThread->emuPause();
+
+    ROMLoader::LoadGBAAddon(type);
+
+    emuThread->emuUnpause();
+
+    actCurrentGBACart->setText("GBA slot: " + ROMLoader::GBACartLabel());
+    actEjectGBACart->setEnabled(true);
+}
+
 void MainWindow::onSaveState()
 {
     int slot = ((QAction*)sender())->data().toInt();
@@ -2534,19 +2554,10 @@ void MainWindow::onReset()
 
     actUndoStateLoad->setEnabled(false);
 
-    int res = Frontend::Reset();
-    if (res != Frontend::Load_OK)
-    {
-        QMessageBox::critical(this,
-                              "melonDS",
-                              loadErrorStr(res));
-        emuThread->emuUnpause();
-    }
-    else
-    {
-        OSD::AddMessage(0, "Reset");
-        emuThread->emuRun();
-    }
+    ROMLoader::Reset();
+
+    OSD::AddMessage(0, "Reset");
+    emuThread->emuRun();
 }
 
 void MainWindow::onStop()

@@ -530,9 +530,6 @@ void SoftReset()
 
     NDS::MapSharedWRAM(3);
 
-    // FIXME!!!!!
-    //memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
-
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
@@ -548,9 +545,6 @@ void SoftReset()
 
     DSi_AES::Reset();
 
-    //NDS::ARM9->JumpTo(BootAddr[0]);
-    //NDS::ARM7->JumpTo(BootAddr[1]);
-
     SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
     SCFG_Clock9 = 0x0187; // CHECKME
     SCFG_Clock7 = 0x0187;
@@ -565,20 +559,6 @@ void SoftReset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
-
-    //for (u32 i = 0; i < 0x3C00; i+=4)
-    //    ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
-
-    u32 eaddr = 0x03FFE6E4;
-    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
-    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
-    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
-    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
-    ARM7Write16(eaddr+0x2C, 0x0001);
-    ARM7Write16(eaddr+0x2E, 0x0001);
-    ARM7Write16(eaddr+0x3C, 0x0100);
-    ARM7Write16(eaddr+0x3E, 0x40E0);
-    ARM7Write16(eaddr+0x42, 0x0001);
 }
 
 bool LoadBIOS()

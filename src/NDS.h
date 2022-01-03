@@ -164,6 +164,12 @@ struct MemRegion
     u32 Mask;
 };
 
+// supported GBA slot addon types
+enum
+{
+    GBAAddon_RAMExpansion = 1,
+};
+
 #ifdef JIT_ENABLED
 extern bool EnableJIT;
 #endif
@@ -246,6 +252,7 @@ bool NeedsDirectBoot();
 void SetupDirectBoot(std::string romname);
 
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+void LoadGBAAddon(int type);
 void EjectGBACart();
 
 //void RelocateSave(const char* path, bool write);

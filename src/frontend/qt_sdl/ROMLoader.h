@@ -28,12 +28,15 @@ namespace ROMLoader
 {
 
 QString VerifySetup();
+void Reset();
 bool LoadBIOS();
+
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
 QString CartLabel();
 
 bool LoadGBAROM(QStringList filepath, bool reset);
+void LoadGBAAddon(int type);
 void EjectGBACart();
 QString GBACartLabel();
 

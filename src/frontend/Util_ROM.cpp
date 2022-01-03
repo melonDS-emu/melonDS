@@ -320,7 +320,7 @@ int LoadROM(const u8 *romdata, u32 romlength, const char *archivefilename, const
         res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
-        GBACart::Eject();
+        //GBACart::Eject();
         ROMPath[ROMSlot_GBA] = "";
     }
     else
@@ -398,7 +398,7 @@ int LoadROM(const char* file, int slot)
         res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
-        GBACart::Eject();
+        //GBACart::Eject();
         ROMPath[ROMSlot_GBA] = "";
     }
     else
@@ -525,7 +525,7 @@ void UnloadROM(int slot)
     }
     else if (slot == ROMSlot_GBA)
     {
-        GBACart::Eject();
+//        GBACart::Eject();
     }
 
     ROMPath[slot] = "";
@@ -554,7 +554,7 @@ int Reset()
         res = SetupDSiNAND();
         if (res != Load_OK) return res;
 
-        GBACart::Eject();
+//        GBACart::Eject();
         ROMPath[ROMSlot_GBA][0] = '\0';
     }
     else

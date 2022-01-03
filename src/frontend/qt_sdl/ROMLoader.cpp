@@ -44,6 +44,8 @@ std::string BaseROMDir;
 std::string BaseROMName;
 std::string BaseAssetName;
 
+int GBACartType;
+
 
 int LastSep(std::string path)
 {
@@ -256,6 +258,21 @@ QString VerifySetup()
 }
 
 
+void Reset()
+{
+    NDS::SetConsoleType(Config::ConsoleType);
+    NDS::Reset();
+
+    if (!BaseROMName.empty())
+    {
+        if (Config::DirectBoot || NDS::NeedsDirectBoot())
+        {
+            NDS::SetupDirectBoot(BaseROMName);
+        }
+    }
+}
+
+
 bool LoadBIOS()
 {
     NDS::SetConsoleType(Config::ConsoleType);
@@ -413,9 +430,25 @@ QString CartLabel()
 
 
 
+void LoadGBAAddon(int type)
+{
+    NDS::LoadGBAAddon(type);
+
+    GBACartType = type;
+}
+
 // PLACEHOLDER
 QString GBACartLabel()
 {
+    switch (GBACartType)
+    {
+    case 0:
+        return "it's a ROM (TODO)";
+
+    case NDS::GBAAddon_RAMExpansion:
+        return "Memory expansion";
+    }
+
     return "(none)";
 }
 

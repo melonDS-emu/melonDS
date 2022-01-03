@@ -31,6 +31,7 @@ class CartCommon
 public:
     CartCommon();
     virtual ~CartCommon();
+    virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
 
@@ -54,6 +55,7 @@ class CartGame : public CartCommon
 public:
     CartGame(u8* rom, u32 len);
     virtual ~CartGame() override;
+    virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
 
@@ -124,6 +126,7 @@ class CartGameSolarSensor : public CartGame
 public:
     CartGameSolarSensor(u8* rom, u32 len);
     virtual ~CartGameSolarSensor() override;
+    virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
 
@@ -138,6 +141,24 @@ private:
     u8 LightCounter;
     u8 LightSample;
     u8 LightLevel;
+};
+
+// CartRAMExpansion -- RAM expansion cart (DS browser, ...)
+class CartRAMExpansion : public CartCommon
+{
+public:
+    CartRAMExpansion();
+    ~CartRAMExpansion() override;
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) override;
+    void ROMWrite(u32 addr, u16 val) override;
+
+private:
+    u8 RAM[0x800000];
+    u16 RAMEnable;
 };
 
 // possible inputs for GBA carts that might accept user input
@@ -155,12 +176,15 @@ extern u32 CartCRC;
 bool Init();
 void DeInit();
 void Reset();
-void Eject();
 
 void DoSavestate(Savestate* file);
 
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
+
+void LoadAddon(int type);
+
+void EjectCart();
 
 //bool LoadROM(const char* path, const char* sram);
 //bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
