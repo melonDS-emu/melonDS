@@ -46,6 +46,7 @@ std::string BaseAssetName = "";
 int GBACartType = -1;
 
 SaveManager* NDSSave = nullptr;
+SaveManager* GBASave = nullptr;
 
 
 int LastSep(std::string path)
@@ -300,7 +301,6 @@ bool LoadROM(QStringList filepath, bool reset)
     u8* filedata;
     u32 filelen;
 
-    std::string fullpath;
     std::string basepath;
     std::string romname;
 
@@ -334,8 +334,6 @@ bool LoadROM(QStringList filepath, bool reset)
         fclose(f);
         filelen = (u32)len;
 
-        fullpath = filename;
-
         int pos = LastSep(filename);
         basepath = filename.substr(0, pos);
         romname = filename.substr(pos+1);
@@ -359,8 +357,6 @@ bool LoadROM(QStringList filepath, bool reset)
 
         std::string std_romname = filepath.at(1).toStdString();
         romname = std_romname.substr(LastSep(std_romname)+1);
-
-        fullpath = std_archivepath + "//" + std_romname;
     }
 #endif
     else
@@ -369,7 +365,7 @@ bool LoadROM(QStringList filepath, bool reset)
     if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
-    FullROMPath = fullpath;
+    FullROMPath = filepath.join('|').toStdString();
     BaseROMDir = basepath;
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));

@@ -546,6 +546,9 @@ void EmuThread::run()
             if (ROMManager::NDSSave)
                 ROMManager::NDSSave->CheckFlush();
 
+            if (ROMManager::GBASave)
+                ROMManager::GBASave->CheckFlush();
+
             FrontBufferLock.lock();
             FrontBuffer = GPU::FrontBuffer;
 #ifdef OGLRENDERER_ENABLED
@@ -1883,7 +1886,7 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
 
 QString MainWindow::loadErrorStr(int error)
 {
-    switch (error)
+    /*switch (error)
     {
     case Frontend::Load_BIOS9Missing:
         return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
@@ -1921,7 +1924,8 @@ QString MainWindow::loadErrorStr(int error)
         return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
 
     default: return "Unknown error during launch; smack Arisotura.";
-    }
+    }*/
+    return "REMOVE ME";
 }
 
 /*void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString romFileName)
@@ -2146,8 +2150,6 @@ void MainWindow::onOpenFile()
         return;
     }
 
-    // TODO: add to recent ROM list
-
     if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
@@ -2155,6 +2157,11 @@ void MainWindow::onOpenFile()
         emuThread->emuUnpause();
         return;
     }
+
+    QString filename = file.join('|');
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
 
     NDS::Start();
     emuThread->emuRun();
@@ -2229,8 +2236,10 @@ void MainWindow::updateRecentFilesMenu()
 {
     recentMenu->clear();
 
-    for(int i = 0; i < recentFileList.size(); ++i)
+    for (int i = 0; i < recentFileList.size(); ++i)
     {
+        if (i >= 10) break;
+
         QString item_full = recentFileList.at(i);
         QString item_display = item_full;
         int itemlen = item_full.length();
@@ -2257,16 +2266,18 @@ void MainWindow::updateRecentFilesMenu()
         actRecentFile_i->setData(item_full);
         connect(actRecentFile_i, &QAction::triggered, this, &MainWindow::onClickRecentFile);
 
-        if (i < 10)
-            Config::RecentROMList[i] = recentFileList.at(i).toStdString();
+        Config::RecentROMList[i] = recentFileList.at(i).toStdString();
     }
+
+    while (recentFileList.size() > 10)
+        recentFileList.removeLast();
 
     recentMenu->addSeparator();
 
     QAction *actClearRecentList = recentMenu->addAction("Clear");
     connect(actClearRecentList, &QAction::triggered, this, &MainWindow::onClearRecentFiles);
 
-    if(recentFileList.empty())
+    if (recentFileList.empty())
         actClearRecentList->setEnabled(false);
 
     Config::Save();
@@ -2274,29 +2285,35 @@ void MainWindow::updateRecentFilesMenu()
 
 void MainWindow::onClickRecentFile()
 {
-    /*QAction *act = (QAction *)sender();
-    QString fileName = act->data().toString();
+    QAction *act = (QAction *)sender();
+    QString filename = act->data().toString();
+    QStringList file = filename.split('|');
 
-    if (fileName.endsWith(".gba", Qt::CaseInsensitive) ||
-        fileName.endsWith(".nds", Qt::CaseInsensitive) ||
-        fileName.endsWith(".srl", Qt::CaseInsensitive) ||
-        fileName.endsWith(".dsi", Qt::CaseInsensitive))
+    emuThread->emuPause();
+
+    if (!verifySetup())
     {
-        emuThread->emuPause();
-        loadROM(fileName);
+        emuThread->emuUnpause();
+        return;
     }
-    else
+
+    if (!ROMManager::LoadROM(file, true))
     {
-        // Archives
-        QString archiveFileName = fileName;
-        QByteArray romBuffer;
-        QString romFileName = MainWindow::pickAndExtractFileFromArchive(archiveFileName, &romBuffer);
-        if(!romFileName.isEmpty())
-        {
-            emuThread->emuPause();
-            loadROM(&romBuffer, archiveFileName, romFileName);
-        }
-    }*/
+        // TODO: better error reporting?
+        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        emuThread->emuUnpause();
+        return;
+    }
+
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
+
+    NDS::Start();
+    emuThread->emuRun();
+
+    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+    actEjectCart->setEnabled(true);
 }
 
 void MainWindow::onBootFirmware()

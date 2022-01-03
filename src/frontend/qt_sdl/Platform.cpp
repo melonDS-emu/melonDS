@@ -381,7 +381,8 @@ void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 
 void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
-    //
+    if (ROMManager::GBASave)
+        ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
 

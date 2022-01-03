@@ -29,6 +29,7 @@ namespace ROMManager
 {
 
 extern SaveManager* NDSSave;
+extern SaveManager* GBASave;
 
 QString VerifySetup();
 void Reset();
