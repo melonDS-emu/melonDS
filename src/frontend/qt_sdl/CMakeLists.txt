@@ -18,7 +18,6 @@ SET(SOURCES_QT_SDL
     TitleManagerDialog.cpp
     Input.cpp
     LAN_PCap.cpp
-    LAN_Socket.cpp
     OSD.cpp
     OSD_shaders.h
     font.h
@@ -78,7 +77,15 @@ find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Iconv REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(SLIRP REQUIRED slirp)
+pkg_check_modules(SLIRP slirp)
+
+if (SLIRP_FOUND)
+    option(ENABLE_LIBSLIRP "Enable use of libslirp for network sockets" ON)
+else()
+    option(ENABLE_LIBSLIRP "Enable use of libslirp for network sockets" OFF)
+    message(WARNING "libslirp was not found. Indirect-mode networking will be unavailable in this build.")
+endif()
+
 pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
@@ -88,11 +95,25 @@ else()
     add_executable(melonDS ${SOURCES_QT_SDL})
 endif()
 
+if (ENABLE_LIBSLIRP)
+    target_compile_definitions(melonDS PRIVATE -DHAVE_LIBSLIRP)
+    target_sources(melonDS PRIVATE LAN_Socket.cpp)
+endif()
+
 target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
 
-target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_PREFIX}/include ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
-target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS} ${SLIRP_LIBRARY_DIRS})
-target_link_directories(melonDS PRIVATE ${LIBARCHIVE_LIBRARY_DIRS})
+target_include_directories(
+    melonDS PRIVATE
+    ${SDL2_INCLUDE_DIRS} ${SDL2_PREFIX}/include
+    ${SLIRP_INCLUDE_DIRS}
+    ${LIBARCHIVE_INCLUDE_DIRS}
+)
+target_link_directories(
+    melonDS PRIVATE
+    ${SDL2_LIBRARY_DIRS}
+    ${SLIRP_LIBRARY_DIRS}
+    ${LIBARCHIVE_LIBRARY_DIRS}
+)
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
