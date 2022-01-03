@@ -1212,7 +1212,29 @@ u8 CartRetailBT::SPIWrite(u8 val, u32 pos, bool last)
 
 CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, chipid)
 {
+    SD = nullptr;
+}
+
+CartHomebrew::~CartHomebrew()
+{
+    if (SD)
+    {
+        SD->Close();
+        delete SD;
+    }
+}
+
+void CartHomebrew::Reset()
+{
+    CartCommon::Reset();
+
     ReadOnly = Platform::GetConfigBool(Platform::DLDI_ReadOnly);
+
+    if (SD)
+    {
+        SD->Close();
+        delete SD;
+    }
 
     if (Platform::GetConfigBool(Platform::DLDI_Enable))
     {
@@ -1231,20 +1253,6 @@ CartHomebrew::CartHomebrew(u8* rom, u32 len, u32 chipid) : CartCommon(rom, len, 
     }
     else
         SD = nullptr;
-}
-
-CartHomebrew::~CartHomebrew()
-{
-    if (SD)
-    {
-        SD->Close();
-        delete SD;
-    }
-}
-
-void CartHomebrew::Reset()
-{
-    CartCommon::Reset();
 }
 
 void CartHomebrew::SetupDirectBoot(std::string romname)
