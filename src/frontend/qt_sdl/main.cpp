@@ -81,7 +81,7 @@
 
 #include "main_shaders.h"
 
-#include "ROMLoader.h"
+#include "ROMManager.h"
 #include "ArchiveUtil.h"
 
 // TODO: uniform variable spelling
@@ -542,6 +542,9 @@ void EmuThread::run()
 
             // emulate
             u32 nlines = NDS::RunFrame();
+
+            if (ROMManager::NDSSave)
+                ROMManager::NDSSave->CheckFlush();
 
             FrontBufferLock.lock();
             FrontBuffer = GPU::FrontBuffer;
@@ -1308,7 +1311,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentCart = menu->addAction("DS slot: " + ROMLoader::CartLabel());
+        actCurrentCart = menu->addAction("DS slot: " + ROMManager::CartLabel());
         actCurrentCart->setEnabled(false);
 
         actInsertCart = menu->addAction("Insert cart...");
@@ -1319,7 +1322,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actCurrentGBACart = menu->addAction("GBA slot: " + ROMLoader::GBACartLabel());
+        actCurrentGBACart = menu->addAction("GBA slot: " + ROMManager::GBACartLabel());
         actCurrentGBACart->setEnabled(false);
 
         actInsertGBACart = menu->addAction("Insert ROM cart...");
@@ -2019,7 +2022,7 @@ void MainWindow::loadROM(QString filename)
 
 bool MainWindow::verifySetup()
 {
-    QString res = ROMLoader::VerifySetup();
+    QString res = ROMManager::VerifySetup();
     if (!res.isEmpty())
     {
          QMessageBox::critical(this, "melonDS", res);
@@ -2145,7 +2148,7 @@ void MainWindow::onOpenFile()
 
     // TODO: add to recent ROM list
 
-    if (!ROMLoader::LoadROM(file, true))
+    if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2156,7 +2159,7 @@ void MainWindow::onOpenFile()
     NDS::Start();
     emuThread->emuRun();
 
-    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
 }
 
@@ -2308,7 +2311,7 @@ void MainWindow::onBootFirmware()
         return;
     }
 
-    if (!ROMLoader::LoadBIOS())
+    if (!ROMManager::LoadBIOS())
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "This firmware is not bootable.");
@@ -2333,7 +2336,7 @@ void MainWindow::onInsertCart()
 
     // TODO: add to recent ROM list??
 
-    if (!ROMLoader::LoadROM(file, false))
+    if (!ROMManager::LoadROM(file, false))
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
@@ -2343,7 +2346,7 @@ void MainWindow::onInsertCart()
 
     emuThread->emuUnpause();
 
-    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
 }
 
@@ -2351,11 +2354,11 @@ void MainWindow::onEjectCart()
 {
     emuThread->emuPause();
 
-    ROMLoader::EjectCart();
+    ROMManager::EjectCart();
 
     emuThread->emuUnpause();
 
-    actCurrentCart->setText("DS slot: " + ROMLoader::CartLabel());
+    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(false);
 }
 
@@ -2368,11 +2371,11 @@ void MainWindow::onInsertGBAAddon()
 
     emuThread->emuPause();
 
-    ROMLoader::LoadGBAAddon(type);
+    ROMManager::LoadGBAAddon(type);
 
     emuThread->emuUnpause();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMLoader::GBACartLabel());
+    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
     actEjectGBACart->setEnabled(true);
 }
 
@@ -2554,7 +2557,7 @@ void MainWindow::onReset()
 
     actUndoStateLoad->setEnabled(false);
 
-    ROMLoader::Reset();
+    ROMManager::Reset();
 
     OSD::AddMessage(0, "Reset");
     emuThread->emuRun();

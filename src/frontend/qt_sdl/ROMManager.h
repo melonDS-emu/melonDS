@@ -16,16 +16,19 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef ROMLOADER_H
-#define ROMLOADER_H
+#ifndef ROMMANAGER_H
+#define ROMMANAGER_H
 
 #include "types.h"
+#include "SaveManager.h"
 
 #include <string>
 #include <vector>
 
-namespace ROMLoader
+namespace ROMManager
 {
+
+extern SaveManager* NDSSave;
 
 QString VerifySetup();
 void Reset();
@@ -81,4 +84,4 @@ enum
 
 }
 
-#endif // ROMLOADER_H
+#endif // ROMMANAGER_H

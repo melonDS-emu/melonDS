@@ -23,12 +23,29 @@
 #include "Platform.h"
 
 
-SaveManager::SaveManager()
+SaveManager::SaveManager(std::string path) : QThread()
 {
     SecondaryBuffer = nullptr;
+    SecondaryBufferLength = 0;
     SecondaryBufferLock = new QMutex();
 
     Running = false;
+
+    Path = path;
+
+    Buffer = nullptr;
+    Length = 0;
+    FlushRequested = false;
+
+    FlushVersion = 0;
+    PreviousFlushVersion = 0;
+    TimeAtLastFlushRequest = 0;
+
+    if (!path.empty())
+    {
+        Running = true;
+        start();
+    }
 }
 
 SaveManager::~SaveManager()
@@ -43,49 +60,59 @@ SaveManager::~SaveManager()
     if (SecondaryBuffer) delete[] SecondaryBuffer;
 
     delete SecondaryBufferLock;
+
+    if (Buffer) delete[] Buffer;
 }
 
-void SaveManager::Setup(std::string path, u8* buffer, u32 length)
+void SaveManager::RequestFlush(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
-    // Flush SRAM in case there is unflushed data from previous state.
-    FlushSecondaryBuffer();
-
-    SecondaryBufferLock->lock();
-
-    Path = path;
-
-    Buffer = buffer;
-    Length = length;
-
-    if(SecondaryBuffer) delete[] SecondaryBuffer; // Delete secondary buffer, there might be previous state.
-
-    SecondaryBuffer = new u8[length];
-    SecondaryBufferLength = length;
-
-    FlushVersion = 0;
-    PreviousFlushVersion = 0;
-    TimeAtLastFlushRequest = 0;
-
-    SecondaryBufferLock->unlock();
-
-    if ((!path.empty()) && (!Running))
+    if (Length != savelen)
     {
-        Running = true;
-        start();
+        if (Buffer) delete[] Buffer;
+
+        Length = savelen;
+        Buffer = new u8[Length];
+
+        memcpy(Buffer, savedata, Length);
     }
-    else if (path.empty() && Running)
+    else
     {
-        Running = false;
-        wait();
+        if ((writeoffset+writelen) > savelen)
+        {
+            u32 len = savelen - writeoffset;
+            memcpy(&Buffer[writeoffset], &savedata[writeoffset], len);
+            len = writelen - len;
+            if (len > savelen) len = savelen;
+            memcpy(&Buffer[0], &savedata[0], len);
+        }
+        else
+        {
+            memcpy(&Buffer[writeoffset], &savedata[writeoffset], writelen);
+        }
     }
+
+    FlushRequested = true;
 }
 
-void SaveManager::RequestFlush()
+void SaveManager::CheckFlush()
 {
+    if (!FlushRequested) return;
+
     SecondaryBufferLock->lock();
 
     printf("SaveManager: Flush requested\n");
+
+    if (SecondaryBufferLength != Length)
+    {
+        if (SecondaryBuffer) delete[] SecondaryBuffer;
+
+        SecondaryBufferLength = Length;
+        SecondaryBuffer = new u8[SecondaryBufferLength];
+    }
+
     memcpy(SecondaryBuffer, Buffer, Length);
+
+    FlushRequested = false;
     FlushVersion++;
     TimeAtLastFlushRequest = time(nullptr);
 
@@ -112,6 +139,8 @@ void SaveManager::run()
 
 void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
 {
+    if (!SecondaryBuffer) return;
+
     // When flushing to a file, there's no point in re-writing the exact same data.
     if (!dst && !NeedsFlush()) return;
     // When flushing to memory, we don't know if dst already has any data so we only check that we CAN flush.
@@ -140,17 +169,4 @@ void SaveManager::FlushSecondaryBuffer(u8* dst, u32 dstLength)
 bool SaveManager::NeedsFlush()
 {
     return FlushVersion != PreviousFlushVersion;
-}
-
-void SaveManager::UpdateBuffer(u8* src, u32 srcLength)
-{
-    if (!src || srcLength != Length) return;
-
-    // should we create a lock for the primary buffer? this method is not intended to be called from a secondary thread in the way Flush is
-    memcpy(Buffer, src, srcLength);
-    SecondaryBufferLock->lock();
-    memcpy(SecondaryBuffer, src, srcLength);
-    SecondaryBufferLock->unlock();
-
-    PreviousFlushVersion = FlushVersion;
 }

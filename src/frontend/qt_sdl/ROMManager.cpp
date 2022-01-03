@@ -25,26 +25,27 @@
 #ifdef ARCHIVE_SUPPORT_ENABLED
 #include "ArchiveUtil.h"
 #endif
-#include "ROMLoader.h"
+#include "ROMManager.h"
 #include "Config.h"
 #include "Platform.h"
 
 #include "NDS.h"
 #include "DSi.h"
-#include "GBACart.h"
 
 #include "AREngine.h"
 
 
-namespace ROMLoader
+namespace ROMManager
 {
 
-std::string FullROMPath;
-std::string BaseROMDir;
-std::string BaseROMName;
-std::string BaseAssetName;
+std::string FullROMPath = "";
+std::string BaseROMDir = "";
+std::string BaseROMName = "";
+std::string BaseAssetName = "";
 
-int GBACartType;
+int GBACartType = -1;
+
+SaveManager* NDSSave = nullptr;
 
 
 int LastSep(std::string path)
@@ -280,6 +281,9 @@ bool LoadBIOS()
     if (NDS::NeedsDirectBoot())
         return false;
 
+    if (NDSSave) delete NDSSave;
+    NDSSave = nullptr;
+
     FullROMPath = "";
     BaseROMDir = "";
     BaseROMName = "";
@@ -362,6 +366,9 @@ bool LoadROM(QStringList filepath, bool reset)
     else
         return false;
 
+    if (NDSSave) delete NDSSave;
+    NDSSave = nullptr;
+
     FullROMPath = fullpath;
     BaseROMDir = basepath;
     BaseROMName = romname;
@@ -398,6 +405,11 @@ bool LoadROM(QStringList filepath, bool reset)
         }
     }
 
+    if (res)
+    {
+        NDSSave = new SaveManager(savname);
+    }
+
     delete[] savedata;
     delete[] filedata;
     return res;
@@ -405,6 +417,9 @@ bool LoadROM(QStringList filepath, bool reset)
 
 void EjectCart()
 {
+    if (NDSSave) delete NDSSave;
+    NDSSave = nullptr;
+
     NDS::EjectCart();
 
     FullROMPath = "";
@@ -451,6 +466,8 @@ QString GBACartLabel()
 
     return "(none)";
 }
+
+
 
 
 

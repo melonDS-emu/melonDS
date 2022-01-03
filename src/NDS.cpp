@@ -1161,8 +1161,6 @@ u32 RunFrame()
             GPU3D::Timestamp-SysTimestamp);
 #endif
         SPU::TransferOutput();
-
-        //NDSCart::FlushSRAMFile();
     }
 
     // In the context of TASes, frame count is traditionally the primary measure of emulated time,

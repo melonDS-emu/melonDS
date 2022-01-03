@@ -25,7 +25,7 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
-	ROMLoader.cpp
+	ROMManager.cpp
 	SaveManager.cpp
     
     ArchiveUtil.h

@@ -52,6 +52,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "ROMManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include <string>
@@ -372,12 +373,13 @@ bool Mutex_TryLock(Mutex* mutex)
 }
 
 
-void WriteNDSSave(const u8* savedata, u32 savelen)
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
-    //
+    if (ROMManager::NDSSave)
+        ROMManager::NDSSave->RequestFlush(savedata, savelen, writeoffset, writelen);
 }
 
-void WriteGBASave(const u8* savedata, u32 savelen)
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
     //
 }

@@ -99,11 +99,9 @@ protected:
     u32 SRAMLength;
     u32 SRAMType;
 
-    char SRAMPath[1024];
-    bool SRAMFileDirty;
-
     u8 SRAMCmd;
     u32 SRAMAddr;
+    u32 SRAMFirstAddr;
     u8 SRAMStatus;
 };
 

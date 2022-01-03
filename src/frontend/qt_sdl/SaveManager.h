@@ -34,15 +34,14 @@ class SaveManager : public QThread
     void run() override;
 
 public:
-    SaveManager();
+    SaveManager(std::string path);
     ~SaveManager();
 
-    void Setup(std::string path, u8* buffer, u32 length);
-    void RequestFlush();
+    void RequestFlush(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
+    void CheckFlush();
 
     bool NeedsFlush();
     void FlushSecondaryBuffer(u8* dst = nullptr, u32 dstLength = 0);
-    void UpdateBuffer(u8* src, u32 srcLength);
 
 private:
     std::string Path;
@@ -51,6 +50,7 @@ private:
 
     u8* Buffer;
     u32 Length;
+    bool FlushRequested;
 
     QMutex* SecondaryBufferLock;
     u8* SecondaryBuffer;
