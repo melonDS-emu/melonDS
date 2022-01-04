@@ -51,7 +51,6 @@ u32 TransferDir;
 u8 TransferCmd[8];
 
 bool CartInserted;
-//char CartName[256];
 u8* CartROM;
 u32 CartROMSize;
 u32 CartID;
@@ -219,19 +218,6 @@ void CartCommon::SetupSave(u32 type)
 void CartCommon::LoadSave(const u8* savedata, u32 savelen)
 {
 }
-
-/*void CartCommon::RelocateSave(const char* path, bool write)
-{
-}
-
-int CartCommon::ImportSRAM(const u8* data, u32 length)
-{
-    return 0;
-}
-
-void CartCommon::FlushSRAMFile()
-{
-}*/
 
 int CartCommon::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
@@ -478,101 +464,6 @@ void CartRetail::LoadSave(const u8* savedata, u32 savelen)
 
     memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
 }
-
-/*void CartRetail::LoadSave(const char* path, u32 type)
-{
-    if (SRAM) delete[] SRAM;
-
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    if (type > 10) type = 0;
-    int sramlen[] =
-    {
-        0,
-        512,
-        8192, 65536, 128*1024,
-        256*1024, 512*1024, 1024*1024,
-        8192*1024, 16384*1024, 65536*1024
-    };
-    SRAMLength = sramlen[type];
-
-    if (SRAMLength)
-    {
-        SRAM = new u8[SRAMLength];
-        memset(SRAM, 0xFF, SRAMLength);
-    }
-
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (f)
-    {
-        fseek(f, 0, SEEK_SET);
-        fread(SRAM, 1, SRAMLength, f);
-
-        fclose(f);
-    }
-
-    SRAMFileDirty = false;
-    NDSCart_SRAMManager::Setup(path, SRAM, SRAMLength);
-
-    switch (type)
-    {
-    case 1: SRAMType = 1; break; // EEPROM, small
-    case 2:
-    case 3:
-    case 4: SRAMType = 2; break; // EEPROM, regular
-    case 5:
-    case 6:
-    case 7: SRAMType = 3; break; // FLASH
-    case 8:
-    case 9:
-    case 10: SRAMType = 4; break; // NAND
-    default: SRAMType = 0; break; // ...whatever else
-    }
-}*/
-
-/*void CartRetail::RelocateSave(const char* path, bool write)
-{
-    if (!write)
-    {
-        LoadSave(path, 0); // lazy
-        return;
-    }
-
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    FILE* f = Platform::OpenFile(path, "wb");
-    if (!f)
-    {
-        printf("NDSCart_SRAM::RelocateSave: failed to create new file. fuck\n");
-        return;
-    }
-
-    fwrite(SRAM, SRAMLength, 1, f);
-    fclose(f);
-}
-
-int CartRetail::ImportSRAM(const u8* data, u32 length)
-{
-    memcpy(SRAM, data, std::min(length, SRAMLength));
-    FILE* f = Platform::OpenFile(SRAMPath, "wb");
-    if (f)
-    {
-        fwrite(SRAM, SRAMLength, 1, f);
-        fclose(f);
-    }
-
-    return length - SRAMLength;
-}
-
-void CartRetail::FlushSRAMFile()
-{
-    if (!SRAMFileDirty) return;
-
-    SRAMFileDirty = false;
-    NDSCart_SRAMManager::RequestFlush();
-}*/
 
 int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
@@ -967,13 +858,6 @@ void CartRetailNAND::LoadSave(const u8* savedata, u32 savelen)
     CartRetail::LoadSave(savedata, savelen);
     BuildSRAMID();
 }
-
-/*int CartRetailNAND::ImportSRAM(const u8* data, u32 length)
-{
-    int ret = CartRetail::ImportSRAM(data, length);
-    BuildSRAMID();
-    return ret;
-}*/
 
 int CartRetailNAND::ROMCommandStart(u8* cmd, u8* data, u32 len)
 {
@@ -1542,15 +1426,6 @@ void DeInit()
 
 void Reset()
 {
-    /*if (Cart) delete Cart;
-    Cart = nullptr;
-
-    CartInserted = false;
-    if (CartROM) delete[] CartROM;
-    CartROM = nullptr;
-    CartROMSize = 0;
-    CartID = 0;*/
-
     ResetCart();
 }
 
@@ -1656,7 +1531,6 @@ void DecryptSecureArea(u8* out)
     }
 }
 
-//bool LoadROMCommon(u32 filelength, const char *sram, bool direct)
 bool LoadROM(const u8* romdata, u32 romlen)
 {
     if (CartInserted)
@@ -1780,22 +1654,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
 
     if (Cart)
         Cart->Reset();
-    /*{
-        Cart->Reset();
-        if (direct)
-        {
-            NDS::SetupDirectBoot();
-            Cart->SetupDirectBoot();
-        }
-    }*/
 
-    // encryption
-    // needed????
-    //Key1_InitKeycode(false, gamecode, 2, 2);
-
-    // save
-    //printf("Save file: %s\n", sram);
-    //if (Cart) Cart->LoadSave(sram, romparams.SaveMemType);
     if (Cart && romparams.SaveMemType > 0)
         Cart->SetupSave(romparams.SaveMemType);
 
@@ -1808,87 +1667,11 @@ void LoadSave(const u8* savedata, u32 savelen)
         Cart->LoadSave(savedata, savelen);
 }
 
-/*bool LoadROM(const char* path, const char* sram, bool direct)
-{
-    // TODO: streaming mode? for really big ROMs or systems with limited RAM
-    // for now we're lazy
-    // also TODO: validate what we're loading!!
-
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    NDS::Reset();
-
-    char* romname = strrchr((char*)path, '/');
-    if (!romname)
-    {
-        romname = strrchr((char*)path, '\\');
-        if (!romname)
-            romname = (char*)&path[-1];
-    }
-    romname++;
-    strncpy(CartName, romname, 255); CartName[255] = '\0';
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    fseek(f, 0, SEEK_SET);
-    fread(CartROM, 1, len, f);
-
-    fclose(f);
-
-    return LoadROMCommon(len, sram, direct);
-}
-
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
-{
-    NDS::Reset();
-
-    // TODO: make it more meaningful?
-    strncpy(CartName, "rom.nds", 256);
-
-    u32 len = filelength;
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    memcpy(CartROM, romdata, filelength);
-
-    return LoadROMCommon(filelength, sram, direct);
-}*/
-
 void SetupDirectBoot(std::string romname)
 {
     if (Cart)
         Cart->SetupDirectBoot(romname);
 }
-
-/*void RelocateSave(const char* path, bool write)
-{
-    if (Cart) Cart->RelocateSave(path, write);
-}
-
-void FlushSRAMFile()
-{
-    if (Cart) Cart->FlushSRAMFile();
-}
-
-int ImportSRAM(const u8* data, u32 length)
-{
-    if (Cart) return Cart->ImportSRAM(data, length);
-    return 0;
-}*/
 
 void EjectCart()
 {

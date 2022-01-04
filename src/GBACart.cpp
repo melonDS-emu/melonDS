@@ -76,14 +76,6 @@ void CartCommon::LoadSave(const u8* savedata, u32 savelen)
 {
 }
 
-/*void CartCommon::LoadSave(const char* path, u32 type)
-{
-}
-
-void CartCommon::RelocateSave(const char* path, bool write)
-{
-}*/
-
 int CartCommon::SetInput(int num, bool pressed)
 {
     return -1;
@@ -116,7 +108,6 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 
 CartGame::~CartGame()
 {
-    //if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
 }
 
@@ -125,7 +116,6 @@ void CartGame::Reset()
     memset(&GPIO, 0, sizeof(GPIO));
 
     SRAM = nullptr;
-    //SRAMFile = nullptr;
     SRAMLength = 0;
     SRAMType = S_NULL;
     SRAMFlashState = {};
@@ -236,28 +226,6 @@ void CartGame::LoadSave(const u8* savedata, u32 savelen)
 
     memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
 }
-
-/*void CartGame::RelocateSave(const char* path, bool write)
-{
-    if (!write)
-    {
-        LoadSave(path, 0); // lazy
-        return;
-    }
-
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    FILE *f = Platform::OpenFile(path, "r+b");
-    if (!f)
-    {
-        printf("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
-        return;
-    }
-
-    SRAMFile = f;
-    fwrite(SRAM, SRAMLength, 1, SRAMFile);
-}*/
 
 u16 CartGame::ROMRead(u32 addr)
 {

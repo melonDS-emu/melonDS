@@ -957,72 +957,10 @@ void EjectGBACart()
     GBACart::EjectCart();
 }
 
-/*bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct)
-{
-    if (NDSCart::LoadROM(romdata, filelength, sram, direct))
-    {
-        Running = true;
-        return true;
-    }
-    else
-    {
-        printf("Failed to load ROM from archive\n");
-        return false;
-    }
-}
-
-bool LoadROM(const char* path, const char* sram, bool direct)
-{
-    if (NDSCart::LoadROM(path, sram, direct))
-    {
-        Running = true;
-        return true;
-    }
-    else
-    {
-        printf("Failed to load ROM %s\n", path);
-        return false;
-    }
-}
-
-bool LoadGBAROM(const char* path, const char* sram)
-{
-    if (GBACart::LoadROM(path, sram))
-    {
-        return true;
-    }
-    else
-    {
-        printf("Failed to load ROM %s\n", path);
-        return false;
-    }
-}
-
-bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram)
-{
-    if (GBACart::LoadROM(romdata, filelength, sram))
-    {
-        return true;
-    }
-    else
-    {
-        printf("Failed to load ROM %s from archive\n", filename);
-        return false;
-    }
-}*/
-
 void LoadBIOS()
 {
     Reset();
-    //Running = true;
 }
-
-/*void RelocateSave(const char* path, bool write)
-{
-    printf("SRAM: relocating to %s (write=%s)\n", path, write?"true":"false");
-    NDSCart::RelocateSave(path, write);
-}*/
-
 
 
 u64 NextTarget()

@@ -37,8 +37,6 @@ public:
 
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
-    //virtual void LoadSave(const char* path, u32 type);
-    //virtual void RelocateSave(const char* path, bool write);
 
     virtual int SetInput(int num, bool pressed);
 
@@ -61,8 +59,6 @@ public:
 
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
-    //virtual void LoadSave(const char* path, u32 type) override;
-    //virtual void RelocateSave(const char* path, bool write) override;
 
     virtual u16 ROMRead(u32 addr) override;
     virtual void ROMWrite(u32 addr, u16 val) override;
@@ -113,11 +109,8 @@ protected:
     } SRAMFlashState;
 
     u8* SRAM;
-    //FILE* SRAMFile;
     u32 SRAMLength;
     SaveType SRAMType;
-
-    //char SRAMPath[1024];
 };
 
 // CartGameSolarSensor -- Boktai game cart

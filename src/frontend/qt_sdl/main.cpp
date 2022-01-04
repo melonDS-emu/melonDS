@@ -1891,11 +1891,11 @@ bool MainWindow::verifySetup()
     return true;
 }
 
-void MainWindow::preloadROMs(QString filename, QString gbafilename)
+bool MainWindow::preloadROMs(QString filename, QString gbafilename)
 {
     if (!verifySetup())
     {
-        return;
+        return false;
     }
 
     bool gbaloaded = false;
@@ -1906,7 +1906,7 @@ void MainWindow::preloadROMs(QString filename, QString gbafilename)
         {
             // TODO: better error reporting?
             QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
-            return;
+            return false;
         }
 
         gbaloaded = true;
@@ -1917,7 +1917,7 @@ void MainWindow::preloadROMs(QString filename, QString gbafilename)
     {
         // TODO: better error reporting?
         QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
-        return;
+        return false;
     }
 
     recentFileList.removeAll(filename);
@@ -1935,6 +1935,8 @@ void MainWindow::preloadROMs(QString filename, QString gbafilename)
         actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
         actEjectGBACart->setEnabled(true);
     }
+
+    return true;
 }
 
 QString MainWindow::pickFileFromArchive(QString archiveFileName)
@@ -2071,60 +2073,6 @@ void MainWindow::onOpenFile()
     actEjectCart->setEnabled(true);
 }
 
-/*QString MainWindow::pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer)
-{
-    printf("Finding list of ROMs...\n");
-    QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName.toUtf8().constData());
-
-
-    QString romFileName = ""; // file name inside archive
-
-    if (archiveROMList.size() > 2)
-    {
-        archiveROMList.removeFirst();
-
-        bool ok;
-        QString toLoad = QInputDialog::getItem(this, "melonDS",
-                                  "The archive was found to have multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
-        if (!ok) // User clicked on cancel
-            return QString();
-
-        printf("Extracting '%s'\n", toLoad.toUtf8().constData());
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), toLoad.toUtf8().constData(), romBuffer);
-        if (extractResult[0] != QString("Err"))
-        {
-            romFileName = extractResult[0];
-        }
-        else
-        {
-            QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
-        }
-    }
-    else if (archiveROMList.size() == 2)
-    {
-        printf("Extracting the only ROM in archive\n");
-        QVector<QString> extractResult = Archive::ExtractFileFromArchive(archiveFileName.toUtf8().constData(), archiveROMList.at(1).toUtf8().constData(), romBuffer);
-        if (extractResult[0] != QString("Err"))
-        {
-            romFileName = extractResult[0];
-        }
-        else
-        {
-            QMessageBox::critical(this, "melonDS", QString("There was an error while trying to extract the ROM from the archive: ") + extractResult[1]);
-        }
-    }
-    else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
-    {
-        QMessageBox::warning(this, "melonDS", "The archive is intact, but there are no files inside.");
-    }
-    else
-    {
-        QMessageBox::critical(this, "melonDS", "The archive could not be read. It may be corrupt or you don't have the permissions.");
-    }
-
-    return romFileName;
-}*/
-
 void MainWindow::onClearRecentFiles()
 {
     recentFileList.clear();
@@ -2219,8 +2167,6 @@ void MainWindow::onClickRecentFile()
 
 void MainWindow::onBootFirmware()
 {
-    // TODO: check the whole GBA cart shito
-
     emuThread->emuPause();
 
     if (!verifySetup())
@@ -2943,8 +2889,8 @@ bool MelonApplication::event(QEvent *event)
         QFileOpenEvent *openEvent = static_cast<QFileOpenEvent*>(event);
 
         emuThread->emuPause();
-        //mainWindow->loadROM(openEvent->file());
-        printf("ASS EVENT???\n");
+        if (!mainWindow->preloadROMs(openEvent->file(), ""))
+            emuThread->emuUnpause();
     }
 
     return QApplication::event(event);

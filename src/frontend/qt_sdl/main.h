@@ -210,7 +210,7 @@ public:
     bool hasOGL;
     QOpenGLContext* getOGLContext();
 
-    void preloadROMs(QString filename, QString gbafilename);
+    bool preloadROMs(QString filename, QString gbafilename);
 
     void onAppStateChanged(Qt::ApplicationState state);
 

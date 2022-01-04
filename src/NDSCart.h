@@ -42,9 +42,6 @@ public:
 
     virtual void SetupSave(u32 type);
     virtual void LoadSave(const u8* savedata, u32 savelen);
-    //virtual void RelocateSave(const char* path, bool write);
-    //virtual int ImportSRAM(const u8* data, u32 length);
-    //virtual void FlushSRAMFile();
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
@@ -80,9 +77,6 @@ public:
 
     virtual void SetupSave(u32 type) override;
     virtual void LoadSave(const u8* savedata, u32 savelen) override;
-    //virtual void RelocateSave(const char* path, bool write) override;
-    //virtual int ImportSRAM(const u8* data, u32 length) override;
-    //virtual void FlushSRAMFile() override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
 
@@ -117,7 +111,6 @@ public:
     void DoSavestate(Savestate* file) override;
 
     void LoadSave(const u8* savedata, u32 savelen) override;
-    //int ImportSRAM(const u8* data, u32 length) override;
 
     int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
@@ -210,20 +203,12 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void DecryptSecureArea(u8* out);
-//bool LoadROM(const char* path, const char* sram, bool direct);
-//bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
 
 bool LoadROM(const u8* romdata, u32 romlen);
 void LoadSave(const u8* savedata, u32 savelen);
 void SetupDirectBoot(std::string romname);
 
 void EjectCart();
-
-//void FlushSRAMFile();
-
-//void RelocateSave(const char* path, bool write);
-
-//int ImportSRAM(const u8* data, u32 length);
 
 void ResetCart();
 
