@@ -2435,6 +2435,7 @@ void MainWindow::onImportSavefile()
     fread(data, len, 1, f);
 
     NDS::LoadSave(data, len);
+    delete[] data;
 
     fclose(f);
     emuThread->emuUnpause();
