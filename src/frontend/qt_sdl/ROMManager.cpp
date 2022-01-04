@@ -405,7 +405,7 @@ bool LoadROM(QStringList filepath, bool reset)
         NDSSave = new SaveManager(savname);
     }
 
-    delete[] savedata;
+    if (savedata) delete[] savedata;
     delete[] filedata;
     return res;
 }
@@ -535,7 +535,7 @@ bool LoadGBAROM(QStringList filepath)
         GBASave = new SaveManager(savname);
     }
 
-    delete[] savedata;
+    if (savedata) delete[] savedata;
     delete[] filedata;
     return res;
 }
