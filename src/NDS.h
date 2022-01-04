@@ -238,13 +238,10 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, 
 // 0=DS  1=DSi
 void SetConsoleType(int type);
 
-/*bool LoadROM(const char* path, const char* sram, bool direct);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
-bool LoadGBAROM(const char* path, const char* sram);
-bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram);*/
 void LoadBIOS();
 
 bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+void LoadSave(const u8* savedata, u32 savelen);
 void EjectCart();
 bool CartInserted();
 
@@ -254,8 +251,6 @@ void SetupDirectBoot(std::string romname);
 bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
 void LoadGBAAddon(int type);
 void EjectGBACart();
-
-//void RelocateSave(const char* path, bool write);
 
 u32 RunFrame();
 
@@ -268,8 +263,6 @@ bool IsLidClosed();
 void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);
-
-//int ImportSRAM(u8* data, u32 length);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);

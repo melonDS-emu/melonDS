@@ -1862,6 +1862,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
         actEjectCart->setEnabled(true);
+        actImportSavefile->setEnabled(true);
     }
 }
 
@@ -1929,6 +1930,7 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
 
     actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
+    actImportSavefile->setEnabled(true);
 
     if (gbaloaded)
     {
@@ -2071,6 +2073,7 @@ void MainWindow::onOpenFile()
 
     actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
+    actImportSavefile->setEnabled(true);
 }
 
 void MainWindow::onClearRecentFiles()
@@ -2163,6 +2166,7 @@ void MainWindow::onClickRecentFile()
 
     actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
+    actImportSavefile->setEnabled(true);
 }
 
 void MainWindow::onBootFirmware()
@@ -2210,6 +2214,7 @@ void MainWindow::onInsertCart()
 
     actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(true);
+    actImportSavefile->setEnabled(true);
 }
 
 void MainWindow::onEjectCart()
@@ -2222,6 +2227,7 @@ void MainWindow::onEjectCart()
 
     actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
     actEjectCart->setEnabled(false);
+    actImportSavefile->setEnabled(false);
 }
 
 void MainWindow::onInsertGBACart()
@@ -2386,37 +2392,52 @@ void MainWindow::onUndoStateLoad()
 
 void MainWindow::onImportSavefile()
 {
-    if (!RunningSomething) return;
-
-    /*emuThread->emuPause();
+    emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
                                             QString::fromStdString(Config::LastROMFolder),
                                             "Savefiles (*.sav *.bin *.dsv);;Any file (*.*)");
 
-    if (!path.isEmpty())
+    if (path.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    FILE* f = Platform::OpenFile(path.toStdString(), "rb", true);
+    if (!f)
+    {
+        QMessageBox::critical(this, "melonDS", "Could not open the given savefile.");
+        emuThread->emuUnpause();
+        return;
+    }
+
+    if (RunningSomething)
     {
         if (QMessageBox::warning(this,
-                        "Emulation will be reset and data overwritten",
+                        "melonDS",
                         "The emulation will be reset and the current savefile overwritten.",
-                        QMessageBox::Ok, QMessageBox::Cancel) == QMessageBox::Ok)
+                        QMessageBox::Ok, QMessageBox::Cancel) != QMessageBox::Ok)
         {
-            int res = Frontend::Reset();
-            if (res != Frontend::Load_OK)
-            {
-                QMessageBox::critical(this, "melonDS", "Reset failed\n" + loadErrorStr(res));
-            }
-            else
-            {
-                int diff = Frontend::ImportSRAM(path.toStdString().c_str());
-                if (diff > 0)
-                    OSD::AddMessage(0, "Trimmed savefile");
-                else if (diff < 0)
-                    OSD::AddMessage(0, "Savefile shorter than SRAM");
-            }
+            emuThread->emuUnpause();
+            return;
         }
+
+        ROMManager::Reset();
     }
-    emuThread->emuUnpause();*/
+
+    u32 len;
+    fseek(f, 0, SEEK_END);
+    len = (u32)ftell(f);
+
+    u8* data = new u8[len];
+    fseek(f, 0, SEEK_SET);
+    fread(data, len, 1, f);
+
+    NDS::LoadSave(data, len);
+
+    fclose(f);
+    emuThread->emuUnpause();
 }
 
 void MainWindow::onQuit()
@@ -2806,7 +2827,6 @@ void MainWindow::onEmuStart()
     actReset->setEnabled(true);
     actStop->setEnabled(true);
     actFrameStep->setEnabled(true);
-    actImportSavefile->setEnabled(true);
 
     actSetupCheats->setEnabled(true);
     actTitleManager->setEnabled(false);
@@ -2824,7 +2844,6 @@ void MainWindow::onEmuStop()
         actLoadState[i]->setEnabled(false);
     }
     actUndoStateLoad->setEnabled(false);
-    actImportSavefile->setEnabled(false);
 
     actPause->setEnabled(false);
     actReset->setEnabled(false);

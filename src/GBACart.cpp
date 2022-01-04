@@ -224,7 +224,9 @@ void CartGame::LoadSave(const u8* savedata, u32 savelen)
 {
     if (!SRAM) return;
 
-    memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
+    u32 len = std::min(savelen, SRAMLength);
+    memcpy(SRAM, savedata, len);
+    Platform::WriteGBASave(savedata, len, 0, len);
 }
 
 u16 CartGame::ROMRead(u32 addr)
@@ -744,7 +746,6 @@ void DoSavestate(Savestate* file)
     if (Cart) Cart->DoSavestate(file);
 }
 
-//void LoadROMCommon(const char *sram)
 bool LoadROM(const u8* romdata, u32 romlen)
 {
     if (CartInserted)
@@ -851,56 +852,6 @@ void EjectCart()
     CartCRC = 0;
     CartID = 0;
 }
-
-/*bool LoadROM(const char* path, const char* sram)
-{
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    if (CartInserted)
-    {
-        Reset();
-    }
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    fseek(f, 0, SEEK_SET);
-    fread(CartROM, 1, len, f);
-    fclose(f);
-
-    LoadROMCommon(sram);
-
-    return true;
-}
-
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
-{
-    CartROMSize = 0x200;
-    while (CartROMSize < filelength)
-        CartROMSize <<= 1;
-
-    CartROM = new u8[CartROMSize];
-    memcpy(CartROM, romdata, filelength);
-
-    LoadROMCommon(sram);
-
-    return true;
-}
-
-void RelocateSave(const char* path, bool write)
-{
-    if (Cart) Cart->RelocateSave(path, write);
-}*/
 
 
 int SetInput(int num, bool pressed)

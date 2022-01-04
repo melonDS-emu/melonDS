@@ -473,7 +473,9 @@ void CartRetail::LoadSave(const u8* savedata, u32 savelen)
 {
     if (!SRAM) return;
 
-    memcpy(SRAM, savedata, std::min(savelen, SRAMLength));
+    u32 len = std::min(savelen, SRAMLength);
+    memcpy(SRAM, savedata, len);
+    Platform::WriteNDSSave(savedata, len, 0, len);
 }
 
 int CartRetail::ROMCommandStart(u8* cmd, u8* data, u32 len)

@@ -926,6 +926,12 @@ bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
     return true;
 }
 
+void LoadSave(const u8* savedata, u32 savelen)
+{
+    if (savedata && savelen)
+        NDSCart::LoadSave(savedata, savelen);
+}
+
 void EjectCart()
 {
     NDSCart::EjectCart();
