@@ -132,13 +132,24 @@ void Key1_ApplyKeycode(u32* keycode, u32 mod)
     }
 }
 
+void Key1_LoadKeyBuf(bool dsi)
+{
+    // it is possible that this gets called before the BIOSes are loaded
+    // so we will read from the BIOS files directly
+
+    std::string path = Platform::GetConfigString(dsi ? Platform::DSi_BIOS7Path : Platform::BIOS7Path);
+    FILE* f = Platform::OpenLocalFile(path, "rb");
+    if (f)
+    {
+        fseek(f, dsi ? 0xC6D0 : 0x0030, SEEK_SET);
+        fread(Key1_KeyBuf, 0x1048, 1, f);
+        fclose(f);
+    }
+}
+
 void Key1_InitKeycode(bool dsi, u32 idcode, u32 level, u32 mod)
 {
-    // TODO: source the key data from different possible places
-    if (dsi && NDS::ConsoleType==1)
-        memcpy(Key1_KeyBuf, &DSi::ARM7iBIOS[0xC6D0], 0x1048); // hax
-    else
-        memcpy(Key1_KeyBuf, &NDS::ARM7BIOS[0x30], 0x1048); // hax
+    Key1_LoadKeyBuf(dsi);
 
     u32 keycode[3] = {idcode, idcode>>1, idcode<<1};
     if (level >= 1) Key1_ApplyKeycode(keycode, mod);

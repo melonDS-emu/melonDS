@@ -747,6 +747,9 @@ void DoSavestate(Savestate* file)
 //void LoadROMCommon(const char *sram)
 bool LoadROM(const u8* romdata, u32 romlen)
 {
+    if (CartInserted)
+        EjectCart();
+
     CartROMSize = 0x200;
     while (CartROMSize < romlen)
         CartROMSize <<= 1;
