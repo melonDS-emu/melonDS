@@ -38,12 +38,14 @@
 namespace ROMManager
 {
 
-std::string FullROMPath = "";
 std::string BaseROMDir = "";
 std::string BaseROMName = "";
 std::string BaseAssetName = "";
 
 int GBACartType = -1;
+std::string BaseGBAROMDir = "";
+std::string BaseGBAROMName = "";
+std::string BaseGBAAssetName = "";
 
 SaveManager* NDSSave = nullptr;
 SaveManager* GBASave = nullptr;
@@ -63,10 +65,10 @@ int LastSep(std::string path)
     return -1;
 }
 
-std::string GetAssetPath(std::string configpath, std::string ext)
+std::string GetAssetPath(bool gba, std::string configpath, std::string ext)
 {
     if (configpath.empty())
-        configpath = BaseROMDir;
+        configpath = gba ? BaseGBAROMDir : BaseROMDir;
 
     for (;;)
     {
@@ -80,10 +82,8 @@ std::string GetAssetPath(std::string configpath, std::string ext)
     if (!configpath.empty())
         configpath += "/";
 
-    return configpath + BaseAssetName + ext;
+    return configpath + (gba ? BaseGBAAssetName : BaseAssetName) + ext;
 }
-
-
 
 
 QString VerifyDSBIOS()
@@ -285,7 +285,6 @@ bool LoadBIOS()
     if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
-    FullROMPath = "";
     BaseROMDir = "";
     BaseROMName = "";
     BaseAssetName = "";
@@ -293,6 +292,7 @@ bool LoadBIOS()
     NDS::Reset();
     return true;
 }
+
 
 bool LoadROM(QStringList filepath, bool reset)
 {
@@ -365,7 +365,6 @@ bool LoadROM(QStringList filepath, bool reset)
     if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
-    FullROMPath = filepath.join('|').toStdString();
     BaseROMDir = basepath;
     BaseROMName = romname;
     BaseAssetName = romname.substr(0, romname.rfind('.'));
@@ -379,7 +378,7 @@ bool LoadROM(QStringList filepath, bool reset)
     u32 savelen = 0;
     u8* savedata = nullptr;
 
-    std::string savname = GetAssetPath(Config::SaveFilePath, ".sav");
+    std::string savname = GetAssetPath(false, Config::SaveFilePath, ".sav");
     FILE* sav = Platform::OpenFile(savname, "rb", true);
     if (sav)
     {
@@ -418,7 +417,6 @@ void EjectCart()
 
     NDS::EjectCart();
 
-    FullROMPath = "";
     BaseROMDir = "";
     BaseROMName = "";
     BaseAssetName = "";
@@ -439,16 +437,135 @@ QString CartLabel()
 }
 
 
+bool LoadGBAROM(QStringList filepath)
+{
+    if (filepath.empty()) return false;
 
+    u8* filedata;
+    u32 filelen;
+
+    std::string basepath;
+    std::string romname;
+
+    int num = filepath.count();
+    if (num == 1)
+    {
+        // regular file
+
+        std::string filename = filepath.at(0).toStdString();
+        FILE* f = Platform::OpenFile(filename, "rb", true);
+        if (!f) return false;
+
+        fseek(f, 0, SEEK_END);
+        long len = ftell(f);
+        if (len > 0x40000000)
+        {
+            fclose(f);
+            return false;
+        }
+
+        fseek(f, 0, SEEK_SET);
+        filedata = new u8[len];
+        size_t nread = fread(filedata, (size_t)len, 1, f);
+        if (nread != 1)
+        {
+            fclose(f);
+            delete[] filedata;
+            return false;
+        }
+
+        fclose(f);
+        filelen = (u32)len;
+
+        int pos = LastSep(filename);
+        basepath = filename.substr(0, pos);
+        romname = filename.substr(pos+1);
+    }
+#ifdef ARCHIVE_SUPPORT_ENABLED
+    else if (num == 2)
+    {
+        // file inside archive
+
+        u32 lenread = Archive::ExtractFileFromArchive(filepath.at(0), filepath.at(1), &filedata, &filelen);
+        if (lenread < 0) return false;
+        if (!filedata) return false;
+        if (lenread != filelen)
+        {
+            delete[] filedata;
+            return false;
+        }
+
+        std::string std_archivepath = filepath.at(0).toStdString();
+        basepath = std_archivepath.substr(0, LastSep(std_archivepath));
+
+        std::string std_romname = filepath.at(1).toStdString();
+        romname = std_romname.substr(LastSep(std_romname)+1);
+    }
+#endif
+    else
+        return false;
+
+    if (GBASave) delete GBASave;
+    GBASave = nullptr;
+
+    BaseGBAROMDir = basepath;
+    BaseGBAROMName = romname;
+    BaseGBAAssetName = romname.substr(0, romname.rfind('.'));
+
+    u32 savelen = 0;
+    u8* savedata = nullptr;
+
+    std::string savname = GetAssetPath(true, Config::SaveFilePath, ".sav");
+    FILE* sav = Platform::OpenFile(savname, "rb", true);
+    if (sav)
+    {
+        fseek(sav, 0, SEEK_END);
+        savelen = (u32)ftell(sav);
+
+        fseek(sav, 0, SEEK_SET);
+        savedata = new u8[savelen];
+        fread(savedata, savelen, 1, sav);
+        fclose(sav);
+    }
+
+    bool res = NDS::LoadGBACart(filedata, filelen, savedata, savelen);
+
+    if (res)
+    {
+        GBASave = new SaveManager(savname);
+    }
+
+    delete[] savedata;
+    delete[] filedata;
+    return res;
+}
 
 void LoadGBAAddon(int type)
 {
+    if (GBASave) delete GBASave;
+    GBASave = nullptr;
+
     NDS::LoadGBAAddon(type);
 
     GBACartType = type;
+    BaseGBAROMDir = "";
+    BaseGBAROMName = "";
+    BaseGBAAssetName = "";
 }
 
-// PLACEHOLDER
+void EjectGBACart()
+{
+    if (GBASave) delete GBASave;
+    GBASave = nullptr;
+
+    NDS::EjectGBACart();
+
+    GBACartType = -1;
+    BaseGBAROMDir = "";
+    BaseGBAROMName = "";
+    BaseGBAAssetName = "";
+}
+
 QString GBACartLabel()
 {
     switch (GBACartType)

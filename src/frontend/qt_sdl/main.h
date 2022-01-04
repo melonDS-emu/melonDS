@@ -210,8 +210,7 @@ public:
     bool hasOGL;
     QOpenGLContext* getOGLContext();
 
-    void loadROM(QString filename);
-    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
+    void preloadROMs(QString filename, QString gbafilename);
 
     void onAppStateChanged(Qt::ApplicationState state);
 
@@ -235,7 +234,9 @@ private slots:
     void onBootFirmware();
     void onInsertCart();
     void onEjectCart();
+    void onInsertGBACart();
     void onInsertGBAAddon();
+    void onEjectGBACart();
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();
@@ -300,8 +301,6 @@ private:
     QMenu *recentMenu;
     void updateRecentFilesMenu();
 
-    //QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
-
     bool verifySetup();
     QString pickFileFromArchive(QString archiveFileName);
     QStringList pickROM(bool gba);
@@ -321,14 +320,13 @@ public:
     ScreenPanelNative* panelNative;
 
     QAction* actOpenROM;
-    //QAction* actOpenROMArchive;
     QAction* actBootFirmware;
     QAction* actCurrentCart;
     QAction* actInsertCart;
     QAction* actEjectCart;
     QAction* actCurrentGBACart;
     QAction* actInsertGBACart;
-    QAction* actInsertGBAAddon[16];
+    QAction* actInsertGBAAddon[1];
     QAction* actEjectGBACart;
     QAction* actImportSavefile;
     QAction* actSaveState[9];

@@ -1329,25 +1329,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actCurrentGBACart->setEnabled(false);
 
         actInsertGBACart = menu->addAction("Insert ROM cart...");
+        connect(actInsertGBACart, &QAction::triggered, this, &MainWindow::onInsertGBACart);
 
-        //actInsertGBAAddon = menu->addAction("Insert add-on cart");
         {
             QMenu* submenu = menu->addMenu("Insert add-on cart");
 
-            /*actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
-            actInsertGBAAddon[1] = submenu->addAction("Vibrator Pak");
-            actInsertGBAAddon[2] = submenu->addAction("Guitar Hero grip");
-            actInsertGBAAddon[3] = submenu->addAction("Fartslapper");
-            actInsertGBAAddon[4] = submenu->addAction("Fartslapper Mk. II");
-            actInsertGBAAddon[5] = submenu->addAction("Ghostbusters ray");
-            actInsertGBAAddon[6] = submenu->addAction("Fridge Pak");
-            actInsertGBAAddon[7] = submenu->addAction("Fazil");*/
             actInsertGBAAddon[0] = submenu->addAction("Memory expansion");
             actInsertGBAAddon[0]->setData(QVariant(NDS::GBAAddon_RAMExpansion));
             connect(actInsertGBAAddon[0], &QAction::triggered, this, &MainWindow::onInsertGBAAddon);
         }
 
         actEjectGBACart = menu->addAction("Eject cart");
+        connect(actEjectGBACart, &QAction::triggered, this, &MainWindow::onEjectGBACart);
 
         menu->addSeparator();
 
@@ -1793,9 +1786,9 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
                              ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
 
-    for(const QString &ext : acceptedExts)
+    for (const QString &ext : acceptedExts)
     {
-        if(filename.endsWith(ext, Qt::CaseInsensitive))
+        if (filename.endsWith(ext, Qt::CaseInsensitive))
             event->acceptProposedAction();
     }
 }
@@ -1807,67 +1800,69 @@ void MainWindow::dropEvent(QDropEvent* event)
     QList<QUrl> urls = event->mimeData()->urls();
     if (urls.count() > 1) return; // not handling more than one file at once
 
-    /*emuThread->emuPause();
-
     QString filename = urls.at(0).toLocalFile();
-    QString ext = filename.right(3).toLower();
+    QStringList arcexts{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
 
-    recentFileList.removeAll(filename);
-    recentFileList.prepend(filename);
-    updateRecentFilesMenu();
+    emuThread->emuPause();
 
-    char _filename[1024];
-    strncpy(_filename, filename.toStdString().c_str(), 1023); _filename[1023] = '\0';
-
-    int slot; int res;
-    if (ext == "gba")
+    if (!verifySetup())
     {
-        slot = 1;
-        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_GBA);
+        emuThread->emuUnpause();
+        return;
     }
-    else if(ext == "nds" || ext == "srl" || ext == "dsi")
-    {
-        slot = 0;
-        res = Frontend::LoadROM(_filename, Frontend::ROMSlot_NDS);
-    }
-    else
-    {
-        QByteArray romBuffer;
-        QString romFileName = pickAndExtractFileFromArchive(_filename, &romBuffer);
-        if(romFileName.isEmpty())
-        {
-           res = Frontend::Load_ROMLoadError;
-        }
-        else
-        {
-            slot = (romFileName.endsWith(".gba", Qt::CaseInsensitive) ? 1 : 0);
-            QString sramFileName = QFileInfo(_filename).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
 
-            if (slot == 0)
-                Frontend::NDSROMExtension= QFileInfo(romFileName).suffix().toStdString();
+    for (const QString &ext : arcexts)
+    {
+        if (filename.endsWith(ext, Qt::CaseInsensitive))
+        {
+            QString arcfile = pickFileFromArchive(filename);
+            if (arcfile.isEmpty())
+            {
+                emuThread->emuUnpause();
+                return;
+            }
 
-            res = Frontend::LoadROM((const u8*)romBuffer.constData(), romBuffer.size(),
-                                    _filename, romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
-                                    slot);
+            filename += "|" + arcfile;
         }
     }
 
-    if (res != Frontend::Load_OK)
+    QStringList file = filename.split('|');
+
+    if (filename.endsWith(".gba", Qt::CaseInsensitive))
     {
-        QMessageBox::critical(this,
-                              "melonDS",
-                              loadErrorStr(res));
+        if (!ROMManager::LoadGBAROM(file))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            emuThread->emuUnpause();
+            return;
+        }
+
         emuThread->emuUnpause();
-    }
-    else if (slot == 1)
-    {
-        // checkme
-        emuThread->emuUnpause();
+
+        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        actEjectGBACart->setEnabled(true);
     }
     else
     {
+        if (!ROMManager::LoadROM(file, true))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+            emuThread->emuUnpause();
+            return;
+        }
+
+        recentFileList.removeAll(filename);
+        recentFileList.prepend(filename);
+        updateRecentFilesMenu();
+
+        NDS::Start();
         emuThread->emuRun();
-    }*/
+
+        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+        actEjectCart->setEnabled(true);
+    }
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
@@ -1884,146 +1879,6 @@ void MainWindow::onAppStateChanged(Qt::ApplicationState state)
     }
 }
 
-QString MainWindow::loadErrorStr(int error)
-{
-    /*switch (error)
-    {
-    case Frontend::Load_BIOS9Missing:
-        return "DS ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_BIOS9Bad:
-        return "DS ARM9 BIOS is not a valid BIOS dump.";
-
-    case Frontend::Load_BIOS7Missing:
-        return "DS ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_BIOS7Bad:
-        return "DS ARM7 BIOS is not a valid BIOS dump.";
-
-    case Frontend::Load_FirmwareMissing:
-        return "DS firmware was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_FirmwareBad:
-        return "DS firmware is not a valid firmware dump.";
-    case Frontend::Load_FirmwareNotBootable:
-        return "DS firmware is not bootable.";
-
-    case Frontend::Load_DSiBIOS9Missing:
-        return "DSi ARM9 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_DSiBIOS9Bad:
-        return "DSi ARM9 BIOS is not a valid BIOS dump.";
-
-    case Frontend::Load_DSiBIOS7Missing:
-        return "DSi ARM7 BIOS was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_DSiBIOS7Bad:
-        return "DSi ARM7 BIOS is not a valid BIOS dump.";
-
-    case Frontend::Load_DSiNANDMissing:
-        return "DSi NAND was not found or could not be accessed. Check your emu settings.";
-    case Frontend::Load_DSiNANDBad:
-        return "DSi NAND is not a valid NAND dump.";
-
-    case Frontend::Load_ROMLoadError:
-        return "Failed to load the ROM. Make sure the file is accessible and isn't used by another application.";
-
-    default: return "Unknown error during launch; smack Arisotura.";
-    }*/
-    return "REMOVE ME";
-}
-
-/*void MainWindow::loadROM(QByteArray *romData, QString archiveFileName, QString romFileName)
-{
-    recentFileList.removeAll(archiveFileName);
-    recentFileList.prepend(archiveFileName);
-    updateRecentFilesMenu();
-
-    // Strip entire archive name and get folder path
-    Config::LastROMFolder = QFileInfo(archiveFileName).absolutePath().toStdString();
-
-    QString sramFileName = QFileInfo(archiveFileName).absolutePath() + QDir::separator() + QFileInfo(romFileName).completeBaseName() + ".sav";
-
-    int slot; int res;
-    if (romFileName.endsWith("gba"))
-    {
-        slot = 1;
-        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
-                                archiveFileName.toStdString().c_str(),
-                                romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
-                                Frontend::ROMSlot_GBA);
-    }
-    else
-    {
-        Frontend::NDSROMExtension = QFileInfo(romFileName).suffix().toStdString();
-        slot = 0;
-        res = Frontend::LoadROM((const u8*)romData->constData(), romData->size(),
-                                archiveFileName.toStdString().c_str(),
-                                romFileName.toStdString().c_str(), sramFileName.toStdString().c_str(),
-                                Frontend::ROMSlot_NDS);
-    }
-
-    if (res != Frontend::Load_OK)
-    {
-        QMessageBox::critical(this,
-                              "melonDS",
-                              loadErrorStr(res));
-        emuThread->emuUnpause();
-    }
-    else if (slot == 1)
-    {
-        // checkme
-        emuThread->emuUnpause();
-    }
-    else
-    {
-        emuThread->emuRun();
-    }
-}
-
-void MainWindow::loadROM(QString filename)
-{
-    recentFileList.removeAll(filename);
-    recentFileList.prepend(filename);
-    updateRecentFilesMenu();
-
-    // TODO: validate the input file!!
-    // * check that it is a proper ROM
-    // * ensure the binary offsets are sane
-    // * etc
-
-    std::string file = filename.toStdString();
-    int pos = file.length() - 1;
-    while (file[pos] != '/' && file[pos] != '\\' && pos > 0) pos--;
-    Config::LastROMFolder = file.substr(0, pos);
-
-    std::string ext = file.substr(file.length() - 3);
-
-    int slot; int res;
-    if (ext == "gba")
-    {
-        slot = 1;
-        res = Frontend::LoadROM(file.c_str(), Frontend::ROMSlot_GBA);
-    }
-    else
-    {
-        slot = 0;
-        res = Frontend::LoadROM(file.c_str(), Frontend::ROMSlot_NDS);
-    }
-
-    if (res != Frontend::Load_OK)
-    {
-        QMessageBox::critical(this,
-                              "melonDS",
-                              loadErrorStr(res));
-        emuThread->emuUnpause();
-    }
-    else if (slot == 1)
-    {
-        // checkme
-        emuThread->emuUnpause();
-    }
-    else
-    {
-        emuThread->emuRun();
-    }
-}*/
-
 bool MainWindow::verifySetup()
 {
     QString res = ROMManager::VerifySetup();
@@ -2034,6 +1889,52 @@ bool MainWindow::verifySetup()
     }
 
     return true;
+}
+
+void MainWindow::preloadROMs(QString filename, QString gbafilename)
+{
+    if (!verifySetup())
+    {
+        return;
+    }
+
+    bool gbaloaded = false;
+    if (!gbafilename.isEmpty())
+    {
+        QStringList gbafile = gbafilename.split('|');
+        if (!ROMManager::LoadGBAROM(gbafile))
+        {
+            // TODO: better error reporting?
+            QMessageBox::critical(this, "melonDS", "Failed to load the GBA ROM.");
+            return;
+        }
+
+        gbaloaded = true;
+    }
+
+    QStringList file = filename.split('|');
+    if (!ROMManager::LoadROM(file, true))
+    {
+        // TODO: better error reporting?
+        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        return;
+    }
+
+    recentFileList.removeAll(filename);
+    recentFileList.prepend(filename);
+    updateRecentFilesMenu();
+
+    NDS::Start();
+    emuThread->emuRun();
+
+    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+    actEjectCart->setEnabled(true);
+
+    if (gbaloaded)
+    {
+        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        actEjectGBACart->setEnabled(true);
+    }
 }
 
 QString MainWindow::pickFileFromArchive(QString archiveFileName)
@@ -2351,8 +2252,6 @@ void MainWindow::onInsertCart()
         return;
     }
 
-    // TODO: add to recent ROM list??
-
     if (!ROMManager::LoadROM(file, false))
     {
         // TODO: better error reporting?
@@ -2379,12 +2278,35 @@ void MainWindow::onEjectCart()
     actEjectCart->setEnabled(false);
 }
 
+void MainWindow::onInsertGBACart()
+{
+    emuThread->emuPause();
+
+    QStringList file = pickROM(true);
+    if (file.isEmpty())
+    {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    if (!ROMManager::LoadGBAROM(file))
+    {
+        // TODO: better error reporting?
+        QMessageBox::critical(this, "melonDS", "Failed to load the ROM.");
+        emuThread->emuUnpause();
+        return;
+    }
+
+    emuThread->emuUnpause();
+
+    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+    actEjectGBACart->setEnabled(true);
+}
+
 void MainWindow::onInsertGBAAddon()
 {
     QAction* act = (QAction*)sender();
     int type = act->data().toInt();
-
-    printf("INSERT: %d\n", type);
 
     emuThread->emuPause();
 
@@ -2394,6 +2316,18 @@ void MainWindow::onInsertGBAAddon()
 
     actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
     actEjectGBACart->setEnabled(true);
+}
+
+void MainWindow::onEjectGBACart()
+{
+    emuThread->emuPause();
+
+    ROMManager::EjectGBACart();
+
+    emuThread->emuUnpause();
+
+    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+    actEjectGBACart->setEnabled(false);
 }
 
 void MainWindow::onSaveState()
@@ -2508,7 +2442,7 @@ void MainWindow::onImportSavefile()
 {
     if (!RunningSomething) return;
 
-    emuThread->emuPause();
+    /*emuThread->emuPause();
     QString path = QFileDialog::getOpenFileName(this,
                                             "Select savefile",
                                             QString::fromStdString(Config::LastROMFolder),
@@ -2536,7 +2470,7 @@ void MainWindow::onImportSavefile()
             }
         }
     }
-    emuThread->emuUnpause();
+    emuThread->emuUnpause();*/
 }
 
 void MainWindow::onQuit()
@@ -3136,29 +3070,11 @@ int main(int argc, char** argv)
 
     if (argc > 1)
     {
-        char* file = argv[1];
-        char* ext = &file[strlen(file)-3];
+        QString file = argv[1];
+        QString gbafile = "";
+        if (argc > 2) gbafile = argv[2];
 
-        if (!strcasecmp(ext, "nds") || !strcasecmp(ext, "srl") || !strcasecmp(ext, "dsi"))
-        {
-            int res = Frontend::LoadROM(file, Frontend::ROMSlot_NDS);
-
-            if (res == Frontend::Load_OK)
-            {
-                if (argc > 2)
-                {
-                    file = argv[2];
-                    ext = &file[strlen(file)-3];
-
-                    if (!strcasecmp(ext, "gba"))
-                    {
-                        Frontend::LoadROM(file, Frontend::ROMSlot_GBA);
-                    }
-                }
-
-                emuThread->emuRun();
-            }
-        }
+        mainWindow->preloadROMs(file, gbafile);
     }
 
     int ret = melon.exec();

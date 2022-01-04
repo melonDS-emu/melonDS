@@ -943,6 +943,8 @@ bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen)
 
     if (savedata && savelen)
         GBACart::LoadSave(savedata, savelen);
+
+    return true;
 }
 
 void LoadGBAAddon(int type)
