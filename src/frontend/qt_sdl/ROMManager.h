@@ -21,6 +21,7 @@
 
 #include "types.h"
 #include "SaveManager.h"
+#include "AREngine.h"
 
 #include <string>
 #include <vector>
@@ -37,51 +38,22 @@ bool LoadBIOS();
 
 bool LoadROM(QStringList filepath, bool reset);
 void EjectCart();
+bool CartInserted();
 QString CartLabel();
 
 bool LoadGBAROM(QStringList filepath);
 void LoadGBAAddon(int type);
 void EjectGBACart();
+bool GBACartInserted();
 QString GBACartLabel();
 
-enum
-{
-    ROMSlot_NDS = 0,
-    ROMSlot_GBA,
+void EnableCheats(bool enable);
+ARCodeFile* GetCheatFile();
 
-    ROMSlot_MAX
-};
-
-enum
-{
-    Load_OK = 0,
-
-    Load_BIOS9Missing,
-    Load_BIOS9Bad,
-
-    Load_BIOS7Missing,
-    Load_BIOS7Bad,
-
-    Load_FirmwareMissing,
-    Load_FirmwareBad,
-    Load_FirmwareNotBootable,
-
-    Load_DSiBIOS9Missing,
-    Load_DSiBIOS9Bad,
-
-    Load_DSiBIOS7Missing,
-    Load_DSiBIOS7Bad,
-
-    Load_DSiNANDMissing,
-    Load_DSiNANDBad,
-
-    // TODO: more precise errors for ROM loading
-    Load_ROMLoadError,
-};
-
-
-
-
+void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef);
+void AnimatedROMIcon(u8 (&data)[8][512], u16 (&palette)[8][16],
+                     u16 (&sequence)[64], u32 (&animatedTexRef)[32 * 32 * 64],
+                     std::vector<int> &animatedSequenceRef);
 
 }
 

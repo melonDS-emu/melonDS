@@ -24,6 +24,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
+#include "ROMManager.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
@@ -33,15 +34,13 @@ CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
 extern std::string EmuDirectory;
 
-namespace Frontend { extern ARCodeFile* CheatFile; }
-
 
 CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::CheatsDialog)
 {
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    codeFile = Frontend::CheatFile;
+    codeFile = ROMManager::GetCheatFile();
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvCodeList->setModel(model);

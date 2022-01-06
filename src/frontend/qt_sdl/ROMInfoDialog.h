@@ -25,7 +25,7 @@
 #include <QImage>
 
 #include "types.h"
-#include "FrontendUtil.h"
+#include "ROMManager.h"
 
 namespace Ui { class ROMInfoDialog; }
 class ROMInfoDialog;
@@ -58,7 +58,7 @@ public:
 
 private slots:
     void done(int r);
-     
+
     void on_saveIconButton_clicked();
 
     void iconSetFrame(int frame);

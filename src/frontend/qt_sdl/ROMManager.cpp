@@ -32,12 +32,11 @@
 #include "NDS.h"
 #include "DSi.h"
 
-#include "AREngine.h"
-
 
 namespace ROMManager
 {
 
+int CartType = -1;
 std::string BaseROMDir = "";
 std::string BaseROMName = "";
 std::string BaseAssetName = "";
@@ -49,6 +48,9 @@ std::string BaseGBAAssetName = "";
 
 SaveManager* NDSSave = nullptr;
 SaveManager* GBASave = nullptr;
+
+ARCodeFile* CheatFile = nullptr;
+bool CheatsOn = false;
 
 
 int LastSep(std::string path)
@@ -260,6 +262,40 @@ QString VerifySetup()
 }
 
 
+void UnloadCheats()
+{
+    if (CheatFile)
+    {
+        delete CheatFile;
+        CheatFile = nullptr;
+    }
+}
+
+void LoadCheats()
+{
+    UnloadCheats();
+
+    std::string filename = GetAssetPath(false, Config::CheatFilePath, ".mch");
+
+    // TODO: check for error (malformed cheat file, ...)
+    CheatFile = new ARCodeFile(filename);
+
+    AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+}
+
+void EnableCheats(bool enable)
+{
+    CheatsOn = enable;
+    if (CheatFile)
+        AREngine::SetCodeFile(CheatsOn ? CheatFile : nullptr);
+}
+
+ARCodeFile* GetCheatFile()
+{
+    return CheatFile;
+}
+
+
 void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
@@ -282,12 +318,13 @@ bool LoadBIOS()
     if (NDS::NeedsDirectBoot())
         return false;
 
-    if (NDSSave) delete NDSSave;
+    /*if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
+    CartType = -1;
     BaseROMDir = "";
     BaseROMName = "";
-    BaseAssetName = "";
+    BaseAssetName = "";*/
 
     NDS::Reset();
     return true;
@@ -402,7 +439,10 @@ bool LoadROM(QStringList filepath, bool reset)
 
     if (res)
     {
+        CartType = 0;
         NDSSave = new SaveManager(savname);
+
+        LoadCheats();
     }
 
     if (savedata) delete[] savedata;
@@ -415,16 +455,24 @@ void EjectCart()
     if (NDSSave) delete NDSSave;
     NDSSave = nullptr;
 
+    UnloadCheats();
+
     NDS::EjectCart();
 
+    CartType = -1;
     BaseROMDir = "";
     BaseROMName = "";
     BaseAssetName = "";
 }
 
+bool CartInserted()
+{
+    return CartType != -1;
+}
+
 QString CartLabel()
 {
-    if (BaseROMName.empty())
+    if (CartType == -1)
         return "(none)";
 
     QString ret = QString::fromStdString(BaseROMName);
@@ -532,6 +580,7 @@ bool LoadGBAROM(QStringList filepath)
 
     if (res)
     {
+        GBACartType = 0;
         GBASave = new SaveManager(savname);
     }
 
@@ -566,6 +615,11 @@ void EjectGBACart()
     BaseGBAAssetName = "";
 }
 
+bool GBACartInserted()
+{
+    return GBACartType != -1;
+}
+
 QString GBACartLabel()
 {
     switch (GBACartType)
@@ -579,11 +633,6 @@ QString GBACartLabel()
 
     return "(none)";
 }
-
-
-
-
-
 
 
 void ROMIcon(u8 (&data)[512], u16 (&palette)[16], u32* iconRef)

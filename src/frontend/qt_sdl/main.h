@@ -304,10 +304,9 @@ private:
     bool verifySetup();
     QString pickFileFromArchive(QString archiveFileName);
     QStringList pickROM(bool gba);
+    void updateCartInserted(bool gba);
 
     void createScreenPanel();
-
-    QString loadErrorStr(int error);
 
     bool pausedManually = false;
 

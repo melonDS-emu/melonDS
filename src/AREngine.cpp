@@ -50,8 +50,6 @@ void DeInit()
 
 void Reset()
 {
-    CodeFile = nullptr;
-
     if (NDS::ConsoleType == 1)
     {
         BusRead8 = DSi::ARM7Read8;
@@ -72,6 +70,11 @@ void Reset()
     }
 }
 
+
+ARCodeFile* GetCodeFile()
+{
+    return CodeFile;
+}
 
 void SetCodeFile(ARCodeFile* file)
 {

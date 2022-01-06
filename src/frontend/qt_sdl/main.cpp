@@ -1840,8 +1840,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
         emuThread->emuUnpause();
 
-        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
-        actEjectGBACart->setEnabled(true);
+        updateCartInserted(true);
     }
     else
     {
@@ -1860,9 +1859,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         NDS::Start();
         emuThread->emuRun();
 
-        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-        actEjectCart->setEnabled(true);
-        actImportSavefile->setEnabled(true);
+        updateCartInserted(false);
     }
 }
 
@@ -1928,14 +1925,11 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
     NDS::Start();
     emuThread->emuRun();
 
-    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-    actEjectCart->setEnabled(true);
-    actImportSavefile->setEnabled(true);
+    updateCartInserted(false);
 
     if (gbaloaded)
     {
-        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
-        actEjectGBACart->setEnabled(true);
+        updateCartInserted(true);
     }
 
     return true;
@@ -2038,6 +2032,26 @@ QStringList MainWindow::pickROM(bool gba)
     return ret;
 }
 
+void MainWindow::updateCartInserted(bool gba)
+{
+    bool inserted;
+    if (gba)
+    {
+        inserted = ROMManager::GBACartInserted();
+        actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
+        actEjectGBACart->setEnabled(inserted);
+    }
+    else
+    {
+        inserted = ROMManager::CartInserted();
+        actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
+        actEjectCart->setEnabled(inserted);
+        actImportSavefile->setEnabled(inserted);
+        actSetupCheats->setEnabled(inserted);
+        actROMInfo->setEnabled(inserted);
+    }
+}
+
 void MainWindow::onOpenFile()
 {
     emuThread->emuPause();
@@ -2071,9 +2085,7 @@ void MainWindow::onOpenFile()
     NDS::Start();
     emuThread->emuRun();
 
-    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-    actEjectCart->setEnabled(true);
-    actImportSavefile->setEnabled(true);
+    updateCartInserted(false);
 }
 
 void MainWindow::onClearRecentFiles()
@@ -2164,9 +2176,7 @@ void MainWindow::onClickRecentFile()
     NDS::Start();
     emuThread->emuRun();
 
-    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-    actEjectCart->setEnabled(true);
-    actImportSavefile->setEnabled(true);
+    updateCartInserted(false);
 }
 
 void MainWindow::onBootFirmware()
@@ -2212,9 +2222,7 @@ void MainWindow::onInsertCart()
 
     emuThread->emuUnpause();
 
-    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-    actEjectCart->setEnabled(true);
-    actImportSavefile->setEnabled(true);
+    updateCartInserted(false);
 }
 
 void MainWindow::onEjectCart()
@@ -2225,9 +2233,7 @@ void MainWindow::onEjectCart()
 
     emuThread->emuUnpause();
 
-    actCurrentCart->setText("DS slot: " + ROMManager::CartLabel());
-    actEjectCart->setEnabled(false);
-    actImportSavefile->setEnabled(false);
+    updateCartInserted(false);
 }
 
 void MainWindow::onInsertGBACart()
@@ -2251,8 +2257,7 @@ void MainWindow::onInsertGBACart()
 
     emuThread->emuUnpause();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
-    actEjectGBACart->setEnabled(true);
+    updateCartInserted(true);
 }
 
 void MainWindow::onInsertGBAAddon()
@@ -2266,8 +2271,7 @@ void MainWindow::onInsertGBAAddon()
 
     emuThread->emuUnpause();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
-    actEjectGBACart->setEnabled(true);
+    updateCartInserted(true);
 }
 
 void MainWindow::onEjectGBACart()
@@ -2278,8 +2282,7 @@ void MainWindow::onEjectGBACart()
 
     emuThread->emuUnpause();
 
-    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
-    actEjectGBACart->setEnabled(false);
+    updateCartInserted(true);
 }
 
 void MainWindow::onSaveState()
@@ -2500,7 +2503,7 @@ void MainWindow::onFrameStep()
 void MainWindow::onEnableCheats(bool checked)
 {
     Config::EnableCheats = checked?1:0;
-    Frontend::EnableCheats(Config::EnableCheats != 0);
+    ROMManager::EnableCheats(Config::EnableCheats != 0);
 }
 
 void MainWindow::onSetupCheats()
@@ -2829,10 +2832,7 @@ void MainWindow::onEmuStart()
     actStop->setEnabled(true);
     actFrameStep->setEnabled(true);
 
-    actSetupCheats->setEnabled(true);
     actTitleManager->setEnabled(false);
-
-    actROMInfo->setEnabled(true);
 }
 
 void MainWindow::onEmuStop()
@@ -2851,10 +2851,7 @@ void MainWindow::onEmuStop()
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
 
-    actSetupCheats->setEnabled(false);
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
-
-    actROMInfo->setEnabled(false);
 }
 
 void MainWindow::onUpdateVideoSettings(bool glchange)
@@ -2887,9 +2884,6 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
 void emuStop()
 {
     RunningSomething = false;
-
-    Frontend::UnloadROM(Frontend::ROMSlot_NDS);
-    Frontend::UnloadROM(Frontend::ROMSlot_GBA);
 
     emit emuThread->windowEmuStop();
 
@@ -3009,7 +3003,7 @@ int main(int argc, char** argv)
     micWavBuffer = nullptr;
 
     Frontend::Init_ROM();
-    Frontend::EnableCheats(Config::EnableCheats != 0);
+    ROMManager::EnableCheats(Config::EnableCheats != 0);
 
     Frontend::Init_Audio(audioFreq);
 
