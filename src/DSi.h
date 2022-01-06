@@ -57,6 +57,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void DoSavestate(Savestate* file);
+
 void SetupDirectBoot();
 void SoftReset();
 

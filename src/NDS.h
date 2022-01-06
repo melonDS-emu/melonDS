@@ -50,8 +50,6 @@ enum
     Event_DSi_NWifi,
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
-
-    Event_DSi_RAMSizeChange,
     Event_DSi_DSP,
 
     Event_MAX

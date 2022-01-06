@@ -45,6 +45,8 @@ void Reset();
 // however, no DSi savestate stuff seems to be actually implemented?!
 void DoSavestate(Savestate* file);
 
+void DSPCatchUpU32(u32 _);
+
 // SCFG_RST bit0
 bool IsRstReleased();
 void SetRstLine(bool release);

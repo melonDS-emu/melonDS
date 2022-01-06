@@ -41,6 +41,9 @@
 
 #include "DSi.h"
 #include "DSi_SPI_TSC.h"
+#include "DSi_NWifi.h"
+#include "DSi_Camera.h"
+#include "DSi_DSP.h"
 
 
 namespace NDS
@@ -199,7 +202,6 @@ bool Init()
     DMAs[6] = new DMA(1, 2);
     DMAs[7] = new DMA(1, 3);
 
-    //if (!NDSCart_SRAMManager::Init()) return false;
     if (!NDSCart::Init()) return false;
     if (!GBACart::Init()) return false;
     if (!GPU::Init()) return false;
@@ -227,7 +229,6 @@ void DeInit()
     for (int i = 0; i < 8; i++)
         delete DMAs[i];
 
-    //NDSCart_SRAMManager::DeInit();
     NDSCart::DeInit();
     GBACart::DeInit();
     GPU::DeInit();
@@ -718,7 +719,14 @@ bool DoSavestate_Scheduler(Savestate* file)
         DivDone,
         SqrtDone,
 
-        NULL
+        DSi_SDHost::FinishRX,
+        DSi_SDHost::FinishTX,
+        DSi_NWifi::MSTimer,
+        DSi_Camera::IRQ,
+        DSi_Camera::Transfer,
+        DSi_DSP::DSPCatchUpU32,
+
+        nullptr
     };
 
     int len = Event_MAX;
@@ -728,7 +736,7 @@ bool DoSavestate_Scheduler(Savestate* file)
         {
             SchedEvent* evt = &SchedList[i];
 
-            u32 funcid = -1;
+            u32 funcid = 0xFFFFFFFF;
             if (evt->Func)
             {
                 for (int j = 0; eventfuncs[j]; j++)
@@ -775,7 +783,7 @@ bool DoSavestate_Scheduler(Savestate* file)
                 evt->Func = eventfuncs[funcid];
             }
             else
-                evt->Func = NULL;
+                evt->Func = nullptr;
 
             file->Var64(&evt->Timestamp);
             file->Var32(&evt->Param);
@@ -789,13 +797,24 @@ bool DoSavestate(Savestate* file)
 {
     file->Section("NDSG");
 
-    // TODO:
-    // * do something for bool's (sizeof=1)
-    // * do something for 'loading DSi-mode savestate in DS mode' and vice-versa
-    // * add IE2/IF2 there
+    if (file->Saving)
+    {
+        u32 console = ConsoleType;
+        file->Var32(&console);
+    }
+    else
+    {
+        u32 console;
+        file->Var32(&console);
+        if (console != ConsoleType)
+        {
+            file->Error = true;
+            return false;
+        }
+    }
 
-    file->VarArray(MainRAM, 0x400000);
-    file->VarArray(SharedWRAM, 0x8000);
+    file->VarArray(MainRAM, MainRAMMaxSize);
+    file->VarArray(SharedWRAM, SharedWRAMSize);
     file->VarArray(ARM7WRAM, ARM7WRAMSize);
 
     file->VarArray(ExMemCnt, 2*sizeof(u16));
@@ -807,6 +826,8 @@ bool DoSavestate(Savestate* file)
     file->VarArray(IME, 2*sizeof(u32));
     file->VarArray(IE, 2*sizeof(u32));
     file->VarArray(IF, 2*sizeof(u32));
+    file->Var32(&IE2);
+    file->Var32(&IF2);
 
     file->Var8(&PostFlag9);
     file->Var8(&PostFlag7);
@@ -892,6 +913,9 @@ bool DoSavestate(Savestate* file)
     SPI::DoSavestate(file);
     RTC::DoSavestate(file);
     Wifi::DoSavestate(file);
+
+    if (ConsoleType == 1)
+        DSi::DoSavestate(file);
 
     if (!file->Saving)
     {

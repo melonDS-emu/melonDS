@@ -168,6 +168,13 @@ void Reset()
     GPU::DispStat[1] |= (1<<6);
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("DSIG");
+
+    //
+}
+
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
 {
     AES_ctx ctx;

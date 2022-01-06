@@ -275,7 +275,7 @@ QString VerifySetup()
 std::string GetSavestateName(int slot)
 {
     std::string ext = ".ml";
-    ext += ('0'+slot);
+    ext += (char)('0'+slot);
     return GetAssetPath(false, Config::SavestatePath, ext);
 }
 
