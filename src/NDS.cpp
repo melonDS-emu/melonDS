@@ -32,7 +32,6 @@
 #include "Wifi.h"
 #include "AREngine.h"
 #include "Platform.h"
-#include "NDSCart_SRAMManager.h"
 #include "FreeBIOS.h"
 
 #ifdef JIT_ENABLED

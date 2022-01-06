@@ -31,7 +31,6 @@ SET(SOURCES_QT_SDL
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_ROM.cpp
     ../Util_Video.cpp
     ../Util_Audio.cpp
     ../FrontendUtil.h
