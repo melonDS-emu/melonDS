@@ -807,10 +807,7 @@ bool DoSavestate(Savestate* file)
         u32 console;
         file->Var32(&console);
         if (console != ConsoleType)
-        {
-            file->Error = true;
             return false;
-        }
     }
 
     file->VarArray(MainRAM, MainRAMMaxSize);

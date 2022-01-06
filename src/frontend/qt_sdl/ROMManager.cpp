@@ -304,8 +304,16 @@ bool LoadState(std::string filename)
         failed = true;
     }
 
-    NDS::DoSavestate(state);
+    bool res = NDS::DoSavestate(state);
     delete state;
+
+    if (!res)
+    {
+        failed = true;
+        state = new Savestate("timewarp.mln", false);
+        NDS::DoSavestate(state);
+        delete state;
+    }
 
     if (failed) return false;
 
