@@ -47,6 +47,12 @@ void EjectGBACart();
 bool GBACartInserted();
 QString GBACartLabel();
 
+std::string GetSavestateName(int slot);
+bool SavestateExists(int slot);
+bool LoadState(std::string filename);
+bool SaveState(std::string filename);
+void UndoStateLoad();
+
 void EnableCheats(bool enable);
 ARCodeFile* GetCheatFile();
 

@@ -37,6 +37,9 @@ public:
     SaveManager(std::string path);
     ~SaveManager();
 
+    std::string GetPath();
+    void SetPath(std::string path, bool reload);
+
     void RequestFlush(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
     void CheckFlush();
 

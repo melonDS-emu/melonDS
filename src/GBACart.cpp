@@ -43,7 +43,6 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
-u32 CartCRC;
 u32 CartID;
 
 CartCommon* Cart;
@@ -111,6 +110,15 @@ CartGame::~CartGame()
     if (SRAM) delete[] SRAM;
 }
 
+u32 CartGame::Checksum()
+{
+    u32 crc = CRC32(ROM, 0xC0, 0);
+
+    // TODO: hash more contents?
+
+    return crc;
+}
+
 void CartGame::Reset()
 {
     memset(&GPIO, 0, sizeof(GPIO));
@@ -128,8 +136,6 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var16(&GPIO.control);
     file->Var16(&GPIO.data);
     file->Var16(&GPIO.direction);
-
-    // logic mostly copied from NDSCart_SRAM
 
     u32 oldlen = SRAMLength;
 
@@ -151,9 +157,7 @@ void CartGame::DoSavestate(Savestate* file)
     {
         // no save data, clear the current state
         SRAMType = SaveType::S_NULL;
-        //if (SRAMFile) fclose(SRAMFile);
         SRAM = nullptr;
-        //SRAMFile = nullptr;
         return;
     }
 
@@ -165,6 +169,9 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var8(&SRAMFlashState.state);
 
     file->Var8((u8*)&SRAMType);
+
+    if ((!file->Saving) && SRAM)
+        Platform::WriteGBASave(SRAM, SRAMLength, 0, SRAMLength);
 }
 
 void CartGame::SetupSave(u32 type)
@@ -698,50 +705,32 @@ void DoSavestate(Savestate* file)
 {
     file->Section("GBAC"); // Game Boy Advance Cartridge
 
-    // logic mostly copied from NDSCart
+    // little state here
+    // no need to save OpenBusDecay, it will be set later
 
-    // first we need to reload the cart itself,
-    // since unlike with DS, it's not loaded in advance
-
-    file->Var32(&CartROMSize);
-    if (!CartROMSize) // no GBA cartridge state? nothing to do here (no! FIXME)
+    u32 carttype = 0;
+    u32 cartchk = 0;
+    if (Cart)
     {
-        // do eject the cartridge if something is inserted
-        EjectCart();
-        return;
+        carttype = Cart->Type();
+        cartchk = Cart->Checksum();
     }
 
-    u32 oldCRC = CartCRC;
-    file->Var32(&CartCRC);
-
-    if (CartCRC != oldCRC)
+    if (file->Saving)
     {
-        // delete and reallocate ROM so that it is zero-padded to its full length
-        if (CartROM) delete[] CartROM;
-        CartROM = new u8[CartROMSize];
+        file->Var32(&carttype);
+        file->Var32(&cartchk);
     }
+    else
+    {
+        u32 savetype;
+        file->Var32(&savetype);
+        if (savetype != carttype) return;
 
-    // only save/load the cartridge header
-    //
-    // GBA connectivity on DS mainly involves identifying the title currently
-    // inserted, reading save data, and issuing commands intercepted here
-    // (e.g. solar sensor signals). we don't know of any case where GBA ROM is
-    // read directly from DS software. therefore, it is more practical, both
-    // from the development and user experience perspectives, to avoid dealing
-    // with file dependencies, and store a small portion of ROM data that should
-    // satisfy the needs of all known software that reads from the GBA slot.
-    //
-    // note: in case of a state load, only the cartridge header is restored, but
-    // the rest of the ROM data is only cleared (zero-initialized) if the CRC
-    // differs. Therefore, loading the GBA cartridge associated with the save state
-    // in advance will maintain access to the full ROM contents.
-    file->VarArray(CartROM, 192);
-
-    CartInserted = true; // known, because CartROMSize > 0
-    file->Var32(&CartCRC);
-    file->Var32(&CartID);
-
-    // now do the rest
+        u32 savechk;
+        file->Var32(&savechk);
+        if (savechk != cartchk) return;
+    }
 
     if (Cart) Cart->DoSavestate(file);
 }
@@ -784,9 +773,6 @@ bool LoadROM(const u8* romdata, u32 romlen)
         printf("GBA solar sensor support detected!\n");
     }
 
-    CartCRC = CRC32(CartROM, CartROMSize);
-    printf("GBA ROM CRC32: %08X\n", CartCRC);
-
     CartInserted = true;
 
     if (solarsensor)
@@ -823,7 +809,6 @@ void LoadAddon(int type)
 {
     CartROMSize = 0;
     CartROM = nullptr;
-    CartCRC = 0;
 
     switch (type)
     {
@@ -849,7 +834,6 @@ void EjectCart()
     CartInserted = false;
     CartROM = nullptr;
     CartROMSize = 0;
-    CartCRC = 0;
     CartID = 0;
 }
 

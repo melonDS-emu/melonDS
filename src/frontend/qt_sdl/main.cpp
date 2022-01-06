@@ -2294,7 +2294,7 @@ void MainWindow::onSaveState()
     std::string filename;
     if (slot > 0)
     {
-        filename = Frontend::GetSavestateName(slot);
+        filename = ROMManager::GetSavestateName(slot);
     }
     else
     {
@@ -2312,7 +2312,7 @@ void MainWindow::onSaveState()
         filename = qfilename.toStdString();
     }
 
-    if (Frontend::SaveState(filename))
+    if (ROMManager::SaveState(filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State saved to slot %d", slot);
@@ -2338,7 +2338,7 @@ void MainWindow::onLoadState()
     std::string filename;
     if (slot > 0)
     {
-        filename = Frontend::GetSavestateName(slot);
+        filename = ROMManager::GetSavestateName(slot);
     }
     else
     {
@@ -2367,7 +2367,7 @@ void MainWindow::onLoadState()
         return;
     }
 
-    if (Frontend::LoadState(filename))
+    if (ROMManager::LoadState(filename))
     {
         char msg[64];
         if (slot > 0) sprintf(msg, "State loaded from slot %d", slot);
@@ -2387,7 +2387,7 @@ void MainWindow::onLoadState()
 void MainWindow::onUndoStateLoad()
 {
     emuThread->emuPause();
-    Frontend::UndoStateLoad();
+    ROMManager::UndoStateLoad();
     emuThread->emuUnpause();
 
     OSD::AddMessage(0, "State load undone");
@@ -2819,7 +2819,7 @@ void MainWindow::onEmuStart()
         for (int i = 1; i < 9; i++)
         {
             actSaveState[i]->setEnabled(true);
-            actLoadState[i]->setEnabled(Frontend::SavestateExists(i));
+            actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
         }
         actSaveState[0]->setEnabled(true);
         actLoadState[0]->setEnabled(true);
@@ -3002,7 +3002,6 @@ int main(int argc, char** argv)
     micExtBufferWritePos = 0;
     micWavBuffer = nullptr;
 
-    Frontend::Init_ROM();
     ROMManager::EnableCheats(Config::EnableCheats != 0);
 
     Frontend::Init_Audio(audioFreq);
@@ -3044,8 +3043,6 @@ int main(int argc, char** argv)
     delete emuThread;
 
     Input::CloseJoystick();
-
-    Frontend::DeInit_ROM();
 
     if (audioDevice) SDL_CloseAudioDevice(audioDevice);
     micClose();

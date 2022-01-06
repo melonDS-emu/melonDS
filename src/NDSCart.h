@@ -35,6 +35,9 @@ public:
     CartCommon(u8* rom, u32 len, u32 chipid);
     virtual ~CartCommon();
 
+    virtual u32 Type() { return 0x001; }
+    virtual u32 Checksum();
+
     virtual void Reset();
     virtual void SetupDirectBoot(std::string romname);
 
@@ -71,6 +74,8 @@ public:
     CartRetail(u8* rom, u32 len, u32 chipid);
     virtual ~CartRetail() override;
 
+    virtual u32 Type() override { return 0x101; }
+
     virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
@@ -106,6 +111,8 @@ public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid);
     ~CartRetailNAND() override;
 
+    virtual u32 Type() override { return 0x102; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -134,6 +141,8 @@ public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
     ~CartRetailIR() override;
 
+    virtual u32 Type() override { return 0x103; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -152,6 +161,8 @@ public:
     CartRetailBT(u8* rom, u32 len, u32 chipid);
     ~CartRetailBT() override;
 
+    virtual u32 Type() override { return 0x104; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -165,6 +176,8 @@ class CartHomebrew : public CartCommon
 public:
     CartHomebrew(u8* rom, u32 len, u32 chipid);
     ~CartHomebrew() override;
+
+    virtual u32 Type() override { return 0x201; }
 
     void Reset() override;
     void SetupDirectBoot(std::string romname) override;

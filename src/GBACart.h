@@ -31,6 +31,10 @@ class CartCommon
 public:
     CartCommon();
     virtual ~CartCommon();
+
+    virtual u32 Type() { return 0x001; }
+    virtual u32 Checksum() { return 0; }
+
     virtual void Reset();
 
     virtual void DoSavestate(Savestate* file);
@@ -53,6 +57,10 @@ class CartGame : public CartCommon
 public:
     CartGame(u8* rom, u32 len);
     virtual ~CartGame() override;
+
+    virtual u32 Type() override { return 0x101; }
+    virtual u32 Checksum() override;
+
     virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
@@ -119,6 +127,9 @@ class CartGameSolarSensor : public CartGame
 public:
     CartGameSolarSensor(u8* rom, u32 len);
     virtual ~CartGameSolarSensor() override;
+
+    virtual u32 Type() override { return 0x102; }
+
     virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
@@ -142,6 +153,9 @@ class CartRAMExpansion : public CartCommon
 public:
     CartRAMExpansion();
     ~CartRAMExpansion() override;
+
+    virtual u32 Type() override { return 0x201; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -164,7 +178,6 @@ enum
 extern bool CartInserted;
 extern u8* CartROM;
 extern u32 CartROMSize;
-extern u32 CartCRC;
 
 bool Init();
 void DeInit();

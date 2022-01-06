@@ -22,11 +22,11 @@
 #include "DSi.h"
 #include "NDSCart.h"
 #include "ARM.h"
+#include "CRC32.h"
 #include "DSi_AES.h"
 #include "Platform.h"
 #include "ROMList.h"
 #include "melonDLDI.h"
-#include "NDSCart_SRAMManager.h"
 
 
 namespace NDSCart
@@ -197,6 +197,22 @@ CartCommon::CartCommon(u8* rom, u32 len, u32 chipid)
 
 CartCommon::~CartCommon()
 {
+}
+
+u32 CartCommon::Checksum()
+{
+    u32 crc = CRC32(ROM, 0x40);
+
+    crc = CRC32(&ROM[Header.ARM9ROMOffset], Header.ARM9Size, crc);
+    crc = CRC32(&ROM[Header.ARM7ROMOffset], Header.ARM7Size, crc);
+
+    if (IsDSi)
+    {
+        crc = CRC32(&ROM[Header.DSiARM9iROMOffset], Header.DSiARM9iSize, crc);
+        crc = CRC32(&ROM[Header.DSiARM7iROMOffset], Header.DSiARM7iSize, crc);
+    }
+
+    return crc;
 }
 
 void CartCommon::Reset()
@@ -391,11 +407,7 @@ void CartRetail::DoSavestate(Savestate* file)
     CartCommon::DoSavestate(file);
 
     // we reload the SRAM contents.
-    // it should be the same file (as it should be the same ROM, duh)
-    // but the contents may change
-
-    //if (!file->Saving && SRAMLength)
-    //    delete[] SRAM;
+    // it should be the same file, but the contents may change
 
     u32 oldlen = SRAMLength;
 
@@ -411,9 +423,6 @@ void CartRetail::DoSavestate(Savestate* file)
     }
     if (SRAMLength)
     {
-        //if (!file->Saving)
-        //    SRAM = new u8[SRAMLength];
-
         file->VarArray(SRAM, SRAMLength);
     }
 
@@ -423,12 +432,8 @@ void CartRetail::DoSavestate(Savestate* file)
     file->Var32(&SRAMAddr);
     file->Var8(&SRAMStatus);
 
-    // SRAMManager might now have an old buffer (or one from the future or alternate timeline!)
-    /*if (!file->Saving)
-    {
-        SRAMFileDirty = false;
-        NDSCart_SRAMManager::RequestFlush();
-    }*/
+    if ((!file->Saving) && SRAM)
+        Platform::WriteNDSSave(SRAM, SRAMLength, 0, SRAMLength);
 }
 
 void CartRetail::SetupSave(u32 type)
@@ -1466,6 +1471,30 @@ void DoSavestate(Savestate* file)
     // savestate should be loaded after the right game is loaded
     // (TODO: system to verify that indeed the right ROM is loaded)
     // (what to CRC? whole ROM? code binaries? latter would be more convenient for ie. romhaxing)
+
+    u32 carttype = 0;
+    u32 cartchk = 0;
+    if (Cart)
+    {
+        carttype = Cart->Type();
+        cartchk = Cart->Checksum();
+    }
+
+    if (file->Saving)
+    {
+        file->Var32(&carttype);
+        file->Var32(&cartchk);
+    }
+    else
+    {
+        u32 savetype;
+        file->Var32(&savetype);
+        if (savetype != carttype) return;
+
+        u32 savechk;
+        file->Var32(&savechk);
+        if (savechk != cartchk) return;
+    }
 
     if (Cart) Cart->DoSavestate(file);
 }

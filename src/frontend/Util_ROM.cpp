@@ -39,41 +39,10 @@
 namespace Frontend
 {
 
-std::string ROMPath     [ROMSlot_MAX];
-std::string SRAMPath    [ROMSlot_MAX];
-std::string PrevSRAMPath[ROMSlot_MAX]; // for savestate 'undo load'
 
-std::string NDSROMExtension;
 
 bool SavestateLoaded;
 
-ARCodeFile* CheatFile;
-bool CheatsOn;
-
-
-void Init_ROM()
-{
-    SavestateLoaded = false;
-
-    ROMPath[ROMSlot_NDS] = "";
-    ROMPath[ROMSlot_GBA] = "";
-    SRAMPath[ROMSlot_NDS] = "";
-    SRAMPath[ROMSlot_GBA] = "";
-    PrevSRAMPath[ROMSlot_NDS] = "";
-    PrevSRAMPath[ROMSlot_GBA] = "";
-
-    CheatFile = nullptr;
-    CheatsOn = false;
-}
-
-void DeInit_ROM()
-{
-    if (CheatFile)
-    {
-        delete CheatFile;
-        CheatFile = nullptr;
-    }
-}
 
 
 
@@ -82,7 +51,7 @@ void DeInit_ROM()
 
 // SAVESTATE TODO
 // * configurable paths. not everyone wants their ROM directory to be polluted, I guess.
-
+/*
 std::string GetSavestateName(int slot)
 {
     std::string filename;
@@ -175,7 +144,7 @@ bool LoadState(std::string filename)
                         slot, loadedPartialGBAROM ? " (GBA ROM header only)" : "");
         else          sprintf(msg, "State loaded from file%s",
                         loadedPartialGBAROM ? " (GBA ROM header only)" : "");
-        OSD::AddMessage(0, msg);*/
+        OSD::AddMessage(0, msg);*-/
 
         SavestateLoaded = true;
     }
@@ -224,22 +193,8 @@ void UndoStateLoad()
         SRAMPath[ROMSlot_NDS] = PrevSRAMPath[ROMSlot_NDS];
 //        NDS::RelocateSave(SRAMPath[ROMSlot_NDS].c_str(), false);
     }
-}
+}*/
 
-int ImportSRAM(const char* filename)
-{
-    /*FILE* file = fopen(filename, "rb");
-    fseek(file, 0, SEEK_END);
-    u32 size = ftell(file);
-    u8* importData = new u8[size];
-    rewind(file);
-    fread(importData, size, 1, file);
-    fclose(file);
 
-    int diff = NDS::ImportSRAM(importData, size);
-    delete[] importData;
-    return diff;*/
-    return 0;
-}
 
 }

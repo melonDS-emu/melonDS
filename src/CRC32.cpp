@@ -52,7 +52,7 @@ void _inittable()
     }
 }
 
-u32 CRC32(u8 *data, int len)
+u32 CRC32(u8 *data, int len, u32 start)
 {
     if (!tableinited)
     {
@@ -60,7 +60,7 @@ u32 CRC32(u8 *data, int len)
         tableinited = true;
     }
 
-	u32 crc = 0xFFFFFFFF;
+	u32 crc = start ^ 0xFFFFFFFF;
 
 	while (len--)
         crc = (crc >> 8) ^ crctable[(crc & 0xFF) ^ *data++];

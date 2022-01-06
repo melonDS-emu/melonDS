@@ -49,6 +49,9 @@ std::string BaseGBAAssetName = "";
 SaveManager* NDSSave = nullptr;
 SaveManager* GBASave = nullptr;
 
+bool SavestateLoaded = false;
+std::string PreviousSaveFile = "";
+
 ARCodeFile* CheatFile = nullptr;
 bool CheatsOn = false;
 
@@ -67,10 +70,17 @@ int LastSep(std::string path)
     return -1;
 }
 
-std::string GetAssetPath(bool gba, std::string configpath, std::string ext)
+std::string GetAssetPath(bool gba, std::string configpath, std::string ext, std::string file="")
 {
     if (configpath.empty())
         configpath = gba ? BaseGBAROMDir : BaseROMDir;
+
+    if (file.empty())
+    {
+        file = gba ? BaseGBAAssetName : BaseAssetName;
+        if (file.empty())
+            file = "firmware";
+    }
 
     for (;;)
     {
@@ -84,7 +94,7 @@ std::string GetAssetPath(bool gba, std::string configpath, std::string ext)
     if (!configpath.empty())
         configpath += "/";
 
-    return configpath + (gba ? BaseGBAAssetName : BaseAssetName) + ext;
+    return configpath + file + ext;
 }
 
 
@@ -259,6 +269,97 @@ QString VerifySetup()
     }
 
     return "";
+}
+
+
+std::string GetSavestateName(int slot)
+{
+    std::string ext = ".ml";
+    ext += ('0'+slot);
+    return GetAssetPath(false, Config::SavestatePath, ext);
+}
+
+bool SavestateExists(int slot)
+{
+    std::string ssfile = GetSavestateName(slot);
+    return Platform::FileExists(ssfile);
+}
+
+bool LoadState(std::string filename)
+{
+    // backup
+    Savestate* backup = new Savestate("timewarp.mln", true);
+    NDS::DoSavestate(backup);
+    delete backup;
+
+    bool failed = false;
+
+    Savestate* state = new Savestate(filename, false);
+    if (state->Error)
+    {
+        delete state;
+
+        // current state might be crapoed, so restore from sane backup
+        state = new Savestate("timewarp.mln", false);
+        failed = true;
+    }
+
+    NDS::DoSavestate(state);
+    delete state;
+
+    if (failed) return false;
+
+    if (Config::SavestateRelocSRAM && NDSSave)
+    {
+        PreviousSaveFile = NDSSave->GetPath();
+
+        std::string savefile = filename.substr(LastSep(filename)+1);
+        savefile = GetAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        NDSSave->SetPath(savefile, true);
+    }
+
+    SavestateLoaded = true;
+
+    return true;
+}
+
+bool SaveState(std::string filename)
+{
+    Savestate* state = new Savestate(filename, true);
+    if (state->Error)
+    {
+        delete state;
+        return false;
+    }
+
+    NDS::DoSavestate(state);
+    delete state;
+
+    if (Config::SavestateRelocSRAM && NDSSave)
+    {
+        std::string savefile = filename.substr(LastSep(filename)+1);
+        savefile = GetAssetPath(false, Config::SaveFilePath, ".sav", savefile);
+        NDSSave->SetPath(savefile, false);
+    }
+
+    return true;
+}
+
+void UndoStateLoad()
+{
+    if (!SavestateLoaded) return;
+
+    // pray that this works
+    // what do we do if it doesn't???
+    // but it should work.
+    Savestate* backup = new Savestate("timewarp.mln", false);
+    NDS::DoSavestate(backup);
+    delete backup;
+
+    if (NDSSave && (!PreviousSaveFile.empty()))
+    {
+        NDSSave->SetPath(PreviousSaveFile, true);
+    }
 }
 
 

@@ -64,6 +64,28 @@ SaveManager::~SaveManager()
     if (Buffer) delete[] Buffer;
 }
 
+std::string SaveManager::GetPath()
+{
+    return Path;
+}
+
+void SaveManager::SetPath(std::string path, bool reload)
+{
+    Path = path;
+
+    if (reload)
+    {
+        FILE* f = Platform::OpenFile(Path, "rb", true);
+        if (f)
+        {
+            fread(Buffer, 1, Length, f);
+            fclose(f);
+        }
+    }
+    else
+        FlushRequested = true;
+}
+
 void SaveManager::RequestFlush(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
     if (Length != savelen)
