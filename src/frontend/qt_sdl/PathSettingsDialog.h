@@ -43,7 +43,7 @@ public:
         }
 
         currentDlg = new PathSettingsDialog(parent);
-        currentDlg->show();
+        currentDlg->open();
         return currentDlg;
     }
     static void closeDlg()

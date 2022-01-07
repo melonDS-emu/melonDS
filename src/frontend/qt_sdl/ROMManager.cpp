@@ -411,6 +411,22 @@ void Reset()
     if (Config::ConsoleType == 1) EjectGBACart();
     NDS::Reset();
 
+    if ((CartType != -1) && NDSSave)
+    {
+        std::string oldsave = NDSSave->GetPath();
+        std::string newsave = GetAssetPath(false, Config::SaveFilePath, ".sav");
+        if (oldsave != newsave)
+            NDSSave->SetPath(newsave, false);
+    }
+
+    if ((GBACartType != -1) && GBASave)
+    {
+        std::string oldsave = GBASave->GetPath();
+        std::string newsave = GetAssetPath(true, Config::SaveFilePath, ".sav");
+        if (oldsave != newsave)
+            GBASave->SetPath(newsave, false);
+    }
+
     if (!BaseROMName.empty())
     {
         if (Config::DirectBoot || NDS::NeedsDirectBoot())
