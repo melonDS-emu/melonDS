@@ -35,7 +35,6 @@ SET(SOURCES_QT_SDL
     ../Util_Audio.cpp
     ../FrontendUtil.h
     ../mic_blow.h
-	../SharedConfig.h
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )

@@ -408,6 +408,7 @@ ARCodeFile* GetCheatFile()
 void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
+    if (Config::ConsoleType == 1) EjectGBACart();
     NDS::Reset();
 
     if (!BaseROMName.empty())
@@ -596,6 +597,7 @@ QString CartLabel()
 
 bool LoadGBAROM(QStringList filepath)
 {
+    if (Config::ConsoleType == 1) return false;
     if (filepath.empty()) return false;
 
     u8* filedata;
@@ -700,6 +702,8 @@ bool LoadGBAROM(QStringList filepath)
 
 void LoadGBAAddon(int type)
 {
+    if (Config::ConsoleType == 1) return;
+
     if (GBASave) delete GBASave;
     GBASave = nullptr;
 
@@ -731,10 +735,20 @@ bool GBACartInserted()
 
 QString GBACartLabel()
 {
+    if (Config::ConsoleType == 1) return "none (DSi)";
+
     switch (GBACartType)
     {
     case 0:
-        return "it's a ROM (TODO)";
+        {
+            QString ret = QString::fromStdString(BaseGBAROMName);
+
+            int maxlen = 32;
+            if (ret.length() > maxlen)
+                ret = ret.left(maxlen-6) + "..." + ret.right(3);
+
+            return ret;
+        }
 
     case NDS::GBAAddon_RAMExpansion:
         return "Memory expansion";

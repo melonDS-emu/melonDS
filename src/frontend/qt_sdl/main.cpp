@@ -1619,6 +1619,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actEjectCart->setEnabled(false);
     actEjectGBACart->setEnabled(false);
 
+    if (Config::ConsoleType == 1)
+    {
+        actInsertGBACart->setEnabled(false);
+        for (int i = 0; i < 1; i++)
+            actInsertGBAAddon[i]->setEnabled(false);
+    }
+
     for (int i = 0; i < 9; i++)
     {
         actSaveState[i]->setEnabled(false);
@@ -2037,7 +2044,7 @@ void MainWindow::updateCartInserted(bool gba)
     bool inserted;
     if (gba)
     {
-        inserted = ROMManager::GBACartInserted();
+        inserted = ROMManager::GBACartInserted() && (Config::ConsoleType == 0);
         actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
         actEjectGBACart->setEnabled(inserted);
     }
@@ -2541,8 +2548,25 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
 {
     emuThread->emuUnpause();
 
+    if (Config::ConsoleType == 1)
+    {
+        actInsertGBACart->setEnabled(false);
+        for (int i = 0; i < 1; i++)
+            actInsertGBAAddon[i]->setEnabled(false);
+        actEjectGBACart->setEnabled(false);
+    }
+    else
+    {
+        actInsertGBACart->setEnabled(true);
+        for (int i = 0; i < 1; i++)
+            actInsertGBAAddon[i]->setEnabled(true);
+        actEjectGBACart->setEnabled(ROMManager::GBACartInserted());
+    }
+
     if (EmuSettingsDialog::needsReset)
         onReset();
+
+    actCurrentGBACart->setText("GBA slot: " + ROMManager::GBACartLabel());
 
     if (!RunningSomething)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());

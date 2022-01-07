@@ -904,7 +904,8 @@ bool DoSavestate(Savestate* file)
     ARM7->DoSavestate(file);
 
     NDSCart::DoSavestate(file);
-    GBACart::DoSavestate(file);
+    if (ConsoleType == 0)
+        GBACart::DoSavestate(file);
     GPU::DoSavestate(file);
     SPU::DoSavestate(file);
     SPI::DoSavestate(file);
