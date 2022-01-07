@@ -814,6 +814,9 @@ bool DoSavestate(Savestate* file)
     file->VarArray(SharedWRAM, SharedWRAMSize);
     file->VarArray(ARM7WRAM, ARM7WRAMSize);
 
+    //file->VarArray(ARM9BIOS, 0x1000);
+    //file->VarArray(ARM7BIOS, 0x4000);
+
     file->VarArray(ExMemCnt, 2*sizeof(u16));
     file->VarArray(ROMSeed0, 2*8);
     file->VarArray(ROMSeed1, 2*8);
@@ -869,11 +872,8 @@ bool DoSavestate(Savestate* file)
     file->Var64(&LastSysClockCycles);
     file->Var64(&FrameStartTimestamp);
     file->Var32(&NumFrames);
-    if (file->IsAtleastVersion(7, 1))
-    {
-        file->Var32(&NumLagFrames);
-        file->Bool32(&LagFrameFlag);
-    }
+    file->Var32(&NumLagFrames);
+    file->Bool32(&LagFrameFlag);
 
     // TODO: save KeyInput????
     file->Var16(&KeyCnt);

@@ -155,6 +155,43 @@ void Reset()
     *(u32*)&KeyY[3][8] = 0x202DDD1D;
 }
 
+void DoSavestate(Savestate* file)
+{
+    file->Section("AES.");
+
+    file->Var32(&Cnt);
+
+    file->Var32(&BlkCnt);
+    file->Var32(&RemExtra);
+    file->Var32(&RemBlocks);
+
+    file->Bool32(&OutputFlush);
+
+    file->Var32(&InputDMASize);
+    file->Var32(&OutputDMASize);
+    file->Var32(&AESMode);
+
+    InputFIFO->DoSavestate(file);
+    OutputFIFO->DoSavestate(file);
+
+    file->VarArray(IV, 16);
+
+    file->VarArray(MAC, 16);
+
+    file->VarArray(KeyNormal, 4*16);
+    file->VarArray(KeyX, 4*16);
+    file->VarArray(KeyY, 4*16);
+
+    file->VarArray(CurKey, 16);
+    file->VarArray(CurMAC, 16);
+
+    file->VarArray(OutputMAC, 16);
+    file->Bool32(&OutputMACDue);
+
+    file->VarArray(Ctx->RoundKey, AES_keyExpSize);
+    file->VarArray(Ctx->Iv, AES_BLOCKLEN);
+}
+
 
 void ProcessBlock_CCM_Extra()
 {

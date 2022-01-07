@@ -172,7 +172,74 @@ void DoSavestate(Savestate* file)
 {
     file->Section("DSIG");
 
-    //
+    file->Var16(&SCFG_BIOS);
+    file->Var16(&SCFG_Clock9);
+    file->Var16(&SCFG_Clock7);
+    file->VarArray(&SCFG_EXT[0], sizeof(u32)*2);
+    file->Var32(&SCFG_MC);
+    file->Var16(&SCFG_RST);
+
+    //file->VarArray(ARM9iBIOS, 0x10000);
+    //file->VarArray(ARM7iBIOS, 0x10000);
+
+    if (file->Saving)
+    {
+        file->VarArray(&MBK[0][0], sizeof(u32)*8);
+        file->VarArray(&MBK[1][5], sizeof(u32)*3);
+        file->Var32(&MBK[0][8]);
+    }
+    else
+    {
+        Set_SCFG_Clock9(SCFG_Clock9);
+        Set_SCFG_MC(SCFG_MC);
+        DSi_DSP::SetRstLine(SCFG_RST & 0x0001);
+
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
+        u32 mbk[12];
+        file->VarArray(&mbk, sizeof(u32)*12);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        mbk[11] &= 0x00FFFF0F;
+        MBK[0][8] = mbk[11];
+        MBK[1][8] = mbk[11];
+    }
+
+    for (int i = 0; i < 8; i++)
+        NDMAs[i]->DoSavestate(file);
+
+    DSi_AES::DoSavestate(file);
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
