@@ -1984,7 +1984,7 @@ QStringList MainWindow::pickROM(bool gba)
     else
     {
         console = "DS";
-        romexts.append({"*.nds", "*.dsi", "*.srl"});
+        romexts.append({"*.nds", "*.dsi", "*.ids", "*.srl"});
     }
 
     QString filter = romexts.join(' ') + " " + arcexts.join(' ');
