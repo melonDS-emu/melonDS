@@ -28,6 +28,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+ARCodeFile* GetCodeFile();
 void SetCodeFile(ARCodeFile* file);
 
 void RunCheats();

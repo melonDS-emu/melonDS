@@ -34,10 +34,11 @@
 
 namespace Archive
 {
-    
-QVector<QString> ListArchive(const char* path);
-QVector<QString> ExtractFileFromArchive(const char* path, const char* wantedFile, QByteArray *romBuffer);
-u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata);
+
+QVector<QString> ListArchive(QString path);
+u32 ExtractFileFromArchive(QString path, QString wantedFile, u8** filedata, u32* filesize);
+//QVector<QString> ExtractFileFromArchive(QString path, QString wantedFile, QByteArray *romBuffer);
+//u32 ExtractFileFromArchive(const char* path, const char* wantedFile, u8 **romdata);
 
 }
 

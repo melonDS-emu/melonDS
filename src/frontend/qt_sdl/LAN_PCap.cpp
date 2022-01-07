@@ -318,7 +318,7 @@ bool Init(bool open_adapter)
     PCapAdapterData = &Adapters[0];
     for (int i = 0; i < NumAdapters; i++)
     {
-        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice, 128))
+        if (!strncmp(Adapters[i].DeviceName, Config::LANDevice.c_str(), 128))
             PCapAdapterData = &Adapters[i];
     }
 

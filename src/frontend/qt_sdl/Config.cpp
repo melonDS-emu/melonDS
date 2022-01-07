@@ -36,268 +36,276 @@ int JoystickID;
 
 int WindowWidth;
 int WindowHeight;
-int WindowMaximized;
+bool WindowMaximized;
 
 int ScreenRotation;
 int ScreenGap;
 int ScreenLayout;
-int ScreenSwap;
+bool ScreenSwap;
 int ScreenSizing;
-int IntegerScaling;
+bool IntegerScaling;
 int ScreenAspectTop;
 int ScreenAspectBot;
-int ScreenFilter;
+bool ScreenFilter;
 
-int ScreenUseGL;
-int ScreenVSync;
+bool ScreenUseGL;
+bool ScreenVSync;
 int ScreenVSyncInterval;
 
 int _3DRenderer;
-int Threaded3D;
+bool Threaded3D;
 
 int GL_ScaleFactor;
-int GL_BetterPolygons;
+bool GL_BetterPolygons;
 
-int LimitFPS;
-int AudioSync;
-int ShowOSD;
+bool LimitFPS;
+bool AudioSync;
+bool ShowOSD;
 
 int ConsoleType;
-int DirectBoot;
+bool DirectBoot;
 
 #ifdef JIT_ENABLED
-int JIT_Enable = false;
+bool JIT_Enable = false;
 int JIT_MaxBlockSize = 32;
-int JIT_BranchOptimisations = true;
-int JIT_LiteralOptimisations = true;
-int JIT_FastMemory = true;
+bool JIT_BranchOptimisations = true;
+bool JIT_LiteralOptimisations = true;
+bool JIT_FastMemory = true;
 #endif
 
-int ExternalBIOSEnable;
+bool ExternalBIOSEnable;
 
-char BIOS9Path[1024];
-char BIOS7Path[1024];
-char FirmwarePath[1024];
+std::string BIOS9Path;
+std::string BIOS7Path;
+std::string FirmwarePath;
 
-char DSiBIOS9Path[1024];
-char DSiBIOS7Path[1024];
-char DSiFirmwarePath[1024];
-char DSiNANDPath[1024];
+std::string DSiBIOS9Path;
+std::string DSiBIOS7Path;
+std::string DSiFirmwarePath;
+std::string DSiNANDPath;
 
-int DLDIEnable;
-char DLDISDPath[1024];
+bool DLDIEnable;
+std::string DLDISDPath;
 int DLDISize;
-int DLDIReadOnly;
-int DLDIFolderSync;
-char DLDIFolderPath[1024];
+bool DLDIReadOnly;
+bool DLDIFolderSync;
+std::string DLDIFolderPath;
 
-int DSiSDEnable;
-char DSiSDPath[1024];
+bool DSiSDEnable;
+std::string DSiSDPath;
 int DSiSDSize;
-int DSiSDReadOnly;
-int DSiSDFolderSync;
-char DSiSDFolderPath[1024];
+bool DSiSDReadOnly;
+bool DSiSDFolderSync;
+std::string DSiSDFolderPath;
 
-int FirmwareOverrideSettings;
-char FirmwareUsername[64];
+bool FirmwareOverrideSettings;
+std::string FirmwareUsername;
 int FirmwareLanguage;
 int FirmwareBirthdayMonth;
 int FirmwareBirthdayDay;
 int FirmwareFavouriteColour;
-char FirmwareMessage[1024];
-char FirmwareMAC[18];
-int RandomizeMAC;
+std::string FirmwareMessage;
+std::string FirmwareMAC;
+bool RandomizeMAC;
 
-int SocketBindAnyAddr;
-char LANDevice[128];
-int DirectLAN;
+bool SocketBindAnyAddr;
+std::string LANDevice;
+bool DirectLAN;
 
-int SavestateRelocSRAM;
+bool SavestateRelocSRAM;
 
 int AudioInterp;
 int AudioBitrate;
 int AudioVolume;
 int MicInputType;
-char MicWavPath[1024];
+std::string MicWavPath;
 
-char LastROMFolder[1024];
+std::string LastROMFolder;
 
-char RecentROMList[10][1024];
+std::string RecentROMList[10];
 
-int EnableCheats;
+std::string SaveFilePath;
+std::string SavestatePath;
+std::string CheatFilePath;
 
-int MouseHide;
+bool EnableCheats;
+
+bool MouseHide;
 int MouseHideSeconds;
 
-int PauseLostFocus;
+bool PauseLostFocus;
 
 
 const char* kConfigFile = "melonDS.ini";
 
 ConfigEntry ConfigFile[] =
 {
-    {"Key_A",      0, &KeyMapping[0],  -1, NULL, 0},
-    {"Key_B",      0, &KeyMapping[1],  -1, NULL, 0},
-    {"Key_Select", 0, &KeyMapping[2],  -1, NULL, 0},
-    {"Key_Start",  0, &KeyMapping[3],  -1, NULL, 0},
-    {"Key_Right",  0, &KeyMapping[4],  -1, NULL, 0},
-    {"Key_Left",   0, &KeyMapping[5],  -1, NULL, 0},
-    {"Key_Up",     0, &KeyMapping[6],  -1, NULL, 0},
-    {"Key_Down",   0, &KeyMapping[7],  -1, NULL, 0},
-    {"Key_R",      0, &KeyMapping[8],  -1, NULL, 0},
-    {"Key_L",      0, &KeyMapping[9],  -1, NULL, 0},
-    {"Key_X",      0, &KeyMapping[10], -1, NULL, 0},
-    {"Key_Y",      0, &KeyMapping[11], -1, NULL, 0},
+    {"Key_A",      0, &KeyMapping[0],  -1},
+    {"Key_B",      0, &KeyMapping[1],  -1},
+    {"Key_Select", 0, &KeyMapping[2],  -1},
+    {"Key_Start",  0, &KeyMapping[3],  -1},
+    {"Key_Right",  0, &KeyMapping[4],  -1},
+    {"Key_Left",   0, &KeyMapping[5],  -1},
+    {"Key_Up",     0, &KeyMapping[6],  -1},
+    {"Key_Down",   0, &KeyMapping[7],  -1},
+    {"Key_R",      0, &KeyMapping[8],  -1},
+    {"Key_L",      0, &KeyMapping[9],  -1},
+    {"Key_X",      0, &KeyMapping[10], -1},
+    {"Key_Y",      0, &KeyMapping[11], -1},
 
-    {"Joy_A",      0, &JoyMapping[0],  -1, NULL, 0},
-    {"Joy_B",      0, &JoyMapping[1],  -1, NULL, 0},
-    {"Joy_Select", 0, &JoyMapping[2],  -1, NULL, 0},
-    {"Joy_Start",  0, &JoyMapping[3],  -1, NULL, 0},
-    {"Joy_Right",  0, &JoyMapping[4],  -1, NULL, 0},
-    {"Joy_Left",   0, &JoyMapping[5],  -1, NULL, 0},
-    {"Joy_Up",     0, &JoyMapping[6],  -1, NULL, 0},
-    {"Joy_Down",   0, &JoyMapping[7],  -1, NULL, 0},
-    {"Joy_R",      0, &JoyMapping[8],  -1, NULL, 0},
-    {"Joy_L",      0, &JoyMapping[9],  -1, NULL, 0},
-    {"Joy_X",      0, &JoyMapping[10], -1, NULL, 0},
-    {"Joy_Y",      0, &JoyMapping[11], -1, NULL, 0},
+    {"Joy_A",      0, &JoyMapping[0],  -1},
+    {"Joy_B",      0, &JoyMapping[1],  -1},
+    {"Joy_Select", 0, &JoyMapping[2],  -1},
+    {"Joy_Start",  0, &JoyMapping[3],  -1},
+    {"Joy_Right",  0, &JoyMapping[4],  -1},
+    {"Joy_Left",   0, &JoyMapping[5],  -1},
+    {"Joy_Up",     0, &JoyMapping[6],  -1},
+    {"Joy_Down",   0, &JoyMapping[7],  -1},
+    {"Joy_R",      0, &JoyMapping[8],  -1},
+    {"Joy_L",      0, &JoyMapping[9],  -1},
+    {"Joy_X",      0, &JoyMapping[10], -1},
+    {"Joy_Y",      0, &JoyMapping[11], -1},
 
-    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1, NULL, 0},
-    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1, NULL, 0},
-    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],               -1, NULL, 0},
-    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1, NULL, 0},
-    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1, NULL, 0},
-    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1, NULL, 0},
-    {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1, NULL, 0},
-    {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1, NULL, 0},
-    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
-    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
-    {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1, NULL, 0},
+    {"HKKey_Lid",                 0, &HKKeyMapping[HK_Lid],                 -1},
+    {"HKKey_Mic",                 0, &HKKeyMapping[HK_Mic],                 -1},
+    {"HKKey_Pause",               0, &HKKeyMapping[HK_Pause],               -1},
+    {"HKKey_Reset",               0, &HKKeyMapping[HK_Reset],               -1},
+    {"HKKey_FastForward",         0, &HKKeyMapping[HK_FastForward],         -1},
+    {"HKKey_FastForwardToggle",   0, &HKKeyMapping[HK_FastForwardToggle],   -1},
+    {"HKKey_FullscreenToggle",    0, &HKKeyMapping[HK_FullscreenToggle],    -1},
+    {"HKKey_SwapScreens",         0, &HKKeyMapping[HK_SwapScreens],         -1},
+    {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1},
+    {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1},
+    {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1},
 
-    {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1, NULL, 0},
-    {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1, NULL, 0},
-    {"HKJoy_Pause",               0, &HKJoyMapping[HK_Pause],               -1, NULL, 0},
-    {"HKJoy_Reset",               0, &HKJoyMapping[HK_Reset],               -1, NULL, 0},
-    {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1, NULL, 0},
-    {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1, NULL, 0},
-    {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1, NULL, 0},
-    {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1, NULL, 0},
-    {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1, NULL, 0},
-    {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1, NULL, 0},
-    {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1, NULL, 0},
+    {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1},
+    {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1},
+    {"HKJoy_Pause",               0, &HKJoyMapping[HK_Pause],               -1},
+    {"HKJoy_Reset",               0, &HKJoyMapping[HK_Reset],               -1},
+    {"HKJoy_FastForward",         0, &HKJoyMapping[HK_FastForward],         -1},
+    {"HKJoy_FastForwardToggle",   0, &HKJoyMapping[HK_FastForwardToggle],   -1},
+    {"HKJoy_FullscreenToggle",    0, &HKJoyMapping[HK_FullscreenToggle],    -1},
+    {"HKJoy_SwapScreens",         0, &HKJoyMapping[HK_SwapScreens],         -1},
+    {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1},
+    {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1},
+    {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1},
 
-    {"JoystickID", 0, &JoystickID, 0, NULL, 0},
+    {"JoystickID", 0, &JoystickID, 0},
 
-    {"WindowWidth",  0, &WindowWidth,  256, NULL, 0},
-    {"WindowHeight", 0, &WindowHeight, 384, NULL, 0},
-    {"WindowMax",    0, &WindowMaximized, 0, NULL, 0},
+    {"WindowWidth",  0, &WindowWidth,  256},
+    {"WindowHeight", 0, &WindowHeight, 384},
+    {"WindowMax",    1, &WindowMaximized, false},
 
-    {"ScreenRotation", 0, &ScreenRotation, 0, NULL, 0},
-    {"ScreenGap",      0, &ScreenGap,      0, NULL, 0},
-    {"ScreenLayout",   0, &ScreenLayout,   0, NULL, 0},
-    {"ScreenSwap",     0, &ScreenSwap,     0, NULL, 0},
-    {"ScreenSizing",   0, &ScreenSizing,   0, NULL, 0},
-    {"IntegerScaling", 0, &IntegerScaling, 0, NULL, 0},
-    {"ScreenAspectTop",0, &ScreenAspectTop,0, NULL, 0},
-    {"ScreenAspectBot",0, &ScreenAspectBot,0, NULL, 0},
-    {"ScreenFilter",   0, &ScreenFilter,   1, NULL, 0},
+    {"ScreenRotation", 0, &ScreenRotation, 0},
+    {"ScreenGap",      0, &ScreenGap,      0},
+    {"ScreenLayout",   0, &ScreenLayout,   0},
+    {"ScreenSwap",     1, &ScreenSwap,     false},
+    {"ScreenSizing",   0, &ScreenSizing,   0},
+    {"IntegerScaling", 1, &IntegerScaling, false},
+    {"ScreenAspectTop",0, &ScreenAspectTop,0},
+    {"ScreenAspectBot",0, &ScreenAspectBot,0},
+    {"ScreenFilter",   1, &ScreenFilter,   true},
 
-    {"ScreenUseGL",         0, &ScreenUseGL,         0, NULL, 0},
-    {"ScreenVSync",         0, &ScreenVSync,         0, NULL, 0},
-    {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1, NULL, 0},
+    {"ScreenUseGL",         1, &ScreenUseGL,         false},
+    {"ScreenVSync",         1, &ScreenVSync,         false},
+    {"ScreenVSyncInterval", 0, &ScreenVSyncInterval, 1},
 
-    {"3DRenderer", 0, &_3DRenderer, 0, NULL, 0},
-    {"Threaded3D", 0, &Threaded3D, 1, NULL, 0},
+    {"3DRenderer", 0, &_3DRenderer, 0},
+    {"Threaded3D", 1, &Threaded3D, true},
 
-    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1, NULL, 0},
-    {"GL_BetterPolygons", 0, &GL_BetterPolygons, 0, NULL, 0},
+    {"GL_ScaleFactor", 0, &GL_ScaleFactor, 1},
+    {"GL_BetterPolygons", 1, &GL_BetterPolygons, false},
 
-    {"LimitFPS", 0, &LimitFPS, 1, NULL, 0},
-    {"AudioSync", 0, &AudioSync, 0, NULL, 0},
-    {"ShowOSD", 0, &ShowOSD, 1, NULL, 0},
+    {"LimitFPS", 1, &LimitFPS, true},
+    {"AudioSync", 1, &AudioSync, false},
+    {"ShowOSD", 1, &ShowOSD, true},
 
-    {"ConsoleType", 0, &ConsoleType, 0, NULL, 0},
-    {"DirectBoot", 0, &DirectBoot, 1, NULL, 0},
+    {"ConsoleType", 0, &ConsoleType, 0},
+    {"DirectBoot", 1, &DirectBoot, true},
 
 #ifdef JIT_ENABLED
-    {"JIT_Enable", 0, &JIT_Enable, 0, NULL, 0},
-    {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32, NULL, 0},
-    {"JIT_BranchOptimisations", 0, &JIT_BranchOptimisations, 1, NULL, 0},
-    {"JIT_LiteralOptimisations", 0, &JIT_LiteralOptimisations, 1, NULL, 0},
+    {"JIT_Enable", 1, &JIT_Enable, false},
+    {"JIT_MaxBlockSize", 0, &JIT_MaxBlockSize, 32},
+    {"JIT_BranchOptimisations", 1, &JIT_BranchOptimisations, true},
+    {"JIT_LiteralOptimisations", 1, &JIT_LiteralOptimisations, true},
     #ifdef __APPLE__
-        {"JIT_FastMemory", 0, &JIT_FastMemory, 0, NULL, 0},
+        {"JIT_FastMemory", 1, &JIT_FastMemory, false},
     #else
-        {"JIT_FastMemory", 0, &JIT_FastMemory, 1, NULL, 0},
+        {"JIT_FastMemory", 1, &JIT_FastMemory, true},
     #endif
 #endif
 
-    {"ExternalBIOSEnable", 0, &ExternalBIOSEnable, 0, NULL, 0},
+    {"ExternalBIOSEnable", 1, &ExternalBIOSEnable, false},
 
-    {"BIOS9Path", 1, BIOS9Path, 0, "", 1023},
-    {"BIOS7Path", 1, BIOS7Path, 0, "", 1023},
-    {"FirmwarePath", 1, FirmwarePath, 0, "", 1023},
+    {"BIOS9Path", 2, &BIOS9Path, ""},
+    {"BIOS7Path", 2, &BIOS7Path, ""},
+    {"FirmwarePath", 2, &FirmwarePath, ""},
 
-    {"DSiBIOS9Path", 1, DSiBIOS9Path, 0, "", 1023},
-    {"DSiBIOS7Path", 1, DSiBIOS7Path, 0, "", 1023},
-    {"DSiFirmwarePath", 1, DSiFirmwarePath, 0, "", 1023},
-    {"DSiNANDPath", 1, DSiNANDPath, 0, "", 1023},
+    {"DSiBIOS9Path", 2, &DSiBIOS9Path, ""},
+    {"DSiBIOS7Path", 2, &DSiBIOS7Path, ""},
+    {"DSiFirmwarePath", 2, &DSiFirmwarePath, ""},
+    {"DSiNANDPath", 2, &DSiNANDPath, ""},
 
-    {"DLDIEnable", 0, &DLDIEnable, 0, NULL, 0},
-    {"DLDISDPath", 1, DLDISDPath, 0, "dldi.bin", 1023},
-    {"DLDISize", 0, &DLDISize, 0, NULL, 0},
-    {"DLDIReadOnly", 0, &DLDIReadOnly, 0, NULL, 0},
-    {"DLDIFolderSync", 0, &DLDIFolderSync, 0, NULL, 0},
-    {"DLDIFolderPath", 1, DLDIFolderPath, 0, "", 1023},
+    {"DLDIEnable", 1, &DLDIEnable, false},
+    {"DLDISDPath", 2, &DLDISDPath, "dldi.bin"},
+    {"DLDISize", 0, &DLDISize, 0},
+    {"DLDIReadOnly", 1, &DLDIReadOnly, false},
+    {"DLDIFolderSync", 1, &DLDIFolderSync, false},
+    {"DLDIFolderPath", 2, &DLDIFolderPath, ""},
 
-    {"DSiSDEnable", 0, &DSiSDEnable, 0, NULL, 0},
-    {"DSiSDPath", 1, DSiSDPath, 0, "dsisd.bin", 1023},
-    {"DSiSDSize", 0, &DSiSDSize, 0, NULL, 0},
-    {"DSiSDReadOnly", 0, &DSiSDReadOnly, 0, NULL, 0},
-    {"DSiSDFolderSync", 0, &DSiSDFolderSync, 0, NULL, 0},
-    {"DSiSDFolderPath", 1, DSiSDFolderPath, 0, "", 1023},
+    {"DSiSDEnable", 1, &DSiSDEnable, false},
+    {"DSiSDPath", 2, &DSiSDPath, "dsisd.bin"},
+    {"DSiSDSize", 0, &DSiSDSize, 0},
+    {"DSiSDReadOnly", 1, &DSiSDReadOnly, false},
+    {"DSiSDFolderSync", 1, &DSiSDFolderSync, false},
+    {"DSiSDFolderPath", 2, &DSiSDFolderPath, ""},
 
-    {"FirmwareOverrideSettings", 0, &FirmwareOverrideSettings, false, NULL, 0},
-    {"FirmwareUsername", 1, FirmwareUsername, 0, "melonDS", 63},
-    {"FirmwareLanguage", 0, &FirmwareLanguage, 1, NULL, 0},
-    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 0, NULL, 0},
-    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 0, NULL, 0},
-    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0, NULL, 0},
-    {"FirmwareMessage", 1, FirmwareMessage, 0, "", 1023},
-    {"FirmwareMAC", 1, FirmwareMAC, 0, "", 17},
-    {"RandomizeMAC", 0, &RandomizeMAC, 0, NULL, 0},
+    {"FirmwareOverrideSettings", 1, &FirmwareOverrideSettings, false},
+    {"FirmwareUsername", 2, &FirmwareUsername, "melonDS"},
+    {"FirmwareLanguage", 0, &FirmwareLanguage, 1},
+    {"FirmwareBirthdayMonth", 0, &FirmwareBirthdayMonth, 1},
+    {"FirmwareBirthdayDay", 0, &FirmwareBirthdayDay, 1},
+    {"FirmwareFavouriteColour", 0, &FirmwareFavouriteColour, 0},
+    {"FirmwareMessage", 2, &FirmwareMessage, ""},
+    {"FirmwareMAC", 2, &FirmwareMAC, ""},
+    {"RandomizeMAC", 1, &RandomizeMAC, false},
 
-    {"SockBindAnyAddr", 0, &SocketBindAnyAddr, 0, NULL, 0},
-    {"LANDevice", 1, LANDevice, 0, "", 127},
-    {"DirectLAN", 0, &DirectLAN, 0, NULL, 0},
+    {"SockBindAnyAddr", 1, &SocketBindAnyAddr, false},
+    {"LANDevice", 2, &LANDevice, ""},
+    {"DirectLAN", 1, &DirectLAN, false},
 
-    {"SavStaRelocSRAM", 0, &SavestateRelocSRAM, 0, NULL, 0},
+    {"SavStaRelocSRAM", 1, &SavestateRelocSRAM, false},
 
-    {"AudioInterp", 0, &AudioInterp, 0, NULL, 0},
-    {"AudioBitrate", 0, &AudioBitrate, 0, NULL, 0},
-    {"AudioVolume", 0, &AudioVolume, 256, NULL, 0},
-    {"MicInputType", 0, &MicInputType, 1, NULL, 0},
-    {"MicWavPath", 1, MicWavPath, 0, "", 1023},
+    {"AudioInterp", 0, &AudioInterp, 0},
+    {"AudioBitrate", 0, &AudioBitrate, 0},
+    {"AudioVolume", 0, &AudioVolume, 256},
+    {"MicInputType", 0, &MicInputType, 1},
+    {"MicWavPath", 2, &MicWavPath, ""},
 
-    {"LastROMFolder", 1, LastROMFolder, 0, "", 1023},
+    {"LastROMFolder", 2, &LastROMFolder, ""},
 
-    {"RecentROM_0", 1, RecentROMList[0], 0, "", 1023},
-    {"RecentROM_1", 1, RecentROMList[1], 0, "", 1023},
-    {"RecentROM_2", 1, RecentROMList[2], 0, "", 1023},
-    {"RecentROM_3", 1, RecentROMList[3], 0, "", 1023},
-    {"RecentROM_4", 1, RecentROMList[4], 0, "", 1023},
-    {"RecentROM_5", 1, RecentROMList[5], 0, "", 1023},
-    {"RecentROM_6", 1, RecentROMList[6], 0, "", 1023},
-    {"RecentROM_7", 1, RecentROMList[7], 0, "", 1023},
-    {"RecentROM_8", 1, RecentROMList[8], 0, "", 1023},
-    {"RecentROM_9", 1, RecentROMList[9], 0, "", 1023},
+    {"RecentROM_0", 2, &RecentROMList[0], ""},
+    {"RecentROM_1", 2, &RecentROMList[1], ""},
+    {"RecentROM_2", 2, &RecentROMList[2], ""},
+    {"RecentROM_3", 2, &RecentROMList[3], ""},
+    {"RecentROM_4", 2, &RecentROMList[4], ""},
+    {"RecentROM_5", 2, &RecentROMList[5], ""},
+    {"RecentROM_6", 2, &RecentROMList[6], ""},
+    {"RecentROM_7", 2, &RecentROMList[7], ""},
+    {"RecentROM_8", 2, &RecentROMList[8], ""},
+    {"RecentROM_9", 2, &RecentROMList[9], ""},
 
-    {"EnableCheats", 0, &EnableCheats, 0, NULL, 0},
+    {"SaveFilePath", 2, &SaveFilePath, ""},
+    {"SavestatePath", 2, &SavestatePath, ""},
+    {"CheatFilePath", 2, &CheatFilePath, ""},
 
-    {"MouseHide",        0, &MouseHide,        0, NULL, 0},
-    {"MouseHideSeconds", 0, &MouseHideSeconds, 5, NULL, 0},
-    {"PauseLostFocus",   0, &PauseLostFocus,   0, NULL, 0},
+    {"EnableCheats", 1, &EnableCheats, false},
 
-    {"", -1, NULL, 0, NULL, 0}
+    {"MouseHide",        1, &MouseHide,        false},
+    {"MouseHideSeconds", 0, &MouseHideSeconds, 5},
+    {"PauseLostFocus",   1, &PauseLostFocus,   false},
+
+    {"", -1, nullptr, 0}
 };
 
 
@@ -308,12 +316,11 @@ void Load()
     {
         if (!entry->Value) break;
 
-        if (entry->Type == 0)
-            *(int*)entry->Value = entry->DefaultInt;
-        else
+        switch (entry->Type)
         {
-            strncpy((char*)entry->Value, entry->DefaultStr, entry->StrLength);
-            ((char*)entry->Value)[entry->StrLength] = '\0';
+        case 0: *(int*)entry->Value = std::get<int>(entry->Default); break;
+        case 1: *(bool*)entry->Value = std::get<bool>(entry->Default); break;
+        case 2: *(std::string*)entry->Value = std::get<std::string>(entry->Default); break;
         }
 
         entry++;
@@ -341,10 +348,12 @@ void Load()
 
             if (!strncmp(entry->Name, entryname, 32))
             {
-                if (entry->Type == 0)
-                    *(int*)entry->Value = strtol(entryval, NULL, 10);
-                else
-                    strncpy((char*)entry->Value, entryval, entry->StrLength);
+                switch (entry->Type)
+                {
+                case 0: *(int*)entry->Value = strtol(entryval, NULL, 10); break;
+                case 1: *(bool*)entry->Value = strtol(entryval, NULL, 10) ? true:false; break;
+                case 2: *(std::string*)entry->Value = entryval; break;
+                }
 
                 break;
             }
@@ -366,10 +375,12 @@ void Save()
     {
         if (!entry->Value) break;
 
-        if (entry->Type == 0)
-            fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value);
-        else
-            fprintf(f, "%s=%s\r\n", entry->Name, (char*)entry->Value);
+        switch (entry->Type)
+        {
+        case 0: fprintf(f, "%s=%d\r\n", entry->Name, *(int*)entry->Value); break;
+        case 1: fprintf(f, "%s=%d\r\n", entry->Name, *(bool*)entry->Value ? 1:0); break;
+        case 2: fprintf(f, "%s=%s\r\n", entry->Name, (*(std::string*)entry->Value).c_str()); break;
+        }
 
         entry++;
     }

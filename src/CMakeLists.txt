@@ -36,7 +36,6 @@ add_library(core STATIC
 	melonDLDI.h
 	NDS.cpp
 	NDSCart.cpp
-	NDSCart_SRAMManager.cpp
 	Platform.h
 	ROMList.h
 	FreeBIOS.h

@@ -30,6 +30,8 @@ bool Init();
 void DeInit();
 void Reset();
 
+void DoSavestate(Savestate* file);
+
 u32 ReadCnt();
 void WriteCnt(u32 val);
 void WriteBlkCnt(u32 val);

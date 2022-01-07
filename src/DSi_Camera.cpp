@@ -70,6 +70,21 @@ void DSi_Camera::Reset()
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
+void DSi_Camera::DoSavestate(Savestate* file)
+{
+    file->Section("CAMi");
+
+    file->Var16(&ModuleCnt);
+    file->Var16(&Cnt);
+
+    file->VarArray(FrameBuffer, sizeof(FrameBuffer));
+    file->Var32(&TransferPos);
+    file->Var32(&FrameLength);
+
+    DSi_Camera0->DoCamSavestate(file);
+    DSi_Camera1->DoCamSavestate(file);
+}
+
 
 void DSi_Camera::IRQ(u32 param)
 {
@@ -150,7 +165,29 @@ DSi_Camera::DSi_Camera(u32 num)
 
 DSi_Camera::~DSi_Camera()
 {
-    //
+}
+
+void DSi_Camera::DoCamSavestate(Savestate* file)
+{
+    char magic[5] = "CAMx";
+    magic[3] = '0' + Num;
+    file->Section(magic);
+
+    file->Var32(&DataPos);
+    file->Var32(&RegAddr);
+    file->Var16(&RegData);
+
+    file->Var16(&PLLDiv);
+    file->Var16(&PLLPDiv);
+    file->Var16(&PLLCnt);
+    file->Var16(&ClocksCnt);
+    file->Var16(&StandbyCnt);
+    file->Var16(&MiscCnt);
+
+    file->Var16(&MCUAddr);
+    // TODO: MCUData??
+
+    file->VarArray(MCURegs, 0x8000);
 }
 
 void DSi_Camera::ResetCam()

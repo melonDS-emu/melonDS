@@ -12,6 +12,7 @@ SET(SOURCES_QT_SDL
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
+    PathSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
@@ -24,16 +25,16 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
+	ROMManager.cpp
+	SaveManager.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_ROM.cpp
     ../Util_Video.cpp
     ../Util_Audio.cpp
     ../FrontendUtil.h
     ../mic_blow.h
-	../SharedConfig.h
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )
