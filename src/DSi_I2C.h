@@ -34,7 +34,7 @@ extern u8 Cnt;
 bool Init();
 void DeInit();
 void Reset();
-//void DoSavestate(Savestate* file);
+void DoSavestate(Savestate* file);
 
 void WriteCnt(u8 val);
 

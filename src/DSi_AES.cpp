@@ -157,7 +157,7 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
-    file->Section("AES.");
+    file->Section("AESi");
 
     file->Var32(&Cnt);
 
@@ -171,8 +171,8 @@ void DoSavestate(Savestate* file)
     file->Var32(&OutputDMASize);
     file->Var32(&AESMode);
 
-    InputFIFO->DoSavestate(file);
-    OutputFIFO->DoSavestate(file);
+    InputFIFO.DoSavestate(file);
+    OutputFIFO.DoSavestate(file);
 
     file->VarArray(IV, 16);
 
@@ -188,8 +188,8 @@ void DoSavestate(Savestate* file)
     file->VarArray(OutputMAC, 16);
     file->Bool32(&OutputMACDue);
 
-    file->VarArray(Ctx->RoundKey, AES_keyExpSize);
-    file->VarArray(Ctx->Iv, AES_BLOCKLEN);
+    file->VarArray(Ctx.RoundKey, AES_keyExpSize);
+    file->VarArray(Ctx.Iv, AES_BLOCKLEN);
 }
 
 

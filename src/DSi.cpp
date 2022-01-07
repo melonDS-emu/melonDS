@@ -82,6 +82,7 @@ u8 eMMC_CID[16];
 
 
 void Set_SCFG_Clock9(u16 val);
+void Set_SCFG_MC(u32 val);
 
 
 bool Init()
@@ -240,6 +241,9 @@ void DoSavestate(Savestate* file)
         NDMAs[i]->DoSavestate(file);
 
     DSi_AES::DoSavestate(file);
+    DSi_Camera::DoSavestate(file);
+    DSi_DSP::DoSavestate(file);
+    DSi_I2C::DoSavestate(file);
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)

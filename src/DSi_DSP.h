@@ -41,8 +41,6 @@ bool Init();
 void DeInit();
 void Reset();
 
-// TODO: needs to be called!
-// however, no DSi savestate stuff seems to be actually implemented?!
 void DoSavestate(Savestate* file);
 
 void DSPCatchUpU32(u32 _);
