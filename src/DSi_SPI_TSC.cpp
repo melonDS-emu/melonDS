@@ -71,14 +71,15 @@ void Reset()
 
 void DoSavestate(Savestate* file)
 {
-    /*file->Section("SPTi");
+    file->Section("SPTi");
 
     file->Var32(&DataPos);
-    file->Var8(&ControlByte);
+    file->Var8(&Index);
+    file->Var8(&Bank);
     file->Var8(&Data);
 
-    file->Var16(&ConvResult);*/
-    // TODO!!
+    file->VarArray(Bank3Regs, 0x80);
+    file->Var8(&TSCMode);
 }
 
 void SetMode(u8 mode)

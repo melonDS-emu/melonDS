@@ -244,6 +244,8 @@ void DoSavestate(Savestate* file)
     DSi_Camera::DoSavestate(file);
     DSi_DSP::DoSavestate(file);
     DSi_I2C::DoSavestate(file);
+    SDMMC->DoSavestate(file);
+    SDIO->DoSavestate(file);
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)

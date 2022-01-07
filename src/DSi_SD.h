@@ -109,6 +109,8 @@ public:
 
     virtual void Reset() = 0;
 
+    virtual void DoSavestate(Savestate* file) = 0;
+
     virtual void SendCMD(u8 cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
 
@@ -128,6 +130,8 @@ public:
     ~DSi_MMCStorage();
 
     void Reset();
+
+    void DoSavestate(Savestate* file);
 
     void SetCID(u8* cid) { memcpy(CID, cid, 16); }
 

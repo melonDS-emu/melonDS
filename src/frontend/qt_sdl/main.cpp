@@ -2804,27 +2804,14 @@ void MainWindow::onFullscreenToggled()
 
 void MainWindow::onEmuStart()
 {
-    // TODO: make savestates work in DSi mode!!
-    if (Config::ConsoleType == 1)
+    for (int i = 1; i < 9; i++)
     {
-        for (int i = 0; i < 9; i++)
-        {
-            actSaveState[i]->setEnabled(false);
-            actLoadState[i]->setEnabled(false);
-        }
-        actUndoStateLoad->setEnabled(false);
+        actSaveState[i]->setEnabled(true);
+        actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
     }
-    else
-    {
-        for (int i = 1; i < 9; i++)
-        {
-            actSaveState[i]->setEnabled(true);
-            actLoadState[i]->setEnabled(ROMManager::SavestateExists(i));
-        }
-        actSaveState[0]->setEnabled(true);
-        actLoadState[0]->setEnabled(true);
-        actUndoStateLoad->setEnabled(false);
-    }
+    actSaveState[0]->setEnabled(true);
+    actLoadState[0]->setEnabled(true);
+    actUndoStateLoad->setEnabled(false);
 
     actPause->setEnabled(true);
     actPause->setChecked(false);
