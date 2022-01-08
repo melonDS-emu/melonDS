@@ -2960,7 +2960,11 @@ int main(int argc, char** argv)
     }
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
     {
-        QMessageBox::critical(NULL, "melonDS", "SDL shat itself :(");
+        const char* err = SDL_GetError();
+        QString errorStr = "Failed to initialize SDL. This could indicate an issue with your graphics or audio driver.\n\nThe error was: ";
+        errorStr += err;
+
+        QMessageBox::critical(NULL, "melonDS", errorStr);
         return 1;
     }
 
