@@ -137,13 +137,21 @@ void Key1_LoadKeyBuf(bool dsi)
     // it is possible that this gets called before the BIOSes are loaded
     // so we will read from the BIOS files directly
 
-    std::string path = Platform::GetConfigString(dsi ? Platform::DSi_BIOS7Path : Platform::BIOS7Path);
-    FILE* f = Platform::OpenLocalFile(path, "rb");
-    if (f)
+    if (Platform::GetConfigBool(Platform::ExternalBIOSEnable))
     {
-        fseek(f, dsi ? 0xC6D0 : 0x0030, SEEK_SET);
-        fread(Key1_KeyBuf, 0x1048, 1, f);
-        fclose(f);
+        std::string path = Platform::GetConfigString(dsi ? Platform::DSi_BIOS7Path : Platform::BIOS7Path);
+        FILE* f = Platform::OpenLocalFile(path, "rb");
+        if (f)
+        {
+            fseek(f, dsi ? 0xC6D0 : 0x0030, SEEK_SET);
+            fread(Key1_KeyBuf, 0x1048, 1, f);
+            fclose(f);
+        }
+    }
+    else
+    {
+        // well
+        memset(Key1_KeyBuf, 0, 0x1048);
     }
 }
 

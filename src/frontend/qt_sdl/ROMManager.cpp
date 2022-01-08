@@ -535,6 +535,7 @@ bool LoadROM(QStringList filepath, bool reset)
     if (reset)
     {
         NDS::SetConsoleType(Config::ConsoleType);
+        NDS::EjectCart();
         NDS::Reset();
     }
 
