@@ -413,6 +413,16 @@ bool MP_Init()
         return false;
     }
 
+#if defined(BSD) || defined(__APPLE__)
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
+#endif
+
     sockaddr_t saddr;
     saddr.sa_family = AF_INET;
     *(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
