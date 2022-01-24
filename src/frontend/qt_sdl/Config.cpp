@@ -258,7 +258,7 @@ ConfigEntry ConfigFile[] =
     {"DSiSDSize", 0, &DSiSDSize, 0},
     {"DSiSDReadOnly", 1, &DSiSDReadOnly, false},
     {"DSiSDFolderSync", 1, &DSiSDFolderSync, false},
-    {"DSiSDFolderPath", 2, &DSiSDFolderPath, ""},
+    {"DSiSDFolderPath", 2, &DSiSDFolderPath, (std::string)""},
 
     {"FirmwareOverrideSettings", 1, &FirmwareOverrideSettings, false},
     {"FirmwareUsername", 2, &FirmwareUsername, (std::string)"melonDS"},
