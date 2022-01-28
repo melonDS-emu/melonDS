@@ -148,7 +148,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b > chk) ? 1:0;
             }
@@ -159,7 +161,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b < chk) ? 1:0;
             }
@@ -170,7 +174,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b == chk) ? 1:0;
             }
@@ -181,7 +187,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b != chk) ? 1:0;
             }
@@ -192,7 +200,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -205,7 +215,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -218,7 +230,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -231,7 +245,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
