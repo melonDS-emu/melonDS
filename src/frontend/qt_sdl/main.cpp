@@ -415,6 +415,8 @@ void EmuThread::run()
     double frameLimitError = 0.0;
     double lastMeasureTime = lastTime;
 
+    u32 winUpdateCount = 0, winUpdateFreq = 1;
+
     char melontitle[100];
 
     while (EmuRunning != 0)
@@ -571,11 +573,16 @@ void EmuThread::run()
 
             if (EmuRunning == 0) break;
 
-            emit windowUpdate();
+            winUpdateCount++;
+            if (winUpdateCount >= winUpdateFreq)
+            {
+                emit windowUpdate();
+                winUpdateCount = 0;
+            }
 
             bool fastforward = Input::HotkeyDown(HK_FastForward);
 
-            if (Config::AudioSync && (!fastforward) && audioDevice)
+            if (Config::AudioSync && !fastforward && audioDevice)
             {
                 SDL_LockMutex(audioSyncLock);
                 while (SPU::GetOutputSize() > 1024)
@@ -623,6 +630,10 @@ void EmuThread::run()
                 nframes = 0;
 
                 float fpstarget = 1.0/frametimeStep;
+
+                winUpdateFreq = fps / (u32)round(fpstarget);
+                if (winUpdateFreq < 1)
+                    winUpdateFreq = 1;
 
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
                 changeWindowTitle(melontitle);
