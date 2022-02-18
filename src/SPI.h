@@ -37,6 +37,14 @@ u8* GetWifiMAC();
 
 }
 
+namespace SPI_Powerman
+{
+
+bool GetBatteryLevelOkay();
+void SetBatteryLevelOkay(bool okay);
+
+}
+
 namespace SPI_TSC
 {
 

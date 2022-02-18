@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="dsibattery">
+    <file>dsi_batteryalmostempty.svg</file>
+    <file>dsi_batterylow.svg</file>
+    <file>dsi_battery2.svg</file>
+    <file>dsi_battery3.svg</file>
+    <file>dsi_batteryfull.svg</file>
+  </qresource>
+</RCC>

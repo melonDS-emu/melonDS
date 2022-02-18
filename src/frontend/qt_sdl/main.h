@@ -256,6 +256,7 @@ private slots:
 
     void onOpenEmuSettings();
     void onEmuSettingsDialogFinished(int res);
+    void onOpenPowerManagement();
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
@@ -344,6 +345,7 @@ public:
     QAction* actTitleManager;
 
     QAction* actEmuSettings;
+    QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
     QAction* actAudioSettings;

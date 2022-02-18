@@ -624,6 +624,9 @@ void Reset()
     RegMasks[4] = 0x0F;
 }
 
+bool GetBatteryLevelOkay() { return !Registers[1]; }
+void SetBatteryLevelOkay(bool okay) { Registers[1] = okay ? 0x00 : 0x01; }
+
 void DoSavestate(Savestate* file)
 {
     file->Section("SPPW");
