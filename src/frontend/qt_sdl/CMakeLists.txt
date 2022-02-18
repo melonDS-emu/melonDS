@@ -6,6 +6,8 @@ SET(SOURCES_QT_SDL
     CheatsDialog.cpp
 	Config.cpp
     EmuSettingsDialog.cpp
+    PowerManagement/PowerManagementDialog.cpp
+    PowerManagement/resources/battery.qrc
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
     InputConfig/resources/ds.qrc

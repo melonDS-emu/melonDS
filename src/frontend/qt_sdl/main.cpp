@@ -62,6 +62,7 @@
 #include "ROMInfoDialog.h"
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
+#include "PowerManagement/PowerManagementDialog.h"
 
 #include "types.h"
 #include "version.h"
@@ -1429,6 +1430,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
+        actPowerManagement = menu->addAction("Power management");
+        connect(actPowerManagement, &QAction::triggered, this, &MainWindow::onOpenPowerManagement);
+
+        menu->addSeparator();
+
         actEnableCheats = menu->addAction("Enable cheats");
         actEnableCheats->setCheckable(true);
         connect(actEnableCheats, &QAction::triggered, this, &MainWindow::onEnableCheats);
@@ -1668,6 +1674,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actReset->setEnabled(false);
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
+
+    actPowerManagement->setEnabled(false);
 
     actSetupCheats->setEnabled(false);
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
@@ -2609,6 +2617,11 @@ void MainWindow::onEmuSettingsDialogFinished(int res)
         actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 }
 
+void MainWindow::onOpenPowerManagement()
+{
+    PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+}
+
 void MainWindow::onOpenInputConfig()
 {
     emuThread->emuPause();
@@ -2896,6 +2909,8 @@ void MainWindow::onEmuStart()
     actStop->setEnabled(true);
     actFrameStep->setEnabled(true);
 
+    actPowerManagement->setEnabled(true);
+
     actTitleManager->setEnabled(false);
 }
 
@@ -2914,6 +2929,8 @@ void MainWindow::onEmuStop()
     actReset->setEnabled(false);
     actStop->setEnabled(false);
     actFrameStep->setEnabled(false);
+
+    actPowerManagement->setEnabled(false);
 
     actTitleManager->setEnabled(!Config::DSiNANDPath.empty());
 }
