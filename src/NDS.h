@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -18,6 +18,8 @@
 
 #ifndef NDS_H
 #define NDS_H
+
+#include <string>
 
 #include "Savestate.h"
 #include "types.h"
@@ -48,8 +50,6 @@ enum
     Event_DSi_NWifi,
     Event_DSi_CamIRQ,
     Event_DSi_CamTransfer,
-
-    Event_DSi_RAMSizeChange,
     Event_DSi_DSP,
 
     Event_MAX
@@ -162,6 +162,12 @@ struct MemRegion
     u32 Mask;
 };
 
+// supported GBA slot addon types
+enum
+{
+    GBAAddon_RAMExpansion = 1,
+};
+
 #ifdef JIT_ENABLED
 extern bool EnableJIT;
 #endif
@@ -219,6 +225,7 @@ extern u8* ARM7WRAM;
 bool Init();
 void DeInit();
 void Reset();
+void Start();
 void Stop();
 
 bool DoSavestate(Savestate* file);
@@ -229,13 +236,19 @@ void SetARM7RegionTimings(u32 addrstart, u32 addrend, u32 region, int buswidth, 
 // 0=DS  1=DSi
 void SetConsoleType(int type);
 
-bool LoadROM(const char* path, const char* sram, bool direct);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
-bool LoadGBAROM(const char* path, const char* sram);
-bool LoadGBAROM(const u8* romdata, u32 filelength, const char *filename, const char *sram);
 void LoadBIOS();
-void SetupDirectBoot();
-void RelocateSave(const char* path, bool write);
+
+bool LoadCart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+void LoadSave(const u8* savedata, u32 savelen);
+void EjectCart();
+bool CartInserted();
+
+bool NeedsDirectBoot();
+void SetupDirectBoot(std::string romname);
+
+bool LoadGBACart(const u8* romdata, u32 romlen, const u8* savedata, u32 savelen);
+void LoadGBAAddon(int type);
+void EjectGBACart();
 
 u32 RunFrame();
 
@@ -248,8 +261,6 @@ bool IsLidClosed();
 void SetLidClosed(bool closed);
 
 void MicInputFrame(s16* data, int samples);
-
-int ImportSRAM(u8* data, u32 length);
 
 void ScheduleEvent(u32 id, bool periodic, s32 delay, void (*func)(u32), u32 param);
 void CancelEvent(u32 id);

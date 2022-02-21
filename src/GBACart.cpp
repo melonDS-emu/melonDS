@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, Raphaël Zumer
+    Copyright 2016-2022 melonDS team, Raphaël Zumer
 
     This file is part of melonDS.
 
@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "NDS.h"
 #include "GBACart.h"
 #include "CRC32.h"
 #include "Platform.h"
@@ -42,7 +43,6 @@ const char SOLAR_SENSOR_GAMECODES[10][5] =
 bool CartInserted;
 u8* CartROM;
 u32 CartROMSize;
-u32 CartCRC;
 u32 CartID;
 
 CartCommon* Cart;
@@ -58,16 +58,20 @@ CartCommon::~CartCommon()
 {
 }
 
+void CartCommon::Reset()
+{
+}
+
 void CartCommon::DoSavestate(Savestate* file)
 {
     file->Section("GBCS");
 }
 
-void CartCommon::LoadSave(const char* path, u32 type)
+void CartCommon::SetupSave(u32 type)
 {
 }
 
-void CartCommon::RelocateSave(const char* path, bool write)
+void CartCommon::LoadSave(const u8* savedata, u32 savelen)
 {
 }
 
@@ -99,20 +103,30 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 {
     ROM = rom;
     ROMLength = len;
-
-    memset(&GPIO, 0, sizeof(GPIO));
-
-    SRAM = nullptr;
-    SRAMFile = nullptr;
-    SRAMLength = 0;
-    SRAMType = S_NULL;
-    SRAMFlashState = {};
 }
 
 CartGame::~CartGame()
 {
-    if (SRAMFile) fclose(SRAMFile);
     if (SRAM) delete[] SRAM;
+}
+
+u32 CartGame::Checksum()
+{
+    u32 crc = CRC32(ROM, 0xC0, 0);
+
+    // TODO: hash more contents?
+
+    return crc;
+}
+
+void CartGame::Reset()
+{
+    memset(&GPIO, 0, sizeof(GPIO));
+
+    SRAM = nullptr;
+    SRAMLength = 0;
+    SRAMType = S_NULL;
+    SRAMFlashState = {};
 }
 
 void CartGame::DoSavestate(Savestate* file)
@@ -123,8 +137,6 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var16(&GPIO.data);
     file->Var16(&GPIO.direction);
 
-    // logic mostly copied from NDSCart_SRAM
-
     u32 oldlen = SRAMLength;
 
     file->Var32(&SRAMLength);
@@ -133,6 +145,7 @@ void CartGame::DoSavestate(Savestate* file)
     {
         // reallocate save memory
         if (oldlen) delete[] SRAM;
+        SRAM = nullptr;
         if (SRAMLength) SRAM = new u8[SRAMLength];
     }
     if (SRAMLength)
@@ -144,9 +157,7 @@ void CartGame::DoSavestate(Savestate* file)
     {
         // no save data, clear the current state
         SRAMType = SaveType::S_NULL;
-        if (SRAMFile) fclose(SRAMFile);
         SRAM = nullptr;
-        SRAMFile = nullptr;
         return;
     }
 
@@ -158,27 +169,24 @@ void CartGame::DoSavestate(Savestate* file)
     file->Var8(&SRAMFlashState.state);
 
     file->Var8((u8*)&SRAMType);
+
+    if ((!file->Saving) && SRAM)
+        Platform::WriteGBASave(SRAM, SRAMLength, 0, SRAMLength);
 }
 
-void CartGame::LoadSave(const char* path, u32 type)
+void CartGame::SetupSave(u32 type)
 {
     if (SRAM) delete[] SRAM;
+    SRAM = nullptr;
 
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-    SRAMLength = 0;
+    // TODO: have type be determined from some list, like in NDSCart
+    // and not this gross hack!!
+    SRAMLength = type;
 
-    FILE* f = Platform::OpenFile(SRAMPath, "r+b");
-    if (f)
+    if (SRAMLength)
     {
-        fseek(f, 0, SEEK_END);
-        SRAMLength = (u32)ftell(f);
         SRAM = new u8[SRAMLength];
-
-        fseek(f, 0, SEEK_SET);
-        fread(SRAM, SRAMLength, 1, f);
-
-        SRAMFile = f;
+        memset(SRAM, 0xFF, SRAMLength);
     }
 
     switch (SRAMLength)
@@ -219,26 +227,13 @@ void CartGame::LoadSave(const char* path, u32 type)
     }
 }
 
-void CartGame::RelocateSave(const char* path, bool write)
+void CartGame::LoadSave(const u8* savedata, u32 savelen)
 {
-    if (!write)
-    {
-        LoadSave(path, 0); // lazy
-        return;
-    }
+    if (!SRAM) return;
 
-    strncpy(SRAMPath, path, 1023);
-    SRAMPath[1023] = '\0';
-
-    FILE *f = Platform::OpenFile(path, "r+b");
-    if (!f)
-    {
-        printf("GBACart_SRAM::RelocateSave: failed to create new file. fuck\n");
-        return;
-    }
-
-    SRAMFile = f;
-    fwrite(SRAM, SRAMLength, 1, SRAMFile);
+    u32 len = std::min(savelen, SRAMLength);
+    memcpy(SRAM, savedata, len);
+    Platform::WriteGBASave(savedata, len, 0, len);
 }
 
 u16 CartGame::ROMRead(u32 addr)
@@ -469,11 +464,7 @@ void CartGame::SRAMWrite_FLASH(u32 addr, u8 val)
                 u32 start_addr = addr + 0x10000 * SRAMFlashState.bank;
                 memset((u8*)&SRAM[start_addr], 0xFF, 0x1000);
 
-                if (SRAMFile)
-                {
-                    fseek(SRAMFile, start_addr, SEEK_SET);
-                    fwrite((u8*)&SRAM[start_addr], 1, 0x1000, SRAMFile);
-                }
+                Platform::WriteGBASave(SRAM, SRAMLength, start_addr, 0x1000);
             }
             SRAMFlashState.state = 0;
             SRAMFlashState.cmd = 0;
@@ -531,11 +522,8 @@ void CartGame::SRAMWrite_SRAM(u32 addr, u8 val)
     {
         *(u8*)&SRAM[addr] = val;
 
-        if (SRAMFile)
-        {
-            fseek(SRAMFile, addr, SEEK_SET);
-            fwrite((u8*)&SRAM[addr], 1, 1, SRAMFile);
-        }
+        // TODO: optimize this!!
+        Platform::WriteGBASave(SRAM, SRAMLength, addr, 1);
     }
 }
 
@@ -544,14 +532,18 @@ const int CartGameSolarSensor::kLuxLevels[11] = {0, 5, 11, 18, 27, 42, 62, 84, 1
 
 CartGameSolarSensor::CartGameSolarSensor(u8* rom, u32 len) : CartGame(rom, len)
 {
-    LightEdge = false;
-    LightCounter = 0;
-    LightSample = 0xFF;
-    LightLevel = 0;
 }
 
 CartGameSolarSensor::~CartGameSolarSensor()
 {
+}
+
+void CartGameSolarSensor::Reset()
+{
+    LightEdge = false;
+    LightCounter = 0;
+    LightSample = 0xFF;
+    LightLevel = 0;
 }
 
 void CartGameSolarSensor::DoSavestate(Savestate* file)
@@ -608,6 +600,86 @@ void CartGameSolarSensor::ProcessGPIO()
 }
 
 
+CartRAMExpansion::CartRAMExpansion() : CartCommon()
+{
+}
+
+CartRAMExpansion::~CartRAMExpansion()
+{
+}
+
+void CartRAMExpansion::Reset()
+{
+    memset(RAM, 0xFF, sizeof(RAM));
+    RAMEnable = 1;
+}
+
+void CartRAMExpansion::DoSavestate(Savestate* file)
+{
+    CartCommon::DoSavestate(file);
+
+    file->VarArray(RAM, sizeof(RAM));
+    file->Var16(&RAMEnable);
+}
+
+u16 CartRAMExpansion::ROMRead(u32 addr)
+{
+    addr &= 0x01FFFFFF;
+
+    if (addr < 0x01000000)
+    {
+        switch (addr)
+        {
+        case 0xB0: return 0xFFFF;
+        case 0xB2: return 0x0000;
+        case 0xB4: return 0x2400;
+        case 0xB6: return 0x2424;
+        case 0xB8: return 0xFFFF;
+        case 0xBA: return 0xFFFF;
+        case 0xBC: return 0xFFFF;
+        case 0xBE: return 0x7FFF;
+
+        case 0x1FFFC: return 0xFFFF;
+        case 0x1FFFE: return 0x7FFF;
+
+        case 0x240000: return RAMEnable;
+        case 0x240002: return 0x0000;
+        }
+
+        return 0xFFFF;
+    }
+    else if (addr < 0x01800000)
+    {
+        if (!RAMEnable) return 0xFFFF;
+
+        return *(u16*)&RAM[addr & 0x7FFFFF];
+    }
+
+    return 0xFFFF;
+}
+
+void CartRAMExpansion::ROMWrite(u32 addr, u16 val)
+{
+    addr &= 0x01FFFFFF;
+
+    if (addr < 0x01000000)
+    {
+        switch (addr)
+        {
+        case 0x240000:
+            RAMEnable = val & 0x0001;
+            return;
+        }
+    }
+    else if (addr < 0x01800000)
+    {
+        if (!RAMEnable) return;
+
+        *(u16*)&RAM[addr & 0x7FFFFF] = val;
+    }
+}
+
+
 bool Init()
 {
     CartROM = nullptr;
@@ -626,86 +698,65 @@ void DeInit()
 
 void Reset()
 {
-    // Do not reset cartridge ROM.
-    // Prefer keeping the inserted cartridge on reset.
-    // This allows resetting a DS game without losing GBA state,
-    // and resetting to firmware without the slot being emptied.
-    // The Stop function will clear the cartridge state via Eject().
-
-    // OpenBusDecay doesn't need to be reset, either, as it will be set
-    // through NDS::SetGBASlotTimings().
-}
-
-void Eject()
-{
-    if (CartROM) delete[] CartROM;
-
-    CartInserted = false;
-    CartROM = NULL;
-    CartROMSize = 0;
-    CartCRC = 0;
-    CartID = 0;
-
-    if (Cart) delete Cart;
-    Cart = nullptr;
-
-    Reset();
+    if (Cart) Cart->Reset();
 }
 
 void DoSavestate(Savestate* file)
 {
     file->Section("GBAC"); // Game Boy Advance Cartridge
 
-    // logic mostly copied from NDSCart
+    // little state here
+    // no need to save OpenBusDecay, it will be set later
 
-    // first we need to reload the cart itself,
-    // since unlike with DS, it's not loaded in advance
-
-    file->Var32(&CartROMSize);
-    if (!CartROMSize) // no GBA cartridge state? nothing to do here
+    u32 carttype = 0;
+    u32 cartchk = 0;
+    if (Cart)
     {
-        // do eject the cartridge if something is inserted
-        Eject();
-        return;
+        carttype = Cart->Type();
+        cartchk = Cart->Checksum();
     }
 
-    u32 oldCRC = CartCRC;
-    file->Var32(&CartCRC);
-
-    if (CartCRC != oldCRC)
+    if (file->Saving)
     {
-        // delete and reallocate ROM so that it is zero-padded to its full length
-        if (CartROM) delete[] CartROM;
-        CartROM = new u8[CartROMSize];
+        file->Var32(&carttype);
+        file->Var32(&cartchk);
     }
+    else
+    {
+        u32 savetype;
+        file->Var32(&savetype);
+        if (savetype != carttype) return;
 
-    // only save/load the cartridge header
-    //
-    // GBA connectivity on DS mainly involves identifying the title currently
-    // inserted, reading save data, and issuing commands intercepted here
-    // (e.g. solar sensor signals). we don't know of any case where GBA ROM is
-    // read directly from DS software. therefore, it is more practical, both
-    // from the development and user experience perspectives, to avoid dealing
-    // with file dependencies, and store a small portion of ROM data that should
-    // satisfy the needs of all known software that reads from the GBA slot.
-    //
-    // note: in case of a state load, only the cartridge header is restored, but
-    // the rest of the ROM data is only cleared (zero-initialized) if the CRC
-    // differs. Therefore, loading the GBA cartridge associated with the save state
-    // in advance will maintain access to the full ROM contents.
-    file->VarArray(CartROM, 192);
-
-    CartInserted = true; // known, because CartROMSize > 0
-    file->Var32(&CartCRC);
-    file->Var32(&CartID);
-
-    // now do the rest
+        u32 savechk;
+        file->Var32(&savechk);
+        if (savechk != cartchk) return;
+    }
 
     if (Cart) Cart->DoSavestate(file);
 }
 
-void LoadROMCommon(const char *sram)
+bool LoadROM(const u8* romdata, u32 romlen)
 {
+    if (CartInserted)
+        EjectCart();
+
+    CartROMSize = 0x200;
+    while (CartROMSize < romlen)
+        CartROMSize <<= 1;
+
+    try
+    {
+        CartROM = new u8[CartROMSize];
+    }
+    catch (const std::bad_alloc& e)
+    {
+        printf("GBACart: failed to allocate memory for ROM (%d bytes)\n", CartROMSize);
+        return false;
+    }
+
+    memset(CartROM, 0, CartROMSize);
+    memcpy(CartROM, romdata, romlen);
+
     char gamecode[5] = { '\0' };
     memcpy(&gamecode, CartROM + 0xAC, 4);
     printf("GBA game code: %s\n", gamecode);
@@ -722,9 +773,6 @@ void LoadROMCommon(const char *sram)
         printf("GBA solar sensor support detected!\n");
     }
 
-    CartCRC = CRC32(CartROM, CartROMSize);
-    printf("GBA ROM CRC32: %08X\n", CartCRC);
-
     CartInserted = true;
 
     if (solarsensor)
@@ -732,61 +780,61 @@ void LoadROMCommon(const char *sram)
     else
         Cart = new CartGame(CartROM, CartROMSize);
 
+    if (Cart)
+        Cart->Reset();
+
     // save
-    printf("GBA save file: %s\n", sram);
+    //printf("GBA save file: %s\n", sram);
 
     // TODO: have a list of sorts like in NDSCart? to determine the savemem type
-    if (Cart) Cart->LoadSave(sram, 0);
-}
+    //if (Cart) Cart->LoadSave(sram, 0);
 
-bool LoadROM(const char* path, const char* sram)
-{
-    FILE* f = Platform::OpenFile(path, "rb");
-    if (!f)
-    {
-        return false;
-    }
-
-    if (CartInserted)
-    {
-        Reset();
-    }
-
-    fseek(f, 0, SEEK_END);
-    u32 len = (u32)ftell(f);
-
-    CartROMSize = 0x200;
-    while (CartROMSize < len)
-        CartROMSize <<= 1;
-
-    CartROM = new u8[CartROMSize];
-    memset(CartROM, 0, CartROMSize);
-    fseek(f, 0, SEEK_SET);
-    fread(CartROM, 1, len, f);
-    fclose(f);
-
-    LoadROMCommon(sram);
+    // TODO: setup cart save here! from a list or something
 
     return true;
 }
 
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram)
+void LoadSave(const u8* savedata, u32 savelen)
 {
-    CartROMSize = 0x200;
-    while (CartROMSize < filelength)
-        CartROMSize <<= 1;
+    if (Cart)
+    {
+        // gross hack
+        Cart->SetupSave(savelen);
 
-    CartROM = new u8[CartROMSize];
-    memcpy(CartROM, romdata, filelength);
-
-    LoadROMCommon(sram);
-
-    return true;
+        Cart->LoadSave(savedata, savelen);
+    }
 }
 
-void RelocateSave(const char* path, bool write)
+void LoadAddon(int type)
 {
-    if (Cart) Cart->RelocateSave(path, write);
+    CartROMSize = 0;
+    CartROM = nullptr;
+
+    switch (type)
+    {
+    case NDS::GBAAddon_RAMExpansion:
+        Cart = new CartRAMExpansion();
+        break;
+
+    default:
+        printf("GBACart: !! invalid addon type %d\n", type);
+        return;
+    }
+
+    CartInserted = true;
+}
+
+void EjectCart()
+{
+    if (Cart) delete Cart;
+    Cart = nullptr;
+
+    if (CartROM) delete[] CartROM;
+
+    CartInserted = false;
+    CartROM = nullptr;
+    CartROMSize = 0;
+    CartID = 0;
 }
 
 

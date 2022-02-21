@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -62,7 +62,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     connect(grpMicMode, SIGNAL(buttonClicked(int)), this, SLOT(onChangeMicMode(int)));
     grpMicMode->button(Config::MicInputType)->setChecked(true);
 
-    ui->txtMicWavPath->setText(Config::MicWavPath);
+    ui->txtMicWavPath->setText(QString::fromStdString(Config::MicWavPath));
 
     bool iswav = (Config::MicInputType == 3);
     ui->txtMicWavPath->setEnabled(iswav);
@@ -77,7 +77,7 @@ AudioSettingsDialog::~AudioSettingsDialog()
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 {
     Config::MicInputType = grpMicMode->checkedId();
-    strncpy(Config::MicWavPath, ui->txtMicWavPath->text().toStdString().c_str(), 1023); Config::MicWavPath[1023] = '\0';
+    Config::MicWavPath = ui->txtMicWavPath->text().toStdString();
     Config::Save();
 
     closeDlg();

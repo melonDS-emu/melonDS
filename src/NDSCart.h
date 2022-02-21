@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -19,6 +19,8 @@
 #ifndef NDSCART_H
 #define NDSCART_H
 
+#include <string>
+
 #include "types.h"
 #include "NDS_Header.h"
 #include "FATStorage.h"
@@ -33,15 +35,16 @@ public:
     CartCommon(u8* rom, u32 len, u32 chipid);
     virtual ~CartCommon();
 
+    virtual u32 Type() { return 0x001; }
+    virtual u32 Checksum();
+
     virtual void Reset();
-    virtual void SetupDirectBoot();
+    virtual void SetupDirectBoot(std::string romname);
 
     virtual void DoSavestate(Savestate* file);
 
-    virtual void LoadSave(const char* path, u32 type);
-    virtual void RelocateSave(const char* path, bool write);
-    virtual int ImportSRAM(const u8* data, u32 length);
-    virtual void FlushSRAMFile();
+    virtual void SetupSave(u32 type);
+    virtual void LoadSave(const u8* savedata, u32 savelen);
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len);
     virtual void ROMCommandFinish(u8* cmd, u8* data, u32 len);
@@ -71,14 +74,14 @@ public:
     CartRetail(u8* rom, u32 len, u32 chipid);
     virtual ~CartRetail() override;
 
+    virtual u32 Type() override { return 0x101; }
+
     virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void LoadSave(const char* path, u32 type) override;
-    virtual void RelocateSave(const char* path, bool write) override;
-    virtual int ImportSRAM(const u8* data, u32 length) override;
-    virtual void FlushSRAMFile() override;
+    virtual void SetupSave(u32 type) override;
+    virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
     virtual int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
 
@@ -95,11 +98,9 @@ protected:
     u32 SRAMLength;
     u32 SRAMType;
 
-    char SRAMPath[1024];
-    bool SRAMFileDirty;
-
     u8 SRAMCmd;
     u32 SRAMAddr;
+    u32 SRAMFirstAddr;
     u8 SRAMStatus;
 };
 
@@ -110,12 +111,13 @@ public:
     CartRetailNAND(u8* rom, u32 len, u32 chipid);
     ~CartRetailNAND() override;
 
+    virtual u32 Type() override { return 0x102; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
 
-    void LoadSave(const char* path, u32 type) override;
-    int ImportSRAM(const u8* data, u32 length) override;
+    void LoadSave(const u8* savedata, u32 savelen) override;
 
     int ROMCommandStart(u8* cmd, u8* data, u32 len) override;
     void ROMCommandFinish(u8* cmd, u8* data, u32 len) override;
@@ -139,6 +141,8 @@ public:
     CartRetailIR(u8* rom, u32 len, u32 chipid, u32 irversion);
     ~CartRetailIR() override;
 
+    virtual u32 Type() override { return 0x103; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -157,6 +161,8 @@ public:
     CartRetailBT(u8* rom, u32 len, u32 chipid);
     ~CartRetailBT() override;
 
+    virtual u32 Type() override { return 0x104; }
+
     void Reset() override;
 
     void DoSavestate(Savestate* file) override;
@@ -171,8 +177,10 @@ public:
     CartHomebrew(u8* rom, u32 len, u32 chipid);
     ~CartHomebrew() override;
 
+    virtual u32 Type() override { return 0x201; }
+
     void Reset() override;
-    void SetupDirectBoot() override;
+    void SetupDirectBoot(std::string romname) override;
 
     void DoSavestate(Savestate* file) override;
 
@@ -192,6 +200,7 @@ extern u32 ROMCnt;
 
 extern u8 ROMCommand[8];
 
+extern bool CartInserted;
 extern u8* CartROM;
 extern u32 CartROMSize;
 
@@ -207,14 +216,12 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void DecryptSecureArea(u8* out);
-bool LoadROM(const char* path, const char* sram, bool direct);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram, bool direct);
 
-void FlushSRAMFile();
+bool LoadROM(const u8* romdata, u32 romlen);
+void LoadSave(const u8* savedata, u32 savelen);
+void SetupDirectBoot(std::string romname);
 
-void RelocateSave(const char* path, bool write);
-
-int ImportSRAM(const u8* data, u32 length);
+void EjectCart();
 
 void ResetCart();
 

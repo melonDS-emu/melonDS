@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -51,14 +51,22 @@ DSi_SDHost::DSi_SDHost(u32 num)
 {
     Num = num;
 
-    Ports[0] = NULL;
-    Ports[1] = NULL;
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
 }
 
 DSi_SDHost::~DSi_SDHost()
 {
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
+}
+
+void DSi_SDHost::CloseHandles()
+{
+    if (Ports[0]) delete Ports[0];
+    if (Ports[1]) delete Ports[1];
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
 }
 
 void DSi_SDHost::Reset()
@@ -101,10 +109,7 @@ void DSi_SDHost::Reset()
 
     TXReq = false;
 
-    if (Ports[0]) delete Ports[0];
-    if (Ports[1]) delete Ports[1];
-    Ports[0] = nullptr;
-    Ports[1] = nullptr;
+    CloseHandles();
 
     if (Num == 0)
     {
@@ -131,7 +136,7 @@ void DSi_SDHost::Reset()
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
+        mmc = new DSi_MMCStorage(this, true, Platform::GetConfigString(Platform::DSi_NANDPath));
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -150,7 +155,41 @@ void DSi_SDHost::Reset()
 
 void DSi_SDHost::DoSavestate(Savestate* file)
 {
-    // TODO!
+    file->Section(Num ? "SDIO" : "SDMM");
+
+    file->Var16(&PortSelect);
+    file->Var16(&SoftReset);
+    file->Var16(&SDClock);
+    file->Var16(&SDOption);
+
+    file->Var32(&IRQStatus);
+    file->Var32(&IRQMask);
+
+    file->Var16(&CardIRQStatus);
+    file->Var16(&CardIRQMask);
+    file->Var16(&CardIRQCtl);
+
+    file->Var16(&DataCtl);
+    file->Var16(&Data32IRQ);
+    file->Var32(&DataMode);
+    file->Var16(&BlockCount16);
+    file->Var16(&BlockCount32);
+    file->Var16(&BlockCountInternal);
+    file->Var16(&BlockLen16);
+    file->Var16(&BlockLen32);
+    file->Var16(&StopAction);
+
+    file->Var16(&Command);
+    file->Var32(&Param);
+    file->VarArray(ResponseBuffer, 8);
+
+    file->Var32(&CurFIFO);
+    DataFIFO[0].DoSavestate(file);
+    DataFIFO[1].DoSavestate(file);
+    DataFIFO32.DoSavestate(file);
+
+    if (Ports[0]) Ports[0]->DoSavestate(file);
+    if (Ports[1]) Ports[1]->DoSavestate(file);
 }
 
 
@@ -727,12 +766,15 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename)
     : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = file;
+    File = Platform::OpenLocalFile(filename, "r+b");
+
     SD = nullptr;
+
+    ReadOnly = false;
 }
 
 DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir)
@@ -753,6 +795,10 @@ DSi_MMCStorage::~DSi_MMCStorage()
     {
         SD->Close();
         delete SD;
+    }
+    if (File)
+    {
+        fclose(File);
     }
 }
 
@@ -779,6 +825,26 @@ void DSi_MMCStorage::Reset()
     BlockSize = 0;
     RWAddress = 0;
     RWCommand = 0;
+}
+
+void DSi_MMCStorage::DoSavestate(Savestate* file)
+{
+    file->Section(Internal ? "NAND" : "SDCR");
+
+    file->VarArray(CID, 16);
+    file->VarArray(CSD, 16);
+
+    file->Var32(&CSR);
+    file->Var32(&OCR);
+    file->Var32(&RCA);
+    file->VarArray(SCR, 8);
+    file->VarArray(SSR, 64);
+
+    file->Var32(&BlockSize);
+    file->Var64(&RWAddress);
+    file->Var32(&RWCommand);
+
+    // TODO: what about the file contents?
 }
 
 void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -29,6 +29,8 @@ extern u32 Cnt;
 bool Init();
 void DeInit();
 void Reset();
+
+void DoSavestate(Savestate* file);
 
 u32 ReadCnt();
 void WriteCnt(u32 val);

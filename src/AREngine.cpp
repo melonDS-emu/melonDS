@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -50,8 +50,6 @@ void DeInit()
 
 void Reset()
 {
-    CodeFile = nullptr;
-
     if (NDS::ConsoleType == 1)
     {
         BusRead8 = DSi::ARM7Read8;
@@ -72,6 +70,11 @@ void Reset()
     }
 }
 
+
+ARCodeFile* GetCodeFile()
+{
+    return CodeFile;
+}
 
 void SetCodeFile(ARCodeFile* file)
 {
@@ -145,7 +148,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b > chk) ? 1:0;
             }
@@ -156,7 +161,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b < chk) ? 1:0;
             }
@@ -167,7 +174,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b == chk) ? 1:0;
             }
@@ -178,7 +187,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u32 chk = BusRead32(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u32 chk = BusRead32(addr);
 
                 cond = (b != chk) ? 1:0;
             }
@@ -189,7 +200,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -202,7 +215,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -215,7 +230,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 
@@ -228,7 +245,9 @@ void RunCheat(ARCode& arcode)
                 condstack <<= 1;
                 condstack |= cond;
 
-                u16 val = BusRead16(a & 0x0FFFFFFF);
+                u32 addr = a & 0x0FFFFFFF;
+                if (!addr) addr = offset;
+                u16 val = BusRead16(addr);
                 u16 chk = ~(b >> 16);
                 chk &= val;
 

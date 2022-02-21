@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -463,6 +463,7 @@ void SetupDirectBoot(bool dsi)
     }
 }
 
+u32 GetFirmwareLength() { return FirmwareLength; }
 u8 GetConsoleType() { return Firmware[0x1D]; }
 u8 GetWifiVersion() { return Firmware[0x2F]; }
 u8 GetNWifiVersion() { return Firmware[0x1FD]; } // for DSi; will return 0xFF on a DS

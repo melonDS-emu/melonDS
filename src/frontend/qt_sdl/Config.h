@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -18,6 +18,9 @@
 
 #ifndef PLATFORMCONFIG_H
 #define PLATFORMCONFIG_H
+
+#include <variant>
+#include <string>
 
 enum
 {
@@ -41,11 +44,9 @@ namespace Config
 struct ConfigEntry
 {
     char Name[32];
-    int Type;
-    void* Value;
-    int DefaultInt;
-    const char* DefaultStr;
-    int StrLength; // should be set to actual array length minus one
+    int Type;           // 0=int 1=bool 2=string
+    void* Value;        // pointer to the value variable
+    std::variant<int, bool, std::string> Default;
 };
 
 
@@ -59,99 +60,103 @@ extern int JoystickID;
 
 extern int WindowWidth;
 extern int WindowHeight;
-extern int WindowMaximized;
+extern bool WindowMaximized;
 
 extern int ScreenRotation;
 extern int ScreenGap;
 extern int ScreenLayout;
-extern int ScreenSwap;
+extern bool ScreenSwap;
 extern int ScreenSizing;
 extern int ScreenAspectTop;
 extern int ScreenAspectBot;
-extern int IntegerScaling;
-extern int ScreenFilter;
+extern bool IntegerScaling;
+extern bool ScreenFilter;
 
-extern int ScreenUseGL;
-extern int ScreenVSync;
+extern bool ScreenUseGL;
+extern bool ScreenVSync;
 extern int ScreenVSyncInterval;
 
 extern int _3DRenderer;
-extern int Threaded3D;
+extern bool Threaded3D;
 
 extern int GL_ScaleFactor;
-extern int GL_BetterPolygons;
+extern bool GL_BetterPolygons;
 
-extern int LimitFPS;
-extern int AudioSync;
-extern int ShowOSD;
+extern bool LimitFPS;
+extern bool AudioSync;
+extern bool ShowOSD;
 
 extern int ConsoleType;
-extern int DirectBoot;
+extern bool DirectBoot;
 
 #ifdef JIT_ENABLED
-extern int JIT_Enable;
+extern bool JIT_Enable;
 extern int JIT_MaxBlockSize;
-extern int JIT_BranchOptimisations;
-extern int JIT_LiteralOptimisations;
-extern int JIT_FastMemory;
+extern bool JIT_BranchOptimisations;
+extern bool JIT_LiteralOptimisations;
+extern bool JIT_FastMemory;
 #endif
 
-extern int ExternalBIOSEnable;
+extern bool ExternalBIOSEnable;
 
-extern char BIOS9Path[1024];
-extern char BIOS7Path[1024];
-extern char FirmwarePath[1024];
+extern std::string BIOS9Path;
+extern std::string BIOS7Path;
+extern std::string FirmwarePath;
 
-extern char DSiBIOS9Path[1024];
-extern char DSiBIOS7Path[1024];
-extern char DSiFirmwarePath[1024];
-extern char DSiNANDPath[1024];
+extern std::string DSiBIOS9Path;
+extern std::string DSiBIOS7Path;
+extern std::string DSiFirmwarePath;
+extern std::string DSiNANDPath;
 
-extern int DLDIEnable;
-extern char DLDISDPath[1024];
+extern bool DLDIEnable;
+extern std::string DLDISDPath;
 extern int DLDISize;
-extern int DLDIReadOnly;
-extern int DLDIFolderSync;
-extern char DLDIFolderPath[1024];
+extern bool DLDIReadOnly;
+extern bool DLDIFolderSync;
+extern std::string DLDIFolderPath;
 
-extern int DSiSDEnable;
-extern char DSiSDPath[1024];
+extern bool DSiSDEnable;
+extern std::string DSiSDPath;
 extern int DSiSDSize;
-extern int DSiSDReadOnly;
-extern int DSiSDFolderSync;
-extern char DSiSDFolderPath[1024];
+extern bool DSiSDReadOnly;
+extern bool DSiSDFolderSync;
+extern std::string DSiSDFolderPath;
 
-extern int FirmwareOverrideSettings;
-extern char FirmwareUsername[64];
+extern bool FirmwareOverrideSettings;
+extern std::string FirmwareUsername;
 extern int FirmwareLanguage;
 extern int FirmwareBirthdayMonth;
 extern int FirmwareBirthdayDay;
 extern int FirmwareFavouriteColour;
-extern char FirmwareMessage[1024];
-extern char FirmwareMAC[18];
-extern int RandomizeMAC;
+extern std::string FirmwareMessage;
+extern std::string FirmwareMAC;
+extern bool RandomizeMAC;
 
-extern int SocketBindAnyAddr;
-extern char LANDevice[128];
-extern int DirectLAN;
+extern bool SocketBindAnyAddr;
+extern std::string LANDevice;
+extern bool DirectLAN;
 
-extern int SavestateRelocSRAM;
+extern bool SavestateRelocSRAM;
 
 extern int AudioInterp;
 extern int AudioBitrate;
 extern int AudioVolume;
 extern int MicInputType;
-extern char MicWavPath[1024];
+extern std::string MicWavPath;
 
-extern char LastROMFolder[1024];
+extern std::string LastROMFolder;
 
-extern char RecentROMList[10][1024];
+extern std::string RecentROMList[10];
 
-extern int EnableCheats;
+extern std::string SaveFilePath;
+extern std::string SavestatePath;
+extern std::string CheatFilePath;
 
-extern int MouseHide;
+extern bool EnableCheats;
+
+extern bool MouseHide;
 extern int MouseHideSeconds;
-extern int PauseLostFocus;
+extern bool PauseLostFocus;
 
 
 void Load();

@@ -14,42 +14,37 @@ env:
 jobs:
   build:
     runs-on: ubuntu-20.04
+    container: ubuntu:20.04
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Upgrade system
+    - name: Prepare system
       shell: bash
-      working-directory: ${{runner.workspace}}
       run: |
-        sudo apt update
-        sudo ACCEPT_EULA=Y apt full-upgrade
+        apt update
+        apt -y full-upgrade
+        apt -y install git
+    - name: Check out source
+      uses: actions/checkout@v1
     - name: Install dependencies
       shell: bash
-      working-directory: ${{runner.workspace}}
       run: |
-        sudo rm -f /etc/apt/sources.list.d/kubernetes.list
-        sudo dpkg --add-architecture arm64
-        sudo sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
-        sudo rm /etc/apt/sources.list
-        sudo mv /etc/apt/sources.list{.new,}
-        sudo apt update
-        sudo apt install aptitude
-        sudo aptitude install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu libsdl2-dev:arm64 qtbase5-dev:arm64 libslirp-dev:arm64 libarchive-dev:arm64 libepoxy-dev:arm64
-    - name: Create build environment
-      run: mkdir ${{runner.workspace}}/build
+        dpkg --add-architecture arm64
+        sh -c "sed \"s|^deb \([a-z\.:/]*\) \([a-z\-]*\) \(.*\)$|deb [arch=amd64] \1 \2 \3\ndeb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports \2 \3|\" /etc/apt/sources.list > /etc/apt/sources.list.new"
+        rm /etc/apt/sources.list
+        mv /etc/apt/sources.list{.new,}
+        apt update
+        DEBIAN_FRONTEND=noninteractive apt install -y {gcc-10,g++-10,pkg-config}-aarch64-linux-gnu {libsdl2,qtbase5,libslirp,libarchive,libepoxy}-dev:arm64 cmake dpkg-dev
     - name: Configure
       shell: bash
-      working-directory: ${{runner.workspace}}/build
       run: |
-          CC=aarch64-linux-gnu-gcc-10 CXX=aarch64-linux-gnu-g++-10 cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+        CC=aarch64-linux-gnu-gcc-10 CXX=aarch64-linux-gnu-g++-10 cmake -DPKG_CONFIG_EXECUTABLE=/usr/bin/aarch64-linux-gnu-pkg-config $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B build
     - name: Make
       shell: bash
-      working-directory: ${{runner.workspace}}/build
       run: |
-        make -j$(nproc --all) \
-        && mkdir dist \
-        && cp melonDS dist
+        cmake --build build -j$(nproc --all)
+        mkdir dist
+        cp build/melonDS dist
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS-ubuntu-aarch64
-        path: ${{runner.workspace}}/build/dist
+        path: dist

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -33,6 +33,7 @@ public:
     DSi_SDHost(u32 num);
     ~DSi_SDHost();
 
+    void CloseHandles();
     void Reset();
 
     void DoSavestate(Savestate* file);
@@ -108,6 +109,8 @@ public:
 
     virtual void Reset() = 0;
 
+    virtual void DoSavestate(Savestate* file) = 0;
+
     virtual void SendCMD(u8 cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
 
@@ -122,11 +125,13 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename);
     DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir);
     ~DSi_MMCStorage();
 
     void Reset();
+
+    void DoSavestate(Savestate* file);
 
     void SetCID(u8* cid) { memcpy(CID, cid, 16); }
 

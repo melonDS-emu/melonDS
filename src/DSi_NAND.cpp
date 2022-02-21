@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -1009,6 +1009,8 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
     u32 nwrite;
 
     // ticket
+    sprintf(fname, "0:/ticket/%08x", titleid0);
+    f_mkdir(fname);
 
     sprintf(fname, "0:/ticket/%08x/%08x.tik", titleid0, titleid1);
     if (!CreateTicket(fname, *(u32*)&tmd[0x18C], *(u32*)&tmd[0x190], header[0x1E]))
@@ -1018,6 +1020,8 @@ bool ImportTitle(const char* appfile, u8* tmd, bool readonly)
 
     // folder
 
+    sprintf(fname, "0:/title/%08x", titleid0);
+    f_mkdir(fname);
     sprintf(fname, "0:/title/%08x/%08x", titleid0, titleid1);
     f_mkdir(fname);
     sprintf(fname, "0:/title/%08x/%08x/content", titleid0, titleid1);

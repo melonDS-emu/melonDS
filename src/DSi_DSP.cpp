@@ -587,6 +587,8 @@ void DoSavestate(Savestate* file)
     file->Var16(&DSP_REP[1]);
     file->Var16(&DSP_REP[2]);
     file->Var8((u8*)&SCFG_RST);
+
+    // TODO: save the Teakra state!!!
 }
 
 }

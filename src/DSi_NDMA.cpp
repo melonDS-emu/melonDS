@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -63,7 +63,31 @@ void DSi_NDMA::Reset()
 
 void DSi_NDMA::DoSavestate(Savestate* file)
 {
-    // TODO!
+    char magic[5] = "NDMx";
+    magic[3] = '0' + Num + (CPU*4);
+    file->Section(magic);
+
+    file->Var32(&SrcAddr);
+    file->Var32(&DstAddr);
+    file->Var32(&TotalLength);
+    file->Var32(&BlockLength);
+    file->Var32(&SubblockTimer);
+    file->Var32(&FillData);
+    file->Var32(&Cnt);
+
+    file->Var32(&StartMode);
+    file->Var32(&CurSrcAddr);
+    file->Var32(&CurDstAddr);
+    file->Var32(&SubblockLength);
+    file->Var32(&RemCount);
+    file->Var32(&IterCount);
+    file->Var32(&TotalRemCount);
+    file->Var32(&SrcAddrInc);
+    file->Var32(&DstAddrInc);
+
+    file->Var32(&Running);
+    file->Bool32(&InProgress);
+    file->Bool32(&IsGXFIFODMA);
 }
 
 void DSi_NDMA::WriteCnt(u32 val)

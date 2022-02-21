@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -55,7 +55,7 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
 
     ui->rbDirectMode->setText("Direct mode (requires " PCAP_NAME " and ethernet connection)");
 
-    ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr != 0);
+    ui->cbBindAnyAddr->setChecked(Config::SocketBindAnyAddr);
 
     int sel = 0;
     for (int i = 0; i < LAN_PCap::NumAdapters; i++)
@@ -64,13 +64,14 @@ WifiSettingsDialog::WifiSettingsDialog(QWidget* parent) : QDialog(parent), ui(ne
 
         ui->cbxDirectAdapter->addItem(QString(adapter->FriendlyName));
 
-        if (!strncmp(adapter->DeviceName, Config::LANDevice, 128))
+        if (!strncmp(adapter->DeviceName, Config::LANDevice.c_str(), 128))
             sel = i;
     }
     ui->cbxDirectAdapter->setCurrentIndex(sel);
 
-    ui->rbDirectMode->setChecked(Config::DirectLAN != 0);
-    ui->rbIndirectMode->setChecked(Config::DirectLAN == 0);
+    // errrr???
+    ui->rbDirectMode->setChecked(Config::DirectLAN);
+    ui->rbIndirectMode->setChecked(!Config::DirectLAN);
     if (!haspcap) ui->rbDirectMode->setEnabled(false);
 
     updateAdapterControls();
@@ -87,19 +88,18 @@ void WifiSettingsDialog::done(int r)
 
     if (r == QDialog::Accepted)
     {
-        Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked() ? 1:0;
-        Config::DirectLAN = ui->rbDirectMode->isChecked() ? 1:0;
+        Config::SocketBindAnyAddr = ui->cbBindAnyAddr->isChecked();
+        Config::DirectLAN = ui->rbDirectMode->isChecked();
 
         int sel = ui->cbxDirectAdapter->currentIndex();
         if (sel < 0 || sel >= LAN_PCap::NumAdapters) sel = 0;
         if (LAN_PCap::NumAdapters < 1)
         {
-            Config::LANDevice[0] = '\0';
+            Config::LANDevice = "";
         }
         else
         {
-            strncpy(Config::LANDevice, LAN_PCap::Adapters[sel].DeviceName, 127);
-            Config::LANDevice[127] = '\0';
+            Config::LANDevice = LAN_PCap::Adapters[sel].DeviceName;
         }
 
         Config::Save();

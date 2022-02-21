@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -23,7 +23,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "FrontendUtil.h"
+#include "ROMManager.h"
 #include "DSi_NAND.h"
 
 #include "TitleManagerDialog.h"
@@ -111,7 +111,7 @@ void TitleManagerDialog::createTitleItem(u32 category, u32 titleid)
     DSi_NAND::GetTitleInfo(category, titleid, version, &header, &banner);
 
     u32 icondata[32*32];
-    Frontend::ROMIcon(banner.Icon, banner.Palette, icondata);
+    ROMManager::ROMIcon(banner.Icon, banner.Palette, icondata);
     QImage iconimg((const uchar*)icondata, 32, 32, QImage::Format_ARGB32);
     QIcon icon(QPixmap::fromImage(iconimg.copy()));
 

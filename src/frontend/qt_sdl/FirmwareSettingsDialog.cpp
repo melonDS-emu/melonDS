@@ -35,7 +35,7 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    ui->usernameEdit->setText(Config::FirmwareUsername);
+    ui->usernameEdit->setText(QString::fromStdString(Config::FirmwareUsername));
 
     ui->languageBox->addItems(languages);
     ui->languageBox->setCurrentIndex(Config::FirmwareLanguage);
@@ -59,12 +59,12 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
     }
     ui->colorsEdit->setCurrentIndex(Config::FirmwareFavouriteColour);
 
-    ui->messageEdit->setText(Config::FirmwareMessage);
+    ui->messageEdit->setText(QString::fromStdString(Config::FirmwareMessage));
 
     ui->overrideFirmwareBox->setChecked(Config::FirmwareOverrideSettings);
 
-    ui->txtMAC->setText(Config::FirmwareMAC);
-    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC != 0);
+    ui->txtMAC->setText(QString::fromStdString(Config::FirmwareMAC));
+    ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC);
     on_cbRandomizeMAC_toggled();
 }
 
@@ -123,7 +123,7 @@ void FirmwareSettingsDialog::done(int r)
             return;
         }
 
-        int newOverride = ui->overrideFirmwareBox->isChecked();
+        bool newOverride = ui->overrideFirmwareBox->isChecked();
 
         std::string newName = ui->usernameEdit->text().toStdString();
         int newLanguage = ui->languageBox->currentIndex();
@@ -133,16 +133,16 @@ void FirmwareSettingsDialog::done(int r)
         std::string newMessage = ui->messageEdit->text().toStdString();
 
         std::string newMAC = ui->txtMAC->text().toStdString();
-        int newRandomizeMAC = ui->cbRandomizeMAC->isChecked() ? 1:0;
+        bool newRandomizeMAC = ui->cbRandomizeMAC->isChecked();
 
         if (   newOverride != Config::FirmwareOverrideSettings
-            || strcmp(newName.c_str(), Config::FirmwareUsername) != 0
+            || newName != Config::FirmwareUsername
             || newLanguage != Config::FirmwareLanguage
             || newFavColor != Config::FirmwareFavouriteColour
             || newBirthdayDay != Config::FirmwareBirthdayDay
             || newBirthdayMonth != Config::FirmwareBirthdayMonth
-            || strcmp(newMessage.c_str(), Config::FirmwareMessage) != 0
-            || strcmp(newMAC.c_str(), Config::FirmwareMAC) != 0
+            || newMessage != Config::FirmwareMessage
+            || newMAC != Config::FirmwareMAC
             || newRandomizeMAC != Config::RandomizeMAC)
         {
             if (RunningSomething
@@ -153,14 +153,14 @@ void FirmwareSettingsDialog::done(int r)
 
             Config::FirmwareOverrideSettings = newOverride;
 
-            strncpy(Config::FirmwareUsername, newName.c_str(), 63); Config::FirmwareUsername[63] = '\0';
+            Config::FirmwareUsername = newName;
             Config::FirmwareLanguage = newLanguage;
             Config::FirmwareFavouriteColour = newFavColor;
             Config::FirmwareBirthdayDay = newBirthdayDay;
             Config::FirmwareBirthdayMonth = newBirthdayMonth;
-            strncpy(Config::FirmwareMessage, newMessage.c_str(), 1023); Config::FirmwareMessage[1023] = '\0';
+            Config::FirmwareMessage = newMessage;
 
-            strncpy(Config::FirmwareMAC, newMAC.c_str(), 17); Config::FirmwareMAC[17] = '\0';
+            Config::FirmwareMAC = newMAC;
             Config::RandomizeMAC = newRandomizeMAC;
 
             Config::Save();

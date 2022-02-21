@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -52,6 +52,7 @@
 
 #include "Platform.h"
 #include "Config.h"
+#include "ROMManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include <string>
@@ -207,7 +208,7 @@ bool GetConfigArray(ConfigEntry entry, void* data)
     {
     case Firm_MAC:
         {
-            char* mac_in = Config::FirmwareMAC;
+            std::string& mac_in = Config::FirmwareMAC;
             u8* mac_out = (u8*)data;
 
             int o = 0;
@@ -372,6 +373,19 @@ bool Mutex_TryLock(Mutex* mutex)
 }
 
 
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+{
+    if (ROMManager::NDSSave)
+        ROMManager::NDSSave->RequestFlush(savedata, savelen, writeoffset, writelen);
+}
+
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
+{
+    if (ROMManager::GBASave)
+        ROMManager::GBASave->RequestFlush(savedata, savelen, writeoffset, writelen);
+}
+
+
 bool MP_Init()
 {
     int opt_true = 1;
@@ -398,6 +412,16 @@ bool MP_Init()
         MPSocket = INVALID_SOCKET;
         return false;
     }
+
+#if defined(BSD) || defined(__APPLE__)
+    res = setsockopt(MPSocket, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt_true, sizeof(int));
+    if (res < 0)
+    {
+        closesocket(MPSocket);
+        MPSocket = INVALID_SOCKET;
+        return false;
+    }
+#endif
 
     sockaddr_t saddr;
     saddr.sa_family = AF_INET;

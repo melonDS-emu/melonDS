@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -143,6 +143,13 @@ void Mutex_Free(Mutex* mutex);
 void Mutex_Lock(Mutex* mutex);
 void Mutex_Unlock(Mutex* mutex);
 bool Mutex_TryLock(Mutex* mutex);
+
+
+// functions called when the NDS or GBA save files need to be written back to storage
+// savedata and savelen are always the entire save memory buffer and its full length
+// writeoffset and writelen indicate which part of the memory was altered
+void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
+void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen);
 
 
 // local multiplayer comm interface
