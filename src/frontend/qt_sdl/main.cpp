@@ -2087,6 +2087,7 @@ void MainWindow::updateCartInserted(bool gba)
         actImportSavefile->setEnabled(inserted);
         actSetupCheats->setEnabled(inserted);
         actROMInfo->setEnabled(inserted);
+        actRAMInfo->setEnabled(inserted);
     }
 }
 
