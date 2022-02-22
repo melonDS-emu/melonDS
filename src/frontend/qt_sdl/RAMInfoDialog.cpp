@@ -95,11 +95,17 @@ void RAMInfoDialog::ShowRowsInTable()
         if (ui->ramTable->item(row, ramInfo_Address) == nullptr)
         {
             // A new row
-            ui->ramTable->setItem(row, ramInfo_Address, new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16)));
+            QTableWidgetItem* addressItem = new QTableWidgetItem(QString("%1").arg(rowData.Address, 8, 16));
             QTableWidgetItem* valueItem = new QTableWidgetItem(QString("%1").arg(rowData.Value));
+            QTableWidgetItem* previousItem = new QTableWidgetItem(QString("%1").arg(rowData.Previous));
+
+            addressItem->setFlags(addressItem->flags() & ~Qt::ItemIsEditable);
             valueItem->setFlags(valueItem->flags() | Qt::ItemIsEditable);
+            previousItem->setFlags(previousItem->flags() & ~Qt::ItemIsEditable);
+
+            ui->ramTable->setItem(row, ramInfo_Address, addressItem);
             ui->ramTable->setItem(row, ramInfo_Value, valueItem);
-            ui->ramTable->setItem(row, ramInfo_Previous, new QTableWidgetItem(QString("%1").arg(rowData.Previous)));
+            ui->ramTable->setItem(row, ramInfo_Previous, previousItem);
         }
         else
         {
