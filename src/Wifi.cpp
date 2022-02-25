@@ -1274,7 +1274,7 @@ void Write(u32 addr, u16 val)
             {
                 if (!(USUntilPowerOn < 0 && ForcePowerOn))
                 {
-                    printf("mode reset power on %08x\n", NDS::ARM7->R[15]);
+                    //printf("mode reset power on %08x\n", NDS::ARM7->R[15]);
                     IOPORT(0x034) = 0x0002;
                     IOPORT(0x27C) = 0x0005;
                     // TODO: 02A2??
@@ -1288,7 +1288,7 @@ void Write(u32 addr, u16 val)
             }
             else if ((oldval & 0x0001) && !(val & 0x0001))
             {
-                printf("mode reset shutdown %08x\n", NDS::ARM7->R[15]);
+                //printf("mode reset shutdown %08x\n", NDS::ARM7->R[15]);
                 IOPORT(0x27C) = 0x000A;
                 IOPORT(W_RFPins) = 0x0004;
                 IOPORT(W_RFStatus) = 9;
@@ -1338,7 +1338,7 @@ void Write(u32 addr, u16 val)
 
     case W_ModeWEP:
         val &= 0x007F;
-        printf("writing mode web %x\n", val);
+        //printf("writing mode web %x\n", val);
         if ((val & 0x7) == 1)
             IOPORT(W_PowerUnk) |= 0x0002;
         if ((val & 0x7) == 2)
@@ -1354,7 +1354,7 @@ void Write(u32 addr, u16 val)
         return;
 
     case W_PowerState:
-        printf("writing power state %x %08x\n", val, NDS::ARM7->R[15]);
+        //printf("writing power state %x %08x\n", val, NDS::ARM7->R[15]);
         IOPORT(W_PowerState) |= val & 0x0002;
 
         if (IOPORT(W_ModeReset) & 0x0001 && IOPORT(W_PowerState) & 0x0002)
@@ -1367,7 +1367,7 @@ void Write(u32 addr, u16 val)
             else */
             if (IOPORT(W_PowerForce) == 1)
             {
-                printf("power on\n");
+                //printf("power on\n");
                 IOPORT(W_PowerState) |= 0x100;
                 USUntilPowerOn = -2048;
                 ForcePowerOn = false;
@@ -1377,10 +1377,10 @@ void Write(u32 addr, u16 val)
     case W_PowerForce:
         //if ((val&0x8001)==0x8000) printf("WIFI: forcing power %04X\n", val);
         val &= 0x8001;
-        printf("writing power force %x %08x\n", val, NDS::ARM7->R[15]);
+        //printf("writing power force %x %08x\n", val, NDS::ARM7->R[15]);
         if (val == 0x8001)
         {
-            printf("force power off\n");
+            //printf("force power off\n");
             IOPORT(0x034) = 0x0002;
             IOPORT(W_PowerState) = 0x0200;
             IOPORT(W_TXReqRead) = 0;
@@ -1389,14 +1389,14 @@ void Write(u32 addr, u16 val)
         }
         if (val == 1 && IOPORT(W_PowerState) & 0x0002)
         {
-            printf("power on\n");
+            //printf("power on\n");
             IOPORT(W_PowerState) |= 0x100;
             USUntilPowerOn = -2048;
             ForcePowerOn = false;
         }
         if (val == 0x8000)
         {
-            printf("force power on\n");
+            //printf("force power on\n");
             IOPORT(W_PowerState) |= 0x100;
             USUntilPowerOn = -2048;
             ForcePowerOn = true;
@@ -1428,7 +1428,7 @@ void Write(u32 addr, u16 val)
         break;
     case W_PowerUnk:
         val &= 0x0003;
-        printf("writing power unk %x\n", val);
+        //printf("writing power unk %x\n", val);
         if ((IOPORT(W_ModeWEP) & 0x7) == 1)
             val |= 2;
         else if ((IOPORT(W_ModeWEP) & 0x7) == 2)
