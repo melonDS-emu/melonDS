@@ -522,7 +522,7 @@ void EmuThread::run()
                     if (mainScreenPos[0] == 1)
                         guess = screenSizing_EmphTop;
                     else
-                        guess = screenSizing_EmphBop;
+                        guess = screenSizing_EmphBot;
                 }
 
                 if (guess != autoScreenSizing)
