@@ -42,7 +42,7 @@ enum
 {
     screenSizing_Even,
     screenSizing_EmphTop,
-    screenSizing_EmphBop,
+    screenSizing_EmphBot,
     screenSizing_Auto,
     screenSizing_TopOnly,
     screenSizing_BotOnly,
