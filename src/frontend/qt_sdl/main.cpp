@@ -2777,6 +2777,22 @@ void MainWindow::onChangeScreenSwap(bool checked)
 {
     Config::ScreenSwap = checked?1:0;
 
+    // Swap between top and bottom screen when displaying one screen. 
+    if (Config::ScreenSizing == 4)
+    {
+        // Bottom Screen.
+        Config::ScreenSizing = 5;
+        actScreenSizing[4]->setChecked(false);
+        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    }
+    else if (Config::ScreenSizing == 5)
+    {
+        // Top Screen.
+        Config::ScreenSizing = 4;
+        actScreenSizing[5]->setChecked(false);
+        actScreenSizing[Config::ScreenSizing]->setChecked(true);
+    }
+    
     emit screenLayoutChange();
 }
 
