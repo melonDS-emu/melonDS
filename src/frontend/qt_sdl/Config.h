@@ -38,6 +38,17 @@ enum
     HK_MAX
 };
 
+enum
+{
+    screenSizing_Even,
+    screenSizing_EmphTop,
+    screenSizing_EmphBop,
+    screenSizing_Auto,
+    screenSizing_TopOnly,
+    screenSizing_BotOnly,
+    screenSizing_MAX,
+};
+
 namespace Config
 {
 
