@@ -53,7 +53,7 @@ enum
     ramInfo_Previous
 };
 
-s32 GetMainRAMVAlue(const u32& addr, const ramInfo_ByteType& byteType);
+s32 GetMainRAMValue(const u32& addr, const ramInfo_ByteType& byteType);
 
 struct ramInfo_RowData
 {
@@ -63,7 +63,7 @@ struct ramInfo_RowData
 
     void Update(const ramInfo_ByteType& byteType)
     {
-        Value = GetMainRAMVAlue(Address, byteType);
+        Value = GetMainRAMValue(Address, byteType);
     }
 
     void SetValue(const s32& value)
