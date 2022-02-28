@@ -23,7 +23,7 @@
 
 extern EmuThread* emuThread;
 
-s32 GetMainRAMVAlue(const u32& addr, const ramInfo_ByteType& byteType)
+s32 GetMainRAMValue(const u32& addr, const ramInfo_ByteType& byteType)
 {
     switch (byteType)
     {
@@ -242,7 +242,7 @@ void RAMSearchThread::run()
         // First search mode
         for (u32 addr = 0x02000000; SearchRunning && addr < 0x02000000+NDS::MainRAMMaxSize; addr += SearchByteType)
         {
-            const s32& value = GetMainRAMVAlue(addr, SearchByteType);
+            const s32& value = GetMainRAMValue(addr, SearchByteType);
 
             RowDataVector->push_back({ addr, value, value });
 
@@ -263,7 +263,7 @@ void RAMSearchThread::run()
         for (u32 row = 0; SearchRunning && row < RowDataVector->size(); row++)
         {
             const u32& addr = RowDataVector->at(row).Address;
-            const s32& value = GetMainRAMVAlue(addr, SearchByteType);
+            const s32& value = GetMainRAMValue(addr, SearchByteType);
 
             if (SearchValue == value)
                 newRowDataVector->push_back({ addr, value, value });
