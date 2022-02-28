@@ -4,6 +4,7 @@ SET(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
     CheatsDialog.cpp
+	Config.cpp
     EmuSettingsDialog.cpp
     InputConfig/InputConfigDialog.cpp
     InputConfig/MapButton.h
@@ -11,6 +12,7 @@ SET(SOURCES_QT_SDL
     VideoSettingsDialog.cpp
     AudioSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
+    PathSettingsDialog.cpp
     WifiSettingsDialog.cpp
     InterfaceSettingsDialog.cpp
     ROMInfoDialog.cpp
@@ -22,13 +24,13 @@ SET(SOURCES_QT_SDL
     OSD_shaders.h
     font.h
     Platform.cpp
-    PlatformConfig.cpp
     QPathInput.h
+	ROMManager.cpp
+	SaveManager.cpp
     
     ArchiveUtil.h
     ArchiveUtil.cpp
 
-    ../Util_ROM.cpp
     ../Util_Video.cpp
     ../Util_Audio.cpp
     ../FrontendUtil.h

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -23,7 +23,6 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
-#include "Config.h"
 
 
 namespace GPU3D

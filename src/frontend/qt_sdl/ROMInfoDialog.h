@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, WaluigiWare64
+    Copyright 2016-2022 melonDS team, WaluigiWare64
 
     This file is part of melonDS.
 
@@ -25,7 +25,7 @@
 #include <QImage>
 
 #include "types.h"
-#include "FrontendUtil.h"
+#include "ROMManager.h"
 
 namespace Ui { class ROMInfoDialog; }
 class ROMInfoDialog;
@@ -58,7 +58,7 @@ public:
 
 private slots:
     void done(int r);
-     
+
     void on_saveIconButton_clicked();
 
     void iconSetFrame(int frame);

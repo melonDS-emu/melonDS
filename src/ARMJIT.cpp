@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, RSDuck
+    Copyright 2016-2022 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -25,7 +25,7 @@
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash/xxhash.h"
 
-#include "Config.h"
+#include "Platform.h"
 
 #include "ARMJIT_Internal.h"
 #include "ARMJIT_Memory.h"
@@ -56,6 +56,11 @@ namespace ARMJIT
 //#define JIT_DEBUGPRINT(msg, ...) printf(msg, ## __VA_ARGS__)
 
 Compiler* JITCompiler;
+
+int MaxBlockSize;
+bool LiteralOptimizations;
+bool BranchOptimizations;
+bool FastMemory;
 
 
 std::unordered_map<u32, JitBlock*> JitBlocks9;
@@ -179,8 +184,8 @@ T SlowRead9(u32 addr, ARMv5* cpu)
     T val;
     if (addr < cpu->ITCMSize)
         val = *(T*)&cpu->ITCM[addr & 0x7FFF];
-    else if (addr >= cpu->DTCMBase && addr < (cpu->DTCMBase + cpu->DTCMSize))
-        val = *(T*)&cpu->DTCM[(addr - cpu->DTCMBase) & 0x3FFF];
+    else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
+        val = *(T*)&cpu->DTCM[addr & 0x3FFF];
     else if (std::is_same<T, u32>::value)
         val = (ConsoleType == 0 ? NDS::ARM9Read32 : DSi::ARM9Read32)(addr);
     else if (std::is_same<T, u16>::value)
@@ -204,9 +209,9 @@ void SlowWrite9(u32 addr, ARMv5* cpu, u32 val)
         CheckAndInvalidate<0, ARMJIT_Memory::memregion_ITCM>(addr);
         *(T*)&cpu->ITCM[addr & 0x7FFF] = val;
     }
-    else if (addr >= cpu->DTCMBase && addr < (cpu->DTCMBase + cpu->DTCMSize))
+    else if ((addr & cpu->DTCMMask) == cpu->DTCMBase)
     {
-        *(T*)&cpu->DTCM[(addr - cpu->DTCMBase) & 0x3FFF] = val;
+        *(T*)&cpu->DTCM[addr & 0x3FFF] = val;
     }
     else if (std::is_same<T, u32>::value)
     {
@@ -326,6 +331,16 @@ void DeInit()
 
 void Reset()
 {
+    MaxBlockSize = Platform::GetConfigInt(Platform::JIT_MaxBlockSize);
+    LiteralOptimizations = Platform::GetConfigBool(Platform::JIT_LiteralOptimizations);
+    BranchOptimizations = Platform::GetConfigBool(Platform::JIT_BranchOptimizations);
+    FastMemory = Platform::GetConfigBool(Platform::JIT_FastMemory);
+
+    if (MaxBlockSize < 1)
+        MaxBlockSize = 1;
+    if (MaxBlockSize > 32)
+        MaxBlockSize = 32;
+
     JitEnableWrite();
     ResetBlockCache();
 
@@ -377,7 +392,7 @@ bool DecodeLiteral(bool thumb, const FetchedInstr& instr, u32& addr)
     return false;
 }
 
-bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link, 
+bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink, u32 lr, bool& link,
     u32& linkAddr, u32& targetAddr)
 {
     if (thumb)
@@ -420,7 +435,7 @@ bool DecodeBranch(bool thumb, const FetchedInstr& instr, u32& cond, bool hasLink
         linkAddr = instr.Addr + 4;
 
         cond = instr.Cond();
-        if (instr.Info.Kind == ARMInstrInfo::ak_BL 
+        if (instr.Info.Kind == ARMInstrInfo::ak_BL
             || instr.Info.Kind == ARMInstrInfo::ak_B)
         {
             s32 offset = (s32)(instr.Instr << 8) >> 6;
@@ -461,7 +476,7 @@ bool IsIdleLoop(bool thumb, FetchedInstr* instrs, int instrsCount)
         u16 dstRegs = instrs[i].Info.DstRegs & ~(1 << 15);
 
         regsDisallowedToWrite |= srcRegs & ~regsWrittenTo;
-        
+
         if (dstRegs & regsDisallowedToWrite)
             return false;
         regsWrittenTo |= dstRegs;
@@ -551,7 +566,7 @@ InterpreterFunc InterpretTHUMB[ARMInstrInfo::tk_Count] =
     F(LDRB_IMM), F(STRH_IMM), F(LDRH_IMM), F(STR_SPREL), F(LDR_SPREL),
     F(PUSH), F(POP), F(LDMIA), F(STMIA),
     F(BCOND), F(BX), F(BLX_REG), F(B), F(BL_LONG_1), F(BL_LONG_2),
-    F(UNK), F(SVC), 
+    F(UNK), F(SVC),
     T_BL_LONG // BL_LONG psudo opcode
 };
 #undef F
@@ -573,11 +588,6 @@ void RetireJitBlock(JitBlock* block)
 void CompileBlock(ARM* cpu)
 {
     bool thumb = cpu->CPSR & 0x20;
-
-    if (Config::JIT_MaxBlockSize < 1)
-        Config::JIT_MaxBlockSize = 1;
-    if (Config::JIT_MaxBlockSize > 32)
-        Config::JIT_MaxBlockSize = 32;
 
     u32 blockAddr = cpu->R[15] - (thumb ? 2 : 4);
 
@@ -607,28 +617,28 @@ void CompileBlock(ARM* cpu)
         }
 
         // some memory has been remapped
-        RetireJitBlock(existingBlockIt->second);        
+        RetireJitBlock(existingBlockIt->second);
         map.erase(existingBlockIt);
     }
 
-    FetchedInstr instrs[Config::JIT_MaxBlockSize];
+    FetchedInstr instrs[MaxBlockSize];
     int i = 0;
     u32 r15 = cpu->R[15];
 
-    u32 addressRanges[Config::JIT_MaxBlockSize];
-    u32 addressMasks[Config::JIT_MaxBlockSize];
-    memset(addressMasks, 0, Config::JIT_MaxBlockSize * sizeof(u32));
+    u32 addressRanges[MaxBlockSize];
+    u32 addressMasks[MaxBlockSize];
+    memset(addressMasks, 0, MaxBlockSize * sizeof(u32));
     u32 numAddressRanges = 0;
 
     u32 numLiterals = 0;
-    u32 literalLoadAddrs[Config::JIT_MaxBlockSize];
+    u32 literalLoadAddrs[MaxBlockSize];
     // they are going to be hashed
-    u32 literalValues[Config::JIT_MaxBlockSize];
-    u32 instrValues[Config::JIT_MaxBlockSize];
+    u32 literalValues[MaxBlockSize];
+    u32 instrValues[MaxBlockSize];
     // due to instruction merging i might not reflect the amount of actual instructions
     u32 numInstrs = 0;
 
-    u32 writeAddrs[Config::JIT_MaxBlockSize];
+    u32 writeAddrs[MaxBlockSize];
     u32 numWriteAddrs = 0, writeAddrsTranslated = 0;
 
     cpu->FillPipeline();
@@ -747,7 +757,7 @@ void CompileBlock(ARM* cpu)
         instrs[i].DataRegion = cpu->DataRegion;
 
         u32 literalAddr;
-        if (Config::JIT_LiteralOptimisations
+        if (LiteralOptimizations
             && instrs[i].Info.SpecialKind == ARMInstrInfo::special_LoadLiteral
             && DecodeLiteral(thumb, instrs[i], literalAddr))
         {
@@ -786,7 +796,7 @@ void CompileBlock(ARM* cpu)
             JIT_DEBUGPRINT("merged BL\n");
         }
 
-        if (instrs[i].Info.Branches() && Config::JIT_BranchOptimisations
+        if (instrs[i].Info.Branches() && BranchOptimizations
             && instrs[i].Info.Kind != (thumb ? ARMInstrInfo::tk_SVC : ARMInstrInfo::ak_SVC))
         {
             bool hasBranched = cpu->R[15] != r15;
@@ -823,14 +833,14 @@ void CompileBlock(ARM* cpu)
                         JIT_DEBUGPRINT("found %s idle loop %d in block %08x\n", thumb ? "thumb" : "arm", cpu->Num, blockAddr);
                     }
                 }
-                else if (hasBranched && !isBackJump && i + 1 < Config::JIT_MaxBlockSize)
+                else if (hasBranched && !isBackJump && i + 1 < MaxBlockSize)
                 {
                     if (link)
                     {
                         lr = linkAddr;
                         hasLink = true;
                     }
-                    
+
                     r15 = target + (thumb ? 2 : 4);
                     assert(r15 == cpu->R[15]);
 
@@ -851,7 +861,7 @@ void CompileBlock(ARM* cpu)
                 }
             }
 
-            if (!hasBranched && cond < 0xE && i + 1 < Config::JIT_MaxBlockSize)
+            if (!hasBranched && cond < 0xE && i + 1 < MaxBlockSize)
             {
                 JIT_DEBUGPRINT("block lengthened by untaken branch\n");
                 instrs[i].Info.EndBlock = false;
@@ -865,7 +875,7 @@ void CompileBlock(ARM* cpu)
         bool secondaryFlagReadCond = !canCompile || (instrs[i - 1].BranchFlags & (branch_FollowCondTaken | branch_FollowCondNotTaken));
         if (instrs[i - 1].Info.ReadFlags != 0 || secondaryFlagReadCond)
             FloodFillSetFlags(instrs, i - 2, !secondaryFlagReadCond ? instrs[i - 1].Info.ReadFlags : 0xF);
-    } while(!instrs[i - 1].Info.EndBlock && i < Config::JIT_MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
+    } while(!instrs[i - 1].Info.EndBlock && i < MaxBlockSize && !cpu->Halted && (!cpu->IRQ || (cpu->CPSR & 0x80)));
 
     if (numLiterals)
     {
@@ -940,7 +950,7 @@ void CompileBlock(ARM* cpu)
         block->StartAddrLocal = localAddr;
 
         FloodFillSetFlags(instrs, i - 1, 0xF);
-        
+
         JitEnableWrite();
         block->EntryPoint = JITCompiler->CompileBlock(cpu, thumb, instrs, i, hasMemoryInstr);
         JitEnableExecute();

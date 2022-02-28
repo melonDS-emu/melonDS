@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -50,7 +50,7 @@ void ARMv5::CP15Reset()
 
     ITCMSize = 0;
     DTCMBase = 0xFFFFFFFF;
-    DTCMSize = 0;
+    DTCMMask = 0;
 
     memset(ICache, 0, 0x2000);
     ICacheInvalidateAll();
@@ -102,26 +102,30 @@ void ARMv5::CP15DoSavestate(Savestate* file)
 void ARMv5::UpdateDTCMSetting()
 {
     u32 newDTCMBase;
+    u32 newDTCMMask;
     u32 newDTCMSize;
+
     if (CP15Control & (1<<16))
     {
-        newDTCMBase = DTCMSetting & 0xFFFFF000;
         newDTCMSize = 0x200 << ((DTCMSetting >> 1) & 0x1F);
-        //printf("DTCM [%08X] enabled at %08X, size %X\n", DTCMSetting, newDTCMBase, newDTCMSize);
+        if (newDTCMSize < 0x1000) newDTCMSize = 0x1000;
+        newDTCMMask = 0xFFFFF000 & ~(newDTCMSize-1);
+        newDTCMBase = DTCMSetting & newDTCMMask;
     }
     else
     {
-        newDTCMBase = 0xFFFFFFFF;
         newDTCMSize = 0;
-        //printf("DTCM disabled\n");
+        newDTCMBase = 0xFFFFFFFF;
+        newDTCMMask = 0;
     }
-    if (newDTCMBase != DTCMBase || newDTCMSize != DTCMSize)
+
+    if (newDTCMBase != DTCMBase || newDTCMMask != DTCMMask)
     {
 #ifdef JIT_ENABLED
         ARMJIT_Memory::RemapDTCM(newDTCMBase, newDTCMSize);
 #endif
         DTCMBase = newDTCMBase;
-        DTCMSize = newDTCMSize;
+        DTCMMask = newDTCMMask;
     }
 }
 
@@ -130,12 +134,10 @@ void ARMv5::UpdateITCMSetting()
     if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
-        //printf("ITCM [%08X] enabled at %08X, size %X\n", ITCMSetting, 0, ITCMSize);
     }
     else
     {
         ITCMSize = 0;
-        //printf("ITCM disabled\n");
     }
 }
 
@@ -144,6 +146,9 @@ void ARMv5::UpdateITCMSetting()
 // (not to the region range/enabled status)
 void ARMv5::UpdatePURegion(u32 n)
 {
+    if (!(CP15Control & (1<<0)))
+        return;
+
     u32 coderw = (PU_CodeRW >> (4*n)) & 0xF;
     u32 datarw = (PU_DataRW >> (4*n)) & 0xF;
 
@@ -268,6 +273,8 @@ void ARMv5::UpdatePURegions(bool update_all)
     // TODO: this is way unoptimized
     // should be okay unless the game keeps changing shit, tho
     if (update_all) UpdateRegionTimings(0x00000, 0x100000);
+
+    // TODO: throw exception if the region we're running in has become non-executable, I guess
 }
 
 void ARMv5::UpdateRegionTimings(u32 addrstart, u32 addrend)
@@ -516,7 +523,7 @@ void ARMv5::CP15Write(u32 id, u32 val)
         return;
 
     case 0x502: // data permissions
-        {printf("SET DATAPERM %08X (%08X %08X)\n", val,PU_DataRW,PU_DataRW ^ val);
+        {
             u32 diff = PU_DataRW ^ val;
             PU_DataRW = val;
             for (u32 i = 0; i < 8; i++)
@@ -600,12 +607,12 @@ void ARMv5::CP15Write(u32 id, u32 val)
 
 
     case 0x910:
-        DTCMSetting = val;
+        DTCMSetting = val & 0xFFFFF03E;
         UpdateDTCMSetting();
         return;
 
     case 0x911:
-        ITCMSetting = val;
+        ITCMSetting = val & 0x0000003E;
         UpdateITCMSetting();
         return;
 
@@ -741,6 +748,15 @@ u32 ARMv5::CP15Read(u32 id)
 
 u32 ARMv5::CodeRead32(u32 addr, bool branch)
 {
+    /*if (branch || (!(addr & 0xFFF)))
+    {
+        if (!(PU_Map[addr>>12] & 0x04))
+        {
+            PrefetchAbort();
+            return 0;
+        }
+    }*/
+
     if (addr < ITCMSize)
     {
         CodeCycles = 1;
@@ -766,6 +782,12 @@ u32 ARMv5::CodeRead32(u32 addr, bool branch)
 
 void ARMv5::DataRead8(u32 addr, u32* val)
 {
+    if (!(PU_Map[addr>>12] & 0x01))
+    {
+        DataAbort();
+        return;
+    }
+
     DataRegion = addr;
 
     if (addr < ITCMSize)
@@ -774,10 +796,10 @@ void ARMv5::DataRead8(u32 addr, u32* val)
         *val = *(u8*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u8*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -787,6 +809,12 @@ void ARMv5::DataRead8(u32 addr, u32* val)
 
 void ARMv5::DataRead16(u32 addr, u32* val)
 {
+    if (!(PU_Map[addr>>12] & 0x01))
+    {
+        DataAbort();
+        return;
+    }
+
     DataRegion = addr;
 
     addr &= ~1;
@@ -797,10 +825,10 @@ void ARMv5::DataRead16(u32 addr, u32* val)
         *val = *(u16*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u16*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -810,11 +838,11 @@ void ARMv5::DataRead16(u32 addr, u32* val)
 
 void ARMv5::DataRead32(u32 addr, u32* val)
 {
-    /*if (!(PU_Map[addr>>12] & 0x01))
-    {printf("addr %08X very bad\n", addr);
+    if (!(PU_Map[addr>>12] & 0x01))
+    {
         DataAbort();
         return;
-    }*/
+    }
 
     DataRegion = addr;
 
@@ -826,10 +854,10 @@ void ARMv5::DataRead32(u32 addr, u32* val)
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *val = *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -847,10 +875,10 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
         *val = *(u32*)&ITCM[addr & (ITCMPhysicalSize - 1)];
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *val = *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)];
+        *val = *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)];
         return;
     }
 
@@ -860,6 +888,12 @@ void ARMv5::DataRead32S(u32 addr, u32* val)
 
 void ARMv5::DataWrite8(u32 addr, u8 val)
 {
+    if (!(PU_Map[addr>>12] & 0x02))
+    {
+        DataAbort();
+        return;
+    }
+
     DataRegion = addr;
 
     if (addr < ITCMSize)
@@ -871,10 +905,10 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u8*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u8*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -884,6 +918,12 @@ void ARMv5::DataWrite8(u32 addr, u8 val)
 
 void ARMv5::DataWrite16(u32 addr, u16 val)
 {
+    if (!(PU_Map[addr>>12] & 0x02))
+    {
+        DataAbort();
+        return;
+    }
+
     DataRegion = addr;
 
     addr &= ~1;
@@ -897,10 +937,10 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u16*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u16*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -910,11 +950,11 @@ void ARMv5::DataWrite16(u32 addr, u16 val)
 
 void ARMv5::DataWrite32(u32 addr, u32 val)
 {
-    /*if (!(PU_Map[addr>>12] & 0x02))
-    {printf("addr %08X wr very bad\n", addr);
+    if (!(PU_Map[addr>>12] & 0x02))
+    {
         DataAbort();
         return;
-    }*/
+    }
 
     DataRegion = addr;
 
@@ -929,10 +969,10 @@ void ARMv5::DataWrite32(u32 addr, u32 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles = 1;
-        *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 
@@ -953,10 +993,10 @@ void ARMv5::DataWrite32S(u32 addr, u32 val)
 #endif
         return;
     }
-    if (addr >= DTCMBase && addr < (DTCMBase + DTCMSize))
+    if ((addr & DTCMMask) == DTCMBase)
     {
         DataCycles += 1;
-        *(u32*)&DTCM[(addr - DTCMBase) & (DTCMPhysicalSize - 1)] = val;
+        *(u32*)&DTCM[addr & (DTCMPhysicalSize - 1)] = val;
         return;
     }
 

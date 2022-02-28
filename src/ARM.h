@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -93,7 +93,7 @@ public:
         if (v) CPSR |= 0x10000000;
     }
 
-    void UpdateMode(u32 oldmode, u32 newmode);
+    void UpdateMode(u32 oldmode, u32 newmode, bool phony = false);
 
     void TriggerIRQ();
 
@@ -269,7 +269,7 @@ public:
     // for aarch64 JIT they need to go up here
     // to be addressable by a 12-bit immediate
     u32 ITCMSize;
-    u32 DTCMBase, DTCMSize;
+    u32 DTCMBase, DTCMMask;
     s32 RegionCodeCycles;
 
     u8 ITCM[ITCMPhysicalSize];
@@ -293,7 +293,8 @@ public:
     u8 PU_UserMap[0x100000];
 
     // games operate under system mode, generally
-    #define PU_Map PU_PrivMap
+    //#define PU_Map PU_PrivMap
+    u8* PU_Map;
 
     // code/16N/32N/32S
     u8 MemTimings[0x100000][4];

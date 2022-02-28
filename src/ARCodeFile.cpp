@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -26,10 +26,9 @@
 // TODO: more user-friendly error reporting
 
 
-ARCodeFile::ARCodeFile(const char* filename)
+ARCodeFile::ARCodeFile(std::string filename)
 {
-    memset(Filename, 0, sizeof(Filename));
-    strncpy(Filename, filename, 1023);
+    Filename = filename;
 
     Error = false;
 
@@ -91,7 +90,7 @@ bool ARCodeFile::Load()
             if (isincat) Categories.push_back(curcat);
             isincat = true;
 
-            memcpy(curcat.Name, catname, 128);
+            curcat.Name = catname;
             curcat.Codes.clear();
         }
         else if (!strncasecmp(start, "CODE", 4))
@@ -118,7 +117,7 @@ bool ARCodeFile::Load()
             if (isincode) curcat.Codes.push_back(curcode);
             isincode = true;
 
-            memcpy(curcode.Name, codename, 128);
+            curcode.Name = codename;
             curcode.Enabled = enable!=0;
             curcode.CodeLen = 0;
         }
@@ -172,12 +171,12 @@ bool ARCodeFile::Save()
         ARCodeCat& cat = *it;
 
         if (it != Categories.begin()) fprintf(f, "\r\n");
-        fprintf(f, "CAT %s\r\n\r\n", cat.Name);
+        fprintf(f, "CAT %s\r\n\r\n", cat.Name.c_str());
 
         for (ARCodeList::iterator jt = cat.Codes.begin(); jt != cat.Codes.end(); jt++)
         {
             ARCode& code = *jt;
-            fprintf(f, "CODE %d %s\r\n", code.Enabled, code.Name);
+            fprintf(f, "CODE %d %s\r\n", code.Enabled, code.Name.c_str());
 
             for (u32 i = 0; i < code.CodeLen; i+=2)
             {

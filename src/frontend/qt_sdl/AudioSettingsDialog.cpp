@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,6 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "AudioSettingsDialog.h"
 #include "ui_AudioSettingsDialog.h"
@@ -30,7 +29,7 @@
 
 AudioSettingsDialog* AudioSettingsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
+extern std::string EmuDirectory;
 
 
 AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::AudioSettingsDialog)
@@ -63,7 +62,7 @@ AudioSettingsDialog::AudioSettingsDialog(QWidget* parent) : QDialog(parent), ui(
     connect(grpMicMode, SIGNAL(buttonClicked(int)), this, SLOT(onChangeMicMode(int)));
     grpMicMode->button(Config::MicInputType)->setChecked(true);
 
-    ui->txtMicWavPath->setText(Config::MicWavPath);
+    ui->txtMicWavPath->setText(QString::fromStdString(Config::MicWavPath));
 
     bool iswav = (Config::MicInputType == 3);
     ui->txtMicWavPath->setEnabled(iswav);
@@ -78,7 +77,7 @@ AudioSettingsDialog::~AudioSettingsDialog()
 void AudioSettingsDialog::on_AudioSettingsDialog_accepted()
 {
     Config::MicInputType = grpMicMode->checkedId();
-    strncpy(Config::MicWavPath, ui->txtMicWavPath->text().toStdString().c_str(), 1023); Config::MicWavPath[1023] = '\0';
+    Config::MicWavPath = ui->txtMicWavPath->text().toStdString();
     Config::Save();
 
     closeDlg();
@@ -129,7 +128,7 @@ void AudioSettingsDialog::on_btnMicWavBrowse_clicked()
 {
     QString file = QFileDialog::getOpenFileName(this,
                                                 "Select WAV file...",
-                                                EmuDirectory,
+                                                QString::fromStdString(EmuDirectory),
                                                 "WAV files (*.wav);;Any file (*.*)");
 
     if (file.isEmpty()) return;

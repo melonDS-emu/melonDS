@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -24,7 +24,7 @@
 #include "types.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
+#include "ROMManager.h"
 
 #include "CheatsDialog.h"
 #include "ui_CheatsDialog.h"
@@ -32,9 +32,7 @@
 
 CheatsDialog* CheatsDialog::currentDlg = nullptr;
 
-extern char* EmuDirectory;
-
-namespace Frontend { extern ARCodeFile* CheatFile; }
+extern std::string EmuDirectory;
 
 
 CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::CheatsDialog)
@@ -42,7 +40,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    codeFile = Frontend::CheatFile;
+    codeFile = ROMManager::GetCheatFile();
 
     QStandardItemModel* model = new QStandardItemModel();
     ui->tvCodeList->setModel(model);
@@ -56,7 +54,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
         {
             ARCodeCat& cat = *i;
 
-            QStandardItem* catitem = new QStandardItem(cat.Name);
+            QStandardItem* catitem = new QStandardItem(QString::fromStdString(cat.Name));
             catitem->setEditable(true);
             catitem->setData(QVariant::fromValue(i));
             root->appendRow(catitem);
@@ -65,7 +63,7 @@ CheatsDialog::CheatsDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Cheats
             {
                 ARCode& code = *j;
 
-                QStandardItem* codeitem = new QStandardItem(code.Name);
+                QStandardItem* codeitem = new QStandardItem(QString::fromStdString(code.Name));
                 codeitem->setEditable(true);
                 codeitem->setCheckable(true);
                 codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
@@ -114,13 +112,12 @@ void CheatsDialog::on_btnNewCat_clicked()
 
     ARCodeCat cat;
     cat.Codes.clear();
-    memset(cat.Name, 0, 128);
-    strncpy(cat.Name, "(new category)", 127);
+    cat.Name = "(new category)";
 
     codeFile->Categories.push_back(cat);
     ARCodeCatList::iterator id = codeFile->Categories.end(); id--;
 
-    QStandardItem* catitem = new QStandardItem(cat.Name);
+    QStandardItem* catitem = new QStandardItem(QString::fromStdString(cat.Name));
     catitem->setEditable(true);
     catitem->setData(QVariant::fromValue(id));
     root->appendRow(catitem);
@@ -161,8 +158,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     ARCodeCat& cat = *it_cat;
 
     ARCode code;
-    memset(code.Name, 0, 128);
-    strncpy(code.Name, "(new AR code)", 127);
+    code.Name = "(new AR code)";
     code.Enabled = true;
     code.CodeLen = 0;
     memset(code.Code, 0, sizeof(code.Code));
@@ -170,7 +166,7 @@ void CheatsDialog::on_btnNewARCode_clicked()
     cat.Codes.push_back(code);
     ARCodeList::iterator id = cat.Codes.end(); id--;
 
-    QStandardItem* codeitem = new QStandardItem(code.Name);
+    QStandardItem* codeitem = new QStandardItem(QString::fromStdString(code.Name));
     codeitem->setEditable(true);
     codeitem->setCheckable(true);
     codeitem->setCheckState(code.Enabled ? Qt::Checked : Qt::Unchecked);
@@ -276,13 +272,12 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 
         if (item->text().isEmpty())
         {
-            QString oldname = QString(cat.Name);
+            QString oldname = QString::fromStdString(cat.Name);
             item->setText(oldname.isEmpty() ? "(blank category name?)" : oldname);
         }
         else
         {
-            strncpy(cat.Name, item->text().toStdString().c_str(), 127);
-            cat.Name[127] = '\0';
+            cat.Name = item->text().toStdString();
         }
     }
     else if (data.canConvert<ARCodeList::iterator>())
@@ -291,13 +286,12 @@ void CheatsDialog::onCheatEntryModified(QStandardItem* item)
 
         if (item->text().isEmpty())
         {
-            QString oldname = QString(code.Name);
+            QString oldname = QString::fromStdString(code.Name);
             item->setText(oldname.isEmpty() ? "(blank code name?)" : oldname);
         }
         else
         {
-            strncpy(code.Name, item->text().toStdString().c_str(), 127);
-            code.Name[127] = '\0';
+            code.Name = item->text().toStdString();
         }
 
         code.Enabled = (item->checkState() == Qt::Checked);

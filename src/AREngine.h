@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -28,6 +28,7 @@ bool Init();
 void DeInit();
 void Reset();
 
+ARCodeFile* GetCodeFile();
 void SetCodeFile(ARCodeFile* file);
 
 void RunCheats();

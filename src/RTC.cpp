@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include "Config.h"
+#include "Platform.h"
 #include "NDS.h"
 #include "RTC.h"
 
@@ -54,13 +54,12 @@ u8 FreeReg;
 
 time_t (*RtcCallback)() = NULL;
 
-
 bool Init()
 {
-    time_t timeAtBoot = (u32)Config::TimeAtBoot;
-    if (Config::FixedBootTime)
+    if (Platform::GetConfigBool(Platform::FixedBootTime))
     {
-        if (Config::UseRealTime)
+        time_t timeAtBoot = (u32)Platform::GetConfigInt(Platform::TimeAtBoot);
+        if (Platform::GetConfigBool(Platform::UseRealTime))
         {
             struct tm dateAtBoot;
             gmtime_r(&timeAtBoot, &dateAtBoot);
@@ -71,7 +70,7 @@ bool Init()
     else
     {
         BaseTime = time(NULL) - GetTime();
-        if (!Config::UseRealTime)
+        if (!Platform::GetConfigBool(Platform::UseRealTime))
         {
             struct tm date;
             localtime_r(&BaseTime, &date);
@@ -151,11 +150,11 @@ u8 FromBCD(u8 val)
 
 time_t GetTime()
 {
-    if (RtcCallback)
+    if (__builtin_expect(!!RtcCallback, false))
         return RtcCallback();
     else
     {
-        if (Config::UseRealTime)
+        if (Platform::GetConfigBool(Platform::UseRealTime))
             return time(NULL);
         else
             return (NDS::NumFrames * 560190l + NDS::GetSysClockCycles(2)) / 33513982l; // 560190 cycles per frame, 33513982 cycles per second
@@ -166,7 +165,7 @@ struct tm GetDate()
 {
     struct tm date;
     time_t time = BaseTime + GetTime();
-    if (Config::UseRealTime)
+    if (Platform::GetConfigBool(Platform::UseRealTime))
         localtime_r(&time, &date);
     else
         gmtime_r(&time, &date);
@@ -177,7 +176,7 @@ struct tm GetDate()
 time_t DateToTime(tm date)
 {
     time_t time = mktime(&date);
-    if (!Config::UseRealTime)
+    if (!Platform::GetConfigBool(Platform::UseRealTime))
     {
         struct tm utc;
         gmtime_r(&time, &utc);

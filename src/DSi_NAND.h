@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -42,7 +42,7 @@ void GetIDs(u8* emmc_cid, u64& consoleid);
 void ReadHardwareInfo(u8* dataS, u8* dataN);
 
 void ReadUserData(u8* data);
-void PatchTSC();
+void PatchUserData();
 
 void ListTitles(u32 category, std::vector<u32>& titlelist);
 bool TitleExists(u32 category, u32 titleid);

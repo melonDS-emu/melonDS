@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "Config.h"
 #include "NDS.h"
 #include "DSi.h"
 #include "ARM.h"
@@ -47,8 +46,6 @@
 
 namespace DSi
 {
-
-u32 BootAddr[2];
 
 u16 SCFG_BIOS;
 u16 SCFG_Clock9;
@@ -80,17 +77,12 @@ DSi_NDMA* NDMAs[8];
 DSi_SDHost* SDMMC;
 DSi_SDHost* SDIO;
 
-FILE* SDMMCFile;
-FILE* SDIOFile;
-
 u64 ConsoleID;
 u8 eMMC_CID[16];
 
-u8 ITCMInit[0x8000];
-u8 ARM7Init[0x3C00];
-
 
 void Set_SCFG_Clock9(u16 val);
+void Set_SCFG_MC(u32 val);
 
 
 bool Init()
@@ -136,8 +128,6 @@ void DeInit()
 
     delete SDMMC;
     delete SDIO;
-
-    CloseDSiNAND();
 }
 
 void Reset()
@@ -146,20 +136,23 @@ void Reset()
     //NDS::ARM9->CP15Write(0x911, 0x00000020);
     //NDS::ARM9->CP15Write(0x100, NDS::ARM9->CP15Read(0x100) | 0x00050000);
 
-    NDS::ARM9->JumpTo(BootAddr[0]);
-    NDS::ARM7->JumpTo(BootAddr[1]);
+    NDS::MapSharedWRAM(3);
 
     NDMACnt[0] = 0; NDMACnt[1] = 0;
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
-    memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
-
     DSi_I2C::Reset();
-    DSi_AES::Reset();
     DSi_DSP::Reset();
+
+    SDMMC->CloseHandles();
+    SDIO->CloseHandles();
+
+    LoadNAND();
 
     SDMMC->Reset();
     SDIO->Reset();
+
+    DSi_AES::Reset();
 
     SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
     SCFG_Clock9 = 0x0187; // CHECKME
@@ -174,22 +167,85 @@ void Reset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
+}
 
-    NDS::MapSharedWRAM(3);
+void DoSavestate(Savestate* file)
+{
+    file->Section("DSIG");
 
-    for (u32 i = 0; i < 0x3C00; i+=4)
-        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
+    file->Var16(&SCFG_BIOS);
+    file->Var16(&SCFG_Clock9);
+    file->Var16(&SCFG_Clock7);
+    file->VarArray(&SCFG_EXT[0], sizeof(u32)*2);
+    file->Var32(&SCFG_MC);
+    file->Var16(&SCFG_RST);
 
-    u32 eaddr = 0x03FFE6E4;
-    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
-    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
-    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
-    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
-    ARM7Write16(eaddr+0x2C, 0x0001);
-    ARM7Write16(eaddr+0x2E, 0x0001);
-    ARM7Write16(eaddr+0x3C, 0x0100);
-    ARM7Write16(eaddr+0x3E, 0x40E0);
-    ARM7Write16(eaddr+0x42, 0x0001);
+    //file->VarArray(ARM9iBIOS, 0x10000);
+    //file->VarArray(ARM7iBIOS, 0x10000);
+
+    if (file->Saving)
+    {
+        file->VarArray(&MBK[0][0], sizeof(u32)*8);
+        file->VarArray(&MBK[1][5], sizeof(u32)*3);
+        file->Var32(&MBK[0][8]);
+    }
+    else
+    {
+        Set_SCFG_Clock9(SCFG_Clock9);
+        Set_SCFG_MC(SCFG_MC);
+        DSi_DSP::SetRstLine(SCFG_RST & 0x0001);
+
+        MBK[0][8] = 0;
+        MBK[1][8] = 0;
+
+        u32 mbk[12];
+        file->VarArray(&mbk, sizeof(u32)*12);
+
+        MapNWRAM_A(0, mbk[0] & 0xFF);
+        MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
+        MapNWRAM_A(2, (mbk[0] >> 16) & 0xFF);
+        MapNWRAM_A(3, mbk[0] >> 24);
+
+        MapNWRAM_B(0, mbk[1] & 0xFF);
+        MapNWRAM_B(1, (mbk[1] >> 8) & 0xFF);
+        MapNWRAM_B(2, (mbk[1] >> 16) & 0xFF);
+        MapNWRAM_B(3, mbk[1] >> 24);
+        MapNWRAM_B(4, mbk[2] & 0xFF);
+        MapNWRAM_B(5, (mbk[2] >> 8) & 0xFF);
+        MapNWRAM_B(6, (mbk[2] >> 16) & 0xFF);
+        MapNWRAM_B(7, mbk[2] >> 24);
+
+        MapNWRAM_C(0, mbk[3] & 0xFF);
+        MapNWRAM_C(1, (mbk[3] >> 8) & 0xFF);
+        MapNWRAM_C(2, (mbk[3] >> 16) & 0xFF);
+        MapNWRAM_C(3, mbk[3] >> 24);
+        MapNWRAM_C(4, mbk[4] & 0xFF);
+        MapNWRAM_C(5, (mbk[4] >> 8) & 0xFF);
+        MapNWRAM_C(6, (mbk[4] >> 16) & 0xFF);
+        MapNWRAM_C(7, mbk[4] >> 24);
+
+        MapNWRAMRange(0, 0, mbk[5]);
+        MapNWRAMRange(0, 1, mbk[6]);
+        MapNWRAMRange(0, 2, mbk[7]);
+
+        MapNWRAMRange(1, 0, mbk[8]);
+        MapNWRAMRange(1, 1, mbk[9]);
+        MapNWRAMRange(1, 2, mbk[10]);
+
+        mbk[11] &= 0x00FFFF0F;
+        MBK[0][8] = mbk[11];
+        MBK[1][8] = mbk[11];
+    }
+
+    for (int i = 0; i < 8; i++)
+        NDMAs[i]->DoSavestate(file);
+
+    DSi_AES::DoSavestate(file);
+    DSi_Camera::DoSavestate(file);
+    DSi_DSP::DoSavestate(file);
+    DSi_I2C::DoSavestate(file);
+    SDMMC->DoSavestate(file);
+    SDIO->DoSavestate(file);
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
@@ -447,24 +503,30 @@ void SetupDirectBoot()
         ARM9Write32(0x02FFE000+i, tmp);
     }
 
-    if (DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
+    if (nand)
     {
-        u8 userdata[0x1B0];
-        DSi_NAND::ReadUserData(userdata);
-        for (u32 i = 0; i < 0x128; i+=4)
-            ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
+        if (DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
+        {
+            u8 userdata[0x1B0];
+            DSi_NAND::ReadUserData(userdata);
+            for (u32 i = 0; i < 0x128; i+=4)
+                ARM9Write32(0x02000400+i, *(u32*)&userdata[0x88+i]);
 
-        u8 hwinfoS[0xA4];
-        u8 hwinfoN[0x9C];
-        DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
+            u8 hwinfoS[0xA4];
+            u8 hwinfoN[0x9C];
+            DSi_NAND::ReadHardwareInfo(hwinfoS, hwinfoN);
 
-        for (u32 i = 0; i < 0x14; i+=4)
-            ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
+            for (u32 i = 0; i < 0x14; i+=4)
+                ARM9Write32(0x02000600+i, *(u32*)&hwinfoN[0x88+i]);
 
-        for (u32 i = 0; i < 0x18; i+=4)
-            ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
+            for (u32 i = 0; i < 0x18; i+=4)
+                ARM9Write32(0x02FFFD68+i, *(u32*)&hwinfoS[0x88+i]);
 
-        DSi_NAND::DeInit();
+            DSi_NAND::DeInit();
+        }
+
+        fclose(nand);
     }
 
     u8 nwifiver = SPI_Firmware::GetNWifiVersion();
@@ -499,6 +561,31 @@ void SetupDirectBoot()
     NDS::ARM7BIOSProt = 0x20;
 
     SPI_Firmware::SetupDirectBoot(true);
+
+    NDS::ARM9->CP15Write(0x100, 0x00056078);
+    NDS::ARM9->CP15Write(0x200, 0x0000004A);
+    NDS::ARM9->CP15Write(0x201, 0x0000004A);
+    NDS::ARM9->CP15Write(0x300, 0x0000000A);
+    NDS::ARM9->CP15Write(0x502, 0x15111011);
+    NDS::ARM9->CP15Write(0x503, 0x05101011);
+    NDS::ARM9->CP15Write(0x600, 0x04000033);
+    NDS::ARM9->CP15Write(0x601, 0x04000033);
+    NDS::ARM9->CP15Write(0x610, 0x02000031);
+    NDS::ARM9->CP15Write(0x611, 0x02000031);
+    NDS::ARM9->CP15Write(0x620, 0x00000000);
+    NDS::ARM9->CP15Write(0x621, 0x00000000);
+    NDS::ARM9->CP15Write(0x630, 0x08000033);
+    NDS::ARM9->CP15Write(0x631, 0x08000033);
+    NDS::ARM9->CP15Write(0x640, 0x0E00001B);
+    NDS::ARM9->CP15Write(0x641, 0x0E00001B);
+    NDS::ARM9->CP15Write(0x650, 0x00000000);
+    NDS::ARM9->CP15Write(0x651, 0x00000000);
+    NDS::ARM9->CP15Write(0x660, 0xFFFF001D);
+    NDS::ARM9->CP15Write(0x661, 0xFFFF001D);
+    NDS::ARM9->CP15Write(0x670, 0x02FFC01B);
+    NDS::ARM9->CP15Write(0x671, 0x02FFC01B);
+    NDS::ARM9->CP15Write(0x910, 0x0E00000A);
+    NDS::ARM9->CP15Write(0x911, 0x00000020);
 }
 
 void SoftReset()
@@ -521,24 +608,22 @@ void SoftReset()
 
     NDS::ARM9->CP15Reset();
 
-    memcpy(NDS::ARM9->ITCM, ITCMInit, 0x8000);
+    NDS::MapSharedWRAM(3);
 
-    DSi_AES::Reset();
-
-
-    DSi_AES::Reset();
     // TODO: does the DSP get reset? NWRAM doesn't, so I'm assuming no
     // *HOWEVER*, the bootrom (which does get rerun) does remap NWRAM, and thus
     // the DSP most likely gets reset
     DSi_DSP::Reset();
+
+    SDMMC->CloseHandles();
+    SDIO->CloseHandles();
 
     LoadNAND();
 
     SDMMC->Reset();
     SDIO->Reset();
 
-    NDS::ARM9->JumpTo(BootAddr[0]);
-    NDS::ARM7->JumpTo(BootAddr[1]);
+    DSi_AES::Reset();
 
     SCFG_BIOS = 0x0101; // TODO: should be zero when booting from BIOS
     SCFG_Clock9 = 0x0187; // CHECKME
@@ -554,22 +639,6 @@ void SoftReset()
     // LCD init flag
     GPU::DispStat[0] |= (1<<6);
     GPU::DispStat[1] |= (1<<6);
-
-    NDS::MapSharedWRAM(3);
-
-    for (u32 i = 0; i < 0x3C00; i+=4)
-        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
-
-    u32 eaddr = 0x03FFE6E4;
-    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
-    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
-    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
-    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
-    ARM7Write16(eaddr+0x2C, 0x0001);
-    ARM7Write16(eaddr+0x2E, 0x0001);
-    ARM7Write16(eaddr+0x3C, 0x0100);
-    ARM7Write16(eaddr+0x3E, 0x40E0);
-    ARM7Write16(eaddr+0x42, 0x0001);
 }
 
 bool LoadBIOS()
@@ -580,7 +649,7 @@ bool LoadBIOS()
     memset(ARM9iBIOS, 0, 0x10000);
     memset(ARM7iBIOS, 0, 0x10000);
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS9Path, "rb");
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS9Path), "rb");
     if (!f)
     {
         printf("ARM9i BIOS not found\n");
@@ -597,7 +666,7 @@ bool LoadBIOS()
         fclose(f);
     }
 
-    f = Platform::OpenLocalFile(Config::DSiBIOS7Path, "rb");
+    f = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_BIOS7Path), "rb");
     if (!f)
     {
         printf("ARM7i BIOS not found\n");
@@ -630,7 +699,14 @@ bool LoadNAND()
 {
     printf("Loading DSi NAND\n");
 
-    if (!DSi_NAND::Init(SDMMCFile, &DSi::ARM7iBIOS[0x8308]))
+    FILE* nand = Platform::OpenLocalFile(Platform::GetConfigString(Platform::DSi_NANDPath), "r+b");
+    if (!nand)
+    {
+        printf("Failed to open DSi NAND\n");
+        return false;
+    }
+
+    if (!DSi_NAND::Init(nand, &DSi::ARM7iBIOS[0x8308]))
     {
         printf("Failed to load DSi NAND\n");
         return false;
@@ -656,8 +732,8 @@ bool LoadNAND()
     memset(NWRAMMask, 0, sizeof(NWRAMMask));
 
     u32 bootparams[8];
-    fseek(SDMMCFile, 0x220, SEEK_SET);
-    fread(bootparams, 4, 8, SDMMCFile);
+    fseek(nand, 0x220, SEEK_SET);
+    fread(bootparams, 4, 8, nand);
 
     printf("ARM9: offset=%08X size=%08X RAM=%08X size_aligned=%08X\n",
            bootparams[0], bootparams[1], bootparams[2], bootparams[3]);
@@ -670,8 +746,8 @@ bool LoadNAND()
     MBK[1][8] = 0;
 
     u32 mbk[12];
-    fseek(SDMMCFile, 0x380, SEEK_SET);
-    fread(mbk, 4, 12, SDMMCFile);
+    fseek(nand, 0x380, SEEK_SET);
+    fread(mbk, 4, 12, nand);
 
     MapNWRAM_A(0, mbk[0] & 0xFF);
     MapNWRAM_A(1, (mbk[0] >> 8) & 0xFF);
@@ -725,12 +801,12 @@ bool LoadNAND()
 
     AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-    fseek(SDMMCFile, bootparams[0], SEEK_SET);
+    fseek(nand, bootparams[0], SEEK_SET);
     dstaddr = bootparams[2];
     for (u32 i = 0; i < bootparams[3]; i += 16)
     {
         u8 data[16];
-        fread(data, 16, 1, SDMMCFile);
+        fread(data, 16, 1, nand);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -750,12 +826,12 @@ bool LoadNAND()
 
     AES_init_ctx_iv(&ctx, boot2key, boot2iv);
 
-    fseek(SDMMCFile, bootparams[4], SEEK_SET);
+    fseek(nand, bootparams[4], SEEK_SET);
     dstaddr = bootparams[6];
     for (u32 i = 0; i < bootparams[7]; i += 16)
     {
         u8 data[16];
-        fread(data, 16, 1, SDMMCFile);
+        fread(data, 16, 1, nand);
 
         for (int j = 0; j < 16; j++) tmp[j] = data[15-j];
         AES_CTR_xcrypt_buffer(&ctx, tmp, 16);
@@ -767,11 +843,6 @@ bool LoadNAND()
         ARM7Write32(dstaddr, *(u32*)&data[12]); dstaddr += 4;
     }
 
-    // repoint the CPUs to the boot2 binaries
-
-    BootAddr[0] = bootparams[2];
-    BootAddr[1] = bootparams[6];
-
 #define printhex(str, size) { for (int z = 0; z < (size); z++) printf("%02X", (str)[z]); printf("\n"); }
 #define printhex_rev(str, size) { for (int z = (size)-1; z >= 0; z--) printf("%02X", (str)[z]); printf("\n"); }
 
@@ -780,32 +851,43 @@ bool LoadNAND()
     printf("eMMC CID: "); printhex(eMMC_CID, 16);
     printf("Console ID: %" PRIx64 "\n", ConsoleID);
 
-    memset(ITCMInit, 0, 0x8000);
-    memcpy(&ITCMInit[0x4400], &ARM9iBIOS[0x87F4], 0x400);
-    memcpy(&ITCMInit[0x4800], &ARM9iBIOS[0x9920], 0x80);
-    memcpy(&ITCMInit[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
-    memcpy(&ITCMInit[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+    u32 eaddr = 0x03FFE6E4;
+    ARM7Write32(eaddr+0x00, *(u32*)&eMMC_CID[0]);
+    ARM7Write32(eaddr+0x04, *(u32*)&eMMC_CID[4]);
+    ARM7Write32(eaddr+0x08, *(u32*)&eMMC_CID[8]);
+    ARM7Write32(eaddr+0x0C, *(u32*)&eMMC_CID[12]);
+    ARM7Write16(eaddr+0x2C, 0x0001);
+    ARM7Write16(eaddr+0x2E, 0x0001);
+    ARM7Write16(eaddr+0x3C, 0x0100);
+    ARM7Write16(eaddr+0x3E, 0x40E0);
+    ARM7Write16(eaddr+0x42, 0x0001);
 
+    memcpy(&NDS::ARM9->ITCM[0x4400], &ARM9iBIOS[0x87F4], 0x400);
+    memcpy(&NDS::ARM9->ITCM[0x4800], &ARM9iBIOS[0x9920], 0x80);
+    memcpy(&NDS::ARM9->ITCM[0x4894], &ARM9iBIOS[0x99A0], 0x1048);
+    memcpy(&NDS::ARM9->ITCM[0x58DC], &ARM9iBIOS[0xA9E8], 0x1048);
+
+    u8 ARM7Init[0x3C00];
     memset(ARM7Init, 0, 0x3C00);
     memcpy(&ARM7Init[0x0000], &ARM7iBIOS[0x8188], 0x200);
     memcpy(&ARM7Init[0x0200], &ARM7iBIOS[0xB5D8], 0x40);
     memcpy(&ARM7Init[0x0254], &ARM7iBIOS[0xC6D0], 0x1048);
     memcpy(&ARM7Init[0x129C], &ARM7iBIOS[0xD718], 0x1048);
 
-    DSi_NAND::PatchTSC();
+    for (u32 i = 0; i < 0x3C00; i+=4)
+        ARM7Write32(0x03FFC400+i, *(u32*)&ARM7Init[i]);
+
+    // repoint the CPUs to the boot2 binaries
+    NDS::ARM9->JumpTo(bootparams[2]);
+    NDS::ARM7->JumpTo(bootparams[6]);
+
+    DSi_NAND::PatchUserData();
 
     DSi_NAND::DeInit();
 
     return true;
 }
 
-void CloseDSiNAND()
-{
-    if (DSi::SDMMCFile)
-        fclose(DSi::SDMMCFile);
-    if (DSi::SDIOFile)
-        fclose(DSi::SDIOFile);
-}
 
 void RunNDMAs(u32 cpu)
 {

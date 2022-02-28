@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -28,6 +28,8 @@ public:
     static void DeInit();
     static void Reset();
 
+    static void DoSavestate(Savestate* file);
+
     static void IRQ(u32 param);
     static void RequestFrame(u32 cam);
 
@@ -35,6 +37,8 @@ public:
 
     DSi_Camera(u32 num);
     ~DSi_Camera();
+
+    void DoCamSavestate(Savestate* file);
 
     void ResetCam();
     bool IsActivated();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -99,6 +99,8 @@ bool Init()
     AudioLock = Platform::Mutex_Create();
 
     InterpType = 0;
+    ApplyBias = true;
+    Degrade10Bit = false;
 
     // generate interpolation tables
     // values are 1:1:14 fixed-point
@@ -283,12 +285,26 @@ void Channel::FIFO_BufferData()
     if ((FIFOReadOffset + 16) > totallen)
         burstlen = totallen - FIFOReadOffset;
 
-    for (u32 i = 0; i < burstlen; i += 4)
+    // sound DMA can't read from the ARM7 BIOS
+    if ((SrcAddr + FIFOReadOffset) >= 0x00004000)
     {
-        FIFO[FIFOWritePos] = BusRead32(SrcAddr + FIFOReadOffset);
-        FIFOReadOffset += 4;
-        FIFOWritePos++;
-        FIFOWritePos &= 0x7;
+        for (u32 i = 0; i < burstlen; i += 4)
+        {
+            FIFO[FIFOWritePos] = BusRead32(SrcAddr + FIFOReadOffset);
+            FIFOReadOffset += 4;
+            FIFOWritePos++;
+            FIFOWritePos &= 0x7;
+        }
+    }
+    else
+    {
+        for (u32 i = 0; i < burstlen; i += 4)
+        {
+            FIFO[FIFOWritePos] = 0;
+            FIFOReadOffset += 4;
+            FIFOWritePos++;
+            FIFOWritePos &= 0x7;
+        }
     }
 
     FIFOLevel += burstlen;
@@ -392,7 +408,7 @@ void Channel::NextSample_ADPCM()
         {
             // setup ADPCM
             u32 header = FIFO_ReadData<u32>();
-            ADPCMVal = header & 0xFFFF;
+            ADPCMVal = (s32)(s16)(header & 0xFFFF);
             ADPCMIndex = (header >> 16) & 0x7F;
             if (ADPCMIndex > 88) ADPCMIndex = 88;
 

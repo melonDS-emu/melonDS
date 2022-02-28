@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, Raphaël Zumer
+    Copyright 2016-2022 melonDS team, Raphaël Zumer
 
     This file is part of melonDS.
 
@@ -32,10 +32,15 @@ public:
     CartCommon();
     virtual ~CartCommon();
 
+    virtual u32 Type() { return 0x001; }
+    virtual u32 Checksum() { return 0; }
+
+    virtual void Reset();
+
     virtual void DoSavestate(Savestate* file);
 
-    virtual void LoadSave(const char* path, u32 type);
-    virtual void RelocateSave(const char* path, bool write);
+    virtual void SetupSave(u32 type);
+    virtual void LoadSave(const u8* savedata, u32 savelen);
 
     virtual int SetInput(int num, bool pressed);
 
@@ -53,10 +58,15 @@ public:
     CartGame(u8* rom, u32 len);
     virtual ~CartGame() override;
 
+    virtual u32 Type() override { return 0x101; }
+    virtual u32 Checksum() override;
+
+    virtual void Reset() override;
+
     virtual void DoSavestate(Savestate* file) override;
 
-    virtual void LoadSave(const char* path, u32 type) override;
-    virtual void RelocateSave(const char* path, bool write) override;
+    virtual void SetupSave(u32 type) override;
+    virtual void LoadSave(const u8* savedata, u32 savelen) override;
 
     virtual u16 ROMRead(u32 addr) override;
     virtual void ROMWrite(u32 addr, u16 val) override;
@@ -107,11 +117,8 @@ protected:
     } SRAMFlashState;
 
     u8* SRAM;
-    FILE* SRAMFile;
     u32 SRAMLength;
     SaveType SRAMType;
-
-    char SRAMPath[1024];
 };
 
 // CartGameSolarSensor -- Boktai game cart
@@ -120,6 +127,10 @@ class CartGameSolarSensor : public CartGame
 public:
     CartGameSolarSensor(u8* rom, u32 len);
     virtual ~CartGameSolarSensor() override;
+
+    virtual u32 Type() override { return 0x102; }
+
+    virtual void Reset() override;
 
     virtual void DoSavestate(Savestate* file) override;
 
@@ -136,6 +147,27 @@ private:
     u8 LightLevel;
 };
 
+// CartRAMExpansion -- RAM expansion cart (DS browser, ...)
+class CartRAMExpansion : public CartCommon
+{
+public:
+    CartRAMExpansion();
+    ~CartRAMExpansion() override;
+
+    virtual u32 Type() override { return 0x201; }
+
+    void Reset() override;
+
+    void DoSavestate(Savestate* file) override;
+
+    u16 ROMRead(u32 addr) override;
+    void ROMWrite(u32 addr, u16 val) override;
+
+private:
+    u8 RAM[0x800000];
+    u16 RAMEnable;
+};
+
 // possible inputs for GBA carts that might accept user input
 enum
 {
@@ -146,17 +178,23 @@ enum
 extern bool CartInserted;
 extern u8* CartROM;
 extern u32 CartROMSize;
-extern u32 CartCRC;
 
 bool Init();
 void DeInit();
 void Reset();
-void Eject();
 
 void DoSavestate(Savestate* file);
-bool LoadROM(const char* path, const char* sram);
-bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
-void RelocateSave(const char* path, bool write);
+
+bool LoadROM(const u8* romdata, u32 romlen);
+void LoadSave(const u8* savedata, u32 savelen);
+
+void LoadAddon(int type);
+
+void EjectCart();
+
+//bool LoadROM(const char* path, const char* sram);
+//bool LoadROM(const u8* romdata, u32 filelength, const char *sram);
+//void RelocateSave(const char* path, bool write);
 
 // TODO: make more flexible, support nonbinary inputs
 int SetInput(int num, bool pressed);

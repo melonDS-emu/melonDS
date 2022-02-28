@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -25,7 +25,6 @@
 
 #include "types.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 #include "MapButton.h"
 #include "Input.h"
@@ -70,7 +69,7 @@ const char* hk_general_labels[] =
     "Frame step",
     "Fast forward",
     "Toggle FPS limit",
-    "Toggle Fullscreen",
+    "Toggle fullscreen",
     "Close/open lid",
     "Microphone",
     "Swap screens"
@@ -201,19 +200,19 @@ void InputConfigDialog::populatePage(QWidget* page, int num, const char** labels
 
 void InputConfigDialog::on_InputConfigDialog_accepted()
 {
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < keypad_num; i++)
     {
         Config::KeyMapping[dskeyorder[i]] = keypadKeyMap[i];
         Config::JoyMapping[dskeyorder[i]] = keypadJoyMap[i];
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < hk_addons_num; i++)
     {
         Config::HKKeyMapping[hk_addons[i]] = addonsKeyMap[i];
         Config::HKJoyMapping[hk_addons[i]] = addonsJoyMap[i];
     }
 
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i < hk_general_num; i++)
     {
         Config::HKKeyMapping[hk_general[i]] = hkGeneralKeyMap[i];
         Config::HKJoyMapping[hk_general[i]] = hkGeneralJoyMap[i];

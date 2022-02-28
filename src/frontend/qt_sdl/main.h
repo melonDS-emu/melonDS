@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -59,6 +59,7 @@ public:
     void emuFrameStep();
 
     bool emuIsRunning();
+    bool emuIsActive();
 
     int FrontBuffer = 0;
     QMutex FrontBufferLock;
@@ -210,8 +211,7 @@ public:
     bool hasOGL;
     QOpenGLContext* getOGLContext();
 
-    void loadROM(QString filename);
-    void loadROM(QByteArray *romData, QString archiveFileName, QString romFileName);
+    bool preloadROMs(QString filename, QString gbafilename);
 
     void onAppStateChanged(Qt::ApplicationState state);
 
@@ -230,10 +230,14 @@ signals:
 
 private slots:
     void onOpenFile();
-    void onOpenFileArchive();
     void onClickRecentFile();
     void onClearRecentFiles();
     void onBootFirmware();
+    void onInsertCart();
+    void onEjectCart();
+    void onInsertGBACart();
+    void onInsertGBAAddon();
+    void onEjectGBACart();
     void onSaveState();
     void onLoadState();
     void onUndoStateLoad();
@@ -257,11 +261,13 @@ private slots:
     void onOpenVideoSettings();
     void onOpenAudioSettings();
     void onOpenFirmwareSettings();
+    void onOpenPathSettings();
     void onUpdateAudioSettings();
     void onAudioSettingsFinished(int res);
     void onOpenWifiSettings();
     void onWifiSettingsFinished(int res);
     void onFirmwareSettingsFinished(int res);
+    void onPathSettingsFinished(int res);
     void onOpenInterfaceSettings();
     void onInterfaceSettingsFinished(int res);
     void onUpdateMouseTimer();
@@ -290,15 +296,18 @@ private slots:
     void onFullscreenToggled();
 
 private:
+    QStringList currentROM;
+    QStringList currentGBAROM;
     QList<QString> recentFileList;
     QMenu *recentMenu;
     void updateRecentFilesMenu();
 
-    QString pickAndExtractFileFromArchive(QString archiveFileName, QByteArray *romBuffer);
+    bool verifySetup();
+    QString pickFileFromArchive(QString archiveFileName);
+    QStringList pickROM(bool gba);
+    void updateCartInserted(bool gba);
 
     void createScreenPanel();
-
-    QString loadErrorStr(int error);
 
     bool pausedManually = false;
 
@@ -311,12 +320,18 @@ public:
     ScreenPanelNative* panelNative;
 
     QAction* actOpenROM;
-    QAction* actOpenROMArchive;
     QAction* actBootFirmware;
+    QAction* actCurrentCart;
+    QAction* actInsertCart;
+    QAction* actEjectCart;
+    QAction* actCurrentGBACart;
+    QAction* actInsertGBACart;
+    QAction* actInsertGBAAddon[1];
+    QAction* actEjectGBACart;
+    QAction* actImportSavefile;
     QAction* actSaveState[9];
     QAction* actLoadState[9];
     QAction* actUndoStateLoad;
-    QAction* actImportSavefile;
     QAction* actQuit;
 
     QAction* actPause;
@@ -334,6 +349,7 @@ public:
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;
+    QAction* actPathSettings;
     QAction* actInterfaceSettings;
     QAction* actSavestateSRAMReloc;
     QAction* actScreenSize[4];

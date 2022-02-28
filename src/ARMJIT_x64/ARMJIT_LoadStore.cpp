@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, RSDuck
+    Copyright 2016-2022 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -17,8 +17,6 @@
 */
 
 #include "ARMJIT_Compiler.h"
-
-#include "../Config.h"
 
 using namespace Gen;
 
@@ -106,7 +104,7 @@ bool Compiler::Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr)
 
     if (Thumb || CurInstr.Cond() == 0xE)
         RegCache.PutLiteral(rd, val);
-    
+
     return true;
 }
 
@@ -119,7 +117,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
     if (size == 16)
         addressMask = ~1;
 
-    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (LiteralOptimizations && rn == 15 && rd != 15 && op2.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + op2.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
 
@@ -136,7 +134,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         Comp_AddCycles_CDI();
     }
 
-    bool addrIsStatic = Config::JIT_LiteralOptimisations
+    bool addrIsStatic = LiteralOptimizations
         && RegCache.IsLiteral(rn) && op2.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -172,7 +170,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         if (!(flags & memop_SubtractOffset) && rm.IsSimpleReg() && rnMapped.IsSimpleReg()
             && op2.Reg.Op == 0 && op2.Reg.Amount > 0 && op2.Reg.Amount <= 3)
         {
-            LEA(32, finalAddr, 
+            LEA(32, finalAddr,
                 MComplex(rnMapped.GetSimpleReg(), rm.GetSimpleReg(), 1 << op2.Reg.Amount, 0));
         }
         else
@@ -200,7 +198,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
         ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
         : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
 
-    if (Config::JIT_FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
     {
         if (rdMapped.IsImm())
         {
@@ -370,7 +368,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, const Op2& op2, int size, int flag
             }
 
             PopRegs(false, false);
-            
+
             if (!(flags & memop_Store))
             {
                 if (flags & memop_SignExtend)
@@ -431,7 +429,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
     else
         Comp_AddCycles_CD();
 
-    bool compileFastPath = Config::JIT_FastMemory
+    bool compileFastPath = FastMemory
         && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
 
     // we need to make sure that the stack stays aligned to 16 bytes
@@ -623,7 +621,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
             LEA(64, ABI_PARAM2, MDisp(RSP, allocOffset));
         else
             MOV(64, R(ABI_PARAM2), R(RSP));
-        
+
         MOV(32, R(ABI_PARAM3), Imm32(regsCount));
         if (Num == 0)
             MOV(64, R(ABI_PARAM4), R(RCPU));
@@ -637,7 +635,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         }
 
         ADD(64, R(RSP), stackAlloc <= INT8_MAX ? Imm8(stackAlloc) : Imm32(stackAlloc));
-    
+
         PopRegs(false, false);
     }
 
@@ -668,7 +666,7 @@ void Compiler::A_Comp_MemWB()
     bool load = CurInstr.Instr & (1 << 20);
     bool byte = CurInstr.Instr & (1 << 22);
     int size = byte ? 8 : 32;
-    
+
     int flags = 0;
     if (!load)
         flags |= memop_Store;
@@ -742,7 +740,7 @@ void Compiler::T_Comp_MemReg()
     bool load = op & 0x2;
     bool byte = op & 0x1;
 
-    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(CurInstr.T_Reg(6), 0, 0), 
+    Comp_MemAccess(CurInstr.T_Reg(0), CurInstr.T_Reg(3), Op2(CurInstr.T_Reg(6), 0, 0),
         byte ? 8 : 32, load ? 0 : memop_Store);
 }
 
@@ -809,7 +807,7 @@ void Compiler::T_Comp_LoadPCRel()
 {
     u32 offset = (CurInstr.Instr & 0xFF) << 2;
     u32 addr = (R15 & ~0x2) + offset;
-    if (!Config::JIT_LiteralOptimisations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 

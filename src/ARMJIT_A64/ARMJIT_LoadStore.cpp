@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, RSDuck
+    Copyright 2016-2022 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -18,7 +18,7 @@
 
 #include "ARMJIT_Compiler.h"
 
-#include "../Config.h"
+#include "../ARMJIT.h"
 
 #include "../ARMJIT_Memory.h"
 
@@ -111,7 +111,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
     if (size == 16)
         addressMask = ~1;
 
-    if (Config::JIT_LiteralOptimisations && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
+    if (ARMJIT::LiteralOptimizations && rn == 15 && rd != 15 && offset.IsImm && !(flags & (memop_Post|memop_Store|memop_Writeback)))
     {
         u32 addr = R15 + offset.Imm * ((flags & memop_SubtractOffset) ? -1 : 1);
         
@@ -146,7 +146,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         MOV(W0, rnMapped);
     }
 
-    bool addrIsStatic = Config::JIT_LiteralOptimisations
+    bool addrIsStatic = ARMJIT::LiteralOptimizations
         && RegCache.IsLiteral(rn) && offset.IsImm && !(flags & (memop_Writeback|memop_Post));
     u32 staticAddress;
     if (addrIsStatic)
@@ -188,7 +188,7 @@ void Compiler::Comp_MemAccess(int rd, int rn, Op2 offset, int size, int flags)
         ? ARMJIT_Memory::ClassifyAddress9(addrIsStatic ? staticAddress : CurInstr.DataRegion)
         : ARMJIT_Memory::ClassifyAddress7(addrIsStatic ? staticAddress : CurInstr.DataRegion);
 
-    if (Config::JIT_FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
+    if (ARMJIT::FastMemory && ((!Thumb && CurInstr.Cond() != 0xE) || ARMJIT_Memory::IsFastmemCompatible(expectedTarget)))
     {
         ptrdiff_t memopStart = GetCodeOffset();
         LoadStorePatch patch;
@@ -452,7 +452,7 @@ void Compiler::T_Comp_LoadPCRel()
     u32 offset = ((CurInstr.Instr & 0xFF) << 2);
     u32 addr = (R15 & ~0x2) + offset;
 
-    if (!Config::JIT_LiteralOptimisations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
+    if (!ARMJIT::LiteralOptimizations || !Comp_MemLoadLiteral(32, false, CurInstr.T_Reg(8), addr))
         Comp_MemAccess(CurInstr.T_Reg(8), 15, Op2(offset), 32, 0);
 }
 
@@ -497,7 +497,7 @@ s32 Compiler::Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc
         ? ARMJIT_Memory::ClassifyAddress9(CurInstr.DataRegion)
         : ARMJIT_Memory::ClassifyAddress7(CurInstr.DataRegion);
 
-    bool compileFastPath = Config::JIT_FastMemory
+    bool compileFastPath = ARMJIT::FastMemory
         && store && !usermode && (CurInstr.Cond() < 0xE || ARMJIT_Memory::IsFastmemCompatible(expectedTarget));
 
     {

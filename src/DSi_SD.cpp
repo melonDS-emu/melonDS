@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,6 @@
 #include "DSi_SD.h"
 #include "DSi_NWifi.h"
 #include "Platform.h"
-#include "Config.h"
 
 
 // observed IRQ behavior during transfers
@@ -52,14 +51,22 @@ DSi_SDHost::DSi_SDHost(u32 num)
 {
     Num = num;
 
-    Ports[0] = NULL;
-    Ports[1] = NULL;
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
 }
 
 DSi_SDHost::~DSi_SDHost()
 {
     if (Ports[0]) delete Ports[0];
     if (Ports[1]) delete Ports[1];
+}
+
+void DSi_SDHost::CloseHandles()
+{
+    if (Ports[0]) delete Ports[0];
+    if (Ports[1]) delete Ports[1];
+    Ports[0] = nullptr;
+    Ports[1] = nullptr;
 }
 
 void DSi_SDHost::Reset()
@@ -102,26 +109,34 @@ void DSi_SDHost::Reset()
 
     TXReq = false;
 
-    if (Ports[0]) delete Ports[0];
-    if (Ports[1]) delete Ports[1];
-    Ports[0] = nullptr;
-    Ports[1] = nullptr;
+    CloseHandles();
 
     if (Num == 0)
     {
         DSi_MMCStorage* sd;
         DSi_MMCStorage* mmc;
 
-        if (Config::DSiSDEnable)
+        if (Platform::GetConfigBool(Platform::DSiSD_Enable))
         {
-            sd = new DSi_MMCStorage(this, false, DSi::SDIOFile);
+            std::string folderpath;
+            if (Platform::GetConfigBool(Platform::DSiSD_FolderSync))
+                folderpath = Platform::GetConfigString(Platform::DSiSD_FolderPath);
+            else
+                folderpath = "";
+
+            sd = new DSi_MMCStorage(this,
+                                    false,
+                                    Platform::GetConfigString(Platform::DSiSD_ImagePath),
+                                    (u64)Platform::GetConfigInt(Platform::DSiSD_ImageSize) * 1024 * 1024,
+                                    Platform::GetConfigBool(Platform::DSiSD_ReadOnly),
+                                    folderpath);
             u8 sd_cid[16] = {0xBD, 0x12, 0x34, 0x56, 0x78, 0x03, 0x4D, 0x30, 0x30, 0x46, 0x50, 0x41, 0x00, 0x00, 0x15, 0x00};
             sd->SetCID(sd_cid);
         }
         else
             sd = nullptr;
 
-        mmc = new DSi_MMCStorage(this, true, DSi::SDMMCFile);
+        mmc = new DSi_MMCStorage(this, true, Platform::GetConfigString(Platform::DSi_NANDPath));
         mmc->SetCID(DSi::eMMC_CID);
 
         Ports[0] = sd;
@@ -140,7 +155,41 @@ void DSi_SDHost::Reset()
 
 void DSi_SDHost::DoSavestate(Savestate* file)
 {
-    // TODO!
+    file->Section(Num ? "SDIO" : "SDMM");
+
+    file->Var16(&PortSelect);
+    file->Var16(&SoftReset);
+    file->Var16(&SDClock);
+    file->Var16(&SDOption);
+
+    file->Var32(&IRQStatus);
+    file->Var32(&IRQMask);
+
+    file->Var16(&CardIRQStatus);
+    file->Var16(&CardIRQMask);
+    file->Var16(&CardIRQCtl);
+
+    file->Var16(&DataCtl);
+    file->Var16(&Data32IRQ);
+    file->Var32(&DataMode);
+    file->Var16(&BlockCount16);
+    file->Var16(&BlockCount32);
+    file->Var16(&BlockCountInternal);
+    file->Var16(&BlockLen16);
+    file->Var16(&BlockLen32);
+    file->Var16(&StopAction);
+
+    file->Var16(&Command);
+    file->Var32(&Param);
+    file->VarArray(ResponseBuffer, 8);
+
+    file->Var32(&CurFIFO);
+    DataFIFO[0].DoSavestate(file);
+    DataFIFO[1].DoSavestate(file);
+    DataFIFO32.DoSavestate(file);
+
+    if (Ports[0]) Ports[0]->DoSavestate(file);
+    if (Ports[1]) Ports[1]->DoSavestate(file);
 }
 
 
@@ -427,7 +476,10 @@ u16 DSi_SDHost::Read(u32 addr)
             if (!Num)
             {
                 if (Ports[0]) // basic check of whether the SD card is inserted
-                    ret |= 0x00B0;
+                {
+                    ret |= 0x0030;
+                    if (!Ports[0]->ReadOnly) ret |= 0x0080;
+                }
                 else
                     ret |= 0x0008;
             }
@@ -714,14 +766,41 @@ void DSi_SDHost::CheckSwapFIFO()
 
 #define MMC_DESC  (Internal?"NAND":"SDcard")
 
-DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file) : DSi_SDDevice(host)
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename)
+    : DSi_SDDevice(host)
 {
     Internal = internal;
-    File = file;
+    File = Platform::OpenLocalFile(filename, "r+b");
+
+    SD = nullptr;
+
+    ReadOnly = false;
+}
+
+DSi_MMCStorage::DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir)
+    : DSi_SDDevice(host)
+{
+    Internal = internal;
+    File = nullptr;
+
+    SD = new FATStorage(filename, size, readonly, sourcedir);
+    SD->Open();
+
+    ReadOnly = readonly;
 }
 
 DSi_MMCStorage::~DSi_MMCStorage()
-{}
+{
+    if (SD)
+    {
+        SD->Close();
+        delete SD;
+    }
+    if (File)
+    {
+        fclose(File);
+    }
+}
 
 void DSi_MMCStorage::Reset()
 {
@@ -746,6 +825,26 @@ void DSi_MMCStorage::Reset()
     BlockSize = 0;
     RWAddress = 0;
     RWCommand = 0;
+}
+
+void DSi_MMCStorage::DoSavestate(Savestate* file)
+{
+    file->Section(Internal ? "NAND" : "SDCR");
+
+    file->VarArray(CID, 16);
+    file->VarArray(CSD, 16);
+
+    file->Var32(&CSR);
+    file->Var32(&OCR);
+    file->Var32(&RCA);
+    file->VarArray(SCR, 8);
+    file->VarArray(SSR, 64);
+
+    file->Var32(&BlockSize);
+    file->Var64(&RWAddress);
+    file->Var32(&RWCommand);
+
+    // TODO: what about the file contents?
 }
 
 void DSi_MMCStorage::SendCMD(u8 cmd, u32 param)
@@ -947,13 +1046,17 @@ u32 DSi_MMCStorage::ReadBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if (File)
+    if (SD)
+    {
+        SD->ReadSectors((u32)(addr >> 9), 1, data);
+    }
+    else if (File)
     {
         fseek(File, addr, SEEK_SET);
-        fread(data, 1, len, File);
+        fread(&data[addr & 0x1FF], 1, len, File);
     }
 
-    return Host->DataRX(data, len);
+    return Host->DataRX(&data[addr & 0x1FF], len);
 }
 
 u32 DSi_MMCStorage::WriteBlock(u64 addr)
@@ -962,12 +1065,26 @@ u32 DSi_MMCStorage::WriteBlock(u64 addr)
     len = Host->GetTransferrableLen(len);
 
     u8 data[0x200];
-    if ((len = Host->DataTX(data, len)))
+    if (len < 0x200)
     {
-        if (File)
+        if (SD)
         {
-            fseek(File, addr, SEEK_SET);
-            fwrite(data, 1, len, File);
+            SD->ReadSectors((u32)(addr >> 9), 1, data);
+        }
+    }
+    if ((len = Host->DataTX(&data[addr & 0x1FF], len)))
+    {
+        if (!ReadOnly)
+        {
+            if (SD)
+            {
+                SD->WriteSectors((u32)(addr >> 9), 1, data);
+            }
+            else if (File)
+            {
+                fseek(File, addr, SEEK_SET);
+                fwrite(&data[addr & 0x1FF], 1, len, File);
+            }
         }
     }
 

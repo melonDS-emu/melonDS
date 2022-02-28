@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -410,7 +410,7 @@ void A_LDM(ARM* cpu)
     }
 
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
-        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10);
+        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
 
     for (int i = 0; i < 15; i++)
     {
@@ -439,7 +439,7 @@ void A_LDM(ARM* cpu)
     }
 
     if ((cpu->CurInstr & (1<<22)) && !(cpu->CurInstr & (1<<15)))
-        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
     if (cpu->CurInstr & (1<<21))
     {
@@ -494,7 +494,7 @@ void A_STM(ARM* cpu)
         else if (mode != 0x10 && mode != 0x1F)
             isbanked = (baseid >= 13 && baseid < 15);
 
-        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10);
+        cpu->UpdateMode(cpu->CPSR, (cpu->CPSR&~0x1F)|0x10, true);
     }
 
     for (u32 i = 0; i < 16; i++)
@@ -520,7 +520,7 @@ void A_STM(ARM* cpu)
     }
 
     if (cpu->CurInstr & (1<<22))
-        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR);
+        cpu->UpdateMode((cpu->CPSR&~0x1F)|0x10, cpu->CPSR, true);
 
     if ((cpu->CurInstr & (1<<23)) && (cpu->CurInstr & (1<<21)))
         cpu->R[baseid] = base;

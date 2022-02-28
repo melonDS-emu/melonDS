@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, WaluigiWare64
+    Copyright 2016-2022 melonDS team, WaluigiWare64
 
     This file is part of melonDS.
 
@@ -25,7 +25,6 @@
 #include "NDSCart.h"
 #include "Platform.h"
 #include "Config.h"
-#include "PlatformConfig.h"
 
 QString IntToHex(u64 num)
 {
@@ -46,14 +45,14 @@ ROMInfoDialog::ROMInfoDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ROMI
 
 
     u32 iconData[32 * 32];
-    Frontend::ROMIcon(NDSCart::Banner.Icon, NDSCart::Banner.Palette, iconData);
+    ROMManager::ROMIcon(NDSCart::Banner.Icon, NDSCart::Banner.Palette, iconData);
     iconImage = QImage(reinterpret_cast<unsigned char*>(iconData), 32, 32, QImage::Format_ARGB32).copy();
     ui->iconImage->setPixmap(QPixmap::fromImage(iconImage));
 
     if (NDSCart::Banner.Version == 0x103)
     {
         u32 animatedIconData[32 * 32 * 64] = {0};
-        Frontend::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
+        ROMManager::AnimatedROMIcon(NDSCart::Banner.DSiIcon, NDSCart::Banner.DSiPalette, NDSCart::Banner.DSiSequence, animatedIconData, animatedSequence);
 
         for (int i = 0; i < 64; i++)
         {
@@ -131,7 +130,7 @@ void ROMInfoDialog::on_saveIconButton_clicked()
 {
     QString filename = QFileDialog::getSaveFileName(this,
                                                     "Save Icon",
-                                                    Config::LastROMFolder,
+                                                    QString::fromStdString(Config::LastROMFolder),
                                                     "PNG Images (*.png)");
     if (filename.isEmpty())
         return;

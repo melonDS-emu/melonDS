@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -70,6 +70,14 @@ void Reset()
     Registers[0x77] = 0x00;
     Registers[0x80] = 0x10;
     Registers[0x81] = 0x64;
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("I2BP");
+
+    file->VarArray(Registers, 0x100);
+    file->Var32(&CurPos);
 }
 
 u8 GetBootFlag() { return Registers[0x70]; }
@@ -167,6 +175,18 @@ void Reset()
 
     DSi_BPTWL::Reset();
     DSi_Camera::Reset();
+}
+
+void DoSavestate(Savestate* file)
+{
+    file->Section("I2Ci");
+
+    file->Var8(&Cnt);
+    file->Var8(&Data);
+    file->Var32(&Device);
+
+    DSi_BPTWL::DoSavestate(file);
+    // cameras are savestated from the DSi_Camera module
 }
 
 void WriteCnt(u8 val)

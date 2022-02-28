@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -22,7 +22,6 @@
 #include "NDS.h"
 #include "GPU.h"
 #include "FIFO.h"
-#include "Config.h"
 
 
 // 3D engine notes
@@ -2164,7 +2163,7 @@ void ExecuteCommand()
             VertexSlotCounter = 0;
             VertexSlotsFree = 1;
             break;
-        
+
         case 0x60: // viewport x1,y1,x2,y2
             VertexPipelineCmdDelayed8();
             // note: viewport Y coordinates are upside-down
@@ -2413,7 +2412,7 @@ void ExecuteCommand()
                     CurVertex[2] = ExecParams[1] & 0xFFFF;
                     PosTest();
                     break;
-                
+
                 case 0x70: // box test
                     NumTestCommands -= 3;
                     BoxTest(ExecParams);

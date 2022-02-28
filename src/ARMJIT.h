@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, RSDuck
+    Copyright 2016-2022 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -32,6 +32,11 @@ namespace ARMJIT
 {
 
 typedef void (*JitBlockEntry)();
+
+extern int MaxBlockSize;
+extern bool LiteralOptimizations;
+extern bool BranchOptimizations;
+extern bool FastMemory;
 
 void Init();
 void DeInit();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -58,13 +58,21 @@ private slots:
     void on_btnBIOS9Browse_clicked();
     void on_btnBIOS7Browse_clicked();
     void on_btnFirmwareBrowse_clicked();
+
+    void on_cbDLDIEnable_toggled();
     void on_btnDLDISDBrowse_clicked();
+    void on_cbDLDIFolder_toggled();
+    void on_btnDLDIFolderBrowse_clicked();
 
     void on_btnDSiBIOS9Browse_clicked();
     void on_btnDSiBIOS7Browse_clicked();
     void on_btnDSiFirmwareBrowse_clicked();
     void on_btnDSiNANDBrowse_clicked();
+
+    void on_cbDSiSDEnable_toggled();
     void on_btnDSiSDBrowse_clicked();
+    void on_cbDSiSDFolder_toggled();
+    void on_btnDSiSDFolderBrowse_clicked();
 
     void on_chkEnableJIT_toggled();
     void on_chkExternalBIOS_toggled();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include "FIFO.h"
+#include "FATStorage.h"
 
 
 class DSi_SDDevice;
@@ -32,6 +33,7 @@ public:
     DSi_SDHost(u32 num);
     ~DSi_SDHost();
 
+    void CloseHandles();
     void Reset();
 
     void DoSavestate(Savestate* file);
@@ -102,15 +104,18 @@ private:
 class DSi_SDDevice
 {
 public:
-    DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; }
+    DSi_SDDevice(DSi_SDHost* host) { Host = host; IRQ = false; ReadOnly = false; }
     virtual ~DSi_SDDevice() {}
 
     virtual void Reset() = 0;
+
+    virtual void DoSavestate(Savestate* file) = 0;
 
     virtual void SendCMD(u8 cmd, u32 param) = 0;
     virtual void ContinueTransfer() = 0;
 
     bool IRQ;
+    bool ReadOnly;
 
 protected:
     DSi_SDHost* Host;
@@ -120,10 +125,13 @@ protected:
 class DSi_MMCStorage : public DSi_SDDevice
 {
 public:
-    DSi_MMCStorage(DSi_SDHost* host, bool internal, FILE* file);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename);
+    DSi_MMCStorage(DSi_SDHost* host, bool internal, std::string filename, u64 size, bool readonly, std::string sourcedir);
     ~DSi_MMCStorage();
 
     void Reset();
+
+    void DoSavestate(Savestate* file);
 
     void SetCID(u8* cid) { memcpy(CID, cid, 16); }
 
@@ -135,6 +143,7 @@ public:
 private:
     bool Internal;
     FILE* File;
+    FATStorage* SD;
 
     u8 CID[16];
     u8 CSD[16];

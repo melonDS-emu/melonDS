@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura, RSDuck
+    Copyright 2016-2022 melonDS team, RSDuck
 
     This file is part of melonDS.
 
@@ -19,7 +19,6 @@
 #include "ARMJIT_Compiler.h"
 
 #include "../ARMInterpreter.h"
-#include "../Config.h"
 
 #include <assert.h>
 #include <stdarg.h>
@@ -638,11 +637,11 @@ const Compiler::CompileFunc T_Comp[ARMInstrInfo::tk_Count] = {
     // LDR/STR sp rel
     F(T_Comp_MemSPRel), F(T_Comp_MemSPRel),
     // PUSH/POP
-    F(T_Comp_PUSH_POP), F(T_Comp_PUSH_POP), 
+    F(T_Comp_PUSH_POP), F(T_Comp_PUSH_POP),
     // LDMIA, STMIA
-    F(T_Comp_LDMIA_STMIA), F(T_Comp_LDMIA_STMIA), 
+    F(T_Comp_LDMIA_STMIA), F(T_Comp_LDMIA_STMIA),
     // Branch
-    F(T_Comp_BCOND), F(T_Comp_BranchXchangeReg), F(T_Comp_BranchXchangeReg), F(T_Comp_B), F(T_Comp_BL_LONG_1), F(T_Comp_BL_LONG_2), 
+    F(T_Comp_BCOND), F(T_Comp_BranchXchangeReg), F(T_Comp_BranchXchangeReg), F(T_Comp_B), F(T_Comp_BL_LONG_1), F(T_Comp_BL_LONG_2),
     // Unk, SVC
     NULL, NULL,
     F(T_Comp_BL_Merged)
@@ -832,7 +831,7 @@ JitBlockEntry Compiler::CompileBlock(ARM* cpu, bool thumb, FetchedInstr instrs[]
                         SetJumpTarget(skipExecute);
                     }
                 }
-                
+
             }
         }
 
@@ -888,7 +887,7 @@ void Compiler::Comp_AddCycles_CI(Gen::X64Reg i, int add)
     s32 cycles = Num ?
         NDS::ARM7MemTimings[CurInstr.CodeCycles][Thumb ? 0 : 2]
         : ((R15 & 0x2) ? 0 : CurInstr.CodeCycles);
-    
+
     if (!Thumb && CurInstr.Cond() < 0xE)
     {
         LEA(32, RSCRATCH, MDisp(i, add + cycles));
@@ -933,7 +932,7 @@ void Compiler::Comp_AddCycles_CDI()
         {
             cycles = numC + numD + 1;
         }
-        
+
         if (!Thumb && CurInstr.Cond() < 0xE)
             ADD(32, MDisp(RCPU, offsetof(ARM, Cycles)), Imm8(cycles));
         else

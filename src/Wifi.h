@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -51,6 +51,7 @@ enum
     W_PowerTX = 0x038,
     W_PowerState = 0x03C,
     W_PowerForce = 0x040,
+    W_PowerUnk = 0x48,
 
     W_Random = 0x044,
 

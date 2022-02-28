@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -69,9 +69,17 @@ void A_MSR_IMM(ARM* cpu)
             case 0x11: psr = &cpu->R_FIQ[7]; break;
             case 0x12: psr = &cpu->R_IRQ[2]; break;
             case 0x13: psr = &cpu->R_SVC[2]; break;
+            case 0x14:
+            case 0x15:
+            case 0x16:
             case 0x17: psr = &cpu->R_ABT[2]; break;
+            case 0x18:
+            case 0x19:
+            case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
+            default:
+                cpu->AddCycles_C();
+                return;
         }
     }
     else
@@ -92,6 +100,9 @@ void A_MSR_IMM(ARM* cpu)
 
     u32 val = ROR((cpu->CurInstr & 0xFF), ((cpu->CurInstr >> 7) & 0x1E));
 
+    // bit4 is forced to 1
+    val |= 0x00000010;
+
     *psr &= ~mask;
     *psr |= (val & mask);
 
@@ -111,9 +122,17 @@ void A_MSR_REG(ARM* cpu)
             case 0x11: psr = &cpu->R_FIQ[7]; break;
             case 0x12: psr = &cpu->R_IRQ[2]; break;
             case 0x13: psr = &cpu->R_SVC[2]; break;
+            case 0x14:
+            case 0x15:
+            case 0x16:
             case 0x17: psr = &cpu->R_ABT[2]; break;
+            case 0x18:
+            case 0x19:
+            case 0x1A:
             case 0x1B: psr = &cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
+            default:
+                cpu->AddCycles_C();
+                return;
         }
     }
     else
@@ -134,6 +153,9 @@ void A_MSR_REG(ARM* cpu)
 
     u32 val = cpu->R[cpu->CurInstr & 0xF];
 
+    // bit4 is forced to 1
+    val |= 0x00000010;
+
     *psr &= ~mask;
     *psr |= (val & mask);
 
@@ -153,9 +175,15 @@ void A_MRS(ARM* cpu)
             case 0x11: psr = cpu->R_FIQ[7]; break;
             case 0x12: psr = cpu->R_IRQ[2]; break;
             case 0x13: psr = cpu->R_SVC[2]; break;
+            case 0x14:
+            case 0x15:
+            case 0x16:
             case 0x17: psr = cpu->R_ABT[2]; break;
+            case 0x18:
+            case 0x19:
+            case 0x1A:
             case 0x1B: psr = cpu->R_UND[2]; break;
-            default: printf("bad CPU mode %08X\n", cpu->CPSR); return;
+            default: psr = cpu->CPSR; break;
         }
     }
     else
@@ -168,6 +196,9 @@ void A_MRS(ARM* cpu)
 
 void A_MCR(ARM* cpu)
 {
+    if ((cpu->CPSR & 0x1F) == 0x10)
+        return A_UNK(cpu);
+
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;
@@ -193,6 +224,9 @@ void A_MCR(ARM* cpu)
 
 void A_MRC(ARM* cpu)
 {
+    if ((cpu->CPSR & 0x1F) == 0x10)
+        return A_UNK(cpu);
+
     u32 cp = (cpu->CurInstr >> 8) & 0xF;
     //u32 op = (cpu->CurInstr >> 21) & 0x7;
     u32 cn = (cpu->CurInstr >> 16) & 0xF;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2021 Arisotura
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -43,7 +43,10 @@
     * different minor means adjustments may have to be made
 */
 
-Savestate::Savestate(const char* filename, bool save)
+// TODO: buffering system! or something of that sort
+// repeated fread/fwrite is slow on Switch
+
+Savestate::Savestate(std::string filename, bool save)
 {
     const char* magic = "MELN";
 
@@ -55,7 +58,7 @@ Savestate::Savestate(const char* filename, bool save)
         file = Platform::OpenLocalFile(filename, "wb");
         if (!file)
         {
-            printf("savestate: file %s doesn't exist\n", filename);
+            printf("savestate: file %s doesn't exist\n", filename.c_str());
             Error = true;
             return;
         }
@@ -74,7 +77,7 @@ Savestate::Savestate(const char* filename, bool save)
         file = Platform::OpenFile(filename, "rb");
         if (!file)
         {
-            printf("savestate: file %s doesn't exist\n", filename);
+            printf("savestate: file %s doesn't exist\n", filename.c_str());
             Error = true;
             return;
         }
