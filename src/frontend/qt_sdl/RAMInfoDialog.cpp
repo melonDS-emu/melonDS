@@ -28,11 +28,11 @@ s32 GetMainRAMValue(const u32& addr, const ramInfo_ByteType& byteType)
     switch (byteType)
     {
     case ramInfo_OneByte:
-        return ((s8*)NDS::MainRAM)[addr&NDS::MainRAMMask];
+        return *(s8*)(NDS::MainRAM + (addr&NDS::MainRAMMask));
     case ramInfo_TwoBytes:
-        return ((s16*)NDS::MainRAM)[addr&NDS::MainRAMMask];
+        return *(s16*)(NDS::MainRAM + (addr&NDS::MainRAMMask));
     case ramInfo_FourBytes:
-        return ((s32*)NDS::MainRAM)[addr&NDS::MainRAMMask];
+        return *(s32*)(NDS::MainRAM + (addr&NDS::MainRAMMask));
     default:
         return 0;
     }
