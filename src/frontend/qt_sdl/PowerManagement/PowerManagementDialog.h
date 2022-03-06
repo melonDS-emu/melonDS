@@ -67,8 +67,8 @@ private:
 
     bool inited;
     bool oldDSBatteryLevel;
-    bool oldDSiBatteryCharging;
     u8 oldDSiBatteryLevel;
+    bool oldDSiBatteryCharging;
 
     void updateDSBatteryLevelControls();
 };
