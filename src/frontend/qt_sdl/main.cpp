@@ -2777,7 +2777,7 @@ void MainWindow::onChangeScreenSwap(bool checked)
 {
     Config::ScreenSwap = checked?1:0;
 
-    // Swap between top and bottom screen when displaying one screen. 
+    // Swap between top and bottom screen when displaying one screen.
     if (Config::ScreenSizing == screenSizing_TopOnly)
     {
         // Bottom Screen.
@@ -2792,7 +2792,7 @@ void MainWindow::onChangeScreenSwap(bool checked)
         actScreenSizing[screenSizing_BotOnly]->setChecked(false);
         actScreenSizing[Config::ScreenSizing]->setChecked(true);
     }
-    
+
     emit screenLayoutChange();
 }
 
@@ -2985,10 +2985,10 @@ int main(int argc, char** argv)
     {
         printf("SDL couldn't init joystick\n");
     }
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0)
+    if (SDL_Init(SDL_INIT_AUDIO) < 0)
     {
         const char* err = SDL_GetError();
-        QString errorStr = "Failed to initialize SDL. This could indicate an issue with your graphics or audio driver.\n\nThe error was: ";
+        QString errorStr = "Failed to initialize SDL. This could indicate an issue with your audio driver.\n\nThe error was: ";
         errorStr += err;
 
         QMessageBox::critical(NULL, "melonDS", errorStr);
