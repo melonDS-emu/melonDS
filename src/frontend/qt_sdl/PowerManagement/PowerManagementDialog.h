@@ -1,5 +1,6 @@
 /*
-    Copyright 2016-2021 Rayyan Ansari
+    Copyright 2016-2022 melonDS team
+
     This file is part of melonDS.
 
     melonDS is free software: you can redistribute it and/or modify it under

@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, RSDuck
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -30,7 +30,7 @@ int squeezePointer(T* ptr)
     assert((T*)((u64)truncated) == ptr);
     return truncated;
 }
-    
+
 void Compiler::Comp_JumpTo(u32 addr, bool forceNonConstantCycles)
 {
     // we can simplify constant branches by a lot
