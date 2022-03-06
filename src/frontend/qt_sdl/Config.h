@@ -158,6 +158,10 @@ extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
 
+extern bool DSBatteryLevelOkay;
+extern int DSiBatteryLevel;
+extern bool DSiBatteryCharging;
+
 
 void Load();
 void Save();

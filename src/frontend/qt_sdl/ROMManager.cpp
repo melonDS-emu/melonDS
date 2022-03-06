@@ -31,6 +31,8 @@
 
 #include "NDS.h"
 #include "DSi.h"
+#include "SPI.h"
+#include "DSi_I2C.h"
 
 
 namespace ROMManager
@@ -405,11 +407,25 @@ ARCodeFile* GetCheatFile()
 }
 
 
+void SetBatteryLevels()
+{
+    if (NDS::ConsoleType == 1)
+    {
+        DSi_BPTWL::SetBatteryLevel(Config::DSiBatteryLevel);
+        DSi_BPTWL::SetBatteryCharging(Config::DSiBatteryCharging);
+    }
+    else
+    {
+        SPI_Powerman::SetBatteryLevelOkay(Config::DSBatteryLevelOkay);
+    }
+}
+
 void Reset()
 {
     NDS::SetConsoleType(Config::ConsoleType);
     if (Config::ConsoleType == 1) EjectGBACart();
     NDS::Reset();
+    SetBatteryLevels();
 
     if ((CartType != -1) && NDSSave)
     {
@@ -453,6 +469,7 @@ bool LoadBIOS()
     BaseAssetName = "";*/
 
     NDS::Reset();
+    SetBatteryLevels();
     return true;
 }
 
@@ -537,6 +554,7 @@ bool LoadROM(QStringList filepath, bool reset)
         NDS::SetConsoleType(Config::ConsoleType);
         NDS::EjectCart();
         NDS::Reset();
+        SetBatteryLevels();
     }
 
     u32 savelen = 0;

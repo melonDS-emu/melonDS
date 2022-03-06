@@ -22,6 +22,7 @@
 #include "SPI.h"
 #include "DSi_I2C.h"
 #include "NDS.h"
+#include "Config.h"
 
 #include "types.h"
 
@@ -40,8 +41,8 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
     {
         ui->grpDSBattery->setEnabled(false);
 
-        oldDSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
         oldDSiBatteryLevel = DSi_BPTWL::GetBatteryLevel();
+        oldDSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
     }
     else
     {
@@ -74,12 +75,24 @@ PowerManagementDialog::~PowerManagementDialog()
 
 void PowerManagementDialog::done(int r)
 {
-    if (r != QDialog::Accepted)
+    if (r == QDialog::Accepted)
     {
         if (NDS::ConsoleType == 1)
         {
-            DSi_BPTWL::SetBatteryCharging(oldDSiBatteryCharging);
+            Config::DSiBatteryLevel = DSi_BPTWL::GetBatteryLevel();
+            Config::DSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
+        }
+        else
+        {
+            Config::DSBatteryLevelOkay = SPI_Powerman::GetBatteryLevelOkay();
+        }
+    }
+    else
+    {
+        if (NDS::ConsoleType == 1)
+        {
             DSi_BPTWL::SetBatteryLevel(oldDSiBatteryLevel);
+            DSi_BPTWL::SetBatteryCharging(oldDSiBatteryCharging);
         }
         else
         {
