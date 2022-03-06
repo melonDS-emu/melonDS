@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, RSDuck
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -364,7 +364,7 @@ void Compiler::A_Comp_Mul_Long()
         {
             BSR(32, RSCRATCH, R(RSCRATCH3));
         }
-        
+
         SHR(32, R(RSCRATCH), Imm8(3));
         SetJumpTarget(zeroBSR); // fortunately that's even right
         Comp_AddCycles_CI(RSCRATCH, 2);
@@ -617,7 +617,7 @@ void Compiler::T_Comp_AddSub_()
     int op = (CurInstr.Instr >> 9) & 0x3;
 
     OpArg rn = op >= 2 ? Imm32((CurInstr.Instr >> 6) & 0x7) : MapReg(CurInstr.T_Reg(6));
-    
+
     Comp_AddCycles_C();
 
     // special case for thumb mov being alias to add rd, rn, #0

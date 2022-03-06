@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, RSDuck
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -121,7 +121,7 @@ public:
     void A_Comp_Mul_Long();
 
     void A_Comp_CLZ();
-    
+
     void A_Comp_MemWB();
     void A_Comp_MemHalf();
     void A_Comp_LDM_STM();
@@ -170,7 +170,7 @@ public:
     s32 Comp_MemAccessBlock(int rn, BitSet16 regs, bool store, bool preinc, bool decrement, bool usermode, bool skipLoadingRn);
     bool Comp_MemLoadLiteral(int size, bool signExtend, int rd, u32 addr);
 
-    void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&), 
+    void Comp_ArithTriOp(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&),
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
     void Comp_ArithTriOpReverse(void (Compiler::*op)(int, const Gen::OpArg&, const Gen::OpArg&),
         Gen::OpArg rd, Gen::OpArg rn, Gen::OpArg op2, bool carryUsed, int opFlags);
