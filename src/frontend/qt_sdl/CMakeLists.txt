@@ -39,7 +39,12 @@ SET(SOURCES_QT_SDL
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
 )
 
-option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
+if (APPLE)
+    option(USE_QT6 "Build using Qt 6 instead of 5" ON)
+else()
+    option(USE_QT6 "Build using Qt 6 instead of 5" OFF)
+endif()
+
 
 if (WIN32)
     set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -i <SOURCE> -o <OBJECT>")
