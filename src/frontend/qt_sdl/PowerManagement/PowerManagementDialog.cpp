@@ -31,13 +31,24 @@ PowerManagementDialog* PowerManagementDialog::currentDlg = nullptr;
 
 PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent), ui(new Ui::PowerManagementDialog)
 {
+    inited = false;
+
     ui->setupUi(this);
     setAttribute(Qt::WA_DeleteOnClose);
 
-    if (NDS::ConsoleType)
+    if (NDS::ConsoleType == 1)
+    {
         ui->grpDSBattery->setEnabled(false);
+
+        oldDSiBatteryCharging = DSi_BPTWL::GetBatteryCharging();
+        oldDSiBatteryLevel = DSi_BPTWL::GetBatteryLevel();
+    }
     else
+    {
         ui->grpDSiBattery->setEnabled(false);
+
+        oldDSBatteryLevel = SPI_Powerman::GetBatteryLevelOkay();
+    }
 
     updateDSBatteryLevelControls();
 
@@ -52,6 +63,8 @@ PowerManagementDialog::PowerManagementDialog(QWidget* parent) : QDialog(parent),
         case DSi_BPTWL::batteryLevel_Full:          dsiBatterySliderPos = 4; break;
     }
     ui->sliderDSiBatteryLevel->setValue(dsiBatterySliderPos);
+
+    inited = true;
 }
 
 PowerManagementDialog::~PowerManagementDialog()
@@ -61,6 +74,19 @@ PowerManagementDialog::~PowerManagementDialog()
 
 void PowerManagementDialog::done(int r)
 {
+    if (r != QDialog::Accepted)
+    {
+        if (NDS::ConsoleType == 1)
+        {
+            DSi_BPTWL::SetBatteryCharging(oldDSiBatteryCharging);
+            DSi_BPTWL::SetBatteryLevel(oldDSiBatteryLevel);
+        }
+        else
+        {
+            SPI_Powerman::SetBatteryLevelOkay(oldDSBatteryLevel);
+        }
+    }
+
     QDialog::done(r);
 
     closeDlg();
@@ -91,6 +117,8 @@ void PowerManagementDialog::on_cbDSiBatteryCharging_toggled()
 
 void PowerManagementDialog::on_sliderDSiBatteryLevel_valueChanged(int value)
 {
+    if (!inited) return;
+
     u8 newBatteryLevel;
     switch (value)
     {
