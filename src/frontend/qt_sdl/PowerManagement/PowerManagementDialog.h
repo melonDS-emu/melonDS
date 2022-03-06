@@ -22,6 +22,8 @@
 #include <QDialog>
 #include <QAbstractButton>
 
+#include "types.h"
+
 namespace Ui { class PowerManagementDialog; }
 class PowerManagementDialog;
 
@@ -62,6 +64,11 @@ private slots:
 
 private:
     Ui::PowerManagementDialog* ui;
+
+    bool inited;
+    bool oldDSBatteryLevel;
+    bool oldDSiBatteryCharging;
+    u8 oldDSiBatteryLevel;
 
     void updateDSBatteryLevelControls();
 };
