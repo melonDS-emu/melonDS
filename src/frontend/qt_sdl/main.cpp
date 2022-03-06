@@ -60,6 +60,7 @@
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
+#include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 
 #include "types.h"
@@ -1440,6 +1441,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
+        actRAMInfo = menu->addAction("RAM info");
+        connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
+
         actTitleManager = menu->addAction("Manage DSi titles");
         connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
     }
@@ -1671,6 +1675,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actEnableCheats->setChecked(Config::EnableCheats);
 
     actROMInfo->setEnabled(false);
+    actRAMInfo->setEnabled(false);
 
     actSavestateSRAMReloc->setChecked(Config::SavestateRelocSRAM);
 
@@ -2082,6 +2087,7 @@ void MainWindow::updateCartInserted(bool gba)
         actImportSavefile->setEnabled(inserted);
         actSetupCheats->setEnabled(inserted);
         actROMInfo->setEnabled(inserted);
+        actRAMInfo->setEnabled(inserted);
     }
 }
 
@@ -2555,6 +2561,11 @@ void MainWindow::onCheatsDialogFinished(int res)
 void MainWindow::onROMInfo()
 {
     ROMInfoDialog* dlg = ROMInfoDialog::openDlg(this);
+}
+
+void MainWindow::onRAMInfo()
+{
+    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
 }
 
 void MainWindow::onOpenTitleManager()

@@ -252,6 +252,7 @@ private slots:
     void onSetupCheats();
     void onCheatsDialogFinished(int res);
     void onROMInfo();
+    void onRAMInfo();
     void onOpenTitleManager();
 
     void onOpenEmuSettings();
@@ -341,6 +342,7 @@ public:
     QAction* actEnableCheats;
     QAction* actSetupCheats;
     QAction* actROMInfo;
+    QAction* actRAMInfo;
     QAction* actTitleManager;
 
     QAction* actEmuSettings;
