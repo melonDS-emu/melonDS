@@ -8,7 +8,7 @@ if (POLICY CMP0076)
     cmake_policy(SET CMP0076 NEW)
 endif()
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14" CACHE STRING "Minimum OS X deployment version")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 project(melonDS CXX)
 
