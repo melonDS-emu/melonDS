@@ -104,17 +104,16 @@ If everything went well, melonDS.app should now be in the current directory.
    
 ## TODO LIST
 
- * DSi emulation
+ * better DSi emulation
+ * better OpenGL rendering
+ * better wifi
  * the impossible quest of pixel-perfect 3D graphics
- * improve libui and the emulator UI
  * support for rendering screens to separate windows
  * emulating some fancy addons
- * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
+ * other non-core shit (debugger, graphics viewers, etc)
 
-### TODO LIST FOR LATER
+### TODO LIST FOR LATER (low priority)
 
- * better wifi
- * maybe emulate flashcarts or other fancy hardware
  * big-endian compatibility (Wii, etc)
  * LCD refresh time (used by some games for blending effects)
  * any feature you can eventually ask for that isn't outright stupid
