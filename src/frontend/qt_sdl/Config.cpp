@@ -135,6 +135,9 @@ int MouseHideSeconds;
 
 bool PauseLostFocus;
 
+int EnableCursor;
+int CursorSpeed;
+
 
 const char* kConfigFile = "melonDS.ini";
 
@@ -177,6 +180,11 @@ ConfigEntry ConfigFile[] =
     {"HKKey_SolarSensorDecrease", 0, &HKKeyMapping[HK_SolarSensorDecrease], -1},
     {"HKKey_SolarSensorIncrease", 0, &HKKeyMapping[HK_SolarSensorIncrease], -1},
     {"HKKey_FrameStep",           0, &HKKeyMapping[HK_FrameStep],           -1},
+    {"HKKey_CursorLeft",          0, &HKKeyMapping[HK_CursorLeft],          -1},
+    {"HKKey_CursorRight",         0, &HKKeyMapping[HK_CursorRight],         -1},
+    {"HKKey_CursorUp",            0, &HKKeyMapping[HK_CursorUp],            -1},
+    {"HKKey_CursorDown",          0, &HKKeyMapping[HK_CursorDown],          -1},
+    {"HKKey_CursorPress",         0, &HKKeyMapping[HK_CursorPress],         -1},
 
     {"HKJoy_Lid",                 0, &HKJoyMapping[HK_Lid],                 -1},
     {"HKJoy_Mic",                 0, &HKJoyMapping[HK_Mic],                 -1},
@@ -189,6 +197,14 @@ ConfigEntry ConfigFile[] =
     {"HKJoy_SolarSensorDecrease", 0, &HKJoyMapping[HK_SolarSensorDecrease], -1},
     {"HKJoy_SolarSensorIncrease", 0, &HKJoyMapping[HK_SolarSensorIncrease], -1},
     {"HKJoy_FrameStep",           0, &HKJoyMapping[HK_FrameStep],           -1},
+    {"HKJoy_CursorLeft",          0, &HKJoyMapping[HK_CursorLeft],          -1},
+    {"HKJoy_CursorRight",         0, &HKJoyMapping[HK_CursorRight],         -1},
+    {"HKJoy_CursorUp",            0, &HKJoyMapping[HK_CursorUp],            -1},
+    {"HKJoy_CursorDown",          0, &HKJoyMapping[HK_CursorDown],          -1},
+    {"HKJoy_CursorPress",         0, &HKJoyMapping[HK_CursorPress],         -1},
+
+    {"EnableCursor", 0, &EnableCursor, 0},
+    {"CursorSpeed", 0, &CursorSpeed, 5},
 
     {"JoystickID", 0, &JoystickID, 0},
 

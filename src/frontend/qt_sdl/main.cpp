@@ -331,6 +331,9 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
+    connect(this, SIGNAL(hkCursorPress()), mainWindow, SLOT(onCursorPress()));
+    connect(this, SIGNAL(hkCursorRelease()), mainWindow, SLOT(onCursorRelease()));
+    connect(this, SIGNAL(hkCursorMove(bool)), mainWindow, SLOT(onCursorMove(bool)));
 
     if (mainWindow->hasOGL) initOpenGL();
 }
@@ -639,6 +642,35 @@ void EmuThread::run()
                 sprintf(melontitle, "[%d/%.0f] melonDS " MELONDS_VERSION, fps, fpstarget);
                 changeWindowTitle(melontitle);
             }
+
+            if (Config::EnableCursor && mainWindow->panel->isVisible())
+            {
+                if (Input::HotkeyPressed(HK_CursorPress)) emit hkCursorPress();
+                if (Input::HotkeyReleased(HK_CursorPress)) emit hkCursorRelease();
+
+                if (Input::HotkeyDown(HK_CursorLeft)
+                    || Input::HotkeyDown(HK_CursorRight)
+                    || Input::HotkeyDown(HK_CursorUp)
+                    || Input::HotkeyDown(HK_CursorDown))
+                {
+                    QCursor cursor = mainWindow->panel->cursor();
+                    QPoint position = mainWindow->mapFromGlobal(cursor.pos());
+                    QRect geom = mainWindow->panel->geometry();
+
+                    if (Input::HotkeyDown(HK_CursorLeft)) position.rx() -= Config::CursorSpeed;
+                    if (Input::HotkeyDown(HK_CursorRight)) position.rx() += Config::CursorSpeed;
+                    if (Input::HotkeyDown(HK_CursorUp)) position.ry() -= Config::CursorSpeed;
+                    if (Input::HotkeyDown(HK_CursorDown)) position.ry() += Config::CursorSpeed;
+
+                    position.setX(std::clamp(position.x(), geom.x(), geom.right()));
+                    position.setY(std::clamp(position.y(), geom.y(), geom.bottom()));
+
+                    cursor.setPos(mainWindow->mapToGlobal(position));
+                    mainWindow->panel->setCursor(cursor);
+
+                    emit hkCursorMove(Input::HotkeyDown(HK_CursorPress));
+                }
+            }
         }
         else
         {
@@ -909,7 +941,7 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
 
 void ScreenHandler::showCursor()
 {
-    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    mainWindow->panel->setCursor(Config::EnableCursor && emuThread->emuIsRunning() ? Qt::CrossCursor : Qt::ArrowCursor);
     mouseTimer->start();
 }
 
@@ -2877,6 +2909,27 @@ void MainWindow::onFullscreenToggled()
         int menuBarHeight = mainWindow->menuBar()->sizeHint().height();
         mainWindow->menuBar()->setFixedHeight(menuBarHeight);
     }
+}
+
+void MainWindow::onCursorPress()
+{
+    QMouseEvent e(QEvent::MouseButtonPress, mainWindow->panel->mapFromGlobal(mainWindow->panel->cursor().pos()),
+                  Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(mainWindow->panel, &e);
+}
+
+void MainWindow::onCursorRelease()
+{
+    QMouseEvent e(QEvent::MouseButtonRelease, mainWindow->panel->mapFromGlobal(mainWindow->panel->cursor().pos()),
+                  Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(mainWindow->panel, &e);
+}
+
+void MainWindow::onCursorMove(bool pressed)
+{
+    QMouseEvent e(QEvent::MouseMove, mainWindow->panel->mapFromGlobal(mainWindow->panel->cursor().pos()),
+                  Qt::NoButton, pressed ? Qt::LeftButton : Qt::NoButton, Qt::NoModifier);
+    QCoreApplication::sendEvent(mainWindow->panel, &e);
 }
 
 void MainWindow::onEmuStart()
