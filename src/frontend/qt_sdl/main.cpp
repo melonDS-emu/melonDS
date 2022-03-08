@@ -1447,7 +1447,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actROMInfo = menu->addAction("ROM info");
         connect(actROMInfo, &QAction::triggered, this, &MainWindow::onROMInfo);
 
-        actRAMInfo = menu->addAction("RAM info");
+        actRAMInfo = menu->addAction("RAM search");
         connect(actRAMInfo, &QAction::triggered, this, &MainWindow::onRAMInfo);
 
         actTitleManager = menu->addAction("Manage DSi titles");
