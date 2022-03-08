@@ -87,6 +87,7 @@ std::string GetAssetPath(bool gba, std::string configpath, std::string ext, std:
     for (;;)
     {
         int i = configpath.length() - 1;
+        if (i < 0) break;
         if (configpath[i] == '/' || configpath[i] == '\\')
             configpath = configpath.substr(0, i);
         else
