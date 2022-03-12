@@ -1830,7 +1830,7 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
     QString filename = urls.at(0).toLocalFile();
 
     QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
-                             ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
+                             ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
 
     for (const QString &ext : acceptedExts)
     {
@@ -1847,7 +1847,7 @@ void MainWindow::dropEvent(QDropEvent* event)
     if (urls.count() > 1) return; // not handling more than one file at once
 
     QString filename = urls.at(0).toLocalFile();
-    QStringList arcexts{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2"};
+    QStringList arcexts{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
 
     emuThread->emuPause();
 
@@ -2019,7 +2019,7 @@ QStringList MainWindow::pickROM(bool gba)
 {
     QString console;
     QStringList romexts;
-    QStringList arcexts{"*.zip", "*.7z", "*.rar", "*.tar", "*.tar.gz", "*.tar.xz", "*.tar.bz2"};
+    QStringList arcexts{"*.zip", "*.7z", "*.rar", "*.tar", "*.tar.gz", "*.tar.xz", "*.tar.bz2", "*.tar.zst"};
     QStringList ret;
 
     if (gba)
