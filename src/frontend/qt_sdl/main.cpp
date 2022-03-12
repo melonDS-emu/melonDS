@@ -88,6 +88,10 @@
 
 // TODO: uniform variable spelling
 
+const QStringList ndsRomExtensions{".nds", ".srl", ".dsi"};
+const QStringList gbaRomExtensions{".gba"};
+const QStringList archiveExtensions{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
+
 bool RunningSomething;
 
 MainWindow* mainWindow;
@@ -1269,6 +1273,13 @@ void ScreenPanelGL::onScreenLayoutChanged()
     setupScreenLayout();
 }
 
+static bool fileExtensionInList(const QString& filename, const QStringList& extensions)
+{
+    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
+        return filename.endsWith(ext, Qt::CaseInsensitive);
+    });
+}
+
 #ifndef _WIN32
 static int signalFd[2];
 QSocketNotifier *signalSn;
@@ -1819,19 +1830,6 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     Input::KeyRelease(event);
 }
 
-const QStringList ndsRomExtensions{".nds", ".srl", ".dsi"};
-const QStringList gbaRomExtensions{".gba"};
-const QStringList archiveExtensions{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
-
-static bool fileMatchesExtensionList(const QString& filename, const QStringList& extensions)
-{
-    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
-        return filename.endsWith(ext, Qt::CaseInsensitive);
-    });
-}
-
-const QStringList acceptedExts = ndsRomExtensions + gbaRomExtensions + archiveExtensions;
-
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 {
     if (!event->mimeData()->hasUrls()) return;
@@ -1841,7 +1839,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
 
-    if (fileMatchesExtensionList(filename, acceptedExts))
+    static const QStringList acceptedExts = ndsRomExtensions + gbaRomExtensions + archiveExtensions;
+    if (fileExtensionInList(filename, acceptedExts))
         event->acceptProposedAction();
 }
 
@@ -1869,7 +1868,7 @@ void MainWindow::dropEvent(QDropEvent* event)
         return;
     }
 
-    if (fileMatchesExtensionList(filename, gbaRomExtensions))
+    if (fileExtensionInList(filename, gbaRomExtensions))
     {
         if (!ROMManager::LoadGBAROM(file))
         {
@@ -2058,7 +2057,7 @@ QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyn
         return {};
     }
 
-    if (fileMatchesExtensionList(filename, archiveExtensions))
+    if (fileExtensionInList(filename, archiveExtensions))
     {
         const QString subfile = pickFileFromArchive(filename);
         if (subfile.isEmpty())
@@ -2070,11 +2069,12 @@ QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyn
     return {filename};
 }
 
-const QString filterSuffix = " *" + archiveExtensions.join(" *") + ");;Any file (*.*)";
 QStringList MainWindow::pickROM(bool gba)
 {
     const QString console = gba ? "GBA" : "DS";
     const QStringList& romexts = gba ? gbaRomExtensions : ndsRomExtensions;
+    static const QString filterSuffix = " *" + archiveExtensions.join(" *") + ");;Any file (*.*)";
+
     const QString filter = console + " ROMs (*" + romexts.join(" *") + filterSuffix;
     const QString filename = QFileDialog::getOpenFileName(
         this, "Open " + console + " ROM", QString::fromStdString(Config::LastROMFolder), filter);
