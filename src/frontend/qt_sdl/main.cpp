@@ -1862,19 +1862,12 @@ void MainWindow::dropEvent(QDropEvent* event)
         return;
     }
 
-    if (fileMatchesExtensionList(filename, archiveExtensions))
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty())
     {
-        QString arcfile = pickFileFromArchive(filename);
-        if (arcfile.isEmpty())
-        {
-            emuThread->emuUnpause();
-            return;
-        }
-
-        filename += "|" + arcfile;
+        emuThread->emuUnpause();
+        return;
     }
-
-    QStringList file = filename.split('|');
 
     if (fileMatchesExtensionList(filename, gbaRomExtensions))
     {
@@ -1947,7 +1940,10 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
     bool gbaloaded = false;
     if (!gbafilename.isEmpty())
     {
-        QStringList gbafile = gbafilename.split('|');
+        QStringList gbafile = splitArchivePath(gbafilename, true);
+        if (gbafile.isEmpty())
+            return false;
+
         if (!ROMManager::LoadGBAROM(gbafile))
         {
             // TODO: better error reporting?
@@ -1958,7 +1954,10 @@ bool MainWindow::preloadROMs(QString filename, QString gbafilename)
         gbaloaded = true;
     }
 
-    QStringList file = filename.split('|');
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty())
+        return false;
+
     if (!ROMManager::LoadROM(file, true))
     {
         // TODO: better error reporting?
@@ -2017,6 +2016,60 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
     return romFileName;
 }
 
+QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyntax)
+{
+    if (filename.isEmpty())
+        return {};
+
+    if (memberSyntax)
+    {
+        const QStringList filenameParts = filename.split('|');
+
+        if (filenameParts.size() > 2)
+        {
+            QMessageBox::warning(this, "melonDS", "This path contains too many vertical bars.");
+            return {};
+        }
+
+        if (filenameParts.size() == 2)
+        {
+            const QString archive = filenameParts.at(0);
+            if (!QFileInfo(archive).exists())
+            {
+                QMessageBox::warning(this, "melonDS", "This archive does not exist.");
+                return {};
+            }
+
+            const QString subfile = filenameParts.at(1);
+            if (!Archive::ListArchive(archive).contains(subfile))
+            {
+                QMessageBox::warning(this, "melonDS", "This archive does not contain the desired file.");
+                return {};
+            }
+
+            return {archive, subfile};
+        }
+
+    }
+
+    if (!QFileInfo(filename).exists())
+    {
+        QMessageBox::warning(this, "melonDS", "This ROM file does not exist.");
+        return {};
+    }
+
+    if (fileMatchesExtensionList(filename, archiveExtensions))
+    {
+        const QString subfile = pickFileFromArchive(filename);
+        if (subfile.isEmpty())
+            return {};
+
+        return {filename, subfile};
+    }
+
+    return {filename};
+}
+
 const QString filterSuffix = " *" + archiveExtensions.join(" *") + ");;Any file (*.*)";
 QStringList MainWindow::pickROM(bool gba)
 {
@@ -2031,16 +2084,7 @@ QStringList MainWindow::pickROM(bool gba)
 
     Config::LastROMFolder = QFileInfo(filename).dir().path().toStdString();
 
-    if (fileMatchesExtensionList(filename, archiveExtensions))
-    {
-        const QString arcfile = pickFileFromArchive(filename);
-        if (arcfile.isEmpty())
-            return {};
-
-        return {filename, arcfile};
-    }
-
-    return {filename};
+    return splitArchivePath(filename, false);
 }
 
 void MainWindow::updateCartInserted(bool gba)
@@ -2163,12 +2207,17 @@ void MainWindow::onClickRecentFile()
 {
     QAction *act = (QAction *)sender();
     QString filename = act->data().toString();
-    QStringList file = filename.split('|');
 
     emuThread->emuPause();
 
     if (!verifySetup())
     {
+        emuThread->emuUnpause();
+        return;
+    }
+
+    QStringList file = splitArchivePath(filename, true);
+    if (file.isEmpty()) {
         emuThread->emuUnpause();
         return;
     }

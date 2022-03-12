@@ -306,6 +306,7 @@ private:
 
     bool verifySetup();
     QString pickFileFromArchive(QString archiveFileName);
+    QStringList splitArchivePath(const QString& filename, bool memberSyntax);
     QStringList pickROM(bool gba);
     void updateCartInserted(bool gba);
 
