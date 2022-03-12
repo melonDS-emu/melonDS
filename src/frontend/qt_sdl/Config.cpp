@@ -61,6 +61,7 @@ int GL_ScaleFactor;
 bool GL_BetterPolygons;
 
 bool LimitFPS;
+int FPSRate;
 bool AudioSync;
 bool ShowOSD;
 
@@ -251,6 +252,7 @@ ConfigEntry ConfigFile[] =
     {"GL_BetterPolygons", 1, &GL_BetterPolygons, false, false},
 
     {"LimitFPS", 1, &LimitFPS, true, false},
+    {"FPSRate", 0, &FPSRate, 60},
     {"AudioSync", 1, &AudioSync, false},
     {"ShowOSD", 1, &ShowOSD, true, false},
 
