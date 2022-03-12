@@ -1819,6 +1819,18 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
     Input::KeyRelease(event);
 }
 
+const QStringList ndsRomExtensions{".nds", ".srl", ".dsi"};
+const QStringList gbaRomExtensions{".gba"};
+const QStringList archiveExtensions{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
+
+static bool fileMatchesExtensionList(const QString& filename, const QStringList& extensions)
+{
+    return std::any_of(extensions.cbegin(), extensions.cend(), [&](const auto& ext) {
+        return filename.endsWith(ext, Qt::CaseInsensitive);
+    });
+}
+
+const QStringList acceptedExts = ndsRomExtensions + gbaRomExtensions + archiveExtensions;
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 {
@@ -1829,14 +1841,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* event)
 
     QString filename = urls.at(0).toLocalFile();
 
-    QStringList acceptedExts{".nds", ".srl", ".dsi", ".gba", ".rar",
-                             ".zip", ".7z", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
-
-    for (const QString &ext : acceptedExts)
-    {
-        if (filename.endsWith(ext, Qt::CaseInsensitive))
-            event->acceptProposedAction();
-    }
+    if (fileMatchesExtensionList(filename, acceptedExts))
+        event->acceptProposedAction();
 }
 
 void MainWindow::dropEvent(QDropEvent* event)
@@ -1847,7 +1853,6 @@ void MainWindow::dropEvent(QDropEvent* event)
     if (urls.count() > 1) return; // not handling more than one file at once
 
     QString filename = urls.at(0).toLocalFile();
-    QStringList arcexts{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
 
     emuThread->emuPause();
 
@@ -1857,24 +1862,21 @@ void MainWindow::dropEvent(QDropEvent* event)
         return;
     }
 
-    for (const QString &ext : arcexts)
+    if (fileMatchesExtensionList(filename, archiveExtensions))
     {
-        if (filename.endsWith(ext, Qt::CaseInsensitive))
+        QString arcfile = pickFileFromArchive(filename);
+        if (arcfile.isEmpty())
         {
-            QString arcfile = pickFileFromArchive(filename);
-            if (arcfile.isEmpty())
-            {
-                emuThread->emuUnpause();
-                return;
-            }
-
-            filename += "|" + arcfile;
+            emuThread->emuUnpause();
+            return;
         }
+
+        filename += "|" + arcfile;
     }
 
     QStringList file = filename.split('|');
 
-    if (filename.endsWith(".gba", Qt::CaseInsensitive))
+    if (fileMatchesExtensionList(filename, gbaRomExtensions))
     {
         if (!ROMManager::LoadGBAROM(file))
         {
@@ -2015,67 +2017,30 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
     return romFileName;
 }
 
+const QString filterSuffix = " *" + archiveExtensions.join(" *") + ");;Any file (*.*)";
 QStringList MainWindow::pickROM(bool gba)
 {
-    QString console;
-    QStringList romexts;
-    QStringList arcexts{"*.zip", "*.7z", "*.rar", "*.tar", "*.tar.gz", "*.tar.xz", "*.tar.bz2", "*.tar.zst"};
-    QStringList ret;
+    const QString console = gba ? "GBA" : "DS";
+    const QStringList& romexts = gba ? gbaRomExtensions : ndsRomExtensions;
+    const QString filter = console + " ROMs (*" + romexts.join(" *") + filterSuffix;
+    const QString filename = QFileDialog::getOpenFileName(
+        this, "Open " + console + " ROM", QString::fromStdString(Config::LastROMFolder), filter);
 
-    if (gba)
-    {
-        console = "GBA";
-        romexts.append("*.gba");
-    }
-    else
-    {
-        console = "DS";
-        romexts.append({"*.nds", "*.dsi", "*.ids", "*.srl"});
-    }
-
-    QString filter = romexts.join(' ') + " " + arcexts.join(' ');
-    filter = console + " ROMs (" + filter + ");;Any file (*.*)";
-
-    QString filename = QFileDialog::getOpenFileName(this,
-                                                    "Open "+console+" ROM",
-                                                    QString::fromStdString(Config::LastROMFolder),
-                                                    filter);
     if (filename.isEmpty())
-        return ret;
+        return {};
 
-    int pos = filename.length() - 1;
-    while (filename[pos] != '/' && filename[pos] != '\\' && pos > 0) pos--;
-    QString path_dir = filename.left(pos);
-    QString path_file = filename.mid(pos+1);
+    Config::LastROMFolder = QFileInfo(filename).dir().path().toStdString();
 
-    Config::LastROMFolder = path_dir.toStdString();
-
-    bool isarc = false;
-    for (const auto& ext : arcexts)
+    if (fileMatchesExtensionList(filename, archiveExtensions))
     {
-        int l = ext.length() - 1;
-        if (path_file.right(l).toLower() == ext.right(l))
-        {
-            isarc = true;
-            break;
-        }
+        const QString arcfile = pickFileFromArchive(filename);
+        if (arcfile.isEmpty())
+            return {};
+
+        return {filename, arcfile};
     }
 
-    if (isarc)
-    {
-        path_file = pickFileFromArchive(filename);
-        if (path_file.isEmpty())
-            return ret;
-
-        ret.append(filename);
-        ret.append(path_file);
-    }
-    else
-    {
-        ret.append(filename);
-    }
-
-    return ret;
+    return {filename};
 }
 
 void MainWindow::updateCartInserted(bool gba)
