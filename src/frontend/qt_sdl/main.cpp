@@ -64,6 +64,7 @@
 #include "VideoSettingsDialog.h"
 #include "CameraSettingsDialog.h"
 #include "AudioSettingsDialog.h"
+#include "FramerateSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
 #include "MPSettingsDialog.h"

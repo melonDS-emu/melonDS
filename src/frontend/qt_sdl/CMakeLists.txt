@@ -20,6 +20,7 @@ set(SOURCES_QT_SDL
     VideoSettingsDialog.cpp
     CameraSettingsDialog.cpp
     AudioSettingsDialog.cpp
+    FramerateSettingsDialog.cpp
     FirmwareSettingsDialog.cpp
     PathSettingsDialog.cpp
     MPSettingsDialog.cpp

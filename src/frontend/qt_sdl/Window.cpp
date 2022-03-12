@@ -59,6 +59,7 @@
 #include "VideoSettingsDialog.h"
 #include "CameraSettingsDialog.h"
 #include "AudioSettingsDialog.h"
+#include "FramerateSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
 #include "MPSettingsDialog.h"
@@ -410,6 +411,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
+
+        actFramerateSettings = menu->addAction("Framerate settings");
+        connect(actFramerateSettings, &QAction::triggered, this, &MainWindow::onOpenFramerateSettings);
 
         actMPSettings = menu->addAction("Multiplayer settings");
         connect(actMPSettings, &QAction::triggered, this, &MainWindow::onOpenMPSettings);
@@ -1752,6 +1756,11 @@ void MainWindow::onOpenAudioSettings()
     connect(emuThread, &EmuThread::windowEmuStart, dlg, &AudioSettingsDialog::onConsoleReset);
     connect(dlg, &AudioSettingsDialog::updateAudioSettings, this, &MainWindow::onUpdateAudioSettings);
     connect(dlg, &AudioSettingsDialog::finished, this, &MainWindow::onAudioSettingsFinished);
+}
+
+void MainWindow::onOpenFramerateSettings()
+{
+    FramerateSettingsDialog* dlg = FramerateSettingsDialog::openDlg(this);
 }
 
 void MainWindow::onOpenFirmwareSettings()
