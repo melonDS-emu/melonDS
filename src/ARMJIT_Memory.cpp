@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, RSDuck
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -55,7 +55,7 @@
     and map the memory regions as they're structured on the DS
     in it.
 
-    On most systems you have a single piece of main ram, 
+    On most systems you have a single piece of main ram,
     maybe some video ram and faster cache RAM and that's about it.
     Here we have not only a lot more different memory regions,
     but also two address spaces. Not only that but they all have
@@ -119,7 +119,7 @@ void HandleFault(u64 pc, u64 lr, u64 fp, u64 faultAddr, u32 desc);
 
 extern "C"
 {
-    
+
 void ARM_RestoreContext(u64* registers) __attribute__((noreturn));
 
 extern char __start__;
@@ -146,7 +146,7 @@ void __libnx_exception_handler(ThreadExceptionDump* ctx)
     {
         integerRegisters[32] = (u64)desc.FaultPC;
 
-        ARM_RestoreContext(integerRegisters);	
+        ARM_RestoreContext(integerRegisters);
     }
 
     HandleFault(ctx->pc.x, ctx->lr.x, ctx->fp.x, ctx->far.x, ctx->error_desc);
@@ -311,7 +311,7 @@ bool MapIntoRange(u32 addr, u32 num, u32 offset, u32 size)
 {
     u8* dst = (u8*)(num == 0 ? FastMem9Start : FastMem7Start) + addr;
 #ifdef __SWITCH__
-    Result r = (svcMapProcessMemory(dst, envGetOwnProcessHandle(), 
+    Result r = (svcMapProcessMemory(dst, envGetOwnProcessHandle(),
         (u64)(MemoryBaseCodeMem + offset), size));
     return R_SUCCEEDED(r);
 #elif defined(_WIN32)
@@ -452,7 +452,7 @@ void SetCodeProtection(int region, u32 offset, bool protect)
 
         u32 effectiveAddr = mapping.Addr + (offset - mapping.LocalOffset);
         if (mapping.Num == 0
-            && region != memregion_DTCM 
+            && region != memregion_DTCM
             && (effectiveAddr & NDS::ARM9->DTCMMask) == NDS::ARM9->DTCMBase)
             continue;
 
@@ -621,7 +621,7 @@ bool MapAtAddress(u32 addr)
 
     // this overcomplicated piece of code basically just finds whole pieces of code memory
     // which can be mapped/protected
-    u32 offset = 0;	
+    u32 offset = 0;
     bool skipDTCM = num == 0 && region != memregion_DTCM;
     while (offset < mirrorSize)
     {
@@ -700,10 +700,10 @@ void Init()
     virtmemLock();
     MemoryBaseCodeMem = (u8*)virtmemFindCodeMemory(MemoryTotalSize, 0x1000);
 
-    bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, 
+    bool succeded = R_SUCCEEDED(svcMapProcessCodeMemory(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
         (u64)MemoryBase, MemoryTotalSize));
     assert(succeded);
-    succeded = R_SUCCEEDED(svcSetProcessMemoryPermission(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem, 
+    succeded = R_SUCCEEDED(svcSetProcessMemoryPermission(envGetOwnProcessHandle(), (u64)MemoryBaseCodeMem,
         MemoryTotalSize, Perm_Rw));
     assert(succeded);
 
@@ -740,7 +740,7 @@ void Init()
     u8* basePtr = MemoryBase;
 #else
     // this used to be allocated with three different mmaps
-    // The idea was to give the OS more freedom where to position the buffers, 
+    // The idea was to give the OS more freedom where to position the buffers,
     // but something was bad about this so instead we take this vmem eating monster
     // which seems to work better.
     MemoryBase = (u8*)mmap(NULL, AddrSpaceSize*4, PROT_NONE, MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -855,7 +855,7 @@ bool IsFastmemCompatible(int region)
         TODO: with some hacks, the smaller shared WRAM regions
         could be mapped in some occaisons as well
     */
-    if (region == memregion_DTCM 
+    if (region == memregion_DTCM
         || region == memregion_SharedWRAM
         || region == memregion_NewSharedWRAM_B
         || region == memregion_NewSharedWRAM_C)
@@ -1071,7 +1071,7 @@ int ClassifyAddress9(u32 addr)
     {
         return memregion_DTCM;
     }
-    else 
+    else
     {
         if (NDS::ConsoleType == 1 && addr >= 0xFFFF0000 && !(DSi::SCFG_BIOS & (1<<1)))
         {
@@ -1219,8 +1219,8 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
             {
                 switch (size | store)
                 {
-                case 8: return (void*)GPU3D::Read8;		
-                case 9: return (void*)GPU3D::Write8;		
+                case 8: return (void*)GPU3D::Read8;
+                case 9: return (void*)GPU3D::Write8;
                 case 16: return (void*)GPU3D::Read16;
                 case 17: return (void*)GPU3D::Write16;
                 case 32: return (void*)GPU3D::Read32;
@@ -1256,7 +1256,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
         case 0x06000000:
             switch (size | store)
             {
-            case 8: return (void*)VRAMRead<u8>;		
+            case 8: return (void*)VRAMRead<u8>;
             case 9: return NULL;
             case 16: return (void*)VRAMRead<u16>;
             case 17: return (void*)VRAMWrite<u16>;
@@ -1275,8 +1275,8 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
             {
                 switch (size | store)
                 {
-                case 8: return (void*)SPU::Read8;		
-                case 9: return (void*)SPU::Write8;		
+                case 8: return (void*)SPU::Read8;
+                case 9: return (void*)SPU::Write8;
                 case 16: return (void*)SPU::Read16;
                 case 17: return (void*)SPU::Write16;
                 case 32: return (void*)SPU::Read32;
@@ -1289,7 +1289,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 switch (size | store)
                 {
                 case 8: return (void*)NDS::ARM7IORead8;
-                case 9: return (void*)NDS::ARM7IOWrite8;		
+                case 9: return (void*)NDS::ARM7IOWrite8;
                 case 16: return (void*)NDS::ARM7IORead16;
                 case 17: return (void*)NDS::ARM7IOWrite16;
                 case 32: return (void*)NDS::ARM7IORead32;
@@ -1301,7 +1301,7 @@ void* GetFuncForAddr(ARM* cpu, u32 addr, bool store, int size)
                 switch (size | store)
                 {
                 case 8: return (void*)DSi::ARM7IORead8;
-                case 9: return (void*)DSi::ARM7IOWrite8;		
+                case 9: return (void*)DSi::ARM7IOWrite8;
                 case 16: return (void*)DSi::ARM7IORead16;
                 case 17: return (void*)DSi::ARM7IOWrite16;
                 case 32: return (void*)DSi::ARM7IORead32;

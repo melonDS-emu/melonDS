@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2022 melonDS team, Raphaël Zumer
+    Copyright 2016-2022 melonDS team
 
     This file is part of melonDS.
 
@@ -103,6 +103,11 @@ CartGame::CartGame(u8* rom, u32 len) : CartCommon()
 {
     ROM = rom;
     ROMLength = len;
+
+    SRAM = nullptr;
+    SRAMLength = 0;
+    SRAMType = S_NULL;
+    SRAMFlashState = {};
 }
 
 CartGame::~CartGame()
@@ -122,11 +127,6 @@ u32 CartGame::Checksum()
 void CartGame::Reset()
 {
     memset(&GPIO, 0, sizeof(GPIO));
-
-    SRAM = nullptr;
-    SRAMLength = 0;
-    SRAMType = S_NULL;
-    SRAMFlashState = {};
 }
 
 void CartGame::DoSavestate(Savestate* file)

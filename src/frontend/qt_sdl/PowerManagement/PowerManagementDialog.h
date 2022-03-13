@@ -16,24 +16,27 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef INTERFACESETTINGSDIALOG_H
-#define INTERFACESETTINGSDIALOG_H
+#ifndef POWERMANAGEMENTDIALOG_H
+#define POWERMANAGEMENTDIALOG_H
 
 #include <QDialog>
+#include <QAbstractButton>
 
-namespace Ui { class InterfaceSettingsDialog; }
-class InterfaceSettingsDialog;
+#include "types.h"
 
-class InterfaceSettingsDialog : public QDialog
+namespace Ui { class PowerManagementDialog; }
+class PowerManagementDialog;
+
+class PowerManagementDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit InterfaceSettingsDialog(QWidget* parent);
-    ~InterfaceSettingsDialog();
+    explicit PowerManagementDialog(QWidget* parent);
+    ~PowerManagementDialog();
 
-    static InterfaceSettingsDialog* currentDlg;
-    static InterfaceSettingsDialog* openDlg(QWidget* parent)
+    static PowerManagementDialog* currentDlg;
+    static PowerManagementDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -41,7 +44,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new InterfaceSettingsDialog(parent);
+        currentDlg = new PowerManagementDialog(parent);
         currentDlg->open();
         return currentDlg;
     }
@@ -50,16 +53,25 @@ public:
         currentDlg = nullptr;
     }
 
-signals:
-    void updateMouseTimer();
-
 private slots:
     void done(int r);
 
-    void on_cbMouseHide_clicked();
+    void on_rbDSBatteryLow_clicked();
+    void on_rbDSBatteryOkay_clicked();
+
+    void on_cbDSiBatteryCharging_toggled();
+    void on_sliderDSiBatteryLevel_valueChanged(int value);
 
 private:
-    Ui::InterfaceSettingsDialog* ui;
+    Ui::PowerManagementDialog* ui;
+
+    bool inited;
+    bool oldDSBatteryLevel;
+    u8 oldDSiBatteryLevel;
+    bool oldDSiBatteryCharging;
+
+    void updateDSBatteryLevelControls();
 };
 
-#endif // INTERFACESETTINGSDIALOG_H
+#endif // POWERMANAGEMENTDIALOG_H
+

@@ -18,7 +18,7 @@ FILETYPE VFT_APP
 			VALUE "FileVersion", "${MELONDS_VERSION}"
 			VALUE "FileDescription", "melonDS emulator"
 			VALUE "InternalName", "SDnolem"
-			VALUE "LegalCopyright", "2016-2021 melonDS team"
+			VALUE "LegalCopyright", "2016-2022 melonDS team"
 			VALUE "LegalTrademarks", ""
 			VALUE "OriginalFilename", "zafkflzdasd.exe"
 			VALUE "ProductName", "melonDS"

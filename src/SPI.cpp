@@ -618,11 +618,14 @@ void Reset()
     Registers[4] = 0x40;
 
     RegMasks[0] = 0x7F;
-    RegMasks[1] = 0x01;
+    RegMasks[1] = 0x00;
     RegMasks[2] = 0x01;
     RegMasks[3] = 0x03;
     RegMasks[4] = 0x0F;
 }
+
+bool GetBatteryLevelOkay() { return !Registers[1]; }
+void SetBatteryLevelOkay(bool okay) { Registers[1] = okay ? 0x00 : 0x01; }
 
 void DoSavestate(Savestate* file)
 {
@@ -660,6 +663,7 @@ void Write(u8 val, u32 hold)
 
     if (DataPos == 1)
     {
+        // TODO: DSi-specific registers in DSi mode
         u32 regid = Index & 0x07;
 
         if (Index & 0x80)

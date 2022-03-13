@@ -38,6 +38,17 @@ enum
     HK_MAX
 };
 
+enum
+{
+    screenSizing_Even,
+    screenSizing_EmphTop,
+    screenSizing_EmphBot,
+    screenSizing_Auto,
+    screenSizing_TopOnly,
+    screenSizing_BotOnly,
+    screenSizing_MAX,
+};
+
 namespace Config
 {
 
@@ -157,6 +168,10 @@ extern bool EnableCheats;
 extern bool MouseHide;
 extern int MouseHideSeconds;
 extern bool PauseLostFocus;
+
+extern bool DSBatteryLevelOkay;
+extern int DSiBatteryLevel;
+extern bool DSiBatteryCharging;
 
 
 void Load();

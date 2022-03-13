@@ -135,6 +135,10 @@ int MouseHideSeconds;
 
 bool PauseLostFocus;
 
+bool DSBatteryLevelOkay;
+int DSiBatteryLevel;
+bool DSiBatteryCharging;
+
 
 const char* kConfigFile = "melonDS.ini";
 
@@ -304,6 +308,10 @@ ConfigEntry ConfigFile[] =
     {"MouseHide",        1, &MouseHide,        false},
     {"MouseHideSeconds", 0, &MouseHideSeconds, 5},
     {"PauseLostFocus",   1, &PauseLostFocus,   false},
+
+    {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true},
+    {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF},
+    {"DSiBatteryCharging", 1, &DSiBatteryCharging, true},
 
     {"", -1, nullptr, 0}
 };

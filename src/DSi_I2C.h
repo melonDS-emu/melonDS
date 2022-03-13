@@ -19,11 +19,28 @@
 #ifndef DSI_I2C_H
 #define DSI_I2C_H
 
+#include "types.h"
+
 namespace DSi_BPTWL
 {
 
 u8 GetBootFlag();
 
+bool GetBatteryCharging();
+void SetBatteryCharging(bool charging);
+
+enum
+{
+    batteryLevel_Critical = 0x0,
+    batteryLevel_AlmostEmpty = 0x1,
+    batteryLevel_Low = 0x3,
+    batteryLevel_Half = 0x7,
+    batteryLevel_ThreeQuarters = 0xB,
+    batteryLevel_Full = 0xF
+};
+
+u8 GetBatteryLevel();
+void SetBatteryLevel(u8 batteryLevel);
 }
 
 namespace DSi_I2C

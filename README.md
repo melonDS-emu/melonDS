@@ -2,7 +2,7 @@
 <h2 align="center"><b>melonDS</b></h2>
 <p align="center">
 <a href="http://melonds.kuribo64.net/" alt="melonDS website"><img src="https://img.shields.io/badge/website-melonds.kuribo64.net-%2331352e.svg"></a>
-<a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 0.9.3"><img src="https://img.shields.io/badge/release-0.9.3-%235c913b.svg"></a>
+<a href="http://melonds.kuribo64.net/downloads.php" alt="Release: 0.9.4"><img src="https://img.shields.io/badge/release-0.9.4-%235c913b.svg"></a>
 <a href="https://www.gnu.org/licenses/gpl-3.0" alt="License: GPLv3"><img src="https://img.shields.io/badge/License-GPL%20v3-%23ff554d.svg"></a>
 <a href="https://kiwiirc.com/client/irc.badnik.net/?nick=IRC-Source_?#melonds" alt="IRC channel: #melonds"><img src="https://img.shields.io/badge/IRC%20chat-%23melonds-%23dd2e44.svg"></a>
 <br>
@@ -19,12 +19,7 @@ The goal is to do things right and fast, akin to blargSNES (but hopefully better
 
 ## How to use
 
-melonDS requires BIOS/firmware copies from a DS. Files required:
- * bios7.bin, 16KB: ARM7 BIOS
- * bios9.bin, 4KB: ARM9 BIOS
- * firmware.bin, 128/256/512KB: firmware
-
-Firmware boot requires a firmware dump from an original DS or DS Lite.
+Firmware boot (not direct boot) requires a BIOS/firmware dump from an original DS or DS Lite.
 DS firmwares dumped from a DSi or 3DS aren't bootable and only contain configuration data, thus they are only suitable when booting games directly.
 
 ### Possible firmware sizes
@@ -104,17 +99,16 @@ If everything went well, melonDS.app should now be in the current directory.
    
 ## TODO LIST
 
- * DSi emulation
+ * better DSi emulation
+ * better OpenGL rendering
+ * better wifi
  * the impossible quest of pixel-perfect 3D graphics
- * improve libui and the emulator UI
  * support for rendering screens to separate windows
  * emulating some fancy addons
- * other non-core shit (debugger, graphics viewers, cheat crapo, etc)
+ * other non-core shit (debugger, graphics viewers, etc)
 
-### TODO LIST FOR LATER
+### TODO LIST FOR LATER (low priority)
 
- * better wifi
- * maybe emulate flashcarts or other fancy hardware
  * big-endian compatibility (Wii, etc)
  * LCD refresh time (used by some games for blending effects)
  * any feature you can eventually ask for that isn't outright stupid

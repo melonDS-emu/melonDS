@@ -1291,40 +1291,8 @@ void CartHomebrew::ROMCommandFinish(u8* cmd, u8* data, u32 len)
     }
 }
 
-void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
+void CartHomebrew::ApplyDLDIPatchAt(u8* binary, u32 dldioffset, const u8* patch, u32 patchlen, bool readonly)
 {
-    u32 offset = *(u32*)&ROM[0x20];
-    u32 size = *(u32*)&ROM[0x2C];
-
-    u8* binary = &ROM[offset];
-    u32 dldioffset = 0;
-
-    for (u32 i = 0; i < size; i++)
-    {
-        if (*(u32*)&binary[i  ] == 0xBF8DA5ED &&
-            *(u32*)&binary[i+4] == 0x69684320 &&
-            *(u32*)&binary[i+8] == 0x006D6873)
-        {
-            dldioffset = i;
-            break;
-        }
-    }
-
-    if (!dldioffset)
-    {
-        return;
-    }
-
-    printf("DLDI structure found at %08X (%08X)\n", dldioffset, offset+dldioffset);
-
-    if (*(u32*)&patch[0] != 0xBF8DA5ED ||
-        *(u32*)&patch[4] != 0x69684320 ||
-        *(u32*)&patch[8] != 0x006D6873)
-    {
-        printf("bad DLDI patch\n");
-        return;
-    }
-
     if (patch[0x0D] > binary[dldioffset+0x0F])
     {
         printf("DLDI driver ain't gonna fit, sorry\n");
@@ -1421,7 +1389,37 @@ void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
         *(u32*)&binary[writesec_addr+0x04] = 0xE12FFF1E; // bx lr
     }
 
-    printf("applied DLDI patch\n");
+    printf("applied DLDI patch at %08X\n", dldioffset);
+}
+
+void CartHomebrew::ApplyDLDIPatch(const u8* patch, u32 patchlen, bool readonly)
+{
+    if (*(u32*)&patch[0] != 0xBF8DA5ED ||
+        *(u32*)&patch[4] != 0x69684320 ||
+        *(u32*)&patch[8] != 0x006D6873)
+    {
+        printf("bad DLDI patch\n");
+        return;
+    }
+
+    u32 offset = *(u32*)&ROM[0x20];
+    u32 size = *(u32*)&ROM[0x2C];
+
+    u8* binary = &ROM[offset];
+
+    for (u32 i = 0; i < size; )
+    {
+        if (*(u32*)&binary[i  ] == 0xBF8DA5ED &&
+            *(u32*)&binary[i+4] == 0x69684320 &&
+            *(u32*)&binary[i+8] == 0x006D6873)
+        {
+            printf("DLDI structure found at %08X (%08X)\n", i, offset+i);
+            ApplyDLDIPatchAt(binary, i, patch, patchlen, readonly);
+            i += patchlen;
+        }
+        else
+            i++;
+    }
 }
 
 void CartHomebrew::ReadROM_B7(u32 addr, u32 len, u8* data, u32 offset)

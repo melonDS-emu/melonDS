@@ -919,29 +919,44 @@ bool CreateSaveFile(const char* path, u32 len)
     u32 clustersize, maxfiles, totsec16, fatsz16;
 
     // CHECKME!
-    // code inspired from https://github.com/JeffRuLz/TMFH/blob/master/arm9/src/sav.c
-    if (len < 573440)
+    // code inspired from https://github.com/Epicpkmn11/NTM/blob/master/arm9/src/sav.c
+    const u16 sectorsize = 0x200;
+
+    // fit maximum sectors for the size
+    const u16 maxsectors = len / sectorsize;
+    u16 tracksize = 1;
+    u16 headcount = 1;
+    u16 totsec16next = 0;
+    while (totsec16next <= maxsectors)
     {
-        clustersize = 512;
-        maxfiles = 16;
+        totsec16next = tracksize * (headcount + 1) * (headcount + 1);
+        if (totsec16next <= maxsectors)
+        {
+            headcount++;
+            totsec16 = totsec16next;
+
+            tracksize++;
+            totsec16next = tracksize * headcount * headcount;
+            if (totsec16next <= maxsectors)
+            {
+                totsec16 = totsec16next;
+            }
+        }
     }
-    else if (len < 5472256)
+    totsec16next = (tracksize + 1) * headcount * headcount;
+    if (totsec16next <= maxsectors)
     {
-        clustersize = 2048;
-        maxfiles = 256;
-    }
-    else
-    {
-        clustersize = 4096;
-        maxfiles = 256;
+        tracksize++;
+        totsec16 = totsec16next;
     }
 
-    if (len <= 0x4000)        fatsz16 = 1;
-    else if (len <= 0x200000) fatsz16 = 3;
-    else                      fatsz16 = 6;
+    maxfiles = len < 0x8C000 ? 0x20 : 0x200;
+    clustersize = (totsec16 > (8 << 10)) ? 8 : (totsec16 > (1 << 10) ? 4 : 1);
 
-    if (len == 0x4000) totsec16 = 27;
-    else               totsec16 = len >> 9;
+    #define ALIGN(v, a) (((v) % (a)) ? ((v) + (a) - ((v) % (a))) : (v))
+    u16 totalclusters = ALIGN(totsec16, clustersize) / clustersize;
+    u32 fatbytes = (ALIGN(totalclusters, 2) / 2) * 3; // 2 sectors -> 3 byte
+    fatsz16 = ALIGN(fatbytes, sectorsize) / sectorsize;
 
     FF_FIL file;
     FRESULT res;
@@ -960,17 +975,19 @@ bool CreateSaveFile(const char* path, u32 len)
     // create FAT header
     data[0x000] = 0xE9;
     memcpy(&data[0x003], "MSWIN4.1", 8);
-    *(u16*)&data[0x00B] = 512; // bytes per sector
-    data[0x00D] = clustersize >> 9;
+    *(u16*)&data[0x00B] = sectorsize; // bytes per sector
+    data[0x00D] = clustersize;
     *(u16*)&data[0x00E] = 1; // reserved sectors
     data[0x010] = 2; // num FATs
-    *(u16*)&data[0x011] = maxfiles << 1;
+    *(u16*)&data[0x011] = maxfiles;
     *(u16*)&data[0x013] = totsec16;
     data[0x015] = 0xF8;
     *(u16*)&data[0x016] = fatsz16;
-    data[0x024] = 0x07;
+    *(u16*)&data[0x018] = tracksize;
+    *(u16*)&data[0x01A] = headcount;
+    data[0x024] = 0x05;
     data[0x026] = 0x29;
-    *(u32*)&data[0x027] = 305419896;
+    *(u32*)&data[0x027] = 0x12345678;
     memcpy(&data[0x02B], "VOLUMELABEL", 11);
     memcpy(&data[0x036], "FAT12   ", 8);
     *(u16*)&data[0x1FE] = 0xAA55;
