@@ -570,10 +570,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         menu->addSeparator();
 
-        actLimitFramerate = menu->addAction("Limit framerate");
-        actLimitFramerate->setCheckable(true);
-        connect(actLimitFramerate, &QAction::triggered, this, &MainWindow::onChangeLimitFramerate);
-
         actAudioSync = menu->addAction("Audio sync");
         actAudioSync->setCheckable(true);
         connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
@@ -663,7 +659,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     actScreenFiltering->setChecked(Config::ScreenFilter);
     actShowOSD->setChecked(Config::ShowOSD);
 
-    actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
 
     if (inst > 0)
@@ -1966,11 +1961,6 @@ void MainWindow::onChangeShowOSD(bool checked)
 {
     Config::ShowOSD = checked?1:0;
     panel->osdSetEnabled(Config::ShowOSD);
-}
-
-void MainWindow::onChangeLimitFramerate(bool checked)
-{
-    Config::LimitFPS = checked?1:0;
 }
 
 void MainWindow::onChangeAudioSync(bool checked)

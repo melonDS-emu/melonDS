@@ -195,7 +195,6 @@ private slots:
     void onChangeIntegerScaling(bool checked);
     void onChangeScreenFiltering(bool checked);
     void onChangeShowOSD(bool checked);
-    void onChangeLimitFramerate(bool checked);
     void onChangeAudioSync(bool checked);
 
     void onTitleUpdate(QString title);
@@ -292,7 +291,6 @@ public:
     QAction** actScreenAspectBot;
     QAction* actScreenFiltering;
     QAction* actShowOSD;
-    QAction* actLimitFramerate;
     QAction* actAudioSync;
 };
 

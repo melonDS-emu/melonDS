@@ -82,8 +82,6 @@ signals:
     void windowEmuReset();
     void windowEmuFrameStep();
 
-    void windowLimitFPSChange();
-
     void screenLayoutChange();
 
     void windowFullscreenToggle();
