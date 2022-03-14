@@ -521,8 +521,6 @@ void Unit::Write32(u32 addr, u32 val)
         return;
 
     case 0x064:
-        // TODO: check what happens when writing to it during display
-        // esp. if a capture is happening
         CaptureCnt = val & 0xEF3F1F1F;
         return;
 
