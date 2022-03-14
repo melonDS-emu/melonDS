@@ -564,6 +564,7 @@ void Write(u8 val, u32 hold)
 
     default:
         printf("unknown firmware SPI command %02X\n", CurCmd);
+        Data = 0xFF;
         break;
     }
 

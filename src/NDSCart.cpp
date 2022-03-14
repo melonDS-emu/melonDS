@@ -529,17 +529,17 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
         {
         case 0x04: // write disable
             SRAMStatus &= ~(1<<1);
-            break;
+            return 0;
         case 0x06: // write enable
             SRAMStatus |= (1<<1);
-            break;
+            return 0;
 
         default:
             SRAMCmd = val;
             SRAMAddr = 0;
         }
 
-        return 0;
+        return 0xFF;
     }
 
     switch (SRAMType)
@@ -547,7 +547,7 @@ u8 CartRetail::SPIWrite(u8 val, u32 pos, bool last)
     case 1: return SRAMWrite_EEPROMTiny(val, pos, last);
     case 2: return SRAMWrite_EEPROM(val, pos, last);
     case 3: return SRAMWrite_FLASH(val, pos, last);
-    default: return 0;
+    default: return 0xFF;
     }
 }
 
@@ -628,7 +628,7 @@ u8 CartRetail::SRAMWrite_EEPROMTiny(u8 val, u32 pos, bool last)
     default:
         if (pos == 1)
             printf("unknown tiny EEPROM save command %02X\n", SRAMCmd);
-        return 0;
+        return 0xFF;
     }
 }
 
@@ -694,7 +694,7 @@ u8 CartRetail::SRAMWrite_EEPROM(u8 val, u32 pos, bool last)
     default:
         if (pos == 1)
             printf("unknown EEPROM save command %02X\n", SRAMCmd);
-        return 0;
+        return 0xFF;
     }
 }
 
@@ -838,7 +838,7 @@ u8 CartRetail::SRAMWrite_FLASH(u8 val, u32 pos, bool last)
     default:
         if (pos == 1)
             printf("unknown FLASH save command %02X\n", SRAMCmd);
-        return 0;
+        return 0xFF;
     }
 }
 
