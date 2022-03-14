@@ -627,13 +627,12 @@ swi_bit_unpack:
 
 #define lz77_control      r3
 #define lz77_value        r4
+#define lz77_vram_tmp     r5
 #define lz77_value_b      r14
 #define window_length     r14
 #define window_offset     r12
 #define window_ptr        r12
 
-// TODO: Do a separate version for VRAM
-swi_lz77_decompress_vram:
 swi_lz77_decompress_wram:
   ldr header, [ source ], #4
   movs length, header, lsr #8
@@ -681,6 +680,75 @@ swi_lz77_decompress_wram:
   ldrb lz77_value, [ source ], #1
   subs length, length, #1
   strb lz77_value, [ dest ], #1
+  beq swi_complete
+
+  movs lz77_control, lz77_control, lsl #1
+  bpl 1b
+  b 0b
+  
+
+swi_lz77_decompress_vram:
+  ldr header, [ source ], #4
+  movs length, header, lsr #8
+  beq swi_complete
+  
+  stmdb sp!, { r5 }
+  mov r5, #0
+
+ 0:
+  ldrb lz77_control, [ source ], #1
+  // This will hit the MSB after 8 iterations
+  orr lz77_control, lz77_control, #(1 << 23)
+
+ 1:
+  tst lz77_control, #0x80
+  beq 2f
+
+  // Load a window of data that was loaded before
+
+  // Read 16-bit unaligned value
+  ldrb lz77_value, [ source ], #1
+  ldrb lz77_value_b, [ source ], #1
+  orr lz77_value, lz77_value_b, lz77_value, lsl #8
+
+  // Get length and offset from lz77 value
+  mov window_length, lz77_value, lsr #12
+  bic window_offset, lz77_value, #0xF000
+  
+  add window_length, window_length, #3
+  sub window_ptr, dest, window_offset
+  sub window_ptr, window_ptr, #1
+
+ 3:
+  tst dest, #1
+  ldreqb lz77_vram_tmp, [ window_ptr ], #1
+  ldrneb lz77_value, [ window_ptr ], #1
+  orrne lz77_value, lz77_vram_tmp, lz77_value, lsl #8
+  strneh lz77_value, [ dest, #-1 ]
+  add dest, dest, #1
+  
+  subs length, length, #1
+  ldmeqia sp!, { r5 }
+  beq swi_complete
+
+  subs window_length, window_length, #1
+  bne 3b
+
+  movs lz77_control, lz77_control, lsl #1
+  bpl 1b
+  b 0b
+
+  // Load a single value
+ 2:
+  tst dest, #1
+  ldreqb lz77_vram_tmp, [ source ], #1
+  ldrneb lz77_value, [ source ], #1
+  orrne lz77_value, lz77_vram_tmp, lz77_value, lsl #8
+  strneh lz77_value, [ dest, #-1 ]
+  add dest, dest, #1
+  
+  subs length, length, #1
+  ldmeqia sp!, { r5 }
   beq swi_complete
 
   movs lz77_control, lz77_control, lsl #1
