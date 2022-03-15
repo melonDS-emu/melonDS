@@ -1992,11 +1992,17 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
 {
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName);
 
-    QString romFileName = ""; // file name inside archive
-
     if (archiveROMList.size() > 2)
     {
         archiveROMList.removeFirst();
+        archiveROMList.erase(std::remove_if(archiveROMList.begin(),
+                                            archiveROMList.end(),
+                                            [&](const auto& filename){
+            return !FileExtensionInList(filename, NdsRomExtensions);
+        }), archiveROMList.end());
+
+        if (archiveROMList.size() == 1)
+            return archiveROMList.at(0);
 
         bool ok;
         QString toLoad = QInputDialog::getItem(this, "melonDS",
@@ -2004,22 +2010,18 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
         if (!ok) // User clicked on cancel
             return QString();
 
-        romFileName = toLoad;
-    }
-    else if (archiveROMList.size() == 2)
-    {
-        romFileName = archiveROMList.at(1);
-    }
-    else if ((archiveROMList.size() == 1) && (archiveROMList[0] == QString("OK")))
-    {
-        QMessageBox::warning(this, "melonDS", "This archive is empty.");
-    }
-    else
-    {
-        QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+        return toLoad;
     }
 
-    return romFileName;
+    if (archiveROMList.size() == 2)
+        return archiveROMList.at(1);
+
+    if ((archiveROMList.size() == 1) && (archiveROMList.at(0) == "OK"))
+        QMessageBox::warning(this, "melonDS", "This archive is empty.");
+    else
+        QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+
+    return QString();
 }
 
 QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyntax)
