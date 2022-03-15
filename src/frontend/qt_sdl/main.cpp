@@ -90,7 +90,14 @@
 
 const QStringList NdsRomExtensions{".nds", ".srl", ".dsi"};
 const QStringList GbaRomExtensions{".gba"};
-const QStringList ArchiveExtensions{".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst"};
+const QStringList ArchiveExtensions{
+    ".zip", ".7z", ".rar", ".tar",
+    ".tar.gz",  ".tgz",
+    ".tar.xz",  ".txz",
+    ".tar.bz2", ".tbz2",
+    ".tar.lz4", ".tlz4",
+    ".tar.zst", ".tzst",
+};
 
 bool RunningSomething;
 
