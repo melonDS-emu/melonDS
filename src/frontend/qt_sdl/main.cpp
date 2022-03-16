@@ -1992,36 +1992,38 @@ QString MainWindow::pickFileFromArchive(QString archiveFileName)
 {
     QVector<QString> archiveROMList = Archive::ListArchive(archiveFileName);
 
-    if (archiveROMList.size() > 2)
+    if (archiveROMList.size() <= 1)
     {
-        archiveROMList.removeFirst();
-        archiveROMList.erase(std::remove_if(archiveROMList.begin(),
-                                            archiveROMList.end(),
-                                            [&](const auto& filename){
-            return !FileExtensionInList(filename, NdsRomExtensions);
-        }), archiveROMList.end());
-
-        if (archiveROMList.size() == 1)
-            return archiveROMList.at(0);
-
-        bool ok;
-        QString toLoad = QInputDialog::getItem(this, "melonDS",
-                                  "This archive contains multiple files. Select which ROM you want to load.", archiveROMList.toList(), 0, false, &ok);
-        if (!ok) // User clicked on cancel
-            return QString();
-
-        return toLoad;
+        if (!archiveROMList.isEmpty() && archiveROMList.at(0) == "OK")
+            QMessageBox::warning(this, "melonDS", "This archive is empty.");
+        else
+            QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+        return QString();
     }
 
-    if (archiveROMList.size() == 2)
-        return archiveROMList.at(1);
+    archiveROMList.removeFirst();
 
-    if ((archiveROMList.size() == 1) && (archiveROMList.at(0) == "OK"))
-        QMessageBox::warning(this, "melonDS", "This archive is empty.");
-    else
-        QMessageBox::critical(this, "melonDS", "This archive could not be read. It may be corrupt or you don't have the permissions.");
+    const auto notNdsRom = [&](const auto& filename){ return !FileExtensionInList(filename, NdsRomExtensions); };
+    archiveROMList.erase(std::remove_if(archiveROMList.begin(), archiveROMList.end(), notNdsRom),
+                         archiveROMList.end());
 
-    return QString();
+    if (archiveROMList.isEmpty())
+    {
+        QMessageBox::warning(this, "melonDS", "This archive does not contain any ROMs.");
+        return QString();
+    }
+
+    if (archiveROMList.size() == 1)
+        return archiveROMList.first();
+
+    bool ok;
+    QString toLoad = QInputDialog::getItem(this, "melonDS",
+                                           "This archive contains multiple files. Select which ROM you want to load.",
+                                           archiveROMList.toList(), 0, false, &ok);
+    if (!ok) // User clicked on cancel
+        return QString();
+
+    return toLoad;
 }
 
 QStringList MainWindow::splitArchivePath(const QString& filename, bool memberSyntax)
