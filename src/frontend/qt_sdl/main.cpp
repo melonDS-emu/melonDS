@@ -35,6 +35,7 @@
 #include <QKeyEvent>
 #include <QMimeData>
 #include <QVector>
+#include <QCommandLineParser>
 #ifndef _WIN32
 #include <QSocketNotifier>
 #include <unistd.h>
@@ -2993,14 +2994,28 @@ bool MelonApplication::event(QEvent *event)
 
 int main(int argc, char** argv)
 {
+    MelonApplication melon(argc, argv);
+
+    QCoreApplication::setApplicationName("melonDS");
+    QCoreApplication::setApplicationVersion(MELONDS_VERSION);
+
+    QCommandLineParser cmdargs;
+    cmdargs.setApplicationDescription("Nintendo DS and DSi emulator");
+    cmdargs.addHelpOption();
+    cmdargs.addVersionOption();
+    QCommandLineOption fullscreen({{"f","fullscreen"}, "Starts the emulator in fullscreen."});
+    cmdargs.addOption(fullscreen);
+    cmdargs.addPositionalArgument("roms", "ROMs to load, optionally.", "[roms...]");
+
+    cmdargs.process(melon);
+    QStringList roms = cmdargs.positionalArguments();
+
     srand(time(NULL));
 
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");
 
     Platform::Init(argc, argv);
-
-    MelonApplication melon(argc, argv);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -3112,14 +3127,9 @@ int main(int argc, char** argv)
 
     QObject::connect(&melon, &QApplication::applicationStateChanged, mainWindow, &MainWindow::onAppStateChanged);
 
-    if (argc > 1)
-    {
-        QString file = argv[1];
-        QString gbafile = "";
-        if (argc > 2) gbafile = argv[2];
+    if (roms.size()) mainWindow->preloadROMs(QString(roms.at(0)), (roms.size() > 1) ? QString(roms.at(1)) : "");
 
-        mainWindow->preloadROMs(file, gbafile);
-    }
+    if(cmdargs.isSet(fullscreen)) emuThread->windowFullscreenToggle();
 
     int ret = melon.exec();
 
