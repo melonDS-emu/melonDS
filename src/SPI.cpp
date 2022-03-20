@@ -127,8 +127,8 @@ void LoadDefaultFirmware()
     if (NDS::ConsoleType == 1)
     {
         Firmware[0x1D] = 0x57; // DSi
-        Firmware[0x2F] = 0x18;
-        Firmware[0x1FD] = 0x02;
+        Firmware[0x2F] = 0x0F;
+        Firmware[0x1FD] = 0x01;
         Firmware[0x1FE] = 0x20;
     }
     else
