@@ -215,37 +215,47 @@ void LoadDefaultFirmware()
     // wifi access points
     // TODO: WFC ID??
 
-    u32 apdata = userdata - 0x400;
-    memset(&Firmware[apdata], 0, 0x300);
-
-    strcpy((char*)&Firmware[apdata+0x40], "melonAP");
-    if (NDS::ConsoleType == 1) *(u16*)&Firmware[apdata+0xEA] = 1400;
-    Firmware[apdata+0xEF] = 0x01;
-    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
-
-    apdata += 0x100;
-    Firmware[apdata+0xE7] = 0xFF;
-    Firmware[apdata+0xEF] = 0x01;
-    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
-
-    apdata += 0x100;
-    Firmware[apdata+0xE7] = 0xFF;
-    Firmware[apdata+0xEF] = 0x01;
-    *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
-
-    if (NDS::ConsoleType == 1)
+    FILE* f = Platform::OpenLocalFile("wfcsettings.bin", "rb");
+    if (f)
     {
-        apdata = userdata - 0xA00;
-        Firmware[apdata+0xE7] = 0xFF;
+        u32 apdata = userdata - 0xA00;
+        fread(&Firmware[apdata], 0x900, 1, f);
+        fclose(f);
+    }
+    else
+    {
+        u32 apdata = userdata - 0x400;
+        memset(&Firmware[apdata], 0, 0x300);
+
+        strcpy((char*)&Firmware[apdata+0x40], "melonAP");
+        if (NDS::ConsoleType == 1) *(u16*)&Firmware[apdata+0xEA] = 1400;
+        Firmware[apdata+0xEF] = 0x01;
         *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
 
-        apdata += 0x200;
+        apdata += 0x100;
         Firmware[apdata+0xE7] = 0xFF;
+        Firmware[apdata+0xEF] = 0x01;
         *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
 
-        apdata += 0x200;
+        apdata += 0x100;
         Firmware[apdata+0xE7] = 0xFF;
+        Firmware[apdata+0xEF] = 0x01;
         *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+        if (NDS::ConsoleType == 1)
+        {
+            apdata = userdata - 0xA00;
+            Firmware[apdata+0xE7] = 0xFF;
+            *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+            apdata += 0x200;
+            Firmware[apdata+0xE7] = 0xFF;
+            *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+
+            apdata += 0x200;
+            Firmware[apdata+0xE7] = 0xFF;
+            *(u16*)&Firmware[apdata+0xFE] = CRC16(&Firmware[apdata], 0xFE, 0x0000);
+        }
     }
 }
 
@@ -575,9 +585,19 @@ void Write(u8 val, u32 hold)
             FILE* f = Platform::OpenLocalFile(FirmwarePath, "r+b");
             if (f)
             {
-                u32 cutoff = 0x7FA00 & FirmwareMask;
+                u32 cutoff = ((NDS::ConsoleType==1) ? 0x7F400 : 0x7FA00) & FirmwareMask;
                 fseek(f, cutoff, SEEK_SET);
                 fwrite(&Firmware[cutoff], FirmwareLength-cutoff, 1, f);
+                fclose(f);
+            }
+        }
+        else
+        {
+            FILE* f = Platform::OpenLocalFile("wfcsettings.bin", "wb");
+            if (f)
+            {
+                u32 cutoff = 0x7F400 & FirmwareMask;
+                fwrite(&Firmware[cutoff], 0x900, 1, f);
                 fclose(f);
             }
         }
