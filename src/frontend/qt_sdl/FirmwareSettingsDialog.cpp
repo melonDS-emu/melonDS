@@ -65,6 +65,8 @@ FirmwareSettingsDialog::FirmwareSettingsDialog(QWidget* parent) : QDialog(parent
 
     ui->txtMAC->setText(QString::fromStdString(Config::FirmwareMAC));
     ui->cbRandomizeMAC->setChecked(Config::RandomizeMAC);
+
+    on_overrideFirmwareBox_toggled();
     on_cbRandomizeMAC_toggled();
 }
 
@@ -200,6 +202,13 @@ void FirmwareSettingsDialog::on_cbxBirthdayMonth_currentIndexChanged(int idx)
             ui->cbxBirthdayDay->removeItem(i-1);
         }
     }
+}
+
+void FirmwareSettingsDialog::on_overrideFirmwareBox_toggled()
+{
+    bool disable = !ui->overrideFirmwareBox->isChecked();
+    ui->grpUserSettings->setDisabled(disable);
+    ui->grpWifiSettings->setDisabled(disable);
 }
 
 void FirmwareSettingsDialog::on_cbRandomizeMAC_toggled()
