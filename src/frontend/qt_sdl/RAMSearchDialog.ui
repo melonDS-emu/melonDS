@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>RAMInfoDialog</class>
- <widget class="QDialog" name="RAMInfoDialog">
+ <class>RamSearchDialog</class>
+ <widget class="QDialog" name="RamSearchDialog">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -26,7 +26,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string>RAM info - melonDS</string>
+   <string>RAM Search - melonDS</string>
   </property>
   <property name="modal">
    <bool>false</bool>

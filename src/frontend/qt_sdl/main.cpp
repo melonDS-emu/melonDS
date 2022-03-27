@@ -60,7 +60,7 @@
 #include "WifiSettingsDialog.h"
 #include "InterfaceSettingsDialog.h"
 #include "ROMInfoDialog.h"
-#include "RAMInfoDialog.h"
+#include "RamSearchDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
 
@@ -2573,7 +2573,7 @@ void MainWindow::onROMInfo()
 
 void MainWindow::onRAMInfo()
 {
-    RAMInfoDialog* dlg = RAMInfoDialog::openDlg(this);
+    RamSearchDialog* dlg = RamSearchDialog::openDlg(this);
 }
 
 void MainWindow::onOpenTitleManager()

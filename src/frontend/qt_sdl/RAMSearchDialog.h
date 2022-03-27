@@ -16,8 +16,8 @@
     with melonDS. If not, see http://www.gnu.org/licenses/.
 */
 
-#ifndef RAMINFODIALOG_H
-#define RAMINFODIALOG_H
+#ifndef RAMSEARCHDIALOG_H
+#define RAMSEARCHDIALOG_H
 
 #include <QDialog>
 #include <QTableWidget>
@@ -28,40 +28,38 @@
 #include "types.h"
 #include "NDS.h"
 
-namespace Ui { class RAMInfoDialog; }
-class RAMInfoDialog;
-class RAMSearchThread;
-class RAMUpdateThread;
+namespace Ui { class RamSearchDialog; }
+class RamSearchDialog;
 
-enum ramInfo_ByteType
+enum ramSearch_ByteType
 {
-    ramInfo_OneByte = 1, 
-    ramInfo_TwoBytes = 2, 
-    ramInfo_FourBytes = 4
+    ramSearch_OneByte = 1, 
+    ramSearch_TwoBytes = 2, 
+    ramSearch_FourBytes = 4
 };
 
-enum ramInfoSTh_SearchMode
+enum ramSearch_SearchMode
 {
-    ramInfoSTh_Default,
-    ramInfoSTh_SearchAll
+    ramSearch_Next,
+    ramSearch_First
 };
 
 enum
 {
-    ramInfo_Address, 
-    ramInfo_Value, 
-    ramInfo_Previous
+    ramSearch_Address, 
+    ramSearch_Value, 
+    ramSearch_Previous
 };
 
-s32 GetMainRAMValue(const u32& addr, const ramInfo_ByteType& byteType);
+s32 GetMainRAMValue(const u32& addr, const ramSearch_ByteType& byteType);
 
-struct ramInfo_RowData
+struct ramSearch_RowData
 {
     u32 Address;
     s32 Value;
     s32 Previous;
 
-    void Update(const ramInfo_ByteType& byteType)
+    void Update(const ramSearch_ByteType& byteType)
     {
         Value = GetMainRAMValue(Address, byteType);
     }
@@ -73,16 +71,16 @@ struct ramInfo_RowData
     }
 };
 
-class RAMInfoDialog : public QDialog
+class RamSearchDialog : public QDialog
 {
     Q_OBJECT
 
 public:
-    explicit RAMInfoDialog(QWidget* parent);
-    ~RAMInfoDialog();
+    explicit RamSearchDialog(QWidget* parent);
+    ~RamSearchDialog();
 
-    static RAMInfoDialog* currentDlg;
-    static RAMInfoDialog* openDlg(QWidget* parent)
+    static RamSearchDialog* currentDlg;
+    static RamSearchDialog* openDlg(QWidget* parent)
     {
         if (currentDlg)
         {
@@ -90,7 +88,7 @@ public:
             return currentDlg;
         }
 
-        currentDlg = new RAMInfoDialog(parent);
+        currentDlg = new RamSearchDialog(parent);
         currentDlg->show();
         return currentDlg;
     }
@@ -99,8 +97,9 @@ public:
         currentDlg = nullptr;
     }
 
-    s32 SearchValue = 0;
-
+    void FirstSearch();
+    void FirstSearch(const s32 value);
+    void NextSearch(const s32 value);
     void ClearTableContents();
 
 private slots:
@@ -115,47 +114,18 @@ private slots:
 
     void OnSearchFinished();
     void ShowRowsInTable();
-    void SetProgressbarValue(const u32& value);
+    std::vector<ramSearch_RowData>* GetRowDataVector();
 
 private:
-    Ui::RAMInfoDialog* ui;
-    
-    RAMSearchThread* SearchThread;
+    Ui::RamSearchDialog* ui;
+
     QTimer* TableUpdater;
-};
 
-class RAMSearchThread : public QThread
-{
-    Q_OBJECT
+    bool IsFirstSearch = true;
 
-public:
-    explicit RAMSearchThread(RAMInfoDialog* dialog);
-    ~RAMSearchThread() override;
-
-    void Start(const s32& searchValue, const ramInfoSTh_SearchMode& searchMode = ramInfoSTh_Default);
-    void Start(const ramInfoSTh_SearchMode& searchMode);
+    std::vector<ramSearch_RowData>* RowDataVector = nullptr;
+    ramSearch_ByteType SearchByteType = ramSearch_OneByte;
     
-    void SetSearchByteType(const ramInfo_ByteType& bytetype);
-    ramInfo_ByteType GetSearchByteType() const;
-    std::vector<ramInfo_RowData>* GetResults();
-
-    void Stop();
-
-private:
-    void run();
-
-    RAMInfoDialog* Dialog;
-    bool SearchRunning = false;
-
-    ramInfoSTh_SearchMode SearchMode;
-    s32 SearchValue;
-    ramInfo_ByteType SearchByteType = ramInfo_OneByte;
-    std::vector<ramInfo_RowData>* RowDataVector = nullptr;
-
-    void ClearTableContents();
-
-signals:
-    void SetProgressbarValue(const u32& value);
 };
 
-#endif // RAMINFODIALOG_H
+#endif // RAMSEARCHDIALOG_H
