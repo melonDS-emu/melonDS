@@ -21,6 +21,8 @@
 
 #include "main.h"
 
+extern EmuThread* emuThread;
+
 s32 GetMainRAMValue(const u32& addr, const ramSearch_ByteType& byteType)
 {
     switch (byteType)
@@ -70,6 +72,9 @@ void RAMSearchDialog::OnSearchFinished()
     ui->ramTable->setRowCount(RowDataVector->size());
     ui->ramTable->verticalScrollBar()->setSliderPosition(0);
     ui->txtFound->setText(QString("Found: %1").arg(RowDataVector->size()));
+
+    // Unpause game running
+    emuThread->emuUnpause();
 
     TableUpdater->start();
 }
@@ -129,6 +134,9 @@ void RAMSearchDialog::FirstSearch()
     u32 progress = 0;
     TableUpdater->stop();
 
+    // Pause game running
+    emuThread->emuPause();
+
     for (u32 addr = 0x02000000; addr < 0x02000000+NDS::MainRAMMaxSize; addr += SearchByteType)
     {
         const s32& value = GetMainRAMValue(addr, SearchByteType);
@@ -152,6 +160,9 @@ void RAMSearchDialog::FirstSearch(const s32 searchValue)
     // First Search mode
     u32 progress = 0;
     TableUpdater->stop();
+
+    // Pause game running
+    emuThread->emuPause();
 
     for (u32 addr = 0x02000000; addr < 0x02000000+NDS::MainRAMMaxSize; addr += SearchByteType)
     {
@@ -177,6 +188,9 @@ void RAMSearchDialog::NextSearch(const s32 searchValue)
     // Next search mode
     u32 progress = 0;
     TableUpdater->stop();
+
+    // Pause game running
+    emuThread->emuPause();
         
     std::vector<ramSearch_RowData>* newRowDataVector = new std::vector<ramSearch_RowData>();
     for (u32 row = 0; row < RowDataVector->size(); row++)
