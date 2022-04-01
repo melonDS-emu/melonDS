@@ -561,9 +561,9 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
                     u32 bB = (val >> 10) & 0x1F;
                     u32 aB = val >> 15;
 
-                    u32 rD = ((rA * aA * eva) + (rB * aB * evb)) >> 4;
-                    u32 gD = ((gA * aA * eva) + (gB * aB * evb)) >> 4;
-                    u32 bD = ((bA * aA * eva) + (bB * aB * evb)) >> 4;
+                    u32 rD = ((rA * aA * eva) + (rB * aB * evb) + 8) >> 4;
+                    u32 gD = ((gA * aA * eva) + (gB * aB * evb) + 8) >> 4;
+                    u32 bD = ((bA * aA * eva) + (bB * aB * evb) + 8) >> 4;
                     u32 aD = (eva>0 ? aA : 0) | (evb>0 ? aB : 0);
 
                     if (rD > 0x1F) rD = 0x1F;
@@ -588,9 +588,9 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
                     u32 bA = (val >> 17) & 0x1F;
                     u32 aA = ((val >> 24) != 0) ? 1 : 0;
 
-                    u32 rD = (rA * aA * eva) >> 4;
-                    u32 gD = (gA * aA * eva) >> 4;
-                    u32 bD = (bA * aA * eva) >> 4;
+                    u32 rD = ((rA * aA * eva) + 8) >> 4;
+                    u32 gD = ((gA * aA * eva) + 8) >> 4;
+                    u32 bD = ((bA * aA * eva) + 8) >> 4;
                     u32 aD = (eva>0 ? aA : 0);
 
                     dst[dstaddr] = rD | (gD << 5) | (bD << 10) | (aD << 15);
