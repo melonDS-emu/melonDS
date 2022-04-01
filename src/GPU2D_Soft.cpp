@@ -38,9 +38,9 @@ SoftRenderer::SoftRenderer()
 
 u32 SoftRenderer::ColorBlend4(u32 val1, u32 val2, u32 eva, u32 evb)
 {
-    u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 4;
-    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 4) & 0x007F00;
-    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 4) & 0x7F0000;
+    u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000008) >> 4;
+    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x000800) >> 4) & 0x007F00;
+    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x080000) >> 4) & 0x7F0000;
 
     if (r > 0x00003F) r = 0x00003F;
     if (g > 0x003F00) g = 0x003F00;
@@ -56,16 +56,16 @@ u32 SoftRenderer::ColorBlend5(u32 val1, u32 val2)
 
     if (eva == 32) return val1;
 
-    u32 r = (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb)) >> 5;
-    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb)) >> 5) & 0x007F00;
-    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb)) >> 5) & 0x7F0000;
+    u32 r =  (((val1 & 0x00003F) * eva) + ((val2 & 0x00003F) * evb) + 0x000010) >> 5;
+    u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x001000) >> 5) & 0x007F00;
+    u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x100000) >> 5) & 0x7F0000;
 
-    if (eva <= 16)
+    /*if (eva <= 16)
     {
         r += 0x000001;
         g += 0x000100;
         b += 0x010000;
-    }
+    }*/
 
     if (r > 0x00003F) r = 0x00003F;
     if (g > 0x003F00) g = 0x003F00;
@@ -79,8 +79,8 @@ u32 SoftRenderer::ColorBrightnessUp(u32 val, u32 factor)
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
 
-    rb += ((((0x3F003F - rb) * factor) >> 4) & 0x3F003F);
-    g += ((((0x003F00 - g) * factor) >> 4) & 0x003F00);
+    rb += (((((0x3F003F - rb) * factor) + 0x080008) >> 4) & 0x3F003F);
+    g +=  (((((0x003F00 - g ) * factor) + 0x000800) >> 4) & 0x003F00);
 
     return rb | g | 0xFF000000;
 }
@@ -90,8 +90,8 @@ u32 SoftRenderer::ColorBrightnessDown(u32 val, u32 factor)
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
 
-    rb -= (((rb * factor) >> 4) & 0x3F003F);
-    g -= (((g * factor) >> 4) & 0x003F00);
+    rb -= ((((rb * factor) + 0x070007) >> 4) & 0x3F003F);
+    g -=  ((((g  * factor) + 0x000700) >> 4) & 0x003F00);
 
     return rb | g | 0xFF000000;
 }
