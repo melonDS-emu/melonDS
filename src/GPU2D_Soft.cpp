@@ -67,24 +67,24 @@ u32 SoftRenderer::ColorBlend5(u32 val1, u32 val2)
     return r | g | b | 0xFF000000;
 }
 
-u32 SoftRenderer::ColorBrightnessUp(u32 val, u32 factor)
+u32 SoftRenderer::ColorBrightnessUp(u32 val, u32 factor, u32 bias)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
 
-    rb += (((((0x3F003F - rb) * factor) + 0x080008) >> 4) & 0x3F003F);
-    g +=  (((((0x003F00 - g ) * factor) + 0x000800) >> 4) & 0x003F00);
+    rb += (((((0x3F003F - rb) * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
+    g +=  (((((0x003F00 - g ) * factor) + (bias*0x000100)) >> 4) & 0x003F00);
 
     return rb | g | 0xFF000000;
 }
 
-u32 SoftRenderer::ColorBrightnessDown(u32 val, u32 factor)
+u32 SoftRenderer::ColorBrightnessDown(u32 val, u32 factor, u32 bias)
 {
     u32 rb = val & 0x3F003F;
     u32 g = val & 0x003F00;
 
-    rb -= ((((rb * factor) + 0x070007) >> 4) & 0x3F003F);
-    g -=  ((((g  * factor) + 0x000700) >> 4) & 0x003F00);
+    rb -= ((((rb * factor) + (bias*0x010001)) >> 4) & 0x3F003F);
+    g -=  ((((g  * factor) + (bias*0x000100)) >> 4) & 0x003F00);
 
     return rb | g | 0xFF000000;
 }
@@ -153,8 +153,8 @@ u32 SoftRenderer::ColorComposite(int i, u32 val1, u32 val2)
     {
     case 0: return val1;
     case 1: return ColorBlend4(val1, val2, eva, evb);
-    case 2: return ColorBrightnessUp(val1, CurUnit->EVY);
-    case 3: return ColorBrightnessDown(val1, CurUnit->EVY);
+    case 2: return ColorBrightnessUp(val1, CurUnit->EVY, 0x8);
+    case 3: return ColorBrightnessDown(val1, CurUnit->EVY, 0x7);
     case 4: return ColorBlend5(val1, val2);
     }
 
@@ -328,7 +328,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
             for (int i = 0; i < 256; i++)
             {
-                dst[i] = ColorBrightnessUp(dst[i], factor);
+                dst[i] = ColorBrightnessUp(dst[i], factor, 0x0);
             }
         }
         else if ((masterBrightness >> 14) == 2)
@@ -339,7 +339,7 @@ void SoftRenderer::DrawScanline(u32 line, Unit* unit)
 
             for (int i = 0; i < 256; i++)
             {
-                dst[i] = ColorBrightnessDown(dst[i], factor);
+                dst[i] = ColorBrightnessDown(dst[i], factor, 0xF);
             }
         }
     }
@@ -445,8 +445,8 @@ void SoftRenderer::DoCapture(u32 line, u32 width)
                         u32 evy = (val3 >> 8) & 0x1F;
 
                         val1 = _3dval;
-                        if      (compmode == 2) val1 = ColorBrightnessUp(val1, evy);
-                        else if (compmode == 3) val1 = ColorBrightnessDown(val1, evy);
+                        if      (compmode == 2) val1 = ColorBrightnessUp(val1, evy, 0x8);
+                        else if (compmode == 3) val1 = ColorBrightnessDown(val1, evy, 0x7);
                     }
                     else
                         val1 = val2;
