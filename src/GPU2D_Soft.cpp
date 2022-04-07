@@ -60,13 +60,6 @@ u32 SoftRenderer::ColorBlend5(u32 val1, u32 val2)
     u32 g = ((((val1 & 0x003F00) * eva) + ((val2 & 0x003F00) * evb) + 0x001000) >> 5) & 0x007F00;
     u32 b = ((((val1 & 0x3F0000) * eva) + ((val2 & 0x3F0000) * evb) + 0x100000) >> 5) & 0x7F0000;
 
-    /*if (eva <= 16)
-    {
-        r += 0x000001;
-        g += 0x000100;
-        b += 0x010000;
-    }*/
-
     if (r > 0x00003F) r = 0x00003F;
     if (g > 0x003F00) g = 0x003F00;
     if (b > 0x3F0000) b = 0x3F0000;
