@@ -1107,6 +1107,8 @@ int ClassifyAddress9(u32 addr)
             return memregion_IO9;
         case 0x06000000:
             return memregion_VRAM;
+        case 0x0C000000:
+            return (NDS::ConsoleType==1) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }
@@ -1156,7 +1158,9 @@ int ClassifyAddress7(u32 addr)
         case 0x06000000:
         case 0x06800000:
             return memregion_VWRAM;
-
+        case 0x0C000000:
+        case 0x0C800000:
+            return (NDS::ConsoleType==1) ? memregion_MainRAM : memregion_Other;
         default:
             return memregion_Other;
         }
