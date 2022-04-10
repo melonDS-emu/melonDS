@@ -123,10 +123,17 @@ void DSi_NDMA::WriteCnt(u32 val)
 
         if ((StartMode & 0x1F) == 0x10)
             Start();
+        else if (StartMode == 0x0A)
+            GPU3D::CheckFIFODMA();
 
-        if (StartMode != 0x10 && StartMode != 0x30 &&
-            StartMode != 0x04 && StartMode != 0x06 && StartMode != 0x07 && StartMode != 0x08 && StartMode != 0x09 && StartMode != 0x0B &&
-            StartMode != 0x24 && StartMode != 0x26 && StartMode != 0x28 && StartMode != 0x29 && StartMode != 0x2A && StartMode != 0x2B)
+        // TODO: unsupported start modes:
+        // * timers (00-03)
+        // * camera (ARM9 0B)
+        // * microphone (ARM7 0C)
+        // * NDS-wifi?? (ARM7 07, likely not working)
+
+        if (StartMode <= 0x03 || StartMode == 0x05 || (StartMode >= 0x0B && StartMode <= 0x0F) ||
+            (StartMode >= 0x20 && StartMode <= 0x23) || StartMode == 0x25 || StartMode == 0x27 || (StartMode >= 0x2C && StartMode <= 0x2F))
             printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
                    CPU?7:9, Num, StartMode, SrcAddr, DstAddr, TotalLength, BlockLength, Cnt);
     }
@@ -143,8 +150,12 @@ void DSi_NDMA::Start()
             RemCount = 0x1000000;
     }
 
-    // TODO: how does GXFIFO DMA work with all the block shito?
-    IterCount = RemCount;
+    // CHECKME: this is assumed to work the same as the old DMA version
+    // also not really certain how this interacts with the block subdivision system here
+    if (StartMode == 0x0A && RemCount > 112)
+        IterCount = 112;
+    else
+        IterCount = RemCount;
 
     if (((StartMode & 0x1F) != 0x10) && !(Cnt & (1<<29)))
     {
