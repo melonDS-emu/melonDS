@@ -532,31 +532,32 @@ void Unit::Write32(u32 addr, u32 val)
         return;
     }
 
-    if (!Enabled) return;
-
-    switch (addr & 0x00000FFF)
+    if (Enabled)
     {
-    case 0x028:
-        if (val & 0x08000000) val |= 0xF0000000;
-        BGXRef[0] = val;
-        if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
-        return;
-    case 0x02C:
-        if (val & 0x08000000) val |= 0xF0000000;
-        BGYRef[0] = val;
-        if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
-        return;
+        switch (addr & 0x00000FFF)
+        {
+        case 0x028:
+            if (val & 0x08000000) val |= 0xF0000000;
+            BGXRef[0] = val;
+            if (GPU::VCount < 192) BGXRefInternal[0] = BGXRef[0];
+            return;
+        case 0x02C:
+            if (val & 0x08000000) val |= 0xF0000000;
+            BGYRef[0] = val;
+            if (GPU::VCount < 192) BGYRefInternal[0] = BGYRef[0];
+            return;
 
-    case 0x038:
-        if (val & 0x08000000) val |= 0xF0000000;
-        BGXRef[1] = val;
-        if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
-        return;
-    case 0x03C:
-        if (val & 0x08000000) val |= 0xF0000000;
-        BGYRef[1] = val;
-        if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
-        return;
+        case 0x038:
+            if (val & 0x08000000) val |= 0xF0000000;
+            BGXRef[1] = val;
+            if (GPU::VCount < 192) BGXRefInternal[1] = BGXRef[1];
+            return;
+        case 0x03C:
+            if (val & 0x08000000) val |= 0xF0000000;
+            BGYRef[1] = val;
+            if (GPU::VCount < 192) BGYRefInternal[1] = BGYRef[1];
+            return;
+        }
     }
 
     Write16(addr, val&0xFFFF);
