@@ -808,6 +808,17 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
 void ScreenHandler::screenOnMousePress(QMouseEvent* event)
 {
     event->accept();
+
+    if (event->button() == Qt::RightButton)
+    {
+        // FAZIL
+        if (numTouch < 10)
+        {printf("ADDING A FUCKING FAZIL %d\n", numTouch);
+            touchPos[numTouch] = event->pos();
+            numTouch++;
+        }
+    }
+
     if (event->button() != Qt::LeftButton) return;
 
     int x = event->pos().x();
@@ -933,6 +944,7 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
     screenTrans[1].reset();
 
     touching = false;
+    numTouch = 0;
 
     setAttribute(Qt::WA_AcceptTouchEvents);
 
@@ -993,6 +1005,17 @@ void ScreenPanelNative::paintEvent(QPaintEvent* event)
         }
     }
 
+    for (int i = 0; i < numTouch; i++)
+    {
+        QPoint pos = touchPos[i];
+        QColor col = numberColors[i];
+
+        painter.setPen(col);
+        painter.drawLine(pos.x()-2, pos.y(), pos.x()+2, pos.y());
+        painter.drawLine(pos.x(), pos.y()-2, pos.x(), pos.y()+2);
+        painter.drawLine(0, 0, 100, 100);
+    }
+
     OSD::Update(nullptr);
     OSD::DrawNative(painter);
 }
@@ -1044,6 +1067,7 @@ void ScreenPanelNative::onScreenLayoutChanged()
 ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
 {
     touching = false;
+    numTouch = 0;
 
     setAttribute(Qt::WA_AcceptTouchEvents);
 }
