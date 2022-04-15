@@ -202,6 +202,8 @@ void DSi_Camera::ResetCam()
     ClocksCnt = 0;
     StandbyCnt = 0x4029; // checkme
     MiscCnt = 0;
+
+    memset(MCURegs, 0, 0x8000);
 }
 
 bool DSi_Camera::IsActivated()
@@ -287,6 +289,23 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     case 0x0018: return StandbyCnt;
     case 0x001A: return MiscCnt;
 
+    case 0x098C: return MCUAddr;
+    case 0x0990:
+    case 0x0992:
+    case 0x0994:
+    case 0x0996:
+    case 0x0998:
+    case 0x099A:
+    case 0x099C:
+    case 0x099E:
+        {
+            addr -= 0x0990;
+            u16 ret = MCU_Read((MCUAddr & 0x7FFF) + addr);
+            if (!(MCUAddr & (1<<15)))
+                ret |= (MCU_Read((MCUAddr & 0x7FFF) + addr+1) << 8);
+            return ret;
+        }
+
     case 0x301A: return ((~StandbyCnt) & 0x4000) >> 12;
     }
 
@@ -325,10 +344,58 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
         MiscCnt = val & 0x0B7B;
         printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
         return;
+
+    case 0x098C:
+        MCUAddr = val;
+        return;
+    case 0x0990:
+    case 0x0992:
+    case 0x0994:
+    case 0x0996:
+    case 0x0998:
+    case 0x099A:
+    case 0x099C:
+    case 0x099E:
+        addr -= 0x0990;
+        MCU_Write((MCUAddr & 0x7FFF) + addr, val&0xFF);
+        if (!(MCUAddr & (1<<15)))
+            MCU_Write((MCUAddr & 0x7FFF) + addr+1, val>>8);
+        return;
     }
 
     if(Num==1)printf("DSi_Camera%d: unknown write %04X %04X\n", Num, addr, val);
 }
+
+
+// TODO: not sure at all what is the accessible range
+// or if there is any overlap in the address range
+
+u8 DSi_Camera::MCU_Read(u16 addr)
+{
+    addr &= 0x7FFF;
+    printf("CAM%d MCU READ %04X\n", Num, addr);
+
+    return MCURegs[addr];
+}
+
+void DSi_Camera::MCU_Write(u16 addr, u8 val)
+{
+    addr &= 0x7FFF;
+    printf("CAM%d MCU WRITE %04X %02X\n", Num, addr, val);
+
+    switch (addr)
+    {
+    case 0x2103: // SEQ_CMD
+        {
+            MCURegs[addr] = 0;
+            //MCURegs[0x2104] = 3;
+        }
+        return;
+    }
+
+    MCURegs[addr] = val;
+}
+
 
 
 u8 DSi_Camera::Read8(u32 addr)

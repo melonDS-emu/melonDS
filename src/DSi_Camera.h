@@ -77,6 +77,9 @@ private:
 
     u8 MCURegs[0x8000];
 
+    u8 MCU_Read(u16 addr);
+    void MCU_Write(u16 addr, u8 val);
+
     static u16 ModuleCnt;
     static u16 Cnt;
 
