@@ -132,7 +132,7 @@ void DSi_NDMA::WriteCnt(u32 val)
         // * microphone (ARM7 0C)
         // * NDS-wifi?? (ARM7 07, likely not working)
 
-        if (StartMode <= 0x03 || StartMode == 0x05 || (StartMode >= 0x0B && StartMode <= 0x0F) ||
+        if (StartMode <= 0x03 || StartMode == 0x05 || (StartMode >= 0x0C && StartMode <= 0x0F) ||
             (StartMode >= 0x20 && StartMode <= 0x23) || StartMode == 0x25 || StartMode == 0x27 || (StartMode >= 0x2C && StartMode <= 0x2F))
             printf("UNIMPLEMENTED ARM%d NDMA%d START MODE %02X, %08X->%08X LEN=%d BLK=%d CNT=%08X\n",
                    CPU?7:9, Num, StartMode, SrcAddr, DstAddr, TotalLength, BlockLength, Cnt);
