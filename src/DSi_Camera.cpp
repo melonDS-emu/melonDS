@@ -31,6 +31,8 @@ Camera* Camera1; // 7A / selfie cam
 u16 ModuleCnt;
 u16 Cnt;
 
+u32 CropStart, CropEnd;
+
 /*u8 FrameBuffer[640*480*4];
 u32 FrameLength;
 u32 TransferPos;*/
@@ -70,6 +72,9 @@ void Reset()
 
     ModuleCnt = 0; // CHECKME
     Cnt = 0;
+
+    CropStart = 0;
+    CropEnd = 0;
 
     /*memset(FrameBuffer, 0, 640*480*4);
     TransferPos = 0;
@@ -131,12 +136,53 @@ void TransferScanline(u32 line)
 {
     u32* dstbuf = &DataBuffer[BufferWritePos];
     u32 maxlen = 1024 - BufferWritePos;
-    u32 datalen = CurCamera->TransferScanline(dstbuf, maxlen);
 
-    // TODO HERE:
-    // convert to RGB5 if needed
-    // crop if needed
-    // etc
+    u32 tmpbuf[1024];
+    u32 datalen = CurCamera->TransferScanline(tmpbuf, 1024);
+
+    // TODO: cropping
+    u32 copystart = 0;
+    u32 copylen = datalen;
+    if (copylen > maxlen) copylen = maxlen;
+
+    if (Cnt & (1<<13))
+    {
+        // convert to RGB
+
+        for (u32 i = 0; i < copylen; i++)
+        {
+            u32 val = tmpbuf[copystart + i];
+
+            int y1 = val & 0xFF;
+            int u = (val >> 8) & 0xFF;
+            int y2 = (val >> 16) & 0xFF;
+            int v = (val >> 24) & 0xFF;
+
+            int r1 = y1 + (((v-0x80) * 91881) >> 16);
+            int g1 = y1 - (((v-0x80) * 46793) >> 16) - (((u-0x80) * 22544) >> 16);
+            int b1 = y1 + (((u-0x80) * 116129) >> 16);
+
+            int r2 = y2 + (((v-0x80) * 91881) >> 16);
+            int g2 = y2 - (((v-0x80) * 46793) >> 16) - (((u-0x80) * 22544) >> 16);
+            int b2 = y2 + (((u-0x80) * 116129) >> 16);
+
+#define CLAMP(v) if (v < 0) v = 0; else if (v > 255) v = 255;
+            CLAMP(r1); CLAMP(g1); CLAMP(b1);
+            CLAMP(r2); CLAMP(g2); CLAMP(b2);
+#undef CLAMP
+
+            u32 col1 = (r1 >> 3) | ((g1 >> 3) << 5) | ((b1 >> 3) << 10) | 0x8000;
+            u32 col2 = (r2 >> 3) | ((g2 >> 3) << 5) | ((b2 >> 3) << 10) | 0x8000;
+
+            dstbuf[i] = col1 | (col2 << 16);
+        }
+    }
+    else
+    {
+        // return raw data
+
+        memcpy(dstbuf, &tmpbuf[copystart], copylen);
+    }
 
     // data overrun
     if (datalen > maxlen)
@@ -204,6 +250,9 @@ u32 Read32(u32 addr)
 
             return ret;
         }
+
+    case 0x04004210: return CropStart;
+    case 0x04004214: return CropEnd;
     }
 
     printf("unknown DSi cam read32 %08X\n", addr);
@@ -243,6 +292,9 @@ void Write16(u32 addr, u16 val)
 
     case 0x04004202:
         {
+            // TODO: during a transfer, clearing bit15 does not reflect immediately
+            // maybe it needs to finish the trasnfer or atleast the current block
+
             // checkme
             u16 oldmask;
             if (Cnt & 0x8000)
@@ -271,6 +323,23 @@ void Write16(u32 addr, u16 val)
             }
         }
         return;
+
+    case 0x04004210:
+        if (Cnt & (1<<15)) return;
+        CropStart = (CropStart & 0x01FF0000) | (val & 0x03FE);
+        return;
+    case 0x04004212:
+        if (Cnt & (1<<15)) return;
+        CropStart = (CropStart & 0x03FE) | ((val & 0x01FF) << 16);
+        return;
+    case 0x04004214:
+        if (Cnt & (1<<15)) return;
+        CropEnd = (CropEnd & 0x01FF0000) | (val & 0x03FE);
+        return;
+    case 0x04004216:
+        if (Cnt & (1<<15)) return;
+        CropEnd = (CropEnd & 0x03FE) | ((val & 0x01FF) << 16);
+        return;
     }
 
     printf("unknown DSi cam write16 %08X %04X\n", addr, val);
@@ -278,7 +347,17 @@ void Write16(u32 addr, u16 val)
 
 void Write32(u32 addr, u32 val)
 {
-    //
+    switch (addr)
+    {
+    case 0x04004210:
+        if (Cnt & (1<<15)) return;
+        CropStart = val & 0x01FF03FE;
+        return;
+    case 0x04004214:
+        if (Cnt & (1<<15)) return;
+        CropEnd = val & 0x01FF03FE;
+        return;
+    }
 
     printf("unknown DSi cam write32 %08X %08X\n", addr, val);
 }
@@ -429,27 +508,35 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
         sx = ((dx*2 + 1) * 640) / FrameWidth;
         u32 pixel2 = FrameBuffer[sy*640 + sx];
 
-        u32 r1 = (pixel1 >> 16) & 0xFF;
-        u32 g1 = (pixel1 >> 8) & 0xFF;
-        u32 b1 = pixel1 & 0xFF;
+        int r1 = (pixel1 >> 16) & 0xFF;
+        int g1 = (pixel1 >> 8) & 0xFF;
+        int b1 = pixel1 & 0xFF;
 
-        u32 r2 = (pixel1 >> 16) & 0xFF;
-        u32 g2 = (pixel1 >> 8) & 0xFF;
-        u32 b2 = pixel1 & 0xFF;
+        int r2 = (pixel2 >> 16) & 0xFF;
+        int g2 = (pixel2 >> 8) & 0xFF;
+        int b2 = pixel2 & 0xFF;
 
-        u32 y1 = ((r1 * 19595) + (g1 * 38470) + (b1 * 7471)) >> 16;
-        u32 u1 = ((b1 - y1) * 32244) >> 16;
-        u32 v1 = ((r1 - y1) * 57475) >> 16;
+        int y1 = ((r1 * 19595) + (g1 * 38470) + (b1 * 7471)) >> 16;
+        int u1 = ((b1 - y1) * 32244) >> 16;
+        int v1 = ((r1 - y1) * 57475) >> 16;
 
-        u32 y2 = ((r2 * 19595) + (g2 * 38470) + (b2 * 7471)) >> 16;
-        u32 u2 = ((b2 - y2) * 32244) >> 16;
-        u32 v2 = ((r2 - y2) * 57475) >> 16;
+        int y2 = ((r2 * 19595) + (g2 * 38470) + (b2 * 7471)) >> 16;
+        int u2 = ((b2 - y2) * 32244) >> 16;
+        int v2 = ((r2 - y2) * 57475) >> 16;
+
+        u1 += 128; v1 += 128;
+        u2 += 128; v2 += 128;
+
+#define CLAMP(v) if (v < 0) v = 0; else if (v > 255) v = 255;
+        CLAMP(y1); CLAMP(u1); CLAMP(v1);
+        CLAMP(y2); CLAMP(u2); CLAMP(v2);
+#undef CLAMP
 
         // huh
         u1 = (u1 + u2) >> 1;
         v1 = (v1 + v2) >> 1;
 
-        buffer[dx] = y1 | (u1 << 8) | (y2 << 16) | (u1 << 24);
+        buffer[dx] = y1 | (u1 << 8) | (y2 << 16) | (v1 << 24);
     }
 
     TransferY++;
