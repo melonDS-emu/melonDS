@@ -94,6 +94,7 @@ bool Init()
 #endif
 
     if (!DSi_I2C::Init()) return false;
+    if (!DSi_CamModule::Init()) return false;
     if (!DSi_AES::Init()) return false;
     if (!DSi_DSP::Init()) return false;
 
@@ -121,6 +122,7 @@ void DeInit()
 #endif
 
     DSi_I2C::DeInit();
+    DSi_CamModule::DeInit();
     DSi_AES::DeInit();
     DSi_DSP::DeInit();
 
@@ -142,6 +144,7 @@ void Reset()
     for (int i = 0; i < 8; i++) NDMAs[i]->Reset();
 
     DSi_I2C::Reset();
+    DSi_CamModule::Reset();
     DSi_DSP::Reset();
 
     SDMMC->CloseHandles();
@@ -241,7 +244,7 @@ void DoSavestate(Savestate* file)
         NDMAs[i]->DoSavestate(file);
 
     DSi_AES::DoSavestate(file);
-    DSi_Camera::DoSavestate(file);
+    DSi_CamModule::DoSavestate(file);
     DSi_DSP::DoSavestate(file);
     DSi_I2C::DoSavestate(file);
     SDMMC->DoSavestate(file);
@@ -2233,7 +2236,7 @@ u8 ARM9IORead8(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read8(addr);
+        return DSi_CamModule::Read8(addr);
     }
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
@@ -2265,7 +2268,7 @@ u16 ARM9IORead16(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read16(addr);
+        return DSi_CamModule::Read16(addr);
     }
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
@@ -2327,7 +2330,7 @@ u32 ARM9IORead32(u32 addr)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return 0;
-        return DSi_Camera::Read32(addr);
+        return DSi_CamModule::Read32(addr);
     }
 
     return NDS::ARM9IORead32(addr);
@@ -2391,7 +2394,7 @@ void ARM9IOWrite8(u32 addr, u8 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write8(addr, val);
+        return DSi_CamModule::Write8(addr, val);
     }
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
@@ -2451,7 +2454,7 @@ void ARM9IOWrite16(u32 addr, u16 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write16(addr, val);
+        return DSi_CamModule::Write16(addr, val);
     }
 
     if (addr >= 0x04004300 && addr <= 0x04004400)
@@ -2601,7 +2604,7 @@ void ARM9IOWrite32(u32 addr, u32 val)
     if ((addr & 0xFFFFFF00) == 0x04004200)
     {
         if (!(SCFG_EXT[0] & (1<<17))) return;
-        return DSi_Camera::Write32(addr, val);
+        return DSi_CamModule::Write32(addr, val);
     }
 
     return NDS::ARM9IOWrite32(addr, val);

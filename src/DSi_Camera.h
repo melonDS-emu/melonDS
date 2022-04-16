@@ -22,38 +22,46 @@
 #include "types.h"
 #include "Savestate.h"
 
-class DSi_Camera
+namespace DSi_CamModule
+{
+
+class Camera;
+
+extern Camera* Camera0;
+extern Camera* Camera1;
+
+bool Init();
+void DeInit();
+void Reset();
+
+void DoSavestate(Savestate* file);
+
+void IRQ(u32 param);
+void RequestFrame(u32 cam);
+
+void Transfer(u32 pos);
+
+u8 Read8(u32 addr);
+u16 Read16(u32 addr);
+u32 Read32(u32 addr);
+void Write8(u32 addr, u8 val);
+void Write16(u32 addr, u16 val);
+void Write32(u32 addr, u32 val);
+
+class Camera
 {
 public:
-    static bool Init();
-    static void DeInit();
-    static void Reset();
+    Camera(u32 num);
+    ~Camera();
 
-    static void DoSavestate(Savestate* file);
+    void DoSavestate(Savestate* file);
 
-    static void IRQ(u32 param);
-    static void RequestFrame(u32 cam);
-
-    static void Transfer(u32 pos);
-
-    DSi_Camera(u32 num);
-    ~DSi_Camera();
-
-    void DoCamSavestate(Savestate* file);
-
-    void ResetCam();
+    void Reset();
     bool IsActivated();
 
     void I2C_Start();
     u8 I2C_Read(bool last);
     void I2C_Write(u8 val, bool last);
-
-    static u8 Read8(u32 addr);
-    static u16 Read16(u32 addr);
-    static u32 Read32(u32 addr);
-    static void Write8(u32 addr, u8 val);
-    static void Write16(u32 addr, u16 val);
-    static void Write32(u32 addr, u32 val);
 
     u32 Num;
 
@@ -79,17 +87,8 @@ private:
 
     u8 MCU_Read(u16 addr);
     void MCU_Write(u16 addr, u8 val);
-
-    static u16 ModuleCnt;
-    static u16 Cnt;
-
-    static u8 FrameBuffer[640*480*4];
-    static u32 TransferPos;
-    static u32 FrameLength;
 };
 
-
-extern DSi_Camera* DSi_Camera0;
-extern DSi_Camera* DSi_Camera1;
+}
 
 #endif // DSI_CAMERA_H
