@@ -36,9 +36,8 @@ void Reset();
 void DoSavestate(Savestate* file);
 
 void IRQ(u32 param);
-void RequestFrame(u32 cam);
 
-void Transfer(u32 pos);
+void TransferScanline(u32 line);
 
 u8 Read8(u32 addr);
 u16 Read16(u32 addr);
@@ -57,6 +56,12 @@ public:
 
     void Reset();
     bool IsActivated();
+
+    void StartTransfer();
+    bool TransferDone();
+
+    // lengths in words
+    int TransferScanline(u32* buffer, int maxlen);
 
     void I2C_Start();
     u8 I2C_Read(bool last);
@@ -80,12 +85,15 @@ private:
     u16 MiscCnt;
 
     u16 MCUAddr;
-    u16* MCUData;
-
     u8 MCURegs[0x8000];
 
     u8 MCU_Read(u16 addr);
     void MCU_Write(u16 addr, u8 val);
+
+    u16 FrameWidth, FrameHeight;
+    u16 FrameReadMode, FrameFormat;
+    int TransferY;
+    u32 FrameBuffer[640*480];
 };
 
 }

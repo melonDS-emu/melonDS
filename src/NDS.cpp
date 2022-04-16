@@ -723,7 +723,7 @@ bool DoSavestate_Scheduler(Savestate* file)
         DSi_SDHost::FinishTX,
         DSi_NWifi::MSTimer,
         DSi_CamModule::IRQ,
-        DSi_CamModule::Transfer,
+        DSi_CamModule::TransferScanline,
         DSi_DSP::DSPCatchUpU32,
 
         nullptr

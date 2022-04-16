@@ -31,9 +31,14 @@ Camera* Camera1; // 7A / selfie cam
 u16 ModuleCnt;
 u16 Cnt;
 
-u8 FrameBuffer[640*480*4];
+/*u8 FrameBuffer[640*480*4];
 u32 FrameLength;
-u32 TransferPos;
+u32 TransferPos;*/
+
+// pixel data buffer holds a maximum of 1024 words, regardless of how long scanlines are
+u32 DataBuffer[1024];
+u32 BufferReadPos, BufferWritePos;
+Camera* CurCamera;
 
 // note on camera data/etc intervals
 // on hardware those are likely affected by several factors
@@ -66,9 +71,13 @@ void Reset()
     ModuleCnt = 0; // CHECKME
     Cnt = 0;
 
-    memset(FrameBuffer, 0, 640*480*4);
+    /*memset(FrameBuffer, 0, 640*480*4);
     TransferPos = 0;
-    FrameLength = 256*192*2; // TODO: make it check frame size, data type, etc
+    FrameLength = 256*192*2;*/ // TODO: make it check frame size, data type, etc
+    memset(DataBuffer, 0, 1024*sizeof(u32));
+    BufferReadPos = 0;
+    BufferWritePos = 0;
+    CurCamera = nullptr;
 
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
@@ -80,9 +89,9 @@ void DoSavestate(Savestate* file)
     file->Var16(&ModuleCnt);
     file->Var16(&Cnt);
 
-    file->VarArray(FrameBuffer, sizeof(FrameBuffer));
+    /*file->VarArray(FrameBuffer, sizeof(FrameBuffer));
     file->Var32(&TransferPos);
-    file->Var32(&FrameLength);
+    file->Var32(&FrameLength);*/
 
     Camera0->DoSavestate(file);
     Camera1->DoSavestate(file);
@@ -101,63 +110,60 @@ void IRQ(u32 param)
 
     if (activecam)
     {
-        RequestFrame(activecam->Num);
+        activecam->StartTransfer();
 
         if (Cnt & (1<<11))
             NDS::SetIRQ(0, NDS::IRQ_DSi_Camera);
 
         if (Cnt & (1<<15))
-            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, Transfer, 0);
+        {
+            BufferReadPos = 0;
+            BufferWritePos = 0;
+            CurCamera = activecam;
+            NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, TransferScanline, 0);
+        }
     }
 
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
-void RequestFrame(u32 cam)
+void TransferScanline(u32 line)
 {
-    if (!(Cnt & (1<<13))) printf("CAMERA: !! REQUESTING YUV FRAME\n");
+    u32* dstbuf = &DataBuffer[BufferWritePos];
+    u32 maxlen = 1024 - BufferWritePos;
+    u32 datalen = CurCamera->TransferScanline(dstbuf, maxlen);
 
-    // TODO: picture size, data type, cropping, etc
-    // generate test pattern
-    // TODO: get picture from platform (actual camera, video file, whatever source)
-    for (u32 y = 0; y < 192; y++)
+    // TODO HERE:
+    // convert to RGB5 if needed
+    // crop if needed
+    // etc
+
+    // data overrun
+    if (datalen > maxlen)
+        Cnt |= (1<<4);
+
+    u32 numscan = Cnt & 0x000F;
+    if (line >= numscan)
     {
-        for (u32 x = 0; x < 256; x++)
-        {
-            u16* px = (u16*)&FrameBuffer[((y*256) + x) * 2];
-
-            if ((x & 0x8) ^ (y & 0x8))
-                *px = 0x8000;
-            else
-                *px = 0xFC00 | ((y >> 3) << 5);
-        }
-    }
-}
-
-void Transfer(u32 pos)
-{
-    u32 numscan = (Cnt & 0x000F) + 1;
-    u32 numpix = numscan * 256; // CHECKME
-
-    // TODO: present data
-    //printf("CAM TRANSFER POS=%d/%d\n", pos, 0x6000*2);
-
-    DSi::CheckNDMAs(0, 0x0B);
-
-    pos += numpix;
-    if (pos >= 0x6000*2) // HACK
-    {
-        // transfer done
+        BufferReadPos = 0; // checkme
+        BufferWritePos = 0;
+        line = 0;
+        DSi::CheckNDMAs(0, 0x0B);
     }
     else
     {
-        // keep going
-
-        // TODO: must be tweaked such that each block has enough time to transfer
-        u32 delay = numpix*2 + 16;
-
-        NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, Transfer, pos);
+        BufferWritePos += datalen;
+        if (BufferWritePos > 1024) BufferWritePos = 1024;
+        line++;
     }
+
+    if (CurCamera->TransferDone())
+        return;
+
+    // TODO: must be tweaked such that each block has enough time to transfer
+    u32 delay = datalen*4 + 16;
+
+    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line);
 }
 
 
@@ -187,20 +193,16 @@ u32 Read32(u32 addr)
     {
     case 0x04004204:
         {
-            // TODO
-            return 0xFC00801F;
-            /*if (!(Cnt & (1<<15))) return 0; // CHECKME
-            u32 ret = *(u32*)&FrameBuffer[TransferPos];
-            TransferPos += 4;
-            if (TransferPos >= FrameLength) TransferPos = 0;
-            dorp += 4;
-            //if (dorp >= (256*4*2))
-            if (TransferPos == 0)
+            u32 ret = DataBuffer[BufferReadPos];
+            if (Cnt & (1<<15))
             {
-                dorp = 0;
-                Cnt &= ~(1<<4);
+                if (BufferReadPos < 1023)
+                    BufferReadPos++;
+                // CHECKME!!!!
+                // also presumably we should set bit4 in Cnt if there's no new data to be read
             }
-            return ret;*/
+
+            return ret;
         }
     }
 
@@ -216,7 +218,7 @@ void Write8(u32 addr, u8 val)
 }
 
 void Write16(u32 addr, u16 val)
-{printf("ASS CAMERA REG: %08X %04X\n", addr, val);
+{
     switch (addr)
     {
     case 0x04004200:
@@ -255,7 +257,12 @@ void Write16(u32 addr, u16 val)
             }
 
             Cnt = (Cnt & oldmask) | (val & ~0x0020);
-            if (val & (1<<5)) Cnt &= ~(1<<4);
+            if (val & (1<<5))
+            {
+                Cnt &= ~(1<<4);
+                BufferReadPos = 0;
+                BufferWritePos = 0;
+            }
 
             if ((val & (1<<15)) && !(Cnt & (1<<15)))
             {
@@ -305,8 +312,6 @@ void Camera::DoSavestate(Savestate* file)
     file->Var16(&MiscCnt);
 
     file->Var16(&MCUAddr);
-    // TODO: MCUData??
-
     file->VarArray(MCURegs, 0x8000);
 }
 
@@ -323,10 +328,26 @@ void Camera::Reset()
     StandbyCnt = 0x4029; // checkme
     MiscCnt = 0;
 
+    MCUAddr = 0;
     memset(MCURegs, 0, 0x8000);
 
     // default state is preview mode (checkme)
     MCURegs[0x2104] = 3;
+
+    TransferY = 0;
+    memset(FrameBuffer, 0, 640*480*sizeof(u32));
+
+    // test pattern
+    for (int y = 0; y < 480; y++)
+    {
+        for (int x = 0; x < 640; x++)
+        {
+            u32 color = Num ? 0x00FF0000 : 0x000000FF;
+            if ((x & 0x10) ^ (y & 0x10)) color |= 0x0000FF00;
+
+            FrameBuffer[y*640 + x] = color;
+        }
+    }
 }
 
 bool Camera::IsActivated()
@@ -335,6 +356,105 @@ bool Camera::IsActivated()
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
 
     return true;
+}
+
+
+void Camera::StartTransfer()
+{
+    TransferY = 0;
+
+    u8 state = MCURegs[0x2104];
+    if (state == 3) // preview
+    {
+        FrameWidth = *(u16*)&MCURegs[0x2703];
+        FrameHeight = *(u16*)&MCURegs[0x2705];
+        FrameReadMode = *(u16*)&MCURegs[0x2717];
+        FrameFormat = *(u16*)&MCURegs[0x2755];
+    }
+    else if (state == 7) // capture
+    {
+        FrameWidth = *(u16*)&MCURegs[0x2707];
+        FrameHeight = *(u16*)&MCURegs[0x2709];
+        FrameReadMode = *(u16*)&MCURegs[0x272D];
+        FrameFormat = *(u16*)&MCURegs[0x2757];
+    }
+    else
+    {
+        FrameWidth = 0;
+        FrameHeight = 0;
+        FrameReadMode = 0;
+        FrameFormat = 0;
+    }
+}
+
+bool Camera::TransferDone()
+{
+    return TransferY >= FrameHeight;
+}
+
+int Camera::TransferScanline(u32* buffer, int maxlen)
+{
+    if (TransferY >= FrameHeight)
+        return 0;
+
+    if (FrameWidth > 640 || FrameHeight > 480 ||
+        FrameWidth < 2 || FrameHeight < 2 ||
+        (FrameWidth & 1))
+    {
+        // TODO work out something for these cases?
+        printf("CAM%d: invalid resolution %dx%d\n", Num, FrameWidth, FrameHeight);
+        //memset(buffer, 0, width*height*sizeof(u16));
+        return 0;
+    }
+
+    // TODO: non-YUV pixel formats and all
+
+    int retlen = FrameWidth >> 1;
+    int sy = (TransferY * 480) / FrameHeight;
+
+    for (int dx = 0; dx < retlen; dx++)
+    {
+        if (dx >= maxlen) break;
+
+        // convert to YUV
+        // Y = 0.299R + 0.587G + 0.114B
+        // U = 0.492 (B-Y)
+        // V = 0.877 (R-Y)
+
+        int sx;
+
+        sx = ((dx*2) * 640) / FrameWidth;
+        u32 pixel1 = FrameBuffer[sy*640 + sx];
+
+        sx = ((dx*2 + 1) * 640) / FrameWidth;
+        u32 pixel2 = FrameBuffer[sy*640 + sx];
+
+        u32 r1 = (pixel1 >> 16) & 0xFF;
+        u32 g1 = (pixel1 >> 8) & 0xFF;
+        u32 b1 = pixel1 & 0xFF;
+
+        u32 r2 = (pixel1 >> 16) & 0xFF;
+        u32 g2 = (pixel1 >> 8) & 0xFF;
+        u32 b2 = pixel1 & 0xFF;
+
+        u32 y1 = ((r1 * 19595) + (g1 * 38470) + (b1 * 7471)) >> 16;
+        u32 u1 = ((b1 - y1) * 32244) >> 16;
+        u32 v1 = ((r1 - y1) * 57475) >> 16;
+
+        u32 y2 = ((r2 * 19595) + (g2 * 38470) + (b2 * 7471)) >> 16;
+        u32 u2 = ((b2 - y2) * 32244) >> 16;
+        u32 v2 = ((r2 - y2) * 57475) >> 16;
+
+        // huh
+        u1 = (u1 + u2) >> 1;
+        v1 = (v1 + v2) >> 1;
+
+        buffer[dx] = y1 | (u1 << 8) | (y2 << 16) | (u1 << 24);
+    }
+
+    TransferY++;
+
+    return retlen;
 }
 
 
@@ -496,18 +616,6 @@ void Camera::I2C_WriteReg(u16 addr, u16 val)
 u8 Camera::MCU_Read(u16 addr)
 {
     addr &= 0x7FFF;
-    printf("CAM%d MCU READ %04X -- %08X\n", Num, addr, NDS::GetPC(1));
-
-    switch (addr)
-    {
-    //case 0x2104: // SEQ_STATUS
-        // TODO!!!
-        // initial value 3
-        // value 7 after writing 2 to 2103
-        // preview mode: 256x512, DMA chunk size = 512
-        // capture mode: 640x480, DMA chunk size = 320
-        //return 7;
-    }
 
     return MCURegs[addr];
 }
@@ -515,7 +623,6 @@ u8 Camera::MCU_Read(u16 addr)
 void Camera::MCU_Write(u16 addr, u8 val)
 {
     addr &= 0x7FFF;
-    printf("CAM%d MCU WRITE %04X %02X\n", Num, addr, val);
 
     switch (addr)
     {
@@ -525,6 +632,9 @@ void Camera::MCU_Write(u16 addr, u8 val)
         else if (val == 1) MCURegs[0x2104] = 3; // preview mode
         else if (val != 5 && val != 6)
             printf("CAM%d: atypical SEQ_CMD %04X\n", Num, val);
+        return;
+
+    case 0x2104: // SEQ_STATE, read-only
         return;
     }
 
