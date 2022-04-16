@@ -22,15 +22,18 @@
 #include "DSi_Camera.h"
 
 
-DSi_Camera* DSi_Camera0; // 78 / facing outside
-DSi_Camera* DSi_Camera1; // 7A / selfie cam
+namespace DSi_CamModule
+{
 
-u16 DSi_Camera::ModuleCnt;
-u16 DSi_Camera::Cnt;
+Camera* Camera0; // 78 / facing outside
+Camera* Camera1; // 7A / selfie cam
 
-u8 DSi_Camera::FrameBuffer[640*480*4];
-u32 DSi_Camera::FrameLength;
-u32 DSi_Camera::TransferPos;
+u16 ModuleCnt;
+u16 Cnt;
+
+u8 FrameBuffer[640*480*4];
+u32 FrameLength;
+u32 TransferPos;
 
 // note on camera data/etc intervals
 // on hardware those are likely affected by several factors
@@ -41,24 +44,24 @@ const u32 kIRQInterval = 1120000; // ~30 FPS
 const u32 kTransferStart = 60000;
 
 
-bool DSi_Camera::Init()
+bool Init()
 {
-    DSi_Camera0 = new DSi_Camera(0);
-    DSi_Camera1 = new DSi_Camera(1);
+    Camera0 = new Camera(0);
+    Camera1 = new Camera(1);
 
     return true;
 }
 
-void DSi_Camera::DeInit()
+void DeInit()
 {
-    delete DSi_Camera0;
-    delete DSi_Camera1;
+    delete Camera0;
+    delete Camera1;
 }
 
-void DSi_Camera::Reset()
+void Reset()
 {
-    DSi_Camera0->ResetCam();
-    DSi_Camera1->ResetCam();
+    Camera0->Reset();
+    Camera1->Reset();
 
     ModuleCnt = 0; // CHECKME
     Cnt = 0;
@@ -70,7 +73,7 @@ void DSi_Camera::Reset()
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
-void DSi_Camera::DoSavestate(Savestate* file)
+void DoSavestate(Savestate* file)
 {
     file->Section("CAMi");
 
@@ -81,20 +84,20 @@ void DSi_Camera::DoSavestate(Savestate* file)
     file->Var32(&TransferPos);
     file->Var32(&FrameLength);
 
-    DSi_Camera0->DoCamSavestate(file);
-    DSi_Camera1->DoCamSavestate(file);
+    Camera0->DoSavestate(file);
+    Camera1->DoSavestate(file);
 }
 
 
-void DSi_Camera::IRQ(u32 param)
+void IRQ(u32 param)
 {
-    DSi_Camera* activecam = nullptr;
+    Camera* activecam = nullptr;
 
     // TODO: check which camera has priority if both are activated
     // (or does it just jumble both data sources together, like it
     // does for, say, overlapping VRAM?)
-    if      (DSi_Camera0->IsActivated()) activecam = DSi_Camera0;
-    else if (DSi_Camera1->IsActivated()) activecam = DSi_Camera1;
+    if      (Camera0->IsActivated()) activecam = Camera0;
+    else if (Camera1->IsActivated()) activecam = Camera1;
 
     if (activecam)
     {
@@ -110,7 +113,7 @@ void DSi_Camera::IRQ(u32 param)
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
 }
 
-void DSi_Camera::RequestFrame(u32 cam)
+void RequestFrame(u32 cam)
 {
     if (!(Cnt & (1<<13))) printf("CAMERA: !! REQUESTING YUV FRAME\n");
 
@@ -131,7 +134,7 @@ void DSi_Camera::RequestFrame(u32 cam)
     }
 }
 
-void DSi_Camera::Transfer(u32 pos)
+void Transfer(u32 pos)
 {
     u32 numscan = (Cnt & 0x000F) + 1;
     u32 numpix = numscan * 256; // CHECKME
@@ -158,16 +161,133 @@ void DSi_Camera::Transfer(u32 pos)
 }
 
 
-DSi_Camera::DSi_Camera(u32 num)
+u8 Read8(u32 addr)
+{
+    //
+
+    printf("unknown DSi cam read8 %08X\n", addr);
+    return 0;
+}
+
+u16 Read16(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04004200: return ModuleCnt;
+    case 0x04004202: return Cnt;
+    }
+
+    printf("unknown DSi cam read16 %08X\n", addr);
+    return 0;
+}
+
+u32 Read32(u32 addr)
+{
+    switch (addr)
+    {
+    case 0x04004204:
+        {
+            // TODO
+            return 0xFC00801F;
+            /*if (!(Cnt & (1<<15))) return 0; // CHECKME
+            u32 ret = *(u32*)&FrameBuffer[TransferPos];
+            TransferPos += 4;
+            if (TransferPos >= FrameLength) TransferPos = 0;
+            dorp += 4;
+            //if (dorp >= (256*4*2))
+            if (TransferPos == 0)
+            {
+                dorp = 0;
+                Cnt &= ~(1<<4);
+            }
+            return ret;*/
+        }
+    }
+
+    printf("unknown DSi cam read32 %08X\n", addr);
+    return 0;
+}
+
+void Write8(u32 addr, u8 val)
+{
+    //
+
+    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
+}
+
+void Write16(u32 addr, u16 val)
+{printf("ASS CAMERA REG: %08X %04X\n", addr, val);
+    switch (addr)
+    {
+    case 0x04004200:
+        {
+            u16 oldcnt = ModuleCnt;
+            ModuleCnt = val;
+
+            if ((ModuleCnt & (1<<1)) && !(oldcnt & (1<<1)))
+            {
+                // reset shit to zero
+                // CHECKME
+
+                Cnt = 0;
+            }
+
+            if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
+            {
+                // TODO: reset I2C??
+            }
+        }
+        return;
+
+    case 0x04004202:
+        {
+            // checkme
+            u16 oldmask;
+            if (Cnt & 0x8000)
+            {
+                val &= 0x8F20;
+                oldmask = 0x601F;
+            }
+            else
+            {
+                val &= 0xEF2F;
+                oldmask = 0x0010;
+            }
+
+            Cnt = (Cnt & oldmask) | (val & ~0x0020);
+            if (val & (1<<5)) Cnt &= ~(1<<4);
+
+            if ((val & (1<<15)) && !(Cnt & (1<<15)))
+            {
+                // start transfer
+                //DSi::CheckNDMAs(0, 0x0B);
+            }
+        }
+        return;
+    }
+
+    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
+}
+
+void Write32(u32 addr, u32 val)
+{
+    //
+
+    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
+}
+
+
+
+Camera::Camera(u32 num)
 {
     Num = num;
 }
 
-DSi_Camera::~DSi_Camera()
+Camera::~Camera()
 {
 }
 
-void DSi_Camera::DoCamSavestate(Savestate* file)
+void Camera::DoSavestate(Savestate* file)
 {
     char magic[5] = "CAMx";
     magic[3] = '0' + Num;
@@ -190,7 +310,7 @@ void DSi_Camera::DoCamSavestate(Savestate* file)
     file->VarArray(MCURegs, 0x8000);
 }
 
-void DSi_Camera::ResetCam()
+void Camera::Reset()
 {
     DataPos = 0;
     RegAddr = 0;
@@ -204,9 +324,12 @@ void DSi_Camera::ResetCam()
     MiscCnt = 0;
 
     memset(MCURegs, 0, 0x8000);
+
+    // default state is preview mode (checkme)
+    MCURegs[0x2104] = 3;
 }
 
-bool DSi_Camera::IsActivated()
+bool Camera::IsActivated()
 {
     if (StandbyCnt & (1<<14)) return false; // standby
     if (!(MiscCnt & (1<<9))) return false; // data transfer not enabled
@@ -215,11 +338,11 @@ bool DSi_Camera::IsActivated()
 }
 
 
-void DSi_Camera::I2C_Start()
+void Camera::I2C_Start()
 {
 }
 
-u8 DSi_Camera::I2C_Read(bool last)
+u8 Camera::I2C_Read(bool last)
 {
     u8 ret;
 
@@ -248,7 +371,7 @@ u8 DSi_Camera::I2C_Read(bool last)
     return ret;
 }
 
-void DSi_Camera::I2C_Write(u8 val, bool last)
+void Camera::I2C_Write(u8 val, bool last)
 {
     if (DataPos < 2)
     {
@@ -277,7 +400,7 @@ void DSi_Camera::I2C_Write(u8 val, bool last)
     else      DataPos++;
 }
 
-u16 DSi_Camera::I2C_ReadReg(u16 addr)
+u16 Camera::I2C_ReadReg(u16 addr)
 {
     switch (addr)
     {
@@ -313,7 +436,7 @@ u16 DSi_Camera::I2C_ReadReg(u16 addr)
     return 0;
 }
 
-void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
+void Camera::I2C_WriteReg(u16 addr, u16 val)
 {
     switch (addr)
     {
@@ -370,15 +493,26 @@ void DSi_Camera::I2C_WriteReg(u16 addr, u16 val)
 // TODO: not sure at all what is the accessible range
 // or if there is any overlap in the address range
 
-u8 DSi_Camera::MCU_Read(u16 addr)
+u8 Camera::MCU_Read(u16 addr)
 {
     addr &= 0x7FFF;
-    printf("CAM%d MCU READ %04X\n", Num, addr);
+    printf("CAM%d MCU READ %04X -- %08X\n", Num, addr, NDS::GetPC(1));
+
+    switch (addr)
+    {
+    //case 0x2104: // SEQ_STATUS
+        // TODO!!!
+        // initial value 3
+        // value 7 after writing 2 to 2103
+        // preview mode: 256x512, DMA chunk size = 512
+        // capture mode: 640x480, DMA chunk size = 320
+        //return 7;
+    }
 
     return MCURegs[addr];
 }
 
-void DSi_Camera::MCU_Write(u16 addr, u8 val)
+void Camera::MCU_Write(u16 addr, u8 val)
 {
     addr &= 0x7FFF;
     printf("CAM%d MCU WRITE %04X %02X\n", Num, addr, val);
@@ -386,129 +520,29 @@ void DSi_Camera::MCU_Write(u16 addr, u8 val)
     switch (addr)
     {
     case 0x2103: // SEQ_CMD
-        {
-            MCURegs[addr] = 0;
-            //MCURegs[0x2104] = 3;
-        }
+        MCURegs[addr] = 0;
+        if      (val == 2) MCURegs[0x2104] = 7; // capture mode
+        else if (val == 1) MCURegs[0x2104] = 3; // preview mode
+        else if (val != 5 && val != 6)
+            printf("CAM%d: atypical SEQ_CMD %04X\n", Num, val);
         return;
     }
 
     MCURegs[addr] = val;
 }
 
-
-
-u8 DSi_Camera::Read8(u32 addr)
-{
-    //
-
-    printf("unknown DSi cam read8 %08X\n", addr);
-    return 0;
 }
 
-u16 DSi_Camera::Read16(u32 addr)
-{
-    switch (addr)
-    {
-    case 0x04004200: return ModuleCnt;
-    case 0x04004202: return Cnt;
-    }
 
-    printf("unknown DSi cam read16 %08X\n", addr);
-    return 0;
-}
 
-u32 DSi_Camera::Read32(u32 addr)
-{
-    switch (addr)
-    {
-    case 0x04004204:
-        {
-            // TODO
-            return 0xFC00801F;
-            /*if (!(Cnt & (1<<15))) return 0; // CHECKME
-            u32 ret = *(u32*)&FrameBuffer[TransferPos];
-            TransferPos += 4;
-            if (TransferPos >= FrameLength) TransferPos = 0;
-            dorp += 4;
-            //if (dorp >= (256*4*2))
-            if (TransferPos == 0)
-            {
-                dorp = 0;
-                Cnt &= ~(1<<4);
-            }
-            return ret;*/
-        }
-    }
 
-    printf("unknown DSi cam read32 %08X\n", addr);
-    return 0;
-}
 
-void DSi_Camera::Write8(u32 addr, u8 val)
-{
-    //
 
-    printf("unknown DSi cam write8 %08X %02X\n", addr, val);
-}
 
-void DSi_Camera::Write16(u32 addr, u16 val)
-{
-    switch (addr)
-    {
-    case 0x04004200:
-        {
-            u16 oldcnt = ModuleCnt;
-            ModuleCnt = val;
 
-            if ((ModuleCnt & (1<<1)) && !(oldcnt & (1<<1)))
-            {
-                // reset shit to zero
-                // CHECKME
 
-                Cnt = 0;
-            }
 
-            if ((ModuleCnt & (1<<5)) && !(oldcnt & (1<<5)))
-            {
-                // TODO: reset I2C??
-            }
-        }
-        return;
 
-    case 0x04004202:
-        {
-            // checkme
-            u16 oldmask;
-            if (Cnt & 0x8000)
-            {
-                val &= 0x8F20;
-                oldmask = 0x601F;
-            }
-            else
-            {
-                val &= 0xEF2F;
-                oldmask = 0x0010;
-            }
 
-            Cnt = (Cnt & oldmask) | (val & ~0x0020);
-            if (val & (1<<5)) Cnt &= ~(1<<4);
 
-            if ((val & (1<<15)) && !(Cnt & (1<<15)))
-            {
-                // start transfer
-                //DSi::CheckNDMAs(0, 0x0B);
-            }
-        }
-        return;
-    }
 
-    printf("unknown DSi cam write16 %08X %04X\n", addr, val);
-}
-
-void DSi_Camera::Write32(u32 addr, u32 val)
-{
-    //
-
-    printf("unknown DSi cam write32 %08X %08X\n", addr, val);
-}

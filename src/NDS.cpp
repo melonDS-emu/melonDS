@@ -722,8 +722,8 @@ bool DoSavestate_Scheduler(Savestate* file)
         DSi_SDHost::FinishRX,
         DSi_SDHost::FinishTX,
         DSi_NWifi::MSTimer,
-        DSi_Camera::IRQ,
-        DSi_Camera::Transfer,
+        DSi_CamModule::IRQ,
+        DSi_CamModule::Transfer,
         DSi_DSP::DSPCatchUpU32,
 
         nullptr
@@ -1957,14 +1957,14 @@ void debug(u32 param)
     fclose(shit);*/
 
     FILE*
-    shit = fopen("debug/directboot9.bin", "wb");
+    shit = fopen("debug/camera9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM9Read32(i);
         fwrite(&val, 4, 1, shit);
     }
     fclose(shit);
-    shit = fopen("debug/directboot7.bin", "wb");
+    shit = fopen("debug/camera7.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
         u32 val = DSi::ARM7Read32(i);
