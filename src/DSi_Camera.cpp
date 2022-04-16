@@ -40,6 +40,7 @@ u32 TransferPos;*/
 // pixel data buffer holds a maximum of 1024 words, regardless of how long scanlines are
 u32 DataBuffer[1024];
 u32 BufferReadPos, BufferWritePos;
+u32 BufferNumLines;
 Camera* CurCamera;
 
 // note on camera data/etc intervals
@@ -82,6 +83,7 @@ void Reset()
     memset(DataBuffer, 0, 1024*sizeof(u32));
     BufferReadPos = 0;
     BufferWritePos = 0;
+    BufferNumLines = 0;
     CurCamera = nullptr;
 
     NDS::ScheduleEvent(NDS::Event_DSi_CamIRQ, true, kIRQInterval, IRQ, 0);
@@ -124,6 +126,7 @@ void IRQ(u32 param)
         {
             BufferReadPos = 0;
             BufferWritePos = 0;
+            BufferNumLines = 0;
             CurCamera = activecam;
             NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, kTransferStart, TransferScanline, 0);
         }
@@ -135,15 +138,48 @@ void IRQ(u32 param)
 void TransferScanline(u32 line)
 {
     u32* dstbuf = &DataBuffer[BufferWritePos];
-    u32 maxlen = 1024 - BufferWritePos;
+    int maxlen = 1024 - BufferWritePos;
 
     u32 tmpbuf[1024];
-    u32 datalen = CurCamera->TransferScanline(tmpbuf, 1024);
+    int datalen = CurCamera->TransferScanline(tmpbuf, 1024);
 
-    // TODO: cropping
-    u32 copystart = 0;
-    u32 copylen = datalen;
-    if (copylen > maxlen) copylen = maxlen;
+    // TODO: must be tweaked such that each block has enough time to transfer
+    u32 delay = datalen*4 + 16;
+
+    int copystart = 0;
+    int copylen = datalen;
+
+    if (Cnt & (1<<14))
+    {
+        // crop picture
+
+        int ystart = (CropStart >> 16) & 0x1FF;
+        int yend = (CropEnd >> 16) & 0x1FF;
+        if (line < ystart || line > yend)
+        {
+            if (!CurCamera->TransferDone())
+                NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
+
+            return;
+        }
+
+        int xstart = (CropStart >> 1) & 0x1FF;
+        int xend = (CropEnd >> 1) & 0x1FF;
+
+        copystart = xstart;
+        copylen = xend+1 - xstart;
+
+        if ((copystart + copylen) > datalen)
+            copylen = datalen - copystart;
+        if (copylen < 0)
+            copylen = 0;
+    }
+
+    if (copylen > maxlen)
+    {
+        copylen = maxlen;
+        Cnt |= (1<<4);
+    }
 
     if (Cnt & (1<<13))
     {
@@ -184,32 +220,25 @@ void TransferScanline(u32 line)
         memcpy(dstbuf, &tmpbuf[copystart], copylen);
     }
 
-    // data overrun
-    if (datalen > maxlen)
-        Cnt |= (1<<4);
-
     u32 numscan = Cnt & 0x000F;
-    if (line >= numscan)
+    if (BufferNumLines >= numscan)
     {
         BufferReadPos = 0; // checkme
         BufferWritePos = 0;
-        line = 0;
+        BufferNumLines = 0;
         DSi::CheckNDMAs(0, 0x0B);
     }
     else
     {
-        BufferWritePos += datalen;
+        BufferWritePos += copylen;
         if (BufferWritePos > 1024) BufferWritePos = 1024;
-        line++;
+        BufferNumLines++;
     }
 
     if (CurCamera->TransferDone())
         return;
 
-    // TODO: must be tweaked such that each block has enough time to transfer
-    u32 delay = datalen*4 + 16;
-
-    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line);
+    NDS::ScheduleEvent(NDS::Event_DSi_CamTransfer, false, delay, TransferScanline, line+1);
 }
 
 
@@ -422,7 +451,10 @@ void Camera::Reset()
         for (int x = 0; x < 640; x++)
         {
             u32 color = Num ? 0x00FF0000 : 0x000000FF;
-            if ((x & 0x10) ^ (y & 0x10)) color |= 0x0000FF00;
+            //if ((x & 0x10) ^ (y & 0x10))
+            if (((x%20)>=10) ^ ((y%20)>=10))
+                color |= 0x0000FF00;
+            else color |= (y & 0xFF) << (Num ? 0 : 16);
 
             FrameBuffer[y*640 + x] = color;
         }
