@@ -68,6 +68,8 @@ public:
     u8 I2C_Read(bool last);
     void I2C_Write(u8 val, bool last);
 
+    void InputFrame(u32* data, int width, int height);
+
     u32 Num;
 
 private:

@@ -1261,6 +1261,21 @@ void SetLidClosed(bool closed)
     }
 }
 
+void CamInputFrame(int cam, u32* data, int width, int height)
+{
+    // TODO: support things like the GBA-slot camera addon
+    // whenever these are emulated
+
+    if (ConsoleType == 1)
+    {
+        switch (cam)
+        {
+        case 0: return DSi_CamModule::Camera0->InputFrame(data, width, height);
+        case 1: return DSi_CamModule::Camera1->InputFrame(data, width, height);
+        }
+    }
+}
+
 void MicInputFrame(s16* data, int samples)
 {
     return SPI_TSC::MicInputFrame(data, samples);

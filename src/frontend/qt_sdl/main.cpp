@@ -430,6 +430,9 @@ void EmuThread::run()
 
     char melontitle[100];
 
+    QImage testimg("test.jpg");
+    QImage testimg_conv = testimg.convertToFormat(QImage::Format_RGB32);
+
     while (EmuRunning != 0)
     {
         Input::Process();
@@ -509,6 +512,9 @@ void EmuThread::run()
                 NDS::SetLidClosed(lid);
                 OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
+
+            // camera input test
+            NDS::CamInputFrame(0, (u32*)testimg_conv.bits(), testimg_conv.width(), testimg_conv.height());
 
             // microphone input
             micProcess();
@@ -1834,7 +1840,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) NDS::debug(0);
+    if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
