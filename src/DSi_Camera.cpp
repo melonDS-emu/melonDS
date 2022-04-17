@@ -194,18 +194,18 @@ void TransferScanline(u32 line)
             int y2 = (val >> 16) & 0xFF;
             int v = (val >> 24) & 0xFF;
 
-            int r1 = y1 + (((v-0x80) * 91881) >> 16);
-            int g1 = y1 - (((v-0x80) * 46793) >> 16) - (((u-0x80) * 22544) >> 16);
-            int b1 = y1 + (((u-0x80) * 116129) >> 16);
+            u -= 128; v -= 128;
 
-            int r2 = y2 + (((v-0x80) * 91881) >> 16);
-            int g2 = y2 - (((v-0x80) * 46793) >> 16) - (((u-0x80) * 22544) >> 16);
-            int b2 = y2 + (((u-0x80) * 116129) >> 16);
+            int r1 = y1 + ((v * 91881) >> 16);
+            int g1 = y1 - ((v * 46793) >> 16) - ((u * 22544) >> 16);
+            int b1 = y1 + ((u * 116129) >> 16);
 
-#define CLAMP(v) if (v < 0) v = 0; else if (v > 255) v = 255;
-            CLAMP(r1); CLAMP(g1); CLAMP(b1);
-            CLAMP(r2); CLAMP(g2); CLAMP(b2);
-#undef CLAMP
+            int r2 = y2 + ((v * 91881) >> 16);
+            int g2 = y2 - ((v * 46793) >> 16) - ((u * 22544) >> 16);
+            int b2 = y2 + ((u * 116129) >> 16);
+
+            r1 = std::clamp(r1, 0, 255); g1 = std::clamp(g1, 0, 255); b1 = std::clamp(b1, 0, 255);
+            r2 = std::clamp(r2, 0, 255); g2 = std::clamp(g2, 0, 255); b2 = std::clamp(b2, 0, 255);
 
             u32 col1 = (r1 >> 3) | ((g1 >> 3) << 5) | ((b1 >> 3) << 10) | 0x8000;
             u32 col2 = (r2 >> 3) | ((g2 >> 3) << 5) | ((b2 >> 3) << 10) | 0x8000;
@@ -559,10 +559,8 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
         u1 += 128; v1 += 128;
         u2 += 128; v2 += 128;
 
-#define CLAMP(v) if (v < 0) v = 0; else if (v > 255) v = 255;
-        CLAMP(y1); CLAMP(u1); CLAMP(v1);
-        CLAMP(y2); CLAMP(u2); CLAMP(v2);
-#undef CLAMP
+        y1 = std::clamp(y1, 0, 255); u1 = std::clamp(u1, 0, 255); v1 = std::clamp(v1, 0, 255);
+        y2 = std::clamp(y2, 0, 255); u2 = std::clamp(u2, 0, 255); v2 = std::clamp(v2, 0, 255);
 
         // huh
         u1 = (u1 + u2) >> 1;
