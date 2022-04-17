@@ -758,6 +758,30 @@ void Camera::MCU_Write(u16 addr, u8 val)
     MCURegs[addr] = val;
 }
 
+
+void Camera::InputFrame(u32* data, int width, int height)
+{
+    // TODO: double-buffering?
+
+    if (width == 640 && height == 480)
+    {
+        memcpy(FrameBuffer, data, 640*480*sizeof(u32));
+        return;
+    }
+
+    for (int dy = 0; dy < 480; dy++)
+    {
+        int sy = (dy * height) / 480;
+
+        for (int dx = 0; dx < 640; dx++)
+        {
+            int sx = (dx * width) / 640;
+
+            FrameBuffer[dy*640 + dx] = data[sy*width + sx];
+        }
+    }
+}
+
 }
 
 
