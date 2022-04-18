@@ -37,8 +37,8 @@ u32 CropStart, CropEnd;
 u32 FrameLength;
 u32 TransferPos;*/
 
-// pixel data buffer holds a maximum of 1024 words, regardless of how long scanlines are
-u32 DataBuffer[1024];
+// pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
+u32 DataBuffer[512];
 u32 BufferReadPos, BufferWritePos;
 u32 BufferNumLines;
 Camera* CurCamera;
@@ -80,7 +80,7 @@ void Reset()
     /*memset(FrameBuffer, 0, 640*480*4);
     TransferPos = 0;
     FrameLength = 256*192*2;*/ // TODO: make it check frame size, data type, etc
-    memset(DataBuffer, 0, 1024*sizeof(u32));
+    memset(DataBuffer, 0, 512*sizeof(u32));
     BufferReadPos = 0;
     BufferWritePos = 0;
     BufferNumLines = 0;
@@ -138,10 +138,10 @@ void IRQ(u32 param)
 void TransferScanline(u32 line)
 {
     u32* dstbuf = &DataBuffer[BufferWritePos];
-    int maxlen = 1024 - BufferWritePos;
+    int maxlen = 512 - BufferWritePos;
 
-    u32 tmpbuf[1024];
-    int datalen = CurCamera->TransferScanline(tmpbuf, 1024);
+    u32 tmpbuf[512];
+    int datalen = CurCamera->TransferScanline(tmpbuf, 512);
 
     // TODO: must be tweaked such that each block has enough time to transfer
     u32 delay = datalen*4 + 16;
@@ -231,7 +231,7 @@ void TransferScanline(u32 line)
     else
     {
         BufferWritePos += copylen;
-        if (BufferWritePos > 1024) BufferWritePos = 1024;
+        if (BufferWritePos > 512) BufferWritePos = 512;
         BufferNumLines++;
     }
 
@@ -271,7 +271,7 @@ u32 Read32(u32 addr)
             u32 ret = DataBuffer[BufferReadPos];
             if (Cnt & (1<<15))
             {
-                if (BufferReadPos < 1023)
+                if (BufferReadPos < 511)
                     BufferReadPos++;
                 // CHECKME!!!!
                 // also presumably we should set bit4 in Cnt if there's no new data to be read
