@@ -201,7 +201,7 @@ void DoSavestate(Savestate* file)
 
 void WriteCnt(u8 val)
 {
-    //printf("I2C: write CNT %02X, %08X\n", val, NDS::GetPC(1));
+    //printf("I2C: write CNT %02X, %02X, %08X\n", val, Data, NDS::GetPC(1));
 
     // TODO: check ACK flag
     // TODO: transfer delay

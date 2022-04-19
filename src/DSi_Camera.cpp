@@ -217,7 +217,7 @@ void TransferScanline(u32 line)
     {
         // return raw data
 
-        memcpy(dstbuf, &tmpbuf[copystart], copylen);
+        memcpy(dstbuf, &tmpbuf[copystart], copylen*sizeof(u32));
     }
 
     u32 numscan = Cnt & 0x000F;
@@ -577,29 +577,22 @@ int Camera::TransferScanline(u32* buffer, int maxlen)
 
 void Camera::I2C_Start()
 {
+    DataPos = 0;
 }
 
 u8 Camera::I2C_Read(bool last)
 {
     u8 ret;
 
-    if (DataPos < 2)
+    if (DataPos & 0x1)
     {
-        printf("DSi_Camera: WHAT??\n");
-        ret = 0;
+        ret = RegData & 0xFF;
+        RegAddr += 2; // checkme
     }
     else
     {
-        if (DataPos & 0x1)
-        {
-            ret = RegData & 0xFF;
-            RegAddr += 2; // checkme
-        }
-        else
-        {
-            RegData = I2C_ReadReg(RegAddr);
-            ret = RegData >> 8;
-        }
+        RegData = I2C_ReadReg(RegAddr);
+        ret = RegData >> 8;
     }
 
     if (last) DataPos = 0;
