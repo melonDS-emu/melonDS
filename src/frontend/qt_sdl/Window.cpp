@@ -569,10 +569,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         connect(actShowOSD, &QAction::triggered, this, &MainWindow::onChangeShowOSD);
 
         menu->addSeparator();
-
-        actAudioSync = menu->addAction("Audio sync");
-        actAudioSync->setCheckable(true);
-        connect(actAudioSync, &QAction::triggered, this, &MainWindow::onChangeAudioSync);
     }
     setMenuBar(menubar);
 
@@ -658,8 +654,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actScreenFiltering->setChecked(Config::ScreenFilter);
     actShowOSD->setChecked(Config::ShowOSD);
-
-    actAudioSync->setChecked(Config::AudioSync);
 
     if (inst > 0)
     {
@@ -1961,11 +1955,6 @@ void MainWindow::onChangeShowOSD(bool checked)
 {
     Config::ShowOSD = checked?1:0;
     panel->osdSetEnabled(Config::ShowOSD);
-}
-
-void MainWindow::onChangeAudioSync(bool checked)
-{
-    Config::AudioSync = checked?1:0;
 }
 
 

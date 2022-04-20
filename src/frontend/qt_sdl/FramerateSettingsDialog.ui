@@ -50,6 +50,16 @@
         </property>
        </widget>
       </item>
+      <item row="3" column="0">
+       <widget class="QCheckBox" name="cbAudioSync">
+        <property name="whatsThis">
+         <string>Enabling this syncs the framerate to the audio</string>
+        </property>
+        <property name="text">
+         <string>Audio sync</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

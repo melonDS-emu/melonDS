@@ -36,17 +36,27 @@ FramerateSettingsDialog::FramerateSettingsDialog(QWidget* parent) : QDialog(pare
 
     ui->spinFPSRate->setRange(0, 9999);
 
-    ui->cbLimitFPS->setChecked(Config::LimitFPS);
-    ui->spinFPSRate->setValue(Config::FPSRate);
 
     if (Config::LimitFPS)
     {
         ui->spinFPSRate->setEnabled(true);
+        Config::AudioSync = 0;
     }
     else
     {
         ui->spinFPSRate->setEnabled(false);
     }
+
+    if (Config::AudioSync)
+    {
+        Config::LimitFPS = 0;
+        ui->spinFPSRate->setEnabled(false);
+    }
+
+    ui->cbLimitFPS->setChecked(Config::LimitFPS);
+    ui->spinFPSRate->setValue(Config::FPSRate);
+    ui->cbAudioSync->setChecked(Config::AudioSync);
+
 }
 
 FramerateSettingsDialog::~FramerateSettingsDialog()
@@ -56,17 +66,35 @@ FramerateSettingsDialog::~FramerateSettingsDialog()
 
 void FramerateSettingsDialog::on_cbLimitFPS_clicked()
 {
-    if (ui->spinFPSRate->isEnabled())
+    if (ui->cbLimitFPS->isChecked())
     {
-        ui->spinFPSRate->setEnabled(false);
+        Config::LimitFPS = 1;
+        ui->spinFPSRate->setEnabled(true);
+        Config::AudioSync = 0;
+        ui->cbAudioSync->setChecked(Config::AudioSync);
     }
     else
     {
-        ui->spinFPSRate->setEnabled(true);
+        Config::LimitFPS = 0;
+        ui->spinFPSRate->setEnabled(false);
     }
 
-    Config::LimitFPS = ui->cbLimitFPS->isChecked() ? 1:0;
     Config::FPSRate = ui->spinFPSRate->value();
+}
+
+void FramerateSettingsDialog::on_cbAudioSync_clicked()
+{
+    if (ui->cbAudioSync->isChecked())
+    {
+        Config::LimitFPS = 0;
+        ui->cbLimitFPS->setChecked(Config::LimitFPS);
+        ui->spinFPSRate->setEnabled(false);
+        Config::AudioSync = 1;
+    }
+    else
+    {
+        Config::AudioSync = 0;
+    }
 }
 
 void FramerateSettingsDialog::on_spinFPSRate_valueChanged(int arg)

@@ -52,6 +52,7 @@ public:
 
 private slots:
     void on_cbLimitFPS_clicked();
+    void on_cbAudioSync_clicked();
     void on_spinFPSRate_valueChanged(int arg);
     void on_FramerateSettingsDialog_accepted();
     void on_FramerateSettingsDialog_rejected();
