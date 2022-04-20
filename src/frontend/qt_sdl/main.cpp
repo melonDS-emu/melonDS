@@ -775,6 +775,11 @@ QSize ScreenHandler::screenGetMinSize(int factor = 1)
     int w = 256 * factor;
     int h = 192 * factor;
 
+    if (Config::ScreenSizing == 4 || Config::ScreenSizing == 5)
+    {
+        return QSize(w, h);
+    }
+
     if (Config::ScreenLayout == 0) // natural
     {
         if (isHori)
