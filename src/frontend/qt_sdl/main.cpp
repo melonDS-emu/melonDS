@@ -114,6 +114,7 @@ s16* micWavBuffer;
 void micCallback(void* data, Uint8* stream, int len);
 
 
+
 void audioCallback(void* data, Uint8* stream, int len)
 {
     len /= (sizeof(s16) * 2);
@@ -314,6 +315,57 @@ void micProcess()
 }
 
 
+void camOpen()
+{
+    //
+}
+
+void camClose()
+{
+    //
+}
+
+void camProcess()
+{
+    //
+}
+
+CameraFrameDumper::CameraFrameDumper(QObject* parent) : QAbstractVideoSurface(parent)
+{
+    printf("BAKA!!\n");
+}
+
+/*CameraFrameDumper::~CameraFrameDumper()
+{
+    printf("SAYONARA\n");
+}*/
+
+bool CameraFrameDumper::present(const QVideoFrame& _frame)
+{
+    //printf("FRAMEZORZ!! %d %d %d\n", frame.pixelFormat(), frame.isMapped(), frame.isReadable());
+
+    QVideoFrame frame(_frame);
+    if (!frame.map(QAbstractVideoBuffer::ReadOnly))
+        return false;
+printf("FRAMEZORZ!! %d %d %d\n", frame.pixelFormat(), frame.isMapped(), frame.isReadable());
+    NDS::CamInputFrame(0, (u32*)frame.bits(), frame.width(), frame.height(), false);
+
+    frame.unmap();
+
+    return true;
+}
+
+QList<QVideoFrame::PixelFormat> CameraFrameDumper::supportedPixelFormats(QAbstractVideoBuffer::HandleType type) const
+{
+    QList<QVideoFrame::PixelFormat> ret;
+printf("PENIS. %d\n", type);
+    ret.append(QVideoFrame::Format_RGB32);
+    ret.append(QVideoFrame::Format_YUYV);
+
+    return ret;
+}
+
+
 EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
     EmuStatus = 0;
@@ -374,7 +426,7 @@ void EmuThread::deinitOpenGL()
     delete oglContext;
     delete oglSurface;
 }
-
+#include <QVideoSurfaceFormat>
 void EmuThread::run()
 {
     bool hasOGL = mainWindow->hasOGL;
@@ -421,8 +473,46 @@ void EmuThread::run()
 
     char melontitle[100];
 
-    QImage testimg("test.jpg");
-    QImage testimg_conv = testimg.convertToFormat(QImage::Format_RGB32);
+    //QImage testimg("test.jpg");
+    //QImage testimg_conv = testimg.convertToFormat(QImage::Format_RGB32);
+
+    #if 0
+    const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+    for (const QCameraInfo &cameraInfo : cameras)
+        printf("CAMERAFAZIL: %s\n", cameraInfo.deviceName().toStdString().c_str());
+    QCamera* camera = new QCamera(cameras[0]);
+    CameraFrameDumper* dumper = new CameraFrameDumper();
+    //QCameraViewfinder* derp = new QCameraViewfinder();
+    printf("PROAON\n");
+    //camera->setCaptureMode(QCamera::CaptureVideo);
+    //camera->setCaptureMode(QCamera::CaptureViewfinder);
+    printf("PROOT\n");
+    //camera->unload();
+    camera->setViewfinder(dumper);
+    //camera->setViewfinder(derp);
+    //camera->load();
+
+    // if (status != QCamera::LoadedStatus || m_camera->state() == QCamera::ActiveState) { return
+    printf("STATUS %d STATE %d\n", camera->status(), camera->state());
+
+printf("CHIASSE\n");
+    /*QCameraViewfinderSettings settings;
+    auto zorp = camera->supportedViewfinderResolutions(settings);
+    for (auto& res : zorp) printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+    auto zarp = camera->supportedViewfinderPixelFormats(settings);
+    for (auto& pf : zarp) printf("PIXEL FORMAT: %d\n", pf);
+
+    settings.setResolution(640, 480);
+    //settings.setPixelFormat(QVideoFrame::Format_RGB32);
+    settings.setPixelFormat(QVideoFrame::Format_YUYV);
+    printf("PRALIPET\n");
+    camera->setViewfinderSettings(settings);*/
+printf("PROULON\n");
+    //dumper->start();
+    //QVideoSurfaceFormat blarf(QSize(640,480), QVideoFrame::Format_RGB32);
+    //dumper->start(blarf);
+    camera->start();
+    #endif
 
     while (EmuRunning != 0)
     {
@@ -505,7 +595,7 @@ void EmuThread::run()
             }
 
             // camera input test
-            NDS::CamInputFrame(0, (u32*)testimg_conv.bits(), testimg_conv.width(), testimg_conv.height());
+            //NDS::CamInputFrame(0, (u32*)testimg_conv.bits(), testimg_conv.width(), testimg_conv.height(), true);
 
             // microphone input
             micProcess();
@@ -664,6 +754,9 @@ void EmuThread::run()
             SDL_Delay(75);
         }
     }
+
+    //camera->stop();
+    //delete camera;
 
     EmuStatus = 0;
 
@@ -1718,6 +1811,44 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actLimitFramerate->setChecked(Config::LimitFPS);
     actAudioSync->setChecked(Config::AudioSync);
+
+
+
+    const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+    for (const QCameraInfo &cameraInfo : cameras)
+        printf("CAMERAFAZIL: %s\n", cameraInfo.deviceName().toStdString().c_str());
+    QCamera* camera = new QCamera(cameras[0]);
+    CameraFrameDumper* dumper = new CameraFrameDumper();
+    //QCameraViewfinder* derp = new QCameraViewfinder();
+    printf("PROAON\n");
+    //camera->setCaptureMode(QCamera::CaptureVideo);
+    //camera->setCaptureMode(QCamera::CaptureViewfinder);
+    printf("PROOT\n");
+    //camera->unload();
+    camera->setViewfinder(dumper);
+    //camera->setViewfinder(derp);
+    //camera->load();
+
+    // if (status != QCamera::LoadedStatus || m_camera->state() == QCamera::ActiveState) { return
+    printf("STATUS %d STATE %d\n", camera->status(), camera->state());
+
+printf("CHIASSE\n");
+    /*QCameraViewfinderSettings settings;
+    auto zorp = camera->supportedViewfinderResolutions(settings);
+    for (auto& res : zorp) printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+    auto zarp = camera->supportedViewfinderPixelFormats(settings);
+    for (auto& pf : zarp) printf("PIXEL FORMAT: %d\n", pf);
+
+    settings.setResolution(640, 480);
+    //settings.setPixelFormat(QVideoFrame::Format_RGB32);
+    settings.setPixelFormat(QVideoFrame::Format_YUYV);
+    printf("PRALIPET\n");
+    camera->setViewfinderSettings(settings);*/
+printf("PROULON\n");
+    //dumper->start();
+    //QVideoSurfaceFormat blarf(QSize(640,480), QVideoFrame::Format_RGB32);
+    //dumper->start(blarf);
+    camera->start();
 }
 
 MainWindow::~MainWindow()
@@ -1813,7 +1944,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    if (event->key() == Qt::Key_F11) NDS::debug(0);
+    //if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
@@ -2999,7 +3130,7 @@ bool MelonApplication::event(QEvent *event)
 
 int main(int argc, char** argv)
 {
-    srand(time(NULL));
+    srand(time(nullptr));
 
     printf("melonDS " MELONDS_VERSION "\n");
     printf(MELONDS_URL "\n");

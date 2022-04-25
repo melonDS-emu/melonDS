@@ -67,7 +67,7 @@ public:
     u8 I2C_Read(bool last);
     void I2C_Write(u8 val, bool last);
 
-    void InputFrame(u32* data, int width, int height);
+    void InputFrame(u32* data, int width, int height, bool rgb);
 
     u32 Num;
 
@@ -95,7 +95,7 @@ private:
     u16 FrameWidth, FrameHeight;
     u16 FrameReadMode, FrameFormat;
     int TransferY;
-    u32 FrameBuffer[640*480];
+    u32 FrameBuffer[640*480/2]; // YUYV framebuffer, two pixels per word
 };
 
 }
