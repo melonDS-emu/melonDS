@@ -277,6 +277,7 @@ private slots:
     void onOpenInputConfig();
     void onInputConfigFinished(int res);
     void onOpenVideoSettings();
+    void onOpenCameraSettings();
     void onOpenAudioSettings();
     void onOpenFirmwareSettings();
     void onOpenPathSettings();
@@ -365,6 +366,7 @@ public:
     QAction* actPowerManagement;
     QAction* actInputConfig;
     QAction* actVideoSettings;
+    QAction* actCameraSettings;
     QAction* actAudioSettings;
     QAction* actWifiSettings;
     QAction* actFirmwareSettings;

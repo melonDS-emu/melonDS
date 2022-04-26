@@ -54,6 +54,7 @@
 #include "EmuSettingsDialog.h"
 #include "InputConfig/InputConfigDialog.h"
 #include "VideoSettingsDialog.h"
+#include "CameraSettingsDialog.h"
 #include "AudioSettingsDialog.h"
 #include "FirmwareSettingsDialog.h"
 #include "PathSettingsDialog.h"
@@ -1592,6 +1593,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         actVideoSettings = menu->addAction("Video settings");
         connect(actVideoSettings, &QAction::triggered, this, &MainWindow::onOpenVideoSettings);
 
+        actCameraSettings = menu->addAction("Camera settings");
+        connect(actCameraSettings, &QAction::triggered, this, &MainWindow::onOpenCameraSettings);
+
         actAudioSettings = menu->addAction("Audio settings");
         connect(actAudioSettings, &QAction::triggered, this, &MainWindow::onOpenAudioSettings);
 
@@ -2803,6 +2807,12 @@ void MainWindow::onOpenVideoSettings()
 {
     VideoSettingsDialog* dlg = VideoSettingsDialog::openDlg(this);
     connect(dlg, &VideoSettingsDialog::updateVideoSettings, this, &MainWindow::onUpdateVideoSettings);
+}
+
+void MainWindow::onOpenCameraSettings()
+{
+    CameraSettingsDialog* dlg = CameraSettingsDialog::openDlg(this);
+    //connect(dlg, &CameraSettingsDialog::updateCameraSettings, this, &MainWindow::onUpdateCameraSettings);
 }
 
 void MainWindow::onOpenAudioSettings()

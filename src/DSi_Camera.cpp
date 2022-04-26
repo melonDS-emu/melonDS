@@ -109,9 +109,8 @@ void IRQ(u32 param)
 {
     Camera* activecam = nullptr;
 
-    // TODO: check which camera has priority if both are activated
-    // (or does it just jumble both data sources together, like it
-    // does for, say, overlapping VRAM?)
+    // TODO: cameras don't have any priority!
+    // activating both together will jumble the image data together
     if      (Camera0->IsActivated()) activecam = Camera0;
     else if (Camera1->IsActivated()) activecam = Camera1;
 
