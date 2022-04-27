@@ -33,7 +33,8 @@ set(SOURCES_QT_SDL
     QPathInput.h
     ROMManager.cpp
     SaveManager.cpp
-
+    CameraManager.cpp
+    
     ArchiveUtil.h
     ArchiveUtil.cpp
 
