@@ -20,6 +20,7 @@
 #include <string.h>
 #include "DSi.h"
 #include "DSi_Camera.h"
+#include "Platform.h"
 
 
 namespace DSi_CamModule
@@ -32,10 +33,6 @@ u16 ModuleCnt;
 u16 Cnt;
 
 u32 CropStart, CropEnd;
-
-/*u8 FrameBuffer[640*480*4];
-u32 FrameLength;
-u32 TransferPos;*/
 
 // pixel data buffer holds a maximum of 512 words, regardless of how long scanlines are
 u32 DataBuffer[512];
@@ -77,9 +74,6 @@ void Reset()
     CropStart = 0;
     CropEnd = 0;
 
-    /*memset(FrameBuffer, 0, 640*480*4);
-    TransferPos = 0;
-    FrameLength = 256*192*2;*/ // TODO: make it check frame size, data type, etc
     memset(DataBuffer, 0, 512*sizeof(u32));
     BufferReadPos = 0;
     BufferWritePos = 0;
@@ -495,6 +489,8 @@ void Camera::StartTransfer()
         FrameReadMode = 0;
         FrameFormat = 0;
     }
+
+    Platform::Camera_CaptureFrame(Num, FrameBuffer, 640, 480, true);
 }
 
 bool Camera::TransferDone()
@@ -687,18 +683,30 @@ void Camera::I2C_WriteReg(u16 addr, u16 val)
         return;
     case 0x0016:
         ClocksCnt = val;
-        printf("ClocksCnt=%04X\n", val);
+        //printf("ClocksCnt=%04X\n", val);
         return;
     case 0x0018:
-        // TODO: this shouldn't be instant, but uh
-        val &= 0x003F;
-        val |= ((val & 0x0001) << 14);
-        StandbyCnt = val;
-        printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
+        {
+            bool wasactive = IsActivated();
+            // TODO: this shouldn't be instant, but uh
+            val &= 0x003F;
+            val |= ((val & 0x0001) << 14);
+            StandbyCnt = val;
+            //printf("CAM%d STBCNT=%04X (%04X)\n", Num, StandbyCnt, val);
+            bool isactive = IsActivated();
+            if (isactive && !wasactive)      Platform::Camera_Start(Num);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+        }
         return;
     case 0x001A:
-        MiscCnt = val & 0x0B7B;
-        printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
+        {
+            bool wasactive = IsActivated();
+            MiscCnt = val & 0x0B7B;
+            //printf("CAM%d MISCCNT=%04X (%04X)\n", Num, MiscCnt, val);
+            bool isactive = IsActivated();
+            if (isactive && !wasactive)      Platform::Camera_Start(Num);
+            else if (wasactive && !isactive) Platform::Camera_Stop(Num);
+        }
         return;
 
     case 0x098C:

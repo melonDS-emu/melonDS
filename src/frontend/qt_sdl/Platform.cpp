@@ -53,6 +53,7 @@
 #include "Platform.h"
 #include "Config.h"
 #include "ROMManager.h"
+#include "CameraManager.h"
 #include "LAN_Socket.h"
 #include "LAN_PCap.h"
 #include <string>
@@ -65,6 +66,8 @@
 std::string EmuDirectory;
 
 void emuStop();
+
+extern CameraManager* camManager[2];
 
 
 namespace Platform
@@ -372,6 +375,11 @@ bool Mutex_TryLock(Mutex* mutex)
     return ((QMutex*) mutex)->try_lock();
 }
 
+void Sleep(u64 usecs)
+{
+    QThread::usleep(usecs);
+}
+
 
 void WriteNDSSave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen)
 {
@@ -529,7 +537,6 @@ int MP_RecvPacket(u8* data, bool block)
 }
 
 
-
 bool LAN_Init()
 {
     if (Config::DirectLAN)
@@ -573,9 +580,20 @@ int LAN_RecvPacket(u8* data)
         return LAN_Socket::RecvPacket(data);
 }
 
-void Sleep(u64 usecs)
+
+void Camera_Start(int num)
 {
-    QThread::usleep(usecs);
+    return camManager[num]->Start();
+}
+
+void Camera_Stop(int num)
+{
+    return camManager[num]->Stop();
+}
+
+void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
+{
+    return camManager[num]->CaptureFrame(frame, width, height, yuv);
 }
 
 }

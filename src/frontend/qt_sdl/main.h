@@ -36,23 +36,7 @@
 #include <QOpenGLFunctions_3_2_Core>
 #include <QOpenGLShaderProgram>
 
-#include <QCamera>
-#include <QCameraInfo>
-#include <QAbstractVideoSurface>
-
 #include "FrontendUtil.h"
-
-class CameraFrameDumper : public QAbstractVideoSurface
-{
-    Q_OBJECT
-
-public:
-    CameraFrameDumper(QObject* parent = nullptr);
-    //~CameraFrameDumper();
-
-    bool present(const QVideoFrame& frame) override;
-    QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType type = QAbstractVideoBuffer::NoHandle) const override;
-};
 
 class EmuThread : public QThread
 {

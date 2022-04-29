@@ -86,6 +86,7 @@
 
 #include "ROMManager.h"
 #include "ArchiveUtil.h"
+#include "CameraManager.h"
 
 // TODO: uniform variable spelling
 
@@ -111,6 +112,8 @@ u32 micExtBufferWritePos;
 
 u32 micWavLength;
 s16* micWavBuffer;
+
+CameraManager* camManager[2];
 
 void micCallback(void* data, Uint8* stream, int len);
 
@@ -316,57 +319,6 @@ void micProcess()
 }
 
 
-void camOpen()
-{
-    //
-}
-
-void camClose()
-{
-    //
-}
-
-void camProcess()
-{
-    //
-}
-
-CameraFrameDumper::CameraFrameDumper(QObject* parent) : QAbstractVideoSurface(parent)
-{
-    printf("BAKA!!\n");
-}
-
-/*CameraFrameDumper::~CameraFrameDumper()
-{
-    printf("SAYONARA\n");
-}*/
-
-bool CameraFrameDumper::present(const QVideoFrame& _frame)
-{
-    //printf("FRAMEZORZ!! %d %d %d\n", frame.pixelFormat(), frame.isMapped(), frame.isReadable());
-
-    QVideoFrame frame(_frame);
-    if (!frame.map(QAbstractVideoBuffer::ReadOnly))
-        return false;
-printf("FRAMEZORZ!! %d %d %d\n", frame.pixelFormat(), frame.isMapped(), frame.isReadable());
-    NDS::CamInputFrame(0, (u32*)frame.bits(), frame.width(), frame.height(), false);
-
-    frame.unmap();
-
-    return true;
-}
-
-QList<QVideoFrame::PixelFormat> CameraFrameDumper::supportedPixelFormats(QAbstractVideoBuffer::HandleType type) const
-{
-    QList<QVideoFrame::PixelFormat> ret;
-printf("PENIS. %d\n", type);
-    ret.append(QVideoFrame::Format_RGB32);
-    ret.append(QVideoFrame::Format_YUYV);
-
-    return ret;
-}
-
-
 EmuThread::EmuThread(QObject* parent) : QThread(parent)
 {
     EmuStatus = 0;
@@ -427,7 +379,7 @@ void EmuThread::deinitOpenGL()
     delete oglContext;
     delete oglSurface;
 }
-#include <QVideoSurfaceFormat>
+
 void EmuThread::run()
 {
     bool hasOGL = mainWindow->hasOGL;
@@ -594,9 +546,6 @@ printf("PROULON\n");
                 NDS::SetLidClosed(lid);
                 OSD::AddMessage(0, lid ? "Lid closed" : "Lid opened");
             }
-
-            // camera input test
-            //NDS::CamInputFrame(0, (u32*)testimg_conv.bits(), testimg_conv.width(), testimg_conv.height(), true);
 
             // microphone input
             micProcess();
@@ -3229,10 +3178,12 @@ int main(int argc, char** argv)
 
     micDevice = 0;
 
-
     memset(micExtBuffer, 0, sizeof(micExtBuffer));
     micExtBufferWritePos = 0;
     micWavBuffer = nullptr;
+
+    camManager[0] = new CameraManager(0, 640, 480, true);
+    camManager[1] = new CameraManager(1, 640, 480, true);
 
     ROMManager::EnableCheats(Config::EnableCheats != 0);
 
@@ -3283,6 +3234,9 @@ int main(int argc, char** argv)
     SDL_DestroyMutex(audioSyncLock);
 
     if (micWavBuffer) delete[] micWavBuffer;
+
+    delete camManager[0];
+    delete camManager[1];
 
     Config::Save();
 
