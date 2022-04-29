@@ -22,5 +22,47 @@
 #include <QCamera>
 #include <QCameraInfo>
 #include <QAbstractVideoSurface>
+#include <QVideoSurfaceFormat>
+#include <QMutex>
+
+#include "types.h"
+
+class CameraFrameDumper : public QAbstractVideoSurface
+{
+    Q_OBJECT
+
+public:
+    CameraFrameDumper(QObject* parent = nullptr);
+
+    bool present(const QVideoFrame& frame) override;
+    QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType type = QAbstractVideoBuffer::NoHandle) const override;
+};
+
+class CameraManager
+{
+public:
+    CameraManager(int num, int width, int height, bool yuv);
+    ~CameraManager();
+
+    void Init();
+    void DeInit();
+
+    void Start();
+    void Stop();
+
+    void CaptureFrame(u32* frame, int width, int height, bool yuv);
+
+private:
+    int Num;
+
+    int InputType;
+    QString ImagePath;
+    QString CamDeviceName;
+
+    int FrameWidth, FrameHeight;
+    bool FrameFormatYUV;
+    u32* FrameBuffer;
+    QMutex FrameMutex;
+};
 
 #endif // CAMERAMANAGER_H
