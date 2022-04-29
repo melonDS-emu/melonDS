@@ -1770,38 +1770,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
     const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
     for (const QCameraInfo &cameraInfo : cameras)
         printf("CAMERAFAZIL: %s\n", cameraInfo.deviceName().toStdString().c_str());
-    QCamera* camera = new QCamera(cameras[0]);
-    CameraFrameDumper* dumper = new CameraFrameDumper();
-    //QCameraViewfinder* derp = new QCameraViewfinder();
-    printf("PROAON\n");
-    //camera->setCaptureMode(QCamera::CaptureVideo);
-    //camera->setCaptureMode(QCamera::CaptureViewfinder);
-    printf("PROOT\n");
-    //camera->unload();
-    camera->setViewfinder(dumper);
-    //camera->setViewfinder(derp);
-    //camera->load();
-
-    // if (status != QCamera::LoadedStatus || m_camera->state() == QCamera::ActiveState) { return
-    printf("STATUS %d STATE %d\n", camera->status(), camera->state());
-
-printf("CHIASSE\n");
-    /*QCameraViewfinderSettings settings;
-    auto zorp = camera->supportedViewfinderResolutions(settings);
-    for (auto& res : zorp) printf("RESOLUTION: %d x %d\n", res.width(), res.height());
-    auto zarp = camera->supportedViewfinderPixelFormats(settings);
-    for (auto& pf : zarp) printf("PIXEL FORMAT: %d\n", pf);
-
-    settings.setResolution(640, 480);
-    //settings.setPixelFormat(QVideoFrame::Format_RGB32);
-    settings.setPixelFormat(QVideoFrame::Format_YUYV);
-    printf("PRALIPET\n");
-    camera->setViewfinderSettings(settings);*/
-printf("PROULON\n");
-    //dumper->start();
-    //QVideoSurfaceFormat blarf(QSize(640,480), QVideoFrame::Format_RGB32);
-    //dumper->start(blarf);
-    camera->start();
 }
 
 MainWindow::~MainWindow()

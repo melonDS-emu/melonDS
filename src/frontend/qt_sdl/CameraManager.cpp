@@ -21,6 +21,7 @@
 
 CameraFrameDumper::CameraFrameDumper(QObject* parent) : QAbstractVideoSurface(parent)
 {
+    CamList.append((CameraManager*)parent);
 }
 
 bool CameraFrameDumper::present(const QVideoFrame& _frame)
@@ -28,8 +29,11 @@ bool CameraFrameDumper::present(const QVideoFrame& _frame)
     QVideoFrame frame(_frame);
     if (!frame.map(QAbstractVideoBuffer::ReadOnly))
         return false;
-printf("FRAMEZORZ!! %d %d %d\n", frame.pixelFormat(), frame.isMapped(), frame.isReadable());
-    //NDS::CamInputFrame(0, (u32*)frame.bits(), frame.width(), frame.height(), false);
+    if (!frame.isReadable())
+        return false;
+
+    for (CameraManager* cam : CamList)
+        cam->FeedFrame((u32*)frame.bits(), frame.width(), frame.height(), frame.pixelFormat() == QVideoFrame::Format_YUYV);
 
     frame.unmap();
 
@@ -47,9 +51,13 @@ QList<QVideoFrame::PixelFormat> CameraFrameDumper::supportedPixelFormats(QAbstra
 }
 
 
-CameraManager::CameraManager(int num, int width, int height, bool yuv)
+CameraManager::CameraManager(int num, int width, int height, bool yuv) : QObject()
 {
     Num = num;
+
+    // QCamera needs to be controlled from the UI thread, hence this
+    connect(this, SIGNAL(CamStartSignal()), this, SLOT(CamStart()));
+    connect(this, SIGNAL(CamStopSignal()), this, SLOT(CamStop()));
 
     FrameWidth = width;
     FrameHeight = height;
@@ -81,6 +89,12 @@ void CameraManager::Init()
     InputType = 0;
     InputType = 1;
     ImagePath = "test.jpg";
+    if(Num==0)
+    {
+        InputType = 2;
+        const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+        CamDeviceName = cameras[0].deviceName();
+    }
 
     {
         // fill the framebuffer with black
@@ -118,21 +132,68 @@ void CameraManager::Init()
             }
         }
     }
+    else if (InputType == 2)
+    {
+        // physical camera
+
+        CamDevice = new QCamera(CamDeviceName.toUtf8());
+        CamDumper = new CameraFrameDumper(this);
+        CamDevice->setViewfinder(CamDumper);
+
+        /*CamDevice->load();
+        QCameraViewfinderSettings settings;
+
+        auto resolutions = CamDevice->supportedViewfinderResolutions();
+        for (auto& res : resolutions)
+        {
+            printf("RESOLUTION: %d x %d\n", res.width(), res.height());
+        }
+
+        CamDevice->unload();*/
+
+        QCameraViewfinderSettings settings;
+        settings.setResolution(640, 480);
+        settings.setPixelFormat(QVideoFrame::Format_YUYV);
+        CamDevice->setViewfinderSettings(settings);
+    }
 }
 
 void CameraManager::DeInit()
 {
+    if (InputType == 2)
+    {
+        CamDevice->stop();
+        delete CamDevice;
+        delete CamDumper;
+    }
+
     InputType = -1;
 }
 
 void CameraManager::Start()
 {
-    //
+    if (InputType == 2)
+    {
+        emit CamStartSignal();
+    }
 }
 
 void CameraManager::Stop()
 {
-    //
+    if (InputType == 2)
+    {
+        emit CamStopSignal();
+    }
+}
+
+void CameraManager::CamStart()
+{
+    CamDevice->start();
+}
+
+void CameraManager::CamStop()
+{
+    CamDevice->stop();
 }
 
 void CameraManager::CaptureFrame(u32* frame, int width, int height, bool yuv)
@@ -147,7 +208,55 @@ void CameraManager::CaptureFrame(u32* frame, int width, int height, bool yuv)
     }
     else
     {
-        //
+        if (yuv == FrameFormatYUV)
+        {
+            CopyFrame_Straight(FrameBuffer, FrameWidth, FrameHeight,
+                               frame, width, height,
+                               yuv);
+        }
+        else if (yuv)
+        {
+            CopyFrame_RGBtoYUV(FrameBuffer, FrameWidth, FrameHeight,
+                               frame, width, height);
+        }
+        else
+        {
+            CopyFrame_YUVtoRGB(FrameBuffer, FrameWidth, FrameHeight,
+                               frame, width, height);
+        }
+    }
+
+    FrameMutex.unlock();
+}
+
+void CameraManager::FeedFrame(u32* frame, int width, int height, bool yuv)
+{
+    FrameMutex.lock();
+
+    if (width == FrameWidth && height == FrameHeight && yuv == FrameFormatYUV)
+    {
+        int len = width * height;
+        if (yuv) len /= 2;
+        memcpy(FrameBuffer, frame, len * sizeof(u32));
+    }
+    else
+    {
+        if (yuv == FrameFormatYUV)
+        {
+            CopyFrame_Straight(frame, width, height,
+                               FrameBuffer, FrameWidth, FrameHeight,
+                               yuv);
+        }
+        else if (yuv)
+        {
+            CopyFrame_RGBtoYUV(frame, width, height,
+                               FrameBuffer, FrameWidth, FrameHeight);
+        }
+        else
+        {
+            CopyFrame_YUVtoRGB(frame, width, height,
+                               FrameBuffer, FrameWidth, FrameHeight);
+        }
     }
 
     FrameMutex.unlock();
