@@ -63,6 +63,10 @@ private:
     bool FrameFormatYUV;
     u32* FrameBuffer;
     QMutex FrameMutex;
+
+    void CopyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool yuv);
+    void CopyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
+    void CopyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
 };
 
 #endif // CAMERAMANAGER_H
