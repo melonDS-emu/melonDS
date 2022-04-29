@@ -27,6 +27,8 @@
 
 #include "types.h"
 
+class CameraManager;
+
 class CameraFrameDumper : public QAbstractVideoSurface
 {
     Q_OBJECT
@@ -36,10 +38,15 @@ public:
 
     bool present(const QVideoFrame& frame) override;
     QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType type = QAbstractVideoBuffer::NoHandle) const override;
+
+private:
+    QList<CameraManager*> CamList;
 };
 
-class CameraManager
+class CameraManager : public QObject
 {
+    Q_OBJECT
+
 public:
     CameraManager(int num, int width, int height, bool yuv);
     ~CameraManager();
@@ -52,12 +59,25 @@ public:
 
     void CaptureFrame(u32* frame, int width, int height, bool yuv);
 
+    void FeedFrame(u32* frame, int width, int height, bool yuv);
+
+signals:
+    void CamStartSignal();
+    void CamStopSignal();
+
+private slots:
+    void CamStart();
+    void CamStop();
+
 private:
     int Num;
 
     int InputType;
     QString ImagePath;
     QString CamDeviceName;
+
+    QCamera* CamDevice;
+    CameraFrameDumper* CamDumper;
 
     int FrameWidth, FrameHeight;
     bool FrameFormatYUV;
