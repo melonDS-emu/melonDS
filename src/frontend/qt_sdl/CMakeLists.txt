@@ -1,10 +1,12 @@
-project(qt_sdl)
+include(CMakeDependentOption)
 
-SET(SOURCES_QT_SDL
+include(FixInterfaceIncludes)
+
+set(SOURCES_QT_SDL
     main.cpp
     main_shaders.h
     CheatsDialog.cpp
-	Config.cpp
+    Config.cpp
     EmuSettingsDialog.cpp
     PowerManagement/PowerManagementDialog.cpp
     PowerManagement/resources/battery.qrc
@@ -28,9 +30,9 @@ SET(SOURCES_QT_SDL
     font.h
     Platform.cpp
     QPathInput.h
-	ROMManager.cpp
-	SaveManager.cpp
-    
+    ROMManager.cpp
+    SaveManager.cpp
+
     ArchiveUtil.h
     ArchiveUtil.cpp
 
@@ -40,7 +42,7 @@ SET(SOURCES_QT_SDL
     ../mic_blow.h
 
     ${CMAKE_SOURCE_DIR}/res/melon.qrc
-)
+    )
 
 if (APPLE)
     option(USE_QT6 "Build using Qt 6 instead of 5" ON)
@@ -86,9 +88,12 @@ set(CMAKE_AUTORCC ON)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Iconv REQUIRED)
-pkg_check_modules(SDL2 REQUIRED sdl2)
-pkg_check_modules(SLIRP REQUIRED slirp)
-pkg_check_modules(LIBARCHIVE REQUIRED libarchive)
+find_package(SDL2 REQUIRED)
+pkg_check_modules(Slirp REQUIRED IMPORTED_TARGET slirp)
+pkg_check_modules(LibArchive REQUIRED IMPORTED_TARGET libarchive)
+
+fix_interface_includes(SDL2::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
+
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
 if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
@@ -97,49 +102,40 @@ else()
     add_executable(melonDS ${SOURCES_QT_SDL})
 endif()
 
-target_link_libraries(melonDS ${CMAKE_THREAD_LIBS_INIT})
-
-target_include_directories(melonDS PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_PREFIX}/include ${SLIRP_INCLUDE_DIRS} ${LIBARCHIVE_INCLUDE_DIRS})
-target_link_directories(melonDS PRIVATE ${SDL2_LIBRARY_DIRS} ${SLIRP_LIBRARY_DIRS})
-target_link_directories(melonDS PRIVATE ${LIBARCHIVE_LIBRARY_DIRS})
+if (BUILD_STATIC)
+    qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
+    target_link_options(melonDS PRIVATE -static)
+endif()
 
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_include_directories(melonDS PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../..")
-target_link_libraries(melonDS core)
-
-if (BUILD_STATIC)
-    target_link_libraries(melonDS -static ${SDL2_STATIC_LIBRARIES} ${SLIRP_STATIC_LIBRARIES} ${LIBARCHIVE_STATIC_LIBRARIES})
-    qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
-else()
-    target_link_libraries(melonDS ${SDL2_LIBRARIES} ${SLIRP_LIBRARIES} ${LIBARCHIVE_LIBRARIES})
-endif()
+target_link_libraries(melonDS PRIVATE core)
+target_link_libraries(melonDS PRIVATE SDL2::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 
 if (NOT Iconv_IS_BUILT_IN)
-    target_link_libraries(melonDS ${Iconv_LIBRARIES})
+    target_link_libraries(melonDS PRIVATE Iconv::Iconv)
 endif()
 
 if (UNIX)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" OFF)
-    target_link_libraries(melonDS ${QT_LINK_LIBS})
-    if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        target_link_libraries(melonDS dl)
-    endif()
+    target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS} ${CMAKE_DL_LIBS})
 elseif (WIN32)
     option(PORTABLE "Make a portable build that looks for its configuration in the current directory" ON)
+
     configure_file("${CMAKE_SOURCE_DIR}/res/melon.rc.in" "${CMAKE_SOURCE_DIR}/melon.rc")
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
-    target_link_libraries(melonDS comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
+    target_link_libraries(melonDS PRIVATE comctl32 d2d1 dwrite uxtheme ws2_32 iphlpapi gdi32)
     if (BUILD_STATIC)
-        target_link_libraries(melonDS imm32 winmm version setupapi -static z zstd ${QT_LINK_LIBS})
+        target_link_libraries(melonDS PRIVATE imm32 winmm version setupapi -static z zstd ${QT_LINK_LIBS})
     else()
-        target_link_libraries(melonDS ${QT_LINK_LIBS})
+        target_link_libraries(melonDS PRIVATE ${QT_LINK_LIBS})
     endif()
 endif()
 
 if (PORTABLE)
-    add_definitions(-DPORTABLE)
+    target_compile_definitions(melonDS PRIVATE PORTABLE)
 endif()
 
 if (APPLE)
@@ -152,7 +148,7 @@ if (APPLE)
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/res/melon.plist.in
         OUTPUT_NAME melonDS
         RESOURCE "${RESOURCE_FILES}")
-	
+
 
     option(MACOS_BUNDLE_LIBS "Bundle libraries with the app on macOS" OFF)
     option(MACOS_BUILD_DMG "Build DMG image of the macOS application bundle" OFF)
@@ -170,8 +166,8 @@ endif()
 if (UNIX AND NOT APPLE)
     foreach(SIZE 16 32 48 64 128 256)
         install(FILES ${CMAKE_SOURCE_DIR}/res/icon/melon_${SIZE}x${SIZE}.png
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${SIZE}x${SIZE}/apps
-                RENAME net.kuribo64.melonDS.png)
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/${SIZE}x${SIZE}/apps
+            RENAME net.kuribo64.melonDS.png)
     endforeach()
 
     install(FILES ${CMAKE_SOURCE_DIR}/res/net.kuribo64.melonDS.desktop DESTINATION ${CMAKE_INSTALL_PREFIX}/share/applications)
