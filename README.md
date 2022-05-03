@@ -74,7 +74,7 @@ If everything went well, melonDS and the libraries it needs should now be in the
 5. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
 6. Compile:
    ```bash
-   cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DQT5_STATIC_DIR=/mingw64/qt5-static
+   cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
    make -j$(nproc --all)
    mkdir dist && cp melonDS.exe dist
    ```
