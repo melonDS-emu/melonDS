@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 
-cmake_policy(VERSION 3.13)
+cmake_policy(VERSION 3.15)
 if (POLICY CMP0076)
     cmake_policy(SET CMP0076 NEW)
 endif()
+
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
@@ -66,12 +68,15 @@ cmake_dependent_option(ENABLE_JIT_PROFILING "Enable JIT profiling with VTune" OF
 option(ENABLE_OGLRENDERER "Enable OpenGL renderer" ON)
 
 check_ipo_supported(RESULT IPO_SUPPORTED)
-cmake_dependent_option(ENABLE_LTO "Enable link-time optimizations" "Release" "IPO_SUPPORTED" "OFF")
+cmake_dependent_option(ENABLE_LTO_RELEASE "Enable link-time optimizations for release builds" ON "IPO_SUPPORTED" OFF)
+cmake_dependent_option(ENABLE_LTO "Enable link-time optimizations" OFF "IPO_SUPPORTED" OFF)
 
-if (ENABLE_LTO STREQUAL "Release")
-    set_property(GLOBAL PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
-elseif(ENABLE_LTO STREQUAL "ON")
-    set_property(GLOBAL PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+if (ENABLE_LTO_RELEASE)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+endif()
+
+if (ENABLE_LTO)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
 set(CMAKE_C_FLAGS_DEBUG "-Og")

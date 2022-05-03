@@ -119,7 +119,6 @@ if (ENABLE_OGLRENDERER)
     pkg_check_modules(Epoxy REQUIRED IMPORTED_TARGET epoxy)
     fix_interface_includes(PkgConfig::Epoxy)
 
-    target_include_directories(core PRIVATE PkgConfig::Epoxy)
     target_link_libraries(core PUBLIC PkgConfig::Epoxy)
 
     target_compile_definitions(core PUBLIC OGLRENDERER_ENABLED)
