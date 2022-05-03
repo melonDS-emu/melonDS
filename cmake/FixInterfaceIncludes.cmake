@@ -1,4 +1,4 @@
-# The entire codebase quire reasonably does things like #include <SDL2/SDL.h> or <epoxy/gl.h>
+# The entire codebase quite reasonably does things like #include <SDL2/SDL.h> or <epoxy/gl.h>
 # CMake apparently doesn't think you should be doing this, so just includes $PREFIX/include/packagename for a given
 # package as include directories when using `target_link_libraries` with an imported target, this hacky function fixes
 # that up so includes can keep working as they always did but we can still use fancy imported targets.
