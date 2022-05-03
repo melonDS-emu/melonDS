@@ -9,6 +9,10 @@ function(fix_interface_includes)
         set(NEW_DIRS)
         get_target_property(DIRS "${target}" INTERFACE_INCLUDE_DIRECTORIES)
 
+        if (NOT DIRS)
+            continue()
+        endif()
+
         foreach (DIR ${DIRS})
             get_filename_component(PARENT_DIR "${DIR}" DIRECTORY)
 
