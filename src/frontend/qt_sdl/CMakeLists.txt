@@ -82,11 +82,7 @@ fix_interface_includes(PkgConfig::SDL2 PkgConfig::Slirp PkgConfig::LibArchive)
 
 add_compile_definitions(ARCHIVE_SUPPORT_ENABLED)
 
-if (WIN32 AND (CMAKE_BUILD_TYPE STREQUAL Release))
-    add_executable(melonDS WIN32 ${SOURCES_QT_SDL})
-else()
-    add_executable(melonDS ${SOURCES_QT_SDL})
-endif()
+add_executable(melonDS ${SOURCES_QT_SDL})
 
 if (BUILD_STATIC)
     qt_import_plugins(melonDS INCLUDE Qt::QSvgPlugin)
@@ -113,6 +109,7 @@ elseif (WIN32)
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
+    set_target_properties(melonDS PROPERTIES WIN32_EXECUTABLE $<CONFIG:Release>)
 endif()
 
 if (PORTABLE)
