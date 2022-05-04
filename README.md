@@ -34,69 +34,74 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 
 ## How to build
 
-### Linux:
-
-1. Install dependencies: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
-2. Download the melonDS repository and prepare:
-  ```bash
-  git clone https://github.com/Arisotura/melonDS
-  cd melonDS
-  mkdir build && cd build
-  ```
+### Linux
+1. Install dependencies:
+   * Ubuntu 22.04: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev libslirp-dev libarchive-dev libepoxy-dev`
+   * Older Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
+   * Arch Linux: `sudo pacman -S base-devel cmake git libpcap sdl2 qt5-base libslirp libarchive libepoxy`
+3. Download the melonDS repository and prepare:
+   ```bash
+   git clone https://github.com/Arisotura/melonDS
+   cd melonDS
+   ```
 3. Compile:
-  ```bash
-  cmake ..
-  make -j$(nproc --all)
-  ```
+   ```bash
+   cmake -B build
+   cmake --build build -j$(nproc --all)
+   ```
 
-### Windows:
-
+### Windows
 1. Install [MSYS2](https://www.msys2.org/)
 2. Open the **MSYS2 MinGW 64-bit** terminal
 3. Update the packages using `pacman -Syu` and reopen the terminal if it asks you to
-4. Download the melonDS repository and prepare:
-  ```bash
-  git clone https://github.com/Arisotura/melonDS
-  cd melonDS
-  mkdir build && cd build
-  ```
+4. Install git to clone the repository
+   ```bash
+   pacman -S git
+   ```
+5. Download the melonDS repository and prepare:
+   ```bash
+   git clone https://github.com/Arisotura/melonDS
+   cd melonDS
+   ```
 #### Dynamic builds (with DLLs)
-5. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5,libslirp,libarchive,libepoxy}`
 6. Compile:
    ```bash
-   cmake .. -G "MSYS Makefiles"
-   make -j$(nproc --all)
+   cmake -B build -G "MSYS Makefiles"
+   cmake --build build -j$(nproc --all)
+   cd build
    ../tools/msys-dist.sh
    ```
 If everything went well, melonDS and the libraries it needs should now be in the `dist` folder.
 
 #### Static builds (without DLLs, standalone executable)
-5. Install dependencies: `pacman -S git make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
+5. Install dependencies: `pacman -S make mingw-w64-x86_64-{cmake,mesa,SDL2,toolchain,qt5-static,libslirp,libarchive,libepoxy}`
 6. Compile:
    ```bash
-   cmake .. -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
-   make -j$(nproc --all)
-   mkdir dist && cp melonDS.exe dist
+   cmake -B build -G 'MSYS Makefiles' -DBUILD_STATIC=ON -DCMAKE_PREFIX_PATH=/mingw64/qt5-static
+   cmake --build build -j$(nproc --all)
    ```
-If everything went well, melonDS should now be in the `dist` folder.
+If everything went well, melonDS should now be in the `build` folder.
 
-### macOS:
+### macOS
 1. Install the [Homebrew Package Manager](https://brew.sh)
 2. Install dependencies: `brew install git pkg-config cmake sdl2 qt@6 libslirp libarchive libepoxy`
 3. Download the melonDS repository and prepare:
-  ```zsh
-  git clone https://github.com/Arisotura/melonDS
-  cd melonDS
-  mkdir build && cd build
-  ```
+   ```zsh
+   git clone https://github.com/Arisotura/melonDS
+   cd melonDS
+   ```
 4. Compile:
    ```zsh
-   cmake .. -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON -DMACOS_BUNDLE_LIBS=ON
-   make -j$(sysctl -n hw.logicalcpu)
+   cmake -B build -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DUSE_QT6=ON
+   cmake --build build -j$(sysctl -n hw.logicalcpu)
    ```
-If everything went well, melonDS.app should now be in the current directory.
+If everything went well, melonDS.app should now be in the `build` directory.
 
-   
+#### Self-contained app bundle
+If you want an app bundle that can be distributed to other computers without needing to install dependencies through Homebrew, you can additionally run `
+../tools/mac-bundle.rb melonDS.app` after the build is completed, or add `-DMACOS_BUNDLE_LIBS=ON` to the first CMake command.
+
 ## TODO LIST
 
  * better DSi emulation
