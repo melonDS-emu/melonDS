@@ -9,13 +9,16 @@ set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-project(melonDS C CXX)
+project(melonDS
+    VERSION 0.9.4
+    DESCRIPTION "DS emulator, sorta"
+    HOMEPAGE_URL "https://melonds.kuribo64.net"
+    LANGUAGES C CXX)
 
 include(CheckSymbolExists)
 include(CheckLibraryExists)
 include(CMakeDependentOption)
 include(CheckIPOSupported)
-
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
@@ -23,19 +26,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-set(MELONDS_VERSION "0.9.4")
-add_compile_definitions(MELONDS_VERSION="${MELONDS_VERSION}")
-string(REPLACE "." ";" VERSION_LIST ${MELONDS_VERSION})
-# For the melon.rc file used on Windows
-list(GET VERSION_LIST 0 MELONDS_VERSION_MAJOR)
-list(GET VERSION_LIST 1 MELONDS_VERSION_MINOR)
-# Check if melonDS version is three digits or two digits
-list(LENGTH VERSION_LIST MELONDS_VER_LEN)
-if (${MELONDS_VER_LEN} GREATER 2)
-    list(GET VERSION_LIST 2 MELONDS_VERSION_PATCH)
-else()
-    set(MELONDS_VERSION_PATCH 0)
-endif()
+add_compile_definitions(MELONDS_VERSION="${melonDS_VERSION}")
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
