@@ -583,17 +583,17 @@ int LAN_RecvPacket(u8* data)
 
 void Camera_Start(int num)
 {
-    return camManager[num]->Start();
+    return camManager[num]->start();
 }
 
 void Camera_Stop(int num)
 {
-    return camManager[num]->Stop();
+    return camManager[num]->stop();
 }
 
 void Camera_CaptureFrame(int num, u32* frame, int width, int height, bool yuv)
 {
-    return camManager[num]->CaptureFrame(frame, width, height, yuv);
+    return camManager[num]->captureFrame(frame, width, height, yuv);
 }
 
 }

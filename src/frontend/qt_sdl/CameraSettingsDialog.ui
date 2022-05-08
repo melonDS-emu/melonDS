@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>607</width>
-    <height>455</height>
+    <width>605</width>
+    <height>341</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -89,9 +89,9 @@
        </property>
        <layout class="QGridLayout" name="gridLayout_4">
         <item row="0" column="0">
-         <widget class="QLabel" name="label_2">
+         <widget class="QCheckBox" name="chkFlipPicture">
           <property name="text">
-           <string>SHITPISS</string>
+           <string>Flip horizontally</string>
           </property>
          </widget>
         </item>

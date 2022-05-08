@@ -139,6 +139,8 @@ bool DSBatteryLevelOkay;
 int DSiBatteryLevel;
 bool DSiBatteryCharging;
 
+CameraConfig Camera[2];
+
 
 const char* kConfigFile = "melonDS.ini";
 
@@ -312,6 +314,17 @@ ConfigEntry ConfigFile[] =
     {"DSBatteryLevelOkay",   1, &DSBatteryLevelOkay, true},
     {"DSiBatteryLevel",    0, &DSiBatteryLevel, 0xF},
     {"DSiBatteryCharging", 1, &DSiBatteryCharging, true},
+
+    // TODO!!
+    // we need a more elegant way to deal with this
+    {"Camera0_InputType", 0, &Camera[0].InputType, 0},
+    {"Camera0_ImagePath", 2, &Camera[0].ImagePath, (std::string)""},
+    {"Camera0_CamDeviceName", 2, &Camera[0].CamDeviceName, (std::string)""},
+    {"Camera0_XFlip", 1, &Camera[0].XFlip, false},
+    {"Camera1_InputType", 0, &Camera[1].InputType, 0},
+    {"Camera1_ImagePath", 2, &Camera[1].ImagePath, (std::string)""},
+    {"Camera1_CamDeviceName", 2, &Camera[1].CamDeviceName, (std::string)""},
+    {"Camera1_XFlip", 1, &Camera[1].XFlip, false},
 
     {"", -1, nullptr, 0}
 };

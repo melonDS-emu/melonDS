@@ -40,7 +40,7 @@ public:
     QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType type = QAbstractVideoBuffer::NoHandle) const override;
 
 private:
-    QList<CameraManager*> CamList;
+    QList<CameraManager*> camList;
 };
 
 class CameraManager : public QObject
@@ -51,42 +51,44 @@ public:
     CameraManager(int num, int width, int height, bool yuv);
     ~CameraManager();
 
-    void Init();
-    void DeInit();
+    void init();
+    void deInit();
 
-    void Start();
-    void Stop();
+    void start();
+    void stop();
 
-    void CaptureFrame(u32* frame, int width, int height, bool yuv);
+    void captureFrame(u32* frame, int width, int height, bool yuv);
 
-    void FeedFrame(u32* frame, int width, int height, bool yuv);
+    void feedFrame(u32* frame, int width, int height, bool yuv);
 
 signals:
-    void CamStartSignal();
-    void CamStopSignal();
+    void camStartSignal();
+    void camStopSignal();
 
 private slots:
-    void CamStart();
-    void CamStop();
+    void camStart();
+    void camStop();
 
 private:
-    int Num;
+    int num;
 
-    int InputType;
-    QString ImagePath;
-    QString CamDeviceName;
+    int startNum;
 
-    QCamera* CamDevice;
-    CameraFrameDumper* CamDumper;
+    int inputType;
+    QString imagePath;
+    QString camDeviceName;
 
-    int FrameWidth, FrameHeight;
-    bool FrameFormatYUV;
-    u32* FrameBuffer;
-    QMutex FrameMutex;
+    QCamera* camDevice;
+    CameraFrameDumper* camDumper;
 
-    void CopyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool yuv);
-    void CopyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
-    void CopyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
+    int frameWidth, frameHeight;
+    bool frameFormatYUV;
+    u32* frameBuffer;
+    QMutex frameMutex;
+
+    void copyFrame_Straight(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight, bool yuv);
+    void copyFrame_RGBtoYUV(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
+    void copyFrame_YUVtoRGB(u32* src, int swidth, int sheight, u32* dst, int dwidth, int dheight);
 };
 
 #endif // CAMERAMANAGER_H
