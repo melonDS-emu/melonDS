@@ -58,6 +58,7 @@ else()
         -pedantic
         -pedantic-errors
         -Wfatal-errors
+        -Wno-error=maybe-uninitialized
         -Wno-missing-braces
         -Wno-unused-parameter)
 
