@@ -97,7 +97,7 @@ def install_name_tool(exec, action, path1, path2 = nil)
 end
 
 def strip(lib)
-  out, _ = Open3.capture2("strip", "-SNTx", lib)
+  out, _ = Open3.capture2("strip", "-Sx", lib)
   print out
 end
 
