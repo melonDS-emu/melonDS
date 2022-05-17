@@ -36,7 +36,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
 
 ### Linux:
 
-1. Install dependencies: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qt5-default libslirp-dev libarchive-dev libepoxy-dev`
+1. Install dependencies (for example on Debian/Ubuntu: `sudo apt install cmake libcurl4-gnutls-dev libpcap0.8-dev libsdl2-dev qtbase5-dev libslirp-dev libarchive-dev libepoxy-dev`)
 2. Download the melonDS repository and prepare:
   ```bash
   git clone https://github.com/Arisotura/melonDS
