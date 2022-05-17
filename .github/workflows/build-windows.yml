@@ -25,23 +25,32 @@ jobs:
       with:
           msystem: MINGW64
           update: true
-
-    - name: Install dependencies
-      run: pacman -Sq --noconfirm git make mingw-w64-x86_64-{cmake,mesa,SDL2,qt5-static,libslirp,libarchive,libepoxy,toolchain}
-  
-    - name: Create build environment
-      working-directory: ${{runner.workspace}}
-      run: mkdir build
+          pacboy: >-
+            cc:p
+            cmake:p
+            mesa:p
+            ninja:p
+            SDL2:p
+            qt5-static:p
+            libslirp:p
+            libarchive:p
+            libepoxy:p
 
     - name: Configure
-      working-directory: ${{runner.workspace}}/build
-      run: cmake $GITHUB_WORKSPACE -G 'MSYS Makefiles' -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DBUILD_STATIC=ON -DQT5_STATIC_DIR=C:/tools/msys64/mingw64/qt5-static
+      run: >-
+        cmake
+        $GITHUB_WORKSPACE
+        -G 'Ninja'
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        -DBUILD_STATIC=ON
+        -DQT5_STATIC_DIR=C:/tools/msys64/mingw64/qt5-static
+        -B build/
+        -S ./
 
-    - name: Make
-      working-directory: ${{runner.workspace}}/build
-      run: make -j$(nproc --all)
+    - name: Build
+      run: cmake --build build/
 
     - uses: actions/upload-artifact@v1
       with:
         name: melonDS-windows-x86_64
-        path: ${{runner.workspace}}\build\melonDS.exe
+        path: ${{runner.workspace}}\melonDS\build\melonDS.exe
