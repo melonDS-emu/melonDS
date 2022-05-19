@@ -57,6 +57,10 @@ add_library(core STATIC
 	sha1/sha1.c
 	tiny-AES-c/aes.c
 	xxhash/xxhash.c
+	rpc/RPC.cpp
+	rpc/RPC.h
+	rpc/http.cpp
+	rpc/http.h
 )
 
 if (ENABLE_OGLRENDERER)

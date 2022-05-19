@@ -44,6 +44,7 @@
 #include "DSi_NWifi.h"
 #include "DSi_Camera.h"
 #include "DSi_DSP.h"
+#include "rpc/RPC.h"
 
 
 namespace NDS
@@ -182,6 +183,7 @@ void SetGBASlotTimings();
 
 bool Init()
 {
+    rpc();
     ARM9 = new ARMv5();
     ARM7 = new ARMv4();
 
