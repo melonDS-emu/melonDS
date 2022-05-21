@@ -44,6 +44,7 @@ As for the rest, the interface should be pretty straightforward. If you have a q
    git clone https://github.com/Arisotura/melonDS
    cd melonDS
    ```
+
 3. Compile:
    ```bash
    cmake -B build
