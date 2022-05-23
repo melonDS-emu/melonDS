@@ -111,6 +111,15 @@ u32 micExtBufferWritePos;
 u32 micWavLength;
 s16* micWavBuffer;
 
+const struct { int id; float ratio; const char* label; } aspectRatios[] =
+{
+    { 0, 1,                       "4:3 (native)" },
+    { 4, (16.f / 10) / (4.f / 3), "16:10 (3DS)"},
+    { 1, (16.f / 9) / (4.f / 3),  "16:9" },
+    { 2, (21.f / 9) / (4.f / 3),  "21:9" },
+    { 3, 0,                       "window" }
+};
+
 void micCallback(void* data, Uint8* stream, int len);
 
 
@@ -746,13 +755,21 @@ void ScreenHandler::screenSetupLayout(int w, int h)
     int sizing = Config::ScreenSizing;
     if (sizing == 3) sizing = autoScreenSizing;
 
-    float aspectRatios[] =
+    float aspectTop, aspectBot;
+
+    for (auto ratio : aspectRatios)
     {
-        1.f,
-        (16.f/9)/(4.f/3),
-        (21.f/9)/(4.f/3),
-        ((float)w/h)/(4.f/3)
-    };
+        if (ratio.id == Config::ScreenAspectTop)
+            aspectTop = ratio.ratio;
+        if (ratio.id == Config::ScreenAspectBot)
+            aspectBot = ratio.ratio;
+    }
+
+    if (aspectTop == 0)
+        aspectTop = (float) w / h;
+
+    if (aspectBot == 0)
+        aspectBot = (float) w / h;
 
     Frontend::SetupScreenLayout(w, h,
                                 Config::ScreenLayout,
@@ -761,8 +778,8 @@ void ScreenHandler::screenSetupLayout(int w, int h)
                                 Config::ScreenGap,
                                 Config::IntegerScaling != 0,
                                 Config::ScreenSwap != 0,
-                                aspectRatios[Config::ScreenAspectTop],
-                                aspectRatios[Config::ScreenAspectBot]);
+                                aspectTop,
+                                aspectBot);
 
     numScreens = Frontend::GetScreenTransforms(screenMatrix[0], screenKind);
 }
@@ -1591,34 +1608,34 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
         {
             QMenu* submenu = menu->addMenu("Aspect ratio");
             grpScreenAspectTop = new QActionGroup(submenu);
-
-            const char* aspectRatiosTop[] = {"Top 4:3 (native)", "Top 16:9", "Top 21:9", "Top window"};
-
-            for (int i = 0; i < 4; i++)
-            {
-                actScreenAspectTop[i] = submenu->addAction(QString(aspectRatiosTop[i]));
-                actScreenAspectTop[i]->setActionGroup(grpScreenAspectTop);
-                actScreenAspectTop[i]->setData(QVariant(i));
-                actScreenAspectTop[i]->setCheckable(true);
-            }
-
-            connect(grpScreenAspectTop, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectTop);
-
-            submenu->addSeparator();
-
             grpScreenAspectBot = new QActionGroup(submenu);
+            actScreenAspectTop = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
+            actScreenAspectBot = new QAction*[sizeof(aspectRatios) / sizeof(aspectRatios[0])];
 
-            const char* aspectRatiosBot[] = {"Bottom 4:3 (native)", "Bottom 16:9", "Bottom 21:9", "Bottom window"};
-
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 2; i++)
             {
-                actScreenAspectBot[i] = submenu->addAction(QString(aspectRatiosBot[i]));
-                actScreenAspectBot[i]->setActionGroup(grpScreenAspectBot);
-                actScreenAspectBot[i]->setData(QVariant(i));
-                actScreenAspectBot[i]->setCheckable(true);
-            }
+                QActionGroup* group = grpScreenAspectTop;
+                QAction** actions = actScreenAspectTop;
 
-            connect(grpScreenAspectBot, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspectBot);
+                if (i == 1)
+                {
+                    group = grpScreenAspectBot;
+                    submenu->addSeparator();
+                    actions = actScreenAspectBot;
+                }
+
+                for (int j = 0; j < sizeof(aspectRatios) / sizeof(aspectRatios[0]); j++)
+                {
+                    auto ratio = aspectRatios[j];
+                    QString label = QString("%1 %2").arg(i ? "Bottom" : "Top", ratio.label);
+                    actions[j] = submenu->addAction(label);
+                    actions[j]->setActionGroup(group);
+                    actions[j]->setData(QVariant(ratio.id));
+                    actions[j]->setCheckable(true);
+                }
+
+                connect(group, &QActionGroup::triggered, this, &MainWindow::onChangeScreenAspect);
+            }
         }
 
         actScreenFiltering = menu->addAction("Screen filtering");
@@ -1709,8 +1726,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
     actScreenSwap->setChecked(Config::ScreenSwap);
 
-    actScreenAspectTop[Config::ScreenAspectTop]->setChecked(true);
-    actScreenAspectBot[Config::ScreenAspectBot]->setChecked(true);
+    for (int i = 0; i < sizeof(aspectRatios) / sizeof(aspectRatios[0]); i++)
+    {
+        if (Config::ScreenAspectTop == aspectRatios[i].id)
+            actScreenAspectTop[i]->setChecked(true);
+        if (Config::ScreenAspectBot == aspectRatios[i].id)
+            actScreenAspectBot[i]->setChecked(true);
+    }
 
     actScreenFiltering->setChecked(Config::ScreenFilter);
     actShowOSD->setChecked(Config::ShowOSD);
@@ -2833,18 +2855,19 @@ void MainWindow::onChangeScreenSizing(QAction* act)
     emit screenLayoutChange();
 }
 
-void MainWindow::onChangeScreenAspectTop(QAction* act)
+void MainWindow::onChangeScreenAspect(QAction* act)
 {
     int aspect = act->data().toInt();
-    Config::ScreenAspectTop = aspect;
+    QActionGroup* group = act->actionGroup();
 
-    emit screenLayoutChange();
-}
-
-void MainWindow::onChangeScreenAspectBot(QAction* act)
-{
-    int aspect = act->data().toInt();
-    Config::ScreenAspectBot = aspect;
+    if (group == grpScreenAspectTop)
+    {
+        Config::ScreenAspectTop = aspect;
+    }
+    else
+    {
+        Config::ScreenAspectBot = aspect;
+    }
 
     emit screenLayoutChange();
 }
