@@ -22,6 +22,7 @@
 #include <QDialog>
 #include <QButtonGroup>
 
+#include "Config.h"
 #include "CameraManager.h"
 
 namespace Ui { class CameraSettingsDialog; }
@@ -86,16 +87,24 @@ private slots:
     void on_CameraSettingsDialog_rejected();
 
     void on_cbCameraSel_currentIndexChanged(int id);
-
     void onChangeInputType(int type);
+    void on_txtSrcImagePath_textChanged();
+    void on_btnSrcImageBrowse_clicked();
+    void on_cbPhysicalCamera_currentIndexChanged(int id);
 
 private:
     Ui::CameraSettingsDialog* ui;
 
     QButtonGroup* grpInputType;
-
     CameraPreviewPanel* previewPanel;
+
+    int currentId;
+    Config::CameraConfig* currentCfg;
     CameraManager* currentCam;
+
+    Config::CameraConfig oldCamSettings[2];
+
+    void populateCamControls(int id);
 };
 
 #endif // CAMERASETTINGSDIALOG_H

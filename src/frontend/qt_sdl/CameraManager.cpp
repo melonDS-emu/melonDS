@@ -169,7 +169,7 @@ void CameraManager::deInit()
 }
 
 void CameraManager::start()
-{
+{printf("[%d] [%d] START\n", num, startNum);
     startNum++;
     if (startNum > 1) return;
 
@@ -180,7 +180,7 @@ void CameraManager::start()
 }
 
 void CameraManager::stop()
-{
+{printf("[%d] [%d] STOP\n", num, startNum-1);
     startNum--;
     if (startNum > 0) return;
 
