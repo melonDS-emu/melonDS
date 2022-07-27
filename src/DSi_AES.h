@@ -20,6 +20,7 @@
 #define DSI_AES_H
 
 #include "types.h"
+#include "Savestate.h"
 
 namespace DSi_AES
 {
