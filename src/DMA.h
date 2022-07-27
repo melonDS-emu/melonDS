@@ -96,7 +96,7 @@ private:
     bool IsGXFIFODMA;
 
     u32 MRAMBurstCount;
-    u8* MRAMBurstTable;
+    const u8* MRAMBurstTable;
 };
 
 #endif
