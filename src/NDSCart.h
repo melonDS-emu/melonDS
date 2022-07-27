@@ -22,6 +22,7 @@
 #include <string>
 
 #include "types.h"
+#include "Savestate.h"
 #include "NDS_Header.h"
 #include "FATStorage.h"
 

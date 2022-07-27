@@ -19,6 +19,9 @@
 #ifndef DSI_DSP_H
 #define DSI_DSP_H
 
+#include "types.h"
+#include "Savestate.h"
+
 // TODO: for actual sound output
 // * audio callbacks
 // * SNDEXCNT

@@ -20,6 +20,7 @@
 #define ARMJIT_REGCACHE_H
 
 #include "ARMJIT.h"
+#include "ARMJIT_Internal.h"
 
 // TODO: replace this in the future
 #include "dolphin/BitSet.h"
@@ -41,7 +42,7 @@ public:
     {
         for (int i = 0; i < 16; i++)
             Mapping[i] = (Reg)-1;
-        
+
         PCAllocatableAsSrc = ~(pcAllocatableAsSrc
             ? 0
             : (1 << 15));

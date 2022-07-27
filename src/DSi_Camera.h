@@ -20,6 +20,7 @@
 #define DSI_CAMERA_H
 
 #include "types.h"
+#include "Savestate.h"
 
 class DSi_Camera
 {
