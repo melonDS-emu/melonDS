@@ -163,6 +163,7 @@ public:
 
         setCheckable(true);
         setText(mappingText());
+        setFocusPolicy(Qt::StrongFocus); //Fixes binding keys in macOS
 
         connect(this, &JoyMapButton::clicked, this, &JoyMapButton::onClick);
 
