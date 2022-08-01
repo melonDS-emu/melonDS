@@ -34,7 +34,7 @@ template<typename T>
 constexpr void PWrite(u8* p, T v)
 {
     *(T*)p = v;
-    v += sizeof(T)/8;
+    v += sizeof(T);
 }
 
 constexpr void PWriteMAC(u8* p, u8 a, u8 b, u8 c, u8 d, u8 e, u8 f)
