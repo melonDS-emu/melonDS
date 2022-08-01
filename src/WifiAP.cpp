@@ -30,36 +30,64 @@
 namespace WifiAP
 {
 
-const u8 APMac[6] = {AP_MAC};
+template<typename T>
+constexpr void PWrite(u8* p, T v)
+{
+    *(T*)p = v;
+    v += sizeof(T)/8;
+}
 
-#define PWRITE_8(p, v)      *p++ = v;
-#define PWRITE_16(p, v)     *(u16*)p = v; p += 2;
-#define PWRITE_32(p, v)     *(u32*)p = v; p += 4;
-#define PWRITE_64(p, v)     *(u64*)p = v; p += 8;
+constexpr void PWriteMAC(u8* p, u8 a, u8 b, u8 c, u8 d, u8 e, u8 f)
+{
+    *p++ = a;
+    *p++ = b;
+    *p++ = c;
+    *p++ = d;
+    *p++ = e;
+    *p++ = f;
+}
 
-#define PWRITE_MAC(p, a,b,c,d,e,f) \
-    *p++ = a; *p++ = b; *p++ = c; *p++ = d; *p++ = e; *p++ = f;
+constexpr void PWriteMAC2(u8* p, const u8 m[6])
+{
+    *p++ = m[0];
+    *p++ = m[1];
+    *p++ = m[2];
+    *p++ = m[3];
+    *p++ = m[4];
+    *p++ = m[5];
+}
 
-#define PWRITE_MAC2(p, m) \
-    *p++ = m[0]; *p++ = m[1]; *p++ = m[2]; *p++ = m[3]; *p++ = m[4]; *p++ = m[5];
+constexpr void PWriteSeqNo(u8* p, u16 v)
+{
+    PWrite<u16>(p, v);
+    v += 0x10;
+}
 
-#define PWRITE_SEQNO(p)     PWRITE_16(p, SeqNo); SeqNo += 0x10;
+constexpr void PWriteTXH(u8* p, u8 len, u16 rate)
+{
+    PWrite<u64>(p, 0);
+    PWrite<u8>(p, rate);
+    PWrite<u8>(p, 0);
+    PWrite<u16>(p, len);
 
-#define PWRITE_TXH(p, len, rate) \
-    PWRITE_16(p, 0); \
-    PWRITE_16(p, 0); \
-    PWRITE_16(p, 0); \
-    PWRITE_16(p, 0); \
-    PWRITE_8(p, rate); \
-    PWRITE_8(p, 0); \
-    PWRITE_16(p, len);
+}
 
-//#define PALIGN_4(p, base)  p += ((4 - ((ptrdiff_t)(p-base) & 0x3)) & 0x3);
+//#define PAlign_4(p, base)  p += ((4 - ((ptrdiff_t)(p-base) & 0x3)) & 0x3);
 // no idea what is the ideal padding there
 // but in the case of management frames the padding shouldn't be counted as an information element
 // (theory: the hardware just doesn't touch the space between the frame and the FCS)
-#define PLEN(p, base)      (int)(ptrdiff_t)(p-base)
-#define PALIGN_4(p, base)  while (PLEN(p,base) & 0x3) *p++ = 0xFF;
+constexpr int PLen(u8* p, u8* base)
+{
+    return (int)(ptrdiff_t)(p - base);
+}
+
+constexpr void PAlign4(u8* p, u8* base)
+{
+    while (PLen(p, base) & 0x3)
+    {
+        *p++ = 0xFF;
+    }
+}
 
 
 u64 USCounter;
@@ -174,19 +202,19 @@ int HandleManagementFrame(u8* data, int len)
             ClientStatus = 2;
             printf("wifiAP: client associated\n");
 
-            PWRITE_16(p, 0x0010);
-            PWRITE_16(p, 0x0000); // duration??
-            PWRITE_MAC2(p, (&data[10])); // recv
-            PWRITE_MAC2(p, APMac); // sender
-            PWRITE_MAC2(p, APMac); // BSSID
-            PWRITE_SEQNO(p);
+            PWrite<u16>(p, 0x0010);
+            PWrite<u16>(p, 0x0000); // duration??
+            PWriteMAC2(p, (&data[10])); // recv
+            PWriteMAC2(p, APMac); // sender
+            PWriteMAC2(p, APMac); // BSSID
+            PWriteSeqNo(p, SeqNo);
 
-            PWRITE_16(p, 0x0021); // capability
-            PWRITE_16(p, 0); // status (success)
-            PWRITE_16(p, 0xC001); // assoc ID
-            PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
+            PWrite<u16>(p, 0x0021); // capability
+            PWrite<u16>(p, 0); // status (success)
+            PWrite<u16>(p, 0xC001); // assoc ID
+            PWrite<u8>(p, 0x01); PWrite<u8>(p, 0x02); PWrite<u8>(p, 0x82); PWrite<u8>(p, 0x84); // rates
 
-            PacketLen = PLEN(p, base);
+            PacketLen = PLen(p, base);
             RXNum = 1;
         }
         return len;
@@ -196,22 +224,22 @@ int HandleManagementFrame(u8* data, int len)
             // Nintendo's WFC setup util sends probe requests when searching for APs
             // these should be replied with a probe response, which is almost like a beacon
 
-            PWRITE_16(p, 0x0050);
-            PWRITE_16(p, 0x0000); // duration??
-            PWRITE_MAC2(p, (&data[10])); // recv
-            PWRITE_MAC2(p, APMac); // sender
-            PWRITE_MAC2(p, APMac); // BSSID (checkme)
-            PWRITE_SEQNO(p);
+            PWrite<u16>(p, 0x0050);
+            PWrite<u16>(p, 0x0000); // duration??
+            PWriteMAC2(p, (&data[10])); // recv
+            PWriteMAC2(p, APMac); // sender
+            PWriteMAC2(p, APMac); // BSSID (checkme)
+            PWriteSeqNo(p, SeqNo);
 
-            PWRITE_64(p, USCounter);
-            PWRITE_16(p, 128); // beacon interval
-            PWRITE_16(p, 0x0021); // capability
-            PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
-            PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
-            PWRITE_8(p, 0x00); PWRITE_8(p, strlen(AP_NAME));
-            memcpy(p, AP_NAME, strlen(AP_NAME)); p += strlen(AP_NAME);
+            PWrite<u64>(p, USCounter);
+            PWrite<u16>(p, 128); // beacon interval
+            PWrite<u16>(p, 0x0021); // capability
+            PWrite<u8>(p, 0x01); PWrite<u8>(p, 0x02); PWrite<u8>(p, 0x82); PWrite<u8>(p, 0x84); // rates
+            PWrite<u8>(p, 0x03); PWrite<u8>(p, 0x01); PWrite<u8>(p, 0x06); // current channel
+            PWrite<u8>(p, 0x00); PWrite<u8>(p, strlen(APName));
+            memcpy(p, APName, strlen(APName)); p += strlen(APName);
 
-            PacketLen = PLEN(p, base);
+            PacketLen = PLen(p, base);
             RXNum = 1;
         }
         return len;
@@ -224,16 +252,16 @@ int HandleManagementFrame(u8* data, int len)
             ClientStatus = 1;
             printf("wifiAP: client deassociated\n");
 
-            PWRITE_16(p, 0x00A0);
-            PWRITE_16(p, 0x0000); // duration??
-            PWRITE_MAC2(p, (&data[10])); // recv
-            PWRITE_MAC2(p, APMac); // sender
-            PWRITE_MAC2(p, APMac); // BSSID
-            PWRITE_SEQNO(p);
+            PWrite<u16>(p, 0x00A0);
+            PWrite<u16>(p, 0x0000); // duration??
+            PWriteMAC2(p, (&data[10])); // recv
+            PWriteMAC2(p, APMac); // sender
+            PWriteMAC2(p, APMac); // BSSID
+            PWriteSeqNo(p, SeqNo);
 
-            PWRITE_16(p, 3); // reason code
+            PWrite<u16>(p, 3); // reason code
 
-            PacketLen = PLEN(p, base);
+            PacketLen = PLen(p, base);
             RXNum = 1;
         }
         return len;
@@ -246,18 +274,18 @@ int HandleManagementFrame(u8* data, int len)
             ClientStatus = 1;
             printf("wifiAP: client authenticated\n");
 
-            PWRITE_16(p, 0x00B0);
-            PWRITE_16(p, 0x0000); // duration??
-            PWRITE_MAC2(p, (&data[10])); // recv
-            PWRITE_MAC2(p, APMac); // sender
-            PWRITE_MAC2(p, APMac); // BSSID
-            PWRITE_SEQNO(p);
+            PWrite<u16>(p, 0x00B0);
+            PWrite<u16>(p, 0x0000); // duration??
+            PWriteMAC2(p, (&data[10])); // recv
+            PWriteMAC2(p, APMac); // sender
+            PWriteMAC2(p, APMac); // BSSID
+            PWriteSeqNo(p, SeqNo);
 
-            PWRITE_16(p, 0); // auth algorithm (open)
-            PWRITE_16(p, 2); // auth sequence
-            PWRITE_16(p, 0); // status code (success)
+            PWrite<u16>(p, 0); // auth algorithm (open)
+            PWrite<u16>(p, 2); // auth sequence
+            PWrite<u16>(p, 0); // status code (success)
 
-            PacketLen = PLEN(p, base);
+            PacketLen = PLen(p, base);
             RXNum = 1;
         }
         return len;
@@ -270,16 +298,16 @@ int HandleManagementFrame(u8* data, int len)
             ClientStatus = 0;
             printf("wifiAP: client deauthenticated\n");
 
-            PWRITE_16(p, 0x00C0);
-            PWRITE_16(p, 0x0000); // duration??
-            PWRITE_MAC2(p, (&data[10])); // recv
-            PWRITE_MAC2(p, APMac); // sender
-            PWRITE_MAC2(p, APMac); // BSSID
-            PWRITE_SEQNO(p);
+            PWrite<u16>(p, 0x00C0);
+            PWrite<u16>(p, 0x0000); // duration??
+            PWriteMAC2(p, (&data[10])); // recv
+            PWriteMAC2(p, APMac); // sender
+            PWriteMAC2(p, APMac); // BSSID
+            PWriteSeqNo(p, SeqNo);
 
-            PWRITE_16(p, 3); // reason code
+            PWrite<u16>(p, 3); // reason code
 
-            PacketLen = PLEN(p, base);
+            PacketLen = PLen(p, base);
             RXNum = 1;
         }
         return len;
@@ -349,28 +377,28 @@ int RecvPacket(u8* data)
         u8* base = data + 12;
         u8* p = base;
 
-        PWRITE_16(p, 0x0080);
-        PWRITE_16(p, 0x0000); // duration??
-        PWRITE_MAC(p, 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF); // recv
-        PWRITE_MAC2(p, APMac); // sender
-        PWRITE_MAC2(p, APMac); // BSSID
-        PWRITE_SEQNO(p);
+        PWrite<u16>(p, 0x0080);
+        PWrite<u16>(p, 0x0000); // duration??
+        PWriteMAC(p, 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF); // recv
+        PWriteMAC2(p, APMac); // sender
+        PWriteMAC2(p, APMac); // BSSID
+        PWriteSeqNo(p, SeqNo);
 
-        PWRITE_64(p, USCounter);
-        PWRITE_16(p, 128); // beacon interval
-        PWRITE_16(p, 0x0021); // capability
-        PWRITE_8(p, 0x01); PWRITE_8(p, 0x02); PWRITE_8(p, 0x82); PWRITE_8(p, 0x84); // rates
-        PWRITE_8(p, 0x03); PWRITE_8(p, 0x01); PWRITE_8(p, 0x06); // current channel
-        PWRITE_8(p, 0x05); PWRITE_8(p, 0x04); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); PWRITE_8(p, 0); // TIM
-        PWRITE_8(p, 0x00); PWRITE_8(p, strlen(AP_NAME));
-        memcpy(p, AP_NAME, strlen(AP_NAME)); p += strlen(AP_NAME);
+        PWrite<u64>(p, USCounter);
+        PWrite<u16>(p, 128); // beacon interval
+        PWrite<u16>(p, 0x0021); // capability
+        PWrite<u8>(p, 0x01); PWrite<u8>(p, 0x02); PWrite<u8>(p, 0x82); PWrite<u8>(p, 0x84); // rates
+        PWrite<u8>(p, 0x03); PWrite<u8>(p, 0x01); PWrite<u8>(p, 0x06); // current channel
+        PWrite<u8>(p, 0x05); PWrite<u8>(p, 0x04); PWrite<u8>(p, 0); PWrite<u8>(p, 0); PWrite<u8>(p, 0); PWrite<u8>(p, 0); // TIM
+        PWrite<u8>(p, 0x00); PWrite<u8>(p, strlen(APName));
+        memcpy(p, APName, strlen(APName)); p += strlen(APName);
 
-        PALIGN_4(p, base);
-        PWRITE_32(p, 0xDEADBEEF); // checksum. doesn't matter for now
+        PAlign4(p, base);
+        PWrite<u32>(p, 0xDEADBEEF); // checksum. doesn't matter for now
 
-        int len = PLEN(p, base);
+        int len = PLen(p, base);
         p = data;
-        PWRITE_TXH(p, len, 20);
+        PWriteTXH(p, len, 20);
 
         return len+12;
     }
@@ -385,12 +413,12 @@ int RecvPacket(u8* data)
         memcpy(p, PacketBuffer, PacketLen);
         p += PacketLen;
 
-        PALIGN_4(p, base);
-        PWRITE_32(p, 0xDEADBEEF);
+        PAlign4(p, base);
+        PWrite<u32>(p, 0xDEADBEEF);
 
-        int len = PLEN(p, base);
+        int len = PLen(p, base);
         p = data;
-        PWRITE_TXH(p, len, 20);
+        PWriteTXH(p, len, 20);
 
         return len+12;
     }
@@ -412,24 +440,24 @@ int RecvPacket(u8* data)
         u8* base = data + 12;
         u8* p = base;
 
-        PWRITE_16(p, 0x0208);
-        PWRITE_16(p, 0x0000); // duration??
-        PWRITE_MAC2(p, (&LANBuffer[0])); // recv
-        PWRITE_MAC2(p, APMac); // BSSID
-        PWRITE_MAC2(p, (&LANBuffer[6])); // sender
-        PWRITE_SEQNO(p);
+        PWrite<u16>(p, 0x0208);
+        PWrite<u16>(p, 0x0000); // duration??
+        PWriteMAC2(p, (&LANBuffer[0])); // recv
+        PWriteMAC2(p, APMac); // BSSID
+        PWriteMAC2(p, (&LANBuffer[6])); // sender
+        PWriteSeqNo(p, SeqNo);
 
-        PWRITE_32(p, 0x0003AAAA);
-        PWRITE_16(p, 0x0000);
-        PWRITE_16(p, *(u16*)&LANBuffer[12]);
+        PWrite<u32>(p, 0x0003AAAA);
+        PWrite<u16>(p, 0x0000);
+        PWrite<u16>(p, *(u16*)&LANBuffer[12]);
         memcpy(p, &LANBuffer[14], rxlen-14); p += rxlen-14;
 
-        PALIGN_4(p, base);
-        PWRITE_32(p, 0xDEADBEEF); // checksum. doesn't matter for now
+        PAlign4(p, base);
+        PWrite<u32>(p, 0xDEADBEEF); // checksum. doesn't matter for now
 
-        int len = PLEN(p, base);
+        int len = PLen(p, base);
         p = data;
-        PWRITE_TXH(p, len, 20);
+        PWriteTXH(p, len, 20);
 
         return len+12;
     }

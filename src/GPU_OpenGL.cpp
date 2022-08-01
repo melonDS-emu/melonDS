@@ -60,30 +60,29 @@ bool GLCompositor::Init()
     }
 
     // all this mess is to prevent bleeding
-#define SETVERTEX(i, x, y, offset) \
-    CompVertices[i].Position[0] = x; \
-    CompVertices[i].Position[1] = y + offset; \
-    CompVertices[i].Texcoord[0] = (x + 1.f) * (256.f / 2.f); \
-    CompVertices[i].Texcoord[1] = (y + 1.f) * (384.f / 2.f)
-
+    const auto setVertex = [this](u32 i, s32 x, s32 y, float offset)
+    {
+        CompVertices[i].Position[0] = x;
+        CompVertices[i].Position[1] = y + offset;
+        CompVertices[i].Texcoord[0] = (x + 1.f) * (256.f / 2.f);
+        CompVertices[i].Texcoord[1] = (y + 1.f) * (384.f / 2.f);
+    };
     const float padOffset = 1.f/(192*2.f+2.f)*2.f;
     // top screen
-    SETVERTEX(0, -1, 1, 0);
-    SETVERTEX(1, 1, 0, padOffset);
-    SETVERTEX(2, 1, 1, 0);
-    SETVERTEX(3, -1, 1, 0);
-    SETVERTEX(4, -1, 0, padOffset);
-    SETVERTEX(5, 1, 0, padOffset);
+    setVertex(0, -1, 1, 0);
+    setVertex(1, 1, 0, padOffset);
+    setVertex(2, 1, 1, 0);
+    setVertex(3, -1, 1, 0);
+    setVertex(4, -1, 0, padOffset);
+    setVertex(5, 1, 0, padOffset);
 
     // bottom screen
-    SETVERTEX(6, -1, 0, -padOffset);
-    SETVERTEX(7, 1, -1, 0);
-    SETVERTEX(8, 1, 0, -padOffset);
-    SETVERTEX(9, -1, 0, -padOffset);
-    SETVERTEX(10, -1, -1, 0);
-    SETVERTEX(11, 1, -1, 0);
-
-#undef SETVERTEX
+    setVertex(6, -1, 0, -padOffset);
+    setVertex(7, 1, -1, 0);
+    setVertex(8, 1, 0, -padOffset);
+    setVertex(9, -1, 0, -padOffset);
+    setVertex(10, -1, -1, 0);
+    setVertex(11, 1, -1, 0);
 
     glGenBuffers(1, &CompVertexBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, CompVertexBufferID);

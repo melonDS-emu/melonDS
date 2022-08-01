@@ -295,34 +295,34 @@ void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
     // CHECKME: GBAtek says the modcrypt area should be the same size, or bigger,
     // than the binary area being considered
     // but I have seen modcrypt areas smaller than the ARM9i binary
-#define BINARY_GOOD(name) \
-    ((offset >= NDSCart::Header.name##ROMOffset) && \
-     (offset+roundedsize) <= (NDSCart::Header.name##ROMOffset + ((NDSCart::Header.name##Size + 0xF) & ~0xF)))
+    const auto binaryGood = [offset, roundedsize](u32 ROMOffset, u32 size)
+    {
+        return ((offset >= ROMOffset) &&
+            (offset+roundedsize) <= (ROMOffset + ((size + 0xF) & ~0xF)));
+    };
 
-    if (BINARY_GOOD(ARM9))
+    if (binaryGood(NDSCart::Header.ARM9ROMOffset, NDSCart::Header.ARM9Size))
     {
         binaryaddr = NDSCart::Header.ARM9RAMAddress;
         binarysize = NDSCart::Header.ARM9Size;
     }
-    else if (BINARY_GOOD(ARM7))
+    else if (binaryGood(NDSCart::Header.ARM7ROMOffset, NDSCart::Header.ARM7Size))
     {
         binaryaddr = NDSCart::Header.ARM7RAMAddress;
         binarysize = NDSCart::Header.ARM7Size;
     }
-    else if (BINARY_GOOD(DSiARM9i))
+    else if (binaryGood(NDSCart::Header.DSiARM9iROMOffset, NDSCart::Header.DSiARM9iSize))
     {
         binaryaddr = NDSCart::Header.DSiARM9iRAMAddress;
         binarysize = NDSCart::Header.DSiARM9iSize;
     }
-    else if (BINARY_GOOD(DSiARM7i))
+    else if (binaryGood(NDSCart::Header.DSiARM7iROMOffset, NDSCart::Header.DSiARM7iSize))
     {
         binaryaddr = NDSCart::Header.DSiARM7iRAMAddress;
         binarysize = NDSCart::Header.DSiARM7iSize;
     }
     else
         return;
-
-#undef BINARY_GOOD
 
     for (u32 i = 0; i < size; i+=16)
     {
