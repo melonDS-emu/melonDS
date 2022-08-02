@@ -37,17 +37,7 @@ constexpr void PWrite(u8* p, T v)
     v += sizeof(T);
 }
 
-constexpr void PWriteMAC(u8* p, u8 a, u8 b, u8 c, u8 d, u8 e, u8 f)
-{
-    *p++ = a;
-    *p++ = b;
-    *p++ = c;
-    *p++ = d;
-    *p++ = e;
-    *p++ = f;
-}
-
-constexpr void PWriteMAC2(u8* p, const u8 m[6])
+constexpr void PWriteMAC(u8* p, const u8 m[6])
 {
     *p++ = m[0];
     *p++ = m[1];
@@ -204,9 +194,9 @@ int HandleManagementFrame(u8* data, int len)
 
             PWrite<u16>(p, 0x0010);
             PWrite<u16>(p, 0x0000); // duration??
-            PWriteMAC2(p, (&data[10])); // recv
-            PWriteMAC2(p, APMac); // sender
-            PWriteMAC2(p, APMac); // BSSID
+            PWriteMAC(p, (&data[10])); // recv
+            PWriteMAC(p, APMac); // sender
+            PWriteMAC(p, APMac); // BSSID
             PWriteSeqNo(p, SeqNo);
 
             PWrite<u16>(p, 0x0021); // capability
@@ -226,9 +216,9 @@ int HandleManagementFrame(u8* data, int len)
 
             PWrite<u16>(p, 0x0050);
             PWrite<u16>(p, 0x0000); // duration??
-            PWriteMAC2(p, (&data[10])); // recv
-            PWriteMAC2(p, APMac); // sender
-            PWriteMAC2(p, APMac); // BSSID (checkme)
+            PWriteMAC(p, (&data[10])); // recv
+            PWriteMAC(p, APMac); // sender
+            PWriteMAC(p, APMac); // BSSID (checkme)
             PWriteSeqNo(p, SeqNo);
 
             PWrite<u64>(p, USCounter);
@@ -254,9 +244,9 @@ int HandleManagementFrame(u8* data, int len)
 
             PWrite<u16>(p, 0x00A0);
             PWrite<u16>(p, 0x0000); // duration??
-            PWriteMAC2(p, (&data[10])); // recv
-            PWriteMAC2(p, APMac); // sender
-            PWriteMAC2(p, APMac); // BSSID
+            PWriteMAC(p, (&data[10])); // recv
+            PWriteMAC(p, APMac); // sender
+            PWriteMAC(p, APMac); // BSSID
             PWriteSeqNo(p, SeqNo);
 
             PWrite<u16>(p, 3); // reason code
@@ -276,9 +266,9 @@ int HandleManagementFrame(u8* data, int len)
 
             PWrite<u16>(p, 0x00B0);
             PWrite<u16>(p, 0x0000); // duration??
-            PWriteMAC2(p, (&data[10])); // recv
-            PWriteMAC2(p, APMac); // sender
-            PWriteMAC2(p, APMac); // BSSID
+            PWriteMAC(p, (&data[10])); // recv
+            PWriteMAC(p, APMac); // sender
+            PWriteMAC(p, APMac); // BSSID
             PWriteSeqNo(p, SeqNo);
 
             PWrite<u16>(p, 0); // auth algorithm (open)
@@ -300,9 +290,9 @@ int HandleManagementFrame(u8* data, int len)
 
             PWrite<u16>(p, 0x00C0);
             PWrite<u16>(p, 0x0000); // duration??
-            PWriteMAC2(p, (&data[10])); // recv
-            PWriteMAC2(p, APMac); // sender
-            PWriteMAC2(p, APMac); // BSSID
+            PWriteMAC(p, (&data[10])); // recv
+            PWriteMAC(p, APMac); // sender
+            PWriteMAC(p, APMac); // BSSID
             PWriteSeqNo(p, SeqNo);
 
             PWrite<u16>(p, 3); // reason code
@@ -379,9 +369,10 @@ int RecvPacket(u8* data)
 
         PWrite<u16>(p, 0x0080);
         PWrite<u16>(p, 0x0000); // duration??
-        PWriteMAC(p, 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF); // recv
-        PWriteMAC2(p, APMac); // sender
-        PWriteMAC2(p, APMac); // BSSID
+        static constexpr u8 MAC[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+        PWriteMAC(p, MAC); // recv
+        PWriteMAC(p, APMac); // sender
+        PWriteMAC(p, APMac); // BSSID
         PWriteSeqNo(p, SeqNo);
 
         PWrite<u64>(p, USCounter);
@@ -442,9 +433,9 @@ int RecvPacket(u8* data)
 
         PWrite<u16>(p, 0x0208);
         PWrite<u16>(p, 0x0000); // duration??
-        PWriteMAC2(p, (&LANBuffer[0])); // recv
-        PWriteMAC2(p, APMac); // BSSID
-        PWriteMAC2(p, (&LANBuffer[6])); // sender
+        PWriteMAC(p, (&LANBuffer[0])); // recv
+        PWriteMAC(p, APMac); // BSSID
+        PWriteMAC(p, (&LANBuffer[6])); // sender
         PWriteSeqNo(p, SeqNo);
 
         PWrite<u32>(p, 0x0003AAAA);

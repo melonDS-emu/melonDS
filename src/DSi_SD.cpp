@@ -47,7 +47,7 @@
 constexpr auto SDDesc(u32 Num)
 {
     return Num ? "SDIO" : "SD/MMC";
-};
+}
 
 
 DSi_SDHost::DSi_SDHost(u32 num)
@@ -597,7 +597,7 @@ void DSi_SDHost::Write(u32 addr, u16 val)
                     break;
                 }
             }
-            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SDDesc, val);
+            else printf("%s: SENDING CMD %04X TO NULL DEVICE\n", SDDesc(Num), val);
         }
         return;
 
