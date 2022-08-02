@@ -60,7 +60,7 @@ bool GLCompositor::Init()
     }
 
     // all this mess is to prevent bleeding
-    constexpr auto setVertex = [](CompVertex v, s32 x, s32 y, float offset)
+    constexpr auto setVertex = [](CompVertex& v, s32 x, s32 y, float offset)
     {
         v.Position[0] = x;
         v.Position[1] = y + offset;
