@@ -101,7 +101,8 @@ class ScreenHandler
     Q_GADGET
 
 public:
-    virtual ~ScreenHandler() {}
+    ScreenHandler(QWidget* widget);
+    virtual ~ScreenHandler();
     QTimer* setupMouseTimer();
     void updateMouseTimer();
     QTimer* mouseTimer;
@@ -121,7 +122,7 @@ protected:
     int screenKind[Frontend::MaxScreenTransforms];
     int numScreens;
 
-    bool touching;
+    bool touching = false;
 
     void showCursor();
 };
@@ -133,7 +134,7 @@ class ScreenPanelNative : public QWidget, public ScreenHandler
 
 public:
     explicit ScreenPanelNative(QWidget* parent);
-    ~ScreenPanelNative();
+    virtual ~ScreenPanelNative();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -163,7 +164,7 @@ class ScreenPanelGL : public QOpenGLWidget, public ScreenHandler, protected QOpe
 
 public:
     explicit ScreenPanelGL(QWidget* parent);
-    ~ScreenPanelGL();
+    virtual ~ScreenPanelGL();
 
 protected:
     void initializeGL() override;
@@ -316,9 +317,8 @@ private:
     bool oldMax;
 
 public:
-    QWidget* panel;
-    ScreenPanelGL* panelGL;
-    ScreenPanelNative* panelNative;
+    ScreenHandler* panel;
+    QWidget* panelWidget;
 
     QAction* actOpenROM;
     QAction* actBootFirmware;

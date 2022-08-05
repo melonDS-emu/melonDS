@@ -330,7 +330,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     EmuPause = 0;
     RunningSomething = false;
 
-    connect(this, SIGNAL(windowUpdate()), mainWindow->panel, SLOT(repaint()));
+    connect(this, SIGNAL(windowUpdate()), mainWindow->panelWidget, SLOT(repaint()));
     connect(this, SIGNAL(windowTitleChange(QString)), mainWindow, SLOT(onTitleUpdate(QString)));
     connect(this, SIGNAL(windowEmuStart()), mainWindow, SLOT(onEmuStart()));
     connect(this, SIGNAL(windowEmuStop()), mainWindow, SLOT(onEmuStop()));
@@ -338,7 +338,7 @@ EmuThread::EmuThread(QObject* parent) : QThread(parent)
     connect(this, SIGNAL(windowEmuReset()), mainWindow->actReset, SLOT(trigger()));
     connect(this, SIGNAL(windowEmuFrameStep()), mainWindow->actFrameStep, SLOT(trigger()));
     connect(this, SIGNAL(windowLimitFPSChange()), mainWindow->actLimitFramerate, SLOT(trigger()));
-    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), mainWindow->panelWidget, SLOT(onScreenLayoutChanged()));
     connect(this, SIGNAL(windowFullscreenToggle()), mainWindow, SLOT(onFullscreenToggled()));
     connect(this, SIGNAL(swapScreensToggle()), mainWindow->actScreenSwap, SLOT(trigger()));
 
@@ -749,6 +749,18 @@ bool EmuThread::emuIsActive()
     return (RunningSomething == 1);
 }
 
+ScreenHandler::ScreenHandler(QWidget* widget)
+{
+    widget->setMouseTracking(true);
+    widget->setAttribute(Qt::WA_AcceptTouchEvents);
+    QTimer* mouseTimer = setupMouseTimer();
+    widget->connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) widget->setCursor(Qt::BlankCursor);});
+}
+
+ScreenHandler::~ScreenHandler()
+{
+    mouseTimer->stop();
+}
 
 void ScreenHandler::screenSetupLayout(int w, int h)
 {
@@ -932,7 +944,7 @@ void ScreenHandler::screenHandleTouch(QTouchEvent* event)
 
 void ScreenHandler::showCursor()
 {
-    mainWindow->panel->setCursor(Qt::ArrowCursor);
+    mainWindow->panelWidget->setCursor(Qt::ArrowCursor);
     mouseTimer->start();
 }
 
@@ -946,7 +958,7 @@ QTimer* ScreenHandler::setupMouseTimer()
     return mouseTimer;
 }
 
-ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
+ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent), ScreenHandler(this)
 {
     screen[0] = QImage(256, 192, QImage::Format_RGB32);
     screen[1] = QImage(256, 192, QImage::Format_RGB32);
@@ -954,17 +966,12 @@ ScreenPanelNative::ScreenPanelNative(QWidget* parent) : QWidget(parent)
     screenTrans[0].reset();
     screenTrans[1].reset();
 
-    touching = false;
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
-
     OSD::Init(nullptr);
 }
 
 ScreenPanelNative::~ScreenPanelNative()
 {
     OSD::DeInit(nullptr);
-    mouseTimer->stop();
 }
 
 void ScreenPanelNative::setupScreenLayout()
@@ -1063,17 +1070,11 @@ void ScreenPanelNative::onScreenLayoutChanged()
 }
 
 
-ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent)
-{
-    touching = false;
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
-}
+ScreenPanelGL::ScreenPanelGL(QWidget* parent) : QOpenGLWidget(parent), ScreenHandler(this)
+{}
 
 ScreenPanelGL::~ScreenPanelGL()
 {
-    mouseTimer->stop();
-
     makeCurrent();
 
     OSD::DeInit(this);
@@ -1749,17 +1750,13 @@ void MainWindow::createScreenPanel()
 {
     hasOGL = (Config::ScreenUseGL != 0) || (Config::_3DRenderer != 0);
 
-    QTimer* mouseTimer;
-
     if (hasOGL)
     {
-        panelGL = new ScreenPanelGL(this);
+        ScreenPanelGL* panelGL = new ScreenPanelGL(this);
         panelGL->show();
 
         panel = panelGL;
-        panelGL->setMouseTracking(true);
-        mouseTimer = panelGL->setupMouseTimer();
-        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelGL->setCursor(Qt::BlankCursor);});
+        panelWidget = panelGL;
 
         if (!panelGL->isValid())
             hasOGL = false;
@@ -1776,17 +1773,14 @@ void MainWindow::createScreenPanel()
 
     if (!hasOGL)
     {
-        panelNative = new ScreenPanelNative(this);
+        ScreenPanelNative* panelNative = new ScreenPanelNative(this);
         panel = panelNative;
-        panel->show();
-
-        panelNative->setMouseTracking(true);
-        mouseTimer = panelNative->setupMouseTimer();
-        connect(mouseTimer, &QTimer::timeout, [=] { if (Config::MouseHide) panelNative->setCursor(Qt::BlankCursor);});
+        panelWidget = panelNative;
+        panelWidget->show();
     }
-    setCentralWidget(panel);
+    setCentralWidget(panelWidget);
 
-    connect(this, SIGNAL(screenLayoutChange()), panel, SLOT(onScreenLayoutChanged()));
+    connect(this, SIGNAL(screenLayoutChange()), panelWidget, SLOT(onScreenLayoutChanged()));
     emit screenLayoutChange();
 }
 
@@ -1794,7 +1788,7 @@ QOpenGLContext* MainWindow::getOGLContext()
 {
     if (!hasOGL) return nullptr;
 
-    QOpenGLWidget* glpanel = (QOpenGLWidget*)panel;
+    QOpenGLWidget* glpanel = dynamic_cast<QOpenGLWidget*>(panel);
     return glpanel->context();
 }
 
@@ -2777,10 +2771,7 @@ void MainWindow::onOpenInterfaceSettings()
 
 void MainWindow::onUpdateMouseTimer()
 {
-    if (hasOGL)
-        panelGL->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
-    else
-        panelNative->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
+    panel->mouseTimer->setInterval(Config::MouseHideSeconds*1000);
 }
 
 void MainWindow::onInterfaceSettingsFinished(int res)
@@ -2796,8 +2787,8 @@ void MainWindow::onChangeSavestateSRAMReloc(bool checked)
 void MainWindow::onChangeScreenSize()
 {
     int factor = ((QAction*)sender())->data().toInt();
-    QSize diff = size() - panel->size();
-    resize(dynamic_cast<ScreenHandler*>(panel)->screenGetMinSize(factor) + diff);
+    QSize diff = size() - panelWidget->size();
+    resize(panel->screenGetMinSize(factor) + diff);
 }
 
 void MainWindow::onChangeScreenRotation(QAction* act)
@@ -2970,16 +2961,10 @@ void MainWindow::onUpdateVideoSettings(bool glchange)
         emuThread->emuPause();
 
         if (hasOGL)
-        {
             emuThread->deinitOpenGL();
-            delete panelGL;
-        }
-        else
-        {
-            delete panelNative;
-        }
+        delete panel;
         createScreenPanel();
-        connect(emuThread, SIGNAL(windowUpdate()), panel, SLOT(repaint()));
+        connect(emuThread, SIGNAL(windowUpdate()), panelWidget, SLOT(repaint()));
         if (hasOGL) emuThread->initOpenGL();
     }
 
@@ -3180,7 +3165,7 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 {
     int argc = 0;
     wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &argc);
-    char* nullarg = "";
+    char nullarg[] = {'\0'};
 
     char** argv = new char*[argc];
     for (int i = 0; i < argc; i++)

@@ -146,7 +146,7 @@ void LayoutText(const char* text, u32* width, u32* height, int* breaks)
     u32 w = 0;
     u32 h = 14;
     u32 totalw = 0;
-    u32 maxw = mainWindow->panel->width() - (kOSDMargin*2);
+    u32 maxw = mainWindow->panelWidget->width() - (kOSDMargin*2);
     int lastbreak = -1;
     int numbrk = 0;
     u16* ptr;
@@ -236,7 +236,7 @@ void RenderText(u32 color, const char* text, Item* item)
     memset(item->Bitmap, 0, w*h*sizeof(u32));
 
     u32 x = 0, y = 1;
-    u32 maxw = mainWindow->panel->width() - (kOSDMargin*2);
+    u32 maxw = mainWindow->panelWidget->width() - (kOSDMargin*2);
     int curline = 0;
     u16* ptr;
 
