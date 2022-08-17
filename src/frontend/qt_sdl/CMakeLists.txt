@@ -104,7 +104,7 @@ elseif (WIN32)
     target_sources(melonDS PUBLIC "${CMAKE_SOURCE_DIR}/melon.rc")
 
     target_link_libraries(melonDS PRIVATE ws2_32 iphlpapi)
-    set_target_properties(melonDS PROPERTIES WIN32_EXECUTABLE $<CONFIG:Release>)
+    set_target_properties(melonDS PROPERTIES LINK_FLAGS_DEBUG "-mconsole")
 endif()
 
 if (PORTABLE)
