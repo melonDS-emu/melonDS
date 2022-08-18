@@ -2425,15 +2425,6 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
-    /*if (addr == (0x03807D38+0x28))
-    {
-        if (ARM7Read16(0x03807D38+0xC)==0x228)
-            printf("!!!! READING PISSY HEADER %08X\n", NDS::GetPC(1));
-    }*/
-    /*if ((!(addr&0x10000000)) && (addr<0x04000000))
-    if (ARM7Read16(0x10000000|(addr-0x1C))==0x228)
-            printf("!!!! READING PISSY HEADER %08X\n", NDS::GetPC(1));
-        if(addr&0x10000000) addr&=0x0FFFFFFF;*/
     if (addr < 0x00004000)
     {
         if (ARM7->R[15] >= 0x00004000)
