@@ -25,12 +25,14 @@
 #include "Platform.h"
 #include "ARM.h"
 #include "GPU.h"
-
+u16 zanf = 2423;
 namespace Wifi
 {
 
 //#define WIFI_LOG printf
 #define WIFI_LOG(...) {}
+
+#define PRINT_MAC(pf, mac) printf("%s: %02X:%02X:%02X:%02X:%02X:%02X\n", pf, (mac)[0], (mac)[1], (mac)[2], (mac)[3], (mac)[4], (mac)[5]);
 
 u8 RAM[0x2000];
 u16 IO[0x1000>>1];
@@ -58,6 +60,7 @@ u32 RFRegs[0x40];
 
 struct TXSlot
 {
+    bool Valid;
     u16 Addr;
     u16 Length;
     u8 Rate;
@@ -80,12 +83,23 @@ u32 RXCounter;
 
 int MPReplyTimer;
 int MPNumReplies;
+int MPReplyFrame; // for client
+u8 MPHostMAC[6];
+u8 MPHostBSS[6];
+u16 MPHostSeqNo;
 
 bool MPInited;
 bool LANInited;
 
 int USUntilPowerOn;
 bool ForcePowerOn;
+
+// MULTIPLAYER SYNC APPARATUS
+bool IsMPClient;
+u64 TimeOffsetToHost;   // clienttime - hosttime
+u64 NextSync;           // for clients: timestamp for next forced sync
+bool SyncBack;          // for clients: whether to send the host a sync once the sync is reached
+const u64 kMaxRunahead = 4096;
 
 // multiplayer host TX sequence:
 // 1. preamble
@@ -204,14 +218,24 @@ void Reset()
     USCompare = 0;
     BlockBeaconIRQ14 = false;
 
+    memset(TXSlots, 0, sizeof(TXSlots));
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
 
     MPReplyTimer = 0;
     MPNumReplies = 0;
+    MPReplyFrame = 0;
+    memset(MPHostMAC, 0, 6);
+    memset(MPHostBSS, 0, 6);
+    MPHostSeqNo = 0;
 
     CmdCounter = 0;
+
+    IsMPClient = false;
+    TimeOffsetToHost = 0;
+    NextSync = 0;
+    SyncBack = false;
 
     WifiAP::Reset();
 }
@@ -318,7 +342,7 @@ void SetIRQ15()
 
 void SetStatus(u32 status)
 {
-    // TODO, eventually: states 2/4, also find out what state 7 is
+    // TODO, eventually: states 2/4/7
     u16 rfpins[10] = {0x04, 0x84, 0, 0x46, 0, 0x84, 0x87, 0, 0x46, 0x04};
     IOPORT(W_RFStatus) = status;
     IOPORT(W_RFPins) = rfpins[status];
@@ -331,13 +355,21 @@ bool MACEqual(u8* a, u8* b)
 }
 
 
-// TODO: set RFSTATUS/RFPINS
-
 int PreambleLen(int rate)
 {
     if (rate == 1) return 192;
     if (IOPORT(W_Preamble) & 0x0004) return 96;
     return 192;
+}
+
+u32 NumClients(u16 bitmask)
+{
+    u32 ret = 0;
+    for (int i = 1; i < 16; i++)
+    {
+        if (bitmask & (1<<i)) ret++;
+    }
+    return ret;
 }
 
 void IncrementTXCount(TXSlot* slot)
@@ -371,7 +403,7 @@ void StartTX_Cmd()
 
     // TODO: cancel the transfer if there isn't enough time left (check CMDCOUNT)
 
-    if (IOPORT(W_TXSlotCmd) & 0x7000) printf("wifi: !! unusual TXSLOT_CMD bits set %04X\n", IOPORT(W_TXSlotCmd));
+    if (IOPORT(W_TXSlotCmd) & 0x7000) printf("wifi: !! unusual TXSLOT_CMD bits set %04X %08X\n", IOPORT(W_TXSlotCmd), NDS::GetPC(1));
 
     slot->Addr = (IOPORT(W_TXSlotCmd) & 0x0FFF) << 1;
     slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
@@ -442,25 +474,60 @@ void FireTX()
         return;
     }
 }
+u16 vogon = 0x1312;
 
 void SendMPReply(u16 clienttime, u16 clientmask)
 {
     TXSlot* slot = &TXSlots[5];
 
+    vogon = *(u16*)&RXBuffer[0xC + 22]; // seqno
+
     // mark the last packet as success. dunno what the MSB is, it changes.
+    //if (slot->Valid)
     if (IOPORT(W_TXSlotReply2) & 0x8000)
         *(u16*)&RAM[slot->Addr] = 0x0001;
 
+    // CHECKME!!
+    // can the transfer rate for MP replies be set, or is it determined from the CMD transfer rate?
+    // how does it work for default empty replies?
+    slot->Rate = 2;
+
     IOPORT(W_TXSlotReply2) = IOPORT(W_TXSlotReply1);
     IOPORT(W_TXSlotReply1) = 0;
+//printf("SENDING MP REPLY: %04X/%04X, PORTS=%04X/%04X\n", clienttime, clientmask, IOPORT(W_TXSlotReply1), IOPORT(W_TXSlotReply2));
+    if (!(IOPORT(W_TXSlotReply2) & 0x8000))
+    {
+        slot->Valid = false;
+    }
+    else
+    {
+        slot->Valid = true;
+
+        slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+        slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+
+        // the packet is entirely ignored if it lasts longer than the maximum reply time
+        u32 duration = PreambleLen(slot->Rate) + (slot->Length * (slot->Rate==2 ? 4:8));
+        if (duration > clienttime)
+            slot->Valid = false;
+
+        //printf("SENDING MP REPLY %04X, %d\n", slot->Addr, slot->Valid);
+        // replies: 0000/0234
+        // 04804000 / 04804234
+    }
 
     // this seems to be set upon IRQ0
     // TODO: how does it behave if the packet addr is changed before it gets sent? (maybe just not possible)
-    if (IOPORT(W_TXSlotReply2) & 0x8000)
+    if (slot->Valid)
     {
-        slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
         //*(u16*)&RAM[slot->Addr + 0x4] = 0x0001;
         IncrementTXCount(slot);
+
+        slot->CurPhase = 0;
+    }
+    else
+    {
+        slot->CurPhase = 10;
     }
 
     u16 clientnum = 0;
@@ -470,8 +537,20 @@ void SendMPReply(u16 clienttime, u16 clientmask)
             clientnum++;
     }
 
-    slot->CurPhase = 0;
-    slot->CurPhaseTime = 16 + ((clienttime + 10) * clientnum);
+    slot->CurPhaseTime = 16 + ((clienttime + 10) * clientnum) + PreambleLen(slot->Rate);
+
+    MPReplyFrame = 112 + ((clienttime + 10) * NumClients(clientmask));
+    MPReplyFrame -= slot->CurPhaseTime; // count the time from the reply to the ack
+
+    IOPORT(W_TXBusy) |= 0x0080;
+}
+
+void DummyMPReplyFrame(u16 clienttime, u16 clientmask)
+{
+    TXSlot* slot = &TXSlots[5];
+
+    slot->CurPhase = 5;
+    slot->CurPhaseTime = 112 + ((clienttime + 10) * NumClients(clientmask));
 
     IOPORT(W_TXBusy) |= 0x0080;
 }
@@ -487,6 +566,8 @@ void SendMPDefaultReply()
     //else                      reply[0x8] = 0xA;
     // TODO
     reply[0x8] = 0x14;
+
+    *(u16*)&reply[0x6] = vogon;
 
 	*(u16*)&reply[0xC + 0x00] = 0x0158;
 	*(u16*)&reply[0xC + 0x02] = 0x00F0;//0; // TODO??
@@ -529,21 +610,42 @@ void SendMPAck()
 	*(u16*)&ack[0xC + 0x14] = IOPORT(W_MACAddr2);
 	*(u16*)&ack[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
 	*(u16*)&ack[0xC + 0x18] = 0x0033; // ???
-	*(u16*)&ack[0xC + 0x1A] = 0;
+	*(u16*)&ack[0xC + 0x1A] = 0; // TODO: bitmask of which clients failed to reply
 	*(u32*)&ack[0xC + 0x1C] = 0;
 
 	int txlen = Platform::MP_SendPacket(ack, 12+32);
 	WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
-u32 NumClients(u16 bitmask)
+bool FakeRX();
+
+void FakeMPAck()
 {
-    u32 ret = 0;
-    for (int i = 1; i < 16; i++)
-    {
-        if (bitmask & (1<<i)) ret++;
-    }
-    return ret;
+    *(u16*)&RXBuffer[0xA] = 32; // length
+
+    // rate
+    //if (TXSlots[1].Rate == 2) RXBuffer[0x8] = 0x14;
+    //else                      RXBuffer[0x8] = 0xA;
+    RXBuffer[0x8] = 0x14; // FIXME!!!
+
+    printf("CLIENT MP ACK:\n");
+    PRINT_MAC("-MAC: ", MPHostMAC);
+    PRINT_MAC("-BSS: ", MPHostBSS);
+    printf("-SeqNo: %04X\n", MPHostSeqNo+0x10);
+
+	*(u16*)&RXBuffer[0xC + 0x00] = 0x0218;
+	*(u16*)&RXBuffer[0xC + 0x02] = 0;
+	*(u16*)&RXBuffer[0xC + 0x04] = 0x0903;
+	*(u16*)&RXBuffer[0xC + 0x06] = 0x00BF;
+	*(u16*)&RXBuffer[0xC + 0x08] = 0x0300;
+	memcpy(&RXBuffer[0xC + 0x0A], MPHostBSS, 6);
+	memcpy(&RXBuffer[0xC + 0x10], MPHostMAC, 6);
+	*(u16*)&RXBuffer[0xC + 0x16] = (MPHostSeqNo & 0xFFF0) + 0x10;
+	*(u16*)&RXBuffer[0xC + 0x18] = 0x0033; // ???
+	*(u16*)&RXBuffer[0xC + 0x1A] = 0;
+	*(u32*)&RXBuffer[0xC + 0x1C] = 0;
+
+	FakeRX();
 }
 
 bool CheckRX(bool block);
@@ -566,7 +668,27 @@ bool ProcessTX(TXSlot* slot, int num)
                 if (CheckRX(true))
                 {
                     ComStatus |= 0x1;
+
+                    if (slot->Length==34)
+                    {
+                        u32 len = *(u16*)&RXBuffer[8];
+                        len += 12;
+                        /*printf("REPLY: %d bytes\n", len);
+                        for (int y = 0; y < len; y+=16)
+                        {
+                            printf("%04X: ", y);
+                            int linelen = 16;
+                            if ((y+linelen) > len) linelen = len - y;
+                            for (int x = 0; x < linelen; x++)
+                            {
+                                printf(" %02X", RXBuffer[y+x]);
+                            }
+                            printf("\n");
+                        }
+                        printf("--------------\n");*/
+                    }
                 }
+                else printf("[HOST] failed to receive reply :(\n");
 
                 // TODO: properly handle reply errors
                 // also, if the reply is too big to fit within its window, what happens?
@@ -592,31 +714,16 @@ bool ProcessTX(TXSlot* slot, int num)
 
                 SetStatus(8);
 
-                // if no reply is configured, send a default empty reply
-                if (!(IOPORT(W_TXSlotReply2) & 0x8000))
-                {
-                    SendMPDefaultReply();
+                //slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
+                //slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
 
-                    slot->Addr = 0;
-                    slot->Length = 28;
-                    slot->Rate = 2; // TODO
-                    slot->CurPhase = 4;
-                    slot->CurPhaseTime = 28*4;
-                    slot->HalfwordTimeMask = 0xFFFFFFFF;
-                    IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
-                    break;
-                }
-
-                slot->Addr = (IOPORT(W_TXSlotReply2) & 0x0FFF) << 1;
-                slot->Length = *(u16*)&RAM[slot->Addr + 0xA] & 0x3FFF;
+                /*u8 rate = RAM[slot->Addr + 0x8];
+                if (rate == 0x14) slot->Rate = 2;
+                else              slot->Rate = 1;*/
 
                 // TODO: duration should be set by hardware
                 // doesn't seem to be important
                 //RAM[slot->Addr + 0xC + 2] = 0x00F0;
-
-                u8 rate = RAM[slot->Addr + 0x8];
-                if (rate == 0x14) slot->Rate = 2;
-                else              slot->Rate = 1;
             }
             else
                 SetStatus(3);
@@ -644,10 +751,27 @@ bool ProcessTX(TXSlot* slot, int num)
                 *(u64*)&RAM[slot->Addr + 0xC + 24] = USCounter;
             }
 
-            //u32 noseqno = 0;
-            //if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
+            /*if (slot->Length==34)
+            {
+                printf("CMD: %d bytes, %04X\n", slot->Length+12, IOPORT(W_TXSlotCmd));
+                for (int y = 0; y < slot->Length+12; y+=16)
+                {
+                    printf("%04X: ", y);
+                    int linelen = 16;
+                    if ((y+linelen) > (slot->Length+12)) linelen = (slot->Length+12) - y;
+                    for (int x = 0; x < linelen; x++)
+                    {
+                        printf(" %02X", RAM[slot->Addr+y+x]);
+                    }
+                    printf("\n");
+                }
+                printf("--------------\n");
+            }*/
 
-            //if (!noseqno)
+            u32 noseqno = 0;
+            if (num == 1) noseqno = (IOPORT(W_TXSlotCmd) & 0x4000);
+
+            if (!noseqno)
             {
                 *(u16*)&RAM[slot->Addr + 0xC + 22] = IOPORT(W_TXSeqNo) << 4;
                 IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
@@ -656,21 +780,95 @@ bool ProcessTX(TXSlot* slot, int num)
             // set TX addr
             IOPORT(W_RXTXAddr) = slot->Addr >> 1;
 
-            // send
-            int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
-            WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
-                     txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
-                     *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+            if (num == 1)
+            {
+                // make sure the clients are synced up
+                // TODO!!!! this should be for all currently connected clients regardless of the clientmask in the packet
+                u16 clientmask = *(u16*)&RAM[slot->Addr + 0xC + 26];
+                Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter);
+                //printf("[HOST] sending CMD, sent sync2, waiting\n");
+                u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
+                //printf("[HOST] got sync3: %04X\n", res);
+
+                //if (slot->Length < 100)
+                //if (*(u16*)&RAM[slot->Addr+0x28] == 0)
+                //    *(u16*)&RAM[slot->Addr+0x28] = 0x0100;
+
+                // send
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
+                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
+                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+//if (IOPORT(W_TXSlotCmd) & 0x4000)
+
+                // send further sync
+                u32 numclients = NumClients(clientmask);
+                u32 replywait = 112 + ((10 + IOPORT(W_CmdReplyTime)) * numclients);
+                u32 acklen = 32 * (slot->Rate==2 ? 4:8);
+                //Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + len + replywait + acklen);// + kMaxRunahead);
+                Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter + len + replywait);
+            }
+            else if (num == 5)
+            {
+                u16 barfo = *(u16*)&RAM[slot->Addr+6];
+                *(u16*)&RAM[slot->Addr+6] = vogon;
+
+                // send
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
+                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
+                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+
+                *(u16*)&RAM[slot->Addr+6] = barfo;
+            }
+            else //if (num != 5)
+            {
+                // send
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
+                         txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
+                         *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
+            }
 
             // if the packet is being sent via LOC1..3, send it to the AP
             // any packet sent via CMD/REPLY/BEACON isn't going to have much use outside of local MP
             if (num == 0 || num == 2 || num == 3)
+            {
+                u16 framectl = *(u16*)&RAM[slot->Addr + 0xC];
+                if ((framectl & 0x00FF) == 0x0010)
+                {
+                    // if we're sending an association response:
+                    // we are likely acting as a local MP host, and are welcoming a new client to the club
+                    // in this case, sync them up: send them our current USCOUNT value
+                    // which will let them understand further sync values
+
+                    u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
+                    //printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USCounter);
+                    Platform::MP_SendSync(1<<(aid&0xF), 0, USCounter);
+                }
+
                 WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+            }
 
             if (num == 4)
             {
                 *(u64*)&RAM[slot->Addr + 0xC + 24] = oldts;
             }
+        }
+        break;
+
+    case 10: // preamble done (default empty MP reply)
+        {
+            SetIRQ(7);
+            SetStatus(8);
+
+            SendMPDefaultReply();
+
+            //slot->Addr = 0;
+            //slot->Length = 28;
+            slot->CurPhase = 4;
+            slot->CurPhaseTime = 28*4;
+            slot->HalfwordTimeMask = 0xFFFFFFFF;
         }
         break;
 
@@ -692,8 +890,10 @@ bool ProcessTX(TXSlot* slot, int num)
 
                 u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
                 MPNumReplies = NumClients(clientmask);
-                MPReplyTimer = 16;
+                MPReplyTimer = 16 + PreambleLen(slot->Rate);
 
+                // TODO: 112 likely includes the ack preamble, which needs adjusted
+                // for long-preamble settings
                 slot->CurPhase = 2;
                 slot->CurPhaseTime = 112 + ((10 + IOPORT(W_CmdReplyTime)) * MPNumReplies);
 
@@ -711,6 +911,11 @@ bool ProcessTX(TXSlot* slot, int num)
                 IOPORT(W_TXBusy) &= ~0x80;
                 FireTX();
                 return true;
+
+                /*slot->CurPhase = 5;
+                slot->CurPhaseTime = MPReplyFrame;
+
+                break;*/
             }
 
             IOPORT(W_TXBusy) &= ~(1<<num);
@@ -750,7 +955,25 @@ bool ProcessTX(TXSlot* slot, int num)
             if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
             else                 slot->CurPhaseTime = 32 * 8;
 
+            //SendMPAck();
+            /*printf("HOST MP ACK:\n");
+            PRINT_MAC("-MAC: ", (u8*)&IOPORT(W_MACAddr0));
+            PRINT_MAC("-BSS: ", (u8*)&IOPORT(W_BSSID0));
+            printf("-SeqNo: %04X\n", IOPORT(W_TXSeqNo)<<4);*/
+
+            // make sure the clients are synced up
+            // TODO!!!! this should be for all currently connected clients regardless of the clientmask in the packet
+            u16 clientmask = *(u16*)&RAM[slot->Addr + 0xC + 26];
+            //Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter);
+            //printf("[HOST] sending CMD, sent sync2, waiting\n");
+            u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
+            //printf("[HOST] got sync3: %04X\n", res);
+
+            // send
             SendMPAck();
+
+            // send further sync
+            Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + slot->CurPhaseTime);
 
             slot->CurPhase = 3;
         }
@@ -767,7 +990,11 @@ bool ProcessTX(TXSlot* slot, int num)
             IncrementTXCount(slot);
 
             SetIRQ(12);
-            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
+            //if (!(IOPORT(W_TXSlotCmd) & 0x4000))
+            {
+                IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+            }
 
             if (IOPORT(W_TXStatCnt) & 0x2000)
             {
@@ -776,17 +1003,37 @@ bool ProcessTX(TXSlot* slot, int num)
             }
             SetStatus(1);
 
+            // let clients run ahead some
+            u16 clientmask = *(u16*)&RAM[slot->Addr + 12 + 24 + 2];
+            //Platform::MP_SendSync(clientmask, 1, kMaxRunahead);
+
             FireTX();
         }
         return true;
 
     case 4: // MP default reply transfer finished
         {
+            IOPORT(W_TXSeqNo) = (IOPORT(W_TXSeqNo) + 1) & 0x0FFF;
+
             IOPORT(W_TXBusy) &= ~0x80;
             SetStatus(1);
             FireTX();
         }
         return true;
+
+    case 5: // MP reply frame finished (client side)
+        {
+            IOPORT(W_TXBusy) &= ~0x80;
+            //SetStatus(1);
+
+            //printf("[%016llX] CLIENT: ACK TIME\n", USCounter);
+            FakeMPAck();
+
+            /*slot->CurPhase = 4;
+            // CHECKME
+            if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
+            else                 slot->CurPhaseTime = 32 * 8;*/
+        }
     }
 
     return false;
@@ -803,7 +1050,7 @@ inline void IncrementRXAddr(u16& addr, u16 inc = 2)
             addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
     }
 }
-
+u16 zarp = 0;
 bool CheckRX(bool block)
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
@@ -894,6 +1141,12 @@ bool CheckRX(bool block)
             !(RXBuffer[12 + a_dst] & 0x01))
         {
             printf("received packet %04X but it didn't pass the MAC check\n", framectl);
+            printf("DST: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                   RXBuffer[12 + a_dst + 0], RXBuffer[12 + a_dst + 1], RXBuffer[12 + a_dst + 2],
+                   RXBuffer[12 + a_dst + 3], RXBuffer[12 + a_dst + 4], RXBuffer[12 + a_dst + 5]);
+            printf("BSS: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                   RXBuffer[12 + a_bss + 0], RXBuffer[12 + a_bss + 1], RXBuffer[12 + a_bss + 2],
+                   RXBuffer[12 + a_bss + 3], RXBuffer[12 + a_bss + 4], RXBuffer[12 + a_bss + 5]);
             continue;
         }
 
@@ -901,6 +1154,155 @@ bool CheckRX(bool block)
     }
 
     WIFI_LOG("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
+             framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
+//if (framectl==0x0228) printf("RX CMD: len=%d, client=%04X, rxfilter=%04X/%04X\n",
+  //                           framelen, *(u16*)&RXBuffer[12+4+6+6+6+2+2], IOPORT(W_RXFilter), IOPORT(W_RXFilter2));
+    //if (framectl==0x0228 && zarp==0x0228) printf("[CLIENT] failed to receive ack\n");
+    //if (framectl==0x0218 && zarp==0x0218) printf("[CLIENT] failed to receive cmd\n");
+    //if (framectl==0x0218) printf("[%016llX] CLIENT: ACK RECEIVED\n", USCounter);
+    zarp = framectl;
+
+    if (block && (framectl == 0x0118 || framectl == 0x0158))
+    {
+        u16 bourf = (IOPORT(W_TXSeqNo) - 0x1) << 4;
+        if (bourf != *(u16*)&RXBuffer[6])
+            printf("BAD REPLY SEQNO!!! SENT %04X, RECV %04X\n", bourf, *(u16*)&RXBuffer[6]);
+    }
+
+    // if receiving an association response: get the sync value from the host
+    // TODO only do this for local multiplayer and not online mode!!!!!!!!
+    if ((framectl & 0x00FF) == 0x0010)
+    {
+        u16 aid = *(u16*)&RXBuffer[12+24+4];
+
+        //u64 sync = Platform::MP_WaitSync(0, 1<<(aid&0xF), 0);
+        u64 sync = 0;
+        for (;;)
+        {
+            u16 type; u64 val;
+            bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+            if (!res) break;
+            if (type != 0) continue;
+            sync = val;
+            break;
+        }
+        if (sync)
+        {
+            printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, sync);
+
+            IsMPClient = true;
+            TimeOffsetToHost = USCounter - sync;
+            NextSync = USCounter + kMaxRunahead;
+        }
+    }
+
+    // make RX header
+
+    if (bssidmatch) rxflags |= 0x8000;
+
+    *(u16*)&RXBuffer[0] = rxflags;
+    *(u16*)&RXBuffer[2] = 0x0040; // ???
+    *(u16*)&RXBuffer[6] = txrate;
+    *(u16*)&RXBuffer[8] = framelen;
+    *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
+
+    RXTime = framelen;
+
+    if (txrate == 0x14)
+    {
+        RXTime *= 4;
+        RXHalfwordTimeMask = 0x7;
+    }
+    else
+    {
+        RXTime *= 8;
+        RXHalfwordTimeMask = 0xF;
+    }
+
+    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
+    IncrementRXAddr(addr, 12);
+    IOPORT(W_RXTXAddr) = addr >> 1;
+
+    RXBufferPtr = 12;
+
+    SetIRQ(6);
+    SetStatus(6);
+    return true;
+}
+
+// FIXME!!! SUPER UGLY COPYPASTA
+bool FakeRX()
+{
+    if (!(IOPORT(W_RXCnt) & 0x8000))
+        return false;
+
+    if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
+        return false;
+
+    u16 framelen;
+    u16 framectl;
+    u8 txrate;
+    bool bssidmatch;
+    u16 rxflags;
+
+    framelen = *(u16*)&RXBuffer[10];
+    framelen -= 4;
+
+    framectl = *(u16*)&RXBuffer[12+0];
+    txrate = RXBuffer[8];
+
+    u32 a_src, a_dst, a_bss;
+    rxflags = 0x0010;
+    switch (framectl & 0x000C)
+    {
+    case 0x0000: // management
+        a_src = 10;
+        a_dst = 4;
+        a_bss = 16;
+        if ((framectl & 0x00F0) == 0x0080)
+            rxflags |= 0x0001;
+        break;
+
+    case 0x0004: // control
+        printf("blarg\n");
+        return false;
+
+    case 0x0008: // data
+        switch (framectl & 0x0300)
+        {
+        case 0x0000: // STA to STA
+            a_src = 10;
+            a_dst = 4;
+            a_bss = 16;
+            break;
+        case 0x0100: // STA to DS
+            a_src = 10;
+            a_dst = 16;
+            a_bss = 4;
+            break;
+        case 0x0200: // DS to STA
+            a_src = 16;
+            a_dst = 4;
+            a_bss = 10;
+            break;
+        case 0x0300: // DS to DS
+            printf("blarg\n");
+            return false;
+        }
+        // TODO: those also trigger on other framectl values
+        // like 0208 -> C
+        framectl &= 0xE7FF;
+        if      (framectl == 0x0228) rxflags |= 0x000C; // MP host frame
+        else if (framectl == 0x0218) rxflags |= 0x000D; // MP ack frame
+        else if (framectl == 0x0118) rxflags |= 0x000E; // MP reply frame
+        else if (framectl == 0x0158) rxflags |= 0x000F; // empty MP reply frame
+        else                         rxflags |= 0x0008;
+        break;
+    }
+
+    bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
+
+    WIFI_LOG("wifi: received fake packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
              framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 
     // make RX header
@@ -993,6 +1395,51 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
+
+        if (USCounter == NextSync)
+        {
+            if (SyncBack)
+            {//printf("[CLIENT %01X] sending sync3\n", IOPORT(W_AIDLow));
+                SyncBack = false;
+                u16 aid = IOPORT(W_AIDLow);
+                Platform::MP_SendSync(1<<(aid&0xF), 3, 0);
+
+                if (CheckRX(true))
+                {
+                    ComStatus |= 0x1;
+                }
+            }
+
+            //u64 sync = Platform::MP_WaitSync(1, 1<<(IOPORT(W_AIDLow)&0xF), USCounter - TimeOffsetToHost);
+            for (;;)
+            {
+                u16 type; u64 val;
+                u16 aid = IOPORT(W_AIDLow);
+                //printf("[CLIENT %01X] waiting for sync\n", aid);
+                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+                //printf("[CLIENT %01X] got sync, res=%d type=%04X val=%016llX\n", aid, res, type, val);
+                if (!res) break;
+
+                // timeoffset = client - host
+                val += TimeOffsetToHost;
+
+                if ((type == 1) && (val > USCounter))
+                {
+                    NextSync = val;
+                    break;
+                }
+                else if ((type == 2) && (val > USCounter))
+                {//printf("[CLIENT %01X] received sync2: %016llX\n", aid, val);
+                    NextSync = val;
+                    SyncBack = true;
+                    break;
+                }
+            }
+            /*if (sync)
+            {
+                NextSync = USCounter - sync;
+            }*/
+        }
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)
@@ -1091,11 +1538,20 @@ void USTimer(u32 param)
 
                     if ((RXBuffer[0] & 0x0F) == 0x0C)
                     {
+                        // src=16 dst=4 bss=10
+                        memcpy(MPHostMAC, &RXBuffer[0xC + 16], 6);
+                        memcpy(MPHostBSS, &RXBuffer[0xC + 10], 6);
+                        MPHostSeqNo = *(u16*)&RXBuffer[0xC + 22];
+
                         u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
                         if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
                         {
                             SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
                         }
+                        /*else if (RXBuffer[0xC + 4] & 0x01)
+                        {
+                            DummyMPReplyFrame(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
+                        }*/
                     }
                 }
 
@@ -1168,6 +1624,15 @@ u16 Read(u32 addr)
     //printf("WIFI: read %08X\n", addr);
     if (addr >= 0x4000 && addr < 0x6000)
     {
+        //if (addr>=0x4000 && addr<0x400C) printf("READ TX HEADER 0480%04X, %08X\n", addr, NDS::GetPC(1));
+        //if (addr>=0x4234 && addr<0x4240) printf("READ TX HEADER 0480%04X, %08X\n", addr, NDS::GetPC(1));
+        //if (RXBuffer[12] == 0x0228)
+        {
+            //u16 headeraddr = IOPORT(W_RXBufReadCursor) << 1;
+            //if ((addr & 0x1FFE) == (headeraddr + 12 + 28))
+            //if (*(u16*)&RAM[(addr - 0x1C) & 0x1FFE] == 0x0228)
+            //    printf("READ SHITTY CMD HEADER %08X\n", NDS::GetPC(1));
+        }
         return *(u16*)&RAM[addr & 0x1FFE];
     }
     if (addr >= 0x2000 && addr < 0x4000)
@@ -1214,6 +1679,8 @@ u16 Read(u32 addr)
         {
             u32 rdaddr = IOPORT(W_RXBufReadAddr);
 
+            //if (*(u16*)&RAM[(rdaddr - 0x1C) & 0x1FFE] == 0x0228)
+            //    printf("READ SHITTY CMD HEADER %08X\n", NDS::GetPC(1));
             u16 ret = *(u16*)&RAM[rdaddr];
 
             rdaddr += 2;
@@ -1454,7 +1921,7 @@ void Write(u32 addr, u16 val)
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
     case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
-    case W_CmdCount: CmdCounter = val * 10; return;
+    case W_CmdCount: /*printf("CMDCOUNT=%d (%04X)\n", val*10, val);*/ CmdCounter = val * 10; return;
 
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
@@ -1570,6 +2037,7 @@ void Write(u32 addr, u16 val)
     case W_TXSlotCmd:
         // checkme: is it possible to cancel a queued transfer that hasn't started yet
         // by clearing bit15 here?
+        // TODO: "W_TXBUF_CMD.Bit15 can be set ONLY while W_CMD_COUNT is non-zero."
         IOPORT(addr&0xFFF) = val;
         FireTX();
         return;
@@ -1597,7 +2065,11 @@ void Write(u32 addr, u16 val)
     case 0x214:
     case 0x268:
         return;
-    
+
+    case W_RXFilter:
+        //printf("wifi: stupid RX filter=%04X\n", val);
+        break;
+
     default:
         //printf("WIFI unk: write %08X %04X\n", addr, val);
         break;

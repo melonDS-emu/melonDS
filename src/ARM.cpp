@@ -42,8 +42,6 @@
 //
 // MUL/MLA seems to take 1I on ARM9
 
-
-
 u32 ARM::ConditionTable[16] =
 {
     0xF0F0, // EQ
@@ -769,6 +767,20 @@ void ARMv4::Execute()
             else
                 AddCycles_C();
         }
+
+        //if (R[15]==0x02300ECE) printf("PISSBOURF: %08X\n", R[0]);
+        // R7=3807D20
+        /*if (R[15]==0x02301172 && (R[0]&0x2800)==0x2800)
+        {
+            printf("SENSE. %08X\n", R[7]);
+            for (int i = 0; i < 16; i++) printf("%02X ", NDS::ARM7Read8(R[7]+i));
+            for (int i = 0; i < 16; i++) printf("%02X ", NDS::ARM7Read8(R[7]+0x10+i));
+            for (int i = 0; i < 16; i++) printf("%02X ", NDS::ARM7Read8(R[7]+0x20+i));
+            for (int i = 0; i < 16; i++) printf("%02X ", NDS::ARM7Read8(R[7]+0x30+i));
+            printf("\n");
+        }*/
+        //    printf("FENETRE. %04X, %08X\n", R[0], R[7]);
+        //if (R[15]==0x0230CEFE) printf("SET SHITTY PACKET FLAGS %04X (%04X/%04X)\n", R[3], NDS::ARM7Read16(0x04808094), NDS::ARM7Read16(0x04808098));
 
         // TODO optimize this shit!!!
         if (Halted)
