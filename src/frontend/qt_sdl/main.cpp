@@ -25,6 +25,7 @@
 #include <string>
 #include <algorithm>
 
+#include <QProcess>
 #include <QApplication>
 #include <QMessageBox>
 #include <QMenuBar>
@@ -1475,6 +1476,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
         actTitleManager = menu->addAction("Manage DSi titles");
         connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
+
+        // TEST!!
+        menu->addSeparator();
+        actTest = menu->addAction("Fart");
+        connect(actTest, &QAction::triggered, this, &MainWindow::onTest);
     }
     {
         QMenu* menu = menubar->addMenu("Config");
@@ -1828,7 +1834,7 @@ void MainWindow::keyPressEvent(QKeyEvent* event)
     if (event->isAutoRepeat()) return;
 
     // TODO!! REMOVE ME IN RELEASE BUILDS!!
-    //if (event->key() == Qt::Key_F11) NDS::debug(0);
+    if (event->key() == Qt::Key_F11) NDS::debug(0);
 
     Input::KeyPress(event);
 }
@@ -2602,6 +2608,17 @@ void MainWindow::onOpenTitleManager()
     TitleManagerDialog* dlg = TitleManagerDialog::openDlg(this);
 }
 
+void MainWindow::onTest()
+{
+    //QProcess::startDetached(QApplication::applicationFilePath());
+    QProcess ass;
+    ass.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    {
+        args->flags |= CREATE_NEW_CONSOLE;
+    });
+    ass.startDetached(QApplication::applicationFilePath());
+}
+
 void MainWindow::onOpenEmuSettings()
 {
     emuThread->emuPause();
@@ -3180,12 +3197,13 @@ int CALLBACK WinMain(HINSTANCE hinst, HINSTANCE hprev, LPSTR cmdline, int cmdsho
 
     if (argv_w) LocalFree(argv_w);
 
-    /*if (AttachConsole(ATTACH_PARENT_PROCESS))
+    //if (AttachConsole(ATTACH_PARENT_PROCESS))
+    if (AllocConsole())
     {
         freopen("CONOUT$", "w", stdout);
         freopen("CONOUT$", "w", stderr);
         printf("\n");
-    }*/
+    }
 
     int ret = main(argc, argv);
 

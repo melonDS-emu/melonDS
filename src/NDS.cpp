@@ -1941,8 +1941,8 @@ void debug(u32 param)
     //for (int i = 0; i < 9; i++)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
-    /*FILE*
-    shit = fopen("debug/construct.bin", "wb");
+    FILE*
+    shit = fopen("debug/pictochat.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
@@ -1954,9 +1954,9 @@ void debug(u32 param)
         u32 val = ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);*/
+    fclose(shit);
 
-    FILE*
+    /*FILE*
     shit = fopen("debug/directboot9.bin", "wb");
     for (u32 i = 0x02000000; i < 0x04000000; i+=4)
     {
@@ -1970,7 +1970,7 @@ void debug(u32 param)
         u32 val = DSi::ARM7Read32(i);
         fwrite(&val, 4, 1, shit);
     }
-    fclose(shit);
+    fclose(shit);*/
 }
 
 
@@ -2425,6 +2425,15 @@ u8 ARM7Read8(u32 addr)
 
 u16 ARM7Read16(u32 addr)
 {
+    /*if (addr == (0x03807D38+0x28))
+    {
+        if (ARM7Read16(0x03807D38+0xC)==0x228)
+            printf("!!!! READING PISSY HEADER %08X\n", NDS::GetPC(1));
+    }*/
+    /*if ((!(addr&0x10000000)) && (addr<0x04000000))
+    if (ARM7Read16(0x10000000|(addr-0x1C))==0x228)
+            printf("!!!! READING PISSY HEADER %08X\n", NDS::GetPC(1));
+        if(addr&0x10000000) addr&=0x0FFFFFFF;*/
     if (addr < 0x00004000)
     {
         if (ARM7->R[15] >= 0x00004000)
