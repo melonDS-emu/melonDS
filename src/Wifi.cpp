@@ -41,6 +41,9 @@ u16 IO[0x1000>>1];
 
 u16 Random;
 
+// general, always-on microsecond counter
+u64 USTimestamp;
+
 u64 USCounter;
 u64 USCompare;
 bool BlockBeaconIRQ14;
@@ -213,6 +216,8 @@ void Reset()
 
     memset(&IOPORT(0x018), 0xFF, 6);
     memset(&IOPORT(0x020), 0xFF, 6);
+
+    USTimestamp = 0;
 
     USCounter = 0;
     USCompare = 0;
@@ -1207,6 +1212,8 @@ void MSTimer()
 
 void USTimer(u32 param)
 {
+    USTimestamp++;
+
     WifiAP::USTimer();
 
     bool switchOffPowerSaving = false;
@@ -1389,10 +1396,6 @@ void USTimer(u32 param)
                         {
                             SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
                         }
-                        /*else if (RXBuffer[0xC + 4] & 0x01)
-                        {
-                            DummyMPReplyFrame(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
-                        }*/
                     }
                 }
 
@@ -1454,26 +1457,15 @@ void RFTransfer_Type3()
 }
 
 
-// TODO: wifi waitstates
-
 u16 Read(u32 addr)
-{//printf("WIFI READ %08X\n", addr);
+{
     if (addr >= 0x04810000)
         return 0;
 
     addr &= 0x7FFE;
-    //printf("WIFI: read %08X\n", addr);
+
     if (addr >= 0x4000 && addr < 0x6000)
     {
-        //if (addr>=0x4000 && addr<0x400C) printf("READ TX HEADER 0480%04X, %08X\n", addr, NDS::GetPC(1));
-        //if (addr>=0x4234 && addr<0x4240) printf("READ TX HEADER 0480%04X, %08X\n", addr, NDS::GetPC(1));
-        //if (RXBuffer[12] == 0x0228)
-        {
-            //u16 headeraddr = IOPORT(W_RXBufReadCursor) << 1;
-            //if ((addr & 0x1FFE) == (headeraddr + 12 + 28))
-            //if (*(u16*)&RAM[(addr - 0x1C) & 0x1FFE] == 0x0228)
-            //    printf("READ SHITTY CMD HEADER %08X\n", NDS::GetPC(1));
-        }
         return *(u16*)&RAM[addr & 0x1FFE];
     }
     if (addr >= 0x2000 && addr < 0x4000)
@@ -1558,12 +1550,12 @@ u16 Read(u32 addr)
 }
 
 void Write(u32 addr, u16 val)
-{//printf("WIFI WRITE %08X %04X\n", addr, val);
+{
     if (addr >= 0x04810000)
         return;
 
     addr &= 0x7FFE;
-    //printf("WIFI: write %08X %04X\n", addr, val);
+
     if (addr >= 0x4000 && addr < 0x6000)
     {
         *(u16*)&RAM[addr & 0x1FFE] = val;
@@ -1762,7 +1754,7 @@ void Write(u32 addr, u16 val)
     case W_USCompare2: USCompare = (USCompare & 0xFFFF0000FFFFFFFF) | ((u64)val << 32); return;
     case W_USCompare3: USCompare = (USCompare & 0x0000FFFFFFFFFFFF) | ((u64)val << 48); return;
 
-    case W_CmdCount: /*printf("CMDCOUNT=%d (%04X)\n", val*10, val);*/ CmdCounter = val * 10; return;
+    case W_CmdCount: CmdCounter = val * 10; return;
 
     case W_BBCnt:
         IOPORT(W_BBCnt) = val;
@@ -1907,16 +1899,11 @@ void Write(u32 addr, u16 val)
     case 0x268:
         return;
 
-    case W_RXFilter:
-        //printf("wifi: stupid RX filter=%04X\n", val);
-        break;
-
     default:
         //printf("WIFI unk: write %08X %04X\n", addr, val);
         break;
     }
 
-    //printf("WIFI: write %08X %04X\n", addr, val);
     IOPORT(addr&0xFFF) = val;
 }
 
