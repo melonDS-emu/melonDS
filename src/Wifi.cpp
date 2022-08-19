@@ -617,37 +617,6 @@ void SendMPAck()
 	WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
-bool FakeRX();
-
-void FakeMPAck()
-{
-    *(u16*)&RXBuffer[0xA] = 32; // length
-
-    // rate
-    //if (TXSlots[1].Rate == 2) RXBuffer[0x8] = 0x14;
-    //else                      RXBuffer[0x8] = 0xA;
-    RXBuffer[0x8] = 0x14; // FIXME!!!
-
-    printf("CLIENT MP ACK:\n");
-    PRINT_MAC("-MAC: ", MPHostMAC);
-    PRINT_MAC("-BSS: ", MPHostBSS);
-    printf("-SeqNo: %04X\n", MPHostSeqNo+0x10);
-
-	*(u16*)&RXBuffer[0xC + 0x00] = 0x0218;
-	*(u16*)&RXBuffer[0xC + 0x02] = 0;
-	*(u16*)&RXBuffer[0xC + 0x04] = 0x0903;
-	*(u16*)&RXBuffer[0xC + 0x06] = 0x00BF;
-	*(u16*)&RXBuffer[0xC + 0x08] = 0x0300;
-	memcpy(&RXBuffer[0xC + 0x0A], MPHostBSS, 6);
-	memcpy(&RXBuffer[0xC + 0x10], MPHostMAC, 6);
-	*(u16*)&RXBuffer[0xC + 0x16] = (MPHostSeqNo & 0xFFF0) + 0x10;
-	*(u16*)&RXBuffer[0xC + 0x18] = 0x0033; // ???
-	*(u16*)&RXBuffer[0xC + 0x1A] = 0;
-	*(u32*)&RXBuffer[0xC + 0x1C] = 0;
-
-	FakeRX();
-}
-
 bool CheckRX(bool block);
 
 bool ProcessTX(TXSlot* slot, int num)
@@ -911,11 +880,6 @@ bool ProcessTX(TXSlot* slot, int num)
                 IOPORT(W_TXBusy) &= ~0x80;
                 FireTX();
                 return true;
-
-                /*slot->CurPhase = 5;
-                slot->CurPhaseTime = MPReplyFrame;
-
-                break;*/
             }
 
             IOPORT(W_TXBusy) &= ~(1<<num);
@@ -1020,20 +984,6 @@ bool ProcessTX(TXSlot* slot, int num)
             FireTX();
         }
         return true;
-
-    case 5: // MP reply frame finished (client side)
-        {
-            IOPORT(W_TXBusy) &= ~0x80;
-            //SetStatus(1);
-
-            //printf("[%016llX] CLIENT: ACK TIME\n", USCounter);
-            FakeMPAck();
-
-            /*slot->CurPhase = 4;
-            // CHECKME
-            if (slot->Rate == 2) slot->CurPhaseTime = 32 * 4;
-            else                 slot->CurPhaseTime = 32 * 8;*/
-        }
     }
 
     return false;
@@ -1195,115 +1145,6 @@ bool CheckRX(bool block)
             NextSync = USCounter + kMaxRunahead;
         }
     }
-
-    // make RX header
-
-    if (bssidmatch) rxflags |= 0x8000;
-
-    *(u16*)&RXBuffer[0] = rxflags;
-    *(u16*)&RXBuffer[2] = 0x0040; // ???
-    *(u16*)&RXBuffer[6] = txrate;
-    *(u16*)&RXBuffer[8] = framelen;
-    *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
-
-    RXTime = framelen;
-
-    if (txrate == 0x14)
-    {
-        RXTime *= 4;
-        RXHalfwordTimeMask = 0x7;
-    }
-    else
-    {
-        RXTime *= 8;
-        RXHalfwordTimeMask = 0xF;
-    }
-
-    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
-    IncrementRXAddr(addr, 12);
-    IOPORT(W_RXTXAddr) = addr >> 1;
-
-    RXBufferPtr = 12;
-
-    SetIRQ(6);
-    SetStatus(6);
-    return true;
-}
-
-// FIXME!!! SUPER UGLY COPYPASTA
-bool FakeRX()
-{
-    if (!(IOPORT(W_RXCnt) & 0x8000))
-        return false;
-
-    if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
-        return false;
-
-    u16 framelen;
-    u16 framectl;
-    u8 txrate;
-    bool bssidmatch;
-    u16 rxflags;
-
-    framelen = *(u16*)&RXBuffer[10];
-    framelen -= 4;
-
-    framectl = *(u16*)&RXBuffer[12+0];
-    txrate = RXBuffer[8];
-
-    u32 a_src, a_dst, a_bss;
-    rxflags = 0x0010;
-    switch (framectl & 0x000C)
-    {
-    case 0x0000: // management
-        a_src = 10;
-        a_dst = 4;
-        a_bss = 16;
-        if ((framectl & 0x00F0) == 0x0080)
-            rxflags |= 0x0001;
-        break;
-
-    case 0x0004: // control
-        printf("blarg\n");
-        return false;
-
-    case 0x0008: // data
-        switch (framectl & 0x0300)
-        {
-        case 0x0000: // STA to STA
-            a_src = 10;
-            a_dst = 4;
-            a_bss = 16;
-            break;
-        case 0x0100: // STA to DS
-            a_src = 10;
-            a_dst = 16;
-            a_bss = 4;
-            break;
-        case 0x0200: // DS to STA
-            a_src = 16;
-            a_dst = 4;
-            a_bss = 10;
-            break;
-        case 0x0300: // DS to DS
-            printf("blarg\n");
-            return false;
-        }
-        // TODO: those also trigger on other framectl values
-        // like 0208 -> C
-        framectl &= 0xE7FF;
-        if      (framectl == 0x0228) rxflags |= 0x000C; // MP host frame
-        else if (framectl == 0x0218) rxflags |= 0x000D; // MP ack frame
-        else if (framectl == 0x0118) rxflags |= 0x000E; // MP reply frame
-        else if (framectl == 0x0158) rxflags |= 0x000F; // empty MP reply frame
-        else                         rxflags |= 0x0008;
-        break;
-    }
-
-    bssidmatch = MACEqual(&RXBuffer[12 + a_bss], (u8*)&IOPORT(W_BSSID0));
-
-    WIFI_LOG("wifi: received fake packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
-             framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 
     // make RX header
 
