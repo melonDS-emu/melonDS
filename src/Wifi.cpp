@@ -76,6 +76,7 @@ TXSlot TXSlots[6];
 
 u8 RXBuffer[2048];
 u32 RXBufferPtr;
+u64 RXTimestamp;
 u32 RXTime;
 u32 RXHalfwordTimeMask;
 u16 RXEndAddr;
@@ -228,6 +229,7 @@ void Reset()
     ComStatus = 0;
     TXCurSlot = -1;
     RXCounter = 0;
+    RXTimestamp = 0;
 
     MPReplyTimer = 0;
     MPNumReplies = 0;
@@ -642,8 +644,6 @@ bool ProcessTX(TXSlot* slot, int num)
             {
                 if (CheckRX(true))
                 {
-                    ComStatus |= 0x1;
-
                     if (slot->Length==34)
                     {
                         u32 len = *(u16*)&RXBuffer[8];
@@ -764,7 +764,7 @@ bool ProcessTX(TXSlot* slot, int num)
                 //printf("[HOST] sending CMD, sent sync2, waiting\n");
                 //u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
                 //printf("[HOST] got sync3: %04X\n", res);
-                Platform::MP_SendSync(0xFFFE, 2, USTimestamp);
+                //Platform::MP_SendSync(0xFFFF, 2, USTimestamp);
 
                 // send
                 int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
@@ -779,7 +779,7 @@ bool ProcessTX(TXSlot* slot, int num)
                 //u32 acklen = 32 * (slot->Rate==2 ? 4:8);
                 //Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + len + replywait + acklen);// + kMaxRunahead);
                 //Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter + len + replywait);
-                Platform::MP_SendSync(0xFFFE, 2, USTimestamp + len + replywait);
+                //Platform::MP_SendSync(0xFFFF, 2, USTimestamp + len + replywait);
             }
             else if (num == 5)
             {
@@ -818,7 +818,7 @@ bool ProcessTX(TXSlot* slot, int num)
                     if (aid)
                     {
                         printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USTimestamp);
-                        Platform::MP_SendSync(1<<(aid&0xF), 0, USTimestamp);
+                        //Platform::MP_SendSync(1<<(aid&0xF), 0, USTimestamp);
                     }
                 }
 
@@ -944,7 +944,7 @@ bool ProcessTX(TXSlot* slot, int num)
 
             // send further sync
             //Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + slot->CurPhaseTime);
-            Platform::MP_SendSync(0xFFFE, 1, USTimestamp + slot->CurPhaseTime);
+            //Platform::MP_SendSync(0xFFFF, 1, USTimestamp + slot->CurPhaseTime);
 
             slot->CurPhase = 3;
         }
@@ -1007,25 +1007,59 @@ inline void IncrementRXAddr(u16& addr, u16 inc = 2)
             addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
     }
 }
+u64 zamf=0;
+void StartRX()
+{
+    u16 framelen = *(u16*)&RXBuffer[8];
+    RXTime = framelen;
+
+    u16 txrate = *(u16*)&RXBuffer[6];
+    if (txrate == 0x14)
+    {
+        RXTime *= 4;
+        RXHalfwordTimeMask = 0x7;
+    }
+    else
+    {
+        RXTime *= 8;
+        RXHalfwordTimeMask = 0xF;
+    }
+
+    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
+    IncrementRXAddr(addr, 12);
+    IOPORT(W_RXTXAddr) = addr >> 1;
+
+    RXBufferPtr = 12;
+
+    SetIRQ(6);
+    SetStatus(6);
+    ComStatus |= 1;
+//printf("%016llX: starting receiving packet %04X\n", USTimestamp, *(u16*)&RXBuffer[12]);
+    //if (zamf != USTimestamp)
+    //    printf("PACKET %04X DESYNCED: %016llX =/= %016llX\n", *(u16*)&RXBuffer[12], zamf, USTimestamp);
+}
+
 u16 zarp = 0;
-bool CheckRX(bool block)
+bool CheckRX(bool local)
 {
     if (!(IOPORT(W_RXCnt) & 0x8000))
         return false;
 
     if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
         return false;
-
+//printf("CheckRX(%d) %016llX\n", local, USTimestamp);
     u16 framelen;
     u16 framectl;
     u8 txrate;
     bool bssidmatch;
     u16 rxflags;
+    u64 timestamp;
 
     for (;;)
     {
-        int rxlen = Platform::MP_RecvPacket(RXBuffer, block, nullptr);
-        if (rxlen == 0) rxlen = WifiAP::RecvPacket(RXBuffer);
+        timestamp = 0;
+        int rxlen = Platform::MP_RecvPacket(RXBuffer, local, &timestamp);
+        if ((rxlen == 0) && (!local)) rxlen = WifiAP::RecvPacket(RXBuffer);
         if (rxlen == 0) return false;
         if (rxlen < 12+24) continue;
 
@@ -1109,9 +1143,12 @@ bool CheckRX(bool block)
             continue;
         }
 
+        //if (timestamp != USTimestamp)
+        //    printf("PACKET %04X DESYNCED: %016llX =/= %016llX\n", framectl, timestamp, USTimestamp);
+
         break;
     }
-
+//printf("received %04X time=%04X client=%04X\n", framectl, *(u16*)&RXBuffer[12+24], *(u16*)&RXBuffer[12+26]);
     WIFI_LOG("wifi: received packet FC:%04X SN:%04X CL:%04X RXT:%d CMT:%d\n",
              framectl, *(u16*)&RXBuffer[12+4+6+6+6], *(u16*)&RXBuffer[12+4+6+6+6+2+2], framelen*4, IOPORT(W_CmdReplyTime));
 //if (framectl==0x0228) printf("RX CMD: len=%d, client=%04X, rxfilter=%04X/%04X\n",
@@ -1121,44 +1158,11 @@ bool CheckRX(bool block)
     //if (framectl==0x0218) printf("[%016llX] CLIENT: ACK RECEIVED\n", USCounter);
     zarp = framectl;
 
-    if (block && (framectl == 0x0118 || framectl == 0x0158))
-    {
+    if (local && (framectl == 0x0118 || framectl == 0x0158))
+    {//printf("received reply: %016llX, %016llX\n", timestamp, USTimestamp);
         u16 bourf = (IOPORT(W_TXSeqNo) - 0x1) << 4;
         if (bourf != *(u16*)&RXBuffer[6])
             printf("BAD REPLY SEQNO!!! SENT %04X, RECV %04X\n", bourf, *(u16*)&RXBuffer[6]);
-    }
-
-    // if receiving an association response: get the sync value from the host
-    // TODO only do this for local multiplayer and not online mode!!!!!!!!
-    if ((framectl & 0x00FF) == 0x0010)
-    {
-        u16 aid = *(u16*)&RXBuffer[12+24+4];
-
-        if (aid)
-        {
-            //u64 sync = Platform::MP_WaitSync(0, 1<<(aid&0xF), 0);
-            u64 sync = 0;
-            for (;;)
-            {
-                u16 type; u64 val;
-                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
-                printf("wait sync: %d, %d, %016llX\n", res, type, val);
-                if (!res) break;
-                if (type != 0) continue;
-                sync = val;
-                break;
-            }
-            if (sync)
-            {
-                printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, sync);
-
-                IsMPClient = true;
-                //TimeOffsetToHost = USCounter - sync;
-                //NextSync = USCounter + kMaxRunahead;
-                USTimestamp = sync;
-                NextSync = USTimestamp;
-            }
-        }
     }
 
     // make RX header
@@ -1170,28 +1174,69 @@ bool CheckRX(bool block)
     *(u16*)&RXBuffer[6] = txrate;
     *(u16*)&RXBuffer[8] = framelen;
     *(u16*)&RXBuffer[10] = 0x4080; // min/max RSSI. dunno
-
-    RXTime = framelen;
-
-    if (txrate == 0x14)
+zamf = timestamp;
+    if (((framectl & 0x00FF) == 0x0010) && timestamp)
     {
-        RXTime *= 4;
-        RXHalfwordTimeMask = 0x7;
+        // if receiving an association response: get the sync value from the host
+
+        u16 aid = *(u16*)&RXBuffer[12+24+4];
+
+        if (aid)
+        {
+            //u64 sync = Platform::MP_WaitSync(0, 1<<(aid&0xF), 0);
+            /*u64 sync = 0;
+            for (;;)
+            {
+                u16 type; u64 val;
+                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+                printf("wait sync: %d, %d, %016llX\n", res, type, val);
+                if (!res) break;
+                if (type != 0) continue;
+                sync = val;
+                break;
+            }
+            if (sync)*/
+            {
+                printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, timestamp);
+
+                IsMPClient = true;
+                //TimeOffsetToHost = USCounter - sync;
+                //NextSync = USCounter + kMaxRunahead;
+                USTimestamp = timestamp;
+                NextSync = USTimestamp + 4096;//512; // TODO: tweak this!
+            }
+        }
+
+        RXTimestamp = 0;
+        StartRX();
+    }
+    else if (IsMPClient)
+    {
+        // if we are being a MP client, we need to delay this frame until we reach the
+        // timestamp it came with
+        // we also need to determine how far we can run after having received this frame
+
+        RXTimestamp = timestamp;
+        NextSync = timestamp + (framelen * (txrate==0x14 ? 4:8));
+
+        if ((rxflags & 0xF) == 0xC)
+        {
+            u16 clienttime = *(u16*)&RXBuffer[12+24];
+            u16 clientmask = *(u16*)&RXBuffer[12+26];
+
+            // include the MP reply time window
+            NextSync += 112 + ((clienttime + 10) * NumClients(clientmask));
+        }
+        //printf("TS=%016llX NEXT+%016llX RX=%016llX\n", USTimestamp, NextSync, RXTimestamp);
     }
     else
     {
-        RXTime *= 8;
-        RXHalfwordTimeMask = 0xF;
+        // otherwise, just start receiving this frame now
+
+        RXTimestamp = 0;
+        StartRX();
     }
 
-    u16 addr = IOPORT(W_RXBufWriteCursor) << 1;
-    IncrementRXAddr(addr, 12);
-    IOPORT(W_RXTXAddr) = addr >> 1;
-
-    RXBufferPtr = 12;
-
-    SetIRQ(6);
-    SetStatus(6);
     return true;
 }
 
@@ -1223,64 +1268,72 @@ void MSTimer()
 void USTimer(u32 param)
 {
     USTimestamp++;
-    if (USTimestamp == NextSync)
+    if (IsMPClient)
     {
-        /*if (SyncBack)
-        {//printf("[CLIENT %01X] sending sync3\n", IOPORT(W_AIDLow));
-            SyncBack = false;
-            u16 aid = IOPORT(W_AIDLow);
-            Platform::MP_SendSync(1<<(aid&0xF), 3, 0);
-
-            if (CheckRX(true))
-            {
-                ComStatus |= 0x1;
-            }
-        }*/
-        if (NextSyncType == 2)
+        if (RXTimestamp && (USTimestamp >= RXTimestamp))
         {
-            if (CheckRX(true))
-            {
-                ComStatus |= 0x1;
-            }
+            RXTimestamp = 0;
+            StartRX();
         }
 
-        //u64 sync = Platform::MP_WaitSync(1, 1<<(IOPORT(W_AIDLow)&0xF), USCounter - TimeOffsetToHost);
-        for (;;)
+        if (USTimestamp >= NextSync)
         {
-            u16 type; u64 val;
-            u16 aid = IOPORT(W_AIDLow);
-            //printf("[CLIENT %01X] waiting for sync\n", aid);
-            bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
-            //printf("[CLIENT %01X] got sync, res=%d type=%04X val=%016llX\n", aid, res, type, val);
-            if (!res) break;
+            /*if (SyncBack)
+            {//printf("[CLIENT %01X] sending sync3\n", IOPORT(W_AIDLow));
+                SyncBack = false;
+                u16 aid = IOPORT(W_AIDLow);
+                Platform::MP_SendSync(1<<(aid&0xF), 3, 0);
 
-            // timeoffset = client - host
-            //val += TimeOffsetToHost;
-
-            //if ((type == 1) && (val > USTimestamp))
-            if (val > USTimestamp)
+                if (CheckRX(true))
+                {
+                    ComStatus |= 0x1;
+                }
+            }*/
+            //if (NextSyncType == 2)
             {
-                NextSync = val;
-                NextSyncType = type;
-                break;
+                CheckRX(true);
             }
-            /*else if ((type == 2) && (val > USTimestamp))
-            {
-                NextSync = val;
 
-                break;
-            }
-            /*else if ((type == 2) && (val > USCounter))
-            {//printf("[CLIENT %01X] received sync2: %016llX\n", aid, val);
-                NextSync = val;
-                SyncBack = true;
-                break;
+            //u64 sync = Platform::MP_WaitSync(1, 1<<(IOPORT(W_AIDLow)&0xF), USCounter - TimeOffsetToHost);
+            /*for (;;)
+            {
+                u16 type; u64 val;
+                u16 aid = IOPORT(W_AIDLow);
+                printf("[CLIENT %01X] waiting for sync\n", aid);
+                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+                //printf("[CLIENT %01X] got sync, res=%d type=%04X val=%016llX\n", aid, res, type, val);
+                if (!res) printf("%04X SYNC FAILURE\n", aid);
+                else printf("%04X SYNC TYPE=%d VAL=%016llX CUR=%016llX\n", aid, type, val, USTimestamp);
+                if (!res) break;
+
+                // timeoffset = client - host
+                //val += TimeOffsetToHost;
+
+                //if ((type == 1) && (val > USTimestamp))
+                if (val > USTimestamp)
+                {
+                    NextSync = val;
+                    NextSyncType = type;
+                    break;
+                }
+                /*else if ((type == 2) && (val > USTimestamp))
+                {
+                    NextSync = val;
+
+                    break;
+                }
+                /*else if ((type == 2) && (val > USCounter))
+                {//printf("[CLIENT %01X] received sync2: %016llX\n", aid, val);
+                    NextSync = val;
+                    SyncBack = true;
+                    break;
+                }*-/
+            }*/
+            /*if (sync)
+            {
+                NextSync = USCounter - sync;
             }*/
         }
-        /*if (sync)
-        {
-            NextSync = USCounter - sync;
-        }*/
     }
 
 
@@ -1343,10 +1396,12 @@ void USTimer(u32 param)
             }
             else
             {
-                if ((!(RXCounter & 0x1FF)))
+                if ((!IsMPClient) || (USTimestamp > NextSync))
                 {
-                    if (CheckRX(false))
-                        ComStatus = 0x1;
+                    if ((!(RXCounter & 0x1FF)))
+                    {
+                        CheckRX(false);
+                    }
                 }
 
                 RXCounter++;
@@ -1403,7 +1458,7 @@ void USTimer(u32 param)
 
                     SetIRQ(0);
                     SetStatus(1);
-
+//printf("%016llX: finished receiving a frame, aid=%04X, client=%04X\n", USTimestamp, IOPORT(W_AIDLow), *(u16*)&RXBuffer[0xC + 26]);
                     WIFI_LOG("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
 
                     ComStatus &= ~0x1;
@@ -1418,8 +1473,8 @@ void USTimer(u32 param)
 
                         u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
                         if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
-                        {
-                            SendMPReply(*(u16*)&RXBuffer[0xC + 24], *(u16*)&RXBuffer[0xC + 26]);
+                        {//printf("%016llX: sending MP reply\n", USTimestamp);
+                            SendMPReply(*(u16*)&RXBuffer[0xC + 24], clientmask);
                         }
                     }
                 }
