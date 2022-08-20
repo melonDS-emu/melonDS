@@ -357,6 +357,9 @@ void DeInit()
 #endif // __WIN32__*/
     SemDeinit(InstanceID);
     SemDeinit(16+InstanceID);
+
+    MPQueue->detach();
+    delete MPQueue;
 }
 
 void PacketFIFORead(void* buf, int len)
@@ -575,7 +578,7 @@ bool WaitSync(u16 clientmask, u16* type, u64* timestamp)
             MPQueue->unlock();
             continue;
         }
-
+printf("received sync: ID=%08X type=%04X mask=%04X (wanted=%04X) ts=%016llX\n", sync.SenderID, sync.Type, sync.ClientMask, clientmask, sync.Timestamp);
         if (!(sync.ClientMask & clientmask))
         {
             MPQueue->unlock();
