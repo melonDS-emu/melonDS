@@ -156,8 +156,8 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 // packet type: DS-style TX header (12 bytes) + original 802.11 frame
 bool MP_Init();
 void MP_DeInit();
-int MP_SendPacket(u8* data, int len);
-int MP_RecvPacket(u8* data, bool block);
+int MP_SendPacket(u8* data, int len, u64 timestamp);
+int MP_RecvPacket(u8* data, bool block, u64* timestamp);
 bool MP_SendSync(u16 clientmask, u16 type, u64 val);
 bool MP_WaitSync(u16 clientmask, u16* type, u64* val);
 u16 MP_WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval);

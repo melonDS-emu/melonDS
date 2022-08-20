@@ -76,8 +76,18 @@ struct MPQueueHeader
 struct MPPacketHeader
 {
     u32 Magic;
-    u32 Length;
     u32 SenderID;
+    u32 Length;
+    u64 Timestamp;
+};
+
+struct MPSync
+{
+    u32 Magic;
+    u32 SenderID;
+    u16 ClientMask;
+    u16 Type;
+    u64 Timestamp;
 };
 
 QSharedMemory* MPQueue;
@@ -101,25 +111,29 @@ const u32 kPacketEnd = 0x10000;
 //#ifdef _WIN32
 #if 1
 
+bool SemInited[32];
 HANDLE SemPool[32];
 
 void SemPoolInit()
 {
     for (int i = 0; i < 32; i++)
+    {
         SemPool[i] = INVALID_HANDLE_VALUE;
+        SemInited[i] = false;
+    }
 }
 
 bool SemInit(int num)
 {
-    if (SemPool[num] != INVALID_HANDLE_VALUE)
+    if (SemInited[num])
         return true;
 
     char semname[64];
-    sprintf(semname, "Local\\melonNIFI_Sem%d", num);
+    sprintf(semname, "Local\\melonNIFI_Sem%02d", num);
 
     HANDLE sem = CreateSemaphore(nullptr, 0, 64, semname);
     SemPool[num] = sem;
-
+    SemInited[num] = true;
     return sem != INVALID_HANDLE_VALUE;
 }
 
@@ -129,6 +143,7 @@ void SemDeinit(int num)
     {
         CloseHandle(SemPool[num]);
         SemPool[num] = INVALID_HANDLE_VALUE;
+        SemInited[num] = false;
     }
 }
 
@@ -280,10 +295,10 @@ bool Init()
 
     if (!MPQueue->attach())
     {
-        printf("sharedmem doesn't exist. creating\n");
+        printf("MP sharedmem doesn't exist. creating\n");
         if (!MPQueue->create(65536))
         {
-            printf("sharedmem create failed :(\n");
+            printf("MP sharedmem create failed :(\n");
             return false;
         }
 
@@ -332,14 +347,16 @@ bool Init()
 
 void DeInit()
 {
-    if (MPSocket[0] >= 0)
+    /*if (MPSocket[0] >= 0)
         closesocket(MPSocket[0]);
     if (MPSocket[1] >= 0)
         closesocket(MPSocket[1]);
 
 #ifdef __WIN32__
     WSACleanup();
-#endif // __WIN32__
+#endif // __WIN32__*/
+    SemDeinit(InstanceID);
+    SemDeinit(16+InstanceID);
 }
 
 void PacketFIFORead(void* buf, int len)
@@ -385,24 +402,26 @@ void PacketFIFOWrite(void* buf, int len)
     header->PacketWriteOffset = offset;
 }
 
-int SendPacket(u8* packet, int len)
+int SendPacket(u8* packet, int len, u64 timestamp)
 {
     MPQueue->lock();
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
     u16 mask = header->InstanceBitmask;
-    u32 offset = header->PacketWriteOffset;
 
     // TODO: check if the FIFO is full!
 
     MPPacketHeader pktheader;
     pktheader.Magic = 0x4946494E;
-    pktheader.Length = len;
     pktheader.SenderID = InstanceID;
+    pktheader.Length = len;
+    pktheader.Timestamp = timestamp;
 
     PacketFIFOWrite(&pktheader, sizeof(pktheader));
     PacketFIFOWrite(packet, len);
+
+    MPQueue->unlock();
 
     for (int i = 0; i < 16; i++)
     {
@@ -410,23 +429,20 @@ int SendPacket(u8* packet, int len)
             SemPost(i);
     }
 
-    MPQueue->unlock();
     return len;
 }
 
-int RecvPacket(u8* packet, bool block)
+int RecvPacket(u8* packet, bool block, u64* timestamp)
 {
-    MPQueue->lock();
-    u8* data = (u8*)MPQueue->data();
-    MPQueueHeader* header = (MPQueueHeader*)&data[0];
-
     for (;;)
     {
         if (!SemWait(InstanceID, block ? 500 : 0))
         {
-            MPQueue->unlock();
             return 0;
         }
+
+        MPQueue->lock();
+        u8* data = (u8*)MPQueue->data();
 
         MPPacketHeader pktheader;
         PacketFIFORead(&pktheader, sizeof(pktheader));
@@ -445,97 +461,137 @@ int RecvPacket(u8* packet, bool block)
             if (PacketReadOffset >= kPacketEnd)
                 PacketReadOffset += kPacketStart - kPacketEnd;
 
+            MPQueue->unlock();
             continue;
         }
 
         PacketFIFORead(packet, pktheader.Length);
+        if (timestamp) *timestamp = pktheader.Timestamp;
         MPQueue->unlock();
         return pktheader.Length;
     }
 }
 
-bool SendSync(u16 clientmask, u16 type, u64 val)
+
+void SyncFIFORead(MPSync* sync)
 {
-    u8 syncbuf[32];
+    u8* data = (u8*)MPQueue->data();
 
-    if (MPSocket[1] < 0)
-        return false;
+    int len = sizeof(MPSync);
+    u32 offset = SyncReadOffset;
+    if ((offset + len) >= kSyncEnd)
+    {
+        u32 part1 = kSyncEnd - offset;
+        memcpy(sync, &data[offset], part1);
+        memcpy(&((u8*)sync)[part1], &data[kSyncStart], len - part1);
+        offset = kSyncStart + len - part1;
+    }
+    else
+    {
+        memcpy(sync, &data[offset], len);
+        offset += len;
+    }
 
-    int len = 16;
-    *(u32*)&syncbuf[0] = htonl(0x4946494E); // NIFI
-    syncbuf[4] = NIFI_VER;
-    syncbuf[5] = 1;
-    *(u16*)&syncbuf[6] = htons(len);
-    *(u16*)&syncbuf[8] = htons(type);
-    *(u16*)&syncbuf[10] = htons(clientmask);
-    *(u32*)&syncbuf[12] = MPUniqueID;
-    *(u32*)&syncbuf[16] = htonl((u32)val);
-    *(u32*)&syncbuf[20] = htonl((u32)(val>>32));
-
-    int slen = sendto(MPSocket[1], (const char*)syncbuf, len+8, 0, &MPSendAddr[1], sizeof(sockaddr_t));
-    return slen == len+8;
+    SyncReadOffset = offset;
 }
 
-bool WaitSync(u16 clientmask, u16* type, u64* val)
+void SyncFIFOWrite(MPSync* sync)
 {
-    u8 syncbuf[32];
+    u8* data = (u8*)MPQueue->data();
+    MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
-    if (MPSocket[1] < 0)
-        return false;
+    int len = sizeof(MPSync);
+    u32 offset = header->SyncWriteOffset;
+    if ((offset + len) >= kSyncEnd)
+    {
+        u32 part1 = kSyncEnd - offset;
+        memcpy(&data[offset], sync, part1);
+        memcpy(&data[kSyncStart], &((u8*)sync)[part1], len - part1);
+        offset = kSyncStart + len - part1;
+    }
+    else
+    {
+        memcpy(&data[offset], sync, len);
+        offset += len;
+    }
 
-    fd_set fd;
-    struct timeval tv;
+    header->SyncWriteOffset = offset;
+}
 
+bool SendSync(u16 clientmask, u16 type, u64 timestamp)
+{
+    MPQueue->lock();
+    u8* data = (u8*)MPQueue->data();
+    MPQueueHeader* header = (MPQueueHeader*)&data[0];
+
+    u16 mask = header->InstanceBitmask;
+
+    // TODO: check if the FIFO is full!
+
+    MPSync sync;
+    sync.Magic = 0x434E5953;
+    sync.SenderID = InstanceID;
+    sync.ClientMask = clientmask;
+    sync.Type = type;
+    sync.Timestamp = timestamp;
+
+    SyncFIFOWrite(&sync);
+
+    MPQueue->unlock();
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (mask & (1<<i))
+            SemPost(16+i);
+    }
+
+    return true;
+}
+
+bool WaitSync(u16 clientmask, u16* type, u64* timestamp)
+{
     for (;;)
     {
-        FD_ZERO(&fd);
-        FD_SET(MPSocket[1], &fd);
-        tv.tv_sec = 0;
-        tv.tv_usec = 500*1000;
-
-        if (!select(MPSocket[1]+1, &fd, 0, 0, &tv))
-        {printf("sync fail\n");
+        if (!SemWait(16+InstanceID, 500))
+        {
             return false;
         }
 
-        sockaddr_t fromAddr;
-        socklen_t fromLen = sizeof(sockaddr_t);
-        int rlen = recvfrom(MPSocket[1], (char*)syncbuf, 32, 0, &fromAddr, &fromLen);
-        if (rlen != 8+16)
+        MPQueue->lock();
+        u8* data = (u8*)MPQueue->data();
+
+        MPSync sync;
+        SyncFIFORead(&sync);
+
+        if (sync.Magic != 0x434E5953)
+        {
+            printf("MP: !!!! SYNC FIFO IS CRAPOED\n");
+            MPQueue->unlock();
+            return false;
+        }
+
+        if (sync.SenderID == InstanceID)
+        {
+            MPQueue->unlock();
             continue;
-        rlen -= 8;
+        }
 
-        if (ntohl(*(u32*)&syncbuf[0]) != 0x4946494E)
+        if (!(sync.ClientMask & clientmask))
+        {
+            MPQueue->unlock();
             continue;
+        }
 
-        if (syncbuf[4] != NIFI_VER || syncbuf[5] != 1)
-            continue;
-
-        if (ntohs(*(u16*)&syncbuf[6]) != rlen)
-            continue;
-
-        if (*(u32*)&syncbuf[12] == MPUniqueID)
-            continue;
-
-        u16 clientval = ntohs(*(u16*)&syncbuf[10]);
-        if (!(clientmask & clientval))
-            continue;
-
-        // check the sync val, it should be ahead of the current sync val
-        u64 syncval = ntohl(*(u32*)&syncbuf[16]) | (((u64)ntohl(*(u32*)&syncbuf[20])) << 32);
-        //if (syncval <= curval)
-        //    continue;
-
-        if (type) *type = ntohs(*(u16*)&syncbuf[8]);
-        if (val) *val = syncval;
-
+        if (type) *type = sync.Type;
+        if (timestamp) *timestamp = sync.Timestamp;
+        MPQueue->unlock();
         return true;
     }
 }
 
 u16 WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval)
 {
-    u8 syncbuf[32];
+    /*u8 syncbuf[32];
 
     if (!clientmask)
         return 0;
@@ -595,7 +651,8 @@ u16 WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval)
             return 0;
     }
 
-    return clientmask;
+    return clientmask;*/
+    return 0;
 }
 
 }
