@@ -101,6 +101,7 @@ bool ForcePowerOn;
 bool IsMPClient;
 u64 TimeOffsetToHost;   // clienttime - hosttime
 u64 NextSync;           // for clients: timestamp for next forced sync
+u32 NextSyncType;
 bool SyncBack;          // for clients: whether to send the host a sync once the sync is reached
 const u64 kMaxRunahead = 4096;
 
@@ -588,7 +589,7 @@ void SendMPDefaultReply()
 	*(u16*)&reply[0xC + 0x16] = IOPORT(W_TXSeqNo) << 4;
 	*(u32*)&reply[0xC + 0x18] = 0;
 
-	int txlen = Platform::MP_SendPacket(reply, 12+28);
+	int txlen = Platform::MP_SendPacket(reply, 12+28, USTimestamp);
 	WIFI_LOG("wifi: sent %d/40 bytes of MP default reply\n", txlen);
 }
 
@@ -618,7 +619,7 @@ void SendMPAck()
 	*(u16*)&ack[0xC + 0x1A] = 0; // TODO: bitmask of which clients failed to reply
 	*(u32*)&ack[0xC + 0x1C] = 0;
 
-	int txlen = Platform::MP_SendPacket(ack, 12+32);
+	int txlen = Platform::MP_SendPacket(ack, 12+32, USTimestamp);
 	WIFI_LOG("wifi: sent %d/44 bytes of MP ack, %d %d\n", txlen, ComStatus, RXTime);
 }
 
@@ -759,17 +760,14 @@ bool ProcessTX(TXSlot* slot, int num)
                 // make sure the clients are synced up
                 // TODO!!!! this should be for all currently connected clients regardless of the clientmask in the packet
                 u16 clientmask = *(u16*)&RAM[slot->Addr + 0xC + 26];
-                Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter);
+                //Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter);
                 //printf("[HOST] sending CMD, sent sync2, waiting\n");
-                u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
+                //u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
                 //printf("[HOST] got sync3: %04X\n", res);
-
-                //if (slot->Length < 100)
-                //if (*(u16*)&RAM[slot->Addr+0x28] == 0)
-                //    *(u16*)&RAM[slot->Addr+0x28] = 0x0100;
+                Platform::MP_SendSync(0xFFFE, 2, USTimestamp);
 
                 // send
-                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
                          txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
                          *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
@@ -778,9 +776,10 @@ bool ProcessTX(TXSlot* slot, int num)
                 // send further sync
                 u32 numclients = NumClients(clientmask);
                 u32 replywait = 112 + ((10 + IOPORT(W_CmdReplyTime)) * numclients);
-                u32 acklen = 32 * (slot->Rate==2 ? 4:8);
+                //u32 acklen = 32 * (slot->Rate==2 ? 4:8);
                 //Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + len + replywait + acklen);// + kMaxRunahead);
-                Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter + len + replywait);
+                //Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter + len + replywait);
+                Platform::MP_SendSync(0xFFFE, 2, USTimestamp + len + replywait);
             }
             else if (num == 5)
             {
@@ -788,7 +787,7 @@ bool ProcessTX(TXSlot* slot, int num)
                 *(u16*)&RAM[slot->Addr+6] = vogon;
 
                 // send
-                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
                          txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
                          *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
@@ -798,7 +797,7 @@ bool ProcessTX(TXSlot* slot, int num)
             else //if (num != 5)
             {
                 // send
-                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length);
+                int txlen = Platform::MP_SendPacket(&RAM[slot->Addr], 12 + slot->Length, USTimestamp);
                 WIFI_LOG("wifi: sent %d/%d bytes of slot%d packet, addr=%04X, framectl=%04X, %04X %04X\n",
                          txlen, slot->Length+12, num, slot->Addr, *(u16*)&RAM[slot->Addr + 0xC],
                          *(u16*)&RAM[slot->Addr + 0x24], *(u16*)&RAM[slot->Addr + 0x26]);
@@ -813,12 +812,14 @@ bool ProcessTX(TXSlot* slot, int num)
                 {
                     // if we're sending an association response:
                     // we are likely acting as a local MP host, and are welcoming a new client to the club
-                    // in this case, sync them up: send them our current USCOUNT value
-                    // which will let them understand further sync values
+                    // in this case, sync them up: send them our current microsecond timestamp
 
                     u16 aid = *(u16*)&RAM[slot->Addr + 0xC + 24 + 4];
-                    //printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USCounter);
-                    Platform::MP_SendSync(1<<(aid&0xF), 0, USCounter);
+                    if (aid)
+                    {
+                        printf("[HOST] syncing client %04X, sync=%016llX\n", aid, USTimestamp);
+                        Platform::MP_SendSync(1<<(aid&0xF), 0, USTimestamp);
+                    }
                 }
 
                 WifiAP::SendPacket(&RAM[slot->Addr], 12 + slot->Length);
@@ -935,14 +936,15 @@ bool ProcessTX(TXSlot* slot, int num)
             u16 clientmask = *(u16*)&RAM[slot->Addr + 0xC + 26];
             //Platform::MP_SendSync(/*clientmask*/0x0002, 2, USCounter);
             //printf("[HOST] sending CMD, sent sync2, waiting\n");
-            u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
+            //u16 res = Platform::MP_WaitMultipleSyncs(3, /*clientmask*/0x0002, USCounter);
             //printf("[HOST] got sync3: %04X\n", res);
 
             // send
             SendMPAck();
 
             // send further sync
-            Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + slot->CurPhaseTime);
+            //Platform::MP_SendSync(/*clientmask*/0x0002, 1, USCounter + slot->CurPhaseTime);
+            Platform::MP_SendSync(0xFFFE, 1, USTimestamp + slot->CurPhaseTime);
 
             slot->CurPhase = 3;
         }
@@ -1022,7 +1024,7 @@ bool CheckRX(bool block)
 
     for (;;)
     {
-        int rxlen = Platform::MP_RecvPacket(RXBuffer, block);
+        int rxlen = Platform::MP_RecvPacket(RXBuffer, block, nullptr);
         if (rxlen == 0) rxlen = WifiAP::RecvPacket(RXBuffer);
         if (rxlen == 0) return false;
         if (rxlen < 12+24) continue;
@@ -1087,6 +1089,8 @@ bool CheckRX(bool block)
             break;
         }
 
+        // TODO get rid of this
+        // ensuring we don't receive our own crap is the responsibility of the comm layer!!
         if (MACEqual(&RXBuffer[12 + a_src], (u8*)&IOPORT(W_MACAddr0)))
             continue; // oops. we received a packet we just sent.
 
@@ -1130,24 +1134,30 @@ bool CheckRX(bool block)
     {
         u16 aid = *(u16*)&RXBuffer[12+24+4];
 
-        //u64 sync = Platform::MP_WaitSync(0, 1<<(aid&0xF), 0);
-        u64 sync = 0;
-        for (;;)
+        if (aid)
         {
-            u16 type; u64 val;
-            bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
-            if (!res) break;
-            if (type != 0) continue;
-            sync = val;
-            break;
-        }
-        if (sync)
-        {
-            printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, sync);
+            //u64 sync = Platform::MP_WaitSync(0, 1<<(aid&0xF), 0);
+            u64 sync = 0;
+            for (;;)
+            {
+                u16 type; u64 val;
+                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+                printf("wait sync: %d, %d, %016llX\n", res, type, val);
+                if (!res) break;
+                if (type != 0) continue;
+                sync = val;
+                break;
+            }
+            if (sync)
+            {
+                printf("[CLIENT %01X] host sync=%016llX\n", aid&0xF, sync);
 
-            IsMPClient = true;
-            TimeOffsetToHost = USCounter - sync;
-            NextSync = USCounter + kMaxRunahead;
+                IsMPClient = true;
+                //TimeOffsetToHost = USCounter - sync;
+                //NextSync = USCounter + kMaxRunahead;
+                USTimestamp = sync;
+                NextSync = USTimestamp;
+            }
         }
     }
 
@@ -1213,6 +1223,66 @@ void MSTimer()
 void USTimer(u32 param)
 {
     USTimestamp++;
+    if (USTimestamp == NextSync)
+    {
+        /*if (SyncBack)
+        {//printf("[CLIENT %01X] sending sync3\n", IOPORT(W_AIDLow));
+            SyncBack = false;
+            u16 aid = IOPORT(W_AIDLow);
+            Platform::MP_SendSync(1<<(aid&0xF), 3, 0);
+
+            if (CheckRX(true))
+            {
+                ComStatus |= 0x1;
+            }
+        }*/
+        if (NextSyncType == 2)
+        {
+            if (CheckRX(true))
+            {
+                ComStatus |= 0x1;
+            }
+        }
+
+        //u64 sync = Platform::MP_WaitSync(1, 1<<(IOPORT(W_AIDLow)&0xF), USCounter - TimeOffsetToHost);
+        for (;;)
+        {
+            u16 type; u64 val;
+            u16 aid = IOPORT(W_AIDLow);
+            //printf("[CLIENT %01X] waiting for sync\n", aid);
+            bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
+            //printf("[CLIENT %01X] got sync, res=%d type=%04X val=%016llX\n", aid, res, type, val);
+            if (!res) break;
+
+            // timeoffset = client - host
+            //val += TimeOffsetToHost;
+
+            //if ((type == 1) && (val > USTimestamp))
+            if (val > USTimestamp)
+            {
+                NextSync = val;
+                NextSyncType = type;
+                break;
+            }
+            /*else if ((type == 2) && (val > USTimestamp))
+            {
+                NextSync = val;
+
+                break;
+            }
+            /*else if ((type == 2) && (val > USCounter))
+            {//printf("[CLIENT %01X] received sync2: %016llX\n", aid, val);
+                NextSync = val;
+                SyncBack = true;
+                break;
+            }*/
+        }
+        /*if (sync)
+        {
+            NextSync = USCounter - sync;
+        }*/
+    }
+
 
     WifiAP::USTimer();
 
@@ -1243,51 +1313,6 @@ void USTimer(u32 param)
         }
 
         if (!uspart) MSTimer();
-
-        if (USCounter == NextSync)
-        {
-            if (SyncBack)
-            {//printf("[CLIENT %01X] sending sync3\n", IOPORT(W_AIDLow));
-                SyncBack = false;
-                u16 aid = IOPORT(W_AIDLow);
-                Platform::MP_SendSync(1<<(aid&0xF), 3, 0);
-
-                if (CheckRX(true))
-                {
-                    ComStatus |= 0x1;
-                }
-            }
-
-            //u64 sync = Platform::MP_WaitSync(1, 1<<(IOPORT(W_AIDLow)&0xF), USCounter - TimeOffsetToHost);
-            for (;;)
-            {
-                u16 type; u64 val;
-                u16 aid = IOPORT(W_AIDLow);
-                //printf("[CLIENT %01X] waiting for sync\n", aid);
-                bool res = Platform::MP_WaitSync(1<<(aid&0xF), &type, &val);
-                //printf("[CLIENT %01X] got sync, res=%d type=%04X val=%016llX\n", aid, res, type, val);
-                if (!res) break;
-
-                // timeoffset = client - host
-                val += TimeOffsetToHost;
-
-                if ((type == 1) && (val > USCounter))
-                {
-                    NextSync = val;
-                    break;
-                }
-                else if ((type == 2) && (val > USCounter))
-                {//printf("[CLIENT %01X] received sync2: %016llX\n", aid, val);
-                    NextSync = val;
-                    SyncBack = true;
-                    break;
-                }
-            }
-            /*if (sync)
-            {
-                NextSync = USCounter - sync;
-            }*/
-        }
     }
 
     if (IOPORT(W_CmdCountCnt) & 0x0001)

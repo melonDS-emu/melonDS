@@ -369,14 +369,14 @@ void MP_DeInit()
     return LocalMP::DeInit();
 }
 
-int MP_SendPacket(u8* data, int len)
+int MP_SendPacket(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendPacket(data, len);
+    return LocalMP::SendPacket(data, len, timestamp);
 }
 
-int MP_RecvPacket(u8* data, bool block)
+int MP_RecvPacket(u8* data, bool block, u64* timestamp)
 {
-    return LocalMP::RecvPacket(data, block);
+    return LocalMP::RecvPacket(data, block, timestamp);
 }
 
 bool MP_SendSync(u16 clientmask, u16 type, u64 val)

@@ -26,8 +26,8 @@ namespace LocalMP
 
 bool Init();
 void DeInit();
-int SendPacket(u8* data, int len);
-int RecvPacket(u8* data, bool block);
+int SendPacket(u8* data, int len, u64 timestamp);
+int RecvPacket(u8* data, bool block, u64* timestamp);
 bool SendSync(u16 clientmask, u16 type, u64 val);
 bool WaitSync(u16 clientmask, u16* type, u64* val);
 u16 WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval);
