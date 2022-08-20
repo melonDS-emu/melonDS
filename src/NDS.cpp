@@ -2614,7 +2614,8 @@ void ARM7Write8(u32 addr, u8 val)
         return;
     }
 
-    if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+    //if (ARM7->R[15] > 0x00002F30) // ARM7 BIOS bug
+    if (addr >= 0x01000000)
         printf("unknown arm7 write8 %08X %02X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
@@ -2691,7 +2692,8 @@ void ARM7Write16(u32 addr, u16 val)
         return;
     }
 
-    printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
+    if (addr >= 0x01000000)
+        printf("unknown arm7 write16 %08X %04X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 void ARM7Write32(u32 addr, u32 val)
@@ -2771,7 +2773,8 @@ void ARM7Write32(u32 addr, u32 val)
         return;
     }
 
-    printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
+    if (addr >= 0x01000000)
+        printf("unknown arm7 write32 %08X %08X @ %08X\n", addr, val, ARM7->R[15]);
 }
 
 bool ARM7GetMemRegion(u32 addr, bool write, MemRegion* region)
