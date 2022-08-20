@@ -439,7 +439,7 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
 {
     for (;;)
     {
-        if (!SemWait(InstanceID, block ? 500 : 0))
+        if (!SemWait(InstanceID, block ? 50 : 0))
         {
             return 0;
         }

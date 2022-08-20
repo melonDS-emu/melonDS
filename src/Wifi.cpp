@@ -1156,6 +1156,7 @@ bool CheckRX(bool local)
     //if (framectl==0x0228 && zarp==0x0228) printf("[CLIENT] failed to receive ack\n");
     //if (framectl==0x0218 && zarp==0x0218) printf("[CLIENT] failed to receive cmd\n");
     //if (framectl==0x0218) printf("[%016llX] CLIENT: ACK RECEIVED\n", USCounter);
+    //if ((framectl&0xFF00)==0) printf("RECEIVED: %04X\n", framectl);
     zarp = framectl;
 
     if (local && (framectl == 0x0118 || framectl == 0x0158))
@@ -1206,6 +1207,14 @@ zamf = timestamp;
                 NextSync = USTimestamp + 4096;//512; // TODO: tweak this!
             }
         }
+
+        RXTimestamp = 0;
+        StartRX();
+    }
+    else if (((framectl & 0x00FF) == 0x00C0) && timestamp && IsMPClient)
+    {
+        IsMPClient = false;
+        NextSync = 0;
 
         RXTimestamp = 0;
         StartRX();
@@ -1458,7 +1467,7 @@ void USTimer(u32 param)
 
                     SetIRQ(0);
                     SetStatus(1);
-//printf("%016llX: finished receiving a frame, aid=%04X, client=%04X\n", USTimestamp, IOPORT(W_AIDLow), *(u16*)&RXBuffer[0xC + 26]);
+//printf("%016llX: finished receiving a frame, aid=%04X, FC=%04X, client=%04X\n", USTimestamp, IOPORT(W_AIDLow), *(u16*)&RXBuffer[0xC], *(u16*)&RXBuffer[0xC + 26]);
                     WIFI_LOG("wifi: finished receiving packet %04X\n", *(u16*)&RXBuffer[12]);
 
                     ComStatus &= ~0x1;
@@ -1731,6 +1740,13 @@ void Write(u32 addr, u16 val)
     case W_IFSet:
         IOPORT(W_IF) |= (val & 0xFBFF);
         printf("wifi: force-setting IF %04X\n", val);
+        return;
+
+    case W_AIDLow:
+        IOPORT(W_AIDLow) = val & 0x000F;
+        return;
+    case W_AIDFull:
+        IOPORT(W_AIDFull) = val & 0x07FF;
         return;
 
     case W_PowerState:
