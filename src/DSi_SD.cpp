@@ -480,8 +480,6 @@ u16 DSi_SDHost::Read(u32 addr)
                     ret |= 0x0020;
                     if (!Ports[0]->ReadOnly) ret |= 0x0080;
                 }
-                else
-                    ret |= 0x0008;
             }
             else
             {
