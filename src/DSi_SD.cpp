@@ -477,7 +477,7 @@ u16 DSi_SDHost::Read(u32 addr)
             {
                 if (Ports[0]) // basic check of whether the SD card is inserted
                 {
-                    ret |= 0x0030;
+                    ret |= 0x0020;
                     if (!Ports[0]->ReadOnly) ret |= 0x0080;
                 }
                 else
@@ -486,7 +486,7 @@ u16 DSi_SDHost::Read(u32 addr)
             else
             {
                 // SDIO wifi is always inserted, I guess
-                ret |= 0x00B0;
+                ret |= 0x00A0;
             }
             return ret;
         }
