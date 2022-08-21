@@ -165,10 +165,10 @@ bool SemWait(int num, int timeout)
 #endif // _WIN32
 
 
-void _logpacket(bool tx, u8* data, int len)
+void _logpacket(bool tx, u8* data, int len, u64 ts)
 {return;
     char path[256];
-    sprintf(path, "framelog_%08X.log", MPUniqueID);
+    sprintf(path, "framelog_%08X.log", InstanceID);
     static FILE* f = nullptr;
     if (!f) f = fopen(path, "a");
 
@@ -188,8 +188,30 @@ void _logpacket(bool tx, u8* data, int len)
 
     fprintf(f, "-------------------------------------\n\n\n");*/
 
-    fprintf(f, "%s PACKET: LEN=%0.4d FC=%04X SN=%04X CL=%04X/%04X\n", tx?"TX":"RX",
+    fprintf(f, "[%016llX] %s PACKET: LEN=%0.4d FC=%04X SN=%04X CL=%04X/%04X\n", ts, tx?"TX":"RX",
             len, *(u16*)&data[12], *(u16*)&data[12+22], *(u16*)&data[12+24], *(u16*)&data[12+26]);
+    fflush(f);
+}
+
+void _logstring(u64 ts, char* str)
+{return;
+    char path[256];
+    sprintf(path, "framelog_%08X.log", InstanceID);
+    static FILE* f = nullptr;
+    if (!f) f = fopen(path, "a");
+
+    fprintf(f, "[%016llX] %s\n", ts, str);
+    fflush(f);
+}
+
+void _logstring2(u64 ts, char* str, u32 arg, u64 arg2)
+{return;
+    char path[256];
+    sprintf(path, "framelog_%08X.log", InstanceID);
+    static FILE* f = nullptr;
+    if (!f) f = fopen(path, "a");
+
+    fprintf(f, "[%016llX] %s %08X %016llX\n", ts, str, arg, arg2);
     fflush(f);
 }
 
@@ -407,6 +429,7 @@ void PacketFIFOWrite(void* buf, int len)
 
 int SendPacket(u8* packet, int len, u64 timestamp)
 {
+    _logpacket(true, packet, len, timestamp);
     MPQueue->lock();
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
@@ -469,6 +492,7 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
         }
 
         PacketFIFORead(packet, pktheader.Length);
+        _logpacket(false, packet, pktheader.Length, pktheader.Timestamp);
         if (timestamp) *timestamp = pktheader.Timestamp;
         MPQueue->unlock();
         return pktheader.Length;
