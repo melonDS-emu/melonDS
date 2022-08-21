@@ -20,6 +20,7 @@
 #include <string.h>
 #include "NDS.h"
 #include "GPU.h"
+#include "ARMJIT.h"
 
 #include "GPU2D_Soft.h"
 
@@ -653,6 +654,7 @@ void MapVRAM_CD(u32 bank, u8 cnt)
             VRAMMap_ARM7[ofs] |= bankmask;
             memset(VRAMDirty[bank].Data, 0xFF, sizeof(VRAMDirty[bank].Data));
             VRAMSTAT |= (1 << (bank-2));
+            ARMJIT::CheckAndInvalidateWVRAM(ofs);
             break;
 
         case 3: // texture
