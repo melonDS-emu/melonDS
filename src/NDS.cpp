@@ -1942,7 +1942,7 @@ void debug(u32 param)
     //    printf("VRAM %c: %02X\n", 'A'+i, GPU::VRAMCNT[i]);
 
     FILE*
-    shit = fopen("debug/pictochat.bin", "wb");
+    shit = fopen("debug/tetrisDS.bin", "wb");
     fwrite(ARM9->ITCM, 0x8000, 1, shit);
     for (u32 i = 0x02000000; i < 0x02400000; i+=4)
     {
