@@ -159,7 +159,7 @@ void Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010;//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)NDSCart::CartInserted)&1);//0x0011;
     SCFG_RST = 0;
 
     DSi_DSP::SetRstLine(false);
@@ -246,6 +246,14 @@ void DoSavestate(Savestate* file)
     DSi_I2C::DoSavestate(file);
     SDMMC->DoSavestate(file);
     SDIO->DoSavestate(file);
+}
+
+void SetCartInserted(bool inserted)
+{
+    if (inserted)
+        SCFG_MC &= ~1;
+    else
+        SCFG_MC |= 1;
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
