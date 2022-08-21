@@ -136,6 +136,15 @@ enum
     W_TXErrorCount = 0x1C0,
     W_RXCount = 0x1C4,
 
+    W_CMDStat0 = 0x1D0,
+    W_CMDStat1 = 0x1D2,
+    W_CMDStat2 = 0x1D4,
+    W_CMDStat3 = 0x1D6,
+    W_CMDStat4 = 0x1D8,
+    W_CMDStat5 = 0x1DA,
+    W_CMDStat6 = 0x1DC,
+    W_CMDStat7 = 0x1DE,
+
     W_TXSeqNo = 0x210,
     W_RFStatus = 0x214,
     W_IFSet = 0x21C,
