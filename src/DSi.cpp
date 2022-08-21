@@ -2806,6 +2806,39 @@ void ARM7IOWrite8(u32 addr, u8 val)
         return;
     }
 
+    if (addr >= 0x04004420 && addr < 0x04004430)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004420;
+        addr &= ~3;
+        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFF << shift);
+        return;
+    }
+    if (addr >= 0x04004430 && addr < 0x04004440)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004430;
+        addr &= ~3;
+        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFF << shift);
+        return;
+    }
+    if (addr >= 0x04004440 && addr < 0x04004500)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004440;
+        addr &= ~3;
+
+        int n = 0;
+        while (addr >= 0x30) { addr -= 0x30; n++; }
+
+        switch (addr >> 4)
+        {
+        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        }
+    }
+
     return NDS::ARM7IOWrite8(addr, val);
 }
 
@@ -2847,6 +2880,39 @@ void ARM7IOWrite16(u32 addr, u16 val)
         case 0x4004700:
             DSi_DSP::WriteSNDExCnt(val);
             return;
+    }
+
+    if (addr >= 0x04004420 && addr < 0x04004430)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004420;
+        addr &= ~1;
+        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
+        return;
+    }
+    if (addr >= 0x04004430 && addr < 0x04004440)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004430;
+        addr &= ~1;
+        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
+        return;
+    }
+    if (addr >= 0x04004440 && addr < 0x04004500)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004440;
+        addr &= ~1;
+
+        int n = 0;
+        while (addr >= 0x30) { addr -= 0x30; n++; }
+
+        switch (addr >> 4)
+        {
+        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        }
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
