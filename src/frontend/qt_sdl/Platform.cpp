@@ -379,19 +379,24 @@ int MP_RecvPacket(u8* data, bool block, u64* timestamp)
     return LocalMP::RecvPacket(data, block, timestamp);
 }
 
-bool MP_SendSync(u16 clientmask, u16 type, u64 val)
+int MP_SendCmd(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::SendSync(clientmask, type, val);
+    return LocalMP::SendCmd(data, len, timestamp);
 }
 
-bool MP_WaitSync(u16 clientmask, u16* type, u64* val)
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid)
 {
-    return LocalMP::WaitSync(clientmask, type, val);
+    return LocalMP::SendReply(data, len, timestamp, aid);
 }
 
-u16 MP_WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval)
+int MP_SendAck(u8* data, int len, u64 timestamp)
 {
-    return LocalMP::WaitMultipleSyncs(type, clientmask, curval);
+    return LocalMP::SendAck(data, len, timestamp);
+}
+
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask)
+{
+    return LocalMP::RecvReplies(data, timestamp, aidmask);
 }
 
 

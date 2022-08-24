@@ -158,9 +158,11 @@ bool MP_Init();
 void MP_DeInit();
 int MP_SendPacket(u8* data, int len, u64 timestamp);
 int MP_RecvPacket(u8* data, bool block, u64* timestamp);
-bool MP_SendSync(u16 clientmask, u16 type, u64 val);
-bool MP_WaitSync(u16 clientmask, u16* type, u64* val);
-u16 MP_WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval);
+int MP_SendCmd(u8* data, int len, u64 timestamp);
+int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int MP_SendAck(u8* data, int len, u64 timestamp);
+u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask);
+
 
 // LAN comm interface
 // packet type: Ethernet (802.3)

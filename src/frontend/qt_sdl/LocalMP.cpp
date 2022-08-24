@@ -69,14 +69,17 @@ struct MPQueueHeader
 {
     u16 NumInstances;
     u16 InstanceBitmask;
-    u32 SyncWriteOffset;
     u32 PacketWriteOffset;
+    u32 ReplyWriteOffset;
+    u16 MPHostInstanceID; // instance ID from which the last CMD frame was sent
+    u16 MPReplyBitmask;   // bitmask of which clients replied in time
 };
 
 struct MPPacketHeader
 {
     u32 Magic;
     u32 SenderID;
+    u32 Type;       // 0=regular 1=CMD 2=reply 3=ack
     u32 Length;
     u64 Timestamp;
 };
@@ -93,13 +96,17 @@ struct MPSync
 QSharedMemory* MPQueue;
 //QSystemSemaphore* MPQueueSem[16];
 int InstanceID;
-u32 SyncReadOffset;
 u32 PacketReadOffset;
+u32 ReplyReadOffset;
 
-const u32 kSyncStart = 0x0010;
-const u32 kSyncEnd = 0x0100;
-const u32 kPacketStart = 0x0100;
-const u32 kPacketEnd = 0x10000;
+const u32 kQueueSize = 0x20000;
+const u32 kMaxFrameSize = 0x800;
+const u32 kPacketStart = 0x00010;
+const u32 kReplyStart = kQueueSize / 2;
+const u32 kPacketEnd = kReplyStart;
+const u32 kReplyEnd = kQueueSize;
+
+const int RecvTimeout = 500;
 
 #define NIFI_VER 2
 
@@ -123,6 +130,14 @@ void SemPoolInit()
     }
 }
 
+void SemDeinit(int num);
+
+void SemPoolDeinit()
+{
+    for (int i = 0; i < 32; i++)
+        SemDeinit(i);
+}
+
 bool SemInit(int num)
 {
     if (SemInited[num])
@@ -143,8 +158,9 @@ void SemDeinit(int num)
     {
         CloseHandle(SemPool[num]);
         SemPool[num] = INVALID_HANDLE_VALUE;
-        SemInited[num] = false;
     }
+
+    SemInited[num] = false;
 }
 
 bool SemPost(int num)
@@ -158,6 +174,25 @@ bool SemWait(int num, int timeout)
     return WaitForSingleObject(SemPool[num], timeout) == WAIT_OBJECT_0;
 }
 
+/*bool SemWaitMultiple(int start, u16 bitmask, int timeout)
+{
+    HANDLE semlist[16];
+    int numsem = 0;
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (bitmask & (1<<i))
+        {
+            SemInit(start+i);
+            semlist[numsem] = SemPool[start+i];
+            numsem++;
+        }
+    }
+
+    DWORD res = WaitForMultipleObjects(numsem, semlist, TRUE, timeout);
+    return (res >= WAIT_OBJECT_0) && (res < (WAIT_OBJECT_0+numsem));
+}*/
+
 #else
 
 // TODO: code semaphore shit for other platforms!
@@ -166,7 +201,7 @@ bool SemWait(int num, int timeout)
 
 
 void _logpacket(bool tx, u8* data, int len, u64 ts)
-{return;
+{//return;
     char path[256];
     sprintf(path, "framelog_%08X.log", InstanceID);
     static FILE* f = nullptr;
@@ -194,7 +229,7 @@ void _logpacket(bool tx, u8* data, int len, u64 ts)
 }
 
 void _logstring(u64 ts, char* str)
-{return;
+{//return;
     char path[256];
     sprintf(path, "framelog_%08X.log", InstanceID);
     static FILE* f = nullptr;
@@ -205,7 +240,7 @@ void _logstring(u64 ts, char* str)
 }
 
 void _logstring2(u64 ts, char* str, u32 arg, u64 arg2)
-{return;
+{//return;
     char path[256];
     sprintf(path, "framelog_%08X.log", InstanceID);
     static FILE* f = nullptr;
@@ -318,7 +353,7 @@ bool Init()
     if (!MPQueue->attach())
     {
         printf("MP sharedmem doesn't exist. creating\n");
-        if (!MPQueue->create(65536))
+        if (!MPQueue->create(kQueueSize))
         {
             printf("MP sharedmem create failed :(\n");
             return false;
@@ -327,8 +362,8 @@ bool Init()
         MPQueue->lock();
         memset(MPQueue->data(), 0, MPQueue->size());
         MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
-        header->SyncWriteOffset = kSyncStart;
         header->PacketWriteOffset = kPacketStart;
+        header->ReplyWriteOffset = kReplyStart;
         MPQueue->unlock();
     }
 
@@ -347,8 +382,8 @@ bool Init()
     }
     header->NumInstances++;
 
-    SyncReadOffset = header->SyncWriteOffset;
     PacketReadOffset = header->PacketWriteOffset;
+    ReplyReadOffset = header->ReplyWriteOffset;
 
     MPQueue->unlock();
 
@@ -357,6 +392,10 @@ bool Init()
         QString key = QString("melonSEMA%1").arg(i);
         MPQueueSem[i] = new QSystemSemaphore(key, 0, (i==InstanceID) ? QSystemSemaphore::Create : QSystemSemaphore::Open)
     }*/
+
+    // prepare semaphores
+    // semaphores 0-15: regular frames; semaphore I is posted when instance I needs to process a new frame
+    // semaphores 16-31: MP replies; semaphore I is posted by instance I when it sends a MP reply
 
     SemPoolInit();
     SemInit(InstanceID);
@@ -377,24 +416,43 @@ void DeInit()
 #ifdef __WIN32__
     WSACleanup();
 #endif // __WIN32__*/
-    SemDeinit(InstanceID);
-    SemDeinit(16+InstanceID);
+    //SemDeinit(InstanceID);
+    //SemDeinit(16+InstanceID);
+    MPQueue->lock();
+    MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+    header->InstanceBitmask &= ~(1 << InstanceID);
+    MPQueue->unlock();
+
+    SemPoolDeinit();
 
     MPQueue->detach();
     delete MPQueue;
 }
 
-void PacketFIFORead(void* buf, int len)
+void FIFORead(int fifo, void* buf, int len)
 {
     u8* data = (u8*)MPQueue->data();
 
-    u32 offset = PacketReadOffset;
-    if ((offset + len) >= kPacketEnd)
+    u32 offset, start, end;
+    if (fifo == 0)
     {
-        u32 part1 = kPacketEnd - offset;
+        offset = PacketReadOffset;
+        start = kPacketStart;
+        end = kPacketEnd;
+    }
+    else
+    {
+        offset = ReplyReadOffset;
+        start = kReplyStart;
+        end = kReplyEnd;
+    }
+
+    if ((offset + len) >= end)
+    {
+        u32 part1 = end - offset;
         memcpy(buf, &data[offset], part1);
-        memcpy(&((u8*)buf)[part1], &data[kPacketStart], len - part1);
-        offset = kPacketStart + len - part1;
+        memcpy(&((u8*)buf)[part1], &data[start], len - part1);
+        offset = start + len - part1;
     }
     else
     {
@@ -402,21 +460,35 @@ void PacketFIFORead(void* buf, int len)
         offset += len;
     }
 
-    PacketReadOffset = offset;
+    if (fifo == 0) PacketReadOffset = offset;
+    else           ReplyReadOffset = offset;
 }
 
-void PacketFIFOWrite(void* buf, int len)
+void FIFOWrite(int fifo, void* buf, int len)
 {
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
-    u32 offset = header->PacketWriteOffset;
-    if ((offset + len) >= kPacketEnd)
+    u32 offset, start, end;
+    if (fifo == 0)
     {
-        u32 part1 = kPacketEnd - offset;
+        offset = header->PacketWriteOffset;
+        start = kPacketStart;
+        end = kPacketEnd;
+    }
+    else
+    {
+        offset = header->ReplyWriteOffset;
+        start = kReplyStart;
+        end = kReplyEnd;
+    }
+
+    if ((offset + len) >= end)
+    {
+        u32 part1 = end - offset;
         memcpy(&data[offset], buf, part1);
-        memcpy(&data[kPacketStart], &((u8*)buf)[part1], len - part1);
-        offset = kPacketStart + len - part1;
+        memcpy(&data[start], &((u8*)buf)[part1], len - part1);
+        offset = start + len - part1;
     }
     else
     {
@@ -424,12 +496,12 @@ void PacketFIFOWrite(void* buf, int len)
         offset += len;
     }
 
-    header->PacketWriteOffset = offset;
+    if (fifo == 0) header->PacketWriteOffset = offset;
+    else           header->ReplyWriteOffset = offset;
 }
 
-int SendPacket(u8* packet, int len, u64 timestamp)
+int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 {
-    _logpacket(true, packet, len, timestamp);
     MPQueue->lock();
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
@@ -441,28 +513,58 @@ int SendPacket(u8* packet, int len, u64 timestamp)
     MPPacketHeader pktheader;
     pktheader.Magic = 0x4946494E;
     pktheader.SenderID = InstanceID;
+    pktheader.Type = type;
     pktheader.Length = len;
     pktheader.Timestamp = timestamp;
 
-    PacketFIFOWrite(&pktheader, sizeof(pktheader));
-    PacketFIFOWrite(packet, len);
+    type &= 0xFFFF;
+    int nfifo = (type == 2) ? 1 : 0;
+    FIFOWrite(nfifo, &pktheader, sizeof(pktheader));
+    if (len)
+        FIFOWrite(nfifo, packet, len);
+
+    if (type == 1)
+    {
+        // NOTE: this is not guarded against, say, multiple multiplay games happening on the same machine
+        // we would need to pass the packet's SenderID through the wifi module for that
+        header->MPHostInstanceID = InstanceID;
+        header->MPReplyBitmask = 0;
+        ReplyReadOffset = header->ReplyWriteOffset;
+    }
+    else if (type == 2)
+    {
+        header->MPReplyBitmask |= (1 << InstanceID);
+    }
 
     MPQueue->unlock();
 
-    for (int i = 0; i < 16; i++)
+    if (type == 2)
     {
-        if (mask & (1<<i))
-            SemPost(i);
+        SemPost(16 + header->MPHostInstanceID);
+    }
+    else
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            if (mask & (1<<i))
+                SemPost(i);
+        }
     }
 
     return len;
+}
+
+int SendPacket(u8* packet, int len, u64 timestamp)
+{
+    //_logpacket(true, packet, len, timestamp);
+    return SendPacketGeneric(0, packet, len, timestamp);
 }
 
 int RecvPacket(u8* packet, bool block, u64* timestamp)
 {
     for (;;)
     {
-        if (!SemWait(InstanceID, block ? 50 : 0))
+        if (!SemWait(InstanceID, block ? RecvTimeout : 0))
         {
             return 0;
         }
@@ -471,7 +573,7 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
         u8* data = (u8*)MPQueue->data();
 
         MPPacketHeader pktheader;
-        PacketFIFORead(&pktheader, sizeof(pktheader));
+        FIFORead(0, &pktheader, sizeof(pktheader));
 
         if (pktheader.Magic != 0x4946494E)
         {
@@ -491,8 +593,9 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
             continue;
         }
 
-        PacketFIFORead(packet, pktheader.Length);
-        _logpacket(false, packet, pktheader.Length, pktheader.Timestamp);
+        if (pktheader.Length)
+            FIFORead(0, packet, pktheader.Length);
+        //_logpacket(false, packet, pktheader.Length, pktheader.Timestamp);
         if (timestamp) *timestamp = pktheader.Timestamp;
         MPQueue->unlock();
         return pktheader.Length;
@@ -500,186 +603,78 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
 }
 
 
-void SyncFIFORead(MPSync* sync)
+int SendCmd(u8* packet, int len, u64 timestamp)
 {
-    u8* data = (u8*)MPQueue->data();
-
-    int len = sizeof(MPSync);
-    u32 offset = SyncReadOffset;
-    if ((offset + len) >= kSyncEnd)
-    {
-        u32 part1 = kSyncEnd - offset;
-        memcpy(sync, &data[offset], part1);
-        memcpy(&((u8*)sync)[part1], &data[kSyncStart], len - part1);
-        offset = kSyncStart + len - part1;
-    }
-    else
-    {
-        memcpy(sync, &data[offset], len);
-        offset += len;
-    }
-
-    SyncReadOffset = offset;
+    return SendPacketGeneric(1, packet, len, timestamp);
 }
 
-void SyncFIFOWrite(MPSync* sync)
+int SendReply(u8* packet, int len, u64 timestamp, u16 aid)
 {
-    u8* data = (u8*)MPQueue->data();
-    MPQueueHeader* header = (MPQueueHeader*)&data[0];
-
-    int len = sizeof(MPSync);
-    u32 offset = header->SyncWriteOffset;
-    if ((offset + len) >= kSyncEnd)
-    {
-        u32 part1 = kSyncEnd - offset;
-        memcpy(&data[offset], sync, part1);
-        memcpy(&data[kSyncStart], &((u8*)sync)[part1], len - part1);
-        offset = kSyncStart + len - part1;
-    }
-    else
-    {
-        memcpy(&data[offset], sync, len);
-        offset += len;
-    }
-
-    header->SyncWriteOffset = offset;
+    return SendPacketGeneric(2 | (aid<<16), packet, len, timestamp);
 }
 
-bool SendSync(u16 clientmask, u16 type, u64 timestamp)
+int SendAck(u8* packet, int len, u64 timestamp)
 {
-    MPQueue->lock();
-    u8* data = (u8*)MPQueue->data();
-    MPQueueHeader* header = (MPQueueHeader*)&data[0];
-
-    u16 mask = header->InstanceBitmask;
-
-    // TODO: check if the FIFO is full!
-
-    MPSync sync;
-    sync.Magic = 0x434E5953;
-    sync.SenderID = InstanceID;
-    sync.ClientMask = clientmask;
-    sync.Type = type;
-    sync.Timestamp = timestamp;
-
-    SyncFIFOWrite(&sync);
-
-    MPQueue->unlock();
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (mask & (1<<i))
-            SemPost(16+i);
-    }
-
-    return true;
+    return SendPacketGeneric(3, packet, len, timestamp);
 }
 
-bool WaitSync(u16 clientmask, u16* type, u64* timestamp)
+u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
 {
+    u16 ret = 0;
+    u16 instmask = (1 << InstanceID);
+
     for (;;)
     {
-        if (!SemWait(16+InstanceID, 500))
+        if (!SemWait(16+InstanceID, RecvTimeout))
         {
-            return false;
+            // no more replies available
+            return ret;
         }
 
         MPQueue->lock();
         u8* data = (u8*)MPQueue->data();
+        MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
-        MPSync sync;
-        SyncFIFORead(&sync);
+        MPPacketHeader pktheader;
+        FIFORead(1, &pktheader, sizeof(pktheader));
 
-        if (sync.Magic != 0x434E5953)
+        if (pktheader.Magic != 0x4946494E)
         {
-            printf("MP: !!!! SYNC FIFO IS CRAPOED\n");
+            printf("MP: !!!! REPLY FIFO IS CRAPOED\n");
             MPQueue->unlock();
-            return false;
-        }
-
-        if (sync.SenderID == InstanceID)
-        {
-            MPQueue->unlock();
-            continue;
-        }
-printf("received sync: ID=%08X type=%04X mask=%04X (wanted=%04X) ts=%016llX\n", sync.SenderID, sync.Type, sync.ClientMask, clientmask, sync.Timestamp);
-        if (!(sync.ClientMask & clientmask))
-        {
-            MPQueue->unlock();
-            continue;
-        }
-
-        if (type) *type = sync.Type;
-        if (timestamp) *timestamp = sync.Timestamp;
-        MPQueue->unlock();
-        return true;
-    }
-}
-
-u16 WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval)
-{
-    /*u8 syncbuf[32];
-
-    if (!clientmask)
-        return 0;
-
-    if (MPSocket[1] < 0)
-        return 0;
-
-    fd_set fd;
-    struct timeval tv;
-
-    for (;;)
-    {
-        FD_ZERO(&fd);
-        FD_SET(MPSocket[1], &fd);
-        tv.tv_sec = 0;
-        tv.tv_usec = 500*1000;
-
-        if (!select(MPSocket[1]+1, &fd, 0, 0, &tv))
-        {printf("[sync3] nope :(\n");
-            return clientmask;
-        }
-
-        sockaddr_t fromAddr;
-        socklen_t fromLen = sizeof(sockaddr_t);
-        int rlen = recvfrom(MPSocket[1], (char*)syncbuf, 32, 0, &fromAddr, &fromLen);
-        if (rlen != 8+16)
-            continue;
-        rlen -= 8;
-
-        if (ntohl(*(u32*)&syncbuf[0]) != 0x4946494E)
-            continue;
-
-        if (syncbuf[4] != NIFI_VER || syncbuf[5] != 1)
-            continue;
-//printf("[sync3] atleast header is good\n");
-        if (ntohs(*(u16*)&syncbuf[6]) != rlen)
-            continue;
-
-        if (*(u32*)&syncbuf[12] == MPUniqueID)
-            continue;
-
-        if (ntohs(*(u16*)&syncbuf[8]) != type)
-            continue;
-
-        u16 clientval = ntohs(*(u16*)&syncbuf[10]);
-        //printf("[sync3] good rlen/type %04X %04X, clientmask=%04X \n", ntohs(*(u16*)&syncbuf[6]), ntohs(*(u16*)&syncbuf[8]), clientval);
-        if (!(clientmask & clientval))
-            continue;
-
-        // check the sync val, it should be ahead of the current sync val
-        u64 syncval = ntohl(*(u32*)&syncbuf[12]) | (((u64)ntohl(*(u32*)&syncbuf[16])) << 32);
-        //if (syncval <= curval)
-        //    continue;
-//printf("[sync3] good\n");
-        clientmask &= ~clientval;
-        //if (!clientmask)
             return 0;
-    }
+        }
 
-    return clientmask;*/
-    return 0;
+        if ((pktheader.SenderID == InstanceID) || // packet we sent out (shouldn't happen, but hey)
+            (pktheader.Timestamp < (timestamp - 32))) // stale packet
+        {
+            // skip this packet
+            ReplyReadOffset += pktheader.Length;
+            if (ReplyReadOffset >= kReplyEnd)
+                ReplyReadOffset += kReplyStart - kReplyEnd;
+
+            MPQueue->unlock();
+            continue;
+        }
+
+        if (pktheader.Length)
+        {
+            u32 aid = (pktheader.Type >> 16);
+            FIFORead(1, &packets[(aid-1)*1024], pktheader.Length);
+            ret |= (1 << aid);
+        }
+
+        instmask |= (1 << pktheader.SenderID);
+        if ((instmask & header->InstanceBitmask) == header->InstanceBitmask)
+        {
+            // all the clients have sent their reply
+
+            MPQueue->unlock();
+            return ret;
+        }
+
+        MPQueue->unlock();
+    }
 }
 
 }
