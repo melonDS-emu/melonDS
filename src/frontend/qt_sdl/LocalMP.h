@@ -28,9 +28,10 @@ bool Init();
 void DeInit();
 int SendPacket(u8* data, int len, u64 timestamp);
 int RecvPacket(u8* data, bool block, u64* timestamp);
-bool SendSync(u16 clientmask, u16 type, u64 val);
-bool WaitSync(u16 clientmask, u16* type, u64* val);
-u16 WaitMultipleSyncs(u16 type, u16 clientmask, u64 curval);
+int SendCmd(u8* data, int len, u64 timestamp);
+int SendReply(u8* data, int len, u64 timestamp, u16 aid);
+int SendAck(u8* data, int len, u64 timestamp);
+u16 RecvReplies(u8* data, u64 timestamp, u16 aidmask);
 
 }
 
