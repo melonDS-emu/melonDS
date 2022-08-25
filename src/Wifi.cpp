@@ -289,6 +289,8 @@ void DoSavestate(Savestate* file)
 }
 
 
+void PowerDown();
+
 void SetIRQ(u32 irq)
 {
     u32 oldflags = IOPORT(W_IF) & IOPORT(W_IE);
@@ -307,7 +309,8 @@ void SetIRQ13()
     if (!(IOPORT(W_PowerTX) & 0x0002))
     {
         IOPORT(0x034) = 0x0002;
-        // TODO: 03C
+        //PowerDown();
+        // FIXME!!
         IOPORT(W_RFPins) = 0x0046;
         IOPORT(W_RFStatus) = 9;
     }
@@ -360,6 +363,20 @@ void SetStatus(u32 status)
     u16 rfpins[10] = {0x04, 0x84, 0, 0x46, 0, 0x84, 0x87, 0, 0x46, 0x04};
     IOPORT(W_RFStatus) = status;
     IOPORT(W_RFPins) = rfpins[status];
+}
+
+
+void PowerDown()
+{
+    IOPORT(W_TXReqRead) &= ~0x000F;
+    IOPORT(W_PowerState) |= 0x0200;
+
+    // if the RF hardware is powered down while still sending or receiving,
+    // the current frame is completed before going idle
+    if (!ComStatus)
+    {
+        SetStatus(9);
+    }
 }
 
 
@@ -1026,12 +1043,14 @@ inline void IncrementRXAddr(u16& addr, u16 inc = 2)
             addr = (IOPORT(W_RXBufBegin) & 0x1FFE);
     }
 }
-u64 zamf=0;
+u64 zamf=0;bool fart=false;
 void StartRX()
 {
     u16 framelen = *(u16*)&RXBuffer[8];
     RXTime = framelen;
-
+/*printf("RX: len=%d, fc=%04X, client=%04X, rdcsr=%05X wrcsr=%05X filter=%04X/%04X\n",
+       framelen, *(u16*)&RXBuffer[12], *(u16*)&RXBuffer[12+26], IOPORT(W_RXBufReadCursor) << 1, IOPORT(W_RXBufWriteCursor) << 1,
+       IOPORT(W_RXFilter), IOPORT(W_RXFilter2));fart=true;*/
     u16 txrate = *(u16*)&RXBuffer[6];
     if (txrate == 0x14)
     {
@@ -1097,6 +1116,9 @@ void StartRX()
 
 void MPClientReplyRX(int client)
 {
+    if (IOPORT(W_PowerState) & 0x0300)
+        return;
+
     if (!(IOPORT(W_RXCnt) & 0x8000))
         return;
 
@@ -1204,6 +1226,9 @@ void MPClientReplyRX(int client)
 u16 zarp = 0; u64 bazar=0, bidon=0;
 bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 {
+    if (IOPORT(W_PowerState) & 0x0300)
+        return false;
+
     if (!(IOPORT(W_RXCnt) & 0x8000))
         return false;
 
@@ -1226,8 +1251,8 @@ if (ComStatus & 1) printf("WHAT?????? CHECKRX(%d) WHILE ALREADY RECEIVING %04X\n
         if (rxlen == 0) return false;
         if (rxlen < 12+24) continue;
 
-        if (timestamp < RXCutoff)
-            continue;
+        //if (timestamp < RXCutoff)
+        //    continue;
 
         framelen = *(u16*)&RXBuffer[10];
         if (framelen != rxlen-12)
@@ -1565,32 +1590,43 @@ void USTimer(u32 param)
     if (IOPORT(W_ContentFree) != 0)
         IOPORT(W_ContentFree)--;
 
-    if (!(IOPORT(W_PowerState) & 0x300))
+    //if (!(IOPORT(W_PowerState) & 0x300))
     {
         if (ComStatus == 0)
         {
-            u16 txbusy = IOPORT(W_TXBusy);
-            if (txbusy)
+            //if (!(IOPORT(W_PowerState) & 0x0300))
             {
-                ComStatus = 0x2;
-                if      (txbusy & 0x0080) TXCurSlot = 5;
-                else if (txbusy & 0x0010) TXCurSlot = 4;
-                else if (txbusy & 0x0008) TXCurSlot = 3;
-                else if (txbusy & 0x0004) TXCurSlot = 2;
-                else if (txbusy & 0x0002) TXCurSlot = 1;
-                else if (txbusy & 0x0001) TXCurSlot = 0;
-            }
-            else
-            {
-                if ((!IsMPClient) || (USTimestamp > NextSync))
+                u16 txbusy = IOPORT(W_TXBusy);
+                if (txbusy)
                 {
-                    if ((!(RXCounter & 0x1FF)))
+                    if (IOPORT(W_PowerState) & 0x0300)
                     {
-                        CheckRX(0);
+                        ComStatus = 0;
+                        TXCurSlot = -1;
+                    }
+                    else
+                    {
+                        ComStatus = 0x2;
+                        if      (txbusy & 0x0080) TXCurSlot = 5;
+                        else if (txbusy & 0x0010) TXCurSlot = 4;
+                        else if (txbusy & 0x0008) TXCurSlot = 3;
+                        else if (txbusy & 0x0004) TXCurSlot = 2;
+                        else if (txbusy & 0x0002) TXCurSlot = 1;
+                        else if (txbusy & 0x0001) TXCurSlot = 0;
                     }
                 }
+                else
+                {
+                    if ((!IsMPClient) || (USTimestamp > NextSync))
+                    {
+                        if ((!(RXCounter & 0x1FF)))
+                        {
+                            CheckRX(0);
+                        }
+                    }
 
-                RXCounter++;
+                    RXCounter++;
+                }
             }
         }
 
@@ -1599,6 +1635,12 @@ void USTimer(u32 param)
             bool finished = ProcessTX(&TXSlots[TXCurSlot], TXCurSlot);
             if (finished)
             {
+                if (IOPORT(W_PowerState) & 0x0300)
+                {
+                    IOPORT(W_TXBusy) = 0;
+                    SetStatus(9);
+                }
+
                 // transfer finished, see if there's another slot to do
                 // checkme: priority order of beacon/reply
                 // TODO: for CMD, check CMDCOUNT
@@ -1641,7 +1683,7 @@ void USTimer(u32 param)
                     *(u16*)&RAM[headeraddr] = *(u16*)&RXBuffer[10];
 
                     IOPORT(W_RXBufWriteCursor) = (addr & ~0x3) >> 1;
-
+//printf("finish RX: fc=%04X rdcsr=%05X wrcsr=%05X\n", *(u16*)&RXBuffer[12], IOPORT(W_RXBufReadCursor)<<1, IOPORT(W_RXBufWriteCursor)<<1);fart=false;
                     SetIRQ(0);
                     SetStatus(1);
 //printf("%016llX: finished receiving a frame, aid=%04X, FC=%04X, client=%04X\n", USTimestamp, IOPORT(W_AIDLow), *(u16*)&RXBuffer[0xC], *(u16*)&RXBuffer[0xC + 26]);
@@ -1652,7 +1694,7 @@ void USTimer(u32 param)
                     RXCounter = 0;
 
                     if ((RXBuffer[0] & 0x0F) == 0x0C)
-                    {bidon=USTimestamp-bazar;bazar=USTimestamp;
+                    {
                         u16 clientmask = *(u16*)&RXBuffer[0xC + 26];
                         //printf("RECEIVED REPLY!!! CLIENT=%04X AID=%04X\n", clientmask, IOPORT(W_AIDLow));
                         if (IOPORT(W_AIDLow) && (RXBuffer[0xC + 4] & 0x01) && (clientmask & (1 << IOPORT(W_AIDLow))))
@@ -1669,11 +1711,16 @@ void USTimer(u32 param)
                             Platform::MP_SendReply(nullptr, 0, USTimestamp, 0);
                         }
                     }
+
+                    if ((!ComStatus) && (IOPORT(W_PowerState) & 0x0300))
+                    {
+                        SetStatus(9);
+                    }
                 }
 
                 if (addr == (IOPORT(W_RXBufReadCursor) << 1))
                 {
-                    printf("wifi: RX buffer full\n");
+                    printf("wifi: RX buffer full\n");fart=false;
                     RXTime = 0;
                     SetStatus(1);
                     if (TXCurSlot == 0xFFFFFFFF)
@@ -1682,6 +1729,10 @@ void USTimer(u32 param)
                         RXCounter = 0;
                     }
                     // TODO: proper error management
+                    if ((!ComStatus) && (IOPORT(W_PowerState) & 0x0300))
+                    {
+                        SetStatus(9);
+                    }
                 }
 
                 IOPORT(W_RXTXAddr) = addr >> 1;
@@ -1876,9 +1927,7 @@ void Write(u32 addr, u16 val)
             {
                 //printf("mode reset shutdown %08x\n", NDS::ARM7->R[15]);
                 IOPORT(0x27C) = 0x000A;
-                IOPORT(W_RFPins) = 0x0004;
-                IOPORT(W_RFStatus) = 9;
-                IOPORT(W_PowerState) |= 0x200;
+                PowerDown();
             }
 
             if (val & 0x2000)
@@ -1940,7 +1989,6 @@ void Write(u32 addr, u16 val)
         return;
 
     case W_AIDLow:
-        //printf("[%016llX] AIDLOW=%04X (%08X), frame=%016llX (intv %016llX) frameintv=%016llX\n", USTimestamp, val, NDS::GetPC(1), bazar, USTimestamp-bazar, bidon);
         IOPORT(W_AIDLow) = val & 0x000F;
         return;
     case W_AIDFull:
@@ -1978,8 +2026,7 @@ void Write(u32 addr, u16 val)
             IOPORT(0x034) = 0x0002;
             IOPORT(W_PowerState) = 0x0200;
             IOPORT(W_TXReqRead) = 0;
-            IOPORT(W_RFPins) = 0x0046;
-            IOPORT(W_RFStatus) = 9;
+            PowerDown();
         }
         if (val == 1 && IOPORT(W_PowerState) & 0x0002)
         {
