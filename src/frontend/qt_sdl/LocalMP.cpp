@@ -21,48 +21,22 @@
 #include <string.h>
 
 #ifdef __WIN32__
-    #define NTDDI_VERSION        0x06000000 // GROSS FUCKING HACK
-    #include <winsock2.h>
     #include <windows.h>
-    //#include <knownfolders.h> // FUCK THAT SHIT
-    #include <shlobj.h>
-    #include <ws2tcpip.h>
-    #include <io.h>
-    #define dup _dup
-    #define socket_t    SOCKET
-    #define sockaddr_t  SOCKADDR
 #else
-    #include <unistd.h>
-    #include <netinet/in.h>
-    #include <sys/select.h>
-    #include <sys/socket.h>
-
-    #define socket_t    int
-    #define sockaddr_t  struct sockaddr
-    #define closesocket close
+    // todo
 #endif
 
 #include <string>
 #include <QSharedMemory>
-#include <QSystemSemaphore>
 
 #include "Config.h"
 #include "LocalMP.h"
-#include "SPI.h"
 
-
-#ifndef INVALID_SOCKET
-    #define INVALID_SOCKET  (socket_t)-1
-#endif
-
-extern u16 zanf;
 
 namespace LocalMP
 {
 
 u32 MPUniqueID;
-socket_t MPSocket[2];
-sockaddr_t MPSendAddr[2];
 u8 PacketBuffer[2048];
 
 struct MPQueueHeader
@@ -94,7 +68,6 @@ struct MPSync
 };
 
 QSharedMemory* MPQueue;
-//QSystemSemaphore* MPQueueSem[16];
 int InstanceID;
 u32 PacketReadOffset;
 u32 ReplyReadOffset;
@@ -107,8 +80,6 @@ const u32 kPacketEnd = kReplyStart;
 const u32 kReplyEnd = kQueueSize;
 
 const int RecvTimeout = 500;
-
-#define NIFI_VER 2
 
 
 // we need to come up with our own abstraction layer for named semaphores
@@ -200,154 +171,8 @@ bool SemWait(int num, int timeout)
 #endif // _WIN32
 
 
-void _logpacket(bool tx, u8* data, int len, u64 ts)
-{//return;
-    char path[256];
-    sprintf(path, "framelog_%08X.log", InstanceID);
-    static FILE* f = nullptr;
-    if (!f) f = fopen(path, "a");
-
-    /*fprintf(f, "---- %s PACKET LEN=%d ----\n", tx?"SENDING":"RECEIVING", len);
-
-    for (int y = 0; y < len; y+=16)
-    {
-        fprintf(f, "%04X: ", y);
-        int linelen = 16;
-        if ((y+linelen) > len) linelen = len-y;
-        for (int x = 0; x < linelen; x++)
-        {
-            fprintf(f, " %02X", data[y+x]);
-        }
-        fprintf(f, "\n");
-    }
-
-    fprintf(f, "-------------------------------------\n\n\n");*/
-
-    fprintf(f, "[%016llX] %s PACKET: LEN=%0.4d FC=%04X SN=%04X CL=%04X/%04X\n", ts, tx?"TX":"RX",
-            len, *(u16*)&data[12], *(u16*)&data[12+22], *(u16*)&data[12+24], *(u16*)&data[12+26]);
-    fflush(f);
-}
-
-void _logstring(u64 ts, char* str)
-{//return;
-    char path[256];
-    sprintf(path, "framelog_%08X.log", InstanceID);
-    static FILE* f = nullptr;
-    if (!f) f = fopen(path, "a");
-
-    fprintf(f, "[%016llX] %s\n", ts, str);
-    fflush(f);
-}
-
-void _logstring2(u64 ts, char* str, u32 arg, u64 arg2)
-{//return;
-    char path[256];
-    sprintf(path, "framelog_%08X.log", InstanceID);
-    static FILE* f = nullptr;
-    if (!f) f = fopen(path, "a");
-
-    fprintf(f, "[%016llX] %s %08X %016llX\n", ts, str, arg, arg2);
-    fflush(f);
-}
-
 bool Init()
 {
-    /*int opt_true = 1;
-    int res0, res1;
-
-#ifdef __WIN32__
-    WSADATA wsadata;
-    if (WSAStartup(MAKEWORD(2, 2), &wsadata) != 0)
-    {
-        return false;
-    }
-#endif // __WIN32__
-
-    MPSocket[0] = socket(AF_INET, SOCK_DGRAM, 0);
-    if (MPSocket[0] < 0)
-    {
-        return false;
-    }
-
-    MPSocket[1] = socket(AF_INET, SOCK_DGRAM, 0);
-    if (MPSocket[1] < 0)
-    {
-        closesocket(MPSocket[0]);
-        MPSocket[0] = INVALID_SOCKET;
-        return false;
-    }
-
-    res0 = setsockopt(MPSocket[0], SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
-    res1 = setsockopt(MPSocket[1], SOL_SOCKET, SO_REUSEADDR, (const char*)&opt_true, sizeof(int));
-    if (res0 < 0 || res1 < 0)
-    {
-        closesocket(MPSocket[0]);
-        MPSocket[0] = INVALID_SOCKET;
-        closesocket(MPSocket[1]);
-        MPSocket[1] = INVALID_SOCKET;
-        return false;
-    }
-
-#if defined(BSD) || defined(__APPLE__)
-    res0 = setsockopt(MPSocket[0], SOL_SOCKET, SO_REUSEPORT, (const char*)&opt_true, sizeof(int));
-    res0 = setsockopt(MPSocket[1], SOL_SOCKET, SO_REUSEPORT, (const char*)&opt_true, sizeof(int));
-    if (res0 < 0 || res1 < 0)
-    {
-        closesocket(MPSocket[0]);
-        MPSocket[0] = INVALID_SOCKET;
-        closesocket(MPSocket[1]);
-        MPSocket[1] = INVALID_SOCKET;
-        return false;
-    }
-#endif
-
-    sockaddr_t saddr;
-    saddr.sa_family = AF_INET;
-    *(u32*)&saddr.sa_data[2] = htonl(Config::SocketBindAnyAddr ? INADDR_ANY : INADDR_LOOPBACK);
-    *(u16*)&saddr.sa_data[0] = htons(7064);
-    res0 = bind(MPSocket[0], &saddr, sizeof(sockaddr_t));
-    *(u16*)&saddr.sa_data[0] = htons(7065);
-    res1 = bind(MPSocket[1], &saddr, sizeof(sockaddr_t));
-    if (res0 < 0 || res1 < 0)
-    {
-        closesocket(MPSocket[0]);
-        MPSocket[0] = INVALID_SOCKET;
-        closesocket(MPSocket[1]);
-        MPSocket[1] = INVALID_SOCKET;
-        return false;
-    }
-
-    res0 = setsockopt(MPSocket[0], SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-    res1 = setsockopt(MPSocket[1], SOL_SOCKET, SO_BROADCAST, (const char*)&opt_true, sizeof(int));
-    if (res0 < 0 || res1 < 0)
-    {
-        closesocket(MPSocket[0]);
-        MPSocket[0] = INVALID_SOCKET;
-        closesocket(MPSocket[1]);
-        MPSocket[1] = INVALID_SOCKET;
-        return false;
-    }
-
-    MPSendAddr[0].sa_family = AF_INET;
-    *(u32*)&MPSendAddr[0].sa_data[2] = htonl(INADDR_BROADCAST);
-    *(u16*)&MPSendAddr[0].sa_data[0] = htons(7064);
-
-    MPSendAddr[1].sa_family = AF_INET;
-    *(u32*)&MPSendAddr[1].sa_data[2] = htonl(INADDR_BROADCAST);
-    *(u16*)&MPSendAddr[1].sa_data[0] = htons(7065);
-
-    u8* mac = SPI_Firmware::GetWifiMAC();
-    MPUniqueID = *(u32*)&mac[0];
-    MPUniqueID ^= *(u32*)&mac[2];
-    printf("local MP unique ID: %08X\n", MPUniqueID);
-
-    return true;*/
-
-    /*u8* mac = SPI_Firmware::GetWifiMAC();
-    MPUniqueID = *(u32*)&mac[0];
-    MPUniqueID ^= *(u32*)&mac[2];
-    printf("local MP unique ID: %08X\n", MPUniqueID);*/
-
     MPQueue = new QSharedMemory("melonNIFI_FIFO");
 
     if (!MPQueue->attach())
@@ -387,12 +212,6 @@ bool Init()
 
     MPQueue->unlock();
 
-    /*for (int i = 0; i < 16; i++)
-    {
-        QString key = QString("melonSEMA%1").arg(i);
-        MPQueueSem[i] = new QSystemSemaphore(key, 0, (i==InstanceID) ? QSystemSemaphore::Create : QSystemSemaphore::Open)
-    }*/
-
     // prepare semaphores
     // semaphores 0-15: regular frames; semaphore I is posted when instance I needs to process a new frame
     // semaphores 16-31: MP replies; semaphore I is posted by instance I when it sends a MP reply
@@ -408,16 +227,6 @@ bool Init()
 
 void DeInit()
 {
-    /*if (MPSocket[0] >= 0)
-        closesocket(MPSocket[0]);
-    if (MPSocket[1] >= 0)
-        closesocket(MPSocket[1]);
-
-#ifdef __WIN32__
-    WSACleanup();
-#endif // __WIN32__*/
-    //SemDeinit(InstanceID);
-    //SemDeinit(16+InstanceID);
     MPQueue->lock();
     MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
     header->InstanceBitmask &= ~(1 << InstanceID);
@@ -556,7 +365,6 @@ int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
 
 int SendPacket(u8* packet, int len, u64 timestamp)
 {
-    //_logpacket(true, packet, len, timestamp);
     return SendPacketGeneric(0, packet, len, timestamp);
 }
 
@@ -595,7 +403,7 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
 
         if (pktheader.Length)
             FIFORead(0, packet, pktheader.Length);
-        //_logpacket(false, packet, pktheader.Length, pktheader.Timestamp);
+
         if (timestamp) *timestamp = pktheader.Timestamp;
         MPQueue->unlock();
         return pktheader.Length;
