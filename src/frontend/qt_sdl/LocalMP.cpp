@@ -147,6 +147,11 @@ bool SemWait(int num, int timeout)
     return WaitForSingleObject(SemPool[num], timeout) == WAIT_OBJECT_0;
 }
 
+void SemReset(int num)
+{
+    while (WaitForSingleObject(SemPool[num], 0) == WAIT_OBJECT_0);
+}
+
 /*bool SemWaitMultiple(int start, u16 bitmask, int timeout)
 {
     HANDLE semlist[16];
@@ -378,13 +383,16 @@ int RecvPacketGeneric(u8* packet, bool block, u64* timestamp)
 
         MPQueue->lock();
         u8* data = (u8*)MPQueue->data();
+        MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
         MPPacketHeader pktheader;
         FIFORead(0, &pktheader, sizeof(pktheader));
 
         if (pktheader.Magic != 0x4946494E)
         {
-            printf("MP: !!!! PACKET FIFO IS CRAPOED\n");
+            printf("PACKET FIFO OVERFLOW\n");
+            PacketReadOffset = header->PacketWriteOffset;
+            SemReset(InstanceID);
             MPQueue->unlock();
             return 0;
         }
@@ -494,7 +502,9 @@ u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
 
         if (pktheader.Magic != 0x4946494E)
         {
-            printf("MP: !!!! REPLY FIFO IS CRAPOED\n");
+            printf("REPLY FIFO OVERFLOW\n");
+            ReplyReadOffset = header->ReplyWriteOffset;
+            SemReset(16+InstanceID);
             MPQueue->unlock();
             return 0;
         }
