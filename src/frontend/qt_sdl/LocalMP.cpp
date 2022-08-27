@@ -81,6 +81,8 @@ const u32 kReplyEnd = kQueueSize;
 
 const int RecvTimeout = 500;
 
+int LastHostID;
+
 
 // we need to come up with our own abstraction layer for named semaphores
 // because QSystemSemaphore doesn't support waiting with a timeout
@@ -219,6 +221,8 @@ bool Init()
     SemPoolInit();
     SemInit(InstanceID);
     SemInit(16+InstanceID);
+
+    LastHostID = -1;
 
     printf("MP comm init OK, instance ID %d\n", InstanceID);
 
@@ -363,12 +367,7 @@ int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     return len;
 }
 
-int SendPacket(u8* packet, int len, u64 timestamp)
-{
-    return SendPacketGeneric(0, packet, len, timestamp);
-}
-
-int RecvPacket(u8* packet, bool block, u64* timestamp)
+int RecvPacketGeneric(u8* packet, bool block, u64* timestamp)
 {
     for (;;)
     {
@@ -402,12 +401,27 @@ int RecvPacket(u8* packet, bool block, u64* timestamp)
         }
 
         if (pktheader.Length)
+        {
             FIFORead(0, packet, pktheader.Length);
+
+            if (pktheader.Type == 1)
+                LastHostID = pktheader.SenderID;
+        }
 
         if (timestamp) *timestamp = pktheader.Timestamp;
         MPQueue->unlock();
         return pktheader.Length;
     }
+}
+
+int SendPacket(u8* packet, int len, u64 timestamp)
+{
+    return SendPacketGeneric(0, packet, len, timestamp);
+}
+
+int RecvPacket(u8* packet, u64* timestamp)
+{
+    return RecvPacketGeneric(packet, false, timestamp);
 }
 
 
@@ -426,10 +440,42 @@ int SendAck(u8* packet, int len, u64 timestamp)
     return SendPacketGeneric(3, packet, len, timestamp);
 }
 
+int RecvHostPacket(u8* packet, u64* timestamp)
+{
+    if (LastHostID != -1)
+    {
+        // check if the host is still connected
+
+        MPQueue->lock();
+        u8* data = (u8*)MPQueue->data();
+        MPQueueHeader* header = (MPQueueHeader*)&data[0];
+        u16 curinstmask = header->InstanceBitmask;
+        MPQueue->unlock();
+
+        if (!(curinstmask & (1 << LastHostID)))
+            return -1;
+    }
+
+    return RecvPacketGeneric(packet, true, timestamp);
+}
+
 u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
 {
     u16 ret = 0;
-    u16 instmask = (1 << InstanceID);
+    u16 myinstmask = (1 << InstanceID);
+    u16 curinstmask;
+
+    {
+        MPQueue->lock();
+        u8* data = (u8*)MPQueue->data();
+        MPQueueHeader* header = (MPQueueHeader*)&data[0];
+        curinstmask = header->InstanceBitmask;
+        MPQueue->unlock();
+    }
+
+    // if all clients have left: return early
+    if ((myinstmask & curinstmask) == curinstmask)
+        return 0;
 
     for (;;)
     {
@@ -472,8 +518,8 @@ u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
             ret |= (1 << aid);
         }
 
-        instmask |= (1 << pktheader.SenderID);
-        if ((instmask & header->InstanceBitmask) == header->InstanceBitmask)
+        myinstmask |= (1 << pktheader.SenderID);
+        if ((myinstmask & curinstmask) == curinstmask)
         {
             // all the clients have sent their reply
 

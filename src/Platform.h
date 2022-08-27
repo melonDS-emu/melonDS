@@ -157,10 +157,11 @@ void WriteGBASave(const u8* savedata, u32 savelen, u32 writeoffset, u32 writelen
 bool MP_Init();
 void MP_DeInit();
 int MP_SendPacket(u8* data, int len, u64 timestamp);
-int MP_RecvPacket(u8* data, bool block, u64* timestamp);
+int MP_RecvPacket(u8* data, u64* timestamp);
 int MP_SendCmd(u8* data, int len, u64 timestamp);
 int MP_SendReply(u8* data, int len, u64 timestamp, u16 aid);
 int MP_SendAck(u8* data, int len, u64 timestamp);
+int MP_RecvHostPacket(u8* data, u64* timestamp);
 u16 MP_RecvReplies(u8* data, u64 timestamp, u16 aidmask);
 
 
