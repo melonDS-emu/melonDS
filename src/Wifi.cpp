@@ -582,8 +582,8 @@ void SendMPReply(u16 clienttime, u16 clientmask)
             slot->Valid = false;
     }
 
-    if (RAM[slot->Addr+4] > 0)
-        printf("REPLY RETRY COUNTER %d\n", RAM[slot->Addr+4]);
+    //if (RAM[slot->Addr+4] > 0)
+    //    printf("REPLY RETRY COUNTER %d (%04X)\n", RAM[slot->Addr+4], IOPORT(W_TXSlotReply2));
 
     // this seems to be set upon IRQ0
     // TODO: how does it behave if the packet addr is changed before it gets sent? (maybe just not possible)
@@ -1254,6 +1254,12 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
 
     // make RX header
 
+    /*if ((rxflags&0xF)==0xD)
+    {
+        u16 clientfail = *(u16*)&RXBuffer[12+0x1A];
+        if (clientfail) printf("CLIENT FAIL: %04X\n", clientfail);
+    }*/
+
     if (bssidmatch) rxflags |= 0x8000;
 
     *(u16*)&RXBuffer[0] = rxflags;
@@ -1551,7 +1557,8 @@ void USTimer(u32 param)
 
     // TODO: make it more accurate, eventually
     // in the DS, the wifi system has its own 22MHz clock and doesn't use the system clock
-    NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+    //NDS::ScheduleEvent(NDS::Event_Wifi, true, 33, USTimer, 0);
+    NDS::ScheduleEvent(NDS::Event_Wifi, true, 34, USTimer, 0);
 }
 
 
@@ -2051,6 +2058,13 @@ void Write(u32 addr, u16 val)
 
     case 0xD0:
         printf("RXFILTER=%04X\n", val);
+        break;
+    case 0x94:
+        /*{
+            u32 pc = NDS::GetPC(1);
+            if (pc != 0x027F027C && pc != 0x027EBBD4)
+                printf("SET REPLY1 TO %04X, %08X\n", val, pc);
+        }*/
         break;
 
     default:
