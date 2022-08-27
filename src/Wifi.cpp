@@ -1150,6 +1150,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     if (IOPORT(W_RXBufBegin) == IOPORT(W_RXBufEnd))
         return false;
 
+    int rxlen;
     u16 framelen;
     u16 framectl;
     u8 txrate;
@@ -1160,9 +1161,24 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
     for (;;)
     {
         timestamp = 0;
-        int rxlen = Platform::MP_RecvPacket(RXBuffer, (type != 0), &timestamp);
-        if ((rxlen == 0) && (type == 0)) rxlen = WifiAP::RecvPacket(RXBuffer);
-        if (rxlen == 0) return false;
+
+        if (type == 0)
+        {
+            rxlen = Platform::MP_RecvPacket(RXBuffer, &timestamp);
+            if (rxlen <= 0)
+                rxlen = WifiAP::RecvPacket(RXBuffer);
+        }
+        else
+        {
+            rxlen = Platform::MP_RecvHostPacket(RXBuffer, &timestamp);
+            if (rxlen < 0)
+            {
+                // host is gone
+                IsMPClient = false;
+            }
+        }
+
+        if (rxlen <= 0) return false;
         if (rxlen < 12+24) continue;
 
         framelen = *(u16*)&RXBuffer[10];
