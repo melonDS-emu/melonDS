@@ -593,7 +593,6 @@ void SendMPReply(u16 clienttime, u16 clientmask)
         IncrementTXCount(slot);
 
         slot->CurPhase = 0;
-
         int txlen = Platform::MP_SendReply(&RAM[slot->Addr], 12 + slot->Length, USTimestamp, IOPORT(W_AIDLow));
         WIFI_LOG("wifi: sent %d/%d bytes of MP reply\n", txlen, 12 + slot->Length);
     }
@@ -1543,6 +1542,21 @@ void USTimer(u32 param)
                         Platform::MP_SendReply(nullptr, 0, USTimestamp, 0);
                     }
                 }
+                else if ((*(u16*)&RXBuffer[0] & 0x800F) == 0x8001)
+                {
+                    // when receiving a beacon with the right BSSID, the beacon's timestamp
+                    // is copied to USCOUNTER
+
+                    u32 len = *(u16*)&RXBuffer[8];
+                    u16 txrate = *(u16*)&RXBuffer[6];
+                    len *= ((txrate==0x14) ? 4 : 8);
+                    len -= 76; // CHECKME: is this offset fixed?
+
+                    u64 timestamp = *(u64*)&RXBuffer[12 + 24];
+                    timestamp += (u64)len;
+
+                    USCounter = timestamp;
+                }
 
                 if ((!ComStatus) && (IOPORT(W_PowerState) & 0x0300))
                 {
@@ -1850,6 +1864,7 @@ void Write(u32 addr, u16 val)
         return;
     case W_PowerForce:
         //if ((val&0x8001)==0x8000) printf("WIFI: forcing power %04X\n", val);
+
         val &= 0x8001;
         //printf("writing power force %x %08x\n", val, NDS::ARM7->R[15]);
         if (val == 0x8001)
