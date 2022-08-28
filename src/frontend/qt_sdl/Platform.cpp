@@ -369,6 +369,16 @@ void MP_DeInit()
     return LocalMP::DeInit();
 }
 
+void MP_Begin()
+{
+    return LocalMP::Begin();
+}
+
+void MP_End()
+{
+    return LocalMP::End();
+}
+
 int MP_SendPacket(u8* data, int len, u64 timestamp)
 {
     return LocalMP::SendPacket(data, len, timestamp);

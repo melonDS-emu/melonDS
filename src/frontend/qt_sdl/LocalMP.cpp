@@ -42,7 +42,8 @@ u8 PacketBuffer[2048];
 struct MPQueueHeader
 {
     u16 NumInstances;
-    u16 InstanceBitmask;
+    u16 InstanceBitmask;  // bitmask of all instances present
+    u16 ConnectedBitmask; // bitmask of which instances are ready to send/receive packets
     u32 PacketWriteOffset;
     u32 ReplyWriteOffset;
     u16 MPHostInstanceID; // instance ID from which the last CMD frame was sent
@@ -74,7 +75,7 @@ u32 ReplyReadOffset;
 
 const u32 kQueueSize = 0x20000;
 const u32 kMaxFrameSize = 0x800;
-const u32 kPacketStart = 0x00010;
+const u32 kPacketStart = sizeof(MPQueueHeader);
 const u32 kReplyStart = kQueueSize / 2;
 const u32 kPacketEnd = kReplyStart;
 const u32 kReplyEnd = kQueueSize;
@@ -209,6 +210,7 @@ bool Init()
         {
             InstanceID = i;
             header->InstanceBitmask |= (1<<i);
+            //header->ConnectedBitmask |= (1 << i);
             break;
         }
     }
@@ -238,13 +240,37 @@ void DeInit()
 {
     MPQueue->lock();
     MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+    header->ConnectedBitmask &= ~(1 << InstanceID);
     header->InstanceBitmask &= ~(1 << InstanceID);
+    header->NumInstances--;
     MPQueue->unlock();
 
     SemPoolDeinit();
 
     MPQueue->detach();
     delete MPQueue;
+}
+
+void Begin()
+{
+    MPQueue->lock();
+    MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+    PacketReadOffset = header->PacketWriteOffset;
+    ReplyReadOffset = header->ReplyWriteOffset;
+    SemReset(InstanceID);
+    SemReset(16+InstanceID);
+    header->ConnectedBitmask |= (1 << InstanceID);
+    MPQueue->unlock();
+}
+
+void End()
+{
+    MPQueue->lock();
+    MPQueueHeader* header = (MPQueueHeader*)MPQueue->data();
+    //SemReset(InstanceID);
+    //SemReset(16+InstanceID);
+    header->ConnectedBitmask &= ~(1 << InstanceID);
+    MPQueue->unlock();
 }
 
 void FIFORead(int fifo, void* buf, int len)
@@ -324,7 +350,7 @@ int SendPacketGeneric(u32 type, u8* packet, int len, u64 timestamp)
     u8* data = (u8*)MPQueue->data();
     MPQueueHeader* header = (MPQueueHeader*)&data[0];
 
-    u16 mask = header->InstanceBitmask;
+    u16 mask = header->ConnectedBitmask;
 
     // TODO: check if the FIFO is full!
 
@@ -457,7 +483,7 @@ int RecvHostPacket(u8* packet, u64* timestamp)
         MPQueue->lock();
         u8* data = (u8*)MPQueue->data();
         MPQueueHeader* header = (MPQueueHeader*)&data[0];
-        u16 curinstmask = header->InstanceBitmask;
+        u16 curinstmask = header->ConnectedBitmask;
         MPQueue->unlock();
 
         if (!(curinstmask & (1 << LastHostID)))
@@ -477,7 +503,7 @@ u16 RecvReplies(u8* packets, u64 timestamp, u16 aidmask)
         MPQueue->lock();
         u8* data = (u8*)MPQueue->data();
         MPQueueHeader* header = (MPQueueHeader*)&data[0];
-        curinstmask = header->InstanceBitmask;
+        curinstmask = header->ConnectedBitmask;
         MPQueue->unlock();
     }
 
