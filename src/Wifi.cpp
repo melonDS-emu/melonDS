@@ -225,6 +225,9 @@ void Reset()
     memset(&IOPORT(0x018), 0xFF, 6);
     memset(&IOPORT(0x020), 0xFF, 6);
 
+    // TODO: find out what the initial values are
+    IOPORT(W_PowerUS) = 0x0001;
+
     USTimestamp = 0;
     RXTimestamp = 0;
 
@@ -1183,7 +1186,7 @@ bool CheckRX(int type) // 0=regular 1=MP replies 2=MP host frames
         framelen = *(u16*)&RXBuffer[10];
         if (framelen != rxlen-12)
         {
-            printf("bad frame length\n");
+            printf("bad frame length %d/%d\n", framelen, rxlen-12);
             continue;
         }
         framelen -= 4;
@@ -1907,11 +1910,13 @@ void Write(u32 addr, u16 val)
                 Platform::LAN_Init();
                 LANInited = true;
             }
+            Platform::MP_Begin();
         }
         else if (!(IOPORT(W_PowerUS) & 0x0001) && (val & 0x0001))
         {
             printf("WIFI OFF\n");
             NDS::CancelEvent(NDS::Event_Wifi);
+            Platform::MP_End();
         }
         break;
     case W_PowerUnk:
@@ -2086,17 +2091,6 @@ void Write(u32 addr, u16 val)
     case 0x214:
     case 0x268:
         return;
-
-    case 0xD0:
-        printf("RXFILTER=%04X\n", val);
-        break;
-    case 0x94:
-        /*{
-            u32 pc = NDS::GetPC(1);
-            if (pc != 0x027F027C && pc != 0x027EBBD4)
-                printf("SET REPLY1 TO %04X, %08X\n", val, pc);
-        }*/
-        break;
 
     default:
         //printf("WIFI unk: write %08X %04X\n", addr, val);
