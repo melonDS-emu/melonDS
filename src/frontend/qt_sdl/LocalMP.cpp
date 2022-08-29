@@ -24,6 +24,10 @@
     #include <windows.h>
 #else
     // todo
+    #include <semaphore.h>
+    #include <fcntl.h>
+    #include <sys/stat.h>
+    #include <sys/time.h>
 #endif
 
 #include <string>
@@ -89,8 +93,8 @@ int LastHostID;
 // because QSystemSemaphore doesn't support waiting with a timeout
 // and, as such, is unsuitable to our needs
 
-//#ifdef _WIN32
-#if 1
+#ifdef _WIN32
+// #if 1
 
 bool SemInited[32];
 HANDLE SemPool[32];
@@ -175,6 +179,87 @@ void SemReset(int num)
 #else
 
 // TODO: code semaphore shit for other platforms!
+
+bool SemInited[32];
+sem_t* SemPool[32];
+
+void SemPoolInit()
+{
+    for (int i = 0; i < 32; i++)
+    {
+        SemPool[i] = SEM_FAILED;
+        SemInited[i] = false;
+    }
+}
+
+void SemDeinit(int num);
+
+void SemPoolDeinit()
+{
+    for (int i = 0; i < 32; i++)
+        SemDeinit(i);
+}
+
+bool SemInit(int num)
+{
+    if (SemInited[num])
+        return true;
+
+    char semname[64];
+    sprintf(semname, "Local/melonNIFI_Sem%02d", num);
+
+    sem_t* sem = sem_open(semname, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+    SemPool[num] = sem;
+    SemInited[num] = true;
+    return sem != SEM_FAILED;
+}
+
+void SemDeinit(int num)
+{
+    if (SemPool[num] != SEM_FAILED)
+    {
+        sem_close(SemPool[num]);
+        SemPool[num] = SEM_FAILED;
+    }
+
+    SemInited[num] = false;
+}
+
+bool SemPost(int num)
+{
+    SemInit(num);
+    return sem_post(SemPool[num]) == 0;
+}
+
+bool SemWait(int num, int timeout)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += timeout * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000;
+    }
+    return sem_timedwait(SemPool[num], &ts) == 0;
+}
+
+void SemReset(int num)
+{
+    struct timespec ts;
+    printf("que es estoo %ld \n", ts.tv_nsec);
+    // printf("que es estoo %ld", &ts.tv_sec);
+    // printf("que es estooo", &ts);
+    // clock_gettime(CLOCK_REALTIME, &ts);
+    printf("que es estoo despues %ld \n", ts.tv_nsec);
+
+    // ts.tv_nsec += 0 * 1000000;
+    // if (ts.tv_nsec >= 1000000000) {
+    //     ts.tv_sec++;
+    //     ts.tv_nsec -= 1000000000;
+    // }
+
+    // while (sem_timedwait(SemPool[num], &ts) == 0);
+}
 
 #endif // _WIN32
 

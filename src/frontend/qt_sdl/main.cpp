@@ -2616,13 +2616,13 @@ void MainWindow::onOpenTitleManager()
 
 void MainWindow::onTest()
 {
-    //QProcess::startDetached(QApplication::applicationFilePath());
-    QProcess ass;
-    ass.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
-    {
-        args->flags |= CREATE_NEW_CONSOLE;
-    });
-    ass.startDetached(QApplication::applicationFilePath());
+    QProcess::startDetached(QApplication::applicationFilePath());
+    // QProcess ass;
+    // ass.setCreateProcessArgumentsModifier([] (QProcess::CreateProcessArguments *args)
+    // {
+    //     args->flags |= CREATE_NEW_CONSOLE;
+    // });
+    // ass.startDetached(QApplication::applicationFilePath());
 }
 
 void MainWindow::onOpenEmuSettings()
