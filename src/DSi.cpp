@@ -159,7 +159,7 @@ void Reset()
     SCFG_Clock7 = 0x0187;
     SCFG_EXT[0] = 0x8307F100;
     SCFG_EXT[1] = 0x93FFFB06;
-    SCFG_MC = 0x0010;//0x0011;
+    SCFG_MC = 0x0010 | (~((u32)NDSCart::CartInserted)&1);//0x0011;
     SCFG_RST = 0;
 
     DSi_DSP::SetRstLine(false);
@@ -246,6 +246,14 @@ void DoSavestate(Savestate* file)
     DSi_I2C::DoSavestate(file);
     SDMMC->DoSavestate(file);
     SDIO->DoSavestate(file);
+}
+
+void SetCartInserted(bool inserted)
+{
+    if (inserted)
+        SCFG_MC &= ~1;
+    else
+        SCFG_MC |= 1;
 }
 
 void DecryptModcryptArea(u32 offset, u32 size, u8* iv)
@@ -2638,6 +2646,9 @@ u8 ARM7IORead8(u32 addr)
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 48) & 0xFF;
     case 0x04004D07: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 56;
     case 0x04004D08: return 0;
+
+    case 0x4004700: return DSi_DSP::SNDExCnt;
+    case 0x4004701: return DSi_DSP::SNDExCnt >> 8;
     }
 
     return NDS::ARM7IORead8(addr);
@@ -2670,6 +2681,8 @@ u16 ARM7IORead16(u32 addr)
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return (ConsoleID >> 32) & 0xFFFF;
     case 0x04004D06: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 48;
     case 0x04004D08: return 0;
+    
+    case 0x4004700: return DSi_DSP::SNDExCnt;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2741,6 +2754,10 @@ u32 ARM7IORead32(u32 addr)
     case 0x04004D00: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID & 0xFFFFFFFF;
     case 0x04004D04: if (SCFG_BIOS & (1<<10)) return 0; return ConsoleID >> 32;
     case 0x04004D08: return 0;
+
+    case 0x4004700:
+        printf("32-Bit SNDExCnt read? %08X\n", NDS::ARM7->R[15]);
+        return DSi_DSP::SNDExCnt;
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2788,6 +2805,46 @@ void ARM7IOWrite8(u32 addr, u8 val)
 
     case 0x04004500: DSi_I2C::WriteData(val); return;
     case 0x04004501: DSi_I2C::WriteCnt(val); return;
+
+    case 0x4004700:
+        DSi_DSP::WriteSNDExCnt((u16)val | (DSi_DSP::SNDExCnt & 0xFF00));
+        return;
+    case 0x4004701:
+        DSi_DSP::WriteSNDExCnt(((u16)val << 8) | (DSi_DSP::SNDExCnt & 0x00FF));
+        return;
+    }
+
+    if (addr >= 0x04004420 && addr < 0x04004430)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004420;
+        addr &= ~3;
+        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFF << shift);
+        return;
+    }
+    if (addr >= 0x04004430 && addr < 0x04004440)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004430;
+        addr &= ~3;
+        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFF << shift);
+        return;
+    }
+    if (addr >= 0x04004440 && addr < 0x04004500)
+    {
+        u32 shift = (addr&3)*8;
+        addr -= 0x04004440;
+        addr &= ~3;
+
+        int n = 0;
+        while (addr >= 0x30) { addr -= 0x30; n++; }
+
+        switch (addr >> 4)
+        {
+        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFF << shift); return;
+        }
     }
 
     return NDS::ARM7IOWrite8(addr, val);
@@ -2819,12 +2876,51 @@ void ARM7IOWrite16(u32 addr, u16 val)
         case 0x04004062:
             if (!(SCFG_EXT[1] & (1 << 31))) /* no access to SCFG Registers if disabled*/
                 return;
-            u32 tmp = MBK[0][8];
-            tmp &= ~(0xffff << ((addr % 4) * 8));
-            tmp |= (val << ((addr % 4) * 8));
-            MBK[0][8] = tmp & 0x00FFFF0F;
-            MBK[1][8] = MBK[0][8];
+            {
+                u32 tmp = MBK[0][8];
+                tmp &= ~(0xffff << ((addr % 4) * 8));
+                tmp |= (val << ((addr % 4) * 8));
+                MBK[0][8] = tmp & 0x00FFFF0F;
+                MBK[1][8] = MBK[0][8];
+            }
             return;
+
+        case 0x4004700:
+            DSi_DSP::WriteSNDExCnt(val);
+            return;
+    }
+
+    if (addr >= 0x04004420 && addr < 0x04004430)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004420;
+        addr &= ~1;
+        DSi_AES::WriteIV(addr, (u32)val << shift, 0xFFFF << shift);
+        return;
+    }
+    if (addr >= 0x04004430 && addr < 0x04004440)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004430;
+        addr &= ~1;
+        DSi_AES::WriteMAC(addr, (u32)val << shift, 0xFFFF << shift);
+        return;
+    }
+    if (addr >= 0x04004440 && addr < 0x04004500)
+    {
+        u32 shift = (addr&1)*16;
+        addr -= 0x04004440;
+        addr &= ~1;
+
+        int n = 0;
+        while (addr >= 0x30) { addr -= 0x30; n++; }
+
+        switch (addr >> 4)
+        {
+        case 0: DSi_AES::WriteKeyNormal(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 1: DSi_AES::WriteKeyX(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        case 2: DSi_AES::WriteKeyY(n, addr&0xF, (u32)val << shift, 0xFFFF << shift); return;
+        }
     }
 
     if (addr >= 0x04004800 && addr < 0x04004A00)
@@ -2924,6 +3020,11 @@ void ARM7IOWrite32(u32 addr, u32 val)
     case 0x04004400: DSi_AES::WriteCnt(val); return;
     case 0x04004404: DSi_AES::WriteBlkCnt(val); return;
     case 0x04004408: DSi_AES::WriteInputFIFO(val); return;
+
+    case 0x4004700:
+        printf("32-Bit SNDExCnt write? %08X %08X\n", val, NDS::ARM7->R[15]);
+        DSi_DSP::WriteSNDExCnt(val);
+        return;
     }
 
     if (addr >= 0x04004420 && addr < 0x04004430)

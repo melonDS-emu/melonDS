@@ -1679,6 +1679,7 @@ bool LoadROM(const u8* romdata, u32 romlen)
     }
 
     CartInserted = true;
+    DSi::SetCartInserted(true);
 
     u32 irversion = 0;
     if ((gamecode & 0xFF) == 'I')
@@ -1737,6 +1738,8 @@ void EjectCart()
     CartROM = nullptr;
     CartROMSize = 0;
     CartID = 0;
+
+    DSi::SetCartInserted(false);
 
     // CHECKME: does an eject imply anything for the ROM/SPI transfer registers?
 }

@@ -21,6 +21,10 @@
 #include "NDS.h"
 #include "GPU.h"
 
+#ifdef JIT_ENABLED
+#include "ARMJIT.h"
+#endif
+
 #include "GPU2D_Soft.h"
 
 namespace GPU
@@ -653,6 +657,9 @@ void MapVRAM_CD(u32 bank, u8 cnt)
             VRAMMap_ARM7[ofs] |= bankmask;
             memset(VRAMDirty[bank].Data, 0xFF, sizeof(VRAMDirty[bank].Data));
             VRAMSTAT |= (1 << (bank-2));
+#ifdef JIT_ENABLED
+            ARMJIT::CheckAndInvalidateWVRAM(ofs);
+#endif
             break;
 
         case 3: // texture

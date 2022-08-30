@@ -1086,11 +1086,34 @@ void InvalidateByAddr(u32 localAddr)
 
 void CheckAndInvalidateITCM()
 {
-    for (u32 i = 0; i < ITCMPhysicalSize; i+=16)
+    for (u32 i = 0; i < ITCMPhysicalSize; i+=512)
     {
-        if (CodeIndexITCM[i / 512].Code & (1 << ((i & 0x1FF) / 16)))
+        if (CodeIndexITCM[i / 512].Code)
         {
-            InvalidateByAddr(i | (ARMJIT_Memory::memregion_ITCM << 27));
+            // maybe using bitscan would be better here?
+            // The thing is that in densely populated sets
+            // The old fashioned way can actually be faster
+            for (u32 j = 0; j < 512; j += 16)
+            {
+                if (CodeIndexITCM[i / 512].Code & (1 << ((j & 0x1FF) / 16)))
+                    InvalidateByAddr((i+j) | (ARMJIT_Memory::memregion_ITCM << 27));
+            }
+        }
+    }
+}
+
+void CheckAndInvalidateWVRAM(int bank)
+{
+    u32 start = bank == 1 ? 0x20000 : 0;
+    for (u32 i = start; i < start+0x20000; i+=512)
+    {
+        if (CodeIndexARM7WVRAM[i / 512].Code)
+        {
+            for (u32 j = 0; j < 512; j += 16)
+            {
+                if (CodeIndexARM7WVRAM[i / 512].Code & (1 << ((j & 0x1FF) / 16)))
+                    InvalidateByAddr((i+j) | (ARMJIT_Memory::memregion_VWRAM << 27));
+            }
         }
     }
 }

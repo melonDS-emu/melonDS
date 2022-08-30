@@ -27,6 +27,9 @@
 namespace DSi_DSP
 {
 
+// not sure whether to not rather put it somewhere else
+u16 SNDExCnt;
+
 Teakra::Teakra* TeakraCore;
 
 bool SCFG_RST;
@@ -151,6 +154,8 @@ void Reset()
     TeakraCore->Reset();
 
     NDS::CancelEvent(NDS::Event_DSi_DSP);
+
+    SNDExCnt = 0;
 }
 
 bool IsRstReleased()
@@ -546,6 +551,21 @@ void Write32(u32 addr, u32 val)
 
     addr &= 0x3C;
     Write16(addr, val & 0xFFFF);
+}
+
+void WriteSNDExCnt(u16 val)
+{
+    // it can be written even in NDS mode
+
+    // mic frequency can only be changed if it was disabled
+    // before the write
+    if (SNDExCnt & 0x8000)
+    {
+        val &= ~0x2000;
+        val |= SNDExCnt & 0x2000;
+    }
+
+    SNDExCnt = val & 0xE00F;
 }
 
 void Run(u32 cycles)

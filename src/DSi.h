@@ -59,6 +59,8 @@ void Reset();
 
 void DoSavestate(Savestate* file);
 
+void SetCartInserted(bool inserted);
+
 void SetupDirectBoot();
 void SoftReset();
 

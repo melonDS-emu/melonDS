@@ -134,6 +134,9 @@ void ARMv5::UpdateITCMSetting()
     if (CP15Control & (1<<18))
     {
         ITCMSize = 0x200 << ((ITCMSetting >> 1) & 0x1F);
+#ifdef JIT_ENABLED
+        FastBlockLookupSize = 0;
+#endif
     }
     else
     {

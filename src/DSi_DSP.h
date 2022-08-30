@@ -24,10 +24,11 @@
 
 // TODO: for actual sound output
 // * audio callbacks
-// * SNDEXCNT
 
 namespace DSi_DSP
 {
+
+extern u16 SNDExCnt;
 
 extern u16 DSP_PDATA;
 extern u16 DSP_PADR;
@@ -64,6 +65,8 @@ void Write16(u32 addr, u16 val);
 
 u32 Read32(u32 addr);
 void Write32(u32 addr, u32 val);
+
+void WriteSNDExCnt(u16 val);
 
 // NOTE: checks SCFG_CLK9
 void Run(u32 cycles);
