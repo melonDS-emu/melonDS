@@ -7,6 +7,7 @@ import filecmp
 import glob
 import os
 import shutil
+import sys
 
 
 def lipo(path0, path1, dst):
