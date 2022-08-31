@@ -8,6 +8,7 @@ import glob
 import os
 import shutil
 import sys
+import subprocess
 
 
 def lipo(path0, path1, dst):
