@@ -13,7 +13,8 @@ jobs:
     runs-on: [self-hosted, macOS, ARM64]
     
     steps:
-      - uses: AutoModality/action-clean@v1
+      - name: Clean workspace
+        run: shopt -s dotglob; rm -rf ${{runner.workspace}}/*
 
       - uses: actions/checkout@v3      
 
