@@ -7,7 +7,7 @@ $app_name = "melonDS"
 $build_dmg = false
 $build_dir = ""
 $bundle = ""
-$fallback_rpaths = ["/usr/local/lib", "/opt/local/lib"]
+$fallback_rpaths = []
 
 def frameworks_dir
   File.join($bundle, "Contents", "Frameworks")
@@ -56,7 +56,7 @@ def expand_load_path(lib, path)
         file = $fallback_rpaths
           .map { |it| File.join(it, file_name) }
           .find { |it| File.exist? it }
-	if file == nil
+        if file == nil
           path = File.join(File.dirname(lib), file_name)
           file = path if File.exist? path
         end
@@ -89,15 +89,17 @@ def install_name_tool(exec, action, path1, path2 = nil)
   args = ["-#{action.to_s}", path1]
   args << path2 if path2 != nil
 
-  out, status = Open3.capture2e("install_name_tool", *args, exec)
-  if status != 0
-    puts out
-    exit status
+  Open3.popen3("install_name_tool", *args, exec) do |stdin, stdout, stderr, thread|
+    print stdout.read
+    err = stderr.read
+    unless err.match? "code signature"
+      print err
+    end
   end
 end
 
 def strip(lib)
-  out, _ = Open3.capture2("strip", "-Sx", lib)
+  out, _ = Open3.capture2("strip", "-no_code_signature_warning", "-Sx", lib)
   print out
 end
 
@@ -181,6 +183,18 @@ File.read(File.join($build_dir, "CMakeCache.txt"))
 qt_major = $1
 qt_dir = $2
 qt_dir = File.absolute_path("#{qt_dir}/../../..")
+
+for lib in get_load_libs(executable) do
+  next if system_lib? lib
+
+  path = File.dirname(lib)
+
+  if path.match? ".framework"
+    path = path.sub(/\/[^\/]+\.framework.*/, "")
+  end
+
+  $fallback_rpaths << path unless $fallback_rpaths.include? path
+end
 
 $fallback_rpaths << File.join(qt_dir, "lib")
 
