@@ -1,0 +1,65 @@
+name: CMake Build (macOS Universal)
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  prepare:
+    runs-on: [self-hosted, macOS, ARM64]
+    
+    steps:
+      - uses: AutoModality/action-clean@v1
+
+      - uses: actions/checkout@v3      
+
+
+  build-arm64:
+    runs-on: [self-hosted, macOS, ARM64]
+
+    steps:
+      - name: Create build directory
+        run: mkdir ${{runner.workspace}}/build/arm64
+
+      - name: Configure
+        working-directory: ${{runner.workspace}}/build/arm64
+        run: arch -arm64 /opt/homebrew/bin/cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DUSE_QT6=ON
+
+      - name: Make
+        working-directory: ${{runner.workspace}}/build/arm64
+        run: arch -arm64 make -j$(sysctl -n hw.logicalcpu)
+
+  build-x86_64:
+    runs-on: [self-hosted, macOS, ARM64]
+
+    steps:
+      - name: Create build directory
+        run: mkdir ${{runner.workspace}}/build/x86_64
+
+      - name: Configure
+        working-directory: ${{runner.workspace}}/build/x86_64
+        run: arch -x86_64 /usr/local/bin/cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_PREFIX_PATH="$(brew --prefix qt@6);$(brew --prefix libarchive)" -DMACOS_BUNDLE_LIBS=ON -DUSE_QT6=ON
+
+      - name: Make
+        working-directory: ${{runner.workspace}}/build/x86_64
+        run: arch -x86_64 make -j$(sysctl -n hw.logicalcpu)
+
+  universal-binary:
+    runs-on: [self-hosted, macOS, ARM64]
+
+    steps:
+      - name: Merge binaries
+        run: $GITHUB_WORKSPACE/tools/mac-universal.py ${{runner.workspace}}/build/arm64/melonDS.app ${{runner.workspace}}/build/x86_64/melonDS.app ${{runner.workspace}}/build/universal/melonDS.app
+
+      - name: Create DMG
+        run: hdiutil create -fs HFS+ -volname melonDS -srcfolder ${{runner.workspace}}/build/universal/melonDS.app -ov -format UDBZ ${{runner.workspace}}/build/universal/melonDS.dmg
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: macOS-universal
+          path: ${{runner.workspace}}/build/universal/melonDS.dmg
+      
