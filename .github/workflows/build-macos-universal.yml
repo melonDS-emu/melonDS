@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: Create build directory
-        run: mkdir ${{runner.workspace}}/build/arm64
+        run: mkdir -p ${{runner.workspace}}/build/arm64
 
       - name: Configure
         working-directory: ${{runner.workspace}}/build/arm64
@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Create build directory
-        run: mkdir ${{runner.workspace}}/build/x86_64
+        run: mkdir -p ${{runner.workspace}}/build/x86_64
 
       - name: Configure
         working-directory: ${{runner.workspace}}/build/x86_64
