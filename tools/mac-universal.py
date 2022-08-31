@@ -75,7 +75,7 @@ def recursive_merge_binaries(src0, src1, dst):
             continue
 
         if os.path.isdir(newpath1):
-            os.mkdir(new_dst_path)
+            os.makedirs(new_dst_path)
             recursive_merge_binaries(newpath0, newpath1, new_dst_path)
             continue
 
