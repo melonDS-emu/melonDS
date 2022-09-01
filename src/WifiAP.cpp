@@ -115,19 +115,6 @@ bool MACIsBroadcast(u8* a)
 }
 
 
-// REMOVE ME!!
-void USTimer()
-{
-    USCounter++;
-
-    u32 chk = (u32)USCounter;
-    if (!(chk & 0x1FFFF))
-    {
-        // send beacon every 128ms
-        BeaconDue = true;
-    }
-}
-
 void MSTimer()
 {
     USCounter += 0x400;

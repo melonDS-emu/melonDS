@@ -157,8 +157,8 @@ enum
     Event_IRQ15,
     Event_MSTimer,
     Event_RFWakeup,
-    Event_MPClientSync,
     Event_TRX,
+    Event_MPClientSync,
     Event_RF,
     Event_BB,
 
